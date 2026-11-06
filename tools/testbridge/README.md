@@ -59,7 +59,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 |---|---|---|
 | `status` | | game mode, focus, screen, cursor, tool, camera, sim speed, date, money, climate, sequence |
 | `hover` | | cursor (Windows and game), `mouseOverUI`, active tool and prefab, what the tool raycast hit |
-| `photo` | `name`, optional `ui` | hides the UI and saves a natural-color 3840 x 2160 PNG with Photo Mode's call, HDR on or off, to `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\Screenshots\<name>.png`; the way to take shots |
+| `photo` | `name` (a bare file name), optional `dir` (an absolute folder, created if missing), `ui` | hides the UI and saves a natural-color 3840 x 2160 PNG with Photo Mode's call, HDR on or off, to `<dir>\<name>.png` (default dir: `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\Screenshots`); replies with `path`, written a frame later. Point `dir` at the folder the test reports from. The way to take shots |
 | `pm` | `on`, `cam`: `{x, y, z, at: [x, y, z]}` or `yaw`, `pitch`; `set`: `{id: number or null}`; `list`, `group`, `reset` | Photo Mode through the panel's own properties. `list` gives ids and ranges (`focalLength`, `lensShift`, `iso`, `Roll`, `Time of Day`, ...); null turns an override off. Leave with `on:false` before using the `camera` op |
 | `project` | `wx`, `wz`, optional `wy` | client pixel; `safe` is false when off screen or in the edge-scroll band |
 | `camera` | optional `wx` + `wz`, `zoom`, `yaw`, `tilt` | camera state; applied on the next frames, so follow with a `settle` step |
@@ -84,6 +84,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `u1probe` | `on`, `prefab` (a line prefab), `tilt` (deg), `frames` (log lines) | lift alignment risk U1: tilts the towers of that line when they update, at Modification3 and again after AlignSystem, and logs `[U1]` lines (Align reset, lane ends vs the tilted anchors, the tilt at +1 / +2 / +30 / +300 frames). Turn it off after the test: it tilts every tower of the prefab that updates |
 | `bone` | `id`, optional `mesh` (sub-mesh index), `bone`, `rotX`, `rotY` (deg) | lists a skinned object's bones (type, rest and current pose); with `bone` and a rotation it writes that bone as rest x RotateY x RotateX and flags the skeleton for upload, as our own bone writers will. Bones exist only near the camera |
 | `mprobe` | `action`: `tag` (`id`, `serial`, `provider`), `untag`, `list`, `trace` (`id`, `p`, `write`), `read`, `stop` | merge-asset P0 probe: tags a building with `tools/testbridge-mergetag`'s saved component; `trace` writes round(sqrt(V² + P²)) right after vanilla AttractionSystem and samples the value every frame |
+| `trains` | `x`, `z`, optional `r` (default 400), `maxDeg` | gate G8 of the pitched sheave trains: per line tower with a `Train` bone near (x, z), the pitch the bone shows (relative to rest, nose up along +z; null when far from the camera) against the analytic hanging-lane end slopes of the rope lanes on its anchors, and the worst difference |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |

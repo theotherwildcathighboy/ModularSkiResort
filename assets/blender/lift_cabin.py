@@ -14,6 +14,7 @@ Run (headless only - generator code never runs in the live Blender, R10):
         [--finish | --draft] [--lods] [--verify] [--preview [DIR]] [--review [DIR]]
         [--plate-number 27] [--outboard=+Y|--outboard=-Y] [--lod2 proxy|decimate] (gondola)
         [--hang 10.50|7.00] [--split]                                         (tram)
+        [--split --envelope [--remap-from assets/import/cabins/B]]            (gondola, B2 v2)
         [--ab DIR] [--no-validate]
 
     Shipping: --kind gondola --finish --lods --verify --export --preview --review
@@ -156,6 +157,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
+import carrier_split as CS  # noqa: E402
 import cs2_asset     # noqa: E402
 import cs2_compose   # noqa: E402
 import cs2_ingest    # noqa: E402
@@ -170,6 +172,7 @@ import cs2_validate  # noqa: E402
 
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 DEFAULT_OUT = os.path.join(REPO, "assets", "import", "cabins", "A")
+DEFAULT_SPLIT_OUT = os.path.join(REPO, "assets", "import", "cabins", "B")   # --split (2026-11-03)
 DEFAULT_PREVIEW = os.path.join(REPO, "assets", "preview", "cabins")
 DEFAULT_SOURCE = os.path.join(REPO, "assets", "external", "wilin-gondola", "source", "gondola.fbx")
 DEFAULT_CARRIERS = os.path.join(REPO, "catalog", "carriers.json")
@@ -177,7 +180,11 @@ DEFAULT_AB = os.path.join(REPO, "assets", "import", "chairs", "L", "SkiLiftChair
 DRAFT_ROOT = os.path.join(tempfile.gettempdir(), "lift_cabin")
 
 NAMES = {"gondola": "SkiGondolaCabin8A", "tram": "SkiTramCabinA"}
-SPLIT_CARRIAGE_NAME = "SkiTramCarriageA"
+#: --split (carrier split 2026-11-03, docs/research/carrier-pivot-swing-plan-2026-11-03.md): (body, grip) per
+#: kind, a new generation letter B (deployed A names are never reused). The tram split was written as
+#: SkiTramCabinA + SkiTramCarriageA and never shipped.
+SPLIT_NAMES = {"gondola": ("SkiGondolaCabin8B", "SkiGondolaCabin8GripB"),
+               "tram": ("SkiTramCabinB", "SkiTramCarriageB")}
 CATALOG_KEY = {"gondola": "gd8", "tram": "tram"}
 
 FRAME_PROP = "cabin_frame"       # "net" once orient_for_net has run (contract math undo it)
@@ -454,7 +461,9 @@ T = dict(
     logo_zc=0.71,                              # band center above the rounded band foot
     # T7 projections (+-10 %): Revision 2 measured builds (RS section 4 target 6,000, cap 8,000;
     # Revision 1 was 4,758 / split 2,000 + 2,760)
-    lod0_projection=5678, split_projection={"cabin": 2830, "carriage": 2848},
+    # carrier split 2026-11-03: the split adds the pin joint (T_SPLIT pin_detail 256; was 2,830 + 2,848)
+    # and its carriage the 16-segment rims (T_SPLIT segs_detail 640)
+    lod0_projection=5678, split_projection={"cabin": 2926, "carriage": 3648},
     # Revision 2: the door leaves stay at LOD1 (doors read closed, protected from the collapse),
     # their small hardware goes; LOD2 drops every door* / hatch* part (the body behind the
     # leaves is the unchanged Revision 1 body, so LOD2 is the Revision 1 LOD2)
@@ -1778,8 +1787,11 @@ def gondola_parts(args, report):
             # axis Y: the cylinder's local +Z maps to +Y, so the OUTER cap is "bottom" on the
             # inboard row and "top" on the outboard row; the inner cap is buried in the frame
             # (rollers overlap the frame sides by 1 cm: no coplanar cap / frame faces)
+            # --split: 16 segments (critique 2026-11-03: the 10-gon read as a polygon); the
+            # one-piece A keeps its 10
+            segs = G_SPLIT["roller_segs"] if getattr(args, "split", False) else G["roller_segs"]
             proc.append((kit_cyl(f"roller_{n}", 0.09, 0.05, (x, y, 4.21),
-                                 cs2_kit._axis_rot("Y"), G["roller_segs"], cap), "galv"))
+                                 cs2_kit._axis_rot("Y"), segs, cap), "galv"))
             n += 1
     # grip: the jaw bar (top = 4.50 = bounds max, G2 footprint x +-0.15 / y -0.04..0.30) and
     # the jaw cheek as ONE L-section prism (no coplanar bar / jaw faces), chamfered lower edges
@@ -2379,9 +2391,12 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
         out.append((K.add_box(f"bogie_post{k}", (0.08, 2 * T["plate_dy"], c0 + 0.02 - (p1 - 0.03)),
                               (x, 0.0, 0.5 * (c0 + 0.02 + p1 - 0.03))), "galv"))
     n = 0
+    # --split: 16-segment rims (critique 2026-11-03: the 12-gon read as a polygon); the one-piece A
+    # keeps its 12
+    wsegs = T_SPLIT["wheel_segs"] if getattr(args, "split", False) else T["wheel_segs"]
     for x in T["bogie_x"]:
         for dx in T["wheel_dx"]:
-            out.append((wheel_rim(f"sheave_w{n}_rim", T["wheel_profile"], T["wheel_segs"],
+            out.append((wheel_rim(f"sheave_w{n}_rim", T["wheel_profile"], wsegs,
                                   (x + dx, 0.0, dims["wheel_z"])), "galv"))
             out.append((kit_cyl(f"axle_{n}", T["wheel_hub_r"] + 0.005, 2 * (T["plate_dy"] + 0.015),
                                 (x + dx, 0.0, dims["wheel_z"]), cs2_kit._axis_rot("Y"), 8,
@@ -2711,38 +2726,50 @@ def shell_open_edges(obj, suffix="shell"):
             len(ids))
 
 
-def gondola_contracts(obj, level, outboard=None, single_quads=True):
+def gondola_contracts(obj, level, outboard=None, single_quads=True, role="whole", z_span=None):
     """G1-G10 (cabins.md 3.4 with the skeptic fixes) on one LOD; raises on any failure. `outboard`
-    = the side the build put the stalk + doors on (None = GD_OUTBOARD, the shipped -Y)."""
+    = the side the build put the stalk + doors on (None = GD_OUTBOARD, the shipped -Y).
+    role (--split, 2026-11-03): "whole" = the one-piece cabin or the joined body + grip pair (every
+    contract); "body" / "grip" = one split mesh, read in the ASSEMBLED frame (its base pivot shift
+    undone): z_span = (assembled z of its origin, assembled top); G1 / G4 / G8 run over that span,
+    G2 / G10 only on the grip, G3 / G9 / G11 only on the body."""
     outboard = outboard or GD_OUTBOARD
     m = Mesh(obj)
-    c = Checker(f"{obj.name} (gondola LOD{level})")
+    c = Checker(f"{obj.name} (gondola LOD{level}" + ("" if role == "whole" else f", {role}") + ")")
     hang, rope = G["hang"], G["rope"]
+    z_lo, z_hi = (0.0, hang) if z_span is None else z_span
+    m.co = m.co + np.array([0.0, 0.0, z_lo])          # base pivot -> assembled frame
     z = m.co[:, 2]
-    c.check("G1", abs(z.min()) <= 1e-4 and abs(z.max() - hang) <= 1e-4,
-            f"z {z.min():.5f} .. {z.max():.5f} (want 0 .. {hang:.3f})")
+    c.check("G1", abs(z.min() - z_lo) <= 1e-4 and abs(z.max() - z_hi) <= 1e-4,
+            f"z {z.min():.5f} .. {z.max():.5f} (want {z_lo:.4f} .. {z_hi:.4f}, assembled)")
     sgn = 1.0 if outboard == "+Y" else -1.0
     g = m.verts_of("grip_")
-    if len(g):
+    if role == "body":
+        pass
+    elif len(g):
         top = g[np.abs(g[:, 2] - g[:, 2].max()) < 1e-4]
         ty = sgn * top[:, 1]                       # outboard-positive lateral
-        ok = (top[:, 0].min() <= -0.149 and top[:, 0].max() >= 0.149 and ty.min() <= -0.039
+        # --envelope: the 0.08 top starts outboard of the chamfer; the jaw still reaches y -0.04
+        t_in = GD_ENVELOPE["u_top"] if ENVELOPE else -0.04
+        ok = (top[:, 0].min() <= -0.149 and top[:, 0].max() >= 0.149 and ty.min() <= t_in + 0.001
               and ty.max() >= 0.299 and abs(g[:, 2].max() - hang) <= 1e-4
-              and g[:, 2].min() < rope)
+              and g[:, 2].min() < rope and (sgn * g[:, 1]).min() <= -0.039)
         c.check("G2", ok, f"grip top face x {top[:, 0].min():+.3f}..{top[:, 0].max():+.3f} "
-                          f"y(outboard+) {ty.min():+.3f}..{ty.max():+.3f} at z {g[:, 2].max():.4f}; "
-                          f"rope point (0, 0, {rope:.3f}) under it")
+                          f"y(outboard+) {ty.min():+.3f}..{ty.max():+.3f} at z {g[:, 2].max():.4f}, jaw "
+                          f"from y {(sgn * g[:, 1]).min():+.3f}; rope point (0, 0, {rope:.3f}) under it")
     else:
         c.check("G2", False, "no grip_ faces")
     shell = m.verts_of(("body_", "glass_", "trim_"))
-    if len(shell):
+    if role == "grip":
+        pass
+    elif len(shell):
         cx = 0.5 * (shell[:, 0].min() + shell[:, 0].max())
         cy = 0.5 * (shell[:, 1].min() + shell[:, 1].max())
         c.check("G3", abs(cx) <= 0.01 and abs(cy) <= 0.01, f"shell bbox center ({cx:+.4f}, {cy:+.4f})")
     else:
         c.check("G3", False, "no shell faces")
-    gap = z_coverage_gaps(m, 0.0, hang)
-    c.check("G4", gap <= 0.05, f"largest z-coverage gap {gap:.3f} m over [0, {hang}]")
+    gap = z_coverage_gaps(m, z_lo, z_hi)
+    c.check("G4", gap <= 0.05, f"largest z-coverage gap {gap:.3f} m over [{z_lo:.4f}, {z_hi:.4f}]")
     h = m.verts_of("hanger_")
     hi = h[h[:, 2] > 3.0] if len(h) else h
     ok5 = len(hi) > 0 and bool(np.all(sgn * hi[:, 1] > 0.0))
@@ -2762,8 +2789,24 @@ def gondola_contracts(obj, level, outboard=None, single_quads=True):
             and m.co[:, 1].max() <= yhi,
             f"|x| {np.abs(m.co[:, 0]).max():.3f} <= {ex['x']}, y {m.co[:, 1].min():+.3f}.."
             f"{m.co[:, 1].max():+.3f} in [{ylo}, {yhi}]")
-    c.check("G8", z.min() >= -1e-4, f"min z {z.min():.5f}")
-    if single_quads:
+    c.check("G8", z.min() >= z_lo - 1e-4, f"min z {z.min():.5f}")
+    if ENVELOPE:
+        # G13 (B2 v2, GD_ENVELOPE): no face within the wheels' reach (down to rope - z_bot) passes
+        # rope +- z inboard of u_in; the jaw inside the band is the only part the liners touch
+        E = GD_ENVELOPE
+        u = sgn * m.co[:, 1]
+        bad = 0
+        for f in m.faces:
+            vs = list(f)
+            dz = m.co[vs, 2] - rope
+            if dz.max() >= -E["z_bot"] and np.abs(dz).max() > E["z"] + 1e-4 \
+                    and u[vs].min() < E["u_in"] - 1e-4:
+                bad += 1
+        c.check("G13", bad == 0, f"envelope: {bad} faces reach past rope +-{E['z']} inboard of y(outboard+) "
+                                 f"{E['u_in']} (wheel reach rope -{E['z_bot']})")
+    if role == "grip":
+        pass
+    elif single_quads:
         for pre in ("logo_front", "logo_back", "plate_face"):
             fs = m.faces_of(pre)
             ok = len(fs) == 1 and int(m.loop_total[fs[0]]) == 4 if fs else False
@@ -2783,15 +2826,18 @@ def gondola_contracts(obj, level, outboard=None, single_quads=True):
     if level == 0:
         # Revision 1b: G11 the shell + plug island is closed (C3), G12 no z-fight overlap (C1 / C4)
         n_open, n_nm, n_parts = shell_open_edges(obj)
-        c.check("G11", n_parts >= 6 and n_open == 0 and n_nm == 0,
-                f"shell island ({n_parts} *shell parts): {n_open} open / {n_nm} non-manifold edges")
+        if role != "grip":
+            c.check("G11", n_parts >= 6 and n_open == 0 and n_nm == 0,
+                    f"shell island ({n_parts} *shell parts): {n_open} open / {n_nm} non-manifold edges")
         check_coplanar(c, "G12", obj)
     return c.raise_if_failed()
 
 
 def tram_contracts(obj, level, dims, part_role="whole"):
     """T1-T11 on one LOD (cabins.md 4.4 reconciled by R27-R30); raises on any failure.
-    part_role: whole | cabin | carriage (--split)."""
+    part_role: whole | cabin | carriage (--split). The split dims (tram_split_dims) carry cab_top (the
+    cabin's top = the lug eyes over the pin) and car_z0 (the carriage's base pivot: its lowest
+    vertex, z 0 in its own mesh, at car_z0 in the assembled frame)."""
     m = Mesh(obj)
     c = Checker(f"{obj.name} (tram LOD{level}, {part_role})")
     hang, rope = dims["hang"], dims["rope"]
@@ -2801,15 +2847,21 @@ def tram_contracts(obj, level, dims, part_role="whole"):
         c.check("T1", abs(z.min()) <= 1e-4 and abs(z.max() - hang) <= 1e-4,
                 f"z {z.min():.5f} .. {z.max():.5f} (want 0 .. {hang:.3f})")
     elif part_role == "cabin":
-        c.check("T9", abs(z.min()) <= 1e-4 and abs(z.max() - dims["k_z"]) <= 1e-4,
-                f"cabin z {z.min():.5f} .. {z.max():.5f} (want 0 .. K {dims['k_z']:.3f})")
+        top = dims.get("cab_top", dims["k_z"])
+        c.check("T9", abs(z.min()) <= 1e-4 and abs(z.max() - top) <= 1e-4,
+                f"cabin z {z.min():.5f} .. {z.max():.5f} (want 0 .. {top:.4f}, the lug eyes over K "
+                f"{dims['k_z']:.4f})")
     else:
-        ztop = hang - dims["k_z"]
-        c.check("T9", abs(z.max() - ztop) <= 1e-4 and z.min() > -(dims["k_z"] - dims["haul_z"]) - 0.2,
-                f"carriage local z {z.min():.4f} .. {z.max():.5f} (top {ztop:.3f} above K; "
-                f"rope seat at {rope - dims['k_z']:+.3f})")
+        z0c = dims.get("car_z0", dims["k_z"])
+        ztop = hang - z0c
+        # base pivot (split 2026-11-03): LOD0's lowest vertex is z 0; the LODs lose the haul clamps
+        # (their lowest point rises), nothing may go below 0
+        okb = z.min() >= -1e-4 and (level > 0 or abs(z.min()) <= 1e-4)
+        c.check("T9", abs(z.max() - ztop) <= 1e-4 and okb,
+                f"carriage local z {z.min():.4f} .. {z.max():.5f} (base pivot at assembled {z0c:.4f}, "
+                f"top {ztop:.4f}; pin K at {dims['k_z'] - z0c:+.4f}, rope seat at {rope - z0c:+.4f})")
     # back to the whole-carrier frame for the envelope checks
-    zoff = dims["k_z"] if part_role == "carriage" else 0.0
+    zoff = dims.get("car_z0", dims["k_z"]) if part_role == "carriage" else 0.0
     W = co.copy()
     W[:, 2] += zoff
     if m.present("sheave_"):
@@ -2868,7 +2920,7 @@ def tram_contracts(obj, level, dims, part_role="whole"):
             f"carriage/hanger half-width {hw:.3f} <= {T['half_w_max']} (R30)")
     # T8 coverage
     lo_z, hi_z = (0.0, hang) if part_role == "whole" else (
-        (0.0, dims["k_z"]) if part_role == "cabin" else (W[:, 2].min(), hang))
+        (0.0, dims.get("cab_top", dims["k_z"])) if part_role == "cabin" else (W[:, 2].min(), hang))
     gap = z_coverage_gaps(m, lo_z - zoff, hi_z - zoff)
     c.check("T8", gap <= 0.05, f"largest z-coverage gap {gap:.3f} m over [{lo_z:.2f}, {hi_z:.2f}]")
     # T10 haul grips (R28 / R29)
@@ -3123,7 +3175,7 @@ def tram_lod1(obj, name, dims, delete_prefixes, protect_prefixes, target):
     rims = [(i, nm) for i, nm in enumerate(table, start=1)
             if nm.startswith("sheave_") and nm.endswith("_rim")]
     rot = mathutils.Matrix.Rotation(math.radians(-90.0), 4, "Z")      # orient_for_net
-    zoff = dims["k_z"] if obj.get("cabin_role") == "carriage" else 0.0
+    zoff = dims.get("car_z0", dims["k_z"]) if obj.get("cabin_role") == "carriage" else 0.0
     xs = [x + dx for x in T["bogie_x"] for dx in T["wheel_dx"]]
     new = []
     for (pi, nm), x in zip(rims, xs):
@@ -3709,6 +3761,10 @@ def gondola_detail():
             # at the Revision 1 densities (140-200 px/m) a 7 cm bolt lattice reads as rivet
             # spam: sparser heads on the housings, none on the cast grip
             "hanger_head": D(bolt_pitch_m=0.12, bolt_r_m=0.009, bolt_h_m=0.004),
+            # --split joint (2026-11-03): no relief on the knuckle, cheek plates and pin ends (a
+            # seam ring or a bolt lattice on 6-14 cm parts reads as noise); the neck keeps the
+            # hanger seams
+            "hanger_knuckle": D(), "hanger_cheek_": D(), "hanger_pin_": D(),
             "hangerclamp_": D(bolt_pitch_m=0.10, bolt_r_m=0.010, bolt_h_m=0.005),
             "spring_": D(seams_m=0.025, seam_axes="rings", seam_width_m=0.008,
                          seam_depth_m=0.004),
@@ -3741,6 +3797,8 @@ def tram_detail():
                        bolt_h_m=0.006),
             "carbeam_": D(bolt_pitch_m=0.15, bolt_r_m=0.020, bolt_h_m=0.006),
             "carhead_": D(bolt_pitch_m=0.15, bolt_r_m=0.020, bolt_h_m=0.006),
+            # --split joint (2026-11-03): plain lug and cheek plates, the pin heads are the detail
+            "fork_lug": D(), "carhead_cheek": D(),
             "bogie_": D(seams_m=0.30, seam_axes="rings", seam_depth_m=0.0, bolt_pitch_m=0.10,
                         bolt_offset_m=0.07, bolt_r_m=0.020, bolt_h_m=0.006),
             "doorheader_": D(bolt_pitch_m=0.10, bolt_r_m=0.008, bolt_h_m=0.002),
@@ -4112,8 +4170,8 @@ def render_previews(obj, asset_dir, name, prev_dir, lods, kind, ab, sets, detail
 # One asset: bake, export, LODs, contracts, manifest, validate, verify, preview, review
 # ======================================================================================
 
-def asset_dir_for(args, name):
-    root = os.path.abspath(args.out) if args.export else DRAFT_ROOT
+def asset_dir_for(args, name, root=None):
+    root = root or (os.path.abspath(args.out) if args.export else DRAFT_ROOT)
     d = os.path.join(root, name)
     os.makedirs(d, exist_ok=True)
     for f in os.listdir(d):                     # a rebuild never inherits stale files
@@ -4133,7 +4191,7 @@ def finish_asset(args, cfg, obj, sources, result):
     # draft: A // 64 (4 px at 256) - cs2_uv's default floor of 16 px is a 1/16 FRACTION
     # margin at 256 and ~400 islands cannot fit (measured: pack left UVs up to 8.3)
     margin = cfg["margin"] if quality == "finish" else max(2, A // 64)
-    asset_dir = asset_dir_for(args, name)
+    asset_dir = asset_dir_for(args, name, cfg.get("out_root"))
     result["asset_dir"] = asset_dir
     result["quality"] = quality
     result["texture_px"] = A
@@ -4142,23 +4200,29 @@ def finish_asset(args, cfg, obj, sources, result):
     result["contracts"] = contracts
     result["shipped_uv_before_bake"] = sorted(l.name for l in obj.data.uv_layers)
 
-    hook, post_rep = make_post_compose(obj, cfg, quality, cfg["stamps"], cfg.get("plate"))
-    layout = stamp_layout(obj, cfg, A, margin)
-    reserved = ()
-    if layout is not None:
-        reserved = layout["reserved"]
-        sources = pin_sources(sources, layout["materials"])
-        result["stamp_layout"] = layout["info"]
-    bake = cs2_bake.bake_unique(obj, asset_dir, name, A, sources, reserved=reserved,
-                                margin_px=margin, ao_samples=ao, post_compose=hook,
-                                src_uv="UVMap")
-    if layout is not None:
-        result["stamp_layout"]["reserved_restored"] = len(bake.get("reserved_restored") or [])
-    result["bake"] = {"A": A, "ao_samples": ao, "margin_px": bake["margin_px"],
-                      "uncovered_texels": bake["uncovered_texels"], "files": bake["files"],
-                      "materials": {str(k): {kk: v.get(kk) for kk in ("faces", "slot", "texels")}
-                                    for k, v in bake["materials"].items()},
-                      "seconds": {k: round(v, 1) for k, v in bake["seconds"].items()}}
+    if cfg.get("remap"):
+        # --envelope (GD_ENVELOPE): no bake - gondola_shipped_uvs put the shipped atlas on this mesh
+        post_rep = {}
+        result["bake"] = dict({k: v for k, v in cfg["remap"].items() if k != "dir"}, A=A,
+                              files=_copy_shipped_maps(cfg["remap"], asset_dir, name), textures_added_mb=0.0)
+    else:
+        hook, post_rep = make_post_compose(obj, cfg, quality, cfg["stamps"], cfg.get("plate"))
+        layout = stamp_layout(obj, cfg, A, margin)
+        reserved = ()
+        if layout is not None:
+            reserved = layout["reserved"]
+            sources = pin_sources(sources, layout["materials"])
+            result["stamp_layout"] = layout["info"]
+        bake = cs2_bake.bake_unique(obj, asset_dir, name, A, sources, reserved=reserved,
+                                    margin_px=margin, ao_samples=ao, post_compose=hook,
+                                    src_uv="UVMap")
+        if layout is not None:
+            result["stamp_layout"]["reserved_restored"] = len(bake.get("reserved_restored") or [])
+        result["bake"] = {"A": A, "ao_samples": ao, "margin_px": bake["margin_px"],
+                          "uncovered_texels": bake["uncovered_texels"], "files": bake["files"],
+                          "materials": {str(k): {kk: v.get(kk) for kk in ("faces", "slot", "texels")}
+                                        for k, v in bake["materials"].items()},
+                          "seconds": {k: round(v, 1) for k, v in bake["seconds"].items()}}
     result["post"] = post_rep
     me = obj.data
     result["shipped_uv"] = [l.name for l in me.uv_layers]
@@ -4207,7 +4271,7 @@ def finish_asset(args, cfg, obj, sources, result):
                             "status": "formula prediction until the SkiProbeLodA verdict [U]"}
 
     manifest = {
-        "generator": "lift_cabin.py", "args": {k: v for k, v in vars(args).items()},
+        "generator": "lift_cabin.py", "args": CS.manifest_args(args, REPO),
         "kind": "hanging", "carrier": cfg["kind"], "role": cfg.get("role", "whole"),
         "quality": quality, "texture_px": A,
         "tris": {f"LOD{k}": v for k, v in tris.items()}, "budget": budget,
@@ -4235,13 +4299,14 @@ def finish_asset(args, cfg, obj, sources, result):
         "lod_switch": result["lod_switch"],
         "catalog": result.get("catalog"),
         "clearance": result.get("clearance"),
-        "prefab_numbers": prefab_numbers(cfg["kind"], name, bounds, cfg.get("dims"),
-                                         getattr(args, "outboard", "+Y")),
+        "prefab_numbers": cfg.get("prefab_numbers") or prefab_numbers(
+            cfg["kind"], name, bounds, cfg.get("dims"), getattr(args, "outboard", "+Y")),
         "code_consequences": CODE_CONSEQUENCES[cfg["kind"]],
         "rulings": cfg["rulings"], "ingest": result.get("ingest"),
         "credit": cfg.get("credit"),
         "geometry_hashes": {f"LOD{k}": v for k, v in result["hashes"].items()},
     }
+    manifest.update(cfg.get("manifest_extra") or {})
     result["manifest"] = cs2_validate.write_manifest(asset_dir, name, manifest)
 
     if not args.no_validate:
@@ -4273,7 +4338,7 @@ def finish_asset(args, cfg, obj, sources, result):
         s1 = cfg["sets"][0]
         result["review_pack"] = cs2_review.write_pack(
             name, asset_dir, dict(enumerate([obj] + lods)), {},
-            meta={"generator": "lift_cabin.py", "args": vars(args), "kind": "hanging",
+            meta={"generator": "lift_cabin.py", "args": CS.manifest_args(args, REPO), "kind": "hanging",
                   "caps": {0: cfg["lod0_cap"], 1: int(0.48 * tris[0]), 2: cfg["lod2_cap"]},
                   "tint": {"R": s1[1], "G": s1[2], "B": s1[3]}},
             out_dir=args.review or None)
@@ -4283,8 +4348,11 @@ def finish_asset(args, cfg, obj, sources, result):
             with open(os.path.join(asset_dir, f), "rb") as fh:
                 png[f] = hashlib.sha1(fh.read()).hexdigest()
     result["png_sha1"] = png
-    for lod in lods:
-        _drop(lod)
+    if cfg.get("keep_lods"):            # --split: the caller joins body + grip LODs for the pair contracts
+        result["lod_objs"] = lods
+    else:
+        for lod in lods:
+            _drop(lod)
     return result
 
 
@@ -4337,7 +4405,42 @@ def _budget_tram(tris, proj, cap0=None, lod2_cap=None):
     return rows
 
 
+def _gondola_cfg(args, name, contracts, lod2):
+    """The one-piece gondola's finish_asset settings (the --split body starts from them)."""
+    return dict(kind="gondola", name=name, tex=G["tex"], ao=G["ao"], margin=G["margin"],
+                contracts=contracts, lod2=lod2, lod1_ratio_target=0.46,
+                lod1_delete=G["lod1_delete"], lod1_protect=G["lod1_protect"],
+                z_range=(0.0, G["hang"]), budget=_budget_gondola,
+                lod0_cap=G["lod0_cap"], lod2_cap=G["lod2_cap"],
+                # both logo quads share ONE pinned square (stamp_layout): paint it once
+                stamps={"logo_front": (G["logo_size"], G["logo_size"])},
+                stamp={"logo": ("logo_",), "plate": ("plate_face",),
+                       "fill": G["fill_prefixes"], "logo_frac": G["logo_frac"],
+                       "plate_ppm": G["plate_ppm"], "fill_cap_ppm": 260.0},
+                hero=("body_", "doorbody_", "trim_", "doortrim_", "roof_", "logo_", "hanger_"),
+                plate=args.plate_number, detail=gondola_detail, sets=G_SETS, detail_z=2.3,
+                logo_view=((0.70, -1.2, -0.01), (1.30, 1.2, 0.95), (0.25, -1.0, 0.25)),
+                view_sign=(1.0 if args.outboard == "+Y" else -1.0),
+                mirror_lod1=(args.outboard == "-Y"),
+                ropes=[(0.0, G["rope"], HV_ROPE_R, 2.0)],
+                contract_summary={"hang_m": G["hang"], "rope_m": G["rope"],
+                                  "grip_top_above_rope_m": 0.08, "outboard": args.outboard,
+                                  "body_m": G["body"], "wilin_mount_m": G["wilin_mount_m"],
+                                  "door_plug": {"loops": 3, "tris": 17}},
+                rulings=["R5 hang 4.50", "R8 painted glass", "R18 1024",
+                         ("C4 outboard +Y" if args.outboard == "+Y" else
+                          "C4 outboard -Y (nitpick A3: the carrier's right on the stations' spin)"),
+                         "C5 rope 4.42", "C6 LOD2 proxy", "C7 LOD1 <= 0.48", "MC2 G5 centroid",
+                         "MC3 one UVMap", "MC4 lane sag rows", "MC6 numeric fixes", "R31 lanes"],
+                credit=("\"Ski gongola and lift station detailed drafts\" by Wilin_Amaurea "
+                        "(https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-"
+                        "drafts-a8fabd3e955643a2a9e9f09bd46635db), CC BY 4.0; modified (re-scaled, "
+                        "re-topologised, re-UV'd, re-textured)"))
+
+
 def run_gondola(args):
+    if args.split:
+        return run_gondola_split(args)
     name = cs2_asset.validate_asset_name(args.name or NAMES["gondola"])
     _lint(name)
     result = {"name": name, "kind": "gondola"}
@@ -4360,43 +4463,745 @@ def run_gondola(args):
         return make_lod(o, nm, 2, G["lod2_target"], G["lod2_delete"],
                         ("grip_", "hanger_", "carframe_", "yoke_"))
 
-    cfg = dict(kind="gondola", name=name, tex=G["tex"], ao=G["ao"], margin=G["margin"],
-               contracts=contracts, lod2=lod2, lod1_ratio_target=0.46,
-               lod1_delete=G["lod1_delete"], lod1_protect=G["lod1_protect"],
-               z_range=(0.0, G["hang"]), budget=_budget_gondola,
-               lod0_cap=G["lod0_cap"], lod2_cap=G["lod2_cap"],
-               # both logo quads share ONE pinned square (stamp_layout): paint it once
-               stamps={"logo_front": (G["logo_size"], G["logo_size"])},
-               stamp={"logo": ("logo_",), "plate": ("plate_face",),
-                      "fill": G["fill_prefixes"], "logo_frac": G["logo_frac"],
-                      "plate_ppm": G["plate_ppm"], "fill_cap_ppm": 260.0},
-               hero=("body_", "doorbody_", "trim_", "doortrim_", "roof_", "logo_", "hanger_"),
-               plate=args.plate_number, detail=gondola_detail, sets=G_SETS, detail_z=2.3,
-               logo_view=((0.70, -1.2, -0.01), (1.30, 1.2, 0.95), (0.25, -1.0, 0.25)),
-               view_sign=(1.0 if args.outboard == "+Y" else -1.0),
-               mirror_lod1=(args.outboard == "-Y"),
-               ropes=[(0.0, G["rope"], HV_ROPE_R, 2.0)],
-               contract_summary={"hang_m": G["hang"], "rope_m": G["rope"],
-                                 "grip_top_above_rope_m": 0.08, "outboard": args.outboard,
-                                 "body_m": G["body"], "wilin_mount_m": G["wilin_mount_m"],
-                                 "door_plug": {"loops": 3, "tris": 17}},
-               rulings=["R5 hang 4.50", "R8 painted glass", "R18 1024",
-                        ("C4 outboard +Y" if args.outboard == "+Y" else
-                         "C4 outboard -Y (nitpick A3: the carrier's right on the stations' spin)"),
-                        "C5 rope 4.42", "C6 LOD2 proxy", "C7 LOD1 <= 0.48", "MC2 G5 centroid",
-                        "MC3 one UVMap", "MC4 lane sag rows", "MC6 numeric fixes", "R31 lanes"],
-               credit=("\"Ski gongola and lift station detailed drafts\" by Wilin_Amaurea "
-                       "(https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-"
-                       "drafts-a8fabd3e955643a2a9e9f09bd46635db), CC BY 4.0; modified (re-scaled, "
-                       "re-topologised, re-UV'd, re-textured)"))
+    cfg = _gondola_cfg(args, name, contracts, lod2)
     return [finish_asset(args, cfg, obj, sources, result)]
+
+
+# ======================================================================================
+# --split (carrier split 2026-11-03): GRIP + BODY, pivot pin between them
+# ======================================================================================
+
+#: The gondola joint (BRIEF "The split", carrier_split.py header). The one-piece hanger head (0.40 x
+#: 0.19 x 0.13, z 3.93-4.06) becomes the GRIP's head: same plan and rounding, 8 cm tall (z 3.98-4.06),
+#: two cheek plates hanging under it carry the LATERAL pin (authoring y) with a pin end on each outer
+#: face (the clevis of a detachable gondola hanger). The stalk tube is cut 15 cm under the pin and ends
+#: in a tapered neck and the BODY's knuckle (eye) between the cheeks. pin z = head underside - R - c.
+#: Tri counts (measured, asserted): pin_detail = body + grip LOD0 - the one-piece LOD0 (the brief's
+#: budget is the old cap + this); the per-mesh caps are the measured tallies (cs2_validate caps).
+G_SPLIT = dict(
+    head_bot=3.98, head_top=4.06, head_r=0.03,
+    knuckle_r=0.060, knuckle_segs=(8, 4),
+    neck_len=0.15, neck_taper=0.06, neck_r=0.045,   # cut ring (r 0.085) -> 0.045 over 6 cm, then straight
+    cheek_t=0.018, cheek_r=0.070, cheek_bury=0.015,
+    pin_r=0.026, pin_len=0.014,
+    r_x=0.22,                                       # S1 joint zone round the pin center
+    grip_prefixes=("hanger_head", "hanger_cheek_", "hanger_pin_", "spring_", "carframe_", "roller_",
+                   "grip_"),
+    # grip texture by texel density: ~2.3 m2 of carriage at 512 packs to ~200-260 px/m, above the
+    # cabin's 120-200 px/m hero faces at 2048; 256 would ship ~110 px/m (and cs2_validate floors 512)
+    grip_tex=512, grip_margin=8,
+    # measured 2026-11-03: one-piece parts 2412 -> body 1964 + grip 624 (knuckle 48, neck 24 more on the
+    # cut stalk, cheeks 2 x 22, pin ends 2 x 18; the 8 cm head has the 13 cm head's tris); LOD2 proxies
+    # body 188 (loft 156 + stalk box 24 + octahedron 8) + grip 36 (three boxes) = the one-piece 204 + 20
+    pin_detail=176, pin_detail_lod2=20,
+    # critique 2026-11-03: the 8 carriage rollers 10 -> 16 segments (3 x segs tris: 30 -> 48, +144 on
+    # the grip; LOD1 deletes them, the LOD2 proxy has none). The pair 2580 + 144 = 2724 is 48 over the
+    # BRIEF cap 2500 + 176 = 2676 (+1.8 %): raised by 48 (rule: <= 5 %, DECISIONS 585)
+    roller_segs=16, segs_detail=144, cap_raise=48,
+    body_caps=(1964, 188), grip_caps=(768, 36),     # (LOD0, LOD2) tallies = the cs2_validate caps
+)
+
+#: B2 v2 grip passage (--envelope with --split, 2026-11-03; refs/SOURCES.md "Grip passage under
+#: compression": Poma US4441430 / US4691643 - the sheave liners roll over the grip's smooth jaw, never
+#: its body). The tower gate's rule: inside the GD wheel span plus margin (outboard-positive lateral
+#: u < u_in) nothing of the carrier reaches more than z above or below the rope center, down to the
+#: wheel bottoms (z_bot under it). The jaw bar's top drops 0.08 -> 0.06 there and a 45 deg chamfer
+#: (u_in .. u_top) climbs back to the 0.08 top outboard (C5 grip_top_above_rope stays). The cut and
+#: the move run on the rebuilt LOD0 after the SHIPPED B atlas is read onto it (gondola_shipped_uvs):
+#: no bake, 0 MB added. tris / lod2_tris = what the edit adds (asserted): two cuts on the top, one on
+#: the underside, both end caps re-filled as an inboard and an outboard piece; LOD2 = the grip box
+#: split into the outboard box + a jaw box. New letter for the grip only; the body stays B.
+GD_ENVELOPE = dict(z=0.06, z_bot=0.54, u_in=0.09, u_top=0.11, letter="C", tris=12, lod2_tris=10)
+ENVELOPE = False                    # run() sets it from --envelope
+SPLIT_MAPS = ("BaseColor", "Normal", "MaskMap", "ControlMask")
+
+
+def gondola_shipped_uvs(obj, fbx):
+    """--envelope: the shipped LOD0's atlas read onto `obj`, its rebuild (same code path, before any
+    envelope edit): every FBX triangle lands on the rebuilt polygon holding its three corners (positions
+    within 0.2 mm; coincident vertices of touching parts resolved by the triangle's normal), each
+    corner's UV onto that polygon's loop. Leaves one UV layer UVUnique, no materials, no color
+    attributes (what bake_unique leaves). Returns the match numbers."""
+    from mathutils.kdtree import KDTree
+    me = obj.data
+    mw = obj.matrix_world
+    rco = np.array([tuple(mw @ v.co) for v in me.vertices], dtype=np.float64)
+    kd = KDTree(len(rco))
+    for i, c in enumerate(rco):
+        kd.insert(c, i)
+    kd.balance()
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.fbx(filepath=fbx)
+    new = [o for o in bpy.data.objects if o not in before]
+    try:
+        imp = next(o for o in new if o.type == "MESH")
+        imw = imp.matrix_world
+        ico = np.array([tuple(imw @ v.co) for v in imp.data.vertices], dtype=np.float64)
+        best = None
+        for cand in (ico, np.c_[ico[:, 0] / 100.0, ico[:, 2] / 100.0, ico[:, 1] / 100.0],
+                     np.c_[ico[:, 0] / 100.0, -ico[:, 2] / 100.0, ico[:, 1] / 100.0]):
+            err = max(kd.find(tuple(p))[2] for p in cand[:: max(1, len(cand) // 200)])
+            if best is None or err < best[0]:
+                best = (err, cand)
+        mp = best[1]
+        tol = 2e-4
+        near = [[j for _c, j, _d in kd.find_range(tuple(p), tol)] for p in mp]
+        worst = max(kd.find(tuple(p))[2] for p in mp)
+        if any(not c for c in near):
+            raise RuntimeError(f"remap {obj.name}: the rebuild does not match {os.path.basename(fbx)} "
+                               f"({len(rco)} / {len(ico)} vertices, worst {worst * 1000:.3f} mm)")
+        vpolys = [[] for _ in range(len(rco))]
+        for p in me.polygons:
+            for v in p.vertices:
+                vpolys[v].append(p.index)
+        R3 = mw.to_3x3()
+        pn = np.array([tuple((R3 @ p.normal).normalized()) for p in me.polygons], dtype=np.float64)
+        uv_in = imp.data.uv_layers.get(cs2_uv.UNIQUE_LAYER) or imp.data.uv_layers[0]
+        uv = np.full((len(me.loops), 2), np.nan)
+        amb = conflict = lost = 0
+        for tri in imp.data.polygons:
+            lis = list(tri.loop_indices)
+            vis = [imp.data.loops[li].vertex_index for li in lis]
+            corners = [near[v] for v in vis]
+            polys = set.intersection(*({pp for v in c for pp in vpolys[v]} for c in corners))
+            if len(polys) > 1:
+                P = mp[vis]
+                n = np.cross(P[1] - P[0], P[2] - P[0])
+                n = n / max(np.linalg.norm(n), 1e-12)
+                polys = {pi for pi in polys if abs(float(pn[pi] @ n)) > 0.99} or polys
+                amb += len(polys) > 1
+            if not polys:
+                lost += 1
+                continue
+            pi = min(polys)
+            loops = {me.loops[li].vertex_index: li for li in me.polygons[pi].loop_indices}
+            for li, c in zip(lis, corners):
+                dst = next((loops[v] for v in c if v in loops), None)
+                if dst is None:
+                    continue
+                u = tuple(uv_in.data[li].uv)
+                if not np.isnan(uv[dst, 0]) and np.abs(uv[dst] - u).max() > 1e-5:
+                    conflict += 1
+                uv[dst] = u
+        missing = int(np.isnan(uv[:, 0]).sum())
+        if missing or conflict or lost:
+            raise RuntimeError(f"remap {obj.name}: {missing} loops without a shipped UV, {conflict} "
+                               f"conflicts, {lost} unplaced / {amb} ambiguous triangles")
+    finally:
+        for o in new:
+            m = o.data if o.type == "MESH" else None
+            bpy.data.objects.remove(o, do_unlink=True)
+            if m is not None and m.users == 0:
+                bpy.data.meshes.remove(m)
+    lay = me.uv_layers.get(cs2_uv.UNIQUE_LAYER) or me.uv_layers.new(name=cs2_uv.UNIQUE_LAYER)
+    lay.data.foreach_set("uv", uv.astype(np.float32).reshape(-1))
+    for nm in [l.name for l in me.uv_layers if l.name != cs2_uv.UNIQUE_LAYER]:
+        me.uv_layers.remove(me.uv_layers[nm])
+    me.uv_layers[cs2_uv.UNIQUE_LAYER].active = True
+    me.uv_layers[cs2_uv.UNIQUE_LAYER].active_render = True
+    me.materials.clear()
+    for nm in [a.name for a in me.color_attributes]:
+        me.color_attributes.remove(me.color_attributes[nm])
+    me.update()
+    return {"remap_from": os.path.splitext(os.path.basename(fbx))[0],
+            "worst_vertex_mm": round(worst * 1000.0, 4), "ambiguous_tris": amb}
+
+
+def gondola_envelope_jaw(obj, outboard, rope_z):
+    """--envelope on the grip LOD0 (net frame, base pivot; rope_z = the rope center there): cut the
+    grip_body prism's top at u_in and u_top and its underside at u_in, re-fill both end caps as an
+    inboard and an outboard piece, then lower the top inboard of u_in to rope_z + z (the u_in .. u_top
+    strip becomes the chamfer). Every loop UV comes from its face's plane -> UV map fitted BEFORE the
+    cut and the move (affine per face: atlas islands are similarity images of the planar faces), so
+    the shipped texels stay put. Returns the tris added."""
+    E = GD_ENVELOPE
+    sgn = 1.0 if outboard == "+Y" else -1.0         # net x = authoring y; u = outboard-positive lateral
+    me = obj.data
+    pid = json.loads(me[PART_TABLE_PROP]).index("grip_body") + 1
+    t0 = cs2_asset.tri_count(obj)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    src = bm.faces.layers.int.new("env_src")          # first: a new layer drops element references
+    play = bm.faces.layers.int["part"]
+    uvl = bm.loops.layers.uv[cs2_uv.UNIQUE_LAYER]
+    jaw = [f for f in bm.faces if f[play] == pid]
+    bm.normal_update()
+
+    def u_of(v):
+        return sgn * v.co.x
+
+    def plane_map(faces, n):
+        ax = [a for a in range(3) if a != int(np.argmax(np.abs(n)))]   # drop the normal's main axis
+        P = np.array([(l.vert.co[ax[0]], l.vert.co[ax[1]], 1.0) for f in faces for l in f.loops])
+        U = np.array([tuple(l[uvl].uv) for f in faces for l in f.loops])
+        M = np.linalg.lstsq(P, U, rcond=None)[0]
+        res = float(np.abs(P @ M - U).max())
+        if res > 1e-4:
+            raise RuntimeError(f"envelope: grip_body UVs are not one affine map per face (residual "
+                               f"{res:.2e})")
+        return ax, M
+
+    def put_uv(f, fmap):
+        ax, M = fmap
+        for l in f.loops:
+            l[uvl].uv = tuple(np.array((l.vert.co[ax[0]], l.vert.co[ax[1]], 1.0)) @ M)
+
+    caps = [f for f in jaw if abs(f.normal.y) > 0.99]    # net y = travel: the prism's end caps
+    cap_y = sorted({round(f.verts[0].co.y, 5) for f in caps})
+    cap = {}
+    for y in cap_y:
+        fs = [f for f in caps if abs(f.verts[0].co.y - y) < 1e-5]
+        cap[y] = (plane_map(fs, (0.0, 1.0, 0.0)), 1.0 if fs[0].normal.y > 0.0 else -1.0, fs[0])
+    smap = {}
+    for i, f in enumerate((f for f in jaw if f not in caps), start=1):
+        f[src] = i
+        smap[i] = plane_map([f], f.normal)
+    protos = {y: (c[2].smooth, c[2].material_index) for y, c in cap.items()}
+    bmesh.ops.delete(bm, geom=caps, context="FACES_ONLY")
+    ztop = max(v.co.z for f in bm.faces if f[play] == pid for v in f.verts)
+
+    def cut(u, top_only):
+        fs = [f for f in bm.faces if f[play] == pid
+              and min(map(u_of, f.verts)) < u - 1e-6 and max(map(u_of, f.verts)) > u + 1e-6
+              and (not top_only or all(abs(v.co.z - ztop) < 1e-6 for v in f.verts))]
+        geom = list(set(fs) | {e for f in fs for e in f.edges} | {v for f in fs for v in f.verts})
+        bmesh.ops.bisect_plane(bm, geom=geom, dist=1e-7, plane_co=(sgn * u, 0.0, 0.0),
+                               plane_no=(1.0, 0.0, 0.0))
+
+    n_strip = len(smap)
+    cut(E["u_in"], False)
+    cut(E["u_top"], True)
+    strip = [f for f in bm.faces if f[play] == pid]
+    if len(strip) != n_strip + 3 or not all(f[src] for f in strip):
+        raise RuntimeError(f"envelope: the cuts left {len(strip)} grip_body strip faces (want "
+                           f"{n_strip} + 3, each tagged with its source face)")
+    for f in bm.faces:
+        if f[src]:
+            put_uv(f, smap[f[src]])
+    new_caps = []
+    for y, (cmap, sign, _f) in cap.items():
+        ring_v = {v for f in bm.faces if f[play] == pid for v in f.verts if abs(v.co.y - y) < 1e-5}
+        adj = collections.defaultdict(list)
+        for e in bm.edges:
+            if e.is_boundary and all(v in ring_v for v in e.verts):
+                a, b = e.verts
+                adj[a].append(b)
+                adj[b].append(a)
+        if any(len(n) != 2 for n in adj.values()) or len(adj) != len(ring_v):
+            raise RuntimeError(f"envelope: cap y {y:+.3f} outline is not one loop")
+        ring = [next(iter(adj))]
+        prev = None
+        while True:
+            nxt = next(w for w in adj[ring[-1]] if w is not prev)
+            if nxt is ring[0]:
+                break
+            prev = ring[-1]
+            ring.append(nxt)
+        cuts = [k for k, v in enumerate(ring) if abs(u_of(v) - E["u_in"]) < 1e-6]
+        if len(ring) != len(ring_v) or len(cuts) != 2:
+            raise RuntimeError(f"envelope: cap y {y:+.3f} ring {len(ring)} / {len(ring_v)} vertices, "
+                               f"{len(cuts)} on u {E['u_in']}")
+        i, j = cuts
+        for arc in (ring[i:j + 1], ring[j:] + ring[:i + 1]):
+            f = bm.faces.new(arc)
+            f[play], f[src] = pid, 0
+            f.smooth, f.material_index = protos[y]
+            f.normal_update()
+            if f.normal.y * sign < 0.0:
+                f.normal_flip()
+            put_uv(f, cmap)
+            new_caps.append(f)
+    low = {v for f in bm.faces if f[play] == pid for v in f.verts
+           if abs(v.co.z - ztop) < 1e-6 and u_of(v) <= E["u_in"] + 1e-6}
+    if any(g[play] != pid for v in low for g in v.link_faces):
+        raise RuntimeError("envelope: a lowered jaw vertex is welded to another part")
+    for v in low:
+        v.co.z = rope_z + E["z"]
+    triangulate_caps(bm, new_caps, "envelope jaw")
+    bm.faces.layers.int.remove(src)
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    cs2_asset.shade_by_angle(obj, SHADE_ANGLE)
+    return cs2_asset.tri_count(obj) - t0
+
+
+def _copy_shipped_maps(remap, asset_dir, name):
+    """--envelope: the shipped map set copied under the new mesh name (the importer finds maps by it)."""
+    out = []
+    for s in SPLIT_MAPS:
+        dst = os.path.join(asset_dir, f"{name}_{s}.png")
+        shutil.copyfile(os.path.join(remap["dir"], f"{remap['remap_from']}_{s}.png"), dst)
+        out.append(os.path.basename(dst))
+    return out
+
+
+def gondola_split_parts(parts, outboard):
+    """The joint on the finished (mirrored) gondola parts, ASSEMBLED frame. Returns (body, grip, old,
+    joint): body / grip = [(obj, material)] (the grip still at its assembled height), old = the
+    one-piece part list for S1 (copies of the two parts this replaces), joint = the numbers."""
+    J = G_SPLIT
+    sgn = 1.0 if outboard == "+Y" else -1.0
+    ys = sgn * G["hanger_b"][1]
+    R, c = J["knuckle_r"], CS.DESIGN_GAP_M
+    pz = J["head_bot"] - R - c
+    z_n = pz - J["neck_len"]
+    by = {o.name: (o, k) for o, k in parts}
+    arm, arm_k = by["hanger_arm"]
+    head, head_k = by["hanger_head"]
+    old = [(o, k) for o, k in parts if o is not arm and o is not head]
+    old += [(_dup(arm, "old_hanger_arm"), arm_k), (_dup(head, "old_hanger_head"), head_k)]
+    keep = [(o, k) for o, k in parts if o is not head]
+    hm = head.data
+    bpy.data.objects.remove(head, do_unlink=True)
+    bpy.data.meshes.remove(hm)
+    # the stalk: cut 15 cm under the pin; the open cut ring is where the neck starts
+    CS.cut_part(arm, (0.0, 0.0, z_n), (0.0, 0.0, 1.0))
+    ring = [v.co.copy() for v in arm.data.vertices if abs(v.co.z - z_n) < 1e-6]
+    radii = [math.hypot(v.x, v.y - ys) for v in ring]
+    if len(ring) != G["hanger_segs"] or max(radii) - min(radii) > 1e-5:
+        raise RuntimeError(f"gondola split: the stalk cut ring has {len(ring)} vertices, radii "
+                           f"{min(radii) if radii else 0:.5f}..{max(radii) if radii else 0:.5f} "
+                           f"(want {G['hanger_segs']} on one circle)")
+    r_arm = sum(radii) / len(radii)
+    a0 = math.atan2(ring[0].y - ys, ring[0].x)
+    neck = CS.ring_loft("hanger_neck", [(0.0, r_arm), (J["neck_taper"], J["neck_r"]),
+                                        (J["neck_len"], J["neck_r"])], G["hanger_segs"],
+                        ((0.0, ys, z_n), (0.0, ys, pz)), angle0=a0, relief="map:seams")
+    n0 = [v.co for v in neck.data.vertices if abs(v.co.z - z_n) < 1e-6]
+    miss = max(min((p - q).length for q in ring) for p in n0)
+    if miss > 1e-5:
+        raise RuntimeError(f"gondola split: neck ring 0 misses the cut ring by {miss * 1000:.3f} mm")
+    kn = CS.knuckle("hanger_knuckle", (0.0, ys, pz), R, J["knuckle_segs"], relief="geo",
+                    meridian_xz=(1.0, 0.0))
+    hz = J["head_top"] - J["head_bot"]
+    new_head = rounded_box("hanger_head", (0.40, 0.19, hz), (0.0, ys, J["head_bot"] + hz / 2.0),
+                           J["head_r"], segs=2)
+    new_head["relief"] = "map:bolts"
+    apply_transform(new_head)
+    t, rc = J["cheek_t"], J["cheek_r"]
+    prof = CS.plate_profile(-rc, rc, J["head_bot"] + J["cheek_bury"], (0.0, pz), rc, arc_segs=4)
+    gin = R + c
+    cheeks = [CS.slab_y("hanger_cheek_0", prof, ys - gin - t, ys - gin),
+              CS.slab_y("hanger_cheek_1", prof, ys + gin, ys + gin + t)]
+    pins = [CS.pin_end("hanger_pin_0", ys - gin - t, (0.0, pz), J["pin_r"], J["pin_len"], -1.0),
+            CS.pin_end("hanger_pin_1", ys + gin + t, (0.0, pz), J["pin_r"], J["pin_len"], 1.0)]
+    allp = keep + [(neck, "galv"), (kn, "galv"), (new_head, "galv")] + \
+        [(o, "galv") for o in cheeks + pins]
+    grip = [(o, k) for o, k in allp if o.name.startswith(J["grip_prefixes"])]
+    body = [(o, k) for o, k in allp if not o.name.startswith(J["grip_prefixes"])]
+    joint = {"pin": (0.0, ys, pz), "ys": ys, "pz": pz, "z_cut": z_n, "r_arm": r_arm,
+             "knuckles": ["hanger_knuckle"], "cheeks": ["hanger_cheek_0", "hanger_cheek_1"],
+             "floor": ["hanger_head"], "r_x": J["r_x"], "old_skip": ("old_hanger_head",),
+             "new_skip": ("hanger_head", "hanger_cheek_", "hanger_pin_", "hanger_knuckle",
+                          "hanger_neck"),
+             "rope": (0.0, 0.0, G["rope"])}
+    return body, grip, old, joint
+
+
+def _world_z(parts):
+    zs = [(o.matrix_world @ v.co).z for o, _k in parts for v in o.data.vertices]
+    return min(zs), max(zs)
+
+
+def split_pair_copy(body, grip, grip_z0, name):
+    """A joined COPY of body + grip at zero pose (the grip copy raised by grip_z0), part table = body +
+    grip (the grip's ids offset): the one-piece carrier every G / T contract runs on. Caller drops it."""
+    tb = json.loads(body.data[PART_TABLE_PROP])
+    tg = json.loads(grip.data[PART_TABLE_PROP])
+    cb, cg = _dup(body, name), _dup(grip, f"{name}_g")
+    attr = cg.data.attributes["part"]
+    vals = np.empty(len(cg.data.polygons), dtype=np.int32)
+    attr.data.foreach_get("value", vals)
+    attr.data.foreach_set("value", (vals + len(tb)).tolist())
+    cg.data.transform(mathutils.Matrix.Translation((0.0, 0.0, float(grip_z0))))
+    cg.data.update()
+    bpy.ops.object.select_all(action="DESELECT")
+    cb.select_set(True)
+    cg.select_set(True)
+    bpy.context.view_layer.objects.active = cb
+    bpy.ops.object.join()
+    pair = bpy.context.active_object
+    pair.name = name
+    pair.data.name = name
+    pair.data[PART_TABLE_PROP] = json.dumps(tb + tg)
+    pair[FRAME_PROP] = body.get(FRAME_PROP)
+    return pair
+
+
+def gondola_split_proxy(lod0, name, outboard, joint, role):
+    """C6 LOD2 of one split mesh, cut at the pin. body = gondola_proxy's cabin loft + the stalk box up to
+    the pin + an octahedron knuckle (its top = the body's top contract); grip = gondola_proxy's frame
+    and jaw boxes + a yoke box from the cheek bottom 2 cm into the frame (it hides the stalk end).
+    Built at +Y and mirrored like gondola_proxy; the grip is lowered by its base pivot shift."""
+    yb = G["hanger_b"][1]
+    pz = joint["pz"]
+    if role == "body":
+        rings = [rrect_ring(2.00, 1.80, 0.35, 4, 0.0), rrect_ring(2.30, 2.10, 0.35, 4, 0.82),
+                 rrect_ring(2.26, 2.06, 0.35, 4, 2.30), rrect_ring(2.10, 1.90, 0.35, 4, 2.40)]
+        parts = [(loft_band("body_proxyskirt", rings[0], rings[1]), None),
+                 (ring_cap("body_proxyunder", rings[0], up=False), None),
+                 (loft_band("glass_proxyband", rings[1], rings[2]), None),
+                 (loft_band("roof_proxyedge", rings[2], rings[3]), None),
+                 (ring_cap("roof_proxycap", rings[3], up=True), None)]
+        a = (0.0, G["hanger_a"][1], 2.52)
+        b = (0.0, yb, 2.52)
+        w = 2.0 * G["hanger_r"]
+        parts.append((box_along("hanger_proxy", [a, b, (0.0, yb, pz)], w, w, side=(1, 0, 0),
+                                chamfer=0.0, bend_rings=2, fillet=G["hanger_fillet"]), None))
+        R = G_SPLIT["knuckle_r"]
+        parts.append((CS.octa("hanger_knuckle", (0.0, yb, pz), R, pz + R), None))
+        mapping = {"body_proxy": "body_", "glass_proxy": "glass_", "roof_proxy": "roof_",
+                   "hanger_proxy": "hanger_arm", "hanger_knuckle": "hanger_knuckle"}
+        dz = 0.0
+    else:
+        z0, z1 = joint["grip_z0"], 4.16 + 0.02
+        if ENVELOPE:
+            # GD_ENVELOPE: the outboard box keeps the 0.08 top; the jaw box (the LOD0 bar's underside
+            # 4.44 up to the envelope, 1 cm into the outboard box, that face dropped) passes the wheels
+            ui, zj = GD_ENVELOPE["u_in"], G["rope"] + GD_ENVELOPE["z"]
+            grip = [(cs2_kit.add_box("grip_proxy", (0.30, 0.30 - ui, 0.20), (0.0, 0.5 * (0.30 + ui), 4.40)),
+                     None),
+                    (cs2_kit.add_box("grip_proxyjaw", (0.30, ui + 0.05, zj - 4.44),
+                                     (0.0, 0.5 * (ui + 0.01 - 0.04), 0.5 * (zj + 4.44)), drop=("+Y",)), None)]
+        else:
+            grip = [(cs2_kit.add_box("grip_proxy", (0.30, 0.34, 0.20), (0.0, 0.13, 4.40)), None)]
+        parts = [(cs2_kit.add_box("carframe_proxy", (1.10, 0.42, 0.12), (0.0, 0.50, 4.22)), None)] + grip + \
+                [(cs2_kit.add_box("hanger_yokeproxy", (0.18, 0.19, z1 - z0),
+                                  (0.0, yb, 0.5 * (z0 + z1))), None)]
+        mapping = {"carframe_proxy": "carframe_", "grip_proxy": "grip_",
+                   "hanger_yokeproxy": "hanger_head"}
+        dz = -z0
+    for o, _ in parts:
+        apply_transform(o)
+        if outboard == "-Y":
+            scale_axes(o, (1.0, -1.0, 1.0))
+            o.data.flip_normals()
+        if dz:
+            o.data.transform(mathutils.Matrix.Translation((0.0, 0.0, dz)))
+        o.data.update()
+    table = cs2_asset.tag_parts(parts)
+    obj = join_parts(parts, f"{name}_LOD2")
+    cs2_asset.store_part_table(obj, table)
+    cs2_asset.orient_for_net(obj)
+    obj[FRAME_PROP] = "net"
+    snap_proxy_uvs(obj, lod0, mapping)
+    cs2_asset.shade_by_angle(obj, SHADE_ANGLE, weighted=False)
+    return obj
+
+
+def _budget_split_mesh(kind, role, tris, caps):
+    """One split mesh: LOD0 / LOD2 = the measured tallies (caps), LOD1 <= 0.48 x LOD0."""
+    rows = {"role": role, "LOD0": tris[0], "LOD0_cap": caps[0]}
+    ok = tris[0] <= caps[0]
+    if 1 in tris:
+        rows["LOD1_ratio"] = round(tris[1] / tris[0], 3)
+        ok = ok and tris[1] <= 0.48 * tris[0]
+    if 2 in tris:
+        rows["LOD2"], rows["LOD2_cap"] = tris[2], caps[1]
+        ok = ok and tris[2] <= caps[1]
+    rows["ok"] = ok
+    if not ok:
+        raise RuntimeError(f"{kind} split {role} budget broken: {rows}")
+    return rows
+
+
+def _budget_gondola_pair(tris):
+    """The pair (body + grip) against the one-piece budget + the pin detail (BRIEF 'Budgets')."""
+    pd, pd2 = G_SPLIT["pin_detail"], G_SPLIT["pin_detail_lod2"]
+    sd, cr = G_SPLIT["segs_detail"], G_SPLIT["cap_raise"]
+    if ENVELOPE:                       # the jaw cut: +12 on 2676 (+2.2 % with the 48), rule <= 5 %
+        cr, pd2 = cr + GD_ENVELOPE["tris"], pd2 + GD_ENVELOPE["lod2_tris"]
+    t0 = tris[0]
+    brief_cap = G["lod0_cap"] + pd
+    if cr > 0.05 * brief_cap:
+        raise RuntimeError(f"gondola split: cap raise {cr} > 5 % of the brief cap {brief_cap}")
+    cap0 = brief_cap + cr
+    b0, b1 = G["lod0_band"]
+    proj = G["lod0_projection"] + pd + sd
+    rows = {"LOD0": t0, "LOD0_cap": cap0, "brief_cap": brief_cap, "cap_raise": cr,
+            "LOD0_band": [b0, b1 + pd + cr], "projection": proj,
+            "pin_detail": pd, "segs_detail": sd, "pin_detail_lod2": pd2}
+    ok = t0 <= cap0 and b0 <= t0 <= b1 + pd + cr and abs(t0 - proj) <= 0.10 * proj
+    if 1 in tris:
+        rows["LOD1_ratio"] = round(tris[1] / t0, 3)
+        ok = ok and tris[1] <= 0.48 * t0
+    if 2 in tris:
+        rows["LOD2"], rows["LOD2_cap"] = tris[2], G["lod2_cap"] + pd2
+        ok = ok and 150 <= tris[2] <= G["lod2_cap"] + pd2
+    rows["ok"] = ok
+    if not ok:
+        raise RuntimeError(f"gondola split pair budget broken: {rows}")
+    return rows
+
+
+def _rewrite_manifest(res, extra):
+    """Add `extra` to a finished asset's manifest (the pair results exist only after both meshes)."""
+    path = res["manifest"]
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    for k in ("name", "written_utc", "blender", "files"):
+        data.pop(k, None)
+    data.update(extra)
+    res["manifest"] = cs2_validate.write_manifest(res["asset_dir"], res["name"], data)
+
+
+def run_gondola_split(args):
+    """--split: SkiGondolaCabin8B (body: cabin + stalk + knuckle) + SkiGondolaCabin8GripB (grip: head +
+    cheeks + pin + springs + carriage + rollers + jaw), each with its base pivot (lowest vertex z 0),
+    3 LODs and its own map set. S1 / S2 / S3 on the parts; every G contract on the joined pair at every
+    LOD, the role contracts on each mesh."""
+    J = G_SPLIT
+    shipped = SPLIT_NAMES["gondola"]
+    names = (shipped[0], shipped[1][:-1] + GD_ENVELOPE["letter"]) if ENVELOPE else shipped
+    nb, ng = (cs2_asset.validate_asset_name(n) for n in names)
+    for n in (nb, ng):
+        _lint(n)
+    catalog = catalog_drift("gondola", args.carriers, outboard=args.outboard)
+    clearance = clearance_rows("gondola")
+    ingest = {}
+    parts = gondola_parts(args, ingest)
+    assert_uv_layers(parts, stage="gondola parts")
+    tri_old = sum(cs2_asset.tri_count(o) for o, _k in parts)
+    body, grip, old, joint = gondola_split_parts(parts, args.outboard)
+    s1 = CS.rejoin(old, body + grip, [joint["pin"]], joint["r_x"], joint["old_skip"],
+                   joint["new_skip"], label="gondola")
+    s23 = CS.sweep_joint(body, grip, [(joint["pin"], joint["knuckles"], joint["cheeks"],
+                                       joint["floor"])], label="gondola")
+    for o, _k in old[-2:]:
+        _drop(o)
+    tb = sum(cs2_asset.tri_count(o) for o, _k in body)
+    tg = sum(cs2_asset.tri_count(o) for o, _k in grip)
+    measured = {"one_piece_lod0": tri_old, "body_lod0": tb, "grip_lod0": tg,
+                "pin_detail": tb + tg - tri_old}
+    print(f"[split] gondola tallies {measured}")
+    if J["pin_detail"] is None or J["body_caps"] is None or J["grip_caps"] is None:
+        raise RuntimeError(f"gondola split: set G_SPLIT pin_detail / caps from the measured tallies "
+                           f"{measured}")
+    if measured["pin_detail"] != J["pin_detail"] or tb != J["body_caps"][0] or tg != J["grip_caps"][0]:
+        raise RuntimeError(f"gondola split: tallies {measured} differ from G_SPLIT pin_detail "
+                           f"{J['pin_detail']}, body {J['body_caps']}, grip {J['grip_caps']}")
+    gz0, gz1 = _world_z(grip)
+    bz0, bz1 = _world_z(body)
+    pz, R = joint["pz"], J["knuckle_r"]
+    if abs(bz0) > 1e-5 or abs(bz1 - (pz + R)) > 1e-5 or abs(gz1 - G["hang"]) > 1e-5 \
+            or abs(gz0 - (pz - J["cheek_r"])) > 1e-5:
+        raise RuntimeError(f"gondola split: body z {bz0:.5f}..{bz1:.5f} (want 0..{pz + R:.5f}), grip z "
+                           f"{gz0:.5f}..{gz1:.5f} (want {pz - J['cheek_r']:.5f}..{G['hang']})")
+    joint["grip_z0"] = gz0
+    for o, _k in grip:                                   # the grip's base pivot (lowest vertex z 0)
+        o.data.transform(mathutils.Matrix.Translation((0.0, 0.0, -gz0)))
+        o.data.update()
+    pivots = CS.pivot_numbers(joint["rope"], joint["pin"], gz0, 0.0, G["hang"], G["hang"] - G["rope"],
+                              outboard_note=f"outboard authoring {args.outboard} = prefab "
+                                            f"{OUTBOARD_PREFAB_X[args.outboard]}")
+    ob, src_b, table_b = build_lod0(body, nb, G_DENSITY, [])
+    og, src_g, table_g = build_lod0(grip, ng, G_DENSITY, [])
+    for o in (ob, og):
+        lo = min(v.co.z for v in o.data.vertices)
+        if abs(lo) > 1e-5:
+            raise RuntimeError(f"{o.name}: base pivot broken, lowest z {lo:.6f}")
+    remap = {}
+    if ENVELOPE:                       # GD_ENVELOPE: the shipped atlas first, then the jaw edit
+        src_dir = os.path.abspath(args.remap_from)
+        for o, sn in ((ob, shipped[0]), (og, shipped[1])):
+            remap[o.name] = dict(gondola_shipped_uvs(o, os.path.join(src_dir, sn, sn + ".fbx")),
+                                 dir=os.path.join(src_dir, sn))
+        added = gondola_envelope_jaw(og, args.outboard, G["rope"] - gz0)
+        print(f"[envelope] {ng}: jaw cut + lowered, +{added} tris; remap "
+              f"{ {k: v['worst_vertex_mm'] for k, v in remap.items()} } mm worst")
+        if added != GD_ENVELOPE["tris"]:
+            raise RuntimeError(f"envelope: the jaw edit added {added} tris (GD_ENVELOPE tris "
+                               f"{GD_ENVELOPE['tris']})")
+    pair0 = split_pair_copy(ob, og, gz0, nb + "Pair0")
+    try:
+        pair_rows = {0: gondola_contracts(pair0, 0, args.outboard, single_quads=True)}
+        pair_tris = {0: cs2_asset.tri_count(pair0)}
+    finally:
+        _drop(pair0)
+    split_info = {"pair": f"{nb} + {ng}", "body": nb, "grip": ng,
+                  "pivots": pivots, "S1_rejoin": s1, "S2_S3_sweep": s23,
+                  "tallies": measured, "joint": {k: joint[k] for k in ("pin", "z_cut", "r_arm", "grip_z0")},
+                  "joint_design": {k: v for k, v in J.items() if not k.endswith(("caps", "prefixes"))}}
+    gcaps = J["grip_caps"]
+    if ENVELOPE:
+        gcaps = (gcaps[0] + GD_ENVELOPE["tris"], gcaps[1] + GD_ENVELOPE["lod2_tris"])
+        split_info["envelope"] = dict(GD_ENVELOPE, replaces=shipped[1])
+
+    results = []
+    zb = (0.0, pz + R)
+    zg = (0.0, G["hang"] - gz0)
+
+    def c_body(o, level):
+        return gondola_contracts(o, level, args.outboard, single_quads=(level == 0), role="body",
+                                 z_span=zb)
+
+    def c_grip(o, level):
+        return gondola_contracts(o, level, args.outboard, single_quads=False, role="grip",
+                                 z_span=(gz0, G["hang"]))
+
+    cfg_b = _gondola_cfg(args, nb, c_body, lambda o, nm: gondola_split_proxy(o, nm, args.outboard,
+                                                                              joint, "body"))
+    cfg_b.update(role="body", z_range=zb, keep_lods=True, lod0_cap=J["body_caps"][0],
+                 lod2_cap=J["body_caps"][1],
+                 budget=lambda tr: _budget_split_mesh("gondola", "body", tr, J["body_caps"]),
+                 prefab_numbers={"mesh": nb, "role": "body", "pivots": pivots,
+                                 "note": "split body: the one-piece prefab numbers (UtilityObject, "
+                                         "NetSubObjects) stay with the SkiGondolaCabin8A manifest; the "
+                                         "code places the body from the pivots"})
+    cfg_g = _gondola_cfg(args, ng, c_grip, lambda o, nm: gondola_split_proxy(o, nm, args.outboard,
+                                                                              joint, "grip"))
+    cfg_g.update(role="grip", z_range=zg, keep_lods=True, tex=J["grip_tex"], margin=J["grip_margin"],
+                 lod0_cap=gcaps[0], lod2_cap=gcaps[1],
+                 lod1_delete=G["lod1_delete"] + ("hanger_pin_",), lod1_protect=("grip_", "hanger_"),
+                 budget=lambda tr: _budget_split_mesh("gondola", "grip", tr, gcaps),
+                 stamps={}, stamp=None, plate=None, logo_view=None, detail_z=0.0,
+                 hero=("hanger_", "carframe_", "grip_", "spring_"),
+                 ropes=[(0.0, G["rope"] - gz0, HV_ROPE_R, 2.0)], credit=None,
+                 prefab_numbers={"mesh": ng, "role": "grip", "pivots": pivots,
+                                 "note": "split grip: base pivot = the cheek bottom; the rope point "
+                                         "and the pin are relative to it"})
+    if ENVELOPE:                       # no bake; the unchanged body goes to _unchanged/ (pair LODs only)
+        cfg_b.update(remap=remap[nb], out_root=os.path.join(os.path.abspath(args.out), "_unchanged"))
+        cfg_g.update(remap=remap[ng], manifest_extra={"envelope": dict(
+            GD_ENVELOPE, remap={k: v for k, v in remap[ng].items() if k != "dir"})})
+    for nm, obj, src, cfg, table in ((nb, ob, src_b, cfg_b, table_b), (ng, og, src_g, cfg_g, table_g)):
+        res = {"name": nm, "kind": "gondola", "role": cfg["role"], "catalog": catalog,
+               "clearance": clearance, "parts": len(table)}
+        if obj is ob:
+            res["ingest"] = ingest
+        results.append(finish_asset(args, cfg, obj, src, res))
+    rb, rg = results
+    lb, lg = rb.get("lod_objs") or [], rg.get("lod_objs") or []
+    try:
+        for k, (a, b) in enumerate(zip(lb, lg), start=1):
+            pr = split_pair_copy(a, b, gz0, f"{nb}Pair{k}")
+            try:
+                pair_rows[k] = gondola_contracts(pr, k, args.outboard, single_quads=False)
+                pair_tris[k] = cs2_asset.tri_count(pr)
+            finally:
+                _drop(pr)
+    finally:
+        for o in lb + lg:
+            _drop(o)
+    split_info["pair_tris"] = {f"LOD{k}": v for k, v in pair_tris.items()}
+    split_info["pair_budget"] = _budget_gondola_pair(pair_tris)
+    split_info["pair_contracts_held"] = {f"LOD{k}": [r["code"] for r in rows]
+                                         for k, rows in pair_rows.items()}
+    for r in results:
+        r.pop("lod_objs", None)
+        r["split"] = split_info
+        r["pair_contracts"] = pair_rows
+        _rewrite_manifest(r, {"split": split_info})
+    print(f"PASS lift_cabin --split gondola: S1 {s1['max_old_to_new_mm']}/{s1['max_new_to_old_mm']} mm, "
+          f"S2 gap {s23['gap_mm_min']}..{s23['gap_mm_max']} mm over {s23['poses']} poses, S3 "
+          f"{s23['clash_poses']} clashes, pair tris {pair_tris} (LOD0 cap "
+          f"{split_info['pair_budget']['LOD0_cap']}), pivots grip rope "
+          f"{pivots['grip_rope_point_m']['prefab']} pin {pivots['grip_pin_center_m']['prefab']}, body pin "
+          f"{pivots['body_pin_center_m']['prefab']}")
+    return results
+
+
+#: The tram joint (carrier split 2026-11-03; carrier_split.py header). The one-piece hanger's two fork
+#: uprights (y +-0.95) butt against the carriage head's underside (K = hang - 0.12 = the carhead bottom).
+#: Split: each upright ends 0.16 under the pin and carries a LUG (the body's eye: a 12 cm plate with a
+#: half-round top of radius 0.12 round the pin), the carriage head carries two CHEEK plates per lug (a
+#: clevis) with a pin head on each outer face, inner and outer (symmetric, R29 / T5). Both pins are ONE
+#: lateral axis (authoring y). The eye cannot sit inside the 10 cm carhead, so the pin moves down
+#: by lug_r + c: K = carhead underside - c - lug_r (10.2565 at hang 10.50; was 10.38): a proposed
+#: carriers.json pivot change (build report). Roll: two coaxial lugs 1.90 m apart cannot roll about the
+#: travel axis (each would move +-0.13 m vertically at 8 deg). Swing convention (carrier_split.py
+#: header): the pin sweeps pitch + fore-aft only; the cross-wind sway rolls cabin + carriage together
+#: about the track rope (<= CS.TRAM_ROLL_DEG).
+T_SPLIT = dict(
+    lug_r=0.12, lug_t=0.12, lug_bury=0.03, lug_drop=0.16, lug_segs=8,
+    cheek_t=0.03, cheek_r=0.13, cheek_bury=0.02,
+    pin_r=0.035, pin_len=0.014,
+    r_x=0.30,                                       # S1 joint zone round each lug's pin center
+    # critique 2026-11-03: the eight bogie wheel rims 12 -> 16 segments (10 profile strips x 2 tris x
+    # segs: 240 -> 320 a rim, +640 on the carriage; LOD1 swaps the rims for 8-segment sheaves, LOD2
+    # deletes them). The pair stays under the cap 8000 + 256: no raise.
+    wheel_segs=16, segs_detail=640,
+    # measured 2026-11-03 (asserted): pin_detail = cabin + carriage LOD0 - the one-piece LOD0 (both with
+    # the split's rims): cabin 2830 -> 2926 (two lugs, the uprights' top caps: +96), carriage 2848 + 640
+    # (rims) = 3488 -> 3648 (four cheeks, four pin heads: +160)
+    pin_detail=256, cabin_lod0=2926, carriage_lod0=3648,
+)
+
+
+def tram_split_dims(dims, car_z0):
+    """The split's dims: K at the lug pin, the cabin top over it, the carriage's base pivot."""
+    S = T_SPLIT
+    k = dims["carhead"][0] - CS.DESIGN_GAP_M - S["lug_r"]
+    return dict(dims, k_z=k, k_one_piece=dims["k_z"], cab_top=k + S["lug_r"], car_z0=car_z0,
+                z_upright=k - S["lug_drop"])
+
+
+def tram_split_parts(parts, dims):
+    """The joint on the finished tram parts, ASSEMBLED frame. Returns (cabin, carriage, old, joint):
+    cabin = everything below the pin (+ the lugs), carriage = T carriage_prefixes (+ the cheeks and pin
+    heads), old = the one-piece part list for S1 (copies of the two uprights this replaces)."""
+    S = T_SPLIT
+    sd = tram_split_dims(dims, 0.0)
+    K, z_ut = sd["k_z"], sd["z_upright"]
+    c = CS.DESIGN_GAP_M
+    dy = T["upright_dy"]
+    uw, ud = T["upright_wd"]
+    ups = {o.name: (o, k) for o, k in parts if o.name in ("fork_uprightn", "fork_uprightp")}
+    if len(ups) != 2:
+        raise RuntimeError(f"tram split: uprights {sorted(ups)}")
+    old = [(o, k) for o, k in parts if o.name not in ups]
+    old += [(_dup(o, "old_" + o.name), k) for o, k in ups.values()]
+    keep = [(o, k) for o, k in parts if o.name not in ups]
+    for o, _k in ups.values():
+        me = o.data
+        bpy.data.objects.remove(o, do_unlink=True)
+        bpy.data.meshes.remove(me)
+    r, t_l = S["lug_r"], S["lug_t"]
+    zb = z_ut - S["lug_bury"]
+    n = S["lug_segs"]
+    lug_prof = [(-r, zb), (r, zb)] + [(r * math.cos(math.pi * k / n), K + r * math.sin(math.pi * k / n))
+                                      for k in range(n + 1)]
+    rc, t = S["cheek_r"], S["cheek_t"]
+    ch_prof = CS.plate_profile(-rc, rc, dims["carhead"][0] + S["cheek_bury"], (0.0, K), rc, arc_segs=4)
+    yi = dy - t_l / 2.0 - c                    # |y| of the inner cheek's lug-side face
+    yo = dy + t_l / 2.0 + c                    # |y| of the outer cheek's lug-side face
+    new = []
+    joints = []
+    for tag, s in (("n", -1.0), ("p", 1.0)):
+        up_ = box_along(f"fork_upright{tag}", [(0, s * dy, dims["fork_top"] - 0.02), (0, s * dy, z_ut)],
+                        uw, ud, side=(1, 0, 0), chamfer=T["r_upright"], corner_segs=2, caps="end")
+        up_["relief"] = "map:seams"
+        lug = CS.slab_y(f"fork_lug{tag}", lug_prof, s * dy - t_l / 2.0, s * dy + t_l / 2.0,
+                        open_first=True, relief="geo")
+        if s > 0:
+            ci = CS.slab_y(f"carhead_cheek{tag}i", ch_prof, yi - t, yi, relief="geo")
+            co = CS.slab_y(f"carhead_cheek{tag}o", ch_prof, yo, yo + t, relief="geo")
+        else:
+            ci = CS.slab_y(f"carhead_cheek{tag}i", ch_prof, -yi, -yi + t, relief="geo")
+            co = CS.slab_y(f"carhead_cheek{tag}o", ch_prof, -yo - t, -yo, relief="geo")
+        po = CS.pin_end(f"pivot_pin{tag}o", s * (yo + t), (0.0, K), S["pin_r"], S["pin_len"], s)
+        pi = CS.pin_end(f"pivot_pin{tag}i", s * (yi - t), (0.0, K), S["pin_r"], S["pin_len"], -s)
+        new += [(up_, "galv"), (lug, "galv"), (ci, "galv"), (co, "galv"), (po, "galv"), (pi, "galv")]
+        joints.append(((0.0, s * dy, K), [f"fork_lug{tag}"], [f"carhead_cheek{tag}i",
+                                                               f"carhead_cheek{tag}o"], ["carhead_main"]))
+    for o, _k in new:
+        apply_transform(o)
+    allp = keep + new
+    car = [(o, k) for o, k in allp if o.name.startswith(T["carriage_prefixes"])]
+    cab = [(o, k) for o, k in allp if not o.name.startswith(T["carriage_prefixes"])]
+    joint = {"K": K, "z_upright": z_ut, "joints": joints, "pins": [j[0] for j in joints],
+             "new_skip": ("fork_lug", "carhead_cheek", "pivot_pin"), "r_x": S["r_x"],
+             "rope": (0.0, 0.0, dims["rope"])}
+    return cab, car, old, joint
 
 
 def run_tram(args):
     dims = tram_dims(args.hang)
-    names = [cs2_asset.validate_asset_name(args.name or NAMES["tram"])]
     if args.split:
-        names.append(cs2_asset.validate_asset_name(SPLIT_CARRIAGE_NAME))
+        names = [cs2_asset.validate_asset_name(n) for n in SPLIT_NAMES["tram"]]
+    else:
+        names = [cs2_asset.validate_asset_name(args.name or NAMES["tram"])]
     for n in names:
         _lint(n)
     catalog = catalog_drift("tram", args.carriers, dims["hang"])
@@ -4410,13 +5215,56 @@ def run_tram(args):
                "fin_top_m": dims["fin_top"], "fork_m": [dims["fork_bot"], dims["fork_top"]],
                "k_pin_m": dims["k_z"], "half_width_max_m": T["half_w_max"]}
     jobs = []
+    split_info = None
     if not args.split:
         jobs.append(("whole", names[0], parts, T["tex"]))
     else:
-        car = [(o, k) for o, k in parts if o.name.startswith(T["carriage_prefixes"])]
-        cab = [(o, k) for o, k in parts if not o.name.startswith(T["carriage_prefixes"])]
-        for o, _k in car:                                  # carriage pivot = K
-            o.data.transform(mathutils.Matrix.Translation((0.0, 0.0, -dims["k_z"])))
+        S = T_SPLIT
+        tri_old = sum(cs2_asset.tri_count(o) for o, _k in parts)
+        cab, car, old, joint = tram_split_parts(parts, dims)
+        s1 = CS.rejoin(old, cab + car, joint["pins"], joint["r_x"], (), joint["new_skip"], label="tram")
+        # pitch + fore-aft about the pin (the swing convention, T_SPLIT header)
+        s23 = CS.sweep_joint(cab, car, joint["joints"], label="tram")
+        for o, _k in old[-2:]:
+            _drop(o)
+        tc = sum(cs2_asset.tri_count(o) for o, _k in cab)
+        tk = sum(cs2_asset.tri_count(o) for o, _k in car)
+        measured = {"one_piece_lod0": tri_old, "cabin_lod0": tc, "carriage_lod0": tk,
+                    "pin_detail": tc + tk - tri_old}
+        print(f"[split] tram tallies {measured}")
+        if abs(args.hang - CARRIERS["tram"]["hang_m"]) < 1e-9:     # the shipping hang: asserted
+            if S["pin_detail"] is None or S["cabin_lod0"] is None or S["carriage_lod0"] is None:
+                raise RuntimeError(f"tram split: set T_SPLIT pin_detail / tallies from {measured}")
+            if (measured["pin_detail"], tc, tk) != (S["pin_detail"], S["cabin_lod0"], S["carriage_lod0"]):
+                raise RuntimeError(f"tram split: tallies {measured} differ from T_SPLIT")
+        car_z0, car_z1 = _world_z(car)
+        cab_z0, cab_z1 = _world_z(cab)
+        sd = tram_split_dims(dims, car_z0)
+        if abs(cab_z0) > 1e-5 or abs(cab_z1 - sd["cab_top"]) > 1e-5 or abs(car_z1 - dims["hang"]) > 1e-5:
+            raise RuntimeError(f"tram split: cabin z {cab_z0:.5f}..{cab_z1:.5f} (want 0..{sd['cab_top']:.5f}),"
+                               f" carriage top {car_z1:.5f} (want {dims['hang']})")
+        for o, _k in car:                                  # the carriage's base pivot (lowest vertex z 0)
+            o.data.transform(mathutils.Matrix.Translation((0.0, 0.0, -car_z0)))
+            o.data.update()
+        pivots = CS.pivot_numbers(joint["rope"], (0.0, 0.0, sd["k_z"]), car_z0, 0.0, dims["hang"],
+                                  dims["hang"] - dims["rope"],
+                                  outboard_note="symmetric (R29): the pin axis runs through both lugs")
+        pivots["pin_lugs_lateral_m"] = [-T["upright_dy"], T["upright_dy"]]
+        pivots["grip_haul_points_m"] = {"authoring": [[0.0, sy * T["haul_dy"],
+                                                       round(dims["haul_z"] - car_z0, 4)]
+                                                      for sy in (-1, 1)]}
+        pivots["k_one_piece_m"] = dims["k_z"]
+        split_info = {"pair": f"{names[0]} + {names[1]}", "body": names[0], "grip": names[1],
+                      "pivots": pivots, "S1_rejoin": s1, "S2_S3_sweep": s23,
+                      "roll": f"never at the pin (two coaxial lugs 1.90 m apart: each would move +-0.13 m "
+                              f"vertically at 8 deg); the sway rolls cabin + carriage together about the "
+                              f"track rope, <= {CS.TRAM_ROLL_DEG:g} deg",
+                      "tallies": measured, "K_m": round(sd["k_z"], 4),
+                      "K_one_piece_m": dims["k_z"], "car_z0_m": round(car_z0, 4),
+                      "joint_design": dict(S)}
+        dims = sd
+        summary["k_pin_m"] = round(sd["k_z"], 4)
+        summary["k_one_piece_m"] = sd["k_one_piece"]
         jobs.append(("cabin", names[0], cab, T["tex"]))
         jobs.append(("carriage", names[1], car, T["split_tex"]))
     results = []
@@ -4425,24 +5273,24 @@ def run_tram(args):
                   "clearance": clearance}
         result["uv_layers_before_sources"] = assert_uv_layers(plist, stage=f"tram {role} parts")
         table = []
-        if role == "carriage":
-            obj, sources, table = _build_carriage_lod0(plist, name)
-        else:
-            obj, sources, table = build_lod0(plist, name, T_DENSITY, table)
+        obj, sources, table = build_lod0(plist, name, T_DENSITY, table)
         result["parts"] = len(table)
-        z_range = {"whole": (0.0, dims["hang"]), "cabin": (0.0, dims["k_z"]),
-                   "carriage": (None, dims["hang"] - dims["k_z"])}[role]
+        # the split carriage: top contract only on the LODs (they lose the haul clamps, the lowest
+        # parts, so pinning a bottom would drag the plates down); LOD0's base pivot is T9 / build_lod0
+        z_range = {"whole": (0.0, dims["hang"]), "cabin": (0.0, dims.get("cab_top", dims["k_z"])),
+                   "carriage": (None, dims["hang"] - dims.get("car_z0", dims["k_z"]))}[role]
 
         def contracts(o, level, _role=role):
             return tram_contracts(o, level, dims, _role)
 
         def lod2(o, nm, _role=role):
             dele = T["lod2_delete"]
-            target = {"whole": T["lod2_target"], "cabin": 300, "carriage": 250}[_role]
+            # split 2026-11-03: the cabin's protected lugs (76 tris) come on top of the old 300, else the
+            # collapse leaves the body ~30 tris (T3b / T5 / T8 broke); the carriage ships its 220
+            # protected tris (carhead + cheeks + beams) either way
+            target = {"whole": T["lod2_target"], "cabin": 380, "carriage": 250}[_role]
             return make_lod(o, nm, 2, target, dele, T["lod2_protect"])
 
-        if role == "carriage":
-            z_range = (None, dims["hang"] - dims["k_z"])     # top contract only (pivot K)
         # all four logo quads share ONE pinned square (stamp_layout): paint it once
         # Revision 2: six logo quads share the square; the painter takes exactly one quad
         stamps = {} if role == "carriage" else {"logo_sidep0": (0.70, 0.70)}
@@ -4482,35 +5330,76 @@ def run_tram(args):
                          "sill_", "reveal_", "chamfer_", "roof_", "logo_", "hanger_", "fork_",
                          "carhead_", "carbeam_", "bogie_", "doorgrab_"),
                    detail=tram_detail, sets=T_SETS, detail_z=dims["rope"] - 1.5 - (
-                       dims["k_z"] if role == "carriage" else 0.0),
+                       dims.get("car_z0", dims["k_z"]) if role == "carriage" else 0.0),
                    ropes=_tram_ropes(dims, role), dims=dims,
                    contract_summary=dict(summary, role=role), rulings=base_rulings)
+        if split_info is not None:
+            cfg.update(keep_lods=True, prefab_numbers={
+                "mesh": name, "role": role, "pivots": split_info["pivots"],
+                "note": "split mesh: the one-piece prefab numbers (UtilityObject, hosted poses) stay "
+                        "with the SkiTramCabinA manifest; the code places the mesh from the pivots"})
         results.append(finish_asset(args, cfg, obj, sources, result))
+    if split_info is not None:
+        _tram_split_pair(results, split_info, tram_dims(args.hang), dims["car_z0"])
     return results
 
 
+def _tram_split_pair(results, split_info, dims_one, car_z0):
+    """Every T contract on the joined cabin + carriage at every LOD, the pair budget, the manifests."""
+    rc, rk = results
+    pair_rows, pair_tris = {}, {}
+    objs = {0: (bpy.data.objects[rc["name"]], bpy.data.objects[rk["name"]])}
+    lc, lk = rc.get("lod_objs") or [], rk.get("lod_objs") or []
+    for k, (a, b) in enumerate(zip(lc, lk), start=1):
+        objs[k] = (a, b)
+    try:
+        for k, (a, b) in sorted(objs.items()):
+            pr = split_pair_copy(a, b, car_z0, f"{rc['name']}Pair{k}")
+            try:
+                pair_rows[k] = tram_contracts(pr, k, dims_one, "whole")
+                pair_tris[k] = cs2_asset.tri_count(pr)
+            finally:
+                _drop(pr)
+    finally:
+        for o in lc + lk:
+            _drop(o)
+    pd, sd = T_SPLIT["pin_detail"] or 0, T_SPLIT["segs_detail"]
+    cap0, proj = T["lod0_cap"] + pd, T["lod0_projection"] + pd + sd
+    budget = {"LOD0": pair_tris[0], "LOD0_cap": cap0, "projection": proj, "pin_detail": pd,
+              "segs_detail": sd}
+    ok = pair_tris[0] <= cap0 and abs(pair_tris[0] - proj) <= 0.10 * proj
+    if 1 in pair_tris:
+        budget["LOD1_ratio"] = round(pair_tris[1] / pair_tris[0], 3)
+        ok = ok and pair_tris[1] <= 0.48 * pair_tris[0]
+    if 2 in pair_tris:
+        budget["LOD2"] = pair_tris[2]
+    budget["ok"] = ok
+    if not ok:
+        raise RuntimeError(f"tram split pair budget broken: {budget}")
+    split_info["pair_tris"] = {f"LOD{k}": v for k, v in pair_tris.items()}
+    split_info["pair_budget"] = budget
+    split_info["pair_contracts_held"] = {f"LOD{k}": [r["code"] for r in rows]
+                                         for k, rows in pair_rows.items()}
+    for r in results:
+        r.pop("lod_objs", None)
+        r["split"] = split_info
+        r["pair_contracts"] = pair_rows
+        _rewrite_manifest(r, {"split": split_info})
+    s1, s23, pv = split_info["S1_rejoin"], split_info["S2_S3_sweep"], split_info["pivots"]
+    print(f"PASS lift_cabin --split tram: S1 {s1['max_old_to_new_mm']}/{s1['max_new_to_old_mm']} mm, "
+          f"S2 gap {s23['gap_mm_min']}..{s23['gap_mm_max']} mm over {s23['poses']} poses (pitch + fore-aft "
+          f"at the pin), "
+          f"S3 {s23['clash_poses']} clashes, pair tris {pair_tris} (LOD0 cap {cap0}), K "
+          f"{split_info['K_m']} (one-piece {split_info['K_one_piece_m']}), pivots grip rope "
+          f"{pv['grip_rope_point_m']['prefab']} pin {pv['grip_pin_center_m']['prefab']}, body pin "
+          f"{pv['body_pin_center_m']['prefab']}")
+
+
 def _tram_ropes(dims, role):
-    off = dims["k_z"] if role == "carriage" else 0.0
+    off = dims.get("car_z0", dims["k_z"]) if role == "carriage" else 0.0
     return [(0.0, dims["rope"] - off, HV_ROPE_R, 4.5),
             (T["haul_dy"], dims["haul_z"] - off, LV_ROPE_R, 4.5),
             (-T["haul_dy"], dims["haul_z"] - off, LV_ROPE_R, 4.5)]
-
-
-def _build_carriage_lod0(parts, name):
-    """--split carriage: like build_lod0 but the pivot is K (geometry below z 0 allowed)."""
-    import cs2_bake
-    keys = sorted({k for _o, k in parts})
-    set_kit_uv_names(parts)
-    cs2_uv.set_density(parts, T_DENSITY)
-    table = cs2_asset.tag_parts(parts)
-    specs = material_specs()
-    sources = cs2_bake.material_sources({k: specs[k] for k in keys}, parts)
-    obj = join_parts(parts, name)
-    cs2_asset.store_part_table(obj, table)
-    cs2_asset.shade_by_angle(obj, SHADE_ANGLE)
-    cs2_asset.orient_for_net(obj)
-    obj[FRAME_PROP] = "net"
-    return obj, sources, table
 
 
 # ======================================================================================
@@ -4520,7 +5409,8 @@ def _build_carriage_lod0(parts, name):
 def parse_args(argv):
     ap = argparse.ArgumentParser(prog="lift_cabin.py")
     ap.add_argument("--kind", required=True, choices=("gondola", "tram"))
-    ap.add_argument("--out", default=DEFAULT_OUT, help="letter folder (with --export)")
+    ap.add_argument("--out", default=None,
+                    help="letter folder (with --export; default cabins/A, cabins/B with --split)")
     ap.add_argument("--export", action="store_true",
                     help="write the asset folder under --out (else a temp draft folder)")
     ap.add_argument("--name", default=None)
@@ -4542,22 +5432,36 @@ def parse_args(argv):
                          "which FAILS G3/G6 by measurement (protected contract parts ~244 tris "
                          "> the ~200 budget, the shell collapses) - kept to re-measure C6")
     ap.add_argument("--hang", type=float, default=CARRIERS["tram"]["hang_m"])
-    ap.add_argument("--split", action="store_true")
+    ap.add_argument("--split", action="store_true",
+                    help="carrier split (2026-11-03): body + grip meshes, letter B (both kinds)")
+    ap.add_argument("--envelope", action="store_true",
+                    help="with --split (gondola): the B2 v2 grip passage (GD_ENVELOPE): grip letter C, "
+                         "the shipped B atlas remapped, no bake")
+    ap.add_argument("--remap-from", default=DEFAULT_SPLIT_OUT,
+                    help="--envelope: the letter folder holding the shipped split meshes and maps")
     ap.add_argument("--ab", default=DEFAULT_AB)
     ap.add_argument("--no-validate", action="store_true")
     args = ap.parse_args(argv)
     if args.outboard is None:          # nitpick A3: the gondola ships -Y; the tram is symmetric (R29)
         args.outboard = GD_OUTBOARD if args.kind == "gondola" else "+Y"
-    if args.kind == "gondola" and (args.split or abs(args.hang - CARRIERS["tram"]["hang_m"]) > 1e-9):
-        ap.error("--split / --hang are tram options")
+    if args.out is None:
+        args.out = DEFAULT_SPLIT_OUT if args.split else DEFAULT_OUT
+    if args.kind == "gondola" and abs(args.hang - CARRIERS["tram"]["hang_m"]) > 1e-9:
+        ap.error("--hang is a tram option")
+    if args.kind == "gondola" and args.split and (args.lod2 != "proxy" or args.name):
+        ap.error("--split builds the SPLIT_NAMES pair with the proxy LOD2 (no --name / --lod2 decimate)")
     if args.kind == "tram" and (args.outboard != "+Y" or args.lod2 != "proxy"):
         ap.error("--outboard / --lod2 are gondola options (the tram is symmetric, R29)")
+    if args.envelope and (args.kind != "gondola" or not args.split):
+        ap.error("--envelope is a gondola --split option")
     return args
 
 
 def run(argv):
     """Build one kind; returns a list of per-asset result dicts. Clears the scene first."""
+    global ENVELOPE
     args = parse_args(argv)
+    ENVELOPE = bool(args.envelope)
     if not bpy.app.background:
         raise RuntimeError("lift_cabin runs headless only (ROUND-SPEC R10)")
     clear_scene()

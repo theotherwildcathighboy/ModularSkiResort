@@ -34,6 +34,11 @@ function rate(build: readonly BuildItem[], id: BuildItemId, field: "monthlyPerHa
   return typeof v === "number" ? numArg(v, Unit.Money) : DASH;
 }
 
+/** A rate that bills now (a row shows even when no run lists the feature, e.g. a run that just changed). */
+function billed(v: number | undefined): boolean {
+  return typeof v === "number" && v > 0;
+}
+
 /** A money value cell (StableWidth of the shared samples). */
 function Cell({ samples, children }: { samples: NumberSamples; children: JSX.Element | string }): JSX.Element {
   return <StableWidth samples={samples.money} align="end">{children}</StableWidth>;
@@ -49,14 +54,26 @@ function incomeValue(v: number): JSX.Element | string {
   return Number.isFinite(v) && v >= 0 ? <SignedNum value={v} unit={Unit.Money} /> : DASH;
 }
 
-/** The run kinds this area has at least one run of (the Runs tooltip lists only their rates). */
-function kindsOf(runs: readonly RunRow[]): ReadonlySet<number> {
-  const s = new Set<number>();
-  for (const r of runs) if (r) s.add(r.kind);
-  return s;
+/** The features this area's runs have (the Runs tooltip lists only their rows; R3): natural, groomed, guns on, lights on, cat track with
+ *  guns on. */
+interface RunFeatureSet { natural: boolean; groomed: boolean; guns: boolean; lights: boolean; tracks: boolean }
+
+function featuresOf(runs: readonly RunRow[]): RunFeatureSet {
+  const f: RunFeatureSet = { natural: false, groomed: false, guns: false, lights: false, tracks: false };
+  for (const r of runs) {
+    if (!r) continue;
+    if (r.kind === RUN_KIND.Natural) f.natural = true;
+    else if (r.kind === RUN_KIND.CatTrack) f.tracks ||= r.gunSpacingM > 0;
+    else {
+      f.groomed = true;
+      f.guns ||= r.gunSpacingM > 0;
+      f.lights ||= r.lightSpacingM > 0;
+    }
+  }
+  return f;
 }
 
-/** The FINANCES header with its Info glyph: the column is "Month of <name> so far", "(partial)" while counted since a load. */
+/** The FINANCES header with its Info glyph: the column is "<name> so far", "(partial)" while counted since a load. */
 function MoneyHeader({ l, month, samples, t }: { l: ResortLive | null; month: string; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
     <InfoLine
@@ -142,8 +159,8 @@ function BusRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats
   );
 }
 
-/** Run upkeep booked this month; the tooltip lists today's rate per month for each run kind the area has. */
-function RunsRow({ l, kinds, samples, t }: { l: ResortLive | null; kinds: ReadonlySet<number>; samples: NumberSamples; t: Translate }): JSX.Element {
+/** Run upkeep booked this month; the tooltip lists today's rate per month for each feature the area's runs have (or that bills now). */
+function RunsRow({ l, feats, samples, t }: { l: ResortLive | null; feats: RunFeatureSet; samples: NumberSamples; t: Translate }): JSX.Element {
   const ha = (v: number | undefined): JSX.Element | string => numArg(v ?? -1, Unit.FloatSingleFraction);
   return (
     <InfoLine
@@ -152,10 +169,11 @@ function RunsRow({ l, kinds, samples, t }: { l: ResortLive | null; kinds: Readon
       value={<Cell samples={samples}>{costValue(l ? l.runCostMonth : -1)}</Cell>}
       tip={<TipLines lines={[
         t(HUB_LOC.moneyTipRunsBooked),
-        kinds.has(RUN_KIND.Natural) && { label: <LocText entry={HUB_FMT.moneyRowNatural} args={{ HA: ha(l?.haNatural) }} />, value: <Num value={0} unit={Unit.Money} /> },
-        kinds.has(RUN_KIND.Groomed) && { label: <LocText entry={HUB_FMT.moneyRowGroomed} args={{ HA: ha(l?.haGroomed) }} />, value: costValue(l ? l.costGroomedMonth : -1) },
-        kinds.has(RUN_KIND.Snowmaking) && { label: <LocText entry={HUB_FMT.moneyRowSnowmaking} args={{ HA: ha(l?.haSnowmaking) }} />, value: costValue(l ? l.costSnowmakingMonth : -1) },
-        kinds.has(RUN_KIND.Night) && { label: <LocText entry={HUB_FMT.moneyRowNight} args={{ HA: ha(l?.haNight) }} />, value: costValue(l ? l.costNightMonth : -1) },
+        feats.natural && { label: <LocText entry={HUB_FMT.moneyRowNatural} args={{ HA: ha(l?.haNatural) }} />, value: <Num value={0} unit={Unit.Money} /> },
+        (feats.groomed || billed(l?.costGroomingMonth)) && { label: <LocText entry={HUB_FMT.moneyRowGrooming} args={{ HA: ha(l?.haGroomed) }} />, value: costValue(l ? l.costGroomingMonth : -1) },
+        (feats.guns || billed(l?.costSnowmakingMonth)) && { label: <LocText entry={HUB_FMT.moneyRowSnowmaking} args={{ HA: ha(l?.haSnowmaking) }} />, value: costValue(l ? l.costSnowmakingMonth : -1) },
+        (feats.lights || billed(l?.costLightsMonth)) && { label: <LocText entry={HUB_FMT.moneyRowLights} args={{ HA: ha(l?.haLit) }} />, value: costValue(l ? l.costLightsMonth : -1) },
+        (feats.tracks || billed(l?.costCatTracksMonth)) && { label: <LocText entry={HUB_FMT.moneyRowCatTracks} args={{ HA: ha(l?.haCatTracks) }} />, value: costValue(l ? l.costCatTracksMonth : -1) },
       ]} />}
     />
   );
@@ -345,8 +363,8 @@ function AlsoBlock({ l, city, samples, t }: { l: ResortLive | null; city: CitySt
   );
 }
 
-function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
-  row: ResortRow; l: ResortLive | null; city: CityStats; build: readonly BuildItem[]; kinds: ReadonlySet<number>;
+function SignMoney({ row, l, city, build, feats, problems, samples, t }: {
+  row: ResortRow; l: ResortLive | null; city: CityStats; build: readonly BuildItem[]; feats: RunFeatureSet;
   problems: readonly ProblemRow[]; samples: NumberSamples; t: Translate;
 }): JSX.Element {
   const month = monthName(city.month, t);
@@ -360,7 +378,7 @@ function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
       <PassesMonthRow l={l} city={city} samples={samples} t={t} />
       <Fold view="money" id="costs" header label={t(HUB_LOC.sectionCosts)}>
       <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
-      <RunsRow l={l} kinds={kinds} samples={samples} t={t} />
+      <RunsRow l={l} feats={feats} samples={samples} t={t} />
       <BusRow l={l} city={city} samples={samples} t={t} />
       <SoFarRow label={t(HUB_LOC.moneyRowBuildings)} value={l ? l.buildingsSoFar : -1} rateNow={l ? l.buildingsMonth : -1} l={l}
         rwh={city.realisticWorkplaces} samples={samples} t={t} />
@@ -384,7 +402,7 @@ function UnlinkedMoney({ row, l, city, build, samples, t }: {
     <>
       <MoneyHeader l={l} month={monthName(city.month, t)} samples={samples} t={t} />
       <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
-      {l && l.runCostMonth > 0 && <RunsRow l={l} kinds={new Set<number>()} samples={samples} t={t} />}
+      {l && l.runCostMonth > 0 && <RunsRow l={l} feats={featuresOf([])} samples={samples} t={t} />}
       <Divider />
       <NetRow l={l} samples={samples} t={t} />
       <Divider />
@@ -411,5 +429,5 @@ export function MoneyView(): JSX.Element {
   if (!row) return <div className={styles.dimLine}>{DASH}</div>;
   const l = liveOf(live, cur.isUnlinked ? null : row.sign);
   if (cur.isUnlinked) return <UnlinkedMoney row={row} l={l} city={city} build={build} samples={samples} t={t} />;
-  return <SignMoney row={row} l={l} city={city} build={build} kinds={kindsOf(runsOf(runs, row.sign))} problems={problems} samples={samples} t={t} />;
+  return <SignMoney row={row} l={l} city={city} build={build} feats={featuresOf(runsOf(runs, row.sign))} problems={problems} samples={samples} t={t} />;
 }

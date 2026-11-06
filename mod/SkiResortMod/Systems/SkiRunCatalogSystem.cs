@@ -90,10 +90,13 @@ namespace SkiResortMod.Systems
         {
             public Entity Entity;
             public string Name;
-            public int Kind;
+            public int Kind;             // the prefab kind (the look and the default name); behavior reads Features
+            public RunFeatures Features; // SkiRunPropSystem.FeaturesOf(Entity, Kind) at this rebuild; a slider or a Groomed toggle requests one
             public bool Bound;
             public bool CustomName;
-            public int Ordinal;      // N of the default name, per (Gate, Kind), top height descending
+            public int Ordinal;      // N of the default name, per (Gate, NameGroup), top height descending
+            public int NameIndex;    // the trail name pick (SkiRunName); SkiRunNameRules.None = none (the pool full, not given yet)
+            public byte NameForm;    // its form (SkiRunNameRules.Form*)
             public float LengthM;
             public float DropM;
             public float AreaM2;
@@ -144,22 +147,20 @@ namespace SkiResortMod.Systems
             public byte Reason;
         }
 
-        // Kind tables, indexed by RunKind. m_Templates takes its length from DefaultNameKeys so the tables cannot drift apart (a longer
-        // key table with a 3-slot m_Templates would throw in RefreshTemplates, UIUpdate). CatTrack's default name is "Cat track {N}",
-        // numbered per (resort, kind).
+        // Kind tables, indexed by RunKind. The default names by name group (NameGroup: 0 piste, 1 cat track): a run shows its trail name
+        // (SkiRunName, R3 DECISIONS 578), in its "Upper" / "Lower" form (FormKeys, by SkiRunNameRules.Form* - 1), and "Run {N}" or
+        // "Cat track {N}" only without one; N per (resort, group). m_Templates takes its length from DefaultNameKeys so the tables cannot
+        // drift apart.
         private static readonly string[] KindNames = { "Groomed", "Snowmaking", "Night", "Natural", "CatTrack" };
         private static readonly string[] BandNames = { "Flat", "Green", "Blue", "Black", "Double black" };
-        private static readonly string[] DefaultNameKeys =
-        {
-            "SkiResort.Hub.RUN_DEFAULT[Groomed]", "SkiResort.Hub.RUN_DEFAULT[Snowmaking]",
-            "SkiResort.Hub.RUN_DEFAULT[Night]", "SkiResort.Hub.RUN_DEFAULT[Natural]",
-            "SkiResort.Hub.RUN_DEFAULT[CatTrack]",
-        };
-        private static readonly string[] DefaultNameEnglish =
-            { "Groomed run {N}", "Snowmaking run {N}", "Night run {N}", "Natural run {N}", "Cat track {N}" };
-        private const string OrdinalPlaceholder = "{N}";
+        private static readonly string[] DefaultNameKeys = { "SkiResort.Hub.RUN_DEFAULT[Run]", "SkiResort.Hub.RUN_DEFAULT[CatTrack]" };
+        private static readonly string[] DefaultNameEnglish = { "Run {N}", "Cat track {N}" };
+        private static readonly string[] FormKeys = { "SkiResort.Hub.RUN_NAME_FORM[Upper]", "SkiResort.Hub.RUN_NAME_FORM[Lower]" };
+        private static readonly string[] FormEnglish = { "Upper {NAME}", "Lower {NAME}" };
+        private const string OrdinalPlaceholder = "{N}", NamePlaceholder = "{NAME}";
 
         private SkiRunOwnershipSystem m_Ownership;
+        private SkiRunPropSystem m_RunProps;
         private NameSystem m_NameSystem;
         private TerrainSystem m_TerrainSystem;
         private ToolSystem m_ToolSystem;
@@ -177,6 +178,8 @@ namespace SkiResortMod.Systems
 
         // Default-name templates (one per kind) and the formatted names, keyed (kind << 16) | N
         private readonly string[] m_Templates = new string[DefaultNameKeys.Length];
+        private readonly string[] m_FormTemplates = new string[FormKeys.Length];
+        private readonly string[] m_TrailNames = new string[SkiRunNameRules.Count * 3];   // by index * 3 + form; resolved on first use, cleared with the templates
         private readonly Dictionary<int, string> m_NameCache = new Dictionary<int, string>();
         private int m_NamesGeneration;
         private int m_TemplatesGeneration = -1;
@@ -184,9 +187,13 @@ namespace SkiResortMod.Systems
         private Action<ToolBaseSystem> m_ToolChangedHandler;
 
         private readonly Dictionary<Entity, RunRating> m_Ratings = new Dictionary<Entity, RunRating>();
+        // A re-emitted run's custom name until NameSystem has it (RekeyRun); dropped by the next rebuild that finds it there.
+        private readonly Dictionary<Entity, string> m_CarriedNames = new Dictionary<Entity, string>();
         private readonly Queue<QueueEntry> m_Front = new Queue<QueueEntry>();
         private readonly Queue<QueueEntry> m_Back = new Queue<QueueEntry>();
         private readonly Dictionary<Entity, byte> m_Queued = new Dictionary<Entity, byte>();
+        private readonly RunAliases m_RunAliases = new RunAliases();   // re-emitted runs (SkiRunReemitSystem)
+        private Action<Entity, Entity> m_MoveRunState;
         private readonly List<Entity> m_ScratchEntities = new List<Entity>();
         private SlopeGrid m_RateGrid = new SlopeGrid();
         private SlopeResult m_RateResult = new SlopeResult();
@@ -308,6 +315,24 @@ namespace SkiResortMod.Systems
             return false;
         }
 
+        /// <summary>A run was re-emitted (SkiRunReemitSystem): its rating follows the new entity (keyed by the same nodes, so it stands;
+        /// a rating still queued is redone for the new one), and its custom name stands in until the hub writes it to NameSystem at
+        /// UIUpdate, so the Runs list never shows a default name in between. Main thread.</summary>
+        internal void RekeyRun(Entity from, Entity to, string customName)
+        {
+            if (!string.IsNullOrEmpty(customName))
+                m_CarriedNames[to] = customName;
+            if (m_MoveRunState == null)
+                m_MoveRunState = MoveRunState;
+            m_RunAliases.Add(from, to);
+            m_RunAliases.Apply(m_MoveRunState);
+        }
+
+        private void MoveRunState(Entity from, Entity to)
+        {
+            RunAliases.Move(m_Ratings, from, to);
+        }
+
         /// <summary>Rebuild on the next OnUpdate even while nobody listens (dev tab, DUMP)</summary>
         public void RequestRebuild(string why)
         {
@@ -331,6 +356,7 @@ namespace SkiResortMod.Systems
             public Entity Run;
             public Entity Gate;
             public int Kind;
+            public RunFeatures Features;
             public byte RateState;
             public sbyte Band;
             public float AreaM2;
@@ -365,6 +391,7 @@ namespace SkiResortMod.Systems
                 Run = row.Entity,
                 Gate = row.Gate,
                 Kind = row.Kind,
+                Features = row.Features,
                 RateState = row.RateState,
                 Band = row.Band,
                 AreaM2 = row.AreaM2,
@@ -406,6 +433,7 @@ namespace SkiResortMod.Systems
         {
             base.OnCreate();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
+            m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
             m_NameSystem = World.GetOrCreateSystemManaged<NameSystem>();
             m_TerrainSystem = World.GetOrCreateSystemManaged<TerrainSystem>();
             m_ToolSystem = World.GetOrCreateSystemManaged<ToolSystem>();
@@ -561,6 +589,8 @@ namespace SkiResortMod.Systems
             Demand = false;
             // Nothing of the previous city survives
             m_Ratings.Clear();
+            m_RunAliases.Clear();
+            m_CarriedNames.Clear();
             m_Front.Clear();
             m_Back.Clear();
             m_Queued.Clear();
@@ -633,8 +663,8 @@ namespace SkiResortMod.Systems
                          $"RebuildLineWindowS={Tuning.RebuildLineWindowS:0.##} s (the rest counted). Per run: " +
                          "area = Geometry.m_SurfaceArea (plan), U1 estimates length = (P + sqrt(max(0, P² − 16A))) / 4 over the " +
                          "node ring and drop = max − min node height until rated; Gate = TryGetBoundGate; kinds " +
-                         $"[{string.Join(", ", KindNames)}]; default names [{string.Join(", ", DefaultNameEnglish)}] numbered " +
-                         "per (resort, kind) by top height (OD-3), custom names from NameSystem win; rows sent linked first, " +
+                         $"[{string.Join(", ", KindNames)}]; default names: a piste's trail name (SkiRunName, {SkiRunNameRules.Count} names), else " +
+                         $"[{string.Join(", ", DefaultNameEnglish)}] numbered per (resort, piste / cat track) by top height (OD-3), custom names from NameSystem win; rows sent linked first, " +
                          "unlinked last. RATING CACHE (hub-u2-spec §3.5): SkiRunRater on the built node ring, stepCurrent 0, " +
                          "no height reuse; key = FNV-1a of node x/z + count (edit → front), y-key = node y + count (re-snap → " +
                          "background 'terrain'); warm-up entries never promoted by 'bind'; band -1 pending, -2 cannot be rated; " +
@@ -660,6 +690,8 @@ namespace SkiResortMod.Systems
             try
             {
                 m_Frame++;
+                if (m_RunAliases.Any)
+                    m_RunAliases.Apply(m_MoveRunState);
                 // Terrain epoch: one int compare per frame, hub open or not
                 if (m_TerrainEpochDueFrame >= 0 && m_Frame >= m_TerrainEpochDueFrame)
                 {
@@ -751,16 +783,16 @@ namespace SkiResortMod.Systems
                 CollectRuns();
             }
 
-            // Ordinals: per (Gate, kind), top height descending
+            // Ordinals: per (Gate, name group), top height descending
             m_Scratch.Sort(OrdinalOrder.Instance);
             Entity lastGate = new Entity { Index = -1, Version = -1 };
-            int lastKind = -1, n = 0;
+            int lastGroup = -1, n = 0;
             for (int r = 0; r < m_Scratch.Count; r++)
             {
                 RunRow row = m_Scratch[r];
-                if (row.Kind != lastKind || row.Gate != lastGate)
+                if (NameGroup(in row) != lastGroup || row.Gate != lastGate)
                 {
-                    lastKind = row.Kind;
+                    lastGroup = NameGroup(in row);
                     lastGate = row.Gate;
                     n = 0;
                 }
@@ -777,10 +809,16 @@ namespace SkiResortMod.Systems
                 {
                     row.Name = custom;
                     row.CustomName = true;
+                    m_CarriedNames.Remove(row.Entity);
+                }
+                else if (m_CarriedNames.TryGetValue(row.Entity, out string carried))
+                {
+                    row.Name = carried;
+                    row.CustomName = true;
                 }
                 else
                 {
-                    row.Name = DefaultName(row.Kind, row.Ordinal);
+                    row.Name = DefaultName(in row);
                     row.CustomName = false;
                 }
                 ApplyRating(ref row);
@@ -934,6 +972,7 @@ namespace SkiResortMod.Systems
                 hash = SkiRunRatingRules.Mix(hash, (uint)row.Gate.Index);
                 hash = SkiRunRatingRules.Mix(hash, (uint)row.Gate.Version);
                 hash = SkiRunRatingRules.Mix(hash, (uint)row.Kind);
+                hash = SkiRunRatingRules.Mix(hash, (uint)row.Features.GetHashCode());   // a slider or a Groomed toggle is a facts change
                 hash = SkiRunRatingRules.Mix(hash, (uint)row.RateState | ((uint)(byte)row.Band << 8));
                 hash = SkiRunRatingRules.Mix(hash, math.asuint(row.AreaM2));
                 hash = SkiRunRatingRules.Mix(hash, math.asuint(row.LengthM));
@@ -1034,6 +1073,7 @@ namespace SkiResortMod.Systems
                         {
                             Entity = entities[i],
                             Kind = kind,
+                            Features = m_RunProps.FeaturesOf(entities[i], kind),
                             AreaM2 = Finite(g.m_SurfaceArea),
                             TopY = Finite(g.m_Bounds.max.y),
                             CenterX = Finite(g.m_CenterPosition.x),
@@ -1046,6 +1086,10 @@ namespace SkiResortMod.Systems
             for (int r = 0; r < m_Scratch.Count; r++)
             {
                 RunRow row = m_Scratch[r];
+                SkiRunName pick = EntityManager.HasComponent<SkiRunName>(row.Entity)
+                    ? EntityManager.GetComponentData<SkiRunName>(row.Entity) : new SkiRunName(SkiRunNameRules.None, SkiRunNameRules.FormNone);
+                row.NameIndex = pick.m_Index;
+                row.NameForm = pick.m_Form;
                 if (EntityManager.HasBuffer<Game.Areas.Node>(row.Entity))
                 {
                     DynamicBuffer<Game.Areas.Node> nodes =
@@ -1601,6 +1645,7 @@ namespace SkiResortMod.Systems
                 return;
             m_TemplatesGeneration = m_NamesGeneration;
             m_NameCache.Clear();
+            Array.Clear(m_TrailNames, 0, m_TrailNames.Length);
             var dictionary = GameManager.instance?.localizationManager?.activeDictionary;
             for (int k = 0; k < m_Templates.Length; k++)
             {
@@ -1610,6 +1655,41 @@ namespace SkiResortMod.Systems
                     template = value;
                 m_Templates[k] = template ?? DefaultNameEnglish[k];
             }
+            for (int k = 0; k < m_FormTemplates.Length; k++)
+            {
+                string template = null;
+                if (dictionary != null && dictionary.TryGetValue(FormKeys[k], out string value) &&
+                    value != null && value.IndexOf(NamePlaceholder, StringComparison.Ordinal) >= 0)
+                    template = value;
+                m_FormTemplates[k] = template ?? FormEnglish[k];
+            }
+        }
+
+        /// <summary>0 for a piste, 1 for a cat track: the default-name template and the ordinal's group.</summary>
+        private static int NameGroup(in RunRow row) => row.Features.IsCatTrack ? 1 : 0;
+
+        /// <summary>A run's trail name in its form (localized, re-resolved when the language changes), else the group's "{N}" template.</summary>
+        private string DefaultName(in RunRow row)
+        {
+            int group = NameGroup(in row);
+            if (row.NameIndex >= 0 && row.NameIndex < SkiRunNameRules.Count)
+            {
+                int form = row.NameForm <= SkiRunNameRules.FormLower ? row.NameForm : SkiRunNameRules.FormNone;
+                int slot = row.NameIndex * 3 + form;
+                string trail = m_TrailNames[slot];
+                if (trail == null)
+                {
+                    var dictionary = GameManager.instance?.localizationManager?.activeDictionary;
+                    trail = dictionary != null && dictionary.TryGetValue(SkiRunNameRules.Key(row.NameIndex), out string value) &&
+                            !string.IsNullOrEmpty(value) ? value : "";
+                    if (trail.Length > 0 && form != SkiRunNameRules.FormNone)
+                        trail = m_FormTemplates[form - 1].Replace(NamePlaceholder, trail);
+                    m_TrailNames[slot] = trail;
+                }
+                if (trail.Length > 0)
+                    return trail;
+            }
+            return DefaultName(group, row.Ordinal);
         }
 
         private string DefaultName(int kind, int ordinal)
@@ -1654,8 +1734,9 @@ namespace SkiResortMod.Systems
                     return a.Gate.Index < b.Gate.Index ? -1 : 1;
                 if (a.Gate.Version != b.Gate.Version)
                     return a.Gate.Version < b.Gate.Version ? -1 : 1;
-                if (a.Kind != b.Kind)
-                    return a.Kind < b.Kind ? -1 : 1;
+                int ga = NameGroup(in a), gb = NameGroup(in b);
+                if (ga != gb)
+                    return ga < gb ? -1 : 1;
                 return Spatial(a, b);
             }
         }

@@ -61,7 +61,7 @@ namespace SkiResortMod.Systems
             var list = new List<Target>(40);
             foreach (CatalogName n in SkiCatalog.AllPrefabNames())
             {
-                if (n.Kind == CatalogKind.Carrier)
+                if (n.Kind == CatalogKind.Carrier || n.Kind == CatalogKind.Grip)
                     continue;
                 list.Add(new Target(n.TypeName, n.Name, n.Kind));
             }

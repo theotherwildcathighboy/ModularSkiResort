@@ -25,6 +25,51 @@ namespace LiftBatch
         private static int Main()
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            // Dev shortcut: LIFTBATCH_ONLY=eishain runs the EI tests alone (seconds instead of the whole host); CI runs everything.
+            if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "eishain")
+            {
+                EishainTests.Run(Check);
+                foreach (string line in EishainTests.Report)
+                    Console.WriteLine("EISH  " + line);
+                Console.WriteLine("SUMMARY  LiftBatch (EI only) checks=" + s_Checks + " failures=" + s_Failures);
+                return s_Failures;
+            }
+
+            if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "reload")
+            {
+                ReloadTests.Run(Check);
+                foreach (string line in ReloadTests.Report)
+                    Console.WriteLine("RELOAD " + line);
+                Console.WriteLine("SUMMARY  LiftBatch (RL only) checks=" + s_Checks + " failures=" + s_Failures);
+                return s_Failures;
+            }
+
+            if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "keepout")
+            {
+                KeepoutTests.Run(Check);
+                foreach (string line in KeepoutTests.Report)
+                    Console.WriteLine("ROADS " + line);
+                Console.WriteLine("SUMMARY  LiftBatch (KO only) checks=" + s_Checks + " failures=" + s_Failures);
+                return s_Failures;
+            }
+
+            if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "cross")
+            {
+                CrossingTests.Run(Check);
+                foreach (string line in CrossingTests.Report)
+                    Console.WriteLine("CROSS " + line);
+                Console.WriteLine("SUMMARY  LiftBatch (CX only) checks=" + s_Checks + " failures=" + s_Failures);
+                return s_Failures;
+            }
+
+            if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "pitch")
+            {
+                PitchCapTests.Run(Check);
+                foreach (string line in PitchCapTests.Report)
+                    Console.WriteLine("PITCH " + line);
+                Console.WriteLine("SUMMARY  LiftBatch (PC only) checks=" + s_Checks + " failures=" + s_Failures);
+                return s_Failures;
+            }
 
             CensusStraightLift();
             CensusMiddleSectionDeletedAndRedrawn();
@@ -83,6 +128,7 @@ namespace LiftBatch
             LoopCacheTests.Run(Check);
             ShuttleTests.Run(Check);
             PowerGateTests.Run(Check);
+            TreeCorridorTests.Run(Check);
             LoopHoldTests.Run(Check);
             ServedLinkTests.Run(Check);
             LiftPlannerTests.Run(Check);
@@ -95,8 +141,42 @@ namespace LiftBatch
             TowerNumberTests.Run(Check);
             LoopPaceTests.Run(Check);
             AlignTests.Run(Check);
+            CarrierPoseTests.Run(Check);
             BendTests.Run(Check);
             PowerJoinTests.Run(Check);
+            LiftIconTests.Run(Check);
+            RopePickTests.Run(Check);
+            BreakoverTests.Run(Check);
+            foreach (string line in BreakoverTests.Report)
+                Console.WriteLine("ANGLE " + line);
+            TramSaddleTests.Run(Check);
+            foreach (string line in TramSaddleTests.Report)
+                Console.WriteLine("SADDL " + line);
+            PitchCapTests.Run(Check);
+            foreach (string line in PitchCapTests.Report)
+                if (!line.StartsWith("PC-0 row", StringComparison.Ordinal))   // the per-line rows: LIFTBATCH_ONLY=pitch
+                    Console.WriteLine("PITCH " + line);
+            CrossingTests.Run(Check);
+            foreach (string line in CrossingTests.Report)
+                Console.WriteLine("CROSS " + line);
+            KeepoutTests.Run(Check);
+            foreach (string line in KeepoutTests.Report)
+                Console.WriteLine("ROADS " + line);
+            PadFacingTests.Run(Check);
+            foreach (string line in PadFacingTests.Report)
+                Console.WriteLine("PAD   " + line);
+            DirectionTests.Run(Check);
+            foreach (string line in DirectionTests.Report)
+                Console.WriteLine("DIR   " + line);
+            FallbackTests.Run(Check);
+            foreach (string line in FallbackTests.Report)
+                Console.WriteLine("FALLB " + line);
+            EishainTests.Run(Check);
+            foreach (string line in EishainTests.Report)
+                Console.WriteLine("EISH  " + line);
+            ReloadTests.Run(Check);
+            foreach (string line in ReloadTests.Report)
+                Console.WriteLine("RELOAD " + line);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));
@@ -140,8 +220,8 @@ namespace LiftBatch
         internal sealed class World
         {
             private struct St { public bool IsBase; public float3 Pos; public quaternion Rot; }
-            private struct Nd { public float3 Pos; public int Station; public bool Tower; }
-            private struct Ed { public int A, B, Chairs; }
+            private struct Nd { public float3 Pos; public int Station; public bool Tower; public float TrainOver; }
+            private struct Ed { public int A, B, Chairs; public bool Low; public float LowClear; }
 
             private readonly SortedDictionary<int, St> m_Stations = new SortedDictionary<int, St>();
             private readonly SortedDictionary<int, Nd> m_Nodes = new SortedDictionary<int, Nd>();
@@ -169,6 +249,14 @@ namespace LiftBatch
                 m_Nodes[id] = new Nd { Pos = pos, Station = station, Tower = station == 0 && tower };
             }
 
+            /// <summary>The degrees node <paramref name="node"/>'s tower rope asks past its train (TrainPitchSystem's figure, LiftCensus.Node.TrainOverDeg).</summary>
+            public void SetTrainOver(int node, float deg)
+            {
+                Nd n = m_Nodes[node];
+                n.TrainOver = deg;
+                m_Nodes[node] = n;
+            }
+
             public void SetTower(int node, bool tower)
             {
                 Nd n = m_Nodes[node];
@@ -179,6 +267,16 @@ namespace LiftBatch
             public void Edge(int id, int a, int b, int chairs = 10)
             {
                 m_Edges[id] = new Ed { A = a, B = b, Chairs = chairs };
+            }
+
+            /// <summary>Edge <paramref name="id"/>'s carriers pass <paramref name="clearM"/> above the ground, under the floor (LiftClearanceSystem's
+            /// figure, LiftCensus.Edge.Low*); the low point is the edge's midpoint.</summary>
+            public void SetLow(int id, float clearM)
+            {
+                Ed e = m_Edges[id];
+                e.Low = true;
+                e.LowClear = clearM;
+                m_Edges[id] = e;
             }
 
             public void RemoveEdge(int id) => m_Edges.Remove(id);
@@ -234,6 +332,9 @@ namespace LiftBatch
                         EndPos = b.Pos,
                         LengthM = math.distance(a.Pos, b.Pos),
                         Chairs = e.Chairs,
+                        Low = e.Low,
+                        LowClearM = e.LowClear,
+                        LowAt = e.Low ? math.lerp(a.Pos, b.Pos, 0.5f) : default,
                     });
                     foreach (int n in new[] { e.A, e.B })
                     {
@@ -247,6 +348,7 @@ namespace LiftBatch
                             Station = si,
                             HasTower = nd.Tower,
                             Position = nd.Pos,
+                            TrainOverDeg = nd.TrainOver,
                         });
                     }
                 }

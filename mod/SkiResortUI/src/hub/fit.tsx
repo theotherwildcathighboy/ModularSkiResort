@@ -3,13 +3,14 @@
  * The panel keeps a fixed height (HubPanel .panelFixed); its content must fit at UI text scale 1.0 and 1.25 (harness/layout-check.js,
  * tools/test-hub-layout.js). Fold: a section header row with a chevron; one fold per view is open at a time (accordion), so a view's
  * height is its closed height plus its tallest fold; rows render flat so useViewPager can page them when a view is still taller than
- * the box. FitContext carries the panel body's ref (without it nothing is measured). These buttons are content-area buttons, so
- * FOCUS_DISABLED does not apply.
+ * the box. FitContext carries the panel body's ref (without it nothing is measured). The fold and pager buttons pass
+ * focusKey={FOCUS_DISABLED} like every hub control (rule R15): the hub is mouse-only and never takes the game's key focus.
  */
 import { createContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { useT } from "../l10n";
 import { folds$, openFold, toggleFold } from "./hubState";
@@ -38,7 +39,7 @@ export function Fold({ view, id, label, value, tip, header, children }: {
   return (
     <>
       <Tip tip={tip}>
-        <Button theme={{ button: cx(styles.infoLine, styles.foldRow, header && styles.infoHeader, open && styles.foldRowOpen) }}
+        <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.infoLine, styles.foldRow, header && styles.infoHeader, open && styles.foldRowOpen) }}
           onSelect={() => toggleFold(view, id)}>
           <Glyph src={open ? GLYPH_FOLD_OPEN : GLYPH_FOLD_CLOSED} className={styles.foldMark} />
           <div className={styles.infoLabel}>{label}</div>
@@ -76,7 +77,7 @@ export function Pager({ fit }: { fit: FitPage }): JSX.Element {
       {many && (
         <>
           <Tip tip={t(HUB_LOC.pagePrev)}>
-            <Button theme={{ button: cx(styles.pagerButton, fit.page <= 0 && styles.pagerButtonOff) }}
+            <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pagerButton, fit.page <= 0 && styles.pagerButtonOff) }}
               onSelect={() => { if (fit.page > 0) fit.setPage(fit.page - 1); }}>
               <Glyph src="Media/Glyphs/ThickStrokeArrowLeft.svg" className={styles.pagerGlyph} />
             </Button>
@@ -85,7 +86,7 @@ export function Pager({ fit }: { fit: FitPage }): JSX.Element {
             <LocText entry={HUB_FMT.pagePosition} args={{ N: numArg(fit.page + 1, Unit.Integer), COUNT: numArg(fit.pages, Unit.Integer) }} />
           </div>
           <Tip tip={t(HUB_LOC.pageNext)}>
-            <Button theme={{ button: cx(styles.pagerButton, fit.page >= fit.pages - 1 && styles.pagerButtonOff) }}
+            <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pagerButton, fit.page >= fit.pages - 1 && styles.pagerButtonOff) }}
               onSelect={() => { if (fit.page < fit.pages - 1) fit.setPage(fit.page + 1); }}>
               <Glyph src="Media/Glyphs/ThickStrokeArrowRight.svg" className={styles.pagerGlyph} />
             </Button>

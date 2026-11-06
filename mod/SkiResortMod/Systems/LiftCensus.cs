@@ -29,6 +29,11 @@ namespace SkiResortMod.Systems
             public float LengthM;
             public int Chairs;
             public byte Type;  // SkiCatalog.Lifts index of the edge's line prefab (NoType = ignored)
+            // The edge's carriers pass under the floor (LiftClearanceSystem, the last pass): LowClearM = its lowest carrier's height above
+            // the ground (negative: below it), LowAt = where. false / 0 when they clear it.
+            public bool Low;
+            public float LowClearM;
+            public float3 LowAt;
         }
 
         /// <summary>Station: index into the station list, or −1.</summary>
@@ -38,6 +43,9 @@ namespace SkiResortMod.Systems
             public int Station;
             public bool HasTower;
             public float3 Position;
+            // Degrees the tower's rope asks past what its sheave train follows (TrainPitchSystem: LiftAlignMath.TrainOverDeg over
+            // TrainWarnDeg, the last pass); 0 = it follows, or no tower / no rope on its anchors.
+            public float TrainOverDeg;
         }
 
         public struct Station
@@ -75,7 +83,27 @@ namespace SkiResortMod.Systems
             public int BendTower;
             public EntityRef BendNode;
             public float3 BendAt;
+            // The line tower of the row (MeasureBends' walk, same numbering) whose rope goes furthest past what its sheave train follows
+            // (Node.TrainOverDeg > 0): TrainOverDeg its degrees, TrainTower its number, TrainNode / TrainAt its node. 0 / Null when every
+            // train follows its rope. The hub's LiftTrainLimit row reads it; its click flies to TrainAt.
+            public float TrainOverDeg;
+            public int TrainTower;
+            public EntityRef TrainNode;
+            public float3 TrainAt;
+            // The row's lowest span among the edges whose carriers pass under the floor (Edge.Low), on MeasureBends' walk: LowClearM its
+            // carriers' height above the ground, LowFrom / LowTo the tower numbers at its ends in walk order (the same numbering; 0 = a
+            // station or the walk's end), LowEdge / LowAt the edge and the low point. LowSpan false when every span clears the floor. The
+            // hub's LiftLowSpan row reads it; its click flies to LowAt.
+            public bool LowSpan;
+            public float LowClearM;
+            public int LowFrom, LowTo;
+            public EntityRef LowEdge;
+            public float3 LowAt;
         }
+
+        /// <summary>The hub's number for a low span: the carriers' height above the ground in tenths of a meter, rounded DOWN (a span
+        /// never reads higher than it is); 0 at or below the ground (the row then says the carriers touch it).</summary>
+        public static int LowTenths(float clearM) => clearM > 0f ? (int)math.floor(clearM * 10f + 1e-3f) : 0;
 
         /// <summary>The hub's number for a bend: tenths of a degree, rounded UP (a bend just over LiftAlignMath.BendWarnDeg never reads
         /// 5.0); 0 when the bend is at or under BendWarnDeg (no warning: the owner's verdict is warn, never refuse).</summary>
@@ -877,7 +905,8 @@ namespace SkiResortMod.Systems
         /// <paramref name="reference"/>, so a fragment holding the top counts from its far end like the tiles. A node with three or more of
         /// the component's edges ends the walk (a lift line is a chain; nodes past a branch are not measured). Bend = LiftAlignMath.PlanBendDeg
         /// of the previous node, the tower node and the next node, measured only at a non-station node with a tower and exactly two of the
-        /// component's edges; BendTower = TowerNumberTiles.Wrap(rank), rank = the towers walked so far. No allocation once grown.</summary>
+        /// component's edges; BendTower = TowerNumberTiles.Wrap(rank), rank = the towers walked so far. The same walk keeps the row's lowest
+        /// span (Edge.Low: the lowest LowClearM) with the numbers of the towers at its ends. No allocation once grown.</summary>
         private void MeasureBends(Comp comp, List<Edge> edges, List<Node> nodes, int stationCount, int baseIdx, float3 reference, ref Row row)
         {
             m_BendAdj.Clear();
@@ -923,6 +952,7 @@ namespace SkiResortMod.Systems
             EntityRef cur = start;
             float3 prevPos = default;
             int prevEdge = -1, rank = 0;
+            bool lowPending = false;   // the row's lowest span so far waits for the next tower's number (LowTo)
             for (int step = 0; step <= comp.Edges.Count; step++)
             {
                 if (!m_BendAdj.TryGetValue(cur, out NodeEdges ne))
@@ -939,6 +969,19 @@ namespace SkiResortMod.Systems
                     nodes[ni].HasTower)
                 {
                     rank++;
+                    if (lowPending)
+                    {
+                        row.LowTo = TowerNumberTiles.Wrap(rank);
+                        lowPending = false;
+                    }
+                    float over = nodes[ni].TrainOverDeg;
+                    if (over > row.TrainOverDeg)
+                    {
+                        row.TrainOverDeg = over;
+                        row.TrainTower = TowerNumberTiles.Wrap(rank);
+                        row.TrainNode = cur;
+                        row.TrainAt = ne.Pos;
+                    }
                     float bend = LiftAlignMath.PlanBendDeg(prevPos, ne.Pos, nn.Pos);
                     if (bend > row.BendDeg)
                     {
@@ -947,6 +990,17 @@ namespace SkiResortMod.Systems
                         row.BendNode = cur;
                         row.BendAt = ne.Pos;
                     }
+                }
+                // The span leaving cur: the lowest so far takes the last tower walked as LowFrom and the next one as LowTo.
+                if (edges[next].Low && (!row.LowSpan || edges[next].LowClearM < row.LowClearM))
+                {
+                    row.LowSpan = true;
+                    row.LowClearM = edges[next].LowClearM;
+                    row.LowFrom = TowerNumberTiles.Wrap(rank);
+                    row.LowTo = 0;
+                    row.LowEdge = edges[next].Id;
+                    row.LowAt = edges[next].LowAt;
+                    lowPending = true;
                 }
                 prevPos = ne.Pos;
                 prevEdge = next;
@@ -1153,6 +1207,12 @@ namespace SkiResortMod.Systems
                 h = Mix(h, Bits(r.BendDeg)); h = Mix(h, (uint)r.BendTower);
                 h = Mix(h, (uint)r.BendNode.Index); h = Mix(h, (uint)r.BendNode.Version);
                 h = Mix(h, Bits(r.BendAt.x)); h = Mix(h, Bits(r.BendAt.y)); h = Mix(h, Bits(r.BendAt.z));
+                h = Mix(h, Bits(r.TrainOverDeg)); h = Mix(h, (uint)r.TrainTower);
+                h = Mix(h, (uint)r.TrainNode.Index); h = Mix(h, (uint)r.TrainNode.Version);
+                h = Mix(h, Bits(r.TrainAt.x)); h = Mix(h, Bits(r.TrainAt.y)); h = Mix(h, Bits(r.TrainAt.z));
+                h = Mix(h, r.LowSpan ? 1u : 0u); h = Mix(h, Bits(r.LowClearM)); h = Mix(h, (uint)r.LowFrom); h = Mix(h, (uint)r.LowTo);
+                h = Mix(h, (uint)r.LowEdge.Index); h = Mix(h, (uint)r.LowEdge.Version);
+                h = Mix(h, Bits(r.LowAt.x)); h = Mix(h, Bits(r.LowAt.y)); h = Mix(h, Bits(r.LowAt.z));
             }
             return (int)h;
         }

@@ -117,8 +117,38 @@ existing edges touched at an end (a Temp copy with m_Original; GenerateEdgesSyst
 was the loose end's existing edge. The plan log prints the max edge slope against the prefab's limit and any span TOO STEEP (red in the
 preview: the tower rings and, via MarkSteepSpans, the span's segments, so a tower-free station-to-station span shows it too). The tool
 plans with the line prefab's live m_MaxSlopeSteepness (NetGeometryData, `With(maxEdgeSlope:)` at the pick); PatchSpans logs each line
-prefab's live value against the planner's default. A station whose carriers leave below the
-ground (EndCarrier < -0.25 m) logs SUNK STATION on every plan and shows one tooltip notice per line.
+prefab's live value against the planner's default. A station end whose carriers leave below the
+ground (EndCarrier < -0.25 m, `LiftLineInput.SunkKey`) logs SUNK STATION on every plan and shows one standing tooltip notice: SUNK for
+a picked station, SUNK_END for a ground end (the station that will finish it would stand on the lower ground ahead: past a crest,
+FIX-LIST 55); never a loose end. A tower whose rope bends past its sheave train's cap (`LiftTowerPlan.IsOverCap`) is drawn red, the plan
+line reads PLAN_TRAIN and hovering the tower reads TOWER_TRAIN (bend and cap); the plan line is green only for a sound plan (FIX-LIST 55). End ropes (`EndRope`): a picked station reads its lowest HV rope anchor, a loose end the
+node formula, a ground end the anchor of the station that will finish it over the terrain at that station's lot front
+(`LiftLineInput.GroundEndRope`, LiftLineEdit.md "Ground ends", FIX-LIST 48).
+
+## Carriers passable while the tool runs (2026-11-03, DECISIONS 582)
+A line drawn to an existing tower (the redo of a bulldozed middle section, an extension from a loose end) gives the touched edges,
+their end nodes and those nodes' towers Temp copies. ValidationHelpers walks each permanent chair to its top-level owner, an edge that
+is not overridable, so a chair inside a Temp tower's bounds draws OverlapExisting (field/2026-11-02/lifticon: a Temp FG12 against two
+parked chairs about 2 m from it). Moving chairs ride through every tower and a broken line parks them where they stand, so the refusal
+depends on where chairs stopped. `SetCarriersPassable` puts GeometryFlags.Marker on the carrier prefabs (an empty collision mask,
+ObjectUtils.GetCollisionMask) for the whole tool session (OnStartRunning) and hands back to the station window (`m_StationPlacing`) in
+OnStopRunning; SetStationPlacing touches the carriers only while the tool is not running. While set, carriers also skip the raycast
+and camera collision; rendering is unchanged. Since the carrier grip round a carrier is two objects: the body (a carrier,
+`CarrierGripTops`) and its grip (`GripTypes`: SkiLiftChair4Grip, SkiTramCarriage, ...), which is not a carrier. The grips get the flag
+too: without it the bridge check of the section delete (2026-11-03, F1) was refused next to riding chairs, OverlapExisting on the grips
+against the neighbor sections' Temp copies (12 SkiLiftChair4Grip on one FG section; a SkiTramCarriage on the tram's 46 m span). Gate:
+check-lift-align CARRIERPASS (4 rules, the last one the grip list).
+
+**The window stays the whole session (2026-11-05, DECISIONS 601 e):** the redo needs it whenever Temp copies of existing towers are
+validated, and that is every ghost re-emit in Edit (the ghost stands for the whole Edit state) plus the Build; only the two pick steps
+have no Temps, and toggling prefab flags at each pick / edit change would buy nothing. Its side effect, trees not hidden by chairs
+during a tool session but hidden outside it, was half of the pop-in the owner saw (note 8); the tree corridor
+(EngineNotes/LiftTreeCorridor.md) removes the trees in the carrier sweep, so the Marker state no longer changes what a player sees.
+
+## Tree corridor (2026-11-05, DECISIONS 601 e)
+Every emission (ghost and Build) also emits the vanilla bulldoze definition for each tree in the line's corridor
+(`LiftLineToolSystem.Trees.cs`, rule `LiftTreeCorridor`): the ghost shows the cut, the Build applies it with the line, a refusal keeps
+every tree. Details and logs: EngineNotes/LiftTreeCorridor.md.
 
 ## Bend at a loose-end joint (2026-11-02, owner verdict: warn, never refuse)
 The tool's line is straight, so it can make a plan bend only where it joins a built line at a loose end. `WarnBend` (every plan): for
@@ -128,7 +158,73 @@ notice slot keeps `SkiResort.LiftTool.BEND` standing ({DEG} with one decimal, ro
 LiftCensus.BendWarnTenths / 10, unit floatSingleFraction) after SUNK and before OPEN_END, and each plan logs one `BEND` WARN line.
 Build stays allowed. Bends on built lines (net tool, moved nodes) are the hub's LiftBend row (LiftCensus.md, Plan bends at towers).
 
+## Section delete by the rope (2026-11-03, DECISIONS 591, F1)
+The vanilla bulldozer tests a lift edge only on its sheet, EdgeGeometry + the composition's m_SurfaceHeight.max (Game.Net/
+RaycastJobs.cs:437-460), never the rope lanes: 9.9 m above the rope mid-span on a 473 m tram span, about 13 m at 1 km
+(docs/research/tram-bulldoze-hitbox-2026-11-03.md). So in the first pick step (`LiftLineToolSystem.Sections.cs`) the tool aims at what
+the player sees and removes the section under the cursor:
+- Rope cache: per lift-line edge (census `CopyLineOwners`, else the tool's edge query) every SubLane with UtilityLane and HV or LV
+  UtilityLaneData, its Curve (the hanging curve, LaneSystem.cs:4128-4138) as a polyline (`LiftRopePick.AddRope`, 10 m steps, 8 to 64
+  segments). Rebuilt when the census rebuilt and at least every 120 frames while picking; never per frame.
+- Pick (`LiftRopePick.Pick`, pure, LiftBatch RP-1..RP-9): the cursor line is the tool raycast's own
+  (`ToolRaycastSystem.CalculateRaycastLine`, ToolRaycastSystem.cs:69-78); per rope the closest polyline point; it counts within
+  max(1 m, camera distance x tan(fov / 2) x 0.025), about 13 px at 1080p (vanilla lanes use 1 %, RaycastJobs.cs:793, :813-816), and
+  not behind the terrain hit. Best miss / tolerance wins; within 0.15 of it the rope nearer the camera wins. Boxes cull first: 20 of
+  8000 segments tested, about 0.1 ms (RP-9). The type filter is WantType (a hub tile limits it to that type).
+- Fallback: no rope near, the vanilla Net raycast of the previous frame on the same line (its own RaycastSystem context,
+  AddInput / GetResult, RaycastSystem.cs:770-803; TypeMask.Net, OnGround | Overground as the bulldozer, BulldozeToolSystem.cs:1460-1469;
+  layer PowerlineHigh, matched by ConnectLayers, RaycastJobs.cs:562-563; a node hit on an edge's end goes to that edge,
+  BulldozeToolSystem.cs:1656-1658). It only names a section the rope cache holds.
+- Priority: a loose end, or a station that can still take a line, keeps its click (the redraw starts there); a station that already has
+  its line yields to the rope.
+- Delete: the definition BulldozeToolSystem.AddEntity writes for an unowned edge (BulldozeToolSystem.cs:731-780): CreationDefinition
+  {m_Original = edge, CreationFlags.Delete} + Updated + a NetCourse of the edge's curve and its two nodes (m_FixedIndex -1, no
+  OwnerDefinition). GenerateEdgesSystem makes the Temp with TempFlags.Delete (GenerateEdgesSystem.cs:1371-1376): the game's own
+  delete preview, standing while the section is hovered (Clear + destroy + emit only when the hover changes). A click applies once
+  that Temp exists: base `GetAllowApply` (no Error, original not deleted; ToolBaseSystem.cs:533-540), applyMode Apply for one frame and
+  the definition destroyed, as BulldozeToolSystem.Apply (:1618-1640). ApplyNetSystem deletes the edge and pays the refund
+  (CostSystem.cs:189, ApplyNetSystem.cs:662-664); both end nodes stay with their other sections, so the gap is redrawn from its two
+  loose ends. No preview within 30 frames of the click, or a refusal: `SECTION_REFUSED` notice and a WARN.
+- Overlay: the hovered section's ropes in red (width a quarter of the tolerance); the tooltip shows `SECTION` (type and the
+  horizontal length, as the plan line counts a span).
+- Neighbors: like the bulldozer's delete, the sections at both end nodes get Temp copies and are validated, so a solid object on
+  them refuses the delete; the carriers and their grips are passable while the tool runs (Carriers passable, above).
+- Logs: `LiftLine [section] rope cache ...` on change, one `hover` line per new section (miss, tolerance, camera distance, rope point;
+  or "by the vanilla sheet fallback"), 40 in full then every 25th, and one `DELETED` line per removal.
+
 ## Logs
 Silence is impossible: ARMED / patch lines per load; one line per activation, station pick, plan (towers, member mix, spans, clearance,
 pins), edit, build (courses emitted), apply (Temps, errors, registered tool line). An exception disables the tool until the next load (one
 "!!!" ERROR with the stack).
+
+## Type layers (FIX-LIST 60 a, 2026-11-05)
+
+Why two lifts joined where they crossed: CourseSplitSystem.MergePositions keeps a crossed edge as a course position, so the engine
+splits it and both lines share a node, only when `flag4 = !IsOver(...) && CanConnect(...)` (1.6.0f1 CourseSplitSystem.cs:2310-2312;
+1.6.2f1 about +40 lines). The private CanConnect ends in NetUtils.CanConnect (NetUtils.cs:499-506): one side's m_RequiredLayers
+inside the other's m_ConnectLayers. Power-line layers come from ElectricityConnection (NetInitializeSystem.cs:2414-2454): high
+voltage = PowerlineHigh in both masks, so every lift crossed every lift with a join. When CanConnect is false the crossing point is
+optional (m_CoursePos.m_Entity = Null, m_IsOptional, :2462-2477): the crossed edge is untouched, and the extra optional points are
+dropped while the merged span stays under 0.95 x m_ElevatedLength (FindBestIntersectionToRemove :3200-3216).
+
+SetTypeLayers (load, Game mode) ORs bit 24 + the SkiCatalog.Lifts index into both masks of each line prefab, PowerlineHigh kept.
+Different types fail CanConnect; the same type, the station stub marker and city high-voltage lines still connect (their
+RequiredLayers is PowerlineHigh alone, inside every lift's ConnectLayers). Readers that test only PowerlineHigh stay as they were:
+ConnectionWarningSystem.cs:2363-2367, ElectricityUIUtils.cs:12-43, RaycastJobs.cs:562-563. Vanilla net-tool snapping uses
+CanConnect too (NetToolSystem.cs:527, 718, 1043), so it no longer snaps one type onto another's node.
+
+Net-vs-net validation is 3D (ValidationHelpers.cs:162-199, segment-segment :3316-3370, QuadIntersect :3429): each edge is a box
+from its EdgeGeometry (the hanging curve: NetUtils.StraightCurve lowers the inner control points by d h 4/3, so the curve sits
+4 d h t (1 - t) under the node chord; h = the line prefab's m_Hanging = the rope lane SagRatio) up by the composition m_HeightRange,
+compared over the whole overlap of the two strips. An overlap refuses the build ("Clearance too low" in the field run 2026-11-05
+run3-crossing-proof-12d5ff6). Height ranges (collision box round, 2026-11-05; were FG / GD 6..20, DQ 5.8..20, tram 13.75..40): FG 4..8.5, DQ 3.8..9.5, GD 4..11.5, tram 11.75..27.5 m, about 1 m under the carriers to 1 m over the rope (LiftTowerPlanConstants.NetHeightRange).
+
+Crossing rule (DECISIONS 602). CollectCrossings (each replan) sorts the drawn line's crossings with built lift edges: every crossing,
+of any type, becomes a LiftPlanCrossing for the planner. (Until the 2026-11-05 collision box round the same type joined, CROSSES;
+with the tight box CourseSplitSystem IsOver / IsUnder, :2119-2185, judge a same-type line a few meters higher as over, no join,
+while validation over the whole overlap still overlaps: "Clearance too low". Planned over with the box rule (78e0ff5) the game still split the drawn course beside the crossing, unjoined (same layer: a CourseSplit candidate), and the fit stood a second tower there; so a same-type crossing is refused before planning, LiftCrossRefusal.SameType, CROSS_SAME_TYPE.) Per crossing: along, the crossed curve's height and
+slope at the crossing (MathUtils.Position / Tangent at t), the angle, the crossed composition's width and height range
+(NetCompositionData; logged once per type as `LiftLine [cross]`, match or MISMATCH against the constants), the distance to its
+nearest tower and station node (IsStationNode). The planner (LiftTowerPlanner.md, Crossings) passes over or under, or refuses.
+WarnCrossing logs one `LiftLine [plan]: CROSS ...` line per crossing; LiftLineInput.CrossKey picks the notice: a refusal
+(CROSS_SHALLOW / STATION / TOWER / OWN_TOWER / CLEARANCE: standing notice, Enter refused, like ALONG), else CROSSES_UNDER / OVER.

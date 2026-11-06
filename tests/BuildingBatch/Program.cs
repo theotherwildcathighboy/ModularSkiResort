@@ -35,6 +35,7 @@ namespace BuildingBatch
         public static int Main()
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            ToRepoRoot();
             Attribution();
             CountRule();
             Invariant();
@@ -48,6 +49,21 @@ namespace BuildingBatch
                 PrefabGate(g);
             Console.WriteLine($"BuildingBatch: {s_Pass} passed, {s_Fail} failed");
             return s_Fail == 0 ? 0 : 1;
+        }
+
+        /// <summary>The mirror paths are repo-relative (gamedata-mirror/ImportedData): when the current directory has none, move to the
+        /// first parent of AppContext.BaseDirectory (tests/BuildingBatch/bin/&lt;cfg&gt;/net8.0/) that has one, so a run started from
+        /// tests/ or mod/SkiResortUI checks the same files as one from the root.</summary>
+        private static void ToRepoRoot()
+        {
+            if (Directory.Exists("gamedata-mirror"))
+                return;
+            for (DirectoryInfo d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
+                if (Directory.Exists(Path.Combine(d.FullName, "gamedata-mirror")))
+                {
+                    Directory.SetCurrentDirectory(d.FullName);
+                    return;
+                }
         }
 
         private static readonly EntityRef SignA = new EntityRef(10, 1), SignB = new EntityRef(20, 1), SignC = new EntityRef(5, 3);

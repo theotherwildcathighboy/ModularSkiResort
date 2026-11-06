@@ -20,3 +20,8 @@ Measured from the shipped LOD0 FBXs (number_tiles.py --measure-plates): every nu
 facing +Z and -Z; the +Z face's viewer-right is -X, the -Z face's is +X. The tile prefab faces +Z with its text running along -X
 (number_tiles.py FRAME), so the +Z face takes it unrotated and the -Z face rotated 180 deg about Y. Plate rows hold the FRONT quad's
 center (6 mm proud of the host).
+
+Twin rows (B2): a twin head (LiftTowerPlanner.md "Heads") keeps its member's mast and plates, so its row is the member's row raised by
+the twin's crown change (`TwinPlateRaise`: FG twins 0, DQ Hold +0.3258 / Combo +0.0669, GD Hold +0.427 / Combo +0.143; LiftBatch TN-9).
+These 13 rows are derived, not measured: measure the imported twins (number_tiles.py --measure-plates) and replace them. The FG8 twins
+have no row because their member (SkiLiftTowerFG2) has none.

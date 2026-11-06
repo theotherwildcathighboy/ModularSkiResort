@@ -12,7 +12,7 @@
 6. On the **Runs** tab, pick a run type and draw runs downhill from the top station.
 7. Wait for snow. The status line reads *Open* when runs open.
 
-If the panel shows a problem line ("No lift yet", "Lodge is not at a road"), click it. It flies to the cause.
+If the panel shows a problem line ("No lift yet", "Lodge or school: road required"), click it. It flies to the cause.
 
 ## Where to build
 

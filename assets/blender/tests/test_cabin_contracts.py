@@ -1,7 +1,11 @@
 """
 Contract gate for lift_cabin.py (gondola SkiGondolaCabin8A, tram SkiTramCabinA; cabins/A).
 
-    blender --background --factory-startup --python-exit-code 1 --python tests\\test_cabin_contracts.py [-- --full]
+    blender --background --factory-startup --python-exit-code 1 --python tests\\test_cabin_contracts.py \
+        [-- [--full] [--source <path to gondola.fbx>]]
+
+--source points the gondola ingest at another copy of the Wilin gondola.fbx (assets/external is not
+tracked, so a fresh worktree has none).
 
 What it proves (one PASS line, exit 1 on any failure):
   1. Every geometry contract holds on LOD0 / LOD1 / LOD2 of each build: gondola G1-G10
@@ -57,6 +61,16 @@ What it proves (one PASS line, exit 1 on any failure):
      the door kit's rollers / grab bars keep their segment counts. Negatives: a leaf pushed back
      flush with the wall raises T12 + T13, a leaf slid off the center raises T5 + T13, the grab
      bars deleted raise T13. Determinism covers the new parts (same two-build hash).
+ 12. Carrier split (2026-11-03, docs/research/carrier-pivot-swing-plan-2026-11-03.md): the tram
+     --split pair (SkiTramCabinB + SkiTramCarriageB) and the gondola --split pair
+     (SkiGondolaCabin8B + SkiGondolaCabin8GripB) each build 3 LODs with a base pivot (lowest
+     vertex z 0), 0 validator errors, S1 rejoin <= 2 mm, S2 pin gap in (0, 5] mm and S3 0 clashes
+     over the sweep, every one-piece contract on the joined pair at every LOD, the role contracts
+     on each mesh, and the pair budget (one-piece cap + the measured pin detail + the noted <= 5 %
+     raise for the 16-segment rollers). The tram's K sits one design gap + one lug radius under the
+     carriage head (10.50 - 0.12 - c - r). Swing convention (critique 2026-11-03): every pin sweeps
+     pitch +-45 x fore-aft +-3 deg only, roll 0 (the cross-wind sway rolls the whole assembly about
+     the rope point).
 """
 
 import json
@@ -75,6 +89,8 @@ import lift_cabin as L  # noqa: E402
 
 ARGV = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 FULL = "--full" in ARGV
+if "--source" in ARGV:
+    L.DEFAULT_SOURCE = os.path.abspath(ARGV[ARGV.index("--source") + 1])
 FAILS = []
 
 HERO_MIN_PPM = 120.0                     # Revision 1: hero faces at the shipped texture size
@@ -550,6 +566,43 @@ def mask_levels(res, label):
     check(seen >= 1, f"{label}: at least one recolor mask present ({seen})")
 
 
+def split_checks(results, kind, pair_codes):
+    """Item 12: the shared split facts of one --split pair (both meshes carry the same split_info)."""
+    label = f"{kind} --split"
+    for r in results:
+        lab = f"{label} {r['role']} {r['name']}"
+        vr = r.get("verify", [])
+        check(len(vr) == 3 and all(v["ok"] for v in vr) and len(r["tris"]) == 3,
+              f"{lab}: 3 LODs re-imported, top + base on every LOD ({r['tris']})")
+        lo = min(v.co.z for v in bpy.data.objects[r["name"]].data.vertices)
+        check(abs(lo) <= 1e-5, f"{lab}: base pivot, lowest LOD0 vertex z {lo:.6f}")
+        check(r.get("validation", {}).get("errors") == 0, f"{lab}: cs2_validate 0 errors "
+                                                          f"({r.get('validation')})")
+        check(in_draft_root(r), f"{lab}: draft written outside the repo ({r['asset_dir']})")
+    si = results[0]["split"]
+    held = si["pair_contracts_held"]
+    for lvl, need in pair_codes.items():
+        have = set(held.get(f"LOD{lvl}", []))
+        check(need <= have, f"{label} pair LOD{lvl}: one-piece contracts {sorted(have)} held on the joined "
+                            f"pair (need {sorted(need)})")
+    s1, s23 = si["S1_rejoin"], si["S2_S3_sweep"]
+    tol = L.CS.REJOIN_TOL_M * 1000.0
+    check(max(s1["max_old_to_new_mm"], s1["max_new_to_old_mm"]) <= tol,
+          f"{label}: S1 rejoin {s1['max_old_to_new_mm']} / {s1['max_new_to_old_mm']} mm (<= {tol:.0f})")
+    gmax = L.CS.GAP_MAX_M * 1000.0
+    check(0.0 < s23["gap_mm_min"] and s23["gap_mm_max"] <= gmax and s23["clash_poses"] == 0,
+          f"{label}: S2 pin gap {s23['gap_mm_min']}..{s23['gap_mm_max']} mm in (0, {gmax:.0f}], S3 "
+          f"{s23['clash_poses']} clashes over {s23['poses']} poses")
+    fa, npitch = L.CS.FORE_AFT_DEG, int(round(2 * L.CS.PITCH_DEG / L.CS.PITCH_STEP_DEG)) + 1
+    check(s23["roll_deg"] == [0.0, 0.0] and s23["fore_aft_deg"] == [-fa, fa]
+          and s23["poses"] == npitch * len(L.CS.FORE_AFT_STEPS),
+          f"{label}: swing convention: the pin sweeps pitch +-{L.CS.PITCH_DEG:g} x fore-aft "
+          f"{s23['fore_aft_deg']} ({s23['poses']} poses), roll {s23['roll_deg']} (the sway rolls the "
+          f"whole assembly)")
+    check(si["pair_budget"].get("ok") is True, f"{label}: pair budget {si['pair_budget']}")
+    return si
+
+
 def determinism(kind, extra):
     a = L.run(["--kind", kind, "--lods"] + extra)[0]
     ha, pa = dict(a["hashes"]), dict(a["png_sha1"])
@@ -633,10 +686,28 @@ def main():
     tc = L.run(["--kind", "tram", "--lods", "--verify", "--hang", "7.0"])[0]
     tram_checks(tc, "tram --hang 7.00", proj=L.T["lod0_projection"])
     sp = L.run(["--kind", "tram", "--lods", "--verify", "--split"])
-    check(len(sp) == 2 and [r["role"] for r in sp] == ["cabin", "carriage"],
+    check(len(sp) == 2 and [r["role"] for r in sp] == ["cabin", "carriage"]
+          and tuple(r["name"] for r in sp) == L.SPLIT_NAMES["tram"],
           f"tram --split builds {[(r['name'], r['role']) for r in sp]}")
     for r in sp:
-        tram_checks(r, f"tram --split {r['role']}", role=r["role"])
+        tram_checks(r, f"tram --split {r['role']}", role=r["role"],
+                    proj=L.T["split_projection"][r["role"]])
+    si = split_checks(sp, "tram", T_CODES)
+    k_want = round(10.50 - 0.12 - L.CS.DESIGN_GAP_M - L.T_SPLIT["lug_r"], 4)
+    check(abs(si["K_m"] - k_want) <= 1e-4,
+          f"tram --split: K {si['K_m']} = carriage head 10.38 - gap - lug radius ({k_want}; one-piece "
+          f"{si['K_one_piece_m']})")
+
+    # carrier split: the gondola pair (body = cabin + stalk + knuckle, grip = head + cheeks + carriage)
+    gs = L.run(["--kind", "gondola", "--lods", "--verify", "--split"])
+    check(len(gs) == 2 and [r["role"] for r in gs] == ["body", "grip"]
+          and tuple(r["name"] for r in gs) == L.SPLIT_NAMES["gondola"],
+          f"gondola --split builds {[(r['name'], r['role']) for r in gs]}")
+    role_codes = {"body": {k: v - {"G2", "G10"} for k, v in G_CODES.items()},
+                  "grip": {k: v - {"G3", "G9", "G11"} for k, v in G_CODES.items()}}
+    for r in gs:
+        contract_rows_ok(r, role_codes[r["role"]], f"gondola --split {r['role']}")
+    split_checks(gs, "gondola", G_CODES)
 
     dt = time.perf_counter() - t0
     if FAILS:
@@ -649,6 +720,7 @@ def main():
           f"isotropic texels{' / hero >= 120 px/m' if FULL else ''}, Revision 1b closed shell "
           f"(G11) / no coplanar z-fight (G12, T12) / cap_check + C1 / C3 / C4 negatives, "
           f"Revision 2 tram doors (T13) + flush / off-center / no-handle negatives, "
+          f"carrier split pairs (tram + gondola: S1 / S2 / S3, base pivots, pair contracts + budgets), "
           f"{'finish' if FULL else 'draft'} determinism per kind ({dt:.0f} s)")
 
 

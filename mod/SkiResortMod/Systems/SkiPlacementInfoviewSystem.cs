@@ -1,6 +1,8 @@
-// Closes the Electricity infoview that the vanilla net tool opens when the player starts drawing one of our lift LINES (every
-// found SkiCatalog.Lifts row with CloseElectricityView), once per tool activation, and leaves it open when the player had it
-// open before. The base station keeps its view: its low-voltage feed is run there (LocaleEN.cs, the base station's description).
+// Closes the Electricity infoview that the vanilla tools open when the player starts drawing one of our lift LINES (every found
+// SkiCatalog.Lifts row with CloseElectricityView) or placing one of our STATIONS (every found SkiCatalog.Stations row: base and top of
+// every lift type, the tram terminals included; there is no mid station yet, a new row is covered by being in that list), once per tool
+// activation, and leaves it open when the player had it open before. The view shows lifts as power lines, which they are not to a
+// player; the base station's missing low-voltage feed keeps its own vanilla icon (LiftLineIconRule), so no station needs the view.
 // Code, not prefab data: no prefab field names the placement infoview (InfoviewInitializeSystem.cs:277-428, :601-656).
 // Phase (Mod.cs): UpdateBefore<SkiPlacementInfoviewSystem, Game.UI.InGame.InfoviewsUISystem>(UIUpdate) only; adding UpdateAt as
 // well would register the system twice (UpdateSystem.cs:158-176 -> Register :271-292 does not de-duplicate).
@@ -24,13 +26,14 @@ namespace SkiResortMod.Systems
             public const int LogLinesMax = 64;
         }
 
-        // The targets are the lift LINES of SkiCatalog.Lifts with CloseElectricityView; their type is SkiCatalog.TypeLine.
+        // The targets are the lift LINES of SkiCatalog.Lifts with CloseElectricityView (type SkiCatalog.TypeLine) and every station of
+        // SkiCatalog.Stations (BuildingPrefab).
 
         private ToolSystem m_ToolSystem;
         private SkiPrefabCatalogSystem m_PrefabCatalog;
 
         // Resolved once per load (OnGameLoadingComplete): a list compared by reference in IsTarget; never holds null.
-        private readonly List<PrefabBase> m_Targets = new List<PrefabBase>(2);
+        private readonly List<PrefabBase> m_Targets = new List<PrefabBase>(16);
         private string m_TargetNames = "-";
 
         // The rule's state (Engine notes: Rule).
@@ -118,31 +121,53 @@ namespace SkiResortMod.Systems
                     wanted.Add(def.LinePrefab);
                     if (!m_Targets.Contains(target))
                         m_Targets.Add(target);
-                    found.Add(def.LinePrefab);
+                    found.Add(def.LinePrefab + " (" + SkiCatalog.TypeLine + ")");
+                }
+                // Every station row: its tool opens the Electricity view too (a station is built as a transformer).
+                for (int s = 0; s < SkiCatalog.Stations.Count; s++)
+                {
+                    StationDef def = SkiCatalog.Stations[s];
+                    PrefabBase target = m_PrefabCatalog.StationPrefabBase(def);
+                    if (target == null)
+                    {
+                        if (def.Expected)
+                        {
+                            wanted.Add(def.Prefab);
+                            missing.Add(def.Prefab);
+                        }
+                        else
+                        {
+                            pending.Add(def.Prefab);
+                        }
+                        continue;
+                    }
+                    wanted.Add(def.Prefab);
+                    if (!m_Targets.Contains(target))
+                        m_Targets.Add(target);
+                    found.Add(def.Prefab + " (BuildingPrefab)");
                 }
                 if (m_Targets.Count == 0)
                 {
                     m_Disabled = true;
                     LastAction = "DISABLED: target prefab missing";
                     string names = wanted.Count > 0 ? string.Join(", ", wanted.ToArray())
-                                                    : "(no expected SkiCatalog lift line with CloseElectricityView)";
+                                                    : "(no expected SkiCatalog lift line or station)";
                     Mod.Log.Error($"!!! Infoview: {names} not found — the Electricity view will stay open " +
-                                  "while drawing lifts (asset pack missing?)" +
+                                  "while placing lifts (asset pack missing?)" +
                                   (pending.Count > 0 ? $"; pending (not imported yet): {string.Join(", ", pending.ToArray())}" : ""));
                     return;
                 }
                 if (missing.Count > 0)
                     Mod.Log.Error($"!!! Infoview: {string.Join(", ", missing.ToArray())} not found — the Electricity view " +
-                                  "will stay open while drawing that lift line (asset pack missing?); the other target(s) stay armed");
-                m_TargetNames = string.Join(", ", found.ToArray());
+                                  "will stay open while placing that lift piece (asset pack missing?); the other target(s) stay armed");
+                m_TargetNames = found.Count + " target(s)";
                 m_Armed = true;
-                Mod.Log.Info($"Infoview: ARMED — targets {TargetsText(found)} only; pending: " +
-                             $"{(pending.Count > 0 ? string.Join(", ", pending.ToArray()) : "none")} (OD-11 (a): the base " +
-                             "station keeps the Electricity view for its low-voltage feed); on each activation of the lift " +
-                             "tool the view it opened is closed once (ToolSystem.infoview = null), unless the player had it " +
-                             "open before (kept); re-opening it by hand is kept until the next activation; a view we closed " +
-                             "is reopened when the player switches straight to another tool whose own view it is (the base " +
-                             "station, the vanilla low-voltage line — ToolSystem's cache would not); UIUpdate before " +
+                Mod.Log.Info($"Infoview: ARMED — targets {string.Join(", ", found.ToArray())} only; pending: " +
+                             $"{(pending.Count > 0 ? string.Join(", ", pending.ToArray()) : "none")}; on each activation of a " +
+                             "lift line or station tool the view it opened is closed once (ToolSystem.infoview = null), unless the " +
+                             "player had it open before (kept); re-opening it by hand is kept until the next activation; a view we " +
+                             "closed is reopened when the player switches straight to another tool whose own view it is (the vanilla " +
+                             "power lines and transformers: ToolSystem's cache would not); UIUpdate before " +
                              $"InfoviewsUISystem; LogLinesMax={Tuning.LogLinesMax}");
             }
             catch (Exception e)
@@ -184,14 +209,14 @@ namespace SkiResortMod.Systems
                     {
                         Kept++;
                         LastAction = "kept (the player had it open)";
-                        Line($"Infoview [keep]: {view.name} was already open when the lift tool started — left open");
+                        Line($"Infoview [keep]: {view.name} was already open when the tool for {prefab.name} started — left open");
                     }
                     else
                     {
                         m_ToolSystem.infoview = null;                                // ToolSystem.cs:118-131
                         Closed++;
                         LastAction = "closed " + view.name;
-                        Line($"Infoview [close]: the lift tool opened {view.name} — closed (reopen it from the infoview " +
+                        Line($"Infoview [close]: the tool for {prefab.name} opened {view.name} — closed (reopen it from the infoview " +
                              "menu)");
                         m_ClosedView = view;                                      
                         view = m_ToolSystem.activeInfoview;                          // null after the close
@@ -214,7 +239,7 @@ namespace SkiResortMod.Systems
                         m_ToolSystem.infoview = restore;                             // ToolSystem.cs:118-131
                         Restored++;
                         LastAction = "restored " + restore.name;
-                        Line($"Infoview [restore]: switched straight from the lift tool to {(prefab != null ? prefab.name : "another tool")} " +
+                        Line($"Infoview [restore]: switched straight from a lift tool to {(prefab != null ? prefab.name : "another tool")} " +
                              $"— reopened {restore.name}, which that tool opens (ToolSystem keeps it closed: its cache still holds it)");
                         view = m_ToolSystem.activeInfoview;
                         viewByTool = view != null;                                   // tool-opened, not the player's
@@ -240,15 +265,6 @@ namespace SkiResortMod.Systems
                     return true;
             }
             return false;
-        }
-
-        /// <summary>"SkiChairliftHV (PowerLinePrefab)" per target, joined: the ARMED line's words.</summary>
-        private static string TargetsText(List<string> names)
-        {
-            var parts = new string[names.Count];
-            for (int i = 0; i < names.Count; i++)
-                parts[i] = names[i] + " (" + SkiCatalog.TypeLine + ")";
-            return string.Join(", ", parts);
         }
 
         /// <summary>One close / keep line, capped per load (Engine notes: Logs).</summary>

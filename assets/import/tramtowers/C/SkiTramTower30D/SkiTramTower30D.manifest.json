@@ -1,0 +1,1322 @@
+{
+  "name": "SkiTramTower30D",
+  "written_utc": "2026-11-04T21:00:16Z",
+  "blender": "5.2.3 LTS",
+  "files": {
+    "SkiTramTower30D.fbx": {
+      "bytes": 390460,
+      "sha1": "252fc2ccdf572e7622144591c482ce961ef393c3"
+    },
+    "SkiTramTower30D_LOD1.fbx": {
+      "bytes": 155276,
+      "sha1": "94c51908899823c36511655e34ae44a2fc7f537f"
+    },
+    "SkiTramTower30D_LOD2.fbx": {
+      "bytes": 53772,
+      "sha1": "2c087541653ffec3d25e41706c33f20d45a9984b"
+    },
+    "settings.json": {
+      "bytes": 1244,
+      "sha1": "6ea993a6bd368f89372c72507246008f1e554ab3"
+    }
+  },
+  "H": 30,
+  "atlas": {
+    "mesh": "SkiTramTower30C",
+    "verts": 4290,
+    "worst_vertex_mm": 0.0024,
+    "fbx_lateral_sign": -1.0,
+    "ambiguous_tris": 0,
+    "fbx_uv_layers": [
+      "UVUnique"
+    ]
+  },
+  "topology": {
+    "moved_parts": 68,
+    "stray": [],
+    "shuffled": []
+  },
+  "tris": [
+    5656,
+    1872,
+    464
+  ],
+  "budget": {
+    "tris": [
+      5656,
+      1872,
+      464
+    ],
+    "lod0_cap": 5800,
+    "lod2_cap": 500,
+    "raised": {}
+  },
+  "contracts": [
+    "authoring",
+    "net"
+  ],
+  "design": {
+    "theta_max": 60.0,
+    "half_break": 30.0,
+    "notch_deg": 32.0,
+    "joint_d": 0.45,
+    "bar_gap": 0.2,
+    "roller_out": 0.1,
+    "arm_dz1": -2.4
+  },
+  "limits": {
+    "saddle_max_deg": 60.0,
+    "half_break_deg": 30.0,
+    "code": [
+      60.0,
+      30.0
+    ]
+  },
+  "g6": {
+    "poses": 27,
+    "min_clear": {
+      "m": 0.01,
+      "pose": {
+        "TrainFront": -60.0,
+        "TrainBack": -60.0,
+        "TrainFrontHaul": -60.0,
+        "TrainBackHaul": -60.0
+      },
+      "parts": [
+        "sbrk_p_k",
+        "saddle_p_b"
+      ]
+    },
+    "seat_tops": 20,
+    "failed": null
+  },
+  "g6_planner": {
+    "poses": 184,
+    "min_clear": {
+      "m": 0.01,
+      "pose": {
+        "TrainFront": 6.3,
+        "TrainBack": -17.2,
+        "TrainFrontHaul": 6.3,
+        "TrainBackHaul": -17.2
+      },
+      "parts": [
+        "sbrk_p_k",
+        "saddle_p_f"
+      ]
+    },
+    "failed": null
+  },
+  "g6_lean": {
+    "grid_poses": 25,
+    "grid_min_clear": {
+      "m": 0.01,
+      "pose": {
+        "TrainFront": -60.0,
+        "TrainBack": 0.0,
+        "TrainFrontHaul": -60.0,
+        "TrainBackHaul": 0.0
+      },
+      "parts": [
+        "sbrk_p_k",
+        "saddle_p_b"
+      ]
+    },
+    "grid_failed": null,
+    "planner_towers": 209,
+    "planner_poses": 165,
+    "planner_min_clear": {
+      "m": 0.01,
+      "pose": {
+        "TrainFront": 6.3,
+        "TrainBack": -17.2,
+        "TrainFrontHaul": 6.3,
+        "TrainBackHaul": -17.2
+      },
+      "parts": [
+        "sbrk_p_k",
+        "saddle_p_f"
+      ]
+    },
+    "planner_failed": null,
+    "coverage": {
+      "min": {
+        "C": 108,
+        "D": 181
+      },
+      "max": {
+        "C": 154,
+        "D": 181
+      }
+    }
+  },
+  "rope_reach": {
+    "clear_to_deg": 60.0,
+    "run_m": 4.0,
+    "first_hit": null
+  },
+  "coverage": {
+    "towers": 242,
+    "C": {
+      "limits": [
+        30.0,
+        20.0
+      ],
+      "inside": 108,
+      "worst": [
+        "crest 1.5/-0.3 L600 @310",
+        39.2,
+        1.5168703263956422
+      ]
+    },
+    "D": {
+      "limits": [
+        60.0,
+        30.0
+      ],
+      "inside": 202,
+      "worst": [
+        "crest 1.5/-0.3 L600 @310",
+        14.450000000000003,
+        0.5988840975013018
+      ]
+    }
+  },
+  "textures_added_mb": 0.0,
+  "generator": "tram_saddle.py --export --letter D",
+  "family": "tram",
+  "letter": "D",
+  "skin": {
+    "rule": "lift alignment phase 2 round 2 (option C): the saddle halves on TrainFront / TrainBack (pivot = the track rope anchor line), the haul halves on TrainFrontHaul / TrainBackHaul (pivot = the haul anchor line 0.40 below, haul option b); each Front bone pitched by its rope toward game +z, each Back bone toward -z, about local X (+ lowers the game +z end), clamped to theta_max, half-break to 30 deg",
+    "bones": {
+      "Root": {
+        "parent": null,
+        "head_game": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rest_rotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "TrainFront": {
+        "parent": "Root",
+        "head_game": [
+          0.0,
+          26.25,
+          0.0
+        ],
+        "rest_rotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "TrainBack": {
+        "parent": "Root",
+        "head_game": [
+          0.0,
+          26.25,
+          0.0
+        ],
+        "rest_rotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "TrainFrontHaul": {
+        "parent": "Root",
+        "head_game": [
+          0.0,
+          25.85,
+          0.0
+        ],
+        "rest_rotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "TrainBackHaul": {
+        "parent": "Root",
+        "head_game": [
+          0.0,
+          25.85,
+          0.0
+        ],
+        "rest_rotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    },
+    "axis": {
+      "game_plus_z": "net -Y = authoring +X (TrainFront / TrainFrontHaul = the halves built at authoring +x: saddle_<lane>_f, haulroll_bar_<lane>_f, ...)",
+      "chain": [
+        "cs2_asset.orient_for_net (cs2_asset.py:40): (x, y, z) -> (y, -x, z), authoring +X -> net -Y",
+        "cs2_asset.export_fbx_skinned (cs2_asset.py:1484-1487): -90 deg about X baked, (x, y, z) -> (x, z, -y) x 100 cm: net -Y -> file +z",
+        "the game negates FBX x on import (docs/PIPELINE.md frame rule T): game = (-x_net, z_net, -y_net)"
+      ],
+      "tests": [
+        "skin_part_bones: the _f halves ride the Front bones by travel side (build time)",
+        "cs2_skin.roundtrip: every exported level's TrainFront* group bbox center at raw z > 0, TrainBack* < 0",
+        "tests/test_tower_skinned.py (the axis test)"
+      ]
+    },
+    "theta_max_deg": 60.0,
+    "half_break_max_deg": 30.0,
+    "design": {
+      "type_max_slope": 68.2,
+      "theta_max": 60.0,
+      "rope_h_hv": 0.0866,
+      "rope_h_lv": 0.052,
+      "notch_deg": 32.0,
+      "end_gap": 0.01,
+      "cheek_gap": 0.01,
+      "cheek_t": 0.08,
+      "rock_top_dz": -0.15,
+      "rock_block_h": 0.21,
+      "rock_block_hw": 0.13,
+      "rock_leg_w": 0.12,
+      "rock_leg_top_x": 0.06,
+      "rock_leg_foot_x": 0.5,
+      "rock_base_h": 0.12,
+      "rock_base_hw": 0.62,
+      "rock_pin_r": 0.06,
+      "rock_pin_out": 0.035,
+      "rock_leg_inset": 0.005,
+      "arm_y0": 3.5,
+      "arm_dz0": -1.35,
+      "arm_y1": 5.785,
+      "arm_dz1": -2.4,
+      "arm_w": 0.3,
+      "outer_arm_y": 4.4,
+      "knee_y": 4.25,
+      "bar_gap": 0.2,
+      "tie_x": 1.1,
+      "plate": [
+        0.14,
+        0.03,
+        0.14
+      ],
+      "plate_gap": 0.01,
+      "half_break": 30.0,
+      "joint_d": 0.45,
+      "roller_out": 0.1
+    },
+    "g6": {
+      "poses": [
+        {
+          "pose": {
+            "TrainFront": -60.0,
+            "TrainBack": -60.0,
+            "TrainFrontHaul": -60.0,
+            "TrainBackHaul": -60.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_b"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11624,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": -60.0,
+            "TrainBack": -30.0,
+            "TrainFrontHaul": -60.0,
+            "TrainBackHaul": -30.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_b"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": -60.0,
+            "TrainBack": 0.0,
+            "TrainFrontHaul": -60.0,
+            "TrainBackHaul": 0.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_b"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": -30.0,
+            "TrainBack": -60.0,
+            "TrainFrontHaul": -30.0,
+            "TrainBackHaul": -60.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_b"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11624,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": -30.0,
+            "TrainBack": -30.0,
+            "TrainFrontHaul": -30.0,
+            "TrainBackHaul": -30.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_b"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": -30.0,
+            "TrainBack": 0.0,
+            "TrainFrontHaul": -30.0,
+            "TrainBackHaul": 0.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_b"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": -30.0,
+            "TrainBack": 30.0,
+            "TrainFrontHaul": -30.0,
+            "TrainBackHaul": 30.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "haulroll_tiep_p_f",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 0.0,
+            "TrainBack": -60.0,
+            "TrainFrontHaul": 0.0,
+            "TrainBackHaul": -60.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11624,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 0.0,
+            "TrainBack": -30.0,
+            "TrainFrontHaul": 0.0,
+            "TrainBackHaul": -30.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 0.0,
+            "TrainBack": 0.0,
+            "TrainFrontHaul": 0.0,
+            "TrainBackHaul": 0.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 0.0,
+            "TrainBack": 30.0,
+            "TrainFrontHaul": 0.0,
+            "TrainBackHaul": 30.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 0.0,
+            "TrainBack": 60.0,
+            "TrainFrontHaul": 0.0,
+            "TrainBackHaul": 60.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 30.0,
+            "TrainBack": -30.0,
+            "TrainFrontHaul": 30.0,
+            "TrainBackHaul": -30.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 30.0,
+            "TrainBack": 0.0,
+            "TrainFrontHaul": 30.0,
+            "TrainBackHaul": 0.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 30.0,
+            "TrainBack": 30.0,
+            "TrainFrontHaul": 30.0,
+            "TrainBackHaul": 30.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 30.0,
+            "TrainBack": 60.0,
+            "TrainFrontHaul": 30.0,
+            "TrainBackHaul": 60.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 60.0,
+            "TrainBack": 0.0,
+            "TrainFrontHaul": 60.0,
+            "TrainBackHaul": 0.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11624,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 60.0,
+            "TrainBack": 30.0,
+            "TrainFrontHaul": 60.0,
+            "TrainBackHaul": 30.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11624,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 60.0,
+            "TrainBack": 60.0,
+            "TrainFrontHaul": 60.0,
+            "TrainBackHaul": 60.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11624,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": -15.0,
+            "TrainBack": -60.0,
+            "TrainFrontHaul": -15.0,
+            "TrainBackHaul": -60.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_b"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11624,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": -60.0,
+            "TrainBack": -15.0,
+            "TrainFrontHaul": -60.0,
+            "TrainBackHaul": -15.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_b"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 15.0,
+            "TrainBack": -45.0,
+            "TrainFrontHaul": 15.0,
+            "TrainBackHaul": -45.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11091,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": -45.0,
+            "TrainBack": 15.0,
+            "TrainFrontHaul": -45.0,
+            "TrainBackHaul": 15.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "haulroll_tiep_p_f",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 45.0,
+            "TrainBack": -15.0,
+            "TrainFrontHaul": 45.0,
+            "TrainBackHaul": -15.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11091,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": -15.0,
+            "TrainBack": 45.0,
+            "TrainFrontHaul": -15.0,
+            "TrainBackHaul": 45.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "haulroll_tiep_p_f",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 60.0,
+            "TrainBack": 15.0,
+            "TrainFrontHaul": 60.0,
+            "TrainBackHaul": 15.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11624,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        },
+        {
+          "pose": {
+            "TrainFront": 15.0,
+            "TrainBack": 60.0,
+            "TrainFrontHaul": 15.0,
+            "TrainBackHaul": 60.0
+          },
+          "overlaps": 0,
+          "overlap_pairs": [],
+          "clear_m": 0.01,
+          "nearest": [
+            "sbrk_p_k",
+            "saddle_p_f"
+          ],
+          "pin_gap_m": 0.0,
+          "rope_overlaps": 0,
+          "rope_clear_m": 0.11676,
+          "seat_tops": 20,
+          "seat_m": [
+            -0.0,
+            0.0002
+          ]
+        }
+      ],
+      "min_clear": {
+        "m": 0.01,
+        "pose": {
+          "TrainFront": -60.0,
+          "TrainBack": -60.0,
+          "TrainFrontHaul": -60.0,
+          "TrainBackHaul": -60.0
+        },
+        "parts": [
+          "sbrk_p_k",
+          "saddle_p_b"
+        ]
+      },
+      "seat_rest_m": {
+        "TrainFront_n": [
+          [
+            0.068,
+            -0.0
+          ]
+        ],
+        "TrainFront_p": [
+          [
+            0.068,
+            -0.0
+          ]
+        ],
+        "TrainBack_n": [
+          [
+            0.068,
+            -0.0
+          ]
+        ],
+        "TrainBack_p": [
+          [
+            0.068,
+            -0.0
+          ]
+        ],
+        "TrainFrontHaul_n": [
+          [
+            0.376,
+            0.0002
+          ],
+          [
+            0.924,
+            0.0002
+          ],
+          [
+            1.476,
+            0.0002
+          ],
+          [
+            2.024,
+            0.0002
+          ]
+        ],
+        "TrainFrontHaul_p": [
+          [
+            0.376,
+            0.0002
+          ],
+          [
+            0.924,
+            0.0002
+          ],
+          [
+            1.476,
+            0.0002
+          ],
+          [
+            2.024,
+            0.0002
+          ]
+        ],
+        "TrainBackHaul_n": [
+          [
+            0.376,
+            0.0002
+          ],
+          [
+            0.924,
+            0.0002
+          ],
+          [
+            1.476,
+            0.0002
+          ],
+          [
+            2.024,
+            0.0002
+          ]
+        ],
+        "TrainBackHaul_p": [
+          [
+            0.376,
+            0.0002
+          ],
+          [
+            0.924,
+            0.0002
+          ],
+          [
+            1.476,
+            0.0002
+          ],
+          [
+            2.024,
+            0.0002
+          ]
+        ]
+      },
+      "seat_tops": 20,
+      "failed": null
+    },
+    "rope_reach": {
+      "clear_to_deg": 60.0,
+      "run_m": 4.0,
+      "first_hit": null
+    },
+    "weights": {
+      "0": {
+        "Root": 3234,
+        "TrainFront": 32,
+        "TrainBack": 32,
+        "TrainFrontHaul": 496,
+        "TrainBackHaul": 496
+      },
+      "1": {
+        "Root": 1562,
+        "TrainFront": 32,
+        "TrainBack": 32,
+        "TrainFrontHaul": 0,
+        "TrainBackHaul": 0
+      },
+      "2": {
+        "Root": 256,
+        "TrainFront": 32,
+        "TrainBack": 32,
+        "TrainFrontHaul": 0,
+        "TrainBackHaul": 0
+      }
+    },
+    "roundtrip": {
+      "0": {
+        "file": "SkiTramTower30D.fbx",
+        "verts": 4290,
+        "tris": 5656,
+        "groups": {
+          "Root": 3234,
+          "TrainFront": 32,
+          "TrainBack": 32,
+          "TrainFrontHaul": 496,
+          "TrainBackHaul": 496
+        },
+        "local_pos_cm": {
+          "Root": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "TrainFront": [
+            0.0,
+            2625.0,
+            -0.0
+          ],
+          "TrainBack": [
+            0.0,
+            2625.0,
+            -0.0
+          ],
+          "TrainFrontHaul": [
+            0.0,
+            2585.0,
+            0.0
+          ],
+          "TrainBackHaul": [
+            0.0,
+            2585.0,
+            0.0
+          ]
+        },
+        "group_z_center_cm": {
+          "TrainFront": 123.3,
+          "TrainBack": -123.3,
+          "TrainFrontHaul": 119.25,
+          "TrainBackHaul": -119.25
+        }
+      },
+      "1": {
+        "file": "SkiTramTower30D_LOD1.fbx",
+        "verts": 1626,
+        "tris": 1872,
+        "groups": {
+          "Root": 1562,
+          "TrainFront": 32,
+          "TrainBack": 32
+        },
+        "local_pos_cm": {
+          "Root": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "TrainFront": [
+            0.0,
+            2625.0,
+            -0.0
+          ],
+          "TrainBack": [
+            0.0,
+            2625.0,
+            -0.0
+          ],
+          "TrainFrontHaul": [
+            0.0,
+            2585.0,
+            0.0
+          ],
+          "TrainBackHaul": [
+            0.0,
+            2585.0,
+            0.0
+          ]
+        },
+        "group_z_center_cm": {
+          "TrainFront": 123.3,
+          "TrainBack": -123.3
+        }
+      },
+      "2": {
+        "file": "SkiTramTower30D_LOD2.fbx",
+        "verts": 320,
+        "tris": 464,
+        "groups": {
+          "Root": 256,
+          "TrainFront": 32,
+          "TrainBack": 32
+        },
+        "local_pos_cm": {
+          "Root": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "TrainFront": [
+            0.0,
+            2625.0,
+            -0.0
+          ],
+          "TrainBack": [
+            0.0,
+            2625.0,
+            -0.0
+          ],
+          "TrainFrontHaul": [
+            0.0,
+            2585.0,
+            0.0
+          ],
+          "TrainBackHaul": [
+            0.0,
+            2585.0,
+            0.0
+          ]
+        },
+        "group_z_center_cm": {
+          "TrainFront": 123.3,
+          "TrainBack": -123.3
+        }
+      }
+    },
+    "train_parts": {
+      "TrainFront": [
+        "saddle_liner_n_f",
+        "saddle_liner_p_f",
+        "saddle_n_f",
+        "saddle_p_f"
+      ],
+      "TrainBack": [
+        "saddle_liner_n_b",
+        "saddle_liner_p_b",
+        "saddle_n_b",
+        "saddle_p_b"
+      ],
+      "TrainFrontHaul": [
+        "haulroll_bar_n_f",
+        "haulroll_bar_p_f",
+        "haulroll_hubn_4",
+        "haulroll_hubn_5",
+        "haulroll_hubn_6",
+        "haulroll_hubn_7",
+        "haulroll_hubp_4",
+        "haulroll_hubp_5",
+        "haulroll_hubp_6",
+        "haulroll_hubp_7",
+        "haulroll_liner_n_4",
+        "haulroll_liner_n_5",
+        "haulroll_liner_n_6",
+        "haulroll_liner_n_7",
+        "haulroll_liner_p_4",
+        "haulroll_liner_p_5",
+        "haulroll_liner_p_6",
+        "haulroll_liner_p_7",
+        "haulroll_n_4",
+        "haulroll_n_5",
+        "haulroll_n_6",
+        "haulroll_n_7",
+        "haulroll_p_4",
+        "haulroll_p_5",
+        "haulroll_p_6",
+        "haulroll_p_7",
+        "haulroll_tie_n_f",
+        "haulroll_tie_p_f",
+        "haulroll_tiep_n_f",
+        "haulroll_tiep_p_f"
+      ],
+      "TrainBackHaul": [
+        "haulroll_bar_n_b",
+        "haulroll_bar_p_b",
+        "haulroll_hubn_0",
+        "haulroll_hubn_1",
+        "haulroll_hubn_2",
+        "haulroll_hubn_3",
+        "haulroll_hubp_0",
+        "haulroll_hubp_1",
+        "haulroll_hubp_2",
+        "haulroll_hubp_3",
+        "haulroll_liner_n_0",
+        "haulroll_liner_n_1",
+        "haulroll_liner_n_2",
+        "haulroll_liner_n_3",
+        "haulroll_liner_p_0",
+        "haulroll_liner_p_1",
+        "haulroll_liner_p_2",
+        "haulroll_liner_p_3",
+        "haulroll_n_0",
+        "haulroll_n_1",
+        "haulroll_n_2",
+        "haulroll_n_3",
+        "haulroll_p_0",
+        "haulroll_p_1",
+        "haulroll_p_2",
+        "haulroll_p_3",
+        "haulroll_tie_n_b",
+        "haulroll_tie_p_b",
+        "haulroll_tiep_n_b",
+        "haulroll_tiep_p_b"
+      ]
+    },
+    "surgery": [
+      "every LOD prefab: the root bone m_Rotation (0, 0, 0, 1), m_Scale (1, 1, 1) (gate BONEROOT)",
+      "the four half bones m_Type 0; names through ProceduralBone.m_BindIndex",
+      "LOD0 / LOD1 / LOD2 FBXs skinned (the haul halves are empty groups at LOD1 / LOD2: the rollers leave at LOD1); settings.json useProceduralAnimation"
+    ]
+  },
+  "textures": {
+    "shared_from": "../SkiTramTower30C/SkiTramTower30C",
+    "maps": [
+      "BaseColor",
+      "ControlMask",
+      "MaskMap",
+      "Normal"
+    ],
+    "levels": [
+      0,
+      1,
+      2
+    ],
+    "added_mb": 0.0,
+    "surgery": "the Surfaces carry C's texture GUIDs (C was imported in an earlier action, so this import copies its maps byte for byte; repoint them, drop the copies)"
+  },
+  "export": {
+    "folder": "assets/import/tramtowers/C/SkiTramTower30D",
+    "donor_folder": "assets/import/tramtowers/C/SkiTramTower30C",
+    "lods": [
+      0,
+      1,
+      2
+    ]
+  },
+  "prefab": "SkiTramTower30 keeps its name; the import round repoints its mesh to this one (the code keys the wide limits on the mesh letter, LiftAlignMath.WideTramSaddle)"
+}

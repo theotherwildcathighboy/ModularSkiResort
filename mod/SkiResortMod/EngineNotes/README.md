@@ -116,7 +116,6 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`SkiRunPropMember.md`](SkiRunPropMember.md) -> SkiRunPropMember and SkiRunPropSettings: why placed run props carry a tag instead of Owner(run), and the save layouts
 - [`SkiRunPropSystem.md`](SkiRunPropSystem.md) -> SkiRunPropSystem: the bridge on our run surfaces, the corner stop, and the placer that walks a run's border
 - [`SkiRunRatingRules.md`](SkiRunRatingRules.md) -> SkiRunRatingRules: why the run rating cache is keyed on node x/z, how terraform re-snaps are told apart, and the queue and band rules
-- [`SkiRunSplatSystem.md`](SkiRunSplatSystem.md) -> SkiRunSplatSystem: how ski runs are painted into the terrain-material splatmap, which channel it claims and when it repaints
 - [`SkiRunSurfaceSystem.md`](SkiRunSurfaceSystem.md) -> SkiRunSurfaceSystem: why props on ski runs need Game.Objects.Surface, and why it runs right after WetnessSystem at interval 256
 - [`SkiRunTooltipSystem.md`](SkiRunTooltipSystem.md) -> SkiRunTooltipSystem: the mouse-tooltip lines shown while drawing a ski run, and the vanilla tooltip machinery they rely on
 - [`SkiRunTreeMember.md`](SkiRunTreeMember.md) -> SkiRunTreeMember: why glade trees carry a tag instead of Owner(run), and the save layout of that tag
@@ -130,6 +129,7 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`SnowGunPlumeRules.md`](SnowGunPlumeRules.md) -> SnowGunPlumeRules: when a run's snow guns count as running, how the pack is measured, and the plume lease
 - [`SnowLineSystem.md`](SnowLineSystem.md) -> SnowLineSystem: the shared climate oracle (ambient temperature, snow line, day mean) and why it samples the climate curve
 - [`StationAlign.md`](StationAlign.md) -> StationAlign: station stub-tip geometry, the sign convention, readout classes and place, and move episodes
+- [`TowerLeanSystem.md`](TowerLeanSystem.md) -> TowerLeanSystem: where a line tower's mast lean and its padded-face-uphill turn are written (after AlignSystem, before LaneSystem) and what follows them
 - [`TowerNumberTiles.md`](TowerNumberTiles.md) -> TowerNumberTiles: the tower number rule, tile prefab layout and the plate frame the tiles are placed in
 - [`TowerNumberTileSystem.md`](TowerNumberTileSystem.md) -> TowerNumberTileSystem: how number tile objects are created under towers and swept again by the engine
 - [`TramShuttleSystem.md`](TramShuttleSystem.md) -> TramShuttleSystem: how the aerial tram's two cabins are driven, gated, identified and placed against vanilla's sub-object system

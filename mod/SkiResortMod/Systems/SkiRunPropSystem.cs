@@ -25,11 +25,7 @@ namespace SkiResortMod.Systems
     {
         // Same tolerant name resolution as the sibling run-aware systems. SkiRunNaturalA is deliberately absent: it carries no props.
         private static readonly string[] RunSurfaceNames =
-            { SnowmakingRunName, "SkiRunGroomedA", NightRunName, SkiCatalog.Names.RunCatTrack };
-
-        // The placer's run kinds by prefab name (RunPropDensityRules.PropClassAllowed decides what each carries).
-        private const string SnowmakingRunName = "SkiRunSnowmakingA";
-        private const string NightRunName = "SkiRunNightA";
+            { SkiCatalog.Names.RunSnowmaking, SkiCatalog.Names.RunGroomed, SkiCatalog.Names.RunNight, SkiCatalog.Names.RunCatTrack };
 
         private PrefabSystem m_PrefabSystem;
         private EntityQuery m_UnbridgedAreaQuery;
@@ -319,13 +315,9 @@ namespace SkiResortMod.Systems
                     continue;
                 }
                 m_RunPrefabs.Add(prefabEntity);
-                // The kinds the placer walks, by name.
-                if (name == SnowmakingRunName)
-                    m_RunKindOf[prefabEntity] = (int)RunKind.Snowmaking;
-                else if (name == NightRunName)
-                    m_RunKindOf[prefabEntity] = (int)RunKind.Night;
-                else if (name == SkiCatalog.Names.RunCatTrack)
-                    m_RunKindOf[prefabEntity] = (int)RunKind.CatTrack;
+                // The kinds the placer walks: every surface above, its kind from the catalog (since R2 a groomed run carries both feature
+                // sliders, DECISIONS 577; RunPropDensityRules.PropClassAllowed decides what each carries).
+                m_RunKindOf[prefabEntity] = (int)SkiCatalog.RunByPrefab(name).Kind;
                 Mod.Log.Info($"Props: resolved run surface prefab '{name}'");
             }
         }

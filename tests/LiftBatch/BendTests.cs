@@ -31,6 +31,8 @@ namespace LiftBatch
             Bt8StationNodeNeverMeasured();
             Bt9Revision();
             Bt10ToolJoint();
+            Bt11TrainLimit();
+            Bt12LowSpan();
         }
 
         private static LiftCensus.Row Only(Program.World w, string where)
@@ -152,6 +154,75 @@ namespace LiftBatch
             Check(r.BendNode == Program.R(201), W, "the sharpest measured node is tower 1, got " + r.BendNode);
             float atTower1 = LiftAlignMath.PlanBendDeg(w.Tip(1), TowerPos(w, 201, 40f), TowerPos(w, 202, 0f));
             Check(math.abs(r.BendDeg - atTower1) < 1e-3f, W, $"BendDeg {r.BendDeg:F2} = tower 1's {atTower1:F2}");
+        }
+
+        private static void Bt11TrainLimit()
+        {
+            const string W = "bend/BT-11 train limit";
+            // No tower past its train: nothing. Two past: the row names the one furthest past, numbered like the bend (tile order).
+            Program.World w = Program.StraightLift();
+            LiftCensus.Row r = Only(w, W);
+            Check(r.TrainTower == 0 && r.TrainNode.IsNull && r.TrainOverDeg == 0f, W, "no train past its limits on a straight line");
+            w.SetTrainOver(202, 3f);
+            w.SetTrainOver(204, 7.5f);
+            r = Only(w, W);
+            Check(r.TrainTower == 4 && r.TrainNode == Program.R(204), W, $"tower 4 / node 204 (7.5 over), got {r.TrainTower} / {r.TrainNode}");
+            Check(math.abs(r.TrainOverDeg - 7.5f) < 1e-6f, W, "TrainOverDeg 7.5, got " + r.TrainOverDeg);
+            Check(math.distance(r.TrainAt, TowerPos(w, 204, 0f)) < 1e-3f, W, "TrainAt = the tower node");
+            Check(r.State == LiftCensus.State.Complete && r.BendTower == 0 || r.BendDeg < 1e-3f, W, "a train limit changes neither state nor bend");
+            // A station connection node is never a line tower, whatever its figure.
+            Program.World s = Program.StraightLift();
+            s.SetTrainOver(200, 9f);
+            r = Only(s, W);
+            Check(r.TrainTower == 0, W, "the base stub node counted, tower " + r.TrainTower);
+            // The row's signature moves with the figure (the hub refreshes).
+            Program.World a = Program.StraightLift();
+            a.Build();
+            int rev = a.Census.Revision;
+            a.SetTrainOver(203, 2f);
+            a.Build();
+            Check(a.Census.Revision != rev, W, "a tower going past its train's limits does not bump Revision");
+        }
+
+        private static void Bt12LowSpan()
+        {
+            const string W = "bend/BT-12 low span";
+            // Every span clears the floor: nothing. Two low spans: the row keeps the lowest, named by the towers at its ends (tile order).
+            Program.World w = Program.StraightLift();
+            LiftCensus.Row r = Only(w, W);
+            Check(!r.LowSpan && r.LowEdge.IsNull && r.LowFrom == 0 && r.LowTo == 0, W, "no low span on a clear line");
+            w.SetLow(102, 2.4f);   // towers 1-2
+            w.SetLow(104, 1.2f);   // towers 3-4
+            r = Only(w, W);
+            Check(r.LowSpan && r.LowEdge == Program.R(104), W, $"edge 104 (1.2 m), got {r.LowEdge}");
+            Check(r.LowFrom == 3 && r.LowTo == 4, W, $"between towers 3 and 4, got {r.LowFrom} and {r.LowTo}");
+            Check(math.abs(r.LowClearM - 1.2f) < 1e-6f, W, "LowClearM 1.2, got " + r.LowClearM);
+            Check(r.State == LiftCensus.State.Complete, W, "a low span does not change the state");
+            // The station spans: base to tower 1 reads 0 / 1, tower 4 to the top reads 4 / 0.
+            Program.World b = Program.StraightLift();
+            b.SetLow(101, 0.5f);
+            r = Only(b, W);
+            Check(r.LowFrom == 0 && r.LowTo == 1, W, $"base span: 0 / 1, got {r.LowFrom} / {r.LowTo}");
+            Program.World t = Program.StraightLift();
+            t.SetLow(105, -2f);
+            r = Only(t, W);
+            Check(r.LowFrom == 4 && r.LowTo == 0, W, $"top span: 4 / 0, got {r.LowFrom} / {r.LowTo}");
+            Check(LiftCensus.LowTenths(r.LowClearM) == 0, W, "below the ground reads 0 tenths");
+            Check(LiftCensus.LowTenths(2.85f) == 28 && LiftCensus.LowTenths(1.2f) == 12 && LiftCensus.LowTenths(0.04f) == 0, W,
+                  "tenths round down: 2.85 -> 28, 1.2 -> 12, 0.04 -> 0");
+            // A missing tower between: the span still ends at the next tower with a number.
+            Program.World m = Program.StraightLift();
+            m.SetTower(202, false);
+            m.SetLow(102, 1f);
+            r = Only(m, W);
+            Check(r.LowFrom == 1 && r.LowTo == 2, W, $"past a missing tower: 1 / 2 (the next numbered tower), got {r.LowFrom} / {r.LowTo}");
+            // The row's signature moves with the figure (the hub refreshes).
+            Program.World a = Program.StraightLift();
+            a.Build();
+            int rev = a.Census.Revision;
+            a.SetLow(103, 2f);
+            a.Build();
+            Check(a.Census.Revision != rev, W, "a span going under the floor does not bump Revision");
         }
 
         private static void Bt9Revision()

@@ -37,6 +37,17 @@ Every NAME carries its own Expected flag. false = "pending": the prefab is desig
   never reads repo files), LiftBatch CT-11 compares the two.
 - tests/ResortBatch CatalogGuardTests: alias == row == const, and the locale texts against these numbers.
 
+## Grips and pivots (the carrier grip round)
+Each lift type names a GRIP prefab (`GripPrefab`, kind Grip = 11, its own Expected flag `GripExpected`, pending until the art
+import) and the split carrier's pivots (`CarrierPivots`, prefab-local meters, base-pivot meshes: GripRope = the rope point in the grip's
+frame, GripPin = the pin center in the grip's frame, BodyPin = the pin center in the body's frame). `RigidOffset` = BodyPin + GripRope -
+GripPin is the rope point in the body's frame at zero pitch and swing; it must equal (0, HangM - GripTopAboveRopeM, 0) (LiftBatch
+CT-17), the one-piece carrier's rigid drop. A grip is not a carrier (never in the carrier views, DeleteAllRules skips the kind), and the
+row's `Expected` does not include the grip: a pending grip never makes a lift type pending. The pivots are the split build's
+(lift_chair.py / lift_cabin.py --split, its build.md; the source comments on each row give the meshes and the CT-17 sum); the proposed
+carriers.json fields are `grip_rope_m`, `grip_pin_m`, `body_pin_m` per carrier (CT-11 would then compare them). The pivots also set each
+type's roll limits (`CarrierPose.Limits`: the lever ratio |BodyPin.xy| / |RigidOffset.xy|, LiftBatch CP-18).
+
 ## The static constructor never throws
 A TypeInitializationException would take down every system that touches the class. Every sanity finding goes to `Problems`, which
 `SkiPrefabCatalogSystem.OnCreate` logs as "!!!" and LiftBatch CT-1 fails on. Nothing allocates after the static constructor.
@@ -55,6 +66,11 @@ A TypeInitializationException would take down every system that touches the clas
 - The game negates FBX x on import and the prefab rows are mirrored, so in the GAME frame the tram base's axis is +4.00 and its docks A / B
   (9.50 / -1.50, 16.00, -5.50); the manifest numbers (axis_x -4.0, docks -9.50 / 1.50) are the authoring frame (-x). The tram top (axis 0,
   docks -5.50 / 5.50) maps onto itself. Sanity: a Shuttle station's docks are centered on its axis.
+- `StationDef.RopeAnchorLocalY` = the prefab-local y of the station's lowest HV rope sub-lane anchor (the end LaneSystem.FindAnchor joins
+  the line's rope to; FG base 5.84 / top 5.24, DQ 3.70, gondola 4.85, tram 16.00) and `.FrontLocalZ` = the lot front (lot depth x 4: FG /
+  tram 12, DQ / gondola 16), where vanilla stands the building on the terrain. The lift planner's station ends use both
+  (`LiftTowerPlanConstants.StationEndRope`, FIX-LIST 48). Not the bullwheel: the FG wheel is at y 3.55 / 3.75, its rope anchors at
+  5.84 / 5.24. LiftBatch EI-48 compares both with the mirror prefabs.
 
 ## Station rows (sources)
 Wheel = bullwheel center at rope height, prefab-local (x, y = rope, z); NaN = no loop (Shuttle). FG: `lift_terminal.py` drive (0.2, 3.5) +

@@ -134,6 +134,7 @@ import mathutils
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import carrier_split as CS  # noqa: E402
 import cs2_asset  # noqa: E402
 import cs2_kit    # noqa: E402
 
@@ -1647,8 +1648,12 @@ def check_contracts(obj, style, row, level, hanger_offset=HANGER_OFFSET, info=No
         _fail("C2", lv, f"vertices at the top belong to {sorted(table[i - 1] for i in top_parts)}")
     res["C2"] = f"top owned by {style.grip_part}"
 
-    # C3 rope point inside the grip part's bbox; dq jaw sits on the rope (LOD0/1)
-    gv = _verts_of_parts(obj, gid)
+    # C3 rope point inside the grip part's bbox; dq jaw sits on the rope (LOD0/1). ENVELOPE: the grip
+    # part is outboard of the wheels, the jaw beside it (ENVELOPE_JAW) holds the rope: their union
+    cid = set(gid)
+    if ENVELOPE and style.key in ENVELOPE_JAW:
+        cid |= _part_ids(table, ENVELOPE_JAW[style.key], exact=True)
+    gv = _verts_of_parts(obj, cid)
     g = a[gv]
     gl, gh = g.min(axis=0), g.max(axis=0)
     if not (gl[0] <= 0.0 <= gh[0] and gl[1] <= 0.0 <= gh[1] and gl[2] <= rope <= gh[2]):
@@ -1672,7 +1677,9 @@ def check_contracts(obj, style, row, level, hanger_offset=HANGER_OFFSET, info=No
 
     # C5 ring counts (LOD0; the tube objects asserted them before the join)
     if level == 0:
-        res["C5"] = "tube_stem 9 rings" if style.key == "tr" else "tube_hanger 10, tube_hoop 14 rings"
+        # tr: rings from the contracted tally (8 segments: 16 tris a span), 9 one-piece, 11 split (round 3)
+        res["C5"] = (f"tube_stem {dict(style.part_tris)['tube_stem'] // 16 + 1} rings" if style.key == "tr"
+                     else "tube_hanger 10, tube_hoop 14 rings")
 
     # C6 passing clearance and mast clearance from the chair width
     width = float(a[:, 1].max() - a[:, 1].min())
@@ -2237,12 +2244,14 @@ def check_atlas_stage(chair, info, atlas_dir, name):
     return {"C11": f"quad 2 {m2:.3f}, quad 3 {m3:.3f}; every face in its family quad"}
 
 
-def check_finished_maps(chair, info, asset_dir, name, A, plate_prefix="plate_face"):
+def check_finished_maps(chair, info, asset_dir, name, A, plate_prefix="plate_face",
+                        plate_required=True):
     """
     C12 on the shipped maps, per texel of every face (cs2_compose.rasterise_face_fields on
     the shipped layer): bench -> ControlMask B >= 0.99 (R 0); paint -> R >= 0.99 except
     the plate; galvanised -> R = G = B = 0; G = 0 everywhere; BaseColor A 255; >= 20 dark
-    (< 0.05 linear) texels inside the plate's UV rect.
+    (< 0.05 linear) texels inside the plate's UV rect (plate_required=False: the split GRIP,
+    which carries no plate).
     """
     import cs2_compose
     import cs2_preview
@@ -2278,12 +2287,12 @@ def check_finished_maps(chair, info, asset_dir, name, A, plate_prefix="plate_fac
         r0, r1, c0, c1 = rect
         lin = cs2_preview._srgb_to_linear(base[r0:r1, c0:c1, 0:3])
         dark = int((lin.max(axis=-1) < 0.05).sum())
-    if dark < 20:
+    if plate_required and dark < 20:
         errs.append(f"plate: {dark} dark texels (< 0.05 linear), need >= 20")
     if errs:
         _fail("C12", "finish", "; ".join(errs))
     return {"C12": f"bench {n_b} / paint {n_p} / galv {n_g} texels as recolored; "
-                   f"plate {dark} dark texels"}
+                   + (f"plate {dark} dark texels" if plate_required else "no plate (grip)")}
 
 
 def _raster(tris2d, x0, y0, nx, ny, px):
@@ -2860,13 +2869,14 @@ def post_finish_textures(chair, asset_dir, name, A, plate_number, specs=None):
           f"(height range {h.min():+.4f} .. {h.max():+.4f} m)")
 
 
-def make_post_compose(chair, plate_number, specs, plate_w=0.20, plate_h=0.13):
+def make_post_compose(chair, plate_number, specs, plate_w=0.20, plate_h=0.13, plate=True):
     """
     cs2_bake.bake_unique post_compose hook (dq-chair.md 6.3, skeptic D2 fixed: part_map
     is bound), LINEAR space, AO already multiplied by the bake: relief height ->
     compose_maps (per-part noise, detail normal, channel rules; ao=None) -> normals
     renormalised (nz >= 0.05, uncovered gutters flat) -> the number plate stamped in
-    linear plate colors (zeroes ControlMask R under the label).
+    linear plate colors (zeroes ControlMask R under the label; plate=False: the split GRIP,
+    which carries no plate).
     """
     import cs2_compose
     import cs2_preview
@@ -2885,11 +2895,12 @@ def make_post_compose(chair, plate_number, specs, plate_w=0.20, plate_h=0.13):
         n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-6)
         nrm[..., 0:3] = n * 0.5 + 0.5
         nrm[uncovered, 0:3] = (0.5, 0.5, 1.0)
-        cs2_compose.stamp_on_face(base, ctl, mesh, table, "plate_face",
-                                  make_plate_painter(chair, table, plate_number, A,
-                                                     plate_w, plate_h, colours=lin))
-        print(f"[chair] post-compose: relief {h.min():+.4f} .. {h.max():+.4f} m, plate "
-              f"'{plate_number}' stamped (linear)")
+        if plate:
+            cs2_compose.stamp_on_face(base, ctl, mesh, table, "plate_face",
+                                      make_plate_painter(chair, table, plate_number, A,
+                                                         plate_w, plate_h, colours=lin))
+        print(f"[chair] post-compose: relief {h.min():+.4f} .. {h.max():+.4f} m"
+              + (f", plate '{plate_number}' stamped (linear)" if plate else ", no plate"))
         return base, nrm, msk, ctl
 
     return post
@@ -3231,6 +3242,19 @@ def parse_args(argv=None):
     ap.add_argument("--review", nargs="?", const="", default=None, metavar="DIR",
                     help="also write the live-review pack <DIR>/<name>.blend "
                          "(cs2_review.write_pack, duplicates only; exports unchanged)")
+    ap.add_argument("--split", action="store_true",
+                    help="tr / dq: build the GRIP and BODY meshes (<base>Grip<letter> + <base><letter>, "
+                         "default letter " + SPLIT_LETTER + "; carrier split 2026-11-03), finish + LODs always")
+    ap.add_argument("--envelope", action="store_true",
+                    help="with --split: the jaw envelope (ENVELOPE_*; default letter " + ENVELOPE_LETTER + "): no "
+                         "bake, the shipped " + SPLIT_LETTER + " atlas remapped; only the changed meshes are written")
+    ap.add_argument("--thin-jaw", dest="thin_jaw", nargs="?", const=THIN_JAW_LETTER, default=None,
+                    choices=sorted(THIN_JAW_SPECS),
+                    help="with --envelope, style tr: the thin jaw (THIN_JAW_SPECS, art-601) as that grip letter "
+                         "(default " + THIN_JAW_LETTER + "); the O body is unchanged and not written")
+    ap.add_argument("--remap-from", default=None,
+                    help="--envelope: the shipped split letter folder (default assets/import/chairs/"
+                         + SPLIT_LETTER + ")")
     return ap.parse_args(argv)
 
 
@@ -3247,7 +3271,22 @@ def _resolve(args):
     row = rows[st.carrier]
     if int(row["seats"]) != st.seats:
         raise ValueError(f"carrier {st.carrier!r} seats {row['seats']} != style {st.seats}")
-    letter = args.letter or st.letter
+    if args.split and st.key not in SPLIT_PLAN:
+        raise ValueError(f"--split: style {st.key!r} has no split (tr / dq)")
+    if getattr(args, "envelope", False):
+        if not args.split:
+            raise ValueError("--envelope needs --split")
+        global ENVELOPE
+        ENVELOPE = True
+    if getattr(args, "thin_jaw", None):
+        if not ENVELOPE or st.key != "tr":
+            raise ValueError("--thin-jaw needs --split --envelope --style tr")
+        global THIN_JAW, THIN_JAW_LETTER, THIN_JAW_SPEC
+        THIN_JAW = True
+        THIN_JAW_LETTER = args.thin_jaw
+        THIN_JAW_SPEC = THIN_JAW_SPECS[THIN_JAW_LETTER]
+    letter = args.letter or (THIN_JAW_LETTER if THIN_JAW else ENVELOPE_LETTER if ENVELOPE
+                             else SPLIT_LETTER if args.split else st.letter)
     name = cs2_asset.validate_asset_name(args.name or f"{st.base}{letter}")
     import cs2_validate
     rep = cs2_validate._Report(name)
@@ -3349,7 +3388,7 @@ def _main_fg6l(args, st, name):
     if args.review is not None:
         import cs2_review
         cs2_review.write_pack(name, asset_dir, dict(enumerate([chair] + lods)), {},
-                              meta={"generator": "lift_chair.py", "args": vars(args),
+                              meta={"generator": "lift_chair.py", "args": CS.manifest_args(args, REPO_ROOT),
                                     "kind": "hanging", "caps": {0: TRI_BUDGET},
                                     "tint": {"B": BENCH_PREVIEW_RGB}},
                               out_dir=args.review or None)
@@ -3381,12 +3420,1367 @@ def build_lods(chair, style, row, name, lod2_mode, hanger_offset, info):
     return lods, results
 
 
+# --------------------------------------------------------------------------------------
+# Carrier split (2026-11-03, --split): the chair as TWO meshes, the GRIP and the BODY
+# (docs/research/carrier-pivot-swing-plan-2026-11-03.md sections 2, 5, 6, 8; brief
+# docs/research/art/carrier-split-2026-11/BRIEF.md). The code pitches the grip with the rope
+# and keeps the body plumb (later: swings it); they meet at a LATERAL pivot pin:
+#   grip  the jaws / carriage + a yoke (two cheeks) that carries the pin ends
+#   body  the hanger, ending in a knuckle (the eye, a sphere on the pin) between the cheeks,
+#         + the seat
+# Both meshes keep the base pivot (lowest vertex z = 0). carrier_split.py holds the joint
+# geometry and the split contracts S1 (rejoin within 2 mm), S2 (pin gap in (0, 5 mm] over the
+# pin sweep: +-45 deg pitch, each +-3 deg fore-aft, all about the pin), S3 (no body/grip clash over
+# that sweep, BVH as C13). The cross-wind sway rolls grip + body TOGETHER about the rope point: no
+# lateral turn at the pin (swing convention, carrier_split.py header).
+# Split-only geometry changes (critique 2026-11-03): the dq hanger head is a casting (relief geo, no
+# painted bolts; the hex pin ends stay) and the dq running wheels go 8 -> SPLIT_WHEEL_SEGS segments
+# (split_wheel: n-gon caps triangulated after their normals, segs - 2 tris a cap). The one-piece
+# M chairs are unchanged.
+# Every one-piece contract C1-C14 still runs, on the assembled pair (split_pair: body + grip at
+# zero, part table body + grip) of every level, with the pair tally and caps below.
+# --------------------------------------------------------------------------------------
+
+SPLIT_LETTER = "N"
+SPLIT_GRIP_INFIX = "Grip"
+#: dq running wheels in the split (critique 2026-11-03: the 8-gon read as a polygon in the grip
+#: preview): 16 segments, both caps as 16-gons triangulated after their normals = 32 side + 2 x 14
+SPLIT_WHEEL_SEGS = 16
+SPLIT_WHEEL_TRIS = 2 * SPLIT_WHEEL_SEGS + 2 * (SPLIT_WHEEL_SEGS - 2)
+# tr split touch-up (owner verdict 2026-11-03, round 3), split-only like the dq wheels (the one-piece
+# M keeps FG_GRIP and stem_points):
+#  * the clevis hangs CENTERED under the jaw block on the rope axis (round 2 had it on the J-stem's
+#    42 deg first span, 0.10 m behind the block) and the J-stem's top runs STRAIGHT DOWN into it:
+#    top point -> V (vertical, x 0) -> U (one span at slope_deg, onto the vertical run x -0.52) -> the
+#    old vertical run's end. The two 52 deg bends' fillets MEET (|TV|, |UP4| >= |VU|, so each fillet
+#    is |VU| / 2: one even S of ~0.155 m chords, the stem_points lesson) at 5 rings each = 11 rings,
+#    13 deg a joint (4 rings: 17 deg, a visible polyline in the side preview; non-meeting fillets at a
+#    steeper slope: long straights beside short chords crease the face-area weighted normals); the
+#    top segment (the cut ring at the pin -> the V fillet's first ring, 0.23 m) is a straight frustum
+#    on the clevis axis.
+#  * round 4 (owner: the round-3 F4a short jaw was wrong; photo fixed grips/close-jaw-grip-ski-lift-
+#    260nw-544514905.webp): the jaw is ONE long plate lying ON the rope (underside on the rope's top),
+#    0.68 m like the one-piece saddle, chamfered to a 7 mm edge at both ends so the rope runs in
+#    smoothly; the compact clamp box sits UNDER the plate's middle and wraps the rope; the clevis
+#    hangs under the box. No block encloses the plate any more (round 2's "two blades out of the
+#    block's sides"). The plate's crown is the mesh top (rope + GRIP_TOP_Z, C1 / C2), so plate + box
+#    are ONE part "grip" (a casting, relief geo): C2 wants the top on "grip", C3 the rope point in
+#    its bbox (the box). 32 tris = the one-piece block 12 + saddle 20.
+#  * the audit split_alignment() raises when either regresses (SPLIT_ALIGN_* below)
+TR_SPLIT_GRIP = {
+    # plate (x, z) about the rope, CCW from -Y: flat underside on the rope's top (r 0.024), sloping
+    # 9.6 deg up to a 0.10 m crown at GRIP_TOP_Z (edge to the end face 80 deg: crisp at SHADE_ANGLE 66)
+    "plate": [(-0.340, 0.024), (0.340, 0.024), (0.340, 0.031), (0.050, GRIP_TOP_Z),
+              (-0.050, GRIP_TOP_Z), (-0.340, 0.031)],
+    "plate_w": 0.080,                       # rope 0.048
+    "box": (0.140, 0.090, -0.060, 0.030),   # x length, y width, z bottom (the old block's), z top (in the plate)
+}
+TR_SPLIT_STEM = {"v_z": -0.700, "slope_deg": 38.0, "bend_rings": 5}   # V z (rope frame), V -> U slope
+TR_SPLIT_STEM_RINGS = 2 + 2 * TR_SPLIT_STEM["bend_rings"] - 1          # the two fillets meet: one dedupe
+TR_SPLIT_STEM_TRIS = 2 * 8 * (TR_SPLIT_STEM_RINGS - 1)                 # 8 segments: 160
+SPLIT_ALIGN_PLAN_MAX_M = 0.005       # clevis center -> jaw block center, in plan (owner: < 5 mm)
+SPLIT_ALIGN_AXIS_MAX_DEG = 1.0       # tube end axis vs clevis axis, and each end ring's tilt off it
+SPLIT_ALIGN_AXIS_OFFSET_MAX_M = 0.001   # the pin center off the tube end axis (coaxial, not just parallel)
+# Joint numbers in each style's BUILD frame (tr: rope at z 0, all geometry below; dq: post-pivot).
+# knuckle R + the design gap c + cheek thickness t = the cheek's outer face; "over" = how far the
+# bridge / head overhangs the cheeks sideways (no coplanar faces).
+SPLIT_JOINT = {
+    # tr (round 3): the pin sits under the jaw block's center on the stem's vertical top run, R + c
+    # under the bridge plate; the bridge spans the cheeks + bridge_x_over fore and aft, its top buried
+    # in the block (underside -0.060), the cheeks' tops buried in the bridge
+    "tr": {"knuckle_r": 0.052, "knuckle_segs": (8, 4), "cheek_t": 0.016, "cheek_r": 0.055,
+           "bridge_bottom": -0.085, "bridge_top": -0.050, "cheek_top": -0.065, "bridge_x_over": 0.004,
+           "over": 0.003, "pin_r": 0.020, "pin_len": 0.012, "r_x": 0.17},
+    # dq: the pin sits in the C-hanger's vertical run just under the top bend (fillet end z 2.958):
+    # the head block spans z head_top - head[1] .. head_top, the top arm is cut at arm_cut_z
+    # inside it, the body's hanger starts in the knuckle
+    "dq": {"knuckle_r": 0.054, "knuckle_segs": (8, 4), "head": (0.120, 0.070), "head_top": 2.950,
+           "arm_cut_z": 2.915, "cheek_t": 0.016, "cheek_r": 0.058, "cheek_bury": 0.010,
+           "over": 0.003, "pin_r": 0.020, "pin_len": 0.012, "r_x": 0.17},
+}
+# Part-name prefixes that belong to the GRIP mesh (everything else is the body).
+SPLIT_GRIP_PARTS = {
+    "tr": ("grip",),       # grip (round 4: plate + clamp box), gripspring + gripbridge, gripcheek_*, grippin_*
+    "dq": ("gripbody", "comb", "jaw_rope", "lever_", "spring_", "wheel_", "axle_",
+           "tube_hangerarm", "hangerhead", "hangercheek_", "hangerpin_"),
+}
+SPLIT_DENSITY = {
+    "tr": {"gripbridge": 1.2, "gripcheek_": 1.2, "grippin_": 1.0, "knuckle": 1.0},
+    "dq": {"hangerhead": 1.2, "hangercheek_": 1.2, "hangerpin_": 1.0, "knuckle": 1.0},
+}
+# The measured split (first build 2026-11-03), asserted exactly like C9 / the proxy tally:
+# body / grip LOD0 tallies, LOD1 targets + delete prefixes, LOD2 proxy tallies. pin_detail =
+# pair LOD0 - the one-piece tally (the joint parts minus what they replace): the pair cap is
+# the old cap + the pin detail (BRIEF "Budgets"); the pair LOD2 cap likewise (+ the yoke box).
+SPLIT_PLAN = {
+    "tr": {"body_tally": (("knuckle", 48),) + tuple(
+               (n, TR_SPLIT_STEM_TRIS if n == "tube_stem" else t)
+               for n, t in _TR_TALLY if not n.startswith("grip")),
+           "grip_tally": (("grip", 32), ("gripspring", 18), ("gripbridge", 12),
+                          ("gripcheek_0", 22), ("gripcheek_1", 22), ("grippin_0", 18), ("grippin_1", 18)),
+           "pin_detail": 116,             # knuckle 48 + bridge 12 + cheeks 44 + pin ends 36 - plates 24
+           # round 3: the straight-down stem (2 meeting bends x 5 rings = 11 rings) = 160 tris, +32 on
+           # the one-piece J (128); the round-4 plate + box "grip" (32) = block + saddle. The pair (610 + 32 =
+           # 642) is 26 over the BRIEF cap 500 + 116 = 616 (+4.2 %): raised by 26 (rule: <= 5 %)
+           "segs_detail": TR_SPLIT_STEM_TRIS - 128, "cap_raise": 26,
+           "lod1": (200, 70), "lod1_delete": (("bolt_",), ("bolt_", "grippin_")),
+           "body_proxy": (("knuckle", 8), ("tube_stem", 30), ("seatblock", 12), ("backblock", 10)),
+           "grip_proxy": (("grip", 10), ("gripyoke", 10)),
+           "pin_detail_lod2": 18},         # yoke box 10 + knuckle 8 (the proxy stem pin -> V -> U -> end: 6 rings)
+    "dq": {"body_tally": (("knuckle", 48), ("tube_hanger", 80)) + tuple(
+               (n, t) for n, t in _DQ_TALLY[12:]),
+           "grip_tally": tuple((n, SPLIT_WHEEL_TRIS if n.startswith("wheel_") else t)
+                               for n, t in _DQ_TALLY[:11])
+                         + (("tube_hangerarm", 80), ("hangerhead", 12),
+                            ("hangercheek_0", 22), ("hangercheek_1", 22),
+                            ("hangerpin_0", 18), ("hangerpin_1", 18)),
+           "pin_detail": 156,             # knuckle 48 + head 12 + cheeks 44 + pin ends 36 + hanger cut 16
+           # the 16-segment wheels: 2 x (60 - 32) = +56 tris; the pair (1152 + 56 = 1208) is 52 over
+           # the BRIEF cap 1000 + 156 = 1156 (+4.5 %): raised by 52 (rule: <= 5 %, DECISIONS 585)
+           "segs_detail": 2 * (SPLIT_WHEEL_TRIS - 32), "cap_raise": 52,
+           "lod1": (280, 180),
+           "lod1_delete": (("bolt_", "barhinge_"),
+                           ("bolt_", "wheel_", "spring_", "lever_", "comb", "axle_", "hangerpin_")),
+           "body_proxy": (("knuckle", 8), ("tube_hanger", 18)) + STYLES["dq"].proxy_tris[2:],
+           "grip_proxy": (("gripbody", 10), ("hangeryoke", 10)),
+           "pin_detail_lod2": 18},         # yoke box 10 + knuckle 8
+}
+
+# --------------------------------------------------------------------------------------
+# Jaw envelope (breakover-twins round, v2, 2026-11-03): split only, --envelope, generation O.
+# Every carrier passes every tower train under tests/test_grip_clearance.py: a tower wheel's rim /
+# liner may touch ONLY the grip's smooth jaw envelope (|z| <= ENVELOPE_Z about the rope center),
+# hubs / bosses / axle caps never, every other tower part keeps CARRIER_CLEAR_M. Real trains pass
+# grips that way: the closed jaws sit nearly flush with the rope and stand a limited, smooth amount
+# above it, and the sheave battery rocks as it rides over them (Poma US4441430, US4691643;
+# docs/research/art/breakover-twins-2026-11/refs/SOURCES.md "Grip passage under compression").
+# So everything taller than the jaw sits OUTBOARD (authoring -Y) of the widest wheel and its boss:
+#   tr  the clamp block (the mesh top, rope + GRIP_TOP_Z), the spring housing, the clevis, the pin
+#       and the J-stem's straight top run move out to y ENVELOPE_TR["block_y"]; the plate stays ON
+#       the rope as the jaw (crown lowered into the envelope) and reaches out into the block; the
+#       stem's V -> U span also leans back to the seat's center line, below the wheels
+#   dq  the carriage (body, comb, lever, springs, running wheels, axles) moves out by
+#       ENVELOPE_DQ["dy"] over the C-hanger's vertical run; the jaw bar stays on the rope and reaches
+#       out to the running wheels, the stub axles reach back into it; the hanger's top bend is drawn
+#       into the carriage. No dq pin moves: the dq body is unchanged (keeps its letter).
+# Topology is unchanged part for part, so the shipped atlas maps on loop for loop (split_shipped_uvs:
+# no bake, 0 MB added); only vertex positions move. LOD2 adds a jaw proxy (C3 holds the rope point in
+# grip part + jaw: ENVELOPE_JAW).
+# --------------------------------------------------------------------------------------
+ENVELOPE = False                    # --envelope (split only)
+ENVELOPE_LETTER = "O"
+ENVELOPE_Z = 0.06                   # m: the jaw band about the rope center the wheels may roll over
+ENVELOPE_TR = {"block_y": -0.200,   # clamp block + clevis + pin + stem top run center (FG wheel 0.065 + boss)
+               "block_w": 0.090, "block_z": (-0.060, GRIP_TOP_Z), "crown": 0.060,
+               "plate_y": (-0.165, 0.040),        # the jaw plate: on the rope, 1 cm into the block
+               "spring_axis_y": -0.100,           # spring housing turned 180 deg about z: outboard of the block
+               "slope_deg": 34.0}                 # V -> U in the travel plane (38 centered): the leaned span keeps
+                                                  # |VU| <= |TV|, |UP4| (the even S, fillets meet)
+ENVELOPE_DQ = {"dy": -0.250,        # carriage shift (running wheels' inboard face 0.152 -> -0.098)
+               "jaw_y_out": -0.105,               # jaw bar: from 1 cm proud inboard (0.04) out into the wheels
+               "axle_y_in": -0.095,               # stub axles' inboard ends: back into the jaw bar
+               "arm_y0": -0.235, "arm_k": 0.04,   # hanger top bend (z > rope + arm_z_min): drawn into the body
+               "arm_z_min": -0.030}
+ENVELOPE_ROLES = {"tr": ("body", "grip"), "dq": ("grip",)}    # the meshes the envelope changes (new letter)
+# --------------------------------------------------------------------------------------
+# Thin jaw (art-601, owner hand-test note 9, 2026-11-05): --envelope --thin-jaw, tr only, grip letter P.
+# From above the O plate read as a 0.68 x 0.205 m slab lying on a 0.048 m rope (4x the rope's width).
+# Vertex moves only (the O atlas maps on loop for loop, 0 MB): the plate's inboard edge comes in from
+# rope + 0.040 to THIN_JAW["inboard_y"] (it still covers the rope's center line: C3), and its outboard
+# ring (inside the clamp block) shrinks along travel to THIN_JAW["outboard_half"], so in plan the jaw
+# tapers from its full length on the rope to the block's length where it enters the block: a jaw on
+# the rope and a short neck instead of a wide slab. The body is the O body, unchanged (keeps O).
+# Q (the critique pass: P's edge on the rope center leaves half the rope bare beside a fin; a fixed
+# grip is a compact clamp straddling the rope): the inboard edge stays at O's +0.040 and the whole
+# plate shortens along the rope, 0.44 m on the rope tapering to 0.24 m at the block. Every Q plate
+# vertex stays inside the O plate's volume, so Q can add no overlap O does not have.
+# --------------------------------------------------------------------------------------
+THIN_JAW = False                    # --thin-jaw [P|Q] (with --envelope, tr)
+THIN_JAW_SPECS = {
+    "P": {"inboard_y": 0.010,       # m: the plate's inboard edge (O: 0.040; the rope's r is 0.024)
+          "inboard_half": None,     # m: the inboard ring's half length (None: O's 0.340)
+          "outboard_half": 0.054,   # m: the outboard ring's half length (O: 0.340): the block's 0.140 at its face
+          "inboard_dz": 0.35},      # the inboard ring's height over the plate's flat underside x this: a wedge
+    "Q": {"inboard_y": 0.040, "inboard_half": 0.22, "outboard_half": 0.12, "inboard_dz": 1.0},
+}
+# P is the shipping letter (owner verdict, round 2: "a thin tapered triangle of the shipped version", over the critique's
+# Q). "inboard_dz" (round 2): P's long edge on the rope read as a fin; the plate now also thins toward that edge (crown
+# 0.060 -> 0.037 over the rope top 0.024 at the edge, full at the block), so it reads as a tapered wedge. The squash is
+# toward the profile's flat underside, so every vertex stays inside the round-1 P plate: no new overlap.
+THIN_JAW_LETTER = "P"
+THIN_JAW_SPEC = THIN_JAW_SPECS[THIN_JAW_LETTER]
+ENVELOPE_JAW = {"tr": "gripjaw", "dq": "jaw_rope"}             # C3: the jaw beside the grip part
+#: C15 (every split mesh, every LOD): lift_tower's wheel half width + 4 cm (FG 0.065, DQ 0.05) and the
+#: wheel bottoms under the rope (FG 0.433, DQ 0.482) + margin; jaw_x = the outboard end of the jaw
+#: (LOD1 snap window)
+ENVELOPE_GATE = {"tr": {"xlim": 0.105, "z_bot": 0.47, "jaw_x": ENVELOPE_TR["plate_y"][0]},
+                 "dq": {"xlim": 0.09, "z_bot": 0.49, "jaw_x": ENVELOPE_DQ["jaw_y_out"]}}
+
+
+def _envelope_lod_snap(lod, key, rope_z):
+    """ENVELOPE LOD1: collapse decimation flattens the jaw's lowered crown arc a few mm ABOVE the band
+    (the tr plate came out at rope + 0.062); jaw vertices (net x >= jaw_x) within 1 cm over the band
+    snap back onto it. Returns the count and the largest move."""
+    me = lod.data
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    top = rope_z + ENVELOPE_Z
+    hit = (co[:, 0] >= ENVELOPE_GATE[key]["jaw_x"] - 1e-4) & (co[:, 2] > top + 1e-6) & (co[:, 2] <= top + 0.01)
+    mv = float((co[hit, 2] - top).max()) if hit.any() else 0.0
+    co[hit, 2] = top
+    me.vertices.foreach_set("co", co.reshape(-1))
+    me.update()
+    return f"{int(hit.sum())} jaw vertices snapped onto rope + {ENVELOPE_Z} (max {mv * 1000:.1f} mm)"
+
+
+def check_envelope(obj, key, rope_z, label):
+    """C15 (ENVELOPE, net frame: x lateral, -x outboard, z up; rope_z = the rope center in this mesh):
+    every face's part beyond the jaw band (|z - rope| > ENVELOPE_Z) and within the wheels' reach
+    (z - rope > -z_bot) lies outboard of x -xlim. Exact: each triangle is clipped to those slabs, so a
+    face that only straddles the reach line is judged by its part above it."""
+    g = ENVELOPE_GATE[key]
+    me = obj.data
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    me.calc_loop_triangles()
+    tri = np.empty(len(me.loop_triangles) * 3, dtype=np.int64)
+    me.loop_triangles.foreach_get("vertices", tri)
+    T = co[tri.reshape(-1, 3)]
+    T[:, :, 2] -= rope_z
+
+    def clip(poly, k, c, keep_above):
+        out = []
+        for i in range(len(poly)):
+            a, b = poly[i], poly[(i + 1) % len(poly)]
+            ia, ib = (a[k] >= c) == keep_above, (b[k] >= c) == keep_above
+            if ia:
+                out.append(a)
+            if ia != ib:
+                out.append(a + (b - a) * ((c - a[k]) / (b[k] - a[k])))
+        return out
+
+    bad, worst = 0, -9.0
+    eps = 1e-4
+    for t in T:
+        if t[:, 0].max() <= -g["xlim"] + 1e-6 or t[:, 2].max() < -g["z_bot"]:
+            continue
+        pts = clip(list(t), 2, ENVELOPE_Z + eps, True)
+        lo = clip(clip(list(t), 2, -ENVELOPE_Z - eps, False), 2, -g["z_bot"], True)
+        xs = [p[0] for p in pts + lo]
+        if xs and max(xs) > -g["xlim"] + 1e-6:
+            bad += 1
+            worst = max(worst, max(xs))
+    if bad:
+        raise ContractError(f"CONTRACT C15 BROKEN ({label}): {bad} triangles pass rope +-{ENVELOPE_Z} "
+                            f"inboard of x -{g['xlim']} within the wheels' reach (rope -{g['z_bot']}); "
+                            f"worst x {worst:+.4f}")
+    return f"0 faces past rope +-{ENVELOPE_Z} inboard of x -{g['xlim']} (reach rope -{g['z_bot']})"
+
+
+def split_plan(key):
+    """SPLIT_PLAN[key], with the envelope's LOD2 jaw proxy (+10 tris, pin_detail_lod2) when ENVELOPE."""
+    plan = SPLIT_PLAN[key]
+    if not ENVELOPE:
+        return plan
+    gp = list(plan["grip_proxy"])
+    gp.insert(1, (ENVELOPE_JAW[key], 10))
+    return dict(plan, grip_proxy=tuple(gp), pin_detail_lod2=plan["pin_detail_lod2"] + 10)
+
+
+def _dq_envelope(parts, row):
+    """ENVELOPE dq edits on the build-frame parts (before the S1 copies): vertex moves only."""
+    E = ENVELOPE_DQ
+    rope = float(row["hang_m"]) - float(row["grip_top_above_rope_m"])
+    carriage = ("gripbody", "comb", "lever_", "spring_", "wheel_", "axle_")
+    bpy.context.view_layer.update()
+    for o, _q in parts:
+        n = o.name
+        if not (n.startswith(carriage) or n in ("jaw_rope", "tube_hanger")):
+            continue
+        CS.bake_transform(o)
+        for v in o.data.vertices:
+            if n.startswith(carriage):
+                v.co.y += E["dy"]
+                if n.startswith("axle_") and v.co.y > E["axle_y_in"] - 0.035:
+                    v.co.y = E["axle_y_in"]
+            elif n == "jaw_rope":
+                if v.co.y < 0.0:
+                    v.co.y = E["jaw_y_out"]
+            elif v.co.z - rope > E["arm_z_min"] and v.co.y > E["arm_y0"]:
+                v.co.y = E["arm_y0"] + (v.co.y - E["arm_y0"]) * E["arm_k"]
+        o.data.update()
+    return parts
+
+
+def tr_split_stem_points(oz, back_top_z, lat=0.0):
+    """The split tr J-stem (round 3): the one-piece stem's top and bottom points (stem_points), the
+    top run straight DOWN to V (x of the top point, TR_SPLIT_STEM v_z) under the jaw block, one span at
+    slope_deg to U on the vertical run (x of the bottom point), then down into the clamp block. Raises
+    unless both fillets can be |VU| / 2 (they meet: |TV| and |UP4| >= |VU|). Rope frame offset by oz.
+    lat (ENVELOPE): T and V at lateral y `lat` (outboard of the wheels), U back on the center line."""
+    old = stem_points(oz, back_top_z, top_dz=TR_STEM_TOP_DZ)
+    (tx, _ty, tz), (bx, _by, bz) = old[0], old[-1]
+    vz = oz + TR_SPLIT_STEM["v_z"]
+    a = math.radians(ENVELOPE_TR["slope_deg"] if lat else TR_SPLIT_STEM["slope_deg"])
+    uz = vz - abs(tx - bx) * math.tan(a)
+    L = abs(tx - bx) / math.cos(a) if not lat else math.sqrt((tx - bx) ** 2 + lat ** 2 + (vz - uz) ** 2)
+    if not (tz - vz >= L and uz - bz >= L):
+        raise RuntimeError(f"tr split stem: |TV| {tz - vz:.4f}, |UP4| {uz - bz:.4f} < |VU| {L:.4f}: "
+                           f"the fillets would not meet")
+    if lat:
+        return [(tx, lat, tz), (tx, lat, vz), (bx, 0.0, uz), old[-1]]
+    return [old[0], (tx, 0.0, vz), (bx, 0.0, uz), old[-1]]
+
+
+def _tr_back_top(oz=0.0):
+    p = tr_params()
+    return (oz - p.hanger_len + p.seat_thick / 2.0) + p.back_height
+
+
+def _tr_split_rebuild(parts):
+    """The tr split's split-only parts, rebuilt in place (list order, quads): the jaw block "grip" ->
+    TR_SPLIT_GRIP's plate + clamp box joined as one "grip" (round 4), the saddle "gripjaw" dropped
+    (the plate replaces it), the J-stem -> tr_split_stem_points (round 3). Build frame (rope z 0)."""
+    K = cs2_kit
+    p = tr_params()
+    g = TR_SPLIT_GRIP
+    out = []
+    for o, q in parts:
+        if o.name == "gripjaw":
+            _remove_objects([o])
+            continue
+        if o.name == "grip":
+            _remove_objects([o])
+            bl, bw, bz0, bz1 = g["box"]
+            if ENVELOPE:
+                # the clamp block outboard (the mesh top), the plate ON the rope inside the envelope and
+                # reaching into the block: the jaw the wheels roll over (Poma US4441430)
+                E = ENVELOPE_TR
+                bz0, bz1 = E["block_z"]
+                box = K.add_box("grip_box", (bl, E["block_w"], bz1 - bz0),
+                                (0.0, E["block_y"], 0.5 * (bz0 + bz1)))
+                prof = [(x, E["crown"] if abs(z - GRIP_TOP_Z) < 1e-9 else z) for x, z in g["plate"]]
+                py0, py1 = E["plate_y"]
+                plate = add_profile_slab("grip_plate", prof, py1 - py0, (0.0, 0.5 * (py0 + py1), 0.0),
+                                         relief="geo")
+            else:
+                box = K.add_box("grip_box", (bl, bw, bz1 - bz0), (0.0, 0.0, 0.5 * (bz0 + bz1)))
+                plate = add_profile_slab("grip_plate", g["plate"], g["plate_w"], (0.0, 0.0, 0.0), relief="geo")
+            for x in (box, plate):
+                CS.bake_transform(x)
+            bpy.ops.object.select_all(action="DESELECT")
+            box.select_set(True)
+            plate.select_set(True)
+            bpy.context.view_layer.objects.active = plate
+            bpy.ops.object.join()
+            o = bpy.context.active_object
+            o.name = o.data.name = "grip"
+            o["relief"] = "geo"                            # one casting: no painted bolt heads
+        elif ENVELOPE and o.name == "gripspring":
+            # the spring housing turned 180 deg about z: from the jaw's inboard side to the block's outboard
+            CS.bake_transform(o)
+            yc = ENVELOPE_TR["spring_axis_y"]
+            for v in o.data.vertices:
+                v.co.x, v.co.y = -v.co.x, 2.0 * yc - v.co.y
+            o.data.update()
+        elif o.name == "tube_stem":
+            relief = o.get("relief", "geo")
+            _remove_objects([o])
+            lat = ENVELOPE_TR["block_y"] if ENVELOPE else 0.0
+            o = K.tube_along("tube_stem", tr_split_stem_points(0.0, _tr_back_top(), lat=lat), p.hanger_radius,
+                             segments=8, caps="none", bend_rings=TR_SPLIT_STEM["bend_rings"])
+            if o["rings"] != TR_SPLIT_STEM_RINGS:
+                raise RuntimeError(f"tr split stem: {o['rings']} rings, want {TR_SPLIT_STEM_RINGS}")
+            o["relief"] = relief
+        out.append((o, q))
+    return out
+
+
+def _thin_jaw(grip, table):
+    """THIN_JAW on the ASSEMBLED grip (net frame: x lateral, -x outboard, y travel; after
+    _apply_shipped_uvs, because the assembly orders polygons by position and the remap is polygon for
+    polygon). The plate is the part "grip"'s vertices on its two lateral rings (O: x -0.165 inside the
+    clamp block, x +0.040 inboard; the block's own faces sit at -0.155 / -0.245): the inboard ring moves
+    to THIN_JAW_SPEC["inboard_y"], and every plate vertex's travel coordinate scales linearly in its
+    lateral position from outboard_half / the plate's half length at the outboard ring to 1 at the
+    inboard edge (a uniform scale of a convex profile per ring: still convex). Raises unless both rings
+    hold the plate profile's 6 + 6 vertices. Returns a report."""
+    me = grip.data
+    fp = face_parts(grip)
+    gid = table.index("grip") + 1
+    vids = sorted({v for p in me.polygons if fp[p.index] == gid for v in p.vertices})
+    py0, py1 = ENVELOPE_TR["plate_y"]
+    out_r = [i for i in vids if abs(me.vertices[i].co.x - py0) < 1e-4]
+    in_r = [i for i in vids if abs(me.vertices[i].co.x - py1) < 1e-4]
+    if len(out_r) != 6 or len(in_r) != 6:
+        raise ContractError(f"thin jaw {grip.name}: plate rings {len(out_r)} / {len(in_r)} vertices, want 6 / 6")
+    yc = 0.5 * (min(me.vertices[i].co.y for i in in_r) + max(me.vertices[i].co.y for i in in_r))
+    half = max(abs(me.vertices[i].co.y - yc) for i in in_r)
+    s0 = THIN_JAW_SPEC["outboard_half"] / half
+    h1 = THIN_JAW_SPEC.get("inboard_half") or half
+    s1 = h1 / half
+    x1 = THIN_JAW_SPEC["inboard_y"]
+    k = THIN_JAW_SPEC.get("inboard_dz", 1.0)
+    zb = min(me.vertices[i].co.z for i in in_r)            # the plate's flat underside (on the rope's top)
+    zt = max(me.vertices[i].co.z for i in in_r)            # the crown (ENVELOPE_TR crown)
+    for i in out_r:
+        v = me.vertices[i].co
+        v.y = yc + (v.y - yc) * s0
+    for i in in_r:
+        v = me.vertices[i].co
+        v.x = x1
+        v.y = yc + (v.y - yc) * s1
+        v.z = zb + (v.z - zb) * k
+    me.update()
+    return {"inboard_x": [py1, x1], "half_length_m": {"outboard": [round(half, 4), THIN_JAW_SPEC["outboard_half"]],
+                                                      "inboard": [round(half, 4), round(h1, 4)]},
+            "inboard_edge_top_m": [round(zt, 4), round(zb + (zt - zb) * k, 4)],
+            "plan_area_m2": [round(2 * half * (py1 - py0), 4),
+                             round((h1 + THIN_JAW_SPEC["outboard_half"]) * (x1 - py0), 4)]}
+
+
+def _ring_after(obj, ring):
+    """The vertex ring joined by edges to `ring` (vertex indices) that is not `ring` itself."""
+    rs = set(ring)
+    nxt = set()
+    for e in obj.data.edges:
+        a, b = e.vertices
+        if a in rs and b not in rs:
+            nxt.add(b)
+        elif b in rs and a not in rs:
+            nxt.add(a)
+    return sorted(nxt)
+
+
+def _ring_normal(P):
+    """Unit normal of a near-planar vertex ring (least squares) and its centroid."""
+    c = P.mean(axis=0)
+    n = np.linalg.svd(P - c)[2][-1]
+    return n / np.linalg.norm(n), c
+
+
+def split_alignment(style_key, body_parts, grip_parts, joint):
+    """
+    The tr clevis alignment audit (round 3; the owner's "bar slightly misaligned with the carrier"),
+    measured on the built parts at zero pose; raises when it regresses:
+      plan    the clevis (gripbridge + gripcheek_* + grippin_*, bbox center) and the pin under the
+              jaw block's ("grip" bbox) center in plan: < SPLIT_ALIGN_PLAN_MAX_M
+      axis    the hanger tube's end axis (cut ring -> the next ring, centroids) parallel to the clevis
+              axis (pin -> the bridge center, square to the pin axis) within SPLIT_ALIGN_AXIS_MAX_DEG
+              (a bend reaching into the clevis tilts that centroid line); the cut ring square to it
+              within the same angle; the pin on that axis within SPLIT_ALIGN_AXIS_OFFSET_MAX_M
+    Returns the report dict (None for styles without the audit).
+    """
+    if style_key != "tr":
+        return None
+    by = {o.name: o for o, _q in body_parts + grip_parts}
+    bpy.context.view_layer.update()
+
+    def verts(o):
+        return np.array([tuple(o.matrix_world @ v.co) for v in o.data.vertices], dtype=np.float64)
+
+    def bbox_c(V):
+        return 0.5 * (V.min(axis=0) + V.max(axis=0))
+
+    pin = np.asarray(joint["pin"], dtype=np.float64)
+    block_c = bbox_c(_tr_block_verts(verts(by["grip"])))
+    clevis = [n for n in by if n == "gripbridge" or n.startswith(("gripcheek_", "grippin_"))]
+    if len(clevis) != 5:
+        raise RuntimeError(f"ALIGN tr: clevis parts {sorted(clevis)}, want the bridge + 2 cheeks + 2 pin ends")
+    clevis_c = bbox_c(np.vstack([verts(by[n]) for n in clevis]))
+    plan = float(np.linalg.norm((clevis_c - block_c)[:2]))
+    pin_plan = float(np.linalg.norm((pin - block_c)[:2]))
+    bridge_c = bbox_c(verts(by["gripbridge"]))
+    ax_c = bridge_c - pin
+    ax_c[1] = 0.0                                       # square to the pin axis (authoring y)
+    ax_c /= np.linalg.norm(ax_c)
+    stem = by["tube_stem"]
+    S = verts(stem)
+    # the cut ring = the stem's open end nearest the pin (boundary edges: one face each)
+    nface = {}
+    for poly in stem.data.polygons:
+        for ek in poly.edge_keys:
+            nface[ek] = nface.get(ek, 0) + 1
+    bnd = sorted({i for ek, k in nface.items() if k == 1 for i in ek},
+                 key=lambda i: float(np.linalg.norm(S[i] - pin)))
+    cut = bnd[:8]
+    if len(bnd) != 16 or np.linalg.norm(S[cut].mean(axis=0) - pin) > 0.01:
+        raise RuntimeError(f"ALIGN tr: the stem's open ends ({len(bnd)} boundary vertices) put no ring of 8 "
+                           f"at the pin {pin.round(4)}")
+    nxt = _ring_after(stem, cut)
+    if len(nxt) != 8:
+        raise RuntimeError(f"ALIGN tr: the ring after the cut has {len(nxt)} vertices, want 8")
+    n0, c0 = _ring_normal(S[cut])
+    n1, c1 = _ring_normal(S[nxt])
+    ax_t = (c0 - c1) / np.linalg.norm(c0 - c1)          # the tube end axis, pointing into the clevis
+
+    def ang(a, b):
+        return math.degrees(math.acos(min(1.0, abs(float(np.dot(a, b))))))
+
+    axis_deg = math.degrees(math.acos(max(-1.0, min(1.0, float(np.dot(ax_t, ax_c))))))
+    tilt = ang(n0, ax_t)
+    off = float(np.linalg.norm(np.cross(pin - c0, ax_t)))
+    rep = {"plan_offset_mm": round(plan * 1000.0, 3), "pin_plan_offset_mm": round(pin_plan * 1000.0, 3),
+           "plan_max_mm": SPLIT_ALIGN_PLAN_MAX_M * 1000.0,
+           "axis_angle_deg": round(axis_deg, 4), "cut_ring_tilt_deg": round(tilt, 4),
+           "axis_max_deg": SPLIT_ALIGN_AXIS_MAX_DEG,
+           # info: the bend's first ring leans by tube_along's smoothed tangent (not asserted; a bend
+           # inside the clevis shows up as axis_angle_deg instead)
+           "bend_ring_tilt_deg": round(ang(n1, ax_t), 4),
+           "pin_off_axis_mm": round(off * 1000.0, 3), "pin_off_axis_max_mm": SPLIT_ALIGN_AXIS_OFFSET_MAX_M * 1000.0,
+           "straight_end_m": round(float(np.linalg.norm(c0 - c1)), 4),
+           "clevis_axis": [round(float(v), 5) for v in ax_c], "tube_end_axis": [round(float(v), 5) for v in ax_t],
+           "jaw_block_center_m": [round(float(v), 4) for v in block_c],
+           "clevis_center_m": [round(float(v), 4) for v in clevis_c]}
+    bad = []
+    if not (plan < SPLIT_ALIGN_PLAN_MAX_M and pin_plan < SPLIT_ALIGN_PLAN_MAX_M):
+        bad.append(f"clevis {plan * 1000:.2f} mm / pin {pin_plan * 1000:.2f} mm off the jaw block center in plan "
+                   f"(< {SPLIT_ALIGN_PLAN_MAX_M * 1000:.0f} mm)")
+    if not (axis_deg <= SPLIT_ALIGN_AXIS_MAX_DEG and tilt <= SPLIT_ALIGN_AXIS_MAX_DEG):
+        bad.append(f"tube end axis {axis_deg:.3f} deg off the clevis axis, cut ring tilted {tilt:.3f} deg "
+                   f"(<= {SPLIT_ALIGN_AXIS_MAX_DEG} deg)")
+    if off > SPLIT_ALIGN_AXIS_OFFSET_MAX_M:
+        bad.append(f"pin {off * 1000:.2f} mm off the tube end axis (<= {SPLIT_ALIGN_AXIS_OFFSET_MAX_M * 1000:.0f} mm)")
+    if bad:
+        raise RuntimeError(f"ALIGN tr BROKEN: {'; '.join(bad)} | {rep}")
+    return rep
+
+
+def _tr_block_verts(V):
+    """The tr jaw BLOCK's vertices of the "grip" part (build frame): all of it, or with ENVELOPE the clamp
+    block outboard (the plate's edge buried in it included): the SPLIT_ALIGN reference stays the block."""
+    if not ENVELOPE:
+        return V
+    return V[V[:, 1] <= ENVELOPE_TR["block_y"] + ENVELOPE_TR["block_w"] / 2.0 + 1e-6]
+
+
+def split_names(style, letter):
+    """(body name, grip name): SkiLiftChair6N / SkiLiftChair6GripN, SkiLiftChairDQ4N / ...GripN."""
+    return (cs2_asset.validate_asset_name(f"{style.base}{letter}"),
+            cs2_asset.validate_asset_name(f"{style.base}{SPLIT_GRIP_INFIX}{letter}"))
+
+
+def _is_split_grip(style_key, name):
+    return name.startswith(SPLIT_GRIP_PARTS[style_key])
+
+
+def _dup_part(obj, name):
+    c = obj.copy()
+    c.data = obj.data.copy()
+    c.name = name
+    c.data.name = name
+    bpy.context.collection.objects.link(c)
+    return c
+
+
+def _remove_objects(objs):
+    for o in objs:
+        me = o.data
+        bpy.data.objects.remove(o, do_unlink=True)
+        if me is not None and me.users == 0:
+            bpy.data.meshes.remove(me)
+
+
+def _z_range(parts):
+    bpy.context.view_layer.update()
+    zs = [(o.matrix_world @ v.co).z for o, _q in parts for v in o.data.vertices]
+    return min(zs), max(zs)
+
+
+def split_wheel(name, r, depth, center, segs=SPLIT_WHEEL_SEGS):
+    """A running wheel (axis = authoring y) at `segs` segments, world-baked at `center`. Both caps are
+    segs-gons triangulated AFTER their normals exist (the lift_cabin C1 lesson): segs - 2 tris a cap
+    instead of the kit's segs-tri fans, the same flat disc."""
+    bm = bmesh.new()
+    bm.loops.layers.uv.new("UVMap")
+    bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=int(segs), radius1=float(r),
+                          radius2=float(r), depth=float(depth), calc_uvs=True)
+    bm.normal_update()
+    caps = [f for f in bm.faces if len(f.verts) > 4]
+    if len(caps) != 2:
+        raise RuntimeError(f"{name}: expected 2 cap n-gons, got {len(caps)}")
+    bmesh.ops.triangulate(bm, faces=caps, quad_method="BEAUTY", ngon_method="BEAUTY")
+    bm.normal_update()
+    obj = cs2_kit._new_obj(name, bm, tuple(center), (math.pi / 2.0, 0.0, 0.0), "geo")
+    CS.bake_transform(obj)
+    return obj
+
+
+def _resegment_wheels(parts):
+    """The dq split's wheels: each wheel_k rebuilt at SPLIT_WHEEL_SEGS on the same center, radius and
+    width (DQ_GRIP["wheel"]); the 8-segment one-piece wheel is removed. Same list order."""
+    wr, wd, _wx = DQ_GRIP["wheel"]
+    bpy.context.view_layer.update()                        # the kit parts carry loc / rot on the object
+    out = []
+    for o, q in parts:
+        if not o.name.startswith("wheel_"):
+            out.append((o, q))
+            continue
+        V = np.array([tuple(o.matrix_world @ v.co) for v in o.data.vertices])
+        center = 0.5 * (V.min(axis=0) + V.max(axis=0))
+        ext = V.max(axis=0) - V.min(axis=0)
+        if abs(ext[1] - wd) > 1e-4 or abs(ext[0] - 2.0 * wr) > 1e-4 or abs(ext[2] - 2.0 * wr) > 1e-4:
+            raise RuntimeError(f"{o.name}: extents {ext.round(4)} are not a y-axis wheel r {wr} x {wd}")
+        name, relief = o.name, o.get("relief", "geo")
+        _remove_objects([o])
+        w = split_wheel(name, wr, wd, center)
+        w["relief"] = relief
+        if cs2_asset.tri_count(w) != SPLIT_WHEEL_TRIS:
+            raise RuntimeError(f"{name}: {cs2_asset.tri_count(w)} tris, want {SPLIT_WHEEL_TRIS}")
+        out.append((w, q))
+    return out
+
+
+def build_split_parts(style, row, hanger_offset=HANGER_OFFSET):
+    """
+    The split carrier's loose parts in the style's BUILD frame: the contracted one-piece parts
+    first (C9 names + tally asserted), a copy of them for S1, then the joint:
+      tr  the jaw and the J-stem are first rebuilt split-only (_tr_split_rebuild: round 4's plate +
+          clamp box "grip", round 3's straight-down stem top); the stem is cut square to its vertical top run
+          at the pin, which sits under the jaw block's center; the two clamp plates (gripplate_*)
+          give way to a bridge plate centered under the jaw block (gripbridge) carrying two yoke
+          cheeks (gripcheek_*) with the pin ends (grippin_*); the body's knuckle sits on the
+          stem's cut end between the cheeks
+      dq  the C-hanger is cut twice in its vertical run: the top arm (tube_hangerarm) stays with
+          the grip and ends in a head block (hangerhead) with two cheeks (hangercheek_*) and the
+          pin ends (hangerpin_*); the body's hanger starts in the knuckle at the pin
+    Returns (body [(obj, quad)], grip [(obj, quad)], old [(obj, quad)], joint dict).
+    """
+    K = cs2_kit
+    if style.key == "tr":
+        parts = build_chair_parts(tr_params(), variant="tr")
+    elif style.key == "dq":
+        parts = build_dq_parts(row, hanger_offset)
+    else:
+        raise ValueError(f"--split: style {style.key!r} has no split")
+    names = tuple(o.name for o, _q in parts)
+    if names != style.parts:
+        raise RuntimeError(f"C9 part list ({style.key}): built {names}, contract {style.parts}")
+    tris = {o.name: cs2_asset.tri_count(o) for o, _q in parts}
+    bad = {n: (tris[n], t) for n, t in style.part_tris if tris[n] != t}
+    if bad:
+        raise RuntimeError(f"C9 part tally ({style.key}): built vs contract {bad}")
+    if style.key == "dq":
+        parts = _resegment_wheels(parts)
+        if ENVELOPE:
+            parts = _dq_envelope(parts, row)
+    else:
+        parts = _tr_split_rebuild(parts)
+    bpy.context.view_layer.update()
+    old = [(_dup_part(o, f"old_{o.name}"), q) for o, q in parts]
+    z_lo, _z_hi = _z_range(parts)
+    J = SPLIT_JOINT[style.key]
+    R, c, t, rc = J["knuckle_r"], CS.DESIGN_GAP_M, J["cheek_t"], J["cheek_r"]
+    y_in, y_out = R + c, R + c + t
+    by = {o.name: (o, q) for o, q in parts}
+    hang = float(row["hang_m"])
+    rope = hang - float(row["grip_top_above_rope_m"])
+    if style.key == "tr":
+        lat = ENVELOPE_TR["block_y"] if ENVELOPE else 0.0
+        s0, s1 = (np.array(p, dtype=np.float64)
+                  for p in tr_split_stem_points(0.0, _tr_back_top(), lat=lat)[:2])
+        stem = by["tube_stem"][0]
+        V = np.array([tuple(stem.matrix_world @ v.co) for v in stem.data.vertices])
+        top_ring = V[np.linalg.norm(V - s0, axis=1) < 0.06]
+        if len(top_ring) != 8 or np.linalg.norm(top_ring.mean(axis=0) - s0) > 1e-4:
+            raise RuntimeError(f"split tr: the stem's top ring is not at {s0} (build frame changed?)")
+        d = (s1 - s0) / np.linalg.norm(s1 - s0)           # straight down (the vertical top run)
+        # the pin under the jaw block's center (round 3), R + c under the bridge plate
+        bV = np.array([tuple(by["grip"][0].matrix_world @ v.co) for v in by["grip"][0].data.vertices])
+        bV = _tr_block_verts(bV)
+        bc = 0.5 * (bV.min(axis=0) + bV.max(axis=0))
+        z_b = J["bridge_bottom"]
+        pin = np.array((bc[0], bc[1], z_b - R - c), dtype=np.float64)
+        if np.linalg.norm(np.cross(pin - s0, d)) > 1e-6:
+            raise RuntimeError(f"split tr: the pin {pin.round(4)} is off the stem's top run {s0} + t {d.round(4)}")
+        s2 = np.array(tr_split_stem_points(0.0, _tr_back_top(), lat=lat)[2], dtype=np.float64)
+        bend_top = s1[2] + 0.5 * min(np.linalg.norm(s1 - s0), np.linalg.norm(s2 - s1))  # V fillet start
+        if not bend_top < pin[2] - rc:
+            raise RuntimeError(f"split tr: the stem bends at z {bend_top:.4f}, inside the clevis (cheek "
+                               f"bottom {pin[2] - rc:.4f}): the top run must leave it straight")
+        CS.cut_part(stem, pin, -d)
+        knuck = CS.knuckle("knuckle", pin, R, J["knuckle_segs"], meridian_xz=(-d[2], d[0]))
+        px, py, pz = float(pin[0]), float(pin[1]), float(pin[2])      # py 0 (ENVELOPE: the block's y)
+        hx = rc + J["bridge_x_over"]
+        bx0, bx1 = px - hx, px + hx
+        bridge = K.add_box("gripbridge", (bx1 - bx0, 2.0 * (y_out + J["over"]), J["bridge_top"] - z_b),
+                           ((bx0 + bx1) / 2.0, py, (z_b + J["bridge_top"]) / 2.0))
+        bridge["relief"] = "map:bolts"
+        prof = CS.plate_profile(px - rc, px + rc, J["cheek_top"], (px, pz), rc)
+        new_grip = [(bridge, QUAD_GALV),
+                    (CS.slab_y("gripcheek_0", prof, py - y_out, py - y_in), QUAD_GALV),
+                    (CS.slab_y("gripcheek_1", prof, py + y_in, py + y_out), QUAD_GALV),
+                    (CS.pin_end("grippin_0", py - y_out, (px, pz), J["pin_r"], J["pin_len"], -1.0), QUAD_GALV),
+                    (CS.pin_end("grippin_1", py + y_out, (px, pz), J["pin_r"], J["pin_len"], 1.0), QUAD_GALV)]
+        removed = [by[n][0] for n in ("gripplate_0", "gripplate_1")]
+        joint = {"cheeks": ["gripcheek_0", "gripcheek_1"], "floor": ["gripbridge"],
+                 "old_skip": ("old_gripplate_",),
+                 "new_skip": ("gripbridge", "gripcheek_", "grippin_", "knuckle"),
+                 "rope": np.array((0.0, 0.0, 0.0)), "replaced": ["gripplate_0", "gripplate_1"]}
+    else:
+        o = DQ_OUTBOARD
+        H = dq_datums(row, hanger_offset)["H"]
+        a0 = np.array((H[1][0], o * H[1][1], H[1][2]), dtype=np.float64)
+        a1 = np.array((H[2][0], o * H[2][1], H[2][2]), dtype=np.float64)
+        d = (a1 - a0) / np.linalg.norm(a1 - a0)
+
+        def on_axis(z):
+            return a0 + d * ((z - a0[2]) / d[2])
+
+        hx, hh = J["head"]
+        z_hb = J["head_top"] - hh
+        pin = on_axis(z_hb - R - c)                        # head underside: c over the knuckle
+        px, py, pz = (float(v) for v in pin)
+        hanger = by["tube_hanger"][0]
+        arm = _dup_part(hanger, "tube_hangerarm")
+        CS.cut_part(arm, (0.0, 0.0, J["arm_cut_z"]), (0.0, 0.0, -1.0))   # keep z >= the cut
+        CS.cut_part(hanger, (0.0, 0.0, pz), (0.0, 0.0, 1.0))              # keep z <= the pin
+        arm["relief"] = hanger.get("relief", "geo")
+        knuck = CS.knuckle("knuckle", pin, R, J["knuckle_segs"], meridian_xz=(1.0, 0.0))
+        head = K.add_box("hangerhead", (hx, 2.0 * (y_out + J["over"]), hh),
+                         (px, py, J["head_top"] - hh / 2.0))
+        head["relief"] = "geo"                             # a clevis is a casting: no painted bolts
+        prof = CS.plate_profile(px - rc, px + rc, z_hb + J["cheek_bury"], (px, pz), rc)
+        new_grip = [(arm, QUAD_PAINT), (head, QUAD_GALV),
+                    (CS.slab_y("hangercheek_0", prof, py - y_out, py - y_in), QUAD_GALV),
+                    (CS.slab_y("hangercheek_1", prof, py + y_in, py + y_out), QUAD_GALV),
+                    (CS.pin_end("hangerpin_0", py - y_out, (px, pz), J["pin_r"], J["pin_len"], -1.0),
+                     QUAD_GALV),
+                    (CS.pin_end("hangerpin_1", py + y_out, (px, pz), J["pin_r"], J["pin_len"], 1.0),
+                     QUAD_GALV)]
+        removed = []
+        joint = {"cheeks": ["hangercheek_0", "hangercheek_1"], "floor": ["hangerhead"],
+                 "old_skip": (), "new_skip": ("hangerhead", "hangercheek_", "hangerpin_", "knuckle"),
+                 "rope": np.array((0.0, 0.0, rope)), "replaced": []}
+    rem = {x.name for x in removed}
+    body = [(knuck, QUAD_PAINT)] + [(ob, q) for ob, q in parts
+                                    if ob.name not in rem and not _is_split_grip(style.key, ob.name)]
+    grip = [(ob, q) for ob, q in parts
+            if ob.name not in rem and _is_split_grip(style.key, ob.name)] + new_grip
+    _remove_objects(removed)
+    bpy.context.view_layer.update()
+    joint.update({"pin": np.asarray(pin, dtype=np.float64), "knuckles": ["knuckle"],
+                  "r_x": J["r_x"], "z_shift": -z_lo, "axis_dir": [round(float(v), 5) for v in d],
+                  "knuckle_r": R, "gap_c": c, "cheek_inner": y_in, "cheek_outer": y_out,
+                  "cheek_r": rc})
+    return body, grip, old, joint
+
+
+def split_pair(body, grip, grip_z0, name):
+    """A joined COPY of body + grip at zero pose in the assembled frame (the grip copy raised by
+    grip_z0), part table = body table + grip table (the grip's part ids offset): the one-piece
+    carrier every C1-C14 contract runs on. The caller removes it."""
+    tb, tg = part_table(body), part_table(grip)
+    cb, cg = _dup_part(body, name), _dup_part(grip, f"{name}_g")
+    attr = cg.data.attributes["part"]
+    vals = np.empty(len(cg.data.polygons), dtype=np.int32)
+    attr.data.foreach_get("value", vals)
+    attr.data.foreach_set("value", (vals + len(tb)).tolist())
+    cg.data.transform(mathutils.Matrix.Translation((0.0, 0.0, float(grip_z0))))
+    cg.data.update()
+    bpy.ops.object.select_all(action="DESELECT")
+    cb.select_set(True)
+    cg.select_set(True)
+    bpy.context.view_layer.objects.active = cb
+    bpy.ops.object.join()
+    pair = bpy.context.active_object
+    pair.name = name
+    pair.data.name = name
+    # the table as is: LOD1 / LOD2 have parts deleted or decimated away (no store_part_table check)
+    pair.data[cs2_asset.PART_TABLE_PROP] = json.dumps(tb + tg)
+    return pair
+
+
+def split_pair_style(style, plan):
+    """The pair's Style: the C8 / C9 numbers of body + grip (tallies, caps, LOD1 target)."""
+    import dataclasses
+    brief_cap = style.lod0_cap + plan["pin_detail"]
+    raise_ = plan.get("cap_raise", 0)
+    if raise_ > 0.05 * brief_cap:
+        raise RuntimeError(f"split {style.key}: cap raise {raise_} > 5 % of the brief cap {brief_cap}: "
+                           f"the owner's call, not a constant")
+    return dataclasses.replace(
+        style, lod0_cap=brief_cap + raise_,
+        lod1_target=sum(plan["lod1"]),
+        lod2_cap=style.lod2_cap + plan["pin_detail_lod2"],
+        part_tris=tuple(plan["body_tally"]) + tuple(plan["grip_tally"]),
+        proxy_tris=tuple(plan["body_proxy"]) + tuple(plan["grip_proxy"]))
+
+
+def _add_octa(name, center, half_xy, z_top):
+    """Closed octahedron (8 tris): the LOD2 knuckle, its top vertex exactly at z_top."""
+    cx, cy, cz = center
+    hz = z_top - cz
+    bm = bmesh.new()
+    bm.loops.layers.uv.new("UVMap")
+    top = bm.verts.new((cx, cy, z_top))
+    bot = bm.verts.new((cx, cy, cz - hz))
+    ring = [bm.verts.new((cx + half_xy * math.cos(k * math.pi / 2.0), cy + half_xy * math.sin(k * math.pi / 2.0), cz))
+            for k in range(4)]
+    for k in range(4):
+        k1 = (k + 1) % 4
+        bm.faces.new((ring[k], ring[k1], top))
+        bm.faces.new((ring[k1], ring[k], bot))
+    bm.normal_update()
+    for f in bm.faces:
+        if f.normal.dot(f.calc_center_median() - mathutils.Vector(center)) < 0.0:
+            f.normal_flip()
+    bm.normal_update()
+    cs2_kit._box_project_uv(bm)
+    return _mesh_object(name, bm, (0.0, 0.0, 0.0), "geo")
+
+
+def split_proxy_parts(style, row, joint, body_top, hanger_offset=HANGER_OFFSET):
+    """
+    The authored LOD2 of the split, in the ASSEMBLED frame (the one-piece proxy's frame):
+    (body [(obj, chooser)], grip [(obj, chooser)]). From _proxy_parts: the grip keeps the grip
+    box and gains a yoke box over the joint (bottom = the cheeks' bottom, top buried in the grip
+    box); the body's stem / hanger restarts at the pin, plus an octahedron knuckle whose top
+    vertex is the body LOD0's top (the height every level of the body keeps).
+    """
+    K = cs2_kit
+    J = SPLIT_JOINT[style.key]
+    hang = float(row["hang_m"])
+    zs = joint["z_shift"]
+    pin = joint["pin"] + np.array((0.0, 0.0, zs))
+    px, py, pz = (float(v) for v in pin)
+    rc, y_out = J["cheek_r"], joint["cheek_outer"] + J["over"]
+    full = _proxy_parts(style, row, hanger_offset)
+    by = {o.name: (o, ch) for o, ch in full}
+    if style.key == "tr":
+        p = tr_params()
+        oz = hang - GRIP_TOP_Z
+        back_top = _tr_back_top(oz)
+        pts = tr_split_stem_points(oz, back_top, lat=py)  # round 3: the straight-down top run
+        pts[0] = (px, py, pz)
+        old_stem, old_grip = by["tube_stem"][0], by["grip"][0]
+        _remove_objects([old_stem, old_grip])
+        # ENVELOPE: the V fillet's top ring stays below the wheels' reach. The default fillet (half the
+        # pin -> V run, 0.295 m) put that ring at rope - 0.41, so the two faces down to the V -> U chord
+        # had their upper vertices inside the reach and their lower ones inboard of x -xlim (C15's
+        # exact clip passed; the conservative vertex form did not). Capped at V's depth below the
+        # reach line minus the proxy radius (0.70 - 0.47 - 0.056 = 0.174 m), the ring sits at
+        # rope - 0.53 and only the outboard straight run is within the reach; the same 6 rings, 30 tris.
+        fil = (-TR_SPLIT_STEM["v_z"] - ENVELOPE_GATE["tr"]["z_bot"] - PROXY_R["stem"]) if ENVELOPE else None
+        stem = K.tube_along("tube_stem", pts, PROXY_R["stem"], segments=3, caps="none", bend_rings=2,
+                            fillet=fil)
+        # the proxy grip box as long as the round-4 plate, as wide as the clamp box (LOD bounds stay
+        # with LOD0's), as deep as _proxy_parts'
+        jx = [x for x, _z in TR_SPLIT_GRIP["plate"]]
+        gl, gw, gh = max(jx) - min(jx), TR_SPLIT_GRIP["box"][1], GRIP_TOP_Z + 0.070
+        if THIN_JAW:                                        # as long as the thin jaw (LOD0 bounds: Q 0.44 m)
+            gl = min(gl, 2.0 * max(THIN_JAW_SPEC.get("inboard_half") or 0.5 * gl, THIN_JAW_SPEC["outboard_half"]))
+        gy = ENVELOPE_TR["block_y"] if ENVELOPE else 0.0
+        if ENVELOPE:
+            gw = ENVELOPE_TR["block_w"]
+        gbox = K.add_box("grip", (gl, gw, gh), (0.0, gy, oz + GRIP_TOP_Z - gh / 2.0), drop=("-Z",))
+        g_lo = oz + GRIP_TOP_Z - gh                         # the proxy grip box's underside
+        hx = rc + J["bridge_x_over"]
+        x0, x1 = px - hx, px + hx
+        yoke = K.add_box("gripyoke", (x1 - x0, 2.0 * y_out, (g_lo + 0.010) - (pz - rc)),
+                         ((x0 + x1) / 2.0, py, ((g_lo + 0.010) + (pz - rc)) / 2.0), drop=("+Z",))
+        grip = [(gbox, lambda n: ("grip", "gripjaw")), (yoke, lambda n: ("gripbridge", "gripcheek_"))]
+        if ENVELOPE:                                        # the jaw plate on the rope, inside the envelope
+            E = ENVELOPE_TR
+            p0 = TR_SPLIT_GRIP["plate"][0][1]
+            jy0, jy1 = E["plate_y"][0], THIN_JAW_SPEC["inboard_y"] if THIN_JAW else E["plate_y"][1]
+            jaw = K.add_box("gripjaw", (gl, jy1 - jy0, E["crown"] - p0),
+                            (0.0, 0.5 * (jy0 + jy1), oz + 0.5 * (p0 + E["crown"])), drop=("-Z",))
+            grip.insert(1, (jaw, lambda n: ("grip",)))
+        body = [(_add_octa("knuckle", (px, py, pz), J["knuckle_r"], body_top), lambda n: ("knuckle",)),
+                (stem, lambda n: ("tube_stem",)), by["seatblock"], by["backblock"]]
+    else:
+        o = DQ_OUTBOARD
+        d = dq_datums(row, hanger_offset)
+        H = d["H"]
+        old_h = by["tube_hanger"][0]
+        _remove_objects([old_h])
+        hz = K.tube_along("tube_hanger", [(px, py, pz), (H[2][0], o * H[2][1], H[2][2]),
+                                          (0.0, o * H[3][1], d["hoop"][2][2])],
+                          PROXY_R["hanger"], segments=3, caps="none", bend_rings=2)
+        gz = DQ_GRIP["body"][2]
+        g_lo = hang - (gz + 0.010)                            # the proxy carriage box's underside
+        hx = J["head"][0] / 2.0
+        yoke = K.add_box("hangeryoke", (2.0 * hx, 2.0 * y_out, (g_lo + 0.010) - (pz - rc)),
+                         (px, py, ((g_lo + 0.010) + (pz - rc)) / 2.0), drop=("+Z",))
+        grip = [by["gripbody"], (yoke, lambda n: ("hangerhead", "hangercheek_"))]
+        if ENVELOPE:                                        # the carriage outboard, the jaw bar on the rope
+            gb = by["gripbody"][0]
+            CS.bake_transform(gb)
+            for v in gb.data.vertices:
+                v.co.y += ENVELOPE_DQ["dy"]
+            gb.data.update()
+            jl, _jw, jh = DQ_GRIP["jaw"]
+            y0, y1 = ENVELOPE_DQ["jaw_y_out"], DQ_GRIP["jaw"][1] / 2.0
+            rope = hang - float(row["grip_top_above_rope_m"])
+            jaw = K.add_box("jaw_rope", (jl, y1 - y0, jh), (0.0, 0.5 * (y0 + y1),
+                                                            rope + DQ_GRIP["jaw_dz"] + jh / 2.0), drop=("-Z",))
+            grip.insert(1, (jaw, lambda n: ("jaw_rope",)))
+        body = [(_add_octa("knuckle", (px, py, pz), J["knuckle_r"], body_top), lambda n: ("knuckle",)),
+                (hz, lambda n: ("tube_hanger",))] + [by[n] for n in (
+                    "hooptop", "hoopside_0", "hoopside_1", "seatblock", "backblock", "restraint",
+                    "footstem_0", "footstem_1", "footbar_0", "footbar_1")]
+    return body, grip
+
+
+def build_split_proxy(pairs, lod0, name, z0, height):
+    """One split mesh's authored LOD2 `<name>_LOD2` from `pairs` (assembled frame): tag ->
+    join -> bake the transform -> shift by -z0 (the mesh's own base pivot) -> weld -> orient ->
+    part table -> UV snap from `lod0` -> shade (flat weights) -> pin the height to 0 .. height."""
+    choosers = {o.name: c for o, c in pairs}
+    parts = [(o, None) for o, _c in pairs]
+    table = cs2_asset.tag_parts(parts)
+    bpy.ops.object.select_all(action="DESELECT")
+    for o, _ in parts:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = parts[0][0]
+    bpy.ops.object.join()
+    lod = bpy.context.active_object
+    lod.name = f"{name}_LOD2"
+    lod.data.name = lod.name
+    bpy.ops.object.select_all(action="DESELECT")
+    lod.select_set(True)
+    bpy.context.view_layer.objects.active = lod
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    lod.data.transform(mathutils.Matrix.Translation((0.0, 0.0, -float(z0))))
+    lod.data.update()
+    bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
+    bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.remove_doubles(threshold=WELD_M)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    cs2_asset.orient_for_net(lod)
+    cs2_asset.store_part_table(lod, table)
+    snap_proxy_uvs(lod, lod0, choosers, _shipped_size(lod0))
+    cs2_asset.shade_by_angle(lod, SHADE_ANGLE, weighted=False)
+    pin_height(lod, 0.0, height)
+    return lod
+
+
+def _check_base_pivot(obj, height, label):
+    z = authoring_coords(obj)[:, 2]
+    if abs(float(z.min())) > 1e-5 or abs(float(z.max()) - height) > 1e-4:
+        raise ContractError(f"CONTRACT SPLIT-PIVOT BROKEN ({label}): z {z.min():.5f} .. "
+                            f"{z.max():.5f}, must be 0 .. {height:.4f} (base pivot)")
+    return f"z 0 .. {height:.4f}"
+
+
+def _split_tally(parts):
+    return tuple((o.name, cs2_asset.tri_count(o)) for o, _q in parts)
+
+
+SPLIT_MAPS = ("BaseColor", "Normal", "MaskMap", "ControlMask")
+
+
+def split_shipped_uvs(st, row, ho, src_dir):
+    """
+    The shipped split meshes' atlas, read onto a rebuild of them (ENVELOPE off: the shipping code path
+    through _assemble): every FBX triangle's three vertices land on one rebuilt polygon (positions match
+    within 0.2 mm), each corner's UV onto that polygon's loop. Returns {role: {"name", "dir", "parts"
+    (part per polygon), "counts" (loops per polygon), "uv" (n_loops, 2), "worst_mm", "ambiguous"}}.
+    The envelope build moves vertices only, so its polygons line up one for one (_apply_shipped_uvs).
+    """
+    global ENVELOPE
+    from mathutils.kdtree import KDTree
+    keep = ENVELOPE
+    ENVELOPE = False
+    out = {}
+    try:
+        clear_scene()
+        body_parts, grip_parts, old, _joint = build_split_parts(st, row, ho)
+        _remove_objects([o for o, _q in old])
+        names = split_names(st, SPLIT_LETTER)
+        density = dict(st.density, **SPLIT_DENSITY[st.key])
+        gt = _split_tally(grip_parts)
+        for role, parts, name in (("body", body_parts, names[0]), ("grip", grip_parts, names[1])):
+            flat = tuple(n for n in FLAT_PARTS.get(st.key, ()) if n in gt_names(gt)) if role == "grip" else ()
+            obj, tab = _assemble(parts, name, density, density_w=True, flat_parts=flat)
+            fbx = os.path.join(src_dir, name, name + ".fbx")
+            before = set(bpy.data.objects)
+            bpy.ops.import_scene.fbx(filepath=fbx)
+            new = [o for o in bpy.data.objects if o not in before]
+            imp = next(o for o in new if o.type == "MESH")
+            mw = imp.matrix_world.copy()
+            ico = np.array([tuple(mw @ v.co) for v in imp.data.vertices], dtype=np.float64)
+            me = obj.data
+            rco = np.array([tuple(obj.matrix_world @ v.co) for v in me.vertices], dtype=np.float64)
+            kd = KDTree(len(rco))
+            for i, c in enumerate(rco):
+                kd.insert(c, i)
+            kd.balance()
+            best = None
+            for cand in (ico, np.c_[ico[:, 0] / 100.0, ico[:, 2] / 100.0, ico[:, 1] / 100.0],
+                         np.c_[ico[:, 0] / 100.0, -ico[:, 2] / 100.0, ico[:, 1] / 100.0]):
+                err = max(kd.find(tuple(p))[2] for p in cand[:: max(1, len(cand) // 200)])
+                if best is None or err < best[0]:
+                    best = (err, cand)
+            mp = best[1]
+            vmap = np.empty(len(mp), dtype=np.int64)
+            dmax = 0.0
+            for i, p in enumerate(mp):
+                _c, j, d = kd.find(tuple(p))
+                vmap[i], dmax = j, max(dmax, d)
+            if dmax > 2e-4:
+                raise ContractError(f"remap {name}: the rebuild does not match its shipped LOD0 "
+                                    f"({len(rco)} / {len(ico)} vertices, worst {dmax * 1000:.3f} mm)")
+            vpolys = {}
+            for p in me.polygons:
+                for v in p.vertices:
+                    vpolys.setdefault(v, set()).add(p.index)
+            uv_in = imp.data.uv_layers.get("UVUnique") or imp.data.uv_layers[0]
+            uv = np.full((len(me.loops), 2), np.nan)
+            loops_of = {p.index: {me.loops[li].vertex_index: li for li in p.loop_indices} for p in me.polygons}
+            amb = conflict = 0
+            for tri in imp.data.polygons:
+                vs = [int(vmap[imp.data.loops[li].vertex_index]) for li in tri.loop_indices]
+                cand = set.intersection(*(vpolys.get(v, set()) for v in vs))
+                if len(cand) != 1:
+                    amb += 1
+                    if not cand:
+                        continue
+                pi = min(cand)
+                for li, v in zip(tri.loop_indices, vs):
+                    dst = loops_of[pi].get(v)
+                    if dst is None:
+                        continue
+                    u = tuple(uv_in.data[li].uv)
+                    if not np.isnan(uv[dst, 0]) and np.abs(uv[dst] - u).max() > 1e-5:
+                        conflict += 1
+                    uv[dst] = u
+            missing = int(np.isnan(uv[:, 0]).sum())
+            if missing or conflict:
+                raise ContractError(f"remap {name}: {missing} loops without a shipped UV, {conflict} conflicts "
+                                    f"({amb} ambiguous triangles)")
+            fp = face_parts(obj)
+            out[role] = {"name": name, "dir": os.path.join(src_dir, name), "parts": list(fp),
+                         "counts": [p.loop_total for p in me.polygons], "uv": uv,
+                         "worst_mm": round(dmax * 1000.0, 4), "ambiguous": amb}
+            _remove_objects(new)
+        clear_scene()
+    finally:
+        ENVELOPE = keep
+    return out
+
+
+def _apply_shipped_uvs(obj, ref):
+    """The shipped atlas (split_shipped_uvs) onto an envelope mesh, polygon for polygon: same part per
+    polygon, same loops per polygon (vertex moves only), else raises. One UV layer UVUnique, no material
+    slots (what bake_unique leaves)."""
+    me = obj.data
+    fp = face_parts(obj)
+    counts = [p.loop_total for p in me.polygons]
+    if list(fp) != ref["parts"] or counts != ref["counts"]:
+        bad = sum(1 for a, b in zip(fp, ref["parts"]) if a != b)
+        raise ContractError(f"remap {obj.name}: topology differs from {ref['name']} ({len(counts)} / "
+                            f"{len(ref['counts'])} polygons, {bad} part mismatches): the envelope may move "
+                            f"vertices only")
+    lay = me.uv_layers.new(name="UVUnique", do_init=False)
+    flat = ref["uv"].reshape(-1)
+    lay.data.foreach_set("uv", flat.astype(np.float32))
+    for l in [l for l in me.uv_layers if l.name != "UVUnique"]:
+        me.uv_layers.remove(l)
+    me.uv_layers["UVUnique"].active = True
+    me.uv_layers["UVUnique"].active_render = True
+    me.materials.clear()
+    me.update()
+
+
+def _main_split(args, st, row, letter):
+    """--split: the GRIP and BODY meshes (see the section comment above), each with the full
+    finish / LOD / verify / validate / manifest path of the one-piece build. ENVELOPE (--envelope):
+    no bake; the shipped atlas mapped onto the moved vertices (split_shipped_uvs, 0 MB added), and only
+    the meshes the envelope changes (ENVELOPE_ROLES) get the new letter and files."""
+    if st.key not in SPLIT_PLAN:
+        raise ValueError(f"--split: style {st.key!r} has no split")
+    plan = split_plan(st.key)
+    ho = HANGER_OFFSET if args.hanger_offset is None else float(args.hanger_offset)
+    hang = float(row["hang_m"])
+    gtar = float(row["grip_top_above_rope_m"])
+    body_name, grip_name = split_names(st, letter)
+    remap = None
+    write_role = {"body": True, "grip": True}
+    if ENVELOPE:
+        src = os.path.abspath(args.remap_from or os.path.join(HERE, "..", "import", "chairs", SPLIT_LETTER))
+        remap = split_shipped_uvs(st, row, ho, src)
+        old_body, old_grip = split_names(st, SPLIT_LETTER)
+        roles = ENVELOPE_ROLES[st.key]
+        if THIN_JAW:                       # only the grip changes; the body stays the O body
+            roles = ("grip",)
+            old_body = split_names(st, ENVELOPE_LETTER)[0]
+        write_role = {r: r in roles for r in write_role}
+        body_name = body_name if write_role["body"] else old_body
+        grip_name = grip_name if write_role["grip"] else old_grip
+        print(f"[split] ENVELOPE {st.key}: remap from {src}: " + "; ".join(
+            f"{r} {v['name']} worst {v['worst_mm']} mm, {v['ambiguous']} ambiguous" for r, v in remap.items())
+              + f"; writes {[r for r, w in write_role.items() if w]}")
+    clear_scene()
+
+    body_parts, grip_parts, old, joint = build_split_parts(st, row, ho)
+    align = split_alignment(st.key, body_parts, grip_parts, joint)
+    if align is not None:
+        print(f"[split] ALIGN {st.key}: {align}")
+    s1 = CS.rejoin(old, body_parts + grip_parts, [joint["pin"]], joint["r_x"], joint["old_skip"],
+                   joint["new_skip"], label=st.key)
+    print(f"[split] S1 rejoin {st.key}: {s1}")
+    s23 = CS.sweep_joint(body_parts, grip_parts,
+                         [(joint["pin"], joint["knuckles"], joint["cheeks"], joint["floor"])],
+                         label=st.key)
+    print(f"[split] S2/S3 sweep {st.key}: {s23}")
+    _remove_objects([o for o, _q in old])
+
+    bt, gt = _split_tally(body_parts), _split_tally(grip_parts)
+    detail = sum(n for _p, n in bt + gt) - st.lod0_tris - plan.get("segs_detail", 0)
+    if plan["body_tally"] is None or tuple(plan["body_tally"]) != bt or \
+            tuple(plan["grip_tally"]) != gt or plan["pin_detail"] != detail:
+        raise RuntimeError(f"C9 split tally ({st.key}): built body {bt}, grip {gt}, pin detail "
+                           f"{detail}; contract body {plan['body_tally']}, grip {plan['grip_tally']}, "
+                           f"pin detail {plan['pin_detail']}")
+    zs = joint["z_shift"]
+    gz0 = _z_range(grip_parts)[0] + zs
+    bz0, bz1 = (z + zs for z in _z_range(body_parts))
+    if abs(bz0) > 1e-6:
+        raise RuntimeError(f"split {st.key}: the body's lowest point is z {bz0:.5f}, not the "
+                           f"carrier's (0): the bottom moved to the grip?")
+    body_h, grip_h = bz1, hang - gz0
+    pin_asm = joint["pin"] + np.array((0.0, 0.0, zs))
+    rope_asm = joint["rope"] + np.array((0.0, 0.0, zs))
+    if abs(rope_asm[2] - (hang - gtar)) > 1e-6:
+        raise RuntimeError(f"split {st.key}: rope point z {rope_asm[2]:.4f} != hang - grip_top "
+                           f"{hang - gtar:.4f}")
+    pivots = CS.pivot_numbers(rope_asm, pin_asm, gz0, 0.0, hang, gtar,
+                              "outboard = authoring -Y" if st.key == "dq" else "")
+    pivots["grip_height_m"] = round(float(grip_h), 4)
+    pivots["body_height_m"] = round(float(body_h), 4)
+    print(f"[split] pivots {st.key}: {json.dumps(pivots)}")
+
+    density = dict(st.density, **SPLIT_DENSITY[st.key])
+    quads = {o.name: q for o, q in body_parts + grip_parts}
+    body, btab = _assemble(body_parts, body_name, density, density_w=True)
+    grip, gtab = _assemble(grip_parts, grip_name, density, density_w=True,
+                           flat_parts=tuple(n for n in FLAT_PARTS.get(st.key, ()) if n in gt_names(gt)))
+    if remap is not None:
+        _apply_shipped_uvs(body, remap["body"])
+        _apply_shipped_uvs(grip, remap["grip"])
+        if THIN_JAW:
+            print(f"[split] THIN JAW {grip.name}: {_thin_jaw(grip, gtab)}")
+    pst = split_pair_style(st, plan)
+    meshes = {
+        "body": {"obj": body, "name": body_name, "table": btab, "h": body_h, "z0": 0.0,
+                 "plate": True, "tally": bt, "lod1": plan["lod1"][0], "lod1_del": plan["lod1_delete"][0],
+                 "proxy": plan["body_proxy"]},
+        "grip": {"obj": grip, "name": grip_name, "table": gtab, "h": grip_h, "z0": gz0,
+                 "plate": False, "tally": gt, "lod1": plan["lod1"][1], "lod1_del": plan["lod1_delete"][1],
+                 "proxy": plan["grip_proxy"]},
+    }
+    for role, m in meshes.items():
+        m["info"] = {"table": m["table"], "quads": {n: quads[n] for n in m["table"]},
+                     "part_tris": dict(m["tally"]), "lod0_tris": cs2_asset.tri_count(m["obj"])}
+        m["contracts"] = {"pivot": _check_base_pivot(m["obj"], m["h"], f"{m['name']} LOD0")}
+    pairs = {0: split_pair(body, grip, gz0, f"{body_name}Pair0")}
+    pair_c = {"LOD0": check_contracts(pairs[0], pst, row, 0, ho)}
+    pair0_tris = cs2_asset.tri_count(pairs[0])
+    print("[split] pair contracts LOD0: " + "; ".join(f"{k} {v}" for k, v in pair_c["LOD0"].items()))
+
+    work_root = tempfile.mkdtemp(prefix=f"cs2split_{body_name}_")
+    lods = {"body": [], "grip": []}
+    specs = style_detail_specs(st)
+    if st.key == "tr":
+        from cs2_compose import DetailSpec
+        specs["grip"] = DetailSpec()                       # round 4: plate + clamp box, one casting
+        specs["gripbridge"] = DetailSpec(bolt_pitch_m=0.05, bolt_r_m=0.008, bolt_h_m=0.004)
+        specs["gripcheek_"] = DetailSpec()
+        specs["grippin_"] = DetailSpec()
+    else:
+        from cs2_compose import DetailSpec
+        specs["hangerhead"] = DetailSpec()                 # cast clevis: no bolt heads (relief geo)
+    results = {}
+    try:
+        import cs2_bake
+        import cs2_preview
+        import cs2_review
+        import cs2_validate
+        tex_root = os.path.join(HERE, "..", "textures")
+        quad_sets, control_quads = cs2_asset.lift_atlas_quads(tex_root)
+        for role, m in meshes.items():
+            obj, name = m["obj"], m["name"]
+            asset_dir = os.path.join(os.path.abspath(args.out), name)
+            if remap is not None:
+                m["dir"] = asset_dir
+                if not write_role[role]:
+                    continue                              # unchanged by the envelope: keeps its shipped files
+                os.makedirs(asset_dir, exist_ok=True)
+                ref = remap[role]
+                for x in SPLIT_MAPS:                      # the shipped maps under the new name (0 MB in game:
+                    shutil.copyfile(os.path.join(ref["dir"], f"{ref['name']}_{x}.png"),   # same files)
+                                    os.path.join(asset_dir, f"{name}_{x}.png"))
+                m["bake"] = {"remap_from": ref["name"], "worst_vertex_mm": ref["worst_mm"],
+                             "ambiguous_tris": ref["ambiguous"], "textures_added_mb": 0.0}
+                m["contracts"]["finish"] = check_finished_maps(obj, m["info"], asset_dir, name, FINISH_ATLAS,
+                                                               plate_required=m["plate"])
+                print(f"[split] {name}: remapped onto {ref['name']}'s atlas: {m['contracts']['finish']['C12']}")
+                cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
+                continue
+            os.makedirs(asset_dir, exist_ok=True)
+            m["dir"] = asset_dir
+            work_dir = os.path.join(work_root, name)
+            os.makedirs(work_dir, exist_ok=True)
+            cs2_asset.make_texture_set_atlas(work_dir, name, quad_sets, quad_size=ATLAS_QUAD_PX,
+                                             control_quads=control_quads, post=chair_atlas_post)
+            m["contracts"]["atlas"] = check_atlas_stage(obj, m["info"], work_dir, name)
+            maps = [f"{name}_{x}.png" for x in ("BaseColor", "Normal", "MaskMap", "ControlMask")]
+            src = cs2_bake.SourceSet(base=os.path.join(work_dir, maps[0]),
+                                     normal=os.path.join(work_dir, maps[1]), normal_convention="GL",
+                                     mask=os.path.join(work_dir, maps[2]),
+                                     control=os.path.join(work_dir, maps[3]))
+            rep = cs2_bake.bake_unique(obj, asset_dir, name, FINISH_ATLAS, {0: src},
+                                       ao_samples=AO_SAMPLES, src_uv="UVMap", margin_px=PACK_MARGIN_PX,
+                                       post_compose=make_post_compose(obj, args.plate_number, specs,
+                                                                      plate=m["plate"]))
+            m["bake"] = {k: rep[k] for k in ("A", "margin_px", "ao", "uncovered_texels", "files")}
+            m["bake"]["px_per_m"] = rep["pack"]["px_per_m"]
+            m["contracts"]["finish"] = check_finished_maps(obj, m["info"], asset_dir, name, FINISH_ATLAS,
+                                                           plate_required=m["plate"])
+            print(f"[split] {name}: {m['contracts']['finish']['C12']}")
+            cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
+
+        # LOD1 (decimated) + LOD2 (authored proxy) per mesh
+        bproxy, gproxy = split_proxy_parts(st, row, joint, body_h, ho)
+        for role, m, prox in (("body", meshes["body"], bproxy), ("grip", meshes["grip"], gproxy)):
+            obj, name = m["obj"], m["name"]
+            l1 = cs2_asset.make_lod_chain(obj, name, (m["lod1"],), (m["lod1_del"],),
+                                          min_tris=min(60, m["lod1"]))[0]
+            pin_height(l1, 0.0, m["h"])
+            rope_z = m["h"] - gtar if role == "grip" else hang - gtar     # the rope center in this mesh
+            if ENVELOPE and role == "grip":
+                m["contracts"]["envelope_LOD1"] = _envelope_lod_snap(l1, st.key, rope_z)
+            ptally = tuple((o.name, cs2_asset.tri_count(o)) for o, _c in prox)
+            if m["proxy"] is None or tuple(m["proxy"]) != ptally:
+                raise RuntimeError(f"LOD2 split proxy tally ({name}): built {ptally}, contract {m['proxy']}")
+            l2 = build_split_proxy(prox, obj, name, m["z0"], m["h"])
+            lods[role] = [l1, l2]
+            for k, lod in enumerate(lods[role], start=1):
+                m["contracts"][f"pivot_LOD{k}"] = _check_base_pivot(lod, m["h"], lod.name)
+            if ENVELOPE:
+                for k, lod in enumerate([obj, l1, l2]):
+                    m["contracts"][f"C15_LOD{k}"] = check_envelope(lod, st.key, rope_z, f"{name} LOD{k}")
+                    print(f"[split] C15 {name} LOD{k}: {m['contracts'][f'C15_LOD{k}']}")
+            n0 = m["info"]["lod0_tris"]
+            n1 = cs2_asset.tri_count(l1)
+            if n1 > 0.5 * n0:
+                raise ContractError(f"CONTRACT C8 BROKEN ({name}_LOD1): {n1} tris > 0.5 x {n0}")
+        for k in (1, 2):
+            pairs[k] = split_pair(lods["body"][k - 1], lods["grip"][k - 1], gz0, f"{body_name}Pair{k}")
+            pair_c[f"LOD{k}"] = check_contracts(pairs[k], pst, row, k, ho,
+                                                info={"lod0_tris": pair0_tris, "proxy": k == 2})
+            print(f"[split] pair LOD{k}: {cs2_asset.tri_count(pairs[k])} tris, contracts "
+                  f"{', '.join(sorted(pair_c[f'LOD{k}']))} OK")
+        pair_c["silhouette"] = check_silhouettes(pairs[0], {1: pairs[1], 2: pairs[2]}, st, ho)
+        print("[split] C10 silhouettes (pair): " + "; ".join(
+            f"{k} {v}" for k, v in pair_c["silhouette"].items()))
+
+        for role, m in meshes.items():
+            obj, name, asset_dir = m["obj"], m["name"], m["dir"]
+            if not write_role[role]:
+                continue
+            for lod in lods[role]:
+                cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{lod.name}.fbx"))
+            cs2_asset.write_settings(asset_dir, name, supplied_lods=(1, 2))
+            tri_levels = [m["info"]["lod0_tris"]] + [cs2_asset.tri_count(l) for l in lods[role]]
+            a = authoring_coords(obj)
+            ext = a.max(axis=0) - a.min(axis=0)
+            area = float(sum(p.area for p in obj.data.polygons))
+            switch = cs2_preview.lod_switch_table((float(ext[1]), float(ext[0]), float(ext[2])),
+                                                  tri_levels, area=area)
+            density_rep = cs2_review.density_stats(obj, FINISH_ATLAS)
+            if args.preview:
+                prev = os.path.abspath(args.preview)
+                for png in preview_rig(obj, asset_dir, name, prev, lods[role], None, tint=st.tint):
+                    print(f"[split] preview -> {png}")
+            verify = None
+            if args.verify:
+                flat = [n for n in FLAT_PARTS.get(st.key, ()) if n in m["table"]]
+                ok0, info0 = verify_export(os.path.join(asset_dir, f"{name}.fbx"), expect_height=m["h"],
+                                           flat_box=fbx_box_of_part(obj, flat[0]) if flat else None)
+                oks = [ok0] + [verify_export(os.path.join(asset_dir, f"{name}_LOD{k}.fbx"),
+                                             expect_height=m["h"], histogram=False)[0] for k in (1, 2)]
+                if not all(oks):
+                    raise RuntimeError(f"verify {name}: height / base pivot (or C14) failed on re-import: {oks}")
+                if not info0["custom_normals"]:
+                    raise RuntimeError(f"verify {name}: LOD0 re-import carries no custom normals")
+                verify = {"height_m": info0["height_m"], "levels_ok": oks,
+                          "normals_per_vertex": info0["normals_per_vertex"]}
+                if flat:
+                    verify["flat_faces_LOD0"] = info0["flat_faces"]
+            spec = {"kind": "hanging", "lod0_cap": sum(n for _p, n in m["tally"]),
+                    "lod2_cap": sum(n for _p, n in m["proxy"]), "expected_lods": (1, 2)}
+            findings = cs2_validate.validate_asset_folder(asset_dir, name, spec)
+            validation = {"errors": 0, "warnings": sum(1 for f in findings if f[0] == "WARN"),
+                          "warn_list": [f[1] + ": " + f[2] for f in findings if f[0] == "WARN"]}
+            split = {"role": role, "partner": meshes["grip" if role == "body" else "body"]["name"],
+                     "pivot": pivots, "alignment": align, "S1_rejoin": s1, "S2_S3_sweep": s23,
+                     "pair_contracts": pair_c, "pair_style": {"lod0_cap": pst.lod0_cap,
+                                                              "lod1_target": pst.lod1_target,
+                                                              "lod2_cap": pst.lod2_cap,
+                                                              "pin_detail": plan["pin_detail"],
+                                                              "pin_detail_lod2": plan["pin_detail_lod2"],
+                                                              "segs_detail": plan.get("segs_detail", 0),
+                                                              "cap_raise": plan.get("cap_raise", 0)},
+                     "joint": {k: (v.tolist() if isinstance(v, np.ndarray) else v)
+                               for k, v in joint.items() if k not in ("old_skip", "new_skip")},
+                     "replaces": f"{st.base}{st.letter} (one piece)"}
+            cs2_validate.write_manifest(asset_dir, name, {
+                "generator": "lift_chair.py --split", "style": st.key, "letter": letter,
+                "kind": "hanging", "carrier": {st.carrier: row},
+                "tris": {f"LOD{k}": n for k, n in enumerate(tri_levels)},
+                "caps": spec, "part_table": m["table"], "part_tris": m["info"]["part_tris"],
+                "contracts": m["contracts"], "lod_switch": switch, "density": density_rep,
+                "bake": m["bake"], "lod2": "proxy", "verify": verify, "validation": validation,
+                "split": split, "hanger_offset_m": ho if st.key == "dq" else None,
+                "envelope": ({"z_m": ENVELOPE_Z, **({"tr": ENVELOPE_TR, "dq": ENVELOPE_DQ}[st.key])}
+                             if ENVELOPE else None),
+                "args": CS.manifest_args(args, REPO_ROOT)})
+            results[name] = {"tris": tri_levels, "validation": validation, "verify": verify,
+                             "dir": asset_dir}
+            if args.review is not None:
+                cs2_review.write_pack(name, asset_dir, dict(enumerate([obj] + lods[role])), {},
+                                      meta={"generator": "lift_chair.py --split",
+                                            "args": CS.manifest_args(args, REPO_ROOT),
+                                            "kind": "hanging", "letter": letter,
+                                            "caps": {0: spec["lod0_cap"], 2: spec["lod2_cap"]},
+                                            "tint": dict(st.tint), "style": st.key},
+                                      out_dir=args.review or None)
+    finally:
+        _remove_objects([p for p in pairs.values()])
+        for role in lods:
+            _remove_objects(lods[role])
+        shutil.rmtree(work_root, ignore_errors=True)
+
+    for name, r in results.items():
+        print(f"PASS lift_chair --split: {name} {'/'.join(str(t) for t in r['tris'])} tris, "
+              f"validation 0 errors / {r['validation']['warnings']} warnings"
+              + (f", verify OK {r['verify']['normals_per_vertex']}" if r["verify"] else ""))
+    print(f"PASS lift_chair --split {st.key}: S1 {s1['max_old_to_new_mm']}/{s1['max_new_to_old_mm']} mm, "
+          f"S2 gap {s23['gap_mm_min']}..{s23['gap_mm_max']} mm over {s23['poses']} poses, S3 0 clashes, "
+          f"pair LOD0 {pair0_tris} (cap {pst.lod0_cap})"
+          + (f", ALIGN clevis {align['plan_offset_mm']} mm off the block center in plan, tube end axis "
+             f"{align['axis_angle_deg']} deg off the clevis axis" if align else ""))
+
+
+def gt_names(tally):
+    return {n for n, _t in tally}
+
+
 def main():
     if not bpy.app.background:
         raise RuntimeError("lift_chair.py runs headless only (blender --background): generator "
                            "code never runs in the live review session (ROUND-SPEC R10)")
     args = parse_args()
     st, row, letter, name = _resolve(args)
+    if args.split:
+        return _main_split(args, st, row, letter)
     if st.key == "fg6l":
         return _main_fg6l(args, st, name)
 
@@ -3541,7 +4935,7 @@ def main():
             "lod2": lod2_mode if lods else None,
             "verify": verify, "validation": validation,
             "hanger_offset_m": hanger_offset if st.key == "dq" else None,
-            "args": vars(args),
+            "args": CS.manifest_args(args, REPO_ROOT),
         })
 
         # -- live-review pack (ROUND-SPEC R10): after export, previews, --verify, the
@@ -3549,7 +4943,7 @@ def main():
         # only, nothing above changes (gate: tests/test_review_side_effects.py)
         if args.review is not None:
             cs2_review.write_pack(name, asset_dir, dict(enumerate([chair] + lods)), {},
-                                  meta={"generator": "lift_chair.py", "args": vars(args),
+                                  meta={"generator": "lift_chair.py", "args": CS.manifest_args(args, REPO_ROOT),
                                         "kind": "hanging", "letter": letter,
                                         "caps": {0: st.lod0_cap, 2: st.lod2_cap},
                                         "tint": dict(st.tint), "style": st.key,

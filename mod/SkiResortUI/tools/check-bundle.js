@@ -86,7 +86,9 @@
  *      R14 no untranslated JSX text / child string / visible prop string; R6 / R7 also cover createElement / jsx calls and
  *         `title` in spread or props object literals.
  *      R15 (function lintPanelEdgeFocus) a focusable cs2/ui button rendered (directly or through our components) in a cs2/ui
- *         Panel's header or footer must pass focusKey={FOCUS_DISABLED}: those slots host one focus child.
+ *         Panel's header or footer must pass focusKey={FOCUS_DISABLED}: those slots host one focus child. Hub-wide: every other
+ *         focusable cs2/ui element in src/ must pass it too (sections: a literal disableFocus): the hub is mouse-only and its
+ *         controls never take the game's key focus (consistency; FIX-LIST 58 was a test-helper false positive).
  *      R16 build-item parity C# <-> TS: reads mod/SkiResortMod/Systems/SkiCatalog.cs (`--catalog-cs=` overrides it), the NAMES
  *         block (`public const string X = "Name"; // Type[, item id][, pending]`) and the BUILD-ITEMS block (`new
  *         BuildItemDef("id", Names.X, BuildItemKind.K, "type", n),`, the markers inside the braces: every line between them
@@ -1448,7 +1450,8 @@ function checkContract(errors, warnings, report, opts = {}) {
   const edge = lintPanelEdgeFocus(ts, parsed, errors);
   report.push(`contract R15: ${edge.edges} Panel header/footer slot(s); ${edge.buttons} focusable cs2/ui JSX element(s) ` +
     `rendered there, each checked for focusKey={FOCUS_DISABLED} (sections: disableFocus) (${edge.components} component(s) and ` +
-    `${edge.helpers} helper function(s) followed: ${edge.names.join(", ") || "none"})`);
+    `${edge.helpers} helper function(s) followed: ${edge.names.join(", ") || "none"}); hub-wide ${edge.hubButtons} further ` +
+    "focusable cs2/ui JSX element(s), each checked the same way");
 
   // Each of R16-R18 runs on its own; a crash of one is an error, never a silent pass
   const tsLiterals = readTsLiterals(ts, errors);
@@ -1746,7 +1749,7 @@ const EDGE_SLOTS = new Set(["header", "footer"]);
  * inside another function's body outside the slot.
  */
 function lintPanelEdgeFocus(ts, parsed, errors) {
-  const out = { edges: 0, buttons: 0, components: 0, helpers: 0, names: [] };
+  const out = { edges: 0, buttons: 0, hubButtons: 0, components: 0, helpers: 0, names: [] };
   const byRel = new Map(parsed.map((p) => [p.rel.split(path.sep).join("/"), p]));
   const facts = new Map();
   /** Per file: value imports (local name -> { spec, name }) and top-level declarations (name -> node) */
@@ -1783,7 +1786,8 @@ function lintPanelEdgeFocus(ts, parsed, errors) {
 
   const R15_WHY = "the Panel's header / footer focus controller hosts ONE child, so each further registrant logs \"Cannot " +
     "register second focus key\" to UI.log on every open and close (field test 6: 106 lines)";
-  const checkFocusKey = (f, el, kind, via) => {
+  /** null when el passes focusKey={FOCUS_DISABLED} (from cs2/input) after every spread, else what is wrong */
+  const focusKeyFault = (f, el) => {
     let ok = false, keyAt = -1, spreadAt = -1;
     el.attributes.properties.forEach((a, i) => {
       if (ts.isJsxSpreadAttribute(a)) { spreadAt = i; return; }
@@ -1794,17 +1798,24 @@ function lintPanelEdgeFocus(ts, parsed, errors) {
       ok = !!imp && imp.spec === "cs2/input" && imp.name === "FOCUS_DISABLED";
     });
     const late = ok && spreadAt > keyAt; // a later spread can override the explicit prop
-    if (!ok || late) {
-      const tag = el.tagName.getText(f.p.sf);
-      errors.push(`${at(f, el)}: <${tag}> (cs2/ui ${kind}) renders in a Panel ${via} ` +
-        (late ? "with focusKey={FOCUS_DISABLED} BEFORE a spread, which can override it - put focusKey after every spread"
-          : "without focusKey={FOCUS_DISABLED} (imported from cs2/input)" +
-            (spreadAt >= 0 ? "; a spread is not checkable, pass focusKey explicitly after it" : "")) +
+    if (ok && !late) return null;
+    return late ? "with focusKey={FOCUS_DISABLED} BEFORE a spread, which can override it - put focusKey after every spread"
+      : "without focusKey={FOCUS_DISABLED} (imported from cs2/input)" +
+        (spreadAt >= 0 ? "; a spread is not checkable, pass focusKey explicitly after it" : "");
+  };
+  /** Elements the Panel header / footer walk checked; the hub-wide pass skips them (one message per element) */
+  const slotChecked = new Set();
+  const checkFocusKey = (f, el, kind, via) => {
+    slotChecked.add(el);
+    const fault = focusKeyFault(f, el);
+    if (fault) {
+      errors.push(`${at(f, el)}: <${el.tagName.getText(f.p.sf)}> (cs2/ui ${kind}) renders in a Panel ${via} ${fault}` +
         ` - ${R15_WHY}. Vanilla's close button passes it too (rule R15)`);
     }
   };
   /** PanelSection / PanelFoldout / PanelSectionRow (EDGE_SECTIONS) need a literal disableFocus */
   const checkDisableFocus = (f, el, kind, via) => {
+    slotChecked.add(el);
     let ok = false, flagAt = -1, spreadAt = -1, link = false;
     el.attributes.properties.forEach((a, i) => {
       if (ts.isJsxSpreadAttribute(a)) { spreadAt = i; return; }
@@ -1895,6 +1906,38 @@ function lintPanelEdgeFocus(ts, parsed, errors) {
   }
   if (out.edges === 0) {
     errors.push("src: rule R15 found no cs2/ui <Panel header={...} / footer={...}> - it would check nothing; update lintPanelEdgeFocus in tools/check-bundle.js (rule R15)");
+  }
+
+  // Hub-wide pass: every focusable cs2/ui element anywhere in src/, not only in the Panel slots
+  const R15_HUB_WHY = "the hub is mouse-only and its controls never take the game's key focus (a mouse click still works " +
+    "with FOCUS_DISABLED)";
+  for (const p of parsed) {
+    const f = factsOf(p.rel.split(path.sep).join("/"));
+    if (!f) continue;
+    const visit = (n) => {
+      if ((ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) && ts.isIdentifier(n.tagName) && !slotChecked.has(n)) {
+        const imp = f.imports.get(n.tagName.text);
+        if (imp && imp.spec === "cs2/ui" && EDGE_FOCUSABLE.has(imp.name)) {
+          out.hubButtons++;
+          const fault = focusKeyFault(f, n);
+          if (fault) errors.push(`${at(f, n)}: <${n.tagName.text}> (cs2/ui ${imp.name}) ${fault} - ${R15_HUB_WHY} (rule R15)`);
+        } else if (imp && imp.spec === "cs2/ui" && EDGE_SECTIONS.has(imp.name)) {
+          out.hubButtons++;
+          let flag = false;
+          for (const a of n.attributes.properties) {
+            if (!ts.isJsxAttribute(a) || a.name.getText(f.p.sf) !== "disableFocus") continue;
+            const e = !a.initializer ? null : ts.isJsxExpression(a.initializer) ? a.initializer.expression : a.initializer;
+            flag = !a.initializer || (!!e && e.kind === ts.SyntaxKind.TrueKeyword);
+          }
+          if (!flag) {
+            errors.push(`${at(f, n)}: <${n.tagName.text}> (cs2/ui ${imp.name}) without a literal disableFocus (bare, or ={true}) - ` +
+              "it registers a FOCUS_AUTO focus key, and the hub is mouse-only: no hub control takes the game's key focus (rule R15)");
+          }
+        }
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(p.sf);
   }
   return out;
 }

@@ -4,11 +4,15 @@
 // tests/MoverBench uses a managed array and proves bit-for-bit equality with LiftLoopCache.Sample (JIT, not Burst; Burst may
 // contract float ops differently: sub-micrometer, far inside MoveChair's 1 mm idempotence test).
 // Body = LiftLoopCache.SampleSegments and ChairPinSystem.MoveChair's pose, line for line, no new math.
-// Dependencies: Unity.Mathematics, Colossal.Mathematics, Game.Net.NetUtils.GetNodeRotation (pure math, NetUtils.cs:316-324)
-// and Game.Objects.Transform. No Entities / Collections type.
+// The carrier grip round adds, per flat segment, Guided (an arc or a synthesized station run: no swing there) and the free run around
+// it (RunBefore / RunAfter, MarkRuns), and a Sample overload that also returns the segment and the distance into it (the swing ramp,
+// CarrierPose.DistanceToGuided); the original Sample is that overload with the extras discarded (same arithmetic, MoverBench B-1).
+// Dependencies: Unity.Mathematics, Colossal.Mathematics, Game.Net.NetUtils.GetNodeRotation (pure math, NetUtils.cs:316-324),
+// Game.Objects.Transform and Unity.Entities.Entity (Flatten's owner test only). No Collections type.
 
 using Colossal.Mathematics;
 using Game.Net;
+using Unity.Entities;
 using Unity.Mathematics;
 using Transform = Game.Objects.Transform;
 
@@ -26,12 +30,22 @@ namespace SkiResortMod.Systems
         public float Length;
         public byte IsArc;
         public byte Reversed;
+        /// <summary>1 = no swing here: a bull wheel arc or a synthesized terminal run (LiftLoopCache's turns, Owner == Entity.Null).</summary>
+        public byte Guided;
+        /// <summary>Free-run meters before this segment's start / after its end up to the nearest guided segment (MarkRuns; 0 on guided).</summary>
+        public float RunBefore, RunAfter;
     }
 
     /// <summary>The segment store the kernel reads (a NativeArray in the job, an array in the bench).</summary>
     internal interface IFlatSegments
     {
         FlatSegment Get(int index);
+    }
+
+    /// <summary>A writable store (MarkRuns: the mover's NativeList, the bench's array).</summary>
+    internal interface IFlatSegmentStore : IFlatSegments
+    {
+        void Set(int index, FlatSegment value);
     }
 
     internal static class LiftLoopSampler
@@ -52,12 +66,82 @@ namespace SkiResortMod.Systems
                 Length = s.m_Length,
                 IsArc = (byte)(s.m_IsArc ? 1 : 0),
                 Reversed = (byte)(s.m_Reversed ? 1 : 0),
+                Guided = (byte)(s.m_IsArc || s.m_Owner == Entity.Null ? 1 : 0),
             };
+        }
+
+        /// <summary>Fills RunBefore / RunAfter of a closed loop's segments [first, first + count): the free meters between each free
+        /// segment and the nearest guided segment behind / ahead of it, around the wrap. No guided segment at all: CarrierPose.NoGuidedM.</summary>
+        public static void MarkRuns<T>(ref T segments, int first, int count) where T : struct, IFlatSegmentStore
+        {
+            int g0 = -1;
+            for (int i = 0; i < count; i++)
+            {
+                if (segments.Get(first + i).Guided != 0)
+                {
+                    g0 = i;
+                    break;
+                }
+            }
+            if (g0 < 0)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    FlatSegment f = segments.Get(first + i);
+                    f.RunBefore = f.RunAfter = CarrierPose.NoGuidedM;
+                    segments.Set(first + i, f);
+                }
+                return;
+            }
+            // Forward from a guided segment: the free meters accumulated since it.
+            float acc = 0f;
+            for (int k = 1; k <= count; k++)
+            {
+                int i = (g0 + k) % count;
+                FlatSegment f = segments.Get(first + i);
+                if (f.Guided != 0)
+                {
+                    f.RunBefore = 0f;
+                    acc = 0f;
+                }
+                else
+                {
+                    f.RunBefore = acc;
+                    acc += f.Length;
+                }
+                segments.Set(first + i, f);
+            }
+            // Backward from the same guided segment: the free meters still ahead.
+            acc = 0f;
+            for (int k = 1; k <= count; k++)
+            {
+                int i = ((g0 - k) % count + count) % count;
+                FlatSegment f = segments.Get(first + i);
+                if (f.Guided != 0)
+                {
+                    f.RunAfter = 0f;
+                    acc = 0f;
+                }
+                else
+                {
+                    f.RunAfter = acc;
+                    acc += f.Length;
+                }
+                segments.Set(first + i, f);
+            }
         }
 
         /// <summary>LiftLoopCache.SampleSegments over segments [first, first + count): position + unit travel tangent at loop
         /// distance s (caller wraps s into [0, length)). count must be ≥ 1.</summary>
         public static void Sample<T>(ref T segments, int first, int count, double s, out float3 position, out float3 travelTangent)
+            where T : struct, IFlatSegments
+        {
+            Sample(ref segments, first, count, s, out position, out travelTangent, out _, out _);
+        }
+
+        /// <summary>Sample plus the segment index (absolute) and the clamped distance d into it: the swing ramp's inputs.</summary>
+        public static void Sample<T>(ref T segments, int first, int count, double s, out float3 position, out float3 travelTangent,
+                                     out int segment, out float d)
             where T : struct, IFlatSegments
         {
             int lo = 0, hi = count - 1;
@@ -67,8 +151,9 @@ namespace SkiResortMod.Systems
                 if (segments.Get(first + mid).CumStart <= s) lo = mid;
                 else hi = mid - 1;
             }
-            FlatSegment seg = segments.Get(first + lo);
-            float d = math.clamp((float)(s - seg.CumStart), 0f, seg.Length);
+            segment = first + lo;
+            FlatSegment seg = segments.Get(segment);
+            d = math.clamp((float)(s - seg.CumStart), 0f, seg.Length);
 
             if (seg.IsArc != 0)
             {
@@ -104,6 +189,17 @@ namespace SkiResortMod.Systems
         {
             position.y -= drop;
             quaternion rotation = NetUtils.GetNodeRotation(travelTangent, transform.m_Rotation);
+            if (math.distancesq(position, transform.m_Position) < 1e-6f &&
+                math.abs(math.dot(rotation, transform.m_Rotation)) > 0.99999f)
+                return InPlace;
+            transform.m_Position = position;
+            transform.m_Rotation = rotation;
+            return Moved;
+        }
+
+        /// <summary>Pose's idempotence and write for an already computed pose (the split carrier's grip and body, CarrierPose).</summary>
+        public static byte Write(float3 position, quaternion rotation, ref Transform transform)
+        {
             if (math.distancesq(position, transform.m_Position) < 1e-6f &&
                 math.abs(math.dot(rotation, transform.m_Rotation)) > 0.99999f)
                 return InPlace;

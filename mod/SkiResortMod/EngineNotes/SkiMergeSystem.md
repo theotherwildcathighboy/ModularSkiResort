@@ -62,7 +62,7 @@ vanilla back to 185 within 256 frames after the writes stopped.
 - Without the mod the game drops the tag at load ("Not serializable type", P0) and the building is plain vanilla.
 - Delete all (Options): every merged building is unmerged; the buildings stay.
 
-## Hub (contract 32)
+## Hub (contract 35)
 `mergeCard` (always observed, like `busCard`) and the triggers `mergeBuilding (entity, tier)` / `unmergeBuilding (entity)`;
 `mergedLodges` for the Overview's "Merged buildings" fold. The card shows for a merged building, or one that could be merged (a lot too
 small included, to say why), while the city has a sign.

@@ -1,8 +1,8 @@
 // Lift tickets: each arriving guest (SkiGuestCounterSystem.DrainArrivals) pays the ticket price from their household into the city's
 // balance when the gate is open (SkiMoneyRules.TicketGateOf). Never into debt: TicketsPaid = min(people, money / price); the rest
 // are admitted free and counted as unpaid. Money moves like the vanilla transit fare (ResidentAISystem.cs:3922-3935); one Burst IJob.
-// BookTicketsAsFees enqueues a FeeEvent per payment and the job must NOT add that total to PlayerMoney: BudgetApplySystem.cs:28-60
-// credits the fee line itself, so adding it here would pay the city twice.
+// Every payment is one FeeEvent (public transportation, like the bus fare) and the job must NOT add it to PlayerMoney:
+// BudgetApplySystem.cs:28-60 credits the fee line itself, so adding it here would pay the city twice.
 // Phase: GameSimulation, UpdateAfter<SkiLiftTicketSystem, SkiGuestCounterSystem> (Mod.cs; not load-bearing: the counter's pending list
 // is DRAINED). Interval 16. OnGamePreload books the job's results first, after the counter's (BookInFlightForPreload).
 // Engine notes: EngineNotes/SkiLiftTicketSystem.md
@@ -55,8 +55,6 @@ namespace SkiResortMod.Systems
         internal int Price { get; private set; } = SkiMoneyRules.TicketPriceDefault;
 
         internal int LodgeSpend { get; private set; } = SkiMoneyRules.LodgeSpendDefault;
-
-        internal bool BookAsFees { get; private set; } = SkiResortMod.Settings.SkiResortSettings.DefaultBookTicketsAsFees;
 
         /// <summary>The clamped SeasonPassShare read on the last tick (0 = passes off).</summary>
         internal int PassShare { get; private set; } = SkiMoneyRules.PassShareDefault;
@@ -151,7 +149,7 @@ namespace SkiResortMod.Systems
             m_LiftCharge = World.GetOrCreateSystemManaged<SkiLiftChargeSystem>();
             m_EfficiencyLookup = GetBufferLookup<Efficiency>(isReadOnly: true);
             m_ResourcesLookup = GetBufferLookup<GameResources>(isReadOnly: false);
-            m_PlayerMoneyLookup = GetComponentLookup<PlayerMoney>(isReadOnly: false);
+            m_PlayerMoneyLookup = GetComponentLookup<PlayerMoney>(isReadOnly: true);
             m_PassLookup = GetComponentLookup<SkiSeasonPass>(isReadOnly: true);
             m_PassWrites = new NativeList<PassWrite>(16, Allocator.Persistent);
             m_Requests = new NativeList<TicketRequest>(16, Allocator.Persistent);
@@ -287,7 +285,6 @@ namespace SkiResortMod.Systems
             m_CostByRearm = false; // the load's measurement is not a midday one
             Price = ReadPrice();
             LodgeSpend = ReadLodgeSpend();
-            BookAsFees = ReadBookAsFees();
             PassShare = ReadPassShare();
             PassMultiplier = ReadPassMultiplier();
             LessonShare = ReadLessonShare();
@@ -298,14 +295,14 @@ namespace SkiResortMod.Systems
 
             m_Armed = true;
             Mod.Log.Info($"Tickets: ARMED — price {Price} (setting LiftTicketPrice, 0 = off; read live); each counted guest " +
-                         "pays once on arrival, taken from the guest's household; " + BookingText(BookAsFees) +
-                         " (setting BookTicketsAsFees; read live); a household pays for as many " +
+                         "pays once on arrival, taken from the guest's household; " + BookingText +
+                         "; a household pays for as many " +
                          "members as its money covers, never below 0; gate = Welcome Sign efficiency above 0 and a counted run " +
                          "(open or patchy; a running lift alone does not open it), not known while the ski area's first score " +
                          "after a load is held; one job per 16-frame tick with arrivals; " +
                          $"lodge spend {LodgeSpend} per paying guest at a lodge (setting LodgeSpendPerGuest, 0 = off; read live; " +
                          "× the lodge tier's multiplier, A-frame / hut 1, mid 1.5, luxury 3; after the ticket and the lesson, open gate only, " +
-                         "never below 0; booked like the ticket: " + (BookAsFees ? "a fee each" : "a direct add") + "); " + PassArmedText() + "; " +
+                         "never below 0; booked like the ticket: a fee each); " + PassArmedText() + "; " +
                          LessonArmedText());
             WarnRwhOnce();
         }
@@ -333,28 +330,22 @@ namespace SkiResortMod.Systems
                 : "season passes: off (setting SeasonPassShare 0; read live); holders keep what they bought";
         }
 
-        private static string BookingText(bool asFees)
-        {
-            return asFees
-                ? "booked as public transportation fees: one FeeEvent per paid lift ticket, pass, lesson and lodge spend like the vanilla bus fare " +
-                  "(ResidentAISystem.cs:3922-3935), credited to the city by the budget (BudgetApplySystem), shown in the " +
-                  "Economy panel, NOT added to the balance directly (that would pay twice)"
-                : "added directly to the city's balance like the vanilla transit fare without a FeeEvent " +
-                  "(not shown in the Economy panel)";
-        }
+        private const string BookingText =
+            "booked as public transportation fees: one FeeEvent per paid lift ticket, pass, lesson and lodge spend like the vanilla bus fare " +
+            "(ResidentAISystem.cs:3922-3935), credited to the city by the budget (BudgetApplySystem), shown in the " +
+            "Economy panel, NOT added to the balance directly (that would pay twice)";
 
         /// <summary>One WARN per load when Realistic Workplaces And Households (assembly "RWH", by name only,
-        /// SkiOtherMods) is loaded and income is booked as fees. RWH replaces BudgetApplySystem with its own copy, so
+        /// SkiOtherMods) is loaded (income is always booked as fees). RWH replaces BudgetApplySystem with its own copy, so
         /// whether fee income reaches the treasury there is UNVERIFIED. The behavior does not depend on it.</summary>
         private void WarnRwhOnce()
         {
-            if (m_RwhWarned || !BookAsFees || !SkiOtherMods.RealisticWorkplacesDetected)
+            if (m_RwhWarned || !SkiOtherMods.RealisticWorkplacesDetected)
                 return;
             m_RwhWarned = true;
             Mod.Log.Warn("Tickets: Realistic Workplaces And Households (assembly RWH) is loaded and resort income is booked as " +
                          "public transportation fees: it replaces BudgetApplySystem with its own copy, so whether fee income " +
-                         "reaches the treasury there is UNVERIFIED — if the balance does not rise with the lift tickets, turn off " +
-                         "'Book resort income as public transportation fees' in Options (warned once per load)");
+                         "reaches the treasury there is UNVERIFIED (warned once per load)");
         }
 
         protected override void OnUpdate()
@@ -390,15 +381,6 @@ namespace SkiResortMod.Systems
                     Mod.Log.Info($"Tickets [lodge spend] per paying guest at a lodge {LodgeSpend} → {spend}{(spend == 0 ? " (off)" : "")} " +
                                  "(× the lodge tier's multiplier; charged after the ticket while the gate is open, never below 0)");
                     LodgeSpend = spend;
-                }
-                // 2a'. The booking mode, live (takes effect with the next job scheduled).
-                bool asFees = ReadBookAsFees();
-                if (asFees != BookAsFees)
-                {
-                    Mod.Log.Info($"Tickets [booking] {(BookAsFees ? "public transportation fees" : "direct add")} → " +
-                                 $"{(asFees ? "public transportation fees" : "direct add")}: {BookingText(asFees)}");
-                    BookAsFees = asFees;
-                    WarnRwhOnce();
                 }
                 // 2a''. The two pass settings, live (take effect with the next job scheduled).
                 int passShare = ReadPassShare();
@@ -460,7 +442,7 @@ namespace SkiResortMod.Systems
                 if (price == 0)
                     BookAllFree();
                 else
-                    ScheduleJob(price, asFees);
+                    ScheduleJob(price);
 
                 RecordCost((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency, m_Arrivals.Count);
             }
@@ -517,11 +499,6 @@ namespace SkiResortMod.Systems
             return SkiMoneyRules.ClampLessonMultiplier(Mod.Settings?.LessonMultiplier ?? SkiMoneyRules.LessonMultiplierDefault);
         }
 
-        private static bool ReadBookAsFees()
-        {
-            return Mod.Settings?.BookTicketsAsFees ?? SkiResortMod.Settings.SkiResortSettings.DefaultBookTicketsAsFees;
-        }
-
 
         /// <summary>One slot per distinct sign of this tick's arrivals (gate inputs) and one request per arrival. With a price and a
         /// lodge-spend setting above 0, a request whose building is a lodge carries SpendPerPerson (the catalog's LodgeDefs view, fetched
@@ -568,7 +545,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private void ScheduleJob(int price, bool asFees)
+        private void ScheduleJob(int price)
         {
             int requests = m_Requests.Length, slots = m_Slots.Length;
             m_Results.ResizeUninitialized(requests);
@@ -596,7 +573,6 @@ namespace SkiResortMod.Systems
                 LessonPrice = SkiMoneyRules.LessonPrice(LessonMultiplier, price),
                 LessonDay = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear),
                 FeeQueue = feeQueue,
-                BookAsFees = (byte)(asFees ? 1 : 0),
                 City = m_CitySystem.City,
                 Price = price,
                 Results = m_Results.AsArray(),
@@ -744,7 +720,7 @@ namespace SkiResortMod.Systems
                     : "n/a";
                 Mod.Log.Info($"Passes [first] resident household {Fmt(firstBuyer)} bought the season-{season} pass for {firstPrice} " +
                              $"({PassMultiplier} × the lift ticket {Price}; share {PassShare} %): it pays 0 at the gate until July and skis " +
-                             $"with the full price factor; booked {(BookAsFees ? "as a public transportation fee" : "as a direct add")} (balance {balance})");
+                             $"with the full price factor; booked as a public transportation fee (balance {balance})");
             }
             string body = $"{sold} pass(es) sold +{income} ({PassMultiplier} × the lift ticket {Price}), {declined} household(s) rolled out, " +
                           $"{cannotPay} could not afford the pass; season {season}";
@@ -776,7 +752,7 @@ namespace SkiResortMod.Systems
                 m_LessonFirstLogged = true;
                 Mod.Log.Info($"Lessons [first] ski area {Fmt(firstSign)}: a party of {firstPeople} took {firstCount} lesson(s) at the ski school " +
                              $"for {unit} each ({LessonMultiplier:0.0#} × the lift ticket {Price}; share {LessonShare} %), taken after the ticket or pass " +
-                             $"and booked {(BookAsFees ? "as a public transportation fee each" : "as a direct add")}");
+                             "and booked as a public transportation fee each");
             }
             string body = $"{lessons} lesson(s) +{income} ({LessonMultiplier:0.0#} × the lift ticket {Price} = {unit} each; share {LessonShare} %)";
             float now = UnityEngine.Time.realtimeSinceStartup;
@@ -1010,7 +986,7 @@ namespace SkiResortMod.Systems
                   .Append(" (largest batch ").Append(m_LargestBatch).Append("), guests ").Append(m_GuestsTotal)
                   .Append(", income +").Append(m_IncomeTotal)
                   .Append(" (booked as public transportation fees +").Append(m_FeeBookedTotal)
-                  .Append(", booking ").Append(BookAsFees ? "public transportation fees" : "direct add").Append(')')
+                  .Append(')')
                   .Append(", lodge spend ").Append(LodgeSpend).Append(" per guest (× tier): ").Append(m_SpendsTotal)
                   .Append(" spent +").Append(m_SpendIncomeTotal)
                   // Passes: sold / income as booked; holder guests; households decided not to buy.
@@ -1051,8 +1027,8 @@ namespace SkiResortMod.Systems
 
 
         /// <summary>Per slot: the sign's efficiency (inline BuildingUtils.cs:121-133) and the gate. Per request: a closed gate (or a City
-        /// without PlayerMoney) books the guests free; an open one takes TicketsPaid × price from the household (never below 0) and credits
-        /// the city once at the end (with BookAsFees the total is instead one FeeEvent per paid item, credited by the budget, not here). A
+        /// without PlayerMoney) books the guests free; an open one takes TicketsPaid × price from the household (never below 0) and books one
+        /// FeeEvent per paid item, credited to the city by the budget, never here. A
         /// pass holder pays no ticket. The lessons (LessonsAndSpend) and then the lodge spend come out of what the household has left.</summary>
         [BurstCompile]
         private struct TicketJob : IJob
@@ -1061,7 +1037,7 @@ namespace SkiResortMod.Systems
             [ReadOnly] public NativeArray<TicketSlot> Slots;
             [ReadOnly] public BufferLookup<Efficiency> Efficiencies;
             public BufferLookup<GameResources> HouseholdResources;
-            public ComponentLookup<PlayerMoney> PlayerMoneys;
+            [ReadOnly] public ComponentLookup<PlayerMoney> PlayerMoneys;   // HasComponent(City) only
             [ReadOnly] public ComponentLookup<SkiSeasonPass> Passes;   // the household's standing (read only)
             public NativeList<PassWrite> PassWrites;                   // appended here, applied on the main thread
             public int SeasonKey;                                      // SkiMoneyRules.SeasonKeyOfDate at the schedule
@@ -1070,8 +1046,7 @@ namespace SkiResortMod.Systems
             public int LessonShare;                                    // clamped setting (0 = no lessons)
             public int LessonPrice;                                    // SkiMoneyRules.LessonPrice at the schedule (0 = no lessons)
             public int LessonDay;                                      // SkiDayRules.DayKey at the schedule (the roll's day)
-            public NativeQueue<ServiceFeeSystem.FeeEvent> FeeQueue;   // always valid (ScheduleJob); written only when BookAsFees
-            public byte BookAsFees;                                   // 1 = FeeEvents instead of the direct add
+            public NativeQueue<ServiceFeeSystem.FeeEvent> FeeQueue;   // always valid (ScheduleJob)
             public Entity City;
             public int Price;
             public NativeArray<TicketResult> Results;              // Requests.Length
@@ -1087,7 +1062,6 @@ namespace SkiResortMod.Systems
                     SlotGate[s] = (byte)SkiMoneyRules.TicketGateOf(Price, efficiency, slot.RunStateKnown != 0, slot.OpenRuns);
                 }
                 bool cityOk = City != Entity.Null && PlayerMoneys.HasComponent(City);
-                long credited = 0;
                 // Households decided earlier in THIS batch (1 = holds a pass, 2 = declined), so a second arrival
                 // record of the same household in one drain does not wait for the component to exist.
                 var decided = new NativeHashMap<Entity, byte>(8, Allocator.Temp);
@@ -1131,7 +1105,7 @@ namespace SkiResortMod.Systems
                                     r.PassSold = 1;
                                     r.PassIncome = passPrice;
                                     r.PassSeason = SeasonKey;
-                                    Book(ref r, ref credited, passPrice, 1);
+                                    Book(ref r, passPrice, 1);
                                     PassWrites.Add(new PassWrite { Household = q.Household, SeasonKey = SeasonKey, PricePaid = passPrice });
                                     decided.TryAdd(q.Household, 1);
                                     standing = SkiMoneyRules.PassStanding.Holder;
@@ -1157,7 +1131,7 @@ namespace SkiResortMod.Systems
                             // A holder pays nothing at the gate (ledger: pass-holder guests, not paid / unpaid / free) but still
                             // takes lessons and spends at the lodge from what is left (shopping, not the gate).
                             r.PassHolders = people;
-                            LessonsAndSpend(ref r, ref credited, buffer, money, people, people, q.SpendPerPerson,
+                            LessonsAndSpend(ref r, buffer, money, people, people, q.SpendPerPerson,
                                             SlotSchool(q.Slot), q.Household);
                             Results[i] = r;
                             continue;
@@ -1167,9 +1141,9 @@ namespace SkiResortMod.Systems
                         {
                             r.Income = paid * Price;                   // paid ≤ money / price: no overflow, never below 0
                             EconomyUtils.AddResources(Resource.Money, -r.Income, buffer);
-                            Book(ref r, ref credited, Price, paid);
+                            Book(ref r, Price, paid);
                             // The lessons of the people counted, then the lodge spend of the paying guests, each from what the ticket left.
-                            LessonsAndSpend(ref r, ref credited, buffer, money - r.Income, people, paid, q.SpendPerPerson,
+                            LessonsAndSpend(ref r, buffer, money - r.Income, people, paid, q.SpendPerPerson,
                                             SlotSchool(q.Slot), q.Household);
                         }
                     }
@@ -1178,12 +1152,6 @@ namespace SkiResortMod.Systems
                     Results[i] = r;
                 }
                 decided.Dispose();
-                if (credited > 0)
-                {
-                    PlayerMoney money = PlayerMoneys[City];
-                    money.Add((int)math.min(credited, (long)int.MaxValue));
-                    PlayerMoneys[City] = money;
-                }
             }
 
             private bool SlotSchool(int slot) => Slots[slot].SchoolActive != 0;
@@ -1191,7 +1159,7 @@ namespace SkiResortMod.Systems
             /// <summary>After the ticket or pass, in this order and each from what the household still has (never below 0): the ski lessons
             /// (SkiMoneyRules.LessonsTaken over <paramref name="people"/>, paid up to LessonsPaid), then the lodge spend of
             /// <paramref name="spendPeople"/> at <paramref name="spendPerPerson"/>. Both are booked like the ticket (Book).</summary>
-            private void LessonsAndSpend(ref TicketResult r, ref long credited, DynamicBuffer<GameResources> buffer, int money,
+            private void LessonsAndSpend(ref TicketResult r, DynamicBuffer<GameResources> buffer, int money,
                                          int people, int spendPeople, int spendPerPerson, bool school, Entity household)
             {
                 if (school && LessonShare > 0 && LessonPrice > 0)
@@ -1204,7 +1172,7 @@ namespace SkiResortMod.Systems
                         r.LessonIncome = lessons * LessonPrice;   // ≤ money left: no overflow, never below 0
                         EconomyUtils.AddResources(Resource.Money, -r.LessonIncome, buffer);
                         money -= r.LessonIncome;
-                        Book(ref r, ref credited, LessonPrice, lessons);
+                        Book(ref r, LessonPrice, lessons);
                     }
                 }
                 if (spendPerPerson > 0)
@@ -1215,30 +1183,25 @@ namespace SkiResortMod.Systems
                         r.Spends = spends;
                         r.SpendIncome = spends * spendPerPerson;   // ≤ money left: no overflow, never below 0
                         EconomyUtils.AddResources(Resource.Money, -r.SpendIncome, buffer);
-                        Book(ref r, ref credited, spendPerPerson, spends);
+                        Book(ref r, spendPerPerson, spends);
                     }
                 }
             }
 
-            /// <summary>Books <paramref name="count"/> × <paramref name="unit"/> for a ticket, pass, lesson or lodge spend: with BookAsFees one
+            /// <summary>Books <paramref name="count"/> × <paramref name="unit"/> for a ticket, pass, lesson or lodge spend: one
             /// FeeEvent{PublicTransport, 1, unit} per item as the bus fare (ResidentAISystem.cs:3929-3935; the budget credits the fee line to
-            /// PlayerMoney, BudgetApplySystem.cs:57-59, so no direct add), else the amount joins the direct add.</summary>
-            private void Book(ref TicketResult r, ref long credited, int unit, int count)
+            /// PlayerMoney, BudgetApplySystem.cs:57-59, so no direct add).</summary>
+            private void Book(ref TicketResult r, int unit, int count)
             {
-                if (BookAsFees != 0)
-                {
-                    r.Booked += unit * count;
-                    for (int k = 0; k < count; k++)
-                        FeeQueue.Enqueue(new ServiceFeeSystem.FeeEvent
-                        {
-                            m_Amount = 1f,
-                            m_Cost = unit,
-                            m_Resource = PlayerResource.PublicTransport,
-                            m_Outside = false,
-                        });
-                }
-                else
-                    credited += unit * count;
+                r.Booked += unit * count;
+                for (int k = 0; k < count; k++)
+                    FeeQueue.Enqueue(new ServiceFeeSystem.FeeEvent
+                    {
+                        m_Amount = 1f,
+                        m_Cost = unit,
+                        m_Resource = PlayerResource.PublicTransport,
+                        m_Outside = false,
+                    });
             }
 
             /// <summary>BuildingUtils.GetEfficiency(DynamicBuffer) re-implemented: product of

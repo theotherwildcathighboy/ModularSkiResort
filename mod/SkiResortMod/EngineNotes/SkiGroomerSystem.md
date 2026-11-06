@@ -66,6 +66,14 @@ A 5 x 3 grid of `TerrainUtils.SampleHeight` over 7 x 4 m, rotated with the machi
 
 Without `Car` and `TransformFrame`, vanilla's vehicle lights are zeroed (`ObjectInterpolateSystem.cs:1097-1180`, `EffectControlData.cs:449-560`). So `SkiGroomerA`'s mesh light uses purpose `EffectSource` (`ObjectInterpolateSystem.cs:1181-1193`), which follows `effects[0]`, and row 0 is a Night-gated effect. Enable state is re-evaluated only on `Updated`, `Deleted`, `EffectsUpdated` or `BatchesUpdated` (`EffectControlSystem.cs:1087-1097`), so `RefreshLights` stamps `EffectsUpdated` at each flip of `EffectFlagSystem`'s night signal, with the settle of `SkiNightLightSystem`. The stand-in has no effects. Asset side and costs: docs/research/groomer-lights-2026-11-01.md. In game (2026-11-01, `SkiGroomerA`): lit at night with `EnabledEffect` x2 and `LightState` 1, dark by day with `EnabledEffect` empty, one `[lights]` line per flip, LOD1 and LOD2 lit at 120 m and 230 m. The `Emissive` and `LightState` buffers fill only while the prop passes culling. Preflight MOVERLIGHT checks the asset side.
 
+The light rows name owner-culled effects (`SkiGroomerFloodSource`, `SkiGroomerBeaconSource`: copies of the piste flood and the snow gun beacon with
+`m_DisableDistanceCulling` false), as vanilla vehicle lights are. With the static effects themselves (`m_DisableDistanceCulling` true, so `m_OwnerCulling`
+false, `EffectPrefab.cs:43`) nothing disabled the floods when the machine left `NearCamera`, and their pools stayed lit to 7.9 km after the mesh was
+culled at 6.8-7.3 km. Owner-culled, `EffectCullingJob` (`EffectControlSystem.cs:299-353`) enables them with a condition check when the prop arrives
+near the camera and disables them when it leaves, and `EffectControlJob` skips them while the prop is far (`:215-231`), so a flip far away is picked up
+on arrival. Measured in game (2026-11-03): `EnabledEffect` 3 -> 0 in the same camera step as `m_PassedCulling` 1 -> 0, and no pool in a settled
+shot past the cut. MOVERLIGHT fails an owned light row with `m_DisableDistanceCulling` true.
+
 ## Lifecycle table
 
 | Event | What happens |

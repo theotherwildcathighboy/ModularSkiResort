@@ -20,6 +20,8 @@ namespace SkiResortMod.Systems
         Unknown = 0,   // no base station in the build, not complete, or no ElectricityConsumer: treated as powered
         Powered = 1,   // no electricity warning, or at least half of the wanted power arrives (3/4 when coming back)
         NoPower = 2,   // the game's NoElectricity or Bottleneck warning and under half of the wanted power
+        Pending = 3,   // no electricity dispatch has judged the consumer yet and the lift has no powered read this load: held, not
+                       // powered (IsPowered false), shown as no outage (Power != NoPower); the caller fails it open after PendingMaxFrames
     }
 
     public static class LiftServedRule
@@ -95,11 +97,66 @@ namespace SkiResortMod.Systems
             return (long)fulfilledConsumption * HalfPowerDivisor >= wantedConsumption ? LiftPower.Powered : LiftPower.NoPower;
         }
 
+        /// <summary>The power read for a station with its consumer's cooldown counter (ElectricityConsumer.m_CooldownCounter). Fixes
+        /// the fail-open start (DECISIONS 601 i): the game raises its no-power warning only on the SECOND short dispatch
+        /// (DispatchElectricitySystem.kAlertCooldown = 2, :208; HandleCooldown :128-143), every 128 sim frames (offset 126, :222-230),
+        /// and AdjustElectricityConsumptionSystem sets the wanted power at offset 0 (:385-392). So a fresh unpowered station showed no
+        /// warning for up to ~380 frames and the warning-first rule read it Powered: its chairs ran, then stopped.
+        /// Order: (1) a warning -> the 4-argument rule (half / three quarters); (2) Connected and fulfilled &gt;= wanted &gt; 0 ->
+        /// Powered (a dispatch with wanted 0 sets Connected too, :115-122, and the wanted power arrives at the next offset 0:
+        /// Connected alone is stale, LiftBatch PG-5 caught it); (3) a lift read Powered or NoPower before this load -> Powered (the
+        /// game's cooldown absorbs one short dispatch, as before); (4) no powered history (last Unknown / Pending): dispatched short
+        /// (cooldown &gt; 0, wanted &gt; 0) -> the half rule without waiting for the warning; else Pending (not dispatched yet, wanted
+        /// still 0, or electricity locked: HandleCooldown never runs, :102-105, and the caller's ExpirePending fails it open).</summary>
+        public static LiftPower PowerOf(byte consumerFlags, int wantedConsumption, int fulfilledConsumption, short cooldownCounter,
+                                        LiftPower last)
+        {
+            if ((consumerFlags & (FlagNoElectricityWarning | FlagBottleneckWarning)) != 0)
+                return PowerOf(consumerFlags, wantedConsumption, fulfilledConsumption, last);
+            if ((consumerFlags & FlagConnected) != 0 && wantedConsumption > 0 && fulfilledConsumption >= wantedConsumption)
+                return LiftPower.Powered;
+            if (last == LiftPower.Powered || last == LiftPower.NoPower)
+                return LiftPower.Powered;
+            if (cooldownCounter > 0 && wantedConsumption > 0)
+                return (long)fulfilledConsumption * HalfPowerDivisor >= wantedConsumption ? LiftPower.Powered : LiftPower.NoPower;
+            return LiftPower.Pending;
+        }
+
+        /// <summary>Sim frames a station may read Pending before it fails open to Powered: 3 dispatch periods (384 frames, 6.4 s at
+        /// 1x). A station built just after a dispatch gets its wanted power at the next offset 0 and its first judged dispatch at
+        /// offset 126 (at most 254 frames later), so a powered lift starts within one or two dispatches (about 2-4 s at 1x) and
+        /// only a city whose electricity is locked (no dispatch ever judges the consumer) waits the full window.</summary>
+        public const uint PendingMaxFrames = 3u * 128u;
+
+        /// <summary>The pending window of one read. raw Pending: the window starts on its first read (pendingSince = now) and after
+        /// PendingMaxFrames the read is Powered (timedOut = true, pendingSince cleared: fail open). Any other raw clears the window
+        /// and passes through. Unchecked uint subtraction (the frame counter may wrap). The caller keeps pendingSince per station
+        /// (NoBackSince = none).</summary>
+        public static LiftPower ExpirePending(LiftPower raw, ref uint pendingSince, uint nowFrame, out bool timedOut)
+        {
+            timedOut = false;
+            if (raw != LiftPower.Pending)
+            {
+                pendingSince = NoBackSince;
+                return raw;
+            }
+            if (pendingSince == NoBackSince)
+                pendingSince = nowFrame;
+            if (unchecked(nowFrame - pendingSince) >= PendingMaxFrames)
+            {
+                pendingSince = NoBackSince;
+                timedOut = true;
+                return LiftPower.Powered;
+            }
+            return LiftPower.Pending;
+        }
+
         /// <summary>The "powered" predicate for service, lift value, lift billing and the lift charge's operating count. Unknown
-        /// counts as powered. With PowerGatesService false, power is status only everywhere (one switch).</summary>
+        /// counts as powered; Pending (the first dispatch has not judged the station yet) does not, so its chairs wait instead of
+        /// running unpowered for a few seconds. With PowerGatesService false, power is status only everywhere (one switch).</summary>
         public static bool IsPowered(LiftPower power)
         {
-            return !PowerGatesService || power != LiftPower.NoPower;
+            return !PowerGatesService || (power != LiftPower.NoPower && power != LiftPower.Pending);
         }
 
         /// <summary>Sim frames of raw Powered reads before a NoPower lift counts as powered again: 4 dispatch periods

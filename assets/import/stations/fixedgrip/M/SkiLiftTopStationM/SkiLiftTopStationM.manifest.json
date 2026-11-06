@@ -905,9 +905,9 @@
   },
   "prefab_contract": {
     "source": "gamedata-mirror/ImportedData/SkiTopStationBuilding/SkiTopStationBuilding.Prefab",
-    "source_sha256": "d70c2393335ac9e58915965614c25321967a6f5357c71bf1bfca9b9ec206741d",
+    "source_sha256": "4d31e48d58dc144fc4f1c8f01f6aae5272a0a7c6ef386837fd220d2842c6e67e",
     "repoint": {
-      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:57c95d66af6c9e586865050713df683b",
+      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:e8fcca056298c4f7d08c6ab99778d58d",
       "m_Meshes[0].m_Mesh_to": "<the M mesh's CID, written by the importer>",
       "k_mesh": "SkiLiftTopStationK",
       "rule": "only this line changes (surgery/towers-transfer.md; never rename, never a new .Prefab.cid)"
@@ -1020,7 +1020,7 @@
               "$rcontent": [
                 {
                   "$type": "16|Game.Prefabs.ObjectSubLaneInfo, Game",
-                  "m_LanePrefab": "$fstrref:UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                  "m_LanePrefab": "$fstrref:CID:2b960a16d8baac67dfe9fc181fd960f3",
                   "m_BezierCurve": {
                     "$type": 10,
                     "a": {
@@ -1061,7 +1061,7 @@
                 },
                 {
                   "$type": 16,
-                  "m_LanePrefab": "$fstrref:UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                  "m_LanePrefab": "$fstrref:CID:2b960a16d8baac67dfe9fc181fd960f3",
                   "m_BezierCurve": {
                     "$type": 10,
                     "a": {
@@ -1371,7 +1371,7 @@
         }
       ]
     },
-    "frozen_sha256": "e23c26d4c8a69f1c48efd7df0c14f438b5e5de625447f7646fe915c97e1b9617",
+    "frozen_sha256": "542dece3220004302d3de8c1fefc482d186ae580ea39d829a8b06c575bc690b2",
     "code": {
       "WheelLocal_game": [
         0.0,
@@ -1425,9 +1425,19 @@
       ]
     ],
     "refrozen": {
-      "utc": "2026-10-24T18:44:57Z",
-      "why": "baseline re-frozen from the deployed prefab after the 2026-10-19/20 surgeries; the FBX / mesh files are unchanged (T144)",
-      "previous_source_sha256": "d423596bf9719bcb0fa3fa3324d75e71b68dbb580b0b84324a6514cf7436b434"
+      "utc": "2026-11-05T15:53:58Z",
+      "why": "art-601: hosted ET68 row dropped from SkiBaseStationBuilding, base and top point to the O meshes",
+      "previous_source_sha256": "73040b7da28498b60149351648cc463cb7dfc1e289d07395ec143a7cd64d7515",
+      "earlier": {
+        "utc": "2026-11-04T09:33:57Z",
+        "why": "baseline re-frozen from the deployed prefab after lift alignment phase 1 (2026-11-02, 7fe59ae): the two HV sub-lanes now name the FG station's own rope lane SkiFixedGripHaulRope (CID 2b960a16...) instead of the vanilla HV lane (UnityGUID 5d88ac45...); no other frozen field changed; the FBX / mesh files are unchanged",
+        "previous_source_sha256": "d70c2393335ac9e58915965614c25321967a6f5357c71bf1bfca9b9ec206741d",
+        "earlier": {
+          "utc": "2026-10-24T18:44:57Z",
+          "why": "baseline re-frozen from the deployed prefab after the 2026-10-19/20 surgeries; the FBX / mesh files are unchanged (T144)",
+          "previous_source_sha256": "d423596bf9719bcb0fa3fa3324d75e71b68dbb580b0b84324a6514cf7436b434"
+        }
+      }
     }
   },
   "bounds": {

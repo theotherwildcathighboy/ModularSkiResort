@@ -4,7 +4,8 @@
 // TopM[0]) and a straight Curve on each touched edge. Station stub, branch and owned nodes are never touched.
 // Phase (Mod.cs): UpdateAt Modification1: every consumer of the Updated tag runs later in the frame, CleanUp wipes it at frame end.
 // Triggered by LiftCensusSystem.OnCensusBuilt after a quiet period; a fixed point, with a write guard. Tool lines (LiftToolLines)
-// are fitted heights-only. Logs: silence is impossible; an exception disables the system until the next load.
+// are fitted heights-only. A BUILT line is judged at its towers' feet (node y - E), never on the ground our own cut sank under them
+// (FIX-LIST 57: a reload wrote a tram tower 1.05 m lower). Logs: silence is impossible; an exception disables the system until the next load.
 // Engine notes: EngineNotes/LiftTowerFitSystem.md
 
 using System;
@@ -35,13 +36,20 @@ namespace SkiResortMod.Systems
         private LiftTowerDiagSystem m_Diag;
         private TerrainSystem m_TerrainSystem;
         private LiftLineToolSystem m_LineTool;
+        private PrefabSystem m_PrefabSystem;
+        private LiftCensusSystem m_Census;
         private readonly LiftTowerPlanner m_Planner = new LiftTowerPlanner();
 
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_OffLogged;
         private int m_Frame, m_LastQueueFrame;
         private readonly HashSet<uint> m_Seen = new HashSet<uint>();
+        private readonly HashSet<EntityRef> m_StationNodes = new HashSet<EntityRef>();   // the last census build's station connection nodes
         private readonly List<List<LiftCensus.Edge>> m_Pending = new List<List<LiftCensus.Edge>>();
         private readonly Dictionary<Entity, int2> m_Writes = new Dictionary<Entity, int2>();   // first inner node -> (count, first frame)
+        // Each line tower's train kind as last classified (breakover-holddown-plan-2026-11-03, phase B1: computed and logged only, no
+        // head change): the hysteresis input (LiftAlignMath.KindHystDeg) and the "Towers [angles]" change detector. In session only,
+        // never saved; cleared per load.
+        private readonly Dictionary<Entity, LiftTrainKind> m_Kinds = new Dictionary<Entity, LiftTrainKind>();
         private int m_Fitted, m_Written, m_Short;
 
         protected override void OnCreate()
@@ -50,6 +58,8 @@ namespace SkiResortMod.Systems
             m_Diag = World.GetOrCreateSystemManaged<LiftTowerDiagSystem>();
             m_TerrainSystem = World.GetOrCreateSystemManaged<TerrainSystem>();
             m_LineTool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
+            m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
+            m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             Mod.Log.Info($"{nameof(LiftTowerFitSystem)} created");
         }
 
@@ -62,7 +72,9 @@ namespace SkiResortMod.Systems
             m_Seen.Clear();
             m_Pending.Clear();
             m_Writes.Clear();
+            m_Kinds.Clear();
             m_Fitted = m_Written = m_Short = 0;
+            LoadTwins();
             if (m_Armed)
                 Mod.Log.Info($"Towers [fit]: ARMED — fits new / changed lift lines {SettleFrames} quiet census updates after the edit " +
                              $"(heights by node elevation, positions along straight lines, the engine's node count); setting Plan lift towers = " +
@@ -71,17 +83,48 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"Towers [fit]: NOT ARMED (mode {mode})");
         }
 
-        /// <summary>Called by LiftCensusSystem after each build with its line edges (main thread, no ECS read here).</summary>
-        internal void OnCensusBuilt(List<LiftCensus.Edge> edges)
+        /// <summary>The twin heads the planner may place this load (LiftTowerPlanConstants.TwinFilter): the twin prefabs the game has
+        /// loaded. A build without them plans support heads only, so no node is raised by a twin's E with the support member spawned
+        /// above the ground. One log line per load.</summary>
+        private void LoadTwins()
+        {
+            var found = new HashSet<string>();
+            var missing = new List<string>();
+            int all = 0;
+            foreach (LiftTowerTwin t in LiftTowerPlanConstants.AllTwins())
+            {
+                all++;
+                if (m_PrefabSystem.TryGetPrefab(new PrefabID(nameof(StaticObjectPrefab), t.Name), out PrefabBase p) && p != null)
+                    found.Add(t.Name);
+                else
+                    missing.Add(t.Name);
+            }
+            LiftTowerPlanConstants.TwinFilter = found.Contains;
+            if (missing.Count == 0)
+                Mod.Log.Info($"Towers [twins]: {found.Count} of {all} twin heads loaded (hold-down / push-pull / breakover): the planner places them");
+            else
+                Mod.Log.Warn($"Towers [twins]: {found.Count} of {all} twin heads loaded; missing {string.Join(", ", missing)}: those towers keep " +
+                             "their support head");
+        }
+
+        /// <summary>Called by LiftCensusSystem after each build with its line edges and nodes (main thread, no ECS read here). The key
+        /// of a line is its edges and node positions plus which of its nodes are station connections (LiftCensus.Node.Station): a
+        /// station attached line-first to a built line changes no edge or node, but changes the line's ends, so it is re-fitted in
+        /// session as after a load (FIX-LIST 52).</summary>
+        internal void OnCensusBuilt(List<LiftCensus.Edge> edges, List<LiftCensus.Node> nodes)
         {
             if (!m_Armed || m_Disabled)
                 return;
             try
             {
+                m_StationNodes.Clear();
+                for (int i = 0; i < nodes.Count; i++)
+                    if (nodes[i].Station >= 0)
+                        m_StationNodes.Add(nodes[i].Id);
                 List<List<LiftCensus.Edge>> comps = LiftTowerDiagSystem.Components(new List<LiftCensus.Edge>(edges));
                 for (int c = 0; c < comps.Count; c++)
                 {
-                    if (m_Seen.Add(LiftTowerDiagSystem.Signature(comps[c])))
+                    if (m_Seen.Add(LiftTowerDiagSystem.Signature(comps[c]) ^ StationKey(comps[c])))
                     {
                         m_Pending.Add(comps[c]);
                         m_LastQueueFrame = m_Frame;
@@ -92,6 +135,20 @@ namespace SkiResortMod.Systems
             {
                 Fail(e);
             }
+        }
+
+        /// <summary>The station ends of a line, hashed (0 = none): the node index of every station connection node it touches.</summary>
+        private uint StationKey(List<LiftCensus.Edge> comp)
+        {
+            uint k = 0;
+            for (int i = 0; i < comp.Count; i++)
+            {
+                if (m_StationNodes.Contains(comp[i].Start))
+                    k += ((uint)comp[i].Start.Index + 1u) * 2246822519u;
+                if (m_StationNodes.Contains(comp[i].End))
+                    k += ((uint)comp[i].End.Index + 1u) * 3266489917u;
+            }
+            return k;
         }
 
         protected override void OnUpdate()
@@ -143,7 +200,8 @@ namespace SkiResortMod.Systems
             public Entity Node;
             public float3 Old, New;
             public int OldMember, NewMember;
-            public float Elevation;   // LiftTowerEdit.ElevationM(NewMember): node y - center ground, written as Elevation (E, E)
+            public LiftTowerHead OldHead, NewHead;
+            public float Elevation;   // LiftTowerEdit.ElevationM(NewMember, NewHead): node y - center ground, written as Elevation (E, E)
             public bool Write;
         }
 
@@ -222,16 +280,46 @@ namespace SkiResortMod.Systems
             LiftTerrainSampler sampler = LiftTowerEdit.UncutSampler(raw, pts, cum, netGeo.m_Hanging, CutOffsets(path, netGeo),
                 c.HalfWidthM + LiftTowerEdit.CutFarMarginM, along => cutAt.Add((int)math.round(along)));
 
-            float ropeA = StationRope(path[0].Node, path[0].NextEdge, pts[0], pts[0].y + c.RopeAboveBase(0), out bool laneA);
-            float ropeB = StationRope(path[n - 1].Node, path[n - 2].NextEdge, pts[n - 1], pts[n - 1].y + c.RopeAboveBase(0), out bool laneB);
+            float ropeA = StationRope(path[0].Node, path[0].NextEdge, pts[0],
+                pts[0].y + LiftTowerDiagSystem.RopeAboveNode(EntityManager, path[0].Node, c), out bool laneA);
+            float ropeB = StationRope(path[n - 1].Node, path[n - 2].NextEdge, pts[n - 1],
+                pts[n - 1].y + LiftTowerDiagSystem.RopeAboveNode(EntityManager, path[n - 1].Node, c), out bool laneB);
 
             var inner = new float[n - 2];
             var oldMembers = new int[n - 2];
+            var oldHeads = new LiftTowerHead[n - 2];
+            var oldKinds = new LiftTrainKind[n - 2];
             for (int i = 1; i < n - 1; i++)
             {
                 inner[i - 1] = cum[i];
                 float e = EntityManager.TryGetComponent<Game.Net.Elevation>(path[i].Node, out var el) ? math.cmin(el.m_Elevation) : 0f;
-                oldMembers[i - 1] = MemberOf(c, e);
+                oldMembers[i - 1] = LiftTowerEdit.MemberOf(c, e, out oldHeads[i - 1]);
+                // the hysteresis input: the kind last classified this session, else the one the node's head implies (planner Previous)
+                oldKinds[i - 1] = m_Kinds.TryGetValue(path[i].Node, out LiftTrainKind k) ? k : LiftTrainKind.None;
+            }
+            // Never a worse plan over a built line (FIX-LIST 52): a line whose every inner node carries a fit's exact elevation is the
+            // line as built (before = its own members and heads, read back by MemberOf); an unsound fit worse on any axis is not written.
+            bool built = Built(path, c, oldMembers, oldHeads);
+            // A built tower's ground is its foot (node y - E: the ground the fit stood it on, plus a tram tower's pedestal float), unless
+            // the ground now under it is higher (FIX-LIST 57): the line's own cut sinks the ground under its towers after the fit that
+            // placed them, so the load re-fit read the T60 of a tram 1.05 m lower than its build, judged its rope that much low and
+            // re-grounded it. The fit now judges and writes a built line at the heights it really stands at.
+            int sunk = 0;
+            float sunkMax = 0f;
+            if (built)
+            {
+                var foot = new float[n - 2];
+                for (int i = 0; i < n - 2; i++)
+                {
+                    foot[i] = pts[i + 1].y - LiftTowerEdit.ElevationM(c, oldMembers[i], oldHeads[i]);
+                    float under = foot[i] - sampler(inner[i], 0f);
+                    if (under > LiftTowerEdit.FootSunkLogM)
+                    {
+                        sunk++;
+                        sunkMax = math.max(sunkMax, under);
+                    }
+                }
+                sampler = LiftTowerEdit.BuiltFootSampler(sampler, inner, foot);
             }
             float engineMax = netGeo.m_EdgeLengthRange.max;
             // A line the lift-line tool built (every inner node a registered tool node, LiftToolLines.Match) is a tool line: heights only
@@ -272,15 +360,34 @@ namespace SkiResortMod.Systems
             int partialFound = 0, partialPins = 0;
             if (toolLine == null)
                 partial = m_LineTool.ToolLines.BestPartial(pts, out partialFound, out partialPins);
-            // A station end gets the approach floor; a loose end or plain node is a tower: the full floor. Station-ness is the end
-            // node's Owner (a station's sub-net stub, the node the tool's StationEnd / TryStubNode picks): every line edge has HV rope
+            // A station end gets the approach floor; a loose end or plain node is a tower: the full floor. Every line edge has HV rope
             // lanes ending at both its nodes, so a rope lane (laneA / laneB) says only where the rope height came from.
-            m_Planner.StationA = EntityManager.HasComponent<Owner>(path[0].Node);
-            m_Planner.StationB = EntityManager.HasComponent<Owner>(path[n - 1].Node);
-            LiftTowerPlan before = m_Planner.PlanFixed(sampler, length, ropeA, ropeB, c, inner, oldMembers, null, assign: false);
-            // The line's own members are passed in, so a line that clears as it stands is Kept unchanged (hysteresis)
-            LiftTowerFit fit = m_Planner.Fit(sampler, length, ropeA, ropeB, c, inner, straight && toolLine == null, engineMax,
-                                             toolLine != null ? toolMembers : oldMembers, split?.Extra);
+            // The census rule (LiftCensusSystem.StationOfNode), so a line-first station (its stub course reuses the line's UNOWNED end
+            // node) is a station end in session as after a load (FIX-LIST 52: Owner alone read a ground end in session, a station after it).
+            m_Planner.StationA = IsStationEnd(path[0].Node);
+            m_Planner.StationB = IsStationEnd(path[n - 1].Node);
+            // Kinds and heads with hysteresis: every plan at the line's own node positions starts from the kinds and heads it carries.
+            m_Planner.PreviousKinds = oldKinds;
+            m_Planner.PreviousHeads = oldHeads;
+            m_Planner.FootAlong = built ? inner : null;   // their feet hold any pedestal float already (FIX-LIST 57)
+            LiftTowerPlan before;
+            LiftTowerFit fit;
+            try
+            {
+                m_Planner.HeadsAsGiven = true;   // the line as it stands: its own heads
+                before = m_Planner.PlanFixed(sampler, length, ropeA, ropeB, c, inner, oldMembers, null, assign: false);
+                m_Planner.HeadsAsGiven = false;
+                // The line's own members are passed in, so a line that clears as it stands is Kept unchanged (hysteresis)
+                fit = m_Planner.Fit(sampler, length, ropeA, ropeB, c, inner, straight && toolLine == null, engineMax,
+                                    toolLine != null ? toolMembers : oldMembers, split?.Extra);
+            }
+            finally
+            {
+                m_Planner.HeadsAsGiven = false;
+                m_Planner.PreviousKinds = null;
+                m_Planner.PreviousHeads = null;
+                m_Planner.FootAlong = null;
+            }
             LiftTowerPlan plan = fit.Plan;
             m_Fitted++;
             // A pinned tower must never move silently
@@ -299,6 +406,18 @@ namespace SkiResortMod.Systems
                              "not written");
                 return;
             }
+            if (LiftTowerPlanner.ToWrite(before, fit, built, out string worse) == null)
+            {
+                before.KindCounts(out _, out _, out _, out _, out int overB);
+                plan.KindCounts(out _, out _, out _, out _, out int overP);
+                Mod.Log.Warn($"Towers [fit]: {head} — KEPT AS BUILT: the line as it stands has min floor margin {Sg(before.MinFloorMarginM)} m " +
+                             $"({before.ViolatedSpans} span(s) violated, {overB} tower(s) over cap; station ends {(m_Planner.StationA ? "base" : "-")}/" +
+                             $"{(m_Planner.StationB ? "top" : "-")}, ropes y {F(ropeA, "F2")} / {F(ropeB, "F2")}); the best fit ({fit.Mode}: " +
+                             $"{Sg(plan.MinFloorMarginM)} m, {overP} over cap, members {{{plan.MemberCounts()}}}, twin heads {{{plan.HeadCounts()}}}) " +
+                             $"is worse on {worse}: nothing written");
+                return;
+            }
+            LogKinds(head, path, plan, c, oldHeads);
 
             var targets = new Target[n - 2];
             int writes = 0;
@@ -308,18 +427,19 @@ namespace SkiResortMod.Systems
                 float3 xz = LiftTowerDiagSystem.PolylineAt(pts, cum, pn.AlongM, 0f, out _);
                 if (!straight)
                     xz = new float3(pts[i].x, 0f, pts[i].z);   // bent line: positions are kept (the fit did not move them)
-                float elevation = LiftTowerEdit.ElevationM(c, pn.Member);
-                float3 np = new float3(xz.x, pn.GroundM + elevation, xz.z);
+                float elevation = LiftTowerEdit.ElevationM(c, pn.Member, pn.Head);
+                float3 np = new float3(xz.x, pn.GroundM + elevation + pn.FloatM, xz.z);   // + a tram tower's pedestal float (DECISIONS 600 a)
                 bool moved = math.distance(np.xz, pts[i].xz) > MoveEpsM;
-                bool reMembered = pn.Member != oldMembers[i - 1];
-                bool drift = LiftTowerEdit.HeightWrite(pts[i].y, np.y);
+                bool reMembered = pn.Member != oldMembers[i - 1] || pn.Head != oldHeads[i - 1];
+                bool drift = LiftTowerEdit.HeightWrite(pts[i].y, np.y, built);   // built: never lowered onto our own cut (FIX-LIST 57)
                 // The node's Elevation must be exactly (E, E) (the ladder rule, LiftTowerEdit): an engine-derived value (the tool's
                 // fresh nodes, CourseSplitSystem.CalculateElevation; a one-sided (7.93, 0)) is rewritten once.
                 bool elevOff = ElevationOff(path[i].Node, elevation);
                 if (elevOff && !moved && !reMembered && !drift)
                     np.y = pts[i].y;   // only the component is off: keep the node where it stands (no carve chase)
                 Target t = new Target { Node = path[i].Node, Old = pts[i], New = np, OldMember = oldMembers[i - 1], NewMember = pn.Member,
-                                        Elevation = elevation, Write = moved || reMembered || drift || elevOff };
+                                        OldHead = oldHeads[i - 1], NewHead = pn.Head, Elevation = elevation,
+                                        Write = LiftTowerEdit.NodeWrite(built, moved, reMembered, pts[i].y, np.y, elevOff) };
                 if (t.Write)
                     writes++;
                 targets[i - 1] = t;
@@ -328,12 +448,14 @@ namespace SkiResortMod.Systems
             string cutNote = cutAt.Count > 0
                 ? $"; own cut: ground at {cutAt.Count} sample spot(s) taken from beside this line's own trench (T127)"
                 : string.Empty;
-            string clearText = plan.Clear ? "every span clear"
-                : fit.Mode == LiftFitMode.Kept ? $"within {LiftTowerPlanner.KeepTolM:F1} m of the floor, kept as it stands"
+            if (sunk > 0)
+                cutNote += $"; {sunk} built tower(s) stand up to {F(sunkMax, "F2")} m over the ground now under them (our own cut sank it): judged at their feet (FIX-LIST 57)";
+            string clearText = plan.Clear ? "every span clear" + plan.OverCapNote   // FIX-LIST 55: never "clear" alone with a tower over its cap
+                : fit.Mode == LiftFitMode.Kept ? $"within {LiftTowerPlanner.KeepTolM:F1} m of the floor, kept as it stands" + plan.OverCapNote
                 : "VIOLATED";
             if (writes == 0)
             {
-                Mod.Log.Info($"Towers [fit]: {head} — already fitted ({fit.Mode}; {plan.LineTowers} line tower(s) {{{plan.MemberCounts()}}}; " +
+                Mod.Log.Info($"Towers [fit]: {head} — already fitted ({fit.Mode}; {plan.LineTowers} line tower(s) {{{plan.MemberCounts()}}}, twin heads {{{plan.HeadCounts()}}}; " +
                              $"min floor margin {Sg(plan.MinFloorMarginM)} m; {clearText}{cutNote}): nothing written");
                 return;
             }
@@ -351,8 +473,8 @@ namespace SkiResortMod.Systems
             sb.Append("Towers [fit]: ").Append(head).Append(" — ").Append(fit.Mode).Append(": ").Append(n - 2).Append(" line tower(s), ")
               .Append(F(length, "F0")).Append(" m xz, ").Append(straight ? "straight" : "bent (" + F(offLine, "F1") + " m off the end-to-end line; heights only)")
               .Append("; engine max span ").Append(F(engineMax, "F0")).Append(" m; station ropes y ").Append(F(ropeA, "F2"))
-              .Append(laneA ? " (rope lane)" : " (node + " + F(c.RopeAboveBase(0), "F2") + ")").Append(" / ").Append(F(ropeB, "F2"))
-              .Append(laneB ? " (rope lane)" : " (node + " + F(c.RopeAboveBase(0), "F2") + ")").Append("; rules floor ").Append(F(c.FloorM, "F1"))
+              .Append(laneA ? " (rope lane)" : " (node + " + F(ropeA - pts[0].y, "F2") + ")").Append(" / ").Append(F(ropeB, "F2"))
+              .Append(laneB ? " (rope lane)" : " (node + " + F(ropeB - pts[n - 1].y, "F2") + ")").Append("; rules floor ").Append(F(c.FloorM, "F1"))
               .Append(" + drop ").Append(F(c.CarrierDropM, "F1")).Append(" over the high side (±").Append(F(c.HalfWidthM, "F1"))
               .Append(" m), max rope ").Append(c.MaxRopeAboveGroundM > 0f ? F(c.MaxRopeAboveGroundM, "F0") : "none")
               .Append(toolLine != null ? $"; TOOL LINE (lift-line tool, {toolPins} pinned): heights only with the tool's members, never moved{splitNote}" : string.Empty)
@@ -369,11 +491,12 @@ namespace SkiResortMod.Systems
                 {
                     Target t = targets[i - 1];
                     sb.Append("  t").Append(i + 1).Append(' ').Append(Fmt(t.Node)).Append(" at ").Append(F(before.Nodes[i].AlongM, "F0"))
-                      .Append(" -> ").Append(F(pn.AlongM, "F0")).Append(" m: ").Append(Short(c.Ladder[t.OldMember].Name)).Append(" -> ")
-                      .Append(Short(c.Ladder[t.NewMember].Name)).Append(", elevation ").Append(F(LiftTowerEdit.ElevationM(c, t.NewMember), "F2"))
+                      .Append(" -> ").Append(F(pn.AlongM, "F0")).Append(" m: ").Append(Short(c.NameOf(t.OldMember, t.OldHead))).Append(" -> ")
+                      .Append(Short(c.NameOf(t.NewMember, t.NewHead))).Append(", elevation ").Append(F(t.Elevation, "F2"))
                       .Append(", node y ").Append(F(t.Old.y, "F2")).Append(" -> ").Append(F(t.New.y, "F2")).Append(" (ground ").Append(F(pn.GroundM, "F2"))
                       .Append(", high side ").Append(Sg(pn.HighSideM - pn.GroundM)).Append("), rope y ").Append(F(pn.RopeM, "F2"))
-                      .Append(" [").Append(LiftTowerPlan.FlagText(pn.Flags)).Append(']').Append(t.Write ? string.Empty : " (unchanged)").Append('\n');
+                      .Append(" [").Append(LiftTowerPlan.FlagText(pn.Flags)).Append(']').Append(t.Write ? string.Empty : " (unchanged)")
+                      .Append(", ").Append(plan.AngleText(i)).Append('\n');
                 }
                 if (i < n - 1)
                 {
@@ -391,7 +514,8 @@ namespace SkiResortMod.Systems
             sb.Append("Towers [fit summary]: ").Append(head).Append(": ").Append(fit.Mode).Append("; min floor margin ")
               .Append(Sg(before.MinFloorMarginM)).Append(" m (").Append(violatedBefore).Append(" span(s) violated) -> ")
               .Append(Sg(plan.MinFloorMarginM)).Append(" m (").Append(clearText).Append("); members {")
-              .Append(before.MemberCounts()).Append("} -> {").Append(plan.MemberCounts()).Append("}; free plan ").Append(fit.Needed)
+              .Append(before.MemberCounts()).Append("} -> {").Append(plan.MemberCounts()).Append("}, twin heads {").Append(plan.HeadCounts())
+              .Append("}; free plan ").Append(fit.Needed)
               .Append(" line tower(s); writing ").Append(writes).Append(" node(s)");
             if (fit.Mode == LiftFitMode.Short)
                 Mod.Log.Warn(sb.ToString() + $"\nTowers [fit]: {head} — no clear arrangement with {n - 2} line tower(s) (the planner needs " +
@@ -406,6 +530,52 @@ namespace SkiResortMod.Systems
             m_Written++;
         }
 
+
+        /// <summary>The line towers' train kinds and heads (support / hold-down / push-pull from the two load cases with the kind each had
+        /// before as the hysteresis input, LiftTowerPlanner.PreviousKinds; the head the planner placed for it, LiftTowerPlanner.AssignHeads):
+        /// one "Towers [angles]" line when any kind or head is new or changed. The heads are written with the node heights (E of the twin).
+        /// The tram's saddles get their deflections and the bare-rope breakover check (14.4.4), logged only.</summary>
+        private void LogKinds(string head, List<LiftTowerDiagSystem.Hop> path, LiftTowerPlan plan, LiftTowerPlanConstants c,
+                              LiftTowerHead[] oldHeads)
+        {
+            int n = path.Count;
+            int changed = 0, s = 0, h = 0, p = 0, over = 0, under = 0, twins = 0;
+            var sb = new StringBuilder(512);
+            for (int i = 1; i < n - 1; i++)
+            {
+                LiftPlanNode pn = plan.Nodes[i];
+                Entity node = path[i].Node;
+                bool had = m_Kinds.TryGetValue(node, out LiftTrainKind before);
+                LiftTrainKind kind = pn.HasAngles && c.HasTrains ? pn.Kind : LiftTrainKind.None;
+                LiftTowerHead was = oldHeads[i - 1];
+                if (!had || kind != before || pn.Head != was)
+                    changed++;
+                m_Kinds[node] = kind;
+                if (kind == LiftTrainKind.Support) s++;
+                else if (kind == LiftTrainKind.HoldDown) h++;
+                else if (kind == LiftTrainKind.PushPull) p++;
+                if (pn.Head != LiftTowerHead.Line) twins++;
+                if (pn.HasAngles && math.abs(pn.DeflectionDeg) > pn.CapDeg + LiftTowerPlan.AngleTolDeg) over++;   // the tram: its saddle cap (600 a)
+                if (pn.HasAngles && !c.HasTrains && pn.BareDeg < LiftAlignMath.SaddleMinBreakDeg) under++;
+                sb.Append(i == 1 ? string.Empty : ", ").Append('t').Append(i + 1).Append(' ').Append(F(pn.AlongM, "F0")).Append(" m ")
+                  .Append(Short(c.NameOf(pn.Member, pn.Head))).Append(" d ").Append(Sg(pn.DeflectionDeg));
+                if (c.HasTrains)
+                    sb.Append(" (").Append(Sg(pn.TightDeg)).Append(" / ").Append(Sg(pn.HeavyDeg)).Append(") ").Append(LiftAlignMath.KindLetter(kind))
+                      .Append(had && kind != before ? " (was " + LiftAlignMath.KindLetter(before) + ")" : string.Empty)
+                      .Append(pn.Head != was ? " head " + was + " -> " + pn.Head : string.Empty);
+                else
+                    sb.Append(" (bare ").Append(Sg(pn.BareDeg)).Append(')');
+            }
+            if (changed == 0)
+                return;
+            string counts = c.HasTrains
+                ? $"support {s}, hold-down {h}, push-pull {p}, twin heads {twins} ({c.Twins.Length} twin(s) loaded for {c.TypeId}), over cap {over}"
+                : $"tram saddles: over the saddle cap ({2f * c.SaddleHalfCapDeg:F0} deg bend) {over}, bare-rope breakover under {LiftAlignMath.SaddleMinBreakDeg:F2} deg at {under} tower(s)";
+            Mod.Log.Info($"Towers [angles]: {head} — {changed} new or changed kind(s) / head(s); {counts}; " +
+                         $"d = in - out (tight / heavy load case), S / H / P: {sb}");
+            for (int i = 0; i < plan.AngleNotes.Count; i++)
+                Mod.Log.Info($"Towers [angles]: {head} — {plan.AngleNotes[i]}");
+        }
 
         private void Write(List<LiftTowerDiagSystem.Hop> path, Target[] targets, float hanging)
         {
@@ -507,7 +677,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Per path span, the offset of this line's own cut ceiling above the edge curve: the edge composition's
         /// m_HeightRange.min (NetCompositionData) + its TerrainComposition m_MinHeightOffset (middle), the sum TerrainSystem.AddSegment
-        /// uses (TerrainSystem.cs:1397-1516); the prefab's default range and the pieces' -2 when the edge has no composition yet.</summary>
+        /// uses (TerrainSystem.cs:1397-1516); the prefab's default range and the pieces' 0 when the edge has no composition yet.</summary>
         private float[] CutOffsets(List<LiftTowerDiagSystem.Hop> path, NetGeometryData netGeo)
         {
             var off = new float[math.max(1, path.Count - 1)];
@@ -528,6 +698,29 @@ namespace SkiResortMod.Systems
             return off;
         }
 
+        /// <summary>The line as a fit built it (FIX-LIST 52): every inner node's Game.Net.Elevation is exactly (E, E) of the member and
+        /// head MemberOf reads from it, and the evidence is not all zero (a node raised to a member or twin, or every node classified
+        /// this session): an engine-drawn line on the ground (no Elevation) or the tool's fresh nodes (engine elevations such as
+        /// (7.93, 0)) are not built and always take the fit.</summary>
+        private bool Built(List<LiftTowerDiagSystem.Hop> path, LiftTowerPlanConstants c, int[] members, LiftTowerHead[] heads)
+        {
+            bool raised = false, known = true;
+            for (int i = 1; i < path.Count - 1; i++)
+            {
+                float e = LiftTowerEdit.ElevationM(c, members[i - 1], heads[i - 1]);
+                if (ElevationOff(path[i].Node, e))
+                    return false;
+                raised |= e > 0f;
+                known &= m_Kinds.ContainsKey(path[i].Node);
+            }
+            return raised || known;
+        }
+
+        /// <summary>A station's connection node by the census rule (LiftCensusSystem.IsStationNode: stations-first the station-owned
+        /// stub node, line-first the line's own node with the station's stub edge on it), else any owned node.</summary>
+        private bool IsStationEnd(Entity node) =>
+            (m_Census != null && m_Census.IsStationNode(node)) || EntityManager.HasComponent<Owner>(node);
+
         /// <summary>True when the node's Game.Net.Elevation is not exactly (E, E) for E = <paramref name="e"/> (0 = no component or
         /// (0, 0)), within 0.05 m.</summary>
         private bool ElevationOff(Entity node, float e)
@@ -536,17 +729,6 @@ namespace SkiResortMod.Systems
             if (e <= 0f)
                 return has && math.any(math.abs(el.m_Elevation) > 0.05f);
             return !has || math.any(math.abs(el.m_Elevation - e) > 0.05f);
-        }
-
-        /// <summary>The ladder member whose elevation (TopM - TopM[0]) matches <paramref name="elevationM"/> (0.05 m), else the
-        /// tallest member not above it (a node the engine elevated by itself, e.g. a node drawn above the ground).</summary>
-        private static int MemberOf(LiftTowerPlanConstants c, float elevationM)
-        {
-            int best = 0;
-            for (int m = 0; m < c.Ladder.Length; m++)
-                if (LiftTowerEdit.ElevationM(c, m) <= elevationM + 0.05f)
-                    best = m;
-            return best;
         }
 
         private static string Short(string member) => member.Replace("SkiLiftTower", string.Empty).Replace("SkiTramTower", "T");

@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { useValue } from "cs2/api";
 import { Button, PanelFoldout } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { GLADE_LEVEL_DEFAULT, GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, clampGladeLevel, glade$, hubTriggers } from "../bindings";
 import { useT } from "../l10n";
 import { treesOpen$ } from "./hubState";
@@ -37,6 +38,7 @@ export function TreeRows(): JSX.Element {
       <div className={styles.treeRow}>
         <Tip tip={toolTip}>
           <Button
+            focusKey={FOCUS_DISABLED}
             variant="flat"
             className={cx(styles.treeToolButton, active && styles.buttonOn)}
             disabled={!available && !active}
@@ -50,6 +52,7 @@ export function TreeRows(): JSX.Element {
         <div className={styles.stepper}>
           <Tip tip={t(HUB_LOC.treesFewer)}>
             <Button
+              focusKey={FOCUS_DISABLED}
               variant="flat"
               className={styles.stepButton}
               disabled={settingsDisabled || level <= GLADE_LEVEL_MIN}
@@ -67,6 +70,7 @@ export function TreeRows(): JSX.Element {
           </Tip>
           <Tip tip={t(HUB_LOC.treesMore)}>
             <Button
+              focusKey={FOCUS_DISABLED}
               variant="flat"
               className={styles.stepButton}
               disabled={settingsDisabled || level >= GLADE_LEVEL_MAX}
@@ -82,6 +86,7 @@ export function TreeRows(): JSX.Element {
           <div className={styles.segment}>
             <Tip tip={t(HUB_LOC.treesApplyTo)}>
               <Button
+                focusKey={FOCUS_DISABLED}
                 variant="flat"
                 className={cx(styles.segButton, !treeLine && styles.buttonOn)}
                 disabled={settingsDisabled}
@@ -93,6 +98,7 @@ export function TreeRows(): JSX.Element {
             </Tip>
             <Tip tip={t(HUB_LOC.treesApplyTo)}>
               <Button
+                focusKey={FOCUS_DISABLED}
                 variant="flat"
                 className={cx(styles.segButton, styles.segButtonNext, treeLine && styles.buttonOn)}
                 disabled={settingsDisabled}

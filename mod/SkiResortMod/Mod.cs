@@ -33,7 +33,7 @@ namespace SkiResortMod
         public static bool TourismOverhaulDetected { get; private set; }
 
         /// <summary>Directory containing the deployed mod DLL (and its Textures payload); null when TryGetExecutableAsset failed.
-        /// Consumed by SkiRunSplatSystem.</summary>
+        /// Consumed by SkiRunDecalSystem and LiftLineIconAsset.</summary>
         public static string ModRootPath { get; private set; }
 
         // The profile folder up to and including the account name; the name may hold spaces, so it runs to the next separator.
@@ -128,14 +128,14 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<LiftReconnectSystem, Game.Net.LaneSystem>(
                 SystemUpdatePhase.Modification4);
 
+            // Mast lean (DECISIONS 600). AFTER Game.Objects.AlignSystem in Modification4, which re-derives a node tower's Transform
+            // yaw-only on every Updated (AlignSystem.cs:153-160), and so before LaneSystem (SystemOrder.cs:153, :155), which hangs the
+            // ropes from the leaned anchors in the same frame. Any other slot shows a plumb frame or ropes on the old anchors.
+            updateSystem.UpdateAfter<TowerLeanSystem, Game.Objects.AlignSystem>(SystemUpdatePhase.Modification4);
+
             // Cursor aim plane: rewrites the prefab's NetGeometryData.m_DefaultSurfaceHeight.max (the NetToolSystem ray offset) once per
             // load; data only, disabled, OnGameLoadingComplete only (like SnowLineSystem).
             updateSystem.UpdateAt<CursorAimSystem>(SystemUpdatePhase.GameSimulation);
-
-            // Ski-run splat painting. PreCulling (every frame in Game AND Editor, paused included) is load-bearing: area edits ignore
-            // simulation pause and their tags die at Cleanup. Before TerrainMaterialSystem so our dabs land in the same frame's splat update.
-            updateSystem.UpdateBefore<SkiRunSplatSystem, Game.Rendering.TerrainMaterialSystem>(
-                SystemUpdatePhase.PreCulling);
 
             // Snow injection: GameSimulation is SnowSystem's phase (pause-gated, Game mode only). Anchor is load-bearing: the write must
             // land after the ping-pong flip so injected texels are _Previous for the NEXT AddSnow; inherits SnowSystem's 4-frame offset.
@@ -226,6 +226,11 @@ namespace SkiResortMod
             // not and sees the same frame's Deleted tags, after PostTool (ToolSystem.cs:257). No vanilla SubArea cascade reaches a run.
             updateSystem.UpdateAt<SkiGladeCleanupSystem>(SystemUpdatePhase.Modification2);
 
+            // The Groomed toggle's re-emit (DECISIONS 577). Modification1 is load-bearing: the new run and the old one's Deleted tag must stand
+            // before SkiGladeCleanupSystem (Modification2, it would delete the retargeted trees otherwise), the placer's cascade, the area
+            // geometry and the bind trigger (ModificationEnd) of the same frame. Runs paused too.
+            updateSystem.UpdateAt<SkiRunReemitSystem>(SystemUpdatePhase.Modification1);
+
             // Sign → runs cascade: a Deleted Welcome Sign deletes every run bound to it (SkiRunBinding.m_Gate) in the same frame.
             // Phase and anchor are load-bearing: Modification2, UpdateBefore SkiGladeCleanupSystem, so sign → runs → member trees completes
             // in one frame; if the anchor moves the cascade silently never runs.
@@ -259,6 +264,11 @@ namespace SkiResortMod
             // A plain UpdateAt sorts after every vanilla Modification system, so the run's geometry is final; the bind raises no tag.
             updateSystem.UpdateAt<SkiRunBindTriggerSystem>(SystemUpdatePhase.ModificationEnd);
 
+            // Trail names: a new piste gets a stored random unused name (SkiRunName, R3 DECISIONS 578). ModificationEnd: MainLoop, paused or not,
+            // with the frame's Created tag still on (after SkiRunReemitSystem's Modification1 copy, so a toggled run keeps its pick); NOT
+            // load-bearing for other systems (the catalog rebuilds on request).
+            updateSystem.UpdateAt<SkiRunNameSystem>(SystemUpdatePhase.ModificationEnd);
+
             // Lodge-score watcher. ModificationEnd is load-bearing: CleanUpSystem strips Created/Updated at Cleanup, BEFORE GameSimulation
             // (SystemOrder.cs:54, 74), so the attractiveness system never sees a placement; this only sets its pending flag.
             updateSystem.UpdateAt<SkiResortAttractivenessWatchSystem>(SystemUpdatePhase.ModificationEnd);
@@ -268,6 +278,9 @@ namespace SkiResortMod
             // Components turns it into Error components (anything missing from the map loses its Error, ValidationSystem.cs:450-531).
             // An UpdateAt would sort after Components and every Error we wrote would be stripped on the next validation.
             updateSystem.UpdateBefore<PowerJoinRefusalSystem, Game.Tools.ValidationSystem.Components>(SystemUpdatePhase.ModificationEnd);
+            // A lift station snapped onto a line end facing away from it: refused (FIX-LIST 54(b)). Anchor is load-bearing for the same
+            // reason as PowerJoinRefusalSystem's: the error map must be written after ValidationSystem fills it, before Components reads it.
+            updateSystem.UpdateBefore<StationFacingRefusalSystem, Game.Tools.ValidationSystem.Components>(SystemUpdatePhase.ModificationEnd);
 
             // Slope heat-map overlay. Anchor is load-bearing: OverlayRenderSystem consumes and clears the overlay lists each frame
             // (OverlayRenderSystem.cs:781, 790), so our strips must be added BEFORE it in Rendering.
@@ -317,6 +330,16 @@ namespace SkiResortMod
             // Per-tower number tiles. AFTER the census at 4B and BEFORE Modification5, where SecondaryObjectReferencesSystem files a
             // Created tile into its tower's SubObject buffer (SystemOrder.cs:206). Writes nothing while the SkiNumTile prefabs are not loaded.
             updateSystem.UpdateAfter<TowerNumberTileSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
+
+            // Sheave train pitch (lift alignment Phase 2). AFTER the census at 4B so the rope lanes LaneSystem built at Modification4 are
+            // this frame's; the phase must stay Modification4B or the anchor is skipped. The bone writer runs at Rendering right AFTER
+            // InitializeBonesSystem, which (re)allocates skeletons at rest, and before ProceduralUploadSystem uploads them (SystemOrder.cs:653, :689).
+            updateSystem.UpdateAfter<TrainPitchSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
+            updateSystem.UpdateAfter<TrainBoneSystem, Game.Rendering.InitializeBonesSystem>(SystemUpdatePhase.Rendering);
+
+            // Low spans (hub row LiftLowSpan). AFTER the census at 4B for the same reason as the trains: the rope lanes LaneSystem built
+            // at Modification4 are this frame's; the phase must stay Modification4B or the anchor is skipped.
+            updateSystem.UpdateAfter<LiftClearanceSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
 
             // Read-only overlay of the planned towers and rope. Before OverlayRenderSystem (same reason as the piste map below).
             // Gated by the LiftBuildAids setting inside the system.
@@ -383,6 +406,8 @@ namespace SkiResortMod
 
             // Power-line join refusal line. Anchor is load-bearing like the lift tooltip's: after TempCostTooltipSystem (SystemOrder.cs:911).
             updateSystem.UpdateAfter<PowerJoinTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
+            // Reversed-station refusal line (FIX-LIST 54(b)). Anchor is load-bearing like the power-line join line's.
+            updateSystem.UpdateAfter<StationFacingTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
 
             // Closes the Electricity infoview the lift LINE tool opens. UpdateBefore ONLY (an UpdateAt as well runs it twice per frame,
             // UpdateSystem.cs:158-176) and BEFORE InfoviewsUISystem (UIUpdate) so the vanilla binding reflects our close in the same frame.
@@ -414,6 +439,17 @@ namespace SkiResortMod
             // Station LV icon: removes the vanilla LowVoltageNotConnected icon from a station whose LV stub has a wire (StationLvRule
             // engine notes). Phase NOT load-bearing: IconCommandSystem consumes the queued removes at ModificationEnd (SystemOrder.cs:271).
             updateSystem.UpdateAt<StationLvIconSystem>(SystemUpdatePhase.GameSimulation);
+
+            // Lift line icon: our "needs a lift line" icon in place of the vanilla high-voltage icon. Anchor is load-bearing: AFTER
+            // ConnectionWarningSystem in ModificationEnd (SystemOrder.cs:261) and so before IconCommandSystem (:271), so our IconCommandBuffer
+            // is created after its own in the same frame and our Remove of the vanilla icon wins at playback (IconCommandSystem.cs:106-160).
+            // An UpdateAt would sort after IconCommandSystem: the vanilla icon would show for a frame each time.
+            updateSystem.UpdateAfter<LiftLineIconSystem, Game.Net.ConnectionWarningSystem>(SystemUpdatePhase.ModificationEnd);
+
+            // Lift power cues: strips the vanilla transformer / bottleneck / top-station consumer icons. Anchor is load-bearing: AFTER
+            // ElectricityStatusSystem in GameSimulation (SystemOrder.cs:448, after DispatchElectricitySystem :444) so our buffer follows
+            // both vanilla buffers on their frames (same playback rule as above).
+            updateSystem.UpdateAfter<LiftPowerCueSystem, Game.Simulation.ElectricityStatusSystem>(SystemUpdatePhase.GameSimulation);
 
             // Cat track overlap: forges AreaGeometryData.m_Type Surface -> Space on the SkiRunCatTrackA prefab at every Game-mode load so
             // a cat track can cross other runs (ValidationHelpers.cs:551 compares only the type). Disabled, OnGameLoadingComplete only.

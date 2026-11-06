@@ -108,6 +108,11 @@
        CT54-7 and CT139: kinds, leaf, open state, minimal weight, green rule, snow, props, catalog) over files linked above. No new linked file. -->
   <ItemGroup>
     <Compile Include="CatTrackTests.cs" />
+    <Compile Include="RunFeaturesTests.cs" />
+    <Compile Include="RunFeaturesR2Tests.cs" />
+    <Compile Include="RunTypesR3Tests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunNameRules.cs" Link="SkiRunNameRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunBindingRules.cs" Link="SkiRunBindingRules.cs" />
   </ItemGroup>
   <!-- The guns-running predicate shared by the
        snow injection and the plume system (GP-1 to GP-6). -->

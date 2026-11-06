@@ -55,7 +55,7 @@ function SkiBusCardRoot(): JSX.Element {
   );
 }
 
-/** "Game": the merge card (contract 32), beside the game's panel for a building that is or could be merged. */
+/** "Game": the merge card (contract 35), beside the game's panel for a building that is or could be merged. */
 function SkiMergeCardRoot(): JSX.Element {
   return (
     <ErrorBoundary where="mergeCard">

@@ -1,0 +1,444 @@
+{
+  "name": "SkiLiftTowerDQ10T",
+  "written_utc": "2026-11-04T20:59:33Z",
+  "blender": "5.2.3 LTS",
+  "files": {
+    "SkiLiftTowerDQ10T.fbx": {
+      "bytes": 315244,
+      "sha1": "475bd46d75a2b4ebc7ebcb9ad13609b5d87a2570"
+    },
+    "SkiLiftTowerDQ10T_LOD1.fbx": {
+      "bytes": 153356,
+      "sha1": "12e37144954a81549f2be587d2fb57803219f0fd"
+    },
+    "SkiLiftTowerDQ10T_LOD2.fbx": {
+      "bytes": 59660,
+      "sha1": "a5cb06f0f8254552291ef4bdeab2bfce9f15f4a2"
+    },
+    "settings.json": {
+      "bytes": 1316,
+      "sha1": "1bdaff3b361e3244b7283db5916ce0b6b5f3c21b"
+    }
+  },
+  "key": "DQ10",
+  "member": "DQ10",
+  "kind": "Member",
+  "family": "DQ",
+  "pivot_y": 8.2589,
+  "top": 9.95,
+  "comm_anchor_old_y": 9.2,
+  "comm_anchor_new_y": 9.2,
+  "tris": {
+    "0": 4034,
+    "1": 1798,
+    "2": 400
+  },
+  "cap": 4250,
+  "cap_raised_to": null,
+  "trunnion_tris": 232,
+  "atlas": {
+    "member": "DQ10",
+    "mesh": "SkiLiftTowerDQ10Q",
+    "folder": "Q/SkiLiftTowerDQ10Q",
+    "parts": 173,
+    "verts": 2468,
+    "worst_vertex_mm": 0.0007,
+    "fbx_lateral_sign": -1.0,
+    "ambiguous_tris": 0,
+    "exact": 171,
+    "donor": {},
+    "fitted": {},
+    "textures_added_mb": 0.0
+  },
+  "head_transform": {
+    "cut": {
+      "gantry_00": {
+        "removed_faces": 10,
+        "cap_faces": 2
+      }
+    },
+    "rungs_removed": [],
+    "arrest_top": [
+      0.4451,
+      0.3738
+    ],
+    "mast_top": 7.8237,
+    "landing_x": 0.688,
+    "new": {
+      "mast_flange": "mast face",
+      "mast_cheek_n": "girder face",
+      "mast_trunnion_pin_n": "pivot_main_n",
+      "gantry_trunnion_hub_n": "girder face",
+      "gantry_trunnion_web_n": "girder face",
+      "gantry_trunnion_yoke_n": "girder face",
+      "mast_cheek_p": "girder face",
+      "mast_trunnion_pin_p": "pivot_main_n",
+      "gantry_trunnion_hub_p": "girder face",
+      "gantry_trunnion_web_p": "girder face",
+      "gantry_trunnion_yoke_p": "girder face",
+      "comm_post_base": "comm_clamp",
+      "comm_hanger": "namesake",
+      "comm_clamp": "namesake"
+    },
+    "comm_anchor": 9.2,
+    "girder_patch": true,
+    "hub_to": 0.21,
+    "web_top": 0.17,
+    "mast_cap_faces": 16,
+    "mast_top_rel": -0.4352,
+    "mast_floor": [
+      -0.4232,
+      "girder"
+    ],
+    "ladder_rail_top": {},
+    "post_m": 0.9411
+  },
+  "g6": {
+    "poses": 25,
+    "min_clear": {
+      "m": 0.006,
+      "pose": {
+        "TrainFront": -40.0,
+        "TrainBack": 0.0,
+        "Head": -20.0
+      },
+      "parts": [
+        "yoke_n_f",
+        "hanger_n_t"
+      ]
+    },
+    "type_max_deg": 42.0,
+    "letter": "T",
+    "head_max_deg": 20.0,
+    "half_max_deg": 40.0,
+    "worst_rope_clear_m": 0.00617,
+    "max_pin_gap_m": 0.0
+  },
+  "negative": {
+    "poses": 2,
+    "failed": "[DQ10 negative (head level)] G6 failed at 2 of 2 poses, first [({'TrainFront': 42.0, 'TrainBack': 42.0, 'Head': 0.0}, [\"32 overlaps [('yoke_n_b', 'gantry_00'), ('yoke_n_b', 'hanger_n_t'), ('yoke_p_b',",
+    "min_clear": {
+      "m": 0.00569,
+      "pose": {
+        "TrainFront": 42.0,
+        "TrainBack": 42.0,
+        "Head": 0.0
+      },
+      "parts": [
+        "yoke_n_b",
+        "gantry_00"
+      ]
+    }
+  },
+  "bounds": {
+    "top_over_m": 0.0173,
+    "top_pose": {
+      "TrainFront": -10.0,
+      "TrainBack": 30.0,
+      "Head": 10.0
+    },
+    "xy_over_m": 0.0661,
+    "xy_pose": {
+      "TrainFront": 30.0,
+      "TrainBack": -10.0,
+      "Head": 10.0
+    },
+    "pass_top": false,
+    "pass_xy": false,
+    "rest_top": 9.9501
+  },
+  "head_under_top_to_deg": 0.0,
+  "head_parts": [
+    "endplate_0",
+    "endplate_1",
+    "endplate_2",
+    "endplate_3",
+    "gantry_00",
+    "gantry_trunnion_hub_n",
+    "gantry_trunnion_hub_p",
+    "gantry_trunnion_web_n",
+    "gantry_trunnion_web_p",
+    "gantry_trunnion_yoke_n",
+    "gantry_trunnion_yoke_p",
+    "grate_deckn",
+    "grate_deckn_lip",
+    "grate_deckp",
+    "grate_deckp_lip",
+    "hanger_n",
+    "hanger_n_t",
+    "hanger_p",
+    "hanger_p_t",
+    "kick_deckn0_0",
+    "kick_deckn1_0",
+    "kick_deckp0_0",
+    "kick_deckp1_0",
+    "plate_n",
+    "plate_p",
+    "platerim_n",
+    "platerim_p",
+    "post_deckn0_0",
+    "post_deckn0_1",
+    "post_deckn0_2",
+    "post_deckn1_0",
+    "post_deckn1_1",
+    "post_deckn1_2",
+    "post_deckp0_0",
+    "post_deckp0_1",
+    "post_deckp0_2",
+    "post_deckp1_0",
+    "post_deckp1_1",
+    "post_deckp1_2",
+    "rail_deckn0_knee",
+    "rail_deckn0_top",
+    "rail_deckn1_knee",
+    "rail_deckn1_top",
+    "rail_deckp0_knee",
+    "rail_deckp0_top",
+    "rail_deckp1_knee",
+    "rail_deckp1_top"
+  ],
+  "weights": {
+    "0": {
+      "Root": 681,
+      "TrainFront": 648,
+      "TrainBack": 648,
+      "Head": 632
+    },
+    "1": {
+      "Root": 227,
+      "TrainFront": 256,
+      "TrainBack": 256,
+      "Head": 316
+    },
+    "2": {
+      "Root": 77,
+      "TrainFront": 38,
+      "TrainBack": 38,
+      "Head": 112
+    }
+  },
+  "contracts": {
+    "top": 9.950119972229004,
+    "E": 0.0,
+    "top_gap": 0.2588,
+    "top_nearest": "DQ10Combo",
+    "lane_y": 8.2589
+  },
+  "generator": "lift_head.py --export --letter T",
+  "skin": {
+    "rule": "DECISIONS 594 / 600: skinned to Root / TrainFront / TrainBack / Head; TrainPitchSystem turns Head to the mean of the halves relative to the mast (clamped to HeadRelMax), the halves to head +- the half-break",
+    "bones": {
+      "Root": {
+        "parent": null,
+        "head_game": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "TrainFront": {
+        "parent": "Root",
+        "head_game": [
+          0.0,
+          8.2589,
+          0.0
+        ],
+        "rest_rotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "TrainBack": {
+        "parent": "Root",
+        "head_game": [
+          0.0,
+          8.2589,
+          0.0
+        ],
+        "rest_rotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "Head": {
+        "parent": "Root",
+        "head_game": [
+          0.0,
+          8.2589,
+          0.0
+        ],
+        "rest_rotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    },
+    "axis": {
+      "game_plus_z": "net -Y = authoring +X (TrainFront = the halves built at authoring +X: rocker_main_<side>_f, yoke_<side>_f)",
+      "chain": [
+        "cs2_asset.orient_for_net (cs2_asset.py:40): (x, y, z) -> (y, -x, z), authoring +X -> net -Y",
+        "cs2_asset.export_fbx_skinned (cs2_asset.py:1484-1487): -90 deg about X baked, (x, y, z) -> (x, z, -y) x 100 cm: net -Y -> file +z",
+        "the game negates FBX x on import (docs/PIPELINE.md frame rule T): game = (-x_net, z_net, -y_net)"
+      ],
+      "tests": [
+        "skin_part_bones: the _f plates ride TrainFront by travel side (build time)",
+        "cs2_skin.roundtrip: every exported level's TrainFront group bbox center at raw z > 0, TrainBack < 0",
+        "tests/test_tower_skinned.py K8 (the axis test)"
+      ]
+    },
+    "lane_y": 8.2589,
+    "roundtrip": {
+      "0": {
+        "file": "SkiLiftTowerDQ10T.fbx",
+        "verts": 2609,
+        "tris": 4034,
+        "groups": {
+          "Root": 681,
+          "TrainFront": 648,
+          "TrainBack": 648,
+          "Head": 632
+        },
+        "local_pos_cm": {
+          "Root": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "TrainFront": [
+            0.0,
+            825.89,
+            -0.0
+          ],
+          "TrainBack": [
+            0.0,
+            825.89,
+            -0.0
+          ],
+          "Head": [
+            0.0,
+            825.89,
+            -0.0
+          ]
+        },
+        "group_z_center_cm": {
+          "TrainFront": 110.13,
+          "TrainBack": -110.13,
+          "Head": 0.0
+        }
+      },
+      "1": {
+        "file": "SkiLiftTowerDQ10T_LOD1.fbx",
+        "verts": 1055,
+        "tris": 1798,
+        "groups": {
+          "Root": 227,
+          "TrainFront": 256,
+          "TrainBack": 256,
+          "Head": 316
+        },
+        "local_pos_cm": {
+          "Root": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "TrainFront": [
+            0.0,
+            825.89,
+            -0.0
+          ],
+          "TrainBack": [
+            0.0,
+            825.89,
+            -0.0
+          ],
+          "Head": [
+            0.0,
+            825.89,
+            -0.0
+          ]
+        },
+        "group_z_center_cm": {
+          "TrainFront": 110.13,
+          "TrainBack": -110.13,
+          "Head": 0.0
+        }
+      },
+      "2": {
+        "file": "SkiLiftTowerDQ10T_LOD2.fbx",
+        "verts": 265,
+        "tris": 400,
+        "groups": {
+          "Root": 77,
+          "TrainFront": 38,
+          "TrainBack": 38,
+          "Head": 112
+        },
+        "local_pos_cm": {
+          "Root": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "TrainFront": [
+            0.0,
+            825.89,
+            -0.0
+          ],
+          "TrainBack": [
+            0.0,
+            825.89,
+            -0.0
+          ],
+          "Head": [
+            0.0,
+            825.89,
+            -0.0
+          ]
+        },
+        "group_z_center_cm": {
+          "TrainFront": 98.61,
+          "TrainBack": -98.61,
+          "Head": 0.0
+        }
+      }
+    },
+    "surgery": [
+      "after EVERY import, every LOD prefab: the root bone (parentId -1) m_Rotation (0, 0, 0, 1) and m_Scale (1, 1, 1) (gate BONEROOT)",
+      "TrainFront / TrainBack / Head: m_Type 0 (None); bone names map through ProceduralBone.m_BindIndex",
+      "LOD0 / LOD1 / LOD2 FBXs are all skinned; settings.json useProceduralAnimation",
+      "twins: the comm sub-lane point moves to comm_anchor_new_y (members keep theirs)"
+    ]
+  },
+  "textures": {
+    "shared_from": "../SkiLiftTowerDQ10Q/SkiLiftTowerDQ10Q",
+    "maps": [
+      "BaseColor",
+      "ControlMask",
+      "MaskMap",
+      "Normal"
+    ],
+    "levels": [
+      0,
+      1,
+      2
+    ],
+    "added_mb": 0.0,
+    "surgery": "DECISIONS 592 c / 592 k: the Surfaces carry the donor's texture GUIDs (the donor was imported in an earlier action, so this import copies its maps byte for byte; repoint them, drop the copies)"
+  },
+  "export": {
+    "folder": "assets/import/towers/Q/SkiLiftTowerDQ10T",
+    "donor_folder": "assets/import/towers/Q/SkiLiftTowerDQ10Q",
+    "lods": [
+      0,
+      1,
+      2
+    ]
+  }
+}

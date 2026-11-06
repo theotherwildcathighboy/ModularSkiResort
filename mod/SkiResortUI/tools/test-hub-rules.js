@@ -760,16 +760,17 @@ function run(srcDir) {
   const hubTuples = read(path.join("hub", "hubText.ts")).split("\n")
     .map((l) => /\["(?:SkiResort|Assets)[^"]*", "([^"]*)"\]/.exec(l)).filter(Boolean).map((m) => m[1]);
   eq("T34 no over-instructive hub text", [hubTuples.length > 500, hubTuples.filter((s) => obvious.test(s))], [true, []]);
-  // T35 (contract 28) the Runs view's prop rows: a step under the minimum reads off, a step up from off lands on the minimum at the least, the
-  // maximum holds. Range from RunPropPlacerRules (tools/check-run-props.js compares the constants); the rows act on the focused run.
+  // T35 (contract 28) the Runs view's prop rows: Fewer / More on a spacing ladder (DECISIONS 601). Range from RunPropPlacerRules (tools/check-run-props.js compares the constants); the rows act on the focused run.
   const step = R.runPropSpacingStep;
-  eq("T35.1 runPropSpacingStep", [step(0, 10), step(0, 50), step(20, 10), step(20, -10), step(20, -50), step(60, -50), step(70, -50), step(100, 50), step(190, 50), step(200, 10), step(200, -10)],
-    [20, 50, 30, 0, 0, 0, 20, 150, 200, 200, 190]);
+  // DECISIONS 601: Fewer / More walk the ladder one way; More from off lands on 50, Fewer past 200 is off, a between-rungs value steps to the next rung
+  eq("T35.1 runPropSpacingStep", [step(0, true), step(0, false), step(50, true), step(50, false), step(20, true), step(200, false), step(90, true), step(90, false), step(25, true), step(30, true)],
+    [50, 0, 40, 60, 20, 0, 80, 100, 20, 20]);
   const propRows = read(path.join("hub", "RunPropControls.tsx"));
   const runsView = read(path.join("hub", "RunsView.tsx"));
   eq("T35.2 the rows send the two triggers, read C#'s value and are drawn under the tree rows while Quick runs is closed, for the focused row",
     [propRows.includes("hubTriggers.setRunGunSpacing(row.entity, m)"), propRows.includes("hubTriggers.setRunLightSpacing(row.entity, m)"), propRows.includes("row.gunSpacingM"), propRows.includes("row.lightSpacingM"),
-      /!quick\?\.active && <RunPropRows row=\{rows\.find\(\(r\) => r\.entity && entityId\(r\.entity\) === focusedId\)\} \/>/.test(runsView)],
+      // contract 33: the Run tile's option row takes their place while a run is drawn
+      /!quick\?\.active && \(draw\.active \? <DrawRunRows draw=\{draw\} \/>\s*: <RunPropRows row=\{rows\.find\(\(r\) => r\.entity && entityId\(r\.entity\) === focusedId\)\} \/>\)/.test(runsView)],
     [true, true, true, true, true]);
   eq("T35.3 a cat track row shows its running cost (billed by plan area while its guns can run)",
     [read(path.join("hub", "RunList.tsx")).includes("row.kind !== RUN_KIND.Natural && row.bound && {\n          label: t(HUB_LOC.runCost)")], [true]);
@@ -783,6 +784,68 @@ function run(srcDir) {
     eq("T36.2 row 30 drawn with its FMT text (DEG from detail / 10, N from count) and its tip",
       [status.includes("HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.FloatSingleFraction), N }}"),
         status.includes("HUB_LOC.problemTipLiftBend")], [true, true]);
+  }
+  // T37 code 31 LiftTrainLimit: a dim band row naming the lift and the tower (count) whose rope goes past what its sheave train follows;
+  // its click flies to that tower like LiftBend (subject = the tower node, no top).
+  eq("T37.1 code 31: variant liftTrainLimit, click lift, info glyph", [BIND.PROBLEM.LiftTrainLimit,
+    R.problemVariant(P(A, 31, 1, { count: 7 })), R.problemClick(P(A, 31, 1)), R.problemIcon(P(A, 31, 1)).tone],
+    [31, "liftTrainLimit", "lift", "info"]);
+  {
+    const status = read(path.join("hub", "StatusBlock.tsx"));
+    eq("T37.2 row 31 drawn with its FMT text (N from count) and its tip",
+      [status.includes("HUB_FMT.problemLiftTrainLimit} args={{ NAME, N }}"), status.includes("HUB_LOC.problemTipLiftTrainLimit")],
+      [true, true]);
+  }
+  // T38 code 32 LiftLowSpan: a dim band row naming the lift, its carriers (pct 1 = cabins), their height (detail tenths; 0 = touching)
+  // and the span (count / more = tower numbers, 0 = a station); its click flies to the low point (subject = the span's edge, no top).
+  eq("T38.1 code 32: variant liftLowSpan, click lift, info glyph", [BIND.PROBLEM.LiftLowSpan,
+    R.problemVariant(P(A, 32, 1, { count: 3 })), R.problemClick(P(A, 32, 1)), R.problemIcon(P(A, 32, 1)).tone],
+    [32, "liftLowSpan", "lift", "info"]);
+  {
+    const status = read(path.join("hub", "StatusBlock.tsx"));
+    eq("T38.2 row 32 drawn with its FMT texts (above / touching), its tip naming the span (towers, one station, none)",
+      [status.includes('case "liftLowSpan": return <LowSpanText p={p} t={t} NAME={NAME} />;'),
+        status.includes("HUB_FMT.lowSpanTowers} args={{ A: numArg(p.count, Unit.Integer), B: numArg(p.more, Unit.Integer) }}"),
+        status.includes("HUB_FMT.lowSpanStation} args={{ N: numArg(Math.max(p.count, p.more), Unit.Integer) }}"),
+        status.includes("t(HUB_LOC.lowSpanStations)"),
+        status.includes("HUB_FMT.problemLiftLowSpan} args={{ NAME, CARRIERS, M: numArg(p.detail / 10, Unit.FloatSingleFraction) }}"),
+        status.includes("HUB_FMT.problemLiftLowSpanGround} args={{ NAME, CARRIERS }}"),
+        status.includes("p.pct === 1 ? HUB_LOC.carriersCabins : HUB_LOC.carriersChairs"),
+        status.includes('case "liftLowSpan": body = <LowSpanTip p={p} t={t} />;') && status.includes("HUB_FMT.problemTipLiftLowSpan} args={{ WHERE }}")],
+      [true, true, true, true, true, true, true, true]);
+  }
+  {
+    // T39 band slots (DECISIONS 588 f): C# SortAndCut counts a folded code as ONE of MaxBandRows slots, so its folded codes must be
+    // the ones foldBandRows folds; and the C# cut of P50 (lodges off, four "No power", a missing section, an unfinished line, chairs
+    // stopped, a bend, a train limit, a low span: eight slots in eleven rows) folds to eight band rows with the low span last.
+    // the real C# beside this tool (a --src= copy run, check-bundle R18 and the gate fixtures, has no C# tree at srcDir/../..)
+    const cs = fs.readFileSync(path.join(__dirname, "..", "..", "SkiResortMod", "Systems", "HubRules.cs"), "utf8");
+    const decl = /FoldedCodes\s*=\s*\{([^}]*)\}/.exec(cs);
+    const names = decl ? decl[1].split(",").map((t) => t.trim().replace(/^HubProblemCode\./, "")).filter((t) => t !== "") : [];
+    const codes = names.map((n) => { const m = new RegExp("\\b" + n + " = (\\d+)").exec(cs); return m ? Number(m[1]) : -1; });
+    eq("T39.1 C# HubRules.FoldedCodes == FOLDED_PROBLEM_CODES", codes.slice().sort((a, b) => a - b),
+      R.FOLDED_PROBLEM_CODES.slice().sort((a, b) => a - b));
+    const L = (code, name, sev = 2) => P(A, code, sev, { name });
+    const cut = [L(2, "", 3), L(5, "Lift 1"), L(5, "Lift 2"), L(5, "Lift 3"), L(5, "Lift 4"), L(6, "Lift 5"), L(7, "Lift 6"),
+      L(11, "Lift 7", 1), L(30, "Lift 7", 1), L(31, "Lift 7", 1), L(32, "Lift 8", 1)];
+    const band = R.foldBandRows(cut);
+    eq("T39.2 the C# cut of 4 No power + 6 other rows + a low span folds to 8 band rows, No power one of them, the low span last",
+      [band.length, band[1].group.length, band[band.length - 1].row.code, R.bandSlots(band).more], [8, 4, 32, 5]);
+  }
+  {
+    // 2026-11-02 small calls: a band row whose tooltip only repeated it has none; the CAR SPACES header names every lodge, its rows
+    // "this lodge"; the Guests tooltips name the bare month, as the bars do.
+    const status = read(path.join("hub", "StatusBlock.tsx"));
+    const guests = read(path.join("hub", "GuestsView.tsx"));
+    const text = read(path.join("hub", "hubText.ts"));
+    // Run-types round: the unlinked, noRuns and runsFlat rows join LodgeNoRoad, and no hub text says "Month of" (tiles, tickets and
+    // history name the bare month too).
+    eq("T37.1 title-only band rows have no tooltip; header and rows of CAR SPACES have their own tips; no 'Month of' in hub text",
+      [status.includes('TITLE_ONLY_TIP: ReadonlySet<ProblemVariant> = new Set<ProblemVariant>(["lodgeNoRoad", "unlinked", "noRuns", "runsFlat"])') &&
+        status.includes("TITLE_ONLY_TIP.has(v) ? null : problemTip("),
+        guests.includes("tip={t(HUB_LOC.guestsTipCarSpacesAll)}"), (guests.match(/HUB_LOC\.guestsTipCarSpaces\b/g) || []).length,
+        /guestsTipPaid: \[[^\]]*"Month of/.test(text), /skiDaysTipSent: \[[^\]]*"Month of/.test(text), /"Month of/.test(text)],
+      [true, true, 2, false, false, false]);
   }
 
   const hr = require("./test-history-rules").run(srcDir);

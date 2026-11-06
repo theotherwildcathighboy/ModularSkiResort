@@ -2,7 +2,7 @@
 # Written by `npm run contract:lock` (tools/check-bundle.js --write-lock); checked on every build
 # (rule R3, docs/research/hub-u2-spec.md section 4.7). Do not edit by hand: change src/bindings.ts,
 # bump HUB_CONTRACT (and C#'s HubContract), run `npm run contract:lock`, review this file's diff.
-contract 32
+contract 35
 core build
 core buildStamp
 core contract
@@ -25,6 +25,7 @@ binding busCard : BusCardState
 binding catTrackDeleteMode : boolean
 binding city : CityStats
 binding contract : number
+binding drawRun : DrawRun
 binding follow : number
 binding glade : GladeState
 binding history : readonly HistoryArea[]
@@ -40,6 +41,7 @@ binding quickRuns : QuickRunsState
 binding resortLive : readonly ResortLive[]
 binding resorts : readonly ResortRow[]
 binding runLive : readonly RunLive[]
+binding runReplaced : RunReplaced
 binding runs : readonly RunRow[]
 binding selectedResort : Entity
 binding showHubButton : boolean
@@ -60,8 +62,10 @@ trigger quickRunsToggle ()
 trigger rename (Entity, string)
 trigger selectResort (Entity)
 trigger setCatTrackDeleteMode (boolean)
+trigger setDrawRun ("groomed" | "guns" | "lights", number)
 trigger setHubOpen (boolean)
 trigger setPisteMap (boolean)
+trigger setRunGroomed (Entity, boolean)
 trigger setRunGunSpacing (Entity, number)
 trigger setRunLightSpacing (Entity, number)
 trigger toggleHub ()
@@ -72,12 +76,20 @@ trigger unmergeBuilding (Entity)
 shape BuildItem.active : boolean
 shape BuildItem.cost? : number
 shape BuildItem.costPerKm? : number
+shape BuildItem.gunsMonthlyPerHa? : number
+shape BuildItem.gunsPerHa? : number
+shape BuildItem.gunsPrice? : number
 shape BuildItem.hint? : string
 shape BuildItem.id : string
+shape BuildItem.lightsMonthlyPerHa? : number
+shape BuildItem.lightsPerHa? : number
+shape BuildItem.lightsPrice? : number
 shape BuildItem.locked : boolean
 shape BuildItem.monthly? : number
 shape BuildItem.monthlyPerHa? : number
 shape BuildItem.monthlyPerKm? : number
+shape BuildItem.naturalPerHa? : number
+shape BuildItem.naturalPrice? : number
 shape BuildItem.price? : number
 shape BuildItem.pricePerHa? : number
 shape BuildItem.reason : string
@@ -88,7 +100,6 @@ shape BusCardState.guestsMonth : number
 shape BusCardState.shown : boolean
 shape BusCardState.state : BusCardStateName
 shape CityStats.backcountryPct : number
-shape CityStats.bookTicketsAsFees : boolean
 shape CityStats.daysPerYear : number
 shape CityStats.known : boolean
 shape CityStats.month : number
@@ -102,6 +113,10 @@ shape CityStats.ticketPrice : number
 shape CityStats.tourismOverhaul : boolean
 shape CityStats.tripPlanner : string
 shape CityStats.tripPlannerBlocksSkiDays : boolean
+shape DrawRun.active : boolean
+shape DrawRun.groomed : boolean
+shape DrawRun.gunSpacingM : number
+shape DrawRun.lightSpacingM : number
 shape GladeState.active : boolean
 shape GladeState.available : boolean
 shape GladeState.level : number
@@ -295,8 +310,9 @@ shape ResortLive.busBillMonth : number
 shape ResortLive.busChargedMonth : number
 shape ResortLive.busGuestsMonth : number
 shape ResortLive.cityIncomeEst : number
-shape ResortLive.costGroomedMonth : number
-shape ResortLive.costNightMonth : number
+shape ResortLive.costCatTracksMonth : number
+shape ResortLive.costGroomingMonth : number
+shape ResortLive.costLightsMonth : number
 shape ResortLive.costSnowmakingMonth : number
 shape ResortLive.depots : number
 shape ResortLive.efficiencyPct : number
@@ -305,9 +321,10 @@ shape ResortLive.estTourists : number
 shape ResortLive.freeThisMonth : number
 shape ResortLive.guestsLastMonth : number
 shape ResortLive.guestsThisMonth : number
+shape ResortLive.haCatTracks : number
 shape ResortLive.haGroomed : number
+shape ResortLive.haLit : number
 shape ResortLive.haNatural : number
-shape ResortLive.haNight : number
 shape ResortLive.haSnowmaking : number
 shape ResortLive.jobs : number
 shape ResortLive.jobsFilled : number
@@ -420,6 +437,9 @@ shape RunLive.snowDepthCm : number
 shape RunLive.snowEstimated : boolean
 shape RunLive.snowPct : number
 shape RunLive.valueNow : number
+shape RunReplaced.from : Entity
+shape RunReplaced.seq : number
+shape RunReplaced.to : Entity
 shape RunRow.approx : boolean
 shape RunRow.areaM2 : number
 shape RunRow.band : number
@@ -436,6 +456,7 @@ shape RunRow.lightSpacingM : number
 shape RunRow.member : boolean
 shape RunRow.name : string
 shape RunRow.ordinal : number
+shape RunRow.paidSteps : number
 shape RunRow.served : boolean
 shape RunRow.servedBy : Entity
 shape RunRow.servedFactor : number

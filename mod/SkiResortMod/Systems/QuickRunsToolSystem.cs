@@ -95,6 +95,7 @@ namespace SkiResortMod.Systems
         private WaterSystem m_WaterSystem;
         private SkiPrefabCatalogSystem m_Catalog;
         private SkiRunOwnershipSystem m_Ownership;
+        private SkiRunPropSystem m_RunProps;
         private Game.Objects.SearchSystem m_ObjectSearch;
         private CameraUpdateSystem m_Camera;
         private CitySystem m_CitySystem;
@@ -133,6 +134,7 @@ namespace SkiResortMod.Systems
             m_WaterSystem = World.GetOrCreateSystemManaged<WaterSystem>();
             m_Catalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
+            m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
             m_ObjectSearch = World.GetOrCreateSystemManaged<Game.Objects.SearchSystem>();
             m_Camera = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
@@ -697,8 +699,10 @@ namespace SkiResortMod.Systems
         private int ResolveRunPrefabs()
         {
             m_RunPrefabs[(int)RunKind.Groomed] = m_Catalog.EntityOf(SkiCatalog.Names.RunGroomed);
-            m_RunPrefabs[(int)RunKind.Snowmaking] = m_Catalog.EntityOf(SkiCatalog.Names.RunSnowmaking);
-            m_RunPrefabs[(int)RunKind.Night] = m_Catalog.EntityOf(SkiCatalog.Names.RunNight);
+            // Run types R3 (DECISIONS 578): a planned snowmaking or night run is a groomed run with the kind's sliders (FinishApplied seeds
+            // them); the retired looks are never emitted.
+            m_RunPrefabs[(int)RunKind.Snowmaking] = m_Catalog.EntityOf(SkiCatalog.Names.RunGroomed);
+            m_RunPrefabs[(int)RunKind.Night] = m_Catalog.EntityOf(SkiCatalog.Names.RunGroomed);
             m_RunPrefabs[(int)RunKind.Natural] = m_Catalog.EntityOf(SkiCatalog.Names.RunNatural);
             m_RunPrefabs[(int)RunKind.CatTrack] = m_Catalog.EntityOf(SkiCatalog.Names.RunCatTrack);
             int missing = 0;

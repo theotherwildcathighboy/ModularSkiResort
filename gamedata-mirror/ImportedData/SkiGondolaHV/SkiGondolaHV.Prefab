@@ -30,7 +30,7 @@
                 "m_SubObjects": {
                     "$id": 4,
                     "$type": "5|Game.Prefabs.NetSubObjectInfo[], Game",
-                    "$rlength": 4,
+                    "$rlength": 6,
                     "$rcontent": [
                         {
                             "$id": 5,
@@ -130,6 +130,66 @@
                                 "$type": 7,
                                 "x": 3,
                                 "y": 10.11,
+                                "z": 0
+                            },
+                            "m_Rotation": {
+                                "$type": 8,
+                                "value": {
+                                    "$type": 9,
+                                    "x": 0,
+                                    "y": 0,
+                                    "z": 0,
+                                    "w": 1
+                                }
+                            },
+                            "m_Placement": 2,
+                            "m_FixedIndex": 0,
+                            "m_Spacing": 40,
+                            "m_AnchorTop": true,
+                            "m_AnchorCenter": false,
+                            "m_RequireElevated": false,
+                            "m_RequireOutsideConnection": false,
+                            "m_RequireDeadEnd": false,
+                            "m_RequireOrphan": false
+                        },
+                        {
+                            "$id": 25,
+                            "$type": 6,
+                            "m_Object": $fstrref:"CID:931f989ef5d4c6bf171b06b0b1a3db35",
+                            "m_Position": {
+                                "$type": 7,
+                                "x": -3,
+                                "y": 10.6335,
+                                "z": 0
+                            },
+                            "m_Rotation": {
+                                "$type": 8,
+                                "value": {
+                                    "$type": 9,
+                                    "x": 0,
+                                    "y": 1,
+                                    "z": 0,
+                                    "w": 0
+                                }
+                            },
+                            "m_Placement": 2,
+                            "m_FixedIndex": 0,
+                            "m_Spacing": 40,
+                            "m_AnchorTop": true,
+                            "m_AnchorCenter": false,
+                            "m_RequireElevated": false,
+                            "m_RequireOutsideConnection": false,
+                            "m_RequireDeadEnd": false,
+                            "m_RequireOrphan": false
+                        },
+                        {
+                            "$id": 26,
+                            "$type": 6,
+                            "m_Object": $fstrref:"CID:931f989ef5d4c6bf171b06b0b1a3db35",
+                            "m_Position": {
+                                "$type": 7,
+                                "x": 3,
+                                "y": 10.6335,
                                 "z": 0
                             },
                             "m_Rotation": {
@@ -290,5 +350,5 @@
     "m_StyleType": null,
     "m_InvertMode": 0,
     "m_MaxPylonDistance": 250,
-    "m_Hanging": 0
+    "m_Hanging": 0.025
 }

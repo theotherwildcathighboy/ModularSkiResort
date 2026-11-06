@@ -1,5 +1,5 @@
 /*
- * src/hub/MergedFold.tsx - the Overview's "Merged buildings" fold (contract 32): one row per merged building of the shown area (or, in the
+ * src/hub/MergedFold.tsx - the Overview's "Merged buildings" fold (contract 35): one row per merged building of the shown area (or, in the
  * Not linked view, those in no area): its name, then its tier word while counted or its state word otherwise; the tier, the state and the
  * monthly fee while billed are in the row's tooltip. A click focuses the building (focusBuilding). The name is the building's own (a
  * player may have typed it, 64 characters): it shrinks with an ellipsis under lodgeNameLabel like the Guests view's lodge names.

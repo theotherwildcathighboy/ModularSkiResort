@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { history$, resorts$, sameEntity, selectedResort$ } from "../bindings";
 import type { HistoryArea } from "../bindings";
@@ -62,7 +63,7 @@ function asCharts(v: string): HistoryCharts {
 
 const pad2 = (n: number): string => String(((n % 100) + 100) % 100).padStart(2, "0");
 
-/** The bucket's name: "Month of January 2027", "Ski season 2026/27", or "Ski season 2027" where the season starts in January. */
+/** The bucket's name: "January 2027", "Ski season 2026/27", or "Ski season 2027" where the season starts in January. */
 function bucketTitle(b: HistoryBucket, t: Translate): JSX.Element {
   if (b.kind === "season" && seasonIsOneYear()) return <LocText entry={HUB_FMT.historySeasonYear} args={{ YEAR: String(b.key) }} />;
   if (b.kind === "season") return <LocText entry={HUB_FMT.historySeason} args={{ FROM: String(b.key), TO: pad2(b.key + 1) }} />;
@@ -116,6 +117,7 @@ function Segment<K extends string>({ options, value, label, tip, enabled, onSele
         return (
           <Tip key={k} tip={tip(k)}>
             <Button
+              focusKey={FOCUS_DISABLED}
               variant="flat"
               className={cx(styles.segButton, styles.histSeg, i > 0 && styles.histSegNext, on && styles.buttonOn)}
               disabled={!ok}
@@ -203,7 +205,7 @@ export function HistoryView(): JSX.Element {
   const attractionToggle = scope === "area" ? (
     <div className={styles.histControls}>
       <Tip tip={t(HUB_LOC.historyTipAttraction)}>
-        <Button variant="flat" className={cx(styles.segButton, styles.histSeg, styles.histCheck)} selected={attractionOn} onSelect={() => historyAttraction$.update(!attractionOn)}>
+        <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.segButton, styles.histSeg, styles.histCheck)} selected={attractionOn} onSelect={() => historyAttraction$.update(!attractionOn)}>
           <CheckBox on={attractionOn} />
           <div className={styles.histCheckText}>{t(HUB_LOC.historyAttraction)}</div>
         </Button>

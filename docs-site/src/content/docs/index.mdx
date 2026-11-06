@@ -73,11 +73,16 @@ import Shot from '../../components/Shot.astro';
 ## Known Limitations
 
 - **Riders:** chairs and cabins move empty. Skiers are counted, not simulated.
-- **Wind:** the cable moves in the wind; the chairs do not sway with it.
 - **Chair numbers:** towers are numbered; chairs all show the same number.
 - **Stations:** no terrain flattening, so a station can sit partly in the hillside on steep ground (Move It fixes it). The aerial tram's base levels its own pad.
 - **Summer:** chairlifts and gondolas stop when no run is open. The aerial tram keeps running as sightseeing.
 - **Power:** a lift needs a low-voltage line at its base station. The game refuses a city high-voltage line at a lift.
+- **Crossing lifts:** a lift crosses a lift of another type over or under it, where the towers can give the height the game needs. Two lifts of the same type cannot cross, and no crossing is built near a station, beside a tower of the other lift, or at an angle under 20°. See [Lifts, Terrain](/guides/lifts/#terrain).
+- **Cat tracks and lifts:** a cat track cannot pass under a lift that is already built. Build cat tracks first, then the lifts over them.
+- **Roads under lifts:** towers stand clear of roads, tracks and paths where the line allows it. Where it does not, the game reports the tower as overlapping: move the road or the tower.
+- **Trees:** a lift fells the trees along its whole corridor, also where the cable runs high above them.
+- **Far hills:** a hill far from the city's homes and hotels gets few ski-day guests. The hub shows the distance.
+- **Language:** English only for now.
 - **Uninstall:** first bulldoze all lifts and runs, or use **Delete all ski resort content** (Options > Modular Ski Resort > Main > Reset), then save. Without that, buildings and stations turn into checkered placeholder blocks and runs stay as flat patches. See [Uninstall](/guides/lifts/#uninstall).
 - **Resort Planner:** experimental. It may change, and it is off until you turn it on in Options. It proposes lifts and builds runs only: you build its lifts yourself with the lift tool. On steep ground expect mostly black runs and few greens. See [Runs and Snow](/guides/runs-and-snow/#resort-planner-experimental).
 - **Saves:** start from a new city. Saves from test builds are not supported.

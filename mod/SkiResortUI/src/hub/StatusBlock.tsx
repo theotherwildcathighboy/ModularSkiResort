@@ -9,6 +9,7 @@
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { PROBLEM, city$, hubTriggers, lodgeParking$, problems$, resortLive$, resorts$, sameEntity, selectedResort$ } from "../bindings";
 import type { BuildItemId, CityStats, ProblemRow, ResortLive, ResortRow } from "../bindings";
@@ -18,7 +19,7 @@ import {
   bandRowsOf, bandSlots, closedRuns, factorRowsOf, foldBandRows, liftNameList, liveOf, problemClick, problemIcon, problemVariant,
   statusHint, statusVariant, statusWord,
 } from "./hubRules";
-import type { BandRow, ProblemClick } from "./hubRules";
+import type { BandRow, ProblemClick, ProblemVariant } from "./hubRules";
 import { problemsOpen$, view$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, LODGE_TIER, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
 import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, depthValue, numArg, useInches } from "./parts";
@@ -131,11 +132,32 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     // Codes 23-25
     case "mixedLiftTypes": return <LocText entry={HUB_FMT.problemMixedLiftTypes} args={{ NAME }} />;
     case "liftBend": return <LocText entry={HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.FloatSingleFraction), N }} />;
+    case "liftTrainLimit": return <LocText entry={HUB_FMT.problemLiftTrainLimit} args={{ NAME, N }} />;
+    case "liftLowSpan": return <LowSpanText p={p} t={t} NAME={NAME} />;
     case "summitLodgeNotLiftServed": return <LocText entry={HUB_FMT.problemSummitLodgeNotLiftServed} args={{ N }} />;
     case "schoolNoGreenRun": return <>{t(HUB_LOC.problemSchoolNoGreenRun)}</>;
     case "schoolsNotLinked": return <LocText entry={HUB_FMT.problemSchoolsNotLinked} args={{ N }} />;
     default: return <>{"–"}</>;
   }
+}
+
+/** The LiftLowSpan row: "Lift 1: chairs pass 1.2 m above the ground"; detail is the height in tenths (0 = the carriers touch the
+ *  ground), pct 1 = cabins. The tip names the span (LowSpanTip). */
+function LowSpanText({ p, t, NAME }: { p: ProblemRow; t: Translate; NAME: string }): JSX.Element {
+  const CARRIERS = t(p.pct === 1 ? HUB_LOC.carriersCabins : HUB_LOC.carriersChairs);
+  return p.detail > 0
+    ? <LocText entry={HUB_FMT.problemLiftLowSpan} args={{ NAME, CARRIERS, M: numArg(p.detail / 10, Unit.FloatSingleFraction) }} />
+    : <LocText entry={HUB_FMT.problemLiftLowSpanGround} args={{ NAME, CARRIERS }} />;
+}
+
+/** The LiftLowSpan tip: the span (count / more = its tower numbers, 0 = a station), then the planner's floor. */
+function LowSpanTip({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
+  const WHERE = p.count > 0 && p.more > 0
+    ? <LocText entry={HUB_FMT.lowSpanTowers} args={{ A: numArg(p.count, Unit.Integer), B: numArg(p.more, Unit.Integer) }} />
+    : p.count > 0 || p.more > 0
+      ? <LocText entry={HUB_FMT.lowSpanStation} args={{ N: numArg(Math.max(p.count, p.more), Unit.Integer) }} />
+      : t(HUB_LOC.lowSpanStations);
+  return <LocText entry={HUB_FMT.problemTipLiftLowSpan} args={{ WHERE }} />;
 }
 
 /** The parking row names its lodge (C#'s subject, found in the lodgeParking rows): "No parking: Chalet 2", "+{N}" for the
@@ -179,9 +201,16 @@ function runClick(click: ProblemClick, p: ProblemRow): void {
   else if (click === "runsView") view$.update("runs");
 }
 
-/** The tooltip of a band row; a folded row lists its lifts, one line each. */
-function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element {
-  if (b.group.length < 2) return problemTip(b.row, factors, live, t);
+/** The single band rows whose row says it all: problemTip has no body for them, so a tooltip would only repeat the title. */
+const TITLE_ONLY_TIP: ReadonlySet<ProblemVariant> = new Set<ProblemVariant>(["lodgeNoRoad", "unlinked", "noRuns", "runsFlat"]);
+
+/** The tooltip of a band row; a folded row lists its lifts, one line each. A TITLE_ONLY_TIP row has none (null: Tip draws no
+ *  balloon). */
+function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element | null {
+  if (b.group.length < 2) {
+    const v = problemVariant(b.row);
+    return v !== null && TITLE_ONLY_TIP.has(v) ? null : problemTip(b.row, factors, live, t);
+  }
   return (
     <TipLines
       lines={[
@@ -221,6 +250,8 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "signNoRoad": body = t(HUB_LOC.problemTipSignNoRoad); break;
     case "mixedLiftTypes": body = t(HUB_LOC.problemTipMixedLiftTypes); break;
     case "liftBend": body = t(HUB_LOC.problemTipLiftBend); break;
+    case "liftTrainLimit": body = t(HUB_LOC.problemTipLiftTrainLimit); break;
+    case "liftLowSpan": body = <LowSpanTip p={p} t={t} />; break;
     case "summitLodgeNotLiftServed": body = t(HUB_LOC.problemTipSummitLodgeNotLiftServed); break;
     case "schoolNoGreenRun": body = t(HUB_LOC.problemTipSchoolNoGreenRun); break;
     case "schoolsNotLinked": body = t(HUB_LOC.problemTipSchoolsNotLinked); break;
@@ -263,7 +294,7 @@ function ProblemSlot({ b, slot, more, hidden, factors, live, t, noneLine, popOpe
   const moreCell = slot !== 2 ? null : more > 0 ? (
     <div className={styles.problemMore}>
       <Tip tip={popOpen ? undefined : <TipLines lines={[...hidden.map((h, i) => <BandText key={i} b={h} t={t} />)]} />}>
-        <Button theme={{ button: cx(styles.problemMoreButton, popOpen && styles.problemMoreOn) }}
+        <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.problemMoreButton, popOpen && styles.problemMoreOn) }}
           onSelect={() => problemsOpen$.update(!problemsOpen$.value)}>
           <LocText entry={HUB_FMT.problemMore} args={{ N: numArg(more, Unit.Integer) }} />
         </Button>
@@ -295,7 +326,7 @@ function ProblemSlot({ b, slot, more, hidden, factors, live, t, noneLine, popOpe
     <div className={cx(styles.problemSlotRow, styles.problemRowOn)}>
       <Tip tip={bandTip(b, factors, live, t)}>
         {click ? (
-          <Button theme={{ button: cx(styles.problemSlot, styles.problemClickable, p.severity <= 1 && styles.problemDim) }} onSelect={onSelect}>
+          <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.problemSlot, styles.problemClickable, p.severity <= 1 && styles.problemDim) }} onSelect={onSelect}>
             {content}
           </Button>
         ) : (
@@ -369,7 +400,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
               return (
                 <Tip key={i} tip={bandTip(b, factors, l, t)}>
                   {click ? (
-                    <Button theme={{ button: cx(styles.popoverRow, b.row.severity <= 1 && styles.problemDim) }}
+                    <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.popoverRow, b.row.severity <= 1 && styles.problemDim) }}
                       onSelect={() => { problemsOpen$.update(false); runClick(click, b.row); }}>
                       {row}
                     </Button>

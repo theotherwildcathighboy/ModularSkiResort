@@ -1,0 +1,19 @@
+{
+  "sharedAssets": {
+    "SkiTramTower45C_LOD1_BaseColor.png": "SkiTramTower45C_BaseColor.png",
+    "SkiTramTower45C_LOD1_ControlMask.png": "SkiTramTower45C_ControlMask.png",
+    "SkiTramTower45C_LOD1_MaskMap.png": "SkiTramTower45C_MaskMap.png",
+    "SkiTramTower45C_LOD1_Normal.png": "SkiTramTower45C_Normal.png",
+    "SkiTramTower45C_LOD2_BaseColor.png": "SkiTramTower45C_BaseColor.png",
+    "SkiTramTower45C_LOD2_ControlMask.png": "SkiTramTower45C_ControlMask.png",
+    "SkiTramTower45C_LOD2_MaskMap.png": "SkiTramTower45C_MaskMap.png",
+    "SkiTramTower45C_LOD2_Normal.png": "SkiTramTower45C_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  },
+  "useProceduralAnimation": true
+}

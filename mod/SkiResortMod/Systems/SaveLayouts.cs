@@ -75,6 +75,10 @@ namespace SkiResortMod.Systems
                 new LayoutVersion(1, 13, "m_GunSpacingM:i32 m_LightSpacingM:i32 m_AppliedKey:i32")),
             new Layout("SkiLodgeNumber", "LodgeNumber", KindComponent,
                 new LayoutVersion(1, 9, "m_Sign:entity m_Number:i32")),
+            new Layout("SkiTrackSnow", "TrackSnow", KindComponent,
+                new LayoutVersion(1, 5, "m_MadePermille:i32")),
+            new Layout("SkiRunName", "RunName", KindComponent,
+                new LayoutVersion(1, 6, "m_Index:i32 m_Form:u8")),
             new Layout("SkiMergedLodge", "MergedLodge", KindComponent,
                 new LayoutVersion(1, 11, "m_Tier:u8 m_Flags:u8 m_FeePaid:i32 m_Serial:i32")),
         };

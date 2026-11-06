@@ -204,11 +204,13 @@ namespace AutoGenBatch
             // Knobs
             Check(QuickRunsRules.ClampMix(2) == AutoMix.Expert && QuickRunsRules.ClampMix(7) == AutoMix.Balanced && QuickRunsRules.ClampMix(-1) == AutoMix.Balanced, W, "mix clamp");
             Check(QuickRunsRules.ClampDensity(2) == AutoDensity.Dense && QuickRunsRules.ClampDensity(3) == AutoDensity.Normal, W, "density clamp");
-            Check(QuickRunsRules.ClampKinds(0) == AutoKinds.Default && QuickRunsRules.ClampKinds(0x40) == AutoKinds.Default &&
-                  QuickRunsRules.ClampKinds(4) == AutoKinds.Snowmaking, W, "kinds clamp");
+            // R3: Groomed is always on; the chips are Natural, Snowmaking and Night (DECISIONS 578).
+            Check(QuickRunsRules.ClampKinds(0) == AutoKinds.Groomed && QuickRunsRules.ClampKinds(0x40) == AutoKinds.Groomed &&
+                  QuickRunsRules.ClampKinds(4) == (AutoKinds.Groomed | AutoKinds.Snowmaking), W, "kinds clamp");
             Check(QuickRunsRules.ToggleKind(AutoKinds.Default, AutoKinds.Snowmaking) == (AutoKinds.Default | AutoKinds.Snowmaking), W, "kind on");
             Check(QuickRunsRules.ToggleKind(AutoKinds.Default, AutoKinds.Natural) == AutoKinds.Groomed, W, "kind off");
-            Check(QuickRunsRules.ToggleKind(AutoKinds.Groomed, AutoKinds.Groomed) == AutoKinds.Groomed, W, "the last kind stays on");
+            Check(QuickRunsRules.ToggleKind(AutoKinds.Groomed, AutoKinds.Groomed) == AutoKinds.Groomed, W, "Groomed stays on");
+            Check(QuickRunsRules.ToggleKind(AutoKinds.Natural, AutoKinds.Natural) == AutoKinds.Groomed, W, "natural off leaves groomed");
 
             // Tree line
             Check(QuickRunsRules.ClampTreeLine(float.NaN, 1000, 1400) == 1410 && QuickRunsRules.ClampTreeLine(900, 1000, 1400) == 1000 &&

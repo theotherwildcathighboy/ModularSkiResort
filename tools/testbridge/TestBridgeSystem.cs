@@ -88,7 +88,7 @@ namespace SkiTestBridge
                 case "hover": return Hover();
                 case "project": return ProjectCommand(args);
                 case "camera": SetCamera(args); return CameraState();
-                case "photo": GameManager.instance.StartCoroutine(Photo((string)args["name"] ?? "shot", (bool?)args["ui"] ?? false)); return new JObject { ["ok"] = true };
+                case "photo": return PhotoCommand(args);
                 case "sim": return SetSimulation(args);
                 case "time": m_Time.DebugAdvanceTime((int)args["minutes"]); return TimeState();
                 case "money": return AddMoney(args);
@@ -116,6 +116,7 @@ namespace SkiTestBridge
                 case "u1probe": return U1ProbeCommand(args);
                 case "bone": return BoneCommand(args);
                 case "mprobe": return MergeProbe(args);
+                case "trains": return TrainsCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }
@@ -213,18 +214,33 @@ namespace SkiTestBridge
                 && screen.y > marginY && screen.y < Screen.height - marginY;
         }
 
-        // Photo Mode's capture (PhotoModeUISystem.CaptureScreenshot), so the file is what its button would save. The newest
-        // <name>.png lands in Screenshots under the game's user data folder.
-        private static System.Collections.IEnumerator Photo(string name, bool withUI)
+        // `name` is a bare file name (no folder parts, ".png" appended); `dir` is an absolute folder the caller picks, so a test
+        // collects its shots where it reports them (default: Screenshots under the game's user data folder). The folder is
+        // created here, so a bad `dir` fails this reply instead of the capture frame. The reply's `path` is the file to read.
+        private static JObject PhotoCommand(JObject args)
+        {
+            string name = (string)args["name"] ?? "shot";
+            if (name.Length == 0 || name.Trim('.').Length == 0 || name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
+                throw new ArgumentException($"photo: name '{name}' must be a bare file name; put the folder in dir");
+            string dir = (string)args["dir"];
+            if (dir != null && !System.IO.Path.IsPathRooted(dir))
+                throw new ArgumentException($"photo: dir '{dir}' must be an absolute path");
+            string folder = System.IO.Path.GetFullPath(dir ?? System.IO.Path.Combine(Application.persistentDataPath, "Screenshots"));
+            System.IO.Directory.CreateDirectory(folder);
+            string path = System.IO.Path.Combine(folder, name + ".png");
+            GameManager.instance.StartCoroutine(Photo(path, (bool?)args["ui"] ?? false));
+            return new JObject { ["path"] = path };
+        }
+
+        // Photo Mode's capture (PhotoModeUISystem.CaptureScreenshot), so the file is what its button would save.
+        private static System.Collections.IEnumerator Photo(string path, bool withUI)
         {
             var ui = GameManager.instance.userInterface;
             if (ui != null && !withUI)
                 ui.view.enabled = false;
             yield return new WaitForEndOfFrame();
             Texture2D texture = Colossal.PSI.Common.PlatformManager.instance.TakeScreenshotAsTexture();
-            string folder = System.IO.Path.Combine(Application.persistentDataPath, "Screenshots");
-            System.IO.Directory.CreateDirectory(folder);
-            System.IO.File.WriteAllBytes(System.IO.Path.Combine(folder, name + ".png"), texture.EncodeToPNG());
+            System.IO.File.WriteAllBytes(path, texture.EncodeToPNG());
             UnityEngine.Object.Destroy(texture);
             if (ui != null)
                 ui.view.enabled = true;

@@ -172,7 +172,6 @@ namespace SkiResortMod.Systems
                 HouseholdResources = m_ResourcesLookup,
                 PlayerMoneys = m_PlayerMoneyLookup,
                 FeeQueue = feeQueue,
-                BookAsFees = (byte)(BookAsFees ? 1 : 0),
                 City = m_CitySystem.City,
                 Targets = m_SaleTargets.AsArray(),
                 Writes = m_SaleWrites,
@@ -255,7 +254,7 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"Passes [season sale] ski area {Fmt(m_SaleSign)} season {m_SaleSeasonKey}: pool {r.Pool} resident household(s) within reach " +
                          $"with no standing, offered {r.Offered} (rolled in at {PassShare} % × their ski-day chance as pass holders, mean p {meanP}), " +
                          $"bought {r.Bought} +{r.Income} ({PassMultiplier} × the lift ticket {Price} = {m_SalePassPrice} each, " +
-                         $"{(BookAsFees ? "booked as public transportation fees" : "added directly")}), could not pay {r.CannotPay}, rolled out {declined}; " +
+                         "booked as public transportation fees), could not pay {r.CannotPay}, rolled out {declined}; " +
                          $"cost: scheduled in {m_SaleScheduleMs:F2} ms, applied in {applyMs:F2} ms, waited {waitMs:F2} ms for the job " +
                          "(once per ski area per season)");
         }
@@ -275,9 +274,8 @@ namespace SkiResortMod.Systems
             [ReadOnly] public ComponentLookup<Game.Objects.Transform> Transforms;
             [ReadOnly] public BufferLookup<Game.Vehicles.OwnedVehicle> OwnedVehicles;
             public BufferLookup<GameResources> HouseholdResources;
-            public ComponentLookup<PlayerMoney> PlayerMoneys;
+            [ReadOnly] public ComponentLookup<PlayerMoney> PlayerMoneys;   // HasComponent(City) only
             public NativeQueue<ServiceFeeSystem.FeeEvent> FeeQueue;
-            public byte BookAsFees;
             public Entity City;
             [ReadOnly] public NativeArray<float2> Targets;
             public NativeList<PassWrite> Writes;
@@ -289,7 +287,6 @@ namespace SkiResortMod.Systems
             {
                 SaleResult res = default;
                 bool cityOk = City != Entity.Null && PlayerMoneys.HasComponent(City);
-                long credited = 0;
                 for (int c = 0; c < Chunks.Length; c++)
                 {
                     ArchetypeChunk chunk = Chunks[c];
@@ -338,19 +335,14 @@ namespace SkiResortMod.Systems
                             res.Offered++;
                             res.Bought++;
                             res.Income += PassPrice;
-                            if (BookAsFees != 0)
+                            res.Booked += PassPrice;
+                            FeeQueue.Enqueue(new ServiceFeeSystem.FeeEvent
                             {
-                                res.Booked += PassPrice;
-                                FeeQueue.Enqueue(new ServiceFeeSystem.FeeEvent
-                                {
-                                    m_Amount = 1f,
-                                    m_Cost = PassPrice,
-                                    m_Resource = PlayerResource.PublicTransport,
-                                    m_Outside = false,
-                                });
-                            }
-                            else
-                                credited += PassPrice;
+                                m_Amount = 1f,
+                                m_Cost = PassPrice,
+                                m_Resource = PlayerResource.PublicTransport,
+                                m_Outside = false,
+                            });
                             Writes.Add(new PassWrite { Household = hh, SeasonKey = SeasonKey, PricePaid = PassPrice });
                         }
                         else
@@ -370,12 +362,6 @@ namespace SkiResortMod.Systems
                             });
                         }
                     }
-                }
-                if (credited > 0)
-                {
-                    PlayerMoney money = PlayerMoneys[City];
-                    money.Add((int)math.min(credited, (long)int.MaxValue));
-                    PlayerMoneys[City] = money;
                 }
                 Result[0] = res;
             }

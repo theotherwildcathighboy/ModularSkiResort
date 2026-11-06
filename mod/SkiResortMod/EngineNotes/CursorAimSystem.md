@@ -15,7 +15,7 @@ m_ToolRaycastSystem.rayOffset = new float3(0, -component4.m_DefaultSurfaceHeight
 
 That is, the cursor aims at a plane `m_DefaultSurfaceHeight.max` above the terrain hit. `m_DefaultSurfaceHeight` is written once at
 prefab init (`NetInitializeSystem` line 139, copying the flags=0 composition's `m_SurfaceHeight`, which for surface-less pieces is
-`center(m_HeightRange)`, `NetCompositionHelpers` ~986). Our band {6,20} would aim at 13 m; this system rewrites the prefab field to the
+`center(m_HeightRange)`, `NetCompositionHelpers` ~986). Our band (FG {4, 8.5}) would aim at about 6 m; this system rewrites the prefab field to the
 lift's `AimHeightM` after init, and the aim plane rides the tower head.
 
 ## Other consumers of NetGeometryData.m_DefaultSurfaceHeight

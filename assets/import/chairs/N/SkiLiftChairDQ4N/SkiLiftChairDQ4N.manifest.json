@@ -1,0 +1,456 @@
+{
+  "name": "SkiLiftChairDQ4N",
+  "written_utc": "2026-11-03T20:15:22Z",
+  "blender": "5.2.3 LTS",
+  "files": {
+    "SkiLiftChairDQ4N.fbx": {
+      "bytes": 71852,
+      "sha1": "8b60702043ffb3e3b83e5288f88ec58564965b84"
+    },
+    "SkiLiftChairDQ4N_BaseColor.png": {
+      "bytes": 168915,
+      "sha1": "36caa4fa48694de1d176a2b2d579982182e1505b"
+    },
+    "SkiLiftChairDQ4N_ControlMask.png": {
+      "bytes": 15278,
+      "sha1": "2826bb9e1acd5495a29882e177bebb96a076bb02"
+    },
+    "SkiLiftChairDQ4N_LOD1.fbx": {
+      "bytes": 41452,
+      "sha1": "598c21c6a661b410e24381c99ff7502c9e39bd8b"
+    },
+    "SkiLiftChairDQ4N_LOD2.fbx": {
+      "bytes": 21468,
+      "sha1": "f3cdfdf759c420f2c2d3d44fbcb0b65c7ce9ca1a"
+    },
+    "SkiLiftChairDQ4N_MaskMap.png": {
+      "bytes": 64802,
+      "sha1": "27d5725a80e5bd0b76a286db13b77ea48ea18bfc"
+    },
+    "SkiLiftChairDQ4N_Normal.png": {
+      "bytes": 26507,
+      "sha1": "4201046c6a1693271f9b45dc7cb1966b0cc001cf"
+    },
+    "settings.json": {
+      "bytes": 719,
+      "sha1": "712be63195e94861157f5ff8b6350364e05985f6"
+    }
+  },
+  "generator": "lift_chair.py --split",
+  "style": "dq",
+  "letter": "N",
+  "kind": "hanging",
+  "carrier": {
+    "dq": {
+      "object_prefab": "SkiLiftChairDQ4",
+      "mesh_base": "SkiLiftChairDQ4",
+      "line_prefab": "SkiDetachableHV",
+      "seats": 4,
+      "seat_pitch_m": 0.6,
+      "bench_m": 2.4,
+      "hang_m": 3.3,
+      "grip_top_above_rope_m": 0.22,
+      "lane_x_m": 2.6,
+      "axle_m": 8.0,
+      "spacing_m": 30.0,
+      "mast_r_m": 0.5,
+      "lift_type": "detachable",
+      "speed_mps": 5.0
+    }
+  },
+  "tris": {
+    "LOD0": 752,
+    "LOD1": 279,
+    "LOD2": 96
+  },
+  "caps": {
+    "kind": "hanging",
+    "lod0_cap": 752,
+    "lod2_cap": 96,
+    "expected_lods": [
+      1,
+      2
+    ]
+  },
+  "part_table": [
+    "knuckle",
+    "tube_hanger",
+    "clampblock",
+    "plate_face",
+    "tube_hoop",
+    "armrest_0",
+    "armrest_1",
+    "armpost_0",
+    "armpost_1",
+    "barhinge_0",
+    "barhinge_1",
+    "barlink",
+    "footstem_0",
+    "footstem_1",
+    "footbar_0",
+    "footbar_1",
+    "seatpan",
+    "backboard",
+    "cushion_0",
+    "cushion_1",
+    "cushion_2",
+    "cushion_3",
+    "pad_0",
+    "pad_1",
+    "pad_2",
+    "pad_3"
+  ],
+  "part_tris": {
+    "knuckle": 48,
+    "tube_hanger": 80,
+    "clampblock": 12,
+    "plate_face": 2,
+    "tube_hoop": 168,
+    "armrest_0": 18,
+    "armrest_1": 18,
+    "armpost_0": 8,
+    "armpost_1": 8,
+    "barhinge_0": 18,
+    "barhinge_1": 18,
+    "barlink": 84,
+    "footstem_0": 8,
+    "footstem_1": 8,
+    "footbar_0": 24,
+    "footbar_1": 24,
+    "seatpan": 12,
+    "backboard": 10,
+    "cushion_0": 26,
+    "cushion_1": 26,
+    "cushion_2": 26,
+    "cushion_3": 26,
+    "pad_0": 20,
+    "pad_1": 20,
+    "pad_2": 20,
+    "pad_3": 20
+  },
+  "contracts": {
+    "pivot": "z 0 .. 2.8765",
+    "atlas": {
+      "C11": "quad 2 0.800, quad 3 0.792; every face in its family quad"
+    },
+    "finish": {
+      "C12": "bench 61908 / paint 12792 / galv 4093 texels as recolored; plate 315 dark texels"
+    },
+    "pivot_LOD1": "z 0 .. 2.8765",
+    "pivot_LOD2": "z 0 .. 2.8765"
+  },
+  "lod_switch": {
+    "csum": 6.3361914325505495,
+    "bias": 0.4004709222421432,
+    "distances": [
+      38.04448838504582,
+      62.45950913633184,
+      106.47926678823023
+    ],
+    "switch": {
+      "1": 62.45950913633184,
+      "2": 106.47926678823023
+    },
+    "cull": 1043.2799736967747
+  },
+  "density": {
+    "median": 72.76,
+    "min": 50.93,
+    "min_part": "backboard",
+    "max": 181.9,
+    "parts": 26,
+    "uv_layer": "UVUnique"
+  },
+  "bake": {
+    "A": 512,
+    "margin_px": 3,
+    "ao": "self",
+    "uncovered_texels": 182487,
+    "files": [
+      "SkiLiftChairDQ4N_BaseColor.png",
+      "SkiLiftChairDQ4N_Normal.png",
+      "SkiLiftChairDQ4N_MaskMap.png",
+      "SkiLiftChairDQ4N_ControlMask.png"
+    ],
+    "px_per_m": {
+      "min": 48.269517838264754,
+      "median": 73.15670508283239,
+      "max": 181.9007234619526
+    }
+  },
+  "lod2": "proxy",
+  "verify": {
+    "height_m": 2.8764999303760463,
+    "levels_ok": [
+      true,
+      true,
+      true
+    ],
+    "normals_per_vertex": {
+      "1": 232,
+      "2": 192,
+      "3": 36
+    }
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 0,
+    "warn_list": []
+  },
+  "split": {
+    "role": "body",
+    "partner": "SkiLiftChairDQ4GripN",
+    "pivot": {
+      "frame_note": "authoring = (x travel, y lateral, z up); prefab = (x lateral, y up, z travel) = FBX raw / prefab-local; outboard = authoring -Y",
+      "grip_origin_in_assembled_m": [
+        0.0,
+        0.0,
+        2.7645
+      ],
+      "body_origin_in_assembled_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "grip_rope_point_m": {
+        "authoring": [
+          0.0,
+          0.0,
+          0.3155
+        ],
+        "prefab": [
+          0.0,
+          0.3155,
+          0.0
+        ]
+      },
+      "grip_pin_center_m": {
+        "authoring": [
+          0.0,
+          -0.2459,
+          0.058
+        ],
+        "prefab": [
+          -0.2459,
+          0.058,
+          0.0
+        ]
+      },
+      "body_pin_center_m": {
+        "authoring": [
+          0.0,
+          -0.2459,
+          2.8225
+        ],
+        "prefab": [
+          -0.2459,
+          2.8225,
+          0.0
+        ]
+      },
+      "hang_m": 3.3,
+      "grip_top_above_rope_m": 0.22,
+      "pin_axis": "lateral (authoring y = prefab x)",
+      "grip_height_m": 0.5355,
+      "body_height_m": 2.8765
+    },
+    "S1_rejoin": {
+      "old_vertices_checked": 632,
+      "old_vertices_in_joint_zone": 8,
+      "new_vertices_checked": 632,
+      "new_vertices_in_joint_zone": 112,
+      "max_old_to_new_mm": 0.0,
+      "max_new_to_old_mm": 0.0,
+      "joint_zone_r_m": 0.17,
+      "tol_mm": 2.0
+    },
+    "S2_S3_sweep": {
+      "poses": 57,
+      "pitch_deg": [
+        -45.0,
+        45.0,
+        5.0
+      ],
+      "fore_aft_deg": [
+        -3.0,
+        3.0
+      ],
+      "pin_rel_deg": [
+        -48.0,
+        48.0
+      ],
+      "roll_deg": [
+        0.0,
+        0.0
+      ],
+      "assembly_roll_note": "cross-wind sway = grip + body rolled together about the rope point (chairs / gondola <= 8 deg, tram <= 2 deg about the track rope): nothing turns at the pin, no joint check",
+      "clash_poses": 0,
+      "first_clashes": [],
+      "gap_mm_min": 3.5,
+      "gap_mm_max": 3.5,
+      "gap_max_at": [
+        -45.0,
+        -3.0,
+        "hangercheek_0"
+      ],
+      "gap_limit_mm": 5.0,
+      "slot_floor_mm": [
+        3.5,
+        7.43
+      ]
+    },
+    "pair_contracts": {
+      "LOD0": {
+        "C1": "z 0 .. 3.3000 (hang 3.300)",
+        "C2": "top owned by gripbody",
+        "C3": "rope z 3.080 inside gripbody, jaw bottom 3.0860",
+        "C4": "bottom owned by footbar",
+        "C5": "tube_hanger 10, tube_hoop 14 rings",
+        "C6": "width 2.500, passing 2.700, mast gap 1.350",
+        "C7": "hanger y -0.337 .. 0.026 (outboard -0.026 .. 0.337, outboard = -Y)",
+        "C8": "1208 tris",
+        "C9": "43 parts as contracted",
+        "C13": "bar swings 95 deg about the side-frame hinge (x -0.096, z 0.870, 0.470 above the cushion) in 12 steps x 4: no contact, min clearance 0.033 m at 95 deg (tube_hoop), riders 0.039 m at 0 deg (rider 1 thighs; heads / torsos 0.162 at 95 deg); DOWN lap bar 0.200 above the cushion, 0.013 ahead of the knees; UP lap bar at x 0.122 z 1.468, bottom 1.444 (1.044 above the cushion; head top 1.300, backrest top 0.958, +0.096 vs the face line); first contact 4.0 deg past UP (clampblock)",
+        "C14": "gripbody 6 big faces flat (corner normals <= 0.03 deg off)"
+      },
+      "LOD1": {
+        "C1": "z 0 .. 3.3000 (hang 3.300)",
+        "C2": "top owned by gripbody",
+        "C3": "rope z 3.080 inside gripbody, jaw bottom 3.0860",
+        "C4": "bottom owned by footbar",
+        "C6": "width 2.516, passing 2.684, mast gap 1.342",
+        "C8": "459 tris"
+      },
+      "LOD2": {
+        "C1": "z 0 .. 3.3000 (hang 3.300)",
+        "C2": "top owned by gripbody",
+        "C3": "rope z 3.080 inside gripbody",
+        "C4": "bottom owned by footbar",
+        "C6": "width 2.519, passing 2.681, mast gap 1.340",
+        "C8": "116 tris"
+      },
+      "silhouette": {
+        "LOD1/front/bench": [
+          1.0,
+          0.0
+        ],
+        "LOD1/front/hanger": [
+          1.0,
+          0.0
+        ],
+        "LOD1/front/topbar": [
+          1.0,
+          0.0
+        ],
+        "LOD1/side/bench": [
+          0.972,
+          0.0
+        ],
+        "LOD1/side/hanger": [
+          0.968,
+          0.0
+        ],
+        "LOD1/side/topbar": [
+          1.0,
+          0.0
+        ],
+        "LOD2/front/bench": [
+          1.0,
+          0.0
+        ],
+        "LOD2/front/hanger": [
+          0.997,
+          0.027
+        ],
+        "LOD2/front/topbar": [
+          1.0,
+          0.0
+        ],
+        "LOD2/side/bench": [
+          0.825,
+          0.031
+        ],
+        "LOD2/side/hanger": [
+          0.962,
+          0.0
+        ],
+        "LOD2/side/topbar": [
+          0.867,
+          0.0
+        ]
+      }
+    },
+    "pair_style": {
+      "lod0_cap": 1208,
+      "lod1_target": 460,
+      "lod2_cap": 118,
+      "pin_detail": 156,
+      "pin_detail_lod2": 18,
+      "segs_detail": 56,
+      "cap_raise": 52
+    },
+    "joint": {
+      "cheeks": [
+        "hangercheek_0",
+        "hangercheek_1"
+      ],
+      "floor": [
+        "hangerhead"
+      ],
+      "rope": [
+        0.0,
+        0.0,
+        3.0799999999999996
+      ],
+      "replaced": [],
+      "pin": [
+        0.0,
+        -0.24589043674698788,
+        2.8225000000000007
+      ],
+      "knuckles": [
+        "knuckle"
+      ],
+      "r_x": 0.17,
+      "z_shift": 1.6987026896231328e-08,
+      "axis_dir": [
+        0.0,
+        -0.04889,
+        -0.9988
+      ],
+      "knuckle_r": 0.054,
+      "gap_c": 0.0035,
+      "cheek_inner": 0.0575,
+      "cheek_outer": 0.07350000000000001,
+      "cheek_r": 0.058
+    },
+    "replaces": "SkiLiftChairDQ4M (one piece)"
+  },
+  "hanger_offset_m": 0.3,
+  "args": {
+    "style": "dq",
+    "out": "assets/import/chairs/N",
+    "letter": null,
+    "name": null,
+    "seats": null,
+    "preview": "assets/preview/carrier-split/rig",
+    "finish": false,
+    "bake": null,
+    "lods": false,
+    "lod2": null,
+    "verify": true,
+    "plate_number": "27",
+    "hanger_offset": null,
+    "carriers": "catalog/carriers.json",
+    "ab": null,
+    "basecolor": [
+      0.13,
+      0.16,
+      0.22
+    ],
+    "metallic": 0.1,
+    "smoothness": 0.35,
+    "review": null,
+    "split": true
+  }
+}

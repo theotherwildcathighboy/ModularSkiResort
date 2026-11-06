@@ -8,15 +8,21 @@ contracts; this test asserts the numbers one asset hands to another:
      gauge / 2 == the lane; FG8 axle == the line axle; ET62 / ET68 axle == the top / base HV sub-lane
      outboard end y; the inboard end = axle + 0.03) == SkiCatalog.cs (WheelLocal, StubTipLocalZ)
      == the deployed K building prefabs (HV ends, hosted tower pose).
-  2. EXPORTS: the shipped manifests (chairs/M 6M, towers/O ET62O / ET68O, stations/fixedgrip/M)
-     agree with each other and with the code; the station manifests' frozen block is the deployed
-     prefab, re-parsed now (sha256 of the canonical JSON). A missing folder is skipped with a note.
-  3. GEOMETRY on the SHIPPED FBXs (cm, raw frame (y, z, x) of authoring):
-     H1 hang: the 6M chair's top - lowest point == 2.400 (+-1e-4); its cushion 0.15 over the lowest.
+  2. EXPORTS: the manifests of the generation the GAME DRAWS agree with each other and with the code. That
+     generation is resolved, never named: each deployed prefab in gamedata-mirror (SkiBaseStationBuilding /
+     SkiTopStationBuilding, their hosted SkiLiftTerminalTowerBase / Top, the chair object prefab of
+     catalog/carriers.json tr and its grip prefab) names its mesh by CID; the mesh prefab's name is the export
+     folder under assets/import (N stations, P towers, N chair + grip when this was written), so the next
+     letter cannot strand the test. The one check that is explicitly about generation M is M1: the M station
+     manifests' frozen block is the deployed prefab, re-parsed now (sha256 of the canonical JSON; tools/
+     check-lift-align.js MANIFESTSHA pins the same sha at preflight). A missing folder is skipped with a note.
+  3. GEOMETRY on the LIVE generation's FBXs (cm, raw frame (y, z, x) of authoring); the chair is the split
+     pair, the body plus the grip placed at its assembled origin:
+     H1 hang: the chair's top - lowest point == 2.400 (+-1e-4); its cushion 0.15 over the lowest.
      H2 the station's rope torus center == WheelLocal (+-2 mm) and r == lane (+-5 mm).
      H3 seat height: the shipped chair at the UP-lane tangent (grip top = the lane, ChairPinSystem),
         cushion over the shipped surface below it (base: carpet, top: crest) in [0.45, 0.55].
-     S8 hosted seam: the shipped ET68O / ET62O (LOD0, LOD1) at the hosted pose (0, 0, -6.9 / -4.9),
+     S8 hosted seam: the live hosted ET68 / ET62 tower (LOD0, LOD1) at the hosted pose (0, 0, -6.9 / -4.9),
         rot 180, vs the shipped station LOD0 / LOD1 minus its rope faces (every vertex within rope
         r + 5 mm of a chord / the torus) - no face within 0.10 m.
      S9 (nitpick A2, 2026-10-13; build/nitpick-a2-hanger-gondola.md) the tr chair (code) through every
@@ -73,6 +79,83 @@ def manifest(rel, name):
         return json.load(fh)
 
 
+_MESH_RE = re.compile(r"^(?P<n>.+?) Mesh_[0-9a-f]{32}.Prefab.cid$")
+_MESH_BY_CID = {}
+
+
+def mesh_by_cid():
+    """CID -> the LOD0 mesh prefab's folder name, from every '<Name> Mesh_<hash>.Prefab.cid' in gamedata-mirror."""
+    if not _MESH_BY_CID:
+        for dp, _dn, fns in os.walk(LT.GAMEDATA_M):
+            for f in fns:
+                m = _MESH_RE.match(f)
+                if m and "_LOD" not in m.group("n"):
+                    with open(os.path.join(dp, f), encoding="utf-8") as fh:
+                        _MESH_BY_CID[fh.read().strip().lower()] = m.group("n")
+    return _MESH_BY_CID
+
+
+def live_name(prefab_path):
+    """The mesh name a deployed (mirror) prefab draws: m_Meshes[0].m_Mesh CID -> the mesh prefab's name."""
+    ref = LT._prefab_json(prefab_path)["m_Meshes"]["$rcontent"][0]["m_Mesh"]
+    cid = ref.split("CID:")[-1].lower()
+    name = mesh_by_cid().get(cid)
+    if name is None:
+        raise AssertionError(f"{os.path.basename(prefab_path)}: m_Mesh CID {cid} names no mesh prefab in gamedata-mirror")
+    return name
+
+
+def export_dir(name):
+    """assets/import/<kind>/<letter>/<name> for an export folder name (archive/ skipped); None when not exported."""
+    for dp, dn, _f in os.walk(IMPORT):
+        dn[:] = [x for x in dn if x != "archive"]
+        if name in dn:
+            return os.path.join(dp, name)
+    return None
+
+
+def mirror_prefab(name):
+    """The mirror's .Prefab of a gameplay prefab: <name>/<name>.Prefab at the top, else the library layout."""
+    p = os.path.join(LT.GAMEDATA_M, name, name + ".Prefab")
+    if os.path.isfile(p):
+        return p
+    for dp, dn, fns in os.walk(LT.GAMEDATA_M):
+        for f in fns:
+            if f.startswith(name + "_") and f.endswith(".Prefab") and os.path.basename(dp) == name:
+                return os.path.join(dp, f)
+    raise AssertionError(f"no {name} prefab in gamedata-mirror")
+
+
+LIVE = {}
+
+
+def resolve_live(tr):
+    """The generation the game draws, from the live m_Mesh CIDs (never a hard-coded letter)."""
+    for kind in ("drive", "return"):
+        sp = LT.M_SPECS[kind]
+        LIVE[kind] = {"station": live_name(mirror_prefab(sp.building)), "tower": live_name(mirror_prefab(sp.tower_prefab))}
+    LIVE["chair"] = live_name(mirror_prefab(tr["object_prefab"]))
+    LIVE["grip"] = live_name(mirror_prefab(tr["object_prefab"] + "Grip"))
+    print("[fg-seams] live generation (gamedata-mirror m_Mesh -> assets/import):",
+          {k: (v if isinstance(v, str) else dict(v)) for k, v in LIVE.items()})
+
+
+def live_manifest(name):
+    d = export_dir(name)
+    p = None if d is None else os.path.join(d, f"{name}.manifest.json")
+    if p is None or not os.path.isfile(p):
+        NOTES.append(f"skipped live {name}")
+        print(f"  skip {name}: no manifest")
+        return None
+    with open(p, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def live_fbx(name, suffix=""):
+    d = export_dir(name)
+    return None if d is None else os.path.join(d, f"{name}{suffix}.fbx")
+
+
 def raw_mesh(path):
     """Shipped FBX -> (authoring coords m (fz, fx, fy), triangles)."""
     objs = cs2_validate.import_fbx_temp(path)
@@ -109,8 +192,11 @@ def code_seams():
         check(close(sp.anchor_out[1], ax) and close(sp.anchor_in[1], ax + 0.03, 1e-6),
               f"S1 {et} axle {ax} == the {kind} HV sub-lane ends {sp.anchor_out[1]} / {sp.anchor_in[1]} (+0.03)")
         rep = LT.m1_frozen(kind)      # raises on SkiCatalog / carriers / deployed-prefab drift
-        check(rep["hosted_tower"]["position"][2] == sp.tower_x, f"S1 {kind} hosted {et} at z {sp.tower_x} "
-                                                                  f"(deployed prefab, rot 180)")
+        if rep["hosted_tower"] is None:   # art-601: the drive base ships without its ET68 (the nose train holds the rope)
+            check(kind == "drive", f"S1 {kind}: no hosted {et} in the deployed prefab (art-601 nose-train base)")
+        else:
+            check(rep["hosted_tower"]["position"][2] == sp.tower_x, f"S1 {kind} hosted {et} at z {sp.tower_x} "
+                                                                      f"(deployed prefab, rot 180)")
         check(close(rep["code"]["WheelLocal_game"][1], sp.wheel[2]) and close(rep["code"]["WheelLocal_game"][2],
                                                                                sp.wheel[0]),
               f"S1 {kind} WheelLocal {rep['code']['WheelLocal_game']} == the station rope datum")
@@ -118,40 +204,50 @@ def code_seams():
 
 
 def export_seams(tr):
-    print("[fg-seams] 2. exports")
-    ch = manifest("chairs/M", "SkiLiftChair6M")
-    if ch:
-        check(close(ch["verify"]["height_m"], tr["hang_m"], 1e-4), "H1 shipped 6M verified hang == 2.400",
-              f"({ch['verify']['height_m']:.5f})")
-    for kind, et, st in (("drive", "SkiLiftTowerET68O", "SkiLiftBaseStationM"),
-                         ("return", "SkiLiftTowerET62O", "SkiLiftTopStationM")):
-        t = manifest("towers/O", et)
+    print("[fg-seams] 2. exports (the live generation; M1 is the one generation-M check)")
+    cn, gn = LIVE["chair"], LIVE["grip"]
+    ch, gr = live_manifest(cn), live_manifest(gn)
+    if ch and gr:
+        # the live chair is a split pair: the body's own height is less than the hang; the assembled pair's is
+        # grip origin (in the assembled frame) + grip height, and both manifests carry the same pivots
+        pv = ch["split"]["pivot"]
+        check(pv == gr["split"]["pivot"], f"H1 {cn} / {gn} manifests carry the same pivots")
+        hang = pv["grip_origin_in_assembled_m"][2] + pv["grip_height_m"]
+        check(close(hang, tr["hang_m"], 1e-4) and close(pv["hang_m"], tr["hang_m"], 1e-4),
+              f"H1 live {cn} + {gn} assembled hang == 2.400", f"({hang:.5f}; body {ch['verify']['height_m']:.5f})")
+    for kind in ("drive", "return"):
+        et, st = LIVE[kind]["tower"], LIVE[kind]["station"]
+        t = live_manifest(et)
         sp = LT.M_SPECS[kind]
         if t:
             check(close(t["axle"], sp.anchor_out[1]) and close(t["gauge"], 2 * tr["lane_x_m"]),
-                  f"S1 shipped {et} axle {t['axle']} / gauge {t['gauge']} == the station")
-        m = manifest("stations/fixedgrip/M", st)
+                  f"S1 live {et} axle {t['axle']} / gauge {t['gauge']} == the station")
+        st_m = {"drive": "SkiLiftBaseStationM", "return": "SkiLiftTopStationM"}[kind]
+        m = manifest("stations/fixedgrip/M", st_m)
         if m:
             pc = m["prefab_contract"]
             fz, _old, sha, _p = LT.frozen_block_m(kind)
             canon = json.dumps(fz, sort_keys=True).encode("utf-8")
             check(json.dumps(pc["frozen"], sort_keys=True).encode("utf-8") == canon and
                   pc["frozen_sha256"] == hashlib.sha256(canon).hexdigest() and pc["source_sha256"] == sha,
-                  f"M1 {st} frozen block == the deployed {sp.building} (byte-identical canonical JSON, "
-                  f"file sha256 {sha[:12]})")
-            c4 = m["contracts"]["M4"]
-            check(0.45 <= c4["cushion_over"] <= 0.55, f"H3 {st} manifest cushion {c4['cushion_over']} in window")
-            c2 = m["contracts"]["M2"]
+                  f"M1 {st_m} (generation M) frozen block == the deployed {sp.building} (byte-identical canonical "
+                  f"JSON, file sha256 {sha[:12]})")
+        lm = live_manifest(st)
+        if lm:
+            c4 = lm["contracts"]["M4"]
+            check(0.45 <= c4["cushion_over"] <= 0.55, f"H3 live {st} manifest cushion {c4['cushion_over']} in window")
+            c2 = lm["contracts"]["M2"]
             check(close(c2["torus_z"], sp.wheel[2], 0.002) and close(c2["torus_R"], tr["lane_x_m"], 0.005),
-                  f"H2 {st} manifest torus {c2['torus_R']} at {c2['torus_z']}")
+                  f"H2 live {st} manifest torus {c2['torus_R']} at {c2['torus_z']}")
 
 
-def rope_faces(co, tris, spec):
-    """Faces whose every vertex lies within rope r + 5 mm of a chord line or of the torus."""
+def rope_faces(co, tris, spec, rope_r=None):
+    """Faces whose every vertex lies within rope r + 5 mm of a chord line or of the torus (rope_r: the asset's own
+    radius from its manifest, art-601 --thin-rope; default the shipped LT.M_ROPE_R)."""
     wx, _wy, wz = spec.wheel
     ax, az = spec.anchor_in
     near = np.zeros(len(co), dtype=bool)
-    rr = LT.M_ROPE_R + 0.005
+    rr = (LT.M_ROPE_R if rope_r is None else rope_r) + 0.005
     for s in (-1.0, 1.0):
         a = np.array([ax, s * LT.FG_LANE, az])
         b = np.array([wx, s * LT.FG_LANE, wz])
@@ -165,22 +261,46 @@ def rope_faces(co, tris, spec):
 
 
 def geometry_seams(tr):
-    print("[fg-seams] 3. geometry on the shipped FBXs")
-    ch_co, ch_tris = raw_mesh(os.path.join(LT.CHAIR_M_DIR, "SkiLiftChair6M.fbx"))
+    print("[fg-seams] 3. geometry on the live generation's FBXs")
+    cf, gf = live_fbx(LIVE["chair"]), live_fbx(LIVE["grip"])
+    if not (cf and gf and os.path.isfile(cf) and os.path.isfile(gf)):
+        NOTES.append("geometry chair skipped")
+        print(f"  skip chair {LIVE['chair']} + {LIVE['grip']}: not exported")
+        ch_co = None
+    else:
+        # the split pair assembled: the grip FBX sits at its assembled origin (the manifests' pivot, authoring z up)
+        with open(os.path.join(export_dir(LIVE["chair"]), LIVE["chair"] + ".manifest.json"), encoding="utf-8") as fh:
+            gz = json.load(fh)["split"]["pivot"]["grip_origin_in_assembled_m"]
+        body_co, _bt = raw_mesh(cf)
+        grip_co, _gt = raw_mesh(gf)
+        ch_co = np.concatenate([body_co, grip_co + np.array(gz)])
+    if ch_co is not None:
+        geometry_chair(ch_co, tr)
+    geometry_stations(tr)
+
+
+def geometry_chair(ch_co, tr):
     hang = float(ch_co[:, 2].max() - ch_co[:, 2].min())
     seat = ch_co[(np.abs(ch_co[:, 1]) < 0.70) & (ch_co[:, 2] < 0.25)]
     cushion = float(seat[:, 2].max() - ch_co[:, 2].min())
-    check(close(hang, tr["hang_m"], 1e-4), "H1 shipped 6M top - lowest == 2.400", f"({hang:.5f})")
-    check(close(cushion, LT.CHAIR_CUSHION, 0.002), "H1 shipped 6M cushion 0.15 over its lowest point", f"({cushion:.4f})")
-    for kind, st in (("drive", "SkiLiftBaseStationM"), ("return", "SkiLiftTopStationM")):
+    check(close(hang, tr["hang_m"], 1e-4), f"H1 live {LIVE['chair']} + {LIVE['grip']} top - lowest == 2.400", f"({hang:.5f})")
+    check(close(cushion, LT.CHAIR_CUSHION, 0.002), f"H1 live {LIVE['chair']} cushion 0.15 over its lowest point", f"({cushion:.4f})")
+    LIVE["cushion"] = cushion
+
+
+def geometry_stations(tr):
+    cushion = LIVE.get("cushion", LT.CHAIR_CUSHION)
+    for kind in ("drive", "return"):
+        st, tw = LIVE[kind]["station"], LIVE[kind]["tower"]
         sp = LT.M_SPECS[kind]
-        d = os.path.join(IMPORT, "stations", "fixedgrip", "M", st)
-        if not os.path.isdir(d):
+        d, td = export_dir(st), export_dir(tw)
+        if d is None or td is None or not os.path.isfile(os.path.join(d, f"{st}.fbx")) or                 not os.path.isfile(os.path.join(td, f"{tw}.fbx")):
             NOTES.append(f"geometry {st} skipped")
-            print(f"  skip {st}: not exported")
+            print(f"  skip {st} / {tw}: not exported")
             continue
         co, tris = raw_mesh(os.path.join(d, f"{st}.fbx"))
-        rf = rope_faces(co, tris, sp)
+        rr = (live_manifest(st) or {}).get("rope_r_m")         # per asset (art-601 --thin-rope)
+        rf = rope_faces(co, tris, sp, rr)
         T = co[tris[rf]].reshape(-1, 3)
         torus = T[(np.abs(T[:, 2] - sp.wheel[2]) < 0.07) & (T[:, 0] > sp.wheel[0] + 0.5)]
         R = np.hypot(torus[:, 0] - sp.wheel[0], torus[:, 1])
@@ -197,13 +317,17 @@ def geometry_seams(tr):
         check(over is not None and 0.45 <= over <= 0.55, f"H3 {st}: cushion over the shipped surface at the "
                                                           f"up-lane tangent in [0.45, 0.55]",
               f"({None if over is None else round(over, 4)})")
-        # S8: the hosted tower vs the station, both LODs
+        # S8: the hosted tower vs the station, both LODs (art-601: a deployed base without the hosted row has no
+        # ET68 to clear; its nose train sits where the tower stood)
+        if LT.hosted_row_m(kind) is None:
+            print(f"  S8 {st}: no hosted {tw} row in the deployed {sp.building}, skipped")
+            continue
         for sl in ("", "_LOD1"):
             sco, stris = raw_mesh(os.path.join(d, f"{st}{sl}.fbx"))
-            keep = stris[~rope_faces(sco, stris, sp)]
+            keep = stris[~rope_faces(sco, stris, sp, rr)]
             sb = BVHTree.FromPolygons(sco.tolist(), keep.tolist(), all_triangles=True)
             for tl in ("", "_LOD1"):
-                tco, ttris = raw_mesh(os.path.join(IMPORT, "towers", "O", sp.tower, f"{sp.tower}{tl}.fbx"))
+                tco, ttris = raw_mesh(os.path.join(td, f"{tw}{tl}.fbx"))
                 tco = np.stack([-tco[:, 0] + sp.tower_x, -tco[:, 1], tco[:, 2]], axis=1)
                 tb = BVHTree.FromPolygons(tco.tolist(), ttris.tolist(), all_triangles=True)
                 worst = 9.9
@@ -222,7 +346,7 @@ def geometry_seams(tr):
                     h = tb.find_nearest(Vector(q.tolist()), 0.15)
                     if h[0] is not None:
                         worst = min(worst, h[3])
-                check(worst >= 0.10 - 1e-6, f"S8 {st}{sl or ' LOD0'} x {sp.tower}{tl or ' LOD0'}: no face within "
+                check(worst >= 0.10 - 1e-6, f"S8 {st}{sl or ' LOD0'} x {tw}{tl or ' LOD0'}: no face within "
                                              f"0.10 (rope faces excluded)", f"({'> 0.15' if worst > 9 else round(worst, 3)})")
 
 
@@ -271,11 +395,26 @@ def s9_code():
     _s9_gate("Pali base hold-down", chair, (co, [tuple(int(v) for v in tris[i]) for i in k], [names[i] for i in k]),
              LT.FG_LANE, lambda x, s=spec: LT.chord_z(s, x))
     LT.clear_scene()
+    # art-601: the base without its hosted end tower (M_NOSE_TRAIN): the train at the sub-lane end, its king post + tie
+    LT.M_NOSE_TRAIN = True
+    try:
+        t, table, _src = LT.assemble_m(LT.build_base_m(), False, "drive")
+        co, tris, names, _ = LT.m_arrays(t)
+        k = [i for i, n in enumerate(names) if n.startswith(("sheave_hold_", "holdboom_", "holdhang_", "holdweb_",
+                                                              "holdclamp_", "holdplate_"))]
+        check(any(names[i].startswith("holdweb_") for i in k), "S9 nose-train base builds its holdweb_ parts")
+        _s9_gate("Pali base nose train (art-601)", chair,
+                 (co, [tuple(int(v) for v in tris[i]) for i in k], [names[i] for i in k]),
+                 LT.FG_LANE, lambda x, s=spec: LT.chord_z(s, x))
+    finally:
+        LT.M_NOSE_TRAIN = False
+        LT.clear_scene()
 
 
 def main():
     t0 = time.perf_counter()
     tr = code_seams()
+    resolve_live(tr)
     export_seams(tr)
     geometry_seams(tr)
     s9_code()
@@ -283,9 +422,9 @@ def main():
         print(f"FAIL test_fg_family_seams: {len(FAILS)} seam(s) broken: {FAILS}")
         sys.exit(1)
     print(f"PASS test_fg_family_seams: hang 2.400 / lane 1.8 / grip 0.080 agree in carriers, chair, towers, "
-          f"stations, SkiCatalog and the deployed K prefabs; the shipped chair sits in the seat window and the "
-          f"hosted ET68O / ET62O clear the shipped M stations (S8); S9 the tr grip clears every Yan tree "
-          f"(FG8-FG20, ET62 / ET68, the Pali base hold-down) on both spins - no mirror ({len(NOTES)} skipped, "
+          f"stations, SkiCatalog and the deployed K prefabs; the live chair (split pair) sits in the seat window and the "
+          f"live hosted towers clear the live stations (S8); S9 the tr grip clears every Yan tree "
+          f"(FG8-FG20, ET62 / ET68, the Pali base hold-down and its art-601 nose train) on both spins - no mirror ({len(NOTES)} skipped, "
           f"{time.perf_counter() - t0:.1f} s)")
 
 

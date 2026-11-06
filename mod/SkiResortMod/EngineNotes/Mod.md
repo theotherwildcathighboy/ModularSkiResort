@@ -44,7 +44,7 @@ lands after vanilla's for the same `UpdateFrame` slice and wins.
 
 Snow-line / climate oracle: pull-based, `Enabled = false`, no per-tick work. It is the one read of snow and season gating, the
 snowmaking margin, the ambient (`ClimateSystem.SampleClimate` at the current date) and the cached 24-hour day mean, pulled by the
-attraction score, the snow injection, the run decals and splats, and the hub. It logs the climate constants once per load.
+attraction score, the snow injection, the run decals, and the hub. It logs the climate constants once per load.
 
 ## Near SkiPrefabCatalogSystem
 
@@ -87,12 +87,6 @@ anchors directly before `LaneSystem` inside Modification4.
 hard-coupled to center(HeightRange) = 13. `CursorAimSystem` rewrites the prefab field to the tower head once per load: data only, no
 per-frame work (registered like `SnowLineSystem`: disabled, `OnGameLoadingComplete` only).
 
-## Near SkiRunSplatSystem
-
-Mirrors run polygons into the terrain-material user splatmap (polygons are data, the splat is paint). PreCulling runs every frame in
-Game AND Editor, paused included: area edits arrive through tool phases that ignore simulation pause, and the Created / Updated /
-Deleted tags live until `CleanUpSystem` (Cleanup phase), so a per-frame phase reliably sees every event. Anchored before the vanilla
-`TerrainMaterialSystem` so our `ApplyBrush` dabs execute before the same frame's splat cascade update composes them.
 
 ## Near SkiSnowInjectionSystem
 

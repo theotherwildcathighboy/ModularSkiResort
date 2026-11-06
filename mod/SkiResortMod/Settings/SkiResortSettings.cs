@@ -14,22 +14,9 @@ using SkiResortMod.Systems;
 
 namespace SkiResortMod.Settings
 {
-    /// <summary>Which terrain Extra material slot the splat system may claim for ski-run paint. Maps define up to four; many CO
-    /// maps fill all four, so Auto (free-only) finds nothing there. Force deliberately replaces that map material with our
-    /// snow/summer set (anywhere the map painted it shows runs' material instead).</summary>
-    public enum TerrainSlotPolicy
-    {
-        Auto,
-        ForceExtra1,
-        ForceExtra2,
-        ForceExtra3,
-        ForceExtra4,
-        Off,
-    }
-
     [FileLocation("ModsSettings/SkiResortMod/SkiResortMod")]
-    [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
-    [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
+    [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
+    [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
     // One keyboard action declaration per binding (conflict warnings; see engine notes)
     [SettingsUIKeyboardAction(ActToggleGlade)]
     [SettingsUIKeyboardAction(ActGladeNextVariant)]
@@ -74,7 +61,7 @@ namespace SkiResortMod.Settings
         public const bool DefaultGroomers = true;
         public const bool DefaultDiagnosticMeasurements = false;
         public const bool DefaultPlannerOnMainThread = false;
-        public const bool DefaultBookTicketsAsFees = true;
+        public const bool DefaultAnimatedLiftCarriers = true;
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;
         public const int DefaultLessonShare = SkiMoneyRules.LessonShareDefault;
@@ -141,13 +128,6 @@ namespace SkiResortMod.Settings
         [SettingsUISlider(min = 0f, max = LodgeSpendPerGuestMax, step = LodgeSpendPerGuestStep, unit = "money")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public int LodgeSpendPerGuest { get; set; }
-
-        /// <summary>On = each paid lift ticket, season pass, lesson and lodge spend is booked as a public transportation fee (a
-        /// ServiceFeeSystem FeeEvent, like the vanilla bus fare), so the income shows in the Economy panel and the budget credits the
-        /// treasury; off = a direct add to the city's balance. Read live by SkiLiftTicketSystem (ReadBookAsFees; true when settings are
-        /// not loaded). Default on.</summary>
-        [SettingsUISection(SectionMain, GroupBalance)]
-        public bool BookTicketsAsFees { get; set; }
 
         /// <summary>The share, in percent, of resident households that buy a season pass (rolled in the pre-season sale, or at the first
         /// ski of the season for households outside it); 0 = passes off. Read live by SkiLiftTicketSystem through
@@ -239,12 +219,6 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupSnow)]
         public float SnowmakingBonusCelsius { get; set; }
 
-
-        /// <summary>Slot policy for painting runs onto the terrain itself. Auto claims a free Extra slot only (many CO maps have none);
-        /// ForceExtraN sacrifices that map material (its paint under and around the runs is erased and stays erased once saved; never
-        /// claimed before the city has a run of ours); Off keeps the classic decal surfaces. Takes effect on load.</summary>
-        [SettingsUISection(SectionMain, GroupTerrain)]
-        public TerrainSlotPolicy TerrainSnowSlot { get; set; }
 
         // Runs: read live every frame by the consuming systems, so a change takes effect at once
 
@@ -339,6 +313,15 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupLifts)]
         public bool LiftTowerPlanner { get; set; }
 
+        /// <summary>The carrier grip round: on, each split carrier's grip pitches with the rope and its body (chair or cabin) swings in the
+        /// wind (CarrierPose); off, the grip keeps the level yaw-only pose and the body hangs rigid (nothing else changes). Lift types whose
+        /// grip prefab is not in the game are rigid either way. Read live by ChairPinSystem and TramShuttleSystem (one read per pass).</summary>
+        [SettingsUISection(SectionMain, GroupLifts)]
+        public bool AnimatedLiftCarriers { get; set; }
+
+        /// <summary>Null-tolerant read for the movers</summary>
+        public static bool AnimatedLiftCarriersOn => Mod.Settings?.AnimatedLiftCarriers ?? DefaultAnimatedLiftCarriers;
+
 
         /// <summary>Measurement scaffolding for field tests, off by default and for every player: the midday measurement re-arm and the
         /// measure-only ResidentAI pass in SkiDaySystem / SkiGuestCounterSystem / SkiLodgeParkingSystem (they force main-thread syncs
@@ -358,6 +341,15 @@ namespace SkiResortMod.Settings
 
         /// <summary>Null-tolerant read for the tool</summary>
         public static bool PlannerOnMainThreadOn => Mod.Settings?.PlannerOnMainThread ?? DefaultPlannerOnMainThread;
+
+        /// <summary>Copies a bug-report block to the clipboard (SkiDiagnostics: versions, machine, options changed from defaults, code mods,
+        /// the log path and its error lines). A button: nothing is stored.</summary>
+        [SettingsUIButton]
+        [SettingsUISection(SectionMain, GroupDiagnostics)]
+        public bool CopyDiagnostics
+        {
+            set { SkiDiagnostics.CopyToClipboard("options button"); }
+        }
 
         // Key bindings must stay public get+set ProxyBinding (ModSetting.cs:32-34). Defaults come from the attribute via the base
         // constructor: never assign these in SetDefaults.
@@ -454,7 +446,6 @@ namespace SkiResortMod.Settings
             BackcountryValuePercent = DefaultBackcountryValuePercent;
             LiftTicketPrice = SkiMoneyRules.TicketPriceDefault;
             LodgeSpendPerGuest = DefaultLodgeSpendPerGuest;
-            BookTicketsAsFees = DefaultBookTicketsAsFees;
             SeasonPassShare = DefaultSeasonPassShare;
             SeasonPassMultiplier = DefaultSeasonPassMultiplier;
             LessonShare = DefaultLessonShare;
@@ -466,7 +457,6 @@ namespace SkiResortMod.Settings
             SkiDayPowderPct = DefaultSkiDayPowderPct;
             EnableSnowGating = DefaultEnableSnowGating;
             SnowmakingBonusCelsius = DefaultSnowmakingBonusCelsius;
-            TerrainSnowSlot = TerrainSlotPolicy.Auto;
             EnableBindOnDraw = true;
             ShowRunGradeWhileDrawing = true;
             ContourLinesWhileDrawingRuns = true;
@@ -485,6 +475,7 @@ namespace SkiResortMod.Settings
             OpenHubOnSignSelect = true;
             LiftBuildAids = true;
             LiftTowerPlanner = true;
+            AnimatedLiftCarriers = DefaultAnimatedLiftCarriers;
             DiagnosticMeasurements = DefaultDiagnosticMeasurements;
             PlannerOnMainThread = DefaultPlannerOnMainThread;
             // Key bindings are deliberately absent: the base constructor generated them (ModSetting.cs:43, 56-64) before this runs

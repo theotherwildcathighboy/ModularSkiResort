@@ -1,0 +1,657 @@
+{
+  "name": "SkiTramCarriageB",
+  "written_utc": "2026-11-03T20:15:24Z",
+  "blender": "5.2.3 LTS",
+  "files": {
+    "SkiTramCarriageB.fbx": {
+      "bytes": 256380,
+      "sha1": "59afd5a5507d91b8b849e7ca94dc8475cd9719f1"
+    },
+    "SkiTramCarriageB_BaseColor.png": {
+      "bytes": 440460,
+      "sha1": "9ea71fdaaf1f9b53cdc3b174a2cf97326a9ab909"
+    },
+    "SkiTramCarriageB_ControlMask.png": {
+      "bytes": 18578,
+      "sha1": "3f482da71773e1ad33f1a24a4cc5e5bf79dfe969"
+    },
+    "SkiTramCarriageB_LOD1.fbx": {
+      "bytes": 122524,
+      "sha1": "714d149f8941c0d46fc89575f08871c29e391ae3"
+    },
+    "SkiTramCarriageB_LOD2.fbx": {
+      "bytes": 26700,
+      "sha1": "4902a8953b4089e7d6f77391d7d4f183f5d8c701"
+    },
+    "SkiTramCarriageB_MaskMap.png": {
+      "bytes": 269951,
+      "sha1": "57c320c2c765598ae4ba1ba5832eeef95de79e52"
+    },
+    "SkiTramCarriageB_Normal.png": {
+      "bytes": 115038,
+      "sha1": "6d91f8b61bfac423a7f80cce3f0fb20684161790"
+    },
+    "settings.json": {
+      "bytes": 719,
+      "sha1": "c155344949d1c51f9d34c47e7354d90e14839a5a"
+    }
+  },
+  "generator": "lift_cabin.py",
+  "args": {
+    "kind": "tram",
+    "out": "assets/import/cabins/B",
+    "export": true,
+    "name": null,
+    "source": "assets/external/wilin-gondola/source/gondola.fbx",
+    "carriers": "catalog/carriers.json",
+    "finish": true,
+    "draft": false,
+    "lods": true,
+    "verify": true,
+    "preview": "assets/preview/carrier-split/rig",
+    "review": null,
+    "plate_number": "27",
+    "outboard": "+Y",
+    "lod2": "proxy",
+    "hang": 10.5,
+    "split": true,
+    "ab": "",
+    "no_validate": false
+  },
+  "kind": "hanging",
+  "carrier": "tram",
+  "role": "carriage",
+  "quality": "finish",
+  "texture_px": 1024,
+  "tris": {
+    "LOD0": 3648,
+    "LOD1": 1204,
+    "LOD2": 220
+  },
+  "budget": {
+    "LOD0": 3648,
+    "LOD0_cap": 8000,
+    "projection": 3648,
+    "RS_target": null,
+    "LOD1_ratio": 0.33,
+    "LOD2": 220,
+    "ok": true
+  },
+  "contract": {
+    "hang_m": 10.5,
+    "track_rope_m": 10.0,
+    "haul_rope_m": 9.6,
+    "haul_dy_m": 0.5,
+    "wheel_centre_m": 10.2506,
+    "fin_top_m": 4.6,
+    "fork_m": [
+      5.8999999999999995,
+      6.18
+    ],
+    "k_pin_m": 10.2565,
+    "half_width_max_m": 1.1,
+    "k_one_piece_m": 10.38,
+    "role": "carriage"
+  },
+  "contracts_held": {
+    "LOD0": [
+      "T9",
+      "T2",
+      "T3",
+      "T5",
+      "T6",
+      "T8",
+      "T10",
+      "T11a",
+      "T11b",
+      "T12"
+    ],
+    "LOD1": [
+      "T9",
+      "T2",
+      "T3",
+      "T5",
+      "T6",
+      "T8",
+      "T11a",
+      "T11b"
+    ],
+    "LOD2": [
+      "T9",
+      "T3",
+      "T5",
+      "T6",
+      "T8",
+      "T11a",
+      "T11b"
+    ]
+  },
+  "bounds_authoring_m": {
+    "min": [
+      -2.84,
+      -1.08,
+      0.0
+    ],
+    "max": [
+      2.84,
+      1.08,
+      0.978
+    ]
+  },
+  "density_px_per_m": {
+    "median": 10.6,
+    "min": 8.5,
+    "max": 26.6
+  },
+  "density_hero_px_per_m": {
+    "bogie_": 25.5,
+    "carbeam_": 25.5,
+    "carhead_": 25.5
+  },
+  "stamp_layout": null,
+  "revision": "Revision 1 (verdicts 2026-10-11 items 6 / 9): soft-edged rebuild, CAD-tell cleanup, pinned >= 4x logo square; Revision 1b (2026-10-11): geometry defects C1-C4 fixed (cap triangulation, closed shell, 2 mm insets), G11 / G12 / T12 + cap_check contracts; Revision 2 (2026-10-11, tram): centered outward-opening sliding double doors on both long sides (closed, 15 mm proud, gap-line seals, pocket grab bars, release pulls, header rollers, threshold nosing, drip rail), gondola detail parity (bolt rows above the texel floor, hanger pin, roof hatches, end bumpers, intercoms), T13 door contract",
+  "lod_switch": {
+    "switch_m": {
+      "1": 40.8,
+      "2": 95.5
+    },
+    "cull_m": 1416.0,
+    "bias": 0.436,
+    "area_m2": 21.78,
+    "lod_factor": 652.0,
+    "status": "formula prediction until the SkiProbeLodA verdict [U]"
+  },
+  "catalog": {
+    "catalog": "catalog/carriers.json",
+    "row": "tram",
+    "generator_row": {
+      "object_prefab": "SkiTramCabin",
+      "mesh_base": "SkiTramCabin",
+      "line_prefab": "SkiTramHV",
+      "lift_type": "tram",
+      "host": "base station ObjectSubObjects x2, identity rotation (R29)",
+      "seats": 100,
+      "hang_m": 10.5,
+      "grip_top_above_rope_m": 0.5,
+      "lane_x_m": 5.5,
+      "haul_x_m": 5.0,
+      "haul_dy_m": -0.4,
+      "track_ropes_per_side": 1,
+      "speed_mps": 10.0,
+      "dwell_s": 60,
+      "bounds_lat_half_m": 1.9,
+      "bounds_travel_half_m": 4.05,
+      "carriage_half_w_m": 1.1,
+      "pivot": "floor underside",
+      "facing": "identity, never yawed 180 (R29)",
+      "pivot_k_up_m": 10.38,
+      "lane_hanging_max": 0.004
+    },
+    "drift": [],
+    "compared": [
+      "hang_m",
+      "grip_top_above_rope_m",
+      "lane_x_m",
+      "haul_x_m",
+      "haul_dy_m",
+      "bounds_lat_half_m",
+      "bounds_travel_half_m",
+      "carriage_half_w_m",
+      "lane_hanging_max"
+    ]
+  },
+  "clearance": {
+    "rows": [
+      {
+        "Ly_m": 30.0,
+        "span_m": 250.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 7.5,
+        "underside_above_chord_mid_m": 12.5,
+        "heightrange_min_max": 14.0
+      },
+      {
+        "Ly_m": 30.0,
+        "span_m": 250.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 1.0,
+        "underside_above_chord_mid_m": 19.0,
+        "heightrange_min_max": 20.5
+      },
+      {
+        "Ly_m": 30.0,
+        "span_m": 500.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 15.0,
+        "underside_above_chord_mid_m": 5.0,
+        "heightrange_min_max": 6.5
+      },
+      {
+        "Ly_m": 30.0,
+        "span_m": 500.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 2.0,
+        "underside_above_chord_mid_m": 18.0,
+        "heightrange_min_max": 19.5
+      },
+      {
+        "Ly_m": 30.0,
+        "span_m": 1000.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 30.0,
+        "underside_above_chord_mid_m": -10.0,
+        "heightrange_min_max": -8.5
+      },
+      {
+        "Ly_m": 30.0,
+        "span_m": 1000.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 4.0,
+        "underside_above_chord_mid_m": 16.0,
+        "heightrange_min_max": 17.5
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 250.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 7.5,
+        "underside_above_chord_mid_m": 27.5,
+        "heightrange_min_max": 29.0
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 250.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 1.0,
+        "underside_above_chord_mid_m": 34.0,
+        "heightrange_min_max": 35.5
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 500.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 15.0,
+        "underside_above_chord_mid_m": 20.0,
+        "heightrange_min_max": 21.5
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 500.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 2.0,
+        "underside_above_chord_mid_m": 33.0,
+        "heightrange_min_max": 34.5
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 1000.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 30.0,
+        "underside_above_chord_mid_m": 5.0,
+        "heightrange_min_max": 6.5
+      },
+      {
+        "Ly_m": 45.0,
+        "span_m": 1000.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 4.0,
+        "underside_above_chord_mid_m": 31.0,
+        "heightrange_min_max": 32.5
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 250.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 7.5,
+        "underside_above_chord_mid_m": 42.5,
+        "heightrange_min_max": 44.0
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 250.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 1.0,
+        "underside_above_chord_mid_m": 49.0,
+        "heightrange_min_max": 50.5
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 500.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 15.0,
+        "underside_above_chord_mid_m": 35.0,
+        "heightrange_min_max": 36.5
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 500.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 2.0,
+        "underside_above_chord_mid_m": 48.0,
+        "heightrange_min_max": 49.5
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 1000.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 30.0,
+        "underside_above_chord_mid_m": 20.0,
+        "heightrange_min_max": 21.5
+      },
+      {
+        "Ly_m": 60.0,
+        "span_m": 1000.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 4.0,
+        "underside_above_chord_mid_m": 46.0,
+        "heightrange_min_max": 47.5
+      }
+    ],
+    "note": "underside(mid) = chord + Ly - 10.00 - span x h_lane (shuttle places by the rope, R27); carving min <= Ly - 8.50 - span x h_lane; R31 lane prefab m_Hanging ~0.004"
+  },
+  "prefab_numbers": {
+    "mesh": "SkiTramCarriageB",
+    "role": "carriage",
+    "pivots": {
+      "frame_note": "authoring = (x travel, y lateral, z up); prefab = (x lateral, y up, z travel) = FBX raw / prefab-local; symmetric (R29): the pin axis runs through both lugs",
+      "grip_origin_in_assembled_m": [
+        0.0,
+        0.0,
+        9.522
+      ],
+      "body_origin_in_assembled_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "grip_rope_point_m": {
+        "authoring": [
+          0.0,
+          0.0,
+          0.478
+        ],
+        "prefab": [
+          0.0,
+          0.478,
+          0.0
+        ]
+      },
+      "grip_pin_center_m": {
+        "authoring": [
+          0.0,
+          0.0,
+          0.7345
+        ],
+        "prefab": [
+          0.0,
+          0.7345,
+          0.0
+        ]
+      },
+      "body_pin_center_m": {
+        "authoring": [
+          0.0,
+          0.0,
+          10.2565
+        ],
+        "prefab": [
+          0.0,
+          10.2565,
+          0.0
+        ]
+      },
+      "hang_m": 10.5,
+      "grip_top_above_rope_m": 0.5,
+      "pin_axis": "lateral (authoring y = prefab x)",
+      "pin_lugs_lateral_m": [
+        -0.95,
+        0.95
+      ],
+      "grip_haul_points_m": {
+        "authoring": [
+          [
+            0.0,
+            -0.5,
+            0.078
+          ],
+          [
+            0.0,
+            0.5,
+            0.078
+          ]
+        ]
+      },
+      "k_one_piece_m": 10.38
+    },
+    "note": "split mesh: the one-piece prefab numbers (UtilityObject, hosted poses) stay with the SkiTramCabinA manifest; the code places the mesh from the pivots"
+  },
+  "code_consequences": [
+    "R27: the shuttle places by the ROPE (bounds 10.50 - 0.50 = 10.00 above the pivot), never by bounds.max.y",
+    "R29: shuttle never yaws 180 at a reversal (cabins symmetric); hosted identity in both bays",
+    "R28: rider lane = the HV track rope at +-5.5 (harvest by HighVoltageLine, ChairPinSystem.cs:746, :1203); haul is LV at +-5.0 / -0.40",
+    "carriage pitch: one mesh stays level on pitched ropes (ends +-2.80 tan(theta)); --split gives SkiTramCarriageA pitched about K = (0, 0, hang - 0.12)",
+    "R31: tram rope-lane prefab m_Hanging ~0.004 (1 km x 0.03 = 30 m sag); carving envelope includes span x h_lane",
+    "Phase C shuttle: terminals-only serve, dwell 60 s, speed 10 m/s (RS section 5)"
+  ],
+  "rulings": [
+    "R27 hang 10.50 / rope 10.00",
+    "R28 one HV track rope per side",
+    "R29 symmetric, identity, pivot floor underside",
+    "R30 half-width 1.10 + tower keep-outs",
+    "R31 lanes",
+    "R8 painted glass",
+    "R18 2048"
+  ],
+  "ingest": null,
+  "credit": null,
+  "geometry_hashes": {
+    "LOD0": "82d4a6bfc3106e8a",
+    "LOD1": "4349afda2ed51234",
+    "LOD2": "4214e8881ea2fce5"
+  },
+  "split": {
+    "pair": "SkiTramCabinB + SkiTramCarriageB",
+    "body": "SkiTramCabinB",
+    "grip": "SkiTramCarriageB",
+    "pivots": {
+      "frame_note": "authoring = (x travel, y lateral, z up); prefab = (x lateral, y up, z travel) = FBX raw / prefab-local; symmetric (R29): the pin axis runs through both lugs",
+      "grip_origin_in_assembled_m": [
+        0.0,
+        0.0,
+        9.522
+      ],
+      "body_origin_in_assembled_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "grip_rope_point_m": {
+        "authoring": [
+          0.0,
+          0.0,
+          0.478
+        ],
+        "prefab": [
+          0.0,
+          0.478,
+          0.0
+        ]
+      },
+      "grip_pin_center_m": {
+        "authoring": [
+          0.0,
+          0.0,
+          0.7345
+        ],
+        "prefab": [
+          0.0,
+          0.7345,
+          0.0
+        ]
+      },
+      "body_pin_center_m": {
+        "authoring": [
+          0.0,
+          0.0,
+          10.2565
+        ],
+        "prefab": [
+          0.0,
+          10.2565,
+          0.0
+        ]
+      },
+      "hang_m": 10.5,
+      "grip_top_above_rope_m": 0.5,
+      "pin_axis": "lateral (authoring y = prefab x)",
+      "pin_lugs_lateral_m": [
+        -0.95,
+        0.95
+      ],
+      "grip_haul_points_m": {
+        "authoring": [
+          [
+            0.0,
+            -0.5,
+            0.078
+          ],
+          [
+            0.0,
+            0.5,
+            0.078
+          ]
+        ]
+      },
+      "k_one_piece_m": 10.38
+    },
+    "S1_rejoin": {
+      "old_vertices_checked": 4320,
+      "old_vertices_in_joint_zone": 36,
+      "new_vertices_checked": 4320,
+      "new_vertices_in_joint_zone": 188,
+      "max_old_to_new_mm": 0.0,
+      "max_new_to_old_mm": 0.0,
+      "joint_zone_r_m": 0.3,
+      "tol_mm": 2.0
+    },
+    "S2_S3_sweep": {
+      "poses": 57,
+      "pitch_deg": [
+        -45.0,
+        45.0,
+        5.0
+      ],
+      "fore_aft_deg": [
+        -3.0,
+        3.0
+      ],
+      "pin_rel_deg": [
+        -48.0,
+        48.0
+      ],
+      "roll_deg": [
+        0.0,
+        0.0
+      ],
+      "assembly_roll_note": "cross-wind sway = grip + body rolled together about the rope point (chairs / gondola <= 8 deg, tram <= 2 deg about the track rope): nothing turns at the pin, no joint check",
+      "clash_poses": 0,
+      "first_clashes": [],
+      "gap_mm_min": 3.5,
+      "gap_mm_max": 3.5,
+      "gap_max_at": [
+        -45.0,
+        -3.0,
+        "carhead_cheekni"
+      ],
+      "gap_limit_mm": 5.0,
+      "slot_floor_mm": [
+        3.5,
+        5.51
+      ]
+    },
+    "roll": "never at the pin (two coaxial lugs 1.90 m apart: each would move +-0.13 m vertically at 8 deg); the sway rolls cabin + carriage together about the track rope, <= 2 deg",
+    "tallies": {
+      "one_piece_lod0": 6318,
+      "cabin_lod0": 2926,
+      "carriage_lod0": 3648,
+      "pin_detail": 256
+    },
+    "K_m": 10.2565,
+    "K_one_piece_m": 10.38,
+    "car_z0_m": 9.522,
+    "joint_design": {
+      "lug_r": 0.12,
+      "lug_t": 0.12,
+      "lug_bury": 0.03,
+      "lug_drop": 0.16,
+      "lug_segs": 8,
+      "cheek_t": 0.03,
+      "cheek_r": 0.13,
+      "cheek_bury": 0.02,
+      "pin_r": 0.035,
+      "pin_len": 0.014,
+      "r_x": 0.3,
+      "wheel_segs": 16,
+      "segs_detail": 640,
+      "pin_detail": 256,
+      "cabin_lod0": 2926,
+      "carriage_lod0": 3648
+    },
+    "pair_tris": {
+      "LOD0": 6574,
+      "LOD1": 2550,
+      "LOD2": 600
+    },
+    "pair_budget": {
+      "LOD0": 6574,
+      "LOD0_cap": 8256,
+      "projection": 6574,
+      "pin_detail": 256,
+      "segs_detail": 640,
+      "LOD1_ratio": 0.388,
+      "LOD2": 600,
+      "ok": true
+    },
+    "pair_contracts_held": {
+      "LOD0": [
+        "T1",
+        "T2",
+        "T3",
+        "T3b",
+        "T4",
+        "T5",
+        "T6",
+        "T8",
+        "T10",
+        "T11a",
+        "T11b",
+        "T12",
+        "T13"
+      ],
+      "LOD1": [
+        "T1",
+        "T2",
+        "T3",
+        "T3b",
+        "T4",
+        "T5",
+        "T6",
+        "T8",
+        "T11a",
+        "T11b",
+        "T13"
+      ],
+      "LOD2": [
+        "T1",
+        "T3",
+        "T3b",
+        "T4",
+        "T5",
+        "T6",
+        "T8",
+        "T11a",
+        "T11b"
+      ]
+    }
+  }
+}

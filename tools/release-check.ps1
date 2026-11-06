@@ -17,6 +17,8 @@
 #   profile     no file holds the Windows profile folder name or its 8.3 short form, as UTF-8 or UTF-16 bytes, any case; a .cok is
 #               read entry by entry (names and inflated contents). Prints file names only, never the name.
 #   user-paths  node tools\check-no-user-paths.js passes (tracked files: no absolute user path, no owner name)
+#   surface     node tools\game-surface-check.js --require-decompile passes: the code, the prefabs, the vanilla references and the tested-version
+#               strings all match tools\game-surface.lock, and the lock matches the decompile of the game it names (docs/PIPELINE.md section 7)
 
 param([string]$DeployDir)
 
@@ -182,6 +184,16 @@ try {
     else { Add-Result "user-paths" "FAIL" ("{0}; first hits: {1}" -f $last, (($out | Select-Object -First 3) -join " | ")) }
 } catch {
     Add-Result "user-paths" "FAIL" ("node tools\check-no-user-paths.js did not run: {0}" -f $_.Exception.Message)
+}
+
+try {
+    $out = @(& node (Join-Path $root "tools\game-surface-check.js") --require-decompile)
+    $code = $LASTEXITCODE
+    $last = if ($out.Count -gt 0) { $out[$out.Count - 1] } else { "no output" }
+    if ($code -eq 0) { Add-Result "surface" "PASS" $last }
+    else { Add-Result "surface" "FAIL" ("{0}; first: {1}" -f $last, (($out | Select-Object -First 2) -join " | ")) }
+} catch {
+    Add-Result "surface" "FAIL" ("node tools\game-surface-check.js did not run: {0}" -f $_.Exception.Message)
 }
 
 $fail = @($results | Where-Object { $_.Status -eq "FAIL" }).Count

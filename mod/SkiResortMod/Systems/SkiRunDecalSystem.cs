@@ -4,7 +4,7 @@
 // that clone, which cannot leak: we never touch the shared m_RenderedAreaMaterial or another prefab's clone. We never assign
 // m_Material (AreaBatchSystem would flip RenderedArea.m_Version to OverrideMaterial in place). Scheduling: PreCulling, after
 // AreaBatchSystem (clones build lazily on prefab Created), every frame in Game and Editor, paused included, so the retry countdown and
-// the re-assert sentinel tick. SkiRunSplatSystem.ApplyDecalVisibility finds the same clones; this retry-until-found supersedes it.
+// the re-assert sentinel tick. Clones are found by name, retried until found.
 // Engine notes: EngineNotes/SkiRunDecalSystem.md
 
 using System;
@@ -80,7 +80,6 @@ namespace SkiResortMod.Systems
             // the snow and the run read gray; 0.35 keeps the corduroy lane readable while the pack's white wins. The prefab tint
             // (SkiRunGroomedA m_BaseColor) was raised too; if still gray, the bake (ski_decal.py build_groomed `beige`) is the next knob.
             public const float GroomedWinterAlphaScale = 0.35f;
-            public const float SnowmakingWinterAlphaScale = 0.10f;
         }
 
         // Run surfaces, with the same tolerant name resolution as the sibling systems. SkiRunNaturalA is left out on purpose: a
@@ -94,17 +93,14 @@ namespace SkiResortMod.Systems
         private const string CatTrackPrefabName = "SkiRunCatTrackA";
 
         // Texture file contract: missing files are logged once per load and their applications skipped (retried next load).
-        // Resolved under <mod dir>\Textures\, the same folder the splat system uses.
+        // Resolved under <mod dir>\Textures\.
         private const string TexturesFolderName = "Textures";
         private const string GroomedBaseColorFile = "SkiRunDecalGroomed_BaseColor.png";
         private const string GroomedNormalFile = "SkiRunDecalGroomed_Normal.png";
-        private const string SnowmakingBaseColorFile = "SkiRunDecalSnowmaking_BaseColor.png";
-        private const string SnowmakingNormalFile = "SkiRunDecalSnowmaking_Normal.png";
-        // Snow slots reuse the existing splat winter pair: one corduroy source of truth
+        // Snow slots: the corduroy winter pair (assets/blender/ski_terrain.py)
         private const string SnowBaseColorFile = "SkiTerrainSnowCorduroy_BaseColor.png";
         private const string SnowNormalFile = "SkiTerrainSnowCorduroy_Normal.png";
-        // Shared summer dress (both run types): green mowed-grass stripes, the same set the splat route uses, so the two rendering
-        // paths agree on what summer looks like
+        // Shared summer dress (both run types): green mowed-grass stripes (assets/blender/ski_terrain.py)
         private const string SummerBaseColorFile = "SkiTerrainSummerRun_BaseColor.png";
         private const string SummerNormalFile = "SkiTerrainSummerRun_Normal.png";
 
@@ -239,12 +235,12 @@ namespace SkiResortMod.Systems
             {
                 new Target(GroomedPrefabName, GroomedBaseColorFile, GroomedNormalFile,
                     Tuning.GroomedWinterAlphaScale, useSnowPair: true),
-                new Target(SnowmakingPrefabName, SnowmakingBaseColorFile, SnowmakingNormalFile,
-                    Tuning.SnowmakingWinterAlphaScale, useSnowPair: false),
-                // Night runs wear snowmaking's dress: same textures, same near-clear winter alpha. A night run's snow is snowmaking snow;
-                // the run's identity comes from its floodlight masts, not a different decal.
-                new Target(NightPrefabName, SnowmakingBaseColorFile, SnowmakingNormalFile,
-                    Tuning.SnowmakingWinterAlphaScale, useSnowPair: false),
+                // Two looks (DECISIONS 577): the snowmaking and night presets are groomed runs with guns or lights on, so they wear the
+                // groomed dress; guns and masts are props, not a surface.
+                new Target(SnowmakingPrefabName, GroomedBaseColorFile, GroomedNormalFile,
+                    Tuning.GroomedWinterAlphaScale, useSnowPair: true),
+                new Target(NightPrefabName, GroomedBaseColorFile, GroomedNormalFile,
+                    Tuning.GroomedWinterAlphaScale, useSnowPair: true),
                 // The cat track reuses the groomed pair
                 new Target(CatTrackPrefabName, GroomedBaseColorFile, GroomedNormalFile,
                     Tuning.GroomedWinterAlphaScale, useSnowPair: true),
@@ -253,8 +249,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Editor safety: the prefab texture-reference patch must never be captured by an editor save of the surface
-        /// asset, so the original references are restored before any editor session (same anti-contamination doctrine as
-        /// SkiRunSplatSystem's claim reversion).</summary>
+        /// asset, so the original references are restored before any editor session (anti-contamination: no mod state is ever
+        /// saved into an asset).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
@@ -842,7 +838,7 @@ namespace SkiResortMod.Systems
             return props;
         }
 
-        // Textures: PNG files -> readable Texture2Ds, session-cached. Same loader settings as SkiRunSplatSystem (Repeat wrap: the
+        // Textures: PNG files -> readable Texture2Ds, session-cached. Loader settings: Repeat wrap (the
         // decal UV tiles world-XZ via colossal_UVScale, Clamp would smear the last texel row; trilinear, aniso 8). BaseColor is
         // sRGB, normals are linear data; plain-RGB PNG normals decode correctly through HDRP's RGorAG unpack because their alpha is
         // opaque. No TextureAssets here: live-material SetTexture needs only the Texture2D.
@@ -881,8 +877,7 @@ namespace SkiResortMod.Systems
                         target.NormalTex.name = target.PrefabName + target.NormalTex.name;
                 }
 
-                // Wrap the same textures as user-db TextureAssets (in-memory index entry only, never Saved: the SkiRunSplatSystem claim
-                // pattern) so the prefab's texture references can point at them (ApplyToMaterial)
+                // Wrap the same textures as user-db TextureAssets (in-memory index entry only, never Saved) so the prefab's texture references can point at them (ApplyToMaterial)
                 if (target.BaseColorAsset == null && target.BaseColorTex != null)
                     target.BaseColorAsset = RegisterTextureAsset(target.BaseColorTex);
                 if (target.NormalAsset == null && target.NormalTex != null)
@@ -971,7 +966,7 @@ namespace SkiResortMod.Systems
             texture.Apply(updateMipmaps: true, makeNoLongerReadable: false);
         }
 
-        /// <summary>User-db TextureAsset wrapping an already-loaded texture (SkiRunSplatSystem pattern): AddAsset creates an
+        /// <summary>User-db TextureAsset wrapping an already-loaded texture: AddAsset creates an
         /// in-memory index entry only, SetData-pinned by the AddAsset overload, nothing ever written to disk. Reuse-safe across loads.</summary>
         private static TextureAsset RegisterTextureAsset(Texture2D texture)
         {

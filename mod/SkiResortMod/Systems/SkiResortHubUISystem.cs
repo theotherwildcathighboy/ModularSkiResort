@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 32;
+        public const int HubContract = 35;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -178,6 +178,29 @@ namespace SkiResortMod.Systems
 
         /// <summary>bindings.ts BusCardState: the card beside the game's panel for a selected coach or depot. GuestsMonth -1 = unknown,
         /// DistanceM = straight line to the hill lodge, what the bill counts (0 = unknown), State = bindings.ts BusCardStateName.</summary>
+        /// <summary>Contract 32: the last re-emitted run (bindings.ts RunReplaced). Seq counts replacements this load; 0 = none.</summary>
+        public struct HubRunReplaced : IJsonWritable, IEquatable<HubRunReplaced>
+        {
+            public int Seq;
+            public Entity From, To;
+
+            public void Write(IJsonWriter writer)
+            {
+                writer.TypeBegin("SkiResortMod.RunReplaced");
+                writer.PropertyName("seq");
+                writer.Write(Seq);
+                writer.PropertyName("from");
+                UnityWriters.Write(writer, From);
+                writer.PropertyName("to");
+                UnityWriters.Write(writer, To);
+                writer.TypeEnd();
+            }
+
+            public bool Equals(HubRunReplaced other) => Seq == other.Seq && From == other.From && To == other.To;
+            public override bool Equals(object obj) => obj is HubRunReplaced o && Equals(o);
+            public override int GetHashCode() => Seq;
+        }
+
         public struct HubBusCardState : IJsonWritable, IEquatable<HubBusCardState>
         {
             public bool Shown;
@@ -358,9 +381,7 @@ namespace SkiResortMod.Systems
                 writer.Write(value.TripPlanner ?? "");
                 writer.PropertyName("tripPlannerBlocksSkiDays");
                 writer.Write(value.TripPlannerBlocksSkiDays);
-                // The booking setting and the pass share (0 = passes off).
-                writer.PropertyName("bookTicketsAsFees");
-                writer.Write(value.BookTicketsAsFees);
+                // The pass share (0 = passes off).
                 writer.PropertyName("passShare");
                 writer.Write(Fin(value.PassShare));
                 // The calendar month 0..11 (the UI names it with vanilla Common.MONTH:<n>).
@@ -381,7 +402,7 @@ namespace SkiResortMod.Systems
                        a.SnowmakingMarginC.Equals(b.SnowmakingMarginC) && a.SnowVisualsOff == b.SnowVisualsOff &&
                        a.TourismOverhaul == b.TourismOverhaul && a.RealisticWorkplaces == b.RealisticWorkplaces &&
                        a.TripPlanner == b.TripPlanner && a.TripPlannerBlocksSkiDays == b.TripPlannerBlocksSkiDays &&
-                       a.BookTicketsAsFees == b.BookTicketsAsFees && a.PassShare == b.PassShare &&
+                       a.PassShare == b.PassShare &&
                        a.Month == b.Month;
             }
 
@@ -401,7 +422,6 @@ namespace SkiResortMod.Systems
                     h = h * 31 + (c.RealisticWorkplaces ? 1 : 0);
                     h = h * 31 + (c.TripPlanner ?? "").GetHashCode();
                     h = h * 31 + (c.TripPlannerBlocksSkiDays ? 1 : 0);
-                    h = h * 31 + (c.BookTicketsAsFees ? 1 : 0);
                     h = h * 31 + c.PassShare;
                     return h * 31 + c.Month;
                 }
@@ -465,7 +485,7 @@ namespace SkiResortMod.Systems
         private readonly ArrayPush m_ProblemsPush = new ArrayPush("problems");
         private readonly ArrayPush m_HistoryPush = new ArrayPush("history");
         private readonly ArrayPush m_LodgeParkingPush = new ArrayPush("lodgeParking");   // contract 29
-        private readonly ArrayPush m_MergedPush = new ArrayPush("mergedLodges");   // contract 32
+        private readonly ArrayPush m_MergedPush = new ArrayPush("mergedLodges");   // contract 35
 
         private enum RequestKind : byte
         {
@@ -477,7 +497,9 @@ namespace SkiResortMod.Systems
             DeleteCatTrack,                  // contract 18: the cat track row's trash button
             SetCatTrackDeleteMode,           // contract 19: the Runs tab's Delete cat tracks chip
             SetRunPropSpacing,               // contract 28: the Runs view's prop rows (Bool = lights, Int = meters)
-            MergeBuilding, UnmergeBuilding,  // contract 32: the merge card (Int = tier); SkiResortHubUISystem.Merge.cs
+            SetRunGroomed,                   // run types R2: Groomed on (Bool) or off by a re-emit (SkiRunReemitSystem)
+            SetDrawRun,                      // contract 33: the Run tile's option row (Text = key, Int = value)
+            MergeBuilding, UnmergeBuilding,  // contract 35: the merge card (Int = tier); SkiResortHubUISystem.Merge.cs
         }
 
         private struct Request
@@ -495,6 +517,7 @@ namespace SkiResortMod.Systems
         private int m_QueueCount;
 
         private SkiRunPropSystem m_RunProps;
+        private SkiRunReemitSystem m_Reemit;   // run types R2: the Groomed toggle
         private ToolSystem m_ToolSystem;
         private DefaultToolSystem m_DefaultTool;
         private ObjectToolSystem m_ObjectTool;
@@ -544,6 +567,11 @@ namespace SkiResortMod.Systems
         private ValueBinding<bool> m_PisteMapBinding;
         private ValueBinding<bool> m_CatTrackDeleteBinding;   // contract 19: the cat track tool is open AND in Delete mode
         private ValueBinding<int> m_FollowBinding;
+        private ValueBinding<HubRunReplaced> m_RunReplaced;   // contract 32: not a panel binding (HubPanel moves its focus)
+        private int m_RunReplacedSeq;
+        // Custom names of re-emitted runs, set here at UIUpdate: NameSystem.SetCustomName takes an EndFrameBarrier buffer, which the
+        // Modification phases may not create (SafeCommandBufferSystem.CreateCommandBuffer throws there; NameSystem.cs:236-239).
+        private readonly List<KeyValuePair<Entity, string>> m_PendingNames = new List<KeyValuePair<Entity, string>>(2);
         private RawValueBinding m_History;
         // contract 29: the car spaces of every active road lodge (the Guests view). Rebuilt when the attraction snapshot, the parking
         // census or the lodge numbers move; pushed only while the Guests view observes it. Contract 30: each row's shown number. Contract 31:
@@ -703,6 +731,7 @@ namespace SkiResortMod.Systems
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_Stats = World.GetOrCreateSystemManaged<SkiResortStatsSystem>();
             m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
+            m_Reemit = World.GetOrCreateSystemManaged<SkiRunReemitSystem>();
             m_HistorySystem = World.GetOrCreateSystemManaged<SkiResortHistorySystem>();
             m_GuestCounter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
             m_SkiDays = World.GetOrCreateSystemManaged<SkiDaySystem>();
@@ -753,7 +782,7 @@ namespace SkiResortMod.Systems
             m_ProblemsPush.Binding = m_Problems = new RawValueBinding(Group, "problems", WriteProblems);
             m_HistoryPush.Binding = m_History = new RawValueBinding(Group, "history", WriteHistory);
             m_LodgeParkingPush.Binding = m_LodgeParking = new RawValueBinding(Group, "lodgeParking", WriteLodgeParking);
-            m_MergedPush.Binding = m_Merged = new RawValueBinding(Group, "mergedLodges", WriteMergedLodges);   // contract 32
+            m_MergedPush.Binding = m_Merged = new RawValueBinding(Group, "mergedLodges", WriteMergedLodges);   // contract 35
 
             // Values (C# → UI), in bindings.ts order (gate R1 needs the literals).
             AddBinding(m_HubOpen = new ValueBinding<bool>(Group, "hubOpen", false));
@@ -781,8 +810,11 @@ namespace SkiResortMod.Systems
             AddBinding(m_CatTrackDeleteBinding = new ValueBinding<bool>(Group, "catTrackDeleteMode", false));   // panel binding, no Demand
             AddBinding(m_BusCard = new ValueBinding<HubBusCardState>(Group, "busCard", default));   // not a panel binding
             AddBinding(m_LodgeParking);   // contract 29: panel binding (the Guests view), no Demand
-            AddBinding(m_Merged);         // contract 32: panel binding (the Overview fold), no Demand
-            AddBinding(m_MergeCard = new ValueBinding<HubMergeCardState>(Group, "mergeCard", default));   // contract 32: always observed, like busCard
+            AddBinding(m_RunReplaced = new ValueBinding<HubRunReplaced>(Group, "runReplaced", default));   // contract 32
+            AddBinding(m_DrawRunBinding = new ValueBinding<HubDrawRun>(Group, "drawRun",
+                new HubDrawRun { Groomed = true }));   // contract 33: the Run tile's option row (.DrawRun.cs)
+            AddBinding(m_Merged);         // contract 35: panel binding (the Overview fold), no Demand
+            AddBinding(m_MergeCard = new ValueBinding<HubMergeCardState>(Group, "mergeCard", default));   // contract 35: always observed, like busCard
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -792,7 +824,7 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<string>(Group, "launch", OnLaunch));
             AddBinding(new TriggerBinding<Entity>(Group, "focusRun", OnFocusRun));
             AddBinding(new TriggerBinding<Entity>(Group, "deleteCatTrack", OnDeleteCatTrack));
-            AddBinding(new TriggerBinding<Entity, int>(Group, "mergeBuilding", OnMergeBuilding));   // contract 32
+            AddBinding(new TriggerBinding<Entity, int>(Group, "mergeBuilding", OnMergeBuilding));   // contract 35
             AddBinding(new TriggerBinding<Entity>(Group, "unmergeBuilding", OnUnmergeBuilding));
             AddBinding(new TriggerBinding(Group, "gladeToggle", OnGladeToggle));
             AddBinding(new TriggerBinding<int>(Group, "gladeSetLevel", OnGladeSetLevel));
@@ -811,10 +843,12 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<bool>(Group, "setCatTrackDeleteMode", OnSetCatTrackDeleteMode));
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunGunSpacing", OnSetRunGunSpacing));
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunLightSpacing", OnSetRunLightSpacing));
+            AddBinding(new TriggerBinding<Entity, bool>(Group, "setRunGroomed", OnSetRunGroomed));
+            AddBinding(new TriggerBinding<string, int>(Group, "setDrawRun", OnSetDrawRun));
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
                          $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 20 value bindings, " +
-                         "24 triggers");
+                         "25 triggers");
         }
 
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
@@ -887,6 +921,8 @@ namespace SkiResortMod.Systems
                 HoverCalls = HoverAccepted = HoverRefused = 0;
                 m_FollowCount = 0;
                 m_FollowBinding.Update(0);
+                m_RunReplacedSeq = 0;
+                m_RunReplaced.Update(default);
                 FollowsSuppressedClosed = FollowsSuppressedRule = FollowsSuppressedUser = FollowsSuppressedSoon = 0;
                 m_LastFollowAt = m_LastUserSelectAt = float.NegativeInfinity;
                 m_RuleSwitchedThisPass = false;
@@ -1004,8 +1040,11 @@ namespace SkiResortMod.Systems
                 {
                     m_Catalog.Demand = false;
                     m_Stats.Demand = false;
+                    m_PendingNames.Clear();
                     return;
                 }
+                if (m_PendingNames.Count > 0)
+                    ApplyPendingNames();
 
                 // One WARN per session when the UI never said hello (a float compare per frame until then).
                 if (!s_HelloSeen && !s_NoHelloWarned && s_FirstArmAt >= 0f &&
@@ -1094,6 +1133,12 @@ namespace SkiResortMod.Systems
         private void OnSetRunLightSpacing(Entity run, int meters) =>
             Trigger("setRunLightSpacing", new Request { Kind = RequestKind.SetRunPropSpacing, Entity = run, Bool = true, Int = meters });
 
+        private void OnSetRunGroomed(Entity run, bool on) =>
+            Trigger("setRunGroomed", new Request { Kind = RequestKind.SetRunGroomed, Entity = run, Bool = on });
+
+        private void OnSetDrawRun(string key, int value) =>
+            Trigger("setDrawRun", new Request { Kind = RequestKind.SetDrawRun, Text = key, Int = value });
+
         private void OnFocusLift(Entity entity, Entity top) =>
             Trigger("focusLift", new Request { Kind = RequestKind.FocusLift, Entity = entity, Entity2 = top });
 
@@ -1177,6 +1222,7 @@ namespace SkiResortMod.Systems
                 case RequestKind.MergeBuilding:
                 case RequestKind.UnmergeBuilding:
                 case RequestKind.SetRunPropSpacing:
+                case RequestKind.SetRunGroomed:
                     return true;
                 case RequestKind.SelectResort:
                     return entity != Entity.Null;
@@ -1316,6 +1362,16 @@ namespace SkiResortMod.Systems
                 case RequestKind.SetRunPropSpacing:
                     ApplyRunPropSpacing(r.Entity, r.Bool, r.Int, r.Source);
                     break;
+                case RequestKind.SetRunGroomed:
+                {
+                    string why = m_Reemit.Request(r.Entity, r.Bool);
+                    Mod.Log.Info($"Hub [groomed] setRunGroomed {Ent(r.Entity)} {r.Bool}: {why} ({r.Source})");
+                    LastTriggerText = $"setRunGroomed {Ent(r.Entity)} {r.Bool}: {why}";
+                    break;
+                }
+                case RequestKind.SetDrawRun:
+                    ApplyDrawRun(r.Text, r.Int, r.Source);
+                    break;
                 case RequestKind.MergeBuilding:
                     ApplyMerge(r.Entity, r.Int, r.Source);
                     break;
@@ -1323,6 +1379,38 @@ namespace SkiResortMod.Systems
                     ApplyUnmerge(r.Entity, r.Source);
                     break;
             }
+        }
+
+        /// <summary>A run was re-emitted under a new entity (SkiRunReemitSystem, Modification1, main thread): the sign map, the world
+        /// selection and the panel's focus follow it, so no follow offer fires and the info panel stays on the run. Its custom name is set
+        /// at this system's next update (UIUpdate, the same frame).</summary>
+        internal void RunReplaced(Entity from, Entity to, string customName)
+        {
+            if (!string.IsNullOrEmpty(customName))
+                m_PendingNames.Add(new KeyValuePair<Entity, string>(to, customName));
+            if (m_RunSigns.TryGetValue(from, out Entity sign))
+            {
+                m_RunSigns.Remove(from);
+                m_RunSigns[to] = sign;
+            }
+            if (m_ToolSystem != null && m_ToolSystem.selected == from)
+            {
+                m_ToolSystem.selected = to;   // SelectedInfoUISystem.SetSelection's own write (SelectedInfoUISystem.cs:456-462)
+                m_LastSelected = to;          // the same run: no selection-change event
+            }
+            if (m_HoverRequest == from)
+                m_HoverRequest = to;
+            m_RunReplaced?.Update(new HubRunReplaced { Seq = ++m_RunReplacedSeq, From = from, To = to });
+        }
+
+        private void ApplyPendingNames()
+        {
+            foreach (KeyValuePair<Entity, string> p in m_PendingNames)
+            {
+                if (EntityManager.Exists(p.Key) && !EntityManager.HasComponent<Deleted>(p.Key))
+                    m_NameSystem.SetCustomName(p.Key, p.Value);
+            }
+            m_PendingNames.Clear();
         }
 
         /// <summary>The Runs tab's Delete cat tracks chip (contract 19): on opens the cat track tool if needed, then its Delete mode; off
@@ -1336,14 +1424,20 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A step of the Runs view's prop rows (contract 28): a component write only, no Deleted in this phase (tools/check-run-props.js).
-        /// The placer re-places after its settle; snow and upkeep never read it.</summary>
+        /// The placer re-places after its settle. Since R2 the sliders are the Snowmaking and Lights features (DECISIONS 577): Off = no guns,
+        /// no snow, no bill; a feature turned on for the first time pays its one-time step (SettleFeatureSteps), never twice.</summary>
         private void ApplyRunPropSpacing(Entity run, bool lights, int meters, string source)
         {
             string what = lights ? "setRunLightSpacing" : "setRunGunSpacing";
             bool ok = m_RunProps.SetSpacing(run, lights, meters);
+            int charged = 0;
             if (ok)
+            {
+                charged = m_Ownership.SettleFeatureSteps(run, what);
+                m_Catalog.RequestRebuild("run features");
                 m_Stats.RequestRebuild("hub run props");
-            Mod.Log.Info($"Hub [props] {what} {Ent(run)} {meters} m: {(ok ? "stored" : "refused")} ({source})");
+            }
+            Mod.Log.Info($"Hub [props] {what} {Ent(run)} {meters} m: {(ok ? "stored" : "refused")}{(charged > 0 ? $", step charged {charged}" : "")} ({source})");
             LastTriggerText = $"{what} {Ent(run)} {meters}: {(ok ? "stored" : "refused")}";
         }
 
@@ -2191,7 +2285,7 @@ namespace SkiResortMod.Systems
                 LastTriggerText = $"launch '{shown}': unknown id";
                 return;
             }
-            PrefabBase prefab = m_ItemPrefab[item];
+            PrefabBase prefab = DrawPrefab(item, m_ItemPrefab[item]);   // the Run tile draws the natural look while Groomed is off
             if (prefab == null)
             {
                 // A pending item that is MISSING is never sent, so only the dev tab (every id) or an
@@ -2456,7 +2550,7 @@ namespace SkiResortMod.Systems
                     what = "station";
                 else if (m_PrefabCatalog.IsUpgradeBuilding(prefabRef.m_Prefab))   // The school, a patrol hut
                     what = "upgrade building";
-                else if (EntityManager.HasComponent<SkiMergedLodge>(building))   // contract 32: the Merged buildings fold
+                else if (EntityManager.HasComponent<SkiMergedLodge>(building))   // contract 35: the Merged buildings fold
                     what = "merged building";
             }
             if (what == null)
@@ -2512,6 +2606,36 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"Hub [focus] lift bend: tower {row.BendTower} node {Ent(id)} turns {row.BendDeg:F1}° → ({at.x:F0}, {at.z:F0}) " +
                              $"zoom={bendZoom:F0} ({source})");
                 LastTriggerText = $"focusLift {Ent(id)}: the bent tower {row.BendTower}";
+                return;
+            }
+            // The LiftTrainLimit row sends the tower's node the same way.
+            if (!found && top == Entity.Null && m_Census.TryGetRowOfTrainNode(id, out row))
+            {
+                float3 at = row.TrainAt;
+                if (!Fly(Entity.Null, at, Tuning.FocusGapZoomM, out float trainZoom, out string trainFailure))
+                {
+                    Mod.Log.Warn($"Hub [focus] lift train limit {Ent(id)} refused — {trainFailure} ({source})");
+                    LastTriggerText = $"focusLift {Ent(id)}: {trainFailure}";
+                    return;
+                }
+                Mod.Log.Info($"Hub [focus] lift train limit: tower {row.TrainTower} node {Ent(id)} {row.TrainOverDeg:F1}° past its train → " +
+                             $"({at.x:F0}, {at.z:F0}) zoom={trainZoom:F0} ({source})");
+                LastTriggerText = $"focusLift {Ent(id)}: the tower {row.TrainTower} past its train's limits";
+                return;
+            }
+            // The LiftLowSpan row sends the low span's edge: fly to its lowest carrier point.
+            if (!found && top == Entity.Null && m_Census.TryGetRowOfLowEdge(id, out row))
+            {
+                float3 at = row.LowAt;
+                if (!Fly(Entity.Null, at, Tuning.FocusGapZoomM, out float lowZoom, out string lowFailure))
+                {
+                    Mod.Log.Warn($"Hub [focus] lift low span {Ent(id)} refused — {lowFailure} ({source})");
+                    LastTriggerText = $"focusLift {Ent(id)}: {lowFailure}";
+                    return;
+                }
+                Mod.Log.Info($"Hub [focus] lift low span: edge {Ent(id)} between towers {row.LowFrom} and {row.LowTo} (0 = a station), " +
+                             $"carriers {row.LowClearM:F2} m above the ground → ({at.x:F0}, {at.z:F0}) zoom={lowZoom:F0} ({source})");
+                LastTriggerText = $"focusLift {Ent(id)}: the low span {row.LowFrom}-{row.LowTo}";
                 return;
             }
             if (!found)
@@ -2881,13 +3005,14 @@ namespace SkiResortMod.Systems
                 m_LockSign = m_SelectedResort;
             }
             RefreshLiftHint();
-            int active = ActiveItemIndex();
+            int active = StripItem(ActiveItemIndex());
             int signature = HubRules.BuildSignature(active, m_ItemReason, m_ItemPrice, m_ItemSent, m_LiftNoPairByType);
             if (rising || signature != m_BuildPushedSignature || active != m_ActiveItem)
             {
                 m_ActiveItem = active;
                 m_BuildPushedSignature = signature;
                 m_Build.Update();
+                PushDrawRun();
             }
         }
 
@@ -3194,6 +3319,27 @@ namespace SkiResortMod.Systems
                 writer.Write(m_ItemMonthlyPerHa[i]);
                 writer.PropertyName("monthlyPerKm");
                 writer.Write(m_ItemMonthlyPerKm[i]);
+                // The Run tile's step prices (contract 33, R3): Groomed off pays the natural fee and no upkeep; snow guns and lights each add
+                // their one-time step and their upkeep step (SkiRunFees, SkiRunUpkeepRates); -1 on every other item. Written on EVERY item:
+                // a "SkiResortMod.BuildItem" whose fields differ from its siblings' killed the game the frame the hub opened (Gameface, no
+                // log or report; in game R3, DECISIONS 578), so every object of one __Type keeps one shape.
+                bool steps = Items[i].Id == RunItemId && m_ItemPrice[i] >= 0;
+                writer.PropertyName("naturalPrice");
+                writer.Write(steps ? SkiRunFees.NaturalBase : -1);
+                writer.PropertyName("naturalPerHa");
+                writer.Write(steps ? SkiRunFees.NaturalPerHa : -1);
+                writer.PropertyName("gunsPrice");
+                writer.Write(steps ? SkiRunFees.SnowmakingStepBase : -1);
+                writer.PropertyName("gunsPerHa");
+                writer.Write(steps ? SkiRunFees.SnowmakingStepPerHa : -1);
+                writer.PropertyName("gunsMonthlyPerHa");
+                writer.Write(steps ? SkiRunUpkeepRates.SnowmakingStepPerHaMonth : -1);
+                writer.PropertyName("lightsPrice");
+                writer.Write(steps ? SkiRunFees.LightsStepBase : -1);
+                writer.PropertyName("lightsPerHa");
+                writer.Write(steps ? SkiRunFees.LightsStepPerHa : -1);
+                writer.PropertyName("lightsMonthlyPerHa");
+                writer.Write(steps ? SkiRunUpkeepRates.LightsStepPerHaMonth : -1);
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
@@ -3394,20 +3540,24 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.TicketPaidMonth));
                 writer.PropertyName("ticketIncomeEstimated");
                 writer.Write(r.TicketIncomeEstimated);
-                writer.PropertyName("costGroomedMonth");
-                writer.Write(Fin(r.CostGroomedMonth));
+                writer.PropertyName("costGroomingMonth");
+                writer.Write(Fin(r.CostGroomingMonth));
                 writer.PropertyName("costSnowmakingMonth");
                 writer.Write(Fin(r.CostSnowmakingMonth));
-                writer.PropertyName("costNightMonth");
-                writer.Write(Fin(r.CostNightMonth));
+                writer.PropertyName("costLightsMonth");
+                writer.Write(Fin(r.CostLightsMonth));
+                writer.PropertyName("costCatTracksMonth");
+                writer.Write(Fin(r.CostCatTracksMonth));
                 writer.PropertyName("haNatural");
                 writer.Write(Fin(r.HaNatural));
                 writer.PropertyName("haGroomed");
                 writer.Write(Fin(r.HaGroomed));
                 writer.PropertyName("haSnowmaking");
                 writer.Write(Fin(r.HaSnowmaking));
-                writer.PropertyName("haNight");
-                writer.Write(Fin(r.HaNight));
+                writer.PropertyName("haLit");
+                writer.Write(Fin(r.HaLit));
+                writer.PropertyName("haCatTracks");
+                writer.Write(Fin(r.HaCatTracks));
                 writer.PropertyName("liftCostMonth");
                 writer.Write(Fin(r.LiftCostMonth));
                 writer.PropertyName("liftsBilled");
@@ -3585,6 +3735,8 @@ namespace SkiResortMod.Systems
                 writer.Write(r.GunSpacingM);
                 writer.PropertyName("lightSpacingM");
                 writer.Write(r.LightSpacingM);
+                writer.PropertyName("paidSteps");
+                writer.Write(r.PaidSteps);
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
@@ -4215,7 +4367,7 @@ namespace SkiResortMod.Systems
                 LiftTypeDef type = s_ItemTypeIndex[i] >= 0 ? SkiCatalog.LiftByIndex(s_ItemTypeIndex[i]) : null;
                 bool shuttle = type != null && type.Mover == MoverKind.Shuttle;
                 // The rule for every item: sent when (expected name or found), plus "a Shuttle item needs the tram mover registered".
-                m_ItemSent[i] = (expectedName || found) && (!shuttle || tramMoverRegistered);
+                m_ItemSent[i] = (expectedName || found) && (!shuttle || tramMoverRegistered) && !IsRetiredRunItem(item.Id);   // + R3: two run tiles
                 if (m_ItemSent[i])
                     sent++;
                 if (expectedName)
@@ -4501,6 +4653,8 @@ namespace SkiResortMod.Systems
             sb.Append('\n');
             // The station LV icon state and the mountain jobs on the signs.
             World.GetExistingSystemManaged<StationLvIconSystem>()?.AppendDump(sb);
+            World.GetExistingSystemManaged<LiftLineIconSystem>()?.AppendDump(sb);
+            World.GetExistingSystemManaged<LiftPowerCueSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<MountainJobsSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<OffSeasonStaffSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<LodgeSupplySystem>()?.AppendDump(sb);

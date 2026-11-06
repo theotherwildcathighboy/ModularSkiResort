@@ -20,7 +20,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="SplitSolve.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\CatTrackGrade.cs" Link="CatTrackGrade.cs" />
+    <!-- GR-31: the full solve as one pure function (worker-safe), and the snapshot sampler it reads on the worker -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\CatTrackGradeSolve.cs" Link="CatTrackGradeSolve.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Snapshot.cs" Link="SkiRunAutoPlanner.Snapshot.cs" />
     <!-- GR-18: the tool's default max grade is the run's green-rule limit (SkiRunRatingRules.CatTrackMaxGrade) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRatingRules.cs" Link="SkiRunRatingRules.cs" />
     <!-- GR-20: the game's rater on graded terrain (the cat track's own band, a crossed run's band before / after) -->

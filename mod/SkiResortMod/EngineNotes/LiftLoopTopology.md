@@ -37,3 +37,9 @@ Option `ShuttleDockReach` (off by default): a terminal within MaxDockRunM of a s
 is 29-30 m from the origin, past StationTerminalRadius).
 
 Chain A is the up lane (right looking uphill, `StationAlign.UpLaneIsSecond`) in both modes.
+
+## SortedStationOrder (the station list order)
+`SortedStationOrder(stationIndex, stationVersion, order)` is the order that sorts a station list by entity (Index, then Version; equal keys
+keep list order). TramShuttleSystem applies it to its harvest so the station indices in the pair notes and the rebuild signature do not
+move with the chunk order (see TramShuttleSystem.md, "Station order and the watchdog signature"; LiftBatch SH-12). The topology itself
+never sorts: its Station list is whatever order the caller gives, and pairing follows lane order.

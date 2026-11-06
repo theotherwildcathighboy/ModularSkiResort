@@ -21,7 +21,7 @@ using Unity.Mathematics;
 
 namespace GradeBatch
 {
-    internal static class Program
+    internal static partial class Program
     {
         private static int s_Failures;
         private static long s_Checks;
@@ -65,6 +65,7 @@ namespace GradeBatch
             NarrowProfile();
             GroomerCenterlines();
             PlayerText();
+            SplitSolve();
             Console.WriteLine($"SUMMARY GradeBatch: {s_Checks} checks, {s_Failures} failure(s)");
             Environment.ExitCode = s_Failures;
             return s_Failures;

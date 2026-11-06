@@ -318,8 +318,8 @@
     "mesh_lod1_lod2": "no EmissiveProperties: the levels use the main mesh's (ManagedBatchSystem.cs:943-946)",
     "effect_source": [
       {
-        "effect": "SkiPisteFloodSource",
-        "cid": "0fff229caa4bf7238884ed882d59fbb1",
+        "effect": "SkiGroomerFloodSource",
+        "cid": "f92b8570eba9704e6c736278a608bd29",
         "m_PositionOffset": [
           0.0,
           2.9,
@@ -336,8 +336,8 @@
         "m_AnimationIndex": -1
       },
       {
-        "effect": "SkiSnowGunBeaconSource",
-        "cid": "d487a21aa832aaea20c94fb8d04ac3f4",
+        "effect": "SkiGroomerBeaconSource",
+        "cid": "534a7c80726ec2b4a002b9c72a4ec58e",
         "m_PositionOffset": [
           0.0,
           3.35,
@@ -354,8 +354,8 @@
         "m_AnimationIndex": 0
       },
       {
-        "effect": "SkiPisteFloodSource",
-        "cid": "0fff229caa4bf7238884ed882d59fbb1",
+        "effect": "SkiGroomerFloodSource",
+        "cid": "f92b8570eba9704e6c736278a608bd29",
         "m_PositionOffset": [
           0.0,
           2.9,

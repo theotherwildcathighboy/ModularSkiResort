@@ -71,7 +71,7 @@ export type ProblemVariant =
   | "signNoRoad" | "lodgeNoRoad"
   | "skiDaysCannotReach" | "skiDaysNoGuestsNear" | "noParkingNearLodge" | "lodgeNotSlopeside"
   | "mixedLiftTypes" | "summitLodgeNotLiftServed" | "schoolNoGreenRun" | "schoolsNotLinked"
-  | "depotNoHillLodge" | "depotNoRoad" | "liftBend";
+  | "depotNoHillLodge" | "depotNoRoad" | "liftBend" | "liftTrainLimit" | "liftLowSpan";
 
 export function problemVariant(p: ProblemRow): ProblemVariant | null {
   switch (p.code) {
@@ -107,6 +107,8 @@ export function problemVariant(p: ProblemRow): ProblemVariant | null {
     case PROBLEM.DepotNoHillLodge: return "depotNoHillLodge";
     case PROBLEM.DepotNoRoad: return "depotNoRoad";
     case PROBLEM.LiftBend: return "liftBend";
+    case PROBLEM.LiftTrainLimit: return "liftTrainLimit";
+    case PROBLEM.LiftLowSpan: return "liftLowSpan";
     default: return null;
   }
 }
@@ -154,7 +156,8 @@ export type ProblemClick = "sign" | "lift" | "liftsView" | "runsView" | null;
  *  the lowest summit lodge no lift reaches for 24, the subject C# names for 25; the top-level school for 25,
  *  the first school on no sign for 26, a road-less school for 19 when no lodge is). MixedLiftTypes (23)
  *  is a lift row: its click flies to the lift (to its gap while a section is missing), like LiftUnfinished. LiftBend (30) sends the bent
- *  tower's node as its subject with a null subjectTop: focusLift flies to that tower. */
+ *  tower's node as its subject with a null subjectTop: focusLift flies to that tower; LiftTrainLimit (31) the same with its tower; LiftLowSpan (32)
+ *  sends the low span's edge: focusLift flies to its lowest carrier point. */
 export function problemClick(p: ProblemRow): ProblemClick {
   switch (p.code) {
     case PROBLEM.NoLodge: case PROBLEM.LodgesAllOff: case PROBLEM.LodgesSomeOff: case PROBLEM.Efficiency:
@@ -165,6 +168,7 @@ export function problemClick(p: ProblemRow): ProblemClick {
       return "sign";
     case PROBLEM.LiftNoPower: case PROBLEM.LiftSectionMissing: case PROBLEM.LiftUnfinished:
     case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped: case PROBLEM.MixedLiftTypes: case PROBLEM.LiftBend:
+    case PROBLEM.LiftTrainLimit: case PROBLEM.LiftLowSpan:
       return "lift";
     case PROBLEM.NoLift: return "liftsView";
     case PROBLEM.NoRuns: case PROBLEM.RunsUnserved: case PROBLEM.RunsUnrateable: case PROBLEM.RunsRating:
@@ -972,11 +976,21 @@ export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "sc
 }
 
 /**
- * A prop row's next value (RunPropPlacerRules.ClampSpacing has the same range): stepping down under the minimum reads off, stepping up
- * from off lands on the minimum at the least, the maximum holds. The row shows C#'s value; this only picks what to send.
+ * The spacing ladder of a prop row (DECISIONS 601): Fewer and More walk it so each click changes the count one way only. Off sits past the
+ * sparse end: More from Off lands on RUN_PROP_SPACING_FIRST, Fewer past the last rung turns the feature off. A value between rungs (a kind's
+ * default such as 90 m) steps to the next rung in the asked direction. Range = RunPropPlacerRules.ClampSpacing (20-200 m).
  */
-export function runPropSpacingStep(value: number, delta: number): number {
-  const next = value + delta;
-  if (next < RUN_PROP_SPACING_MIN) return delta < 0 ? RUN_PROP_SPACING_OFF : RUN_PROP_SPACING_MIN;
-  return Math.min(RUN_PROP_SPACING_MAX, next);
+export const RUN_PROP_SPACING_LADDER = [20, 30, 40, 50, 60, 80, 100, 130, 160, 200];
+export const RUN_PROP_SPACING_FIRST = 50;
+
+/** The value a Fewer (more = false) or More (more = true) click sends. The row shows C#'s value; this only picks what to send. */
+export function runPropSpacingStep(value: number, more: boolean): number {
+  const L = RUN_PROP_SPACING_LADDER;
+  if (value <= RUN_PROP_SPACING_OFF) return more ? RUN_PROP_SPACING_FIRST : RUN_PROP_SPACING_OFF;
+  if (more) {
+    for (let i = L.length - 1; i >= 0; i--) if (L[i] < value) return L[i];
+    return RUN_PROP_SPACING_MIN;
+  }
+  for (let i = 0; i < L.length; i++) if (L[i] > value) return Math.min(RUN_PROP_SPACING_MAX, L[i]);
+  return RUN_PROP_SPACING_OFF;
 }

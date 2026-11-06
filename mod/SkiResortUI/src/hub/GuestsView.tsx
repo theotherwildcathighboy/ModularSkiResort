@@ -11,6 +11,7 @@
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { city$, hubTriggers, lodgeParking$, resortLive$, resorts$, sameEntity, selectedResort$ } from "../bindings";
 import type { BuildItemId, CityStats, LodgeParkingRow, ResortLive } from "../bindings";
 import { useT } from "../l10n";
@@ -161,7 +162,7 @@ function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRo
           : t(HUB_LOC.guestsTipCarSpaces);
         return (
           <Tip key={`${r.lodge.index}:${r.lodge.version}`} tip={tip}>
-            <Button theme={{ button: cx(styles.infoLine, styles.foldRow, styles.lodgeRow) }} onSelect={() => hubTriggers.focusBuilding(r.lodge)}>
+            <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.infoLine, styles.foldRow, styles.lodgeRow) }} onSelect={() => hubTriggers.focusBuilding(r.lodge)}>
               <div className={custom ? styles.lodgeNameLabel : styles.infoLabel}><LocText entry={HUB_FMT.guestsRowCarSpaces} args={{ NAME: name }} /></div>
               <StableWidth samples={samples.count} align="end">{countCell(r.carSpaces)}</StableWidth>
             </Button>
@@ -205,8 +206,8 @@ function SignGuests({ l, city, parking, samples, t }: {
   // A fixed ladder (50, 100, 200, 500, ...) instead of the larger month.
   const scale = guestBarScale(thisMonth, lastMonth);
   // The months by name (city.month; last month = the one before: the ledger only rolls to the next calendar month, a jump
-  // leaves last month unknown). The column heads carry the bare name: their cells are the money sample's width and the bars above
-  // already say "Month of".
+  // leaves last month unknown). Bars, column heads and the row tooltips all carry the bare name (the column cells are the money
+  // sample's width).
   const thisName = monthName(city.month, t);
   const lastName = monthName(city.month, t, 1);
   const thisLabel = <LocText entry={HUB_FMT.guestsMonthThis} args={{ MONTH: thisName }} />;
@@ -327,7 +328,7 @@ function SignGuests({ l, city, parking, samples, t }: {
       <Divider />
       {/* group 4: the car spaces, one row per road lodge under one header whose value is their total ("–" before the first count). */}
       {parking.length > 0 && (
-        <Fold view="guests" id="parking" header label={t(HUB_LOC.guestsGroupCarSpaces)} tip={t(HUB_LOC.guestsTipCarSpaces)}
+        <Fold view="guests" id="parking" header label={t(HUB_LOC.guestsGroupCarSpaces)} tip={t(HUB_LOC.guestsTipCarSpacesAll)}
           value={parkingTotal(parking)}>
           <LodgeParkingLines rows={parking} samples={samples} t={t} />
         </Fold>

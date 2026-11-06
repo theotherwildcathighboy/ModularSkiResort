@@ -1642,7 +1642,7 @@ def p_exhaust(c):
     c.H[h] -= 0.008
 
 
-# Emitted color, linear. The white is the flood effect's own color (SkiPisteFloodSource), the amber vanilla EU_Snowplow01's Warning1 / Warning2.
+# Emitted color, linear. The white is the flood effect's own color (SkiGroomerFloodSource, the piste flood's light), the amber vanilla EU_Snowplow01's Warning1 / Warning2.
 LIGHT_WHITE = _srgb_to_lin(np.array((1.0, 0.965, 0.92), np.float64)).astype(np.float32)
 LIGHT_AMBER = _srgb_to_lin(np.array((1.0, 0.698, 0.0), np.float64)).astype(np.float32)
 NOSE_SLIT = (0.44, 0.72, 1.065, 1.115)     # |y| and z: two nose lights without lamp geometry, a slit in the black panel above the apron lip
@@ -2103,11 +2103,11 @@ LIGHT_SURGERY = {
     # Row 0 stays the front flood: purpose 71 follows the first enabled effect, so row 0 must be Night-gated. Rotations are game local: the
     # front one 25 degrees about +x (forward and down), the rear one 180 degrees about +y times that (back and down).
     "effect_source": [
-        {"effect": "SkiPisteFloodSource", "cid": "0fff229caa4bf7238884ed882d59fbb1", "m_PositionOffset": _game_row(FLOOD_AUTHOR),
+        {"effect": "SkiGroomerFloodSource", "cid": "f92b8570eba9704e6c736278a608bd29", "m_PositionOffset": _game_row(FLOOD_AUTHOR),
          "m_Rotation_xyzw": [0.21644, 0.0, 0.0, 0.976296], "m_Intensity": 1, "m_ParentMesh": 0, "m_AnimationIndex": -1},
-        {"effect": "SkiSnowGunBeaconSource", "cid": "d487a21aa832aaea20c94fb8d04ac3f4", "m_PositionOffset": _game_row(AMBER_AUTHOR),
+        {"effect": "SkiGroomerBeaconSource", "cid": "534a7c80726ec2b4a002b9c72a4ec58e", "m_PositionOffset": _game_row(AMBER_AUTHOR),
          "m_Rotation_xyzw": [0.0, 0.0, 0.0, 1.0], "m_Intensity": 1, "m_ParentMesh": 0, "m_AnimationIndex": 0},
-        {"effect": "SkiPisteFloodSource", "cid": "0fff229caa4bf7238884ed882d59fbb1", "m_PositionOffset": _game_row(REAR_FLOOD_AUTHOR),
+        {"effect": "SkiGroomerFloodSource", "cid": "f92b8570eba9704e6c736278a608bd29", "m_PositionOffset": _game_row(REAR_FLOOD_AUTHOR),
          "m_Rotation_xyzw": [0.0, 0.976296, -0.21644, 0.0], "m_Intensity": 1, "m_ParentMesh": 0, "m_AnimationIndex": -1},
     ],
     "effect_source_curves": "one row: m_AnimationCurves[0] of vanilla EU_Snowplow01.Prefab (0.5 s), for the amber light's pulse",
@@ -2257,7 +2257,7 @@ def _night_rig(rig, obj, asset_dir, label):
     P._make_ground(rig)
     P._assign(obj, P._pbr_material(rig, asset_dir, NAME, None, mat_name=f"{NAME}_Night{label}"))
     for row in LIGHT_SURGERY["effect_source"]:
-        kind = "SPOT" if row["effect"] == "SkiPisteFloodSource" else "POINT"
+        kind = "SPOT" if row["effect"] == "SkiGroomerFloodSource" else "POINT"
         gx, gy, gz = row["m_PositionOffset"]
         bpy.ops.object.light_add(type=kind, location=author_to_net((gz, -gx, gy)))
         lamp_ob = rig.track(bpy.context.active_object)

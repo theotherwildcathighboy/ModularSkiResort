@@ -1,0 +1,2673 @@
+{
+  "name": "SkiDQBaseStationC",
+  "written_utc": "2026-11-04T07:23:03Z",
+  "blender": "5.2.3 LTS",
+  "files": {
+    "SkiDQBaseStationC.fbx": {
+      "bytes": 447036,
+      "sha1": "97d08cac1541a4a695b3e624a5abf64b57538b17"
+    },
+    "SkiDQBaseStationC_BaseColor.png": {
+      "bytes": 2500780,
+      "sha1": "d010145b786e5bfffe9154546b283cf9047da761"
+    },
+    "SkiDQBaseStationC_ControlMask.png": {
+      "bytes": 115377,
+      "sha1": "b7d77bd34ab53c0ebdf7a416abd8f104f8ee0ab6"
+    },
+    "SkiDQBaseStationC_LOD1.fbx": {
+      "bytes": 171516,
+      "sha1": "2286c0abad23c3334ffefe7e169c3d2623bd7d6b"
+    },
+    "SkiDQBaseStationC_LOD1_Win.fbx": {
+      "bytes": 16716,
+      "sha1": "22708a0d1729a936dbe883557c7f51524ab2460d"
+    },
+    "SkiDQBaseStationC_LOD2.fbx": {
+      "bytes": 62060,
+      "sha1": "9ce088dbd9913edf0a8203707a6985114b6f20b2"
+    },
+    "SkiDQBaseStationC_LOD2_Win.fbx": {
+      "bytes": 16716,
+      "sha1": "12b4b68f1fc2700467420e2cb41fe577be340abe"
+    },
+    "SkiDQBaseStationC_MaskMap.png": {
+      "bytes": 874091,
+      "sha1": "9e74282b6065edb79f2dd791be8577369ab70e47"
+    },
+    "SkiDQBaseStationC_Normal.png": {
+      "bytes": 936521,
+      "sha1": "f1893405cd75e6bb28d6aac528a2a68b13df6e0a"
+    },
+    "SkiDQBaseStationC_Win.fbx": {
+      "bytes": 16716,
+      "sha1": "acf57208081c007b4d234cc2190b90fc2d5362af"
+    },
+    "settings.json": {
+      "bytes": 735,
+      "sha1": "8552fa7ba650a0513e75a36d6303e7ab4ec06e64"
+    }
+  },
+  "generator": "lift_terminal_detach.py",
+  "kind": "building",
+  "variant": "dq-base",
+  "spec": "dq-terminal.md + dq-terminal-skeptic.md MUST-CHANGE 1-13 + Revision 1 (verdicts-2026-10-11.md #3-4: front ladder, one underside ladder, gangplank, no left-flank railings, sign band, housing windows) + Revision 1b polish (vector plate digits, plate-edge relief / occlusion) + Revision 2 (second look 3': the front ladder extends to the ground)",
+  "revision": 2,
+  "revision_polish": "1b 2026-10-11: vector Bfont plate digits (anti-aliased, 448 px/m), plate-edge relief + emblem panel edge occlusion",
+  "revision2": "2 2026-10-11 (second look 3'): the nose ladder runs from a ground footing (open-bottom, z 0) through a ladder-way in the landing to the crown, one 0.30 rung grid, no cage",
+  "front_ladder": {
+    "revision": "1c (2026-10-11): ground flight beside the landing (+Y edge, a through ladder); front ladder from the landing (Revision 1)",
+    "x": -8.22,
+    "y": -0.875,
+    "rails_z": [
+      3.35,
+      8.842
+    ],
+    "ground_flight": {
+      "x": [
+        -8.53,
+        -8.05
+      ],
+      "y": 0.6,
+      "climb_dir": "+y",
+      "rails_z": [
+        0.1,
+        4.42
+      ],
+      "footing": {
+        "part": "lfoot_gf",
+        "x": [
+          -8.58,
+          -8.01
+        ],
+        "y": [
+          0.5,
+          0.97
+        ],
+        "z": [
+          0.0,
+          0.1
+        ],
+        "open_bottom": true,
+        "engine_base_ok_edges": 4
+      },
+      "rungs": {
+        "n": 11,
+        "pitch_m": 0.3,
+        "lowest_m": 0.35,
+        "top_m": 3.35,
+        "flush_with_landing_m": 3.35
+      },
+      "landing_edge_y": 0.42,
+      "step_across_m": 0.18,
+      "climb_room_m": {
+        "fixed": 1.332,
+        "chairs": 0.65
+      },
+      "climb_min_m": 0.61
+    },
+    "front_from_landing_room_m": 0.392,
+    "cage": false,
+    "min_x": -8.58,
+    "hosted_etdq_inboard_x": -8.612,
+    "detail1_access": {
+      "roof_route": {
+        "ladder_y": -0.875,
+        "rails_c2c_m": 0.48,
+        "corridor_m": [
+          0.61,
+          0.61
+        ],
+        "z": [
+          3.65,
+          10.242
+        ],
+        "room_fixed_m": 1.5,
+        "room_chairs_m": 1.5,
+        "bottom_stop": {
+          "landing_depth_m": 0.33,
+          "gap_to_etdq_m": 0.062,
+          "etdq_deck_top": 3.404,
+          "etdq_deck_is_stop_surface": true,
+          "zone_room_m": 1.5
+        },
+        "rail_gap": "open (Q10 default): post_gangna_1 .. post_gangnb_0"
+      },
+      "ground_flight_corridor": {
+        "x": [
+          -8.611,
+          -8.001
+        ],
+        "room_fixed_m": 0.65,
+        "room_chairs_m": 0.65
+      },
+      "pf_ladder": {
+        "x": -1.15,
+        "y": 0.77,
+        "rails_c2c_m": 0.56,
+        "rungs": [
+          0.6,
+          3.3,
+          10
+        ],
+        "hatch": {
+          "centre": [
+            -0.85,
+            0.77,
+            3.35
+          ],
+          "opening_m": 0.8,
+          "cut": true
+        },
+        "room_fixed_m": 1.5,
+        "room_chairs_m": 1.5,
+        "nearest": [
+          "RoofLightRandom01@0.00,0.75",
+          0.221
+        ],
+        "spine_step_m": 0.16
+      }
+    },
+    "detail1_dressing": {
+      "dress_parts": 79,
+      "c8_nearest_m": 0.064,
+      "sub_objects": 14
+    },
+    "detail1_board_order": {
+      "travel_dir_z": -1.0,
+      "lane_x_sign": 1.0,
+      "sequence": [
+        {
+          "item": "waithere",
+          "words": "WAIT HERE",
+          "z": [
+            6.35,
+            6.35
+          ]
+        },
+        {
+          "item": "carpet",
+          "words": "loading carpet",
+          "z": [
+            5.6,
+            2.8
+          ]
+        },
+        {
+          "item": "load",
+          "words": "load line",
+          "z": [
+            2.85,
+            2.85
+          ]
+        },
+        {
+          "item": "lowerbar",
+          "words": "LOWER BAR",
+          "z": [
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "item": "tipsup",
+          "words": "KEEP TIPS UP",
+          "z": [
+            -1.5,
+            -1.5
+          ]
+        }
+      ],
+      "unload_line_z": null
+    }
+  },
+  "finish": "shipping",
+  "atlas_px": 2048,
+  "ao_samples": 48,
+  "pack_margin_px": 6,
+  "tris": {
+    "0": 6825,
+    "1": 2234,
+    "2": 490
+  },
+  "tris_win": 62,
+  "parts": 383,
+  "caps": {
+    "lod0": 12000,
+    "lod1_max": 5000,
+    "lod2": 500
+  },
+  "materials": [
+    "accent3",
+    "cedar",
+    "concrete",
+    "darksteel",
+    "flag_red",
+    "galv",
+    "glass",
+    "label",
+    "lamp",
+    "pad2",
+    "paint1",
+    "rope",
+    "rope_orange",
+    "rubber",
+    "safety_black",
+    "safety_yellow",
+    "signband",
+    "stone",
+    "stripe",
+    "wheelsteel"
+  ],
+  "bake_materials": {
+    "0": {
+      "faces": 144,
+      "texels": 300626,
+      "slot": 3,
+      "normal": "none",
+      "recolor_scale": 1.0
+    },
+    "1": {
+      "faces": 63,
+      "texels": 151824,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "2": {
+      "faces": 102,
+      "texels": 153077,
+      "slot": 0,
+      "normal": "GL",
+      "recolor_scale": null
+    },
+    "3": {
+      "faces": 511,
+      "texels": 11772,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "4": {
+      "faces": 22,
+      "texels": 9,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "5": {
+      "faces": 1940,
+      "texels": 191378,
+      "slot": 0,
+      "normal": "GL",
+      "recolor_scale": null
+    },
+    "6": {
+      "faces": 61,
+      "texels": 18194,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "7": {
+      "faces": 9,
+      "texels": 331200,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "8": {
+      "faces": 8,
+      "texels": 19208,
+      "slot": 2,
+      "normal": "none",
+      "recolor_scale": 1.0000000987114017
+    },
+    "9": {
+      "faces": 318,
+      "texels": 628998,
+      "slot": 1,
+      "normal": "none",
+      "recolor_scale": 1.0
+    },
+    "10": {
+      "faces": 228,
+      "texels": 44184,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "11": {
+      "faces": 84,
+      "texels": 165,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "12": {
+      "faces": 293,
+      "texels": 3025,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "13": {
+      "faces": 26,
+      "texels": 164,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "14": {
+      "faces": 56,
+      "texels": 802,
+      "slot": 0,
+      "normal": "none",
+      "recolor_scale": null
+    },
+    "15": {
+      "faces": 2,
+      "texels": 307328,
+      "slot": 3,
+      "normal": "none",
+      "recolor_scale": 1.0000000987114017
+    }
+  },
+  "detail": [
+    "apron_",
+    "band_",
+    "beam_",
+    "board_",
+    "cab_",
+    "carpet_",
+    "chev_",
+    "crosshead_",
+    "dkbeam_",
+    "door_cab_leaf",
+    "door_eng_leaf",
+    "door_n_leaf",
+    "door_opr_leaf",
+    "door_p_leaf",
+    "doorlite_",
+    "endglass_",
+    "engroom_",
+    "grate_",
+    "grate_balc_i_lip",
+    "grate_balc_lip",
+    "grate_balc_n_lip",
+    "grate_balc_o_lip",
+    "grate_gang_lip",
+    "hatch_sofpf",
+    "haulrope_",
+    "label_",
+    "lamp_",
+    "opr_walls",
+    "ped_",
+    "platf_",
+    "plinth_",
+    "pstripe_",
+    "roof_",
+    "signband_",
+    "sill_",
+    "soffit_",
+    "spine_",
+    "stonebase_",
+    "stread_",
+    "stripe_",
+    "wall_",
+    "wallin_",
+    "wheelrope",
+    "winframe_"
+  ],
+  "relief_height_m": [
+    -0.053999993950128555,
+    0.003998946398496628
+  ],
+  "sign_band": {
+    "signband_n": {
+      "rect": [
+        1648,
+        2040,
+        16,
+        800
+      ],
+      "px_per_m": 448.0,
+      "px_per_m_uv": [
+        448.0,
+        448.0
+      ],
+      "emblem_px": 392,
+      "emblem_texels": 49141,
+      "plate_cols": [
+        482,
+        784
+      ],
+      "plate_texels": 118384,
+      "digit_texels": 24843.0,
+      "digit_texels_expected": 24878.7,
+      "digit_coverage_ratio": 0.9986,
+      "digit_full_texels": 24387,
+      "digit_aa_texels": 1025,
+      "digit_aa_levels": 63,
+      "digit_outside_box": 0.0,
+      "digit_font": "Bfont (builtin)",
+      "digit_ss": 8,
+      "digit_tris": 15,
+      "digit_px_h": 313.6,
+      "digit_h_m": 0.7,
+      "digit_w_m": 0.466,
+      "digit_box_m": [
+        0.5,
+        0.7
+      ],
+      "relief": {
+        "bevel_m": 0.016,
+        "bevel_h_m": 0.005,
+        "plate_step_m": 0.008,
+        "plate_step_h_m": 0.002,
+        "bead_inset_m": 0.026,
+        "bead_w_m": 0.01,
+        "bead_h_m": 0.0015,
+        "edge_ao": 0.14,
+        "edge_ao_m": 0.045,
+        "occ_min": 0.86,
+        "tilt_max_deg": 41.93,
+        "tilt_field_deg": 0.0,
+        "tilted_texels": 26416
+      },
+      "digits": "4",
+      "px_per_m_min": 442.8,
+      "reserved_uv": [
+        0.0078125,
+        0.8046875,
+        0.390625,
+        0.99609375
+      ],
+      "shared_with": "signband_p"
+    }
+  },
+  "ctl_seam_texels_scaled": 394,
+  "sign_reserved_uv": {
+    "n": [
+      0.0078125,
+      0.8046875,
+      0.390625,
+      0.99609375
+    ]
+  },
+  "detail1": {
+    "spec": "design/detail-pass-1-lifts.md sections 3 / 4 / 7 + skeptic MC1-MC11 (detach group)",
+    "density": {
+      "w1_px_per_m": 32.25,
+      "median_px_per_m": 19.35,
+      "classes": {
+        "band_": {
+          "px_per_m": 38.7,
+          "m2": 196.24,
+          "w": 1.2
+        },
+        "bandlining_": {
+          "px_per_m": 6.4,
+          "m2": 161.68,
+          "w": 0.2
+        },
+        "beam_": {
+          "px_per_m": 25.8,
+          "m2": 17.06,
+          "w": 0.8
+        },
+        "board_": {
+          "px_per_m": 19.3,
+          "m2": 3.93,
+          "w": 0.6
+        },
+        "bolt_": {
+          "px_per_m": 32.2,
+          "m2": 0.1,
+          "w": 1.0
+        },
+        "cab_": {
+          "px_per_m": 48.3,
+          "m2": 26.92,
+          "w": 1.5
+        },
+        "cabinet_": {
+          "px_per_m": 19.3,
+          "m2": 11.82,
+          "w": 0.6
+        },
+        "cabmull_": {
+          "px_per_m": 32.2,
+          "m2": 1.5,
+          "w": 1.0
+        },
+        "cabroof": {
+          "px_per_m": 32.2,
+          "m2": 17.61,
+          "w": 1.0
+        },
+        "carpet_": {
+          "px_per_m": 19.3,
+          "m2": 8.2,
+          "w": 0.6
+        },
+        "ceil_": {
+          "px_per_m": 6.4,
+          "m2": 188.79,
+          "w": 0.2
+        },
+        "chev_": {
+          "px_per_m": 19.3,
+          "m2": 1.38,
+          "w": 0.6
+        },
+        "clamp_": {
+          "px_per_m": 32.2,
+          "m2": 0.18,
+          "w": 1.0
+        },
+        "commbracket_": {
+          "px_per_m": 32.2,
+          "m2": 0.66,
+          "w": 1.0
+        },
+        "commcable_": {
+          "px_per_m": 32.3,
+          "m2": 1.14,
+          "w": 1.0
+        },
+        "crosshead_": {
+          "px_per_m": 41.9,
+          "m2": 32.9,
+          "w": 1.3
+        },
+        "deck": {
+          "px_per_m": 19.3,
+          "m2": 291.86,
+          "w": 0.6
+        },
+        "detrail_": {
+          "px_per_m": 9.7,
+          "m2": 17.9,
+          "w": 0.3
+        },
+        "door_": {
+          "px_per_m": 32.2,
+          "m2": 5.36,
+          "w": 1.0
+        },
+        "doorlite_": {
+          "px_per_m": 25.8,
+          "m2": 0.24,
+          "w": 0.8
+        },
+        "downspout_": {
+          "px_per_m": 19.3,
+          "m2": 3.43,
+          "w": 0.6
+        },
+        "drip_": {
+          "px_per_m": 32.2,
+          "m2": 2.59,
+          "w": 1.0
+        },
+        "drive_": {
+          "px_per_m": 9.7,
+          "m2": 13.49,
+          "w": 0.3
+        },
+        "endglass_": {
+          "px_per_m": 25.8,
+          "m2": 27.24,
+          "w": 0.8
+        },
+        "endmull_": {
+          "px_per_m": 32.2,
+          "m2": 13.47,
+          "w": 1.0
+        },
+        "engroof": {
+          "px_per_m": 32.2,
+          "m2": 17.61,
+          "w": 1.0
+        },
+        "engroom_": {
+          "px_per_m": 38.7,
+          "m2": 26.92,
+          "w": 1.2
+        },
+        "flange_": {
+          "px_per_m": 32.2,
+          "m2": 6.62,
+          "w": 1.0
+        },
+        "gate_": {
+          "px_per_m": 22.6,
+          "m2": 1.82,
+          "w": 0.7
+        },
+        "grate_": {
+          "px_per_m": 19.3,
+          "m2": 5.89,
+          "w": 0.6
+        },
+        "gusset_": {
+          "px_per_m": 32.2,
+          "m2": 2.7,
+          "w": 1.0
+        },
+        "gutter_": {
+          "px_per_m": 19.3,
+          "m2": 16.11,
+          "w": 0.6
+        },
+        "hatch_": {
+          "px_per_m": 19.3,
+          "m2": 2.85,
+          "w": 0.6
+        },
+        "haulrope_": {
+          "px_per_m": 48.3,
+          "m2": 13.6,
+          "w": 1.5
+        },
+        "insul_": {
+          "px_per_m": 32.2,
+          "m2": 0.08,
+          "w": 1.0
+        },
+        "kick_": {
+          "px_per_m": 32.2,
+          "m2": 0.77,
+          "w": 1.0
+        },
+        "lfoot_": {
+          "px_per_m": 16.1,
+          "m2": 0.48,
+          "w": 0.5
+        },
+        "lrail_": {
+          "px_per_m": 19.3,
+          "m2": 4.64,
+          "w": 0.6
+        },
+        "lrung_": {
+          "px_per_m": 19.3,
+          "m2": 1.55,
+          "w": 0.6
+        },
+        "lstand_": {
+          "px_per_m": 19.3,
+          "m2": 0.22,
+          "w": 0.6
+        },
+        "maze_": {
+          "px_per_m": 16.1,
+          "m2": 2.74,
+          "w": 0.5
+        },
+        "opbase": {
+          "px_per_m": 16.1,
+          "m2": 16.86,
+          "w": 0.5
+        },
+        "pad_": {
+          "px_per_m": 32.2,
+          "m2": 18.6,
+          "w": 1.0
+        },
+        "ped_": {
+          "px_per_m": 41.9,
+          "m2": 15.31,
+          "w": 1.3
+        },
+        "plinth_": {
+          "px_per_m": 32.2,
+          "m2": 28.65,
+          "w": 1.0
+        },
+        "post_": {
+          "px_per_m": 19.3,
+          "m2": 2.3,
+          "w": 0.6
+        },
+        "rail_": {
+          "px_per_m": 19.3,
+          "m2": 3.44,
+          "w": 0.6
+        },
+        "railhang_": {
+          "px_per_m": 9.7,
+          "m2": 6.34,
+          "w": 0.3
+        },
+        "rampback": {
+          "px_per_m": 19.3,
+          "m2": 26.89,
+          "w": 0.6
+        },
+        "roof_": {
+          "px_per_m": 48.3,
+          "m2": 245.11,
+          "w": 1.5
+        },
+        "rooflining": {
+          "px_per_m": 6.4,
+          "m2": 237.55,
+          "w": 0.2
+        },
+        "sheave_bull": {
+          "px_per_m": 9.7,
+          "m2": 17.03,
+          "w": 0.3
+        },
+        "sill_": {
+          "px_per_m": 19.3,
+          "m2": 0.71,
+          "w": 0.6
+        },
+        "soffit_": {
+          "px_per_m": 19.3,
+          "m2": 129.27,
+          "w": 0.6
+        },
+        "spine_": {
+          "px_per_m": 41.9,
+          "m2": 36.9,
+          "w": 1.3
+        },
+        "spoke_": {
+          "px_per_m": 9.7,
+          "m2": 6.43,
+          "w": 0.3
+        },
+        "stovepipe": {
+          "px_per_m": 32.2,
+          "m2": 0.29,
+          "w": 1.0
+        },
+        "stripe_": {
+          "px_per_m": 19.3,
+          "m2": 1.4,
+          "w": 0.6
+        },
+        "tyre": {
+          "px_per_m": 9.7,
+          "m2": 10.71,
+          "w": 0.3
+        },
+        "wheelhub": {
+          "px_per_m": 9.7,
+          "m2": 2.7,
+          "w": 0.3
+        },
+        "wheelrope": {
+          "px_per_m": 48.3,
+          "m2": 5.41,
+          "w": 1.5
+        },
+        "winframe_": {
+          "px_per_m": 25.8,
+          "m2": 0.87,
+          "w": 0.8
+        },
+        "wxarm": {
+          "px_per_m": 32.2,
+          "m2": 0.04,
+          "w": 1.0
+        },
+        "wxbox": {
+          "px_per_m": 32.2,
+          "m2": 0.07,
+          "w": 1.0
+        },
+        "wxmast": {
+          "px_per_m": 32.2,
+          "m2": 0.16,
+          "w": 1.0
+        }
+      },
+      "starving_lt14": []
+    },
+    "emissive": {
+      "map": null,
+      "lit_texels": 0,
+      "cool_texels": 0,
+      "warm_texels": 0,
+      "why": "no lamp_ part left: every DQ light is a vanilla sub-object row, so no <name>_Emissive.png is baked or shipped and the importer writes no EmissiveProperties (no purpose-72 surgery step)"
+    },
+    "labels": {
+      "label_lowerbar": {
+        "kind": "lowerbar",
+        "rect": [
+          1820,
+          2040,
+          808,
+          1088
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          0.7,
+          0.55
+        ],
+        "lines": [
+          "LOWER",
+          "BAR"
+        ],
+        "cap_m": 0.07,
+        "condense": 0.8911,
+        "glyph_m": 0.225,
+        "placard_m": [
+          0.3655,
+          0.53
+        ],
+        "stroke_px": 4.99,
+        "picto_stroke_px": 4.22,
+        "style": "yellow",
+        "read_m": 28.1,
+        "t2_ok": true,
+        "t1_ok": false,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.39453125,
+          0.88867188,
+          0.53125,
+          0.99609375
+        ]
+      },
+      "label_ops": {
+        "kind": "ops",
+        "rect": [
+          1900,
+          2040,
+          1384,
+          1864
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          1.2,
+          0.35
+        ],
+        "lines": [
+          "LIFT OPS"
+        ],
+        "cap_m": 0.1772,
+        "condense": 0.802,
+        "glyph_m": 0.278,
+        "stroke_px": 11.37,
+        "picto_stroke_px": 4.4,
+        "style": "blue",
+        "read_m": 34.8,
+        "t2_ok": true,
+        "t1_ok": false,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.67578125,
+          0.92773438,
+          0.91015625,
+          0.99609375
+        ]
+      },
+      "label_seat1": {
+        "kind": "seat1",
+        "rect": [
+          1712,
+          1812,
+          1544,
+          1644
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          0.25,
+          0.25
+        ],
+        "lines": [
+          "1"
+        ],
+        "cap_m": 0.1339,
+        "condense": 1.0,
+        "glyph_m": 0.1339,
+        "stroke_px": 10.71,
+        "picto_stroke_px": 4.4,
+        "style": "blue",
+        "read_m": 16.7,
+        "t2_ok": true,
+        "t1_ok": false,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.75390625,
+          0.8359375,
+          0.80273438,
+          0.88476562
+        ]
+      },
+      "label_seat2": {
+        "kind": "seat2",
+        "rect": [
+          1712,
+          1812,
+          1652,
+          1752
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          0.25,
+          0.25
+        ],
+        "lines": [
+          "2"
+        ],
+        "cap_m": 0.1339,
+        "condense": 1.0,
+        "glyph_m": 0.1339,
+        "stroke_px": 10.71,
+        "picto_stroke_px": 4.4,
+        "style": "blue",
+        "read_m": 16.7,
+        "t2_ok": true,
+        "t1_ok": false,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.80664062,
+          0.8359375,
+          0.85546875,
+          0.88476562
+        ]
+      },
+      "label_seat3": {
+        "kind": "seat3",
+        "rect": [
+          1712,
+          1812,
+          1760,
+          1860
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          0.25,
+          0.25
+        ],
+        "lines": [
+          "3"
+        ],
+        "cap_m": 0.1339,
+        "condense": 1.0,
+        "glyph_m": 0.1339,
+        "stroke_px": 10.71,
+        "picto_stroke_px": 4.4,
+        "style": "blue",
+        "read_m": 16.7,
+        "t2_ok": true,
+        "t1_ok": false,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.859375,
+          0.8359375,
+          0.90820312,
+          0.88476562
+        ]
+      },
+      "label_seat4": {
+        "kind": "seat4",
+        "rect": [
+          1712,
+          1812,
+          1868,
+          1968
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          0.25,
+          0.25
+        ],
+        "lines": [
+          "4"
+        ],
+        "cap_m": 0.1339,
+        "condense": 1.0,
+        "glyph_m": 0.1339,
+        "stroke_px": 10.71,
+        "picto_stroke_px": 4.4,
+        "style": "blue",
+        "read_m": 16.7,
+        "t2_ok": true,
+        "t1_ok": false,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.91210938,
+          0.8359375,
+          0.9609375,
+          0.88476562
+        ]
+      },
+      "label_slow": {
+        "kind": "slow",
+        "rect": [
+          1672,
+          1812,
+          808,
+          1288
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          1.2,
+          0.35
+        ],
+        "lines": [
+          "SLOW"
+        ],
+        "cap_m": 0.28,
+        "condense": 0.9791,
+        "glyph_m": 0.0,
+        "stroke_px": 21.93,
+        "picto_stroke_px": 4.4,
+        "style": "orange",
+        "read_m": 0.0,
+        "t2_ok": true,
+        "t1_ok": true,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.39453125,
+          0.81640625,
+          0.62890625,
+          0.88476562
+        ]
+      },
+      "label_tipsup": {
+        "kind": "tipsup",
+        "rect": [
+          1820,
+          2040,
+          1096,
+          1376
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          0.7,
+          0.55
+        ],
+        "lines": [
+          "KEEP",
+          "TIPS UP"
+        ],
+        "cap_m": 0.07,
+        "condense": 0.9056,
+        "glyph_m": 0.225,
+        "placard_m": [
+          0.3655,
+          0.53
+        ],
+        "stroke_px": 5.07,
+        "picto_stroke_px": 4.22,
+        "style": "yellow",
+        "read_m": 28.1,
+        "t2_ok": true,
+        "t1_ok": false,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.53515625,
+          0.88867188,
+          0.671875,
+          0.99609375
+        ]
+      },
+      "label_waithere": {
+        "kind": "waithere",
+        "rect": [
+          1672,
+          1812,
+          1296,
+          1536
+        ],
+        "px_per_m": [
+          400.0,
+          400.0
+        ],
+        "size_m": [
+          0.6,
+          0.35
+        ],
+        "lines": [
+          "WAIT",
+          "HERE"
+        ],
+        "cap_m": 0.071,
+        "condense": 0.8022,
+        "glyph_m": 0.258,
+        "stroke_px": 4.55,
+        "picto_stroke_px": 4.4,
+        "style": "yellow",
+        "read_m": 32.2,
+        "t2_ok": true,
+        "t1_ok": false,
+        "l1_ppm_ok": true,
+        "reserved_uv": [
+          0.6328125,
+          0.81640625,
+          0.75,
+          0.88476562
+        ]
+      }
+    },
+    "label_ppm": 400.0,
+    "weather": {
+      "intensity": 0.7,
+      "ladder": [
+        {
+          "intensity": 0.4,
+          "ok": true,
+          "VL1": 0.0272,
+          "VL2": 0.0407,
+          "VL3": -0.0071,
+          "VL4": 0.107,
+          "dLstar_mean": 0.642,
+          "dLstar_gt2": 0.078
+        },
+        {
+          "intensity": 0.45,
+          "ok": true,
+          "VL1": 0.0306,
+          "VL2": 0.0467,
+          "VL3": -0.008,
+          "VL4": 0.121,
+          "dLstar_mean": 0.724,
+          "dLstar_gt2": 0.0894
+        },
+        {
+          "intensity": 0.5,
+          "ok": true,
+          "VL1": 0.034,
+          "VL2": 0.0521,
+          "VL3": -0.0088,
+          "VL4": 0.134,
+          "dLstar_mean": 0.807,
+          "dLstar_gt2": 0.1
+        },
+        {
+          "intensity": 0.55,
+          "ok": true,
+          "VL1": 0.0373,
+          "VL2": 0.0565,
+          "VL3": -0.0097,
+          "VL4": 0.147,
+          "dLstar_mean": 0.89,
+          "dLstar_gt2": 0.1113
+        },
+        {
+          "intensity": 0.6,
+          "ok": true,
+          "VL1": 0.0407,
+          "VL2": 0.0609,
+          "VL3": -0.0106,
+          "VL4": 0.161,
+          "dLstar_mean": 0.972,
+          "dLstar_gt2": 0.1234
+        },
+        {
+          "intensity": 0.65,
+          "ok": true,
+          "VL1": 0.0438,
+          "VL2": 0.0656,
+          "VL3": -0.0114,
+          "VL4": 0.174,
+          "dLstar_mean": 1.05,
+          "dLstar_gt2": 0.1352
+        },
+        {
+          "intensity": 0.7,
+          "ok": true,
+          "VL1": 0.0469,
+          "VL2": 0.0711,
+          "VL3": -0.0122,
+          "VL4": 0.188,
+          "dLstar_mean": 1.127,
+          "dLstar_gt2": 0.1462
+        }
+      ],
+      "preset": "station",
+      "slot_wear": "free",
+      "snow": 0.0,
+      "vanilla": {
+        "VL1_mean_rel_dL": 0.0469,
+        "VL2_share_rel_dL_gt_0.15": 0.0711,
+        "VL3_mean_dsmooth": -0.0122,
+        "VL3_max_abs_dsmooth": 0.28183,
+        "VL4_max": 0.1877,
+        "VL5_snow_share": 0.0,
+        "visible_texels": 1157394,
+        "ok": true,
+        "failed": []
+      },
+      "guards": {
+        "G1_alpha_kept": true,
+        "G2_msk_GB_kept": true,
+        "G3_worst_full_slot_rel": 0.595,
+        "G4_worst_floor_gap": -0.0,
+        "G5_ctl_identity": true,
+        "G6_protect_identical": true,
+        "G7_range_ok": true
+      },
+      "perceptual": {
+        "mean_Lstar_before": 68.661,
+        "mean_abs_dLstar": 1.1272,
+        "p95_abs_dLstar": 5.058,
+        "share_dLstar_gt_2": 0.1462,
+        "texels": 1157394,
+        "tinted": false
+      },
+      "coverage": {
+        "edge": 0.0177,
+        "grime": 0.41074,
+        "grime_cavity": 0.30215,
+        "grime_door": 0.00136,
+        "grime_eave": 0.22145,
+        "grime_ground": 0.04357,
+        "rust": 0.06373,
+        "scuff": 0.03854,
+        "snow": 0.0
+      },
+      "sources": {
+        "cover_overflow_cells": 789,
+        "doors": 2,
+        "down_faces": 804,
+        "geo_candidates": 4660,
+        "geo_pairs": 518,
+        "lattice_curtain_faces": 110,
+        "lattice_faces": 110,
+        "lattice_skipped": 0,
+        "rust_sources": 229,
+        "traffic_parts": 10
+      },
+      "roles": {
+        "galv": 189459,
+        "generic": 165,
+        "masonry": 153077,
+        "none": 730516,
+        "pad": 22242,
+        "paint": 294684,
+        "paint_steel": 619991,
+        "timber": 151826
+      }
+    },
+    "share": {
+      "groups": 61,
+      "dup_parts": 152,
+      "dup_faces": 1226,
+      "excluded": {
+        "never": 22,
+        "hero": 30,
+        "relief": 25,
+        "size": 19,
+        "pinned": 0
+      },
+      "excluded_relief": [
+        "beam_0n",
+        "beam_0p",
+        "beam_0t",
+        "beam_1n",
+        "beam_1p",
+        "beam_1t",
+        "beam_2n",
+        "beam_2p",
+        "beam_2t",
+        "beam_3n",
+        "beam_3p",
+        "beam_3t",
+        "cab_walls",
+        "door_cab_leaf",
+        "door_eng_leaf",
+        "engroom_walls",
+        "grate_balc",
+        "grate_gang",
+        "haulrope_n_",
+        "haulrope_p_",
+        "wheelrope"
+      ]
+    },
+    "share_groups": [
+      [
+        "bolt_pedf_0",
+        7
+      ],
+      [
+        "bolt_pedf_1",
+        7
+      ],
+      [
+        "gusset_pedf_n0",
+        3
+      ],
+      [
+        "gusset_pedf_p0",
+        3
+      ],
+      [
+        "endmull_nose_0",
+        3
+      ],
+      [
+        "endmull_nose_1",
+        1
+      ],
+      [
+        "endmull_nose_t",
+        1
+      ],
+      [
+        "endmull_nose_s",
+        1
+      ],
+      [
+        "gutter_p_0",
+        1
+      ],
+      [
+        "gutter_p_1",
+        1
+      ],
+      [
+        "downspout_p",
+        1
+      ],
+      [
+        "detrail_n_0",
+        1
+      ],
+      [
+        "detrail_n_1",
+        1
+      ],
+      [
+        "railhang_0",
+        7
+      ],
+      [
+        "railhang_8",
+        3
+      ],
+      [
+        "tyre_n0",
+        11
+      ],
+      [
+        "tyrebank_n0",
+        3
+      ],
+      [
+        "post_gangna_0",
+        6
+      ],
+      [
+        "rail_gangna_top",
+        1
+      ],
+      [
+        "rail_gangnb_top",
+        1
+      ],
+      [
+        "rail_gangp_top",
+        1
+      ],
+      [
+        "lrail_nz0",
+        1
+      ],
+      [
+        "lrung_nz01",
+        3
+      ],
+      [
+        "lrung_nz03",
+        12
+      ],
+      [
+        "lstand_nz0",
+        3
+      ],
+      [
+        "lrail_gf0",
+        1
+      ],
+      [
+        "lrung_gf03",
+        3
+      ],
+      [
+        "lrung_gf07",
+        4
+      ],
+      [
+        "lstand_gfl0",
+        1
+      ],
+      [
+        "lrung_pf01",
+        1
+      ],
+      [
+        "lrung_pf03",
+        2
+      ],
+      [
+        "lrung_pf06",
+        4
+      ],
+      [
+        "post_maze0_0",
+        5
+      ],
+      [
+        "rail_maze0_top",
+        1
+      ],
+      [
+        "rail_maze0_knee",
+        1
+      ],
+      [
+        "drip_cabroof_px",
+        1
+      ],
+      [
+        "drip_cabroof_nx",
+        1
+      ],
+      [
+        "drip_cabroof_py",
+        1
+      ],
+      [
+        "drip_cabroof_ny",
+        1
+      ],
+      [
+        "cabmull_0",
+        3
+      ],
+      [
+        "door_cab_jamb0",
+        1
+      ],
+      [
+        "door_eng_jamb0",
+        1
+      ],
+      [
+        "hatch_eng0_panel",
+        1
+      ],
+      [
+        "hatch_eng0_frame",
+        1
+      ],
+      [
+        "hatch_eng0_hinge0",
+        3
+      ],
+      [
+        "cabinet_0_lid",
+        1
+      ],
+      [
+        "insul_0",
+        1
+      ],
+      [
+        "clamp_comm0_u",
+        3
+      ],
+      [
+        "clamp_comm1_u",
+        1
+      ],
+      [
+        "maze_post_ld_0",
+        8
+      ],
+      [
+        "maze_rope_ld_0_0_lo",
+        1
+      ],
+      [
+        "maze_rope_ld_0_0_hi",
+        1
+      ],
+      [
+        "maze_flag_ld_0",
+        5
+      ],
+      [
+        "maze_flag_ld_6",
+        1
+      ],
+      [
+        "maze_rope_ld_1_0_lo",
+        2
+      ],
+      [
+        "maze_rope_ld_1_0_hi",
+        2
+      ],
+      [
+        "maze_flag_ld_8",
+        2
+      ],
+      [
+        "gate_ld_hinge",
+        1
+      ],
+      [
+        "carpet_ld_edge0",
+        1
+      ],
+      [
+        "chev_nose3_base",
+        1
+      ],
+      [
+        "chev_nose3_k",
+        1
+      ]
+    ],
+    "shared_faces": 1226,
+    "detail_stats": {
+      "drawn": {
+        "seams": 511,
+        "bolts": 52,
+        "grate": 4
+      },
+      "skipped": {
+        "bolts": 110,
+        "helix": 228
+      }
+    },
+    "sub_objects": {
+      "target_prefab": "SkiDQBaseStationC",
+      "frame": "game local",
+      "objects": [
+        {
+          "prefab": "TrashbinRandom01",
+          "guid": "UnityGUID:41e3c9ba6e1d6b948a6b1bc3499a5397",
+          "pos": [
+            -4.05,
+            0.3,
+            13.75
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "TrashbinRandom01",
+          "guid": "UnityGUID:41e3c9ba6e1d6b948a6b1bc3499a5397",
+          "pos": [
+            5.6,
+            0.3,
+            10.6
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "GardenBenchRandom01",
+          "guid": "UnityGUID:8df0703be09426948b5bc3262d86bc04",
+          "pos": [
+            6.6,
+            0.3,
+            8.0
+          ],
+          "rot": [
+            0.0,
+            -0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "ParkInfosignRandom01",
+          "guid": "UnityGUID:3f8dafc1558bce24597bd8ca898947fa",
+          "pos": [
+            5.0,
+            0.3,
+            12.5
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            -0.75,
+            3.35,
+            0.0
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            0.75,
+            3.35,
+            0.0
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            -0.75,
+            3.35,
+            2.8
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            0.75,
+            3.35,
+            2.8
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "WallLightShortRangeRandom01",
+          "guid": "UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+          "pos": [
+            -6.35,
+            2.38,
+            9.12
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "WallLightShortRangeRandom01",
+          "guid": "UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+          "pos": [
+            -6.7,
+            2.38,
+            2.98
+          ],
+          "rot": [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            3.6,
+            3.35,
+            8.1
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            -3.6,
+            3.35,
+            8.1
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            3.6,
+            3.35,
+            5.1
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "prefab": "RoofLightRandom01",
+          "guid": "UnityGUID:b0ea4a4915b28f14a826bb809e02db7a",
+          "pos": [
+            -3.6,
+            3.35,
+            5.1
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiPisteFloodlightLow",
+          "mesh": "SkiPisteFloodlightLowA Mesh",
+          "guid": "CID:6827e281427c087a3b7ef19c824ca28b",
+          "pos": [
+            -5.1,
+            0.3,
+            2.4
+          ],
+          "rot": [
+            0.0,
+            0.9914449,
+            0.0,
+            0.1305262
+          ],
+          "parent": 0,
+          "note": "replaces LightpolePark; yaw 165 (beam to the line, across to the axis)"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiPisteFloodlightLow",
+          "mesh": "SkiPisteFloodlightLowA Mesh",
+          "guid": "CID:6827e281427c087a3b7ef19c824ca28b",
+          "pos": [
+            7.1,
+            0.3,
+            5.2
+          ],
+          "rot": [
+            0.0,
+            0.976296,
+            0.0,
+            -0.2164396
+          ],
+          "parent": 0,
+          "note": "replaces LightpolePark; yaw 205 (beam to the line, across to the axis)"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressSkiRackWall",
+          "mesh": "SkiDressSkiRackWallB",
+          "guid": "CID:e4ba645d1e20aabe72fd7cfec10b69cc",
+          "pos": [
+            6.6,
+            0.3,
+            11.7
+          ],
+          "rot": [
+            0.0,
+            0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "note": "replaces ski_rack('b', x 10.2 .. 13.2, y -6.60, side -1): frame + 7 pairs + 2 boards",
+          "colour_set": "orange",
+          "variant": "SkiDressSkiRackWall_Orange"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressEStop",
+          "mesh": "SkiDressEStopB",
+          "guid": "CID:9ad8824185f7473ea1799df015acc940",
+          "pos": [
+            -0.75,
+            0.3,
+            2.85
+          ],
+          "rot": [
+            0.0,
+            -0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "note": "replaces estop_post('ld', (2.85, 0.75))"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressExtinguisher",
+          "mesh": "SkiDressExtinguisherB",
+          "guid": "CID:04211f82829f421b9899ffaff582e530",
+          "pos": [
+            -7.3,
+            1.2,
+            9.1
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0,
+          "note": "replaces extinguisher('cab', (cx1, 7.30), +X, z 1.20)"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressHoseReel",
+          "mesh": "SkiDressHoseReelB",
+          "guid": "CID:e8c76b0b9f9340a08f728e6d992d4692",
+          "pos": [
+            -7.45,
+            0.45,
+            9.1
+          ],
+          "rot": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "parent": 0,
+          "note": "replaces hose_reel('eng', (xw - 6.6, 7.49), -X, z 1.25, r 0.22): MOVED to the cabin's +X face under the extinguisher (the kit's 0.70 m plate does not fit the 0.62 m beside the engine-room door; the engine room's / cabin's -Y faces are fronted by the cabinets / the maze)"
+        },
+        {
+          "kind": "mod",
+          "ref": "CID",
+          "prefab": "SkiDressTools",
+          "mesh": "SkiDressToolsB",
+          "guid": "CID:5f92c70cec824289aa2673d59018e8a5",
+          "pos": [
+            -5.2075,
+            0.3,
+            3.275
+          ],
+          "rot": [
+            0.0,
+            0.7071068,
+            0.0,
+            0.7071068
+          ],
+          "parent": 0,
+          "lean": {
+            "wall_point": [
+              -5.6,
+              3.275
+            ],
+            "wall_normal": [
+              1.0,
+              0.0
+            ],
+            "rest_z": -0.3925
+          },
+          "note": "replaces tools('eng', foot (xw - 6.5, cy0 - 0.32), -Y, gap 0.35)"
+        }
+      ],
+      "x_convention": "game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; cs2_liftdress.blender_to_game = lift_terminal.m_to_game; the tram's design frame goes through tram_to_game = (-X, Y, Z)); a +Y facing is game -X",
+      "kinds": {
+        "vanilla": 14,
+        "mod": 7
+      }
+    },
+    "dress_tris_lod0": 879,
+    "lod0_target": 11000,
+    "batches": 9
+  },
+  "fine_detail": {
+    "step": "3b 2026-10-12 (build/fine-detail-step3b-stations.md; engine build/fine-detail-step2-engine.md)",
+    "flag": true,
+    "x_convention": "game (gx, gy, gz) = (-y, z, x) of authoring; gx NEGATED (x-sign gate settled N, 2026-10-15 playtest; cs2_liftdress.blender_to_game = lift_terminal.m_to_game; the tram's design frame goes through tram_to_game = (-X, Y, Z)); a +Y facing is game -X",
+    "rows": {
+      "vanilla": 14,
+      "mod": 7
+    },
+    "kit_rows": [
+      {
+        "prop": "SkiDressSkiRackWall",
+        "cid": "e4ba645d1e20aabe72fd7cfec10b69cc",
+        "mount": "ground",
+        "pos_authoring": [
+          11.7,
+          -6.6,
+          0.3
+        ],
+        "row_pos": [
+          6.6,
+          0.3,
+          11.7
+        ],
+        "row_rot": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "ski_rack('b', x 10.2 .. 13.2, y -6.60, side -1): frame + 7 pairs + 2 boards",
+        "colour_set": "orange",
+        "floor_gap_m": 0.0,
+        "c8_gap_m": 2.278,
+        "nearest_row": [
+          "ParkInfosignRandom01@12.50,-5.00",
+          0.069
+        ],
+        "aabb_authoring": [
+          [
+            10.23,
+            -7.0604,
+            0.31
+          ],
+          [
+            13.17,
+            -6.2805,
+            2.0503
+          ]
+        ],
+        "kit_fbx_sha1": "52d5f46cc0f9"
+      },
+      {
+        "prop": "SkiDressEStop",
+        "cid": "9ad8824185f7473ea1799df015acc940",
+        "mount": "ground",
+        "pos_authoring": [
+          2.85,
+          0.75,
+          0.3
+        ],
+        "row_pos": [
+          -0.75,
+          0.3,
+          2.85
+        ],
+        "row_rot": [
+          0.0,
+          -0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "estop_post('ld', (2.85, 0.75))",
+        "floor_gap_m": 0.0,
+        "c8_gap_m": 0.43,
+        "nearest_row": [
+          "RoofLightRandom01@2.80,0.75",
+          1.698
+        ],
+        "aabb_authoring": [
+          [
+            2.765,
+            0.68,
+            0.31
+          ],
+          [
+            2.935,
+            0.82,
+            1.5
+          ]
+        ],
+        "kit_fbx_sha1": "cc908db6b733"
+      },
+      {
+        "prop": "SkiDressExtinguisher",
+        "cid": "04211f82829f421b9899ffaff582e530",
+        "mount": "wall",
+        "pos_authoring": [
+          9.1,
+          7.3,
+          1.2
+        ],
+        "row_pos": [
+          -7.3,
+          1.2,
+          9.1
+        ],
+        "row_rot": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "was": "extinguisher('cab', (cx1, 7.30), +X, z 1.20)",
+        "wall_silhouette_m": [
+          0.19,
+          0.527
+        ],
+        "access_m": 0.4,
+        "wall_gap_m": 0.0,
+        "c8_gap_m": 3.189,
+        "nearest_row": [
+          "WallLightShortRangeRandom01@9.12,6.35",
+          0.919
+        ],
+        "aabb_authoring": [
+          [
+            9.11,
+            7.1918,
+            1.2
+          ],
+          [
+            9.2916,
+            7.3816,
+            1.727
+          ]
+        ],
+        "kit_fbx_sha1": "9bdc6df30869"
+      },
+      {
+        "prop": "SkiDressHoseReel",
+        "cid": "e8c76b0b9f9340a08f728e6d992d4692",
+        "mount": "wall",
+        "pos_authoring": [
+          9.1,
+          7.45,
+          0.45
+        ],
+        "row_pos": [
+          -7.45,
+          0.45,
+          9.1
+        ],
+        "row_rot": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "was": "hose_reel('eng', (xw - 6.6, 7.49), -X, z 1.25, r 0.22): MOVED to the cabin's +X face under the extinguisher (the kit's 0.70 m plate does not fit the 0.62 m beside the engine-room door; the engine room's / cabin's -Y faces are fronted by the cabinets / the maze)",
+        "wall_silhouette_m": [
+          0.7,
+          0.7
+        ],
+        "access_m": 0.4,
+        "wall_gap_m": 0.0,
+        "c8_gap_m": 3.097,
+        "nearest_row": [
+          "kit SkiDressExtinguisher@9.10,7.30",
+          0.05
+        ],
+        "aabb_authoring": [
+          [
+            9.11,
+            7.1,
+            0.45
+          ],
+          [
+            9.43,
+            7.8,
+            1.15
+          ]
+        ],
+        "kit_fbx_sha1": "9648cfba9fce"
+      },
+      {
+        "prop": "SkiDressTools",
+        "cid": "5f92c70cec824289aa2673d59018e8a5",
+        "mount": "lean",
+        "pos_authoring": [
+          3.275,
+          5.6,
+          0.3
+        ],
+        "row_pos": [
+          -5.2075,
+          0.3,
+          3.275
+        ],
+        "row_rot": [
+          0.0,
+          0.7071068,
+          0.0,
+          0.7071068
+        ],
+        "was": "tools('eng', foot (xw - 6.5, cy0 - 0.32), -Y, gap 0.35)",
+        "rest_gap_m": 0.0,
+        "rests_on": [
+          "engroom_walls"
+        ],
+        "c8_gap_m": 1.248,
+        "nearest_row": [
+          "WallLightShortRangeRandom01@2.98,6.70",
+          1.177
+        ],
+        "aabb_authoring": [
+          [
+            2.975,
+            5.1975,
+            0.31
+          ],
+          [
+            3.6,
+            5.59,
+            1.6519
+          ]
+        ],
+        "kit_fbx_sha1": "6323b9a0d4c3"
+      }
+    ],
+    "removed_to_kit_rows": [
+      "estop_ld_",
+      "ext_cab",
+      "hosereel_eng_",
+      "ski_b_",
+      "skirack_b_",
+      "tool_eng_"
+    ],
+    "lamps_to_vanilla_rows": [
+      {
+        "part": "lamp_s0",
+        "now": "RoofLightRandom01 row (soffit, the lens center)"
+      },
+      {
+        "part": "lamp_s1",
+        "now": "RoofLightRandom01 row (soffit, the lens center)"
+      },
+      {
+        "part": "lamp_s2",
+        "now": "RoofLightRandom01 row (soffit, the lens center)"
+      },
+      {
+        "part": "lamp_s3",
+        "now": "RoofLightRandom01 row (soffit, the lens center)"
+      },
+      {
+        "part": "lamp_cab",
+        "now": "the cabin WallLightShortRangeRandom01 row moved onto it (y 6.35, z 2.38)"
+      },
+      {
+        "part": "lamp_eng",
+        "now": "the engine-room WallLightShortRangeRandom01 row moved onto it (y 6.70, z 2.38)"
+      }
+    ],
+    "lamp_parts_left": [],
+    "emissive_map": "dropped 2026-10-12: no lamp_ part left: every DQ light is a vanilla sub-object row, so no <name>_Emissive.png is baked or shipped and the importer writes no EmissiveProperties (no purpose-72 surgery step)",
+    "fine_geometry": [
+      "maze 8-seg capped posts + 6-sided ropes",
+      "load gate 8-seg stiles + 6-sided rails",
+      "board posts 12-seg (SLOW: two 12-seg posts), hang rods 6-seg",
+      "control cabinets: no finish bevel strips, a 0.02 m lid lip (0.015 overhang on every free side)"
+    ],
+    "kept_modelled": [
+      "weather mast wx* (FS1: it sets the frozen bounds top)",
+      "LIFT boards + labels in the host atlas at 400 px/m (FS5: no station sign set)",
+      "maze / gate / carpet / stripes / chevrons / gauge (no vanilla match)",
+      "control cabinets (ElectricalBox01 / 02 need the S1 Editor GUID harvest; 95cbbe17 rejected)"
+    ]
+  },
+  "orientation": {
+    "up_lane_y_authoring": 1.0,
+    "rider_travel_x": -1.0,
+    "measured_centre_y": {
+      "board_lowerbar": 1.65,
+      "board_tipsup": 1.65,
+      "cab_walls": 6.7,
+      "carpet_ld": 2.6,
+      "stripe_load": 2.6
+    },
+    "cab": {
+      "x0": 6.1,
+      "x1": 9.1,
+      "y0": 5.6,
+      "y1": 7.8,
+      "zf": 0.15
+    },
+    "frame": "authoring (x travel, -X = line; y lateral); A rows are written game x = -y (cs2_liftdress.blender_to_game; x-sign gate settled N, 2026-10-15 playtest, S1b-N applied 2026-10-16)",
+    "spin": "the up lane is the RIGHT one looking uphill in this frame (base +Y loads, top -Y unloads); StationAlign.UpLaneIsSecond puts chain A on the right looking uphill IN GAME: the same lane under branch N, the mirror under branch P (S1b then flips the rule's sign, not the meshes)"
+  },
+  "win_cells": [
+    7,
+    13
+  ],
+  "density_worst": [
+    {
+      "part": "hatch_eng0_hinge0",
+      "source_px_per_m": 22755.5,
+      "shipped_px_per_m": 19.3
+    },
+    {
+      "part": "hatch_eng0_hinge1",
+      "source_px_per_m": 22755.5,
+      "shipped_px_per_m": 19.3
+    },
+    {
+      "part": "hatch_eng1_hinge0",
+      "source_px_per_m": 22755.5,
+      "shipped_px_per_m": 19.3
+    },
+    {
+      "part": "hatch_eng1_hinge1",
+      "source_px_per_m": 22755.5,
+      "shipped_px_per_m": 19.3
+    },
+    {
+      "part": "maze_flag_ld_9",
+      "source_px_per_m": 9951.5,
+      "shipped_px_per_m": 16.1
+    },
+    {
+      "part": "maze_flag_ld_10",
+      "source_px_per_m": 9951.5,
+      "shipped_px_per_m": 16.1
+    },
+    {
+      "part": "maze_flag_ld_8",
+      "source_px_per_m": 9951.5,
+      "shipped_px_per_m": 16.1
+    },
+    {
+      "part": "maze_flag_ld_6",
+      "source_px_per_m": 9951.5,
+      "shipped_px_per_m": 16.1
+    }
+  ],
+  "submeshes": [
+    "Win"
+  ],
+  "engine_base": {
+    "verdict": "OK",
+    "ok_edges": 46,
+    "blocked_edges": 0
+  },
+  "engine_base_lods": {
+    "1": {
+      "verdict": "OK",
+      "ok_edges": 46,
+      "blocked_edges": 0
+    },
+    "2": {
+      "verdict": "OK",
+      "ok_edges": 18,
+      "blocked_edges": 0
+    }
+  },
+  "lod_switch_m": {
+    "csum": 52.11221885681152,
+    "bias": 0.0,
+    "distances": [
+      137.0927145183055,
+      239.62058233632686,
+      511.64373856156243
+    ],
+    "switch": {
+      "1": 239.62058233632686,
+      "2": 511.64373856156243
+    },
+    "cull": 11325.722231547037
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 2,
+    "warn_checks": [
+      "lod-bounds"
+    ]
+  },
+  "contracts": {
+    "C1": "wheel (9.6, 0, 3.7), torus 2.62, rim 2.6",
+    "C2": "lanes +-2.6 at z 3.7, x -11.0 -> 9.6",
+    "C3": "crown 8.442, eave +-4.6, soffit 3.35, band +-4.5",
+    "C6": "x -11.00..16.00, y -7.50..7.97 within lot (2, 4)",
+    "C7": "corridor max |y| 1.100 <= 1.1",
+    "C8": "252 envelope placements clear (dz 0 and +0.22)",
+    "C9": "roof_ / band_ share no vertex",
+    "C13": "bracket center (-8.15, 0.0, 5.85)",
+    "O1": "up lane y +1: cabin, hang boards (lowerbar, tipsup) and the load carpet + line all on it",
+    "R1e": "sign 1.750 x 0.875 m per side, digits '4' vector Bfont (builtin) 0.700 x 0.466 m (15 tris) in the 0.50 x 0.70 m box, reserved 448 px/m at 2048",
+    "R1d": "rail / post / kick min y -1.278 >= -2.0 (left flank clear)",
+    "R1a": "outer ladder at the nose (x -8.22, y -0.88), z 3.35 -> 8.84; no ladder past x 3.0",
+    "R1b": "one underside ladder 'pf' at x -1.15 (front pedestal)",
+    "R1c": "gangplank x -10.10..-8.55, |y| <= 0.55, handrail open at the outer end; landing x -8.55..-8.00, |y| <= 1.30",
+    "R1f": "2 windows per side 1.3 x 0.95 m (ratio 1.37), centers x [0.0, 6.0], z 4.750",
+    "R2a": "ground flight beside the landing: footing lfoot_gf x -8.58..-8.01, y 0.50..0.97, z 0 -> 0.10 (open bottom, 4 OK engine-base edges, 0 below), rails x -8.53 / -8.05 at y 0.60, z 0.10 -> 4.42; front ladder on the landing, z 3.35 -> 8.84",
+    "R2b": "11 ground-flight rungs on the landing's 0.30 grid, 0.35 -> 3.35 (the step-off rung flush with the landing, none above it); front ladder 17 rungs 3.65 -> 8.45",
+    "R2c": "ground flight: climbing room (+Y, footing -> step-off rung + 1.9) 1.33 m to fixed objects, 0.65 m to the C8 chair envelope (gate 0.61); step-across 0.18 m onto the landing between the rails (0 ladder x grating pairs); 7 handrail posts on grating; front ladder mounted from the landing: 0.39 m to hosted ETDQ deck (Revision 1, reported)",
+    "R2d": "no cage (Collins: none); min x -8.580 > hosted ETDQ inboard end -8.612 (+0.032)",
+    "R2e": "roof route: front ladder from the landing (rails 0.48 at y -0.875), corridor 0.61 x 0.61 m clear from the lowest rung 3.65 to the crown + 1.8 (10.24): 1.50 m to fixed objects, 1.50 m to the chairs; bottom stop: nothing in the zone from the landing up (the outer rail segment + kick gone: an open rail gap); standing surface = the landing (0.33 m in front of the rungs) + past a 0.062 m gap the hosted ETDQ's -Y deck strip (ETDQ:grate_deckp, top 3.404 = the stop + 0.054) under 0.48 m of the corridor's width: it IS the stop-level standing surface",
+    "R2g": "ground flight corridor 0.610 m wide (x -8.611..-8.001, the hosted ETDQ's inboard end to the band face) x 0.61 m deep from the lowest rung 0.35: 0.65 m to chev_nose2_base, 0.65 m to the chairs",
+    "R2f": "pf ladder off the spine at y 0.77 (rails 0.49 / 1.05, inside C7 1.1), x -1.15, 10 rungs 0.60 -> 3.30 (no rung in the spine), hatch_sofpf 0.8 m cut through soffit_tongue at (-0.85, 0.77): 16 / 16 rays meet the leaf; corridor 0.61 x 0.61 m to the hatch + 1.8: 1.50 m fixed, 1.50 m chairs; nearest RoofLightRandom01@0.00,0.75 0.22 m; step-off: the spine top 0.16 m beside the near rail",
+    "D8": "79 dressing parts box-tested on their faces: no undeclared overlap; none in the C8 envelope (nearest 0.064 m) or the hosted ETDQ; 14 vanilla footprints (variant-union bounds) clear of the mesh, the dressing, the C8 boxes and each other",
+    "D9": "sub-objects: deck props on 0.3 with a deck face <= 0.03 m under the origin, every union box inside the 2 x 4 lot, soffit lights on 3.35 >= 0.10 from beam_ / hatch_ / lrail_, wall lights <= 0.05 off their wall",
+    "D11": "along the chair's travel (-z on the +x lane, prefab frame): WAIT HERE z 6.35 -> loading carpet z 5.60..2.80 -> load line z 2.85 -> LOWER BAR z 0.60 -> KEEP TIPS UP z -1.50",
+    "F1": "5 dressing-kit rows {'SkiDressSkiRackWall': 1, 'SkiDressEStop': 1, 'SkiDressExtinguisher': 1, 'SkiDressHoseReel': 1, 'SkiDressTools': 1}: CIDs staged, the replaced parts gone, mounts held (floor / whole back on the wall / foot-line rule), the real kit meshes clear of every station face, the C8 envelope (nearest 0.430 m), the hosted tower / keep-outs, every vanilla and kit row, inside the lot",
+    "C10": "SkiDQBaseStationC: validate_asset_name + lint ok",
+    "C12": "_Win room cells [(7, 3), (13, 4)] (want [7, 13]: cabin 7, housing windows 13), no pane left in main",
+    "C4": "min z 0.00000",
+    "C11": "LOD0 6825 <= 12000, detail pass 1 target 11000",
+    "C5": "engine base OK, 46 OK edges, parts ['deck', 'opbase', 'plinth_f', 'plinth_r', 'rampback'] all OK"
+  },
+  "contract": {
+    "variant": "dq-base",
+    "x_frame": "FBX-raw x (= authoring y); game x = -x (x-sign gate settled N 2026-10-15): negate every x here (bounds_prefab min / max swap) when writing prefab rows; sub_objects rows are already game",
+    "carrier": {
+      "row": "dq",
+      "source": "catalog/carriers.json [hang_m, grip_top_above_rope_m, lane_x_m, axle_m]; dq-chair.md section 2/3 [seat_top_m]",
+      "hang_m": 3.3,
+      "grip_top_above_rope_m": 0.22,
+      "seat_top_above_lowest_m": 0.4
+    },
+    "gauge_m": 5.2,
+    "wheel_radius_m": 2.6,
+    "turn_radius_code_m": 2.6,
+    "load_clear_m": 0.1,
+    "lane_rope_y": 3.7,
+    "deck_top_y": 0.3,
+    "soffit_y": 3.35,
+    "band_top_or_eave_y": 6.15,
+    "crown_y": 8.4422,
+    "pin_convention": "lane = chair GRIP TOP today (ChairPinSystem bounds.max.y); the modeled rope, torus, wheel table and anchors sit on the lane",
+    "seat_over_deck_m": {
+      "today": 0.5,
+      "if_dq_chair_Q1_pins_rope_point": 0.72
+    },
+    "wheel_local_prefab": [
+      0.0,
+      3.7,
+      9.6
+    ],
+    "wheel_centre_authoring": [
+      9.6,
+      0.0,
+      3.7
+    ],
+    "anchors_hv": [
+      {
+        "a": [
+          -2.6,
+          3.7,
+          -11.125
+        ],
+        "b": [
+          -2.6,
+          3.71,
+          -11.04
+        ],
+        "c": [
+          -2.6,
+          3.72,
+          -10.96
+        ],
+        "d": [
+          -2.6,
+          3.73,
+          -10.875
+        ]
+      },
+      {
+        "a": [
+          2.6,
+          3.7,
+          -11.125
+        ],
+        "b": [
+          2.6,
+          3.71,
+          -11.04
+        ],
+        "c": [
+          2.6,
+          3.72,
+          -10.96
+        ],
+        "d": [
+          2.6,
+          3.73,
+          -10.875
+        ]
+      }
+    ],
+    "anchor_comm": {
+      "a": [
+        0.0,
+        5.85,
+        -8.275
+      ],
+      "b": [
+        0.0,
+        5.86,
+        -8.19
+      ],
+      "c": [
+        0.0,
+        5.87,
+        -8.11
+      ],
+      "d": [
+        0.0,
+        5.88,
+        -8.025
+      ]
+    },
+    "hosted_tower": {
+      "position": [
+        0.0,
+        0.0,
+        -11.0
+      ],
+      "rotation_quat": [
+        0,
+        1,
+        0,
+        0
+      ],
+      "rope_y_required": 3.7,
+      "note": "UtilityObject + StandingObject only; DQ entry compression tower (towers/O) holding the rope at this y"
+    },
+    "nose_guide_tip_z": null,
+    "stub_hv": [
+      [
+        0.0,
+        0.0,
+        -13.0
+      ],
+      [
+        0.0,
+        0.0,
+        -16.0
+      ]
+    ],
+    "stub_lv": [
+      [
+        6.0,
+        0.0,
+        -13.0
+      ],
+      [
+        6.0,
+        0.0,
+        -16.0
+      ]
+    ],
+    "lv_pole": [
+      6.0,
+      0.0,
+      -16.0
+    ],
+    "stub_tip_local_z": -16.0,
+    "stub_tip_touchpoints": "SkiCatalog StationDef row (per-row StubTipLocalZ = -16) and every reader of the single const SkiCatalog.StubTipLocalZ (-12, aliased StationAlign.StubTipLocalZ: StationAlign, SkiResortStatsSystem StubTip, LiftCensus) - code-economy Phase A touchpoint list",
+    "lot": [
+      2,
+      4
+    ],
+    "anchor_to_wheel_run_m": 20.6,
+    "max_wheel_run_m": 30.0,
+    "bounds_prefab": {
+      "min": [
+        -7.5,
+        0.0,
+        -11.0
+      ],
+      "max": [
+        7.97,
+        9.6422,
+        16.0
+      ]
+    },
+    "bounds_top_y": 9.6422,
+    "net_sub_objects_y": {
+      "rule": "AnchorTop: line axle + grip_top_above_rope_m + 0.03",
+      "line_axle": 8.0,
+      "y": 8.25,
+      "owner": "line lens (pre-pin fallback only)"
+    },
+    "emissive": {
+      "map": null,
+      "purpose": null,
+      "intensity": null,
+      "lamps": 0,
+      "was": {
+        "purpose": 72,
+        "intensity": 0.6
+      },
+      "why": "no lamp_ part left: every DQ light is a vanilla sub-object row, so no <name>_Emissive.png is baked or shipped and the importer writes no EmissiveProperties (no purpose-72 surgery step)"
+    }
+  },
+  "params": {
+    "variant": "dq-base",
+    "kind": "base",
+    "gondola": false,
+    "carrier_key": "dq",
+    "carrier_src": "catalog/carriers.json [hang_m, grip_top_above_rope_m, lane_x_m, axle_m]; dq-chair.md section 2/3 [seat_top_m]",
+    "lane_y": 2.6,
+    "rim_r": 2.6,
+    "torus_r": 2.62,
+    "rim_segs": 40,
+    "torus_segs": 32,
+    "hang": 3.3,
+    "grip_above_rope": 0.22,
+    "seat_top": 0.4,
+    "load_clear": 0.1,
+    "z_rope": 3.7,
+    "z_wheel": 3.7,
+    "line_axle": 8.0,
+    "z_soffit": 3.35,
+    "z_top": 6.15,
+    "z_ceil": 6.15,
+    "chord_half": 4.6,
+    "roof_rise": 2.2922176497485136,
+    "z_crown": 8.442217649748514,
+    "w_half": 4.5,
+    "x_nose": -8.0,
+    "x_back": 14.0,
+    "length": 22.0,
+    "wheel_back": 4.4,
+    "x_wheel": 9.6,
+    "ped_f": -2.5,
+    "ped_r": 7.1,
+    "anchor_x": -11.0,
+    "slot_half": 0.55,
+    "notch_top": 4.3,
+    "lowest_abs": 0.4,
+    "env": [
+      [
+        "bench",
+        1.3,
+        2.7,
+        0.0,
+        1.6
+      ],
+      [
+        "hanger",
+        1.0,
+        0.9,
+        1.6,
+        3.3
+      ]
+    ],
+    "lod0_cap": 12000,
+    "lod1_max": 5000,
+    "lod2": 500,
+    "hosted_tower": true,
+    "engine_base": [
+      "deck",
+      "rampback",
+      "plinth_f",
+      "plinth_r",
+      "opbase"
+    ],
+    "win_part": "cabwin",
+    "folder": "stations/detachable/A",
+    "stem": "SkiDQBaseStation",
+    "clear": 0.0
+  }
+}

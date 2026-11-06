@@ -45,7 +45,7 @@
 			<Private>false</Private>
 		</Reference>
 		<!-- TextureAsset implements interfaces declared in Colossal.AssetPipeline; the
-		     compiler needs it resolvable to use TextureAsset generics (SkiRunSplatSystem). -->
+		     compiler needs it resolvable to use TextureAsset generics (SkiRunDecalSystem). -->
 		<Reference Include="Colossal.AssetPipeline">
 			<Private>false</Private>
 		</Reference>
@@ -79,9 +79,13 @@
 		<Reference Include="Unity.RenderPipelines.Core.Runtime">
 			<Private>false</Private>
 		</Reference>
-		<!-- Texture2D.LoadImage lives in the ImageConversion module (SkiRunSplatSystem
+		<!-- Texture2D.LoadImage lives in the ImageConversion module (SkiRunDecalSystem
 		     loads the run-material PNGs at runtime). -->
 		<Reference Include="UnityEngine.ImageConversionModule">
+			<Private>false</Private>
+		</Reference>
+		<!-- GUIUtility.systemCopyBuffer (the clipboard) lives in the IMGUI module: Options > Diagnostics > Copy diagnostics. -->
+		<Reference Include="UnityEngine.IMGUIModule">
 			<Private>false</Private>
 		</Reference>
 		<Reference Include="Unity.Burst">
@@ -133,12 +137,19 @@
 		<None Include="$(ModTargetsFile)" Link="Properties\Mod.targets" />
 	</ItemGroup>
 
-	<!-- Run-material PNGs (SkiRunSplatSystem texture contract). Copied to $(OutDir)\Textures,
+	<!-- Run-material PNGs (SkiRunDecalSystem texture contract). Copied to $(OutDir)\Textures,
 	     which the stock DeployWIP target then mirrors into the Mods folder recursively.
 	     The folder may not exist yet while the textures are being authored — an empty glob
 	     is fine, and the system logs missing files and stays inert until they appear. -->
 	<ItemGroup>
 		<None Include="Textures\**\*.png" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+	<!-- Notification icons made in code (LiftLineIconAsset): the PNG is the world icon's pixels, the SVG the info panel's icon
+	     (coui://ui-mods/SkiResortMod-icons/...: the folder name is unique because coui://ui-mods/ is ONE host shared by every
+	     mod folder, ModManager.cs:468-479). Copied to $(OutDir)\SkiResortMod-icons, deployed with the rest of OutDir. -->
+	<ItemGroup>
+		<None Include="Icons\*.svg;Icons\*.png" Link="SkiResortMod-icons\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<!--

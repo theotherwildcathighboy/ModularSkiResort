@@ -52,7 +52,8 @@ namespace LiftBatch
         private static void Lp26FieldDq()
         {
             const string W = "pass/LP-26";
-            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
+            // The field line was logged on the 0.004 DQ rope (before the rope sag round): replayed at that sag.
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable").With(sagRatio: LiftPlannerTests.LoggedSag);
             LiftTerrainSampler t = (s, l) => DqGround(s);
             // The tool's path: LiftLineEdit plans with the edge slope rule and the end node heights.
             var asLogged = new LiftLineEdit(c, new float3(0f, DqTopNode, 0f), new float3(DqLength, DqBaseNode, 0f), DqRopeTop, DqRopeBase);
@@ -67,10 +68,17 @@ namespace LiftBatch
             Check(p1.EndCarrierB < -3f, W, "as logged: the sunk base station (carrier " + p1.EndCarrierB.ToString("F1") + " m) not detected");
             // The planner before the pass (the full floor at the stations, no slope gate) reproduces the refused field plan: a DQ18
             // 9 m from the base station, slope 1.10. Each rule alone removes the refused edge: the approach floor (p1 above) and the gate.
-            var before = new LiftTowerPlanner { CheckEdgeSlope = false, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode };
+            // That planner worked from end A as given (the top here): AsGiven replays it. The 9 m tower needs the grid's 4 m remainder at
+            // the base, which only the top-first plan has; since planner-direction-2026-11-04 the planner works from the base (the lower
+            // rope), the remainder lies at the top, and the pre-pass rules alone stand a tower 9 m from the TOP instead (reported below).
+            var before = new LiftTowerPlanner { CheckEdgeSlope = false, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode, AsGiven = true };
             LiftTowerPlan p0 = before.Plan(t, DqLength, DqRopeTop, DqRopeBase, c);
-            var gateOnly = new LiftTowerPlanner { CheckEdgeSlope = true, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode };
+            var gateOnly = new LiftTowerPlanner { CheckEdgeSlope = true, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode, AsGiven = true };
             LiftTowerPlan pg = gateOnly.Plan(t, DqLength, DqRopeTop, DqRopeBase, c);
+            var canonical = new LiftTowerPlanner { CheckEdgeSlope = false, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode };
+            LiftTowerPlan pc = canonical.Plan(t, DqLength, DqRopeTop, DqRopeBase, c);
+            s_Report.Add("LP-26 field DQ, the pre-pass rules from the base (the planner's end since 2026-11-04) | end members " + EndMembers(pc) +
+                         ", max edge slope " + pc.MaxEdgeSlope.ToString("F2"));
             s_Report.Add("LP-26 field DQ, the planner before the pass (full floor at the stations, no gate) | the refused field plan | end members " +
                          EndMembers(p0) + ", max edge slope " + p0.MaxEdgeSlope.ToString("F2") + "; with the gate alone " + EndMembers(pg) + ", " +
                          pg.MaxEdgeSlope.ToString("F2") + (pg.Clear ? ", clear" : ", not clear (the floor: the approach floor is what clears it)"));
@@ -381,6 +389,13 @@ namespace LiftBatch
             const string Prefix = "SkiResort.LiftTool.";
             string locPath = CatalogTests.RepoFile("mod/SkiResortMod/LocaleEN.cs");
             string toolPath = CatalogTests.RepoFile("mod/SkiResortMod/Systems/LiftLineToolSystem.cs");
+            // The tool's partials (LiftLineToolSystem.*.cs, e.g. the section delete) and its tooltip show keys too.
+            var codePaths = new List<string>();
+            if (toolPath != null)
+            {
+                codePaths.AddRange(Directory.GetFiles(Path.GetDirectoryName(toolPath), "LiftLineToolSystem*.cs"));
+                codePaths.Add(Path.Combine(Path.GetDirectoryName(toolPath), "LiftLineTooltipSystem.cs"));
+            }
             if (!Check(locPath != null && toolPath != null, W, "LocaleEN.cs or LiftLineToolSystem.cs not found"))
                 return;
             var loc = new Dictionary<string, string>();
@@ -395,14 +410,20 @@ namespace LiftBatch
                             used.Add(LiftLineInput.PromptKey(step, type, drag, off && drag));
             foreach (string t in new[] { "fixedGrip", "detachable", "gondola", "tram", "any" })
                 used.Add("TYPE[" + t + "]");
-            foreach (string k in new[] { "PLAN_CLEAR", "PLAN_LOW", "PLAN_STEEP", "PLAN_HIGH", "TOWER", "TOWER_PINNED", "TOWER_LOW" })
+            // PLAN_TRAIN / TOWER_TRAIN (a tower over its cap) and SUNK / SUNK_END (LiftLineInput.SunkKey): FIX-LIST 55; PLAN_PITCH /
+            // TOWER_PITCH (a tower past the pitch cap): DECISIONS 600; PLAN_SADDLE / TOWER_SADDLE (a tram saddle past its cap): 600 a; PLAN_CLEARANCE / TOWER_CLEARANCE
+            // (a rope half past its carrier clearance): 600 c.
+            foreach (string k in new[] { "PLAN_CLEAR", "PLAN_LOW", "PLAN_STEEP", "PLAN_HIGH", "PLAN_TRAIN", "TOWER", "TOWER_PINNED", "TOWER_LOW",
+                                         "TOWER_TRAIN", "PLAN_PITCH", "TOWER_PITCH", "PLAN_SADDLE", "TOWER_SADDLE", "PLAN_CLEARANCE", "TOWER_CLEARANCE", "SUNK", "SUNK_END" })
                 used.Add(k);
-            foreach (Match m in new Regex("\\bT\\(\"([A-Z_]+(?:\\[[A-Za-z]+\\])?)\"").Matches(File.ReadAllText(toolPath)))
-                used.Add(m.Groups[1].Value);
+            foreach (string path in codePaths)
+                foreach (Match m in new Regex("\\bT\\(\"([A-Z_]+(?:\\[[A-Za-z]+\\])?)\"").Matches(File.ReadAllText(path)))
+                    used.Add(m.Groups[1].Value);
             foreach (string e in new[] { "SteepSlope", "OverlapExisting", "LongDistance", "ShortDistance", "InWater", "ExceedsCityLimits", "Other" })
                 used.Add("REFUSED[" + e + "]");
-            // DEG: the BEND notice's plan bend (LiftLineToolSystem.Deg).
-            var args = new HashSet<string> { "TYPE", "TOWERS", "LENGTH", "N", "COUNT", "HEIGHT", "CLEAR", "MIN", "M", "DEG" };
+            // DEG: the BEND notice's plan bend and TOWER_TRAIN's rope bend (LiftLineToolSystem.Deg); CAP: TOWER_TRAIN's cap. LIMIT: TOWER_CLEARANCE's
+            // carrier-clearance limit (one decimal, LiftLineToolSystem.Deg).
+            var args = new HashSet<string> { "TYPE", "TOWERS", "LENGTH", "N", "COUNT", "HEIGHT", "CLEAR", "MIN", "M", "DEG", "CAP", "LIMIT" };
             int worst = 0;
             foreach (string key in used)
             {
@@ -432,7 +453,7 @@ namespace LiftBatch
             LiftTowerPlan steep = gate.PlanFixed(t0, DqLength, DqRopeTop, DqRopeBase, c, new[] { 500f, 1015f }, new[] { 0, c.Ladder.Length - 1 }, null, assign: false);
             string steepKey = LiftLineInput.PlanKey(steep, out _);
             Check(steepKey == "PLAN_STEEP" || steepKey == "PLAN_LOW", W, "a DQ20 9 m from the base station reads " + steepKey);
-            string towerKey = LiftLineInput.TowerKey(clear, 1, false, out float h, out float cl);
+            string towerKey = LiftLineInput.TowerKey(clear, 1, false, out float h, out float cl, out _, out _);
             Check(math.abs(h - c.Ladder[clear.Nodes[1].Member].TopM) < 1e-3f && cl > 0f && towerKey == "TOWER", W,
                   "tower 1 of the clear DQ: " + towerKey + ", height " + h + ", clear " + cl);
             s_Report.Add("LP-31 plan / tower keys | clear field DQ " + LiftLineInput.PlanKey(clear, out _) + ", tower 1 " + towerKey + " " +
@@ -478,8 +499,12 @@ namespace LiftBatch
             return L8At(along) + L8Side[i] + (L8Side[i + 1] - L8Side[i]) * (q - i);
         }
 
-        private static LiftLineEdit L8Edit() =>
-            new LiftLineEdit(LiftTowerPlanConstants.For("gondola"), new float3(0f, L8RopeBase - 10f, 0f), new float3(L8Length, L8RopeTop - 10f, 0f),
+        // The field line and its fitted sides are from the 0.004 gondola rope (before the rope sag round): replayed at that sag.
+        private static LiftTowerPlanConstants L8Constants(bool today = false) =>
+            today ? LiftTowerPlanConstants.For("gondola") : LiftTowerPlanConstants.For("gondola").With(sagRatio: LiftPlannerTests.LoggedSag);
+
+        private static LiftLineEdit L8Edit(bool today = false) =>
+            new LiftLineEdit(L8Constants(today), new float3(0f, L8RopeBase - 10f, 0f), new float3(L8Length, L8RopeTop - 10f, 0f),
                              L8RopeBase, L8RopeTop, false, false);
 
         private static string Towers(LiftTowerPlan p)
@@ -529,6 +554,26 @@ namespace LiftBatch
                 }
             }
 
+            // The same removals at today's gondola sag (0.025), reported: the fitted sides were fitted at 0.004, so they pin nothing here.
+            {
+                LiftLineEdit e = L8Edit(true);
+                LiftTowerPlan first = e.Replan(grounds[0].T);
+                var sb = new System.Text.StringBuilder(Towers(first));
+                for (int r = 1; r < first.Nodes.Length - 1; r++)
+                {
+                    LiftLineEdit x = L8Edit(true);
+                    x.Replan(grounds[0].T);
+                    x.RemoveTower(first.Nodes[r].AlongM);
+                    LiftTowerPlan p = x.Replan(grounds[0].T);
+                    float shortest = float.MaxValue;
+                    for (int s = 0; s < p.Spans.Length; s++)
+                        shortest = math.min(shortest, p.Spans[s].LengthM);
+                    sb.Append(" | -@").Append(first.Nodes[r].AlongM.ToString("F0")).Append(": ").Append(Towers(p))
+                      .Append(p.Clear ? ", clear" : ", VIOLATED").Append(", shortest span ").Append(shortest.ToString("F0")).Append(" m");
+                }
+                s_Report.Add("LP-32 field sides at today's sag 0.025 (report) | " + sb);
+            }
+
             // The field case on the planner alone: pins at 70 and 300 m, 195 m forbidden.
             var pins = new[] { new LiftPlanNode { AlongM = 70f, Member = -1 }, new LiftPlanNode { AlongM = 300f, Member = -1 } };
             var direct = new LiftTowerPlanner
@@ -536,7 +581,7 @@ namespace LiftBatch
                 Forbidden = new[] { 195f }, StationA = false, StationB = false, CheckEdgeSlope = true,
                 EndNodeYA = L8RopeBase - 10f, EndNodeYB = L8RopeTop - 10f,
             };
-            LiftTowerPlan d = direct.Plan(grounds[0].T, L8Length, L8RopeBase, L8RopeTop, LiftTowerPlanConstants.For("gondola"), pins);
+            LiftTowerPlan d = direct.Plan(grounds[0].T, L8Length, L8RopeBase, L8RopeTop, L8Constants(), pins);
             s_Report.Add("LP-32 pins 70 / 300, 195 forbidden, the planner alone | one or two towers between the pins | " + Towers(d));
             Check(d.Clear && d.LineTowers <= 4, W, "pins 70 / 300, 195 forbidden: " + Towers(d));
 

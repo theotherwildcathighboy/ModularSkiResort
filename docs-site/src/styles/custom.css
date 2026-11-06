@@ -195,3 +195,26 @@ h1 { text-transform: uppercase; letter-spacing: 0.04em; }
 }
 
 .hero .actions .sl-link-button { font-size: 1.15rem; padding: 0.75rem 1.5rem; }
+
+/* Heading anchor links copy the section URL on click (src/scripts/anchor-copy.js): keep the icon
+   visible and show a small "Copied" label after it while data-copied is set. ::after is Starlight's
+   enlarged hit area, so the label uses ::before. */
+.sl-markdown-content .sl-anchor-link[data-copied] { opacity: 1; }
+.sl-markdown-content .sl-anchor-link[data-copied]::before {
+  content: 'Copied';
+  position: absolute;
+  inset-inline-start: calc(100% + 0.4rem);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.25rem;
+  background: var(--sl-color-gray-6);
+  color: var(--sl-color-white);
+  font-family: var(--sl-font);
+  font-size: var(--sl-text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  pointer-events: none;
+}

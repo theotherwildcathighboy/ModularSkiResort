@@ -138,7 +138,7 @@ GROUNDED_DQ18 = 14.0
 SWITCH_DQ20 = [4 / 3, 10 / 3, 16 / 3, 22 / 3, 28 / 3]
 GROUNDED_DQ20 = 16.0
 # per-family LOD0 caps (lift_tower.LOD0_CAP): RS section 4 3,500; DQ raised to 3,600 for DQ20
-CAPS = {"FG": 3700, "DQ": 4200, "GD": 4800}     # T62 round 3 (<= 120-tri wheels); round 2 4,600 / 6,400 / 7,500, round 1 3,500 / 3,600 / 3,500
+CAPS = {"FG": 3800, "DQ": 4250, "GD": 5000}     # DQ 4,200 -> 4,250 (family round: skinned DQ20 + comm hanger 4,250); GD 4,800 -> 5,000 (skinned GD20 at 10 a side 4,938); FG 3,700 -> 3,800 (FG20 3,762); T62 round 3 (<= 120-tri wheels) 3,700 / 4,200 / 4,800; round 2 4,600 / 6,400 / 7,500, round 1 3,500 / 3,600 / 3,500
 # LOD0 after detail pass 1 (shipped heads; deterministic) and the design ledger (section 3.2 + M1)
 LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 2722, "ET68": 2730,
           "DQ10": 3138, "DQ12": 3290, "DQ14": 3346, "DQ16": 3394, "DQ18": 3498, "ETDQ": 3010,

@@ -1,9 +1,9 @@
 // The Options button "Delete all ski resort content" (DeleteAllRules.cs, SkiDeleteAllSystem). `public static class` with
 // `Run(Func<bool, string, string, bool> check)`; Main passes its Check. Run from the ModularSkiResort root (reads tools/ and
 // gamedata-mirror/).
-// DA-1 the target set: every NAMES row but the carriers, plus the LV marker extra. DA-2 ours only: every target is a shipped prefab of
-// ours with the same PrefabID type (tools/shipped-prefabs.json, the SHIPPED gate's list), no vanilla name. DA-3 nothing placeable is
-// missed: every gamedata-mirror prefab with a UIObject (what a player can place) is a target, and every target but the markers has one.
+// DA-1 the target set: every NAMES row but the carriers and their grips (the carrier grip round), plus the LV marker extra.
+// DA-2 ours only: every target is a shipped prefab of ours with the same PrefabID type (tools/shipped-prefabs.json, the SHIPPED gate's
+// list), no vanilla name. DA-3 nothing placeable is missed: every gamedata-mirror prefab with a UIObject (what a player can place) is a target, and every target but the markers has one.
 // DA-4 the node verdict never deletes a node a foreign edge still uses. DA-5 the button gate. DA-6 the kind maps. DA-7 the summary line.
 // Plan: docs/research/delete-all-2026-10-29.md.
 
@@ -42,24 +42,27 @@ namespace ResortBatch
         private static void TargetSet()
         {
             List<DeleteAllRules.Target> targets = DeleteAllRules.Targets();
-            int names = 0, carriers = 0;
+            int names = 0, carriers = 0, grips = 0;
             foreach (CatalogName n in SkiCatalog.AllPrefabNames())
             {
                 names++;
                 if (n.Kind == CatalogKind.Carrier)
                     carriers++;
+                else if (n.Kind == CatalogKind.Grip)
+                    grips++;
             }
-            s_Check(targets.Count == names - carriers + 1, "DA-1a", $"targets = NAMES {names} - carriers {carriers} + LV marker = {targets.Count}");
+            s_Check(targets.Count == names - carriers - grips + 1, "DA-1a",
+                    $"targets = NAMES {names} - carriers {carriers} - grips {grips} + LV marker = {targets.Count}");
             bool noCarrier = true, uniq = true;
             var seen = new HashSet<string>(StringComparer.Ordinal);
             foreach (DeleteAllRules.Target t in targets)
             {
-                if (t.Kind == CatalogKind.Carrier)
+                if (t.Kind == CatalogKind.Carrier || t.Kind == CatalogKind.Grip)
                     noCarrier = false;
                 if (!seen.Add(t.Name))
                     uniq = false;
             }
-            s_Check(noCarrier, "DA-1b", "no carrier is a target (they go with their line / station)");
+            s_Check(noCarrier, "DA-1b", "no carrier or grip is a target (they go with their line / station)");
             s_Check(uniq, "DA-1c", "each target once");
             Dictionary<string, string> map = TargetTypes();
             s_Check(map.TryGetValue("SkiLiftMarkerLV", out string lv) && lv == "PowerLinePrefab", "DA-1d", "SkiLiftMarkerLV is a PowerLinePrefab target");
@@ -70,6 +73,7 @@ namespace ResortBatch
             foreach (string m in must)
                 s_Check(map.ContainsKey(m), "DA-1e", "target " + m);
             s_Check(!map.ContainsKey("SkiLiftChair4") && !map.ContainsKey("SkiTramCabin"), "DA-1f", "carriers SkiLiftChair4 / SkiTramCabin are not targets");
+            s_Check(!map.ContainsKey("SkiLiftChair4Grip") && !map.ContainsKey("SkiTramCarriage"), "DA-1f", "grips SkiLiftChair4Grip / SkiTramCarriage are not targets");
         }
 
         private static void OursOnly()

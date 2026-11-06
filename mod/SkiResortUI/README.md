@@ -57,22 +57,22 @@ See `harness/README.md` for what is faithful and what is not. Nothing in `harnes
 |---|---|---|
 | react | 18.3.1 | Only for `react/jsx-runtime`, which is bundled. At runtime `react` itself is the game's `window.React` (18.3.1). |
 | typescript | 4.8.4 | Type checking and TSX, the version the game's template pins. No TS 4.9+ syntax (`satisfies`). |
-| webpack | 5.97.1 | Bundler: one ES module, window externals. |
+| webpack | 5.112.2 | Bundler: one ES module, window externals. Above the template's 5.97.1 for its audit fixes. |
 | webpack-cli | 4.10.0 | The `webpack` command. |
 | ts-loader | 9.5.1 | TS to JS inside webpack, with type checking on. |
 | css-loader | 6.7.2 | CSS modules (class names `sr-<name>_<hash>`). |
 | sass | 1.69.5 | SCSS compiler. Kept at 1.69.5, before the legacy-API deprecation warnings. |
 | sass-loader | 13.2.0 | SCSS inside webpack. |
 | mini-css-extract-plugin | 2.7.0 | Writes `SkiResortMod.css` next to the `.mjs`. |
-| terser-webpack-plugin | 5.3.10 | Minifier. It also writes the manifest banner (see `webpack.config.js`). |
+| terser-webpack-plugin | 5.6.1 | Minifier. It also writes the manifest banner (see `webpack.config.js`). Above the template's 5.3.10 for its audit fixes. |
 | @types/react | 18.0.26 | React typings; the game's `cs2/*` declarations import from `react`. Template pin. |
 | @types/react-dom | 18.0.9 | Part of the game toolchain's set. We do not import react-dom. |
 
-These are the game toolchain's pins (research 2.A.3). The first `npm install` on Node 22.21 /
-npm 10.9 installed them unchanged: 180 packages. `npm audit` reports 3 build-time advisories:
-serialize-javascript (through terser-webpack-plugin 5.3.10) and webpack 5.97.1 (buildHttp SSRF).
-They touch only the build machine, and only features we do not use (`experiments.buildHttp`,
-serializing untrusted input). They are not fixed, because the fixes leave the pins.
+These are the game toolchain's pins (research 2.A.3), except webpack and terser-webpack-plugin. The
+template's webpack 5.97.1 and terser-webpack-plugin 5.3.10 carried build-time advisories
+(serialize-javascript, webpack buildHttp SSRF, fast-uri through ajv). They were raised in
+2026-11 to clear them, and `npm audit` reports 0. The bundle gate (`check-bundle`: banner, scoping,
+smoke) and the hub rule tests passed on the new versions.
 
 ## Layout
 

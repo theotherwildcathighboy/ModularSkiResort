@@ -3,7 +3,7 @@ title: Economy
 description: Where resort income appears in the game's Economy panel, why there is no ski resort line, what the panel omits, and how to cross-check the books.
 ---
 
-import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
 import Shot from '../../../components/Shot.astro';
 
 Resort income: lift tickets, season passes, lessons, lodge spend. The game classes a ski resort as a park, and
@@ -18,38 +18,28 @@ Three items marked (unverified) are not yet confirmed on a live Economy panel.
 Resort income is booked as **public transportation fees** (a chairlift is transport). It reaches the balance
 through the game's budget, like any fare.
 
-- **Option:** Options > Modular Ski Resort > Main > Ski area balance > **Book resort income as public transportation fees**. Default on.
-
-<Tabs>
-  <TabItem label="Option on (default)">
-    **Booking:** tickets, season passes, lessons and lodge spend as public transportation fees, via the game's budget.
-    **Economy panel:** **Public transportation** income line; counted in the income total and budget charts. (unverified)
-  </TabItem>
-  <TabItem label="Option off">
-    **Booking:** direct to balance. Treasury result unchanged.
-    **Economy panel:** resort never counted, so it shows cost only. Income visible in the hub only.
-  </TabItem>
-</Tabs>
+- **Booking:** tickets, season passes, lessons and lodge spend, always; there is no option to book them elsewhere.
+- **Economy panel:** the **Public transportation fees** income line, counted in the income total and the budget charts.
 
 <Shot src="budget.jpg" label="Economy > Budget with a ski resort running: the Public Transport Fees line under Service Fees." />
 
 ## Closed Income List
 
-The Economy panel has a fixed set of income lines: **4** taxes, **8** service fees, **2** export lines, subsidy.
+The Economy panel has a fixed set of income lines: **4** taxes, **7** service fees, **2** export lines and the government subsidy (14 in all).
 
 - **Constraint:** the game builds the list from a fixed set of resource types. A mod cannot add a line without rewriting the panel.
 - **Mod policy:** the game's menus are not modified.
-- **Closest vanilla label:** *Public transportation* (a lift ticket is a ride fare).
+- **Closest vanilla label:** *Public transportation fees* (a lift ticket is a ride fare).
 - **Parks:** no fee line exists. Parks only cost.
 
 ## Panel Coverage
 
 | Money | In Economy panel | Location |
 |---|---|---|
-| Lift tickets, season passes, lessons, lodge spend | **Yes**, option on | Income: Public transportation fees |
+| Lift tickets, season passes, lessons, lodge spend | **Yes** | Income: Public transportation fees |
 | Building upkeep and staff wages (sign, lodges, Ski School, patrol) | **Yes** | Expenses: Parks & Recreation |
 | Lift running costs (2,500 to 11,000 a month plus a rate per km, by type) | No | Hub, Finances view |
-| Run upkeep (per hectare: groomed, snowmaking, night) | No | Hub, Finances view |
+| Run upkeep (per hectare, by feature: grooming, snowmaking, lights; cat tracks) | No | Hub, Finances view |
 | Ski Bus Depot coach bill | No | Hub, Finances view |
 | Commercial tax from hotels and shops the resort fills | **Yes**, the largest effect | Income: Commercial tax |
 
@@ -62,7 +52,7 @@ Resort-drawn tourists sleep in hotels and shop in stores. Those companies' profi
 **Commercial tax** line. No mod touches it.
 
 - **Resort income:** no. Excluded from the hub net.
-- **Hub row:** **City income the resort brings** = ski area share of the city's tourist draw × game tourist income. Labeled an estimate.
+- **Hub row:** **City tourist income** = ski area share of the city's tourist draw × game tourist income. Labeled an estimate.
 - **Hidden when:** Tourism Overhaul is installed (replaces the game's tourist formula).
 
 ## Cross-Check
@@ -70,9 +60,9 @@ Resort-drawn tourists sleep in hotels and shop in stores. Those companies' profi
 <Steps>
 
 1. Hub **Finances** view: note **Lift tickets** and the other income rows, month to date.
-2. **Economy > Budget**: find the **Public transportation** income line.
+2. **Economy > Budget**: find the **Public transportation fees** income line.
 3. Both should move together. The panel shows a projected monthly rate that the game updates in steps; expect lag behind the hub, most of all early in a month. (unverified)
-4. Treasury change over a month should equal the sum of the panel lines. If not: confirm the option above is on, then see [Troubleshooting](/guides/troubleshooting/).
+4. Treasury change over a month should equal the sum of the panel lines. If not, see [Troubleshooting](/guides/troubleshooting/).
 
 </Steps>
 

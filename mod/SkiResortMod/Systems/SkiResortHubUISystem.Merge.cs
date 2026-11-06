@@ -1,4 +1,4 @@
-// SkiResortHubUISystem, merged buildings (contract 32; MergeRules header). The merge card beside the game's selected-info panel follows the
+// SkiResortHubUISystem, merged buildings (contract 35; MergeRules header). The merge card beside the game's selected-info panel follows the
 // selection like the Ski Bus card: shown for a merged building, or a building that could be merged (or is too small) while the city has a
 // ski area. The card's buttons are the triggers mergeBuilding (entity, tier) and unmergeBuilding (entity); SkiMergeSystem does the work. The
 // Overview's "Merged buildings" fold reads `mergedLodges`: one row per merged building of the selected area, any state.
@@ -110,7 +110,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private ValueBinding<HubMergeCardState> m_MergeCard;   // contract 32: always observed; a compare per frame until a building is selected
+        private ValueBinding<HubMergeCardState> m_MergeCard;   // contract 35: always observed; a compare per frame until a building is selected
         private RawValueBinding m_Merged;
         private SkiMergeSystem m_Merge;
         private Entity m_MergeCardSelected, m_MergeCardBuilding;

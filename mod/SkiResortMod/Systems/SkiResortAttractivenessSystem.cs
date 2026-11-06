@@ -76,6 +76,7 @@ namespace SkiResortMod.Systems
         // replaced is followed at the next load / frame).
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private SkiRunOwnershipSystem m_Ownership;       // sign set, run kinds, BindGeneration
+        private SkiRunPropSystem m_RunProps;             // FeaturesOf: a run's score kind (R2)
         private SkiRunCatalogSystem m_Catalog;           // ratings, run tops, rating service
         private LiftCensusSystem m_Census;               // rows, serve lifts, power
         private SkiSnowInjectionSystem m_Injection;      // run open state, SnowSettled
@@ -337,6 +338,8 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, AreaState> m_AreaStates = new Dictionary<Entity, AreaState>();
         private readonly Dictionary<Entity, int> m_HeldValues = new Dictionary<Entity, int>();  // lodge → provider value at load
         private readonly Dictionary<Entity, LastRating> m_LastRatings = new Dictionary<Entity, LastRating>();  // run → rating seen this load
+        private readonly RunAliases m_RunAliases = new RunAliases();   // re-emitted runs (SkiRunReemitSystem)
+        private Action<Entity, Entity> m_MoveRunState;
         private readonly List<DropEntry> m_DropProvider = new List<DropEntry>();                     // consumed once by WriteProviders
         private readonly List<Entity> m_ZeroSigns = new List<Entity>();                              // signs carrying a provider: held at 0
         private readonly Dictionary<Entity, AreaLog> m_AreaLogs = new Dictionary<Entity, AreaLog>();
@@ -598,6 +601,22 @@ namespace SkiResortMod.Systems
             return true;
         }
 
+        /// <summary>A run was re-emitted (SkiRunReemitSystem): its score view (the hub's open state) and its last rating follow the new
+        /// entity. Main thread.</summary>
+        internal void RekeyRun(Entity from, Entity to)
+        {
+            if (m_MoveRunState == null)
+                m_MoveRunState = MoveRunState;
+            m_RunAliases.Add(from, to);
+            m_RunAliases.Apply(m_MoveRunState);
+        }
+
+        private void MoveRunState(Entity from, Entity to)
+        {
+            RunAliases.Move(m_Cur.Runs, from, to);
+            RunAliases.Move(m_LastRatings, from, to);
+        }
+
         /// <summary>The last recompute's view of member run <paramref name="run"/> (false: not a member —
         /// unbound, a paid orphan, or bound to a sign that was not live).</summary>
         internal bool TryGetRunScore(Entity run, out RunScoreView view)
@@ -771,6 +790,7 @@ namespace SkiResortMod.Systems
             // and creation order is load-hook subscription order (GameSystemBase.cs:27-29) — kept identical.
             World.GetOrCreateSystemManaged<PowerBridgeSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
+            m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_Injection = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
@@ -876,6 +896,7 @@ namespace SkiResortMod.Systems
             m_AreaStates.Clear();
             m_HeldValues.Clear();
             m_LastRatings.Clear();
+            m_RunAliases.Clear();
             m_DropProvider.Clear();
             m_ZeroSigns.Clear();
             m_AreaLogs.Clear();   // flushed in OnGamePreload
@@ -993,6 +1014,8 @@ namespace SkiResortMod.Systems
             {
                 if (m_Disabled || !IsActive)
                     return; // lodge prefab not imported, or the ownership sets not ready — inert by design
+                if (m_RunAliases.Any)
+                    m_RunAliases.Apply(m_MoveRunState);
 
                 m_Tick++;
                 CompareCounters();
@@ -1984,7 +2007,8 @@ namespace SkiResortMod.Systems
             float topY = geometry.m_Bounds.max.y;
             var input = new SkiResortScore.RunInput
             {
-                Kind = (byte)kind,
+                // The score reads the base, Groomed and Lights (RunFeatures.ScoreKind): a lit groomed run scores as a night run (R2, DECISIONS 577).
+                Kind = m_RunProps.FeaturesOf(run, kind).ScoreKind,
                 AreaM2 = geometry.m_SurfaceArea,
                 TopM = topY,
                 BottomM = bottomY,

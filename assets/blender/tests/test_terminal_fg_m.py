@@ -207,6 +207,55 @@ def positives():
 # negatives
 # --------------------------------------------------------------------------------------
 
+def m1_hv_lane_negatives():
+    """M1 HV sub-lane guard (DECISIONS 592 q): the deployed station prefab's two HV sub-lanes must name the FG rope lane
+    (SkiFixedGripHaulRope, by CID). Temporary copies of the mirror's prefabs with one lane, then both lanes, back on the
+    vanilla HV GUID must raise M1 (the filter used to key on that GUID and passed vacuously after lift alignment F3);
+    the untouched copy and the restored copy pass. The mirror itself is never written."""
+    real = LT.GAMEDATA_M
+    tmp = tempfile.mkdtemp(prefix="fgm-m1-neg-")
+    vanilla = "UnityGUID:5d88ac45a40b30341a79535930e3b735"
+    try:
+        for n in ("SkiBaseStationBuilding", "SkiTopStationBuilding", LT.FG_ROPE_LANE,
+                  LT.M_SPECS["drive"].tower_prefab, LT.M_SPECS["return"].tower_prefab):   # + the hosted rows' CIDs
+            shutil.copytree(os.path.join(real, n), os.path.join(tmp, n))
+        with open(os.path.join(tmp, LT.FG_ROPE_LANE, LT.FG_ROPE_LANE + ".Prefab.cid"), encoding="utf-8") as fh:
+            cid = "CID:" + fh.read().strip()
+        LT.GAMEDATA_M = tmp
+        for kind, n in (("drive", "SkiBaseStationBuilding"), ("return", "SkiTopStationBuilding")):
+            p = os.path.join(tmp, n, n + ".Prefab")
+            with open(p, "rb") as fh:
+                txt = fh.read().decode("utf-8")
+            check(txt.count(cid) == 2, f"{kind}: the temp copy names the FG rope lane twice", f"({txt.count(cid)})")
+            try:
+                LT.m1_frozen(kind)
+                check(True, f"{kind}: M1 passes on an untouched copy of the deployed prefab")
+            except LT.MContractError as e:
+                check(False, f"{kind}: M1 passes on an untouched copy of the deployed prefab", f"({str(e)[:140]})")
+            for label, cnt in (("one", 1), ("both", 2)):
+                with open(p, "wb") as fh:
+                    fh.write(txt.replace(cid, vanilla, cnt).encode("utf-8"))
+                expect("M1", lambda: LT.m1_frozen(kind), f"{kind}: {label} HV sub-lane(s) back on the vanilla GUID")
+            if kind == "return":
+                # art-601: only the drive base may lose its hosted tower; the top without its ET62 row must raise M1
+                tcid = "CID:" + open(os.path.join(tmp, LT.M_SPECS[kind].tower_prefab,
+                                                  LT.M_SPECS[kind].tower_prefab + ".Prefab.cid"), encoding="utf-8").read().strip()
+                check(txt.count(tcid) == 1, f"{kind}: the temp copy hosts its ET62 once", f"({txt.count(tcid)})")
+                with open(p, "wb") as fh:
+                    fh.write(txt.replace(tcid, "CID:00000000000000000000000000000000").encode("utf-8"))
+                expect("M1", lambda: LT.m1_frozen(kind), f"{kind}: the top without its hosted ET62 row")
+            with open(p, "wb") as fh:
+                fh.write(txt.encode("utf-8"))
+            try:
+                LT.m1_frozen(kind)
+                check(True, f"{kind}: M1 passes again on the restored copy")
+            except LT.MContractError as e:
+                check(False, f"{kind}: M1 passes again on the restored copy", f"({str(e)[:140]})")
+    finally:
+        LT.GAMEDATA_M = real
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def negatives():
     print("[fg-m] 2. negatives")
     # M1: WheelLocal y 3.50 in the generator
@@ -216,6 +265,7 @@ def negatives():
         expect("M1", lambda: LT.m1_frozen("drive"), "M1 generator WheelLocal y 3.50")
     finally:
         LT.M_SPECS["drive"] = spec
+    m1_hv_lane_negatives()
     # M2: the rope torus 0.05 low (L's 3.50 under a 3.55 datum)
     t, table, co, tris, names = build("return", finish=False)
     co2 = co.copy()

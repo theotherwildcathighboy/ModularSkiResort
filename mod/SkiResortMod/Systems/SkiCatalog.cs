@@ -15,8 +15,9 @@ namespace SkiResortMod.Systems
     /// <summary>APPEND ONLY. Mid is appended when mid-stations are designed.</summary>
     public enum StationRole : byte { Base = 0, Top = 1 }
 
-    /// <summary>APPEND ONLY.</summary>
-    public enum CatalogKind : byte { Line = 0, Carrier = 1, Marker = 2, Station = 3, Lodge = 4, Sign = 5, Run = 6, School = 7, Patrol = 8, Fence = 9, Depot = 10 }
+    /// <summary>APPEND ONLY.
+    /// Grip = a carrier's grip (the carrier grip round): a sub-object like the carriers, NOT a carrier (no roster, census or count).</summary>
+    public enum CatalogKind : byte { Line = 0, Carrier = 1, Marker = 2, Station = 3, Lodge = 4, Sign = 5, Run = 6, School = 7, Patrol = 8, Fence = 9, Depot = 10, Grip = 11 }
 
     /// <summary>SkiPrefabCatalogSystem's next step for a query (NextAction; LiftBatch CT-10).</summary>
     public enum CatalogAction : byte { Serve = 0, Validate = 1, Resolve = 2 }
@@ -67,7 +68,7 @@ namespace SkiResortMod.Systems
         public readonly float MaxPylonM;        // PowerLinePrefab m_MaxPylonDistance (= CourseSplit's max edge length)
         public readonly float SlopeMax;         // m_MaxSlopeSteepness
         public readonly float NetHanging;       // the line's m_Hanging
-        public readonly float LaneHanging;      // the rope lanes' m_Hanging (0.004 on long spans)
+        public readonly float LaneHanging;      // the rope lanes' m_Hanging = mid-span sag / span (= NetHanging: the terrain cut follows the rope)
         public readonly float HeightRangeMinM;  // the piece's m_HeightRange.min (clearance formula)
         public readonly float ElevationMaxM;    // PlaceableNet m_ElevationRange.max
 
@@ -83,14 +84,48 @@ namespace SkiResortMod.Systems
         }
     }
 
+    /// <summary>One carrier type's pivot offsets for the two-object carrier (grip + body; CarrierPose.cs), meters, each from its
+    /// mesh's base-pivot origin (the lowest vertex). GripRope = the rope point in the grip mesh (haul-rope center in the jaw; tram:
+    /// the track-rope contact), GripPin = the pivot pin center in the grip mesh, BodyPin = the pin center in the body mesh.</summary>
+    public readonly struct CarrierPivots
+    {
+        public readonly float3 GripRope;
+        public readonly float3 GripPin;
+        public readonly float3 BodyPin;
+
+        public CarrierPivots(float3 gripRope, float3 gripPin, float3 bodyPin)
+        {
+            GripRope = gripRope;
+            GripPin = gripPin;
+            BodyPin = bodyPin;
+        }
+
+        /// <summary>The rope-point-to-body-origin offset at zero pitch and swing: (0, HangM - GripTopAboveRopeM, 0) for a valid
+        /// set (LiftBatch CT-17), so the split carrier stands where the one-piece carrier stood.</summary>
+        public float3 RigidOffset => BodyPin + GripRope - GripPin;
+
+        /// <summary>The rigid drop (rope point to body origin) of a split carrier: the mover's drop once the grip prefab exists
+        /// (the body's mesh bounds no longer reach the grip top, so LiftMoverMath.CarrierDrop of its bounds would be wrong).</summary>
+        public float RigidDrop => BodyPin.y + GripRope.y - GripPin.y;
+    }
+
     /// <summary>Mutable builder for one lift row (public fields; object-initializer syntax in the static ctor and the
     /// tests). LiftTypeDef copies it; nothing keeps a reference.</summary>
     public sealed class LiftTypeSpec
     {
         public string Id, LinePrefab, PiecePrefab, LineItemId;
         public string[] CarrierPrefabs;
+        /// <summary>The grip prefab (the carrier grip round: one grip per carrier, a second NetSubObjects row per carrier row on
+        /// the line; the tram's carriage is hosted by the base station like its cabin). Null = the type has no split carrier.</summary>
+        public string GripPrefab;
+        /// <summary>The GRIP name's flag (false = ", pending": designed, made by prefab surgery after the art import).</summary>
+        public bool GripExpected;
+        public CarrierPivots Pivots;
         public MoverKind Mover;
         public int SeatsPerCarrier;
+        /// <summary>Half the carrier's width across the line, from its rope point (carriers.json: tr / dq bench_m / 2, gd8 max |bounds_lat_m|,
+        /// tram bounds_lat_half_m; LiftBatch carriers-json drift). The lift tree corridor (LiftTreeCorridor) adds it to GaugeHalfM.</summary>
+        public float CarrierHalfWidthM;
         public float SpeedMps, GaugeHalfM, HangM, GripTopAboveRopeM, AxleM, RopeSeatM, AimHeightM, SpacingM, DesignSpacingM,
                      ServeRadiusM, TopMarginM, FixedPerMonth, PerKmPerMonth;
         public int LineBuildPer8m, ElevationCostPer10m, StationCostBase, StationCostTop;
@@ -144,11 +179,12 @@ namespace SkiResortMod.Systems
         public readonly int SeatsPerCarrier;
         public readonly float SpeedMps;
         public readonly float GaugeHalfM;                      // rope lane |x|
+        public readonly float CarrierHalfWidthM;               // half the carrier's width across the line (LiftTypeSpec)
         public readonly float HangM;                           // carrier contract (carriers.json hang_m)
         public readonly float GripTopAboveRopeM;               // grip top to the jaw's rope point: the pose drops by LiftMoverMath.CarrierDrop
         public readonly float AxleM;                           // sheave axle y on the shortest tower (carriers.json axle_m)
-        /// <summary>Rope lane above the axle: the rope rests on the sheave crowns (T27, lift alignment F2). DQ 0.3096 since 2026-11-02;
-        /// FG and GD stay on the axle (0) until their heads move (Phase 2 trains; GD needs its post feet raised, T27 C20). The rope
+        /// <summary>Rope lane above the axle: the rope rests on the sheave crowns (T27, lift alignment F2). Since the family round
+        /// (Q / R, 2026-11-03; vanilla LV cable on the v2 wheels): FG 0.2326, DQ 0.2589, GD 0.284; the tram rides its stubs (0). The rope
         /// lane y on the shortest tower = AxleM + RopeSeatM (the tower planner's rope height).</summary>
         public readonly float RopeSeatM;
         public readonly float AimHeightM;                      // CursorAim's line aim plane
@@ -172,12 +208,18 @@ namespace SkiResortMod.Systems
         public readonly LiftEnvelope Envelope;
         public readonly bool CloseElectricityView;
         public readonly bool LineExpected;                     // the line NAME's flag
-        public readonly bool Expected;                         // derived: the line and every carrier expected
+        public readonly bool Expected;                         // derived: the line and every carrier expected (the grip is not part of it)
+        public readonly string GripPrefab;                     // StaticObjectPrefab name of the grip (null = no split carrier)
+        public readonly bool GripExpected;                     // the grip NAME's flag
+        public readonly CarrierPivots Pivots;                  // the grip / body pivot offsets (CarrierPose; CT-17)
 
         internal LiftTypeDef(int index, LiftTypeSpec s)
         {
             Index = index;
             Id = s.Id;
+            GripPrefab = s.GripPrefab;
+            GripExpected = s.GripExpected;
+            Pivots = s.Pivots;
             LinePrefab = s.LinePrefab;
             PiecePrefab = s.PiecePrefab;
             BuildItemId = s.LineItemId;
@@ -185,6 +227,7 @@ namespace SkiResortMod.Systems
             SeatsPerCarrier = s.SeatsPerCarrier;
             SpeedMps = s.SpeedMps;
             GaugeHalfM = s.GaugeHalfM;
+            CarrierHalfWidthM = s.CarrierHalfWidthM;
             HangM = s.HangM;
             GripTopAboveRopeM = s.GripTopAboveRopeM;
             AxleM = s.AxleM;
@@ -250,6 +293,16 @@ namespace SkiResortMod.Systems
         /// 0 on every station but the tram base, whose lot is 6 x 3: a CS2 lot is centered on the prefab origin, so the building sits 4 m
         /// off the origin (+4.00 in the game frame).</summary>
         public readonly float StubTipLocalX;
+        /// <summary>The line rope's anchor, prefab-local y: the lowest end point of the station's HV rope sub-lanes (the point
+        /// LaneSystem.FindAnchor joins the line's rope lane to). The stub tip is at y 0, so on level ground the built line's rope sits
+        /// this high above the stub node. FG base 5.84 / top 5.24, DQ 3.70, gondola 4.85, tram 16.00 (track rope); NaN = unknown. LiftBatch
+        /// EI-48 compares it with the mirror (FIX-LIST 48).</summary>
+        public readonly float RopeAnchorLocalY;
+        /// <summary>The lot's front edge, prefab-local z (lot depth cells x 4): vanilla stands every building on the terrain THERE
+        /// (PlacementFlags.RoadSide on every BuildingData building, BuildingInitializeSystem.cs:1131-1133; ObjectToolSystem.CalculateHeight
+        /// :1621-1625 at BuildingUtils.CalculateFrontPosition :88-92), FrontLocalZ - StubTipLocalZ from the stub tip (FG / tram 24 m, DQ /
+        /// gondola 32 m). NaN = unknown.</summary>
+        public readonly float FrontLocalZ;
 
         /// <summary>LiftTypeIndex −1 (unknown). The catalog's own rows use the overload below; this one exists for hand-made rows (tests).</summary>
         public StationDef(string prefab, StationRole role, string liftTypeId, float3 wheelLocal, float stubTipLocalZ,
@@ -278,7 +331,8 @@ namespace SkiResortMod.Systems
         /// <summary>The full row with the line axis off the prefab origin (StubTipLocalX; the tram base).</summary>
         public StationDef(string prefab, StationRole role, string liftTypeId, float3 wheelLocal, float stubTipLocalZ,
                           int buildCost, string buildItemId, bool expected, int liftTypeIndex,
-                          float3 dockLocalA, float3 dockLocalB, bool hostsCarriers, float stubTipLocalX)
+                          float3 dockLocalA, float3 dockLocalB, bool hostsCarriers, float stubTipLocalX,
+                          float ropeAnchorLocalY = float.NaN, float frontLocalZ = float.NaN)
         {
             Prefab = prefab;
             Role = role;
@@ -293,6 +347,8 @@ namespace SkiResortMod.Systems
             DockLocalB = dockLocalB;
             HostsCarriers = hostsCarriers;
             StubTipLocalX = stubTipLocalX;
+            RopeAnchorLocalY = ropeAnchorLocalY;
+            FrontLocalZ = frontLocalZ;
         }
     }
 
@@ -504,12 +560,16 @@ namespace SkiResortMod.Systems
             // NAMES-BEGIN
             public const string LineFixedGrip = "SkiChairliftHV"; // PowerLinePrefab, item lift
             public const string CarrierFixedGrip = "SkiLiftChair4"; // StaticObjectPrefab
+            public const string GripFixedGrip = "SkiLiftChair4Grip"; // StaticObjectPrefab
             public const string LineDetachable = "SkiDetachableHV"; // PowerLinePrefab, item liftDetachable
             public const string CarrierDetachable = "SkiLiftChairDQ4"; // StaticObjectPrefab
+            public const string GripDetachable = "SkiLiftChairDQ4Grip"; // StaticObjectPrefab
             public const string LineGondola = "SkiGondolaHV"; // PowerLinePrefab, item liftGondola
             public const string CarrierGondola = "SkiGondolaCabin8"; // StaticObjectPrefab
+            public const string GripGondola = "SkiGondolaCabin8Grip"; // StaticObjectPrefab
             public const string LineTram = "SkiTramHV"; // PowerLinePrefab, item liftTram
             public const string CarrierTram = "SkiTramCabin"; // StaticObjectPrefab
+            public const string GripTram = "SkiTramCarriage"; // StaticObjectPrefab
             public const string Marker = "SkiLiftMarker"; // PowerLinePrefab
             public const string StationFixedGripBase = "SkiBaseStationBuilding"; // BuildingPrefab, item baseStation
             public const string StationFixedGripTop = "SkiTopStationBuilding"; // BuildingPrefab, item topStation
@@ -565,6 +625,7 @@ namespace SkiResortMod.Systems
             public const float GripTopAboveRopeM = 0.08f;  // lift_chair.py:78 GRIP_TOP_Z = carriers.json tr grip_top_above_rope_m
             public const float GaugeHalfM = 1.8f;          // the haul-rope lanes at x ±1.8 (carriers.json tr lane_x_m)
             public const float AxleM = 7.04f;              // carriers.json tr axle_m
+            public const float RopeSeatM = 0.2326f;        // SkiLiftTowerFG*Q manifests rope_on_crown.seat (T27)
             public const double SummerShare = 0.25;        // summer share (lambda)
             public const int LineBuildPer8m = 60;          // SkiChairliftPiece.Prefab:65 m_ConstructionCost
         }
@@ -678,6 +739,7 @@ namespace SkiResortMod.Systems
         // Lookups (Ordinal; filled once by the static constructor; the first entry wins on a clash, Sanity reports it)
         private static readonly Dictionary<string, LiftTypeDef> s_ByLine = new Dictionary<string, LiftTypeDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, LiftTypeDef> s_ByCarrier = new Dictionary<string, LiftTypeDef>(StringComparer.Ordinal);
+        private static readonly Dictionary<string, LiftTypeDef> s_ByGrip = new Dictionary<string, LiftTypeDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, LiftTypeDef> s_ById = new Dictionary<string, LiftTypeDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, StationDef> s_Stations = new Dictionary<string, StationDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, LodgeDef> s_Lodges = new Dictionary<string, LodgeDef>(StringComparer.Ordinal);
@@ -720,7 +782,8 @@ namespace SkiResortMod.Systems
                         LineItemId = FixedGrip.BuildItemId, CarrierPrefabs = new[] { Names.CarrierFixedGrip },
                         Mover = MoverKind.Loop, SeatsPerCarrier = FixedGrip.SeatsPerCarrier, SpeedMps = FixedGrip.SpeedMps,
                         GaugeHalfM = FixedGrip.GaugeHalfM, HangM = FixedGrip.HangM, GripTopAboveRopeM = FixedGrip.GripTopAboveRopeM,
-                        AxleM = FixedGrip.AxleM, AimHeightM = FixedGrip.AimHeightM, SpacingM = FixedGrip.SpacingM,
+                        CarrierHalfWidthM = 0.9f,                                       // carriers.json tr bench_m 1.8 / 2
+                        AxleM = FixedGrip.AxleM, RopeSeatM = FixedGrip.RopeSeatM, AimHeightM = FixedGrip.AimHeightM, SpacingM = FixedGrip.SpacingM,
                         DesignSpacingM = FixedGrip.DesignSpacingM, ServeRule = ServeRuleKind.AlongLine,
                         ServeRadiusM = FixedGrip.ServeRadiusM, TopMarginM = FixedGrip.TopMarginM,
                         FixedPerMonth = FixedGrip.FixedPerMonth, PerKmPerMonth = FixedGrip.PerKmPerMonth,
@@ -731,8 +794,14 @@ namespace SkiResortMod.Systems
                         // SkiChairliftHV.Prefab:292 / :288 / :293, PlaceableNet :19; SkiLiftHaulRopeB 0.03; SkiChairliftPiece.Prefab:133. Elevation max 16
                         // equals SkiChairliftHV.Prefab:19 m_ElevationRange.max (CT-12): the FG ladder grounds exactly to 16, so 0 m of margin, and FG24
                         // stays unneeded only while ≤ 16.
-                        Envelope = new LiftEnvelope(60f, 0.8f, 0.01f, 0.01f, 6f, 16f),   // net + own rope lane 0.01 (lift alignment F3)
+                        Envelope = new LiftEnvelope(60f, 0.8f, 0.02f, 0.02f, 4f, 16f),   // net + own rope lane 0.02 (rope sag round, docs research rope-sag)
                         CloseElectricityView = FixedGrip.CloseElectricityView, LineExpected = true,
+                        // Pivots of the split meshes (lift_chair.py --split --envelope, SkiLiftChair6O + SkiLiftChair6GripO; prefab frame x
+                        // lateral, y up, z travel; B2 v2 grip passage envelope: the clamp block, clevis and pins 0.20 m outboard, the jaw plate
+                        // on the rope): the pin 0.1405 below the rope and 0.20 outboard. Rigid offset (-0.2, 2.1795) + (0, 0.1955) - (-0.2, 0.055)
+                        // = (0, 2.32) = hang - grip top (CT-17).
+                        GripPrefab = Names.GripFixedGrip, GripExpected = true,
+                        Pivots = new CarrierPivots(new float3(0f, 0.1955f, 0f), new float3(-0.2f, 0.055f, 0f), new float3(-0.2f, 2.1795f, 0f)),
                     },
                     new LiftTypeSpec
                     {
@@ -740,17 +809,23 @@ namespace SkiResortMod.Systems
                         LineItemId = "liftDetachable", CarrierPrefabs = new[] { Names.CarrierDetachable },
                         Mover = MoverKind.Loop, SeatsPerCarrier = 4, SpeedMps = 5.0f,     // carriers.json dq seats 4
                         GaugeHalfM = 2.6f, HangM = 3.3f, GripTopAboveRopeM = 0.22f,      // carriers.json dq
+                        CarrierHalfWidthM = 1.2f,                                       // carriers.json dq bench_m 2.4 / 2
                         AxleM = 8.0f,                                                   // SkiLiftTowerDQ10O.manifest.json axle
-                        RopeSeatM = 0.3096f,                                            // lift_tower.rope_seat DQ: rope on the crowns (T27)
+                        RopeSeatM = 0.2589f,                                            // SkiLiftTowerDQ*Q manifests rope_on_crown.seat (T27)
                         AimHeightM = 9.0f,                                              // SkiLiftTowerDQ10O.manifest.json catalog_handoff.AimHeightM
                         SpacingM = 22.5f, DesignSpacingM = 30f,                         // rides ≈ 31 m; design 30 m
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 5000f, PerKmPerMonth = 2000f, LineBuildPer8m = 120, ElevationCostPer10m = 10,
                         StationCostBase = 125000, StationCostTop = 65000, ScoreValue = 15.0, SummerShare = 0.25,
-                        Envelope = new LiftEnvelope(90f, 0.9f, 0f, 0.004f, 5.8f, 10f),
+                        Envelope = new LiftEnvelope(90f, 0.9f, 0.025f, 0.025f, 3.8f, 11f),   // max 11: DQ20 Hold E 10.52 (art-601)
                         CloseElectricityView = true, LineExpected = true,
                         // SkiDetachableHV and SkiLiftChairDQ4 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
+                        // Pivots of the split meshes (SkiLiftChairDQ4N + SkiLiftChairDQ4GripO, B2 v2: the O grip moved its carriage 0.25 m
+                        // outboard, pins unchanged): the pin 0.258 below the rope on the
+                        // outboard C-hanger (x -0.2459, authoring -Y). Rigid offset 2.8225 + 0.3155 - 0.058 = 3.08 (CT-17).
+                        GripPrefab = Names.GripDetachable, GripExpected = true,
+                        Pivots = new CarrierPivots(new float3(0f, 0.3155f, 0f), new float3(-0.2459f, 0.058f, 0f), new float3(-0.2459f, 2.8225f, 0f)),
                     },
                     new LiftTypeSpec
                     {
@@ -758,16 +833,23 @@ namespace SkiResortMod.Systems
                         LineItemId = "liftGondola", CarrierPrefabs = new[] { Names.CarrierGondola },
                         Mover = MoverKind.Loop, SeatsPerCarrier = 8, SpeedMps = 5.5f,     // carriers.json gd8
                         GaugeHalfM = 3.0f, HangM = 4.5f, GripTopAboveRopeM = 0.08f,      // carriers.json gd8 (cabin lens)
+                        CarrierHalfWidthM = 1.1f,                                       // carriers.json gd8 bounds_lat_m [-1.05, 1.1]
                         AxleM = 10.0f,
-                        AimHeightM = 11.0f,                                             // axle 10 / comm 11.2
+                        RopeSeatM = 0.284f,                                             // SkiLiftTowerGD*Q manifests rope_on_crown.seat (T27)
+                        AimHeightM = 11.0f,                                            // axle 10 / comm 11.2
                         SpacingM = 40f, DesignSpacingM = 60f,                           // rides ≈ 60 m; design 60 m. SpacingM mirrors SkiGondolaHV m_Spacing (140 m edges spawn 3 cabins, not 2)
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 8000f, PerKmPerMonth = 3000f, LineBuildPer8m = 175, ElevationCostPer10m = 15,
                         StationCostBase = 190000, StationCostTop = 110000, ScoreValue = 25.0, SummerShare = 0.25,
-                        Envelope = new LiftEnvelope(250f, 1.2f, 0f, 0.004f, 6f, 28f),
+                        Envelope = new LiftEnvelope(250f, 1.2f, 0.025f, 0.025f, 4f, 28f),
                         CloseElectricityView = true, LineExpected = true,
                         // SkiGondolaHV and SkiGondolaCabin8 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
+                        // Pivots of the split meshes (lift_cabin.py --split, SkiGondolaCabin8B + SkiGondolaCabin8GripC, B2 v2: the C grip
+                        // lowered its jaw bar inboard, pins unchanged): the pin 0.504 below
+                        // the rope on the outboard hanger (x -0.655). Rigid offset 3.9165 + 0.5735 - 0.07 = 4.42 (CT-17).
+                        GripPrefab = Names.GripGondola, GripExpected = true,
+                        Pivots = new CarrierPivots(new float3(0f, 0.5735f, 0f), new float3(-0.655f, 0.07f, 0f), new float3(-0.655f, 3.9165f, 0f)),
                     },
                     new LiftTypeSpec
                     {
@@ -775,6 +857,7 @@ namespace SkiResortMod.Systems
                         LineItemId = "liftTram", CarrierPrefabs = new[] { Names.CarrierTram },
                         Mover = MoverKind.Shuttle, SeatsPerCarrier = 100, SpeedMps = 10.0f,  // cabins.md §8.1
                         GaugeHalfM = 5.5f,                                              // the track ropes = the HV lanes
+                        CarrierHalfWidthM = 1.9f,                                       // carriers.json tram bounds_lat_half_m
                         HangM = 10.5f, GripTopAboveRopeM = 0.5f,                        // carriers.json tram (cabin lens)
                         AxleM = 26.25f,                                                 // SkiTramTower30A.manifest.json stubs y
                         AimHeightM = 26.25f,                                            // lattice-towers §15.1
@@ -782,12 +865,18 @@ namespace SkiResortMod.Systems
                         ServeRule = ServeRuleKind.TerminalsOnly, ServeRadiusM = 300f, TopMarginM = 15f,
                         FixedPerMonth = 11000f, PerKmPerMonth = 4500f, LineBuildPer8m = 270, ElevationCostPer10m = 25,
                         StationCostBase = 300000, StationCostTop = 190000, ScoreValue = 30.0, SummerShare = 1.0,
-                        Envelope = new LiftEnvelope(1000f, 2.5f, 0f, 0.004f, 13.75f, 30f),
+                        Envelope = new LiftEnvelope(1000f, 2.5f, 0.04f, 0.04f, 11.75f, 30f),
                         CloseElectricityView = true, LineExpected = true,
                         // SkiTramCabin and SkiTramHV exist game-side: both names Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
                         // The shuttle profile. Accel 0.8 m/s² (real jig-back trams ≈ 0.5-1.0, unverified); dwell 60 s (carriers.json tram dwell_s 60, CT-11).
                         AccelMps2 = 0.8f, DwellS = 60f,
+                        // Pivots of the split meshes (lift_cabin.py --split, SkiTramCabinB + SkiTramCarriageB): the pin at the lug center
+                        // under the carriage head, K = 10.2565 above the cabin's lowest vertex (was hang - 0.12 = 10.38; carriers.json
+                        // pivot_k_m follows), 0.2565 ABOVE the track-rope contact. Rigid offset 10.2565 + 0.478 - 0.7345 = 10.0 (CT-17).
+                        // The carriage is the grip: hosted by the base station like the cabin.
+                        GripPrefab = Names.GripTram, GripExpected = true,
+                        Pivots = new CarrierPivots(new float3(0f, 0.478f, 0f), new float3(0f, 0.7345f, 0f), new float3(0f, 10.2565f, 0f)),
                     },
                 };
                 lifts = new LiftTypeDef[specs.Length];
@@ -802,20 +891,20 @@ namespace SkiResortMod.Systems
                 {
                     // Per-row stub tip. The DQ / gondola / tram rows are Expected (prefabs game-side and mirrored; CT-12 costs 125,000 / 65,000 /
                     // 190,000 / 110,000 / 300,000 / 190,000 equal the mirror).
-                    Station(lifts, Names.StationFixedGripBase, StationRole.Base, FixedGrip.Id, new float3(0f, 3.55f, 0.2f), StubTipLocalZ, 60000, "baseStation", true),
-                    Station(lifts, Names.StationFixedGripTop, StationRole.Top, FixedGrip.Id, new float3(0f, 3.75f, 0f), StubTipLocalZ, 30000, "topStation", true),
-                    Station(lifts, Names.StationDetachableBase, StationRole.Base, "detachable", new float3(0f, 3.70f, 9.60f), -16f, 125000, "baseStationDetachable", true),
-                    Station(lifts, Names.StationDetachableTop, StationRole.Top, "detachable", new float3(0f, 3.70f, 5.60f), -16f, 65000, "topStationDetachable", true),
-                    Station(lifts, Names.StationGondolaBase, StationRole.Base, "gondola", new float3(0f, 4.85f, 9.40f), -16f, 190000, "baseStationGondola", true),
-                    Station(lifts, Names.StationGondolaTop, StationRole.Top, "gondola", new float3(0f, 4.85f, 5.40f), -16f, 110000, "topStationGondola", true),
+                    Station(lifts, Names.StationFixedGripBase, StationRole.Base, FixedGrip.Id, new float3(0f, 3.55f, 0.2f), StubTipLocalZ, 60000, "baseStation", true, 5.84f, 12f),
+                    Station(lifts, Names.StationFixedGripTop, StationRole.Top, FixedGrip.Id, new float3(0f, 3.75f, 0f), StubTipLocalZ, 30000, "topStation", true, 5.24f, 12f),
+                    Station(lifts, Names.StationDetachableBase, StationRole.Base, "detachable", new float3(0f, 3.70f, 9.60f), -16f, 125000, "baseStationDetachable", true, 3.70f, 16f),
+                    Station(lifts, Names.StationDetachableTop, StationRole.Top, "detachable", new float3(0f, 3.70f, 5.60f), -16f, 65000, "topStationDetachable", true, 3.70f, 16f),
+                    Station(lifts, Names.StationGondolaBase, StationRole.Base, "gondola", new float3(0f, 4.85f, 9.40f), -16f, 190000, "baseStationGondola", true, 4.85f, 16f),
+                    Station(lifts, Names.StationGondolaTop, StationRole.Top, "gondola", new float3(0f, 4.85f, 5.40f), -16f, 110000, "topStationGondola", true, 4.85f, 16f),
                     // The tram's two docks at the track rope (SkiTram{Base,Top}StationA.manifest.json prefab_contract.docks[0..1].rope; levels
                     // identical on base and top); the base hosts the cabins. The base's lot is 6 x 3 (the new cell on the clock-tower side), so its
                     // building sits 4 m off the origin: in the game frame the line axis is at prefab x +4.00 and the docks A / B are (9.50 / -1.50) =
                     // hosted cabin entries 0 / 1 (A = the +X bay, B = the -X bay); the top is unchanged.
                     Station(lifts, Names.StationTramBase, StationRole.Base, "tram", new float3(nan, nan, nan), -12f, 300000, "baseStationTram", true,
-                            new float3(9.50f, 16.00f, -5.50f), new float3(-1.50f, 16.00f, -5.50f), true, 4.00f),
+                            new float3(9.50f, 16.00f, -5.50f), new float3(-1.50f, 16.00f, -5.50f), true, 4.00f, 16.00f, 12f),
                     Station(lifts, Names.StationTramTop, StationRole.Top, "tram", new float3(nan, nan, nan), -12f, 190000, "topStationTram", true,
-                            new float3(-5.50f, 16.00f, -5.50f), new float3(5.50f, 16.00f, -5.50f), false),
+                            new float3(-5.50f, 16.00f, -5.50f), new float3(5.50f, 16.00f, -5.50f), false, 0f, 16.00f, 12f),
                 };
 
                 // Lodge ladder. Jobs / BuildCost / Upkeep are informational (the prefab is the truth; CT-12 compares an expected row). Every row is
@@ -900,6 +989,8 @@ namespace SkiResortMod.Systems
                     AddFirst(s_ByLine, l.LinePrefab, l);
                     for (int c = 0; c < l.CarrierPrefabs.Count; c++)
                         AddFirst(s_ByCarrier, l.CarrierPrefabs[c], l);
+                    if (l.GripPrefab != null)
+                        AddFirst(s_ByGrip, l.GripPrefab, l);
                 }
                 stationOf = new StationDef[lifts.Length * 2];
                 for (int i = 0; i < stations.Length; i++)
@@ -961,16 +1052,17 @@ namespace SkiResortMod.Systems
         }
 
         private static StationDef Station(LiftTypeDef[] lifts, string prefab, StationRole role, string liftTypeId, float3 wheel,
-                                          float stubTipLocalZ, int buildCost, string item, bool expected)
+                                          float stubTipLocalZ, int buildCost, string item, bool expected, float ropeAnchorY, float frontZ)
         {
             return Station(lifts, prefab, role, liftTypeId, wheel, stubTipLocalZ, buildCost, item, expected,
-                           new float3(float.NaN), new float3(float.NaN), false);
+                           new float3(float.NaN), new float3(float.NaN), false, 0f, ropeAnchorY, frontZ);
         }
 
         /// <summary>A row with docks and the carrier-host flag, and the line axis x (StationDef.StubTipLocalX, 0 unless given).</summary>
         private static StationDef Station(LiftTypeDef[] lifts, string prefab, StationRole role, string liftTypeId, float3 wheel,
                                           float stubTipLocalZ, int buildCost, string item, bool expected,
-                                          float3 dockLocalA, float3 dockLocalB, bool hostsCarriers, float stubTipLocalX = 0f)
+                                          float3 dockLocalA, float3 dockLocalB, bool hostsCarriers, float stubTipLocalX = 0f,
+                                          float ropeAnchorY = float.NaN, float frontZ = float.NaN)
         {
             int index = -1;
             for (int i = 0; i < lifts.Length; i++)
@@ -982,7 +1074,7 @@ namespace SkiResortMod.Systems
                 }
             }
             return new StationDef(prefab, role, liftTypeId, wheel, stubTipLocalZ, buildCost, item, expected, index,
-                                  dockLocalA, dockLocalB, hostsCarriers, stubTipLocalX);
+                                  dockLocalA, dockLocalB, hostsCarriers, stubTipLocalX, ropeAnchorY, frontZ);
         }
 
         private static void AddFirst<T>(Dictionary<string, T> map, string key, T value)
@@ -991,7 +1083,7 @@ namespace SkiResortMod.Systems
                 map.Add(key, value);
         }
 
-        /// <summary>The name list in NAMES-block order: each lift type's line then its carriers, the marker, the stations,
+        /// <summary>The name list in NAMES-block order: each lift type's line then its carriers and its grip, the marker, the stations,
         /// the lodges, the bus depot, the school, the patrol huts (School and Patrol rows sit between the lodges and the sign), the sign,
         /// the runs. Internal: LiftBatch CT-16 builds its twin's names with it.</summary>
         internal static List<CatalogName> NameList(IReadOnlyList<LiftTypeDef> lifts, string marker, IReadOnlyList<StationDef> stations,
@@ -1007,6 +1099,8 @@ namespace SkiResortMod.Systems
                 all.Add(new CatalogName(l.LinePrefab, TypeLine, CatalogKind.Line, l.BuildItemId, l.LineExpected));
                 for (int c = 0; c < l.Carriers.Count; c++)
                     all.Add(new CatalogName(l.Carriers[c].Prefab, TypeCarrier, CatalogKind.Carrier, null, l.Carriers[c].Expected));
+                if (l.GripPrefab != null)
+                    all.Add(new CatalogName(l.GripPrefab, TypeCarrier, CatalogKind.Grip, null, l.GripExpected));
             }
             if (marker != null)
                 all.Add(new CatalogName(marker, TypeLine, CatalogKind.Marker, null, true));
@@ -1130,6 +1224,8 @@ namespace SkiResortMod.Systems
                     problems.Add(at + " has HangM " + l.HangM);
                 if (!(l.GaugeHalfM > 0f))
                     problems.Add(at + " has GaugeHalfM " + l.GaugeHalfM);
+                if (!(l.CarrierHalfWidthM > 0f))
+                    problems.Add(at + " has CarrierHalfWidthM " + l.CarrierHalfWidthM);
                 if (l.SeatsPerCarrier <= 0)
                     problems.Add(at + " has SeatsPerCarrier " + l.SeatsPerCarrier);
                 if (!(l.SummerShare > 0.0 && l.SummerShare <= 1.0))
@@ -1350,6 +1446,12 @@ namespace SkiResortMod.Systems
         public static LiftTypeDef ByLinePrefab(string name)
         {
             return !string.IsNullOrEmpty(name) && s_ByLine.TryGetValue(name, out LiftTypeDef def) ? def : null;
+        }
+
+        /// <summary>The type owning the grip prefab (the carrier grip round), or null.</summary>
+        public static LiftTypeDef ByGripPrefab(string name)
+        {
+            return !string.IsNullOrEmpty(name) && s_ByGrip.TryGetValue(name, out LiftTypeDef def) ? def : null;
         }
 
         /// <summary>The type owning the carrier, or null.</summary>

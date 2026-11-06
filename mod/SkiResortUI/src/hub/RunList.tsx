@@ -4,13 +4,14 @@
  * line up) arms on the first click and deletes on the second (hubTriggers.deleteCatTrack); leaving the row or 4 s disarm it. The pen is a
  * sibling Button, never nested; while a row renames, the fly part is a plain div
  * with RenameField (an <input> is never inside a <button>). The state word sits in an XS StableWidth of the three translated words so the name never moves.
- * Mouse enter sends hoverRun through hubState.sendHoverRun (dedup); click -> onPick. Number columns carry the useNumberSamples widths (no jitter).
+ * Mouse enter sends hoverRun through hubState.sendHoverRun (dedup); click -> onPick (every Button FOCUS_DISABLED, as in all of the hub: rule R15). Number columns carry the useNumberSamples widths (no jitter).
  * Memoised on the row's own RunRow / RunLive fields, lift name, focus, renaming, settings, `t`, samples, state words and the stable callbacks.
  * Width (Overpass advances): name room 167 / 201 / 224 rem at 100 / 130 / 150 % text; the ellipsis is the net, the full name is tooltip line 1.
  */
 import { memo, useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { OPEN_STATE, RUN_GUN_WHY, RUN_KIND, hubTriggers } from "../bindings";
 import type { RunLive, RunRow } from "../bindings";
@@ -18,7 +19,7 @@ import type { Translate } from "../l10n";
 import { isRunKind } from "./buildItems";
 import { hectares } from "./hubRules";
 import { sendHoverRun } from "./hubState";
-import { HUB_FMT, HUB_LOC, RUN_TYPE, bandEntry } from "./hubText";
+import { HUB_FMT, HUB_LOC, bandEntry, runFeaturesEntry } from "./hubText";
 import { BandMarker, KindStripe, LocText, Num, NumCell, StableWidth, Tip, TipLines, cx, numArg } from "./parts";
 import type { NumberSamples } from "./parts";
 import { RenameField } from "./RenameField";
@@ -139,6 +140,7 @@ function TrashButton({ row, t, armed, setArmed }: { row: RunRow; t: Translate; a
   return (
     <Tip tip={<TipLines lines={[t(HUB_LOC.runDelete), armed ? t(HUB_LOC.runDeleteConfirm) : t(HUB_LOC.runDeleteTip)]} />}>
       <Button
+        focusKey={FOCUS_DISABLED}
         variant="icon"
         src="Media/Glyphs/Trash.svg"
         tinted
@@ -160,7 +162,7 @@ function TrashButton({ row, t, armed, setArmed }: { row: RunRow; t: Translate; a
 function RunLineImpl(p: RunLineProps): JSX.Element {
   const { row, live, t, samples, stateWords, focused, renaming, onPick, onPen, onRename, onRenameClose } = p;
   const [armed, setArmed] = useState(false);
-  const typeName = isRunKind(row.kind) ? t(RUN_TYPE[row.kind]) : "";
+  const typeName = isRunKind(row.kind) ? t(runFeaturesEntry(row.kind, row.gunSpacingM, row.lightSpacingM)) : "";
   const name = row.name || typeName;
   const state = live ? live.openState : OPEN_STATE.None;
   const inner = (
@@ -193,7 +195,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
         <div className={styles.runFly}>{inner}</div>
       ) : (
         <Tip tip={runTip(p, name, typeName)}>
-          <Button theme={{ button: styles.runFly }} onSelect={() => onPick(row)}>
+          <Button focusKey={FOCUS_DISABLED} theme={{ button: styles.runFly }} onSelect={() => onPick(row)}>
             {inner}
           </Button>
         </Tip>
@@ -201,6 +203,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
       {row.kind === RUN_KIND.CatTrack ? <TrashButton row={row} t={t} armed={armed} setArmed={setArmed} /> : <div className={styles.penSpacer} />}
       <Tip tip={<TipLines lines={[t(HUB_LOC.rename), t(HUB_LOC.renameTip)]} />}>
         <Button
+          focusKey={FOCUS_DISABLED}
           variant="icon"
           src="Media/Glyphs/Pen.svg"
           tinted

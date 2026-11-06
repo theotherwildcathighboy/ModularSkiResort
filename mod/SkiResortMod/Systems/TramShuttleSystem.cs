@@ -74,6 +74,7 @@ namespace SkiResortMod.Systems
             public Entity Base, Top;
             public int BayOfA;                                     // hosted bay of chain A's cabin; chain B's is 1 − BayOfA
             public readonly Entity[] Cabin = new Entity[2];        // [0] rides chain A, [1] chain B; Entity.Null = none
+            public readonly Entity[] Carriage = new Entity[2];     // the carrier grip round: each cabin's carriage (CarriagesOf), Entity.Null = none
             public readonly float[] Drop = new float[2];
             public readonly Transform[] Park = new Transform[2];   // world hosted pose of the bay of chain A / chain B
             public readonly bool[] ParkKnown = new bool[2];
@@ -287,6 +288,7 @@ namespace SkiResortMod.Systems
             // The prefab catalog (Enabled = false, load hooks only; GetOrCreate is safe whatever Mod.cs's order).
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             m_RenderingSystem = World.GetOrCreateSystemManaged<RenderingSystem>();
+            CarriagesOnCreate();   // the wind map (TramShuttleSystem.Carriages.cs)
 
             // Hosted cabins keep Game.Objects.Static (engine notes VANILLA FACTS); the Shuttle prefab filter is in the passes.
             m_ChangedCabinQuery = GetEntityQuery(new EntityQueryDesc
@@ -417,6 +419,7 @@ namespace SkiResortMod.Systems
             m_ParkedCabins.Clear();
             m_OwnerCabins.Clear();
             m_HostedCount.Clear();
+            CarriagesReset();
             m_Rows.Clear();
             m_StationList.Clear();
             m_CarrierGeneration = int.MinValue;
@@ -686,6 +689,7 @@ namespace SkiResortMod.Systems
 
         private void MovePass(double timeS)
         {
+            PollTramWind(timeS);   // the carrier grip round: the cabins' wind (every 512 render frames)
             int moved = 0, inPlace = 0, missing = 0, running = 0, cabinsRunning = 0;
             for (int r = 0; r < m_Runs.Count; r++)
             {
@@ -699,7 +703,10 @@ namespace SkiResortMod.Systems
                         for (int c = 0; c < 2; c++)
                         {
                             if (run.Cabin[c] != Entity.Null && run.ParkKnown[c])
+                            {
                                 Count(Park(run.Cabin[c], run.Park[c]), ref moved, ref inPlace, ref missing);
+                                ParkCarriage(run, run.Carriage[c], run.Park[c], tag: true);
+                            }
                         }
                         run.PoseDirty = false;
                         run.BoundsU = double.NaN;
@@ -732,27 +739,37 @@ namespace SkiResortMod.Systems
 
                 // Bounds refresh: Updated on both cabins every BoundsRefreshMeters of travel (and on a jump).
                 bool tag = run.PoseDirty || double.IsNaN(run.BoundsU) || Math.Abs(u - run.BoundsU) * run.L >= BoundsRefreshMeters;
+                // The carrier grip round: a cabin with a paired carriage is posed with it (TramShuttleSystem.Carriages.cs).
                 for (int c = 0; c < 2; c++)
                 {
                     Entity cabin = run.Cabin[c];
                     if (cabin == Entity.Null)
                         continue;
+                    Entity carriage = run.Carriage[c];
                     MoveResult result;
                     if (run.Drop[c] > 0f)
                     {
                         double s = c == 0 ? u * run.LA : (1.0 - u) * run.LB;
                         run.S[c] = s;
-                        result = PlaceOnPath(cabin, c == 0 ? run.Sh.m_A : run.Sh.m_B, s, run.Drop[c],
-                                             run.ParkKnown[c] ? run.Park[c].m_Rotation : run.Sh.m_BaseRotation);
+                        quaternion fallback = run.ParkKnown[c] ? run.Park[c].m_Rotation : run.Sh.m_BaseRotation;
+                        result = carriage != Entity.Null && run.Def != null
+                            ? PlaceSplitOnPath(run, c, cabin, carriage, c == 0 ? run.Sh.m_A : run.Sh.m_B, s, fallback, timeS)
+                            : PlaceOnPath(cabin, c == 0 ? run.Sh.m_A : run.Sh.m_B, s, run.Drop[c], fallback);
                     }
                     else
                     {
                         // No usable drop (WARNed per prefab): this cabin is only ever parked.
                         result = run.PoseDirty && run.ParkKnown[c] ? Park(cabin, run.Park[c]) : MoveResult.InPlace;
+                        if (run.PoseDirty && run.ParkKnown[c])
+                            ParkCarriage(run, carriage, run.Park[c], tag: true);
                     }
                     Count(result, ref moved, ref inPlace, ref missing);
                     if (tag && result != MoveResult.Missing)
+                    {
                         TagUpdated(cabin);
+                        if (carriage != Entity.Null)
+                            TagUpdated(carriage);
+                    }
                 }
                 if (tag)
                     run.BoundsU = u;
@@ -1122,6 +1139,12 @@ namespace SkiResortMod.Systems
                 chunks.Dispose();
             }
 
+            // Station list order = entity order (Index, then Version), not chunk order: the pair notes and the rebuild signature name
+            // stations by list index, and an icon clear (IconElement removed) reorders the chunks without a census revision, which the
+            // watchdog read as "the shuttle set changed without an event". The pairing keys on lane order, not on station order, so the
+            // sort moves no run or pairing, only the numbers in the text.
+            SortStationsByEntity();
+
             // Station ownership map for the chain walk (ChairPinSystem.cs:1359-1370 verbatim): a station's anchors may be
             // stamped with the station itself OR one of its children (sub-objects, sub-net nodes / edges).
             for (int i = 0; i < m_StationList.Count; i++)
@@ -1138,6 +1161,44 @@ namespace SkiResortMod.Systems
                 // 1.6.0), so a terminal's owner index is the LINE's edge, never a node: there is no node to map here. The station
                 // map is only ever hit when FindAnchor snapped the end to a station-owned lane; otherwise the terminal falls to
                 // the position rules (dock reach, LiftLoopTopology.ClassifyShuttleTerminal).
+            }
+        }
+
+        // SortStationsByEntity scratch (rebuild-only, grown once)
+        private readonly List<int> m_SortIndex = new List<int>();
+        private readonly List<int> m_SortVersion = new List<int>();
+        private readonly List<int> m_SortOrder = new List<int>();
+        private readonly List<Entity> m_SortEntities = new List<Entity>();
+        private readonly List<Transform> m_SortTransforms = new List<Transform>();
+        private readonly List<StationDef> m_SortDefs = new List<StationDef>();
+
+        /// <summary>Reorders the three parallel station lists by entity (LiftLoopTopology.SortedStationOrder).</summary>
+        private void SortStationsByEntity()
+        {
+            int n = m_StationList.Count;
+            if (n < 2)
+                return;
+            m_SortIndex.Clear();
+            m_SortVersion.Clear();
+            m_SortEntities.Clear();
+            m_SortTransforms.Clear();
+            m_SortDefs.Clear();
+            for (int i = 0; i < n; i++)
+            {
+                Entity e = m_StationList[i];
+                m_SortIndex.Add(e.Index);
+                m_SortVersion.Add(e.Version);
+                m_SortEntities.Add(e);
+                m_SortTransforms.Add(m_StationTransforms[i]);
+                m_SortDefs.Add(m_StationDefList[i]);
+            }
+            LiftLoopTopology.SortedStationOrder(m_SortIndex, m_SortVersion, m_SortOrder);
+            for (int k = 0; k < n; k++)
+            {
+                int from = m_SortOrder[k];
+                m_StationList[k] = m_SortEntities[from];
+                m_StationTransforms[k] = m_SortTransforms[from];
+                m_StationDefList[k] = m_SortDefs[from];
             }
         }
 
@@ -1308,6 +1369,7 @@ namespace SkiResortMod.Systems
                 kv.Value.Sort(s_ByEntity);
                 m_HostedCount[kv.Key] = kv.Value.Count;
             }
+            HarvestCarriages();   // the carrier grip round: the carriages and their cabin pairing (TramShuttleSystem.Carriages.cs)
         }
 
         private void BuildRuns(double timeS)
@@ -1466,6 +1528,7 @@ namespace SkiResortMod.Systems
                 if (!EntityManager.HasComponent<Updated>(cabin) && !EntityManager.HasComponent<Created>(cabin))
                     EntityManager.AddComponent<Updated>(cabin);
             }
+            EnrollCarriages(run);   // the carrier grip round: the carriages ride with their cabins
         }
 
         /// <summary>(engine notes CABIN A / B IDENTITY) The shuttle's riders (the first two Shuttle carriers its
@@ -1726,6 +1789,7 @@ namespace SkiResortMod.Systems
                             m_CabinBay[cabin] = bay;
                             parked.Pose = m_HostedScratch[bay];
                             Park(cabin, parked.Pose);
+                            ParkCarriageOf(cabin, parked.Pose);   // else it stays mid-span and blocks the redraw (field test C)
                         }
                         m_ParkedCabins.Add(parked);
                     }

@@ -620,6 +620,7 @@ namespace SkiResortMod.Systems
             // never pinned, and each carrier's approach ceiling is its type's.
             IReadOnlyDictionary<Entity, float> drops = m_PrefabCatalog.CarrierDrops;
             IReadOnlyDictionary<Entity, LiftTypeDef> carrierTypes = m_PrefabCatalog.CarrierTypes;
+            GripIndexClear();   // the grip pairing index is per pass (ChairPinSystem.Grips.cs)
             var chairs = new NativeList<Entity>(64, Allocator.Temp);
             var chunks = query.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -645,7 +646,8 @@ namespace SkiResortMod.Systems
                     Entity prefab = EntityManager.GetComponentData<PrefabRef>(chair).m_Prefab;
                     if (!drops.TryGetValue(prefab, out float drop))
                         continue;
-                    switch (TryPinChair(chair, drop, CeilingOf(carrierTypes, prefab), advanceDistance, tagUpdated))
+                    carrierTypes.TryGetValue(prefab, out LiftTypeDef pinDef);
+                    switch (TryPinChair(chair, drop, CeilingOf(carrierTypes, prefab), advanceDistance, tagUpdated, pinDef))
                     {
                         case PinResult.Pinned: pinned++; break;
                         case PinResult.AlreadyPinned: alreadyPinned++; break;
@@ -708,15 +710,21 @@ namespace SkiResortMod.Systems
             return def != null && def.ApproachPinCeilingM > 0f ? def.ApproachPinCeilingM : ApproachPinDistanceCeiling;
         }
 
-        private PinResult TryPinChair(Entity chair, float drop, float approachCeiling, float advanceDistance, bool tagUpdated)
+        /// <summary><paramref name="def"/> = the carrier's lift type (null = unknown): a split type also pins the chair's grip (PinGripOf).</summary>
+        private PinResult TryPinChair(Entity chair, float drop, float approachCeiling, float advanceDistance, bool tagUpdated, LiftTypeDef def)
         {
             // Owner must be a live edge carrying sublanes; anything else (mid-demolition,
             // station oddities) → leave the chair exactly as vanilla placed it.
             Entity owner = EntityManager.GetComponentData<Owner>(chair).m_Owner;
             if (owner == Entity.Null || !EntityManager.Exists(owner))
                 return PinResult.NoCableLane;
+            // The carrier grip round: a carrier left where vanilla placed it (the returns below) gets its grip assembled on it
+            // (ParkGripOnBody), never a grip at its own spawn under a body that stands elsewhere.
             if (!EntityManager.TryGetBuffer(owner, isReadOnly: true, out DynamicBuffer<Game.Net.SubLane> subLanes))
+            {
+                ParkGripOnBody(chair, def, tagUpdated);
                 return PinResult.NoCableLane;
+            }
 
             var transform = EntityManager.GetComponentData<Transform>(chair);
 
@@ -762,7 +770,10 @@ namespace SkiResortMod.Systems
             }
 
             if (!found)
+            {
+                ParkGripOnBody(chair, def, tagUpdated);
                 return PinResult.NoCableLane;
+            }
 
             // Is this a station-approach edge, and which end is the station? Detection covers both build orders (see IsStationConnectionNode): an
             // owned node (stations-first) or an unowned node carrying the station's owned stub edge (line-first).
@@ -780,7 +791,10 @@ namespace SkiResortMod.Systems
             float distanceCeiling = isApproach ? approachCeiling
                                                : drop + MaxPinDistanceMargin;
             if (bestDistance > distanceCeiling)
+            {
+                ParkGripOnBody(chair, def, tagUpdated);
                 return PinResult.LaneTooFar;
+            }
 
             // Advance along the lane by arc length: t-space advance scaled by the lane's total length is a uniform-speed approximation. The end
             // clamp below also bounds the advance; cross-edge looping is not done here.
@@ -837,6 +851,17 @@ namespace SkiResortMod.Systems
             // blend: chairs ride the rope on every span.
             float3 newPosition = lanePoint;
             newPosition.y -= drop;
+
+            // The carrier grip round: a split carrier's grip pitches with the lane at the same rope point and yaw (its own idempotence, so a
+            // grip spawned after its chair is pinned even when the chair is already in place), and its body takes the pose of the SAME
+            // CarrierPose.Pose call at zero swing: plumb and still, hung from the pitched grip's pin. The rigid pose above would leave the
+            // body's pin off the grip's by |GripPin - GripRope| x sin(pitch) (CP-15: 10 cm on a 30 deg span; the tram's 0.38 m arm more).
+            // Toggle off or no grip: the rigid pose, unchanged (CP-1). The idempotence below compares this pose as before.
+            if (PinGripOf(chair, def, lanePoint, tangent, newRotation, tagUpdated, out float3 splitPosition, out quaternion splitRotation))
+            {
+                newPosition = splitPosition;
+                newRotation = splitRotation;
+            }
 
             // Idempotence short-circuit — a chair already on target (repeat load pass, second
             // event in one frame) is not rewritten and not re-tagged.
@@ -1205,6 +1230,9 @@ namespace SkiResortMod.Systems
             IReadOnlyDictionary<Entity, float> drops = m_PrefabCatalog.CarrierDrops;
             IReadOnlyDictionary<Entity, LiftTypeDef> carrierTypes = m_PrefabCatalog.CarrierTypes;
             int shuttleCarriers = 0, typeMismatch = 0;
+            IReadOnlyDictionary<Entity, LiftTypeDef> gripTypes = m_PrefabCatalog.GripTypes;
+            GripIndexClear();
+            m_DiagGripsPaired = m_DiagGripsUnpaired = m_DiagGripEnrolled = 0;
             var chairs = new NativeList<Entity>(64, Allocator.Temp);
             chunks = m_AllChairQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -1252,7 +1280,8 @@ namespace SkiResortMod.Systems
                     if (home == null)
                     {
                         // Unclosed lift (or mid-edit state): static pin.
-                        TryPinChair(chair, drop, CeilingOf(carrierTypes, chairPrefab), 0f, tagUpdated: true);
+                        carrierTypes.TryGetValue(chairPrefab, out LiftTypeDef staticDef);
+                        TryPinChair(chair, drop, CeilingOf(carrierTypes, chairPrefab), 0f, tagUpdated: true, staticDef);
                         m_StaticFallbackChairs++;
                         continue;
                     }
@@ -1265,6 +1294,8 @@ namespace SkiResortMod.Systems
                     home.m_Chairs.Add(chair);
                     home.m_Drops.Add(drop);
                     riding++;
+                    // The carrier grip round: its grip (paired by edge, slot and side) rides along, enrolled like the chair.
+                    RosterGrip(home, chair, chairDef ?? SkiCatalog.LiftByIndex(home.m_TypeIndex), gripTypes);
 
                     if (!EntityManager.HasComponent<InterpolatedTransform>(chair))
                     {
@@ -1286,6 +1317,21 @@ namespace SkiResortMod.Systems
             }
             m_DiagEnrolled = enrolled;
             m_DiagShuttleCarriers = shuttleCarriers;
+            // The carrier grip round: each loop with paired grips takes its base station's wind state (kept across rebuilds); one INFO line
+            // when the pairing counts change (silence must be impossible: an unpaired split carrier rides rigid, and that shows here).
+            for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
+            {
+                LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
+                loop.m_Wind = loop.m_GripCount > 0 ? WindOf(loop.m_BaseStation) : null;
+            }
+            if (m_DiagGripsPaired != m_LoggedGripsPaired || m_DiagGripsUnpaired != m_LoggedGripsUnpaired)
+            {
+                m_LoggedGripsPaired = m_DiagGripsPaired;
+                m_LoggedGripsUnpaired = m_DiagGripsUnpaired;
+                Mod.Log.Info($"{nameof(ChairPinSystem)} [grips]: {m_DiagGripsPaired} grip(s) paired with their carrier, " +
+                             $"{m_DiagGripsUnpaired} split carrier(s) without a grip (rigid pose), {m_DiagGripEnrolled} grip(s) enrolled; " +
+                             $"animated {(AnimatedOn ? "on" : "off")}");
+            }
             m_DiagTypeMismatch = typeMismatch;
 
             // With the line prefab's m_Spacing = SkiCatalog SpacingM a loop can never carry more than floor(loop / SpacingM) - 1 carriers
@@ -1526,6 +1572,9 @@ namespace SkiResortMod.Systems
                 }
                 float3 grip = transform.m_Position;
                 grip.y += loop.m_Drops[i];   // the rope point rides on the cable
+                // A split carrier (the grip round): the grip's jaw IS the rope point, whatever the body's swing (CarrierPose CP-3).
+                if (RopePointOfGrip(loop, i, out float3 jaw))
+                    grip = jaw;
                 double s = LiftLoopCache.ProjectOnOwner(loop, owner.m_Owner, grip, out float distance);
                 if (s < 0.0)
                 {
@@ -1920,7 +1969,9 @@ namespace SkiResortMod.Systems
                     hold.PoseDirty = true;
                     hold.TagBounds = true;
                     changed = true;
-                    string why = hold.ForPower ? "no power" : "closed";
+                    string why = !hold.ForPower ? "closed"
+                        : power == LiftPower.Pending ? "power pending: the first electricity dispatch has not judged the station yet"
+                        : "no power";
                     OfferHoldLine(loop, timeS, (isNew ? "(new loop)" : "Running") + " → Held (" + why + ")" +
                                                HoldInv($" — chairs stop at phase {FrozenPlace(loop, hold.FrozenTimeS):F1} m"), 0);
                 }

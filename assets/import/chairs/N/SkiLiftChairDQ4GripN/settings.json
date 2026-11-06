@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiLiftChairDQ4GripN_LOD1_BaseColor.png": "SkiLiftChairDQ4GripN_BaseColor.png",
+    "SkiLiftChairDQ4GripN_LOD1_ControlMask.png": "SkiLiftChairDQ4GripN_ControlMask.png",
+    "SkiLiftChairDQ4GripN_LOD1_MaskMap.png": "SkiLiftChairDQ4GripN_MaskMap.png",
+    "SkiLiftChairDQ4GripN_LOD1_Normal.png": "SkiLiftChairDQ4GripN_Normal.png",
+    "SkiLiftChairDQ4GripN_LOD2_BaseColor.png": "SkiLiftChairDQ4GripN_BaseColor.png",
+    "SkiLiftChairDQ4GripN_LOD2_ControlMask.png": "SkiLiftChairDQ4GripN_ControlMask.png",
+    "SkiLiftChairDQ4GripN_LOD2_MaskMap.png": "SkiLiftChairDQ4GripN_MaskMap.png",
+    "SkiLiftChairDQ4GripN_LOD2_Normal.png": "SkiLiftChairDQ4GripN_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

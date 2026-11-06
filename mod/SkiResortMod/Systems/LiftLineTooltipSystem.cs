@@ -1,5 +1,6 @@
 // Mouse tooltip of the lift-line tool: the prompt for the current step, a refusal notice, the plan line (tower count, length and
-// what is wrong, in words) and, over a tower, its height and clearance. The overlay cannot draw text, so the height lives here.
+// what is wrong, in words), over a tower its height and clearance, and over a built section's rope (first step) the section a click
+// removes. The overlay cannot draw text, so the height lives here.
 // Player text is a LocaleEN SkiResort.LiftTool.* key with {ARG} values (LocalizedString.Id(key, args), like SkiRunTooltipSystem);
 // never IdWithFallback(fixedId, text): the frontend's translate cache is keyed by the id alone (Cities2_Data/Content/Game/UI/index.js
 // `function dc()`), so a fixed id with changing text keeps the first text. The log keeps the full detail (LiftLineEdit.Describe).
@@ -54,6 +55,9 @@ namespace SkiResortMod.Systems
                 LocalizedString? notice = m_Tool.Notice;
                 if (notice.HasValue)
                     Show(m_Notice, ref m_LastNotice, notice.Value);
+                if (m_Tool.Step == LiftLineStep.PickBase && m_Tool.SectionHovered)   // the section a click removes (the rope pick)
+                    Show(m_Hover, ref m_LastHover, LiftLineToolSystem.T("SECTION", ("TYPE", TypeText(m_Tool.HoverSectionTypeId)),
+                        ("LENGTH", LiftLineToolSystem.N(m_Tool.HoverSectionLengthM))));
                 if (e?.Plan != null)
                 {
                     Show(m_Plan, ref m_LastPlan, PlanText(e.Plan, out bool clear));
@@ -75,12 +79,17 @@ namespace SkiResortMod.Systems
             LocalizedString.Id(LiftLineToolSystem.LocPrefix + "TYPE[" + (LiftLineInput.KnownType(typeId) ? typeId : "any") + "]");
 
         /// <summary>The plan line: tower count and length, and the first thing wrong in words (the overlay shows where): a span below
-        /// the floor (red), an edge too steep for the engine (red), a span above the max rope height (purple).</summary>
+        /// the floor (red), an edge too steep for the engine (red), a span above the max rope height (purple), a tower whose rope bends
+        /// past its sheave train's cap (red tower, PLAN_TRAIN), a tower the rope runs through steeper than the type's pitch cap (red
+        /// tower, PLAN_PITCH), a tram tower whose rope bends past the saddle cap (red tower, PLAN_SADDLE), a tower whose rope half is
+        /// past its carrier clearance (red tower, PLAN_CLEARANCE; DECISIONS 600 c). Green (Success) only for
+        /// PLAN_CLEAR, a Sound plan.</summary>
         internal static LocalizedString PlanText(LiftTowerPlan plan, out bool clear)
         {
             string key = LiftLineInput.PlanKey(plan, out float length);
             clear = key == "PLAN_CLEAR";
-            return LiftLineToolSystem.T(key, ("TOWERS", LiftLineToolSystem.N(plan.LineTowers)), ("LENGTH", LiftLineToolSystem.N(length)));
+            return LiftLineToolSystem.T(key, ("TOWERS", LiftLineToolSystem.N(plan.LineTowers)), ("LENGTH", LiftLineToolSystem.N(length)),
+                ("TYPE", TypeText(plan.Constants.TypeId)), ("CAP", LiftLineToolSystem.N(plan.Constants.PitchCapDeg)));
         }
 
         /// <summary>Over a tower: its number, its height (the ladder member's tower top above its base) and the lowest chair or cabin
@@ -91,9 +100,11 @@ namespace SkiResortMod.Systems
             int t = m_Tool.HoverTower;
             if (t <= 0 || t >= plan.Nodes.Length - 1)
                 return null;
-            string key = LiftLineInput.TowerKey(plan, t, e.IsPinned(plan.Nodes[t].AlongM), out float height, out float clear);
+            string key = LiftLineInput.TowerKey(plan, t, e.IsPinned(plan.Nodes[t].AlongM), out float height, out float clear,
+                                                out float bend, out float cap);
             return LiftLineToolSystem.T(key, ("N", LiftLineToolSystem.N(t)), ("COUNT", LiftLineToolSystem.N(plan.LineTowers)),
-                ("HEIGHT", LiftLineToolSystem.N(height)), ("CLEAR", LiftLineToolSystem.N(clear)));
+                ("HEIGHT", LiftLineToolSystem.N(height)), ("CLEAR", LiftLineToolSystem.N(clear)), ("DEG", LiftLineToolSystem.Deg(bend)),
+                ("CAP", LiftLineToolSystem.N(cap)), ("LIMIT", LiftLineToolSystem.Deg(cap)));   // LIMIT: TOWER_CLEARANCE's 41.5 / 57.5
         }
 
         private void Show(StringTooltip tip, ref LocalizedString last, LocalizedString text)

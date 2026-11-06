@@ -1077,9 +1077,10 @@ def _obj_pairs(objs):
 def nitpick_a4():
     """Nitpick A4 (2026-10-13; build/nitpick-a3-check.md 1d / N3): C14 - the DQ top's nose zone has no undeclared
     part clash. Shipped layout: ST1 + C14 pass, the hangers stand at their yokes, the beams clear the comm clamps and the
-    cable. Negatives - the hangers back at the tower's x 0 (ST1 'not at its yoke'; C14: the detach rails cross them),
-    the beams back at lane - 0.60 (C14: clamp_comm0 / the cable inside the beam), a part wholly inside another's volume,
-    the nitpick-A3 flag (NOSE_A4_LEGACY) finds exactly the five pairs. The rope rule is lift_chair's F10 set; the train's
+    cable. Negatives - the hangers back at the tower's x 0 (ST1 'not at its yoke'; C14 on the letter-B rail: the detach
+    rails cross them; the letter-C rail, DQ_RAIL, crosses no hanger), the beams back at lane - 0.60 (C14: clamp_comm0 /
+    the cable inside the beam), a part wholly inside another's volume, the nitpick-A3 flag (NOSE_A4_LEGACY, letter-B
+    rail) finds exactly the five pairs. The rope rule is lift_chair's F10 set; the train's
     internal joints that C14 declares are the DQ12 tower's own (same builder: the pair sets are equal)."""
     print("[d1-test] nitpick A4: C14 nose clashes, the hanger at its yoke, the beams clear of the comm clamps")
     r, nums = _nk_contract("top", fn="clash")
@@ -1100,8 +1101,23 @@ def nitpick_a4():
           "ST1 gondola top: untouched by A4 (no hanger / beam keys in its numbers, its beam line unchanged)")
     raises_has("ST1 DQ top: the hangers back at the tower's x 0",
                lambda: _nk_contract("top", fn="train", layout=lambda L: dict(L, hanger_x=0.0)), "ST1", "not at its yoke")
-    raises_has("C14 DQ top: the hangers back at x 0 (the detach rails cross them)",
-               lambda: _nk_contract("top", fn="clash", layout=lambda L: dict(L, hanger_x=0.0)), "C14", "detrail_n_1")
+    # B2 v2 import prep (2026-11-03, lift_terminal_detach.DQ_RAIL, letter C): the detach rail left the hangers' line
+    # (lane - 0.20 -> lane + 0.123, on the O grip's running wheels), so the floating hangers at x 0 meet no rail any
+    # more (ST1 above still catches them); the A4 rail-crossing negatives run on the letter-B rail (DQ_RAIL_LEGACY)
+    saved_rail = D.DQ_RAIL_LEGACY
+    D.DQ_RAIL_LEGACY = True
+    try:
+        raises_has("C14 DQ top, the letter-B rail: the hangers back at x 0 (the detach rails cross them)",
+                   lambda: _nk_contract("top", fn="clash", layout=lambda L: dict(L, hanger_x=0.0)), "C14", "detrail_n_1")
+    finally:
+        D.DQ_RAIL_LEGACY = saved_rail
+    try:
+        _nk_contract("top", fn="clash", layout=lambda L: dict(L, hanger_x=0.0))
+        c_msg = "passes"
+    except D.ContractError as e:
+        c_msg = str(e)
+    check("detrail" not in c_msg, f"C14 DQ top, the letter-C rail (DQ_RAIL): the hangers at x 0 cross no detach rail "
+                                  f"({c_msg[:90]})")
     old_beam = lambda L: dict(L, beam=dict(L["beam"], y0=L["beam"]["y0"] - 0.08, y1=L["beam"]["y1"] - 0.08))   # noqa: E731
     raises_has("C14 DQ top: the beams back at lane - 0.60 (the comm clamp inside them)",
                lambda: _nk_contract("top", fn="clash", layout=old_beam), "C14", "clamp_comm0_l | guideframe_p")
@@ -1110,6 +1126,7 @@ def nitpick_a4():
     saved = D.NOSE_A4_LEGACY
     D.NOSE_A4_LEGACY = True
     try:
+        D.DQ_RAIL_LEGACY = True             # the nitpick-A3 station had the letter-B rail
         try:
             _nk_contract("top", fn="clash")
             check(False, "C14 DQ top: the nitpick-A3 layout (NOSE_A4_LEGACY) did NOT raise")
@@ -1118,6 +1135,8 @@ def nitpick_a4():
                     "detrail_n_1 | sheave_guide_hanger_n", "detrail_p_1 | sheave_guide_hanger_p")
             check(str(e).startswith("C14 5 undeclared") and all(w in str(e) for w in want),
                   f"C14 DQ top: the nitpick-A3 layout (NOSE_A4_LEGACY) raises exactly the five pairs ({str(e)[:90]}...)")
+        finally:
+            D.DQ_RAIL_LEGACY = saved_rail
         r_leg, n_leg = _nk_contract("top", fn="train")
         check(n_leg["hanger_x"] == 0.0 and n_leg["guide_beam_abs_y"] == [1.94, 2.06] and n_leg["hanger_at_yoke"] is False,
               f"ST1 nitpick-A3 layout: hangers at x {n_leg['hanger_x']}, beams {n_leg['guide_beam_abs_y']} "

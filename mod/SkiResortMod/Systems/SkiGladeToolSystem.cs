@@ -177,6 +177,10 @@ namespace SkiResortMod.Systems
 
         /// <summary>What the cursor resolved to this frame</summary>
         public GladeHoverKind HoverKind => m_HoverKind;
+        /// <summary>The cursor is on a cat track with no ski run under it (the tooltip's CAT_TRACK line).</summary>
+        public bool HoverOnCatTrack => m_HoverKind == GladeHoverKind.Foreign && m_HoverReason == ReasonCatTrack;
+        private byte m_HoverReason;
+        private readonly HashSet<Entity> m_CatTrackPrefabs = new HashSet<Entity>();
 
         /// <summary>State of the preview while the hover is Bound</summary>
         public GladePlanState PlanState => m_PlanState;
@@ -248,6 +252,10 @@ namespace SkiResortMod.Systems
         private const byte ReasonNone = 0;
         private const byte ReasonOrphan = 1;        // Unbound: binding present, sign gone (paid orphan)
         private const byte ReasonForeignOwner = 2;  // Unbound: a live non-sign Owner (LeaveForeign)
+        /// <summary>Foreign: the surface under the cursor is a cat track with no ski run under the point. The tool plans ski runs only:
+        /// a cat track's flat top is cleared of trees by the cat track tool when it is built (CatTrackGradeToolSystem TreeMarginM), so
+        /// planting there would fight it (DECISIONS 601, owner note 23: the tool did nothing over a cat track and did not say so).</summary>
+        private const byte ReasonCatTrack = 3;
 
 
         private ToolOutputBarrier m_Barrier;
@@ -1323,7 +1331,7 @@ namespace SkiResortMod.Systems
             }
 
             // (d) point scan over our runs at the hit point
-            PointScan(p, hit, out Entity bound, out Entity other);
+            PointScan(p, hit, out Entity bound, out Entity other, out Entity catTrack);
             if (bound != Entity.Null)
             {
                 r.Kind = GladeHoverKind.Bound;
@@ -1362,9 +1370,20 @@ namespace SkiResortMod.Systems
                 return r;
             }
 
-            // (e) / (f)
+            // (e) / (f); a cat track is a foreign surface with its own reason. The point scan finds it: the raycast never
+            // hits an un-owned surface (RaycastJobs.cs:95, the mask note at OnCreate), so the hit there is the terrain.
+            if (catTrack != Entity.Null)
+            {
+                r.Subject = catTrack;
+                r.Kind = GladeHoverKind.Foreign;
+                r.Reason = ReasonCatTrack;
+                return r;
+            }
             r.Subject = hit;
             r.Kind = EntityManager.HasComponent<Area>(hit) ? GladeHoverKind.Foreign : GladeHoverKind.Terrain;
+            if (r.Kind == GladeHoverKind.Foreign && EntityManager.TryGetComponent(hit, out PrefabRef hitPrefab) &&
+                m_CatTrackPrefabs.Contains(hitPrefab.m_Prefab))
+                r.Reason = ReasonCatTrack;
             return r;
         }
 
@@ -1411,11 +1430,12 @@ namespace SkiResortMod.Systems
         /// <summary>Our runs containing p. bound = the planned run if it is one, else the lowest Entity.Index among bound runs; other =
         /// the raycast hit if it is an unbound run of ours, else the lowest index among them. Bounds first, triangles only for bounds
         /// hits. Timed (DUMP / dev tab).</summary>
-        private void PointScan(float2 p, Entity hit, out Entity bound, out Entity other)
+        private void PointScan(float2 p, Entity hit, out Entity bound, out Entity other, out Entity catTrack)
         {
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             bound = Entity.Null;
             other = Entity.Null;
+            catTrack = Entity.Null;
             bool boundIsPlanned = false;
             if (!m_RunQuery.IsEmptyIgnoreFilter)
             {
@@ -1433,7 +1453,14 @@ namespace SkiResortMod.Systems
                         for (int i = 0; i < entities.Length; i++)
                         {
                             if (!m_RunPrefabs.Contains(prefabRefs[i].m_Prefab))
+                            {
+                                // a cat track under the cursor: kept for its reason only (the lowest index wins, as for other)
+                                if (m_CatTrackPrefabs.Contains(prefabRefs[i].m_Prefab) &&
+                                    (catTrack == Entity.Null || entities[i].Index < catTrack.Index) &&
+                                    MathUtils.Intersect(geometries[i].m_Bounds.xz, p) && RunContainsPoint(entities[i], p))
+                                    catTrack = entities[i];
                                 continue;
+                            }
                             if (!MathUtils.Intersect(geometries[i].m_Bounds.xz, p))
                                 continue;
                             Entity e = entities[i];
@@ -1472,6 +1499,7 @@ namespace SkiResortMod.Systems
         private void UpdateHoverStatus(in HoverResult h, bool replan)
         {
             m_HoverKind = h.Kind;
+            m_HoverReason = h.Reason;
             if (h.Kind == GladeHoverKind.Switching || h.Kind == GladeHoverKind.None)
                 return;
 
@@ -1580,7 +1608,9 @@ namespace SkiResortMod.Systems
                     s.Text = TerrainStatus;
                     break;
                 case GladeHoverKind.Foreign:
-                    s.Text = $"foreign surface {PrefabNameOf(h.Subject)} {EntityText(h.Subject)} — no bound run here";
+                    s.Text = reason == ReasonCatTrack
+                        ? $"cat track {EntityText(h.Subject)} — the tool plans ski runs only (the cat track tool clears the track's top)"
+                        : $"foreign surface {PrefabNameOf(h.Subject)} {EntityText(h.Subject)} — no bound run here";
                     break;
                 case GladeHoverKind.Bound:
                     s.Text = $"bound run {PrefabNameOf(h.Subject)} {EntityText(h.Subject)}";
@@ -3263,6 +3293,7 @@ namespace SkiResortMod.Systems
             m_PrefabsResolved = true;
             // The sign set is not resolved here: every bound / legacy test goes through SkiRunOwnershipSystem
             ResolveSet(RunSurfaceNames, "SurfacePrefab", m_RunPrefabs);
+            ResolveSet(new[] { SkiCatalog.Names.RunCatTrack }, "SurfacePrefab", m_CatTrackPrefabs);
         }
 
         /// <summary>Fast PrefabID path + name-scan fallback, tolerating missing prefabs (pre-import states must not throw)</summary>

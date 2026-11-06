@@ -1,0 +1,19 @@
+{
+  "sharedAssets": {
+    "SkiLiftTowerFG20Q_LOD1_BaseColor.png": "SkiLiftTowerFG20Q_BaseColor.png",
+    "SkiLiftTowerFG20Q_LOD1_ControlMask.png": "SkiLiftTowerFG20Q_ControlMask.png",
+    "SkiLiftTowerFG20Q_LOD1_MaskMap.png": "SkiLiftTowerFG20Q_MaskMap.png",
+    "SkiLiftTowerFG20Q_LOD1_Normal.png": "SkiLiftTowerFG20Q_Normal.png",
+    "SkiLiftTowerFG20Q_LOD2_BaseColor.png": "SkiLiftTowerFG20Q_BaseColor.png",
+    "SkiLiftTowerFG20Q_LOD2_ControlMask.png": "SkiLiftTowerFG20Q_ControlMask.png",
+    "SkiLiftTowerFG20Q_LOD2_MaskMap.png": "SkiLiftTowerFG20Q_MaskMap.png",
+    "SkiLiftTowerFG20Q_LOD2_Normal.png": "SkiLiftTowerFG20Q_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  },
+  "useProceduralAnimation": true
+}

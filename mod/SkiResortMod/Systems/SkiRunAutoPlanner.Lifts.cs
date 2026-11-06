@@ -580,8 +580,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The lift tool's planner on the candidate chord (bottom = station A): stations at both ends, the engine's edge slope rule
-        /// with the end nodes at the snapshot heights (the station stub tip sits at the station's ground), ropes at node + the shortest
-        /// member's rope height (the planner's fallback when no station lane anchor is known). Clear = every span clears the floor and
+        /// with the end nodes at the snapshot heights (the station stub tip sits at the station's ground), ropes at node + the station's
+        /// own rope anchor (StationDef.RopeAnchorLocalY via LiftTowerPlanConstants.StationEndRope, level ground; FIX-LIST 48: the shortest member's
+        /// rope stood 1.4-10.3 m above it). Clear = every span clears the floor and
         /// the height cap, and the edge slopes stay under LiftEdgeSlopeShare x the type cap. Inputs are validated: Plan never throws.</summary>
         private LiftTowerPlan TowerPlan(in LiftCand c, out bool clear)
         {
@@ -602,7 +603,9 @@ namespace SkiResortMod.Systems
             m_TowerPlanner.EndNodeYA = c.Bottom.y;
             m_TowerPlanner.EndNodeYB = c.Top.y;
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
-            LiftTowerPlan plan = m_TowerPlanner.Plan(m_ChordSample, len, c.Bottom.y + k.RopeAboveBase(0), c.Top.y + k.RopeAboveBase(0), k);
+            float ropeA = k.StationEndRope(SkiCatalog.StationOf(c.Type, StationRole.Base), c.Bottom.y);
+            float ropeB = k.StationEndRope(SkiCatalog.StationOf(c.Type, StationRole.Top), c.Top.y);
+            LiftTowerPlan plan = m_TowerPlanner.Plan(m_ChordSample, len, ropeA, ropeB, k);
             float ms = (float)((System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency);
             m_TowerPlans++;
             m_TowerPlanMs += ms;

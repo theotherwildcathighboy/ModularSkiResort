@@ -1,0 +1,796 @@
+# tools/game-surface.lock - the mod's dependency surface on Game.dll, as of the last reviewed game version. Written by
+# `node tools/game-surface-check.js --write --decompile=<tree>`; never by hand. Rows: type <full name> <kind> <file hash> [burst:r|w:<our systems>] [fields...];
+# anchor <our system> <before|after> <vanilla system> <phase> [cadence]; guid <ref> <prefab fields>; burstsystem <our class with a Burst job>. Header: tools/game-surface-check.js. Patch-day steps: docs/PIPELINE.md section 7.
+version 1.6.2f1
+tree 1.6.2f1
+type Game.Agents.LeisureType enum 97575437ef burst:r:SkiDaySystem Meals=0 Entertainment=1 Commercial=2 CityIndoors=3 Travel=4 CityPark=5 CityBeach=6 Attractions=7 Relaxation=8 Sightseeing=9 Count=10
+type Game.Agents.MoveAwayReason enum 53d02692af burst:r:SkiDaySystem None=0 NoSuitableProperty=1 NotHappy=2 NoAdults=3 NoMoney=4 TouristNoTarget=5 TouristNoHotel=6 TouristNoMoney=7 TripNeedNotMovedIn=8 Count=9
+type Game.Agents.MovingAway struct f3f68b57c3 burst:r:SkiDaySystem m_Target:Entity m_Reason:MoveAwayReason
+type Game.Areas.Area struct 0a5ebc76a8 burst:r:SkiRunOutlineSystem m_Flags:AreaFlags
+type Game.Areas.AreaFlags enum b6b24f82a6 burst:r:SkiRunOutlineSystem Complete=1 CounterClockwise=2 NoTriangles=4 Slave=8
+type Game.Areas.AreaResourceSystem class 761c3f0b0d
+type Game.Areas.AreaType enum 449f4cf13f burst:r:SkiRunOutlineSystem None=-1 Lot=0 District=1 MapTile=2 Space=3 Surface=4 Count=5
+type Game.Areas.AreaTypeMask enum 280fabcf5d None=0 Lots=1 Districts=2 MapTiles=4 Spaces=8 Surfaces=16
+type Game.Areas.AreaUtils class b3b16f5a69
+type Game.Areas.Clear struct 9768c602ec
+type Game.Areas.Geometry struct a191a019a5 burst:r:SkiDaySystem m_Bounds:Bounds3 m_CenterPosition:float3 m_SurfaceArea:float
+type Game.Areas.GeometryFlags enum f1b9e4315c burst:r:SkiRunOutlineSystem PhysicalGeometry=1 CanOverrideObjects=2 ProtectedArea=4 ClearArea=8 ClipTerrain=16 ShiftTerrain=32 OnWaterSurface=64 PseudoRandom=128 RequireWater=256 HiddenIngame=512 SubAreaBatch=1024
+type Game.Areas.GeometrySystem class 5ad5d6adfd
+type Game.Areas.HangaroundLocation struct ba08b02559
+type Game.Areas.MapTileSystem class ed58bc65e6
+type Game.Areas.Node struct fec35a2838 burst:r:SkiDaySystem,SkiRunOutlineSystem m_Position:float3 m_Elevation:float
+type Game.Areas.RaycastJobs class f4f1c7a1fc
+type Game.Areas.SearchSystem class aa1bef0bb1
+type Game.Areas.SubArea struct 137fa352ec m_Area:Entity
+type Game.Areas.SubAreaReferencesSystem class aff0b480c8
+type Game.Areas.Surface struct 9d3001aaba
+type Game.Areas.Triangle struct a590abe66d m_Indices:int3 m_HeightRange:Bounds1 m_MinLod:int
+type Game.Areas.UpdateCollectSystem class 3450870499
+type Game.Areas.ValidationHelpers class 5a264a4214
+type Game.Buildings.Abandoned struct 9d2d4b103e m_AbandonmentTime:uint
+type Game.Buildings.AttractivenessProvider struct 568ad4de58 burst:w:SkiResortAttractivenessSystem m_Attractiveness:int
+type Game.Buildings.Building struct b3fbf6e6b8 burst:r:SkiDaySystem,SkiGuestCounterSystem,SkiLodgeParkingSystem m_RoadEdge:Entity m_CurvePosition:float m_OptionMask:uint m_Flags:BuildingFlags
+type Game.Buildings.BuildingFlags enum d7d6876bd2 burst:r:SkiDaySystem,SkiGuestCounterSystem,SkiLodgeParkingSystem None=0 HighRentWarning=1 StreetLightsOff=2 LowEfficiency=4 Illuminated=8 Historical=16
+type Game.Buildings.BuildingOption enum e30a8a56dd burst:r:SkiDaySystem,SkiLodgeParkingSystem PaidParking=0 Inactive=1 Empty=2
+type Game.Buildings.BuildingUtils class 7bcebf541a
+type Game.Buildings.CarParkingFacility struct f7f55cbab0 burst:r:SkiLodgeParkingSystem
+type Game.Buildings.CityServiceEfficiencySystem class 434da529c7
+type Game.Buildings.CityServiceWorkplaceInitializeSystem class ce10748843
+type Game.Buildings.Condemned struct c03067256b
+type Game.Buildings.CrimeProducer struct c1c14b101f m_PatrolRequest:Entity m_Crime:float m_DispatchIndex:byte
+type Game.Buildings.EarlyDisasterWarningDuration struct 90ecd8a797 m_EndFrame:uint
+type Game.Buildings.Efficiency struct 6d9a0f5ef5 burst:r:SkiDaySystem,SkiLiftTicketSystem m_Factor:EfficiencyFactor m_Efficiency:float
+type Game.Buildings.EfficiencyFactor enum a2993df491 burst:r:SkiDaySystem,SkiLiftTicketSystem Destroyed=0 Abandoned=1 Disabled=2 Fire=3 ServiceBudget=4 NotEnoughEmployees=5 SickEmployees=6 EmployeeHappiness=7 ElectricitySupply=8 ElectricityFee=9 WaterSupply=10 DirtyWater=11 SewageHandling=12 WaterFee=13 Garbage=14 Telecom=15 Mail=16 MaterialSupply=17 WindSpeed=18 WaterDepth=19 SunIntensity=20 NaturalResources=21 CityModifierSoftware=22 CityModifierElectronics=23 CityModifierIndustrialEfficiency=24 CityModifierOfficeEfficiency=25 CityModifierHospitalEfficiency=26 SpecializationBonus=27 CityModifierFishInput=28 CityModifierFishHub=29 LackResources=30 GateBypass=31 Count=32
+type Game.Buildings.ElectricityConsumer struct 26c6e15dcf m_WantedConsumption:int m_FulfilledConsumption:int m_CooldownCounter:short m_Flags:ElectricityConsumerFlags
+type Game.Buildings.ElectricityConsumerFlags enum 648edf3b36 None=0 Connected=1 NoElectricityWarning=2 BottleneckWarning=4
+type Game.Buildings.Extension struct dcab697e0c m_Flags:ExtensionFlags
+type Game.Buildings.ExtensionFlags enum 7197959467 None=0 Disabled=1
+type Game.Buildings.ExtractorFacility struct 6e49de2a8b m_Flags:ExtractorFlags m_Timer:byte m_MainBuildingFlags:BuildingFlags
+type Game.Buildings.ExtractorFlags enum 5dd2d93e08 Rotating=1 Working=2
+type Game.Buildings.GarbageProducer struct 693fc538a3 m_CollectionRequest:Entity m_Garbage:int m_Flags:GarbageProducerFlags m_DispatchIndex:byte
+type Game.Buildings.GarbageProducerFlags enum 258f68b2f4 None=0 GarbagePilingUpWarning=1
+type Game.Buildings.InitializeSystem class ffb44dbd08
+type Game.Buildings.InstalledUpgrade struct 5d1a6d280e m_Upgrade:Entity m_OptionMask:uint
+type Game.Buildings.LeisureProvider struct 57433bc5a2 burst:r:SkiDaySystem,SkiLodgeParkingSystem
+type Game.Buildings.MailProducer struct 08e38ddd48 m_MailRequest:Entity m_SendingMail:ushort m_ReceivingMail:ushort m_DispatchIndex:byte m_LastUpdateTotalMail:ushort
+type Game.Buildings.Park struct 5aeb9bf4b2 m_Maintenance:short
+type Game.Buildings.ParkingFacility struct b29c555896 m_ComfortFactor:float m_Flags:ParkingFacilityFlags
+type Game.Buildings.ParkingFacilityFlags enum 42975d0052 ParkingSpacesActive=1
+type Game.Buildings.PropertyRenter struct 7eb30d3d9f burst:r:SkiDaySystem,SkiLiftTicketSystem,SkiReachCensusSystem m_Property:Entity m_Rent:int
+type Game.Buildings.ReferencesSystem class d32cba697c
+type Game.Buildings.RoadConnectionSystem class ed39a69538
+type Game.Buildings.RoadConnectionUpdated struct 5a005486bb m_Building:Entity m_Old:Entity m_New:Entity
+type Game.Buildings.ServiceUpgrade struct ddd75136a1
+type Game.Buildings.ServiceUpgradeSystem class 6009375884
+type Game.Buildings.ServiceUsage struct 38050bbf49 m_Usage:float
+type Game.Buildings.SpawnLocationElement struct 0b9d4a9042 m_SpawnLocation:Entity m_Type:SpawnLocationType
+type Game.Buildings.SpawnLocationType enum cb2beab215 None=0 SpawnLocation=1 HangaroundLocation=2 ParkingLane=3
+type Game.Buildings.Transformer struct 9e04ab252d
+type Game.Buildings.ValidationHelpers class 0412a1cdc1
+type Game.Buildings.WaterConsumer struct 798d24324d m_Pollution:float m_WantedConsumption:int m_FulfilledFresh:int m_FulfilledSewage:int m_FreshCooldownCounter:byte m_SewageCooldownCounter:byte m_Flags:WaterConsumerFlags
+type Game.Buildings.WaterConsumerFlags enum 8fc6712ac1 None=0 WaterConnected=1 SewageConnected=2
+type Game.Buildings.ZoneCheckSystem class f5557f7c0c
+type Game.CameraController class ab9af0bc31
+type Game.CinematicCameraController class eab75b1b0a
+type Game.Citizens.Arrived struct dd560045fb
+type Game.Citizens.AttendingMeeting struct 63af5af8c7 burst:r:SkiDaySystem m_Meeting:Entity
+type Game.Citizens.BicycleOwner struct 2d4ede035c burst:r:SkiDaySystem m_Bicycle:Entity
+type Game.Citizens.CarKeeper struct a3d630b955 burst:r:SkiDaySystem m_Car:Entity
+type Game.Citizens.Citizen struct 5a516121bb burst:r:SkiDaySystem,SkiGuestCounterSystem m_PseudoRandom:ushort m_State:CitizenFlags m_WellBeing:byte m_Health:byte m_LeisureCounter:byte m_PenaltyCounter:byte m_UnemploymentCounter:int m_BirthDay:short m_UnemploymentTimeCounter:float m_SicknessPenalty:int
+type Game.Citizens.CitizenAge enum 54e0f3bb59 burst:r:SkiDaySystem Child=0 Teen=1 Adult=2 Elderly=3
+type Game.Citizens.CitizenFlags enum 7f5f196c14 burst:r:SkiDaySystem None=0 AgeBit1=1 AgeBit2=2 MovingAwayReachOC=4 Male=8 EducationBit1=16 EducationBit2=32 EducationBit3=64 FailedEducationBit1=128 FailedEducationBit2=256 Tourist=512 Commuter=1024 LookingForPartner=2048 ValidCitizen=4096 BicycleUser=8192 Homeless=16384
+type Game.Citizens.CommuterHousehold struct 9ef0b63f6b burst:r:SkiDaySystem m_OriginalFrom:Entity
+type Game.Citizens.CoordinatedMeeting struct 5f867484e0 burst:r:SkiDaySystem,SkiGuestCounterSystem m_Status:MeetingStatus m_Phase:int m_Target:Entity m_PhaseEndTime:uint
+type Game.Citizens.CoordinatedMeetingAttendee struct 516239b743 burst:r:SkiGuestCounterSystem m_Attendee:Entity
+type Game.Citizens.CurrentBuilding struct 9753740fee burst:r:SkiDaySystem,SkiGuestCounterSystem m_CurrentBuilding:Entity
+type Game.Citizens.CurrentTransport struct faa58dd2d4 burst:r:SkiDaySystem m_CurrentTransport:Entity
+type Game.Citizens.HealthProblem struct 41d0746d3a burst:r:SkiDaySystem m_Event:Entity m_HealthcareRequest:Entity m_Flags:HealthProblemFlags m_Timer:byte
+type Game.Citizens.HealthProblemFlags enum 419a6d9752 burst:r:SkiDaySystem None=0 Sick=1 Dead=2 Injured=4 RequireTransport=8 InDanger=16 Trapped=32 NoHealthcare=64
+type Game.Citizens.HomelessHousehold struct 21fd7d777b burst:r:SkiDaySystem m_TempHome:Entity
+type Game.Citizens.Household struct 778e5124b2 burst:r:SkiDaySystem,SkiGuestCounterSystem,SkiLiftTicketSystem,SkiReachCensusSystem m_Flags:HouseholdFlags m_Resources:int m_ConsumptionPerDay:short m_ShoppedValuePerDay:uint m_ShoppedValueLastDay:uint m_LastDayFrameIndex:uint m_Income:int m_MoneySpendOnBuildingLevelingLastDay:int
+type Game.Citizens.HouseholdCitizen struct 894e7949f2 burst:r:SkiDaySystem m_Citizen:Entity
+type Game.Citizens.HouseholdFlags enum 6e3d18ad50 burst:r:SkiDaySystem,SkiLiftTicketSystem,SkiReachCensusSystem None=0 Tourist=1 Commuter=2 MovedIn=4
+type Game.Citizens.HouseholdInitializeSystem class 6e014db52e
+type Game.Citizens.HouseholdMember struct cf42f69edd burst:r:SkiDaySystem,SkiGuestCounterSystem m_Household:Entity
+type Game.Citizens.HouseholdNeed struct ca02f495dc burst:r:SkiDaySystem m_Resource:Resource m_Amount:int
+type Game.Citizens.Leisure struct fad86485a2 burst:w:SkiDaySystem,SkiGuestCounterSystem m_TargetAgent:Entity m_LastPossibleFrame:uint
+type Game.Citizens.LodgingSeeker struct 8af43ddd66 burst:r:SkiDaySystem
+type Game.Citizens.MeetingStatus enum db1cca17ff burst:r:SkiDaySystem,SkiGuestCounterSystem Waiting=0 Traveling=1 Attending=2 Done=3
+type Game.Citizens.Purpose enum 7aee32b20e burst:r:SkiDaySystem None=0 Shopping=1 Leisure=2 GoingHome=3 GoingToWork=4 Working=5 Sleeping=6 Exporting=7 MovingAway=8 Studying=9 GoingToSchool=10 StorageTransfer=11 Hospital=12 Delivery=13 UpkeepDelivery=14 Safety=15 EmergencyShelter=16 Crime=17 GoingToJail=18 GoingToPrison=19 InJail=20 InPrison=21 Collect=22 Escape=23 InHospital=24 Deathcare=25 InDeathcare=26 ReturnUnsortedMail=27 ReturnLocalMail=28 ReturnOutgoingMail=29 Traveling=30 Relaxing=31 Sightseeing=32 VisitAttractions=33 ReturnGarbage=34 SendMail=35 Disappear=36 WaitingHome=37 PathFailed=38 InEmergencyShelter=39 CompanyShopping=40 Count=41
+type Game.Citizens.Student struct 989ccd2456 burst:r:SkiDaySystem m_School:Entity m_LastCommuteTime:float m_Level:byte
+type Game.Citizens.TouristHousehold struct 7060dcd170 burst:r:SkiDaySystem,SkiGuestCounterSystem,SkiReachCensusSystem m_Hotel:Entity m_LeavingTime:uint
+type Game.Citizens.TravelPurpose struct 700f718d1f burst:r:SkiDaySystem m_Purpose:Purpose m_Data:int m_Resource:Resource
+type Game.Citizens.TripNeeded struct 4d161e7a8c burst:w:SkiDaySystem m_TargetAgent:Entity m_Purpose:Purpose m_Data:int m_Resource:Resource m_Priority:byte
+type Game.Citizens.Worker struct 9c4d868a67 burst:r:SkiDaySystem m_Workplace:Entity m_LastCommuteTime:float m_Level:byte m_Shift:Workshift
+type Game.City.City struct 23fe2e9631 burst:r:SkiLiftTicketSystem m_OptionMask:uint
+type Game.City.CityModifier struct 34a69c9611 m_Delta:float2
+type Game.City.CityModifierType enum 03d847e00a Attractiveness=0 CrimeAccumulation=1 DisasterWarningTime=3 DisasterDamageRate=4 DiseaseProbability=5 ParkEntertainment=6 CriminalMonitorProbability=7 IndustrialAirPollution=8 IndustrialGroundPollution=9 IndustrialGarbage=10 RecoveryFailChange=11 OreResourceAmount=12 OilResourceAmount=13 UniversityInterest=14 OfficeSoftwareDemand=15 IndustrialElectronicsDemand=16 OfficeSoftwareEfficiency=17 IndustrialElectronicsEfficiency=18 TelecomCapacity=19 Entertainment=20 HighwayTrafficSafety=21 PrisonTime=22 CrimeProbability=23 CollegeGraduation=24 UniversityGraduation=25 ImportCost=26 LoanInterest=27 BuildingLevelingCost=28 ExportCost=29 TaxiStartingFee=30 IndustrialEfficiency=31 OfficeEfficiency=32 PollutionHealthAffect=33 HospitalEfficiency=34 IndustrialFishInputEfficiency=35 IndustrialFishHubEfficiency=36 CityServiceImportCost=37 CityServiceBuildingBaseUpkeepCost=38 CrimeResponseTime=39 TaxHappiness=40
+type Game.City.CityServiceUpkeep struct 7b842a4d6a
+type Game.City.CityUtils class 0347fe3494
+type Game.City.PlayerMoney struct 8512188490 burst:r:SkiLiftTicketSystem m_Money:int m_Unlimited:bool
+type Game.City.PlayerResource enum 6a55404ccd burst:r:SkiLiftTicketSystem Electricity=0 Healthcare=1 BasicEducation=2 SecondaryEducation=3 HigherEducation=4 Garbage=5 Water=6 Mail=7 PublicTransport=8 FireResponse=9 Police=10 Sewage=11 Parking=12 Count=13
+type Game.City.Population struct 44f43669fb burst:r:SkiDaySystem m_Population:int m_PopulationWithMoveIn:int m_AverageHappiness:int m_AverageHealth:int
+type Game.City.StatisticType enum 9e2d610c2b Invalid=-1 Population=0 Money=1 Income=2 Expense=3 Trade=4 HouseholdWealth=5 HouseholdCount=6 ServiceWealth=7 ServiceCount=8 ServiceWorkers=9 ServiceMaxWorkers=10 ProcessingWealth=11 ProcessingCount=12 ProcessingWorkers=13 ProcessingMaxWorkers=14 Wellbeing=15 Health=16 WorkerCount=17 Unemployed=18 EducationCount=19 TouristCount=20 TouristIncome=21 LodgingUsed=22 LodgingTotal=23 DeathRate=24 CollectedMail=25 DeliveredMail=26 BirthRate=27 CitizensMovedIn=28 CitizensMovedAway=29 PassengerCountBus=30 PassengerCountSubway=31 PassengerCountTram=32 PassengerCountTrain=33 PassengerCountTaxi=34 PassengerCountAirplane=35 PassengerCountShip=36 CrimeRate=37 CityServiceWorkers=38 CityServiceMaxWorkers=39 OfficeWealth=40 OfficeCount=41 OfficeWorkers=42 OfficeMaxWorkers=43 ResidentialTaxableIncome=44 CommercialTaxableIncome=45 IndustrialTaxableIncome=46 OfficeTaxableIncome=47 CargoCountTruck=48 CargoCountTrain=49 CargoCountShip=50 CargoCountAirplane=51 SeniorWorkerInDemandPercentage=52 CrimeCount=53 EscapedArrestCount=54 AdultsCount=55 Age=56 WellbeingLevel=57 HealthLevel=58 HomelessCount=59 PassengerCountFerry=60 MovedAwayReason=61 Count=62
+type Game.Common.Applied struct eca5a7bf6d
+type Game.Common.BatchesUpdated struct b39801ce7b
+type Game.Common.BoundsMask enum 47a3db94e4 burst:w:SkiGroomerSystem Debug=1 NormalLayers=2 PipelineLayer=4 SubPipelineLayer=8 WaterwayLayer=16 IsTree=32 OccupyZone=64 NotOverridden=128 NotWalkThrough=256 HasLot=512 AllLayers=30
+type Game.Common.CleanUpSystem class 22bcb5d99d
+type Game.Common.CollisionMask enum 2f5b69e20a OnGround=1 Overground=2 Underground=4 ExclusiveGround=8
+type Game.Common.Created struct f870e42a25
+type Game.Common.Deleted struct 8e708784d1 burst:w:ChairPinSystem,SkiCoachSystem,SkiDaySystem,SkiGroomerSystem,SkiLodgeParkingSystem
+type Game.Common.Destroyed struct 5660f6bf3f burst:r:SkiDaySystem,SkiLodgeParkingSystem m_Event:Entity m_Cleared:float
+type Game.Common.EffectsUpdated struct b8c8135b48
+type Game.Common.Event struct 35af92b227
+type Game.Common.ModificationBarrier1 class 4ec93ce183
+type Game.Common.ModificationSystem class ea0a74a3b5
+type Game.Common.Native struct 65437664f7
+type Game.Common.NativeSystem class eb04ec5947
+type Game.Common.Overridden struct ba6380ad22
+type Game.Common.Owner struct eb6654f5df burst:r:SkiCoachSystem,SkiLodgeParkingSystem,SkiSnowInjectionSystem m_Owner:Entity
+type Game.Common.PrepareCleanUpSystem class 3ca442c7f4
+type Game.Common.PseudoRandomSeed struct 2ceae343e9 m_Seed:ushort
+type Game.Common.QuadTreeBoundsXZ struct 4827c1d17d burst:r:SkiLodgeParkingSystem m_Bounds:Bounds3 m_Mask:BoundsMask m_MinLod:byte m_MaxLod:byte
+type Game.Common.RandomSeed struct 9c704970e0 m_Seed:uint
+type Game.Common.RaycastFlags enum 5f69cdc16d DebugDisable=1 UIDisable=2 ToolDisable=4 FreeCameraDisable=8 ElevateOffset=16 SubElements=32 Placeholders=64 Markers=128 NoMainElements=256 UpgradeIsMain=512 OutsideConnections=1024 Outside=2048 Cargo=4096 Passenger=8192 Decals=16384 EditorContainers=32768 SubBuildings=65536 PartialSurface=131072 BuildingLots=262144 IgnoreSecondary=524288
+type Game.Common.RaycastHit struct 1a50deee23 m_HitEntity:Entity m_Position:float3 m_HitPosition:float3 m_HitDirection:float3 m_CellIndex:int2 m_NormalizedDistance:float m_CurvePosition:float
+type Game.Common.RaycastInput struct 24b58aea57 m_Line:Line3.Segment m_Offset:float3 m_Owner:Entity m_TypeMask:TypeMask m_Flags:RaycastFlags m_CollisionMask:CollisionMask m_NetLayerMask:Layer m_AreaTypeMask:AreaTypeMask m_RouteType:RouteType m_TransportType:TransportType m_IconLayerMask:IconLayerMask m_UtilityTypeMask:UtilityTypes
+type Game.Common.RaycastResult struct c41f959b76 m_Hit:RaycastHit m_Owner:Entity
+type Game.Common.RaycastSystem class 2e12f4ca36
+type Game.Common.SystemOrder class bb29c32e97
+type Game.Common.Target struct 1bfe845106 m_Target:Entity
+type Game.Common.Terrain struct 036ee8222a
+type Game.Common.TimeData struct ad81ec6c19 burst:r:SkiDaySystem m_FirstFrame:uint m_StartingYear:int m_StartingMonth:byte m_StartingHour:byte m_StartingMinutes:byte
+type Game.Common.TypeMask enum 92c883f671 Terrain=1 StaticObjects=2 MovingObjects=4 Net=8 Zones=16 Areas=32 RouteWaypoints=64 RouteSegments=128 Labels=256 Water=512 Icons=1024 WaterSources=2048 Lanes=4096 None=0 All=uint.MaxValue
+type Game.Common.Updated struct 2970f58ee5
+type Game.Companies.Employee struct d448cb00d4 m_Worker:Entity m_Level:byte
+type Game.Companies.FreeWorkplaces struct 04898d3e31 m_Uneducated:byte m_PoorlyEducated:byte m_Educated:byte m_WellEducated:byte m_HighlyEducated:byte
+type Game.Companies.LodgingProvider struct b898a7cfee burst:r:SkiDaySystem m_FreeRooms:int m_Price:int
+type Game.Companies.ResourceBuyer struct d3b5029b53 burst:r:SkiDaySystem m_Payer:Entity m_Flags:SetupTargetFlags m_ResourceNeeded:Resource m_AmountNeeded:int m_Location:float3
+type Game.Companies.WorkProvider struct 42aa45d1c9 m_MaxWorkers:int m_UneducatedCooldown:short m_EducatedCooldown:short m_UneducatedNotificationEntity:Entity m_EducatedNotificationEntity:Entity m_EfficiencyCooldown:short
+type Game.Companies.Workshift enum fe0b2865e8 burst:r:SkiDaySystem Day=0 Evening=1 Night=2
+type Game.Creatures.CreatureUtils class 40a79c2507
+type Game.Creatures.CreatureVehicleFlags enum 6ed63c99fd burst:r:SkiDaySystem Ready=1 Leader=2 Driver=4 Entering=8 Exiting=16
+type Game.Creatures.CurrentVehicle struct 7c5c3c4d09 burst:r:SkiDaySystem m_Vehicle:Entity m_Flags:CreatureVehicleFlags
+type Game.Creatures.Divert struct 5b0252a885 burst:r:SkiDaySystem m_Target:Entity m_Resource:Resource m_Data:int m_Purpose:Game.Citizens.Purpose
+type Game.Creatures.InitializeSystem class 41f4370bc1
+type Game.Creatures.ReferencesSystem class d4786427cc
+type Game.Creatures.Resident struct d878f29278 burst:r:SkiDaySystem m_Citizen:Entity m_Flags:ResidentFlags m_Timer:int
+type Game.Creatures.ResidentFlags enum e1225d3cf7 burst:r:SkiDaySystem None=0 Disembarking=1 ActivityDone=2 WaitingTransport=4 Arrived=8 Hangaround=16 InVehicle=32 PreferredLeader=64 NoLateDeparture=128 IgnoreTaxi=256 IgnoreTransport=512 IgnoreBenches=1024 IgnoreAreas=2048 CannotIgnore=4096 DummyTraffic=8192
+type Game.Debug.DebugSystem class 6ab32ae47a
+type Game.Debug.DebugSystemSearch class fe866a1c7e
+type Game.Economy.EconomyUtils class 7509dfd3f4
+type Game.Economy.Resource enum cc740bcb16 burst:r:SkiDaySystem,SkiLiftTicketSystem NoResource=0 Money=1 Grain=2 ConvenienceFood=4 Food=8 Vegetables=16 Meals=32 Wood=64 Timber=128 Paper=256 Furniture=512 Vehicles=1024 Lodging=2048 UnsortedMail=4096 LocalMail=8192 OutgoingMail=16384 Oil=32768 Petrochemicals=65536 Ore=131072 Plastics=262144 Metals=524288 Electronics=1048576 Software=2097152 Coal=4194304 Stone=8388608 Livestock=16777216 Cotton=33554432 Steel=67108864 Minerals=134217728 Concrete=268435456 Machinery=536870912 Chemicals=1073741824 Pharmaceuticals=2147483648 Beverages=4294967296 Textiles=8589934592 Telecom=17179869184 Financial=34359738368 Media=68719476736 Entertainment=137438953472 Recreation=274877906944 Garbage=549755813888 Fish=1099511627776 Last=2199023255552 All=ulong.MaxValue
+type Game.Economy.Resources struct 7e59b4b75b burst:r:SkiLiftTicketSystem m_Resource:Resource m_Amount:int
+type Game.Effects.EffectControlData struct f44c4425f1 m_Owners:ComponentLookup<Owner> m_Transforms:ComponentLookup<Transform> m_Hidden:ComponentLookup<Hidden> m_EffectDatas:ComponentLookup<EffectData> m_LightEffectDatas:ComponentLookup<LightEffectData> m_Buildings:ComponentLookup<Building> m_SignatureBuildings:ComponentLookup<Signature> m_Vehicles:ComponentLookup<Vehicle> m_Cars:ComponentLookup<Car> m_Aircraft:ComponentLookup<Aircraft> m_Watercraft:ComponentLookup<Watercraft> m_ParkedCars:ComponentLookup<ParkedCar> m_ParkedTrains:ComponentLookup<ParkedTrain> m_Prefabs:ComponentLookup<PrefabRef> m_OnFires:ComponentLookup<OnFire> m_FireEngines:ComponentLookup<Game.Vehicles.FireEngine> m_Temps:ComponentLookup<Temp> m_PublicTransports:ComponentLookup<Game.Vehicles.PublicTransport> m_Taxis:ComponentLookup<Game.Vehicles.Taxi> m_CargoTransports:ComponentLookup<Game.Vehicles.CargoTransport> m_PersonalCars:ComponentLookup<Game.Vehicles.PersonalCar> m_ServiceUpgrades:ComponentLookup<Game.Buildings.ServiceUpgrade> m_Extensions:ComponentLookup<Extension> m_WeatherPhenomenonData:ComponentLookup<Game.Events.WeatherPhenomenon> m_PseudoRandomSeeds:ComponentLookup<PseudoRandomSeed> m_Destroyeds:ComponentLookup<Destroyed> m_EarlyDisasterWarningDurations:ComponentLookup<EarlyDisasterWarningDuration> m_WaterPumpingStations:ComponentLookup<Game.Buildings.WaterPumpingStation> m_SewageOutlets:ComponentLookup<Game.Buildings.SewageOutlet> m_WaterTowers:ComponentLookup<Game.Buildings.WaterTower> m_StreetLights:ComponentLookup<StreetLight> m_Stoppeds:ComponentLookup<Stopped> m_Composition:ComponentLookup<Composition> m_NetCompositionData:ComponentLookup<NetCompositionData> m_ExtractorData:ComponentLookup<Game.Buildings.ExtractorFacility> m_AttachmentData:ComponentLookup<Attachment> m_TransformFrames:BufferLookup<TransformFrame> m_Renter:BufferLookup<Renter> m_TrafficLights:ComponentLookup<TrafficLights> m_EffectFlagData:EffectFlagSystem.EffectFlagData m_SimulationFrame:uint m_Selected:Entity
+type Game.Effects.EffectControlSystem class a10e4b5e6c
+type Game.Effects.EffectFlagSystem class cec2090b72
+type Game.Effects.SearchSystem class 5179fcc634
+type Game.Effects.VFXSystem class 70427b8885
+type Game.EndFrameBarrier class 37929b9e18
+type Game.Events.AddMeetingSystem class d1ef209e0e
+type Game.Events.AttendingEvent struct bfc379e58f burst:r:SkiDaySystem m_Event:Entity
+type Game.Events.InitializeSystem class 9bec31d21b
+type Game.Events.OnFire struct 112a599431 m_Event:Entity m_RescueRequest:Entity m_Intensity:float m_RequestFrame:uint
+type Game.GameMode enum 1d3b6a13b0 None=0 Other=1 Game=2 Editor=4 MainMenu=8 GameOrEditor=6 All=15
+type Game.GameModeExtensions class b532a014d8
+type Game.GameSystemBase class 2838e7cbc8
+type Game.Input.ActionComponent enum 52d87d09d7 None=0 Press=1 Negative=2 Positive=3 Down=4 Up=5 Left=6 Right=7
+type Game.Input.BindingKeyboard enum 5ea0b1b68d None=0 Space=1 Enter=2 Tab=3 Backquote=4 Quote=5 Semicolon=6 Comma=7 Period=8 Slash=9 Backslash=10 LeftBracket=11 RightBracket=12 Minus=13 Equals=14 A=15 B=16 C=17 D=18 E=19 F=20 G=21 H=22 I=23 J=24 K=25 L=26 M=27 N=28 O=29 P=30 Q=31 R=32 S=33 T=34 U=35 V=36 W=37 X=38 Y=39 Z=40 Digit1=41 Digit2=42 Digit3=43 Digit4=44 Digit5=45 Digit6=46 Digit7=47 Digit8=48 Digit9=49 Digit0=50 Escape=60 LeftArrow=61 RightArrow=62 UpArrow=63 DownArrow=64 Backspace=65 PageDown=66 PageUp=67 Home=68 End=69 Delete=71 NumpadEnter=77 NumpadDivide=78 NumpadMultiply=79 NumpadPlus=80 NumpadMinus=81 NumpadPeriod=82 NumpadEquals=83 Numpad0=84 Numpad1=85 Numpad2=86 Numpad3=87 Numpad4=88 Numpad5=89 Numpad6=90 Numpad7=91 Numpad8=92 Numpad9=93 F1=94 F2=95 F3=96 F4=97 F5=98 F6=99 F7=100 F8=101 F9=102 F10=103 F11=104 F12=105 OEM1=106 OEM2=107 OEM3=108 OEM4=109 OEM5=110
+type Game.Input.CompositeInstance class 2311473b61
+type Game.Input.IProxyAction interface d651d32fdd
+type Game.Input.InputConflictResolution class dc0f6de3c8
+type Game.Input.InputManager class aba2b50bb9
+type Game.Input.ProxyAction class d9b228d228
+type Game.Input.ProxyActionMap class 43c96dd6b7
+type Game.Input.ProxyBinding struct ab92be66b2 m_MapName:string m_ActionName:string m_Component:ActionComponent m_Name:string m_Device:InputManager.DeviceType m_Path:string m_Modifiers:ProxyModifier[] m_OriginalPath:string m_OriginalModifiers:ProxyModifier[] m_Source:CompositeInstance m_Alies:UIBaseInputAction m_HasConflictVersion:int m_HasConflicts:ConflictType m_ConflictVersion:int m_Conflicts:IList<ProxyBinding>
+type Game.Input.ProxyModifier struct 0268646996 m_Component:ActionComponent m_Name:string m_Path:string
+type Game.Input.UIBaseInputAction class e198818f3b
+type Game.Input.UIInputAction class b8086594a4
+type Game.Modding.IMod interface 23f298615a
+type Game.Modding.ModManager class 1facd77183
+type Game.Modding.ModSetting class aff449a2f5
+type Game.Net.Composition struct b13185c67f m_Edge:Entity m_StartNode:Entity m_EndNode:Entity
+type Game.Net.ConnectedEdge struct f025b0f44b m_Edge:Entity
+type Game.Net.ConnectedNode struct 794dd42048 m_Node:Entity m_CurvePosition:float
+type Game.Net.ConnectionLane struct 39b5a443ce burst:r:SkiLodgeParkingSystem m_AccessRestriction:Entity m_Flags:ConnectionLaneFlags m_TrackTypes:TrackTypes m_RoadTypes:RoadTypes
+type Game.Net.ConnectionLaneFlags enum f123c8055c burst:r:SkiLodgeParkingSystem Start=1 Distance=2 Outside=4 SecondaryStart=8 SecondaryEnd=16 Road=32 Track=64 Pedestrian=128 Parking=256 AllowMiddle=512 AllowCargo=1024 Airway=2048 Inside=4096 Area=8192 Disabled=16384 AllowEnter=32768 AllowExit=65536 NoRestriction=131072
+type Game.Net.ConnectionWarningSystem class b248946e24
+type Game.Net.CostSystem class 3e2210a645
+type Game.Net.Curve struct b1603e2672 burst:r:SkiLodgeParkingSystem m_Bezier:Bezier4x3 m_Length:float
+type Game.Net.Edge struct 53f3d73e35 m_Start:Entity m_End:Entity
+type Game.Net.EdgeGeometry struct 0897d7e493 m_Start:Segment m_End:Segment m_Bounds:Bounds3
+type Game.Net.Elevation struct e5f51fdf85 m_Elevation:float2
+type Game.Net.FlowDirection enum decbe3155e None=0 Forward=1 Backward=2 Both=3
+type Game.Net.GarageLane struct 92233f9032 burst:r:SkiLodgeParkingSystem m_ParkingFee:ushort m_ComfortFactor:ushort m_VehicleCount:ushort m_VehicleCapacity:ushort
+type Game.Net.Gate struct 767c7d7cdd m_Domain:Entity
+type Game.Net.GeometryFlags enum 02262cf8ae StraightEdges=1 StrictNodes=2 SnapCellSize=4 SupportRoundabout=8 LoweredIsTunnel=16 RaisedIsElevated=32 NoEdgeConnection=64 SnapToNetAreas=128 StraightEnds=256 RequireElevated=512 SymmetricalEdges=1024 BlockZone=2048 Directional=4096 SmoothSlopes=8192 SmoothElevation=16384 FlipTrafficHandedness=32768 Asymmetric=65536 FlattenTerrain=131072 ClipTerrain=262144 Marker=524288 MiddlePillars=1048576 StandingNodes=2097152 ExclusiveGround=4194304 NoCurveSplit=8388608 SubOwner=16777216 OnWater=33554432 IsLefthanded=67108864 InvertCompositionHandedness=134217728 FlipCompositionHandedness=268435456 ElevatedIsRaised=536870912 NoAutoElevation=1073741824
+type Game.Net.GeometrySystem class 24eff075cd
+type Game.Net.InitializeSystem class 61b5ed0648
+type Game.Net.Lane struct 7bd6891e4e m_StartNode:PathNode m_MiddleNode:PathNode m_EndNode:PathNode
+type Game.Net.LaneObject struct a939e531c6 burst:r:SkiLodgeParkingSystem m_LaneObject:Entity m_CurvePosition:float2
+type Game.Net.LaneSystem class 2ac0654e27
+type Game.Net.Layer enum c1b20ca837 Road=1 PowerlineLow=2 PowerlineHigh=4 WaterPipe=8 SewagePipe=16 StormwaterPipe=32 TrainTrack=64 Pathway=128 Waterway=256 Taxiway=512 TramTrack=1024 SubwayTrack=2048 Fence=4096 MarkerPathway=8192 MarkerTaxiway=16384 PublicTransportRoad=32768 LaneEditor=65536 ResourceLine=131072 NetFence=262144 None=0 All=uint.MaxValue
+type Game.Net.Marker struct b059276ae4
+type Game.Net.NetUtils class 7f93e8fe05
+type Game.Net.Node struct 03ee534cde m_Position:float3 m_Rotation:quaternion
+type Game.Net.NodeAlignSystem class 8b27389469
+type Game.Net.OverrideSystem class ed02d2a5cc
+type Game.Net.ParkingLane struct f5a142b687 burst:r:SkiLodgeParkingSystem m_AccessRestriction:Entity m_AdditionalStartNode:PathNode m_Flags:ParkingLaneFlags m_FreeSpace:float m_ParkingFee:ushort m_ComfortFactor:ushort m_TaxiAvailability:ushort m_TaxiFee:ushort
+type Game.Net.ParkingLaneFlags enum 038f6b666e burst:r:SkiLodgeParkingSystem Invert=1 StartingLane=2 EndingLane=4 AdditionalStart=8 ParkingInverted=16 LeftSide=32 RightSide=64 TaxiAvailabilityUpdated=128 TaxiAvailabilityChanged=256 VirtualLane=512 FindConnections=1024 ParkingLeft=2048 ParkingRight=4096 ParkingDisabled=8192 AllowEnter=16384 AllowExit=32768 SpecialVehicles=65536 SecondaryStart=131072
+type Game.Net.PedestrianLane struct af0f6446b0 m_AccessRestriction:Entity m_Flags:PedestrianLaneFlags
+type Game.Net.PedestrianLaneFlags enum a16fa616a1 Unsafe=1 Crosswalk=2 AllowMiddle=4 AllowEnter=8 SideConnection=16 ForbidTransitTraffic=32 OnWater=64 AllowExit=128 AllowBicycle=256
+type Game.Net.PlacementFlags enum 878a18070d None=0 OnGround=1 Floating=2 IsUpgrade=4 UpgradeOnly=8 AllowParallel=16 NodeUpgrade=32 FlowLeft=64 FlowRight=128 UndergroundUpgrade=256 LinkAuxOffsets=512 ShoreLine=1024 DisallowZoneOverlay=2048 DisallowPlacementOverride=4096
+type Game.Net.RaycastJobs class 29d74399ab
+type Game.Net.ReferencesSystem class fe38f55492
+type Game.Net.Road struct 8349fe7d68 m_TrafficFlowDuration0:float4 m_TrafficFlowDuration1:float4 m_TrafficFlowDistance0:float4 m_TrafficFlowDistance1:float4 m_Flags:RoadFlags
+type Game.Net.RoadFlags enum 7cef591b74 StartHalfAligned=1 EndHalfAligned=2 IsLit=4 AlwaysLit=8 LightsOff=16
+type Game.Net.RoadTypes enum a912f39d2b burst:r:SkiLodgeParkingSystem None=0 Car=1 Watercraft=2 Helicopter=4 Airplane=8 Bicycle=16
+type Game.Net.SearchSystem class 68f9b71abf
+type Game.Net.Segment struct 010a8a3e13 m_Left:Bezier4x3 m_Right:Bezier4x3 m_Length:float2
+type Game.Net.SubLane struct 6f4c2ae2c8 burst:r:SkiLodgeParkingSystem m_SubLane:Entity m_PathMethods:PathMethod
+type Game.Net.SubNet struct 344f9bdc0b burst:r:SkiLodgeParkingSystem m_SubNet:Entity
+type Game.Net.SubReplacementType enum 253afc28b1 None=0 Tree=1
+type Game.Net.TrackTypes enum cb3a1750d1 burst:r:SkiLodgeParkingSystem None=0 Train=1 Tram=2 Subway=4
+type Game.Net.UtilityLane struct 00fdbff831 m_Flags:UtilityLaneFlags
+type Game.Net.UtilityLaneFlags enum a2fa7f6254 SecondaryStartAnchor=1 SecondaryEndAnchor=2 PipelineConnection=4 CutForTraffic=8 VerticalConnection=16
+type Game.Net.UtilityTypes enum b4a5277d58 None=0 WaterPipe=1 SewagePipe=2 StormwaterPipe=4 LowVoltageLine=8 Fence=16 Catenary=32 HighVoltageLine=64 Resource=128
+type Game.Net.ValidationHelpers class 691d62a9b1
+type Game.Notifications.Icon struct 4df464724c m_Location:float3 m_Priority:IconPriority m_ClusterLayer:IconClusterLayer m_Flags:IconFlags m_ClusterIndex:int
+type Game.Notifications.IconClusterLayer enum 0c8fd77e90 Default=0 Marker=1 Transaction=2
+type Game.Notifications.IconCommandBuffer struct 2627b9d57c m_BufferIndex:int
+type Game.Notifications.IconCommandSystem class 4e099faeef
+type Game.Notifications.IconElement struct 560db6c410 m_Icon:Entity
+type Game.Notifications.IconFlags enum d43d16fa16 Unique=1 IgnoreTarget=2 TargetLocation=4 OnTop=8 SecondaryLocation=16 CustomLocation=32
+type Game.Notifications.IconLayerMask enum 4953af737e None=0 Default=1 Marker=2 Transaction=4
+type Game.Notifications.IconPriority enum 91dfcc5158 Min=0 Info=10 Problem=50 Warning=100 MajorProblem=150 Error=200 FatalProblem=250 Max=byte.MaxValue
+type Game.Notifications.RaycastJobs class 82d3289dbe
+type Game.Objects.ActivityLocation struct 62cbfd104a
+type Game.Objects.AlignSystem class 9d76312a0a
+type Game.Objects.Aligned struct 8bf7c2c6c6 m_SubObjectIndex:ushort
+type Game.Objects.Decoration struct b5557caa3d
+type Game.Objects.DestroySystem class 72d3323f63
+type Game.Objects.Elevation struct f5c16c458c m_Elevation:float m_Flags:ElevationFlags
+type Game.Objects.ElevationFlags enum 3d54325640 Stacked=1 OnGround=2 Lowered=4 OnAttachedParent=8
+type Game.Objects.GeometryFlags enum 18c095a485 None=0 Circular=1 Overridable=2 Marker=4 ExclusiveGround=8 DeleteOverridden=16 Physical=32 WalkThrough=64 Standing=128 CircularLeg=256 OverrideZone=512 OccupyZone=1024 CanSubmerge=2048 BaseCollision=4096 IgnoreSecondaryCollision=8192 OptionalAttach=16384 Brushable=32768 Stampable=65536 LowCollisionPriority=131072 IgnoreBottomCollision=262144 HasBase=524288 HasLot=1048576 IgnoreLegCollision=2097152 Builtin=4194304 ReadOnly=8388608 IgnoreElevatedGround=16777216
+type Game.Objects.Object struct 53a15dc08a
+type Game.Objects.ObjectUtils class c5d0ec0461
+type Game.Objects.OutsideConnection struct 5a01b05ba8 burst:r:SkiDaySystem
+type Game.Objects.OverrideSystem class 328db584f8
+type Game.Objects.PlaceholderSystem class b3641dc634
+type Game.Objects.RaycastJobs class d12a39527a
+type Game.Objects.RotationSymmetry enum bdaac9b26c None=0 _180=2 _90=4 _45=8 Any=127
+type Game.Objects.SearchSystem class 9bff1f7a34
+type Game.Objects.Secondary struct 3e7d5a3784
+type Game.Objects.SecondaryObjectReferencesSystem class 982fc57de2
+type Game.Objects.SecondaryObjectSystem class 99f34f64a7
+type Game.Objects.SpawnLocation struct 246ae64d0f m_AccessRestriction:Entity m_ConnectedLane1:Entity m_ConnectedLane2:Entity m_CurvePosition1:float m_CurvePosition2:float m_GroupIndex:int m_Flags:SpawnLocationFlags
+type Game.Objects.SpawnLocationFlags enum c9643d20a7 AllowEnter=1 ParkedVehicle=2 AllowExit=4
+type Game.Objects.Stack struct 4c8edb2277 m_Range:Bounds1
+type Game.Objects.Static struct 49d4b81f17
+type Game.Objects.Stopped struct ac151d6a88
+type Game.Objects.SubElementDeleteSystem class d108d9237e
+type Game.Objects.SubObject struct 8e1761e4a7 burst:r:SkiLodgeParkingSystem m_SubObject:Entity
+type Game.Objects.SubObjectReferencesSystem class 5e3b294f15
+type Game.Objects.SubObjectSystem class 07efa42b4e
+type Game.Objects.SubObjectsUpdated struct b36d2975f0 m_Owner:Entity
+type Game.Objects.Surface struct 5b34f4bf1f m_Wetness:byte m_SnowAmount:byte m_AccumulatedWetness:byte m_AccumulatedSnow:byte m_Dirtyness:byte
+type Game.Objects.Transform struct bf5a59782d burst:w:ChairPinSystem,SkiDaySystem,SkiGroomerSystem,SkiLiftTicketSystem,SkiLodgeParkingSystem,SkiReachCensusSystem m_Position:float3 m_Rotation:quaternion
+type Game.Objects.TransformFlags enum 21b42811fd MainLights=1 ExtraLights=2 TurningLeft=4 TurningRight=8 Braking=16 RearLights=32 BoardingLeft=64 BoardingRight=128 InteriorLights=256 Pantograph=512 WarningLights=1024 Reversing=2048 WorkLights=4096 SignalAnimation1=8192 SignalAnimation2=16384 TakingOff=32768 Landing=65536 Flying=131072
+type Game.Objects.Tree struct 78ab0ddc93 m_State:TreeState m_Growth:byte
+type Game.Objects.TreeState enum d6430763ab Teen=1 Adult=2 Elderly=4 Dead=8 Stump=16 Collected=32
+type Game.Objects.TripSource struct 02682c345e m_Source:Entity m_Timer:int
+type Game.Objects.Unspawned struct 9e54996b0b burst:r:SkiDaySystem
+type Game.Objects.ValidationHelpers class bfbd18a62f
+type Game.OrbitCameraController class b7ac942b53
+type Game.Pathfind.ParkingLaneDataSystem class 73a39a8989
+type Game.Pathfind.PathElement struct 47d795b39b m_Target:Entity m_TargetDelta:float2 m_Flags:PathElementFlags
+type Game.Pathfind.PathElementFlags enum c3af46c3ed Secondary=1 PathStart=2 Action=4 Return=8 Reverse=16 WaitPosition=32 Leader=64 Hangaround=128
+type Game.Pathfind.PathFlags enum 30e547f563 burst:r:SkiCoachSystem,SkiDaySystem Pending=1 Failed=2 Obsolete=4 Scheduled=8 Append=16 Updated=32 Stuck=64 WantsEvent=128 AddDestination=256 Debug=512 Divert=1024 DivertObsolete=2048 CachedObsolete=4096
+type Game.Pathfind.PathInformation struct 21e1b99cd9 m_Origin:Entity m_Destination:Entity m_Distance:float m_Duration:float m_TotalCost:float m_Methods:PathMethod m_State:PathFlags
+type Game.Pathfind.PathMethod enum bee07f105e Pedestrian=1 Road=2 Parking=4 PublicTransportDay=8 Track=16 Taxi=32 CargoTransport=64 CargoLoading=128 Flying=256 PublicTransportNight=512 Boarding=1024 Offroad=2048 SpecialParking=4096 MediumRoad=8192 Bicycle=16384 BicycleParking=32768
+type Game.Pathfind.PathNode struct 1624920ef5 burst:r:SkiLodgeParkingSystem m_SearchKey:ulong
+type Game.Pathfind.PathOwner struct 8fc3643a68 burst:w:SkiCoachSystem,SkiDaySystem m_ElementIndex:int m_State:PathFlags
+type Game.Pathfind.PathUtils class 2dcc4110c1
+type Game.Pathfind.PathfindFlags enum 63aa720da5 Stable=1 IgnoreFlow=2 ForceForward=4 ForceBackward=8 NoHeuristics=16 ParkingReset=32 Simplified=64 MultipleOrigins=128 MultipleDestinations=256 IgnoreExtraStartAccessRequirements=512 IgnoreExtraEndAccessRequirements=1024 IgnorePath=2048 SkipPathfind=4096
+type Game.Pathfind.PathfindJobs class fe6ef92c76
+type Game.Pathfind.PathfindParameters struct 7694a5a522 m_ParkingTarget:Entity m_Authorization1:Entity m_Authorization2:Entity m_Weights:PathfindWeights m_MaxSpeed:float2 m_WalkSpeed:float2 m_ParkingSize:float2 m_ParkingDelta:float m_MaxCost:float m_MaxResultCount:int m_Methods:PathMethod m_PathfindFlags:PathfindFlags m_IgnoredRules:RuleFlags m_TaxiIgnoredRules:RuleFlags
+type Game.Pathfind.PathfindTargetSeeker struct 7ede7172d6 m_PathfindParameters:PathfindParameters m_IsStartTarget:bool m_SetupQueueTarget:SetupQueueTarget m_Buffer:TBuffer m_RandomSeed:RandomSeed m_AirwayData:AirwayHelpers.AirwayData m_Owner:ComponentLookup<Owner> m_Transform:ComponentLookup<Game.Objects.Transform> m_Attached:ComponentLookup<Attached> m_SpawnLocation:ComponentLookup<Game.Objects.SpawnLocation> m_Stopped:ComponentLookup<Stopped> m_HumanCurrentLane:ComponentLookup<HumanCurrentLane> m_CarCurrentLane:ComponentLookup<CarCurrentLane> m_TrainCurrentLane:ComponentLookup<TrainCurrentLane> m_WatercraftCurrentLane:ComponentLookup<WatercraftCurrentLane> m_AircraftCurrentLane:ComponentLookup<AircraftCurrentLane> m_ParkedCar:ComponentLookup<ParkedCar> m_ParkedTrain:ComponentLookup<ParkedTrain> m_Train:ComponentLookup<Train> m_Airplane:ComponentLookup<Airplane> m_Building:ComponentLookup<Building> m_PropertyRenter:ComponentLookup<PropertyRenter> m_CurrentBuilding:ComponentLookup<CurrentBuilding> m_CurrentTransport:ComponentLookup<CurrentTransport> m_Curve:ComponentLookup<Curve> m_PedestrianLane:ComponentLookup<Game.Net.PedestrianLane> m_ParkingLane:ComponentLookup<Game.Net.ParkingLane> m_CarLane:ComponentLookup<Game.Net.CarLane> m_MasterLane:ComponentLookup<MasterLane> m_SlaveLane:ComponentLookup<SlaveLane> m_ConnectionLane:ComponentLookup<Game.Net.ConnectionLane> m_NodeLane:ComponentLookup<NodeLane> m_LaneConnection:ComponentLookup<LaneConnection> m_RouteLane:ComponentLookup<RouteLane> m_AccessLane:ComponentLookup<AccessLane> m_PrefabRef:ComponentLookup<PrefabRef> m_BuildingData:ComponentLookup<BuildingData> m_CarPathfindData:ComponentLookup<PathfindCarData> m_SpawnLocationData:ComponentLookup<SpawnLocationData> m_NetLaneData:ComponentLookup<NetLaneData> m_CarLaneData:ComponentLookup<CarLaneData> m_ParkingLaneData:ComponentLookup<ParkingLaneData> m_TrackLaneData:ComponentLookup<TrackLaneData> m_SubLane:BufferLookup<Game.Net.SubLane> m_AreaNode:BufferLookup<Game.Areas.Node> m_AreaTriangle:BufferLookup<Triangle> m_SpawnLocations:BufferLookup<SpawnLocationElement> m_VehicleLayout:BufferLookup<LayoutElement> m_CarNavigationLanes:BufferLookup<CarNavigationLane> m_WatercraftNavigationLanes:BufferLookup<WatercraftNavigationLane> m_AircraftNavigationLanes:BufferLookup<AircraftNavigationLane>
+type Game.Pathfind.PathfindWeights struct 1a6460ecbd m_Value:float4
+type Game.Pathfind.RoutesModifiedSystem class c5d5da84b5
+type Game.Pathfind.RuleFlags enum 83ca32327b HasBlockage=1 ForbidCombustionEngines=2 ForbidTransitTraffic=4 ForbidHeavyTraffic=8 ForbidPrivateTraffic=16 ForbidSlowTraffic=32 AvoidBicycles=64
+type Game.Pathfind.SetupQueueItem struct bb42b3f03c m_Owner:Entity m_Parameters:PathfindParameters m_Origin:SetupQueueTarget m_Destination:SetupQueueTarget
+type Game.Pathfind.SetupQueueTarget struct 586e0e43cc m_Type:SetupTargetType m_Methods:PathMethod m_Entity:Entity m_Entity2:Entity m_Resource:Resource m_ActivityMask:ActivityMask m_MaintenanceType:MaintenanceType m_Flags:SetupTargetFlags m_TrackTypes:TrackTypes m_RoadTypes:RoadTypes m_FlyingTypes:RoadTypes m_Value:int m_Value2:float m_RandomCost:float m_Value3:int
+type Game.Pathfind.SetupTargetFlags enum 3e986230e3 None=0 Industrial=1 Commercial=2 Import=4 Service=8 Residential=16 Export=32 SecondaryPath=64 RequireTransport=128 PathEnd=256 BuildingUpkeep=512
+type Game.Pathfind.SetupTargetType enum f1ec877f8c None=-1 CurrentLocation=0 ResourceSeller=1 RouteWaypoints=2 TransportVehicle=3 GarbageCollector=4 RandomTraffic=5 JobSeekerTo=6 SchoolSeekerTo=7 FireEngine=8 PolicePatrol=9 Leisure=10 Taxi=11 ResourceExport=12 Ambulance=13 StorageTransfer=14 Maintenance=15 PostVan=16 MailTransfer=17 MailBox=18 OutsideConnection=19 AccidentLocation=20 Hospital=21 Safety=22 EmergencyShelter=23 EvacuationTransport=24 Hearse=25 CrimeProducer=26 PrisonerTransport=27 WoodResource=28 AreaLocation=29 Sightseeing=30 Attraction=31 GarbageTransfer=32 HomelessShelter=33 FindHome=34 TransportVehicleRequest=35 TaxiRequest=36 PrisonerTransportRequest=37 EvacuationRequest=38 GarbageCollectorRequest=39 PoliceRequest=40 FireRescueRequest=41 PostVanRequest=42 MaintenanceRequest=43 HealthcareRequest=44 TouristFindTarget=45 GoodsDelivery=46
+type Game.Prefabs.ActivityLocation class c659e93c23
+type Game.Prefabs.ActivityMask struct f186f0acbd m_Mask:uint
+type Game.Prefabs.ActivityType enum 482b8319b4 None=0 Standing=1 Walking=2 Running=3 BenchSitting=4 GroundSitting=5 GroundLaying=6 Selfies=7 Swimming=8 Flying=9 Enter=10 Exit=11 GarageSpot=12 Producing=13 Driving=14 PushUps=15 PullUps=16 SitUps=17 JumpingJacks=18 JumpingLunges=19 Squats=20 Mood=21 Yoga=22 Reading=23 Fishing=24 Biking=25
+type Game.Prefabs.AreaData struct c4cd89421d m_Archetype:EntityArchetype
+type Game.Prefabs.AreaGeometryData struct 4c997acc89 burst:r:SkiRunOutlineSystem m_Type:AreaType m_Flags:GeometryFlags m_SnapDistance:float m_MaxHeight:float m_LodBias:float
+type Game.Prefabs.AreaInitializeSystem class 5358ea2db4
+type Game.Prefabs.AreaPrefab class 45bda7ab4c
+type Game.Prefabs.Attraction class ff41a5a3bf
+type Game.Prefabs.BoneType enum 4874dd6ad5 None=0 LookAtDirection=1 WindTurbineRotation=2 WindSpeedRotation=3 RollingTire=4 SteeringTire=5 PoweredRotation=6 TrafficBarrierDirection=7 SuspensionMovement=8 SteeringRotation=9 SuspensionRotation=10 FixedRotation=11 FixedTire=12 DebugMovement=13 VehicleConnection=14 TrainBogie=15 RollingRotation=16 PropellerRotation=17 LookAtRotation=18 LookAtAim=19 PropellerAngle=20 PantographRotation=21 SteeringSuspension=22 LengthwiseLookAtRotation=23 WorkingRotation=24 OperatingRotation=25 TimeRotation=26 LookAtMovementX=27 LookAtMovementY=28 LookAtMovementZ=29 LookAtRotationSide=30 RotationXFromMovementY=31 ScaledMovement=32 LookAtAimForward=33 ScaledRotation=34 PlaybackLayer0=35 PlaybackLayer1=36 PlaybackLayer2=37 PlaybackLayer3=38 PlaybackLayer4=39 PlaybackLayer5=40 PlaybackLayer6=41 PlaybackLayer7=42
+type Game.Prefabs.BuildingData struct 4dc7a131fc m_LotSize:int2 m_Flags:BuildingFlags
+type Game.Prefabs.BuildingEfficiencyParameterData struct c90827afa9 m_ServiceBudgetEfficiencyFactor:AnimationCurve1 m_LowEfficiencyThreshold:float m_ElectricityPenalty:float m_ElectricityPenaltyDelay:float m_ElectricityFeeFactor:AnimationCurve1 m_WaterPenalty:float m_WaterPenaltyDelay:float m_WaterPollutionPenalty:float m_SewagePenalty:float m_SewagePenaltyDelay:float m_WaterFeeFactor:AnimationCurve1 m_GarbagePenalty:float m_NegligibleMail:int m_MailEfficiencyPenalty:float m_TelecomBaseline:float m_MissingEmployeesEfficiencyPenalty:float m_MissingEmployeesEfficiencyDelay:float m_ServiceBuildingEfficiencyGracePeriod:short m_SickEmployeesEfficiencyPenalty:float
+type Game.Prefabs.BuildingFlags enum d4f2be419a RequireRoad=1 NoRoadConnection=2 LeftAccess=4 RightAccess=8 BackAccess=16 RestrictedPedestrian=32 RestrictedCar=64 ColorizeLot=128 HasLowVoltageNode=256 HasWaterNode=512 HasSewageNode=1024 HasInsideRoom=2048 RestrictedParking=4096 RestrictedTrack=8192 CanBeOnRoad=16384 CanBeOnRoadArea=32768 RequireAccess=65536 CanBeRoadSide=131072 HasResourceNode=262144
+type Game.Prefabs.BuildingInitializeSystem class 2004b3279b
+type Game.Prefabs.BuildingPrefab class 3fe8512563
+type Game.Prefabs.CarData struct 17e6a1fbf0 m_SizeClass:SizeClass m_EnergyType:EnergyTypes m_MaxSpeed:float m_Acceleration:float m_Braking:float m_PivotOffset:float m_Turning:float2
+type Game.Prefabs.Climate.ClimatePrefab class b32f2a4d8f
+type Game.Prefabs.CompositionFlags struct 831e987f91 m_General:General m_Left:Side m_Right:Side
+type Game.Prefabs.CompositionState enum 19c5de181b BlockUTurn=1 ExclusiveGround=2 HasSurface=4 HasForwardRoadLanes=8 SeparatedCarriageways=16 HasPedestrianLanes=32 HasBackwardRoadLanes=64 HasForwardTrackLanes=128 HasBackwardTrackLanes=256 Asymmetric=512 Marker=1024 BlockZone=2048 Multilane=4096 LowerToTerrain=8192 RaiseToTerrain=16384 NoSubCollisions=32768 Airspace=65536 HalfLength=131072 Hidden=262144
+type Game.Prefabs.ConsumptionData struct ec7135f74c m_Upkeep:int m_ElectricityConsumption:float m_WaterConsumption:float m_GarbageAccumulation:float m_TelecomNeed:float
+type Game.Prefabs.DistrictPrefab class 673e80ceda
+type Game.Prefabs.EconomyParameterData struct 730fb90cb5 burst:r:SkiDaySystem m_ExtractorCompanyExportMultiplier:float m_ProductionStatisticsLerpFactor:float m_Wage0:int m_Wage1:int m_Wage2:int m_Wage3:int m_Wage4:int m_CommuterWageMultiplier:float m_CompanyBankruptcyLimit:int m_ResidentialMinimumEarnings:int m_UnemploymentBenefit:int m_Pension:int m_FamilyAllowance:int m_NewHouseholdStartMoney:int m_MoveOutIncomeToRentRatio:float m_MinFreeResidentialProperties:int m_ResourceConsumptionMultiplier:float2 m_ResourceConsumptionPerCitizen:float m_TouristConsumptionMultiplier:float m_TouristInitialWealthRange:int m_TouristInitialWealthOffset:int m_WorkDayStart:float m_WorkDayEnd:float m_IndustrialEfficiency:float m_CommercialEfficiency:float m_ExtractorProductionEfficiency:float m_OfficeResourceConsumedPerIndustrialUnit:int m_TrafficReduction:float m_MaxCitySpecializationBonus:float m_ResourceProductionCoefficient:int m_LandValueModifier:float3 m_RentPriceBuildingZoneTypeBase:float3 m_MixedBuildingCompanyRentPercentage:float m_ResidentialUpkeepLevelExponent:float m_CommercialUpkeepLevelExponent:float m_IndustrialUpkeepLevelExponent:float m_PerOfficeResourceNeededForIndustrial:int m_UnemploymentAllowanceMaxDays:float m_ShopPossibilityIncreaseDivider:int m_CityServiceWageAdjustment:float m_TouristTravelSpendMultiplier:float m_PlayerStartMoney:int m_BuildRefundPercentage:float3 m_BuildRefundTimeRange:float3 m_RelocationCostMultiplier:float m_RoadRefundPercentage:float3 m_RoadRefundTimeRange:float3 m_TreeCostMultipliers:int3 m_MapTileUpkeepCostMultiplier:AnimationCurve1 m_LoanMinMaxInterestRate:float2 m_ProfitabilityRange:int2
+type Game.Prefabs.Effect struct 74e0634a9b m_Effect:Entity m_Position:float3 m_Scale:float3 m_Rotation:quaternion m_BoneIndex:int2 m_Intensity:float m_ParentMesh:int m_AnimationIndex:int m_Procedural:bool
+type Game.Prefabs.EffectPrefab class 8f5eb2405c
+type Game.Prefabs.EffectSource class a187feccdf
+type Game.Prefabs.ElectricityConnection class db853f4bce
+type Game.Prefabs.ElectricityConnectionData struct 0c5e470775 m_Capacity:int m_Direction:FlowDirection m_Voltage:ElectricityConnection.Voltage m_CompositionAll:CompositionFlags m_CompositionAny:CompositionFlags m_CompositionNone:CompositionFlags
+type Game.Prefabs.ElectricityParameterData struct 44301c37e3 m_InitialBatteryCharge:float m_TemperatureConsumptionMultiplier:AnimationCurve1 m_CloudinessSolarPenalty:float m_ElectricityServicePrefab:Entity m_ElectricityNotificationPrefab:Entity m_LowVoltageNotConnectedPrefab:Entity m_HighVoltageNotConnectedPrefab:Entity m_BottleneckNotificationPrefab:Entity m_BuildingBottleneckNotificationPrefab:Entity m_NotEnoughProductionNotificationPrefab:Entity m_TransformerNotificationPrefab:Entity m_NotEnoughConnectedNotificationPrefab:Entity m_BatteryEmptyNotificationPrefab:Entity m_ElectricityAssetMenuPrefab:Entity
+type Game.Prefabs.GarbageParameterData struct 7e7f6bfdc4 m_GarbageServicePrefab:Entity m_GarbageNotificationPrefab:Entity m_FacilityFullNotificationPrefab:Entity m_HomelessGarbageProduce:int m_CollectionGarbageLimit:int m_RequestGarbageLimit:int m_WarningGarbageLimit:int m_MaxGarbageAccumulation:int m_BuildingLevelBalance:float m_EducationBalance:float m_HappinessEffectBaseline:int m_HappinessEffectStep:int m_AdaptiveCollectionMargin:float
+type Game.Prefabs.Gate class 37f2202d29
+type Game.Prefabs.InfoviewInitializeSystem class 656727e893
+type Game.Prefabs.InfoviewPrefab class b3e10ef8fa
+type Game.Prefabs.LocaleMeshFlags enum 5f9d61caf1 RequireLocaleDeDE=1 RequireLocaleEnUS=2 RequireLocaleEsES=4 RequireLocaleFrFR=8 RequireLocaleItIT=16 RequireLocaleJaJP=32 RequireLocaleKoKR=64 RequireLocalePlPL=128 RequireLocalePtBR=256 RequireLocaleRuRU=512 RequireLocaleZhHANS=1024 RequireLocaleZhHANT=2048
+type Game.Prefabs.Locked struct ae116a782e
+type Game.Prefabs.LotPrefab class 9ce011d1e8
+type Game.Prefabs.MeshLayer enum bf58e83853 Default=1 Moving=2 Tunnel=4 Pipeline=8 SubPipeline=16 Waterway=32 Outline=64 Marker=128 First=1 Last=128
+type Game.Prefabs.MeshSystem class 5216ada9b4
+type Game.Prefabs.NetCompositionData struct 382e5507ef m_SyncVertexOffsetsLeft:float4 m_SyncVertexOffsetsRight:float4 m_HeightRange:Bounds1 m_SurfaceHeight:Bounds1 m_EdgeHeights:float4 m_SideConnectionOffset:float2 m_Flags:CompositionFlags m_State:CompositionState m_Width:float m_MiddleOffset:float m_WidthOffset:float m_NodeOffset:float m_MinLod:int
+type Game.Prefabs.NetData struct b001b7922d m_NodeArchetype:EntityArchetype m_EdgeArchetype:EntityArchetype m_RequiredLayers:Layer m_ConnectLayers:Layer m_LocalConnectLayers:Layer m_GeneralFlagMask:CompositionFlags.General m_SideFlagMask:CompositionFlags.Side m_NodePriority:float
+type Game.Prefabs.NetFencePrefab class 18c9284188
+type Game.Prefabs.NetGeometryData struct ec7f660c30 m_NodeCompositionArchetype:EntityArchetype m_EdgeCompositionArchetype:EntityArchetype m_AggregateType:Entity m_StyleType:Entity m_DefaultHeightRange:Bounds1 m_ElevatedHeightRange:Bounds1 m_DefaultSurfaceHeight:Bounds1 m_EdgeLengthRange:Bounds1 m_MergeLayers:Layer m_IntersectLayers:Layer m_Flags:GeometryFlags m_DefaultWidth:float m_ElevatedWidth:float m_ElevatedLength:float m_MinNodeOffset:float m_ElevationLimit:float m_MaxSlopeSteepness:float m_Hanging:float
+type Game.Prefabs.NetInitializeSystem class 7fd5797eb9
+type Game.Prefabs.NotificationIconData struct 779d9a6078 m_Archetype:EntityArchetype
+type Game.Prefabs.NotificationIconPrefab class f436893fc8
+type Game.Prefabs.NotificationIconPrefabSystem class 449bc0c7d4
+type Game.Prefabs.ObjectData struct 6d1cc80b7c m_Archetype:EntityArchetype
+type Game.Prefabs.ObjectGeometryData struct cd17a72fad m_Bounds:Bounds3 m_Size:float3 m_Pivot:float3 m_LegSize:float3 m_LegOffset:float2 m_Flags:GeometryFlags m_MinLod:int m_Layers:MeshLayer m_SubObjectMask:ObjectRequirementFlags
+type Game.Prefabs.ObjectInitializeSystem class 15043f8835
+type Game.Prefabs.ObjectPrefab class 0b3dc04860
+type Game.Prefabs.ObjectRequirementFlags enum fb9096d474 Renter=1 Children=2 Snow=4 Teens=8 GoodWealth=16 Dogs=32 Homeless=64
+type Game.Prefabs.OverlayConfigurationData struct 23dd49ef1a
+type Game.Prefabs.OverlayConfigurationPrefab class 71fe60614c
+type Game.Prefabs.Park class 4d139890ff
+type Game.Prefabs.ParkingFacility class 523581f269
+type Game.Prefabs.ParkingLaneData struct 76f9308a2e burst:r:SkiLodgeParkingSystem m_SlotSize:float2 m_SlotAngle:float m_SlotInterval:float m_MaxCarLength:float m_RoadTypes:RoadTypes
+type Game.Prefabs.PathwayData struct 88dc4a897d m_SpeedLimit:float m_LeisureProvider:bool
+type Game.Prefabs.PedestrianLane class d27502243a
+type Game.Prefabs.PillarData struct 94edb4b184 m_Type:PillarType m_OffsetRange:Bounds1
+type Game.Prefabs.PillarType enum d40506476d None=-1 Vertical=0 Horizontal=1 Standalone=2 Base=3
+type Game.Prefabs.PlaceableNetData struct e71927f763 m_ElevationRange:Bounds1 m_UndergroundPrefab:Entity m_PlacementFlags:PlacementFlags m_SetUpgradeFlags:CompositionFlags m_UnsetUpgradeFlags:CompositionFlags m_DefaultConstructionCost:uint m_DefaultUpkeepCost:float m_SnapDistance:float m_MinWaterElevation:float m_XPReward:int
+type Game.Prefabs.PlaceableObjectData struct 69445f7ce5 m_PlacementOffset:float3 m_ConstructionCost:uint m_XPReward:int m_DefaultProbability:byte m_RotationSymmetry:RotationSymmetry m_SubReplacementType:SubReplacementType m_Flags:Game.Objects.PlacementFlags
+type Game.Prefabs.PlaceholderObjectData struct b09a48713c m_RequirementMask:ObjectRequirementFlags m_RandomizeGroupIndex:bool
+type Game.Prefabs.PlaceholderObjectElement struct 6e29bfe4f0 m_Object:Entity
+type Game.Prefabs.PowerLinePrefab class dc12fe4361
+type Game.Prefabs.PrefabBase class 5e8b147f2a
+type Game.Prefabs.PrefabData struct d85a0fd8be m_Index:int
+type Game.Prefabs.PrefabID struct d53d67aee4 m_Type:string m_Name:string m_Hash:Hash128
+type Game.Prefabs.PrefabRef struct 5edb71bdbf burst:r:SkiCoachSystem,SkiDaySystem,SkiLodgeParkingSystem,SkiRunOutlineSystem m_Prefab:Entity
+type Game.Prefabs.PrefabSystem class 7119b45313
+type Game.Prefabs.ProceduralAnimationProperties class a92e33d640
+type Game.Prefabs.ProceduralBone struct fd9b1bd3de m_Position:float3 m_ObjectPosition:float3 m_Rotation:quaternion m_ObjectRotation:quaternion m_Scale:float3 m_BindPose:float4x4 m_Type:BoneType m_ParentIndex:int m_BindIndex:int m_HierarchyDepth:int m_ConnectionID:int m_SourceIndex:int m_Speed:float m_Acceleration:float
+type Game.Prefabs.PublicTransportPurpose enum 7d4e59f7fb burst:r:SkiDaySystem TransportLine=1 Evacuation=2 PrisonerTransport=4 Other=8
+type Game.Prefabs.PublicTransportVehicleData struct 673a8a75b9 burst:r:SkiDaySystem m_TransportType:TransportType m_PassengerCapacity:int m_PurposeMask:PublicTransportPurpose m_MaintenanceRange:float
+type Game.Prefabs.RenderPrefab class 4305b6e10b
+type Game.Prefabs.RenderedArea class 8a037928a2
+type Game.Prefabs.RenderingSettingsData struct c06d036e74 m_HoveredColor:Color m_OverrideColor:Color m_WarningColor:Color m_ErrorColor:Color m_OwnerColor:Color
+type Game.Prefabs.RenderingSettingsPrefab class fb6f521fd7
+type Game.Prefabs.ResourcePrefabs struct 1b6161dfc0 m_ResourcePrefabs:NativeArray<Entity>
+type Game.Prefabs.ResourceStack struct d1ec96bc11 m_Resource:Resource m_Amount:int
+type Game.Prefabs.ResourceSystem class 7f352064a6
+type Game.Prefabs.RoadData struct 09ac6f45d8 m_ZoneBlockPrefab:Entity m_SpeedLimit:float m_Flags:RoadFlags
+type Game.Prefabs.RoadFlags enum d8b6b0ca48 EnableZoning=1 SeparatedCarriageways=2 PreferTrafficLights=4 DefaultIsForward=8 UseHighwayRules=16 DefaultIsBackward=32 HasStreetLights=64
+type Game.Prefabs.RouteConnectionType enum 09a2d2d393 None=0 Road=1 Pedestrian=2 Track=3 Cargo=4 Air=5 Parking=6 Offroad=7
+type Game.Prefabs.ServiceBudget struct 15143e5255 m_Budget:int
+type Game.Prefabs.ServiceObject class 2600f3c72c
+type Game.Prefabs.ServiceObjectData struct 5c3d284c9a m_Service:Entity
+type Game.Prefabs.ServiceUpgradeData struct 947a9de965 m_UpgradeCost:uint m_XPReward:int m_MaxPlacementOffset:int m_MaxPlacementDistance:float m_ForbidMultiple:bool
+type Game.Prefabs.ServiceUpkeepData struct 2cd3472c41 m_Upkeep:ResourceStack m_ScaleWithUsage:bool
+type Game.Prefabs.SignatureBuildingData struct 3bd555fe16
+type Game.Prefabs.SpawnLocationData struct b2ae49b244 m_ConnectionType:RouteConnectionType m_ActivityMask:ActivityMask m_TrackTypes:TrackTypes m_RoadTypes:RoadTypes m_RequireAuthorization:bool m_HangaroundOnLane:bool
+type Game.Prefabs.SpawnableBuildingData struct b11ef6bba0 m_ZonePrefab:Entity m_Level:byte
+type Game.Prefabs.StaticObjectPrefab class c4bc4b85aa
+type Game.Prefabs.SubArea struct 6c12834770 m_Prefab:Entity m_NodeRange:int2
+type Game.Prefabs.SubLane struct afefe17a64 m_Prefab:Entity m_Curve:Bezier4x3 m_NodeIndex:int2 m_ParentMesh:int2
+type Game.Prefabs.SubMesh struct 8191983f2e m_SubMesh:Entity m_Position:float3 m_Rotation:quaternion m_Flags:SubMeshFlags m_LocaleFlags:LocaleMeshFlags m_RandomSeed:ushort
+type Game.Prefabs.SubMeshFlags enum 1f87bd2df5 RequireSafe=1 RequireLevelCrossing=2 RequireChild=4 RequireTeen=8 RequireAdult=16 RequireElderly=32 RequireDead=64 RequireStump=128 RequireEmpty=256 RequireFull=512 RequireEditor=1024 RequireClear=2048 RequireTrack=4096 IsStackStart=8192 IsStackMiddle=16384 IsStackEnd=32768 RequireLeftHandTraffic=65536 RequireRightHandTraffic=131072 DefaultMissingMesh=262144 RequirePartial1=524288 RequirePartial2=1048576 HasTransform=2097152 RequireForward=4194304 RequireBackward=8388608 OutlineOnly=16777216
+type Game.Prefabs.SubObject struct f36c4198ee m_Prefab:Entity m_Flags:SubObjectFlags m_Position:float3 m_Rotation:quaternion m_ParentIndex:int m_GroupIndex:int m_Probability:int
+type Game.Prefabs.SubObjectFlags enum 5904d50d6d AnchorTop=1 AnchorCenter=2 RequireElevated=16 RequireOutsideConnection=32 RequireDeadEnd=64 RequireOrphan=128 OnGround=256 WaterwayCrossing=512 NotWaterwayCrossing=1024 EdgePlacement=4096 MiddlePlacement=8192 AllowCombine=16384 CoursePlacement=32768 FlipInverted=65536 StartPlacement=131072 EndPlacement=262144 MakeOwner=1048576 OnMedian=2097152 FixedPlacement=4194304 PreserveShape=8388608 EvenSpacing=16777216 SpacingOverride=33554432 OnAttachedParent=67108864
+type Game.Prefabs.SurfacePrefab class 4e79d8784d
+type Game.Prefabs.TaxiwayData struct d29fe60af9 m_SpeedLimit:float m_Flags:TaxiwayFlags
+type Game.Prefabs.TaxiwayFlags enum b940614bbc Runway=1 Airspace=2
+type Game.Prefabs.TerrainComposition struct cdaa4110fe m_WidthOffset:float2 m_ClipHeightOffset:float2 m_MinHeightOffset:float3 m_MaxHeightOffset:float3
+type Game.Prefabs.ToolErrorData struct 3488cdeabc m_Error:ErrorType m_Flags:ToolErrorFlags
+type Game.Prefabs.ToolErrorFlags enum 41a8ba1cb1 TemporaryOnly=1 DisableInGame=2 DisableInEditor=4
+type Game.Prefabs.TrackData struct 5aae0d20d0 m_TrackType:TrackTypes m_SpeedLimit:float
+type Game.Prefabs.TrafficConfigurationData struct 0cfa665f20 m_BottleneckNotification:Entity m_DeadEndNotification:Entity m_RoadConnectionNotification:Entity m_TrackConnectionNotification:Entity m_CarConnectionNotification:Entity m_ShipConnectionNotification:Entity m_TrainConnectionNotification:Entity m_PedestrianConnectionNotification:Entity m_BicycleConnectionNotification:Entity
+type Game.Prefabs.TransportType enum efcb4a1e1f burst:r:SkiCoachSystem None=-1 Bus=0 Train=1 Taxi=2 Tram=3 Ship=4 Post=5 Helicopter=6 Airplane=7 Subway=8 Rocket=9 Work=10 Ferry=11 Bicycle=12 Car=13 Count=14
+type Game.Prefabs.TransportVehicleSelectData struct df21f57855 m_PrefabChunks:NativeList<ArchetypeChunk> m_RequirementData:VehicleSelectRequirementData m_EntityType:EntityTypeHandle m_PublicTransportVehicleType:ComponentTypeHandle<PublicTransportVehicleData> m_CargoTransportVehicleType:ComponentTypeHandle<CargoTransportVehicleData> m_TrainType:ComponentTypeHandle<TrainData> m_TrainEngineType:ComponentTypeHandle<TrainEngineData> m_TrainCarriageType:ComponentTypeHandle<TrainCarriageData> m_MultipleUnitTrainType:ComponentTypeHandle<MultipleUnitTrainData> m_TaxiType:ComponentTypeHandle<TaxiData> m_CarType:ComponentTypeHandle<CarData> m_AircraftType:ComponentTypeHandle<AircraftData> m_AirplaneType:ComponentTypeHandle<AirplaneData> m_HelicopterType:ComponentTypeHandle<HelicopterData> m_WatercraftType:ComponentTypeHandle<WatercraftData> m_ObjectData:ComponentLookup<ObjectData> m_MovingObjectData:ComponentLookup<MovingObjectData> m_TrainObjectData:ComponentLookup<TrainObjectData> m_PublicTransportVehicleData:ComponentLookup<PublicTransportVehicleData> m_CargoTransportVehicleData:ComponentLookup<CargoTransportVehicleData> m_VehicleCarriages:BufferLookup<VehicleCarriageElement>
+type Game.Prefabs.TreeData struct 4c64ad3aee m_WoodAmount:float
+type Game.Prefabs.TreeObject class d076dbd62f
+type Game.Prefabs.TripPriorityParametersData struct 1a1d342fa5 m_BaseMaxCost:float m_PriorityGoingHome:byte m_PriorityGoingToWork:byte m_PriorityGoingToSchool:byte m_PriorityShopping:byte m_PriorityHospital:byte m_PrioritySafety:byte m_PriorityEscape:byte m_PriorityEmergencyShelter:byte m_PriorityDeathcare:byte m_PriorityMovingAway:byte m_PriorityTourist:byte m_PriorityCriminal:byte m_LeisurePriorityMin:byte m_LeisurePriorityMax:byte
+type Game.Prefabs.UIObject class cdd1372f6b
+type Game.Prefabs.Unlock struct b0ca2e886c m_Prefab:Entity
+type Game.Prefabs.UnlockAllSystem class 6445ab9b98
+type Game.Prefabs.Unlockable class d79602a945
+type Game.Prefabs.UtilityLane class dd427facc7
+type Game.Prefabs.UtilityLaneData struct 1010ca490f m_LocalConnectionPrefab:Entity m_LocalConnectionPrefab2:Entity m_NodeObjectPrefab:Entity m_VisualCapacity:float m_Hanging:float m_UtilityTypes:UtilityTypes
+type Game.Prefabs.VehicleSelectRequirementData struct e40ea4c8a4 m_LockedType:ComponentTypeHandle<Locked> m_ObjectRequirementType:BufferTypeHandle<ObjectRequirementElement> m_ThemeData:ComponentLookup<ThemeData> m_DefaultTheme:Entity
+type Game.Prefabs.WaterPipeParameterData struct d0a43c284d m_WaterService:Entity m_WaterNotification:Entity m_DirtyWaterNotification:Entity m_SewageNotification:Entity m_WaterPipeNotConnectedNotification:Entity m_SewagePipeNotConnectedNotification:Entity m_NotEnoughWaterCapacityNotification:Entity m_NotEnoughSewageCapacityNotification:Entity m_NotEnoughGroundwaterNotification:Entity m_NotEnoughSurfaceWaterNotification:Entity m_DirtyWaterPumpNotification:Entity m_WaterAndSewageAssetMenuPrefab:Entity m_GroundwaterReplenish:float m_GroundwaterPurification:int m_GroundwaterUsageMultiplier:float m_GroundwaterPumpEffectiveAmount:float m_SurfaceWaterUsageMultiplier:float m_SurfaceWaterPumpEffectiveDepth:float m_MaxToleratedPollution:float m_WaterPipePollutionSpreadInterval:int m_StaleWaterPipePurification:float
+type Game.Prefabs.WorkProviderParameterData struct e4280ec99a m_UneducatedNotificationPrefab:Entity m_EducatedNotificationPrefab:Entity m_UneducatedNotificationDelay:short m_EducatedNotificationDelay:short m_UneducatedNotificationLimit:float m_EducatedNotificationLimit:float m_SeniorEmployeeLevel:int
+type Game.Prefabs.Workplace class 0d036f0337
+type Game.Prefabs.WorkplaceComplexity enum 12425ebea9 Manual=0 Simple=1 Complex=2 Hitech=3
+type Game.Prefabs.WorkplaceData struct 78821a6b84 m_Complexity:WorkplaceComplexity m_MaxWorkers:int m_EveningShiftProbability:float m_NightShiftProbability:float m_MinimumWorkersLimit:int m_WorkConditions:int
+type Game.Prefabs.ZoneData struct ce2d628ebc m_ZoneType:ZoneType m_AreaType:AreaType m_ZoneFlags:ZoneFlags m_MinOddHeight:ushort m_MinEvenHeight:ushort m_MaxHeight:ushort
+type Game.Prefabs.ZoneFlags enum dd8b5c73f8 SupportNarrow=1 SupportLeftCorner=2 SupportRightCorner=4 Office=8
+type Game.Rendering.AreaBatchSystem class 0552669097
+type Game.Rendering.AreaBorderRenderSystem class dc7282d982
+type Game.Rendering.AreaBufferSystem class 9e228cf280
+type Game.Rendering.BatchDataHelpers class ffe493cbbd
+type Game.Rendering.BatchDataSystem class 23d333f248
+type Game.Rendering.BatchInstanceSystem class 7fec9048e3
+type Game.Rendering.Bone struct 8577b30561 burst:w:TrainBoneSystem m_Position:float3 m_Rotation:quaternion m_Scale:float3
+type Game.Rendering.CameraUpdateSystem class edf1128610
+type Game.Rendering.CullingInfo struct c3c14133b2 burst:w:SkiGroomerSystem m_Bounds:Bounds3 m_Radius:float m_CullingIndex:int m_Mask:BoundsMask m_MinLod:byte m_PassedCulling:byte
+type Game.Rendering.EffectRangeRenderSystem class 0b2f5d0a9f
+type Game.Rendering.IGameCameraController interface cca4690afe
+type Game.Rendering.InitializeBonesSystem class b908d9cfbc
+type Game.Rendering.InterpolatedTransform struct dbe3db572d m_Position:float3 m_Rotation:quaternion m_Flags:TransformFlags
+type Game.Rendering.NotificationIconRenderSystem class 83a26fc008
+type Game.Rendering.ObjectColorSystem class bf57bbeba9
+type Game.Rendering.ObjectInterpolateSystem class 5c620b5774
+type Game.Rendering.OverlayRenderSystem class e9faffedcc
+type Game.Rendering.OverlayRenderSystem.Buffer struct e9faffedcc burst:r:SkiPisteMapSystem,SkiRunDrawFeedbackSystem,SkiRunOutlineSystem m_ProjectedCurves:NativeList<CurveData> m_AbsoluteCurves:NativeList<CurveData> m_CustomMeshes:NativeList<CustomMeshdData> m_TextMeshes:NativeList<TextMeshData> m_Bounds:NativeValue<BoundsData> m_PositionY:float m_ScaleY:float
+type Game.Rendering.PreCullingSystem class 4757a27628
+type Game.Rendering.RenderingSystem class 577547827a
+type Game.Rendering.RouteBufferSystem class 0610c4b152
+type Game.Rendering.RouteRenderSystem class 09cafeaf5a
+type Game.Rendering.Skeleton struct a66af6d7f6 burst:w:TrainBoneSystem m_BufferAllocation:NativeHeapBlock m_BoneOffset:int m_LayerOffset:int m_CurrentUpdated:bool m_HistoryUpdated:bool m_RequireHistory:bool
+type Game.Rendering.UndergroundPass class 2eaa51639c
+type Game.Rendering.UndergroundViewSystem class ef72630ff5
+type Game.Rendering.Viewer class 61c2e21eb0
+type Game.Routes.CarParking struct 10a21b7a4e burst:r:SkiLodgeParkingSystem
+type Game.Routes.Color struct 58f62b4d05 m_Color:Color32
+type Game.Routes.InitializeSystem class 93852051f6
+type Game.Routes.LivePath struct c85c32c878
+type Game.Routes.Position struct 7ad4eac721 burst:r:SkiDaySystem m_Position:float3
+type Game.Routes.RaycastJobs class 2965754f9c
+type Game.Routes.ReferencesSystem class 72201a2b4c
+type Game.Routes.RouteType enum 2e21841c73 None=-1 TransportLine=0 WorkRoute=1 Count=2
+type Game.Routes.SearchSystem class 5bb453c634
+type Game.Routes.SegmentCurveSystem class 7e4dbcc527
+type Game.Routes.TakeoffLocation struct b5840309b4 m_AccessRestriction:Entity m_Flags:TakeoffLocationFlags
+type Game.Routes.TakeoffLocationFlags enum 1f24814142 AllowEnter=1 AllowExit=2
+type Game.Routes.ValidationHelpers class af5b9ecfa4
+type Game.Routes.WaitingPassengers struct f391506c5a burst:r:SkiDaySystem m_Count:int m_OngoingAccumulation:int m_ConcludedAccumulation:int m_SuccessAccumulation:ushort m_AverageWaitingTime:ushort
+type Game.SafeCommandBufferSystem class 06f3efeef7
+type Game.SceneFlow.AsyncHelpers class b5aa18ef13
+type Game.SceneFlow.GameManager class 37b2353261
+type Game.SceneFlow.UserInterface class 1616cc85c1
+type Game.Serialization.PrimaryPrefabReferencesSystem class ef29316faf
+type Game.Serialization.SerializerSystem class 3842646a83
+type Game.Serialization.StudentSystem class 91aeaf4c6f
+type Game.Serialization.SubAreaSystem class cf724c8604
+type Game.Serialization.SubObjectSystem class d2ea38d94d
+type Game.Settings.GameplaySettings class 06d8571ad3
+type Game.Settings.GeneralSettings class fa89f80ed7
+type Game.Settings.GraphicsSettings class 77dc6462ae
+type Game.Settings.SettingsUIInputActionAttribute class 8474df4309
+type Game.Settings.SettingsUIKeyboardActionAttribute class bb4c15364d
+type Game.Settings.SettingsUIKeyboardBindingAttribute class e9c35a3a28
+type Game.Settings.SharedSettings class 2e94e2ab10
+type Game.Simulation.ActiveWaterTilesHelper class 291e255e7e
+type Game.Simulation.AdjustElectricityConsumptionSystem class 30a25f8d3a
+type Game.Simulation.AirPollutionSystem class de35b6ff99
+type Game.Simulation.AttractionSystem class a6090590f5
+type Game.Simulation.BaseDataReader class 9628e0fd31
+type Game.Simulation.BrandPopularitySystem class fd86162b77
+type Game.Simulation.BudgetApplySystem class 9fcfc2f4b5
+type Game.Simulation.BudgetSystem class 9f1467d3d7
+type Game.Simulation.BuildingConstructionSystem class 565f94854a
+type Game.Simulation.BuildingUpkeepSystem class d12e14187d
+type Game.Simulation.CellMapSystem class f6c83f050d
+type Game.Simulation.CitizenBehaviorSystem class e214f9b67f
+type Game.Simulation.CitizenHappinessSystem class fe2a950284
+type Game.Simulation.CitizenPathfindSetup struct 105b3d592d m_LeisureProviderQuery:EntityQuery m_TouristTargetQuery:EntityQuery m_SchoolQuery:EntityQuery m_FreeWorkplaceQuery:EntityQuery m_AttractionQuery:EntityQuery m_HomelessShelterQuery:EntityQuery m_FindHomeQuery:EntityQuery m_GroundPollutionSystem:GroundPollutionSystem m_AirPollutionSystem:AirPollutionSystem m_NoisePollutionSystem:NoisePollutionSystem m_TelecomCoverageSystem:TelecomCoverageSystem m_CitySystem:CitySystem m_ResourceSystem:ResourceSystem m_LeisureSystem:LeisureSystem m_TaxSystem:TaxSystem m_EconomyParameterQuery:EntityQuery m_HealthcareParameterQuery:EntityQuery m_ParkParameterQuery:EntityQuery m_EducationParameterQuery:EntityQuery m_TelecomParameterQuery:EntityQuery m_GarbageParameterQuery:EntityQuery m_PoliceParameterQuery:EntityQuery m_CitizenHappinessParameterQuery:EntityQuery m_EntityType:EntityTypeHandle m_ServiceAvailableType:ComponentTypeHandle<ServiceAvailable> m_FreeWorkplaceType:ComponentTypeHandle<FreeWorkplaces> m_WorkProviderType:ComponentTypeHandle<WorkProvider> m_CityServiceType:ComponentTypeHandle<CityServiceUpkeep> m_BuildingType:ComponentTypeHandle<Building> m_PrefabRefType:ComponentTypeHandle<PrefabRef> m_RenterType:BufferTypeHandle<Renter> m_StudentType:BufferTypeHandle<Game.Buildings.Student> m_UpgradeType:BufferTypeHandle<InstalledUpgrade> m_OutsideConnections:ComponentLookup<Game.Objects.OutsideConnection> m_ServiceDatas:ComponentLookup<ServiceCompanyData> m_Buildings:ComponentLookup<Building> m_Households:ComponentLookup<Household> m_HomelessHouseholds:ComponentLookup<HomelessHousehold> m_Workers:ComponentLookup<Worker> m_Students:ComponentLookup<Game.Citizens.Student> m_Citizens:ComponentLookup<Citizen> m_HealthProblems:ComponentLookup<HealthProblem> m_TouristHouseholds:ComponentLookup<TouristHousehold> m_HouseholdCitizens:BufferLookup<HouseholdCitizen> m_Transforms:ComponentLookup<Game.Objects.Transform> m_BuildingDatas:ComponentLookup<Building> m_Efficiencies:BufferLookup<Efficiency> m_LodgingProviders:ComponentLookup<LodgingProvider> m_AttractivenessProviders:ComponentLookup<AttractivenessProvider> m_PropertiesOnMarket:ComponentLookup<PropertyOnMarket> m_PropertyRenters:ComponentLookup<PropertyRenter> m_Crimes:ComponentLookup<CrimeProducer> m_Parks:ComponentLookup<Game.Buildings.Park> m_Abandoneds:ComponentLookup<Abandoned> m_ElectricityConsumers:ComponentLookup<ElectricityConsumer> m_WaterConsumers:ComponentLookup<WaterConsumer> m_GarbageProducers:ComponentLookup<GarbageProducer> m_MailProducers:ComponentLookup<MailProducer> m_PathInfos:ComponentLookup<PathInformation> m_Prefabs:ComponentLookup<PrefabRef> m_IndustrialProcessDatas:ComponentLookup<IndustrialProcessData> m_LeisureProviderDatas:ComponentLookup<LeisureProviderData> m_ResourceDatas:ComponentLookup<ResourceData> m_SchoolDatas:ComponentLookup<SchoolData> m_PrefabBuildingDatas:ComponentLookup<BuildingData> m_BuildingProperties:ComponentLookup<BuildingPropertyData> m_SpawnableDatas:ComponentLookup<SpawnableBuildingData> m_ZoneDatas:ComponentLookup<ZoneData> m_ZonePropertiesDatas:ComponentLookup<ZonePropertiesData> m_Lockeds:ComponentLookup<Locked> m_Companies:ComponentLookup<CompanyData> m_Resources:BufferLookup<Game.Economy.Resources> m_ServiceDistricts:BufferLookup<ServiceDistrict> m_Availabilities:BufferLookup<ResourceAvailability> m_ServiceCoverages:BufferLookup<Game.Net.ServiceCoverage> m_Renters:BufferLookup<Renter> m_CityModifiers:BufferLookup<CityModifier> m_OwnedVehicles:BufferLookup<OwnedVehicle>
+type Game.Simulation.CitizenTravelPurposeSystem class fb877ac13e
+type Game.Simulation.CityServiceBudgetSystem class 5940599ffd
+type Game.Simulation.CityServiceUpkeepSystem class 030ac91bb6
+type Game.Simulation.CityStatisticsSystem class 77b2611f93
+type Game.Simulation.CitySystem class 51405821f3
+type Game.Simulation.ClimateSystem class 7c43e13d9d
+type Game.Simulation.CollapsedBuildingSystem class 324df92b89
+type Game.Simulation.DispatchElectricitySystem class f23ac29fde
+type Game.Simulation.ElectricityBuildingGraphSystem class 17f76155b9
+type Game.Simulation.ElectricityFlowSystem class f6194a731a
+type Game.Simulation.ElectricityNodeConnection struct 3c2c21af40 m_ElectricityNode:Entity
+type Game.Simulation.ElectricityStatusSystem class 2e276212ee
+type Game.Simulation.ElectricityValveConnection struct 5da68e9176 m_ValveNode:Entity
+type Game.Simulation.GroundHeightSystem class e0ecb01985
+type Game.Simulation.GroundPollutionSystem class 0b7742f22e
+type Game.Simulation.HouseholdBehaviorSystem class 8f506ad381
+type Game.Simulation.HouseholdMoveAwaySystem class 8de32ff254
+type Game.Simulation.HumanNavigationHelpers class 89610a3ecf
+type Game.Simulation.LeisureSystem class b31bd2c330
+type Game.Simulation.MaintenanceType enum b950195528 Park=1 Road=2 Snow=4 Vehicle=8 None=0
+type Game.Simulation.MeetingSystem class 6db694676e
+type Game.Simulation.NetXPSystem class c3ee1f7ebc
+type Game.Simulation.NoisePollutionSystem class 69e009d5cc
+type Game.Simulation.ParkAISystem class f31a5b3092
+type Game.Simulation.ParkingFacilityAISystem class 1989e710b8
+type Game.Simulation.PathfindSetupSystem class c7a5f6536a
+type Game.Simulation.PersonalCarAISystem class f41bcbdeee
+type Game.Simulation.PlanetarySystem class bf3239d9ac
+type Game.Simulation.RandomTrafficDispatchSystem class 07411b7e01
+type Game.Simulation.ResidentAISystem class 34d6eebf1d
+type Game.Simulation.ResourceBuyerSystem class 9f056677d3
+type Game.Simulation.ServiceFeeSystem class f96601eaa2
+type Game.Simulation.SimulationSystem class cfc92968a1
+type Game.Simulation.SimulationUtils class 00f3bd97f6
+type Game.Simulation.SnowSystem class 035219d164
+type Game.Simulation.StreetLightSystem class 757f8622d1
+type Game.Simulation.StudentSystem class 7460de65db
+type Game.Simulation.SurfaceWater struct 28c7707206 m_Depth:float m_Polluted:float m_Velocity:float2
+type Game.Simulation.TaxSystem class 75f727bc04
+type Game.Simulation.TelecomCoverageSystem class cd0ee9daa6
+type Game.Simulation.TerrainHeightData struct 7ce81e6b40 burst:r:SkiSnowInjectionSystem heights:NativeArray<ushort> downscaledHeights:NativeArray<ushort> resolution:int3 downScaledResolution:int3 scale:float3 offset:float3 hasBackdrop:bool
+type Game.Simulation.TerrainSystem class debc23d818
+type Game.Simulation.TerrainUtils class 24018acaba
+type Game.Simulation.TimeSystem class 7532023526
+type Game.Simulation.TourismSystem class e99a955257
+type Game.Simulation.TouristLeaveSystem class c64bf37678
+type Game.Simulation.TrafficSpawnerAISystem class e3b9ccf2bc
+type Game.Simulation.TransportCarAISystem class 16935f854e
+type Game.Simulation.TreeGrowthSystem class 32a8aa13d0
+type Game.Simulation.TripNeededSystem class bb768bdebb
+type Game.Simulation.UpdateFrame struct 8832b52d2e burst:w:SkiDaySystem m_Index:uint
+type Game.Simulation.UpdateGroupSystem class 2ca474491e
+type Game.Simulation.WaitingPassengersSystem class 13c3c41b8b
+type Game.Simulation.WaterSurfaceData struct e664cfb3eb depths:NativeArray<T> resolution:int3 scale:float3 offset:float3 hasDepths:bool
+type Game.Simulation.WaterSystem class b930a1b540
+type Game.Simulation.WaterUtils class 58852ffedf
+type Game.Simulation.WetnessSystem class 962fba1342
+type Game.Simulation.Wind struct 54368f3ccd m_Wind:float2
+type Game.Simulation.WindSystem class acf1312923
+type Game.Simulation.WorkProviderSystem class a9c7ce0782
+type Game.Simulation.WorkerSystem class 4cd55b9dd1
+type Game.SystemUpdatePhase enum d19d8ab79d Invalid=-1 MainLoop=0 LateUpdate=1 Modification1=2 Modification2=3 Modification2B=4 Modification3=5 Modification4=6 Modification4B=7 Modification5=8 ModificationEnd=9 PreSimulation=10 PostSimulation=11 GameSimulation=12 EditorSimulation=13 Rendering=14 PreTool=15 PostTool=16 ToolUpdate=17 ClearTool=18 ApplyTool=19 Serialize=20 Deserialize=21 UIUpdate=22 UITooltip=23 PrefabUpdate=24 DebugGizmos=25 LoadSimulation=26 PreCulling=27 CompleteRendering=28 Raycast=29 PrefabReferences=30 Cleanup=31
+type Game.Tools.ApplyAreasSystem class 5361f23be9
+type Game.Tools.ApplyMode enum 246396531d None=0 Apply=1 Clear=2
+type Game.Tools.ApplyNetSystem class 637d5410dc
+type Game.Tools.ApplyObjectsSystem class 960ef38586
+type Game.Tools.AreaToolSystem class 078f6b9982
+type Game.Tools.Brush struct 570979063a m_Tool:Entity m_Position:float3 m_Target:float3 m_Start:float3 m_Angle:float m_Size:float m_Strength:float m_Opacity:float
+type Game.Tools.BulldozeToolSystem class 29db60a026
+type Game.Tools.ControlPoint struct dc13e22cd5 m_Position:float3 m_HitPosition:float3 m_Direction:float2 m_HitDirection:float3 m_Rotation:quaternion m_OriginalEntity:Entity m_SnapPriority:float2 m_ElementIndex:int2 m_CurvePosition:float m_Elevation:float
+type Game.Tools.CoursePos struct 939a5c1da4 m_Entity:Entity m_Position:float3 m_Rotation:quaternion m_Elevation:float2 m_CourseDelta:float m_SplitPosition:float m_Flags:CoursePosFlags m_ParentMesh:int
+type Game.Tools.CoursePosFlags enum 9c66607f31 IsFirst=1 IsLast=2 HalfAlign=4 IsParallel=8 IsRight=16 IsLeft=32 IsFixed=64 FreeHeight=128 LeftTransition=256 RightTransition=512 ForceElevatedNode=1024 ForceElevatedEdge=2048 DisableMerge=4096 IsGrid=8192 DontCreate=16384
+type Game.Tools.CourseSplitSystem class d4e2ee406f
+type Game.Tools.CreationDefinition struct 0ea2236377 m_Prefab:Entity m_SubPrefab:Entity m_Original:Entity m_Owner:Entity m_Attached:Entity m_Flags:CreationFlags m_RandomSeed:int
+type Game.Tools.CreationFlags enum bb38da5e94 Permanent=1 Select=2 Delete=4 Attach=8 Upgrade=16 Relocate=32 Invert=64 Align=128 Hidden=256 Parent=512 Dragging=1024 Recreate=2048 Optional=4096 Lowered=8192 Native=16384 Construction=32768 SubElevation=65536 Duplicate=131072 Repair=262144 Stamping=524288
+type Game.Tools.Debug struct 963d5decca
+type Game.Tools.DefaultToolSystem class b11341dc60
+type Game.Tools.Error struct a2d69ceeeb burst:r:SkiRunOutlineSystem
+type Game.Tools.ErrorSeverity enum aac8215bf4 None=0 Override=1 Warning=2 Error=3 Cancel=4 CancelError=5
+type Game.Tools.ErrorType enum bcd1fafb32 burst:r:SkiRunOutlineSystem None=0 OverlapExisting=1 InvalidShape=2 NotEnoughMoney=3 PathfindFailed=4 NoRoadAccess=5 NoCarAccess=6 NoPedestrianAccess=7 LongDistance=8 TightCurve=9 NoTrainAccess=10 NoTrackAccess=11 AlreadyUpgraded=12 InWater=13 NoCargoAccess=14 NoWater=15 ExceedsCityLimits=16 NotOnShoreline=17 AlreadyExists=18 ShortDistance=19 LowElevation=20 SmallArea=21 SteepSlope=22 ExceedsLotLimits=23 NotOnBorder=24 NoGroundWater=25 OnFire=26 NoPortAccess=27 NotEnoughClearance=28 NoBicycleAccess=29 NotEditable=30 Count=31
+type Game.Tools.GenerateAreasSystem class c226f77eee
+type Game.Tools.GenerateEdgesSystem class 68929738cc
+type Game.Tools.GenerateNodesSystem class 3d781a185b
+type Game.Tools.GenerateObjectsSystem class ae1541563d
+type Game.Tools.Hidden struct 1d74800bde
+type Game.Tools.NetCourse struct 00ed3d64c9 m_StartPosition:CoursePos m_EndPosition:CoursePos m_Curve:Bezier4x3 m_Elevation:float2 m_Length:float m_FixedIndex:int
+type Game.Tools.NetToolSystem class 229f09cb1a
+type Game.Tools.ObjectDefinition struct 5830b7ac8c m_Position:float3 m_LocalPosition:float3 m_Scale:float3 m_Rotation:quaternion m_LocalRotation:quaternion m_Elevation:float m_Intensity:float m_Age:float m_IsDecoration:bool m_ParentMesh:int m_GroupIndex:int m_Probability:int m_PrefabSubIndex:int
+type Game.Tools.ObjectToolBaseSystem class 09475a5588
+type Game.Tools.ObjectToolSystem class 344f3be73e
+type Game.Tools.SelectionToolSystem class c687f2c84a
+type Game.Tools.Snap enum 896063b23f ExistingGeometry=1 CellLength=2 StraightDirection=4 NetSide=8 NetArea=16 OwnerSide=32 ObjectSide=64 NetMiddle=128 Shoreline=256 NearbyGeometry=512 GuideLines=1024 ZoneGrid=2048 NetNode=4096 ObjectSurface=8192 Upright=16384 LotGrid=32768 AutoParent=65536 PrefabType=131072 ContourLines=262144 Distance=524288 None=0 All=uint.MaxValue
+type Game.Tools.Temp struct 2a10e93f82 burst:r:SkiRunOutlineSystem m_Original:Entity m_CurvePosition:float m_Value:int m_Cost:int m_Flags:TempFlags
+type Game.Tools.TempFlags enum ba153b42f0 burst:r:SkiRunOutlineSystem Create=1 Delete=2 IsLast=4 Essential=8 Dragging=16 Select=32 Modify=64 Regenerate=128 Replace=256 Upgrade=512 Hidden=1024 Parent=2048 Combine=4096 RemoveCost=8192 Optional=16384 Cancel=32768 SubDetail=65536 Duplicate=131072
+type Game.Tools.TerrainToolSystem class 2ca831f1d3
+type Game.Tools.ToolApplySystem class 54e7017f16
+type Game.Tools.ToolBaseSystem class 20829a255f
+type Game.Tools.ToolClearSystem class 317d8a8c29
+type Game.Tools.ToolOutputBarrier class b363e766a2
+type Game.Tools.ToolOutputSystem class 0a6ae54bac
+type Game.Tools.ToolRaycastSystem class bf3d63d916
+type Game.Tools.ToolSystem class 91b8ff5310
+type Game.Tools.ToolUtils class 37b02ac827
+type Game.Tools.TrafficRoutesSystem class 12e8431591
+type Game.Tools.ValidationSystem class fedc6bbefe
+type Game.Tools.ValidationSystem.Components class fedc6bbefe
+type Game.Tools.Warning struct 367be99ae7 burst:r:SkiRunOutlineSystem
+type Game.Tutorials.TutorialSystem class 3c84a8d31c
+type Game.UI.ConfirmationDialog class 58fb84f455
+type Game.UI.CustomName struct 13807eee1a
+type Game.UI.InGame.ActionsSection class 852250b4fc
+type Game.UI.InGame.BudgetUISystem class 616937d0f0
+type Game.UI.InGame.EfficiencySection class f493d7e584
+type Game.UI.InGame.ElectricityUIUtils class 3973e7560a
+type Game.UI.InGame.EmployeesSection class a0946973ba
+type Game.UI.InGame.InfoviewsUISystem class f419dbcd6f
+type Game.UI.InGame.MilestoneUISystem class 72934ba305
+type Game.UI.InGame.Notification struct f3f32a6a38 entity:Entity target:Entity priority:IconPriority
+type Game.UI.InGame.NotificationsSection class 3074d5340c
+type Game.UI.InGame.PrefabUISystem class 7aafda39ff
+type Game.UI.InGame.RoadsInfoviewUISystem class 070563c361
+type Game.UI.InGame.SelectedInfoUISystem class 531ae549b4
+type Game.UI.InGame.TitleSection class 9ecf7cc0cf
+type Game.UI.InGame.ToolUISystem class 62c8d463cc
+type Game.UI.InGame.ToolbarUISystem class 61a1507c2e
+type Game.UI.InGame.TransformerSection class fd8798c25e
+type Game.UI.InGame.UIHighlightSystem class 6d44f3410e
+type Game.UI.InGame.UpgradeMenuUISystem class 4ed75d9941
+type Game.UI.InGame.UpkeepSection class 1f99564dd1
+type Game.UI.Localization.ILocElement interface bd7efc1963
+type Game.UI.Localization.LocalizedNumber struct 7c2a9a7d3f m_ValueWriter:IWriter<T> value:T unit:string signed:bool
+type Game.UI.Localization.LocalizedString struct b6d71ca8dd id:string value:string args:IReadOnlyDictionary<string,ILocElement>
+type Game.UI.Menu.AutomaticSettings class d198c2258f
+type Game.UI.Menu.InputRebindingUISystem class 245fc868e0
+type Game.UI.NameSystem class 23141f14b1
+type Game.UI.Tooltip.AreaToolTooltipSystem class 97a246f139
+type Game.UI.Tooltip.CityPolicyTooltipSystem class 8d38b43ceb
+type Game.UI.Tooltip.FloatTooltip class ae9a391bfc
+type Game.UI.Tooltip.GuideLineTooltipSystem class 79a50245ea
+type Game.UI.Tooltip.HomelessTooltipSystem class a1b3818732
+type Game.UI.Tooltip.IconTooltip class 7acb30c294
+type Game.UI.Tooltip.IntTooltip class 93f7a504dc
+type Game.UI.Tooltip.LabelIconTooltip class 642f3d793b
+type Game.UI.Tooltip.LandValueTooltipSystem class 9f8ac02282
+type Game.UI.Tooltip.NetCourseTooltipSystem class 712bbdd30d
+type Game.UI.Tooltip.NumberTooltip class b8e2b976ec
+type Game.UI.Tooltip.ProgressTooltip class b1de26f7e0
+type Game.UI.Tooltip.RaycastElectricityTooltipSystem class 49e61ae098
+type Game.UI.Tooltip.StringTooltip class c5a361e160
+type Game.UI.Tooltip.TempCostTooltipSystem class 1edee67420
+type Game.UI.Tooltip.TempExtractorTooltipSystem class 07e9b5d55f
+type Game.UI.Tooltip.TempNotificationTooltipSystem class 2d4043fce4
+type Game.UI.Tooltip.TooltipColor enum 6b73c6c076 Info=0 Success=1 Warning=2 Error=3
+type Game.UI.Tooltip.TooltipGroup class 2f981bdea5
+type Game.UI.Tooltip.TooltipSystemBase class 1d78b684af
+type Game.UI.Tooltip.TooltipUISystem class c3d8655855
+type Game.UI.Tooltip.WaterSourceTooltipSystem class fdb63576bd
+type Game.UI.UISystemBase class 35bff48b2e
+type Game.UI.UIUpdateSystem class 26a9094fc5
+type Game.UI.Unit class a88cd2dede
+type Game.UI.Widgets.IWidget interface 397bbb6e92
+type Game.UI.Widgets.Widget class b2f94e9abf
+type Game.UpdateSystem class 407c5a78f3
+type Game.Vehicles.Bicycle struct fa78669bdc burst:r:SkiDaySystem
+type Game.Vehicles.CarCurrentLane struct 43b6e892b8 burst:w:SkiCoachSystem m_Lane:Entity m_ChangeLane:Entity m_CurvePosition:float3 m_LaneFlags:CarLaneFlags m_ChangeProgress:float m_Duration:float m_Distance:float m_LanePosition:float
+type Game.Vehicles.CarLaneFlags enum 437de119c6 burst:r:SkiCoachSystem EndOfPath=1 EndReached=2 UpdateOptimalLane=4 TransformTarget=8 ParkingSpace=16 EnteringRoad=32 Obsolete=64 Reserved=128 FixedLane=256 Waypoint=512 Checked=1024 GroupTarget=2048 Queue=4096 IgnoreBlocker=8192 IsBlocked=16384 QueueReached=32768 Validated=65536 Interruption=131072 TurnLeft=262144 TurnRight=524288 PushBlockers=1048576 HighBeams=2097152 RequestSpace=4194304 FixedStart=8388608 Connection=16777216 ResetSpeed=33554432 Area=67108864 Roundabout=134217728 CanReverse=268435456 ClearedForPathfind=536870912
+type Game.Vehicles.Controller struct b6a63b64d4 burst:r:SkiDaySystem m_Controller:Entity
+type Game.Vehicles.EnergyTypes enum 6bf1d47c25 Fuel=1 Electricity=2 FuelAndElectricity=3 None=0
+type Game.Vehicles.FixParkingLocationSystem class 02b26c5d25
+type Game.Vehicles.InitializeSystem class bbe278b1a2
+type Game.Vehicles.OwnedVehicle struct a187e43e04 burst:r:SkiDaySystem,SkiLiftTicketSystem m_Vehicle:Entity
+type Game.Vehicles.ParkedCar struct 1479aacbd6 burst:r:SkiDaySystem,SkiLodgeParkingSystem m_Lane:Entity m_CurvePosition:float
+type Game.Vehicles.ParkedVehiclesSystem class 98a540bd1a
+type Game.Vehicles.PassengerTransport struct 2fe662e257
+type Game.Vehicles.PersonalCar struct 48c03308f8 burst:r:SkiDaySystem m_Keeper:Entity m_State:PersonalCarFlags
+type Game.Vehicles.PersonalCarFlags enum e9ebc4e385 burst:r:SkiDaySystem Transporting=1 Boarding=2 Disembarking=4 DummyTraffic=8 HomeTarget=16
+type Game.Vehicles.PublicTransport struct 5cdc74cd22 burst:r:SkiCoachSystem,SkiDaySystem m_TargetRequest:Entity m_State:PublicTransportFlags m_DepartureFrame:uint m_RequestCount:int m_PathElementTime:float m_MaxBoardingDistance:float m_MinWaitingDistance:float
+type Game.Vehicles.PublicTransportFlags enum f991919676 burst:r:SkiCoachSystem,SkiDaySystem Returning=1 EnRoute=2 Boarding=4 Arriving=8 Launched=16 Evacuating=32 PrisonerTransport=64 RequiresMaintenance=128 Refueling=256 AbandonRoute=512 RouteSource=1024 Testing=2048 RequireStop=4096 DummyTraffic=8192 StopLeft=16384 StopRight=32768 Disabled=65536 Full=131072
+type Game.Vehicles.ReferencesSystem class a237154356
+type Game.Vehicles.SizeClass enum 64f7d07e32 Small=0 Medium=1 Large=2 Undefined=3
+type Game.Vehicles.Taxi struct 83654b4638 burst:r:SkiDaySystem m_TargetRequest:Entity m_State:TaxiFlags m_PathElementTime:float m_StartDistance:float m_MaxBoardingDistance:float m_MinWaitingDistance:float m_ExtraPathElementCount:int m_NextStartingFee:ushort m_CurrentFee:ushort
+type Game.Vehicles.TaxiFlags enum 1707de1aab burst:r:SkiDaySystem Returning=1 Requested=2 Arriving=4 Boarding=8 Disembarking=16 Transporting=32 RequiresMaintenance=64 Dispatched=128 FromOutside=256 Disabled=512
+type Game.Vehicles.Vehicle struct d4d4700b27 burst:r:SkiCoachSystem
+type Game.Vehicles.VehicleUtils class 5930ace5f0
+type Game.Version class b5a0a70fa1
+type Game.Zones.AreaType enum 0020e2eadd None=0 Residential=1 Commercial=2 Industrial=3
+type Game.Zones.RaycastJobs class 7e0eac0191
+type Game.Zones.SearchSystem class 8b4292c96c
+type Game.Zones.ZoneType struct b246568eca m_Index:ushort
+anchor CatTrackGradeTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor LiftLineIconSystem after Game.Net.ConnectionWarningSystem ModificationEnd
+anchor LiftLineTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor LiftPowerCueSystem after Game.Simulation.ElectricityStatusSystem GameSimulation interval{return 128;} offset{return 127;}
+anchor LiftReconnectSystem before Game.Net.LaneSystem Modification4
+anchor LiftTowerPlanOverlaySystem before Game.Rendering.OverlayRenderSystem Rendering
+anchor PowerBridgeSystem before Game.Simulation.ElectricityBuildingGraphSystem Modification4B
+anchor PowerJoinRefusalSystem before Game.Tools.ValidationSystem.Components ModificationEnd
+anchor PowerJoinTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor QuickRunsTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor SkiCatTrackDeleteSystem before Game.Objects.SubElementDeleteSystem PostTool
+anchor SkiCoachSystem before Game.Simulation.TransportCarAISystem GameSimulation interval{return 16;} offset{return 1;}
+anchor SkiDaySystem after Game.Simulation.LeisureSystem GameSimulation interval{return 262144 / kUpdatePerDay;}
+anchor SkiDeleteAllSystem before Game.Objects.SubElementDeleteSystem PostTool
+anchor SkiGladeTagSystem before Game.Tools.ApplyObjectsSystem ApplyTool
+anchor SkiGladeTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor SkiGuestCounterSystem after Game.Simulation.MeetingSystem GameSimulation interval{return 16;}
+anchor SkiLiftTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor SkiNightLightSystem after Game.Effects.EffectFlagSystem GameSimulation interval{return 2048;}
+anchor SkiPisteMapSystem before Game.Rendering.OverlayRenderSystem Rendering
+anchor SkiPlacementInfoviewSystem before Game.UI.InGame.InfoviewsUISystem UIUpdate
+anchor SkiResortAttractivenessSystem after Game.Simulation.AttractionSystem GameSimulation interval{return 16;}
+anchor SkiRunContourSystem before Game.Rendering.UndergroundViewSystem PreCulling
+anchor SkiRunDecalSystem after Game.Rendering.AreaBatchSystem PreCulling
+anchor SkiRunDrawFeedbackSystem before Game.Rendering.OverlayRenderSystem Rendering
+anchor SkiRunOutlineSystem before Game.Rendering.OverlayRenderSystem Rendering
+anchor SkiRunPropSystem before Game.Objects.SecondaryObjectSystem Modification4B
+anchor SkiRunSurfaceSystem after Game.Simulation.WetnessSystem GameSimulation interval{return 256;}
+anchor SkiRunTooltipSystem after Game.UI.Tooltip.AreaToolTooltipSystem UITooltip
+anchor SkiSnowInjectionSystem after Game.Simulation.SnowSystem GameSimulation interval{return 4;}
+anchor SkiSnowLineOverlaySystem before Game.Rendering.OverlayRenderSystem Rendering
+anchor SkiStationAlignSystem before Game.Rendering.OverlayRenderSystem Rendering
+anchor SkiStubCleanupSystem before Game.Objects.SubElementDeleteSystem PostTool
+anchor StationFacingRefusalSystem before Game.Tools.ValidationSystem.Components ModificationEnd
+anchor StationFacingTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor TowerLeanSystem after Game.Objects.AlignSystem Modification4
+anchor TrainBoneSystem after Game.Rendering.InitializeBonesSystem Rendering
+guid UnityGUID:024ff26a34d89b241b55fd5ea12c5dcc m_Object
+guid UnityGUID:03b1510ce391829409b4f09a7bffaa49 m_Object
+guid UnityGUID:05564431524791c48846dbd183fd232d m_Group
+guid UnityGUID:0bbcb0620e01694448cb78385580351b m_Object
+guid UnityGUID:0d01c98e6f7cd9b44ac31084b6ba7ccd m_Object
+guid UnityGUID:1a4c93c0bf4c1fa438702f35ad299923 m_Effect
+guid UnityGUID:1ad78f47f5ed32b4a85ae101abc6d7ae m_Object
+guid UnityGUID:2ea04b52c3797114cb8e4c281a6c91c3 m_Object
+guid UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b m_Lane,m_LanePrefab
+guid UnityGUID:3e47e765f44f210409edf4e6229fd0df (list)
+guid UnityGUID:3f3008bdf841128428290d4f3678baa7 m_Object
+guid UnityGUID:3f8dafc1558bce24597bd8ca898947fa m_Object
+guid UnityGUID:3fdbb39d2f9bdb543a0c3fdb5450d0a6 m_Mesh
+guid UnityGUID:41e3c9ba6e1d6b948a6b1bc3499a5397 m_Object
+guid UnityGUID:4664992baaa28e2419b6651edd4430e8 m_Effect
+guid UnityGUID:4a2cdf33f0f230547ace4b40393f8a64 m_Object
+guid UnityGUID:57d3607bc6f3c79408a27d4990e38565 m_Object
+guid UnityGUID:5930db6811522d34495a9e16c4fd4c18 m_Service
+guid UnityGUID:59a83de6faed898459bde98b0256b452 m_Object
+guid UnityGUID:5c1f656a5ea20284197a71e4997b4187 m_Service
+guid UnityGUID:63c46490ab59afd4dae01ee442f1e462 m_Object
+guid UnityGUID:692403ec8d6db1b43834cddde8a87f68 m_Mesh
+guid UnityGUID:6b6861547d4e1964aa977434af734126 m_Object
+guid UnityGUID:6d596175b01c2c04d9c174ecd6b96610 m_Activity
+guid UnityGUID:71df37e0fc45ade46a64fba0eedd7c54 m_Group
+guid UnityGUID:7dc1256672985f840a2e4884a5c4f31a m_Object
+guid UnityGUID:8c4ba2f38d2c91344b8dbd24be370996 m_Activity
+guid UnityGUID:8d8722db083c3564291e3778cceeb1ae m_Object
+guid UnityGUID:8df0703be09426948b5bc3262d86bc04 m_Object
+guid UnityGUID:96d63256a8b9f4942b1949c7067e6613 m_Object
+guid UnityGUID:98c77a4f2885dd541a7a3700edefa21e m_Object
+guid UnityGUID:9941294ce11529c42a120ac622d61cbd m_Object
+guid UnityGUID:9af2c85bf8f3400438a82523ed61b8a4 (list)
+guid UnityGUID:9cbf401c04ad63b44a36c0dc0db26e67 m_UndergroundPrefab
+guid UnityGUID:a4fdfd0ffe3c5fa4bb7cc6522ef81d01 m_Object
+guid UnityGUID:a534d6be94fb0cb4eb683f62412d0b1a m_Service
+guid UnityGUID:b0ea4a4915b28f14a826bb809e02db7a m_Object
+guid UnityGUID:b7e2343fd7ff9f642b77084a04738e43 m_Object
+guid UnityGUID:b916e77fd42bccf448ed1020e15673e4 m_Object
+guid UnityGUID:b99325ff4ff4dfd459734d8f765c2597 m_Object
+guid UnityGUID:ba47f549eb430ac46a7c1b4cca509594 m_Object
+guid UnityGUID:c1d98e3e6f5e1204cb071deaf0f74020 m_Object
+guid UnityGUID:c30226ded1fc8d64abee5d0bd2554bc4 m_Object
+guid UnityGUID:c92b9810143a9ba4ca5e004fc709d92f (list)
+guid UnityGUID:c987b53e24a01e744b4a00ee5b1f8a08 m_Object
+guid UnityGUID:cfc12fde01d9da24b86ddedd657eaae1 m_Object
+guid UnityGUID:d69b0d6310cb4f5469934fd93238e54b m_Object
+guid UnityGUID:da77916829a8fdf448723d1eafce10e7 m_Effect
+guid UnityGUID:dc8abeea43367b24ba2668784a309e56 m_Object
+guid UnityGUID:e334c9885e132684488e4fa21e06d975 m_Object
+guid UnityGUID:e73db1817f8e60543897e8c94e92d2ae m_Object
+guid UnityGUID:eb0c6cfabb61428468ef54336829d021 m_AreaPrefab
+guid UnityGUID:f6114f04a78845643b41b1c44e6efbc4 m_Effect
+guid UnityGUID:f7955fd41c1617847b4a4138acabcbcb m_Object
+guid UnityGUID:fb4247f7a6f75b1478d9dd01ac88ce86 m_Object
+guid UnityGUID:fc058a3d03b337e4794c432a84170316 m_Object
+guid UnityObjectsMap:0f7db8761506813468a9bb7b91f145be m_Effect
+guid UnityObjectsMap:a1b9ab64e2f648a4da17231062c1e066 m_Material
+burstsystem ChairPinSystem
+burstsystem SkiCoachSystem
+burstsystem SkiDaySystem
+burstsystem SkiGroomerSystem
+burstsystem SkiGuestCounterSystem
+burstsystem SkiLiftTicketSystem
+burstsystem SkiLodgeParkingSystem
+burstsystem SkiPisteMapSystem
+burstsystem SkiReachCensusSystem
+burstsystem SkiResortAttractivenessSystem
+burstsystem SkiRunDrawFeedbackSystem
+burstsystem SkiRunOutlineSystem
+burstsystem SkiSnowInjectionSystem
+burstsystem TrainBoneSystem

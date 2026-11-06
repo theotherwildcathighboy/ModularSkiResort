@@ -60,6 +60,15 @@ dq-chair-skeptic.md applied: T1 determinism, T2 contracts, T3 trace, T4 full bui
      DQ_GRIP_SIDE_PARTS identical vertex for vertex; every grip-side part the exact mirror (y -> -y)
      of its +1 self; the hanger's vertical run on -Y; C13 equal; the LOD2 proxy's grip box + hanger
      mirrored, the rest identical.
+  2f. Carrier split (2026-11-03): tr / dq --split (SkiLiftChair6N + SkiLiftChair6GripN, SkiLiftChairDQ4N +
+     SkiLiftChairDQ4GripN) built into a temp folder; S1 / S2 / S3 (the pin sweeps pitch + fore-aft
+     only, roll 0: the sway rolls the whole assembly), the pair contracts on every level, validation,
+     the re-import and no home-folder path in the manifest args (see test_split); the tr manifests
+     carry the clevis alignment audit, dq none.
+  2g. tr split round 3 (owner verdict 2026-11-03): lift_chair.split_alignment passes on the built
+     parts and raises when the clevis drifts 6 mm off the jaw block center in plan or the tube end
+     tilts 2 deg about the pin; round 4: the split "grip" is the 0.68 m plate on the rope + the clamp box,
+     the one-piece saddle untouched.
   3. Kagelok trace (T3): the bbox-derived [K] numbers in lift_chair.KAGELOK_U (skeptic
      section 1 corrections) re-measured from assets/external/kagelok-chair-lift/source/*.blend
      within 0.01 u, plus the scale chain to catalog/carriers.json (0.3505 m/u, grip top
@@ -759,6 +768,117 @@ def test_full(work):
     check(not diff, f"full fg6l: differs from shipped chairs/L in {diff}")
 
 
+def test_split(work):
+    """2f. Carrier split (2026-11-03, docs/research/carrier-pivot-swing-plan-2026-11-03.md): tr / dq
+    --split --verify into a temp folder. Each of the four manifests (body + grip per style) carries
+    S1 rejoin <= 2 mm, S2 pin gap in (0, 5] mm and S3 0 clashes over the sweep, the pair contracts on
+    LOD0 / LOD1 / LOD2 + C10 silhouettes, 0 validation errors, a re-import OK on all 3 levels, the
+    partner's name, and no absolute home-folder path in its args (tools/check-no-user-paths.js)."""
+    import carrier_split as CS
+    home = os.path.normcase(os.path.realpath(os.path.expanduser("~"))).replace("\\", "/")
+    out = []
+    for key in ("tr", "dq"):
+        st = L.STYLES[key]
+        dst = os.path.join(work, "split", "chairs", L.SPLIT_LETTER)
+        run_main(["--style", key, "--split", "--verify", "--out", dst])
+        names = dict(zip(("body", "grip"), L.split_names(st, L.SPLIT_LETTER)))
+        for role, name in names.items():
+            with open(os.path.join(dst, name, f"{name}.manifest.json"), encoding="utf-8") as fh:
+                m = json.load(fh)
+            sp = m.get("split") or {}
+            s1, s23 = sp.get("S1_rejoin") or {}, sp.get("S2_S3_sweep") or {}
+            rj = max(s1.get("max_old_to_new_mm", 99.0), s1.get("max_new_to_old_mm", 99.0))
+            check(sp.get("role") == role and sp.get("partner") == names["grip" if role == "body" else "body"],
+                  f"split {key} {name}: role {sp.get('role')} / partner {sp.get('partner')}")
+            check(rj <= CS.REJOIN_TOL_M * 1000.0, f"split {key} {name}: S1 rejoin {rj} mm")
+            check(0.0 < s23.get("gap_mm_min", 0.0) and s23.get("gap_mm_max", 99.0) <= CS.GAP_MAX_M * 1000.0
+                  and s23.get("clash_poses") == 0,
+                  f"split {key} {name}: S2 gap {s23.get('gap_mm_min')}..{s23.get('gap_mm_max')} mm, S3 "
+                  f"{s23.get('clash_poses')} clashes")
+            check(s23.get("roll_deg") == [0.0, 0.0]
+                  and s23.get("fore_aft_deg") == [-CS.FORE_AFT_DEG, CS.FORE_AFT_DEG],
+                  f"split {key} {name}: swing convention, pin sweep fore-aft {s23.get('fore_aft_deg')}, "
+                  f"roll {s23.get('roll_deg')} (the sway rolls the whole assembly)")
+            pc = sp.get("pair_contracts") or {}
+            check(all(k in pc for k in ("LOD0", "LOD1", "LOD2", "silhouette")),
+                  f"split {key} {name}: pair contracts {sorted(pc)}")
+            ver = (m.get("verify") or {}).get("levels_ok") or []
+            check(m.get("validation", {}).get("errors") == 0 and len(ver) == 3 and all(ver)
+                  and len(m.get("tris", {})) == 3,
+                  f"split {key} {name}: validation {m.get('validation')}, re-import {ver}, tris {m.get('tris')}")
+            leak = {k: v for k, v in (m.get("args") or {}).items() if isinstance(v, str)
+                    and os.path.normcase(v).replace("\\", "/").startswith(home)}
+            check(not leak, f"split {key} {name}: home-folder paths in the manifest args {leak}")
+            al = sp.get("alignment")
+            if key == "tr":
+                check(bool(al) and al.get("plan_offset_mm", 99.0) < L.SPLIT_ALIGN_PLAN_MAX_M * 1000.0
+                      and al.get("pin_plan_offset_mm", 99.0) < L.SPLIT_ALIGN_PLAN_MAX_M * 1000.0
+                      and al.get("axis_angle_deg", 99.0) <= L.SPLIT_ALIGN_AXIS_MAX_DEG
+                      and al.get("cut_ring_tilt_deg", 99.0) <= L.SPLIT_ALIGN_AXIS_MAX_DEG
+                      and al.get("pin_off_axis_mm", 99.0) <= L.SPLIT_ALIGN_AXIS_OFFSET_MAX_M * 1000.0,
+                      f"split tr {name}: clevis alignment {al}")
+            else:
+                check(al is None, f"split {key} {name}: alignment audit is tr-only, got {al}")
+            out.append(f"{name} {'/'.join(str(t) for t in m['tris'].values())}")
+    print(f"[split] chairs: {', '.join(out)}")
+    return out
+
+
+def test_split_alignment():
+    """2g. tr split rounds 3-4 (owner verdicts 2026-11-03): the clevis alignment audit passes on the built
+    parts and RAISES (ALIGN tr BROKEN) when the clevis drifts 6 mm off the jaw center in plan or the
+    hanger tube's end tilts 2 deg about the pin. Also (round 4): the split "grip" is the long plate on
+    the rope (0.68 m, underside on the rope's top, crown at GRIP_TOP_Z) + the clamp box, no "gripjaw"
+    part; the one-piece FG_GRIP saddle is untouched."""
+    import mathutils
+    L.clear_scene()
+    st, row = L.STYLES["tr"], L.CARRIERS["tr"]
+    body, grip, old, joint = L.build_split_parts(st, row)
+    L._remove_objects([o for o, _q in old])
+    rep = L.split_alignment("tr", body, grip, joint)
+    check(rep["plan_offset_mm"] < 0.01 and rep["axis_angle_deg"] < 0.01 and rep["pin_off_axis_mm"] < 0.01,
+          f"tr split alignment as built: {rep}")
+    by = {o.name: o for o, _q in body + grip}
+    G = np.array([tuple(by["grip"].matrix_world @ v.co) for v in by["grip"].data.vertices])
+    sad = [x for x, _z in L.FG_GRIP["saddle"]]
+    plate_bottom = min(z for _x, z in L.TR_SPLIT_GRIP["plate"])
+    check("gripjaw" not in by and abs(float(np.ptp(G[:, 0])) - 0.68) < 1e-6
+          and abs(float(G[:, 2].max()) - L.GRIP_TOP_Z) < 1e-6 and abs(plate_bottom - 0.024) < 1e-9
+          and abs((max(sad) - min(sad)) - 0.68) < 1e-6,
+          f"round-4 grip: length {np.ptp(G[:, 0]):.3f} m (0.68), top {G[:, 2].max():.4f} ({L.GRIP_TOP_Z}), "
+          f"plate underside {plate_bottom} (rope top 0.024), parts {sorted(by)}; one-piece saddle "
+          f"{max(sad) - min(sad):.3f} (0.68)")
+
+    def broken(what, reason):
+        try:
+            L.split_alignment("tr", body, grip, joint)
+        except RuntimeError as e:
+            ok = "ALIGN tr BROKEN" in str(e) and reason in str(e)
+            check(ok, f"{what}: raised the wrong error {str(e)[:160]}")
+            if ok:
+                print(f"[chair-test] ok {what} raised: {str(e)[:110]}")
+            return
+        check(False, f"{what} did not raise")
+
+    clevis = [by[n] for n in by if n == "gripbridge" or n.startswith(("gripcheek_", "grippin_"))]
+    for o in clevis:
+        o.location.x += 0.006
+    broken("ALIGN: clevis 6 mm fore of the jaw block center", "in plan")
+    for o in clevis:
+        o.location.x -= 0.006
+    stem = by["tube_stem"]
+    keep = stem.matrix_world.copy()
+    pin = mathutils.Vector(tuple(float(c) for c in joint["pin"]))
+    stem.matrix_world = (mathutils.Matrix.Translation(pin) @ mathutils.Matrix.Rotation(math.radians(2.0), 4, "Y")
+                         @ mathutils.Matrix.Translation(-pin) @ keep)
+    broken("ALIGN: hanger tube end tilted 2 deg about the pin", "off the clevis axis")
+    stem.matrix_world = keep
+    rep2 = L.split_alignment("tr", body, grip, joint)
+    check(rep2 == rep, f"tr split alignment restored: {rep2}")
+    L.clear_scene()
+    return rep
+
+
 def test_revision1c(work):
     """Revision 1c (revision1b-check-dq-grip): the dq carriage's big faces shade FLAT - every
     corner normal of its axis-aligned faces within L.FLAT_FACE_MAX_DEG of the face normal, on
@@ -876,6 +996,8 @@ def main():
         test_revision1c(work)
         a2 = test_nitpick_a2()
         trace = test_trace()
+        split = test_split(work)
+        align = test_split_alignment()
         if FULL:
             test_full(work)
     except Exception:  # noqa: BLE001
@@ -892,7 +1014,9 @@ def main():
           f"verdict geometry ok; Revision 3 bar from the rider photos ok (C13 with riders, 7 wrong builds "
           f"raise); Revision 1c "
           f"flat carriage ok (C14 built + FBX, the pre-1c shading raises); nitpick A2 grip side outboard "
-          f"(DQ_OUTBOARD {L.DQ_OUTBOARD:+.0f}): {a2}; trace {trace}"
+          f"(DQ_OUTBOARD {L.DQ_OUTBOARD:+.0f}): {a2}; carrier split {', '.join(split)} (S1 / S2 / S3, "
+          f"pair contracts, no home paths); tr clevis alignment {align['plan_offset_mm']} mm / "
+          f"{align['axis_angle_deg']} deg (a 6 mm drift and a 2 deg tilt raise); trace {trace}"
           f"{'; full builds byte-identical, fg6l == shipped chairs/L' if FULL else ''} ({dt:.1f} s)")
 
 

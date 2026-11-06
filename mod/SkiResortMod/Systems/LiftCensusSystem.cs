@@ -45,6 +45,8 @@ namespace SkiResortMod.Systems
         private LiftTowerFitSystem m_TowerFit;     // fits new / changed lines (writes at Modification1 of a later frame)
         private LiftTowerDiagSystem m_TowerDiag;   // read-only tower log; fed after each build, printed on DumpCensus
         private TowerNumberTileSystem m_TowerNumbers;   // per-tower number tiles; fed after each build, reconciled once quiet
+        private TrainPitchSystem m_TrainPitch;          // line towers' sheave train pitch (lift alignment Phase 2); fed after each build
+        private LiftClearanceSystem m_Clearance;        // low spans (hub row LiftLowSpan); fed after each build
 
         private EntityQuery m_EdgeProbe, m_NodeProbe, m_StationProbe, m_DeletedObjectProbe, m_DeletedLaneProbe;
         private EntityQuery m_EdgeQuery, m_StationQuery;
@@ -80,6 +82,7 @@ namespace SkiResortMod.Systems
         private long m_LastBuildFrame;
         private bool m_InitialBuild;
         private bool m_CoalescePending;
+        private string m_RequestedWhy;   // RequestBuild's reason, for the next coalesced build
 
         private readonly Dictionary<Entity, Transform> m_StationTransforms = new Dictionary<Entity, Transform>();
 
@@ -106,6 +109,8 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, uint> m_BackSince = new Dictionary<Entity, uint>();       // streak start (sim frame)
         private readonly Dictionary<Entity, uint> m_StreakReadFrame = new Dictionary<Entity, uint>(); // last read in a streak
         private readonly Dictionary<Entity, int> m_GuardRecuts = new Dictionary<Entity, int>();       // flickers this episode
+        // The pending window (LiftServedRule.ExpirePending): the sim frame of a station's first Pending read; an entry only while Pending
+        private readonly Dictionary<Entity, uint> m_PendingSince = new Dictionary<Entity, uint>();
         private Game.Simulation.SimulationSystem m_Simulation;                                      // frameIndex (SimulationSystem.cs:68)
 
         private bool m_Armed, m_Disabled, m_ErrorLogged;
@@ -272,8 +277,18 @@ namespace SkiResortMod.Systems
             // The last value read for this station feeds the rule's hysteresis (NoPower under half, back at three quarters); a first read
             // passes Unknown
             bool known = m_LastPower.TryGetValue(baseStation, out LiftPower last);
+            // With the cooldown counter: a station the first dispatch has not judged yet reads Pending (held), not Powered (601 i)
             LiftPower raw = LiftServedRule.PowerOf((byte)consumer.m_Flags, consumer.m_WantedConsumption,
-                                                   consumer.m_FulfilledConsumption, known ? last : LiftPower.Unknown);
+                                                   consumer.m_FulfilledConsumption, consumer.m_CooldownCounter,
+                                                   known ? last : LiftPower.Unknown);
+            uint pendingSince = m_PendingSince.TryGetValue(baseStation, out uint ps) ? ps : LiftServedRule.NoBackSince;
+            uint pendingNow = m_Simulation != null ? m_Simulation.frameIndex : 0u;
+            uint pendingStart = pendingSince;
+            raw = LiftServedRule.ExpirePending(raw, ref pendingSince, pendingNow, out bool pendingTimedOut);
+            if (pendingSince == LiftServedRule.NoBackSince)
+                m_PendingSince.Remove(baseStation);
+            else
+                m_PendingSince[baseStation] = pendingSince;
             LiftPower power = raw;
             int flickers = 0;
             if (known)
@@ -306,8 +321,9 @@ namespace SkiResortMod.Systems
                     m_GuardRecuts.Remove(baseStation);   // the episode ended: its count goes into the power-back line
             }
             m_LastPower[baseStation] = power;
-            if (known ? last != power : power == LiftPower.NoPower)
-                OfferPowerLine(baseStation, power, consumer, flickers);
+            if (known ? last != power : power == LiftPower.NoPower || power == LiftPower.Pending)
+                OfferPowerLine(baseStation, power, consumer, flickers, known ? last : LiftPower.Unknown,
+                               pendingTimedOut, pendingStart == LiftServedRule.NoBackSince ? 0u : unchecked(pendingNow - pendingStart));
             return power;
         }
 
@@ -362,14 +378,25 @@ namespace SkiResortMod.Systems
         /// <summary>One "Lift [power]" transition through m_PowerLog (LogWindow 10 s): Plain -> the line now; Summary -> the fold line;
         /// Fold -> counted (slot 0 = to no power, slot 1 = back). <paramref name="flickers"/> = raw NoPower reads the guard absorbed this
         /// episode (named in the power-back line when &gt; 0).</summary>
-        private void OfferPowerLine(Entity baseStation, LiftPower power, Game.Buildings.ElectricityConsumer consumer, int flickers)
+        private void OfferPowerLine(Entity baseStation, LiftPower power, Game.Buildings.ElectricityConsumer consumer, int flickers,
+                                    LiftPower last, bool pendingTimedOut, uint pendingFrames)
         {
-            bool toNoPower = power == LiftPower.NoPower;
+            bool toNoPower = power == LiftPower.NoPower || power == LiftPower.Pending;
             // The warning bracket only while a warning bit is still set
             bool warning = ((byte)consumer.m_Flags &
                             (LiftServedRule.FlagNoElectricityWarning | LiftServedRule.FlagBottleneckWarning)) != 0;
             // The lift stops, and the flicker guard is named in both lines (the effective value is the guarded one)
-            string body = toNoPower
+            string body = power == LiftPower.Pending
+                ? $"{DescribeBase(baseStation)} — power pending: no electricity dispatch has judged the station yet (wanted " +
+                  $"{consumer.m_WantedConsumption}, fulfilled {consumer.m_FulfilledConsumption}, cooldown {consumer.m_CooldownCounter}, " +
+                  $"flags {consumer.m_Flags}); the lift waits for it, at most {LiftServedRule.PendingMaxFrames} sim frames (then it runs)"
+                : last == LiftPower.Pending && power == LiftPower.Powered
+                ? (pendingTimedOut
+                    ? $"{DescribeBase(baseStation)} — no electricity dispatch judged the station in {LiftServedRule.PendingMaxFrames} sim " +
+                      $"frames (electricity locked?; wanted {consumer.m_WantedConsumption}, flags {consumer.m_Flags}); it runs (fail open)"
+                    : $"{DescribeBase(baseStation)} — powered at its first electricity dispatch after {pendingFrames} sim frame(s) " +
+                      $"(wanted {consumer.m_WantedConsumption}, fulfilled {consumer.m_FulfilledConsumption}); it runs")
+                : toNoPower
                 ? $"{DescribeBase(baseStation)} — no power: under half its power arrives (wanted {consumer.m_WantedConsumption}, " +
                   $"fulfilled {consumer.m_FulfilledConsumption}, flags {consumer.m_Flags}); the lift stops, counts 0 and serves no " +
                   $"run until three quarters arrive or the warning clears, held {LiftServedRule.PowerBackHoldFrames} frames against flicker"
@@ -422,6 +449,45 @@ namespace SkiResortMod.Systems
             for (int r = 0; r < rows.Count; r++)
             {
                 if (rows[r].Id == i && rows[r].Top == t)
+                {
+                    row = rows[r];
+                    return true;
+                }
+            }
+            row = default;
+            return false;
+        }
+
+        /// <summary>The first row (row order) whose lowest span is <paramref name="edge"/> (LiftCensus.Row.LowEdge): the hub's LiftLowSpan
+        /// row sends that edge to focusLift.</summary>
+        internal bool TryGetRowOfLowEdge(Entity edge, out LiftCensus.Row row)
+        {
+            EntityRef e = Ref(edge);
+            var rows = m_Census.Rows;
+            for (int r = 0; r < rows.Count && !e.IsNull; r++)
+            {
+                if (rows[r].LowSpan && rows[r].LowEdge == e)
+                {
+                    row = rows[r];
+                    return true;
+                }
+            }
+            row = default;
+            return false;
+        }
+
+        /// <summary>The node is a station's connection node (the last build's stations; LiftClearanceSystem skips the station approach).</summary>
+        internal bool IsStationNode(Entity node) => node != Entity.Null && StationOfNode(node) >= 0;
+
+        /// <summary>The first row (row order) whose tower past its train's limits stands on <paramref name="node"/> (LiftCensus.Row.TrainNode):
+        /// the hub's LiftTrainLimit row sends that node to focusLift.</summary>
+        internal bool TryGetRowOfTrainNode(Entity node, out LiftCensus.Row row)
+        {
+            EntityRef n = Ref(node);
+            var rows = m_Census.Rows;
+            for (int r = 0; r < rows.Count && !n.IsNull; r++)
+            {
+                if (rows[r].TrainNode == n)
                 {
                     row = rows[r];
                     return true;
@@ -537,6 +603,14 @@ namespace SkiResortMod.Systems
         internal Entity ParkQueueAt(int i) => m_ParkQueue[i];
 
         /// <summary>Called by LiftParkSystem (UIUpdate, same frame) after it created the events.</summary>
+        /// <summary>A build within the coalesce window (TrainPitchSystem: the towers past their train's limits changed after the census
+        /// that fed it, so the rows re-measure them).</summary>
+        internal void RequestBuild(string why)
+        {
+            m_CoalescePending = true;
+            m_RequestedWhy = why;
+        }
+
         internal void OnParkFlushed(int created)
         {
             if (created > 0)
@@ -564,6 +638,8 @@ namespace SkiResortMod.Systems
             m_TowerDiag = World.GetOrCreateSystemManaged<LiftTowerDiagSystem>();
             m_TowerFit = World.GetOrCreateSystemManaged<LiftTowerFitSystem>();
             m_TowerNumbers = World.GetOrCreateSystemManaged<TowerNumberTileSystem>();
+            m_TrainPitch = World.GetOrCreateSystemManaged<TrainPitchSystem>();
+            m_Clearance = World.GetOrCreateSystemManaged<LiftClearanceSystem>();
             // The guard's clock: the simulation frame (SimulationSystem.cs:68)
             m_Simulation = World.GetOrCreateSystemManaged<Game.Simulation.SimulationSystem>();
 
@@ -656,6 +732,7 @@ namespace SkiResortMod.Systems
             m_BackSince.Clear();
             m_StreakReadFrame.Clear();
             m_GuardRecuts.Clear();
+            m_PendingSince.Clear();
             m_NoConsumerWarned.Clear();
             m_ServeLogged = false;
             m_PowerLog.Reset();
@@ -753,7 +830,7 @@ namespace SkiResortMod.Systems
                     if (coalesced)
                         m_CoalescePending = true;
                     if (m_CoalescePending && m_Frame - m_LastBuildFrame >= CoalesceFrames)
-                        BuildCensus(why ?? "coalesced edits", baseline: false);
+                        BuildCensus(why ?? m_RequestedWhy ?? "coalesced edits", baseline: false);
                     else if (m_Frame - m_LastBuildFrame >= WatchdogFrames && m_Census.Rows.Count > 0)
                         BuildCensus("watchdog", baseline: false);
                 }
@@ -1033,6 +1110,7 @@ namespace SkiResortMod.Systems
             m_Census.Build(m_Edges, m_Nodes, m_Stations, m_Events);
             m_LastBuildFrame = m_Frame;
             m_CoalescePending = false;
+            m_RequestedWhy = null;
             Builds++;
             LastBuildMs = (float)((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency);
             bool newMax = LastBuildMs > MaxBuildMs;
@@ -1066,10 +1144,14 @@ namespace SkiResortMod.Systems
             // Hand LiftTowerDiagSystem (read-only diagnostic) this build's line edges; it queues lines whose signature is new and prints them
             // after the census has been quiet. No ECS read here.
             m_TowerDiag?.OnCensusBuilt(m_Edges);
-            // The same edges to LiftTowerFitSystem; it queues new signatures and fits them once the census is quiet
-            m_TowerFit?.OnCensusBuilt(m_Edges);
+            // The same edges and nodes to LiftTowerFitSystem; it queues new signatures (station ends included) and fits them once quiet
+            m_TowerFit?.OnCensusBuilt(m_Edges, m_Nodes);
             // The same edges to TowerNumberTileSystem; it renumbers and reconciles the tower number tiles once quiet
             m_TowerNumbers?.OnCensusBuilt(m_Edges);
+            // The same edges to TrainPitchSystem; it pitches the rigged towers' trains to their rope lanes
+            m_TrainPitch?.OnCensusBuilt(m_Edges);
+            // The same edges to LiftClearanceSystem; it measures how high the carriers pass over the ground
+            m_Clearance?.OnCensusBuilt(m_Edges);
         }
 
         private void Harvest()
@@ -1155,6 +1237,8 @@ namespace SkiResortMod.Systems
                         Curve curve = curves[i];
                         float3 a = EntityManager.TryGetComponent<Game.Net.Node>(topo.m_Start, out var na) ? na.m_Position : curve.m_Bezier.a;
                         float3 b = EntityManager.TryGetComponent<Game.Net.Node>(topo.m_End, out var nb) ? nb.m_Position : curve.m_Bezier.d;
+                        LiftClearanceSystem.Low lowSpan = default;
+                        bool low = m_Clearance != null && m_Clearance.LowEdges.TryGetValue(entities[i], out lowSpan);
                         m_Edges.Add(new LiftCensus.Edge
                         {
                             Id = Ref(entities[i]),
@@ -1165,6 +1249,9 @@ namespace SkiResortMod.Systems
                             LengthM = curve.m_Length,
                             Chairs = CountChairs(entities[i]),
                             Type = TypeByte(lineDef.Index),
+                            Low = low,
+                            LowClearM = lowSpan.ClearM,
+                            LowAt = lowSpan.At,
                         });
                         AddNode(topo.m_Start, a);
                         AddNode(topo.m_End, b);
@@ -1187,6 +1274,7 @@ namespace SkiResortMod.Systems
                 Station = StationOfNode(node),
                 HasTower = HasTower(node),
                 Position = position,
+                TrainOverDeg = m_TrainPitch != null && m_TrainPitch.TrainOver.TryGetValue(node, out float over) ? over : 0f,
             });
         }
 
@@ -1805,7 +1893,10 @@ namespace SkiResortMod.Systems
                               $"{row.LengthM:F0} m, rise {row.RiseM:F0} m, horizontal {row.HorizontalM:F0} m" +
                               (row.AlignKnown ? $", offset {row.AlignOffsetM:F2} m, yaw {row.AlignYawDeg:F2}°" : string.Empty) +
                               (row.BendDeg > 0f ? $", sharpest bend {row.BendDeg:F1}° at tower {row.BendTower} (node {Fmt(row.BendNode)})" +
-                                                  (LiftCensus.BendWarnTenths(row.BendDeg) > 0 ? " OVER the warning angle" : string.Empty) : string.Empty));
+                                                  (LiftCensus.BendWarnTenths(row.BendDeg) > 0 ? " OVER the warning angle" : string.Empty) : string.Empty) +
+                              (row.TrainTower > 0 ? $", tower {row.TrainTower} (node {Fmt(row.TrainNode)}) {row.TrainOverDeg:F1}° past its train's limits" : string.Empty) +
+                              (row.LowSpan ? $", carriers {row.LowClearM:F2} m above the ground between {LowEnd(row.LowFrom)} and " +
+                                             $"{LowEnd(row.LowTo)} (edge {Fmt(row.LowEdge)}) UNDER the floor" : string.Empty));
             }
             for (int n = 0; n < m_Census.Notes.Count; n++)
                 sb.AppendLine("  note: " + m_Census.Notes[n]);
@@ -1845,6 +1936,8 @@ namespace SkiResortMod.Systems
         }
 
         internal static EntityRef Ref(Entity e) => new EntityRef(e.Index, e.Version);
+        private static string LowEnd(int tower) => tower > 0 ? "tower " + tower : "a station";
+
         internal static Entity Ent(EntityRef r) => new Entity { Index = r.Index, Version = r.Version };
         private static string Fmt(Entity e) => e.Index + ":" + e.Version;
         private static string Fmt(EntityRef r) => r.Index + ":" + r.Version;

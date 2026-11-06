@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiGondolaCabin8GripC_LOD1_BaseColor.png": "SkiGondolaCabin8GripC_BaseColor.png",
+    "SkiGondolaCabin8GripC_LOD1_ControlMask.png": "SkiGondolaCabin8GripC_ControlMask.png",
+    "SkiGondolaCabin8GripC_LOD1_MaskMap.png": "SkiGondolaCabin8GripC_MaskMap.png",
+    "SkiGondolaCabin8GripC_LOD1_Normal.png": "SkiGondolaCabin8GripC_Normal.png",
+    "SkiGondolaCabin8GripC_LOD2_BaseColor.png": "SkiGondolaCabin8GripC_BaseColor.png",
+    "SkiGondolaCabin8GripC_LOD2_ControlMask.png": "SkiGondolaCabin8GripC_ControlMask.png",
+    "SkiGondolaCabin8GripC_LOD2_MaskMap.png": "SkiGondolaCabin8GripC_MaskMap.png",
+    "SkiGondolaCabin8GripC_LOD2_Normal.png": "SkiGondolaCabin8GripC_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

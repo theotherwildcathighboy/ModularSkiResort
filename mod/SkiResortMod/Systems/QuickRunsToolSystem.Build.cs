@@ -312,6 +312,17 @@ namespace SkiResortMod.Systems
             return sb.Length > 0 ? sb.ToString() : "none";
         }
 
+        /// <summary>The planned kind's sliders on its new groomed run (run types R3): the placer's defaults for that kind (snowmaking: guns;
+        /// night: guns and lights; groomed and natural: none), and the steps settled, so the run pays what the kind's fee always was.</summary>
+        private void SeedFeatures(Entity run, RunKind kind)
+        {
+            int gun = RunPropPlacerRules.DefaultGunSpacing((int)kind), light = RunPropPlacerRules.DefaultLightSpacing((int)kind);
+            if (gun == RunPropPlacerRules.SpacingOff && light == RunPropPlacerRules.SpacingOff)
+                return;
+            if (m_RunProps.SeedSpacing(run, gun, light))
+                m_Ownership.SettleFeatureSteps(run, "quick runs");
+        }
+
         /// <summary>Applying (the frame after Apply): add the chunk's permanent runs to the batch; the next chunk emits on the next frame
         /// (phase Retry), or the build finishes (queue empty, or a stop was requested).</summary>
         private void FinishApplied()
@@ -328,6 +339,7 @@ namespace SkiResortMod.Systems
                     continue;
                 }
                 AutoRun run = r.Runs[m_AppliedIdx[k]];
+                SeedFeatures(e, run.Kind);
                 m_Batch.Add(new BatchRun { Run = e, Prefab = pr.m_Prefab, Id = run.Id, Fee = QuickRunsRules.FeeOf(run.Kind, run.AreaM2) });
             }
             m_BuildDone += m_Batch.Count - before;
@@ -418,6 +430,27 @@ namespace SkiResortMod.Systems
             Bump();
         }
 
+
+        /// <summary>A run of the batch was re-emitted (SkiRunReemitSystem): the undo and the bind line follow the new entity and prefab, so
+        /// an undo deletes the run that stands and never leaves the old one's slot to a duplicate.</summary>
+        internal void RekeyRun(Entity from, Entity to, Entity toPrefab)
+        {
+            RekeyIn(m_Batch, from, to, toPrefab);
+            RekeyIn(m_BindCheck, from, to, toPrefab);
+        }
+
+        private static void RekeyIn(List<BatchRun> list, Entity from, Entity to, Entity toPrefab)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i].Run != from)
+                    continue;
+                BatchRun b = list[i];
+                b.Run = to;
+                b.Prefab = toPrefab;
+                list[i] = b;
+            }
+        }
 
         /// <summary>Delete the batch (the bulldozer's shape) and pay back what each binding recorded as paid.</summary>
         private void UndoBatch(string why)

@@ -18,7 +18,7 @@ Per pool household: d = straight line home to nearest target lodge, class = Clas
 attraction, d, openShare 1, powder 0, ticket price now, tolerance, school factor, confidence, knobs, pass holder), p =
 `SkiMoneyRules.PresaleProbability(PassShare, chance)`, one deterministic roll (`SkiMoneyRules.PresaleUniform`: household index +
 season key; differs from the first-arrival roll). A buyer pays PassPrice(multiplier, ticket now) if its money covers it (never
-below 0; else CannotPay), booked exactly like tickets (a FeeEvent per pass with BookAsFees, else the direct add). Every pool
+below 0; else CannotPay), booked exactly like tickets (a FeeEvent per pass). Every pool
 household gets a standing: Bought, or Declined (rolled out and could not pay both store Declined).
 
 ## Ordering

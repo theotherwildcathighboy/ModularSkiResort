@@ -33,9 +33,10 @@ const TREE_LINE_STEP_COARSE = 50;
 
 const MIX: readonly LocEntry[] = [HUB_LOC.quickMix0, HUB_LOC.quickMix1, HUB_LOC.quickMix2, HUB_LOC.quickMix3];
 const DENSITY: readonly LocEntry[] = [HUB_LOC.quickDensity0, HUB_LOC.quickDensity1, HUB_LOC.quickDensity2];
-/* AutoKinds bits. */
-const KINDS: ReadonlyArray<[number, LocEntry]> = [
-  [1, HUB_LOC.quickKindGroomed], [2, HUB_LOC.quickKindNatural], [4, HUB_LOC.quickKindSnowmaking], [8, HUB_LOC.quickKindNight],
+/* AutoKinds bits as feature chips (run types R3): Groomed (1) is always on; Snowmaking 4, Night 8, Natural 2. */
+const KINDS: ReadonlyArray<[number, LocEntry, LocEntry]> = [
+  [4, HUB_LOC.quickKindSnowmaking, HUB_LOC.quickKindSnowmakingTip], [8, HUB_LOC.quickKindNight, HUB_LOC.quickKindNightTip],
+  [2, HUB_LOC.quickKindNatural, HUB_LOC.quickKindNaturalTip],
 ];
 /* HomeLevel: 0 Auto, 1 Green, 2 Blue (the Way home knob cycles through them); QuickRunsPlanRules.MaxLifts. */
 const HOME: readonly LocEntry[] = [HUB_LOC.quickHomeAuto, HUB_LOC.quickHomeGreen, HUB_LOC.quickHomeBlue];
@@ -98,6 +99,7 @@ export function Act({ label, tip, on, disabled, onSelect, next }: {
   return (
     <Tip tip={tip}>
       <Button
+        focusKey={FOCUS_DISABLED}
         variant="flat"
         className={cx(styles.segButton, next && styles.segButtonNext, on && styles.buttonOn)}
         disabled={!!disabled}
@@ -195,7 +197,7 @@ function PlanRow({ on, tip, wait, onSelect, first, second }: {
 }): JSX.Element {
   return (
     <Tip tip={tip}>
-      <Button theme={{ button: cx(styles.planRow, !on && styles.planRowOff) }} disabled={wait} selected={on} onSelect={onSelect}>
+      <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.planRow, !on && styles.planRowOff) }} disabled={wait} selected={on} onSelect={onSelect}>
         <CheckBox on={on} />
         <div className={styles.planRowText}>
           <div>{first}</div>
@@ -343,7 +345,7 @@ export function QuickRunsRows(): JSX.Element {
   return (
     <>
       <div className={styles.quickRow}>
-        <Button variant="flat" className={cx(styles.treeToolButton, styles.buttonOn)} selected onSelect={() => hubTriggers.quickRunsToggle()}>
+        <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.treeToolButton, styles.buttonOn)} selected onSelect={() => hubTriggers.quickRunsToggle()}>
           {t(HUB_LOC.quickTool)}
         </Button>
         <div className={styles.treeRowSpacer} />
@@ -369,8 +371,8 @@ export function QuickRunsRows(): JSX.Element {
       </div>
       <div className={styles.quickRow}>
         <Caption text={t(HUB_LOC.quickKindsCaption)} />
-        {KINDS.map(([bit, e], i) => (
-          <Act key={bit} label={t(e)} tip={t(HUB_LOC.quickKindsTip)} next={i > 0} on={(q.kinds & bit) !== 0} disabled={wait} onSelect={() => set("kind", bit)} />
+        {KINDS.map(([bit, e, tip], i) => (
+          <Act key={bit} label={t(e)} tip={t(tip)} next={i > 0} on={(q.kinds & bit) !== 0} disabled={wait} onSelect={() => set("kind", bit)} />
         ))}
       </div>
       <div className={styles.quickRow}>

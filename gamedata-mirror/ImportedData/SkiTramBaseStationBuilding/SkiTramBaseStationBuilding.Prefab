@@ -351,7 +351,7 @@
                 "m_SubObjects": {
                     "$id": 20,
                     "$type": "18|Game.Prefabs.ObjectSubObjectInfo[], Game",
-                    "$rlength": 24,
+                    "$rlength": 26,
                     "$rcontent": [
                         {
                             "$id": 21,
@@ -926,6 +926,54 @@
                                 }
                             },
                             "m_ParentMesh": -1,
+                            "m_GroupIndex": 0,
+                            "m_Probability": 100
+                        },
+                        {
+                            "$id": 48,
+                            "$type": 19,
+                            "m_Object": $fstrref:"CID:8bcbb1f06bac011933ecdb5a5a528474",
+                            "m_Position": {
+                                "$type": 11,
+                                "x": 9.5,
+                                "y": 15.522,
+                                "z": -5.5
+                            },
+                            "m_Rotation": {
+                                "$type": 20,
+                                "value": {
+                                    "$type": 21,
+                                    "x": 0,
+                                    "y": 0,
+                                    "z": 0,
+                                    "w": 1
+                                }
+                            },
+                            "m_ParentMesh": 0,
+                            "m_GroupIndex": 0,
+                            "m_Probability": 100
+                        },
+                        {
+                            "$id": 49,
+                            "$type": 19,
+                            "m_Object": $fstrref:"CID:8bcbb1f06bac011933ecdb5a5a528474",
+                            "m_Position": {
+                                "$type": 11,
+                                "x": -1.5,
+                                "y": 15.522,
+                                "z": -5.5
+                            },
+                            "m_Rotation": {
+                                "$type": 20,
+                                "value": {
+                                    "$type": 21,
+                                    "x": 0,
+                                    "y": 0,
+                                    "z": 0,
+                                    "w": 1
+                                }
+                            },
+                            "m_ParentMesh": 0,
                             "m_GroupIndex": 0,
                             "m_Probability": 100
                         }

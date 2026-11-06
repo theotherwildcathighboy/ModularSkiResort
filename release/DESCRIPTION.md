@@ -39,19 +39,21 @@ Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from
 4. Draw runs downhill from the top station, and wait for snow.
 
 ## Good to know
-- Skiers are counted, not simulated. Chairs and cabins move but carry no riders, and the chairs do not sway in the wind.
+- Skiers are counted, not simulated. Chairs and cabins move but carry no riders.
 - Stations sit on the slope as placed, so on steep ground one can end up partly in the hillside. Move It lifts it out (see Works with).
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
 - Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and the run fees are not refunded. A warning shows the run count and asks first. To move a sign, use Relocate in its info panel: its runs stay linked.
 - The Resort Planner (outline a slope, get proposed lifts and a set of runs) is experimental and off by default: turn it on in Options. It builds the runs only: you build its proposed lifts yourself with the lift tool. On steep ground it plans mostly black runs with few greens. Roads, buildings and lift stations inside the outline are not avoided, and its Undo ends when the tool closes.
+- Lifts cross lifts of another type, over or under, where the towers can reach the height. Two lifts of the same type cannot cross.
+- A cat track cannot pass under a lift that is already built: build cat tracks first.
 - Lifts are power-line networks and need low-voltage power at the base station. The game refuses a city high-voltage line at a lift.
-- Before uninstalling, bulldoze your lifts and runs (or use the Delete all ski resort content button in the mod's Options), then save the city. Otherwise run paint can stay in the saved terrain, and what leftover lift pieces do is untested.
+- Before uninstalling, bulldoze your lifts and runs (or use the Delete all ski resort content button in the mod's Options), then save the city. Otherwise the city still loads, but buildings and stations turn into placeholder blocks and runs stay as flat patches.
 - Resorts cost money all year and earn in winter. Build in steps.
 
 ## Guides and details
 Step-by-step guides, every number, settings and troubleshooting are on the docs site: {{DOCS_URL}}
 Start with the Resort Quickstart at {{DOCS_URL}}/quickstart/ and the Lifts guide at {{DOCS_URL}}/guides/lifts/.
-Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}. Source code: {{GITHUB_URL}}
+Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}; paste the text from the Copy diagnostics button in the mod's Options. Source code: {{GITHUB_URL}}
 
 ## Works with
 Nothing else is required, but Move It is highly recommended: lift stations sit on the slope as placed, and on steep ground they can end up partly in the hillside. Move It works on every building and station. Write Everywhere is recommended too: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the panel shows a notice and changes nothing in them.

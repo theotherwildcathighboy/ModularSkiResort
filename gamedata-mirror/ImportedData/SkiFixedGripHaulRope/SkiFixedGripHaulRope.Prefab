@@ -21,7 +21,7 @@
                 "m_NodeObject": null,
                 "m_Width": 0,
                 "m_VisualCapacity": 30,
-                "m_Hanging": 0.01,
+                "m_Hanging": 0.02,
                 "m_Underground": false
             }
         ]
@@ -35,7 +35,7 @@
             {
                 "$id": 4,
                 "$type": "4|Game.Prefabs.NetLaneMeshInfo, Game",
-                "m_Mesh": $fstrref:"UnityGUID:463c051da8a824c4a8f2f830a5011a3e",
+                "m_Mesh": $fstrref:"CID:2e69fc8b61eff2296aa57b791013d9be",
                 "m_RequireSafe": false,
                 "m_RequireLevelCrossing": false,
                 "m_RequireEditor": false,

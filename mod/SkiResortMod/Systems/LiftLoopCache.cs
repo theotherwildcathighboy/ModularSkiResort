@@ -67,6 +67,13 @@ namespace SkiResortMod.Systems
             public LiftMoverMath.LoopPace m_Pace;
             public float3 m_BoxMin, m_BoxMax;
             public bool m_BoxKnown;
+            /// <summary>The carrier grip round (ChairPinSystem.Grips.cs): per rostered chair (parallel to m_Chairs) its paired grip
+            /// (Entity.Null = none: the body takes the rigid pose) and its sway phase; the count of paired grips; the wind state
+            /// (kept per base station across rebuilds). Mover data only: nothing in this file reads them.</summary>
+            public readonly List<Entity> m_Grips = new List<Entity>();
+            public readonly List<float> m_SwayPhases = new List<float>();
+            public int m_GripCount;
+            public CarrierWind m_Wind;
         }
 
         public readonly List<Loop> m_Loops = new List<Loop>();
@@ -625,6 +632,48 @@ namespace SkiResortMod.Systems
         public static void Sample(Loop loop, double s, out float3 position, out float3 travelTangent)
         {
             SampleSegments(loop.m_Segments, s, out position, out travelTangent);
+        }
+
+        /// <summary>Sample plus the swing ramp's inputs (the carrier grip round, ChairPinSystem's managed paths): whether s lies on a
+        /// guided segment (an arc or a synthesized terminal run, Owner == Entity.Null: LiftLoopSampler.Flatten's rule) and otherwise the
+        /// distance to the nearest guided segment along the loop, both ways around the wrap (CarrierPose.NoGuidedM when there is none).
+        /// O(segments): for the managed paths only; the job reads FlatSegment.RunBefore / RunAfter.</summary>
+        public static void Sample(Loop loop, double s, out float3 position, out float3 travelTangent, out bool guided, out float distance)
+        {
+            SampleSegments(loop.m_Segments, s, out position, out travelTangent);
+            List<Segment> segs = loop.m_Segments;
+            guided = false;
+            distance = CarrierPose.NoGuidedM;
+            int n = segs.Count;
+            if (n == 0)
+                return;
+            int k = 0;
+            while (k + 1 < n && segs[k + 1].m_CumStart <= s)
+                k++;
+            Segment seg = segs[k];
+            if (seg.m_IsArc || seg.m_Owner == Entity.Null)
+            {
+                guided = true;
+                distance = 0f;
+                return;
+            }
+            float d = math.clamp((float)(s - seg.m_CumStart), 0f, seg.m_Length);
+            float before = d, after = seg.m_Length - d;
+            bool foundBefore = false, foundAfter = false;
+            for (int j = 1; j < n && !foundBefore; j++)
+            {
+                Segment b = segs[((k - j) % n + n) % n];
+                if (b.m_IsArc || b.m_Owner == Entity.Null) foundBefore = true;
+                else before += b.m_Length;
+            }
+            for (int j = 1; j < n && !foundAfter; j++)
+            {
+                Segment a = segs[(k + j) % n];
+                if (a.m_IsArc || a.m_Owner == Entity.Null) foundAfter = true;
+                else after += a.m_Length;
+            }
+            if (foundBefore || foundAfter)
+                distance = math.min(foundBefore ? before : CarrierPose.NoGuidedM, foundAfter ? after : CarrierPose.NoGuidedM);
         }
 
         /// <summary>Position + unit tangent in the BASE → TOP direction at

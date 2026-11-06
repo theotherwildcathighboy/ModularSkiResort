@@ -14,20 +14,22 @@ a hub line that points to the log.
 |---|---|
 | *More than 5 km from every Welcome Sign* | Place a Welcome Sign nearby. Unlinked runs and lifts score **0**. |
 | *No lodge* | Build one near the sign from the Buildings tab. |
-| *All lodges are deactivated* / *Lodges deactivated: N* | A lodge counts only while it is active. Reactivate one in its own info panel. |
-| *Lodge is not at a road* / *Welcome Sign is not at a road* | Deck side (lodge) or front (sign) must touch a road. An off-road A-Frame, Chalet or Grand also passes with a cat track within 25 m chained to a lodge with a road or the Ski Bus Depot. The sign's row shows only while the sign employs the Hut, Summit, patrol and cat track lodge staff, that is while no active lodge of the ski area has a road. Move the sign with **Relocate** in its info panel and snap its front to a road: it stands 8 m back from it on a leveled lot, and its runs stay linked. Do not bulldoze it to place a new one: that deletes every run linked to it. |
-| *Ski area buildings at 74 %: …* | Efficiency of the sign and its lodges below **100 %**. Causes: staff, power, water, sewage, garbage, budget. Every cause costing **5 %** or more is listed. |
-| *No lift yet* / *Runs unconnected to a lift: N* | Run counts less until a running lift reaches its top: within **150 m** of the line, at most **15 m** above the top station. |
-| *Lift X has no power* | Connect a low-voltage line to the base station. Maintenance is still charged. |
+| *All lodges deactivated* / *Lodges deactivated: N* | A lodge counts only while it is active. Reactivate one in its own info panel. |
+| *Lodge or school: road required* / *Welcome Sign: road required* | Deck side (lodge) or front (sign) must touch a road. An off-road A-Frame, Chalet or Grand also passes with a cat track within 25 m chained to a lodge with a road or the Ski Bus Depot. The sign's row shows only while the sign employs the Hut, Summit, patrol and cat track lodge staff, that is while no active lodge of the ski area has a road. Move the sign with **Relocate** in its info panel and snap its front to a road: it stands 8 m back from it on a leveled lot, and its runs stay linked. Do not bulldoze it to place a new one: that deletes every run linked to it. |
+| *Efficiency 74 %: …* / *Welcome Sign stopped: …* | Efficiency of the sign and its lodges below **100 %** (at **0 %**: stopped). Causes: staff, power, water, sewage, garbage, budget. The largest cause is named; *+N* counts the others costing **5 %** or more. |
+| *No lift yet* / *Runs without a lift: N* | Run counts less until a running lift reaches its top: within **150 m** of the line, at most **15 m** above the top station. |
+| *Lift X: no power* | Connect a low-voltage line to the base station. Maintenance is still charged. |
+| Other *Lift X* lines (*section missing*, *mixes lift types*, *rope turns N° at tower N*, *tower N's wheels cannot follow the rope*, *chairs pass N m above the ground*) | See [Lifts: Problem States](/guides/lifts/#problem-states). |
+| *Summit lodges unreached: N* | A Mountain Hut or Swanky Summit Lodge with no complete, powered lift top station within **300 m** and no lift-served run within **100 m**. It scores the plain summer share (**0.5**) instead of its higher one. See [Buildings](/reference/buildings/). |
 | *Runs that cannot be rated: N* | Outline too large, too thin, or without terrain. |
 | *Runs too flat to score: N* | Flat run adds **0**. Draw on steeper ground. |
-| *Many ski-day guests with a car never arrive* | Fewer guests are sent until more arrive. Add parking and roads. |
-| *No parking near the lodge* | No car spaces within **300 m** of the lodge. Tourist parties drive, and none arrive without them. |
+| *Ski-day cars not arriving* | Fewer guests are sent until more arrive. Add parking and roads. |
+| *Lodge without parking* / *No parking: Lodge X* | No car spaces within **300 m** of the lodge. Tourist parties from outside the city drive, and none arrive without them; hotel guests within **900 m** walk. |
 | *Lodge is far from the runs* | Ski-day guests target lodges within **800 m** of runs or lift stations only. |
-| *Nearest homes and hotels are N km away* | Ski-day guests drive from homes and hotels, and few make a trip beyond about **7 km**. Build homes or hotels near the hill, or a [Ski Bus Depot](/guides/lodges-school-patrol/#ski-bus-depot) in town. |
-| *Bus depot without a road* | A depot with no road sends nobody and bills nothing. |
-| *Bus depot with no lodge on the hill* | A depot sends guests only while its ski area has a working lodge on the hill. A Mountain Hut or Swanky Summit Lodge counts. |
-| *Ski school has no green run* | Ski School adds to score only while a green run counts. |
+| *Nearest guests: N km* | Ski-day guests drive from homes and hotels, and few make a trip beyond about **7 km**. Build homes or hotels near the hill, or a [Ski Bus Depot](/guides/lodges-school-patrol/#ski-bus-depot) in town. |
+| *Bus depot: road required* | A depot with no road sends nobody and bills nothing. |
+| *Bus depot: no hill lodge* | A depot sends guests only while its ski area has a working lodge on the hill. A Mountain Hut or Swanky Summit Lodge counts. |
+| *Ski school: no green run* | Ski School adds to score only while a green run counts. |
 
 Snow facts: status line, and the Mountain section of the Attraction view.
 
@@ -66,7 +68,7 @@ Tickets missing from the Economy panel: check the log first, then [Economy](/gui
 
 ## Common Cases
 
-- **Run never opens.** Status line shows *snow measured* or *estimated*. Open requires **91 cm** of snow on **60 %** of the run. Fixes: raise *Snowmaking margin*; build as Snowmaking (guns run from 2 months before winter to 1 month after); on a map without winter, turn off **Snow & season gating**.
+- **Run never opens.** Status line shows *snow measured* or *estimated*. Open requires **91 cm** of snow on **60 %** of the run; once open it stays open on **30 cm**. Fixes: raise *Snowmaking margin*; build as Snowmaking (guns run from 2 months before winter to 1 month after); on a map without winter, turn off **Snow & season gating**.
 - **Chairs stopped.** Hub: *Lift X: chairs stopped*. The lift still counts. Log: `Lifts [state]`, `Lift [power]`.
 - **Hub button missing.** Options > Modular Ski Resort > Main > Ski Resort hub. The panel is always in the Universal Mod Panel.
 - **DLL and UI version mismatch notice.** Reinstall the mod. Building works; resort statistics stay hidden until both halves match.
@@ -78,4 +80,4 @@ Tickets missing from the Economy panel: check the log first, then [Economy](/gui
 {/* PLACEHOLDER until the threads exist: replace the FORUM_URL and DISCORD_URL tokens below with links, and delete the channel that is not used. */}
 
 - **Where:** the Paradox forum thread `{{FORUM_URL}}` or the Discord thread `{{DISCORD_URL}}`.
-- **Include:** the game version, the steps that led to the problem, and `SkiResortMod.Mod.log` (see [Log File](#log-file)), above all the lines around any `!!!`.
+- **Include:** the steps that led to the problem, and the report from **Options > Modular Ski Resort > Main > Diagnostics > Copy diagnostics** (pasted from the clipboard: versions, computer, changed options, code mods and the log's newest errors). If you can, attach `SkiResortMod.Mod.log` too (see [Log File](#log-file)).

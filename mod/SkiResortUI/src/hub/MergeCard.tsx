@@ -1,5 +1,5 @@
 /*
- * src/hub/MergeCard.tsx - the merge card beside the game's selected-info panel (contract 32), for a merged building or one that could be
+ * src/hub/MergeCard.tsx - the merge card beside the game's selected-info panel (contract 35), for a merged building or one that could be
  * merged. Always mounted at the "Game" hook like the Ski Bus card, so it reads only mergeCard$, never a panel binding. The tier chips pick a
  * tier the lot allows; the button fires mergeBuilding, C# charges at once and says the outcome on the next push. Its fees, states and
  * refusals are C#'s numbers (SkiMergeSystem, MergeRules); the card decides nothing.

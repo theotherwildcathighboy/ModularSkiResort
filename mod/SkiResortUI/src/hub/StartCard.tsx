@@ -6,6 +6,7 @@
  */
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { build$, hubTriggers } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry } from "../l10n";
@@ -32,6 +33,7 @@ export function StartCard(): JSX.Element {
           <div className={styles.startText}>{t(step)}</div>
           {i === 0 && (
             <Button
+              focusKey={FOCUS_DISABLED}
               variant="flat"
               className={cx(styles.actionButton, styles.startButton, styles.fitText, sign?.active && styles.buttonOn)}
               onSelect={() => hubTriggers.launch("sign")}

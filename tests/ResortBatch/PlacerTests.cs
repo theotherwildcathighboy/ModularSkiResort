@@ -91,8 +91,9 @@ namespace ResortBatch
             Check(R.DefaultGunSpacing(Snowmaking) == 50 && R.DefaultGunSpacing(Night) == 90 && R.DefaultGunSpacing(Track) == 60, w, "gun defaults by kind");
             Check(R.DefaultGunSpacing(Groomed) == 0 && R.DefaultGunSpacing(Natural) == 0, w, "groomed and natural: no guns");
             Check(R.DefaultLightSpacing(Night) == 90 && R.DefaultLightSpacing(Track) == 0 && R.DefaultLightSpacing(Snowmaking) == 0, w, "light defaults by kind");
-            Check(R.CarriesGuns(Snowmaking) && R.CarriesGuns(Night) && R.CarriesGuns(Track) && !R.CarriesGuns(Groomed) && !R.CarriesGuns(Natural), w, "CarriesGuns");
-            Check(R.CarriesLights(Night) && R.CarriesLights(Track) && !R.CarriesLights(Snowmaking) && !R.CarriesLights(Groomed) && !R.CarriesLights(Natural), w, "CarriesLights");
+            // R2 (DECISIONS 577): every groomed run carries both sliders (they are its Snowmaking and Lights features); natural runs none.
+            Check(R.CarriesGuns(Snowmaking) && R.CarriesGuns(Night) && R.CarriesGuns(Track) && R.CarriesGuns(Groomed) && !R.CarriesGuns(Natural), w, "CarriesGuns");
+            Check(R.CarriesLights(Night) && R.CarriesLights(Track) && R.CarriesLights(Snowmaking) && R.CarriesLights(Groomed) && !R.CarriesLights(Natural), w, "CarriesLights");
 
             // The table: no empty marker; its weights are the prefabs' (the prefab side is in tools/check-run-props.js).
             string[] names = { "SkiSnowGunTower", "SkiSnowGunTowerLow", "SkiSnowGunTowerTall", "SkiSnowGunFan", "SkiSnowGunFanIdle", "SkiSnowGunLance", "SkiSnowGunLanceDown",
@@ -359,10 +360,13 @@ namespace ResortBatch
             const string w = "placer kinds";
             PlacerRing square = Ring(0f, 0f, 100f, 0f, 100f, 100f, 0f, 100f);
             PlacerRing ribbon = Ring(0f, -5f, 300f, -5f, 300f, 5f, 0f, 5f);
-            Check(Plan(square, Groomed, 50, 50).Count == 0, w, "groomed stands nothing");
+            // Every groomed preset follows its sliders (R2): the prefab no longer limits the props.
+            Check(Plan(square, Groomed, 0, 0).Count == 0, w, "groomed, both off, stands nothing");
+            Check(OfClass(Plan(square, Groomed, 50, 50), false).Count == 8 && OfClass(Plan(square, Groomed, 50, 50), true).Count == 8, w,
+                  "groomed with both sliders on: guns and masts");
             Check(Plan(square, Natural, 50, 50).Count == 0, w, "natural stands nothing");
-            Check(OfClass(Plan(square, Snowmaking, 50, 50), true).Count == 0, w, "snowmaking never stands masts");
-            Check(Plan(square, Snowmaking, 0, 50).Count == 0, w, "snowmaking with its guns off stands nothing");
+            Check(OfClass(Plan(square, Snowmaking, 50, 50), true).Count == 8, w, "snowmaking with its lights on stands masts");
+            Check(OfClass(Plan(square, Snowmaking, 0, 50), false).Count == 0, w, "snowmaking with its guns off stands no gun");
             Check(OfClass(Plan(square, Night, 0, 50), false).Count == 0 && OfClass(Plan(square, Night, 0, 50), true).Count == 8, w, "night, guns off: masts only");
             Check(OfClass(Plan(square, Night, 50, 0), true).Count == 0 && OfClass(Plan(square, Night, 50, 0), false).Count == 8, w, "night, lights off: guns only");
             Check(Plan(square, Night, 0, 0).Count == 0, w, "both off stands nothing");

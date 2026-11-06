@@ -43,7 +43,7 @@
                         {
                             "$id": 7,
                             "$type": "6|Game.Prefabs.EffectSource+EffectSettings, Game",
-                            "m_Effect": $fstrref:"CID:0fff229caa4bf7238884ed882d59fbb1",
+                            "m_Effect": $fstrref:"CID:f92b8570eba9704e6c736278a608bd29",
                             "m_PositionOffset": { "$type": "7|Unity.Mathematics.float3, Unity.Mathematics", "x": 0, "y": 2.9, "z": 2.36 },
                             "m_Rotation": {
                                 "$type": "8|Unity.Mathematics.quaternion, Unity.Mathematics",
@@ -60,7 +60,7 @@
                         {
                             "$id": 8,
                             "$type": 6,
-                            "m_Effect": $fstrref:"CID:d487a21aa832aaea20c94fb8d04ac3f4",
+                            "m_Effect": $fstrref:"CID:534a7c80726ec2b4a002b9c72a4ec58e",
                             "m_PositionOffset": { "$type": 7, "x": 0, "y": 3.35, "z": 2.18 },
                             "m_Rotation": { "$type": 8, "value": { "$type": 9, "x": 0, "y": 0, "z": 0, "w": 1 } },
                             "m_Scale": { "$type": 7, "x": 1, "y": 1, "z": 1 },
@@ -71,7 +71,7 @@
                         {
                             "$id": 9,
                             "$type": 6,
-                            "m_Effect": $fstrref:"CID:0fff229caa4bf7238884ed882d59fbb1",
+                            "m_Effect": $fstrref:"CID:f92b8570eba9704e6c736278a608bd29",
                             "m_PositionOffset": { "$type": 7, "x": 0, "y": 2.9, "z": -3.6 },
                             "m_Rotation": { "$type": 8, "value": { "$type": 9, "x": 0, "y": 0.976296, "z": -0.216440, "w": 0 } },
                             "m_Scale": { "$type": 7, "x": 1, "y": 1, "z": 1 },
