@@ -47,6 +47,11 @@ export const HUB_LOC = {
   mergeStateUnknown: ["SkiResort.Hub.MERGE_STATE[Unknown]", "Checking"],
   mergedFold: ["SkiResort.Hub.MERGED_FOLD", "Merged buildings"],
   mergedFoldTip: ["SkiResort.Hub.MERGED_FOLD_TIP", "Buildings merged into this ski area as lodges. Each keeps its own use."],
+  /* the merge overlay chip in the merged buildings fold (contract 36) */
+  mergeOverlay: ["SkiResort.Hub.MERGE_OVERLAY", "Mergeable buildings"],
+  mergeOverlayTip: ["SkiResort.Hub.MERGE_OVERLAY_TIP", "Outlines buildings near the runs and lifts that can be merged: green when a lodge tier fits the lot, gray when it is too small."],
+  mergeOverlayAllowed: ["SkiResort.Hub.MERGE_OVERLAY[Allowed]", "Outlined green"],
+  mergeOverlayTooSmall: ["SkiResort.Hub.MERGE_OVERLAY[TooSmall]", "Outlined gray"],
 
   resortPrev: ["SkiResort.Hub.RESORT_PREV", "Previous ski area"],
   resortNext: ["SkiResort.Hub.RESORT_NEXT", "Next ski area"],

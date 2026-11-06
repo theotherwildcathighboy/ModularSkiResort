@@ -387,6 +387,10 @@ namespace SkiResortMod
             // UpdateBefore call adds an entry, UpdateSystem.cs:173-176). Gated by ShowSnowLineWhilePlacing inside the system.
             updateSystem.UpdateBefore<SkiSnowLineOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
 
+            // Merge overlay (hub-armed, P2.6). Before OverlayRenderSystem (same reason as the snow line); ONE anchor only. Draws nothing
+            // until the hub's armMergeOverlay trigger arms it; Game mode only inside.
+            updateSystem.UpdateBefore<SkiMergeOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
+
             // Run names on the hill: NO anchor to OverlayRenderSystem (labels are Graphics.DrawMesh calls; nothing is written to the
             // overlay buffers). Must run after the catalog's UIUpdate rebuilds (Rendering does). Gated by ShowRunNamesOnTheHill inside.
             updateSystem.UpdateAt<SkiRunLabelSystem>(SystemUpdatePhase.Rendering);

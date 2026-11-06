@@ -2,7 +2,7 @@
 
 A player can merge a building the mod did not make (a park, a landmark, a residential, commercial, mixed or office signature, a decor
 building) into a ski area as one of our lodge tiers. The building keeps its prefab, its renters, its own jobs and its own tourism; the
-tier adds its score, skier room, staff and attraction share. Pure rules: `MergeRules` (tests/BuildingBatch MI/MK/MS/MF/MJ/MA/MT/MD).
+tier adds its score, skier room, staff and attraction share. Pure rules: `MergeRules` (tests/BuildingBatch MI/MK/MS/MF/MJ/MA/MT/MD/MO).
 Research and the P0 probe: docs/research/merge-asset-into-resort-2026-11-02.md, merge-asset-p0-2026-11-02.md (local docs).
 
 ## Add alongside, never strip
@@ -64,6 +64,26 @@ vanilla back to 185 within 256 frames after the writes stopped.
 - A lot that no longer fits the tier (a prefab swap) lowers the tier to the best one below that fits (`BestAllowed`, `FlagTierLowered`).
 - Without the mod the game drops the tag at load ("Not serializable type", P0) and the building is plain vanilla.
 - Delete all (Options): every merged building is unmerged; the buildings stay.
+
+## Overlay (P2.6, contract 36; SkiMergeOverlaySystem)
+- Armed from the Overview's Merged buildings fold (`armMergeOverlay`); the fold is drawn in every area view so the chip is reachable with
+  no merged building yet. `mergeOverlay` {armed, allowed, tooSmall} drives the chip and its tooltip counts.
+- Tint: `MergeRules.TintOf` over the card's own classification (`ReadFacts`, `Classify`, `AllowedMask`): green = a tier fits, gray = the
+  kind qualifies but no tier fits (AllowedMask 0), nothing for a wrong kind, a transient state, or an already merged building (the fold
+  lists those). Near = within `SkiDayRules.SlopesideMaxM` of any area's lift station or run outline: the attractiveness system publishes
+  that geometry at the end of `PlaceMerged` (`PublishSlopeside`, revision only on a real change) and `NearAnySlopeside` is `Slopeside` over
+  every area.
+- Drawing: four projected `OverlayRenderSystem.Buffer.DrawLine` segments per lot (`BuildingUtils.CalculateCorners`, BuildingUtils.cs:72-86;
+  GetBuffer + deps.Complete on the main thread, OverlayRenderSystem.cs:603-634), anchored before OverlayRenderSystem at Rendering. No game
+  component is written. Rejected: vanilla `Highlighted` (Game.Tools/Highlighted.cs, read by BatchInstanceSystem.cs:425): one color and a
+  structural change per building, add and remove.
+- The list is built when the mode arms, when the slopeside revision moves, when the building count changes (polled every 60 frames) or
+  after an unmerge (`MergeRules.OverlayRebuild`); a frame only draws the cached corners. One `Merge [cost] overlay (reason)` line per build
+  (ms, scanned, near, green, gray; WARN over 20 ms). A building moved without a count change keeps its old outline until the next build.
+- Disarms (`MergeRules.NextArmed`): the chip again, Escape (read from the keyboard: the default tool's cancel action is the right mouse
+  button, DefaultToolSystem.cs:741; a gamepad has no disarm but the chip), a merge or tier change (`SkiMergeSystem.Merge`), a load, and a
+  city with no Welcome Sign. Each logs `Merge [overlay] armed` / `disarmed (reason)`.
+- A click is vanilla selection; the merge card follows the selection as before. Tests: BuildingBatch MO1-MO15.
 
 ## Hub (contract 35)
 `mergeCard` (always observed, like `busCard`) and the triggers `mergeBuilding (entity, tier)` / `unmergeBuilding (entity)`;

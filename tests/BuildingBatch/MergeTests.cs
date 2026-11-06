@@ -133,6 +133,46 @@ namespace BuildingBatch
                   !MergeRules.IsDuplicateLoser(new EntityRef(10, 1), new EntityRef(20, 1)), "MD1", "the later entity loses the serial");
             check(MergeRules.NextSerial(0) == 1 && MergeRules.NextSerial(7) == 8, "MD2", "serials count up from 1");
             check(MergeRules.NextSerial(int.MaxValue) == int.MaxValue, "MD3", "the serial saturates");
+
+            // MO: the hub-armed merge overlay (P2.6): tints from the merge card's own classification, and when it disarms / rebuilds.
+            int tiers = SkiCatalog.Lodges.Count;
+            MergeRules.OverlayTint TintFor(MergeRules.Facts f, bool merged)
+            {
+                MergeRules.Kind k = MergeRules.Classify(f, out MergeRules.Refusal r);
+                return MergeRules.TintOf(k, r, MergeRules.AllowedMask(f.LotCells, tiers), merged);
+            }
+            check(TintFor(new MergeRules.Facts { HasBuilding = true, LotCells = 100 }, false) == MergeRules.OverlayTint.Allowed, "MO1",
+                  "a decor building with a big lot is green");
+            check(TintFor(new MergeRules.Facts { HasBuilding = true, Park = true, LotCells = MergeRules.SmallestLot }, false) == MergeRules.OverlayTint.Allowed, "MO2",
+                  "a park exactly at the smallest tier's lot is green");
+            check(TintFor(new MergeRules.Facts { HasBuilding = true, Park = true, LotCells = MergeRules.SmallestLot - 1 }, false) == MergeRules.OverlayTint.TooSmall, "MO3",
+                  "a park one cell under every tier is gray (AllowedMask 0)");
+            check(TintFor(new MergeRules.Facts { HasBuilding = true, Signature = true, LotCells = 1 }, false) == MergeRules.OverlayTint.TooSmall, "MO4",
+                  "a tiny signature is gray");
+            check(TintFor(new MergeRules.Facts { HasBuilding = true, Spawnable = true, LotCells = 100 }, false) == MergeRules.OverlayTint.None &&
+                  TintFor(new MergeRules.Facts { HasBuilding = true, Service = true, LotCells = 100 }, false) == MergeRules.OverlayTint.None &&
+                  TintFor(new MergeRules.Facts { HasBuilding = true, Ours = true, LotCells = 100 }, false) == MergeRules.OverlayTint.None &&
+                  TintFor(new MergeRules.Facts { HasBuilding = true, Signature = true, IndustrialZone = true, LotCells = 100 }, false) == MergeRules.OverlayTint.None,
+                  "MO5", "growables, services, our own buildings and industrial signatures are never drawn");
+            check(TintFor(new MergeRules.Facts { HasBuilding = true, Transient = true, LotCells = 100 }, false) == MergeRules.OverlayTint.None &&
+                  TintFor(new MergeRules.Facts { HasBuilding = true, Spawnable = true, LotCells = 1 }, false) == MergeRules.OverlayTint.None, "MO6",
+                  "a transient building, and a small growable (wrong kind before size), are not drawn");
+            check(TintFor(new MergeRules.Facts { HasBuilding = true, LotCells = 100 }, true) == MergeRules.OverlayTint.None, "MO7",
+                  "an already merged building is not drawn (the fold lists it)");
+            check(MergeRules.NextArmed(false, 1, false, false, false, true) && !MergeRules.NextArmed(true, 0, false, false, false, true) &&
+                  MergeRules.NextArmed(true, -1, false, false, false, true) && !MergeRules.NextArmed(false, -1, false, false, false, true), "MO8",
+                  "the button arms and disarms; no event keeps the state");
+            check(!MergeRules.NextArmed(true, -1, true, false, false, true) && !MergeRules.NextArmed(true, -1, false, true, false, true) &&
+                  !MergeRules.NextArmed(true, -1, false, false, true, true), "MO9", "Escape, a merge and a load disarm");
+            check(!MergeRules.NextArmed(false, 1, true, false, false, true) && !MergeRules.NextArmed(false, 1, false, true, false, true) &&
+                  !MergeRules.NextArmed(false, 1, false, false, true, true), "MO10", "a disarm event wins over an arm press in the same frame");
+            check(!MergeRules.NextArmed(false, 1, false, false, false, false) && !MergeRules.NextArmed(true, -1, false, false, false, false), "MO11",
+                  "no Welcome Sign: never armed");
+            check(MergeRules.OverlayRebuild(true, true, 5, 5, 10, 10, false), "MO12", "arming builds the list");
+            check(!MergeRules.OverlayRebuild(true, false, 5, 5, 10, 10, false), "MO13", "nothing changed: no rebuild (never every frame)");
+            check(MergeRules.OverlayRebuild(true, false, 6, 5, 10, 10, false) && MergeRules.OverlayRebuild(true, false, 5, 5, 11, 10, false) &&
+                  MergeRules.OverlayRebuild(true, false, 5, 5, 10, 10, true), "MO14", "the areas, the building count or an unmerge rebuild it");
+            check(!MergeRules.OverlayRebuild(false, true, 6, 5, 11, 10, true), "MO15", "never while disarmed");
         }
 
         private static void Kind(Func<bool, string, string, bool> check, string id, string what, MergeRules.Facts f,

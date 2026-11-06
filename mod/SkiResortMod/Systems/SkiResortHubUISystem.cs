@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 35;
+        public const int HubContract = 36;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -500,6 +500,7 @@ namespace SkiResortMod.Systems
             SetRunGroomed,                   // run types R2: Groomed on (Bool) or off by a re-emit (SkiRunReemitSystem)
             SetDrawRun,                      // contract 33: the Run tile's option row (Text = key, Int = value)
             MergeBuilding, UnmergeBuilding,  // contract 35: the merge card (Int = tier); SkiResortHubUISystem.Merge.cs
+            ArmMergeOverlay,                 // contract 36: the merge overlay chip (Bool = arm)
         }
 
         private struct Request
@@ -815,6 +816,7 @@ namespace SkiResortMod.Systems
                 new HubDrawRun { Groomed = true }));   // contract 33: the Run tile's option row (.DrawRun.cs)
             AddBinding(m_Merged);         // contract 35: panel binding (the Overview fold), no Demand
             AddBinding(m_MergeCard = new ValueBinding<HubMergeCardState>(Group, "mergeCard", default));   // contract 35: always observed, like busCard
+            AddBinding(m_MergeOverlayBinding = new ValueBinding<HubMergeOverlay>(Group, "mergeOverlay", default));   // contract 36: panel binding, no Demand
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -826,6 +828,7 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<Entity>(Group, "deleteCatTrack", OnDeleteCatTrack));
             AddBinding(new TriggerBinding<Entity, int>(Group, "mergeBuilding", OnMergeBuilding));   // contract 35
             AddBinding(new TriggerBinding<Entity>(Group, "unmergeBuilding", OnUnmergeBuilding));
+            AddBinding(new TriggerBinding<bool>(Group, "armMergeOverlay", OnArmMergeOverlay));   // contract 36
             AddBinding(new TriggerBinding(Group, "gladeToggle", OnGladeToggle));
             AddBinding(new TriggerBinding<int>(Group, "gladeSetLevel", OnGladeSetLevel));
             AddBinding(new TriggerBinding<bool>(Group, "gladeSetTreeLine", OnGladeSetTreeLine));
@@ -1377,6 +1380,9 @@ namespace SkiResortMod.Systems
                     break;
                 case RequestKind.UnmergeBuilding:
                     ApplyUnmerge(r.Entity, r.Source);
+                    break;
+                case RequestKind.ArmMergeOverlay:
+                    ApplyArmMergeOverlay(r.Bool, r.Source);
                     break;
             }
         }
@@ -2884,6 +2890,7 @@ namespace SkiResortMod.Systems
             }
             PushArray(m_LodgeParkingPush, lodgeParkingActive, m_LodgeParkingRevision, m_LodgeParkingRows.Count);
             PushMerged();
+            PushMergeOverlay();
 
             if (cityActive)
                 m_City.Update(m_Stats.City);   // our comparer dedups (struct, field by field)

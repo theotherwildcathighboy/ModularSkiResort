@@ -5,7 +5,7 @@
  * in the total's tooltip; operators sit in fixed cells ("√" is not on the Gameface font safe list). While `attractionHeld` the game keeps the
  * saved score, so the result row and the bar show "…". ResortLive.luxuryIgnored is not read (always 0; kept on the wire for the contract).
  * Fixed heights only, so a value change never changes layout. Panel file: subscribes resorts$, selectedResort$, resortLive$, runs$, problems$, city$;
- * its MergedFold subscribes mergedLodges$ (contract 35).
+ * its MergedFold subscribes mergedLodges$ (contract 35) and mergeOverlay$ (contract 36).
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
