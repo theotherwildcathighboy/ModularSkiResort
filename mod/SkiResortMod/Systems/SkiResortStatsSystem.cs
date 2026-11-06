@@ -2161,7 +2161,8 @@ namespace SkiResortMod.Systems
                     {
                         // A merged building's provider is round(sqrt(V^2 + P^2)): only P, the area's write, is the resort's share;
                         // its own V stays the city's (MergeRules.ShareTerm). Counted only while the provider exists (it is in S_all).
-                        if (m_ProviderOf.ContainsKey(lodge) && m_Attractiveness.TryGetMergedShare(lodge, out int mp) && mp > 0)
+                        // Not m_ProviderOf: WalkProviders runs before CollectLodges adds the merged buildings (field test 2026-11-06).
+                        if (EntityManager.HasComponent<AttractivenessProvider>(lodge) && m_Attractiveness.TryGetMergedShare(lodge, out int mp) && mp > 0)
                         {
                             sRes += MergeRules.ShareTerm(mp);
                             anyProvider = true;

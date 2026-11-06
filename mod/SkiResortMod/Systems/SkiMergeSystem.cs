@@ -55,6 +55,10 @@ namespace SkiResortMod.Systems
         private bool m_ChargeFrameValid;
         private uint m_LastChargeFrame;
         private double m_Carry;
+        // The [fee] log: on a rate change and every FeeLogEvery-th debit (about four lines a game month at 1,024 frames per pass).
+        private const int FeeLogEvery = 64;
+        private int m_FeeLoggedRate = -1;
+        private int m_FeeDebits;
         private int m_HighestSerial;
         private bool m_SerialsKnown;
         private readonly List<SkiResortAttractivenessSystem.MergedView> m_Views = new List<SkiResortAttractivenessSystem.MergedView>(4);
@@ -103,6 +107,8 @@ namespace SkiResortMod.Systems
             m_HighestSerial = 0;
             MonthlyRate = 0;
             DebitedThisLoad = 0;
+            m_FeeLoggedRate = -1;
+            m_FeeDebits = 0;
             LastOutcome = Outcome.None;
             LastOutcomeBuilding = Entity.Null;
             if (m_Armed)
@@ -401,8 +407,13 @@ namespace SkiResortMod.Systems
                     rate += MonthlyFeeOf(m_Views[i].Building, m_Views[i].Tier);
             }
             MonthlyRate = rate;
+            if (rate != m_FeeLoggedRate && rate <= 0 && m_FeeLoggedRate > 0)
+                Mod.Log.Info($"Merge [fee] no billed building: billing stops ({DebitedThisLoad} debited this load)");
             if (rate <= 0)
+            {
+                m_FeeLoggedRate = rate;
                 return;
+            }
             double monthFrames = TimeSystem.kTicksPerDay * (double)math.max(1, m_Time.daysPerYear) / 12.0;
             m_Carry += rate * (elapsedFrames / monthFrames);
             int debit = (int)m_Carry;
@@ -415,6 +426,13 @@ namespace SkiResortMod.Systems
             money.Subtract(debit);
             EntityManager.SetComponentData(city, money);
             DebitedThisLoad += debit;
+            m_FeeDebits++;
+            if (rate != m_FeeLoggedRate || m_FeeDebits % FeeLogEvery == 1)
+            {
+                Mod.Log.Info($"Merge [fee] rate {rate} a month; debited {debit} for {elapsedFrames} frame(s) (month {monthFrames:0} frames), " +
+                             $"{DebitedThisLoad} this load");
+                m_FeeLoggedRate = rate;
+            }
         }
 
         private static string TierName(int tier) => tier >= 0 && tier < SkiCatalog.Lodges.Count ? SkiCatalog.Lodges[tier].Id : "?";
