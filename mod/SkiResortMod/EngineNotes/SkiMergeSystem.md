@@ -85,7 +85,7 @@ vanilla back to 185 within 256 frames after the writes stopped.
   after an unmerge (`MergeRules.OverlayRebuild`); a frame only draws the cached corners. One `Merge [cost] overlay (reason)` line per build
   (ms, scanned, near, green, gray; WARN over 20 ms). A building moved without a count change keeps its old outline until the next build.
 - Disarms (`MergeRules.NextArmed`): the chip again, Escape (read from the keyboard: the default tool's cancel action is the right mouse
-  button, DefaultToolSystem.cs:741; a gamepad has no disarm but the chip), a merge or tier change (`SkiMergeSystem.Merge`), a load, and a
+  button, DefaultToolSystem.cs:741; a gamepad's B button disarms the same way), a merge or tier change (`SkiMergeSystem.Merge`), a load, and a
   city with no Welcome Sign. Each logs `Merge [overlay] armed` / `disarmed (reason)`.
 - A click is vanilla selection; the merge card follows the selection as before. Tests: BuildingBatch MO1-MO15.
 

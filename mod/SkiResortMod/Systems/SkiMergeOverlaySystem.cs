@@ -152,9 +152,11 @@ namespace SkiResortMod.Systems
         private static bool EscapePressed()
         {
             // The default tool overrides its cancel action with the right mouse button (DefaultToolSystem.cs:741), so Escape is read from
-            // the keyboard. Escape also does its vanilla job (deselect, then the pause menu).
+            // the keyboard. Escape also does its vanilla job (deselect, then the pause menu). A gamepad's B (buttonEast, its back button;
+            // vanilla's binding lives in the input asset, not the decompile) disarms the same way.
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
-            return keyboard != null && keyboard.escapeKey.wasPressedThisFrame;
+            var gamepad = UnityEngine.InputSystem.Gamepad.current;
+            return (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) || (gamepad != null && gamepad.buttonEast.wasPressedThisFrame);
         }
 
         private void LogArmed(bool was, bool escape, bool hasSign)

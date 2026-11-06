@@ -269,5 +269,23 @@ namespace SkiTestBridge
                 system.Enabled = (bool)args["on"];
             return new JObject { ["enabled"] = system.Enabled };
         }
+
+        /// <summary>{name}: the save target the pause menu's Save Game writes to (UserState.lastCloudTarget, read by MenuUISystem.SaveGame,
+        /// MenuUISystem.cs:897; an unknown name falls back to "Local", MenuHelpers.cs:112-127). Replies with the previous target so the
+        /// caller can put the player's choice back. Bridge saves go to "Local": after a direct launch Steam Cloud refused to read them
+        /// back (IOException in SteamCloudStream.LoadCache, field test 2026-11-06).</summary>
+        private JObject SaveTarget(JObject args)
+        {
+            var state = Game.Settings.SharedSettings.instance.userState;
+            string previous = state.lastCloudTarget;
+            if (args["name"] != null)
+                state.lastCloudTarget = (string)args["name"];
+            return new JObject
+            {
+                ["previous"] = previous,
+                ["target"] = state.lastCloudTarget,
+                ["available"] = new JArray(Game.UI.Menu.MenuHelpers.GetAvailableCloudTargets().ToArray()),
+            };
+        }
     }
 }

@@ -81,6 +81,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `offgrid` | optional `add`, `remove` (ids), `clear`, `clearEvents` | prototype of switching road-only services off and on with the road edge; lists the watched buildings and every switch with its sim frame |
 | `prefabFlags` | `prefab`, optional `clear`, `set` (`BuildingFlags` names) | edits a prefab's `BuildingData.m_Flags` for this run of the game |
 | `autosave` | optional `on` | switches the autosave system for this run of the game, so a test on a save does not prune real autosaves |
+| `saveTarget` | optional `name` (`Local`, or a name from `available`) | the target the pause menu's Save Game writes to (UserState.lastCloudTarget); replies with `previous`, `target`, `available`. The save helpers use it and put `previous` back after a save |
 | `u1probe` | `on`, `prefab` (a line prefab), `tilt` (deg), `frames` (log lines) | lift alignment risk U1: tilts the towers of that line when they update, at Modification3 and again after AlignSystem, and logs `[U1]` lines (Align reset, lane ends vs the tilted anchors, the tilt at +1 / +2 / +30 / +300 frames). Turn it off after the test: it tilts every tower of the prefab that updates |
 | `bone` | `id`, optional `mesh` (sub-mesh index), `bone`, `rotX`, `rotY` (deg) | lists a skinned object's bones (type, rest and current pose); with `bone` and a rotation it writes that bone as rest x RotateY x RotateX and flags the skeleton for upload, as our own bone writers will. Bones exist only near the camera |
 | `mprobe` | `action`: `tag` (`id`, `serial`, `provider`), `untag`, `list`, `trace` (`id`, `p`, `write`), `read`, `stop` | merge-asset P0 probe: tags a building with `tools/testbridge-mergetag`'s saved component; `trace` writes round(sqrt(V² + P²)) right after vanilla AttractionSystem and samples the value every frame |
@@ -95,8 +96,9 @@ candidates. `dump` leaves out `Deleted` entities unless `none` is given. Pass `n
 ### Save and load
 
 Use the pause menu with real clicks: Esc, Save Game, click the name field, `ctrl+a`, type the name one `key` step per letter, Save.
-Then Load Game, click the save, Load Game, Yes. Saves go to the player's last target, which may be Steam Cloud, so they show up in the
-game's list rather than under `Saves`.
+Then Load Game, click the save, Load Game, Yes. `__save` / `__saveFromPanel` (helpers.js) write to the local `Saves` folder: they set the
+target to `Local` with `saveTarget` and put the player's own target back after the click. A save in Steam Cloud could not be read back
+after a direct launch (IOException in `SteamCloudStream.LoadCache`, 2026-11-06), so bridge saves stay local.
 
 Do not call `engine.trigger("menu.saveGame", name)`: without the save panel open the preview texture is null, and the game throws a
 `NullReferenceException` and shows its error dialog (measured; `MenuUISystem.cs:896-902`, `GameManager.cs:947`).
