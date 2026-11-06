@@ -7,8 +7,8 @@
 // Command.CompareTo, IconCommandBuffer.cs:43-47). So this system runs right after ConnectionWarningSystem (Mod.cs: UpdateAfter, phase
 // ModificationEnd, load-bearing) and queues, in a buffer created after vanilla's, a Remove of the HV icon for every attach point vanilla
 // may have just judged: its Add is then dropped and the icon never shows. Runs on the frames ConnectionWarningSystem runs (its own
-// update query, :2675-2693, and the map tile flag, :2722), on each Game load (a full pass), and every PollFrames frames as a check that
-// cleans anything a pass missed (a vanilla icon from an older save, a tile purchase).
+// update query, :2675-2693, and the map tile flag, :2722), on each Game load and each tile purchase (a full pass), and every PollFrames
+// frames as a check that cleans anything a pass missed (a vanilla icon from an older save).
 // Our icon is the code-made prefab SkiLiftLineNeeded (LiftLineIconAsset), registered in OnGamePreload. When it cannot be registered,
 // this system stays off and the vanilla icon stays (the only cue left), with one "!!!" line.
 // Logs: "created"; the registration result once per session; ARMED per Game load; one line per owner whose icon state changes,
@@ -169,7 +169,10 @@ namespace SkiResortMod.Systems
             try
             {
                 bool poll = ++m_Frame % PollFrames == 0;
-                bool trigger = !m_TriggerQuery.IsEmptyIgnoreFilter || m_AreaUpdateCollect.mapTilesUpdated;
+                // A tile purchase: vanilla judges every node inside the new tile, Updated or not (ConnectionWarningSystem.cs:2722-2752,
+                // CollectOwnersJob2 :142), so the loose ends get the load's full pass (a rare event; the same cost as a load's pass).
+                bool tiles = m_AreaUpdateCollect.mapTilesUpdated;
+                bool trigger = !m_TriggerQuery.IsEmptyIgnoreFilter || tiles;
                 if (!m_FullPass && !trigger && !poll)
                     return;
                 if (!m_Catalog.IsResolved)
@@ -182,7 +185,7 @@ namespace SkiResortMod.Systems
                 if (poll)
                     m_Polls++;
                 Stations(icb, cover);
-                if (m_FullPass)
+                if (m_FullPass || tiles)
                     LooseNodes(icb, m_LooseNodeQuery, true);
                 else if (trigger)
                     LooseNodes(icb, m_UpdatedNodeQuery, true);
