@@ -704,6 +704,7 @@ anchor SkiGladeTagSystem before Game.Tools.ApplyObjectsSystem ApplyTool
 anchor SkiGladeTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
 anchor SkiGuestCounterSystem after Game.Simulation.MeetingSystem GameSimulation interval{return 16;}
 anchor SkiLiftTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor SkiMergeOverlaySystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiNightLightSystem after Game.Effects.EffectFlagSystem GameSimulation interval{return 2048;}
 anchor SkiPisteMapSystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiPlacementInfoviewSystem before Game.UI.InGame.InfoviewsUISystem UIUpdate

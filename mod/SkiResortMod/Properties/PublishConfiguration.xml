@@ -93,6 +93,7 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 Draft notes (check against the build at upload):
 
 - Merge an existing building into a ski area as a lodge: a park, landmark, signature or decor building near the runs can be merged as a lodge tier its lot allows. It keeps its own use and adds score, skier room, staff and attraction. New saved type: a save that holds a merged building must not be loaded in 1.0.0.
+- The Merged buildings fold in the hub Overview has a Mergeable buildings switch: it outlines the buildings near the runs and lifts that can be merged, green when a lodge tier fits the lot and gray when the lot is too small.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
 	<ExternalLink Type="discord" Url="{{DISCORD_URL}}" />

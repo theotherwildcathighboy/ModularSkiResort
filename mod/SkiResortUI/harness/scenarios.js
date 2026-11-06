@@ -217,11 +217,12 @@
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0] };
-  const base = { hubOpen: false, contract: 35, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 36, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
-    drawRun: { active: false, groomed: true, gunSpacingM: 0, lightSpacingM: 0 }, mergedLodges, mergeCard };
+    drawRun: { active: false, groomed: true, gunSpacingM: 0, lightSpacingM: 0 }, mergedLodges, mergeCard,
+    mergeOverlay: { armed: false, allowed: 0, tooSmall: 0 } };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
@@ -256,6 +257,9 @@
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
     "Ash Flat, thawing": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { seasonHint: 3, snowDepthCm: 22, snowPct: 54, topTempC: 3 }), live2],
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
+    // Contract 36: the merge overlay armed from the Merged buildings fold (the chip on; its tooltip counts 14 green, 3 gray outlines).
+    "Ash Flat, merge overlay armed": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
+      problems, history, build: buildItems({ built: ["school"] }), mergeOverlay: { armed: true, allowed: 14, tooSmall: 3 } }),
     // A ski school on a sign with no counted run (summer: schoolValue 0, no row 25): the School row must read "No run counts
     // yet" (dim), never "No ski school".
     "Ash Flat, school built, no run counts": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { summer: true, schoolValue: 0 }), live2],

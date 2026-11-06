@@ -269,6 +269,54 @@ namespace SkiResortMod.Systems
         {
             return highestSeen < 1 ? 1 : highestSeen == int.MaxValue ? int.MaxValue : highestSeen + 1;
         }
+
+        // The hub-armed merge overlay (SkiMergeOverlaySystem, P2.6)
+
+        /// <summary>How the overlay tints a building near a ski area. Appended only.</summary>
+        public enum OverlayTint : byte
+        {
+            None = 0,      // not drawn: a kind that can never be merged, or already merged
+            Allowed = 1,   // green: at least one tier fits the lot
+            TooSmall = 2,  // gray: the kind qualifies, but no tier fits the lot (AllowedMask 0)
+        }
+
+        /// <summary>The tint of one building from its Classify result and lot. Already merged buildings are not tinted (the Overview's
+        /// Merged buildings fold lists them). A kind that qualifies only fails Classify on the lot (TooSmall), so the gray case is
+        /// "allowed kind, AllowedMask 0", whichever of the two says it.</summary>
+        public static OverlayTint TintOf(Kind kind, Refusal refusal, int allowedMask, bool merged)
+        {
+            if (merged)
+                return OverlayTint.None;
+            bool kindOk = kind != Kind.None || refusal == Refusal.TooSmall;
+            if (!kindOk)
+                return OverlayTint.None;
+            return allowedMask != 0 && kind != Kind.None ? OverlayTint.Allowed : OverlayTint.TooSmall;
+        }
+
+        /// <summary>The overlay's armed state after one frame's events. The hub button sets <paramref name="request"/> (1 arm, 0 disarm,
+        /// -1 none); Escape, a merge (or tier change) and a load always disarm, whatever the button said in the same frame. Arming needs a
+        /// Welcome Sign in the city.</summary>
+        public static bool NextArmed(bool armed, int request, bool escape, bool merged, bool loaded, bool hasSign)
+        {
+            if (loaded || escape || merged || !hasSign)
+                return false;
+            if (request == 1)
+                return true;
+            if (request == 0)
+                return false;
+            return armed;
+        }
+
+        /// <summary>The candidate list is rebuilt when the mode arms, when the areas' runs and lift stations moved (the slopeside
+        /// geometry's revision), when the city's building count changed, or on request (an unmerge makes a new candidate). Never while
+        /// disarmed.</summary>
+        public static bool OverlayRebuild(bool armed, bool justArmed, int geometryRevision, int builtGeometryRevision,
+                                          int buildingCount, int builtBuildingCount, bool requested)
+        {
+            if (!armed)
+                return false;
+            return justArmed || requested || geometryRevision != builtGeometryRevision || buildingCount != builtBuildingCount;
+        }
     }
 
     /// <summary>The one answer to "which lodge tier is this building?": the catalog row of our prefab, else the tier a SkiMergedLodge tag

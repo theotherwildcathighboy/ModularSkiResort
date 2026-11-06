@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 35;
+export const HUB_CONTRACT = 36;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -288,6 +288,16 @@ export interface MergeCardState {
   charge: readonly number[];
   /** Per tier: its monthly fee. */
   monthly: readonly number[];
+}
+
+/** Contract 36: the merge overlay (C# SkiMergeOverlaySystem). While armed, the buildings near a ski area that could be merged are outlined:
+ *  green when a lodge tier fits the lot, gray when the lot is too small for every tier. */
+export interface MergeOverlayState {
+  armed: boolean;
+  /** Outlined green (a tier fits); 0 while disarmed. */
+  allowed: number;
+  /** Outlined gray (lot too small); 0 while disarmed. */
+  tooSmall: number;
 }
 
 /** Contract 35: one merged building, any state (the Overview's Merged buildings fold). */
@@ -1003,6 +1013,7 @@ export const BINDING = {
   drawRun: "drawRun",  // contract 33: the Run tile's option row
   mergeCard: "mergeCard",  // contract 35: the merge card
   mergedLodges: "mergedLodges",  // contract 35: the merged buildings
+  mergeOverlay: "mergeOverlay",  // contract 36: the merge overlay's armed state
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -1035,6 +1046,7 @@ export const TRIGGER = {
   setDrawRun: "setDrawRun",  // contract 33: the Run tile's option row (key, value)
   mergeBuilding: "mergeBuilding",  // contract 35: the merge card's tier buttons
   unmergeBuilding: "unmergeBuilding",
+  armMergeOverlay: "armMergeOverlay",  // contract 36: the Merged buildings fold's overlay chip
 } as const;
 
 /**
@@ -1108,6 +1120,7 @@ export const FALLBACK = {
   drawRun: { active: false, groomed: true, gunSpacingM: 0, lightSpacingM: 0 } as DrawRun,
   mergeCard: { shown: false, building: { index: 0, version: 0 }, name: "", area: "", tier: -1, allowedMask: 0, refusal: 0, state: 6, outcome: 0, charge: [], monthly: [] } as MergeCardState,
   mergedLodges: EMPTY_MERGED,
+  mergeOverlay: { armed: false, allowed: 0, tooSmall: 0 } as MergeOverlayState,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -1138,6 +1151,8 @@ export const busCard$: ValueBinding<BusCardState> = bindValue<BusCardState>(GROU
 export const mergeCard$: ValueBinding<MergeCardState> = bindValue<MergeCardState>(GROUP, BINDING.mergeCard, FALLBACK.mergeCard);
 /** Every merged building, any state. Panel only, and only the Overview subscribes it (no Demand). */
 export const mergedLodges$: ValueBinding<readonly MergedLodgeRow[]> = bindValue<readonly MergedLodgeRow[]>(GROUP, BINDING.mergedLodges, FALLBACK.mergedLodges);
+/** The merge overlay's armed state. Panel only, the Overview's Merged buildings fold (no Demand). */
+export const mergeOverlay$: ValueBinding<MergeOverlayState> = bindValue<MergeOverlayState>(GROUP, BINDING.mergeOverlay, FALLBACK.mergeOverlay);
 /** One row per sign, then the Not linked row (always last). Panel only. */
 export const resorts$: ValueBinding<readonly ResortRow[]> = bindValue<readonly ResortRow[]>(GROUP, BINDING.resorts, FALLBACK.resorts);
 /** The moving values of each `resorts` row. Panel only: read by leaf components only. */
@@ -1240,4 +1255,6 @@ export const hubTriggers = {
   mergeBuilding: (building: Entity, tier: number): void => fire(TRIGGER.mergeBuilding, wire(building), Math.round(tier)),
   /** Unmerge: the building goes back to plain; no refund. */
   unmergeBuilding: (building: Entity): void => fire(TRIGGER.unmergeBuilding, wire(building)),
+  /** Arm (true) or disarm (false) the merge overlay; C# answers through mergeOverlay$ (Escape, a merge and a load disarm it too). */
+  armMergeOverlay: (on: boolean): void => fire(TRIGGER.armMergeOverlay, on),
 } as const;

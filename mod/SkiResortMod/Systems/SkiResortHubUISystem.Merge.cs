@@ -2,6 +2,8 @@
 // selection like the Ski Bus card: shown for a merged building, or a building that could be merged (or is too small) while the city has a
 // ski area. The card's buttons are the triggers mergeBuilding (entity, tier) and unmergeBuilding (entity); SkiMergeSystem does the work. The
 // Overview's "Merged buildings" fold reads `mergedLodges`: one row per merged building of the selected area, any state.
+// Contract 36: the fold's overlay chip fires armMergeOverlay (bool); `mergeOverlay` says whether SkiMergeOverlaySystem is armed and how many
+// buildings it tints (green: a tier fits, gray: lot too small).
 // Engine notes: EngineNotes/SkiMergeSystem.md
 
 using System;
@@ -110,6 +112,34 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>bindings.ts MergeOverlayState (contract 36).</summary>
+        public struct HubMergeOverlay : IJsonWritable, IEquatable<HubMergeOverlay>
+        {
+            public bool Armed;
+            public int Allowed;
+            public int TooSmall;
+
+            public void Write(IJsonWriter writer)
+            {
+                writer.TypeBegin("SkiResortMod.MergeOverlayState");
+                writer.PropertyName("armed");
+                writer.Write(Armed);
+                writer.PropertyName("allowed");
+                writer.Write(Allowed);
+                writer.PropertyName("tooSmall");
+                writer.Write(TooSmall);
+                writer.TypeEnd();
+            }
+
+            public bool Equals(HubMergeOverlay other) => Armed == other.Armed && Allowed == other.Allowed && TooSmall == other.TooSmall;
+
+            public override bool Equals(object obj) => obj is HubMergeOverlay other && Equals(other);
+
+            public override int GetHashCode() => (Armed ? 1 : 0) ^ (Allowed * 397) ^ (TooSmall * 7919);
+        }
+
+        private ValueBinding<HubMergeOverlay> m_MergeOverlayBinding;   // contract 36: panel binding, no Demand
+        private SkiMergeOverlaySystem m_MergeOverlay;
         private ValueBinding<HubMergeCardState> m_MergeCard;   // contract 35: always observed; a compare per frame until a building is selected
         private RawValueBinding m_Merged;
         private SkiMergeSystem m_Merge;
@@ -143,6 +173,31 @@ namespace SkiResortMod.Systems
 
         private void OnUnmergeBuilding(Entity building) =>
             Trigger("unmergeBuilding", new Request { Kind = RequestKind.UnmergeBuilding, Entity = building });
+
+        private void OnArmMergeOverlay(bool on) =>
+            Trigger("armMergeOverlay", new Request { Kind = RequestKind.ArmMergeOverlay, Bool = on });
+
+        private SkiMergeOverlaySystem MergeOverlay => m_MergeOverlay ?? (m_MergeOverlay = World.GetOrCreateSystemManaged<SkiMergeOverlaySystem>());
+
+        private void ApplyArmMergeOverlay(bool on, string source)
+        {
+            MergeOverlay.RequestArmed(on);
+            LastTriggerText = $"armMergeOverlay {on}{SourceSuffix(source)}";
+        }
+
+        /// <summary>`mergeOverlay`: a struct compare per frame while the panel observes it.</summary>
+        private void PushMergeOverlay()
+        {
+            if (!m_MergeOverlayBinding.active)
+                return;
+            SkiMergeOverlaySystem o = MergeOverlay;
+            m_MergeOverlayBinding.Update(new HubMergeOverlay
+            {
+                Armed = o.Armed,
+                Allowed = o.Armed ? o.AllowedCount : 0,
+                TooSmall = o.Armed ? o.TooSmallCount : 0,
+            });
+        }
 
         private SkiMergeSystem MergeSystem => m_Merge ?? (m_Merge = World.GetOrCreateSystemManaged<SkiMergeSystem>());
 

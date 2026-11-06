@@ -340,6 +340,7 @@ Appended fields and bindings by contract:
   region line and beside the mix line.
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan); `quickRunsSet` gains `lifts`, `home`,
   `pod`, `lift`. Bumped on the integration branch at the A7 merge so its gates stay green; re-bump if main takes 22 first.
+- 36: merge overlay (SkiMergeSystem.md, Overlay section): the `mergeOverlay` value binding (`MergeOverlayState` {armed, allowed, tooSmall}, the Merged buildings fold's chip and its tooltip counts) and the trigger `armMergeOverlay(on)`.
 - 35: merge asset (SkiMergeSystem.md, Hub section): the `mergeCard` value binding (`MergeCardState`, the card beside the game's selected-info panel), the `mergedLodges` binding (`MergedLodgeRow`, the Overview's Merged buildings fold) and the triggers `mergeBuilding(building, tier)` and `unmergeBuilding(building)`. Built as contract 32 on the merge-asset branch and renumbered when main reached 34.
 - 34: `CityStats.bookTicketsAsFees` removed (always fees; the UI never read it; DECISIONS 607).
 - 33: run types R3 (DECISIONS 578). `drawRun` {active, groomed, gunSpacingM, lightSpacingM}: the Run tile's option row, active while the

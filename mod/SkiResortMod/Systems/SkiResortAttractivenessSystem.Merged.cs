@@ -79,6 +79,9 @@ namespace SkiResortMod.Systems
             m_MergedViews.Clear();
             m_MergedViewsNext.Clear();
             m_MergedRevision++;
+            m_SlopeStations.Clear();
+            m_SlopeOutlines.Clear();
+            m_SlopeRevision++;
         }
 
         /// <summary>The merged walk, after the park walk: every top-level tagged building that is not ours and still qualifies (Classify)
@@ -179,6 +182,90 @@ namespace SkiResortMod.Systems
             Dictionary<Entity, MergedView> swap = m_MergedViews;
             m_MergedViews = m_MergedViewsNext;
             m_MergedViewsNext = swap;
+            PublishSlopeside(next);
+        }
+
+        // The slopeside geometry of the last recompute, for the merge overlay (SkiMergeOverlaySystem): every area's lift stations and run
+        // outlines (the catalog's arrays, never written in place), and their xz bounds grown by SlopesideMaxM. The revision moves only
+        // when a station or an outline changed, so the overlay rebuilds its list on a real change, not on every recompute.
+        private readonly List<float2> m_SlopeStations = new List<float2>(16);
+        private readonly List<float2[]> m_SlopeOutlines = new List<float2[]>(32);
+        private readonly List<float2> m_SlopeStationsNext = new List<float2>(16);
+        private readonly List<float2[]> m_SlopeOutlinesNext = new List<float2[]>(32);
+        private float2 m_SlopeMin, m_SlopeMax;
+        private int m_SlopeRevision;
+
+        /// <summary>++ when the published slopeside geometry changes.</summary>
+        internal int SlopesideRevision => m_SlopeRevision;
+
+        private void PublishSlopeside(Snapshot next)
+        {
+            m_SlopeStationsNext.Clear();
+            m_SlopeOutlinesNext.Clear();
+            for (int s = 0; s < next.SlotCount; s++)
+                m_SlopeStationsNext.AddRange(next.Slots[s].StationXz);
+            for (int r = 0; r < m_RunOutlines.Count && r < m_RunAreas.Count; r++)
+            {
+                if (m_RunAreas[r] >= 0 && m_RunAreas[r] < next.SlotCount && m_RunOutlines[r] != null && m_RunOutlines[r].Length >= 2)
+                    m_SlopeOutlinesNext.Add(m_RunOutlines[r]);
+            }
+            bool same = m_SlopeStationsNext.Count == m_SlopeStations.Count && m_SlopeOutlinesNext.Count == m_SlopeOutlines.Count;
+            for (int i = 0; same && i < m_SlopeStations.Count; i++)
+                same = math.all(m_SlopeStations[i] == m_SlopeStationsNext[i]);
+            for (int i = 0; same && i < m_SlopeOutlines.Count; i++)
+                same = ReferenceEquals(m_SlopeOutlines[i], m_SlopeOutlinesNext[i]);
+            if (same)
+                return;
+            m_SlopeStations.Clear();
+            m_SlopeStations.AddRange(m_SlopeStationsNext);
+            m_SlopeOutlines.Clear();
+            m_SlopeOutlines.AddRange(m_SlopeOutlinesNext);
+            float2 min = new float2(float.PositiveInfinity), max = new float2(float.NegativeInfinity);
+            for (int i = 0; i < m_SlopeStations.Count; i++)
+            {
+                min = math.min(min, m_SlopeStations[i]);
+                max = math.max(max, m_SlopeStations[i]);
+            }
+            for (int i = 0; i < m_SlopeOutlines.Count; i++)
+            {
+                float2[] o = m_SlopeOutlines[i];
+                for (int k = 0; k < o.Length; k++)
+                {
+                    min = math.min(min, o[k]);
+                    max = math.max(max, o[k]);
+                }
+            }
+            m_SlopeMin = min - SkiDayRules.SlopesideMaxM;
+            m_SlopeMax = max + SkiDayRules.SlopesideMaxM;
+            m_SlopeRevision++;
+        }
+
+        /// <summary>The geometry's bounds grown by SlopesideMaxM; false when no area has a station or a run.</summary>
+        internal bool TryGetSlopesideBounds(out float2 min, out float2 max)
+        {
+            min = m_SlopeMin;
+            max = m_SlopeMax;
+            return m_SlopeStations.Count + m_SlopeOutlines.Count > 0;
+        }
+
+        /// <summary>Within SkiDayRules.SlopesideMaxM of any area's lift station or run outline (the rule of Slopeside, over every area: the
+        /// merge overlay's "near a ski area").</summary>
+        internal bool NearAnySlopeside(float2 xz)
+        {
+            float max = SkiDayRules.SlopesideMaxM;
+            if (math.any(xz < m_SlopeMin) || math.any(xz > m_SlopeMax))
+                return false;
+            for (int i = 0; i < m_SlopeStations.Count; i++)
+            {
+                if (math.distancesq(xz, m_SlopeStations[i]) <= max * max)
+                    return true;
+            }
+            for (int r = 0; r < m_SlopeOutlines.Count; r++)
+            {
+                if (LiftServedRule.OutlineWithin(xz, m_SlopeOutlines[r], max))
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>Within SkiDayRules.SlopesideMaxM of a lift station or a run outline of area <paramref name="slotIndex"/>.</summary>

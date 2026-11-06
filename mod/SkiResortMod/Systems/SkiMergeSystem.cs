@@ -45,6 +45,7 @@ namespace SkiResortMod.Systems
 
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private SkiResortAttractivenessSystem m_Attractiveness;
+        private SkiMergeOverlaySystem m_Overlay;
         private SimulationSystem m_Simulation;
         private TimeSystem m_Time;
         private CitySystem m_CitySystem;
@@ -74,6 +75,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
+            m_Overlay = World.GetOrCreateSystemManaged<SkiMergeOverlaySystem>();
             m_Simulation = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_Time = World.GetOrCreateSystemManaged<TimeSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
@@ -208,7 +210,10 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"Merge [{(outcome == Outcome.Merged || outcome == Outcome.TierChanged ? "merge" : "refused")}] building {Id(building)} " +
                          $"tier {TierName(tier)}: {outcome}{detail}");
             if (outcome == Outcome.Merged || outcome == Outcome.TierChanged)
+            {
                 m_Attractiveness.RequestMergedRecompute();
+                m_Overlay.OnMerged();   // the merge overlay disarms after a merge (MergeRules.NextArmed)
+            }
             return outcome;
         }
 
@@ -268,6 +273,7 @@ namespace SkiResortMod.Systems
             Strip(building, tag);
             LastOutcome = Outcome.Unmerged;
             LastOutcomeBuilding = building;
+            m_Overlay.RequestRebuild();   // the building may be an overlay candidate again
             Mod.Log.Info($"Merge [unmerge] building {Id(building)} tier {TierName(tag.m_Tier)} serial {tag.m_Serial} (fee paid {tag.m_FeePaid}, no refund)");
             m_Attractiveness.RequestMergedRecompute();
             return Outcome.Unmerged;

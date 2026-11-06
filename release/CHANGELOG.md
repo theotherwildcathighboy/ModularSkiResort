@@ -35,6 +35,8 @@ Draft notes (check against the build at upload):
 - Merge an existing building into a ski area as a lodge: a park, landmark, signature or decor building near the runs can be merged as
   a lodge tier its lot allows. It keeps its own use and adds score, skier room, staff and attraction. New saved type: a save that
   holds a merged building must not be loaded in 1.0.0.
+- The Merged buildings fold in the hub Overview has a Mergeable buildings switch: it outlines the buildings near the runs and lifts
+  that can be merged, green when a lodge tier fits the lot and gray when the lot is too small.
 
 ## 1.0.0 (PDX version -, unreleased)
 - Save compatible with previous: n/a (first release)
