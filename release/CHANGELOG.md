@@ -25,22 +25,9 @@ Template (copy above the newest entry):
 Notes...
 ```
 
-## 1.1.0 (PDX version -, unreleased)
-- Save compatible with previous: yes
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1
-- Do not load in older versions: yes
-
-Draft notes (check against the build at upload):
-
-- Merge an existing building into a ski area as a lodge: a park, landmark, signature or decor building near the runs can be merged as
-  a lodge tier its lot allows. It keeps its own use and adds score, skier room, staff and attraction. New saved type: a save that
-  holds a merged building must not be loaded in 1.0.0.
-- The Merged buildings fold in the hub Overview has a Mergeable buildings switch: it outlines the buildings near the runs and lifts
-  that can be merged, green when a lodge tier fits the lot and gray when the lot is too small.
-
 ## 1.0.0 (PDX version -, unreleased)
 - Save compatible with previous: n/a (first release)
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1, RunName 1, MergedLodge 1
 - Do not load in older versions: no
 
 First public release. Draft notes (check against the build at upload):
@@ -69,6 +56,10 @@ First public release. Draft notes (check against the build at upload):
 - Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts
   its ski day there; guests pay as at a lodge. It adds no capacity and no score, needs a lodge on the hill, and bills 1,500
   a month plus 300 per km to that lodge (Finances, row Ski bus). An oxblood coach, with SKI BUS painted on it, drives between the depot and the hill. Selecting the coach or the depot shows a Ski Bus card beside the game's panel: guests by bus this month, the coach bill and the distance to the hill lodge.
+- Merge an existing building into a ski area as a lodge: a park, landmark, signature or decor building near the runs can be merged as
+  a lodge tier its lot allows. It keeps its own use and adds score, skier room, staff and attraction, for a one-time charge and a
+  monthly fee. The Merged buildings fold in the hub Overview lists them and has a Mergeable buildings switch: it outlines the
+  buildings near the runs and lifts that can be merged, green when a lodge tier fits the lot and gray when the lot is too small.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
 - Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
 - Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the

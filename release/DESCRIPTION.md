@@ -25,6 +25,7 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 - **Runs on real snow.** Draw natural, groomed, snowmaking, night and cat track runs. Each is rated green to double black from its hardest pitch, and opens at 3 feet (91 cm) of snow. Snow guns extend the season where it is cold enough.
 - **Seasons.** Snow melts in spring, runs close and lifts stop. The aerial tram keeps running as summer sightseeing.
 - **Lodges, Ski School and Ski Patrol.** Five lodges, a school and two patrol buildings, each following a real place.
+- **Merge your own buildings.** A park, landmark or signature building near the runs can join a ski area as a lodge and keep its own use.
 - **Ski Bus Depot.** A coach stop in town that brings guests to a hill too far away to draw them on its own.
 - **One panel.** The Ski Resort button (top left) opens Attraction, Runs, Lifts, Guests, Finances and History views, plus a problem list that flies you to what is wrong.
 - **A resort economy.** Lift tickets, season passes, lessons, lodge spend and running costs. A ski area's attraction score feeds the game's tourism, so a bigger resort brings more visitors.
