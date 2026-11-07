@@ -5591,10 +5591,10 @@ namespace SlopeBatch
         // of this host. This section pins the VALUES. The 11 synthetic shapes and the 8 field captures are REGRESSION fixtures of the
         // computed Length (±0.1 %, CoreCLR, frame 0 of each shape). Each shape's error against its designed centerline length is INFO
         // only. Asserting ±2 % against the true length would fail the funnel and the height-key diamond by design: the two known limits
-        // in the classifier engine notes. The constant-width bands (rectangles, the mitred L and dogleg) additionally assert LengthRect
+        // in the classifier engine notes. The constant-width bands (rectangles, the mitered L and dogleg) additionally assert LengthRect
         // against the true length (±0.01 %): the closed form is exact for them.
 
-        /// <summary>A mitred constant-width band of width w around a centerline polyline:
+        /// <summary>A mitered constant-width band of width w around a centerline polyline:
         /// left offsets forward, right offsets back. Interior vertices sit on the bisector at
         /// (w / 2) / cos(θ / 2), so the band's area is centerline × w and its perimeter 2 ×
         /// centerline + 2w. This is the case where LengthRect is exact.</summary>

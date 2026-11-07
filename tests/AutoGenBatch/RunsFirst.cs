@@ -304,7 +304,7 @@ namespace AutoGenBatch
             Plan built = BuildPlan(g, rec, lines, lifts, km2r);
             Tick("plan");
             // the village lift (from the opus-med contest entry): the longest main lift off the lowest base whose top is a hub (another
-            // lift loads within 300 m) is a gondola. A resort's main lift goes from the village to mid-mountain, with chairs stacked above it
+            // lift loads within 300 m) is a gondola: a resort's main lift from the village to mid-mountain, with chairs stacked above it
             Lift village = null;
             float lowest = lifts.Count > 0 ? lifts.Min(lf => lf.Bottom.y) : 0f;
             foreach (Lift lf in lifts)

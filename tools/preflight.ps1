@@ -71,8 +71,8 @@ $KnownVanilla = @{
     "c92b9810143a9ba4ca5e004fc709d92f" = "vanilla HV Line unlock milestone 1"
     "9af2c85bf8f3400438a82523ed61b8a4" = "vanilla HV Line unlock milestone 2"
     # Relabeled 2026-10-03 (Round M1, hub-u2-spec.md 6.1 b/h). SkiChairliftHV no longer references it
-    # (its m_UndergroundPrefab is null since M1). The two station markers still do. Likely, not verified:
-    # the dump carries no GUIDs. It is the m_UndergroundPrefab of the vanilla Low-voltage Line and Marker.
+    # (its m_UndergroundPrefab is null since M1). The two station markers still do. Likely, not verified (the dump carries
+    # no GUIDs): it is the m_UndergroundPrefab of the vanilla Low-voltage Line and Marker.
     # Relabel, never drop: an unlisted vanilla ref turns into a WARN (section 3 below).
     "9cbf401c04ad63b44a36c0dc0db26e67" = "Low-voltage Ground Cable (m_UndergroundPrefab of the vanilla LV line; used by SkiLiftMarker/LV)"
     "3e47e765f44f210409edf4e6229fd0df" = "Grass Surface 01 unlock requirement (verified: vanilla Grass 01 ships same ref)"

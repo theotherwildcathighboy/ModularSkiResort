@@ -1529,7 +1529,7 @@ namespace ResortBatch
         }
 
         /// <summary>arrived-at-lodge.md section 3 (oracles re-computed with node in its check): a guest found in the lodge with
-        /// Leisure gone counts as an arrival (RecordOutcome(true) and LearnSpeed), not as a failure.</summary>
+        /// Leisure gone is booked as an arrival (RecordOutcome(true) and LearnSpeed), not as a failure.</summary>
         private static void OnArrival()
         {
             const string w = "skiday U on-arrival";

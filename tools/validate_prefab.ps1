@@ -3,7 +3,7 @@
 #      earlier ("Missing type id" crash otherwise).
 #   2. An index must not be declared twice with different type names.
 #   3. Declaration ORDER is NOT checked: it is unconstrained (SkiChairliftHV declares 11 after
-#      17 and loads fine. Gaps are fine too). The 2026-08-05 "Entry ... missing a name" /
+#      17 and loads fine, and gaps are fine too). The 2026-08-05 "Entry ... missing a name" /
 #      "Missing type ID" spam came from mangled newlines (see the suspicious-line check below),
 #      not from ordering. See the NOTE in the loop and PIPELINE section 6.
 param([Parameter(Mandatory = $true)][string]$Path)

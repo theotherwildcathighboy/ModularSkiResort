@@ -97,7 +97,7 @@ namespace SlopeBatch
             return Math.Abs(s) * 0.5;
         }
 
-        /// <summary>Verbatim copy of SkiRunDrawFeedbackSystem.FillHeights from before the extraction. It has two edits.
+        /// <summary>Verbatim copy of SkiRunDrawFeedbackSystem.FillHeights from before the extraction. It has only two edits.
         /// TerrainUtils.SampleHeight(ref hd, p) became sample(p). The counts are returned instead of published.</summary>
         private static void OldFillHeights(Func<float3, float> sample, SlopeGrid g, SlopeGrid src, out int reusedOut, out int sampledOut)
         {

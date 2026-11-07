@@ -56,7 +56,7 @@ const DEFAULT_LOCK = path.join(__dirname, "game-surface.lock");
 // An exit code wraps at 256, so a count alone could read as success.
 const FATAL = 100;
 
-// Every place that writes the tested game version. The lock's `version` line is the one place to change it (--write). These must follow.
+// Every file that holds the tested game version. The lock's `version` line is the one place to change it (--write). These must follow.
 const VERSION_SITES = [
   { file: "mod/SkiResortMod/Properties/PublishConfiguration.xml", re: /<GameVersion Value="([^"]*)"/, what: "the Paradox Mods GameVersion label" },
   { file: "release/DESCRIPTION.md", re: /tested on ([0-9][0-9a-z.]*)\)/, what: "the listing's Requirements line" },

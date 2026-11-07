@@ -1,7 +1,7 @@
 // Tram saddle articulation (DECISIONS 597, docs research/art/tram-saddle-2026-11/build.md). Where-tags `saddle/...`.
 // TS-1 the planner's tram rope angles. The test sweeps synthetic tram lines (uniform, run-out, crest, shoulder and cliff profiles,
-//      every length class). The tool's planner plans each line. For each line tower, the engine's lanes give two half pitches.
-//      These are the saddle halves (front = the leaving rope's angle, back = the arriving rope's, LiftAlignMath.RopeAngles).
+//      every length class). The tool's planner plans each line. For each line tower, the test reports the two half pitches that the engine's lanes give the saddle halves
+//      (front = the leaving rope's angle, back = the arriving rope's, LiftAlignMath.RopeAngles).
 //      The test also reports the half-break (d / 2) and the mean for each tower.
 //      The report is the art round's input (the fold sweep range). The file assets/blender/tests/data/tram_saddle_poses.json holds a copy.
 // TS-2 the wide tram saddle's limits (LiftAlignMath.TrainLimits). A wide saddle has 60 / 30. Otherwise the train limits apply

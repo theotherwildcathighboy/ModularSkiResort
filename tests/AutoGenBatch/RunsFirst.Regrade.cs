@@ -5,7 +5,7 @@
 // - A piece under a lift line lies on the chord.
 // The grading tool cuts the traverse instead as a green cat track: a bench that winds across the face between the same two points.
 // The pass searches that bench for every diagonal piece. Then it takes the pieces in the order of the crowding and stubs they
-// clear per meter of track. The connector km stay inside the economy share of the served run km. A piece that no bench fits
+// clear per meter of track. It takes pieces only while the connector km stay inside the economy share of the served run km. A piece that no bench fits
 // stays a diagonal run. After the chord repair moves the runs, the pass cuts the diagonal pieces the same way. It cuts only the
 // pieces still under the middle of a lift line that lies on runs. This cut goes past the economy share.
 

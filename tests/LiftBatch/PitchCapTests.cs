@@ -10,7 +10,7 @@
 //      reads the signed lean back.
 // PC-2 head relative to the mast: up to the hard cap, |pitch| - lean stays within MaxRelMeanDeg (DQ / GD head 20, FG trains 13, tram
 //      30). The headed clamp is HeadRelMax (20) on mast-relative pitches. 594's DQ 42 / GD 50.2 are gone.
-// PC-3 the cap repair: every crest-end FG line over the cap as placed without it is under it with the cap. No tower is added. The
+// PC-3 the cap repair: every crest-end FG line over the cap as placed without it is under it with the cap, with no added tower. The
 //      repair is a shift, a member or, since 600 c, a longer span. The station-exit pair that the pitch took before passes the carrier
 //      clearance. The TS-1 shoulders get a pair / an added tower. No repaired line warns.
 // PC-4 the warning: a line still over the cap is not Sound. Its Verdict says TOO STEEP. Its towers key TOWER_PITCH (unless LOW /

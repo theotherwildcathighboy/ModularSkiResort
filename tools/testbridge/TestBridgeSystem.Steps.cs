@@ -1,4 +1,4 @@
-// Step sequences: mouse and keyboard input spread over frames. A tool sees a hover only on a later frame than the move, and
+// Step sequences: mouse and keyboard input spread over frames, because a tool sees a hover only on a later frame than the move, and
 // a click needs the button held across frames. The bridge resolves world targets on the frame they run, after any camera move settles.
 
 using System;

@@ -9,7 +9,7 @@
 //       still raises a built node below its target, and a line not yet built still takes the fit's heights both ways.
 // RL-1  a reload of every type writes nothing. The types are FG / DQ / GD / tram, drawn bottom to top and top to bottom, so towers
 //       lean and both cases of the pad turn are covered. The test also covers the tram on a bench where its pedestals float
-//       (DECISIONS 600 b). The ground is the same, and also sunk 1.05 m under every tower. The fit reads no tower yaw
+//       (DECISIONS 600 b). It writes nothing on the same ground and on ground sunk 1.05 m under every tower. The fit reads no tower yaw
 //       (TowerLeanSystem's turn and lean are tower rotations only), so the draw order is what decides a turned tower here.
 
 using System;
