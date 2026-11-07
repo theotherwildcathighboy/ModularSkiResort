@@ -1,8 +1,8 @@
-// The pure per-station episode state machine behind LiftReconnectSystem's flood fix (one instance per system, keyed by station
-// EntityRef). Why: Move It nudges of a connected top station change Transform (part of the poke signature) every frame, which
-// would poke and log every frame; placement itself pokes once, so a line drawn before its station closes in the same frame.
-// Tick(frame, settled) must run every frame, even when no station changed, else the trailing poke never fires.
-// Constants are tunable and unmeasured; printed in LiftReconnectSystem's ARM line.
+// The pure per-station episode state machine behind LiftReconnectSystem's flood fix (one instance per system, keyed by station EntityRef).
+// Why: Move It nudges of a connected top station change Transform (part of the poke signature) every frame. That would poke and log every
+// frame. Placement itself pokes once, so a line drawn before its station closes in the same frame.
+// Tick(frame, settled) must run every frame, even when no station changed. Otherwise the trailing poke never fires.
+// Constants are tunable and unmeasured. LiftReconnectSystem's ARM line prints them.
 // Pure file: System, System.Collections.Generic and Unity.Mathematics only (tests/LiftBatch links it). No per-frame allocation.
 // Engine notes: EngineNotes/LiftReconnectEpisodes.md
 
@@ -29,7 +29,7 @@ namespace SkiResortMod.Systems
             public bool Opened;     // this change opened a new episode
         }
 
-        /// <summary>One episode (open, or closed and handed back by Tick / Remove / FlushAll).</summary>
+        /// <summary>One episode (open, or closed and returned by Tick / Remove / FlushAll).</summary>
         public struct Episode
         {
             public EntityRef Station;

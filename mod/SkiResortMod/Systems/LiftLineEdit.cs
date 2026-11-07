@@ -1,10 +1,9 @@
-// Pure edit model of the lift-line tool. No ECS, no Game types: LiftBatch tests it headless. LiftLineToolSystem owns one
-// instance per line being drawn and turns its Emit() list into CreationDefinition + NetCourse entities.
-// Pins are snapped to the planner's sample grid (StepM, from the end it works from: FromB) so LiftTowerPlanner.Plan keeps them as
-// seeds; every edit re-plans.
-// Emit: stations first and last, each tower at (x, ground + E(member), z) with E = TopM[member] - TopM[0] (LiftTowerEdit.ElevationM),
-// so the line is born fitted. LiftToolLines registers the emitted inner nodes (in-session only, not saved) so LiftTowerFitSystem
-// recognizes a tool line (Match / MatchSplit) and fits heights only, never Moved.
+// Pure edit model of the lift-line tool. No ECS, no Game types: LiftBatch tests it headless. LiftLineToolSystem owns one instance per line
+// being drawn and turns its Emit() list into CreationDefinition + NetCourse entities. The tool snaps pins to the planner's sample grid
+// (StepM, from the end the planner works from: FromB), so LiftTowerPlanner.Plan keeps them as seeds. Every edit re-plans.
+// Emit puts stations first and last. It puts each tower at (x, ground + E(member), z) with E = TopM[member] - TopM[0]
+// (LiftTowerEdit.ElevationM). Therefore the line is born fitted. LiftToolLines registers the emitted inner nodes (in-session only, not
+// saved). Therefore LiftTowerFitSystem recognizes a tool line (Match / MatchSplit) and fits heights only, never Moved.
 // Engine notes: EngineNotes/LiftLineEdit.md
 
 using System.Collections.Generic;
@@ -25,10 +24,10 @@ namespace SkiResortMod.Systems
     public struct LiftLineNode
     {
         public float AlongM;
-        public float3 Position;   // world: stations = the stub node; towers = (x, ground + ElevationM, z)
+        public float3 Position;   // world: stations = the stub node, towers = (x, ground + ElevationM, z)
         public float GroundM;     // center ground (towers)
-        public float ElevationM;  // E of the placed member (towers): Top(twin or member) - TopM[0], LiftTowerEdit.ElevationM(member, head); 0 for stations
-        public int Member;        // ladder index; -1 for a station
+        public float ElevationM;  // E of the placed member (towers): Top(twin or member) - TopM[0], LiftTowerEdit.ElevationM(member, head). 0 for stations
+        public int Member;        // ladder index. -1 for a station
         public LiftTowerHead Head; // the planned head (a twin of Member, or Line)
         public LiftLineNodeKind Kind;
     }
@@ -48,7 +47,8 @@ namespace SkiResortMod.Systems
         public readonly float3 A, B;
         public readonly float RopeA, RopeB;
         public readonly float LengthM;
-        /// <summary>The ends are stations (approach floor, shortest tower by the station); false = a loose line end or open ground.</summary>
+        /// <summary>The ends are stations (approach floor, shortest tower by the station). False means a loose line end or open
+        /// ground.</summary>
         public readonly bool StationA, StationB;
         public LiftTowerPlan Plan { get; private set; }
         public int Revision { get; private set; }
@@ -73,8 +73,8 @@ namespace SkiResortMod.Systems
             FromB = LiftTowerPlanner.PlansFromB(ropeA, ropeB, a.xz, b.xz);
         }
 
-        /// <summary>The planner works from end B (LiftTowerPlanner.PlansFromB: the end with the lower rope; equal ropes, the smaller
-        /// world xz): its sample grid starts there, so pins snap to that grid (Snap) and Replan hands it the ground sampled from B
+        /// <summary>The planner works from end B (LiftTowerPlanner.PlansFromB: the end with the lower rope, or with equal ropes the smaller
+        /// world xz). Its sample grid starts there, so pins snap to that grid (Snap). Replan gives it the ground sampled from B
         /// (PointFromB). The same two ends give the same answer in either order, so the plan does not depend on the click order.</summary>
         public readonly bool FromB;
 
@@ -84,11 +84,11 @@ namespace SkiResortMod.Systems
         /// <summary>No new tower within this of a removed spot: two samples (2 x StepM) or MinSpanM, whichever is larger.</summary>
         public float RemovedRadiusM => math.max(C.MinSpanM, 2f * C.StepM);
 
-        /// <summary>No pin nearer this end of the line than this. A loose or ground end is a tower: MinSpanM, the tower-to-tower minimum
-        /// (FG / DQ / GD 10 m, tram 40 m). A station end only needs the pinned tower clear of the terminal's front (the stub tip): FG /
-        /// DQ / GD 10 m as before; tram one step (10 m: the 11.4 m wide tower, SkiTramTower30 m_LegSize, then stands 4 m clear of the stub
-        /// tip). Field test 2 refused a tram pin at 1,737 m of a 1,756 m line (19 m from the top station) five times under the old
-        /// MinSpanM (40 m) at both kinds of end.</summary>
+        /// <summary>No pin nearer this end of the line than this. A loose or ground end is a tower: the margin is MinSpanM, the
+        /// tower-to-tower minimum (FG / DQ / GD 10 m, tram 40 m). A station end only needs the pinned tower clear of the terminal's front
+        /// (the stub tip). The margin is 10 m for FG / DQ / GD, as before. For tram it is one step (10 m): the 11.4 m wide tower
+        /// (SkiTramTower30 m_LegSize) then stands 4 m clear of the stub tip. Field test 2 refused a tram pin five times. The pin was at
+        /// 1,737 m of a 1,756 m line (19 m from the top station). The old MinSpanM (40 m) applied at both kinds of end.</summary>
         public float PinEndMarginM(bool stationEnd) =>
             stationEnd && C.TypeId == "tram" ? C.StepM : math.max(C.MinSpanM, C.StepM);
 
@@ -107,9 +107,9 @@ namespace SkiResortMod.Systems
             return new float3(p.x, 0f, p.y);
         }
 
-        /// <summary>World xz point at <paramref name="alongM"/> from B toward A plus <paramref name="lateralM"/> to the right of B -> A:
-        /// the point a line drawn from B first gets for the same numbers (bit for bit: its direction is exactly -A -> B), so a planner
-        /// working from B (FromB) samples the same ground in either click order.</summary>
+        /// <summary>World xz point at <paramref name="alongM"/> from B toward A plus <paramref name="lateralM"/> to the right of B -> A.
+        /// This is the point a line drawn from B first gets for the same numbers (bit for bit: its direction is exactly -A -> B). Therefore
+        /// a planner working from B (FromB) samples the same ground in either click order.</summary>
         public float3 PointFromB(float alongM, float lateralM = 0f)
         {
             float2 p = B.xz + (-m_Dir) * alongM + (-m_Right) * lateralM;
@@ -126,9 +126,9 @@ namespace SkiResortMod.Systems
             return math.clamp(math.dot(d, m_Dir), 0f, LengthM);
         }
 
-        /// <summary>The line crosses the straight piece c..d, another lift's edge in plan view: a lift of the same type joins this one at
-        /// the crossing, another type is crossed over or under with the box clearance (FIX-LIST 60 a). A piece met within
-        /// <paramref name="endMarginM"/> of the line's ends does not count: a section drawn on from a lift meets it there.</summary>
+        /// <summary>The line crosses the straight piece c..d, another lift's edge in plan view. A lift of the same type joins this one at
+        /// the crossing. Another type is crossed over or under with the box clearance (FIX-LIST 60 a). A piece met within
+        /// <paramref name="endMarginM"/> of the line's ends does not count: a section drawn onward from a lift meets it there.</summary>
         public bool Crosses(float2 c, float2 d, float endMarginM) => CrossAt(c, d, endMarginM, out _, out _);
 
         /// <summary>Crosses, with where: <paramref name="alongM"/> along this line from A, <paramref name="onPiece"/> the fraction of
@@ -156,20 +156,21 @@ namespace SkiResortMod.Systems
             return math.degrees(math.acos(math.saturate(math.abs(math.dot(m_Dir, (d - c) / len)))));
         }
 
-        /// <summary>Crossings with built lifts of another type (FIX-LIST 60 a; the tool fills them before each Replan). Null = none.</summary>
+        /// <summary>Crossings with built lifts of another type (FIX-LIST 60 a). The tool fills them before each Replan. Null means
+        /// none.</summary>
         public IList<LiftPlanCrossing> Crossings;
 
-        /// <summary>Road, track and path stretches under the line (x..y meters along from A, merged; FIX-LIST 62; the tool fills them
-        /// before each Replan): the planner keeps new towers out of them where the line has a clear plan without (LiftTowerPlanner.Keepouts).
-        /// Null = none.</summary>
+        /// <summary>Road, track and path stretches under the line (x..y meters along from A, merged, FIX-LIST 62). The tool fills them
+        /// before each Replan. The planner keeps new towers out of them where the line has a clear plan without
+        /// (LiftTowerPlanner.Keepouts). Null means none.</summary>
         public IList<float2> Keepouts;
 
         /// <summary>Clearance (meters) beyond a road's half width and the tower head's half width: the stretch of a road kept tower-free.</summary>
         public const float KeepoutClearM = 1f;
 
         /// <summary>The stretch of this line (meters along from A, clipped to 0..LengthM) whose plan-view distance to the piece c..d is at
-        /// most <paramref name="reachM"/>: the line through the capsule around c..d (convex, so one interval: the union of the two end
-        /// circles' and the side band's intervals). false = the line passes farther.</summary>
+        /// most <paramref name="reachM"/>. It is the line through the capsule around c..d (convex, so one interval: the union of the
+        /// intervals of the two end circles and the side band). False means the line passes farther.</summary>
         public bool KeepoutOf(float2 c, float2 d, float reachM, out float2 stretch)
         {
             float lo = float.PositiveInfinity, hi = float.NegativeInfinity;
@@ -180,7 +181,7 @@ namespace SkiResortMod.Systems
             {
                 float2 e = (d - c) / len;
                 float2 a0 = A.xz - c;
-                // along the piece: 0 <= dot(a0, e) + s dot(dir, e) <= len; across: |cross(e, a0) + s cross(e, dir)| <= reachM
+                // along the piece: 0 <= dot(a0, e) + s dot(dir, e) <= len. Across: |cross(e, a0) + s cross(e, dir)| <= reachM
                 float s0 = float.NegativeInfinity, s1 = float.PositiveInfinity;
                 if (Slab(math.dot(a0, e), math.dot(m_Dir, e), 0f, len, ref s0, ref s1) &&
                     Slab(e.x * a0.y - e.y * a0.x, e.x * m_Dir.y - e.y * m_Dir.x, -reachM, reachM, ref s0, ref s1))
@@ -206,7 +207,7 @@ namespace SkiResortMod.Systems
             hi = math.max(hi, t + h);
         }
 
-        /// <summary>Narrows s0..s1 to the s where lo &lt;= v0 + s k &lt;= hi; false = none.</summary>
+        /// <summary>Narrows s0..s1 to the s where lo &lt;= v0 + s k &lt;= hi. False means none.</summary>
         private static bool Slab(float v0, float k, float lo, float hi, ref float s0, ref float s1)
         {
             if (math.abs(k) < 1e-6f)
@@ -233,20 +234,21 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The planner sample grid (pins are samples, so Plan keeps them exactly): every StepM from the end the planner works
-        /// from (FromB: from B, so meters along from A are LengthM - k x StepM).</summary>
+        /// from. When FromB is true, the grid starts at B, so meters along from A are LengthM - k x StepM.</summary>
         public float Snap(float alongM) =>
             FromB ? LengthM - math.round((LengthM - alongM) / C.StepM) * C.StepM : math.round(alongM / C.StepM) * C.StepM;
 
 
-        /// <summary>A loose end joining a built line: the built neighbor's rope point beyond end A / B (xz distance from the end node,
-        /// rope y there; NaN = unknown, that end is not judged), so the planner judges the junction tower's rope deflection and may give it
-        /// a partner inside this section (breakover-holddown-plan-2026-11-03, section 2.3 step 1). The tool sets them after the pick.</summary>
+        /// <summary>A loose end joining a built line: the built neighbor's rope point beyond end A / B (xz distance from the end node, rope
+        /// y there. NaN means unknown, and that end is not judged). The planner therefore judges the junction tower's rope deflection and
+        /// may give it a partner inside this section (breakover-holddown-plan-2026-11-03, section 2.3 step 1). The tool sets them after the
+        /// pick.</summary>
         public float OuterDistA = float.NaN, OuterRopeA = float.NaN, OuterDistB = float.NaN, OuterRopeB = float.NaN;
 
-        /// <summary>Re-plan with the pins as seeds (the fewest-towers objective fills between them), then the breakover / hold-down
-        /// pairs (LiftTowerPlanner.Pairs: tool plans only; partners are Free nodes, pins never move). <paramref name="terrain"/> is
-        /// sampled from A (PointAt), <paramref name="terrainFromB"/> (optional) the same ground from B (PointFromB): the planner reads
-        /// it when it works from B (FromB), so both click orders read the same ground points; null = the planner mirrors
+        /// <summary>Re-plan with the pins as seeds (the fewest-towers objective fills between them), then the breakover / hold-down pairs
+        /// (LiftTowerPlanner.Pairs: tool plans only, partners are Free nodes, pins never move). <paramref name="terrain"/> is sampled from
+        /// A (PointAt). <paramref name="terrainFromB"/> (optional) is the same ground from B (PointFromB). The planner reads it when it
+        /// works from B (FromB), so both click orders read the same ground points. Null means the planner mirrors
         /// <paramref name="terrain"/>.</summary>
         public LiftTowerPlan Replan(LiftTerrainSampler terrain, LiftTerrainSampler terrainFromB = null)
         {
@@ -303,7 +305,7 @@ namespace SkiResortMod.Systems
         }
 
 
-        // Every edit that returns Done first saves the pins and removed spots it changed; Undo restores the last save (the caller
+        // Every edit that returns Done first saves the pins and removed spots it changed. Undo restores the last save (the caller
         // re-plans). ClearPins saves too, so it can be undone.
 
         private readonly List<float[][]> m_Undo = new List<float[][]>();
@@ -366,7 +368,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Move the tower at <paramref name="fromAlongM"/> (a pin, or a free tower, which becomes a pin) to
-        /// <paramref name="toAlongM"/> (snapped). Refused like AddPin; the old pin stays when refused.</summary>
+        /// <paramref name="toAlongM"/> (snapped). Refused like AddPin. The old pin stays when refused.</summary>
         public LiftLineEditResult MoveTower(float fromAlongM, float toAlongM) => Saved(Snapshot(), MoveTowerCore(fromAlongM, toAlongM));
 
         private LiftLineEditResult MoveTowerCore(float fromAlongM, float toAlongM)
@@ -387,7 +389,7 @@ namespace SkiResortMod.Systems
             return LiftLineEditResult.Done;
         }
 
-        /// <summary>A tower dragged off the line: a pin is unpinned; a free tower is removed by pinning every other line tower where it
+        /// <summary>A tower dragged off the line: a pin is unpinned, and a free tower is removed by pinning every other line tower where it
         /// stands and dropping this one.</summary>
         public LiftLineEditResult RemoveTower(float alongM) => Saved(Snapshot(), RemoveTowerCore(alongM));
 
@@ -460,7 +462,7 @@ namespace SkiResortMod.Systems
                     });
                     continue;
                 }
-                float e = LiftTowerEdit.ElevationM(C, pn.Member, pn.Head);   // Elevation (E, E) picks the member; FloatM lifts the node (tram pedestals)
+                float e = LiftTowerEdit.ElevationM(C, pn.Member, pn.Head);   // Elevation (E, E) picks the member. FloatM lifts the node (tram pedestals)
                 float3 p = PointAt(pn.AlongM);
                 list.Add(new LiftLineNode
                 {
@@ -507,8 +509,9 @@ namespace SkiResortMod.Systems
         CloseTool,   // nothing left: back to the default tool
     }
 
-    /// <summary>What a line end is: a station's stub node, the loose end of a lift line (a section was bulldozed: the node has
-    /// one lift-line edge and no station), or open ground (a fresh end node, the vanilla net tool's line-first drawing).</summary>
+    /// <summary>What a line end is: a station's stub node, the loose end of a lift line, or open ground. A loose end is a node with one
+    /// lift-line edge and no station (a section was bulldozed). Open ground is a fresh end node (the vanilla net tool's line-first
+    /// drawing).</summary>
     public enum LiftLineEndKind : byte
     {
         Station,
@@ -516,12 +519,12 @@ namespace SkiResortMod.Systems
         Ground,
     }
 
-    /// <summary>The lift tool's input rules, pure so LiftBatch tests them. One model for every lift type: left click places a point /
-    /// adds a tower, drag moves a tower (released off the line: removes it), right click steps back one action and closes the tool
-    /// only when nothing is left, the Build key (Enter) builds, Esc closes (the frontend's Back). Vanilla: NetToolSystem binds right
-    /// click ("Cancel", override "Undo Net Control Point") to removing the last control point (NetToolSystem.cs:5482-5483 enable,
-    /// :6256-6330 Cancel -> m_ControlPoints.RemoveAt(Length - 1)); it disables the action when fewer than two points are placed
-    /// (:5482), where we close the tool instead.</summary>
+    /// <summary>The lift tool's input rules, pure so LiftBatch tests them. One model for every lift type. Left click places a point / adds
+    /// a tower. Drag moves a tower (released off the line, it removes the tower). Right click steps back one action and closes the tool
+    /// only when nothing is left. The Build key (Enter) builds. Esc closes (the frontend's Back). Vanilla: NetToolSystem binds right click
+    /// ("Cancel", override "Undo Net Control Point") to removing the last control point (NetToolSystem.cs:5482-5483 enable, :6256-6330
+    /// Cancel -> m_ControlPoints.RemoveAt(Length - 1)). It disables the action when fewer than two points are placed (:5482). In that case
+    /// we close the tool instead.</summary>
     public static class LiftLineInput
     {
         public static LiftLineBack RightClick(LiftLineStep step, bool dragging, int undoDepth)
@@ -560,27 +563,27 @@ namespace SkiResortMod.Systems
         public static float MinLengthM(LiftTowerPlanConstants c, bool bothStations) =>
             bothStations ? 2f * c.MinSpanM : 2f * c.StepM;
 
-        /// <summary>The plan bend, degrees, the drawn line makes where it joins a built line at a loose end: <paramref name="builtFar"/> =
-        /// the built edge's other node, <paramref name="joint"/> = the loose end, <paramref name="otherEnd"/> = the drawn line's other end
-        /// (the tool's line is straight, so its first tower lies on that heading). 0 when the bend is at or under LiftAlignMath.BendWarnDeg:
-        /// the tool warns over it and never refuses (owner verdict 2026-11-02).</summary>
+        /// <summary>The plan bend, in degrees, that the drawn line makes where it joins a built line at a loose end.
+        /// <paramref name="builtFar"/> = the built edge's other node, <paramref name="joint"/> = the loose end, <paramref name="otherEnd"/>
+        /// = the drawn line's other end (the tool's line is straight, so its first tower lies on that heading). The value is 0 when the
+        /// bend is at or under LiftAlignMath.BendWarnDeg: the tool warns over it and never refuses (owner verdict 2026-11-02).</summary>
         public static float JoinBendWarnDeg(float3 builtFar, float3 joint, float3 otherEnd)
         {
             float bend = LiftAlignMath.PlanBendDeg(builtFar, joint, otherEnd);
             return bend > LiftAlignMath.BendWarnDeg ? bend : 0f;
         }
 
-        /// <summary>A line drawn ALONG a built lift (FIX-LIST 60 b, field 2026-11-05): a gondola drawn on top of an FG line read as a
-        /// crossing and the build replaced the FG's edges with its own. Another lift's edge counts as along this line where it runs within
-        /// AlongMaxOffsetM of it (plan view) at AlongMaxAngleDeg or less, over more than AlongMinOverlapM of this line; the tool refuses
-        /// Build then. Two lines side by side that far apart would hang their carriers into each other anyway (DQ rope gauge 2.6 m + a
-        /// 1.1 m carrier half width per side).</summary>
+        /// <summary>A line drawn ALONG a built lift (FIX-LIST 60 b, field 2026-11-05). A gondola drawn on top of an FG line read as a
+        /// crossing, and the build replaced the FG's edges with its own. Another lift's edge counts as along this line where it runs within
+        /// AlongMaxOffsetM of it (plan view) at AlongMaxAngleDeg or less, over more than AlongMinOverlapM of this line. The tool refuses
+        /// Build then. Two lines side by side that far apart would hang their carriers into each other anyway (DQ rope gauge 2.6 m + a 1.1
+        /// m carrier half width per side).</summary>
         public const float AlongMaxOffsetM = 8f, AlongMaxAngleDeg = 10f, AlongMinOverlapM = 15f;
 
         /// <summary>Meters of the drawn line <paramref name="a"/> -> <paramref name="b"/> (xz) that the segment <paramref name="c"/> ->
-        /// <paramref name="d"/> runs along (FIX-LIST 60 b): the part of c-d within AlongMaxOffsetM of the line a-b, projected onto a-b
-        /// and clipped to [endMarginM, length - endMarginM] (a lift met at an end is the section's own joint: a line drawn on from a
-        /// loose end runs on past its built neighbor, never along it). 0 when the two are more than AlongMaxAngleDeg apart, or either is
+        /// <paramref name="d"/> runs along (FIX-LIST 60 b): the part of c-d within AlongMaxOffsetM of the line a-b, projected onto a-b and
+        /// clipped to [endMarginM, length - endMarginM]. A lift met at an end is the section's own joint: a line drawn onward from a loose
+        /// end runs past its built neighbor, never along it. The value is 0 when the two are more than AlongMaxAngleDeg apart, or either is
         /// shorter than 1 cm.</summary>
         public static float AlongOverlapM(float2 a, float2 b, float2 c, float2 d, float endMarginM)
         {
@@ -605,7 +608,7 @@ namespace SkiResortMod.Systems
             return math.max(0f, hi - lo);
         }
 
-        /// <summary>Narrows [s0, s1] to where v0 + s (v1 - v0) lies in [min, max]; false when nothing is left.</summary>
+        /// <summary>Narrows [s0, s1] to where v0 + s (v1 - v0) lies in [min, max]. False when nothing is left.</summary>
         private static bool ClipLinear(float v0, float v1, float min, float max, ref float s0, ref float s1)
         {
             float dv = v1 - v0;
@@ -619,11 +622,12 @@ namespace SkiResortMod.Systems
             return s0 <= s1;
         }
 
-        /// <summary>The crossing notice key (FIX-LIST 60 a), or null. A crossing with another lift type the plan cannot build:
-        /// CROSS_SHALLOW / CROSS_STATION / CROSS_TOWER / CROSS_OWN_TOWER / CROSS_CLEARANCE (the first refused crossing; Build is
-        /// refused, <paramref name="refused"/> true, <paramref name="needM"/> = the separation it needs, for CROSS_CLEARANCE).
-        /// Else CROSSES_UNDER / CROSSES_OVER when the line passes another type (under first: the rarer side), else CROSSES when it
-        /// crosses a lift of its own type (<paramref name="sameType"/>: the game joins the two there, unchanged).</summary>
+        /// <summary>The crossing notice key (FIX-LIST 60 a), or null. A crossing with another lift type that the plan cannot build gives
+        /// CROSS_SHALLOW / CROSS_STATION / CROSS_TOWER / CROSS_OWN_TOWER / CROSS_CLEARANCE. This is the first refused crossing: Build is
+        /// refused, <paramref name="refused"/> is true, and <paramref name="needM"/> = the separation it needs, for CROSS_CLEARANCE.
+        /// Otherwise the key is CROSSES_UNDER / CROSSES_OVER when the line passes another type (under first: the rarer side). Otherwise it
+        /// is CROSSES when the line crosses a lift of its own type (<paramref name="sameType"/>: the game joins the two there,
+        /// unchanged).</summary>
         public static string CrossKey(LiftTowerPlan plan, bool sameType, out bool refused, out float needM)
         {
             refused = false;
@@ -660,11 +664,11 @@ namespace SkiResortMod.Systems
         public const float AnchorSearchM = 30f;
 
         /// <summary>The rope height the built line will have at a station end, so the tool plans with what the fit reads. LaneSystem
-        /// anchors the line's rope lane end to the station: anchors are the world end points of the HV sub-lanes of the node's
-        /// sub-objects (order 0) and of the node's owner, the station (order 2) (FindAnchors, Game.Net/LaneSystem.cs:2371-2416,
-        /// :2441-2453; FindAnchor :4049-4071, applied :4117-4121); the fit takes the lowest rope-lane end within AnchorSearchM of the
-        /// node. <paramref name="subObjectAnchors"/> / <paramref name="ownerAnchors"/> = those world points (the lower order wins when it
-        /// has any within reach); none gives <paramref name="fallback"/> (stub node + the shortest member's rope).
+        /// anchors the line's rope lane end to the station. The anchors are the world end points of the HV sub-lanes of the node's
+        /// sub-objects (order 0) and of the node's owner, the station (order 2) (FindAnchors, Game.Net/LaneSystem.cs:2371-2416, :2441-2453;
+        /// FindAnchor :4049-4071, applied :4117-4121). The fit takes the lowest rope-lane end within AnchorSearchM of the node.
+        /// <paramref name="subObjectAnchors"/> / <paramref name="ownerAnchors"/> = those world points (the lower order wins when it has any
+        /// within reach). With none, the result is <paramref name="fallback"/> (stub node + the shortest member's rope).
         /// <paramref name="fromLane"/> = an anchor was used.</summary>
         public static float StationRope(IList<float3> subObjectAnchors, IList<float3> ownerAnchors, float3 node, float fallback,
                                         out bool fromLane)
@@ -676,9 +680,9 @@ namespace SkiResortMod.Systems
             return fromLane ? best : fallback;
         }
 
-        /// <summary>The rope a GROUND end plans with (FIX-LIST 48): the open end is where a station goes (line-first, its stub course
-        /// reuses this node), so it plans with that station's own anchor (LiftTowerPlanConstants.StationEndRope), and
-        /// <paramref name="source"/> says which height won.</summary>
+        /// <summary>The rope a GROUND end plans with (FIX-LIST 48). The open end is where a station goes (line-first, its stub course
+        /// reuses this node), so it plans with that station's own anchor (LiftTowerPlanConstants.StationEndRope). <paramref name="source"/>
+        /// says which height won.</summary>
         public static float GroundEndRope(LiftTowerPlanConstants c, StationDef station, float nodeY, float frontGroundY, out string source)
         {
             float rope = c.StationEndRope(station, nodeY, frontGroundY);
@@ -703,7 +707,7 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>The player name of a lift type id (SkiCatalog LiftTypeDef.Id); "Lift" when unknown.</summary>
+        /// <summary>The player name of a lift type id (SkiCatalog LiftTypeDef.Id). "Lift" when unknown.</summary>
         public static string TypeName(string typeId)
         {
             switch (typeId)
@@ -716,7 +720,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The step hint's LocaleEN key (SkiResort.LiftTool.*; {TYPE} = the lift type): what the next click does.</summary>
+        /// <summary>The step hint's LocaleEN key (SkiResort.LiftTool.*, with {TYPE} = the lift type): what the next click does.</summary>
         public static string PromptKey(LiftLineStep step, string typeId, bool dragging, bool dragOff)
         {
             switch (step)
@@ -732,12 +736,17 @@ namespace SkiResortMod.Systems
         public static bool KnownType(string typeId) =>
             typeId == "fixedGrip" || typeId == "detachable" || typeId == "gondola" || typeId == "tram";
 
-        /// <summary>The plan line's key: the first thing wrong (a span below the floor, an edge too steep for the engine, a span above
-        /// the max rope height, a tower whose rope bends past its sheave train's cap: PLAN_TRAIN, FIX-LIST 55, or past the tram saddle's
-        /// cap: PLAN_SADDLE, DECISIONS 600 a; a tower whose rope runs through it steeper than the type's pitch cap: PLAN_PITCH,
-        /// DECISIONS 600; a tower whose rope half is past its carrier clearance: PLAN_CLEARANCE, DECISIONS 600 c; it read PLAN_TRAIN, a
-        /// bend text, until the lean docs round), else PLAN_CLEAR, which
-        /// is only ever the key of a Sound plan. <paramref name="lengthM"/> = the line's length (sum of the spans).</summary>
+        /// <summary>The plan line's key: the first thing wrong, else PLAN_CLEAR. PLAN_CLEAR is only ever the key of a Sound plan. The
+        /// things that can be wrong are:
+        ///   * a span below the floor
+        ///   * an edge too steep for the engine
+        ///   * a span above the max rope height
+        ///   * a tower whose rope bends past its sheave train's cap (PLAN_TRAIN, FIX-LIST 55) or past the tram saddle's cap (PLAN_SADDLE,
+        ///     DECISIONS 600 a)
+        ///   * a tower whose rope runs through it steeper than the type's pitch cap (PLAN_PITCH, DECISIONS 600)
+        ///   * a tower whose rope half is past its carrier clearance (PLAN_CLEARANCE, DECISIONS 600 c). It read PLAN_TRAIN, a bend text,
+        ///     until the lean docs round.
+        /// <paramref name="lengthM"/> = the line's length (sum of the spans).</summary>
         public static string PlanKey(LiftTowerPlan plan, out float lengthM)
         {
             bool low = false, steep = false, high = false;
@@ -753,15 +762,17 @@ namespace SkiResortMod.Systems
                 : plan.TooSteepTowers > 0 ? "PLAN_PITCH" : plan.ClearanceTowers > 0 ? "PLAN_CLEARANCE" : "PLAN_CLEAR";
         }
 
-        /// <summary>The hovered tower's key, its height (the ladder member's tower top above its base, as the model stands) and how
-        /// high a chair or cabin passes over the ground at the tower (rope above the base - the carrier's drop). TOWER_LOW when a span
-        /// beside it is below the floor (the span minimum is not used: at a station end the chairs are at loading height by design);
-        /// TOWER_TRAIN when its rope bends past its sheave train's cap (<paramref name="bendDeg"/> = the bend, <paramref name="capDeg"/> =
-        /// the cap, both 0 otherwise; FIX-LIST 55); TOWER_SADDLE for the same on a tram saddle (its cap 2 x SaddleHalfCapDeg, DECISIONS
-        /// 600 a); TOWER_PITCH when the rope runs through it steeper than the type's pitch cap (then
-        /// <paramref name="bendDeg"/> = the pitch, <paramref name="capDeg"/> = LiftTowerPlanConstants.PitchCapDeg; DECISIONS 600);
-        /// TOWER_CLEARANCE when its steeper rope half is past the carrier-clearance limit of its head (then <paramref name="bendDeg"/> =
-        /// LiftPlanNode.HalfDeg, <paramref name="capDeg"/> = LiftTowerPlanConstants.WorldHalfMaxDeg(head); DECISIONS 600 c).</summary>
+        /// <summary>The hovered tower's key, its height (the ladder member's tower top above its base, as the model stands) and how high a
+        /// chair or cabin passes over the ground at the tower (rope above the base - the carrier's drop). The keys are:
+        ///   * TOWER_LOW when a span beside it is below the floor (the span minimum is not used: at a station end the chairs are at loading
+        ///     height by design)
+        ///   * TOWER_TRAIN when its rope bends past its sheave train's cap (<paramref name="bendDeg"/> = the bend,
+        ///     <paramref name="capDeg"/> = the cap, both 0 otherwise, FIX-LIST 55)
+        ///   * TOWER_SADDLE for the same on a tram saddle (its cap 2 x SaddleHalfCapDeg, DECISIONS 600 a)
+        ///   * TOWER_PITCH when the rope runs through it steeper than the type's pitch cap (then <paramref name="bendDeg"/> = the pitch,
+        ///     <paramref name="capDeg"/> = LiftTowerPlanConstants.PitchCapDeg, DECISIONS 600)
+        ///   * TOWER_CLEARANCE when its steeper rope half is past the carrier-clearance limit of its head (then <paramref name="bendDeg"/>
+        ///     = LiftPlanNode.HalfDeg, <paramref name="capDeg"/> = LiftTowerPlanConstants.WorldHalfMaxDeg(head), DECISIONS 600 c)</summary>
         public static string TowerKey(LiftTowerPlan plan, int node, bool pinned, out float heightM, out float clearM, out float bendDeg,
                                       out float capDeg)
         {
@@ -794,11 +805,11 @@ namespace SkiResortMod.Systems
         /// <summary>Carriers leaving a station end more than this below the ground ahead of it: the SUNK notices.</summary>
         public const float SunkWarnM = 0.25f;
 
-        /// <summary>The sunk-end notice key, or null (FIX-LIST 55). A station end (a station's stub node, or a ground end, which plans
-        /// with the station that will stand there: GroundEndRope) whose carriers leave more than SunkWarnM below the ground
-        /// (LiftTowerPlan.EndCarrierA / B) is sunk. SUNK when a built station is sunk; SUNK_END when only a ground end is (no
-        /// station stands there yet: past a crest vanilla stands it on the lower lot front, so its rope starts low). A loose end is a
-        /// tower node and is never sunk.</summary>
+        /// <summary>The sunk-end notice key, or null (FIX-LIST 55). A station end is sunk when its carriers leave more than SunkWarnM below
+        /// the ground (LiftTowerPlan.EndCarrierA / B). A station end is a station's stub node, or a ground end, which plans with the
+        /// station that will stand there: GroundEndRope. The key is SUNK when a built station is sunk. The key is SUNK_END when only a
+        /// ground end is (no station stands there yet: past a crest vanilla stands it on the lower lot front, so its rope starts low). A
+        /// loose end is a tower node and is never sunk.</summary>
         public static string SunkKey(LiftTowerPlan plan, LiftLineEndKind kindA, LiftLineEndKind kindB)
         {
             bool a = SunkEnd(plan.StationA, kindA, plan.EndCarrierA), b = SunkEnd(plan.StationB, kindB, plan.EndCarrierB);
@@ -839,7 +850,7 @@ namespace SkiResortMod.Systems
     public sealed class LiftToolMatch
     {
         public LiftToolLines.Line Line;
-        public int[] Members;      // tool member per inner path node; -1 = extra split node (the fit gives it ChordMembers)
+        public int[] Members;      // tool member per inner path node. -1 = extra split node (the fit gives it ChordMembers)
         public bool[] Pinned;
         public bool[] Extra;
         public int Registered;     // tool inner nodes found (= Line.Inner.Length)
@@ -848,17 +859,19 @@ namespace SkiResortMod.Systems
         public bool Reversed;      // the path runs from the tool's last end to its first
     }
 
-    /// <summary>In-session registry of lines built by the lift-line tool (EngineNotes/LiftLineEdit.md, Tool lines). The engine may build a tool
-    /// course as more edges than emitted (CourseSplitSystem.CheckHeightRange elevation transitions, CourseSplitSystem.cs:2884-2942;
-    /// crossings). MatchSplit then recognizes the line when every emitted inner node has its own path node within MatchTolM, in order,
-    /// the path's ends are the tool's ends (EndTolM) and every extra node lies on the tool's straight line (ExtraLateralTolM).</summary>
+    /// <summary>In-session registry of lines built by the lift-line tool (EngineNotes/LiftLineEdit.md, Tool lines). The engine may build a
+    /// tool course as more edges than emitted (CourseSplitSystem.CheckHeightRange elevation transitions, CourseSplitSystem.cs:2884-2942,
+    /// and crossings). MatchSplit then recognizes the line when all of these are true:
+    ///   * every emitted inner node has its own path node within MatchTolM, in order
+    ///   * the path's ends are the tool's ends (EndTolM)
+    ///   * every extra node lies on the tool's straight line (ExtraLateralTolM)</summary>
     public sealed class LiftToolLines
     {
         public const float MatchTolM = 0.5f;
-        /// <summary>The path's end nodes vs the tool's emitted ends (station stub / loose end / fresh ground node: the same node,
-        /// so 0 in practice; 2 m allows float noise and never confuses two different lines' ends).</summary>
+        /// <summary>The path's end nodes vs the tool's emitted ends (station stub / loose end / fresh ground node: the same node, so 0 in
+        /// practice). 2 m allows float noise and never confuses two different lines' ends.</summary>
         public const float EndTolM = 2f;
-        /// <summary>An extra split node lies on the course, so on the tool's straight xz line; farther off = another line.</summary>
+        /// <summary>An extra split node lies on the course, so on the tool's straight xz line. Farther off means another line.</summary>
         public const float ExtraLateralTolM = 1f;
         /// <summary>ChordMembers: two members whose ropes are this close in distance to the planned chord tie (the taller wins).</summary>
         public const float ChordTolM = 0.25f;
@@ -907,8 +920,8 @@ namespace SkiResortMod.Systems
             return line;
         }
 
-        /// <summary>The registered line whose inner nodes are exactly these (xz within MatchTolM, same count, either direction),
-        /// with its members / pins in the order of <paramref name="innerXz"/>; null when none matches.</summary>
+        /// <summary>The registered line whose inner nodes are exactly these (xz within MatchTolM, same count, either direction), with its
+        /// members / pins in the order of <paramref name="innerXz"/>. Null when none matches.</summary>
         public Line Match(IList<float3> innerXz, out int[] members, out bool[] pinned)
         {
             members = null;
@@ -945,10 +958,12 @@ namespace SkiResortMod.Systems
             return null;
         }
 
-        /// <summary>The registered line this built path is, allowing extra engine split nodes. <paramref name="path"/> = every node of
-        /// the path in order, ends included (world positions). Needs: the path's ends within EndTolM of the tool's ends (either
-        /// direction); every tool inner node matched, in order, by its own path node within MatchTolM (xz); every other inner path node
-        /// within ExtraLateralTolM of the tool's end-to-end xz line. Newest line first; null when none.</summary>
+        /// <summary>The registered line this built path is, allowing extra engine split nodes. <paramref name="path"/> = every node of the
+        /// path in order, ends included (world positions). Needs:
+        ///   * the path's ends within EndTolM of the tool's ends (either direction)
+        ///   * every tool inner node matched, in order, by its own path node within MatchTolM (xz)
+        ///   * every other inner path node within ExtraLateralTolM of the tool's end-to-end xz line
+        /// Newest line first. Null when none.</summary>
         public LiftToolMatch MatchSplit(IList<float3> path)
         {
             if (path == null || path.Count < 3)
@@ -1013,7 +1028,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Diagnostics for a line that did not match: the registered line with the most inner nodes found in
-        /// <paramref name="path"/> (xz within MatchTolM, any order), <paramref name="found"/> / <paramref name="pins"/> of them; null when
+        /// <paramref name="path"/> (xz within MatchTolM, any order), <paramref name="found"/> / <paramref name="pins"/> of them. Null when
         /// no registered node is on the path. The fit WARNs when it would move such a line's pinned towers.</summary>
         public Line BestPartial(IList<float3> path, out int found, out int pins)
         {
@@ -1047,12 +1062,12 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>Members for the extra split nodes of a matched tool line (members[i] &lt; 0), so the rope stays on the plan: the
-        /// planned chord runs between the neighboring tool nodes' ropes (ground + RopeAboveBase(member); the station ropes at the ends)
-        /// and an extra node gets the member whose rope is nearest that chord (a tie goes to the taller: never a dip below the planned
-        /// rope when a member sits exactly between). <paramref name="current"/> (the node's member now, -1 unknown) is kept while its
-        /// rope is within ChordHystM of the best one's distance (no flip-flop on re-fits). Tool nodes are not touched. Pure. The fit
-        /// then checks the clearance; an extra that breaks it is re-filled by the planner (LiftTowerPlanner.Fit spareNodes).</summary>
+        /// <summary>Members for the extra split nodes of a matched tool line (members[i] &lt; 0), so the rope stays on the plan. The
+        /// planned chord runs between the neighboring tool nodes' ropes (ground + RopeAboveBase(member), the station ropes at the ends). An
+        /// extra node gets the member whose rope is nearest that chord (a tie goes to the taller: never a dip below the planned rope when a
+        /// member sits exactly between). <paramref name="current"/> (the node's member now, -1 unknown) is kept while its rope is within
+        /// ChordHystM of the best one's distance (no flip-flop on re-fits). Tool nodes are not touched. Pure. The fit then checks the
+        /// clearance. The planner re-fills an extra that breaks it (LiftTowerPlanner.Fit spareNodes).</summary>
         public static void ChordMembers(LiftTowerPlanConstants c, IList<float> innerAlongM, IList<float> groundM, int[] members,
                                         IList<int> current, float lengthM, float ropeA, float ropeB)
         {
@@ -1081,8 +1096,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The member whose rope (ground + RopeAboveBase) is nearest <paramref name="ropeY"/>; a tie (within ChordTolM) goes
-        /// to the taller.</summary>
+        /// <summary>The member whose rope (ground + RopeAboveBase) is nearest <paramref name="ropeY"/>. A tie (within ChordTolM) goes to
+        /// the taller.</summary>
         public static int Nearest(LiftTowerPlanConstants c, float ground, float ropeY)
         {
             int best = 0;

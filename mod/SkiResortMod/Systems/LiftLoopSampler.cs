@@ -1,12 +1,12 @@
-// The chair mover's per-chair kernel over FLAT segment arrays. LiftLoopCache.Sample walks a managed List<Segment>, unusable
-// from Burst, while MoveChairsJob (ChairPinSystem.Mover.cs) needs the same arithmetic over a NativeArray. It lives here once,
-// generic over the segment store (IFlatSegments): the job uses NativeArray<FlatSegment> (Burst, worker threads);
-// tests/MoverBench uses a managed array and proves bit-for-bit equality with LiftLoopCache.Sample (JIT, not Burst; Burst may
-// contract float ops differently: sub-micrometer, far inside MoveChair's 1 mm idempotence test).
+// The chair mover's per-chair kernel over FLAT segment arrays. LiftLoopCache.Sample walks a managed List<Segment>, which Burst cannot use.
+// MoveChairsJob (ChairPinSystem.Mover.cs) needs the same arithmetic over a NativeArray. It lives here once, generic over the segment store
+// (IFlatSegments). The job uses NativeArray<FlatSegment> (Burst, worker threads). tests/MoverBench uses a managed array and proves
+// bit-for-bit equality with LiftLoopCache.Sample (JIT, not Burst). Burst may contract float ops differently: sub-micrometer, far inside
+// MoveChair's 1 mm idempotence test.
 // Body = LiftLoopCache.SampleSegments and ChairPinSystem.MoveChair's pose, line for line, no new math.
-// The carrier grip round adds, per flat segment, Guided (an arc or a synthesized station run: no swing there) and the free run around
-// it (RunBefore / RunAfter, MarkRuns), and a Sample overload that also returns the segment and the distance into it (the swing ramp,
-// CarrierPose.DistanceToGuided); the original Sample is that overload with the extras discarded (same arithmetic, MoverBench B-1).
+// The carrier grip round adds, per flat segment, Guided (an arc or a synthesized station run: no swing there) and the free run around it
+// (RunBefore / RunAfter, MarkRuns). It also adds a Sample overload that returns the segment and the distance into it as well (the swing
+// ramp, CarrierPose.DistanceToGuided). The original Sample is that overload with the extras discarded (same arithmetic, MoverBench B-1).
 // Dependencies: Unity.Mathematics, Colossal.Mathematics, Game.Net.NetUtils.GetNodeRotation (pure math, NetUtils.cs:316-324),
 // Game.Objects.Transform and Unity.Entities.Entity (Flatten's owner test only). No Collections type.
 
@@ -18,7 +18,7 @@ using Transform = Game.Objects.Transform;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>LiftLoopCache.Segment without the managed parts (no Entity owner; bools as bytes): blittable.</summary>
+    /// <summary>LiftLoopCache.Segment without the managed parts (no Entity owner, bools as bytes): blittable.</summary>
     internal struct FlatSegment
     {
         public Bezier4x3 Bezier;     // lane / straight segments
@@ -32,7 +32,7 @@ namespace SkiResortMod.Systems
         public byte Reversed;
         /// <summary>1 = no swing here: a bull wheel arc or a synthesized terminal run (LiftLoopCache's turns, Owner == Entity.Null).</summary>
         public byte Guided;
-        /// <summary>Free-run meters before this segment's start / after its end up to the nearest guided segment (MarkRuns; 0 on guided).</summary>
+        /// <summary>Free-run meters before this segment's start / after its end up to the nearest guided segment (MarkRuns, 0 on guided).</summary>
         public float RunBefore, RunAfter;
     }
 
@@ -50,7 +50,7 @@ namespace SkiResortMod.Systems
 
     internal static class LiftLoopSampler
     {
-        /// <summary>Result codes of one chair (the job's result array; 0 = loop not written this pass).</summary>
+        /// <summary>Result codes of one chair (the job's result array, 0 = loop not written this pass).</summary>
         public const byte Skipped = 0, Moved = 1, InPlace = 2, Missing = 3;
 
         public static FlatSegment Flatten(in LiftLoopCache.Segment s)
@@ -181,9 +181,9 @@ namespace SkiResortMod.Systems
             travelTangent = math.normalizesafe(travelTangent, new float3(0f, 0f, 1f));
         }
 
-        /// <summary>ChairPinSystem.MoveChair's pose: the rope point rides ON the cable (<paramref name="drop"/> = CarrierDrop), yaw
-        /// from the travel tangent (the current rotation is only the degenerate-tangent fallback). Returns InPlace (transform
-        /// untouched) when the chair already stands there (1 mm, |dot| &gt; 0.99999), else Moved with <paramref name="transform"/>
+        /// <summary>ChairPinSystem.MoveChair's pose: the rope point rides ON the cable (<paramref name="drop"/> = CarrierDrop), yaw from
+        /// the travel tangent (the current rotation is only the degenerate-tangent fallback). Returns InPlace (transform untouched) when
+        /// the chair already stands there (1 mm, |dot| &gt; 0.99999). Otherwise returns Moved with <paramref name="transform"/>
         /// updated.</summary>
         public static byte Pose(float3 position, float3 travelTangent, float drop, ref Transform transform)
         {

@@ -1,10 +1,13 @@
-// The lift-line tool's section delete (DECISIONS 591, F1). In the first pick step (nothing drawn yet) the tool aims at the rope lanes,
-// the curves the player sees, and removes the section under the cursor through the vanilla delete definition (the one
-// BulldozeToolSystem.AddEntity writes for an edge, BulldozeToolSystem.cs:731-780), so validation, refund and apply are the game's.
-// The pure ray-vs-rope pick is LiftRopePick (LiftBatch RP-1..RP-9). Here: the rope curves, cached and refreshed per census build;
-// the cursor ray; a vanilla Net raycast as the fallback when no rope is near; the game's own delete preview (Temp) standing on the
-// hovered section; the apply on a click. Section-by-section editing stays the workflow: one edge goes, its neighbors stay, and the
-// tool redraws the gap from the two loose ends.
+// The lift-line tool's section delete (DECISIONS 591, F1). In the first pick step (nothing drawn yet) the tool aims at the rope lanes, the
+// curves the player sees. It removes the section under the cursor through the vanilla delete definition (the one
+// BulldozeToolSystem.AddEntity writes for an edge, BulldozeToolSystem.cs:731-780). So validation, refund and apply are the game's.
+// The pure ray-vs-rope pick is LiftRopePick (LiftBatch RP-1..RP-9). This file holds:
+//   * the rope curves, cached and refreshed per census build.
+//   * the cursor ray.
+//   * a vanilla Net raycast as the fallback when no rope is near.
+//   * the game's own delete preview (Temp) standing on the hovered section.
+//   * the apply on a click.
+// Section-by-section editing stays the workflow: one edge goes, its neighbors stay, and the tool redraws the gap from the two loose ends.
 // Engine notes: EngineNotes/LiftLineToolSystem.md, "Section delete by the rope".
 
 using System.Collections.Generic;
@@ -24,7 +27,7 @@ namespace SkiResortMod.Systems
     public sealed partial class LiftLineToolSystem
     {
         private const int RopeRefreshFrames = 120;     // re-read the rope curves at least this often while picking (the fit moves towers)
-        private const int DeleteWaitFrames = 30;       // a click before its preview's Temps exist waits this long, then gives up
+        private const int DeleteWaitFrames = 30;       // a click before its preview's Temps exist waits this long, then stops
         private const int SectionLogLines = 40;        // hover lines per session in full, then every 25th
         private static readonly UnityEngine.Color SectionColor = new UnityEngine.Color(1f, 0.3f, 0.25f, 0.95f);
 
@@ -69,9 +72,9 @@ namespace SkiResortMod.Systems
             m_RaycastSystem = World.GetOrCreateSystemManaged<RaycastSystem>();
         }
 
-        /// <summary>Stop or load (the definitions are gone with it): forget the hover, the preview, a pending click and, on a load,
-        /// the rope cache. A Reset while the tool runs only drops the hover (ResetSectionHover): a standing preview is cleared by the
-        /// next pick update when its section is no longer hovered.</summary>
+        /// <summary>Stop or load (the definitions are gone with it): forget the hover, the preview, a pending click and, on a load, the
+        /// rope cache. A Reset while the tool runs only drops the hover (ResetSectionHover). The next pick update clears a standing preview
+        /// when its section is no longer hovered.</summary>
         private void ResetSections(bool cache)
         {
             ResetSectionHover();
@@ -95,9 +98,9 @@ namespace SkiResortMod.Systems
             m_HoverBySheet = false;
         }
 
-        /// <summary>Every lift-line edge's rope lanes as polylines (LiftRopePick.AddRope), rebuilt when the census rebuilt (a line drawn,
-        /// a section deleted) and at least every RopeRefreshFrames while picking; never per frame. The edges come from the census
-        /// (CopyLineOwners: the line edges and their end nodes, nodes skipped), else from the tool's own edge query.</summary>
+        /// <summary>Every lift-line edge's rope lanes as polylines (LiftRopePick.AddRope), rebuilt when the census rebuilt (a line drawn, a
+        /// section deleted) and at least every RopeRefreshFrames while picking. Never per frame. The edges come from the census
+        /// (CopyLineOwners: the line edges and their end nodes, nodes skipped), otherwise from the tool's own edge query.</summary>
         private void RefreshRopes(bool force)
         {
             int builds = m_Census.Builds;
@@ -151,7 +154,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A rope: a live UtilityLane whose prefab carries HighVoltageLine (the haul / track rope) or LowVoltageLine (the tram's
-        /// haul rope) UtilityLaneData; its Curve is the hanging curve LaneSystem wrote (LaneSystem.cs:4128-4138).</summary>
+        /// haul rope) UtilityLaneData. Its Curve is the hanging curve LaneSystem wrote (LaneSystem.cs:4128-4138).</summary>
         private bool TryRopeCurve(Entity lane, out Bezier4x3 bezier)
         {
             bezier = default;
@@ -168,9 +171,9 @@ namespace SkiResortMod.Systems
         private bool EdgeAlive(Entity edge) =>
             edge != Entity.Null && EntityManager.Exists(edge) && !EntityManager.HasComponent<Deleted>(edge) && !EntityManager.HasComponent<Temp>(edge);
 
-        /// <summary>First pick step: the section under the cursor. A rope within LiftRopePick's tolerance wins; with none near, the vanilla
+        /// <summary>First pick step: the section under the cursor. A rope within LiftRopePick's tolerance wins. With none near, the vanilla
         /// Net raycast of the last frame (the sheet the bulldozer hits) is the fallback. A loose end or a station that can still take a
-        /// line keeps its click (the redraw starts there); a station that already has its line yields to the rope.</summary>
+        /// line keeps its click (the redraw starts there). A station that already has its line yields to the rope.</summary>
         private void UpdateSection(LiftTypeDef want, bool live)
         {
             m_HoverSection = -1;
@@ -256,10 +259,10 @@ namespace SkiResortMod.Systems
             return EntityManager.HasComponent<Game.Net.Edge>(e) ? e : Entity.Null;
         }
 
-        /// <summary>One Net raycast on the cursor line for the next frame, the bulldozer's net test (BulldozeToolSystem.cs:1457-1470:
-        /// TypeMask.Net, OnGround | Overground) limited to the HV layer the lift lines connect on (ValidateResult,
-        /// Game.Net/RaycastJobs.cs:562-563). Its own RaycastSystem input (AddInput / GetResult by context, RaycastSystem.cs:770-803),
-        /// so the tool's terrain raycast and every pick built on it stay as they are.</summary>
+        /// <summary>One Net raycast on the cursor line for the next frame. It is the bulldozer's net test (BulldozeToolSystem.cs:1457-1470:
+        /// TypeMask.Net, OnGround | Overground), limited to the HV layer the lift lines connect on (ValidateResult,
+        /// Game.Net/RaycastJobs.cs:562-563). It uses its own RaycastSystem input (AddInput / GetResult by context,
+        /// RaycastSystem.cs:770-803). So the tool's terrain raycast and every pick built on it stay as they are.</summary>
         private void QueueFallback(Line3.Segment line)
         {
             m_RaycastSystem.AddInput(m_FallbackContext, new RaycastInput
@@ -273,8 +276,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The preview follows the hover: the hovered section's delete definition stands (its Temps are the game's own delete
-        /// preview) and is replaced only when the hover changes (applyMode Clear + destroy + emit in one frame, the bulldozer's
-        /// pattern, BulldozeToolSystem.cs:1686-1739); a pending click keeps its section's definition.</summary>
+        /// preview) and is replaced only when the hover changes (applyMode Clear + destroy + emit in one frame, the bulldozer's pattern,
+        /// BulldozeToolSystem.cs:1686-1739). A pending click keeps its section's definition.</summary>
         private void SyncSectionPreview()
         {
             Entity target = m_DelPending != Entity.Null ? m_DelPending : SectionHovered ? m_RopeSections[m_HoverSection].Edge : Entity.Null;
@@ -301,9 +304,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The vanilla delete definition of one unowned edge, field by field as BulldozeToolSystem.AddEntity writes it
-        /// (BulldozeToolSystem.cs:731-750 CreationDefinition m_Original + CreationFlags.Delete, Updated; :756-779 the NetCourse from the
-        /// edge's curve and its two nodes). No OwnerDefinition: a lift line has no owner (the census and the loose-end search take edges
-        /// without Owner). No Fixed index: lift lines are power-line nets, never Fixed (AddFixedEdges, :690-729, finds nothing).
+        /// (BulldozeToolSystem.cs:731-750 CreationDefinition m_Original + CreationFlags.Delete, Updated, with :756-779 the NetCourse from
+        /// the edge's curve and its two nodes). No OwnerDefinition: a lift line has no owner (the census and the loose-end search take
+        /// edges without Owner). No Fixed index: lift lines are power-line nets, never Fixed (AddFixedEdges, :690-729, finds nothing).
         /// GenerateEdgesSystem turns it into a Temp with TempFlags.Delete and m_Original (GenerateEdgesSystem.cs:1371-1376).</summary>
         private void EmitDelete(Entity edge)
         {
@@ -339,10 +342,11 @@ namespace SkiResortMod.Systems
             m_DelPendingFrame = m_Frame;
         }
 
-        /// <summary>True on the frame it applies (no preview change may follow in that frame). Applies a pending delete once the game's preview of it exists: applyMode Apply for one frame and the definition
-        /// destroyed, as BulldozeToolSystem.Apply (BulldozeToolSystem.cs:1618-1640) after its GetAllowApply (no Error entity, the original
-        /// not deleted meanwhile; ToolBaseSystem.cs:533-540). ApplyNetSystem then deletes the edge, pays the refund (CostSystem.cs:189,
-        /// ApplyNetSystem.cs:662) and leaves both end nodes to their other sections.</summary>
+        /// <summary>True on the frame it applies (no preview change may follow in that frame). Applies a pending delete once the game's
+        /// preview of it exists: applyMode Apply for one frame and the definition destroyed, as BulldozeToolSystem.Apply
+        /// (BulldozeToolSystem.cs:1618-1640) after its GetAllowApply (no Error entity, the original not deleted meanwhile,
+        /// ToolBaseSystem.cs:533-540). ApplyNetSystem then deletes the edge, pays the refund (CostSystem.cs:189, ApplyNetSystem.cs:662) and
+        /// leaves both end nodes to their other sections.</summary>
         private bool UpdatePendingDelete()
         {
             if (m_DelPending == Entity.Null)
@@ -377,7 +381,7 @@ namespace SkiResortMod.Systems
                 m_DelPending = Entity.Null;
                 return false;
             }
-            applyMode = ApplyMode.Apply;   // ToolOutputSystem.cs:22-29 -> ApplyNetSystem
+            applyMode = ApplyMode.Apply;   // ToolOutputSystem.cs:22-29, then ApplyNetSystem
             m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
             m_DelEdge = m_DelPending = Entity.Null;
             m_SectionsDeleted++;

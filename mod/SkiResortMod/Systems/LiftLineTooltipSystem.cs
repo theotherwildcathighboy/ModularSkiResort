@@ -1,8 +1,8 @@
-// Mouse tooltip of the lift-line tool: the prompt for the current step, a refusal notice, the plan line (tower count, length and
-// what is wrong, in words), over a tower its height and clearance, and over a built section's rope (first step) the section a click
-// removes. The overlay cannot draw text, so the height lives here.
-// Player text is a LocaleEN SkiResort.LiftTool.* key with {ARG} values (LocalizedString.Id(key, args), like SkiRunTooltipSystem);
-// never IdWithFallback(fixedId, text): the frontend's translate cache is keyed by the id alone (Cities2_Data/Content/Game/UI/index.js
+// Mouse tooltip of the lift-line tool. It shows the prompt for the current step, a refusal notice and the plan line (tower count, length
+// and what is wrong, in words). Over a tower it shows the tower's height and clearance. Over a built section's rope (first step) it shows
+// the section a click removes. The overlay cannot draw text, so the height lives here.
+// Player text is a LocaleEN SkiResort.LiftTool.* key with {ARG} values (LocalizedString.Id(key, args), like SkiRunTooltipSystem). Never use
+// IdWithFallback(fixedId, text): the frontend's translate cache is keyed by the id alone (Cities2_Data/Content/Game/UI/index.js
 // `function dc()`), so a fixed id with changing text keeps the first text. The log keeps the full detail (LiftLineEdit.Describe).
 // One INFO log line per prompt change, so a field log shows the prompt.
 // Mod.cs: UpdateAt UITooltip (the TooltipSystemBase phase). Tooltips draw only while the mouse is not over the UI
@@ -74,16 +74,15 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The lift type's name for {TYPE} (TYPE[id]; TYPE[any] while no type is known).</summary>
+        /// <summary>The lift type's name for {TYPE} (TYPE[id], and TYPE[any] while no type is known).</summary>
         private static LocalizedString TypeText(string typeId) =>
             LocalizedString.Id(LiftLineToolSystem.LocPrefix + "TYPE[" + (LiftLineInput.KnownType(typeId) ? typeId : "any") + "]");
 
-        /// <summary>The plan line: tower count and length, and the first thing wrong in words (the overlay shows where): a span below
-        /// the floor (red), an edge too steep for the engine (red), a span above the max rope height (purple), a tower whose rope bends
-        /// past its sheave train's cap (red tower, PLAN_TRAIN), a tower the rope runs through steeper than the type's pitch cap (red
-        /// tower, PLAN_PITCH), a tram tower whose rope bends past the saddle cap (red tower, PLAN_SADDLE), a tower whose rope half is
-        /// past its carrier clearance (red tower, PLAN_CLEARANCE; DECISIONS 600 c). Green (Success) only for
-        /// PLAN_CLEAR, a Sound plan.</summary>
+        /// <summary>The plan line: tower count and length, and the first thing wrong in words (the overlay shows where): a span below the
+        /// floor (red), an edge too steep for the engine (red), a span above the max rope height (purple), a tower whose rope bends past
+        /// its sheave train's cap (red tower, PLAN_TRAIN), a tower the rope runs through steeper than the type's pitch cap (red tower,
+        /// PLAN_PITCH), a tram tower whose rope bends past the saddle cap (red tower, PLAN_SADDLE), a tower whose rope half is past its
+        /// carrier clearance (red tower, PLAN_CLEARANCE, DECISIONS 600 c). Green (Success) only for PLAN_CLEAR, a Sound plan.</summary>
         internal static LocalizedString PlanText(LiftTowerPlan plan, out bool clear)
         {
             string key = LiftLineInput.PlanKey(plan, out float length);

@@ -1,8 +1,8 @@
-// Pure topology pass of LiftLoopCache: chaining, terminal classification, pairing, base / top, up lane, orientation and the
-// terminal gaps, over plain stand-ins (no Game, no Colossal, no Entities type). Linked into tests/LiftBatch (LoopCacheTests).
-// Loop mode is a transcription of the original LiftLoopCache pass, not a redesign: tests/LiftBatch LC-REF runs 2,000 seeded
-// random graphs through a frozen copy and demands identical chains, notes, pairs and gaps bit for bit. Pair notes and geometry
-// notes stay in LiftLoopCache, in pair order. Shuttle mode (the tram) shares the chaining, pairing, up lane and type.
+// Pure topology pass of LiftLoopCache: chaining, terminal classification, pairing, base / top, up lane, orientation and the terminal gaps,
+// over plain stand-ins (no Game, no Colossal, no Entities type). It is linked into tests/LiftBatch (LoopCacheTests).
+// Loop mode is a transcription of the original LiftLoopCache pass, not a redesign. tests/LiftBatch LC-REF runs 2,000 seeded random graphs
+// through a frozen copy. It demands identical chains, notes, pairs and gaps bit for bit. Pair notes and geometry notes stay in
+// LiftLoopCache, in pair order. Shuttle mode (the tram) shares the chaining, pairing, up lane and type.
 // Chain A is the up lane (right looking uphill, StationAlign.UpLaneIsSecond) in both modes.
 // Engine notes: EngineNotes/LiftLoopTopology.md
 
@@ -30,17 +30,17 @@ namespace SkiResortMod.Systems
         /// <summary>Shuttle gap window, meters (inclusive): two track ropes 2 x GaugeHalfM apart (tram 11 m).</summary>
         public const float ShuttleGapMinM = 4f, ShuttleGapMaxM = 24f;
 
-        /// <summary>Longest dock run, meters: the tram's stub tip sits 6.5 m out from its dock; anything beyond 30 m is a mis-located
+        /// <summary>Longest dock run, meters: the tram's stub tip sits 6.5 m out from its dock. Anything beyond 30 m is a mis-located
         /// dock.</summary>
         public const float MaxDockRunM = 30f;
 
         /// <summary>One cable lane, as LiftLoopCache harvested it (world space).</summary>
         public struct Lane
         {
-            public int StartNode, EndNode; // interned PathNode ids: equal ids <=> PathNode.Equals (PathNode.cs:62-65)
+            public int StartNode, EndNode; // interned PathNode ids: ids are equal exactly when PathNode.Equals is true (PathNode.cs:62-65)
             public int StartOwner, EndOwner; // PathNode.GetOwnerIndex() of each end (PathNode.cs:113-116)
             public float3 P0, P1, T0, T1; // MathUtils.Position / MathUtils.Tangent of the lane bezier at t 0 and t 1
-            public int TypeIndex; // CableLane.m_TypeIndex (SkiCatalog.Lifts index; < 0 = unknown)
+            public int TypeIndex; // CableLane.m_TypeIndex (SkiCatalog.Lifts index. < 0 = unknown)
         }
 
         public struct Station
@@ -48,21 +48,21 @@ namespace SkiResortMod.Systems
             public int OwnerIndex; // the station entity's Index
             public float3 Position;
             public sbyte Role; // 0 Base, 1 Top, -1 unknown (the catalog has no row for it)
-            public float3 DockA, DockB; // world track-rope points of its two docks; NaN = none (Shuttle mode only)
+            public float3 DockA, DockB; // world track-rope points of its two docks. NaN = none (Shuttle mode only)
         }
 
         public struct Link
         {
             public int Lane;
-            public bool Reversed; // travel runs t 1 -> 0
+            public bool Reversed; // travel runs from t 1 to t 0
         }
 
         public sealed class Chain
         {
             public readonly List<Link> Links = new List<Link>();
             public int StartNode, EndNode, StartStation = -1, EndStation = -1;
-            /// <summary>Owner index of the start / end node (the stand-in for PathNode.GetOwnerIndex() of the chain's terminals; swapped
-            /// with them by the orientation).</summary>
+            /// <summary>Owner index of the start / end node (the stand-in for PathNode.GetOwnerIndex() of the chain's terminals). The
+            /// orientation swaps them with the terminals.</summary>
             public int StartOwner, EndOwner;
         }
 
@@ -80,8 +80,8 @@ namespace SkiResortMod.Systems
             public readonly List<int> ChainIndices = new List<int>();
             public PairStatus Status;
             public int Base = -1, Top = -1; // station list indices
-            public bool BaseByRole; // the Base role decided; false = height tie-break
-            public Chain A, B; // Loop: A base->top, B top->base; Shuttle: both base->top
+            public bool BaseByRole; // the Base role decided. False = height tie-break
+            public Chain A, B; // Loop: A base to top, B top to base. Shuttle: both base to top
             public bool UpLaneDecided, UpLaneSwapped;
             public int TypeIndex = -1; // common type of both chains' lanes, -1 mixed
             public float TopGapM, BaseGapM; // terminal gaps after orientation
@@ -102,9 +102,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>The order that sorts a station list by entity (Index, then Version): <paramref name="order"/>[k] is the position in
         /// <paramref name="stationIndex"/> / <paramref name="stationVersion"/> of the k-th smallest station. A harvest lists stations in
-        /// chunk order, which moves when a station changes archetype (an icon clear removing IconElement) without any census revision;
-        /// the station indices that the pair notes and the rebuild signature print follow the list order, so a reordered list reads as a
-        /// changed shuttle set. Sorted by entity, the same set always gives the same indices. Entities are unique; equal keys (a bad
+        /// chunk order. That order moves when a station changes archetype (an icon clear removing IconElement) without any census revision.
+        /// The station indices that the pair notes and the rebuild signature print follow the list order, so a reordered list reads as a
+        /// changed shuttle set. Sorted by entity, the same set always gives the same indices. Entities are unique. Equal keys (a bad
         /// caller) keep list order, so the result is always a total order.</summary>
         public static void SortedStationOrder(IList<int> stationIndex, IList<int> stationVersion, List<int> order)
         {
@@ -129,9 +129,9 @@ namespace SkiResortMod.Systems
             UnclosedChainCount = 0;
         }
 
-        /// <summary>Chains, classifies and pairs <paramref name="lanes"/>. <paramref name="stationByOwnerIndex"/> maps an owner index
-        /// to a station list index for each station and its children (sub-objects, sub-net nodes / edges); every station's own index is
-        /// (re)written into it, unless there is nothing to chain. Never throws on bad topology: the reasons land in Notes / Diags /
+        /// <summary>Chains, classifies and pairs <paramref name="lanes"/>. <paramref name="stationByOwnerIndex"/> maps an owner index to a
+        /// station list index for each station and its children (sub-objects, sub-net nodes / edges). The method (re)writes every station's
+        /// own index into it, unless there is nothing to chain. It never throws on bad topology: the reasons land in Notes / Diags /
         /// Pairs.</summary>
         public void Build(List<Lane> lanes, List<Station> stations, Dictionary<int, int> stationByOwnerIndex, Mode mode)
         {
@@ -142,7 +142,7 @@ namespace SkiResortMod.Systems
                 return;
             }
 
-            // Endpoint index: node id -> lane indices sharing it (exact equality).
+            // Endpoint index: node id to lane indices sharing it (exact equality).
             var nodeMap = new Dictionary<int, List<int>>(lanes.Count * 2);
             for (int i = 0; i < lanes.Count; i++)
             {
@@ -187,8 +187,8 @@ namespace SkiResortMod.Systems
                 }
                 chain.StartNode = cursor;
                 chain.StartOwner = cursorOwner;
-                // backLinks were collected walking away from lane i; in chain order they run toward lane i, so reverse the list and flip each
-                // link's direction.
+                // backLinks were collected walking away from lane i. In chain order they run toward lane i, so reverse the list and flip
+                // each link's direction.
                 for (int b = backLinks.Count - 1; b >= 0; b--)
                     chain.Links.Add(new Link { Lane = backLinks[b].Lane, Reversed = !backLinks[b].Reversed });
 
@@ -269,11 +269,11 @@ namespace SkiResortMod.Systems
                     continue;
                 }
 
-                // Base station = the one with the Base role when exactly one of the two has it: a lift built downhill or across a
-                // saddle would otherwise ride up on the stations' unloading sides, because the lower terminal was taken as base.
-                // A Loop pair needs both roles known to use the rule (a missing catalog row keeps the old one); Shuttle has always
-                // taken it on one Base alone. Without it: the lower of the two terminals (a ski lift climbs). Loop travel starts at
-                // the base going up chain A. Arbitrary but deterministic.
+                // Base station = the one with the Base role when exactly one of the two has it. Otherwise a lift built downhill or across a
+                // saddle would ride up on the stations' unloading sides, because the lower terminal was taken as base.
+                // A Loop pair needs both roles known to use the rule (a missing catalog row keeps the old one). Shuttle has always taken it
+                // on one Base alone. Without it, the base is the lower of the two terminals (a ski lift climbs). Loop travel starts at the
+                // base going up chain A. Arbitrary but deterministic.
                 int stationA = kv.Key.Item1, stationB = kv.Key.Item2;
                 int baseStation;
                 bool aIsBase = stations[stationA].Role == 0, bIsBase = stations[stationB].Role == 0;
@@ -307,7 +307,7 @@ namespace SkiResortMod.Systems
                 pair.UpLaneDecided = decided;
                 pair.UpLaneSwapped = swap;
 
-                // Orient both chains: A travels base -> top; B travels top -> base (Loop) or base -> top (Shuttle).
+                // Orient both chains. A travels from base to top. B travels from top to base (Loop) or from base to top (Shuttle).
                 OrientChain(first, baseStation);
                 OrientChain(second, mode == Mode.Loop ? topStation : baseStation);
                 pair.A = first;
@@ -385,10 +385,10 @@ namespace SkiResortMod.Systems
             return gapM >= ShuttleGapMinM && gapM <= ShuttleGapMaxM;
         }
 
-        /// <summary>Which station a chain terminal belongs to: the owner is the station or one of its children, else the nearest
-        /// station within StationTerminalRadius of the terminal's world position, else -1. Shuttle mode with ShuttleDockReach adds the
-        /// dock reach: a station with finite docks also owns a terminal within MaxDockRunM of one of them. Loop mode is the
-        /// transcription, untouched.</summary>
+        /// <summary>Which station a chain terminal belongs to. It is the station when the owner is the station or one of its children. Else
+        /// it is the nearest station within StationTerminalRadius of the terminal's world position. Else it is -1. Shuttle mode with
+        /// ShuttleDockReach adds the dock reach: a station with finite docks also owns a terminal within MaxDockRunM of one of them. Loop
+        /// mode is the transcription, untouched.</summary>
         private static int ClassifyTerminal(int ownerIndex, float3 position, List<Station> stations,
             Dictionary<int, int> stationByOwnerIndex, bool dockReach, out string how)
         {
@@ -419,12 +419,13 @@ namespace SkiResortMod.Systems
             return -1;
         }
 
-        /// <summary>Shuttle position fallback. The tram's line terminal is the HV stub tip's track rope: lateral +- GaugeHalfM off the
-        /// line axis, at rope height (AxleM 26.25 m on the tower stubs), 12 m out, i.e. 28.9 / 30.4 m from the station origin: past the
-        /// 20 m StationTerminalRadius that fits a chair stub, though a few meters from the station's own docks. A terminal belongs to a
-        /// station when it is within StationTerminalRadius of the origin or within MaxDockRunM of either finite dock (the same distance
-        /// the dock step tolerates; the docks come from the catalog row, so the reach follows the prefab, mirror included). The nearest
-        /// station by that reach wins; ties keep the lower index. A station without finite docks keeps the origin radius alone.</summary>
+        /// <summary>Shuttle position fallback. The tram's line terminal is the HV stub tip's track rope. It sits lateral +- GaugeHalfM off
+        /// the line axis, at rope height (AxleM 26.25 m on the tower stubs), 12 m out, that is 28.9 / 30.4 m from the station origin. That
+        /// is past the 20 m StationTerminalRadius that fits a chair stub, though a few meters from the station's own docks. A terminal
+        /// belongs to a station when it is within StationTerminalRadius of the origin or within MaxDockRunM of either finite dock (the same
+        /// distance the dock step tolerates). The docks come from the catalog row, so the reach follows the prefab, mirror included. The
+        /// nearest station by that reach wins. Ties keep the lower index. A station without finite docks keeps the origin radius
+        /// alone.</summary>
         private static int ClassifyShuttleTerminal(int ownerIndex, float3 position, List<Station> stations, out string how)
         {
             int best = -1;
@@ -434,7 +435,7 @@ namespace SkiResortMod.Systems
             {
                 float dOrigin = math.distance(position, stations[i].Position);
                 float dDock = DockReachM(stations[i], position);
-                // Score 1 = exactly at the edge of the reach; the smaller of the two normalized distances.
+                // Score 1 = exactly at the edge of the reach. Score = the smaller of the two normalized distances.
                 float scoreOrigin = dOrigin / StationTerminalRadius;
                 float scoreDock = float.IsNaN(dDock) ? float.MaxValue : dDock / MaxDockRunM;
                 bool viaDock = scoreDock < scoreOrigin;
@@ -464,7 +465,7 @@ namespace SkiResortMod.Systems
             return -1;
         }
 
-        /// <summary>Distance from a point to the nearer finite dock of a station; NaN when it has none.</summary>
+        /// <summary>Distance from a point to the nearer finite dock of a station. NaN when it has none.</summary>
         private static float DockReachM(Station station, float3 position)
         {
             float d = float.NaN;
@@ -521,8 +522,8 @@ namespace SkiResortMod.Systems
             (chain.StartStation, chain.EndStation) = (chain.EndStation, chain.StartStation);
         }
 
-        /// <summary>The SkiCatalog.Lifts index shared by every lane of both chains; -1 when they span several types (or a lane carries
-        /// a negative index).</summary>
+        /// <summary>The SkiCatalog.Lifts index shared by every lane of both chains. -1 when they span several types (or a lane carries a
+        /// negative index).</summary>
         private static int CommonType(List<Lane> lanes, Chain a, Chain b)
         {
             int type = int.MinValue;
@@ -543,7 +544,7 @@ namespace SkiResortMod.Systems
             return type == int.MinValue ? -1 : type;
         }
 
-        /// <summary>Shuttle: chains A and B end at p and q at this station; they take the station's two docks by the smaller summed
+        /// <summary>Shuttle: chains A and B end at p and q at this station. They take the station's two docks by the smaller summed
         /// distance (tie: A to DockA). A run over MaxDockRunM refuses that dock (-1, run 0, refused = the run). A station without two
         /// finite docks docks nothing.</summary>
         private static void AssignDocks(Station station, float3 p, float3 q, out sbyte aDock, out sbyte bDock,

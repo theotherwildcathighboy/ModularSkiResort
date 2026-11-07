@@ -1,15 +1,18 @@
 // Strips the vanilla electricity warning icons that lifts carry only because they are built as high-voltage lines and transformers
-// (LiftLineIconRule.Strips): on every station the transformer cues ElectricityStatusSystem writes (transformer bottleneck, not enough
-// production, bottleneck: BuildingNotificationJob, ElectricityStatusSystem.cs:131-134) and the consumer cues DispatchElectricitySystem
-// writes (no electricity, building bottleneck: :141-142); on every lift line edge the net bottleneck cue (NetEdgeNotificationJob, :66).
+// (LiftLineIconRule.Strips).
+// On every station it strips the transformer cues ElectricityStatusSystem writes (transformer bottleneck, not enough production,
+// bottleneck: BuildingNotificationJob, ElectricityStatusSystem.cs:131-134). It also strips the consumer cues DispatchElectricitySystem
+// writes (no electricity, building bottleneck: :141-142). On every lift line edge it strips the net bottleneck cue (NetEdgeNotificationJob,
+// :66).
 // Kept: the base station's low-voltage icon, the one vanilla electricity icon a lift shows (ConnectionWarningSystem, not touched here).
-// Both vanilla systems run once every 128 simulation frames, DispatchElectricitySystem at offset 126 and ElectricityStatusSystem at
-// 127 (DispatchElectricitySystem.cs:222-230, ElectricityStatusSystem.cs:195-203), in GameSimulation (SystemOrder.cs:444, :448), and
-// queue their icons in IconCommandBuffers played back at ModificationEnd. This system runs every simulation frame right after
-// ElectricityStatusSystem (Mod.cs: UpdateAfter, phase GameSimulation, load-bearing) and acts only on those two frames, plus once after
-// each Game load (icons from a save): its buffer is created after theirs, so its Remove commands win at playback and the vanilla icon
-// never shows (IconCommandSystem.cs:106-160; the same mechanism as LiftLineIconSystem's header).
-// Logs: "created"; ARMED per Game load (which vanilla prefabs it strips); "!!!" once on a throw (then off until the next load).
+// Both vanilla systems run once every 128 simulation frames: DispatchElectricitySystem at offset 126 and ElectricityStatusSystem at 127
+// (DispatchElectricitySystem.cs:222-230, ElectricityStatusSystem.cs:195-203). They run in GameSimulation (SystemOrder.cs:444, :448). They
+// queue their icons in IconCommandBuffers played back at ModificationEnd.
+// This system runs every simulation frame right after ElectricityStatusSystem (Mod.cs: UpdateAfter, phase GameSimulation, load-bearing). It
+// acts only on those two frames, plus once after each Game load (icons from a save). Its buffer is created after theirs, so its Remove
+// commands win at playback and the vanilla icon never shows (IconCommandSystem.cs:106-160, the same mechanism as LiftLineIconSystem's
+// header).
+// Logs: "created", ARMED per Game load (which vanilla prefabs it strips), "!!!" once on a throw (then off until the next load).
 // DUMP: AppendDump. Engine notes: EngineNotes/LiftLineIconSystem.md (one note for both systems).
 
 using System;

@@ -1,18 +1,19 @@
-// Replaces the vanilla "high voltage not connected" icon on our lifts with our own "needs a lift line" icon (LiftLineIconRule):
-// on a station whose lift stub has no line, and on a loose lift end (a cut section, a removed station).
-// The vanilla icon comes from ConnectionWarningSystem (UpdateConnectionWarning, ConnectionWarningSystem.cs:2376-2401: owner = the
-// station with target = its stub node, or owner = the loose lift node with no target). That system queues its commands in an
-// IconCommandBuffer and IconCommandSystem plays every buffer back at ModificationEnd (SystemOrder.cs:261, :271). The playback sorts by
-// owner, then buffer index, and skips a command when a LATER one has the same prefab and target (IconCommandSystem.cs:106-160;
-// Command.CompareTo, IconCommandBuffer.cs:43-47). So this system runs right after ConnectionWarningSystem (Mod.cs: UpdateAfter, phase
-// ModificationEnd, load-bearing) and queues, in a buffer created after vanilla's, a Remove of the HV icon for every attach point vanilla
-// may have just judged: its Add is then dropped and the icon never shows. Runs on the frames ConnectionWarningSystem runs (its own
-// update query, :2675-2693, and the map tile flag, :2722), on each Game load and each tile purchase (a full pass), and every PollFrames
-// frames as a check that cleans anything a pass missed (a vanilla icon from an older save).
+// Replaces the vanilla "high voltage not connected" icon on our lifts with our own "needs a lift line" icon (LiftLineIconRule). It acts on
+// a station whose lift stub has no line, and on a loose lift end (a cut section, a removed station).
+// The vanilla icon comes from ConnectionWarningSystem (UpdateConnectionWarning, ConnectionWarningSystem.cs:2376-2401: owner = the station
+// with target = its stub node, or owner = the loose lift node with no target). That system queues its commands in an IconCommandBuffer.
+// IconCommandSystem runs the playback of every buffer at ModificationEnd (SystemOrder.cs:261, :271). The playback sorts by owner, then
+// buffer index. It skips a command when a LATER one has the same prefab and target (IconCommandSystem.cs:106-160, Command.CompareTo,
+// IconCommandBuffer.cs:43-47).
+// So this system runs right after ConnectionWarningSystem (Mod.cs: UpdateAfter, phase ModificationEnd, load-bearing). It queues, in a
+// buffer created after vanilla's, a Remove of the HV icon for every attach point vanilla may have just judged. Its Add is then dropped and
+// the icon never shows. It runs on the frames ConnectionWarningSystem runs (its own update query, :2675-2693, and the map tile flag,
+// :2722). It also runs on each Game load and each tile purchase (a full pass). Every PollFrames frames it runs as a check that cleans
+// anything a pass missed (a vanilla icon from an older save).
 // Our icon is the code-made prefab SkiLiftLineNeeded (LiftLineIconAsset), registered in OnGamePreload. When it cannot be registered,
 // this system stays off and the vanilla icon stays (the only cue left), with one "!!!" line.
-// Logs: "created"; the registration result once per session; ARMED per Game load; one line per owner whose icon state changes,
-// capped per load (LogLinesMax); "!!!" once on a throw (then off until the next load). DUMP: AppendDump.
+// Logs: "created". The registration result, once per session. ARMED, per Game load. One line per owner whose icon state changes, capped per
+// load (LogLinesMax). "!!!" once on a throw (then off until the next load). DUMP: AppendDump.
 // Engine notes: EngineNotes/LiftLineIconSystem.md
 
 using System;
@@ -170,7 +171,8 @@ namespace SkiResortMod.Systems
             {
                 bool poll = ++m_Frame % PollFrames == 0;
                 // A tile purchase: vanilla judges every node inside the new tile, Updated or not (ConnectionWarningSystem.cs:2722-2752,
-                // CollectOwnersJob2 :142), so the loose ends get the load's full pass (a rare event; the same cost as a load's pass).
+                // CollectOwnersJob2 :142), so the loose ends get the load's full pass. This is a rare event, with the same cost as a load's
+                // pass.
                 bool tiles = m_AreaUpdateCollect.mapTilesUpdated;
                 bool trigger = !m_TriggerQuery.IsEmptyIgnoreFilter || tiles;
                 if (!m_FullPass && !trigger && !poll)
@@ -205,8 +207,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Every station: the vanilla HV icon removed at each stub node (when <paramref name="cover"/>: vanilla may have judged
-        /// it this frame; else only when present), our icon shown or cleared by the rule.</summary>
+        /// <summary>Every station: the vanilla HV icon is removed at each stub node (when <paramref name="cover"/> is set, vanilla may have
+        /// judged it this frame. Otherwise only when present). Our icon is shown or cleared by the rule.</summary>
         private void Stations(IconCommandBuffer icb, bool cover)
         {
             IReadOnlyDictionary<Entity, StationDef> defs = m_Catalog.StationDefs;
@@ -251,8 +253,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Lift nodes outside stations from the query: the vanilla HV icon removed (always when <paramref name="cover"/>, else
-        /// when present), our icon shown or cleared.</summary>
+        /// <summary>Lift nodes outside stations from the query: the vanilla HV icon is removed (always when <paramref name="cover"/>,
+        /// otherwise when present). Our icon is shown or cleared.</summary>
         private void LooseNodes(IconCommandBuffer icb, EntityQuery query, bool cover)
         {
             if (query.IsEmptyIgnoreFilter)

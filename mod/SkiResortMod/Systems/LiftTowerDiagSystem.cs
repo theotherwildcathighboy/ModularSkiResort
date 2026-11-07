@@ -1,10 +1,9 @@
 // Read-only diagnostic: what the engine actually did at every node of a lift line. It changes nothing: no command buffer, no
 // component write, no prefab touch, no per-frame work (an int compare while nothing is pending).
-// LiftCensusSystem.BuildCensus calls OnCensusBuilt(edges) after every build; a queued line prints once the census has been quiet
-// for SettleFrames updates (a drag prints one block). Logs "Towers [nodes]" (replicating the engine's SubObjectSystem placeholder
-// scoring) and "Towers [plan]" (a re-plan by the pure LiftTowerPlanner on the real terrain, cached for LiftTowerPlanOverlaySystem).
-// The blocks run to dozens of lines per lift, so they print only with the diagnostics option on (or in a hub DUMP); the plan cache
-// fills either way.
+// LiftCensusSystem.BuildCensus calls OnCensusBuilt(edges) after every build. A queued line prints once the census has been quiet for
+// SettleFrames updates (a drag prints one block). It logs "Towers [nodes]" (replicating the engine's SubObjectSystem placeholder scoring)
+// and "Towers [plan]" (a re-plan by the pure LiftTowerPlanner on the real terrain, cached for LiftTowerPlanOverlaySystem). The blocks run
+// to dozens of lines per lift, so they print only with the diagnostics option on (or in a hub DUMP). The plan cache fills either way.
 // Mod.cs: UpdateAfter<LiftTowerDiagSystem, LiftCensusSystem>(Modification4B), the same anchor family as TramShuttleSystem.
 // Engine notes: EngineNotes/LiftTowerDiagSystem.md
 
@@ -26,7 +25,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class LiftTowerDiagSystem : GameSystemBase
     {
-        /// <summary>Census-quiet updates before a queued line is printed (towers exist by then; a drag keeps resetting it).</summary>
+        /// <summary>Census-quiet updates before a queued line is printed (towers exist by then. A drag keeps resetting it).</summary>
         internal const int SettleFrames = 30;
         internal const int MaxNodes = 64;
         internal const int MaxBlocksPerEmit = 12;
@@ -246,8 +245,8 @@ namespace SkiResortMod.Systems
             return i;
         }
 
-        /// <summary>Order-independent hash of the component's edge ids and node positions (0.1 m): a redraw, a moved node or
-        /// a moved station gives a new signature; an unrelated build does not.</summary>
+        /// <summary>Order-independent hash of the component's edge ids and node positions (0.1 m): a redraw, a moved node or a moved
+        /// station gives a new signature. An unrelated build does not.</summary>
         internal static uint Signature(List<LiftCensus.Edge> comp)
         {
             uint h = 0;
@@ -276,7 +275,8 @@ namespace SkiResortMod.Systems
             public Entity NextNode;
         }
 
-        /// <summary>Prints the [nodes] and [plan] blocks of one line when <paramref name="log"/>; always refreshes the plan cache.</summary>
+        /// <summary>Prints the [nodes] and [plan] blocks of one line when <paramref name="log"/> is true. Always refreshes the plan
+        /// cache.</summary>
         private bool WriteLine(List<LiftCensus.Edge> comp, string why, bool log)
         {
             // Stale (a deleted / replaced edge): a newer build queued the replacement.
@@ -387,12 +387,13 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>One "order" line per path: the line towers numbered base to top by distance along the line (LiftTowerNumbering; the
-        /// plates still show the baked height numeral), a tower on a station's stub node (the stub node takes the prefab of the connected
-        /// net with the highest NetData.m_NodePriority, GenerateNodesSystem.cs:1690-1765, which adds the composition width,
-        /// NetInitializeSystem.cs:135: the marker stub's section, SkiChairliftPiece, 6 m, ties FG / DQ and loses to the gondola, 8.2 m,
-        /// and the tram, 15 m, so their stub node is a line node and spawns a pillar, SubObjectSystem.cs:1580-1760), and nodes whose
-        /// ground sits at this line's own cut ceiling (LiftTowerEdit).</summary>
+        /// <summary>One "order" line per path. It lists: the line towers numbered base to top by distance along the line
+        /// (LiftTowerNumbering, the plates still show the baked height numeral), a tower on a station's stub node, and nodes whose ground
+        /// sits at this line's own cut ceiling (LiftTowerEdit).
+        /// The stub node takes the prefab of the connected net with the highest NetData.m_NodePriority (GenerateNodesSystem.cs:1690-1765).
+        /// The priority adds the composition width (NetInitializeSystem.cs:135). The marker stub's section, SkiChairliftPiece, is 6 m. It
+        /// ties FG / DQ and loses to the gondola, 8.2 m, and the tram, 15 m. So their stub node is a line node and spawns a pillar
+        /// (SubObjectSystem.cs:1580-1760).</summary>
         private void AppendOrder(StringBuilder sb, List<Hop> path, ref TerrainHeightData hd, Entity lineEdge)
         {
             int n = path.Count;
@@ -455,7 +456,7 @@ namespace SkiResortMod.Systems
             return st != null ? (int)st.Role : -1;
         }
 
-        /// <summary>The prefab name of the (first) tower in the node's SubObject buffer, carriers skipped; null when none.</summary>
+        /// <summary>The prefab name of the (first) tower in the node's SubObject buffer, carriers skipped. Null when none.</summary>
         private string TowerName(Entity node)
         {
             if (!EntityManager.TryGetBuffer(node, true, out DynamicBuffer<Game.Objects.SubObject> subs))
@@ -474,8 +475,8 @@ namespace SkiResortMod.Systems
         /// <summary>The overlay's lookup: the cached plan of the line that <paramref name="e"/> (edge, node) belongs to.</summary>
         internal bool TryGetPlanDraw(Entity e, out LiftPlanDraw draw) => m_Draws.TryGetValue(e, out draw);
 
-        /// <summary>The overlay asks for a plan of a selected entity that has none cached; served on the next update (at most one
-        /// per update, an entity that is not on a line is remembered until the next census build).</summary>
+        /// <summary>The overlay asks for a plan of a selected entity that has none cached. The request is served on the next update (at
+        /// most one per update). An entity that is not on a line is remembered until the next census build.</summary>
         internal void RequestPlan(Entity e)
         {
             if (m_Armed && !m_Disabled && e != Entity.Null && !m_NotALine.Contains(e) && !m_Draws.ContainsKey(e))
@@ -514,7 +515,7 @@ namespace SkiResortMod.Systems
                 return;
             }
             if (m_Draws.Count > MaxCachedEntities)
-                m_Draws.Clear();   // bound: entities of lines long deleted; the overlay re-requests what it needs
+                m_Draws.Clear();   // bound: entities of lines long deleted. The overlay re-requests what it needs
             TerrainHeightData terrain = hd;
             for (int p = 0; p < paths.Count; p++)
             {
@@ -592,8 +593,8 @@ namespace SkiResortMod.Systems
             return LiftTowerEdit.RopeAboveNodeM(c, e);
         }
 
-        /// <summary>The point <paramref name="along"/> meters (xz) along the node polyline, <paramref name="lateral"/> meters to the
-        /// right of its local direction (y = 0); <paramref name="right"/> = that unit right vector.</summary>
+        /// <summary>The point <paramref name="along"/> meters (xz) along the node polyline, <paramref name="lateral"/> meters to the right
+        /// of its local direction (y = 0). <paramref name="right"/> = that unit right vector.</summary>
         internal static float3 PolylineAt(float3[] pts, float[] cum, float along, float lateral, out float3 right)
         {
             int seg = 0;
@@ -603,14 +604,14 @@ namespace SkiResortMod.Systems
             float u = segLen > 1e-4f ? math.saturate((along - cum[seg]) / segLen) : 0f;
             float2 a = pts[seg].xz, b = pts[seg + 1].xz;
             float2 dir = segLen > 1e-4f ? (b - a) / segLen : new float2(0f, 1f);
-            float2 r = new float2(dir.y, -dir.x);   // right of A→B in CS2's x-right / z-forward plane
+            float2 r = new float2(dir.y, -dir.x);   // right of the direction A to B in CS2's x-right / z-forward plane
             right = new float3(r.x, 0f, r.y);
             float2 xz = math.lerp(a, b, u) + r * lateral;
             return new float3(xz.x, 0f, xz.y);
         }
 
-        /// <summary>Walk the component into paths of nodes (start at a degree-1 node, lowest y first; branches restart at a
-        /// visited node with an unvisited edge).</summary>
+        /// <summary>Walk the component into paths of nodes (start at a degree-1 node, lowest y first. Branches restart at a visited node
+        /// with an unvisited edge).</summary>
         internal List<List<Hop>> Paths(List<LiftCensus.Edge> comp)
         {
             var adj = new Dictionary<Entity, List<int>>();

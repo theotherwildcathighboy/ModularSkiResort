@@ -1,9 +1,9 @@
 // The PURE lift model: one row per lift, built from net topology. LiftCensusSystem harvests the ECS data into the plain
-// Edge / Node / Station lists and calls Build on events; the hub (SkiResortStatsSystem / SkiResortHubUISystem) and the lift
+// Edge / Node / Station lists and calls Build on events. The hub (SkiResortStatsSystem / SkiResortHubUISystem) and the lift
 // logs read the rows. tests/LiftBatch links this file into a net8 host and runs synthetic graphs.
 // Pure file: System, System.Collections.Generic, Unity.Mathematics + SkiCatalog only (EntityRef.cs stands in for Entity).
-// A station connection node is a TERMINAL, never a connector; a station's IsBase is by PREFAB, never by height.
-// Revision increments whenever the row content changed; events are produced only from the second build after Reset.
+// A station connection node is a TERMINAL, never a connector. A station's IsBase is by PREFAB, never by height.
+// Revision increments whenever the row content changed. Events are produced only from the second build after Reset.
 // Also linked: LiftAlignMath (the plan bend at a tower) and TowerNumberTiles.Wrap (the tower number a bend row names).
 // Engine notes: EngineNotes/LiftCensus.md
 
@@ -44,7 +44,7 @@ namespace SkiResortMod.Systems
             public bool HasTower;
             public float3 Position;
             // Degrees the tower's rope asks past what its sheave train follows (TrainPitchSystem: LiftAlignMath.TrainOverDeg over
-            // TrainWarnDeg, the last pass); 0 = it follows, or no tower / no rope on its anchors.
+            // TrainWarnDeg, the last pass). 0 = it follows, or no tower / no rope on its anchors.
             public float TrainOverDeg;
         }
 
@@ -68,32 +68,32 @@ namespace SkiResortMod.Systems
             public bool HasGap;
             public bool AlignKnown;
             public float AlignOffsetM, AlignYawDeg;
-            // The row's lift type (SkiCatalog.Lifts index; NoType when
+            // The row's lift type (SkiCatalog.Lifts index, NoType when
             // nothing typed it) and whether its component spans two or more of our lift types (then State Unfinished).
             public byte Type;
             public bool Mixed;
-            // How many split nodes (a node shared with a line of another lift type, counted apart) this row's
-            // components touch. Census/DUMP only, hashed; never bound to the hub.
+            // How many split nodes (a node shared with a line of another lift type, counted apart) this row's components touch. Census/DUMP
+            // only, hashed. Never bound to the hub.
             public int SplitNodes;
             // The sharpest plan bend at a line tower of the row (MeasureBends): LiftAlignMath.PlanBendDeg at a node with a tower between
             // two of the row's edges, never a station connection node. BendTower = that tower's number as the tower number tiles show it
-            // (from the base station; a fragment without the base counts from its dead end). 0 / Null when the row has no such tower.
-            // The hub's LiftBend row reads BendWarnTenths(BendDeg); its click flies to BendAt.
+            // (from the base station. A fragment without the base counts from its dead end). 0 / Null when the row has no such tower.
+            // The hub's LiftBend row reads BendWarnTenths(BendDeg). Its click flies to BendAt.
             public float BendDeg;
             public int BendTower;
             public EntityRef BendNode;
             public float3 BendAt;
             // The line tower of the row (MeasureBends' walk, same numbering) whose rope goes furthest past what its sheave train follows
             // (Node.TrainOverDeg > 0): TrainOverDeg its degrees, TrainTower its number, TrainNode / TrainAt its node. 0 / Null when every
-            // train follows its rope. The hub's LiftTrainLimit row reads it; its click flies to TrainAt.
+            // train follows its rope. The hub's LiftTrainLimit row reads it. Its click flies to TrainAt.
             public float TrainOverDeg;
             public int TrainTower;
             public EntityRef TrainNode;
             public float3 TrainAt;
-            // The row's lowest span among the edges whose carriers pass under the floor (Edge.Low), on MeasureBends' walk: LowClearM its
-            // carriers' height above the ground, LowFrom / LowTo the tower numbers at its ends in walk order (the same numbering; 0 = a
-            // station or the walk's end), LowEdge / LowAt the edge and the low point. LowSpan false when every span clears the floor. The
-            // hub's LiftLowSpan row reads it; its click flies to LowAt.
+            // The row's lowest span among the edges whose carriers pass under the floor (Edge.Low), on MeasureBends' walk. LowClearM is its
+            // carriers' height above the ground. LowFrom / LowTo are the tower numbers at its ends in walk order (the same numbering, 0 = a
+            // station or the walk's end). LowEdge / LowAt are the edge and the low point. LowSpan is false when every span clears the
+            // floor. The hub's LiftLowSpan row reads it. Its click flies to LowAt.
             public bool LowSpan;
             public float LowClearM;
             public int LowFrom, LowTo;
@@ -101,12 +101,12 @@ namespace SkiResortMod.Systems
             public float3 LowAt;
         }
 
-        /// <summary>The hub's number for a low span: the carriers' height above the ground in tenths of a meter, rounded DOWN (a span
-        /// never reads higher than it is); 0 at or below the ground (the row then says the carriers touch it).</summary>
+        /// <summary>The hub's number for a low span: the carriers' height above the ground in tenths of a meter, rounded DOWN (a span never
+        /// reads higher than it is). It is 0 at or below the ground (the row then says the carriers touch it).</summary>
         public static int LowTenths(float clearM) => clearM > 0f ? (int)math.floor(clearM * 10f + 1e-3f) : 0;
 
         /// <summary>The hub's number for a bend: tenths of a degree, rounded UP (a bend just over LiftAlignMath.BendWarnDeg never reads
-        /// 5.0); 0 when the bend is at or under BendWarnDeg (no warning: the owner's verdict is warn, never refuse).</summary>
+        /// 5.0). It is 0 when the bend is at or under BendWarnDeg (no warning: the owner's verdict is warn, never refuse).</summary>
         public static int BendWarnTenths(float bendDeg)
         {
             if (!(bendDeg > LiftAlignMath.BendWarnDeg))
@@ -120,10 +120,10 @@ namespace SkiResortMod.Systems
         public struct Event
         {
             public EventKind Kind;
-            public int Row;        // index into Rows after the build; −1 = the row was dropped
+            public int Row;        // index into Rows after the build. −1 = the row was dropped
             public int Count;
             public float LengthM;
-            public int PrevRow;    // ADDITIVE: index into PreviousRows; −1 = the row is new
+            public int PrevRow;    // ADDITIVE: index into PreviousRows. −1 = the row is new
         }
 
         /// <summary>Smallest focus radius (a station-only row, a one-section lift), meters.</summary>
@@ -148,7 +148,7 @@ namespace SkiResortMod.Systems
             public bool HasPair => !Base.IsNull && !Top.IsNull;
         }
 
-        /// <summary>(node, lift type) - the union key; edges of different types at one node do not union.</summary>
+        /// <summary>(node, lift type) - the union key. Edges of different types at one node do not union.</summary>
         private struct NodeType : IEquatable<NodeType>
         {
             public EntityRef Node;
@@ -250,12 +250,12 @@ namespace SkiResortMod.Systems
         /// <summary>ADDITIVE: a baseline build exists since the last Reset (events are produced).</summary>
         public bool HasBaseline => m_HasBaseline;
 
-        /// <summary>ADDITIVE: build notes of the last Build (odd topologies; dev tab / dump only).</summary>
+        /// <summary>ADDITIVE: build notes of the last Build (odd topologies, dev tab / dump only).</summary>
         public readonly List<string> Notes = new List<string>();
 
-        /// <summary>ADDITIVE: one note per split node of the last Build ("lift line joined to another lift's node at
-        /// (x, z): the lines render as one chain but are counted apart"). DUMP only; not part of Notes so it is not
-        /// re-logged as a build note.</summary>
+        /// <summary>ADDITIVE: one note per split node of the last Build ("lift line joined to another lift's node at (x, z): the lines
+        /// render as one chain but are counted apart"). DUMP only. It is not part of Notes, so it is not re-logged as a build
+        /// note.</summary>
         public readonly List<string> SplitNotes = new List<string>();
 
         /// <summary>ADDITIVE: "split at node N: types A|B" for each split node not yet announced since Reset (the
@@ -333,8 +333,8 @@ namespace SkiResortMod.Systems
                     m_CurrentEdges.Add(edges[i].Id);
             }
 
-            // 2. Union-find through non-station nodes; degree per node. An edge with Type == NoType is never linked (it never connects
-            // two components) and adds no degree (it is ignored, so it cannot make a dead end look connected).
+            // 2. Union-find through non-station nodes. Degree per node. An edge with Type == NoType is never linked (it never connects
+            //    two components) and adds no degree (it is ignored, so it cannot make a dead end look connected).
             m_Parent.Clear();
             for (int i = 0; i < edges.Count; i++)
                 m_Parent.Add(i);
@@ -382,7 +382,7 @@ namespace SkiResortMod.Systems
             {
                 if (edges[i].Type == NoType)
                 {
-                    // Defensive (the harvest only passes catalog lines); one note per such edge.
+                    // Defensive (the harvest only passes catalog lines). One note per such edge.
                     Notes.Add("edge " + edges[i].Id + " has no lift type — ignored");
                     continue;
                 }
@@ -424,9 +424,9 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // 3b. A component whose edges and touched stations span two or more of our lift types is MIXED. Its EDGES are one type
-            // (split nodes), so this fires only when a touched station's type differs from the edges' type or from another touched
-            // station's: Complex (→ Unfinished in MakeRow), one note, every row built from it Mixed.
+            // 3b. A component whose edges and touched stations span two or more of our lift types is MIXED. Its EDGES are one type (split
+            // nodes), so this fires only when a touched station's type differs from the edges' type or from another touched station's. Then
+            // the component is Complex (Unfinished in MakeRow), it gets one note, and every row built from it is Mixed.
             for (int c = 0; c < m_Comps.Count; c++)
             {
                 Comp comp = m_Comps[c];
@@ -459,7 +459,7 @@ namespace SkiResortMod.Systems
             }
 
             // 5. Rows
-            // Slots [0, compSlots) carry components; StationsOnly slots are appended after them.
+            // Slots [0, compSlots) carry components. StationsOnly slots are appended after them.
             int compSlots = m_SlotKeys.Count;
             m_SlotRows.Clear();
             m_StationInRow.Clear();
@@ -603,7 +603,7 @@ namespace SkiResortMod.Systems
             m_Degree[node] = deg + 1;
             if (StationOf(node, nodes, stationCount) >= 0)
                 return;   // a station connection node is a terminal, never a connector
-            // Only edges of the SAME type union at a node; another type's edges there are a separate chain.
+            // Only edges of the SAME type union at a node. Another type's edges there are a separate chain.
             m_NodeTypeMask.TryGetValue(node, out uint mask);
             m_NodeTypeMask[node] = mask | TypeBit(type);
             var key = new NodeType { Node = node, Type = type };
@@ -633,15 +633,15 @@ namespace SkiResortMod.Systems
             comp.TypeMask |= TypeBit(stations[station].Type);  // stations count for Mixed
         }
 
-        /// <summary>Bit <paramref name="type"/> of a component's TypeMask; 0 for NoType (and any index
-        /// past 31 — SkiCatalog.Lifts holds 4 rows, APPEND ONLY).</summary>
+        /// <summary>Bit <paramref name="type"/> of a component's TypeMask. It is 0 for NoType (and any index past 31). SkiCatalog.Lifts
+        /// holds 4 rows, APPEND ONLY.</summary>
         private static uint TypeBit(byte type)
         {
             return type < 32 ? 1u << type : 0u;
         }
 
-        /// <summary>"fixedGrip+detachable" — the type ids of a mask in index order (SkiCatalog
-        /// LiftTypeDef.Id; "type N" for an index the catalog does not know). Allocates: build notes only.</summary>
+        /// <summary>"fixedGrip+detachable": the type ids of a mask in index order (SkiCatalog LiftTypeDef.Id, and "type N" for an index the
+        /// catalog does not know). Allocates: build notes only.</summary>
         private static string TypeIds(uint mask, string sep = "+")
         {
             string ids = "";
@@ -679,8 +679,8 @@ namespace SkiResortMod.Systems
                 return new Key { Anchor = comp.LowestEdge };
             }
 
-            // b. the surviving edges carried exactly one key covering the stations touched — even when one
-            //    of its stations is gone (engine notes rule b).
+            // b. the surviving edges carried exactly one key covering the stations touched, even when one of its stations is gone (engine
+            // notes rule b).
             if (TryCarriedKey(comp, edges, out Key carried) && TouchedWithin(comp, carried, stations))
                 return carried;
 
@@ -823,12 +823,12 @@ namespace SkiResortMod.Systems
             }
             row.HasGap = row.Gaps > 0;
 
-            // Id: the live base, else the live top, else the lowest edge (engine notes; a key may hold a
+            // Id: the live base, else the live top, else the lowest edge (engine notes: a key may hold a
             // removed station).
             row.Id = hasBase ? key.Base : hasTop ? key.Top : lowest;
 
-            // The row's type follows its Id's rule — the live base station's
-            // type, else the live top's, else the lowest-index edge's; Mixed when any of its components is.
+            // The row's type follows its Id's rule: the live base station's type, else the live top's, else the lowest-index edge's. The
+            // row is Mixed when any of its components is.
             row.Type = hasBase ? stations[baseIdx].Type : hasTop ? stations[topIdx].Type : lowestType;
             row.Mixed = mixed;
             row.SplitNodes = splitNodes;
@@ -868,7 +868,7 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // Plan bends at the line towers, per component (the census row decides; the hub only reads the number).
+            // Plan bends at the line towers, per component (the census row decides and the hub only reads the number).
             for (int c = 0; c < comps.Count; c++)
                 MeasureBends(comps[c], edges, nodes, stations.Count, hasBase ? baseIdx : -1, reference, ref row);
 
@@ -899,14 +899,15 @@ namespace SkiResortMod.Systems
 
         private readonly Dictionary<EntityRef, NodeEdges> m_BendAdj = new Dictionary<EntityRef, NodeEdges>();
 
-        /// <summary>Walks one component of a row in the tower number tiles' order (TowerNumberTileSystem.NumberPath) and keeps its sharpest
-        /// plan bend at a line tower in <paramref name="row"/> when it beats the row's so far (ties: the first found). Start: the base
-        /// station's connection node; a component without the base starts at its dead end (a non-station node with one edge) nearest
+        /// <summary>Walks one component of a row in the tower number tiles' order (TowerNumberTileSystem.NumberPath). It keeps the sharpest
+        /// plan bend at a line tower in <paramref name="row"/> when it beats the row's so far (ties: the first found). The start is the
+        /// base station's connection node. A component without the base starts at its dead end (a non-station node with one edge) nearest
         /// <paramref name="reference"/>, so a fragment holding the top counts from its far end like the tiles. A node with three or more of
-        /// the component's edges ends the walk (a lift line is a chain; nodes past a branch are not measured). Bend = LiftAlignMath.PlanBendDeg
-        /// of the previous node, the tower node and the next node, measured only at a non-station node with a tower and exactly two of the
-        /// component's edges; BendTower = TowerNumberTiles.Wrap(rank), rank = the towers walked so far. The same walk keeps the row's lowest
-        /// span (Edge.Low: the lowest LowClearM) with the numbers of the towers at its ends. No allocation once grown.</summary>
+        /// the component's edges ends the walk (a lift line is a chain, and nodes past a branch are not measured). Bend =
+        /// LiftAlignMath.PlanBendDeg of the previous node, the tower node and the next node. It is measured only at a non-station node with
+        /// a tower and exactly two of the component's edges. BendTower = TowerNumberTiles.Wrap(rank), rank = the towers walked so far. The
+        /// same walk keeps the row's lowest span (Edge.Low: the lowest LowClearM) with the numbers of the towers at its ends. No allocation
+        /// once grown.</summary>
         private void MeasureBends(Comp comp, List<Edge> edges, List<Node> nodes, int stationCount, int baseIdx, float3 reference, ref Row row)
         {
             m_BendAdj.Clear();
@@ -1182,7 +1183,7 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        // Hashes: FNV-1a over 32-bit words; order-independent sum for topology
+        // Hashes: FNV-1a over 32-bit words. Order-independent sum for topology
         private int HashRows()
         {
             uint h = 2166136261u;

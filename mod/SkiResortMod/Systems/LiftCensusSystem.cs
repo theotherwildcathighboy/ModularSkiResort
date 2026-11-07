@@ -1,9 +1,9 @@
-// ECS side of the lift census: probe, snapshot, census, logs, park. The model itself is the pure LiftCensus. A lift is edited
-// section by section: this system never deletes anything; it reads, logs, asks ChairPinSystem for a loop rebuild, and (via
-// LiftParkSystem, same file) asks the GAME to re-seat the chairs of surviving sections of an opened lift.
+// ECS side of the lift census: probe, snapshot, census, logs, park. The model itself is the pure LiftCensus. A lift is edited section by
+// section. This system never deletes anything. It reads, logs, and asks ChairPinSystem for a loop rebuild. Via LiftParkSystem (same file),
+// it also asks the GAME to re-seat the chairs of surviving sections of an opened lift.
 // Registration (Mod.cs): UpdateBefore<LiftCensusSystem, ChairPinSystem>(Modification4B), a mod-to-mod anchor in the same phase.
 // Frame counts are update counts: Modification phases run every frame, paused included (ModificationSystem.cs:19-26).
-// ReadLiftPower is THE only reader of a lift station's ElectricityConsumer; callers pass a census row's Base-role station.
+// ReadLiftPower is THE only reader of a lift station's ElectricityConsumer. Callers pass a census row's Base-role station.
 // A census exception disables the census until the next load (IsArmed false, so ChairPinSystem and the tram fail open).
 // Engine notes: EngineNotes/LiftCensusSystem.md
 
@@ -43,10 +43,10 @@ namespace SkiResortMod.Systems
         private ChairPinSystem m_ChairPin;
         private Game.UI.NameSystem m_NameSystem;
         private LiftTowerFitSystem m_TowerFit;     // fits new / changed lines (writes at Modification1 of a later frame)
-        private LiftTowerDiagSystem m_TowerDiag;   // read-only tower log; fed after each build, printed on DumpCensus
-        private TowerNumberTileSystem m_TowerNumbers;   // per-tower number tiles; fed after each build, reconciled once quiet
-        private TrainPitchSystem m_TrainPitch;          // line towers' sheave train pitch (lift alignment Phase 2); fed after each build
-        private LiftClearanceSystem m_Clearance;        // low spans (hub row LiftLowSpan); fed after each build
+        private LiftTowerDiagSystem m_TowerDiag;   // read-only tower log, fed after each build and printed on DumpCensus
+        private TowerNumberTileSystem m_TowerNumbers;   // per-tower number tiles, fed after each build and reconciled once quiet
+        private TrainPitchSystem m_TrainPitch;          // line towers' sheave train pitch (lift alignment Phase 2), fed after each build
+        private LiftClearanceSystem m_Clearance;        // low spans (hub row LiftLowSpan), fed after each build
 
         private EntityQuery m_EdgeProbe, m_NodeProbe, m_StationProbe, m_DeletedObjectProbe, m_DeletedLaneProbe;
         private EntityQuery m_EdgeQuery, m_StationQuery;
@@ -109,25 +109,27 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, uint> m_BackSince = new Dictionary<Entity, uint>();       // streak start (sim frame)
         private readonly Dictionary<Entity, uint> m_StreakReadFrame = new Dictionary<Entity, uint>(); // last read in a streak
         private readonly Dictionary<Entity, int> m_GuardRecuts = new Dictionary<Entity, int>();       // flickers this episode
-        // The pending window (LiftServedRule.ExpirePending): the sim frame of a station's first Pending read; an entry only while Pending
+        // The pending window (LiftServedRule.ExpirePending): the sim frame of a station's first Pending read. An entry exists only while
+        // Pending
         private readonly Dictionary<Entity, uint> m_PendingSince = new Dictionary<Entity, uint>();
         private Game.Simulation.SimulationSystem m_Simulation;                                      // frameIndex (SimulationSystem.cs:68)
 
         private bool m_Armed, m_Disabled, m_ErrorLogged;
         private string m_LastError;
 
-        /// <summary>++ whenever the row content changed (LiftCensus.Revision).</summary>
+        /// <summary>Increases by one whenever the row content changed (LiftCensus.Revision).</summary>
         public int Revision => m_Census.Revision;
         public string LastEvent = "-";
         public float LastBuildMs, MaxBuildMs;
         public int Builds;
-        // The harvest walks every net edge in the city, so its cost grows with the city, not the resort: the first build of a
-        // load and each new maximum above CostReportMs print one "[cost]" line (at most CostLinesMax per load) for field tests.
+        // The harvest walks every net edge in the city, so its cost grows with the city, not the resort. The first build of a load and each
+        // new maximum above CostReportMs print one "[cost]" line (at most CostLinesMax per load) for field tests.
         private const float CostReportMs = 1f;
         private const int CostLinesMax = 4;
         private int m_CostLines;
 
-        /// <summary>The station whose Transform last changed, and when (UnityEngine.Time.frameCount; see engine notes, Frames and time).</summary>
+        /// <summary>The station whose Transform last changed, and when (UnityEngine.Time.frameCount). See engine notes, Frames and
+        /// time.</summary>
         internal Entity LastMovedStation { get; private set; }
         internal uint LastMovedFrame { get; private set; }
         /// <summary>realtimeSinceStartup of the last move.</summary>
@@ -148,10 +150,10 @@ namespace SkiResortMod.Systems
             return rows.Count;
         }
 
-        /// <summary>The lift-line edges of the last build and their end nodes, each once, edge order (LiftLaneScope.OwnersOf): the
+        /// <summary>The lift-line edges of the last build and their end nodes, each once, edge order (LiftLaneScope.OwnersOf). They are the
         /// entities whose Game.Net.SubLane buffers hold every lift cable lane, for ChairPinSystem's and TramShuttleSystem's lane harvests.
-        /// <paramref name="into"/> is cleared first. Returns -1 (nothing copied) when the census is not armed or has not built this load:
-        /// the caller then scans the city. Main thread; allocation-free once the scratch has grown.</summary>
+        /// <paramref name="into"/> is cleared first. Returns -1 (nothing copied) when the census is not armed or has not built this load.
+        /// The caller then scans the city. Main thread. Allocation-free once the scratch has grown.</summary>
         internal int CopyLineOwners(List<Entity> into)
         {
             into.Clear();
@@ -170,10 +172,10 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_OwnerSeen = new HashSet<Entity>();
 
 
-        /// <summary>Every census row (row order = CopyRows) as a served-rule lift; its line chords (each lift-line edge's StartPos.xz ->
-        /// EndPos.xz of the last build) appended to <paramref name="chords"/>. Both lists are cleared first. A Complete row's base-station
-        /// power is read NOW (ReadLiftPower). Returns the lift count; 0 when the census is not armed. The first call per load writes the
-        /// "LiftCensus [serve]" cost line.</summary>
+        /// <summary>Every census row (row order = CopyRows) as a served-rule lift. Its line chords (each lift-line edge's StartPos.xz ->
+        /// EndPos.xz of the last build) are appended to <paramref name="chords"/>. Both lists are cleared first. A Complete row's
+        /// base-station power is read NOW (ReadLiftPower). Returns the lift count, or 0 when the census is not armed. The first call per
+        /// load writes the "LiftCensus [serve]" cost line.</summary>
         internal int CopyServeLifts(List<LiftServedRule.Lift> lifts, List<LiftServedRule.Chord> chords)
         {
             lifts.Clear();
@@ -193,7 +195,7 @@ namespace SkiResortMod.Systems
                     m_ServeCounts[r]++;
             }
 
-            // 2. One Lift per row; its slice of the chord list starts at the running sum.
+            // 2. One Lift per row. Its slice of the chord list starts at the running sum.
             int first = 0, reads = 0;
             for (int r = 0; r < rows.Count; r++)
             {
@@ -205,8 +207,8 @@ namespace SkiResortMod.Systems
                     power = ReadLiftPower(Ent(row.Base));
                     reads++;
                 }
-                // The row's lift type's serve rule; a Mixed or untyped row reads AlongLine with radius 0 (it is Unfinished, so Serves is false
-                // whatever the radius)
+                // The row's lift type's serve rule. A Mixed or untyped row reads AlongLine with radius 0 (it is Unfinished, so Serves is
+                // false whatever the radius)
                 LiftTypeDef def = row.Mixed ? null : SkiCatalog.LiftByIndex(row.Type);
                 lifts.Add(new LiftServedRule.Lift
                 {
@@ -254,14 +256,15 @@ namespace SkiResortMod.Systems
             return lifts.Count;
         }
 
-        /// <summary>The power of the lift whose base station is <paramref name="baseStation"/>, read now from its ElectricityConsumer: the
-        /// ONLY reader of a lift station's consumer in the mod. EntityManager.TryGetComponent is the Colossal.Entities extension
-        /// HasComponent + GetComponentData (EntitiesExtensions.cs:76-96 in the Colossal.Core decompile), and GetComponentData completes the
-        /// component's writing jobs (DispatchElectricitySystem): a sync point, taken per Complete row on a caller's recompute or poll, never
-        /// per frame. Unknown when the entity is Null, gone, or has no consumer (logged once per station per load). A value that differs
-        /// from the last one read for that station (or a first read that is NoPower) is offered to m_PowerLog as a "Lift [power]" line. The
-        /// value returned and stored is the GUARDED one (LiftServedRule.GuardPower: off at once, back after PowerBackHoldFrames of power);
-        /// <paramref name="baseStation"/> is always a census row's Base, never a top station.</summary>
+        /// <summary>The power of the lift whose base station is <paramref name="baseStation"/>, read now from its ElectricityConsumer. This
+        /// is the ONLY reader of a lift station's consumer in the mod. EntityManager.TryGetComponent is the Colossal.Entities extension
+        /// HasComponent + GetComponentData (EntitiesExtensions.cs:76-96 in the Colossal.Core decompile). GetComponentData completes the
+        /// component's writing jobs (DispatchElectricitySystem). That is a sync point, taken per Complete row on a caller's recompute or
+        /// poll, never per frame. The result is Unknown when the entity is Null, gone, or has no consumer (logged once per station per
+        /// load). A value that differs from the last one read for that station is offered to m_PowerLog as a "Lift [power]" line. A first
+        /// read that is NoPower is offered too. The value returned and stored is the GUARDED one (LiftServedRule.GuardPower: off at once,
+        /// back after PowerBackHoldFrames of power). <paramref name="baseStation"/> is always a census row's Base, never a top
+        /// station.</summary>
         internal LiftPower ReadLiftPower(Entity baseStation)
         {
             if (baseStation == Entity.Null || !EntityManager.Exists(baseStation) ||
@@ -274,7 +277,7 @@ namespace SkiResortMod.Systems
                                  "is treated as powered");
                 return LiftPower.Unknown;
             }
-            // The last value read for this station feeds the rule's hysteresis (NoPower under half, back at three quarters); a first read
+            // The last value read for this station feeds the rule's hysteresis (NoPower under half, back at three quarters). A first read
             // passes Unknown
             bool known = m_LastPower.TryGetValue(baseStation, out LiftPower last);
             // With the cooldown counter: a station the first dispatch has not judged yet reads Pending (held), not Powered (601 i)
@@ -327,9 +330,9 @@ namespace SkiResortMod.Systems
             return power;
         }
 
-        /// <summary>FNV-1a of (base station Index, Version, LiftPower) over every Complete row, read now (ReadLiftPower, so a poll also logs
-        /// a transition), then the row count. Power changes raise no entity event: callers poll this at their own cadence and compare for
-        /// equality. 0 when the census is not armed.</summary>
+        /// <summary>FNV-1a of (base station Index, Version, LiftPower) over every Complete row, read now (ReadLiftPower, so a poll also
+        /// logs a transition), then the row count. Power changes raise no entity event. Callers poll this at their own cadence and compare
+        /// for equality. Returns 0 when the census is not armed.</summary>
         internal int ComputePowerSignature()
         {
             if (!IsArmed)
@@ -351,7 +354,7 @@ namespace SkiResortMod.Systems
             return (int)(hash ^ (hash >> 32));
         }
 
-        /// <summary>The top station's stub-tip y in the last build (the served rule's TopY); NaN when the row has no top or the top station
+        /// <summary>The top station's stub-tip y in the last build (the served rule's TopY). NaN when the row has no top or the top station
         /// is not in the last build.</summary>
         private float TopYOf(EntityRef top)
         {
@@ -360,8 +363,9 @@ namespace SkiResortMod.Systems
             return m_Stations[s].StubTip.y;
         }
 
-        /// <summary>The top station's stub-tip xz in the last build (the TerminalsOnly rule's center and SummitServed's); NaN when the row
-        /// has no top or it is not in the last build. No new Transform read: the census station's StubTip (per row StubTipLocalZ).</summary>
+        /// <summary>The top station's stub-tip xz in the last build (the TerminalsOnly rule's center and SummitServed's). NaN when the row
+        /// has no top or it is not in the last build. No new Transform read: the census station's StubTip (per row
+        /// StubTipLocalZ).</summary>
         private float2 TopXZOf(EntityRef top)
         {
             if (top.IsNull || !m_StationIndex.TryGetValue(Ent(top), out int s) || s < 0 || s >= m_Stations.Count)
@@ -369,15 +373,15 @@ namespace SkiResortMod.Systems
             return m_Stations[s].StubTip.xz;
         }
 
-        /// <summary>A SkiCatalog index as the census byte; LiftCensus.NoType when out of 0..254.</summary>
+        /// <summary>A SkiCatalog index as the census byte. LiftCensus.NoType when out of 0..254.</summary>
         private static byte TypeByte(int liftTypeIndex)
         {
             return liftTypeIndex >= 0 && liftTypeIndex < LiftCensus.NoType ? (byte)liftTypeIndex : LiftCensus.NoType;
         }
 
-        /// <summary>One "Lift [power]" transition through m_PowerLog (LogWindow 10 s): Plain -> the line now; Summary -> the fold line;
-        /// Fold -> counted (slot 0 = to no power, slot 1 = back). <paramref name="flickers"/> = raw NoPower reads the guard absorbed this
-        /// episode (named in the power-back line when &gt; 0).</summary>
+        /// <summary>One "Lift [power]" transition through m_PowerLog (LogWindow 10 s). For Plain, the line is written now. For Summary, the
+        /// fold line is written. For Fold, the transition is counted (slot 0 = to no power, slot 1 = back). <paramref name="flickers"/> =
+        /// raw NoPower reads the guard absorbed this episode (named in the power-back line when &gt; 0).</summary>
         private void OfferPowerLine(Entity baseStation, LiftPower power, Game.Buildings.ElectricityConsumer consumer, int flickers,
                                     LiftPower last, bool pendingTimedOut, uint pendingFrames)
         {
@@ -416,7 +420,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The fold line of m_PowerLog; restarts its window.</summary>
+        /// <summary>The fold line of m_PowerLog. It restarts its window.</summary>
         private void WritePowerSummary(float now)
         {
             Mod.Log.Info($"Lift [power] {m_PowerLog.Count} more power change(s) in {m_PowerLog.SpanS(now):F0} s, folded " +
@@ -425,8 +429,8 @@ namespace SkiResortMod.Systems
             m_PowerLog.Wrote(now);
         }
 
-        /// <summary>Describe of the row whose BASE is <paramref name="baseStation"/> (else any row touching it), for the power lines;
-        /// "lift (base i:v)" when no row names it.</summary>
+        /// <summary>Describe of the row whose BASE is <paramref name="baseStation"/> (else any row touching it), for the power lines. The
+        /// result is "lift (base i:v)" when no row names it.</summary>
         private string DescribeBase(Entity baseStation)
         {
             EntityRef s = Ref(baseStation);
@@ -476,7 +480,8 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>The node is a station's connection node (the last build's stations; LiftClearanceSystem skips the station approach).</summary>
+        /// <summary>The node is a station's connection node (the last build's stations). LiftClearanceSystem skips the station
+        /// approach.</summary>
         internal bool IsStationNode(Entity node) => node != Entity.Null && StationOfNode(node) >= 0;
 
         /// <summary>The first row (row order) whose tower past its train's limits stands on <paramref name="node"/> (LiftCensus.Row.TrainNode):
@@ -535,8 +540,8 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>The other station of the first row touching <paramref name="station"/> that has both stations and whose other station is
-        /// still in the last build (a row may keep a removed station).</summary>
+        /// <summary>The other station of the first row touching <paramref name="station"/> that has both stations and whose other station
+        /// is still in the last build. A row may keep a removed station.</summary>
         internal bool TryGetOppositeStation(Entity station, out Entity other)
         {
             EntityRef s = Ref(station);
@@ -573,8 +578,8 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>Stations of the last build (positions may lag a moving station by up to CoalesceFrames; the aid reads live Transforms
-        /// for the pair it uses).</summary>
+        /// <summary>Stations of the last build (positions may lag a moving station by up to CoalesceFrames). The aid reads live Transforms
+        /// for the pair it uses.</summary>
         internal int StationCount => m_StationEntities.Count;
         internal Entity StationEntityAt(int i) => m_StationEntities[i];
         internal LiftCensus.Station StationAt(int i) => m_Stations[i];
@@ -592,8 +597,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Station prefab to its catalog row (role, lift type, stub tip, bullwheel) for the stats system and the alignment aid.
-        /// False for a non-station prefab. Main thread; event-time callers (a loop over every building fetches
-        /// SkiPrefabCatalogSystem.StationDefs once instead).</summary>
+        /// False for a non-station prefab. Main thread. Event-time callers (a loop over every building) fetch
+        /// SkiPrefabCatalogSystem.StationDefs once instead.</summary>
         internal bool TryGetStationDef(Entity stationPrefab, out StationDef def)
         {
             return m_PrefabCatalog.TryGetStation(stationPrefab, out def) && def != null;
@@ -725,10 +730,10 @@ namespace SkiResortMod.Systems
             Builds = 0;
             m_CostLines = 0;
             ClearSnapshot();
-            // Nothing of the previous city's power reads carries over (the fold was flushed in OnGamePreload)
+            // No power read of the previous city remains (the fold was flushed in OnGamePreload)
             m_ServeCounts.Clear();
             m_LastPower.Clear();
-            // The guard's state is transient: nothing carries over a load
+            // The guard's state is transient: nothing survives a load
             m_BackSince.Clear();
             m_StreakReadFrame.Clear();
             m_GuardRecuts.Clear();
@@ -739,7 +744,7 @@ namespace SkiResortMod.Systems
             if (mode != GameMode.Game)
                 return;
 
-            // The prefab catalog resolves per load (at the first catalog call after this load's preload); every use reads its views
+            // The prefab catalog resolves per load (at the first catalog call after this load's preload). Every use reads its views
             m_Armed = true;
             m_InitialBuild = true;   // the baseline build (and the ARM line) run at the first update
         }
@@ -761,7 +766,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Quit to desktop raises no onGamePreload, but the world's systems are destroyed while the logger still lives (LogWindow.cs
+        /// <summary>Quit to desktop raises no onGamePreload. The world's systems are destroyed while the logger still lives (LogWindow.cs
         /// engine notes), so the folded power lines are written here. Teardown must never throw: a failed write is dropped.</summary>
         protected override void OnDestroy()
         {
@@ -792,13 +797,13 @@ namespace SkiResortMod.Systems
                 if (!m_Armed || m_Disabled)
                     return;
                 m_Frame++;
-                // No lift line of the catalog resolved this load; the line names SkiCatalog.Lifts[*].LinePrefab
+                // No lift line of the catalog resolved this load. The line names SkiCatalog.Lifts[*].LinePrefab
                 if (m_PrefabCatalog.LiftLinePrefabSet.Count == 0)
                 {
                     if (m_InitialBuild)
                     {
                         m_InitialBuild = false;
-                        // The expected line(s) named; the pending ones listed (never `!!!` alone)
+                        // The expected line(s) are named. The pending ones are listed (never `!!!` alone)
                         Mod.Log.Error($"!!! LiftCensus [arm]: net prefab '{LineNames()}' not found — the lift census, " +
                                       "section logs, park and the hub's lift rows are inactive this load (pending, not " +
                                       $"imported yet: {PendingLineNames()})");
@@ -1141,16 +1146,16 @@ namespace SkiResortMod.Systems
             PruneParked();
             StoreRowCounts();
             ResortPresence.SetLifts(m_Census.Rows.Count);   // the resort-present bit (ResortPresence header): lifts of ours
-            // Hand LiftTowerDiagSystem (read-only diagnostic) this build's line edges; it queues lines whose signature is new and prints them
-            // after the census has been quiet. No ECS read here.
+            // Hand LiftTowerDiagSystem (read-only diagnostic) this build's line edges. It queues lines whose signature is new and prints
+            // them after the census has been quiet. No ECS read here.
             m_TowerDiag?.OnCensusBuilt(m_Edges);
-            // The same edges and nodes to LiftTowerFitSystem; it queues new signatures (station ends included) and fits them once quiet
+            // The same edges and nodes to LiftTowerFitSystem. It queues new signatures (station ends included) and fits them once quiet
             m_TowerFit?.OnCensusBuilt(m_Edges, m_Nodes);
-            // The same edges to TowerNumberTileSystem; it renumbers and reconciles the tower number tiles once quiet
+            // The same edges to TowerNumberTileSystem. It renumbers and reconciles the tower number tiles once quiet
             m_TowerNumbers?.OnCensusBuilt(m_Edges);
-            // The same edges to TrainPitchSystem; it pitches the rigged towers' trains to their rope lanes
+            // The same edges to TrainPitchSystem. It pitches the rigged towers' trains to their rope lanes
             m_TrainPitch?.OnCensusBuilt(m_Edges);
-            // The same edges to LiftClearanceSystem; it measures how high the carriers pass over the ground
+            // The same edges to LiftClearanceSystem. It measures how high the carriers pass over the ground
             m_Clearance?.OnCensusBuilt(m_Edges);
         }
 
@@ -1163,8 +1168,8 @@ namespace SkiResortMod.Systems
             m_StationIndex.Clear();
             m_NodeSeen.Clear();
 
-            // 1. Stations. The catalog's StationDefs view, fetched ONCE before the chunk loop over every live building; base / top = the row's
-            //    Role.
+            // 1. Stations. The catalog's StationDefs view, fetched ONCE before the chunk loop over every live building. Base or top is the
+            //    row's Role.
             IReadOnlyDictionary<Entity, StationDef> stationDefs = m_PrefabCatalog.StationDefs;
             // Line prefab to lift type view
             IReadOnlyDictionary<Entity, LiftTypeDef> lineTypes = m_PrefabCatalog.LiftLineTypes;
@@ -1278,10 +1283,9 @@ namespace SkiResortMod.Systems
             });
         }
 
-        /// <summary>The IsStationConnectionNode rule (ChairPinSystem.cs, v1.2.2) extended to say WHICH
-        /// station: stations-first, the line reuses the station-OWNED stub node (its Owner, or its
-        /// owner's owner, is a station); line-first, the stub course reuses the line's UNOWNED node and
-        /// the station's owned stub edge sits in the node's ConnectedEdge buffer.</summary>
+        /// <summary>The IsStationConnectionNode rule (ChairPinSystem.cs, v1.2.2) extended to say WHICH station. Stations-first: the line
+        /// reuses the station-OWNED stub node (its Owner, or its owner's owner, is a station). Line-first: the stub course reuses the
+        /// line's UNOWNED node and the station's owned stub edge sits in the node's ConnectedEdge buffer.</summary>
         private int StationOfNode(Entity node)
         {
             if (EntityManager.TryGetComponent<Owner>(node, out var owner))
@@ -1344,8 +1348,8 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>At most this many "removed by another tool" lines per build; the rest are summed in
-        /// one line (a mass removal must not flood the log).</summary>
+        /// <summary>At most this many "removed by another tool" lines per build. The rest are summed in one line (a mass removal must not
+        /// flood the log).</summary>
         internal const int RemovedLinesPerBuild = 6;
 
         private void AppendRemovedEvents()
@@ -1490,7 +1494,7 @@ namespace SkiResortMod.Systems
         private void AppendDeadEnd(StringBuilder sb, Entity node, bool gone, float3 pos)
         {
             if (gone || node == Entity.Null || StationOfNode(node) >= 0)
-                return;   // a deleted node is no dead end; a station connection node is not one either
+                return;   // a deleted node is no dead end. A station connection node is not one either
             if (sb.Length > 0)
                 sb.Append(" and ");
             sb.Append('(').Append(pos.x.ToString("F0")).Append(',').Append(pos.z.ToString("F0")).Append(')');
@@ -1522,8 +1526,8 @@ namespace SkiResortMod.Systems
                     m_ParkChairs += chairs;
                 }
             }
-            // A complete lift that lost a STATION keeps its key and opens too (LiftCensus rule b); the line says which station went instead of
-            // "a gap"
+            // A complete lift that lost a STATION keeps its key and opens too (LiftCensus rule b). The line says which station went instead
+            // of "a gap"
             bool baseGone = !row.Base.IsNull && !StationInBuild(row.Base);
             bool topGone = !row.Top.IsNull && !StationInBuild(row.Top);
             string what = baseGone && topGone ? "both stations removed"
@@ -1532,7 +1536,7 @@ namespace SkiResortMod.Systems
                 : $"{ev.Count} gap(s)";
             LastEvent = (baseGone || topGone ? "station removed " : "line opened ") + Fmt(row.Id) + " at update " + m_Frame;
             string until = baseGone || topGone ? "a station is placed and connected again" : "the gap is redrawn";
-            // "parked" counts every chair on the surviving sections, the re-seat check counts the chairs that were riding; print both, they
+            // "parked" counts every chair on the surviving sections. The re-seat check counts the chairs that were riding. Print both: they
             // differ by design
             string tail = moving
                 ? $"{chairs} chair(s) parked ({riders} were riding) on {sections} section(s); chairs stop until {until}"
@@ -1601,8 +1605,8 @@ namespace SkiResortMod.Systems
                 m_ParkRiders = m_ParkChairs = 0;
             }
 
-            // The frame after the events were created: SubObjectSystem (2B) has re-seated the chairs;
-            // pin them onto their own lanes now instead of after the 30-frame cooldown.
+            // The frame after the events were created: SubObjectSystem (2B) has re-seated the chairs. Pin them onto their own lanes now
+            // instead of after the 30-frame cooldown.
             if (m_ParkFlushedFrame >= 0 && m_Frame == m_ParkFlushedFrame + 1 && ChairPinSystem.MovingChairsOn)
                 m_ChairPin.RequestImmediateRebuild("park re-seat");
 
@@ -1619,8 +1623,8 @@ namespace SkiResortMod.Systems
                     sections++;
                     still += CountRiders(edge);
                 }
-                // "N chairs parked (R were riding)", the same pair as the line-opened line; the check itself is about the R riders (still = riders
-                // left on the parked sections)
+                // "N chairs parked (R were riding)", the same pair as the line-opened line. The check itself is about the R riders (still =
+                // riders left on the parked sections)
                 if (m_ParkRiders > 0)
                 {
                     if (still > 0)
@@ -1784,8 +1788,8 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>"SkiChairliftHV" (several EXPECTED lift lines: "A', 'B"); the `!!!` line wraps it in quotes. Expected lines only (a
-        /// pending line is never `!!!`); the pending ones are appended by the caller.</summary>
+        /// <summary>"SkiChairliftHV" (several EXPECTED lift lines: "A', 'B"). The `!!!` line wraps it in quotes. Expected lines only (a
+        /// pending line is never `!!!`). The caller appends the pending ones.</summary>
         private static string LineNames()
         {
             IReadOnlyList<LiftTypeDef> lifts = SkiCatalog.Lifts;
@@ -1807,7 +1811,7 @@ namespace SkiResortMod.Systems
             return names.Count > 0 ? string.Join(", ", names.ToArray()) : "none";
         }
 
-        /// <summary>"fixedGrip 'SkiChairliftHV' 812:1, detachable 'SkiDetachableHV' pending, ..." per lift type; NOT FOUND for a missing
+        /// <summary>"fixedGrip 'SkiChairliftHV' 812:1, detachable 'SkiDetachableHV' pending, ..." per lift type. NOT FOUND for a missing
         /// EXPECTED line, "pending" for a missing pending one.</summary>
         private string ChairliftsText()
         {
@@ -1856,7 +1860,7 @@ namespace SkiResortMod.Systems
             return sb.ToString();
         }
 
-        /// <summary>"'SkiBaseStationBuilding'" — every catalog station with Role Base (", "-joined).</summary>
+        /// <summary>"'SkiBaseStationBuilding'": every catalog station with Role Base (", "-joined).</summary>
         private static string BaseStationNames()
         {
             IReadOnlyList<StationDef> stations = SkiCatalog.Stations;
@@ -1902,8 +1906,8 @@ namespace SkiResortMod.Systems
                 sb.AppendLine("  note: " + m_Census.Notes[n]);
             for (int n = 0; n < m_Census.SplitNotes.Count; n++)
                 sb.AppendLine("  note: " + m_Census.SplitNotes[n]);
-            // Every base station inside the flicker guard (a Powered streak running while the effective value is NoPower), else "none"; then
-            // the stations whose effective power is NoPower.
+            // Every base station inside the flicker guard (a Powered streak running while the effective value is NoPower), else "none".
+            // Then the stations whose effective power is NoPower.
             uint dumpNow = m_Simulation != null ? m_Simulation.frameIndex : 0u;
             if (m_BackSince.Count == 0)
                 sb.AppendLine("  power guard: none");
@@ -1944,12 +1948,12 @@ namespace SkiResortMod.Systems
     }
 
     // LiftParkSystem: the park emitter (why it exists: EngineNotes/LiftCensusSystem.md, "Near LiftParkSystem").
-    // Mod.cs: UpdateAt<LiftParkSystem>(UIUpdate). Load-bearing: UIUpdate runs AFTER AllowBarrier<EndFrameBarrier> (SystemOrder.cs:62,
-    // :67), so EndFrameBarrier.CreateCommandBuffer is allowed here (SafeCommandBufferSystem.cs:16-23); the same frame's 4B census has
-    // already queued the edges. SubObjectSystem consumes the {Event, SubObjectsUpdated} entity at the next Modification2B (query
-    // :3944-3951, event branch :369-381). Order within UIUpdate is not load-bearing.
-    // House rules: "created" line; one ARM line per load; Game mode only; one-shot "!!!" catch that disables the emitter until the
-    // next load. One command buffer per park (an event, not per frame).
+    // Mod.cs: UpdateAt<LiftParkSystem>(UIUpdate). Load-bearing: UIUpdate runs AFTER AllowBarrier<EndFrameBarrier> (SystemOrder.cs:62, :67),
+    // so EndFrameBarrier.CreateCommandBuffer is allowed here (SafeCommandBufferSystem.cs:16-23). The same frame's 4B census has already
+    // queued the edges. SubObjectSystem consumes the {Event, SubObjectsUpdated} entity at the next Modification2B (query :3944-3951, event
+    // branch :369-381). Order within UIUpdate is not load-bearing.
+    // House rules: "created" line, one ARM line per load, Game mode only, one-shot "!!!" catch that disables the emitter until the next
+    // load. One command buffer per park (an event, not per frame).
     public sealed partial class LiftParkSystem : GameSystemBase
     {
         private LiftCensusSystem m_Census;

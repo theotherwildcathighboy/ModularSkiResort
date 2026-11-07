@@ -1,7 +1,7 @@
 // The lift-line tool's section pick (DECISIONS 591, F1): the closest rope to the cursor ray, within a screen-space tolerance, names the
-// section to delete. The vanilla bulldozer tests a lift edge only on a sheet far above the ropes (EdgeGeometry + the composition's
-// m_SurfaceHeight.max, Game.Net/RaycastJobs.cs:437-460; 9.9 m on a 473 m tram span, about 13 m at 1 km:
-// docs/research/tram-bulldoze-hitbox-2026-11-03.md), so this tests what the player sees: the rope lanes' own curves.
+// The vanilla bulldozer tests a lift edge only on a sheet far above the ropes (EdgeGeometry + the composition's m_SurfaceHeight.max,
+// Game.Net/RaycastJobs.cs:437-460). The distance is 9.9 m on a 473 m tram span and about 13 m at 1 km
+// (docs/research/tram-bulldoze-hitbox-2026-11-03.md). So this tests what the player sees: the rope lanes' own curves.
 // Pure math over plain data (Unity.Mathematics only), so tests/LiftBatch proves it (RopePickTests, RP-1..RP-9). The Game-side harvest,
 // the camera ray and the delete live in LiftLineToolSystem.Sections.cs.
 // Engine notes: EngineNotes/LiftLineToolSystem.md, "Section delete by the rope".
@@ -13,9 +13,9 @@ namespace SkiResortMod.Systems
 {
     public static class LiftRopePick
     {
-        /// <summary>Tolerance = camera distance x tan(fov / 2) x ScreenFrac: 2.5 % of the half view height, about 13 px at 1080p and the
-        /// same share of the screen at any resolution. Vanilla's lane pick uses 1 % (Game.Net/RaycastJobs.cs:793, :813-816, GetMinLaneRadius),
-        /// about 5 px: too fine for a rope one or two pixels thick.</summary>
+        /// <summary>Tolerance = camera distance x tan(fov / 2) x ScreenFrac: 2.5 % of the half view height. It is about 13 px at 1080p and
+        /// the same share of the screen at any resolution. Vanilla's lane pick uses 1 % (Game.Net/RaycastJobs.cs:793, :813-816,
+        /// GetMinLaneRadius), about 5 px: too fine for a rope one or two pixels thick.</summary>
         public const float ScreenFrac = 0.025f;
 
         /// <summary>The tolerance never drops under this near the camera (the tram's track and haul ropes lie 0.5 m apart).</summary>
@@ -50,7 +50,8 @@ namespace SkiResortMod.Systems
             public float3 RopePoint, RayPoint;
         }
 
-        /// <summary>The tolerance (m) at <paramref name="camM"/> from the camera; <paramref name="fovTan"/> = tan(vertical fov / 2).</summary>
+        /// <summary>The tolerance (m) at <paramref name="camM"/> from the camera. <paramref name="fovTan"/> = tan(vertical fov /
+        /// 2).</summary>
         public static float Tolerance(float camM, float fovTan) => math.max(MinTolM, camM * fovTan * ScreenFrac);
 
         /// <summary>Polyline segments for a rope whose ends lie <paramref name="chordM"/> apart.</summary>
@@ -78,8 +79,9 @@ namespace SkiResortMod.Systems
             return rope;
         }
 
-        /// <summary>Distance between segment [p, q] and the ray segment [o, o + u x len] (u unit); s in [0, 1] on [p, q], t in [0, len]
-        /// on the ray. Ericson, Real-Time Collision Detection 5.1.9, with the ray kept unit-length for float precision over kilometers.</summary>
+        /// <summary>Distance between segment [p, q] and the ray segment [o, o + u x len] (u unit). s in [0, 1] on [p, q], t in [0, len] on
+        /// the ray. Ericson, Real-Time Collision Detection 5.1.9, with the ray kept unit-length for float precision over
+        /// kilometers.</summary>
         public static float SegmentRay(float3 p, float3 q, float3 o, float3 u, float len, out float s, out float t)
         {
             float3 d1 = q - p, r = p - o;
@@ -131,12 +133,12 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>The section under the cursor ray [<paramref name="rayA"/>, <paramref name="rayB"/>]: per rope of an enabled section
-        /// (<paramref name="enabled"/>[Section], null = all) the polyline point closest to the ray; a rope counts when that miss is
-        /// within Tolerance(camera distance) and it lies no farther than <paramref name="maxCamM"/> (+ its tolerance) along the ray
-        /// (the terrain hit: a rope behind a hill is not seen). The best score (miss / tolerance) wins; ropes within TieFrac of it go
-        /// to the one nearest the camera. Each rope's box, grown by the tolerance at its farthest corner, culls it first.
-        /// <paramref name="scratch"/> holds the candidates (cleared here; no allocation once grown). Returns false when no rope is
+        /// <summary>The section under the cursor ray [<paramref name="rayA"/>, <paramref name="rayB"/>]. For each rope of an enabled
+        /// section (<paramref name="enabled"/>[Section], null = all), the method takes the polyline point closest to the ray. A rope counts
+        /// when that miss is within Tolerance(camera distance) and it lies no farther than <paramref name="maxCamM"/> (+ its tolerance)
+        /// along the ray (the terrain hit: a rope behind a hill is not seen). The best score (miss / tolerance) wins. Ropes within TieFrac
+        /// of it go to the one nearest the camera. Each rope's box, grown by the tolerance at its farthest corner, culls it first.
+        /// <paramref name="scratch"/> holds the candidates (cleared here, no allocation once grown). Returns false when no rope is
         /// near.</summary>
         public static bool Pick(IReadOnlyList<float3> pts, IReadOnlyList<Rope> ropes, IReadOnlyList<bool> enabled, float3 rayA, float3 rayB,
             float fovTan, float maxCamM, List<Hit> scratch, out Hit hit, out int segmentsTested)

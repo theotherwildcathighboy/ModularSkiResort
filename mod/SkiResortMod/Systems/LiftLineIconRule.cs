@@ -1,14 +1,14 @@
-// Pure rules behind the lift's notification icons (LiftLineIconSystem, LiftPowerCueSystem). System only; tests/LiftBatch LI-1..LI-3.
-// Lifts are built on the power-line net class, so vanilla treats them as high-voltage lines and their stations as transformers. The rule:
-// a lift shows no vanilla electricity icon except the base station's "low voltage not connected" icon (the base takes the lift's power
-// from its low-voltage feed, and that wire is the one power step a player has to make). The base's consumer warnings (no electricity,
-// bottleneck) go too: with no feed they repeat the low-voltage icon, and a city short of power reads in the hub's lift status. The top
-// station shows none: its power comes through the lift line, so the line icon is its only cue. The vanilla "high voltage not connected"
-// icon becomes our own "needs a lift line" icon on the same attach points:
+// Pure rules behind the lift's notification icons (LiftLineIconSystem, LiftPowerCueSystem). System only. Tests: tests/LiftBatch LI-1..LI-3.
+// Lifts are built on the power-line net class, so vanilla treats them as high-voltage lines and their stations as transformers. The rule: a
+// lift shows no vanilla electricity icon except the base station's "low voltage not connected" icon. The base takes the lift's power from
+// its low-voltage feed, and that wire is the one power step a player has to make. The base's consumer warnings (no electricity, bottleneck)
+// go too. With no feed they repeat the low-voltage icon, and a city short of power reads in the hub's lift status. The top station shows
+// none: its power comes through the lift line, so the line icon is its only cue. The vanilla "high voltage not connected" icon becomes our
+// own "needs a lift line" icon on the same attach points:
 //  - a station: its lift stub nodes (the SkiLiftMarker sub-net, the nodes ConnectionWarningSystem targets, ConnectionWarningSystem.cs:
-//    2355-2401) with no lift edge from outside the station;
+//    2355-2401) with no lift edge from outside the station.
 //  - a loose lift end: a lift node outside any station with exactly one lift edge (vanilla's own "connected once" test on the node,
-//    UpdateNodeConnectionWarnings :1974-2010; a tower node has two).
+//    UpdateNodeConnectionWarnings :1974-2010. A tower node has two).
 // Which vanilla icon is stripped where: Strips (the icon prefabs are ElectricityParameterData's fields, ElectricityParameterData.cs:14-32).
 
 namespace SkiResortMod.Systems
@@ -35,8 +35,8 @@ namespace SkiResortMod.Systems
     public static class LiftLineIconRule
     {
         /// <summary>A station needs a lift line while none of its lift stub nodes has a lift edge from outside the station.
-        /// <paramref name="stubNodes"/> = the station's lift stub nodes; <paramref name="liftEdgesAtStubs"/> = lift edges not owned by the
-        /// station ending at them. A station without stub nodes (none found) never shows the icon.</summary>
+        /// <paramref name="stubNodes"/> = the station's lift stub nodes. <paramref name="liftEdgesAtStubs"/> = lift edges not owned by the station
+        /// ending at them. A station without stub nodes (none found) never shows the icon.</summary>
         public static bool StationNeedsLine(int stubNodes, int liftEdgesAtStubs)
         {
             return stubNodes > 0 && liftEdgesAtStubs <= 0;

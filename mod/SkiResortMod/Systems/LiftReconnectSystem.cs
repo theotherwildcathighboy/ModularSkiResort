@@ -1,8 +1,9 @@
-// LiftReconnectSystem - makes the line-first build order work (draw the line, then place the station): marks the affected net
-// entities Updated on station placement so the game rebuilds lanes and re-runs FindAnchors (LaneSystem's m_OwnerQuery needs
-// All{SubLane} + Any{Updated, Deleted}, and placing a building marks neither the line's node nor its edges).
-// Scheduling (load-bearing): UpdateBefore<LiftReconnectSystem, Game.Net.LaneSystem> at Modification4, immediate EntityManager writes
-// (a barrier buffer would defer the tags past LaneSystem). Idempotent, event-driven only. No foreign edge: complete no-op, no log.
+// LiftReconnectSystem - makes the line-first build order work (draw the line, then place the station). On station placement it marks the
+// affected net entities Updated, so the game rebuilds lanes and re-runs FindAnchors. LaneSystem's m_OwnerQuery needs All{SubLane} +
+// Any{Updated, Deleted}. Placing a building marks neither the line's node nor its edges.
+// Scheduling (load-bearing): UpdateBefore<LiftReconnectSystem, Game.Net.LaneSystem> at Modification4, immediate EntityManager writes (a
+// barrier buffer would defer the tags past LaneSystem). Idempotent, event-driven only. With no foreign edge, the system does nothing and
+// writes no log.
 // Episodes (pure LiftReconnectEpisodes) throttle pokes and logs while a station is dragged. Frames are update counts (every frame).
 // Engine notes: EngineNotes/LiftReconnectSystem.md
 
@@ -169,7 +170,7 @@ namespace SkiResortMod.Systems
                 }
                 catch
                 {
-                    // The flush is a courtesy log; the !!! line above already says what happened
+                    // The flush is a courtesy log. The !!! line above already says what happened
                 }
             }
         }
@@ -206,7 +207,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Deleted stations: forget their last-seen signature; an open episode is logged and closed without a trailing poke</summary>
+        /// <summary>Deleted stations: forget their last-seen signature. An open episode is logged and closed without a trailing
+        /// poke</summary>
         private void PruneDeleted(HashSet<Entity> stationPrefabs)
         {
             var chunks = m_DeletedStationQuery.ToArchetypeChunkArray(Allocator.Temp);
@@ -234,8 +236,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // One station event: compare with what was last seen; on a change, let the episode machine decide whether to poke now and
-        // whether to request the full chair pass.
+        // One station event: compare with what was last seen. On a change, let the episode machine decide whether to poke now and whether
+        // to request the full chair pass.
         private void OnStationEvent(Entity station)
         {
             if (!CollectPokeSet(station, out bool hasForeign, out int foreignHash))
@@ -256,7 +258,7 @@ namespace SkiResortMod.Systems
             if (!hasForeign && !open)
             {
                 // No line attached and nothing in progress (fresh placement in the void, or the stations-first flow where the line arrives
-                // later and builds its own lanes): full no-op. Forgetting the station makes a later attach a first sight -> poke.
+                // later and builds its own lanes): full no-op. Forgetting the station makes a later attach a first sight, which pokes.
                 m_LastSeen.Remove(station);
                 return;
             }
@@ -330,8 +332,8 @@ namespace SkiResortMod.Systems
             m_Closed.Clear();
         }
 
-        // Collect the redraw-equivalent poke set for one station into m_PokeSet. Main-thread EntityManager; bounded set (~10
-        // entities per station). False = no SubNet buffer.
+        // Collect the redraw-equivalent poke set for one station into m_PokeSet. Main-thread EntityManager. Bounded set (~10 entities per
+        // station). False = no SubNet buffer.
         private bool CollectPokeSet(Entity station, out bool hasForeignEdge, out int foreignEdgeHash)
         {
             hasForeignEdge = false;
