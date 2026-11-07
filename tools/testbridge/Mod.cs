@@ -1,4 +1,4 @@
-// Dev-only companion mod (README.md). Inert unless the game was launched with --uiDeveloperMode, the flag that opens the
+// Dev-only companion mod (README.md). Inert unless the game starts with --uiDeveloperMode. This flag opens the
 // UI debug port the commands arrive through.
 
 using System;

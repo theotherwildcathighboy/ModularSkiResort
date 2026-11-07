@@ -1,10 +1,15 @@
 // The Options button "Delete all ski resort content" (DeleteAllRules.cs, SkiDeleteAllSystem). `public static class` with
-// `Run(Func<bool, string, string, bool> check)`; Main passes its Check. Run from the ModularSkiResort root (reads tools/ and
+// `Run(Func<bool, string, string, bool> check)`. Main passes its Check. Run from the ModularSkiResort root (reads tools/ and
 // gamedata-mirror/).
 // DA-1 the target set: every NAMES row but the carriers and their grips (the carrier grip round), plus the LV marker extra.
 // DA-2 ours only: every target is a shipped prefab of ours with the same PrefabID type (tools/shipped-prefabs.json, the SHIPPED gate's
-// list), no vanilla name. DA-3 nothing placeable is missed: every gamedata-mirror prefab with a UIObject (what a player can place) is a target, and every target but the markers has one.
-// DA-4 the node verdict never deletes a node a foreign edge still uses. DA-5 the button gate. DA-6 the kind maps. DA-7 the summary line.
+// list), no vanilla name.
+// DA-3 the target set misses nothing placeable: every gamedata-mirror prefab with a UIObject (what a player can place) is a target.
+//      Every target but the markers has a UIObject.
+// DA-4 the node verdict never deletes a node a foreign edge still uses.
+// DA-5 the button gate.
+// DA-6 the kind maps.
+// DA-7 the summary line.
 // Plan: docs/research/delete-all-2026-10-29.md.
 
 using System;

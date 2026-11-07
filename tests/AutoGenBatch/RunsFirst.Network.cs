@@ -1,8 +1,8 @@
-// RunsFirst lift network (prototype): a skier should be able to get from every lift to every other one. Where the ski graph shows a
-// gap (a lift whose station no run passes, an area whose runs never lead back to the main lifts), the planner searches uphill from
-// the stations the skier must reach over ground a cat track can follow (the connector rules), then over ground a blue run can,
-// until it meets a run or traverse the skier is already on; that route becomes the missing link: a cat track between spread-out
-// base stations, a run down from one area into the next.
+// RunsFirst lift network (prototype): a skier should be able to get from every lift to every other one. Where the ski graph
+// shows a gap, the planner searches uphill from the stations the skier must reach. Examples of a gap: a lift whose station no
+// run passes, an area whose runs never lead back to the main lifts. The search covers ground a cat track can follow (the
+// connector rules) first, then ground a blue run can. It stops when it meets a run or traverse the skier is already on. That
+// route becomes the missing link: a cat track between spread-out base stations, a run down from one area into the next.
 
 using System;
 using System.Collections.Generic;
@@ -18,8 +18,8 @@ namespace AutoGenBatch
         private const float LinkOnM = 30f;   // a link starts on an element the skier is on: within this distance, at most 4 m above it
 
         /// <summary>A bottom station no served run passes (set on a bench above where the runs collect) moves onto the nearest run-out
-        /// within 350 m, no higher than it was, that the lift still fits from: a flat pad, the norms and the rope clearance, no
-        /// crossing, the chord off the runs. Traverses and cat tracks that led to the old station go. Returns the stations moved.</summary>
+        /// within 350 m, no higher than it was, that the lift still fits from. Fit means a flat pad, the norms and the rope clearance,
+        /// no crossing, the chord off the runs. Traverses and cat tracks that led to the old station go. Returns the stations moved.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int ReseatBottoms(Grid g, Plan plan, List<Lift> lifts, List<List<int>>[] need)
         {
@@ -86,7 +86,7 @@ namespace AutoGenBatch
             public long Settled;
         }
 
-        /// <summary>Adds link routes while the lift network is split (at most a few); returns how many.</summary>
+        /// <summary>Adds link routes while the lift network is split (at most a few). Returns how many.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int LinkByRoutes(Grid g, Plan plan, List<Lift> lifts)
         {
@@ -102,8 +102,8 @@ namespace AutoGenBatch
                 for (int L = 0; L < lifts.Count; L++)
                     fwd[L] = Closure(L, sg.Reaches);
                 var main = Enumerable.Range(0, lifts.Count).Where(L => sg.Component[L] == sg.BestComponent).ToList();
-                // where the main lifts' skiers can get to: the main lifts and every lift they reach (a gondola up into a hanging
-                // valley they cannot ski back from still puts them at its top)
+                // where the main lifts' skiers can get to: the main lifts and every lift they reach. A gondola up into a hanging
+                // valley they cannot ski back from still puts them at its top
                 var reached = Enumerable.Range(0, lifts.Count).Where(L => main.Any(X => fwd[X].Contains(L))).ToList();
                 bool any = false;
                 foreach (int Y in Enumerable.Range(0, lifts.Count).Where(L => sg.Component[L] != sg.BestComponent))
@@ -129,9 +129,12 @@ namespace AutoGenBatch
         // a link may be a graded track as a last resort (RF_NOGRADEDLINK=1: off)
         private static readonly bool GradedLinks = Environment.GetEnvironmentVariable("RF_NOGRADEDLINK") != "1";
 
-        /// <summary>A route from where the froms' skiers are to a bottom station of the tos: a cat track when the ground allows one,
-        /// else a run (blue at most but for short stretches), else a track the grading tool cuts across the face (green, else a blue
-        /// diagonal), as the ways home are. False when no search meets the froms' terrain.</summary>
+        /// <summary>A route from where the froms' skiers are to a bottom station of the tos. The route is the first of these that the
+        /// ground allows, as the ways home are:
+        /// - a cat track
+        /// - a run (blue at most but for short stretches)
+        /// - a track the grading tool cuts across the face (green, else a blue diagonal).
+        /// Returns false when no search meets the froms' terrain.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool TryLink(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, List<LinkSearch> done)
         {
@@ -148,8 +151,10 @@ namespace AutoGenBatch
                 }
             // ... or at a top of the froms: a skier starts any element within 150 m of it
             var tops = froms.Select(L => lifts[L].Top).ToList();
-            // the cells a link may start from (within 120 m of a top and no higher than 4 m over it, or within LinkOnM of a point
-            // the skier is on and no higher than 4 m over it), marked once: a failing search reaches a few hundred thousand cells
+            // the cells a link may start from:
+            // - within 120 m of a top and no higher than 4 m over it
+            // - or within LinkOnM of a point the skier is on and no higher than 4 m over it
+            // The code marks them once: a failing search reaches a few hundred thousand cells
             bool[] on = null;
             void Mark(float2 o, float r, float maxH)
             {
@@ -194,8 +199,8 @@ namespace AutoGenBatch
                     avoid.Add(p);
             string names = string.Join("/", froms.Select(L => "L" + lifts[L].Id)) + " -> " + string.Join("/", tos.Select(L => "L" + lifts[L].Id));
             var diag = new List<string>();
-            // a link run keeps off the lift lines: their middles cost more in the search, and a route that would still bring a line
-            // over the chord share is passed over
+            // a link run keeps off the lift lines: their middles cost more in the search. The search passes over a route that would still
+            // bring a line over the chord share
             PointHash lines = null;
             ChordGuard guard = null;
             foreach (int mode in GradedLinks ? new[] { 0, 1, 2, 3, 4 } : new[] { 0, 1, 2 })

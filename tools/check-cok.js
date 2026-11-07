@@ -3,14 +3,14 @@
  *
  * Opens a Paradox Mods .cok (a plain ZIP: the game's own container, entries "<Name>.Prefab" and "<Name>.Prefab.cid" side by side) and checks it
  * against tools/shipped-prefabs.json, the frozen list of our hand-made prefabs:
- *   MISSING   a shipped prefab with no "<name>.Prefab" entry in the .cok  (the exact failure the checklist fears: the Editor package step left a
- *             hand-made prefab out, so players would see "Unknown prefab ID")
- *   CID       the entry is there but its .cid content id differs from the frozen "cid"
- *   EXTRA     a .Prefab entry in the .cok that is not in the frozen list (information only: generated prefabs the list does not track)
- * Exit 0 when nothing is MISSING and no CID differs; 1 otherwise; 2 on a usage or read error.
+ *   MISSING   a shipped prefab with no "<name>.Prefab" entry in the .cok. This is the exact failure the checklist fears: the Editor package
+ *             step left a hand-made prefab out, so players would see "Unknown prefab ID".
+ *   CID       the entry is there, but its .cid content id differs from the frozen "cid"
+ *   EXTRA     a .Prefab entry in the .cok that is not in the frozen list (information only). The list does not track generated prefabs.
+ * Exit 0 when nothing is MISSING and no CID differs. Exit 1 otherwise. Exit 2 on a usage or read error.
  * Usage: node tools/check-cok.js "<path to the .cok>"
  *   The unlisted upload's file after you subscribe in game: %CSII_PDXMODSPATH%\pdx_mods\<ModId>_<version>\*.cok
- * Reader: minimal ZIP central-directory parser with zlib (stored and deflate entries only); no dependencies.
+ * Reader: minimal ZIP central-directory parser with zlib. It reads stored and deflate entries only. It has no dependencies.
  */
 "use strict";
 const fs = require("fs");

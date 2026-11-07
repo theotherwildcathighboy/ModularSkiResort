@@ -1,13 +1,21 @@
-// Headless tests for the pure half of the cat track grading tool (CatTrackGrade.cs), cases GR-1..GR-19:
-// path (Bezier chain through every click), profiles (flat, follow ground, infeasible climbs with ShortfallM, hump and
-// hollow, diagonal traverse, constant grade), cross-section slopes (cut 1:1.5, fill 1:2, flat top TopWidthM, bank
-// blending), guards (lot, lift line, water), undo (bit-exact pre-image, foreign edits survive, LIFO stack capped at
-// MaxEntries; entries over the texel cap refused), raster texel cap, nearest-leg template at switchbacks, map encoding,
-// edit model and input rules, cost (1.5 km path under 3 s), the default width and its earthwork (GR-18), the run outline
-// ribbon (GR-19: loops cut at tight bends, simple ring, legs too close refused), the default profile unchanged by hash (GR-23), the
-// narrow full-cut profile (GR-24: no fill, 1:1 bank, tread width, grade limit, cost per m), the groomer's centerline of a generated ribbon (GR-30).
+// Headless tests for the pure half of the cat track grading tool (CatTrackGrade.cs), cases GR-1..GR-19. They cover these points:
+// - path (Bezier chain through every click)
+// - profiles (flat, follow ground, infeasible climbs with ShortfallM, hump and hollow, diagonal traverse, constant grade)
+// - cross-section slopes (cut 1:1.5, fill 1:2, flat top TopWidthM, bank blending)
+// - guards (lot, lift line, water)
+// - undo (bit-exact pre-image, foreign edits survive, LIFO stack capped at MaxEntries, entries over the texel cap refused)
+// - raster texel cap
+// - nearest-leg template at switchbacks
+// - map encoding
+// - edit model and input rules
+// - cost (1.5 km path under 3 s)
+// - the default width and its earthwork (GR-18)
+// - the run outline ribbon (GR-19: loops cut at tight bends, simple ring, legs too close refused)
+// - the default profile unchanged by hash (GR-23)
+// - the narrow full-cut profile (GR-24: no fill, 1:1 bank, tread width, grade limit, cost per m)
+// - the groomer's centerline of a generated ribbon (GR-30)
 // Run from the repo root: dotnet run --project tests/GradeBatch/GradeBatch.csproj -c Release
-// Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures (the LiftBatch convention).
+// Prints `FAIL  where: msg` lines and one SUMMARY line. Environment.ExitCode = failures (the LiftBatch convention).
 
 using System;
 using System.Collections.Generic;
@@ -175,7 +183,7 @@ namespace GradeBatch
 
         private static void HumpHollow()
         {
-            // A 6 m hump at x = 150 and a 6 m hollow at x = 350 (Gaussian, 25 m sigma: up to ~14 % slopes, crest curvature over G).
+            // A 6 m hump at x = 150 and a 6 m hollow at x = 350. Both are Gaussian, 25 m sigma: up to ~14 % slopes, crest curvature over G.
             Func<float2, float> ground = xz =>
                 1000f + 6f * math.exp(-math.pow((xz.x - 150f) / 12f, 2f)) - 6f * math.exp(-math.pow((xz.x - 350f) / 12f, 2f));
             var p = new GradeParams { MaxGrade = 0.10f };
@@ -215,7 +223,7 @@ namespace GradeBatch
         {
             Func<float2, float> mountain = xz => 1200f + 0.30f * xz.x;   // 30 % fall line along +x
             var p = new GradeParams();
-            // Diagonal at 45 degrees: path grade 0.30 x cos 45 = 21.2 %; gains ~255 m over ~1200 m.
+            // Diagonal at 45 degrees: path grade 0.30 x cos 45 = 21.2 %. It gains ~255 m over ~1200 m.
             var pts = new[] { new float2(0, 0), new float2(300, 300), new float2(600, 600), new float2(850, 850) };
             var s = Solve(pts, mountain, p, raster: false);
             Check(s.Prof.Feasible && s.Prof.ShortfallM == 0f, "GR-6 traverse", $"max {s.Prof.MaxGradeAbs:P1}, shortfall {s.Prof.ShortfallM:F0}");
@@ -246,7 +254,7 @@ namespace GradeBatch
         private static void SideSlopes()
         {
             var p = new GradeParams { Mode = GradeProfileMode.ConstantGrade, TopWidthM = 8f };   // the 8 m template oracle below
-            // A 5 m high, 120 m wide mound across a level path at z = 0; the path runs along x from -200 to 200 at height 0.
+            // A 5 m high, 120 m wide mound across a level path at z = 0. The path runs along x from -200 to 200 at height 0.
             Func<float2, float> mound = xz => math.abs(xz.x) < 60f ? 5f : 0f;
             var s = Solve(Line(new float2(-200, 0.25f), new float2(200, 0.25f)), mound, p);
             // Texels at x ~ 0 (well inside the mound), across z.
@@ -431,7 +439,7 @@ namespace GradeBatch
 
         private static void SwitchbackLegs()
         {
-            // Two legs 24 m apart joined by a hairpin, on a 30 % hill rising with x; the upper leg sits 7.2 m higher than the lower.
+            // Two legs 24 m apart joined by a hairpin, on a 30 % hill rising with x. The upper leg sits 7.2 m higher than the lower.
             Func<float2, float> hill = xz => 800f + 0.3f * xz.x;
             var p = new GradeParams();
             var pts = new[] { new float2(0, 0), new float2(0, 200), new float2(12, 214), new float2(24, 200), new float2(24, 0) };
@@ -538,7 +546,7 @@ namespace GradeBatch
             Check(GradeInput.PromptKey(GradeStep.Path, true) == "PROMPT_DRAG" && GradeInput.PromptKey(GradeStep.Empty, false) == "PROMPT_EMPTY", "GR-15 prompt keys", "");
 
             // GR-15d Delete mode (field test 2026-10-26b): right click / Esc only leave the mode, in any step but Applying, whatever is
-            // placed; the two-click confirm; the pick is point in outline.
+            // placed. The two-click confirm. The pick is point in outline.
             foreach (GradeStep st in new[] { GradeStep.Empty, GradeStep.OnePoint, GradeStep.Path })
                 Check(GradeInput.RightClick(st, false, 3, deleteMode: true) == GradeBack.LeaveDeleteMode, "GR-15d rc leaves delete mode", st.ToString());
             Check(GradeInput.RightClick(GradeStep.Applying, false, 0, deleteMode: true) == GradeBack.None, "GR-15d rc applying", "");
@@ -586,9 +594,11 @@ namespace GradeBatch
             return null;
         }
 
-        /// <summary>GR-23: the cat track tool's player text (LocaleEN SkiResort.CatTrack.*, the LP-31 idea of the lift tool): every key the tool
-        /// and its tooltip can show exists, reads as plain sentences (at most 25 words, no em dash, no log syntax, no ids), names only the
-        /// {ARG}s the code passes, and no key is stale.</summary>
+        /// <summary>GR-23: the cat track tool's player text (LocaleEN SkiResort.CatTrack.*, the LP-31 idea of the lift tool). The test checks that:
+        /// - every key the tool and its tooltip can show exists
+        /// - every key reads as plain sentences (at most 25 words, no em dash, no log syntax, no ids)
+        /// - the keys name only the {ARG}s the code passes
+        /// - no key is stale.</summary>
         private static void PlayerText()
         {
             const string W = "GR-23";
@@ -635,7 +645,7 @@ namespace GradeBatch
                 Check(used.Contains(key), W, prefix + key + " in LocaleEN is never shown (stale)");
             Console.WriteLine($"GR-23 cat track player text: {used.Count} key(s) shown, longest {worst} words");
 
-            // The plan line follows the plan: every arg it passes is one a text names; a gentle track reads PLAN, a steep one PLAN_STEEP.
+            // The plan line follows the plan: every arg it passes is one a text names. A gentle track reads PLAN, a steep one PLAN_STEEP.
             var p = new GradeParams();
             var gentle = Solve(Line(new float2(0, 0), new float2(200, 0)), xz => 900f + 0.05f * xz.x, p);
             GradeMsg pm = GradeInput.PlanMsg(gentle.Path, gentle.Prof, gentle.Raster, p);
@@ -710,12 +720,15 @@ namespace GradeBatch
         }
 
 
-        /// <summary>GR-19: the run outline. A straight track is a 4-node rectangle of the top's area; an S-bend stays simple with the
-        /// centerline inside; a hairpin tighter than the half width has its inside loop cut (the raw offsets cross, the ring does not);
-        /// legs closer than the width are refused (Crosses); ring nodes keep MinSpacingM along each edge; the GR-16 mountain track at
-        /// the default width has a bounded node count.</summary>
-        /// <summary>GR-30: the groomer's centerline over outlines the tool really generates: the path stays within a small distance of the
-        /// generator's own centerline (a real oracle, not a second run of the same code), keeps its length and stays deterministic.</summary>
+        /// <summary>GR-19: the run outline. The test checks these points:
+        /// - A straight track is a 4-node rectangle of the top's area.
+        /// - An S-bend stays simple with the centerline inside.
+        /// - A hairpin tighter than the half width has its inside loop cut (the raw offsets cross, the ring does not).
+        /// - Legs closer than the width are refused (Crosses).
+        /// - Ring nodes keep MinSpacingM along each edge.
+        /// - The GR-16 mountain track at the default width has a bounded node count.</summary>
+        /// <summary>GR-30: the groomer's centerline over outlines the tool really generates. The path stays within a small distance of the
+        /// generator's own centerline (a real oracle, not a second run of the same code). It keeps its length and stays deterministic.</summary>
         private static void GroomerCenterlines()
         {
             const string W = "GR-30";
@@ -816,7 +829,7 @@ namespace GradeBatch
                 minStep = math.min(minStep, math.distance(ring[i], ring[(i + 1) % ring.Length]));
             Check(minStep >= GradeRibbon.MinSpacingM - 1e-3f, "GR-19 spacing", $"closest consecutive nodes {minStep:F2} m");
 
-            // Hairpin: legs 40 m apart, apex about 20 m above the legs' ends; a 32 m top (half width 16) is wider than the bend.
+            // Hairpin: legs 40 m apart, apex about 20 m above the legs' ends. A 32 m top (half width 16) is wider than the bend.
             var pin = GradePath.Build(new[] { new float2(0, 0), new float2(0, 150), new float2(20, 172), new float2(40, 150), new float2(40, 0) }, 2f);
             var rawLeft = new List<float2>();
             var rawRight = new List<float2>();
@@ -891,11 +904,11 @@ namespace GradeBatch
 
         /// <summary>GR-20 (2026-10-25, the crossing requirement): the game's rater (SkiRunRater + SkiSlopeClassifier) on graded terrain.
         /// (a) Why a cat track's band does not come from the rater: its own outline on its graded ground reads the profile on straight
-        /// legs but up to ~29 % at a hairpin graded to 25 % (20 m windows at the bend). Measured, printed. (b) A run crossed by a 20 m
-        /// track: graded straight through (no keep), a flat bench flips green 20-24 % runs to blue, blue 37 % to black, black 50 % to
-        /// double black (printed); with the crossed run's outline kept (GradeRaster.Build keep, the tool's way) the run keeps its band
-        /// and its band (since DECISIONS 420 inside changes stay within InsideMaxM). (c) KeepWeight / Inside / the final-surface guard: a
-        /// level traverse is fine, a diagonal down a 45 % run is not.</summary>
+        /// legs but up to ~29 % at a hairpin graded to 25 % (20 m windows at the bend). Measured, printed.
+        /// (b) A run crossed by a 20 m track: graded straight through (no keep). A flat bench flips green 20-24 % runs to blue, blue 37 % to
+        /// black, black 50 % to double black (printed). With the crossed run's outline kept (GradeRaster.Build keep, the tool's way) the run
+        /// keeps its band and its band (since DECISIONS 420 inside changes stay within InsideMaxM).
+        /// (c) KeepWeight / Inside / the final-surface guard: a level traverse is fine, a diagonal down a 45 % run is not.</summary>
         private static void CrossingRatings()
         {
             var p = new GradeParams();
@@ -1041,7 +1054,7 @@ namespace GradeBatch
                   $"the final surface reaches {c1.FadeMaxGrade:P1} along the track and no guard fires (limit {p.MaxGrade:P0})");
 
             // 1b. The same pitch 45 m before the run: the profile lags the ground by a few m at the edge. Unpinned, the fade pitches over the limit
-            // (the review's 38 %); pinned, the solver carries the approach and the track is BUILT, no guard.
+            // (the review's 38 %). Pinned, the solver carries the approach and the track is BUILT, no guard.
             Func<float2, float> early = xz => 1000f + 0.10f * xz.x + (xz.x < 140f ? 0f : xz.x < 180f ? 0.25f * (xz.x - 140f) : 10f);
             var open = Plan(Line(new float2(0, 0), new float2(400, 0)), early, p, keep, pin: false);
             var shut = Plan(Line(new float2(0, 0), new float2(400, 0)), early, p, keep);
@@ -1108,11 +1121,12 @@ namespace GradeBatch
             Check(top > 0 && off == 0, "GR-21 bench beside a run", $"{off} of {top} flat-top texels moved (worst {worst:F2} m) by a run the track never enters");
         }
 
-        /// <summary>GR-22 (DECISIONS 420, 2026-10-26): grading INSIDE a crossed run. (a) The along-track correction is clamped to InsideMaxM:
-        /// a flat constant-grade track over a raised plateau inside a run cuts 2.0 m of a 2.0 m plateau and 2.0 m of a 2.1 m one (0.1 m stays),
-        /// half that 5 m inside the outline (the 10 m inward fade), none outside the flat top beyond the side fade; the cross slope is the
-        /// ground's (no bench). (b) The allowance steps down until the crossed run keeps its rated band: a 23.5 % green run under a raised
-        /// constant-grade track turns Blue at 2 m (crux 26 %); the chooser takes 1 m, which keeps it Green.
+        /// <summary>GR-22 (DECISIONS 420, 2026-10-26): grading INSIDE a crossed run.
+        /// (a) The along-track correction is clamped to InsideMaxM. A flat constant-grade track over a raised plateau inside a run cuts
+        /// 2.0 m of a 2.0 m plateau and 2.0 m of a 2.1 m one (0.1 m stays). It cuts half that 5 m inside the outline (the 10 m inward fade).
+        /// It cuts none outside the flat top beyond the side fade. The cross slope is the ground's (no bench).
+        /// (b) The allowance steps down until the crossed run keeps its rated band. A 23.5 % green run under a raised
+        /// constant-grade track turns Blue at 2 m (crux 26 %). The chooser takes 1 m, which keeps it Green.
         /// (c) A level traverse of 15-52 % runs keeps their bands at the full 2 m.</summary>
         private static void InsideRuns()
         {
@@ -1152,7 +1166,7 @@ namespace GradeBatch
             }
 
             // (b) a 40 m wide 23.5 % green run under a constant-grade track whose ramp rides 3-4 m above it (a 6 m mound under the track's
-            // start): the full 2 m fill along the corridor would turn the run Blue, 1 m keeps it Green
+            // start): the full 2 m fill along the corridor would turn the run Blue. 1 m keeps it Green
             {
                 Func<float2, float> wobble = xz => 1000f + 0.235f * xz.y + 6f * math.saturate((-120f - xz.x) / 40f);
                 float2[] runB = { new float2(-20, -150), new float2(20, -150), new float2(20, 150), new float2(-20, 150) };
@@ -1177,7 +1191,7 @@ namespace GradeBatch
                 Check(chosen < 0f || bands[chosen] == b0.Band, "GR-22b band kept", $"chosen {chosen}: {bands[chosen]} vs {b0.Band}");
             }
             // (c) a level traverse of a 15 % run over a short 1.5 m bump ON the track line (37.5 % along the track): the ground inside the run is
-            // steeper than the limit, which the old rule refused ("cross it more level"); within 2 m the profile flattens it and the track builds
+            // steeper than the limit. The old rule refused that ("cross it more level"). Within 2 m the profile flattens it and the track builds
             {
                 Func<float2, float> bump = xz => 1000f + 0.15f * xz.y + 1.5f * math.max(0f, 1f - math.abs(xz.x) / 4f);
                 float2[] runC = { new float2(-30, -150), new float2(30, -150), new float2(30, 150), new float2(-30, 150) };
@@ -1198,9 +1212,9 @@ namespace GradeBatch
             Check(GradeParams.InsideAllowanceSteps[GradeParams.InsideAllowanceSteps.Length - 1] == 0f, "GR-22b last step", "the last step is 0 (the old keep)");
         }
 
-        /// <summary>GR-23: the default profile is untouched by the narrow full-cut option (GradeParams.NoFill). Each fixture is solved
-        /// with the default GradeParams (or the existing non-default knobs) and every output bit (ground, profile, before / after heights,
-        /// zones, volumes, counters) is hashed. The expected hashes were taken from the code BEFORE the NoFill change (main a3d2bd1), so
+        /// <summary>GR-23: the narrow full-cut option (GradeParams.NoFill) leaves the default profile untouched. The test solves each fixture
+        /// with the default GradeParams (or the existing non-default knobs) and hashes every output bit (ground, profile, before / after heights,
+        /// zones, volumes, counters). The expected hashes were taken from the code BEFORE the NoFill change (main a3d2bd1), so
         /// a difference in any default result, however small, fails here. Re-baseline only for a deliberate change of the default.</summary>
         private static void GoldenDefaultProfile()
         {
@@ -1288,9 +1302,14 @@ namespace GradeBatch
             return s;
         }
 
-        /// <summary>GR-24: the narrow full-cut profile (DECISIONS 443). Parameters; the 50 % cross slope template (tread, 1:1 bank,
-        /// nothing raised, no fill volume); the unfilled count when a caller solves against the centerline ground; the grade limit on
-        /// the bench; cut-only on a hump and across a crossed run; earthwork per meter next to the default profile; time.</summary>
+        /// <summary>GR-24: the narrow full-cut profile (DECISIONS 443). The test covers these points:
+        /// - parameters.
+        /// - the 50 % cross slope template (tread, 1:1 bank, nothing raised, no fill volume).
+        /// - the unfilled count when a caller solves against the centerline ground.
+        /// - the grade limit on the bench.
+        /// - cut-only on a hump and across a crossed run.
+        /// - earthwork per meter next to the default profile.
+        /// - time.</summary>
         private static void NarrowProfile()
         {
             var np = GradeParams.NarrowFullCut();

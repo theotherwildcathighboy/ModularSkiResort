@@ -1,8 +1,8 @@
-// RunsFirst junctions: a merging run ends where it first comes within 39 m of the run it joins (the serve pass), and every
-// sample of the joined run within 40 m of it reads as crowded: three to five per junction where the joined run passes 35-39 m
-// from the end. At the end of the plan each merging run's end slides back along its last 60 m to the spot where the fewest
-// samples of other runs lie within 40 m of its tail while the run it joins still lies within the skier's 40 m (no higher than
-// 5 m above the end): the skier still flows on, the junction stops reading as two runs side by side.
+// RunsFirst junctions: a merging run ends where it first comes within 39 m of the run it joins (the serve pass). Every sample
+// of the joined run within 40 m of it reads as crowded. That is three to five per junction where the joined run passes 35-39 m
+// from the end. At the end of the plan, each merging run's end slides back along its last 60 m. It slides to the spot where the
+// fewest samples of other runs lie within 40 m of its tail. At that spot the run it joins still lies within the skier's 40 m
+// (no higher than 5 m above the end). The skier still flows on. The junction stops reading as two runs side by side.
 
 using System;
 using System.Collections.Generic;
@@ -17,7 +17,7 @@ namespace AutoGenBatch
     {
         private static readonly float JunctionBackM = Env("RF_JBACK", 60f);   // how far a merging run's end may slide back
 
-        /// <summary>Moves merging runs' ends back to where they crowd the run they join least; returns the runs changed.</summary>
+        /// <summary>Moves merging runs' ends back to where they crowd the run they join least. Returns the runs changed.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int TrimJunctions(Grid g, Plan plan, List<Lift> lifts)
         {

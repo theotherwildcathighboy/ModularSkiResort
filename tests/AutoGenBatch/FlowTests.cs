@@ -1,9 +1,15 @@
-// Flow suite (A6, A-R round 1): a hand graph with a known minimax descent (EasiestDescent, also against a reference linear-scan Dijkstra
-// on a random graph), then per synthetic fixture the plan graph, ways home and the rest of FinishResort: H-1 to H-3 and F-10 HARD, H-4 to
-// H-6 REPORT (the fixtures pass no roads, so a run ending on a base pad is an honest dead end: class 4), the graph shape, RunPod / PodRuns / pod clusters, dead ends recounted from the graph (no downhill path
-// to a way out: DECISIONS 451 c), real-band verdicts (451 b: Download only without a path), the warnings, the site inputs (pods meeting
-// their Wanted, AR-13), the Home knob (Wanted changes, Home does not), a cat track to a base pad with a road as a green way home, the
-// fingerprint fold.
+// Flow suite (A6, A-R round 1). It checks a hand graph with a known minimax descent (EasiestDescent, also against a reference
+// linear-scan Dijkstra on a random graph). Then, per synthetic fixture, it checks the plan graph, ways home and the rest of
+// FinishResort:
+// - H-1 to H-3 and F-10 HARD, H-4 to H-6 REPORT (the fixtures pass no roads, so a run ending on a base pad is an honest dead end: class 4).
+// - The graph shape, RunPod / PodRuns / pod clusters.
+// - Dead ends recounted from the graph (no downhill path to a way out: DECISIONS 451 c).
+// - Real-band verdicts (451 b: Download only without a path).
+// - The warnings.
+// - The site inputs (pods meeting their Wanted, AR-13).
+// - The Home knob (Wanted changes, Home does not).
+// - A cat track to a base pad with a road as a green way home.
+// - The fingerprint fold.
 
 using System;
 using System.Collections.Generic;
@@ -35,7 +41,7 @@ namespace AutoGenBatch
 
         /// <summary>Nodes: 0 base pad, 1 lift top, 2/3 run A (black, short), 4/5 run B (blue), 6/7 run C (green, joined from B's bottom),
         /// 8 lift bottom, 9/10 run D (blue, longer than B), 11 an island. The easiest descent from 1 is B then C (hardest band Blue), not A
-        /// (Black, shorter) and not D (Blue, longer); the lift edge 1 -> 0 is never ridden down.</summary>
+        /// (Black, shorter) and not D (Blue, longer). The descent never rides the lift edge 1 -> 0 down.</summary>
         private static void FlowHandGraph()
         {
             const string w = "Flow hand graph";
@@ -69,7 +75,7 @@ namespace AutoGenBatch
             band = SkiRunAutoPlanner.EasiestDescent(12, lone, new double[] { 1, 1 }, 1, target, 1, out run);
             Check(band == -1 && run == -1, w, $"no way home: band {band}, run {run} (want -1, -1)");
 
-            // a link from the top onto a pad is skipped (getting off on the top pad is no way home); a cat track is not
+            // the search skips a link from the top onto a pad (getting off on the top pad is no way home). It does not skip a cat track
             var hop = new[] { E(1, 0, SkiRunAutoPlanner.EdgeLink, SlopeBand.Flat) };
             band = SkiRunAutoPlanner.EasiestDescent(12, hop, new double[] { 1 }, 1, target, 1, out run);
             Check(band == -1, w, $"top pad hop counted as a way home (band {band})");
@@ -208,8 +214,8 @@ namespace AutoGenBatch
             }
             Check(runEdges == runs && liftEdges == lifts && catEdges == 0, w, $"edges: {runEdges} run (want {runs}), {liftEdges} lift (want {lifts}), {catEdges} cat track (want 0)");
 
-            // Dead ends = run bottoms with no downhill path to a way out (no obstacles here); a run bottom without an outgoing edge is one;
-            // the warnings follow the counts
+            // Dead ends = run bottoms with no downhill path to a way out (no obstacles here). A run bottom without an outgoing edge is one.
+            // The warnings follow the counts
             List<int> deadList = V2Metrics.HostDeadEnds(r, p);
             int noEdge = 0;
             for (int i = 0; i < runs; i++)
@@ -271,7 +277,7 @@ namespace AutoGenBatch
             AutoPlanInput runsIn = new AutoPlanInput { Snapshot = snap, Region = c.Region, Knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(c.Region, 0)) };
             Check(p.Fingerprint != 0UL && r.Fingerprint != new SkiRunAutoPlanner().Run(runsIn).Fingerprint, w, "the plan fingerprint is not folded in");
 
-            // Home knob: Wanted follows it (Auto = Green when the bottom pad touches the base band, Blue above); the verdict does not
+            // Home knob: Wanted follows it (Auto = Green when the bottom pad touches the base band, Blue above). The verdict does not follow it
             // (DECISIONS 451 b: the real band, whatever was wanted)
             AutoPlanResult rg = FlowRun(c, HomeLevel.Green), rb = FlowRun(c, HomeLevel.Blue);
             for (int i = 0; i < lifts && i < rg.Resort.Lifts.Length && i < rb.Resort.Lifts.Length; i++)

@@ -1,28 +1,31 @@
 # freeze-shipped.ps1 - writes tools/shipped-prefabs.json, the frozen list of every hand-made prefab the game loads that a
-# save or another prefab can name: (name, type, CID). T74, 2026-10-19; docs/research/release-update-constraints-2026-10-18.md
-# section 0 mechanisms 1-4, section 3 rule 1 / 4, section 4 item 6; scaffold note docs/research/release-scaffolds-2026-10-19.md.
+# save or another prefab can name: (name, type, CID). T74, 2026-10-19. See docs/research/release-update-constraints-2026-10-18.md
+# section 0 mechanisms 1-4, section 3 rule 1 / 4, section 4 item 6, and the scaffold note docs/research/release-scaffolds-2026-10-19.md.
 #
 # WHAT IS LISTED. The owned prefabs under -Source (default gamedata-mirror\ImportedData, the repo copy of what the game
-# loads; tools/sync-gamedata.ps1 refreshes it): directories named Ski* (plus legacy FixedGripChairLift), and Ski* files /
-# directories inside the Editor library c030ee3ff256df91 - the SAME ownership rule as tools/preflight.ps1 ("collect owned
-# files"). Every such prefab is listed EXCEPT RenderPrefab: a mesh prefab is not in saves (mechanism 1; Game.Serialization
-# Primary/SecondaryPrefabReferencesSystem only write instance-referenced prefabs) and rule 2 lets a patch replace meshes freely.
+# loads, refreshed by tools/sync-gamedata.ps1). Two kinds of prefab count as owned:
+#   - directories named Ski* (plus legacy FixedGripChairLift)
+#   - Ski* files / directories inside the Editor library c030ee3ff256df91
+# This is the SAME ownership rule as tools/preflight.ps1 ("collect owned files"). Every such prefab is listed EXCEPT RenderPrefab.
+# A mesh prefab is not in saves (mechanism 1, Game.Serialization Primary/SecondaryPrefabReferencesSystem only write
+# instance-referenced prefabs), and rule 2 lets a patch replace meshes freely.
 #   name = the root "name" (4-space indent), type = the root "$type" Game.Prefabs class (PrefabID = type + name + hash,
-#   Game.Prefabs/PrefabID.cs:45-52), cid = the .Prefab.cid beside it (other prefabs reference it as CID:...; rule 7a).
+#   Game.Prefabs/PrefabID.cs:45-52), cid = the .Prefab.cid beside it (other prefabs reference it as CID:..., rule 7a).
 #
-# THE GATE. tools/preflight.ps1 SHIPPED compares the LIVE ImportedData with this list: a listed (name, type) that disappears
-# or whose CID changes is a FAIL (rule 1: never rename / retype / re-CID a shipped prefab; rule 4: never delete one); an
-# owned prefab not in the list is a WARN until the list is regenerated with this script.
+# THE GATE. tools/preflight.ps1 SHIPPED compares the LIVE ImportedData with this list:
+#   - A listed (name, type) that disappears or whose CID changes is a FAIL (rule 1: never rename / retype / re-CID a shipped prefab.
+#     Rule 4: never delete one).
+#   - An owned prefab not in the list is a WARN until someone regenerates the list with this script.
 #
 # RELEASE. Before the first upload the list is "provisional": regenerating it after an intended rename / removal is allowed
 # (no save compatibility before release). On release day run
 #     tools\freeze-shipped.ps1 -Release 1.0.0
-# which writes "released": "1.0.0". From then on this script REFUSES to drop or change any listed entry (exit 1 with the
-# list): a regenerated list can only ADD prefabs, so a re-freeze can never launder a removal past the SHIPPED gate. A
+# The command writes "released": "1.0.0". From then on this script REFUSES to drop or change any listed entry (exit 1 with the
+# list). A regenerated list can only ADD prefabs, so a re-freeze can never launder a removal past the SHIPPED gate. A
 # deliberate break of that rule needs a hand edit of the JSON and a changelog line ("Save compatible with previous: no").
 #
 # Usage:  tools\freeze-shipped.ps1 [-Source <ImportedData root>] [-Release <x.y.z>] [-DryRun]
-# Exit:   0 written (or dry run); 1 refused (released list would lose / change entries) or bad input.
+# Exit:   0 written (or dry run), 1 refused (released list would lose / change entries) or bad input.
 
 param(
     [string]$Source = (Join-Path $PSScriptRoot "..\gamedata-mirror\ImportedData"),

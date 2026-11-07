@@ -1,16 +1,15 @@
 # sync-gamedata.ps1 — mirrors OUR hand-made game-side data between the game's
-# ImportedData folder and the repo (gamedata-mirror\ImportedData), so the project's most
-# surgical work (prefab JSONs, .cids, icons, loc files) is under version control.
+# ImportedData folder and the repo (gamedata-mirror\ImportedData). This puts the project's most
+# surgical work (prefab JSONs, .cids, icons, loc files) under version control.
 #
-#   .\sync-gamedata.ps1              # game -> repo (backup; the default, safe)
-#   .\sync-gamedata.ps1 -Restore     # repo -> game (disaster recovery; prompts)
+#   .\sync-gamedata.ps1              # game -> repo (backup, the default, safe)
+#   .\sync-gamedata.ps1 -Restore     # repo -> game (disaster recovery, prompts)
 #
 # What is mirrored: every top-level ImportedData folder we own (Ski*
-# and the Editor mesh-prefab folder c030ee3ff256df91) — but ONLY text-ish artifacts:
-# *.Prefab, *.cid, *.loc, *.png. The big Editor-minted binaries (.Geometry, .Surface,
-# .Texture) are excluded: they are re-mintable by re-importing the FBX/PNGs (new CIDs,
-# then re-point per docs\PIPELINE.md §6), and versioning hundreds of MB of opaque
-# binaries buys nothing. TextureAssets\ likewise excluded.
+# and the Editor mesh-prefab folder c030ee3ff256df91). The mirror holds ONLY text-ish artifacts:
+# *.Prefab, *.cid, *.loc, *.png. The mirror excludes the big Editor-minted binaries (.Geometry, .Surface,
+# .Texture). A re-import of the FBX/PNGs mints them again (new CIDs, then re-point per docs\PIPELINE.md §6).
+# Versioning hundreds of MB of opaque binaries buys nothing. The mirror excludes TextureAssets\ too.
 
 param([switch]$Restore)
 

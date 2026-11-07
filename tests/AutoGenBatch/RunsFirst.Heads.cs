@@ -1,8 +1,10 @@
 // RunsFirst heads: the mirror of the junction pass. A run that leaves another run, a traverse fork or a lift top beside its
-// siblings shares its first stretch with them, and the scorecard reads both sides of that stretch as crowded. Each run's start
-// slides forward along its first 60 m to where it crowds least, while the skier still gets onto it the same way (within 39.5 m
-// of the element it leaves, no higher than that element there; within 145 m of the top it is skied from) and every run that
-// joins or leaves it still does.
+// siblings shares its first stretch with them. The scorecard reads both sides of that stretch as crowded. Each run's start
+// slides forward along its first 60 m to where it crowds least. The slide keeps these true:
+// - the skier still gets onto the run the same way:
+//   - within 39.5 m of the element it leaves, no higher than that element there
+//   - within 145 m of the top the skier skis from
+// - every run that joins or leaves it still does.
 
 using System;
 using System.Collections.Generic;
@@ -17,7 +19,7 @@ namespace AutoGenBatch
     {
         private static readonly float HeadForwardM = Env("RF_HFWD", 60f);   // how far a run's start may slide forward
 
-        /// <summary>Moves runs' starts forward to where their first stretch crowds other runs least; returns the runs changed.</summary>
+        /// <summary>Moves runs' starts forward to where their first stretch crowds other runs least. Returns the runs changed.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int TrimHeads(Grid g, Plan plan, List<Lift> lifts)
         {
@@ -82,7 +84,7 @@ namespace AutoGenBatch
                         }
                     }
                 }
-                // a run whose neighbor at the start has moved keeps its start (their relations were judged on the old places)
+                // a run keeps its start when its neighbor at the start already moved. The code judged their relations on the old places
                 if (related.Any(old.ContainsKey))
                     continue;
                 int window = Math.Min(n - 1, 13);

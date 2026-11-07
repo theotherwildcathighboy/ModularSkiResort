@@ -1,13 +1,16 @@
-// The lift tool's section pick by the rope (DECISIONS 591, F1; docs/research/tram-bulldoze-hitbox-2026-11-03.md): the pure
+// The lift tool's section pick by the rope (DECISIONS 591, F1, docs/research/tram-bulldoze-hitbox-2026-11-03.md): the pure
 // LiftRopePick (ray vs rope polyline within a screen-space tolerance). Where-tags `rope/RP-n`.
 // Ropes are built the way LaneSystem hangs a utility lane (LaneSystem.cs:4128-4138: b, c re-chorded at 1/3 and 2/3 and lowered by
-// L x h x 4/3, so the mid-span sag is L x h). The field tram span (field-test.md section C) is the anchor: rope ends 804.47 /
-// 1001.69 over 473 m at h 0.04 give the measured mid-span rope 884.16; the bulldozer's sheet sat at 894.05 there.
-// Pinned: the ray through the visible rope picks its section (mid-span and near a tower, 473 m and 1 km tram spans, FG / DQ / GD
-// chains); a ray at the old sheet height picks nothing and never a far section; the tolerance edge is exact (screen share and the
-// near-camera floor); of two parallel lines the nearer wins when both overlap on screen and the one under the cursor wins otherwise;
-// a rope behind the terrain hit is not picked; the polyline follows a 1 km rope within 0.02 m; the box cull keeps the cost to the
-// ropes near the ray.
+// L x h x 4/3, so the mid-span sag is L x h). The field tram span (field-test.md section C) is the anchor. Rope ends 804.47 /
+// 1001.69 over 473 m at h 0.04 give the measured mid-span rope 884.16. The bulldozer's sheet sat at 894.05 there.
+// Pinned:
+// - The ray through the visible rope picks its section (mid-span and near a tower, 473 m and 1 km tram spans, FG / DQ / GD chains).
+// - A ray at the old sheet height picks nothing, and never a far section.
+// - The tolerance edge is exact (screen share and the near-camera floor).
+// - Of two parallel lines, the nearer one wins when both overlap on screen. Otherwise the one under the cursor wins.
+// - The pick does not choose a rope behind the terrain hit.
+// - The polyline follows a 1 km rope within 0.02 m.
+// - The box cull keeps the cost to the ropes near the ray.
 
 using System;
 using System.Collections.Generic;
@@ -84,7 +87,7 @@ namespace LiftBatch
 
         private static string F(float v) => v.ToString("F2");
 
-        // The field span: tower T45 rope 804.47 at z 0 -> top station rope 1001.69 at z 473, h 0.04; a lower section 300 m below the tower.
+        // The field span: tower T45 rope 804.47 at z 0 -> top station rope 1001.69 at z 473, h 0.04. A lower section lies 300 m below the tower.
         private static readonly float3 FieldA = new float3(0f, 804.47f, 0f), FieldD = new float3(0f, 1001.69f, 473f);
         private static readonly float3 LowerA = new float3(0f, 700f, -300f);
 
@@ -149,7 +152,7 @@ namespace LiftBatch
         private static void Rp3SheetNeverPicksFar()
         {
             const string W = "rope/RP-3";
-            // Two tram sections in a line: A (field span) and B beyond it, 600 m further up; the camera looks up the line from below.
+            // Two tram sections in a line: A (field span) and B beyond it, 600 m further up. The camera looks up the line from below.
             var sc = new Scene();
             sc.Rope(0, FieldA, FieldD, 0.04f);
             float3 farD = FieldD + new float3(0f, 200f, 600f);
@@ -157,17 +160,17 @@ namespace LiftBatch
             float3 cam = new float3(-120f, 860f, -250f);
             float3 midA = RopeAt(FieldA, FieldD, 0.04f, 0.5f);
             float3 sheetA = midA + new float3(0f, 9.9f, 0f);
-            // Looking up the line the sheet point lies about 10 px from A's rope on screen (5.5 m at 500 m): A may answer, B never.
+            // Looking up the line the sheet point lies about 10 px from A's rope on screen (5.5 m at 500 m). A may answer. B never does.
             bool any = sc.Pick(cam, sheetA, out LiftRopePick.Hit h);
             Check(!any || (h.Section == 0 && h.Score <= 1f), W, "a ray at A's old sheet picks the far section " + h.Section + " (miss " +
                   F(h.MissM) + ")");
-            // At A's rope: A; at B's rope: B.
+            // At A's rope: A. At B's rope: B.
             Check(sc.Pick(cam, midA, out h) && h.Section == 0, W, "the ray at A's rope picks A, got " + h.Section);
             float3 midB = RopeAt(FieldD, farD, 0.04f, 0.5f);
             Check(sc.Pick(cam, midB, out h) && h.Section == 1, W, "the ray at B's rope picks B, got " + h.Section);
 
-            // Side-on, a far parallel span C 700 m behind A lies 25 m under the ray through A's sheet point (C's tolerance there, 1.1 km
-            // from the camera, 15.9 m): nothing is picked, where a world tolerance of 25 m or more would hand the click to C.
+            // Side-on, a far parallel span C 700 m behind A lies 25 m under the ray through A's sheet point. C's tolerance there (1.1 km
+            // from the camera) is 15.9 m. The pick finds nothing. A world tolerance of 25 m or more would hand the click to C.
             var side = new Scene();
             side.Rope(0, FieldA, FieldD, 0.04f);
             float3 sideCam = new float3(-400f, midA.y, midA.z);
@@ -235,7 +238,7 @@ namespace LiftBatch
         private static void Rp6ChairChains()
         {
             const string W = "rope/RP-6";
-            // Up-slope chains at the span limits: FG 90 m (h 0.02), DQ and GD 245 m (0.025); each section has the up and down cable.
+            // Up-slope chains at the span limits: FG 90 m (h 0.02), DQ and GD 245 m (0.025). Each section has the up and down cable.
             var cases = new[] { ("FG", 90f, 0.02f, 3f), ("DQ", 245f, 0.025f, 3.2f), ("GD", 245f, 0.025f, 3.5f) };
             foreach (var (name, span, h, half) in cases)
             {
@@ -304,7 +307,7 @@ namespace LiftBatch
         private static void Rp9Cost()
         {
             const string W = "rope/RP-9";
-            // A large resort: 40 FG lines of 10 sections (2 ropes each) on a 200 m grid; the ray at one rope tests only the ropes near it.
+            // A large resort: 40 FG lines of 10 sections (2 ropes each) on a 200 m grid. The ray at one rope tests only the ropes near it.
             var sc = new Scene();
             int s = 0;
             for (int line = 0; line < 40; line++)

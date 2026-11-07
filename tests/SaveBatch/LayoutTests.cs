@@ -47,8 +47,8 @@ namespace SaveBatch
         private static bool C(bool ok, string where, string msg) => s_Check(ok, where, msg);
 
         // Shipped snapshot: every table entry that is (or will be) in players' saves, verbatim as Render() prints it. A guard copy,
-        // not a second table: SL-T fails if a shipped entry is edited or removed; a new entry (a post-release bump) is appended to
-        // SaveLayouts.cs and listed as INFO until it ships, then added here.
+        // not a second table. SL-T fails if anyone edits or removes a shipped entry. Append a new entry (a post-release bump) to
+        // SaveLayouts.cs. The test lists it as INFO until it ships. Then add it here.
         private static readonly string[] Shipped =
         {
             "SkiRunBinding v1 10 m_Gate:entity m_Flags:u8 m_PaidAmount:i32",
@@ -58,7 +58,7 @@ namespace SaveBatch
             "SkiResortHistoryMonth v1 59 m_Flags:u8 m_MonthKey:i32 m_Tourists:i32 m_Residents:i32 m_SkiDays:i32 m_TicketsPaid:i32 " +
                 "m_TicketIncome:i32 m_LodgeIncome:i32 m_PassIncome:i32 m_LessonIncome:i32 m_LiftCost:i32 m_RunCost:i32 " +
                 "m_BuildingsCost:i32 m_WagesCost:i32 m_Attraction:i32 m_SnowPct:u8",
-            // T142 B7b (2026-10-24, before 1.0): the snow depth per month. Ships in 1.0.0, so it is listed as shipped.
+            // T142 B7b (2026-10-24, before 1.0): the snow depth per month. Ships in 1.0.0, so the table lists it as shipped.
             "SkiResortHistoryMonth v2 63 m_SnowDepthCm:i32",
             "SkiResortMonthInProgress v1 142 m_Flags:u8 m_MonthKey:i32 m_FramesSimulated:i32 m_Month.TouristGuests:i32 " +
                 "m_Month.TouristParties:i32 m_Month.LocalGuests:i32 m_Month.TouristOnLeisure:i32 m_Month.TicketsPaid:i32 " +
@@ -67,16 +67,16 @@ namespace SaveBatch
                 "m_Month.PassHolderGuests:i32 m_Month.PassesPre:i32 m_Month.PassIncomePre:i64 m_Month.Lessons:i32 " +
                 "m_Month.LessonIncome:i64 m_Month.RunUpkeep:i64 m_PassSeasonKey:i32 m_PassSeasonSold:i32 " +
                 "m_PassSeasonIncome:i64 m_PassSeasonPre:i32 m_PassSeasonPreIncome:i64",
-            // The ski bus depot's coach bill (before 1.0). Ships in 1.0.0, so it is listed as shipped.
+            // The ski bus depot's coach bill (before 1.0). Ships in 1.0.0, so the table lists it as shipped.
             "SkiResortMonthInProgress v2 150 m_Month.BusCharged:f64",
-            // The run prop placer's tag and per-run spacings (before 1.0). Ship in 1.0.0, so they are listed as shipped.
+            // The run prop placer's tag and per-run spacings (before 1.0). Ship in 1.0.0, so the table lists them as shipped.
             "SkiRunPropMember v1 6 m_Run:entity m_Class:u8",
             "SkiRunPropSettings v1 13 m_GunSpacingM:i32 m_LightSpacingM:i32 m_AppliedKey:i32",
-            // The lodge number per ski area and tier (before 1.0). Ships in 1.0.0, so it is listed as shipped.
+            // The lodge number per ski area and tier (before 1.0). Ships in 1.0.0, so the table lists it as shipped.
             "SkiLodgeNumber v1 9 m_Sign:entity m_Number:i32",
-            // A cat track's made snow (before 1.0). Ships in 1.0.0, so it is listed as shipped.
+            // A cat track's made snow (before 1.0). Ships in 1.0.0, so the table lists it as shipped.
             "SkiTrackSnow v1 5 m_MadePermille:i32",
-            // A run's trail name pick and its Upper / Lower form (R3, before 1.0). Ships in 1.0.0, so it is listed as shipped.
+            // A run's trail name pick and its Upper / Lower form (R3, before 1.0). Ships in 1.0.0, so the table lists it as shipped.
             "SkiRunName v1 6 m_Index:i32 m_Form:u8",
         };
 
@@ -310,7 +310,7 @@ namespace SaveBatch
             if (!C(leaves.ContainsKey("m_Version"), w, "no m_Version field (the house pattern: the version read back)"))
                 return;
             if (all.Any(f => !leaves.ContainsKey(f.Path) || leaves[f.Path][leaves[f.Path].Length - 1].FieldType != ClrOf(f.Kind)))
-                return;   // reported above; the byte checks below would only repeat it
+                return;   // reported above, and the byte checks below would only repeat it
 
             // Serialize: exact bytes, version byte first, every field at its offset
             object src = Activator.CreateInstance(t);

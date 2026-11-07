@@ -1,10 +1,13 @@
-// Tests for the pure SkiDayTiming: `public static class SkiDayTimingTests` with `Run(check)` and its own Near; Program.Main calls
-// SkiDayTimingTests.Run(Check). Oracles are literal hand values. Row groups are tagged ST0..ST46 in the check names.
-// Pinned: the engine cadences the helpers model (RecentBehaviorSlice = CitizenBehaviorSystem at interval 16, offset 11; SkipChunk =
-// LeisureSystem 64 + the recent CBS slice) and property sweeps tying the helpers to each other and to SkiDayRules.SliceOf / SkipSlice (one
-// decision = one NextLeisureVisit; IsLastPass iff the next visit is one interval away; the recent-CBS window is exactly the 8 frames from a
-// run; all 64 LeisureSystem offsets). Also FramesFor / HoursFor (uint.MaxValue clamp), Resolve, EndCause, remover reasons, follow and walkers
-// near a lodge, FailureEvidence / LateEvidence, the deadline pull (21:00 flap guard).
+// Tests for the pure SkiDayTiming: `public static class SkiDayTimingTests` has `Run(check)` and its own Near.
+// Program.Main calls SkiDayTimingTests.Run(Check). Oracles are literal hand values. The check names tag row groups ST0..ST46.
+// The tests pin these items:
+// - The engine cadences that the helpers model: RecentBehaviorSlice = CitizenBehaviorSystem at interval 16, offset 11.
+//   SkipChunk = LeisureSystem 64 + the recent CBS slice.
+// - Property sweeps that tie the helpers to each other and to SkiDayRules.SliceOf / SkipSlice. One decision = one NextLeisureVisit.
+//   IsLastPass iff the next visit is one interval away. The recent-CBS window is exactly the 8 frames from a run.
+//   The sweeps cover all 64 LeisureSystem offsets.
+// - FramesFor / HoursFor (uint.MaxValue clamp), Resolve, EndCause, remover reasons, follow and walkers near a lodge,
+//   FailureEvidence / LateEvidence, the deadline pull (21:00 flap guard).
 // Not testable headless (ECS): the jobs, the claim, the car-reserve handshake, ResolveJob sampling, NearJob, the ledger check, the texts.
 
 using System;
@@ -95,7 +98,7 @@ namespace ResortBatch
         {
             const string w = "skiday-timing ST1";
             Recent(check, w, 1000000u, 16, 11, true, 3u);    // (1,000,000 − 11) mod 16 = 5 → last 999,995; 62,499 & 15 = 3
-            Recent(check, w, 1000011u, 16, 11, true, 4u);    // a run at F: diff 0; 62,500 & 15 = 4
+            Recent(check, w, 1000011u, 16, 11, true, 4u);    // a run at F: diff 0, 62,500 & 15 = 4
             Recent(check, w, 1000018u, 16, 11, true, 4u);    // last 1,000,011, diff 7
             Recent(check, w, 1000019u, 16, 11, false, 0u);   // diff 8 is not < 8
             Recent(check, w, 1000064u, 16, 11, true, 7u);    // last 1,000,059; 62,503 & 15 = 7
@@ -117,7 +120,7 @@ namespace ResortBatch
         private static void SkipAndLast(Func<bool, string, string, bool> check)
         {
             const string w2 = "skiday-timing ST2";
-            // LS slice at 1,000,000: 15,625 & 15 = 9; CBS does not run at F (F mod 16 = 0), its recent slice is 3.
+            // LS slice at 1,000,000: 15,625 & 15 = 9. CBS does not run at F (F mod 16 = 0), its recent slice is 3.
             check(SkiDayTiming.SkipChunk(9u, 1000000u, 64, 16, 11), w2, "SkipChunk(9) (LeisureSystem's slice)");
             check(SkiDayTiming.SkipChunk(3u, 1000000u, 64, 16, 11), w2, "SkipChunk(3) (recent CBS slice)");
             check(!SkiDayTiming.SkipChunk(10u, 1000000u, 64, 16, 11), w2, "!SkipChunk(10)");
@@ -253,9 +256,9 @@ namespace ResortBatch
         // ST10-ST13 property sweeps (tie the helpers to each other and to SkiDayRules)
         private static void Properties(Func<bool, string, string, bool> check)
         {
-            // ST10: for every slice and pass frame, NextLeisureVisit lands on that slice, on LeisureSystem's frames,
-            // within 15 intervals, and is the same at every earlier pass of the same decision (one roll per
-            // decision, V7); IsLastPass ⇔ the visit is exactly one interval away.
+            // ST10: for every slice and pass frame, NextLeisureVisit lands on that slice, on LeisureSystem's frames, and within 15 intervals.
+            // It is the same at every earlier pass of the same decision (one roll per decision, V7).
+            // IsLastPass ⇔ the visit is exactly one interval away.
             const int li = 64;
             int bad10 = 0, bad11 = 0;
             string first10 = null, first11 = null;
@@ -316,8 +319,8 @@ namespace ResortBatch
         private static void LastSighting(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST14";
-            // LeisureSystem offset 0: slice 7 is LeisureSystem's at 448; the pass at 384 skips it (CBS ran at 379 on
-            // slice (379 / 16) & 15 = 7, 5 frames back), so the pass at 320 is its last sighting.
+            // LeisureSystem offset 0: slice 7 is LeisureSystem's at 448. The pass at 384 skips it (CBS ran at 379 on slice (379 / 16) & 15 = 7,
+            // 5 frames back). So the pass at 320 is its last sighting.
             Sight(check, w, 7u, 320u, 64, true);
             Sight(check, w, 7u, 256u, 64, false);       // the pass at 320 still sees it (its recent CBS slice is 3)
             Sight(check, w, 7u, 384u, 64, true);        // = IsLastPass (that pass skips the chunk, row below)
@@ -327,9 +330,9 @@ namespace ResortBatch
             Sight(check, w, 7u, 320u, 0, false);        // interval guard
             check(SkiDayTiming.SkipChunk(7u, 384u, 64, 16, 11), w, "SkipChunk(7, 384, 64, 16, 11): the recent CBS slice is 7");
 
-            // ST15: at every LeisureSystem offset q (0..63), for 48 visits each (three rounds of the 16 slices), exactly
-            // one of the 15 passes before the visit sees the slice unskipped AND calls it the last sighting (a decision
-            // enters a pool once); the last sighting is not the last pass at 32 offsets (q 0-2, 11-18, 27-34, 43-50, 59-63).
+            // ST15 covers every LeisureSystem offset q (0..63), with 48 visits each (three rounds of the 16 slices).
+            // Exactly one of the 15 passes before the visit sees the slice unskipped AND calls it the last sighting (a decision enters a pool once).
+            // The last sighting is not the last pass at 32 offsets (q 0-2, 11-18, 27-34, 43-50, 59-63).
             int bad15 = 0, differ = 0;
             string first15 = null;
             for (uint q = 0u; q < 64u; q++)
@@ -564,7 +567,7 @@ namespace ResortBatch
             var marks = new int[12];
             var snows = new int[12];
             var snow = new bool[288];
-            var fresh = new float[288];   // the fresh snow per hour; 0.65 on a snow hour, so 7 snow hours = 4.55 = the mark (6 = 3.9 is not)
+            var fresh = new float[288];   // the fresh snow per hour: 0.65 on a snow hour, so 7 snow hours = 4.55 = the mark (6 = 3.9 is not)
             void Fill() { for (int i = 0; i < 288; i++) fresh[i] = snow[i] ? 0.65f : 0f; }
             for (int hr = 0; hr < 24; hr++)
                 snow[hr] = true;   // every hour of month 0
@@ -685,8 +688,8 @@ namespace ResortBatch
             Dp(check, w, true, true, false, false, 0, false);
             Dp(check, w, true, true, false, true, SkiDayTiming.PurposeLeisure, false);
             Dp(check, w, true, true, false, true, SkiDayTiming.PurposeGoingHome, false);
-            // on the road (no building): departed with Leisure, with GoingHome (a car guest turned home before our pass:
-            // the GoingHome case), and with no TravelPurpose at all
+            // on the road (no building): departed with Leisure, with GoingHome, and with no TravelPurpose at all.
+            // The GoingHome case is a car guest turned home before our pass.
             Dp(check, w, false, false, false, true, SkiDayTiming.PurposeLeisure, true);
             Dp(check, w, false, false, false, true, SkiDayTiming.PurposeGoingHome, true);
             Dp(check, w, false, false, false, false, 0, true);
@@ -884,8 +887,8 @@ namespace ResortBatch
             Rw(check, w, F, F, F, F, F, F, 0, T, 3, F, F, F, 0, T, RemoveWhy.Unknown);
             Rw(check, w, F, F, F, F, F, T, 2, F, 0, F, F, F, 0, F, RemoveWhy.Unknown);       // Leisure purpose, no Leisure
 
-            // Sweep a: moving away beats every other trace — ill, work, bed, buyer, need, venue, at (2^7), purpose none /
-            // Shopping / GoingToWork, counter 0 / 255 (768 cases); money false → MovingAway, money true → MoneyCheck.
+            // Sweep a: moving away beats every other trace. The traces are ill, work, bed, buyer, need, venue, at (2^7), purpose none /
+            // Shopping / GoingToWork, and counter 0 / 255 (768 cases). Money false → MovingAway, money true → MoneyCheck.
             byte[] purposes = { 0, 1, 4 };
             for (int m = 0; m < 2; m++)
             {
@@ -1201,8 +1204,8 @@ namespace ResortBatch
             check(got == expected, w, $"FailureEvidence({o}, {dep}, {place}, {turned}) = {got}, expected {expected}");
         }
 
-        // ST44 LateEvidence(r, departed, place, turnedBack): FailureEvidence's predicate with place at the late end; the two rows the late
-        // end actually produces for a deleted / gave-up guest
+        // ST44 LateEvidence(r, departed, place, turnedBack): FailureEvidence's predicate with place at the late end.
+        // The rows are the two that the late end actually produces for a deleted / gave-up guest.
         private static void LateEvidenceRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST44";
@@ -1240,7 +1243,7 @@ namespace ResortBatch
                   $"Flag2DeadlinePulled {SkiDayTiming.Flag2DeadlinePulled} = 64, distinct from the Flags2 bits 1, 2, 4, 8, 16, 32 (their union {others})");
         }
 
-        // ST46 PullDeadline (now 1,000,000; deadlineIsClosing true unless named) (12)
+        // ST46 PullDeadline (now 1,000,000, deadlineIsClosing true unless named) (12)
         private static void PullRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST46";

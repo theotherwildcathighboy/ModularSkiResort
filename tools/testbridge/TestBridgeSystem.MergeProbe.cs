@@ -1,8 +1,8 @@
 // P0 probe for the merge-asset feature (docs/research/merge-asset-into-resort-2026-11-02.md, section 6). mprobe tags a building with
-// the probe mod's saved component (mergetag/, a separate assembly so a save can load without it), lists tagged buildings, and traces
-// one building's AttractivenessProvider: TestBridgeMergeProbeSystem runs right after vanilla AttractionSystem with its interval, reads
-// the value on the tick that wrote the building's update frame (V), and writes round(sqrt(V^2 + P^2)); the bridge's UIUpdate samples
-// the value every frame, so a flicker of vanilla's own value would show.
+// the probe mod's saved component (mergetag/, a separate assembly so a save can load without it). It also lists tagged buildings and
+// traces one building's AttractivenessProvider. TestBridgeMergeProbeSystem runs right after vanilla AttractionSystem with its
+// interval. It reads the value on the tick that wrote the building's update frame (V) and writes round(sqrt(V^2 + P^2)). The
+// bridge's UIUpdate samples the value every frame, so a flicker of vanilla's own value would show.
 
 using System;
 using System.Collections.Generic;

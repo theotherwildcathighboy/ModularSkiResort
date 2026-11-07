@@ -1,11 +1,16 @@
-// Proves the Plan -> Fill -> Classify path extracted into the pure SkiRunRater equals the original in SkiRunDrawFeedbackSystem (CoreCLR; Mono bit equality is unverified).
-// (1) Captures (every tests/SlopeBatch/captures/*.skislope): SkiRunRater.Rate (stepCurrent = the captured multiple, the feedback system's
-//     hysteresis input) returns the captured m and a result bit-identical (Snapshot.Diff) to the direct calls (Plan -> DiagonalRule -> fill ->
-//     Classify, ReplayCapture) and to the old path (verbatim copies of ShoelaceArea / Recompute middle / FillHeights below); a second Rate with
-//     the first grid as reuse source copies every Need height (sampled 0) and gives the same result; at m = 1, stepCurrent 0 and 1 agree.
-// (2) Synthetic shapes on the analytic test terrain (stepCurrent 0..3): Rate == old path == direct; FillHeights == the old body with an
-//     offset-lattice reuse source (a moved vertex); a reuse source with another Step is refused. (3) TooFewPoints / TooLarge never classify,
-//     NaN heights give NoTerrain. The section runs with the rating fingerprint and the minimax oracle off, so the fingerprint stays comparable.
+// Proves that the Plan -> Fill -> Classify path equals the original in SkiRunDrawFeedbackSystem. The path now lives in the pure SkiRunRater.
+// The test runs on CoreCLR. Mono bit equality is unverified.
+// (1) Captures (every tests/SlopeBatch/captures/*.skislope):
+//     SkiRunRater.Rate (stepCurrent = the captured multiple, the feedback system's hysteresis input) returns the captured m.
+//     Its result is bit-identical (Snapshot.Diff) to the direct calls (Plan -> DiagonalRule -> fill -> Classify, ReplayCapture).
+//     Its result is also bit-identical to the old path (verbatim copies of ShoelaceArea / Recompute middle / FillHeights below).
+//     A second Rate with the first grid as reuse source copies every Need height (sampled 0) and gives the same result.
+//     At m = 1, stepCurrent 0 and 1 agree.
+// (2) Synthetic shapes on the analytic test terrain (stepCurrent 0..3): Rate == old path == direct.
+//     FillHeights == the old body with an offset-lattice reuse source (a moved vertex).
+//     The rater refuses a reuse source with another Step.
+// (3) TooFewPoints / TooLarge never classify. NaN heights give NoTerrain.
+// The section runs with the rating fingerprint and the minimax oracle off. This keeps the fingerprint comparable.
 
 using System;
 using System.Collections.Generic;
@@ -27,8 +32,8 @@ namespace SlopeBatch
         }
     }
 
-    /// <summary>IHeightSampler over a capture's Need heights: the world point is mapped back to its lattice index
-    /// (round((w - origin) / step)) and looked up; a miss returns NaN and is counted.</summary>
+    /// <summary>IHeightSampler over a capture's Need heights. It maps the world point back to its lattice index
+    /// (round((w - origin) / step)) and looks it up. A miss returns NaN. Each miss is counted.</summary>
     internal struct CaptureSampler : IHeightSampler
     {
         public Capture Cap;
@@ -92,8 +97,8 @@ namespace SlopeBatch
             return Math.Abs(s) * 0.5;
         }
 
-        /// <summary>Verbatim copy of SkiRunDrawFeedbackSystem.FillHeights from before the extraction; the only edits:
-        /// TerrainUtils.SampleHeight(ref hd, p) became sample(p), and the counts are returned instead of published.</summary>
+        /// <summary>Verbatim copy of SkiRunDrawFeedbackSystem.FillHeights from before the extraction. It has only two edits.
+        /// TerrainUtils.SampleHeight(ref hd, p) became sample(p). The counts are returned instead of published.</summary>
         private static void OldFillHeights(Func<float3, float> sample, SlopeGrid g, SlopeGrid src, out int reusedOut, out int sampledOut)
         {
             int nx = g.Nx, nz = g.Nz, n = nx * nz;
@@ -387,8 +392,8 @@ namespace SlopeBatch
                     if (det.Status != SlopeStatus.Ok || pts.Length < 3)
                         continue;
 
-                    // Reuse with an offset lattice: move vertex 1 by (7.3, -4.1) m (and the ring's
-                    // bbox with it), rate with the first grid as the source — new vs old body.
+                    // Reuse with an offset lattice. Move vertex 1 by (7.3, -4.1) m, and move the ring's
+                    // bbox with it. Rate with the first grid as the source. Compare the new body with the old body.
                     float3[] moved = (float3[])pts.Clone();
                     moved[1] += new float3(7.3f, 0f, -4.1f);
                     SlopeGrid gn = new SlopeGrid(), gon = new SlopeGrid(), gfull = new SlopeGrid();
@@ -413,7 +418,7 @@ namespace SlopeBatch
                     Check(d4 == null, wm, "Rate with reuse differs from a full resample on static terrain: " + d4);
                     Check(detF.Reused == 0 && detF.Sampled == gfull.NeedCells, wm, "full resample reused " + detF.Reused);
 
-                    // A source on another Step is refused (the rater's half of the guard).
+                    // The rater refuses a source on another Step (the rater's half of the guard).
                     SlopeGrid gx = new SlopeGrid();
                     SlopeResult rx = new SlopeResult();
                     var ts4 = new TerrainSampler { T = t };

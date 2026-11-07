@@ -1,10 +1,14 @@
-// Plan bends at lift towers (docs: lift-alignment-2026-11-02 C6 / F6; owner verdict 2026-11-02: warn, never refuse): the census row's
+// Plan bends at lift towers (docs: lift-alignment-2026-11-02 C6 / F6, owner verdict 2026-11-02: warn, never refuse): the census row's
 // sharpest tower bend (LiftCensus.MeasureBends: BendDeg / BendTower / BendNode / BendAt), the hub's number for it
 // (LiftCensus.BendWarnTenths) and the lift tool's joint check (LiftLineInput.JoinBendWarnDeg). Where-tags `bend/...`, BT-1..BT-10.
-// Pinned: a straight line has no bend; the bend is measured only at a line tower between two of the row's edges (never a station
-// connection node, never a node without a tower); the tower number is the tile number (towers from the base station; a fragment
-// without the base counts from its dead end); edge direction does not matter; a moved tower bumps Revision; at or under
-// LiftAlignMath.BendWarnDeg nothing warns, just over it the hub reads 5.1.
+// Pinned:
+// - A straight line has no bend.
+// - LiftCensus.MeasureBends measures the bend only at a line tower between two of the row's edges (never a station
+//   connection node, never a node without a tower).
+// - The tower number is the tile number (towers count from the base station. A fragment without the base counts from its dead end).
+// - Edge direction does not matter.
+// - A moved tower bumps Revision.
+// - At or under LiftAlignMath.BendWarnDeg nothing warns. Just over it, the hub reads 5.1.
 
 using System;
 using SkiResortMod.Systems;
@@ -148,7 +152,7 @@ namespace LiftBatch
         private static void Bt8StationNodeNeverMeasured()
         {
             const string W = "bend/BT-8 station node";
-            // Tower 1 far to the side: the line turns hard at the base stub node 200, which is never measured; 201 is.
+            // Tower 1 far to the side: the line turns hard at the base stub node 200, which is never measured. Node 201 is measured.
             Program.World w = Bent(201, 40f);
             LiftCensus.Row r = Only(w, W);
             Check(r.BendNode == Program.R(201), W, "the sharpest measured node is tower 1, got " + r.BendNode);

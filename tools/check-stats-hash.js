@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Every field of a hub stats row must feed its change hash: SkiResortStatsSystem publishes a row list only when the hash moves, so a
-// field left out goes stale in the panel until some other field changes (the run tooltip's gun line kept "out of season" into October).
+// Every field of a hub stats row must feed its change hash. SkiResortStatsSystem publishes a row list only when the hash moves.
+// A field left out goes stale in the panel until some other field changes (the run tooltip's gun line kept "out of season" into October).
 "use strict";
 const fs = require("fs");
 const path = require("path");

@@ -1,9 +1,13 @@
 // The lift tree corridor (DECISIONS 601 e, owner hand-test note 8): the pure LiftTreeCorridor rule the lift-line tool applies to every
 // tree near a built section. Where-tags `trees/TC-n`.
-// Pinned: the corridor widths per lift type from the catalog (FG 11.4, DQ 13.6, gondola 14.2, tram 20.8 m); which trees fall and
-// which stay beside a straight FG line (the trunk edge exact at the half width, a big crown reaching into the carrier envelope falls,
-// a small crown just outside stays); round ends at a ground end; the inside of a bent line and a station stub segment; a tree beyond
-// the far end of a long tram span stays; degenerate inputs fell nothing.
+// Pinned:
+// - the corridor widths per lift type from the catalog (FG 11.4, DQ 13.6, gondola 14.2, tram 20.8 m).
+// - which trees fall and which stay beside a straight FG line. The trunk edge is exact at the half width. A big crown reaching into
+//   the carrier envelope falls. A small crown just outside stays.
+// - round ends at a ground end.
+// - the inside of a bent line and a station stub segment.
+// - a tree beyond the far end of a long tram span stays.
+// - degenerate inputs fell nothing.
 
 using System;
 using System.Collections.Generic;
@@ -75,14 +79,14 @@ namespace LiftBatch
         {
             const string W = "trees/TC-2";
             LiftTypeDef fg = Type("fixedGrip");
-            var line = Line(0f, 0f, 0f, 400f);   // a 400 m FG section along +z; half width 5.7, envelope 2.7
+            var line = Line(0f, 0f, 0f, 400f);   // a 400 m FG section along +z. Half width 5.7, envelope 2.7
             // trunk test (small crown 2 m)
             Check(LiftTreeCorridor.Fells(new float2(0f, 200f), 2f, line, fg), W, "a tree under the rope falls");
             Check(LiftTreeCorridor.Fells(new float2(-1.8f, 120f), 2f, line, fg), W, "a tree on a rope lane falls");
             Check(LiftTreeCorridor.Fells(new float2(5.7f, 200f), 2f, line, fg), W, "a trunk at the half width (5.7 m) falls (inclusive)");
             Check(!LiftTreeCorridor.Fells(new float2(5.75f, 200f), 2f, line, fg), W, "a trunk 5.75 m out with a 2 m crown stays");
             Check(!LiftTreeCorridor.Fells(new float2(-12f, 50f), 3f, line, fg), W, "a tree 12 m out stays");
-            // crown test: a big crown reaching into the carrier envelope (2.7 + 0.5 = 3.2 m) falls; one just short stays
+            // crown test: a big crown reaching into the carrier envelope (2.7 + 0.5 = 3.2 m) falls. One just short stays
             Check(LiftTreeCorridor.Fells(new float2(9f, 200f), 6f, line, fg), W, "a 6 m crown 9 m out reaches 3.0 m: falls");
             Check(!LiftTreeCorridor.Fells(new float2(9f, 200f), 5.7f, line, fg), W, "a 5.7 m crown 9 m out reaches 3.3 m: stays");
             Check(!LiftTreeCorridor.Fells(new float2(14f, 200f), 50f, line, fg), W,
@@ -119,8 +123,8 @@ namespace LiftBatch
         {
             const string W = "trees/TC-4";
             LiftTypeDef dq = Type("detachable");   // half width 6.8, envelope 3.8
-            // a 90 deg bend at a tower (a tool line never bends this hard; the rule must still hold): base (0,0) -> tower (0,200) ->
-            // top (200,200), and a station stub edge running 12 m on from the top node
+            // a 90 deg bend at a tower (a tool line never bends this hard, but the rule must still hold). The line runs
+            // base (0,0) -> tower (0,200) -> top (200,200). A station stub edge runs 12 m on from the top node
             var line = Line(0f, 0f, 0f, 200f, 200f, 200f);
             line.Add(new LiftTreeCorridor.Segment(new float2(200f, 200f), new float2(212f, 200f)));
             Check(LiftTreeCorridor.Fells(new float2(5f, 195f), 2f, line, dq), W, "inside the bend, 5 m from both legs: falls");

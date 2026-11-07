@@ -1,11 +1,11 @@
 // GR-31 (2026-11-05, DECISIONS 601 f, hand-test note 20 "massive hitches"): the tool's solve is split. The quick part (path, ground, rect,
-// profile) runs on every edit; the full part (GradeSolver.Run: raster, crossed-run band rating, guards, along-track check, outline) runs
-// debounced on a worker from a CROPPED copy of the heights, and inline for Enter. This file proves what the split must not change:
+// profile) runs on every edit. The full part (GradeSolver.Run: raster, crossed-run band rating, guards, along-track check, outline) runs
+// debounced on a worker from a CROPPED copy of the heights. For Enter it runs inline. This file proves what the split must not change:
 //   (a) the full solve on the tool's crop of the terrain (the rect plus the entered runs plus the planner's lattice margin) equals the
-//       one-shot solve of before the split on a roomy copy: same guard, same inside allowance, same raster arrays, same outline, same
-//       profile; and the crop is never read outside itself (the miss counter the tool falls back on stays 0);
-//   (b) the quick profile is the final profile where no crossed run changes the allowance;
-//   (c) a cancel request ends the job at its next stage boundary and marks the result;
+//       one-shot solve of before the split on a roomy copy. It has the same guard, the same inside allowance, the same raster arrays,
+//       the same outline and the same profile. Also, the crop is never read outside itself (the miss counter the tool falls back on stays 0).
+//   (b) the quick profile is the final profile where no crossed run changes the allowance.
+//   (c) a cancel request ends the job at its next stage boundary and marks the result.
 //   (d) the main-thread part (quick) of a 30-point track stays under one 33 ms frame, with the before/after numbers printed.
 // The engine halves (the snapshot copy, the water layer, the debounce, the worker) are checked in game: the tool logs one
 // "Grade [cost]" line per solve.
@@ -348,7 +348,7 @@ namespace GradeBatch
                 Check(miss.Misses == 0, W + " crop covers every read", $"{c.Name}: {miss.Misses} read(s) outside the crop ({crop.Width} x {crop.Depth} texels)");
                 if (c.Name.Contains("two crossed"))
                 {
-                    // the miss counter the tool falls back on really fires: a crop with no margin is read outside itself by the rating
+                    // the miss counter the tool falls back on really fires: the rating reads a crop with no margin outside itself
                     HeightSnapshot tight = Crop(mountain, WorldBox(q.Rect).Min, WorldBox(q.Rect).Max, 0);
                     var missT = new MissCounter { Snap = tight };
                     GradeSolver.Run(InputOf(q, missT.Sample, wetFn, tight));
@@ -382,7 +382,7 @@ namespace GradeBatch
             }
 
             // (e) the gate: what runs on every edit never grows with the rect (hand-test note 20). SolveQuick may not build a raster, run the
-            // full solve or wait for the worker; only the debounce (UpdateFull / LaunchFull) and Enter (FinishFullNow) may.
+            // full solve or wait for the worker. Only the debounce (UpdateFull / LaunchFull) and Enter (FinishFullNow) may.
             {
                 string tool = RepoFile("mod/SkiResortMod/Systems/CatTrackGradeToolSystem.cs");
                 if (Check(tool != null, W + " gate", "tool source not found"))

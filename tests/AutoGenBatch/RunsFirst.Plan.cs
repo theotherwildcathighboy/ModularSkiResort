@@ -1,9 +1,10 @@
-// RunsFirst plan (prototype): turns the candidate lines and the placed lifts into the plan a skier would see (and the scorecard reads).
-// The serve pass re-picks the runs knowing the lifts: every candidate line (picked or not) is trimmed to where the highest lift
-// traverse meets it and ends where it delivers to a lift bottom (on down its drainage when that is where the lift is) or runs onto
-// an earlier run; the best of these are kept with the pick's spacing rules. Each lift's traverses are one shared tree (a trunk
-// along the ridge, short spurs to each run). Every piece is checked on the raw terrain with the scorecard's own sampling, less a
-// margin, before it goes into the plan.
+// RunsFirst plan (prototype): turns the candidate lines and the placed lifts into the plan a skier would see. The scorecard reads the same plan.
+// The serve pass re-picks the runs knowing the lifts. It trims every candidate line (picked or not) to where the highest lift
+// traverse meets it. A trimmed line ends in one of two places. It ends where it delivers to a lift bottom (on down its drainage
+// when that is where the lift is). Or it ends where it runs onto an earlier run.
+// The pass keeps the best of these lines with the pick's spacing rules.
+// Each lift's traverses are one shared tree (a trunk along the ridge, short spurs to each run). The code checks every piece on
+// the raw terrain with the scorecard's own sampling, less a margin. This happens before the piece goes into the plan.
 
 using System;
 using System.Collections.Generic;
@@ -150,9 +151,9 @@ namespace AutoGenBatch
                     if (cd.Wh[i] < cd.Wh[lowAt])
                         lowAt = i;
                 }
-                // the end: through the station area of each lift bottom the way passes; below the line's own end it goes on down
-                // the drainage only while that passes other lifts' bottoms within RunOutM (a base whose stations are spread, or a
-                // valley run to the base below, links them all)
+                // the end: the way runs through the station area of each lift bottom that it passes. Below the line's own end it goes on down
+                // the drainage only while that drainage passes other lifts' bottoms within RunOutM. It then links them all (a base whose stations
+                // are spread, or a valley run to the base below).
                 var passed = new HashSet<int>();
                 float beyond = -1f;
                 for (int i = cd.Entry + 5; i <= cd.ValidEnd; i++)
@@ -177,7 +178,7 @@ namespace AutoGenBatch
                 cands.Add(cd);
             }
 
-            // 3. the serve pick: best first; a run that runs onto an earlier one ends there (it delivers where that one does)
+            // 3. the serve pick: best first. A run that runs onto an earlier one ends there. It delivers where that one does.
             cands.Sort((a, b) => b.Value.CompareTo(a.Value));
             var taken = new PointHash();
             var takenH = new HeightHash();
@@ -192,8 +193,8 @@ namespace AutoGenBatch
             }
             var chosen = new List<(Cand C, int End)>();
             var chords = new ChordGuard(lifts);
-            // a run that would lie along a lift line waits (its value cut to ChordDefer) for the runs that don't; when it comes
-            // up again it is kept anyway and that lift line stops being guarded (one violation, not a lost trunk run)
+            // a run that would lie along a lift line waits for the runs that don't (its value is cut to ChordDefer). When it comes
+            // up again, the code keeps it anyway and stops guarding that lift line. This gives one violation, not a lost trunk run.
             var queue = new PriorityQueue<(Cand C, bool Deferred), float>();
             float topValue = cands.Count > 0 ? cands[0].Value : 0f;
             foreach (Cand cd in cands)
@@ -254,8 +255,8 @@ namespace AutoGenBatch
             foreach (PlanRun r in plan.Runs)
                 r.Band = RunBand(g, r.Pts);
 
-            // 4. traverses: per lift, the tree of the paths to the runs it opens (and, for a lift that opens none, to the nearest run
-            // its reach touches, so no lift is left without terrain)
+            // 4. traverses: per lift, the tree of the paths to the runs it opens. A lift that opens none gets a tree to the nearest run
+            // its reach touches, so that every lift has terrain.
             var need = new List<List<int>>[lifts.Count];
             for (int L = 0; L < lifts.Count; L++)
                 need[L] = new List<List<int>>();
@@ -289,7 +290,7 @@ namespace AutoGenBatch
             int chains = 0, badChains = 0;
             for (int L = 0; L < lifts.Count; L++)
                 EmitTree(g, need[L], lifts[L].TopCell, plan.Connectors, ref chains, ref badChains);
-            // the network: traverses and routes where lifts cannot get to each other; a station no run passes moves onto a run-out
+            // the network: traverses and routes where lifts cannot get to each other. A station that no run passes moves onto a run-out.
             int links = LinkLifts(g, plan, lifts, reachOf, need, ref chains, ref badChains);
             links += LinkByRoutes(g, plan, lifts);
             if (ReseatBottoms(g, plan, lifts, need) > 0)
@@ -316,9 +317,9 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOBRIDGE") != "1")
                 links += BridgeLifts(g, plan, lifts, km2);
             Tick("bridge");
-            // a learning pod on the green ground a base's runs leave alone, in the lift slots still free: off by default (RF_LEARNPOD=1)
-            // since it cost more than it gave (visible 97.84 -> 97.65: owner-1 gets a violation and loses cover and crowding; 80 %
-            // outlines 95.75 -> 95.97, 120 % 96.88 -> 96.62, squares unchanged)
+            // a learning pod on the green ground a base's runs leave alone, in the lift slots still free. Off by default (RF_LEARNPOD=1)
+            // because it cost more than it gave. Visible 97.84 -> 97.65: owner-1 gets a violation and loses cover and crowding.
+            // 80 % outlines 95.75 -> 95.97, 120 % 96.88 -> 96.62, squares unchanged.
             if (Environment.GetEnvironmentVariable("RF_LEARNPOD") == "1")
                 AddLearningPods(g, plan, lifts, km2);
             Tick("learning pods");
@@ -336,8 +337,8 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOREGRADE") != "1")
                 RegradeTraverses(g, plan, lifts);
             Tick("regrade");
-            // a base still without green skiing to lap (the ways home and the regrade gave it none) gets a green cat track down from
-            // one of its tops
+            // a base still without green skiing to lap gets a green cat track down from one of its tops.
+            // This applies when the ways home and the regrade gave it none.
             if (Environment.GetEnvironmentVariable("RF_NOGRADEDWAY") != "1")
                 AddGradedLearningWays(g, plan, lifts);
             Tick("learning ways");
@@ -380,12 +381,12 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOSTRAIGHT") != "1" && !Late)
                 StraightenTracks(g, plan, lifts);
             Tick("straight tracks");
-            // merging runs end where they crowd the run they join least: off by default since scorecard v2 stopped counting junction
-            // zones as crowding (score-neutral there, and a painted run should touch the trunk it joins); RF_JUNCTION=1 turns it on
+            // merging runs end where they crowd the run they join least. Off by default, because scorecard v2 stopped counting junction
+            // zones as crowding. It is score-neutral there, and a painted run should touch the trunk it joins. RF_JUNCTION=1 turns it on.
             if (Environment.GetEnvironmentVariable("RF_JUNCTION") == "1")
                 TrimJunctions(g, plan, lifts);
             Tick("junctions");
-            // and runs start where they crowd the runs beside them least (off by default for the same reason; RF_HEAD=1)
+            // and runs start where they crowd the runs beside them least. Off by default for the same reason (RF_HEAD=1).
             if (Environment.GetEnvironmentVariable("RF_HEAD") == "1")
                 for (int round = 0; round < 2 && TrimHeads(g, plan, lifts) > 0; round++)
                 {
@@ -560,8 +561,8 @@ namespace AutoGenBatch
             return plan;
         }
 
-        /// <summary>Where a run that merges at index end first comes within ContactM of the runs it joins: the joined run's samples
-        /// near the approach count as crowded, so the run stops at first contact (no earlier than from; the joined run must have a
+        /// <summary>Where a run that merges at index end first comes within ContactM of the runs it joins. The joined run's samples
+        /// near the approach count as crowded, so the run stops at first contact (no earlier than from). (The joined run must have a
         /// point there no more than 4 m above, for the skier to flow on).</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int FirstContact(List<float2> way, float[] wh, int from, int end, HeightHash joined)
@@ -601,8 +602,8 @@ namespace AutoGenBatch
             }
         }
 
-        /// <summary>The middle 70 % of every lift chord, sampled every 10 m as the scorecard does: no run set may lie along more
-        /// than ChordShare of it (the scorecard flags 30 % within 20 m; a run under the lift line is fine, one along it is not).</summary>
+        /// <summary>The middle 70 % of every lift chord, sampled every 10 m as the scorecard does. No run set may lie along more
+        /// than ChordShare of it (the scorecard flags 30 % within 20 m, and a run under the lift line is fine, one along it is not).</summary>
         private sealed class ChordGuard
         {
             private const float ShareMax = 0.25f, NearM = 23f;
@@ -636,8 +637,8 @@ namespace AutoGenBatch
                 return true;
             }
 
-            /// <summary>For a run added late, with all runs already in: only the lift lines it would itself bring onto (or further over)
-            /// the share count; a line the serve pass already gave over to runs does not block a run elsewhere.</summary>
+            /// <summary>For a run added late, with all runs already in, only the lift lines it would itself bring onto (or further over)
+            /// the share count. A line the serve pass already gave over to runs does not block a run elsewhere.</summary>
             [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public bool FitsAdding(List<float2> pts, int from, int to)
             {
@@ -693,10 +694,10 @@ namespace AutoGenBatch
             }
         }
 
-        /// <summary>The last piece of traverse into a run (from the trunk's fork down to where the run starts) is skied as the run's own
-        /// first stretch: the skier leaves the cat track and skis on. Only the stretch clear of other runs joins (two runs leaving one
-        /// fork side by side stay on the cat track until they part), and only when the joined run keeps the run rules and stays off
-        /// the lift lines; the rest stays a traverse. Returns the spurs merged.</summary>
+        /// <summary>A skier skis the last piece of traverse into a run (from the trunk's fork down to where the run starts) as the run's own
+        /// first stretch. The skier leaves the cat track and skis on. Only the stretch clear of other runs joins. Two runs that leave one
+        /// fork side by side stay on the cat track until they part. A stretch joins only when the joined run keeps the run rules and stays
+        /// off the lift lines. The rest stays a traverse. Returns the spurs merged.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int MergeSpurs(Grid g, Plan plan, List<Lift> lifts)
         {
@@ -768,8 +769,8 @@ namespace AutoGenBatch
             return merged;
         }
 
-        /// <summary>A run cut where it would climb (ends at its low point before the climb) or before a pitch over the run maximum,
-        /// checked on the scorecard's 10 m sampling; null when too little is left.</summary>
+        /// <summary>A run cut where it would climb (it ends at its low point before the climb) or before a pitch over the run maximum.
+        /// The method checks the cut on the scorecard's 10 m sampling. Returns null when too little is left.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> SanitizeRun(Grid g, List<float2> run)
         {
@@ -800,7 +801,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>Drop from the entry to end, weighted by the band (beginner and intermediate vertical is scarce) and the corridor
-        /// width; a line that delivers nowhere counts half (it can still end on another run).</summary>
+        /// width. A line that delivers nowhere counts half (it can still end on another run).</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static float CandValue(Grid g, Cand cd, int end)
         {
@@ -811,9 +812,10 @@ namespace AutoGenBatch
             return Math.Max(0f, drop) * Math.Clamp(cd.L.Width / 40f, 0.3f, 1f) * BandWeight(band) * (cd.End >= 0 ? 1f : 0.5f);
         }
 
-        /// <summary>The lift network as a skier rides it: while some lifts cannot get to the main set (or it to them), a traverse from a
-        /// lift top whose reach takes in the other lift's bottom station closes the gap (the ridge traverse to the bowl lift, the
-        /// cat track from the upper lift to the base). The traverse trees are then emitted again. Returns the traverses added.</summary>
+        /// <summary>The lift network as a skier rides it. While some lifts cannot get to the main set (or it to them), a traverse closes
+        /// the gap. The traverse goes from a lift top whose reach takes in the other lift's bottom station. Examples: the ridge traverse
+        /// to the bowl lift, the cat track from the upper lift to the base. The method then emits the traverse trees again.
+        /// Returns the traverses added.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int LinkLifts(Grid g, Plan plan, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, ref int chains, ref int bad)
         {
@@ -847,7 +849,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The shortest traverse from a top in froms to a bottom station in tos (a reach cell within 35 m of it, the top
-        /// above the station), added to that lift's traverse tree; false when no top reaches any.</summary>
+        /// above the station). The method adds it to that lift's traverse tree. Returns false when no top reaches any.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool AddLink(Grid g, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, List<int> froms, List<int> tos)
         {
@@ -894,8 +896,8 @@ namespace AutoGenBatch
             return cells;
         }
 
-        /// <summary>One lift's traverse tree: the union of its paths (entry first, top last), cut at every node (top, entry, fork) into
-        /// connectors skied from the top down; each piece checked on the raw terrain.</summary>
+        /// <summary>One lift's traverse tree: the union of its paths (entry first, top last). The method cuts the tree at every node (top,
+        /// entry, fork) into connectors skied from the top down. It checks each piece on the raw terrain.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static void EmitTree(Grid g, List<List<int>> need, int top, List<List<float2>> outConn, ref int chains, ref int bad)
         {
@@ -937,7 +939,8 @@ namespace AutoGenBatch
             }
         }
 
-        /// <summary>World points of a cell chain, smoothed (D8 zigzag) with the ends kept; reversed = from the last cell to the first.</summary>
+        /// <summary>World points of a cell chain, smoothed (D8 zigzag) with the ends kept.
+        /// With reversed, the chain goes from the last cell to the first.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> Polyline(Grid g, List<int> cells, bool reversed)
         {

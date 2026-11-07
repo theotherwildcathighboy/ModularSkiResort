@@ -1,16 +1,18 @@
 /*
  * tools/sync-listing.js - keeps the Paradox Mods listing text in step (release-prep, 2026-10-22). Written for this repo (MIT).
  *
- * release/DESCRIPTION.md is the source of the listing copy; mod/SkiResortMod/Properties/PublishConfiguration.xml carries the same text in
- * <ShortDescription Value="..."/> and <LongDescription>...</LongDescription>. Copy by hand and the two drift, so this script copies it.
- * <ChangeLog> comes the same way from release/CHANGELOG.md's newest entry (it had drifted: no depot, an old layout version).
+ * release/DESCRIPTION.md is the source of the listing copy. mod/SkiResortMod/Properties/PublishConfiguration.xml carries the same text in
+ * <ShortDescription Value="..."/> and <LongDescription>...</LongDescription>. If you copy by hand, the two drift, so this script copies it.
+ * The script fills <ChangeLog> the same way from the newest entry of release/CHANGELOG.md. (It had drifted: no depot, an old layout version.)
  *   node tools/sync-listing.js            write the short and long description from DESCRIPTION.md into the XML (BOM and line endings kept)
- *   node tools/sync-listing.js --check    change nothing; exit 1 when the XML text differs from DESCRIPTION.md, or when the text holds a character
- *                                         the XML or the Paradox Mods markdown subset cannot take (< > & `), or a line starting with a space or tab
- *                                         (the platform renders leading whitespace as a code block), or the short description is over 200 characters
- *                                         (the longest on any live listing). Also prints the unresolved link tokens ({{DOCS_URL}}, {{GITHUB_URL}}).
+ *   node tools/sync-listing.js --check    change nothing. Exit 1 when any of these is true:
+ *                                         - the XML text differs from DESCRIPTION.md
+ *                                         - the text holds a character the XML or the Paradox Mods markdown subset cannot take (< > & `)
+ *                                         - a line starts with a space or tab (the platform renders leading whitespace as a code block)
+ *                                         - the short description is over 200 characters (the longest on any live listing)
+ *                                         The check also prints the unresolved link tokens ({{DOCS_URL}}, {{GITHUB_URL}}).
  *   node tools/sync-listing.js --public   with --check: also FAIL while a {{token}} is left or AccessLevel is not Public (the flip gate).
- * Source text: from the line "**Build a ski resort in" up to the end of the line that starts "**License**:"; the short description is the
+ * Source text: from the line "**Build a ski resort in" up to the end of the line that starts "**License**:". The short description is the
  * first non-empty line after the "**Short description**" label.
  */
 "use strict";

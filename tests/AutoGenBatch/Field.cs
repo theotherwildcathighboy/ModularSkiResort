@@ -1,8 +1,9 @@
-// `dotnet run ... -- field`: the field-mirror diagnostic (field test 2026-10-26b, a real alpine map). Runs Terrain.Alpine at seeds 1-3
-// on both field regions (the ~3.9 km2 bowl and the ~1.1 km2 lower-middle slope), densities Normal and Dense, mix Balanced, and prints
-// per scan the counts, the full reject histogram, runs per km2 of open ground, run length / width / drop quartiles, base and merge
-// shares, the per-phase Select maximum and the longest unit (CoreCLR, sliced at the tool's 4 ms budget), then one line per run.
-// No checks there; FieldTests (the normal run) checks the same fixtures. AUTOGEN_SVG=<folder> writes a PNG per scan.
+// `dotnet run ... -- field`: the field-mirror diagnostic (field test 2026-10-26b, a real alpine map). It runs Terrain.Alpine at seeds 1-3
+// on both field regions (the ~3.9 km2 bowl and the ~1.1 km2 lower-middle slope), densities Normal and Dense, mix Balanced. Per scan it prints:
+// - The counts, the full reject histogram, runs per km2 of open ground, run length / width / drop quartiles, base and merge shares.
+// - The per-phase Select maximum and the longest unit (CoreCLR, sliced at the tool's 4 ms budget).
+// - Then one line per run.
+// This mode has no checks. FieldTests (the normal run) checks the same fixtures. AUTOGEN_SVG=<folder> writes a PNG per scan.
 
 using System;
 using System.Collections.Generic;
@@ -17,8 +18,8 @@ namespace AutoGenBatch
         private static void FieldDiag()
         {
             string dir = Environment.GetEnvironmentVariable("AUTOGEN_SVG");
-            // JIT warm-up: three rounds of both densities, so tiered compilation has promoted the Select code before the first printed
-            // scan (one round left 4-5 ms spikes in the first fixture's build and rate maxima)
+            // JIT warm-up: three rounds of both densities. They make tiered compilation promote the Select code before the first printed
+            // scan. One round left 4-5 ms spikes in the first fixture's build and rate maxima.
             AutoPlanInput w = Input(Terrain.Alpine(3u), Terrain.AlpineRegion(true));
             for (int k = 0; k < 6; k++)
             {
@@ -51,9 +52,9 @@ namespace AutoGenBatch
         // ---------------------------------------------------------------- checks (the normal run)
 
         /// <summary>The field mirror as checks (quality pass step 2): Terrain.Alpine seeds 1-3 on the bowl and the lower region, Normal
-        /// and Dense, Balanced. Bowl: Ok (not AllCliff), runs per km2 of open ground (Normal >= 8, Dense >= 9), greens >= 2 and >= 40 %
-        /// of the green target, median width >= 25 m, every centerline >= MinLengthM, a green whose top lies in the lower half of the
-        /// vertical, every ring EdgeSeedMarginM / 2 inside the region edge. Lower region: Ok, Dense >= 10 runs per km2, >= 1 green.
+        /// and Dense, Balanced. Bowl: Ok (not AllCliff). Runs per km2 of open ground (Normal >= 8, Dense >= 9). Greens >= 2 and >= 40 %
+        /// of the green target. Median width >= 25 m. Every centerline >= MinLengthM. A green whose top lies in the lower half of the
+        /// vertical. Every ring EdgeSeedMarginM / 2 inside the region edge. Lower region: Ok, Dense >= 10 runs per km2, >= 1 green.
         /// Invariants on every result. Unit budget: per-phase Select maxima (best of two sliced scans, Step(4 ms)) pick / A* / build /
         /// chamfer <= 1.2 ms and rate <= 2 ms CoreCLR (Mono x7.7 for Select: about 8 ms).</summary>
         private static void FieldTests()
@@ -136,15 +137,15 @@ namespace AutoGenBatch
                     }
                 }
             }
-            // Review F12: the merge-stub rule (LineChecks, MergeKeepShare / MergeKeepM) has its own reject code, so this fails when the
-            // rule stops firing (verified once by disabling it: 0 stubs, this check failed)
+            // Review F12: the merge-stub rule (LineChecks, MergeKeepShare / MergeKeepM) has its own reject code. So this check fails when the
+            // rule stops firing. We verified this once by disabling the rule: 0 stubs, and this check failed.
             Check(mergeStubs > 0, "field merge stubs", "the merge-stub rule never fired on the alpine fixtures");
             Console.WriteLine($"INFO  field alpine: {mergeStubs} merge stubs refused; {idleSummits} of {summits} summit clusters without a run");
             Console.WriteLine("TIME  field alpine Select phase max (CoreCLR, best of 2 per scan, worst scan) pick/A*/build/rate/chamfer " +
                               string.Join("/", Array.ConvertAll(phaseMax, v => v.ToString("F2", ic))) + " ms");
         }
 
-        /// <summary>Ring vertices sit WidthMarginM inside the last free march step and the outline is simplified at RingSimplifyM.</summary>
+        /// <summary>Ring vertices sit WidthMarginM inside the last free march step. The planner simplifies the outline at RingSimplifyM.</summary>
         private const float EdgeToleranceM = SkiRunAutoPlanner.WidthMarginM + SkiRunAutoPlanner.RingSimplifyM + 1.5f;
 
         private static void FieldLines(string name, AutoPlanResult r, double wall, double hmin, double hmax)
@@ -188,7 +189,7 @@ namespace AutoGenBatch
                     run.TopY >= topLine ? "TOP " : "mid ", run.TouchesBase ? "base" : "    ", run.Merge ? " merge" : ""));
         }
 
-        /// <summary>Lowest and highest terrain height inside the region (10 m samples; the planner's top line uses usable ground, so
+        /// <summary>Lowest and highest terrain height inside the region (10 m samples). The planner's top line uses usable ground (so
         /// TOP / mid is an approximation of its TopShare band).</summary>
         private static void HeightRange(HeightFn f, float2[] region, out double hmin, out double hmax)
         {
@@ -252,8 +253,8 @@ namespace AutoGenBatch
 
         private static void ReviewTests()
         {
-            // F2: a corridor down one 30 % slope. Under 70 m (2 x EdgeSeedMarginM) no cell can seed: TooNarrow up front, never NoRuns
-            // with an empty histogram (Plan asserts that for every scan of the sweep)
+            // F2: a corridor down one 30 % slope. Under 70 m (2 x EdgeSeedMarginM) no cell can seed. The result is TooNarrow up front, never NoRuns
+            // with an empty histogram. Plan asserts that for every scan of the sweep.
             foreach (float width in new[] { 20f, 40f, 60f, 68f, 80f, 100f, 140f, 200f })
             {
                 AutoPlanInput input = Input(Terrain.Plane(0.30), Terrain.Rect(-0.5f * width, -600f, 0.5f * width, 600f));
@@ -276,8 +277,8 @@ namespace AutoGenBatch
                 AutoPlanResult r = Plan(Input(Terrain.Plane(0.30), sq, strips));
                 Check(r.Status == AutoPlanStatus.TooNarrow, "review hemmed lanes", $"{r.Status} (open {r.OpenShare:P0})");
             }
-            // F11 / F2: a wide upper slope that drains through a 24 m tongue: the minimax reaches the base through it, but no route
-            // source lies 17.5 m inside the edge, so no route exists (was NoRuns with an empty histogram)
+            // F11 / F2: a wide upper slope that drains through a 24 m tongue. The minimax reaches the base through it, but no route
+            // source lies 17.5 m inside the edge, so no route exists. Before the fix, the result was NoRuns with an empty histogram.
             {
                 var tongue = new[]
                 {

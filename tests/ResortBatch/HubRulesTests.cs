@@ -1,9 +1,17 @@
 // Tests for HubRules (status, open state, season, next step, lift status, money, problems), PisteMapRules, the aggregate's run vertical and
-// the hub's ski-day, lift-type and tram numbers. `public static class HubRulesTests` with `Run(check)` and its own Near, called from
-// Program.Main. Oracles are literal hand values, never a second run of the same code. Sections: A small rules, B attraction with lodges and
-// the receipt parity LodgePart + Terrain = AOpen, C HubProblems.Build (cases P1-P46, every field of every row), D the Status property over
-// all 286 (runs, open, partly) combinations, E constants and enum literals, F PisteMapRules, G SkiResortAggregate.RunVerticalM, H SkiDayStateOf
-// and the C# / TS parities (test-hub-rules.js), I lift-type ride times and problems 23-25, J the tram's hub numbers, K unpowered lifts.
+// the hub's ski-day, lift-type and tram numbers. It is a `public static class HubRulesTests` with `Run(check)` and its own Near, called from
+// Program.Main. Oracles are literal hand values, never a second run of the same code. Sections:
+// A small rules.
+// B attraction with lodges and the receipt parity LodgePart + Terrain = AOpen.
+// C HubProblems.Build (cases P1-P46, every field of every row).
+// D the Status property over all 286 (runs, open, partly) combinations.
+// E constants and enum literals.
+// F PisteMapRules.
+// G SkiResortAggregate.RunVerticalM.
+// H SkiDayStateOf and the C# / TS parities (test-hub-rules.js).
+// I lift-type ride times and problems 23-25.
+// J the tram's hub numbers.
+// K unpowered lifts.
 // Tolerances: +-1e-9 for the parity identity, +-1e-6 for 9-decimal values, +-1e-4 for float rules.
 
 using System;
@@ -40,7 +48,7 @@ namespace ResortBatch
         }
 
         /// <summary>L: BuildSignature sees one changed field at EVERY item of a 64-item strip, first item included (a placed sign unlocks
-        /// the lodge tiles near the front of the strip), plus the active item and each lift flag; equal inputs give an equal result.</summary>
+        /// the lodge tiles near the front of the strip), plus the active item and each lift flag. Equal inputs give an equal result.</summary>
         private static void SectionL()
         {
             const int N = 64;
@@ -139,7 +147,7 @@ namespace ResortBatch
             Eq(HubRules.LiftStatusOf(3, true), HubLiftStatus.Unfinished, w, "LiftStatusOf(3,true)");
             Eq(HubRules.LiftStatusOf(4, false), HubLiftStatus.Unfinished, w, "LiftStatusOf(4,false)");
             Eq(HubRules.LiftStatusOf(9, true), HubLiftStatus.Unfinished, w, "LiftStatusOf(9,true)");
-            // A held-closed complete lift reads Closed, chairs on the loop or not; No power wins.
+            // A held-closed complete lift reads Closed, chairs on the loop or not. No power wins.
             Eq(HubRules.LiftStatusOf(0, true, true), HubLiftStatus.Closed, w, "T132 LiftStatusOf(0,true,closed) = Closed (held chairs on the loop)");
             Eq(HubRules.LiftStatusOf(1, true, true), HubLiftStatus.Closed, w, "T132 LiftStatusOf(1,true,closed) = Closed");
             Eq(HubRules.LiftStatusOf(0, false, true), HubLiftStatus.NoPower, w, "T132 LiftStatusOf(0,false,closed) = NoPower (power first)");
@@ -207,7 +215,7 @@ namespace ResortBatch
             Net(Mm(0, 0, 0, 0, int.MaxValue, int.MaxValue, 0, 0), int.MinValue, false);   // clamped down
             Net(HubMonthMoney.Unknown, 0, true);
 
-            // MonthMoneyOf: the history element's mapping (ClampInt; LiftCharged half away from zero, NaN 0)
+            // MonthMoneyOf: the history element's mapping (ClampInt. LiftCharged half away from zero, NaN 0)
             var lm = new SkiResortLedger.Month
             {
                 TicketIncome = 3_000_000_000L, LodgeSpendIncome = 11, LessonIncome = 13, PassIncome = 12, PassIncomePre = 5,
@@ -237,7 +245,7 @@ namespace ResortBatch
 
             // Invariant: the Finances rows add up to the Net. The UI sums the eight rows it shows (contract 11: ticketsThisMonth,
             // lodgeIncomeMonth, lessonIncomeMonth, passIncomeMonth | liftChargedMonth, runCostMonth, buildingsSoFar, wagesSoFar), each
-            // max(0, row) since −1 shows "–"; written out here as the UI will, over a grid that includes unknowns and zeros.
+            // max(0, row) since −1 shows "–". The test writes the sum out here as the UI will, over a grid that includes unknowns and zeros.
             int[] vals = { -1, 0, 1, 499, 120000 };
             int bad = 0, cases = 0;
             for (int a = 0; a < vals.Length; a++)
@@ -266,7 +274,7 @@ namespace ResortBatch
             Eq(HubRules.LiftNoPair(Hints(H(3, true, false))), true, w, "LiftNoPair([(3,T,F)])");
             Eq(HubRules.LiftNoPair(Hints(H(0, true, true))), true, w, "LiftNoPair([(0,T,T)])");
             Eq(HubRules.LiftNoPair(Hints(H(0, true, true), H(4, false, true))), true, w, "LiftNoPair([(0,T,T),(4,F,T)])");
-            // The census never builds (4,T,T): each lone station is its own row, so the pair is found across rows (+5). (4,T,T) above
+            // The census never builds (4,T,T). Each lone station is its own row, so the code finds the pair across rows (+5). (4,T,T) above
             // stays as the defensive branch.
             Eq(HubRules.LiftNoPair(Hints(H(4, true, false), H(4, false, true))), false, w, "LiftNoPair([(4,T,F),(4,F,T)]) base and top on two rows");
             Eq(HubRules.LiftNoPair(Hints(H(4, false, true), H(3, true, false))), false, w, "LiftNoPair([(4,F,T),(3,T,F)]) a line from the base, a lone top");
@@ -274,7 +282,7 @@ namespace ResortBatch
             Eq(HubRules.LiftNoPair(Hints(H(0, true, true), H(4, true, false), H(0, false, true))), true, w, "LiftNoPair([(0,T,T),(4,T,F),(0,F,T)]) a complete row's top is not lone");
             Eq(HubRules.LiftNoPair(Hints(H(3, false, false), H(4, false, true))), true, w, "LiftNoPair([(3,F,F),(4,F,T)]) a line with no station, a lone top");
 
-            // PairLoneStations: a lone base and a lone top of one type in one area are one row; order, area, type and Mixed all matter.
+            // PairLoneStations: a lone base and a lone top of one type in one area are one row. Order, area, type and Mixed all matter.
             var pairs = new List<int>();
             HubRules.LoneStationRow Lone(int area, bool isBase, byte type = 0, int state = 4, bool mixed = false) =>
                 new HubRules.LoneStationRow { Area = area, State = state, HasBase = isBase, HasTop = !isBase, Type = type, Mixed = mixed };
@@ -334,7 +342,7 @@ namespace ResortBatch
             };
         }
 
-        /// <summary>Small: Groomed Green 2 ha 1150/1000; Groomed Blue 2.5 ha 1250/1000; Groomed Blue 2 ha 1250/1050.</summary>
+        /// <summary>Small: Groomed Green 2 ha 1150/1000, Groomed Blue 2.5 ha 1250/1000, Groomed Blue 2 ha 1250/1050.</summary>
         private static List<SkiResortScore.RunInput> Small(double open)
         {
             const byte G = SkiResortScore.KindGroomed;
@@ -346,8 +354,8 @@ namespace ResortBatch
             };
         }
 
-        /// <summary>Medium: 3 × Groomed Green 2.5 ha 1250/1000; 3 × Groomed Blue 3 ha 1400/1000; Snowmaking
-        /// Blue 3 ha 1400/1000; Night Blue 2.5 ha 1300/1000; 2 × Natural Black 3 ha 1500/1100.</summary>
+        /// <summary>Medium: 3 × Groomed Green 2.5 ha 1250/1000, 3 × Groomed Blue 3 ha 1400/1000, Snowmaking
+        /// Blue 3 ha 1400/1000, Night Blue 2.5 ha 1300/1000, 2 × Natural Black 3 ha 1500/1100.</summary>
         private static List<SkiResortScore.RunInput> Medium()
         {
             const byte G = SkiResortScore.KindGroomed;
@@ -682,7 +690,7 @@ namespace ResortBatch
 
             // Lone stations on different rows pair up (the census never builds a state-4 row with both stations): P20-P23, 10 checks.
             // The pair row sits at the row whose name the finished lift keeps: the TOP's row ("Lift N" is numbered by top height, rows
-            // without a top last), or the base's row when the base has a custom name (P24-P26).
+            // without a top last). When the base has a custom name, the pair row sits at the base's row (P24-P26).
             // P20 a base and a top placed, no line yet → one "draw the lift line" row at the top's row.
             x = In(1, 1, 100, 2, 1);
             x.Lifts = Ls(L(4, false, true, false), L(4, false, false, true));
@@ -695,7 +703,7 @@ namespace ResortBatch
             Expect("P21 top first", x, o,
                 P(HubProblemCode.StationsOnly, 1, liftIndex: 0, detail: 0, build: "lift"));
 
-            // P22 two bases and one top: the first base pairs (row at the top, index 2), the second still
+            // P22 two bases and one top: the first base pairs (row at the top, index 2). The second still
             // needs its top (Detail 1 at index 1, listed first: equal keys keep lift order).
             x = In(1, 1, 100, 3, 1);
             x.Lifts = Ls(L(4, false, true, false), L(4, false, true, false), L(4, false, false, true));
@@ -716,7 +724,7 @@ namespace ResortBatch
                 P(HubProblemCode.StationsOnly, 1, liftIndex: 0, detail: 0, build: "lift"));
 
             // P26 two pairs: tops t0, t1 (rows 0, 1), bases b0 named (row 2), b1 (row 3). Pair 1 = (b0, t0)
-            // → b0's row 2; pair 2 = (b1, t1) → t1's row 1. Lift order: row 1, then row 2.
+            // → b0's row 2. Pair 2 = (b1, t1) → t1's row 1. Lift order: row 1, then row 2.
             x = In(1, 1, 100, 4, 1);
             x.Lifts = Ls(L(4, false, false, true), L(4, false, false, true), L(4, false, true, false, named: true),
                 L(4, false, true, false));
@@ -740,7 +748,7 @@ namespace ResortBatch
 
             // P28 field test 7 with neither on a road: sign and both lodges off the road, the three utilities at
             // 50 % (efficiency 12). Severity 3 first, code ascending (18 before 19), then Efficiency (2), NoLift,
-            // NoRuns; Factor rows last.
+            // NoRuns. Factor rows last.
             x = In(2, 2, 12, 0, 0);
             x.SignNoRoad = true;
             x.LodgesNoRoad = 2;
@@ -757,7 +765,7 @@ namespace ResortBatch
                 P(HubProblemCode.Factor, 0, pct: -50, factor: "WaterSupply"),
                 P(HubProblemCode.Factor, 0, pct: -50, factor: elec));
 
-            // P29 one of three lodges off the road: severity 1 (as LodgesSomeOff), count 1; sorts after the
+            // P29 one of three lodges off the road: severity 1 (as LodgesSomeOff), count 1. The row sorts after the
             // severity-1 LodgesSomeOff (code 3 < 19).
             x = In(3, 2, 100, 1, 4);
             x.Lifts = Ls(L(0, true, true, true));
@@ -766,7 +774,7 @@ namespace ResortBatch
                 P(HubProblemCode.LodgesSomeOff, 1, count: 1),
                 P(HubProblemCode.LodgeNoRoad, 1, count: 1));
 
-            // P30 no lodge: NoLodge only (LodgesNoRoad is ignored without a lodge); a count above Lodges clamps.
+            // P30 no lodge: NoLodge only (without a lodge, the code ignores LodgesNoRoad). A count above Lodges clamps.
             x = In(0, 0, 100, 1, 3);
             x.Lifts = Ls(L(0, true, true, true));
             x.LodgesNoRoad = 1;
@@ -777,7 +785,7 @@ namespace ResortBatch
             x.LodgesNoRoad = 5;
             Expect("P30b count clamps to the lodges", x, o, P(HubProblemCode.LodgeNoRoad, 3, count: 1));
 
-            // P31 Not linked ignores both road inputs (no sign; free lodges are counted apart).
+            // P31 Not linked ignores both road inputs (no sign, and free lodges count apart).
             x = new HubProblemInput
             {
                 Unlinked = true, Runs = 1, LiftRows = 0, FreeLodges = 2, EfficiencyPct = -1, AttractionFull = -1, IfOneLodge = -1,
@@ -787,7 +795,7 @@ namespace ResortBatch
                 P(HubProblemCode.Unlinked, 3, build: "sign"),
                 P(HubProblemCode.FreeLodges, 1, count: 2));
 
-            // A road-less top-level ski school joins the LodgeNoRoad count but never its "every lodge" severity; unlinked schools get
+            // A road-less top-level ski school joins the LodgeNoRoad count but never its "every lodge" severity. Unlinked schools get
             // row 26 on the Not linked entry only.
             x = In(1, 1, 100, 1, 3);
             x.Lifts = Ls(L(0, true, true, true));
@@ -859,8 +867,8 @@ namespace ResortBatch
             x.SkiDaysCannotReach = true;
             Expect("P32 cannot reach", x, o, P(HubProblemCode.SkiDaysCannotReach, 2));
 
-            // P33 the sort: severity 2 by code (Efficiency 4, LiftNoPower 5, SkiDaysCannotReach 20, NoParkingNearLodge 21),
-            // then severity 1 by code (RunsFlat 17, LodgeNotSlopeside 22), then the Factor row.
+            // P33 the sort. First severity 2 by code (Efficiency 4, LiftNoPower 5, SkiDaysCannotReach 20, NoParkingNearLodge 21).
+            // Then severity 1 by code (RunsFlat 17, LodgeNotSlopeside 22). Then the Factor row.
             x = In(1, 1, 50, 2, 3);
             x.Factors = Fs(F(elec, -50));
             x.Lifts = Ls(L(0, true, true, true), L(0, false, true, true));
@@ -924,7 +932,7 @@ namespace ResortBatch
                 P(HubProblemCode.Efficiency, 2, pct: 94, ifFixed: 60, factor: elec),
                 P(HubProblemCode.Factor, 0, pct: -6, factor: elec));
 
-            // P39 released at 95; the −5 factor still lists (a 5-point loss is listed).
+            // P39 released at 95. The −5 factor still lists (a 5-point loss lists).
             x = In(1, 1, 95, 1, 3);
             x.Factors = Fs(F(elec, -5));
             x.Lifts = Ls(L(0, true, true, true));
@@ -949,8 +957,8 @@ namespace ResortBatch
             x.EfficiencyRowWasOn = true;
             Expect("P41 F1 no result", x, o);
 
-            // A Factor row only when the factor costs 5 points or more (FactorRowMinLossPct; EffectPct <= −5): P42-P44, 5 checks.
-            // P42 91 % = 0.95 × 0.96 (0.912): no Efficiency row (91, not held); the −5 factor listed, the −4 not.
+            // A Factor row only when the factor costs 5 points or more (FactorRowMinLossPct, EffectPct <= −5): P42-P44, 5 checks.
+            // P42 91 % = 0.95 × 0.96 (0.912): no Efficiency row (91, not held). The −5 factor is listed, the −4 factor is not.
             x = In(1, 1, 91, 1, 3);
             x.Factors = Fs(F("NotEnoughEmployees", -5), F(elec, -4));
             x.Lifts = Ls(L(0, true, true, true));
@@ -964,8 +972,8 @@ namespace ResortBatch
             x.AttractionFull = 60;
             Expect("P43 F1b lone -4", x, o);
 
-            // P44 three −4 factors, 0.96³ = 0.884736 → 88 %: no Factor row is listed, so the band row still names the
-            // worst factor and counts the other two (with none listed, "more" counts every factor).
+            // P44 three −4 factors, 0.96³ = 0.884736 → 88 %: no Factor row is listed. So the band row still names the
+            // worst factor and counts the other two. With none listed, "more" counts every factor.
             x = In(1, 1, 88, 1, 3);
             x.Factors = Fs(F("WaterSupply", -4), F("SewageHandling", -4), F(elec, -4));
             x.Lifts = Ls(L(0, true, true, true));
@@ -974,7 +982,7 @@ namespace ResortBatch
                 P(HubProblemCode.Efficiency, 2, pct: 88, more: 2, ifFixed: 60, factor: "WaterSupply"));
 
             // P45mixed: −12, −3, −1 (0.88 × 0.97 × 0.99 = 0.845) → 85 %: one factor is
-            // listed, so "and {N} more" counts only listed factors (the tooltip names them): more 0. 3 checks.
+            // listed. So "and {N} more" counts only listed factors (the tooltip names them): more 0. 3 checks.
             x = In(1, 1, 85, 1, 3);
             x.Factors = Fs(F("WaterSupply", -12), F("SewageHandling", -3), F(elec, -1));
             x.Lifts = Ls(L(0, true, true, true));
@@ -983,7 +991,7 @@ namespace ResortBatch
                 P(HubProblemCode.Efficiency, 2, pct: 85, more: 0, ifFixed: 60, factor: "WaterSupply"),
                 P(HubProblemCode.Factor, 0, pct: -12, factor: "WaterSupply"));
 
-            // P46: an area with no runs shows NoRuns and never "Lodge is far from the runs"; the same lodge with 3 runs shows it as in
+            // P46: an area with no runs shows NoRuns and never "Lodge is far from the runs". The same lodge with 3 runs shows it as in
             // P34. 4 checks.
             x = In(1, 1, 100, 1, 0);
             x.Lifts = Ls(L(0, true, true, true));
@@ -1018,9 +1026,10 @@ namespace ResortBatch
             if (!threw)
                 Rows("P16 null lists", o, new[] { P(HubProblemCode.NoLift, 1, pct: 0, build: "baseStation") });
 
-            // P47 lift bend (owner verdict 2026-11-02: warn, never refuse): a complete (0, 1) or open (2) row with BendTenths > 0 gets one
-            // dim row (severity 1), Count = the tower number, Detail = tenths of a degree, after the lift's own severity-2 row; an unfinished (3)
-            // or stations-only (4) row never does, nor a row whose bend the census did not flag (BendTenths 0).
+            // P47 lift bend (owner verdict 2026-11-02: warn, never refuse).
+            // A complete (0, 1) or open (2) row with BendTenths > 0 gets one dim row. The dim row has severity 1, Count = the tower number
+            // and Detail = tenths of a degree. It comes after the lift's own severity-2 row.
+            // An unfinished (3) or stations-only (4) row never gets a dim row. Neither does a row whose bend the census did not flag (BendTenths 0).
             x = In(1, 1, 100, 5, 2);
             HubProblemLift bent = L(0, true, true, true); bent.BendTenths = 124; bent.BendTower = 7;
             HubProblemLift bentNoPower = L(0, false, true, true); bentNoPower.BendTenths = 51; bentNoPower.BendTower = 2;
@@ -1041,8 +1050,9 @@ namespace ResortBatch
             x.Lifts = Ls(bent);
             Expect("P47b a lone bend row", x, o, P(HubProblemCode.LiftBend, 1, liftIndex: 0, count: 7, detail: 124));
 
-            // P48 train limit: a complete (0, 1) or open (2) row with TrainTower > 0 gets one dim row (severity 1), Count = the tower number,
-            // after the bend rows (rows sort by code); an unfinished (3) row never does, nor a row whose trains all follow their rope (TrainTower 0).
+            // P48 train limit: a complete (0, 1) or open (2) row with TrainTower > 0 gets one dim row. The dim row has severity 1 and
+            // Count = the tower number. It comes after the bend rows (rows sort by code). An unfinished (3) row never gets a dim row.
+            // Neither does a row whose trains all follow their rope (TrainTower 0).
             x = In(1, 1, 100, 4, 2);
             HubProblemLift steep = L(0, true, true, true); steep.TrainTower = 7;
             HubProblemLift steepBent = L(1, true, true, true); steepBent.BendTenths = 60; steepBent.BendTower = 2; steepBent.TrainTower = 3;
@@ -1058,9 +1068,10 @@ namespace ResortBatch
                 P(HubProblemCode.LiftTrainLimit, 1, liftIndex: 1, count: 3),
                 P(HubProblemCode.LiftTrainLimit, 1, liftIndex: 2, count: 1));
 
-            // P49 low span: a complete (0, 1) or open (2) row with LowSpan gets one dim row (severity 1), Count / More = the tower numbers
-            // (0 = a station), Detail = tenths above the ground, Pct = 1 for cabins, 0 for chairs; after the train-limit rows (code order); an
-            // unfinished (3) row never does, nor a row whose spans all clear the floor.
+            // P49 low span: a complete (0, 1) or open (2) row with LowSpan gets one dim row. The dim row has severity 1,
+            // Count / More = the tower numbers (0 = a station), Detail = tenths above the ground, and Pct = 1 for cabins, 0 for chairs.
+            // It comes after the train-limit rows (code order). An unfinished (3) row never gets a dim row.
+            // Neither does a row whose spans all clear the floor.
             x = In(1, 1, 100, 4, 2);
             HubProblemLift low = L(0, true, true, true); low.LowSpan = true; low.LowFrom = 3; low.LowTo = 4; low.LowTenths = 12;
             HubProblemLift lowCabins = L(1, true, true, true); lowCabins.LowSpan = true; lowCabins.LowFrom = 0; lowCabins.LowTo = 1;
@@ -1077,7 +1088,7 @@ namespace ResortBatch
                 P(HubProblemCode.LiftLowSpan, 1, liftIndex: 1, count: 0, more: 1, detail: 0, pct: 1),
                 P(HubProblemCode.LiftLowSpan, 1, liftIndex: 2, count: 5, more: 0, detail: 29, pct: 0));
 
-            // P50 band slots (DECISIONS 588 f): the hub draws the rows of a folded code (HubRules.FoldedCodes) as ONE line, so SortAndCut
+            // P50 band slots (DECISIONS 588 f): the hub draws the rows of a folded code (HubRules.FoldedCodes) as ONE line. So SortAndCut
             // counts them as one of the MaxBandRows slots and keeps every one of them. Eight slots in eleven rows (lodges off, four
             // "No power", a missing section, an unfinished line, chairs stopped, a bend, a train limit, a low span): all kept, the low span
             // last. The old row count cut it with the bend and the train limit. A ninth slot (a second low span) is cut, alone.
@@ -1313,7 +1324,7 @@ namespace ResortBatch
             PisteMapRules.DashRing(y, 10f, 5f, 100, a, b);
             Piece(a, b, 0, new float3(0, 100, 0), new float3(10, 110, 0), "DashRing(Y,10,5,100)");
 
-            // A non-finite node: its two edges are skipped and add no length
+            // A non-finite node: PisteMapRules skips its two edges, and they add no length
             var bad = new List<float3> { new float3(0, 0, 0), new float3(30, 0, 0), new float3(float.NaN, 0, 30), new float3(0, 0, 30) };
             a.Clear(); b.Clear();
             Eq(PisteMapRules.SolidRing(bad, 100, a, b), 2, w, "SolidRing(NaN node)");
@@ -1434,8 +1445,8 @@ namespace ResortBatch
             State("H15", false, true, true, true, 5, 1, true, -1, 154, Unknown);    // now unknown
 
             // H16: the C# powder mark and the TS threshold (POWDER_MARK_PCT = 50 on
-            // skiDaysPowderPct = HubRules.Percent(powder)) agree at every reachable powder: snow-hours 0..24 (powder
-            // takes sixths, 7 h = exactly 0.5). One check.
+            // skiDaysPowderPct = HubRules.Percent(powder)) agree at every reachable powder: snow-hours 0..24. Powder
+            // takes sixths, 7 h = exactly 0.5. One check.
             bool parity = true;
             string first = "";
             for (int h = 0; h <= 48; h++)   //fresh steps 0..48 (24 h at precipitation 1)
@@ -1450,7 +1461,7 @@ namespace ResortBatch
             }
             Check(parity, w, "H16 powder mark parity C# / TS: " + first);
 
-            // H17: the hub's price line computes the price factor in TS (hubRules.priceFactor); this is the C# half of the shared
+            // H17: the hub's price line computes the price factor in TS (hubRules.priceFactor). This is the C# half of the shared
             // literal table (mod/SkiResortUI/tools/test-hub-rules.js T10.1 holds the same rows). Two checks: the table, then the edge.
             int[] priceIn = { 0, 5, 40, 45, 80, 100, 120, 150, 200, 260 };
             double[] priceOut = { 1, 1, 1, 0.975, 0.8, 0.7, 0.6, 0.45, 0.2, 0.2 };
@@ -1467,7 +1478,7 @@ namespace ResortBatch
             }
             Check(priceOk, w, "H17 price factor C# = the TS table: " + priceFirst);
             // The Options texts and the hub tooltip bake "40", "60" and "200" (Settings/LocaleEN.cs Locals who ski and Lift ticket
-            // price; MONEY_PRICE_TIP[Curve] through PRICE_NO_EFFECT_MAX): the no-effect edge 240 - 200, the default (80; the factor at 80
+            // price, and MONEY_PRICE_TIP[Curve] through PRICE_NO_EFFECT_MAX). Checks: the no-effect edge 240 - 200, the default (80, and the factor at 80
             // is 0.8: "80 % at 80"), the cap.
             Check(SkiDayRules.PriceFullAt - SkiDayRules.PriceSpan == 40 && SkiMoneyRules.TicketPriceDefault == 80 &&
                   SkiDayRules.PriceMax == 200 && SkiMoneyRules.TicketPriceMax == 200 &&
@@ -1501,10 +1512,14 @@ namespace ResortBatch
             new HubProblemLift { State = state, Powered = powered, HasBase = hasBase, HasTop = hasTop, CustomName = named,
                                  Type = type, Mixed = mixed };
 
-        /// <summary>Section I: I1 RideTimeS(loop, speed) per lift type and the one-argument twin; I2 a summer area with no lodge keeps the
-        /// "if one lodge" number (15), whatever LodgeShare says; I3 AttractionWithLodgeApplied (the IfLodgesOn ladder value); I4 LodgePart =
-        /// LodgeApplied; I5 problems: MixedLiftTypes 23, 24 and 25 (counts, severities, the 24 cap), StationsOnly / SectionMissing build
-        /// items per type, lone stations pairing per type only; I6 price factor with tolerance: SkiDayRules.PriceFactor(price, tolerance) =
+        /// <summary>Section I:
+        /// I1 RideTimeS(loop, speed) per lift type and the one-argument twin.
+        /// I2 a summer area with no lodge keeps the "if one lodge" number (15), whatever LodgeShare says.
+        /// I3 AttractionWithLodgeApplied (the IfLodgesOn ladder value).
+        /// I4 LodgePart = LodgeApplied.
+        /// I5 problems: MixedLiftTypes 23, 24 and 25 (counts, severities, the 24 cap), StationsOnly / SectionMissing build
+        /// items per type, lone stations pairing per type only.
+        /// I6 price factor with tolerance: SkiDayRules.PriceFactor(price, tolerance) =
         /// the TS priceFactor table (mod/SkiResortUI/tools/test-hub-rules.js), and PriceFactor(p) == PriceFactor(p, 0).
         /// Oracles are literal hand values.</summary>
         private static void SectionI()
@@ -1611,7 +1626,7 @@ namespace ResortBatch
             Expect("I5l an untyped lone base falls back to the fixed-grip items", x, o,
                 P(HubProblemCode.StationsOnly, 1, liftIndex: 0, detail: 1, build: "topStation"));
 
-            // I6 H17 with tolerance (C# half; test-hub-rules.js holds the TS priceFactor rows).
+            // I6 H17 with tolerance (C# half). test-hub-rules.js holds the TS priceFactor rows.
             int[] tolPrice = { 80, 80, 80, 200, 250, 200, 0 };
             int[] tolTol = { 0, 20, 40, 40, 40, 0, 40 };
             double[] tolOut = { 0.8, 0.9, 1.0, 0.4, 0.4, 0.2, 1.0 };
@@ -1652,13 +1667,14 @@ namespace ResortBatch
         // J. the tram
 
         /// <summary>Section J: v 10 m/s, a 0.8 m/s^2 (0.8f, as the catalog row), dwell 60 s. Literal oracles:
-        ///   HJ-1..HJ-3  ShuttleRideTimeS: 1 km 112.5 s, 3 km 312.5 s, 100 m 22.360679774997898 (triangle), bit-exact floats; 125 m 25;
-        ///   HJ-4        invalid gives -1; HJ-4b the dwell does not enter the ride time while ShuttleRideIncludesDwell is false (pinned
-        ///               false: flipping it must revisit these oracles and LIFT_RIDE_TIP);
-        ///   HJ-5..HJ-7  ShuttleCapacityPerHour(2, 100, 1 km) == (float)(720000 / 345); a -> infinity gives 2,250 and 1,000 pph; one cabin =
-        ///               half; cabins 0, seats 0, dwell -1, NaN path give -1;
-        ///   HJ-8..HJ-10 the Loop rule is untouched (RideTimeS(2045, 2.5) == 409); the catalog's tram row (index 3) through both; the
-        ///               status mapping through LiftStatusOf (Running / Held NoPower / no path).</summary>
+        ///   HJ-1..HJ-3  ShuttleRideTimeS: 1 km 112.5 s, 3 km 312.5 s, 100 m 22.360679774997898 (triangle), bit-exact floats. 125 m 25.
+        ///   HJ-4        invalid gives -1.
+        ///   HJ-4b       the dwell does not enter the ride time while ShuttleRideIncludesDwell is false (pinned
+        ///               false: flipping it must revisit these oracles and LIFT_RIDE_TIP).
+        ///   HJ-5..HJ-7  ShuttleCapacityPerHour(2, 100, 1 km) == (float)(720000 / 345). a -> infinity gives 2,250 and 1,000 pph. One cabin =
+        ///               half. Cabins 0, seats 0, dwell -1, NaN path give -1.
+        ///   HJ-8..HJ-10 the Loop rule is untouched (RideTimeS(2045, 2.5) == 409). The catalog's tram row (index 3) goes through both. The
+        ///               status mapping goes through LiftStatusOf (Running / Held NoPower / no path).</summary>
         private static void SectionJ()
         {
             const string w = "hub J";
@@ -1694,7 +1710,7 @@ namespace ResortBatch
             NearF(HubRules.ShuttleCapacityPerHour(2, 100, 1000f, v, 1e9f, d), 2250.0, 0.01, w, "HJ-6 a 1e9, 1 km");
             NearF(HubRules.ShuttleCapacityPerHour(2, 100, 3000f, v, 1e9f, d), 1000.0, 0.01, w, "HJ-6 a 1e9, 3 km");
 
-            // HJ-7 one cabin = half; refusals
+            // HJ-7 one cabin = half. Refusals
             Eq(HubRules.ShuttleCapacityPerHour(1, 100, 1000f, v, a, d), cap2 / 2f, w, "HJ-7 one cabin = half of two");
             Eq(HubRules.ShuttleCapacityPerHour(0, 100, 1000f, v, a, d), -1f, w, "HJ-7 cabins 0");
             Eq(HubRules.ShuttleCapacityPerHour(-1, 100, 1000f, v, a, d), -1f, w, "HJ-7 cabins -1");
@@ -1739,10 +1755,10 @@ namespace ResortBatch
         /// <summary>Section K: an unpowered lift of every type carries no guests. Literal oracles:
         ///   HK-1  LiftCapacityShown: the Loop capacities riding x seats x speed x 3600 / L (riding 40, L 2,000 m: fixed-grip 540,
         ///         detachable 1,440, gondola 3,168) and the tram's ShuttleCapacityPerHour(2, 100, 1000, 10, 0.8, 60): (c, true) == c,
-        ///         (c, false) == -1, (-1, true) == -1; through Carries for a powered and an unpowered complete row;
-        ///   HK-2  LiftStatusOf: a held lift's status stays "No power" ((0, false) NoPower, (1, true) ChairsStopped);
-        ///   HK-3  Carries(complete, shownPowered, closed), 8 rows; equal to Carries(complete, p, closed) with shownPowered = p != NoPower,
-        ///         and to SkiMoneyRules.LiftOperating(complete, IsPowered(p)) &amp;&amp; !closed for all 12 inputs (SkiMoneyRules.cs:73).</summary>
+        ///         (c, false) == -1, (-1, true) == -1. Also through Carries for a powered and an unpowered complete row.
+        ///   HK-2  LiftStatusOf: a held lift's status stays "No power" ((0, false) NoPower, (1, true) ChairsStopped).
+        ///   HK-3  Carries(complete, shownPowered, closed), 8 rows. It equals Carries(complete, p, closed) with shownPowered = p != NoPower,
+        ///         and SkiMoneyRules.LiftOperating(complete, IsPowered(p)) &amp;&amp; !closed for all 12 inputs (SkiMoneyRules.cs:73).</summary>
         private static void SectionK()
         {
             const string w = "hub K";

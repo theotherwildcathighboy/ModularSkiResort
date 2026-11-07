@@ -51,7 +51,7 @@ namespace ResortBatch
             Check(RunPropDensityRules.ClassOf("", true) == RunPropDensityRules.ClassOther, w, "ClassOf(\"\", night only) != Other");
         }
 
-        // Which classes stand on which kind. Literal table: kind x (gun, hydrant, mast unlit, mast lit); the empty marker and "other" never stand.
+        // Which classes stand on which kind. Literal table: kind x (gun, hydrant, mast unlit, mast lit). The empty marker and "other" never stand.
         private static void SectionAllowed()
         {
             const string w = "density allowed";
@@ -82,8 +82,8 @@ namespace ResortBatch
         }
 
         // Travel +x, ring clockwise (ccw false): interior on the right, inward (0,-1). Counter-clockwise: inward (0,1).
-        // Fall 0.075 m/m: k 0.5, bias 0.5 x tan 25 deg = 0.23315, aim (0.22707,-0.97389); a rise mirrors the sign; a fall of 0.3 clamps k to 1, exactly
-        // 25 deg (0.42262,-0.90631).
+        // Fall 0.075 m/m: k 0.5, bias 0.5 x tan 25 deg = 0.23315, aim (0.22707,-0.97389). A rise mirrors the sign.
+        // A fall of 0.3 clamps k to 1, exactly 25 deg (0.42262,-0.90631).
         private static void SectionAim()
         {
             const string w = "density aim";

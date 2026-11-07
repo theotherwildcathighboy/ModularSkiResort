@@ -1,8 +1,15 @@
-// Headless tests for the pure tower number tile core (TowerNumberTiles.cs), cases TN-1..TN-10: wrap to 1..200, tile layout per digit
-// count, display numbers by rank (reversed when the base is last), plate geometry per face, reconcile (minimal deletes and creates),
-// renumbering after a section edit, name and plate tables, a 1,000-tower line, and the plate table against a measured JSON table
-// (measured from the shipped FBXs: a re-export that moves a plate fails here until the table follows), tiles and the GD beacon posed
-// through a headed tower's head (TN-10).
+// Headless tests for the pure tower number tile core (TowerNumberTiles.cs), cases TN-1..TN-10. The cases test these items:
+// - wrap to 1..200.
+// - tile layout per digit count.
+// - display numbers by rank (reversed when the base is last).
+// - plate geometry per face.
+// - reconcile (minimal deletes and creates).
+// - renumbering after a section edit.
+// - name and plate tables.
+// - a 1,000-tower line.
+// - the plate table against a measured JSON table. The table is measured from the shipped FBXs. A re-export that moves a plate
+//   fails here until the table follows.
+// - tiles and the GD beacon posed through a headed tower's head (TN-10).
 
 using System;
 using System.Collections.Generic;
@@ -34,8 +41,11 @@ namespace LiftBatch
             HeadPosedTiles();
         }
 
-        // TN-10: tiles and the GD beacon on a headed tower (DECISIONS 594) posed through the head about the pivot: rigid with the plate,
-        // a pose change moves every tile past the 1 cm match (delete + create), a level head is the unposed layout, beacon table = rows.
+        // TN-10: tiles and the GD beacon on a headed tower (DECISIONS 594), posed through the head about the pivot. The test checks these items:
+        // - The tiles are rigid with the plate.
+        // - A pose change moves every tile past the 1 cm match (delete + create).
+        // - A level head is the unposed layout.
+        // - The beacon table = rows.
         private static void HeadPosedTiles()
         {
             const string W = "TN-10 head-posed tiles";

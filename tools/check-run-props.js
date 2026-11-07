@@ -1,25 +1,33 @@
 // Gate: the run prop placer's rules a text check can hold (lessons of the 2026-11-01 placer round).
-//  R1 consumers read the tag: plume and night light select SkiRunPropMember and never Secondary, because a placed prop has no owner and an old
-//     corner prop is gone after the load sweep. Only the sweep may name Secondary.
-//  R2 features only: the sliders are the Snowmaking and Lights features (DECISIONS 577), so nothing that decides snow or upkeep reads a
-//     spacing itself: runs read features through SkiRunPropSystem.FeaturesOf (the one place a spacing becomes a feature), and a cat
-//     track's switch through CatTrackGunsOn: Off bills nothing (DECISIONS 563) and makes no new snow (568; made snow stays until it melts,
-//     572). Every TrackBilledHa call passes CatTrackGunsOn, and the injection reads it twice, for a cat track only: in GetRunSnow, and where
+//  R1 consumers read the tag: plume and night light select SkiRunPropMember and never Secondary.
+//     The reason: a placed prop has no owner, and an old corner prop is gone after the load sweep. Only the sweep may name Secondary.
+//  R2 features only. The sliders are the Snowmaking and Lights features (DECISIONS 577), so nothing that decides snow or upkeep reads a
+//     spacing itself.
+//     Runs read features through SkiRunPropSystem.FeaturesOf (the one place a spacing becomes a feature).
+//     A cat track's switch is read through CatTrackGunsOn. Off bills nothing (DECISIONS 563) and makes no new snow (568).
+//     Made snow stays until it melts (572).
+//     Every TrackBilledHa call passes CatTrackGunsOn.
+//     The injection reads it twice, for a cat track only: in GetRunSnow, and where
 //     BuildMask records a track for measurement (its made-snow model).
 //  R3 the old Options sliders stay gone, also from the locale template.
 //  R4 the table's weights equal the prefabs' m_Probability (the mix must not drift from the assets), and the empty marker is not placed.
 //  R5 the hub's slider constants equal the rules class.
 //  R6 a slider step from the hub is a plain component write: no delete and no structural change in the UI phase.
-//  R7 cat tracks: billed at the snowmaking rate, kept out of injection (the prefab is named only in the measure-only set), and estimated
-//     by the run rule: one RunSnowRules.EstimatedRunShare call for an unmeasured run and one for GetRunSnow, both with the pass's gun
-//     season once known (DECISIONS 571); a track's made snow uses only TrackGunShare and TrackColdShare, once each, in StepTrack.
+//  R7 cat tracks:
+//     - They bill at the snowmaking rate.
+//     - They stay out of injection (the prefab is named only in the measure-only set).
+//     - The run rule estimates them: one RunSnowRules.EstimatedRunShare call for an unmeasured run and one for GetRunSnow,
+//       both with the pass's gun season once known (DECISIONS 571).
+//     A track's made snow uses only TrackGunShare and TrackColdShare, once each, in StepTrack.
 //  R8 house style: Game mode only, ARMED line, one-shot catch, [cost] line, and the tag is added in one place.
-//  R9 run types: the count of run kind names per mod file only goes down (systems move to RunFeatures in R2). One exception: the shim
-//     file EntityRef.cs rose in R2 for SnowKind, the features-to-kind bridge of the kind-keyed snow code (102 -> 95 names overall; R3
-//     billed upkeep by feature: 89).
+//  R9 run types: the count of run kind names per mod file only goes down (systems move to RunFeatures in R2).
+//     One exception: the shim file EntityRef.cs rose in R2 for SnowKind.
+//     SnowKind is the features-to-kind bridge of the kind-keyed snow code
+//     (102 -> 95 names overall. R3 billed upkeep by feature: 89).
 //  R10 cat track lights bill (DECISIONS 579): every place that bills a cat track (the charge, its per-area split, the hub's rows) adds
-//     SkiRunUpkeepRates.TrackLitHa at the lights rate, with the same season gate its guns use (CatTrackGunsCanRun), and the charge's
-//     monthly rate includes it.
+//     SkiRunUpkeepRates.TrackLitHa at the lights rate.
+//     It has the same season gate its guns use (CatTrackGunsCanRun).
+//     The charge's monthly rate includes it.
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -42,8 +50,8 @@ const placer = read(systems, "SkiRunPropSystem.Placer.cs");
 need(code(placer).split("Game.Objects.Secondary").length === 2, "R1 SkiRunPropSystem.Placer.cs: Secondary belongs to the load sweep only (one use)");
 need(!/\bSecondary\b/.test(code(read(systems, "SkiRunPropSystem.cs"))), "R1 SkiRunPropSystem.cs: reads Secondary (the census counts the tag)");
 {
-  // Every piste surface that can carry a feature slider is walked, its kind from the catalog: a groomed run re-emitted by the Groomed toggle
-  // keeps its guns and lights (in game 2026-11-02, the placer had no kind for SkiRunGroomedA and stood nothing on it).
+  // The gate walks every piste surface that can carry a feature slider, and takes its kind from the catalog. A groomed run re-emitted by the
+  // Groomed toggle keeps its guns and lights. In game 2026-11-02, the placer had no kind for SkiRunGroomedA and placed nothing on it.
   const ps = code(read(systems, "SkiRunPropSystem.cs"));
   const names = (ps.match(/RunSurfaceNames\s*=\s*\{([^}]*)\}/) || [, ""])[1];
   for (const n of ["RunGroomed", "RunSnowmaking", "RunNight", "RunCatTrack"])
@@ -71,8 +79,9 @@ for (const f of ["SkiRunUpkeepSystem.cs", "SkiSnowInjectionSystem.cs", "RunSnowR
 const featuresBody = body(placer, "internal RunFeatures FeaturesOf(") || "";
 need(featuresBody.includes("SkiRunPropSettings") && featuresBody.split("RunFeatures.FromSpacings(").length === 3,
      "R2 FeaturesOf: must read SkiRunPropSettings and turn the spacings into features with RunFeatures.FromSpacings (with the kind defaults)");
-// The one exception: every TrackBilledHa call passes the cat track gun switch (upkeep: CatTrackGunsOn in the call; the hub's cost row:
-// the call sits behind `trackGunsOn &&`), and CatTrackGunsOn reads the gun value only.
+// The one exception: every TrackBilledHa call passes the cat track gun switch.
+// In the upkeep, the call contains CatTrackGunsOn. In the hub's cost row, the call sits behind `trackGunsOn &&`.
+// CatTrackGunsOn reads the gun value only.
 for (const f of ["SkiRunUpkeepSystem.cs", "SkiResortStatsSystem.cs"]) {
   const c = code(read(systems, f));
   const parts = c.split("TrackBilledHa(").slice(1);
@@ -83,8 +92,8 @@ const stats = code(read(systems, "SkiResortStatsSystem.cs"));
 need(stats.includes("trackGunsOn = catTrack && m_RunProps.CatTrackGunsOn(row.Entity)") &&
      stats.includes("trackInSeason = m_Injection.CatTrackGunsCanRun(") && stats.includes("if (trackGunsOn && trackInSeason)"),
      "R2 SkiResortStatsSystem.cs: the hub's track cost row is not gated by CatTrackGunsOn");
-// The second exception: the injection asks the switch twice, for a cat track only: inside GetRunSnow (passed to the threshold) and where
-// BuildMask records a track for measurement (passed to the made-snow model).
+// The second exception: the injection asks the switch twice, for a cat track only. The first ask is inside GetRunSnow (passed to the
+// threshold). The second is where BuildMask records a track for measurement (passed to the made-snow model).
 const injection = code(read(systems, "SkiSnowInjectionSystem.cs"));
 const getRunSnow = body(injection, "internal RunSnow GetRunSnow(") || "";
 need(injection.split("CatTrackGunsOn(").length === 3 && getRunSnow.includes("kind != RunKind.CatTrack || m_RunProps.CatTrackGunsOn(run)") &&
@@ -138,20 +147,20 @@ need(applySpacing && !banned.test(applySpacing), "R6 ApplyRunPropSpacing: only s
 
 // R7
 const upkeep = code(read(systems, "SkiRunUpkeepSystem.cs"));
-// The rate is the feature step sum (a cat track with its guns on = groomed + snowmaking = the snowmaking rate; ResortBatch features/steps
-// pins every kind's number).
+// The rate is the feature step sum (a cat track with its guns on = groomed + snowmaking = the snowmaking rate). ResortBatch features/steps
+// pins every kind's number.
 need(upkeep.includes("public static int CostPerHaMonth(RunKind kind) => SkiRunUpkeepRates.PerHaMonth(RunFeatures.FromKind((int)kind));"),
      "R7 CostPerHaMonth must be SkiRunUpkeepRates.PerHaMonth(RunFeatures.FromKind(kind)) (a cat track at the snowmaking rate)");
 need(!/Names\.RunCatTrack/.test(injection), "R7 SkiSnowInjectionSystem.cs names the cat track prefab through the catalog (tracks stay out of injection)");
-// The track's name lives only in the measure-only array, which is resolved only into the measure-only set.
+// The track's name lives only in the measure-only array. The code resolves that array only into the measure-only set.
 {
   const arrays = [...injection.matchAll(/string\[\]\s+(\w+)\s*=\s*\{([^}]*)\}/g)].filter((m) => m[2].includes("SkiRunCatTrackA")).map((m) => m[1]);
   need(arrays.length === 1 && arrays[0] === "CatTrackMeasureNames" && injection.split("CatTrackMeasureNames").length === 3 &&
        injection.includes("ResolvePrefabSet(CatTrackMeasureNames, m_TrackMeasurePrefabs);"),
        `R7 SkiSnowInjectionSystem.cs: the cat track name must be in CatTrackMeasureNames alone, resolved into m_TrackMeasurePrefabs (found in ${arrays.join(", ") || "none"})`);
 }
-// One estimate rule for runs and cat tracks (DECISIONS 571): the table's unmeasured run and GetRunSnow's estimate (every cat track) both
-// call RunSnowRules.EstimatedRunShare with this pass's gun season; no other estimate in the injection.
+// One estimate rule for runs and cat tracks (DECISIONS 571). The table's unmeasured run and GetRunSnow's estimate (every cat track) both
+// call RunSnowRules.EstimatedRunShare with this pass's gun season. The injection has no other estimate.
 const estimates = injection.split("RunSnowRules.EstimatedRunShare(").slice(1).map((p) => p.slice(0, p.indexOf(";")));
 need(estimates.length === 2 && estimates.every((e) => e.includes("m_GunSeasonKnown && m_PassGunSeason")),
      `R7 SkiSnowInjectionSystem.cs: ${estimates.length} RunSnowRules.EstimatedRunShare call(s), expected 2, each with m_GunSeasonKnown && m_PassGunSeason (one estimate rule for runs and cat tracks; no guns credited before the season is known)`);
@@ -175,9 +184,10 @@ need(placer.includes("Props [cost] placer:"), "R8 no [cost] line");
 const tagged = fs.readdirSync(systems).filter((f) => f.endsWith(".cs") && code(read(systems, f)).includes("new SkiRunPropMember("));
 need(tagged.length === 1 && tagged[0] === "SkiRunPropSystem.Placer.cs", `R8 the tag is added in ${tagged.join(", ") || "no file"}, expected SkiRunPropSystem.Placer.cs alone`);
 
-// R9 run types (DECISIONS 576): the per-kind rules are wrappers over RunFeatures; a system that still names a kind (RunKind.X or a KindX
-// constant) moves to features in R2, where its behavior changes. Until then no file may name kinds more often than KIND_READS says, and a
-// file not listed may not name one at all. Lower a count when a file drops reads (the gate prints it); never raise one.
+// R9 run types (DECISIONS 576): the per-kind rules are wrappers over RunFeatures.
+// A system that still names a kind (RunKind.X or a KindX constant) moves to features in R2, where its behavior changes.
+// Until then no file may name kinds more often than KIND_READS says, and a file not listed may not name one at all.
+// Lower a count when a file drops reads (the gate prints it). Never raise one.
 // KIND_READS_PRINT=1 prints the current counts.
 const KIND_READS = {
   "Systems/CatTrackGradeToolSystem.cs": 1,

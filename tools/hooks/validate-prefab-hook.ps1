@@ -1,9 +1,9 @@
 # PostToolUse hook (matcher Edit|Write|MultiEdit): validates every edited *.Prefab.
-# Rule source: docs/PIPELINE.md section 6 / CLAUDE.md "Game-side data" (validate after ANY prefab edit);
-# added 2026-10-18. Runs tools/validate_prefab.ps1 <file> (param: -Path; prints ERROR lines on
-# STDOUT, exit 1 on any error, 0 if clean). On failure this hook re-emits the output on STDERR
-# and exits 2: for PostToolUse, exit 2 does not undo the edit (the tool already ran) but is the
-# documented way to show stderr to Claude. Exit 0 stderr is never shown, so a clean file is silent.
+# Rule source: docs/PIPELINE.md section 6 / CLAUDE.md "Game-side data" (validate after ANY prefab edit).
+# Added 2026-10-18. Runs tools/validate_prefab.ps1 <file> (param: -Path). The script prints ERROR lines on
+# STDOUT, exits 1 on any error, and exits 0 if clean. On failure this hook re-emits the output on STDERR
+# and exits 2. For PostToolUse, exit 2 does not undo the edit (the tool already ran). It is the
+# documented way to show stderr to Claude. Stderr on exit 0 is never shown, so a clean file is silent.
 # Non-.Prefab files and missing files exit 0 without output.
 $ErrorActionPreference = 'Stop'
 try {

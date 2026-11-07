@@ -1,9 +1,12 @@
-// RunsFirst learning areas (scorecard v5): a base's beginners learn on green runs, not on cat tracks. A base (two or more lift bottoms
-// within 400 m low on the mountain, as the scorecard reads them) whose beginners get to under 0.8 km of green runs gets a learning
-// area: a beginner chair (a short fixed-grip, 30-150 m of rise: a beginner should not face 300 m of vertical first) from a pad at the
-// base up its gentle ground, and up to three green runs from its top back to its bottom. The chair keeps the other lifts' rules
-// (flat stations, the rope clear of the ground, no crossing, 40 m off the other ropes, no station under a rope, its chord off the
-// runs); its runs are green by the ground under them, groomed, and keep away from the other runs.
+// RunsFirst learning areas (scorecard v5): a base's beginners learn on green runs, not on cat tracks. A base means two or more
+// lift bottoms within 400 m low on the mountain, as the scorecard reads them. If the beginners of a base get to under 0.8 km
+// of green runs, the base gets a learning area. The area has these parts:
+// - a beginner chair (a short fixed-grip, 30-150 m of rise: a beginner should not face 300 m of vertical first) from a pad at
+//   the base up its gentle ground
+// - up to three green runs from its top back to its bottom.
+// The chair keeps the other lifts' rules (flat stations, the rope clear of the ground, no crossing, 40 m off the other ropes,
+// no station under a rope, its chord off the runs). Its runs are green by the ground under them, groomed, and keep away from
+// the other runs.
 
 using System;
 using System.Collections.Generic;
@@ -96,7 +99,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>A straight cat track between two stations where the ground allows one as the scorecard reads a connector (no climb
-        /// past 4.5 m in 50 m, no 30 m pitch past 0.5, inside the region); returns whether it was added.</summary>
+        /// past 4.5 m in 50 m, no 30 m pitch past 0.5, inside the region). Returns whether it was added.</summary>
         private static bool StationTrack(Grid g, Plan plan, float2 from, float2 to)
         {
             float len = math.distance(from, to);
@@ -119,8 +122,8 @@ namespace AutoGenBatch
             return true;
         }
 
-        // off by default (RF_LEARNABOVE=1): a learning area on a green bench just above a base lift top found no site the other modes had
-        // missed on the five sets (no plan changed) and cost planning time
+        // off by default (RF_LEARNABOVE=1). A learning area on a green bench just above a base lift top found no site that the other
+        // modes missed on the five sets (no plan changed). It cost planning time
         private static readonly bool LearnAbove = Environment.GetEnvironmentVariable("RF_LEARNABOVE") == "1";
         private static readonly float AboveMs = Env("RF_ABOVEMS", 3000f);   // the search above a top only while the region is early
         private static readonly EasyLimits LearnWayShort = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1600f, false, Env("RF_LGROUND", 0.235f));
@@ -128,10 +131,10 @@ namespace AutoGenBatch
         // off by default (RF_LEARNCONVERT=1): turning a short base lift into the beginner chair changed no plan on the five sets
         private static readonly bool LearnConvert = Environment.GetEnvironmentVariable("RF_LEARNCONVERT") == "1";
 
-        /// <summary>A short lift (30-150 m of rise, not aerial) whose bottom is at the base (within 390 m of a base lift's bottom) or
-        /// beside the top of the base's gondola or tram (within 300 m), with green ground from its bottom to its top, becomes a beginner
-        /// chair with up to two green runs from its top back to its bottom, where that adds green km for the base. Returns whether one
-        /// did.</summary>
+        /// <summary>A short lift (30-150 m of rise, not aerial) becomes a beginner chair, with up to two green runs from its top back
+        /// to its bottom, where that adds green km for the base. The lift qualifies when its bottom is at the base (within 390 m of a
+        /// base lift's bottom) or beside the top of the base's gondola or tram (within 300 m), and green ground runs from its bottom
+        /// to its top. Returns whether one did.</summary>
         private static bool ConvertToLearning(Grid g, Plan plan, List<Lift> lifts, List<int> members, float kmBefore)
         {
             var aerials = members.Where(L => Aerial(lifts[L].Type)).Select(L => lifts[L]).ToList();
@@ -185,7 +188,7 @@ namespace AutoGenBatch
             return false;
         }
 
-        /// <summary>Learning areas for the bases short of green runs; returns the chairs added.</summary>
+        /// <summary>Learning areas for the bases short of green runs. Returns the chairs added.</summary>
         private static int AddLearningAreas(Grid g, Plan plan, List<Lift> lifts)
         {
             int added = 0;
@@ -230,14 +233,14 @@ namespace AutoGenBatch
                 float Rise(EasyReach e, int c) => g.Hr[c] - g.Hr[e.Root[c]];
                 List<int> cands = er.Cost.Where(kv => er.Len[kv.Key] <= LearnRouteMax && Rise(er, kv.Key) >= LearnMinRise && Rise(er, kv.Key) <= LearnMaxRise)
                     .OrderBy(kv => kv.Value - Math.Min(er.Len[kv.Key], 900f) + 3f * Math.Abs(Rise(er, kv.Key) - mid)).Select(kv => kv.Key).ToList();
-                // on the fall line first; a learning chair across its gentle slope beats a base without one
+                // on the fall line first. A learning chair across its gentle slope beats a base without one
                 if (TryLearningChair(g, plan, lifts, members, er, cands, null, avoid, guard, sg, km, LearnFallDeg)
                     || TryLearningChair(g, plan, lifts, members, er, cands, null, avoid, guard, sg, km, 180f))
                 {
                     added++;
                     continue;
                 }
-                // or below the top of one of the base's lifts (a gondola first): a learning area the beginners ride up to, its runs
+                // or below the top of one of the base's lifts (a gondola first). This is a learning area the beginners ride up to, its runs
                 // starting where they get off
                 if (!LearnHigh)
                     continue;
@@ -257,8 +260,8 @@ namespace AutoGenBatch
                         goto next;
                     }
                 }
-                // or above the top of the base's gondola or tram (a summit plateau): beginners ride it up and down, the learning chair
-                // rises from beside its top station, a flat cat track each way between the two
+                // or above the top of the base's gondola or tram (a summit plateau). Beginners ride it up and down. The learning chair rises
+                // from beside its top station, with a flat cat track each way between the two
                 if (!LearnAbove || Clock.ElapsedMilliseconds > AboveMs)
                     continue;
                 foreach (int L in members.Where(L => Aerial(lifts[L].Type)).ToList())
@@ -280,7 +283,7 @@ namespace AutoGenBatch
                     }
                 }
                 // or a short lift already there on green ground becomes the learning chair (at the base, or beside the top of the base's
-                // gondola or tram), with green runs from its top back to its bottom
+                // gondola or tram). It gets green runs from its top back to its bottom
                 if (LearnConvert && Clock.ElapsedMilliseconds <= AboveMs && ConvertToLearning(g, plan, lifts, members, km))
                     added++;
             next:;
@@ -291,7 +294,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>Scorecard v5's beginner terrain for a base: the km of green runs (groomed, served, by the ground) a beginner gets to
-        /// from the base's lifts on green skiing, when that skiing brings them back to a lift (a loop to lap); 0 without a loop.</summary>
+        /// from the base's lifts on green skiing, when that skiing brings them back to a lift (a loop to lap). It is 0 without a loop.</summary>
         private static float LearnKm(SkiGraph sg, Plan plan, List<Lift> lifts, IEnumerable<int> baseLifts)
         {
             var easy = new Dictionary<int, HashSet<int>>();
@@ -320,7 +323,8 @@ namespace AutoGenBatch
         }
 
         /// <summary>A beginner chair from a pad at the base to the top of an easy route up its gentle ground, the route its first green
-        /// run, then more green runs from its top. The first chair that keeps the lift network whole wins; else the first that fits.</summary>
+        /// run, then more green runs from its top. The first chair that keeps the lift network whole wins. Otherwise the winner is the
+        /// first that fits.</summary>
         private static bool TryLearningChair(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, List<int> cands, Lift below,
             PointHash avoid, ChordGuard guard, SkiGraph before, float kmBefore, float fallMax, bool above = false)
         {
@@ -347,7 +351,7 @@ namespace AutoGenBatch
                     why[0]++;
                     continue;
                 }
-                // the bottom station: the pad the route ends at, or one beside it, or one on the route's lower part; the route passes it
+                // the bottom station: the pad the route ends at, or one beside it, or one on the route's lower part. The route passes it
                 int root = er.Root[x];
                 List<float2> way = er.Route(x).ConvertAll(c => g.World(c));
                 var froms = new List<int>();
@@ -427,7 +431,7 @@ namespace AutoGenBatch
                         why[7]++;
                     continue;
                 }
-                // the route ends at the chair's bottom (the chair rides over its own run); the stretch on to the base is a run of its own
+                // the route ends at the chair's bottom (the chair rides over its own run). The stretch on to the base is a run of its own
                 List<float2> tail = null;
                 if (math.distance(route[route.Count - 1], b) >= 57f)
                 {
@@ -543,8 +547,8 @@ namespace AutoGenBatch
                         mw[0]++;
                         continue;
                     }
-                    // green by the ground and the run rules; off the other runs but where the runs of this chair start together (the
-                    // first 120 m) and come home (the last 150 m), as the scorecard reads crowding
+                    // green by the ground and the run rules. Off the other runs, as the scorecard reads crowding. The exception: where the runs of
+                    // this chair start together (the first 120 m) and come home (the last 150 m)
                     List<float2> route = null;
                     List<int> cells = er.Route(x);
                     foreach (List<float2> pl in new[] { Polyline(g, cells, false), cells.ConvertAll(c => g.World(c)) })
@@ -572,8 +576,8 @@ namespace AutoGenBatch
                         if (avoid.Near(route[i], 22f))
                             close++;
                     }
-                    // a learning slope is wide: a second trail may share some of it (the crowding costs less than a base without its
-                    // green km), but not lie on the first
+                    // a learning slope is wide. A second trail may share some of it (the crowding costs less than a base without its green km).
+                    // It may not lie on the first
                     if (crowd > LearnCrowd * Math.Max(1, counted) || close > 0.15f * Math.Max(1, counted))
                     {
                         mw[5]++;

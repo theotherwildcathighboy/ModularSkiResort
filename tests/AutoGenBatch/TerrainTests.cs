@@ -1,7 +1,8 @@
-// Terrain and Pods suites (A3): terraces, ridge faces, the 80 m merge rule; S-1 (pads), S-2 (pod class), S-3 (pods present), P-1
-// (unit time of the Terrain / PodRoute / Pods stages at 9 km2), P-4 (planner buffers at 9 km2), D-1 / D-2 / D-3 on the pads and pods.
-// TerrainCase is the per-fixture check + REPORT line: the synthetic cases run here (CI); the real heightmaps run it from V2Tests (A1's
-// matrix, `-- v2`).
+// Terrain and Pods suites (A3): terraces, ridge faces, the 80 m merge rule.
+// Checks: S-1 (pads), S-2 (pod class), S-3 (pods present), P-1 (unit time of the Terrain / PodRoute / Pods stages at 9 km2),
+// P-4 (planner buffers at 9 km2). Also D-1 / D-2 / D-3 on the pads and pods.
+// TerrainCase is the per-fixture check + REPORT line. The synthetic cases run it here (CI). The real heightmaps run it from V2Tests
+// (A1's matrix, `-- v2`).
 
 using System;
 using System.Collections.Generic;
@@ -18,8 +19,8 @@ namespace AutoGenBatch
 
         private static void TerrainTests()
         {
-            // Terraces on a 35 % plane falling toward +z: the lower terrace sits in the base band, the upper one 60 m (merged: one pod)
-            // or 110 m (its own pod, a bench, the lower pod's UpperPad) above the lower terrace's top
+            // Terraces on a 35 % plane falling toward +z. The lower terrace sits in the base band. The upper one is 60 m above the lower
+            // terrace's top (merged: one pod) or 110 m above it (its own pod, a bench, the lower pod's UpperPad).
             float2[] region = Terrain.Rect(-500f, -600f, 500f, 600f);
             {
                 ResortPlan p = TerrainRun("Terrain terraces 60 m", Terraces(0.35, (209.0, 289.0), (460.0, 560.0)), region, out _);
@@ -50,9 +51,9 @@ namespace AutoGenBatch
                     }
                 }
             }
-            // Two terraces 60 m and 110 m above the lower terrace (a staircase of 60 m and 50 m steps, AR-10): the 60 m terrace merges into
-            // the lower one, the 110 m terrace keeps its own pod (its drop is measured against the merged set's root, not the 60 m terrace
-            // 50 m below it), and the two short faces split by the merged terrace join across it into the lower terrace's pod
+            // Two terraces 60 m and 110 m above the lower terrace (a staircase of 60 m and 50 m steps, AR-10). The 60 m terrace merges into
+            // the lower one. The 110 m terrace keeps its own pod (its drop is measured against the merged set's root, not the 60 m terrace
+            // 50 m below it). The merged terrace splits two short faces. They join across it into the lower terrace's pod.
             {
                 const string w = "Terrain two terraces 60 / 110 m";
                 ResortPlan p = TerrainRun(w, Terraces(0.35, (-14.0, 66.0), (209.0, 289.0), (460.0, 560.0)), region, out _);
@@ -76,8 +77,9 @@ namespace AutoGenBatch
                     }
                 }
             }
-            // A ridge: two 40 % faces (35 % down the fall line, 20 % off the crest) draining onto ONE apron pad (8 % down the fall line,
-            // 20 % off the crest); the crest sits on a cell column so it is a strict maximum. One pad, two pods (one per face).
+            // A ridge: two 40 % faces (35 % down the fall line, 20 % off the crest) draining onto ONE apron pad.
+            // The apron pad is 8 % down the fall line and 20 % off the crest. The crest sits on a cell column, so it is a strict maximum.
+            // One pad, two pods (one per face).
             {
                 const double crestX = 1.75;   // a lattice cell center (texel 2048 of the vanilla map)
                 HeightFn ridge = (x, z) => 1500.0 - (z < 400.0 ? 0.35 * z : 140.0 + 0.02 * (z - 400.0)) - 0.20 * Math.Abs(x - crestX);
@@ -103,7 +105,7 @@ namespace AutoGenBatch
                 var acc = new float2[3000];
                 for (int k = 0; k < acc.Length; k++)
                     acc[k] = new float2((float)(rnd.NextDouble() * 4000.0 - 2000.0), (float)(rnd.NextDouble() * 4000.0 - 2000.0));
-                acc[1] = acc[0];   // a duplicate x (the tool dedupes exact points; equal x with another z still occurs)
+                acc[1] = acc[0];   // a duplicate x (the tool dedupes exact points, and equal x with another z still occurs)
                 acc[2] = new float2(acc[0].x, acc[0].y + 30f);
                 Array.Sort(acc, (a, b) => a.x != b.x ? a.x.CompareTo(b.x) : a.y.CompareTo(b.y));
                 AutoPlanInput ai = ResortInput(Input(Terrain.Alpine(1u), Terrain.AlpineRegion(false)));
@@ -121,7 +123,7 @@ namespace AutoGenBatch
                 }
                 Check(bad == 0, w, $"{bad} pad(s) with an AccessM other than the full scan's");
             }
-            // A plane steeper than the pad rule everywhere: no pad, no pod, the scan still runs (the v1 runs are untouched)
+            // A plane steeper than the pad rule everywhere: no pad, no pod, the scan still runs (the v1 runs stay untouched)
             {
                 ResortPlan p = TerrainRun("Terrain plane 35 %", Terrain.Plane(0.35), region, out AutoPlanResult r);
                 if (p != null)
@@ -154,7 +156,7 @@ namespace AutoGenBatch
             return i;
         }
 
-        /// <summary>A Resort run on f / region with the pad and pod invariants checked; null when the plan is missing.</summary>
+        /// <summary>A Resort run on f / region with the pad and pod invariants checked. It returns null when the plan is missing.</summary>
         private static ResortPlan TerrainRun(string where, HeightFn f, float2[] region, out AutoPlanResult r)
         {
             var planner = new SkiRunAutoPlanner();
@@ -248,7 +250,7 @@ namespace AutoGenBatch
 
         private const float Terrain4Cell = 3.5f * 3.5f;   // the vanilla texel area (every fixture here is on the vanilla lattice)
 
-        /// <summary>One fixture: invariants, S-3 when the fixture should have pods (gates 2.2: >= 2 pods per 4 km2; a bench fixture at
+        /// <summary>One fixture: invariants, S-3 when the fixture should have pods (gates 2.2: >= 2 pods per 4 km2, and for a bench fixture at
         /// least one pod whose lower pad is a bench), and the REPORT line next to [E]'s bench table.</summary>
         private static void TerrainCase(string id, AutoPlanInput input, bool expectBench, bool expectPods)
         {
@@ -315,7 +317,7 @@ namespace AutoGenBatch
             return parts.Count == 0 ? "no pods" : string.Join(", ", parts);
         }
 
-        /// <summary>FNV over every pad and pod field (the plan fingerprint is A6's; this one covers the terrain part only).</summary>
+        /// <summary>FNV over every pad and pod field (the plan fingerprint is A6's, and this one covers the terrain part only).</summary>
         private static ulong TerrainPrint(ResortPlan p)
         {
             ulong h = 14695981039346656037UL;
@@ -342,8 +344,10 @@ namespace AutoGenBatch
             return h;
         }
 
-        // D-1 (rerun, rotated, reversed region), D-2 (sliced Step), D-3 (Reselect of Seed / Lifts / Home keeps the pads and pods equal to
-        // a fresh run with those knobs) on the terrain part of the plan
+        // D-1 (rerun, rotated, reversed region).
+        // D-2 (sliced Step).
+        // D-3 (Reselect of Seed / Lifts / Home keeps the pads and pods equal to a fresh run with those knobs).
+        // All three run on the terrain part of the plan.
         private static void TerrainDeterminism()
         {
             foreach (var (name, f, region) in new (string, HeightFn, float2[])[]
@@ -394,8 +398,8 @@ namespace AutoGenBatch
             }
         }
 
-        // P-1: the longest unit of the Terrain / PodRoute / Pods stages under 4 ms CoreCLR at 9 km2 (Step(4 ms) slices, the main-thread
-        // fallback's budget); P-4: every per-cell buffer under 80 MB at 9 km2. Plus the stage totals as a TIME line.
+        // P-1: the longest unit of the Terrain / PodRoute / Pods stages stays under 4 ms CoreCLR at 9 km2 (Step(4 ms) slices, the main-thread
+        // fallback's budget). P-4: every per-cell buffer stays under 80 MB at 9 km2. The test also gives the stage totals as a TIME line.
         private static void TerrainTiming()
         {
             foreach (var (name, f, region) in new (string, HeightFn, float2[])[]

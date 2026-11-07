@@ -1,9 +1,12 @@
 // LoopHoldTests - the pure arithmetic of a chairlift loop that stops and resumes (LiftLoopHold.cs). Where-tags `loop-hold/...`, LH-1..LH-5.
 // The chair clock is ChairPinSystem's, s = (offset + speed x TimeS) % L (ChairPinSystem.cs:1072-1076, :1140-1143), modeled with the same
-// double expressions. Pinned: Rebase keeps the pose across a hold within 1e-6 m (MoveChair's idempotence test is 1 mm,
-// ChairPinSystem.cs:1169-1171) over the whole uint frame clock range; Rebase(o, v, t, t, L) == o and FrozenPhase(v, t) == v * t bit for
-// bit; a held and resumed 40-chair loop keeps positions and spacing; GateOf holds only a known, Complete row that is NoPower or closed;
-// LiftClosedRule = no open run, with one game hour (HoldFrames 10,923 sim frames) of hysteresis, uint-wrap safe, a flicker never flips.
+// double expressions. The tests pin these facts:
+// - Rebase keeps the pose across a hold within 1e-6 m (MoveChair's idempotence test is 1 mm,
+//   ChairPinSystem.cs:1169-1171) over the whole uint frame clock range.
+// - Rebase(o, v, t, t, L) == o and FrozenPhase(v, t) == v * t bit for bit.
+// - A held and resumed 40-chair loop keeps positions and spacing.
+// - GateOf holds only a known, Complete row that is NoPower or closed.
+// - LiftClosedRule = no open run, with one game hour (HoldFrames 10,923 sim frames) of hysteresis, uint-wrap safe. A flicker never flips.
 
 using System;
 using System.Collections.Generic;
@@ -35,7 +38,7 @@ namespace LiftBatch
         }
 
         /// <summary>The tram (census row type = SkiCatalog index of "tram", Shuttle) owes ChairPin no loop, so
-        /// CompleteLiftsWithoutLoop skips it; every Loop type and an untyped row still do</summary>
+        /// CompleteLiftsWithoutLoop skips it. Every Loop type and an untyped row still do</summary>
         private static void Lh6ExpectsLoop()
         {
             const string W = "loop-hold/LH-6";
@@ -76,7 +79,7 @@ namespace LiftBatch
             Eq(", 2 held (closed)", LiftLoopHold.HeldSuffix(-4, 2), W, "a negative power count is ignored");
         }
 
-        /// <summary>A Shuttle type is exempt from the no-open-run hold's billing (trams run in summer as sightseeing); every
+        /// <summary>A Shuttle type is exempt from the no-open-run hold's billing (trams run in summer as sightseeing). Every
         /// Loop type and an untyped row keep it. A complete, powered tram with the area closed (summer, snow 0) carries.</summary>
         private static void Lh8TramSummer()
         {
@@ -92,7 +95,7 @@ namespace LiftBatch
                     tram = def;
                 Eq(!shuttle, LiftClosedRule.ClosedForLift(true, def), W, def.Id + " held when its area has no open run");
                 Eq(false, LiftClosedRule.ClosedForLift(false, def), W, def.Id + " not closed while a run is open");
-                // Every type bills NoOpenRun with no open run; the tram's share is 50 %, the Loop types' 25 %
+                // Every type bills NoOpenRun with no open run. The tram's share is 50 %, the Loop types' 25 %
                 Eq(false, LiftClosedRule.AreaOpenForBilling(false, def), W, def.Id + " billed NoOpenRun with no open run (T137 S1)");
                 Eq(true, LiftClosedRule.AreaOpenForBilling(true, def), W, def.Id + " billed as open with an open run");
                 Eq(shuttle ? 0.5f : 0.25f, LiftClosedRule.NoOpenRunShare(def), W, def.Id + " no-open-run share (T137 S1: tram 50 %, else 25 %)");
@@ -100,7 +103,7 @@ namespace LiftBatch
             Eq(0.25f, LiftClosedRule.NoOpenRunShare(null), W, "an untyped row's no-open-run share is 25 %");
             if (tram != null)
             {
-                // A 2,233 m tram: 11,000 + 4,500/km = 21,048.5 full; off-season 10,524.25
+                // A 2,233 m tram: 11,000 + 4,500/km = 21,048.5 full. Off-season 10,524.25
                 float off = SkiMoneyRules.LiftRate(SkiMoneyRules.LiftUpkeepBillingOf(true, LiftClosedRule.AreaOpenForBilling(false, tram)),
                                                    2233f, tram.FixedPerMonth, tram.PerKmPerMonth, LiftClosedRule.NoOpenRunShare(tram));
                 Check(Math.Abs(off - 10524.25f) < 0.01f, W, "tram 2,233 m off-season bill " + off + " (T137 S1: half of 21,048.5)");
@@ -117,7 +120,7 @@ namespace LiftBatch
         }
 
         /// <summary>The vanilla "low voltage not connected" icon goes when an LV wire reaches the stub, at its node or on its
-        /// middle; it stays with no wire</summary>
+        /// middle. It stays with no wire</summary>
         private static void LvIconRule()
         {
             const string W = "lv-icon";
@@ -125,14 +128,14 @@ namespace LiftBatch
             Eq(LvStubWire.AtNode, StationLvRule.Classify(1, 0), W + "/LV-1", "a wire edge ending at the stub node");
             Eq(LvStubWire.MidStub, StationLvRule.Classify(0, 1), W + "/LV-1", "a wire node local-connected onto the stub's middle");
             Eq(LvStubWire.AtNode, StationLvRule.Classify(1, 1), W + "/LV-1", "both: at node wins (the vanilla check sees it)");
-            // FG base with Connected 1224 / 1224 and the LV icon still up; its stub lies fully outside the mesh, so the wire end
+            // FG base with Connected 1224 / 1224 and the LV icon still up. Its stub lies fully outside the mesh, so the wire end
             // can land mid-stub
             Check(StationLvRule.ClearsVanillaIcon(true, StationLvRule.Classify(0, 1)), W + "/LV-2",
                   "FG base 469677:11 replay: wire mid-stub + vanilla LV icon -> removed");
             // DQ / gondola bases, never wired (0 / 1222): the icon is the truth and stays
             Check(!StationLvRule.ClearsVanillaIcon(true, StationLvRule.Classify(0, 0)), W + "/LV-3",
                   "DQ / gondola base replay: no wire -> the icon stays");
-            // Tram base (stub inside the mesh, wire at the tip node): vanilla already cleared it; nothing to do
+            // Tram base (stub inside the mesh, wire at the tip node): vanilla already cleared it. Nothing to do
             Check(!StationLvRule.ClearsVanillaIcon(false, StationLvRule.Classify(1, 0)) && StationLvRule.ClearsVanillaIcon(true, LvStubWire.AtNode),
                   W + "/LV-4", "tram base replay: no icon -> no command; a stale icon at a wired node is removed too");
         }
@@ -294,7 +297,7 @@ namespace LiftBatch
 
 
         /// <summary>Feeds the rule one observation every <paramref name="stride"/> frames from <paramref name="from"/> to
-        /// <paramref name="to"/> inclusive with a constant area state; returns the first frame at which the published state
+        /// <paramref name="to"/> inclusive with a constant area state. Returns the first frame at which the published state
         /// equals <paramref name="wantClosed"/>, or -1</summary>
         private static long FirstFlip(ref AreaClosedState s, bool areaOpen, uint from, uint to, uint stride, bool wantClosed)
         {
@@ -316,7 +319,7 @@ namespace LiftBatch
             Check(LiftClosedRule.HoldFrames * 24u >= 262144u && (LiftClosedRule.HoldFrames - 1u) * 24u < 262144u, W,
                   "HoldFrames is 262,144 / 24 rounded up (one game hour)");
 
-            // a: the first settled observation is taken at once (no debounce on a load): closed, and open
+            // a: the rule takes the first settled observation at once (no debounce on a load): closed, and open
             var first = new AreaClosedState();
             Eq(true, LiftClosedRule.Step(ref first, false, 5000u), W, "first observation no-open-run: closed at once");
             var firstOpen = new AreaClosedState();
@@ -384,7 +387,7 @@ namespace LiftBatch
             Eq(false, LiftClosedRule.Step(ref wr, false, unchecked(0xFFFFF800u + LiftClosedRule.HoldFrames - 1u)), W, "across the wrap: not yet");
             Eq(true, LiftClosedRule.Step(ref wr, false, unchecked(0xFFFFF800u + LiftClosedRule.HoldFrames)), W, "across the wrap: closed");
 
-            // i: GateOf: closed stops a Complete powered lift; it reopens when the area does; not Complete / no row never holds
+            // i: GateOf: closed stops a Complete powered lift. It reopens when the area does. Not Complete / no row never holds
             foreach (LiftPower p in new[] { LiftPower.Unknown, LiftPower.Powered })
             {
                 Eq(LoopGate.Run, LiftLoopHold.GateOf(true, true, p, false), W, "Complete, " + p + ", area open: Run");
@@ -394,7 +397,7 @@ namespace LiftBatch
                 Eq(LoopGate.Run, LiftLoopHold.GateOf(false, true, p, true), W, "no census row, closed: Run (fail open)");
             }
 
-            // j: the whole chain over a season: area state, hysteresis, closed flag, gate; a powered Complete linked lift
+            // j: the whole chain over a season: area state, hysteresis, closed flag, gate. A powered Complete linked lift
             var sum = new AreaClosedState();
             LoopGate g0 = Gate(ref sum, true, true, 0u);                       // autumn: a run is open
             LoopGate g1 = Gate(ref sum, false, true, 100000u);                 // the last run closes

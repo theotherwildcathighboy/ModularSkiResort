@@ -1,11 +1,16 @@
-// Tests for the pure SkiDayRules, the PowerOf hysteresis and the SkiResortScore additions. `public static class SkiDayTests` with `Run(check)`
-// and its own Near; Program.Main calls SkiDayTests.Run(Check). Oracles are literal hand values. Doubles +-1e-9 unless "exact", geometry in
-// float +-0.01, times now = 1,000,000. Property sections count their violations and report once per property (the first offender in the
-// message), so the check count stays small and fixed. Sections are lettered in the check messages ("skiday X ..."): A-G constants, citizen
-// / lodge checks, area state, claim window, distance and travel, closing frame, chance oracles; H chance properties (seed 20261005, 20,000
-// random sets); I rolls (Mix64 parity with RunSnowRules, statistics over 100,000 draws); J-O back-off, learning, powder, capacity, slices,
-// DayKey / Advance against SkiMoneyRules.MonthKey / SkiResortLedger.Advance, slope-side geometry; P PowerOf; Q-Y score additions, worked
-// scenarios, legs partition, on-arrival bookkeeping, measure-core, learning bounds, SkiTripSystems, per-tier capacity and price tolerance.
+// Tests for the pure SkiDayRules, the PowerOf hysteresis and the SkiResortScore additions. `public static class SkiDayTests` has `Run(check)`
+// and its own Near. Program.Main calls SkiDayTests.Run(Check). Oracles are literal hand values. Doubles use +-1e-9 unless "exact".
+// Geometry uses float +-0.01. Times use now = 1,000,000.
+// Property sections count their violations and report once per property (the first offender in the message). So the check count stays
+// small and fixed. The check messages give each section a letter ("skiday X ..."):
+// - A-G: constants, citizen / lodge checks, area state, claim window, distance and travel, closing frame, chance oracles.
+// - H: chance properties (seed 20261005, 20,000 random sets).
+// - I: rolls (Mix64 parity with RunSnowRules, statistics over 100,000 draws).
+// - J-O: back-off, learning, powder, capacity, slices, DayKey / Advance against SkiMoneyRules.MonthKey / SkiResortLedger.Advance,
+//   slope-side geometry.
+// - P: PowerOf.
+// - Q-Y: score additions, worked scenarios, legs partition, on-arrival bookkeeping, measure-core, learning bounds, SkiTripSystems,
+//   per-tier capacity and price tolerance.
 
 using System;
 using System.Collections.Generic;
@@ -105,7 +110,7 @@ namespace ResortBatch
             Check(Rules.ResidentSalt == 0x534B494441595331UL && Rules.TouristSalt == 0x534B494441595332UL &&
                   Ascii(Rules.ResidentSalt) == "SKIDAYS1" && Ascii(Rules.TouristSalt) == "SKIDAYS2", w, "salts \"SKIDAYS1\" / \"SKIDAYS2\"");
 
-            // Enum literals: the DUMP counters index by them; SkiDayLimit is gate R17's SKI_DAY_LIMIT.
+            // Enum literals: the DUMP counters index by them. SkiDayLimit is gate R17's SKI_DAY_LIMIT.
             Check((byte)SkiDayLimit.None == 0 && (byte)SkiDayLimit.Runs == 1 && (byte)SkiDayLimit.Lodges == 2, w, "SkiDayLimit 0/1/2");
             Check((byte)GK.Resident == 0 && (byte)GK.Tourist == 1, w, "GuestKind 0/1");
             Check((byte)TC.Walk == 0 && (byte)TC.Car == 1 && (byte)TC.NoCarFar == 2 && (byte)TC.None == 3, w, "TravelClass 0-3");
@@ -124,7 +129,7 @@ namespace ResortBatch
             Check((byte)ArmVerdict.Ok == 0 && (byte)ArmVerdict.BadInterval == 1 && (byte)ArmVerdict.BadOffset == 2 &&
                   (byte)ArmVerdict.LeisureTooFast == 3 && (byte)ArmVerdict.BehaviorTooFast == 4 && (byte)ArmVerdict.SystemOff == 5, w,
                   "ArmVerdict 0-5 (Round M2: SystemOff 5)");
-            // the trip-system bits (SkiTripSystems names them in this order; TripNeededToArm = the first two)
+            // the trip-system bits, in the order that SkiTripSystems names them (TripNeededToArm = the first two)
             Check(Rules.TripLeisure == 1 && Rules.TripBehavior == 2 && Rules.TripNeeded == 4 && Rules.TripResidentAI == 8 &&
                   Rules.TripResidentActions == 16 && Rules.TripResourceBuyer == 32 && Rules.TripAll == 63 && Rules.TripNeededToArm == 3, w,
                   "trip bits 1/2/4/8/16/32, all 63, needed to arm 3");
@@ -195,7 +200,7 @@ namespace ResortBatch
                 Reject gotT = Rules.CheckCitizen(t, out GK kindT);
                 Check(gotT == rows[i].tourist && kindT == GK.Tourist, w + " tourist", $"{rows[i].name}: {gotT} / {kindT}, expected {rows[i].tourist} / Tourist");
             }
-            // A resident ignores AttendingEvent either way (the base has it false; true changes nothing).
+            // A resident ignores AttendingEvent either way. The base has it false, and true changes nothing.
             Rules.CitizenFacts ev = BaseResident();
             ev.HouseholdAttendingEvent = true;
             Check(Rules.CheckCitizen(ev, out GK _) == Reject.None, w + " resident", "AttendingEvent true is ignored for residents");
@@ -356,7 +361,7 @@ namespace ResortBatch
                           $"t {times[i]} ({(n == 0 ? "day" : "night")}): closing − now {got}, expected {want} (−1 = false)");
                 }
             }
-            // floor, not round. Every time above is k/32, where both agree; 0.3f is 0.300000011920928955078125, so left = (0.6875 - t) x
+            // floor, not round. Every time above is k/32, where both agree. 0.3f is 0.300000011920928955078125, so left = (0.6875 - t) x
             // 262,144 = 101,580.796875 exactly: floor 101,580.
             {
                 bool ok = Rules.TryClosingFrame(Now, 0.3f, false, out uint closing);
@@ -485,7 +490,7 @@ namespace ResortBatch
         {
             const string w = "skiday H chance property";
             const int Sets = 20000;
-            const double Tol = 1e-12; // two clamps of the same straight line can differ by an ulp; scratch saw none
+            const double Tol = 1e-12; // two clamps of the same straight line can differ by an ulp, but scratch saw none
             var rng = new System.Random(20261005);
             string[] names =
             {
@@ -694,7 +699,7 @@ namespace ResortBatch
             for (int i = 0; i < 5; i++)
                 Rules.RecordOutcome(ref far, false);
             Check(Rules.Confidence(TC.NoCarFar, far) == 0.1, w, "NoCarFar, 5 failures: 0.1 (floor)");
-            // Guards: NaN counts read 0; Resolved saturates.
+            // Guards: NaN counts read 0. Resolved saturates.
             var odd = new Rules.ClassTrack { Arrived = double.NaN, Failed = double.NaN, Resolved = int.MaxValue };
             Check(Rules.Confidence(TC.Car, odd) == 1.0, w, "NaN counts read 0");
             Rules.RecordOutcome(ref odd, true);
@@ -758,7 +763,7 @@ namespace ResortBatch
                   Rules.FreshSteps(double.NaN) == 0 && Rules.FreshSteps(-1.0) == 0, w, "T134 FreshSteps: whole half steps, float guard, NaN / negative 0");
             Check(Rules.FreshOfHour(0.4f, true) == 0.4f && Rules.FreshOfHour(0.4f, false) == 0f && Rules.FreshOfHour(float.NaN, true) == 0f, w,
                   "T134 FreshOfHour: the precipitation of a snow hour, else 0");
-            // The field case: seven snow hours of light snow (0.2) are no powder day; a storm of 15 hours at 0.4 is (6.0 = full).
+            // The field case: seven snow hours of light snow (0.2) are no powder day. A storm of 15 hours at 0.4 is full powder (6.0 = full).
             Check(!Rules.PowderMark(Rules.PowderOf(Rules.FreshSteps(7 * 0.2))), w, "T134 7 light snow-hours (1.4): not a powder day (was one)");
             Check(Rules.PowderOf(Rules.FreshSteps(15 * 0.4)) == 1.0, w, "T134 a 15-hour storm at 0.4 (6.0): full powder");
 
@@ -885,8 +890,8 @@ namespace ResortBatch
             Check(!Rules.IsPowerOfTwo(0) && Rules.IsPowerOfTwo(1) && Rules.IsPowerOfTwo(64) && !Rules.IsPowerOfTwo(48) && !Rules.IsPowerOfTwo(-64) &&
                   !Rules.IsPowerOfTwo(int.MinValue) && Rules.IsPowerOfTwo(1 << 30), w, "IsPowerOfTwo");
 
-            // The 5-argument ArmCheck: SystemOff first when LeisureSystem (1) or CitizenBehaviorSystem (2) is off, else the 4-argument
-            // rule; extra bits ignored.
+            // The 5-argument ArmCheck: SystemOff comes first when LeisureSystem (1) or CitizenBehaviorSystem (2) is off. Otherwise the 4-argument
+            // rule applies. ArmCheck ignores extra bits.
             const string wa = "skiday M arm5";
             var arm5 = new (int l, int t, int b, int o, int on, ArmVerdict want, string why)[]
             {
@@ -1332,7 +1337,7 @@ namespace ResortBatch
             const string w = "skiday S scenario";
             Rules.Knobs def = Rules.DefaultKnobs();
 
-            // FT8 hill: capacity 154.3 -> 154 (runs), 193 on full powder; car claims fit until ~12:30, no car until ~10:50.
+            // FT8 hill: capacity 154.3 -> 154 (runs), 193 on full powder. Car claims fit until ~12:30, no car until ~10:50.
             var parts = new List<Score.RunPart>();
             Score.Result ft8 = Score.Compute(AreaIn(1), Ft8(), Lifts(2), parts);
             double cap = Rules.Capacity(ft8.RunsCapacity, 1, 0, out SkiDayLimit lim);
@@ -1360,7 +1365,7 @@ namespace ResortBatch
             double walk = Rules.TravelHours(300, Rules.StartSpeedWalk);
             Check(Fits(0.21875f, walk) && Fits(13f / 24f, walk) && !Fits(0.5520833f, walk), w + " tiny", "the walk fits from 05:15 to 13:00, not at 13:15 (last ~13:12)");
 
-            // Large resort (A 160, 3 lodges): 1080 (lodges), 1350 on powder; chances at 2 km, 5 km and slope-side tourists.
+            // Large resort (A 160, 3 lodges): 1080 (lodges), 1350 on powder. Chances at 2 km, 5 km and slope-side tourists.
             Score.Result large = Score.Compute(AreaIn(3), Large(), Lifts(6), parts);
             double lCap = Rules.Capacity(large.RunsCapacity, 3, 0, out SkiDayLimit lLim), lCapP = Rules.Capacity(large.RunsCapacity, 3, 1, out SkiDayLimit _);
             Check(large.Attraction == 160 && lCap == 1080 && lLim == SkiDayLimit.Lodges && lCapP == 1350, w + " large",
@@ -1433,7 +1438,7 @@ namespace ResortBatch
             }
             Check(badPartition == 0, wm, $"MainMode partitions the 256 legs bytes: {badPartition} bad");
 
-            // FitVerdict (now 1,000,000; 1 h of travel + MinStayHours 2 = 3 h = 32,768 frames).
+            // FitVerdict with now 1,000,000: 1 h of travel + MinStayHours 2 = 3 h = 32,768 frames.
             const string wf = "skiday T fit";
             Check(Fv(Now + 100000u, Now + 40000u, 1.0) == Rules.Fit.Fits, wf, "closing +40,000, vanilla +100,000 → Fits");
             Check(Fv(Now + 100000u, Now + 30000u, 1.0) == Rules.Fit.NoTimeBeforeClosing, wf, "closing +30,000 → NoTimeBeforeClosing");
@@ -1461,7 +1466,7 @@ namespace ResortBatch
             }
             Check(badFit == 0, wf, $"FitVerdict == Fits ⇔ ClaimFits over 5,000 random rows: {badFit} bad{(firstFit != null ? "; first " + firstFit : "")}");
 
-            // HourDate = RunSnowRules.HourAlignedDate's return for that hour key; MonthOfHour.
+            // The section checks HourDate and MonthOfHour. HourDate = RunSnowRules.HourAlignedDate's return for that hour key.
             const string wh = "skiday T hour";
             int[] hk = { 0, 1, 143, 287 };
             for (int i = 0; i < hk.Length; i++)
@@ -1488,8 +1493,8 @@ namespace ResortBatch
             Check(Rules.Advance(ref f, 103, true) == MonthStep.None && !f.LastSinceLoad, wa, "same key, short → None, flags unchanged");
             Check(Rules.Advance(ref f, 110, true) == MonthStep.Jumped && !f.LastKnown && !f.LastSinceLoad && f.ThisSinceLoad, wa, "(110, true) → Jumped as before");
             // An independent oracle for the parity of the ski days' month flags and the guest ledger (SkiResortLedger.Advance(key,
-            // closedMonthShort)): they step alike over random keys and a random short flag (comparing Advance(f, key) with Advance(f, key,
-            // false) would be the same code path).
+            // closedMonthShort)). They step alike over random keys and a random short flag. Comparing Advance(f, key) with Advance(f, key,
+            // false) would be the same code path.
             int mism = 0, shortRolls = 0;
             string firstAdv = null;
             for (int s = 0; s < 2000; s++)
@@ -1524,7 +1529,7 @@ namespace ResortBatch
         }
 
         /// <summary>arrived-at-lodge.md section 3 (oracles re-computed with node in its check): a guest found in the lodge with
-        /// Leisure gone is booked as an arrival (RecordOutcome(true) and LearnSpeed), not a failure.</summary>
+        /// Leisure gone is booked as an arrival (RecordOutcome(true) and LearnSpeed), not as a failure.</summary>
         private static void OnArrival()
         {
             const string w = "skiday U on-arrival";
@@ -1552,7 +1557,7 @@ namespace ResortBatch
             t = Rules.NewTrack(TC.Walk);
             Rules.LearnSpeed(ref t, TC.Walk, 299, Now, Now + 21845u);
             Check(t.SpeedKmPerHour == 0.3, w + " U2", $"walk 299 m: speed {R(t.SpeedKmPerHour)}, expected 0.3 unchanged (under 300 m)");
-            // U3, the hub row "cannot reach": 8 arrivals then 13 failures -> on; the last 4 failures booked on arrival -> off.
+            // U3, the hub row "cannot reach": 8 arrivals then 13 failures -> on. The last 4 failures booked on arrival -> off.
             Rules.ClassTrack car = Rules.NewTrack(TC.Car);
             for (int i = 0; i < 8; i++)
                 Rules.RecordOutcome(ref car, true);
@@ -1647,8 +1652,8 @@ namespace ResortBatch
             }
         }
 
-        /// <summary>u9-learning.md section 3 U1-U11 as W1-W11 (now = 1,000,000; doubles +-1e-9 unless exact; BoundLearn tri-state in
-        /// place of true / false).</summary>
+        /// <summary>u9-learning.md section 3 U1-U11 as W1-W11 (now = 1,000,000). Doubles use +-1e-9 unless exact. BoundLearn is a tri-state
+        /// (in place of true / false).</summary>
         private static void Learning()
         {
             const string w = "skiday W learning";
@@ -1734,7 +1739,7 @@ namespace ResortBatch
             Rules.LearnSpeedAll(ref t, TC.Car, 3000, Now, Now + 65536u, dk);
             Check(Near(t.SpeedAllKmPerHour, 0.8225, 1e-12), w + " W6", $"late arrival 3,000 m in 6 h (sample 0.65) from 0.88: {R(t.SpeedAllKmPerHour)}, expected 0.8225");
 
-            // W7 SpeedBound (km x 1.3 / hours; +infinity under LearnSpeed's guards).
+            // W7 SpeedBound: km x 1.3 / hours, and +infinity under LearnSpeed's guards.
             Check(Near(Rules.SpeedBound(3360, Now, Now + 32768u), 1.456, 1e-12), w + " W7", $"3 h: {R(Rules.SpeedBound(3360, Now, Now + 32768u))}, expected 1.456");
             Check(Near(Rules.SpeedBound(3360, Now, Now + 131072u), 0.364, 1e-12), w + " W7", "12 h: expected 0.364");
             double b547 = Rules.SpeedBound(3360, Now, Now + 547u);
@@ -1774,8 +1779,8 @@ namespace ResortBatch
             bl = Rules.LearnSpeedBound(ref t, TC.Car, double.NaN, Now, Now + 32768u, dk);
             Check(bl == Rules.BoundLearn.NoInformation && t.SpeedAllKmPerHour == 2.2, w + " W8", $"NaN distance: {bl}, expected NoInformation, 2.2");
 
-            // W9 property: with the defaults every send is bit-identical: track A gets the new calls, track B only the original
-            // LearnSpeed on its arrivals; the arrival-only speed and FitSpeed(A) equal B's speed at every step.
+            // W9 property: with the defaults every send is bit-identical. Track A gets the new calls. Track B gets only the original
+            // LearnSpeed on its arrivals. The arrival-only speed and FitSpeed(A) equal B's speed at every step.
             TC[] classes = { TC.Walk, TC.Car, TC.NoCarFar };
             rng = new System.Random(20261010);
             int badSends = 0;
@@ -1822,7 +1827,7 @@ namespace ResortBatch
             Check(badSends == 0, w + " W9", $"sends unchanged with the defaults over 2,000 × 50 events: {badSends} step(s) differ" +
                                             (firstSend != null ? "; first " + firstSend : ""));
 
-            // W10 the bound property: LearnSpeedBound never raises the all-outcomes speed; when it lowers it, the new speed is at least
+            // W10 the bound property: LearnSpeedBound never raises the all-outcomes speed. When it lowers the speed, the new speed is at least
             // clamp(bound, floor, cap) and at least the floor.
             rng = new System.Random(20261010);
             int raised = 0, under = 0;

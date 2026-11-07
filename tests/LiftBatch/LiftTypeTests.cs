@@ -1,9 +1,14 @@
 // LiftTypeTests - typed lift rows through the census and the served rule (where-tags `lifttype-...`, LT-1..LT-14).
-// Pinned: lifts of different types stay separate Complete rows; a spur of another type is its own Unfinished row (split note, one
-// "split at node" announcement per load); an edge typed NoType never unions; a lift between stations of another type is Mixed;
-// Row.Type resolution; LiftServedRule per type (AlongLine 150, TerminalsOnly 300, both inclusive; TopY margin; unpowered and Open
-// never serve); the up-lane rule (StationAlign.UpLaneIsSecond; LiftLoopCache itself needs Game types); the tram's Lift built the way
-// LiftCensusSystem.CopyServeLifts builds it (Game side, mirrored here). Every oracle is a literal.
+// The tests pin these facts:
+// - Lifts of different types stay separate Complete rows.
+// - A spur of another type is its own Unfinished row (split note, one "split at node" announcement per load).
+// - An edge typed NoType never unions.
+// - A lift between stations of another type is Mixed.
+// - Row.Type resolution.
+// - LiftServedRule per type: AlongLine 150 and TerminalsOnly 300 (both inclusive), and the TopY margin. Unpowered and Open never serve.
+// - The up-lane rule (StationAlign.UpLaneIsSecond). LiftLoopCache itself needs Game types.
+// - The tram's Lift built the way LiftCensusSystem.CopyServeLifts builds it (Game side, mirrored here).
+// Every oracle is a literal.
 // Helpers: Program.World (set World.BeforeBuild to stamp Edge.Type / Station.Type before Census.Build), Program.StraightLift(), Program.R(index).
 
 using System;
@@ -52,7 +57,7 @@ namespace LiftBatch
                   ", got " + actual.ToString("R"));
         }
 
-        /// <summary>Stamps lift types onto the census input by entity index (edges and stations; default = fixed-grip 0, the
+        /// <summary>Stamps lift types onto the census input by entity index (edges and stations, default = fixed-grip 0, the
         /// struct default, so an unstamped id stays fixed-grip)</summary>
         private static void Stamp(Program.World w, Dictionary<int, byte> edgeTypes, Dictionary<int, byte> stationTypes)
         {
@@ -116,8 +121,8 @@ namespace LiftBatch
         private static void Lt1TwoTypesApart()
         {
             const string W = "lifttype-1 two types apart";
-            var w = Program.StraightLift();                  // FG: stations 1, 2; nodes 200-205; sections 101-105
-            AddLift(w, 3, 4, 300, 111, 1000f);               // DQ: stations 3, 4; nodes 300-305; sections 111-115
+            var w = Program.StraightLift();                  // FG: stations 1, 2. Nodes 200-205. Sections 101-105
+            AddLift(w, 3, 4, 300, 111, 1000f);               // DQ: stations 3, 4. Nodes 300-305. Sections 111-115
             Stamp(w, Types(111, DQ, 112, DQ, 113, DQ, 114, DQ, 115, DQ), Types(3, DQ, 4, DQ));
             w.Build();
             var rows = w.Census.Rows;
@@ -140,7 +145,7 @@ namespace LiftBatch
             w.Edge(106, 202, 210);                           // a DQ spur off FG tower 202
             Stamp(w, Types(106, DQ), null);
             w.Build();
-            // Edges of different types do not union at a shared node: the node is a split, the FG lift stays Complete and the
+            // Edges of different types do not union at a shared node. The node is a split, the FG lift stays Complete and the
             // spur is its own row.
             var rows = w.Census.Rows;
             Eq(2, rows.Count, W, "two rows (T05: the spur is counted apart at the shared tower node)");
@@ -293,7 +298,7 @@ namespace LiftBatch
                       "split rows: each carries its own edge's type (tram 105, detachable 107)");
             Check(!NoteContains(w2b, "mixes lift types"), W, "no mixed note: " + Notes(w2b));
 
-            // A Mixed row with stations: the base station's type (LT-3 checks FG; here a DQ base with FG edges)
+            // A Mixed row with stations: the base station's type (LT-3 checks FG. Here: a DQ base with FG edges)
             var w3 = Program.StraightLift();
             Stamp(w3, null, Types(1, DQ, 2, DQ));
             w3.Build();
@@ -445,8 +450,8 @@ namespace LiftBatch
             Check(math.all(nan == fg), W, "a NaN stub z falls back to the fixed-grip −12");
             StationDef dqBase = SkiCatalog.StationOf(1, StationRole.Base);
             Check(dqBase != null && dqBase.StubTipLocalZ == -16f, W, "the detachable base row's stub tip is −16");
-            // The 4-argument tip on the row's line axis x. The 3-argument call is the x 0 case bit for bit; the tram base's tip
-            // (-4, 0, -12) under the 30 degree yaw is pos + (-4 cos 30 - 12 sin 30, 0, 4 sin 30 - 12 cos 30); a NaN x counts as 0.
+            // The 4-argument tip on the row's line axis x. The 3-argument call is the x 0 case bit for bit. The tram base's tip
+            // (-4, 0, -12) under the 30 degree yaw is pos + (-4 cos 30 - 12 sin 30, 0, 4 sin 30 - 12 cos 30). A NaN x counts as 0.
             Check(math.all(StationAlign.StubTip(pos, rot, -16f, 0f) == dq), W, "StubTip(pos, rot, z, 0) == StubTip(pos, rot, z)");
             float3 tb = StationAlign.StubTip(pos, rot, -12f, -4f);
             Near(10f - 3.4641016f - 6f, tb.x, 1e-4f, W, "x −4, z −12: x = 10 − 4 cos 30° − 12 sin 30°");
@@ -490,12 +495,12 @@ namespace LiftBatch
                 return;
             Check(tram.ServeRule == ServeRuleKind.TerminalsOnly && tram.ServeRadiusM == 300f && tram.TopMarginM == 15f, W,
                   "the tram row is TerminalsOnly 300 / 15");
-            // The World stamps the fixed-grip -12 stub tip; the census system uses each station row's own (SkiCatalog.cs tram
-            // rows -12, LiftCensusSystem.cs:1218): equal, so the World's tips are the tram's
+            // The World stamps the fixed-grip -12 stub tip. The census system uses each station row's own (SkiCatalog.cs tram
+            // rows -12, LiftCensusSystem.cs:1218). The two are equal, so the World's tips are the tram's
             Eq(-12f, tramBase.StubTipLocalZ, W, "tram base StubTipLocalZ");
             Eq(-12f, tramTop.StubTipLocalZ, W, "tram top StubTipLocalZ");
 
-            // A 1 km tram: base at the origin facing +z (yaw 180), top 400 m up facing the base; two towers; three spans
+            // A 1 km tram: base at the origin facing +z (yaw 180), top 400 m up facing the base, two towers, three spans
             var w = new Program.World();
             float3 basePos = new float3(0f, 0f, 0f), topPos = new float3(0f, 400f, 1000f);
             w.Station(1, true, basePos, 180f);
@@ -594,7 +599,7 @@ namespace LiftBatch
         private static void Lt13SplitAtSharedNode()
         {
             const string W = "lifttype-13 split at a shared node";
-            var w = Program.StraightLift();                  // gondola: stations 1 (base), 2 (top); nodes 200-205; sections 101-105
+            var w = Program.StraightLift();                  // gondola: stations 1 (base), 2 (top). Nodes 200-205. Sections 101-105
             // A tram chain: base 3 (node 300) -> 301 -> shared gondola tower 202 -> 303 -> top 4 (node 305).
             w.Station(3, true, new float3(500f, 0f, 0f), 180f);
             w.Station(4, false, new float3(500f, 100f, 600f), 0f);
@@ -630,7 +635,7 @@ namespace LiftBatch
                   w.Census.NewSplits[0].Contains("gondola|tram"), W, "split line: " + string.Join("|", w.Census.NewSplits));
             Eq(0, w.Census.Rows[0].Gaps + w.Census.Rows[1].Gaps, W, "no gaps");
 
-            // Per load, once: a second build of the same graph announces nothing new; a Reset announces it again.
+            // Per load, once: a second build of the same graph announces nothing new. A Reset announces it again.
             w.Build();
             Eq(0, w.Census.NewSplits.Count, W, "no second announcement");
             Eq(1, w.Census.SplitNotes.Count, W, "the split note is still there");
@@ -667,7 +672,7 @@ namespace LiftBatch
             Eq(0, w.Census.SplitNotes.Count, W, "no split note");
 
             // A line of one type touching stations of another type (edge type != station type) is still Mixed, even with a split
-            // node on it: a tram line between gondola stations, plus a fixed-grip spur at one of its towers.
+            // node on it. The case: a tram line between gondola stations, plus a fixed-grip spur at one of its towers.
             var w2 = Program.StraightLift();
             w2.Node(210, new float3(40f, 20f, 240f));
             w2.Edge(106, 202, 210);                          // FG spur at tower 202 ...
@@ -699,7 +704,7 @@ namespace LiftBatch
             float2 b2 = new float2(0f, 600f), t2 = new float2(0f, 0f);
             Check(StationAlign.UpLaneIsSecond(b2, t2, right, left), W, "uphill −z: first = +x (left), second = −x (right) → swap");
             Check(!StationAlign.UpLaneIsSecond(b2, t2, left, right), W, "uphill −z: first = −x (right) → keep");
-            // A 45° lift: base (0, 0) → top (424.26, 424.26); right-hand normal (0.7071, −0.7071).
+            // A 45° lift: base (0, 0) → top (424.26, 424.26). Right-hand normal (0.7071, −0.7071).
             float2 b3 = new float2(0f, 0f), t3 = new float2(424.26f, 424.26f);
             float2 mid = new float2(212.13f, 212.13f), n = new float2(0.70710678f, -0.70710678f) * 2.6f;
             Check(StationAlign.UpLaneIsSecond(b3, t3, mid - n, mid + n), W, "45°: second on the right → swap");

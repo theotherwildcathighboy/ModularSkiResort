@@ -1,10 +1,10 @@
 // RunsFirst (prototype after field test 5): terrain-first run candidates. Reads the mountain the way a person does (drainages and
-// spurs, top to bottom), rates each line, picks a spaced set, and renders it beside the v2 plan of the same region (uphill = image top).
+// spurs, top to bottom). It rates each line, picks a spaced set, and renders it beside the v2 plan of the same region (uphill = image top).
 // Host only: nothing here is wired into the mod. Run from the repo root:
 //   dotnet run --project tests/AutoGenBatch/AutoGenBatch.csproj -c Release -- rf <out-dir>
-// The planner's hot methods are marked AggressiveOptimization: a region plans in about a second once the runtime has tiered its
-// code up, but the first region of a run spent 2-3 s more in tier-0 code (tiering waits while the pipeline keeps compiling new
-// methods), and the first region counts against the same 5 s as the others.
+// The planner's hot methods are marked AggressiveOptimization. A region plans in about a second once the runtime has tiered its
+// code up. But the first region of a run spent 2-3 s more in tier-0 code (tiering waits while the pipeline keeps compiling new
+// methods). The first region counts against the same 5 s as the others.
 
 using System;
 using System.Collections.Generic;
@@ -46,13 +46,13 @@ namespace AutoGenBatch
         // beginner and intermediate vertical is scarce and worth more per meter than expert vertical
         private static float BandWeight(SlopeBand b) => MixW != null ? MixW[(int)b] : b == SlopeBand.Green ? 3f : b == SlopeBand.Blue ? 2f : 1f;
 
-        // v5 grade mix (RF_MIXW): weigh a band by the region's own ground (the share of its 100 m cells in the band, rated as the
-        // scorecard rates them) over the share of the candidate lines' drop in it, instead of the fixed 3 / 2 / 1. 1: lines banded by
-        // their own pitch, the weights also used for run candidates; 2: lines banded by the ground under them (the scorecard's run
+        // v5 grade mix (RF_MIXW): weigh a band by the region's own ground over the share of the candidate lines' drop in it, instead of the
+        // fixed 3 / 2 / 1. The region's own ground is the share of its 100 m cells in the band, rated as the scorecard rates them. 1: lines
+        // banded by their own pitch, the weights also used for run candidates. 2: lines banded by the ground under them (the scorecard's run
         // band), the pick only. Off: both lowered the visible grade mix (see the v5 report).
         private static readonly int MixMode = (int)Env("RF_MIXW", 0f);
         private static readonly float MixGreenMin = Env("RF_MIXGREEN", 1.5f);   // green keeps at least this weight (the learning areas)
-        private static float[] MixW;   // per band, for the region being planned; null: the fixed weights
+        private static float[] MixW;   // per band, for the region being planned (null: the fixed weights)
 
         /// <summary>The region's ground mix as scorecard v5 rates it: 100 m cells inside the ring, each the 85th percentile of the raw
         /// grade on a 20 m grid inside it, skiable from the green line to a 1.0 pitch (hostile ground counts as double black).</summary>
@@ -125,7 +125,7 @@ namespace AutoGenBatch
             public double OX, OZ;          // world xz of cell (0, 0)'s center
             public float[] H;              // smoothed heights
             public bool[] In;
-            public HeightSnapshot S;       // the raw terrain: stations, traverses and runs are checked on it
+            public HeightSnapshot S;       // the raw terrain: the code checks stations, traverses and runs on it
             public float[] Hr;             // raw height at each cell center
             public float2 World(int c) => new float2((float)(OX + (c % W) * CellM), (float)(OZ + (c / W) * CellM));
         }
@@ -180,9 +180,9 @@ namespace AutoGenBatch
                         t.RemoveAt(1);
                     if (t.Count < 4)
                         continue;
-                    // "hole x,z x,z ..." after the outline cuts a no-go area out of the region (a cliff band): the ring becomes a
-                    // keyhole (outline, a zero-width bridge to the hole, the hole reversed, back), which every even-odd inside
-                    // test and the shoelace area already read as outline minus hole
+                    // "hole x,z x,z ..." after the outline cuts a no-go area out of the region (a cliff band). The ring becomes a
+                    // keyhole (outline, a zero-width bridge to the hole, the hole reversed, back). Every even-odd inside
+                    // test and the shoelace area already read a keyhole as outline minus hole
                     var parts = new List<List<float2>> { new List<float2>() };
                     for (int i = 1; i < t.Count; i++)
                     {
@@ -304,7 +304,7 @@ namespace AutoGenBatch
             Plan built = BuildPlan(g, rec, lines, lifts, km2r);
             Tick("plan");
             // the village lift (from the opus-med contest entry): the longest main lift off the lowest base whose top is a hub (another
-            // lift loads within 300 m) is a gondola, a resort's main lift from the village to mid-mountain with chairs stacked above it
+            // lift loads within 300 m) is a gondola: a resort's main lift from the village to mid-mountain, with chairs stacked above it
             Lift village = null;
             float lowest = lifts.Count > 0 ? lifts.Min(lf => lf.Bottom.y) : 0f;
             foreach (Lift lf in lifts)
@@ -520,7 +520,7 @@ namespace AutoGenBatch
             return false;
         }
 
-        /// <summary>Hack-order stems: from each outlet, the main stem climbs the largest upstream branch to the divide; every other
+        /// <summary>Hack-order stems: from each outlet, the main stem climbs the largest upstream branch to the divide. Every other
         /// branch over the channel size starts its own stem. Each returned path runs from its stem's top down to the outlet.</summary>
         private static IEnumerable<List<int>> Stems(Grid g, int[] rec, float[] acc, float minCells)
         {
@@ -585,11 +585,11 @@ namespace AutoGenBatch
             return math.sqrt(gx * gx + gz * gz);
         }
 
-        /// <summary>Raw terrain height (the 3.5 m heightmap, as the game samples it); NaN outside the snapshot.</summary>
+        /// <summary>Raw terrain height (the 3.5 m heightmap, as the game samples it). NaN outside the snapshot.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static float RawH(Grid g, float2 p) => g.S.Sample(new float3(p.x, 0f, p.y));
 
-        /// <summary>Raw grade from a 10 m central difference: what a station pad is judged by.</summary>
+        /// <summary>Raw grade from a 10 m central difference: what the code judges a station pad by.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static float RawGrade(Grid g, float2 p)
         {
@@ -773,7 +773,7 @@ namespace AutoGenBatch
             for (int i = 0; i < lines.Count; i++)
                 lines[i].Id = i + 1;
             var taken = new PointHash();
-            var best = new float[5];   // per band: "weak" is judged against lines of the same color
+            var best = new float[5];   // per band: the pick judges "weak" against lines of the same color
             foreach (Line l in lines)
                 best[(int)l.Band] = Math.Max(best[(int)l.Band], l.Score);
             int cap = Math.Clamp((int)Math.Round(PicksPerKm2 * km2), 12, 80), picks = 0;
@@ -789,8 +789,8 @@ namespace AutoGenBatch
                     l.Why = "weak";
                     continue;
                 }
-                // the merge: the line ends where it runs onto an earlier pick (the shared trunk is drawn and counted once);
-                // found first, so a line that feeds a picked trunk is judged on its own part only
+                // the merge: the line ends where it runs onto an earlier pick (the code draws and counts the shared trunk once).
+                // The code finds the merge first, so it judges a line that feeds a picked trunk on its own part only
                 int run = 0, end = l.Pts.Count;
                 for (int i = 3; i < l.Pts.Count; i++)
                 {
@@ -1003,9 +1003,10 @@ namespace AutoGenBatch
             foreach (Line l in lines)
                 if (!l.Picked)
                     Stroke(right, Img(l, fromWorld), 0.6f, (120, 200, 210));
-            // right: the plan as scorecard v3 reads it: runs solid by the ground under them; graded tracks dashed, a green cat track
-            // light green, a diagonal run (graded steeper than the blue line) in its band's color with a white edge; picked lines no
-            // lift serves gray
+            // right: the plan as scorecard v3 reads it:
+            // - runs solid by the ground under them
+            // - graded tracks dashed: a green cat track light green, a diagonal run (graded steeper than the blue line) in its band's color with a white edge
+            // - picked lines no lift serves gray
             void Track(List<float2> tr)
             {
                 var (run, band) = TrackClass(g, tr);

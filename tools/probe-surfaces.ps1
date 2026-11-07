@@ -1,28 +1,32 @@
-# probe-surfaces.ps1 - read which .Texture each imported .Surface binds (probe F1, fine-detail pass;
+# probe-surfaces.ps1 - read which .Texture each imported .Surface binds (probe F1, fine-detail pass:
 # docs/research/art/assets-2026-10/surgery/probes-B.md). Read-only: never writes under ImportedData.
 #
 #   .\tools\probe-surfaces.ps1                                   # SkiProbeSheet* surfaces + textures
 #   .\tools\probe-surfaces.ps1 -Snapshot docs\research\field\2026-10-13\probesB-batch1.json
-#                                                                # also save the table; the parent folder
+#                                                                # also save the table. The parent folder
 #                                                                # is CREATED if missing (checker fix 2026-10-12)
 #   .\tools\probe-surfaces.ps1 -Compare docs\research\field\2026-10-13\probesB-batch1.json   # diff vs a snapshot
 #   .\tools\probe-surfaces.ps1 -Pattern SkiSnowGunFanA -Owner SkiSnowGunFanA   # any asset (sanity: LOD1/2 share LOD0)
 #   .\tools\probe-surfaces.ps1 -Logs                             # also grep the logs (see below)
 #
-# Run it from the repo root (the examples are relative to it; a relative -Snapshot / -Compare resolves against the
-# PowerShell location, not .NET's process directory). Needs no admin rights and never writes under ImportedData.
+# Run it from the repo root (the examples are relative to it). A relative -Snapshot / -Compare resolves against the
+# PowerShell location, not .NET's process directory. The tool needs no admin rights and never writes under ImportedData.
 #
 # Format (measured 2026-10-12 on ImportedData\c030ee3ff256df91\SkiSnowGunFanA_*.Surface): a list of
-# [1-byte length][ASCII property name][0xFF][16 bytes] entries; the 16 bytes are the texture's CID with the
+# [1-byte length][ASCII property name][0xFF][16 bytes] entries. The 16 bytes are the texture's CID with the
 # two hex digits of every byte swapped (bytes 1a 03 76 5c ... = SkiSnowGunFanA_BaseColor_*.Texture.cid
 # a13067c5...). The texture files live FLAT in the seed folder (AssetImportPipeline.cs:2898-2918, FS8),
-# named <asset-group texture name>_<hash>.Texture: an owner-named texture behind a sharer's slot = SHARED,
-# a sharer-named one = COPY, no matching .Texture.cid = UNRESOLVED (orphan), no _BaseColorMap = FALLBACK.
-# -Logs greps Logs\AssetPipeline.log (logger "AssetPipeline", AssetImportPipeline.cs:291; the FILE NAME is inferred
-# from the logger name, no such file exists until an Editor session has run) and Player.log (one level ABOVE Logs\:
-# ...\Cities Skylines II\Player.log) for "Using fallback" (log.InfoFormat, :537-545) and SkiProbe lines. If
-# AssetPipeline.log is absent the tool lists the Logs\ files that look related. Archive Logs\ AND Player.log before
-# relaunching the game (Logs\ is cleared at every start, Player.log rotates to Player-prev.log).
+# named <asset-group texture name>_<hash>.Texture. Labels:
+#   an owner-named texture behind a sharer's slot = SHARED
+#   a sharer-named texture = COPY
+#   no matching .Texture.cid = UNRESOLVED (orphan)
+#   no _BaseColorMap = FALLBACK
+# -Logs greps Logs\AssetPipeline.log and Player.log for "Using fallback" (log.InfoFormat, :537-545) and SkiProbe lines.
+# The first file comes from logger "AssetPipeline", AssetImportPipeline.cs:291. The FILE NAME is inferred from the logger
+# name. No such file exists until an Editor session has run. Player.log sits one level ABOVE Logs\:
+# ...\Cities Skylines II\Player.log. If AssetPipeline.log is absent, the tool lists the Logs\ files that look related.
+# Archive Logs\ AND Player.log before relaunching the game. Logs\ is cleared at every start. Player.log rotates to
+# Player-prev.log.
 
 param(
     [string]$Pattern = "SkiProbeSheet",
@@ -102,8 +106,8 @@ foreach ($t in $tex) {
 }
 
 if ($Snapshot) {
-    # [IO.File] resolves a relative path against the process directory, not the PowerShell location: resolve first,
-    # and create the parent folder (the field-test folder docs\research\field\<date>\ may not exist yet).
+    # [IO.File] resolves a relative path against the process directory, not the PowerShell location.
+    # Resolve the path first. Create the parent folder too (the field-test folder docs\research\field\<date>\ may not exist yet).
     $snapPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Snapshot)
     $snapDir = Split-Path -Parent $snapPath
     if ($snapDir -and -not (Test-Path -LiteralPath $snapDir)) {

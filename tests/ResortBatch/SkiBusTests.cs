@@ -1,6 +1,9 @@
-// Tests for the Ski Bus Depot's pure rules: SkiBusRules (the coach bill, the nearest pick, what a verdict means), SkiDayRules.CheckDepot (the
-// lodge order with the road always required, no slope-side rule, a passing hill lodge required), the claim flag, the ledger's bus charge.
-// `public static class SkiBusTests` with `Run(check)`; Program.Main calls it. Oracles are literal hand values, floats +-0.01.
+// Tests for the Ski Bus Depot's pure rules:
+// - SkiBusRules (the coach bill, the nearest pick, what a verdict means).
+// - SkiDayRules.CheckDepot (the lodge order with the road always required, no slope-side rule, a passing hill lodge required).
+// - The claim flag.
+// - The ledger's bus charge.
+// It is a `public static class SkiBusTests` with `Run(check)`. Program.Main calls it. Oracles are literal hand values, floats +-0.01.
 
 using System;
 using System.Collections.Generic;
@@ -71,7 +74,7 @@ namespace ResortBatch
 
         private static Rules.LodgeFacts GoodDepot()
         {
-            // IsLodgePrefab = the job's "this row is a claim target"; the depot's slope-side distance is never measured.
+            // IsLodgePrefab = the job's "this row is a claim target". The code never measures the depot's slope-side distance.
             return new Rules.LodgeFacts
             {
                 IsLodgePrefab = true, OnLiveSign = true, Active = true, Destroyed = false, LeisureTagged = true, HasRoad = true,

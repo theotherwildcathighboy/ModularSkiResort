@@ -1,7 +1,13 @@
-// Unit tests of SkiGladeCompose: moved constants, the level tables, ThinHash (the rank key) against ThinSelect and a
-// test-local restatement, SeparationHolds, garbage inputs, "Params.Mode / ThinFraction / GladeDensity / MaxPlant are not
-// read", PlanKey properties (level-independent, relevance of Existing and other-layer trees), the planner's PREFIX
-// PROPERTY and the TIME report.
+// Unit tests of SkiGladeCompose. They cover these points:
+// - moved constants
+// - the level tables
+// - ThinHash (the rank key) against ThinSelect and a test-local restatement
+// - SeparationHolds
+// - garbage inputs
+// - "Params.Mode / ThinFraction / GladeDensity / MaxPlant are not read"
+// - PlanKey properties (level-independent, relevance of Existing and other-layer trees)
+// - the PREFIX PROPERTY of the planner
+// - the TIME report
 
 using System;
 using System.Collections.Generic;
@@ -143,7 +149,7 @@ namespace GladeBatch
             ulong k0 = SkiGladeCompose.PlanKey(b);
             Check(k0 != 0UL && k0 == rb.PlanKey, "compose/plankey", "PlanKey(input) != Compose().PlanKey or 0");
 
-            // level, caps and skip set are not in the key; the stream is level-independent
+            // The level, caps and skip set are not in the key. The stream is level-independent.
             for (int level = 1; level <= 8; level++)
             {
                 ComposeInput lv = Copy(b);
@@ -184,17 +190,17 @@ namespace GladeBatch
             Check(SkiGladeCompose.PlanKey(same) == k0, "compose/plankey", "a same-layer member changed the key");
 
             // Interior: an occupant that cannot block a slot (outside, >= MinSpacing − InnerMargin
-            // = 3.0 m from the edge) leaves key AND P unchanged; nearer, or inside, it changes the key.
+            // = 3.0 m from the edge) leaves key AND P unchanged. A nearer occupant, or one inside, changes the key.
             KeyRelevance(b, rb, k0, new float3(-3.2f, GroundY(-3.2, 150), 150), false, "an other-layer member 3.2 m outside", 1);
             KeyRelevance(b, rb, k0, new float3(-2.9f, GroundY(-2.9, 150), 150), true, "an other-layer member 2.9 m outside", 1);
-            // A tree-line member INSIDE is misplaced: removed first, never an occupant, so the key may not change. P itself differs:
-            // the compose that removes it plants nothing (never both), so only the key is compared; keybook soundness (ApplySim)
-            // ties an equal key to an equal P.
+            // A tree-line member INSIDE is misplaced. The compose removes it first and it is never an occupant, so the key may not change.
+            // P itself differs: the compose that removes it plants nothing (never both). So the test compares only the key.
+            // Keybook soundness (ApplySim) ties an equal key to an equal P.
             KeyIgnoresMisplaced(b, k0, new float3(20, GroundY(20, 20), 20), 1, "a misplaced tree-line member inside");
             KeyRelevance(b, rb, k0, new float3(-3.2f, GroundY(-3.2, 151), 151), false, "a band tree 3.2 m outside", -1);
             KeyRelevance(b, rb, k0, new float3(-2.9f, GroundY(-2.9, 151), 151), true, "a band tree 2.9 m outside", -1);
-            // Tree line: a tree deep inside cannot block a belt slot (>= BeltGap outside); one
-            // within MinSpacing − BeltGap = 1.4 m of the edge can.
+            // Tree line: a tree deep inside cannot block a belt slot (>= BeltGap outside).
+            // One within MinSpacing − BeltGap = 1.4 m of the edge can.
             ComposeResult rbelt = new ComposeResult();
             SkiGladeCompose.Compose(belt, rbelt);
             ulong kb = rbelt.PlanKey;
@@ -207,7 +213,7 @@ namespace GladeBatch
             MisplacedUnitTests();
         }
 
-        /// <summary>A misplaced member is Other: the key is unchanged and the compose lists it first in Remove.</summary>
+        /// <summary>A misplaced member is Other. The key does not change, and the compose lists it first in Remove.</summary>
         private static void KeyIgnoresMisplaced(ComposeInput baseInput, ulong baseKey, float3 pos, int layer, string what)
         {
             ComposeInput x = Copy(baseInput);
@@ -246,8 +252,8 @@ namespace GladeBatch
                 SkiGladeCompose.Compose(input, r);
                 if (!treeLine)
                 {
-                    // Misplaced: 0 (belt inside) and 1 (interior outside); tagged: 4; Same: 3;
-                    // occupant: 2. X = the fixed Existing tree only. Others first (x, z), then the
+                    // Misplaced: 0 (belt inside) and 1 (interior outside). Tagged: 4. Same: 3.
+                    // Occupant: 2. X = the fixed Existing tree only. Others first (x, z), then the
                     // count rule (L1 keeps 0), then — nothing standing — the wild fell.
                     Check(r.Misplaced == 2 && r.OtherTagged == 1 && r.Other == 3 && r.Same == 1 && r.OccupantsOtherLayer == 1 &&
                           r.FixedInside == 1 && r.WildInside == 1 && r.Inside == 3, where,
@@ -258,9 +264,9 @@ namespace GladeBatch
                 }
                 else
                 {
-                    // Misplaced: 0 (belt inside) and 1 (interior outside); Same: 2; occupants:
-                    // 3 and 4 (interior members inside, any tag — the other layer's tag is not
-                    // the tree line's business).
+                    // Misplaced: 0 (belt inside) and 1 (interior outside). Same: 2. Occupants:
+                    // 3 and 4 (interior members inside, any tag). The tag of the other layer is
+                    // not the business of the tree line.
                     Check(r.Misplaced == 2 && r.OtherTagged == 0 && r.Other == 2 && r.Same == 1 && r.OccupantsOtherLayer == 2 &&
                           r.FixedInside == 0 && r.Inside == 1, where,
                         "misplaced " + r.Misplaced + ", tagged " + r.OtherTagged + ", other " + r.Other + ", same " + r.Same + ", other-layer occupants " +
@@ -274,9 +280,9 @@ namespace GladeBatch
             }
         }
 
-        /// <summary>Adds one tree (layer >= 0: a member of that layer; -1: an Existing wild tree)
-        /// to `baseInput` and checks the key changes iff `matters`; when it does not, P must be
-        /// bit-identical too.</summary>
+        /// <summary>Adds one tree to `baseInput`. Layer >= 0 means a member of that layer.
+        /// Layer -1 means an Existing wild tree. The method checks that the key changes iff `matters`.
+        /// When `matters` is false, P must be bit-identical too.</summary>
         private static void KeyRelevance(ComposeInput baseInput, ComposeResult baseResult, ulong baseKey, float3 pos, bool matters, string what, int layer)
         {
             ComposeInput x = Copy(baseInput);
@@ -373,7 +379,7 @@ namespace GladeBatch
         /// <summary>Plan(MaxPlant m) is a bit-exact PREFIX of
         /// Plan(MaxPlant large), for both layers, with occupants, exclusion rings and saturation.
         /// A slice may be SHORTER than min(m, |full|) only when it ran out of its target-scaled
-        /// attempt budget (then it reports Saturated) — the case SkiGladeCompose re-plans in full.</summary>
+        /// attempt budget (then it reports Saturated). SkiGladeCompose re-plans this case in full.</summary>
         private static void PrefixTests(List<Fixture> fixtures, List<SimRun> simRuns, int seeds)
         {
             int cases = 0, shortSlices = 0;
@@ -446,7 +452,7 @@ namespace GladeBatch
 
         /// <summary>TIME: Compose with the full stream (level 8 from the forested
         /// stand, uncapped) and a level-1 fell compose, on the big fixtures and the two field-sized
-        /// ones; WARN above 20 ms (CoreCLR here; Mono in the game is unmeasured).</summary>
+        /// ones. WARN above 20 ms on CoreCLR here (Mono in the game is unmeasured).</summary>
         private static void ComposeTimingReport(List<SimRun> runs)
         {
             foreach (string name in new[] { "run284k", "run800k", "saturated", "run124k", "run140k" })

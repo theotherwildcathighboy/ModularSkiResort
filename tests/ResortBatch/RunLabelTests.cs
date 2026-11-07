@@ -1,5 +1,5 @@
-// Tests for RunLabelRules (the run-name labels' pure rules). Oracles are literal hand values from the RULES header of
-// RunLabelRules.cs and the piste map's color table (SkiPisteMapSystem.s_Fill), never a second run of the same code.
+// Tests for RunLabelRules (the run-name labels' pure rules). Oracles are literal hand values, never a second run of the same code.
+// They come from the RULES header of RunLabelRules.cs and the piste map's color table (SkiPisteMapSystem.s_Fill).
 
 using System;
 using SkiResortMod.Systems;
@@ -36,7 +36,7 @@ namespace ResortBatch
             Check(RunLabelRules.ClearFraction(0, 1) == 0f, W, "a single clearance sample is the center");
             Check(RunLabelRules.ClearAlong >= 3 && RunLabelRules.ClearAcross >= 3, W, "clearance samples reach both edges and the middle");
 
-            // A 300 x 40 run along x: the axis is x (either sign is one axis). A 200 x 100 one is still clear; a square has no direction.
+            // A 300 x 40 run along x: the axis is x (either sign is one axis). A 200 x 100 one is still clear. A square has no direction.
             float2[] Rect(float l, float w) => new[] { new float2(-l / 2, -w / 2), new float2(l / 2, -w / 2), new float2(l / 2, w / 2), new float2(-l / 2, w / 2) };
             Check(RunLabelRules.LongAxis(Rect(300f, 40f), out float2 ax) && Near(Math.Abs(ax.x), 1.0, 1e-4), W, "a long run's axis is its length");
             Check(RunLabelRules.LongAxis(Rect(200f, 100f), out _), W, "2 to 1 has a direction");

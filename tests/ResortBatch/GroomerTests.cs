@@ -1,8 +1,14 @@
-// Tests for the snow groomer's pure rules (GroomerRules.cs) and the centerline of hand-drawn rings (GroomerCenterline.cs). Generated ribbons
-// are tested in GradeBatch GR-30, against the generator's own centerline.
-//   GM-1 restraint and path source   GM-2 season gate   GM-3 trip: speed, stops, pivots, no jumps   GM-4 phase and clock
-//   GM-5 ground plane and smoothing   GM-6 pose and local forward axis   GM-7 path lookup
-//   GM-8 hand-drawn shapes: rectangle, bend, neck, branch, bulge   GM-9 degenerate rings: never a wild path
+// Tests for the snow groomer's pure rules (GroomerRules.cs) and the centerline of hand-drawn rings (GroomerCenterline.cs).
+// GradeBatch GR-30 tests generated ribbons, against the generator's own centerline.
+//   GM-1 restraint and path source
+//   GM-2 season gate
+//   GM-3 trip: speed, stops, pivots, no jumps
+//   GM-4 phase and clock
+//   GM-5 ground plane and smoothing
+//   GM-6 pose and local forward axis
+//   GM-7 path lookup
+//   GM-8 hand-drawn shapes: rectangle, bend, neck, branch, bulge
+//   GM-9 degenerate rings: never a wild path
 // Oracles are literal hand values (the comments show the arithmetic) and geometric facts of the shape under test.
 
 using System;
@@ -90,7 +96,7 @@ namespace ResortBatch
 
         private static void Trip()
         {
-            // 400 m: 400 / 3.33 + 3 = 123.12 s of drive. One way 123.12 + 2.5 + 12 + 2.5 = 140.12; the cycle 280.24 s
+            // 400 m: 400 / 3.33 + 3 = 123.12 s of drive. One way 123.12 + 2.5 + 12 + 2.5 = 140.12. The cycle is 280.24 s
             C(Near(G.DriveSeconds(400.0), 400.0 / 3.33 + 3.0, 1e-3), "GM-3 drive seconds", $"{G.DriveSeconds(400.0):F3}");
             C(Near(G.PeriodSeconds(400.0), 2.0 * (400.0 / 3.33 + 3.0 + 17.0), 1e-3), "GM-3 period", $"{G.PeriodSeconds(400.0):F3}");
             C(Near(G.PivotS, 12f, 1e-4), "GM-3 pivot 180 / 15", $"{G.PivotS}");
@@ -182,7 +188,7 @@ namespace ResortBatch
             G.FootprintOffset(G.FootprintSamplesLong - 1, G.FootprintSamplesWide - 1, out float u1, out float v1);
             C(Near(u0, -3.5, 1e-5) && Near(v0, -2.0, 1e-5) && Near(u1, 3.5, 1e-5) && Near(v1, 2.0, 1e-5), "GM-5 footprint corners", $"{u0} {v0} {u1} {v1}");
 
-            // A plane is recovered exactly: h = 100 + 0.25 u - 0.1 v
+            // The fit recovers a plane exactly: h = 100 + 0.25 u - 0.1 v
             Fill(heights, (u, v) => 100f + 0.25f * u - 0.1f * v);
             C(G.FitPlane(heights, out float h, out float sl, out float sw), "GM-5 fit", "false");
             C(Near(h, 100.0, 1e-3) && Near(sl, 0.25, 1e-4) && Near(sw, -0.1, 1e-4), "GM-5 plane recovered", $"{h} {sl} {sw}");
@@ -198,7 +204,7 @@ namespace ResortBatch
             heights[3] = float.NaN;
             C(!G.FitPlane(heights, out _, out _, out _), "GM-5 NaN refuses", "fit");
 
-            // Footprint points: yaw 0 = nose +z, right +x; yaw 90 = nose +x, right -z
+            // Footprint points: yaw 0 = nose +z, right +x. Yaw 90 = nose +x, right -z
             float2 p = G.FootprintPoint(new float2(10f, 20f), 0f, 2f, 1f);
             C(Near(p.x, 11.0, 1e-5) && Near(p.y, 22.0, 1e-5), "GM-5 footprint point yaw 0", $"{p}");
             p = G.FootprintPoint(new float2(10f, 20f), math.PI / 2f, 2f, 1f);
@@ -517,7 +523,7 @@ namespace ResortBatch
         }
 
         /// <summary>The heading the machine would really follow: no spike or flip anywhere on the drive. A corner of 90 degrees over the 8 m chord and a
-        /// 0.25 m step is 2.8 degrees per step at most; anything much above that is a wobble.</summary>
+        /// 0.25 m step is 2.8 degrees per step at most. Anything much above that is a wobble.</summary>
         private static void SmoothHeading(GroomerPath p, string tag)
         {
             float2 last = p.Direction(0.0, G.HeadingChordHalfM);
@@ -560,14 +566,14 @@ namespace ResortBatch
             // Too short to drive: 30 m of road after the trim is the minimum
             Refused(Rectangle(30f, 8f), "too short", GroomerPathFail.TooShort);
 
-            // A triangle has no corridor, only a corner-to-corner stretch; any answer must be inside it and short of a wild path
+            // A triangle has no corridor, only a corner-to-corner stretch. Any answer must be inside it and short of a wild path
             float2[] tri = { new float2(0f, -10f), new float2(300f, 0f), new float2(0f, 10f) };
             GroomerPath p = GroomerCenterline.Build(tri, out GroomerPathFail fail);
             C(p != null || fail != GroomerPathFail.None, "GM-9 triangle", "null path without a reason");
             if (p != null)
                 AllInside(p, tri, "GM-9 triangle");
 
-            // A long spike on a track (zero width out and back) is removed, and the track still has its path
+            // The build removes a long spike on a track (zero width out and back), and the track still has its path
             float2[] spike =
             {
                 new float2(0f, -6f), new float2(200f, -6f), new float2(200f, -86f), new float2(200f, -6f), new float2(400f, -6f), new float2(400f, 6f), new float2(0f, 6f),

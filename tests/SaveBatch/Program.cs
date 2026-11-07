@@ -1,11 +1,15 @@
-// Save-format gate, run from the repo root after `dotnet build -t:Compile` in mod/SkiResortMod (SL-A reads the built DLL):
+// Save-format gate. Run it from the repo root after `dotnet build -t:Compile` in mod/SkiResortMod (SL-A reads the built DLL):
 //   dotnet run --project tests\SaveBatch\SaveBatch.csproj -c Release
-// Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures. Checks: SL-T the SaveLayouts table (versions 1..n
-// consecutive, bytes strictly growing, each entry's bytes == 1 + its field sizes, the shipped snapshot still verbatim); SL-L per persisted
-// type (CurrentVersion == last entry; Serialize writes exactly the entry's bytes, version byte first; Deserialize consumes exactly those
-// bytes; every older version's blob still loads whole); SL-A the built DLL (every ISerializable / IEmptySerializable type has a SaveLayouts
-// row and exactly one [FormerlySerializedAs] == SaveLayouts.Alias(row); no duplicate alias key, as in UpdateTypeTable :113-121; the saved
-// AQN with any version strips to its own type through DeserializeType :51-65); SL-AV AssemblyVersion == PinnedAssemblyVersion; SL-CL: ChangelogTests.
+// It prints `FAIL  where: msg` lines and one SUMMARY line. Environment.ExitCode = failures. Checks:
+//   * SL-T the SaveLayouts table: versions 1..n consecutive, bytes strictly growing, each entry's bytes == 1 + its field sizes,
+//     the shipped snapshot still verbatim.
+//   * SL-L per persisted type: CurrentVersion == last entry. Serialize writes exactly the entry's bytes, version byte first.
+//     Deserialize consumes exactly those bytes. Every older version's blob still loads whole.
+//   * SL-A the built DLL: every ISerializable / IEmptySerializable type has a SaveLayouts row and exactly one
+//     [FormerlySerializedAs] == SaveLayouts.Alias(row). No duplicate alias key, as in UpdateTypeTable :113-121.
+//     The saved AQN with any version strips to its own type through DeserializeType :51-65.
+//   * SL-AV AssemblyVersion == PinnedAssemblyVersion.
+//   * SL-CL: ChangelogTests.
 
 using System;
 using System.Globalization;

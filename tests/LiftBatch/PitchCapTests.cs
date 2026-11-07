@@ -1,38 +1,44 @@
-// Rope pitch at a tower (tower-lean round, DECISIONS 600; docs research/pitch-cap-bite-2026-11-04.md). Where-tags `pitch/...`.
+// Rope pitch at a tower (tower-lean round, DECISIONS 600, docs research/pitch-cap-bite-2026-11-04.md). Where-tags `pitch/...`.
 // Pitch = the rope's slope through a tower: the mean of the two adjacent chords' angles (LiftAlignMath.ChordPitchDeg). The cap is per
 // tower, never per line.
-// PC-0 the bite measurement: over the sweep line sets (FB-3: FallbackTests.SweepLines; TS-1: TramSaddleTests.Profiles; crest-end:
-//      the EI-55 crest-end tops), the share of lines with any line tower over the type's hard pitch cap, as the planner places towers
-//      without the cap and with it (the angle pass repairs pitch like bend: shift, member, pair). Report only (no check binds on the
-//      counts; the gate checks are PC-1..).
-// PC-1 the lean rule: LiftAlignMath.LeanDeg = clamp(|pitch| - LeanFreeDeg, 0, max lean) (HeadFirst; DQ / GD 20 / 20, FG 12 / 25 since
-//      600 a call d, tram 30 / 25), the leaned anchor (foot pivot, downhill), LeanRotation leans the top downhill and MastPitch reads
-//      the signed lean back.
+// PC-0 the bite measurement over the sweep line sets (FB-3: FallbackTests.SweepLines, TS-1: TramSaddleTests.Profiles, and crest-end:
+//      the EI-55 crest-end tops). It gives the share of lines with any line tower over the type's hard pitch cap. It gives the
+//      share for two planner runs: towers placed without the cap and with it (the angle pass repairs pitch like bend: shift,
+//      member, pair). Report only: no check binds on the counts. The gate checks are PC-1..
+// PC-1 the lean rule: LiftAlignMath.LeanDeg = clamp(|pitch| - LeanFreeDeg, 0, max lean) (HeadFirst, DQ / GD 20 / 20, FG 12 / 25 since
+//      600 a call d, tram 30 / 25). Also: the leaned anchor (foot pivot, downhill). LeanRotation leans the top downhill. MastPitch
+//      reads the signed lean back.
 // PC-2 head relative to the mast: up to the hard cap, |pitch| - lean stays within MaxRelMeanDeg (DQ / GD head 20, FG trains 13, tram
-//      30); the headed clamp is HeadRelMax (20) on mast-relative pitches (594's DQ 42 / GD 50.2 went).
-// PC-3 the cap repair: every crest-end FG line over the cap as placed without it is under it with the cap, with no added tower (a
-//      shift, a member or, since 600 c, a longer span: the station-exit pair the pitch took before passes the carrier clearance), and
-//      the TS-1 shoulders get a pair / an added tower; no repaired line warns.
-// PC-4 the warning: a line still over the cap is not Sound, its Verdict says TOO STEEP, its towers key TOWER_PITCH (unless LOW /
-//      TRAIN come first) and the plan key PLAN_PITCH when nothing else fails.
-// PC-5 the shifted anchor: every leaned tower's anchor is LeanedAnchor of its node, the rope hangs from it (RopeAt), the floor margins
-//      are judged on it, and the fit (PlanFixed on the same towers) gives the same anchors.
-// PC-6 the sweep report: per set and type, towers leaning and by how much, lines warning too steep, the largest head-relative angle,
-//      the FG and tram half-train pitches relative to the mast (is the tram's letter D saddle still needed).
-// PC-7 the tram saddle cap (600 a call b): the TS-1 / steep / FB-3 tram lines planned with no saddle cap and at 15 / 17.5 / 20 deg per
-//      half: lines that take a breakover pair (more towers), lines still OVER CAP, the widest half-break left, the planner's cost. At
-//      LiftAlignMath.TramBendHalfCapDeg every tower within the caps holds its half-break under it, and a line over it keys PLAN_SADDLE /
-//      TOWER_SADDLE (never TRAIN), is not Sound and reads OVER CAP.
+//      30). The headed clamp is HeadRelMax (20) on mast-relative pitches. 594's DQ 42 / GD 50.2 are gone.
+// PC-3 the cap repair: every crest-end FG line over the cap as placed without it is under it with the cap, with no added tower. The
+//      repair is a shift, a member or, since 600 c, a longer span. The station-exit pair that the pitch took before passes the carrier
+//      clearance. The TS-1 shoulders get a pair / an added tower. No repaired line warns.
+// PC-4 the warning: a line still over the cap is not Sound. Its Verdict says TOO STEEP. Its towers key TOWER_PITCH (unless LOW /
+//      TRAIN come first). The plan keys PLAN_PITCH when nothing else fails.
+// PC-5 the shifted anchor: every leaned tower's anchor is LeanedAnchor of its node. The rope hangs from it (RopeAt). The floor margins
+//      are judged on it. The fit (PlanFixed on the same towers) gives the same anchors.
+// PC-6 the sweep report, per set and type:
+//      - towers leaning, and by how much
+//      - lines warning too steep
+//      - the largest head-relative angle
+//      - the FG and tram half-train pitches relative to the mast (is the tram's letter D saddle still needed)
+// PC-7 the tram saddle cap (600 a call b): the test plans the TS-1 / steep / FB-3 tram lines with no saddle cap. It also plans them at
+//      15 / 17.5 / 20 deg per half. The report lists: lines that take a breakover pair (more towers), lines still OVER CAP, the
+//      widest half-break left, and the planner's cost. At LiftAlignMath.TramBendHalfCapDeg every tower within the caps holds its
+//      half-break under it. A line over it keys PLAN_SADDLE / TOWER_SADDLE (never TRAIN), is not Sound, and reads OVER CAP.
 // PC-8 the tram pedestals (600 a call c): LiftAlignMath.TramFloatM reproduces the art's foundation table (tower_lean.py: the crest
-//      dig-in and cover at lean 20 / 25, the matched-slope cover), floats only a leaned tower, never past the ceiling; every leaned
-//      tram tower in the sweep floats by it (node y = ground + E + FloatM through LiftLineEdit, the rope with it), the train lifts never.
-// PC-9 the carrier clearance (600 c): (a) the C# table (LiftAlignMath.WorldHalfTable) equals the art's ART_WORLD_HALF_MAX, parsed from
-//      assets/blender/tests/test_grip_clearance.py (the art is merged: a missing file or one without the table fails; LIFTBATCH_GRIP_PY
-//      compares another copy); (b) the bite: every set planned with the rule off and on (lines that take a
-//      pair / more towers, lines past the table, lines that newly warn among the crossable ones: the go / no-go is 3 %); (c) no plan
-//      poses a half past the table: TrainPitchSystem's rule (LiftAlignMath.PoseTrain) replayed on every sweep tower keeps each half's
-//      world pitch within its head's limit, and every tower whose rope is past it is PAST CLEARANCE (TOWER_CLEARANCE unless an earlier
-//      key; the line not Sound, never PLAN_CLEAR).
+//      dig-in and cover at lean 20 / 25, the matched-slope cover). It floats only a leaned tower, and never past the ceiling. Every
+//      leaned tram tower in the sweep floats by it (node y = ground + E + FloatM through LiftLineEdit, and the rope with it). The train
+//      lifts never float.
+// PC-9 the carrier clearance (600 c):
+//      (a) the C# table (LiftAlignMath.WorldHalfTable) equals the art's ART_WORLD_HALF_MAX, parsed from
+//      assets/blender/tests/test_grip_clearance.py. The art is merged. A missing file or a file without the table fails.
+//      LIFTBATCH_GRIP_PY compares another copy.
+//      (b) the bite: the test plans every set with the rule off and on. The report lists lines that take a pair / more towers, lines
+//      past the table, and lines that newly warn among the crossable ones. The go / no-go is 3 %.
+//      (c) no plan poses a half past the table: TrainPitchSystem's rule (LiftAlignMath.PoseTrain) replayed on every sweep tower keeps
+//      each half's world pitch within its head's limit. Every tower whose rope is past it is PAST CLEARANCE (TOWER_CLEARANCE unless an
+//      earlier key). The line is not Sound. It never gets PLAN_CLEAR.
 
 using System;
 using System.Collections.Generic;
@@ -124,9 +130,10 @@ namespace LiftBatch
                     Type = id, H = (x, z) => h(x) + 0.3f * z / hw, L = len, Stations = true, Tool = true, RopeA = ra, RopeB = rb,
                 });
             }
-            // steep: the band the old sets never reach. Uniform grades up to the line prefab's own edge slope rule (FG 0.8, DQ 0.9, GD 1.2,
-            // tram 2.5: past it the engine refuses the edge anyway), and a gentle 0.3 slope with one steep band (a cliff step of 60 or
-            // 150 m at grade 0.9 / 1.2 / 1.6 for chairs, 1.6 / 2.4 for the tram) where tower placement on the benches can help.
+            // steep: the band the old sets never reach. It has two kinds of line. One kind has uniform grades up to the line prefab's own edge
+            // slope rule (FG 0.8, DQ 0.9, GD 1.2, tram 2.5: past it the engine refuses the edge anyway). The other kind has a gentle 0.3 slope
+            // with one steep band, where tower placement on the benches can help. The steep band is a cliff step of 60 or 150 m at grade
+            // 0.9 / 1.2 / 1.6 for chairs, 1.6 / 2.4 for the tram.
             foreach (string id in new[] { "fixedGrip", "detachable", "gondola", "tram" })
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
@@ -165,7 +172,7 @@ namespace LiftBatch
             return lines;
         }
 
-        /// <summary>Plans <paramref name="l"/> with the pitch cap on or off (off: the tram saddle cap too, the plans as before 600);
+        /// <summary>Plans <paramref name="l"/> with the pitch cap on or off (off: the tram saddle cap too, the plans as before 600).
         /// <paramref name="saddleHalfCapDeg"/> overrides the tram saddle cap (NaN: the type's).</summary>
         internal static LiftTowerPlan PlanLine(Line l, bool pitchCap, float saddleHalfCapDeg = float.NaN, bool worldHalf = true)
         {
@@ -190,7 +197,7 @@ namespace LiftBatch
                             (s, z) => { float3 q = e.PointFromB(s, z); return g(q.x, q.z); });
         }
 
-        /// <summary>The lift tool's edit of <paramref name="l"/> after its plan (tool lines only; null for the bare-planner lines).</summary>
+        /// <summary>The lift tool's edit of <paramref name="l"/> after its plan (tool lines only, null for the bare-planner lines).</summary>
         private static LiftLineEdit Edited(Line l)
         {
             if (!l.Tool)
@@ -308,7 +315,7 @@ namespace LiftBatch
             Check(math.abs(yUp - (1000f + h * math.cos(a))) < 1e-3f && math.abs(yDn - yUp) < 1e-4f, W, "anchor y " + F(yUp, "F3"));
             LiftAlignMath.LeanedAnchor(100f, 1000f, 1000f + h, 30f, 0f, out float plumb, out float yPlumb);
             Check(plumb == 100f && math.abs(yPlumb - 1000f - h) < 1e-4f, W, "lean 0 moved the anchor");
-            // the rotation: a rope rising toward +z leans the top toward -z; MastPitch reads the signed lean back
+            // the rotation: a rope rising toward +z leans the top toward -z. MastPitch reads the signed lean back
             quaternion yaw = quaternion.RotateY(math.radians(37f));
             quaternion r = LiftAlignMath.LeanRotation(yaw, 30f, 10f);
             float3 top = math.mul(math.inverse(yaw), math.mul(r, new float3(0f, 1f, 0f)));
@@ -563,7 +570,7 @@ namespace LiftBatch
                             Check(p.OverCapTowers == 0, W + " " + l.Label, "a tower over an infinite saddle cap");
                         if (cap != pick)
                             continue;
-                        // the chosen cap: every tower within the caps holds the half-break; a line over it warns as a saddle
+                        // the chosen cap: every tower within the caps holds the half-break. A line over it warns as a saddle
                         for (int i = 1; i < p.Nodes.Length - 1; i++)
                         {
                             LiftPlanNode t = p.Nodes[i];
@@ -606,8 +613,8 @@ namespace LiftBatch
         private static void Pc8Pedestals()
         {
             const string W = "pitch/PC-8";
-            // the art's foundation table (assets/blender/tower_lean.py --foundation, the tower-lean art round; docs build.md):
-            // per top 30 / 45 / 60: steel buried on a level crest (= the floor) and the crest / matched-slope cover (= the ceiling)
+            // the art's foundation table (assets/blender/tower_lean.py --foundation, the tower-lean art round, docs build.md).
+            // Per top 30 / 45 / 60 it lists steel buried on a level crest (= the floor) and the crest / matched-slope cover (= the ceiling)
             float[] tops = { 30f, 45f, 60f };
             float[] dig25 = { 0.920f, 1.131f, 1.342f }, dig20 = { 0.442f, 0.613f, 0.784f };
             float[] cov25 = { 8.467f, 8.255f, 8.044f }, cov20 = { 9.327f, 9.156f, 8.985f };
@@ -654,7 +661,7 @@ namespace LiftBatch
                     leaned++;
                     float bh = LiftAlignMath.TramBaseHalfM(p.Constants.Ladder[n.Member].TopM), down = n.PitchDeg > 0f ? -1f : 1f, foot = n.AlongM, g0 = n.GroundM;
                     float want = LiftAlignMath.TramFloatM(bh, n.LeanDeg, x => CentreAt(p, foot + down * x) - g0, out float fl, out float ce);
-                    // FloatM comes from the lean on the unfloated ropes; the node's lean is the floated one (a few hundredths of a degree)
+                    // FloatM comes from the lean on the unfloated ropes. The node's lean is the floated one (a few hundredths of a degree)
                     if (ce < 0f) liftOff++;   // the piers lift off at float 0 already (a pre-existing condition: no float can help)
                     Check(math.abs(n.FloatM - want) < 0.05f && n.FloatM <= math.max(0f, ce) + 0.05f, W + " " + l.Label + " node " + i,
                           "float " + F(n.FloatM, "F3") + ", want " + F(want, "F3") + " (floor " + F(fl, "F3") + ", ceiling " + F(ce, "F3") + ")");
@@ -683,7 +690,7 @@ namespace LiftBatch
             s_Report.Add("PC-8 sweep: leaned tram towers " + leaned + ", floated " + floated + " (max " + F(maxF, "F2") + " m, mean " +
                          F(floated > 0 ? sumF / floated : 0f, "F2") + " m; the ceiling bound " + bound + "; piers off the ground at float 0 already " +
                          liftOff + "); tool-emitted floated nodes " + emitted + "; train lifts never float");
-            // the case the rule is for: a level bench on a 1.5 grade (56 deg) tram face, a T60 fixed on it: lean 25 on level ground
+            // the case the rule is for: a level bench on a 1.5 grade (56 deg) tram face with a T60 fixed on it. Lean 25 on level ground
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram");
                 const float L = 800f, g = 1.5f, x0 = 385f, x1 = 415f;
@@ -706,8 +713,8 @@ namespace LiftBatch
         /// <summary>The art's grip-clearance test (the other side of the table).</summary>
         internal const string ArtGripTest = "assets/blender/tests/test_grip_clearance.py";
 
-        /// <summary>The rows of ART_WORLD_HALF_MAX = {("FG", "support"): 41.5, ...} in the art test's source, keyed "family/kind"; null
-        /// when the file has no such assignment.</summary>
+        /// <summary>The rows of ART_WORLD_HALF_MAX = {("FG", "support"): 41.5, ...} in the art test's source, keyed "family/kind". The result is
+        /// null when the file has no such assignment.</summary>
         internal static Dictionary<string, float> ParseArtTable(string py)
         {
             Match m = Regex.Match(py, @"^ART_WORLD_HALF_MAX\s*=\s*\{(?<body>[^}]*)\}", RegexOptions.Multiline);
@@ -850,8 +857,8 @@ namespace LiftBatch
             return "{" + string.Join(", ", keys.ConvertAll(k => k + " " + F(t[k]))) + "}";
         }
 
-        /// <summary>Towers of <paramref name="p"/> whose steeper rope half is past the table for their head; the steepest half (deg) and the
-        /// most a pose without the world clamp would put a half past its limit (deg).</summary>
+        /// <summary>Towers of <paramref name="p"/> whose steeper rope half is past the table for their head. Also reported: the steepest half
+        /// (deg) and the most a pose without the world clamp would put a half past its limit (deg).</summary>
         private static int PastTable(LiftTowerPlan p, string typeId, out float maxHalf, out float worstUnclamped)
         {
             int past = 0;
@@ -872,9 +879,10 @@ namespace LiftBatch
             return past;
         }
 
-        /// <summary>TrainPitchSystem's pose of plan tower <paramref name="i"/> (LiftAlignMath.PoseTrain): the tower's +z along the line toward
-        /// B, the front half on the leaving rope, the back on the arriving one, the mast at SignedLean, DQ / GD headed (letter T), the limits
-        /// as the game reads them. <paramref name="worldPosed"/> = the steeper posed half's world pitch, degrees.</summary>
+        /// <summary>TrainPitchSystem's pose of plan tower <paramref name="i"/> (LiftAlignMath.PoseTrain). The tower's +z runs along the line
+        /// toward B. The front half is on the leaving rope, and the back half is on the arriving one. The mast is at SignedLean. DQ / GD are
+        /// headed (letter T). The limits are as the game reads them. <paramref name="worldPosed"/> = the steeper posed half's world pitch,
+        /// degrees.</summary>
         private static void Pose(LiftTowerPlan p, int i, string typeId, out float worldPosed, out bool worldClamped, bool clamp = true)
         {
             LiftPlanNode a = p.Nodes[i - 1], t = p.Nodes[i], b = p.Nodes[i + 1];

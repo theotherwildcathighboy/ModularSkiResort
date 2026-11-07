@@ -1,6 +1,9 @@
 // Prototype for switching city utilities off and back on for a live building (docs/research/utility-switch-2026-11-01.md).
-// comp edits one entity by component name, util reads what the test needs in one call, offgrid runs the candidate rule on a listed
-// set of buildings every frame, prefabFlags stands in for a road-optional catalog row, autosave protects existing autosaves.
+// - comp edits one entity by component name.
+// - util reads what the test needs in one call.
+// - offgrid runs the candidate rule on a listed set of buildings every frame.
+// - prefabFlags stands in for a road-optional catalog row.
+// - autosave protects existing autosaves.
 
 using System;
 using System.Collections.Generic;
@@ -85,7 +88,7 @@ namespace SkiTestBridge
             return entity;
         }
 
-        /// <summary>{id, remove: [names], add: [names], eff: {factor: value}, clearIcons, updated}: applied in that order; replies with util.</summary>
+        /// <summary>{id, remove: [names], add: [names], eff: {factor: value}, clearIcons, updated}. The call applies them in that order and replies with util.</summary>
         private JObject EditComponents(JObject args)
         {
             Entity entity = ParseEntity((string)args["id"]);
@@ -184,7 +187,7 @@ namespace SkiTestBridge
             };
         }
 
-        /// <summary>The candidate rule: no road edge means no road-only services; a road edge brings them back through vanilla's own path.</summary>
+        /// <summary>The candidate rule: no road edge means no road-only services. A road edge brings them back through vanilla's own path.</summary>
         internal void TickOffGrid()
         {
             if (m_OffGrid.Count == 0)
@@ -201,8 +204,8 @@ namespace SkiTestBridge
                 bool road = EntityManager.GetComponentData<Building>(entity).m_RoadEdge != Entity.Null;
                 if (road)
                 {
-                    // InitializeSystem re-adds power, water and garbage. Crime comes only at Created, and mail only with RequireRoad on the prefab,
-                    // so each is checked on its own: a relocation onto a road re-adds the first three without this branch.
+                    // InitializeSystem re-adds power, water and garbage. Crime comes only at Created, and mail only with RequireRoad on the prefab.
+                    // So the code checks each on its own: a relocation onto a road re-adds the first three without this branch.
                     if (!EntityManager.HasComponent<ElectricityConsumer>(entity) && !EntityManager.HasComponent<Updated>(entity))
                     {
                         EntityManager.AddComponent<Updated>(entity);
@@ -261,7 +264,7 @@ namespace SkiTestBridge
             return new JObject { ["prefab"] = (string)args["prefab"], ["flags"] = data.m_Flags.ToString() };
         }
 
-        /// <summary>{on}: switches the autosave system for this run of the game; no settings file changes. A test on a save would otherwise prune real autosaves.</summary>
+        /// <summary>{on}: switches the autosave system for this run of the game. No settings file changes. A test on a save would otherwise prune real autosaves.</summary>
         private JObject SetAutoSave(JObject args)
         {
             AutoSaveSystem system = World.GetExistingSystemManaged<AutoSaveSystem>();
@@ -271,8 +274,8 @@ namespace SkiTestBridge
         }
 
         /// <summary>{name}: the save target the pause menu's Save Game writes to (UserState.lastCloudTarget, read by MenuUISystem.SaveGame,
-        /// MenuUISystem.cs:897; an unknown name falls back to "Local", MenuHelpers.cs:112-127). Replies with the previous target so the
-        /// caller can put the player's choice back. Bridge saves go to "Local": after a direct launch Steam Cloud refused to read them
+        /// MenuUISystem.cs:897). An unknown name falls back to "Local" (MenuHelpers.cs:112-127). Replies with the previous target so the
+        /// caller can put the player's choice back. Bridge saves go to "Local". After a direct launch Steam Cloud refused to read them
         /// back (IOException in SteamCloudStream.LoadCache, field test 2026-11-06).</summary>
         private JObject SaveTarget(JObject args)
         {

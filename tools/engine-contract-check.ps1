@@ -1,29 +1,31 @@
 # engine-contract-check.ps1 - the engine internals the mod's meaning stands on, as (file, regex) pairs (R-5, DECISIONS 369).
-# Its sibling tools/game-surface-check.js freezes the shape (types, field layouts, enum numbers, anchors, prefab fields, reading list); these rows
-# pin the behavior a shape cannot show. Both run on patch day, docs/PIPELINE.md section 7.
+# Its sibling tools/game-surface-check.js freezes the shape (types, field layouts, enum numbers, anchors, prefab fields, reading list).
+# These rows pin the behavior a shape cannot show. Both run on patch day, docs/PIPELINE.md section 7.
 #
-# WHY. The lifts lean on about thirty private details of Game.dll: how a chair gets drawn, how a sub-object is spawned,
+# WHY. The lifts depend on about thirty private details of Game.dll: how the game draws a chair, how it spawns a sub-object,
 # how the rope lanes anchor to stubs, which net flags the power-line class forces, how the electricity graph reads a prefab.
-# None of it is an API; a CS2 patch can change any of it silently (1.6.0 -> 1.6.2 renumbered NetInitializeSystem and moved
-# nothing that mattered, which took a by-hand diff to learn). This script turns "somebody remembers to diff" into a gate.
+# None of it is an API. A CS2 patch can change any of it silently (1.6.0 -> 1.6.2 renumbered NetInitializeSystem and moved
+# nothing that mattered). Learning this took a by-hand diff. This script turns "somebody remembers to diff" into a gate.
 #
-# HOW. Each row below is (id, decompiled file relative to the decompile root, regex, what breaks / where we cite it). The regex
-# is matched with Singleline over the whole file, so a row can pin a multi-line shape; local variable names are \w+ because the
-# decompiler renames them from build to build. A row that does not match is MISSING: read the new file, decide whether the
-# meaning moved, then fix the regex (meaning unchanged) or the lift code and PIPELINE.md (meaning changed). Never loosen a regex
-# just to turn the run green.
+# HOW. Each row below is (id, decompiled file relative to the decompile root, regex, what breaks / where we cite it). The script
+# matches the regex with Singleline over the whole file, so a row can pin a multi-line shape. Local variable names are \w+ because
+# the decompiler renames them from build to build. A row that does not match is MISSING. Then do these steps:
+#   1. Read the new file.
+#   2. Decide whether the meaning moved.
+#   3. Fix the regex (meaning unchanged) or the lift code and PIPELINE.md (meaning changed).
+# Never loosen a regex just to turn the run green.
 #
-# ALSO. Section B greps the lift systems for entity creation without an Owner: Better Bulldozer marks every entity that has an
-# Owner component whose m_Owner is Entity.Null as Deleted on load, so a lift entity must be created with a real owner or have
-# no Owner at all (an allow-list names the three intentional ownerless creators). A `new Owner(Entity.Null)`, a `default(Owner)`
+# ALSO. Section B greps the lift systems for entity creation without an Owner. Better Bulldozer marks every entity that has an
+# Owner component whose m_Owner is Entity.Null as Deleted on load. So create a lift entity with a real owner or with no Owner at all
+# (an allow-list names the three intentional ownerless creators). A `new Owner(Entity.Null)`, a `default(Owner)`
 # or a RemoveComponent<Owner> in a lift system is a FAIL.
 #
 # USAGE.  powershell -NoProfile -ExecutionPolicy Bypass -File tools\engine-contract-check.ps1 [-Decompile <folder>] [-Quiet]
-#   -Systems    the lift systems folder for section B (default mod\SkiResortMod\Systems; a test hook)
+#   -Systems    the lift systems folder for section B (default mod\SkiResortMod\Systems, a test hook)
 #   -Decompile  a decompile root that holds Game.Net\, Game.Objects\ ... (default: tools\decompile\<version> under ClaudeProjects, with the
-#               version from the lock's version line, the one place it is written; the citation baseline 1.6.0f1 must also pass, it is
-#               what the file:line cites mean).
-# EXIT. 0 = every signature found and the Owner audit clean; otherwise the number of missing signatures + Owner findings
+#               version from the lock's version line, the one place it is written). The citation baseline 1.6.0f1 must also pass.
+#               The file:line cites refer to it.
+# EXIT. 0 = every signature found and the Owner audit clean. Otherwise the number of missing signatures + Owner findings
 #       (2 and a message if the decompile folder or a source folder is not there). Read-only: writes nothing, deploys nothing.
 # Maintenance: a new engine dependency = one more row here in the same round as the code that needs it (CLAUDE.md "lessons
 # must become gates"). The PIPELINE.md Gates table ("engine contract") says so too.

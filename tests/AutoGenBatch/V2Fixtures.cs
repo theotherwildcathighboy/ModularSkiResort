@@ -1,6 +1,6 @@
-// V2 fixtures (A1): the region matrix of stage-a-gates 1 (synthetic fixtures in git, real heightmaps from the fixture folder outside git)
-// and the checks on the fixtures themselves (field-test 3 regions transcribed from the log, Steep / Benched shape, the refusal ladder in
-// Resort mode = V1-4). A missing real fixture = one SKIP line, never a FAIL.
+// V2 fixtures (A1): the region matrix of stage-a-gates 1 (synthetic fixtures in git, real heightmaps from the fixture folder outside git).
+// The file also checks the fixtures themselves: field-test 3 regions transcribed from the log, Steep / Benched shape, and the refusal
+// ladder in Resort mode = V1-4. A missing real fixture = one SKIP line, never a FAIL.
 
 using System;
 using System.Collections.Generic;
@@ -45,8 +45,9 @@ namespace AutoGenBatch
             return new float2((float)(R * (lon - lon0) * Math.PI / 180.0 * Math.Cos(lat0 * Math.PI / 180.0)), (float)(R * (lat - lat0) * Math.PI / 180.0));
         }
 
-        // The four field-test 3 regions of the Mountain Village session (field/2026-10-26c, SkiResortMod.Mod.log, the `QuickRuns [region]`
-        // corner lines in click order, each with its final "corner 1 moved" position). Logged areas: 410.6 / 781.2 / 776.8 / 486.4 ha.
+        // The four field-test 3 regions of the Mountain Village session (field/2026-10-26c, SkiResortMod.Mod.log).
+        // The source is the `QuickRuns [region]` corner lines in click order, each with its final "corner 1 moved" position.
+        // Logged areas: 410.6 / 781.2 / 776.8 / 486.4 ha.
         public static readonly float2[][] FieldRegions =
         {
             new[] { P(6364, -1075), P(3426, -1984), P(3352, -3453), P(6621, -2189) },
@@ -117,7 +118,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The real-heightmap cases of one fixture (1, 4, 9 km2 around the base point, 4 km2 on the steepest window) plus the
-        /// Mountain Village field regions; empty with a reason when the fixture is missing.</summary>
+        /// Mountain Village field regions. The list is empty, with a reason, when the fixture is missing.</summary>
         public static List<V2Case> Real(string name, out string skipReason)
         {
             var list = new List<V2Case>();
@@ -160,8 +161,8 @@ namespace AutoGenBatch
                 c.Determinism = i == 0;
                 list.Add(c);
             }
-            // [E] 2.3: the 3.5 km window at (4895, -1528) is over the 9 km2 cap as a region, so it runs as the 3 km square; the base window
-            // (2632, -2023) is the 3 km base window; plus the 1 / 4 km2 squares at the base and the steepest 4 km2 (5591, -3575)
+            // [E] 2.3: the 3.5 km window at (4895, -1528) is over the 9 km2 cap as a region, so it runs as the 3 km square. The base window
+            // (2632, -2023) is the 3 km base window. The list also has the 1 / 4 km2 squares at the base and the steepest 4 km2 (5591, -3575).
             list.Add(Real(sp, file, "MountainVillage window 9 km2 (4895, -1528)", Sq(4895f, -1528f, 9f), true));
             foreach (float km2 in new[] { 1f, 4f, 9f })
                 list.Add(Real(sp, file, $"MountainVillage base {km2:0} km2", Sq(2632f, -2023f, km2), true));

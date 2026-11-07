@@ -1,5 +1,5 @@
 // Reads ECS state as JSON by component name, for checking a test's result as data: what a query matches, and any entity's components.
-// Types come from every loaded assembly, including SkiResortMod; this read-only reflection is for this dev tool only.
+// Types come from every loaded assembly, including SkiResortMod. This read-only reflection is for this dev tool only.
 
 using System;
 using System.Collections;
@@ -29,7 +29,7 @@ namespace SkiTestBridge
 
         private readonly Dictionary<string, Type> m_TypeCache = new Dictionary<string, Type>();
 
-        /// <summary>{all: [names], none: [names], show: [names], limit}. Deleted entities are left out unless "none" is given.</summary>
+        /// <summary>{all: [names], none: [names], show: [names], limit}. The query leaves out deleted entities unless the call gives "none".</summary>
         private JObject DumpQuery(JObject args)
         {
             ComponentType[] all = Names(args["all"]).Select(n => ComponentType.ReadOnly(FindType(n))).ToArray();

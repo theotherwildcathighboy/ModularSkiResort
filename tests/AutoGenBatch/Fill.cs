@@ -1,6 +1,6 @@
 // P2 (field test 2026-10-26): run counts on open slopes at each density, Shuffle moving runs, and the 9 km2 cap within the unit budget.
-// FillTests are checks of the normal run; `dotnet run ... -- diag` prints only the diagnostic tables (no checks), `-- big` the 1 / 4 /
-// 9 km2 stage table. AUTOGEN_SVG=<folder> with diag writes a PNG per fixture.
+// FillTests are checks of the normal run. `dotnet run ... -- diag` prints only the diagnostic tables (no checks). `-- big` prints the
+// 1 / 4 / 9 km2 stage table. AUTOGEN_SVG=<folder> with diag writes a PNG per fixture.
 
 using System;
 using System.Collections.Generic;
@@ -20,7 +20,7 @@ namespace AutoGenBatch
         private static void FillTests()
         {
             // 1. Run counts: the field's Dense on a 1 km2 open slope picked 4-6 of 21 candidates (target 16). Thresholds sit under the
-            // measured counts (open slopes Sparse 8 / Normal 10-12 / Dense 9-16; planes up to 16) with room for terrain-bound slopes.
+            // measured counts (open slopes Sparse 8 / Normal 10-12 / Dense 9-16, planes up to 16) with room for terrain-bound slopes.
             float2[] sq = Terrain.Square(0f, 0f, 499f);
             var sums = new int[3];
             foreach (var (name, f) in new (string, HeightFn)[] { ("open slope 1", OpenSlope(1u)), ("open slope 2", OpenSlope(2u)), ("open slope 3", OpenSlope(3u)) })
@@ -48,8 +48,8 @@ namespace AutoGenBatch
                 Check(r.Status == AutoPlanStatus.Ok && r.Runs.Count >= 12, $"fill {name} Dense", $"{r.Status}, {r.Runs.Count} runs");
             }
 
-            // 2. Shuffle moves runs: other seeds give other layouts (fingerprint and cover), the same seed the same layout, and a
-            // Reselect to a seed equals a fresh scan with it
+            // 2. Shuffle moves runs. Other seeds give other layouts (fingerprint and cover). The same seed gives the same layout. A
+            // Reselect to a seed equals a fresh scan with that seed.
             foreach (var (name, f) in new (string, HeightFn)[] { ("plane 30", Terrain.Plane(0.30)), ("open slope 1", OpenSlope(1u)) })
             {
                 AutoPlanInput input = Input(f, sq);
@@ -81,8 +81,8 @@ namespace AutoGenBatch
                 Console.WriteLine($"INFO  shuffle {name}: highest cover IoU vs seed 0 over 3 seeds {worst:F2}");
             }
 
-            // 4. Probe counters are per scan: a Seeds re-select reports only its own stages, so stage 0 (Heights) is 0 and the units do
-            // not add up across Shuffles (the field's stage 13 grew 17 -> 217 ms over 14 shuffles)
+            // 4. Probe counters are per scan: a Seeds re-select reports only its own stages. So stage 0 (Heights) is 0 and the units do
+            // not add up across Shuffles. The field's stage 13 grew 17 -> 217 ms over 14 shuffles.
             {
                 AutoPlanInput input = Input(OpenSlope(2u), sq);
                 var p = new SkiRunAutoPlanner();
@@ -103,7 +103,7 @@ namespace AutoGenBatch
             }
 
             // 3. The 9 km2 cap within the unit budget. Mono runs the planner 4-8x slower than CoreCLR (field 2026-10-26: Field x10,
-            // Route x3.4, Minimax x3.8, Select x7.7), so a CoreCLR unit of 4 ms is about one 60 fps frame on Mono at x4 (two at x8).
+            // Route x3.4, Minimax x3.8, Select x7.7). So a CoreCLR unit of 4 ms is about one 60 fps frame on Mono at x4 (two at x8).
             // Best of three scans: the host shares the machine (a game may be running).
             {
                 float2[] nine = Terrain.Square(0f, 0f, 1499f);
@@ -165,7 +165,7 @@ namespace AutoGenBatch
                 }
         }
 
-        /// <summary>One sliced scan at Step(4 ms) (the tool's budget); returns the result with per-stage time and longest unit.</summary>
+        /// <summary>One sliced scan at Step(4 ms) (the tool's budget). It returns the result with per-stage time and longest unit.</summary>
         private static AutoPlanResult TimedScan(AutoPlanInput input, out double wallMs, out int calls)
         {
             var p = new SkiRunAutoPlanner();
@@ -253,7 +253,7 @@ namespace AutoGenBatch
             }
         }
 
-        /// <summary>Diagnostic picture: gray = height (20 m contours darker, 50 m over 600 m of relief), cliff red-tinted, runs tinted by band with white outlines, red = clusters.</summary>
+        /// <summary>Diagnostic picture. Gray = height (20 m contours darker, 50 m over 600 m of relief). Cliff: red-tinted. Runs: tinted by band with white outlines. Red = clusters.</summary>
         private static void Png(string path, HeightFn f, float2[] region, AutoPlanResult r)
         {
             SkiRunAutoPlanner.BBox(region, out float2 lo, out float2 hi);

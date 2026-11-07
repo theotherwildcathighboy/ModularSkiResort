@@ -1,13 +1,20 @@
 // RunsFirst beginner terrain (prototype): every real base has a learning zone. For each base (lift bottoms in the low third of the
-// region) with no green way home, the planner searches uphill from the base: from its stations and from flat spots on the last
-// 400 m of the runs that come home to it, over ground an easy run can wind down (raw 30 m pitches green but for a few short
-// stretches, no climb a run may not make), away from other runs and lift lines where it can. If that ground reaches the top of a
-// lift of the base, the winding route is the green way down from it (a route that runs onto a run whose rest is a green run-out
-// home may end there). Otherwise a short fixed-grip chair (the mod has no surface lifts; its norms: 300-1500 m, 95-512 m rise)
-// goes from a pad the route ends at, or one beside a station of the base, to the cheapest point that clears the norms: flat
-// stations, the rope clear of the ground, no crossing, 40 m off the other ropes, neither chord on a run; the winding route is its
-// green run. A pod whose station no run of the base passes would split the lift network, so one that keeps it whole wins. Last, a
-// green way down that shares its valley with other runs (or a lift line) beats a base with no beginner terrain at all.
+// region) with no green way home, the planner searches uphill from the base. The search starts from the stations of the base and from
+// flat spots on the last 400 m of the runs that come home to it. It covers ground where an easy run can wind down (raw 30 m pitches
+// green but for a few short stretches, no climb a run may not make). It stays away from other runs and lift lines where it can.
+// If that ground reaches the top of a lift of the base, the winding route is the green way down from it. A route that runs onto a
+// run whose rest is a green run-out home may end there.
+// Otherwise a short fixed-grip chair (the mod has no surface lifts) goes from a pad the route ends at, or from a pad beside a
+// station of the base, to the cheapest point that clears the norms. The chair norms: 300-1500 m, 95-512 m rise. A point clears the
+// norms with:
+// - flat stations,
+// - the rope clear of the ground,
+// - no crossing,
+// - 40 m off the other ropes,
+// - neither chord on a run.
+// The winding route is its green run. A pod whose station no run of the base passes would split the lift network. So a pod that
+// keeps the network whole wins. Last, a green way down that shares its valley with other runs (or a lift line) beats a base with no
+// beginner terrain at all.
 
 using System;
 using System.Collections.Generic;
@@ -27,11 +34,11 @@ namespace AutoGenBatch
         private readonly struct EasyLimits
         {
             public readonly float EdgeMax, SteepPitch, HardPitch, Climb, SteepShare, MaxLen;
-            // a graded track: its steep pitches are measured along the path (the scorecard rates a connector by its grade along the
-            // path), so a route may zigzag down a face steeper than any one direction of the grid allows
+            // a graded track: the search measures its steep pitches along the path (the scorecard rates a connector by its grade along the
+            // path). So a route may zigzag down a face steeper than any one direction of the grid allows
             public readonly bool AlongPath;
-            // a green run (scorecard v5: rated by the ground under it): ground past GroundMax (raw 10 m grade) counts as steep, and
-            // past GroundMax + 0.15 the route does not go (0 = off)
+            // a green run (scorecard v5 rates it by the ground under it). Ground past GroundMax (raw 10 m grade) counts as steep. The route
+            // does not go past GroundMax + 0.15 (0 = off)
             public readonly float GroundMax;
 
             public EasyLimits(float edgeMax, float steepPitch, float hardPitch, float climb, float steepShare, float maxLen, bool alongPath = false,
@@ -48,8 +55,11 @@ namespace AutoGenBatch
             }
         }
 
-        // a green run (85th percentile under 0.25, the run rule's 10 m climb less a margin); a cat track (the connector rules: no
-        // 30 m pitch over 0.50, no rise over 4.5 m); a blue run; a black run (an expert way into the next area)
+        // Limits per route type:
+        // - a green run (85th percentile under 0.25, the run rule's 10 m climb less a margin)
+        // - a cat track (the connector rules: no 30 m pitch over 0.50, no rise over 4.5 m)
+        // - a blue run
+        // - a black run (an expert way into the next area)
         private static readonly EasyLimits GreenWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f);
         private static readonly EasyLimits LearnWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f, false, Env("RF_LGROUND", 0.235f));
         private static readonly EasyLimits GreenProbe = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1500f);   // green ground near a station
@@ -135,9 +145,12 @@ namespace AutoGenBatch
                 var guard = new ChordGuard(lifts);
                 foreach (PlanRun r in plan.Runs)
                     guard.Add(r.Pts, 0, r.Pts.Count - 1);
-                // a clean green way down first, then a pod with its own green run, then a way down that shares its valley
-                // or a green branch lower down that leaves a run of the base; off the lift lines first, then from a top first. Each is
-                // kept only when a beginner at the base then has green skiing to lap (as scorecard v3 reads it)
+                // Order of tries:
+                // - a clean green way down first,
+                // - then a pod with its own green run,
+                // - then a way down that shares its valley or a green branch lower down that leaves a run of the base.
+                // Off the lift lines first, then from a top first. The code keeps each try only when a beginner at the base then has green
+                // skiing to lap (as scorecard v3 reads it)
                 int runsBefore = plan.Runs.Count, liftsBefore = lifts.Count, logBefore = plan.Log.Count;
                 bool Laps()
                 {
@@ -185,10 +198,10 @@ namespace AutoGenBatch
             plan.Log.Add($"beginner terrain: {ways} green way(s) down, {pods} pod(s) ({tried} base(s) without a green way home)");
         }
 
-        /// <summary>The owner's sixth rule (generous at the bottom, learning terrain where the terrain is): a base that laps green already
-        /// still gets a learning pod on the green ground its runs leave alone, while the lift budget has room (the slots held for the
-        /// beginner pods often stay free). A pod is kept only where it joins the network and the ski graph loses nothing. Returns the
-        /// pods added.</summary>
+        /// <summary>The owner's sixth rule (generous at the bottom, learning terrain where the terrain is). A base that laps green already
+        /// still gets a learning pod on the green ground its runs leave alone. This holds while the lift budget has room (the slots held for
+        /// the beginner pods often stay free). The method keeps a pod only where it joins the network and the ski graph loses nothing.
+        /// Returns the pods added.</summary>
         private static int AddLearningPods(Grid g, Plan plan, List<Lift> lifts, float km2)
         {
             int budget = (int)Math.Ceiling(1.5 * km2) + 2, added = 0;
@@ -244,7 +257,7 @@ namespace AutoGenBatch
             return added;
         }
 
-        /// <summary>Lift index -> cluster root (lift bottoms within 400 m chain together, as the scorecard's bases); bases = the
+        /// <summary>Lift index -> cluster root (lift bottoms within 400 m chain together, as the scorecard's bases). Bases = the
         /// roots of clusters with a bottom under lowCut.</summary>
         private static Dictionary<int, int> BaseClusters(Grid g, List<Lift> lifts, float lowCut, out HashSet<int> bases)
         {
@@ -325,12 +338,15 @@ namespace AutoGenBatch
         /// <summary>A beginner at the base finds green skiing to lap (scorecard v3: up the base's lifts, anywhere they lead).</summary>
         private static bool BaseHasGreen(SkiGraph sg, Plan plan, List<Lift> lifts, List<int> members) => LearnOk(sg, lifts, members, SlopeBand.Green);
 
-        /// <summary>The winding route from a reached cell down to its origin as a green run, or null when it does not hold up: green by
-        /// the ground under it and the run rules, or else a green cat track the grading tool cuts (graded: the connector rules and an
-        /// along-path grade under the blue line; the winding green on steeper ground); mostly away from other runs (the last 200 m
-        /// into the base aside) and off every lift line. why: 0 not green, 1 run rules, 2 crowds runs, 3 along a lift line. soft (0 =
-        /// clean): the share of the route along other runs when over 35 % (up to 70 %), plus 1 when a run lies along a lift line; a
-        /// caller may still take the softest when nothing clean exists (a base without beginner terrain costs more than either).</summary>
+        /// <summary>The winding route from a reached cell down to its origin as a green run, or null when it does not hold up. The route
+        /// holds up when it meets all these conditions:
+        /// - It is green by the ground under it and the run rules, or else a green cat track that the grading tool cuts (graded: the
+        ///   connector rules and an along-path grade under the blue line. The winding green on steeper ground).
+        /// - It stays mostly away from other runs (the last 200 m into the base aside).
+        /// - It stays off every lift line.
+        /// why: 0 not green, 1 run rules, 2 crowds runs, 3 along a lift line.
+        /// soft (0 = clean): the share of the route along other runs when over 35 % (up to 70 %), plus 1 when a run lies along a lift line.
+        /// A caller may still take the softest when nothing clean exists (a base without beginner terrain costs more than either).</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> GreenRoute(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, int x, PointHash avoid, ChordGuard guard, int[] why, out float soft,
             out bool graded)
@@ -368,7 +384,7 @@ namespace AutoGenBatch
             if (share > 0.35f)
             {
                 // a route that runs onto a run in a valley it shares can end there when that run's way on is a green run-out to the
-                // base: the skier follows it home
+                // base. The skier follows it home
                 List<float2> joined = JoinRunOut(g, plan, lifts, members, route, avoid, graded);
                 if (joined != null)
                 {
@@ -411,7 +427,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The route (top first) cut where it first comes onto a run (25 m) whose rest is green and passes a station of the
-        /// base, with that run's point as its end; null when it meets none past its first 250 m or keeps under 60 m of drop.</summary>
+        /// base, with that run's point as its end. The result is null when it meets none past its first 250 m or keeps under 60 m of drop.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> JoinRunOut(Grid g, Plan plan, List<Lift> lifts, List<int> members, List<float2> route, PointHash avoid, bool graded)
         {
@@ -453,7 +469,7 @@ namespace AutoGenBatch
             return null;
         }
 
-        /// <summary>A green way down from the top of a lift of the base, when the easy ground reaches it; shared = the softest one
+        /// <summary>A green way down from the top of a lift of the base, when the easy ground reaches it. Out parameter shared = the softest one
         /// that shares its ground with other runs or a lift line (not added) when no clean one exists.</summary>
         private static bool TryWayDown(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard guard, out PlanRun shared,
             out float softest)
@@ -491,8 +507,9 @@ namespace AutoGenBatch
         }
 
         /// <summary>For each base that still has no green skiing to lap once the ways home and the regrade are in (no green way down, pod,
-        /// way home or regraded track gives it one): a winding green the grading tool cuts (the owner's rule: a green learning run on
-        /// steep ground is a graded track), from the top of a lift of the base down to its stations. Returns the bases given one.</summary>
+        /// way home or regraded track gives it one), the method gives it a winding green that the grading tool cuts. The owner's rule: a green
+        /// learning run on steep ground is a graded track. The green runs from the top of a lift of the base down to its stations. Returns the
+        /// bases given one.</summary>
         private static int AddGradedLearningWays(Grid g, Plan plan, List<Lift> lifts)
         {
             int added = 0, tried = 0;
@@ -530,8 +547,9 @@ namespace AutoGenBatch
             return added;
         }
 
-        /// <summary>A green cat track from the top of a lift of the base down to its stations, searched as the ways home are (steep
-        /// pitches along the path, so it may zigzag down a face), at least 250 m long and 40 m down (a learning run, not a transfer).</summary>
+        /// <summary>A green cat track from the top of a lift of the base down to its stations. The search treats it as it treats the ways
+        /// home (steep pitches along the path, so it may zigzag down a face). It is at least 250 m long and 40 m down (a learning run, not a
+        /// transfer).</summary>
         private static bool TryGradedWayDown(Grid g, Plan plan, List<Lift> lifts, List<int> members, PointHash avoid, PointHash lines)
         {
             var origins = new List<int>();
@@ -567,9 +585,9 @@ namespace AutoGenBatch
         }
 
         /// <summary>For a base whose easy ground neither reaches a top nor rises the 97 m a pod needs: a green run that leaves a run
-        /// or traverse skied from a lift of the base where the easy ground meets it (30 m, not above it) and winds home, at least
-        /// 60 m down and 300 m long, the highest clean one first (else the softest; not added); whoever has come that far down skis
-        /// green the rest of the way.</summary>
+        /// or traverse skied from a lift of the base where the easy ground meets it (30 m, not above it) and winds home. The green run is
+        /// at least 60 m down and 300 m long. The highest clean one comes first (else the softest, not added). Whoever comes that far
+        /// down skis green the rest of the way.</summary>
         private static PlanRun FindBranch(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard guard, SkiGraph sg,
             out float softest)
         {
@@ -768,7 +786,7 @@ namespace AutoGenBatch
                 var run = new PlanRun { Pts = route, Band = SlopeBand.Green, By = lift, Kind = "beginner", Graded = graded };
                 lifts.Add(lift);
                 plan.Runs.Add(run);
-                // the network: a pod no run of the base passes would stand on its own; keep looking for one that joins it
+                // the network: a pod no run of the base passes would stand on its own. Keep looking for one that joins it
                 netChecks++;
                 SkiGraph after = Ski(g, plan, lifts);
                 if (after.BestSize / (float)lifts.Count >= shareBefore - 1e-4f)
@@ -809,15 +827,15 @@ namespace AutoGenBatch
             return s;
         }
 
-        // cells the easy-ground searches settled in this region's plan, and the most they may settle: on wide gentle ground one
-        // search floods the whole region (a link that fails tries three of them per round), and the region must plan in seconds
+        // cells the easy-ground searches settled in this region's plan, and the most they may settle. On wide gentle ground one
+        // search floods the whole region (a link that fails tries three of them per round). The region must plan in seconds
         private static long EasyWork, LinkWork;
-        // a graded track may climb a little per step (a contour step on rough ground); the route's climb rule still holds it
+        // a graded track may climb a little per step (a contour step on rough ground). The route's climb rule still holds it
         private static readonly float EasyUpTol = Env("RF_UPTOL", 0.10f);
         private static readonly float EasyBudget = Env("RF_EBUDGET", 3.0e6f), LinkBudget = Env("RF_LBUDGET", 1.8e6f);
 
         /// <summary>The easy-ground search's working arrays per grid cell (Steep: meters steeper than green, Hi: the highest raw point
-        /// along the route), clean between searches; one set serves every search (regions plan one at a time).</summary>
+        /// along the route), clean between searches. One set serves every search (regions plan one at a time).</summary>
         private sealed class EasyScratch
         {
             public readonly int[] Down, Root;
@@ -839,11 +857,13 @@ namespace AutoGenBatch
         }
         private static EasyScratch s_Easy;
 
-        /// <summary>Uphill search from the origin cells over ground an easy run can come down: per 7 m step the skier's descent is at
-        /// most EasyEdgeMax (smoothed) and the climb tiny; on the raw terrain the route never climbs EasyClimbM over a point below
-        /// it (the run rule's 10 m, less a margin), no ~30 m pitch exceeds EasyRawMax, and pitches over a green grade stay a small
-        /// share (the band reads the 85th percentile). Routes along other runs, or along the given lift lines, cost more. With a goal
-        /// cell the search heads for it (A*, the straight distance left as the estimate) and stops once it is settled.</summary>
+        /// <summary>Uphill search from the origin cells over ground an easy run can come down. Per 7 m step the skier's descent is at
+        /// most EasyEdgeMax (smoothed) and the climb tiny. On the raw terrain these limits hold:
+        /// - The route never climbs EasyClimbM over a point below it (the run rule's 10 m, less a margin).
+        /// - No ~30 m pitch exceeds EasyRawMax.
+        /// - Pitches over a green grade stay a small share (the band reads the 85th percentile).
+        /// Routes along other runs, or along the given lift lines, cost more. With a goal cell the search heads for it (A*, the straight
+        /// distance left as the estimate) and stops when it settles that cell.</summary>
         private static readonly float TrackTurnM = Env("RF_TURNM", 40f);
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -926,7 +946,7 @@ namespace AutoGenBatch
                     if (ns > lim.SteepShare * nl + 10f)
                         continue;
                     float nd = d + len * (steep ? 4f : 1f) * (nl > 150f && avoid.NearCell(g, nb, 40f) ? 3f : 1f) * (lines != null && lines.NearCell(g, nb, 25f) ? linesCost : 1f);
-                    // a graded track: a sharp turn (past 60 degrees) costs as much as TrackTurnM more track, so of the zigzags down a
+                    // a graded track: a sharp turn (past 60 degrees) costs as much as TrackTurnM more track. So of the zigzags down a
                     // face at the same grade (all the same length) the search takes the one with the longest legs
                     int dn = er.Down[c];
                     if (lim.AlongPath && dn >= 0 && TrackTurnM > 0f)
@@ -952,7 +972,7 @@ namespace AutoGenBatch
                 }
             }
             EasyWork += settled;
-            // the tree as the maps the callers read, keyed in first-reached order; the arrays go back clean
+            // the tree as the maps the callers read, keyed in first-reached order. The arrays go back clean
             var tree = new EasyReach(order.Count);
             foreach (int c in order)
             {

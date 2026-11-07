@@ -1,9 +1,11 @@
-// Worker suite (A2, stage-a-gates.md 2.5 / 3): D-4 (Run inside Task.Run == Run on the calling thread, both planner modes, and a
-// Reselect resumed on a worker == a fresh run with those knobs), D-5 (a cancel at unit k = 1, 10, 100, last returns Canceled within
-// one unit, Reselect refuses afterwards, and the next fresh run on the same planner equals the uncanceled fingerprint; a cancel from
-// another thread while Run works on a worker), ProgressVolatile read across threads, and Snapshot() copy independence (the published
-// copy does not change when the planner runs again). The tool's job (QuickRunsToolSystem.Worker.cs) is engine side; these are the
-// planner contracts it relies on.
+// Worker suite (A2, stage-a-gates.md 2.5 / 3). It tests these cases:
+// - D-4: Run inside Task.Run == Run on the calling thread, both planner modes, and a Reselect resumed on a worker == a fresh run
+//   with those knobs.
+// - D-5: a cancel at unit k = 1, 10, 100, last returns Canceled within one unit. Reselect refuses afterwards. The next fresh run on
+//   the same planner equals the uncanceled fingerprint. Also a cancel from another thread while Run works on a worker.
+// - ProgressVolatile read across threads.
+// - Snapshot() copy independence (the published copy does not change when the planner runs again).
+// The tool's job (QuickRunsToolSystem.Worker.cs) is engine side. These are the planner contracts it relies on.
 
 using System;
 using System.Collections.Generic;

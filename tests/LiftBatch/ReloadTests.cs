@@ -1,16 +1,16 @@
 // A reload writes nothing over a built line (FIX-LIST 57, DECISIONS 600 g). Where-tags `reload/RL-n`.
-// The fit right after a build reads the ground before the line's own cut reaches the CPU heights; the cut (TerrainSystem.AddSegment,
+// The fit right after a build reads the ground before the line's own cut reaches the CPU heights. The cut (TerrainSystem.AddSegment,
 // TerrainSystem.cs:1397-1516, ceiling = edge y + m_HeightRange.min + m_MinHeightOffset, never a fill) then sinks the ground under the
-// towers, and the load re-fit (every line: the fit's seen keys are in memory only) reads the sunk ground. Field (handtest-tower-lean
-// run 2, tram x -1700): every tram tower stood 0.3-1.0 m over its ground at load, T60 520719 1.05 m, past HeightAboveTolM 1.0, and the
-// fit re-wrote it 1.05 m lower; the ground under it then sank another 0.28 m (our cut again).
+// towers. The load re-fit (every line: the fit's seen keys are in memory only) reads the sunk ground. Field (handtest-tower-lean
+// run 2, tram x -1700): every tram tower stood 0.3-1.0 m over its ground at load, and T60 520719 stood 1.05 m over, past
+// HeightAboveTolM 1.0. The fit re-wrote it 1.05 m lower. The ground under it then sank another 0.28 m (our cut again).
 // RL-57 the field tram replayed from the build dump (Mod.log 1444-1501): the build fit, the measured sink under each tower, the load
-//       re-fit. The old height rule writes the T60 (the repro); the built rule writes nothing. Also the rule's own sides: a built node
-//       below its target is still raised, a line not yet built still takes the fit's heights both ways.
-// RL-1  a reload of every type (FG / DQ / GD / tram, drawn bottom to top and top to bottom, so towers lean and the pad turn's both
-//       cases are covered; the tram also on a bench where its pedestals float, DECISIONS 600 b) writes nothing: the same ground, and
-//       ground sunk 1.05 m under every tower. The fit reads no tower yaw (TowerLeanSystem's turn and lean are tower rotations only), so the
-//       draw order is what decides a turned tower here.
+//       re-fit. The old height rule writes the T60 (the repro). The built rule writes nothing. Also the rule's own sides: the fit
+//       still raises a built node below its target, and a line not yet built still takes the fit's heights both ways.
+// RL-1  a reload of every type writes nothing. The types are FG / DQ / GD / tram, drawn bottom to top and top to bottom, so towers
+//       lean and both cases of the pad turn are covered. The test also covers the tram on a bench where its pedestals float
+//       (DECISIONS 600 b). It writes nothing on the same ground and on ground sunk 1.05 m under every tower. The fit reads no tower yaw
+//       (TowerLeanSystem's turn and lean are tower rotations only), so the draw order is what decides a turned tower here.
 
 using System;
 using System.Collections.Generic;
@@ -66,10 +66,10 @@ namespace LiftBatch
             return b;
         }
 
-        /// <summary>The load re-fit of a built line (LiftTowerFitSystem.FitLine after a load: no tool registry, kinds unknown, the line's
-        /// own heads; straight so Moved is allowed) and the node writes it makes. <paramref name=pre57/>: as before FIX-LIST 57 (the
-        /// ground as sampled, the two-sided height rule); else as now (a built line judged at its towers' feet, BuiltFootSampler, and
-        /// the built height rule). <paramref name=maxAbove/>: the most a node stands over its target.</summary>
+        /// <summary>The load re-fit of a built line and the node writes it makes. The re-fit is LiftTowerFitSystem.FitLine after a load: no
+        /// tool registry, kinds unknown, the line's own heads. The line is straight, so Moved is allowed. <paramref name=pre57/>: as before
+        /// FIX-LIST 57 (the ground as sampled, the two-sided height rule). Otherwise: as now (a built line judged at its towers' feet,
+        /// BuiltFootSampler, and the built height rule). <paramref name=maxAbove/>: the most a node stands over its target.</summary>
         private static LiftTowerPlan Reload(LiftTerrainSampler t, float length, float ropeA, float ropeB, LiftTowerPlanConstants c,
                                             Built b, float engineMax, bool stations, bool built, bool pre57, out int writes,
                                             out float maxAbove, out string why)
@@ -131,8 +131,8 @@ namespace LiftBatch
 
         // ------------------------------------------------------------------ RL-57: the field tram
 
-        // x -1700, drawn top to bottom (the path's first node is the low end here), the "Towers [nodes]" block before the build fit:
-        // along, node y, terrain, chord clearance at 20/40/60/80 % of the span to the next node.
+        // x -1700, drawn top to bottom (the path's first node is the low end here). The data come from the "Towers [nodes]" block before the
+        // build fit: along, node y, terrain, chord clearance at 20/40/60/80 % of the span to the next node.
         private static readonly float[] TramAlong = { 0f, 450f, 670f, 710f, 850f, 900f };
         private static readonly float[] TramY = { 782.03f, 1320.82f, 1415.16f, 1416.56f, 1391.24f, 1356.78f };
         private static readonly float[] TramGround = { 781.65f, 1290.82f, 1385.16f, 1386.56f, 1376.24f, 1356.32f };
@@ -143,7 +143,7 @@ namespace LiftBatch
         };
         // high side - center at the nodes (the plan / fit lines)
         private static readonly float[] TramSide = { 0f, 0.9f, 450f, 11.4f, 670f, 7.6f, 710f, 7.2f, 850f, 6.0f, 900f, 2.1f };
-        // the sink at load under each line tower (pivot above terrain at load, Mod.log 2593-2640; T60 520719: 1.05 m)
+        // the sink at load under each line tower, with T60 520719 at 1.05 m (pivot above terrain at load, Mod.log 2593-2640)
         private static readonly float[] TramSink = { 1.05f, 0.6f, 0.6f, 0.6f };
 
         internal static float[] TramCenter()
@@ -173,7 +173,7 @@ namespace LiftBatch
             const float L = 900f, ropeA = 808.28f, ropeB = 1383.03f;
             float[] inner = { 450f, 670f, 710f, 850f };
 
-            // (a) the build: the tool's line (T45 x3, T30; ground ends) fitted heights only, as in session (field: T60 x3, T45, clear)
+            // (a) the build: the tool's line (T45 x3, T30, ground ends) fitted heights only, as in session (field: T60 x3, T45, clear)
             var pl = new LiftTowerPlanner { StationA = false, StationB = false };
             LiftTowerFit f0 = pl.Fit(u, L, ropeA, ropeB, c, inner, false, 3000f, new[] { 1, 1, 1, 0 });
             Built b = Write(f0.Plan, c);
@@ -207,7 +207,7 @@ namespace LiftBatch
             Check(LiftTowerEdit.NodeWrite(true, true, false, 1320.82f, 1319.77f, false) && LiftTowerEdit.NodeWrite(true, false, true, 1320.82f, 1319.77f, false) &&
                   LiftTowerEdit.NodeWrite(true, false, false, 1320.82f, 1320.82f, true), w,
                   "a move, a new member or head, or an Elevation off its (E, E) is still written over a built line");
-            // the line not yet built (the tool's fresh nodes) on the sunk ground: the fit's heights are written (no change in session)
+            // the line not yet built (the tool's fresh nodes) on the sunk ground: the fit writes its heights (no change in session)
             Reload(sunk, L, ropeA, ropeB, c, b, 1000f, false, false, false, out int fresh, out _, out _);
             Check(fresh >= 1, w, "a line not yet built is re-grounded on the sunk ground; got " + fresh + " write(s)");
         }

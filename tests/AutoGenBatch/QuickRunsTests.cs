@@ -1,5 +1,13 @@
-// Quick runs tool rules (QuickRunsRules.cs): region readout, totals (fee, skiers, mix, variety), money check, refund, build step after
-// validation, Temp -> candidate match by geometry, click pick, locale keys, knob clamps, tree-line clamp. Plus the LinkMeters alias.
+// Quick runs tool rules (QuickRunsRules.cs). The checks cover:
+// - Region readout.
+// - Totals (fee, skiers, mix, variety).
+// - Money check and refund.
+// - Build step after validation.
+// - Temp -> candidate match by geometry.
+// - Click pick.
+// - Locale keys.
+// - Knob clamps and tree-line clamp.
+// - The LinkMeters alias.
 
 using System.Collections.Generic;
 using SkiResortMod.Systems;
@@ -66,7 +74,7 @@ namespace AutoGenBatch
                 QuickRunsRules.EstimateMeanGrade(Square(-1500f, -1500f, 3000f), p => { calls++; return 0.3f * p.x; });
                 Check(calls > 0 && calls <= 5 * 400, W, $"site estimate sampled {calls} heights on 9 km2 (about 5 per point, 300 points)");
 
-                // The scan's figure: the planner's mean over the open ground (set even when the scan is refused later)
+                // The scan's figure: the planner's mean over the open ground (set even when the planner refuses the scan later)
                 foreach (double g in new[] { 0.15, 0.30, 0.50 })
                 {
                     AutoPlanResult scan = Plan(Input(Terrain.Plane(g), Terrain.Square(0f, 0f, 400f)));
@@ -117,7 +125,7 @@ namespace AutoGenBatch
             Check(QuickRunsRules.FeeOf(RunKind.Natural, 20000f) == 500 + 250 * 2, W, "natural 2 ha = 1000");
             Check(QuickRunsRules.FeeOf((RunKind)9, 20000f) == 0, W, "unknown kind costs 0, never negative");
 
-            // Skiers: the score's function (groomed blue 2 ha = 2 x 25 = 50; natural halves it)
+            // Skiers: the score's function (groomed blue 2 ha = 2 x 25 = 50, natural halves it)
             Check(math.abs(QuickRunsRules.SkiersOf(RunKind.Groomed, SlopeBand.Blue, 20000f) - 2.0 * SkiResortScore.SkiersPerHaBlue) < 1e-9, W, "groomed blue skiers");
             Check(math.abs(QuickRunsRules.SkiersOf(RunKind.Natural, SlopeBand.Blue, 20000f) -
                            2.0 * SkiResortScore.SkiersPerHaBlue * SkiResortScore.NaturalSkiersFactor) < 1e-9, W, "natural skiers halved");
@@ -204,7 +212,7 @@ namespace AutoGenBatch
             // Knobs
             Check(QuickRunsRules.ClampMix(2) == AutoMix.Expert && QuickRunsRules.ClampMix(7) == AutoMix.Balanced && QuickRunsRules.ClampMix(-1) == AutoMix.Balanced, W, "mix clamp");
             Check(QuickRunsRules.ClampDensity(2) == AutoDensity.Dense && QuickRunsRules.ClampDensity(3) == AutoDensity.Normal, W, "density clamp");
-            // R3: Groomed is always on; the chips are Natural, Snowmaking and Night (DECISIONS 578).
+            // R3: Groomed is always on. The chips are Natural, Snowmaking and Night (DECISIONS 578).
             Check(QuickRunsRules.ClampKinds(0) == AutoKinds.Groomed && QuickRunsRules.ClampKinds(0x40) == AutoKinds.Groomed &&
                   QuickRunsRules.ClampKinds(4) == (AutoKinds.Groomed | AutoKinds.Snowmaking), W, "kinds clamp");
             Check(QuickRunsRules.ToggleKind(AutoKinds.Default, AutoKinds.Snowmaking) == (AutoKinds.Default | AutoKinds.Snowmaking), W, "kind on");
@@ -223,7 +231,7 @@ namespace AutoGenBatch
             System.Array.Reverse(sq);
             Check(math.distance(QuickRunsRules.Centroid(sq), new float2(125, 225)) < 1e-3f, W, "reversed square, same centroid");
             // A tongue: a 20 x 400 m strip (z 0-400) on a 200 x 100 m fan (z 400-500). Vertex average = (100, 325) (eight nodes, four of
-            // them on the narrow strip); area-weighted = (8000 x 200 + 20000 x 450) / 28000 = 378.6 in z.
+            // them on the narrow strip). Area-weighted = (8000 x 200 + 20000 x 450) / 28000 = 378.6 in z.
             var tongue = new[]
             {
                 new float2(90, 0), new float2(110, 0), new float2(110, 400), new float2(200, 400),
@@ -236,12 +244,12 @@ namespace AutoGenBatch
                 avg += tongue[i];
             avg /= tongue.Length;
             Check(c.y - avg.y > 50f, W, $"the tongue's centroid lies in the fan, well below the vertex average ({avg.y}): the F3 case");
-            // Degenerate: empty / null -> 0; a line (zero area) -> the vertex average; non-finite stays out
+            // Degenerate: empty / null -> 0. A line (zero area) -> the vertex average. Non-finite stays out
             Check(math.all(QuickRunsRules.Centroid(null) == 0f) && math.all(QuickRunsRules.Centroid(new float2[0]) == 0f), W, "null / empty -> 0");
             c = QuickRunsRules.Centroid(new[] { new float2(0, 0), new float2(10, 0), new float2(20, 0) });
             Check(math.distance(c, new float2(10, 0)) < 1e-4f, W, $"zero-area ring -> vertex average (10, 0), got {c}");
 
-            // Game checks (F1): the vanilla error prefab for OverlapExisting, enabled in game, else off; ignoreErrors a second source
+            // Game checks (F1): the vanilla error prefab for OverlapExisting, enabled in game, else off. ignoreErrors is a second source
             Check(QuickRunsRules.ChecksState(false, 1, 1) == QuickGameChecks.On, W, "an enabled overlap prefab and no ignoreErrors: On");
             Check(QuickRunsRules.ChecksState(false, 1, 0) == QuickGameChecks.OverlapDisabled, W, "the prefab with DisableInGame (Anarchy): OverlapDisabled");
             Check(QuickRunsRules.ChecksState(false, 0, 0) == QuickGameChecks.NoOverlapPrefab, W, "no overlap prefab at all: NoOverlapPrefab");
@@ -254,8 +262,12 @@ namespace AutoGenBatch
             QuickRunsPlanTests();
         }
 
-        // Resort Planner v2 hub rules (QuickRunsPlanRules.cs, task A7): knob clamps, which runs a pod / lift toggle leaves out, the pod rows,
-        // the pod ring / lift chord picks and the "plan around this lift" region.
+        // Resort Planner v2 hub rules (QuickRunsPlanRules.cs, task A7). The checks cover:
+        // - Knob clamps.
+        // - Which runs a pod / lift toggle leaves out.
+        // - The pod rows.
+        // - The pod ring / lift chord picks.
+        // - The "plan around this lift" region.
         private static void QuickRunsPlanTests()
         {
             const string W = "quick-plan";

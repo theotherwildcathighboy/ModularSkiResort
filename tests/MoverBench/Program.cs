@@ -1,14 +1,16 @@
-// Headless benchmark of the chair mover's math at release scale. Run from the repo root (needs the game installed, CSII_MANAGEDPATH set):
+// Headless benchmark of the chair mover's math at release scale. Run from the repo root. It needs the game installed and CSII_MANAGEDPATH set:
 //   dotnet run --project tests/MoverBench/MoverBench.csproj -c Release
-// Prints INFO / BENCH lines, `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures.
-// Builds a synthetic 20-lift resort (about 3,000 carriers over 6 x 6 km) through the real LiftLoopCache.Build. Single thread on the
-// .NET 8 JIT, not Burst or the game's Mono; in-game numbers come from the dev tab.
+// It prints INFO / BENCH lines, `FAIL  where: msg` lines and one SUMMARY line. Environment.ExitCode = failures.
+// It builds a synthetic 20-lift resort (about 3,000 carriers over 6 x 6 km) through the real LiftLoopCache.Build. It runs on a single
+// thread on the .NET 8 JIT, not Burst or the game's Mono. In-game numbers come from the dev tab.
 //   B-1 correctness: LiftLoopSampler.Sample on the flat arrays == LiftLoopCache.Sample bit for bit, and Pose == MoveChair's pose, for
-//       every chair at three clocks (Burst may contract float ops differently); B-2 / B-3 the managed per-chair pass vs the flat
-//       MoveChairsJob kernel (p50 / p95 / max over 600 passes; one thread, then Parallel.For batch 64); B-4 pace: four camera scenarios.
-//   B-5 the carrier grip round (the brief's "B-2 case", numbered on): 2,000 carriers with grips + swing (+ gust, 2026-11-06) through the split kernel
-//       (one sample, two Transforms) vs the rigid kernel on the same carriers, and its correctness (toggle off == the rigid pose,
-//       grip axis along the rope, zero swing on guided segments, the free-run marks).
+//       every chair at three clocks (Burst may contract float ops differently).
+//   B-2 / B-3 the managed per-chair pass vs the flat MoveChairsJob kernel. The measure is p50 / p95 / max over 600 passes.
+//       It runs one thread, then Parallel.For batch 64.
+//   B-4 pace: four camera scenarios.
+//   B-5 the carrier grip round (the brief's "B-2 case", numbered on). It runs 2,000 carriers with grips + swing (+ gust, 2026-11-06)
+//       through the split kernel (one sample, two Transforms) and through the rigid kernel on the same carriers. It also tests correctness
+//       (toggle off == the rigid pose, grip axis along the rope, zero swing on guided segments, the free-run marks).
 
 using System;
 using System.Collections.Generic;
@@ -297,7 +299,7 @@ namespace MoverBench
             }
             Report("B-3 after (flat kernel = MoveChairsJob.Execute's math, one thread, JIT)", samples, chairs.Length);
 
-            // B-3b: the same kernel over worker threads, batch 64 (the IJobParallelFor shape; wall time)
+            // B-3b: the same kernel over worker threads, batch 64. This has the IJobParallelFor shape. The timing is wall time.
             int workers = Math.Max(1, Environment.ProcessorCount - 1);
             var opts = new ParallelOptions { MaxDegreeOfParallelism = workers };
             int batches = (chairs.Length + 63) / 64;
@@ -377,8 +379,11 @@ namespace MoverBench
             var marked = new ArraySegments { A = store.A };
             int n = Math.Min(2000, chairs.Length);
 
-            // Correctness at three clocks: toggle off == the rigid pose (1e-4 m), the grip axis along the rope (0.1 deg), no swing on a
-            // guided segment, the swing within the clamps.
+            // Correctness at three clocks:
+            // - toggle off == the rigid pose (1e-4 m).
+            // - the grip axis along the rope (0.1 deg).
+            // - no swing on a guided segment.
+            // - the swing within the clamps.
             int badRigid = 0, badAxis = 0, badJoint = 0, badGuided = 0, badClamp = 0, onGuided = 0, compared = 0, rolled = 0;
             foreach (double timeS in new[] { 0.0, 1234.5678, 7.16e7 / 3.0 })
             {
@@ -409,7 +414,7 @@ namespace MoverBench
                     LiftLoopSampler.Pose(p, tan, ls.Pivots.RigidDrop, ref t);
                     if (math.distance(rigidBody, t.m_Position) > 1e-4f || math.abs(math.dot(rigidRot, t.m_Rotation)) < 0.99999f)
                         badRigid++;
-                    // Under the full swing: the grip's axis stays along the rope (the roll turns about the rope tangent) and the pin
+                    // Under the full swing, the grip's axis stays along the rope (the roll turns about the rope tangent). The pin
                     // joint holds (1 mm: city coordinates, a float step of 0.1 mm or more).
                     CarrierPose.Pose(p, tan, yaw, ls.Pivots, true, swing, out float3 gripPos, out quaternion gripRot, out float3 bodyPos,
                                      out quaternion bodyRot);
@@ -458,9 +463,9 @@ namespace MoverBench
             float splitP50 = Report($"B-5 split (grips + swing: one sample, two Transforms, {n} carriers, one thread, JIT)", samples, n);
 
             // The plan's budget (carrier-pivot-swing-plan section 4): grips + swing may add <= 0.5 ms of worker time at 2,000 carriers on
-            // the mid-range estimate = this machine's single-thread time x MidRangeFactor (UNVERIFIED factor). Scaled to 2,000 when the
-            // resort has fewer carriers. JIT, not Burst: conservative. The main-thread half (<= 0.1 ms: the wind poll, the grip tags) has
-            // no bench twin; the in-game [cost] line measures it.
+            // the mid-range estimate. The mid-range estimate = this machine's single-thread time x MidRangeFactor (UNVERIFIED factor). The bench
+            // scales the result to 2,000 when the resort has fewer carriers. The bench runs JIT, not Burst: this is conservative. The main-thread
+            // half (<= 0.1 ms: the wind poll, the grip tags) has no bench twin. The in-game [cost] line measures it.
             const float MidRangeFactor = 2f, WorkerBudgetMs = 0.5f;
             float addedMs = math.max(0f, splitP50 - rigidP50) * (2000f / n) * MidRangeFactor;
             Check(addedMs <= WorkerBudgetMs, W, string.Format(CultureInfo.InvariantCulture,
@@ -497,7 +502,7 @@ namespace MoverBench
 
         private static float Ms(long t0) => (float)((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency);
 
-        /// <summary>Prints one BENCH line; returns the p50 (ms).</summary>
+        /// <summary>Prints one BENCH line and returns the p50 (ms).</summary>
         private static float Report(string what, float[] samples, int chairs)
         {
             var scratch = new List<float>();

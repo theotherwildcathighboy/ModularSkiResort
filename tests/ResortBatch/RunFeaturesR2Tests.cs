@@ -1,7 +1,9 @@
-// Run types R2 (DECISIONS 577): features from the sliders and the Groomed toggle. FromSpacings at the kind defaults equals FromKind (the
-// R1 golden still holds for every placed preset); SnowKind and ScoreKind, the kind the snow and score code are handed, give the same
-// answers as the features themselves; the paid-once billing: a random knob-fiddling sequence pays exactly the fee of the most the run
-// ever had, never refunds, re-enables free, spacing changes free; upkeep is billed per feature only while it is on.
+// Run types R2 (DECISIONS 577): features from the sliders and the Groomed toggle. Checks:
+// - FromSpacings at the kind defaults equals FromKind (the R1 golden still holds for every placed preset).
+// - SnowKind and ScoreKind give the same answers as the features themselves. They are the kind that the snow and score code receive.
+// - The paid-once billing: a random knob-fiddling sequence pays exactly the fee of the most the run ever had. It never refunds.
+//   Re-enabling is free. Spacing changes are free.
+// - Upkeep is billed per feature only while the feature is on.
 
 using System;
 using SkiResortMod.Systems;
@@ -22,7 +24,7 @@ namespace ResortBatch
             s_Check = null;
         }
 
-        /// <summary>FromSpacings: the kind defaults reproduce FromKind; spacings switch guns and lights on a groomed run only.</summary>
+        /// <summary>FromSpacings: the kind defaults reproduce FromKind. Spacings switch guns and lights on a groomed run only.</summary>
         private static void Spacings()
         {
             const string W = "features/spacings";
@@ -69,9 +71,9 @@ namespace ResortBatch
                 Check((int)RunFeatures.FromKind(k).SnowKind == k, W, "kind " + k + " is its own snow kind");
         }
 
-        /// <summary>Random toggle and slider sequences on one bound run: the one-time total is the fee of every step it ever had, each
-        /// charge is >= 0, a step paid once is free again, a slider move that keeps a feature on costs nothing, and upkeep integrates
-        /// 150 groomed + 350 snowmaking + 300 lights per ha-month over the time each is on.</summary>
+        /// <summary>Random toggle and slider sequences on one bound run. The one-time total is the fee of every step it ever had.
+        /// Each charge is >= 0. A step paid once is free again. A slider move that keeps a feature on costs nothing.
+        /// Upkeep integrates 150 groomed + 350 snowmaking + 300 lights per ha-month over the time each is on.</summary>
         private static void KnobFiddling()
         {
             const string W = "features/knobs";

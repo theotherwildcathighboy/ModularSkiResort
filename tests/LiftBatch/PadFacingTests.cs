@@ -1,17 +1,17 @@
 // The padded face uphill (DECISIONS 600 e). Where-tags `pad/...`.
-// Every tower mesh has its crash pad and TrainFront half on local +z; vanilla yaws a node tower along the draw direction
-// (Game.Net/NodeAlignSystem.cs:85-111, :209-212), so TowerLeanSystem turns it by 0 or 180 deg (LiftAlignMath.SectionUphill /
+// Every tower mesh has its crash pad and TrainFront half on local +z. Vanilla yaws a node tower along the draw direction
+// (Game.Net/NodeAlignSystem.cs:85-111, :209-212). Therefore TowerLeanSystem turns it by 0 or 180 deg (LiftAlignMath.SectionUphill /
 // PadUphillYaw) before the lean.
-// PF-1 the rule: on a section drawn either way (bottom to top, top to bottom, a bent plan, a hump, ground ends included), every tower's +z
-//      points toward the section's higher rope end, both draw orders give the same world yaw, and a flat section (ends within
-//      PadFlatRiseM, or no finite rope height) keeps vanilla's yaw.
+// PF-1 the rule: a section can be drawn either way (bottom to top, top to bottom, a bent plan, a hump, ground ends included). On it,
+//      every tower's +z points toward the section's higher rope end. Both draw orders give the same world yaw. A flat section
+//      (ends within PadFlatRiseM, or no finite rope height) keeps vanilla's yaw.
 // PF-2 the ropes stay: every rope-carrying tower prefab in gamedata-mirror has an anchor set symmetric under the 180 deg turn (per lane
-//      prefab), so the turned and leaned tower puts its anchors on the same world points as the unturned one (the turned frame is
-//      Q x RotateY(pi)); matched as LaneSystem.FindAnchors does (by position, sorted along the edge's lateral axis), each rope lane
-//      keeps its point and its side.
-// PF-3 heads and trains on a turned tower: the rope rises toward +z on both halves (front = the uphill rope, LaneEndSide +1), MastPitch
-//      reads +lean (the top tips downhill), the head relative to the mast plus the mast equals the rope bisector, and the halves keep
-//      their world pitch through PoseTrain, for either draw direction.
+//      prefab). So the turned and leaned tower puts its anchors on the same world points as the unturned one (the turned frame is
+//      Q x RotateY(pi)). The test matches anchors as LaneSystem.FindAnchors does (by position, sorted along the edge's lateral axis).
+//      Each rope lane keeps its point and its side.
+// PF-3 heads and trains on a turned tower: the rope rises toward +z on both halves (front = the uphill rope, LaneEndSide +1).
+//      MastPitch reads +lean (the top tips downhill). The head relative to the mast plus the mast equals the rope bisector. The
+//      halves keep their world pitch through PoseTrain, for either draw direction.
 
 using System;
 using System.Collections.Generic;
@@ -95,7 +95,7 @@ namespace LiftBatch
                 List<float2> faces = Faces(drawn, topFirst ? yHigh : yLow, topFirst ? yLow : yHigh);
                 for (int i = 0; i < drawn.Count; i++)
                 {
-                    // uphill at node i: toward the next node in rising order; the top end points away from its lower neighbor
+                    // uphill at node i: toward the next node in rising order. The top end points away from its lower neighbor
                     int k = topFirst ? drawn.Count - 1 - i : i;
                     float2 uphill = k < line.Count - 1 ? line[k + 1].xz - line[k].xz : line[k].xz - line[k - 1].xz;
                     Check(math.dot(faces[i], uphill) > 0f, W, (topFirst ? "top-first" : "bottom-first") + " node " + i + " faces " + faces[i] +
@@ -137,7 +137,7 @@ namespace LiftBatch
                         Check(math.length(f[i] - math.mul(VanillaYaw(d, i), Z).xz) < 1e-5f, W, "flat (" + F(yb - 1008f, "F2") + ") node " + i +
                               " turned");
                 }
-            // PadUphillYaw: a zero direction keeps the yaw; a perpendicular one keeps it; the turn is about vertical (y stays up)
+            // PadUphillYaw: a zero direction keeps the yaw, and a perpendicular one keeps it. The turn is about vertical (y stays up)
             quaternion y0 = quaternion.RotateY(math.radians(37f));
             Check(LiftAlignMath.PadUphillYaw(y0, float2.zero).Equals(y0), W, "zero direction turned");
             float3 f0 = math.mul(y0, Z);
@@ -207,8 +207,8 @@ namespace LiftBatch
                          " m), turned + leaned anchors on the same world points (worst " + F(worstWorld, "F5") + " m)");
         }
 
-        /// <summary>Per lane prefab, the world anchors of both poses sorted along the edge's lateral axis (LaneSystem.FindAnchors' order)
-        /// compared pointwise; the worst distance.</summary>
+        /// <summary>Compares, per lane prefab, the world anchors of both poses pointwise, sorted along the edge's lateral axis
+        /// (LaneSystem.FindAnchors' order). Returns the worst distance.</summary>
         private static float Match(List<Anchor> anchors, float3 foot, quaternion q, quaternion qT, float3 lateral, string name, string w)
         {
             float worst = 0f;
@@ -301,7 +301,7 @@ namespace LiftBatch
                     Check(math.abs(mast - math.radians(lean)) < 1e-4f, W, tag + ": MastPitch " + F(math.degrees(mast), "F3") + " for lean " + F(lean, "F3"));
                     float3 top = math.mul(q, new float3(0f, 1f, 0f));
                     Check(lean == 0f ? math.abs(top.z) < 1e-5f : top.z < 0f, W, tag + ": the top tips " + top + " (downhill is -z)");
-                    // the engine's rope lanes leave the (leaned) anchor toward each neighbor; TrainPitchSystem reads them along +z
+                    // the engine's rope lanes leave the (leaned) anchor toward each neighbor. TrainPitchSystem reads them along +z
                     float3 anchor = foot + math.mul(q, new float3(0f, h, 0f));
                     float3 toNext = anchor + (next - anchor) / 3f, toPrev = anchor + (prev - anchor) / 3f;
                     int sideHigh = LiftAlignMath.LaneEndSide(anchor, topFirst ? toPrev : toNext, fwd);

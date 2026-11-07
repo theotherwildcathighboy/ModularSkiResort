@@ -46,7 +46,7 @@ namespace ResortBatch
             check(SkiParkingRules.RadiusM % 100f == 0f, w, "the radius is a round 100 m");
         }
 
-        // P9: a parking hall is looked at within RadiusM + FacilityReachM of its center; each garage lane is measured at its own curve.
+        // P9: the rule considers a parking hall within RadiusM + FacilityReachM of its center. It measures each garage lane at its own curve.
         private static void GarageMeasure(Func<bool, string, string, bool> check)
         {
             const string w = "parking P9 (garage entrance distance)";
@@ -151,8 +151,8 @@ namespace ResortBatch
             LaneCase(check, w, 0x2000u, 1, 5.5f, 10f, false, V.Closed, "parking disabled");
             LaneCase(check, w, 0x0u, 1, 0f, 10f, false, V.NoSlots, "slot interval 0");
             LaneCase(check, w, 0x0u, 1, float.NaN, 10f, false, V.NoSlots, "slot interval NaN");
-            // One two-fault row per neighboring pair, so every swap of the order fails
-            // (only the DUMP's not-counted buckets depend on it; car spaces do not)
+            // One two-fault row per neighboring pair, so every swap of the order fails.
+            // Only the DUMP's not-counted buckets depend on the order. Car spaces do not.
             LaneCase(check, w, 0x200u, 1, 5.5f, 600.01f, false, V.TooFar, "too far before virtual");
             LaneCase(check, w, 0x10200u, 1, 5.5f, 10f, false, V.Virtual, "virtual before service");
             LaneCase(check, w, 0x10000u, 0x10, 5.5f, 10f, false, V.Service, "service before not-car");

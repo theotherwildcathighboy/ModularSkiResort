@@ -1,7 +1,8 @@
-// RunsFirst coverage fill (prototype): once the lifts, runs, network and beginner terrain stand, skiable ground a skier gets to can
-// still lie away from every run (a broad face between two trunk runs, the gentle side of a valley). A candidate line that leaves a
-// run or traverse the skier is already on and goes down over that ground becomes a run when it opens enough new ground for its
-// length and keeps its distance from the runs beside it; best new ground first, until no line is worth a trail.
+// RunsFirst coverage fill (prototype): once the lifts, runs, network and beginner terrain stand, skiable ground a skier gets to
+// can still lie away from every run. Examples: a broad face between two trunk runs, the gentle side of a valley. A candidate
+// line becomes a run when it leaves a run or traverse the skier is already on and goes down over that ground. It must also open
+// enough new ground for its length and keep its distance from the runs beside it. The fill takes the best new ground first,
+// until no line is worth a trail.
 
 using System;
 using System.Collections.Generic;
@@ -20,24 +21,25 @@ namespace AutoGenBatch
         private const float FillCrowdShare = 0.25f, FillCrowdM = 40f;   // at most this share of it within 40 m of another run (its last 150 m aside)
         private const float FillForkM = 30f;        // a fill run leaves a run or traverse within this distance, at most 3 m above it
         private const float FillDropM = 60f;
-        private static readonly float FillMinM = Env("RF_FILLMIN", 130f);   // a short fill run still drops FillDropM (no stub); scorecard v3 rates length nowhere else
+        private static readonly float FillMinM = Env("RF_FILLMIN", 130f);   // a short fill run still drops FillDropM (no stub). Scorecard v3 rates length nowhere else
         private const float FillFeedM = 110f, FillFeedShare = 0.3f;   // ... or from a straight cut-over this long at most (a share of the run)
-        // a fill run must open ground for the crowding it brings: the scorecard weighs coverage 10 against its 60 % target and
-        // crowding 5 against a 30 % share, so at par a crowded 10 m sample costs about 1.0 x (lattice points / run samples) new points.
-        // The fill asks a quarter of that: 0.25 against 0.67 gave visible 97.48 -> 97.53, 80 % outlines 95.33 -> 95.40, 120 %
+        // a fill run must open ground for the crowding it brings. The scorecard weighs coverage 10 against its 60 % target and
+        // crowding 5 against a 30 % share. So at par a crowded 10 m sample costs about 1.0 x (lattice points / run samples) new points.
+        // The fill asks a quarter of that: 0.25 against 0.67. Result: visible 97.48 -> 97.53, 80 % outlines 95.33 -> 95.40, 120 %
         // 96.10 -> 96.22, squares 95.01 -> 95.21, no region worse (1.0: 97.41 against 97.48)
         private static readonly float FillCrowdTrade = Env("RF_FTRADE", 0.25f);
 
-        /// <summary>Fall lines through open ground: from an open lattice point up the steepest ascent until it meets ground a skier is on
-        /// (onNear) and down the steepest descent until it has run along a run for a few steps or reached a station; one per stretch of
-        /// face (an open point near a line already traced starts none). Returned as candidates the fill judges like the picked lines.</summary>
+        /// <summary>Fall lines through open ground. From an open lattice point, a line goes up the steepest ascent until it meets ground
+        /// a skier is on (onNear). It then goes down the steepest descent until it runs along a run for a few steps or reaches a
+        /// station. The code makes one line per stretch of face (an open point near a line already traced starts none). It returns the
+        /// lines as candidates that the fill judges like the picked lines.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<Cand> FaceLines(Grid g, List<Lift> lifts, List<float2> lat, bool[] covered, List<float3> onPts, List<float2> runPts)
         {
             var o = new List<Cand>();
             var traced = new PointHash();
-            // per cell: the highest point a skier is on within FillForkM (the fork rule: at most 3 m above it), and whether a run
-            // lies within MergeM
+            // per cell, two values. The first is the highest point a skier is on within FillForkM (the fork rule: at most 3 m above it).
+            // The second is whether a run lies within MergeM
             int cellCount = g.W * g.D;
             var onY = new float[cellCount];
             Array.Fill(onY, float.NegativeInfinity);
@@ -109,7 +111,7 @@ namespace AutoGenBatch
                 }
                 if (!found || up.Count < 2)
                     continue;
-                // down until it has run along a run for a while (the fill ends it where it runs onto one) or reaches a station
+                // down until it runs along a run for a while (the fill ends it where it runs onto one) or reaches a station
                 var cells = Enumerable.Reverse(up).ToList();
                 bool away = false;
                 for (int c = c0, n = 0, along = 0; n < 400; n++)
@@ -164,8 +166,8 @@ namespace AutoGenBatch
         }
 
         /// <summary>A diagonal from p across the slope to one side, holding DiagGrade down the smoothed ground (straight down where the
-        /// ground is gentler, turning at most 45 degrees per 10 m), until it comes within 30 m of a run 120 m or more on, or to a lift
-        /// bottom; null when it leaves the region, turns back on itself or runs 1.5 km.</summary>
+        /// ground is gentler, turning at most 45 degrees per 10 m). It ends when it comes within 30 m of a run 120 m or more on, or at a
+        /// lift bottom. It returns null when it leaves the region, turns back on itself or runs 1.5 km.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> DiagonalTrace(Grid g, float2 p, int side, PointHash runs, List<Lift> lifts)
         {
@@ -481,7 +483,7 @@ namespace AutoGenBatch
                 return pts;
             }
 
-            // best new ground first (lazy: a line's new ground only shrinks as runs are added)
+            // best new ground first (lazy: a line's new ground only shrinks as the fill adds runs)
             var queue = new PriorityQueue<Cand, int>();
             foreach (Cand cd in cands)
                 if (!cd.L.Picked && Eval(cd, out int f0, out _) != null)
@@ -563,7 +565,7 @@ namespace AutoGenBatch
                 km += RunLength(pts) / 1000f;
             }
             // diagonal blue runs (scorecard v3): a graded track that holds a blue grade across a face opens the wedge two converging
-            // fall lines leave; from a point a skier is on it traverses down at a steady grade until it meets a run or a lift bottom
+            // fall lines leave. From a point a skier is on, it traverses down at a steady grade until it meets a run or a lift bottom
             int diagonals = 0, traces = 0, traced = 0;
             float diagKm = 0f;
             var dwhy = new int[8];
@@ -634,8 +636,9 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
                 Console.WriteLine($"DEBUG diagonals: {traces} trace(s), {traced} reached a run or station; not a run {dwhy[0]}, past blue {dwhy[1]}, connector rules {dwhy[2]}, " +
                     $"short {dwhy[3]}, crowded {dwhy[4]}, little new ground {dwhy[5]}, crowding costs more {dwhy[6]}, lift chord {dwhy[7]}");
-            // a diagonal's case for a trail: a blue diagonal run by the scorecard's reading, within the connector rules, not a stub,
-            // opening enough new ground for its length and more than the crowding it brings costs, clear of the lift chords
+            // a diagonal's case for a trail. It is a blue diagonal run by the scorecard's reading. It is within the connector rules, not a
+            // stub and clear of the lift chords. The case also needs enough new ground for its length, and more than the crowding it
+            // brings costs
             List<float2> DiagEval(List<float2> pts, out int fresh)
             {
                 fresh = 0;
@@ -724,7 +727,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>RF_COVDBG: a map of the skiable ground and what the served runs cover of it, 100 m a character, +z up and +x right
-        /// ("#" all covered, "+" half or more, "." less, "o" none; A-Z a lift bottom, a-z its top).</summary>
+        /// ("#" all covered, "+" half or more, "." less, "o" none, A-Z a lift bottom, a-z its top).</summary>
         private static void CoverDebug(Grid g, Plan plan, List<Lift> lifts)
         {
             // the elements the scorecard reads as runs (as the cut model takes them: every one served)

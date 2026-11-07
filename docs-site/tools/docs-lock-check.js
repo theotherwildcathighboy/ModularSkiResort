@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Protected writing check. The author's own text sits between <!-- LOCK --> and <!-- /LOCK -->,
-// and a page with `locked: true` in its frontmatter is locked whole. This script hashes each
-// locked region and compares it with docs-lock.json. Any change, or a locked region that
-// disappeared, exits 1. An AI session must not edit inside a locked region; relock only when the
+// Protected writing check. The author's own text sits between <!-- LOCK --> and <!-- /LOCK -->.
+// A page with `locked: true` in its frontmatter is locked whole. This script hashes each
+// locked region and compares it with docs-lock.json. Any change exits 1. A locked region that
+// disappeared also exits 1. An AI session must not edit inside a locked region. Relock only when the
 // author asks: `npm run lock:relock`.
 //
 // Usage: node tools/docs-lock-check.js [--relock] [--root <docs-site dir>]

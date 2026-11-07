@@ -1,6 +1,6 @@
-// The tests/SlopeBatch field captures (format: tests/SlopeBatch/captures/README.txt) as planner input: the polygon becomes the
-// region, its Need heights the snapshot (texel = lattice node at multiple 1), and every texel the capture lacks takes the height of
-// the nearest captured texel (multi-source BFS), so only ground outside the drawn run is invented.
+// The tests/SlopeBatch field captures (format: tests/SlopeBatch/captures/README.txt) as planner input. The polygon becomes the
+// region. Its Need heights become the snapshot (texel = lattice node at multiple 1). Every texel that the capture lacks takes the
+// height of the nearest captured texel (multi-source BFS). So only ground outside the drawn run is invented.
 
 using System;
 using System.Collections.Generic;
@@ -81,7 +81,7 @@ namespace AutoGenBatch
 
         private static float F(string s) => float.Parse(s, CultureInfo.InvariantCulture);
 
-        /// <summary>Snapshot on the vanilla map (the capture's origin must be -Terrain.Offset and its multiple 1); null otherwise.</summary>
+        /// <summary>Snapshot on the vanilla map (the capture's origin must be -Terrain.Offset and its multiple 1). The result is null otherwise.</summary>
         public HeightSnapshot Snapshot()
         {
             if (Multiple != 1 || Origin.x != -Terrain.Offset.x || Origin.y != -Terrain.Offset.z)

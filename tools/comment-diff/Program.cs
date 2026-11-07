@@ -1,5 +1,5 @@
-// Proves a comment-only edit: for every changed .cs file, the token stream (comments and whitespace dropped,
-// preprocessor directives kept) must equal the version at the given git ref. Exit 1 on any code change.
+// Proves a comment-only edit. For every changed .cs file, the token stream must equal the version at the given git ref.
+// The stream drops comments and whitespace and keeps preprocessor directives. Exit 1 on any code change.
 // Usage: dotnet run --project tools/comment-diff -- [ref=HEAD]
 using System.Diagnostics;
 using System.Text;

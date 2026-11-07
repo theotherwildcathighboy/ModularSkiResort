@@ -1,10 +1,14 @@
-// Tests for the pure LiftTowerPlanner on measured profiles replayed from field logs and on synthetic ground (where-tags `planner/...`,
-// LP-0..LP-25). Pinned: every lift type has planner constants and each member's rope = its manifest lane y (axle + crown seat); the DQ gully, tram pitch and
-// FG dip replays end with every span clear; flat ground gets infill only; walls, side-hill (the high side governs) and breakover knees
-// are respected; Fit (fixed node count) is Kept / Moved / Short as designed and a fitted line re-fits to itself (write-once guarantee).
-// Replay terrain: ground at each node = the log's `terrain`; between nodes the four chord samples at 20/40/60/80 % give ground =
-// lerp(node y, next node y, t) - chord clearance (the diag's chord runs between node positions, LiftTowerDiagSystem DescribeNode);
-// linear in between. The log has no cross-slope, so the replay sampler ignores the lateral offset.
+// Tests for the pure LiftTowerPlanner. They use measured profiles replayed from field logs and synthetic ground (where-tags `planner/...`,
+// LP-0..LP-25). The tests pin these facts:
+// - Every lift type has planner constants. Each member's rope = its manifest lane y (axle + crown seat).
+// - The DQ gully, tram pitch and FG dip replays end with every span clear.
+// - Flat ground gets infill only.
+// - The planner respects walls, side-hill (the high side governs) and breakover knees.
+// - Fit (fixed node count) gives Kept / Moved / Short as designed.
+// - A fitted line re-fits to itself (write-once guarantee).
+// Replay terrain: ground at each node = the log's `terrain`. Between nodes, the four chord samples at 20/40/60/80 % give ground =
+// lerp(node y, next node y, t) - chord clearance (the diag's chord runs between node positions, LiftTowerDiagSystem DescribeNode).
+// The terrain is linear in between. The log has no cross-slope, so the replay sampler ignores the lateral offset.
 
 using System;
 using System.Collections.Generic;
@@ -149,7 +153,7 @@ namespace LiftBatch
 
 
         /// <summary>Plan between two stations whose rope sits on the shortest member above the end ground (the field lines had a
-        /// shortest tower on both end nodes); then run the idempotence check (LP-8) on the result.</summary>
+        /// shortest tower on both end nodes). Then run the idempotence check (LP-8) on the result.</summary>
         private static LiftTowerPlan PlanAndReplan(string where, LiftTerrainSampler terrain, float length, LiftTowerPlanConstants c,
                                                    float groundA, float groundB, float? ropeA = null, float? ropeB = null)
         {
@@ -252,8 +256,8 @@ namespace LiftBatch
 
 
         /// <summary>The DQ / GD / tram rope sag (m_Hanging) of every field log replayed here, before the rope sag round (2026-11-03: DQ / GD
-        /// 0.025, tram 0.04). A replay that pins the planner's choice on logged ground runs at this sag; the same ground at today's sag
-        /// is checked beside it where the result differs.</summary>
+        /// 0.025, tram 0.04). A replay that pins the planner's choice on logged ground runs at this sag. The test also checks the same
+        /// ground at today's sag where the result differs.</summary>
         internal const float LoggedSag = 0.004f;
 
         private static void Lp1DetachableGully()
@@ -262,8 +266,8 @@ namespace LiftBatch
             Profile p = Reconstruct(DqGully);
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable").With(sagRatio: LoggedSag);
             LiftTowerPlan plan = PlanAndReplan("LP-1", (s, l) => p.At(s), p.Length, c, p.Start, p.End);
-            // Fewest towers: one tower spans the gully (the previous objective built 2 x DQ16; LP-17 prints both). Until the 2026-10-26
-            // lift pass it had to be a DQ18: the full floor applied right up to each station; the station approach floor
+            // Fewest towers: one tower spans the gully (the previous objective built 2 x DQ16, and LP-17 prints both). Until the 2026-10-26
+            // lift pass it had to be a DQ18, because the full floor applied right up to each station. The station approach floor
             // (LiftTowerPlanConstants.ApproachFloor) lets a DQ10 clear it.
             AddReport("LP-1 DQ gully (log :628), catalog drop 3.3 + floor 3, logged sag 0.004", "1 line tower, clear (DQ18 before the station approach floor)", plan);
             Check(plan.LineTowers == 1, W, "line towers " + plan.LineTowers + ", expected 1: " + Describe(plan));
@@ -284,8 +288,8 @@ namespace LiftBatch
             const string W = "planner/LP-2";
             Profile p = Reconstruct(TramPitch);
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram").With(sagRatio: LoggedSag);
-            // The 1,000 m span of the original replay (before DECISIONS 381) needs one tower; at the 3 km max the 1,160 m pitch is one clear span
-            // on the logged 0.004 rope. Today's 0.04 rope sags 46 m there: one tower (checked after).
+            // The 1,000 m span of the original replay (before DECISIONS 381) needs one tower. At the 3 km max, the 1,160 m pitch is one clear span
+            // on the logged 0.004 rope. Today's 0.04 rope sags 46 m there, and the result is one tower (checked after).
             LiftTowerPlan plan1k = PlanAndReplan("LP-2/1k", (s, l) => p.At(s), p.Length, c.With(maxSpanM: 1000f), p.Start, p.End);
             AddReport("LP-2 tram pitch (log :665), max span 1,000 m", "1 line tower, clear", plan1k);
             Check(plan1k.LineTowers == 1, W, "1 km max: line towers " + plan1k.LineTowers + ", expected 1: " + Describe(plan1k));
@@ -314,8 +318,8 @@ namespace LiftBatch
         private static void Lp4Flat()
         {
             const string W = "planner/LP-4";
-            // The span arithmetic (fewest spans the max span allows, even) holds while the sag never limits a span: DQ and tram run at the
-            // logged 0.004 here; FG at its own 0.02. At today's DQ / tram sag the rope next to a station limits the end spans (below).
+            // The span arithmetic (fewest spans the max span allows, even) holds while the sag never limits a span. DQ and tram run at the
+            // logged 0.004 here. FG runs at its own 0.02. At today's DQ / tram sag the rope next to a station limits the end spans (below).
             foreach (string id in new[] { "fixedGrip", "detachable", "tram" })
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
@@ -328,10 +332,10 @@ namespace LiftBatch
                 float even = length / spans;
                 AddReport("LP-4 flat " + id + " " + length.ToString("F0") + " m", spans + " spans of ~" + even.ToString("F0") + " m (max " + c.MaxSpanM.ToString("F0") + "), fewest towers, infill only", plan);
                 Check(plan.Spans.Length == spans, W, id + ": " + plan.Spans.Length + " spans, expected " + spans + ": " + Describe(plan));
-                // FG: at m_Hanging 0.03 a 75 m span sagged 2.25 m and the flat line stood on FG12s; at 0.01 (F3) FG8s clear the floor, and the
+                // FG: at m_Hanging 0.03 a 75 m span sagged 2.25 m and the flat line stood on FG12s. At 0.01 (F3) FG8s clear the floor, and the
                 // check below still allows FG12 (member <= 1). DQ / tram (0.004) keep the shortest member. Since the
-                // 2026-10-26 lift pass the tower next to a station is the shortest the ground allows (MinCost.EndRiseM, TowerWorthM): the FG line puts an
-                // FG8 beside one station on a shorter first span, so its spans are no longer even (both ends cannot: 2 x 54 m + 2 x 96 m).
+                // 2026-10-26 lift pass the tower next to a station is the shortest the ground allows (MinCost.EndRiseM, TowerWorthM). The FG line puts an
+                // FG8 beside one station on a shorter first span. So its spans are no longer even (both ends cannot: 2 x 54 m + 2 x 96 m).
                 int maxMember = id == "fixedGrip" ? 1 : 0;
                 for (int s = 0; s < plan.Spans.Length; s++)
                     Check(id == "fixedGrip" ? plan.Spans[s].LengthM <= c.MaxSpanM + 1e-3f : math.abs(plan.Spans[s].LengthM - even) <= c.StepM + 1e-3f, W,
@@ -345,7 +349,7 @@ namespace LiftBatch
                 Check(plan.Clear, W, id + " violated on flat ground");
             }
             // Today's DQ (0.025) and tram (0.04) on the same flat lines: the station end spans are as long as the station rope
-            // clears the floor, the middle spans up to the max span (DQ 75/200/200/75 m on DQ10-DQ18-DQ10, tram 430/770/770/430 m on T60s).
+            // clears the floor. The middle spans go up to the max span (DQ 75/200/200/75 m on DQ10-DQ18-DQ10, tram 430/770/770/430 m on T60s).
             foreach ((string id, int towers) in new[] { ("detachable", 3), ("tram", 3) })
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
@@ -358,9 +362,9 @@ namespace LiftBatch
                 for (int s = 0; s < plan.Spans.Length; s++)
                     Check(plan.Spans[s].LengthM <= c.MaxSpanM + 1e-3f, W, id + " today's sag: span " + (s + 1) + " over the max span");
             }
-            // The FG sag arithmetic: at the vanilla HV lane's 0.03 an FG8-FG8 60 m span on flat ground was below the 3 m floor; on the
-            // own FG rope lane (0.01, lift alignment F3, 2026-11-02; 0.02 since the rope sag round) the longest allowed span clears it on
-            // FG8s (3.07 m at 90 m).
+            // The FG sag arithmetic: at the vanilla HV lane's 0.03 an FG8-FG8 60 m span on flat ground was below the 3 m floor. The
+            // own FG rope lane has 0.01 at lift alignment F3 (2026-11-02) and 0.02 since the rope sag round. On it, the longest allowed span
+            // clears the floor on FG8s (3.07 m at 90 m).
             LiftTowerPlanConstants fg = LiftTowerPlanConstants.For("fixedGrip");
             float chairMax = fg.RopeAboveBase(0) - fg.MaxSpanM * fg.SagRatio - fg.CarrierDropM;
             Check(fg.SagRatio == 0.02f && chairMax >= fg.FloorM, W,
@@ -436,9 +440,9 @@ namespace LiftBatch
         {
             const string W = "planner/LP-7";
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("fixedGrip");
-            // A 50 % pitch rising to a plateau; the knee is rounded over 160-180 m (crest = the knee at 170 m). The rule is a tie-break
-            // after the tower count, so the knee sits where 260 m on 90 m spans allows its second tower (170-180 m); a knee at 190-210 m
-            // would cost a third tower and is reported in LP-17 instead.
+            // A 50 % pitch rising to a plateau. The knee rounds over 160-180 m (crest = the knee at 170 m). The rule is a tie-break
+            // after the tower count. So the knee sits where 260 m on 90 m spans allows its second tower (170-180 m). A knee at 190-210 m
+            // would cost a third tower, and LP-17 reports it instead.
             Func<float, float> g = s =>
             {
                 if (s <= 160f) return 1000f + 0.5f * s;
@@ -501,8 +505,8 @@ namespace LiftBatch
         }
 
 
-        // A seven-node FG line (a "Towers [nodes]" block of a field test): n1 and n7 are station stub nodes (no tower, not the line
-        // prefab), n2-n6 carry SkiLiftTowerFG2 (= FG8).
+        // A seven-node FG line (a "Towers [nodes]" block of a field test). Nodes n1 and n7 are station stub nodes (no tower, not the line
+        // prefab). Nodes n2-n6 carry SkiLiftTowerFG2 (= FG8).
         private static readonly LogNode[] Fg2114 =
         {
             N(60f, 933.83f, 933.83f, 0.1f, 1.7f, 1.8f, 1.0f),
@@ -556,8 +560,8 @@ namespace LiftBatch
             LiftTerrainSampler t = (s, l) => p.At(s);
             float[] inner = InnerAlong(Fg2114);
             var fg8 = new int[inner.Length];
-            // Station ropes: (A) the default (stub node y + the shortest tower's rope 7.04); (B) the terminal towers' axles (PIPELINE
-            // constants: drive ET68 5.84 at the base, return ET62 5.24 at the top); the game reads the real anchor off the rope lane
+            // Station ropes: (A) the default (stub node y + the shortest tower's rope 7.04). (B) the terminal towers' axles (PIPELINE
+            // constants: drive ET68 5.84 at the base, return ET62 5.24 at the top). The game reads the real anchor off the rope lane
             // (LiftTowerFitSystem.StationRope).
             var ends = new[]
             {
@@ -588,9 +592,9 @@ namespace LiftBatch
         private static void Lp12FieldFits()
         {
             const string W = "planner/LP-12";
-            // Three lines with the engine's own node count (equal split, CourseSplitSystem.cs:3485-3493): DQ gully 336 m / 90 -> 4 x 84 m
-            // (3 line towers); tram 1,160 m / 1,000 -> 2 x 580 m (1); FG dip 129 m / 60 -> 3 x 43 m (2). The DQ gully was Short with 3 line
-            // towers (the free plan needed 4) until the 2026-10-26 lift pass: the station approach floor clears it with 3 (DQ18/12/16).
+            // Three lines with the engine's own node count (equal split, CourseSplitSystem.cs:3485-3493). DQ gully: 336 m / 90 -> 4 x 84 m
+            // (3 line towers). Tram: 1,160 m / 1,000 -> 2 x 580 m (1). FG dip: 129 m / 60 -> 3 x 43 m (2). The DQ gully was Short with 3 line
+            // towers (the free plan needed 4) until the 2026-10-26 lift pass. The station approach floor clears it with 3 (DQ18/12/16).
             var cases = new (string Name, LogNode[] Log, string Type, float EngineMax, int Inner, bool ExpectClear)[]
             {
                 ("DQ gully", DqGully, "detachable", 90f, 3, true),
@@ -631,8 +635,8 @@ namespace LiftBatch
         {
             const string W = "planner/LP-14";
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("fixedGrip");
-            // Two 25 m humps (at 30 m and 90 m, 24 m wide) on a 120 m FG line split 2 x 60: its one tower stands in the dip between them;
-            // a tower on each hump is what clears it, so the free plan needs more towers than the line has.
+            // Two 25 m humps (at 30 m and 90 m, 24 m wide) on a 120 m FG line split 2 x 60. Its one tower stands in the dip between them.
+            // A tower on each hump clears it, so the free plan needs more towers than the line has.
             Func<float, float> hump = s => 1000f + 25f * math.max(0f, 1f - math.abs(s - 30f) / 12f) + 25f * math.max(0f, 1f - math.abs(s - 90f) / 12f);
             LiftTerrainSampler t = (s, l) => hump(s);
             LiftTowerFit fit = s_Planner.Fit(t, 120f, 1000f + c.RopeAboveBase(0), 1000f + c.RopeAboveBase(0), c, new[] { 60f }, true, 60f);
@@ -646,7 +650,7 @@ namespace LiftBatch
             {
                 Check(fit.Plan.Clear, W, "not Short and not clear: " + DescribeFit(fit));
             }
-            // Heights only (no move allowed): a bent line keeps its nodes; the result is the kept plan.
+            // Heights only (no move allowed). A bent line keeps its nodes. The result is the kept plan.
             LiftTowerFit bent = s_Planner.Fit(t, 120f, 1000f + c.RopeAboveBase(0), 1000f + c.RopeAboveBase(0), c, new[] { 60f }, false, 60f);
             Check(bent.Moved == null && bent.Plan == bent.Kept, W, "allowMove false still moved: " + DescribeFit(bent));
         }
@@ -674,7 +678,7 @@ namespace LiftBatch
         };
         private static readonly int[] Tram1605Members = { 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0 };
 
-        // The 2,292 m tram, after the guard; all T30.
+        // The 2,292 m tram, after the guard. All T30.
         private static readonly LogNode[] Tram2292 =
         {
             N(510f, 960.48f, 959.91f, 25.3f, 46.3f, 28.5f, 7.6f),
@@ -688,7 +692,7 @@ namespace LiftBatch
         private static void Lp16TramRefit()
         {
             const string W = "planner/LP-16";
-            // Both lines were logged on the 0.004 tram rope (before the rope sag round): replayed at that sag, the fit must keep them.
+            // Both lines were logged on the 0.004 tram rope (before the rope sag round). The test replays them at that sag, and the fit must keep them.
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram").With(sagRatio: LoggedSag);
             var lines = new (string Name, LogNode[] Log, int[] Members, float RopeA, float RopeB)[]
             {
@@ -698,7 +702,7 @@ namespace LiftBatch
             foreach (var ln in lines)
             {
                 Profile p = Reconstruct(ln.Log);
-                LiftTerrainSampler t = (s, l) => p.At(s); // no cross-slope (the log has none mid-span; as LP-1..LP-12)
+                LiftTerrainSampler t = (s, l) => p.At(s); // no cross-slope (the log has none mid-span, as in LP-1..LP-12)
                 float[] inner = InnerAlong(ln.Log);
                 LiftTowerPlan current = s_Planner.PlanFixed(t, p.Length, ln.RopeA, ln.RopeB, c, inner, ln.Members, null, assign: false);
                 LiftTowerFit oldFit = s_Planner.Fit(t, p.Length, ln.RopeA, ln.RopeB, c, inner, true, 1000f);
@@ -728,15 +732,15 @@ namespace LiftBatch
                 Check(current.Clear, W, ln.Name + ": the replayed line is not clear as it stands: " + Describe(current));
                 Check(fit.Mode == LiftFitMode.Kept && memberChanges == 0, W, ln.Name + ": the T115 fit changed members: " + DescribeFit(fit));
                 Check(newWrites == 0, W, ln.Name + ": the T115 fit would write " + newWrites + " node(s) on a fitted line");
-                // Identity holds on the next re-fit too (the carve stops once nothing is written).
+                // Identity holds on the next re-fit too (the carve stops once the fit writes nothing).
                 LiftTowerFit again = s_Planner.Fit(t, p.Length, ln.RopeA, ln.RopeB, c, InnerAlong(fit.Plan), true, 1000f, MembersOf(fit.Plan));
                 Check(again.Mode == LiftFitMode.Kept && Same(again.Plan, fit.Plan), W, ln.Name + ": re-fit not identity: " + DescribeFit(again));
             }
 
 
-            // The carve ratchet (node ground 1158.50 -> 1158.11 -> 1157.78, the node re-grounded each time; t6 1370.31 -> 1369.96 ->
-            // 1369.69): each write lowers the node by the drift and the carve lowers the ground under it by ~0.85 of that. A model, not a
-            // measurement: count the writes until the line settles, old rule vs one-sided rule.
+            // The carve ratchet (node ground 1158.50 -> 1158.11 -> 1157.78, the node re-grounded each time, and t6 1370.31 -> 1369.96 ->
+            // 1369.69). Each write lowers the node by the drift, and the carve lowers the ground under it by ~0.85 of that. This is a model, not a
+            // measurement. Count the writes until the line settles, old rule vs one-sided rule.
             int Ratchet(Func<float, float, bool> write)
             {
                 float y = 1158.50f, ground = 1158.11f;
@@ -840,8 +844,8 @@ namespace LiftBatch
                 LiftTowerPlan after = PlanAndReplan("LP-17/" + ln.Name, t, p.Length, c, p.Start, p.End, ln.RopeA, ln.RopeB);
                 s_Report.Add("LP-17 " + ln.Name + " free plan | 2026-10-19 objective -> fewest towers | {" + before.MemberCounts() + "} " +
                              Describe(before) + "  ->  {" + after.MemberCounts() + "} " + Describe(after));
-                // Since the 2026-10-26 lift pass a tower may buy shorter towers beside the stations (TowerWorthM): no worse than the
-                // 2026-10-19 plan under that objective (towers x TowerWorthM + the station towers' rise; the tram: towers).
+                // Since the 2026-10-26 lift pass a tower may buy shorter towers beside the stations (TowerWorthM). The result is no worse than the
+                // 2026-10-19 plan under that objective. The objective is towers x TowerWorthM + the station towers' rise. For the tram, it is towers.
                 Check(LiftPassTests.Score(after) <= LiftPassTests.Score(before) + 1e-3f, W, ln.Name + ": worse than the 2026-10-19 objective (" +
                       LiftPassTests.Score(after).ToString("F1") + " vs " + LiftPassTests.Score(before).ToString("F1") + "): " + Describe(after));
                 Check(after.Clear || !before.Clear, W, ln.Name + ": the 2026-10-19 plan is clear and the new one is not: " + Describe(after));
@@ -866,7 +870,7 @@ namespace LiftBatch
         }
 
 
-        /// <summary>A straight line along +x from (0, ground(0), 0); the profile's along = world x.</summary>
+        /// <summary>A straight line along +x from (0, ground(0), 0). The profile's along = world x.</summary>
         private static LiftLineEdit EditOn(Profile p, LiftTowerPlanConstants c, float ropeA, float ropeB)
         {
             var a = new float3(0f, p.Start, 0f);
@@ -939,7 +943,7 @@ namespace LiftBatch
             LiftTowerPlan free = e.Replan(t);
             string freeText = Describe(free);
 
-            // (a) a click on the line pins a tower there (snapped to the 5 m grid); the planner fills around it.
+            // (a) a click on the line pins a tower there (snapped to the 5 m grid). The planner fills around it.
             Check(e.AddPin(203f) == LiftLineEditResult.Done, W, "add pin at 203 m refused");
             e.Replan(t);
             int at = e.TowerNear(205f, 0.01f);
@@ -967,7 +971,7 @@ namespace LiftBatch
             e.Replan(t);
             Check(Same(e.Plan, free), W, "unpinned plan != the free plan: " + Describe(e.Plan) + " vs " + freeText);
 
-            // (e) right click on a FREE tower: every other tower is pinned where it stands, this one goes.
+            // (e) right click on a FREE tower: that pins every other tower where it stands, and this one goes.
             float drop = e.Plan.Nodes[1].AlongM;
             int towersBefore = e.Plan.LineTowers;
             Check(e.RemoveTower(drop) == LiftLineEditResult.Done, W, "remove free tower refused");
@@ -982,7 +986,7 @@ namespace LiftBatch
             CheckEmission("remove free", e, t);
             s_Report.Add("LP-19 GD 619 m pins | (e) right click the free tower at " + drop.ToString("F0") + " m: the others pinned, the planner fills what exceeds the max span | " + e.Describe());
 
-            // (f) refusals: within MinSpanM of a station or of a pin; dragging a free tower pins it.
+            // (f) refusals: within MinSpanM of a station or of a pin. Dragging a free tower pins it.
             e.ClearPins();
             e.Replan(t);
             Check(e.AddPin(c.MinSpanM * 0.5f) == LiftLineEditResult.TooCloseToStation, W, "pin next to the base station accepted");
@@ -1008,8 +1012,8 @@ namespace LiftBatch
             Check(reg.Match(inner, out _, out _) == null, W, "registry: a node 2 m off still matched");
         }
 
-        /// <summary>LP-20: the vanilla net-tool path (hysteresis + the fewest-towers objective; the span raise is scoped to the
-        /// lift-line tool, so the engine splits at m_MaxPylonDistance FG 60 / DQ 90 / GD 250). The field lines at the engine's equal
+        /// <summary>LP-20: the vanilla net-tool path (hysteresis + the fewest-towers objective). The span raise applies only to the
+        /// lift-line tool, so the engine splits at m_MaxPylonDistance FG 60 / DQ 90 / GD 250. The field lines at the engine's equal
         /// split (ceil(L / max) spans, CourseSplitSystem.cs:3487-3493), then the fit.</summary>
         private static void Lp20VanillaAfterPatch()
         {
@@ -1040,7 +1044,7 @@ namespace LiftBatch
         }
 
 
-        // The 1,408 m gondola drawn with the vanilla tool in 12 clicks: a "Towers [nodes]" block (nodes and the span line under each);
+        // The 1,408 m gondola drawn with the vanilla tool in 12 clicks: a "Towers [nodes]" block (nodes and the span line under each).
         // Short x3, then the loop guard. Ropes from the fit header.
         private static readonly LogNode[] Gd1408 =
         {
@@ -1052,8 +1056,8 @@ namespace LiftBatch
             N(196f, 1327.77f, 1326.46f, -10.4f, -8.8f, -3.0f, -9.4f), N(37f, 1436.88f, 1434.35f, 3.5f, 1.7f, -3.2f, -4.9f),
             N(0f, 1461.15f, 1461.15f),
         };
-        // The diag's own plan block for that line: its ground at the planned spots (along, ground), merged into the replay profile (the
-        // chord samples alone leave 43 m gaps on the 214 m spans).
+        // The diag's own plan block for that line: its ground at the planned spots (along, ground), merged into the replay profile.
+        // The chord samples alone leave 43 m gaps on the 214 m spans.
         private static readonly float2[] Gd1408Plan =
         {
             new float2(50f, 957.60f), new float2(190f, 984.25f), new float2(400f, 1013.95f), new float2(595f, 1080.36f),
@@ -1079,9 +1083,9 @@ namespace LiftBatch
             return q;
         }
 
-        /// <summary>LP-21: the 1,408 m gondola with its 11 engine nodes. Before: Short (phase (c) alone re-assigned the free plan's
-        /// members greedily and broke the max rope height, "MAX HEIGHT VIOLATED" x2); after: Moved and clear, and the next re-fit of
-        /// the written line is Kept with nothing to write (no loop). Plus the tram tool line Short by -0.1 m: kept within
+        /// <summary>LP-21: the 1,408 m gondola with its 11 engine nodes. Before: Short. Phase (c) alone re-assigned the free plan's
+        /// members greedily and broke the max rope height, "MAX HEIGHT VIOLATED" x2. After: Moved and clear, and the next re-fit of
+        /// the written line is Kept with nothing to write (no loop). Plus the tram tool line, Short by -0.1 m, kept within
         /// KeepTolM.</summary>
         private static void Lp21GondolaShortLoop()
         {
@@ -1108,7 +1112,7 @@ namespace LiftBatch
             s_Report.Add("LP-21 GD 1408 m re-fit of the written line | Kept, 0 writes | " + again.Mode + ", " + writes + " write(s)");
             Check(again.Mode == LiftFitMode.Kept && writes == 0, W, "the re-fit is not identity: " + DescribeFit(again) + ", " + writes + " write(s)");
 
-            // The tram tool line (1 tower T60 at 925 m from the base; the tool planned it from the top: +0.2 m).
+            // The tram tool line (1 tower T60 at 925 m from the base). The tool planned it from the top: +0.2 m.
             LogNode[] tram =
             {
                 N(925f, 942.45f, 942.45f, 24.4f, 37.3f, 15.6f, 39.0f), N(1000f, 1353.80f, 1323.68f, 92.1f, 12.5f, 2.8f, 61.6f),
@@ -1127,7 +1131,7 @@ namespace LiftBatch
             LiftTowerPlanConstants g = LiftTowerPlanConstants.For("gondola");
             foreach (float drop in new[] { 0.4f, 0.6f })
             {
-                // Rope over flat ground at 1000 m, the 200 m span's mid-span sag (4 x 0.004 x 200 x 1/4 = 0.8 m) added back: margin -drop at
+                // Rope over flat ground at 1000 m, the 200 m span's mid-span sag (4 x 0.004 x 200 x 1/4 = 0.8 m) added back. Margin -drop at
                 // mid-span, the lowest point.
                 float rope = 1000f + g.CarrierDropM + g.FloorM - drop + g.SagRatio * 200f;
                 LiftTowerFit k = s_Planner.Fit((s, l) => 1000f, 200f, rope, rope, g, new float[0], false, 250f, new int[0]);
@@ -1136,8 +1140,8 @@ namespace LiftBatch
             }
         }
 
-        /// <summary>LP-22: the station clearance. Constants from the catalog's station geometry (StationRunM); no new tower inside it on
-        /// any free plan of this file's lines (both directions: the tool planned the gondola from the top); a pin inside it is
+        /// <summary>LP-22: the station clearance. Constants from the catalog's station geometry (StationRunM). No free plan of this file's
+        /// lines has a new tower inside it (both directions: the tool planned the gondola from the top). A pin inside it is
         /// kept.</summary>
         private static void Lp22StationClearance()
         {
@@ -1191,7 +1195,7 @@ namespace LiftBatch
                     Check(plan.Clear, W, ln.Name + (dir == 0 ? "" : " (reversed)") + ": not clear: " + Describe(plan));
                 }
             }
-            // A pin inside the clearance stays (the player's choice), and nothing else is added inside it.
+            // A pin inside the clearance stays (the player's choice), and the planner adds nothing else inside it.
             LiftTowerPlanConstants gc = LiftTowerPlanConstants.For("gondola");
             var seed = new[] { new LiftPlanNode { AlongM = 10f, Member = 0, Flags = LiftPlanNodeFlags.Seed } };
             LiftTowerPlan pinned = s_Planner.Plan((s, l) => 1000f + 0.3f * s, 600f, 1000f + gc.RopeAboveBase(0), 1180f + gc.RopeAboveBase(0), gc, seed);
@@ -1208,14 +1212,14 @@ namespace LiftBatch
         }
 
         /// <summary>LP-23: the fit's ground is the player's, not our own cut. Pure UncutGround cases, then the 1,408 m gondola model:
-        /// the natural ground (the replay profile) cut by the vanilla line's own edges (ceiling = edge y + 6 - 2 over the piece width),
-        /// the fit with the raw cascade sampler stands towers in the trench (pivot below the natural ground by more than the 4 m that
-        /// keeps a node's own cut alive = a pit), the UncutSampler stands none there.</summary>
+        /// the natural ground (the replay profile) cut by the vanilla line's own edges (ceiling = edge y + 6 - 2 over the piece width).
+        /// The fit with the raw cascade sampler stands towers in the trench (pivot below the natural ground by more than the 4 m that
+        /// keeps a node's own cut alive = a pit). The UncutSampler stands none there.</summary>
         private static void Lp23OwnCut()
         {
             const string W = "planner/LP-23";
-            // UncutGround: at the ceiling with uncut ground beside -> the plane; a valley under the rope (below the ceiling) -> raw; at the
-            // ceiling but the ground beside is no higher -> raw; a cross slope reconstructs linearly.
+            // UncutGround: at the ceiling with uncut ground beside -> the plane. A valley under the rope (below the ceiling) -> raw. At the
+            // ceiling but the ground beside is no higher -> raw. A cross slope reconstructs linearly.
             float g1 = LiftTowerEdit.UncutGround(100f, 100.1f, 108f, 108f, 0f, 12f, out bool c1);
             float g2 = LiftTowerEdit.UncutGround(95f, 100f, 108f, 108f, 0f, 12f, out bool c2);
             float g3 = LiftTowerEdit.UncutGround(100f, 100f, 99f, 100.2f, 0f, 12f, out bool c3);
@@ -1225,8 +1229,8 @@ namespace LiftBatch
             Check(!c3 && g3 == 100f, W, "uncut beside: " + g3);
             Check(c4 && math.abs(g4 - 110f) < 1e-3f, W, "cross slope plane at +6 of ±12: " + g4);
 
-            // The model. Natural ground = the replay profile, flat across; the vanilla line's own cut (its 13 node points, straight edges,
-            // gondola net m_Hanging 0, ceiling = edge y + 4) applies within the piece half width + 2 m; beyond, natural.
+            // The model. Natural ground = the replay profile, flat across. The vanilla line's own cut (its 13 node points, straight edges,
+            // gondola net m_Hanging 0, ceiling = edge y + 4) applies within the piece half width + 2 m. Beyond that, natural.
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("gondola");
             Profile p = Merge(Reconstruct(Gd1408), Gd1408Plan);
             int n = Gd1408.Length;
@@ -1289,8 +1293,8 @@ namespace LiftBatch
             Check(same(500f, 0f) == natural(500f, 0f) && idCut == 0, W, "uncut ground changed by the T127 sampler");
         }
 
-        /// <summary>LP-24: tower numbers 1..N base to top by distance along the line; reversed when the distances run from the top; ties
-        /// keep the input order; an edit renumbers only the towers after it.</summary>
+        /// <summary>LP-24: tower numbers 1..N run base to top by distance along the line. They reverse when the distances run from the top.
+        /// Ties keep the input order. An edit renumbers only the towers after it.</summary>
         private static void Lp24TowerNumbers()
         {
             const string W = "planner/LP-24";
@@ -1301,7 +1305,7 @@ namespace LiftBatch
             int[] tie = LiftTowerNumbering.Numbers(new[] { 100f, 100f });
             Check(tie[0] == 1 && tie[1] == 2, W, "tie: " + string.Join(",", tie));
             Check(LiftTowerNumbering.Numbers(new float[0]).Length == 0 && LiftTowerNumbering.Numbers(null).Length == 0, W, "empty");
-            // A section edit: the tower at 300 m moves to 310 m (same order) -> no number changes; a tower added at 200 m -> only the
+            // A section edit: the tower at 300 m moves to 310 m (same order) -> no number changes. A tower added at 200 m -> only the
             // towers beyond it shift by one.
             int[] moved = LiftTowerNumbering.Numbers(new[] { 310f, 50f, 120f, 600f });
             Check(string.Join(",", moved) == string.Join(",", a), W, "a move in place renumbered: " + string.Join(",", moved));
@@ -1312,11 +1316,15 @@ namespace LiftBatch
         }
 
         /// <summary>LP-25 (DECISIONS 381): the tram's 3 km free span with the sag check intact. Stations on ground 1,000 m at both ends,
-        /// ropes on the shortest member. (a) a 3,000 m valley 300 m deep is ONE clear span, its mid-span rope 12 m (3,000 x 0.004) under
-        /// the chord, and the tool emits only the two stations; (b) the same valley with a ridge at mid-span up to station level: the bare
-        /// chord clears it (+10.75 m) but the sagging rope does not (-1.25 m), so the free plan puts a tower there and the fixed fit of
-        /// the bare span is Short; (c) a 3,200 m valley needs one tower (the cap); (d) 3,000 m of flat ground needs three towers at the
-        /// 0.04 rope (one at the logged 0.004: its 12 m sag left the cabin 3.75 m up, under the 5 m floor); (e) the 3 km plans stay fast.</summary>
+        /// ropes on the shortest member.
+        /// (a) A 3,000 m valley 300 m deep is ONE clear span. Its mid-span rope is 12 m (3,000 x 0.004) under the chord, and the tool emits
+        /// only the two stations.
+        /// (b) The same valley with a ridge at mid-span up to station level: the bare chord clears it (+10.75 m), but the sagging rope does
+        /// not (-1.25 m). So the free plan puts a tower there, and the fixed fit of the bare span is Short.
+        /// (c) A 3,200 m valley needs one tower (the cap).
+        /// (d) 3,000 m of flat ground needs three towers at the 0.04 rope. At the logged 0.004 it needed one tower: its 12 m sag left the
+        /// cabin 3.75 m up, under the 5 m floor.
+        /// (e) The 3 km plans stay fast.</summary>
         private static void Lp25TramLongSpan()
         {
             const string W = "planner/LP-25";
@@ -1367,8 +1375,8 @@ namespace LiftBatch
             AddReport("LP-25c tram 3,200 m valley", "1 line tower (span cap), clear", cc);
             Check(cc.LineTowers == 1 && cc.Clear, W, "3,200 m valley: " + Describe(cc));
 
-            // (d) flat: the sag alone needs towers. At 0.04 a T60 clears the 5 m floor up to 969 m of flat span ((56.25 - 13.5 - 5) / 0.04),
-            // a station rope much less: three T60s (580/920/920/580 m). At the logged 0.004 one tower did (12 m sag, cabin 3.75 m up).
+            // (d) flat: the sag alone needs towers. At 0.04 a T60 clears the 5 m floor up to 969 m of flat span ((56.25 - 13.5 - 5) / 0.04).
+            // A station rope clears much less, so the line needs three T60s (580/920/920/580 m). At the logged 0.004 one tower did (12 m sag, cabin 3.75 m up).
             LiftTowerPlan d = PlanAndReplan("LP-25d", (s, l) => G, L, c, G, G);
             AddReport("LP-25d tram 3,000 m flat", "3 line towers (the 120 m sag), clear", d);
             Check(d.LineTowers == 3 && d.Clear, W, "flat 3 km: " + Describe(d));
@@ -1376,7 +1384,7 @@ namespace LiftBatch
             AddReport("LP-25d tram 3,000 m flat at the logged sag 0.004", "1 line tower (12 m sag leaves the cabin 3.75 m up), clear", dLogged);
             Check(dLogged.LineTowers == 1 && dLogged.Clear, W, "flat 3 km at 0.004: " + Describe(dLogged));
 
-            // (e) cost: each PlanAndReplan above is 3 plans; the tool re-plans once per edit.
+            // (e) cost: each PlanAndReplan above is 3 plans. The tool re-plans once per edit.
             Check(msA < 1500.0 && msB < 1500.0, W, "3 km plans too slow: valley " + msA.ToString("F1") + " ms, ridge " + msB.ToString("F1") + " ms (3 plans each)");
             s_Report.Add("LP-25e 3 km plan time (3 plans: plan, determinism, idempotence) | < 1,500 ms | valley " + msA.ToString("F1") +
                          " ms, ridge " + msB.ToString("F1") + " ms");

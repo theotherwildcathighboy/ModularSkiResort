@@ -1,6 +1,9 @@
 // Tests for PowerJoinRule (the vanilla HV join refusal) and PowerJoinEpisode (one log line per episode). Where-tags `power-join/...`,
-// PJ-1..PJ-4. Pinned: only a new vanilla HV edge touching a lift is refused; a replace of a lift section is refused; LV, our lift
-// lines and marker, our station's sub-nets, deletes and untouched copies are never refused; the node touch order is node > split > middle.
+// PJ-1..PJ-4. Pinned:
+// - The rule refuses only a new vanilla HV edge touching a lift.
+// - The rule refuses a replace of a lift section.
+// - The rule never refuses LV, our lift lines and marker, our station's sub-nets, deletes and untouched copies.
+// - The node touch order is node > split > middle.
 
 using System;
 using System.Collections.Generic;

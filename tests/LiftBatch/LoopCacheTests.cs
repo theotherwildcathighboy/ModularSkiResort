@@ -1,11 +1,14 @@
-// LoopCacheTests - the headless host for LiftLoopCache's topology (the pure LiftLoopTopology over plain stand-ins; the Game-side
-// geometry is not linkable here). Where-tags `loopcache/...`, LC-1..LC-10 and LC-REF.
-// Pinned: a two-terminal FG loop and a Shuttle-mode tram give the right chains, pairs, base/top, A side (the cable on the right looking
-// uphill, whichever chain is found first), docks, runs and gaps; the mirror image is bit-equal; shared stations, towers without node
-// lanes, terminal classification strings, refusals (GapOutOfRange, NotTwoChains) and the downhill-shuttle base rule.
+// LoopCacheTests - the headless host for LiftLoopCache's topology (the pure LiftLoopTopology over plain stand-ins). The Game-side
+// geometry is not linkable here. Where-tags `loopcache/...`, LC-1..LC-10 and LC-REF.
+// The tests pin these facts:
+// - A two-terminal FG loop and a Shuttle-mode tram give the right chains, pairs, base/top, A side (the cable on the right looking
+//   uphill, whichever chain is found first), docks, runs and gaps.
+// - The mirror image is bit-equal.
+// - Shared stations, towers without node lanes, terminal classification strings, refusals (GapOutOfRange, NotTwoChains) and the
+//   downhill-shuttle base rule.
 // LC-REF: 2,000 seeded random graphs through LoopCacheReference and LiftLoopTopology in Loop mode must give identical chains, notes, pairs.
 // LIMIT: LC-REF shares its stand-ins, so it cannot see LiftLoopCache's Game-side adapter (PathNode interning, the lane fill, the
-// geometry and its notes); those are checked by a body compare and by the FG loop-notes comparison on one save across the two builds.
+// geometry and its notes). A body compare and the FG loop-notes comparison on one save across the two builds check those.
 
 using System;
 using System.Collections.Generic;
@@ -56,8 +59,8 @@ namespace LiftBatch
 
         private static bool SameBits(float3 a, float3 b) => SameBits(a.x, b.x) && SameBits(a.y, b.y) && SameBits(a.z, b.z);
 
-        /// <summary>A synthetic lift world in the topology's stand-ins. Station i is owned by entity index 100 + i; nodes get
-        /// ids 1, 2, … with one owner each (the PathNode rule); a straight lane's tangent is P1 − P0 at both ends (the
+        /// <summary>A synthetic lift world in the topology's stand-ins. Entity index 100 + i owns station i. Nodes get
+        /// ids 1, 2, … with one owner each (the PathNode rule). A straight lane's tangent is P1 − P0 at both ends (the
         /// derivative of the linear bezier LiftLoopCache.AppendLine builds).</summary>
         private sealed class Graph
         {
@@ -150,8 +153,8 @@ namespace LiftBatch
                 };
             }
 
-            /// <summary>One cable of a lift, base station → top station: stub anchors at the stations' local points (owned
-            /// by the station unless an existing node is passed), `spans` lanes, towers between them owned by
+            /// <summary>One cable of a lift, base station → top station: stub anchors at the stations' local points (the station owns them
+            /// unless the caller passes an existing node), `spans` lanes, towers between them owned by
             /// towerOwnerBase + k (two anchors and a short node lane per tower when nodeLanes). Returns the lane indices.</summary>
             public List<int> Side(int baseStation, float3 baseLocal, int topStation, float3 topLocal, int spans, bool nodeLanes,
                                   int towerOwnerBase, int type = 0, int baseNode = 0, int topNode = 0)
@@ -237,8 +240,8 @@ namespace LiftBatch
         /// <summary>The tram (LC-2): base 0 (Role Base) yaw 180 with its LINE AXIS on world x 0, top 1 (Role Top) at
         /// (0, 400, 1000) yaw 0, track ropes ±halfGauge about each station's axis at y 16, stub tips local z −12, docks
         /// from the SkiCatalog tram rows, `spans` spans, lift type 3. The base's lot puts its axis at prefab x StubTipLocalX
-        /// (+4.00; docks (9.50 / −1.50, 16, −5.50)), so the base origin stands at world
-        /// x = StubTipLocalX (yaw 180 maps local x a to world origin.x − a): every world rope end, dock and run is the
+        /// (+4.00, docks (9.50 / −1.50, 16, −5.50)). So the base origin stands at world
+        /// x = StubTipLocalX (yaw 180 maps local x a to world origin.x − a). Every world rope end, dock and run is the
         /// one an axis-0 layout gives (base docks world (±5.5, 16, 5.5)).</summary>
         private static Graph Tram(float halfGauge = 5.5f, int spans = 3, float baseY = 0f, float topY = 400f, bool roles = true)
         {
@@ -362,7 +365,7 @@ namespace LiftBatch
             Near(11.0, p.TopGapM, 1e-4, W, "TopGapM");
             Eq(3, p.TypeIndex, W, "TypeIndex (tram)");
             // The docks themselves: world (−5.5, 16, 5.5) / (5.5, 16, 5.5) at the base (A is the +X bay, local 9.5, which yaw 180 about x 4
-            // puts at world −5.5), (−5.5, 416, 994.5) / (5.5, …) at the top.
+            // puts at world −5.5). At the top: (−5.5, 416, 994.5) / (5.5, …).
             Check(math.distance(g.Stations[0].DockA, new float3(-5.5f, 16f, 5.5f)) < 1e-4f, W, "base DockA world " + g.Stations[0].DockA);
             Check(math.distance(g.Stations[1].DockA, new float3(-5.5f, 416f, 994.5f)) < 1e-4f, W, "top DockA world " + g.Stations[1].DockA);
 
@@ -514,8 +517,8 @@ namespace LiftBatch
         private static void Lc7Classification()
         {
             const string W = "loopcache/LC-7";
-            // (a) "pos 9.9m": the +x cable's top terminal is owned by the line's own node, 9.9 m from the top station.
-            //     (b) "child": the −x cable's top terminal is owned by a child of the top station (a sub-object).
+            // (a) "pos 9.9m": the line's own node, 9.9 m from the top station, owns the +x cable's top terminal.
+            //     (b) "child": a child of the top station (a sub-object) owns the −x cable's top terminal.
             var g = new Graph();
             int b = g.Station(new float3(0f, 0f, 0f), 180f);
             int t = g.Station(new float3(0f, 100f, 600f), 0f);
@@ -539,8 +542,8 @@ namespace LiftBatch
             Check(lt.Pairs.Count == 1 && lt.Pairs[0].Status == LiftLoopTopology.PairStatus.Ok, W, "(a)/(b) pair not Ok");
 
             // (c) 20.6 m: beyond StationTerminalRadius (20, inclusive) → unclassified, the chain is unclosed. (Not 20.5: "F0" of an
-            // exact midpoint is runtime-dependent — net8 prints "20", net48 Mono may print "21"; the classification is not, the text of a
-            // log line is.)
+            // exact midpoint is runtime-dependent. net8 prints "20", net48 Mono may print "21". The classification is not
+            // runtime-dependent, but the text of a log line is.)
             var h = new Graph();
             int hb = h.Station(new float3(0f, 0f, 0f), 180f);
             int ht = h.Station(new float3(0f, 100f, 600f), 0f);
@@ -698,7 +701,7 @@ namespace LiftBatch
             Check(!LiftLoopTopology.ShuttleGapSane(3.999f) && !LiftLoopTopology.ShuttleGapSane(24.001f) &&
                   !LiftLoopTopology.ShuttleGapSane(float.NaN), W, "(d) outside / NaN accepted");
             // The Loop gap test's exclusive bounds (LiftLoopCache.cs:558-562 "d > 1f && d < 10f"): random graphs never land on
-            // them exactly (a mutation to "<= 10" survived LC-REF), so they are pinned here, and on a whole lift at 10.0 m.
+            // them exactly (a mutation to "<= 10" survived LC-REF). So this file pins them, and pins them on a whole lift at 10.0 m.
             Check(!LiftLoopTopology.ArcSane(new float3(0f), new float3(10f, 0f, 0f)) &&
                   !LiftLoopTopology.ArcSane(new float3(0f), new float3(1f, 0f, 0f)), W, "(d) ArcSane accepts 1.0 or 10.0 m (exclusive)");
             Check(LiftLoopTopology.ArcSane(new float3(0f), new float3(9.99f, 0f, 0f)) &&
@@ -788,7 +791,7 @@ namespace LiftBatch
                     }
                 }
 
-                // Shuttle mode on the same graph: the chain pass is mode-independent; pairs obey the shuttle rules.
+                // Shuttle mode on the same graph: the chain pass is mode-independent. Pairs obey the shuttle rules.
                 LiftLoopTopology s = g.Build(LiftLoopTopology.Mode.Shuttle, out Dictionary<int, int> shuttleMap);
                 string sdiff = ShuttleInvariants(g, t, s, topoMap, shuttleMap, ref shuttleOk, ref docked, ref refused, ref byRole);
                 if (!Check(sdiff == null, W, "seed " + seed + " (Shuttle mode): " + sdiff))
@@ -832,7 +835,7 @@ namespace LiftBatch
                 none++;
         }
 
-        /// <summary>null when the topology reproduces the reference exactly; else the first difference.</summary>
+        /// <summary>null when the topology reproduces the reference exactly. Otherwise, the first difference.</summary>
         private static string Compare(LoopCacheReference r, LiftLoopTopology t, Dictionary<int, int> refMap, Dictionary<int, int> topoMap)
         {
             if (r.m_ChainCount != t.Chains.Count || r.m_Chains.Count != t.Chains.Count || r.m_ChainDiags.Count != t.Diags.Count)
@@ -868,8 +871,8 @@ namespace LiftBatch
             var notes = new List<string>(t.Notes);
             for (int p = 0; p < t.Pairs.Count; p++)
             {
-                // The pair notes LiftLoopCache.Build writes, in pair order (the same expressions; the integrator's body
-                // compare holds the cache to them).
+                // The pair notes LiftLoopCache.Build writes, in pair order (the same expressions). The integrator's body
+                // compare holds the cache to them.
                 LiftLoopTopology.Pair pair = t.Pairs[p];
                 if (pair.Status == LiftLoopTopology.PairStatus.NotTwoChains)
                 {
@@ -935,8 +938,8 @@ namespace LiftBatch
             return null;
         }
 
-        /// <summary>Shuttle mode on a random graph: identical chain pass (diagnostics, chain notes, the map); pairs keyed and
-        /// ordered as in Loop mode; Ok pairs oriented base → top from the role base, gaps in the window, docks distinct and
+        /// <summary>Shuttle mode on a random graph: identical chain pass (diagnostics, chain notes, the map). Pairs keyed and
+        /// ordered as in Loop mode. Ok pairs oriented base → top from the role base, gaps in the window, docks distinct and
         /// within MaxDockRunM, refusals beyond it.</summary>
         private static string ShuttleInvariants(Graph g, LiftLoopTopology loop, LiftLoopTopology s, Dictionary<int, int> loopMap,
                                                 Dictionary<int, int> shuttleMap, ref int ok, ref int docked, ref int refused, ref int byRole)
@@ -960,8 +963,8 @@ namespace LiftBatch
             return ShuttlePairInvariants(g, s, loop, ref ok, ref docked, ref refused, ref byRole);
         }
 
-        /// <summary>The per-pair shuttle rules (roles, orientation, gap window, docks); loop = the Loop build of the same graph for the
-        /// key / roleless-base comparisons, null when the chain pass moved (dock reach).</summary>
+        /// <summary>The per-pair shuttle rules (roles, orientation, gap window, docks). The parameter loop = the Loop build of the same graph for the
+        /// key / roleless-base comparisons. It is null when the chain pass moved (dock reach).</summary>
         private static string ShuttlePairInvariants(Graph g, LiftLoopTopology s, LiftLoopTopology loop, ref int ok, ref int docked, ref int refused, ref int byRole)
         {
             for (int p = 0; p < s.Pairs.Count; p++)
@@ -1000,10 +1003,10 @@ namespace LiftBatch
             return null;
         }
 
-        /// <summary>Shuttle with ShuttleDockReach (on) against the same build without it (off): identical lanes, owners and
-        /// positions; a terminal either keeps its classification bit for bit, or off had none / a position station and on has a
-        /// "dock" station within MaxDockRunM of one of its docks (an owner / child terminal never moves). With no terminal moved
-        /// the pairs, notes and counts are identical; with some moved, the shuttle's own invariants still hold on the new pairs.</summary>
+        /// <summary>Shuttle with ShuttleDockReach (on) against the same build without it (off). Lanes, owners and
+        /// positions are identical. A terminal either keeps its classification bit for bit, or off had none / a position station and on has a
+        /// "dock" station within MaxDockRunM of one of its docks. An owner / child terminal never moves. With no terminal moved
+        /// the pairs, notes and counts are identical. With some moved, the shuttle's own invariants still hold on the new pairs.</summary>
         private static string ReachInvariants(Graph g, LiftLoopTopology off, LiftLoopTopology on, Dictionary<int, int> offMap,
                                               Dictionary<int, int> onMap, ref int reclassified)
         {
@@ -1083,11 +1086,12 @@ namespace LiftBatch
             return math.normalizesafe(v, new float3(1f, 0f, 0f));
         }
 
-        /// <summary>One random lift world (deterministic per seed). Stations 1-4 (random position, yaw, role, 0-2 children,
-        /// docks half the time); per station pair 0-2 lifts with 1-9 spans (0-8 towers), node lanes or not, gauge from the
-        /// real set or random 0-6 m (gaps 0-12 m, both sides of ArcSane and the shuttle window); terminals owned by the
-        /// station, a child, a shared stub anchor, or a line node near (≤ 19.9 m) or far (20.1-60 m) from the station;
-        /// missing sides and lanes; stray lanes; per-lane type faults; random reversal and order; height ties.</summary>
+        /// <summary>One random lift world (deterministic per seed):
+        /// - Stations 1-4 (random position, yaw, role, 0-2 children, docks half the time).
+        /// - Per station pair 0-2 lifts with 1-9 spans (0-8 towers), node lanes or not, gauge from the real set or random 0-6 m (gaps 0-12 m,
+        ///   both sides of ArcSane and the shuttle window).
+        /// - Terminals owned by the station, a child, a shared stub anchor, or a line node near (≤ 19.9 m) or far (20.1-60 m) from the station.
+        /// - Missing sides and lanes, stray lanes, per-lane type faults, random reversal and order, height ties.</summary>
         private static Graph RandomGraph(Random rng, out bool tie)
         {
             tie = false;

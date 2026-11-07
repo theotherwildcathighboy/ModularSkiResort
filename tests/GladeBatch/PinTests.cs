@@ -1,6 +1,6 @@
-// Pinning check for the tree filler extension (Quick runs package C): a digest of what the glade planner and compose produce WITHOUT a
-// fill mask, recorded on the code before the extension landed. Any change to the existing glade behavior moves the digest.
-// Within-runtime only (net8 CoreCLR here); the digest is not a cross-runtime golden value (Program.cs header).
+// Pinning check for the tree filler extension (Quick runs package C). It uses a digest of what the glade planner and compose produce
+// WITHOUT a fill mask. The digest was recorded on the code before the extension landed. Any change to the existing glade behavior
+// moves the digest. The check is within-runtime only (net8 CoreCLR here). The digest is not a cross-runtime golden value (Program.cs header).
 
 using System;
 using System.Collections.Generic;

@@ -1,9 +1,9 @@
 // Unpowered lifts: an unpowered lift of every type carries no guests and does nothing for the resort, but still
-// pays its full upkeep. Per lift type in SkiCatalog.Lifts, power ON, OFF and Unknown, through the pure rules the
+// pays its full upkeep. The checks run per lift type in SkiCatalog.Lifts, with power ON, OFF and Unknown, through the pure rules that the
 // systems call (tags `unpowered/...`):
 //   UP-1 served (LiftServedRule.Assign)      UP-2 attraction (SkiResortScore.Compute)   UP-3 summit served
-//   UP-4 upkeep (LiftUpkeepBillingOf has no power input; OFF keeps the full rate while the area counts a run;
-//        reductions only for Unfinished and NoOpenRun)
+//   UP-4 upkeep (LiftUpkeepBillingOf has no power input. OFF keeps the full rate while the area counts a run.
+//        Reductions only for Unfinished and NoOpenRun)
 //   UP-5 tickets (TicketGateOf)              UP-6 ski day (AreaStateOf, Capacity, ClosingEdgeOf)
 
 using System;

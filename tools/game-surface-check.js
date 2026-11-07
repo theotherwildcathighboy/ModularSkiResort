@@ -1,39 +1,39 @@
 #!/usr/bin/env node
-// Gate GAMESURFACE (patch readiness, DECISIONS 581): the mod's whole dependency surface on Game.dll, measured from the code, frozen in
-// tools/game-surface.lock, and compared with a decompile of whatever game is installed. It turns "somebody diffs the patch" into one
-// command: on patch day it names what broke (FAIL) and which of the files we stand on changed at all (REVIEW), so a patch review reads
-// the handful of files that touch us instead of the whole diff.
+// Gate GAMESURFACE (patch readiness, DECISIONS 581). It measures the mod's whole dependency surface on Game.dll from the code,
+// freezes it in tools/game-surface.lock, and compares it with a decompile of whatever game is installed.
+// It turns "somebody diffs the patch" into one command. On patch day it names what broke (FAIL) and which of the files we stand on
+// changed at all (REVIEW). So a patch review reads the handful of files that touch us instead of the whole diff.
 //
 // WHAT IT READS. mod/SkiResortMod/**/*.cs (comments and strings stripped), Mod.cs's registration list, the [BurstCompile] jobs and the
 // Game.* types and fields named by gamedata-mirror's prefab JSON. Read-only, node only, no game process and no game folder: the decompile
 // tree is the only input from the game.
 //
 // WHAT IT CHECKS.
-//   TYPES    every Game.* type the mod names still exists in the decompile (a removed one is a compile error, and for a deployed DLL a
-//            TypeLoadException on the first call into the method that names it).
+//   TYPES    every Game.* type the mod names still exists in the decompile. A removed type is a compile error. For a deployed DLL it is a
+//            TypeLoadException on the first call into the method that names it.
 //   LAYOUT   the field list of every Game.* struct and the members of every Game.* enum we name, against the lock. A layout change of a
-//            struct a Burst job reads is the worst break there is: the mod's Burst library has the old field offsets compiled in and
-//            nothing checks them at run time, so it reads or writes the wrong bytes with no exception. Those rows carry burst:r / burst:w.
-//   ANCHORS  every UpdateBefore / UpdateAfter<Ours, Vanilla>(phase) in Mod.cs: the vanilla system is still registered at that phase in
-//            SystemOrder, and its GetUpdateInterval / GetUpdateOffset text is unchanged. UpdateSystem.AddSystemUpdate walks an anchor's list only
-//            for rows of the anchor's own phase (Game/UpdateSystem.cs:399), so a vanilla system moved to another phase silently stops
-//            every system anchored to it: no exception, no log line.
+//            struct that a Burst job reads is the worst break there is. The mod's Burst library has the old field offsets compiled in, and
+//            nothing checks them at run time. It reads or writes the wrong bytes with no exception. Those rows carry burst:r / burst:w.
+//   ANCHORS  every UpdateBefore / UpdateAfter<Ours, Vanilla>(phase) in Mod.cs must pass two checks. The vanilla system is still registered at
+//            that phase in SystemOrder. Its GetUpdateInterval / GetUpdateOffset text is unchanged. UpdateSystem.AddSystemUpdate walks an
+//            anchor's list only for rows of the anchor's own phase (Game/UpdateSystem.cs:399). So a vanilla system that moved to another
+//            phase silently stops every system anchored to it. There is no exception and no log line.
 //   PREFABS  every Game.* type named in the prefab JSON exists and still declares (or inherits) each field the JSON sets. The prefab
 //            loader skips an unknown field, so a renamed field falls back to its default silently.
-//   GUIDS    every vanilla UnityGUID / UnityObjectsMap reference in the prefab JSON is a lock row, and with --guid-map=<json> (the output of
-//            tools/vanilla-guid-map.py on the installed game) every UnityGUID still exists. A missing one loads as null with no log line
-//            (Colossal.IO.AssetDatabase PrefabAsset.cs:278-288); in a net's m_Lane, m_Piece or m_Section that null is a hard crash (SPEC 8.3).
-//   DRIFT    the code's surface equals the lock (a new vanilla dependency is one more lock line in the same round as the code, the rule of
-//            tools/engine-contract-check.ps1), and the tested game version is the same everywhere it is written.
+//   GUIDS    every vanilla UnityGUID / UnityObjectsMap reference in the prefab JSON is a lock row. With --guid-map=<json> (the output of
+//            tools/vanilla-guid-map.py on the installed game), every UnityGUID also still exists. A missing one loads as null with no log line
+//            (Colossal.IO.AssetDatabase PrefabAsset.cs:278-288). In a net's m_Lane, m_Piece or m_Section, that null is a hard crash (SPEC 8.3).
+//   DRIFT    the code's surface equals the lock. A new vanilla dependency is one more lock line in the same round as the code (the rule of
+//            tools/engine-contract-check.ps1). The tested game version is the same everywhere it is written.
 //   REVIEW   the decompiled files of the surface whose content changed since the lock: the patch's reading list, not a failure.
-// NOT COVERED. Unity.Entities / Unity.Collections layouts (ComponentLookup, NativeArray... that every job holds): no decompile of those
-// assemblies is kept, so an Entities bump in a patch is the compile's and the toolchain's to find. Colossal.* is the compile's too.
-// The mod has no run-time check of the game version: between a game patch and our rebuild, players run the old DLL on the new game,
-// and this tool exists to keep that window short.
+// NOT COVERED. Unity.Entities / Unity.Collections layouts (ComponentLookup, NativeArray... that every job holds). No decompile of those
+// assemblies is kept, so the compile and the toolchain must find an Entities bump in a patch. The compile covers Colossal.* too.
+// The mod has no run-time check of the game version. Between a game patch and our rebuild, players run the old DLL on the new game.
+// This tool exists to keep that window short.
 //
 // USAGE.  node tools/game-surface-check.js [--decompile=<folder>] [--lock=<file>] [--guid-map=<json>] [--write] [--list] [--require-decompile] [--self-test]
 //   no flag          compare the code and the decompile of the lock's version (tools/decompile/<version> beside the repo) with the lock.
-//                    No decompile there (CI, a fresh clone): the DRIFT part only, and one line says so.
+//                    No decompile there (CI, a fresh clone): the DRIFT part only. One line says so.
 //   --decompile=X    the tree to compare, normally the new patch's.
 //   --write          rewrite the lock from the code and --decompile, after a review. --version=1.6.3f1 names the tree's game version when
 //                    it is not the folder name. With --lock=<file> it writes that file instead (a scratch lock for a retro comparison).
@@ -56,7 +56,7 @@ const DEFAULT_LOCK = path.join(__dirname, "game-surface.lock");
 // An exit code wraps at 256, so a count alone could read as success.
 const FATAL = 100;
 
-// Every place the tested game version is written. The lock's `version` line is the one place to change it (--write); these must follow.
+// Every file that holds the tested game version. The lock's `version` line is the one place to change it (--write). These must follow.
 const VERSION_SITES = [
   { file: "mod/SkiResortMod/Properties/PublishConfiguration.xml", re: /<GameVersion Value="([^"]*)"/, what: "the Paradox Mods GameVersion label" },
   { file: "release/DESCRIPTION.md", re: /tested on ([0-9][0-9a-z.]*)\)/, what: "the listing's Requirements line" },
@@ -65,7 +65,7 @@ const VERSION_SITES = [
 
 // ---- C# text helpers ----------------------------------------------------------------------------------------------------------------
 
-/** The source with comments removed and every string or char literal emptied; line breaks kept, so offsets stay on the same line. */
+/** The source with comments removed and every string or char literal emptied. Line breaks are kept, so offsets stay on the same line. */
 function stripCs(src) {
   let out = "";
   let i = 0;
@@ -121,7 +121,7 @@ function stripCs(src) {
   return out;
 }
 
-/** The text between the brace at `open` and its partner (no strings left to fool it after stripCs; the raw decompile has none that matter). */
+/** The text between the brace at `open` and its partner. After stripCs, no strings are left to fool it. The raw decompile has none that matter. */
 function blockFrom(text, open) {
   let depth = 0;
   for (let i = open; i < text.length; i++) {
@@ -150,7 +150,7 @@ function topLevelLines(body) {
 const DECL_RE = (name) =>
   new RegExp(`\\b(?:public|internal)\\s+(?:(?:readonly|unsafe|sealed|abstract|static|partial|ref)\\s+)*(struct|class|enum|interface)\\s+${name}\\b([^{;]*)\\{`);
 
-/** {kind, base, fields|members} of the named top-level type in a decompiled file; null when the file does not declare it. */
+/** {kind, base, fields|members} of the named top-level type in a decompiled file. The result is null when the file does not declare it. */
 function parseVanillaType(text, name) {
   const m = DECL_RE(name).exec(text);
   if (!m) return null;
@@ -198,7 +198,7 @@ function parseVanillaType(text, name) {
   return out;
 }
 
-/** The value of an enum member's initializer: a number, an earlier member, or an OR / shift / cast of those; null when not evaluable. */
+/** The value of an enum member's initializer: a number, an earlier member, or an OR / shift / cast of those. The result is null when it is not evaluable. */
 function evalEnumExpr(expr, values) {
   const text = expr.replace(/\([a-z]+\)/g, "").replace(/\s+/g, "");
   let total = 0n;
@@ -222,7 +222,7 @@ function fileHash(text) {
   return crypto.createHash("sha1").update(norm).digest("hex").slice(0, 10);
 }
 
-/** GetUpdateInterval / GetUpdateOffset bodies of a vanilla system, whitespace collapsed; "" when it inherits the default. */
+/** GetUpdateInterval / GetUpdateOffset bodies of a vanilla system, whitespace collapsed. The result is "" when it inherits the default. */
 function cadenceOf(text) {
   const grab = (method) => {
     const m = new RegExp(`override int ${method}\\(SystemUpdatePhase \\w+\\)\\s*\\{`).exec(text);
@@ -336,8 +336,8 @@ function burstJobs(code) {
 // ---- prefab JSON ---------------------------------------------------------------------------------------------------------------------------
 
 /**
- * Game.* type -> the fields our prefabs set on it, with a tolerant scanner: the files are Odin JSON with `$fstrref:"..."` values and bare
- * Color numbers, so not strict JSON, and each file's `"$type"` strings declare a positional table that later `"$type": 12` entries reuse.
+ * Game.* type -> the fields our prefabs set on it, with a tolerant scanner. The files are Odin JSON with `$fstrref:"..."` values and bare
+ * Color numbers, so they are not strict JSON. Each file's `"$type"` strings declare a positional table. Later `"$type": 12` entries reuse it.
  */
 function scanPrefabText(text, into) {
   const table = new Map();
@@ -406,7 +406,7 @@ function walkPrefabs(dir, out) {
   return out;
 }
 
-/** Fields of a vanilla class / struct with its base chain inside Game.*; a base outside the tree ends the walk. */
+/** Fields of a vanilla class / struct with its base chain inside Game.*. A base outside the tree ends the walk. */
 function fieldChain(treeRoot, index, full, cache) {
   if (cache.has(full)) return cache.get(full);
   const names = new Set();
@@ -500,8 +500,8 @@ function measure(treeRoot) {
     if (full) types.add(full);
   }
 
-  // Files the code's comments and engine notes cite (Name.cs:123): what the mod's reasoning stands on, even when the code never names the
-  // type (NetInitializeSystem reads our prefabs, nothing of ours calls it). Their hash goes in the REVIEW list; they have no layout row.
+  // Files the code's comments and engine notes cite (Name.cs:123). The mod's reasoning stands on them, even when the code never names the
+  // type. Example: NetInitializeSystem reads our prefabs, and nothing of ours calls it. Their hash goes in the REVIEW list. They have no layout row.
   const cited = new Set();
   const notes = fs.existsSync(path.join(MOD_DIR, "EngineNotes")) ? fs.readdirSync(path.join(MOD_DIR, "EngineNotes")).filter((f) => f.endsWith(".md")).map((f) => path.join(MOD_DIR, "EngineNotes", f)) : [];
   for (const f of [...sources, ...notes]) {
@@ -564,7 +564,7 @@ function measure(treeRoot) {
       }
     }
   }
-  // A Burst mark can reach a nested struct only after its parent was parsed in an earlier loop; settle it once more.
+  // A Burst mark can reach a nested struct only after an earlier loop parsed its parent. Settle it once more.
   for (const [full, mark] of [...burst]) {
     const row = layouts.get(full);
     if (!row || row.kind !== "struct") {
@@ -594,7 +594,7 @@ function measure(treeRoot) {
 // Registered phases of a vanilla system: from SystemOrder.cs, plus Game.Common's nested spelling.
 function phasesInSystemOrder(systemOrderText, full) {
   const parts = full.split(".");
-  // The decompile spells a type by its short name unless two namespaces clash; accept the last one or two segments, or the whole name.
+  // The decompile spells a type by its short name unless two namespaces clash. Accept the last one or two segments, or the whole name.
   const last = parts[parts.length - 1];
   const last2 = parts.slice(-2).join("\\.");
   const re = new RegExp(`updateSystem\\.\\w+<(?:[\\w.]*\\.)?(?:${last2}|${last})(?:\\s*,[^>]*)?>\\(SystemUpdatePhase\\.(\\w+)\\)`, "g");
@@ -718,7 +718,7 @@ function typesOf(fields) {
   return fields.map((f) => f.slice(f.indexOf(":") + 1)).join(" ");
 }
 
-/** Pure compare of a lock against a measured tree; returns {fails, review}. */
+/** Pure compare of a lock against a measured tree. It returns {fails, review}. */
 function compareTree(lock, m, systemOrderText) {
   const fails = [];
   const review = [];
@@ -841,7 +841,7 @@ function checkCodeAgainstLock(lock) {
     const code = stripCs(fs.readFileSync(f, "utf8")).replace(/^\s*using\s[^;]*;/gm, "");
     for (const m of code.matchAll(/\bGame\.[A-Z]\w*(?:\.\w+)*\.[A-Z]\w*/g)) {
       const q = m[0];
-      // The longest prefix on the lock counts; a member of a known type is fine.
+      // The longest prefix on the lock counts. A member of a known type is fine.
       const parts = q.split(".");
       let ok = false;
       for (let i = parts.length; i >= 2; i--) if (known.has(parts.slice(0, i).join("."))) ok = true;
@@ -853,8 +853,8 @@ function checkCodeAgainstLock(lock) {
 }
 
 function lockHasNamespaceMember(q, lock) {
-  // `Game.Version.current`, `Game.Simulation.SimulationUtils` etc.: the pattern cannot tell a static member from a namespace type, so a
-  // two-segment Game.<Type>.<member> whose first segment is a locked type in namespace Game passes.
+  // `Game.Version.current`, `Game.Simulation.SimulationUtils` etc.: the pattern cannot tell a static member from a namespace type. So a
+  // two-segment Game.<Type>.<member> passes when its first segment is a locked type in namespace Game.
   const parts = q.split(".");
   return lock.types.has(`Game.${parts[1]}`);
 }
@@ -950,9 +950,9 @@ public struct Curve : IComponentData, ISerializable
   check("a guid gone from the game fails, and names the crash field", gone2.length === 1 && gone2[0].includes("hard crash"));
   check("a guid in the map passes", compareGuids(gLock, refs, { ["a".repeat(32)]: "Lane", ["b".repeat(32)]: "Prop" }).length === 0);
 
-  // Fault fixture: the real 1.6.0f1 -> 1.6.2f1 patch, as two lock rows each (written by --write from both decompile trees). Three fields
-  // were inserted mid-struct in the struct SkiDaySystem's jobs hold by value (Game.Prefabs/EconomyParameterData.cs:35-39 of 1.6.2f1), and
-  // Household renamed a field. Compile and engine-contract-check passed on both trees; this gate is what saw it (patch-readiness section 2).
+  // Fault fixture: the real 1.6.0f1 -> 1.6.2f1 patch, as two lock rows each (written by --write from both decompile trees). The patch inserted
+  // three fields mid-struct in the struct that SkiDaySystem's jobs hold by value (Game.Prefabs/EconomyParameterData.cs:35-39 of 1.6.2f1).
+  // Household renamed a field. Compile and engine-contract-check passed on both trees. This gate is what saw it (patch-readiness section 2).
   const econ160 = ("m_ExtractorCompanyExportMultiplier:float m_ProductionStatisticsLerpFactor:float m_Wage0:int m_Wage1:int m_Wage2:int m_Wage3:int " +
     "m_Wage4:int m_CommuterWageMultiplier:float m_CompanyBankruptcyLimit:int m_ResidentialMinimumEarnings:int m_UnemploymentBenefit:int m_Pension:int " +
     "m_FamilyAllowance:int m_ResourceConsumptionMultiplier:float2 m_ResourceConsumptionPerCitizen:float m_TouristConsumptionMultiplier:float " +
@@ -999,7 +999,7 @@ function main() {
   const lockText = fs.existsSync(lockPath) ? fs.readFileSync(lockPath, "utf8") : null;
   const lock = lockText ? parseLock(lockText) : null;
 
-  // Beside the repo in a normal checkout; an extra level up from a worktree under ClaudeProjects is the same folder.
+  // Beside the repo in a normal checkout. An extra level up from a worktree under ClaudeProjects is the same folder.
   const defaultTree = (v) => path.resolve(ROOT, "..", "tools", "decompile", v);
 
   if (flag("write") || flag("list")) {

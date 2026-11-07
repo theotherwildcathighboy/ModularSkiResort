@@ -1,9 +1,9 @@
 // ResortBatch - headless tests for the pure resort-data and rule files (EntityRef, SkiResortIndex, SkiResortTourism, SkiResortAggregate,
-// the rating / snow / money / hub / ski-day / parking / catalog rules; one Run(check) per test file).
+// and the rating / snow / money / hub / ski-day / parking / catalog rules). Each test file has one Run(check).
 // Run (from the ModularSkiResort root): dotnet run --project tests\ResortBatch\ResortBatch.csproj -c Release
-// Prints `FAIL  where: msg` lines, report-only INFO lines and one SUMMARY line; Environment.ExitCode = failures.
+// Prints `FAIL  where: msg` lines, report-only INFO lines and one SUMMARY line. Environment.ExitCode = failures.
 // Oracles are literal hand values, not a second run of the same code. Each test file is a `public static class <Name>` with
-// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Main passes its Check, Program stays non-partial.
+// `public static void Run(Func<bool, string, string, bool> check)` and its own Near. Main passes its Check. Program stays non-partial.
 
 using System;
 using System.Collections.Generic;
@@ -66,9 +66,9 @@ namespace ResortBatch
             return s_Failures;
         }
 
-        /// <summary>DeleteAllTests reads repo-relative paths (tools/shipped-prefabs.json, gamedata-mirror/ImportedData): when the current
-        /// directory has no gamedata-mirror, move to the first parent of AppContext.BaseDirectory (tests/ResortBatch/bin/&lt;cfg&gt;/
-        /// net8.0/) that has one, so a run started from tests/ or mod/SkiResortUI checks the same files as one from the root.</summary>
+        /// <summary>DeleteAllTests reads repo-relative paths (tools/shipped-prefabs.json, gamedata-mirror/ImportedData). When the current
+        /// directory has no gamedata-mirror, this method moves to the first parent of AppContext.BaseDirectory (tests/ResortBatch/bin/&lt;cfg&gt;/
+        /// net8.0/) that has one. So a run started from tests/ or mod/SkiResortUI checks the same files as one from the root.</summary>
         private static void ToRepoRoot()
         {
             if (Directory.Exists("gamedata-mirror"))
@@ -202,7 +202,7 @@ namespace ResortBatch
             Func<float, float> identity = x => x;
 
             // A: a sign (20) and its lodge (20) in an otherwise empty city. s = 0.08:
-            //    200 / (1 + e^-0.024 = 1.9762857) - 100 = 1.19995 -> 1; without the resort s = 0 -> 0.
+            //    200 / (1 + e^-0.024 = 1.9762857) - 100 = 1.19995 -> 1. Without the resort s = 0 -> 0.
             double sA = SkiResortTourism.Term(20) + SkiResortTourism.Term(20);
             SkiResortTourism.Estimate(sA, sA, identity, TargetTourists, out int aNow, out int aWo, out int tNow, out int tWo);
             Check(Near(SkiResortTourism.Logistic(sA), 1.19995, 1e-4), "tourism A", "Logistic(0.08) = " + SkiResortTourism.Logistic(sA));
@@ -212,20 +212,20 @@ namespace ResortBatch
             SkiResortTourism.Estimate(sA, sA, x => x * 1.3f, TargetTourists, out int bNow, out int bWo, out int _, out int _);
             Check(bNow == 2 && bWo == 0, "tourism modifier order", $"×1.3: now {bNow}, without {bWo} (want 2 / 0)");
 
-            // B: s = 10 (ten providers of 100): 200 / (1 + e^-3 = 1.0497871) - 100 = 90.5148 -> 91 -> 1365 tourists;
-            //    the resort holds one provider of 100 (Term 1) -> s = 9: 200 / (1 + e^-2.7 = 1.0672055) - 100 = 87.4056 -> 87 -> 1305.
+            // B: s = 10 (ten providers of 100): 200 / (1 + e^-3 = 1.0497871) - 100 = 90.5148 -> 91 -> 1365 tourists.
+            //    The resort holds one provider of 100 (Term 1) -> s = 9: 200 / (1 + e^-2.7 = 1.0672055) - 100 = 87.4056 -> 87 -> 1305.
             SkiResortTourism.Estimate(10.0, SkiResortTourism.Term(100), identity, TargetTourists, out int cNow, out int cWo, out int ctNow, out int ctWo);
             Check(cNow == 91 && cWo == 87 && ctNow == 1365 && ctWo == 1305, "tourism B", $"now {cNow}/{ctNow}, without {cWo}/{ctWo} (want 91/1365, 87/1305)");
             Check(Near(SkiResortTourism.SharePct(SkiResortTourism.Term(100), 10.0), 10.0, 1e-5), "tourism B", "share of 1 in 10");
 
-            // C: the 100 boundary. s = 100: e^-30 ~ 9.4e-14 vanishes in float -> exactly 100 -> 1500 tourists;
-            //    with a x1.5 city modifier -> 150 -> 1671 (past the boundary the log branch applies).
+            // C: the 100 boundary. s = 100: e^-30 ~ 9.4e-14 vanishes in float -> exactly 100 -> 1500 tourists.
+            //    With a x1.5 city modifier -> 150 -> 1671 (past the boundary the log branch applies).
             SkiResortTourism.Estimate(100.0, 0.0, identity, TargetTourists, out int dNow, out int dWo, out int dtNow, out int dtWo);
             Check(dNow == 100 && dWo == 100 && dtNow == 1500 && dtWo == 1500, "tourism C", $"s=100: {dNow}/{dtNow}, without {dWo}/{dtWo}");
             SkiResortTourism.Estimate(100.0, 100.0, x => x * 1.5f, TargetTourists, out int eNow, out int eWo, out int etNow, out int etWo);
             Check(eNow == 150 && eWo == 0 && etNow == 1671 && etWo == 0, "tourism C", $"×1.5: {eNow}/{etNow}, without {eWo}/{etWo}");
 
-            // The resort larger than the walk (stale input) never goes negative; null delegates
+            // The resort larger than the walk (stale input) never goes negative. Null delegates
             SkiResortTourism.Estimate(0.08, 5.0, null, null, out int fNow, out int fWo, out int ftNow, out int ftWo);
             Check(fNow == 1 && fWo == 0 && ftNow == 0 && ftWo == 0, "tourism edge", $"sRes > sAll / null delegates: {fNow}/{fWo}/{ftNow}/{ftWo}");
         }
@@ -285,12 +285,12 @@ namespace ResortBatch
             Check(r0.Lifts == 2 && r0.LiftsRunning == 1 && r0.LiftsOpen == 1 && r0.Chairs == 70 && r0.LiftLengthM == 1300f && r0.LiftRiseM == 500f, w,
                 $"lifts {r0.Lifts} running {r0.LiftsRunning} open {r0.LiftsOpen} chairs {r0.Chairs} length {r0.LiftLengthM} rise {r0.LiftRiseM}");
             Check(r0.Lodges == 1 && r0.FreeLodges == 0 && r0.LodgeScore == 25, w, $"lodges {r0.Lodges} free {r0.FreeLodges} score {r0.LodgeScore}");
-            // Snow: (20000*1 + 10000*0.5 + 5000*0) / 35000 = 71.43 %; natural cover on the black run -> Natural
+            // Snow: (20000*1 + 10000*0.5 + 5000*0) / 35000 = 71.43 %. Natural cover on the black run -> Natural
             Check(Near(r0.SnowPct, 100.0 * 25000.0 / 35000.0, 1e-3) && r0.Season == SkiResortAggregate.SeasonNatural, w,
                 $"snow {r0.SnowPct} season {r0.Season}");
 
             w = "aggregate resort 1";
-            // Vertical without stations: 2000 - 1900, all rated -> not approximate; no lodge -> -1; cover 0 -> too warm
+            // Vertical without stations: 2000 - 1900, all rated -> not approximate. No lodge -> -1. Cover 0 -> too warm
             Check(r1.HasAny && r1.Runs == 1 && r1.Rated == 1 && r1.Green == 1 && r1.VerticalM == 100f && !r1.VerticalApprox, w,
                 $"runs {r1.Runs} green {r1.Green} vertical {r1.VerticalM} approx {r1.VerticalApprox}");
             Check(r1.Lifts == 0 && r1.Lodges == 0 && r1.LodgeScore == -1 && r1.SnowPct == 0f && r1.Season == SkiResortAggregate.SeasonTooWarm, w,
@@ -305,7 +305,7 @@ namespace ResortBatch
                 $"lifts {nl.Lifts} lodges {nl.Lodges} free {nl.FreeLodges} score {nl.LodgeScore}");
             Check(nl.SnowPct == -1f && nl.Season == SkiResortAggregate.SeasonNone, w, $"no cover → snow {nl.SnowPct} season {nl.Season}");
 
-            // Vertical from stations alone; an empty Not linked row; nothing at all
+            // Vertical from stations alone. An empty Not linked row. Nothing at all
             var onlyLift = new List<SkiResortAggregate.LiftIn> { Lift(0, 9, 1, 0, 400f, 120f, 1000f, 1120f) };
             var res2 = new SkiResortAggregate.Agg[2];
             SkiResortAggregate.Aggregate(new List<SkiResortAggregate.RunIn>(), onlyLift, null, 1, res2);
@@ -386,7 +386,7 @@ namespace ResortBatch
             SkiRunRatingRules.Keys(movedZ, movedZ.Length, out ulong k4, out ulong _);
             Check(k3 != k0 && k4 != k0 && k3 != k4, W, "an x or z move must change the key");
 
-            // A node added (even a duplicate) changes both keys; n beyond the array is clamped
+            // A node added (even a duplicate) changes both keys. A value of n beyond the array clamps.
             float3[] five = { a[0], a[1], a[2], a[3], a[3] };
             SkiRunRatingRules.Keys(five, 5, out ulong k5, out ulong y5);
             Check(k5 != k0 && y5 != y0, W, "a fifth node must change both keys");
@@ -415,7 +415,7 @@ namespace ResortBatch
             Check(SkiRunRatingRules.NeedsRating(true, k0, y0, 2, k3, y1, 3, Bind) == Edit, W, "an edit wins over terrain");
 
             // A brush stroke re-snaps the nodes 60 passes in a row. Every pass must ask for a background rating and never a front
-            // one (no per-frame full rating; the row keeps its rating because ApplyRating matches on the x/z key alone).
+            // one (no per-frame full rating). The row keeps its rating because ApplyRating matches on the x/z key alone.
             float3[] stroke = Ring();
             int front = 0, terrain = 0;
             for (int pass = 1; pass <= 60; pass++)
@@ -448,7 +448,7 @@ namespace ResortBatch
                   !SkiRunRatingRules.Replaces(Terrain, Terrain) && !SkiRunRatingRules.Replaces(Back, Terrain), W, "background never replaces");
 
             // 20 runs seeded as warm-up, then every later rebuild re-asks each unrated row as "bind" (SkiRunCatalogSystem.UpdateQueue).
-            // The catalog's Enqueue logic, here over ints: nothing may reach the front; one edit later promotes exactly that run.
+            // The catalog's Enqueue logic, here over ints: nothing may reach the front. One edit later promotes exactly that run.
             var queued = new Dictionary<int, byte>();
             int frontCount = 0, backCount = 0, promotedFromWarmup = 0;
             void Enqueue(int run, byte reason)
@@ -570,12 +570,12 @@ namespace ResortBatch
         private static void HubCameraTests()
         {
             const string W = "hub camera";
-            // The literal oracles below assume the shipped tuning: a change of either constant must fail here first, so the cases
-            // are re-derived by hand rather than silently re-scaled
+            // The literal oracles below assume the shipped tuning. A change of either constant must fail here first. So re-derive the cases
+            // by hand. Do not re-scale them silently
             Check(HubCameraRules.KeepZoomFraction == 0.3f && HubCameraRules.KeepMaxZoomM == 1500f, W,
                 $"tuning {HubCameraRules.KeepZoomFraction} / {HubCameraRules.KeepMaxZoomM} (the oracles assume 0.3 / 1500)");
-            // 0.3f x 1000f rounds to exactly 300f (0.300000011920929 x 1000 = 300.0000119; the float ulp at 300 is 3.05e-5, so the
-            // product rounds down to 300): the edge cases below sit exactly on the keep radius
+            // 0.3f x 1000f rounds to exactly 300f (0.300000011920929 x 1000 = 300.0000119, and the float ulp at 300 is 3.05e-5, so the
+            // product rounds down to 300). The edge cases below sit exactly on the keep radius
             Check(HubCameraRules.KeepRadiusM(1000f) == 300f, W,
                 "keep radius at zoom 1000 = " + HubCameraRules.KeepRadiusM(1000f).ToString("R", CultureInfo.InvariantCulture));
 
@@ -589,15 +589,15 @@ namespace ResortBatch
             // Inside: 42 m off-center at zoom 180 (keep 54 m)
             Check(HubCameraRules.AlreadyOn(sign + new float2(0f, 42f), 180f, sign, out d) && d == 42f, W, $"42 m at zoom 180: d {d}");
 
-            // On the edge (inclusive): a 180 / 240 offset is exactly 300 m; zoom 1000 keeps exactly 300 m
+            // On the edge (inclusive): a 180 / 240 offset is exactly 300 m. Zoom 1000 keeps exactly 300 m
             Check(HubCameraRules.AlreadyOn(sign + new float2(180f, 240f), 1000f, sign, out d) && d == 300f, W,
                 $"300 m at zoom 1000 (the edge): d {d.ToString("R", CultureInfo.InvariantCulture)}");
-            // Just outside: 300.01 m at zoom 1000; and 300 m at zoom 999.9 (keep 299.97 m)
+            // Just outside: 300.01 m at zoom 1000, and 300 m at zoom 999.9 (keep 299.97 m)
             Check(!HubCameraRules.AlreadyOn(sign + new float2(0f, 300.01f), 1000f, sign, out d) && Near(d, 300.01, 0.001), W,
                 $"300.01 m at zoom 1000 is on: d {d.ToString("R", CultureInfo.InvariantCulture)}");
             Check(!HubCameraRules.AlreadyOn(sign + new float2(180f, 240f), 999.9f, sign), W, "300 m at zoom 999.9 is on");
 
-            // The zoom cap: on the sign at zoom 1500 -> on; at 1500.5 -> not (the keep radius alone would say on)
+            // The zoom cap: on the sign at zoom 1500 -> on. At 1500.5 -> not (the keep radius alone would say on)
             Check(HubCameraRules.AlreadyOn(sign, 1500f, sign), W, "on the sign at zoom 1500 (the cap, inclusive) is not on");
             Check(!HubCameraRules.AlreadyOn(sign, 1500.5f, sign, out d) && d == 0f, W, "on the sign at zoom 1500.5 is on");
             Check(!HubCameraRules.AlreadyOn(sign, 4000f, sign), W, "on the sign at zoom 4000 (whole-map view) is on");
@@ -609,7 +609,7 @@ namespace ResortBatch
             Check(!HubCameraRules.AlreadyOn(sign, 0f, sign, out d) && d == 0f, W, "zoom 0 on the sign is on");
             Check(!HubCameraRules.AlreadyOn(sign, -10f, sign), W, "zoom -10 on the sign is on");
 
-            // Non-finite input: not on (the caller flies); the distance is reported as computed
+            // Non-finite input: not on (the caller flies). AlreadyOn reports the distance as computed
             Check(!HubCameraRules.AlreadyOn(new float2(float.NaN, 0f), 150f, sign, out d) && float.IsNaN(d), W, $"NaN pivot: d {d}");
             Check(!HubCameraRules.AlreadyOn(sign, float.NaN, sign), W, "NaN zoom is on");
             Check(!HubCameraRules.AlreadyOn(sign, float.PositiveInfinity, sign), W, "infinite zoom is on");

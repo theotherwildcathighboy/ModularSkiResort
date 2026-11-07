@@ -3,11 +3,14 @@
 // Transcribed: Build :175-345 up to the closure, ClassifyTerminal :347-377, AddEndpoint :379-384, TryTakeNext :386-404, TryCloseLoop
 // :407-430 (orientation + gap check only), CommonType :520-540, ArcSane :558-562, OrientChain :564-578, GetChainEndpoint :580-595.
 // One deliberate edit since the freeze: the base-station choice (Build, pair loop) takes the Base-role station first when both roles are
-// known (stationRoles, new parameter), as LiftLoopTopology does for chair lifts; everything else is the frozen text.
-// Substitutions are the stand-ins the topology uses, so both run on identical input: CableLane -> LiftLoopTopology.Lane; PathNode -> its
-// int id (one owner per id, as the 64-bit search key does: Game.Pathfind/PathNode.cs:113-116); Position / Tangent(lane.m_Bezier, t),
-// t in {0, 1} -> the lane's P0 / P1 / T0 / T1; List<Entity> -> List<int>. Needs Colossal.Mathematics, so not transcribed: AppendChain, the
-// two turns, "top turn ..." / "loop closed ..." notes, the loop-too-short refusal; such a pair is recorded as Closed with its CommonType.
+// known (stationRoles, new parameter). LiftLoopTopology does the same for chair lifts. Everything else is the frozen text.
+// Substitutions are the stand-ins the topology uses, so both run on identical input:
+// - CableLane -> LiftLoopTopology.Lane
+// - PathNode -> its int id (one owner per id, as the 64-bit search key does: Game.Pathfind/PathNode.cs:113-116)
+// - Position / Tangent(lane.m_Bezier, t), t in {0, 1} -> the lane's P0 / P1 / T0 / T1
+// - List<Entity> -> List<int>
+// This file needs Colossal.Mathematics, so it does not transcribe these: AppendChain, the two turns, "top turn ..." / "loop closed ..."
+// notes, the loop-too-short refusal. The file records such a pair as Closed with its CommonType.
 
 using System;
 using System.Collections.Generic;
@@ -94,7 +97,7 @@ namespace LiftBatch
                 return;
             }
 
-            // Endpoint index: PathNode -> lane indices sharing it (exact equality; PathNode hashes on its full search key)
+            // Endpoint index: PathNode -> lane indices sharing it (exact equality: PathNode hashes on its full search key)
             var nodeMap = new Dictionary<int, List<int>>(lanes.Count * 2);
             for (int i = 0; i < lanes.Count; i++)
             {
@@ -130,7 +133,7 @@ namespace LiftBatch
                     cursor = enteredAtEnd ? lanes[prevLane].StartNode : lanes[prevLane].EndNode;
                 }
                 chain.m_StartTerminal = cursor;
-                // backLinks were collected walking away from lane i; in chain order they run toward lane i, so reverse the list and
+                // The walk away from lane i collected backLinks. In chain order they run toward lane i, so reverse the list and
                 // flip each link's direction
                 for (int b = backLinks.Count - 1; b >= 0; b--)
                     chain.m_Links.Add(new ChainLink
@@ -206,8 +209,8 @@ namespace LiftBatch
                     continue;
                 }
                 result.TwoChains = true;
-                // Base station = the Base-role station when both roles are known and exactly one is Base; else the lower of the two
-                // terminals (a ski lift climbs); loop travel starts at the base going up chain A. Arbitrary but deterministic.
+                // Base station = the Base-role station when both roles are known and exactly one is Base. Else the lower of the two
+                // terminals (a ski lift climbs). Loop travel starts at the base going up chain A. Arbitrary but deterministic.
                 int stationA = kv.Key.Item1, stationB = kv.Key.Item2;
                 bool aIsBase = stationRoles[stationA] == 0, bIsBase = stationRoles[stationB] == 0;
                 bool rolesKnown = stationRoles[stationA] >= 0 && stationRoles[stationB] >= 0;
@@ -356,7 +359,7 @@ namespace LiftBatch
             return true;
         }
 
-        /// <summary>The SkiCatalog.Lifts index shared by every lane of both chains; -1 when they span several types (or a lane
+        /// <summary>The SkiCatalog.Lifts index shared by every lane of both chains. It is -1 when they span several types (or a lane
         /// carries a negative index)</summary>
         private static int CommonType(List<LiftLoopTopology.Lane> lanes, Chain a, Chain b)
         {
@@ -388,7 +391,7 @@ namespace LiftBatch
         {
             if (chain.m_StartStation == fromStation)
                 return;
-            // Reverse link order and per-link direction; swap terminals
+            // Reverse link order and per-link direction. Swap terminals
             chain.m_Links.Reverse();
             for (int i = 0; i < chain.m_Links.Count; i++)
             {

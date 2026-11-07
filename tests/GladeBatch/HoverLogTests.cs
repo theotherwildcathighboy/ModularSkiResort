@@ -1,5 +1,10 @@
-// GladeHoverLog: dedup, the 40-line cap with an exact suppressed count, Switching never logged, dwell buckets summing to
-// the total, the summary format (0-plan case included) and no managed allocation on the per-frame calls.
+// GladeHoverLog tests check these points:
+// - dedup
+// - the 40-line cap with an exact suppressed count
+// - Switching is never logged
+// - dwell buckets sum to the total
+// - the summary format (0-plan case included)
+// - no managed allocation on the per-frame calls
 
 using System;
 using System.Globalization;

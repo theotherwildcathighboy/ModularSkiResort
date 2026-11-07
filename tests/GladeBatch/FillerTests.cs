@@ -201,9 +201,11 @@ namespace GladeBatch
                 Own = Array.Empty<ComposeMember>(), Cancel = cancel, Caps = new ComposeCaps { MaxPlant = 2000, MaxFell = 0, MaxRemove = TCap } };
         }
 
-        /// <summary>GladeCancel (the Quick runs compose worker): a requested cancel ends Compose with Canceled set and caches nothing;
-        /// the same cache then composes exactly what a fresh cache composes; a null and an unrequested flag compose the same result;
-        /// a request mid-compose returns early (latency reported, not gated: timing).</summary>
+        /// <summary>GladeCancel (the Quick runs compose worker). The test checks these points:
+        /// - A requested cancel ends Compose with Canceled set and caches nothing.
+        /// - The same cache then composes exactly what a fresh cache composes.
+        /// - A null flag and an unrequested flag compose the same result.
+        /// - A request mid-compose returns early (latency reported, not gated: timing).</summary>
         private static void FillerCancelTests()
         {
             const double Side = 1000.0;
@@ -247,8 +249,8 @@ namespace GladeBatch
         }
 
         /// <summary>The Quick runs Plant loop at the tool's numbers (slices of 2000, one GladePlanCache): compose, plant the slice,
-        /// compose again until Complete. Reports every slice's ms (the cost a worker thread takes off the main thread) and checks that the
-        /// loop converges (no slice plants twice the same slot, the last compose is Complete).</summary>
+        /// then compose again until Complete. The test reports every slice's ms (the cost a worker thread removes from the main thread).
+        /// It also checks that the loop converges (no slice plants the same slot twice, the last compose is Complete).</summary>
         private static void FillerPlantingReport(double side, byte level)
         {
             const int SliceTrees = 2000;
@@ -351,7 +353,7 @@ namespace GladeBatch
                 prefix = SameTree(a.Planted[i], plan.Planted[i]);
             Check(prefix && a.Planted.Count == small.MaxPlant, "filler/prefix", "FILL PREFIX: MaxPlant slice is not a prefix");
 
-            // Replay is bit-identical; an empty mask keeps the null-mask stream (same draws, only the target differs).
+            // Replay is bit-identical. An empty mask keeps the null-mask stream (same draws, only the target differs).
             var b = new GladePlan();
             SkiGladePlanner.Plan(c.Ring, null, seed, in p, null, null, null, null, c.Mask, b);
             Check(Diff(plan, b) == null, "filler/replay", "FILL REPLAY: " + Diff(plan, b));
@@ -452,7 +454,7 @@ namespace GladeBatch
                 int inFill;
                 FillStand(c, c.Mask, s, out ex, out th, out inFill);
 
-                // Level 6 from bare: plants T - X; never fells; X = every wild tree in the fill region.
+                // Level 6 from bare: plants T - X. It never fells. X = every wild tree in the fill region.
                 ComposeInput input = FillInput(c, c.Mask, 6, ex, th, null);
                 var r = new ComposeResult();
                 SkiGladeCompose.Compose(input, r);
@@ -613,7 +615,7 @@ namespace GladeBatch
             Check(e.Source == TreeLineSource.Around && e.TreesInside == 10 && e.TreesAround == 110, "treeline/around",
                 "TREE LINE: around " + e.Source + " inside " + e.TreesInside + " around " + e.TreesAround);
 
-            // 6 around: the highest; 2: none (ground max, or +Inf without a range).
+            // 6 around: the highest. 2: none (ground max, or +Inf without a range).
             var sparse = new List<float3>();
             for (int i = 0; i < 6; i++)
                 sparse.Add(new float3(5100f + i, 1000f + 10f * i, 5100f));

@@ -3,14 +3,14 @@
     Convert HDR .jxr / .wdp screenshots to SDR .png with proper tone mapping.
 
 .DESCRIPTION
-    Windows HDR screenshots are JPEG XR in scRGB: LINEAR light, floating point, where 1.0 is
-    SDR reference white (80 nits) and highlights go WELL above 1.0.
+    Windows HDR screenshots are JPEG XR in scRGB: LINEAR light, floating point. Value 1.0 is
+    SDR reference white (80 nits), and highlights go WELL above 1.0.
 
     Naive converters do two things wrong at once:
       1. clamp everything above 1.0, destroying all highlight detail, and
       2. treat linear values as if they were already gamma-encoded.
-    Together those produce the classic washed-out, milky result. The image isn't damaged -
-    it's being displayed with the wrong transfer function.
+    Together those produce the classic washed-out, milky result. The image isn't damaged.
+    It is displayed with the wrong transfer function.
 
     This script decodes with the JPEG XR codec built into Windows (no install required),
     applies a filmic tone curve, then encodes sRGB properly.
@@ -194,7 +194,7 @@ foreach ($f in $files) {
         # Gray-world: put the MEDIAN at classic 18% mid-gray.
         #
         # Anchoring on the 99.5th percentile instead looks correct in theory but comes out far
-        # too dark in practice - in a game screenshot that percentile is bright UI chrome or a
+        # too dark in practice. In a game screenshot, that percentile is bright UI chrome or a
         # specular hit, so normalizing to it drags the whole scene down. The median tracks what
         # the image is actually *of*.
         if ($p50 -gt 0.0001) { $exp = 0.18 / $p50 } else { $exp = 1.0 }

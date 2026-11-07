@@ -1,9 +1,11 @@
-// Gate G8 for the pitched sheave trains (lift alignment Phase 2, docs lift-alignment-2026-11-02; articulated halves, owner verdict
-// 2026-11-02 option C): per line tower whose mesh has bones named "TrainFront*" / "TrainBack*", the pitch each bone shows (rotation
-// relative to its rest, about x; nose up along the tower's +z) against an independent expectation: the analytic hanging-lane end slopes
-// (chord -/+ 4h, LaneSystem.cs:4128-4138) of the rope lanes ending on the tower's anchors, averaged per side (lanes leaving toward +z feed
-// the front half, toward -z the back; one side missing takes the other's), each clamped to maxDeg, the half-break to halfBreakDeg. Written
-// apart from the mod's TrainPitchSystem (which reads the lane control points), so a sign or side error in either shows. Dev bridge only.
+// Gate G8 for the pitched sheave trains (lift alignment Phase 2, docs lift-alignment-2026-11-02. Articulated halves, owner verdict
+// 2026-11-02 option C). For each line tower whose mesh has bones named "TrainFront*" / "TrainBack*", the gate compares two values.
+// The first is the pitch each bone shows (rotation relative to its rest, about x, nose up along the tower's +z). The second is an
+// independent expectation. It is the analytic hanging-lane end slopes (chord -/+ 4h, LaneSystem.cs:4128-4138) of the rope lanes
+// ending on the tower's anchors, averaged per side. Lanes leaving toward +z feed the front half, and lanes leaving toward -z feed
+// the back. If one side is missing, it takes the other side's value. The gate clamps each averaged value to maxDeg and the
+// half-break to halfBreakDeg. This code is written apart from the mod's TrainPitchSystem (which reads the lane control points), so
+// a sign or side error in either shows. Dev bridge only.
 // Op: trains {x, z, r (default 400), maxDeg (optional clamp), halfBreakDeg (default 20)} -> rows {id, prefab, pos, frontDeg, backDeg,
 // ends {front, back}, bones [{name, expectDeg, boneDeg | null, diffDeg | null}]}.
 
@@ -170,7 +172,7 @@ namespace SkiTestBridge
                     float len = math.distance(a.xz, d.xz);
                     if (len < 1e-3f)
                         continue;
-                    // leaving a toward d: slope (d - a) / L - 4h; leaving d back toward a: (a - d) / L - 4h (the parabola is symmetric)
+                    // leaving a toward d: slope (d - a) / L - 4h, and leaving d back toward a: (a - d) / L - 4h (the parabola is symmetric)
                     if (Near(pts, a))
                         Side(math.atan((d.y - a.y) / len - 4f * ud.m_Hanging), d.xz - a.xz, fwd, ref sumF, ref nF, ref sumB, ref nB);
                     if (Near(pts, d))

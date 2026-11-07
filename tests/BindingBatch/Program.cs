@@ -1,10 +1,10 @@
 // BindingBatch - headless decision-table tests for SkiRunBindingRules (the pure decision only).
 // Run (from the ModularSkiResort root): dotnet run --project tests\BindingBatch\BindingBatch.csproj -c Release
-// Prints `FAIL  where: msg` lines, report-only INFO lines and one SUMMARY line; Environment.ExitCode = failures.
-// The ECS effects (Owner removal, SubArea entry removal, Charge) live in SkiRunOwnershipSystem; the test-local ApplyEffect restates
-// the table's Effect column, and the idempotence and money assertions run against that model, not against the ECS code.
-// Oracle: the decision table as data (required-true / required-false fact masks per row, first match wins), literal expected values
-// and the exact number of combinations each row must win: a different encoding from Decide's if-chain.
+// The test prints `FAIL  where: msg` lines, report-only INFO lines and one SUMMARY line. Environment.ExitCode = failures.
+// The ECS effects (Owner removal, SubArea entry removal, Charge) live in SkiRunOwnershipSystem. The test-local ApplyEffect restates
+// the table's Effect column. The idempotence and money assertions run against that model, not against the ECS code.
+// Oracle: the decision table as data (required-true / required-false fact masks per row, first match wins). It has literal expected values
+// and the exact number of combinations each row must win. This is a different encoding from Decide's if-chain.
 // FeeTests: SkiRunFees (base + per hectare, half up to 10, area capped at 2,000 ha, -1 for an unknown kind) against a literal table.
 
 using System;
@@ -46,10 +46,14 @@ namespace BindingBatch
             }
         }
 
-        // Decision table, order = priority. ExpectedWins = 2^(free facts) with every earlier row excluded:
-        // row 1/2 fix 2 facts (32 each); row 3 fixes !HasOwner, HasBinding, GateLive (16);
-        // rows 4/5 fix 4 (8 each); rows 6/7 fix !HasOwner, !HasBinding, SignInTether, LoadPass
-        // (8 each); row 8 fixes !HasOwner, !HasBinding, !SignInTether (16). Sum = 128.
+        // Decision table, order = priority. ExpectedWins = 2^(free facts) with every earlier row excluded.
+        // Facts fixed per row:
+        // - row 1/2 fix 2 facts (32 each)
+        // - row 3 fixes !HasOwner, HasBinding, GateLive (16)
+        // - rows 4/5 fix 4 (8 each)
+        // - rows 6/7 fix !HasOwner, !HasBinding, SignInTether, LoadPass (8 each)
+        // - row 8 fixes !HasOwner, !HasBinding, !SignInTether (16)
+        // Sum = 128.
         private static readonly Row[] Table =
         {
             new Row(HasOwner | OwnerIsOurSign, 0, BindAction.MigrateLegacy, 32),
@@ -338,9 +342,12 @@ namespace BindingBatch
         }
 
         /// <summary>Apply the action's effect, decide again (a load pass followed by four
-        /// sweeps, and a sweep followed by four sweeps): never BindCharge or RestoreFree for a
-        /// run that already has a binding, never MigrateLegacy twice, at most one charge ever,
-        /// none for a legacy or already-bound run, and a fixpoint within two steps.</summary>
+        /// sweeps, and a sweep followed by four sweeps). The checks are:
+        /// - never BindCharge or RestoreFree for a run that already has a binding
+        /// - never MigrateLegacy twice
+        /// - at most one charge ever
+        /// - none for a legacy or already-bound run
+        /// - a fixpoint within two steps.</summary>
         private static void IdempotenceTests()
         {
             int sequences = 0;
@@ -432,7 +439,7 @@ namespace BindingBatch
                 "reinstall restore: gate " + w.Gate + ", charges " + charges);
 
             // Bound run whose sign dies without the cascade: no other sign -> paid orphan
-            // (one WARN transition), kept; a sign placed later -> re-linked free.
+            // (one WARN transition), kept. A sign placed later -> re-linked free.
             w = new World { Owner = OwnerKind.None, Gate = GateKind.DeadNonNull, SignInTether = false };
             charges = Life(ref w, false, 3);
             Check(w.Gate == GateKind.Null && charges == 0, "scenario orphan",
@@ -519,13 +526,13 @@ namespace BindingBatch
             FeeEq(SkiRunFees.KindNight, 12345f, 14640, "night 12,345 m²");
             FeeEq(SkiRunFees.KindNight, 20000f, 20000, "night 20,000 m² (the old flat fee)");
             FeeEq(SkiRunFees.KindNight, 100000f, 76000, "night 100,000 m²");
-            // Guards: NaN and negatives count as 0 ha; +inf and huge areas are capped at 2,000 ha.
+            // Guards: NaN and negatives count as 0 ha. SkiRunFees caps +inf and huge areas at 2,000 ha.
             FeeEq(SkiRunFees.KindNatural, float.NaN, 500, "natural NaN");
             FeeEq(SkiRunFees.KindGroomed, -5f, 2000, "groomed -5 m²");
             FeeEq(SkiRunFees.KindNight, float.PositiveInfinity, 14006000, "night +inf (capped at 2,000 ha)");
             FeeEq(SkiRunFees.KindNight, 1e9f, 14006000, "night 1e9 m² (capped at 2,000 ha)");
             // Unknown kinds.
-            // Kind 4 is the cat track and pays the groomed fee by plan area; 5 is the first unknown.
+            // Kind 4 is the cat track and pays the groomed fee by plan area. Kind 5 is the first unknown.
             Check(SkiRunFees.KindCatTrack == (int)RunKind.CatTrack && SkiRunFees.KindCatTrack == 4, "fee kinds", "KindCatTrack != RunKind.CatTrack (4)");
             FeeEq(SkiRunFees.KindCatTrack, 0f, 2000, "cat track 0 m²");
             FeeEq(SkiRunFees.KindCatTrack, 12345f, SkiRunFees.Fee(SkiRunFees.KindGroomed, 12345f), "cat track 12,345 m² = groomed's");
@@ -535,7 +542,7 @@ namespace BindingBatch
             Check(SkiRunFees.BaseFee(5) == -1, "fee unknown", "BaseFee(5) != -1");
             Check(SkiRunFees.PerHaFee(-1) == -1, "fee unknown", "PerHaFee(-1) != -1");
 
-            // Sweep: every kind, 0 to 199,400 m² in steps of 997 m² (201 areas): a multiple of ₵10 and
+            // Sweep: every kind, 0 to 199,400 m² in steps of 997 m² (201 areas). Each fee is a multiple of ₵10 and
             // never below the previous step's fee (one Check per step).
             for (int kind = 0; kind <= 4; kind++)
             {

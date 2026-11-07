@@ -1,8 +1,11 @@
 // Tests for the lift tool's input state machine (LiftLineInput) and the edit model's undo stack (LiftLineEdit.Undo), headless (TI-1..TI-8).
-// Pinned: the right-click table (step x dragging x undo depth -> the one action, as vanilla "Undo Net Control Point"); undo restores the
-// exact pins / removed spots and refusals push nothing; the step hint is never empty, differs per step and names its keys; a drag off the
-// line removes, on the line moves; the minimum line length (station to station 2 x MinSpanM, a loose or ground end 2 x StepM); Enter on
-// the default plan emits the planner's own line (stations first / last, every tower Free).
+// The tests pin these facts:
+// - The right-click table (step x dragging x undo depth -> the one action, as vanilla "Undo Net Control Point").
+// - Undo restores the exact pins / removed spots, and refusals push nothing.
+// - The step hint is never empty, differs per step and names its keys.
+// - A drag off the line removes, and a drag on the line moves.
+// - The minimum line length (station to station 2 x MinSpanM, a loose or ground end 2 x StepM).
+// - Enter on the default plan emits the planner's own line (stations first / last, every tower Free).
 
 using System;
 using System.Collections.Generic;
@@ -35,8 +38,8 @@ namespace LiftBatch
             AlongRefused();
         }
 
-        // AL-1 (FIX-LIST 60 b): a line drawn on top of a built lift is refused; beside it, across it, drawn on from its loose end, or met
-        // at an end it is not. Field case: a gondola (-2200, 3200) -> (-2200, 2700) over the FG edge (-2200, 2795) -> (-2200, 2705).
+        // AL-1 (FIX-LIST 60 b): the tool refuses a line drawn on top of a built lift. It does not refuse a line beside it, across it, drawn on
+        // from its loose end, or met at an end. Field case: a gondola (-2200, 3200) -> (-2200, 2700) over the FG edge (-2200, 2795) -> (-2200, 2705).
         private static void AlongRefused()
         {
             const string W = "tool/AL-1";
@@ -49,7 +52,7 @@ namespace LiftBatch
             // the same with a 0.3 m plan offset and a 2 deg skew (the engine's x drifted, which once read as a crossing)
             float2 c = new float2(-2199.7f, 2795f), d = c + 90f * new float2(math.sin(math.radians(2f)), -math.cos(math.radians(2f)));
             Check(LiftLineInput.AlongOverlapM(a, b, c, d, margin) > min, W, "near-collinear, 2 deg / 0.3 m: not refused");
-            // side by side 7.9 m away: still along (carriers would meet); 8.1 m away: allowed
+            // side by side 7.9 m away: still along (carriers would meet). 8.1 m away: allowed
             Check(LiftLineInput.AlongOverlapM(a, b, new float2(-2192.1f, 3100f), new float2(-2192.1f, 2800f), margin) > min, W,
                   "7.9 m beside, 300 m long: not refused");
             Check(LiftLineInput.AlongOverlapM(a, b, new float2(-2191.9f, 3100f), new float2(-2191.9f, 2800f), margin) == 0f, W,
@@ -74,8 +77,8 @@ namespace LiftBatch
                   "degenerate: not 0");
         }
 
-        // The engine split the tool's courses (CourseSplitSystem elevation transitions). Replay of a playthrough log: the "Towers [nodes]"
-        // block written BEFORE the fit moved the line, base first: span to the next node, node y, terrain, chord clearance at 20/40/60/80 %.
+        // The engine split the tool's courses (CourseSplitSystem elevation transitions). Replay of a playthrough log. The log wrote the "Towers [nodes]"
+        // block BEFORE the fit moved the line. It lists, base first: span to the next node, node y, terrain, chord clearance at 20/40/60/80 %.
         // Ground between nodes = lerp(node y) - clearance (LiftPlannerTests rule).
 
         private struct DumpNode
@@ -101,7 +104,7 @@ namespace LiftBatch
             D(0f, 1227.82f, 1227.82f),
         };
 
-        // The same DQ line after the fit MOVED it (spans from the fit's positions): more ground samples for the replay (the 220 / 205 m
+        // The same DQ line after the fit MOVED it (spans from the fit's positions), with more ground samples for the replay (the 220 / 205 m
         // spans above leave 44 m gaps).
         private static readonly DumpNode[] DqMoved =
         {
@@ -172,8 +175,8 @@ namespace LiftBatch
             };
         }
 
-        /// <summary>The tool's emitted line in world xz along +x from the BASE (x = meters from the base): <paramref name="towers"/>
-        /// = (along from the tool's FIRST end, member, pinned); <paramref name="fromTop"/> = the tool's first click was the top.</summary>
+        /// <summary>The tool's emitted line in world xz along +x from the BASE (x = meters from the base). <paramref name="towers"/>
+        /// = (along from the tool's FIRST end, member, pinned). <paramref name="fromTop"/> = the tool's first click was the top.</summary>
         private static List<LiftLineNode> Emitted(LiftTowerPlanConstants c, float length, LiftTerrainSampler g, bool fromTop,
                                                   (float Along, int Member, bool Pin)[] towers)
         {
@@ -236,7 +239,7 @@ namespace LiftBatch
                 pins += t.Pin ? 1 : 0;
             Check(m.Registered == towers.Length && m.Extras == extrasFromBase.Length && m.Pins == pins && m.Reversed == fromTop, W,
                   $"match counts: registered {m.Registered}/{towers.Length}, extras {m.Extras}/{extrasFromBase.Length}, pins {m.Pins}/{pins}, reversed {m.Reversed}");
-            // Every tool node got its own member back; every extra is flagged.
+            // Every tool node got its own member back. Every extra is flagged.
             var inner = new float[n - 2];
             var ground = new float[n - 2];
             for (int i = 0; i < n - 2; i++)
@@ -295,7 +298,7 @@ namespace LiftBatch
                               $"on this replay ground: {toolPlan.MinFloorMarginM:F1} m)");
         }
 
-        // TI-9: the 16-vs-10 detachable (drawn from the top; pins 20/135/475/680/900/950).
+        // TI-9: the 16-vs-10 detachable (drawn from the top, pins 20/135/475/680/900/950).
         private static void SplitReplayDq()
         {
             var towers = new[]
@@ -306,21 +309,21 @@ namespace LiftBatch
             var extras = new[] { 27f, 609f, 657f, 669f, 697f, 866f };
             // (a) the station ropes the tool planned with (stub node + the shortest member's rope: 923.27 + 8 / 1227.82 + 8).
             SplitReplay("tool/TI-9 DQ 16 vs 10", "detachable", new[] { DqBuilt, DqMoved }, 1065f, true, 931.27f, 1235.82f, towers, extras);
-            // (b) the ropes the fit reads in game (the station's rope lane: 925.96 / 1235.40): the base lane sits 5.3 m
-            // under the tool's assumption, so span 1 is violated whatever the towers (a station-rope mismatch, not a split problem): still no
-            // node moves; the fit WARNs that the pinned towers stay.
+            // (b) the ropes the fit reads in game (the station's rope lane: 925.96 / 1235.40). The base lane sits 5.3 m
+            // under the tool's assumption, so span 1 is violated whatever the towers (a station-rope mismatch, not a split problem). Still no
+            // node moves. The fit WARNs that the pinned towers stay.
             SplitReplay("tool/TI-9b DQ 16 vs 10 (lane ropes)", "detachable", new[] { DqBuilt, DqMoved }, 1065f, true, 925.96f, 1235.40f, towers, extras);
             LanePlannedDq();
         }
 
         /// <summary>TI-9c: the tool plans a station end from the station's rope lane (LiftLineInput.StationRope),
         /// as the fit reads it. The same DQ line, same six pins, planned with the lane ropes (top 1235.40, base 925.96): the planner
-        /// clears the base span itself, and the fit with the lane ropes keeps the built line (Kept, every member, nothing moved);
-        /// with the extra split nodes too. Plus the pure anchor rule.</summary>
+        /// clears the base span itself. The fit with the lane ropes keeps the built line (Kept, every member, nothing moved).
+        /// The fit keeps the built line with the extra split nodes too. Plus the pure anchor rule.</summary>
         private static void LanePlannedDq()
         {
             const string W = "tool/TI-9c";
-            // The anchor rule: the lowest HV anchor within 30 m; sub-objects before the station; none -> the old node rule.
+            // The anchor rule: the lowest HV anchor within 30 m. Sub-objects before the station. None -> the old node rule.
             var node = new float3(0f, 923.27f, 0f);
             float r = LiftLineInput.StationRope(null, new[] { new float3(2f, 925.96f, 1f), new float3(3f, 928.11f, -1f), new float3(80f, 900f, 0f) },
                                                 node, 931.27f, out bool lane);
@@ -387,7 +390,7 @@ namespace LiftBatch
                               $"{same}; with 6 extra splits matched + Kept {splitKept}");
         }
 
-        // TI-10: the 22-vs-13 gondola (drawn from the base; pins 1075/1180/1235).
+        // TI-10: the 22-vs-13 gondola (drawn from the base, pins 1075/1180/1235).
         private static void SplitReplayGondola()
         {
             SplitReplay("tool/TI-10 GD 22 vs 13", "gondola", new[] { GdBuilt }, 1408f, false, 941.58f, 1471.15f,
@@ -399,9 +402,11 @@ namespace LiftBatch
                 new[] { 27f, 41f, 175f, 488f, 551f, 743f, 1015f, 1122f, 1262f });
         }
 
-        // TI-11: ordinary lines stay ordinary (the fit's old path): the vanilla equal split of the same corridor, a line with one
-        // tool node 2 m off (diagnosed by BestPartial: the fit WARNs when it moves its pins), an extra node off the tool's line,
-        // and a path whose end is not the tool's.
+        // TI-11: ordinary lines stay ordinary (the fit's old path). The cases:
+        // - the vanilla equal split of the same corridor
+        // - a line with one tool node 2 m off (diagnosed by BestPartial: the fit WARNs when it moves its pins)
+        // - an extra node off the tool's line
+        // - a path whose end is not the tool's.
         private static void SplitOrdinaryLines()
         {
             const string W = "tool/TI-11";
@@ -446,8 +451,8 @@ namespace LiftBatch
                               "(fit WARNs if Moved); extra 3 m off -> ordinary; longer line -> ordinary; unsplit tool line -> exact Match");
         }
 
-        // TI-12: ChordMembers gives an extra the member whose rope is nearest the planned chord (tie -> taller), touches no tool
-        // node, and keeps the current member within the hysteresis.
+        // TI-12: ChordMembers gives an extra the member whose rope is nearest the planned chord (tie -> taller). It touches no tool
+        // node. It keeps the current member within the hysteresis.
         private static void SplitChordMembers()
         {
             const string W = "tool/TI-12";
@@ -458,12 +463,12 @@ namespace LiftBatch
             int[] mem = { 5, -1, 5 };
             LiftToolLines.ChordMembers(c, new[] { 100f, 200f, 300f }, new[] { G0, G0, G0 }, mem, null, 400f, rope0, rope0);
             Check(mem[0] == 5 && mem[1] == 5 && mem[2] == 5, W, $"extra between two DQ20: {mem[1]}");
-            // Station (DQ10 rope) to a DQ20 at 200 m, extra at 100 m: the chord is DQ10 rope + 5 m -> DQ14 (+4) and DQ16 (+6) are 1 m
-            // off each: a tie, the taller wins (never a dip below the planned rope).
+            // Station (DQ10 rope) to a DQ20 at 200 m, extra at 100 m. The chord is DQ10 rope + 5 m -> DQ14 (+4) and DQ16 (+6) are 1 m
+            // off each: a tie, and the taller wins (never a dip below the planned rope).
             mem = new[] { -1, 5 };
             LiftToolLines.ChordMembers(c, new[] { 100f, 200f }, new[] { G0, G0 }, mem, null, 400f, rope0, rope0);
             Check(mem[0] == 3, W, $"extra under a half chord: {mem[0]} (expected DQ16)");
-            // Nearest: the chord 0.6 m under the DQ14 rope picks DQ14; 1.4 m under picks DQ12.
+            // Nearest: the chord 0.6 m under the DQ14 rope picks DQ14. 1.4 m under picks DQ12.
             float rope2 = G0 + c.RopeAboveBase(2);
             mem = new[] { 2, -1 };
             LiftToolLines.ChordMembers(c, new[] { 100f, 150f }, new[] { G0, G0 }, mem, null, 200f, rope0, rope2 - 1.2f);
@@ -471,7 +476,7 @@ namespace LiftBatch
             mem = new[] { 2, -1 };
             LiftToolLines.ChordMembers(c, new[] { 100f, 150f }, new[] { G0, G0 }, mem, null, 200f, rope0, rope2 - 2.8f);
             Check(mem[1] == 1, W, $"chord 1.4 m under DQ14: {mem[1]} (expected DQ12)");
-            // Hysteresis: the chord 1.2 m under DQ14 picks DQ12 (0.8 m off) fresh; a node already DQ14 (1.2 <= 0.8 + 0.5) stays.
+            // Hysteresis: the chord 1.2 m under DQ14 picks DQ12 (0.8 m off) fresh. A node already DQ14 (1.2 <= 0.8 + 0.5) stays.
             mem = new[] { 2, -1 };
             LiftToolLines.ChordMembers(c, new[] { 100f, 150f }, new[] { G0, G0 }, mem, new[] { 2, 2 }, 200f, rope0, rope2 - 2.4f);
             Check(mem[1] == 2, W, $"hysteresis: a DQ14 within {LiftToolLines.ChordHystM} m stays: {mem[1]}");
@@ -569,7 +574,7 @@ namespace LiftBatch
             e.Replan(FlatGround);
             string s2 = State(e);
 
-            // Remove a FREE tower: every other tower gets pinned; one undo must give back exactly s2.
+            // Remove a FREE tower: every other tower gets pinned. One undo must give back exactly s2.
             float free = float.NaN;
             for (int i = 1; i < e.Plan.Nodes.Length - 1; i++)
                 if (!e.IsPinned(e.Plan.Nodes[i].AlongM)) { free = e.Plan.Nodes[i].AlongM; break; }

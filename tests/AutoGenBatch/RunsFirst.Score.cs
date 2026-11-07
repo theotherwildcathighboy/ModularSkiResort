@@ -1,63 +1,70 @@
 // RunsFirst scorecard: judges a resort plan from its geometry alone (runs, connectors, lifts) on the raw heightmap, independent of how
-// the planner got there. The planner hands over a ScorePlan; nothing it says about itself (bands, served lines, credits) is trusted.
+// the planner got there. The planner hands over a ScorePlan. The scorecard trusts nothing the plan says about itself (bands, served
+// lines, credits).
 //
-// Skiing model: a skier starts at a lift top, takes any element (run or connector) starting within StartM of it, and may continue onto
-// any element it ends on (or that branches off it) within JoinM; an element that passes within StationM of a lift bottom delivers the
-// skier to that lift. A run is served when a lift top reaches it AND it delivers to some lift bottom. Lift A links to lift B when a
-// skier leaving A's top reaches B's bottom without riding another lift; the network share is the largest strongly connected set of
-// lifts over all lifts (1 = every lift can get to every other one and back). A gondola or tram also carries skiers down: an element
-// ending within StationM of its top delivers to it.
+// Skiing model: a skier starts at a lift top and takes any element (run or connector) starting within StartM of it. The skier may
+// continue onto any element that the current element ends on (or that branches off it) within JoinM. An element that passes within
+// StationM of a lift bottom delivers the skier to that lift. A run is served when a lift top reaches it AND it delivers to some lift
+// bottom. Lift A links to lift B when a skier leaving A's top reaches B's bottom without riding another lift. The network share is the
+// largest strongly connected set of lifts over all lifts (1 = every lift can get to every other one and back). A gondola or tram also
+// carries skiers down: an element ending within StationM of its top delivers to it.
 //
-// v2 (after the 2026-10-29 contest; all four entries flagged the same faults): crowding no longer counts the junction zone of two runs
-// (within JunctionM of the other run's start or end: a shared top, a branch, a merge); a lift's own green run (from its top back to its
-// bottom) may run under its chord, as a learning chair does; a base is a cluster of two or more lift bottoms (or the lowest cluster
-// when none has two), so a lone low station no longer demands its own learning zone.
+// v2 (after the 2026-10-29 contest. All four entries flagged the same faults):
+// - crowding no longer counts the junction zone of two runs (within JunctionM of the other run's start or end: a shared top, a branch,
+//   a merge)
+// - a lift's own green run (from its top back to its bottom) may run under its chord, as a learning chair does
+// - a base is a cluster of two or more lift bottoms (or the lowest cluster when none has two), so a lone low station no longer demands
+//   its own learning zone
 //
 // v3 (the owner's rules, 2026-10-29): a run is rated by the ground under it, as the game's classifier rates a painted run (85th
-// percentile of the terrain grade along it); a connector is a graded cat track (built with the grading tool, a bench across the
-// face) and is rated by its own grade along the path: up to the blue line it is a cat track (green), steeper it is a diagonal run
-// (blue or harder) and counts as a run, not as connector km. Lifts have no maximum length or rise (the mod's lift tool has none);
-// minimums and the mean-grade cap stay. A gondola or tram may cross a chair (pending an in-game check). Riding down is only on a
-// gondola or tram. Beginner terrain may be anywhere a beginner gets to from the base: up lifts whose tops have green skiing, or on a
-// gondola or tram both ways (Palisades: the learning area at mid-mountain). Every lift needs an easy way home: a green or blue route
-// from its top to a base lift's bottom, or to a gondola or tram top to ride down (a gondola or tram is its own way home).
+// percentile of the terrain grade along it). A connector is a graded cat track (built with the grading tool, a bench across the
+// face). The scorecard rates it by its own grade along the path: up to the blue line it is a cat track (green). Steeper, it is a diagonal
+// run (blue or harder) and counts as a run, not as connector km. Lifts have no maximum length or rise (the mod's lift tool has none).
+// Minimums and the mean-grade cap stay. A gondola or tram may cross a chair (pending an in-game check). Riding down is only on a
+// gondola or tram. Beginner terrain may be anywhere a beginner gets to from the base. A beginner gets there up lifts whose tops have
+// green skiing, or on a gondola or tram both ways (Palisades: the learning area at mid-mountain). Every lift needs an easy way home: a
+// green or blue route from its top to a base lift's bottom, or to a gondola or tram top to ride down (a gondola or tram is its own
+// way home).
 //
 // v4 (the owner's review of round v3, 2026-10-29): an experts-only lift is normal, so not every lift needs an easy way home. A resort
-// strives for an intermediate way down from at least one of its peaks, but a steep area (Snowbird, Alta) may not have one: the way-home
+// strives for an intermediate way down from at least one of its peaks, but a steep area (Snowbird, Alta) may not have one. The way-home
 // term is now the share of the resort's vertical (lowest base to highest lift top) from which a skier gets home on green or blue
 // (skiing to a base lift's bottom, or to a gondola / tram top to ride down), at weight 5. New layout term (10), for what a designer
-// sees and the other terms do not: crowded terminals (more than 4 lift terminals within 300 m, 6 at a base, and two bottoms or two tops
-// on one spot), parallel lift lines (same direction within 20 degrees, 250 m apart, overlapping 40 % of the longer line), and zigzag
-// cat tracks (60-degree turns between 20 m legs, past 4 per km of green cat track plus 2).
+// sees and the other terms do not:
+// - crowded terminals (more than 4 lift terminals within 300 m, 6 at a base, and two bottoms or two tops on one spot)
+// - parallel lift lines (same direction within 20 degrees, 250 m apart, overlapping 40 % of the longer line)
+// - zigzag cat tracks (60-degree turns between 20 m legs, past 4 per km of green cat track plus 2)
 //
 // v5 (the owner's rulings on round v4, the designer critique and the real ski-area comparison, 2026-10-29): beginner terrain counts
 // green runs only (not cat tracks or graded tracks), by the km a beginner reaches from the base lifts' tops (full at 0.8 km, half at
-// 0.3 km); a beginner chair (new lift type: a fixed-grip chair from 30 m of rise and 150 m of length, up to 150 m of rise) whose top
-// has a green run adds a quarter. A run is groomed or natural (the mod's RunKind.Natural, ungroomed): a natural run must be black or
-// double black by its ground, and counts half in coverage. Fleet replaces served vertical (it read 1.00 everywhere): gondolas past
-// 1 + 1 per 6 km2 cost (a tram, and a gondola past 700 m of rise, is a trunk line and never counts), and so do thin lifts: under 150 m
-// of drop on the runs their top opens and no other lift both opens and laps, not needed by the network (taken out one by one, with the
-// thin lifts before), no green run at the top (reachability alone cannot tell: from any top a skier reaches nearly every run). Grade
-// mix: the served runs' vertical per band (a graded diagonal by the ground it crosses) against the band mix of the region's skiable
-// ground, by area. Coverage counts a 100 m lattice, a cell covered within 80 m of a served run (runs 160 m apart cover everything
-// between them, so a closer comb earns nothing more); ground past the double-black line is hostile: it is not in the coverage target,
+// 0.3 km). A beginner chair (new lift type: a fixed-grip chair from 30 m of rise and 150 m of length, up to 150 m of rise) whose top
+// has a green run adds a quarter. A run is groomed or natural (the mod's RunKind.Natural, ungroomed). A natural run must be black or
+// double black by its ground, and counts half in coverage. Fleet replaces served vertical (it read 1.00 everywhere). Gondolas past
+// 1 + 1 per 6 km2 cost (a tram, and a gondola past 700 m of rise, is a trunk line and never counts). So do thin lifts. A thin lift
+// meets these conditions:
+// - under 150 m of drop on the runs their top opens and no other lift both opens and laps
+// - not needed by the network (taken out one by one, with the thin lifts before)
+// - no green run at the top (reachability alone cannot tell: from any top a skier reaches nearly every run)
+// Grade mix: the served runs' vertical per band (a graded diagonal by the ground it crosses) against the band mix of the region's skiable
+// ground, by area. Coverage counts a 100 m lattice. A cell is covered within 80 m of a served run (runs 160 m apart cover everything
+// between them, so a closer comb earns nothing more). Ground past the double-black line is hostile: it is not in the coverage target,
 // groomed runs earn nothing on it, natural runs half. Layout adds stacked lines (tops together, bottoms apart, one direction), lone
-// bases (a base area with one lift where the plan has another base area) and lifts off the fall line (30 to 60 degrees), measures
-// parallel overlap against the shorter line, counts zigzags per track (graded diagonals included) and same spot at 60 m. Validity
+// bases (a base area with one lift where the plan has another base area) and lifts off the fall line (30 to 60 degrees). It measures
+// parallel overlap against the shorter line. It counts zigzags per track (graded diagonals included) and same spot at 60 m. Validity
 // adds a station under another lift's line and a natural run that is not black. Graded diagonals count half their length as
 // connector km. Dead lifts (now among the thin lifts) weigh nothing.
 //
 // v5.1 (the judge's rulings on the v5 baseline, 2026-10-29): a tram counts toward the aerial allowance like a gondola unless its rise
 // passes 700 m. Stacked lines are a validity violation (rejected), no longer a layout pair. A single-lift base area is a pod, not a lone
-// base, when a run from another base area's lift ends at its bottom. Every lift is scored against the fall line (no transfer
+// base, when a run from another base area's lift ends at its bottom. The scorecard scores every lift against the fall line (no transfer
 // exemption). Layout weights: base consolidation 3, fall line 3, parallel lines 2, zigzag 1, crowded terminals 1 (of 10).
 //
-// v6 (round v5's report, the judge's real-layout comparison and the owner's rulings, 2026-10-30): beginner is continuous, a base's
-// credit min(1, green km / 0.8) plus the beginner chair's quarter (capped at 1), and the plan's term the mean over bases weighted by
-// each base's lift count. Grade mix leaves hostile ground out of the target (as coverage does) and the vertical of natural runs on
-// hostile ground out of the planned mix: that ground stays wild. The fall line has a band per use: chairs (and any lift that is not
-// a trunk line) 30 to 60 degrees, trunk lines (a tram, or a gondola past 700 m of rise) 45 to 75 (real lifts, median / p90: chairs
-// 13 / 28, gondolas 19 / 45, trams 23 / 53 degrees); still no transfer exemption. No planning time term: the planner has no
+// v6 (round v5's report, the judge's real-layout comparison and the owner's rulings, 2026-10-30): beginner is continuous. A base's
+// credit is min(1, green km / 0.8) plus the beginner chair's quarter (capped at 1). The plan's term is the mean over bases weighted by
+// each base's lift count. Grade mix leaves hostile ground out of the target (as coverage does). It also leaves the vertical of natural
+// runs on hostile ground out of the planned mix: that ground stays wild. The fall line has a band per use. Chairs (and any lift that is
+// not a trunk line) get 30 to 60 degrees. Trunk lines (a tram, or a gondola past 700 m of rise) get 45 to 75 (real lifts, median / p90: chairs
+// 13 / 28, gondolas 19 / 45, trams 23 / 53 degrees). There is still no transfer exemption. No planning time term: the planner has no
 // time limit, and the host prints each region's planning time.
 //
 // Composite (0-100): fleet 10, skiable coverage 10, lift network 15, beginner terrain at each base 15, intermediate way down 5, grade
@@ -75,7 +82,7 @@ using Unity.Mathematics;
 namespace AutoGenBatch
 {
     /// <summary>A plan as the scorecard reads it. Runs and connectors run in the skiing direction (first point = where a skier starts).
-    /// Heights in the points are ignored: the scorecard samples the terrain itself.</summary>
+    /// The scorecard ignores the heights in the points: it samples the terrain itself.</summary>
     internal sealed class ScorePlan
     {
         public readonly List<(List<float2> Pts, RunKind Kind)> Runs = new List<(List<float2>, RunKind)>();   // Groomed or Natural (v5)
@@ -91,25 +98,26 @@ namespace AutoGenBatch
         private const float TowerM = 20f, StationGrade = 0.40f, OnRunM = 20f;
         private const float HubM = 300f, SameSpotM = 60f, ParallelDeg = 20f, ParallelM = 250f, ParallelShare = 0.4f, TurnDeg = 60f, TurnsPerKm = 4f;
         private const float StubDropM = 50f, CrowdM = 40f, JunctionM = 100f, CoverTarget = 0.6f, ConnectorShare = 0.35f, BaseShare = 0.35f;
-        // v5 coverage and grade mix: a 100 m lattice; a cell is rated by the 85th percentile of the grade on a 20 m grid inside it (as
-        // a painted run is rated), skiable from the green line to RunMaxPitch, hostile past the double-black line; covered when a served
-        // run passes within CoverM of its center
+        // v5 coverage and grade mix: a 100 m lattice. The scorecard rates a cell by the 85th percentile of the grade on a 20 m grid inside it (as
+        // a painted run is rated). A cell is skiable from the green line to RunMaxPitch, and hostile past the double-black line. A cell is
+        // covered when a served run passes within CoverM of its center
         private const float CellM = 100f, CellSubM = 20f, CoverM = 80f;
-        // v5 fleet: aerial lifts allowed = 1 + 1 per AerialKm2; a gondola or tram past TrunkRiseM (beyond a chair's rise) is a trunk
-        // line; a lift under ThinDropM of served drop of its own is thin
+        // v5 fleet: aerial lifts allowed = 1 + 1 per AerialKm2. A gondola or tram past TrunkRiseM (beyond a chair's rise) is a trunk
+        // line. A lift under ThinDropM of served drop of its own is thin
         private const float AerialKm2 = 6f, TrunkRiseM = 700f, ThinDropM = 150f;
-        // v5 layout: stacked lines (tops within StackTopM, bottoms over StackBottomM apart, directions within StackDeg); base areas (lift
-        // bottoms within BaseAreaM of each other in the lowest third of the lift-served vertical, no lift top within BaseTopM); fall line
-        // (no cost up to FallFreeDeg off the ground's mean downhill direction, full cost at FallFullDeg: real lifts run a median 15 and
-        // a p90 33 degrees off it; v6: a trunk line from FallTrunkFreeDeg to FallTrunkFullDeg); a station within RopeM of another
-        // lift's line between 10 and 90 % of it is under that rope
+        // v5 layout:
+        // - stacked lines (tops within StackTopM, bottoms over StackBottomM apart, directions within StackDeg)
+        // - base areas (lift bottoms within BaseAreaM of each other in the lowest third of the lift-served vertical, no lift top within BaseTopM)
+        // - fall line: no cost up to FallFreeDeg off the ground's mean downhill direction, full cost at FallFullDeg. Real lifts run a median 15
+        //   and a p90 33 degrees off it. v6: a trunk line from FallTrunkFreeDeg to FallTrunkFullDeg
+        // - a station within RopeM of another lift's line between 10 and 90 % of it is under that rope
         private const float StackTopM = 300f, StackBottomM = 300f, StackDeg = 30f, BaseAreaM = 300f, BaseTopM = 150f;
         private const float FallFreeDeg = 30f, FallFullDeg = 60f, FallTrunkFreeDeg = 45f, FallTrunkFullDeg = 75f, RopeM = 40f;
         private const float BeginnerFullKm = 0.8f, BeginnerChair = 0.25f;   // v6: a base's credit is min(1, km / BeginnerFullKm)
 
-        // name, length min / max (m), rise min / max (m), mean grade cap (stage-a-spec 4.4). v3: the maxima are not checked (no lift
-        // length limit in the mod); they stay as the planner's type ladder. v5: the beginner chair is a fixed-grip chair for a learning
-        // area, the planner's norm only (the mod's lift tool has no minimum); its rise maximum IS checked (past it, it is a chair)
+        // name, length min / max (m), rise min / max (m), mean grade cap (stage-a-spec 4.4). v3: the scorecard does not check the maxima (no lift
+        // length limit in the mod). They stay as the planner's type ladder. v5: the beginner chair is a fixed-grip chair for a learning
+        // area, the planner's norm only (the mod's lift tool has no minimum). Its rise maximum IS checked (past it, it is a chair)
         private static readonly (string Name, float L0, float L1, float R0, float R1, float Cap)[] Types =
         {
             ("fixed-grip", 300f, 1500f, 95f, 512f, 0.8f),
@@ -546,7 +554,7 @@ namespace AutoGenBatch
                     (bool byGroomed, bool byNatural) = Covered(p);
                     if (rating >= SkiSlopeClassifier.GradeDoubleBlack)
                     {
-                        // hostile ground: not in the target; a groomed run earns nothing on it, a natural run half
+                        // hostile ground: not in the target. A groomed run earns nothing on it, a natural run half
                         hostile++;
                         if (byNatural)
                             covered += 0.5f;
@@ -622,7 +630,7 @@ namespace AutoGenBatch
             var servedSet = new HashSet<int>(served);
             // v5: a green run, groomed and served (cat tracks, graded tracks and connectors are how a beginner moves, not learning terrain)
             bool GreenRun(int i) => els[i].Run && !els[i].Graded && !els[i].Natural && els[i].Band == SlopeBand.Green && servedSet.Contains(i);
-            // beginner terrain: from the base, a beginner rides lifts whose tops have green skiing (or a gondola / tram, both ways); when
+            // beginner terrain: from the base, a beginner rides lifts whose tops have green skiing (or a gondola / tram, both ways). When
             // that skiing delivers them to a lift again (a loop they can lap), the credit is the km of green runs on it (v5)
             float LearnKm(int B)
             {
@@ -762,7 +770,7 @@ namespace AutoGenBatch
                 if (BestScc(thin) < best - thin.Count)
                 {
                     thin.Remove(L);
-                    if (r.Notes.Count < 80)   // v6: a link lift is never thin; say so, so a split is visible in the notes
+                    if (r.Notes.Count < 80)   // v6: a link lift is never thin. The code says so, so a split is visible in the notes
                         r.Notes.Add($"lift {L + 1}: {own[L]:F0} m of served drop of its own, kept: the network needs it");
                     continue;
                 }
@@ -833,8 +841,8 @@ namespace AutoGenBatch
                         r.Notes.Add($"lift {a / 2 + 1}: {(a % 2 == 0 ? "bottom" : "top")} on another lift's {(a % 2 == 0 ? "bottom" : "top")}");
                 }
             }
-            // a pair of lines that run side by side (overlap against the shorter line, v5) costs layout; one that rides on top of the
-            // other (stacked: tops together, bottoms apart, one direction) is a validity violation instead (v5.1); fans (bottoms
+            // a pair of lines that run side by side (overlap against the shorter line, v5) costs layout. One that rides on top of the
+            // other (stacked: tops together, bottoms apart, one direction) is a validity violation instead (v5.1). Fans (bottoms
             // together) are fine
             for (int i = 0; i < lifts.Count; i++)
                 for (int j = 0; j < i; j++)
@@ -895,10 +903,10 @@ namespace AutoGenBatch
                 zig.Add(turns <= allowedTurns ? 1f : allowedTurns / turns);
             }
             // base areas (v5): lift bottoms within BaseAreaM of each other in the lowest third of the lift-served vertical, no lift top
-            // within BaseTopM (that is a transfer station). A base area with one lift is lone where the plan has another base area: a
-            // separate pad on the region's edge instead of a base with its lifts strung along it (whether runs from another base reach
-            // it cannot tell them apart: they reach nearly every bottom). v5.1: unless a run from another base area's lift (one its top
-            // opens) ends at its bottom: that lift is a pod
+            // within BaseTopM (that is a transfer station). A base area with one lift is lone where the plan has another base area. A lone base
+            // is a separate pad on the region's edge instead of a base with its lifts strung along it. The question of whether runs from another
+            // base reach it cannot tell them apart: they reach nearly every bottom. v5.1: unless a run from another base area's lift (one its top
+            // opens) ends at its bottom. That lift is a pod
             var area = new int[lifts.Count];
             var isBase = new bool[lifts.Count];
             if (lifts.Count > 0)
@@ -929,10 +937,10 @@ namespace AutoGenBatch
                         r.Notes.Add($"lift {L + 1}: a base area of its own");
                 }
             }
-            // fall line (v5): the angle between a lift's line and the mean uphill direction of the ground under it; no cost to
-            // FallFreeDeg, full cost at FallFullDeg; v6: a trunk line (a tram, or a gondola past TrunkRiseM) from FallTrunkFreeDeg to
-            // FallTrunkFullDeg (the relief for a line across a face; still no transfer exemption). Exempt: a line on ground too flat to
-            // have a fall line
+            // fall line (v5): the angle between a lift's line and the mean uphill direction of the ground under it. No cost to
+            // FallFreeDeg, full cost at FallFullDeg. v6: a trunk line (a tram, or a gondola past TrunkRiseM) has the band from FallTrunkFreeDeg to
+            // FallTrunkFullDeg. This is the relief for a line across a face. There is still no transfer exemption. Exempt: a line on ground
+            // too flat to have a fall line
             for (int L = 0; L < lifts.Count; L++)
             {
                 float2 b = bot[L].xz, d = top[L].xz - b;

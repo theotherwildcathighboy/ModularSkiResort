@@ -1,8 +1,9 @@
-// RunsFirst coverage lifts (prototype): the main lift search follows the picked lines, so a face or a lower valley no picked line
-// crosses never gets a lift, however much skiable ground it holds. After it, lifts are added by the ground they open: the skiable
-// 20 m lattice points a skier gets to from the top (the honest traverse model) and that drain past a lift bottom (the new one or
-// any placed one: the skier comes home through the network). Each such lift must be reachable from the placed lifts and lead back
-// to them, and must open a real share of the region; the budget leaves room for the beginner pods.
+// RunsFirst coverage lifts (prototype): the main lift search follows the picked lines. So a face or a lower valley that no
+// picked line crosses never gets a lift, however much skiable ground it holds. After the main search, the code adds lifts by
+// the ground they open. That ground is the skiable 20 m lattice points that a skier gets to from the top (the honest traverse
+// model). These points also drain past a lift bottom (the new one or any placed one: the skier comes home through the
+// network). Each such lift must be reachable from the placed lifts and lead back to them. It must also open a real share of
+// the region. The budget leaves room for the beginner pods.
 
 using System;
 using System.Collections.Generic;
@@ -16,8 +17,8 @@ namespace AutoGenBatch
     internal static partial class RunsFirst
     {
         private static readonly bool NoNewBase = Environment.GetEnvironmentVariable("RF_CNEWBASE") != "1";
-        // a coverage lift opens at least this share of the region's skiable ground. 0.015 against 0.02 once lifts without a way home
-        // and lines left on runs could go (0fd4f15, 41163e9): visible 97.62 -> 97.64, 80 % outlines 95.40 -> 95.50, 120 % 96.22 ->
+        // a coverage lift opens at least this share of the region's skiable ground. 0.015 against 0.02, once lifts without a way home
+        // and lines left on runs could go (0fd4f15, 41163e9). Result: visible 97.62 -> 97.64, 80 % outlines 95.40 -> 95.50, 120 % 96.22 ->
         // 96.88, squares 95.21 -> 95.30 (small pod chairs in side bowls). 0.01 put lifts that join nothing on a square (network 0.69)
         private static readonly float CoverLiftShare = Env("RF_CLS", 0.015f);
         private static readonly int CoverLiftMinPts = (int)Env("RF_CLM", 120f);     // ... and at least this many 20 m lattice points (11 ha)
@@ -46,8 +47,8 @@ namespace AutoGenBatch
             return idx;
         }
 
-        /// <summary>The 20 m lattice as a drainage graph: each lattice position's next position down its fall line, highest first;
-        /// Below(cells) is the skiable lattice a skier gets to from those cells by skiing on down the fall lines.</summary>
+        /// <summary>The 20 m lattice as a drainage graph. It holds each lattice position's next position down its fall line, highest
+        /// first. Below(cells) is the skiable lattice a skier gets to from those cells by skiing on down the fall lines.</summary>
         private sealed class LatticeFlow
         {
             private readonly Grid g;
@@ -286,8 +287,8 @@ namespace AutoGenBatch
                         Console.WriteLine($"DEBUG cover top {g.World(tops[ti]).x:F0},{g.World(tops[ti]).y:F0} h {g.Hr[tops[ti]]:F0}: base gain {baseGain}, back {back}, best {tBest}, pairs {tPairs}, into {tInto}, home {tHome}");
                 }
                 cands.Sort((a, b) => b.Gain.CompareTo(a.Gain));
-                // v5: a coverage lift climbs its slope's fall line; the best few hundred are ranked again with a sideways line worth
-                // less (CoverFallW of its gain lost 60 degrees off the fall line)
+                // v5: a coverage lift climbs its slope's fall line. The code ranks the best few hundred again. A sideways line is worth less
+                // (it loses CoverFallW of its gain 60 degrees off the fall line)
                 if (CoverFallW > 0f && cands.Count > 1)
                 {
                     int head = Math.Min(cands.Count, 300);
@@ -348,8 +349,8 @@ namespace AutoGenBatch
                         rej[2]++;
                         continue;
                     }
-                    // a coverage lift may start a base of its own only where green ground rises a pod's height from its station (the
-                    // beginner pass needs it there)
+                    // a coverage lift may start a base of its own only where green ground rises a pod's height from its station. The beginner
+                    // pass needs it there
                     if (NoNewBase && OpensBase(g, lifts, bc, lowCut))
                     {
                         if (!greenRise.TryGetValue(bc, out float gr))

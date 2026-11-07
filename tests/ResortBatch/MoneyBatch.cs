@@ -1,10 +1,11 @@
-// MoneyBatch - tests for tests/ResortBatch: money rules and ledger. `public static class MoneyBatch` with `Run(check)` and its own Near;
+// MoneyBatch - tests for tests/ResortBatch: money rules and ledger. It is a `public static class MoneyBatch` with `Run(check)` and its own Near.
 // Program.Main calls MoneyBatch.Run(Check). Oracles are literal hand values.
-// Covers SkiMoneyRules (constants, lift rates and billing incl. per-type rates, accrual and attribution, ticket price and gate,
+// Covers SkiMoneyRules: constants, lift rates and billing incl. per-type rates, accrual and attribution, ticket price and gate,
 // affordability, month keys, guest-day rules, partial months via IsShortMonth / SimulatedPct and Ledger.Advance(key, closedMonthShort),
-// LiftAreaRunOpen, lodge spend, season passes, lessons, pre-season pass sale) and SkiResortLedger (start / roll / jump, per-entry counters,
-// Revision, Prune, Reset, arrival flags). A guest-day scenario stands in the counter's two day sets with a HashSet and a Dictionary.
-// Not testable headless (ECS): the scans, the ticket job, the lift snapshot; the logs and field tests cover them.
+// LiftAreaRunOpen, lodge spend, season passes, lessons, pre-season pass sale.
+// Also covers SkiResortLedger: start / roll / jump, per-entry counters, Revision, Prune, Reset, arrival flags.
+// A guest-day scenario stands in the counter's two day sets with a HashSet and a Dictionary.
+// Not testable headless (ECS): the scans, the ticket job, the lift snapshot. The logs and field tests cover them.
 
 using System;
 using System.Collections.Generic;
@@ -101,7 +102,7 @@ namespace ResortBatch
             check(SkiMoneyRules.PresaleDecision(5, 2030, 1.0, 240, 239) == SkiMoneyRules.PassSaleResult.CannotPay, w, "p 1 with money == price - 1 cannot pay");
             check(SkiMoneyRules.PresaleDecision(5, 2030, 1.0, 240, 0) == SkiMoneyRules.PassSaleResult.CannotPay &&
                   SkiMoneyRules.PresaleDecision(5, 2030, 1.0, 240, -80) == SkiMoneyRules.PassSaleResult.CannotPay, w, "no money or a debt cannot pay");
-            // Expected buyers over 20,000 rich households at p = 0.1: 2,000 +- 150; and a household that rolls out is Declined whatever it holds.
+            // Expected buyers over 20,000 rich households at p = 0.1: 2,000 +- 150. A household that rolls out is Declined whatever it holds.
             int buyers = 0, outs = 0;
             bool richOnlyDeclinedOrBought = true;
             for (int hh = 0; hh < 20000; hh++)
@@ -153,7 +154,7 @@ namespace ResortBatch
         }
 
         // ── T16 Ski-school lessons: constants, price, roll, taken, paid, ledger ──
-        // No literal hash oracles (the values cannot be computed without running): the roll is held by properties, like T15.
+        // No literal hash oracles (the values cannot be computed without running). The test holds the roll by properties, like T15.
         private static void Lessons(Func<bool, string, string, bool> check)
         {
             const string w = "money T16";
@@ -296,7 +297,7 @@ namespace ResortBatch
         private static void SeasonPasses(Func<bool, string, string, bool> check)
         {
             const string w = "money T15";
-            // Season key: July (7) and later = the year; January..June = the year before; December and the next March share it.
+            // Season key: July (7) and later = the year. January..June = the year before. December and the next March share it.
             check(SkiMoneyRules.SeasonKeyOf(2030, 7) == 2030, w, "SeasonKeyOf(2030, 7) " + SkiMoneyRules.SeasonKeyOf(2030, 7));
             check(SkiMoneyRules.SeasonKeyOf(2030, 6) == 2029, w, "SeasonKeyOf(2030, 6) " + SkiMoneyRules.SeasonKeyOf(2030, 6));
             check(SkiMoneyRules.SeasonKeyOf(2030, 12) == 2030, w, "SeasonKeyOf(2030, 12) " + SkiMoneyRules.SeasonKeyOf(2030, 12));
@@ -304,7 +305,7 @@ namespace ResortBatch
             check(SkiMoneyRules.SeasonKeyOf(2031, 1) == 2030, w, "SeasonKeyOf(2031, 1) " + SkiMoneyRules.SeasonKeyOf(2031, 1));
             check(SkiMoneyRules.SeasonKeyOf(2031, 0) == 2030 && SkiMoneyRules.SeasonKeyOf(2031, 13) == 2031, w,
                   "a month outside 1..12 is clamped: (2031, 0) " + SkiMoneyRules.SeasonKeyOf(2031, 0) + ", (2031, 13) " + SkiMoneyRules.SeasonKeyOf(2031, 13));
-            // From the clock: normalizedDate 0.5 = month index 6 = July (calendar month 7); 0.49 = June; 0.99 = December.
+            // From the clock: normalizedDate 0.5 = month index 6 = July (calendar month 7), 0.49 = June, 0.99 = December.
             check(SkiMoneyRules.SeasonKeyOfDate(2030, 0.5f) == 2030, w, "SeasonKeyOfDate(2030, 0.5) " + SkiMoneyRules.SeasonKeyOfDate(2030, 0.5f));
             check(SkiMoneyRules.SeasonKeyOfDate(2030, 0.49f) == 2029, w, "SeasonKeyOfDate(2030, 0.49) " + SkiMoneyRules.SeasonKeyOfDate(2030, 0.49f));
             check(SkiMoneyRules.SeasonKeyOfDate(2030, 0.99f) == 2030, w, "SeasonKeyOfDate(2030, 0.99) " + SkiMoneyRules.SeasonKeyOfDate(2030, 0.99f));
@@ -382,7 +383,7 @@ namespace ResortBatch
             check(SkiMoneyRules.PassSale(true, 100, 5, 2030, 160, 159) == SkiMoneyRules.PassSaleResult.CannotPay, w, "money == price - 1 cannot pay");
             check(SkiMoneyRules.PassSale(true, 100, 5, 2030, 160, 0) == SkiMoneyRules.PassSaleResult.CannotPay, w, "no money cannot pay");
             check(SkiMoneyRules.PassSale(true, 100, 5, 2030, 160, -50) == SkiMoneyRules.PassSaleResult.CannotPay, w, "a household in debt cannot pay");
-            // A household that rolls out is Declined whatever it holds; one that rolls in with money buys (found by scanning).
+            // A household that rolls out is Declined whatever it holds. One that rolls in with money buys (the test finds such households by scanning).
             int declinedIdx = -1, boughtIdx = -1;
             for (int i = 0; i < 1000 && (declinedIdx < 0 || boughtIdx < 0); i++)
             {
@@ -421,8 +422,8 @@ namespace ResortBatch
             check(l.Advance(501) == Advance.Rolled && l.Total(true).PassesSold == 3 && l.Total(false).PassesSold == 0 && l.Total(true).PassHolderGuests == 9, w,
                   "a roll should move the pass fields to Last and zero This");
 
-            // Ski days (P3): a pass holder gets P = 1 in place of PriceFactor; the existing 10-argument Chance is the holder-false
-            // 11-argument one bit for bit (PriceFactor(40) is exactly 1, PriceFactor(200) is 0.2, SkiDayTests G / Y).
+            // Ski days (P3): a pass holder gets P = 1 in place of PriceFactor. The existing 10-argument Chance is the holder-false
+            // 11-argument one bit for bit. PriceFactor(40) is exactly 1 and PriceFactor(200) is 0.2 (SkiDayTests G / Y).
             SkiDayRules.Knobs def = SkiDayRules.DefaultKnobs();
             const SkiDayRules.GuestKind res = SkiDayRules.GuestKind.Resident;
             double holder200 = SkiDayRules.Chance(res, 75, 3.36, 1.0, 0.0, 200, 0, 1.0, 1.0, def, true);
@@ -470,7 +471,7 @@ namespace ResortBatch
                   "LiftFullRate(3000, 11000, 4500) " + SkiMoneyRules.LiftFullRate(3000f, 11000f, 4500f));
             check(SkiMoneyRules.LiftRate(Billing.Full, 3000f, 11000f, 4500f) == 24500f, w, "LiftRate(Full, 3000, 11000, 4500)");
             check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2000f, 8000f, 3000f) == 3500f, w, "LiftRate(NoOpenRun, 2000, 8000, 3000)");
-            // The per-type no-open-run share (the tram 50 %); Unfinished keeps 25 %; a bad share reads 25 %.
+            // The per-type no-open-run share (the tram 50 %). Unfinished keeps 25 %. A bad share reads 25 %.
             check(SkiMoneyRules.ShuttleNoOpenRunShare == 0.5f, w, "ShuttleNoOpenRunShare 0.5 (T137 S1)");
             check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2233f, 11000f, 4500f, 0.5f) == 10524.25f, w,
                   "the playthrough tram 2,233 m off-season: 10,524.25 (half of 21,048.5; was 21,048.5 full) " +
@@ -596,7 +597,7 @@ namespace ResortBatch
             check(SkiMoneyRules.LiftFullRate(float.PositiveInfinity) == 2500f, w,
                   "LiftFullRate(+inf) " + SkiMoneyRules.LiftFullRate(float.PositiveInfinity));
 
-            // The third argument is LiftAreaRunOpen; precedence unfinished, no power, no counted run.
+            // The third argument is LiftAreaRunOpen. Precedence: unfinished, no power, no counted run.
             check(SkiMoneyRules.LiftBillingOf(true, true, true) == Billing.Full, w, "LiftBillingOf(complete, powered, run open)");
             check(SkiMoneyRules.LiftBillingOf(true, true, false) == Billing.NoOpenRun, w, "LiftBillingOf(complete, powered, no run)");
             check(SkiMoneyRules.LiftBillingOf(true, false, false) == Billing.NoPower, w, "LiftBillingOf(complete, no power, no run)");
@@ -671,7 +672,7 @@ namespace ResortBatch
             check(SkiMoneyRules.ClampTicketPrice(200) == 200, w, "ClampTicketPrice(200)");
             check(SkiMoneyRules.ClampTicketPrice(999) == 200, w, "ClampTicketPrice(999)");
 
-            // Four arguments; known = score present and not held (a running lift alone does not open the gate).
+            // Four arguments. Here known = score present and not held (a running lift alone does not open the gate).
             GateCase(check, w, 0, 1f, true, 3, Gate.Off);
             GateCase(check, w, 0, 0f, false, 0, Gate.Off);                  // price first
             GateCase(check, w, 40, 0f, true, 3, Gate.NoEfficiency);
@@ -708,7 +709,7 @@ namespace ResortBatch
             PaidCase(check, w, 5, 200, 999, 4);
             PaidCase(check, w, 0, 40, 1000, 0);
             PaidCase(check, w, 100, 200, int.MaxValue, 100);
-            // Never into debt: whatever is paid is covered by the household's money.
+            // Never into debt: the household's money covers whatever the household pays.
             bool covered = true;
             for (int money = -10; money <= 1000; money += 7)
             {
@@ -858,7 +859,7 @@ namespace ResortBatch
                 allZero &= IsZero(l.At(i).This) && IsZero(l.At(i).Last);
             check(allZero, w, "10: every Last and This zero");
             check(l.Advance(104) == Advance.Jumped, w, "10: a key that goes back is a jump");
-            // 10b. the roll after a jump: that month was counted only from the jump, never a full month.
+            // 10b. the roll after a jump: the ledger counted that month only from the jump, never a full month.
             check(l.Advance(105) == Advance.Rolled, w, "10b: Advance(105) after the jump to 104 == Rolled");
             check(l.LastMonthKnown && l.LastMonthSinceLoad, w, "10b: LastMonthKnown and LastMonthSinceLoad (partial, not full)");
             check(!l.ThisMonthSinceLoad, w, "10b: !ThisMonthSinceLoad (the next month is counted whole)");
@@ -945,7 +946,7 @@ namespace ResortBatch
             l.AddArrival(a, true, 1, false, false);
             l.AddArrival(a, true, 1, true, false);
             l.AddArrival(a, false, 1);
-            l.AddArrival(a, false, 1, false, true);   // a resident: the flags are ignored
+            l.AddArrival(a, false, 1, false, true);   // a resident: the ledger ignores the flags
             check(l.TryGet(a, out SkiResortLedger.Entry e), w, "TryGet(A)");
             SkiResortLedger.Month m = e.This;
             check(m.TouristGuests == 4, w, "This.TouristGuests " + m.TouristGuests + ", expected 1+1+1+1 = 4");
@@ -965,9 +966,9 @@ namespace ResortBatch
         }
 
         // ── T11 a guest day: the counter's job logic on two stand-in sets ──────────────
-        // Area S; household H {c1, c2, c3}, household K {k1}. The two helpers below repeat the scan jobs' branches
-        // (SkiGuestCounterSystem LeisureScanJob / MeetingScanJob) with a HashSet and a Dictionary in
-        // place of m_CitizensToday / m_HouseholdsToday; the ledger is the real one.
+        // Area S. Household H {c1, c2, c3}. Household K {k1}. The two helpers below repeat the scan jobs' branches
+        // (SkiGuestCounterSystem LeisureScanJob / MeetingScanJob). They use a HashSet and a Dictionary in
+        // place of m_CitizensToday / m_HouseholdsToday. The ledger is the real one.
         private sealed class DaySets
         {
             public readonly HashSet<(int, int)> Citizens = new HashSet<(int, int)>();        // (citizen, sign)
@@ -1056,7 +1057,7 @@ namespace ResortBatch
             check(SkiMoneyRules.SimulatedPct(300000u, 12) == 100, w, "SimulatedPct(300000, 12) " + SkiMoneyRules.SimulatedPct(300000u, 12) + ", expected the 100 cap");
             check(SkiMoneyRules.SimulatedPct(0u, 12) == 0, w, "SimulatedPct(0, 12) " + SkiMoneyRules.SimulatedPct(0u, 12));
 
-            // The ledger: a roll of a short month marks it partial (LastMonthSinceLoad); a start and a jump ignore it.
+            // The ledger: a roll of a short month marks it partial (LastMonthSinceLoad). A start and a jump ignore it.
             var a = new EntityRef(412, 1);
             var l = new SkiResortLedger();
             check(l.Advance(100, true) == Advance.Started && l.ThisMonthSinceLoad && !l.LastMonthKnown, w,

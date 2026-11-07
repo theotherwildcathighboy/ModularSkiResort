@@ -1,6 +1,6 @@
-// Getting a test city ready fast (the same calls as the dev menu's Unlock all, Next MS and Unlimited demands, DebugSystem.cs:4823,
-// :4839, :1393), picking a tool by prefab name, reading terrain, and watching for game errors. Tool selection is for setup: a test of
-// the hub or a toolbar clicks the real buttons.
+// Setup helpers. They get a test city ready fast (the same calls as the dev menu's Unlock all, Next MS and Unlimited demands,
+// DebugSystem.cs:4823, :4839, :1393). They also pick a tool by prefab name, read terrain, and watch for game errors.
+// Tool selection is for setup. A test of the hub or a toolbar clicks the real buttons.
 
 using System;
 using System.Collections.Generic;
@@ -85,7 +85,7 @@ namespace SkiTestBridge
                 return m_Errors.Count == 0 ? null : $"{m_Errors[m_Errors.Count - 1]["level"]}: {m_Errors[m_Errors.Count - 1]["message"]}";
         }
 
-        /// <summary>{clear: true} empties the list; the serial keeps counting.</summary>
+        /// <summary>{clear: true} empties the list. The serial keeps counting.</summary>
         private JObject Errors(JObject args)
         {
             lock (m_ErrorLock)
@@ -104,7 +104,7 @@ namespace SkiTestBridge
             return typeof(Mod).Assembly.ManifestModule.ModuleVersionId.ToString("N").Substring(0, 8);
         }
 
-        /// <summary>{prefab, mode}: the tool a player gets by picking that asset; mode is a NetToolSystem.Mode name, for roads and lines.</summary>
+        /// <summary>{prefab, mode}: the tool a player gets by picking that asset. mode is a NetToolSystem.Mode name, for roads and lines.</summary>
         private JObject ActivateTool(JObject args)
         {
             string name = (string)args["prefab"];
@@ -201,7 +201,7 @@ namespace SkiTestBridge
             return new JObject();
         }
 
-        /// <summary>{x0, z0, x1, z1, step}: a terrain height grid for picking test sites by slope without looking; rows run along x.</summary>
+        /// <summary>{x0, z0, x1, z1, step}: a terrain height grid for picking test sites by slope without looking. Rows run along x.</summary>
         private JObject Heights(JObject args)
         {
             float x0 = (float)args["x0"];

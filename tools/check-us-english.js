@@ -1,29 +1,30 @@
 /*
- * tools/check-us-english.js - US English in every player-facing text (T130, 2026-10-20; field test note 18, "remove ALL British
- * English, here and everywhere", he is American; DECISIONS 350). Written for this repo (MIT). Reads only; writes nothing.
+ * tools/check-us-english.js - US English in every player-facing text (T130, 2026-10-20, field test note 18, "remove ALL British
+ * English, here and everywhere", the owner is American, DECISIONS 350). Written for this repo (MIT). Reads only. Writes nothing.
  *
  * Scans the text a player can read:
- *   - mod/SkiResortMod/LocaleEN.cs and mod/SkiResortMod/Settings/LocaleEN.cs: every string literal outside a // comment;
- *   - mod/SkiResortUI/src/**: the English of every [key, english] locale tuple (hubText.ts and the views);
+ *   - mod/SkiResortMod/LocaleEN.cs and mod/SkiResortMod/Settings/LocaleEN.cs: every string literal outside a // comment.
+ *   - mod/SkiResortUI/src/**: the English of every [key, english] locale tuple (hubText.ts and the views).
  *   - mod/SkiResortMod/**.cs (not obj/, bin/): the string literals of every Mod.Log / log Info / Warn / Error call (the mod log is
- *     something a player opens and posts);
- *   - docs-site/src/content/**.md(x): the prose (code fences skipped; LOCK regions are scanned too: a hit there is reported for
- *     the owner, never edited by an agent, CLAUDE.md docs-site rule).
+ *     something a player opens and posts).
+ *   - docs-site/src/content/**.md(x): the prose. Code fences are skipped. LOCK regions are scanned too. A hit there is reported for
+ *     the owner and never edited by an agent (CLAUDE.md docs-site rule).
  * T130 part 2 (2026-10-20) adds the text a developer reads:
- *   - the comments and docstrings of every .cs .ts .tsx .js .scss .py .ps1 .sh file under mod/, tests/, tools/, assets/blender, docs/;
+ *   - the comments and docstrings of every .cs .ts .tsx .js .scss .py .ps1 .sh file under mod/, tests/, tools/, assets/blender, docs/.
  *   - the prose of every .md under docs/ (not docs/archive/), README / release / .claude / assets notes, code fences included.
- *   In comments and prose a token is NOT checked when it is an identifier or a path: it holds _ or a digit or an inner capital
- *   (colour_set, GladeOutlineColour), sits inside `backticks`, a URL, a file name or a path, or is followed by = (a parameter), or sits inside a quotation (a
- *   double-quoted span of 3+ words: the owner's words, a wiki page, a field-log line: never edited).
- *   A prose line that discusses spellings (it says "British", "US English", "T130", "spelling", or holds a British word AND its
- *   US form) is skipped. NOT scanned: string literals outside the player-facing places above, identifiers, docs/archive/, JSON data,
+ *   In comments and prose a token is NOT checked in these cases:
+ *   - It is an identifier or a path. It holds _ or a digit or an inner capital (colour_set, GladeOutlineColour),
+ *     sits inside `backticks`, a URL, a file name or a path, or is followed by = (a parameter).
+ *   - It sits inside a quotation (a double-quoted span of 3+ words: the owner's words, a wiki page, a field-log line, never edited).
+ *   The scan skips a prose line that discusses spellings (it says "British", "US English", "T130", "spelling", or holds a British word AND its
+ *   US form). NOT scanned: string literals outside the player-facing places above, identifiers, docs/archive/, JSON data,
  *   tools/loop-identity/baseline-* (a frozen copy of an old source file), and the PENDING files below.
- * FAILS (exit 1) on a word of BRITISH below, matched case-insensitively at a word start; ALLOW holds the proper names that contain one
+ * FAILS (exit 1) on a word of BRITISH below, matched case-insensitively at a word start. ALLOW holds the proper names that contain one
  * (another mod's or a vanilla name). Prints "file:line: word -> us" per hit.
  *   T130 part 3 (2026-10-24): the string literals of every .cs under mod/ tests/ tools/ (log lines, DUMP rows, warnings, assert messages),
- *   not only the ones inside a Log call; CS_LITERAL_ALLOW lists the few intentional ones. --cs-counts prints the count per file.
+ *   not only the ones inside a Log call. CS_LITERAL_ALLOW lists the few intentional ones. --cs-counts prints the count per file.
  *   T130 part 4 (2026-10-24): the string literals of every .py under assets/blender (print / log / assert / raise messages, report and manifest
- *   text; section 8; tests/data is skipped, docstrings are section 5's). A token with _ or a digit or an inner capital (colour_set), a path,
+ *   text, section 8). tests/data is skipped, and docstrings are section 5's. A token with _ or a digit or an inner capital (colour_set), a path,
  *   an attribute (Mark.centre) or a call written with empty parentheses (storey()) is a code name, not prose. A literal that is a data key
  *   spelled the British way (the "centre" key of the frame records) goes in PY_LITERAL_ALLOW, with its reason. --py-counts prints the count per file.
  * Usage: node tools/check-us-english.js [--verbose] [--cs-counts] [--py-counts] [--self-test]
@@ -34,7 +35,7 @@ const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
 
-// British form (a word start; "*" = any ending) -> the US form. Keep the list to spellings, not vocabulary.
+// Each entry maps a British form to the US form. A word start is matched, and "*" = any ending. Keep the list to spellings, not vocabulary.
 const BRITISH = [
   ["colour*", "color"], ["grey*", "gray"], ["centre*", "center"], ["metre*", "meter"], ["kilometre*", "kilometer"],
   ["centimetre*", "centimeter"], ["litre*", "liter"], ["modelled", "modeled"], ["modelling", "modeling"], ["cancelled", "canceled"],
@@ -51,8 +52,8 @@ const BRITISH = [
   ["aluminium", "aluminum"], ["storey*", "story"], ["whilst", "while"], ["amongst", "among"], ["plough*", "plow"], ["mould*", "mold"],
   ["manoeuvr*", "maneuver"], ["artefact*", "artifact"], ["judgement*", "judgment"], ["ageing", "aging"], ["sceptic*", "skeptic"],
   ["fulfil", "fulfill"], ["enrol", "enroll"], ["cheque*", "check"], ["jewellery", "jewelry"], ["aeroplane*", "airplane"],
-  // T130 part 2 additions: more -our / -re words, -ise verbs with their endings spelled out (a bare "stem*" would hit organism, optimism,
-  // finalist), doubled-l forms, and the odd spellings found in docs and comments. "re:" = a raw regex (a word start is added).
+  // T130 part 2 additions: more -our / -re words, -ise verbs with their endings spelled out, doubled-l forms, and the odd spellings found in docs and comments.
+  // A bare "stem*" would hit organism, optimism, finalist, so the endings are spelled out. "re:" = a raw regex (a word start is added).
   ["recolour*", "recolor"], ["armour*", "armor"], ["humour*", "humor"], ["rumour*", "rumor"], ["vigour*", "vigor"], ["odour*", "odor"], ["vapour*", "vapor"],
   ["theatre*", "theater"], ["fibre*", "fiber"], ["calibre*", "caliber"], ["millimetre*", "millimeter"], ["decimetre*", "decimeter"],
   ["sulphur*", "sulfur"], ["analogue*", "analog"], ["maths", "math"], ["per cent", "percent"], ["practise*", "practice"],
@@ -62,8 +63,9 @@ const BRITISH = [
   ["re:(?:raster|equal|quant|general|random|local|parameter|vector|serial|author|subsid|material|sanit|capital|neutral|memor|special|standard|character|digit|token|central|formal|legal|moder|harmon|scrutin|sympath|theor|fertil|industrial|hospital|monopol)is(?:e|es|ed|ing|er|ers|ation|ations|able|ability)", "-ize forms"],
   ["re:(?:emphas|parameter|paralys|catalys)(?:ise|ised|ises|ising|yse|ysed|yses|ysing)", "-ize / -yze forms"],
 ];
-// Proper names that contain a British form (another mod's name, a vanilla prefab or locale key), and valid US words the word list's
-// prefixes would catch (analyses = the plural noun; programmer; organism; optimism). Matched before the word list.
+// Two kinds of entry: proper names that contain a British form (another mod's name, a vanilla prefab or locale key),
+// and valid US words the word list's prefixes would catch (analyses = the plural noun, programmer, organism, optimism).
+// The code matches these before the word list.
 const ALLOW = [
   /Realistic Workplaces/g, /realisticWorkplaces/g,
   /\banalyses\b/gi, /\bprogrammers?\b/gi, /\borganisms?\b/gi, /\boptimis(?:m|t|ts|tic|tically)\b/gi, /\bfinalists?\b/gi,
@@ -87,7 +89,7 @@ function hitsIn(text) {
   return out;
 }
 
-/** C# string literals of one line (regular "..." and $"...", escapes skipped; verbatim @"" rare here and read the same way). */
+/** C# string literals of one line (regular "..." and $"...", escapes skipped). Verbatim @"" literals are rare here, and the function reads them the same way. */
 function csLiterals(line) {
   const out = [];
   const re = /"((?:[^"\\]|\\.)*)"/g;
@@ -95,7 +97,7 @@ function csLiterals(line) {
   while ((m = re.exec(line))) out.push(m[1]);
   return out;
 }
-/** Every C# string literal of `text` as {text, line}: regular, $"" (the {holes} blanked: they are code), verbatim @"", raw """ ; comments and 'c' literals skipped (T130 part 3). */
+/** Every C# string literal of `text` as {text, line}: regular, $"" (the {holes} blanked: they are code), verbatim @"", raw """. Comments and 'c' literals are skipped (T130 part 3). */
 function csStrings(text){
   const out=[],n=text.length;let i=0,line=1;
   const nl=(a,b)=>{for(let k=a;k<b;k++)if(text[k]==="\n")line++;};
@@ -305,7 +307,7 @@ function pathLike(chunk) {
     (/\w\.\w/.test(chunk.replace(/[A-Za-z]\.$/, "")) && /\.[a-z]{2,4}\b/i.test(chunk));
 }
 /** Hits in the text of one string literal (a Python message, report or note). Like proseHits, an identifier (colour_set, GladeOutlineColour) or a path is
- * data and not checked; unlike proseHits there is no backtick, quotation or "spelling" exemption: the words are the program's own output. */
+ * data and not checked. Unlike proseHits, it has no backtick, quotation or "spelling" exemption: the words are the program's own output. */
 function literalHits(literal) {
   let text = literal;
   for (const a of ALLOW) text = text.replace(a, (m) => " ".repeat(m.length));
@@ -326,7 +328,7 @@ function literalHits(literal) {
   if (/\bper cent\b/i.test(text)) out.push({ word: "per cent", us: "percent", idx: text.search(/\bper cent\b/i) });
   return out;
 }
-/** The British spellings in the string literals of one Python source text, as {word, us, line}. A bare-string statement (docstring) is section 5's; `allow` = exact literal texts that are data. */
+/** The British spellings in the string literals of one Python source text, as {word, us, line}. A bare-string statement (docstring) is section 5's. `allow` = exact literal texts that are data. */
 function pyLiteralHits(text, allow) {
   const out = [];
   for (const lit of pyStrings(text)) {
@@ -340,7 +342,7 @@ const SPELLING_TALK = /British|US English|T130|check-us-english|spelling/i;
 function proseHits(line) {
   if (SPELLING_TALK.test(line)) return [];
   let text = line.replace(/`[^`]*`/g, (m) => " ".repeat(m.length));
-  // a quotation (a double-quoted span of 3+ words: the owner's words, a wiki, a log line) keeps its spelling; an odd quote count = no span
+  // a quotation (a double-quoted span of 3+ words: the owner's words, a wiki, a log line) keeps its spelling. An odd quote count = no span.
   const qi = []; for (let i = 0; i < text.length; i++) if (text[i] === '"' && text[i - 1] !== "\\" && text[i + 1] !== '"' && text[i - 1] !== '"') qi.push(i);
   if (qi.length % 2 === 0) {
     for (let k = 0; k < qi.length; k += 2) {
@@ -375,9 +377,9 @@ function walkSrc(dir, pred, acc) {
   }
   return acc;
 }
-// Files another session still owns (the tower-number tiles awaited the verdict when T130 part 2 ran): skipped, and counted in the
+// Files another session still owns (the tower-number tiles awaited the verdict when T130 part 2 ran): the scan skips them and counts them in the
 // last line. Delete an entry once its comments are converted.
-// Documents about the spellings themselves (they list British words as their subject): not scanned.
+// Documents about the spellings themselves (they list British words as their subject): the scan does not read them.
 const SPELLING_DOCS = ["docs/COMMIT-HASH-MAP-2026-10-22.md", "docs/COMMIT-HASH-MAP-2026-10-24.md", "docs/research/us-english-sweep-2026-10-20.md", "docs/research/release-prep/python-us-english-2026-10-24.md"];
 const PENDING = [];
 
@@ -387,7 +389,7 @@ if (process.argv.includes("--self-test")) {
   const good = ["difficulty colors", "gray", "center", "meters", "canceled", "aluminum", "modeled", "Detected: Realistic Workplaces.", "greyhound"];
   const missed = bad.filter((s) => hitsIn(s).length === 0);
   const wrong = good.filter((s) => s !== "greyhound" && hitsIn(s).length > 0);
-  // "greyhound" is a known false positive of the grey* prefix rule: it must hit, so a looser rule is noticed.
+  // "greyhound" is a known false positive of the grey* prefix rule. It must hit, so the test notices a looser rule.
   if (hitsIn("greyhound").length === 0) wrong.push("greyhound (prefix rule changed)");
   // comment / prose fixtures (proseHits)
   const cBad = ["the centre of the tile", "kit colour variants", "rasterise the quad", "a two-storey lodge", "equalised areas", "texel centres, metres", "grey-white"];
@@ -396,7 +398,7 @@ if (process.argv.includes("--self-test")) {
     'The rule: "a colour that makes sense for that building" is kept'];
   for (const s of cBad) if (proseHits(s).length === 0) missed.push("comment: " + s);
   for (const s of cGood) if (proseHits(s).length > 0) wrong.push("comment: " + s);
-  // C# string literal fixtures (csStrings): British text inside a literal hits; the same word in a comment, an identifier, a {hole} or a 'c' does not
+  // C# string literal fixtures (csStrings): British text inside a literal hits. The same word in a comment, an identifier, a {hole} or a 'c' does not.
   const csBad = ['Log.Info("cancelled spots");', 'x = $"{n} metres, {m:F1}";', 'y = @"the ""grey"" tile";', 'z = """a colour"""', 'a = "x" + "the centre";'];
   const csGood = ['// the centre of the tile', 'int centre = 0; /* colour */', 'q = $"{centre} m, {(ok ? "yes" : "no")}";', "c = 'x'; d = \"center\";"];
   for (const t of csBad) if (!csStrings(t).some((l) => hitsIn(l.text).length)) missed.push("cs literal: " + t);
@@ -504,7 +506,7 @@ for (const f of mdFiles) {
 }
 
 // 7. every C# string literal of the mod and the test hosts: log lines, DUMP text, warnings, assert messages (T130 part 3, 2026-10-24).
-// CS_LITERAL_ALLOW: literals that are British ON PURPOSE (a test's own fixture list of the words it forbids; a JSON key the data file
+// CS_LITERAL_ALLOW: literals that are British ON PURPOSE (a test's own fixture list of the words it forbids, or a JSON key the data file
 // spells that way): file -> exact literal texts. Add an entry only with a reason beside it.
 const CS_LITERAL_ALLOW = {
   "tests/LiftBatch/LiftToolInputTests.cs": ["colour", "metre", "centre", "grey", "behaviour", "cancelled"], // TI-4 forbidden-word list
@@ -526,8 +528,8 @@ for (const f of walkSrc(ROOT, (p) => /\.cs$/i.test(p), []).filter((p) => /^(mod|
 if (process.argv.includes("--cs-counts")) for (const [k, v] of Object.entries(csCounts)) console.log(`cs-literals ${v}  ${k}`);
 
 // 8. every Python string literal of the Blender generators and their tests: print / log / assert messages, report and manifest text
-// (T130 part 4, 2026-10-24). Docstrings are bare-string statements: section 5 already reads those. tests/data is skipped (frozen copies).
-// PY_LITERAL_ALLOW: literals that are British ON PURPOSE, file -> exact literal texts; add an entry only with a reason beside it.
+// (T130 part 4, 2026-10-24). Docstrings are bare-string statements: section 5 already reads those. The scan skips tests/data (frozen copies).
+// PY_LITERAL_ALLOW: literals that are British ON PURPOSE, file -> exact literal texts. Add an entry only with a reason beside it.
 const PY_LITERAL_ALLOW = {
   "*": ["centre"], // dict key of the frames / plate / wheel / door records that manifests, tests and tower-number-plates.json read
   "assets/blender/dress_kit.py": ["colour"], // PROPS registry key spec["colour"], also written as the manifest "colour" block

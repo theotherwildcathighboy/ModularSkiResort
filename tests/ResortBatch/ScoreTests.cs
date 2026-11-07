@@ -1,11 +1,15 @@
 // Tests of the attraction model (SkiResortScore): constants guard, helpers, the 37 sanity rows, monotonicity, order independence, sum of
-// squares, no-throw. `public static class ScoreTests` with `Run(check)` and its own Near; Program.Main calls ScoreTests.Run(Check).
-// Oracles are literal hand values, never a second run of SkiResortScore. Sections in run order: A constants guard, B helpers, C the sanity
-// table (Small / Medium / Large compositions; exact for A, PerLodge, LodgeBase, Variety, VerticalM; +-1e-6 for the doubles), D properties
-// (seed 20261004, 5,000 random areas: twelve monotone mutations, zero-run invariance, order independence, sum of squares, no-throw inputs).
-// Ladder: LodgeExtraCap is 24 (LodgeBaseOf rows 5 -> 36, 10 / 13 -> 44); the A-frame constants are checked against SkiCatalog.Lodges[0];
-// explicit A-frame AreaInput.Lodges lists equal the Lodges == null closed form bit for bit (T1L / T2L / T3L = T1-T3). The ladder / school /
-// patrol / per-type rows are LadderTests.cs.
+// squares, no-throw. It is a `public static class ScoreTests` with `Run(check)` and its own Near. Program.Main calls ScoreTests.Run(Check).
+// Oracles are literal hand values, never a second run of SkiResortScore. Sections in run order:
+// A constants guard.
+// B helpers.
+// C the sanity table (Small / Medium / Large compositions). Values are exact for A, PerLodge, LodgeBase, Variety, VerticalM and
+// +-1e-6 for the doubles.
+// D properties (seed 20261004, 5,000 random areas): twelve monotone mutations, zero-run invariance, order independence, sum of squares,
+// no-throw inputs.
+// Ladder: LodgeExtraCap is 24 (LodgeBaseOf rows 5 -> 36, 10 / 13 -> 44). The test checks the A-frame constants against
+// SkiCatalog.Lodges[0]. Explicit A-frame AreaInput.Lodges lists equal the Lodges == null closed form bit for bit (T1L / T2L / T3L = T1-T3).
+// The ladder / school / patrol / per-type rows are in LadderTests.cs.
 
 using System;
 using System.Collections.Generic;
@@ -61,7 +65,7 @@ namespace ResortBatch
             Check(Score.FirstLodgeBase == 20.0, w, "FirstLodgeBase");
             Check(Score.LodgeExtra == 4.0, w, "LodgeExtra");
             Check(Score.LodgeExtraCap == 24.0, w, "LodgeExtraCap (Catalog Phase B R11: was 12)");
-            // The A-frame closed form (Lodges == null) uses these; they are the catalog's row 0
+            // The A-frame closed form (Lodges == null) uses these. They are the catalog's row 0
             Check(SkiCatalog.Lodges.Count > 0 && Score.FirstLodgeBase == SkiCatalog.Lodges[0].B && Score.LodgeExtra == SkiCatalog.Lodges[0].E &&
                   Score.SummerLodgeShare == SkiCatalog.Lodges[0].Mu && SkiCatalog.Lodges[0].MuSummit == SkiCatalog.Lodges[0].Mu,
                   w, "FirstLodgeBase / LodgeExtra / SummerLodgeShare == SkiCatalog.Lodges[0] B / E / μ (and μ summit == μ)");
@@ -78,7 +82,7 @@ namespace ResortBatch
             Check(Score.BandValueOf(Score.BandState.Rated, Flat) == 0.0 && Score.BandValueOf(Score.BandState.Rated, Green) == 6.0 &&
                   Score.BandValueOf(Score.BandState.Rated, Blue) == 12.0 && Score.BandValueOf(Score.BandState.Rated, Black) == 20.0 &&
                   Score.BandValueOf(Score.BandState.Rated, DBlack) == 28.0, w, "band values 0/6/12/20/28");
-            // The four RunKind copies (EntityRef.cs is linked; second pass).
+            // The four RunKind copies (EntityRef.cs is linked, second pass).
             Check(Score.KindGroomed == (byte)RunKind.Groomed, w, "KindGroomed == RunKind.Groomed");
             Check(Score.KindSnowmaking == (byte)RunKind.Snowmaking, w, "KindSnowmaking == RunKind.Snowmaking");
             Check(Score.KindNight == (byte)RunKind.Night, w, "KindNight == RunKind.Night");
@@ -185,7 +189,7 @@ namespace ResortBatch
                 runs.Add(run);
         }
 
-        /// <summary>Small: Groomed Green 2.0 ha 1150/1000; Groomed Blue 2.5 ha 1250/1000; Groomed Blue 2.0 ha 1250/1050.</summary>
+        /// <summary>Small: Groomed Green 2.0 ha 1150/1000, Groomed Blue 2.5 ha 1250/1000, Groomed Blue 2.0 ha 1250/1050.</summary>
         private static List<Score.RunInput> Small()
         {
             return new List<Score.RunInput>
@@ -324,7 +328,7 @@ namespace ResortBatch
             Check(r.Flags == expected, "score-row " + id, $"Flags {r.Flags}, expected {expected}");
         }
 
-        /// <summary>The area's ActiveLodges as an explicit list of A-frame LodgeInput rows (LodgeIndex 0; odd positions SummitServed, which
+        /// <summary>The area's ActiveLodges as an explicit list of A-frame LodgeInput rows (LodgeIndex 0, odd positions SummitServed, which
         /// the A-frame ignores: μ summit == μ) must give <paramref name="expected"/> (the Lodges == null row) bit for bit.</summary>
         private static void ExplicitAFrames(string id, Score.AreaInput area, List<Score.RunInput> runs, List<Score.LiftInput> lifts,
                                              Score.Result expected)
@@ -374,8 +378,8 @@ namespace ResortBatch
                   Near(parts[14].Value, 16.824592986, 1e-6) && Near(parts[16].Value, 24.158883083, 1e-6) &&
                   Near(parts[22].Value, 33.822436317, 1e-6), w + " T3", "RunPart values of runs 0, 6, 14, 16, 22");
 
-            // T1L / T2L / T3L: T1-T3 with explicit A-frame AreaInput.Lodges lists (every other one marked summit-served: μ summit == μ on the
-            // A-frame, so it changes nothing) → the same Result bit for bit (Equals compares every field)
+            // T1L / T2L / T3L: T1-T3 with explicit A-frame AreaInput.Lodges lists → the same Result bit for bit (Equals compares every field).
+            // Every other lodge is marked summit-served. μ summit == μ on the A-frame, so it changes nothing.
             ExplicitAFrames("T1L", Area(1), Small(), Lifts(1), t1);
             ExplicitAFrames("T2L", Area(2), Medium(), Lifts(3), t2);
             ExplicitAFrames("T3L", Area(3), Large(), Lifts(6), t3);
@@ -472,7 +476,7 @@ namespace ResortBatch
             Check(b1.RunsUnserved == 2 && b0.RunsUnserved == 2 && b100.RunsUnserved == 2, w + " B1/B0/B100", "RunsUnserved 2");
             Check(b0.RunsCounted == 8 && !b0.Variety && b0.VerticalM == 400, w + " B0", "RunsCounted 8, no variety, VerticalM 400");
 
-            // O1: Medium, lift 3 has a section open; runs 7, 8, 9 unserved.
+            // O1: Medium, lift 3 has a section open. Runs 7, 8, 9 unserved.
             var o1Lifts = Lifts(2);
             o1Lifts.Add(new Score.LiftInput { Complete = false, Powered = true });
             Score.Result o1 = Row("O1", Area(2), WithServed(Medium(), false, 7, 8, 9), o1Lifts, parts, 24, false, 97.391563645, 2, true,
@@ -480,7 +484,7 @@ namespace ResortBatch
             Check(o1.Lifts == 3 && o1.LiftsComplete == 2 && o1.LiftsOpenSection == 1 && o1.LiftsCounted == 2 && o1.RunsUnserved == 3,
                   w + " O1", "Lifts 3, LiftsComplete 2, LiftsOpenSection 1, LiftsCounted 2, RunsUnserved 3");
 
-            // P0: Medium, no lift powered; every run unserved.
+            // P0: Medium, no lift powered. Every run unserved.
             Score.Result p0 = Row("P0", Area(2), AllServed(Medium(), false), Lifts(3, true, false), parts, 24, false, 53.565360005, 0, true,
                                   500, 1.833333, 112.933634010, 66.508095043, 67, 47, 67);
             Check(p0.LiftsUnpowered == 3 && p0.LiftsCounted == 0 && p0.RunsUnserved == 10, w + " P0",
@@ -723,7 +727,7 @@ namespace ResortBatch
                         zeroRunFails++;
                 }
 
-                // Order independence: reversed, then one shuffle (Result exact; parts permuted).
+                // Order independence: reversed, then one shuffle (Result exact, parts permuted).
                 var reversed = new List<Score.RunInput>(runs);
                 reversed.Reverse();
                 var reversedLifts = new List<Score.LiftInput>(lifts);

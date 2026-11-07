@@ -1,16 +1,16 @@
 // Road keep-outs (FIX-LIST 62). Where-tags `keepout/...`.
 // A tower the planner stands on a road reads Overlapping items in game (2026-11-05 collision box pass). The tool hands the planner the
-// stretches of the line a road, track or path runs under (LiftLineEdit.KeepoutOf, merged); the planner keeps NEW towers out of them,
-// softly like the removed-tower spots (Forbidden): where the line has no clear plan without a tower there, it stands anyway.
+// stretches of the line that a road, track or path runs under (LiftLineEdit.KeepoutOf, merged). The planner keeps NEW towers out of
+// them, softly like the removed-tower spots (Forbidden). Where the line has no clear plan without a tower there, the tower stands anyway.
 // KO-0 none, no change: Keepouts null / empty plan bit-identically.
 // KO-1 geometry: KeepoutOf against hand-worked capsules (square, 45 deg, parallel and short of the line, the end circle, clipping at
 //      the ends) and MergeStretches.
-// KO-2 avoid: every free tower of a plan gets a 10 m road through it; the new plan has no free tower in the stretch where it stays
+// KO-2 avoid: every free tower of a plan gets a 10 m road through it. The new plan has no free tower in the stretch where it stays
 //      clear, and it is never less clear than the plan without the road (soft). Both draw directions.
 // KO-3 soft: a road stretch over the whole line: never less clear than without it (the fewest-towers search and the angle repair
-//      yield). Towers past their angle caps are reported, not gated: the breakover move does not step onto a road (a tower on a
-//      road is a build error, one past its cap a warning), at most one more per line.
-//      (the fewest-towers search and the angle repair yield; the repair may pick another fix, e.g. dropping a tower).
+//      yield). The test reports towers past their angle caps and does not gate them. The breakover move does not step onto a road (a
+//      tower on a road is a build error, one past its cap a warning), at most one more per line.
+//      (the fewest-towers search and the angle repair yield. The repair may pick another fix, e.g. dropping a tower).
 
 using System;
 using System.Collections.Generic;
