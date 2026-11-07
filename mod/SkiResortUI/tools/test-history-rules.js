@@ -131,7 +131,7 @@ function run(srcDir) {
   eq("TH4.1 rangeEnabled: A all three; B (one season of data) only 12 months", [R.HISTORY_RANGES.map((r) => R.rangeEnabled(A, r)), R.HISTORY_RANGES.map((r) => R.rangeEnabled(B, r))],
     [[true, true, true], [true, false, false]]);
   eq("TH4.2 effectiveRange falls back to 12 months; null area", [R.effectiveRange(B, "bySeason"), R.effectiveRange(A, "seasonVs"), R.effectiveRange(null, "bySeason"), R.windowOf(null, "bySeason").length, R.effectiveRange(E, "seasonVs")], ["months12", "seasonVs", "months12", 0, "months12"]);
-  eq("TH4.3 three ranges, three chart choices", [R.HISTORY_RANGES, R.HISTORY_CHARTS.length], [["months12", "seasonVs", "bySeason"], 3]);
+  eq("TH4.3 three ranges", R.HISTORY_RANGES, ["months12", "seasonVs", "bySeason"]);
 
   const city = R.sumAreas([A, B]);
   eq("TH5.1 whole city: the union of the ranges", [city.firstMonthKey, R.lengthOf(city)], [24303, 15]);

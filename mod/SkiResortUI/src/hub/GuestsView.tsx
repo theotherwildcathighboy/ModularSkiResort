@@ -24,7 +24,7 @@ import { HUB_FMT, HUB_LOC, LODGE_TIER, allMonthNames, monthName } from "./hubTex
 import {
   Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
 } from "./parts";
-import type { NumberSamples } from "./parts";
+import type { NumberSamples, TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import { Fold } from "./fit";
 import styles from "./hub.module.scss";
@@ -187,7 +187,6 @@ function GuestsHeader({ l, city, note, t }: { l: ResortLive | null; city: CitySt
       info
       label={t(HUB_LOC.sectionGuests)}
       tip={<TipLines lines={[
-        t(HUB_LOC.sectionGuests),
         t(HUB_LOC.guestsNoteWhere),
         !!l && l.thisMonthSinceLoad && t(HUB_LOC.guestsNoteSinceLoad),
         note === "open" && <LocText key="o" entry={HUB_FMT.ticketsNoteOpen} args={{ PRICE: numArg(city.ticketPrice, Unit.Money) }} />,
@@ -224,8 +223,9 @@ function SignGuests({ l, city, parking, samples, t }: {
   /* A last-month value: the number when C# sent one (a whole or a partial month), else "–". */
   const last = (v: number | undefined, money?: boolean): JSX.Element | string =>
     v === undefined || v < 0 ? DASH : money ? <Num value={v} unit={Unit.Money} /> : countCell(v);
-  const rowTip = (title: string, body: string | JSX.Element): JSX.Element =>
-    <TipLines lines={[title, body, lastNote]} />;
+  // A row's tooltip: what it counts, then the last-month note (the row's label is not repeated: DECISIONS 613).
+  const rowTip = (body: string | JSX.Element, ...more: Array<TipLine | false>): JSX.Element =>
+    <TipLines lines={[body, ...more, lastNote]} />;
   const note = l ? ticketNote(l.ticketGate, city.ticketPrice) : null;
   // The trip-planner note ("none" in a base-game city: no line).
   const tripNote = tripPlannerNote(city);
@@ -233,7 +233,6 @@ function SignGuests({ l, city, parking, samples, t }: {
   // The Ski days row's tooltip; skipped lines are false.
   const skiDaysTip = (
     <TipLines lines={[
-      t(HUB_LOC.guestsRowSkiDays),
       t(HUB_LOC.guestsTipSkiDays),
       !!l && l.skiDaysSent >= 0 && <LocText key="sent" entry={HUB_FMT.skiDaysTipSent} args={{
         MONTH: thisName, SENT: numArg(l.skiDaysSent, Unit.Integer), ARRIVED: numArg(l.skiDaysThisMonth, Unit.Integer),
@@ -248,6 +247,20 @@ function SignGuests({ l, city, parking, samples, t }: {
     ]} />
   );
 
+  // The month heads of the two value columns, drawn as the first row of the open fold (the bars above carry the month names).
+  const heads = (
+    <div className={styles.colHeads}>
+      <div className={styles.colHeadSpacer} />
+      {/* heads measured in the row font (S), labels in XS - aligned with GuestRow's cells. */}
+      <StableWidth samples={samples.money} align="end" className={cx(styles.valueCell, styles.colHeadCell)}>
+        <span className={styles.colLabel}>{thisName}</span>
+      </StableWidth>
+      <StableWidth samples={samples.money} align="end" className={cx(styles.valueCell, styles.colHeadCell)}>
+        <span className={styles.colLabel}>{lastName}</span>
+      </StableWidth>
+    </div>
+  );
+
   return (
     <>
       <GuestsHeader l={l} city={city} note={note} t={t} />
@@ -256,36 +269,26 @@ function SignGuests({ l, city, parking, samples, t }: {
       <GuestBar label={lastLabel} labels={barLabels} value={lastMonth} max={scale} samples={samples}
         tip={<TipLines lines={[lastLabel, lastNote, scaleLine]} />} />
       <Divider />
-      <div className={styles.colHeads}>
-        <div className={styles.colHeadSpacer} />
-        {/* heads measured in the row font (S), labels in XS - aligned with GuestRow's cells. */}
-        <StableWidth samples={samples.money} align="end" className={cx(styles.valueCell, styles.colHeadCell)}>
-          <span className={styles.colLabel}>{thisName}</span>
-        </StableWidth>
-        <StableWidth samples={samples.money} align="end" className={cx(styles.valueCell, styles.colHeadCell)}>
-          <span className={styles.colLabel}>{lastName}</span>
-        </StableWidth>
-      </div>
       {/* group 1: the people at the lodges (open or not), and the note that not all of them ski. */}
       <Fold view="guests" id="lodges" header label={t(HUB_LOC.guestsGroupLodges)} tip={t(HUB_LOC.guestsNoteNeverSki)}>
+      {heads}
+      {/* the tourist groups are a line of the Tourists tooltip (DECISIONS 613) */}
       <GuestRow
         label={t(HUB_LOC.guestsRowTourists)} samples={samples}
         thisMonth={countCell(l ? l.touristsThisMonth : -1)} lastMonth={last(l?.touristsLastMonth)}
-        tip={rowTip(t(HUB_LOC.guestsRowTourists), t(HUB_LOC.guestsTipTourists))}
-      />
-      <GuestRow
-        label={t(HUB_LOC.guestsRowGroups)} samples={samples}
-        thisMonth={countCell(l ? l.touristGroupsThisMonth : -1)} lastMonth={last(l?.touristGroupsLastMonth)}
-        tip={rowTip(t(HUB_LOC.guestsRowGroups), t(HUB_LOC.guestsTipGroups))}
+        tip={rowTip(t(HUB_LOC.guestsTipTourists),
+          { label: t(HUB_LOC.guestsRowGroups), value: countCell(l ? l.touristGroupsThisMonth : -1) },
+          t(HUB_LOC.guestsTipGroups))}
       />
       <GuestRow
         label={t(HUB_LOC.guestsRowResidents)} samples={samples}
         thisMonth={countCell(l ? l.residentsThisMonth : -1)} lastMonth={last(l?.residentsLastMonth)}
-        tip={rowTip(t(HUB_LOC.guestsRowResidents), t(HUB_LOC.guestsTipResidents))}
+        tip={rowTip(t(HUB_LOC.guestsTipResidents))}
       />
       </Fold>
       {/* group 2: the Ski days row and its state line. */}
       <Fold view="guests" id="sent" header label={t(HUB_LOC.guestsGroupSent)}>
+      {heads}
       <GuestRow
         label={t(HUB_LOC.guestsRowSkiDays)} samples={samples}
         thisMonth={countCell(l ? l.skiDaysThisMonth : -1)} lastMonth={last(l?.skiDaysLastMonth)}
@@ -295,10 +298,11 @@ function SignGuests({ l, city, parking, samples, t }: {
       </Fold>
       {/* group 3: what the gate charged. */}
       <Fold view="guests" id="tickets" header label={t(HUB_LOC.guestsGroupTickets)}>
+      {heads}
       <GuestRow
         label={t(HUB_LOC.guestsRowPaid)} samples={samples}
         thisMonth={countCell(l ? l.paidThisMonth : -1)} lastMonth={last(l?.paidLastMonth)}
-        tip={rowTip(t(HUB_LOC.guestsRowPaid), <LocText entry={HUB_FMT.guestsTipPaid} args={{
+        tip={rowTip(<LocText entry={HUB_FMT.guestsTipPaid} args={{
           MONTH: thisName, GUESTS: countCell(l ? l.guestsThisMonth : -1), PAID: countCell(l ? l.paidThisMonth : -1),
           HOLDERS: countCell(l ? l.passHoldersThisMonth : -1),
           UNPAID: countCell(l ? l.unpaidThisMonth : -1), FREE: countCell(l ? l.freeThisMonth : -1),
@@ -308,22 +312,17 @@ function SignGuests({ l, city, parking, samples, t }: {
         <GuestRow
           label={t(HUB_LOC.guestsRowPassHolders)} samples={samples}
           thisMonth={countCell(l ? l.passHoldersThisMonth : -1)} lastMonth={last(l?.passHoldersLastMonth)}
-          tip={rowTip(t(HUB_LOC.guestsRowPassHolders), t(HUB_LOC.guestsTipPassHolders))}
+          tip={rowTip(t(HUB_LOC.guestsTipPassHolders))}
         />
       )}
       {lessonsShown(l) && (
         <GuestRow
           label={t(HUB_LOC.guestsRowLessons)} samples={samples}
           thisMonth={countCell(l ? l.lessonsThisMonth : -1)} lastMonth={last(l?.lessonsLastMonth)}
-          tip={rowTip(t(HUB_LOC.guestsRowLessons), t(HUB_LOC.guestsTipLessons))}
+          tip={rowTip(t(HUB_LOC.guestsTipLessons))}
         />
       )}
-      <GuestRow
-        label={t(HUB_LOC.guestsRowTickets)} samples={samples}
-        thisMonth={l && l.ticketsThisMonth >= 0 ? <Num value={l.ticketsThisMonth} unit={Unit.Money} /> : DASH}
-        lastMonth={last(l?.ticketsLastMonth, true)}
-        tip={rowTip(t(HUB_LOC.guestsRowTickets), t(HUB_LOC.guestsTipTickets))}
-      />
+      {/* the ticket money is Finances' Income row (DECISIONS 613) */}
       </Fold>
       <Divider />
       {/* group 4: the car spaces, one row per road lodge under one header whose value is their total ("–" before the first count). */}

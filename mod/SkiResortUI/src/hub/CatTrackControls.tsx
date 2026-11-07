@@ -10,14 +10,14 @@ import { FOCUS_DISABLED } from "cs2/input";
 import { catTrackDeleteMode$, hubTriggers } from "../bindings";
 import type { Translate } from "../l10n";
 import { HUB_LOC } from "./hubText";
-import { Tip, TipLines, cx } from "./parts";
+import { Tip, cx } from "./parts";
 import styles from "./hub.module.scss";
 
 export function CatTrackDeleteChip({ t }: { t: Translate }): JSX.Element {
   const on = !!useValue(catTrackDeleteMode$);
   return (
     <div className={cx(styles.pickerCell, styles.pickerCellNext)}>
-      <Tip tip={<TipLines lines={[t(HUB_LOC.catTrackDelete), !on && t(HUB_LOC.catTrackDeleteTip)]} />}>
+      <Tip tip={on ? null : t(HUB_LOC.catTrackDeleteTip)}>
         <Button
           focusKey={FOCUS_DISABLED}
           theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }}

@@ -35,13 +35,22 @@ export const runToolSeen = { value: "" };
  *  then opens on the tab the idle NEXT line points at. Survives closing the hub, a UI reload resets it. */
 export const buildTab$ = bindLocalValue<string>("");
 
+/** The Build strip is open (the player clicked a tab; hubRules.footerOpen). Closed by default and again when a tool the strip started
+ *  ends, like the game's toolbar (DECISIONS 613). Survives closing the hub, a UI reload resets it. */
+export const buildOpen$ = bindLocalValue<boolean>(false);
+
+/** The Buildings tab's family (hubRules.BuildingFamily): the sign and lodges, or the services. */
+export const buildFamily$ = bindLocalValue<string>("lodges");
+
+/** The footer's shape ("open|tab|family", set by BuildStrip): the view pager re-fits at once when it changes (a tab, a family, the strip
+ *  opening or closing), not on its next poll. */
+export const footerShape$ = bindLocalValue<string>("");
+
 /** The History view's controls (local values, nothing sent; they survive closing the hub, a UI reload resets them). Scope
- *  "area" = the shown ski area, "city" = every live area summed; range: historyRules.HistoryRange; charts: guests / money /
- *  both; the attraction strip is off by default. */
+ *  "area" = the shown ski area, "city" = every live area summed; range: historyRules.HistoryRange. Both charts and the
+ *  attraction strip always draw (hub redesign 2026-11-07). */
 export const historyScope$ = bindLocalValue<"area" | "city">("area");
 export const historyRange$ = bindLocalValue<string>("months12");
-export const historyCharts$ = bindLocalValue<string>("both");
-export const historyAttraction$ = bindLocalValue<boolean>(false);
 
 /** "Never a scrollbar" local values (nothing sent to C#):
  *  - folds$: per view, the one open fold (parts.tsx Fold; accordion: opening one closes the other). A view absent from the

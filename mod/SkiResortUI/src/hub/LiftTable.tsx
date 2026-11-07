@@ -1,7 +1,8 @@
 /*
  * src/hub/LiftTable.tsx - one lift of the Lifts view: a two-line row (LiftLine2).
  * Line 1 = [fly part | pen] (status mark, name, status word in a StableWidth of the five LIFT_STATUS words so the name never moves); line 2 is ONE
- * inert nowrap text node from hubRules.liftLine2. LiftRow.powered is the raw LiftPower; `counted` follows the one predicate LiftServedRule.IsPowered;
+ * inert nowrap text node from hubRules.liftLine2: what the lift does for the resort (skiers/h, runs served; DECISIONS 613), its length, rise
+ * and ride time one layer down in the row's tooltip. LiftRow.powered is the raw LiftPower; `counted` follows the one predicate LiftServedRule.IsPowered;
  * both arrive from C#, the UI decides nothing. While renaming, the fly part is a plain div (an <input> is never inside a <button>).
  * The "billed at 25 %" reason is hubRules.liftCostReason, mapped by liftCostReducedEntry. Rise is shown signed (a negative rise is printed, not
  * unknown). Memoised on every LiftRow field it shows plus focus, renaming, `t`, the callbacks, type, seats, speedMps and typeWords.
@@ -37,13 +38,10 @@ export function liftId(row: LiftRow): string {
 function Line2Text({ row, partner, t }: { row: LiftRow; partner: boolean; t: Translate }): JSX.Element {
   const v = liftLine2(row, partner);
   if (v === "detail" || v === "detailOne" || v === "detailNone") {
-    const LENGTH = numArg(row.lengthM, Unit.Length);
-    const RISE = numArg(row.riseM, Unit.Height, false, false);
-    const MIN = row.rideTimeS >= 0 ? numArg(row.rideTimeS / 60, Unit.FloatSingleFraction) : "–";
     const CAP = row.capacityPerHour >= 0 ? numArg(row.capacityPerHour, Unit.Integer) : "–";
-    if (v === "detailOne") return <LocText entry={HUB_FMT.liftDetailOne} args={{ LENGTH, RISE, MIN, CAP }} />;
-    if (v === "detailNone") return <LocText entry={HUB_FMT.liftDetailNone} args={{ LENGTH, RISE, MIN, CAP }} />;
-    return <LocText entry={HUB_FMT.liftDetail} args={{ LENGTH, RISE, MIN, CAP, N: numArg(row.runsServed, Unit.Integer) }} />;
+    if (v === "detailOne") return <LocText entry={HUB_FMT.liftDetailOne} args={{ CAP }} />;
+    if (v === "detailNone") return <LocText entry={HUB_FMT.liftDetailNone} args={{ CAP }} />;
+    return <LocText entry={HUB_FMT.liftDetail} args={{ CAP, N: numArg(row.runsServed, Unit.Integer) }} />;
   }
   switch (v) {
     case "sectionMissing": return <>{t(HUB_LOC.liftLine2SectionMissing)}</>;
@@ -82,10 +80,10 @@ function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
   return (
     <TipLines
       lines={[
-        row.name,
+        // The name, the status word and line 2 are on the row itself (DECISIONS 613); the type word only shows there when the area mixes types.
         liftTypeWord(row, t),
-        t(liftStatusEntry(row.status)),
-        <Line2Text key="l2" row={row} partner={partner} t={t} />,
+        { label: t(HUB_LOC.liftLength), value: row.lengthM >= 0 ? <Num value={row.lengthM} unit={Unit.Length} /> : "–" },
+        { label: t(HUB_LOC.liftRise), value: <Num value={row.riseM} unit={Unit.Height} signed /> },
         {
           label: t(HUB_LOC.liftRide),
           value: row.rideTimeS >= 0

@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 37;
+export const HUB_CONTRACT = 38;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -749,6 +749,9 @@ export interface ResortLive {
   busGuestsMonth: number;
   /** The coach bill's rate per month now, over the depots that work. */
   busBillMonth: number;
+  /** Contract 38: the Net's two sides (C# HubRules.IncomeMonth / CostsMonth over the same terms; incomeMonth - costsMonth = netMonth). */
+  incomeMonth: number;
+  costsMonth: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */

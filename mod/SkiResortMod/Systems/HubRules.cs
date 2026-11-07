@@ -476,6 +476,12 @@ namespace SkiResortMod.Systems
             return ClampInt(m.Income - m.Costs);
         }
 
+        /// <summary>The Net's two sides for the Finances view (DECISIONS 613: Income / Running costs / Net): Σ max(0, income term) and
+        /// Σ max(0, cost term), clamped to int, so IncomeMonth − CostsMonth == NetMonth for any terms.</summary>
+        public static int IncomeMonth(in HubMonthMoney m) => ClampInt(m.Income);
+
+        public static int CostsMonth(in HubMonthMoney m) => ClampInt(m.Costs);
+
         /// <summary>The terms of a ledger month with the history element's mapping (SkiResortHistoryMonth.FromLedger: ClampInt of
         /// each long, LiftCharged rounded half away from zero, not finite → 0); <paramref name="buildings"/> / <paramref name="wages"/>
         /// as given (−1 unknown).</summary>

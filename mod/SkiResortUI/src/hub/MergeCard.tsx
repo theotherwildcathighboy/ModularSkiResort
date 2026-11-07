@@ -3,7 +3,8 @@
  * merged. Always mounted at the "Game" hook like the Ski Bus card, so it reads only mergeCard$, never a panel binding. The tier chips pick a
  * tier the lot allows; the button fires mergeBuilding, C# charges at once and says the outcome on the next push. Its fees, states and
  * refusals are C#'s numbers (SkiMergeSystem, MergeRules); the card decides nothing.
- * Contract 37: a note under the title says what merging does (the fee rule is the title's tooltip), and an unmerged building's status line
+ * Contract 37: what merging does and the fee rule are the title's tooltip (hub redesign 2026-11-07: the note under the title went); merge /
+ * unmerge are the hub's action buttons, and an unmerged building's status line
  * says whether it is near enough to the runs and lifts to count (MergeCardState.near), before the player pays.
  * Engine notes: EngineNotes/SkiMergeSystem.md
  */
@@ -18,7 +19,7 @@ import { useT } from "../l10n";
 import type { LocEntry } from "../l10n";
 import styles from "./hub.module.scss";
 import { HUB_LOC, LODGE_TIER } from "./hubText";
-import { InfoLine, Num, Tip, cx } from "./parts";
+import { InfoLine, Num, Tip, TipLines, cx } from "./parts";
 
 /** SkiCatalog.Lodges order: tier index -> its build item id (the LODGE_TIER word). */
 export const MERGE_TIER_ITEM: readonly BuildItemId[] = ["lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand"];
@@ -55,10 +56,9 @@ export function MergeCard(): JSX.Element | null {
   const canApply = chosen >= 0 && chosen !== card.tier && !tooSmall;
   return (
     <div className={cx(styles.busCard, styles.mergeCard)}>
-      <Tip tip={t(HUB_LOC.mergeCardTip)}>
+      <Tip tip={<TipLines lines={[merged ? null : t(HUB_LOC.mergeCardNote), t(HUB_LOC.mergeCardTip)]} />}>
         <div className={styles.busCardTitle}>{t(HUB_LOC.mergeCardTitle)}</div>
       </Tip>
-      {!merged && <div className={styles.mergeCardNote}>{t(HUB_LOC.mergeCardNote)}</div>}
       {card.area !== "" && <InfoLine label={t(HUB_LOC.resortCaption)} value={card.area} />}
       {state && <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(state)} />}
       {tooSmall && !merged && <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(HUB_LOC.mergeCardTooSmall)} />}
@@ -89,14 +89,14 @@ export function MergeCard(): JSX.Element | null {
       {card.outcome === OUTCOME_NO_MONEY && <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(HUB_LOC.mergeCardNoMoney)} />}
       <div className={styles.mergeActions}>
         {canApply && (
-          <Button focusKey={FOCUS_DISABLED} theme={{ button: styles.pickerChip }} onSelect={() => hubTriggers.mergeBuilding(card.building, chosen)}>
-            <div className={styles.pickerLabel}>{t(merged ? HUB_LOC.mergeCardChange : HUB_LOC.mergeCardMerge)}</div>
+          <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.actionButton, styles.mergeAction, styles.fitText)} onSelect={() => hubTriggers.mergeBuilding(card.building, chosen)}>
+            {t(merged ? HUB_LOC.mergeCardChange : HUB_LOC.mergeCardMerge)}
           </Button>
         )}
         {merged && (
           <Tip tip={t(HUB_LOC.mergeCardUnmergeTip)}>
-            <Button focusKey={FOCUS_DISABLED} theme={{ button: styles.pickerChip }} onSelect={() => hubTriggers.unmergeBuilding(card.building)}>
-              <div className={styles.pickerLabel}>{t(HUB_LOC.mergeCardUnmerge)}</div>
+            <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.actionButton, styles.mergeAction, styles.fitText)} onSelect={() => hubTriggers.unmergeBuilding(card.building)}>
+              {t(HUB_LOC.mergeCardUnmerge)}
             </Button>
           </Tip>
         )}

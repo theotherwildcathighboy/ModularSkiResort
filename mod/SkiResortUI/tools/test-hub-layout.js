@@ -6,7 +6,7 @@
 * Starts the harness (harness/serve.js on a free port), opens it at 1920x1080, 2560x1440 and 3840x2160 with the game's rem
 * rule, and runs harness/layout-check.js (window.SkiLayout.run) there: every view x fold x page x build tab x overlay at text
 * scale 1.0 and 1.25 (both CSS variables, as the game's applyTextScale sets them). FAILS (exit 1) on any case whose content
-* overflows its box (the Scrollable would show its bar), a header that does not fit, lodge chips on the Buildings tab, or text cut
+* overflows its box (the Scrollable would show its bar), a header that does not fit, more than one Buildings tile row, or text cut
 * short or running past the panel, with every build tile hovered in turn (shrink-to-fit classes and player-chosen names excepted).
 * Before the browser runs, the stylesheet rule: the note classes (NOTE_CLASSES) wrap, and every other class that cuts text with an
 * ellipsis is a written decision (CUT_DECIDED), so a new one-line note with an ellipsis fails at once.
@@ -33,7 +33,7 @@ const PLAYER_NAMES = new Set(["areaNameText", "rowName", "overlayItemName", "lod
 
 // Notes wrap, never cut (2026-11-02 round 2: the Guests view's ticket note showed half its sentence and an ellipsis in game). A note
 // class must not carry white-space: nowrap, text-overflow: ellipsis, or a fixed height with overflow hidden; it keeps a min-height.
-const NOTE_CLASSES = ["note1", "note2", "startNote", "subLine"];
+const NOTE_CLASSES = ["note1", "note2", "subLine"];
 // Every other class that cuts text with an ellipsis is a decision, written here with its reason, besides the shrink-to-fit classes and
 // PLAYER_NAMES. A new ellipsis class fails until it is a note (wrap) or listed here. The cut-text check still fails any of them whose
 // text is cut in a scenario.
@@ -47,7 +47,8 @@ const CUT_DECIDED = {
   flagText: "a short flag word after a row label",
   liftLine2: "a lift row's second line (names, state) in a list of fixed rows",
   startText: "a numbered start step beside its button",
-  buildStatusLine: "the build footer's two lines; every tile is hovered in turn and the fullest line is reported",
+  buildStatusLine: "the build footer's one status line; every tile is hovered in turn and the fullest line is reported",
+  quickLineText: "the picked run's name above its feature rows, a name the player chose (whole in the run row's tooltip)",
 };
 
 /** The top-level single-class rules of hub.module.scss: class -> rule body. */
@@ -371,7 +372,7 @@ async function main() {
       console.log(`test-hub-layout: ${w}x${h} (rem ${r.remPx} px): ${r.cases.length} case(s), ${r.fails.length} failure(s); max over ${r.maxOverRem} rem, ` +
         `min slack ${r.minSlackRem} rem`);
       console.log(`  pagers (text scale 1): ${pagers}`);
-      for (const x of r.buildings.filter((x) => x.fs === 1)) console.log(`  buildings tab [${x.scenario}]: ${x.tiles} tiles in ${x.rows} row(s), ${x.lodgeChips} lodge chip(s), cut labels: ${x.cut || "none"}, caption "${x.caption.trim()}"`);
+      for (const x of r.buildings.filter((x) => x.fs === 1)) console.log(`  buildings tab [${x.scenario}]: ${x.tiles} tiles in ${x.rows} row(s), chips "${x.caption.trim()}", cut labels: ${x.cut || "none"}`);
       for (const lt of r.liftsTile.filter((x) => x.fs === 1)) console.log(`  lifts tile [${lt.scenario}]: ${lt.text}`);
       for (const x of r.liftTool) console.log(`  lift generator [${x.scenario.split(" ")[0]} fs ${x.fs}]: ${x.present ? "present" : "MISSING"}, family row ${x.rowRem} rem`);
       for (const bd of r.band.filter((x) => x.fs === 1)) console.log(`  band [${bd.scenario}]: ${bd.text.join(" | ")}`);

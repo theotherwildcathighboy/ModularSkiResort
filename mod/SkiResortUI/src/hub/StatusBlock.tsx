@@ -1,8 +1,8 @@
 /*
  * Status line and problems band of the shown ski area.
  * Status line `div.statusRow` (fixed 1.6 em): ONE text node chosen by hubRules.statusVariant (one <LocText> per branch, gate R13), then a hint slot.
- * Problems band `div.problems`: always three `div.problemSlotRow` (1.45 em) so a change never alters its height; C# ranks and caps the rows and slot 3
- * carries the "+N" popover for hidden ones. Two or more rows of one per-lift code fold into one (hubRules.foldBandRows). A row is ONE text node;
+ * Problems band `div.problems`: always ONE `div.problemSlotRow` (1.45 em; hubRules.BAND_SLOTS, DECISIONS 613), the worst row C# ranks first, so a
+ * change never alters its height; it carries the "+N" button that opens the popover with the others. Two or more rows of one per-lift code fold into one (hubRules.foldBandRows). A row is ONE text node;
  * clickable rows (hubRules.problemClick) are a cs2/ui Button, inert rows a plain div. The row text is the tooltip's first line, so the ellipsis is the net.
  * Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, problems$, city$.
  */
@@ -16,7 +16,7 @@ import type { BuildItemId, CityStats, ProblemRow, ResortLive, ResortRow } from "
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
-  bandRowsOf, bandSlots, closedRuns, factorRowsOf, foldBandRows, liftNameList, liveOf, problemClick, problemIcon, problemVariant,
+  BAND_SLOTS, bandRowsOf, bandSlots, closedRuns, factorRowsOf, foldBandRows, liftNameList, liveOf, problemClick, problemIcon, problemVariant,
   statusHint, statusVariant, statusWord,
 } from "./hubRules";
 import type { BandRow, ProblemClick, ProblemVariant } from "./hubRules";
@@ -97,16 +97,15 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
   const N = numArg(p.count, Unit.Integer);
   const PCT = numArg(p.pct, Unit.Percentage);
   const REASON = t(factorEntry(p.factor));
-  const MORE = numArg(p.more, Unit.Integer);
   switch (problemVariant(p)) {
     case "unlinked": return <>{t(HUB_LOC.problemUnlinked)}</>;
     case "noLodge": return <>{t(HUB_LOC.problemNoLodge)}</>;
     case "lodgesAllOff": return <>{t(HUB_LOC.problemLodgesAllOff)}</>;
     case "lodgesSomeOff": return <LocText entry={HUB_FMT.problemLodgesSomeOff} args={{ N }} />;
-    case "efficiency": return <LocText entry={HUB_FMT.problemEfficiency} args={{ PCT, REASON }} />;
-    case "efficiencyMore": return <LocText entry={HUB_FMT.problemEfficiencyMore} args={{ PCT, REASON, N: MORE }} />;
-    case "notRunning": return <LocText entry={HUB_FMT.problemNotRunning} args={{ REASON }} />;
-    case "notRunningMore": return <LocText entry={HUB_FMT.problemNotRunningMore} args={{ REASON, N: MORE }} />;
+    // The other factors live in the tooltip (problemTip lists every one); a "+N" here read like the band's own "+N" beside it
+    // (in game 2026-11-07: "... Not Enough Employees +3" next to "+3").
+    case "efficiency": case "efficiencyMore": return <LocText entry={HUB_FMT.problemEfficiency} args={{ PCT, REASON }} />;
+    case "notRunning": case "notRunningMore": return <LocText entry={HUB_FMT.problemNotRunning} args={{ REASON }} />;
     case "liftNoPower": return <LocText entry={HUB_FMT.problemLiftNoPower} args={{ NAME }} />;
     case "liftSectionMissing": return <LocText entry={HUB_FMT.problemLiftSectionMissing} args={{ NAME }} />;
     case "liftUnfinished": return <LocText entry={HUB_FMT.problemLiftUnfinished} args={{ NAME }} />;
@@ -285,20 +284,18 @@ function ProblemIconEl({ p }: { p: ProblemRow | null }): JSX.Element {
   return <Glyph src={icon.src} className={cx(styles.problemIcon, tone)} />;
 }
 
-/** One of the three fixed slots: always a `.problemSlotRow` (1.45 em); slot 3 carries the "+N" cell. */
-function ProblemSlot({ b, slot, more, hidden, factors, live, t, noneLine, popOpen }: {
-  b: BandRow | null; slot: number; more: number; hidden: readonly BandRow[]; factors: readonly ProblemRow[];
+/** A band slot: always a `.problemSlotRow` (1.45 em); the last slot carries the "+N" cell. */
+function ProblemSlot({ b, slot, more, factors, live, t, noneLine, popOpen }: {
+  b: BandRow | null; slot: number; more: number; factors: readonly ProblemRow[];
   live: ResortLive | null; t: Translate; noneLine: boolean; popOpen: boolean;
 }): JSX.Element {
-  // "+N" is a button that opens the popover under the band (its tooltip still names the hidden rows)
-  const moreCell = slot !== 2 ? null : more > 0 ? (
+  // "+N" is a button that opens the popover under the band (no hover list: the click shows the same rows)
+  const moreCell = slot !== BAND_SLOTS - 1 ? null : more > 0 ? (
     <div className={styles.problemMore}>
-      <Tip tip={popOpen ? undefined : <TipLines lines={[...hidden.map((h, i) => <BandText key={i} b={h} t={t} />)]} />}>
-        <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.problemMoreButton, popOpen && styles.problemMoreOn) }}
-          onSelect={() => problemsOpen$.update(!problemsOpen$.value)}>
-          <LocText entry={HUB_FMT.problemMore} args={{ N: numArg(more, Unit.Integer) }} />
-        </Button>
-      </Tip>
+      <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.problemMoreButton, popOpen && styles.problemMoreOn) }}
+        onSelect={() => problemsOpen$.update(!problemsOpen$.value)}>
+        {more === 1 ? <LocText entry={HUB_FMT.problemMoreOne} args={{}} /> : <LocText entry={HUB_FMT.problemMore} args={{ N: numArg(more, Unit.Integer) }} />}
+      </Button>
     </div>
   ) : <div className={styles.problemMore} />;
   const p = b ? b.row : null;
@@ -384,12 +381,12 @@ export function StatusBlock({ statusRef, problemsRef }: {
       </Tip>
       <div ref={problemsRef} className={cx(styles.problems, styles.problemsAnchor)}>
         {slots.map((b, i) => (
-          <ProblemSlot key={i} b={b} slot={i} more={i === 2 ? more : 0} hidden={band.slice(3)} factors={factors} live={l} t={t}
+          <ProblemSlot key={i} b={b} slot={i} more={i === BAND_SLOTS - 1 ? more : 0} factors={factors} live={l} t={t}
             noneLine={i === 0 && band.length === 0 && !(l && statusVariant(row, l) === "unknown")} popOpen={popOpen} />
         ))}
         {popOpen && (
           <div className={cx(styles.overlayCard, styles.overlayBelow)}>
-            {band.slice(3).map((b, i) => {
+            {band.slice(BAND_SLOTS).map((b, i) => {
               const click = bandClick(b);
               const row = (
                 <>

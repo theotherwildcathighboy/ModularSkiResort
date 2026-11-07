@@ -178,8 +178,14 @@ export function problemClick(p: ProblemRow): ProblemClick {
   }
 }
 
+/** The band shows ONE row, the worst (C# ranks them); the rest open from "+N" (2026-11-07, DECISIONS 613: three fixed rows cost two
+ *  lines on every view). */
+export const BAND_SLOTS = 1;
+
 export function bandSlots<T>(rows: readonly T[]): { slots: Array<T | null>; more: number } {
-  return { slots: [rows[0] ?? null, rows[1] ?? null, rows[2] ?? null], more: Math.max(0, rows.length - 3) };
+  const slots: Array<T | null> = [];
+  for (let i = 0; i < BAND_SLOTS; i++) slots.push(rows[i] ?? null);
+  return { slots, more: Math.max(0, rows.length - BAND_SLOTS) };
 }
 
 
@@ -563,16 +569,36 @@ export function effectiveTab(drawn: readonly BuildTab[], stored: string | null |
   return drawn.length > 0 ? drawn[0] : "";
 }
 
-export type FooterState = "hover" | "follow" | "active" | "locked" | "empty" | "idle";
+export type FooterState = "follow" | "active" | "locked" | "empty" | "idle";
 
-/** Footer priority: hover > follow notice > active tool > locked click > idle. */
-export function footerState(hasItems: boolean, hovered: boolean, followOn: boolean, active: boolean, lockedClick: boolean): FooterState {
+/** Footer status line priority: follow notice > active tool > locked click > idle. A hovered tile changes nothing: its tooltip
+ *  names it, prices it and gives its hint (2026-11-07, DECISIONS 613; the line used to repeat the tooltip). */
+export function footerState(hasItems: boolean, followOn: boolean, active: boolean, lockedClick: boolean): FooterState {
   if (!hasItems) return "empty";
-  if (hovered) return "hover";
   if (followOn) return "follow";
   if (active) return "active";
   if (lockedClick) return "locked";
   return "idle";
+}
+
+/** The Build strip opens like the game's toolbar (2026-11-07, DECISIONS 613): only the tab row until the player clicks a tab, and
+ *  always while something it started is engaged (a build tool, the tree tool, the planner, the lift generator, cat track delete,
+ *  the merge overlay). A footer that cannot collapse (the contract-mismatch panel) is always open. */
+export function footerOpen(stored: boolean, engaged: boolean, collapsible: boolean): boolean {
+  return !collapsible || engaged || stored;
+}
+
+/** A tab click: a closed strip opens on that tab; the open tab closes it; another tab switches (and stays open). */
+export function tabClick(open: boolean, current: string, clicked: BuildTab): { open: boolean; tab: BuildTab } {
+  return { open: !open || current !== clicked, tab: clicked };
+}
+
+export type BuildingFamily = "lodges" | "services";
+
+/** The Buildings tab shows one family at a time (one tile row on every tab): the sign and the lodge tiers, or the services (bus depot,
+ *  ski school, patrol huts). */
+export function buildingFamily(kind: string | undefined): BuildingFamily {
+  return kind === "depot" || kind === "school" || kind === "patrol" ? "services" : "lodges";
 }
 
 export function runKindOfItem(id: BuildItemId): RunKind | undefined {

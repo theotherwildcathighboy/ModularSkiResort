@@ -11,8 +11,6 @@ import type { HistoryArea } from "../bindings";
 export type HistoryRange = "months12" | "seasonVs" | "bySeason";
 export const HISTORY_RANGES: readonly HistoryRange[] = ["months12", "seasonVs", "bySeason"];
 
-export type HistoryCharts = "guests" | "money" | "both";
-export const HISTORY_CHARTS: readonly HistoryCharts[] = ["guests", "money", "both"];
 
 /** July as a calendar month 0..11 (C# SkiMoneyRules.SeasonFirstMonth 7, 1-based): a map with a December winter. */
 export const SEASON_FIRST_MONTH0 = 6;

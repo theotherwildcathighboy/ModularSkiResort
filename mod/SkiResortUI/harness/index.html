@@ -6,14 +6,10 @@
 <title>Ski Resort hub harness</title>
 <!-- The game's own stylesheet first: it carries the :root theme variables the hub's SCSS reads
      (served by harness/serve.js from the installed game; a 404 here only loses the theme vars). -->
-<link rel="stylesheet" href="/game/index.css">
-<link rel="stylesheet" href="../build/SkiResortMod.css">
 <style>
-  /* The game sets html font-size so that 1rem = 1 px at 1080p (index.css: .0925926vh). Same here. */
-  html { font-size: .0925926vh; }
-  @media (max-aspect-ratio: 16/9) { html { font-size: .0520833vw; } }
+  /* Fallbacks only for a missing /game/index.css: declared BEFORE the game's stylesheet so its values win (they used to
+     come after it and overrode the game, e.g. --textColorDimmer and a 0.94-opaque panel; DECISIONS 613). */
   :root {
-    /* fallbacks in case /game/index.css is missing; the game's values win when it loads */
     --accentColorNormal: #4bc3f1; --normalTextColor: #F0FBFF; --fontScale: 1; --fontScaleChange: 0;
     --warningColor: #ffa42d; --negativeColor: #e95f4a; --selectedColor: #1e83aa; --lockedColor: #d38f07;
     --sectionBackgroundColor: rgba(38,49,71,0.5); --dividerColor: rgba(255,255,255,0.1);
@@ -21,10 +17,19 @@
     --textColorDimmer: rgba(240,251,255,0.6); --panelColorNormal: rgba(42,55,83,0.94);
     --fontSizeXS: calc(12rem * var(--fontScale)); --fontSizeS: calc(14rem * var(--fontScale)); --fontSizeM: calc(16rem * var(--fontScale));
   }
-  /* The game renders with Noto Sans from its Fonts folder (gameface config, no @font-face in index.css). */
-  @font-face { font-family: "CS2 Noto Sans"; src: url("/game/Fonts/NotoSans-Regular.ttf"); font-weight: 400; }
-  @font-face { font-family: "CS2 Noto Sans"; src: url("/game/Fonts/NotoSans-Bold.ttf"); font-weight: 700; }
-  body { margin: 0; font-family: "CS2 Noto Sans", "Noto Sans", "Segoe UI", Arial, sans-serif; color: var(--normalTextColor); background: #1b2230; overflow: hidden; }
+</style>
+<link rel="stylesheet" href="/game/index.css">
+<link rel="stylesheet" href="../build/SkiResortMod.css">
+<style>
+  /* The game sets html font-size so that 1rem = 1 px at 1080p (index.css: .0925926vh). Same here. */
+  html { font-size: .0925926vh; }
+  @media (max-aspect-ratio: 16/9) { html { font-size: .0520833vw; } }
+  /* The game's --fontFamily is Overpass, then Noto Sans (index.css :root); both ship in its Fonts folder. */
+  @font-face { font-family: "Overpass"; src: url("/game/Fonts/Overpass-Regular.ttf"); font-weight: 400; }
+  @font-face { font-family: "Overpass"; src: url("/game/Fonts/Overpass-Bold.ttf"); font-weight: 700; }
+  @font-face { font-family: "Noto Sans"; src: url("/game/Fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+  @font-face { font-family: "Noto Sans"; src: url("/game/Fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+  body { margin: 0; font-family: var(--fontFamily, Overpass, "Noto Sans", Arial, sans-serif); color: var(--normalTextColor); background: #1b2230; overflow: hidden; }
   #stage { position: fixed; inset: 0 0 0 300px; background:
     radial-gradient(1200px 600px at 60% 20%, #e8eef5 0%, #b8c7d8 45%, #6f8aa6 100%); }
   #stage::after { content: "game viewport (the hub sits here)"; position: absolute; right: 16px; bottom: 12px; color: rgba(0,0,0,0.35); font-size: 14px; }
@@ -56,7 +61,7 @@
   .h-floating-img { width: 32rem; height: 32rem; filter: brightness(0) invert(1); }
   .h-tipwrap { position: relative; display: inline-flex; }
   .h-tip { position: absolute; left: 0; top: 100%; margin-top: 6rem; z-index: 50; background: rgba(20,26,38,0.96); color: var(--normalTextColor); border: 1px solid rgba(255,255,255,0.15); border-radius: 4rem; padding: 6rem 8rem; font-size: var(--fontSizeXS); white-space: normal; max-width: 320rem; line-height: 1.35; pointer-events: none; }
-  .h-panel { position: absolute; left: 50%; top: 80rem; transform: translateX(-50%); min-width: 420rem; max-height: calc(100% - 120rem); display: flex; flex-direction: column; background: var(--panelColorNormal); color: var(--normalTextColor); border-radius: 6rem; box-shadow: 0 8px 30px rgba(0,0,0,0.5); font-size: var(--fontSizeS); }
+  .h-panel { position: absolute; left: 50%; top: 80rem; transform: translateX(-50%); min-width: 420rem; max-height: calc(100% - 120rem); display: flex; flex-direction: column; background-color: var(--panelColorNormal); background-image: linear-gradient(var(--panelGradientStart, transparent), var(--panelGradientEnd, transparent)); color: var(--normalTextColor); border-radius: var(--panelRadius, 6rem); box-shadow: 0 8px 30px rgba(0,0,0,0.5); font-size: var(--fontSizeS); }
   .h-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 8rem 12rem; border-bottom: 1px solid var(--dividerColor); font-size: var(--fontSizeM); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
   .h-panel-title { flex: 1; min-width: 0; }
   .h-panel-close { background: none; border: 0; color: inherit; font-size: 22rem; cursor: pointer; line-height: 1; padding: 0 4rem; }
@@ -70,7 +75,7 @@
   .h-scrollable { overflow: auto; }
 </style>
 </head>
-<body>
+<body class="overwrite-legacy">
 <aside id="side">
   <h1>Ski Resort hub — browser harness</h1>
   <div id="status">loading…</div>

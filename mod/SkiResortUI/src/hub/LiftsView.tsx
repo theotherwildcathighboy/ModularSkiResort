@@ -16,7 +16,7 @@ import { liftTypesOf, loneStations, partnerPlaced } from "./hubRules";
 import { focused$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, LIFT_STATUS_TEXT, LIFT_TYPE } from "./hubText";
 import { LiftLine2, liftId } from "./LiftTable";
-import { Divider, InfoLine, LocText, Num, cx, numArg } from "./parts";
+import { Divider, InfoLine, LocText, Num, TipLines, cx, numArg } from "./parts";
 import { currentResort, liftsOf, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
 
@@ -85,14 +85,14 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
         </div>
       )}
       <Divider />
-      <InfoLine
-        label={t(HUB_LOC.liftsTotalLength)}
-        value={row ? <Num value={row.liftLengthM} unit={Unit.Length} /> : "–"}
-      />
+      {/* One total on the surface (DECISIONS 613); the total length is a row of its tooltip (Finances' Lifts row names it too). */}
       <InfoLine
         label={t(HUB_LOC.liftsTotalCapacity)}
         value={row && row.capacityPerHour >= 0 ? <LocText entry={HUB_FMT.capacityValue} args={{ CAP: numArg(row.capacityPerHour, Unit.Integer) }} /> : "–"}
-        tip={t(HUB_LOC.liftsTotalCapacityTip)}
+        tip={<TipLines lines={[
+          t(HUB_LOC.liftsTotalCapacityTip),
+          { label: t(HUB_LOC.liftsTotalLength), value: row ? <Num value={row.liftLengthM} unit={Unit.Length} /> : "–" },
+        ]} />}
       />
     </>
   );

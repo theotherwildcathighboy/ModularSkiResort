@@ -509,6 +509,10 @@ namespace ResortBatch
             int net = HubRules.NetMonth(fromLedger, out bool est);
             C(net == -19299 && !est && HubRules.NetMonth(fromElement, out bool _) == net && TsNet(el) == net, "H-10 net",
               $"ledger NetMonth {net} (est {est}), element {HubRules.NetMonth(fromElement, out bool _)}, TS {TsNet(el)}; want −19299");
+            // the Finances view's two sides (contract 38): income 2,250, costs 21,549, and their difference is the net
+            C(HubRules.IncomeMonth(fromLedger) == 2250 && HubRules.CostsMonth(fromLedger) == 21549 &&
+              HubRules.IncomeMonth(fromLedger) - HubRules.CostsMonth(fromLedger) == net, "H-10 sides",
+              $"income {HubRules.IncomeMonth(fromLedger)}, costs {HubRules.CostsMonth(fromLedger)}; want 2250 / 21549");
 
             // snapshot missing (both rates unknown) and one rate unknown: C# reads −1 as 0, TS leaves staff out — the same net
             el.m_BuildingsCost = SkiResortHistoryMonth.Unknown;

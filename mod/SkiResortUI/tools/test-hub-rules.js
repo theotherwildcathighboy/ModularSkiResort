@@ -89,8 +89,8 @@ function run(srcDir) {
   ];
   eq("T2.1 bandRowsOf codes", R.bandRowsOf(probs, A).map((p) => p.code), [4, 5, 10, 12]);
   eq("T2.2 factorRowsOf", R.factorRowsOf(probs, A).map((p) => p.pct), [-50]);
-  eq("T2.3 bandSlots more", R.bandSlots(R.bandRowsOf(probs, A)).more, 1);
-  eq("T2.4 bandSlots empty", R.bandSlots([]).slots, [null, null, null]);
+  eq("T2.3 bandSlots more (one slot since the 2026-11-07 redesign)", R.bandSlots(R.bandRowsOf(probs, A)).more, 3);
+  eq("T2.4 bandSlots empty", R.bandSlots([]).slots, [null]);
   eq("T2.5 dot Copper Bowl", R.dotItem(probs, A, true), "topStation");
   eq("T2.6 dot other area", R.dotItem(probs, B, true), "lodge");
   eq("T2.7 dot no sign", R.dotItem([], NUL, false), "sign");
@@ -174,11 +174,10 @@ function run(srcDir) {
   eq("T5.9 line1 cost", R.line1Variant("lodge", item({ cost: 40000 })), "cost");
   eq("T5.10 line1 cost zero", R.line1Variant("sign", item({ cost: 0 })), "cost");
   eq("T5.11 line1 name", R.line1Variant("station", item({})), "name");
-  eq("T5.12 footer priority", [
-    R.footerState(false, true, true, true, true), R.footerState(true, true, true, true, true),
-    R.footerState(true, false, true, true, true), R.footerState(true, false, false, true, true),
-    R.footerState(true, false, false, false, true), R.footerState(true, false, false, false, false)],
-    ["empty", "hover", "follow", "active", "locked", "idle"]);
+  eq("T5.12 footer priority (no hover state since the 2026-11-07 redesign: one status line)", [
+    R.footerState(false, true, true, true), R.footerState(true, true, true, true),
+    R.footerState(true, false, true, true), R.footerState(true, false, false, true), R.footerState(true, false, false, false)],
+    ["empty", "follow", "active", "locked", "idle"]);
   eq("T5.13 run kinds", ["runNatural", "runGroomed", "runSnowmaking", "runNight", "lift"].map(R.runKindOfItem), [3, 0, 1, 2, undefined]);
   // Every kind (a line of any lift type reads "about per km"; an unknown kind reads its cost).
   const full = item({ cost: 125000, costPerKm: 15000, price: 500, pricePerHa: 250 });
@@ -523,7 +522,7 @@ function run(srcDir) {
     eq("T26.4 liftNameList", [R.liftNameList(["Lift 3", "Lift 4", "Lift 5"]), R.liftNameList(["Meadow Quad", "Lift 4"]),
       R.liftNameList(["Lift 3"]), R.liftNameList(["Lift 3", "Gondola 4"]), R.liftNameList(["", "Lift 2"]), R.liftNameList([])],
       ["Lift 3, 4, 5", "Meadow Quad, Lift 4", "Lift 3", "Lift 3, Gondola 4", "–, Lift 2", "–"]);
-    eq("T26.5 bandSlots over folded rows: 8 raw rows (3 unfinished) -> 6 band rows, +3", R.bandSlots(R.foldBandRows(rows.concat([L(9, ""), L(15, "", 1)]))).more, 3);
+    eq("T26.5 bandSlots over folded rows: 8 raw rows (3 unfinished) -> 6 band rows, +5", R.bandSlots(R.foldBandRows(rows.concat([L(9, ""), L(15, "", 1)]))).more, 5);
     eq("T26.6 liftsTile: built / drawn; unknown -> null; drawn never below built",
       [R.liftsTile({ liftRows: 5 }, { liftsComplete: 1 }), R.liftsTile({ liftRows: 5 }, null), R.liftsTile({ liftRows: 5 }, { liftsComplete: -1 }),
         R.liftsTile({ liftRows: 1 }, { liftsComplete: 2 })],
@@ -535,7 +534,7 @@ function run(srcDir) {
         /<div className=\{styles\.pagerRow\}>/.test(fit),
         (read("OverviewView.tsx").match(/<Fold\b/g) || []).length, (read("GuestsView.tsx").match(/<Fold\b/g) || []).length,
         (read("MoneyView.tsx").match(/<Fold\b/g) || []).length, /<Pager fit=\{fit\} \/>/.test(read("RunsView.tsx")), /<Pager fit=\{fit\} \/>/.test(read("LiftsView.tsx"))],
-      [true, true, true, 2, 4, 2, false, false]);
+      [true, true, true, 2, 4, 3, false, false]);
     // T27 the Lifts-tab toggle mirrors the tree tool: liftLine$ + liftLineToggle, ok panel only.
     const binds = fs.readFileSync(path.join(srcDir, "bindings.ts"), "utf8");
     eq("T27.1 lift generator: contract 12 or later (13 = T136), liftLine binding + liftLineToggle trigger, toggle on the Lifts tab only in the ok panel",
@@ -543,8 +542,8 @@ function run(srcDir) {
         strip.includes("{tab === \"lifts\" && info.liftTool && <LiftToolSet t={t} />}"), strip.includes("onSelect={() => hubTriggers.liftLineToggle()}"),
         /liftTool: true/.test(strip), !/liftTool: true/.test(strip.slice(strip.indexOf("MISMATCH_FOOTER"), strip.indexOf("MISMATCH_FOOTER") + 160))],
       [12, true, true, true, true, true, true, true]);
-    eq("T26.8 Buildings tab: no lodge chips, the Lodges caption; Lifts tile = liftsTile",
-      [/set="lodge"/.test(strip), strip.includes("HUB_LOC.lodgeGroup"), tiles.includes("liftsTile(row, l)")], [false, true, true]);
+    eq("T26.8 Buildings tab: no lodge chips, the Lodges / Services family chips; Lifts tile = liftsTile",
+      [/set="lodge"/.test(strip), strip.includes("<FamilySetView family={family}"), tiles.includes("liftsTile(row, l)")], [false, true, true]);
   }
 
   // T25 problem 26 (top-level schools on no sign) renders and flies to the school; the school's hints say "goes near the sign" and
@@ -584,8 +583,8 @@ function run(srcDir) {
   const csTuples = new Map();
   for (const m of locale.matchAll(/\{\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)"\s*\}/g)) csTuples.set(m[1], m[2]);
   const histKeys = [...tuples.keys()].filter((k) => /^SkiResort\.Hub\.(HISTORY|TILE\[History\]|TILE_TIP\[History\])/.test(k));
-  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (50 keys)",
-    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [50, []]);
+  eq("T20.2 every HISTORY key of hubText.ts is in LocaleEN.cs with the same text (48 keys; Finances / Both went with the charts segment)",
+    [histKeys.length, histKeys.filter((k) => csTuples.get(k) !== tuples.get(k))], [48, []]);
   const viewSrc = read(path.join("hub", "HistoryView.tsx"));
   const H = HR;
   eq("T20.3 three range options (12 months, this season vs last, by season), each with a label and a tooltip in HistoryView",
@@ -618,8 +617,8 @@ function run(srcDir) {
   const chartSrc = read(path.join("hub", "HistoryChart.tsx"));
   const statusSrc = read(path.join("hub", "StatusBlock.tsx"));
   const tilesSrc = read(path.join("hub", "ViewTiles.tsx"));
-  eq("T21.1 B2: HISTORY_COLOR income #3987e5 / costs #e34948; one income and one cost series; legend Income, Costs, Net",
-    [/income: "#3987e5"/.test(chartSrc), /costs: "#e34948"/.test(chartSrc), (viewSrc.match(/const incomeUp: ChartSeries\[\] = \[([^\]]*)\]/) || [, ""])[1].split("key:").length - 1,
+  eq("T21.1 B2: HISTORY_COLOR income / costs = the game's --city-income-color / --city-expenses-color; one income and one cost series; legend Income, Costs, Net",
+    [/income: "rgba\(65, 216, 128, 0\.8\)"/.test(chartSrc), /costs: "rgba\(223, 95, 127, 0\.8\)"/.test(chartSrc), (viewSrc.match(/const incomeUp: ChartSeries\[\] = \[([^\]]*)\]/) || [, ""])[1].split("key:").length - 1,
       (viewSrc.match(/const costsDown: ChartSeries\[\] = \[([^\]]*)\]/) || [, ""])[1].split("key:").length - 1,
       ["HUB_LOC.historyIncome) }", "HUB_LOC.historyCosts) }", "HUB_LOC.historyNet), line: true }"].every((x) => viewSrc.includes(x))], [true, true, 1, 1, true]);
   eq("T21.2 B3: every line through linePoints; gap hatch; scale gutter with a \"0\" label",
@@ -627,11 +626,11 @@ function run(srcDir) {
     [5, true, true, true, false]);
   eq("T21.3 B5a: the status line renders STATUS_SNOW (or its inch form, T130) from snowDepthCm and snowPct (snow is two numbers, T18)",
     ["HUB_FMT.statusSnow", "HUB_FMT.statusSnowIn", "l.snowDepthCm", "l.snowPct", "useInches()"].map((x) => statusSrc.includes(x)), [true, true, true, true, true]);
-  eq("T21.4 B6: operator cells + + + x x x on the receipt's term rows; no SCORE_OF key left",
+  eq("T21.4 B6: operator cells + + + x x on the receipt's term rows (Scale went in the 2026-11-07 redesign); no SCORE_OF key left",
     [(overview.match(/op="([^"]*)"/g) || []).map((m) => m.slice(4, -1)), tuples.has("SkiResort.Hub.SCORE_OF"), overview.includes("scoreTickPark")],
-    [["+", "+", "+", "×", "×", "×"], false, true]);
-  eq("T21.5 B7a: the Attraction checkbox and strip only in area scope",
-    [/const attractionToggle = scope === "area" \? \(\s*<div className=\{styles\.histControls\}>\s*<Tip tip=\{t\(HUB_LOC\.historyTipAttraction\)\}/.test(viewSrc),viewSrc.includes('const attraction = attractionOn && scope === "area";')], [true, true]);
+    [["+", "+", "+", "×", "×"], false, true]);
+  eq("T21.5 B7a: the Attraction strip only in area scope, always on there (no check box since the 2026-11-07 redesign)",
+    [viewSrc.includes('const attraction = scope === "area";'), viewSrc.includes("attractionToggle"), viewSrc.includes("<CheckBox")], [true, false, false]);
   const glyphSvg = fs.readFileSync(path.join(srcDir, "hub", "HistoryGlyph.svg"), "utf8");
   eq("T21.6 B8: the History tile uses our HistoryGlyph.svg (three bars + a baseline), not the game's CityStatistics.svg",
     [tilesSrc.includes('from "./HistoryGlyph.svg"'), tilesSrc.includes('"Media/Game/Icons/CityStatistics.svg"'), (glyphSvg.match(/<rect /g) || []).length], [true, false, 4]);
@@ -736,12 +735,15 @@ function run(srcDir) {
   // T31 (DECISIONS 423b) the cat track delete: a trash only on a cat track row (other rows keep an empty slot), armed by the first click,
   // sent by the second; the trigger is the deleteCatTrack one (C# queues it and applies it in OnUpdate).
   const runList = read(path.join("hub", "RunList.tsx"));
-  eq("T31.1 the trash is the cat track row's only (an empty penSpacer elsewhere)",
-    runList.includes("row.kind === RUN_KIND.CatTrack ? <TrashButton") && runList.includes(": <div className={styles.penSpacer} />"), true);
+  // Since the 2026-11-07 redesign the trash sits on the picked cat track's name line in the Runs view's context area (RunPropRows), so
+  // every list row keeps the same columns without an empty slot.
+  const propRowsSrc = read(path.join("hub", "RunPropControls.tsx"));
+  eq("T31.1 the trash is the picked cat track's only (RunPropRows), no list row draws one",
+    [propRowsSrc.includes("{catTrack && <TrashButton row={row} t={t} armed={armed} setArmed={setArmed} />}"), runList.includes("<TrashButton")], [true, false]);
   eq("T31.2 two clicks: the first arms (setArmed(true); return), the second sends hubTriggers.deleteCatTrack(row.entity)",
     [/if \(!armed\) \{\s*setArmed\(true\);\s*return;/.test(runList), runList.includes("hubTriggers.deleteCatTrack(row.entity)")], [true, true]);
-  eq("T31.3 the arm times out (4 s) and leaving the row disarms",
-    [runList.includes("setTimeout(() => setArmed(false), 4000)"), runList.includes("onMouseLeave={() => armed && setArmed(false)}")], [true, true]);
+  eq("T31.3 the arm times out (4 s) and picking another run disarms (RunPropRows keyed by the focused run)",
+    [runList.includes("setTimeout(() => setArmed(false), 4000)"), read(path.join("hub", "RunsView.tsx")).includes("<RunPropRows key={focusedId} row={focusedRow} />")], [true, true]);
   // T32 (contract 19, field test 2026-10-26b) the Runs tab's Delete cat tracks chip: the catTrackDeleteMode value (off by default, C#
   // owns it and follows the tool) and the setCatTrackDeleteMode(bool) trigger; the chip flips the C# value and is drawn on the ok panel
   // only, beside the Quick runs chip, always (nothing moves under the mouse).
@@ -767,10 +769,10 @@ function run(srcDir) {
     [50, 0, 40, 60, 20, 0, 80, 100, 20, 20]);
   const propRows = read(path.join("hub", "RunPropControls.tsx"));
   const runsView = read(path.join("hub", "RunsView.tsx"));
-  eq("T35.2 the rows send the two triggers, read C#'s value and are drawn under the tree rows while Quick runs is closed, for the focused row",
+  eq("T35.2 the rows send the two triggers, read C#'s value and are the context area's last choice (Quick runs, draw, tree tool, then the picked run)",
     [propRows.includes("hubTriggers.setRunGunSpacing(row.entity, m)"), propRows.includes("hubTriggers.setRunLightSpacing(row.entity, m)"), propRows.includes("row.gunSpacingM"), propRows.includes("row.lightSpacingM"),
       // contract 33: the Run tile's option row takes their place while a run is drawn
-      /!quick\?\.active && \(draw\.active \? <DrawRunRows draw=\{draw\} \/>\s*: <RunPropRows row=\{rows\.find\(\(r\) => r\.entity && entityId\(r\.entity\) === focusedId\)\} \/>\)/.test(runsView)],
+      /quick\?\.active \? <QuickRunsRows \/>\s*: draw\.active \? <DrawRunRows draw=\{draw\} \/>\s*: glade\?\.active \? <TreeRows toggle=\{false\} \/>\s*: focusedRow \? <RunPropRows key=\{focusedId\} row=\{focusedRow\} \/> : null;/.test(runsView)],
     [true, true, true, true, true]);
   eq("T35.3 a cat track row shows its running cost (billed by plan area while its guns can run)",
     [read(path.join("hub", "RunList.tsx")).includes("row.kind !== RUN_KIND.Natural && row.bound && {\n          label: t(HUB_LOC.runCost)")], [true]);
@@ -830,7 +832,7 @@ function run(srcDir) {
       L(11, "Lift 7", 1), L(30, "Lift 7", 1), L(31, "Lift 7", 1), L(32, "Lift 8", 1)];
     const band = R.foldBandRows(cut);
     eq("T39.2 the C# cut of 4 No power + 6 other rows + a low span folds to 8 band rows, No power one of them, the low span last",
-      [band.length, band[1].group.length, band[band.length - 1].row.code, R.bandSlots(band).more], [8, 4, 32, 5]);
+      [band.length, band[1].group.length, band[band.length - 1].row.code, R.bandSlots(band).more], [8, 4, 32, 7]);
   }
   {
     // 2026-11-02 small calls: a band row whose tooltip only repeated it has none; the CAR SPACES header names every lodge, its rows
@@ -846,6 +848,19 @@ function run(srcDir) {
         guests.includes("tip={t(HUB_LOC.guestsTipCarSpacesAll)}"), (guests.match(/HUB_LOC\.guestsTipCarSpaces\b/g) || []).length,
         /guestsTipPaid: \[[^\]]*"Month of/.test(text), /skiDaysTipSent: \[[^\]]*"Month of/.test(text), /"Month of/.test(text)],
       [true, true, 2, false, false, false]);
+  }
+
+  // T40 the design language (hub redesign 2026-11-07, docs/research/ui/redesign-2026-11-07/vanilla-design-language.md section 5):
+  // every color literal of hub.module.scss stands in the token block (rgba(0, 0, 0, 0) excepted); no legacy-only variable outside
+  // the .legacy-interface block (they follow the old interface, the hub follows the game's current one through --hubGood / Bad /
+  // Caution); the tokens sit on the panel, the cards and the tooltip body.
+  {
+    const scss = fs.readFileSync(path.join(srcDir, "hub", "hub.module.scss"), "utf8");
+    const end = scss.indexOf("// ---- end of tokens");
+    const rest = end < 0 ? scss : scss.slice(end).replace(/\/\/[^\n]*/g, "");
+    const literals = rest.match(/rgba?\((?!0, 0, 0, 0\))[^)]*\)|#[0-9a-fA-F]{3,8}\b/g) || [];
+    const legacy = rest.match(/var\(--(warningColor|positiveColor|negativeColor|textColorDim\w*)\)/g) || [];
+    eq("T40.1 color literals and legacy variables below the token block", [end > 0, scss.includes(":global(.legacy-interface) .tipLines {"), literals, legacy], [true, true, [], []]);
   }
 
   const hr = require("./test-history-rules").run(srcDir);

@@ -19,8 +19,8 @@ export const HISTORY_COLOR = {
   tourists: "#3987e5",
   residents: "#199e70",
   skiDays: "#c98500",
-  income: "#3987e5",
-  costs: "#e34948",
+  income: "rgba(65, 216, 128, 0.8)",   // the game's --city-income-color (budget charts; set from JS there, so copied here)
+  costs: "rgba(223, 95, 127, 0.8)",    // the game's --city-expenses-color
   net: "#f0fbff",
   attraction: "#9085e9",
   lastSeason: "#646c7e",

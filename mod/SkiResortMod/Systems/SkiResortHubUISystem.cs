@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 37;
+        public const int HubContract = 38;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -3668,6 +3668,10 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.BusGuestsMonth));
                 writer.PropertyName("busBillMonth");
                 writer.Write(Fin(r.BusBillMonth));
+                writer.PropertyName("incomeMonth");
+                writer.Write(Fin(r.IncomeMonth));
+                writer.PropertyName("costsMonth");
+                writer.Write(Fin(r.CostsMonth));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

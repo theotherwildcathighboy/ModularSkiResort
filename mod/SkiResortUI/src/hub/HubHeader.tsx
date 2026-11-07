@@ -1,8 +1,8 @@
 /*
  * src/hub/HubHeader.tsx - the panel's title bar: the ski-area selector, or the plain title.
- * Row `‹ [name ▾] › N / COUNT [pen] [fly]`: the name button toggles hubState.areaListOpen$ and HubPanel draws AreaList as an overlay in
+ * Row `‹ [name ▾] › [pen] [fly]` (no "N / COUNT" since DECISIONS 613: it read like the pager's page count; the list shows every area): the name button toggles hubState.areaListOpen$ and HubPanel draws AreaList as an overlay in
  * our body (no Portal). Arrows cycle the entries (resortData.ts) and send selectResort(sign | Null); C# may refuse, the UI never assumes.
- * The Not linked entry has no sign: its pen / fly keep their space (visibility hidden). Rename: pen -> RenameField; commit -> rename(sign, text).
+ * The Not linked entry has no sign: its pen / fly keep their space (visibility hidden); so do the arrows with one area. Rename: pen -> RenameField; commit -> rename(sign, text).
  * Every button stops mousedown (the Panel title bar is a drag handle) and passes focusKey={FOCUS_DISABLED} (rule R15).
  * Engine notes: EngineNotes/HubHeader.tsx.md
  */
@@ -40,12 +40,11 @@ export interface HeaderButtonProps {
   src: string;
   tip: ReactNode;
   onSelect: () => void;
-  inactive?: boolean;
   hidden?: boolean;
 }
 
-/* An icon button of the title bar: never starts a drag; `inactive` keeps it visible and inert. */
-function HeaderButton({ src, tip, onSelect, inactive, hidden }: HeaderButtonProps): JSX.Element {
+/* An icon button of the title bar: never starts a drag; `hidden` keeps its space. */
+function HeaderButton({ src, tip, onSelect, hidden }: HeaderButtonProps): JSX.Element {
   return (
     <Tip tip={hidden ? undefined : tip}>
       <Button
@@ -53,10 +52,10 @@ function HeaderButton({ src, tip, onSelect, inactive, hidden }: HeaderButtonProp
         src={src}
         tinted
         focusKey={FOCUS_DISABLED}
-        className={cx(styles.headerButton, inactive && styles.headerButtonInactive, hidden && styles.hiddenKeepSpace)}
+        className={cx(styles.headerButton, hidden && styles.hiddenKeepSpace)}
         onMouseDown={noDrag}
         onSelect={() => {
-          if (!inactive && !hidden) onSelect();
+          if (!hidden) onSelect();
         }}
       />
     </Tip>
@@ -152,7 +151,6 @@ export function HubHeader(): JSX.Element {
 
   const unlinked = cur.isUnlinked;
   const count = e.entries.length;
-  const position = cur.index < 0 ? 1 : cur.index + 1;
   const single = count < 2;
   const signKey = unlinked ? "" : `${row.sign.index}:${row.sign.version}`;
   const isRenaming = !unlinked && renaming === signKey;
@@ -165,7 +163,7 @@ export function HubHeader(): JSX.Element {
 
   return (
     <div className={styles.switcher}>
-      <HeaderButton src="Media/Glyphs/ThickStrokeArrowLeft.svg" tip={t(HUB_LOC.resortPrev)} inactive={single} onSelect={() => go(-1)} />
+      <HeaderButton src="Media/Glyphs/ThickStrokeArrowLeft.svg" tip={t(HUB_LOC.resortPrev)} hidden={single} onSelect={() => go(-1)} />
       {isRenaming ? (
         <div className={styles.switcherName}>
           <RenameField
@@ -182,10 +180,7 @@ export function HubHeader(): JSX.Element {
       ) : (
         <AreaNameButton name={name} unlinked={unlinked} t={t} />
       )}
-      <HeaderButton src="Media/Glyphs/ThickStrokeArrowRight.svg" tip={t(HUB_LOC.resortNext)} inactive={single} onSelect={() => go(1)} />
-      <div className={styles.switcherPosition}>
-        <LocText entry={HUB_FMT.resortPosition} args={{ N: String(position), COUNT: String(Math.max(count, 1)) }} />
-      </div>
+      <HeaderButton src="Media/Glyphs/ThickStrokeArrowRight.svg" tip={t(HUB_LOC.resortNext)} hidden={single} onSelect={() => go(1)} />
       <HeaderButton
         src="Media/Glyphs/Pen.svg"
         tip={<TipLines lines={[t(HUB_LOC.rename), t(HUB_LOC.renameTip)]} />}

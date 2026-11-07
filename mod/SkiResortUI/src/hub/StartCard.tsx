@@ -1,7 +1,7 @@
 /*
  * Start card: the panel content while the city has no live Welcome Sign, even when unlinked runs or
  * lifts exist. Four numbered steps in fixed-height rows; step 1 holds the "Place Welcome Sign" button.
- * Four one-line notes follow the steps. A locked sign still launches (C# refuses and logs it); its lock reason comes last.
+ * No note under the steps (hub redesign 2026-11-07: the Welcome Sign tile's tooltip says what a sign covers). A locked sign still launches (C# refuses and logs it); its lock reason comes last.
  * Panel file: subscribes build$ (CORE).
  */
 import { useValue } from "cs2/api";
@@ -18,7 +18,6 @@ import styles from "./hub.module.scss";
 const STEPS: readonly LocEntry[] = [
   HUB_LOC.startStep1, HUB_LOC.startStep2, HUB_LOC.startStep3, HUB_LOC.startStep4,
 ];
-const NOTES: readonly LocEntry[] = [HUB_LOC.startNoteAreas];
 
 export function StartCard(): JSX.Element {
   const t = useT();
@@ -43,10 +42,7 @@ export function StartCard(): JSX.Element {
           )}
         </div>
       ))}
-      {NOTES.map((note, i) => (
-        <div key={i} className={styles.startNote}>{t(note)}</div>
-      ))}
-      {sign?.locked &&<div className={styles.reasonLine}>{t(sentKeyEntry(sign.reason, HUB_LOC.locked))}</div>}
+      {sign?.locked && <div className={styles.reasonLine}>{t(sentKeyEntry(sign.reason, HUB_LOC.locked))}</div>}
     </div>
   );
 }

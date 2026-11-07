@@ -198,6 +198,9 @@ Then poll `seqStatus` until `done`.
 - **Input needs focus.** Every input step checks that the game is the foreground window and fails the sequence if not, so input cannot
   land in another app. Bring the game forward from outside first with the `SetForegroundWindow` recipe above. Never computer-use
   `open_application`: it starts a second game. Focus is lost whenever the Claude desktop app comes forward; check `status.focused`.
+- **A dead corner can swallow clicks.** In a large playset (83 code mods, 2026-11-07) synthetic clicks in the top-right corner
+  (x >= ~3200, y < ~350 at 3840 x 2160) never reached the UI, vanilla buttons included, so it is the environment, not our panel. There,
+  dispatch `mousedown`, `mouseup` and `click` MouseEvents on the element through the UI eval instead (Gameface has no `Element.click`).
 - **Left-hand traffic needs a new city** (a loaded save keeps its own setting). The New Game toggle persists in `UserState.coc`, so set it
   back afterward, with the game closed.
 - **It takes the real mouse while a sequence runs.** Nobody else can use the PC during input steps. Reads never touch the mouse.

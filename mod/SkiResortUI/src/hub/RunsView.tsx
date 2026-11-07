@@ -1,22 +1,23 @@
 /*
- * src/hub/RunsView.tsx - the Runs view: the tree tool rows (the Quick runs rows while that tool is open), the piste-map toggle and the run list of the shown ski area.
+ * src/hub/RunsView.tsx - the Runs view: one context area (Quick runs, draw, tree tool or the picked run's rows; empty when idle), the piste-map
+ * toggle and the run list of the shown ski area.
  * One list, no pager (this view and Lifts are the two that may scroll). The piste-map check box shows C#'s value (pisteMap$), never a guess:
  * a click sends setPisteMap(!value) and C# answers by pushing it. RunLine sends hoverRun on enter (dedup); leaving the list and unmounting send
  * Null once (HubPanel covers the area switch and the panel unmount). Joins: runLive by entityId (hubRules.runLiveMap), lift names by LiftRow.entity,
  * both memoized so a live push re-renders only the rows that moved. Panel file: subscribes selectedResort$, runs$, runLive$, lifts$, pisteMap$,
- * city$, quickRuns$ (+ glade$ in TreeRows); local focused$. The prop rows (RunPropRows) act on the focused run: a click on its row picks it.
+ * city$, quickRuns$, glade$; local focused$. The prop rows (RunPropRows) act on the focused run: a click on its row picks it.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
-import { NULL_ENTITY, city$, drawRun$, entityId, hubTriggers, lifts$, pisteMap$, quickRuns$, runLive$, runs$, selectedResort$ } from "../bindings";
+import { NULL_ENTITY, city$, drawRun$, entityId, glade$, hubTriggers, lifts$, pisteMap$, quickRuns$, runLive$, runs$, selectedResort$ } from "../bindings";
 import type { RunRow } from "../bindings";
 import { useT } from "../l10n";
 import { runLiveMap } from "./hubRules";
 import { focused$, sendHoverRun } from "./hubState";
-import { HUB_LOC, RUN_STATE_TEXT } from "./hubText";
+import { HUB_LOC } from "./hubText";
 import { CheckBox, Divider, Tip, cx, useNumberSamples } from "./parts";
 import { RunHeader, RunLine } from "./RunList";
 import { QuickRunsRows } from "./QuickRunsControls";
@@ -37,10 +38,10 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   const focused = useValue(focused$);
   const quick = useValue(quickRuns$);
   const draw = useValue(drawRun$);
+  const glade = useValue(glade$);
   const [renaming, setRenaming] = useState<string | null>(null);
 
   const liveMap = useMemo(() => runLiveMap(runLive), [runLive]);
-  const stateWords = useMemo(() => RUN_STATE_TEXT.map((e) => t(e)), [t]);
   const liftNames = useMemo(() => {
     const m = new Map<string, string>();
     for (const l of lifts ?? []) if (l) m.set(entityId(l.entity), l.name);
@@ -69,6 +70,15 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   const gating = city.snowGating;
   const backcountryPct = city.backcountryPct;
 
+  // One context area above the list (hub redesign 2026-11-07): the Quick runs rows, the draw rows, the tree rows while the tree tool is on,
+  // the picked run's rows; nothing (and no divider) when idle.
+  const focusedRow = focusedId ? rows.find((r) => r.entity && entityId(r.entity) === focusedId) : undefined;
+  const contextRows = quick?.active ? <QuickRunsRows />
+    : draw.active ? <DrawRunRows draw={draw} />
+      : glade?.active ? <TreeRows toggle={false} />
+        : focusedRow ? <RunPropRows key={focusedId} row={focusedRow} /> : null;
+  const context = contextRows && <>{contextRows}<Divider /></>;
+
   const toggle = (
     <Tip tip={t(HUB_LOC.pisteMapTip)}>
       <Button focusKey={FOCUS_DISABLED} theme={{ button: styles.pisteToggle }} selected={pisteMap} onSelect={() => hubTriggers.setPisteMap(!pisteMap)}>
@@ -80,10 +90,7 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
 
   return (
     <>
-      {quick?.active ? <QuickRunsRows /> : <TreeRows />}
-      {!quick?.active && (draw.active ? <DrawRunRows draw={draw} />
-        : <RunPropRows row={rows.find((r) => r.entity && entityId(r.entity) === focusedId)} />)}
-      <Divider />
+      {context}
       <RunHeader t={t} samples={samples} pisteMap={toggle} />
       {rows.length === 0 ? (
         <div className={styles.dimLine}>{t(HUB_LOC.runsEmpty)}</div>
@@ -99,7 +106,6 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
                 liftName={row.served ? liftNames.get(entityId(row.servedBy)) : undefined}
                 t={t}
                 samples={samples}
-                stateWords={stateWords}
                 focused={id === focusedId}
                 renaming={id === renaming}
                 gating={gating}

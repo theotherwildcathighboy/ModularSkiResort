@@ -1,19 +1,21 @@
 /*
  * src/hub/RunPropControls.tsx - the Runs view's feature rows for the focused run (run types R3, DECISIONS 578): Groomed (on / off, a re-emit),
  * then how far apart its snow guns and floodlights stand. Each spacing row is caption, Fewer, value, More (DECISIONS 601: the old -50 / -10 /
- * +10 / +50 read backwards, since a smaller spacing means more guns and the low end was Off). The run is the focused row of the list; the rows always draw, so the view does not jump when a run is picked. The values
+ * +10 / +50 read backwards, since a smaller spacing means more guns and the low end was Off). The run is the focused row of the list; the rows draw only while a run is picked (hub redesign 2026-11-07: one context area, nothing when idle), and a cat track's trash sits on its name line. The values
  * are C#'s (RunRow.gunSpacingM / lightSpacingM: 0 = off, -1 = it carries none, a natural run): a click sends the next value and C# answers by
  * pushing the row. The sliders are the Snowmaking and Lights features (DECISIONS 577): Off = no guns, no made snow, no bill. Each tip says
  * whether turning the feature on pays its one-time step or is free again (RunRow.paidSteps). A cat track has no Groomed row.
  * Panel file: no subscription of its own; RunsView passes the row.
  */
+import { useState } from "react";
 import { Unit } from "cs2/l10n";
 import { RUN_KIND, RUN_PAID, RUN_PROP_SPACING_MIN, RUN_PROP_SPACING_OFF, hubTriggers } from "../bindings";
 import type { DrawRun, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import { runPropSpacingStep } from "./hubRules";
 import { HUB_LOC } from "./hubText";
-import { Tip, numArg } from "./parts";
+import { Tip, cx, numArg } from "./parts";
+import { TrashButton } from "./RunList";
 import { Act, Caption } from "./QuickRunsControls";
 import styles from "./hub.module.scss";
 
@@ -85,29 +87,33 @@ function paidNote(t: ReturnType<typeof useT>, row: RunRow, bit: number): string 
   return (row.paidSteps & bit) !== 0 ? t(HUB_LOC.runPropsPaid) : t(HUB_LOC.runPropsUnpaid);
 }
 
-export function RunPropRows({ row }: { row: RunRow | undefined }): JSX.Element {
+export function RunPropRows({ row }: { row: RunRow }): JSX.Element {
   const t = useT();
-  const guns = row ? row.gunSpacingM : -1;
-  const lights = row ? row.lightSpacingM : -1;
-  const catTrack = !!row && row.kind === RUN_KIND.CatTrack;
-  const withNote = (base: string, bit: number): string => (row && !catTrack ? `${base} ${paidNote(t, row, bit)}` : base);
+  const [armed, setArmed] = useState(false);
+  const guns = row.gunSpacingM;
+  const lights = row.lightSpacingM;
+  const catTrack = row.kind === RUN_KIND.CatTrack;
+  const withNote = (base: string, bit: number): string => (!catTrack ? `${base} ${paidNote(t, row, bit)}` : base);
   return (
     <>
-      <div className={styles.quickLine}>{row ? row.name : t(HUB_LOC.runPropsNone)}</div>
+      <div className={cx(styles.quickLine, styles.quickLineRow)}>
+        <div className={styles.quickLineText}>{row.name}</div>
+        {catTrack && <TrashButton row={row} t={t} armed={armed} setArmed={setArmed} />}
+      </div>
       {!catTrack && <GroomedRow row={row} />}
       <SpacingRow
         caption={t(HUB_LOC.runPropsGuns)}
-        tip={row && guns < 0 ? t(HUB_LOC.runPropsNeedsGroomed)
+        tip={guns < 0 ? t(HUB_LOC.runPropsNeedsGroomed)
           : catTrack ? t(HUB_LOC.runPropsGunsTipCatTrack) : withNote(t(HUB_LOC.runPropsGunsTip), RUN_PAID.Snowmaking)}
         value={guns}
-        onSet={(m) => { if (row) hubTriggers.setRunGunSpacing(row.entity, m); }}
+        onSet={(m) => hubTriggers.setRunGunSpacing(row.entity, m)}
       />
       <SpacingRow
         caption={t(HUB_LOC.runPropsLights)}
-        tip={row && lights < 0 ? t(HUB_LOC.runPropsNeedsGroomed)
+        tip={lights < 0 ? t(HUB_LOC.runPropsNeedsGroomed)
           : catTrack ? t(HUB_LOC.runPropsLightsTipCatTrack) : withNote(t(HUB_LOC.runPropsLightsTip), RUN_PAID.Lights)}
         value={lights}
-        onSet={(m) => { if (row) hubTriggers.setRunLightSpacing(row.entity, m); }}
+        onSet={(m) => hubTriggers.setRunLightSpacing(row.entity, m)}
       />
     </>
   );

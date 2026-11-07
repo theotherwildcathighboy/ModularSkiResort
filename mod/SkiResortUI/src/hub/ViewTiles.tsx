@@ -88,34 +88,34 @@ function tileMark(v: HubView, l: ResortLive | null, unlinked: boolean): "≈" | 
 function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boolean, month: number, t: Translate): JSX.Element {
   switch (v) {
     case "overview":
-      return <TipLines lines={[t(HUB_LOC.tileAttraction), t(HUB_LOC.tileTipAttraction),
+      return <TipLines lines={[t(HUB_LOC.tileTipAttraction),
         l && l.efficiencyPct >= 0 && <LocText key="s" entry={HUB_FMT.tileTipStaffing} args={{ PCT: numArg(l.efficiencyPct, Unit.Percentage) }} />,
         l && l.attractionFull >= 0 && <LocText key="f" entry={HUB_FMT.tileTipFull} args={{ N: numArg(l.attractionFull, Unit.Integer) }} />,
         l && l.attractionHeld && t(HUB_LOC.tileTipHeld)]} />;
     // The Not linked tiles show totals (row.runs, row.liftRows), so their second line is UNLINKED_NOTE, not the
     // "fully open" / "counted of complete" meaning of a sign's tile.
     case "runs":
-      return <TipLines lines={[t(captionOf(v, unlinked)), unlinked ? t(HUB_LOC.unlinkedNote) : t(HUB_LOC.tileTipRuns),
+      return <TipLines lines={[unlinked ? t(HUB_LOC.unlinkedNote) : t(HUB_LOC.tileTipRuns),
         !unlinked && l && l.runsPartly > 0 && <LocText key="p" entry={HUB_FMT.tileTipPartly} args={{ N: numArg(l.runsPartly, Unit.Integer) }} />]} />;
     case "lifts": {
       // hubRules.unfinishedLifts is 0 unless the live row knows the complete count.
       const n = unlinked ? 0 : unfinishedLifts(row, l);
-      return <TipLines lines={[t(HUB_LOC.tileLifts), unlinked ? t(HUB_LOC.unlinkedNote) : t(HUB_LOC.tileTipLifts),
+      return <TipLines lines={[unlinked ? t(HUB_LOC.unlinkedNote) : t(HUB_LOC.tileTipLifts),
         n > 0 && <LocText key="u" entry={HUB_FMT.tileTipUnfinished} args={{ N: numArg(n, Unit.Integer) }} />,
         !unlinked && l && l.liftsCounted >= 0 && <LocText key="p" entry={HUB_FMT.tileTipPowered} args={{ N: numArg(l.liftsCounted, Unit.Integer) }} />]} />;
     }
     case "guests":
       // This month and the one before by name (city.month).
-      return <TipLines lines={[t(HUB_LOC.tileGuests), <LocText key="g" entry={HUB_FMT.tileTipGuests} args={{ MONTH: monthName(month, t) }} />,
+      return <TipLines lines={[<LocText key="g" entry={HUB_FMT.tileTipGuests} args={{ MONTH: monthName(month, t) }} />,
         l && l.thisMonthSinceLoad && t(HUB_LOC.tileTipSinceLoad),
         l && l.lastMonthFull && l.guestsLastMonth >= 0 && <LocText key="l" entry={HUB_FMT.tileTipLast} args={{
           MONTH: monthName(month, t, 1), N: numArg(l.guestsLastMonth, Unit.Integer),
         }} />]} />;
     case "history":
-      return <TipLines lines={[t(HUB_LOC.tileHistory), t(HUB_LOC.tileTipHistory)]} />;
+      return <TipLines lines={[t(HUB_LOC.tileTipHistory)]} />;
     default:
       // The tile is the Finances view's Net, this month so far; "≈" only while a term is unknown (netEstimated).
-      return <TipLines lines={[t(HUB_LOC.tileMoney), t(HUB_LOC.tileTipMoney), l && l.thisMonthSinceLoad && t(HUB_LOC.tileTipSinceLoad),
+      return <TipLines lines={[t(HUB_LOC.tileTipMoney), l && l.thisMonthSinceLoad && t(HUB_LOC.tileTipSinceLoad),
         l && l.netEstimated && buildingsAndWages(l) >= 0 && t(HUB_LOC.tileTipEst),
         l && buildingsAndWages(l) < 0 && t(HUB_LOC.tileTipEstBuildings)]} />;
   }

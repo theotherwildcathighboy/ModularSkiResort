@@ -1,20 +1,15 @@
 /*
- * src/hub/BuildStrip.tsx - the Build strip, the panel's footer: tabs (Lifts | Runs | Buildings), a fixed-height family row, icon tiles,
- * two fixed one-string status lines, the one dot. Fixed heights and equal-width tiles: nothing may move under the mouse.
+ * src/hub/BuildStrip.tsx - the Build strip, the panel's footer, opened like the game's toolbar (DECISIONS 613): closed, it is the tab row
+ * (Lifts | Runs | Buildings) and the one dot; a tab click opens it on that tab, a click on the open tab closes it, and it stays open while
+ * anything it started is engaged (a build tool, the tree tool, the planner, the lift generator, cat track delete, the merge overlay), then
+ * closes when that ends (hubRules.footerOpen / tabClick). Open, every tab is the same three rows: a family row of chips, ONE tile row,
+ * ONE status line, so the tab row and the tiles never move when the tab changes (DECISIONS 612). The Buildings tab shows one family at a
+ * time (Lodges: the sign and the lodge tiers; Services: bus depot, school, patrol huts) with the Mergeable buildings chip beside them.
+ * The status line says what the tooltip cannot: the follow notice, the active tool and its price, a locked tile's reason, the merge
+ * legend, the idle fact. A hovered tile changes nothing (its tooltip has the name, price and hint).
  * Locked tiles are dimmed with a Lock glyph, not `disabled`; a click shows the reason and still sends launch(id), C# refuses and logs it.
- * Reads only the core `build` binding (plus local pick$), so it is also the contract-mismatch panel's footer; the rest arrives as FooterInfo.
- * Every tile and picker chip is a Button with focusKey={FOCUS_DISABLED} (rule R15).
- * The Buildings tab draws two tile rows (BUILDING_ROW2_KINDS: the sign and the lodges, then the bus depot, the school and the patrol huts),
- * each filling the strip, so every label fits whole (2026-11-06: one row of 12 cut them to "A-f..."; on a six-column grid "Bus depot"
- * was still cut, so the services row stretches its four tiles). Only the first row has captions ("Lodges"); the patrol tiles say
- * "Patrol hut" / "Patrol HQ" themselves (2026-11-07: the services caption row cost 26 rem and pushed the open Merged buildings fold
- * to a page 2).
- * Constant height (2026-11-07): Lifts and Runs draw an invisible copy of the Buildings tab's extra rows (FooterReserve) under the status
- * lines, so the tab row and the first tile row never move when the tab changes (it moved 118 rem at 1080).
- * Contract 37: on the ok panel with a Welcome Sign, a full-width "Mergeable buildings" toggle under the rows arms the merge overlay
- * (armMergeOverlay; a mode, not a building, so it is a toggle, not a tile); while armed it carries the green / gray legend with the
- * outlined counts (MergeLegend). Hovered, the status lines name it and say what can be merged. On the other tabs the status lines show the
- * legend while the overlay is on, until a tile is hovered.
+ * Reads only the core `build` binding (plus local pick$), so it is also the contract-mismatch panel's footer (never collapsed); the rest
+ * arrives as FooterInfo. Every tile and chip is a Button with focusKey={FOCUS_DISABLED} (rule R15).
  * Engine notes: EngineNotes/BuildStrip.tsx.md
  */
 import { useEffect, useRef, useState } from "react";
@@ -22,7 +17,7 @@ import { bindLocalValue, useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { build$, follow$, glade$, hubTriggers, liftLine$, mergeOverlay$, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
+import { build$, catTrackDeleteMode$, follow$, glade$, hubTriggers, liftLine$, mergeOverlay$, problems$, quickRuns$, resortLive$, resorts$, selectedResort$ } from "../bindings";
 import type { BuildItem, BuildItemId, MergeOverlayState, RunKind } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
@@ -31,13 +26,13 @@ import {
 } from "./buildItems";
 import type { OrderedBuildItem } from "./buildItems";
 import {
-  NO_PICK, dotItem, dotTarget, drawnTabs, effectiveSelection, effectiveTab, footerState, line1Variant, liveOf, nextVariant,
-  optionOf, pickerSets, tabOfDot, tabOfItem, tabOfNext, visibleIds,
+  NO_PICK, buildingFamily, dotItem, dotTarget, drawnTabs, effectiveSelection, effectiveTab, footerOpen, footerState, line1Variant, liveOf,
+  nextVariant, optionOf, pickerSets, tabClick, tabOfDot, tabOfItem, tabOfNext, visibleIds,
 } from "./hubRules";
-import type { BuildTab, DotTarget, NextVariant, PickerSelection, PickerSet } from "./hubRules";
-import { buildTab$ } from "./hubState";
+import type { BuildTab, BuildingFamily, DotTarget, NextVariant, PickerSelection, PickerSet } from "./hubRules";
+import { buildFamily$, buildOpen$, buildTab$, footerShape$ } from "./hubState";
 import {
-  ASSET_NAME, BUILD_LABEL, BUILD_SHORT_RUN, BUILD_TAB, DRAW_LABEL, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, NEXT_LINE1, NEXT_LINE2,
+  ASSET_NAME, BUILD_FAMILY, BUILD_LABEL, BUILD_SHORT_RUN, BUILD_TAB, DRAW_LABEL, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, NEXT_LINE1,
   RUN_TYPE, sentKeyEntry,
 } from "./hubText";
 import { AssetIcon, Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
@@ -65,13 +60,11 @@ export interface FooterInfo {
   /* Contract 37: draw the Mergeable buildings toggle under the Buildings rows (ok panel with a Welcome Sign), and the overlay's state for it. */
   mergeTile?: boolean;
   mergeOverlay?: MergeOverlayState | null;
+  /* The strip may close (the ok panel; the mismatch panel's footer is always open), and a mode it started is on (tree tool, planner,
+   * lift generator, cat track delete, merge overlay): the strip stays open while one is. */
+  collapsible?: boolean;
+  engaged?: boolean;
 }
-
-/* The merge toggle's icon: the game's building-upgrade icon (a merged building gains a lodge tier). */
-const MERGE_TILE_ICON = "Media/Game/Icons/BuildingUpgrade.svg";
-
-/* The Buildings tab's second tile row: the services (bus depot, school, patrol); the sign and the lodges are the first. */
-const BUILDING_ROW2_KINDS: readonly string[] = ["depot", "school", "patrol"];
 
 
 export const MISMATCH_FOOTER: FooterInfo = { dot: null, next: "done", followName: null };
@@ -111,7 +104,7 @@ function Line1({ id, item, t }: { id: BuildItemId; item: BuildItem; t: Translate
 }
 
 /*
- * A tile's hint (footer line 2 and tooltip), by kind. Stations and lift lines have none: a hint only says what a player cannot
+ * A tile's hint (its tooltip), by kind. Stations and lift lines have none: a hint only says what a player cannot
  * find by trying.
  */
 function hintEntry(id: BuildItemId): LocEntry | null {
@@ -126,13 +119,6 @@ function hintEntry(id: BuildItemId): LocEntry | null {
     case "patrol": return HUB_LOC.buildShortPatrol;
     default: return null;
   }
-}
-
-function line2Text(t: Translate, id: BuildItemId, item: BuildItem): string {
-  if (item.locked) return t(sentKeyEntry(item.reason, HUB_LOC.locked));
-  const hint = hintEntry(id);
-  if (item.hint) return t(sentKeyEntry(item.hint, hint ?? HUB_LOC.locked));
-  return hint ? t(hint) : "";
 }
 
 function onceValue(id: BuildItemId, item: BuildItem): JSX.Element | string {
@@ -297,41 +283,40 @@ function TabBarView({ tabs, tab, dotTab, t, onTab }: {
   );
 }
 
-/*
- * The Buildings tab's family row: "Lodges" over the lodge group (same flex-grow as the tile groups below), empty over the sign, so
- * the five lodge tiles read as one choice and the row keeps its fixed height.
- */
-function GroupCaptions({ groups, t }: { groups: readonly OrderedBuildItem[][]; t: Translate }): JSX.Element {
+/* The Buildings tab's family chips (one tile row on every tab): the ONE dot shows on the family holding it when it is not the one shown. */
+function FamilySetView({ family, dotFamily, t, onFamily }: {
+  family: BuildingFamily; dotFamily: BuildingFamily | null; t: Translate; onFamily: (f: BuildingFamily) => void;
+}): JSX.Element {
+  const fams: readonly BuildingFamily[] = ["lodges", "services"];
   return (
-    <>
-      {groups.map((g, gi) => {
-        const k = g.length > 0 ? kindOf(g[0].id) : "";
-        const caption = k === "lodge" ? t(HUB_LOC.lodgeGroup) : "";
+    <div className={styles.pickerSet} style={{ flexGrow: 2 }}>
+      {fams.map((f, i) => {
+        const on = f === family;
         return (
-          <div key={gi} className={cx(styles.groupCaption, !caption && styles.groupCaptionNone, gi > 0 && styles.buildGroupNext)}
-            style={{ flexGrow: g.length }}>
-            {caption}
+          <div key={f} className={cx(styles.pickerCell, i > 0 && styles.pickerCellNext)}>
+            <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }} selected={on} onSelect={() => onFamily(f)}>
+              <div className={styles.pickerLabel}>{t(BUILD_FAMILY[f])}</div>
+              {dotFamily === f && !on && <div className={styles.buildHintDot} />}
+            </Button>
           </div>
         );
       })}
-    </>
+    </div>
   );
 }
 
-/*
- * The Buildings tab's extra height, drawn invisible on the other tabs under the status lines: the same classes as the services row and
- * the merge toggle, so it matches at every text scale (no height arithmetic to keep in step).
- */
-function FooterReserve({ row2, merge }: { row2: boolean; merge: boolean }): JSX.Element | null {
-  if (!row2 && !merge) return null;
+/* The Buildings tab's Mergeable buildings chip: arms the merge overlay (contract 37); while on, the status line carries the legend. */
+function MergeChip({ on, t }: { on: boolean; t: Translate }): JSX.Element {
   return (
-    <div className={styles.footerReserve}>
-      {row2 && (
-        <div className={styles.buildRowBlock}>
-          <div className={styles.buildRow}><div className={styles.buildCell}><div className={styles.buildTile} /></div></div>
-        </div>
-      )}
-      {merge && <div className={styles.mergeToggleRow}><div className={styles.mergeToggle} /></div>}
+    <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 2 }}>
+      <div className={styles.pickerCell}>
+        <Tip tip={<TipLines lines={[t(HUB_LOC.mergeTileFact), on && t(HUB_LOC.mergeTileArmed)]} />}>
+          <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }} selected={on}
+            onSelect={() => hubTriggers.armMergeOverlay(!on)}>
+            <div className={styles.pickerLabel}>{t(HUB_LOC.mergeOverlay)}</div>
+          </Button>
+        </Tip>
+      </div>
     </div>
   );
 }
@@ -346,7 +331,7 @@ function LiftToolSet({ t }: { t: Translate }): JSX.Element {
     // About one chip wide (the type chips keep their room; four types = 4 : 1.1).
     <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 1.1 }}>
       <div className={styles.pickerCell}>
-        <Tip tip={<TipLines lines={[t(HUB_LOC.liftTool), tip]} />}>
+        <Tip tip={tip ? <TipLines lines={[tip]} /> : null}>
           <Button
             focusKey={FOCUS_DISABLED}
             disabled={!available && !active}
@@ -363,8 +348,8 @@ function LiftToolSet({ t }: { t: Translate }): JSX.Element {
 }
 
 /*
- * The Runs tab's family row: the glade (tree) tool's on / off, the same trigger as the Runs view's "Tree tool" button
- * (TreeControls.tsx; reads the CORE glade binding only), and on the ok panel the Quick runs chip in the slot beside it.
+ * The Runs tab's family row: the glade (tree) tool's on / off (reads the CORE glade binding only; the Runs view shows its rows while
+ * it is on), and on the ok panel the Quick runs and Delete cat tracks chips beside it.
  */
 function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Element {
   const g = useValue(glade$);
@@ -377,7 +362,7 @@ function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Elemen
     <>
       <div className={styles.pickerSet} style={{ flexGrow: 2 }}>
         <div className={styles.pickerCell}>
-          <Tip tip={<TipLines lines={[t(HUB_LOC.treeTool), tip]} />}>
+          <Tip tip={tip ? <TipLines lines={[tip]} /> : null}>
             <Button
               focusKey={FOCUS_DISABLED}
               disabled={!available && !active}
@@ -403,9 +388,9 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   const items = useValue(build$);
   const sel = useValue(pick$);
   const storedTab = useValue(buildTab$);
-  const [hovered, setHovered] = useState<BuildItemId | null>(null);
+  const storedOpen = useValue(buildOpen$);
+  const storedFamily = useValue(buildFamily$);
   const [lockedClick, setLockedClick] = useState<BuildItemId | null>(null);
-  const [mergeHover, setMergeHover] = useState(false);
   const mergeTile = !!info.mergeTile;
   const mergeOn = mergeTile && !!info.mergeOverlay?.armed;
 
@@ -415,23 +400,10 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   const all = groupBuildItems(items);
   const tabs = drawnTabs(visible, BUILD_ITEMS);
   const tab = effectiveTab(tabs, storedTab, info.next);
-  // On the Buildings tab the sign, the five lodges, the school and the two patrol huts are four groups (captions "Lodges" and
-  // "Ski patrol" over theirs); BUILD_GROUPS keeps its shape, the split is drawing only. Lift and run groups are unchanged.
-  const groups: OrderedBuildItem[][] = [];
-  const splitKey = (id: BuildItemId): string => { const k = kindOf(id); return SPLIT_KINDS.indexOf(k) >= 0 ? k : "rest"; };
-  for (const g of all) {
-    let cur: OrderedBuildItem[] = [];
-    for (const e of g) {
-      if (!visible.has(e.id) || tabOfItem(e.id, BUILD_ITEMS) !== tab) continue;
-      if (cur.length > 0 && splitKey(cur[0].id) !== splitKey(e.id)) { groups.push(cur); cur = []; }
-      cur.push(e);
-    }
-    if (cur.length > 0) groups.push(cur);
-  }
   const dot = dotTarget(info.dot, items, BUILD_ITEMS, sel);
   const dotTab = tabOfDot(dot, BUILD_ITEMS);
+  const dotFamily: BuildingFamily | null = dot && dot.kind === "tile" && dotTab === "buildings" ? buildingFamily(kindOf(dot.id as BuildItemId)) : null;
 
-  let hoveredEntry: OrderedBuildItem | null = null;
   let activeEntry: OrderedBuildItem | null = null;
   let lockedEntry: OrderedBuildItem | null = null;
   // The active item is looked up among ALL sent items: a lodge tier placed from the sign's own upgrade menu may not be the
@@ -439,20 +411,45 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   for (const g of all) {
     for (const e of g) {
       if (e.item.active && !activeEntry) activeEntry = e;
-      if (!visible.has(e.id) || tabOfItem(e.id, BUILD_ITEMS) !== tab) continue;
-      if (e.id === hovered) hoveredEntry = e;
-      if (e.id === lockedClick && e.item.locked) lockedEntry = e;
+      if (e.id === lockedClick && e.item.locked && visible.has(e.id) && tabOfItem(e.id, BUILD_ITEMS) === tab) lockedEntry = e;
     }
   }
   const activeId = activeEntry ? activeEntry.id : null;
+  const engaged = !!activeEntry || !!info.engaged || mergeOn;
+  const open = tabs.length > 0 && footerOpen(storedOpen, engaged, !!info.collapsible);
 
-  // When an item becomes the active tool, its option is chosen (an item of another tier or type).
+  // The Buildings tab's family: the chosen one, unless only the other has tiles
+  const famHas = (f: BuildingFamily): boolean => all.some((g) => g.some((e) => visible.has(e.id)
+    && tabOfItem(e.id, BUILD_ITEMS) === "buildings" && buildingFamily(kindOf(e.id)) === f));
+  const bothFamilies = famHas("lodges") && famHas("services");
+  const family: BuildingFamily = bothFamilies ? (storedFamily === "services" ? "services" : "lodges") : famHas("services") ? "services" : "lodges";
+
+  // The shown tab's tile groups (BUILD_GROUPS keeps its shape; the split is drawing only: the sign and each building kind on its own)
+  const groups: OrderedBuildItem[][] = [];
+  const splitKey = (id: BuildItemId): string => { const k = kindOf(id); return SPLIT_KINDS.indexOf(k) >= 0 ? k : "rest"; };
+  for (const g of all) {
+    let cur: OrderedBuildItem[] = [];
+    for (const e of g) {
+      if (!visible.has(e.id) || tabOfItem(e.id, BUILD_ITEMS) !== tab) continue;
+      if (tab === "buildings" && buildingFamily(kindOf(e.id)) !== family) continue;
+      if (cur.length > 0 && splitKey(cur[0].id) !== splitKey(e.id)) { groups.push(cur); cur = []; }
+      cur.push(e);
+    }
+    if (cur.length > 0) groups.push(cur);
+  }
+
+  // When an item becomes the active tool, its option is chosen (an item of another tier or type), and its family.
   useEffect(() => {
     const opt = optionOf(activeId, BUILD_ITEMS);
-    if (!opt) return;
-    const cur = pick$.value ?? NO_PICK;
-    if (opt.set === "lodge" && cur.lodge !== opt.value) pick$.update({ lodge: opt.value, lift: cur.lift });
-    else if (opt.set === "lift" && cur.lift !== opt.value) pick$.update({ lodge: cur.lodge, lift: opt.value });
+    if (opt) {
+      const cur = pick$.value ?? NO_PICK;
+      if (opt.set === "lodge" && cur.lodge !== opt.value) pick$.update({ lodge: opt.value, lift: cur.lift });
+      else if (opt.set === "lift" && cur.lift !== opt.value) pick$.update({ lodge: cur.lodge, lift: opt.value });
+    }
+    if (activeId && tabOfItem(activeId, BUILD_ITEMS) === "buildings") {
+      const f = buildingFamily(kindOf(activeId));
+      if (buildFamily$.value !== f) buildFamily$.update(f);
+    }
   }, [activeId]);
 
   // The tab follows the active tool (a tool started elsewhere, e.g. the Start card's button) and the idle NEXT step when it
@@ -469,41 +466,34 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     if (nt) buildTab$.update(nt);
   }, [info.next]);
 
-  const state = footerState(tabs.length > 0, !!hoveredEntry, info.followName !== null, !!activeEntry, !!lockedEntry);
+  // Like the game's toolbar: when what the strip started ends, it closes
+  const wasEngaged = useRef(engaged);
+  useEffect(() => {
+    if (wasEngaged.current && !engaged && info.collapsible) buildOpen$.update(false);
+    wasEngaged.current = engaged;
+  }, [engaged]);
 
-  let line1: JSX.Element;
-  let line2: string;
-  let line1Cls = styles.buildLineName;
-  let line2Cls = styles.buildLineDim;
+  // The view pager re-fits on a new footer shape (HubPanel)
+  const shape = `${open ? 1 : 0}|${tab}|${tab === "buildings" ? family : ""}`;
+  useEffect(() => { if (footerShape$.value !== shape) footerShape$.update(shape); }, [shape]);
+
+  const state = footerState(tabs.length > 0, info.followName !== null, !!activeEntry, !!lockedEntry);
+
+  let line: JSX.Element;
+  let lineCls = styles.buildLineNormal;
   if (state === "empty") {
-    line1 = <>{t(HUB_LOC.buildEmpty)}</>; line2 = ""; line1Cls = styles.buildLineNormal;
-  } else if (state === "hover" && hoveredEntry) {
-    line1 = <Line1 id={hoveredEntry.id} item={hoveredEntry.item} t={t} />;
-    line2 = line2Text(t, hoveredEntry.id, hoveredEntry.item);
-    if (hoveredEntry.item.locked) line2Cls = styles.buildLineLocked;
+    line = <>{t(HUB_LOC.buildEmpty)}</>;
   } else if (state === "follow") {
-    line1 = <LocText entry={HUB_FMT.follow} args={{ NAME: info.followName ?? "" }} />; line2 = ""; line1Cls = styles.buildLineNormal;
+    line = <LocText entry={HUB_FMT.follow} args={{ NAME: info.followName ?? "" }} />;
   } else if (state === "active" && activeEntry) {
-    line1 = <Line1 id={activeEntry.id} item={activeEntry.item} t={t} />;
-    line2 = t(HUB_LOC.buildActive); // every building is a plain tool
+    line = <Line1 id={activeEntry.id} item={activeEntry.item} t={t} />; lineCls = styles.buildLineName;
   } else if (state === "locked" && lockedEntry) {
-    line1 = <Line1 id={lockedEntry.id} item={lockedEntry.item} t={t} />;
-    line2 = t(sentKeyEntry(lockedEntry.item.reason, HUB_LOC.locked)); line2Cls = styles.buildLineLocked;
-  } else if (mergeOn && tab !== "buildings") {
-    // The overlay is on: the legend and what the outlines mean, until a tile is hovered (below for the merge toggle itself).
-    // On the Buildings tab the toggle carries the legend.
-    line1 = <MergeLegend overlay={info.mergeOverlay} t={t} />; line2 = t(HUB_LOC.mergeTileArmed); line1Cls = styles.buildLineNormal;
+    line = <>{t(sentKeyEntry(lockedEntry.item.reason, HUB_LOC.locked))}</>; lineCls = styles.buildLineLocked;
+  } else if (mergeOn) {
+    line = <MergeLegend overlay={info.mergeOverlay} t={t} />;
   } else {
     const next1 = NEXT_LINE1[info.next];
-    const next2 = NEXT_LINE2[info.next];
-    line1 = <>{next1 ? t(next1) : ""}</>; line2 = next2 ? t(next2) : ""; line1Cls = styles.buildLineNormal;
-  }
-
-  if (mergeTile && mergeHover && tab === "buildings") {
-    line1 = mergeOn ? <MergeLegend overlay={info.mergeOverlay} t={t} /> : <>{t(HUB_LOC.mergeTileName)}</>;
-    line2 = t(mergeOn ? HUB_LOC.mergeTileArmed : HUB_LOC.mergeTileFact);
-    line1Cls = mergeOn ? styles.buildLineNormal : styles.buildLineName;
-    line2Cls = styles.buildLineDim;
+    line = <>{next1 ? t(next1) : ""}</>;
   }
 
   const click = (e: OrderedBuildItem): void => {
@@ -514,97 +504,67 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     const cur = pick$.value ?? NO_PICK;
     pick$.update(set === "lodge" ? { lodge: value, lift: cur.lift } : { lodge: cur.lodge, lift: value });
   };
-
   const onTab = (id: BuildTab): void => {
-    setHovered(null);
     setLockedClick(null);
-    setMergeHover(false);
-    buildTab$.update(id);
+    const next = tabClick(open, tab, id);
+    buildTab$.update(next.tab);
+    buildOpen$.update(next.open);
   };
-
-  // The Buildings tab: two rows (lodges, services); every other tab: one row.
-  const rows: OrderedBuildItem[][][] = tab === "buildings"
-    ? [groups.filter((g) => BUILDING_ROW2_KINDS.indexOf(kindOf(g[0].id)) < 0), groups.filter((g) => BUILDING_ROW2_KINDS.indexOf(kindOf(g[0].id)) >= 0)]
-        .filter((r) => r.length > 0)
-    : [groups];
-
-  // What the Buildings tab draws beyond the one tile row every tab has: the services row and the merge toggle. The other tabs reserve it.
-  const hasRow2 = all.some((g) => g.some((e) => visible.has(e.id) && tabOfItem(e.id, BUILD_ITEMS) === "buildings"
-    && BUILDING_ROW2_KINDS.indexOf(kindOf(e.id)) >= 0));
-
-  const tileRow = (row: readonly OrderedBuildItem[][], ri: number): JSX.Element => (
-    <div key={"row" + ri} className={styles.buildRow}>
-      {row.map((g, gi) => (
-        <div key={gi} className={cx(styles.buildGroup, gi > 0 && styles.buildGroupNext)} style={{ flexGrow: g.length }}>
-          {g.map((e) => {
-            const kind = BUILD_RUN_KIND[e.id];
-            const step = BUILD_STEP[e.id];
-            return (
-              <div key={e.id} className={styles.buildCell}
-                onMouseEnter={() => setHovered(e.id)}
-                onMouseLeave={() => setHovered((h) => (h === e.id ? null : h))}>
-                <Tip tip={tileTip(e, t)}>
-                  <Button
-                    focusKey={FOCUS_DISABLED}
-                    theme={{ button: cx(styles.buildTile, e.item.active && styles.buildTileActive, e.item.locked && styles.buildTileLocked) }}
-                    selected={e.item.active}
-                    onSelect={() => click(e)}
-                  >
-                    <AssetIcon src={BUILD_ITEM_ICON[e.id]} className={styles.buildIcon} />
-                    <div className={styles.buildTileLabel}>{t(labelEntry(e.id))}</div>
-                    {kind === 3 && (
-                      <div className={cx(styles.buildStripe, styles.stripeNatural)}>
-                        <div className={styles.stripeNaturalPart} />
-                        <div className={cx(styles.stripeNaturalPart, styles.stripeNaturalPartNext)} />
-                      </div>
-                    )}
-                    {kind !== undefined && kind !== 3 && <div className={cx(styles.buildStripe, styles[KIND_STRIPE[kind]])} />}
-                    {step && <div className={styles.buildStep}>{step}</div>}
-                    {!!dot && dot.kind === "tile" && dot.id === e.id && !e.item.locked && <div className={styles.buildHintDot} />}
-                    {e.item.locked && <Glyph src="Media/Glyphs/Lock.svg" className={styles.buildLock} />}
-                  </Button>
-                </Tip>
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
+  const onFamily = (f: BuildingFamily): void => {
+    setLockedClick(null);
+    buildFamily$.update(f);
+  };
 
   return (
     <div className={styles.buildFooter}>
-      {tabs.length > 0 && <TabBarView tabs={tabs} tab={tab} dotTab={dotTab} t={t} onTab={onTab} />}
-      {tabs.length > 0 && (
+      {tabs.length > 0 && <TabBarView tabs={tabs} tab={open ? tab : ""} dotTab={dotTab} t={t} onTab={onTab} />}
+      {open && (
         <div className={styles.pickerRow}>
           {tab === "lifts" && sets.lift.length > 0 && <PickerSetView set="lift" options={sets.lift} chosen={eff.lift} dot={dot} t={t} onPick={onPick} />}
           {tab === "lifts" && info.liftTool && <LiftToolSet t={t} />}
-          {tab === "buildings" && rows.length > 0 && <GroupCaptions groups={rows[0]} t={t} />}
+          {tab === "buildings" && bothFamilies && <FamilySetView family={family} dotFamily={dotFamily} t={t} onFamily={onFamily} />}
+          {tab === "buildings" && mergeTile && <MergeChip on={mergeOn} t={t} />}
           {tab === "runs" && <TreeToolSet t={t} quick={!!info.quickRuns} />}
         </div>
       )}
-      {rows.map((row, ri) => (ri === 0 ? tileRow(row, ri) : (
-        <div key={"block" + ri} className={styles.buildRowBlock}>{tileRow(row, ri)}</div>
-      )))}
-      {mergeTile && tab === "buildings" && (
-        <div className={styles.mergeToggleRow} onMouseEnter={() => setMergeHover(true)} onMouseLeave={() => setMergeHover(false)}>
-          <Tip tip={<TipLines lines={[t(HUB_LOC.mergeTileName), t(HUB_LOC.mergeOverlayTip)]} />}>
-            <Button
-              focusKey={FOCUS_DISABLED}
-              theme={{ button: cx(styles.mergeToggle, mergeOn && styles.mergeToggleOn) }}
-              selected={mergeOn}
-              onSelect={() => hubTriggers.armMergeOverlay(!mergeOn)}
-            >
-              <AssetIcon src={MERGE_TILE_ICON} className={styles.mergeToggleIcon} />
-              <div className={styles.mergeToggleLabel}>{t(HUB_LOC.mergeOverlay)}</div>
-              {mergeOn && <MergeLegend overlay={info.mergeOverlay} t={t} />}
-            </Button>
-          </Tip>
+      {open && (
+        <div className={styles.buildRow}>
+          {groups.map((g, gi) => (
+            <div key={gi} className={cx(styles.buildGroup, gi > 0 && styles.buildGroupNext)} style={{ flexGrow: g.length }}>
+              {g.map((e) => {
+                const kind = BUILD_RUN_KIND[e.id];
+                const step = BUILD_STEP[e.id];
+                return (
+                  <div key={e.id} className={styles.buildCell}>
+                    <Tip tip={tileTip(e, t)}>
+                      <Button
+                        focusKey={FOCUS_DISABLED}
+                        theme={{ button: cx(styles.buildTile, e.item.active && styles.buildTileActive, e.item.locked && styles.buildTileLocked) }}
+                        selected={e.item.active}
+                        onSelect={() => click(e)}
+                      >
+                        <AssetIcon src={BUILD_ITEM_ICON[e.id]} className={styles.buildIcon} />
+                        <div className={styles.buildTileLabel}>{t(labelEntry(e.id))}</div>
+                        {kind === 3 && (
+                          <div className={cx(styles.buildStripe, styles.stripeNatural)}>
+                            <div className={styles.stripeNaturalPart} />
+                            <div className={cx(styles.stripeNaturalPart, styles.stripeNaturalPartNext)} />
+                          </div>
+                        )}
+                        {kind !== undefined && kind !== 3 && <div className={cx(styles.buildStripe, styles[KIND_STRIPE[kind]])} />}
+                        {step && <div className={styles.buildStep}>{step}</div>}
+                        {!!dot && dot.kind === "tile" && dot.id === e.id && !e.item.locked && <div className={styles.buildHintDot} />}
+                        {e.item.locked && <Glyph src="Media/Glyphs/Lock.svg" className={styles.buildLock} />}
+                      </Button>
+                    </Tip>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
-      <div className={cx(styles.buildStatusLine, line1Cls)}>{line1}</div>
-      <div className={cx(styles.buildStatusLine, line2Cls)}>{line2}</div>
-      {tabs.length > 0 && tab !== "buildings" && <FooterReserve row2={hasRow2} merge={mergeTile} />}
+      {(open || tabs.length === 0) && <div className={cx(styles.buildStatusLine, lineCls)}>{line}</div>}
     </div>
   );
 }
@@ -617,7 +577,11 @@ export function OkFooter(): JSX.Element {
   const live = useValue(resortLive$);
   const problems = useValue(problems$);
   const follow = useValue(follow$);
-  const mergeOverlay = useValue(mergeOverlay$);   // contract 37: the merge toggle's on state and the legend's counts
+  const mergeOverlay = useValue(mergeOverlay$);   // contract 37: the merge chip's on state and the legend's counts
+  const glade = useValue(glade$);
+  const quick = useValue(quickRuns$);
+  const liftLine = useValue(liftLine$);
+  const catDelete = useValue(catTrackDeleteMode$);
   const [noticeOn, setNoticeOn] = useState(false);
   const baseline = useRef(follow);
 
@@ -642,8 +606,10 @@ export function OkFooter(): JSX.Element {
     followName: noticeOn && shown ? (unlinked ? t(HUB_LOC.unlinkedEntry) : shown.name) : null,
     liftTool: true, // the ok panel draws the lift generator toggle
     quickRuns: true, // and the Quick runs chip
-    mergeTile: hasSign, // and, with a Welcome Sign, the merge toggle (C# refuses to arm without one)
+    mergeTile: hasSign, // and, with a Welcome Sign, the merge chip (C# refuses to arm without one)
     mergeOverlay,
+    collapsible: true,
+    engaged: !!glade?.active || !!quick?.active || !!liftLine?.active || !!catDelete,
   };
   return <BuildStrip info={info} />;
 }

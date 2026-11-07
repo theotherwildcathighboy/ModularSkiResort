@@ -16,7 +16,8 @@
  *   - Runs / Lifts views are the one exception: their list (class listAll) draws every row with no pager and may
  *     scroll; the check asserts no pager row is drawn and records their overflow as "scrolls";
  *   - the tab row and the first tile row keep their place on every build tab (2026-11-07);
- *   - Buildings tab: one tile per sent building id, no lodge chip, no tile label cut at text scale 1; Lifts tile "built / drawn".
+ *   - Buildings tab: one tile row (family chips Lodges | Services, the Mergeable buildings chip), no tile label cut at text scale 1;
+ *     Lifts tile "built / drawn". The footer opens like the game's toolbar (openTab).
  * The harness panel frame is a stand-in for the game's, so the report also gives each case's slack (rem left);
  * MIN_SLACK_REM is a margin rule for the title bar / padding difference.
  */
@@ -83,6 +84,12 @@
   }
   function tiles() { const r = q(cls("tileRow")); return r ? qa("button", r) : []; }
   function buildTabs() { const r = q(cls("tabRow")); return r ? qa("button", r) : []; }
+  // The footer opens like the game's toolbar (2026-11-07): a click on a closed footer opens that tab, a click on the open tab closes it.
+  function footerOpen() { return !!q(cls("buildRow"), q(cls("buildFooter"))); }
+  async function openTab(b) {
+    if (!footerOpen() || !/tabButtonOn/.test(b.className)) { b.click(); await settle(); }
+    if (!footerOpen()) { b.click(); await settle(); }
+  }
   function folds() { const p = panel(); return p ? qa(cls("foldRow"), p) : []; }
   function openFolds() { const p = panel(); return p ? qa(cls("foldRowOpen"), p) : []; }
   async function closeFolds() { for (const f of openFolds()) { f.click(); await settle(); } }
@@ -158,13 +165,13 @@
     // 2026-11-07: the tab row and the first tile row stay put across tabs (the Buildings tab's two rows moved them 118 rem at 1080).
     const tabTops = [];
     for (const b of buildTabs()) {
-      b.click(); await settle();
+      await openTab(b);
       const tabName = b.textContent.trim();
       rec(0, `build tab ${tabName}`, measure());
       const tr = q(cls("tabRow"));
       const firstRow = q(cls("buildRow"), q(cls("buildFooter")));
       if (tr) tabTops.push({ tab: tabName, y: tr.getBoundingClientRect().top, row: firstRow ? firstRow.getBoundingClientRect().top : -1 });
-      // The footer's two status lines change with the hovered tile: every tile, hovered in turn.
+      // Every tile hovered in turn (its tooltip and the one status line must not cut).
       for (const cell of qa(cls("buildCell"))) {
         cell.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
         await frames(2);
@@ -186,22 +193,24 @@
         fail(`Build tab row or first tile row moves when the tab changes (${tabTops.map((x) => `${x.tab} ${Math.round(x.y)} / ${Math.round(x.row)}`).join(", ")} px)`, { tabTops });
       }
     }
-    const bTab =buildTabs().find((b) => /Buildings/.test(b.textContent));
+    const bTab = buildTabs().find((b) => /Buildings/.test(b.textContent));
     if (bTab) {
-      bTab.click(); await settle();
+      await openTab(bTab);
       const tilesN = qa(cls("buildRow")).reduce((n, r) => n + qa("button", r).length, 0);
-      const chips = qa(cls("pickerChip"), q(cls("pickerRow"))).length;
+      const chipEls = qa(cls("pickerChip"), q(cls("pickerRow")));
+      const chips = chipEls.length;
       // 2026-11-06: every Buildings tile shows its whole label at text scale 1 (two rows; the game cut a row of 12 to "A-f...").
       const cut = qa(cls("buildTileLabel"), q(cls("buildFooter"))).filter((l) => l.scrollWidth > l.clientWidth + 1).map((l) => l.textContent.trim());
       out.buildings.push({ scenario: name, fs, tiles: tilesN, rows: qa(cls("buildRow")).length, lodgeChips: chips, cut: cut.join(", "),
-        caption: qa(cls("groupCaption")).map((e) => e.textContent.trim()).filter(Boolean).join(" | ") });
-      if (chips !== 0) fail("Buildings tab still has picker chips", { chips });
+        caption: chipEls.map((e) => e.textContent.trim()).filter(Boolean).join(" | ") });
+      // 2026-11-07: one tile row; the family chips (Lodges | Services, when both exist) and the Mergeable buildings chip.
+      if (qa(cls("buildRow")).length !== 1) fail("Buildings tab draws more than one tile row", { rows: qa(cls("buildRow")).length });
       if (fs === 1 && cut.length > 0) fail("Buildings tab tile labels cut at text scale 1", { cut });
     }
     // The Lifts tab carries the lift generator toggle
     const lTab = buildTabs().find((b) => /^Lifts/.test(b.textContent.trim()));
     if (lTab) {
-      lTab.click(); await settle();
+      await openTab(lTab);
       const row = q(cls("pickerRow"));
       const has = !!row && /Lift generator/.test(row.textContent);
       out.liftTool.push({ scenario: name, fs, present: has, rowRem: row ? Math.round(row.getBoundingClientRect().height / rem()) : -1 });
@@ -237,7 +246,7 @@
     setScale(Number(p.get("fs") || 1));
     await settle();
     if (p.get("view")) { tiles()[Number(p.get("view"))].click(); await settle(); }
-    if (p.get("tab")) { const b = buildTabs().find((x) => x.textContent.trim().toLowerCase() === p.get("tab")); if (b) { b.click(); await settle(); } }
+    if (p.get("tab")) { const b = buildTabs().find((x) => x.textContent.trim().toLowerCase() === p.get("tab")); if (b) await openTab(b); }
     if (p.get("fold")) { const f = folds()[Number(p.get("fold"))]; if (f) { f.click(); await settle(); } }
     if (p.get("page")) { for (let i = 1; i < Number(p.get("page")); i++) { const r = q(cls("pagerRow")); if (r) { qa("button", r).pop().click(); await settle(); } } }
     if (p.get("areas")) { const b = q(cls("areaName")); if (b) { b.click(); await settle(); } }

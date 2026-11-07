@@ -3,8 +3,62 @@
 // Gameface 2.2.1 rules (tools/check-bundle.js enforces most on the compiled CSS): flex only (no grid), no :not(), no space-evenly, no auto
 // margins, no flex gap; LONGHAND properties whenever a value uses var(); a class named "blind" declares height: 0 and visibility: hidden.
 // A VALUE CHANGE NEVER CHANGES LAYOUT: fixed heights in em / rem, every number in a fixed slot, every sentence ONE text node with nowrap +
-// ellipsis and its full text in a tooltip. Dim text colors are LITERAL: the game's --textColorDim / --textColorDimmer are white in :root.
+// ellipsis and its full text in a tooltip. Colors come from the token block below (one place for every literal).
 // Engine notes: EngineNotes/hub.module.scss.md
+
+// ---- design language: the hub's tokens (hub redesign 2026-11-07; docs: vanilla-design-language.md section 5) ----------------
+// Vanilla variables first (--normalTextColor, --textColorDisabled, --dividerColor, --selectedColor, --hoverColorNormal, ...). The own
+// tokens below are the ONLY place a color literal may stand (gate T41 in tools/test-hub-rules.js; rgba(0, 0, 0, 0) excepted):
+// - --hubTextDim: the one secondary text level (vanilla's --textColorDim* are white in :root, so they cannot be used).
+// - --hubGood / --hubBad / --hubCaution: the game's modern highlight colors, its legacy ones under .legacy-interface (the game's own
+//   per-component pattern, index.css ".legacy-interface .normal_..."). Never --warningColor & co. directly.
+// - data palettes: trail rating (--hubDiff*), run kinds (--hubKind*), the merge overlay's legend; one definition each.
+// - surfaces: track, edge, shade, backdrop, shadow, card, focus hover, open-fold tint.
+// Declared on the hub's three roots (the panel, the Ski Bus / merge cards, the tooltip body): our CSS shares one document with
+// the game and every mod, so nothing of ours may sit on :root (check-bundle scoping rule).
+.panel,
+.busCard,
+.tipLines {
+  --hubTextDim: rgba(240, 251, 255, 0.7);
+  --hubGood: var(--highlightGreen);
+  --hubBad: var(--highlightWarningLightRed);
+  --hubCaution: var(--highlightYellow);
+  --hubDiffFlat: rgba(170, 180, 190, 1);
+  --hubDiffGreen: rgba(76, 175, 80, 1);
+  --hubDiffBlue: rgba(52, 120, 220, 1);
+  --hubDiffBlack: rgba(14, 14, 18, 1);
+  --hubDiffDoubleBlack: rgba(0, 0, 0, 1);
+  --hubDiffEdge: rgba(255, 255, 255, 0.85);
+  --hubDiffEdgeSoft: rgba(255, 255, 255, 0.55);
+  --hubDiffPending: rgba(150, 160, 170, 0.35);
+  --hubDiffUnrateable: rgba(220, 150, 60, 0.45);
+  --hubKindGroomed: rgba(236, 244, 252, 1);
+  --hubKindNatural: rgba(236, 244, 252, 0.7);
+  --hubKindSnowmaking: rgba(110, 205, 255, 1);
+  --hubKindNight: rgba(255, 196, 70, 1);
+  --hubKindCatTrack: rgba(110, 200, 120, 1);
+  --hubKindUnknown: rgba(150, 160, 170, 1);
+  --hubMergeFits: rgb(110, 220, 120);
+  --hubMergeTooSmall: rgb(170, 170, 170);
+  --hubTrack: rgba(255, 255, 255, 0.08);
+  --hubTick: rgba(255, 255, 255, 0.5);
+  --hubEdge: rgba(255, 255, 255, 0.15);
+  --hubOpenTint: rgba(255, 255, 255, 0.04);
+  --hubShade: rgba(0, 0, 0, 0.35);
+  --hubBackdrop: rgba(0, 0, 0, 0.25);
+  --hubShadow: rgba(0, 0, 0, 0.5);
+  --hubCardBg: rgba(24, 33, 51, 0.85);
+  --hubFocusHover: rgba(75, 195, 241, 0.18);
+}
+
+:global(.legacy-interface) .panel,
+:global(.legacy-interface) .busCard,
+:global(.legacy-interface) .tipLines {
+  --hubGood: var(--positiveColor);
+  --hubBad: var(--negativeColor);
+  --hubCaution: var(--warningColor);
+}
+// ---- end of tokens ------------------------------------------------------------------------------
 
 // ---- panel frame ---------------------------------------------------------------------------
 
@@ -52,7 +106,7 @@
 // One line instead of the body: C# absent, or the contract-mismatch line.
 .notice {
   padding: 12rem 14rem;
-  color: var(--warningColor);
+  color: var(--hubCaution);
   font-size: var(--fontSizeS);
   line-height: 130%;
 }
@@ -60,7 +114,7 @@
 // Fallback of a section's error boundary.
 .sectionFailed {
   padding: 8rem 12rem;
-  color: var(--negativeColor);
+  color: var(--hubBad);
   font-size: var(--fontSizeXS);
   line-height: 130%;
 }
@@ -68,7 +122,7 @@
 // DLL and bundle from different builds (diagnostic, bottom of the body).
 .stampNote {
   padding: 4rem 12rem 2rem 12rem;
-  color: var(--textColorDimmer);
+  color: var(--hubTextDim);
   font-size: var(--fontSizeXS);
   opacity: 0.7;
 }
@@ -142,13 +196,6 @@
   background-color: var(--activeColorNormal);
 }
 
-.headerButtonInactive,
-.headerButtonInactive:hover,
-.headerButtonInactive:active {
-  opacity: 0.3;
-  background-color: rgba(0, 0, 0, 0);
-}
-
 // Keeps its space so nothing moves (the Not linked entry has no pen and no fly-to).
 .hiddenKeepSpace {
   visibility: hidden;
@@ -168,16 +215,6 @@
   color: var(--normalTextColor);
 }
 
-.switcherPosition {
-  flex-grow: 0;
-  flex-shrink: 0;
-  margin-right: 6rem;
-  font-size: var(--fontSizeS);
-  white-space: nowrap;
-  color: var(--normalTextColor);
-  opacity: 0.55;
-}
-
 // ---- RenameField ---------------------------------------------------------------------------
 
 .renameInput,
@@ -191,7 +228,7 @@
   padding-right: 6rem;
   font-size: 1em;
   color: var(--normalTextColor);
-  background-color: rgba(0, 0, 0, 0.35);
+  background-color: var(--hubShade);
   border-style: solid;
   border-top-width: 1rem;
   border-right-width: 1rem;
@@ -213,14 +250,14 @@
 
 .dimLine {
   padding: 4rem 10rem 6rem 10rem;
-  color: var(--textColorDimmer);
+  color: var(--hubTextDim);
   font-size: var(--fontSizeXS);
   line-height: 130%;
   opacity: 0.8;
 }
 
 .warnText {
-  color: var(--warningColor);
+  color: var(--hubCaution);
 }
 
 // A locked item's reason, shown as text (the start card's sign button; contract 3: own side
@@ -401,7 +438,7 @@
   margin-top: 4rem;
   margin-left: 10rem;
   margin-right: 10rem;
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--hubTrack);
   border-radius: 4rem;
   overflow: hidden;
 }
@@ -417,51 +454,51 @@
 }
 
 .segFlat {
-  background-color: rgba(170, 180, 190, 1);
+  background-color: var(--hubDiffFlat);
 }
 
 .segGreen {
-  background-color: rgba(76, 175, 80, 1);
+  background-color: var(--hubDiffGreen);
 }
 
 .segBlue {
-  background-color: rgba(52, 120, 220, 1);
+  background-color: var(--hubDiffBlue);
 }
 
 // Black on a dark panel needs a light edge (research 2.F.2).
 .segBlack {
-  background-color: rgba(14, 14, 18, 1);
+  background-color: var(--hubDiffBlack);
   border-style: solid;
   border-top-width: 1rem;
   border-right-width: 1rem;
   border-bottom-width: 1rem;
   border-left-width: 1rem;
-  border-top-color: rgba(255, 255, 255, 0.55);
-  border-right-color: rgba(255, 255, 255, 0.55);
-  border-bottom-color: rgba(255, 255, 255, 0.55);
-  border-left-color: rgba(255, 255, 255, 0.55);
+  border-top-color: var(--hubDiffEdgeSoft);
+  border-right-color: var(--hubDiffEdgeSoft);
+  border-bottom-color: var(--hubDiffEdgeSoft);
+  border-left-color: var(--hubDiffEdgeSoft);
 }
 
 .segDoubleBlack {
-  background-color: rgba(0, 0, 0, 1);
+  background-color: var(--hubDiffDoubleBlack);
   border-style: solid;
   border-top-width: 2rem;
   border-right-width: 2rem;
   border-bottom-width: 2rem;
   border-left-width: 2rem;
-  border-top-color: rgba(255, 255, 255, 0.9);
-  border-right-color: rgba(255, 255, 255, 0.9);
-  border-bottom-color: rgba(255, 255, 255, 0.9);
-  border-left-color: rgba(255, 255, 255, 0.9);
+  border-top-color: var(--hubDiffEdge);
+  border-right-color: var(--hubDiffEdge);
+  border-bottom-color: var(--hubDiffEdge);
+  border-left-color: var(--hubDiffEdge);
 }
 
 .segPending {
-  background-color: rgba(150, 160, 170, 0.35);
+  background-color: var(--hubDiffPending);
 }
 
 // The difficulty bar's "cannot be rated" segment (fixer round).
 .segUnrateable {
-  background-color: rgba(220, 150, 60, 0.45);
+  background-color: var(--hubDiffUnrateable);
 }
 
 // (Contract 3, deviation U16: the legend's own "DIFFICULTY" label is gone - the MOUNTAIN header
@@ -534,35 +571,35 @@
   border-right-width: 0.12em;
   border-bottom-width: 0.12em;
   border-left-width: 0.12em;
-  border-top-color: rgba(170, 180, 190, 1);
-  border-right-color: rgba(170, 180, 190, 1);
-  border-bottom-color: rgba(170, 180, 190, 1);
-  border-left-color: rgba(170, 180, 190, 1);
+  border-top-color: var(--hubDiffFlat);
+  border-right-color: var(--hubDiffFlat);
+  border-bottom-color: var(--hubDiffFlat);
+  border-left-color: var(--hubDiffFlat);
 }
 
 .bandGreen {
   border-radius: 50%;
-  background-color: rgba(76, 175, 80, 1);
+  background-color: var(--hubDiffGreen);
 }
 
 .bandBlue {
-  background-color: rgba(52, 120, 220, 1);
+  background-color: var(--hubDiffBlue);
 }
 
 .bandBlack {
   width: 0.58em;
   height: 0.58em;
   transform: rotate(45deg);
-  background-color: rgba(14, 14, 18, 1);
+  background-color: var(--hubDiffBlack);
   border-style: solid;
   border-top-width: 0.08em;
   border-right-width: 0.08em;
   border-bottom-width: 0.08em;
   border-left-width: 0.08em;
-  border-top-color: rgba(255, 255, 255, 0.85);
-  border-right-color: rgba(255, 255, 255, 0.85);
-  border-bottom-color: rgba(255, 255, 255, 0.85);
-  border-left-color: rgba(255, 255, 255, 0.85);
+  border-top-color: var(--hubDiffEdge);
+  border-right-color: var(--hubDiffEdge);
+  border-bottom-color: var(--hubDiffEdge);
+  border-left-color: var(--hubDiffEdge);
 }
 
 .bandSmall {
@@ -582,10 +619,10 @@
   border-right-width: 0.12em;
   border-bottom-width: 0.12em;
   border-left-width: 0.12em;
-  border-top-color: rgba(255, 255, 255, 1);
-  border-right-color: rgba(255, 255, 255, 1);
-  border-bottom-color: rgba(255, 255, 255, 1);
-  border-left-color: rgba(255, 255, 255, 1);
+  border-top-color: var(--normalTextColor);
+  border-right-color: var(--normalTextColor);
+  border-bottom-color: var(--normalTextColor);
+  border-left-color: var(--normalTextColor);
   opacity: 0.4;
 }
 
@@ -599,10 +636,10 @@
   border-right-width: 0.12em;
   border-bottom-width: 0.12em;
   border-left-width: 0.12em;
-  border-top-color: var(--warningColor);
-  border-right-color: var(--warningColor);
-  border-bottom-color: var(--warningColor);
-  border-left-color: var(--warningColor);
+  border-top-color: var(--hubCaution);
+  border-right-color: var(--hubCaution);
+  border-bottom-color: var(--hubCaution);
+  border-left-color: var(--hubCaution);
 }
 
 // ---- tree tool stepper and segment (TreeRows; J1) -------------------------------------------
@@ -692,7 +729,7 @@
   line-height: 130%;
   padding-left: 8rem;
   padding-right: 4rem;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 // E1 fixer (e1-spec 8.9 F14): the header's number cells are MEASURED in the row font (S) - .num's
@@ -713,7 +750,7 @@
 
 // A run that is linked to no ski area (on .runRow).
 .listRowUnbound {
-  color: rgba(240, 251, 255, 0.65);
+  color: var(--hubTextDim);
 }
 
 // Run type marker: a vertical bar. Groomed = solid snow white, Snowmaking = cyan outline,
@@ -730,7 +767,7 @@
 }
 
 .kindGroomed {
-  background-color: rgba(236, 244, 252, 1);
+  background-color: var(--hubKindGroomed);
 }
 
 .kindSnowmaking {
@@ -740,23 +777,23 @@
   border-right-width: 0.12em;
   border-bottom-width: 0.12em;
   border-left-width: 0.12em;
-  border-top-color: rgba(110, 205, 255, 1);
-  border-right-color: rgba(110, 205, 255, 1);
-  border-bottom-color: rgba(110, 205, 255, 1);
-  border-left-color: rgba(110, 205, 255, 1);
+  border-top-color: var(--hubKindSnowmaking);
+  border-right-color: var(--hubKindSnowmaking);
+  border-bottom-color: var(--hubKindSnowmaking);
+  border-left-color: var(--hubKindSnowmaking);
 }
 
 .kindNight {
-  background-color: rgba(255, 196, 70, 1);
+  background-color: var(--hubKindNight);
 }
 
 .kindUnknown {
-  background-color: rgba(150, 160, 170, 1);
+  background-color: var(--hubKindUnknown);
 }
 
 // T54 probe 1: the cat track's marker, a green bar (the track is green-only).
 .kindCatTrack {
-  background-color: rgba(110, 200, 120, 1);
+  background-color: var(--hubKindCatTrack);
 }
 
 // Text ellipsis needs overflow:hidden + nowrap, and the font's ellipsis glyph (research 2.F.1).
@@ -792,90 +829,6 @@
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: stretch;
-}
-
-// The Buildings tab's second tile row (services, BuildStrip BUILDING_ROW2_KINDS); no caption row since 2026-11-07, the tiles name
-// themselves ("Patrol hut").
-.buildRowBlock {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  margin-top: 4rem;
-}
-
-// BuildStrip FooterReserve: the Buildings tab's extra rows drawn invisible on Lifts and Runs, so the footer keeps one height on every tab.
-.footerReserve {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-// Contract 37: the full-width Mergeable buildings toggle under the Buildings tab's rows (a mode, not a tile). Armed: the selected look
-// of a chip plus the legend at its right end.
-.mergeToggleRow {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  margin-top: 6rem;
-  padding-left: 2rem;
-  padding-right: 2rem;
-}
-
-.mergeToggle {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  box-sizing: border-box; // the same height as a button and as FooterReserve's plain div copy (a div defaults to content-box)
-  height: calc(26rem * var(--fontScale));
-  padding: 0rem 8rem;
-  font-size: var(--fontSizeXS);
-  color: rgba(240, 251, 255, 0.8);
-  background-color: var(--sectionBackgroundColor);
-  border-style: solid;
-  border-top-width: 1rem;
-  border-right-width: 1rem;
-  border-bottom-width: 1rem;
-  border-left-width: 1rem;
-  border-top-color: rgba(255, 255, 255, 0.12);
-  border-right-color: rgba(255, 255, 255, 0.12);
-  border-bottom-color: rgba(255, 255, 255, 0.12);
-  border-left-color: rgba(255, 255, 255, 0.12);
-  border-radius: 3rem;
-}
-
-.mergeToggle:hover {
-  background-color: var(--hoverColorNormal);
-}
-
-.mergeToggle:active {
-  background-color: var(--activeColorNormal);
-}
-
-.mergeToggleOn,
-.mergeToggleOn:hover {
-  color: var(--normalTextColor);
-  background-color: var(--selectedColor);
-  border-top-color: var(--accentColorNormal);
-  border-right-color: var(--accentColorNormal);
-  border-bottom-color: var(--accentColorNormal);
-  border-left-color: var(--accentColorNormal);
-}
-
-.mergeToggleIcon {
-  flex-shrink: 0;
-  width: calc(18rem * var(--fontScale));
-  height: calc(18rem * var(--fontScale));
-  margin-right: 6rem;
-}
-
-.mergeToggleLabel {
-  flex-grow: 1;
-  flex-shrink: 1;
-  min-width: 0rem;
-  text-align: left;
-  white-space: nowrap;
 }
 
 .buildGroup {
@@ -990,7 +943,7 @@
 
 // Drawn instead of a prefab icon that failed to load.
 .iconFallback {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: var(--hubEdge);
   border-radius: 4rem;
 }
 
@@ -1006,7 +959,7 @@
 }
 
 .stripeGroomed {
-  background-color: rgba(236, 244, 252, 1);
+  background-color: var(--hubKindGroomed);
 }
 
 .stripeSnowmaking {
@@ -1016,18 +969,18 @@
   border-right-width: 1rem;
   border-bottom-width: 1rem;
   border-left-width: 1rem;
-  border-top-color: rgba(110, 205, 255, 1);
-  border-right-color: rgba(110, 205, 255, 1);
-  border-bottom-color: rgba(110, 205, 255, 1);
-  border-left-color: rgba(110, 205, 255, 1);
+  border-top-color: var(--hubKindSnowmaking);
+  border-right-color: var(--hubKindSnowmaking);
+  border-bottom-color: var(--hubKindSnowmaking);
+  border-left-color: var(--hubKindSnowmaking);
 }
 
 .stripeNight {
-  background-color: rgba(255, 196, 70, 1);
+  background-color: var(--hubKindNight);
 }
 
 .stripeCatTrack {
-  background-color: rgba(110, 200, 120, 1);   // T54 probe 1: as .kindCatTrack
+  background-color: var(--hubKindCatTrack);   // T54 probe 1: as .kindCatTrack
 }
 
 // Step number of the lift tiles (stations first).
@@ -1048,7 +1001,7 @@
   width: 6rem;
   height: 6rem;
   border-radius: 50%;
-  background-color: var(--warningColor);
+  background-color: var(--hubCaution);
 }
 
 .buildLock {
@@ -1096,7 +1049,7 @@
   padding: 0rem 6rem;
   overflow: hidden;
   font-size: var(--fontSizeS);
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
   background-color: var(--sectionBackgroundColor);
   border-style: solid;
   border-top-width: 1rem;
@@ -1172,7 +1125,7 @@
   padding: 0rem 4rem;
   overflow: hidden;
   font-size: var(--fontSizeXS);
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
   background-color: var(--sectionBackgroundColor);
   border-style: solid;
   border-top-width: 1rem;
@@ -1286,7 +1239,7 @@
   min-width: 0rem;
   font-size: var(--fontSizeXS);
   line-height: 130%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1300,7 +1253,7 @@
 
 // T82 B5a: a warning season hint (Thawing, Waiting for snow, Too warm) keeps the slot in the warning color; declared after .statusHintOn.
 .statusHintWarn {
-  color: var(--warningColor);
+  color: var(--hubCaution);
 }
 
 // T82 B5a: the "≈" before the snow while it is estimated (fixed cell, like the receipt mark slot).
@@ -1309,7 +1262,7 @@
   margin-right: 3rem;
   font-size: var(--fontSizeXS);
   line-height: 130%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 // -- open marks (design 5.3): 0.6 em shapes (the status line's mark; Round F7: the run rows say a word) --
@@ -1342,7 +1295,7 @@
 
 .openClosed {
   height: 2rem;
-  background-color: rgba(240, 251, 255, 0.5);
+  background-color: var(--textColorDisabled);
 }
 
 .openEstimated {
@@ -1350,15 +1303,15 @@
 }
 
 .glyphWarnTone {
-  background-color: var(--warningColor);
+  background-color: var(--hubCaution);
 }
 
 .glyphDimTone {
-  background-color: rgba(240, 251, 255, 0.7);
+  background-color: var(--hubTextDim);
 }
 
 .glyphDimmerTone {
-  background-color: rgba(240, 251, 255, 0.5);
+  background-color: var(--textColorDisabled);
 }
 
 // -- problems band (design 5.2): 3 fixed slots ------------------------------------------------------
@@ -1438,7 +1391,7 @@
 }
 
 .problemDim {
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 .problemMore {
@@ -1448,8 +1401,10 @@
   align-items: center;
   flex-grow: 0;
   flex-shrink: 0;
-  width: 2.4em;
-  color: rgba(240, 251, 255, 0.7);
+  // sized by its label ("3 more problems", 2026-11-07); the row text before it ellipsizes
+  min-width: 2.4em;
+  margin-left: 6rem;
+  color: var(--hubTextDim);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -1507,7 +1462,7 @@
 
 .tileOn,
 .tileOn:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--hubTrack);
   border-bottom-color: var(--accentColorNormal);
 }
 
@@ -1530,7 +1485,7 @@
   max-width: 100%;
   line-height: 130%;
   font-size: var(--fontSizeXS);
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
   white-space: nowrap;
   overflow: hidden;
   coh-font-fit-mode: shrink;
@@ -1542,7 +1497,7 @@
   right: 4rem;
   font-size: var(--fontSizeXS);
   line-height: 100%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 /* Second pass: the Money tile's mark lives in a fixed trailing slot of its caption (always reserved,
@@ -1572,7 +1527,7 @@
   margin-left: 0.25em;
   font-size: var(--fontSizeXS);
   line-height: 130%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 // -- the Ski Bus card: right of the game's selected-info panel, same top ---------------------------------
@@ -1582,12 +1537,12 @@
   left: 418rem;
   width: 340rem;
   padding-bottom: 6rem;
-  background-color: rgba(24, 33, 51, 0.85);
+  background-color: var(--hubCardBg);
   border-top-left-radius: 8rem;
   border-top-right-radius: 8rem;
   border-bottom-left-radius: 8rem;
   border-bottom-right-radius: 8rem;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--normalTextColor);
   pointer-events: none;
 }
 
@@ -1609,26 +1564,6 @@
   flex-grow: 1;
   flex-basis: 0;
   margin-right: 4rem;
-}
-
-// Contract 36: the merge overlay chip, the first line of the Merged buildings fold.
-.mergeOverlayRow {
-  display: flex;
-  flex-direction: row;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
-  padding-left: 10rem;
-  padding-right: 10rem;
-}
-
-// Contract 37: what merging does, under the card's title (wraps; the card has no height budget of its own).
-.mergeCardNote {
-  padding-left: 10rem;
-  padding-right: 10rem;
-  padding-bottom: 4rem;
-  font-size: var(--fontSizeXS);
-  line-height: 130%;
-  color: rgba(240, 251, 255, 0.75);
 }
 
 // Contract 37: the merge overlay's legend (MergedFold.MergeLegend): beside the fold's chip and in the Build strip's first status line.
@@ -1674,11 +1609,11 @@
 }
 
 .mergeSwatchFits {
-  background-color: rgb(110, 220, 120);
+  background-color: var(--hubMergeFits);
 }
 
 .mergeSwatchTooSmall {
-  background-color: rgb(170, 170, 170);
+  background-color: var(--hubMergeTooSmall);
 }
 
 .mergeLegendCount {
@@ -1687,7 +1622,12 @@
 }
 
 .mergeLegendLabel {
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
+}
+
+// The merge card's Merge / Change / Unmerge: the hub's action buttons, 6 rem apart.
+.mergeAction {
+  margin-left: 6rem;
 }
 
 .mergeActions {
@@ -1731,7 +1671,7 @@
   flex-grow: 0;
   flex-shrink: 0;
   width: 1.6em;
-  color: rgba(240, 251, 255, 0.55);
+  color: var(--hubTextDim);
   white-space: nowrap;
 }
 
@@ -1740,7 +1680,7 @@
   flex-shrink: 1;
   flex-basis: 0rem;
   min-width: 0rem;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1753,7 +1693,7 @@
   flex-shrink: 1;
   flex-basis: 0rem;
   min-width: 0rem;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1781,7 +1721,7 @@
   flex-grow: 0;
   flex-shrink: 1;
   min-width: 0rem;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1806,7 +1746,7 @@
   flex-shrink: 1;
   min-width: 0rem;
   margin-left: 4rem;
-  color: var(--warningColor);
+  color: var(--hubCaution);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1814,7 +1754,7 @@
 
 // T86 (field 2026-10-19): InfoLine flagDim - a state, not a fault ("No run counts yet"): normal text, dimmed like .dimLine.
 .flagTextDim {
-  color: var(--textColorDimmer);
+  color: var(--hubTextDim);
 }
 
 .infoValue {
@@ -1837,7 +1777,7 @@
   flex-shrink: 0;
   width: 1em;
   margin-left: 4rem;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
   white-space: nowrap;
 }
 
@@ -1852,7 +1792,7 @@
   padding-right: 10rem;
   font-size: var(--fontSizeXS);
   line-height: 130%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 .divider {
@@ -1920,7 +1860,7 @@
   flex-grow: 0;
   flex-shrink: 0;
   width: 2rem;
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: var(--hubTick);
 }
 
 .scoreLabels {
@@ -1933,7 +1873,7 @@
   margin-right: 10rem;
   line-height: 130%;
   font-size: var(--fontSizeXS);
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 .scoreLabel {
@@ -1982,7 +1922,7 @@
   flex-grow: 0;
   flex-shrink: 0;
   width: 6.5em;
-  color: var(--textColorDimmer);
+  color: var(--hubTextDim);
   font-size: var(--fontSizeXS);
   white-space: nowrap;
   overflow: hidden;
@@ -1993,6 +1933,25 @@
   color: var(--normalTextColor);
   font-size: var(--fontSizeXS);
   line-height: 130%;
+}
+
+// The picked run's name line: the name, then (a cat track) its trash on the right.
+.quickLineRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  min-height: 1.9em;
+}
+
+.quickLineText {
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .quickSpecies {
@@ -2044,10 +2003,10 @@
   border-right-width: 2rem;
   border-bottom-width: 2rem;
   border-left-width: 2rem;
-  border-top-color: rgba(240, 251, 255, 0.7);
-  border-right-color: rgba(240, 251, 255, 0.7);
-  border-bottom-color: rgba(240, 251, 255, 0.7);
-  border-left-color: rgba(240, 251, 255, 0.7);
+  border-top-color: var(--hubTextDim);
+  border-right-color: var(--hubTextDim);
+  border-bottom-color: var(--hubTextDim);
+  border-left-color: var(--hubTextDim);
   border-radius: 2rem;
 }
 
@@ -2104,17 +2063,7 @@
 
 .runRowFocused,
 .runRowFocused:hover {
-  background-color: rgba(75, 195, 241, 0.18);
-}
-
-// Round F7 (D1, findings/hub-ux.md §2.4): the state word ("Open" / "Patchy" / "Closed") in XS; its
-// StableWidth holds all three words. 0.4 em of XS after it (the open mark's margin was 0.4 em of S).
-.runState {
-  font-size: var(--fontSizeXS);
-  line-height: 130%;
-  margin-right: 0.4em;
-  white-space: nowrap;
-  color: var(--normalTextColor);
+  background-color: var(--hubFocusHover);
 }
 
 // A closed run: its fly part (word, markers, name, numbers) at 55 %; the pen and the hover stay.
@@ -2130,7 +2079,7 @@
   flex-shrink: 0;
   width: 1.2em;
   font-size: var(--fontSizeXS);
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 .rowPen {
@@ -2158,7 +2107,7 @@
 // The cat track row's trash after its first click: fully visible and tinted red until the second click, 4 s or leaving the row.
 .rowTrashArmed {
   opacity: 1;
-  background-color: rgba(228, 78, 64, 0.85);
+  background-color: var(--hubBad);
 }
 
 .kindNatural {
@@ -2173,7 +2122,7 @@
   flex-shrink: 0;
   height: 0.4em;
   border-radius: 0.1em;
-  background-color: rgba(236, 244, 252, 0.7);
+  background-color: var(--hubKindNatural);
 }
 
 .kindNaturalBarNext {
@@ -2231,7 +2180,7 @@
   padding-left: 1.15em;
   font-size: var(--fontSizeXS);
   line-height: 130%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2251,12 +2200,17 @@
   background-color: var(--normalTextColor);
 }
 
+// A run row's dot while the run is not linked: the slot keeps its width, nothing shows.
+.liftDotNone {
+  background-color: rgba(0, 0, 0, 0);
+}
+
 .liftDotWarn {
-  background-color: var(--warningColor);
+  background-color: var(--hubCaution);
 }
 
 .liftDotDim {
-  background-color: rgba(240, 251, 255, 0.5);
+  background-color: var(--textColorDisabled);
 }
 
 .liftDotRing {
@@ -2269,17 +2223,17 @@
 }
 
 .liftRingWarn {
-  border-top-color: var(--warningColor);
-  border-right-color: var(--warningColor);
-  border-bottom-color: var(--warningColor);
-  border-left-color: var(--warningColor);
+  border-top-color: var(--hubCaution);
+  border-right-color: var(--hubCaution);
+  border-bottom-color: var(--hubCaution);
+  border-left-color: var(--hubCaution);
 }
 
 .liftRingDim {
-  border-top-color: rgba(240, 251, 255, 0.5);
-  border-right-color: rgba(240, 251, 255, 0.5);
-  border-bottom-color: rgba(240, 251, 255, 0.5);
-  border-left-color: rgba(240, 251, 255, 0.5);
+  border-top-color: var(--textColorDisabled);
+  border-right-color: var(--textColorDisabled);
+  border-bottom-color: var(--textColorDisabled);
+  border-left-color: var(--textColorDisabled);
 }
 
 .liftWord {
@@ -2287,18 +2241,18 @@
 }
 
 .liftWordWarn {
-  color: var(--warningColor);
+  color: var(--hubCaution);
 }
 
 .liftWordDim {
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 // Contract 6: the lift-type word in line 1 (only while the shown area mixes types; LiftsView), dimmer than the name.
 .liftTypeWord {
   margin-left: 8rem;
   font-size: var(--fontSizeXS);
-  color: rgba(240, 251, 255, 0.5);
+  color: var(--hubTextDim);
 }
 
 // -- guests view (design 5.2) -------------------------------------------------------------------------
@@ -2333,7 +2287,7 @@
 }
 
 .guestFill {
-  background-color: rgba(240, 251, 255, 0.85);
+  background-color: var(--hubTextDim);
 }
 
 .colHeads {
@@ -2347,7 +2301,7 @@
   padding-right: 10rem;
   font-size: var(--fontSizeXS);
   line-height: 130%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 .colHeadSpacer {
@@ -2379,7 +2333,7 @@
   padding-right: 10rem;
   font-size: var(--fontSizeXS);
   line-height: 130%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 .note1 {
@@ -2436,17 +2390,6 @@
   text-overflow: ellipsis;
 }
 
-// A start card note wraps like every note (test-hub-layout NOTE_CLASSES).
-.startNote {
-  flex-shrink: 0;
-  min-height: 1.3em;
-  padding-left: 10rem;
-  padding-right: 10rem;
-  font-size: var(--fontSizeXS);
-  line-height: 130%;
-  color: var(--normalTextColor);
-}
-
 // E1 fixer (e1-spec 8.9 F16): the step-1 button fits its .startStep row (1.3 em of S + 10 rem): 1.6 em of
 // S like .treeToolButton (U15), not .actionButton's 30 rem x fontScale (0.9 rem over the row at 100 %).
 // Declared after .actionButton, so it wins at equal specificity.
@@ -2477,10 +2420,6 @@
   color: var(--normalTextColor);
 }
 
-.buildLineDim {
-  color: rgba(240, 251, 255, 0.7);
-}
-
 .buildLineLocked {
   color: var(--lockedColor);
 }
@@ -2499,7 +2438,7 @@
   flex-basis: 0rem;
   min-width: 0rem;
   border-radius: 2rem;
-  background-color: rgba(236, 244, 252, 0.7);
+  background-color: var(--hubKindNatural);
 }
 
 .stripeNaturalPartNext {
@@ -2517,7 +2456,7 @@
 
 // Guest bar label (a StableWidth of both month labels).
 .guestLabel {
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 // The tree tool's on/off button inside a 1.9em row: its own em height (the .actionButton's
@@ -2565,26 +2504,15 @@
   margin-top: 4rem;
 }
 
-.histSpacer {
-  flex-grow: 1;
-  flex-shrink: 1;
-  min-width: 6rem;
-}
 
-.histCheck {
-  padding-left: 6rem;
-}
 
-.histCheckText {
-  white-space: nowrap;
-}
 
 .histNote {
   flex-shrink: 0;
   padding: 10rem 10rem;
   font-size: var(--fontSizeXS);
   line-height: 130%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 // The headline row's value: the number, then its year-on-year change (each a StableWidth cell: no jitter).
@@ -2607,7 +2535,7 @@
   flex-shrink: 0;
   margin-left: 6rem;
   font-size: var(--fontSizeXS);
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
   text-transform: none;
   white-space: nowrap;
 }
@@ -2641,7 +2569,7 @@
   padding-right: 4rem;
   font-size: var(--fontSizeXS);
   line-height: 100%;
-  color: rgba(240, 251, 255, 0.55);
+  color: var(--hubTextDim);
 }
 
 .histGutterSizer {
@@ -2699,7 +2627,7 @@
   height: 1.3em;
   font-size: var(--fontSizeXS);
   line-height: 130%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 // One equal cell per bucket; the label may overflow its cell (centered, labels are spaced by labelStep).
@@ -2725,7 +2653,7 @@
   margin-bottom: 2rem;
   font-size: var(--fontSizeXS);
   line-height: 130%;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 .histLegendItem {
@@ -2788,7 +2716,7 @@
 }
 
 .foldRowOpen {
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: var(--hubOpenTint);
 }
 
 // A clickable row without a chevron (the Guests view's car space rows): the fold's button look, the plain rows' text indent. Two
@@ -2849,7 +2777,7 @@
   margin-right: 6rem;
   text-align: center;
   white-space: nowrap;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 // The body is the anchor of the two overlays below (area list, problems popover): they are drawn over the content, inside our own
@@ -2899,7 +2827,7 @@
 }
 
 .areaNameText.warnText {
-  color: var(--warningColor);
+  color: var(--hubCaution);
 }
 
 .areaChevron {
@@ -2917,7 +2845,7 @@
   right: 0rem;
   bottom: 0rem;
   z-index: 10;
-  background-color: rgba(0, 0, 0, 0.25);
+  background-color: var(--hubBackdrop);
   pointer-events: auto;
 }
 
@@ -2951,12 +2879,12 @@
   border-right-width: 1rem;
   border-bottom-width: 1rem;
   border-left-width: 1rem;
-  border-top-color: rgba(255, 255, 255, 0.15);
-  border-right-color: rgba(255, 255, 255, 0.15);
-  border-bottom-color: rgba(255, 255, 255, 0.15);
-  border-left-color: rgba(255, 255, 255, 0.15);
+  border-top-color: var(--hubEdge);
+  border-right-color: var(--hubEdge);
+  border-bottom-color: var(--hubEdge);
+  border-left-color: var(--hubEdge);
   border-radius: 4rem;
-  box-shadow: 0rem 6rem 18rem rgba(0, 0, 0, 0.5);
+  box-shadow: 0rem 6rem 18rem var(--hubShadow);
   pointer-events: auto;
 }
 
@@ -2964,7 +2892,7 @@
   padding: 4rem 10rem 4rem 10rem;
   font-size: var(--fontSizeXS);
   text-transform: uppercase;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 .overlayItem {
@@ -3008,7 +2936,7 @@
   flex-shrink: 0;
   margin-left: 12rem;
   white-space: nowrap;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 .overlayNote {
@@ -3016,11 +2944,11 @@
   padding: 6rem 10rem 2rem 10rem;
   border-top-style: solid;
   border-top-width: 1rem;
-  border-top-color: rgba(255, 255, 255, 0.1);
+  border-top-color: var(--dividerColor);
   font-size: var(--fontSizeXS);
   line-height: 130%;
   white-space: normal;
-  color: rgba(240, 251, 255, 0.7);
+  color: var(--hubTextDim);
 }
 
 // The problems band's "+N": a button that opens the popover (problemsOpen$) with the rows the three slots do not show.
@@ -3057,30 +2985,6 @@
 
 .popoverRow:hover {
   background-color: var(--hoverColorNormal);
-}
-
-// Build strip, Buildings tab: the fixed family row names the five lodge tiles ("Lodges" over their group), in the slot the lodge
-// chips used (T97); the row keeps its height so a tab switch never moves the tabs.
-.groupCaption {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: center;
-  flex-shrink: 1;
-  flex-basis: 0rem;
-  min-width: 0rem;
-  padding: 0rem 2rem 2rem 2rem;
-  font-size: var(--fontSizeXS);
-  white-space: nowrap;
-  overflow: hidden;
-  color: rgba(240, 251, 255, 0.7);
-  border-bottom-style: solid;
-  border-bottom-width: 1rem;
-  border-bottom-color: rgba(255, 255, 255, 0.2);
-}
-
-.groupCaptionNone {
-  border-bottom-width: 0rem;
 }
 
 // Contract 12: the lift generator toggle sits after the lift-type chips in the Lifts family row.
@@ -3138,7 +3042,7 @@
   flex-direction: row;
   align-items: center;
   flex-wrap: wrap;
-  color: var(--textColorDimmer);
+  color: var(--hubTextDim);
 }
 
 .planMixItem {

@@ -3,17 +3,16 @@
  * Not linked view, those in no area): its name, then its tier word while counted or its state word otherwise; the tier, the state and the
  * monthly fee while billed are in the row's tooltip. A click focuses the building (focusBuilding). The name is the building's own (a
  * player may have typed it, 64 characters): it shrinks with an ellipsis under lodgeNameLabel like the Guests view's lodge names.
- * Contract 36: the fold opens on the merge overlay chip (armMergeOverlay; C# answers through mergeOverlay$, and Escape, a merge or a load
- * turn it off). Contract 37: the green / gray legend sits beside the chip (MergeLegend, also the Buildings tab footer's line while the
- * overlay is on), with the outlined counts while on; the Buildings tab's Mergeable buildings toggle fires the same trigger and carries the same legend. In an area view the fold is always drawn (the chip needs it, the city
- * has a sign); in the Not linked view only while it has rows. Panel file: subscribes mergedLodges$ and mergeOverlay$ (no Demand of its own).
+ * The fold is drawn only while the area has a merged building (DECISIONS 613): the merge overlay's one switch is the Build strip's
+ * Mergeable buildings chip (Buildings tab, contract 36 / 37), whose status line carries MergeLegend while the overlay is on.
+ * Panel file: subscribes mergedLodges$ (no Demand of its own).
  * Engine notes: EngineNotes/SkiMergeSystem.md
  */
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { hubTriggers, isNullEntity, mergeOverlay$, mergedLodges$, sameEntity } from "../bindings";
+import { hubTriggers, isNullEntity, mergedLodges$, sameEntity } from "../bindings";
 import type { MergeOverlayState } from "../bindings";
 import type { Entity } from "cs2/utils";
 import { useT } from "../l10n";
@@ -30,10 +29,9 @@ export function MergedFold({ sign }: { sign: Entity | null }): JSX.Element | nul
   const t = useT();
   const all = useValue(mergedLodges$);
   const rows = (all ?? []).filter((r) => (sign ? sameEntity(r.sign, sign) : isNullEntity(r.sign)));
-  if (rows.length === 0 && !sign) return null;
+  if (rows.length === 0) return null;
   return (
     <Fold view="overview" id="merged" header label={t(HUB_LOC.mergedFold)} value={numArg(rows.length, Unit.Integer)} tip={t(HUB_LOC.mergedFoldTip)}>
-      <OverlayChip t={t} />
       {rows.map((r) => {
         const tierEntry = LODGE_TIER[MERGE_TIER_ITEM[r.tier]];
         const tier = tierEntry ? t(tierEntry) : "";
@@ -60,7 +58,7 @@ export function MergedFold({ sign }: { sign: Entity | null }): JSX.Element | nul
 }
 
 /** The overlay's legend: a green and a gray swatch with their words, each with its count of outlined buildings while the overlay is on.
- *  Host divs only (no Tip inside), so it can sit in a fold row or in the Build strip's status line. */
+ *  Host divs only (no Tip inside): it sits in the Build strip's status line. */
 export function MergeLegend({ overlay, t }: { overlay: MergeOverlayState | null | undefined; t: Translate }): JSX.Element {
   const on = !!overlay?.armed;
   const item = (swatch: string, n: number, label: string, next: boolean): JSX.Element => (
@@ -78,21 +76,3 @@ export function MergeLegend({ overlay, t }: { overlay: MergeOverlayState | null 
   );
 }
 
-/** The merge overlay chip and its legend: on arms C#'s SkiMergeOverlaySystem, off disarms it. Always drawn while the fold is open. */
-function OverlayChip({ t }: { t: Translate }): JSX.Element {
-  const o = useValue(mergeOverlay$);
-  const on = !!o?.armed;
-  return (
-    <div className={styles.mergeOverlayRow}>
-      <div className={styles.pickerCell}>
-        <Tip tip={<TipLines lines={[t(HUB_LOC.mergeOverlay), t(HUB_LOC.mergeOverlayTip)]} />}>
-          <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }} selected={on}
-            onSelect={() => hubTriggers.armMergeOverlay(!on)}>
-            <div className={styles.pickerLabel}>{t(HUB_LOC.mergeOverlay)}</div>
-          </Button>
-        </Tip>
-      </div>
-      <MergeLegend overlay={o} t={t} />
-    </div>
-  );
-}

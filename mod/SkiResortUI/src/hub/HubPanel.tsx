@@ -16,7 +16,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { GuestsView } from "./GuestsView";
 import { HistoryView } from "./HistoryView";
 import { AreaList, HubHeader } from "./HubHeader";
-import { NO_FOCUS, areaListOpen$, buildTab$, focused$, folds$, openFold, problemsOpen$, resetHoverRun, runToolSeen, sendHoverRun, useHubConnection, view$ } from "./hubState";
+import { NO_FOCUS, areaListOpen$, focused$, footerShape$, folds$, openFold, problemsOpen$, resetHoverRun, runToolSeen, sendHoverRun, useHubConnection, view$ } from "./hubState";
 import { FitContext, Pager, useViewPager } from "./fit";
 import type { HubConnection } from "./hubState";
 import { HUB_FMT, HUB_LOC } from "./hubText";
@@ -128,16 +128,16 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
   // The view pager (fit.tsx): a view still taller than the box after its folds shows its rows page by page. Runs and Lifts
   // list every row and may scroll. A view switch, a fold toggle or an area switch returns to page 1.
   const folds = useValue(folds$);
-  // The Buildings tab's footer is taller (two tile rows and the merge toggle): a tab switch re-renders the panel so the pager re-fits at
+  // The footer opens and closes like the game's toolbar (BuildStrip): a new footer shape re-renders the panel so the pager re-fits at
   // once (its layout effect), not on its next poll (a 400 ms scrollbar flash), and drops the room it measured for the other footer.
-  const buildTab = useValue(buildTab$);
+  const footerShape = useValue(footerShape$);
   // A fold toggle within the view (not a view switch) bumps foldSeq: the pager then shows the page holding that fold's header
   const fold = openFold(folds, view);
   const foldSeen = useRef({ view, fold, seq: 0 });
   if (foldSeen.current.view !== view) foldSeen.current = { view, fold, seq: foldSeen.current.seq };
   else if (foldSeen.current.fold !== fold) foldSeen.current = { view, fold, seq: foldSeen.current.seq + 1 };
   const viewPager = useViewPager(viewRef, contentRef, hasSign && view !== "runs" && view !== "lifts",
-    `${view}|${fold}|${areaKey}`, styles.foldRow, buildTab, styles.foldRowOpen, foldSeen.current.seq);
+    `${view}|${fold}|${areaKey}`, styles.foldRow, footerShape, styles.foldRowOpen, foldSeen.current.seq);
 
   // Plain markup only: an error-boundary fallback must not be able to throw
   const title = t(LOC.title);

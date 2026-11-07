@@ -1,7 +1,7 @@
 /*
  * src/hub/HistoryView.tsx - the History view: guests and money month by month, by ski season for long ranges.
  * Top level shows the chart and the number that matters (headline = last whole month against the same month a year earlier); tooltips
- * hold the detail. Controls are local values (hubState.ts, nothing sent): scope area / whole city, charts, range, Attraction strip.
+ * hold the detail. Controls are local values (hubState.ts, nothing sent): scope area / whole city and range; both charts and (area scope) the Attraction strip always draw.
  * Snow is not drawn as a line: the Attraction strip's hover names each month's snow at the roll as its two numbers, depth and run
  * coverage (T142 B7b, contract 15; snow is never one number). Hover: one index shared by
  * every chart of the view. Panel file (gate R11): subscribes history$ (only this view, so C# builds `history` only while it is shown),
@@ -20,13 +20,13 @@ import type { LocEntry, Translate } from "../l10n";
 import { BarChart, HISTORY_COLOR, Legend, LineStrip } from "./HistoryChart";
 import type { ChartBehind, ChartSeries, ChartSlot } from "./HistoryChart";
 import {
-  HISTORY_CHARTS, HISTORY_RANGES, compareOf, effectiveRange, labelStep, linePoints, monthOfKey, netChange, niceMax, pctChange,
+  HISTORY_RANGES, compareOf, effectiveRange, labelStep, linePoints, monthOfKey, netChange, niceMax, pctChange,
   rangeEnabled, seasonIsOneYear, setSeasonFirstMonth0, sumAreas, windowOf, yearOfKey, yearOnYear,
 } from "./historyRules";
-import type { HistoryBucket, HistoryCharts, HistoryRange } from "./historyRules";
-import { historyAttraction$, historyCharts$, historyRange$, historyScope$ } from "./hubState";
+import type { HistoryBucket, HistoryRange } from "./historyRules";
+import { historyRange$, historyScope$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, monthName, monthShortName } from "./hubText";
-import { CheckBox, InfoLine, LocText, Num, SignedNum, StableWidth, Tip, TipLines, cx, depthValue, numArg, useInches, useNumberSamples } from "./parts";
+import { InfoLine, LocText, Num, SignedNum, StableWidth, Tip, TipLines, cx, depthValue, numArg, useInches, useNumberSamples } from "./parts";
 import type { NumberSamples, TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
@@ -43,22 +43,12 @@ const RANGE_TIP: Readonly<Record<HistoryRange, LocEntry>> = {
   bySeason: HUB_LOC.historyTipRangeBySeason,
 };
 
-const CHARTS_LABEL: Readonly<Record<HistoryCharts, LocEntry>> = {
-  guests: HUB_LOC.historyGuests,
-  money: HUB_LOC.historyFinances,
-  both: HUB_LOC.historyBoth,
-};
-
-/** Plot heights in rem: one chart alone, each of two, the attraction strip. Both charts + controls = 336 rem at 100 %, inside
-*  the 341 rem content area the harness measured with three problem lines (uiLayout); taller made the panel scroll. */
-const H_ONE = 130, H_TWO = 64, H_STRIP = 26;
+/** Plot heights in rem: each chart, the attraction strip. Both charts are always drawn (hub redesign 2026-11-07: the Guests /
+*  Finances / Both segment and the strip's check box went); the pager (fit.tsx) puts the money chart on a second page if needed. */
+const H_TWO = 64, H_STRIP = 26;
 
 function asRange(v: string): HistoryRange {
   return (HISTORY_RANGES as readonly string[]).includes(v) ? (v as HistoryRange) : "months12";
-}
-
-function asCharts(v: string): HistoryCharts {
-  return (HISTORY_CHARTS as readonly string[]).includes(v) ? (v as HistoryCharts) : "both";
 }
 
 const pad2 = (n: number): string => String(((n % 100) + 100) % 100).padStart(2, "0");
@@ -151,8 +141,6 @@ export function HistoryView(): JSX.Element {
   const selected = useValue(selectedResort$);
   const scope = useValue(historyScope$);
   const rangeRaw = useValue(historyRange$);
-  const chartsRaw = useValue(historyCharts$);
-  const attractionOn = useValue(historyAttraction$);
   const inches = useInches();   // snow depth in the player's units (T130)
   const [hover, setHover] = useState(-1);
   const cur = currentResort(resortEntries(resorts), selected);
@@ -163,12 +151,11 @@ export function HistoryView(): JSX.Element {
     return history.find((h) => h && sameEntity(h.sign, signRow.sign)) ?? null;
   }, [history, scope, signRow]);
   const range = effectiveRange(area, asRange(rangeRaw));
-  const charts = asCharts(chartsRaw);
   const buckets = useMemo(() => windowOf(area, range), [area, range]);
   const compare = useMemo(() => compareOf(area, range), [area, range]);
   const yoy = useMemo(() => yearOnYear(area), [area]);
-  // The attraction is per ski area; Whole city has no checkbox and no strip.
-  const attraction = attractionOn && scope === "area";
+  // The attraction is per ski area; Whole city has no strip.
+  const attraction = scope === "area";
 
   const scopeRow = (
     <div className={styles.histControls}>
@@ -178,14 +165,6 @@ export function HistoryView(): JSX.Element {
         label={(k) => t(k === "area" ? HUB_LOC.historyScopeArea : HUB_LOC.historyScopeCity)}
         tip={() => t(HUB_LOC.historyTipScope)}
         onSelect={(k) => historyScope$.update(k)}
-      />
-      <div className={styles.histSpacer} />
-      <Segment
-        options={HISTORY_CHARTS}
-        value={charts}
-        label={(k) => t(CHARTS_LABEL[k])}
-        tip={(k) => t(CHARTS_LABEL[k])}
-        onSelect={(k) => historyCharts$.update(k)}
       />
     </div>
   );
@@ -201,18 +180,6 @@ export function HistoryView(): JSX.Element {
       />
     </div>
   );
-  // The Attraction toggle, area scope only, at the bottom as the strip's own header.
-  const attractionToggle = scope === "area" ? (
-    <div className={styles.histControls}>
-      <Tip tip={t(HUB_LOC.historyTipAttraction)}>
-        <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.segButton, styles.histSeg, styles.histCheck)} selected={attractionOn} onSelect={() => historyAttraction$.update(!attractionOn)}>
-          <CheckBox on={attractionOn} />
-          <div className={styles.histCheckText}>{t(HUB_LOC.historyAttraction)}</div>
-        </Button>
-      </Tip>
-    </div>
-  ) : null;
-
   if (!area || buckets.length === 0) {
     const note = scope === "area" && cur.isUnlinked ? HUB_LOC.historyUnlinked : HUB_LOC.historyEmpty;
     return (
@@ -224,8 +191,7 @@ export function HistoryView(): JSX.Element {
     );
   }
 
-  const two = charts === "both";
-  const plotH = two ? H_TWO : H_ONE;
+  const plotH = H_TWO;
   const slots = slotsOf(buckets);
   const labels = axisLabels(buckets, t);
   const b = (i: number): HistoryBucket => buckets[i];
@@ -281,7 +247,7 @@ export function HistoryView(): JSX.Element {
   const mBottomLabel = <SignedNum value={-mBottom} unit={Unit.Money} />;
   const aTopLabel = <Num value={aTop} unit={Unit.Integer} />;
   const sizers: ReactNode[] = [
-    charts !== "money" && gTopLabel, charts !== "guests" && mTop > 0 && mTopLabel, charts !== "guests" && mBottom > 0 && mBottomLabel,
+    gTopLabel, mTop > 0 && mTopLabel, mBottom > 0 && mBottomLabel,
     attraction && aTopLabel, "0",
   ].filter((x) => !!x) as ReactNode[];
 
@@ -399,6 +365,7 @@ export function HistoryView(): JSX.Element {
     <>
       <LineStrip slots={slots} line={{ key: "a", color: HISTORY_COLOR.attraction, points: linePoints(buckets, (x) => (x.attraction >= 0 ? x.attraction : NaN)) }}
         top={aTop} height={H_STRIP} hover={hover} onHover={setHover} topLabel={aTopLabel} sizers={sizers} tip={attrTip} />
+      <Legend items={[{ key: "a", color: HISTORY_COLOR.attraction, label: t(HUB_LOC.historyAttraction), line: true }]} />
     </>
   ) : null;
 
@@ -407,9 +374,8 @@ export function HistoryView(): JSX.Element {
     <>
       {scopeRow}
       {rangeRow}
-      {charts !== "money" && guestsBlock}
-      {charts !== "guests" && moneyBlock}
-      {attractionToggle}
+      {guestsBlock}
+      {moneyBlock}
       {attractionBlock}
     </>
   );

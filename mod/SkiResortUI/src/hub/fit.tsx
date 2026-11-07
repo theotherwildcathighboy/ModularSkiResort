@@ -15,7 +15,7 @@ import { Unit } from "cs2/l10n";
 import { useT } from "../l10n";
 import { folds$, openFold, toggleFold } from "./hubState";
 import { HUB_FMT, HUB_LOC } from "./hubText";
-import { Glyph, LocText, Tip, cx, numArg } from "./parts";
+import { Glyph, LocText, MarkSlot, Tip, cx, numArg } from "./parts";
 import styles from "./hub.module.scss";
 
 export const GLYPH_FOLD_CLOSED = "Media/Glyphs/ThickStrokeArrowRight.svg";
@@ -25,11 +25,13 @@ export const GLYPH_FOLD_OPEN = "Media/Glyphs/ThickStrokeArrowDown.svg";
 export const FitContext = createContext<RefObject<HTMLDivElement> | null>(null);
 
 /** A fold: a header row (label, optional value) with a chevron; its children only while it is the view's open fold */
-export function Fold({ view, id, label, value, tip, header, children }: {
+export function Fold({ view, id, label, value, mark, tip, header, children }: {
   view: string;
   id: string;
   label: string | JSX.Element;
   value?: ReactNode;
+  /** The "≈" slot before the value, as InfoLine's (undefined = no slot) */
+  mark?: "≈" | "…" | null;
   tip?: ReactNode;
   header?: boolean;
   children: ReactNode;
@@ -43,6 +45,7 @@ export function Fold({ view, id, label, value, tip, header, children }: {
           onSelect={() => toggleFold(view, id)}>
           <Glyph src={open ? GLYPH_FOLD_OPEN : GLYPH_FOLD_CLOSED} className={styles.foldMark} />
           <div className={styles.infoLabel}>{label}</div>
+          {mark !== undefined && <MarkSlot mark={mark} />}
           {value !== undefined && <div className={styles.infoValue}>{value}</div>}
         </Button>
       </Tip>

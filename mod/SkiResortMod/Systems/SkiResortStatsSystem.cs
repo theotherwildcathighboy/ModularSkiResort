@@ -105,6 +105,8 @@ namespace SkiResortMod.Systems
         // The Ski Bus Depots: BusChargedMonth = the coach bill booked this month (a ninth Net row); Depots = active depots linked here;
         // BusGuestsMonth = ski days that arrived at a depot this month (-1 ski days off); BusBillMonth = the bill's rate now.
         public int BusChargedMonth, Depots, BusGuestsMonth, BusBillMonth;
+        // Contract 38 (DECISIONS 613): the Net's two sides from the same terms (HubRules.IncomeMonth / CostsMonth; their difference is NetMonth).
+        public int IncomeMonth, CostsMonth;
 
         /// <summary>The terms NetMonth was computed from (-1 unknown).</summary>
         public HubMonthMoney NetTerms => new HubMonthMoney
@@ -2456,6 +2458,8 @@ namespace SkiResortMod.Systems
             live.BuildingsSoFar = money.BuildingsCost;
             live.WagesSoFar = money.WagesCost;
             live.BusChargedMonth = money.BusCost;
+            live.IncomeMonth = HubRules.IncomeMonth(in money);
+            live.CostsMonth = HubRules.CostsMonth(in money);
         }
 
         private void AddJobs(Entity building, ref int jobs, ref int filled)
@@ -3092,6 +3096,8 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.Depots);
                 h = Mix(h, (uint)r.BusGuestsMonth);
                 h = Mix(h, (uint)r.BusBillMonth);
+                h = Mix(h, (uint)r.IncomeMonth);
+                h = Mix(h, (uint)r.CostsMonth);
             }
             return Mix(h, (uint)rows.Count);
         }

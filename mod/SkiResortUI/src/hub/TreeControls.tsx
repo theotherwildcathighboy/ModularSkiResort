@@ -1,6 +1,7 @@
 /*
- * src/hub/TreeControls.tsx - the glade (tree) tool's controls: two fixed rows at the top of the Runs view (TreeRows), and the same rows in a
- * foldout on the contract-mismatch panel (TreesFoldout). Row A: on/off Button (disabled unless available or active, so an active tool can always
+ * src/hub/TreeControls.tsx - the glade (tree) tool's controls: rows at the top of the Runs view while the tool is on (TreeRows toggle={false}:
+ * the footer's Tree chip is the on/off there, hub redesign 2026-11-07), and the same rows with their own on/off in a foldout on the
+ * contract-mismatch panel (TreesFoldout). Row A: on/off Button (disabled unless available or active, so an active tool can always
  * be stopped) and the density stepper (clamps 1..8, no wrap; the Shift+G hotkey wraps 8 -> 1). Row B [Run interior | Tree line]: each Button in its
  * own Tip, because one Tip around two focusable Buttons puts two children under one vanilla Tooltip FocusBoundary (a PassThroughFocusController hosts
  * one child: "can only host a single child" on every toggle). Reads only the core `glade` binding. Content area: default focus for every Button.
@@ -16,7 +17,7 @@ import { HUB_LOC, gladeLevelEntry, sentKeyEntry } from "./hubText";
 import { StableWidth, Tip, cx } from "./parts";
 import styles from "./hub.module.scss";
 
-export function TreeRows(): JSX.Element {
+export function TreeRows({ toggle = true }: { toggle?: boolean } = {}): JSX.Element {
   const t = useT();
   const g = useValue(glade$);
   const available = !!g?.available;
@@ -36,7 +37,7 @@ export function TreeRows(): JSX.Element {
   return (
     <>
       <div className={styles.treeRow}>
-        <Tip tip={toolTip}>
+        {toggle && <Tip tip={toolTip}>
           <Button
             focusKey={FOCUS_DISABLED}
             variant="flat"
@@ -47,7 +48,7 @@ export function TreeRows(): JSX.Element {
           >
             {t(HUB_LOC.treeTool)}
           </Button>
-        </Tip>
+        </Tip>}
         <div className={styles.treeRowSpacer} />
         <div className={styles.stepper}>
           <Tip tip={t(HUB_LOC.treesFewer)}>

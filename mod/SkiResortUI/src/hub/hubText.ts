@@ -52,9 +52,7 @@ export const HUB_LOC = {
   mergedFoldTip: ["SkiResort.Hub.MERGED_FOLD_TIP", "Buildings merged into this ski area as lodges. Each keeps working as before and adds its tier's score, skier room and staff."],
   /* the merge overlay chip in the merged buildings fold (contract 36) */
   mergeOverlay: ["SkiResort.Hub.MERGE_OVERLAY", "Mergeable buildings"],
-  mergeOverlayTip: ["SkiResort.Hub.MERGE_OVERLAY_TIP", "Outlines the buildings near the runs and lifts that can be merged into a ski area as a lodge."],
   /* the Buildings tab's Mergeable buildings toggle (contract 37; its label is MERGE_OVERLAY) and the green / gray legend */
-  mergeTileName: ["SkiResort.Hub.MERGE_TILE[Name]", "Merge a city building"],
   mergeTileFact: ["SkiResort.Hub.MERGE_TILE[Fact]", "A landmark, signature or recreation building near the runs can serve as a lodge"],
   mergeTileArmed: ["SkiResort.Hub.MERGE_TILE[Armed]", "Outlined buildings can join this ski area as lodges"],
   mergeLegendFits: ["SkiResort.Hub.MERGE_LEGEND[Fits]", "Tier fits"],
@@ -80,7 +78,6 @@ export const HUB_LOC = {
   startStep2: ["SkiResort.Hub.START_STEP[2]", "A lift: two stations, then the line"],
   startStep3: ["SkiResort.Hub.START_STEP[3]", "Runs from the top of the lift"],
   startStep4: ["SkiResort.Hub.START_STEP[4]", "A lodge within 800 m of the runs"],
-  startNoteAreas: ["SkiResort.Hub.START_NOTE[Areas]", "One ski area per Welcome Sign; runs and lifts within its radius join it."],
   placeSign: ["SkiResort.Hub.PLACE_SIGN", "Place Welcome Sign"],
 
   statusNoRuns: ["SkiResort.Hub.STATUS_NO_RUNS", "Closed"],
@@ -165,7 +162,6 @@ export const HUB_LOC = {
   tileTipEst: ["SkiResort.Hub.TILE_TIP_EST", "≈ Some income or costs are not counted yet; they read as 0."],
   tileTipEstBuildings: ["SkiResort.Hub.TILE_TIP_EST_BUILDINGS", "≈ The game's bill for buildings and wages is not known yet."],
 
-  sectionAttraction: ["SkiResort.Hub.SECTION[Attraction]", "Attraction"],
   scoreTickPark: ["SkiResort.Hub.SCORE_TICK[Park]", "park 10"],
   scoreTickAttraction: ["SkiResort.Hub.SCORE_TICK[Attraction]", "tourist attraction 50"],
   scoreTickLandmark: ["SkiResort.Hub.SCORE_TICK[Landmark]", "landmark 120"],
@@ -188,8 +184,6 @@ export const HUB_LOC = {
   receiptRowSchool: ["SkiResort.Hub.RECEIPT_ROW[School]", "Ski school"],
   receiptRowVariety: ["SkiResort.Hub.RECEIPT_ROW[Variety]", "Variety"],
   receiptRowVertical: ["SkiResort.Hub.RECEIPT_ROW[Vertical]", "Vertical"],
-  receiptRowScale: ["SkiResort.Hub.RECEIPT_ROW[Scale]", "Scale"],
-  receiptTipScale: ["SkiResort.Hub.RECEIPT_TIP[Scale]", "The section total is this scale × the square root of the terms above. Attractiveness scale in Options."],
   /*
    * a row whose 0 has a cause says it with the warning glyph instead of a tooltip sentence (hubRules.schoolState: no school at
    * all, or a school but no green run counts)
@@ -211,7 +205,6 @@ export const HUB_LOC = {
   difficulty: ["SkiResort.Hub.DIFFICULTY", "Difficulty"],
   pending: ["SkiResort.Hub.PENDING", "Being rated"],
   unrateable: ["SkiResort.Hub.UNRATEABLE", "Cannot be rated: outline too large or too thin, or no terrain under it"],
-  mountainVertical: ["SkiResort.Hub.MOUNTAIN[Vertical]", "Vertical"],
   mountainTipVertical: ["SkiResort.Hub.MOUNTAIN_TIP[Vertical]", "From the lowest run bottom to the highest run top. ≈ while runs are being rated."],
   area: ["SkiResort.Hub.AREA", "Skiable area"],
   areaTip: ["SkiResort.Hub.AREA_TIP", "The plan area of all runs in this ski area."],
@@ -259,7 +252,6 @@ export const HUB_LOC = {
   runPropsGuns: ["SkiResort.Hub.RUN_PROPS_GUNS", "Snow guns"],
   runPropsLights: ["SkiResort.Hub.RUN_PROPS_LIGHTS", "Lights"],
   runPropsOff: ["SkiResort.Hub.RUN_PROPS_OFF", "Off"],
-  runPropsNone: ["SkiResort.Hub.RUN_PROPS_NONE", "No run selected"],
   runPropsGunsTip: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP", "Distance between snow guns on this run's edge. Off: no guns, no made snow and no snowmaking upkeep."],
   /* a cat track: its guns at Off also stop its snowmaking bill and its made snow (DECISIONS 563, 568; SkiRunPropSystem.CatTrackGunsOn) */
   runPropsGunsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns and hydrants on this cat track's edge. Off: no guns and no snowmaking cost; snow already made stays until it melts."],
@@ -287,6 +279,8 @@ export const HUB_LOC = {
   liftLine2StationsBaseOnly: ["SkiResort.Hub.LIFT_LINE2[StationsBaseOnly]", "No top station yet"],
   liftLine2StationsTopOnly: ["SkiResort.Hub.LIFT_LINE2[StationsTopOnly]", "No base station yet"],
   liftRide: ["SkiResort.Hub.LIFT_RIDE", "Ride time"],
+  liftLength: ["SkiResort.Hub.LIFT_LENGTH", "Length"],
+  liftRise: ["SkiResort.Hub.LIFT_RISE", "Rise"],
   liftCapacity: ["SkiResort.Hub.LIFT_CAPACITY", "Capacity"],
   // LIFT_RIDE_TIP and LIFT_CAPACITY_TIP are in HUB_FMT ({SPEED}, {SEATS} per lift type); the totals row of the Lifts view sums
   // several types, so it takes this plain tip. The total sums only the lifts that carry.
@@ -327,7 +321,6 @@ export const HUB_LOC = {
   guestsRowGroups: ["SkiResort.Hub.GUESTS_ROW[Groups]", "Tourist groups"],
   guestsRowResidents: ["SkiResort.Hub.GUESTS_ROW[Residents]", "Residents"],
   guestsRowPaid: ["SkiResort.Hub.GUESTS_ROW[Paid]", "Paid"],
-  guestsRowTickets: ["SkiResort.Hub.GUESTS_ROW[Tickets]", "Ticket money"],
   /* the car space rows under the folds (GuestsView LodgeParkingLines): SkiParkingRules.RadiusM, per lodge */
   guestsTipCarSpaces: ["SkiResort.Hub.GUESTS_TIP[CarSpaces]", "Street, lot and garage spaces within 600 m of this lodge. Tourist parties drive here."],
   /* the CAR SPACES fold header: its value is the total over the rows, one per active road lodge */
@@ -369,6 +362,7 @@ export const HUB_LOC = {
   moneyRowTickets: ["SkiResort.Hub.MONEY_ROW[Tickets]", "Lift tickets"],
   moneyTicketsTip: ["SkiResort.Hub.MONEY_TICKETS_TIP", "Booked this month so far: each guest who paid × the price when they arrived."],
   sectionCosts: ["SkiResort.Hub.SECTION[Costs]", "Running costs"],
+  sectionIncome: ["SkiResort.Hub.SECTION[Income]", "Income"],
   moneyRowRuns: ["SkiResort.Hub.MONEY_ROW[Runs]", "Runs"],
   moneyRowBus: ["SkiResort.Hub.MONEY_ROW[Bus]", "Ski bus"],
   moneyTipBusBooked: ["SkiResort.Hub.MONEY_TIP[BusBooked]", "Coach bill booked this month so far: 1,500 a month per depot plus 300 per straight-line km to the nearest lodge on the hill."],
@@ -447,8 +441,6 @@ export const HUB_LOC = {
   historyTipRangeBySeason: ["SkiResort.Hub.HISTORY_TIP[RangeBySeason]", "One bar per ski season, starting 5 months before winter: the average month, so a season with missing months compares fairly."],
   historyTipRangeOff: ["SkiResort.Hub.HISTORY_TIP[RangeOff]", "Not enough months recorded yet."],
   historyGuests: ["SkiResort.Hub.HISTORY[Guests]", "Guests"],
-  historyFinances: ["SkiResort.Hub.HISTORY[Finances]", "Finances"],
-  historyBoth: ["SkiResort.Hub.HISTORY[Both]", "Both"],
   historyAttraction: ["SkiResort.Hub.HISTORY[Attraction]", "Attraction"],
   historyTipAttraction: ["SkiResort.Hub.HISTORY_TIP[Attraction]", "The attraction score and the snow when each month closed. A season shows its averages."],
   historyTourists: ["SkiResort.Hub.HISTORY[Tourists]", "Tourists"],
@@ -477,7 +469,7 @@ export const HUB_LOC = {
   historyTipStaff: ["SkiResort.Hub.HISTORY_TIP[Staff]", "The game's bill for buildings and wages, at the rate when the month closed."],
   historyTipChart: ["SkiResort.Hub.HISTORY_TIP[Chart]", "Faded bars are partial months; hatched slots recorded nothing."],
   // the Resort Planner tool (code name Quick runs; QuickRunsControls.tsx, BuildStrip.tsx QuickRunsChip)
-  quickTool: ["SkiResort.Hub.QUICK_TOOL", "Resort Planner (experimental)"],
+  quickTool: ["SkiResort.Hub.QUICK_TOOL", "Resort Planner"],
   quickToolTip: ["SkiResort.Hub.QUICK_TOOL_TIP", "Outline a slope and get a set of runs to pick from. Experimental. Ctrl+Shift+Q also opens it."],
   catTrackDelete: ["SkiResort.Hub.CAT_TRACK_DELETE", "Delete cat tracks"],
   catTrackDeleteTip: ["SkiResort.Hub.CAT_TRACK_DELETE_TIP", "Opens the cat track tool in delete mode. The ground stays graded, no refund. Ctrl+Shift+D in the tool."],
@@ -547,7 +539,6 @@ export const HUB_LOC = {
 
 /* Placeholder entries: only as <LocText entry={HUB_FMT.x} args={...} /> (gate R5, R13). */
 export const HUB_FMT = {
-  resortPosition: ["SkiResort.Hub.RESORT_POSITION", "{N} / {COUNT}"],
   // folded per-lift band rows (hubRules.foldBandRows), the Lifts tile's power line, the list pager
   problemGroupLiftUnfinished: ["SkiResort.Hub.PROBLEM_GROUP[LiftUnfinished]", "Unfinished: {NAMES}"],
   problemGroupLiftNoPower: ["SkiResort.Hub.PROBLEM_GROUP[LiftNoPower]", "No power: {NAMES}"],
@@ -575,9 +566,7 @@ export const HUB_FMT = {
   statusSnowIn: ["SkiResort.Hub.STATUS_SNOW_IN", "{DEPTH} in · {PCT}"], // US customary units
   problemLodgesSomeOff: ["SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges deactivated: {N}"],
   problemEfficiency: ["SkiResort.Hub.PROBLEM[Efficiency]", "Efficiency {PCT}: {REASON}"],
-  problemEfficiencyMore: ["SkiResort.Hub.PROBLEM[EfficiencyMore]", "Efficiency {PCT}: {REASON} +{N}"],
   problemNotRunning: ["SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign stopped: {REASON}"],
-  problemNotRunningMore: ["SkiResort.Hub.PROBLEM[NotRunningMore]", "Welcome Sign stopped: {REASON} +{N}"],
   problemLiftNoPower: ["SkiResort.Hub.PROBLEM[LiftNoPower]", "{NAME}: no power"],
   problemLiftSectionMissing: ["SkiResort.Hub.PROBLEM[LiftSectionMissing]", "{NAME}: section missing"],
   problemLiftUnfinished: ["SkiResort.Hub.PROBLEM[LiftUnfinished]", "{NAME}: unfinished"],
@@ -606,7 +595,7 @@ export const HUB_FMT = {
   /* the parking row when its lodge is one of the area's car space rows (lodgeParking$, hubRules.parkingLodgeOf); {NAME} = the
      player's name for it, else its LODGE_TIER word or LODGE_TIER_NUMBERED; {N} = the other lodges without parking */
   problemNoParkingAt: ["SkiResort.Hub.PROBLEM[NoParkingAt]", "No parking: {NAME}"],
-  problemNoParkingAtMore: ["SkiResort.Hub.PROBLEM[NoParkingAtMore]", "No parking: {NAME} +{N}"],
+  problemNoParkingAtMore: ["SkiResort.Hub.PROBLEM[NoParkingAtMore]", "No parking: {NAME} and {N} more"],
   problemSummitLodgeNotLiftServed: ["SkiResort.Hub.PROBLEM[SummitLodgeNotLiftServed]", "Summit lodges unreached: {N}"],
   problemRunsUnserved: ["SkiResort.Hub.PROBLEM[RunsUnserved]", "Runs without a lift: {N}"],
   problemRunsUnrateable: ["SkiResort.Hub.PROBLEM[RunsUnrateable]", "Runs that cannot be rated: {N}"],
@@ -614,7 +603,8 @@ export const HUB_FMT = {
   problemRunsFlat: ["SkiResort.Hub.PROBLEM[RunsFlat]", "Runs too flat to score: {N}"],
   problemFreeLodges: ["SkiResort.Hub.PROBLEM[FreeLodges]", "Lodges in no ski area: {N}"],
   problemSchoolsNotLinked: ["SkiResort.Hub.PROBLEM[SchoolsNotLinked]", "Ski schools in no ski area: {N}"],
-  problemMore: ["SkiResort.Hub.PROBLEM_MORE", "+{N}"],
+  problemMore: ["SkiResort.Hub.PROBLEM_MORE", "{N} more problems"],
+  problemMoreOne: ["SkiResort.Hub.PROBLEM_MORE_ONE", "1 more problem"],
   problemTipNoLift: ["SkiResort.Hub.PROBLEM_TIP[NoLift]", "A run counts {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station."],
   problemTipRunsUnserved: ["SkiResort.Hub.PROBLEM_TIP[RunsUnserved]", "Each counts {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station."],
   problemGainEfficiency: ["SkiResort.Hub.PROBLEM_GAIN[Efficiency]", "At full efficiency the attraction would be {FULL}."],
@@ -662,9 +652,9 @@ export const HUB_FMT = {
   runNotServed: ["SkiResort.Hub.RUN_NOT_SERVED", "No lift to its top: counts {PCT}"],
   runValueOf: ["SkiResort.Hub.RUN_VALUE_OF", "{NOW} of {FULL}"],
   runValueParts: ["SkiResort.Hub.RUN_VALUE_PARTS", "difficulty {B} × size {S} × type {T} × lift {L} × open {O}"],
-  liftDetail: ["SkiResort.Hub.LIFT_DETAIL", "{LENGTH} · rise {RISE} · {MIN} min ride · {CAP} skiers/h · {N} runs"],
-  liftDetailOne: ["SkiResort.Hub.LIFT_DETAIL_ONE", "{LENGTH} · rise {RISE} · {MIN} min ride · {CAP} skiers/h · 1 run"],
-  liftDetailNone: ["SkiResort.Hub.LIFT_DETAIL_NONE", "{LENGTH} · rise {RISE} · {MIN} min ride · {CAP} skiers/h · no runs"],
+  liftDetail: ["SkiResort.Hub.LIFT_DETAIL", "{CAP} skiers/h · {N} runs"],
+  liftDetailOne: ["SkiResort.Hub.LIFT_DETAIL_ONE", "{CAP} skiers/h · 1 run"],
+  liftDetailNone: ["SkiResort.Hub.LIFT_DETAIL_NONE", "{CAP} skiers/h · no runs"],
   liftRideMin: ["SkiResort.Hub.LIFT_RIDE_MIN", "{MIN} min"],
   // LiftRow.seats / speedMps per lift type; both texts hold for the tram too
   liftRideTip: ["SkiResort.Hub.LIFT_RIDE_TIP", "Base to top at {SPEED} m/s line speed, at 1× game speed."],
@@ -782,16 +772,6 @@ export const STATUS_WORD: Readonly<Record<StatusWord, LocEntry>> = {
   closed: ["SkiResort.Hub.STATUS_WORD[Closed]", "Closed"],
 };
 
-/*
- * The Runs view's state word of one run, index = OPEN_STATE value (0 Closed, 1 Partly, 2 Open; -1 None has no word). "Patchy"
- * = partly covered: never "Partly", which STATUS_WORD uses for the area.
- */
-export const RUN_STATE_TEXT: readonly LocEntry[] = [
-  ["SkiResort.Hub.RUN_STATE[Closed]", "Closed"],
-  ["SkiResort.Hub.RUN_STATE[Patchy]", "Patchy"],
-  ["SkiResort.Hub.RUN_STATE[Open]", "Open"],
-];
-
 /* The Quick runs "lines dropped" reasons, index = QuickRunsState.rejects bucket (QuickRunsRules.RejectBuckets); read after a count: "18 too short". */
 export const QUICK_REJECT_TEXT: readonly LocEntry[] = [
   ["SkiResort.Hub.QUICK_REJECT[TooShort]", "too short"],
@@ -881,7 +861,7 @@ export const BUILD_SHORT_RUN: Readonly<Record<RunKind, LocEntry>> = {
 
 /*
  * Footer idle line by hubRules.nextVariant: one fact. The numbered tiles and the dot show what comes next (no "Next:" order); the sign
- * step's fact is BUILD_HINT_SIGN (no own key). Line 2 stays empty while idle.
+ * step's fact is BUILD_HINT_SIGN (no own key).
  */
 export const NEXT_LINE1: Readonly<Record<NextVariant, LocEntry | null>> = {
   sign: HUB_LOC.buildHintSign,
@@ -891,15 +871,6 @@ export const NEXT_LINE1: Readonly<Record<NextVariant, LocEntry | null>> = {
   run: ["SkiResort.Hub.NEXT[Run]", "Natural runs cost nothing to run; the others cost per hectare."],
   done: null,
 };
-export const NEXT_LINE2: Readonly<Record<NextVariant, LocEntry | null>> = {
-  sign: null,
-  unlinked: null,
-  lodge: null,
-  lift: null,
-  run: null,
-  done: null,
-};
-
 /*
  * `Assets.NAME[<prefab>]` of the non-run build items (runs use RUN_TYPE; the run assets are Title Case, so a run asset name
  * here would fail R4).
@@ -958,6 +929,11 @@ export const BUILD_TAB: Readonly<Record<string, LocEntry>> = {
   lifts: ["SkiResort.Hub.BUILD_TAB[Lifts]", "Lifts"],
   runs: ["SkiResort.Hub.BUILD_TAB[Runs]", "Runs"],
   buildings: ["SkiResort.Hub.BUILD_TAB[Buildings]", "Buildings"],
+};
+/* The Buildings tab's family chips (hubRules.BuildingFamily; DECISIONS 613). */
+export const BUILD_FAMILY: Readonly<Record<string, LocEntry>> = {
+  lodges: ["SkiResort.Hub.BUILD_GROUP[Lodges]", "Lodges"],
+  services: ["SkiResort.Hub.BUILD_GROUP[Services]", "Services"],
 };
 /*
  * A tile's visible label by its role: base / top / line (every lift type), sign, lodge (the chosen tier), school, patrolHut,

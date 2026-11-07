@@ -1,7 +1,8 @@
 /*
- * The Money ("Finances") view: what the resort earns and costs this month, and the one net.
- * Every number is C#'s (hubRules.netRows, HubRules.NetMonth); the UI adds nothing up. The money column holds ONLY the Net's nine rows
- * (four incomes, five running costs), which add up to netMonth; an income row is hidden only while it holds no money (hubRules.netRowShown).
+ * The Money ("Finances") view: what the resort earns and costs this month, and the one net, in three rows like the game's budget panel
+ * (DECISIONS 613): INCOME (fold) / RUNNING COSTS (fold) / Net. Every number is C#'s (HubRules.IncomeMonth / CostsMonth / NetMonth, contract
+ * 38); the UI adds nothing up. The folds hold ONLY the Net's nine rows (four incomes, five running costs), which add up to their header;
+ * an income row is hidden only while it holds no money (hubRules.netRowShown).
  * Costs arrive positive and are shown negated; a negative (unknown) cost shows "–", never "+". MONEY_PRICE_LINE shows the ticket price and
  * the ski-day share (priceFactorPct mirrors C# SkiDayRules.PriceFactor). RUNNING COSTS and ALSO are Folds, one open at a time.
  * Panel file (rule R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$.
@@ -85,7 +86,7 @@ function MoneyHeader({ l, month, samples, t }: { l: ResortLive | null; month: st
           ? <LocText entry={HUB_FMT.moneyColMonthPartial} args={{ MONTH: month }} />
           : <LocText entry={HUB_FMT.moneyColMonth} args={{ MONTH: month }} />}
       </Cell>}
-      tip={<TipLines lines={[t(HUB_LOC.sectionMoney), t(HUB_LOC.moneyNotePanel), l && l.netEstimated && t(HUB_LOC.moneyNoteEst)]} />}
+      tip={<TipLines lines={[t(HUB_LOC.moneyNotePanel), l && l.netEstimated && t(HUB_LOC.moneyNoteEst)]} />}
     />
   );
 }
@@ -190,7 +191,6 @@ function SoFarRow({ label, value, rateNow, l, rwh, samples, t, extra }: {
       mark={value < 0 ? "≈" : null}
       value={<Cell samples={samples}>{costValue(value)}</Cell>}
       tip={<TipLines lines={[
-        label,
         <LocText key="s" entry={HUB_FMT.moneyTipSoFar} args={{
           RATE: numArg(rateNow, Unit.Money), SHARE: l && l.monthShare >= 0 ? numArg(Math.round(l.monthShare * 100), Unit.Percentage) : DASH,
         }} />,
@@ -210,6 +210,7 @@ function LodgeSpendRow({ l, city, samples, t }: { l: ResortLive | null; city: Ci
   if (!l || !netRowShown("lodge", l, city)) return null;
   return (
     <InfoLine
+      sub
       label={t(HUB_LOC.moneyRowLodgeSpend)}
       value={<Cell samples={samples}>{incomeValue(l.lodgeIncomeMonth)}</Cell>}
       tip={t(HUB_LOC.moneyTipLodgeSpend)}
@@ -222,9 +223,10 @@ function PassesMonthRow({ l, city, samples, t }: { l: ResortLive | null; city: C
   if (!l || !netRowShown("passes", l, city)) return null;
   return (
     <InfoLine
+      sub
       label={t(HUB_LOC.moneyRowPassesMonth)}
       value={<Cell samples={samples}>{incomeValue(l.passIncomeMonth)}</Cell>}
-      tip={<TipLines lines={[t(HUB_LOC.moneyRowPassesMonth),
+      tip={<TipLines lines={[
         <LocText key="p" entry={HUB_FMT.moneyTipPassesMonth} args={{ PRE: numArg(l.passIncomePreMonth, Unit.Money) }} />]} />}
     />
   );
@@ -267,6 +269,7 @@ function LessonRow({ l, city, school, samples, t }: {
   if (!l || (!netRowShown("lessons", l, city) && school !== "none" && school !== "off")) return null;
   return (
     <InfoLine
+      sub
       flag={school === "none" ? t(HUB_LOC.noSchool) : school === "off" ? t(HUB_LOC.schoolOff) : undefined}
       label={<LocText entry={HUB_FMT.moneyRowLessons} args={{ N: numArg(Math.max(0, l.lessonsThisMonth), Unit.Integer) }} />}
       value={<Cell samples={samples}>{incomeValue(l.lessonIncomeMonth)}</Cell>}
@@ -307,10 +310,12 @@ function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: num
   const off = l ? ticketsRow(l, price) === "off" : false;
   return (
     <InfoLine
+      sub
       label={off ? t(HUB_LOC.moneyTicketsOff) : t(HUB_LOC.moneyRowTickets)}
       value={<Cell samples={samples}>{incomeValue(l ? l.ticketsThisMonth : -1)}</Cell>}
       tip={<TipLines lines={[
         t(HUB_LOC.moneyTicketsTip),
+        t(HUB_LOC.guestsTipTickets),   // where the money goes (was the Guests view's Ticket money row, DECISIONS 613)
         <LocText key="p" entry={HUB_FMT.moneyTicketsPrice} args={{ PRICE: numArg(price, Unit.Money) }} />,
       ]} />}
     />
@@ -371,12 +376,16 @@ function SignMoney({ row, l, city, build, feats, problems, samples, t }: {
   return (
     <>
       <MoneyHeader l={l} month={month} samples={samples} t={t} />
+      <Fold view="money" id="income" header label={t(HUB_LOC.sectionIncome)}
+        value={<Cell samples={samples}>{incomeValue(l ? l.incomeMonth ?? -1 : -1)}</Cell>}>
       <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
       <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
       <LodgeSpendRow l={l} city={city} samples={samples} t={t} />
       <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign, schoolBuiltOf(build))} samples={samples} t={t} />
       <PassesMonthRow l={l} city={city} samples={samples} t={t} />
-      <Fold view="money" id="costs" header label={t(HUB_LOC.sectionCosts)}>
+      </Fold>
+      <Fold view="money" id="costs" header label={t(HUB_LOC.sectionCosts)}
+        value={<Cell samples={samples}>{costValue(l ? l.costsMonth ?? -1 : -1)}</Cell>}>
       <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
       <RunsRow l={l} feats={feats} samples={samples} t={t} />
       <BusRow l={l} city={city} samples={samples} t={t} />

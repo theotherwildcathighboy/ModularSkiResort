@@ -24,7 +24,7 @@ import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import { rejectSummary } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, QUICK_REJECT_TEXT, QUICK_SITE_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
-import { BandMarker, CheckBox, LocText, Tip, TipLines, cx, numArg } from "./parts";
+import { BandMarker, CheckBox, LocText, Tip, cx, numArg } from "./parts";
 import styles from "./hub.module.scss";
 
 /* QuickRunsRules.TreeLineStepM, and the coarse step. */
@@ -68,7 +68,7 @@ function busy(q: QuickRunsState): boolean {
   return q.phase === "Scanning" || building(q) || treeJob(q);
 }
 
-/* The Build strip's Runs-tab chip: "Quick runs (experimental)", grayed with the reason while unavailable. */
+/* The Build strip's Runs-tab chip: "Resort Planner", grayed with the reason while unavailable. */
 export function QuickRunsChip({ t }: { t: Translate }): JSX.Element {
   const q = useValue(quickRuns$);
   const available = !!q?.available;
@@ -78,7 +78,7 @@ export function QuickRunsChip({ t }: { t: Translate }): JSX.Element {
       : t(HUB_LOC.quickToolTip);
   return (
     <div className={styles.pickerCell}>
-      <Tip tip={<TipLines lines={[t(HUB_LOC.quickTool), tip]} />}>
+      <Tip tip={tip}>
         <Button
           focusKey={FOCUS_DISABLED}
           disabled={!available && !active}

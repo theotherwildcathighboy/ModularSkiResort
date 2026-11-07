@@ -150,8 +150,10 @@
       // One depot on the live area; the bill reads 0 booked so its rows still add up to the month in History (no bus column there).
       busChargedMonth: 0, depots: 1, busGuestsMonth: 86, busBillMonth: 3600,
       buildingsSoFar: h.buildingsCost[i], wagesSoFar: h.wagesCost[i], monthShare: 0.45 };
-    rows.netMonth = rows.ticketsThisMonth + rows.lodgeIncomeMonth + rows.lessonIncomeMonth + rows.passIncomeMonth
-      - rows.liftChargedMonth - rows.runCostMonth - rows.buildingsSoFar - rows.wagesSoFar;
+    // contract 38: the two sides C# sends with it (HubRules.IncomeMonth / CostsMonth)
+    rows.incomeMonth = rows.ticketsThisMonth + rows.lodgeIncomeMonth + rows.lessonIncomeMonth + rows.passIncomeMonth;
+    rows.costsMonth = rows.liftChargedMonth + rows.runCostMonth + rows.buildingsSoFar + rows.wagesSoFar + rows.busChargedMonth;
+    rows.netMonth = rows.incomeMonth - rows.costsMonth;
     return Object.assign(l, rows, { netEstimated: false });
   }
   moneyFrom(live, history[0]);
@@ -217,7 +219,7 @@
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true };
-  const base = { hubOpen: false, contract: 37, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 38, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
