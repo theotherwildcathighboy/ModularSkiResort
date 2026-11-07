@@ -1,6 +1,12 @@
-// Merge an existing building into a ski area (MergeRules, LodgeIdentity). MI1-MI4 the identity regression: every catalog lodge resolves to
-// its own row, tagged or not, exactly as SkiCatalog.LodgeByPrefab; MK1-MK12 the kind classification; MS1-MS6 size gates and tier lowering;
-// MF1-MF8 cost parity; MJ1-MJ5 carried jobs; MA1-MA7 the attraction combine and the share term; MT1-MT8 states; MD1-MD3 the duplicate guard.
+// Merge an existing building into a ski area (MergeRules, LodgeIdentity). Test groups:
+// - MI1-MI4: the identity regression. Every catalog lodge resolves to its own row, tagged or not, exactly as SkiCatalog.LodgeByPrefab.
+// - MK1-MK12: the kind classification
+// - MS1-MS6: size gates and tier lowering
+// - MF1-MF8: cost parity
+// - MJ1-MJ5: carried jobs
+// - MA1-MA7: the attraction combine and the share term
+// - MT1-MT8: states
+// - MD1-MD3: the duplicate guard
 
 using System;
 using System.Collections.Generic;
@@ -106,8 +112,8 @@ namespace BuildingBatch
             check(MergeRules.IsOwnSlice(9, 9) && !MergeRules.IsOwnSlice(10, 9), "MA5", "V is read only on the building's own slice");
             check(MergeRules.ShareTerm(100) == 1.0 && MergeRules.ShareTerm(0) == 0.0 && MergeRules.ShareTerm(-3) == 0.0, "MA6",
                   "the share term is P^2 / 10^4, 0 for no write");
-            // MA7: a merged park (V 185, P 100) among two other providers (300, 50): the resort's share is P^2 / sum(a^2) of the city's
-            // providers with a = its own write, and the share term is what the write added to its term, within rounding.
+            // MA7: a merged park (V 185, P 100) among two other providers (300, 50). The resort's share is P^2 / sum(a^2) of the city's
+            // providers with a = its own write. The share term is what the write added to its term, within rounding.
             int a = MergeRules.Combine(185, 100);
             double sAll = (a * (double)a + 300.0 * 300.0 + 50.0 * 50.0) / 10000.0;
             double sharePct = 100.0 * MergeRules.ShareTerm(100) / sAll;

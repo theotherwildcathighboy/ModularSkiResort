@@ -1,7 +1,10 @@
-// OffSeasonRules: half staffing while a building's lifts have no open run. OS1-OS3 the Step state machine (first
-// observation, 12-hour hold to off, 1-hour hold back on, wrap-safe frame clock); OS4 HalfJobs / Target and the catalog rows;
-// OS5 IsSeasonal; OS6 a 12-day calendar replay; OS7 sign jobs; OS8 no write before the first observation after a load, and no lodge
-// write on the poll that takes it.
+// OffSeasonRules: half staffing while a building's lifts have no open run. Test groups:
+// - OS1-OS3: the Step state machine (first observation, 12-hour hold to off, 1-hour hold back on, wrap-safe frame clock)
+// - OS4: HalfJobs / Target and the catalog rows
+// - OS5: IsSeasonal
+// - OS6: a 12-day calendar replay
+// - OS7: sign jobs
+// - OS8: no write before the first observation after a load, and no lodge write on the poll that takes it.
 
 using System;
 using SkiResortMod.Systems;

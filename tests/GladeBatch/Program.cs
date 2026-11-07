@@ -1,11 +1,11 @@
 // GladeBatch - headless invariant tests for SkiGladePlanner, SkiGladeCompose, SkiGladeHover and the tree filler (SkiGladeTreeLine, SkiGladeSpecies).
 // Run (from the ModularSkiResort root): dotnet run --project tests\GladeBatch\GladeBatch.csproj -c Release -- 200
 // Argument = number of seeds (default 200). Prints `FAIL  fixture.params/seed: msg`, report-only TIME/WARN/INFO lines and one SUMMARY.
-// Oracles are test-local and a DIFFERENT algorithm from the planner's (winding-number point-in-polygon vs crossing number, plain
-// shoelace, own segment distance, own FNV for Seed32). The planner is linked as source (net8 here, net48 in the mod): only within-runtime
-// replay is proven; CoreCLR vs the game's Mono bit equality is unverified, so no golden hashes are asserted.
-// Statistical bounds (thin count, histograms) hold on aggregates across seeds at 3 sigma + 1; per seed only a loose 5 sigma + 1,
-// since a per-seed 3 sigma check over thousands of independent cases would fail ~0.27 % of them by chance.
+// Oracles are test-local and use a DIFFERENT algorithm from the planner's (winding-number point-in-polygon vs crossing number, plain
+// shoelace, own segment distance, own FNV for Seed32). The test project links the planner as source (net8 here, net48 in the mod).
+// Only within-runtime replay is proven. CoreCLR vs the game's Mono bit equality is unverified, so the tests assert no golden hashes.
+// Statistical bounds (thin count, histograms) hold on aggregates across seeds at 3 sigma + 1. Per seed, only a loose 5 sigma + 1 holds,
+// because a per-seed 3 sigma check over thousands of independent cases would fail ~0.27 % of them by chance.
 
 using System;
 using System.Collections.Generic;
@@ -98,8 +98,8 @@ namespace GladeBatch
 
         // ================================================================== reporting
 
-        /// <summary>Failures by kind (the message's leading CAPITALS tag, else its first words) —
-        /// printed after SUMMARY when anything failed, so a run whose FAIL lines are capped still
+        /// <summary>Failures by kind (the message's leading CAPITALS tag, else its first words).
+        /// The run prints them after SUMMARY when anything failed. So a run whose FAIL lines are capped still
         /// shows which assertion families fired (mutation proofs).</summary>
         private static readonly SortedDictionary<string, int> s_FailKinds = new SortedDictionary<string, int>(StringComparer.Ordinal);
 
@@ -565,7 +565,7 @@ namespace GladeBatch
             }
             // Seed sensitivity and spatial independence: at f = 0.5 the
             // selection rate is exactly 0.5 (32768/65536), so two independent verdicts disagree
-            // with p = 0.5; over 50k points σ ≈ 0.0022, ±0.01 ≈ 4.5σ.
+            // with p = 0.5. Over 50k points σ ≈ 0.0022, ±0.01 ≈ 4.5σ.
             System.Random rs = new System.Random(4242);
             int seedDis = 0, cellDis = 0, cellDisZ = 0, meterDis = 0;
             const int nDis = 50000;
@@ -592,8 +592,8 @@ namespace GladeBatch
             double cellRateZ = cellDisZ / (double)nDis, meterRate = meterDis / (double)nDis;
             Check(Math.Abs(seedRate - 0.5) <= 0.01, "thinselect/seed", "two seeds disagree on " + F(seedRate) + " of points (expect 0.5 ± 0.01)");
             // Spatial independence. Before the Fmix32 finalizer math.hash(uint4) was linear in
-            // its lanes: x-neighbors disagreed 0.477, z-neighbors 0.431, 1 m apart 0.171 —
-            // a stripe lattice instead of a random 60 % felling.
+            // its lanes: x-neighbors disagreed 0.477, z-neighbors 0.431, 1 m apart 0.171.
+            // The result was a stripe lattice instead of a random 60 % felling.
             Check(Math.Abs(cellRate - 0.5) <= 0.01, "thinselect/spatial_x", "neighboring 1/8 m cells (x) disagree on " + F(cellRate) + " (expect 0.5 ± 0.01)");
             Check(Math.Abs(cellRateZ - 0.5) <= 0.01, "thinselect/spatial_z", "neighboring 1/8 m cells (z) disagree on " + F(cellRateZ) + " (expect 0.5 ± 0.01)");
             Check(Math.Abs(meterRate - 0.5) <= 0.01, "thinselect/spatial_1m", "points 1 m apart disagree on " + F(meterRate) + " (expect 0.5 ± 0.01)");
@@ -991,7 +991,7 @@ namespace GladeBatch
                             Check(same, where, "adding Belt moved/changed glade trees or thinning");
                         }
 
-                        // cross-fixture: duplicated closing vertex == plain ring; CW thins like CCW
+                        // cross-fixture: duplicated closing vertex == plain ring. CW thins like CCW
                         if (f.Name == "rect100x300")
                             rectPlan = a;
                         else if (rectPlan != null && f.Name == "rect_dupclose")
@@ -1102,7 +1102,7 @@ namespace GladeBatch
             Check(minFound >= s - 1e-4, where, "spacing " + F(minFound) + " < MinSpacing " + F(s) + " (" + minPair + ")");
 
             // RawTarget* = the unclamped target (floored at 0) from the oracle's own
-            // area / inside count / perimeter; Clamped mirrors Status == Clamped.
+            // area / inside count / perimeter. Clamped mirrors Status == Clamped.
             Check(plan.Clamped == (plan.Status == GladeStatus.Clamped), where, "GladePlan.Clamped " + plan.Clamped + " vs Status " + plan.Status);
             if (wantGlade && f.DensityCheck)
             {
@@ -1200,11 +1200,12 @@ namespace GladeBatch
         // ================================================================== tool composition (Compose)
 
         /// <summary>Every level on every static fixture geometry (CW, duplicated closing vertex, supplied triangles, exclusion
-        /// rings, non-convex U / zigzag, the 7 km offset, the 8 m strip, a 3 x 3 m square), from the fixture's stand (85 %
-        /// thinnable) with no members, both targets. Judged against test-local oracles: too many: Fell is exactly the top
-        /// W - max(0, T - X) by the documented rank; too few: Plant is the first T - N slots of P and P obeys every planner
-        /// invariant against the WHOLE stand (nothing assumed felled, CheckPlan); then the chain: the plants as members make
-        /// the same level Complete, and one level down removes the highest slots first.</summary>
+        /// rings, non-convex U / zigzag, the 7 km offset, the 8 m strip, a 3 x 3 m square). Each case runs from the fixture's stand (85 %
+        /// thinnable) with no members, for both targets. The test judges the result against test-local oracles:
+        /// - Too many: Fell is exactly the top W - max(0, T - X) by the documented rank.
+        /// - Too few: Plant is the first T - N slots of P. P obeys every planner
+        ///   invariant against the WHOLE stand (nothing assumed felled, CheckPlan).
+        /// Then the chain: the plants as members make the same level Complete, and one level down removes the highest slots first.</summary>
         private static void LevelFixtureTests(List<Fixture> fixtures, int seeds)
         {
             int cases = 0, fellCases = 0, plantCases = 0, chainCases = 0;
@@ -1346,11 +1347,12 @@ namespace GladeBatch
         // ================================================================== belt coverage gate
 
         /// <summary>Belt coverage ("~55 % coverage with open stretches"). Paired
-        /// control at equal target: A = BeltCoverage 0.55 at density D; B = BeltCoverage 1
-        /// (the gate is skipped, SkiGladePlanner `if (k.BeltCoverage &lt; 1f)`) at 0.55·D. Belt
-        /// trees are binned by the arc length of their nearest boundary point (test-local
-        /// projection) into wavelength/4 bins on a circular perimeter. Asserted on aggregates
-        /// over seeds: A occupies a smaller share, has much longer empty stretches, almost always
+        /// control at equal target:
+        /// - A = BeltCoverage 0.55 at density D.
+        /// - B = BeltCoverage 1 (the gate is skipped, SkiGladePlanner `if (k.BeltCoverage &lt; 1f)`) at 0.55·D.
+        /// The test bins belt trees by the arc length of their nearest boundary point (test-local
+        /// projection) into wavelength/4 bins on a circular perimeter. It asserts these results on aggregates
+        /// over seeds: A occupies a smaller share, has much longer empty stretches, almost always has
         /// an empty stretch ≥ 1 wavelength, and its occupancy depends on the seed.</summary>
         private static void BeltGateTests(List<Fixture> fixtures, int seeds)
         {

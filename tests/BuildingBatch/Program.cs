@@ -1,9 +1,14 @@
 // Tests for the top-level resort buildings (the ski school, the five lodges and both patrol huts). Run from the ModularSkiResort
-// root: dotnet run --project tests/BuildingBatch. Exit 0 = every check passed. Groups: L sign attribution (nearest sign within
-// TetherMeters 5000, a tie goes to the lower (Index, Version)), C the one count rule, I a linked school's slot facts and what follows,
-// D the link-log diff, E AreaEfficiency, J mountain jobs on the sign (the sign prefab must keep its Workplace block:
-// WorkProviderSystem.cs:133 needs WorkplaceData or it liquidates the staff), P the gamedata-mirror gate over all eight buildings.
-// Oracles are literal values; the mirror gate reads the shipped prefab JSON, not the code under test.
+// root: dotnet run --project tests/BuildingBatch. Exit 0 = every check passed. Groups:
+// - L: sign attribution (nearest sign within TetherMeters 5000, a tie goes to the lower (Index, Version))
+// - C: the one count rule
+// - I: a linked school's slot facts and what follows
+// - D: the link-log diff
+// - E: AreaEfficiency
+// - J: mountain jobs on the sign (the sign prefab must keep its Workplace block:
+//   WorkProviderSystem.cs:133 needs WorkplaceData or it liquidates the staff)
+// - P: the gamedata-mirror gate over all eight buildings
+// Oracles are literal values. The mirror gate reads the shipped prefab JSON, not the code under test.
 // Engine notes: EngineNotes/BuildingBatch.Program.md
 
 using System;
@@ -189,7 +194,7 @@ namespace BuildingBatch
             return string.Join(",", parts);
         }
 
-        /// <summary>SkiLiftTicketSystem's lesson gate (slot SchoolActive = known && Result.SchoolActive; lessons only when the school
+        /// <summary>SkiLiftTicketSystem's lesson gate (slot SchoolActive = known && Result.SchoolActive. Lessons only when the school
         /// is on, the share and the price are &gt; 0) over 40 arrivals of 1-6 people on one day.</summary>
         private static int Lessons(bool school)
         {
@@ -284,7 +289,7 @@ namespace BuildingBatch
         private static void EfficiencyRule()
         {
             Check(Near(SchoolLinkRules.AreaEfficiency(0.87f, 0.0, 0.0), 0.87f), "E1", "no active top-level lodge: the sign's own efficiency");
-            // A-frame (B 20) at 0.60 + Grand (B 40) at 0.90: mean (12 + 36) / 60 = 0.80; x sign 0.95 = 0.76
+            // A-frame (B 20) at 0.60 + Grand (B 40) at 0.90: mean (12 + 36) / 60 = 0.80, x sign 0.95 = 0.76
             float e2 = SchoolLinkRules.AreaEfficiency(0.95f, 20 * 0.60 + 40 * 0.90, 60.0);
             Check(Near(e2, 0.76f), "E2", $"tier-weighted mean 0.80 x sign 0.95 = {e2} (0.76)");
             Check(SchoolLinkRules.AreaEfficiency(1f, 20 * 0.0, 20.0) == 0f, "E3", "the only lodge at 0: area 0");
@@ -313,7 +318,7 @@ namespace BuildingBatch
             foreach (LodgeDef l in SkiCatalog.Lodges) { if (l.Id == "hut") hut = l; if (l.Id == "summit") summit = l; if (l.Id == "mid") mid = l; }
             PatrolDef ph = SkiCatalog.PatrolByPrefab("SkiPatrolHut"), pq = SkiCatalog.PatrolByPrefab("SkiPatrolHQ");
 
-            // J1: one sign carries every live linked mountain building; a base lodge (own Workplace) adds 0.
+            // J1: one sign carries every live linked mountain building. A base lodge (own Workplace) adds 0.
             var j1 = Sum((SignA, summit.SignJobs, true), (SignA, hut.SignJobs, true), (SignA, ph.SignJobs, true), (SignA, mid.SignJobs, true));
             Check(At(j1, SignA) == 14 && j1.Count == 1, "J1", $"summit 8 + hut 4 + patrol hut 2 + mid 0 on sign A = {At(j1, SignA)} (14)");
 
@@ -324,7 +329,7 @@ namespace BuildingBatch
                   !MountainJobsRules.StartsGrace(true, 14, 6) && MountainJobsRules.StartsGrace(false, 0, 8), "J2b",
                   "relink writes both signs; only B (new workplaces) gets the vanilla grace");
 
-            // J3: not linked (no sign within 5 km) and removed (not live): nothing summed; a carrier sign whose target fell to 0 is
+            // J3: not linked (no sign within 5 km) and removed (not live): nothing summed. A carrier sign whose target fell to 0 is
             // written to 0 (the component stays, the game lays the staff off).
             var j3 = Sum((EntityRef.Null, summit.SignJobs, true), (SignA, hut.SignJobs, false));
             Check(j3.Count == 0, "J3", "not linked + removed building: no sign has a target");
@@ -344,7 +349,7 @@ namespace BuildingBatch
             rowsOk &= ph.Jobs == 0 && pq.Jobs == 0 && SkiCatalog.SchoolByPrefab("SkiSchool").Jobs > 0;
             Check(rowsOk, "J5b", "a SignJobs row has Jobs 0 and is not a Base road row (else it would double-count)");
 
-            // J6: the efficiency slice. Sign 100 % except staffing 0.5; area = summit (B 40) + A-frame (B 20, own efficiency 1). Staffing
+            // J6: the efficiency slice. Sign 100 % except staffing 0.5. Area = summit (B 40) + A-frame (B 20, own efficiency 1). Staffing
             // on the summit slice only, the sign term without it: (40 x 0.5 + 20 x 1) / 60 x 1.0 = 0.67.
             float signTerm = MountainJobsRules.SignTerm(0.5f, 1f, true);
             float summitEff = MountainJobsRules.MountainEfficiency(1f, 0.5f);
@@ -376,7 +381,7 @@ namespace BuildingBatch
             public Gate(string prefab, int xp, int doors, bool roadless) { Prefab = prefab; Xp = xp; Doors = doors; Roadless = roadless; }
         }
 
-        // XP = the old ServiceUpgrade m_XPReward (unchanged by the conversion); doors = Pedestrian Spawn rows.
+        // XP = the old ServiceUpgrade m_XPReward (unchanged by the conversion). Doors = Pedestrian Spawn rows.
         private static readonly Gate[] Gates =
         {
             new Gate("SkiAFrameDayLodge", 100, 1, false),

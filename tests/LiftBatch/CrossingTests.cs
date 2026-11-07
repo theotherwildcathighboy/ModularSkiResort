@@ -1,19 +1,20 @@
 // Crossings with built lifts of another type (FIX-LIST 60 a). Where-tags `cross/...`.
-// Since 12d5ff6 different lift types no longer join where they cross; the game validates the two edge boxes (the hanging curve up
+// Since 12d5ff6 different lift types no longer join where they cross. The game validates the two edge boxes (the hanging curve up
 // by the composition m_HeightRange, over the strips' overlap) and refuses overlapping ones. The planner keeps that clearance.
 // CX-0 no crossing, no change: Crossings null / empty / one refused before planning plan bit-identically to a planner never given
 //      the field (DQ, GD, FG, tram lines over valleys, crests and slopes, from either end, with pins).
 // CX-1 over: a DQ across valleys whose floor carries a gondola edge. Without the rule the drawn edge's box overlaps (or misses the
-//      margin); with it the crossing is met (planned >= required), an independent oracle (the drawn curve evaluated over the whole
-//      overlap parallelogram, span by span, against the crossed plane) finds no overlap, the curve at the crossing rises (falls where the planner passes under, possible since the 2026-11-05 box), no tower
-//      stands in the crossed corridor. At 90 deg every case is met; a flatter one may be refused, then the plan is the one without it.
+//      margin). With it the crossing is met (planned >= required). An independent oracle (the drawn curve evaluated over the whole
+//      overlap parallelogram, span by span, against the crossed plane) finds no overlap. The curve at the crossing rises (it falls
+//      where the planner passes under, possible since the 2026-11-05 box). No tower stands in the crossed corridor.
+//      At 90 deg every case is met. A flatter one may be refused, then the plan is the one without it.
 // CX-2 refusals: too shallow, inside the drawn line's station run-out, inside the crossed line's station run-out, beside a crossed
 //      tower, unreachable (flat ground, a crossed curve 4 m up: the plan shown is the plan
-//      without the crossing), a pin in the crossed corridor, a lift of the same type (SameType, before planning); a valley with the crossed curve 22 m up is met under it (refused with the 14 m box).
-// CX-3 under: a DQ under a tram span 60 m up passes under it with its own plan (over is out of reach); a DQ across a GD valley
+//      without the crossing), a pin in the crossed corridor, a lift of the same type (SameType, before planning). A valley with the crossed curve 22 m up is met under it (refused with the 14 m box).
+// CX-3 under: a DQ under a tram span 60 m up passes under it with its own plan (over is out of reach). A DQ across a GD valley
 //      span 35 m up clears it on the side the planner picks.
 // CX-4 direction: the same crossing drawn from either end: the same side, verdict and towers (mirrored).
-// CX-5 the notice keys (LiftLineInput.CrossKey): refusal first, under before over, CROSSES only for the same type; the geometry
+// CX-5 the notice keys (LiftLineInput.CrossKey): refusal first, under before over, CROSSES only for the same type. It also covers the geometry
 //      helpers (CrossReach, CrossBandM) and the shallow text against CrossMinAngleDeg.
 
 using System;
@@ -107,7 +108,7 @@ namespace LiftBatch
 
         /// <summary>Independent oracle of the box rule: over a 21 x 21 grid of the strips' overlap parallelogram, the drawn curve (span
         /// by span) against the crossed plane (y + slope x offset along it). Returns the margin of the side: OVER = min(drawn) +
-        /// drawn min - (max(crossed) + crossed max); UNDER = min(crossed) + crossed min - (max(drawn) + drawn max). >= 0: no overlap.</summary>
+        /// drawn min - (max(crossed) + crossed max). UNDER = min(crossed) + crossed min - (max(drawn) + drawn max). >= 0: no overlap.</summary>
         private static float Oracle(LiftTowerPlan p, LiftLineEdit e, LiftPlanCrossing x, bool over)
         {
             LiftTowerPlanConstants c = p.Constants;
@@ -202,10 +203,10 @@ namespace LiftBatch
         private static void Cx1Over()
         {
             const string W = "cross/CX-1";
-            // A DQ 600 m across a valley at 300 m; a gondola edge runs along the valley floor, its curve `up` over the floor. Each case
+            // A DQ 600 m across a valley at 300 m. A gondola edge runs along the valley floor, its curve `up` over the floor. Each case
             // binds: the DQ plan without the rule overlaps the gondola's box. The over side has a window: the DQ curve at least the
-            // crossed curve + 8.2 m (gondola max 11.5 - DQ min 3.8 + the 0.5 margin; 14.7 before the collision box round) (+ the footprints' slope), its rope at most 30 m over the ground (MaxRopeAboveGroundM).
-            // At 90 deg every case must be met; at a flatter angle the footprints grow, so a case may instead be refused (Clearance),
+            // crossed curve + 8.2 m (gondola max 11.5 - DQ min 3.8 + the 0.5 margin, 14.7 before the collision box round) (+ the footprints' slope), its rope at most 30 m over the ground (MaxRopeAboveGroundM).
+            // At 90 deg every case must be met. At a flatter angle the footprints grow, so a case may instead be refused (Clearance),
             // and then the plan shown must be the plan without the crossing.
             const float len = 600f, at = 300f;
             var cases = new (float depth, float width, float up)[] { (18f, 70f, 10.5f), (12f, 70f, 6.5f), (24f, 120f, 10.5f), (24f, 70f, 12.5f) };   // crossed heights +6.5 m with the 2026-11-05 box
@@ -237,7 +238,7 @@ namespace LiftBatch
                         }
                         met++;
                         // Since the 2026-11-05 box (8.2 m between node curves) the planner may pass UNDER the crossed gondola instead
-                        // (CrossBetter picked it); either side must be met, and the oracle judges the side picked.
+                        // (CrossBetter picked it). Either side must be met, and the oracle judges the side picked.
                         bool overSide = r.Side == LiftCrossSide.Over;
                         under += overSide ? 0 : 1;
                         Check(r.Side != LiftCrossSide.None && r.Refusal == LiftCrossRefusal.None && r.PlannedM >= r.RequiredM - 0.011f, tag,
@@ -245,7 +246,7 @@ namespace LiftBatch
                         o1 = Oracle(p1, after, x, overSide);
                         Check(o1 >= -0.01f, tag, "the oracle finds the boxes overlapping by " + F(-o1, "F2") + " m (" + Nodes(p1) + ")");
                         Check(p1.Clear, tag, "the crossing plan is not clear: " + p1.Verdict);
-                        // over: the rule lifts the line at the crossing (taller towers beside it, or towers moved to higher ground);
+                        // over: the rule lifts the line at the crossing (taller towers beside it, or towers moved to higher ground).
                         // under: it lowers it
                         float y0 = CurveY(p0, before, at), y1 = CurveY(p1, after, at);
                         Check(overSide ? y1 > y0 + 0.01f : y1 < y0 - 0.01f, tag, "the curve at the crossing does not " + (overSide ? "rise" : "fall") + ": " +
@@ -322,8 +323,8 @@ namespace LiftBatch
                              F(r.RequiredM) + " m, key " + key + (cs.want == LiftCrossRefusal.Clearance ? ", needs " + F(need, "F0") + " m" : string.Empty));
             }
             // unreachable: the plan is the one without the crossing (no row of last-resort towers), refused with the attempt's numbers
-            // (a valley with the crossed curve 12 m up was unreachable with the 14 m box; since the 2026-11-05 collision box round no
-            // crossed height in this valley is: up to ~17 m the DQ passes over, from ~22 m under. Flat ground stays unreachable.)
+            // (a valley with the crossed curve 12 m up was unreachable with the 14 m box. Since the 2026-11-05 collision box round no
+            // crossed height in this valley is unreachable: up to ~17 m the DQ passes over, from ~22 m under. Flat ground stays unreachable.)
             {
                 Func<float, float> flat = s => G;
                 LiftPlanCrossing low = X("gondola", at, G + 4f);
@@ -364,7 +365,7 @@ namespace LiftBatch
         {
             const string W = "cross/CX-3";
             const float len = 700f, at = 350f;
-            // (a) under a tram span whose curve is 60 m over gentle ground: over is out of reach, the DQ keeps its own plan below it
+            // (a) under a tram span whose curve is 60 m over gentle ground: over is out of reach. The DQ keeps its own plan below it
             Func<float, float> g = s => G + 0.1f * s;
             LiftPlanCrossing tram = X("tram", at, g(at) + 60f, slope: 0.3f);
             LiftLineEdit plain = Edit("detachable", len, g), under = Edit("detachable", len, g);
@@ -433,7 +434,7 @@ namespace LiftBatch
                   "unreachable: key or needed separation");
             Check(LiftLineInput.CrossKey(null, false, out r0, out _) == null, W, "a null plan");
 
-            // geometry: perpendicular strips reach half the other's width; the corridor is both half widths + CrossBandClearM
+            // geometry: perpendicular strips reach half the other's width. The corridor is both half widths + CrossBandClearM
             LiftTowerPlanner.CrossReach(90f, 6f, 8.2f, out float eN, out float eC);
             Check(math.abs(eN - 4.1f) < 1e-4f && math.abs(eC - 3f) < 1e-4f, W, "CrossReach at 90 deg: " + eN + " / " + eC);
             LiftTowerPlanner.CrossReach(30f, 6f, 6f, out eN, out eC);

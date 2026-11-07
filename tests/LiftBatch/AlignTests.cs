@@ -1,9 +1,12 @@
 // Lift alignment (docs: lift-alignment-2026-11-02, gates G1 / G2): LiftMoverMath.CarrierDrop and LiftAlignMath. Where-tags `align/...`,
 // AL-1..AL-12 (AL-12: the headed DQ / GD towers, DECISIONS 594).
-// Pinned: every carrier drops by its grip top minus the jaw's rope point (F5, the rope-point pin); the plan bend is the turn angle;
-// a train on a uniform slope pitches to exactly that slope, at a bend or a sag break it takes the bisector of the arriving and leaving
-// rope, clamped; the pitch sign follows the node's facing, so the train is nose up toward the higher neighbor either way; re-running
-// on the result changes nothing.
+// Pinned:
+// - Every carrier drops by its grip top minus the jaw's rope point (F5, the rope-point pin).
+// - The plan bend is the turn angle.
+// - A train on a uniform slope pitches to exactly that slope.
+// - At a bend or a sag break, a train takes the bisector of the arriving and leaving rope, clamped.
+// - The pitch sign follows the node's facing, so the train is nose up toward the higher neighbor either way.
+// - Re-running on the result changes nothing.
 
 using System;
 using System.Collections.Generic;
@@ -49,10 +52,10 @@ namespace LiftBatch
                 float hp = s > 0f ? LiftAlignMath.HeadPitch(f, 2, b, 2, dq) : LiftAlignMath.HeadPitch(b, 2, f, 2, dq);
                 Check(math.abs(hp - s * 35f * d) < 1e-6f, W + " sign " + s, "head " + F(math.degrees(hp)) + ", not the bisector " + (s * 35f));
             }
-            // Clamped to the type max: a 46 deg mean rope on DQ holds 42; on GD it follows.
+            // Clamped to the type max: a 46 deg mean rope on DQ holds 42. On GD it follows.
             Check(math.abs(LiftAlignMath.HeadPitch(44f * d, 1, 48f * d, 1, dq) - dq) < 1e-6f, W, "DQ head past 42");
             Check(math.abs(LiftAlignMath.HeadPitch(44f * d, 1, 48f * d, 1, gd) - 46f * d) < 1e-6f, W, "GD head at 46 moved");
-            // One side only: straight; no rope: level.
+            // One side only: straight. No rope: level.
             Check(math.abs(LiftAlignMath.HeadPitch(12f * d, 1, 0f, 0, dq) - 12f * d) < 1e-6f && LiftAlignMath.HeadPitch(9f, 0, 9f, 0, dq) == 0f,
                   W, "one-sided / no rope");
             // Halves: on a 40 deg straight slope (past the old 30 cap) both follow the rope, unclamped.
@@ -75,8 +78,8 @@ namespace LiftBatch
                     ok &= math.abs(h) <= dq + 1e-6f && math.abs(pf - h) <= 20f * d + 1e-5f && math.abs(pb - h) <= 20f * d + 1e-5f;
                 }
             Check(ok, W, "a grid pose left the head or a half past its limit");
-            // Train limit against the head: a 40 deg straight slope is within on a headed tower (the old rule: 10 over), a 50 deg break is
-            // 5 over either way, a DQ 50 deg straight rope is within (halves +8 of the head), a DQ 70 deg straight rope is 8 over.
+            // Train limit against the head: a 40 deg straight slope is within on a headed tower (the old rule: 10 over). A 50 deg break is
+            // 5 over either way. A DQ 50 deg straight rope is within (halves +8 of the head). A DQ 70 deg straight rope is 8 over.
             Check(LiftAlignMath.HeadedTrainOverDeg(40f * d, 2, 40f * d, 2, dq) < 1e-3f &&
                   math.abs(LiftAlignMath.TrainOverDeg(40f * d, 2, 40f * d, 2, LiftAlignMath.TrainPitchLimit(0.9f)) - 10f) < 1e-3f, W,
                   "40 deg slope: headed within, unheaded 10 over");
@@ -86,7 +89,7 @@ namespace LiftBatch
                   "DQ 70 deg straight is " + F(LiftAlignMath.HeadedTrainOverDeg(70f * d, 1, 70f * d, 1, dq)) + " over");
             Check(LiftAlignMath.HeadedTrainOverDeg(1f, 0, 1f, 0, dq) == 0f, W, "no rope is 0");
             // HeadPose: identity frame, a point 1.55 m above the pivot at a 30 deg head moves toward -z by 1.55 sin 30 and stays 1.55
-            // from the pivot; the head's +z end rises (TrainBoneRotation's sense); a rotated frame gives the same prefab-frame motion when
+            // from the pivot. The head's +z end rises (TrainBoneRotation's sense). A rotated frame gives the same prefab-frame motion when
             // the bone's x stays the prefab's x.
             float3 pv = new float3(0f, 8.2589f, 0f);
             LiftAlignMath.HeadPose(pv, quaternion.identity, 30f * d, pv + new float3(0f, 1.55f, 0f), quaternion.identity, out float3 p1, out quaternion r1);
@@ -152,7 +155,7 @@ namespace LiftBatch
                 foreach (float h in new[] { 0f, 0.004f, 0.01f, 0.03f })
                 {
                     float3 p = new float3(0f, 0f, 0f), q = new float3(0f, 60f * g, 60f), r = new float3(0f, 120f * g, 120f);
-                    // Sag adds +4h arriving and -4h leaving: the bisector of the two rope ANGLES (the train sits square to both) is the
+                    // Sag adds +4h arriving and -4h leaving. The bisector of the two rope ANGLES (the train sits square to both) is the
                     // slope exactly without sag and within 0.3 deg of it at h 0.03 (atan is not linear).
                     float th = math.degrees(LiftAlignMath.TrainPitch(p, q, r, h, math.radians(80f)));
                     float bis = math.degrees(0.5f * (math.atan(g + 4f * h) + math.atan(g - 4f * h)));
@@ -162,7 +165,7 @@ namespace LiftBatch
             }
         }
 
-        // ── AL-4: break-over → bisector; the outer-sheave residual is ± xo·tan(break/2) ────────────────────────────────────────
+        // ── AL-4: break-over → bisector, the outer-sheave residual is ± xo·tan(break/2) ────────────────────────────────────────
         private static void Al4BreakOver()
         {
             // 60 m spans, 18 m then 0 m rise (a crest), h 0.01: in = atan(0.3 + 0.04), out = atan(0 - 0.04)
@@ -226,7 +229,7 @@ namespace LiftBatch
                   "station pitch with sag " + F(sag) + " is not the leaving slope (chord - 4h)");
         }
 
-        // ── AL-9: Phase 2 trains: the mean of a tower's four rope lane ends is the bisector, either facing; the bone noses up ──
+        // ── AL-9: Phase 2 trains: the mean of a tower's four rope lane ends is the bisector, either facing, the bone noses up ──
         private static void Al9LaneEnds()
         {
             float h = 0.004f;
@@ -240,7 +243,7 @@ namespace LiftBatch
                 foreach (float x in new[] { -2f, 2f })
                 {
                     float3 o = new float3(x, 0f, 0f);
-                    // arriving span p..q ends at q (end d, inner c); leaving span q..r starts at q (end a, inner b)
+                    // arriving span p..q ends at q (end d, inner c). Leaving span q..r starts at q (end a, inner b)
                     float3 c = math.lerp(p, q, 2f / 3f) - new float3(0f, 200f * h * 4f / 3f, 0f);
                     float3 b = math.lerp(q, r, 1f / 3f) - new float3(0f, 200f * h * 4f / 3f, 0f);
                     sum += LiftAlignMath.LaneEndPitch(q + o, c + o, fwd) + LiftAlignMath.LaneEndPitch(q + o, b + o, fwd);
@@ -254,22 +257,22 @@ namespace LiftBatch
             Check(math.abs(math.degrees(LiftAlignMath.MaxTrainPitch(0.8f)) - 38.66f) < 0.01f, "align/AL-9", "FG limit is not atan 0.8");
         }
 
-        // ── AL-10: articulated halves (option C): each half follows its own span's rope, either facing; break and slope clamps ──
+        // ── AL-10: articulated halves (option C): each half follows its own span's rope, either facing, break and slope clamps ──
         private static void Al11TrainOver()
         {
             const string W = "align/AL-11 train over";
             float d = math.radians(1f), max = LiftAlignMath.TrainPitchLimit(0.8f);   // 30 deg
-            // Inside both limits: 0 (a 40 deg break exactly, halves at 20 / -20; a 30 deg slope exactly).
+            // Inside both limits: 0 (a 40 deg break exactly, halves at 20 / -20, and a 30 deg slope exactly).
             Check(LiftAlignMath.TrainOverDeg(-20f * d, 2, 20f * d, 2, max) < 1e-3f, W, "a 40 deg break is within");
             Check(LiftAlignMath.TrainOverDeg(30f * d, 2, 30f * d, 2, max) < 1e-3f, W, "a 30 deg straight slope is within");
             // The break: halves -25 / 25 = 50 deg apart, 5 over the 20 deg half-break.
             Check(math.abs(LiftAlignMath.TrainOverDeg(-25f * d, 2, 25f * d, 2, max) - 5f) < 1e-3f, W, "50 deg break is 5 over");
-            // The pitch: 36 deg straight, 6 over 30; with a break too, the larger counts (34 / 10: pitch 4 over, half-break 12 within).
+            // The pitch: 36 deg straight, 6 over 30. With a break too, the larger counts (34 / 10: pitch 4 over, half-break 12 within).
             Check(math.abs(LiftAlignMath.TrainOverDeg(36f * d, 1, 36f * d, 1, max) - 6f) < 1e-3f, W, "36 deg slope is 6 over");
             Check(math.abs(LiftAlignMath.TrainOverDeg(10f * d, 1, 34f * d, 1, max) - 4f) < 1e-3f, W, "34 deg half is 4 over");
             // Unclamped inputs: HalfPitches clamps a 70 deg break to 40, TrainOverDeg still reports 15 over.
             Check(math.abs(LiftAlignMath.TrainOverDeg(-35f * d, 2, 35f * d, 2, max) - 15f) < 1e-3f, W, "70 deg break is 15 over");
-            // One side only: the other takes its pitch (a straight train); no rope: 0.
+            // One side only: the other takes its pitch (a straight train). No rope: 0.
             Check(math.abs(LiftAlignMath.TrainOverDeg(40f * d, 1, 0f, 0, max) - 10f) < 1e-3f, W, "one-sided 40 deg is 10 over");
             Check(LiftAlignMath.TrainOverDeg(1f, 0, 1f, 0, max) == 0f, W, "no rope is 0");
             Check(LiftAlignMath.TrainWarnDeg > 0f && LiftAlignMath.TrainWarnDeg < 1f, W, "warn margin out of (0, 1) deg");
@@ -307,13 +310,13 @@ namespace LiftBatch
                       F(math.degrees(eb)));
             }
             float d = math.radians(1f), max = LiftAlignMath.MaxTrainPitch(0.8f);
-            // a crest of 30 deg stays; one of 50 deg clamps to +-20 about its mean
+            // a crest of 30 deg stays. One of 50 deg clamps to +-20 about its mean
             Check(!LiftAlignMath.HalfPitches(-15f * d, 2, 15f * d, 2, max, out float f1, out float b1) &&
                   math.abs(f1 + 15f * d) < 1e-6f && math.abs(b1 - 15f * d) < 1e-6f, "align/AL-10", "30 deg crest moved");
             Check(LiftAlignMath.HalfPitches(-20f * d, 2, 30f * d, 2, max, out float f2, out float b2) &&
                   math.abs(f2 + 15f * d) < 1e-5f && math.abs(b2 - 25f * d) < 1e-5f, "align/AL-10",
                   "50 deg crest gives " + F(math.degrees(f2)) + " / " + F(math.degrees(b2)) + ", not -15 / 25");
-            // a missing side takes the other's pitch; no rope at all is level and false
+            // a missing side takes the other's pitch. No rope at all is level and false
             Check(!LiftAlignMath.HalfPitches(12f * d, 2, 0f, 0, max, out float f3, out float b3) && f3 == b3 && math.abs(f3 - 12f * d) < 1e-6f,
                   "align/AL-10", "one-sided tower is not straight");
             Check(!LiftAlignMath.HalfPitches(5f, 0, 5f, 0, max, out float f4, out float b4) && f4 == 0f && b4 == 0f, "align/AL-10", "no rope");
@@ -322,7 +325,7 @@ namespace LiftBatch
             Check(math.abs(f5) <= max + 1e-6f && math.abs(b5) <= max + 1e-6f && (b5 - f5) * 0.5f <= LiftAlignMath.MaxHalfBreakDeg * d + 1e-6f,
                   "align/AL-10", "steep clamp gives " + F(math.degrees(f5)) + " / " + F(math.degrees(b5)));
             Check(LiftAlignMath.MaxHalfBreakDeg == 20f, "align/AL-10", "half-break limit moved from the art's G6 sweep (20 deg)");
-            // the owner's 30 deg tilt limit on every type (FG 0.8, DQ 0.9, GD 1.2, tram 2.5 are all steeper); a flatter type keeps its own
+            // the owner's 30 deg tilt limit on every type (FG 0.8, DQ 0.9, GD 1.2, tram 2.5 are all steeper). A flatter type keeps its own
             foreach (float slope in new[] { 0.8f, 0.9f, 1.2f, 2.5f })
                 Check(math.abs(math.degrees(LiftAlignMath.TrainPitchLimit(slope)) - 30f) < 1e-4f, "align/AL-10 slope " + F(slope),
                       "train limit " + F(math.degrees(LiftAlignMath.TrainPitchLimit(slope))) + ", not 30");

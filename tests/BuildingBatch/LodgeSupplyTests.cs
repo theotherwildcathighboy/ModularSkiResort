@@ -1,6 +1,11 @@
-// LodgeSupplyRule and the job carrier. LS1-LS3 the catalog rows and the W4 round trip; LS4-LS9 the chain walk over real RunLinks; LS10 the
-// hold; LS11-LS13 the switch's decisions and the per-building road test; LC1-LC6 the carrier rule (b1), LC7 the SignNoRoad row; LN1-LN12
-// the same-tier lodge numbers and the custom name shown instead (LodgeNumberRule).
+// LodgeSupplyRule and the job carrier. Test groups:
+// - LS1-LS3: the catalog rows and the W4 round trip
+// - LS4-LS9: the chain walk over real RunLinks
+// - LS10: the hold
+// - LS11-LS13: the switch's decisions and the per-building road test
+// - LC1-LC6: the carrier rule (b1)
+// - LC7: the SignNoRoad row
+// - LN1-LN12: the same-tier lodge numbers and the custom name shown instead (LodgeNumberRule).
 
 using System;
 using System.Collections.Generic;
@@ -25,7 +30,7 @@ namespace BuildingBatch
             return new[] { new float2(x - 8f, z - 8f), new float2(x + 8f, z - 8f), new float2(x + 8f, z + 8f), new float2(x - 8f, z + 8f) };
         }
 
-        /// <summary>Tracks and other runs of one recompute, built as the attraction system does; one answer per lodge.</summary>
+        /// <summary>Tracks and other runs of one recompute, built as the attraction system does. One answer per lodge.</summary>
         private sealed class Scene
         {
             public readonly List<float2[]> Outlines = new List<float2[]>();
@@ -70,7 +75,7 @@ namespace BuildingBatch
 
         public static void Run(Func<bool, string, string, bool> check)
         {
-            // LS1: the rows. The three lodges with their own jobs are road-optional; the Hut and Summit keep needing neither.
+            // LS1: the rows. The three lodges with their own jobs are road-optional. The Hut and Summit keep needing neither.
             foreach (string id in new[] { "aFrame", "mid", "grand" })
             {
                 LodgeDef def = Lodge(id);
@@ -93,12 +98,12 @@ namespace BuildingBatch
             back = LodgeSupplyRule.TryRestoreRoadFlags(written | 128u, written, game, out restored);
             check(!back && restored == (written | 128u), "LS3b", "the prefab changed since the write: nothing restored");
 
-            // LS4: the plain chain. Road lodge at x 0; three tracks in a row; off-road lodge at the far end.
+            // LS4: the plain chain. Road lodge at x 0. Three tracks in a row. Off-road lodge at the far end.
             Scene s = new Scene().Root(0f, 0f).Track(20f, 200f, 0f).Track(210f, 400f, 0f).Track(410f, 600f, 0f);
             check(s.Supplied(620f, 0f), "LS4", "three tracks in a row carry the chain to a lodge at the far end");
             check(!s.Supplied(1000f, 0f), "LS4b", "the same chain, a lodge 400 m beyond its end: no supply");
 
-            // LS5: the depot root is the same root; the rule never asks which kind it is.
+            // LS5: the depot root is the same root. The rule never asks which kind it is.
             s = new Scene().Root(0f, 500f).Track(20f, 200f, 500f);
             check(s.Supplied(220f, 500f), "LS5", "a depot (or road lodge) root supplies through one track");
 
@@ -239,7 +244,7 @@ namespace BuildingBatch
             LodgeNumberRule.Assign(new[] { E(30, signA, chalet) }, writes, shown);
             check(writes.Count == 1 && NumberOf(30) == 1 && shown[0] == 0, "LN1", "a lone Chalet gets 1 and shows no number");
 
-            // LN2: a second Chalet arrives: 2, both shown; the first keeps 1 (no write).
+            // LN2: a second Chalet arrives: 2, both shown. The first keeps 1 (no write).
             LodgeNumberRule.Assign(new[] { E(30, signA, chalet, 1, signA), E(31, signA, chalet) }, writes, shown);
             check(writes.Count == 1 && NumberOf(31) == 2 && shown[0] == 1 && shown[1] == 2, "LN2", "the newcomer takes 2; Chalet 1 and Chalet 2 shown");
 
@@ -247,7 +252,7 @@ namespace BuildingBatch
             LodgeNumberRule.Assign(new[] { E(40, signA, chalet, 1, signA), E(12, signA, chalet) }, writes, shown);
             check(NumberOf(12) == 2 && shown[0] == 1 && shown[1] == 2, "LN3", "held numbers stay; the new lower entity gets 2");
 
-            // LN4: Chalet 1 bulldozed: Chalet 2 keeps 2; the next new Chalet takes the lowest free number, 1.
+            // LN4: Chalet 1 bulldozed: Chalet 2 keeps 2. The next new Chalet takes the lowest free number, 1.
             LodgeNumberRule.Assign(new[] { E(31, signA, chalet, 2, signA), E(50, signA, chalet) }, writes, shown);
             check(writes.Count == 1 && NumberOf(50) == 1 && shown[0] == 2 && shown[1] == 1, "LN4", "2 is kept, the new one fills 1");
             LodgeNumberRule.Assign(new[] { E(31, signA, chalet, 2, signA) }, writes, shown);
@@ -267,7 +272,7 @@ namespace BuildingBatch
             LodgeNumberRule.Assign(new[] { E(31, signA, chalet, 1, signA), E(30, signA, chalet, 1, signA) }, writes, shown);
             check(writes.Count == 1 && NumberOf(31) == 2 && shown[1] == 1 && shown[0] == 2, "LN7", "30 keeps 1, 31 becomes 2");
 
-            // LN8: an unlinked lodge gets none and keeps a held number; a stable input writes nothing.
+            // LN8: an unlinked lodge gets none and keeps a held number. A stable input writes nothing.
             LodgeNumberRule.Assign(new[] { E(31, EntityRef.Null, chalet, 2, signA) }, writes, shown);
             check(writes.Count == 0 && shown[0] == 0, "LN8", "not linked: no write, no number shown");
             LodgeNumberRule.Assign(new[] { E(30, signA, chalet, 1, signA), E(31, signA, chalet, 2, signA), E(32, signA, chalet, 3, signA) }, writes, shown);

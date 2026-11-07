@@ -1,9 +1,13 @@
-// ApplySim - the apply-sequence harness for the glade tool's compose / apply loop. A test-local world of trees (wild, foreign, and
-// this run's members tagged {layer, variant, planGen}) plus one run polygon per fixture; ApplyOnce mirrors the tool's apply loop
+// ApplySim - the apply-sequence harness for the glade tool's compose / apply loop. It has a test-local world of trees (wild, foreign, and
+// this run's members tagged {layer, variant, planGen}) plus one run polygon per fixture. ApplyOnce mirrors the tool's apply loop
 // (oracle census -> PlanKey -> skip set -> Compose -> stand-in validator -> mutate the world).
-// Every compose is judged by an independent recount (CheckComposeOracles) and every apply on world state, never by the planner's own
-// arithmetic. Pinned: an apply never plants AND removes in one layer; members go before wild trees; the felled set is the exact
-// ThinHash rank top-k and nested across levels; level 1 leaves no member of this run in the census; re-applying is a no-op.
+// The harness judges every compose by an independent recount (CheckComposeOracles) and every apply on world state, never by the planner's own
+// arithmetic. The tests pin these rules:
+// - An apply never plants AND removes in one layer.
+// - Members go before wild trees.
+// - The felled set is the exact ThinHash rank top-k, and it nests across levels.
+// - Level 1 leaves no member of this run in the census.
+// - Re-applying is a no-op.
 // Engine notes: EngineNotes/GladeBatch.ApplySim.md
 
 using System;
@@ -18,7 +22,7 @@ namespace GladeBatch
     internal static partial class Program
     {
         // SkiGladeToolSystem.Tuning values. The tool needs Game.dll and cannot be
-        // linked; these hand mirrors only build realistic inputs.
+        // linked. These hand mirrors only build realistic inputs.
         private const float TGladeMinSpacing = 5.5f;
         private const float TInnerMargin = 2.5f;
         private const float TBeltGap = 3.1f;
@@ -34,18 +38,20 @@ namespace GladeBatch
         private const int OurRun = 1, OtherRun = 2;
         private const int WalkSteps = 200;
 
-        // The documented table, typed in (NOT read from SkiGladeCompose): trees per hectare and
-        // the tree-line factors; the level-8 density; the stream density (1.10 × level 8 = 157.3 per ha);
-        // the documented ThinHash salt.
+        // The documented table, typed in (NOT read from SkiGladeCompose):
+        // - trees per hectare and the tree-line factors
+        // - the level-8 density
+        // - the stream density (1.10 × level 8 = 157.3 per ha)
+        // - the documented ThinHash salt
         private static readonly double[] OracleDensityPerHa = { 0, 6, 14, 28, 45, 70, 100, 143 };
         private static readonly double[] OracleBeltFactor = { 0, 0.15, 0.30, 0.45, 0.60, 0.75, 0.90, 1.00 };
         private const float OracleD8 = 143f / 10000f;
         private const float OracleStreamD = 157.3f / 10000f;
         private const uint OracleSaltThin = 0x7A1B3C5Du;
 
-        /// <summary>Stand-in validator: a planted tree this close (xz, m) to a tree that still stands after the apply is canceled
-        /// (vanilla tree collision bounds are unverified; 4 m is below both MinSpacings, so a stream slot never trips it: only plants
-        /// next to off-stream members after an edit / a new occupant do).</summary>
+        /// <summary>Stand-in validator: the validator cancels a planted tree this close (xz, m) to a tree that still stands after the apply.
+        /// Vanilla tree collision bounds are unverified. 4 m is below both MinSpacings, so a stream slot never trips it
+        /// (only plants next to off-stream members after an edit / a new occupant do).</summary>
         private const double StandInCollisionM = 4.0;
 
         internal enum SimTarget
@@ -165,9 +171,9 @@ namespace GladeBatch
             public long VerbatimChecked, VerbatimFalseComplete, VerbatimShort;
             public long TargetNearHalf;
             // Misplaced members seen by the oracle (summed over composes), by
-            // [target, layer of the misplaced member]; level-1 composes with off-stream members,
-            // by target; composes repeated into the long-lived result; edit-oor cases by kind;
-            // near-end full plans.
+            // [target, layer of the misplaced member]. The level-1 composes with off-stream members,
+            // by target. Composes repeated into the long-lived result. Edit-oor cases by kind.
+            // Near-end full plans.
             public readonly long[,] Misplaced = new long[2, 2];
             public readonly long[] L1OffStream = new long[2];
             public long SharedResultChecks, EditOorWiden, EditOorNarrow, EditOorBeyondInteriorBand;
@@ -177,7 +183,7 @@ namespace GladeBatch
         private static SimAgg s_Sim = new SimAgg();
 
         /// <summary>ONE result reused by every compose of the suite (the tool
-        /// reuses m_Result the same way); compared field by field with the fresh-object compose.</summary>
+        /// reuses m_Result the same way). The suite compares it field by field with the fresh-object compose.</summary>
         private static readonly ComposeResult s_Shared = new ComposeResult();
         private static readonly Dictionary<ulong, OracleStreamEntry> s_StreamMemo = new Dictionary<ulong, OracleStreamEntry>();
 
@@ -265,8 +271,9 @@ namespace GladeBatch
                 new double2(-30, 20), new double2(130, 20), 30, 10, 2));
             runs.Add(MakeSimRun("rect100x300", D2(0, 0, 100, 0, 100, 300, 0, 300), 21, new double2(-300, 400), null,
                 new double2(-30, 120), new double2(130, 120), 120, 15, 2));
-            // Field-sized fixtures: 124,000 m² with 266 wild (21 / ha; a dogleg with a reflex vertex) and
-            // 140,000 m² with 652 wild (47 / ha; a neighboring bound run 3 m away = one exclusion ring).
+            // Field-sized fixtures:
+            // - 124,000 m² with 266 wild (21 / ha), a dogleg with a reflex vertex
+            // - 140,000 m² with 652 wild (47 / ha), a neighboring bound run 3 m away = one exclusion ring
             runs.Add(MakeSimRun("run124k", D2(0, 0, 98, 0, 98, 700, 160, 1250, 76, 1305, 0, 722), 12, new double2(4200, 3100), null,
                 new double2(-40, 400), new double2(140, 400), 266, 32, 2));
             runs.Add(MakeSimRun("run140k", D2(0, 0, 110, 0, 110, 1275, 0, 1275), -23, new double2(-3800, -1500),
@@ -314,7 +321,7 @@ namespace GladeBatch
 
         /// <summary>The tool's params for a target. Mode / ThinFraction / GladeDensity carry the
         /// old Glade-mode values on purpose: Compose must not read them (asserted in
-        /// ComposeTests); MinSpacing is the target layer's.</summary>
+        /// ComposeTests). MinSpacing is the target layer's.</summary>
         private static GladeParams SimParams(SimTarget target)
         {
             return new GladeParams
@@ -556,7 +563,7 @@ namespace GladeBatch
                 "NEVER BOTH: one apply planted " + (rep.Planted + rep.Cancelled) + " and removed " + rep.Removed + " / felled " + rep.Felled);
             {
                 // Layers: every other-layer record after the apply stood there before (nothing
-                // moved or added), and every one that vanished was a misplaced census member this
+                // moved or added). Every record that vanished was a misplaced census member that this
                 // apply removed.
                 var after = LayerRecords(w, (byte)(1 - layer));
                 HashSet<(int, uint, uint, uint, byte, byte)> beforeSet = new HashSet<(int, uint, uint, uint, byte, byte)>(otherLayerBefore);
@@ -652,7 +659,7 @@ namespace GladeBatch
             return !inside && OracleBoundaryDistance(run.Oracle, q) <= TBeltDepth + TBeltMinSpacing;
         }
 
-        /// <summary>Our members of `layer` in the layer region (interior: inside); current
+        /// <summary>Our members of `layer` in the layer region (interior: inside). Current
         /// (variant 0, this generation) only unless anyVariant.</summary>
         private static int CountOwn(World w, SimRun run, byte layer, bool anyVariant, bool regionOnly)
         {
@@ -686,10 +693,13 @@ namespace GladeBatch
         }
 
         /// <summary>Oracle of SkiGladeCompose's MISPLACED rule (test-local geometry), as seen by
-        /// `target`: an interior member outside the polygon, a tree-line member inside it, and —
-        /// for the tree-line target only, which owns that test — a CURRENT tree-line member beyond
-        /// BeltDepth + BeltMinSpacing. An other-tagged member of the target layer is Other by its
-        /// tag (counted there, not here); unknown layer bytes are never misplaced.</summary>
+        /// `target`. These members are misplaced:
+        /// - an interior member outside the polygon
+        /// - a tree-line member inside it
+        /// - for the tree-line target only, which owns that test: a CURRENT tree-line member beyond
+        ///   BeltDepth + BeltMinSpacing
+        /// An other-tagged member of the target layer is Other by its
+        /// tag (counted there, not here). Unknown layer bytes are never misplaced.</summary>
         private static bool OracleMisplaced(SimRun run, SimTarget target, ComposeMember m)
         {
             bool inside = OracleInside(run.Oracle, new double2(m.Position.x, m.Position.z));
@@ -821,8 +831,8 @@ namespace GladeBatch
             return sb.Length == 0 ? null : sb.ToString();
         }
 
-        /// <summary>Mitre offset of a simple ring by d meters (d > 0 outward, every edge moves by
-        /// exactly d; d &lt; 0 inward). Test-local; y re-sampled from the test ground.</summary>
+        /// <summary>Miter offset of a simple ring by d meters. d > 0 moves the ring outward, and every edge moves by
+        /// exactly d. d &lt; 0 moves it inward. Test-local. y is re-sampled from the test ground.</summary>
         private static float3[] OffsetRing(float3[] ring, double d)
         {
             double2[] v = ToXz(ring);
@@ -1076,7 +1086,7 @@ namespace GladeBatch
                     x++;
             }
             // Own (MISPLACED oracle): the target layer → Same in its region / other-tagged /
-            // misplaced; the other layer → occupant or misplaced. Others = tagged ∪ misplaced.
+            // misplaced. The other layer → occupant or misplaced. Others = tagged ∪ misplaced.
             List<int> sameIn = new List<int>(), others = new List<int>();
             int tagged = 0, misplaced = 0;
             for (int j = 0; j < c.Own.Length; j++)
@@ -1222,7 +1232,7 @@ namespace GladeBatch
                 int keepO = interior ? t - w - x : t;
                 keepO = Math.Max(0, Math.Min(mIn, keepO));
                 Check(r.Keep == keepO, where, "Keep " + r.Keep + " vs " + keepO + " (T " + t + ", W " + w + ", X " + x + ", M " + mIn + ")");
-                // Keep order: matched by slot of the FULL stream, unmatched by hash; remove from the end.
+                // Keep order: matched by slot of the FULL stream, unmatched by hash. Remove from the end.
                 OKey[] order = new OKey[sameIn.Count];
                 for (int k = 0; k < sameIn.Count; k++)
                 {
@@ -1327,7 +1337,7 @@ namespace GladeBatch
         }
 
         /// <summary>For each point of `a`, the number of points of `b` at xz distance &lt; r
-        /// (sorted-x sweep; independent of Compose's bucket grid).</summary>
+        /// (a sorted-x sweep, independent of Compose's bucket grid).</summary>
         private static int[] SweepCounts(double2[] a, double2[] b, double r)
         {
             int[] counts = new int[a.Length];
@@ -1411,9 +1421,9 @@ namespace GladeBatch
         }
 
         /// <summary>CONTROL for the "slice ran out of attempts" refinement (SkiGladeCompose
-        /// engine notes): on every compose that needed a full re-plan, plan the requested slice
-        /// VERBATIM (planner at MaxPlant = RequestedSlice, test-built occupants) and count how
-        /// often it would have offered fewer plantable slots — a false Complete when none.</summary>
+        /// engine notes). On every compose that needed a full re-plan, the control plans the requested slice
+        /// VERBATIM (planner at MaxPlant = RequestedSlice, test-built occupants). It counts how
+        /// often the plan would have offered fewer plantable slots — a false Complete when none.</summary>
         private static void VerbatimSpecControl(SimRun run, SimTarget target, CensusOut c, ComposeInput input, ComposeResult r)
         {
             byte layer = LayerOf(target);
@@ -1473,8 +1483,8 @@ namespace GladeBatch
                 Check(r.Shortfall > 0, where, "settled with N " + r.Inside + " < T " + r.Target + " without a Shortfall (stall)");
             if (level == 1)
             {
-                // EVERY tree of this run the target's census sees, any layer, any tag — not the
-                // region-only count Compose itself uses (that hid our own trees standing in a widened / narrowed run).
+                // EVERY tree of this run that the target's census sees, any layer, any tag. This is not the
+                // region-only count that Compose itself uses (that count hid our own trees standing in a widened / narrowed run).
                 if (target == SimTarget.Interior)
                 {
                     int members = CountInteriorCensusOwn(w, run);
@@ -1531,9 +1541,9 @@ namespace GladeBatch
             return ok;
         }
 
-        /// <summary>A settle that (from a state whose members are on the stream) planted:
+        /// <summary>A settle that planted, from a state whose members are on the stream:
         /// the union of its plants must be exactly the first D unmatched, unblocked slots of
-        /// the stream (blocked spots compensated by later slots), or all of them when fewer.</summary>
+        /// the stream (later slots compensate blocked spots), or all of them when fewer.</summary>
         private static void CheckPlantSet(SimRun run, OracleStreamEntry po, int[] perSlot, int deficit, List<ApplyReport> reps, string where)
         {
             List<float3> expect = new List<float3>();
@@ -1649,9 +1659,11 @@ namespace GladeBatch
             Check(a.FullForMembers > 0, "applysim/power", "no compose re-planned in full to order members — the holes scenario has no power");
             Check(a.Shortfalls > 0 && a.SaturatedComposes > 0, "applysim/power", "no Shortfall / Saturated compose");
             Check(a.VerbatimFalseComplete + a.VerbatimShort > 0, "applysim/control", "a verbatim slice never fell short — the full re-plan is not shown to be needed");
-            // Power: every misplaced kind on both targets (editoor), level 1 on
-            // off-stream members of both targets (perturbations settled at L1), the reused result,
-            // the near-end rule.
+            // Power:
+            // - every misplaced kind on both targets (editoor)
+            // - level 1 on off-stream members of both targets (perturbations settled at L1)
+            // - the reused result
+            // - the near-end rule
             Check(a.Misplaced[0, 0] > 0 && a.Misplaced[0, 1] > 0 && a.Misplaced[1, 0] > 0 && a.Misplaced[1, 1] > 0, "applysim/power",
                 "a misplaced kind was never seen [interior target: interior " + a.Misplaced[0, 0] + ", tree line " + a.Misplaced[0, 1] +
                 "; tree-line target: interior " + a.Misplaced[1, 0] + ", tree line " + a.Misplaced[1, 1] + "] — editoor has no power");
@@ -1709,7 +1721,7 @@ namespace GladeBatch
                         string where = run.Name + "/" + seed + "/levels-" + names[si] + "/" + target + "/L" + level;
                         World w = starts[si].Clone();
                         List<ApplyReport> reps = Settle(w, run, target, level, Caps(TCap), where, book);
-                        // Raising from a member-less start only plants; lowering from the
+                        // Raising from a member-less start only plants. Lowering from the
                         // planted (level 8) start only removes / fells.
                         foreach (ApplyReport rep in reps)
                         {
@@ -1843,9 +1855,9 @@ namespace GladeBatch
                 }
 
                 // Up/down identity: a pure down-step back to the level before a pure up-step, on the SAME stream (target PlanKey unchanged since
-                // the up-step), where the up-step started with its members forming a prefix of the stream (no unblocked hole below a member: an
-                // interior fell near the edge can INSERT a tree-line slot, since the planner's per-tree draws equal one attempt's and later slots
-                // survive shifted by one, and the up-step then rightly fills that hole first).
+                // the up-step). The check applies where the up-step started with its members forming a prefix of the stream (no unblocked hole below a member).
+                // An interior fell near the edge can INSERT a tree-line slot, since the planner's per-tree draws equal one attempt's and later slots
+                // survive shifted by one. The up-step then rightly fills that hole first.
                 if (upPlanted[ti] != null && level == upFrom[ti] && settled[ti] > level && targetKey == upKey[ti] && !planted && !felledAny)
                 {
                     if (!Check(removedIds.SetEquals(upPlanted[ti]), where, "UP/DOWN (walk): removed " + removedIds.Count + ", the up-step planted " + upPlanted[ti].Count))
@@ -1867,9 +1879,9 @@ namespace GladeBatch
                 }
                 settled[ti] = level;
 
-                // Key independence: a tree-line step never changes the interior key; an interior
+                // Key independence: a tree-line step never changes the interior key. An interior
                 // step changes the tree-line key exactly when it fells a wild tree nearer the edge
-                // than BeltMinSpacing − BeltGap (+ 1 cm) — the only interior change that can move
+                // than BeltMinSpacing − BeltGap (+ 1 cm). This is the only interior change that can move
                 // a tree-line slot (the documented exception).
                 ulong otherKeyAfter = SkiGladeCompose.PlanKey(BuildInput(run, other, 4, Census(w, run, other), Caps(TCap)));
                 if (target == SimTarget.TreeLine)
@@ -1893,8 +1905,8 @@ namespace GladeBatch
                     else
                         s_Sim.KeyKeptChecks++;
                 }
-                // Planted and felled are in different settles only (never both in one apply is
-                // asserted per apply; a settle may remove members and fell in the same apply).
+                // Planted and felled are in different settles only. The test asserts per apply that an apply
+                // never does both. A settle may remove members and fell in the same apply.
                 Check(!(planted && (removedAny || felledAny)), where, "one settle both planted and removed/felled");
             }
         }
@@ -2118,8 +2130,8 @@ namespace GladeBatch
         }
 
         /// <summary>From a perturbed, settled world (members partly off the
-        /// stream), settle level 1 on a copy and level 2 on the world itself, so level 1 and the
-        /// keep order run with OwnUnmatched > 0 (counted in L1OffStream).</summary>
+        /// stream), settle level 1 on a copy and level 2 on the world itself. Level 1 and the
+        /// keep order then run with OwnUnmatched > 0 (counted in L1OffStream).</summary>
         private static void LowLevels(World w, SimRun run, SimTarget target, string where, KeyBook book)
         {
             World w1 = w.Clone();
@@ -2127,11 +2139,13 @@ namespace GladeBatch
             Settle(w, run, target, 2, Caps(TCap), where + "-L2", book);
         }
 
-        /// <summary>The edit-oor case: a run edit that moves the edge past this run's own trees. WIDEN 8 m (> BeltGap) after a tree line
-        /// at L8: belt members end up inside the run. NARROW 8 m and 12 m (> InnerMargin) after an interior at L6: interior members end
-        /// up outside (12 m: some beyond the interior census band, which only the tree line's band reaches). Each from the same settled
-        /// start: level 1 of each target (SettleChecks then requires NO tree of this run in that target's census), the other target
-        /// first, and the original levels again, after which no misplaced member may stand in either census.</summary>
+        /// <summary>The edit-oor case: a run edit that moves the edge past this run's own trees.
+        /// - WIDEN 8 m (> BeltGap) after a tree line at L8: belt members end up inside the run.
+        /// - NARROW 8 m and 12 m (> InnerMargin) after an interior at L6: interior members end
+        ///   up outside (12 m: some beyond the interior census band, which only the tree line's band reaches).
+        /// Each case starts from the same settled start. It runs level 1 of each target (SettleChecks then requires
+        /// NO tree of this run in that target's census), the other target first, and the original levels again.
+        /// After that, no misplaced member may stand in either census.</summary>
         private static void EditOorScenarios(SimRun run, int seed)
         {
             KeyBook book = new KeyBook();
@@ -2231,8 +2245,8 @@ namespace GladeBatch
                 }
                 else
                 {
-                    // An un-clamped apply is followed by another only to replace the spots it lost to the blocked
-                    // strip (ApplySim learns them at apply time; the stream's headroom has the replacements).
+                    // A second apply follows an un-clamped apply only to replace the spots it lost to the blocked
+                    // strip. ApplySim learns them at apply time. The stream's headroom has the replacements.
                     Check(r.Cancelled > 0, where, "plant apply " + i + " was not clamped and lost no spot, yet another apply followed");
                 }
             }
@@ -2286,7 +2300,7 @@ namespace GladeBatch
             Check(k == wild.Count && reps.Count == (wild.Count + cap - 1) / cap, where, "fell slices " + reps.Count + " for " + wild.Count + " wild trees at cap " + cap);
         }
 
-        /// <summary>Level 8 on the saturated fixture: no room → Saturated, never Clamped; the
+        /// <summary>Level 8 on the saturated fixture: no room → Saturated, never Clamped. The
         /// repeat is Complete and still Saturated.</summary>
         private static void SaturatedTest(SimRun run, int seed)
         {
@@ -2316,7 +2330,7 @@ namespace GladeBatch
         }
 
         /// <summary>GladePlanCache never changes the outcome: two identical worlds run the same
-        /// level sequence with plant cap 300, one cached, one not; every apply compared.</summary>
+        /// level sequence with plant cap 300, one cached, one not. Every apply is compared.</summary>
         private static void CacheTest(SimRun run, int seed)
         {
             if (run == null)

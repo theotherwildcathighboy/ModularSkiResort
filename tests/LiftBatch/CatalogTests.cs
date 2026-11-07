@@ -1,10 +1,13 @@
-// CatalogTests - the pure prefab catalog SkiCatalog.cs (where-tags `catalog-...`, CT-1..CT-17; CT-17 = the grips and pivots): row, name and station oracles as literals;
-// the NAMES / BUILD-ITEMS blocks read as TEXT with tools/preflight.ps1 section 7's regex; catalog/carriers.json and gamedata-mirror drift;
-// the resolver-lifetime decision table (NextAction); the static sanity rules (CheckRows) on a hand-made twin.
+// CatalogTests - the pure prefab catalog SkiCatalog.cs (where-tags `catalog-...`, CT-1..CT-17, CT-17 = the grips and pivots). The tests cover:
+// - row, name and station oracles as literals
+// - the NAMES / BUILD-ITEMS blocks read as TEXT with tools/preflight.ps1 section 7's regex
+// - catalog/carriers.json and gamedata-mirror drift
+// - the resolver-lifetime decision table (NextAction)
+// - the static sanity rules (CheckRows) on a hand-made twin.
 // CT-4 is the FROZEN-NAME ORACLE: every name is a literal because names are save identity (PrefabSystem.Serialize writes type + name,
-// PrefabSystem.cs:827-865), so a rename fails here first. EvenSpacingCount oracles follow SubObjectSystem.cs:1743.
+// PrefabSystem.cs:827-865). So a rename fails here first. EvenSpacingCount oracles follow SubObjectSystem.cs:1743.
 // Not covered: the resolver's per-load + per-frame lifetime (SkiPrefabCatalogSystem.EnsureFresh) needs Game types (PrefabSystem,
-// EntityManager); the smoke sheet's second load in one session proves it (two "PrefabCatalog [arm] load 1 / load 2" lines).
+// EntityManager). The smoke sheet's second load in one session proves it (two "PrefabCatalog [arm] load 1 / load 2" lines).
 
 using System;
 using System.Collections.Generic;
@@ -200,7 +203,7 @@ namespace LiftBatch
             Eq(0, all.Count - expected, W, "pending names (0 since the grip surgery, 2026-11-03)");
             Eq(37, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
             Eq(0, SkiCatalog.PendingNameCount, W, "PendingNameCount");
-            // The four type constants are the Game type names (the system asserts nameof() at OnCreate; literal here).
+            // The four type constants are the Game type names (the system asserts nameof() at OnCreate. They are literal here).
             Eq("PowerLinePrefab", SkiCatalog.TypeLine, W, "TypeLine");
             Eq("StaticObjectPrefab", SkiCatalog.TypeCarrier, W, "TypeCarrier");
             Eq("BuildingPrefab", SkiCatalog.TypeBuilding, W, "TypeBuilding");
@@ -348,7 +351,7 @@ namespace LiftBatch
             foreach (string notUp in new[] { "SkiResortGate", "SkiBaseStationBuilding", "SkiChairliftHV", "SkiRunGroomedA", null, "" })
                 Check(!SkiCatalog.IsUpgradeBuilding(notUp), W, (notUp ?? "null") + " reads as an upgrade building");
 
-            // Negatives (the marker is NOT a line; kinds never cross).
+            // Negatives (the marker is NOT a line, and kinds never cross).
             Check(SkiCatalog.ByLinePrefab("SkiLiftMarker") == null, W, "the marker reads as a lift line");
             Check(SkiCatalog.ByLinePrefab(null) == null && SkiCatalog.ByLinePrefab("") == null, W, "null / empty is a line");
             Check(SkiCatalog.ByLinePrefab("SkiTramHVProto") == null, W, "the R16 prototype name reads as a catalog line (MUST 5)");
@@ -528,7 +531,7 @@ namespace LiftBatch
             Eq(SkiCatalog.FixedGrip.LineBuildPer8m, f.LineBuildPer8m, W, "FG line per 8 m == const");
             Eq(360.0, SkiCatalog.AFrameLodge.SkiersPerDay, W, "AFrameLodge.SkiersPerDay");
             Eq(24.0, SkiCatalog.Ladder.ExtraCap, W, "Ladder.ExtraCap (R11)");
-            // Ladder.LuxuryPerArea (one luxury lodge per area) was removed: no limit on lodges; ExtraCap above is the only limiter.
+            // Ladder.LuxuryPerArea (one luxury lodge per area) was removed. There is no limit on lodges. ExtraCap above is the only limiter.
             Eq(300f, SkiCatalog.Ladder.SummitServedRadiusM, W, "Ladder.SummitServedRadiusM (R11 / D11)");
             Eq(12.0, SkiCatalog.School.ScoreValue, W, "School.ScoreValue (R13)");
             Eq(1.2, SkiCatalog.School.DemandFactor, W, "School.DemandFactor (R13)");
@@ -567,8 +570,8 @@ namespace LiftBatch
         {
             const string W = "catalog-lodge-rows";
             // Idx, Id, Prefab, item, B, E, μ, μs, capacity, tolerance, jobs, build, upkeep, ForbidMultiple, luxury, spend ×, road, expected.
-            // ForbidMultiple is false on EVERY lodge tier and the "exclusive group" column is the plain `Luxury` label (a tip / log tag): no
-            // limit on how many lodges a player builds. Every tier is imported, so every row is Expected.
+            // ForbidMultiple is false on EVERY lodge tier, and the "exclusive group" column is the plain `Luxury` label (a tip / log tag).
+            // There is no limit on how many lodges a player builds. Every tier is imported, so every row is Expected.
             object[][] rows =
             {
                 new object[] { "aFrame", "SkiAFrameDayLodge", "lodge", 20.0, 4.0, 0.5, 0.5, 360, 0, 4, 40000, 3000, false, false, 1.0f, LodgeRoadRule.RoadOptional, true },
@@ -661,7 +664,7 @@ namespace LiftBatch
                 string at = "sign " + s + ": ";
                 Eq(signPrefabs[s], g.Prefab, W, at + "Prefab");
                 Eq(signItems[s], g.BuildItemId, W, at + "item");
-                // The shipped cost (SkiResortGate.Prefab:25); SignDef and the prefab both read 12,000.
+                // The shipped cost (SkiResortGate.Prefab:25). SignDef and the prefab both read 12,000.
                 Eq(12000, g.BuildCost, W, at + "BuildCost (R14's 12,000 since the S1 sign surgery, MUST 7)");
                 Eq(true, g.Expected, W, at + "Expected");
             }
@@ -751,15 +754,15 @@ namespace LiftBatch
             var legacy = new StationDef("X", StationRole.Base, "fixedGrip", new float3(0f), -12f, 0, "x", true, 0);
             Check(float.IsNaN(legacy.DockLocalA.x) && float.IsNaN(legacy.DockLocalB.z) && !legacy.HostsCarriers, W,
                   "the 9-argument StationDef constructor does not default to NaN docks / no host");
-            // The base's two docks are the bays' rope points: the hosted cabin pivots (∓5.50, 6.00, −5.50) sit 10.00 below
-            // (grip top 10.50 = 0.50 above the rope; the mover's drop), on the same x / z.
+            // The base's two docks are the bays' rope points. The hosted cabin pivots (∓5.50, 6.00, −5.50) sit 10.00 below
+            // (grip top 10.50 = 0.50 above the rope, the mover's drop), on the same x / z.
             StationDef tramBase = SkiCatalog.StationOf(3, StationRole.Base);
             LiftTypeDef tram = SkiCatalog.LiftById("tram");
             if (tramBase != null && tram != null)
                 Near(6.00, tramBase.DockLocalA.y - (tram.HangM - tram.GripTopAboveRopeM), 1e-5, W,
                      "tram base DockLocalA.y − (HangM − GripTopAboveRopeM) = the hosted pivot y 6.00");
-            // The line axis per row (StubTipLocalX), literal oracle: +4.00 on the tram base (its 6 x 3 lot), 0 elsewhere; a Shuttle
-            // station's docks sit +-lane about it (2 x 5.50 apart, centered on the axis); the legacy constructors 0.
+            // The line axis per row (StubTipLocalX), literal oracle: +4.00 on the tram base (its 6 x 3 lot), 0 elsewhere. A Shuttle
+            // station's docks sit +-lane about it (2 x 5.50 apart, centered on the axis). The legacy constructors give 0.
             for (int i = 0; i < SkiCatalog.Stations.Count; i++)
             {
                 StationDef s = SkiCatalog.Stations[i];
@@ -1018,8 +1021,8 @@ namespace LiftBatch
             Act(false, false, 5, 5, CatalogAction.Serve, W, "validated this frame");
             Act(false, false, 5, 6, CatalogAction.Validate, W, "first query of a new frame validates");
             Act(false, false, -1, 0, CatalogAction.Validate, W, "initial state (M1): validates zero entities, writes nothing");
-            // M2: the system clears dirty and sets validatedFrame BEFORE resolving, so after a failed resolution the
-            // state is (dirty F, failed T, v, f): Serve for ANY frame until the next Game / Editor preload.
+            // M2: the system clears dirty and sets validatedFrame BEFORE resolving. So after a failed resolution the
+            // state is (dirty F, failed T, v, f). The action is Serve for ANY frame until the next Game / Editor preload.
             Act(false, true, 7, 7, CatalogAction.Serve, W, "M2: failed, same frame");
             Act(false, true, 7, 8, CatalogAction.Serve, W, "M2: failed, next frame");
             Act(false, true, 7, 100000, CatalogAction.Serve, W, "M2: failed, much later");
@@ -1039,7 +1042,7 @@ namespace LiftBatch
         // ================================================================== CT-11
 
         /// <summary>catalog/carriers.json (schema 1, the new fields additive). Rows
-        /// map to lift types by object_prefab (ByCarrierPrefab); lift_type and line_prefab are compared when present
+        /// map to lift types by object_prefab (ByCarrierPrefab). The test compares lift_type and line_prefab when present
         /// (rows gd8 / tram are the cabin lens's: an exact-equality asset gate, test_gondola_tram_seams S11, keeps them as
         /// lift_cabin.CARRIERS writes them, so their line_prefab is the "&lt;line lens&gt;" placeholder or absent).</summary>
         private static void CarriersJson()
@@ -1094,7 +1097,7 @@ namespace LiftBatch
                     NumEq(r, "grip_top_above_rope_m", d.GripTopAboveRopeM, true, W, at);
                     NumEq(r, "lane_x_m", d.GaugeHalfM, true, W, at);
                     // the carrier's half width across the line (the lift tree corridor, 601 e): bench_m / 2 (chairs), max |bounds_lat_m|
-                    // (gondola), bounds_lat_half_m (tram); exactly one of them per row
+                    // (gondola), bounds_lat_half_m (tram). Each row has exactly one of them
                     double halfW = double.NaN;
                     int halfSources = 0;
                     if (Num(r, "bench_m", out double bench)) { halfW = bench / 2.0; halfSources++; }
@@ -1109,7 +1112,7 @@ namespace LiftBatch
                     NumEq(r, "axle_m", d.AxleM, false, W, at);
                     NumEq(r, "spacing_m", d.DesignSpacingM, false, W, at);
                     Check(Num(r, "speed_mps", out _), W, at + "has no speed_mps (round-2-contract §10.2)");
-                    // dwell_s == DwellS when present (tram 60); a Shuttle row must carry it (the mover's station stop has one source of truth).
+                    // dwell_s == DwellS when present (tram 60). A Shuttle row must carry it (the mover's station stop has one source of truth).
                     NumEq(r, "dwell_s", d.DwellS, d.Mover == MoverKind.Shuttle, W, at);
                     // the split pivots (the doc string's "CT-11 compares the two" covers them too): every row splits, each vector = CarrierPivots
                     if (Check(r.TryGetProperty("split", out JsonElement split) && split.ValueKind == JsonValueKind.Object, W, at + "has no split object"))
@@ -1167,7 +1170,7 @@ namespace LiftBatch
 
         /// <summary>gamedata-mirror drift, Expected names only (the sign stays at its shipped
         /// cost, so there is no allow-list). The mirror's .Prefab text is positional JSON (unquoted $fstrref
-        /// values), so fields are read with a regex on the text (UTF-8, no BOM). A mirror file not found = one FAIL.</summary>
+        /// values), so the test reads fields with a regex on the text (UTF-8, no BOM). A mirror file that is not found gives one FAIL.</summary>
         private static void MirrorDrift()
         {
             const string W = "catalog-mirror";
@@ -1186,7 +1189,7 @@ namespace LiftBatch
                     MirrorNum(line, RootField("m_MaxPylonDistance"), d.Envelope.MaxPylonM, W, d.LinePrefab + " m_MaxPylonDistance");
                     MirrorNum(line, RootField("m_MaxSlopeSteepness"), d.Envelope.SlopeMax, W, d.LinePrefab + " m_MaxSlopeSteepness");
                     MirrorNum(line, RootField("m_Hanging"), d.Envelope.NetHanging, W, d.LinePrefab + " m_Hanging");
-                    // The rope lanes sag as the net does: the engine cuts the terrain to the net's curve (+ HeightRange.min - 2), so
+                    // The rope lanes sag as the net does: the engine cuts the terrain to the net's curve (+ HeightRange.min - 2). So
                     // equal sag keeps every carrier above the cut on any span (the CT-15 clearance bound with no sag difference).
                     Near(d.Envelope.NetHanging, d.Envelope.LaneHanging, 1e-6, W, d.Id + " rope lane m_Hanging == net m_Hanging");
                     foreach (string lane in RopeLanes(d.Id))
@@ -1216,8 +1219,8 @@ namespace LiftBatch
                     MirrorNum(piece, @"""m_ElevationCost"":\s*(-?[0-9.]+)", d.ElevationCostPer10m, W, d.PiecePrefab + " m_ElevationCost");
                     MirrorNum(piece, @"""m_HeightRange"":\s*\{[^{}]*?""min"":\s*(-?[0-9.]+)", d.Envelope.HeightRangeMinM, W,
                               d.PiecePrefab + " m_HeightRange.min");
-                    // The collision box follows the hardware (2026-11-05): the planner's crossing rule reads NetHeightRange, the game
-                    // the piece; both ends must agree, the box must cover the rope and reach under the carriers, and the terrain cut
+                    // The collision box follows the hardware (2026-11-05): the planner's crossing rule reads NetHeightRange, and the game
+                    // reads the piece. Both ends must agree. The box must cover the rope and reach under the carriers. The terrain cut
                     // ceiling (min + m_MinHeightOffset.y) stays where the old 6..20 / -2 pieces had it.
                     LiftTowerPlanConstants.NetHeightRange(d.Id, out float boxMin, out float boxMax);
                     MirrorNum(piece, @"""m_HeightRange"":\s*\{[^{}]*?""max"":\s*(-?[0-9.]+)", boxMax, W, d.PiecePrefab + " m_HeightRange.max (NetHeightRange)");
@@ -1316,7 +1319,7 @@ namespace LiftBatch
 
         private const string PlaceableCost = @"\|Game\.Prefabs\.PlaceableObject, Game""[^{}]*?""m_ConstructionCost"":\s*(-?[0-9.]+)";
 
-        /// <summary>The own rope lanes of a lift type (PIPELINE constants table); each sags Envelope.LaneHanging.</summary>
+        /// <summary>The own rope lanes of a lift type (PIPELINE constants table). Each sags Envelope.LaneHanging.</summary>
         private static string[] RopeLanes(string typeId)
         {
             switch (typeId)

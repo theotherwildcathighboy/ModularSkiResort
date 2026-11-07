@@ -1,16 +1,24 @@
-// The two-object carrier pose (CarrierPose.cs; the carrier grip round, docs plan carrier-pivot-swing-plan-2026-11-03 section 6).
+// The two-object carrier pose (CarrierPose.cs, the carrier grip round, docs plan carrier-pivot-swing-plan-2026-11-03 section 6).
 // Where-tags `carrier-pose/...`, CP-1..CP-20.
-// Pinned: zero swing on a level rope is today's rigid pose (body = rope - drop, yaw = NetUtils.GetNodeRotation's); the grip's axis
-// follows the rope tangent within 0.1 deg and the rope point stays in its jaw within 1 cm; the body is plumb at zero wind and its pin
-// stays on the grip's pin under any pitch and swing; the swing stays within the clamps and leans downwind; guided segments carry no
-// swing and the ramps start at 0; the wind blend is continuous; the swing shows no step or pop (CP-9: within the analytic rate at 30 fps
-// 3x and 1/480 s, under 0.5 deg per 30 fps frame at 1x) on every lift type at realistic winds; the pairing math inverts vanilla's
-// EvenSpacing index. Review fixes: the static pin's body
-// hangs from the pitched grip's pin (CP-15), a grip assembled on a body that stays put keeps the joint (CP-16), and a late first wind
-// sample blends in instead of snapping (CP-17). The swing convention (2026-11-03): the roll turns grip and body together about the rope
-// point and the rope tangent, the fore-aft turns the body about the pin; the roll's per-type limits keep a chair's base excursion at the old 8 deg pin roll's
-// and hold the tram to 2 deg at half its fore-aft amplitude (CP-18). The visible-sway round (2026-11-06): chairs and cabins rock 4 to 6 deg
-// peak to peak at |w| 0.31 under gusts while the lean keeps its direction (CP-19); a hold release resumes the gusts (CP-20).
+// Pinned:
+// - Zero swing on a level rope is today's rigid pose (body = rope - drop, yaw = NetUtils.GetNodeRotation's).
+// - The grip's axis follows the rope tangent within 0.1 deg, and the rope point stays in its jaw within 1 cm.
+// - The body is plumb at zero wind, and its pin stays on the grip's pin under any pitch and swing.
+// - The swing stays within the clamps and leans downwind.
+// - Guided segments carry no swing, and the ramps start at 0.
+// - The wind blend is continuous.
+// - The swing shows no step or pop on every lift type at realistic winds (CP-9: within the analytic rate at 30 fps
+//   3x and 1/480 s, under 0.5 deg per 30 fps frame at 1x).
+// - The pairing math inverts vanilla's EvenSpacing index.
+// Review fixes:
+// - The static pin's body hangs from the pitched grip's pin (CP-15).
+// - A grip assembled on a body that stays put keeps the joint (CP-16).
+// - A late first wind sample blends in instead of snapping (CP-17).
+// The swing convention (2026-11-03): the roll turns grip and body together about the rope point and the rope tangent.
+// The fore-aft turns the body about the pin. The roll's per-type limits keep a chair's base excursion at the old 8 deg pin roll's.
+// They hold the tram to 2 deg at half its fore-aft amplitude (CP-18).
+// The visible-sway round (2026-11-06): chairs and cabins rock 4 to 6 deg peak to peak at |w| 0.31 under gusts while the lean keeps
+// its direction (CP-19). A hold release resumes the gusts (CP-20).
 
 using System;
 using System.Globalization;
@@ -26,7 +34,7 @@ namespace LiftBatch
         /// <summary>The frame of the continuity test: 30 fps at 3x = 0.1 s of mover clock per frame.</summary>
         private const double FrameS = 3.0 / 30.0;
         private const float MaxStepDeg = 0.5f;
-        /// <summary>Realistic wind magnitudes: step 0 measured |w| ~ 0.31; vanilla's constant wind (0.275, 0.275) is 0.389.</summary>
+        /// <summary>Realistic wind magnitudes: step 0 measured |w| ~ 0.31. Vanilla's constant wind (0.275, 0.275) is 0.389.</summary>
         private const float RealisticWind = 0.4f;
 
         public static void Run(Func<bool, string, string, bool> check)
@@ -62,7 +70,7 @@ namespace LiftBatch
         private static string F(double v) => v.ToString("0.######", CultureInfo.InvariantCulture);
 
         /// <summary>NetUtils.GetNodeRotation(tangent, fallback) (Game.Net/NetUtils.cs:316-324): y zeroed, normalized, LookRotation
-        /// with up; the fallback for a vertical tangent. MathUtils.TryNormalize's threshold is not decompiled here: 1e-12 on lengthsq.</summary>
+        /// with up. The fallback is for a vertical tangent. MathUtils.TryNormalize's threshold is not decompiled here: 1e-12 on lengthsq.</summary>
         private static quaternion Yaw(float3 tangent, quaternion fallback)
         {
             tangent.y = 0f;
@@ -114,8 +122,8 @@ namespace LiftBatch
                         float3 rigid = rope;
                         rigid.y -= drop;
                         n++;
-                        // The rigid offset (0, -drop, 0) rotates by the yaw: sub-0.1 mm (LookRotation's float residue off the pure
-                        // yaw and the drop's own rounding), far inside the mover's 1 mm idempotence; the body rotation IS the yaw.
+                        // The rigid offset (0, -drop, 0) rotates by the yaw. The error is sub-0.1 mm (LookRotation's float residue off the pure
+                        // yaw and the drop's own rounding), far inside the mover's 1 mm idempotence. The body rotation IS the yaw.
                         bool ok = math.distance(bp, rigid) <= 1e-4f &&
                                   br.value.Equals(yaw.value) && math.abs(math.dot(gr, yaw)) > 0.99999f;   // the mover's own test
                         if (!ok)
@@ -142,7 +150,7 @@ namespace LiftBatch
                     float3 t = Tangent(y, p);
                     foreach (bool flip in new[] { false, true })
                     {
-                        // flip: the static pin's facing flip (yaw from -tangent); the grip must still lie along the rope.
+                        // flip: the static pin's facing flip (yaw from -tangent). The grip must still lie along the rope.
                         quaternion yaw = Yaw(flip ? -t : t, quaternion.identity);
                         CarrierPose.Pose(float3.zero, t, yaw, pv, true, float2.zero, out _, out quaternion gr, out _, out _);
                         float3 fwd = math.rotate(gr, new float3(0f, 0f, 1f));
@@ -182,7 +190,7 @@ namespace LiftBatch
             Check(worst <= 0.01f, W, "rope point vs the jaw: worst " + F(worst) + " m (<= 0.01)");
         }
 
-        // ── CP-4: plumb at zero wind; the body's pin stays on the grip's pin under pitch and swing ──
+        // ── CP-4: plumb at zero wind. The body's pin stays on the grip's pin under pitch and swing ──
         private static void Cp4Plumb()
         {
             const string W = "carrier-pose/plumb";
@@ -232,7 +240,7 @@ namespace LiftBatch
                         foreach (float y in Yaws)
                         {
                             quaternion yaw = Yaw(Tangent(y, 0f), quaternion.identity);
-                            // Sway arguments on the quarter turns (sin / cos reach +-1 exactly) and between; the gust at both ends.
+                            // Sway arguments on the quarter turns (sin / cos reach +-1 exactly) and between. The gust at both ends.
                             for (int k = 0; k < 16; k++)
                             {
                                 float2 s = CarrierPose.Swing(w, yaw, k * (math.PI / 4f), new float2(1f, 1f), limits, (k & 1) == 0 ? 1f : 0.6f);
@@ -251,7 +259,7 @@ namespace LiftBatch
             }
         }
 
-        // ── CP-6: the body leans downwind: a cross wind to the carrier's right moves its bottom right; a tail wind moves it forward
+        // ── CP-6: the body leans downwind: a cross wind to the carrier's right moves its bottom right, and a tail wind moves it forward
         // (measured against the calm pose: the roll turns the whole assembly about the rope point, the pin moves with it) ──
         private static void Cp6LeanDownwind()
         {
@@ -276,7 +284,7 @@ namespace LiftBatch
                     CarrierPose.Pose(float3.zero, t, yaw, pv, true, tail, out _, out _, out bp, out _);
                     moved = math.dot(bp - calmBody, f);
                     Check(tail.y > 0f && moved > 0.005f, W, d.Id + " yaw " + F(y) + ": a tail wind swings the bottom forward by " + F(moved) + " m");
-                    // The lateral lean against the fore-aft lean: the roll gain over ForeAftShare (chairs: k / (1/3) > 1; tram: 1/2).
+                    // The lateral lean against the fore-aft lean: the roll gain over ForeAftShare (chairs: k / (1/3) > 1, tram: 1/2).
                     float ratio = math.abs(cross.x) / math.abs(tail.y);
                     float want = limits.RollGain / CarrierPose.ForeAftShare;
                     Check(math.abs(ratio - want) <= 1e-3f * want, W, d.Id + " yaw " + F(y) + ": lateral / fore-aft lean " + F(ratio) + ", want " + F(want));
@@ -284,7 +292,7 @@ namespace LiftBatch
             }
         }
 
-        // ── CP-7: guided segments (arcs, station runs) carry no swing; the ramps start at 0 and end at 1 ──
+        // ── CP-7: guided segments (arcs, station runs) carry no swing. The ramps start at 0 and end at 1 ──
         private static void Cp7Guided()
         {
             const string W = "carrier-pose/guided";
@@ -307,7 +315,7 @@ namespace LiftBatch
             Check(CarrierPose.RampM(2.5f) == 10f && CarrierPose.RampM(10f) == 20f, W, "RampM(2.5) " + CarrierPose.RampM(2.5f) + ", RampM(10) " + CarrierPose.RampM(10f));
         }
 
-        // ── CP-8: the wind blend: from at 0, to at WindBlendS, continuous and monotone between; a re-change mid-blend is continuous ──
+        // ── CP-8: the wind blend: from at 0, to at WindBlendS, continuous and monotone between. A re-change mid-blend is continuous ──
         private static void Cp8Blend()
         {
             const string W = "carrier-pose/blend";
@@ -339,15 +347,15 @@ namespace LiftBatch
         }
 
         // ── CP-9: no visible step or pop (redefined 2026-11-06, the visible-sway round). The first check (every swing step <= 0.5 deg per
-        // 30 fps frame at 3x) held the sway to 1 deg: a pendulum big enough to see moves faster than that at 3x without any step (FG:
-        // 2.85 deg x omega 2.54 rad/s = 0.72 deg per 0.1 s of clock). The intent, no visible step or pop, is three checks on the body's
-        // swing rotation per type, guided -> free run -> guided, the carrier moving through the gust field, at realistic winds from three
-        // directions with a reversal mid-span (blended over WindBlendS) and at a saturating wind with no change:
-        //  (a) rate: every 30 fps step at 3x (0.1 s of mover clock) <= RateBound x 0.1 s + 0.01 deg (RateBound: the analytic smooth rate);
+        // 30 fps frame at 3x) held the sway to 1 deg. A pendulum big enough to see moves faster than that at 3x without any step (FG:
+        // 2.85 deg x omega 2.54 rad/s = 0.72 deg per 0.1 s of clock). The intent is no visible step or pop. It has three checks on the body's
+        // swing rotation per type, guided -> free run -> guided, with the carrier moving through the gust field. The checks run at realistic
+        // winds from three directions with a reversal mid-span (blended over WindBlendS) and at a saturating wind with no change:
+        //  (a) rate: every 30 fps step at 3x (0.1 s of mover clock) <= RateBound x 0.1 s + 0.01 deg (RateBound: the analytic smooth rate).
         //  (b) continuity: every step at 48x finer sampling (1/480 s of clock) <= RateBound x 1/480 s + 0.01 deg, so a jump over about
-        //      0.05 deg anywhere fails (a snap of the gust, the wind, a ramp or a clamp cannot hide between two frames);
+        //      0.05 deg anywhere fails (a snap of the gust, the wind, a ramp or a clamp cannot hide between two frames).
         //  (c) hard cap at 1x: every 30 fps step at 1x (1/30 s) <= 0.5 deg.
-        // A planted 0.1 deg jump must fail (b): the test can catch a pop. ──
+        // A planted 0.1 deg jump must fail (b). The test can catch a pop. ──
         private const double FineS = 1.0 / 480.0;
         private const int FinePer3x = 48, FinePer1x = 16;
         private const double StepEpsDeg = 0.01;
@@ -355,9 +363,11 @@ namespace LiftBatch
         /// <summary>The analytic bound on the swing's rate (rad/s): |d lat/dt| + |d fa/dt| (the angle between two roll x fore-aft rotations
         /// is at most |d lat| + |d fa|: the rotation metric is bi-invariant). Per axis with gain G (RollGain, ForeAftShare) and clamp C:
         /// value = ramp.x x clamp(LeanPerWind2 G m c g, +-room) + ramp.y x A G sin(theta), A = min(SwayPerWind m, MaxSway) x (1 - S + S g),
-        /// room = C - A G; theta' = omega (s' = v); ramp' <= v / rampM; |d(m c)/dt| <= 2 m |w'|; g in [0.6, 1], g' <= (GustAmp1 2 pi / T1 +
-        /// GustAmp2 2 pi / T2)(1 + v / GustSpeedMps) (the carrier moves through the traveling waves); while the clamp is open the lean is at
-        /// most C / 0.6 before the gust; the room moves at |A' G|.</summary>
+        /// room = C - A G.
+        /// theta' = omega (s' = v). ramp' <= v / rampM. |d(m c)/dt| <= 2 m |w'|.
+        /// g in [0.6, 1], g' <= (GustAmp1 2 pi / T1 +
+        /// GustAmp2 2 pi / T2)(1 + v / GustSpeedMps) (the carrier moves through the traveling waves).
+        /// While the clamp is open the lean is at most C / 0.6 before the gust. The room moves at |A' G|.</summary>
         private static double RateBound(in SwingLimits lim, float omega, float v, float rampM, float mMax, float windRate)
         {
             double gRate = (CarrierPose.GustAmp1 * 2.0 * Math.PI / CarrierPose.GustPeriod1S + CarrierPose.GustAmp2 * 2.0 * Math.PI / CarrierPose.GustPeriod2S) *
@@ -390,7 +400,7 @@ namespace LiftBatch
             return 2.0 * Math.Atan2(Math.Sqrt(rx * rx + ry * ry + rz * rz), Math.Abs(rw)) * 180.0 / Math.PI;
         }
 
-        /// <summary>One CP-9 run: the swing rotation every FineS through guided -> span -> guided; returns the worst step at 3x (0.1 s),
+        /// <summary>One CP-9 run: the swing rotation every FineS through guided -> span -> guided. It returns the worst step at 3x (0.1 s),
         /// at 1x (1/30 s) and fine (FineS), in degrees. <paramref name="plantRad"/> adds a roll jump after the middle (the self-test).</summary>
         private static double3 Cp9Run(LiftTypeDef d, float2 w0, bool change, float yawRad, float plantRad)
         {
@@ -481,10 +491,10 @@ namespace LiftBatch
                   ": the continuity check cannot catch a pop");
         }
 
-        // ── CP-19: the sway is visible and keeps the lean's direction (the visible-sway round, 2026-11-06; the in-game check found the
-        // lean steady and no sway): a steady |w| 0.31 cross wind (step 0's sample) on a free span, the carrier moving through the gust
-        // field for 180 s. Chairs / gondola: the roll's peak to peak over every pendulum period 3.5 to 7.5 deg, its median 4 to 6 deg;
-        // the mean roll downwind (> 1.5 deg) and upwind of plumb at most 5 % of the time. Tram (a 10 m hanger): subtle but moving, roll
+        // ── CP-19: the sway is visible and keeps the lean's direction (the visible-sway round, 2026-11-06). The in-game check found the
+        // lean steady and no sway. The test uses a steady |w| 0.31 cross wind (step 0's sample) on a free span, the carrier moving through the gust
+        // field for 180 s. Chairs / gondola: the roll's peak to peak over every pendulum period 3.5 to 7.5 deg, its median 4 to 6 deg.
+        // The mean roll is downwind (> 1.5 deg), and the roll is upwind of plumb at most 5 % of the time. Tram (a 10 m hanger): subtle but moving, roll
         // peak to peak at most 1.5 deg, fore-aft 0.5 to 3 deg. ──
         private static void Cp19Visible()
         {
@@ -555,8 +565,8 @@ namespace LiftBatch
         }
 
         // ── CP-20: a hold release (or a re-freeze at a rebuild) resumes the gusts and a wind blend where they froze
-        // (CarrierWind.Resume): the swing of the first running frame equals the frozen pose's (<= 0.01 deg; s is continuous by Rebase);
-        // without the shift it would jump (> 0.1 deg, the test can catch it). Gust: [0.6, 1.0] over the world and the clock, and two
+        // (CarrierWind.Resume). The swing of the first running frame equals the frozen pose's (<= 0.01 deg). Rebase keeps s continuous.
+        // Without the shift it would jump (> 0.1 deg, the test can catch it). Gust: [0.6, 1.0] over the world and the clock, and two
         // carriers 20 m apart nearly together. ──
         private static void Cp20HoldResume()
         {
@@ -606,7 +616,7 @@ namespace LiftBatch
         }
 
         // ── CP-15: the static pin (TryPinChair + PinGripOf): the body comes from the same Pose call as the pitched grip (zero swing), so the
-        // pin joint holds at any pitch; the rigid body (rope - drop, yaw) the first version wrote is off by |GripPin - GripRope| x sin(pitch) ──
+        // pin joint holds at any pitch. The rigid body (rope - drop, yaw) the first version wrote is off by |GripPin - GripRope| x sin(pitch) ──
         private static void Cp15StaticPinJoint()
         {
             const string W = "carrier-pose/static-pin";
@@ -651,7 +661,7 @@ namespace LiftBatch
         }
 
         // ── CP-16: a grip assembled on a body that stands where it stands (the tram's parked carriage, a static carrier left at vanilla's
-        // placement): the pins coincide at any body rotation, and on the rigid pose it is the Pose grip with the toggle off ──
+        // placement). The pins coincide at any body rotation. On the rigid pose, it is the Pose grip with the toggle off ──
         private static void Cp16GripOnBody()
         {
             const string W = "carrier-pose/grip-on-body";
@@ -682,8 +692,8 @@ namespace LiftBatch
             Check(worstRigid <= 1e-4f, W, "grip on the rigid body vs the toggle-off Pose grip: worst " + F(worstRigid) + " m");
         }
 
-        // ── CP-17: CarrierWind's first sample: a start value when nothing was posed yet; a blend from the zero that poses already used
-        // when it arrives late (a new tram base, a load's first pass, a loop box not yet known): no swing step over 0.5 deg per frame ──
+        // ── CP-17: CarrierWind's first sample: a start value when nothing was posed yet. A blend from the zero that poses already used,
+        // when it arrives late (a new tram base, a load's first pass, a loop box not yet known). No swing step over 0.5 deg per frame ──
         private static void Cp17FirstWind()
         {
             const string W = "carrier-pose/first-wind";
@@ -723,11 +733,11 @@ namespace LiftBatch
             Check(math.distance(late.At(300.0), w) < 1e-6f, W, "a change after the first sample jumps");
         }
 
-        // ── CP-18: the roll is ONE world rotation of the whole assembly about the rope point and the rope tangent: grip and body rotations
-        // move by the same world roll, both origins turn about the rope point, the grip's axis stays along the rope (<= 0.1 deg: the
-        // first roll convention, yaw x roll x pitch, tilted it by roll x sin(pitch), 3.8 deg at the FG clamp on 30 deg), the pin joint gap
-        // stays 0 and the rope stays in the jaw (with a fore-aft turn on top too); a chair / gondola's base moves no farther at its roll
-        // clamp than the old 8 deg pin roll moved it, and as far per unit wind; the tram rolls at most 2 deg, at half its fore-aft ──
+        // ── CP-18: the roll is ONE world rotation of the whole assembly about the rope point and the rope tangent. Grip and body rotations
+        // move by the same world roll, and both origins turn about the rope point. The grip's axis stays along the rope (<= 0.1 deg: the
+        // first roll convention, yaw x roll x pitch, tilted it by roll x sin(pitch), 3.8 deg at the FG clamp on 30 deg). The pin joint gap
+        // stays 0, and the rope stays in the jaw (with a fore-aft turn on top too). A chair / gondola's base moves no farther at its roll
+        // clamp than the old 8 deg pin roll moved it, and as far per unit wind. The tram rolls at most 2 deg, at half its fore-aft ──
         private static void Cp18RollAboutRope()
         {
             const string W = "carrier-pose/roll";
@@ -788,7 +798,7 @@ namespace LiftBatch
                 if (d.Mover == MoverKind.Shuttle)
                 {
                     Check(limits.MaxRoll > 0f && limits.MaxRoll <= math.radians(2f) + 1e-6f, W, d.Id + ": the tram's roll clamp is " + F(math.degrees(limits.MaxRoll)) + " deg (<= 2)");
-                    // Half the fore-aft amplitude, lean and sway: a 45-degree wind (cross = along), unclamped; the sway at sin = cos.
+                    // Half the fore-aft amplitude, lean and sway: a 45-degree wind (cross = along), unclamped. The sway at sin = cos.
                     float3 fw = math.rotate(lyaw, new float3(0f, 0f, 1f)), rt = math.rotate(lyaw, new float3(1f, 0f, 0f));
                     float2 wind45 = 0.2f * math.normalize(new float2(fw.x + rt.x, fw.z + rt.z));
                     float2 lean = CarrierPose.Swing(wind45, lyaw, 0f, new float2(1f, 0f), limits, 1f);
@@ -945,7 +955,7 @@ namespace LiftBatch
                   "the gust periods leave 5 to 20 s");
             Check(math.abs(math.degrees(CarrierPose.TramMaxRoll) - 2f) < 1e-3f && CarrierPose.TramRollShare == 0.5f, W,
                   "the tram's roll is not 2 deg at half the fore-aft amplitude");
-            // A realistic wind leans 1 to 4 deg (the photos tune it; a 0 or a 20 deg lean is a typo).
+            // A realistic wind leans 1 to 4 deg (the photos tune it). A 0 or a 20 deg lean is a typo.
             float lean = math.degrees(CarrierPose.LeanPerWind2 * 0.31f * 0.31f);
             Check(lean > 0.5f && lean < 4f, W, "a |w| 0.31 cross wind leans " + F(lean) + " deg");
         }

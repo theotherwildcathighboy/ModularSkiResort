@@ -1,17 +1,28 @@
 // Breakover pairs and train kinds, phase B1 (docs: breakover-holddown-plan-2026-11-03, sections 2 and 4.2). Where-tags `angles/...`.
-// AL-12 LiftAlignMath.RopeAngles / DeflectionDeg against hand-computed values (crest +, dip -, straight = the sag kink); the bisector is
-// TrainPitch. AL-13 the train kind from the two load cases (the plan's band edges per type) and its hysteresis. AL-14 the caps per type.
-// BO-1..BO-8 the planner's phase (d) on synthetic profiles: a crest past the cap gets a pair 10-40 m apart that brings both under it; a
-// crest within the cap gets nothing; pins and removed spots are respected; a junction end is judged with the built neighbor's rope
-// point; a crest no pair can fix stays single, flagged, with a reason; a dip past the hold-down cap gets a pair too; determinism and
-// Plan(Plan) a fixed point. HD-1 / HD-2 / HD-5 kinds on every plan (hold-down in a strong dip, push-pull in a moderate one) and the fit
-// never adds a tower. CO-1 the cost counter (deterministic work, never wall clock) under a computed bound; wall time is reported only.
-// B2: the twins. FG judges its support trains at the Break cap (32, the 8-wheel Break twin on every member), so the FG pair cases run
-// on constants without twins (WithoutTwins: the planner with the twin prefabs not loaded) and BO-9 shows the Break head taking the crest
-// instead. HD-1 / HD-2 the Hold / Combo head on the member (E = Top(twin) - Top0, rope unchanged); HD-3 a member without the twin ->
-// the nearest member with it, or the support head + a note; HD-4 MemberOf round trip, the engine winner over the twins and the per-load
-// twin filter; HD-5 the fit keeps the node count and the heads it carries (hysteresis); HD-6 Emit writes E of the placed head; HD-7 a loose
-// end (or any end node) without a lane anchor has the rope the lane anchor would give, at every head (LiftTowerEdit.RopeAboveNodeM).
+// AL-12 compares LiftAlignMath.RopeAngles / DeflectionDeg with hand-computed values (crest +, dip -, straight = the sag kink).
+// The bisector is TrainPitch.
+// AL-13 tests the train kind from the two load cases (the plan's band edges per type) and its hysteresis.
+// AL-14 tests the caps per type.
+// BO-1..BO-8 test the planner's phase (d) on synthetic profiles:
+// - A crest past the cap gets a pair 10-40 m apart. The pair brings both under the cap.
+// - A crest within the cap gets nothing.
+// - The planner respects pins and removed spots.
+// - The planner judges a junction end with the built neighbor's rope point.
+// - A crest that no pair can fix stays single, flagged, with a reason.
+// - A dip past the hold-down cap gets a pair too.
+// - The planner is deterministic, and Plan(Plan) is a fixed point.
+// HD-1 / HD-2 / HD-5 test kinds on every plan (hold-down in a strong dip, push-pull in a moderate one). The fit never adds a tower.
+// CO-1 tests the cost counter (deterministic work, never wall clock) under a computed bound. The test only reports wall time.
+// B2: the twins. FG judges its support trains at the Break cap (32, the 8-wheel Break twin on every member).
+// So the FG pair cases run on constants without twins (WithoutTwins: the planner with the twin prefabs not loaded).
+// BO-9 shows the Break head taking the crest instead.
+// HD-1 / HD-2 test the Hold / Combo head on the member (E = Top(twin) - Top0, rope unchanged).
+// HD-3 tests a member without the twin: the result is the nearest member with it, or the support head + a note.
+// HD-4 tests the MemberOf round trip, the engine winner over the twins, and the per-load twin filter.
+// HD-5 tests that the fit keeps the node count and the heads it carries (hysteresis).
+// HD-6 tests that Emit writes E of the placed head.
+// HD-7 tests that a loose end (or any end node) without a lane anchor has the rope the lane anchor would give, at every head
+// (LiftTowerEdit.RopeAboveNodeM).
 
 using System;
 using System.Collections.Generic;
@@ -95,7 +106,7 @@ namespace LiftBatch
             // Dip (FG): 18 m down over 60 m then 18 m up: in = atan(-0.3 + 0.08) = -12.4074, out = atan(0.3 - 0.08) = 12.4074 -> -24.8149.
             float dd = LiftAlignMath.DeflectionDeg(new float3(0f, 18f, 0f), new float3(0f, 0f, 60f), new float3(0f, 18f, 120f), 0.02f);
             Check(math.abs(dd + 24.8149f) < 0.01f && dd < 0f, W + " dip", "dip d " + F(dd, "F4") + ", hand -24.8149");
-            // The plan's examples: a DQ crest 0.60 -> 0.10 is 35.0 deg on one tower; an FG crest 0.50 -> 0.25 is 20.5.
+            // The plan's examples: a DQ crest 0.60 -> 0.10 is 35.0 deg on one tower. An FG crest 0.50 -> 0.25 is 20.5.
             float dq = LiftAlignMath.DeflectionDeg(new float3(0f, 0f, 0f), new float3(0f, 60f, 100f), new float3(0f, 70f, 200f), 0.025f);
             float fg = LiftAlignMath.DeflectionDeg(new float3(0f, 0f, 0f), new float3(0f, 50f, 100f), new float3(0f, 75f, 200f), 0.02f);
             Check(math.abs(dq - 34.99f) < 0.05f && math.abs(fg - 20.46f) < 0.05f, W + " plan examples", "DQ " + F(dq) + " (35.0), FG " + F(fg) + " (20.5)");
@@ -160,7 +171,7 @@ namespace LiftBatch
                 Check(KindOf(20f, h) == LiftTrainKind.Support && KindOf(0f, h) == LiftTrainKind.Support && KindOf(-30f, h) == LiftTrainKind.HoldDown,
                       W + " " + kv.Key, "a crest / straight / deep dip misclassified");
             }
-            // MinPress exactly: support; hysteresis: kept 0.2 deg past its edge, flipped 0.3 deg past.
+            // MinPress exactly gives support. With hysteresis, the kind is kept 0.2 deg past its edge and flips 0.3 deg past.
             Check(LiftAlignMath.ClassifyTrain(1.0f, 5f) == LiftTrainKind.Support, W, "tight exactly MinPress is not Support");
             Check(LiftAlignMath.ClassifyTrain(0.8f, 5f, LiftTrainKind.Support) == LiftTrainKind.Support, W + " hyst", "Support not kept 0.2 deg past");
             Check(LiftAlignMath.ClassifyTrain(0.7f, 5f, LiftTrainKind.Support) == LiftTrainKind.PushPull, W + " hyst", "Support kept 0.3 deg past");
@@ -180,8 +191,8 @@ namespace LiftBatch
             Check(LiftAlignMath.PerWheelMaxDeg == 4f, W, "per-wheel cap moved from 0.07 rad (D.M. 8 March 1999, 3.18.3)");
             Check(LiftAlignMath.TrainCapDeg(4) == 16f && LiftAlignMath.TrainCapDeg(8) == 32f && LiftAlignMath.TrainCapDeg(10) == 40f &&
                   LiftAlignMath.TrainCapDeg(12) == 40f && float.IsPositiveInfinity(LiftAlignMath.TrainCapDeg(0)), W, "TrainCapDeg");
-            // Planner caps (support / hold-down / push-pull) with the twins loaded: FG support at the Break train's 32 (8 wheels, every member
-            // has a Break twin); the line member's own caps (LineCapDeg) and the caps without twins are B1's.
+            // Planner caps (support / hold-down / push-pull) with the twins loaded. FG support is at the Break train's 32 (8 wheels, every member
+            // has a Break twin). The line member's own caps (LineCapDeg) and the caps without twins are B1's.
             var want = new Dictionary<string, float[]>
             {
                 { "fixedGrip", new[] { 32f, 16f, 8f } }, { "detachable", new[] { 32f, 32f, 16f } }, { "gondola", new[] { 40f, 32f, 16f } },
@@ -202,7 +213,7 @@ namespace LiftBatch
                 LiftTowerPlanConstants bare = WithoutTwins(kv.Key);
                 Check(bare.CapDeg(LiftTrainKind.Support) == lw[0] && bare.Twins.Length == 0, W + " " + kv.Key, "without twins the support cap is " +
                       bare.CapDeg(LiftTrainKind.Support) + ", want the line cap " + lw[0]);
-                // the head's own train: Hold / Combo / Break wheels; Line = the line member's cap for the kind
+                // the head's own train: Hold / Combo / Break wheels. Line = the line member's cap for the kind
                 Check(c.CapDeg(LiftTrainKind.HoldDown, LiftTowerHead.Hold) == h && c.CapDeg(LiftTrainKind.PushPull, LiftTowerHead.Combo) == p &&
                       c.CapDeg(LiftTrainKind.Support, LiftTowerHead.Line) == lw[0] &&
                       (kv.Key != "fixedGrip" || c.CapDeg(LiftTrainKind.Support, LiftTowerHead.Break) == 32f), W + " " + kv.Key, "per-head caps");
@@ -210,7 +221,7 @@ namespace LiftBatch
                 Check(c.With(sagRatio: 0.004f).CapDeg(LiftTrainKind.Support) == s && c.With(sagRatio: 0.004f).Twins.Length == c.Twins.Length,
                       W + " " + kv.Key, "With() dropped the wheels or the twins");
             }
-            // The Break head: past the line cap (16 + 0.01), kept down to 16 - KindHystDeg when the tower had it; Hold / Combo by kind.
+            // The Break head: past the line cap (16 + 0.01), kept down to 16 - KindHystDeg when the tower had it. Hold / Combo by kind.
             LiftTowerPlanConstants fg = LiftTowerPlanConstants.For("fixedGrip");
             Check(fg.WantHead(LiftTrainKind.Support, 16.05f) == LiftTowerHead.Break && fg.WantHead(LiftTrainKind.Support, 15.99f) == LiftTowerHead.Line &&
                   fg.WantHead(LiftTrainKind.Support, 15.80f, LiftTowerHead.Break) == LiftTowerHead.Break &&
@@ -228,7 +239,7 @@ namespace LiftBatch
         }
 
         // ── profiles ────────────────────────────────────────────────────────────────────────────────────────────────────────
-        /// <summary>Piecewise linear ground through (s, y) points; flat beyond the ends; no cross slope.</summary>
+        /// <summary>Piecewise linear ground through (s, y) points. Flat beyond the ends. No cross slope.</summary>
         private static LiftTerrainSampler Ground(params float[] sy)
         {
             return (s, l) =>
@@ -275,13 +286,13 @@ namespace LiftBatch
                 return l;
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
             // Chord changes past one train's reach and inside a pair's (plan 2.2: single / pair FG 6.9 / 13.9, DQ 21.2 / 43.0, GD 29.6 / 60.4).
-            // FG reaches less than the plan's 13.9 in practice: its ladder steps 4 m (rope 9 / 13 / 17 / 21 m) and its towers stand
-            // 65-90 m apart (max span 90), so a pair fixes a ground chord change of about 8.5 deg; 0.25 -> 0.05 (11.2) stays flagged.
+            // FG reaches less than the plan's 13.9 in practice. Its ladder steps 4 m (rope 9 / 13 / 17 / 21 m) and its towers stand
+            // 65-90 m apart (max span 90). So a pair fixes a ground chord change of about 8.5 deg. 0.25 -> 0.05 (11.2) stays flagged.
             switch (id)
             {
                 case "fixedGrip": l = new Line { Label = "FG crest 0.20 -> 0.05 (no twins)", C = WithoutTwins(id), T = Crest(0.20f, 200f, 0.05f, 200f), Length = 400f, Break = 200f }; break;
                 case "detachable": l = new Line { Label = "DQ crest 0.60 -> 0.05", C = c, T = Crest(0.60f, 500f, 0.05f, 500f), Length = 1000f, Break = 500f }; break;
-                // the 0.90 face (42 deg) is past the GD pitch cap (40, DECISIONS 600): the pitch repair is PC-1's; here the bend repair alone
+                // the 0.90 face (42 deg) is past the GD pitch cap (40, DECISIONS 600). The pitch repair is PC-1's. Here only the bend repair applies.
                 default: l = new Line { Label = "GD crest 0.90 -> 0.10", C = NoPitchCap(c), T = Crest(0.90f, 500f, 0.10f, 500f), Length = 1000f, Break = 500f }; break;
             }
             s_Crests[id] = l;
@@ -370,7 +381,7 @@ namespace LiftBatch
             }
         }
 
-        // ── BO-2: a crest within the cap gets no pair; a single shift / member fix ranks before a pair ─────────────────────────
+        // ── BO-2: a crest within the cap gets no pair. A single shift / member fix ranks before a pair ─────────────────────────
         private static void Bo2WithinCap()
         {
             const string W = "angles/BO-2";
@@ -383,8 +394,8 @@ namespace LiftBatch
                 Check(PairNodes(on).Count == 0 && on.AngleNotes.Count == 0 && Same(off, on), W + " " + id,
                       "a crest within the cap changed: " + Angles(off) + " -> " + Angles(on));
             }
-            // The sweep: crests from gentle to sharp on every chair type. Every result is within the caps or flagged OverCap with a note;
-            // each branch binds at least once (a single fix, a pair, nothing needed).
+            // The sweep: crests from gentle to sharp on every chair type. Every result is within the caps or flagged OverCap with a note.
+            // Each branch binds at least once (a single fix, a pair, nothing needed).
             int singles = 0, pairs = 0, none = 0, flagged = 0, lines = 0;
             foreach (string id in ChairTypes)
             {
@@ -449,8 +460,8 @@ namespace LiftBatch
         }
 
         // ── BO-3: a pinned crest tower keeps its spot and gets a free partner ─────────────────────────────────────────────────
-        // The player pins a tower on the ground's break (FG 200 m, DQ / GD 500 m); the free planner builds around it, the pin is past
-        // its cap, the repair keeps its spot (member may change) and adds one free partner 10-40 m beside it.
+        // The player pins a tower on the ground's break (FG 200 m, DQ / GD 500 m). The free planner builds around it. The pin is past
+        // its cap. The repair keeps its spot (member may change) and adds one free partner 10-40 m beside it.
         private static void Bo3PinnedCrest()
         {
             foreach (string id in ChairTypes)
@@ -458,7 +469,7 @@ namespace LiftBatch
                 string W = "angles/BO-3 " + id;
                 Line l = CrestLine(id);
                 // FG pinned on the break itself (200 m) stays flagged, 1.4 deg past its cap: no partner fits between its 90 m max span
-                // and the no-three rule; pinned 5 m before it, the partner fits. DQ and GD are pinned on the break.
+                // and the no-three rule. If FG is pinned 5 m before it, the partner fits. The test pins DQ and GD on the break.
                 float crest = id == "fixedGrip" ? l.Break - 5f : l.Break;
                 LiftLineEdit e = l.Edit();
                 Check(e.AddPin(crest) == LiftLineEditResult.Done, W, "pin at the crest refused");
@@ -487,7 +498,7 @@ namespace LiftBatch
             }
         }
 
-        // ── BO-4: removing a partner: the removed spot stays free, the pins stay; the other side or single + flag ───────────────
+        // ── BO-4: removing a partner: the removed spot stays free, the pins stay. The other side or single + flag ───────────────
         private static void Bo4RemovedPartner()
         {
             foreach (string id in ChairTypes)
@@ -522,7 +533,7 @@ namespace LiftBatch
                     flagged |= (n.Flags & LiftPlanNodeFlags.OverCap) != 0;
                 bool ok = WorstOver(q, out _) <= LiftTowerPlan.AngleTolDeg || flagged;
                 Check(ok, W, "past a cap and not flagged: " + Angles(q));
-                // the free planner may need a filler where the partner closed a span (MaxSpanM); never a group of three
+                // the free planner may need a filler where the partner closed a span (MaxSpanM). It never builds a group of three
                 Check(Group(q) <= 2, W, "three towers within 40 m: " + Angles(q));
                 Check(q.LineTowers <= p.LineTowers + 1, W, "removing a partner added more than a filler: " + p.LineTowers + " -> " + q.LineTowers);
                 s_Report.Add("BO-4 " + l.Label + ", partner at " + F(removed, "F0") + " m removed | pins kept, no tower within " + F(e.RemovedRadiusM, "F0") +
@@ -530,17 +541,17 @@ namespace LiftBatch
             }
         }
 
-        // ── BO-5: a junction end is judged with the built neighbor's rope point and gets its partner inside the section ─────────
+        // ── BO-5: the planner judges a junction end with the built neighbor's rope point, and the end gets its partner inside the section ─────────
         private static void Bo5Junction()
         {
             foreach (string id in ChairTypes)
             {
                 string W = "angles/BO-5 " + id;
                 LiftTowerPlanConstants c = id == "fixedGrip" ? WithoutTwins(id) : LiftTowerPlanConstants.For(id);   // FG: the B1 case (cap 16)
-                // The section starts at a loose end on a crest: the built line arrived climbing at g (its far node 80 m back, a tower of the
-                // shortest member), this section runs on level ground. FG at 0.15 is past its cap by 1.5 deg and has no partner: one 4 m
-                // ladder step on the partner bends the rope 20 deg toward the next tower 80 m on (the repair touches the pair only), so
-                // it is flagged with its reason; DQ and GD get their partner.
+                // The section starts at a loose end on a crest. The built line arrived climbing at g (its far node 80 m back, a tower of the
+                // shortest member). This section runs on level ground. FG at 0.15 is past its cap by 1.5 deg and has no partner.
+                // One 4 m ladder step on the partner bends the rope 20 deg toward the next tower 80 m on (the repair touches the pair only).
+                // So the planner flags FG with its reason. DQ and GD get their partner.
                 float g = id == "fixedGrip" ? 0.15f : id == "detachable" ? 0.6f : 0.9f;
                 bool expectPartner = id != "fixedGrip";
                 LiftTerrainSampler t = Ground(0f, 1000f, 400f, 1000f);
@@ -596,8 +607,8 @@ namespace LiftBatch
         private static void Bo7DipPair()
         {
             const string W = "angles/BO-7";
-            // FG V valley, 0.5 down to 160 m and up: the free plan stands its shortest tower at the bottom, -45.6 deg (hold-down cap 16); one taller
-            // tower there cannot take it, a pair can.
+            // FG V valley, 0.5 down to 160 m and up. The free plan stands its shortest tower at the bottom, -45.6 deg (hold-down cap 16).
+            // One taller tower there cannot take it. A pair can.
             var l = new Line { Label = "FG V valley 0.50", C = LiftTowerPlanConstants.For("fixedGrip"), T = Ground(0f, 1100f, 160f, 1020f, 400f, 1140f), Length = 400f };
             LiftTowerPlan off = Off(l), on = l.Edit().Replan(l.T);
             float worstOff = WorstOver(off, out int at);
@@ -634,7 +645,7 @@ namespace LiftBatch
         private static void Hd1Hd2Kinds()
         {
             // A tower at the bottom of a symmetric V (PlanFixed: the fit's path, kinds on every plan). FG: hold-down below a -15.2 deg
-            // chord change, push-pull between -15.2 and -5.5; DQ / GD -18.7 / -7.2.
+            // chord change, push-pull between -15.2 and -5.5. DQ / GD -18.7 / -7.2.
             foreach (string id in ChairTypes)
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
@@ -701,10 +712,10 @@ namespace LiftBatch
         private static void Hd3NoTwin()
         {
             const string W = "angles/HD-3";
-            // DQ V dips (half 150 m, g 0.18-0.34, station ropes 15 m up) with the bottom tower given as DQ14 or DQ18 (no twins; DQ16 has a
-            // Hold twin since art-601, so it left the givens): a hold-down
-            // tower takes the nearest member with a Hold twin that keeps both spans clear and still bends hold-down, else keeps its support
-            // head with a note (the case after the sweep binds that branch for certain).
+            // DQ V dips (half 150 m, g 0.18-0.34, station ropes 15 m up) with the bottom tower given as DQ14 or DQ18 (no twins).
+            // DQ16 has a Hold twin since art-601, so it left the givens.
+            // A hold-down tower takes the nearest member with a Hold twin that keeps both spans clear and still bends hold-down.
+            // Otherwise it keeps its support head with a note (the case after the sweep binds that branch for certain).
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
             const float half = 150f;
             int moved = 0, stayed = 0;
@@ -746,8 +757,8 @@ namespace LiftBatch
                          " fallback(s), " + stayed + " kept | " + movedNote + " | " + (stayedNote ?? "-"));
             t = Ground(0f, 1000f + 0.19f * half, half, 1000f, 2f * half, 1000f + 0.19f * half);
             rope = 1000f + 0.19f * half + c.RopeAboveBase(0);
-            // No member with the twin is allowed (the only Hold twin is on a member past the max rope height): the support head stays,
-            // with its note; nothing else changes.
+            // No member with the twin is allowed (the only Hold twin is on a member past the max rope height). The support head stays,
+            // with its note. Nothing else changes.
             var only = new[] { new LiftTowerTwin(5, LiftTowerHead.Hold, "TestDQ20HoldA", 20.4678f) };
             LiftTowerPlanConstants c2 = c.With(twins: only, maxRopeAboveGroundM: 12f);
             LiftTowerPlan q = new LiftTowerPlanner().PlanFixed(t, 2f * half, rope, rope, c2, new[] { half }, new[] { 0 }, null, assign: false);
@@ -781,7 +792,7 @@ namespace LiftBatch
                     all.Add((m, LiftTowerHead.Line));
                 foreach (LiftTowerTwin tw in c.Twins)
                     all.Add((tw.Member, tw.Head));
-                // tops unique by >= 0.1 m (MemberOf matches at 0.05; the engine's score has one winner)
+                // tops unique by >= 0.1 m (MemberOf matches at 0.05). The engine's score has one winner
                 for (int a = 0; a < all.Count; a++)
                     for (int b = a + 1; b < all.Count; b++)
                         Check(math.abs(c.TopOf(all[a].m, all[a].h) - c.TopOf(all[b].m, all[b].h)) >= 0.1f - 1e-5f, W + " " + id,
@@ -805,7 +816,7 @@ namespace LiftBatch
                 Check(LiftTowerEdit.MemberOf(c, off, out LiftTowerHead ho) == 1 && ho == LiftTowerHead.Line, W + " " + id, "off-table E " + F(off) + " misread");
                 Check(LiftTowerEdit.MemberOf(c, -0.4f, out LiftTowerHead hn) == 0 && hn == LiftTowerHead.Line, W + " " + id, "a node below the ground misread");
             }
-            // The per-load filter: no twin loaded -> no twins, FG back at the line cap; a partial set keeps only the loaded ones.
+            // The per-load filter: no twin loaded -> no twins, FG back at the line cap. A partial set keeps only the loaded ones.
             try
             {
                 LiftTowerPlanConstants.TwinFilter = _ => false;
@@ -865,10 +876,11 @@ namespace LiftBatch
         }
 
         // ── HD-7: the lane-less end rope equals the lane-anchor rope at every head ───────────────────────────────────────────
-        // The end node stands at ground + E(member, head), Game.Net.Elevation = (E, E). With a lane anchor the rope is the engine's own: the
-        // winner the engine spawns at E (EngineWinner, not MemberOf), its pivot (EnginePivotAboveGround) plus the support member's lane y
-        // (a twin's lanes are its member's, check-lift-align LADDER). Without one, the lift tool's EndRope, the fit's end ropes and the diag
-        // plan use node y + RopeAboveNodeM(c, E) with E read back from the node (MemberOf). Both go through LiftLineInput.StationRope.
+        // The end node stands at ground + E(member, head), Game.Net.Elevation = (E, E).
+        // With a lane anchor, the rope is the engine's own: the pivot (EnginePivotAboveGround) of the winner that the engine spawns at E
+        // (EngineWinner, not MemberOf), plus the support member's lane y (a twin's lanes are its member's, check-lift-align LADDER).
+        // Without a lane anchor, the lift tool's EndRope, the fit's end ropes and the diag plan use node y + RopeAboveNodeM(c, E),
+        // with E read back from the node (MemberOf). Both go through LiftLineInput.StationRope.
         private static void Hd7LooseEndRope()
         {
             const string W = "angles/HD-7";
@@ -920,7 +932,7 @@ namespace LiftBatch
                          " heads (" + twinHeads + " twins), worst gap " + F(worstNew, "F5") + " m (the retired node + RopeAboveBase(0) was off by up to " + F(worstOld, "F3") + " m)");
         }
 
-        // ── HD-5: the fit never adds a tower and its Needed is unchanged ────────────────────────────────────────────────────
+        // ── HD-5: the fit never adds a tower and its Needed stays the same ────────────────────────────────────────────────────
         private static void Hd5FitNeverAdds()
         {
             const string W = "angles/HD-5";
@@ -951,8 +963,8 @@ namespace LiftBatch
                     lines++;
                 }
             }
-            // The first fit after the tool builds: the line's nodes carry the plan's heads (MemberOf reads them back from E); with them as
-            // the hysteresis input (no kinds known, as after a load) the fit keeps every member and head: nothing to write.
+            // The first fit after the tool builds: the line's nodes carry the plan's heads (MemberOf reads them back from E). With them as
+            // the hysteresis input (no kinds known, as after a load), the fit keeps every member and head. The fit has nothing to write.
             int kept = 0;
             var heads = new StringBuilder();
             foreach (Line l in new[]
@@ -992,7 +1004,7 @@ namespace LiftBatch
             s_Report.Add("HD-5 the first fit after the tool | Kept, every member and head as built | " + kept + " line(s): " + heads);
         }
 
-        // ── CO-1: cost: the deterministic work counter under a computed bound; wall time reported ─────────────────────────────
+        // ── CO-1: cost: the deterministic work counter under a computed bound. Wall time is reported ─────────────────────────────
         private static void Co1Cost()
         {
             const string W = "angles/CO-1";
@@ -1004,7 +1016,7 @@ namespace LiftBatch
                 // a 2 km DQ with three sharp crests (0.6 -> 0.05, three times)
                 new Line { Label = "DQ 2000 m, three sharp crests", C = dq, Length = 2000f,
                            T = Ground(0f, 1000f, 300f, 1180f, 650f, 1197.5f, 950f, 1377.5f, 1300f, 1395f, 1600f, 1575f, 2000f, 1595f) },
-                // the field DQ of LP-26 (1,024 m, uniform; LiftPassTests): top node 1237.33, base 1018.73
+                // the field DQ of LP-26 (1,024 m, uniform, LiftPassTests): top node 1237.33, base 1018.73
                 new Line { Label = "field DQ 1024 m (LP-26)", C = dq, Length = 1024f, T = (s, l) => math.lerp(1237.33f, 1018.73f, math.saturate(s / 1024f)) },
             };
             foreach (Line l in cases)
@@ -1017,16 +1029,16 @@ namespace LiftBatch
                 LiftTowerPlan p = on.Plan(l.T, l.Length, ra, rb, l.C);
                 off.Plan(l.T, l.Length, ra, rb, l.C);
                 double msOn = Time(() => on.Plan(l.T, l.Length, ra, rb, l.C)), msOff = Time(() => off.Plan(l.T, l.Length, ra, rb, l.C));
-                // Bound (rope-angle evaluations): at most one repair per tower; a repair judges at most the singles (the shift window,
+                // Bound (rope-angle evaluations): at most one repair per tower. A repair judges at most the singles (the shift window,
                 // a fixed neighbor's partner window included, x members) and the larger of the pairs (first spot x second spot x
                 // members^2) and the pulls + partners + re-members, 4 evaluations each (the touched towers and their neighbors), plus 2 cached
-                // neighbor values; the worst-first selection evaluates every tower once per round, at most 2 x count + 8 rounds.
+                // neighbor values. The worst-first selection evaluates every tower once per round, at most 2 x count + 8 rounds.
                 long count = p.Nodes.Length, L = l.C.Ladder.Length;
                 long shiftS = (long)math.floor(LiftTowerPlanConstants.AngleShiftM / l.C.StepM + 1e-4f);
                 long maxS = (long)math.floor(LiftTowerPlanConstants.PairMaxM / l.C.StepM + 1e-4f);
                 long minS = math.max(1, (long)math.ceil(l.C.PairMinM / l.C.StepM - 1e-4f));
                 long singles = (2 * maxS + 1) * L, pairs = (maxS + shiftS + 1) * (maxS - minS + 1) * L * L;
-                long partners = 2 * 2 * (maxS - minS + 1) * (L + 1) * L + 2 * L * L;   // pulls and partners, both sides; re-members
+                long partners = 2 * 2 * (maxS - minS + 1) * (L + 1) * L + 2 * L * L;   // pulls and partners on both sides, and re-members
                 long bound = count * (4 * (singles + math.max(pairs, partners)) + 2) + count * (2 * count + 8);
                 Check(p.AngleWork <= bound, W + " " + l.Label, "work " + p.AngleWork + " over the bound " + bound);
                 s_Report.Add("CO-1 " + l.Label + " | work under the bound; wall time reported | work " + p.AngleWork + " / bound " + bound + "; plan " +
