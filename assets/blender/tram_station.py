@@ -467,9 +467,9 @@ FD_CLOSEUP_DIR = "fine-detail-2026-10-12"
 # the base's one A-frame rack: the kit loadout R3 (8 pairs + 2 boards + 2 pole pairs, 600 tris), the closest to the removed
 # rack's 10 items and the cheapest. The kit racks alternate by host (dress-kit.md 1.2)
 FD_RACK = "SkiDressSkiRackV3"
-# : kit color variants (2026-10-12 ~18:50, build/kit-colour-variants.md). The color set (fine_detail.COLOUR_SETS)
-# : of the colored kit rows per role. The base rack goes back to revision 2's red / white look (TRAM_RACK_GEAR:
-# : ski_red / trim_white, red = the base's slot-3 red, TINT['base']['B']). The top has no colored row
+#: kit color variants (2026-10-12 ~18:50, build/kit-colour-variants.md). The color set (fine_detail.COLOUR_SETS)
+#: of the colored kit rows per role. The base rack goes back to revision 2's red / white look (TRAM_RACK_GEAR:
+#: ski_red / trim_white, red = the base's slot-3 red, TINT['base']['B']). The top has no colored row
 FD_KIT_COLOUR = {"base": "red", "top": "red"}
 FD_TOP_EXT = 1.90           # the top's kit extinguisher: z on the hut's +X face (the reel's plate spans 0.65..1.35)
 # the annex door's lamp bar (lamp_annexdoor, x 11.57..11.87, y 9.40..9.58, z -7.00..-6.20) -> a short-range

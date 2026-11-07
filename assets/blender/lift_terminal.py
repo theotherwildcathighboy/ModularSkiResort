@@ -1256,9 +1256,9 @@ FINE_DETAIL_M = True
 M_X_CONVENTION = ("game (gx, gy, gz) = authoring (-y, z, x) (lift_terminal.m_to_game, S1): gx = -authoring y; gx "
                   "NEGATED (x-sign gate settled N, 2026-10-15 playtest; the DQ / gondola / tram / building rows "
                   "follow it since S1b-N, 2026-10-16: cs2_liftdress.blender_to_game is the same map)")
-# : Kit color variants (2026-10-12 ~18:50, build/kit-colour-variants.md).
-# : The color set (fine_detail.COLOUR_SETS) of the colored kit rows per kind is yellow, the Yan black / yellow
-# : (the stations' safety yellow, the yellow / black placards). The return station has no colored row.
+#: Kit color variants (2026-10-12 ~18:50, build/kit-colour-variants.md).
+#: The color set (fine_detail.COLOUR_SETS) of the colored kit rows per kind is yellow, the Yan black / yellow
+#: (the stations' safety yellow, the yellow / black placards). The return station has no colored row.
 FD_M_KIT_COLOUR = {"drive": "yellow", "return": "yellow"}
 FD_M_WALL_RACK = "SkiDressSkiRackWallV2"       # the base's 3.0 m wall rack: loadout W2 (6 pairs + 1 board + 1 pole
 #                                                pair) - the wall racks alternate by station (DQ base W1, gondola W2 / W1)

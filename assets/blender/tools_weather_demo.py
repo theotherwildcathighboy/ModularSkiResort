@@ -343,7 +343,7 @@ def ab_sheets(name, before, after, out_dir):
     return out
 
 
-# : central half of a 2x render, 1:1 (= a 2x closer look). Rows bottom-up
+#: central half of a 2x render, 1:1 (= a 2x closer look). Rows bottom-up
 CLOSEUP_CROP = (500, 1500, 650, 1950)
 
 

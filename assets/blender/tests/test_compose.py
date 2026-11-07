@@ -306,8 +306,8 @@ import subprocess  # noqa: E402
 import tempfile  # noqa: E402
 
 REPO = os.path.normpath(os.path.join(HERE, os.pardir, os.pardir, os.pardir))
-# : the last commit of the round-L cs2_compose.py (the "before the change" module) and the
-# : sha1 of its bytes. TC1 runs it side by side with the current module
+#: the last commit of the round-L cs2_compose.py (the "before the change" module) and the
+#: sha1 of its bytes. TC1 runs it side by side with the current module
 REF_COMMIT = "e0b20681a2ca80be2889d170e1275f7abf52369f"
 REF_FILE_SHA1 = "fc0d17b750e207aa5e20ef7b2c39f07ee1dbfd9d"
 REF_FILE = os.path.join(HERE, "data", "cs2_compose_roundL.py")

@@ -226,8 +226,8 @@ KIT_REST = {"SkiDressAkja": (1.8801, -0.7108), "SkiDressSpineBoard": (1.843, -0.
 KIT_GAP = 0.004              # rest line this far in front of its support face (LEAN reads ~+0.005..0.007 m)
 LEAN_SAMPLE = 0.005          # _lean.measure_part samples the contact 5 mm down the part's axis
 KIT_LEAN_DEG = {"SkiDressAkja": 75.0, "SkiDressSpineBoard": 85.0}   # dress_kit AKJA / SPINE "lean"
-#: : kit color variants (2026-10-12 ~18:50, build/kit-colour-variants.md): the akja shells in rescue red
-#: : (the red cross, cs2_bldg.PATROL_RED_SRGB). P1 and P2 alike
+#: kit color variants (2026-10-12 ~18:50, build/kit-colour-variants.md): the akja shells in rescue red
+#: (the red cross, cs2_bldg.PATROL_RED_SRGB). P1 and P2 alike
 KIT_COLOUR_SET = "red"
 
 

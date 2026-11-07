@@ -83,11 +83,11 @@ import lodge                  # noqa: E402
 QUICK = "--quick" in sys.argv
 FAILS = []
 CHECKS = []
-# : SS4 - the frozen prefix (the first 20 kinds = the 2026-10-12 table). A later append adds a new (n, hash) pair here.
+#: SS4 - the frozen prefix (the first 20 kinds = the 2026-10-12 table). A later append adds a new (n, hash) pair here.
 # These two never change while the sheet owner letter is B.
-# : 22: school revision 2 (2026-10-12, build/school-rev2.md) appended school.markstaff / school.marknosled (the red
+#: 22: school revision 2 (2026-10-12, build/school-rev2.md) appended school.markstaff / school.marknosled (the red
 # markings) in the last shelf's free space. The 20-prefix is unchanged.
-# : 24: fine-detail step 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md) painted the reserved P1 / P2 rects in
+#: 24: fine-detail step 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md) painted the reserved P1 / P2 rects in
 # place (state / draws only: the 20- and 22-prefixes are unchanged). It appended gate.header / gate.flake (the welcome
 # sign's SKI AREA lettering panel and its snowflake end panels) in free space.
 PINNED = {20: "2c01662b97fccb4c", 22: "6107f478878da5e4", 24: "afee251d75da1b40"}
@@ -218,7 +218,7 @@ def ss5_ss6(maps):
 # Nitpick C (2026-10-13, build/nitpick-c-lodges.md): real typefaces, blank boards, no font file in the repo
 # ======================================================================================
 
-# : the font table (kind -> the typeface it must be painted in). Every lettered NAME board leaves Bfont
+#: the font table (kind -> the typeface it must be painted in). Every lettered NAME board leaves Bfont
 NC_FACES = {"l5.name": "bookman_bold", "gate.header": "bookman_bold", "school.name": "franklin_demi_cond",
             "hut.name": "franklin_demi_cond", "p1.name": "franklin_demi_cond", "p2.name": "franklin_demi_cond",
             "school.markstaff": "franklin_demi_cond", "school.marknosled": "franklin_demi_cond"}
