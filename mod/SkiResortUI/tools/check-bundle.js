@@ -86,7 +86,7 @@
  *         translate() never substitutes (index.js@435324).
  *      R6 inputs: <input> / <textarea> only in src/hub/RenameField.tsx, which must contain `stopPropagation` and a
  *         useLayoutEffect cleanup that calls `.blur()`.
- *      R7 no JSX `title=` attribute (it shows nothing in Gameface. Use Tip.).
+ *      R7 no JSX `title=` attribute (it shows nothing in Gameface. Use Tip).
  *      R8 CSS `gap`, `row-gap`, `column-gap`, `grid-gap` FAIL (compiled CSS and inline styles).
  *      R9 every CSS class whose name contains "blind" declares height: 0 and visibility: hidden.
  *      R10 every "Media/..." string literal in src/ exists under the installed Cities2_Data/Content/Game/UI (WARNING when no
@@ -176,8 +176,8 @@ const PANEL_BINDINGS = new Set([
   "liftLine$",
 ]);
 /**
- * Rule R11: the always-mounted files (they render while the hub is closed) may import only HubPanel from the panel files. This
- * means a value import (type-only imports are erased). An always-mounted file that imports and renders <StatusBlock/> or any
+ * Rule R11: the always-mounted files (they render while the hub is closed) may import only HubPanel from the panel files. The rule
+ * covers value imports (type-only imports are erased). An always-mounted file that imports and renders <StatusBlock/> or any
  * other panel component passes the per-binding check, because it references no panel binding itself. But it mounts that
  * component's subscriptions with the panel closed.
  */

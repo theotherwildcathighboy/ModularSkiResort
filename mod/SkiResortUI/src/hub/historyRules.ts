@@ -225,7 +225,7 @@ export function seasonAverage(area: HistoryArea, season: number): HistoryBucket 
   };
 }
 
-/** Is the range worth offering for this area? 12 months is always on. The two season ranges need data in an earlier season */
+/** Is the range worth offering for this area? 12 months is always offered. The two season ranges need data in an earlier season */
 export function rangeEnabled(area: HistoryArea | null, range: HistoryRange): boolean {
   if (range === "months12") return true;
   const n = lengthOf(area);

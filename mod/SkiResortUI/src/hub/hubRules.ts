@@ -155,7 +155,7 @@ export type ProblemClick = "sign" | "lift" | "liftsView" | "runsView" | null;
  *  LodgeNoRoad the lodge. By code:
  *  - 20-22: the lodge C# names. 20 without one: the sign.
  *  - 24: the lowest summit lodge no lift reaches.
- *  - 25: the subject C# names, and the top-level school.
+ *  - 25: the subject C# names (the top-level school).
  *  - 26: the first school on no sign.
  *  - 19: a road-less school, when no lodge is.
  *  MixedLiftTypes (23) is a lift row. Its click flies to the lift (to its gap while a section is missing), like LiftUnfinished.
@@ -272,7 +272,7 @@ export function statusVariant(row: ResortRow | null, live: ResortLive | null): S
   if (!row || !live || live.runsOpen < 0) return "unknown";
   if ((row.runs | 0) <= 0 || live.status === RESORT_STATUS.NoRuns) return "noRuns";
   const one = (row.runs | 0) === 1;
-  // No run fully open but some partly open -> count the partly open ones. Then the word
+  // No run fully open but some partly open -> count the partly open ones. That way the word
   // ("Partly open") and the number never contradict each other ("Partly open · 0 of 7 runs open").
   if ((live.runsOpen | 0) <= 0 && (live.runsPartly | 0) > 0) {
     if (live.snowEstimated) return one ? "partlyOneEst" : "partlyEst";
@@ -284,7 +284,7 @@ export function statusVariant(row: ResortRow | null, live: ResortLive | null): S
 
 export type ResultVariant = "result" | "noLodge";
 
-/** Overview receipt result label: no active lodge -> "Attraction (no lodge: 0)". Then the
+/** Overview receipt result label: no active lodge -> "Attraction (no lodge: 0)". That way the
  *  receipt says why lodge base 0 + runs and lifts gives 0. lodgesActive -1 (no result) -> "result". */
 export function resultVariant(live: ResortLive | null): ResultVariant {
   return live && live.lodgesActive === 0 ? "noLodge" : "result";

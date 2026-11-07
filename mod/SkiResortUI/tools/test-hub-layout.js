@@ -10,9 +10,9 @@
 *   - content overflows its box (the Scrollable would show its bar)
 *   - a header does not fit
 *   - more than one Buildings tile row
-*   - text is cut short or runs past the panel
-* The check hovers every build tile in turn. It excepts shrink-to-fit classes and player-chosen names.
-* Before the browser runs, a stylesheet rule applies. The note classes (NOTE_CLASSES) wrap. Every other class that cuts text with an
+*   - text is cut short or runs past the panel, with every build tile hovered in turn (shrink-to-fit classes and player-chosen
+*     names are excepted)
+* Before the browser runs, the test checks a stylesheet rule. The note classes (NOTE_CLASSES) wrap. Every other class that cuts text with an
 * ellipsis is a written decision (CUT_DECIDED). So a new one-line note with an ellipsis fails at once.
 * The Runs and Lifts views are the exception. They list every row and may scroll (their list carries class listAll). For them
 * the check fails on a drawn pager row instead.

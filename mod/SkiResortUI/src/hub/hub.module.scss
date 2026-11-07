@@ -80,7 +80,7 @@
 // top = y * (viewport - height) (index.js@720659) does not move the header, X and footer whenever
 // the content changes. Declared after .panel: its max-height wins.
 // T114 (2026-10-20): 72vh / 780 rem -> 78vh / 845 rem. This way an open fold of the Attraction / Finances views fits one page at
-// text scale 1.0 (it was 48 rem short). Taller content pages (fit.tsx) and never scrolls.
+// text scale 1.0 (it was 48 rem short). Taller content goes on pages (fit.tsx) and never scrolls.
 .panelFixed {
   height: 78vh;
   max-height: 845rem;

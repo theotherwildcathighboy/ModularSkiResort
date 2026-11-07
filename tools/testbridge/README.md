@@ -39,7 +39,7 @@ public class W{[DllImport("user32.dll")]public static extern bool SetForegroundW
 
 ## Keep tests fast
 
-Do not work in the order screenshot, move, screenshot. One `game_eval` must run a whole test:
+Do not work in the order screenshot, move, screenshot. One `game_eval` should run a whole test:
 
 1. **Aim with world coordinates**, not by looking at pixels. A `move` takes `wx` / `wz` and projects them on the frame it runs.
 2. **Batch.** A `seq` runs camera, moves, clicks, keys and checks in one call, frame-accurately.
@@ -192,7 +192,7 @@ Two guards fail a sequence instead of letting it click on blindly:
 
 ## Editor import
 
-Launch with `--startEditor`. The first port 9444 reply comes before the Editor is ready, so wait for "Workspace" in the UI. `helpers.js` has `__rows` and `__enter` for the file browser. These controls are at fixed positions:
+Launch with `--startEditor`. The first port 9444 reply comes before the Editor is ready, so wait for "Workspace" in the UI. `helpers.js` has `__rows` and `__enter` for the file browser. The controls:
 
 - Toolbar icon (1647,1968): opens the importer.
 - Project root button (3300,134).

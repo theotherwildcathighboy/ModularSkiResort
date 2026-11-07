@@ -1,6 +1,6 @@
 /*
  * The registrar: the only code the game calls directly. The game calls every mod's registrar in ONE loop with no try/catch
- * (index.js@800454), so a throwing registrar skips every later mod. So the registrar NEVER throws. It wraps each append and the
+ * (index.js@800454). A throwing registrar skips every later mod, so the registrar NEVER throws. It wraps each append and the
  * whole body in try/catch (failures go to the console and are queued for C#). It is append-only on documented hooks. It appends
  * PLAIN FUNCTIONS that wrap an ErrorBoundary. The "/*!" banner comment on `hasCSS` is load-bearing (tools/check-bundle.js checks it).
  * Never write the at-sign words license/preserve in src comments (terser extracts them too).

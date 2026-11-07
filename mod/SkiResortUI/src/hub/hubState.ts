@@ -28,7 +28,7 @@ export const view$ = bindLocalValue<HubView>("overview");
 /** The Trees foldout of the contract-mismatch panel only. It is expanded by default and remembered */
 export const treesOpen$ = bindLocalValue<boolean>(true);
 
-/** The active tool key (hubRules.activeToolKey) the tab follow last saw. It resets when the panel unmounts. Then the next open with a tool
+/** The active tool key (hubRules.activeToolKey) the tab follow last saw. It resets when the panel unmounts, so the next open with a tool
  *  active (started while the hub was closed, or kept open meanwhile) selects its view once. */
 export const runToolSeen = { value: "" };
 
