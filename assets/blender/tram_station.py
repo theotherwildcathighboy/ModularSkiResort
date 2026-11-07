@@ -1,189 +1,226 @@
 """
 tram_station.py - aerial-tram stations for the Modular Ski Resort (asset round 2026-10, P5).
 
-    SkiTramBaseStationA   --role base   5 x 3 lot, Jackson Hole base terminal (JH-04/05/07): tall
-                                        glazed hall (mullions + horizontal fins) under a deep-eave
-                                        metal roof on outriggers, stone piers, clock tower, canopy
-                                        on timber V-struts; the uphill end OPEN: galvanised face
-                                        portal, guide horns either side of each berth, a moving
-                                        platform on a rail across the open face, the dock on a
-                                        one-story plinth with an upright painted pictogram; curved
-                                        saddle girders on a saddle portal behind the berths carry
-                                        the track ropes down into the counterweight shafts; inner
-                                        glazed wall + annex door and an operator door at dock level
-    SkiTramTopStationA    --role top    3 x 3 lot, Jackson Hole top terminal (JH-02/08/11/12/14/16,
-                                        P2P-01): concrete plinth with the track-rope ANCHOR DRUMS on
-                                        its side faces, an open steel frame (no roof) carrying the
-                                        curved saddle girders, yellow (slot 2) deflection wheels +
-                                        vertical bullwheel, goalpost crane beam, maintenance stair,
-                                        open grating deck on braced legs, operator shack (_Win 1)
+SkiTramBaseStationA, `--role base`: 5 x 3 lot, Jackson Hole base terminal (JH-04/05/07). It has:
+- a tall glazed hall (mullions + horizontal fins) under a deep-eave metal roof on outriggers
+- stone piers, a clock tower, and a canopy on timber V-struts
+- the uphill end OPEN, with a galvanized face portal, guide horns either side of each berth, and a moving platform on a rail
+  across the open face
+- the dock on a one-story plinth with an upright painted pictogram
+- curved saddle girders on a saddle portal behind the berths, which carry the track ropes down into the counterweight shafts
+- an inner glazed wall + annex door, and an operator door at dock level
 
-Revision 1 (first live review, 2026-10-11, verdicts 10 / 11): the build report's
-"Revision 1" section lists every change and deviation. The integration levels, stubs and hosted
-poses below are unchanged (test_gondola_tram_seams pins them).
-Revision 1b (fixups, 2026-10-11; revision1-check-tram-stations F1): contract C14 (part-against-
-part clashes, check_part_clashes) and the top's bullwheel frame legs moved inboard of the operator
-hut (BULLFRAME_FOOT_X); the deck binoculars moved out of the face struts (SCOPE_X).
-Revision 1c (left-platform stair, C15; fourth look 2026-10-11: "the platform on the left
-side has no staircase"): contract C15 (check_reachability) builds the access graph of every walkable
-surface and fails a build with a surface no stair / ladder path joins to grade. It found the top's -X
-outer deck AND the plinth deck / center deck / service platform orphaned, and the base's catwalk under
-the portal girder. Fixed: a -X ground stair on the top (two flights with a mid landing, mirroring the
-+X stair) and a grating gangway from the plinth deck to its landing (LEFT_STAIR); a fixed ladder from
-the base's center deck to the catwalk (PCAT_LADDER). Both flags False rebuild the 1b LAYOUT (the C15
-negatives); the top's flights keep the dropped tread bottoms, so LEFT_STAIR False gives 12,678 tris
-against the 1b file's 12,804 (126 fewer: revision1c-check-tram-stair N5).
-Detail pass 1 (lifts, 2026-10-11; design/detail-pass-1-lifts.md as amended by its skeptic MC1-MC11,
-build report build/detail-pass-1-lifts-tram.md): the shared dressing kit (cs2_liftdress) on both
-stations (DETAIL1) - base: amber departure board, ticket-window frames + TICKETS, LIFT OPS, EXIT
-light, extinguishers, hose reel, platform-edge chevrons, deck nosings, a ski rack with skis, the clock
-dials redrawn (resort glyph, hour bars, minute dots); top: red beacon lens, crane hook block,
-berth-edge stripes, station name board, rope-tension gauge, extinguisher, hose reel, ice scraper +
-shovel - with vanilla sub-objects (SUBOBJ_ROWS, box-tested by check_subobjects), labels painted at
-computed px/m (label_weights), the weathering layer at the highest budget-clean intensity
-(SteppedWeather, --weather on|off), bay sharing (cs2_liftdress.share_identical, MC6-safe) and the
-top's track ropes at 6 segments (MC9 budget). C15 gains a crossing-width term on every join between
-two walkable surfaces (>= 0.61 m; the 1c gangway mouth measured 0.574 at sgpost_L0, now moved:
-SGPOST0_DEG) and an explicit NOT_WALKABLE list with reasons (an undeclared standable surface fails).
-Revision 1e (bay gates vs the cabin doors, 2026-10-11; revision2-check-tram-cabin section C): the tram
-cabin's revision 2 put a pair of plug doors centered on each long side (the dock, DOCK_Z -5.50), and the
-1d fence grid did not know: the base had a post at z -6.20 inside the door span and a leaf 0.30 m off
-the center, the top a post at -5.60, 0.10 m from the seam. The fence is now laid out from the door
-(gate_layout: a clear 1.90 m opening centered on the seam, posts at its ends, equal bays out to the
-unchanged fence ends) and contract C17 (check_gate_door) reads the door from lift_cabin.py and fails a
-post or leaf in the span, an opening under 1.70 m or off the seam. GATES_AT_DOOR False rebuilds the 1d grid.
-Revision 2 (2026-10-12; design/tram-stations-rev2.md with its skeptic's MC1-MC9 and the orchestrator's
-rulings on Q1-Q8; build report build/tram-stations-rev2.md): "not a total redo" - accuracy and details
-against the Snowbird / Jackson Hole photos (ref-liftblog/digest.md section 7). See-through: every sheave
-rim's bore is closed (close_rim, RIM_BORE_CLOSED) and the drip strips sit flush (DRIP_LIP) - contracts
-C18 (walk-around back-face first hits, LOD0 / LOD1 / LOD2) and C18b (closed rims). Shimmer: same-facing
-exact coplanar steel offset by rule (head girders, wheel head box, saddle tie, deck frame T-joints,
-X-crossings, stair kit, base braces / piers / trench walls / doors / transoms) - contract C19 (visible
-coplanar overlap > 25 cm2 per part pair, labeled from the in-process part table). Top: the yellow
-bullwheel to scale (10.4 -> 3.6 m, center 19.30 -> 12.40, 5 broad spokes, galvanised hub), 2.9 m lane
-wheels taking the rope over their top, two foot sheaves and an "M" haul loop (haul_route_top, C20), the
-crane beam lowered to 18.00-18.70 and shortened to 12.4 m with its lugs over the track lanes, the 8 m mast
-dropped (ruling Q3: the bound shrinks 27.00 -> MAST_TOP 20.70; a 1.8 m Snowbird roof mast with a dish, a
-panel antenna and the beacon lens stays at LOD1), vanilla LightpolePark / WallLight rows for the square
-modeled lamps (Q1), 2.2 m perforated berth gates (Q2; C17 layout unchanged), a medallion resting on the
-knee rail in every dock-rail panel, steel-plate deck bays on a 1.2 m seam grid, three trail boards facing
-the deck (Q7) and a frame-only guard in front of the wheel (MC6). Base: the drive bullwheel to scale too
-(Q6: 10.6 -> 4.0 m, two 2.0 m deflection sheaves behind the saddle girders, JH-04's orange-yellow,
-haul_route_base), the A-frame kit ski rack (cs2_liftdress.aframe_rack), the pendant / lantern lamp boxes
-gone (the vanilla RoofLight rows hang from ceiling plates, MC3), medallions on every dock-rail panel.
-Every other frozen prefab number holds (levels, stubs, docks, hosted cabins, lanes, lot, terraform, base
-bounds 25.00); the top's bounds y is the one change (27.00 -> 20.70, a choice: the prefab is not imported).
-Fine-detail pass, step 3c (2026-10-12; build/fine-detail-step3c-tram-pali.md; FINE_DETAIL, CLI --no-fine = the
-approved revision-2 stations byte for byte): the dressing the dressing kit (props/B) replaces leaves the mesh as "mod"
+SkiTramTopStationA, `--role top`: 3 x 3 lot, Jackson Hole top terminal (JH-02/08/11/12/14/16, P2P-01). It has:
+- a concrete plinth with the track-rope ANCHOR DRUMS on its side faces
+- an open steel frame (no roof) carrying the curved saddle girders
+- yellow (slot 2) deflection wheels + a vertical bullwheel
+- a goalpost crane beam, a maintenance stair, and an open grating deck on braced legs
+- an operator shack (_Win 1)
+
+Revision 1 (first live review, 2026-10-11, verdicts 10 / 11): the build report's "Revision 1" section lists every change and
+deviation. The integration levels, stubs and hosted poses below are unchanged (test_gondola_tram_seams pins them).
+
+Revision 1b (fixups, 2026-10-11, revision1-check-tram-stations F1): contract C14 (part-against-part clashes,
+check_part_clashes) and the move of the top's bullwheel frame legs inboard of the operator hut (BULLFRAME_FOOT_X). The deck
+binoculars moved out of the face struts (SCOPE_X).
+
+Revision 1c (left-platform stair, C15, fourth look 2026-10-11: "the platform on the left side has no staircase"): contract
+C15 (check_reachability) builds the access graph of every walkable surface. It fails a build with a surface that no stair or
+ladder path joins to grade. It found these orphaned surfaces: the top's -X outer deck AND the plinth deck / center deck /
+service platform, and the base's catwalk under the portal girder. The fixes:
+- The top got a -X ground stair (two flights with a mid landing, mirroring the +X stair) and a grating gangway from the
+  plinth deck to its landing (LEFT_STAIR).
+- The base got a fixed ladder from its center deck to the catwalk (PCAT_LADDER).
+
+Both flags False rebuild the 1b LAYOUT (the C15 negatives). The top's flights keep the dropped tread bottoms, so LEFT_STAIR
+False gives 12,678 tris against the 1b file's 12,804 (126 fewer: revision1c-check-tram-stair N5).
+
+Detail pass 1 (lifts, 2026-10-11, design/detail-pass-1-lifts.md as amended by its skeptic MC1-MC11, build report
+build/detail-pass-1-lifts-tram.md): the shared dressing kit (cs2_liftdress) went on both stations (DETAIL1).
+- Base: amber departure board, ticket-window frames + TICKETS, LIFT OPS, EXIT light, extinguishers, hose reel, platform-edge
+  chevrons, deck nosings, a ski rack with skis, the clock dials redrawn (resort glyph, hour bars, minute dots).
+- Top: red beacon lens, crane hook block, berth-edge stripes, station name board, rope-tension gauge, extinguisher, hose
+  reel, ice scraper + shovel.
+
+The pass also added:
+- vanilla sub-objects (SUBOBJ_ROWS, box-tested by check_subobjects)
+- labels painted at computed px/m (label_weights)
+- the weathering layer at the highest budget-clean intensity (SteppedWeather, --weather on|off)
+- bay sharing (cs2_liftdress.share_identical, MC6-safe)
+- the top's track ropes at 6 segments (MC9 budget)
+
+C15 gained a crossing-width term on every join between two walkable surfaces (>= 0.61 m). The 1c gangway mouth measured 0.574
+at sgpost_L0 and moved (SGPOST0_DEG). C15 also gained an explicit NOT_WALKABLE list with reasons (an undeclared standable
+surface fails).
+
+Revision 1e (bay gates vs the cabin doors, 2026-10-11, revision2-check-tram-cabin section C): the tram cabin's revision 2 put
+a pair of plug doors centered on each long side (the dock, DOCK_Z -5.50). The 1d fence grid did not know this. The base had a
+post at z -6.20 inside the door span and a leaf 0.30 m off the center. The top had a post at -5.60, 0.10 m from the seam. The
+fence is now laid out from the door (gate_layout): a clear 1.90 m opening centered on the seam, posts at its ends, and equal
+bays out to the unchanged fence ends. Contract C17 (check_gate_door) reads the door from lift_cabin.py. It fails a post or
+leaf in the span, an opening under 1.70 m, or an opening off the seam. GATES_AT_DOOR False rebuilds the 1d grid.
+
+Revision 2 (2026-10-12, design/tram-stations-rev2.md with its skeptic's MC1-MC9 and the orchestrator's rulings on Q1-Q8,
+build report build/tram-stations-rev2.md): "not a total redo". Accuracy and details follow the Snowbird / Jackson Hole photos
+(ref-liftblog/digest.md section 7).
+- See-through: every sheave rim's bore is closed (close_rim, RIM_BORE_CLOSED) and the drip strips sit flush (DRIP_LIP).
+  Contracts C18 (walk-around back-face first hits, LOD0 / LOD1 / LOD2) and C18b (closed rims) cover this.
+- Shimmer: same-facing exact coplanar steel is offset by rule (head girders, wheel head box, saddle tie, deck frame T-joints,
+  X-crossings, stair kit, base braces / piers / trench walls / doors / transoms). Contract C19 covers this (visible coplanar
+  overlap > 25 cm2 per part pair, labeled from the in-process part table).
+
+Top changes in revision 2:
+- The yellow bullwheel is to scale (10.4 -> 3.6 m, center 19.30 -> 12.40, 5 broad spokes, galvanized hub).
+- 2.9 m lane wheels take the rope over their top.
+- Two foot sheaves and an "M" haul loop (haul_route_top, C20).
+- The crane beam is lowered to 18.00-18.70 and shortened to 12.4 m, with its lugs over the track lanes.
+- The 8 m mast is dropped (ruling Q3). The bound shrinks 27.00 -> MAST_TOP 20.70. A 1.8 m Snowbird roof mast with a dish, a
+  panel antenna and the beacon lens stays at LOD1.
+- Vanilla LightpolePark / WallLight rows for the square modeled lamps (Q1).
+- 2.2 m perforated berth gates (Q2, C17 layout unchanged).
+- A medallion resting on the knee rail in every dock-rail panel.
+- Steel-plate deck bays on a 1.2 m seam grid.
+- Three trail boards facing the deck (Q7).
+- A frame-only guard in front of the wheel (MC6).
+
+Base changes in revision 2:
+- The drive bullwheel is to scale too (Q6: 10.6 -> 4.0 m, two 2.0 m deflection sheaves behind the saddle girders, JH-04's
+  orange-yellow, haul_route_base).
+- The A-frame kit ski rack (cs2_liftdress.aframe_rack).
+- The pendant / lantern lamp boxes are gone. The vanilla RoofLight rows hang from ceiling plates (MC3).
+- Medallions on every dock-rail panel.
+
+Every other frozen prefab number holds (levels, stubs, docks, hosted cabins, lanes, lot, terraform, base bounds 25.00). The
+top's bounds y is the one change (27.00 -> 20.70, a choice: the prefab is not imported).
+
+Fine-detail pass, step 3c (2026-10-12, build/fine-detail-step3c-tram-pali.md, FINE_DETAIL, CLI --no-fine = the approved
+revision-2 stations byte for byte): the dressing that the dressing kit (props/B) replaces leaves the mesh. It becomes "mod"
 sub-object rows by object-prefab CID (fd_kit_specs / fd_kit_rows -> cs2_liftdress.sub_object_rows(fine=True), this
-generator's +y frame): base 2 extinguishers, the drive-house hose reel, the A-frame rack (SkiDressSkiRackV3 on the
-grade); top the hut's extinguisher (moved to the +X face beside the reel: the -Z face has no 0.40 m access), hose reel
-and scraper + shovel. The annex door's lamp bar becomes a WallLightShortRangeRandom01 row (FD_ANNEX_LIGHT). Contract F1
-(check_kit_rows -> cs2_kitrows.check_kit_rows) tests each row on the REAL kit mesh (mount, contact, access, clearance,
-the C4 zones + the T8 cabin-sweep box, the LV pole, every row, the lot); C15 measures its crossings with the kit meshes
-(fd_probe). Every LIFT board / label (FS5), the anemometer mast (FS1), the beacon lens (frozen top 20.70), the EXIT
-light, gates and medallions stay modeled and vertex-identical.
-Nitpick B (2026-10-13; twenty-fifth look T-1 / T-2, build/nitpick-b-tram.md; photos ref-owner-2026-10-13):
-base only (JH_DETAILS; False = the shipped 3c / kit-color base byte for byte; the pass is not FINE_DETAIL-gated, so
---no-fine is the revision-2 base byte for byte only with JH_DETAILS False too). The Jackson Hole details the base lacked,
-cheap ones first: the JH-04 canopy on V-shaped timber struts across the village front (a timber-soffit canopy with a dark
-metal roof sheet at mid height, one leaning V per front stone pier on a steel shoe, steel ties to the front columns),
-LIFT TICKETS over the annex's three grade ticket windows on the clock-tower (+X) side with trim frames and sills, an
-ENTRANCE board over the village doors (both on the existing painter: the TICKETS kind with LABEL_WORDS) and a chalkboard
-A-frame at the front ticket windows (modeled PLACEHOLDER). The two ramps were STOPPED (the report's section 1): a
-<= 1:8 ramp from grade to the base's skier level (5.20 / 6.30 m) needs 42-50 m of run and the +X side has 0.40 m between
-the annex and the frozen lot / bound (x 20.00); a slightly inclined top ramp cannot reach grade from the 6.30 m deck
-inside the 3 x 3 lot (12.3 m of run: 51 %). The top is unchanged.
-Nitpick B, second pass (2026-10-13; build/nitpick-b2-tram-ramps.md; the orchestrator's rulings in verdicts-2026-10-11
-"Nitpick B (tram) - first pass landed"): REAL 1:8 RAMPS (RAMPS; False = the nitpick-B base and the shipped top byte for
-byte). BASE: the lot grows 5 x 3 -> 6 x 3 with the new cell on the clock-tower (+X) side. A CS2 lot is centered on the
-prefab origin, so the building moves BASE_DX = -4.0 m toward -X: every table constant of this module stays in the
-DESIGN frame (the lift axis at x 0), assemble() translates the joined base mesh by BASE_DX, and every prefab-frame
-number (stubs, docks, hosted cabins, the LV pole, the sub-object / kit rows, wheel centers, bounds) is design + BASE_DX
-(pf(); prefab_contract.axis_x = the line axis). A 1:8 switchback ramp (two 2.60 m lanes, 2.42 m clear between the
-rails, a 1.60 m turn landing) climbs from the new cell's plaza paving along the clock-tower side of the annex to a top
-landing + balcony at the annex cap level 5.20 and a glazed double door cut into the annex's +X glazing (the side area);
-two vanilla park lamps and a bin on the paving. TOP: 1:8 ramps (3.90 m grating decks, rails both sides) replace both end
-stairs - from head landings at the deck (6.30, z 0.50) along each side to a concrete pad at the back lot edge (z 11.60,
-top 5.10); the terrain is molded up to the pads (no level). Contract C15 learns ramps (grade <= 1:8, clear width
-between the rails, headroom, a landing >= 1.50 m deep at each end, rails both sides at every station, end crossings
->= 0.70), and C15b counts a ramp foot on a pad at the lot edge as grade on a NO-LEVEL station only (DECISIONS 166
-amended); C15 is unchanged for everything else.
-Nitpick B3 (2026-10-13; build/nitpick-b2-tram-ramps.md "Annex stair (B2 check F2)"; ANNEX_STAIR, False = the B2 base byte
-for byte): the side area got a real way out. The new ramp's glazed door enters the annex at its 5.20 floor, but the annex's
-only inner door to the hall (sfront_*, sill 6.30) had nothing between (C15 listed annexcap NOT_WALKABLE and could not see the
-dead end). Now: annexback is cut at the inner door (annexback_0..2: the doorway z -7.70..-5.50 up to the door head), a
-concrete landing block (landing_annex) carries the hall door's sill 6.30 across the 0.47 m gap between the buildings and
-through the wall, and a straight concrete stair (tread_annex_1..6: 7 risers of 0.157 m, 0.30 m goings, 2.20 m wide) comes
-down onto the annex floor, with rails both sides (the flight's without kick plates: the solid steps). C15 now treats annexcap
-as a WALKABLE surface (it leaves NOT_WALKABLE; ANNEX_STAIR False restores the old entry) and proves the route grade -> ramp A
--> turn landing -> ramp B -> landing -> balcony -> (side-area door) -> annex floor -> stair -> landing -> (hall door) -> deck:
-the report's `route` (no other stair may carry it), with the stair >= 1.20 m wide between rails and the doorway clear.
+generator's +y frame).
+- Base: 2 extinguishers, the drive-house hose reel, the A-frame rack (SkiDressSkiRackV3 on the grade).
+- Top: the hut's extinguisher (moved to the +X face beside the reel: the -Z face has no 0.40 m access), the hose reel, and
+  the scraper + shovel.
 
-Revision 3 (2026-10-13; twenty-seventh look T-3: "Can we have the whole FOUNDATION and SUPPORTS go LOWER? I'm
-imagining sticking it into a cliff edge, so players will bury some of it and then parts of it stick out and reach further.
-Or if they place it on a flat mountain top the whole support structure just gets buried. Also it'll help to clear the
-low-down bullwheels."; build/tram-top-rev3.md; PLINTH_TOP, False = the shipped nitpick-B2 top byte for byte): the TOP in
-PLINTH MODE, the L4 pattern. No engine base (C6p: no vertex within 0.01 of y 0 on any LOD, min y -12.00 = PLINTH depth on
-every LOD, no OK base edge; the prefab gets BaseProperties {m_BaseType: null} and unclamped bounds min y -12), and the
-structure itself continues below grade, closed (C6p closed: every open edge of a below-grade part lies on another part's
-face). The concrete pier (plinth), both ramp pads, the eight ramp columns, both stair posts and the two rear-portal caps
-stand on a FOUNDATION BLOCK (x +-11.70, z -2.85..11.50, top -0.05: the pier's housing widened under the anchor-drum bays and
-the ramps to the lot's sides) on a 0.60 m FOOTING SLAB to -12.00; the face-portal and deck-leg caps became closed pile caps
-(-0.05..0.80) on two cross-braced steel LATTICE BENTS (photo 01; x +-10.10, columns at z -9.60 / -7.00 / -4.40, girts at
--1.00 / -6.00, X braces in each panel, ties into the block's line face) down to concrete pad footings at -12.00. Above
-y 0 every vertex is the shipped top's (test T9); lot, bound 20.70, stubs, docks, lanes, rows, C17, the no-level terraform
-block unchanged; prefab delta = bounds min y 0 -> -12 + BaseProperties. LOD1 keeps the plinth and the bents (their X braces
-go), LOD2 the block + slab (the plinth reaches -12 on every LOD, as L4's). C15b's ground rule reads "stands on or continues
-below the grade". Previews: a sketched cliff edge (cliff_y, render only) and the flat summit (CLOSEUP_SHOTS_R3).
+The annex door's lamp bar becomes a WallLightShortRangeRandom01 row (FD_ANNEX_LIGHT). Contract F1 (check_kit_rows ->
+cs2_kitrows.check_kit_rows) tests each row on the REAL kit mesh (mount, contact, access, clearance, the C4 zones + the T8
+cabin-sweep box, the LV pole, every row, the lot). C15 measures its crossings with the kit meshes (fd_probe). These items
+stay modeled and vertex-identical: every LIFT board / label (FS5), the anemometer mast (FS1), the beacon lens (frozen top
+20.70), the EXIT light, gates and medallions.
 
-Build contract: docs/research/art/assets-2026-10/design/tram-stations.md with
-tram-stations-skeptic.md MUST-CHANGE 1-11 applied and ROUND-SPEC R27-R31 overriding it.
-What the rulings changed (everything else is the contract verbatim; the build report
-docs/research/art/assets-2026-10/build/tram_station.md lists each deviation):
+Nitpick B (2026-10-13, twenty-fifth look T-1 / T-2, build/nitpick-b-tram.md, photos ref-owner-2026-10-13): base only
+(JH_DETAILS). False = the shipped 3c / kit-color base byte for byte. The pass is not FINE_DETAIL-gated. So --no-fine is the
+revision-2 base byte for byte only with JH_DETAILS False too. The pass added the Jackson Hole details that the base lacked,
+cheap ones first:
+- The JH-04 canopy on V-shaped timber struts across the village front: a timber-soffit canopy with a dark metal roof sheet at
+  mid height, one leaning V per front stone pier on a steel shoe, and steel ties to the front columns.
+- LIFT TICKETS over the annex's three grade ticket windows on the clock-tower (+X) side, with trim frames and sills.
+- An ENTRANCE board over the village doors. Both boards use the existing painter (the TICKETS kind with LABEL_WORDS).
+- A chalkboard A-frame at the front ticket windows (modeled PLACEHOLDER).
 
-  R27  hang 10.50 m = cabin underside (pivot) -> carriage top; the track rope sits 0.50 below
-       the carriage top (rope = pivot + 10.00). The contract's TRACK_Y 16.00 / HAUL_Y 15.60 are
-       KEPT on both stations (every rope-machinery clearance the skeptic re-computed holds at
-       that height), so the cabin pivot drops to 6.00 and the boarding deck = pivot + 0.30 =
-       6.30 (cabin interior floor, cabins.md 4.1). The skeptic measured the JH deck at ~5 m
-       (claim 13), so the lower deck is also the better read; the hall stays 22.00 m.
-  R28  stubs: track ropes = HV rider lanes at x +-5.50, haul = non-HV lane at x +-5.00, 0.40
-       below. Lane prefabs per R31: SkiTramTrackRope (copy of SkiLiftHaulRopeB, UtilityType 64,
-       m_Hanging 0.004) and SkiTramHaulRope (the same with UtilityType 8). The vanilla HV/LV
-       cable lanes of the contract are the fallback (manifest `lane_fallback`).
-  R29  both cabins hosted parked in the base bays, identity rotation, pivot at the underside:
-       (+-5.50, 6.00, -5.50), m_ParentMesh 0 (skeptic MC1: -1 snaps them to ground level).
-  R30  carriage/hanger half-width <= 1.10. The BUILT cabin (lift_cabin.py) meets R29 with a
-       mirror-symmetric fork: a closed ring of uprights (|dy| 0.82..1.08), crossbar and
-       carriage head around the track and haul ropes. Any rope support in the docking path
-       would cross that ring's sweep, so the station has NONE there: the ropes run free from
-       the stub tips to supports behind the docked cabin, and C4 asserts the whole ring
-       (+-1.10 from the cabin roof to the carriage top + 0.20) plus the cabin body clear.
-       The contract's face saddles / face haul sheaves are not built (see the module notes
-       above `bay_gates`); skeptic MC6's saddle-frame split becomes moot.
-  R31  see R28 (the manifest's prefab_contract names the lane prefabs and their hanging).
+The two ramps were STOPPED (the report's section 1). A <= 1:8 ramp from grade to the base's skier level (5.20 / 6.30 m) needs
+42-50 m of run. The +X side has 0.40 m between the annex and the frozen lot / bound (x 20.00). A slightly inclined top ramp
+cannot reach grade from the 6.30 m deck inside the 3 x 3 lot (12.3 m of run: 51 %). The top is unchanged.
 
-Frames: every table coordinate is PREFAB-local (X lateral, Y up, Z along the lot, line leaves
-toward -Z, village front +Z). Parts are authored through P(X, Y, Z) -> Blender (Z, X, Y) and
-the joined mesh is turned by cs2_asset.orient_for_net, exactly as every lift generator.
-After orientation: prefab (X, Y, Z) = Blender (x, z, -y).
+Nitpick B, second pass (2026-10-13, build/nitpick-b2-tram-ramps.md, the orchestrator's rulings in verdicts-2026-10-11
+"Nitpick B (tram) - first pass landed"): REAL 1:8 RAMPS (RAMPS). False = the nitpick-B base and the shipped top byte for
+byte.
 
-CLI (Blender 5.2.2 headless only; the generator refuses to run in a UI session):
+BASE: the lot grows 5 x 3 -> 6 x 3 with the new cell on the clock-tower (+X) side. A CS2 lot is centered on the prefab
+origin, so the building moves BASE_DX = -4.0 m toward -X. Every table constant of this module stays in the DESIGN frame (the
+lift axis at x 0). assemble() translates the joined base mesh by BASE_DX. Every prefab-frame number is design + BASE_DX
+(stubs, docks, hosted cabins, the LV pole, the sub-object / kit rows, wheel centers, bounds). Use pf() for this.
+prefab_contract.axis_x = the line axis.
+
+A 1:8 switchback ramp (two 2.60 m lanes, 2.42 m clear between the rails, a 1.60 m turn landing) climbs from the new cell's
+plaza paving along the clock-tower side of the annex. It reaches a top landing + balcony at the annex cap level 5.20 and a
+glazed double door cut into the annex's +X glazing (the side area). Two vanilla park lamps and a bin stand on the paving.
+
+TOP: 1:8 ramps (3.90 m grating decks, rails both sides) replace both end stairs. They run from head landings at the deck
+(6.30, z 0.50) along each side to a concrete pad at the back lot edge (z 11.60, top 5.10). The terrain is molded up to the
+pads (no level).
+
+Contract C15 learned ramps. It checks grade <= 1:8, clear width between the rails, headroom, a landing >= 1.50 m deep at each
+end, rails both sides at every station, and end crossings >= 0.70. C15b counts a ramp foot on a pad at the lot edge as grade
+on a NO-LEVEL station only (DECISIONS 166 amended). C15 is unchanged for everything else.
+
+Nitpick B3 (2026-10-13, build/nitpick-b2-tram-ramps.md "Annex stair (B2 check F2)", ANNEX_STAIR, False = the B2 base byte for
+byte): the side area got a real way out. The new ramp's glazed door enters the annex at its 5.20 floor. The annex's only
+inner door to the hall (sfront_*, sill 6.30) had nothing between. C15 listed annexcap NOT_WALKABLE and could not see the dead
+end. Now:
+- annexback is cut at the inner door (annexback_0..2: the doorway z -7.70..-5.50 up to the door head).
+- A concrete landing block (landing_annex) carries the hall door's sill 6.30 across the 0.47 m gap between the buildings and
+  through the wall.
+- A straight concrete stair (tread_annex_1..6: 7 risers of 0.157 m, 0.30 m goings, 2.20 m wide) comes down onto the annex
+  floor. It has rails on both sides (the flight's rails have no kick plates: the steps are solid).
+
+C15 now treats annexcap as a WALKABLE surface. It leaves NOT_WALKABLE, and ANNEX_STAIR False restores the old entry. C15
+proves the route grade -> ramp A -> turn landing -> ramp B -> landing -> balcony -> (side-area door) -> annex floor -> stair
+-> landing -> (hall door) -> deck: the report's `route` (no other stair may carry it). The stair is >= 1.20 m wide between
+rails and the doorway is clear.
+
+Revision 3 (2026-10-13, twenty-seventh look T-3: "Can we have the whole FOUNDATION and SUPPORTS go LOWER? I'm imagining
+sticking it into a cliff edge, so players will bury some of it and then parts of it stick out and reach further. Or if they
+place it on a flat mountain top the whole support structure just gets buried. Also it'll help to clear the low-down
+bullwheels.", build/tram-top-rev3.md, PLINTH_TOP, False = the shipped nitpick-B2 top byte for byte): the TOP in PLINTH MODE,
+the L4 pattern.
+
+No engine base (C6p: no vertex within 0.01 of y 0 on any LOD, min y -12.00 = PLINTH depth on every LOD, no OK base edge). The
+prefab gets BaseProperties {m_BaseType: null} and unclamped bounds min y -12. The structure itself continues below grade,
+closed (C6p closed: every open edge of a below-grade part lies on another part's face).
+
+The concrete pier (plinth), both ramp pads, the eight ramp columns, both stair posts and the two rear-portal caps stand on a
+FOUNDATION BLOCK (x +-11.70, z -2.85..11.50, top -0.05: the pier's housing widened under the anchor-drum bays and the ramps
+to the lot's sides). The block stands on a 0.60 m FOOTING SLAB to -12.00. The face-portal and deck-leg caps became closed
+pile caps (-0.05..0.80) on two cross-braced steel LATTICE BENTS (photo 01, x +-10.10, columns at z -9.60 / -7.00 / -4.40,
+girts at -1.00 / -6.00, X braces in each panel, ties into the block's line face) down to concrete pad footings at -12.00.
+
+Above y 0 every vertex is the shipped top's (test T9). Lot, bound 20.70, stubs, docks, lanes, rows, C17 and the no-level
+terraform block are unchanged. Prefab delta = bounds min y 0 -> -12 + BaseProperties. LOD1 keeps the plinth and the bents
+(their X braces go). LOD2 keeps the block + slab (the plinth reaches -12 on every LOD, as L4's). C15b's ground rule reads
+"stands on or continues below the grade". Previews: a sketched cliff edge (cliff_y, render only) and the flat summit
+(CLOSEUP_SHOTS_R3).
+
+Build contract: docs/research/art/assets-2026-10/design/tram-stations.md with tram-stations-skeptic.md MUST-CHANGE 1-11
+applied. ROUND-SPEC R27-R31 overrides it. The rulings changed these items. Everything else is the contract verbatim. The
+build report docs/research/art/assets-2026-10/build/tram_station.md lists each deviation:
+
+- R27: hang 10.50 m = cabin underside (pivot) -> carriage top. The track rope sits 0.50 below the carriage top (rope = pivot
+  + 10.00). The contract's TRACK_Y 16.00 / HAUL_Y 15.60 are KEPT on both stations. Every rope-machinery clearance that the
+  skeptic re-computed holds at that height. So the cabin pivot drops to 6.00, and the boarding deck = pivot + 0.30 = 6.30
+  (cabin interior floor, cabins.md 4.1). The skeptic measured the JH deck at ~5 m (claim 13), so the lower deck is also the
+  better read. The hall stays 22.00 m.
+- R28: stubs: track ropes = HV rider lanes at x +-5.50, haul = non-HV lane at x +-5.00, 0.40 below. Lane prefabs per R31:
+  SkiTramTrackRope (copy of SkiLiftHaulRopeB, UtilityType 64, m_Hanging 0.004) and SkiTramHaulRope (the same with UtilityType
+  8). The vanilla HV/LV cable lanes of the contract are the fallback (manifest `lane_fallback`).
+- R29: both cabins hosted parked in the base bays, identity rotation, pivot at the underside: (+-5.50, 6.00, -5.50),
+  m_ParentMesh 0 (skeptic MC1: -1 snaps them to ground level).
+- R30: carriage/hanger half-width <= 1.10. The BUILT cabin (lift_cabin.py) meets R29 with a mirror-symmetric fork: a closed
+  ring of uprights (|dy| 0.82..1.08), crossbar and carriage head around the track and haul ropes. Any rope support in the
+  docking path would cross that ring's sweep, so the station has NONE there. The ropes run free from the stub tips to
+  supports behind the docked cabin. C4 asserts the whole ring (+-1.10 from the cabin roof to the carriage top + 0.20) plus
+  the cabin body clear. The contract's face saddles / face haul sheaves are not built (see the module notes above
+  `bay_gates`). Skeptic MC6's saddle-frame split becomes moot.
+- R31: see R28 (the manifest's prefab_contract names the lane prefabs and their hanging).
+
+Frames: every table coordinate is PREFAB-local (X lateral, Y up, Z along the lot, line leaves toward -Z, village front +Z).
+The generator authors parts through P(X, Y, Z) -> Blender (Z, X, Y). cs2_asset.orient_for_net turns the joined mesh, exactly
+as in every lift generator. After orientation: prefab (X, Y, Z) = Blender (x, z, -y).
+
+CLI (Blender 5.2.2 headless only: the generator refuses to run in a UI session):
     blender --background --factory-startup --python-exit-code 1 --python tram_station.py -- \
         --role base|top [--out <letter dir>] [--name N] [--finish] [--lods] [--export]
         [--preview [DIR]] [--review [DIR]] [--atlas auto|2048|4096|<pow2>] [--min-ppm 25]
         [--ao-samples 48] [--clock-tower|--no-clock-tower] [--wheels|--no-wheels]
         [--skirt <m> --skirt-ack-probe] [--area-only] [--cabin <SkiTramCabinA dir>]
         [--carriers catalog/carriers.json] [--no-validate] [--no-fine]
-  --export   write <out>/<Name>/ (default out: assets/import/stations/tram/A); without it the
-             folder goes to a temp dir (bake, previews and checks still run).
-Run order: --area-only -> blockout --preview --review -> verdict -> --finish --lods --export
---preview --review -> tools/assets-check.ps1 -Root assets/import/stations/tram/A -Kind building.
+  --export   write <out>/<Name>/ (default out: assets/import/stations/tram/A). Without it the folder
+             goes to a temp dir (bake, previews and checks still run).
+Run order: --area-only -> blockout --preview --review -> verdict -> --finish --lods --export --preview --review ->
+tools/assets-check.ps1 -Root assets/import/stations/tram/A -Kind building.
 
-Every geometry contract (C1-C20 + the R30 carrier clear) is asserted; a violated contract
-raises and nothing is exported. Deterministic: fixed part order, canonical element order
-(cs2_asset.tag_parts), sorted materials, CPU bakes with seed 0.
+The generator asserts every geometry contract (C1-C20 + the R30 carrier clear). A violated contract raises and nothing is
+exported. The output is deterministic: fixed part order, canonical element order (cs2_asset.tag_parts), sorted materials, CPU
+bakes with seed 0.
 """
 
 import argparse
@@ -209,14 +246,14 @@ import cs2_uv        # noqa: E402
 import cs2_compose   # noqa: E402
 import cs2_submesh   # noqa: E402
 import cs2_validate  # noqa: E402
-# cs2_bake / cs2_preview / cs2_review are imported lazily: cs2_preview imports lift_tower,
-# which another fleet is rebuilding; the geometry build and its tests must not depend on it.
+# The code imports cs2_bake / cs2_preview / cs2_review lazily. cs2_preview imports lift_tower, which another fleet is
+# rebuilding. The geometry build and its tests must not depend on it.
 
 REPO = os.path.normpath(os.path.join(HERE, os.pardir, os.pardir))
 DEFAULT_OUT = os.path.join(REPO, "assets", "import", "stations", "tram", "A")
 DEFAULT_PREVIEW = os.path.join(REPO, "assets", "preview", "stations")
 DEFAULT_CARRIERS = os.path.join(REPO, "catalog", "carriers.json")
-# revision 2: its own folder (the detail-pass-1 close-ups stay where they were; copies in superseded-rev2-2026-10-11)
+# Revision 2: its own folder. The detail-pass-1 close-ups stay where they were. Copies are in superseded-rev2-2026-10-11.
 DEFAULT_CLOSEUPS = os.path.join(REPO, "assets", "preview", "stations", "rev2-closeups-2026-10-12")
 
 # --------------------------------------------------------------------------------------
@@ -226,7 +263,7 @@ DEFAULT_CLOSEUPS = os.path.join(REPO, "assets", "preview", "stations", "rev2-clo
 HANG_M = 10.50                      # pivot (cabin underside) -> carriage top (R27)
 ROPE_BELOW_TOP_M = 0.50             # track rope center below the carriage top (R27)
 ROPE_ABOVE_PIVOT_M = HANG_M - ROPE_BELOW_TOP_M      # 10.00
-TRACK_X = 5.50                      # HV rider lanes (R28; R4 gauge)
+TRACK_X = 5.50                      # HV rider lanes (R28, R4 gauge)
 HAUL_X = 5.00                       # non-HV haul lane (R28)
 HAUL_DY = -0.40                     # (R28)
 INTERIOR_FLOOR_M = 0.30             # cabin interior floor above its underside (cabins.md 4.1)
@@ -242,7 +279,7 @@ HAUL_ROPE_R = 0.025
 # Station frame (contract sections 2-4, R27 levels)
 # --------------------------------------------------------------------------------------
 
-STUB_Z = -12.00                     # line-ward stub tip (curve point a); Phase A StubTipLocalZ
+STUB_Z = -12.00                     # line-ward stub tip (curve point a, Phase A StubTipLocalZ)
 STUB_LEN = 0.25                     # a -> d runs inward
 FACE_Z = -10.40                     # outermost non-rope geometry (free air 1.60 line-ward)
 DOCK_Z = -5.50                      # parked cabin center
@@ -256,7 +293,7 @@ LOT_SLACK = 1e-4                    # C7 float slack only (strict lot fit, revie
 NAMES = {"base": "SkiTramBaseStationA", "top": "SkiTramTopStationA"}
 PREFAB_NAMES = {"base": "SkiTramBaseStationBuilding", "top": "SkiTramTopStationBuilding"}
 
-# Lane prefabs (R31 own lanes; contract section 3 vanilla lanes as the fallback)
+# Lane prefabs (R31 own lanes, contract section 3 vanilla lanes as the fallback)
 LANE_TRACK = {"prefab": "SkiTramTrackRope", "copy_of": "SkiLiftHaulRopeB",
               "m_UtilityType": 64, "m_Hanging": 0.004,
               "fallback": "UnityGUID:5d88ac45a40b30341a79535930e3b735"}
@@ -280,15 +317,15 @@ ROOF_HIGH = 22.00                   # top plane at z -10.40 (line face)
 ROOF_LOW = 16.00                    # top plane at z +10.40 (village front)
 ROOF_T = 0.40
 CT_LOC = (16.0, 0.0, 9.40)          # clock tower (contract 5.1)
-CT_H = 25.00                        # [task]/[DB] choice; measured ~22 m (skeptic claim 13)
+CT_H = 25.00                        # [task]/[DB] choice. Measured ~22 m (skeptic claim 13)
 BW_CENTRE = (0.0, HAUL_Y, 2.00)     # base drive bullwheel (haul plane)
 BW_R = 5.30                         # top --no-wheels return wheel only (never shipped): rope radius = HAUL_X
-# Revision 2 (ruling Q6, JH-04: "two small orange-yellow wheels behind the lower ends of the saddle
-# girders", no huge wheel anywhere): the base drive bullwheel shrinks 10.6 -> 4.0 m (rope radius 1.80,
-# rim 2.00, closed bore 1.60, 5 broad spokes) in the same horizontal haul plane, and two horizontal 2.0 m
-# deflection sheaves (rope radius 0.85) behind the saddle girders turn the x +-5.00 strands inward onto it
-# (external tangents, haul_route_base). Rims slot-free JH orange-yellow (`safety`, BASE_WHEEL_MAT).
-BASE_BW_R = 2.00                    # drive wheel rim outer radius (diameter 4.00 m; C20b 3.40-4.20)
+# Revision 2 (ruling Q6, JH-04: "two small orange-yellow wheels behind the lower ends of the saddle girders", no huge wheel
+# anywhere): the base drive bullwheel shrinks 10.6 -> 4.0 m (rope radius 1.80, rim 2.00, closed bore 1.60, 5 broad spokes) in
+# the same horizontal haul plane. Two horizontal 2.0 m deflection sheaves (rope radius 0.85) behind the saddle girders turn
+# the x +-5.00 strands inward onto it (external tangents, haul_route_base). The rims are slot-free JH orange-yellow
+# (`safety`, BASE_WHEEL_MAT).
+BASE_BW_R = 2.00                    # drive wheel rim outer radius (diameter 4.00 m, C20b 3.40-4.20)
 BASE_BW_RR = 1.80                   # its rope radius
 BASE_BW_BORE = 1.60
 BASE_BW_W = 0.40
@@ -301,12 +338,12 @@ BASE_DS_RIM = BASE_DS_RR + 0.15
 BASE_WHEEL_MAT = "safety"           # JH-04 orange-yellow (the base slot 2 is the roof gray)
 
 # Base revision 1 (verdict 10, Jackson Hole JH-04 / JH-05 / JH-07)
-EAVE_X = 14.00                      # deep side eaves on outriggers (JH-07; clock-tower shaft at x 14.25)
+EAVE_X = 14.00                      # deep side eaves on outriggers (JH-07, clock-tower shaft at x 14.25)
 ROOF_Z1 = 11.20                     # village-end eave (lot edge 12.00)
 TRENCH_Z0, TRENCH_Z1 = -10.00, -8.40  # moving-platform pit across the open face (JH-04)
 TRENCH_Y = 3.60                     # pit floor: the plinth face below it carries the pictogram
 RAIL_Z = (-9.55, -8.75)             # the moving platform's rails, running ACROSS the open face
-PORTAL_X = 10.90                    # galvanised face-portal columns (JH-07), x +-(10.60..11.20)
+PORTAL_X = 10.90                    # galvanized face-portal columns (JH-07), x +-(10.60..11.20)
 GIRDER_HW = 0.18                    # saddle-girder half width (x lane +-0.18: clear of a bullwheel rim at 5.30)
 SADDLE_Z0 = -1.80                   # saddle girders start here: the real cabin's carriage reaches
                                     # z -2.66 at the dock (+-2.84 about -5.50), the C4 zone -2.55
@@ -324,13 +361,12 @@ DRUM_C = (7.60, 2.80)               # anchor drum center (z, y) on each plinth s
 DRUM_RR = 1.90                      # rope-center radius on the drum
 DRUM_X = 6.40                       # rope / drum mid-plane (disc x 6.05..6.75)
 DRUM_WRAP = 320.0                   # degrees of wrap (with a 0.24 m helix along x)
-# haul (revision 2, design T1-T4 as amended by its skeptic MC9; JH-08 / JH-11 / JH-12 / JH-14): the
-# vertical LANE wheels (y-z plane, x +-HAUL_X, 2.90 m) take each strand over their TOP and send it DOWN
-# in the haul plane z = BULL_Z behind them; two small FOOT sheaves (x-y plane, above the hut roof) turn
-# it inward and it rises on the internal tangent onto ONE vertical yellow bullwheel (x-y plane, axle
-# along z, 3.60 m) and over its top: an "M" (haul_route_top). The wheel's plane and the crane beam's
-# orientation already matched the photos (the digest's T2 / T4 were misreads, design 1.4); its SIZE
-# and HEIGHT did not (10.4 m, center 2.7 m ABOVE the crest; JH: 3.4-4.2 m, center ~2 m BELOW it).
+# Haul (revision 2, design T1-T4 as amended by its skeptic MC9, JH-08 / JH-11 / JH-12 / JH-14): the vertical LANE wheels (y-z
+# plane, x +-HAUL_X, 2.90 m) take each strand over their TOP. They send it DOWN in the haul plane z = BULL_Z behind them. Two
+# small FOOT sheaves (x-y plane, above the hut roof) turn it inward. It rises on the internal tangent onto ONE vertical
+# yellow bullwheel (x-y plane, axle along z, 3.60 m) and over its top: an "M" (haul_route_top). The wheel's plane and the
+# crane beam's orientation already matched the photos (the digest's T2 / T4 were misreads, design 1.4). Its SIZE and HEIGHT
+# did not match (10.4 m with the center 2.7 m ABOVE the crest, against JH: 3.4-4.2 m with the center ~2 m BELOW it).
 DW_RR = 1.30                        # lane-wheel rope radius (rim 2.90 m, JH-08 ~3.0)
 DW_Y = HAUL_Y - DW_RR               # 14.30: the rope arrives on TOP of the lane wheel
 BULL_Z = 1.60                       # haul plane = bullwheel plane (lane wheels: z -1.15..1.75)
@@ -341,12 +377,12 @@ BULL_RR = 1.60                      # its rope radius
 BULL_BORE = 1.40                    # closed bore (S1)
 BULL_SEGS = 28
 BULL_SPOKES = 5                     # JH-12: 4-6 broad flat spokes (C20)
-BULL_HUB_R = 0.70                   # JH-12: hub 1.3-1.5 m (galvanised, digest 7.1)
+BULL_HUB_R = 0.70                   # JH-12: hub 1.3-1.5 m (galvanized, digest 7.1)
 FS_X, FS_Y, FS_RR = 4.50, 10.40, 0.50   # foot sheaves (x-y plane) at x +-FS_X: outer tangent x = HAUL_X
 FS_RIM = FS_RR + 0.15
 HAUL_SEGS = {"lane": 3, "foot": 3, "bull": 5}   # rope arc segments (skeptic MC9: 888 tris)
 GOAL_Y0, GOAL_Y1 = 18.00, 18.70     # goalpost crane beam (JH-11 / 12 / 14: ~2 m above the crest)
-GOAL_X = 6.20                       # beam half length (12.4 m, about the lane gauge; lugs over the lanes)
+GOAL_X = 6.20                       # beam half length (12.4 m, about the lane gauge, lugs over the lanes)
 GOAL_Z = (5.00, 5.60)
 MAST_H = 1.80                       # ruling Q3: a short Snowbird roof mast (SB-01 / 07 / 20 / 21) on the beam
 MAST_TOP = round(GOAL_Y1 + MAST_H + 0.20, 6)    # 20.70 = bounds top: the beacon lens (BEACON_H) on the mast
@@ -356,24 +392,22 @@ CWGUARD_X = 1.95                    # the frame-only guard in front of the bullw
 SVC_Y = 11.70                       # maintenance platform behind the bullwheel (30 x 0.18 above the deck)
 HUT = (1.50, 4.90, -0.40, 2.60, DECK_Y + 3.00)   # operator hut x0, x1, z0, z1, wall top
 HUT_ROOF_TOP = HUT[4] + 0.25        # 9.55
-# Revision 2 (shimmer, C19): the head girders stop HEADGIRDER_INSET under the head beams' top and inside
-# their outer faces (design Z1; 0.0 rebuilds the 1e coplanar head frame, the C19 negative)
+# Revision 2 (shimmer, C19): the head girders stop HEADGIRDER_INSET under the head beams' top and inside their outer faces
+# (design Z1, 0.0 rebuilds the 1e coplanar head frame, the C19 negative).
 HEADGIRDER_INSET = 0.06
 SGTIE_CLEAR = 0.15                  # the saddle tie's top under the lane-wheel rims (Z3)
-# Revision 1b (revision1-check-tram-stations F1): the bullwheel frame legs stand INBOARD of the
-# operator hut (x 1.50..4.90; roof + drip to x 1.33). The R1 feet at x +-2.60 put bullframe_R
-# through the hut and its roof (52 triangle pairs). At +-0.90 the legs (0.40 square, raking to
-# the axle head at +-0.35) keep >= 0.36 m from the hut group; C14 asserts >= 0.30.
+# Revision 1b (revision1-check-tram-stations F1): the bullwheel frame legs stand INBOARD of the operator hut (x 1.50..4.90,
+# roof + drip to x 1.33). The R1 feet at x +-2.60 put bullframe_R through the hut and its roof (52 triangle pairs). At +-0.90
+# the legs (0.40 square, raking to the axle head at +-0.35) keep >= 0.36 m from the hut group. C14 asserts >= 0.30.
 BULLFRAME_FOOT_X = 0.90
 SCOPE_X = 8.60                      # deck binoculars (were 9.40: inside strut_face_L/R, C14)
 TOP_BW_Z = 0.00                     # --no-wheels: horizontal return bullwheel (clear of the goalposts)
-# Revision 1c (left-platform stair, C15). The top's -X outer deck (grate_bayL) had no stair, and the
-# plinth deck, the center deck and the service platform reach nothing but the cabins. A ground stair
-# off the -X outer deck's back corner mirrors the +X one, in two flights (3.06 + 3.24 m: no flight
-# rises more than 3.7 m) with a mid landing, and a grating gangway behind the -X berth joins the plinth
-# deck to its top landing (the landing runs back to the gangway's back edge, z 0.50). False rebuilds
-# the 1b top's LAYOUT (the C15 negative in the test), not its file: the flights keep the dropped tread
-# bottoms, 12,678 tris against the 1b file's 12,804 (126 fewer; revision1c-check-tram-stair N5).
+# Revision 1c (left-platform stair, C15). The top's -X outer deck (grate_bayL) had no stair. The plinth deck, the center deck
+# and the service platform reached nothing but the cabins. A ground stair off the -X outer deck's back corner mirrors the +X
+# one. It has two flights (3.06 + 3.24 m: no flight rises more than 3.7 m) with a mid landing. A grating gangway behind the
+# -X berth joins the plinth deck to its top landing (the landing runs back to the gangway's back edge, z 0.50). False
+# rebuilds the 1b top's LAYOUT (the C15 negative in the test), not its file. The flights keep the dropped tread bottoms:
+# 12,678 tris against the 1b file's 12,804 (126 fewer, revision1c-check-tram-stair N5).
 LEFT_STAIR = True
 LS_FLIGHT_X = (-11.70, -10.10)      # the -X flights (mirror of the +X stair's 10.10..11.70)
 LS_LANDING = (-11.70, -10.20, -1.60, 0.50)    # top landing x0, x1, z0, z1 (beside bayL + the gangway)
@@ -381,94 +415,96 @@ LS_RISERS = (17, 18)                # 0.18 risers: 3.06 + 3.24 m
 LS_GOING = 0.25                     # as the +X stair
 LS_MID = 1.20                       # mid landing along the run
 GANG = (-10.20, -TOP_CAPX, -0.70, 0.50)       # gangway x0, x1, z0, z1 at the deck level
-# The base catwalk under the portal girder (grate_pcat, 17.20) had no access: a fixed ladder from the
-# center deck in the lattice towers' ladder language (tram_tower.LADDER: rails 0.05 square at +-0.21,
-# triangular rungs r 0.018 every 0.30 from 0.25 up to the floor, rails 1.10 above it), its rung plane
-# 0.20 behind the catwalk's open back edge (z -8.00), climbing side +Z, clear of the lamp at x 0.
-# False rebuilds the 1b base (the C15 negative).
+# The base catwalk under the portal girder (grate_pcat, 17.20) had no access. The fix is a fixed ladder from the center deck
+# in the lattice towers' ladder language (tram_tower.LADDER: rails 0.05 square at +-0.21, triangular rungs r 0.018 every 0.30
+# from 0.25 up to the floor, rails 1.10 above it). Its rung plane is 0.20 behind the catwalk's open back edge (z -8.00). It
+# climbs on the +Z side, clear of the lamp at x 0. False rebuilds the 1b base (the C15 negative).
 PCAT_LADDER = True
 PCAT_Y = 17.20
 PCAT_LADDER_X = 1.50
 PCAT_LADDER_Z = -7.80
-# NOTE (revision1c-check-tram-stair N4, detail pass 1): the catwalk ladder's rails are 0.37 m apart
-# inside (0.42 center to center), the lattice towers' ladder language; common standards ask for about
-# 0.40 m (unverified, no citation). Kept as is to match the tower ladders; C15 does not gate width.
-# Detail pass 1 (N1, revision1c-check-tram-stair): the gangway from the -X stair meets the plinth cap
-# through the gap between the `capf` rail (inner face z -0.626) and saddle-girder post sgpost_L0. At the
-# 1c angle (70 deg on the girder arc, z -0.052..0.248) that opening was 0.574 m < 0.61. The first post
-# pair (and the tie under it) moves to 68.5 deg: post z 0.070..0.370 -> 0.696 m; the tie keeps 0.08 m
-# from the deflection-wheel posts (dwpost, z 0.45). C15 now measures every join's crossing width.
+# NOTE (revision1c-check-tram-stair N4, detail pass 1): the catwalk ladder's rails are 0.37 m apart inside (0.42 center to
+# center), the lattice towers' ladder language. Common standards ask for about 0.40 m (unverified, no citation). The ladder
+# stays as is to match the tower ladders. C15 does not gate width.
+#
+# Detail pass 1 (N1, revision1c-check-tram-stair): the gangway from the -X stair meets the plinth cap through the gap between
+# the `capf` rail (inner face z -0.626) and saddle-girder post sgpost_L0. At the 1c angle (70 deg on the girder arc, z
+# -0.052..0.248) that opening was 0.574 m < 0.61. The first post pair (and the tie under it) moves to 68.5 deg: post z
+# 0.070..0.370 -> 0.696 m. The tie keeps 0.08 m from the deflection-wheel posts (dwpost, z 0.45). C15 now measures every
+# join's crossing width.
 SGPOST0_DEG = 68.5
-# Detail pass 1 (skeptic MC9: the top had 42 tris of headroom under its 14,000 cap): the top's two track
-# ropes drop from 8 to 6 tube segments (-584 tris, 1,168 -> 876 each; a 35 mm rope at 6 sides is
-# indistinguishable at any game distance). The base keeps 8 (it has the budget).
+# Detail pass 1 (skeptic MC9: the top had 42 tris of headroom under its 14,000 cap): the top's two track ropes drop from 8 to
+# 6 tube segments (-584 tris, 1,168 -> 876 each). A 35 mm rope at 6 sides is indistinguishable at any game distance. The base
+# keeps 8 (it has the budget).
 TRACK_ROPE_SEGS = {"base": 8, "top": 6}
-# T76 (--tiled, docs/research/art/tram-tile-route-plan-2026-10-18.md Q2, 2026-10-18): the base's track ropes
-# drop to the top's 6 sides (-272 tris) so the tiled base fits its 16,000 cap. TILED is set by apply_tiled() from the
-# run's args (main / build_checked), like FINE_DETAIL; flag off reads TRACK_ROPE_SEGS as before.
+# T76 (--tiled, docs/research/art/tram-tile-route-plan-2026-10-18.md Q2, 2026-10-18): the base's track ropes drop to the
+# top's 6 sides (-272 tris) so the tiled base fits its 16,000 cap. apply_tiled() sets TILED from the run's args (main /
+# build_checked), like FINE_DETAIL. With the flag off, the code reads TRACK_ROPE_SEGS as before.
 TILED = False
 TILED_TRACK_ROPE_SEGS = 6
-# T76 R2 (parent's call on D4, 2026-10-18): under --tiled the unique bake is the LOD1 / LOD2 far set (seen past ~250 m);
-# its weathering ladder starts lower so a 1024 far set (the top) finds a budget-clean step instead of a 2048 atlas
+# T76 R2 (parent's call on D4, 2026-10-18): under --tiled the unique bake is the LOD1 / LOD2 far set (seen past ~250 m). Its
+# weathering ladder starts lower. So a 1024 far set (the top) finds a budget-clean step instead of a 2048 atlas
 TILED_FAR_WEATHER_STEPS = (0.10, 0.15, 0.20, 0.25, 0.30, 0.35)
 # Detail pass 1: the dressing (cs2_liftdress builders + painted labels). False rebuilds the 1c
 # geometry plus the N1 / rope changes (tests compare against it).
 DETAIL1 = True
-# Fine-detail pass, step 3c (2026-10-12; build/fine-detail-step3c-tram-pali.md; design/fine-detail-pass.md A.2 / B /
-# D as cut by its skeptic FS1 / FS5 / FS6 / FS7). FINE_DETAIL False (CLI --no-fine; main() / build_checked() set it
-# from their args every run) = the approved revision-2 stations byte for byte. True: the host-modeled dressing the
-# dressing kit (props/B) replaces leaves the mesh and becomes "mod" sub-object rows (fd_kit_specs: the base's two
-# extinguishers, the drive-house hose reel and the A-frame ski rack, the top's hut extinguisher, hose reel and
-# scraper + shovel), the annex door's lamp bar becomes a vanilla WallLightShortRangeRandom01 row (FD_ANNEX_LIGHT);
-# contract F1 (cs2_kitrows.check_kit_rows) tests every kit row on the REAL kit mesh, and C15 counts the kit meshes
-# as obstacles (cs2_kitrows.probe_object). Stays modeled: every LIFT board / label (FS5: host atlas), the roof
-# mast's anemometer arm (FS1), the beacon lens (it sets the frozen top bound 20.70), the green EXIT light (no
-# vanilla exit sign), the gates (boxes stay boxes; C17 unchanged), the medallions (FD_MEDAL_RING below).
+# Fine-detail pass, step 3c (2026-10-12, build/fine-detail-step3c-tram-pali.md, design/fine-detail-pass.md A.2 / B / D as cut
+# by its skeptic FS1 / FS5 / FS6 / FS7). FINE_DETAIL False (CLI --no-fine) = the approved revision-2 stations byte for byte.
+# main() and build_checked() set it from their args every run. True: the host-modeled dressing that the dressing kit
+# (props/B) replaces leaves the mesh and becomes "mod" sub-object rows (fd_kit_specs: the base's two extinguishers, the
+# drive-house hose reel and the A-frame ski rack, the top's hut extinguisher, hose reel and scraper + shovel). The annex
+# door's lamp bar becomes a vanilla WallLightShortRangeRandom01 row (FD_ANNEX_LIGHT). Contract F1
+# (cs2_kitrows.check_kit_rows) tests every kit row on the REAL kit mesh. C15 counts the kit meshes as obstacles
+# (cs2_kitrows.probe_object). These stay modeled:
+# - every LIFT board / label (FS5: host atlas)
+# - the roof mast's anemometer arm (FS1)
+# - the beacon lens (it sets the frozen top bound 20.70)
+# - the green EXIT light (no vanilla exit sign)
+# - the gates (boxes stay boxes, C17 unchanged)
+# - the medallions (FD_MEDAL_RING below)
 FINE_DETAIL = True
 FD_CLOSEUP_DIR = "fine-detail-2026-10-12"
-# the base's one A-frame rack: the kit loadout R3 (8 pairs + 2 boards + 2 pole pairs, 600 tris), the closest to
-# the removed rack's 10 items and the cheapest; the kit racks alternate by host (dress-kit.md 1.2)
+# the base's one A-frame rack: the kit loadout R3 (8 pairs + 2 boards + 2 pole pairs, 600 tris), the closest to the removed
+# rack's 10 items and the cheapest. The kit racks alternate by host (dress-kit.md 1.2)
 FD_RACK = "SkiDressSkiRackV3"
-#: kit color variants (2026-10-12 ~18:50; build/kit-colour-variants.md): the color set
-#: (fine_detail.COLOUR_SETS) of the colored kit rows per role - the base rack goes back to revision 2's red /
-#: white look (TRAM_RACK_GEAR: ski_red / trim_white; red = the base's slot-3 red, TINT['base']['B']); the top has
-#: no colored row
+# : kit color variants (2026-10-12 ~18:50, build/kit-colour-variants.md). The color set (fine_detail.COLOUR_SETS)
+# : of the colored kit rows per role. The base rack goes back to revision 2's red / white look (TRAM_RACK_GEAR:
+# : ski_red / trim_white, red = the base's slot-3 red, TINT['base']['B']). The top has no colored row
 FD_KIT_COLOUR = {"base": "red", "top": "red"}
 FD_TOP_EXT = 1.90           # the top's kit extinguisher: z on the hut's +X face (the reel's plate spans 0.65..1.35)
 # the annex door's lamp bar (lamp_annexdoor, x 11.57..11.87, y 9.40..9.58, z -7.00..-6.20) -> a short-range
 # wall light on the glazing over the door, lens center on the bar's (pivot 0.02 off the face, as the entrance rows)
 FD_ANNEX_LIGHT = ("WallLightShortRangeRandom01", (HALL_X - 0.13 - 0.02, DECK_Y + 2.80 + 0.39,
                                                    (ANNEX_DOOR_Z[0] + ANNEX_DOOR_Z[1]) / 2.0), "-X", 0, "wall")
-# the medallion ring (design B "if cheap"): a 6-gon annulus is 48 tris against the 20-tri disc, +448 tris on the
-# top (16) / +476 on the base (17); the top would keep ~200 of its 14,000-tri cap and a 6-gon ring still reads
-# hexagonal at the 10 m minimum zoom - not cheap: the approved discs stay
+# the medallion ring (design B "if cheap"): a 6-gon annulus is 48 tris against the 20-tri disc. This is +448 tris on the top
+# (16) / +476 on the base (17). The top would keep ~200 of its 14,000-tri cap. A 6-gon ring still reads hexagonal at the 10 m
+# minimum zoom. It is not cheap: the approved discs stay
 FD_MEDAL_RING = False
-# Nitpick B (2026-10-13; twenty-fifth look T-1: "Let me know if I've missed any other significant details we
-# should add"; build/nitpick-b-tram.md; JH photos ref-owner-2026-10-13 03 / 04, ref 07): the Jackson Hole details the
-# base lacked, cheap ones first. False = the shipped 3c / kit-color base byte for byte (no top part reads it).
-#   JH_CANOPY   the JH-04 canopy across the hall's village front at mid height: a timber soffit slab (jhcanopy) under a
-#               dark metal roof sheet (jhroof, slot 2), from just in front of the front wall's X-braces (their front
-#               face z 10.26) to 0.05 inside the lot edge; steel ties (jhtie_) into the front columns carry its back
-#               edge. The roof's eave above (z 11.20, y ~15.4) leaves the canopy's 1.65 m projection in the open.
-#   JH_V        one timber V per front stone pier (JH_V_PIERS = stonepier_6..9): both legs from one foot on a steel
-#               shoe (jhshoe_, on the pier top 5.18, overhanging its front: the braces stand 0.04 behind the strut
-#               feet), leaning out 0.48 m to the canopy soffit (JH-04: the V's lean out toward the canopy edge); the
-#               second leg XCROSS_SHALLOW shallower (C19, as the entry canopy's vstrut_ pairs); the end V's narrower
-#               (they keep 0.12 m inside the downspouts at x +-12.39)
-#   LIFT TICKETS on the annex's +X (clock-tower side) stone face over its three grade ticket windows (tickwin_a0..2),
-#               with trim frames + sills like the front pair (JH-04 "Lift Tickets", right of the clock tower)
-#   ENTRANCE    over the village doors under the entry canopy (ref 07's ENTRANCE board)
-#   chalkboard  an A-frame stand at the front ticket windows (ref 07 / JH-04's A-frame): two timber leaves with black
-#               chalk faces. PLACEHOLDER (DECISIONS 183): the only vanilla A-frame is AStand01 (a brand-spawned ad stand:
-#               its variants AStand01 - <brand> carry BrandObject; placeholder GUID 655ebd65... inferred from the dump,
-#               unverified on a host without a company) - swap at the first import look if an ad stand is preferred
+# Nitpick B (2026-10-13, twenty-fifth look T-1: "Let me know if I've missed any other significant details we should add",
+# build/nitpick-b-tram.md, JH photos ref-owner-2026-10-13 03 / 04, ref 07): the Jackson Hole details the base lacked, cheap
+# ones first. False = the shipped 3c / kit-color base byte for byte (no top part reads it).
+# - JH_CANOPY: the JH-04 canopy across the hall's village front at mid height. A timber soffit slab (jhcanopy) sits under a
+#   dark metal roof sheet (jhroof, slot 2). It runs from just in front of the front wall's X-braces (their front face z
+#   10.26) to 0.05 inside the lot edge. Steel ties (jhtie_) into the front columns carry its back edge. The roof's eave above
+#   (z 11.20, y ~15.4) leaves the canopy's 1.65 m projection in the open.
+# - JH_V: one timber V per front stone pier (JH_V_PIERS = stonepier_6..9). Both legs start from one foot on a steel shoe
+#   (jhshoe_, on the pier top 5.18, overhanging its front: the braces stand 0.04 behind the strut feet). They lean out 0.48 m
+#   to the canopy soffit (JH-04: the V's lean out toward the canopy edge). The second leg is XCROSS_SHALLOW shallower (C19,
+#   as the entry canopy's vstrut_ pairs). The end V's are narrower (they keep 0.12 m inside the downspouts at x +-12.39).
+# - LIFT TICKETS: on the annex's +X (clock-tower side) stone face over its three grade ticket windows (tickwin_a0..2), with
+#   trim frames + sills like the front pair (JH-04 "Lift Tickets", right of the clock tower).
+# - ENTRANCE: over the village doors under the entry canopy (ref 07's ENTRANCE board).
+# - chalkboard: an A-frame stand at the front ticket windows (ref 07 / JH-04's A-frame). It has two timber leaves with black
+#   chalk faces. PLACEHOLDER (DECISIONS 183): the only vanilla A-frame is AStand01 (a brand-spawned ad stand: its variants
+#   AStand01 - <brand> carry BrandObject, placeholder GUID 655ebd65... inferred from the dump, unverified on a host without a
+#   company). Swap it at the first import look if an ad stand is preferred.
 JH_DETAILS = True
 JH_CANOPY = {"x": 12.25, "z0": 10.30, "z1": 11.95, "y0": 8.80, "y_back": 9.40, "y_front": 9.10, "roof_t": 0.08}
-# (a timber wedge: flat soffit, 0.60 deep at the wall, a 0.30 fascia; its roof sheet flush on top - the wedge's top and
-# the sheet's bottom are dropped (hidden against each other: atlas, not geometry), the two shells weld at the seam)
+# (a timber wedge: flat soffit, 0.60 deep at the wall, a 0.30 fascia. Its roof sheet is flush on top. The wedge's top and the
+# sheet's bottom are dropped (hidden against each other: atlas, not geometry). The two shells weld at the seam)
 JH_V_PIERS = (-11.40, -6.00, 2.40, 11.40)      # x of the front stone piers stonepier_6..9 (z 10.00..10.40, top 5.18)
 JH_V = {"foot_y": 5.27, "foot_z": 10.44, "head_y": 8.86, "head_z": 10.92, "spread": 0.85, "spread_end": 0.70,
-        "w": 0.28, "d": 0.28}       # the foot's back face 0.04 in front of the X-braces (z 10.26); end V heads inside x 12.25
+        "w": 0.28, "d": 0.28}       # the foot's back face 0.04 in front of the X-braces (z 10.26), end V heads inside x 12.25
 JH_SHOE = {"hw": 0.30, "y0": 5.18, "y1": 5.24, "z0": 10.27, "z1": 10.64}   # z0: 0.02 in front of the columns (10.25)
 JH_TIES_X = (-12.0, -6.0, 0.0, 6.0, 12.0)    # the front columns col_4 / col_10..12 / col_9 (z 9.75..10.25)
 JH_TICKWIN_A = (-4.0, 0.0, 4.0)              # the annex ticket windows' z centers (tickwin_a, +-0.80, y 1.20..3.00)
@@ -477,15 +513,15 @@ JH_CHALK = {"x": -7.90, "z": 11.30, "w": 0.60, "h": 0.95, "foot": 0.25, "t": 0.0
 JH_ANNEX_X = 19.60                           # the annex's +X stone face (build_base ax1)
 JH_BOARDS = {"lifttickets": ((JH_ANNEX_X + 0.023, 3.40, 0.0), "+X", 2.20, 0.30),
              "entrance": ((6.00, 3.45, HALL_Z + 0.023), "+Z", 1.60, 0.30)}
-# Nitpick B, second pass (2026-10-13; build/nitpick-b2-tram-ramps.md; module docstring). False = the nitpick-B base and
-# the shipped top byte for byte (lot 5 x 3, no frame shift, the base's 0.40 m strip, the top's two end stairs).
+# Nitpick B, second pass (2026-10-13, build/nitpick-b2-tram-ramps.md, module docstring). False = the nitpick-B base and the
+# shipped top byte for byte (lot 5 x 3, no frame shift, the base's 0.40 m strip, the top's two end stairs).
 RAMPS = True
-# base: the 6 x 3 lot keeps its center on the prefab origin, so the building moves BASE_DX (the new cell is x 16..24 in
-# the prefab frame = x 20..28 in this module's DESIGN frame). pf() / frame_dx() apply it; nothing else changes.
+# base: the 6 x 3 lot keeps its center on the prefab origin, so the building moves BASE_DX (the new cell is x 16..24 in the
+# prefab frame = x 20..28 in this module's DESIGN frame). pf() / frame_dx() apply it. Nothing else changes.
 BASE_DX = -4.0
 LOT_RAMPS = {"base": (6, 3), "top": (3, 3)}
-TERRAFORM = {"base": "flatten", "top": "no-level"}  # prefab_contract terraform modes; C15b reads them
-RAMP = {"grade": 1.0 / 8.0,            # the decks the builders lay (1:8; the orchestrator's "real 1:8")
+TERRAFORM = {"base": "flatten", "top": "no-level"}  # prefab_contract terraform modes. C15b reads them
+RAMP = {"grade": 1.0 / 8.0,            # the decks the builders lay (1:8, the orchestrator's "real 1:8")
         "max_grade": 1.0 / 8.0,        # C15: the steepest deck a ramp may have (the builders' grade may not exceed it)
         "clear": {"base": 2.40, "top": 3.40},   # clear width between the rails (the rulings)
         "landing": 1.50,               # a walking area at least this deep beyond each ramp end (grade excepted)
@@ -497,13 +533,17 @@ RAMP = {"grade": 1.0 / 8.0,            # the decks the builders lay (1:8; the or
 C1_CORRIDOR_X = 19.60                  # C1's line corridor on the RAMPS base (design |x|: the annex's +X face)
 C15B = {"edge": 0.45,                  # a pad's outer face within this of the lot line (= the C15 join depth)
         "ground": 0.01}                # ... standing on the grade or (revision 3, plinth mode) continuing below it
-# base ramp (DESIGN frame): the plaza paving over the new cell (0.05 m concrete slabs; the clock-tower side's walkway
-# x 19.62..22.60 stays clear in front of the annex's three LIFT TICKETS windows), lane A (outer) from the paving at the
-# village end up toward the line, the turn landing, lane B (inner) back up to the top landing + balcony at the annex
-# cap (CAP_TOP 5.20) and the side-area door in the annex's +X glazing (pane z 3.55..7.05; the door against the frame
-# column at z 7.05..7.35). base_ramp_plan() derives every level and asserts the 1:8.
+# base ramp (DESIGN frame). The parts are:
+# - the plaza paving over the new cell (0.05 m concrete slabs). The clock-tower side's walkway x 19.62..22.60 stays clear in
+#   front of the annex's three LIFT TICKETS windows.
+# - lane A (outer), from the paving at the village end up toward the line
+# - the turn landing
+# - lane B (inner), back up to the top landing + balcony at the annex cap (CAP_TOP 5.20) and the side-area door in the
+#   annex's +X glazing (pane z 3.55..7.05, the door against the frame column at z 7.05..7.35)
+#
+# base_ramp_plan() derives every level and asserts the 1:8.
 NB2_PAVE = {"x0": 19.62, "x1": 27.95, "z0": -11.95, "z1": 11.95, "t": 0.03}  # t > pin_ground eps 0.02
-NB2_LANE = {"A": (25.30, 27.90), "B": (22.60, 25.20)}       # deck x0, x1 (2.60 m; rails 0.06 in: 2.424 m clear)
+NB2_LANE = {"A": (25.30, 27.90), "B": (22.60, 25.20)}       # deck x0, x1 (2.60 m, rails 0.06 in: 2.424 m clear)
 NB2_FOOT_Z = 11.90                                          # lane A's foot on the paving (village end)
 NB2_TURN_Z = (-11.90, -10.30)                               # the turn landing (1.60 m deep)
 NB2_TOP_Z1 = 10.70                                          # the top landing's village edge
@@ -515,19 +555,23 @@ NB2_DECK_T = 0.25                                           # landing slab depth
 NB2_RAMP_T = 0.30                                           # ramp deck depth (grating on its edge girders, one part)
 NB2_POST_EVERY = 3.0                                        # ramp railing posts (the station rails: 2.5)
 NB2_COL = 0.20                                              # square steel columns
-# the new cell's vanilla rows (on our paving: m_ParentMesh 0, "deck" mount at the paving top): a park lamp at the ramp
-# foot, one at the walkway's line-side end, a bin at the foot (DECISIONS 183: vanilla first; no new GUID)
+# the new cell's vanilla rows (on our paving: m_ParentMesh 0, "deck" mount at the paving top): a park lamp at the ramp foot,
+# one at the walkway's line-side end, and a bin at the foot (DECISIONS 183: vanilla first, no new GUID)
 NB2_ROWS = (("LightpoleParkRandom01", (24.20, NB2_PAVE["t"], 11.35), "-Z", 0, "deck"),
             ("LightpoleParkRandom01", (21.10, NB2_PAVE["t"], -11.20), "+Z", 0, "deck"),
             ("TrashbinRandom01", (22.95, NB2_PAVE["t"], 11.45), "+Z", 0, "deck"))
-# Nitpick B3 (ANNEX_STAIR; build/nitpick-b2-tram-ramps.md "Annex stair (B2 check F2)"): the annex's inside connection from its
-# floor (CAP_TOP 5.20) to the hall's inner door sill (DECK_Y 6.30). DESIGN frame. The doorway is the hall door's opening
-# (ANNEX_DOOR_Z); the stair is as wide as the doorway and runs away from the wall toward +X, so it stands 11 m from the ramp
-# door's swing (z 4.8..7.05, x 18.7..19.6), 2.2 m above the ticket windows and clear of every sub-object row (the
-# annex has none inside). risers/going: 7 x 0.157 m rise, 0.30 m going (2 x 0.157 + 0.30 = 0.61: the comfort rule).
-# knobs the T2n negatives patch: flight False (no stair), wall_cut False (the doorway not cut), inset (treads narrower than
-# the doorway), link_x0 (where the landing block begins: 0.01 m off the hall glazing's outer face 11.93 - not a vertex merge
-# with its lower pane: a merge changed the LOD2 decimation and gave that pane 19 back-face first hits)
+# Nitpick B3 (ANNEX_STAIR, build/nitpick-b2-tram-ramps.md "Annex stair (B2 check F2)"): the annex's inside connection from
+# its floor (CAP_TOP 5.20) to the hall's inner door sill (DECK_Y 6.30). DESIGN frame. The doorway is the hall door's opening
+# (ANNEX_DOOR_Z). The stair is as wide as the doorway and runs away from the wall toward +X. So it stands 11 m from the ramp
+# door's swing (z 4.8..7.05, x 18.7..19.6), 2.2 m above the ticket windows and clear of every sub-object row (the annex has
+# none inside). risers/going: 7 x 0.157 m rise, 0.30 m going (2 x 0.157 + 0.30 = 0.61: the comfort rule).
+#
+# The T2n negatives patch these knobs:
+# - flight False: no stair
+# - wall_cut False: the doorway is not cut
+# - inset: treads narrower than the doorway
+# - link_x0: where the landing block begins, 0.01 m off the hall glazing's outer face 11.93. It is not a vertex merge with
+#   its lower pane: a merge changed the LOD2 decimation and gave that pane 19 back-face first hits.
 ANNEX_STAIR = True
 NB3 = {"risers": 7, "going": 0.30, "wall_x": (12.40, 12.52), "link_x0": 11.94, "landing_x1": 14.02, "rail_in": 0.02,
        "inset": 0.0, "flight": True, "wall_cut": True}
@@ -538,57 +582,60 @@ ANNEX_WALK = ("annexcap",)              # the annex floor: a C15 walkable surfac
 # top ramps (each side x: 7.80..11.70 deck = 3.90 m, rails 0.06 in: 3.724 m clear >= 3.40): head at the deck 6.30 on
 # z 0.50 (the -X stair's landing / gangway back edge, mirrored by a +X head grating + landing), 1:8 down to the pad
 TOP_RAMP = {"x": (7.80, 11.70), "z0": 0.50, "pad": (10.10, 11.60), "head_grate": (7.80, 10.20, -0.70, 0.50)}
-# Revision 3 (2026-10-13; twenty-seventh look T-3: "Can we have the whole FOUNDATION and SUPPORTS go LOWER? I'm
-# imagining sticking it into a cliff edge ... if they place it on a flat mountain top the whole support structure just
-# gets buried"; build/tram-top-rev3.md): the TOP in PLINTH MODE, the L4 pattern (recipes/l4_swanky_top.py + cs2_bldg
-# check_base_mode "plinth"): no engine base (no vertex within PLINTH band of y 0 on any LOD, so the importer finds no
-# base edge; the prefab carries BaseProperties {m_BaseType: null} and unclamped bounds min y -12), the structure itself
-# continues below grade to min y -PLINTH depth, closed (every open edge of a below-grade part lies on another part's
-# face; a footing slab under the foundation). Everything that met the grade continues down: the concrete pier (plinth)
-# and the pads stand on a FOUNDATION BLOCK whose top is `seat` below grade (it also carries the ramp columns, the stair
-# posts and the rear-portal caps: the pier's housing under the anchor-drum bays, out to the lot's sides) on a footing
-# slab; the line-side pile caps (face portal + deck legs) sit on cross-braced steel LATTICE BENTS (photo 01) down to
-# concrete pad footings at the same depth. Above y 0 every vertex is the shipped (nitpick B2) top's. False = the shipped
-# top byte for byte (engine base, everything on the grade).
+# Revision 3 (2026-10-13, twenty-seventh look T-3: "Can we have the whole FOUNDATION and SUPPORTS go LOWER? I'm imagining
+# sticking it into a cliff edge ... if they place it on a flat mountain top the whole support structure just gets buried",
+# build/tram-top-rev3.md): the TOP in PLINTH MODE, the L4 pattern (recipes/l4_swanky_top.py + cs2_bldg check_base_mode
+# "plinth").
+#
+# No engine base (no vertex within PLINTH band of y 0 on any LOD, so the importer finds no base edge). The prefab carries
+# BaseProperties {m_BaseType: null} and unclamped bounds min y -12. The structure itself continues below grade to min y
+# -PLINTH depth, closed (every open edge of a below-grade part lies on another part's face, with a footing slab under the
+# foundation).
+#
+# Everything that met the grade continues down. The concrete pier (plinth) and the pads stand on a FOUNDATION BLOCK whose top
+# is `seat` below grade (it also carries the ramp columns, the stair posts and the rear-portal caps: the pier's housing under
+# the anchor-drum bays, out to the lot's sides) on a footing slab. The line-side pile caps (face portal + deck legs) sit on
+# cross-braced steel LATTICE BENTS (photo 01) down to concrete pad footings at the same depth. Above y 0 every vertex is the
+# shipped (nitpick B2) top's. False = the shipped top byte for byte (engine base, everything on the grade).
 PLINTH_TOP = True
-PLINTH = {"depth": 12.00,              # min y of the top: L4's plinth depth (bounds min y; the prefab delta)
+PLINTH = {"depth": 12.00,              # min y of the top: L4's plinth depth (bounds min y, the prefab delta)
           "band": 0.01,                # no vertex within this of y 0 anywhere, on any LOD (the engine-base band)
           # the foundation block's top (what the pier, pads, ramp columns, posts, rear caps stand on) and the line-side pile
-          # caps' underside (on the lattice columns): L4's rule, a part either reaches >= 0.02 or stops <= -0.05 below grade.
-          # 0.05 keeps the above-grade parts' texels out of the buried band (the first scratch export seated them at -0.30 /
-          # -0.60: their buried strips, grimed by the plinth ground mode inside cs2_weather's visible band (z >= -0.5),
-          # pushed the weathering budget's VL2 over at 0.55 -> 0.50 shipped; at -0.05 the sweep keeps 0.55)
+          # caps' underside (on the lattice columns). L4's rule: a part either reaches >= 0.02 or stops <= -0.05 below grade.
+          # 0.05 keeps the above-grade parts' texels out of the buried band. The first scratch export seated them at -0.30 /
+          # -0.60. Their buried strips, grimed by the plinth ground mode inside cs2_weather's visible band (z >= -0.5),
+          # pushed the weathering budget's VL2 over at 0.55 -> 0.50 shipped. At -0.05 the sweep keeps 0.55.
           "seat": -0.05,
           "cap": -0.05,
           "slab_t": 0.60,              # the footing slab / the lattice pad footings: their thickness (top -11.40)
           "closed_tol": 0.003}         # C6p closed: an open edge below grade lies within this of another part's face
-# the foundation block (concrete; prefab x +-11.70, z -2.85..11.50; y slab top .. seat) on its footing slab (x +-11.80 =
-# the frozen bound, z -3.15..11.60 = the frozen back bound): the rear caps (z -2.75..-1.25) stand on it 0.10 in from its
-# line face; the pads overhang it 0.10 on their outer and back faces (closed undersides)
+# the foundation block (concrete, prefab x +-11.70, z -2.85..11.50, y slab top .. seat) on its footing slab (x +-11.80 = the
+# frozen bound, z -3.15..11.60 = the frozen back bound). The rear caps (z -2.75..-1.25) stand on it 0.10 in from its line
+# face. The pads overhang it 0.10 on their outer and back faces (closed undersides)
 FOUND_BLOCK = {"x": 11.70, "z0": -2.85, "z1": 11.50}
 FOUND_SLAB = {"x": 11.80, "z0": -3.15, "z1": 11.60}
-# the lattice bents (steel, photo 01: cross-braced legs on concrete footings): one per side in the plane x = +-LAT x,
-# columns under the face-portal cap (z -9.60) and the two deck-leg caps (z -7.00 / -4.40), girts at `girt_y`, an X brace
-# in each panel (two bays x two tiers), two tie girts from the last column into the block's line face
+# the lattice bents (steel, photo 01: cross-braced legs on concrete footings). There is one per side in the plane x = +-LAT
+# x. Each has columns under the face-portal cap (z -9.60) and the two deck-leg caps (z -7.00 / -4.40), girts at `girt_y`, an
+# X brace in each panel (two bays x two tiers), and two tie girts from the last column into the block's line face
 LAT = {"x": 10.10, "z": (-9.60, -7.00, -4.40), "col": 0.30, "girt": 0.20, "brace": 0.15, "pad": 0.70,
        "girt_y": (-1.00, -6.00), "into_cap": 0.03, "into": 0.20}     # a column runs 0.03 into its cap, 0.20 into its pad
-# Revision 2 (see-through, design S1 / S2 / B3; contracts C18 + C18b). Every cs2_kit.sheave rim was an
-# OPEN ring (its 7-point profile has no bore face): in game (back-face culling) the open bore shows what
-# is behind the rim - 3,798 back-face first hits per walk-around on the 1e top, 1,958 on the 10.4 m
-# bullwheel rim. close_rim bridges the two bore loops (+2 tris a segment). False = the open 1e rims
-# (the C18b / C18 negative). DRIP_LIP: the drip strips' lip above the roof top (cs2_kit default 0.01
-# left their dropped inner face open above the roof). The design's 0.0 (flush) still failed C18 on the FINISH
-# build: the roof boxes carry the 0.02 m bevel, whose chamfer opens a wedge over the strip's dropped inner face
-# (hut 6-7, annex 18-24 back hits per strip). -0.02 = the strip's top sits just under the chamfer, its open
-# inner side wholly against the flat roof side (0 tris).
+# Revision 2 (see-through, design S1 / S2 / B3, contracts C18 + C18b). Every cs2_kit.sheave rim was an OPEN ring (its 7-point
+# profile has no bore face). In game (back-face culling) the open bore shows what is behind the rim: 3,798 back-face first
+# hits per walk-around on the 1e top, 1,958 on the 10.4 m bullwheel rim. close_rim bridges the two bore loops (+2 tris a
+# segment). False = the open 1e rims (the C18b / C18 negative).
+#
+# DRIP_LIP: the drip strips' lip above the roof top (the cs2_kit default 0.01 left their dropped inner face open above the
+# roof). The design's 0.0 (flush) still failed C18 on the FINISH build. The roof boxes carry the 0.02 m bevel, and its
+# chamfer opens a wedge over the strip's dropped inner face (hut 6-7, annex 18-24 back hits per strip). -0.02 = the strip's
+# top sits just under the chamfer, with its open inner side wholly against the flat roof side (0 tris).
 RIM_BORE_CLOSED = True
 DRIP_LIP = -0.02
-# Revision 2 (ruling Q2, SB-11 / 13 / 36): the top's berth gates at door height (2.2 m perforated leaves,
-# posts 2.30); the base keeps its 1.1 m gates (JH-04 shows a platform guard rail). (leaf top, post top)
-# above the deck; C17's z layout is unchanged.
+# Revision 2 (ruling Q2, SB-11 / 13 / 36): the top's berth gates at door height (2.2 m perforated leaves, posts 2.30). The
+# base keeps its 1.1 m gates (JH-04 shows a platform guard rail). Values: (leaf top, post top) above the deck. C17's z layout
+# is unchanged.
 GATE_H = {"base": (1.20, 1.25), "top": (2.20, 2.30)}
-# Revision 2 (JH-04 / JH-11 / JH-02): a medallion ring in every dock-rail panel, a 6-gon r 0.13 x 0.012
-# standing VERTEX-DOWN on the knee rail (skeptic S7) in the rail plane; the 1e discs floated.
+# Revision 2 (JH-04 / JH-11 / JH-02): a medallion ring in every dock-rail panel. It is a 6-gon r 0.13 x 0.012 standing
+# VERTEX-DOWN on the knee rail (skeptic S7) in the rail plane. The 1e discs floated.
 MEDAL_R, MEDAL_T = 0.13, 0.012
 RAIL_KNEE_TOP = 0.55 + 0.028        # cs2_kit.handrail knee rail center + tube radius, above the deck
 
@@ -598,9 +645,9 @@ HEIGHT = {("base", True): CT_H, ("base", False): ROOF_HIGH,
 HEIGHT_TOL = {("base", True): 0.05, ("base", False): 0.05, ("top", True): 0.05,
               ("top", False): 0.05}
 
-# Budgets (ROUND-SPEC section 4 / task). LOD2 is built <= 500: tools/assets-check.ps1 runs
-# cs2_validate with the default lod2_cap 500 (the lod2_cap override of RS section 6 is not in
-# the CLI), so a 600-700 LOD2 would fail the gate; <= 500 satisfies the 700 / 600 caps too.
+# Budgets (ROUND-SPEC section 4 / task). The build keeps LOD2 <= 500. tools/assets-check.ps1 runs cs2_validate with the
+# default lod2_cap 500 (the lod2_cap override of RS section 6 is not in the CLI). So a 600-700 LOD2 would fail the gate. <=
+# 500 satisfies the 700 / 600 caps too.
 LOD0_TARGET = {"base": 14000, "top": 12000}
 LOD0_CAP = {"base": 16000, "top": 14000}
 LOD1_TARGET = {"base": 6000, "top": 5000}
@@ -621,20 +668,20 @@ SHADE_ANGLE = 66.0
 PACK_MARGIN = {2048: 6, 4096: 12}
 TINT = {  # VariationSet colors (contract 12.3), slot -> rgb (picker space)
     "base": {"R": (0.200, 0.325, 0.250), "G": (0.250, 0.263, 0.275), "B": (0.775, 0.125, 0.100)},
-    # top slot 2 = the bullwheels (Jackson Hole's are yellow, JH-08 / JH-12); revision 1
+    # top slot 2 = the bullwheels (Jackson Hole's are yellow, JH-08 / JH-12). Revision 1
     "top": {"R": (0.775, 0.800, 0.825), "G": (0.900, 0.700, 0.080), "B": (0.775, 0.125, 0.100)},
 }
-# Stamped labels (painted in post_compose): their UVs are re-projected upright after the smart
-# project (orient_label_uvs) and asserted upright on UVMap and UVUnique (contract C13). Detail pass 1:
-# every dressing label face (`label_<n>`, design L4) joins them.
+# Stamped labels (painted in post_compose): orient_label_uvs re-projects their UVs upright after the smart project, and
+# contract C13 asserts them upright on UVMap and UVUnique. Detail pass 1: every dressing label face (`label_<n>`, design L4)
+# joins them.
 LABEL_PREFIXES = ("pictodisc", "pictoplinth", "ctface_", "label_")
 
 
 def check_constants(role=None):
-    """The R27 identities every other number hangs off (asserted at build start). Revision 2 (design T4):
-    the lane wheels take the rope on TOP (DW_Y = HAUL_Y - DW_RR) and send it down in the haul plane
-    (DW_Z = BULL_Z - DW_RR); the foot sheaves' outer tangent is the haul lane (FS_X + FS_RR = HAUL_X). The
-    bullwheel-to-scale rules are contract C20 (check_wheels, a ContractError, run right after this)."""
+    """The R27 identities that every other number hangs off (the build asserts them at start). Revision 2 (design T4): the lane
+    wheels take the rope on TOP (DW_Y = HAUL_Y - DW_RR) and send it down in the haul plane (DW_Z = BULL_Z - DW_RR). The foot
+    sheaves' outer tangent is the haul lane (FS_X + FS_RR = HAUL_X). The bullwheel-to-scale rules are contract C20
+    (check_wheels, a ContractError, run right after this)."""
     assert abs(TRACK_Y - (PIVOT_Y + ROPE_ABOVE_PIVOT_M)) < 1e-9
     assert abs(CARRIAGE_TOP_Y - (TRACK_Y + ROPE_BELOW_TOP_M)) < 1e-9
     assert abs(DECK_Y - (PIVOT_Y + INTERIOR_FLOOR_M)) < 1e-9
@@ -657,10 +704,13 @@ def check_constants(role=None):
 
 
 def top_plinth_plan():
-    """Revision 3 (PLINTH_TOP): the below-grade levels and the layout identities, asserted: the plinth rule needs the
-    shipped ramps (the end stairs' foot pads stood on the grade) and every grade-standing part's new seat below the band;
-    the foundation block carries the rear caps, the pads, the ramp columns and the stair posts and stays inside the
-    frozen bound; the slab and the lattice footings reach exactly -depth; the face footing stays behind FACE_Z (C1)."""
+    """Revision 3 (PLINTH_TOP): the below-grade levels and the layout identities. The function asserts these:
+    - The plinth rule needs the shipped ramps (the end stairs' foot pads stood on the grade) and every grade-standing part's
+      new seat below the band.
+    - The foundation block carries the rear caps, the pads, the ramp columns and the stair posts, and stays inside the frozen
+      bound.
+    - The slab and the lattice footings reach exactly -depth.
+    - The face footing stays behind FACE_Z (C1)."""
     D, band, seat, cap = PLINTH["depth"], PLINTH["band"], PLINTH["seat"], PLINTH["cap"]
     ys = round(-D + PLINTH["slab_t"], 6)
     bx, bz0, bz1 = FOUND_BLOCK["x"], FOUND_BLOCK["z0"], FOUND_BLOCK["z1"]
@@ -692,23 +742,23 @@ def lot_cells(role):
 
 
 def frame_dx(role):
-    """Prefab x of the DESIGN frame's origin (the lift axis): BASE_DX on the RAMPS base, else 0. The joined mesh is
-    translated by it in assemble(); every design-frame table number meets the mesh / the manifest through pf()."""
+    """Prefab x of the DESIGN frame's origin (the lift axis): BASE_DX on the RAMPS base, else 0. assemble() translates the
+    joined mesh by it. Every design-frame table number meets the mesh / the manifest through pf()."""
     return BASE_DX if (RAMPS and role == "base") else 0.0
 
 
 def pf(role, p):
-    """A DESIGN-frame point (X, Y, Z) -> the prefab frame (X + frame_dx, Y, Z), as a tuple of floats; a shifted x is
-    rounded to 1 um (9.80 - 4.00 = 5.8, not 5.800000000000001: the manifest numbers stay the design's decimals)."""
+    """A DESIGN-frame point (X, Y, Z) -> the prefab frame (X + frame_dx, Y, Z), as a tuple of floats. A shifted x is rounded to
+    1 um (9.80 - 4.00 = 5.8, not 5.800000000000001: the manifest numbers stay the design's decimals)."""
     dx = frame_dx(role)
     return (round(float(p[0]) + dx, 6) if dx else float(p[0]), float(p[1]), float(p[2]))
 
 
 def base_ramp_plan():
-    """The base ramp's levels (DESIGN frame) from NB2_*: lane A rises 1:8 from the paving top at NB2_FOOT_Z toward -Z
-    to the turn landing, lane B 1:8 back toward +Z to the annex cap level CAP_TOP (the side-area floor); the top
-    landing runs from lane B's head to NB2_TOP_Z1, the balcony along the annex face from NB2_BALC z0. Asserted: both
-    lanes at exactly RAMP grade, the landings >= RAMP landing deep, everything inside the new lot (x <= 28, |z| <= 12)."""
+    """The base ramp's levels (DESIGN frame) from NB2_*: lane A rises 1:8 from the paving top at NB2_FOOT_Z toward -Z to the
+    turn landing, lane B 1:8 back toward +Z to the annex cap level CAP_TOP (the side-area floor). The top landing runs from
+    lane B's head to NB2_TOP_Z1, the balcony along the annex face from NB2_BALC z0. The function asserts: both lanes at
+    exactly RAMP grade, the landings >= RAMP landing deep, everything inside the new lot (x <= 28, |z| <= 12)."""
     g = RAMP["grade"]
     y0 = NB2_PAVE["t"]
     run_a = NB2_FOOT_Z - NB2_TURN_Z[1]
@@ -730,11 +780,15 @@ def base_ramp_plan():
 
 
 def base_annex_plan():
-    """The annex stair's levels (DESIGN frame) from NB3 / ANNEX_DOOR_Z: the landing block at DECK_Y from the hall glazing's
-    outer face (link_x0) through the annex wall to landing_x1, then `risers` equal risers of (DECK_Y - CAP_TOP) / risers down
-    onto the annex floor over `risers - 1` treads of `going` (the top riser is at landing_x1, the bottom one at the last
-    tread's end). Asserted: the stair stands inside the annex between its walls and well short of the ramp door's swing (the
-    +X glazing, x 19.60, door z 4.80..7.05), the landing is >= 1.20 m deep inside the annex, the rails fit on the treads.
+    """The annex stair's levels (DESIGN frame) from NB3 / ANNEX_DOOR_Z. The landing block is at DECK_Y from the hall glazing's
+    outer face (link_x0) through the annex wall to landing_x1. Then `risers` equal risers of (DECK_Y - CAP_TOP) / risers go
+    down onto the annex floor over `risers - 1` treads of `going` (the top riser is at landing_x1, the bottom one at the last
+    tread's end). The function asserts these:
+    - The stair stands inside the annex between its walls and well short of the ramp door's swing (the +X glazing, x 19.60,
+      door z 4.80..7.05).
+    - The landing is >= 1.20 m deep inside the annex.
+    - The rails fit on the treads.
+
     (The riser range, the width and the headroom are C15's: a wrong stair is a ContractError, not an assert.)"""
     n, g = int(NB3["risers"]), NB3["going"]
     d0, d1 = ANNEX_DOOR_Z
@@ -753,14 +807,14 @@ def base_annex_plan():
          "rails_clear": round(zr - zl - 2.0 * 0.028, 6)}
     ax0, ax1, az0, az1 = 12.40, 19.60, -8.00, 7.20
     assert n >= 2 and g > 0.0 and run > 0.0, p
-    assert wx1 + 1.20 - 1e-9 <= x_top and x_foot + 0.50 <= JH_ANNEX_X - 0.15 - 2.0, p      # inside; > 2 m short of the door
+    assert wx1 + 1.20 - 1e-9 <= x_top and x_foot + 0.50 <= JH_ANNEX_X - 0.15 - 2.0, p      # inside, > 2 m short of the door
     assert az0 + 0.10 <= d0 and d1 <= az1 - 0.10 and NB3["link_x0"] < x_top - 1.0, p
     return p
 
 
 def top_ramp_plan():
-    """The top's two ramps (mirror images about x 0): from the head landings at DECK_Y on z0 down 1:8 to the pads'
-    front edge; the pad top = the ramp foot. Asserted: the pad at the frozen back bound (z 11.60) inside the lot, the
+    """The top's two ramps (mirror images about x 0) run from the head landings at DECK_Y on z0 down 1:8 to the pads' front
+    edge. The pad top = the ramp foot. The function asserts: the pad at the frozen back bound (z 11.60) inside the lot, the
     pad >= RAMP landing deep, the clear width >= RAMP clear top."""
     g = RAMP["grade"]
     z0, (p0, p1) = TOP_RAMP["z0"], TOP_RAMP["pad"]
@@ -776,7 +830,7 @@ def top_ramp_plan():
 
 
 # --------------------------------------------------------------------------------------
-# Materials (contract 7.1; rough = 1 - smooth, skeptic MC5)
+# Materials (contract 7.1, rough = 1 - smooth, skeptic MC5)
 # --------------------------------------------------------------------------------------
 
 def material_table(role, finish=True):
@@ -794,7 +848,7 @@ def material_table(role, finish=True):
         "rock": dict(texture_set="Rock030", metres_per_tile=4.0),
         "timber": dict(texture_set="WoodSiding013", metres_per_tile=2.0),
         "glass": dict(albedo=(0.07, 0.09, 0.11), metal=0.0, rough=0.08),
-        # T27: the vanilla line cable (cs2_asset.ROPE_MATERIAL; was albedo (0.30, 0.30, 0.32) metal 0.9 rough 0.65)
+        # T27: the vanilla line cable (cs2_asset.ROPE_MATERIAL, was albedo (0.30, 0.30, 0.32) metal 0.9 rough 0.65)
         "rope": dict(cs2_asset.ROPE_MATERIAL),
         "safety": dict(albedo=(0.85, 0.70, 0.10), metal=0.0, rough=0.70),
         "lamp": dict(albedo=(0.85, 0.82, 0.75), metal=0.0, rough=0.40,
@@ -802,7 +856,7 @@ def material_table(role, finish=True):
         "clockface": dict(albedo=(0.92, 0.92, 0.92), metal=0.0, rough=0.50,
                           emissive=(0.90, 0.88, 0.80)),
         "dplate": dict(texture_set="Metal032", metres_per_tile=1.0),
-        # revision 1: the JH plinth face is a tan render (JH-07); the bullwheels are slot 2
+        # revision 1: the JH plinth face is a tan render (JH-07). The bullwheels are slot 2
         "render": dict(texture_set="Plaster002", metres_per_tile=3.0, tint=(0.80, 0.62, 0.45)),
         "wheel": dict(albedo=(0.8, 0.8, 0.8), metal=0.10, rough=0.45, slot=2),
     }
@@ -846,17 +900,17 @@ def _orient_convex(bm):
 
 
 def close_rim(obj):
-    """Revision 2 (design S1): bridge the two open bore loops of a cs2_kit.sheave rim (the 7-point profile ends
-    at r_hub on both faces: an open ring, i.e. a hole in game once back faces are culled). In place, in the
-    rim's local frame; normals recomputed outward, elements re-sorted (cs2_asset.canonical_order_bmesh: the
-    spin's order is not deterministic, review F1), UVs box-projected. cs2_kit.sheave itself is not changed
-    (towers and the other stations use it). Raises when the rim is not exactly two open loops."""
+    """Revision 2 (design S1): bridge the two open bore loops of a cs2_kit.sheave rim (the 7-point profile ends at r_hub on both
+    faces: an open ring, i.e. a hole in game once back faces are culled). The function works in place, in the rim's local
+    frame. It recomputes normals outward, re-sorts elements (cs2_asset.canonical_order_bmesh: the spin's order is not
+    deterministic, review F1), and box-projects UVs. cs2_kit.sheave itself is not changed (towers and the other stations use
+    it). Raises when the rim is not exactly two open loops."""
     me = obj.data
     bm = bmesh.new()
     bm.from_mesh(me)
-    # the rim was spun about its LOCAL z: the two open loops are the profile's end points at r_hub on the two
-    # side planes z = -+w/2. Built quad by quad in angle order (bmesh.ops.bridge_loops picked its start edge
-    # differently from run to run: T1 caught the hash drift), each turned to face the axis (the bore surface)
+    # the rim was spun about its LOCAL z: the two open loops are the profile's end points at r_hub on the two side planes z =
+    # -+w/2. The code builds quads one by one in angle order (bmesh.ops.bridge_loops picked its start edge differently from
+    # run to run: T1 caught the hash drift). It turns each quad to face the axis (the bore surface)
     bv = {v for e in bm.edges if e.is_boundary for v in e.verts}
     if not bv:
         bm.free()
@@ -904,7 +958,7 @@ def _mk(name, bm):
 
 
 class Builder:
-    """Collects [(obj, material key)] in a fixed order; every helper takes PREFAB coords."""
+    """Collects [(obj, material key)] in a fixed order. Every helper takes PREFAB coords."""
 
     def __init__(self, role):
         self.role = role
@@ -1025,10 +1079,9 @@ class Builder:
 
     def tube(self, name, pts, r, mat, segs=6, caps="none", bend_rings=3, fillet=None):
         if fillet is None and name.startswith("rope_"):
-            # ropes follow finely sampled arcs: fillets that MEET (fillet=None) leave ring pairs
-            # < 1 mm apart, i.e. ~1e-5 m2 sliver quads that smart_project splits into their own
-            # islands - sub-texel after the unique pack (zero-area island at 512, revision 1).
-            # 0.4 x the shortest span keeps a straight gap between neighboring fillets.
+            # ropes follow finely sampled arcs. Fillets that MEET (fillet=None) leave ring pairs < 1 mm apart, i.e. ~1e-5 m2
+            # sliver quads. smart_project splits these into their own islands, sub-texel after the unique pack (zero-area
+            # island at 512, revision 1). 0.4 x the shortest span keeps a straight gap between neighboring fillets.
             spans = [(Vector(b) - Vector(a)).length for a, b in zip(pts, pts[1:])]
             fillet = 0.4 * min(spans)
         o = cs2_kit.tube_along(name, [P(*p) for p in pts], r, segs, caps, bend_rings, fillet)
@@ -1061,8 +1114,8 @@ class Builder:
 
     def sheave(self, name, r, w, c, axis, mat="galv", segs=12, hub=True, r_hub=None,
                groove=None, rename=None):
-        """cs2_kit.sheave; revision 2 (S1): the rim's bore is closed (close_rim) unless RIM_BORE_CLOSED is
-        False. `mat` may be a callable of the (renamed) part name (a yellow rim with a galvanised hub)."""
+        """cs2_kit.sheave. Revision 2 (S1): the rim's bore is closed (close_rim) unless RIM_BORE_CLOSED is False. `mat` may be a
+        callable of the (renamed) part name (a yellow rim with a galvanized hub)."""
         parts = cs2_kit.sheave(name, r, w, P(*c), _AXIS[axis], segs=segs, hub=hub, r_hub=r_hub,
                                groove=groove)
         if RIM_BORE_CLOSED:
@@ -1080,9 +1133,9 @@ class Builder:
         return self.kit(cs2_kit.drip_edge(box_obj, lip=DRIP_LIP), mat)
 
     def prism6(self, name, centre, along, r, t, mat):
-        """Revision 2 medallion: a hexagonal prism (r, thickness t) in the vertical plane through `centre`
-        that contains the horizontal unit vector `along` (prefab x, z), standing VERTEX-DOWN (skeptic S7).
-        20 tris (fan caps, no n-gon)."""
+        """Revision 2 medallion: a hexagonal prism (r, thickness t) in the vertical plane through `centre`. The plane contains
+        the horizontal unit vector `along` (prefab x, z). The prism stands VERTEX-DOWN (skeptic S7). 20 tris (fan caps, no
+        n-gon)."""
         ax, az = along
         n = (-az, 0.0, ax)                                  # plane normal (horizontal)
         bm = bmesh.new()
@@ -1105,8 +1158,8 @@ class Builder:
         return self.add(_mk(name, bm), mat)
 
     def cone(self, name, apex, base_c, r, mat, segs=8):
-        """Revision 2 (the roof-mast dish): a closed cone from `apex` to a `segs`-gon of radius r round base_c,
-        its base capped (fan from a rim vertex: no n-gon). 2 segs - 2 tris."""
+        """Revision 2 (the roof-mast dish): a closed cone from `apex` to a `segs`-gon of radius r around base_c, with its base
+        capped (fan from a rim vertex: no n-gon). 2 segs - 2 tris."""
         A, B = Vector(apex), Vector(base_c)
         ax = (B - A).normalized()
         ref = Vector((0.0, 1.0, 0.0)) if abs(ax.y) < 0.9 else Vector((1.0, 0.0, 0.0))
@@ -1124,8 +1177,8 @@ class Builder:
         return self.add(_mk(name, bm), mat)
 
     def dress(self, parts):
-        """Detail pass 1: a cs2_liftdress builder's [(obj, material key)] (built in the Blender
-        authoring frame through cs2_liftdress.tram_point = P) appended in order."""
+        """Detail pass 1: appends a cs2_liftdress builder's [(obj, material key)] in order (built in the Blender authoring frame
+        through cs2_liftdress.tram_point = P)."""
         for obj, mat in parts:
             self.add(obj, mat)
         return [o for o, _m in parts]
@@ -1196,15 +1249,15 @@ def tangent_wrap(S, C, R, sweep, n):
 
 
 # --------------------------------------------------------------------------------------
-# Revision 2: the haul loops as pure geometry (the builders, contract C20 and the seams test S14 share
-# them; nothing here touches bpy)
+# Revision 2: the haul loops as pure geometry (the builders, contract C20 and the seams test S14 share them. Nothing here
+# touches bpy)
 # --------------------------------------------------------------------------------------
 
 def int_tangent(c1, r1, c2, r2):
-    """Internal tangent in a plane (2D points): the rope runs counter-clockwise UNDER circle 1, leaves on the
-    tangent that crosses between the circles and wraps circle 2 clockwise OVER its top. Circle 1 is the left
-    (-X) one; the +X side is the mirror. Returns (phi1, phi2, theta) in radians: the exit angle on circle 1,
-    the arrival angle on circle 2 (both from +x toward +y) and the strand direction."""
+    """Internal tangent in a plane (2D points). The rope runs counter-clockwise UNDER circle 1. It leaves on the tangent that
+    crosses between the circles and wraps circle 2 clockwise OVER its top. Circle 1 is the left (-X) one, and the +X side is
+    the mirror. Returns (phi1, phi2, theta) in radians: the exit angle on circle 1, the arrival angle on circle 2 (both from
+    +x toward +y) and the strand direction."""
     dx, dy = c2[0] - c1[0], c2[1] - c1[1]
     d = math.hypot(dx, dy)
     if d <= r1 + r2:
@@ -1215,8 +1268,7 @@ def int_tangent(c1, r1, c2, r2):
 
 
 def _arc(c, r, a0, a1, n, plane, w):
-    """n + 1 points on a circle: plane "xy" (z = w; angle from +x toward +y) or "xz" (y = w; angle from +x
-    toward +z)."""
+    """n + 1 points on a circle: plane "xy" (z = w, angle from +x toward +y) or "xz" (y = w, angle from +x toward +z)."""
     out = []
     for i in range(n + 1):
         a = a0 + (a1 - a0) * i / n
@@ -1308,16 +1360,27 @@ def _line_dist(c, p, q):
 
 
 def check_wheels(role, wheels=True):
-    """C20 (revision 2, design 5 as amended: the skeptic's S1 diameter cap 4.20). Asserted at build start, before
-    any other contract. Top (the shipped wheels variant): 3.40 <= 2 BULL_RIM <= 4.20 (JH 3.4-4.2 m); DECK_Y + 4.5
-    <= BULL_Y <= TRACK_Y - 2.0 (JH-14: ~5 m above the deck, ~2 m below the crest); the bullwheel rim >= 0.30 and
-    every foot sheave >= 0.15 above the hut-roof top; 4-6 spokes; the lane-wheel identities DW_Y = HAUL_Y - DW_RR,
-    DW_Z = BULL_Z - DW_RR and the foot sheaves' outer tangent x = HAUL_X; every haul-rope arc point on its
-    wheel's rope circle and every straight run tangent to the circles it joins within 1 mm; wrap >= 60 deg on
-    the bullwheel and >= 90 deg on each foot sheave. Base (C20b): 3.40 <= 2 BASE_BW_R <= 4.20, the deflection
-    sheaves' outer tangent x = HAUL_X, the same tangency rule, wrap >= 60 deg on the drive wheel and >= 30 deg on
-    each deflection sheave. The top --no-wheels variant (never shipped) is not checked. Returns the report;
-    raises ContractError("C20 ...") / ("C20b ...")."""
+    """C20 (revision 2, design 5 as amended: the skeptic's S1 diameter cap 4.20). The build asserts it at start, before any
+    other contract.
+
+    Top (the shipped wheels variant):
+    - 3.40 <= 2 BULL_RIM <= 4.20 (JH 3.4-4.2 m)
+    - DECK_Y + 4.5 <= BULL_Y <= TRACK_Y - 2.0 (JH-14: ~5 m above the deck, ~2 m below the crest)
+    - the bullwheel rim >= 0.30 and every foot sheave >= 0.15 above the hut-roof top
+    - 4-6 spokes
+    - the lane-wheel identities DW_Y = HAUL_Y - DW_RR, DW_Z = BULL_Z - DW_RR and the foot sheaves' outer tangent x = HAUL_X
+    - every haul-rope arc point on its wheel's rope circle, and every straight run tangent to the circles it joins within 1
+      mm
+    - wrap >= 60 deg on the bullwheel and >= 90 deg on each foot sheave
+
+    Base (C20b):
+    - 3.40 <= 2 BASE_BW_R <= 4.20
+    - the deflection sheaves' outer tangent x = HAUL_X
+    - the same tangency rule
+    - wrap >= 60 deg on the drive wheel and >= 30 deg on each deflection sheave
+
+    The top --no-wheels variant (never shipped) is not checked. Returns the report. Raises ContractError("C20 ...") / ("C20b
+    ...")."""
     tol = C20["tol"]
     msgs = []
     if role == "top" and not wheels:
@@ -1401,31 +1464,34 @@ def check_wheels(role, wheels=True):
 # --------------------------------------------------------------------------------------
 # Shared modules: gates, clock tower
 #
-# NO rope support stands in the docking path (z < DOCK_Z + 0.5). The built tram cabin
-# (lift_cabin.py, build/lift_cabin.md R29/R30 rows) hangs from a mirror-symmetric fork: two
-# uprights at |dy| 0.82..1.08 joined by a crossbar below the ropes (dz -4.10..-3.82) and by
-# the carriage head above them, i.e. a closed ring around the track AND haul ropes. Any
-# saddle or sheave support inside that path crosses the ring's sweep (the tower lens hit the
-# same topology and accepted a clip, build/tram_tower.md). A station does not have to: its
-# ropes run free from the stub tips to supports BEHIND the docked cabin (base: the
-# counterweight saddles and the bullwheel; top: the rear saddles, bollards and the haul
-# deflection sheaves). The contract's face saddles / face haul sheaves (5.5, 6.5) and the
-# inboard saddle frame of the first build are therefore not built.
+# NO rope support stands in the docking path (z < DOCK_Z + 0.5). The built tram cabin (lift_cabin.py, build/lift_cabin.md
+# R29/R30 rows) hangs from a mirror-symmetric fork: two uprights at |dy| 0.82..1.08 joined by a crossbar below the ropes (dz
+# -4.10..-3.82) and by the carriage head above them, i.e. a closed ring around the track AND haul ropes. Any saddle or sheave
+# support inside that path crosses the ring's sweep (the tower lens hit the same topology and accepted a clip,
+# build/tram_tower.md). A station does not have to accept a clip. Its ropes run free from the stub tips to supports BEHIND
+# the docked cabin (on the base: the counterweight saddles and the bullwheel. On the top: the rear saddles, bollards and the
+# haul deflection sheaves). The contract's face saddles / face haul sheaves (5.5, 6.5) and the inboard saddle frame of the
+# first build are therefore not built.
 # --------------------------------------------------------------------------------------
 
-# Revision 1e (bay gates vs the cabin doors; revision2-check-tram-cabin section C / lift_cabin.md R2.5).
-# The cabin's revision 2 centers a pair of plug doors on each long side (leaves 0.838 m wide meeting at
-# the cabin's length center = the dock, DOCK_Z), but the 1d fence grid (5 posts every 2.0 m from `z0`)
-# knew nothing of them: on the base a post at z -6.20 stood inside the door span (-6.35..-4.65) and the
-# nearest leaf was 0.30 m off the door center, on the top a post at -5.60 sat 0.10 m from the seam. The
-# fence is now laid out FROM THE DOOR: each berth edge carries a bi-parting gate whose leaves close on
-# the door seam (z = GATE_DOOR_Z) and is DRAWN OPEN - the leaf pair parked either side of a clear opening
-# of 2 x GATE_OPEN_HALF = 1.90 m (>= 1.70 m, the door span) centered on the seam, so no post and no leaf
-# stands in front of a door. The two runs between the opening posts and the fence ends (z0 and
-# z0 + GATE_RUN, unchanged) are divided into equal bays of at most GATE_PITCH_MAX. Contract C17
-# (`check_gate_door`) reads the door from lift_cabin.py (its manifest carries the dock z only) and FAILS
-# on any post or leaf inside the door span, an opening under 1.70 m, an opening off the seam, or a leaf
-# beside the opening shorter than half of it (the parked pair could not close on the seam).
+# Revision 1e (bay gates vs the cabin doors, revision2-check-tram-cabin section C / lift_cabin.md R2.5). The cabin's revision
+# 2 centers a pair of plug doors on each long side (leaves 0.838 m wide meeting at the cabin's length center = the dock,
+# DOCK_Z). The 1d fence grid (5 posts every 2.0 m from `z0`) knew nothing of them. On the base a post at z -6.20 stood inside
+# the door span (-6.35..-4.65) and the nearest leaf was 0.30 m off the door center. On the top a post at -5.60 sat 0.10 m
+# from the seam.
+#
+# The fence is now laid out FROM THE DOOR. Each berth edge carries a bi-parting gate whose leaves close on the door seam (z =
+# GATE_DOOR_Z). The gate is DRAWN OPEN: the leaf pair is parked either side of a clear opening of 2 x GATE_OPEN_HALF = 1.90 m
+# (>= 1.70 m, the door span) centered on the seam. So no post and no leaf stands in front of a door. The two runs between the
+# opening posts and the fence ends (z0 and z0 + GATE_RUN, unchanged) are divided into equal bays of at most GATE_PITCH_MAX.
+#
+# Contract C17 (`check_gate_door`) reads the door from lift_cabin.py (its manifest carries the dock z only). It FAILS on any
+# of these:
+# - a post or leaf inside the door span
+# - an opening under 1.70 m
+# - an opening off the seam
+# - a leaf beside the opening shorter than half of it (the parked pair could not close on the seam)
+#
 # GATES_AT_DOOR False rebuilds the 1d grid (the C17 negative in the test).
 GATES_AT_DOOR = True
 GATE_EDGES = (-7.80, -3.20, 3.20, 7.80)    # the four berth edges: -X outer / inner, +X inner / outer
@@ -1443,10 +1509,9 @@ CABIN_MANIFEST = os.path.join(REPO, "assets", "import", "cabins", "A", "SkiTramC
 
 
 def gate_layout(z0, z1=None):
-    """One berth edge's fence along z: (posts [z centers], leaves [(z_lo, z_hi)]). The 1d grid when
-    GATES_AT_DOOR is False (5 posts every 2.0 m, 4 leaves 1.90 m long); otherwise the opening posts
-    stand at GATE_DOOR_Z -+ (GATE_OPEN_HALF + GATE_POST_HALF) and each run out to a fence end is
-    split into the fewest equal bays of at most GATE_PITCH_MAX."""
+    """One berth edge's fence along z: (posts [z centers], leaves [(z_lo, z_hi)]). The 1d grid when GATES_AT_DOOR is False (5
+    posts every 2.0 m, 4 leaves 1.90 m long). Otherwise, the opening posts stand at GATE_DOOR_Z -+ (GATE_OPEN_HALF +
+    GATE_POST_HALF) and each run out to a fence end is split into the fewest equal bays of at most GATE_PITCH_MAX."""
     z1 = z0 + GATE_RUN if z1 is None else z1
     if not GATES_AT_DOOR:
         posts = [z0 + 2.0 * i for i in range(5)]
@@ -1505,9 +1570,9 @@ MEDAL_AVOID = {"top": (((-9.95, 6.60, -10.05), (-9.05, 7.50, -9.15)),     # stru
 
 
 def medallions(k, prefix, paths, avoid=()):
-    """One hexagonal medallion per rail panel, centered in the rail plane, resting vertex-down on the knee rail
-    (JH-04 / JH-11: a ring in every panel); mid-span unless that spot meets an `avoid` box (a face strut through
-    the panel), then the nearest free spot along the panel. Names <prefix><k>; returns the count."""
+    """One hexagonal medallion per rail panel, centered in the rail plane, resting vertex-down on the knee rail (JH-04 / JH-11:
+    a ring in every panel). It sits mid-span unless that spot meets an `avoid` box (a face strut through the panel). Then it
+    takes the nearest free spot along the panel. Names are <prefix><k>. Returns the count."""
     n = 0
     for path in paths:
         for p, q, d in rail_panels(path):
@@ -1527,11 +1592,10 @@ def landmark_tower(k, prefix="ct", *, h=25.0, w=4.0, base_h=7.0, stage=(19.0, 22
                    cap_h=2.4, eave=0.8, face="clock", faces=("+X", "-X", "+Z", "-Z"),
                    loc=(0.0, 0.0, 0.0), mats=None, dial_r=1.1):
     """
-    Station-local clock / lantern tower with the contract section 5.6 interface (cs2_bldg
-    will expose its own `landmark_tower`; this one is local because cs2_bldg is being
-    written). Pivot = base center at y 0; `<p>base` is an open-bottom stone box whose side
-    edges sit on y 0 (engine base); bounds top = exactly h (the finial is inside h).
-    Returns (parts, meta {"top", "face_parts", "ground_parts", "dial_r"}).
+    Station-local clock / lantern tower with the contract section 5.6 interface (cs2_bldg will expose its own
+    `landmark_tower`, and this one is local because cs2_bldg is being written). Pivot = base center at y 0. `<p>base` is an
+    open-bottom stone box whose side edges sit on y 0 (engine base). Bounds top = exactly h (the finial is inside h). Returns
+    (parts, meta {"top", "face_parts", "ground_parts", "dial_r"}).
     """
     m = {"base": "stone", "shaft": "timber", "cap": "roof", "trim": "trim", "face": "clockface"}
     m.update(mats or {})
@@ -1547,9 +1611,9 @@ def landmark_tower(k, prefix="ct", *, h=25.0, w=4.0, base_h=7.0, stage=(19.0, 22
         k.box(f"{prefix}basepier_{i}", cx - 0.40, cx + 0.40, 0.0, base_h + 0.40,
               cz - 0.40, cz + 0.40, m["base"], open_bottom=True)
     sw = hw - 0.25
-    # revision 2 (C19, skeptic S3): the shaft stops 0.02 under the stage floor - its 12.25 m2 top lay exactly
-    # in the cornice's top plane (a z-fight inside the stage); still closed, so the LOD2 shaft (the cornice
-    # goes at LOD2) keeps a lid under the open-bottomed stage
+    # revision 2 (C19, skeptic S3): the shaft stops 0.02 under the stage floor. Its 12.25 m2 top lay exactly in the cornice's
+    # top plane (a z-fight inside the stage). The shaft is still closed, so the LOD2 shaft (the cornice goes at LOD2) keeps a
+    # lid under the open-bottomed stage
     k.box(f"{prefix}shaft", X0 - sw, X0 + sw, base_h, stage[0] - 0.02, Z0 - sw, Z0 + sw, m["shaft"],
           drop=("-Y",))
     k.box(f"{prefix}cornice", X0 - hw - 0.15, X0 + hw + 0.15, stage[0] - 0.30, stage[0],
@@ -1608,8 +1672,8 @@ def landmark_tower(k, prefix="ct", *, h=25.0, w=4.0, base_h=7.0, stage=(19.0, 22
 
 def build_base(k, opts):
     # -- one-story plinth: stone ground story, cap, piers (open-bottom ground parts, F7) -----
-    # revision 1: the moving-platform pit runs across the open (line) face; its floor is
-    # TRENCH_Y and the plinth face below it is a tan render panel with the pictogram (JH-07)
+    # revision 1: the moving-platform pit runs across the open (line) face. Its floor is TRENCH_Y and the plinth face below
+    # it is a tan render panel with the pictogram (JH-07)
     k.box("stonebase", -HALL_X, HALL_X, 0.0, STONE_TOP, TRENCH_Z1, HALL_Z, "stone",
           open_bottom=True, drop=("+Y",))
     k.box("stonecap", -HALL_X - 0.10, HALL_X + 0.10, STONE_TOP, CAP_TOP, TRENCH_Z1 - 0.10,
@@ -1618,8 +1682,8 @@ def build_base(k, opts):
           open_bottom=True, drop=("+Y", "+Z"))
     k.box("trenchcap", -HALL_X - 0.10, HALL_X + 0.10, TRENCH_Y - 0.20, TRENCH_Y, TRENCH_Z0 - 0.25,
           TRENCH_Z1, "concrete", drop=("-Y",))
-    # revision 2 (C19, B4 + skeptic MC4): the trench walls, and the stone piers below, stop CAP_DROP under the
-    # caps' top (5.20) - their tops lay in the stonecap / annexcap plane where they poke past the caps
+    # revision 2 (C19, B4 + skeptic MC4): the trench walls, and the stone piers below, stop CAP_DROP under the caps' top
+    # (5.20). Their tops lay in the stonecap / annexcap plane where they poke past the caps
     for sx, tag in ((-1, "L"), (1, "R")):
         x0, x1 = sorted((sx * (HALL_X - 0.40), sx * HALL_X))
         k.box(f"trenchwall_{tag}", x0, x1, TRENCH_Y, CAP_TOP - CAP_DROP, TRENCH_Z0, TRENCH_Z1, "stone")
@@ -1648,9 +1712,8 @@ def build_base(k, opts):
     for n, (x, z) in enumerate(cols):
         k.box(f"col_{n}", x - 0.25, x + 0.25, CAP_TOP, roof_under(z) + 0.05, z - 0.25, z + 0.25,
               "steel", drop=("-Y",))
-    # galvanised face portal over the open end (JH-07): two columns from the pit floor and the
-    # face girder (its underside = the contract face opening 18.60); no gable band, so the
-    # structure of the deep roof reads above it
+    # galvanized face portal over the open end (JH-07): two columns from the pit floor and the face girder (its underside =
+    # the contract face opening 18.60). There is no gable band, so the structure of the deep roof reads above it
     for sx, tag in ((-1, "L"), (1, "R")):
         x0, x1 = sorted((sx * (PORTAL_X - 0.30), sx * (PORTAL_X + 0.30)))
         k.box(f"col_portal{tag}", x0, x1, TRENCH_Y, 18.60, TRENCH_Z0, TRENCH_Z0 + 0.60, "galv")
@@ -1690,11 +1753,11 @@ def build_base(k, opts):
             za, zb = FACE_Z + 0.05, ROOF_Z1 - 0.05
             k.member(f"purlin_{tag}{j}", (sx * xp, roof_under(za) - 0.11, za),
                      (sx * xp, roof_under(zb) - 0.11, zb), 0.12, 0.20, "steel", up=(0, 1, 0))
-        # T71 (review 8, 2026-10-18 "it didn't add anything"): the timber corner fins (timberfin_L/R: 0.20 x
-        # 0.80 m, y 9.50..19.80, hung 4.3 m over the plinth) are gone; the steel face columns are the corner
+        # T71 (review 8, 2026-10-18 "it didn't add anything"): the timber corner fins (timberfin_L/R: 0.20 x 0.80 m, y
+        # 9.50..19.80, hung 4.3 m over the plinth) are gone. The steel face columns are the corner
 
-    # glazing (painted) and transoms; the two side-wall door bays leave their openings at the
-    # boarding level (-X: the stair-landing door, +X: the annex door, revision 1)
+    # glazing (painted) and transoms. The two side-wall door bays leave their openings at the boarding level (-X: the
+    # stair-landing door, +X: the annex door, revision 1)
     yt = 12.0
     gi = 0
     for sx in (-1, 1):
@@ -1736,8 +1799,8 @@ def build_base(k, opts):
     # bottom faces shared 0.12 x 0.12 m of plane at each corner)
     k.box("transom_F", -HALL_X + 0.11, HALL_X - 0.11, yt - 0.10, yt + 0.10, HALL_Z - 0.12, HALL_Z + 0.12,
           "steel")
-    # side walls (JH-05 / JH-07): dark mullions every 1.25 m and horizontal fins outside the
-    # glazing replace the old outer X-bracing; the village (+Z) wall keeps its X-bracing
+    # side walls (JH-05 / JH-07): dark mullions every 1.25 m and horizontal fins outside the glazing replace the old outer
+    # X-bracing. The village (+Z) wall keeps its X-bracing
     mi = fi = 0
     for sx in (-1, 1):
         xm0, xm1 = sorted((sx * (HALL_X - 0.05), sx * (HALL_X + 0.10)))
@@ -1775,7 +1838,7 @@ def build_base(k, opts):
                      up=(0, 0, 1))
             bi += 2
 
-    # -- platforms (boarding level = cabin interior floor), painted edge strips (F8); they
+    # -- platforms (boarding level = cabin interior floor), painted edge strips (F8). They
     # start behind the moving-platform pit (revision 1) -------------------------------------
     zd0 = TRENCH_Z1
     k.box("deck_centre", -2.90, 2.90, CAP_TOP, DECK_Y, zd0, -0.80, "concrete", drop=("-Y",))
@@ -1802,7 +1865,7 @@ def build_base(k, opts):
     medallions(k, "medal_b", [[(-mx + 0.05, DECK_Y, TRENCH_Z0 + 0.10), (mx - 0.05, DECK_Y, TRENCH_Z0 + 0.10)]]
                + rails)
 
-    # -- operator cabin (_Win (1,1) -> 6); kept at LOD2 (skeptic MC4) ----------------------
+    # -- operator cabin (_Win (1,1) -> 6), kept at LOD2 (skeptic MC4) ----------------------
     ox, oz0, oz1 = 2.40, -3.20, -0.80
     k.box("opcab", -ox, ox, DECK_Y, DECK_Y + 1.00, oz0, oz1, "steel", drop=("-Y",))
     for n, (x, z) in enumerate(((-ox, oz0), (ox, oz0), (ox, oz1), (-ox, oz1))):
@@ -1828,8 +1891,8 @@ def build_base(k, opts):
     k.box("opcabfill_1", -2.01, -0.99, DECK_Y + 2.16, y1w, oz0 - 0.02, oz0, "steel")
 
     # -- rope machinery behind the dock: drive bullwheel ----------------------------------------
-    # revision 2 (ruling Q6): 4.0 m (was 10.6), JH-04 orange-yellow, 5 broad spokes, closed bore (S1); the
-    # two deflection sheaves are in build_base_drive
+    # revision 2 (ruling Q6): 4.0 m (was 10.6), JH-04 orange-yellow, 5 broad spokes, closed bore (S1). The two deflection
+    # sheaves are in build_base_drive
     cx, cy, cz = BW_CENTRE
     k.box("drivehouse", -1.20, 1.20, DECK_Y, DECK_Y + 2.00, cz - 1.20, cz + 1.20, "steel",
           drop=("-Y",))
@@ -1845,7 +1908,7 @@ def build_base(k, opts):
     k.cyl("bwhub", 0.60, (cx, cy - 0.35, cz), (cx, cy + 0.35, cz), "galv", segs=16)
     build_base_drive(k)
 
-    # -- track-rope anchorage: counterweight shafts; curved saddle girders on a saddle portal
+    # -- track-rope anchorage: counterweight shafts, curved saddle girders on a saddle portal
     for side in (-1, 1):
         tag = "L" if side < 0 else "R"
         x0, x1 = min(side * 4.30, side * 6.70), max(side * 4.30, side * 6.70)
@@ -1853,15 +1916,14 @@ def build_base(k, opts):
         k.box(f"cwlid_{tag}", x0 + 0.10, x1 - 0.10, 12.50, 12.56, 4.10, 6.90, "galv")
     build_base_saddles(k)
 
-    # -- haul loop (starts EXACTLY at the stub tips, C2); revision 2: round the two deflection sheaves and the
+    # -- haul loop (starts EXACTLY at the stub tips, C2). Revision 2: around the two deflection sheaves and the
     # 4.0 m drive wheel (haul_route_base, C20b) ---------------------------------------------------
     k.tube("rope_haul", haul_route_base()["points"], HAUL_ROPE_R, "rope", segs=6)
 
-    # -- platform lamps hung from the roof. Revision 2 (vanilla lamps; JH-04: downlights, no pole
-    # lights): the modeled pendant boxes and the two entrance lantern boxes are gone - the vanilla
-    # RoofLightRandom01 rows (SUBOBJ_ROWS) ARE the lamps, each hung from a ceiling plate on its rod (skeptic
-    # MC3: C16's ceiling ray needs a face over the row; the 4-seg rods are open tubes). The entrance's two
-    # vanilla WallLightShortRange rows stay (ruling Q4: small wall lights only).
+    # -- platform lamps hung from the roof. Revision 2 (vanilla lamps, JH-04: downlights, no pole lights): the modeled
+    # pendant boxes and the two entrance lantern boxes are gone. The vanilla RoofLightRandom01 rows (SUBOBJ_ROWS) ARE the
+    # lamps, each hung from a ceiling plate on its rod (skeptic MC3: C16's ceiling ray needs a face over the row, the 4-seg
+    # rods are open tubes). The entrance's two vanilla WallLightShortRange rows stay (ruling Q4: small wall lights only).
     n = 0
     for xc in (-9.80, 0.0, 9.80):
         for zc in (-7.50, -3.00):
@@ -1907,8 +1969,9 @@ def build_base(k, opts):
     k.box("annexcap", ax0 - 0.10, ax1 + 0.10, STONE_TOP, CAP_TOP, az0 - 0.10, az1 + 0.10,
           "concrete", drop=("-Y",))
     if ANNEX_STAIR and NB3["wall_cut"]:
-        # nitpick B3: the hall's inner door opens THROUGH this wall - cut at the doorway (ANNEX_DOOR_Z, up to the door's
-        # head), the two wall pieces and the header closed boxes like the old one; the landing block fills the sill
+        # nitpick B3: the hall's inner door opens THROUGH this wall. The wall is cut at the doorway (ANNEX_DOOR_Z, up to the
+        # door's head), and the two wall pieces and the header are closed boxes like the old one. The landing block fills the
+        # sill
         d0_, d1_ = ANNEX_DOOR_Z
         k.box("annexback_0", ax0, ax0 + 0.12, CAP_TOP, 11.60, az0, d0_, "steel")
         k.box("annexback_1", ax0, ax0 + 0.12, CAP_TOP, 11.60, d1_, az1, "steel")
@@ -1931,8 +1994,8 @@ def build_base(k, opts):
         for za, zb in zip(zs, zs[1:]):
             zb_ = zb - 0.15
             if RAMPS and rowtag == "lo" and za == 3.4:
-                # nitpick B2: the side-area door takes the pane's +Z part (build_base_side_door); the pane keeps its name
-                # up to the left jamb, a transom pane (same _Win cell) spans the door over its head
+                # nitpick B2: the side-area door takes the pane's +Z part (build_base_side_door). The pane keeps its name up
+                # to the left jamb. A transom pane (same _Win cell) spans the door over its head
                 zb_ = NB2_DOOR["jamb_lo"]
                 yt0 = NB2_DOOR["head"][1]
                 k.quad("annexwinlo_dt", [(ax1 + 0.005, yt0, NB2_DOOR["jamb_lo"]),
@@ -1952,8 +2015,8 @@ def build_base(k, opts):
                                               (xb, y1, az1 + 0.005), (xa, y1, az1 + 0.005)],
                    "glass", (0, 0, 1))
             wn += 1
-    # x1 19.98: the 0.02 drip flashing then ends ON the +X lot line (20.00), not 0.02 past it
-    # (gondola-tram-review-geometry F1; C7 is strict)
+    # x1 19.98: the 0.02 drip flashing then ends ON the +X lot line (20.00), not 0.02 past it (gondola-tram-review-geometry
+    # F1, C7 is strict)
     ar_o = k.box("annexroof", 12.30, 19.98, ytop, ytop + 0.60, -8.30, 7.35, "roof")
     k.drip(ar_o)
     for n, zc in enumerate((-4.0, 0.0, 4.0)):
@@ -1987,9 +2050,9 @@ def build_base(k, opts):
 
 
 def build_base_jh(k):
-    """Nitpick B (JH_DETAILS; JH-04 / JH-03 / ref 07): the canopy on V-shaped timber struts across the village front,
-    the annex ticket windows' sills, the chalkboard A-frame stand. The LIFT TICKETS / ENTRANCE boards and the annex
-    ticket-window frames are dressing (build_base_detail)."""
+    """Nitpick B (JH_DETAILS, JH-04 / JH-03 / ref 07): the canopy on V-shaped timber struts across the village front, the annex
+    ticket windows' sills, the chalkboard A-frame stand. The LIFT TICKETS / ENTRANCE boards and the annex ticket-window
+    frames are dressing (build_base_detail)."""
     c = JH_CANOPY
     x, z0, z1, y0 = c["x"], c["z0"], c["z1"], c["y0"]
 
@@ -2014,8 +2077,8 @@ def build_base_jh(k):
     # the annex's three grade ticket windows (tickwin_a0..2, +X face) get sills like the front pair (sill_f*)
     for n, zc in enumerate(JH_TICKWIN_A):
         k.box(f"sill_a{n}", JH_ANNEX_X, JH_ANNEX_X + 0.15, 1.08, 1.20, zc - 0.85, zc + 0.85, "concrete")
-    # the chalkboard A-frame (PLACEHOLDER): two timber leaves leaning together to a 0.03 m hinge line, black chalk
-    # faces on their outer sides; 0.02 m off the grade (out of the engine-base band +-0.01, as the kit rack)
+    # the chalkboard A-frame (PLACEHOLDER): two timber leaves leaning together to a 0.03 m hinge line, black chalk faces on
+    # their outer sides. The frame stands 0.02 m off the grade (out of the engine-base band +-0.01, as the kit rack)
     a = JH_CHALK
     x0, x1 = a["x"] - a["w"] / 2.0, a["x"] + a["w"] / 2.0
     y0, y1 = a["y0"], a["y0"] + a["h"]
@@ -2036,11 +2099,11 @@ def build_base_jh(k):
 
 
 def build_base_side_door(k):
-    """Nitpick B2 (RAMPS; T-1 "into the side area"): the side-area entrance, a REAL opening in the annex's +X glazing
-    (build_base cuts the pane: annexwinlo_3 stops at the left jamb, annexwinlo_dt spans the door over its head) with
-    a galvanised storefront double door - jambs, head, mid stile, two leaves with glass lites and push bars - its sill
-    on the annex cap (CAP_TOP 5.20 = the side area's floor), the ramp's balcony 0.06 m off its jambs. The leaves stay
-    at LOD1 (the opening never reads as a hole), the lites / bars go (LOD1_DELETE)."""
+    """Nitpick B2 (RAMPS, T-1 "into the side area"): the side-area entrance, a REAL opening in the annex's +X glazing.
+    build_base cuts the pane: annexwinlo_3 stops at the left jamb and annexwinlo_dt spans the door over its head. The opening
+    holds a galvanized storefront double door (jambs, head, mid stile, two leaves with glass lites and push bars). Its sill
+    is on the annex cap (CAP_TOP 5.20 = the side area's floor), and the ramp's balcony stands 0.06 m off its jambs. The
+    leaves stay at LOD1 (the opening never reads as a hole). The lites / bars go (LOD1_DELETE)."""
     D = NB2_DOOR
     x0, x1 = D["jamb_x"]
     z0, z1 = D["z"]
@@ -2061,10 +2124,10 @@ def build_base_side_door(k):
 
 
 def _ramp_deck(k, name, x0, x1, z_foot, y_foot, z_head, y_head, t, on_grade=False):
-    """A sloped deck across x0..x1 from (z_foot, y_foot) to (z_head, y_head) (top surface), `t` deep under it (one closed
-    part: the grating relief draws on every face). On the grade (`on_grade`: the foot ON a floor at y_foot) its
-    underside meets that floor `t / grade` up the slope: the profile foot -> head -> head - t -> the sole point (a
-    quad, no knife edge, nothing below the floor)."""
+    """A sloped deck across x0..x1 from (z_foot, y_foot) to (z_head, y_head) (top surface), `t` deep under it. It is one closed
+    part: the grating relief draws on every face. On the grade (`on_grade`: the foot ON a floor at y_foot) its underside
+    meets that floor `t / grade` up the slope: the profile foot -> head -> head - t -> the sole point (a quad, no knife edge,
+    nothing below the floor)."""
     s = 1.0 if z_head > z_foot else -1.0
     if on_grade:
         zs = z_foot + s * t / RAMP["grade"]
@@ -2075,23 +2138,28 @@ def _ramp_deck(k, name, x0, x1, z_foot, y_foot, z_head, y_head, t, on_grade=Fals
 
 
 def _rails(k, runs, mat):
-    """Nitpick B2: straight railing runs (the kit handrail, posts every NB2_POST_EVERY): (name, a, b) each, every run
-    stopping 0.10 short of the next one's end post (the base stair's rule) - no fillet rings at the ramp / landing
-    bends (a polyline rail costs 96 tris a bend in fillet rings: the 16,000 cap)."""
+    """Nitpick B2: straight railing runs (the kit handrail, posts every NB2_POST_EVERY): (name, a, b) each. Every run stops 0.10
+    short of the next one's end post (the base stair's rule). So there are no fillet rings at the ramp / landing bends (a
+    polyline rail costs 96 tris a bend in fillet rings: the 16,000 cap)."""
     for name, a, b in runs:
         k.handrail(name, [a, b], mat, post_every=NB2_POST_EVERY)
 
 
 def build_base_ramp(k):
-    """Nitpick B2 (RAMPS; T-1 "a RAMP on the right side, by the clock tower, into the side area"; JH-04 / JH-05 / ref 04:
-    the long climb along the hall's own side wall). DESIGN frame (the new cell is x 20..28). A 1:8 switchback in the new
-    cell beside the annex: the plaza paving (concrete, at NB2_PAVE t over the flattened lot: `plaza_walk` - the
-    walkway in front of the annex's LIFT TICKETS windows, x 19.62..22.60, clear at grade - and `plaza_front` at the
-    ramp foot; `plazaunder_*` under the decks), lane A (outer) up from the paving at the village end, the turn landing
-    at the line end, lane B (inner) back up to the top landing at the annex cap level CAP_TOP and the balcony along
-    the annex's +X glazing to the side-area door (build_base_side_door); the balcony bridges the walkway at 5.20.
-    Grating decks (relief) NB2_RAMP_T deep, steel columns on the paving, rails both sides of every lane and round
-    every landing (straight kit runs). base_ramp_plan() holds the levels."""
+    """Nitpick B2 (RAMPS, T-1 "a RAMP on the right side, by the clock tower, into the side area", JH-04 / JH-05 / ref 04: the
+    long climb along the hall's own side wall). DESIGN frame (the new cell is x 20..28). A 1:8 switchback in the new cell
+    beside the annex:
+    - the plaza paving (concrete, at NB2_PAVE t over the flattened lot): `plaza_walk` is the walkway in front of the annex's
+      LIFT TICKETS windows, x 19.62..22.60, clear at grade. `plaza_front` is at the ramp foot. `plazaunder_*` are under the
+      decks.
+    - lane A (outer), up from the paving at the village end
+    - the turn landing at the line end
+    - lane B (inner), back up to the top landing at the annex cap level CAP_TOP
+    - the balcony along the annex's +X glazing to the side-area door (build_base_side_door). The balcony bridges the walkway
+      at 5.20.
+
+    Grating decks (relief) are NB2_RAMP_T deep. Steel columns stand on the paving. Rails run on both sides of every lane and
+    around every landing (straight kit runs). base_ramp_plan() holds the levels."""
     P = base_ramp_plan()
     g = RAMP["grade"]
     y0, yt, yc = P["y_foot"], P["y_turn"], P["y_top"]
@@ -2104,7 +2172,7 @@ def build_base_ramp(k):
     for name, x0, x1, z0, z1 in (("plaza_walk", px0, bx0, pz0, pz1), ("plaza_front", bx0, ax0, ztop0, pz1),
                                  ("plazaunder_0", bx0, px1, pz0, ztop0), ("plazaunder_1", ax0, px1, ztop0, pz1)):
         k.quad(name, [(x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1)], "concrete", (0, 1, 0))
-    # decks: lane A from the paving (village end) up toward -Z to the turn landing; lane B from it back up toward +Z
+    # decks: lane A from the paving (village end) up toward -Z to the turn landing. Lane B from it back up toward +Z
     _ramp_deck(k, "ramp_A", ax0, ax1, NB2_FOOT_Z, y0, zt1, yt, t, on_grade=True)
     _ramp_deck(k, "ramp_B", bx0, bx1, zt1, yt, ztop0, yc, t)
     k.box("landing_turn", bx0, ax1, yt - T, yt, zt0, zt1, "galv")
@@ -2128,11 +2196,11 @@ def build_base_ramp(k):
     cols.append((bx0 - 0.15, NB2_BALC["z0"] + 0.15, yc - T))
     for i, (x, zb, ytop) in enumerate(cols):
         k.box(f"rampcol_{i}", x - c, x + c, y0, ytop, zb - c, zb + c, "steel", drop=("-Y",))
-    # the balcony's annex edge on a ledger against the annex cap's +X face (x 19.70; the cap overhangs the stone 0.10)
+    # the balcony's annex edge on a ledger against the annex cap's +X face (x 19.70, the cap overhangs the stone 0.10)
     k.box("rampbeam_ledger", JH_ANNEX_X + 0.10, NB2_BALC["x0"] + 0.25, yc - T - 0.20, yc - T, NB2_BALC["z0"], 7.20,
           "steel")
-    # rails: round the switchback's outside (lane A's outer edge, the turn landing, lane B's walkway edge), between the
-    # lanes, round the top landing and the balcony (its annex edge open: the door)
+    # rails: around the switchback's outside (lane A's outer edge, the turn landing, lane B's walkway edge), between the
+    # lanes, and around the top landing and the balcony (its annex edge open: the door)
     ri, e = NB2_RAIL_IN, 0.10
     zf = NB2_FOOT_Z - 0.05
     yf = y0 + 0.05 * g                                  # lane A's deck top 0.05 m up from its foot
@@ -2153,9 +2221,9 @@ def build_base_ramp(k):
 
 
 def _rail_nokick(k, name, a, b, mat, post_every=NB2_POST_EVERY):
-    """Nitpick B3: a straight railing run of the kit WITHOUT its kick plate (posts at the ends, a top and a knee rail).
-    The annex flight's steps are solid concrete boxes: a kick plate sloping along the rail line would cut their
-    nosings, and a solid stair needs none. The kit builds the kick as a scene object; it is removed again."""
+    """Nitpick B3: a straight railing run of the kit WITHOUT its kick plate (posts at the ends, a top and a knee rail). The
+    annex flight's steps are solid concrete boxes: a kick plate sloping along the rail line would cut their nosings, and a
+    solid stair needs none. The kit builds the kick as a scene object. The function removes it again."""
     parts = cs2_kit.handrail(name, [P(*a), P(*b)], h=1.10, post_every=post_every)
     keep = []
     for obj, q in parts:
@@ -2170,13 +2238,16 @@ def _rail_nokick(k, name, a, b, mat, post_every=NB2_POST_EVERY):
 
 
 def build_base_annex_stair(k):
-    """Nitpick B3 (ANNEX_STAIR; the B2 check's F2): the annex's inside connection. DESIGN frame. `landing_annex`: a closed
-    concrete block from 0.01 m off the hall glazing's outer face (NB3 link_x0, the inner door's sill 6.30 flush with the glazing's
-    lower pane) through the doorway cut in annexback (build_base) to NB3 landing_x1, standing on the annex floor; then
-    `risers` equal risers down onto the floor over `risers - 1` solid concrete treads (tread_annex_1..); a kit railing each
-    side of the landing (horizontal, with kick plates) and of the flight (sloped from the landing's end post to a post on
-    the floor past the last riser, so every post stands on a surface and none stands in a tread's headroom). The solid
-    steps drop their bottom and the face the previous step covers. base_annex_plan() holds the levels."""
+    """Nitpick B3 (ANNEX_STAIR, the B2 check's F2): the annex's inside connection. DESIGN frame. The parts:
+    - `landing_annex`: a closed concrete block from 0.01 m off the hall glazing's outer face (NB3 link_x0, the inner door's
+      sill 6.30 flush with the glazing's lower pane) through the doorway cut in annexback (build_base) to NB3 landing_x1,
+      standing on the annex floor.
+    - `risers` equal risers down onto the floor over `risers - 1` solid concrete treads (tread_annex_1..).
+    - a kit railing on each side of the landing (horizontal, with kick plates).
+    - a kit railing on each side of the flight (sloped from the landing's end post to a post on the floor past the last
+      riser, so every post stands on a surface and none stands in a tread's headroom).
+
+    The solid steps drop their bottom and the face the previous step covers. base_annex_plan() holds the levels."""
     P_ = base_annex_plan()
     d0, d1 = ANNEX_DOOR_Z
     x_top, g, n = NB3["landing_x1"], NB3["going"], NB3["risers"]
@@ -2196,11 +2267,10 @@ def build_base_annex_stair(k):
 
 
 def build_base_drive(k):
-    """Revision 2 (ruling Q6; JH-04 "orange-yellow wheel rims behind the lower end of each saddle girder in a
-    galvanised box housing"): the two horizontal deflection sheaves (rope radius BASE_DS_RR, 2.0 m rims,
-    `bwdrim_<s>` + `bwdhub_<s>`) that turn the x +-5.00 haul strands inward onto the 4.0 m drive wheel, each
-    on a vertical axle (`bwdaxle_<s>`) hung from a galvanised arm (`bwdarm_<s>`) cantilevered off the saddle
-    girder's inner web above the rope."""
+    """Revision 2 (ruling Q6, JH-04 "orange-yellow wheel rims behind the lower end of each saddle girder in a galvanised box
+    housing"): the two horizontal deflection sheaves (rope radius BASE_DS_RR, 2.0 m rims, `bwdrim_<s>` + `bwdhub_<s>`) that
+    turn the x +-5.00 haul strands inward onto the 4.0 m drive wheel, each on a vertical axle (`bwdaxle_<s>`) hung from a
+    galvanized arm (`bwdarm_<s>`) cantilevered off the saddle girder's inner web above the rope."""
     for side in (-1, 1):
         tag = "L" if side < 0 else "R"
         c = (side * BASE_DS_X, HAUL_Y, BASE_DS_Z)
@@ -2249,8 +2319,8 @@ def build_base_openend(k):
             n += 1
     k.handrail("mplat", [(-mx + 0.05, DECK_Y, mz0 + 0.05), (mx - 0.05, DECK_Y, mz0 + 0.05)],
                "galv")
-    # guide horns (curved tubes + a chord strut), rising from the pit floor and leaning out,
-    # away from their berth, toward the arriving car (JH-07); clear of the cabin body (+-2.00)
+    # guide horns (curved tubes + a chord strut), rising from the pit floor and leaning out, away from their berth, toward
+    # the arriving car (JH-07). They are clear of the cabin body (+-2.00)
     zf = TRENCH_Z0 + 0.10
     for n, (x, s) in enumerate(((-7.72, -1.0), (-3.28, 1.0), (3.28, -1.0), (7.72, 1.0))):
         pts = [(x, TRENCH_Y, zf), (x, 9.60, zf), (x + s * 0.55, 11.90, zf - 0.12),
@@ -2291,10 +2361,9 @@ def build_pcat_ladder(k):
 
 
 def build_base_saddles(k):
-    """Curved saddle girders (box girders, JH-04) under each track rope, BEHIND the docked
-    carriage: the rope runs level through the dock (C3), leaves it at BASE_SADDLE z over the
-    girder's arc and drops into its counterweight shaft. A galvanised saddle portal (two
-    columns + beam) carries the girders over the cross deck."""
+    """Curved saddle girders (box girders, JH-04) under each track rope, BEHIND the docked carriage. The rope runs level through
+    the dock (C3), leaves it at BASE_SADDLE z over the girder's arc and drops into its counterweight shaft. A galvanized
+    saddle portal (two columns + beam) carries the girders over the cross deck."""
     za, R, phi_deg = BASE_SADDLE
     cz, cy = za, TRACK_Y - R
     rt, rb = R - TRACK_ROPE_R, R - TRACK_ROPE_R - 0.90
@@ -2334,10 +2403,9 @@ def girder_sections(xl, cz, cy, rt, rb, angs):
 
 
 def build_inner_doors(k):
-    """The open end exposes the hall, so the doors at the boarding level read from the line
-    side (verdict 10): the double door from the annex (the side building) in a glazed inner
-    wall - galvanised storefront frame, glazed leaves, opaque lower panel (JH-04 left) - and
-    the stair door's inner leaf. The operator door is on the operator cabin (build_base)."""
+    """The open end exposes the hall, so the doors at the boarding level read from the line side (verdict 10). They are the
+    double door from the annex (the side building) in a glazed inner wall (galvanized storefront frame, glazed leaves, opaque
+    lower panel: JH-04 left) and the stair door's inner leaf. The operator door is on the operator cabin (build_base)."""
     xi = HALL_X - 0.13                          # inner face of the +X glazing (11.87)
     d0, d1 = ANNEX_DOOR_Z
     yh = DECK_Y + 2.80
@@ -2376,12 +2444,11 @@ def build_inner_doors(k):
 
 def stair_flight(k, tag, x0, x1, y_top, z_top, n_risers, going, direction, mat_tread="galv",
                  slab=False):
-    """Treads + 2 stringers of one flight descending from (y_top, z_top) along `direction`
-    (+1 = toward +Z); riser height = y drop / n. Returns (y_bottom, z_bottom). `slab` adds a
-    thin sloped plate under the treads (`stairslab_<tag>`, kept at LOD2: the treads go at
-    LOD1, and without it the flight reads as two hairlines at distance - revision 1, top).
-    Revision 1c: over a slab the tread bottoms are hidden (slab below, stringers either side), so
-    they are dropped (-2 tris a tread; the top's 14,000-tri cap with the -X stair)."""
+    """Treads + 2 stringers of one flight descending from (y_top, z_top) along `direction` (+1 = toward +Z). Riser height = y
+    drop / n. Returns (y_bottom, z_bottom). `slab` adds a thin sloped plate under the treads (`stairslab_<tag>`, kept at
+    LOD2: the treads go at LOD1, and without it the flight reads as two hairlines at distance - revision 1, top). Revision
+    1c: over a slab the tread bottoms are hidden (slab below, stringers either side), so they are dropped (-2 tris a tread,
+    the top's 14,000-tri cap with the -X stair)."""
     rise = 0.18
     y_bot = y_top - rise * n_risers
     z_bot = z_top + direction * going * (n_risers - 1)
@@ -2448,10 +2515,9 @@ def top_footings():
 
 
 def ext_tangent(c1, r1, c2, r2):
-    """(z, y) circles. The rope runs CLOCKWISE over the top of circle 1 (the saddle arc) and
-    leaves on the external tangent onto circle 2 (the anchor drum), which it wraps clockwise
-    too (over its back). Returns phi: the leave angle on circle 1 = the arrival angle on
-    circle 2 (rad, from +z toward +y). Bisection; f(0) > 0 > f(pi/2) is asserted."""
+    """(z, y) circles. The rope runs CLOCKWISE over the top of circle 1 (the saddle arc) and leaves on the external tangent onto
+    circle 2 (the anchor drum), which it wraps clockwise too (over its back). Returns phi: the leave angle on circle 1 = the
+    arrival angle on circle 2 (rad, from +z toward +y). Bisection. The function asserts f(0) > 0 > f(pi/2)."""
     def f(phi):
         t1 = (c1[0] + r1 * math.cos(phi), c1[1] + r1 * math.sin(phi))
         d = (math.sin(phi), -math.cos(phi))
@@ -2470,11 +2536,11 @@ def ext_tangent(c1, r1, c2, r2):
 
 
 def build_top(k, opts):
-    # -- concrete plinth (cast in place, JH-08 / JH-14), open bottom; the anchor drums sit on
-    # its side faces; the front stays behind the cabin envelope (skeptic MC2/F1) ------------
+    # -- concrete plinth (cast in place, JH-08 / JH-14), open bottom. The anchor drums sit on
+    # its side faces. The front stays behind the cabin envelope (skeptic MC2/F1) ------------
     if PLINTH_TOP:
-        # revision 3 (plinth mode): the pier continues below grade onto the foundation block (its bottom ring on the
-        # block's top at PLINTH seat; build_top_foundation): nothing is left on the y 0 line
+        # revision 3 (plinth mode): the pier continues below grade onto the foundation block (its bottom ring on the block's
+        # top at PLINTH seat, build_top_foundation). Nothing is left on the y 0 line
         k.box("plinth", -TOP_PLX, TOP_PLX, PLINTH["seat"], DECK_Y - 0.60, -0.50, 11.40, "concrete",
               drop=("+Y", "-Y"))
     else:
@@ -2522,10 +2588,10 @@ def build_top(k, opts):
     for sx, tag in ((-1, "L"), (1, "R")):
         k.grating(f"bay{tag}", min(sx * 7.80, sx * 10.20), max(sx * 7.80, sx * 10.20), -10.00,
                   -0.70, DECK_Y)
-    # revision 2 (C19, Z4): the deck frame's T-joints no longer share faces - the longitudinal beams start at
-    # z -9.97 (their ends lay in the front cross beams' front face), the cross beams stop 0.03 inside the
-    # longitudinal beams' outer faces and are 0.02 shallower underneath (their soffits lay in the longitudinal
-    # beams' where they cross: hidden from the walk set, which looks down, but seen from the valley below)
+    # revision 2 (C19, Z4): the deck frame's T-joints no longer share faces. The longitudinal beams start at z -9.97 (their
+    # ends lay in the front cross beams' front face). The cross beams stop 0.03 inside the longitudinal beams' outer faces
+    # and are 0.02 shallower underneath (their soffits lay in the longitudinal beams' where they cross: hidden from the walk
+    # set, which looks down, but seen from the valley below)
     n = 0
     for x in (-10.10, -7.90, -3.10, 3.10, 7.90, 10.10):
         k.box(f"deckbeam_{n}", x - 0.10, x + 0.10, DECK_Y - 0.36, DECK_Y - 0.06, -9.97, -0.70,
@@ -2549,7 +2615,7 @@ def build_top(k, opts):
                  0.15 - XCROSS_SHALLOW, "steel", up=(sx, 0, 0))     # revision 2 (C19, Z5)
     bay_gates(k, GATE_EDGES, z0=GATE_Z0["top"], role="top")
 
-    # -- railings (galvanised kit handrail) -----------------------------------------------------------
+    # -- railings (galvanized kit handrail) -----------------------------------------------------------
     xr = TOP_CAPX - 0.10
     rails = {"facec": [(-3.10, DECK_Y, -9.95), (3.10, DECK_Y, -9.95)]}
     if LEFT_STAIR:
@@ -2565,9 +2631,9 @@ def build_top(k, opts):
         # nitpick B2: the outer deck's back edge opens onto the +X ramp's head grating (build_top_ramps)
         rails["outerRb"] = [(10.05, DECK_Y, -0.75), (7.85, DECK_Y, -0.75)]
     if LEFT_STAIR:
-        # revision 1c: the cap railing opens on -X onto the gangway (z -0.70..0.50): it starts behind
-        # the gangway's back-edge rail (build_top_left_stair) and runs on round the cap as before (the
-        # +X spans keep their posts); `capf` guards the cap + gangway front over the -X berth.
+        # revision 1c: the cap railing opens on -X onto the gangway (z -0.70..0.50). It starts behind the gangway's back-edge
+        # rail (build_top_left_stair) and runs on around the cap as before (the +X spans keep their posts). `capf` guards the
+        # cap + gangway front over the -X berth.
         rails["cap"] = [(-xr, DECK_Y, GANG[3] + 0.07), (-xr, DECK_Y, 11.50), (xr, DECK_Y, 11.50),
                         (xr, DECK_Y, -0.65), (3.25, DECK_Y, -0.65)]
         rails["capf"] = [(-3.25, DECK_Y, -0.65), (-7.85, DECK_Y, -0.65)]
@@ -2577,13 +2643,13 @@ def build_top(k, opts):
     for nm in ("facec", "outerL", "outerR", "outerRb", "cap", "capf"):
         if nm in rails:
             k.handrail(nm, rails[nm], "galv")
-    # revision 2 (D3, JH-11 / JH-02: a ring in EVERY dock-rail panel; the 1e discs r 0.11 floated between the
-    # rails, 3 + 8 of them): one 6-gon r 0.13 per panel resting on the knee rail - facec 3, outerL 5, outerR 5,
-    # outerRb 1, capf 2 = 16 (the cap's rear / side rails face the plinth deck, not the berths)
+    # revision 2 (D3, JH-11 / JH-02: a ring in EVERY dock-rail panel, the 1e discs r 0.11 floated between the rails, 3 + 8 of
+    # them): one 6-gon r 0.13 per panel resting on the knee rail - facec 3, outerL 5, outerR 5, outerRb 1, capf 2 = 16 (the
+    # cap's rear / side rails face the plinth deck, not the berths)
     medallions(k, "medal_", [rails[nm] for nm in ("facec", "outerL", "outerR", "outerRb", "capf") if nm in rails],
                avoid=MEDAL_AVOID["top"])
 
-    # -- operator shack at the dock (JH-11 "lift shack"; _Win (2,1) -> 7; kept at LOD2) -----
+    # -- operator shack at the dock (JH-11 "lift shack", _Win (2,1) -> 7, kept at LOD2) -----
     hx0, hx1, hz0, hz1, hy1 = HUT
     k.box("hut", hx0, hx1, DECK_Y, hy1, hz0, hz1, "steel", drop=("-Y",))
     hr = k.box("hutroof", hx0 - 0.15, hx1 + 0.15, hy1, hy1 + 0.25, hz0 - 0.15, hz1 + 0.15, "roof")
@@ -2608,9 +2674,8 @@ def build_top(k, opts):
               caps="top")
         k.cyl(f"scope_head_{tag}", 0.09, (x, DECK_Y + 1.18, z + 0.18), (x, DECK_Y + 1.28, z - 0.18),
               "galv", segs=8)
-    # revision 2 (L1, eleventh look "lights on top of posts are looking a little square"): the four
-    # modeled 3 m posts with 0.30 m cube heads are gone; vanilla LightpoleParkRandom01 rows stand in their
-    # place (SUBOBJ_ROWS, ruling Q1)
+    # revision 2 (L1, eleventh look "lights on top of posts are looking a little square"): the four modeled 3 m posts with
+    # 0.30 m cube heads are gone. Vanilla LightpoleParkRandom01 rows stand in their place (SUBOBJ_ROWS, ruling Q1)
 
     # -- track ropes: curved saddle girders + anchor drums on the plinth side faces ----------
     drums = build_top_saddles(k)
@@ -2650,20 +2715,20 @@ def build_top(k, opts):
 
 
 def build_top_foundation(k):
-    """Revision 3 (PLINTH_TOP; twenty-seventh look T-3; photo 01: lattice legs on concrete footings in front of the
-    concrete housing that carries the counterweight wheel; photo 02: the wheel on its concrete wall). Everything is BELOW
-    grade (max y PLINTH seat / cap), so on a flat summit the terrain hides it and on a cliff edge it reaches down the face:
-      - the FOUNDATION BLOCK (`found_block`): the pier's housing widened under the anchor-drum bays and the ramps out to
-        the lot's sides, x +-FOUND_BLOCK x, z FOUND_BLOCK z0..z1, from the slab up to PLINTH seat - the pier (`plinth`),
-        both pads, the eight ramp columns, both stair posts and the two rear-portal caps stand on its top; bottom face
-        dropped (it sits on the slab);
-      - the FOOTING SLAB (`found_slab`) under it, PLINTH slab_t thick to min y -PLINTH depth, stepping out to the frozen
-        bound (x +-11.80, the back z 11.60) and 0.30 in front of the block's line face: closed;
-      - two LATTICE BENTS (photo 01), one per side in the plane x = +-LAT x under the face-portal cap (z -9.60) and the two
-        deck-leg caps (z -7.00 / -4.40): square steel columns (`latcol_`) from inside the pile caps down into concrete pad
-        footings (`latpad_`, closed), girts (`latgirt_`) at LAT girt_y between the columns and as ties into the block's line
-        face, an X brace (`latbrace_`) in each panel (two bays x two tiers; the second member of every X XCROSS_SHALLOW
-        shallower, as the deck legs' braces)."""
+    """Revision 3 (PLINTH_TOP, twenty-seventh look T-3, photo 01: lattice legs on concrete footings in front of the concrete
+    housing that carries the counterweight wheel, photo 02: the wheel on its concrete wall). Everything is BELOW grade (max y
+    PLINTH seat / cap), so on a flat summit the terrain hides it and on a cliff edge it reaches down the face:
+    - the FOUNDATION BLOCK (`found_block`): the pier's housing widened under the anchor-drum bays and the ramps out to the
+      lot's sides, x +-FOUND_BLOCK x, z FOUND_BLOCK z0..z1, from the slab up to PLINTH seat. The pier (`plinth`), both pads,
+      the eight ramp columns, both stair posts and the two rear-portal caps stand on its top. Its bottom face is dropped (it
+      sits on the slab).
+    - the FOOTING SLAB (`found_slab`) under it, PLINTH slab_t thick to min y -PLINTH depth. It steps out to the frozen bound
+      (x +-11.80, the back z 11.60) and 0.30 in front of the block's line face. It is closed.
+    - two LATTICE BENTS (photo 01), one per side in the plane x = +-LAT x under the face-portal cap (z -9.60) and the two
+      deck-leg caps (z -7.00 / -4.40): square steel columns (`latcol_`) from inside the pile caps down into concrete pad
+      footings (`latpad_`, closed), girts (`latgirt_`) at LAT girt_y between the columns and as ties into the block's line
+      face, and an X brace (`latbrace_`) in each panel (two bays x two tiers). The second member of every X is XCROSS_SHALLOW
+      shallower, as the deck legs' braces."""
     D, seat = PLINTH["depth"], PLINTH["seat"]
     ys = round(-D + PLINTH["slab_t"], 6)                    # -11.40: the slab's / the pad footings' top
     fx, fz0, fz1 = FOUND_SLAB["x"], FOUND_SLAB["z0"], FOUND_SLAB["z1"]
@@ -2709,12 +2774,11 @@ def left_stair_plan():
 
 
 def build_top_left_stair(k):
-    """Revision 1c (C15; fourth look): the -X ground stair - top landing beside the -X outer
-    deck's back corner, two flights descending toward +Z (the +X stair's tread, stringer and slab kit)
-    with a mid landing on posts, a concrete foot pad - and the grating gangway on two deck beams from
-    the plinth cap to the landing. Railings as on the base stair: one straight run per flight side
-    and per mid-landing side, the top landing's front + outer edge, the gangway's back edge; each
-    run stops 0.10 short of the next one's end post."""
+    """Revision 1c (C15, fourth look): the -X ground stair has a top landing beside the -X outer deck's back corner, two flights
+    descending toward +Z (the +X stair's tread, stringer and slab kit) with a mid landing on posts, and a concrete foot pad.
+    The grating gangway runs on two deck beams from the plinth cap to the landing. Railings as on the base stair: one
+    straight run per flight side, per mid-landing side, the top landing's front + outer edge, and the gangway's back edge.
+    Each run stops 0.10 short of the next one's end post."""
     p = left_stair_plan()
     lx0, lx1, lz0, lz1 = LS_LANDING
     fx0, fx1 = LS_FLIGHT_X
@@ -2724,8 +2788,9 @@ def build_top_left_stair(k):
     for i, z in enumerate((gz0 + 0.10, gz1 - 0.10)):
         k.box(f"deckbeam_{12 + i}", gx0 + 0.02, gx1, DECK_Y - 0.36, DECK_Y - 0.06, z - 0.10, z + 0.10, "steel")
     if RAMPS:
-        # nitpick B2: the landing and the gangway are the -X ramp's head (build_top_ramps; its outer rail takes the
-        # landing's): no flights, no foot pad; the landing keeps its post, the gangway its back rail east of the ramp
+        # nitpick B2: the landing and the gangway are the -X ramp's head (build_top_ramps, its outer rail takes the
+        # landing's). There are no flights and no foot pad. The landing keeps its post, and the gangway keeps its back rail
+        # east of the ramp
         k.cyl("stairpost_1", 0.08, (-11.60, PLINTH["seat"] if PLINTH_TOP else 0.0, -1.50), (-11.60, DECK_Y - 0.30, -1.50),
               "steel", segs=8, caps="none")         # revision 3: on the foundation block
         k.handrail("gangb", [(-(TOP_RAMP["x"][0] + NB2_RAIL_IN) + 0.10, DECK_Y, gz1 - 0.03), (gx1, DECK_Y, gz1 - 0.03)],
@@ -2754,15 +2819,17 @@ TOP_PAD_X1 = 11.80                  # the pads' outer faces on the frozen bound 
 
 
 def build_top_ramps(k):
-    """Nitpick B2 (RAMPS; T-2 "slightly inclined LONG RAMPS off the ends instead of stairs"; photo 05: a long grated
-    ramp deck with rails both sides down to the stone summit plaza). Mirror images about x 0 (the -X one with LEFT_STAIR,
-    as the stair it replaces): from the head line z 0.50 at the deck (+X: a head grating `grate_headR` behind the
-    outer deck and the landing run back to it; -X: the gangway + landing_topW of revision 1c) 1:8 down along each
-    side, beside the anchor drums (x 6.05..6.82), to a concrete pad `pad_<s>` at the back lot edge (z 10.10..11.60,
-    top 5.10, outer face on the frozen bound x 11.80): the terrain is molded up to the pads (no level; C15b). The deck
-    is grating (relief) NB2_RAMP_T deep, its head end on the head beam / landing, a mid bent of two columns, its foot
-    on the pad; rails both sides (straight kit runs), round the head landing and along the pad's sides (its back edge,
-    the exit onto the terrain, open)."""
+    """Nitpick B2 (RAMPS, T-2 "slightly inclined LONG RAMPS off the ends instead of stairs", photo 05: a long grated ramp deck
+    with rails both sides down to the stone summit plaza). The two ramps are mirror images about x 0 (the -X one with
+    LEFT_STAIR, as the stair it replaces). Each runs 1:8 down along its side from the head line z 0.50 at the deck (+X: a
+    head grating `grate_headR` behind the outer deck, and the landing runs back to it. -X: the gangway + landing_topW of
+    revision 1c). It passes beside the anchor drums (x 6.05..6.82) and ends at a concrete pad `pad_<s>` at the back lot edge
+    (z 10.10..11.60, top 5.10, outer face on the frozen bound x 11.80). The terrain is molded up to the pads (no level,
+    C15b).
+
+    The deck is grating (relief) NB2_RAMP_T deep, with its head end on the head beam / landing, a mid bent of two columns,
+    and its foot on the pad. Rails run on both sides (straight kit runs), around the head landing and along the pad's sides
+    (its back edge, the exit onto the terrain, stays open)."""
     P = top_ramp_plan()
     g = RAMP["grade"]
     x0, x1 = TOP_RAMP["x"]
@@ -2776,16 +2843,16 @@ def build_top_ramps(k):
             continue
         xa, xb = sorted((s * x0, s * x1))
         xi, xo = s * (x0 + 0.15), s * (x1 - 0.15)          # column lines (inner, outer)
-        # +X: the head grating behind the outer deck on a deck beam (0.02 short of the head line and of the landing -
-        # C19: their faces lay in the landing's); -X: the gangway's own deckbeam_13 carries the inner side
+        # +X: the head grating behind the outer deck on a deck beam (0.02 short of the head line and of the landing - C19:
+        # their faces lay in the landing's). -X: the gangway's own deckbeam_13 carries the inner side
         if s > 0:
             hx0, hx1, hz0, hz1 = TOP_RAMP["head_grate"]
             k.grating("headR", hx0, hx1, hz0, hz1, DECK_Y)
             k.box("deckbeam_rR", xa, hx1 - 0.02, dbeam[0], dbeam[1], z0 - 0.22, z0 - 0.02, "steel")
         _ramp_deck(k, f"ramp_{tag}", xa, xb, p0, yp, z0, DECK_Y, t)
         if PLINTH_TOP:
-            # revision 3: the pad continues below grade onto the foundation block; it overhangs the block 0.10 on its
-            # outer and back faces (the frozen bound), so it keeps a closed underside
+            # revision 3: the pad continues below grade onto the foundation block. It overhangs the block 0.10 on its outer
+            # and back faces (the frozen bound), so it keeps a closed underside
             k.box(f"pad_{tag}", min(s * x0, s * TOP_PAD_X1), max(s * x0, s * TOP_PAD_X1), PLINTH["seat"], yp, p0, p1,
                   "concrete")
         else:
@@ -2813,10 +2880,10 @@ def build_top_ramps(k):
 
 
 def build_top_saddles(k):
-    """Track ropes (JH-08 / JH-12 / JH-14, P2P-01): level through the dock (C3), then over a
-    curved saddle box-girder behind the docked carriage, then down on the external tangent to
-    an anchor drum on the plinth side face, wrapped DRUM_WRAP degrees with a small helix.
-    Each girder sits on two posts on the plinth cap and hangs from the rear head beam."""
+    """Track ropes (JH-08 / JH-12 / JH-14, P2P-01). Each rope runs level through the dock (C3), then over a curved saddle
+    box-girder behind the docked carriage. Then it goes down on the external tangent to an anchor drum on the plinth side
+    face and wraps DRUM_WRAP degrees with a small helix. Each girder sits on two posts on the plinth cap and hangs from the
+    rear head beam."""
     za, R = TOP_SADDLE
     c1 = (za, TRACK_Y - R)
     rt, rb = R - TRACK_ROPE_R, R - TRACK_ROPE_R - 1.00
@@ -2865,9 +2932,9 @@ def build_top_saddles(k):
         k.tube(f"rope_track_{tag}", _dedupe(pts), TRACK_ROPE_R, "rope", segs=TRACK_ROPE_SEGS["top"])
         out.append({"centre": [xd, cy, cz], "rope_r": DRUM_RR, "axle": "x",
                     "leave_deg": round(math.degrees(phi), 2)})
-    # tie beam under both girders at the first posts. Revision 2 (Z3 / T2): moved down under the 2.90 m lane
-    # wheels (rim bottom DW_Y - DW_RR - 0.15 = 12.85; the tie keeps 0.15 under it) and 0.36 deep (posts 0.30):
-    # its z faces lay in the posts' (C19)
+    # tie beam under both girders at the first posts. Revision 2 (Z3 / T2): moved down under the 2.90 m lane wheels (rim
+    # bottom DW_Y - DW_RR - 0.15 = 12.85, the tie keeps 0.15 under it) and 0.36 deep (posts 0.30). Its z faces lay in the
+    # posts' (C19)
     a = math.radians(SGPOST0_DEG)
     zc = c1[0] + rb * math.cos(a)
     y1 = DW_Y - DW_RR - 0.15 - SGTIE_CLEAR
@@ -2898,12 +2965,14 @@ def check_rope_clear(pts, side, name):
 
 
 def build_top_wheels(k):
-    """Haul loop, JH style - revision 2 (design T1-T3, skeptic MC9; JH-08 / JH-11 / JH-12 / JH-14): each strand
-    runs level from its stub onto the TOP of a vertical lane wheel (y-z plane, x +-HAUL_X, 2.90 m, slot 2
-    yellow), over it and down its back into the haul plane z = BULL_Z, down the outer side of a small foot
-    sheave (x-y plane, above the hut roof, dark steel: JH-12's sheave battery), under it, and up the internal
-    tangent onto ONE vertical 3.60 m yellow bullwheel (x-y plane, axle along z) and over its top: an "M"
-    (haul_route_top, C20). The bullwheel hangs its lower 1.1 m below the maintenance platform (JH-12) on an
+    """Haul loop, JH style - revision 2 (design T1-T3, skeptic MC9, JH-08 / JH-11 / JH-12 / JH-14). Each strand:
+    1. runs level from its stub onto the TOP of a vertical lane wheel (y-z plane, x +-HAUL_X, 2.90 m, slot 2 yellow)
+    2. goes over it and down its back into the haul plane z = BULL_Z
+    3. goes down the outer side of a small foot sheave (x-y plane, above the hut roof, dark steel: JH-12's sheave battery)
+    4. goes under it
+    5. goes up the internal tangent onto ONE vertical 3.60 m yellow bullwheel (x-y plane, axle along z) and over its top
+
+    This is an "M" (haul_route_top, C20). The bullwheel hangs its lower 1.1 m below the maintenance platform (JH-12) on an
     A-frame (head box, tie), behind a frame-only guard on the platform rail (build_top_crane, MC6)."""
     for side in (-1, 1):
         tag = "L" if side < 0 else "R"
@@ -2926,7 +2995,7 @@ def build_top_wheels(k):
         x0, x1 = sorted((sx * 0.65, sx * 0.95))
         k.box(f"dwpost_{tag}", x0, x1, DECK_Y, DW_Y - 0.25, DW_Z - 0.15, DW_Z + 0.15, "steel",
               drop=("-Y",))
-    # the bullwheel (yellow rim + 5 broad spokes, galvanised hub: digest 7.1), axle and A-frame (behind it)
+    # the bullwheel (yellow rim + 5 broad spokes, galvanized hub: digest 7.1), axle and A-frame (behind it)
     c = (0.0, BULL_Y, BULL_Z)
     k.sheave("bull", BULL_RIM, 0.36, c, "Z", segs=BULL_SEGS, hub=False, r_hub=BULL_BORE,
              groove=BULL_RIM - (BULL_RR - HAUL_ROPE_R), mat="wheel", rename=lambda nm: "bullrim")
@@ -2949,8 +3018,8 @@ def build_top_wheels(k):
     k.box("bullframe_t", -xt, xt, yt - 0.15, yt + 0.15, 2.05, 2.35, "steel")
     # head box 0.05 proud of the 0.40 legs on both z faces (C19, Z2: the 1e box shared the legs' face planes)
     k.box("bullframe_hd", -0.50, 0.50, BULL_Y - 0.40, BULL_Y + 0.40, 1.95, 2.45, "steel")
-    # the two foot sheaves (dark steel, JH-12) on a beam whose front face carries their hub discs and which
-    # runs 0.05 into the A-frame legs; 0.10 under the bullwheel rim, 0.65 above the hut roof
+    # the two foot sheaves (dark steel, JH-12) on a beam whose front face carries their hub discs and which runs 0.05 into
+    # the A-frame legs. The beam is 0.10 under the bullwheel rim and 0.65 above the hut roof
     for side in (-1, 1):
         tag = "L" if side < 0 else "R"
         k.sheave(f"fs{tag}", FS_RIM, 0.20, (side * FS_X, FS_Y, BULL_Z), "Z", segs=10, hub=True, r_hub=0.45,
@@ -2962,8 +3031,8 @@ def build_top_wheels(k):
 
 
 def build_top_bullwheel(k):
-    """--no-wheels: the haul loop closes round one horizontal return bullwheel behind the
-    dock (rope radius = HAUL_X), as at the base."""
+    """--no-wheels: the haul loop closes around one horizontal return bullwheel behind the dock (rope radius = HAUL_X), as at
+    the base."""
     cx, cy, cz = 0.0, HAUL_Y, TOP_BW_Z
     k.cyl("bwshaft", 0.25, (cx, DECK_Y, cz), (cx, cy - 0.35, cz), "galv", segs=12, caps="none")
     k.sheave("bw", BW_R, 0.40, (cx, cy, cz), "Y", segs=40, hub=False, r_hub=4.95,
@@ -2980,9 +3049,8 @@ def build_top_bullwheel(k):
 
 
 def build_top_crane(k):
-    """Goalpost crane beam (two posts, one long beam overhanging both rope lanes, lifting lugs
-    at the tips, anemometer mast; JH-11 / JH-12 / JH-14), the maintenance platform behind the
-    bullwheel and its stair from the plinth deck."""
+    """Goalpost crane beam (two posts, one long beam overhanging both rope lanes, lifting lugs at the tips, anemometer mast,
+    JH-11 / JH-12 / JH-14), the maintenance platform behind the bullwheel and its stair from the plinth deck."""
     z0, z1 = GOAL_Z
     zc = (z0 + z1) / 2.0
     # revision 2 (T6, JH-11 / 12 / 14: the beam spans about the lane gauge, ~1.4-2 m above the saddle crest):
@@ -2995,11 +3063,10 @@ def build_top_crane(k):
         x0, x1 = sorted((sx * (TRACK_X - 0.125), sx * (TRACK_X + 0.125)))
         k.box(f"lug_{tag}", x0, x1, GOAL_Y0 - 0.45, GOAL_Y0, zc - 0.08, zc + 0.08, "galv")
     k.box("goalbeam", -GOAL_X, GOAL_X, GOAL_Y0, GOAL_Y1, z0, z1, "steel")
-    # revision 2 (ruling Q3): the 8 m anemometer mast propping the old 27.00 bound is gone; a 1.80 m roof mast
-    # (Snowbird SB-01 / 07 / 20 / 21: masts, panel antennas, a dish) on the beam carries the anemometer arm, a
-    # dish facing down the line, a panel antenna and the red beacon lens (TT1) to MAST_TOP 20.70 = the new
-    # bounds top. LOD1 keeps the mast, dish, panel and arm (only the 0.20 m lens goes: no LOD height pop over
-    # 1 m); LOD2 keeps the mast (LOD2_KEEP).
+    # revision 2 (ruling Q3): the 8 m anemometer mast propping the old 27.00 bound is gone. A 1.80 m roof mast (Snowbird
+    # SB-01 / 07 / 20 / 21: masts, panel antennas, a dish) on the beam carries the anemometer arm, a dish facing down the
+    # line, a panel antenna and the red beacon lens (TT1) to MAST_TOP 20.70 = the new bounds top. LOD1 keeps the mast, dish,
+    # panel and arm (only the 0.20 m lens goes: no LOD height pop over 1 m). LOD2 keeps the mast (LOD2_KEEP).
     mast_top = MAST_TOP - BEACON_H if DETAIL1 else MAST_TOP
     k.cyl("mast", 0.06, (0.0, GOAL_Y1 - 0.02, zc), (0.0, mast_top, zc), "galv", segs=6, caps="top")
     k.box("mastarm", -0.45, 0.45, MAST_TOP - 0.55, MAST_TOP - 0.50, zc - 0.03, zc + 0.03, "galv")
@@ -3012,9 +3079,9 @@ def build_top_crane(k):
               "steel", drop=("-Y",))
     k.handrail("svcA", [(-4.55, SVC_Y, 4.95), (-4.55, SVC_Y, 2.55), (2.85, SVC_Y, 2.55),
                         (2.85, SVC_Y, 4.95)], "galv")
-    # revision 2 (T5 as amended by the skeptic's MC6: JH-12's guard in front of the wheel, but no opaque panel -
-    # pipeline gratings are opaque and a 4 x 1.8 m one hid half the 3.6 m wheel from the village side): a
-    # frame-only guard in the svcA rail plane - two posts, a top bar and a mid bar to 1.90 m over the platform
+    # revision 2 (T5 as amended by the skeptic's MC6: JH-12's guard in front of the wheel, but no opaque panel. Pipeline
+    # gratings are opaque and a 4 x 1.8 m one hid half the 3.6 m wheel from the village side): a frame-only guard in the svcA
+    # rail plane - two posts, a top bar and a mid bar to 1.90 m over the platform
     gz = 2.55
     for sx, tag in ((-1, "L"), (1, "R")):
         x = sx * CWGUARD_X
@@ -3030,21 +3097,20 @@ def build_top_crane(k):
 
 
 # --------------------------------------------------------------------------------------
-# Detail pass 1 (lifts): dressing, labels, vanilla sub-objects
-# (design/detail-pass-1-lifts.md sections 5 / 6 as amended by its skeptic MC1-MC11; every
-# placement below is box-tested: parts by C4 / C14 / C15, sub-objects by C16)
+# Detail pass 1 (lifts): dressing, labels, vanilla sub-objects (design/detail-pass-1-lifts.md sections 5 / 6 as amended by
+# its skeptic MC1-MC11). Every placement below is box-tested: parts by C4 / C14 / C15, sub-objects by C16.
 # --------------------------------------------------------------------------------------
 
 BEACON_H = 0.20                     # TT1 lens on the anemometer mast (r 0.10)
-# Labels painted in post_compose: part -> (cs2_liftdress.BOARDS kind, size override, target px/m).
-# Long side <= 1.50 m: 400 px/m (design L1); the departure board / TICKETS are large graphics (L2:
-# LED dot 0.02 m = 4 texels at 200 px/m, TICKETS cap 0.25 stroke 8.6 texels at 240 px/m). The
-# LIFT OPS board is 0.30 tall (not the kind's 0.35): it sits on the operator cabin's 0.40 head band
-# and keeps 0.06 above the window band (design TB4 "assert >= 0.05").
-# Revision 2 (D4, Snowbird SB-07 "trail-sign boards hung on the deck rail", SB-04 / 19; ruling Q7: difficulty
-# symbols + arrows only, facing the deck - skeptic S8: the design's +Z boards faced outward over the drop):
-# three boards clamped on top of the rear cap rail's top tube, mid-panel, label face toward the deck (-Z),
-# above the diamond-plate boxes (top 7.30). (x center, symbol, arrow)
+# Labels painted in post_compose: part -> (cs2_liftdress.BOARDS kind, size override, target px/m). Long side <= 1.50 m: 400
+# px/m (design L1). The departure board / TICKETS are large graphics (L2: LED dot 0.02 m = 4 texels at 200 px/m, TICKETS cap
+# 0.25 stroke 8.6 texels at 240 px/m). The LIFT OPS board is 0.30 tall (not the kind's 0.35). It sits on the operator cabin's
+# 0.40 head band and keeps 0.06 above the window band (design TB4 "assert >= 0.05").
+#
+# Revision 2 (D4, Snowbird SB-07 "trail-sign boards hung on the deck rail", SB-04 / 19, ruling Q7: difficulty symbols +
+# arrows only, facing the deck - skeptic S8: the design's +Z boards faced outward over the drop): three boards are clamped on
+# top of the rear cap rail's top tube, mid-panel, with the label face toward the deck (-Z), above the diamond-plate boxes
+# (top 7.30). Values: (x center, symbol, arrow)
 TRAIL_BOARDS = ((-2.34, "green_circle", "left"), (0.00, "blue_square", "right"), (2.34, "black_diamond", "right"))
 TRAIL_BOARD = {"w": 0.90, "h": 0.28, "t": 0.03, "label": (0.86, 0.24)}
 LABEL_KINDS = {"label_dep": ("dep", None, 200.0), "label_tickets": ("tickets", None, 240.0),
@@ -3054,21 +3120,21 @@ LABEL_KINDS = {"label_dep": ("dep", None, 200.0), "label_tickets": ("tickets", N
                # design), painted by paint_trail_board (kind "trail:<symbol>:<arrow>")
                **{f"label_trail_{i}": (f"trail:{sym}:{arr}", TRAIL_BOARD["label"], 200.0)
                   for i, (_x, sym, arr) in enumerate(TRAIL_BOARDS)},
-               # nitpick B (JH_DETAILS): LIFT TICKETS on the annex's +X face, ENTRANCE over the village doors - the
-               # TICKETS kind (blue, white words) with their own words (LABEL_WORDS); L2 (> 1.5 m) at the departure
-               # board's 200 px/m (cap 0.217, stroke 8.1-8.7 texels: T2 holds; the atlas cost of a 240 target was w1 -2 %)
+               # nitpick B (JH_DETAILS): LIFT TICKETS on the annex's +X face, ENTRANCE over the village doors - the TICKETS
+               # kind (blue, white words) with their own words (LABEL_WORDS). They are L2 (> 1.5 m) at the departure board's
+               # 200 px/m (cap 0.217, stroke 8.1-8.7 texels: T2 holds, the atlas cost of a 240 target was w1 -2 %)
                **{f"label_{nm}": ("tickets", (w, h), 200.0) for nm, (_c, _f, w, h) in JH_BOARDS.items()}}
 # the words a label paints instead of its kind's (cs2_liftdress.paint_board words=)
 LABEL_WORDS = {"label_lifttickets": ("LIFT TICKETS",), "label_entrance": ("ENTRANCE",)}
-# Lift-board redraw (2026-10-12; build/lift-boards-redraw.md): ops / tickets / stn repaint in the real signage
-# style (cs2_liftdress.paint_board: blue LIFT OPS / TICKETS with a white border, the station board red like the
-# Park City reference); the LED departure board, the tension dial and the trail boards are unchanged. Texture
-# only: the label islands, their weights and every UV are untouched.
-# L2 labels (large graphics, design L2): their target may sit under the L1 400 px/m of a <= 1.5 m label
+# Lift-board redraw (2026-10-12, build/lift-boards-redraw.md): ops / tickets / stn repaint in the real signage style
+# (cs2_liftdress.paint_board: blue LIFT OPS / TICKETS with a white border, the station board red like the Park City
+# reference). The LED departure board, the tension dial and the trail boards are unchanged. Texture only: the label islands,
+# their weights and every UV are untouched. L2 labels (large graphics, design L2): their target may sit under the L1 400 px/m
+# of a <= 1.5 m label
 LABEL_L2 = ("label_dep", "label_tickets", "label_trail_", "label_lifttickets", "label_entrance")
 LABEL_W0 = 16.0                     # starting density weight of a label (label_weights refines it)
 LABEL_MIN_ATLAS = 2048              # L1 / L2 are asserted at shipping atlases only (tests bake 512)
-# _Emissive masked by the painted marks (dials since revision 1; the LED board since detail pass 1)
+# _Emissive masked by the painted marks (dials since revision 1, the LED board since detail pass 1)
 EMISSIVE_MASKED = ("ctface_", "label_dep")
 
 
@@ -3090,27 +3156,27 @@ def _place(parts, M):
 
 
 def build_base_detail(k):
-    """Detail pass 1, base (design 5.2 as amended; prefab meters). Every board's center is its LABEL
-    face (cs2_liftdress.board), LABEL_PROUD + 0.02 in front of its wall."""
+    """Detail pass 1, base (design 5.2 as amended, prefab meters). Every board's center is its LABEL face (cs2_liftdress.board),
+    LABEL_PROUD + 0.02 in front of its wall."""
     LD = _LD()
     P3, face = LD.tram_point, LD.tram_facing
     xi = HALL_X - 0.13                  # inner face of the side glazing (11.87)
-    # TB1 departure board on the +X inner glazing over the annex door: bottom 9.70 = 0.12 over
-    # lamp_annexdoor (9.40..9.58; skeptic F / MC10 "above Y 9.65"), z centered on the door
+    # TB1 departure board on the +X inner glazing over the annex door: bottom 9.70 = 0.12 over lamp_annexdoor (9.40..9.58,
+    # skeptic F / MC10 "above Y 9.65"), z centered on the door
     k.dress(LD.board("dep", P3(xi - 0.023, 10.10, sum(ANNEX_DOOR_Z) / 2.0), face("-X"), 2.00, 0.80,
                      mount="wall", label_mat="led"))
-    # TB3 (MC10): the base already has two grade ticket windows (tickwin_f0/f1, _Win cell 8, sills
-    # sill_f0/f1, x -10.60..-6.80); the design's NEW openings at x 9.60..11.60 cut stonepier_9 and
-    # duplicated them. Frames (trim, slot 3) round the existing panes and TICKETS above them.
+    # TB3 (MC10): the base already has two grade ticket windows (tickwin_f0/f1, _Win cell 8, sills sill_f0/f1, x
+    # -10.60..-6.80). The design's NEW openings at x 9.60..11.60 cut stonepier_9 and duplicated them. Frames (trim, slot 3)
+    # around the existing panes and TICKETS above them.
     for n, (x0, x1) in enumerate(((-10.60, -8.90), (-8.50, -6.80))):
         k.box(f"tickframe_f{n}_l", x0 - 0.06, x0, 1.20, 3.06, HALL_Z, HALL_Z + 0.05, "trim", drop=("-Z",))
         k.box(f"tickframe_f{n}_r", x1, x1 + 0.06, 1.20, 3.06, HALL_Z, HALL_Z + 0.05, "trim", drop=("-Z",))
         k.box(f"tickframe_f{n}_h", x0, x1, 3.00, 3.06, HALL_Z, HALL_Z + 0.05, "trim", drop=("-Z",))
     k.dress(LD.board("tickets", P3(-8.70, 3.35, HALL_Z + 0.023), face("+Z"), 1.80, 0.35, mount="wall"))
     if JH_DETAILS:
-        # nitpick B (JH-04 "Lift Tickets"): trim frames round the annex's three grade ticket windows on its +X stone
-        # face (tickwin_a0..2, 0.03 proud of it) as the front pair, LIFT TICKETS above the middle one, ENTRANCE over
-        # the village doors (both painted by the TICKETS kind with LABEL_WORDS)
+        # nitpick B (JH-04 "Lift Tickets"): trim frames around the annex's three grade ticket windows on its +X stone face
+        # (tickwin_a0..2, 0.03 proud of it) as the front pair, LIFT TICKETS above the middle one, ENTRANCE over the village
+        # doors (both painted by the TICKETS kind with LABEL_WORDS)
         for n, zc in enumerate(JH_TICKWIN_A):
             z0, z1 = zc - 0.80, zc + 0.80
             k.box(f"tickframe_a{n}_l", JH_ANNEX_X, JH_ANNEX_X + 0.05, 1.20, 3.06, z0 - 0.06, z0, "trim", drop=("-X",))
@@ -3132,17 +3198,18 @@ def build_base_detail(k):
         k.dress(LD.extinguisher("annex", (-4.90, HALL_X - 0.25), face("-X"), DECK_Y + 0.90))
         k.dress(LD.extinguisher("hall", (0.00, -HALL_X + 0.25), face("+X"), DECK_Y + 0.90))
         k.dress(LD.hose_reel("drive", (BW_CENTRE[2] - 1.20, 0.0), face("-Z"), DECK_Y + 1.10))
-    # TB8 platform-edge chevrons on the four edge strips; TB9 deck-front nosings at the pit edge
+    # TB8 platform-edge chevrons on the four edge strips. TB9 deck-front nosings at the pit edge
     for tag, (x0, x1) in (("cL", (-3.20, -2.90)), ("cR", (2.90, 3.20)), ("oL", (-8.10, -7.80)),
                           ("oR", (7.80, 8.10))):
         k.dress(LD.chevrons(tag, "+Z", DECK_Y, (TRENCH_Z1, -0.80), (x0, x1), period=0.60, band=0.30))
     for tag, (x0, x1) in (("nosL", (-11.80, -8.11)), ("nosC", (-2.89, 2.89)), ("nosR", (8.11, 11.80))):
         k.dress(LD.stripe(tag, (TRENCH_Z1 + 0.05, x0), (TRENCH_Z1 + 0.05, x1), 0.10, DECK_Y, mat="safety"))
-    # TB10 ski rack. Revision 2 (B1, eleventh look: "the skis outside the tram building look totally
-    # different from the ones on the A frame - the A-frame ones way preferred (sans bindings)"): the A-frame
-    # KIT rack itself (cs2_liftdress.aframe_rack -> cs2_bldg.ski_rack_frame, 8 slots, gear, no bindings) with
-    # L1's entry-rack contents, on the village front east of the canopy, long axis along prefab X (Blender
-    # frame: x = prefab Z, y = prefab X); 0.02 off the grade (out of the engine-base band +-0.01).
+    # TB10 ski rack. Revision 2 (B1, eleventh look: "the skis outside the tram building look totally different from the ones
+    # on the A frame - the A-frame ones way preferred (sans bindings)"): the A-frame KIT rack itself
+    # (cs2_liftdress.aframe_rack -> cs2_bldg.ski_rack_frame, 8 slots, gear, no bindings) with L1's entry-rack contents. It
+    # stands on the village front east of the canopy, with its long axis along prefab X (Blender frame: x = prefab Z, y =
+    # prefab X). It is 0.02 off the grade (out of the engine-base band +-0.01).
+    #
     # fine-detail step 3c: the kit's own A-frame rack (FD_RACK) as a grade row on the same footprint
     if not FINE_DETAIL:
         k.dress(LD.aframe_rack("t", x=TRAM_RACK_AT[2], y=TRAM_RACK_AT[0], skis=TRAM_RACK_GEAR, z0=TRAM_RACK_AT[1],
@@ -3162,11 +3229,10 @@ TRAM_RACK_AT = (10.80, 0.02, 11.20)     # prefab (X, z0, Z) of the rack center: 
 
 
 def build_top_detail(k):
-    """Detail pass 1, top (design 6.2 as amended; prefab meters). The hut-mounted pieces are C14
-    HUT_NEIGHBOURS (skeptic MC8): the hut's -Z face carries the gauge (x 1.60..1.92), the window,
-    the name board over it and the extinguisher (x 4.62..4.78); the +X face the hose reel; the +Z face
-    the scraper and shovel. hutwin_b (-X face, z 1.00..2.30) left clear: the design's gauge / extinguisher
-    spots there sat on the window."""
+    """Detail pass 1, top (design 6.2 as amended, prefab meters). The hut-mounted pieces are C14 HUT_NEIGHBOURS (skeptic MC8).
+    The hut's -Z face carries the gauge (x 1.60..1.92), the window, the name board over it and the extinguisher (x
+    4.62..4.78). The +X face carries the hose reel. The +Z face carries the scraper and shovel. hutwin_b (-X face, z
+    1.00..2.30) is left clear: the design's gauge / extinguisher spots there sat on the window."""
     LD = _LD()
     P3, face = LD.tram_point, LD.tram_facing
     zc = (GOAL_Z[0] + GOAL_Z[1]) / 2.0
@@ -3187,9 +3253,9 @@ def build_top_detail(k):
 
 
 def build_trail_boards(k):
-    """Revision 2 (D4): `board_trail_<i>` (galv, 0.90 x 0.28 x 0.03) standing on the rear cap rail's top tube
-    (y 7.40 = its center; the back face 0.008 into the tube: a clamp), and `label_trail_<i>` (one quad 0.86 x
-    0.24, LABEL_PROUD in front of the board's -Z face, painted by paint_trail_board in post_compose)."""
+    """Revision 2 (D4): `board_trail_<i>` (galv, 0.90 x 0.28 x 0.03) standing on the rear cap rail's top tube (y 7.40 = its
+    center, the back face 0.008 into the tube: a clamp), and `label_trail_<i>` (one quad 0.86 x 0.24, LABEL_PROUD in front of
+    the board's -Z face, painted by paint_trail_board in post_compose)."""
     W, H, T = TRAIL_BOARD["w"], TRAIL_BOARD["h"], TRAIL_BOARD["t"]
     lw, lh = TRAIL_BOARD["label"]
     z_rail = 11.50 - 0.028                          # the rear cap rail tube's inner (deck-side) face
@@ -3205,10 +3271,10 @@ def build_trail_boards(k):
                "label", (0, 0, -1))
 
 
-# Vanilla sub-objects (design 5.3 / 6.3 as amended by MC10; cs2_liftdress.SUBOBJ GUIDs verified
-# against the dump). Game local = prefab (X, Y, Z). mount: grade | deck | beam (stands on the surface
-# below) / wall (back on a wall, facing out) / ceiling (hangs from the surface above). parent: -1 =
-# snapped to the terrain (flattened base lot only), 0 = relative to the station mesh.
+# Vanilla sub-objects (design 5.3 / 6.3 as amended by MC10, cs2_liftdress.SUBOBJ GUIDs verified against the dump). Game local
+# = prefab (X, Y, Z). mount: grade | deck | beam (stands on the surface below) / wall (back on a wall, facing out) / ceiling
+# (hangs from the surface above). parent: -1 = snapped to the terrain (flattened base lot only), 0 = relative to the station
+# mesh.
 SUBOBJ_ROWS = {
     "base": (
         ("TrashbinRandom01", (2.50, 0.0, 11.40), "+Z", -1, "grade"),
@@ -3217,8 +3283,8 @@ SUBOBJ_ROWS = {
         ("TrashbinRandom01", (10.60, DECK_Y, 2.90), "+Z", 0, "deck"),
         ("GardenBenchRandom01", (-5.50, 0.0, 11.30), "+Z", -1, "grade"),
         ("GardenBenchRandom01", (-2.00, 0.0, 11.30), "+Z", -1, "grade"),
-        # the entrance's two small vanilla wall lights stay (revision 2: the modeled lantern boxes over them
-        # are gone; ruling Q4: small wall lights only)
+        # the entrance's two small vanilla wall lights stay (revision 2: the modeled lantern boxes over them are gone, ruling
+        # Q4: small wall lights only)
         ("WallLightShortRangeRandom01", (3.60, 2.85, HALL_Z + 0.02), "+Z", 0, "wall"),
         ("WallLightShortRangeRandom01", (8.40, 2.85, HALL_Z + 0.02), "+Z", 0, "wall"),
     ) + tuple(("RoofLightRandom01", (xc, ROOFLIGHT_Y, zc), "+Z", 0, "ceiling")
@@ -3230,11 +3296,11 @@ SUBOBJ_ROWS = {
         ("WarningLightRandom01", (GOAL_X - 0.20, GOAL_Y1, 5.30), "+Z", 0, "beam"),
         ("LightpoleParkRandom01", (-2.60, DECK_Y, -9.40), "+Z", 0, "deck"),
         ("LightpoleParkRandom01", (2.60, DECK_Y, -9.40), "+Z", 0, "deck"),
-        # revision 2 (L2, ruling Q1): the four square-headed modeled posts -> vanilla park lamps. Rear cap
-        # corners, arm over the deck; outer bays at z -7.50, arm toward the berth (skeptic S4: the design's / 1e's
-        # -5.70 stood on the gate-exit line, a 0.97 m walkway; its -8.20 put the 3.27 m head into the frame's
-        # X-brace brace_La / Ra, found by C16 - at -7.50 the brace passes 0.9 m over the head, the box keeps
-        # 0.78 m off the gate opening z -6.45)
+        # revision 2 (L2, ruling Q1): the four square-headed modeled posts -> vanilla park lamps. Rear cap corners, with the
+        # arm over the deck. Outer bays at z -7.50, with the arm toward the berth (skeptic S4: the design's / 1e's -5.70
+        # stood on the gate-exit line, a 0.97 m walkway. Its -8.20 put the 3.27 m head into the frame's X-brace brace_La /
+        # Ra, found by C16. At -7.50 the brace passes 0.9 m over the head, and the box keeps 0.78 m off the gate opening z
+        # -6.45)
         ("LightpoleParkRandom01", (-5.40, DECK_Y, 11.15), "-Z", 0, "deck"),
         ("LightpoleParkRandom01", (5.40, DECK_Y, 11.15), "-Z", 0, "deck"),
         ("LightpoleParkRandom01", (-9.70, DECK_Y, -7.50), "+X", 0, "deck"),
@@ -3253,10 +3319,10 @@ SUBOBJ_ROWS = {
 
 
 def subobj_rows(role):
-    """The vanilla rows of this build: SUBOBJ_ROWS (rows 1..14 / 1..13 keep their order), + the annex door's
-    short-range wall light on the base with FINE_DETAIL on (fine-detail step 3c, FD_ANNEX_LIGHT), + (nitpick B2, RAMPS)
-    the new cell's park lamps and bin (NB2_ROWS, rows 16..18). In the PREFAB frame (pf: the RAMPS base x - 4.00; the
-    tables stay in the design frame, so a test patching SUBOBJ_ROWS keeps its design-frame numbers)."""
+    """The vanilla rows of this build: SUBOBJ_ROWS (rows 1..14 / 1..13 keep their order), + the annex door's short-range wall
+    light on the base with FINE_DETAIL on (fine-detail step 3c, FD_ANNEX_LIGHT), + (nitpick B2, RAMPS) the new cell's park
+    lamps and bin (NB2_ROWS, rows 16..18). In the PREFAB frame (pf: the RAMPS base x - 4.00, the tables stay in the design
+    frame, so a test patching SUBOBJ_ROWS keeps its design-frame numbers)."""
     rows = tuple(SUBOBJ_ROWS[role])
     if FINE_DETAIL and DETAIL1 and role == "base":
         rows += (FD_ANNEX_LIGHT,)
@@ -3273,13 +3339,15 @@ _FD_DIR = {"+X": (1.0, 0.0), "-X": (-1.0, 0.0), "+Z": (0.0, 1.0), "-Z": (0.0, -1
 
 
 def fd_kit_specs(role):
-    """The dressing-kit rows of this station in the PREFAB (= game) frame, one per removed builder call (design
-    A.2 / D, build/dress-kit.md 3 pivots): dict(prop (fine_detail.KIT object prefab), pos, facing (prefab), mount,
-    parent, removed (the old parts' name prefixes), was[, grade]). ground: pos = the foot center on its floor (the
-    rack on the grade, y 0, a parent -1 lot row like the base's benches); wall: pos = the old mount point ON the
-    wall face at the prop's bottom (extinguisher: the old bottom; hose reel: the old center height - 0.35, the
-    plate bottom), facing = the wall's outward normal; lean: pos = the old pair's center ON the wall face at the
-    floor, facing = the wall's outward normal (fine_detail.kit_lean_row: the 0.3925 m foot-line rule).
+    """The dressing-kit rows of this station in the PREFAB (= game) frame, one per removed builder call (design A.2 / D,
+    build/dress-kit.md 3 pivots): dict(prop (fine_detail.KIT object prefab), pos, facing (prefab), mount, parent, removed
+    (the old parts' name prefixes), was[, grade]). The position rules by mount:
+    - ground: pos = the foot center on its floor (the rack on the grade, y 0, a parent -1 lot row like the base's benches).
+    - wall: pos = the old mount point ON the wall face at the prop's bottom (extinguisher: the old bottom, hose reel: the old
+      center height - 0.35, the plate bottom). facing = the wall's outward normal.
+    - lean: pos = the old pair's center ON the wall face at the floor. facing = the wall's outward normal
+      (fine_detail.kit_lean_row: the 0.3925 m foot-line rule).
+
     [] with FINE_DETAIL off."""
     if not (FINE_DETAIL and DETAIL1):
         return []
@@ -3298,8 +3366,8 @@ def fd_kit_specs(role):
                          "(ski_rack_frame slots 8); the kit rack stands on the grade (foot drop 0.02)")]
     hx1 = HUT[1]
     # the hut's -Z face (the old spot, x 4.70) has the plinth cap's front railing 0.23 m in front of it (F1 access:
-    # rail_cap_top): the kit extinguisher hangs on the hut's +X face beside the hose reel instead (a fire point),
-    # FD_TOP_EXT z along that face; its -X / -Z / +Z alternatives fail F1 (the door leaf, hutwin_b, sgpost_R0 / R1)
+    # rail_cap_top). The kit extinguisher hangs on the hut's +X face beside the hose reel instead (a fire point), FD_TOP_EXT
+    # z along that face. Its -X / -Z / +Z alternatives fail F1 (the door leaf, hutwin_b, sgpost_R0 / R1)
     return [dict(prop="SkiDressExtinguisher", pos=(hx1, DECK_Y + 0.70, FD_TOP_EXT), facing="+X", mount="wall",
                  parent=0, removed=("ext_hut",),
                  was="extinguisher('hut', hut -Z face x 4.70, bottom DECK_Y + 0.70): MOVED to the hut's +X face "
@@ -3313,8 +3381,9 @@ def fd_kit_specs(role):
 
 
 def fd_kit_rows(role, colour_set=None):
-    """fine_detail.kit_row / kit_lean_row dicts (DESIGN = prefab-numbers frame, X = FBX-raw x, NOT game: check_subobjects
-    writes them through rule T; yaw = the prop's +Z to `facing`) of fd_kit_specs. Colored props (the rack) name the role's color set (`colour_set` or FD_KIT_COLOUR[role])."""
+    """fine_detail.kit_row / kit_lean_row dicts (DESIGN = prefab-numbers frame, X = FBX-raw x, NOT game: check_subobjects writes
+    them through rule T, yaw = the prop's +Z to `facing`) of fd_kit_specs. Colored props (the rack) name the role's color set
+    (`colour_set` or FD_KIT_COLOUR[role])."""
     import fine_detail as FD
     rows = []
     cset = colour_set or FD_KIT_COLOUR[role]
@@ -3366,9 +3435,9 @@ def fd_vanilla_boxes(role):
 
 
 def fd_envelopes(role):
-    """[(label, lo, hi)] host frame: the C4 carrier zones (cabin body, hanger ring, carriage, both lanes) and the
-    T8 real-cabin sweep AABB per bay (the real SkiTramCabinA x +-1.88, z +-4.03, swept from the line to the dock;
-    test_detail_tram D8's box)."""
+    """[(label, lo, hi)] host frame: the C4 carrier zones (cabin body, hanger ring, carriage, both lanes) and the T8 real-cabin
+    sweep AABB per bay (the real SkiTramCabinA x +-1.88, z +-4.03, swept from the line to the dock, test_detail_tram D8's
+    box)."""
     out = []
     for label, lo, hi, _allowed in carrier_zones(role):
         h = _fd_host(np.array([lo, hi]))
@@ -3393,11 +3462,16 @@ def fd_keepouts(role):
 
 
 def check_kit_rows(t, role, table):
-    """F1 (fine-detail step 3c; cs2_kitrows.check_kit_rows on the REAL kit meshes, host frame (Z, X, Y)): mount,
-    contact, the 0.40 m access in front of the wall props, the real kit mesh backed 0.01 m off its mount clear of
-    every station triangle, the C4 carrier zones + the T8 cabin-sweep box, the LV pole, every vanilla row's union
-    box and every other kit row, inside the lot. Returns (message dict, numbers) or ({}, None) with FINE_DETAIL
-    off; raises ContractError("F1 ...")."""
+    """F1 (fine-detail step 3c, cs2_kitrows.check_kit_rows on the REAL kit meshes, host frame (Z, X, Y)). It checks:
+    - mount and contact
+    - the 0.40 m access in front of the wall props
+    - the real kit mesh, backed 0.01 m off its mount, clear of every station triangle
+    - the C4 carrier zones + the T8 cabin-sweep box
+    - the LV pole
+    - every vanilla row's union box and every other kit row
+    - everything inside the lot
+
+    Returns (message dict, numbers), or ({}, None) with FINE_DETAIL off. Raises ContractError("F1 ...")."""
     import cs2_kitrows as KR
     specs = fd_kit_specs(role)
     if not specs:
@@ -3562,8 +3636,8 @@ R3_WHEELS = ("drumrim_L", "drumrim_R", "fsrim_L", "fsrim_R", "bullrim", "dwrim_L
 
 
 def plinth_clearances(t):
-    """Revision 3: each wheel rim's lowest point, and its nearest distance (rim vertices to the other part's surface) to
-    the foundation block, the pier (plinth) and the plinth deck; the track rope's lowest point over the block."""
+    """Revision 3: each wheel rim's lowest point, and its nearest distance (rim vertices to the other part's surface) to the
+    foundation block, the pier (plinth) and the plinth deck. Also: the track rope's lowest point over the block."""
     from mathutils.bvhtree import BVHTree
     pf, parts = _part_tris(t)
 
@@ -3650,10 +3724,10 @@ BEVEL = {
             "bullframe_"),
 }
 BEVEL_EXCLUDE = ("opcabwin", "annexwin", "tickwin", "hutwin", "glazepanel_", "opcabfill_",
-                 # revision 1c: the -X stair's stringers and landings stay square-edged (192 tris:
-                 # the top's 14,000-tri LOD0 cap with the stair; a 2 cm bevel on a 0.10 m stringer)
+                 # revision 1c: the -X stair's stringers and landings stay square-edged (192 tris: the top's 14,000-tri LOD0
+                 # cap with the stair, a 2 cm bevel on a 0.10 m stringer)
                  "stairstr_w", "landing_topW", "landing_midW",
-                 # nitpick B2: the ramp landings and the paving stay square-edged (grating slabs; the 16,000 cap)
+                 # nitpick B2: the ramp landings and the paving stay square-edged (grating slabs, the 16,000 cap)
                  "landing_turn", "landing_rtop", "landing_balc", "plaza_",
                  # nitpick B3: the annex stair's landing block stays square-edged (a hidden interior block)
                  "landing_annex")
@@ -3681,12 +3755,10 @@ DENSITY_WEIGHTS = {
     # revision 1c: the catwalk ladder (thin, like the rails)
     "ladder_": 0.45, "lrung_": 0.45,
 }
-# Detail pass 1: the dressing families (cs2_liftdress.DRESS_DENSITY values; labels start at LABEL_W0
-# and are re-weighted for their px/m target before the bake, label_weights) and the resolution moves
-# per station (design 5.7 / 6.5: the visible classes under 14 px/m)
-# (board_ / tool_ / stripe_ / chev_ raised over the kit's 0.6: at the top's w = 1 of ~20.7 px/m 0.6
-# shipped 12.4, under the 14 px/m floor; girderroof_ 0.4 -> 0.6: design 8 listed it under 14 and
-# section 5.7 forgot it)
+# Detail pass 1: the dressing families (cs2_liftdress.DRESS_DENSITY values, labels start at LABEL_W0 and are re-weighted for
+# their px/m target before the bake, label_weights) and the resolution moves per station (design 5.7 / 6.5: the visible
+# classes under 14 px/m) (board_ / tool_ / stripe_ / chev_ raised over the kit's 0.6: at the top's w = 1 of ~20.7 px/m 0.6
+# shipped 12.4, under the 14 px/m floor). girderroof_ 0.4 -> 0.6: design 8 listed it under 14 and section 5.7 forgot it
 DENSITY_DETAIL1 = {"board_": 0.7, "label_": LABEL_W0,
                    "ext_": 1.0, "hosereel_": 1.0, "tool_": 1.0, "skirack_": 0.8, "ski_": 0.8,
                    "chev_": 0.7, "stripe_": 0.7, "hook_": 0.7, "gauge_": 1.0, "tickframe_": 0.7,
@@ -3701,17 +3773,17 @@ DENSITY_ROLE = {"base": {"deck_": 0.8, "purlin_": 0.7, "trackrail_": 0.6, "outri
                         "fsrim_": 1.0, "cwguard": 0.7, "antdish": 1.0, "antpanel": 1.0}}
 
 
-# nitpick B (JH_DETAILS, base only): the canopy and its V-struts read at the plaza like the stone piers under them; the
-# shoes, ties and sills are small members; the chalkboard is a hero-scale prop at 10 m
-# (horn_ 0.55 -> 0.57: the pass costs the atlas w = 1 about 3-4 % (25.82 -> 24.81 px/m shipped); the guide horns,
-# 14.2 px/m before it, dropped under the 14 px/m floor (test_detail_tram D10) at 13.8 on a trial export; 14.1 shipped)
+# nitpick B (JH_DETAILS, base only): the canopy and its V-struts read at the plaza like the stone piers under them. The
+# shoes, ties and sills are small members. The chalkboard is a hero-scale prop at 10 m horn_ 0.55 -> 0.57: the pass costs the
+# atlas w = 1 about 3-4 % (25.82 -> 24.81 px/m shipped). The guide horns, 14.2 px/m before it, dropped under the 14 px/m
+# floor (test_detail_tram D10) at 13.8 on a trial export, and 14.1 shipped
 DENSITY_JH = {"jhcanopy": 1.0, "jhroof": 0.7, "jhstrut_": 1.0, "jhshoe_": 0.6, "jhtie_": 0.6, "sill_a": 0.7,
               "chalkboard_": 1.0, "horn_": 0.57}
 
 
-# nitpick B2 (RAMPS): the ramps, their landings, pads, paving and the side-area door. Every visible new class stays over
-# the D10 14 px/m line at the shipped w = 1 (base ~24.4 @4096, top ~20 @2048: 0.6 / 0.75); the plaza paving is the
-# biggest new surface (192 m2) and the reason the base floors move (build/nitpick-b2-tram-ramps.md)
+# nitpick B2 (RAMPS): the ramps, their landings, pads, paving and the side-area door. Every visible new class stays over the
+# D10 14 px/m line at the shipped w = 1 (base ~24.4 @4096, top ~20 @2048: 0.6 / 0.75). The plaza paving is the biggest new
+# surface (192 m2) and the reason the base floors move (build/nitpick-b2-tram-ramps.md)
 DENSITY_NB2 = {"base": {"ramp_": 0.62, "rampcol_": 0.6, "rampbeam_": 0.6, "plaza_": 0.62, "landing_turn": 0.6,
                         "landing_rtop": 0.6, "landing_balc": 0.6, "annexdoor": 0.7, "doorlite_side": 0.7,
                         "kick_ramp": 0.6, "kick_balc": 0.6, "post_ramp": 0.6, "post_balc": 0.6,
@@ -3728,16 +3800,16 @@ DENSITY_NB2 = {"base": {"ramp_": 0.62, "rampcol_": 0.6, "rampbeam_": 0.6, "plaza
 DENSITY_NB3 = {"landing_annex": 0.7, "tread_annex_": 0.7}
 
 
-# revision 3 (PLINTH_TOP): the below-grade structure. Hidden on a flat summit and seen only where a cliff exposes it (from
-# a distance, from below): the foundation's big plain concrete faces at a low weight (its slab's underside lowest), the
-# lattice members at the deck braces' class; DENSITY_BELOW keeps them off the 14 px/m starving list (D10 floors them
-# separately). Measured cost on the shipped atlas: build/tram-top-rev3.md.
+# revision 3 (PLINTH_TOP): the below-grade structure. Hidden on a flat summit and seen only where a cliff exposes it (from a
+# distance, from below): the foundation's big plain concrete faces at a low weight (its slab's underside lowest), the lattice
+# members at the deck braces' class. DENSITY_BELOW keeps them off the 14 px/m starving list (D10 floors them separately).
+# Measured cost on the shipped atlas: build/tram-top-rev3.md.
 DENSITY_R3 = {"found_block": 0.15, "found_slab": 0.12, "latpad_": 0.35, "latcol_": 0.50, "latgirt_": 0.50,
               "latbrace_": 0.50}
 DENSITY_BELOW = ("found", "lat")
-# revision 3: the lattice kit is built translation-identical (both sides with the same member `up`), so its copies share
-# one UV island per shape (cs2_liftdress.share_identical; columns 6 -> 1, bay girts 8 -> 1, ties 4 -> 1, braces 16 -> 4, pad
-# footings 6 -> 1): thin members pay the pack margin once, not per copy (the first scratch export, unshared, cost the 2048
+# revision 3: the lattice kit is built translation-identical (both sides with the same member `up`), so its copies share one
+# UV island per shape (cs2_liftdress.share_identical, columns 6 -> 1, bay girts 8 -> 1, ties 4 -> 1, braces 16 -> 4, pad
+# footings 6 -> 1). Thin members pay the pack margin once, not per copy (the first scratch export, unshared, cost the 2048
 # atlas 6.4 % of w = 1)
 R3_SHARE = ("latcol_", "latgirt_", "latbrace_", "latpad_")
 
@@ -3759,10 +3831,9 @@ def density_weights(role):
         w.update(DENSITY_R3)
     return w
 
-# LOD1 drops sub-pixel hardware; LOD2 keeps the masses (MC4: opcab / hut stay, so the
-# shared `_LOD2_Win` panes never float). Prefix hygiene: girderface vs girderroof_,
-# bw* vs brace_ / bull*, hut / hutroof, deck_ vs deckbeam_ / deckstrut_, leg_ vs legbrace_,
-# sgirder_ vs sghanger_ / sgpost_ / sgtie, drumrim_ vs drumspoke_.
+# LOD1 drops sub-pixel hardware. LOD2 keeps the masses (MC4: opcab / hut stay, so the shared `_LOD2_Win` panes never float).
+# Prefix hygiene: girderface vs girderroof_, bw* vs brace_ / bull*, hut / hutroof, deck_ vs deckbeam_ / deckstrut_, leg_ vs
+# legbrace_, sgirder_ vs sghanger_ / sgpost_ / sgtie, drumrim_ vs drumspoke_.
 LOD1_DELETE = ("bolt_", "clamp_", "drip_", "kick_", "post_", "tread_", "lrung_", "ladder_",
                "lamp_", "gate_", "gatepost_", "gusset_", "flange_", "stiff_", "axlecap_",
                "bwspoke_", "rope_", "downspout_", "door_", "hatch_",
@@ -3774,22 +3845,22 @@ LOD1_DELETE = ("bolt_", "clamp_", "drip_", "kick_", "post_", "tread_", "lrung_",
                "opcabfill_", "portalknee_", "sghanger_", "legbrace_", "drumspoke_", "drumhub_",
                "dwspoke_", "dwhub_", "dwaxle_", "bullspoke_", "bullaxle", "lug_",
                "svcpost_", "goalknee_",
-               # revision 2: the foot-sheave hub discs, the frame-only wheel guard and the base deflection
-               # sheaves' hubs + axles go at LOD1. The roof mast, its dish / panel / arm stay (ruling Q3:
-               # no LOD height pop over 1 m; only the 0.20 m beacon lens goes with lamp_)
+               # revision 2: the foot-sheave hub discs, the frame-only wheel guard and the base deflection sheaves' hubs +
+               # axles go at LOD1. The roof mast, its dish / panel / arm stay (ruling Q3: no LOD height pop over 1 m. Only
+               # the 0.20 m beacon lens goes with lamp_)
                "fshub_", "cwguard", "bwdhub_", "bwdaxle_",
-               # detail pass 1: every dressing family goes at LOD1 (design DL8; none of the tram's
-               # dressing is a mast shaft, bridge or ladder rail). Family prefixes, checked against
-               # the station's own part names (no collision: the test asserts it)
+               # detail pass 1: every dressing family goes at LOD1 (design DL8, none of the tram's dressing is a mast shaft,
+               # bridge or ladder rail). Family prefixes, checked against the station's own part names (no collision: the
+               # test asserts it)
                "label_", "board_", "ext_", "hosereel_", "tool_", "skirack_", "ski_", "chev_",
                "stripe_", "hook_", "gauge_", "tickframe_",
-               # nitpick B (base): the canopy's shoes and ties and the chalkboard go at LOD1 (the canopy and its V's
-               # stay: the JH-04 silhouette at the LOD1 distance; they go at LOD2 with the entry canopy)
+               # nitpick B (base): the canopy's shoes and ties and the chalkboard go at LOD1 (the canopy and its V's stay:
+               # the JH-04 silhouette at the LOD1 distance. They go at LOD2 with the entry canopy)
                "jhshoe_", "jhtie_", "chalkboard_",
                # nitpick B2: the side-area door's push bars (its leaves stay: no hole in the glazing at LOD1)
                "annexdoor_bar",
                # nitpick B3: the annex stair's railing tubes (its posts, kick plates and treads go with post_ / kick_ /
-               # tread_); the landing block stays (it fills the doorway's sill in the cut wall)
+               # tread_). The landing block stays (it fills the doorway's sill in the cut wall)
                "rail_annex",
                # revision 3 (PLINTH_TOP): the lattice bents' X braces (their columns and girts stay at LOD1: the legs a cliff
                # shows at the LOD1 distance)
@@ -3804,21 +3875,24 @@ LOD2_COMMON = LOD1_DELETE + (
     "grate_pcat", "grate_mplat",
     # revision 2: foot sheaves + beam, the dish / panel / anemometer arm (the mast itself stays: LOD2_KEEP)
     "fs", "ant", "mastarm")
-# Kept on purpose at LOD2: the caps over the open-topped ground shells (stonecap, annexcap,
-# trenchcap, plinthcap - without them the shells read hollow from above), the glazing (the
-# hall walls), footings, and on the top the braces + decks + saddle girders + bullwheel rim +
-# crane beam that carry the Jackson Hole silhouette. On the base the saddle girders, outriggers
-# and the open-end dressing go at LOD2 (the roof hides them from above).
+# Kept on purpose at LOD2:
+# - the caps over the open-topped ground shells (stonecap, annexcap, trenchcap, plinthcap - without them the shells read
+#   hollow from above)
+# - the glazing (the hall walls)
+# - footings
+# - on the top: the braces + decks + saddle girders + bullwheel rim + crane beam that carry the Jackson Hole silhouette
+#
+# On the base the saddle girders, outriggers and the open-end dressing go at LOD2 (the roof hides them from above).
 LOD2_DELETE = {"base": LOD2_COMMON + ("brace_", "grate_", "sgirder_", "sportal_", "outrigger_",
                                       "vstrut_", "vpier_", "trenchwall_",
                                       "pictoplinth", "mplat",
                                       # nitpick B: the front canopy under the roof eave (0.75 m of it seen from
                                       # above) and its V's
                                       "jhcanopy", "jhroof", "jhstrut_",
-                                      # nitpick B2: the ramp's columns and ledger, the paving and the side-area door
-                                      # go at LOD2 (the landings with LOD2_COMMON's landing_); the two decks stay:
-                                      # the switchback's mass in the silhouette, and the LOD2 bounds keep the new
-                                      # cell (deleting the decks too drifted them 8.0 m: the lod-bounds WARN)
+                                      # nitpick B2: the ramp's columns and ledger, the paving and the side-area door go at
+                                      # LOD2 (the landings with LOD2_COMMON's landing_). The two decks stay: the switchback's
+                                      # mass in the silhouette, and the LOD2 bounds keep the new cell (deleting the decks too
+                                      # drifted them 8.0 m: the lod-bounds WARN)
                                       "rampcol_", "rampbeam_", "plaza", "annexdoor"),
                # top: the maintenance-stair stringers and the deck-leg footings go too, so the
                # 460-tri decimation has less to chew (the sloped stairslab_ keeps both flights)
@@ -3827,8 +3901,8 @@ LOD2_DELETE = {"base": LOD2_COMMON + ("brace_", "grate_", "sgirder_", "sportal_"
                                      "stairstr_w", "grate_gang",
                                      # nitpick B2: the ramps keep their decks and pads at LOD2 (the photo-05 read)
                                      "rampcol_", "grate_headR",
-                                     # revision 3: the lattice bents and their pad footings go at LOD2 (sub-pixel members);
-                                     # the foundation block and its slab stay: the plinth (min y -12) on every LOD, as L4
+                                     # revision 3: the lattice bents and their pad footings go at LOD2 (sub-pixel members).
+                                     # The foundation block and its slab stay: the plinth (min y -12) on every LOD, as L4
                                      "lat")}
 # survivors asserted by the tests (contract 15 T5, adapted to the <= 500 LOD2)
 LOD2_KEEP = {"base": ("stonebase", "stonecap", "col_", "girderface", "glazepanel_", "roof",
@@ -3873,14 +3947,14 @@ def detail_specs(role=None):
         # revision 1
         "sgirder_": D(**steel), "goalbeam": D(**steel), "goalpost_": D(seam_axes="rings", **steel),
         "plinthface": D(seams_m=1.20, seam_depth_m=0.006),
-        # revision 2 (D1, JH-11: the top deck is solid blue-gray steel plate on a ~1.2 m seam grid, grating
-        # only at the stair apron; SB-11 / 13 non-slip berth plates): the four big deck faces read as plate
-        # (their exact `_lip` entries above keep the lips plain; the service platform stays grating, JH-12).
-        # Side effect: the 0.11 m bar pattern (~2.3 texels, a grazing-angle shimmer) leaves those faces
+        # revision 2 (D1, JH-11: the top deck is solid blue-gray steel plate on a ~1.2 m seam grid, grating only at the stair
+        # apron, SB-11 / 13 non-slip berth plates): the four big deck faces read as plate (their exact `_lip` entries above
+        # keep the lips plain. The service platform stays grating, JH-12). Side effect: the 0.11 m bar pattern (~2.3 texels,
+        # a grazing-angle shimmer) leaves those faces
         "grate_bayc": D(seams_m=1.20, seam_depth_m=0.004), "grate_bayL": D(seams_m=1.20, seam_depth_m=0.004),
         "grate_bayR": D(seams_m=1.20, seam_depth_m=0.004), "grate_gangL": D(seams_m=1.20, seam_depth_m=0.004),
-        # revision 2 (ruling Q2, SB-11 / 36): the top's 2.2 m gate leaves read perforated (a painted bar relief
-        # at the grating pitch; the leaves stay opaque - pipeline cutouts flip the whole surface)
+        # revision 2 (ruling Q2, SB-11 / 36): the top's 2.2 m gate leaves read perforated (a painted bar relief at the
+        # grating pitch). The leaves stay opaque: pipeline cutouts flip the whole surface
         **({"gate_": D(grate_m=grate_m)} if role == "top" else {}),
         # nitpick B: the front canopy's roof sheet is the hall roof's corrugated metal
         **({"jhroof": D(corrugation_m=0.50, corr_depth_m=0.010)} if (JH_DETAILS and role == "base") else {}),
@@ -3919,9 +3993,9 @@ def build_parts(role, opts):
 
 
 def materials_for(role, finish, parts):
-    """material_table plus the dressing's material keys (cs2_liftdress.DRESS_MATERIALS). On a finish
-    build cs2_liftdress.merge_materials also checks that a key both tables carry (galv) has one look;
-    the blockout's flat galv is a deliberate stand-in, so there the keys are only added."""
+    """material_table plus the dressing's material keys (cs2_liftdress.DRESS_MATERIALS). On a finish build
+    cs2_liftdress.merge_materials also checks that a key both tables carry (galv) has one look. The blockout's flat galv is a
+    deliberate stand-in, so there the keys are only added."""
     t = material_table(role, finish)
     keys = sorted({str(m) for _o, m in parts})
     extra = [k_ for k_ in keys if k_ not in t]
@@ -4012,8 +4086,8 @@ def assemble(role, opts, finish, inject=None):
     cs2_asset.orient_for_net(t)
     dx = frame_dx(role)
     if dx:
-        # nitpick B2: the design frame -> the prefab frame (oriented: prefab X = Blender x); every contract below runs
-        # on the prefab-frame mesh against pf()-shifted table numbers
+        # nitpick B2: the design frame -> the prefab frame (oriented: prefab X = Blender x). Every contract below runs on the
+        # prefab-frame mesh against pf()-shifted table numbers
         from mathutils import Matrix
         t.data.transform(Matrix.Translation((dx, 0.0, 0.0)))
         t.data.update()
@@ -4132,12 +4206,11 @@ def _fail(code, msg):
 
 
 def carrier_zones(role=None):
-    """Axis-aligned clear zones per lane (label, lo, hi, allowed prefixes), from the BUILT
-    tram cabin (build/lift_cabin.md: mirror-symmetric fork, half-width 1.080 above the fin,
-    haul grips at dy +-0.50 / dz -0.40, carriage ~1.2 wide above the rope; R29 identity
-    hosting in both bays). R30's band rules hold a fortiori: nothing of the station is inside
-    +-1.10 of a lane between the cabin roof and the carriage top in the docking path.
-    Nitpick B2: in the PREFAB frame of `role` (the lanes at pf(role) of +-TRACK_X)."""
+    """Axis-aligned clear zones per lane (label, lo, hi, allowed prefixes), from the BUILT tram cabin (build/lift_cabin.md:
+    mirror-symmetric fork, half-width 1.080 above the fin, haul grips at dy +-0.50 / dz -0.40, carriage ~1.2 wide above the
+    rope, R29 identity hosting in both bays). R30's band rules hold a fortiori: nothing of the station is inside +-1.10 of a
+    lane between the cabin roof and the carriage top in the docking path. Nitpick B2: in the PREFAB frame of `role` (the
+    lanes at pf(role) of +-TRACK_X)."""
     zones = []
     zb = DOCK_Z + CABIN_HALF_L + 0.30          # cabin body ends (z)
     zr = DOCK_Z + 0.60                         # hanger ring (cabin center) ends
@@ -4168,9 +4241,9 @@ def check_contracts(t, role, opts, report):
             vert_part.setdefault(int(v), set()).add(names[i])
     rope_v = np.array([all(n.startswith("rope_") for n in vert_part.get(v, {"?"}))
                        for v in range(len(pf))])
-    # C1 face rule. Nitpick B2: the rule keeps the LINE CORRIDOR free (1.60 m of air line-ward of the face for the
-    # stubs' first span); on the RAMPS base the new cell beyond the annex's +X face (design x > C1_CORRIDOR_X, >= 14.5 m
-    # from the nearest rope) is outside it: the switchback's turn landing and the paving reach the line-side lot edge
+    # C1 face rule. Nitpick B2: the rule keeps the LINE CORRIDOR free (1.60 m of air line-ward of the face for the stubs'
+    # first span). On the RAMPS base the new cell beyond the annex's +X face (design x > C1_CORRIDOR_X, >= 14.5 m from the
+    # nearest rope) is outside it: the switchback's turn landing and the paving reach the line-side lot edge
     face = ~rope_v
     if RAMPS and role == "base":
         face &= np.abs(pf[:, 0] - frame_dx(role)) <= C1_CORRIDOR_X + 1e-6
@@ -4266,9 +4339,9 @@ def check_contracts(t, role, opts, report):
         _fail("C5", f"bay edges without a deck face at the boarding level: {edges}")
     report["C5"] = f"all 4 bay edges have deck tops at y {DECK_Y} (cabin interior floor) {edges}"
 
-    # C7 lot fit, STRICT (review F1: the +0.5 tolerance hid a 0.20 m clock-cap overhang; whether
-    # the engine overlaps by mesh bounds or by the lot is unverified, so nothing leaves the lot).
-    # Every vertex within the 8 m-cell lot (+1e-4 float slack); the failure names the parts.
+    # C7 lot fit, STRICT (review F1: the +0.5 tolerance hid a 0.20 m clock-cap overhang. Whether the engine overlaps by mesh
+    # bounds or by the lot is unverified, so nothing leaves the lot). Every vertex is within the 8 m-cell lot (+1e-4 float
+    # slack). The failure names the parts.
     W, D = lot_cells(role)                  # nitpick B2: 6 x 3 on the RAMPS base (prefab frame, centered)
     lo, hi = pf.min(axis=0), pf.max(axis=0)
     hx, hz = 4.0 * W, 4.0 * D
@@ -4292,8 +4365,8 @@ def check_contracts(t, role, opts, report):
         _fail("C8", f"bounds max y {hi[1]:.3f} != {want:.3f} +- {HEIGHT_TOL[key]}")
     if base_mode(role) == "engine" and lo[1] < -0.001 and not getattr(opts, "skirt", 0.0):
         _fail("C6", f"geometry below y 0 ({lo[1]:.4f})")
-    # revision 3: in plinth mode geometry below y 0 is the design (C6p in check_stage: no band vertex, min y -depth,
-    # closed); nothing may reach deeper than the plinth
+    # revision 3: in plinth mode geometry below y 0 is the design (C6p in check_stage: no band vertex, min y -depth, closed).
+    # Nothing may reach deeper than the plinth
     if base_mode(role) == "plinth" and lo[1] < -PLINTH["depth"] - 0.01:
         _fail("C6p", f"plinth: geometry below the plinth depth ({lo[1]:.4f} < -{PLINTH['depth']:.2f})")
     report["C8"] = f"bounds y [{lo[1]:.3f}, {hi[1]:.3f}] (want top {want:.2f})"
@@ -4307,7 +4380,7 @@ def engine_base_parts(role, opts):
     if role == "base" and not opts.clock_tower:
         parts = tuple(p for p in parts if p != "ctbase")
     if role == "top" and RAMPS:
-        # nitpick B2: the end stairs' foot pads are gone; the ramps' concrete pads stand on the grade instead
+        # nitpick B2: the end stairs' foot pads are gone. The ramps' concrete pads stand on the grade instead
         parts = tuple("pad_" if p == "stairfoot_" else p for p in parts)
     return parts
 
@@ -4336,16 +4409,17 @@ PLINTH_CLOSED_SAMPLES = (0.1, 0.3, 0.5, 0.7, 0.9)    # C6p closed: points along 
 
 
 def check_plinth(obj, label="LOD0", closed=True):
-    """C6p (revision 3, plinth mode; the cs2_bldg check_base_mode("plinth") rule L4 ships, plus closure). On any LOD:
-      - no engine base: ground_ring_report finds no OK base edge (the importer then builds no base ribbon);
-      - no vertex within PLINTH band of y 0 (the engine band) - nothing is left ON the grade line;
-      - min y == -PLINTH depth (+-0.01): the plinth depth (the prefab's bounds min y);
-      - closed (`closed`): every OPEN edge (an edge with one face of its own part) of a part that reaches below grade,
-        where it runs below grade, lies within PLINTH closed_tol of ANOTHER part's face - a dropped face seated on its
-        support (the pier's bottom ring on the block, a ramp column on the block, the block on its slab). An open
-        bottom, an open box side or a gap below grade FAILS (the footing slab closes the foundation).
-    Raises ContractError ("C6p ..."); returns the report (verdict / ok_edges / blocked_edges as check_engine_base's, for
-    the manifest's engine_base block)."""
+    """C6p (revision 3, plinth mode, the cs2_bldg check_base_mode("plinth") rule L4 ships, plus closure). On any LOD:
+    - no engine base: ground_ring_report finds no OK base edge (the importer then builds no base ribbon)
+    - no vertex within PLINTH band of y 0 (the engine band): nothing is left ON the grade line
+    - min y == -PLINTH depth (+-0.01): the plinth depth (the prefab's bounds min y)
+    - closed (`closed`): every OPEN edge (an edge with one face of its own part) of a part that reaches below grade, where it
+      runs below grade, lies within PLINTH closed_tol of ANOTHER part's face - a dropped face seated on its support (the
+      pier's bottom ring on the block, a ramp column on the block, the block on its slab). An open bottom, an open box side
+      or a gap below grade FAILS (the footing slab closes the foundation).
+
+    Raises ContractError ("C6p ..."). Returns the report (verdict / ok_edges / blocked_edges as check_engine_base's, for the
+    manifest's engine_base block)."""
     from mathutils.bvhtree import BVHTree
     r = cs2_validate.ground_ring_report(obj)
     pf, part, table = mesh_arrays(obj)
@@ -4436,19 +4510,18 @@ def survivor_tris(obj, table, prefixes):
     return int((total[keep] - 2).sum())
 
 
-# Revision 2 (C18 LOD2, the skeptic's MC8 baseline: top LOD2 grate_bayL 5-7 back-face first hits, already in 1e):
-# at the 460-tri LOD2 the decimator flattens a deck grating's two plates (0.06 apart) into ONE criss-crossed
-# plane at y 6.27 - two up-facing and two down-facing triangles over the same rectangle - so from above (the only
-# side seen at the LOD2 distance) the deck flickers between its top and see-through. fix_lod_decks drops a
-# deck part's down-facing faces that an up-facing face of the same part covers within LOD_FLAT_TOL (a collapsed
-# plate pair only: the intact plates at LOD0 / LOD1 are 0.06 apart), and turns a part's faces up when it has no
-# up-facing face left.
+# Revision 2 (C18 LOD2, the skeptic's MC8 baseline: top LOD2 grate_bayL 5-7 back-face first hits, already in 1e). At the
+# 460-tri LOD2 the decimator flattens a deck grating's two plates (0.06 apart) into ONE criss-crossed plane at y 6.27: two
+# up-facing and two down-facing triangles over the same rectangle. So from above (the only side seen at the LOD2 distance)
+# the deck flickers between its top and see-through. fix_lod_decks drops a deck part's down-facing faces that an up-facing
+# face of the same part covers within LOD_FLAT_TOL (a collapsed plate pair only: the intact plates at LOD0 / LOD1 are 0.06
+# apart). It turns a part's faces up when the part has no up-facing face left.
 LOD_UP_PARTS = ("grate_bay", "grate_gang", "grate_mplat", "plinthcap", "ramp_")      # ramp_: nitpick B2
 LOD_FLAT_TOL = 0.01
 
 
 def fix_lod_decks(lod):
-    """The LOD deck fix-up above; re-shades the LOD when anything changed. Returns {part: {"dropped", "flipped"}}."""
+    """The LOD deck fix-up above. It re-shades the LOD when anything changed. Returns {part: {"dropped", "flipped"}}."""
     pf, part, table = mesh_arrays(lod)
     me = lod.data
     start, total, lv = poly_vertices(me)
@@ -4525,8 +4598,8 @@ def pin_ground(obj, eps=0.02):
 
 
 def split_windows(t, name, table, cells):
-    """`_Win` sub-mesh: one cs2_submesh.split_submesh per pane group (own room cell), joined
-    (contract 8.3; lift_terminal.split_windows parameterized)."""
+    """`_Win` sub-mesh: one cs2_submesh.split_submesh per pane group (own room cell), joined (contract 8.3,
+    lift_terminal.split_windows parameterized)."""
     groups = [(pfx, cell) for pfx, cell in cells.items() if any(n.startswith(pfx) for n in table)]
     if not groups:
         return None
@@ -4571,8 +4644,8 @@ def _label_polys(me, table):
 
 
 def _label_frame(obj, poly):
-    """World (right, up) of a vertical label face as seen by a viewer facing it: up = world
-    +Z (Blender; prefab +Y before and after orient_for_net), right = up x outward normal."""
+    """World (right, up) of a vertical label face as seen by a viewer facing it: up = world +Z (Blender, prefab +Y before and
+    after orient_for_net), right = up x outward normal."""
     mw = obj.matrix_world
     n = (mw.to_3x3() @ poly.normal).normalized()
     up = Vector((0.0, 0.0, 1.0))
@@ -4613,9 +4686,9 @@ def orient_label_uvs(obj, table, layer="UVMap"):
 
 
 def check_label_uvs(obj, table, layer, tol=0.02):
-    """C13: every painted label reads upright and unmirrored on `layer`: per face the UV
-    Jacobian against the face's (right, up) frame is a positive uniform scale (du/ds, dv/dt
-    > 0; cross terms and the scale mismatch < tol). Returns {label: worst deviation}."""
+    """C13: every painted label reads upright and unmirrored on `layer`: per face the UV Jacobian against the face's (right, up)
+    frame is a positive uniform scale (du/ds, dv/dt > 0, cross terms and the scale mismatch < tol). Returns {label: worst
+    deviation}."""
     me = obj.data
     uvl = me.uv_layers[layer]
     res = {}
@@ -4643,8 +4716,8 @@ def check_label_uvs(obj, table, layer, tol=0.02):
 
 
 # --------------------------------------------------------------------------------------
-# C14 part-against-part clashes (revision 1b; revision1-check-tram-stations F1: the R1 top's
-# bullwheel A-frame leg ran through the operator hut and every other contract passed)
+# C14 part-against-part clashes (revision 1b, revision1-check-tram-stations F1: the R1 top's bullwheel A-frame leg ran
+# through the operator hut and every other contract passed)
 # --------------------------------------------------------------------------------------
 # Declared contacts by part KIND (the leading letters of a part name: post_cap_3 -> post,
 # sgpost_R0 -> sgpost, drip_hutroof_nx -> drip). Two parts may share triangles (touch or
@@ -4721,8 +4794,8 @@ CONTACTS = {
     "top operator hut kit": "hut:hutroof hut:lamp",
     "lamps on their posts and brackets": "lamp:lamp",
     "grating kits: grating + its lip touch coplanar (revision1b-check-tram N3, flips in the FBX)": "grate:grate",
-    # detail pass 1: the kit pairs INSIDE the cs2_liftdress builders the tram uses (a subset of
-    # cs2_liftdress.DRESS_CONTACTS, BVH-measured there; test_detail_tram asserts the subset)
+    # detail pass 1: the kit pairs INSIDE the cs2_liftdress builders the tram uses (a subset of cs2_liftdress.DRESS_CONTACTS,
+    # BVH-measured there, test_detail_tram asserts the subset)
     "dressing kits (extinguisher, hose reel, ski rack, tools, gauge, crane hook)":
         "ext:ext hosereel:hosereel skirack:skirack ski:skirack tool:tool gauge:gauge hook:hook",
     # detail pass 1, station side (skeptic MC8: real tram kinds, each pair measured by C14 on the
@@ -4731,11 +4804,10 @@ CONTACTS = {
     # on the mast top
     "detail pass 1 dressing on the top station":
         "board:hut ext:hut gauge:hut hosereel:hut hut:tool grate:stripe hook:lug lamp:mast",
-    # base: the departure board on the inner glazing, LIFT OPS on the operator cabin's head band,
-    # extinguishers on the hall columns, the hose reel on the drive house; the chevron plates lie on
-    # the edge strips flush with the decks either side and the bay-gate posts / face-rail posts and
-    # kick plates stand through them (a paint layer); the nosings lie on the deck fronts under the
-    # face-rail posts and kick plates
+    # base: the departure board on the inner glazing, LIFT OPS on the operator cabin's head band, extinguishers on the hall
+    # columns, the hose reel on the drive house. The chevron plates lie on the edge strips flush with the decks either side,
+    # and the bay-gate posts / face-rail posts and kick plates stand through them (a paint layer). The nosings lie on the
+    # deck fronts under the face-rail posts and kick plates
     "detail pass 1 dressing on the base station":
         "board:glazepanel board:opcabtop col:ext drivehouse:hosereel chev:deck chev:edgestrip "
         "chev:gatepost chev:kick chev:post deck:stripe kick:stripe post:stripe",
@@ -4744,13 +4816,13 @@ CONTACTS = {
     # at their corners
     "detail pass 1 coplanar touches (FBX flips)":
         "board:stonebase stonebase:tickframe sill:tickframe tickframe:tickframe",
-    # revision 2 (design 5 "C14 declarations to add", each measured by C14 on the build): the top's foot
-    # sheaves (rope in their grooves, the kit hub disc in the closed bore, the beam carrying the hubs and running
-    # into the A-frame legs), the bullwheel's spokes into its closed bore, the lane wheels' spokes into theirs,
-    # the lowered saddle tie through the lane-wheel posts, the frame-only wheel guard on the platform rail /
-    # kick plate / grating, the roof mast's dish and panel antenna, the trail boards clamped on the cap rail,
-    # the medallions resting on the knee rails; the base's deflection sheaves (rope, hub in the bore, axle,
-    # arm into the saddle girder's web) and the ceiling plates the RoofLight rows hang from (lamp:lamp)
+    # revision 2 (design 5 "C14 declarations to add", each measured by C14 on the build): the top's foot sheaves (rope in
+    # their grooves, the kit hub disc in the closed bore, the beam carrying the hubs and running into the A-frame legs), the
+    # bullwheel's spokes into its closed bore, the lane wheels' spokes into theirs, the lowered saddle tie through the
+    # lane-wheel posts, the frame-only wheel guard on the platform rail / kick plate / grating, the roof mast's dish and
+    # panel antenna, the trail boards clamped on the cap rail, the medallions resting on the knee rails. On the base: the
+    # deflection sheaves (rope, hub in the bore, axle, arm into the saddle girder's web) and the ceiling plates the RoofLight
+    # rows hang from (lamp:lamp)
     "revision 2 wheels, guard, mast, boards, medallions":
         "fsrim:rope fshub:fsrim fsbeam:fshub bullframe:fsbeam bullrim:bullspoke dwrim:dwspoke dwpost:sgtie "
         "cwguard:kick cwguard:post cwguard:rail cwguard:cwguard cwguard:grate antdish:mast antpanel:mast "
@@ -4761,17 +4833,23 @@ CONTACTS = {
     # radius - INSIDE the rim, below the groove seat, where the lane-wheel spoke tips meet the closed bore face and
     # the foot sheave's kit hub disc sits in its bore. Hidden inside the rims
     "revision 2 rope chords inside the wheel rims": "dwspoke:rope fshub:rope bwdhub:rope bwspoke:rope",
-    # nitpick B (JH_DETAILS): the front canopy's roof sheet on its soffit slab, the V legs into the slab and onto their
-    # steel shoes (the two legs share a foot), the shoes on the stone piers, the ties from the front columns into the
-    # slab's back edge; the annex's LIFT TICKETS board, window frames and sills on its stone face (the front pair's
-    # board / tickframe / sill pairs, annex kind); the chalkboard A-frame's leaves at their hinge and its chalk faces
+    # nitpick B (JH_DETAILS):
+    # - the front canopy's roof sheet on its soffit slab
+    # - the V legs into the slab and onto their steel shoes (the two legs share a foot)
+    # - the shoes on the stone piers
+    # - the ties from the front columns into the slab's back edge
+    # - the annex's LIFT TICKETS board, window frames and sills on its stone face (the front pair's board / tickframe / sill
+    #   pairs, annex kind)
+    # - the chalkboard A-frame's leaves at their hinge and its chalk faces
     "nitpick B JH canopy, V-struts, annex ticket windows, chalkboard":
         "jhcanopy:jhroof jhcanopy:jhstrut jhcanopy:jhtie col:jhtie jhshoe:jhstrut jhshoe:stonepier jhstrut:jhstrut "
         "annexbase:board annexbase:sill annexbase:tickframe chalkboard:chalkboard",
-    # nitpick B2 (RAMPS): a ramp deck meets its landings / head gratings / head beams / pad end-on and bears on its
-    # columns; the columns stand on the paving (base) and carry the landings and head beams; the railing kit stands on
-    # the decks, landings and pads; the balcony's ledger on the annex cap; the side-area door's storefront in the annex
-    # cap / frame column, its lites on its leaves
+    # nitpick B2 (RAMPS):
+    # - a ramp deck meets its landings / head gratings / head beams / pad end-on and bears on its columns
+    # - the columns stand on the paving (base) and carry the landings and head beams
+    # - the railing kit stands on the decks, landings and pads
+    # - the balcony's ledger on the annex cap
+    # - the side-area door's storefront in the annex cap / frame column, its lites on its leaves
     "nitpick B2 ramps, landings, pads, paving, the side-area door":
         "ramp:landing ramp:pad ramp:grate ramp:post ramp:kick ramp:plaza ramp:plazaunder ramp:deckbeam ramp:rampcol "
         "rampcol:landing rampcol:plaza rampcol:plazaunder rampcol:deckbeam rampbeam:landing annexcap:rampbeam "
@@ -4784,8 +4862,8 @@ CONTACTS = {
         "annexback:annexback annexback:landing annexcap:landing landing:stonecap annexcap:tread "
         "tread:tread annexcap:post",
     # revision 3 (PLINTH_TOP, below grade): the pier, both pads, the ramp columns, the stair posts and the rear caps seated
-    # on the foundation block, the block on its footing slab, the bents' tie girts into the block's line face; the lattice
-    # kit (columns into the pile caps and into their pad footings, girts and X braces into the columns, the X pairs
+    # on the foundation block, the block on its footing slab, the bents' tie girts into the block's line face. Also the
+    # lattice kit (columns into the pile caps and into their pad footings, girts and X braces into the columns, the X pairs
     # crossing, the bottom braces onto the pad footings)
     "revision 3 plinth: foundation block, footing slab, lattice bents":
         "found:plinth found:found found:pad found:rampcol found:stairpost footing:found found:latgirt "
@@ -4798,8 +4876,8 @@ CONTACTS = {
 }
 CONTACT_KINDS = {tuple(sorted(tok.split(":"))): why for why, toks in CONTACTS.items()
                  for tok in toks.split()}
-# Exact part pairs that intersect and are NOT designed: open findings the C14 report lists on
-# every build (owner: the station generator; the base was not re-exported in revision 1b).
+# Exact part pairs that intersect and are NOT designed: open findings the C14 report lists on every build (owner: the station
+# generator, the base was not re-exported in revision 1b).
 KNOWN_OPEN = {
     ("mplatpost_2", "stonecap"): "F2 (revision1-check-tram-stations): moving platform 0.05 m "
                                  "into the stone-cap nose",
@@ -4810,11 +4888,10 @@ KNOWN_OPEN = {
     ("bwshaft", "sgtie"): "top --no-wheels only (not shipped): the return-wheel shaft passes "
                           "through the saddle tie",
 }
-# The operator hut (top): every part but the hut group and the cap it stands on stays OUTSIDE the
-# hut group's boxes (box distance, so a member wholly inside the open-bottom hut reads 0 - the
-# triangle test cannot see that); the bullwheel frame keeps 0.30 (F1). First matching prefix.
-# Measured revision 1b: svcpost_1 0.10 behind the roof drip, the cap railing 0.22 in front.
-# Revision 2: `lamp_hut` is gone (a vanilla wall-light row).
+# The operator hut (top): every part but the hut group and the cap it stands on stays OUTSIDE the hut group's boxes (box
+# distance, so a member wholly inside the open-bottom hut reads 0 - the triangle test cannot see that). The bullwheel frame
+# keeps 0.30 (F1). First matching prefix. Measured revision 1b: svcpost_1 0.10 behind the roof drip, the cap railing 0.22 in
+# front. Revision 2: `lamp_hut` is gone (a vanilla wall-light row).
 HUT_GROUP = ("hut", "door_hut_", "drip_hutroof_")
 # detail pass 1 (skeptic MC8): the hut-mounted dressing sits ON the hut walls by design - the name
 # board, the tension gauge, the extinguisher, the hose reel, the scraper + shovel leaning on it
@@ -4864,14 +4941,14 @@ def _box_dist(P, lo, hi):
 
 def check_part_clashes(obj, role):
     """C14 (revision 1b). On the joined, oriented LOD0:
-      clash     - for every pair of parts whose boxes overlap, a BVH triangle-pair test; a pair
-                  that intersects must be a declared contact (CONTACTS by kind) or a listed
-                  open finding (KNOWN_OPEN, exact names), else FAIL;
-      contained - an undeclared part whose box lies inside another part's box must not sit
-                  inside that part's CLOSED volume (ray parity; no triangle pair can see it);
-      hut       - (top) every part but the hut group and its declared neighbors keeps
-                  HUT_CLEAR from the hut group's boxes (sampled every 0.02 m both ways).
-    Returns the report; raises ContractError("C14 ...") on any violation."""
+    - clash: for every pair of parts whose boxes overlap, a BVH triangle-pair test. A pair that intersects must be a declared
+      contact (CONTACTS by kind) or a listed open finding (KNOWN_OPEN, exact names), else FAIL.
+    - contained: an undeclared part whose box lies inside another part's box must not sit inside that part's CLOSED volume
+      (ray parity: no triangle pair can see it).
+    - hut: (top) every part but the hut group and its declared neighbors keeps HUT_CLEAR from the hut group's boxes (sampled
+      every 0.02 m both ways).
+
+    Returns the report. Raises ContractError("C14 ...") on any violation."""
     from mathutils.bvhtree import BVHTree
     pf, parts = _part_tris(obj)
     names = sorted(parts)
@@ -4994,8 +5071,8 @@ def check_part_clashes(obj, role):
     return rep
 
 # --------------------------------------------------------------------------------------
-# C15 platform reachability (revision 1c; fourth look 2026-10-11: "every walkable platform
-# on a station must be reachable from grade by a stair or ladder" - a contract, not a visual check)
+# C15 platform reachability (revision 1c, fourth look 2026-10-11: "every walkable platform on a station must be reachable
+# from grade by a stair or ladder" - a contract, not a visual check)
 # --------------------------------------------------------------------------------------
 # Walkable surfaces = the up-facing tops of these parts: grating plates (a `_lip` is the grating's
 # rim, not a surface), decks, edge strips, landings, the top's plinth deck. Nitpick B3: and the annex
@@ -5004,11 +5081,11 @@ def check_part_clashes(obj, role):
 # roofs, lids, beams, footings. A railing post must stand on a
 # walkable surface or a stair flight, so a railed platform cannot escape the test by its name.
 WALK_PREFIXES = ("deck_", "edgestrip_", "grate_", "landing_", "plinthcap", "pad_")   # pad_: nitpick B2 (C15b)
-# Detail pass 1 (revision1c-check-tram-stair N2 / skeptic MC2): NOT walkable by design, each with its
-# reason. C15 discovers every part whose top a person could stand on (C15_STAND: an up-facing top of
-# >= 1 m2, >= 0.60 m up, >= 0.45 m across, with a 0.30 m body clear for 1.80 m above at least one
-# point): it must be a walkable surface (WALK_PREFIXES) or listed here, else C15 FAILS ("undeclared
-# standable surface") - a new unrailed platform cannot slip in by its name. Longest prefix wins.
+# Detail pass 1 (revision1c-check-tram-stair N2 / skeptic MC2): NOT walkable by design, each with its reason. C15 discovers
+# every part whose top a person could stand on (C15_STAND: an up-facing top of >= 1 m2, >= 0.60 m up, >= 0.45 m across, with
+# a 0.30 m body clear for 1.80 m above at least one point). Each such part must be a walkable surface (WALK_PREFIXES) or
+# listed here, else C15 FAILS ("undeclared standable surface"). So a new unrailed platform cannot slip in by its name.
+# Longest prefix wins.
 NOT_WALKABLE = (
     ("stonecap", "the slab under the boarding decks: where it is open (the lobby, 1.1 m below the decks"
                  " behind the dark glazing, and the two cabin berth pits under the parked cabins) it is a"
@@ -5054,10 +5131,10 @@ C15 = {
     "grade": 0.30,         # ... or on the ground: end height <= this
     "level": 0.05,         # two surfaces within this height ...
     "gap": 0.40,           # ... and this plan gap are one walking area (a door sill / glazing line)
-    "clear": 0.61,         # stair clear width; ladder corridor width and climbing-side depth (24 in)
+    "clear": 0.61,         # stair clear width, ladder corridor width and climbing-side depth (24 in)
     "headroom": 2.03,      # clear above every tread (6 ft 8 in)
     "rise": (0.10, 0.24),  # riser range (OSHA 1910.25: <= 9.5 in)
-    "going": 0.10,         # minimum going (a regular flight; the top's 45 deg maintenance stair has 0.178)
+    "going": 0.10,         # minimum going (a regular flight, the top's 45 deg maintenance stair has 0.178)
     "pitch": 0.36,         # maximum rung pitch (OSHA 1910.23: 10-14 in)
     "first": 0.40,         # first rung above the ladder foot, at most
     "post_on": 0.10,       # railing post foot to its surface (plan), height within `level`
@@ -5157,8 +5234,8 @@ def walk_flights(pf, parts):
 
 RAMP_DECK_RE = r"ramp_([A-Za-z0-9]+)"     # nitpick B2: a ramp's deck plate (its rails are the handrail kit's)
 WALK_PADS = ("pad_",)                     # nitpick B2: concrete pads a ramp ends on (C15b)
-# nitpick B2: the ramps' own landings - a join of one of these crosses >= RAMP crossing (0.70; the older C15 joins keep
-# C15 clear 0.61: the -X gangway mouth onto the plinth cap measures 0.696)
+# nitpick B2: the ramps' own landings - a join of one of these crosses >= RAMP crossing (0.70, the older C15 joins keep C15
+# clear 0.61: the -X gangway mouth onto the plinth cap measures 0.696)
 RAMP_LANDINGS = ("landing_turn", "landing_rtop", "landing_balc", "grate_headR", "pad_")
 
 
@@ -5284,12 +5361,11 @@ def _clip_poly(poly, ax, lo, hi):
 
 
 def join_crossing(a, b, surf, T_all, N_all, T_lo, T_hi, names):
-    """Detail pass 1 (revision1c-check-tram-stair N1): the clear crossing between two joined walkable
-    surfaces. The band straddles their shared boundary C15_JOIN depth into each, from level + foot to
-    level + head (doors open: their leaves, lites and bars are not obstacles); every foreign triangle in
-    it blocks its extent along the boundary. The join holds when a C15 clear wide free stretch has its
-    center over the shared boundary. A surface narrower than C15 clear (an edge strip) is part of its
-    neighbor's walking area, not a hand-off: exempt. Returns the join report."""
+    """Detail pass 1 (revision1c-check-tram-stair N1): the clear crossing between two joined walkable surfaces. The band
+    straddles their shared boundary C15_JOIN depth into each, from level + foot to level + head (doors open: their leaves,
+    lites and bars are not obstacles). Every foreign triangle in it blocks its extent along the boundary. The join holds when
+    a C15 clear wide free stretch has its center over the shared boundary. A surface narrower than C15 clear (an edge strip)
+    is part of its neighbor's walking area, not a hand-off: exempt. Returns the join report."""
     sa, sb = surf[a], surf[b]
     clear = C15["clear"]
     if min(s[k][1] - s[k][0] for s in (sa, sb) for k in ("x", "z")) < clear - 1e-9:
@@ -5345,9 +5421,9 @@ def join_crossing(a, b, surf, T_all, N_all, T_lo, T_hi, names):
 
 
 def standable_parts(pf, parts, names, T_all, N_all, T_lo, T_hi):
-    """Detail pass 1 (revision1c-check-tram-stair N2): every part, other than the walkable surfaces,
-    whose up-facing top a person could stand on (C15_STAND thresholds; a body box clear above at least
-    one sample point of its top). {part: {"y", "area", "at"}}."""
+    """Detail pass 1 (revision1c-check-tram-stair N2): every part, other than the walkable surfaces, whose up-facing top a
+    person could stand on (C15_STAND thresholds, a body box clear above at least one sample point of its top). {part: {"y",
+    "area", "at"}}."""
     from mathutils.bvhtree import BVHTree
     st = C15_STAND
     own_of = np.asarray(N_all)
@@ -5421,19 +5497,17 @@ def _not_walkable_reason(name):
 
 def check_reachability(obj, role):
     """C15 (revision 1c). On the joined, oriented LOD0:
-      surfaces - every walkable surface (WALK_PREFIXES) is a node; surfaces within C15 level / gap
-                 are one walking area;
-      flights  - a stair flight (its treads) is an edge when its head and foot each land within
-                 C15 land of a surface (or the foot on the ground), its risers / goings are regular,
-                 its clear width >= C15 clear and the headroom above every tread holds no foreign
-                 triangle;
-      ladders  - a fixed ladder is an edge when its rail foot and its top rung land on surfaces (or
-                 the ground), the rung pitch <= C15 pitch, the first rung <= C15 first above the foot
-                 and its climbing corridor (C15 clear wide, C15 clear deep on the side away from the
-                 surface it arrives on, foot + 0.10 .. top rung + 1.0) holds no foreign triangle;
-      graph    - every surface is joined to the ground (breadth-first from grade);
-      railings - every railing-kit post stands on a walkable surface or on a flight.
-    Returns the report; raises ContractError("C15 ...") on any violation."""
+    - surfaces: every walkable surface (WALK_PREFIXES) is a node. Surfaces within C15 level / gap are one walking area.
+    - flights: a stair flight (its treads) is an edge when its head and foot each land within C15 land of a surface (or the
+      foot on the ground), its risers / goings are regular, its clear width >= C15 clear and the headroom above every tread
+      holds no foreign triangle.
+    - ladders: a fixed ladder is an edge when its rail foot and its top rung land on surfaces (or the ground), the rung pitch
+      <= C15 pitch, the first rung <= C15 first above the foot and its climbing corridor (C15 clear wide, C15 clear deep on
+      the side away from the surface it arrives on, foot + 0.10 .. top rung + 1.0) holds no foreign triangle.
+    - graph: every surface is joined to the ground (breadth-first from grade).
+    - railings: every railing-kit post stands on a walkable surface or on a flight.
+
+    Returns the report. Raises ContractError("C15 ...") on any violation."""
     pf, parts = _part_tris(obj)
     names = sorted(parts)
     surf = walk_surfaces(pf, parts)
@@ -5635,10 +5709,10 @@ def check_reachability(obj, role):
                 if a != b:
                     adj[a].add(b)
                     adj[b].add(a)
-    # -- C15b (nitpick B2; DECISIONS 166 as amended): on a station with the NO-LEVEL terraform override the player
-    # molds the terrain up to the lot, so a concrete pad that a ramp ends on, standing on the grade, with its face
-    # BEYOND the ramp's foot at the lot edge (within C15B edge of the lot line: the walker steps off it onto the molded
-    # terrain) counts as grade. Every other station (and a pad off the edge, or one no ramp ends on) keeps C15 literal
+    # -- C15b (nitpick B2, DECISIONS 166 as amended): on a station with the NO-LEVEL terraform override the player molds the
+    # terrain up to the lot, so a concrete pad that a ramp ends on, standing on the grade, with its face BEYOND the ramp's
+    # foot at the lot edge (within C15B edge of the lot line: the walker steps off it onto the molded terrain) counts as
+    # grade. Every other station (and a pad off the edge, or one no ramp ends on) keeps C15 literal
     rep_b = {}
     W_, D_ = lot_cells(role)
     hx_, hz_ = 4.0 * W_, 4.0 * D_
@@ -5920,15 +5994,16 @@ def check_reachability(obj, role):
 
 
 def check_subobjects(obj, role):
-    """C16 (detail pass 1, skeptic MC10: box-test every sub-object footprint). For each SUBOBJ_ROWS
-    entry, the vanilla placeholder's variant-UNION box (cs2_liftdress.subobj_box; e.g. the park light's
-    v03 arm to +0.83, the warning light's 1.95 m v02) at its pose:
-      clear   - shrunk 0.01 m it holds no station triangle;
-      carrier - it stays out of the C4 carrier zones (cabin body, hanger ring, carriage);
-      lot     - it stays inside the lot in plan;
-      support - grade / deck / beam: a surface (or the grade, y 0) <= 0.03 m under its origin; wall:
-                a face <= 0.05 m behind it; ceiling: a face <= 0.03 m above it.
-    Returns {"rows", "block"} (block = the surgery manifest rows); raises ContractError("C16 ...")."""
+    """C16 (detail pass 1, skeptic MC10: box-test every sub-object footprint). For each SUBOBJ_ROWS entry, the vanilla
+    placeholder's variant-UNION box (cs2_liftdress.subobj_box, e.g. the park light's v03 arm to +0.83, the warning light's
+    1.95 m v02) at its pose must pass these checks:
+    - clear: shrunk 0.01 m it holds no station triangle.
+    - carrier: it stays out of the C4 carrier zones (cabin body, hanger ring, carriage).
+    - lot: it stays inside the lot in plan.
+    - support: grade / deck / beam: a surface (or the grade, y 0) <= 0.03 m under its origin. wall: a face <= 0.05 m behind
+      it. ceiling: a face <= 0.03 m above it.
+
+    Returns {"rows", "block"} (block = the surgery manifest rows). Raises ContractError("C16 ...")."""
     from mathutils.bvhtree import BVHTree
     LD = _LD()
     tri, tnames = triangles(obj)
@@ -5976,10 +6051,10 @@ def check_subobjects(obj, role):
         rows.append(r)
     if msgs:
         _fail("C16", "; ".join(msgs))
-    # x-sign gate N (2026-10-15 playtest; T14 / S1b-N 2026-10-16): everything above is the DESIGN (prefab-numbers)
-    # frame, X = FBX-raw x, which the game negates on import. The manifest block is the GAME frame: rule T
-    # (x -> -x, q -> (qx, -qy, -qz, qw); cs2_liftdress.rule_t_pos / rule_t_rot, fine_detail.design_row_to_game).
-    # r["pos"] / r["rot"] in the report rows stay design-frame (the box tests above run in it).
+    # x-sign gate N (2026-10-15 playtest, T14 / S1b-N 2026-10-16): everything above is the DESIGN (prefab-numbers) frame, X =
+    # FBX-raw x, which the game negates on import. The manifest block is the GAME frame: rule T (x -> -x, q -> (qx, -qy, -qz,
+    # qw), cs2_liftdress.rule_t_pos / rule_t_rot, fine_detail.design_row_to_game). r["pos"] / r["rot"] in the report rows
+    # stay design-frame (the box tests above run in it).
     vrows = [(r["prefab"], LD.rule_t_pos(r["pos"]), LD.rule_t_rot(r["rot"]), r["parent"]) for r in rows]
     kit = fd_kit_rows(role)
     if FINE_DETAIL and DETAIL1:
@@ -6025,18 +6100,17 @@ def cabin_door_geometry():
 
 
 def check_gate_door(obj, role):
-    """C17 (revision 1e; revision2-check-tram-cabin section C): gate span vs cabin door. On the joined,
-    oriented LOD0, for each of the four berth edges (GATE_EDGES) - the cabin docks on both sides of both
-    bays, doors on both long sides (R29) - the `gatepost_<e>_<i>` / `gate_<e>_<i>` parts must leave the
-    door span clear:
-      center  - the door center (the cabin's hosted z, from lift_cabin.py and its manifest) is DOCK_Z;
-      inside  - no post and no leaf has z overlap with the door span (center -+ x_out, 1.70 m): a part
-                standing in front of a door FAILS (the 1d base post at -6.20, the 1d top post at -5.60);
-      opening - the clear gap round the door, from the nearest part below to the nearest part above, is
-                >= C17_OPEN_MIN (1.70 m) wide, is bounded by a POST each side, and is centered on the door
-                seam within C17_CENTRE_TOL, and the leaf each side of it is at least half the opening
-                long, so the parked leaf pair can close on the seam.
-    Returns the report {"door", "edges": {e: ...}}; raises ContractError("C17 ...")."""
+    """C17 (revision 1e, revision2-check-tram-cabin section C): gate span vs cabin door. On the joined, oriented LOD0, for each
+    of the four berth edges (GATE_EDGES) - the cabin docks on both sides of both bays, doors on both long sides (R29) - the
+    `gatepost_<e>_<i>` / `gate_<e>_<i>` parts must leave the door span clear:
+    - center: the door center (the cabin's hosted z, from lift_cabin.py and its manifest) is DOCK_Z.
+    - inside: no post and no leaf has z overlap with the door span (center -+ x_out, 1.70 m). A part standing in front of a
+      door FAILS (the 1d base post at -6.20, the 1d top post at -5.60).
+    - opening: the clear gap around the door, from the nearest part below to the nearest part above, is >= C17_OPEN_MIN (1.70
+      m) wide, is bounded by a POST each side, and is centered on the door seam within C17_CENTRE_TOL. The leaf on each side
+      of it is at least half the opening long, so the parked leaf pair can close on the seam.
+
+    Returns the report {"door", "edges": {e: ...}}. Raises ContractError("C17 ...")."""
     door = cabin_door_geometry()
     c, half = door["centre"], door["half"]
     msgs = []
@@ -6110,25 +6184,25 @@ def check_gate_door(obj, role):
 
 
 # --------------------------------------------------------------------------------------
-# Revision 2: C18 / C18b see-through (walk-around back-face first hits, closed rims) and C19 shimmer
-# (visible same-facing exact coplanar overlaps). Measured on the 1e builds first (design 1.1 / 1.2, skeptic
-# MC8 baselines; build/tram-stations-rev2.md section 4): top LOD0 3,798 back hits of 482,292, LOD1 1,723,
-# LOD2 196; base 565 / 74 / 61 - the open rims, drips, the clock-tower base and the render panel.
+# Revision 2: C18 / C18b see-through (walk-around back-face first hits, closed rims) and C19 shimmer (visible same-facing
+# exact coplanar overlaps). Measured on the 1e builds first (design 1.1 / 1.2, skeptic MC8 baselines,
+# build/tram-stations-rev2.md section 4): top LOD0 3,798 back hits of 482,292, LOD1 1,723, LOD2 196, base 565 / 74 / 61 - the
+# open rims, drips, the clock-tower base and the render panel.
 # --------------------------------------------------------------------------------------
 
-# The walk-around camera set (design 1.1): pinhole cameras aimed at the station's sphere, azimuth 0-345 step 15,
-# per LOD a distance / elevation set and a ray grid; a ray whose FIRST hit is a back face (winding normal . ray
-# > 0) shows what lies behind that face in game (back-face culling).
+# The walk-around camera set (design 1.1): pinhole cameras aimed at the station's sphere, azimuth 0-345 step 15, per LOD a
+# distance / elevation set and a ray grid. A ray whose FIRST hit is a back face (winding normal . ray > 0) shows what lies
+# behind that face in game (back-face culling).
 C18_WALK = {"top": ((0.0, 13.5, 0.0), 19.0), "base": ((1.8, 11.0, 0.0), 22.0)}
 C18_LEVELS = {0: {"dists": (45.0, 90.0, 160.0), "elevs": (12, 25, 40, 55, 70), "n": 72, "max": 5},
               1: {"dists": (160.0, 260.0), "elevs": (25, 45, 65), "n": 64, "max": 3},
               2: {"dists": (400.0,), "elevs": (25, 45), "n": 48, "max": 3}}
 C18_AZ = tuple(range(0, 360, 15))
-# Known single-sided parts C18 reports but does not fail (exact owner and reason; the C14 KNOWN_OPEN pattern): the
-# A-frame KIT rack's gear (cs2_bldg._ski_pair_into / _board_into build ONE-sided top sheets and bases, 3 cm
-# apart; seen edge-on from behind a strip shows what lies behind it). The tram must carry the kit's rack
-# unchanged (design D1: one rack look project-wide, names + tris identical); the L1 / L2 / school / L5 racks
-# are the same. Owner: the kit (cs2_bldg), build/tram-stations-rev2.md open items.
+# Known single-sided parts C18 reports but does not fail (exact owner and reason, the C14 KNOWN_OPEN pattern): the A-frame
+# KIT rack's gear (cs2_bldg._ski_pair_into / _board_into build ONE-sided top sheets and bases, 3 cm apart. Seen edge-on from
+# behind, a strip shows what lies behind it). The tram must carry the kit's rack unchanged (design D1: one rack look
+# project-wide, names + tris identical). The L1 / L2 / school / L5 racks are the same. Owner: the kit (cs2_bldg),
+# build/tram-stations-rev2.md open items.
 C18_KNOWN = {r"^skirack_[a-z0-9]+g[A-Z]+$": "cs2_bldg ski gear strips are single-sided (kit trait; owner cs2_bldg)"}
 C19_FAIL_CM2 = 25.0                 # per part pair, visible
 C19_LIST_CM2 = 1.0                  # every pair at least this big is listed in the manifest (C19.all)
@@ -6220,12 +6294,12 @@ def open_rim_edges(tri, names):
 
 
 def check_see_through(obj, role, level=0):
-    """C18 (revision 2, design 5 / skeptic MC1 + MC8): on the joined, oriented mesh of LOD `level` (after the
-    `_Win` split), the walk-around set of C18_LEVELS[level]; FAIL when any part's first hit is a back face on
-    more than C18_LEVELS[level]["max"] rays (LOD0 5, LOD1 / LOD2 3), naming the part, the count, its y band,
-    the rays that see sky through it and the views. C18b (LOD0): every `*rim*` part is closed (0 boundary
-    edges) - it names the cause before the walk. Returns (report, walk) - walk carries the eyes + BVH that C19
-    reuses; raises ContractError("C18b ..." / "C18 ...")."""
+    """C18 (revision 2, design 5 / skeptic MC1 + MC8): on the joined, oriented mesh of LOD `level` (after the `_Win` split), the
+    check runs the walk-around set of C18_LEVELS[level]. It FAILS when any part's first hit is a back face on more than
+    C18_LEVELS[level]["max"] rays (LOD0 5, LOD1 / LOD2 3). The failure names the part, the count, its y band, the rays that
+    see sky through it and the views. C18b (LOD0): every `*rim*` part is closed (0 boundary edges). It names the cause before
+    the walk. Returns (report, walk): walk carries the eyes + BVH that C19 reuses. Raises ContractError("C18b ..." / "C18
+    ...")."""
     tri, names = triangles(obj)
     bvh = _tri_bvh(tri)
     msgs, code = [], "C18"
@@ -6250,9 +6324,9 @@ def check_see_through(obj, role, level=0):
 
 
 def kit_key(name):
-    """C19 exemption (design 5): the parts of ONE kit builder call share a key - a handrail (post_ / rail_ /
-    kick_<n>_*), a grating and its lip, a sheave (rim + hub, renamed ones too), a ski rack, a door kit, one
-    cs2_liftdress dressing builder; None for everything else."""
+    """C19 exemption (design 5): the parts of ONE kit builder call share a key - a handrail (post_ / rail_ / kick_<n>_*), a
+    grating and its lip, a sheave (rim + hub, renamed ones too), a ski rack, a door kit, one cs2_liftdress dressing builder.
+    Everything else gets None."""
     pats = ((r"^(?:post|rail|kick)_(.+)_[^_]+$", "rail"), (r"^grate_(.+?)(?:_lip)?$", "grate"),
             (r"^sheave_(.+)_(?:rim|hub)$", "sheave"), (r"^(?:fs|bwd)(?:rim|hub)_(\w+)$", "sheave"),
             (r"^skirack_([a-z0-9]+?)(?:g[A-Z]+)?$", "rack"),
@@ -6266,10 +6340,10 @@ def kit_key(name):
 
 
 def coplanar_pairs(tri, names, ang_deg=1.0, tol=0.0005, min_m2=1e-5):
-    """Same-facing exact coplanar overlap per part pair (the tram_tower.coplanar_overlaps tolerances: normals within
-    1 deg, both planes within 0.5 mm on the clipped overlap polygon, area > 0.1 cm2; triangles sharing an edge
-    skipped), candidates bucketed by normal. Labels come from the in-process part table (skeptic MC2: never by
-    nearest triangle). {(part_a, part_b): {"cm2", "polys": [(area, 3D polygon)], "n"}}."""
+    """Same-facing exact coplanar overlap per part pair (the tram_tower.coplanar_overlaps tolerances: normals within 1 deg, both
+    planes within 0.5 mm on the clipped overlap polygon, area > 0.1 cm2, triangles sharing an edge skipped), candidates
+    bucketed by normal. Labels come from the in-process part table (skeptic MC2: never by nearest triangle). {(part_a,
+    part_b): {"cm2", "polys": [(area, 3D polygon)], "n"}}."""
     P = tri
     fn = np.cross(P[:, 1] - P[:, 0], P[:, 2] - P[:, 0])
     ln = np.linalg.norm(fn, axis=1)
@@ -6356,9 +6430,9 @@ def _clip_convex2(subj, clipper):
 
 
 def overlap_visible(bvh, eyes, polys, n, tol=0.003, max_polys=6):
-    """Skeptic S2: an overlap is visible when a walk eye on its front side sees a sample point INSIDE the overlap
-    polygons (the centroid and 5 / 10 of the way to each vertex of the largest polygons) unoccluded; a pair hidden
-    in a closed volume (the clock shaft under the stage) then reports without failing."""
+    """Skeptic S2: an overlap is visible when a walk eye on its front side sees a sample point INSIDE the overlap polygons (the
+    centroid and 5 / 10 of the way to each vertex of the largest polygons) unoccluded. A pair hidden in a closed volume (the
+    clock shaft under the stage) then reports without failing."""
     pts = []
     for _a, Q in sorted(polys, key=lambda t: -t[0])[:max_polys]:
         c = Q.mean(axis=0)
@@ -6377,10 +6451,10 @@ def overlap_visible(bvh, eyes, polys, n, tol=0.003, max_polys=6):
 
 
 def check_coplanar(obj, role, walk=None):
-    """C19 (revision 2, design 5 as amended by the skeptic's MC2 / S2): same-facing exact coplanar overlap > 25 cm2
-    per part pair FAILS when it is visible from the C18 LOD0 walk eyes (overlap_visible). Pairs whose parts come
-    from ONE kit builder call (kit_key; a part with itself) are exempt and reported (`kit`); every pair >= 1 cm2
-    is listed (`all`). Returns the report; raises ContractError("C19 ...")."""
+    """C19 (revision 2, design 5 as amended by the skeptic's MC2 / S2): same-facing exact coplanar overlap > 25 cm2 per part
+    pair FAILS when it is visible from the C18 LOD0 walk eyes (overlap_visible). Pairs whose parts come from ONE kit builder
+    call (kit_key, a part with itself) are exempt and reported (`kit`). Every pair >= 1 cm2 is listed (`all`). Returns the
+    report. Raises ContractError("C19 ...")."""
     if walk is None:
         tri, names = triangles(obj)
         bvh = _tri_bvh(tri)
@@ -6427,8 +6501,8 @@ def check_hygiene(obj):
 
 
 def stub_table(role=None):
-    """The four line stubs (track +-TRACK_X, haul +-HAUL_X) in the PREFAB frame of `role` (nitpick B2: the RAMPS base's
-    x - 4.00; None = the design frame = the top)."""
+    """The four line stubs (track +-TRACK_X, haul +-HAUL_X) in the PREFAB frame of `role` (nitpick B2: the RAMPS base's x -
+    4.00, None = the design frame = the top)."""
     out = []
     dx = frame_dx(role) if role else 0.0
     for n, (kind, x, y) in enumerate((("track", -TRACK_X, TRACK_Y), ("track", TRACK_X, TRACK_Y),
@@ -6513,7 +6587,7 @@ def prefab_contract(role, report, atlas_rule, base_report, switch):
         "lod_switch_m": switch,
     }
     if base_mode(role) == "plinth":
-        # revision 3 (plinth mode, the L4 sheet): no engine base by design; what the surgery writes
+        # revision 3 (plinth mode, the L4 sheet): no engine base by design. What the surgery writes
         out["engine_base"]["mode"] = "plinth"
         out["base_mode"] = "plinth"
         out["plinth"] = {
@@ -6550,10 +6624,10 @@ def area_weighted_median(vals, weights):
 
 
 def measure_density(t, A, margin, share=None, w1=False):
-    """Pack a COPY at A and return the area-weighted shipped median px/m (contract 7.4) and the
-    surface; `share` = the bake's bay-sharing list (detail pass 1: the same list the bake packs with);
-    w1=True also returns the w = 1 density (area-weighted median of px/m / density weight: every
-    island gets the same global pack scale, so this is the px/m a weight-1 face ships at)."""
+    """Pack a COPY at A and return the area-weighted shipped median px/m (contract 7.4) and the surface. `share` = the bake's
+    bay-sharing list (detail pass 1: the same list the bake packs with). w1=True also returns the w = 1 density
+    (area-weighted median of px/m / density weight: every island gets the same global pack scale, so this is the px/m a
+    weight-1 face ships at)."""
     cp = t.copy()
     cp.data = t.data.copy()
     bpy.context.collection.objects.link(cp)
@@ -6577,10 +6651,9 @@ def measure_density(t, A, margin, share=None, w1=False):
 
 
 def label_weights(t, table, A, margin, share):
-    """Detail pass 1 (design 5.4): every label's density weight w = ceil(1.05 target / w1, 0.25) from
-    the pre-bake w = 1 density of a packed copy (same share), written onto its faces; L1 / L2 are then
-    asserted on the shipped layout (label_density). Below LABEL_MIN_ATLAS (tests) the starting
-    weight stays and nothing is asserted."""
+    """Detail pass 1 (design 5.4): every label's density weight w = ceil(1.05 target / w1, 0.25) from the pre-bake w = 1 density
+    of a packed copy (same share), written onto its faces. L1 / L2 are then asserted on the shipped layout (label_density).
+    Below LABEL_MIN_ATLAS (tests) the starting weight stays and nothing is asserted."""
     names = [n for n in sorted(LABEL_KINDS) if n in table]
     if not names:
         return {}
@@ -6636,8 +6709,8 @@ DENSITY_HIDDEN = ("cwshaft", "drivehouse", "rope", "bwshaft", "bwhub", "ladder",
 
 
 def density_classes(t, table, A):
-    """Shipped texel density by part kind (part_kind): area-weighted RMS px/m, surface, weight; the
-    w = 1 density; the visible kinds under 14 px/m with >= 0.5 m2 (R23 floor, design 1.2 / 8)."""
+    """Shipped texel density by part kind (part_kind): area-weighted RMS px/m, surface, weight. Also the w = 1 density and the
+    visible kinds under 14 px/m with >= 0.5 m2 (R23 floor, design 1.2 / 8)."""
     me = t.data
     dens = cs2_uv.face_px_per_m(me, me.uv_layers[cs2_uv.UNIQUE_LAYER], A)
     area = cs2_uv.face_world_areas(me)
@@ -6675,10 +6748,9 @@ def _lin(srgb):
 
 
 def paint_tram_pictogram(rect, base, ctl):
-    """Red disc (slot 3: light albedo, ControlMask B 1) with a white tram cabin hanging from two
-    rope lines over three peaks, painted v-up (rows = v): the label faces' UVs are re-projected
-    upright after the smart project (orient_label_uvs) and asserted upright on the shipped
-    layout (C13) - smart_project had rotated the first build's disc 90 deg left (verdict 10)."""
+    """Red disc (slot 3: light albedo, ControlMask B 1) with a white tram cabin hanging from two rope lines over three peaks,
+    painted v-up (rows = v). orient_label_uvs re-projects the label faces' UVs upright after the smart project, and C13
+    asserts them upright on the shipped layout. smart_project had rotated the first build's disc 90 deg left (verdict 10)."""
     hgt, wid = base.shape[0], base.shape[1]
     v, u = np.meshgrid((np.arange(hgt) + 0.5) / hgt, (np.arange(wid) + 0.5) / wid, indexing="ij")
     du, dv = u - 0.5, v - 0.5
@@ -6705,11 +6777,11 @@ TRAIL_INK = {"green_circle": (0.12, 0.55, 0.22), "blue_square": (0.08, 0.30, 0.7
 
 
 def trail_board_painter(kind, size_m):
-    """Revision 2 (D4, ruling Q7: difficulty symbols + arrows only): a cs2_compose.stamp_on_face painter for a
-    trail board, kind "trail:<symbol>:<arrow>". White field with a dark 12 mm border, the difficulty symbol
-    (green circle / blue square / black diamond, ~0.17 m) at the left, a bold arrow (shaft 0.05 m, head 0.12 m)
-    pointing left or right beside it; painted v-up in meters on the label (rows = v, u = the viewer's right:
-    orient_label_uvs, C13); ControlMask 0 over the rect. Metrics on painter.last."""
+    """Revision 2 (D4, ruling Q7: difficulty symbols + arrows only): a cs2_compose.stamp_on_face painter for a trail board, kind
+    "trail:<symbol>:<arrow>". White field with a dark 12 mm border, the difficulty symbol (green circle / blue square / black
+    diamond, ~0.17 m) at the left, a bold arrow (shaft 0.05 m, head 0.12 m) pointing left or right beside it. It is painted
+    v-up in meters on the label (rows = v, u = the viewer's right: orient_label_uvs, C13). ControlMask 0 over the rect.
+    Metrics on painter.last."""
     _t, sym, arrow = kind.split(":")
     W, H = size_m
     ink = np.array([_lin(c) for c in TRAIL_INK[sym]], np.float32)
@@ -6751,12 +6823,12 @@ CLOCK_GLYPH = (0.0, -0.42, 0.56)    # resort glyph center (x, y) and square size
 
 
 def paint_clock_dial(rect, base, ctl):
-    """Detail pass 1 (design TB2): white field, slot-3 ring (red in game), 12 hour bars 0.14 x 0.28 m,
-    a minute track of 48 dots (0.06 m) just outside them, the resort glyph (ski_launcher_glyph.cand_c, the cabins' and sign bands'
-    peak-and-snowflake) in slate blue in the lower half, hands at 10:10 (contract 5.6), all in meters
-    on the 3.0 m plate. Every mark is >= 0.13 m wide (8 texels at the dials' ~61 px/m, design L2)
-    except the minute dots; the 1c dial's 0.06 m ticks and 0.04 m minute hand were 2.5-3.7 texels.
-    The glyph moves from the dial center (design) to the lower half so the 10:10 hands never cross it."""
+    """Detail pass 1 (design TB2): white field, slot-3 ring (red in game), 12 hour bars 0.14 x 0.28 m, a minute track of 48 dots
+    (0.06 m) just outside them, the resort glyph (ski_launcher_glyph.cand_c, the cabins' and sign bands' peak-and-snowflake)
+    in slate blue in the lower half, hands at 10:10 (contract 5.6), all in meters on the 3.0 m plate. Every mark is >= 0.13 m
+    wide (8 texels at the dials' ~61 px/m, design L2) except the minute dots. The 1c dial's 0.06 m ticks and 0.04 m minute
+    hand were 2.5-3.7 texels. The glyph moves from the dial center (design) to the lower half so the 10:10 hands never cross
+    it."""
     hgt, wid = base.shape[0], base.shape[1]
     S = CLOCK_PLATE_M
     v, u = np.meshgrid((np.arange(hgt) + 0.5) / hgt, (np.arange(wid) + 0.5) / wid, indexing="ij")
@@ -6834,7 +6906,7 @@ def make_post_compose(obj, role, table):
             for nm in ("pictodisc", "pictoplinth"):
                 cs2_compose.stamp_on_face(base, ctl, mesh, table, nm, paint_tram_pictogram)
                 hook.stamps[nm] = cs2_compose.uv_bbox_px(mesh, table, nm, A)
-        # detail pass 1: the dressing labels (cs2_liftdress painters; ControlMask 0 under them)
+        # detail pass 1: the dressing labels (cs2_liftdress painters, ControlMask 0 under them)
         for nm in sorted(LABEL_KINDS):
             if nm not in table:
                 continue
@@ -6859,10 +6931,10 @@ def make_post_compose(obj, role, table):
     return hook
 
 
-# Detail pass 1 weathering specs (design 5.6 / 6.5; cs2_liftdress.station_weather_spec adds the
-# DECISIONS 171 defaults: preset station, slot_wear free, snow 0, edge band 0.08). The station's own
-# overrides come FIRST: on an equal prefix cs2_weather keeps the first (chev_ scuff 1.5 over the
-# kit's 1.0). The top's lot is no-level: the grade line is unknown, so the ground mode is "plinth".
+# Detail pass 1 weathering specs (design 5.6 / 6.5, cs2_liftdress.station_weather_spec adds the DECISIONS 171 defaults:
+# preset station, slot_wear free, snow 0, edge band 0.08). The station's own overrides come FIRST: on an equal prefix
+# cs2_weather keeps the first (chev_ scuff 1.5 over the kit's 1.0). The top's lot is no-level: the grade line is unknown, so
+# the ground mode is "plinth".
 TRAM_WEATHER = {
     "base": dict(ground="grade", ground_z=0.0,
                  traffic_extra=("grate_", "mplat", "edgestrip_", "chev_", "stripe_"),
@@ -6891,7 +6963,7 @@ def weather_spec(name, role, intensity):
     traffic = tuple(w["traffic_extra"]) + (NB2_TRAFFIC[role] if RAMPS else ())
     overrides = tuple(w["overrides"]) + ((("ramp_", {"scuff": 1.2}),) if RAMPS else ())
     if PLINTH_TOP and role == "top":
-        # revision 3: the foundation concrete grimes like the footings, never rusts; the lattice is galvanised-steel
+        # revision 3: the foundation concrete grimes like the footings and never rusts. The lattice is galvanized-steel
         # framing like the deck legs (the "plinth" ground mode already gives everything below grade a ground-dirt tone)
         overrides += (("found_", {"grime": 1.3, "rust": 0.0}), ("latpad_", {"grime": 1.3, "rust": 0.0}))
     return LD.station_weather_spec(name, ground=w["ground"], ground_z=w["ground_z"],
@@ -6900,12 +6972,11 @@ def weather_spec(name, role, intensity):
 
 
 class SteppedWeather:
-    """Detail pass 1 weathering (DECISIONS 171 applied: station preset, slot_wear free, no snow; per
-    asset the HIGHEST budget-clean intensity on visible texels). A cs2_bake post_compose hook: runs
-    `inner` (make_post_compose) once, then cs2_weather's layer on fresh copies of inner's maps at each
-    step of cs2_liftdress.INTENSITY_STEPS, upward, until the vanilla proxy budget WARNs; ships the last
-    clean step's maps. Attributes the generator reads (stamps, labels, density, height_range) delegate
-    to `inner`; `report` is the shipped step's weather report, `ladder` every step tried."""
+    """Detail pass 1 weathering (DECISIONS 171 applied: station preset, slot_wear free, no snow, per asset the HIGHEST
+    budget-clean intensity on visible texels). A cs2_bake post_compose hook: runs `inner` (make_post_compose) once, then
+    cs2_weather's layer on fresh copies of inner's maps at each step of cs2_liftdress.INTENSITY_STEPS, upward, until the
+    vanilla proxy budget WARNs. It ships the last clean step's maps. Attributes the generator reads (stamps, labels, density,
+    height_range) delegate to `inner`. `report` is the shipped step's weather report, `ladder` every step tried."""
 
     def __init__(self, inner, spec_at, steps, **hook_kw):
         self.inner = inner
@@ -7106,15 +7177,19 @@ def render_access(t, name, out_dir, role):
     return path
 
 
-# Detail pass 1 close-ups (prefab target, prefab eye, lighting passes): the departure board, the
-# station name board and the gangway mouth (the task's three), plus the TICKETS / LIFT OPS boards,
-# a clock dial, the crane tip and the beacon.
-# Revision 2 adds (design 9 / skeptic MC6 / the orchestrator's brief): the yellow wheel from the berth deck,
-# its BACK from the plinth deck at eye height (JH-12's framing, through the frame-only guard), the wheel from
-# the side at 60 m, the top from 120 m at 45 deg (the walk view that showed the open bore), the trail boards,
-# the 2.2 m gates, a medallion panel, the roof mast; base: the A-frame rack at 8 m, the 4.0 m drive wheel and
-# its deflection sheaves, a medallion panel, the hall's ceiling plates. Every close-up shows the vanilla
-# sub-object rows as semi-transparent stand-in boxes (cs2_subobj's look; lights yellow, seating blue, bins green).
+# Detail pass 1 close-ups (prefab target, prefab eye, lighting passes): the departure board, the station name board and the
+# gangway mouth (the task's three), plus the TICKETS / LIFT OPS boards, a clock dial, the crane tip and the beacon.
+#
+# Revision 2 adds (design 9 / skeptic MC6 / the orchestrator's brief):
+# - the yellow wheel from the berth deck, its BACK from the plinth deck at eye height (JH-12's framing, through the
+#   frame-only guard), the wheel from the side at 60 m, the top from 120 m at 45 deg (the walk view that showed the open
+#   bore), the trail boards, the 2.2 m gates, a medallion panel, the roof mast
+# - base: the A-frame rack at 8 m, the 4.0 m drive wheel and its deflection sheaves, a medallion panel, the hall's ceiling
+#   plates
+#
+# Every close-up shows the vanilla sub-object rows as semi-transparent stand-in boxes (cs2_subobj's look: lights yellow,
+# seating blue, bins green).
+#
 # nitpick B (JH_DETAILS): 10 m shots of the added details (target, eye: |eye - target| = 10.0 m but the 30 m overview)
 CLOSEUP_SHOTS_NB = (
     ("nb_canopy_low_10m", (-3.0, 6.8, 10.6), (-0.5, 2.0, 19.0), ("noon", "dusk")),
@@ -7126,9 +7201,9 @@ CLOSEUP_SHOTS_NB = (
     ("nb_clocktower_side_10m", (17.0, 5.0, 3.0), (25.0, 9.0, 7.5), ("noon",)),
     ("nb_front_30m", (2.0, 8.0, 8.0), (14.0, 16.0, 34.0), ("noon", "dusk")),
 )
-# nitpick B2 (RAMPS): 10 m and 30 m shots of the ramps (DESIGN frame, pf() places them; |eye - target| 10 / 30 m): the
-# base switchback from the clock-tower side (a neighbor's lot) and from the plaza, the balcony at the side-area door,
-# the turn landing; the top ramps from the dock and from below, with the molded-terrain sketch line (_terrain_sketch)
+# nitpick B2 (RAMPS): 10 m and 30 m shots of the ramps (DESIGN frame, pf() places them, |eye - target| 10 / 30 m): the base
+# switchback from the clock-tower side (a neighbor's lot) and from the plaza, the balcony at the side-area door, the turn
+# landing. The top ramps from the dock and from below, with the molded-terrain sketch line (_terrain_sketch)
 CLOSEUP_SHOTS_NB2 = {
     "base": (("nb2_ramp_ctside_10m", (25.5, 2.5, 2.0), (34.5, 6.0, 4.5), ("noon", "dusk")),
              ("nb2_ramp_ctside_30m", (23.5, 3.0, 0.0), (49.5, 16.0, 6.0), ("noon",)),
@@ -7148,7 +7223,7 @@ def _eye(target, toward, dist=10.0):
     return tuple(round(t_ + dist * c / n, 3) for t_, c in zip(target, toward))
 
 
-# nitpick B3 (ANNEX_STAIR): 10 m shots of the annex interior (DESIGN frame; the eye stands inside the annex, between its
+# nitpick B3 (ANNEX_STAIR): 10 m shots of the annex interior (DESIGN frame, the eye stands inside the annex, between its
 # walls and under its roof, the side area's painted glazing behind it): the stair and the doorway from the annex's
 # south-east, and the doorway / landing from the floor beside the foot
 CLOSEUP_SHOTS_NB3 = (
@@ -7207,9 +7282,9 @@ CLOSEUP_SHOTS = {
 
 
 def terrain_sketch_y(z):
-    """Nitpick B2 (the top's previews only; NOT geometry): the molded terrain the top's ramps assume (DESIGN z):
-    the summit plateau at the pads' top behind the station (z >= the pads' back face), a slope down under the ramps to
-    the plinth's foot level at z 0, level to the face, then the cliff on the line side (photos 01 / 05)."""
+    """Nitpick B2 (the top's previews only, NOT geometry): the molded terrain the top's ramps assume (DESIGN z): the summit
+    plateau at the pads' top behind the station (z >= the pads' back face), a slope down under the ramps to the plinth's foot
+    level at z 0, level to the face, then the cliff on the line side (photos 01 / 05)."""
     p1 = TOP_RAMP["pad"][1]
     y_pad = top_ramp_plan()["y_pad"]
     if z >= p1:
@@ -7246,15 +7321,15 @@ def _terrain_sketch(rig, role):
         o.hide_render = False
         out.append(rig.track(o))
     return out
-# revision 3 (PLINTH_TOP): the render-only sketched CLIFF EDGE across the lot (cliff_y; NOT geometry) and the summit case
+# revision 3 (PLINTH_TOP): the render-only sketched CLIFF EDGE across the lot (cliff_y, NOT geometry) and the summit case
 # (cs2_preview's flat ground at y 0, which hides everything below grade). The cliff: the summit plateau at the pads' top
-# behind the station (B2's assumption), a molded bank down to the station's grade in front of the pads, the grade up to
-# the brink at z 0 (the plinth's line face is at -0.50), then a ~49 deg face falling toward the line side
+# behind the station (B2's assumption), a molded bank down to the station's grade in front of the pads, the grade up to the
+# brink at z 0 (the plinth's line face is at -0.50), then a ~49 deg face falling toward the line side
 CLIFF = {"bank": (9.00, 11.60), "slope": 1.15, "floor": -45.0, "half_x": 70.0, "z": (-60.0, 45.0), "step": 0.5}
 
 
 def cliff_y(z):
-    """Revision 3 (the top's cliff previews only; NOT geometry): the sketched terrain height at prefab z (see CLIFF)."""
+    """Revision 3 (the top's cliff previews only, NOT geometry): the sketched terrain height at prefab z (see CLIFF)."""
     b0, b1 = CLIFF["bank"]
     y_pad = top_ramp_plan()["y_pad"]
     if z >= b1:
@@ -7302,8 +7377,8 @@ STANDIN_RGB = (("Light", (1.00, 0.82, 0.18)), ("Bench", (0.25, 0.45, 0.95)), ("T
 
 
 def _closeup_standins(rig, role):
-    """Semi-transparent boxes of the SUBOBJ_ROWS union bounds (cs2_liftdress.subobj_box; cs2_subobj's mesh and
-    material), so the close-ups show where the vanilla lamps / benches / bins go (DECISIONS 183)."""
+    """Semi-transparent boxes of the SUBOBJ_ROWS union bounds (cs2_liftdress.subobj_box, cs2_subobj's mesh and material), so the
+    close-ups show where the vanilla lamps / benches / bins go (DECISIONS 183)."""
     import cs2_subobj as SO
     LD = _LD()
     mats = {}
@@ -7334,9 +7409,9 @@ def _interior_fill(rig, at, energy=1800.0):
 
 
 def render_closeups(t, asset_dir, name, out_dir, role, tint, win=None, only=None):
-    """PBR close-ups (cs2_preview rig, the shipped textures) of CLOSEUP_SHOTS at noon / dusk; the
-    `_Win` panes as render-only dark glass (as lift_terminal_detach.render_closeups). Revision 2: the vanilla
-    sub-object rows render as semi-transparent stand-in boxes (_closeup_standins)."""
+    """PBR close-ups (cs2_preview rig, the shipped textures) of CLOSEUP_SHOTS at noon / dusk. The `_Win` panes render as
+    render-only dark glass (as lift_terminal_detach.render_closeups). Revision 2: the vanilla sub-object rows render as
+    semi-transparent stand-in boxes (_closeup_standins)."""
     import cs2_preview
     os.makedirs(out_dir, exist_ok=True)
     rig = cs2_preview._Rig(t, None)
@@ -7369,7 +7444,7 @@ def render_closeups(t, asset_dir, name, out_dir, role, tint, win=None, only=None
             gnd = cs2_preview._make_ground(rig)
             for vname, tgt, eye, _modes in shots:
                 # revision 3: the r3_cliff* shots stand on the sketched cliff (the flat ground hidden), the other r3_ shots
-                # on the flat summit ground; the B2 terrain sketch lines show on the B2 shots only
+                # on the flat summit ground. The B2 terrain sketch lines show on the B2 shots only
                 on_cliff = cliff is not None and vname.startswith("r3_cliff")
                 gnd.hide_render = on_cliff
                 if cliff is not None:
@@ -7437,8 +7512,8 @@ def check_stage(t, table, name, role, args, report):
     report["F1"] = check_kit_rows(t, role, table)        # fine-detail step 3c ({}, None with FINE_DETAIL off)
     report["C17"] = check_gate_door(t, role)             # revision 1e: every older negative fails first
     c17 = report["C17"]
-    # revision 2: see-through (C18 / C18b on LOD0; LOD1 / LOD2 after the chain in main), shimmer (C19, reusing
-    # the walk's eyes), the wheels to scale (C20, also asserted at build start)
+    # revision 2: see-through (C18 / C18b on LOD0, LOD1 / LOD2 after the chain in main), shimmer (C19, reusing the walk's
+    # eyes), the wheels to scale (C20, also asserted at build start)
     report["C18"], walk = check_see_through(t, role, 0)
     report["C18"] = {"LOD0": report["C18"]}
     report["C19"] = check_coplanar(t, role, walk)
@@ -7564,7 +7639,7 @@ def parse_args(argv=None):
                     help="nitpick B3: with --closeups, render only the shots whose name starts with PREFIX (nb3_)")
     ap.add_argument("--no-fine", dest="no_fine", action="store_true",
                     help="fine-detail step 3c off: the approved revision-2 station byte for byte (FINE_DETAIL)")
-    # T76 (docs/research/art/tram-tile-route-plan-2026-10-18.md; tram_tilesheet.py): off = byte-identical
+    # T76 (docs/research/art/tram-tile-route-plan-2026-10-18.md, tram_tilesheet.py): off = byte-identical
     ap.add_argument("--tiled", action="store_true",
                     help="T76: LOD0 on the station's own swatch sheet (the base folder owns it, the top shares it), "
                          "glass to _Gls, track ropes 6 sides; LOD1 / LOD2 = today's bake as a far set (needs --finish)")
@@ -7638,7 +7713,7 @@ def main(argv=None):
     win, base_report, n0 = check_stage(t, table, name, role, args, report)
     gls = lod0_src = TT = None
     if args.tiled:
-        # T76: the hall glass leaves the main mesh (_Gls, DECISIONS 281); the un-baked copy becomes the sheet LOD0
+        # T76: the hall glass leaves the main mesh (_Gls, DECISIONS 281). The un-baked copy becomes the sheet LOD0
         if args.preview or args.review is not None or args.closeups:
             raise RuntimeError("--tiled R1 builds no previews / review pack / close-ups (T76 round 2)")
         import tram_tilesheet as TT
@@ -7688,9 +7763,9 @@ def main(argv=None):
     lw = label_weights(t, table, A, margin, share) if LD is not None else {}
     compose = make_post_compose(t, role, table)
     if LD is not None and args.weather == "on":
-        # DECISIONS 171: station preset, slot_wear free, no snow, the highest budget-clean intensity on
-        # visible texels; roles by material INDEX (CS2SRC_<key> slots, read before the bake, MC7a);
-        # every painted label / dial protected 1:1 by its exact name (stamped)
+        # DECISIONS 171: station preset, slot_wear free, no snow, the highest budget-clean intensity on visible texels. Roles
+        # by material INDEX (CS2SRC_<key> slots, read before the bake, MC7a). Every painted label / dial is protected 1:1 by
+        # its exact name (stamped).
         roles = LD.lift_mat_roles(t.data, LD.TRAM_MAT_ROLES)
         stamped = sorted(n for n in table if n.startswith(LABEL_PREFIXES))
         compose = SteppedWeather(compose, lambda s: weather_spec(name, role, s),
@@ -7802,8 +7877,8 @@ def main(argv=None):
                 print(f"[tram] LOD{i}: flattened decks turned up {flipped}")
                 report.setdefault("lod_decks_flipped", {})[i] = flipped
             if base_mode(role) == "plinth":
-                # revision 3: the plinth on every LOD (L4 keeps it at LOD1 / LOD2 too: min y -12, nothing on the grade
-                # line, no engine base); closure is asserted on LOD1 (decimation keeps the closed parts), measured on LOD2
+                # revision 3: the plinth on every LOD (L4 keeps it at LOD1 / LOD2 too: min y -12, nothing on the grade line,
+                # no engine base). Closure is asserted on LOD1 (decimation keeps the closed parts), measured on LOD2
                 rp = check_plinth(lod, f"LOD{i}", closed=True) if i == 1 else check_plinth(lod, f"LOD{i}", closed=False)
                 report["C6p"][f"LOD{i}"] = rp
             else:
