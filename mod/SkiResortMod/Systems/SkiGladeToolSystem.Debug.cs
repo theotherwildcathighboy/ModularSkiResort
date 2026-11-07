@@ -2,9 +2,9 @@
 //
 // Tab methods on a ComponentSystemBase run on the live system instance (DebugSystem.cs:996-1024), which is why this file is a
 // partial of the tool. Nothing is registered in Mod.cs.
-// The tab name is load-bearing: AddPanel keys widget lists by tab name and replaces an existing list (DebugSystem.cs:1085-1095),
-// so a second "Ski Resort" tab would wipe ChairPinSystem's tab.
-// DebugUI.Value getters run at 10 Hz: every row reads a plain field, no EntityQuery or job completion; heavy work is a button.
+// The tab name is load-bearing: AddPanel keys widget lists by tab name and replaces an existing list (DebugSystem.cs:1085-1095).
+// So a second "Ski Resort" tab would wipe ChairPinSystem's tab.
+// DebugUI.Value getters run at 10 Hz: every row reads a plain field, no EntityQuery or job completion. Heavy work is a button.
 // Engine notes: EngineNotes/SkiGladeToolSystem.Debug.md
 
 using System;

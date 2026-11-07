@@ -1,9 +1,9 @@
-// Pre-season pass sale: the ticket system's second job. Once per (ski area, season key), at the first ticket tick in which that
-// area's gate is Open in a new season (SkiMoneyRules.SeasonKeyOf), one Burst job rates every resident household of the area's pool
-// and sells passes in bulk; the first-arrival sale in SkiLiftTicketSystem.cs then covers only households not in the pool.
-// Ordering: the standings are components applied on the main thread at the next tick's step 1, so a tick that starts a sale does not
-// drain arrivals (they stay in the counter's pending list, nothing is lost or repeated): a ticket job in the same window could not
-// see the standings and would sell the same household a pass again. Scheduled only with no ticket job in flight.
+// Pre-season pass sale: the ticket system's second job. It runs once per (ski area, season key), at the first ticket tick in which that
+// area's gate is Open in a new season (SkiMoneyRules.SeasonKeyOf). One Burst job rates every resident household of the area's pool
+// and sells passes in bulk. The first-arrival sale in SkiLiftTicketSystem.cs then covers only households not in the pool.
+// Ordering: the main thread applies the standings as components at the next tick's step 1. So a tick that starts a sale does not
+// drain arrivals. They stay in the counter's pending list, and nothing is lost or repeated. A ticket job in the same window could not
+// see the standings and would sell the same household a pass again. The system schedules a sale only with no ticket job in flight.
 // Engine notes: EngineNotes/SkiLiftTicketSystem.Presale.md
 
 using System;
@@ -27,7 +27,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiLiftTicketSystem
     {
-        /// <summary>The sale's totals (the job writes one; ApplySale reads it). Offered = rolled in (Bought + CannotPay).</summary>
+        /// <summary>The sale's totals (the job writes one, ApplySale reads it). Offered = rolled in (Bought + CannotPay).</summary>
         private struct SaleResult
         {
             public int Pool, Offered, Bought, CannotPay;
@@ -108,8 +108,8 @@ namespace SkiResortMod.Systems
             m_SaleLastScheduleMs = m_SaleLastApplyMs = m_SaleLastWaitMs = 0.0;
         }
 
-        /// <summary>Step 2c (main thread, after step 1 applied last tick's ticket job): starts the sale of the first ski area whose
-        /// watched gate is Open and whose sale has not run this season. Returns true when a sale was scheduled (the caller skips the
+        /// <summary>Step 2c (main thread, after step 1 applied last tick's ticket job). Starts the sale of the first ski area that meets two
+        /// conditions: its watched gate is Open and its sale has not run this season. Returns true when a sale was scheduled (the caller skips the
         /// arrival drain this tick, engine notes Ordering). Nothing happens with passes off, no ticket price, or a job in flight.</summary>
         private bool TryStartSale(int price)
         {
@@ -194,9 +194,9 @@ namespace SkiResortMod.Systems
             m_SaleScheduleMs = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
         }
 
-        /// <summary>Step 1b (main thread): completes the sale job, writes a standing on every pool household (batch AddComponent for the
-        /// households without a SkiSeasonPass, then SetComponentData for all), books the ledger (AddPasses preSeason), the totals and the
-        /// `Passes [season sale]` line. <paramref name="quiet"/> (teardown) only counts: no ECS access, no line.</summary>
+        /// <summary>Step 1b (main thread): completes the sale job. Writes a standing on every pool household (batch AddComponent for the
+        /// households without a SkiSeasonPass, then SetComponentData for all). Books the ledger (AddPasses preSeason) and the totals.
+        /// Writes the `Passes [season sale]` line. <paramref name="quiet"/> (teardown) only counts: no ECS access, no line.</summary>
         private void ApplySale(bool quiet)
         {
             long tw = Stopwatch.GetTimestamp();
@@ -260,9 +260,9 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>One pass over the resident households (m_SaleQuery's chunks): the pool test, the household's ski-day chance as a pass
-        /// holder, SkiMoneyRules.PresaleDecision, and for a buyer the debit + booking like TicketJob. Writes one PassWrite per pool
-        /// household and the totals; nothing structural.</summary>
+        /// <summary>One pass over the resident households (m_SaleQuery's chunks). For each household it runs: the pool test, the household's
+        /// ski-day chance as a pass holder, SkiMoneyRules.PresaleDecision, and for a buyer the debit + booking like TicketJob.
+        /// Writes one PassWrite per pool household and the totals. Nothing structural.</summary>
         [BurstCompile]
         private struct SaleJob : IJob
         {

@@ -2,10 +2,12 @@
 // apply brings the layer to the level's tree count by planting, removing or felling, never both planting and removing / felling.
 // ComposeInput.Fill (a GladeMask) selects the tree filler layer (LayerFiller): interior semantics inside the mask, never fells.
 // Pure on purpose: usings are System, System.Collections.Generic and Unity.Mathematics only, so it also links into the net8 host tests/GladeBatch.
-// Contract: Compose(input, output[, cache]) is a pure function of `input` (a cache never changes the result). No static mutable
-// state, no Dictionary/HashSet iteration feeds the output, never logs, never throws on bad geometry or parameters; runs on re-plan
-// only (never per frame) and allocates. Params.MinSpacing must be the target layer's spacing; Mode, ThinFraction, GladeDensity and
-// MaxPlant are not read (Compose sets them).
+// Contract: Compose(input, output[, cache]) is a pure function of `input` (a cache never changes the result).
+// - No static mutable state.
+// - No Dictionary/HashSet iteration feeds the output.
+// - It never logs. It never throws on bad geometry or parameters.
+// - It runs on re-plan only (never per frame) and allocates.
+// Params.MinSpacing must be the target layer's spacing. Compose does not read Mode, ThinFraction, GladeDensity and MaxPlant (it sets them).
 // Engine notes: EngineNotes/SkiGladeCompose.md
 
 using System;
@@ -37,11 +39,11 @@ namespace SkiResortMod.Systems
         /// <summary>Spacing (of the TARGET layer), margins, belt shape, species, ages,
         /// AttemptsPerTree. Mode, ThinFraction, GladeDensity and MaxPlant are not read.</summary>
         public GladeParams Params;
-        /// <summary>Tree density level 1..8 (clamped; 0 reads as 1 = Clear).</summary>
+        /// <summary>Tree density level 1..8 (clamped, 0 reads as 1 = Clear).</summary>
         public byte Level;
         /// <summary>False = run interior (layer 0), true = tree line (layer 1).</summary>
         public bool TreeLine;
-        /// <summary>Layout variant of the stream; always 0 for new plantings.</summary>
+        /// <summary>Layout variant of the stream. Always 0 for new plantings.</summary>
         public byte Variant;
         public GladeObstacle[] Obstacles;
         public float3[][] ExclusionRings;
@@ -58,13 +60,13 @@ namespace SkiResortMod.Systems
         /// <summary>Slot indices of the stream known to be validation-blocked (null = none).</summary>
         public HashSet<int> SkipSlots;
         public ComposeCaps Caps;
-        /// <summary>Null = run to the end. Set = polled by the planner and MatchSlots; a request ends Compose early with
+        /// <summary>Null = run to the end. Set = the planner and MatchSlots poll it. A request ends Compose early with
         /// ComposeResult.Canceled (the result is incomplete: drop it). Not part of PlanKey.</summary>
         public GladeCancel Cancel;
     }
 
     /// <summary>Compose output. Reusable: Clear()
-    /// resets every field; the lists keep their capacity.</summary>
+    /// resets every field. The lists keep their capacity.</summary>
     public sealed class ComposeResult
     {
         /// <summary>P: the first Slice slots of the plan stream (slot id = index).</summary>
@@ -73,11 +75,10 @@ namespace SkiResortMod.Systems
         public readonly List<int> Fell = new List<int>();
         /// <summary>Indices into Plan.Planted (= slot ids), ascending.</summary>
         public readonly List<int> Plant = new List<int>();
-        /// <summary>Indices into Own: Other members first (other-tagged and misplaced, ascending
-        /// x, z, index), then count-rule removals from the end of the keep order (highest slot
-        /// first).</summary>
+        /// <summary>Indices into Own. Other members come first (other-tagged and misplaced, ascending x, z, index). Count-rule removals
+        /// follow, from the end of the keep order (highest slot first).</summary>
         public readonly List<int> Remove = new List<int>();
-        /// <summary>LayerGlade (interior) / LayerBelt (tree line); LayerNone before a compose.</summary>
+        /// <summary>LayerGlade (interior) / LayerBelt (tree line). LayerNone before a compose.</summary>
         public byte Layer;
 
         /// <summary>T, N, W, X, M at compose time (tree line: W = X = 0, N = M).</summary>
@@ -86,15 +87,19 @@ namespace SkiResortMod.Systems
         public int Keep;
 
         /// <summary>RawTarget = the stream's own (planner) target: interior round(StreamDensityPerM2
-        /// · Area) − W − X, tree line B; Slice = |P|; FellFull = the count rule's wild fell before
-        /// the cap (0 unless N &gt; T with no member kept); Same = current members of the target
-        /// layer in its region (= SameIn = OwnInside); Other = members removed first of all
-        /// (OtherTagged + Misplaced); Matched = matched slots of P; Missing = unmatched slots of
-        /// P not skipped; Skipped = |SkipSlots ∩ P|; Deficit = max(0, T − N).</summary>
+        /// · Area) − W − X, tree line B.
+        /// Slice = |P|.
+        /// FellFull = the count rule's wild fell before the cap (0 unless N &gt; T with no member kept).
+        /// Same = current members of the target layer in its region (= SameIn = OwnInside).
+        /// Other = members removed first of all (OtherTagged + Misplaced).
+        /// Matched = matched slots of P.
+        /// Missing = unmatched slots of P not skipped.
+        /// Skipped = |SkipSlots ∩ P|.
+        /// Deficit = max(0, T − N).</summary>
         public int RawTarget, Slice, FellFull, Same, Other, Matched, Missing, Skipped, Deficit;
         public bool Clamped, Saturated, Complete;
         public GladeStatus Status;
-        /// <summary>FNV-1a 64 of everything P depends on (engine notes); never 0 once computed.</summary>
+        /// <summary>FNV-1a 64 of everything P depends on (engine notes). Never 0 once computed.</summary>
         public ulong PlanKey;
 
         /// <summary>The effective (clamped) level.</summary>
@@ -103,8 +108,8 @@ namespace SkiResortMod.Systems
         public int SameIn;
         /// <summary>Members of the target layer with another variant or generation, in Other.</summary>
         public int OtherTagged;
-        /// <summary>This run's members of either layer standing outside their own layer's region (engine notes: misplaced), in Other;
-        /// removed first of all.</summary>
+        /// <summary>This run's members of either layer standing outside their own layer's region (engine notes: misplaced), in Other.
+        /// The system removes them first of all.</summary>
         public int Misplaced;
         /// <summary>In-region current members not on any slot of P (off the stream).</summary>
         public int OwnUnmatched;
@@ -114,9 +119,9 @@ namespace SkiResortMod.Systems
         public int RequestedSlice;
         /// <summary>P is a strict prefix of a longer stream (more slots follow).</summary>
         public bool PlanIsSlice;
-        /// <summary>The requested slice ran out of attempts; P was re-planned in full and cut.</summary>
+        /// <summary>The requested slice ran out of attempts. P was re-planned in full and cut.</summary>
         public bool FullReplan;
-        /// <summary>An in-region member was unmatched against a slice; P was re-planned in full
+        /// <summary>An in-region member was unmatched against a slice. P was re-planned in full
         /// to order the members (engine notes, PLAN STREAM).</summary>
         public bool FullForMembers;
         /// <summary>P came from the GladePlanCache.</summary>
@@ -127,7 +132,7 @@ namespace SkiResortMod.Systems
         /// hashed into PlanKey / of which other-layer members.</summary>
         public int Occupants, OccupantsOtherLayer, KeyedOccupants, KeyedOtherLayer;
 
-        // ---- scratch (reused across composes; never part of the result) ----
+        // ---- scratch (reused across composes, never part of the result) ----
         internal readonly GladePlan ProbeScratch = new GladePlan();
         internal readonly List<int> SameScratch = new List<int>();   // in-region current members only
         internal readonly List<int> OtherScratch = new List<int>();
@@ -303,15 +308,15 @@ namespace SkiResortMod.Systems
         /// <summary>Seed of the rank key (ThinHash): a tree's rank depends only on its position.</summary>
         public const uint ThinSeed = 0x7A1C3E5Bu;
 
-        /// <summary>Layer values (identical to SkiRunTreeMember.LayerGlade / LayerBelt; the tag system checks the equality at
-        /// compile time). LayerNone = no compose.</summary>
+        /// <summary>Layer values (identical to SkiRunTreeMember.LayerGlade / LayerBelt). The tag system checks the equality at
+        /// compile time. LayerNone = no compose.</summary>
         public const byte LayerGlade = 0, LayerBelt = 1, LayerNone = 255;
 
-        /// <summary>Layer of the tree filler (Quick runs): interior semantics inside ComposeInput.Fill; identical to
+        /// <summary>Layer of the tree filler (Quick runs): interior semantics inside ComposeInput.Fill. Identical to
         /// SkiRunTreeMember.LayerFiller.</summary>
         public const byte LayerFiller = 2;
 
-        /// <summary>Interior semantics (glade and filler); the tree line is the only belt layer.</summary>
+        /// <summary>Interior semantics (glade and filler). The tree line is the only belt layer.</summary>
         public static bool IsInterior(byte layer)
         {
             return layer != LayerBelt;
@@ -320,21 +325,21 @@ namespace SkiResortMod.Systems
         /// <summary>m_Variant of a v1 tag (identical to SkiRunTreeMember.VariantUnknown).</summary>
         public const byte VariantUnknown = 0xFF;
 
-        /// <summary>Density levels 1..Levels; the tool's default level.</summary>
+        /// <summary>Density levels 1..Levels. The tool's default level.</summary>
         public const int Levels = 8;
         public const byte DefaultLevel = 4;
 
-        /// <summary>Density of the interior plan stream, trees per m²: 1.10 × the level-8 density (157.3 vs 143 per ha), so a
+        /// <summary>Density of the interior plan stream, trees per m²: 1.10 × the level-8 density (157.3 vs 143 per ha). So a
         /// level-8 run replaces learned blocked spots from the stream's tail (engine notes, plan stream). A compile-time constant on
-        /// purpose (no runtime float product: Mono and CoreCLR must read the same bits). Hashed into PlanKey via the stream params.</summary>
+        /// purpose (no runtime float product: Mono and CoreCLR must read the same bits). The stream params hash it into PlanKey.</summary>
         public const float StreamDensityPerM2 = 157.3f / 10000f;
 
         /// <summary>Minimum float margin for SeparationHolds (m). Positions are floats: at a
-        /// 14 km map offset one ulp is ~1 mm, so a pair distance can be off by ~2 mm; 1 cm
+        /// 14 km map offset one ulp is ~1 mm, so a pair distance can be off by ~2 mm. A margin of 1 cm
         /// keeps "an other-layer member can never block a slot" robust.</summary>
         public const float SeparationMarginM = 0.01f;
 
-        // PlanKey relevance slack (m): the bound is exact in reals; this covers the raw ring used
+        // PlanKey relevance slack (m): the bound is exact in reals. This covers the raw ring used
         // here vs the planner's sanitized ring (vertices within 1 mm stripped) and rounding.
         private const double KeySlackM = 0.01;
 
@@ -384,7 +389,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The rank key (see EngineNotes/SkiGladeCompose.md, ThinHash vs ThinSelect); 0 for a non-finite
+        /// <summary>The rank key (see EngineNotes/SkiGladeCompose.md, ThinHash vs ThinSelect). 0 for a non-finite
         /// or out-of-range position.</summary>
         public static uint ThinHash(float3 position, uint seed)
         {
@@ -392,9 +397,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Layer separation: InnerMargin + BeltGap must exceed
-        /// both MinSpacings by at least SeparationMarginM, so a correctly placed member of one
-        /// layer can never block a slot of the other (d(inside, outside) >= d_in + d_out; the
-        /// planner rejects only d &lt; MinSpacing). False on NaN/Inf.</summary>
+        /// both MinSpacings by at least SeparationMarginM. Then a correctly placed member of one
+        /// layer can never block a slot of the other (d(inside, outside) >= d_in + d_out). The
+        /// planner rejects only d &lt; MinSpacing. False on NaN/Inf.</summary>
         public static bool SeparationHolds(float innerMargin, float beltGap, float gladeMinSpacing, float beltMinSpacing)
         {
             float sum = innerMargin + beltGap;
@@ -426,7 +431,7 @@ namespace SkiResortMod.Systems
         public static GladeStatus Compose(ComposeInput input, ComposeResult output, GladePlanCache cache)
         {
             if (output == null)
-                output = new ComposeResult(); // never throw; the caller simply gets nothing back
+                output = new ComposeResult(); // never throw. The caller simply gets nothing back
             output.Clear();
             if (input == null)
             {
@@ -512,7 +517,7 @@ namespace SkiResortMod.Systems
             }
             else
             {
-                // 3b. Too few (or exact): plant the deficit; nothing removed by the count rule.
+                // 3b. Too few (or exact): plant the deficit. Nothing removed by the count rule.
                 output.Keep = own;
                 if (plantBranch && want > 0)
                     BuildPlant(input, output, want);
@@ -545,7 +550,7 @@ namespace SkiResortMod.Systems
             return level < 1 ? 1 : level > Levels ? Levels : level;
         }
 
-        /// <summary>Engine notes, PROBE: geometry, T, the inside flags and W / X / M / Others; the
+        /// <summary>Engine notes, PROBE: geometry, T, the inside flags and W / X / M / Others, the
         /// occupants of P and PlanKey. Returns the geometry status.</summary>
         private static GladeStatus Prepare(ComposeInput input, ComposeResult output, out float3[] occupants)
         {
@@ -618,10 +623,10 @@ namespace SkiResortMod.Systems
             }
 
             // Own (engine notes MISPLACED): the target layer splits into Same (current, in its region),
-            // other-tagged and misplaced; the other layer into occupants (in their own region —
-            // interior inside, tree line outside) and misplaced. Other = tagged ∪ misplaced, in Own
-            // order; BuildRemoveOthers sorts them. A member with an unknown layer byte (never
-            // written) stays an occupant and X when inside: nothing we cannot classify is removed.
+            // other-tagged and misplaced.
+            // The other layer splits into occupants (in their own region — interior inside, tree line outside) and misplaced.
+            // Other = tagged ∪ misplaced, in Own order. BuildRemoveOthers sorts them.
+            // A member with an unknown layer byte (never written) stays an occupant and X when inside: nothing we cannot classify is removed.
             int otherLayer = 0, sameIn = 0, tagged = 0, misplaced = 0;
             bool[] occupantOwn = nOwn > 0 ? new bool[nOwn] : Array.Empty<bool>();
             for (int j = 0; j < nOwn; j++)
@@ -684,7 +689,7 @@ namespace SkiResortMod.Systems
             output.Other = output.OtherScratch.Count;
 
             // Occupants of P = every Existing tree ∪ this run's other-layer members in their own
-            // region; the key hashes those that can affect P (engine notes, PLANKEY).
+            // region. The key hashes those that can affect P (engine notes, PLANKEY).
             occupants = new float3[nEx + otherLayer];
             List<ulong> keyed = output.KeyScratch;
             int wr = 0, keyedOther = 0;
@@ -894,7 +899,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>SlotMatched[s] = some current member lies at xz distance &lt; radius from
-        /// slot s; MemberSlot[k] = the slot current member k (SameScratch[k]) matches, or -1.
+        /// slot s. MemberSlot[k] = the slot current member k (SameScratch[k]) matches, or -1.
         /// Bucket grid over the members, cell >= radius, 3x3 query.</summary>
         private static void MatchSlots(ComposeMember[] own, ComposeResult output, double radius, GladeCancel cancel)
         {
@@ -1036,9 +1041,9 @@ namespace SkiResortMod.Systems
             return take;
         }
 
-        /// <summary>In-region current members (SameScratch holds no other) in KEEP ORDER; appends
+        /// <summary>In-region current members (SameScratch holds no other) in KEEP ORDER. Appends
         /// those after the first `keep` to Remove, highest first, at most `budget`. Returns how
-        /// many were appended.</summary>
+        /// many it appended.</summary>
         private static int BuildRemoveCountRule(ComposeMember[] own, ComposeResult output, int keep, int budget)
         {
             List<int> same = output.SameScratch;

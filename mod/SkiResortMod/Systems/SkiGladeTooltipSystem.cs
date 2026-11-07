@@ -1,9 +1,9 @@
-// The mouse tooltip of the Glade tool: the glade tool is never silent. While it is the active tool it shows, every frame, the
-// target, the tree density level and name, then by hover kind / plan state a hint, a warning, or "Trees now" / "Target" with the
-// plan counts.
+// The mouse tooltip of the Glade tool: the glade tool is never silent. While it is the active tool, it shows these every frame:
+// the target, and the tree density level and name. Then, by hover kind / plan state, it shows a hint, a warning, or "Trees now" /
+// "Target" with the plan counts.
 // Order (Mod.cs): UpdateAfter<SkiGladeTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(UITooltip), so our lines follow the
 // vanilla cost line our Temps produce (SystemOrder.cs:911, 1.6.2 :912).
-// Zero allocation per frame: widgets are built once; StringTooltip.value compares by boxing (StringTooltip.cs:18), so string
+// Zero allocation per frame: widgets are built once. StringTooltip.value compares by boxing (StringTooltip.cs:18), so string
 // values are assigned only when they change.
 // Engine notes: EngineNotes/SkiGladeTooltipSystem.md
 
@@ -40,14 +40,14 @@ namespace SkiResortMod.Systems
         public const string KeyBlockedSpots = "SkiResort.GladeTooltip.BLOCKED_SPOTS";
         public const string KeyCatTrack = "SkiResort.GladeTooltip.CAT_TRACK";
 
-        /// <summary>Built once; index 0 = run interior, 1 = tree line.</summary>
+        /// <summary>Built once. Index 0 = run interior, 1 = tree line.</summary>
         private static readonly LocalizedString[] TargetText =
         {
             LocalizedString.Id(KeyTargetPrefix + "[Interior]"),
             LocalizedString.Id(KeyTargetPrefix + "[TreeLine]"),
         };
 
-        /// <summary>Built once; index = level − 1 (LEVEL_NAME[1] … LEVEL_NAME[8]).</summary>
+        /// <summary>Built once. Index = level − 1 (LEVEL_NAME[1] … LEVEL_NAME[8]).</summary>
         private static readonly LocalizedString[] LevelNameText = BuildLevelNames();
 
         // Status line (one widget, value + color swapped on change). Index constants:
@@ -339,8 +339,8 @@ namespace SkiResortMod.Systems
                 m_Remove.value = remove;
                 AddMouseTooltip(m_Remove);
             }
-            // Blocked spots matter only to a preview that plants or falls short (the skip set is level-independent, so a fell /
-            // remove preview would show spots it never used).
+            // Blocked spots matter only to a preview that plants or falls short. The skip set is level-independent, so a fell /
+            // remove preview would show spots it never used.
             if (m_Tool.PreviewBlockedKnown > 0 && (plant > 0 || (m_Tool.PlanHasCounts && m_Tool.PlanShortfall > 0)))
             {
                 m_BlockedSpots.value = m_Tool.PreviewBlockedKnown;
@@ -361,7 +361,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>One status widget; value and color written only when the status changes.</summary>
+        /// <summary>One status widget. The code writes value and color only when the status changes.</summary>
         private void ShowStatus(int status)
         {
             if (status != m_ShownStatus)

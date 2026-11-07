@@ -1,11 +1,12 @@
 // The pure, deterministic tree planner behind the Glade tool. Entities-free on purpose: usings are System,
-// System.Collections.Generic and Unity.Mathematics ONLY, so the same file is compiled into the net48 mod AND linked into the
-// net8 headless test host tests/GladeBatch. Re-derived from the vanilla systems; nothing copied from ParkManager.
-// Contract: the output is a pure function of (ring, triangles, seed, params, obstacles, existing, thinnable, exclusion rings, fill mask); no
-// static mutable state, never logs, never throws: degenerate input gives a GladeStatus and empty output lists.
-// Layers run in a fixed order (sanitize, thin, glade, belt); each has its own salted random stream with a FIXED number of draws
+// System.Collections.Generic and Unity.Mathematics ONLY.
+// The same file is compiled into the net48 mod AND linked into the net8 headless test host tests/GladeBatch.
+// Re-derived from the vanilla systems. The code copies nothing from ParkManager.
+// Contract: the output is a pure function of (ring, triangles, seed, params, obstacles, existing, thinnable, exclusion rings, fill mask).
+// The planner has no static mutable state, never logs and never throws. Degenerate input gives a GladeStatus and empty output lists.
+// Layers run in a fixed order (sanitize, thin, glade, belt). Each has its own salted random stream with a FIXED number of draws
 // per attempt and per accepted tree. SkiGladeCompose relies on the resulting prefix property (MaxPlant m1 is a bit-exact prefix of m2).
-// An optional GladeMask (the Quick runs tree filler: run holes + margin, tree line) narrows Thin and Glade; null = unchanged, bit for bit.
+// An optional GladeMask (the Quick runs tree filler: run holes + margin, tree line) narrows Thin and Glade. A null mask changes nothing, bit for bit.
 // Engine notes: EngineNotes/SkiGladePlanner.md
 
 using System;
@@ -44,7 +45,7 @@ namespace SkiResortMod.Systems
         public float BeltGap, BeltDepth;  // m, belt band = [gap, depth] outside the boundary
         public float BeltCoverage;        // 0..1 share of the perimeter that gets trees
         public float BeltNoiseWavelength; // m, period of the coverage noise along the perimeter
-        public int SpeciesCount;          // pool size; species index 0 is dominant
+        public int SpeciesCount;          // pool size. Species index 0 is dominant
         public float DominantShare;       // 0..1
         public float4 AgeWeights;         // Sapling, Young, Mature, Elderly (sum > 0)
         public int MaxPlant, AttemptsPerTree;
@@ -57,7 +58,8 @@ namespace SkiResortMod.Systems
     }
 
     /// <summary>Ground height at an xz point (m), for the fill mask's tree line. An adapter seam: the game side wraps its own height
-    /// sampler. Must be a pure function of (x, z) for one Fingerprint; NaN = unknown (read as above the tree line: no tree).</summary>
+    /// sampler. Must be a pure function of (x, z) for one Fingerprint. NaN means unknown: the planner reads it as above the tree line
+    /// (no tree).</summary>
     public abstract class GladeHeightField
     {
         public abstract float HeightAt(double x, double z);
@@ -66,28 +68,28 @@ namespace SkiResortMod.Systems
         public abstract ulong Fingerprint { get; }
     }
 
-    /// <summary>Fill mask (the Quick runs tree filler): narrows the polygon for the Thin and Glade layers to the cells that are outside
-    /// every hole by HoleMargin and, with a Ground, at or below TreeLine. The Belt layer ignores it. A null mask is the glade tool's
-    /// behavior, bit for bit (GladeBatch pin). Engine notes: EngineNotes/SkiGladePlanner.md, FILL MASK.</summary>
+    /// <summary>Fill mask (the Quick runs tree filler). It narrows the polygon for the Thin and Glade layers to the cells that are outside
+    /// every hole by HoleMargin. With a Ground, the cells must also be at or below TreeLine. The Belt layer ignores it. A null mask gives
+    /// the glade tool's behavior, bit for bit (GladeBatch pin). Engine notes: EngineNotes/SkiGladePlanner.md, FILL MASK.</summary>
     public sealed class GladeMask
     {
-        /// <summary>Rings (run outlines) no tree stands inside or within HoleMargin of. Null entries, rings under 3 vertices and rings
-        /// with a non-finite vertex are skipped.</summary>
+        /// <summary>Rings (run outlines) no tree stands inside or within HoleMargin of. The planner skips null entries, rings under 3 vertices
+        /// and rings with a non-finite vertex.</summary>
         public float3[][] Holes;
         public float HoleMargin;
         /// <summary>Null = no tree line.</summary>
         public GladeHeightField Ground;
-        /// <summary>Highest ground height (m) a tree may stand on; NaN or +Inf = no tree line.</summary>
+        /// <summary>Highest ground height (m) a tree may stand on. NaN or +Inf = no tree line.</summary>
         public float TreeLine = float.PositiveInfinity;
-        /// <summary>Cell (m) of the masked-area quadrature; 0 or less = DefaultAreaCellM.</summary>
+        /// <summary>Cell (m) of the masked-area quadrature. 0 or less = DefaultAreaCellM.</summary>
         public float AreaCellM;
 
         public const float DefaultAreaCellM = 2.5f;
     }
 
-    /// <summary>Cooperative cancel for a plan / compose running on a worker thread (the Quick runs tree filler): the owner calls Request,
-    /// the planner polls between dart-throw batches and quadrature rows and stops early with GladePlan.Canceled set. A canceled plan
-    /// is incomplete: callers drop it (never cached, never emitted). Null everywhere = the uncanceled code path, unchanged.</summary>
+    /// <summary>Cooperative cancel for a plan / compose that runs on a worker thread (the Quick runs tree filler). The owner calls Request.
+    /// The planner polls between dart-throw batches and quadrature rows, and stops early with GladePlan.Canceled set. A canceled plan
+    /// is incomplete: callers drop it (never cached, never emitted). With null everywhere, the code path is the uncanceled one, unchanged.</summary>
     public sealed class GladeCancel
     {
         private volatile bool m_Requested;
@@ -117,10 +119,10 @@ namespace SkiResortMod.Systems
         /// int.MaxValue). 0 for a layer not planned.</summary>
         public int RawTargetGlade, RawTargetBelt;
 
-        /// <summary>A MaxPlant budget bound a target (Status == Clamped stays as before; this flag is the explicit form of the same event).</summary>
+        /// <summary>A MaxPlant budget bound a target. Status == Clamped stays as before. This flag is the explicit form of the same event.</summary>
         public bool Clamped;
 
-        /// <summary>The fill mask's share of Area (m², quadrature on a GladeMask.AreaCellM grid); = Area without a mask. The Glade
+        /// <summary>The fill mask's share of Area (m², quadrature on a GladeMask.AreaCellM grid). It equals Area without a mask. The Glade
         /// target reads it.</summary>
         public float MaskedArea;
 
@@ -148,7 +150,7 @@ namespace SkiResortMod.Systems
 
     public static class SkiGladePlanner
     {
-        // Vanilla ToolUtils.GetRandomAge constants (ToolUtils.cs:158-165; Mature at :162-163); both 0.425f and the vanilla value map to
+        // Vanilla ToolUtils.GetRandomAge constants (ToolUtils.cs:158-165, Mature at :162-163). Both 0.425f and the vanilla value map to
         // TreeState.Adult in ObjectUtils.InitializeTreeState :438-442
         public const float AgeSapling = 0f, AgeYoung = 0.17500001f, AgeMature = 0.425f, AgeElderly = 0.77500004f;
 
@@ -166,9 +168,9 @@ namespace SkiResortMod.Systems
         private const double TriangleAreaTolerance = 0.05;
 
         /// <summary>32-bit run seed. FNV-1a (word-wise, offset 2166136261, prime 16777619) over
-        /// (int)round(10·x), (int)round(10·y), (int)round(10·z) — exactly the 0.1 m quantization
-        /// of SkiRunPropSystem.HashSeed (SkiRunPropSystem.cs:251-264) — then the salt as a
-        /// fourth word, then h ^= h >> 15. Non-finite components quantize to 0; never returns 0.</summary>
+        /// (int)round(10·x), (int)round(10·y), (int)round(10·z). This is exactly the 0.1 m quantization
+        /// of SkiRunPropSystem.HashSeed (SkiRunPropSystem.cs:251-264). The hash then takes the salt as a
+        /// fourth word, then h ^= h >> 15. Non-finite components quantize to 0. It never returns 0.</summary>
         public static uint Seed32(float3 firstNode, uint salt)
         {
             unchecked
@@ -184,12 +186,12 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Thinning predicate: hash of int2(floor(xz·8)) (12.5 cm cells, so ±0 and
-        /// last-ulp float noise cannot flip it) with the seed; selected iff
-        /// (h &amp; 0xFFFF) &lt; fraction·65536. Monotone in fraction; fraction ≤ 0 → never,
+        /// last-ulp float noise cannot flip it) with the seed. Selected iff
+        /// (h &amp; 0xFFFF) &lt; fraction·65536. Monotone in fraction. Fraction ≤ 0 → never,
         /// ≥ 1 → always. Non-finite or out-of-int-range positions are never selected.
-        /// h = Fmix32(math.hash(...)): math.hash(uint4) alone is a LINEAR combination of its
-        /// lanes (no avalanche; measured in GladeBatch — cells 1 m apart agreed 83 % of the
-        /// time, a stripe lattice), so the finalizer is load-bearing for spatial randomness.</summary>
+        /// h = Fmix32(math.hash(...)). math.hash(uint4) alone is a LINEAR combination of its
+        /// lanes (no avalanche). GladeBatch measured this: cells 1 m apart agreed 83 % of the
+        /// time, a stripe lattice. So the finalizer is load-bearing for spatial randomness.</summary>
         public static bool ThinSelect(float3 pos, uint seed, float fraction)
         {
             if (!(fraction > 0f))
@@ -209,9 +211,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The full 32-bit hash ThinSelect thresholds (same 12.5 cm cells, seed/salt words and Fmix32 finalizer), so for a finite,
-        /// in-range position ThinSelect(pos, seed, f) == ((ThinHash(pos, seed) &amp; 0xFFFF) &lt; f*65536). Non-finite or out-of-int-range
-        /// positions (the ones ThinSelect never selects) return 0. y is ignored. SkiGladeCompose ranks by it.</summary>
+        /// <summary>The full 32-bit hash that ThinSelect thresholds (same 12.5 cm cells, seed/salt words and Fmix32 finalizer).
+        /// For a finite, in-range position: ThinSelect(pos, seed, f) == ((ThinHash(pos, seed) &amp; 0xFFFF) &lt; f*65536). Non-finite or
+        /// out-of-int-range positions (the ones ThinSelect never selects) return 0. y is ignored. SkiGladeCompose ranks by it.</summary>
         public static uint ThinHash(float3 pos, uint seed)
         {
             if (!math.isfinite(pos.x) || !math.isfinite(pos.z))
@@ -235,7 +237,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Plan with an optional fill mask (null = the overload above). The mask only adds rejection tests and changes the
-        /// Glade target's area; it consumes no random draws, so the prefix property holds with a mask too.</summary>
+        /// Glade target's area. It consumes no random draws, so the prefix property holds with a mask too.</summary>
         public static GladeStatus Plan(float3[] ring, int3[] trianglesOrNull, uint seed, in GladeParams p,
                                        GladeObstacle[] obstaclesOrNull, float3[] existingOrNull, bool[] thinnableOrNull,
                                        float3[][] exclusionRingsOrNull, GladeMask maskOrNull, GladePlan output)
@@ -244,14 +246,14 @@ namespace SkiResortMod.Systems
                 null, output);
         }
 
-        /// <summary>Plan with a cancel flag (null = the overload above): polled every 1024 attempts and every quadrature row; a request
-        /// ends the plan early with output.Canceled set.</summary>
+        /// <summary>Plan with a cancel flag (null = the overload above). The planner polls it every 1024 attempts and every quadrature row.
+        /// A request ends the plan early with output.Canceled set.</summary>
         public static GladeStatus Plan(float3[] ring, int3[] trianglesOrNull, uint seed, in GladeParams p,
                                        GladeObstacle[] obstaclesOrNull, float3[] existingOrNull, bool[] thinnableOrNull,
                                        float3[][] exclusionRingsOrNull, GladeMask maskOrNull, GladeCancel cancelOrNull, GladePlan output)
         {
             if (output == null)
-                output = new GladePlan(); // never throw; the caller simply gets nothing back
+                output = new GladePlan(); // never throw. The caller gets nothing back
             output.Clear();
 
             Polygon poly;
@@ -383,7 +385,7 @@ namespace SkiResortMod.Systems
                 }
                 else if (target > 0)
                 {
-                    output.Saturated = true; // no usable triangle area (cannot happen after sanitize; defensive)
+                    output.Saturated = true; // no usable triangle area (defensive: cannot happen after sanitize)
                 }
             }
 
@@ -475,7 +477,7 @@ namespace SkiResortMod.Systems
 
             float rot = uRot * 6.2831855f;
             if (!(rot < 6.2831855f))
-                rot = 0f; // float rounding can land exactly on 2π; keep [0, 2π)
+                rot = 0f; // float rounding can land exactly on 2π. Keep [0, 2π)
 
             int species = 0;
             if (k.SpeciesCount > 1 && !(uDom < k.DominantShare))
@@ -884,7 +886,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A GladeMask compiled for one plan: holes (with HoleMargin-expanded bounds) and the tree line. Reads its source
-        /// once; never throws.</summary>
+        /// once and never throws.</summary>
         private sealed class MaskSet
         {
             private const long MaxAreaSamples = 4000000;
@@ -943,7 +945,7 @@ namespace SkiResortMod.Systems
                 return Allows(q, ref y);
             }
 
-            /// <summary>True when q is outside every hole by the margin and (with a ground) at or below the tree line; then
+            /// <summary>True when q is outside every hole by the margin and (with a ground) at or below the tree line. Then
             /// <paramref name="groundY"/> is the ground height there (unchanged without a ground).</summary>
             public bool Allows(double2 q, ref float groundY)
             {
@@ -968,8 +970,8 @@ namespace SkiResortMod.Systems
                 return true;
             }
 
-            /// <summary>Allowed area inside the polygon: cell centers of a grid anchored at the polygon's bounds minimum, counted when
-            /// inside and allowed, times the cell area. The cell grows when the bounds would need more than MaxAreaSamples.</summary>
+            /// <summary>Allowed area inside the polygon. The method counts the cell centers of a grid anchored at the polygon's bounds minimum
+            /// that are inside and allowed. It then multiplies by the cell area. The cell grows when the bounds would need more than MaxAreaSamples.</summary>
             public double Area(Polygon poly, GladeCancel cancel = null)
             {
                 double4 bb = poly.Bounds;
@@ -1073,8 +1075,8 @@ namespace SkiResortMod.Systems
                 return LowerBound(EdgeCdf, u * Perimeter);
             }
 
-            /// <summary>First index whose cumulative value is &gt; x (zero-weight entries are
-            /// never picked unless everything is zero); clamped to the last index.</summary>
+            /// <summary>First index whose cumulative value is &gt; x. Zero-weight entries are
+            /// never picked unless everything is zero. The result is clamped to the last index.</summary>
             private static int LowerBound(double[] cdf, double x)
             {
                 int lo = 0, hi = cdf.Length - 1;

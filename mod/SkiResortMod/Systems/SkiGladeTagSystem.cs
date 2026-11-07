@@ -1,10 +1,13 @@
 // Puts the SkiRunTreeMember tag on the trees the glade tool plants, on the Apply frame, before vanilla turns the Temp trees into
 // permanent ones.
-// Registered UpdateBefore<SkiGladeTagSystem, Game.Tools.ApplyObjectsSystem> in ApplyTool: a component added to a Temp tree here
+// Registered UpdateBefore<SkiGladeTagSystem, Game.Tools.ApplyObjectsSystem> in ApplyTool. A component added to a Temp tree here
 // survives into the permanent tree (ApplyObjectsSystem.cs:670-687, Create keeps the entity).
-// Guard: one of our planting tools (IGladeTagSource: the glade tool, the Quick runs tool's tree filler) is activeTool, both report
-// ApplyMode.Apply and the source says this is its planting Apply frame. Decoration is forced on planted trees.
-// Defensive: Game mode only; a one-shot catch disables tagging until the next load; no managed allocation outside Apply frames.
+// Guard: all three conditions hold.
+// - One of our planting tools (IGladeTagSource: the glade tool, the Quick runs tool's tree filler) is activeTool.
+// - Both ToolSystem and the tool report ApplyMode.Apply.
+// - The source says this is its planting Apply frame.
+// The system forces Decoration on planted trees.
+// Defensive: Game mode only. A one-shot catch disables tagging until the next load. No managed allocation outside Apply frames.
 // Engine notes: EngineNotes/SkiGladeTagSystem.md
 
 using System;
@@ -24,7 +27,7 @@ namespace SkiResortMod.Systems
     {
         /// <summary>This is the source's planting Apply frame (read in the ApplyTool phase of that frame).</summary>
         bool ApplyingNow { get; }
-        /// <summary>The run the planted trees belong to; Entity.Null only for LayerFiller (region-level tags).</summary>
+        /// <summary>The run the planted trees belong to. Entity.Null only for LayerFiller (region-level tags).</summary>
         Entity ApplyingRun { get; }
         byte ApplyingLayer { get; }
         byte ApplyingVariant { get; }
@@ -141,8 +144,10 @@ namespace SkiResortMod.Systems
                 if (m_Disabled || !m_Armed)
                     return;
 
-                // Three-way guard (engine notes): one of our planting tools is the active tool, the frame is an Apply
-                // frame for ToolSystem AND for that tool, and the tool says it is planting (the glade tool: it names a run).
+                // Three-way guard (engine notes):
+                // 1. One of our planting tools is the active tool.
+                // 2. The frame is an Apply frame for ToolSystem AND for that tool.
+                // 3. The tool says it is planting (the glade tool: it names a run).
                 ToolBaseSystem active = m_ToolSystem.activeTool;
                 IGladeTagSource source = active == m_Tool ? m_Tool : active == m_QuickRuns ? m_QuickRuns : (IGladeTagSource)null;
                 if (source == null ||
@@ -171,8 +176,8 @@ namespace SkiResortMod.Systems
                     if (run != Entity.Null && (!EntityManager.Exists(run) || EntityManager.HasComponent<Deleted>(run)))
                     {
                         // Defensive: the run vanished between hover and apply. Plant untagged
-                        // rather than write a dangling reference (cleanup would strip it anyway),
-                        // but still force Decoration on (engine notes: reused Temps keep a disabled bit).
+                        // rather than write a dangling reference (cleanup would strip it anyway).
+                        // Still force Decoration on (engine notes: reused Temps keep a disabled bit).
                         ForceDecoration(create);
                         LastCensus = $"apply skipped tagging — run {run.Index}:{run.Version} is gone; " +
                                      $"{create.Length} created tree(s) stay untagged";
@@ -191,13 +196,13 @@ namespace SkiResortMod.Systems
                     // Per-plan values (valid while ApplyingRun != Null).
                     byte layer = source.ApplyingLayer;
                     byte variant = source.ApplyingVariant;
-                    // Glade / belt layers need a run; the filler layer is region-level (run Null) and nothing else.
+                    // Glade / belt layers need a run. The filler layer is region-level (run Null) and nothing else.
                     bool layerOk = layer == SkiRunTreeMember.LayerFiller
                         ? run == Entity.Null
                         : run != Entity.Null && (layer == SkiRunTreeMember.LayerGlade || layer == SkiRunTreeMember.LayerBelt);
                     if (!layerOk)
                     {
-                        // Every plan has a layer; planted Temps under any other value are unexpected. Never persist a bogus layer (engine notes): plain trees
+                        // Every plan has a layer. Planted Temps under any other value are unexpected. Never persist a bogus layer (engine notes): plain trees
                         // instead.
                         ForceDecoration(create);
                         if (create.Length == 0)
@@ -251,9 +256,10 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>One pass over every Temp tree in ApplyObjectsSystem.HandleTempEntitiesJob's order (ApplyObjectsSystem.cs:337-432):
-        /// Cancel → not created; Delete → original deleted; original WITH PrefabRef → Update path (:354); else → Create (:432). Collects the
-        /// create-path entities (all chunks, Deleted ones counted apart: ApplyObjectsSystem's query has no Deleted filter, :922, but CleanUp
-        /// destroys them). Reads only; the caller mutates afterwards (structural changes invalidate chunks).</summary>
+        /// Cancel → not created. Delete → original deleted. Original WITH PrefabRef → Update path (:354). Else → Create (:432).
+        /// The pass collects the create-path entities (all chunks). It counts Deleted ones apart: ApplyObjectsSystem's query has no
+        /// Deleted filter (:922), but CleanUp destroys them. The pass only reads. The caller mutates afterwards (structural changes
+        /// invalidate chunks).</summary>
         private Classes Classify(NativeList<Entity> create)
         {
             Classes k = default;
@@ -311,10 +317,10 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < create.Length; i++)
                 {
                     Entity e = create[i];
-                    // A reused Temp entity could in principle already carry the tag (old Temps
-                    // are collected for reuse by Game.Tools/GenerateObjectsSystem.cs:89-140
-                    // FillOldObjectsJob; unverified that a tagged Temp can ever survive to here);
-                    // set instead of add so the add batch never meets a duplicate.
+                    // A reused Temp entity could in principle already carry the tag.
+                    // FillOldObjectsJob collects old Temps for reuse (Game.Tools/GenerateObjectsSystem.cs:89-140).
+                    // Unverified that a tagged Temp can ever survive to here.
+                    // The code uses set instead of add, so the add batch never meets a duplicate.
                     if (EntityManager.HasComponent<SkiRunTreeMember>(e))
                     {
                         toSet.Add(e);
@@ -338,7 +344,7 @@ namespace SkiResortMod.Systems
                     EntityManager.SetComponentData(toSet[i], tag);
 
                 // Decoration state on the permanent tree whatever Temp entity was reused (engine notes: GenerateObjectsSystem.cs:1311-1317 applies
-                // m_IsDecoration only on the new-entity path; the reuse path :1112-1219 never touches the bit).
+                // m_IsDecoration only on the new-entity path. The reuse path :1112-1219 never touches the bit).
                 int decorationFixed = 0;
                 for (int i = 0; i < toAdd.Length; i++)
                     decorationFixed += EnsureDecoration(toAdd[i]);
@@ -383,7 +389,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Sets Decoration enabled on a planted Temp tree; returns 1 if the bit was
+        /// <summary>Sets Decoration enabled on a planted Temp tree. Returns 1 if the bit was
         /// off (a reused foreign Temp), else 0. HasComponent ignores the enabled state, so a
         /// disabled bit still passes the guard (Decoration is IEnableableComponent,
         /// Game.Objects/Decoration.cs:8).</summary>

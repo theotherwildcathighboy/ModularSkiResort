@@ -1,7 +1,7 @@
-// Tree line estimate for the Quick runs tree filler: the ground height below which most of the map's own trees grow, read from the
+// Tree line estimate for the Quick runs tree filler: the ground height below which most of the map's own trees grow. It is read from the
 // trees in and around a drawn region. Pure (System, System.Collections.Generic and Unity.Mathematics only) so tests/GladeBatch links it.
-// Contract: a pure function of (ring, tree positions, ground range); never throws, never logs; the inside test is the glade planner's
-// own (a Thin probe), the percentile is LiftMoverMath.Rank (nearest rank). The game side draws the result with
+// Contract: a pure function of (ring, tree positions, ground range). It never throws and never logs. The inside test is the glade
+// planner's own (a Thin probe). The percentile is LiftMoverMath.Rank (nearest rank). The game side draws the result with
 // SnowLineRules.MarchingSquares and feeds it into GladeMask.TreeLine.
 // Engine notes: EngineNotes/SkiGladeTreeLine.md
 
@@ -15,7 +15,7 @@ namespace SkiResortMod.Systems
     {
         /// <summary>At least MinTrees trees inside the region: their Quantile height.</summary>
         Region,
-        /// <summary>Too few inside; at least MinTrees within AroundM of the region's bounds: their Quantile height.</summary>
+        /// <summary>Too few trees inside, but at least MinTrees within AroundM of the region's bounds: their Quantile height.</summary>
         Around,
         /// <summary>MinSparse..MinTrees-1 trees around: the highest of them.</summary>
         Sparse,
@@ -43,8 +43,8 @@ namespace SkiResortMod.Systems
         /// <summary>Reach (m) of the "around" sample beyond the region's bounding box.</summary>
         public const float AroundM = 500f;
 
-        /// <summary>Estimate from <paramref name="trees"/> (wild tree positions; y = the tree's height, i.e. its ground). The caller
-        /// collects them from the region's bounds grown by AroundM; positions outside that box or non-finite are ignored.
+        /// <summary>Estimate from <paramref name="trees"/> (wild tree positions, with y = the tree's height, i.e. its ground). The caller
+        /// collects them from the region's bounds grown by AroundM. The method ignores positions outside that box or non-finite.
         /// <paramref name="groundMin"/> / <paramref name="groundMax"/> = the region's ground range (NaN = unknown).</summary>
         public static TreeLineEstimate Estimate(float3[] ring, float3[] trees, float groundMin, float groundMax)
         {

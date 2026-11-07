@@ -1,10 +1,12 @@
-// Run-delete cascade for glade-tool trees: when a ski run is deleted (bulldozed, deleted by the area tool or the info panel, or
-// with its sign via SkiRunGateCascadeSystem), every tree carrying SkiRunTreeMember{m_Run = that run} is deleted with it. Every
-// deleted run of ours is logged (0 trees when none). Orphaned tags are stripped, the tree kept; a Quick runs filler tag (LayerFiller, no run) is never an orphan.
+// Run-delete cascade for glade-tool trees. When a ski run is deleted (bulldozed, deleted by the area tool or the info panel, or
+// with its sign via SkiRunGateCascadeSystem), the system deletes every tree that carries SkiRunTreeMember{m_Run = that run}.
+// It logs every deleted run of ours (0 trees when none). It strips orphaned tags and keeps the tree.
+// A Quick runs filler tag (LayerFiller, no run) is never an orphan.
 // Why our own cascade: planted trees have no Owner (see EngineNotes/SkiRunTreeMember.md), so vanilla's owner cascade cannot see them.
-// Registered in Mod.cs at Modification2: Deleted lives one frame and those phases run after the tools, so a member tree dies in the
+// Mod.cs registers it at Modification2. Deleted lives one frame and those phases run after the tools, so a member tree dies in the
 // same Cleanup as its run.
-// Cost: one IsEmptyIgnoreFilter check per frame; main-thread batch calls (a sync point) only when a run of ours is deleted. Game mode only; one-shot "!!!" disables the cascade until the next load.
+// Cost: one IsEmptyIgnoreFilter check per frame. Main-thread batch calls (a sync point) happen only when a run of ours is deleted.
+// The cascade runs in Game mode only. A one-shot "!!!" disables the cascade until the next load.
 // Engine notes: EngineNotes/SkiGladeCleanupSystem.md
 
 using System;
@@ -25,12 +27,12 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            /// <summary>Deleted runs named individually in the cascade log line; beyond this only the count is written.</summary>
+            /// <summary>Deleted runs named individually in the cascade log line. Beyond this only the count is written.</summary>
             public const int LogRunLabelsMax = 4;
         }
 
         // Same tolerant name resolution as the sibling run-aware systems (the table is duplicated per system, as in
-        // SkiRunOwnershipSystem's *SurfaceNames); SkiRunNaturalA is included: trees planted on a natural run go with it
+        // SkiRunOwnershipSystem's *SurfaceNames). The table includes SkiRunNaturalA: trees planted on a natural run go with it
         private static readonly string[] RunSurfaceNames =
             { "SkiRunGroomedA", "SkiRunSnowmakingA", "SkiRunNightA", "SkiRunNaturalA" };
 
@@ -53,10 +55,10 @@ namespace SkiResortMod.Systems
         private bool m_ErrorLogged;
         private bool m_LoadSweepPending;
 
-        /// <summary>Last cascade / sweep line (plain field; dev-tab safe at 10 Hz).</summary>
+        /// <summary>Last cascade / sweep line (plain field, dev-tab safe at 10 Hz).</summary>
         public string LastCensus = "nothing yet";
 
-        /// <summary>Member trees found by this load's sweep; -1 before it ran.</summary>
+        /// <summary>Member trees found by this load's sweep. -1 before it ran.</summary>
         public int MembersAtLoad = -1;
 
         /// <summary>Running totals for this load (plain fields).</summary>
@@ -82,7 +84,7 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Temp>(),
                 },
             });
-            // Live member trees. Deleted excluded (already going, e.g. bulldozed in the same click); Temp excluded (never members).
+            // Live member trees. Deleted excluded (already going, e.g. bulldozed in the same click). Temp excluded (never members).
             m_MemberQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -279,9 +281,8 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"Glade: {LastCensus}");
         }
 
-        /// <summary>Once per load: census of member trees and an orphan sweep (a run that
-        /// was deleted while the cascade was disabled, or a reference that did not survive
-        /// the save, leaves a dangling tag).</summary>
+        /// <summary>Once per load: a census of member trees and an orphan sweep. A run that was deleted while the cascade was disabled
+        /// leaves a dangling tag. A reference that did not survive the save does the same.</summary>
         private void LoadSweep()
         {
             if (m_MemberQuery.IsEmptyIgnoreFilter)
@@ -350,9 +351,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The vanilla owner-cascade shape (SubObjectSystem.cs:1241-1242): remove Applied/Created/Updated where present,
-        /// add Deleted. Batched through the EntityManager array overloads (vanilla precedents: AddComponent&lt;Deleted&gt; over a
-        /// NativeList, Game.Debug/DebugSystem.cs:2900 [2908]; RemoveComponent over an array, Game.Areas/MapTileSystem.cs:142). Each
-        /// remove batch holds only entities that have the component, so no call depends on how the batch API treats a missing
+        /// add Deleted. The code batches the calls through the EntityManager array overloads. Vanilla precedents: AddComponent&lt;Deleted&gt;
+        /// over a NativeList (Game.Debug/DebugSystem.cs:2900 [2908]) and RemoveComponent over an array (Game.Areas/MapTileSystem.cs:142).
+        /// Each remove batch holds only entities that have the component. So no call depends on how the batch API treats a missing
         /// component (unverified).</summary>
         private void DeleteLikeOwnerCascade(NativeList<Entity> entities)
         {
@@ -426,7 +427,7 @@ namespace SkiResortMod.Systems
             m_PrefabsResolved = m_RunPrefabs.Count > 0;
         }
 
-        /// <summary>Fast PrefabID path with a name-scan fallback (as SkiRunOwnershipSystem.ResolveSet); a missing prefab is tolerated.</summary>
+        /// <summary>Fast PrefabID path with a name-scan fallback (as SkiRunOwnershipSystem.ResolveSet). The code tolerates a missing prefab.</summary>
         private void ResolveSet(string[] names, string typeName, HashSet<Entity> set)
         {
             foreach (string name in names)
