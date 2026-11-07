@@ -794,15 +794,22 @@
   align-items: stretch;
 }
 
-// The Buildings tab's second tile row (services) with its caption row (BuildStrip BUILDING_ROW2_KINDS).
+// The Buildings tab's second tile row (services, BuildStrip BUILDING_ROW2_KINDS); no caption row since 2026-11-07, the tiles name
+// themselves ("Patrol hut").
 .buildRowBlock {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  margin-top: 4rem;
 }
 
-.pickerRowNext {
-  margin-top: 4rem;
+// BuildStrip FooterReserve: the Buildings tab's extra rows drawn invisible on Lifts and Runs, so the footer keeps one height on every tab.
+.footerReserve {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 // Contract 37: the full-width Mergeable buildings toggle under the Buildings tab's rows (a mode, not a tile). Armed: the selected look
@@ -820,6 +827,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
+  box-sizing: border-box; // the same height as a button and as FooterReserve's plain div copy (a div defaults to content-box)
   height: calc(26rem * var(--fontScale));
   padding: 0rem 8rem;
   font-size: var(--fontSizeXS);

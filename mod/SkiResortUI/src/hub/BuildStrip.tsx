@@ -5,8 +5,12 @@
  * Reads only the core `build` binding (plus local pick$), so it is also the contract-mismatch panel's footer; the rest arrives as FooterInfo.
  * Every tile and picker chip is a Button with focusKey={FOCUS_DISABLED} (rule R15).
  * The Buildings tab draws two tile rows (BUILDING_ROW2_KINDS: the sign and the lodges, then the bus depot, the school and the patrol huts),
- * each with its caption row and each filling the strip, so every label fits whole (2026-11-06: one row of 12 cut them to "A-f...";
- * on a six-column grid "Bus depot" was still cut, so the services row stretches its four tiles).
+ * each filling the strip, so every label fits whole (2026-11-06: one row of 12 cut them to "A-f..."; on a six-column grid "Bus depot"
+ * was still cut, so the services row stretches its four tiles). Only the first row has captions ("Lodges"); the patrol tiles say
+ * "Patrol hut" / "Patrol HQ" themselves (2026-11-07: the services caption row cost 26 rem and pushed the open Merged buildings fold
+ * to a page 2).
+ * Constant height (2026-11-07): Lifts and Runs draw an invisible copy of the Buildings tab's extra rows (FooterReserve) under the status
+ * lines, so the tab row and the first tile row never move when the tab changes (it moved 118 rem at 1080).
  * Contract 37: on the ok panel with a Welcome Sign, a full-width "Mergeable buildings" toggle under the rows arms the merge overlay
  * (armMergeOverlay; a mode, not a building, so it is a toggle, not a tile); while armed it carries the green / gray legend with the
  * outlined counts (MergeLegend). Hovered, the status lines name it and say what can be merged. On the other tabs the status lines show the
@@ -294,16 +298,15 @@ function TabBarView({ tabs, tab, dotTab, t, onTab }: {
 }
 
 /*
- * The Buildings tab's family row: "Lodges" over the lodge group and "Ski patrol" over the two huts (same flex-grow as the tile
- * groups below), empty over the sign and the school, so the five lodge tiles read as one choice and the row keeps its fixed
- * height.
+ * The Buildings tab's family row: "Lodges" over the lodge group (same flex-grow as the tile groups below), empty over the sign, so
+ * the five lodge tiles read as one choice and the row keeps its fixed height.
  */
 function GroupCaptions({ groups, t }: { groups: readonly OrderedBuildItem[][]; t: Translate }): JSX.Element {
   return (
     <>
       {groups.map((g, gi) => {
         const k = g.length > 0 ? kindOf(g[0].id) : "";
-        const caption = k === "lodge" ? t(HUB_LOC.lodgeGroup) : k === "patrol" && g.length > 1 ? t(HUB_LOC.patrolGroup) : "";
+        const caption = k === "lodge" ? t(HUB_LOC.lodgeGroup) : "";
         return (
           <div key={gi} className={cx(styles.groupCaption, !caption && styles.groupCaptionNone, gi > 0 && styles.buildGroupNext)}
             style={{ flexGrow: g.length }}>
@@ -312,6 +315,24 @@ function GroupCaptions({ groups, t }: { groups: readonly OrderedBuildItem[][]; t
         );
       })}
     </>
+  );
+}
+
+/*
+ * The Buildings tab's extra height, drawn invisible on the other tabs under the status lines: the same classes as the services row and
+ * the merge toggle, so it matches at every text scale (no height arithmetic to keep in step).
+ */
+function FooterReserve({ row2, merge }: { row2: boolean; merge: boolean }): JSX.Element | null {
+  if (!row2 && !merge) return null;
+  return (
+    <div className={styles.footerReserve}>
+      {row2 && (
+        <div className={styles.buildRowBlock}>
+          <div className={styles.buildRow}><div className={styles.buildCell}><div className={styles.buildTile} /></div></div>
+        </div>
+      )}
+      {merge && <div className={styles.mergeToggleRow}><div className={styles.mergeToggle} /></div>}
+    </div>
   );
 }
 
@@ -507,6 +528,10 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
         .filter((r) => r.length > 0)
     : [groups];
 
+  // What the Buildings tab draws beyond the one tile row every tab has: the services row and the merge toggle. The other tabs reserve it.
+  const hasRow2 = all.some((g) => g.some((e) => visible.has(e.id) && tabOfItem(e.id, BUILD_ITEMS) === "buildings"
+    && BUILDING_ROW2_KINDS.indexOf(kindOf(e.id)) >= 0));
+
   const tileRow = (row: readonly OrderedBuildItem[][], ri: number): JSX.Element => (
     <div key={"row" + ri} className={styles.buildRow}>
       {row.map((g, gi) => (
@@ -559,10 +584,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
         </div>
       )}
       {rows.map((row, ri) => (ri === 0 ? tileRow(row, ri) : (
-        <div key={"block" + ri} className={styles.buildRowBlock}>
-          <div className={cx(styles.pickerRow, styles.pickerRowNext)}><GroupCaptions groups={row} t={t} /></div>
-          {tileRow(row, ri)}
-        </div>
+        <div key={"block" + ri} className={styles.buildRowBlock}>{tileRow(row, ri)}</div>
       )))}
       {mergeTile && tab === "buildings" && (
         <div className={styles.mergeToggleRow} onMouseEnter={() => setMergeHover(true)} onMouseLeave={() => setMergeHover(false)}>
@@ -582,6 +604,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
       )}
       <div className={cx(styles.buildStatusLine, line1Cls)}>{line1}</div>
       <div className={cx(styles.buildStatusLine, line2Cls)}>{line2}</div>
+      {tabs.length > 0 && tab !== "buildings" && <FooterReserve row2={hasRow2} merge={mergeTile} />}
     </div>
   );
 }

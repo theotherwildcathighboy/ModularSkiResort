@@ -148,7 +148,6 @@ export const HUB_LOC = {
   liftTool: ["SkiResort.Hub.LIFT_TOOL", "Lift generator"],
   liftToolTip: ["SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L"],
   liftToolUnavailable: ["SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded."],
-  patrolGroup: ["SkiResort.Hub.BUILD_GROUP[Patrol]", "Ski patrol"],
 
   tileAttraction: ["SkiResort.Hub.TILE[Attraction]", "Attraction"],
   tileRuns: ["SkiResort.Hub.TILE[Runs]", "Runs"],
@@ -973,8 +972,8 @@ export const BUILD_LABEL: Readonly<Record<string, LocEntry>> = {
   lodge: ["SkiResort.Hub.BUILD_LABEL[Lodge]", "Lodge"],
   depot: ["SkiResort.Hub.BUILD_LABEL[Depot]", "Bus depot"],
   school: ["SkiResort.Hub.BUILD_LABEL[School]", "School"],
-  patrolHut: ["SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Hut"],
-  patrolHQ: ["SkiResort.Hub.BUILD_LABEL[PatrolHQ]", "HQ"],
+  patrolHut: ["SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Patrol hut"],
+  patrolHQ: ["SkiResort.Hub.BUILD_LABEL[PatrolHQ]", "Patrol HQ"],
   run3: ["SkiResort.Hub.BUILD_LABEL[Natural]", "Natural"],
   run0: ["SkiResort.Hub.BUILD_LABEL[Groomed]", "Run"],
   run1: ["SkiResort.Hub.BUILD_LABEL[Snowmaking]", "Snowmaking"],

@@ -15,6 +15,7 @@
  *   - the header is one row and the name never pushes the buttons out;
  *   - Runs / Lifts views are the one exception: their list (class listAll) draws every row with no pager and may
  *     scroll; the check asserts no pager row is drawn and records their overflow as "scrolls";
+ *   - the tab row and the first tile row keep their place on every build tab (2026-11-07);
  *   - Buildings tab: one tile per sent building id, no lodge chip, no tile label cut at text scale 1; Lifts tile "built / drawn".
  * The harness panel frame is a stand-in for the game's, so the report also gives each case's slack (rem left);
  * MIN_SLACK_REM is a margin rule for the title bar / padding difference.
@@ -154,10 +155,15 @@
     const more = q(cls("problemMoreButton"));
     if (more) { more.click(); await settle(); rec(0, "problems popover open", measure()); more.click(); await settle(); }
     // Build tabs: the footer must not change the content's fit, and the Buildings tab draws every building tile.
+    // 2026-11-07: the tab row and the first tile row stay put across tabs (the Buildings tab's two rows moved them 118 rem at 1080).
+    const tabTops = [];
     for (const b of buildTabs()) {
       b.click(); await settle();
       const tabName = b.textContent.trim();
       rec(0, `build tab ${tabName}`, measure());
+      const tr = q(cls("tabRow"));
+      const firstRow = q(cls("buildRow"), q(cls("buildFooter")));
+      if (tr) tabTops.push({ tab: tabName, y: tr.getBoundingClientRect().top, row: firstRow ? firstRow.getBoundingClientRect().top : -1 });
       // The footer's two status lines change with the hovered tile: every tile, hovered in turn.
       for (const cell of qa(cls("buildCell"))) {
         cell.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
@@ -173,7 +179,14 @@
       }
       await frames(2);
     }
-    const bTab = buildTabs().find((b) => /Buildings/.test(b.textContent));
+    if (tabTops.length > 1) {
+      const dy = Math.max(...tabTops.map((x) => x.y)) - Math.min(...tabTops.map((x) => x.y));
+      const drow = Math.max(...tabTops.map((x) => x.row)) - Math.min(...tabTops.map((x) => x.row));
+      if (dy > 1 || drow > 1) {
+        fail(`Build tab row or first tile row moves when the tab changes (${tabTops.map((x) => `${x.tab} ${Math.round(x.y)} / ${Math.round(x.row)}`).join(", ")} px)`, { tabTops });
+      }
+    }
+    const bTab =buildTabs().find((b) => /Buildings/.test(b.textContent));
     if (bTab) {
       bTab.click(); await settle();
       const tilesN = qa(cls("buildRow")).reduce((n, r) => n + qa("button", r).length, 0);

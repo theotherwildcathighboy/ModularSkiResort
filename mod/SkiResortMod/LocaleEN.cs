@@ -715,7 +715,6 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PAGE_PREV", "Previous page" },
                 { "SkiResort.Hub.PAGE_NEXT", "Next page" },
                 { "SkiResort.Hub.BUILD_GROUP[Lodges]", "Lodges" },
-                { "SkiResort.Hub.BUILD_GROUP[Patrol]", "Ski patrol" },
                 // The lift generator toggle on the Lifts tab.
                 { "SkiResort.Hub.LIFT_TOOL", "Lift generator" },
                 { "SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L" },
@@ -1345,8 +1344,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_LABEL[Lodge]", "Lodge" },
                 { "SkiResort.Hub.BUILD_LABEL[School]", "School" },
                 { "SkiResort.Hub.BUILD_LABEL[Depot]", "Bus depot" },
-                { "SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Hut" },
-                { "SkiResort.Hub.BUILD_LABEL[PatrolHQ]", "HQ" },
+                { "SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Patrol hut" },
+                { "SkiResort.Hub.BUILD_LABEL[PatrolHQ]", "Patrol HQ" },
                 { "SkiResort.Hub.BUILD_LABEL[Natural]", "Natural" },
                 { "SkiResort.Hub.BUILD_LABEL[Groomed]", "Run" },
                 { "SkiResort.Hub.BUILD_LABEL[Snowmaking]", "Snowmaking" },
