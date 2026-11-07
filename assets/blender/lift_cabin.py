@@ -1,12 +1,12 @@
 """
-lift_cabin.py - carrier generator for the GONDOLA 8-pax and the TRAM 100-pax (cabins/A),
-asset round 2026-10 (ROUND-SPEC P2 / P5).
+lift_cabin.py - carrier generator for the GONDOLA 8-pax and the TRAM 100-pax (cabins/A), asset round
+2026-10 (ROUND-SPEC P2 / P5).
 
-Contract: docs/research/art/assets-2026-10/design/cabins.md, with every MUST-CHANGE of
-design/cabins-skeptic.md applied and the overnight rulings R27-R31 (ROUND-SPEC.md) overriding
-the contract where they conflict. Build report: docs/research/art/assets-2026-10/build/lift_cabin.md.
+Contract: docs/research/art/assets-2026-10/design/cabins.md. The generator applies every MUST-CHANGE of
+design/cabins-skeptic.md. The overnight rulings R27-R31 (ROUND-SPEC.md) override the contract where they
+conflict. Build report: docs/research/art/assets-2026-10/build/lift_cabin.md.
 
-Run (headless only - generator code never runs in the live Blender, R10):
+Run it headless only. Generator code never runs in the live Blender (R10):
 
     blender --background --factory-startup --python-exit-code 1 --python lift_cabin.py -- \\
         --kind gondola|tram [--out assets/import/cabins/A] [--export]
@@ -19,122 +19,156 @@ Run (headless only - generator code never runs in the live Blender, R10):
 
     Shipping: --kind gondola --finish --lods --verify --export --preview --review
               --kind tram    --finish --lods --verify --export --preview --review
-    Without --export NOTHING is written under assets/import: the asset folder goes to
-    <tempdir>/lift_cabin/<Name> (skeptic should-fix: drafts never land where they can be
-    imported by mistake). --finish = full bake (gondola 1024 / AO 32, tram 2048 / AO 48,
-    relief); otherwise the draft bake (256 px, AO 8, no relief) - stamps are always painted.
 
-GONDOLA `SkiGondolaCabin8A` (cabins.md section 3)
-    Wilin_Amaurea's cabin shell (gondola.fbx, CC BY 4.0, credit below) ingested with
-    cs2_ingest: subtree "cabin.001", keep the shell + both door leaves (door details, footstep,
-    fasteners, box_top dropped = doors simplified), x27, reframe forward -X (180 deg yaw, no
-    mirror: doors + stalk to authoring +Y, C4; since nitpick A3 the finished cabin is then
-    mirrored to -Y = OUTBOARD, see GD_OUTBOARD), plan scale (0.8779, 0.9091),
-    piecewise z remap to 2.40, clean (739 -> 571), the 3 shell holes (door opening + two
-    door-side corner holes) filled = part doorplug_ (17 tris), split by material into
-    body_/roof_/trim_/hw_/glass_ (+ door*), every ingested part RE-UV'd into exactly one layer
-    "UVMap" with the Maya "map1" layer removed (skeptic MC3, asserted). Rebuilt (Revision 1
-    shapes, see below): roof rails, the traced hanger (one 12-segment tube A -> B -> D),
-    hanger head, springs, carriage frame, 8 rollers (10 segments, 30 tris each), grip
-    (top = bounds max 4.50 = hang), bumpers, roof hat, number plate, two end-skirt logo
-    quads fitted to the shell. Painted glass (R8). LOD1 = protected-prefix
-    decimation <= 0.48 x LOD0; LOD2 = authored proxy (~204 tris, UVs snapped to LOD0) - the
-    --lod2 decimate A/B fails G3/G6 by measurement (the protected contract parts alone are
-    ~244 tris > the ~200 budget), which is C6's reason for the proxy.
-    Hang 4.50 floor underside -> grip top; rope 4.42 (grip_top_above_rope 0.08, C5).
+Without --export the generator writes NOTHING under assets/import. It puts the asset folder in
+<tempdir>/lift_cabin/<Name> (skeptic should-fix: drafts never land where someone can import them by
+mistake). --finish makes the full bake (gondola 1024 / AO 32, tram 2048 / AO 48, relief). Without --finish
+the generator makes the draft bake (256 px, AO 8, no relief). The generator always paints the stamps.
+
+GONDOLA `SkiGondolaCabin8A` (cabins.md section 3). Build steps:
+1. Ingest Wilin_Amaurea's cabin shell (gondola.fbx, CC BY 4.0, credit below) with cs2_ingest. Take subtree
+   "cabin.001". Keep the shell and both door leaves. Drop the door details, footstep, fasteners and
+   box_top (doors simplified).
+2. Scale x27.
+3. Reframe forward -X (180 deg yaw, no mirror): doors and stalk go to authoring +Y (C4). Since nitpick A3
+   the generator then mirrors the finished cabin to -Y = OUTBOARD (see GD_OUTBOARD).
+4. Apply the plan scale (0.8779, 0.9091) and a piecewise z remap to 2.40.
+5. Clean (739 -> 571).
+6. Fill the 3 shell holes (door opening and two door-side corner holes) = part doorplug_ (17 tris).
+7. Split by material into body_/roof_/trim_/hw_/glass_ (+ door*).
+8. Re-UV every ingested part into exactly one layer "UVMap". Remove the Maya "map1" layer (skeptic MC3,
+   asserted).
+
+The generator rebuilds these parts (Revision 1 shapes, see below): roof rails, the traced hanger (one
+12-segment tube A -> B -> D), hanger head, springs, carriage frame, 8 rollers (10 segments, 30 tris each),
+grip (top = bounds max 4.50 = hang), bumpers, roof hat, number plate, and two end-skirt logo quads fitted
+to the shell. The glass is painted (R8).
+
+LOD1 = protected-prefix decimation <= 0.48 x LOD0. LOD2 = authored proxy (~204 tris, UVs snapped to LOD0).
+The --lod2 decimate A/B fails G3/G6 by measurement: the protected contract parts alone are ~244 tris, more
+than the ~200 budget. This is C6's reason for the proxy.
+
+Hang 4.50 from floor underside to grip top. Rope 4.42 (grip_top_above_rope 0.08, C5).
 
 TRAM `SkiTramCabinA` (cabins.md section 4 as reconciled by R27-R30)
-    R27 hang 10.50 (floor underside -> carriage top, bounds max), track rope 0.50 below the
-        carriage top (rope 10.00); --hang 7.00 keeps the compact fallback (rope 6.50).
-    R28 ONE track rope per side = the HV rider lane at x +-5.5: the carriage rides it with two
-        bogies x four wheels ON THAT ROPE (wheel groove bottom on the drawn HV rope's top,
-        +0.0866); the haul rope is a non-HV lane at +-5.0, 0.40 below -> haul grips at dy +-0.50,
-        dz -0.40.
-    R29 front/back AND left/right symmetric (doors on both long sides, mirror-asserted), parked
-        identity in both base bays, pivot at the floor underside, never yawed 180: so the
-        haul grips sit on both sides and the hanger is laterally symmetric - ONE centered
-        box-section column on the roof fin, forked below the saddle band into two uprights
-        that pass the rope outside the tower keep-out and meet the carriage above the rope.
-    R30 at saddle height the carriage/hanger half-width is <= 1.10 (uprights 0.82..1.08); the
-        carrier leaves the tower its envelope: nothing at |dy| < 0.36 for dz -0.80..-0.05 and
-        nothing at |dy| < 0.80 for dz -3.80..-0.70 (crossbar below dz -3.80).
-    Body ~8.0 x 3.7 x 3.0 rounded-rectangle loft (JH bands), mullions, one centered double door
-    per long side (Revision 2), 6 logos, roof equipment + gratings + 2 hatches, ladder, end
-    bumpers; 2048 set. LOD1 AUTHORED (details deleted, the eight
-    16-segment wheels swapped for 8-segment wheels at the same seats, UVs snapped; COLLAPSE on
-    the identical rims was not reproducible build to build), LOD2 protected-prefix decimation.
-    --split: SkiTramCabinA (everything below the carriage pin K) + SkiTramCarriageA (carriage,
-    pivot K = (0, 0, hang - 0.12)), each its own 4-map set (cabins.md section 4.8).
+- R27: hang 10.50 (floor underside -> carriage top, bounds max). The track rope is 0.50 below the carriage
+  top (rope 10.00). --hang 7.00 keeps the compact fallback (rope 6.50).
+- R28: ONE track rope per side = the HV rider lane at x +-5.5. The carriage rides it with two bogies x
+  four wheels ON THAT ROPE (wheel groove bottom on the drawn HV rope's top, +0.0866). The haul rope is a
+  non-HV lane at +-5.0, 0.40 below. So the haul grips sit at dy +-0.50, dz -0.40.
+- R29: the cabin is front/back AND left/right symmetric (doors on both long sides, mirror-asserted). It
+  parks with identity pose in both base bays. The pivot is at the floor underside. The cabin never yaws
+  180. So the haul grips sit on both sides, and the hanger is laterally symmetric: ONE centered
+  box-section column on the roof fin. The column forks below the saddle band into two uprights. The
+  uprights pass the rope outside the tower keep-out and meet the carriage above the rope.
+- R30: at saddle height the carriage/hanger half-width is <= 1.10 (uprights 0.82..1.08). The carrier
+  leaves the tower its envelope: nothing at |dy| < 0.36 for dz -0.80..-0.05, and nothing at |dy| < 0.80
+  for dz -3.80..-0.70 (crossbar below dz -3.80).
 
-REVISION 1 (first live review 2026-10-11, verdicts items 6 / 9: "a bit blocky ... straight
-outta CAD - a cleanup pass"; "the icon is great, reuse it, but a tiny bit low-res"; tram "same
-critique"). Every contract number above is unchanged (hang / rope / UtilityObject / bounds / hosted
-poses; seams S5 / S6 and the station T8 sweep pin them). Gondola: shell crown (3 seg) / skirt foot
-(2 seg) / window-frame (1 seg) bevels on the welded shell + plug; door leaves inset 14 mm (dark
-reveal) with grab handles; ONE 12-segment hanger tube on a foot block and a saddle clamp, a rounded
-hanger head, coil springs, a rounded carriage frame, 10-segment rollers, an L-section grip prism;
-rounded bumpers and roof hat; plate and logos as plaques. Tram: rounded boat bottom and roof crown,
-glazing set 45 mm behind its frames, rounded box sections, dished / flanged / grooved wheels,
-lighter bogie plates, rounded roof equipment with seams. Both: no coplanar overlapping faces, sub-5
-cm detail in the normal map, metric UVs (no stretched texels), textures 2048 (gondola bumped from
-1024 by the density report, R18), and the STAMP STRIPE (stamp_layout): every logo quad shares one
-pinned square >= 4x the shipped logo, hero faces pinned and skyline-packed >= 120 px/m.
+The body has: ~8.0 x 3.7 x 3.0 rounded-rectangle loft (JH bands), mullions, one centered double door per
+long side (Revision 2), 6 logos, roof equipment + gratings + 2 hatches, ladder, end bumpers. The texture
+set is 2048. LOD1 is AUTHORED: the generator deletes details, swaps the eight 16-segment wheels for
+8-segment wheels at the same seats and snaps the UVs. (COLLAPSE on the identical rims was not reproducible
+build to build.) LOD2 is protected-prefix decimation.
 
-REVISION 1b (2026-10-11, build/revision1-check-cabins.md defects C1-C4; the look is unchanged):
-C1 / C2 builder caps are polyfilled on their own normals (triangulate_caps; every cap held to
-cap_check, a signed-area test); C3 the end-window frame-lip bevel skips the > 90 deg folds against
-the door-plug corner fill and welds the one collapsed corner, so the shell + plug island stays
-closed (asserted in soften_shell and as G11); C4 grip stem, fork crossbar ends and cliplinks sit
-2 mm inside the faces they were flush with. G12 / T12: no same-facing coplanar overlap > 1 cm2.
+--split makes SkiTramCabinA (everything below the carriage pin K) and SkiTramCarriageA (carriage, pivot K
+= (0, 0, hang - 0.12)). Each has its own 4-map set (cabins.md section 4.8).
 
-REVISION 2 (2026-10-11, tram only; the gondola build is untouched): after approving both
-looks - "gondola has some details that the tram doesn't now (door handles, bolts etc), also a tram
-would have a pair of sliding doors on each side in the middle, opening outwards". tram_door_kit: one
-outward-opening sliding (plug) double door per long side, centered, CLOSED: leaves 0.838 wide from
-the threshold (0.32 = the station boarding deck + 2 cm) to the glazing head (2.38), faces 15 mm
-PROUD of the wall (the exported lateral bound 1.880 is the mullions'), rubber jamb seals and meeting
-nosings (the gap line), leaf windows in rubber gaskets 25 mm behind the face, grab bars in recessed
-pockets, release pulls, a header runner box with two rubber-tired hanger rollers per leaf, a safety-
-yellow threshold nosing, a drip rail, intercom boxes; the main-row center mullion became the seam,
-+-1.25 moved to +-1.70, the side logo moved to the panes either side (2 per side). Gondola parity:
-EVERY Revision 1 tram bolt row was below the 2-texel floor (509 faces skipped, measured): tram-scale
-heads + heavier density weights draw them now; hanger pin boss + nut on the carriage head; roof
-hatches with hinges; end bumpers. The rubber parts and the trim join the pinned constant stripes so
-the margin-bound galv pack keeps its island count. T13 asserts the doors (LOD0 / LOD1); LOD1 keeps
-the leaves (doors read closed), LOD2 drops every door part (the body behind is unchanged).
+REVISION 1 (first live review 2026-10-11, verdicts items 6 / 9: "a bit blocky ... straight outta CAD - a
+cleanup pass", "the icon is great, reuse it, but a tiny bit low-res", and for the tram "same critique").
+Every contract number above is unchanged (hang / rope / UtilityObject / bounds / hosted poses). Seams S5 /
+S6 and the station T8 sweep pin them. Gondola changes:
+- shell crown (3 seg) / skirt foot (2 seg) / window-frame (1 seg) bevels on the welded shell + plug
+- door leaves inset 14 mm (dark reveal) with grab handles
+- ONE 12-segment hanger tube on a foot block and a saddle clamp
+- a rounded hanger head, coil springs, a rounded carriage frame, 10-segment rollers, an L-section grip
+  prism
+- rounded bumpers and roof hat
+- plate and logos as plaques
 
-NITPICK A3 (2026-10-13, gondola only; the tram is untouched; orchestrator ruling F1 on
-build/nitpick-a2-hanger-gondola.md; build/nitpick-a3-cabin-nose.md): every station is built round
-the up lane on the RIGHT looking uphill and the mover yaws every carrier to face its travel
-(prefab +z = authoring +X), so a carrier's OUTBOARD side is its RIGHT = authoring -Y in both x-sign
-branches (the DQ chair's lift_chair.DQ_OUTBOARD -1, nitpick A2). The approved cabin carried its
-stalk, carriage, grip and doors on +Y (C4 read the lens's "forward -X"): on the stations' spin that
-is its LEFT - inboard, through every GD head's rocker mains / links / girders and the gondola top's
-nose train, the doors facing away from the platforms. GD_OUTBOARD = "-Y" (the --outboard default for
-the gondola) builds the EXACT mirror of the whole cabin across y = 0 (gondola_parts / gondola_proxy:
-scale y -1, winding flipped; the stamps and the plate are laid out after the mirror, so they read
-right): look, tris, hang 4.50, bounds (mirrored) and door openings unchanged. `--outboard=+Y`
-rebuilds the approved revision 1b cabin byte for byte (the A-B proof). catalog/carriers.json gd8
-"outboard" carries the same sign; the gondola stations' cabin pose (lift_terminal_detach G1 / G8 /
-previews) reads it there. The preview cameras mirror with the side (same frames, mirror image).
+Tram changes: rounded boat bottom and roof crown, glazing set 45 mm behind its frames, rounded box
+sections, dished / flanged / grooved wheels, lighter bogie plates, rounded roof equipment with seams.
 
-Every geometry contract (G1-G12 gondola, T1-T13 tram; G11 / G12 / T12 on LOD0 only) is asserted
-on LOD0, LOD1 and LOD2 from the actual vertices: a wrong build raises RuntimeError before anything
-is exported. Names via cs2_asset.validate_asset_name. Deterministic (canonical part order, CPU
-bake seed 0, no wall-clock in the textures): tests/test_cabin_contracts.py builds each kind twice.
+Both kinds:
+- no coplanar overlapping faces
+- sub-5 cm detail in the normal map
+- metric UVs (no stretched texels)
+- textures 2048 (the density report bumped the gondola from 1024, R18)
+- the STAMP STRIPE (stamp_layout): every logo quad shares one pinned square >= 4x the shipped logo. Hero
+  faces are pinned and skyline-packed >= 120 px/m.
 
-Library (no edits to any shared module; local helpers are marked "L<n>" after cabins.md
-section 13): cs2_ingest (load_external, rescale_by_reference, reframe, clean, discard),
-cs2_kit (add_box, add_cyl, gusset, grating, cable_clamp, sheave, tube_along), cs2_uv,
-cs2_asset (tag_parts, store_part_table, shade_by_angle, orient_for_net, export_fbx,
-write_settings), cs2_bake (material_sources, bake_unique, MaterialSpec), cs2_compose,
-cs2_validate, cs2_preview, cs2_review, ski_launcher_glyph (the shipped glyph (c)).
+REVISION 1b (2026-10-11, build/revision1-check-cabins.md defects C1-C4, the look is unchanged):
+- C1 / C2: the generator polyfills builder caps on their own normals (triangulate_caps). Every cap must
+  pass cap_check, a signed-area test.
+- C3: the end-window frame-lip bevel skips the > 90 deg folds against the door-plug corner fill and welds
+  the one collapsed corner. So the shell + plug island stays closed (asserted in soften_shell and as G11).
+- C4: grip stem, fork crossbar ends and cliplinks sit 2 mm inside the faces they were flush with.
+- G12 / T12: no same-facing coplanar overlap > 1 cm2.
 
-Credit (CC BY 4.0, ROUND-SPEC section 8; assets/external/wilin-gondola/SOURCE.md):
+REVISION 2 (2026-10-11, tram only, the gondola build is untouched): after both looks were approved came
+this verdict: "gondola has some details that the tram doesn't now (door handles, bolts etc), also a tram
+would have a pair of sliding doors on each side in the middle, opening outwards". tram_door_kit builds:
+- one outward-opening sliding (plug) double door per long side, centered, CLOSED: leaves 0.838 wide from
+  the threshold (0.32 = the station boarding deck + 2 cm) to the glazing head (2.38)
+- leaf faces 15 mm PROUD of the wall (the exported lateral bound 1.880 is the mullions')
+- rubber jamb seals and meeting nosings (the gap line)
+- leaf windows in rubber gaskets 25 mm behind the face
+- grab bars in recessed pockets, release pulls
+- a header runner box with two rubber-tired hanger rollers per leaf
+- a safety-yellow threshold nosing, a drip rail, intercom boxes
+
+The main-row center mullion became the seam. The mullions at +-1.25 moved to +-1.70. The side logo moved
+to the panes either side (2 per side).
+
+Gondola parity: EVERY Revision 1 tram bolt row was below the 2-texel floor (509 faces skipped, measured).
+Tram-scale heads and heavier density weights now draw them. Also new: hanger pin boss + nut on the
+carriage head, roof hatches with hinges, end bumpers. The rubber parts and the trim join the pinned
+constant stripes, so the margin-bound galv pack keeps its island count. T13 asserts the doors (LOD0 /
+LOD1). LOD1 keeps the leaves (doors read closed). LOD2 drops every door part (the body behind is
+unchanged).
+
+NITPICK A3 (2026-10-13, gondola only, the tram is untouched, orchestrator ruling F1 on
+build/nitpick-a2-hanger-gondola.md, plus build/nitpick-a3-cabin-nose.md): every station is built round the
+up lane on the RIGHT looking uphill. The mover yaws every carrier to face its travel (prefab +z =
+authoring +X). So a carrier's OUTBOARD side is its RIGHT = authoring -Y in both x-sign branches (the DQ
+chair's lift_chair.DQ_OUTBOARD -1, nitpick A2).
+
+The approved cabin carried its stalk, carriage, grip and doors on +Y (C4 read the lens's "forward -X"). On
+the stations' spin that is its LEFT. That side is inboard, through every GD head's rocker mains / links /
+girders and the gondola top's nose train. The doors face away from the platforms.
+
+GD_OUTBOARD = "-Y" (the --outboard default for the gondola) builds the EXACT mirror of the whole cabin
+across y = 0. In gondola_parts / gondola_proxy the mirror is scale y -1 with the winding flipped. The
+generator lays out the stamps and the plate after the mirror, so they read right. Look, tris, hang 4.50,
+bounds (mirrored) and door openings are unchanged. `--outboard=+Y` rebuilds the approved revision 1b cabin
+byte for byte (the A-B proof). catalog/carriers.json gd8 "outboard" carries the same sign. The gondola
+stations' cabin pose (lift_terminal_detach G1 / G8 / previews) reads it there. The preview cameras mirror
+with the side (same frames, mirror image).
+
+The generator asserts every geometry contract (G1-G12 gondola, T1-T13 tram, with G11 / G12 / T12 on LOD0
+only) on LOD0, LOD1 and LOD2 from the actual vertices. A wrong build raises RuntimeError before anything
+is exported. cs2_asset.validate_asset_name checks the names. The build is deterministic (canonical part
+order, CPU bake seed 0, no wall-clock in the textures). tests/test_cabin_contracts.py builds each kind
+twice.
+
+Library: the generator edits no shared module. Local helpers are marked "L<n>" after cabins.md section 13.
+It uses these modules:
+- cs2_ingest (load_external, rescale_by_reference, reframe, clean, discard)
+- cs2_kit (add_box, add_cyl, gusset, grating, cable_clamp, sheave, tube_along)
+- cs2_uv
+- cs2_asset (tag_parts, store_part_table, shade_by_angle, orient_for_net, export_fbx, write_settings)
+- cs2_bake (material_sources, bake_unique, MaterialSpec)
+- cs2_compose
+- cs2_validate
+- cs2_preview
+- cs2_review
+- ski_launcher_glyph (the shipped glyph (c))
+
+Credit (CC BY 4.0, ROUND-SPEC section 8, assets/external/wilin-gondola/SOURCE.md):
     "Ski gongola and lift station detailed drafts" by Wilin_Amaurea -
     https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db
     licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Modified: re-scaled,
-    re-topologised, re-UV'd and re-textured for Cities: Skylines II. The tram uses no
+    re-topologized, re-UV'd and re-textured for Cities: Skylines II. The tram uses no
     third-party geometry.
 """
 
@@ -180,9 +214,9 @@ DEFAULT_AB = os.path.join(REPO, "assets", "import", "chairs", "L", "SkiLiftChair
 DRAFT_ROOT = os.path.join(tempfile.gettempdir(), "lift_cabin")
 
 NAMES = {"gondola": "SkiGondolaCabin8A", "tram": "SkiTramCabinA"}
-#: --split (carrier split 2026-11-03, docs/research/carrier-pivot-swing-plan-2026-11-03.md): (body, grip) per
-#: kind, a new generation letter B (deployed A names are never reused). The tram split was written as
-#: SkiTramCabinA + SkiTramCarriageA and never shipped.
+#: --split (carrier split 2026-11-03, docs/research/carrier-pivot-swing-plan-2026-11-03.md): (body, grip)
+#: per kind. The names use a new generation letter B. The project never reuses deployed A names. The tram
+#: split was written as SkiTramCabinA + SkiTramCarriageA and never shipped.
 SPLIT_NAMES = {"gondola": ("SkiGondolaCabin8B", "SkiGondolaCabin8GripB"),
                "tram": ("SkiTramCabinB", "SkiTramCarriageB")}
 CATALOG_KEY = {"gondola": "gd8", "tram": "tram"}
@@ -190,18 +224,18 @@ CATALOG_KEY = {"gondola": "gd8", "tram": "tram"}
 FRAME_PROP = "cabin_frame"       # "net" once orient_for_net has run (contract math undo it)
 PART_TABLE_PROP = cs2_asset.PART_TABLE_PROP
 
-#: The two rows this generator owns (cabins.md section 9; R27-R31). catalog/carriers.json is
-#: human-written and not this generator's file: it is READ and any drift is reported loudly
-#: (console + manifest + build report) so the catalog owner can paste these rows.
-#: Fixer 2026-10-11 (gondola-tram-review-pipeline finding 1 / 7, geometry F7): line_prefab and
-#: lift_type are round-2-contract section 1.3 / 10.2 (SkiGondolaHV / SkiTramHV); no `owner` (the
-#: catalog owner writes its own). Every field is PREFAB-local (x lateral, y up, z travel):
-#: `outboard` is where the gondola stalk / door side sits in the raw FBX frame (prefab x = authoring
-#: y): -X since nitpick A3 (GD_OUTBOARD -Y, the carrier's right on the stations' spin; it was +X =
-#: authoring +Y, the lens's "forward -X" reading); catalog_drift writes the built side into the
-#: manifest's generator row. `bounds_lat_m` is read OUTBOARD-positive (outboard +1.10 at the door
-#: handles, inboard -1.05), as the towers' C18 / C20 and the stations' GD_ENV read it. The tram
-#: carriage pitch pivot K is a height above the cabin underside.
+#: The two rows this generator owns (cabins.md section 9, R27-R31). catalog/carriers.json is
+#: human-written and not this generator's file. The generator READS it and reports any drift loudly
+#: (console + manifest + build report), so the catalog owner can paste these rows. Fixer 2026-10-11
+#: (gondola-tram-review-pipeline finding 1 / 7, geometry F7): line_prefab and lift_type are
+#: round-2-contract section 1.3 / 10.2 (SkiGondolaHV / SkiTramHV). The rows have no `owner` (the catalog
+#: owner writes its own). Every field is PREFAB-local (x lateral, y up, z travel). `outboard` is where the
+#: gondola stalk / door side sits in the raw FBX frame (prefab x = authoring y). It is -X since nitpick A3
+#: (GD_OUTBOARD -Y, the carrier's right on the stations' spin). It was +X = authoring +Y, the lens's
+#: "forward -X" reading. catalog_drift writes the built side into the manifest's generator row.
+#: `bounds_lat_m` is read OUTBOARD-positive (outboard +1.10 at the door handles, inboard -1.05), as the
+#: towers' C18 / C20 and the stations' GD_ENV read it. The tram carriage pitch pivot K is a height above
+#: the cabin underside.
 CARRIERS = {
     "gd8": {
         "object_prefab": "SkiGondolaCabin8", "mesh_base": "SkiGondolaCabin8",
@@ -221,20 +255,20 @@ CARRIERS = {
         "pivot_k_up_m": 10.38, "lane_hanging_max": 0.004},
 }
 
-#: Nitpick A3 (2026-10-13; orchestrator ruling F1 on build/nitpick-a2-hanger-gondola.md; module
-#: docstring): the gondola cabin's OUTBOARD side in the AUTHORING frame = its stalk / carriage / grip
-#: / door side. The family rule (every carrier): outboard = the carrier's RIGHT facing its travel =
-#: authoring -Y on the stations' spin (chain A = the right lane looking uphill, the stations built
-#: round it; the mover yaws every carrier to face its travel). The --outboard default for the gondola;
-#: "+Y" = the approved revision 1b cabin (the A-B rebuild). catalog/carriers.json gd8 "outboard"
+#: Nitpick A3 (2026-10-13, orchestrator ruling F1 on build/nitpick-a2-hanger-gondola.md, module
+#: docstring): the gondola cabin's OUTBOARD side in the AUTHORING frame = its stalk / carriage / grip /
+#: door side. The family rule applies to every carrier: outboard = the carrier's RIGHT facing its travel =
+#: authoring -Y on the stations' spin. Chain A is the right lane looking uphill, and the stations are built
+#: round it. The mover yaws every carrier to face its travel. This is the --outboard default for the
+#: gondola. "+Y" = the approved revision 1b cabin (the A-B rebuild). catalog/carriers.json gd8 "outboard"
 #: says the same (tests/test_gondola_tram_seams.py S11 / S15 gate the seam).
 GD_OUTBOARD = "-Y"
 OUTBOARD_PREFAB_X = {"+Y": "+X", "-Y": "-X"}     # raw FBX / prefab x = authoring y
 
 #: The carrier-contract fields this generator builds its meshes to. catalog_drift and
-#: tests/test_gondola_tram_seams.py S11 compare ONLY these (numbers within 1e-6), so keys the
-#: catalog owner adds or rewrites (line_prefab, lift_type, owner, seats, speed, spacing, doc,
-#: schema) never count as drift (gondola-tram-review-pipeline finding 1).
+#: tests/test_gondola_tram_seams.py S11 compare ONLY these (numbers within 1e-6). So keys that the catalog
+#: owner adds or rewrites (line_prefab, lift_type, owner, seats, speed, spacing, doc, schema) never count
+#: as drift (gondola-tram-review-pipeline finding 1).
 CONTRACT_FIELDS = ("hang_m", "grip_top_above_rope_m", "lane_x_m", "axle_m", "haul_x_m",
                    "haul_dy_m", "bounds_lat_m", "bounds_lat_half_m", "bounds_travel_half_m",
                    "carriage_half_w_m", "lane_hanging_max")
@@ -250,9 +284,9 @@ def same_value(a, b, eps=1e-6):
         return len(a) == len(b) and all(same_value(x, y, eps) for x, y in zip(a, b))
     return a == b
 
-#: The tram stations are the anchor owner of the parked-cabin heights (tram_station.py DECK_Y,
-#: DOCK_Z, TRACK_Y; build/tram_station.md section 2): the manifest's hosted-pose rows are
-#: derived from these, and tests/test_gondola_tram_seams.py asserts them equal to the station's.
+#: The tram stations are the anchor owner of the parked-cabin heights (tram_station.py DECK_Y, DOCK_Z,
+#: TRACK_Y, build/tram_station.md section 2). The generator derives the manifest's hosted-pose rows from
+#: these values. tests/test_gondola_tram_seams.py asserts them equal to the station's.
 TRAM_STATION = {"deck_y": 6.30, "dock_z": -5.50, "track_y": 16.00, "deck_edge_dx": 2.30}
 
 
@@ -260,10 +294,10 @@ TRAM_STATION = {"deck_y": 6.30, "dock_z": -5.50, "track_y": 16.00, "deck_edge_dx
 # Shared constants
 # ======================================================================================
 
-#: Revision 1 (verdicts 2026-10-11 items 6 / 9) measured 60 vs 66: the Wilin shell's
-#: facets sit at 50-70 deg, so 60 marks 93 more shell edges sharp (the faceted "CAD" read) while
-#: 66 keeps the shell, the 12-segment tubes and rollers (30 deg) and the 2-3 segment bevels
-#: (30-45 deg) smooth and every box / frame edge (>= 80 deg) crisp. lift_cabin.md Revision 1.
+#: Revision 1 (verdicts 2026-10-11 items 6 / 9) measured 60 against 66. The Wilin shell's facets sit at
+#: 50-70 deg, so 60 marks 93 more shell edges sharp (the faceted "CAD" read). 66 keeps these smooth: the
+#: shell, the 12-segment tubes and rollers (30 deg), and the 2-3 segment bevels (30-45 deg). It also keeps
+#: every box / frame edge (>= 80 deg) crisp. See lift_cabin.md Revision 1.
 SHADE_ANGLE = 66.0
 REMOVE_DOUBLES_M = 0.0005
 HV_ROPE_TOP = 0.0866       # vanilla HV cable lane mesh: hexagon r 0.100, flat top 0.0866 [V]
@@ -271,10 +305,10 @@ HV_ROPE_R = 0.100
 LV_ROPE_R = 0.060          # vanilla LV cable lane mesh bounds x +-0.060 [V]
 GLYPH_SS = 4               # ski_launcher_glyph.render_alpha supersampling of the logo stamp
 GLYPH_RGB = (0.85, 0.85, 0.85)          # linear white of the stamped logos
-#: Revision 1: the logo shipped at 95 px (gondola, 170 px/m x 0.56 m) and 135 px (tram, 193 px/m
-#: x 0.70 m); "a tiny bit low-res". Every logo quad of one asset now shares ONE pinned
-#: square of the stamp stripe (PIPELINE section 3: stamped strips keep their UVs, copied 1:1),
-#: >= 4x the shipped edge length; the glyph alpha is rendered at the square's own pixel size.
+#: Revision 1: the logo shipped at 95 px (gondola, 170 px/m x 0.56 m) and 135 px (tram, 193 px/m x 0.70
+#: m). Verdict: "a tiny bit low-res". Every logo quad of one asset now shares ONE pinned square of the
+#: stamp stripe (PIPELINE section 3: stamped strips keep their UVs, copied 1:1), >= 4x the shipped edge
+#: length. The generator renders the glyph alpha at the square's own pixel size.
 LOGO_SHIPPED_PX = {"gondola": 95.0, "tram": 135.0}
 PLATE_LIGHT_SRGB = (0.90, 0.90, 0.86)   # lift_chair plate colors (sRGB-encoded there)
 PLATE_DARK_SRGB = (0.08, 0.08, 0.09)
@@ -294,9 +328,9 @@ DIGITS = {
     "9": ("01110", "10001", "10001", "01111", "00001", "00010", "01100"),
 }
 
-#: Preview views AFTER orient_for_net (travel = Blender -Y, authoring +Y = Blender +X). Written for
-#: the door / stalk side on +Y; view_dirs() mirrors their x with the built side (nitpick A3: the -Y
-#: cabin is shot from -X, the same frames as the mirror image).
+#: Preview views AFTER orient_for_net (travel = Blender -Y, authoring +Y = Blender +X). Written for the
+#: door / stalk side on +Y. view_dirs() mirrors their x with the built side (nitpick A3: the -Y cabin is
+#: shot from -X, the same frames as the mirror image).
 CABIN_VIEWS = (
     ("three_quarter", (1.0, -1.1, 0.45)),
     ("side",          (1.0, 0.0, 0.10)),
@@ -307,7 +341,7 @@ PREVIEW_RES = (1000, 1200)
 
 
 def view_dirs(views, sign):
-    """`views` ((name, (x, y, z)), ...) with x times `sign` (+1 as written; -1 for the -Y cabin)."""
+    """`views` ((name, (x, y, z)), ...) with x times `sign` (+1 as written, -1 for the -Y cabin)."""
     return tuple((n, (sign * d[0], d[1], d[2])) for n, d in views)
 
 
@@ -328,9 +362,9 @@ MATERIALS = {
     "galv":        {"texture_set": "Metal032", "metres_per_tile": 2.0},
     "rubber":      {"albedo": (0.035, 0.035, 0.035), "slot": 0, "metal": 0.0, "rough": 0.80},
     "plate":       {"albedo": (0.75, 0.75, 0.75), "slot": 0, "metal": 0.0, "rough": 0.50},
-    # Revision 2 (tram only): the "stand clear" stripe on the door threshold nosing (fixed
-    # safety yellow, never recolored); unused keys never reach a bake (build_lod0 takes
-    # only the keys its parts carry), so the gondola build is unchanged
+    # Revision 2 (tram only): the "stand clear" stripe on the door threshold nosing (fixed safety yellow,
+    # never recolored). Unused keys never reach a bake (build_lod0 takes only the keys its parts carry),
+    # so the gondola build is unchanged
     "safety":      {"albedo": (0.78, 0.47, 0.02), "slot": 0, "metal": 0.0, "rough": 0.60},
 }
 
@@ -351,23 +385,23 @@ G = dict(
     body=(2.30, 2.10, 2.40),
     hang=4.500, rope=4.420,                    # C5: grip_top_above_rope 0.08
     wilin_mount_m=(1.217, 1.267, 0.560),       # skeptic verdict 3 / MC6 (source column)
-    # Revision 1 hanger: ONE smooth 12-segment tube (tube_along, bend rings) instead of the
-    # box-section sweep + flat gussets. The arm rests on both roof rails (center 0.085 above the
-    # 2.52 rail top, 1 cm seated); the stalk center moves 0.68 -> 0.655 so the tube sits inside
-    # its hanger head; every point stays inside tram_tower.CARRIER_GD (seams S6, both pin frames).
+    # Revision 1 hanger: ONE smooth 12-segment tube (tube_along, bend rings) instead of the box-section
+    # sweep + flat gussets. The arm rests on both roof rails (center 0.085 above the 2.52 rail top, 1 cm
+    # seated). The stalk center moves 0.68 -> 0.655 so the tube sits inside its hanger head. Every point
+    # stays inside tram_tower.CARRIER_GD (seams S6, both pin frames).
     hanger_a=(0.0, -0.58, 2.595), hanger_b=(0.0, 0.655, 2.595), hanger_d=(0.0, 0.655, 3.98),
     hanger_r=0.085, hanger_segs=12, hanger_fillet=0.40, hanger_bend_rings=6, roller_segs=10,
     yoke_y=(-0.59, 0.15),                      # rails under the arm's straight run (was 0.44)
-    door_centroid_min=0.90,                    # G5 on the centroid (skeptic MC2; measured 0.98)
+    door_centroid_min=0.90,                    # G5 on the centroid (skeptic MC2, measured 0.98)
     door_reveal=0.014,                         # each leaf shrinks 14 mm per side: dark plug reveal
     extents=dict(x=1.20, y_lo=-1.06, y_hi=1.10),
     logo_size=0.56, logo_zc=0.42, plate_wh=(0.20, 0.13), plate_zc=3.45,
-    # Revision 1: 2048 (R18 "bump only where the density report demands it"): at 1024 the
-    # measured pack (Blender AABB, 156 islands, 16 px margin) covers 15 % of the atlas and the
-    # shell ships at 82 px/m; hero faces >= 120 px/m plus a >= 4x logo square do not fit 1024.
+    # Revision 1: 2048 (R18 "bump only where the density report demands it"). At 1024 the measured pack
+    # (Blender AABB, 156 islands, 16 px margin) covers 15 % of the atlas and the shell ships at 82 px/m.
+    # Hero faces >= 120 px/m plus a >= 4x logo square do not fit 1024.
     tex=2048, ao=32, margin=32,
     logo_frac=400.0 / 2048.0,                  # logo square edge / A (400 px at 2048 = 4.2x)
-    plate_ppm=1100.0,                          # pinned plate texels (2048; scaled with A)
+    plate_ppm=1100.0,                          # pinned plate texels (2048, scaled with A)
     fill_prefixes=("body_", "doorbody_"),      # pinned beside the logo (same material)
     fill_uv_angle=40.0,
     lod1_delete=("hw_", "doorhw_", "bumper_", "roller_", "plate_", "plaque_",
@@ -380,7 +414,7 @@ G = dict(
 G["lod2_delete"] = G["lod1_delete"] + ("doorbody_", "doortrim_", "doorglass_", "logo_",
                                        "vent_", "spring_")   # yoke_ kept: G4 (roof -> arm gap)
 
-#: Wilin material -> (part prefix, material key); doors get the "door" prefix in front.
+#: Wilin material -> (part prefix, material key). Doors get the "door" prefix in front.
 G_MATERIAL_MAP = {
     "yellow_basic": ("body_", "paint_body"), "yellow_dark": ("body_", "paint_body"),
     "yellow_med": ("body_", "paint_body"), "yellow_light": ("roof_", "paint_roof"),
@@ -388,15 +422,15 @@ G_MATERIAL_MAP = {
     "gray_basic": ("hw_", "galv"), "gray_light": ("hw_", "galv"),
     "glass": ("glass_", "glass"),
 }
-#: tris per part after clean (per door leaf). Measured in the contract's order (rescale ->
-#: reframe -> plan scale + z remap -> clean): yellow_basic 143 + yellow_dark 84 = body_ 227 and
-#: gray_dark 136 + gray_darker 94 = trim_ 230; cabins.md section 3.2 printed 231 / 226 (the
-#: total 571 agrees - clean's degenerate dissolve moves 4 tris between the two materials).
+#: tris per part after clean (per door leaf). Measured in the contract's order (rescale -> reframe ->
+#: plan scale + z remap -> clean). yellow_basic 143 + yellow_dark 84 = body_ 227 and gray_dark 136 +
+#: gray_darker 94 = trim_ 230. cabins.md section 3.2 printed 231 / 226 (the total 571 agrees). clean's
+#: degenerate dissolve moves 4 tris between the two materials.
 G_SPLIT_EXPECT = {"body_": 227, "roof_": 8, "trim_": 230, "hw_": 34, "glass_": 72,
                   "doorbody_": 12, "doortrim_": 84, "doorhw_": 2, "doorglass_": 16}
 
-#: Revision 1: hero faces (trim, roof - the CS2 camera looks down on it - doors) weigh more;
-#: body_ / doorbody_ / logo_ / plate_face are PINNED in the stamp stripe (stamp_layout), so their
+#: Revision 1: hero faces weigh more (trim, doors, and the roof, because the CS2 camera looks down on
+#: it). body_ / doorbody_ / logo_ / plate_face are PINNED in the stamp stripe (stamp_layout), so their
 #: weights only matter to an unpinned build (the --split carriage, tests).
 G_DENSITY = {
     "body_": 1.2, "roof_": 1.1, "trim_": 1.3, "hw_": 0.6, "glass_": 0.5, "doorplug_": 0.2,
@@ -406,9 +440,9 @@ G_DENSITY = {
     "plaque_": 0.4, "doorhandle_": 0.6,
 }
 
-#: VariationSets (surgery; ColorProperties channels 0/1/2 = slot 1 body / 2 roof / 3 trim).
-#: ONE set since 2026-10-16 (T29, field item 51: four random sets made the line read as color groups):
-#: station accent body, station galvanized roof, dark trim; jitter 0 (m_VariationRanges below).
+#: VariationSets (surgery, ColorProperties channels 0/1/2 = slot 1 body / 2 roof / 3 trim). ONE set since
+#: 2026-10-16 (T29, field item 51: four random sets made the line read as color groups). The set: station
+#: accent body, station galvanized roof, dark trim. Jitter 0 (m_VariationRanges below).
 G_SETS = (
     ("Station livery", (0.85, 0.25, 0.10), (0.25, 0.26, 0.275), (0.07, 0.07, 0.08)),
 )
@@ -422,9 +456,9 @@ T = dict(
     hang_choices=(10.50, 7.00), grip_above_rope=0.50,      # R27
     fin_top={10.50: 4.60, 7.00: 4.10},
     corner_r=0.35, corner_segs=4,
-    # Revision 1 body profile (section 4.1 bands, rounded): (z, half L travel, half W) knots of
-    # the wall polyline from the underside edge to the roof edge; `round` lists the knots that
-    # get a quadratic fillet (z-extent below / above, inward run of a horizontal leg).
+    # Revision 1 body profile (section 4.1 bands, rounded): (z, half L travel, half W) knots of the wall
+    # polyline from the underside edge to the roof edge. `round` lists the knots that get a quadratic
+    # fillet (z-extent below / above, inward run of a horizontal leg).
     #   0 underside edge (6.50 x 3.40)  1 boat chamfer top / band foot (7.70 x 3.70)
     #   2 band top 1.06  3 trim top 1.10  4 main glazing top 2.41 (ends lean ~5 deg)
     #   5 sill top 2.49  6 transom top 2.81  7 roof-crown virtual corner 3.00 (8.00 x 3.70)
@@ -449,8 +483,8 @@ T = dict(
                    (0.200, -0.065), (0.164, 0.000), (0.200, 0.065), (0.200, 0.100),
                    (0.150, 0.100), (0.150, 0.030), (0.065, 0.030)),
     bogie_x=(-1.50, 1.50), wheel_dx=(-0.75, -0.25, 0.25, 0.75),
-    # lighter bogie side plate: outline (x, dz above the rope), chamfered ends and a raised
-    # center arch; its foot stays 0.02 above the rope (T3 / T11a clear by construction)
+    # lighter bogie side plate: outline (x, dz above the rope), chamfered ends and a raised center arch.
+    # Its foot stays 0.02 above the rope (T3 / T11a clear by construction)
     bogie_outline=((-1.05, 0.31), (1.05, 0.31), (1.05, 0.17), (0.92, 0.02), (0.14, 0.02),
                    (0.06, 0.11), (-0.06, 0.11), (-0.14, 0.02), (-0.92, 0.02), (-1.05, 0.17)),
     plate_dy=0.14, carbeam_dy=0.50, carbeam_len=5.60, tie_x=(-2.70, 2.70),
@@ -459,21 +493,22 @@ T = dict(
     tex=2048, ao=48, margin=32, lod0_cap=8000, lod2_cap=500, lod2_target=460,
     logo_frac=576.0 / 2048.0,                  # logo square edge / A (576 px at 2048 = 4.3x)
     logo_zc=0.71,                              # band center above the rounded band foot
-    # T7 projections (+-10 %): Revision 2 measured builds (RS section 4 target 6,000, cap 8,000;
-    # Revision 1 was 4,758 / split 2,000 + 2,760)
-    # carrier split 2026-11-03: the split adds the pin joint (T_SPLIT pin_detail 256; was 2,830 + 2,848)
-    # and its carriage the 16-segment rims (T_SPLIT segs_detail 640)
+    # T7 projections (+-10 %): Revision 2 measured builds (RS section 4 target 6,000, cap 8,000). Revision
+    # 1 was 4,758 / split 2,000 + 2,760.
+    #
+    # Carrier split 2026-11-03: the split adds the pin joint (T_SPLIT pin_detail 256, was 2,830 + 2,848)
+    # and its carriage adds the 16-segment rims (T_SPLIT segs_detail 640).
     lod0_projection=5678, split_projection={"cabin": 2926, "carriage": 3648},
-    # Revision 2: the door leaves stay at LOD1 (doors read closed, protected from the collapse),
-    # their small hardware goes; LOD2 drops every door* / hatch* part (the body behind the
-    # leaves is the unchanged Revision 1 body, so LOD2 is the Revision 1 LOD2)
+    # Revision 2: the door leaves stay at LOD1 (doors read closed, protected from the collapse). Their
+    # small hardware goes. LOD2 drops every door* / hatch* part (the body behind the leaves is the
+    # unchanged Revision 1 body, so LOD2 is the Revision 1 LOD2).
     lod1_delete=("mullion_", "ladder_", "grate_", "clamp_", "bolt_", "cliplink_", "axle_",
                  "plaque_", "doorgrab_", "doorpull_", "doorroller_", "doorhanger_", "doordrip_",
                  "doorpocket_", "intercom_", "bumper_", "hatchhinge_", "pivot_"),
-    # bogie_ is protected at LOD1: collapse once dragged plate corners into the T3 saddle clear
-    # zone (split carriage LOD1: 8 vertices below rope - 0.05 at |y| < 0.36 - the contract caught
-    # it). LOD2 deletes the plates instead (Revision 1: lighter plates cost tris; T8 coverage is
-    # carried by the uprights, carriage head and beams).
+    # bogie_ is protected at LOD1: collapse once dragged plate corners into the T3 saddle clear zone
+    # (split carriage LOD1: 8 vertices below rope - 0.05 at |y| < 0.36. The contract caught it). LOD2
+    # deletes the plates instead (Revision 1: lighter plates cost tris). The uprights, carriage head and
+    # beams carry T8 coverage.
     lod1_protect=("carbeam_", "carhead_", "hanger_", "fork_", "logo_", "bogie_", "doorband_",
                   "doortrim_", "doorframe_", "doorglass_", "doorgasket_", "doorseal_", "doorjamb_",
                   "doorsill_", "doorheader_"),
@@ -481,19 +516,20 @@ T = dict(
     carriage_prefixes=("carhead_", "carbeam_", "tie_", "bolster_", "bogie_", "sheave_", "axle_",
                        "clamp_", "bolt_", "cliplink_", "pivot_"),
     split_tex=1024,
-    # ---- Revision 2 (2026-10-11: "a tram would have a pair of sliding doors on each
-    # side in the middle, opening outwards"; "gondola has some details that the tram doesn't")
-    # One outward-opening sliding (plug) double door per long side, centered on the cabin length
-    # (R29 symmetric), modeled CLOSED: two leaves meeting at x 0, each 0.838 wide, from the
-    # threshold (0.32, the station boarding deck = pivot + 0.30, +2 cm) to the main glazing
-    # head (2.38). Leaves stand 15 mm PROUD of the 1.85 wall (front 1.865; the exported
-    # lateral bound 1.880 is the mullions' and leaves 15 mm for hardware), their edge faces run
-    # back to the glazing plane (1.803), dark rubber jamb seals outline the opening and rubber
-    # nosings meet at the center (the gap line), the leaf windows sit 25 mm behind the leaf
-    # face in rubber gaskets. Grab bars sit in recessed dark pockets (the 15 mm to the bound
-    # leaves no room for a stand-off bar); a release pull on the meeting stile; a header
-    # runner box over the opening + slide travel with two hanger rollers per leaf on brackets;
-    # a galvanised threshold with a safety-yellow nosing; a drip rail over the door.
+    # ---- Revision 2 (2026-10-11: "a tram would have a pair of sliding doors on each side in the middle,
+    # opening outwards", "gondola has some details that the tram doesn't")
+    #
+    # One outward-opening sliding (plug) double door per long side, centered on the cabin length (R29
+    # symmetric), modeled CLOSED. Two leaves meet at x 0, each 0.838 wide, from the threshold (0.32, the
+    # station boarding deck = pivot + 0.30, +2 cm) to the main glazing head (2.38). Leaves stand 15 mm
+    # PROUD of the 1.85 wall (front 1.865). The exported lateral bound 1.880 comes from the mullions. The
+    # space between it and the leaf face (15 mm) is for hardware. The leaf edge faces run back to the
+    # glazing plane (1.803). Dark rubber jamb seals outline the opening, and rubber nosings meet at the
+    # center (the gap line). The leaf windows sit 25 mm behind the leaf face in rubber gaskets. Grab bars
+    # sit in recessed dark pockets (the 15 mm to the bound is too little for a stand-off bar). A release
+    # pull sits on the meeting stile. A header runner box over the opening + slide travel carries two
+    # hanger rollers per leaf on brackets. The door also has a galvanized threshold with a safety-yellow
+    # nosing, and a drip rail over it.
     door=dict(x_meet=0.012, x_out=0.850, y_front=1.865, y_back=1.803, y_win=1.840,
               z_bot=0.320, z_top=2.380, stile=0.070, rail_top=0.080, rail_bot=0.035,
               pocket=(0.075, 0.135, 0.60, 1.00, 1.853), grab_r=0.010, grab_y=1.862,
@@ -503,8 +539,8 @@ T = dict(
               roller_r=0.020, roller_w=0.016, roller_y=1.861, roller_dx=0.25,
               hanger_y=(1.853, 1.863), drip=(1.00, 1.848, 1.874, 2.822, 2.840),
               intercom=(0.95, 1.05, 0.66, 0.82, 1.872)),
-    # long-side mullions: the center one (main row) is now the door seam; +-1.25 move to +-1.70
-    # so the panes either side of the door are 0.79 / 0.72 m (not 0.35); the transom keeps a
+    # long-side mullions: the center one (main row) is now the door seam. The +-1.25 mullions move to
+    # +-1.70, so the panes either side of the door are 0.79 / 0.72 m (not 0.35). The transom keeps a
     # center mullion above the door, standing on the runner box
     mullion_main_x=(-2.50, -1.70, 1.70, 2.50), mullion_transom_x=(-2.50, -1.70, 0.0, 1.70, 2.50),
     logo_side_x=(-2.10, 2.10),            # the side logos flank the doors (one per side pane)
@@ -515,12 +551,11 @@ T = dict(
 T["lod2_delete"] = T["lod1_delete"] + ("sheave_", "logo_", "roofbox_", "tie_", "bolster_",
                                        "bogie_", "door", "hatch")
 
-#: Revision 1: band_ / doorband_ / logo_ are PINNED in the stamp stripe; the long body runs are
-#: split into 4 UV pieces each (T split_at), so their weights no longer fight a 22 m strip.
-#: Revision 2: the unpinned galv pack is margin-bound (~25 px/m per unit weight at 2048 with
-#: ~400 islands), so the bolt-bearing parts weigh 1.8-2.4 (their tram-scale heads then clear the
-#: 2-texel floor, tram_detail), the wheels 1.6, ladder and axles 1.0 (they would otherwise drop
-#: to ~13-20 px/m).
+#: Revision 1: band_ / doorband_ / logo_ are PINNED in the stamp stripe. The long body runs are split
+#: into 4 UV pieces each (T split_at), so their weights no longer fight a 22 m strip. Revision 2: the
+#: unpinned galv pack is margin-bound (~25 px/m per unit weight at 2048 with ~400 islands). So the
+#: bolt-bearing parts weigh 1.8-2.4 (their tram-scale heads then clear the 2-texel floor, tram_detail), the
+#: wheels 1.6, ladder and axles 1.0 (they would otherwise drop to ~13-20 px/m).
 T_DENSITY = {
     "under_": 0.5, "chamfer_": 0.9, "band_": 1.0, "trim_": 3.0, "glass_": 0.5, "sill_": 1.2,
     "reveal_": 1.0, "frame_": 1.2, "roof_": 0.8, "mullion_": 1.0, "doorband_": 1.0,
@@ -528,9 +563,9 @@ T_DENSITY = {
     "hanger_": 2.0, "fork_": 2.0, "ladder_": 1.0, "carhead_": 2.4, "carbeam_": 2.4, "tie_": 0.9,
     "bolster_": 0.9, "bogie_": 2.4, "sheave_": 1.6, "axle_": 1.0, "clamp_": 0.8, "bolt_": 0.8,
     "cliplink_": 0.8, "plaque_": 0.4,
-    # Revision 2: door kit (doorframe_ / doorheader_ pinned with the frames at 130 px/m,
-    # doorband_ in the fill, doorglass_ with the glass; small hardware weighted toward the
-    # gondola's handle density), roof hatches, end bumpers, hanger pivot
+    # Revision 2: door kit (doorframe_ / doorheader_ pinned with the frames at 130 px/m, doorband_ in the
+    # fill, doorglass_ with the glass, small hardware weighted toward the gondola's handle density), roof
+    # hatches, end bumpers, hanger pivot
     "doortrim_": 3.0, "doorframe_": 1.2, "doorgasket_": 1.0, "doorseal_": 1.0, "doorjamb_": 1.0,
     "doorsill_": 1.5, "doorheader_": 1.2, "doorgrab_": 3.0, "doorpull_": 3.0,
     "doorroller_": 1.5, "doorhanger_": 2.0, "doordrip_": 1.5, "doorpocket_": 1.0,
@@ -666,8 +701,8 @@ def quad_face(name, corners, outward, uv=((0, 0), (1, 0), (1, 1), (0, 1))):
 
 
 def prism(name, bottom, top, drop=()):
-    """Convex 8-corner prism: `bottom` / `top` are 4 corners each (same winding); faces
-    named bottom/top/s0..s3 (s_k = edge k of the bottom ring); `drop` removes some."""
+    """Convex 8-corner prism: `bottom` / `top` are 4 corners each (same winding). Faces named
+    bottom/top/s0..s3 (s_k = edge k of the bottom ring). `drop` removes some."""
     bm = bmesh.new()
     layer = bm.loops.layers.uv.new("UVMap")
     vb = [bm.verts.new(p) for p in bottom]
@@ -746,12 +781,11 @@ def _section(w, d, chamfer, segs=1):
 
 
 def cap_check(label, outline, tris, rel_tol=1e-7, abs_tol=1e-10):
-    """Revision 1b cap contract (C1 / C2): the triangles of one PLANAR cap neither overlap nor
-    flip. Signed-area test against the cap normal taken from the outline winding (Newell):
-    every triangle's area along that normal is >= 0 (no flipped ear) and the triangles' areas
-    sum to the polygon's area (an overlapping ear adds area). `outline` = the cap's corners in
-    order, `tris` = each triangle's three corners. float64 about the outline centroid (mathutils
-    is float32). Raises RuntimeError("CAP ...")."""
+    """Revision 1b cap contract (C1 / C2): the triangles of one PLANAR cap neither overlap nor flip. The test
+    is a signed-area test against the cap normal taken from the outline winding (Newell). Every triangle's
+    area along that normal is >= 0 (no flipped ear). The triangles' areas sum to the polygon's area (an
+    overlapping ear adds area). `outline` = the cap's corners in order, `tris` = each triangle's three
+    corners. float64 about the outline centroid (mathutils is float32). Raises RuntimeError("CAP ...")."""
     pts = np.array([tuple(p) for p in outline], dtype=np.float64)
     c0 = pts.mean(axis=0)
     pts = pts - c0
@@ -773,12 +807,12 @@ def cap_check(label, outline, tris, rel_tol=1e-7, abs_tol=1e-10):
 
 def triangulate_caps(bm, caps, label, normals_first=True):
     """Revision 1b (C1 / C2): polyfill a builder's planar n-gon caps with their normals FIRST.
-    bmesh.ops.triangulate projects each n-gon on its face normal, and a face fresh from
-    bm.faces.new has none yet (0, 0, 0): the concave grip / bogie-plate caps came out with
-    overlapping and flipped ears, the carbeam end caps with a 0.4 mm2 overlap. Every cap is
-    then held to cap_check. normals_first=False keeps the as-shipped triangulation of caps that
-    already pass (the horizontal rrect_loft / ring_cap caps: re-triangulating them would move
-    valid triangles and the face-area weighted normals at their smooth rims), checked only."""
+    bmesh.ops.triangulate projects each n-gon on its face normal, and a face fresh from bm.faces.new has
+    none yet (0, 0, 0). The concave grip / bogie-plate caps came out with overlapping and flipped ears,
+    and the carbeam end caps with a 0.4 mm2 overlap. Then cap_check checks every cap. normals_first=False
+    keeps the as-shipped triangulation of caps that already pass (the horizontal rrect_loft / ring_cap
+    caps). Re-triangulating them would move valid triangles and the face-area weighted normals at their
+    smooth rims. It only checks these caps."""
     rec = [(set(f.verts), [v.co.copy() for v in f.verts]) for f in caps]
     for f in caps if normals_first else ():
         f.normal_update()
@@ -793,13 +827,12 @@ def triangulate_caps(bm, caps, label, normals_first=True):
 def box_along(name, pts, w, d, side=(1.0, 0.0, 0.0), chamfer=0.0, bend_rings=8, fillet=None,
               caps="none", relief="geo", corner_segs=1):
     """
-    L3 (cabins.md section 13): a box-section sweep. `w` runs along the frame axis N (the
-    `side` vector made normal to the path, parallel-transported), `d` along B = t x N. The
-    corners may carry a 1-segment `chamfer` (8-vertex ring, the 0.02 m finish bevel) or, with
-    corner_segs >= 2, a rounded corner of radius `chamfer` (Revision 1). Fillets as
-    cs2_kit.tube_along. caps in none/both/start/end (n-gon caps, triangulated). UVMap = one
-    strip (u = perimeter meters, v = arc meters) + planar caps. Returns the object with
-    obj["rings"] = ring count.
+    L3 (cabins.md section 13): a box-section sweep. `w` runs along the frame axis N (the `side` vector
+    made normal to the path, parallel-transported), `d` along B = t x N. The corners may carry a 1-segment
+    `chamfer` (8-vertex ring, the 0.02 m finish bevel) or, with corner_segs >= 2, a rounded corner of
+    radius `chamfer` (Revision 1). Fillets work as in cs2_kit.tube_along. `caps` takes none/both/start/end
+    (n-gon caps, triangulated). UVMap = one strip (u = perimeter meters, v = arc meters) + planar caps.
+    Returns the object with obj["rings"] = ring count.
     """
     if caps not in ("none", "both", "start", "end"):
         raise ValueError(f"caps {caps!r}")
@@ -902,7 +935,7 @@ def ring_cap(name, ring, up):
 
 
 def bevel_part(obj, width=0.02, segments=1, angle_deg=30.0):
-    """The finish bevel on a boxy steel part (Bevel modifier, applied; UVs interpolated)."""
+    """The finish bevel on a boxy steel part (Bevel modifier, applied, UVs interpolated)."""
     apply_transform(obj)
     _select_only(obj)
     mod = obj.modifiers.new("Bevel", type="BEVEL")
@@ -920,9 +953,9 @@ def bevel_part(obj, width=0.02, segments=1, angle_deg=30.0):
 # --------------------------------------------------------------------------------------
 
 def rounded_box(name, size, loc, radius, segs=2, open_bottom=False, drop=()):
-    """cs2_kit.add_box with every edge rounded (Bevel, `segs` segments, applied) and a fresh
-    smart_project UVMap (the bevel's interpolated planar UVs would fragment the islands).
-    Open / dropped faces stay open: their boundary edges are not bevelled."""
+    """cs2_kit.add_box with every edge rounded (Bevel, `segs` segments, applied) and a fresh smart_project
+    UVMap (the bevel's interpolated planar UVs would fragment the islands). Open / dropped faces stay
+    open: their boundary edges are not beveled."""
     obj = cs2_kit.add_box(name, size, loc, open_bottom=open_bottom, drop=drop)
     bevel_part(obj, width=radius, segments=segs, angle_deg=30.0)
     smart_uv(obj)
@@ -930,11 +963,10 @@ def rounded_box(name, size, loc, radius, segs=2, open_bottom=False, drop=()):
 
 
 def extrude_profile(name, profile, a0, a1, axis="X"):
-    """A closed prism: the CCW polygon `profile` [(p, q), ...] in the plane normal to `axis`
-    (X: (p, q) = (y, z); Y: (p, q) = (x, z)) swept from a0 to a1 along the axis; concave
-    outlines allowed (caps triangulated by polyfill on their own normals, Revision 1b C1 / C2:
-    triangulate_caps + cap_check). UVMap: one strip (u = perimeter meters, v = axis meters) +
-    planar caps. Normals outward."""
+    """A closed prism: the CCW polygon `profile` [(p, q), ...] in the plane normal to `axis` (X: (p, q) = (y,
+    z), Y: (p, q) = (x, z)) swept from a0 to a1 along the axis. Concave outlines are allowed (caps
+    triangulated by polyfill on their own normals, Revision 1b C1 / C2: triangulate_caps + cap_check).
+    UVMap: one strip (u = perimeter meters, v = axis meters) + planar caps. Normals outward."""
     def P(p, q, a):
         return (a, p, q) if axis == "X" else (p, a, q)
     n = len(profile)
@@ -1014,10 +1046,9 @@ def rrect_loft(name, specs, cap_top=True, cap_bottom=False, segs=3):
 
 
 def plaque(name, rim_name, centre, right, up, w, h, depth):
-    """A stamp panel that is not a floating zero-thickness quad: the front face `name` is ONE
-    quad (G9 / the stamp painters), `rim_name` the four side faces running `depth` back into
-    the host surface. UVs of the front quad: (0..1) along right / up (stamp_layout re-maps
-    them into the pinned square)."""
+    """A stamp panel that is not a floating zero-thickness quad: the front face `name` is ONE quad (G9 / the
+    stamp painters). `rim_name` names the four side faces, which run `depth` back into the host surface.
+    UVs of the front quad: (0..1) along right / up (stamp_layout re-maps them into the pinned square)."""
     c, R, U = Vector(centre), Vector(right).normalized(), Vector(up).normalized()
     n = R.cross(U).normalized()
     corners = [c - R * (w / 2) - U * (h / 2), c + R * (w / 2) - U * (h / 2),
@@ -1063,11 +1094,11 @@ def quad_rim(quad_obj, rim_name, depth):
 
 
 def wheel_rim(name, profile, segs, loc):
-    """Revision 1 'real wheel profile': a revolved (radius, axial) profile about the axis Y
-    at `loc` (dished web, flanges, V groove), built ring by ring in a fixed order (no spin, so
-    no element-order variance), one strip UV island (u = mean circumference meters, v =
-    profile meters on the tread / groove; planar annuli on the web and flange faces). Open at
-    the bore: the axle fills it."""
+    """Revision 1 'real wheel profile': a revolved (radius, axial) profile about the axis Y at `loc` (dished
+    web, flanges, V groove). The function builds it ring by ring in a fixed order (no spin, so no
+    element-order variance). It has one strip UV island (u = mean circumference meters, v = profile meters
+    on the tread / groove), with planar annuli on the web and flange faces. Open at the bore: the axle
+    fills it."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     x0, y0, z0 = loc
@@ -1107,8 +1138,8 @@ def wheel_rim(name, profile, segs, loc):
             k1 = (k + 1) % segs
             f = bm.faces.new((V[j][k], V[j][k1], V[j + 1][k1], V[j + 1][k]))
             if disc:
-                # web / flange faces are flat annuli: planar (x, z) projection, the two sides
-                # offset apart - exact, no unrolled-annulus shear
+                # web / flange faces are flat annuli: planar (x, z) projection, with the two sides offset
+                # apart. This is exact and has no unrolled-annulus shear
                 off = 0.0 if aa + ab < 0.0 else 0.5
                 for lp in f.loops:
                     c = lp.vert.co
@@ -1132,10 +1163,10 @@ def wheel_rim(name, profile, segs, loc):
 
 
 def cyl_uv(obj):
-    """Metric UVMap for a cs2_kit.add_cyl part (axis = local Z, before apply_transform):
-    side faces u = arc meters (angle x radius), v = z meters - one strip island, seam at the
-    back; caps planar x / y meters. cs2_kit's create_cone UVs map a 5.6 cm x 5 cm roller side
-    face to a 0.1 x 0.5 UV cell (5x anisotropic texels; Revision 1 "stretched texels")."""
+    """Metric UVMap for a cs2_kit.add_cyl part (axis = local Z, before apply_transform). Side faces: u = arc
+    meters (angle x radius), v = z meters. This is one strip island with the seam at the back. Caps are
+    planar x / y meters. cs2_kit's create_cone UVs map a 5.6 cm x 5 cm roller side face to a 0.1 x 0.5 UV
+    cell (5x anisotropic texels, Revision 1 "stretched texels")."""
     me = obj.data
     lay = me.uv_layers.get("UVMap") or me.uv_layers.new(name="UVMap")
     co = _co_array(me)
@@ -1164,10 +1195,10 @@ def kit_cyl(name, r, depth, loc, rot, segs, caps):
 
 
 def skyline_pack(sizes, W, H, rotate=False):
-    """Deterministic bottom-left skyline packing of axis-aligned boxes into a W x H region:
-    boxes sorted by their longer side (desc, stable); with `rotate` each box may turn 90 deg
-    (whichever orientation leaves the lower top wins). Returns [(x, y, turned)] in input
-    order, or None when they do not fit."""
+    """Deterministic bottom-left skyline packing of axis-aligned boxes into a W x H region. The function
+    sorts boxes by their longer side (desc, stable). With `rotate` each box may turn 90 deg (whichever
+    orientation leaves the lower top wins). Returns [(x, y, turned)] in input order, or None when they do
+    not fit."""
     order = sorted(range(len(sizes)), key=lambda i: (-max(sizes[i]), -min(sizes[i]), i))
     sky = [(0.0, float(W), 0.0)]
     pos = [None] * len(sizes)
@@ -1225,7 +1256,7 @@ def _set_co(me, arr):
 
 
 def scale_axes(obj, factors):
-    """L2: per-axis scale about the origin (vertices; the object transform is identity)."""
+    """L2: per-axis scale about the origin (vertices). The object transform is identity."""
     co = _co_array(obj.data)
     co *= np.array(factors, dtype=np.float64)
     _set_co(obj.data, co)
@@ -1248,9 +1279,9 @@ def remap_axis_z(obj, knots):
 
 def split_by_material(obj, mapping, prefix_extra, suffix):
     """
-    L1: one part object per material group of `obj`: {material: (prefix, key)} ->
-    [(part_obj, key)] named f"{prefix_extra}{prefix}{suffix}". Faces with an unmapped
-    material RAISE (nothing is dropped silently). Parts sharing a prefix are merged.
+    L1: one part object per material group of `obj`: {material: (prefix, key)} -> [(part_obj, key)] named
+    f"{prefix_extra}{prefix}{suffix}". Faces with an unmapped material RAISE (nothing is dropped
+    silently). The function merges parts that share a prefix.
     """
     me = obj.data
     idx = np.zeros(len(me.polygons), dtype=np.int64)
@@ -1288,8 +1319,8 @@ def split_by_material(obj, mapping, prefix_extra, suffix):
 
 
 def smart_uv(obj, angle=66.0):
-    """Fresh "UVMap" by smart_project (66 deg, margin 0); every other UV layer removed
-    (the Maya "map1" layer included: skeptic MC3)."""
+    """Fresh "UVMap" by smart_project (66 deg, margin 0). The function removes every other UV layer (the Maya
+    "map1" layer included: skeptic MC3)."""
     me = obj.data
     for lay in [l.name for l in me.uv_layers]:
         me.uv_layers.remove(me.uv_layers[lay])
@@ -1304,12 +1335,12 @@ def smart_uv(obj, angle=66.0):
 
 def box_uv(obj):
     """
-    One UV island per axis-aligned box part (kit add_box, open-bottom / dropped faces too):
-    the side faces unrolled into one strip around the box's LONGEST axis a (u = perimeter
-    meters of the b x c cross-section, v = meters along a) and both a-caps attached to the
-    +b side's ends. Every face keeps a non-mirrored frame (u x v = the face normal). Returns
-    False (layout untouched) unless every face is an axis-aligned quad and there are <= 6.
-    Six islands per box under cs2_uv's 1/64 margin starved the unique pack (14 % coverage).
+    One UV island per axis-aligned box part (kit add_box, open-bottom / dropped faces too). The side faces
+    unroll into one strip around the box's LONGEST axis a (u = perimeter meters of the b x c
+    cross-section, v = meters along a). Both a-caps attach to the +b side's ends. Every face keeps a
+    non-mirrored frame (u x v = the face normal). Returns False (layout untouched) unless every face is an
+    axis-aligned quad and there are <= 6. Six islands per box under cs2_uv's 1/64 margin starved the
+    unique pack (14 % coverage).
     """
     me = obj.data
     if not 0 < len(me.polygons) <= 6 or any(p.loop_total != 4 for p in me.polygons):
@@ -1393,9 +1424,9 @@ def _boundary_loops(bm):
 
 
 def door_plug(shell, report):
-    """Fill the shell's holes (door opening + two door-side corner holes) into a separate
-    part doorplug_shell (glass): 3 loops, 17 tris (skeptic MC6). The shell keeps its
-    boundary; the join's remove_doubles welds plug and shell (0 boundary edges, asserted)."""
+    """Fill the shell's holes (door opening + two door-side corner holes) into a separate part doorplug_shell
+    (glass): 3 loops, 17 tris (skeptic MC6). The shell keeps its boundary. The join's remove_doubles welds
+    plug and shell (0 boundary edges, asserted)."""
     bm = bmesh.new()
     bm.from_mesh(shell.data)
     bm.edges.index_update()
@@ -1453,11 +1484,11 @@ SHELL_BEVELS = (
     ("crown", 0.07, 3),          # roof perimeter ring: a real radius instead of a hard rim
     ("skirt", 0.05, 2),          # skirt foot ring: softened underside edge
 )
-#: Revision 1b (C3): a frame lip is trim meeting glazing at 35.9-68.0 deg (80 edges measured).
-#: Three more trim edges met the door-side corner-hole fill (doorplug_, counted as glazing) at
-#: 124.9 deg (both end-window heads, 3.1 cm each) and 179.5 deg (one sill corner, 2.2 cm): folds,
-#: not lips. Bevelling them twisted the +y end-window head strip (8 open edges per end, 12 open +
-#: 4 non-manifold after the join's weld). Lips are capped at 90 deg; soften_shell asserts closure.
+#: Revision 1b (C3): a frame lip is trim meeting glazing at 35.9-68.0 deg (80 edges measured). Three more
+#: trim edges met the door-side corner-hole fill (doorplug_, counted as glazing) at 124.9 deg (both
+#: end-window heads, 3.1 cm each) and 179.5 deg (one sill corner, 2.2 cm). These are folds, not lips.
+#: Beveling them twisted the +y end-window head strip (8 open edges per end, 12 open + 4 non-manifold
+#: after the join's weld). Lips are capped at 90 deg. soften_shell asserts closure.
 FRAME_LIP_MAX_DEG = 90.0
 
 
@@ -1483,11 +1514,11 @@ def _shell_edge_sets(bm, tag, trim_ids, glass_ids, kind):
 
 
 def soften_shell(parts, report):
-    """Revision 1: weld the shell parts (body / roof / trim / hw / glass / door plug) into one
-    closed bmesh, bevel the frame edges (1 seg), the roof crown ring (3 segs) and the skirt foot
-    ring (2 segs), and split the faces back into their parts by a face tag (new bevel faces
-    inherit an adjacent face's tag). The ingest facts (739 -> 571, plug 3 loops / 17 tris, the
-    material split) are asserted BEFORE this, on the untouched Wilin topology."""
+    """Revision 1: weld the shell parts (body / roof / trim / hw / glass / door plug) into one closed bmesh.
+    Bevel the frame edges (1 seg), the roof crown ring (3 segs) and the skirt foot ring (2 segs). Split
+    the faces back into their parts by a face tag (new bevel faces inherit an adjacent face's tag). The
+    function asserts the ingest facts (739 -> 571, plug 3 loops / 17 tris, the material split) BEFORE
+    this, on the untouched Wilin topology."""
     shell = [(o, k) for o, k in parts if o.name.endswith("shell")]
     names = [o.name for o, _k in shell]
     trim_ids = {i for i, n in enumerate(names) if n.startswith("trim_")}
@@ -1511,11 +1542,11 @@ def soften_shell(parts, report):
             continue
         bmesh.ops.bevel(bm, geom=edges, offset=width, offset_type="OFFSET", segments=segs,
                         profile=0.5, affect="EDGES", clamp_overlap=True, loop_slide=True)
-    # Revision 1b (C3): even without the folds, the frame bevel cannot offset the +x end's
-    # door-side head corner (the plug corner fill meets the soffit there): it leaves two
-    # coincident vertices, a zero-area triangle and a twisted head strip (4 open edges). Welding
-    # exact coincidences (1 um) rebuilds that strip as one valid facet that tapers into the
-    # corner; nothing else in the shell is within 1 um of another vertex.
+    # Revision 1b (C3): even without the folds, the frame bevel cannot offset the +x end's door-side head
+    # corner (the plug corner fill meets the soffit there). It leaves two coincident vertices, a zero-area
+    # triangle and a twisted head strip (4 open edges). Welding exact coincidences (1 um) rebuilds that
+    # strip as one valid facet that tapers into the corner. Nothing else in the shell is within 1 um of
+    # another vertex.
     nv = len(bm.verts)
     bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-6)
     welded = nv - len(bm.verts)
@@ -1558,11 +1589,10 @@ def soften_shell(parts, report):
 
 
 def door_reveal_and_handles(parts, report):
-    """Revision 1 doors: each leaf (body / trim / glass / hw of one side) shrinks G door_reveal
-    per side about its own x center, so the dark door plug (the opening behind the leaves)
-    shows as a recessed reveal round both leaves and in the meeting seam; a grab handle (bar on
-    two stand-offs, galv) sits on each leaf beside the seam, on the leaf's outer surface found
-    by ray cast."""
+    """Revision 1 doors: each leaf (body / trim / glass / hw of one side) shrinks G door_reveal per side
+    about its own x center. So the dark door plug (the opening behind the leaves) shows as a recessed
+    reveal round both leaves and in the meeting seam. A grab handle (bar on two stand-offs, galv) sits on
+    each leaf beside the seam, on the leaf's outer surface found by ray cast."""
     from mathutils.bvhtree import BVHTree
     d = G["door_reveal"]
     out = []
@@ -1577,8 +1607,8 @@ def door_reveal_and_handles(parts, report):
             co = _co_array(o.data)
             co[:, 0] = xc + (co[:, 0] - xc) * k
             _set_co(o.data, co)
-        # grab handle on the leaf's lower (skirt) panel beside the seam, z 0.46 .. 0.74: the
-        # skirt leans in there, so bar + stand-off stay inside G6 / CARRIER_GD (y <= 1.10)
+        # grab handle on the leaf's lower (skirt) panel beside the seam, z 0.46 .. 0.74. The skirt leans
+        # in there, so bar + stand-off stay inside G6 / CARRIER_GD (y <= 1.10)
         bm = bmesh.new()
         for o in leaf:
             bm.from_mesh(o.data)
@@ -1702,8 +1732,8 @@ def ingest_gondola(src, report):
 
 
 def fit_logo(bvh_obj, end, name):
-    """Logo quad on an end skirt: 5 rays along -end*X, least-squares plane x = a + b y + c z,
-    corners offset along the outward normal by (max residual + 0.004) (cabins.md 3.1)."""
+    """Logo quad on an end skirt: 5 rays along -end*X, least-squares plane x = a + b y + c z. The corners
+    offset along the outward normal by (max residual + 0.004) (cabins.md 3.1)."""
     from mathutils.bvhtree import BVHTree
     bm = bmesh.new()
     bm.from_mesh(bvh_obj.data)
@@ -1736,13 +1766,18 @@ def fit_logo(bvh_obj, end, name):
 def gondola_parts(args, report):
     """All gondola parts in the authoring frame: [(obj, material key)].
 
-    Revision 1 (verdict item 6): every rebuilt part is soft-edged and connected -
-    rounded roof rails carrying the hanger arm on a foot block and a saddle clamp; ONE smooth
-    12-segment hanger tube (no flat gussets); a rounded hanger head the tube ends in; two coil
-    springs up to a rounded carriage frame; 12-segment rollers that overlap the frame sides
-    (no coplanar caps); an L-section grip (one closed prism, top = 4.50) on a stem; rounded
-    bumpers; a rounded roof hat; the plate and logos as plaques, not floating quads. All of it
-    inside tram_tower.CARRIER_GD in both pin frames (seams S6)."""
+    Revision 1 (verdict item 6): every rebuilt part is soft-edged and connected:
+    - rounded roof rails that carry the hanger arm on a foot block and a saddle clamp
+    - ONE smooth 12-segment hanger tube (no flat gussets)
+    - a rounded hanger head that the tube ends in
+    - two coil springs up to a rounded carriage frame
+    - 12-segment rollers that overlap the frame sides (no coplanar caps)
+    - an L-section grip (one closed prism, top = 4.50) on a stem
+    - rounded bumpers
+    - a rounded roof hat
+    - the plate and logos as plaques, not floating quads
+
+    All of it is inside tram_tower.CARRIER_GD in both pin frames (seams S6)."""
     parts, bvh_obj = ingest_gondola(args.source, report)
     K = cs2_kit
     proc = []
@@ -1784,11 +1819,12 @@ def gondola_parts(args, report):
     n = 0
     for x in (-0.45, -0.15, 0.15, 0.45):
         for y, cap in ((0.275, "bottom"), (0.725, "top")):
-            # axis Y: the cylinder's local +Z maps to +Y, so the OUTER cap is "bottom" on the
-            # inboard row and "top" on the outboard row; the inner cap is buried in the frame
-            # (rollers overlap the frame sides by 1 cm: no coplanar cap / frame faces)
-            # --split: 16 segments (critique 2026-11-03: the 10-gon read as a polygon); the
-            # one-piece A keeps its 10
+            # axis Y: the cylinder's local +Z maps to +Y, so the OUTER cap is "bottom" on the inboard row
+            # and "top" on the outboard row. The inner cap is buried in the frame (rollers overlap the
+            # frame sides by 1 cm: no coplanar cap / frame faces)
+            #
+            # --split: 16 segments (critique 2026-11-03: the 10-gon read as a polygon). The one-piece A
+            # keeps its 10
             segs = G_SPLIT["roller_segs"] if getattr(args, "split", False) else G["roller_segs"]
             proc.append((kit_cyl(f"roller_{n}", 0.09, 0.05, (x, y, 4.21),
                                  cs2_kit._axis_rot("Y"), segs, cap), "galv"))
@@ -1801,8 +1837,8 @@ def gondola_parts(args, report):
                            -0.15, 0.15, axis="X")
     grip["relief"] = "map:bolts"
     proc.append((grip, "galv"))
-    # stem: bridges the 2 cm between the grip (4.30) and the frame top (4.28), overlapping both;
-    # its outboard face sits 2 mm inside the grip's y 0.30 face (Revision 1b C4: no flush strip)
+    # stem: bridges the 2 cm between the grip (4.30) and the frame top (4.28), overlapping both. Its
+    # outboard face sits 2 mm inside the grip's y 0.30 face (Revision 1b C4: no flush strip)
     proc.append((K.add_box("grip_stem", (0.10, 0.048, 0.09), (0.0, 0.274, 4.265)), "galv"))
     n = 0
     for x in (-1.13, 1.13):
@@ -1865,12 +1901,11 @@ def _lerp(p, q, t):
 
 def tram_profile():
     """
-    Revision 1 tram body section (T profile): [(run, [(z, half L, half W, corner r), ...])],
-    bottom -> top. Runs share their boundary rings. The boat bottom gets two rounded edges
-    (underside -> chamfer, chamfer -> band), the glazing sits T reveal behind its frames (flat
-    annular sills and heads, offset rings so the reveal is even round the corners), and the
-    roof edge is a rounded crown. Every fillet is a quadratic Bezier whose start / end share
-    their z in both plan axes, so each ring stays planar.
+    Revision 1 tram body section (T profile): [(run, [(z, half L, half W, corner r), ...])], bottom ->
+    top. Runs share their boundary rings. The boat bottom gets two rounded edges (underside -> chamfer,
+    chamfer -> band). The glazing sits T reveal behind its frames (flat annular sills and heads, offset
+    rings so the reveal is even round the corners). The roof edge is a rounded crown. Every fillet is a
+    quadratic Bezier whose start / end share their z in both plan axes, so each ring stays planar.
     """
     K = [tuple(k) for k in T["profile"]]
     r0, rv = T["corner_r"], T["reveal"]
@@ -1911,8 +1946,8 @@ def tram_profile():
     return runs
 
 
-#: run -> (part prefix + name stem, material key); runs in one UV group share their ring
-#: seams in UV too (one island per piece and group).
+#: run -> (part prefix + name stem, material key). Runs in one UV group share their ring seams in UV too
+#: (one island per piece and group).
 TRAM_RUNS = {
     "chamfer": ("chamfer_body", "paint_frame"), "band": ("band_body", "paint_band"),
     "trim": ("trim_body", "paint_trim"), "reveal_lo": ("reveal_lo", "paint_frame"),
@@ -1928,11 +1963,10 @@ TRAM_UV_GROUPS = (("chamfer",), ("band",), ("trim",), ("reveal_lo",), ("glass_ma
 
 
 def _run_piece(name, rings, i0, i1, v_at, u_ref):
-    """One piece of a run: quads between consecutive rings over ring points i0..i1 (wrapping
-    the 20-point ring). UV u = meters along the group's reference ring `u_ref` (the same u for
-    a column on every ring: per-ring arcs shear the strip - the boat-bottom rings shrink 1.6 m
-    end to end over a 0.34 m slant), v = v_at[j][i] (cumulative slant meters down each COLUMN:
-    the boat ends slope 2x steeper than the sides)."""
+    """One piece of a run: quads between consecutive rings over ring points i0..i1 (wrapping the 20-point
+    ring). UV u = meters along the group's reference ring `u_ref` (the same u for a column on every ring:
+    per-ring arcs shear the strip. The boat-bottom rings shrink 1.6 m end to end over a 0.34 m slant). v =
+    v_at[j][i] (cumulative slant meters down each COLUMN: the boat ends slope 2x steeper than the sides)."""
     n = len(rings[0])
     idx = [(i0 + k) % n for k in range(((i1 - i0) % n) + 1)]
     bm = bmesh.new()
@@ -1997,20 +2031,20 @@ def tram_body_parts():
     return out, geo
 
 
-#: Revision 2: right-handed planar UV frames (u x v = the face normal) per dominant normal axis
-#: and sign, meters. _planar_uv mirrors the +-Y faces; these never mirror a texel.
+#: Revision 2: right-handed planar UV frames (u x v = the face normal) per dominant normal axis and sign,
+#: meters. _planar_uv mirrors the +-Y faces. These never mirror a texel.
 _RH_FRAMES = {(0, 1): ((0, 1, 0), (0, 0, 1)), (0, -1): ((0, -1, 0), (0, 0, 1)),
               (1, 1): ((-1, 0, 0), (0, 0, 1)), (1, -1): ((1, 0, 0), (0, 0, 1)),
               (2, 1): ((1, 0, 0), (0, 1, 0)), (2, -1): ((1, 0, 0), (0, -1, 0))}
 
 
 def poly_part(name, polys, split=False):
-    """Revision 2: one part from explicit planar polygons [(corners, outward normal), ...].
-    Corners at the same position (1e-7 m) are ONE vertex, so neighboring polygons (and parts,
-    after the join's remove_doubles) share edges; every face is wound to its outward normal;
-    UVMap = right-handed planar meters per dominant axis (_RH_FRAMES), so the faces of one plane
-    form one non-mirrored island. split=True gives every face its own island (a frame annulus
-    packs as four tight strips instead of one box around the window hole)."""
+    """Revision 2: one part from explicit planar polygons [(corners, outward normal), ...]. Corners at the
+    same position (1e-7 m) are ONE vertex, so neighboring polygons (and parts, after the join's
+    remove_doubles) share edges. Every face is wound to its outward normal. UVMap = right-handed planar
+    meters per dominant axis (_RH_FRAMES), so the faces of one plane form one non-mirrored island.
+    split=True gives every face its own island (a frame annulus packs as four tight strips instead of one
+    box around the window hole)."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     verts = {}
@@ -2052,9 +2086,9 @@ def _ring_quads(x0, x1, z0, z1, hx0, hx1, hz0, hz1, y, s, t):
 
 
 def _side_box(name, x0, x1, y0, y1, z0, z1, s, t=1, drop=()):
-    """cs2_kit.add_box over |x| x0..x1 (leaf t), |y| y0..y1 on side s, z0..z1; `drop` names the
-    canonical (+x leaf, +y side) faces "in" / "out" (y) / "meet" / "edge" (x) / "top" / "bottom",
-    mapped to the mirrored keys (box_uv: one island)."""
+    """cs2_kit.add_box over |x| x0..x1 (leaf t), |y| y0..y1 on side s, z0..z1. `drop` names the canonical (+x
+    leaf, +y side) faces "in" / "out" (y) / "meet" / "edge" (x) / "top" / "bottom", mapped to the mirrored
+    keys (box_uv: one island)."""
     xa, xb = sorted((t * x0, t * x1))
     ya, yb = sorted((s * y0, s * y1))
     key = {"out": "+Y" if s > 0 else "-Y", "in": "-Y" if s > 0 else "+Y",
@@ -2066,24 +2100,35 @@ def _side_box(name, x0, x1, y0, y1, z0, z1, s, t=1, drop=()):
 
 
 def tram_door_kit():
-    """Revision 2: the outward-opening sliding (plug) double door on BOTH long sides (R29),
-    centered on the cabin length, CLOSED, plus its hardware. Built per side s (y) and leaf t (x)
-    from one canonical leaf (+x, +y); every part is mirror-exact (T5) and its UVs right-handed.
-    The body behind the leaves is the unchanged Revision 1 body (no hole), so LOD2, which drops
-    every door part, is the Revision 1 LOD2.
+    """Revision 2: the outward-opening sliding (plug) double door on BOTH long sides (R29), centered on the
+    cabin length, CLOSED, plus its hardware. The function builds per side s (y) and leaf t (x) from one
+    canonical leaf (+x, +y). Every part is mirror-exact (T5) and its UVs are right-handed. The body behind
+    the leaves is the unchanged Revision 1 body (no hole), so LOD2, which drops every door part, is the
+    Revision 1 LOD2.
 
-    Per leaf: doorband_ (red lower panel, PINNED in the logo stripe fill; a recessed grab-bar
-    pocket cut into it), doortrim_ (the 1.06..1.10 trim line, slot 3), doorframe_ (black glazed
-    frame, pinned with the frames), doorgasket_ (rubber window reveal), doorglass_ (25 mm behind
-    the leaf face), doorpocket_ (rubber-lined), doorgrab_ (galv bar in the pocket), doorpull_
-    (release pull on the meeting stile), doorseal_ (rubber nosing on the meeting edge), 2 x
-    doorroller_ (rubber-tired) on 2 x doorhanger_ brackets riding under the header, doorjamb_
-    (rubber outline on the outer edge), intercom_ (call / intercom box beside the door). Per
-    door: doorsill_ (the threshold nosing in safety yellow: the "stand clear" stripe),
-    doorheader_ (runner box over the opening + the slide travel), doordrip_ (drip rail above
-    the transom). Every rubber part, the trim and the black frames are pinned constants
-    (stamp groups), which keeps the margin-bound galv pack near its Revision 1 island count. The leaves' edge faces run back to the
-    glazing plane; their back and bottom faces are dropped (buried in the body / sitting on the
+    Parts per leaf:
+    - doorband_ (red lower panel, PINNED in the logo stripe fill, with a recessed grab-bar pocket cut into
+      it)
+    - doortrim_ (the 1.06..1.10 trim line, slot 3)
+    - doorframe_ (black glazed frame, pinned with the frames)
+    - doorgasket_ (rubber window reveal)
+    - doorglass_ (25 mm behind the leaf face)
+    - doorpocket_ (rubber-lined)
+    - doorgrab_ (galv bar in the pocket)
+    - doorpull_ (release pull on the meeting stile)
+    - doorseal_ (rubber nosing on the meeting edge)
+    - 2 x doorroller_ (rubber-tired) on 2 x doorhanger_ brackets riding under the header
+    - doorjamb_ (rubber outline on the outer edge)
+    - intercom_ (call / intercom box beside the door)
+
+    Parts per door:
+    - doorsill_ (the threshold nosing in safety yellow: the "stand clear" stripe)
+    - doorheader_ (runner box over the opening + the slide travel)
+    - doordrip_ (drip rail above the transom)
+
+    Every rubber part, the trim and the black frames are pinned constants (stamp groups). This keeps the
+    margin-bound galv pack near its Revision 1 island count. The leaves' edge faces run back to the
+    glazing plane. Their back and bottom faces are dropped (buried in the body / sitting on the
     threshold)."""
     D = T["door"]
     K = T["profile"]
@@ -2118,7 +2163,7 @@ def tram_door_kit():
             frame.append(([P(x0, yb, zt), P(x1, yb, zt), P(x1, yf, zt), P(x0, yf, zt)],
                           (0.0, 0.0, 1.0)))
             out.append((poly_part(f"doorframe_{tag}", frame, split=True), "paint_frame"))
-            # window reveal (gasket) faces point INTO the opening; the glass faces out
+            # window reveal (gasket) faces point INTO the opening. The glass faces out
             out.append((poly_part(f"doorgasket_{tag}", [
                 ([P(xi0, yw, zi0), P(xi1, yw, zi0), P(xi1, yf, zi0), P(xi0, yf, zi0)], (0, 0, 1)),
                 ([P(xi0, yw, zi1), P(xi1, yw, zi1), P(xi1, yf, zi1), P(xi0, yf, zi1)], (0, 0, -1)),
@@ -2128,8 +2173,8 @@ def tram_door_kit():
             out.append((poly_part(f"doorglass_{tag}", [
                 ([P(xi0, yw, zi0), P(xi1, yw, zi0), P(xi1, yw, zi1), P(xi0, yw, zi1)], ny)]),
                 "glass"))
-            # recessed grab pocket (dark): walls face into the pocket; the bar's ends sit in
-            # the pocket's top / bottom walls
+            # recessed grab pocket (dark): walls face into the pocket. The bar's ends sit in the pocket's
+            # top / bottom walls
             out.append((poly_part(f"doorpocket_{tag}", [
                 ([P(px0, py, pz0), P(px1, py, pz0), P(px1, py, pz1), P(px0, py, pz1)], ny),
                 ([P(px0, py, pz0), P(px1, py, pz0), P(px1, yf, pz0), P(px0, yf, pz0)], (0, 0, 1)),
@@ -2192,12 +2237,12 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
     out, geo = tram_body_parts()
     yw, yg, xe = geo["wall_y"], geo["glass_y"], geo["end_x"]
 
-    # mullions: long sides x 0, +-1.25, +-2.50 from the set-back glass out to 0.03 proud of the
-    # wall; ends y 0 (slanted with the end lean); 1 cm into the sill / head (no coplanar faces)
+    # mullions: long sides x 0, +-1.25, +-2.50 from the set-back glass out to 0.03 proud of the wall. Ends
+    # y 0 (slanted with the end lean). 1 cm into the sill / head (no coplanar faces)
     prof = T["profile"]
     spans = ((prof[3][0] - 0.01, prof[4][0] + 0.01), (prof[5][0] - 0.01, prof[6][0] + 0.01))
-    # Revision 2: the main-row center mullion is the door seam now and +-1.25 move to +-1.70
-    # (T mullion_*_x); the transom's center mullion stands 1 cm into the door's runner box
+    # Revision 2: the main-row center mullion is the door seam now, and the +-1.25 mullions move to +-1.70
+    # (T mullion_*_x). The transom's center mullion stands 1 cm into the door's runner box
     n = 0
     z_hdr_top = T["door"]["header"][4]
     for s in (-1, 1):
@@ -2218,13 +2263,13 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
                    (e * (hb - gi), 0.04, zb)]
             out.append((prism(f"mullion_{n}", bot, top, drop=("s3",)), "paint_frame"))
             n += 1
-    # Revision 2 doors: ONE outward-opening sliding double door per long side, centered (R29:
-    # both long sides), closed, with its hardware (tram_door_kit; replaces the two 1.00 m
-    # proud boxes per side at x +-1.875 of Revision 1)
+    # Revision 2 doors: ONE outward-opening sliding double door per long side, centered (R29: both long
+    # sides), closed, with its hardware (tram_door_kit replaces the two 1.00 m proud boxes per side at x
+    # +-1.875 of Revision 1)
     out += tram_door_kit()
-    # logos: plaques (4 mm proud + 6 mm rim into the wall); long sides 0.70, ends 0.60.
-    # Revision 2: the doors take the band's center, so each long side carries two logos, one
-    # under each pane beside the door (x +-2.10); all six quads share the one pinned square
+    # logos: plaques (4 mm proud + 6 mm rim into the wall). Long sides 0.70, ends 0.60. Revision 2: the
+    # doors take the band's center, so each long side carries two logos, one under each pane beside the
+    # door (x +-2.10). All six quads share the one pinned square
     zl = T["logo_zc"]
     up = Vector((0.0, 0.0, 1.0))
     for s, tag in ((-1, "n"), (1, "p")):
@@ -2262,9 +2307,9 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
     for k, y in enumerate((-0.9, 0.9)):
         for obj, _q in K.grating(f"roof{k}", 2.0, 0.8, 0.03, (0.0, y, zr + 0.02)):
             out.append((obj, "galv"))
-    # Revision 2 (gondola parity: its roof hat / hatch language): one roof escape hatch per
-    # cabin end between the equipment boxes, open-bottom and 3 mm into the roof, with two hinge
-    # knuckles on its inboard edge; inside tram_tower.CARRIER_TRAM's roof box (|x| <= 3.11)
+    # Revision 2 (gondola parity: its roof hat / hatch language): one roof escape hatch per cabin end
+    # between the equipment boxes, open-bottom and 3 mm into the roof, with two hinge knuckles on its
+    # inboard edge. It sits inside tram_tower.CARRIER_TRAM's roof box (|x| <= 3.11)
     H = T["hatch"]
     hx, hy, hz = H["size"]
     for k, sx in enumerate((-1, 1)):
@@ -2340,16 +2385,16 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
                                     cs2_kit._axis_rot("Y"), 4, "none"), "galv"))
                 n += 1
                 z += 0.30
-    # carriage (R27 top = hang; R28 one track rope at dy 0): rounded head and beams, slimmer
-    # ties / bolsters ending INSIDE the beams (no coplanar end faces)
+    # carriage (R27 top = hang, R28 one track rope at dy 0): rounded head and beams, slimmer ties /
+    # bolsters ending INSIDE the beams (no coplanar end faces)
     head = box_along("carhead_main", [(0, -fh, (c0 + c1) / 2), (0, fh, (c0 + c1) / 2)], 0.40,
                      c1 - c0, side=(1, 0, 0), chamfer=T["r_head"], corner_segs=2, caps="both")
     head["relief"] = "map:bolts"
     out.append((head, "galv"))
-    # Revision 2 (gondola parity: its hanger head pivot): the hanger pin through the carriage
-    # head's center, along the travel axis (the cabin's lateral swing), a boss + hex nut on each
-    # travel face. Inside CARRIER_TRAM's carriage box (|y| <= 0.55, dz -0.05..0.50); the
-    # uprights' box allows no protrusion, so no pin bosses sit on the uprights themselves
+    # Revision 2 (gondola parity: its hanger head pivot): the hanger pin through the carriage head's
+    # center, along the travel axis (the cabin's lateral swing), a boss + hex nut on each travel face. It
+    # is inside CARRIER_TRAM's carriage box (|y| <= 0.55, dz -0.05..0.50). The uprights' box allows no
+    # protrusion, so no pin bosses sit on the uprights themselves
     Pv = T["pivot"]
     zc_head = (c0 + c1) / 2.0
     for tag, sx in (("n", -1), ("p", 1)):
@@ -2386,13 +2431,13 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
             pl["relief"] = "map:bolts"
             out.append((pl, "galv"))
             n += 1
-        # bogie post: plates -> bolster, between the two middle wheels; its ends sit at the
-        # plates' mid-planes and 2-3 cm inside plate top / bolster (no coplanar faces)
+        # bogie post: plates -> bolster, between the two middle wheels. Its ends sit at the plates'
+        # mid-planes and 2-3 cm inside plate top / bolster (no coplanar faces)
         out.append((K.add_box(f"bogie_post{k}", (0.08, 2 * T["plate_dy"], c0 + 0.02 - (p1 - 0.03)),
                               (x, 0.0, 0.5 * (c0 + 0.02 + p1 - 0.03))), "galv"))
     n = 0
-    # --split: 16-segment rims (critique 2026-11-03: the 12-gon read as a polygon); the one-piece A
-    # keeps its 12
+    # --split: 16-segment rims (critique 2026-11-03: the 12-gon read as a polygon). The one-piece A keeps
+    # its 12
     wsegs = T_SPLIT["wheel_segs"] if getattr(args, "split", False) else T["wheel_segs"]
     for x in T["bogie_x"]:
         for dx in T["wheel_dx"]:
@@ -2402,8 +2447,8 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
                                 (x + dx, 0.0, dims["wheel_z"]), cs2_kit._axis_rot("Y"), 8,
                                 "both"), "galv"))
             n += 1
-    # haul grips at dy +-0.50, dz -0.40 (R28), both sides (R29 identity hosting); the links
-    # run 3 cm up into the beams
+    # haul grips at dy +-0.50, dz -0.40 (R28), both sides (R29 identity hosting). The links run 3 cm up
+    # into the beams
     n = 0
     for x in T["clamp_x"]:
         for s in (-1, 1):
@@ -2427,8 +2472,8 @@ def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola
 # ======================================================================================
 
 def set_kit_uv_names(parts):
-    """Box parts get the one-island unwrap; then every part must carry exactly "UVMap"
-    (MC3 covers the whole parts list)."""
+    """Box parts get the one-island unwrap. Then every part must carry exactly "UVMap" (MC3 covers the whole
+    parts list)."""
     n = sum(1 for o, _k in parts if box_uv(o))
     print(f"[cabin] box_uv: {n} of {len(parts)} parts unwrapped as one island")
     return assert_uv_layers(parts, stage="before set_density / material_sources")
@@ -2522,7 +2567,7 @@ class Mesh:
 
 
 class Checker:
-    """Collects contract results; raise_if_failed() raises with every failure listed."""
+    """Collects contract results. raise_if_failed() raises with every failure listed."""
 
     def __init__(self, label):
         self.label = label
@@ -2614,12 +2659,12 @@ def _poly_area(poly):
 
 
 def coplanar_overlaps(obj, tol_d=0.0005, ang_deg=1.0, min_m2=1e-5):
-    """Revision 1b (C1 / C2 / C4): every pair of coplanar triangles of `obj` (Blender loop
-    triangles) that overlap by > min_m2 and share no edge (vertices welded at 1e-5 m): normals
-    within ang_deg, planes within tol_d (the checker's 1 deg / 0.5 mm, revision1-check-cabins.md
-    section A). 'same' pairs face the same way (z-fight); 'opposed' pairs are back-to-back
-    buried contact. Returns {"same" | "opposed": [(part_a, part_b, area_m2), ...]} with part
-    names (part_a <= part_b; equal = inside one part)."""
+    """Revision 1b (C1 / C2 / C4): finds every pair of coplanar triangles of `obj` (Blender loop triangles)
+    that overlap by > min_m2 and share no edge (vertices welded at 1e-5 m). Coplanar means normals within
+    ang_deg and planes within tol_d (the checker's 1 deg / 0.5 mm, revision1-check-cabins.md section A).
+    'same' pairs face the same way (z-fight). 'opposed' pairs are back-to-back buried contact. Returns
+    {"same" | "opposed": [(part_a, part_b, area_m2), ...]} with part names (part_a <= part_b, equal =
+    inside one part)."""
     me = obj.data
     me.calc_loop_triangles()
     nt = len(me.loop_triangles)
@@ -2690,14 +2735,14 @@ def coplanar_summary(found):
                                          sorted(by_pair.items(), key=lambda kv: -kv[1])}
 
 
-#: Revision 1b: the coplanar contract's bound - same-facing overlap per part pair (cm2)
+#: Revision 1b: the coplanar contract's bound is the same-facing overlap per part pair (cm2)
 COPLANAR_MAX_CM2 = 1.0
 
 
 def check_coplanar(c, code, obj):
-    """G12 / T12: no same-facing coplanar overlap > COPLANAR_MAX_CM2 between two parts (or
-    inside one part: a cap's overlapping ears) - the z-fight tells of revision1-check-cabins.md
-    C1 / C2 / C4. Back-to-back (opposed) buried contact is reported, not failed."""
+    """G12 / T12: no same-facing coplanar overlap > COPLANAR_MAX_CM2 between two parts (or inside one part: a
+    cap's overlapping ears). These are the z-fight tells of revision1-check-cabins.md C1 / C2 / C4. The
+    function reports back-to-back (opposed) buried contact but does not fail it."""
     found = coplanar_overlaps(obj)
     tot, by_pair = coplanar_summary(found)
     worst = {k: v for k, v in by_pair.items() if v > COPLANAR_MAX_CM2}
@@ -2727,12 +2772,12 @@ def shell_open_edges(obj, suffix="shell"):
 
 
 def gondola_contracts(obj, level, outboard=None, single_quads=True, role="whole", z_span=None):
-    """G1-G10 (cabins.md 3.4 with the skeptic fixes) on one LOD; raises on any failure. `outboard`
-    = the side the build put the stalk + doors on (None = GD_OUTBOARD, the shipped -Y).
-    role (--split, 2026-11-03): "whole" = the one-piece cabin or the joined body + grip pair (every
-    contract); "body" / "grip" = one split mesh, read in the ASSEMBLED frame (its base pivot shift
-    undone): z_span = (assembled z of its origin, assembled top); G1 / G4 / G8 run over that span,
-    G2 / G10 only on the grip, G3 / G9 / G11 only on the body."""
+    """G1-G10 (cabins.md 3.4 with the skeptic fixes) on one LOD. Raises on any failure. `outboard` = the side
+    the build put the stalk + doors on (None = GD_OUTBOARD, the shipped -Y). role (--split, 2026-11-03):
+    "whole" = the one-piece cabin or the joined body + grip pair (every contract). "body" / "grip" = one
+    split mesh, read in the ASSEMBLED frame (its base pivot shift undone): z_span = (assembled z of its
+    origin, assembled top). G1 / G4 / G8 run over that span. G2 / G10 run only on the grip. G3 / G9 / G11
+    run only on the body."""
     outboard = outboard or GD_OUTBOARD
     m = Mesh(obj)
     c = Checker(f"{obj.name} (gondola LOD{level}" + ("" if role == "whole" else f", {role}") + ")")
@@ -2749,7 +2794,7 @@ def gondola_contracts(obj, level, outboard=None, single_quads=True, role="whole"
     elif len(g):
         top = g[np.abs(g[:, 2] - g[:, 2].max()) < 1e-4]
         ty = sgn * top[:, 1]                       # outboard-positive lateral
-        # --envelope: the 0.08 top starts outboard of the chamfer; the jaw still reaches y -0.04
+        # --envelope: the 0.08 top starts outboard of the chamfer. The jaw still reaches y -0.04
         t_in = GD_ENVELOPE["u_top"] if ENVELOPE else -0.04
         ok = (top[:, 0].min() <= -0.149 and top[:, 0].max() >= 0.149 and ty.min() <= t_in + 0.001
               and ty.max() >= 0.299 and abs(g[:, 2].max() - hang) <= 1e-4
@@ -2791,8 +2836,8 @@ def gondola_contracts(obj, level, outboard=None, single_quads=True, role="whole"
             f"{m.co[:, 1].max():+.3f} in [{ylo}, {yhi}]")
     c.check("G8", z.min() >= z_lo - 1e-4, f"min z {z.min():.5f}")
     if ENVELOPE:
-        # G13 (B2 v2, GD_ENVELOPE): no face within the wheels' reach (down to rope - z_bot) passes
-        # rope +- z inboard of u_in; the jaw inside the band is the only part the liners touch
+        # G13 (B2 v2, GD_ENVELOPE): no face within the wheels' reach (down to rope - z_bot) passes rope +-
+        # z inboard of u_in. The jaw inside the band is the only part the liners touch
         E = GD_ENVELOPE
         u = sgn * m.co[:, 1]
         bad = 0
@@ -2834,10 +2879,10 @@ def gondola_contracts(obj, level, outboard=None, single_quads=True, role="whole"
 
 
 def tram_contracts(obj, level, dims, part_role="whole"):
-    """T1-T11 on one LOD (cabins.md 4.4 reconciled by R27-R30); raises on any failure.
-    part_role: whole | cabin | carriage (--split). The split dims (tram_split_dims) carry cab_top (the
-    cabin's top = the lug eyes over the pin) and car_z0 (the carriage's base pivot: its lowest
-    vertex, z 0 in its own mesh, at car_z0 in the assembled frame)."""
+    """T1-T11 on one LOD (cabins.md 4.4 reconciled by R27-R30). Raises on any failure. part_role: whole |
+    cabin | carriage (--split). The split dims (tram_split_dims) carry cab_top (the cabin's top = the lug
+    eyes over the pin) and car_z0 (the carriage's base pivot: its lowest vertex, z 0 in its own mesh, at
+    car_z0 in the assembled frame)."""
     m = Mesh(obj)
     c = Checker(f"{obj.name} (tram LOD{level}, {part_role})")
     hang, rope = dims["hang"], dims["rope"]
@@ -2854,8 +2899,8 @@ def tram_contracts(obj, level, dims, part_role="whole"):
     else:
         z0c = dims.get("car_z0", dims["k_z"])
         ztop = hang - z0c
-        # base pivot (split 2026-11-03): LOD0's lowest vertex is z 0; the LODs lose the haul clamps
-        # (their lowest point rises), nothing may go below 0
+        # base pivot (split 2026-11-03): LOD0's lowest vertex is z 0. The LODs lose the haul clamps (their
+        # lowest point rises). Nothing may go below 0
         okb = z.min() >= -1e-4 and (level > 0 or abs(z.min()) <= 1e-4)
         c.check("T9", abs(z.max() - ztop) <= 1e-4 and okb,
                 f"carriage local z {z.min():.4f} .. {z.max():.5f} (base pivot at assembled {z0c:.4f}, "
@@ -2960,17 +3005,16 @@ T_BOUNDS = {"lat": 1.880, "travel": 4.030}
 
 
 def door_contract(c, m, W, level):
-    """T13 (Revision 2): on each long side two door leaves meet at x 0 (centered on the cabin
-    length, R29), each 0.75..0.90 wide and >= 2.0 m tall, their faces PROUD of the 1.85 wall
-    by >= 10 mm (a real reveal, never flush: T12 catches a flush leaf too) and inside the
-    1.880 lateral bound, the sill within 5 cm above the cabin interior floor = the station
-    boarding deck (TRAM_STATION deck - pivot); LOD0 also needs the gap-line parts (meeting
-    nosings, jamb seals) and the hardware (grab bar, release pull, 2 rollers) on every leaf;
-    every vertex inside the Revision 1 exported bounds."""
+    """T13 (Revision 2): on each long side two door leaves meet at x 0 (centered on the cabin length, R29),
+    each 0.75..0.90 wide and >= 2.0 m tall. Their faces are PROUD of the 1.85 wall by >= 10 mm (a real
+    reveal, never flush: T12 catches a flush leaf too) and inside the 1.880 lateral bound. The sill is
+    within 5 cm above the cabin interior floor = the station boarding deck (TRAM_STATION deck - pivot).
+    LOD0 also needs the gap-line parts (meeting nosings, jamb seals) and the hardware (grab bar, release
+    pull, 2 rollers) on every leaf. Every vertex is inside the Revision 1 exported bounds."""
     D = T["door"]
     wall = T["profile"][2][2]
-    # interior floor above the pivot = station deck - parked pivot (6.30 - 6.00; the station
-    # parks the default hang, so the compact --hang 7.00 cabin keeps the same floor)
+    # interior floor above the pivot = station deck - parked pivot (6.30 - 6.00). The station parks the
+    # default hang, so the compact --hang 7.00 cabin keeps the same floor
     rope_default = CARRIERS["tram"]["hang_m"] - T["grip_above_rope"]
     floor = TRAM_STATION["deck_y"] - (TRAM_STATION["track_y"] - rope_default)
     bad = []
@@ -3020,9 +3064,9 @@ def door_contract(c, m, W, level):
 # ======================================================================================
 
 def pin_height(obj, lo, hi, snap=0.005):
-    """Snap every vertex within `snap` of the lowest / highest point to exactly lo / hi
-    (lo None: the top only - the split carriage has no bottom contract and its LODs lose
-    the haul clamps, so a low pin would drag the plates down to LOD0's clamp level)."""
+    """Snap every vertex within `snap` of the lowest / highest point to exactly lo / hi (lo None: the top
+    only. The split carriage has no bottom contract and its LODs lose the haul clamps, so a low pin would
+    drag the plates down to LOD0's clamp level)."""
     me = obj.data
     co = _co_array(me)
     zmin, zmax = co[:, 2].min(), co[:, 2].max()
@@ -3092,10 +3136,10 @@ def _dup(obj, name):
 
 def make_lod(obj, name, level, target, delete_prefixes, protect_prefixes=()):
     """
-    L7: cs2_asset.make_lod_chain's recipe (delete tagged parts, COLLAPSE-decimate, dissolve
-    degenerate + slivers, re-shade unweighted) with PROTECTED prefixes: those faces are
-    split off before the decimation and joined back untouched, so the contract-bearing parts
-    (grip top, carriage beams, hanger) keep their exact geometry. Returns the LOD object.
+    L7: cs2_asset.make_lod_chain's recipe (delete tagged parts, COLLAPSE-decimate, dissolve degenerate +
+    slivers, re-shade unweighted) with PROTECTED prefixes. The function splits those faces off before the
+    decimation and joins them back untouched, so the contract-bearing parts (grip top, carriage beams,
+    hanger) keep their exact geometry. Returns the LOD object.
     """
     table = json.loads(obj.data[PART_TABLE_PROP])
     lod = _dup(obj, f"{name}_LOD{level}")
@@ -3133,7 +3177,7 @@ def make_lod(obj, name, level, target, delete_prefixes, protect_prefixes=()):
 
 def _mirror_net_x(obj):
     """Mirror a built LOD across the authoring y = 0 plane (net frame: Blender x = authoring y), winding
-    flipped; custom normals cleared (they do not mirror) - the caller re-shades."""
+    flipped. Custom normals are cleared (they do not mirror), so the caller re-shades."""
     me = obj.data
     for v in me.vertices:
         v.co.x = -v.co.x
@@ -3144,9 +3188,9 @@ def _mirror_net_x(obj):
 
 def mirrored_lod(fn, obj, name, level, *rest):
     """Nitpick A3: the -Y gondola's DECIMATED LOD as the exact mirror of the +Y one. COLLAPSE on the mirrored
-    input picks other collapses (measured on LOD1: 1105 -> 1104 tris, vertices up to 0.17 m apart), so the LOD
-    is decimated on a copy mirrored back to +Y (the +Y winding restored) and the result mirrored again, then
-    re-shaded as make_lod shades. UVs are the -Y LOD0's (decimation carries them)."""
+    input picks other collapses (measured on LOD1: 1105 -> 1104 tris, vertices up to 0.17 m apart). So the
+    function decimates the LOD on a copy mirrored back to +Y (the +Y winding restored), mirrors the result
+    again, and re-shades it as make_lod shades. UVs are the -Y LOD0's (decimation carries them)."""
     back = _dup(obj, obj.name + "_mirrorback")
     _mirror_net_x(back)
     try:
@@ -3161,13 +3205,13 @@ def mirrored_lod(fn, obj, name, level, *rest):
 
 def tram_lod1(obj, name, dims, delete_prefixes, protect_prefixes, target):
     """
-    Tram LOD1, AUTHORED (no collapse on the wheels): LOD0 minus the LOD1 details, every
-    16-segment wheel rim swapped for an 8-segment rim at the same seat (cs2_kit.sheave, same
-    radius / width / groove), its faces tagged with that rim's part index and its UVs snapped
-    to that rim's LOD0 island. Measured reason: COLLAPSE on the eight identical 16-seg rims
-    gave a different LOD1 on every in-process build (identical input hash; jitter did not
-    help; LOD2, which deletes the rims, reproduces). Decimates the remaining non-wheel,
-    non-protected faces only if the swap alone misses `target`.
+    Tram LOD1, AUTHORED (no collapse on the wheels): LOD0 minus the LOD1 details, with every 16-segment
+    wheel rim swapped for an 8-segment rim at the same seat (cs2_kit.sheave, same radius / width /
+    groove). The function tags its faces with that rim's part index and snaps its UVs to that rim's LOD0
+    island. Measured reason: COLLAPSE on the eight identical 16-seg rims gave a different LOD1 on every
+    in-process build (identical input hash. Jitter did not help. LOD2, which deletes the rims,
+    reproduces). Decimates the remaining non-wheel, non-protected faces only if the swap alone misses
+    `target`.
     """
     table = json.loads(obj.data[PART_TABLE_PROP])
     lod = _dup(obj, f"{name}_LOD1")
@@ -3228,11 +3272,10 @@ def tram_lod1(obj, name, dims, delete_prefixes, protect_prefixes, target):
 
 def snap_proxy_uvs(proxy, lod0, mapping, shrink=0.2):
     """
-    L6: give an authored proxy the LOD0 "UVUnique" texels. For every proxy face, the
-    nearest LOD0 face of the mapped part prefix is found (BVH, net frame) and every loop of
-    the proxy face gets the UV of its projection INTO THAT ONE TRIANGLE (barycentrics
-    clipped, shrunk `shrink` toward its centroid), so a proxy face never straddles islands.
-    `mapping` = {proxy part prefix: LOD0 part prefix}.
+    L6: give an authored proxy the LOD0 "UVUnique" texels. For every proxy face, the function finds the
+    nearest LOD0 face of the mapped part prefix (BVH, net frame). Every loop of the proxy face gets the UV
+    of its projection INTO THAT ONE TRIANGLE (barycentrics clipped, shrunk `shrink` toward its centroid),
+    so a proxy face never straddles islands. `mapping` = {proxy part prefix: LOD0 part prefix}.
     """
     from mathutils.bvhtree import BVHTree
     src = lod0.data
@@ -3407,26 +3450,25 @@ def _place_boxes(uv, boxes, pos, s, x0, y0, m, A):
 
 def stamp_layout(obj, cfg, A, margin):
     """
-    Revision 1 stamp stripe (PIPELINE section 3: stamped strips keep their UVs, copied 1:1).
-    Writes the source layer "UVMap" of the joined LOD0 so cs2_bake.bake_unique(reserved=...)
-    PINS the stamp and hero faces and packs only the rest:
+    Revision 1 stamp stripe (PIPELINE section 3: stamped strips keep their UVs, copied 1:1). Writes the
+    source layer "UVMap" of the joined LOD0 so cs2_bake.bake_unique(reserved=...) PINS the stamp and hero
+    faces and packs only the rest:
 
-      * stripe 1 (top): every logo quad of the asset -> ONE shared square of P = logo_frac x A
-        px at the left (u along the viewer's right, v along up: identical, non-mirrored texels
-        on every face; the glyph is painted once, at P px, >= 4x the shipped logo); the number
-        plate (gondola) -> its own rect at the right, plate_ppm texels; the "fill" parts of the
-        logo's material (gondola body / door skins, tram band / door panels) -> skyline-packed
-        between them at the highest density that fits (hero faces);
-      * stripes 2.. ("groups", tram): further single-material hero groups (the black frames,
-        sills, reveals, mullions), each in its own full-width stripe just tall enough for the
-        group at its target density;
-      * every other face moves out of [0, 1] (never pinned by accident) and is pre-stretched in
-        v by 1 / (free band height): pack_unique squeezes the unpinned islands into the band
-        below the stripes with an affine v-remap, which would otherwise ship anisotropic texels.
+    - stripe 1 (top): every logo quad of the asset -> ONE shared square of P = logo_frac x A px at the
+      left (u along the viewer's right, v along up: identical, non-mirrored texels on every face). The
+      glyph is painted once, at P px, >= 4x the shipped logo. The number plate (gondola) goes to its own
+      rect at the right, plate_ppm texels. The "fill" parts of the logo's material (gondola body / door
+      skins, tram band / door panels) are skyline-packed between them at the highest density that fits
+      (hero faces).
+    - stripes 2.. ("groups", tram): further single-material hero groups (the black frames, sills, reveals,
+      mullions), each in its own full-width stripe just tall enough for the group at its target density.
+    - every other face moves out of [0, 1] (never pinned by accident) and is pre-stretched in v by 1 /
+      (free band height). pack_unique squeezes the unpinned islands into the band below the stripes with
+      an affine v-remap, which would otherwise ship anisotropic texels.
 
-    Only constant-albedo materials can be pinned (bake_unique restores a rect from its source
-    1:1; pin_sources). Blender's AABB pack fills ~15-20 % of the atlas on these cabins (156-270
-    islands at a 1/64 margin); the skyline here fills the pinned stripes far better.
+    Only constant-albedo materials can be pinned (bake_unique restores a rect from its source 1:1,
+    pin_sources). Blender's AABB pack fills ~15-20 % of the atlas on these cabins (156-270 islands at a
+    1/64 margin). The skyline here fills the pinned stripes far better.
 
     Returns None (no stamps) or {"reserved": [rect], "materials": [mat per rect], "info": {}}.
     """
@@ -3454,8 +3496,8 @@ def stamp_layout(obj, cfg, A, margin):
     if not logo_f:
         raise RuntimeError(f"{obj.name}: stamp layout found no logo faces {st['logo']}")
     m = float(margin)
-    # inside one pinned single-material rect the islands are the same paint: a small gap is
-    # enough (A // 256, 8 px at 2048); rects and the unpinned band keep the full margin
+    # inside one pinned single-material rect the islands are the same paint: a small gap is enough (A //
+    # 256, 8 px at 2048). Rects and the unpinned band keep the full margin
     mi = float(max(2, A // 256))
     P = int(round(st["logo_frac"] * A))
     H1 = P + 2.0 * m
@@ -3579,9 +3621,9 @@ def stamp_layout(obj, cfg, A, margin):
 
 
 def pin_sources(sources, materials):
-    """bake_unique restores a reserved rect 1:1 only from a source that samples the packed
-    source layer; the pinned stamp materials are constants, so they sample it (uv None) - the
-    texels they bake are identical. A textured source cannot be pinned (raises)."""
+    """bake_unique restores a reserved rect 1:1 only from a source that samples the packed source layer. The
+    pinned stamp materials are constants, so they sample it (uv None) and the texels they bake are
+    identical. A textured source cannot be pinned (raises)."""
     import dataclasses
     out = dict(sources)
     for i in materials:
@@ -3735,9 +3777,9 @@ def make_post_compose(obj, cfg, quality, stamps, plate_number):
             cs2_compose.stamp_on_face(base, ctl, mesh, table, "plate_face",
                                       make_plate_painter(obj, table, plate_number, A, pw, ph))
         report["stamps"] = sorted(stamps) + (["plate_face"] if plate_number is not None else [])
-        # Revision 1: a gutter texel the bake margin averaged from two recolor slots (e.g.
-        # roof G 0.17 + trim B 0.83) is meaningless and encodes to R+G+B 1.004 in 8 bits; keep
-        # its dominant slot only (sum <= 1 by construction, no mixed tints in the gutters)
+        # Revision 1: a gutter texel that the bake margin averaged from two recolor slots (e.g. roof G
+        # 0.17 + trim B 0.83) is meaningless and encodes to R+G+B 1.004 in 8 bits. Keep its dominant slot
+        # only (sum <= 1 by construction, no mixed tints in the gutters)
         c = ctl[..., 0:3]
         multi = (c > 1e-6).sum(axis=-1) > 1
         if multi.any():
@@ -3761,9 +3803,8 @@ def gondola_detail():
             # at the Revision 1 densities (140-200 px/m) a 7 cm bolt lattice reads as rivet
             # spam: sparser heads on the housings, none on the cast grip
             "hanger_head": D(bolt_pitch_m=0.12, bolt_r_m=0.009, bolt_h_m=0.004),
-            # --split joint (2026-11-03): no relief on the knuckle, cheek plates and pin ends (a
-            # seam ring or a bolt lattice on 6-14 cm parts reads as noise); the neck keeps the
-            # hanger seams
+            # --split joint (2026-11-03): no relief on the knuckle, cheek plates and pin ends (a seam ring
+            # or a bolt lattice on 6-14 cm parts reads as noise). The neck keeps the hanger seams
             "hanger_knuckle": D(), "hanger_cheek_": D(), "hanger_pin_": D(),
             "hangerclamp_": D(bolt_pitch_m=0.10, bolt_r_m=0.010, bolt_h_m=0.005),
             "spring_": D(seams_m=0.025, seam_axes="rings", seam_width_m=0.008,
@@ -3772,13 +3813,12 @@ def gondola_detail():
 
 
 def tram_detail():
-    """Revision 2 ("gondola has some details that the tram doesn't (door handles,
-    bolts etc)"): measured on the Revision 1 bake, EVERY tram bolt row was below the 2-texel
-    floor and skipped (509 faces) - the galv band ships at ~44-54 px/m and a 0.010 m head is
-    1.1 texels across. The tram's structural bolts are now tram-scale heads (r 0.018-0.022,
-    M30-M36 class on a 100-pax carriage) and the bolt-bearing parts carry heavier density
-    weights (T_DENSITY), so the rows draw at 2-3 texels per head like the gondola's (r x px/m
-    >= 1). New: header cover screws, intercom grille."""
+    """Revision 2 ("gondola has some details that the tram doesn't (door handles, bolts etc)"). Measured on
+    the Revision 1 bake, EVERY tram bolt row was below the 2-texel floor and skipped (509 faces). The galv
+    band ships at ~44-54 px/m and a 0.010 m head is 1.1 texels across. The tram's structural bolts are now
+    tram-scale heads (r 0.018-0.022, M30-M36 class on a 100-pax carriage). The bolt-bearing parts carry
+    heavier density weights (T_DENSITY), so the rows draw at 2-3 texels per head like the gondola's (r x
+    px/m >= 1). New: header cover screws, intercom grille."""
     D = cs2_compose.DetailSpec
     return {"band_": D(seams_m=1.20, seam_axes="ribs"),
             "frame_": D(seams_m=1.20, seam_axes="rings"),
@@ -3786,9 +3826,9 @@ def tram_detail():
             "roofbox_": D(seams_m=0.50, seam_axes="both", bolt_pitch_m=0.10, bolt_r_m=0.020,
                           bolt_h_m=0.004),
             "grate_": D(grate_m=0.05),
-            # a full bolt lattice over the 4.8 m fin read as rivet spam (Revision 2 close-ups):
-            # bolt rows on the yoke beam only, the fin a smooth fairing with one weld ring
-            # (JH-13's hanger foot), the bogie plates two rows along a hidden joint line
+            # a full bolt lattice over the 4.8 m fin read as rivet spam (Revision 2 close-ups). The bolt
+            # rows are on the yoke beam only. The fin is a smooth fairing with one weld ring (JH-13's
+            # hanger foot). The bogie plates have two rows along a hidden joint line
             "yoke_": D(bolt_pitch_m=0.15, bolt_r_m=0.020, bolt_h_m=0.006),
             "yoke_fin": D(seams_m=1.20, seam_axes="rings"),
             "hanger_": D(seams_m=1.50, seam_axes="rings", bolt_pitch_m=0.15, bolt_r_m=0.022,
@@ -3797,7 +3837,7 @@ def tram_detail():
                        bolt_h_m=0.006),
             "carbeam_": D(bolt_pitch_m=0.15, bolt_r_m=0.020, bolt_h_m=0.006),
             "carhead_": D(bolt_pitch_m=0.15, bolt_r_m=0.020, bolt_h_m=0.006),
-            # --split joint (2026-11-03): plain lug and cheek plates, the pin heads are the detail
+            # --split joint (2026-11-03): plain lug and cheek plates. The pin heads are the detail
             "fork_lug": D(), "carhead_cheek": D(),
             "bogie_": D(seams_m=0.30, seam_axes="rings", seam_depth_m=0.0, bolt_pitch_m=0.10,
                         bolt_offset_m=0.07, bolt_r_m=0.020, bolt_h_m=0.006),
@@ -3906,8 +3946,8 @@ def prefab_numbers(kind, name, bounds, dims=None, outboard="+Y"):
                   "the underside)",
             "derived": f"TRACK_Y = Yp + {dims['rope']:.2f}; HAUL_Y = Yp + {dims['haul_z']:.2f}; "
                        f"carriage top = Yp + {dims['hang']:.2f}",
-            # integration 2026-10-11: the tram stations own the anchor heights (they keep TRACK_Y
-            # 16.00 and drop the deck to 6.30); these rows used the contract's abandoned deck 9.00
+            # integration 2026-10-11: the tram stations own the anchor heights (they keep TRACK_Y 16.00
+            # and drop the deck to 6.30). These rows used the contract's abandoned deck 9.00
             "station": {
                 "source": "tram_station.py DECK_Y / DOCK_Z / TRACK_Y (anchor owner)",
                 "deck_y": TRAM_STATION["deck_y"],
@@ -3970,7 +4010,7 @@ CODE_CONSEQUENCES = {
 
 
 def load_catalog(path):
-    """Read catalog/carriers.json (human-written); returns (rows dict or None, error)."""
+    """Read catalog/carriers.json (human-written). Returns (rows dict or None, error)."""
     if not path or not os.path.isfile(path):
         return None, f"{path} not found"
     try:
@@ -3997,8 +4037,8 @@ def catalog_drift(kind, path, hang=None, outboard=None):
         return out
     cat = rows.get(key, {})
     if outboard is not None and "outboard" in cat:
-        # nitpick A3: the catalog's authoring side (the stations' cabin pose reads it) vs this build's;
-        # reported, never fatal here (the catalog is human-owned; test_gondola_tram_seams S11 gates it)
+        # nitpick A3: the catalog's authoring side (the stations' cabin pose reads it) vs this build's.
+        # Reported, never fatal here (the catalog is human-owned, test_gondola_tram_seams S11 gates it)
         out["outboard"] = {"catalog": cat["outboard"], "build": outboard, "agree": cat["outboard"] == outboard}
         if cat["outboard"] != outboard:
             print(f"[catalog] DRIFT {key}.outboard: catalog {cat['outboard']!r} vs this build {outboard!r} "
@@ -4090,7 +4130,7 @@ def _rope_fit_copy(obj, ropes):
     parts = [(d, None)]
     for k, (y, z, r, half) in enumerate(ropes):
         c = cs2_kit.add_cyl(f"ropefit{k}", r, 2 * half, (y, 0.0, z), cs2_kit._axis_rot("Y"), 6, "both")
-        # authoring x (travel) = Blender -Y after orient_for_net; lateral y = Blender X
+        # authoring x (travel) = Blender -Y after orient_for_net. Lateral y = Blender X
         apply_transform(c)
         parts.append((c, None))
     bpy.ops.object.select_all(action="DESELECT")
@@ -4188,8 +4228,8 @@ def finish_asset(args, cfg, obj, sources, result):
     quality = "finish" if args.finish else "draft"
     A = cfg["tex"] if quality == "finish" else 256
     ao = cfg["ao"] if quality == "finish" else 8
-    # draft: A // 64 (4 px at 256) - cs2_uv's default floor of 16 px is a 1/16 FRACTION
-    # margin at 256 and ~400 islands cannot fit (measured: pack left UVs up to 8.3)
+    # draft: A // 64 (4 px at 256). cs2_uv's default floor of 16 px is a 1/16 FRACTION margin at 256, and
+    # ~400 islands cannot fit (measured: pack left UVs up to 8.3)
     margin = cfg["margin"] if quality == "finish" else max(2, A // 64)
     asset_dir = asset_dir_for(args, name, cfg.get("out_root"))
     result["asset_dir"] = asset_dir
@@ -4201,7 +4241,7 @@ def finish_asset(args, cfg, obj, sources, result):
     result["shipped_uv_before_bake"] = sorted(l.name for l in obj.data.uv_layers)
 
     if cfg.get("remap"):
-        # --envelope (GD_ENVELOPE): no bake - gondola_shipped_uvs put the shipped atlas on this mesh
+        # --envelope (GD_ENVELOPE): no bake. gondola_shipped_uvs put the shipped atlas on this mesh
         post_rep = {}
         result["bake"] = dict({k: v for k, v in cfg["remap"].items() if k != "dir"}, A=A,
                               files=_copy_shipped_maps(cfg["remap"], asset_dir, name), textures_added_mb=0.0)
@@ -4314,7 +4354,7 @@ def finish_asset(args, cfg, obj, sources, result):
                 "lod2_cap": cfg["lod2_cap"], "expected_lods": tuple(range(1, len(lods) + 1)),
                 "expected_submeshes": ()}
         if not args.finish:
-            spec["min_texture"] = 128       # the draft bake is 256 px by design; only --finish output ships
+            spec["min_texture"] = 128       # the draft bake is 256 px by design. Only --finish output ships
         findings = cs2_validate.validate_asset_folder(asset_dir, name, spec)
         result["validation"] = {"errors": sum(1 for f in findings if f[0] == "ERROR"),
                                 "warnings": sum(1 for f in findings if f[0] == "WARN")}
@@ -4471,13 +4511,13 @@ def run_gondola(args):
 # --split (carrier split 2026-11-03): GRIP + BODY, pivot pin between them
 # ======================================================================================
 
-#: The gondola joint (BRIEF "The split", carrier_split.py header). The one-piece hanger head (0.40 x
-#: 0.19 x 0.13, z 3.93-4.06) becomes the GRIP's head: same plan and rounding, 8 cm tall (z 3.98-4.06),
-#: two cheek plates hanging under it carry the LATERAL pin (authoring y) with a pin end on each outer
-#: face (the clevis of a detachable gondola hanger). The stalk tube is cut 15 cm under the pin and ends
-#: in a tapered neck and the BODY's knuckle (eye) between the cheeks. pin z = head underside - R - c.
-#: Tri counts (measured, asserted): pin_detail = body + grip LOD0 - the one-piece LOD0 (the brief's
-#: budget is the old cap + this); the per-mesh caps are the measured tallies (cs2_validate caps).
+#: The gondola joint (BRIEF "The split", carrier_split.py header). The one-piece hanger head (0.40 x 0.19
+#: x 0.13, z 3.93-4.06) becomes the GRIP's head: same plan and rounding, 8 cm tall (z 3.98-4.06). Two
+#: cheek plates hanging under it carry the LATERAL pin (authoring y) with a pin end on each outer face
+#: (the clevis of a detachable gondola hanger). The stalk tube is cut 15 cm under the pin and ends in a
+#: tapered neck and the BODY's knuckle (eye) between the cheeks. pin z = head underside - R - c. Tri
+#: counts (measured, asserted): pin_detail = body + grip LOD0 - the one-piece LOD0 (the brief's budget is
+#: the old cap + this). The per-mesh caps are the measured tallies (cs2_validate caps).
 G_SPLIT = dict(
     head_bot=3.98, head_top=4.06, head_r=0.03,
     knuckle_r=0.060, knuckle_segs=(8, 4),
@@ -4487,41 +4527,41 @@ G_SPLIT = dict(
     r_x=0.22,                                       # S1 joint zone round the pin center
     grip_prefixes=("hanger_head", "hanger_cheek_", "hanger_pin_", "spring_", "carframe_", "roller_",
                    "grip_"),
-    # grip texture by texel density: ~2.3 m2 of carriage at 512 packs to ~200-260 px/m, above the
-    # cabin's 120-200 px/m hero faces at 2048; 256 would ship ~110 px/m (and cs2_validate floors 512)
+    # grip texture by texel density: ~2.3 m2 of carriage at 512 packs to ~200-260 px/m, above the cabin's
+    # 120-200 px/m hero faces at 2048. 256 would ship ~110 px/m (and cs2_validate floors 512)
     grip_tex=512, grip_margin=8,
     # measured 2026-11-03: one-piece parts 2412 -> body 1964 + grip 624 (knuckle 48, neck 24 more on the
-    # cut stalk, cheeks 2 x 22, pin ends 2 x 18; the 8 cm head has the 13 cm head's tris); LOD2 proxies
+    # cut stalk, cheeks 2 x 22, pin ends 2 x 18. The 8 cm head has the 13 cm head's tris). LOD2 proxies:
     # body 188 (loft 156 + stalk box 24 + octahedron 8) + grip 36 (three boxes) = the one-piece 204 + 20
     pin_detail=176, pin_detail_lod2=20,
-    # critique 2026-11-03: the 8 carriage rollers 10 -> 16 segments (3 x segs tris: 30 -> 48, +144 on
-    # the grip; LOD1 deletes them, the LOD2 proxy has none). The pair 2580 + 144 = 2724 is 48 over the
-    # BRIEF cap 2500 + 176 = 2676 (+1.8 %): raised by 48 (rule: <= 5 %, DECISIONS 585)
+    # critique 2026-11-03: the 8 carriage rollers 10 -> 16 segments (3 x segs tris: 30 -> 48, +144 on the
+    # grip). LOD1 deletes them, and the LOD2 proxy has none. The pair 2580 + 144 = 2724 is 48 over the
+    # BRIEF cap 2500 + 176 = 2676 (+1.8 %). Raised by 48 (rule: <= 5 %, DECISIONS 585)
     roller_segs=16, segs_detail=144, cap_raise=48,
     body_caps=(1964, 188), grip_caps=(768, 36),     # (LOD0, LOD2) tallies = the cs2_validate caps
 )
 
-#: B2 v2 grip passage (--envelope with --split, 2026-11-03; refs/SOURCES.md "Grip passage under
-#: compression": Poma US4441430 / US4691643 - the sheave liners roll over the grip's smooth jaw, never
-#: its body). The tower gate's rule: inside the GD wheel span plus margin (outboard-positive lateral
-#: u < u_in) nothing of the carrier reaches more than z above or below the rope center, down to the
-#: wheel bottoms (z_bot under it). The jaw bar's top drops 0.08 -> 0.06 there and a 45 deg chamfer
-#: (u_in .. u_top) climbs back to the 0.08 top outboard (C5 grip_top_above_rope stays). The cut and
-#: the move run on the rebuilt LOD0 after the SHIPPED B atlas is read onto it (gondola_shipped_uvs):
-#: no bake, 0 MB added. tris / lod2_tris = what the edit adds (asserted): two cuts on the top, one on
-#: the underside, both end caps re-filled as an inboard and an outboard piece; LOD2 = the grip box
-#: split into the outboard box + a jaw box. New letter for the grip only; the body stays B.
+#: B2 v2 grip passage (--envelope with --split, 2026-11-03). Source: refs/SOURCES.md "Grip passage under
+#: compression", Poma US4441430 / US4691643: the sheave liners roll over the grip's smooth jaw, never its
+#: body. The tower gate's rule: inside the GD wheel span plus margin (outboard-positive lateral u < u_in),
+#: nothing of the carrier reaches more than z above or below the rope center, down to the wheel bottoms
+#: (z_bot under it). The jaw bar's top drops 0.08 -> 0.06 there. A 45 deg chamfer (u_in .. u_top) climbs
+#: back to the 0.08 top outboard (C5 grip_top_above_rope stays). The cut and the move run on the rebuilt
+#: LOD0. Before them, the generator reads the SHIPPED B atlas onto that LOD0 (gondola_shipped_uvs): no
+#: bake, 0 MB added. tris / lod2_tris = what the edit adds (asserted): two cuts on the top, one on the
+#: underside, and both end caps re-filled as an inboard and an outboard piece. LOD2 = the grip box split
+#: into the outboard box + a jaw box. New letter for the grip only. The body stays B.
 GD_ENVELOPE = dict(z=0.06, z_bot=0.54, u_in=0.09, u_top=0.11, letter="C", tris=12, lod2_tris=10)
 ENVELOPE = False                    # run() sets it from --envelope
 SPLIT_MAPS = ("BaseColor", "Normal", "MaskMap", "ControlMask")
 
 
 def gondola_shipped_uvs(obj, fbx):
-    """--envelope: the shipped LOD0's atlas read onto `obj`, its rebuild (same code path, before any
-    envelope edit): every FBX triangle lands on the rebuilt polygon holding its three corners (positions
-    within 0.2 mm; coincident vertices of touching parts resolved by the triangle's normal), each
-    corner's UV onto that polygon's loop. Leaves one UV layer UVUnique, no materials, no color
-    attributes (what bake_unique leaves). Returns the match numbers."""
+    """--envelope: the shipped LOD0's atlas read onto `obj`, its rebuild (same code path, before any envelope
+    edit). Every FBX triangle lands on the rebuilt polygon holding its three corners (positions within 0.2
+    mm, coincident vertices of touching parts resolved by the triangle's normal), and each corner's UV
+    goes onto that polygon's loop. Leaves one UV layer UVUnique, no materials, no color attributes (what
+    bake_unique leaves). Returns the match numbers."""
     from mathutils.kdtree import KDTree
     me = obj.data
     mw = obj.matrix_world
@@ -4608,14 +4648,14 @@ def gondola_shipped_uvs(obj, fbx):
 
 
 def gondola_envelope_jaw(obj, outboard, rope_z):
-    """--envelope on the grip LOD0 (net frame, base pivot; rope_z = the rope center there): cut the
-    grip_body prism's top at u_in and u_top and its underside at u_in, re-fill both end caps as an
-    inboard and an outboard piece, then lower the top inboard of u_in to rope_z + z (the u_in .. u_top
-    strip becomes the chamfer). Every loop UV comes from its face's plane -> UV map fitted BEFORE the
-    cut and the move (affine per face: atlas islands are similarity images of the planar faces), so
-    the shipped texels stay put. Returns the tris added."""
+    """--envelope on the grip LOD0 (net frame, base pivot, rope_z = the rope center there). The function cuts
+    the grip_body prism's top at u_in and u_top, and its underside at u_in. It re-fills both end caps as an
+    inboard and an outboard piece. Then it lowers the top inboard of u_in to rope_z + z (the u_in .. u_top
+    strip becomes the chamfer). Every loop UV comes from its face's plane -> UV map fitted BEFORE the cut
+    and the move (affine per face: atlas islands are similarity images of the planar faces), so the shipped
+    texels stay put. Returns the tris added."""
     E = GD_ENVELOPE
-    sgn = 1.0 if outboard == "+Y" else -1.0         # net x = authoring y; u = outboard-positive lateral
+    sgn = 1.0 if outboard == "+Y" else -1.0         # net x = authoring y. u = outboard-positive lateral
     me = obj.data
     pid = json.loads(me[PART_TABLE_PROP]).index("grip_body") + 1
     t0 = cs2_asset.tri_count(obj)
@@ -4755,7 +4795,7 @@ def gondola_split_parts(parts, outboard):
     hm = head.data
     bpy.data.objects.remove(head, do_unlink=True)
     bpy.data.meshes.remove(hm)
-    # the stalk: cut 15 cm under the pin; the open cut ring is where the neck starts
+    # the stalk: cut 15 cm under the pin. The open cut ring is where the neck starts
     CS.cut_part(arm, (0.0, 0.0, z_n), (0.0, 0.0, 1.0))
     ring = [v.co.copy() for v in arm.data.vertices if abs(v.co.z - z_n) < 1e-6]
     radii = [math.hypot(v.x, v.y - ys) for v in ring]
@@ -4830,10 +4870,10 @@ def split_pair_copy(body, grip, grip_z0, name):
 
 
 def gondola_split_proxy(lod0, name, outboard, joint, role):
-    """C6 LOD2 of one split mesh, cut at the pin. body = gondola_proxy's cabin loft + the stalk box up to
-    the pin + an octahedron knuckle (its top = the body's top contract); grip = gondola_proxy's frame
-    and jaw boxes + a yoke box from the cheek bottom 2 cm into the frame (it hides the stalk end).
-    Built at +Y and mirrored like gondola_proxy; the grip is lowered by its base pivot shift."""
+    """C6 LOD2 of one split mesh, cut at the pin. body = gondola_proxy's cabin loft + the stalk box up to the
+    pin + an octahedron knuckle (its top = the body's top contract). grip = gondola_proxy's frame and jaw
+    boxes + a yoke box from the cheek bottom 2 cm into the frame (it hides the stalk end). Built at +Y and
+    mirrored like gondola_proxy. The grip is lowered by its base pivot shift."""
     yb = G["hanger_b"][1]
     pz = joint["pz"]
     if role == "body":
@@ -4857,8 +4897,8 @@ def gondola_split_proxy(lod0, name, outboard, joint, role):
     else:
         z0, z1 = joint["grip_z0"], 4.16 + 0.02
         if ENVELOPE:
-            # GD_ENVELOPE: the outboard box keeps the 0.08 top; the jaw box (the LOD0 bar's underside
-            # 4.44 up to the envelope, 1 cm into the outboard box, that face dropped) passes the wheels
+            # GD_ENVELOPE: the outboard box keeps the 0.08 top. The jaw box (the LOD0 bar's underside 4.44
+            # up to the envelope, 1 cm into the outboard box, that face dropped) passes the wheels
             ui, zj = GD_ENVELOPE["u_in"], G["rope"] + GD_ENVELOPE["z"]
             grip = [(cs2_kit.add_box("grip_proxy", (0.30, 0.30 - ui, 0.20), (0.0, 0.5 * (0.30 + ui), 4.40)),
                      None),
@@ -4948,9 +4988,9 @@ def _rewrite_manifest(res, extra):
 
 def run_gondola_split(args):
     """--split: SkiGondolaCabin8B (body: cabin + stalk + knuckle) + SkiGondolaCabin8GripB (grip: head +
-    cheeks + pin + springs + carriage + rollers + jaw), each with its base pivot (lowest vertex z 0),
-    3 LODs and its own map set. S1 / S2 / S3 on the parts; every G contract on the joined pair at every
-    LOD, the role contracts on each mesh."""
+    cheeks + pin + springs + carriage + rollers + jaw), each with its base pivot (lowest vertex z 0), 3
+    LODs and its own map set. S1 / S2 / S3 on the parts. Every G contract on the joined pair at every LOD.
+    The role contracts on each mesh."""
     J = G_SPLIT
     shipped = SPLIT_NAMES["gondola"]
     names = (shipped[0], shipped[1][:-1] + GD_ENVELOPE["letter"]) if ENVELOPE else shipped
@@ -5061,7 +5101,7 @@ def run_gondola_split(args):
                  prefab_numbers={"mesh": ng, "role": "grip", "pivots": pivots,
                                  "note": "split grip: base pivot = the cheek bottom; the rope point "
                                          "and the pin are relative to it"})
-    if ENVELOPE:                       # no bake; the unchanged body goes to _unchanged/ (pair LODs only)
+    if ENVELOPE:                       # no bake. The unchanged body goes to _unchanged/ (pair LODs only)
         cfg_b.update(remap=remap[nb], out_root=os.path.join(os.path.abspath(args.out), "_unchanged"))
         cfg_g.update(remap=remap[ng], manifest_extra={"envelope": dict(
             GD_ENVELOPE, remap={k: v for k, v in remap[ng].items() if k != "dir"})})
@@ -5102,24 +5142,24 @@ def run_gondola_split(args):
     return results
 
 
-#: The tram joint (carrier split 2026-11-03; carrier_split.py header). The one-piece hanger's two fork
+#: The tram joint (carrier split 2026-11-03, carrier_split.py header). The one-piece hanger's two fork
 #: uprights (y +-0.95) butt against the carriage head's underside (K = hang - 0.12 = the carhead bottom).
 #: Split: each upright ends 0.16 under the pin and carries a LUG (the body's eye: a 12 cm plate with a
-#: half-round top of radius 0.12 round the pin), the carriage head carries two CHEEK plates per lug (a
+#: half-round top of radius 0.12 round the pin). The carriage head carries two CHEEK plates per lug (a
 #: clevis) with a pin head on each outer face, inner and outer (symmetric, R29 / T5). Both pins are ONE
-#: lateral axis (authoring y). The eye cannot sit inside the 10 cm carhead, so the pin moves down
-#: by lug_r + c: K = carhead underside - c - lug_r (10.2565 at hang 10.50; was 10.38): a proposed
+#: lateral axis (authoring y). The eye cannot sit inside the 10 cm carhead, so the pin moves down by lug_r
+#: + c: K = carhead underside - c - lug_r (10.2565 at hang 10.50, was 10.38). This is a proposed
 #: carriers.json pivot change (build report). Roll: two coaxial lugs 1.90 m apart cannot roll about the
-#: travel axis (each would move +-0.13 m vertically at 8 deg). Swing convention (carrier_split.py
-#: header): the pin sweeps pitch + fore-aft only; the cross-wind sway rolls cabin + carriage together
-#: about the track rope (<= CS.TRAM_ROLL_DEG).
+#: travel axis (each would move +-0.13 m vertically at 8 deg). Swing convention (carrier_split.py header):
+#: the pin sweeps pitch + fore-aft only. The cross-wind sway rolls cabin + carriage together about the
+#: track rope (<= CS.TRAM_ROLL_DEG).
 T_SPLIT = dict(
     lug_r=0.12, lug_t=0.12, lug_bury=0.03, lug_drop=0.16, lug_segs=8,
     cheek_t=0.03, cheek_r=0.13, cheek_bury=0.02,
     pin_r=0.035, pin_len=0.014,
     r_x=0.30,                                       # S1 joint zone round each lug's pin center
     # critique 2026-11-03: the eight bogie wheel rims 12 -> 16 segments (10 profile strips x 2 tris x
-    # segs: 240 -> 320 a rim, +640 on the carriage; LOD1 swaps the rims for 8-segment sheaves, LOD2
+    # segs: 240 -> 320 a rim, +640 on the carriage. LOD1 swaps the rims for 8-segment sheaves, LOD2
     # deletes them). The pair stays under the cap 8000 + 256: no raise.
     wheel_segs=16, segs_detail=640,
     # measured 2026-11-03 (asserted): pin_detail = cabin + carriage LOD0 - the one-piece LOD0 (both with
@@ -5275,8 +5315,8 @@ def run_tram(args):
         table = []
         obj, sources, table = build_lod0(plist, name, T_DENSITY, table)
         result["parts"] = len(table)
-        # the split carriage: top contract only on the LODs (they lose the haul clamps, the lowest
-        # parts, so pinning a bottom would drag the plates down); LOD0's base pivot is T9 / build_lod0
+        # the split carriage: top contract only on the LODs (they lose the haul clamps, the lowest parts,
+        # so pinning a bottom would drag the plates down). LOD0's base pivot is T9 / build_lod0
         z_range = {"whole": (0.0, dims["hang"]), "cabin": (0.0, dims.get("cab_top", dims["k_z"])),
                    "carriage": (None, dims["hang"] - dims.get("car_z0", dims["k_z"]))}[role]
 
@@ -5286,13 +5326,14 @@ def run_tram(args):
         def lod2(o, nm, _role=role):
             dele = T["lod2_delete"]
             # split 2026-11-03: the cabin's protected lugs (76 tris) come on top of the old 300, else the
-            # collapse leaves the body ~30 tris (T3b / T5 / T8 broke); the carriage ships its 220
+            # collapse leaves the body ~30 tris (T3b / T5 / T8 broke). The carriage ships its 220
             # protected tris (carhead + cheeks + beams) either way
             target = {"whole": T["lod2_target"], "cabin": 380, "carriage": 250}[_role]
             return make_lod(o, nm, 2, target, dele, T["lod2_protect"])
 
         # all four logo quads share ONE pinned square (stamp_layout): paint it once
-        # Revision 2: six logo quads share the square; the painter takes exactly one quad
+        #
+        # Revision 2: six logo quads share the square. The painter takes exactly one quad
         stamps = {} if role == "carriage" else {"logo_sidep0": (0.70, 0.70)}
         stamp = None if role == "carriage" else {
             "logo": ("logo_",), "fill": ("band_", "doorband_"), "logo_frac": T["logo_frac"],
@@ -5442,7 +5483,7 @@ def parse_args(argv):
     ap.add_argument("--ab", default=DEFAULT_AB)
     ap.add_argument("--no-validate", action="store_true")
     args = ap.parse_args(argv)
-    if args.outboard is None:          # nitpick A3: the gondola ships -Y; the tram is symmetric (R29)
+    if args.outboard is None:          # nitpick A3: the gondola ships -Y. The tram is symmetric (R29)
         args.outboard = GD_OUTBOARD if args.kind == "gondola" else "+Y"
     if args.out is None:
         args.out = DEFAULT_SPLIT_OUT if args.split else DEFAULT_OUT
@@ -5458,7 +5499,7 @@ def parse_args(argv):
 
 
 def run(argv):
-    """Build one kind; returns a list of per-asset result dicts. Clears the scene first."""
+    """Build one kind. Returns a list of per-asset result dicts. Clears the scene first."""
     global ENVELOPE
     args = parse_args(argv)
     ENVELOPE = bool(args.envelope)
