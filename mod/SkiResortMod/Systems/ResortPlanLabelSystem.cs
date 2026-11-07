@@ -1,11 +1,13 @@
-// Resort Planner (v2) world labels: one label per proposed lift ("P2: Detachable, 1.3 km, 540 m up, 7 runs") at the chord midpoint
-// and one per pod ("Pod B: Intermediate") at its top, read from the quick runs tool's published result (never the live planner),
-// built once per published plan (at most MaxLabels) with the same TextMeshPro mesh pattern as SkiRunLabelSystem. Pinned lifts get no
-// label: the game already names an existing lift. Drawn only while the tool is open in Preview. Locale: SkiResort.Label.PLAN_LIFT /
-// PLAN_POD, {TYPE} = SkiResort.Hub.LIFT_TYPE[id], {CLASS} = SkiResort.Tooltip.QUICK_CLASS[band].
-// Phase: Rendering, NOT anchored to OverlayRenderSystem (the labels are Graphics.DrawMesh calls; nothing is written to the overlay buffers).
+// Resort Planner (v2) world labels: one label per proposed lift ("P2: Detachable, 1.3 km, 540 m up, 7 runs") at the chord midpoint and one
+// per pod ("Pod B: Intermediate") at its top. The labels are read from the quick runs tool's published result (never the live planner).
+// They are built once per published plan (at most MaxLabels) with the same TextMeshPro mesh pattern as SkiRunLabelSystem. Pinned lifts get
+// no label: the game already names an existing lift. Labels are drawn only while the tool is open in Preview. Locale:
+// SkiResort.Label.PLAN_LIFT / PLAN_POD, {TYPE} = SkiResort.Hub.LIFT_TYPE[id], {CLASS} = SkiResort.Tooltip.QUICK_CLASS[band].
+// Phase: Rendering, NOT anchored to OverlayRenderSystem (the labels are Graphics.DrawMesh calls, and nothing is written to the overlay
+// buffers).
 // Zoom: shown between the same camera zooms as SkiRunLabelSystem (RunLabelRules.FadeAlpha > 0) and fitted to the chord / ring they name
-// (RunLabelRules.FitScale); the rebuild waits for a visible zoom. Pod letters come from QuickRunsPlanRules.Letter (the hub's and tooltip's).
+// (RunLabelRules.FitScale). The rebuild waits for a visible zoom. Pod letters come from QuickRunsPlanRules.Letter (the hub's and
+// tooltip's).
 // Logs: one INFO line per load, one WARN if the overlay text material is missing, a one-shot `!!!` that switches the labels off, and with
 // Options > Diagnostics > Measurement diagnostics a `[cost]` line per rebuild (ms, labels built, labels dropped by the cap).
 // Engine notes: EngineNotes/ResortPlanner.md (A4) and EngineNotes/Mod.md ("Near ResortPlanLabelSystem")
@@ -374,7 +376,7 @@ namespace SkiResortMod.Systems
             }
             catch (Exception)
             {
-                // already in the failure path; the "!!!" line carries the cause
+                // already in the failure path. The "!!!" line carries the cause
             }
         }
     }

@@ -1,6 +1,6 @@
 // The Ski Bus Depot's pure rules: the coach bill, the hill lodge a depot serves, what a claim verdict means for the bill and the hub.
-// The depot itself is a claim target (SkiDayRules.CheckDepot); nothing here moves a vehicle: the coach is a bill today, and a later
-// visual bus reads SkiDaySystem.CopyDepots.
+// The depot itself is a claim target (SkiDayRules.CheckDepot). Nothing here moves a vehicle: the coach is a bill today, and a later visual
+// bus reads SkiDaySystem.CopyDepots.
 // Pure file: System, System.Collections.Generic and Unity.Mathematics only (tests/ResortBatch links it).
 // Engine notes: EngineNotes/SkiBusChargeSystem.md
 
@@ -33,8 +33,9 @@ namespace SkiResortMod.Systems
         public static bool CannotWork(SkiDayRules.LodgeReject verdict)
             => verdict == SkiDayRules.LodgeReject.NoHillLodge || verdict == SkiDayRules.LodgeReject.NoRoad;
 
-        /// <summary>The index of the position nearest <paramref name="from"/> in straight xz distance; the first wins a tie; a position
-        /// that is not finite never wins. -1 for an empty list. <paramref name="distanceM"/> = its distance, +inf when -1.</summary>
+        /// <summary>The index of the position nearest <paramref name="from"/> in straight xz distance. The first wins a tie. A position
+        /// that is not finite never wins. The value is -1 for an empty list. <paramref name="distanceM"/> = its distance, +inf when
+        /// -1.</summary>
         public static int NearestIndex(float2 from, IReadOnlyList<float2> positions, out float distanceM)
         {
             int best = -1;

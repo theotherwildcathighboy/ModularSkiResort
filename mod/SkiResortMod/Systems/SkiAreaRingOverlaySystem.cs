@@ -2,7 +2,7 @@
 //   Placing a Welcome Sign  a bright ring around the cursor (where the new area would reach) and a faint ring around every existing sign.
 //   A sign selected         a bright ring around it, faint rings around the others.
 //   Drawing a run, the lift tool, placing a lodge / school / patrol hut / depot / station: faint rings around every sign, so it shows
-//                           whether the thing lands in an area (lodges, lifts and runs link to the nearest sign within the ring).
+//                           whether the thing lands in an area. Lodges, lifts and runs link to the nearest sign within the ring.
 // The lodge parking radius (SkiParkingRules.RadiusM) in parking blue, the second layer, independent of the first:
 //   Placing a road lodge    a bright ring around the ghost lodge (where the new lodge would count car spaces) and a faint ring around
 //                           every road lodge of the last parking census.
@@ -10,13 +10,13 @@
 //                           "Road lodge" = a lodge whose road rule takes arrivals at a road (LodgeSupplyRule.IsRoadLodge): the A-frame,
 //                           Chalet and Grand, never the Hut or Summit.
 // Gated by the ShowSnowLineWhilePlacing option's sibling ShowSkiAreaRadius (both layers). Game mode only.
-// Geometry: SkiAreaRadiusRules.RingSegments chords per ring, StyleFlags.Projected. A projected overlay covers the whole terrain height range
-// (OverlayRenderSystem.GetBuffer passes heightScaleOffset.y - 50 .. heightScaleOffset.x + 100, OverlayRenderSystem.cs:633 in 1.6.2f1),
-// so a chord drapes over a ridge between its ends and no terrain sampling is needed.
+// Geometry: SkiAreaRadiusRules.RingSegments chords per ring, StyleFlags.Projected. A projected overlay covers the whole terrain height
+// range (OverlayRenderSystem.GetBuffer passes heightScaleOffset.y - 50 .. heightScaleOffset.x + 100, OverlayRenderSystem.cs:633 in
+// 1.6.2f1). So a chord drapes over a ridge between its ends and no terrain sampling is needed.
 // Sign positions: SkiRunOwnershipSystem.CollectGatePositions (a managed scan of every building) on activation and every RescanFrames.
-// Phase: Rendering, anchored UpdateBefore<SkiAreaRingOverlaySystem, Game.Rendering.OverlayRenderSystem> (Mod.cs; load-bearing like the
-// snow line's: the renderer uploads and clears its lists in the same frame).
-// Logs: one INFO line per load (ARMED); a one-shot `!!!` switches it off until the next load. Nothing per frame.
+// Phase: Rendering, anchored UpdateBefore<SkiAreaRingOverlaySystem, Game.Rendering.OverlayRenderSystem> (Mod.cs, load-bearing like the snow
+// line's: the renderer uploads and clears its lists in the same frame).
+// Logs: one INFO line per load (ARMED). A one-shot `!!!` switches it off until the next load. Nothing per frame.
 // Engine notes: EngineNotes/SkiAreaRadius.md (both layers), EngineNotes/SkiLodgeParkingSystem.md (the parking radius)
 
 using System;
@@ -49,7 +49,7 @@ namespace SkiResortMod.Systems
 
         public enum ParkingRingMode : byte { None = 0, PlacingLodge = 1, LodgeSelected = 2 }
 
-        // Warm amber, distinct from the snow line's pale ice (sRGB / 255; OverlayRenderSystem converts with Color.linear).
+        // Warm amber, distinct from the snow line's pale ice (sRGB / 255). OverlayRenderSystem converts with Color.linear.
         private static readonly UnityEngine.Color s_Bright = new UnityEngine.Color(1f, 200f / 255f, 80f / 255f, 0.95f);
         private static readonly UnityEngine.Color s_Faint = new UnityEngine.Color(1f, 200f / 255f, 80f / 255f, 0.30f);
         // Parking blue (the parking sign's), distinct from the amber area ring.
@@ -233,7 +233,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>What the parking layer draws this frame. <paramref name="at"/>: the bright ring's center (the ghost lodge, else the
-        /// cursor, or the selected lodge), NaN for none; <paramref name="lodge"/>: the selected lodge (no faint ring for it), else
+        /// cursor, or the selected lodge), NaN for none. <paramref name="lodge"/>: the selected lodge (no faint ring for it), else
         /// Entity.Null.</summary>
         private ParkingRingMode DecideParking(out float2 at, out Entity lodge)
         {
@@ -322,7 +322,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>What to draw this frame; <paramref name="selected"/> is the selected sign's plan position in SignSelected.</summary>
+        /// <summary>What to draw this frame. <paramref name="selected"/> is the selected sign's plan position in SignSelected.</summary>
         private RingMode Decide(out float2 selected)
         {
             selected = default;

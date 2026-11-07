@@ -1,19 +1,19 @@
-// Quick runs tool: the tree filler (DECISIONS 412-415). The region filled with trees below a tree line, outside every run (ours,
-// existing and the enabled candidates) by a margin: the glade tool's compose path with a fill mask (SkiGladeCompose.Compose with
-// ComposeInput.Fill = GladeMask, layer LayerFiller), its census idiom (static search tree, TreeBoundsIterator), its definitions
+// Quick runs tool: the tree filler (DECISIONS 412-415). It fills the region with trees below a tree line, outside every run by a margin.
+// The runs are ours, existing and the enabled candidates. It reuses the glade tool's compose path with a fill mask (SkiGladeCompose.Compose
+// with ComposeInput.Fill = GladeMask, layer LayerFiller), its census idiom (static search tree, TreeBoundsIterator), its definitions
 // (SkiGladeToolSystem.EmitPlantDefinition / EmitThinDefinition) and its tag system (this tool is the second IGladeTagSource: run Null,
-// LayerFiller). Density = the glade levels; the tree line defaults to 95 % of the map's own trees (SkiGladeTreeLine.Estimate), the hub
-// steps it (10 / 50 m), the overlay draws its contour (SnowLineRules.MarchingSquares). Species: group chips (Conifer default, Deciduous, Palm, All
-// trees) or one species from every tree prefab with wood (SkiGladeSpecies). Plant runs in slices of FillerSliceTrees, one Apply each, and
-// continues by itself until the slope is complete ("Planting trees 2,400 / 9,000"; right click stops after the slice in flight, every
-// applied slice stays planted and undoable). Undo in the same session deletes the planted batch with the bulldoze definition (vanilla
-// refunds Recent trees) in slices of the glade cap MaxRemovePerApply, one Apply each ("Removing trees 4,000 / 9,000"; right click stops
-// after the slice in flight, the rest stays undoable). While the preview is on, an edit (tree line, species, level, corners) only marks
-// the plan dirty: the compose runs TreeDebounceFrames after the last edit; the planting slices, trees on and Plant re-plan at once.
-// The compose is a job (DECISIONS 419, the 9 km2 region cap): the census runs on the main thread within TreeCensusBudgetMs per frame,
-// then SkiGladeCompose.Compose (pure: no statics, its own cache, a private copy of the height snapshot) runs on a worker thread;
-// the frame it finishes clears the old preview and emits the new one (the Replan idiom). An edit during the job cancels the worker
-// (GladeCancel, polled by the planner and MatchSlots) and drops its result.
+// LayerFiller). Density = the glade levels. The tree line defaults to 95 % of the map's own trees (SkiGladeTreeLine.Estimate). The hub
+// steps it (10 / 50 m). The overlay draws its contour (SnowLineRules.MarchingSquares). Species: group chips (Conifer default, Deciduous,
+// Palm, All trees) or one species from every tree prefab with wood (SkiGladeSpecies). Plant runs in slices of FillerSliceTrees, one Apply
+// each. It continues by itself until the slope is complete ("Planting trees 2,400 / 9,000"). Right click stops after the slice in flight.
+// Every applied slice stays planted and undoable. Undo in the same session deletes the planted batch with the bulldoze definition (vanilla
+// refunds Recent trees) in slices of the glade cap MaxRemovePerApply, one Apply each ("Removing trees 4,000 / 9,000"). Right click stops
+// after the slice in flight. The rest stays undoable. While the preview is on, an edit (tree line, species, level, corners) only marks the
+// plan dirty, and the compose runs TreeDebounceFrames after the last edit. The planting slices, trees on and Plant re-plan at once.
+// The compose is a job (DECISIONS 419, the 9 km2 region cap). The census runs on the main thread within TreeCensusBudgetMs per frame. Then
+// SkiGladeCompose.Compose (pure: no statics, its own cache, a private copy of the height snapshot) runs on a worker thread. The frame it
+// finishes clears the old preview and emits the new one (the Replan idiom). An edit during the job cancels the worker (GladeCancel, polled
+// by the planner and MatchSlots) and drops its result.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Tree filler)
 
 using System;
@@ -40,7 +40,8 @@ namespace SkiResortMod.Systems
     {
         private const float HoleMarginM = 3f;    // package C's margin (BUILD-BRIEF, filler mask)
         private const int ContourSide = 65;      // contour grid (64 x 64 cells over the region's bounds)
-        /// <summary>Trees per Apply while planting (within the glade caps): smoothness over speed, the slices continue by themselves.</summary>
+        /// <summary>Trees per Apply while planting (within the glade caps). Smoothness over speed: the slices continue by
+        /// themselves.</summary>
         internal const int FillerSliceTrees = 2000;
         /// <summary>Frames after the last edit before the preview re-composes (one compose per burst of clicks, not one per click).</summary>
         internal const int TreeDebounceFrames = 15;
@@ -131,8 +132,8 @@ namespace SkiResortMod.Systems
         internal int SpeciesPick => m_SpeciesPick;
         internal IReadOnlyList<SpeciesEntry> Species => m_Species;
         internal int TreePlant => m_TreePlant;
-        /// <summary>Trees still to plant for the target (the whole slope, not one slice); the hub's and the tooltip's count. 0 once a
-        /// finished plan has nothing to do: spots the game refused leave the region short of the target for good.</summary>
+        /// <summary>Trees still to plant for the target (the whole slope, not one slice). This is the hub's and the tooltip's count. It is
+        /// 0 once a finished plan has nothing to do: spots the game refused leave the region short of the target for good.</summary>
         internal int TreeToPlant => !m_Planting && m_TreeJobStage == 0 && m_TreePlant + m_TreeRemove == 0 ? 0 : math.max(m_TreePlant, m_TreeTarget - m_TreeNow);
         internal bool Planting => m_Planting;
         /// <summary>"Removing trees N / M": the undo in flight (trees removed / trees it set out to remove).</summary>
@@ -152,7 +153,7 @@ namespace SkiResortMod.Systems
         /// <summary>Plant was pressed and waits for the fresh plan (right click cancels it).</summary>
         internal bool PlantPending => m_PlantAfterCompose && !m_Planting;
         /// <summary>What Plant is about to cost: the ready preview's Temp cost per planted tree times the trees to plant (exact when the
-        /// whole plan fits one slice); 0 without a ready preview.</summary>
+        /// whole plan fits one slice). It is 0 without a ready preview.</summary>
         internal int TreeCost => m_TreeCostPlants <= 0 ? 0
             : m_TreeCostPlants >= TreeToPlant ? m_TreeCostPreview
             : (int)math.min(int.MaxValue, math.round((double)m_TreeCostPreview / m_TreeCostPlants * TreeToPlant));
@@ -313,7 +314,7 @@ namespace SkiResortMod.Systems
             FinishPlanting("stopped (" + why + ")");
         }
 
-        /// <summary>Ends a planting and logs its wall time; <paramref name="notice"/> false keeps the notice a refusal just set.</summary>
+        /// <summary>Ends a planting and logs its wall time. <paramref name="notice"/> false keeps the notice a refusal just set.</summary>
         private void FinishPlanting(string how, bool notice = true)
         {
             m_Planting = false;
@@ -353,7 +354,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Thin definitions for the next MaxRemovePerApply live trees of the batch from m_RemoveCursor (the glade cap compose
-        /// uses); they apply on the next frame (UpdateTreesCycle stage 1).</summary>
+        /// uses). They apply on the next frame (UpdateTreesCycle stage 1).</summary>
         private void EmitRemoveSlice()
         {
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -372,13 +373,13 @@ namespace SkiResortMod.Systems
                              $"{m_TreeBatch.Count}) in {QuickRunsRules.MsSince(t0):F1} ms, applying next frame");
         }
 
-        /// <summary>Ends an undo. The applied part leaves the batch; the rest stays undoable. <paramref name="cancelInFlight"/>: the
-        /// slice emitted but not applied is dropped (its definitions cleared) instead of applying.</summary>
+        /// <summary>Ends an undo. The applied part leaves the batch. The rest stays undoable. <paramref name="cancelInFlight"/>: the slice
+        /// emitted but not applied is dropped (its definitions cleared) instead of applying.</summary>
         private void FinishRemoving(string how, bool cancelInFlight)
         {
             m_Removing = false;
             if (m_TreeUndoStage == 1 && !cancelInFlight)
-                return;   // the slice in flight applies next frame; UpdateTreesCycle then closes (m_Removing is false)
+                return;   // the slice in flight applies next frame. UpdateTreesCycle then closes (m_Removing is false)
             if (m_TreeUndoStage == 1)
             {
                 // Nothing of that slice applied: its definitions go (the ClearTreePreview idiom) and it stays in the batch
@@ -407,7 +408,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Marks the tree plan dirty. <paramref name="debounce"/>: an edit while the preview is on (compose TreeDebounceFrames
-        /// after the last one); false: compose on the next frame (trees on, Plant, the planting slices).</summary>
+        /// after the last one). false: compose on the next frame (trees on, Plant, the planting slices).</summary>
         private void MarkTreesDirty(bool debounce)
         {
             m_TreesDirty = true;
@@ -417,8 +418,8 @@ namespace SkiResortMod.Systems
                 m_TreesComposeNow = true;
         }
 
-        /// <summary>The dirty plan composes this frame: never during an undo; at once unless debounced; else TreeDebounceFrames after
-        /// the last edit.</summary>
+        /// <summary>The dirty plan composes this frame as follows. Never during an undo. At once unless debounced. Otherwise
+        /// TreeDebounceFrames after the last edit.</summary>
         private bool TreeComposeDue()
         {
             if (!m_TreesDirty || m_Removing || m_TreeUndoStage != 0 || m_TreeJobStage != 0)
@@ -482,7 +483,7 @@ namespace SkiResortMod.Systems
             if (m_TreeUndoStage == 1)
             {
                 m_TreeUndoStage = 0;
-                applyMode = ApplyMode.Apply;   // the removals (Temp Delete) apply; ApplyingNow stays false: nothing to tag
+                applyMode = ApplyMode.Apply;   // the removals (Temp Delete) apply. ApplyingNow stays false: nothing to tag
                 m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
                 m_RemoveDone += m_RemoveSliceEmitted;
                 m_RemoveCursor = m_RemoveSliceEnd;
@@ -550,9 +551,9 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- compose
 
-        /// <summary>Starts a compose job (census, mask, compose, emit: the glade tool's PlanAndEmit for a region). The cheap part runs
-        /// now (snapshot, species, contour grid); the census continues in StepTreeCompose within TreeCensusBudgetMs per frame, then the
-        /// compose runs on a worker thread. The preview on screen stays until the job's result replaces it in one frame (Replan idiom).</summary>
+        /// <summary>Starts a compose job (census, mask, compose, emit: the glade tool's PlanAndEmit for a region). The cheap part runs now
+        /// (snapshot, species, contour grid). The census continues in StepTreeCompose within TreeCensusBudgetMs per frame. Then the compose
+        /// runs on a worker thread. The preview on screen stays until the job's result replaces it in one frame (Replan idiom).</summary>
         private void ComposeTrees(string why)
         {
             m_TreesDirty = m_TreesComposeNow = false;
@@ -593,7 +594,7 @@ namespace SkiResortMod.Systems
             m_TreeJobMainMs = m_TreeJobFrameMaxMs = m_TreeJobWorkerMs = 0;
             m_TreeJobFrames = 0;
 
-            // The census lists (static search tree, the glade tool's CensusTrees idiom); classified in StepTreeCompose
+            // The census lists (static search tree, the glade tool's CensusTrees idiom). Classified in StepTreeCompose
             m_Existing.Clear();
             m_OwnMembers.Clear();
             m_OwnEntities.Clear();
@@ -626,8 +627,8 @@ namespace SkiResortMod.Systems
         private bool TreeJobStale() =>
             m_TreesDirty || !m_TreesOn || m_Removing || m_TreeUndoStage != 0 || m_TreeJobGen != m_TreeJobLaunchGen;
 
-        /// <summary>One frame of the compose job: census within TreeCensusBudgetMs (stage 1), then the worker launch; or the worker's
-        /// result collected (stage 2). <paramref name="spentMs"/>: main-thread time this frame already spent on the job.</summary>
+        /// <summary>One frame of the compose job. Stage 1: census within TreeCensusBudgetMs, then the worker launch. Stage 2: the worker's
+        /// result collected. <paramref name="spentMs"/>: main-thread time this frame already spent on the job.</summary>
         private void StepTreeCompose(double spentMs = 0)
         {
             if (m_TreeJobStage == 0)
@@ -638,7 +639,7 @@ namespace SkiResortMod.Systems
                 {
                     if (!m_TreeCancel.Requested && TreeJobStale())
                     {
-                        m_TreeCancel.Request();   // the worker stops at its next poll; the result is dropped when it returns
+                        m_TreeCancel.Request();   // the worker stops at its next poll. The result is dropped when it returns
                         if (SkiResortSettings.DiagnosticsOn)
                             Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                                 "QuickRuns [probe] tree compose ({0}) canceled on the worker after {1:F0} ms: out of date", m_TreeJobWhy,
@@ -653,7 +654,7 @@ namespace SkiResortMod.Systems
             m_TreeJobFrames++;
             if (TreeJobStale())
             {
-                m_TreeJobStage = 0;   // its edit composes next (debounce); trees off / undo / load need none
+                m_TreeJobStage = 0;   // its edit composes next (debounce). Trees off / undo / load need none
                 if (SkiResortSettings.DiagnosticsOn)
                     Mod.Log.Info($"QuickRuns [probe] tree compose ({m_TreeJobWhy}) dropped during the census: out of date");
                 return;
@@ -666,8 +667,9 @@ namespace SkiResortMod.Systems
             m_TreeJobFrameMaxMs = math.max(m_TreeJobFrameMaxMs, ms + spentMs);
         }
 
-        /// <summary>Classifies the census lists from the cursors until the budget is spent; true when both lists are done. The same
-        /// tests as the single-frame census (CensusRegion / WildTreesAround before the job), plus Exists: an entity may die between frames.</summary>
+        /// <summary>Classifies the census lists from the cursors until the budget is spent. Returns true when both lists are done. The same
+        /// tests as the single-frame census (CensusRegion / WildTreesAround before the job), plus Exists: an entity may die between
+        /// frames.</summary>
         private bool CensusStep(long t0, double budgetMs)
         {
             float band = SkiGladeToolSystem.Tuning.GladeMinSpacing;
@@ -711,9 +713,9 @@ namespace SkiResortMod.Systems
             return m_CensusCursor >= m_CensusFound.Count && m_WildCursor >= m_WildFound.Count;
         }
 
-        /// <summary>Census done: the tree line (estimate when stale), the contour, the mask and the input; then Compose on a worker
-        /// thread. The worker touches only its input, its result, the tree cache and private copies (snapshot, skip sets); the main
-        /// thread leaves them alone until the job is collected.</summary>
+        /// <summary>Census done: the tree line (estimate when stale), the contour, the mask and the input. Then Compose runs on a worker
+        /// thread. The worker touches only its input, its result, the tree cache and private copies (snapshot, skip sets). The main thread
+        /// leaves them alone until the job is collected.</summary>
         private void LaunchTreeCompose()
         {
             float2[] region = m_TreeJobRegion;
@@ -787,8 +789,8 @@ namespace SkiResortMod.Systems
             });
         }
 
-        /// <summary>The worker's copy of m_Snap: refreshed only while no job runs, when the scan's snapshot changed (TakeSnapshot reuses
-        /// its buffers in place, so the worker must not read m_Snap itself). Sample reads Heights and the rectangle only.</summary>
+        /// <summary>The worker's copy of m_Snap. It is refreshed only while no job runs, when the scan's snapshot changed (TakeSnapshot
+        /// reuses its buffers in place, so the worker must not read m_Snap itself). Sample reads Heights and the rectangle only.</summary>
         private HeightSnapshot WorkerSnapshot()
         {
             HeightSnapshot s = m_Snap;
@@ -814,7 +816,8 @@ namespace SkiResortMod.Systems
             return c;
         }
 
-        /// <summary>The worker is done: drop an out-of-date result, else clear the old preview and emit the new one in this frame.</summary>
+        /// <summary>The worker is done: drop an out-of-date result. Otherwise clear the old preview and emit the new one in this
+        /// frame.</summary>
         private void FinishTreeCompose()
         {
             Task<GladeStatus> task = m_TreeTask;
@@ -833,7 +836,7 @@ namespace SkiResortMod.Systems
                     Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                         "QuickRuns [probe] tree compose ({0}) dropped after {1:F1} ms on the worker ({2}): out of date", m_TreeJobWhy,
                         m_TreeJobWorkerMs, m_TreeResult.Canceled ? "canceled" : "ran to the end"));
-                return;   // the edit's own compose follows (TreeComposeDue); trees off / undo / load need none
+                return;   // the edit's own compose follows (TreeComposeDue). Trees off / undo / load need none
             }
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             bool plantAfter = m_PlantAfterCompose;
@@ -975,7 +978,7 @@ namespace SkiResortMod.Systems
 
         private void SearchTrees(Bounds2 area, List<Entity> results)
         {
-            // Synchronous read (the glade tool's CensusTrees idiom, SearchSystem.cs:421-425); copied out: the census spans frames
+            // Synchronous read (the glade tool's CensusTrees idiom, SearchSystem.cs:421-425). Copied out: the census spans frames
             NativeQuadTree<Entity, QuadTreeBoundsXZ> tree = m_ObjectSearch.GetStaticSearchTree(readOnly: true, out JobHandle deps);
             deps.Complete();
             var found = new NativeList<Entity>(1024, Allocator.Temp);
@@ -997,7 +1000,7 @@ namespace SkiResortMod.Systems
 
         private float m_ContourOriginX, m_ContourOriginZ, m_ContourCell;
 
-        /// <summary>Snapshot heights on a ContourSide grid over the region's bounds; the ground range over the grid points inside the region.</summary>
+        /// <summary>Snapshot heights on a ContourSide grid over the region's bounds. The ground range over the grid points inside the region.</summary>
         private void BuildContourGrid(float2[] region)
         {
             SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
@@ -1050,8 +1053,8 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- species
 
-        /// <summary>Every tree prefab with wood (TreeData.m_WoodAmount > 0; bushes and placeholders out), vanilla and assets, grouped by
-        /// SkiGladeSpecies.GroupOf; sorted by name. Once per load (prefabs do not change mid-game).</summary>
+        /// <summary>Every tree prefab with wood (TreeData.m_WoodAmount > 0, bushes and placeholders out), vanilla and assets, grouped by
+        /// SkiGladeSpecies.GroupOf and sorted by name. It runs once per load (prefabs do not change mid-game).</summary>
         private void ResolveSpecies()
         {
             if (m_SpeciesResolved)

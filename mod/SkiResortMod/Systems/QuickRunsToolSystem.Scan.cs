@@ -1,9 +1,9 @@
-// Quick runs tool: the scan. Copies the region's texel rectangle of the CPU heights (plus a wet layer from the water surface) into the
-// back buffer of two HeightSnapshots once, collects the obstacles (every Surface area, our runs, unowned map tiles), the pinned lifts
-// and the access points, and hands a fresh input to the scan job (QuickRunsToolSystem.Worker.cs: a worker thread, or the planner
-// stepped a fixed budget per frame with the Diagnostics fallback). Every reader takes the published copy (m_Published), never the
-// planner's live result. On Enter the snapshot and the obstacles are read again: a changed world re-scans instead of building a stale
-// plan. Warnings: the planner's, then the tool's (money, renumbering, other resort, no sign, game checks off).
+// Quick runs tool: the scan. It copies the region's texel rectangle of the CPU heights (plus a wet layer from the water surface) into the
+// back buffer of two HeightSnapshots once. It collects the obstacles (every Surface area, our runs, unowned map tiles), the pinned lifts
+// and the access points. It gives a fresh input to the scan job (QuickRunsToolSystem.Worker.cs: a worker thread, or the planner stepped a
+// fixed budget per frame with the Diagnostics fallback). Every reader takes the published copy (m_Published), never the planner's live
+// result. On Enter the snapshot and the obstacles are read again: a changed world re-scans instead of building a stale plan. Warnings: the
+// planner's, then the tool's (money, renumbering, other resort, no sign, game checks off).
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Scan)
 
 using System;
@@ -149,12 +149,12 @@ namespace SkiResortMod.Systems
             Bump();
         }
 
-        /// <summary>Leave the preview: Region phase; the planner keeps its result and cache (Reselect may restart from them), every
-        /// reader of the result checks the phase first.</summary>
+        /// <summary>Leave the preview: Region phase. The planner keeps its result and cache (Reselect may restart from them). Every reader
+        /// of the result checks the phase first.</summary>
         private void DropPreview(string why)
         {
             if (m_Phase == ToolPhase.Scanning)
-                CancelScanJob(why ?? "preview dropped");   // a running job stops at its next unit; its result is dropped
+                CancelScanJob(why ?? "preview dropped");   // a running job stops at its next unit. Its result is dropped
             PollScanJob(false);   // a job that already returned: dropped now, or its fault logged (silence impossible)
             if (m_Phase == ToolPhase.Preview || m_Phase == ToolPhase.Scanning)
                 m_Phase = ToolPhase.Region;
@@ -173,8 +173,8 @@ namespace SkiResortMod.Systems
 
 
         /// <summary>Copies the texel rectangle of the region (SkiRunAutoPlanner.SnapshotRect) from the CPU heights, and the wet layer
-        /// (WaterUtils.SampleDepth over WetDepthM at each texel center). Main thread; the vanilla precedent for reading hd.heights
-        /// outside a job is SelectionToolSystem.cs:1151 (the glade tool's note).</summary>
+        /// (WaterUtils.SampleDepth over WetDepthM at each texel center). Main thread. The vanilla precedent for reading hd.heights outside
+        /// a job is SelectionToolSystem.cs:1151 (the glade tool's note).</summary>
         private bool TakeSnapshot(float2[] region, out string failure)
         {
             failure = null;
@@ -228,10 +228,10 @@ namespace SkiResortMod.Systems
         private int[] m_WetA0 = new int[0], m_WetA1 = new int[0], m_WetB0 = new int[0], m_WetB1 = new int[0];
         private bool[] m_WetNode = new bool[0];
 
-        /// <summary>The wet layer: WaterUtils.SampleDepth over WetDepthM at each texel center, as before, but sampled only where one of the
-        /// four water nodes the bilinear sample reads is deeper than WetDepthM less a margin (a bilinear sample never exceeds its largest
-        /// node, so every skipped texel is dry). Node indices are clamped exactly as SampleDepth clamps them (WaterUtils.cs:80-96).
-        /// P2: at the 9 km2 cap a full sample per texel would cost a long frame; dry land now costs a few table reads per texel.</summary>
+        /// <summary>The wet layer: WaterUtils.SampleDepth over WetDepthM at each texel center, as before. It is sampled only where one of
+        /// the four water nodes the bilinear sample reads is deeper than WetDepthM less a margin (a bilinear sample never exceeds its
+        /// largest node, so every skipped texel is dry). Node indices are clamped exactly as SampleDepth clamps them (WaterUtils.cs:80-96).
+        /// P2: at the 9 km2 cap a full sample per texel would cost a long frame. Dry land now costs a few table reads per texel.</summary>
         private void FillWet(ref WaterSurfaceData<SurfaceWater> water, HeightSnapshot s, int x0, int z0, int w, int d, float texel, float3 offset,
             ref ulong h)
         {
@@ -250,7 +250,7 @@ namespace SkiResortMod.Systems
             int a0 = int.MaxValue, a1 = int.MinValue, b0 = int.MaxValue, b1 = int.MinValue;
             for (int k = 0; k < w; k++)
             {
-                // texel (k, l) center in world: (index / scale) - offset (the snapshot's Origin + index * texel); ToSurfaceSpace
+                // texel (k, l) center in world: (index / scale) - offset (the snapshot's Origin + index * texel), ToSurfaceSpace
                 float x = (x0 + k) * texel - offset.x;
                 int f = (int)math.floor((x + of.x) * sc.x);
                 m_WetA0[k] = math.clamp(f, 0, res.x - 1);
@@ -503,9 +503,9 @@ namespace SkiResortMod.Systems
         private EntityQuery m_ToolErrorQuery;
         private bool m_ToolErrorQueryMade;
 
-        /// <summary>The game-checks state, the one source for the ChecksOff warning and the build / probe lines: the vanilla error
-        /// prefabs for OverlapExisting read as ValidationSystem reads them (its query NotificationIconData + ToolErrorData,
-        /// ValidationSystem.cs:1920; FillErrorPrefabsJob skips a prefab whose flags carry DisableInGame, :1318-1325), plus
+        /// <summary>The game-checks state, the one source for the ChecksOff warning and the build / probe lines. The vanilla error prefabs
+        /// for OverlapExisting are read as ValidationSystem reads them (its query NotificationIconData + ToolErrorData,
+        /// ValidationSystem.cs:1920. FillErrorPrefabsJob skips a prefab whose flags carry DisableInGame, :1318-1325), plus
         /// ToolSystem.ignoreErrors (ToolSystem.cs:159, ToolBaseSystem.cs:535). Our own reads of vanilla prefab data: no reflection, no
         /// other mod's types (a mod that disables the check, as Anarchy does, shows up as OverlapDisabled).</summary>
         private QuickGameChecks GameChecks()

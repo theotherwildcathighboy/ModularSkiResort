@@ -1,10 +1,12 @@
-// Ski days: claim at decision. For a share of residents at home and hotel tourists who just decided to go out (Leisure with no
-// venue yet), name a ski-day lodge with LeisureSystem's own two writes (Leisure.m_TargetAgent + TripNeeded) and, for a far car trip
-// with a free household car, the public car-reserve queue; track each claim to arrival or failure, learn speeds and confidence per
-// area and class, publish one SkiDayAreaView per ski area for the hub. In memory only (rules: SkiDayRules, timing: SkiDayTiming).
-// Phase: GameSimulation, UpdateAfter<SkiDaySystem, Game.Simulation.LeisureSystem> (Mod.cs). Anchor AND interval are load-bearing
-// (every pass runs on LeisureSystem's frames); NEVER override GetUpdateOffset. Pause stops it; the Editor never arms it.
-// No EntityManager read of a citizen, lane or Transform and no CompleteDependency except the timed `[cost]` pass. One-shot "!!!".
+// Ski days: claim at decision. The system acts for a share of residents at home and hotel tourists who just decided to go out (Leisure
+// with no venue yet). It names a ski-day lodge with LeisureSystem's own two writes (Leisure.m_TargetAgent + TripNeeded). For a far car trip
+// with a free household car, it also uses the public car-reserve queue. The system tracks each claim to arrival or failure, learns speeds
+// and confidence per area and class, and publishes one SkiDayAreaView per ski area for the hub. It keeps state in memory only (rules:
+// SkiDayRules, timing: SkiDayTiming).
+// Phase: GameSimulation, UpdateAfter<SkiDaySystem, Game.Simulation.LeisureSystem> (Mod.cs). Anchor AND interval are load-bearing (every
+// pass runs on LeisureSystem's frames). NEVER override GetUpdateOffset. Pause stops it. The Editor never arms it.
+// It never reads a citizen, lane or Transform with EntityManager. It never calls CompleteDependency except in the timed `[cost]` pass.
+// One-shot "!!!".
 // Engine notes: EngineNotes/SkiDaySystem.md
 
 using System;
@@ -42,21 +44,23 @@ namespace SkiResortMod.Systems
             public const int CostWaitPasses = 4096;
             /// <summary>Snapshot and SiteJob backstop (64 passes = 4,096 sim frames): a lodge moved with no score change.</summary>
             public const int BackstopPasses = 64;
-            /// <summary>Claims tracked at most; above it no new claims, tracking goes on.</summary>
+            /// <summary>Maximum claims tracked. Above it, there are no new claims. Tracking continues.</summary>
             public const int ClaimsCap = 32768;
             public const float LogWindowS = 10f;
             /// <summary>The `[drift]` line needs at least this many walk passes in the month.</summary>
             public const int DriftMinWalkPasses = 256;
             public const int RingSize = 40;
-            /// <summary>Frames after a roll before the ledger check: past the guest counter's 256-frame leisure scan, its next-tick apply and
-            /// its rule that books the last 16 frames of a month into the next.</summary>
+            /// <summary>Frames after a roll before the ledger check. The delay is past the guest counter's 256-frame leisure scan, its
+            /// next-tick apply and its rule. The rule books the last 16 frames of a month into the next.</summary>
             public const uint LedgerCheckDelayFrames = 4096;
             public const int VisitsCapacity = 256;
-            /// <summary>Guests followed at once (claim state 4); above it "not followed", warned once per load.</summary>
+            /// <summary>Guests followed at once (claim state 4). Above it, guests are "not followed". The system warns once per
+            /// load.</summary>
             public const int FollowCap = 256;
-            /// <summary>Passes with an area between walker scans (16 × 64 = 1,024 frames); also on the hour and the timed pass.</summary>
+            /// <summary>Passes with an area between walker scans (16 × 64 = 1,024 frames). A scan also runs on the hour and on the timed
+            /// pass.</summary>
             public const int NearScanPasses = 16;
-            /// <summary>Trip-systems change lines written at most per load (a stop is always logged).</summary>
+            /// <summary>Maximum trip-systems change lines written per load. A stop is always logged.</summary>
             public const int TripChangeLines = 8;
         }
 
@@ -64,8 +68,8 @@ namespace SkiResortMod.Systems
 
         private const string IdleNoArea = "no ski area";
 
-        // TimeSystem.kTicksPerDay copied into a static field so the arm-time compare is a run-time check (a const compare would
-        // raise CS0162); only a rebuild against a changed Game.dll can trip it.
+        // TimeSystem.kTicksPerDay is copied into a static field, so the arm-time compare is a run-time check. A const compare would raise
+        // CS0162. Only a rebuild against a changed Game.dll can trip it.
         private static readonly int s_GameTicksPerDay = TimeSystem.kTicksPerDay;
 
         private SimulationSystem m_Simulation;
@@ -78,11 +82,11 @@ namespace SkiResortMod.Systems
         private SkiLiftTicketSystem m_Ticket;
         private SnowLineSystem m_SnowLine;
         private LiftCensusSystem m_LiftCensus;
-        private SkiLodgeParkingSystem m_Parking; // registered after us: resolved at each load (null-safe)
-        private SkiGuestCounterSystem m_Counter; // registered before us (Mod.cs); read only
-        // The six vanilla trip systems whose ComponentSystemBase.Enabled is read at each Game load and every armed pass. All six are
-        // registered by SystemOrder before any mod's OnLoad (SystemOrder.cs:352-353, :375, :377, :393-394; GameManager.cs:615 before
-        // :618, 1.6.2 :621, :624), so OnCreate finds them; a null reads "missing".
+        private SkiLodgeParkingSystem m_Parking; // registered after us. It is resolved at each load (null-safe)
+        private SkiGuestCounterSystem m_Counter; // registered before us (Mod.cs). Read only
+        // The six vanilla trip systems whose ComponentSystemBase.Enabled is read at each Game load and every armed pass. SystemOrder
+        // registers all six before any mod's OnLoad (SystemOrder.cs:352-353, :375, :377, :393-394. GameManager.cs:615 before :618, 1.6.2
+        // :621, :624), so OnCreate finds them. A null reads "missing".
         private LeisureSystem m_LeisureSys;
         private TripNeededSystem m_TripNeededSys;
         private ResidentAISystem m_ResidentAI;
@@ -146,9 +150,9 @@ namespace SkiResortMod.Systems
         private ComponentLookup<HealthProblem> m_HealthProblemLookup;
         private ComponentLookup<HouseholdMember> m_HouseholdMemberLookup;
         private ComponentLookup<Game.Companies.ResourceBuyer> m_ResourceBuyerLookup;
-        private BufferLookup<TripNeeded> m_TripLookup;   // RO (ResolveJob); ClaimJob's RW type handle is scheduled after it
-        // ResolveJob's Leisure lookup is read-write (the deadline pull; one access mode per type per job: ClaimJob's RW type handle
-        // runs after it, CensusJob keeps the read-only m_LeisureLookup after ClaimJob).
+        private BufferLookup<TripNeeded> m_TripLookup;   // RO (ResolveJob). ClaimJob's RW type handle is scheduled after it
+        // ResolveJob's Leisure lookup is read-write (the deadline pull). The rule is one access mode per type per job. ClaimJob's RW type
+        // handle runs after it. CensusJob keeps the read-only m_LeisureLookup after ClaimJob.
         private ComponentLookup<Leisure> m_LeisureRW;
         private ComponentLookup<Game.Citizens.Student> m_StudentLookup;   // Game.Buildings has a Student too
         private ComponentLookup<Game.City.Population> m_PopulationLookup;
@@ -183,7 +187,7 @@ namespace SkiResortMod.Systems
         private NativeList<int> m_Occupants;                    // lodges × Occupant.Kinds
         private NativeList<TravelingOuting> m_Traveling;
         private NativeParallelHashMap<Entity, int> m_AreaOfSign, m_LodgeIndex;
-        // Measure rows, sized where m_ResolveOut / m_ClaimOut are sized; the ring of ended ski days and its state ([0] next slot, [1]
+        // Measure rows, sized where m_ResolveOut / m_ClaimOut are sized. Also the ring of ended ski days and its state ([0] next slot, [1]
         // records this load).
         private NativeList<int> m_ResolveMeasure;               // (areas + 1) × RM.Count, zeroed by ResolveJob
         private NativeList<double> m_ResolveHours;              // (areas + 1) × RH.Count, zeroed by ResolveJob
@@ -200,7 +204,7 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, AreaMemory> m_State = new Dictionary<Entity, AreaMemory>();   // by sign
         private readonly Dictionary<Entity, SkiDayAreaView> m_Views = new Dictionary<Entity, SkiDayAreaView>();
         private readonly Dictionary<Entity, int> m_CarFailsByLodge = new Dictionary<Entity, int>();      // this load
-        private readonly Dictionary<Entity, uint> m_TravelingSince = new Dictionary<Entity, uint>(); // meeting → first census frame
+        private readonly Dictionary<Entity, uint> m_TravelingSince = new Dictionary<Entity, uint>(); // maps a meeting to its first census frame
         private readonly Dictionary<Entity, Occupants> m_OccupantsByLodge = new Dictionary<Entity, Occupants>();
         private readonly HashSet<Entity> m_SeenMeetings = new HashSet<Entity>();
         private readonly List<Entity> m_PruneScratch = new List<Entity>(8);
@@ -231,8 +235,8 @@ namespace SkiResortMod.Systems
         private float[] m_YearFresh; // per hour, the fresh snow at the area's top (SkiDayRules.FreshOfHour)
         private readonly int[] m_YearMarks = new int[12];
         private readonly int[] m_YearSnowHours = new int[12];
-        // Last walker scan per lodge (the DUMP) and this game hour's accumulators (the hourly `[near]` line); values only, no
-        // allocation after warm-up.
+        // Last walker scan per lodge (the DUMP) and this game hour's accumulators (the hourly `[near]` line). Values only. No allocation
+        // after warm-up.
         private readonly Dictionary<Entity, NearCopy> m_NearByLodge = new Dictionary<Entity, NearCopy>(8);
         private readonly Dictionary<Entity, NearHour> m_NearHour = new Dictionary<Entity, NearHour>(8);
 
@@ -252,8 +256,8 @@ namespace SkiResortMod.Systems
         private bool m_LastPassKnown, m_CensusKnown;
         private long m_PassesLoad, m_WalkPassesLoad, m_Rebuilds, m_SiteJobs;
         private int m_TrackedLast, m_OnTheWayLast, m_OnSiteLast;
-        // This load's outcome totals (DUMP line 1). m_LoadArrivedNoLeisure counts only citizens that still exist when found in the
-        // lodge with Leisure gone; they are booked as arrivals (visit ended "removed (on arrival)"), a deleted citizen stays a failure.
+        // This load's outcome totals (DUMP line 1). m_LoadArrivedNoLeisure counts only citizens that still exist when found in the lodge
+        // with Leisure gone. They are booked as arrivals (visit ended "removed (on arrival)"). A deleted citizen stays a failure.
         private long m_LoadSent, m_LoadCars, m_LoadArrived, m_LoadGone, m_LoadRetargeted, m_LoadRetargetedAtOrigin,
                      m_LoadExpired, m_LoadLeft, m_LoadArrivedNoLeisure, m_LoadOrphaned;
         private int m_CostPasses, m_CostWait, m_CostMeasurements, m_CostArmDay = int.MinValue;
@@ -274,18 +278,18 @@ namespace SkiResortMod.Systems
         // ++ at every refill of the year samples (an area's table is stale while its generation differs).
         private int m_YearGeneration;
         private string m_YearWhy;
-        // Trip systems' found / on masks (SkiDayRules.Trip… bits; "all on" until read, so an Editor load reports the game's own
-        // planner), changes seen during play, hub label and blocking flag.
+        // Trip systems' found / on masks (SkiDayRules.Trip… bits), changes seen during play, hub label and blocking flag. The masks are
+        // "all on" until read, so an Editor load reports the game's own planner.
         private int m_TripFound = SkiDayRules.TripAll, m_TripOn = SkiDayRules.TripAll, m_TripChanges;
         private string m_TripLabel = "";
         private bool m_TripBlocks;
         private SkiDayRules.TripKnobs m_TripKnobs = SkiDayRules.DefaultTripKnobs();
-        // The measurement in progress was re-armed at midday (not the load's): a day change before its line writes it partial.
+        // The measurement in progress was re-armed at midday (not the load's). A day change before its line writes it partial.
         private bool m_CostByRearm;
         private int m_FollowingLast, m_SentLast;
         private bool m_FollowWarned;
-        // Walker scan schedule (due flag, passes since the last scan, its frame and minute), this game hour's scans, and the climate
-        // hour step (stored before ClimateTick's no-climate return, so the hourly line never stops silently).
+        // Walker scan schedule (due flag, passes since the last scan, its frame and minute), this game hour's scans, and the climate hour
+        // step. The code stores the step before ClimateTick's no-climate return, so the hourly line never stops silently.
         private bool m_NearDue, m_NearKnown;
         private int m_NearPasses, m_NearMinute, m_NearHourScans, m_HourStep;
         private uint m_NearFrame;
@@ -293,17 +297,18 @@ namespace SkiResortMod.Systems
 
         internal bool IsArmed => m_Armed && !m_Disabled;
 
-        /// <summary>Moves at load, arm, area-set change and when any published view changed (at most once per pass); compare for equality.</summary>
+        /// <summary>Moves at load, arm, area-set change and when any published view changed (at most once per pass). Compare it for
+        /// equality.</summary>
         internal int Revision { get; private set; }
 
-        /// <summary>The month this system counts in (SkiMoneyRules.MonthKey; NoMonth before its first pass). It can trail the guest
+        /// <summary>The month this system counts in (SkiMoneyRules.MonthKey, NoMonth before its first pass). It can trail the guest
         /// counter's month by up to one pass.</summary>
         internal int MonthKey => m_Month.Key;
 
-        /// <summary>Last month is known but partial (since load, since a jump, or short): its ski-day count is not whole.</summary>
+        /// <summary>Last month is known but partial (since load, since a jump, or short). Its ski-day count is not whole.</summary>
         internal bool LastMonthPartial => m_Month.LastKnown && m_Month.LastSinceLoad;
 
-        /// <summary>The last pass's view of the sign. Main thread, no job sync; false: unarmed or unknown sign.</summary>
+        /// <summary>The last pass's view of the sign. Main thread, no job sync. Returns false for an unarmed or unknown sign.</summary>
         internal bool TryGetArea(Entity sign, out SkiDayAreaView view)
         {
             if (!IsArmed)
@@ -314,12 +319,12 @@ namespace SkiResortMod.Systems
             return m_Views.TryGetValue(sign, out view);
         }
 
-        /// <summary>The ski-day inputs of a resident household's chance at the sign's area, for the pre-season pass sale, copied from
-        /// the area snapshot the decision job reads so the sale job rates a household with the same numbers: attraction, school factor,
-        /// price tolerance, the three class confidences, the knobs, and the xz of every TARGET lodge (passing, Base road, with a
-        /// position: the decision job's NearestTarget set) into <paramref name="targetXz"/> (cleared first). Main thread. It COMPLETES
-        /// the pass handle (the jobs write LodgeReject, the site list and the tracks): a sync point, once per area per season.
-        /// NotReady: unarmed or unknown sign; NoTarget: the area has no target lodge.</summary>
+        /// <summary>The ski-day inputs of a resident household's chance at the sign's area, for the pre-season pass sale. They are copied
+        /// from the area snapshot the decision job reads, so the sale job rates a household with the same numbers. The inputs are:
+        /// attraction, school factor, price tolerance, the three class confidences, the knobs, and the xz of every TARGET lodge (passing,
+        /// Base road, with a position: the decision job's NearestTarget set). The xz values go into <paramref name="targetXz"/> (cleared
+        /// first). Main thread. It COMPLETES the pass handle (the jobs write LodgeReject, the site list and the tracks). This is a sync
+        /// point, once per area per season. NotReady: unarmed or unknown sign. NoTarget: the area has no target lodge.</summary>
         internal PresaleCopy TryCopyPresaleInputs(Entity sign, NativeList<float2> targetXz, out SkiDayPresaleInputs inputs)
         {
             inputs = default;
@@ -372,8 +377,8 @@ namespace SkiResortMod.Systems
                 signs.Add(pair.Key);
         }
 
-        /// <summary>The hub's trip-planner label (CityStats.tripPlanner): "" while the game's six trip systems are all on, else the known
-        /// swaps' names or SkiTripSystems.UnknownLabel. Main thread.</summary>
+        /// <summary>The hub's trip-planner label (CityStats.tripPlanner): "" while the game's six trip systems are all on. Otherwise it
+        /// holds the known swaps' names or SkiTripSystems.UnknownLabel. Main thread.</summary>
         internal string TripPlannerLabel => m_TripLabel;
 
         /// <summary>LeisureSystem or CitizenBehaviorSystem is switched off, so ski days are off
@@ -415,7 +420,7 @@ namespace SkiResortMod.Systems
             m_Counter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
 
             // LeisureSystem's interval (LeisureSystem.cs:914-917, 1.6.2 :911-914). A value that is not a power of two >= 16 is never
-            // returned (UpdateSystem.Register throws, UpdateSystem.cs:303-306); ArmCheck refuses it at load.
+            // returned (UpdateSystem.Register throws, UpdateSystem.cs:303-306). ArmCheck refuses it at load.
             m_LeisureIntervalRaw = m_LeisureSys.GetUpdateInterval(SystemUpdatePhase.GameSimulation);
             m_LeisureInterval = SkiDayRules.IsPowerOfTwo(m_LeisureIntervalRaw) && m_LeisureIntervalRaw >= 16 ? m_LeisureIntervalRaw : 64;
             m_TripInterval = m_TripNeededSys.GetUpdateInterval(SystemUpdatePhase.GameSimulation);          // 16 (:1939-1942)
@@ -593,8 +598,8 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"{nameof(SkiDaySystem)} created");
         }
 
-        /// <summary>LeisureSystem's interval; the anchor's offset is inherited only when the intervals are equal (64 before OnCreate
-        /// and when LeisureSystem's is unusable).</summary>
+        /// <summary>LeisureSystem's interval. The anchor's offset is inherited only when the intervals are equal. The value is 64 before
+        /// OnCreate and when LeisureSystem's is unusable.</summary>
         public override int GetUpdateInterval(SystemUpdatePhase phase)
         {
             return m_LeisureInterval;
@@ -606,7 +611,7 @@ namespace SkiResortMod.Systems
             {
                 m_PassHandle.Complete();
                 // A ledger check due at a quit to desktop never runs (no preload: the game disposes the mods, then destroys the world,
-                // GameManager.cs:792-793, 1.6.2 :802-803), so say so; the line lands after "OnDispose".
+                // GameManager.cs:792-793, 1.6.2 :802-803). The code writes a line that says so. The line lands after "OnDispose".
                 if (m_Armed && !m_Disabled && m_LedgerCheckDue)
                     Mod.Log.Info($"SkiDays [day] {MonthText(m_VisitsClosedKey)} ledger check skipped " +
                                  $"(quit before it was due; {m_VisitsClosed.Count} resident arrival(s))");
@@ -645,8 +650,8 @@ namespace SkiResortMod.Systems
             base.OnDestroy();
         }
 
-        /// <summary>A load (or leaving to the menu): completes the last pass, books it, writes the month in progress and flushes the
-        /// folds. Never throws: GameSystemBase.GamePreload DISABLES a system whose OnGamePreload throws (GameSystemBase.cs:85-96).</summary>
+        /// <summary>A load (or leaving to the menu): completes the last pass, books it, writes the month in progress and flushes the folds.
+        /// It never throws. GameSystemBase.GamePreload DISABLES a system whose OnGamePreload throws (GameSystemBase.cs:85-96).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
@@ -674,7 +679,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Per-load reset; arm in Game mode when ArmCheck is Ok and the day is 262,144 frames.</summary>
+        /// <summary>Per-load reset. Arms in Game mode when ArmCheck is Ok and the day is 262,144 frames.</summary>
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
         {
             base.OnGameLoadingComplete(purpose, mode);
@@ -797,7 +802,7 @@ namespace SkiResortMod.Systems
                 return; // read on Game loads only: ski days never arm in the Editor
 
             // The six trip systems' Enabled flags, read after every mod's IMod.OnLoad (mods load at boot, GameManager.cs:618 after
-            // CreateSystems :615, long before a city's onGameLoadingComplete :1126; 1.6.2 :624, :621, :1136). An exception (not expected)
+            // CreateSystems :615, long before a city's onGameLoadingComplete :1126, 1.6.2 :624, :621, :1136). An exception (not expected)
             // reads as all on.
             try
             {
@@ -880,8 +885,8 @@ namespace SkiResortMod.Systems
             CapLine(); // right after the ARMED line, once per Game load
         }
 
-        /// <summary>The six trip systems' Enabled flags (SkiDayRules.Trip… bits); <paramref name="found"/> has the bit of every system
-        /// that exists. Main thread, no allocation.</summary>
+        /// <summary>The six trip systems' Enabled flags (SkiDayRules.Trip… bits). <paramref name="found"/> has the bit of every system that
+        /// exists. Main thread, no allocation.</summary>
         private int ReadTripSystems(out int found)
         {
             found = 0;
@@ -907,10 +912,10 @@ namespace SkiResortMod.Systems
         private static bool TripAllOn(int found, int on)
             => (found & SkiDayRules.TripAll) == SkiDayRules.TripAll && (on & SkiDayRules.TripAll) == SkiDayRules.TripAll;
 
-        /// <summary>Right after the armed gate of every pass: a change of the trip systems is logged (at most Tuning.TripChangeLines per
-        /// load), the hub label follows, and when LeisureSystem or CitizenBehaviorSystem went off (ArmCheck's SystemOff) ski days stop
-        /// until the next load: the pass completes and is applied, the month in progress is written partial, the claims are dropped
-        /// (vanilla Leisure now). Checked per pass because a mod system created after ours may switch one off in its own load handler
+        /// <summary>Runs right after the armed gate of every pass. A change of the trip systems is logged (at most Tuning.TripChangeLines
+        /// per load) and the hub label follows. When LeisureSystem or CitizenBehaviorSystem is off (ArmCheck's SystemOff), ski days stop
+        /// until the next load. The pass completes and is applied, the month in progress is written partial, and the claims are dropped
+        /// (vanilla Leisure now). The check runs per pass because a mod system created after ours may disable one in its own load handler
         /// (handlers run in creation order, GameSystemBase.cs:29). Returns true when ski days stopped this pass.</summary>
         private bool TripSystemsTick()
         {
@@ -937,8 +942,8 @@ namespace SkiResortMod.Systems
             bool monthWritten = m_Month.Key != SkiDayRules.NoMonth;
             if (monthWritten)
                 WriteDayLines(m_Month.Key, SinceText() + " (until ski days stopped)");
-            // After m_Armed = false neither LedgerCheckTick nor CostDayEnd runs again, and the preload / quit lines need m_Armed, so a
-            // pending ledger check or an unwritten [cost] measurement says so here.
+            // After m_Armed = false neither LedgerCheckTick nor CostDayEnd runs again. The preload / quit lines need m_Armed. So a pending
+            // ledger check or an unwritten [cost] measurement says so here.
             if (m_LedgerCheckDue)
             {
                 Mod.Log.Info($"SkiDays [day] {MonthText(m_VisitsClosedKey)} ledger check lost (ski days stopped before it was due; " +
@@ -953,8 +958,8 @@ namespace SkiResortMod.Systems
             if ((on & SkiDayRules.TripBehavior) == 0)
                 off += (off.Length > 0 ? ", " : "") + SkiTripSystems.SystemName(SkiDayRules.TripBehavior);
             string names = SkiTripSystems.Names(planners, true);
-            // On the first pass after a load this runs before AdvanceMonth, so no month has started and nothing
-            // was written; the line says which.
+            // On the first pass after a load this runs before AdvanceMonth, so no month has started and nothing was written. The line says
+            // which.
             Mod.Log.Warn($"SkiDays: stopped — {off} switched off ({(names.Length > 0 ? names : "no known replacement loaded")}); " +
                          (monthWritten ? "month written partial" : "no month started yet") +
                          $"; {m_Claims.Length} tracked claim(s) dropped (vanilla leisure trips now, the game finishes them)");
@@ -966,10 +971,10 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>The leisure route cap the game prices a ski day's first route under, once per Game load right after the ARMED line,
-        /// from the TripPriorityParametersData singleton through the game's own GetPriority / GetMaxCost
-        /// (TripPriorityParametersData.cs:39-81, Leisure :73-77, GetMaxCost :83-86; TripNeededSystem.cs:1071, :1082); the retry after a
-        /// failed route uses CitizenBehaviorSystem.kMaxPathfindCost (CitizenBehaviorSystem.cs:982, 1.6.2 :1012; ResidentAISystem.cs:3071).
+        /// <summary>The leisure route cap under which the game prices a ski day's first route. The system logs it once per Game load, right
+        /// after the ARMED line. It reads the TripPriorityParametersData singleton through the game's own GetPriority / GetMaxCost
+        /// (TripPriorityParametersData.cs:39-81, Leisure :73-77, GetMaxCost :83-86, TripNeededSystem.cs:1071, :1082). The retry after a
+        /// failed route uses CitizenBehaviorSystem.kMaxPathfindCost (CitizenBehaviorSystem.cs:982, 1.6.2 :1012, ResidentAISystem.cs:3071).
         /// One of its lines always prints.</summary>
         private void CapLine()
         {
@@ -981,7 +986,7 @@ namespace SkiResortMod.Systems
                     return;
                 }
                 // A resident decides to go out only while its leisure counter is below 128 (the chance is 128 − counter,
-                // CitizenBehaviorSystem.cs:459-460, 1.6.2 :460-461), so 128 is the cheapest end for a fresh decision.
+                // CitizenBehaviorSystem.cs:459-460, 1.6.2 :460-461). So 128 is the cheapest end for a fresh decision.
                 const byte decidedCounter = 128;
                 Game.Prefabs.TripPriorityParametersData d = m_TripPriorityQuery.GetSingleton<Game.Prefabs.TripPriorityParametersData>();
                 byte p128 = d.GetPriority(Game.Citizens.Purpose.Leisure, new Citizen { m_LeisureCounter = decidedCounter });
@@ -1013,7 +1018,7 @@ namespace SkiResortMod.Systems
                 if (m_Disabled || !m_Armed)
                     return;
                 if (TripSystemsTick())
-                    return; // a trip system went off and ski days stopped (logged)
+                    return; // a trip system is off and ski days stopped (logged)
                 long t0 = Stopwatch.GetTimestamp();
 
                 m_PassHandle.Complete();            // 1. scheduled one interval ago: already done
@@ -1030,8 +1035,8 @@ namespace SkiResortMod.Systems
                 NearHourTick(); // 5c. the hourly `[near]` lines on an hour step
                 if (!m_Attraction.HasSnapshot && m_Claims.Length == 0)
                 {
-                    // 5b. After a load the attraction snapshot is empty until its first recompute (≤ 16 frames): not
-                    // "no ski area", so no `[idle]` line yet.
+                    // 5b. After a load the attraction snapshot is empty until its first recompute (≤ 16 frames). This is not "no ski area",
+                    // so no `[idle]` line yet.
                     FlushLogs(all: false);
                     return;
                 }
@@ -1041,7 +1046,7 @@ namespace SkiResortMod.Systems
                 bool work = m_Areas.Length > 0;
                 if (!work)
                 {
-                    SetIdle();                      // 7. no ski area: claims in flight still resolve (as orphans)
+                    SetIdle();                      // 7. no ski area. Claims in flight still resolve (as orphans)
                     if (m_Claims.Length == 0)
                     {
                         FlushLogs(all: false);
@@ -1084,9 +1089,9 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Main thread, after Complete: books last pass's ClaimOut / ResolveOut into the month and the load totals, copies
-        /// tracks back (car: the "cannot reach" hysteresis), copies every DUMP value into managed state, writes the first / reach / area /
-        /// lodges lines and publishes the views. The snapshot is still the one the pass ran with.</summary>
+        /// <summary>Main thread, after Complete. It books last pass's ClaimOut / ResolveOut into the month and the load totals. It copies
+        /// tracks back (car: the "cannot reach" hysteresis) and copies every DUMP value into managed state. It writes the first / reach /
+        /// area / lodges lines and publishes the views. The snapshot is still the one the pass ran with.</summary>
         private void ApplyPass()
         {
             m_PassInFlight = false;
@@ -1178,9 +1183,9 @@ namespace SkiResortMod.Systems
                 ResolveOut ro = a < m_ResolveOut.Length ? m_ResolveOut[a] : default;
                 AreaInfo info = a < m_AreaInfo.Count ? m_AreaInfo[a] : default;
 
-                // The pass's arrivals count as "after the hill closed" when the snapshot it ran with had a known, released score and no counted
-                // run (on-arrival bookings too). A closure edge (1 no counted run, 2 the night run closed) needs the hill (night run) seen open
-                // since the load; the "seen" flags move only on a known, released score.
+                // The pass's arrivals count as "after the hill closed" when the snapshot it ran with had a known, released score and no
+                // counted run (on-arrival bookings too). A closure edge (1 no counted run, 2 the night run closed) needs the hill (night
+                // run) seen open since the load. The "seen" flags move only on a known, released score.
                 bool scoreKnown = aj.ScoreKnown != 0, held = aj.WriteHeld != 0, nightOpen = aj.NightRunOpen != 0;
                 bool closed = SkiDayRules.HillClosedForCount(scoreKnown, held, aj.RunsCounted);
                 byte edge = SkiDayRules.ClosingEdgeOf(mem.HillOpenSeen, mem.NightOpenSeen, scoreKnown, held, aj.RunsCounted, nightOpen);
@@ -1202,7 +1207,7 @@ namespace SkiResortMod.Systems
                 followSkipped += ro.FollowSkipped;
                 sent += co.Sent;
 
-                // Tracks back into memory; the car track's "cannot reach" (hub row 20) written to both.
+                // Tracks back into memory. The car track's "cannot reach" (hub row 20) is written to both.
                 bool wasCannot = mem.Tracks[(int)SkiDayRules.TravelClass.Car].CannotReachShown;
                 for (int c = 0; c < 3; c++)
                 {
@@ -1244,7 +1249,7 @@ namespace SkiResortMod.Systems
                 mem.Following = ro.Following;
                 mem.GuestsThisHour |= ro.OnSite + ro.Following > 0; // the hourly `[near]` line
 
-                // Lodge-derived view fields (rows 21, 22; ReachLodge).
+                // Lodge-derived view fields (rows 21 and 22, and ReachLodge).
                 int notSlopeside = 0, noParking = 0, reachFails = 0, depots = 0, depotsNoHill = 0, depotsNoRoad = 0;
                 Entity firstNotSlopeside = Entity.Null, firstNoParking = Entity.Null, reachLodge = Entity.Null, firstDepotProblem = Entity.Null;
                 int lodgeEnd = Math.Min(aj.LodgeStart + aj.LodgeCount, m_DumpLodges.Count);
@@ -1360,7 +1365,7 @@ namespace SkiResortMod.Systems
             m_RingCopyTotal = m_RingState[1];
         }
 
-        /// <summary>This pass's resident notes into the visit lists: an arrival adds a visit; a visit end sets the guest-scan verdict of
+        /// <summary>This pass's resident notes into the visit lists: an arrival adds a visit. A visit end sets the guest-scan verdict of
         /// the visit with the same citizen and arrival frame.</summary>
         private void TakeResidentNotes()
         {
@@ -1439,7 +1444,7 @@ namespace SkiResortMod.Systems
             if (jump)
                 WriteDayLines(prev, SinceText() + " (until the jump)");
             // Frames do not jump with the clock, so a month that rolls after far fewer frames than a month holds (a developer time jump)
-            // closes partial (95 % rule, SkiMoneyRules.IsShortMonth; the guest counter applies the same rule).
+            // closes partial (95 % rule, SkiMoneyRules.IsShortMonth). The guest counter applies the same rule.
             uint now = m_Simulation.frameIndex;
             int days = m_Time.daysPerYear;
             string closedSince = SinceText();   // read before the step moves m_Month and m_MonthByJump
@@ -1483,8 +1488,8 @@ namespace SkiResortMod.Systems
                         mem.ClearMeasure();
                     }
                     m_CityThis = default;
-                    // Name the closed month only when its check had not run yet, and the month in progress
-                    // (prev) whenever it had resident arrivals: both lists are dropped here.
+                    // Name the closed month only when its check had not run yet. Name the month in progress (prev) whenever it had resident
+                    // arrivals. Both lists are dropped here.
                     if (m_LedgerCheckDue)
                         Mod.Log.Info($"SkiDays [day] {MonthText(m_VisitsClosedKey)} ledger check skipped (time jumped before it ran; " +
                                      $"{m_VisitsClosed.Count} resident arrival(s))");
@@ -1508,8 +1513,8 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>At a roll: a closed month still waiting for its check is checked now; then the month in progress becomes the closed
-        /// one and a new list starts.</summary>
+        /// <summary>At a roll, a closed month still waiting for its check is checked now. Then the month in progress becomes the closed one
+        /// and a new list starts.</summary>
         private void RollVisits(int closedKey, uint now)
         {
             if (m_LedgerCheckDue)
@@ -1530,11 +1535,11 @@ namespace SkiResortMod.Systems
                 RunLedgerCheck();
         }
 
-        /// <summary>Matches the resident ski-day arrivals of the closed month, PER RESIDENT, against the number of times the guest
-        /// counter booked that resident in that month and the next (TryResidentVisits; the ledger counts every visit, so a set would
-        /// call both visits of a resident "counted" when the counter booked one). A resident's uncounted visits are taken as the
-        /// likeliest ones by the guest-scan timing verdict (missed first, then not over, unsure, seen). The counter's count may include a
-        /// vanilla leisure visit to the lodge, which can hide one missed ski-day visit (accepted). One city-wide line per month.</summary>
+        /// <summary>Matches the resident ski-day arrivals of the closed month, PER RESIDENT, against the number of times the guest counter
+        /// booked that resident in that month and the next (TryResidentVisits). The ledger counts every visit, so a set would call both
+        /// visits of a resident "counted" when the counter booked one. A resident's uncounted visits are taken as the likeliest ones by the
+        /// guest-scan timing verdict (missed first, then not over, unsure, seen). The counter's count may include a vanilla leisure visit
+        /// to the lodge, which can hide one missed ski-day visit (accepted). One city-wide line per month.</summary>
         private void RunLedgerCheck()
         {
             m_LedgerCheckDue = false;
@@ -1618,10 +1623,10 @@ namespace SkiResortMod.Systems
                 m_State.Remove(m_PruneScratch[i]);
         }
 
-        /// <summary>One line per ski area with memory, then the total, for the month in This (at a roll the closed month, before the
-        /// shift; before a jump or a load the month in progress). <paramref name="label"/> follows the month (since load, partial, until
-        /// the jump / load, since the time jump). Each area's line is followed by its measure lines ("(measure: failures)", "(measure:
-        /// trips and stays)", "(measure: modes, scan, powder)", or one "(measure): nothing measured").</summary>
+        /// <summary>One line per ski area with memory, then the total, for the month in This (at a roll the closed month before the shift,
+        /// before a jump or a load the month in progress). <paramref name="label"/> follows the month (since load, partial, until the jump
+        /// / load, since the time jump). Each area's line is followed by its measure lines ("(measure: failures)", "(measure: trips and
+        /// stays)", "(measure: modes, scan, powder)", or one "(measure): nothing measured").</summary>
         private void WriteDayLines(int key, string label)
         {
             string month = MonthText(key) + label;
@@ -1714,15 +1719,15 @@ namespace SkiResortMod.Systems
             { "path failed at the start", "walker path failed", "vehicle path failed", "walker lost", "turned back" };
         private static readonly string[] s_LateWords = { "arrived late", "gave up", "deleted", "still not there after 6 h" };
         private static readonly string[] s_ClosestWords = { "under 0.5 km", "0.5-2 km", "farther", "never seen on the road" };
-        // Bucket 0 (HeldAtHome) is never set and never printed; bucket 1 reads "held a car"
-        // (seen holding the reserved car at one of our looks).
+        // Bucket 0 (HeldAtHome) is never set and never printed. Bucket 1 reads "held a car" (seen holding the reserved car at one of our
+        // looks).
         private static readonly string[] s_ReserveWords =
         {
             "held a car while still at home", "held a car", "left home with none seen",
             "held one but never left", "never held one and never left",
         };
-        // Mode 0 (ArrivalMode.Foot) also holds an "other" vehicle only (ambulance, police car) and a ride that fell
-        // between two passes, so it says what was not seen (the DUMP history names an "other vehicle").
+        // Mode 0 (ArrivalMode.Foot) also holds an "other" vehicle only (ambulance, police car) and a ride that fell between two passes. So
+        // it says what was not seen (the DUMP history names an "other vehicle").
         private static readonly string[] s_ModeWords = { "no car/transit/taxi/bike seen", "by car", "public transport", "taxi", "bike" };
         private static readonly string[] s_TransitKindWords = { "bus", "tram", "train", "subway", "boat", "other" };
         private static readonly string[] s_StayBinWords = { "0-0.5 h", "0.5-1 h", "1-2 h", "2-4 h", "4-6 h", "6+ h" };
@@ -1738,9 +1743,9 @@ namespace SkiResortMod.Systems
             "going home", "to work or school", "shopping", "to another outing", "moving away", "to health care", "path failed",
             "other trip", "no trip purpose", "still inside after 2 h", "deleted",
         };
-        // SkiDayTiming.RemoveWhy literals 0-9, printed in s_RemoveWhyOrder ("unknown" last); NoPurposeAt literals 0-5 ("placed" = the
-        // game's teleport mark, m_PenaltyCounter at least PlacedMarkMin); MoveAwayReason literals 0-8 (Game.Agents/MoveAwayReason.cs;
-        // out of range prints "-" through Word).
+        // SkiDayTiming.RemoveWhy literals 0-9, printed in s_RemoveWhyOrder ("unknown" last). NoPurposeAt literals 0-5 ("placed" = the
+        // game's teleport mark, m_PenaltyCounter at least PlacedMarkMin). MoveAwayReason literals 0-8 (Game.Agents/MoveAwayReason.cs, out
+        // of range prints "-" through Word).
         private static readonly string[] s_RemoveWhyWords =
         {
             "unknown", "hotel money check", "moving away", "ill or hurt", "work time", "bedtime", "shopping errand",
@@ -1760,11 +1765,11 @@ namespace SkiResortMod.Systems
             "no information",
         };
 
-        /// <summary>The measure body of one area's month in three parts, written as three lines (one line ran to about 3,500
-        /// characters): <paramref name="failures"/> = groups 1-10, <paramref name="trips"/> = groups 11-16, <paramref name="modes"/> =
-        /// groups 17-19. Groups are left out when all zero; "; " separates groups, " | " the parts of one group.
-        /// <paramref name="mi"/> / <paramref name="mh"/> / <paramref name="ci"/> are the month's RM, RH and CM arrays;
-        /// <paramref name="tk"/> names the speed the fit check reads.</summary>
+        /// <summary>The measure body of one area's month in three parts, written as three lines (one line ran to about 3,500 characters):
+        /// <paramref name="failures"/> = groups 1-10, <paramref name="trips"/> = groups 11-16, <paramref name="modes"/> = groups 17-19.
+        /// Groups are left out when all zero. "; " separates groups, " | " the parts of one group.
+        /// <paramref name="mi"/> / <paramref name="mh"/> / <paramref name="ci"/> are the month's RM, RH and CM arrays. <paramref name="tk"/> names
+        /// the speed the fit check reads.</summary>
         private static void MeasureBody(AreaMemory mem, in SkiDayMonth m, int[] mi, double[] mh, int[] ci, int passInterval,
                                         in SkiDayRules.TripKnobs tk, out string failures, out string trips, out string modes)
         {
@@ -1869,7 +1874,7 @@ namespace SkiResortMod.Systems
                     late += mi[RM.LateWatch + c * SkiDayTiming.LateResultCount + r];
                 if (late == 0)
                     continue;
-                // Booked when the 6 h watch ends, which can fall in the next month: say so.
+                // Booked when the 6 h watch ends, which can fall in the next month. The text says so.
                 Group(sb).Append("after expiring (counted when the 6 h watch ended), ").Append(s_ClassWords[c]).Append(": ");
                 for (int r = 0; r < SkiDayTiming.LateResultCount; r++)
                     sb.Append(r > 0 ? ", " : "").Append(s_LateWords[r]).Append(' ').Append(mi[RM.LateWatch + c * SkiDayTiming.LateResultCount + r]);
@@ -1950,9 +1955,9 @@ namespace SkiResortMod.Systems
                     else
                         sb.Append(" | ");
                     any = true;
-                    // "of it at the door" = departure to moving off (the game's Divert{PathFailed} wait, its
-                    // removal is the end, ResidentAISystem.cs:2580-2590, :2787-2790); unseen = arrivals whose walker
-                    // was never seen moving off. LeaveToRide starts at the move: "door to the vehicle".
+                    // "of it at the door" = departure to moving off (the game's Divert{PathFailed} wait, its removal is the end,
+                    // ResidentAISystem.cs:2580-2590, :2787-2790). The variable unseen = arrivals whose walker was never seen moving off.
+                    // LeaveToRide starts at the move: "door to the vehicle".
                     int unseen = mi[RM.DoorUnseen + c];
                     sb.Append(s_ClassWords[c]).Append(" claim to leaving home ").Append(PhaseMean(mi, mh, SkiDayTiming.Phase.ClaimToLeaveArrived, c))
                       .Append(", leaving to arrival ").Append(PhaseMean(mi, mh, SkiDayTiming.Phase.LeaveToArrive, c)).Append(" (").Append(n)
@@ -1988,8 +1993,8 @@ namespace SkiResortMod.Systems
                         sb.Append(first ? "" : ", ").Append(s_OutcomeWords[o]).Append(' ').Append(PhaseMean(mi, mh, phase, c)).Append(" (").Append(n).Append(')');
                         first = false;
                     }
-                    // Departed failures' door wait (group 1 of RM.DoorN / RH.Door) and those that never moved
-                    // off; every departed failure also books a road phase, so the group is open (else it is opened here).
+                    // Departed failures' door wait (group 1 of RM.DoorN / RH.Door) and those that never moved off. Every departed failure
+                    // also books a road phase, so the group is open. Otherwise it is opened here.
                     int doorN = mi[RM.DoorN + 3 + c], never = mi[RM.NeverMovedFailed + c];
                     if (doorN + never > 0)
                     {
@@ -2053,8 +2058,8 @@ namespace SkiResortMod.Systems
                 if (exitN > 0)
                     Group(sb).Append("then inside ").Append(Mean(exitH, exitN)).Append(" h (").Append(exitN).Append(" left the lodge)");
             }
-            // 14. arrivals by 2-hour bin; late arrivals after expiry in their own bins,
-            // each part under its own guard (a month with late arrivals and no on-time one still prints them)
+            // 14. arrivals by 2-hour bin, and late arrivals after expiry in their own bins. Each part is under its own guard (a month
+            //     with late arrivals and no on-time one still prints them)
             bool onTime = AnyIn(mi, RM.ArrivalClock, 12), lateBins = AnyIn(mi, RM.LateClock, 12);
             if (onTime || lateBins)
             {
@@ -2084,13 +2089,13 @@ namespace SkiResortMod.Systems
             }
             // 15b. why the Leisure went before the deadline (the first trace in CitizenBehaviorSystem's order at the visit end,
             // SkiDayTiming.RemoveWhyOf), for need met, removed by the game and removed (on arrival). Printed WHENEVER such a visit ended
-            // ("none recorded" when the recorder did not fire); mean stay per why = RH.RemoveStay / (residents + tourists of that why).
+            // ("none recorded" when the recorder did not fire). Mean stay per why = RH.RemoveStay / (residents + tourists of that why).
             int removedVisits = mi[RM.EndCause + (int)SkiDayTiming.EndCause.NeedFilled] + mi[RM.EndCause + (int)SkiDayTiming.EndCause.Removed] +
                                 mi[RM.EndCause + (int)SkiDayTiming.EndCause.RemovedOnArrival];
             if (removedVisits > 0)
                 RemoveWhyText(Group(sb), mi, mh);
             // 15c. CitizenBehaviorSystem's own clock tests at the visit end (work time: WorkerSystem / StudentSystem,
-            // CitizenBehaviorSystem.cs:743, 1.6.2 :771; bedtime: IsSleepTime, 1.6.2 :1108), per end cause; they should read 0/0 under
+            // CitizenBehaviorSystem.cs:743, 1.6.2 :771, bedtime: IsSleepTime, 1.6.2 :1108), per end cause. They should read 0/0 under
             // "removed by the game" (the claim deadline is min(sleep or work, closing)).
             if (AnyIn(mi, RM.EndCause, SkiDayTiming.EndCauseCount))
             {
@@ -2108,7 +2113,7 @@ namespace SkiResortMod.Systems
                 if (notChecked > 0)
                     sb.Append(" | not checked ").Append(notChecked);
             }
-            // 16. visit end → exit pairs
+            // 16. pairs of visit end and exit
             if (AnyIn(mi, RM.Exit, SkiDayTiming.EndCauseCount * SkiDayTiming.ExitWayCount))
             {
                 Group(sb).Append("then left the lodge: ");
@@ -2212,8 +2217,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Group 15b: residents / tourists per why (RM.RemoveWhy), the mean stay per why (RH.RemoveStay) and the stays under
-        /// SkiDayTiming.FastStayHours (RM.RemoveFast), in s_RemoveWhyOrder ("unknown" last); "none recorded" when no why was booked.
-        /// The caller opened the group.</summary>
+        /// SkiDayTiming.FastStayHours (RM.RemoveFast), in s_RemoveWhyOrder ("unknown" last). "none recorded" when no why was booked. The
+        /// caller opened the group.</summary>
         private static void RemoveWhyText(StringBuilder sb, int[] mi, double[] mh)
         {
             int whys = SkiDayTiming.RemoveWhyCount;
@@ -2329,7 +2334,7 @@ namespace SkiResortMod.Systems
             sb.Append(Invariant($"; not followed (cap {Tuning.FollowCap}) ")).Append(mi[RM.FollowSkipped]);
         }
 
-        /// <summary>RM.FollowResult at (exit kind, result, placed); 0 outside the slots (SkiDayTiming.FollowSlot −1).</summary>
+        /// <summary>RM.FollowResult at (exit kind, result, placed). 0 outside the slots (SkiDayTiming.FollowSlot −1).</summary>
         private static int FollowAt(int[] mi, int kind, int result, bool placed)
         {
             int slot = SkiDayTiming.FollowSlot(kind, result, placed);
@@ -2401,7 +2406,7 @@ namespace SkiResortMod.Systems
             return s.Length > 0 ? s.ToString() : "none";
         }
 
-        /// <summary>Group 7: the five markers of one class (zeros included) when any is set; returns whether it wrote.</summary>
+        /// <summary>Group 7: the five markers of one class (zeros included) when any is set. Returns whether it wrote.</summary>
         private static bool MarkersText(StringBuilder sb, int[] mi, int block, int cls, string prefix, bool sameGroup)
         {
             if (!AnyMarker(mi, block, cls))
@@ -2460,8 +2465,8 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Main thread, after Complete: copies the census, the occupants (by lodge) and the outings on the way (by sign, aged
-        /// from m_TravelingSince: the first census that saw the meeting Traveling; absent meetings pruned).</summary>
+        /// <summary>Main thread, after Complete: copies the census, the occupants (by lodge) and the outings on the way (by sign, aged from
+        /// m_TravelingSince: the first census that saw the meeting Traveling). Absent meetings are pruned.</summary>
         private void ApplyCensus()
         {
             m_CensusInFlight = false;
@@ -2560,9 +2565,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>On an hour step of 1 (m_HourStep, ClimateTick), per ski area with a lodge: one `[near]` line when a ski-day guest
-        /// was on site or followed during the hour, else one pause line when the hour before printed; then the hour's accumulators
-        /// reset. Any other step (a load's first pass, a time jump) resets without a line.</summary>
+        /// <summary>On an hour step of 1 (m_HourStep, ClimateTick), per ski area with a lodge, the system writes one `[near]` line when a
+        /// ski-day guest was on site or followed during the hour. Otherwise it writes one pause line when the hour before printed. Then the
+        /// hour's accumulators reset. Any other step (a load's first pass, a time jump) resets without a line.</summary>
         private void NearHourTick()
         {
             int step = m_HourStep;
@@ -2635,7 +2640,7 @@ namespace SkiResortMod.Systems
         private static int WalkingOf(in NearOut o) => Math.Max(0, o.Walkers - o.Waiting - o.FailedPath - o.Hangaround);
 
         /// <summary>"wait so far mean m h, longest x h" from the game's Resident.m_Timer of the walkers waiting for transport
-        /// (SkiDayTiming.WaitHoursOfTimer: a mean, the timer steps by a random 1-2); "wait so far -" when none waits.</summary>
+        /// (SkiDayTiming.WaitHoursOfTimer: a mean. The timer steps by a random 1-2). "wait so far -" when none waits.</summary>
         private static string WaitText(in NearOut o, bool dump)
         {
             if (o.WaitN <= 0)
@@ -2651,8 +2656,8 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>One ClimateSystem.SampleClimate per game hour (24 after a load, a jump or a climate change): the climate prefab
-        /// curves with overrides applied (ClimateSystem.cs:97-107, :625-654); live weather is the same curve (:465-472), so sampling
+        /// <summary>One ClimateSystem.SampleClimate per game hour (24 after a load, a jump or a climate change). The sample is the climate
+        /// prefab curves with overrides applied (ClimateSystem.cs:97-107, :625-654). Live weather is the same curve (:465-472), so sampling
         /// past hours is exact. Newest hour at index 0.</summary>
         private void ClimateTick()
         {
@@ -2700,8 +2705,8 @@ namespace SkiResortMod.Systems
             m_Ambient[k] = s.temperature;
         }
 
-        /// <summary>The fresh snow at <paramref name="topM"/> over the ring (the sum of FreshOfHour, precipitation-hours);
-        /// NaN when unknown.</summary>
+        /// <summary>The fresh snow at <paramref name="topM"/> over the ring (the sum of FreshOfHour, precipitation-hours). NaN when
+        /// unknown.</summary>
         private double FreshAt(float topM)
         {
             if (!m_RingValid)
@@ -2713,7 +2718,7 @@ namespace SkiResortMod.Systems
             return fresh;
         }
 
-        /// <summary>Snow-hours at <paramref name="topM"/> over the ring; −1 when unknown.</summary>
+        /// <summary>Snow-hours at <paramref name="topM"/> over the ring. −1 when unknown.</summary>
         private int SnowHoursAt(float topM)
         {
             if (!m_RingValid)
@@ -2728,14 +2733,14 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>The weather is a pure function of the date plus any developer override (1.6.2 ClimateSystem.cs :607-654) and
-        /// repeats every game year, so the whole year's "Powder day" hours are counted once: 24 × days SampleClimate calls (288 at 12
-        /// days), refilled only when the climate entity, daysPerYear or the game year changed (each call reads the prefab on the main
-        /// thread, which applies the overrides exactly as the live ring does). Then, per ski area whose top is known and whose table is
-        /// stale (any refill makes every table stale): the snow hours at its top, MarkHoursPerMonth and one `[powder]` line saying why
-        /// ("at load", "after the year roll", "after a climate change", "first time this load"). The top can move when runs open or
-        /// close; the table is not recomputed for that (it would log at every opening). Needs the climate ring's base height, lapse and
-        /// freezing point, so only after the ring is valid.</summary>
+        /// <summary>The weather is a pure function of the date plus any developer override (1.6.2 ClimateSystem.cs :607-654). It repeats
+        /// every game year, so the system counts the whole year's "Powder day" hours once. This takes 24 × days SampleClimate calls (288 at
+        /// 12 days). The system refills them only when the climate entity, daysPerYear or the game year changed. Each call reads the prefab
+        /// on the main thread, which applies the overrides exactly as the live ring does. Then, per ski area whose top is known and whose
+        /// table is stale (any refill makes every table stale), it computes the snow hours at its top and MarkHoursPerMonth. It also writes
+        /// one `[powder]` line saying why ("at load", "after the year roll", "after a climate change", "first time this load"). The top can
+        /// move when runs open or close. The table is not recomputed for that (it would log at every opening). The method needs the climate
+        /// ring's base height, lapse and freezing point, so it runs only after the ring is valid.</summary>
         private void PowderYearTick()
         {
             if (m_Climate.currentClimate == Entity.Null || !m_RingValid)
@@ -2754,8 +2759,8 @@ namespace SkiResortMod.Systems
             bool refilled = false;
             if (!m_YearValid || m_YearClimate != m_Climate.currentClimate || m_YearDays != days || m_YearYear != year)
             {
-                // Why: the first refill of this load is "at load"; later a new game year, else a
-                // new climate entity or day count (the developer menu). Every refill makes every area's table stale.
+                // Why: the first refill of this load is "at load". A later refill is a new game year, or else a new climate entity or day
+                // count (the developer menu). Every refill makes every area's table stale.
                 m_YearWhy = m_YearGeneration == 0 ? "at load"
                     : m_YearYear != year ? "after the year roll"
                     : m_YearClimate != m_Climate.currentClimate ? "after a climate change" : "after the days per year changed";
@@ -2855,11 +2860,11 @@ namespace SkiResortMod.Systems
                 m_RebuildMaxMs = ms;
         }
 
-        /// <summary>One snapshot lodge with its tier's numbers from SkiCatalog.Lodges (an out-of-range index reads the A-frame
-        /// row 0, as the score does; no row at all → the A-frame values).</summary>
-        /// <summary>One active bus depot at the last applied pass: the internal read API for the coach bill, the hub and a later visual bus.
-        /// HillLodge = the area's nearest hill lodge in a straight line among those passing or gated (Null with none, or no position yet);
-        /// DistanceM = the straight-line distance to it (+inf when Null); Verdict = CheckDepot's.</summary>
+        /// <summary>One snapshot lodge with its tier's numbers from SkiCatalog.Lodges (an out-of-range index reads the A-frame row 0, as
+        /// the score does. No row at all gives the A-frame values).</summary>
+        /// <summary>One active bus depot at the last applied pass: the internal read API for the coach bill, the hub and a later visual
+        /// bus. HillLodge = the area's nearest hill lodge in a straight line among those passing or gated (Null with none, or no position
+        /// yet). DistanceM = the straight-line distance to it (+inf when Null). Verdict = CheckDepot's.</summary>
         internal struct DepotView
         {
             public Entity Depot, Sign, HillLodge;
@@ -2870,8 +2875,8 @@ namespace SkiResortMod.Systems
             public SkiDayRules.LodgeReject Verdict;
         }
 
-        /// <summary>Every active bus depot of the last applied pass, area order; clears <paramref name="into"/>; returns the count. Empty
-        /// while ski days are off or before the first pass: no pass, no coach. Main thread, plain copy.</summary>
+        /// <summary>Every active bus depot of the last applied pass, in area order. Clears <paramref name="into"/>. Returns the count.
+        /// Empty while ski days are off or before the first pass (no pass, no coach). Main thread, plain copy.</summary>
         internal int CopyDepots(List<DepotView> into)
         {
             into.Clear();
@@ -2936,17 +2941,17 @@ namespace SkiResortMod.Systems
                 Area = area,
                 Capacity = def != null ? def.Capacity : (int)SkiDayRules.LodgeSkiersPerDay,
                 PriceTolerance = def != null ? def.PriceTolerance : 0,
-                // Per building (LodgeSupplyRule.NoRoadNeeded): a road-optional lodge at a road is a target like any road lodge; off-road on a
-                // cat track chain it passes like the Hut and Summit and takes no arrivals; with neither it is rejected as before.
-                // A merged building takes no arrivals (not a guest destination in v1) and needs no road: it passes like the Hut.
+                // Per building (LodgeSupplyRule.NoRoadNeeded): a road-optional lodge at a road is a target like any road lodge. Off-road on
+                // a cat track chain, it passes like the Hut and Summit and takes no arrivals. With neither, it is rejected as before. A
+                // merged building takes no arrivals (not a guest destination in v1) and needs no road. It passes like the Hut.
                 NoRoadNeeded = (byte)(info.Merged || def != null && LodgeSupplyRule.NoRoadNeeded(def.RoadRule, info.HasRoad, info.Supplied) ? 1 : 0),
                 LodgeIndex = (short)(def != null ? def.Index : 0),
                 Merged = (byte)(info.Merged ? 1 : 0),
             };
         }
 
-        /// <summary>The ARMED line's per-tier numbers from SkiCatalog.Lodges, "aFrame 360, hut 200, …"
-        /// (capacity) or "aFrame 0, …, grand 40" (price tolerance); invariant culture.</summary>
+        /// <summary>The ARMED line's per-tier numbers from SkiCatalog.Lodges, "aFrame 360, hut 200, …" (capacity) or "aFrame 0, …, grand
+        /// 40" (price tolerance). Invariant culture.</summary>
         private static string TierText(bool tolerance)
         {
             var sb = new StringBuilder(96);
@@ -2959,15 +2964,15 @@ namespace SkiResortMod.Systems
             return sb.ToString();
         }
 
-        /// <summary>The lodge tier's id for logs and the DUMP ("aFrame", "hut", …; "?" out of range).</summary>
+        /// <summary>The lodge tier's id for logs and the DUMP ("aFrame", "hut", …, and "?" out of range).</summary>
         private static string TierOf(int lodgeIndex)
         {
             return lodgeIndex >= 0 && lodgeIndex < SkiCatalog.Lodges.Count ? SkiCatalog.Lodges[lodgeIndex].Id : "?";
         }
 
-        /// <summary>One AreaJob per live sign (CopySigns order), its active lodges (the sign itself
-        /// excluded; one area per lodge), its member runs and lift stations, score inputs and powder;
-        /// tracks from AreaMemory. Main thread, between jobs (step 1 completed them); no EntityManager read.</summary>
+        /// <summary>One AreaJob per live sign (CopySigns order). The job holds the sign's active lodges (the sign itself excluded, one area
+        /// per lodge), its member runs and lift stations, score inputs and powder, and tracks from AreaMemory. Main thread, between jobs
+        /// (step 1 completed them). No EntityManager read.</summary>
         private void RebuildSnapshot()
         {
             m_Areas.Clear();
@@ -3115,14 +3120,15 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>SiteJob (when due) → ResolveJob → ClaimJob (with the car-reserve handshake, WorkerSystem.cs:450-454:
-        /// GetCarReserveQueue's deps in, AddCarReserveWriter(handle) out; CBS combines its writers before the reserve job that drains
-        /// the queue, :1196-1210, 1.6.2 :1231-1249) → CensusJob (when due). CensusJob follows ClaimJob, not Dependency: it reads Leisure
-        /// through a RO lookup while ClaimJob writes it through a RW type handle (Unity's safety system refuses the two in parallel).
-        /// Without an area only ResolveJob runs (every claim an orphan). Every job is in Dependency and m_PassHandle as soon as it is
-        /// scheduled (a running `all`, assigned in a finally), so a later schedule that throws cannot leave ClaimJob in flight and
-        /// unknown to ECS. <paramref name="timed"/> (the `[cost]` pass): the vanilla jobs this pass waits on are completed first, timed
-        /// apart (m_CostWaitMs) and left out, then our chain is completed at once; returns its ms (schedule to complete), else −1.</summary>
+        /// <summary>Job order: SiteJob (when due), ResolveJob, ClaimJob, CensusJob (when due). ClaimJob has the car-reserve handshake
+        /// (WorkerSystem.cs:450-454): GetCarReserveQueue's deps go in and AddCarReserveWriter(handle) comes out. CBS combines its writers
+        /// before the reserve job that drains the queue (:1196-1210, 1.6.2 :1231-1249). CensusJob follows ClaimJob, not Dependency. It
+        /// reads Leisure through a RO lookup while ClaimJob writes it through a RW type handle (Unity's safety system refuses the two in
+        /// parallel). Without an area only ResolveJob runs (every claim an orphan). Every job is in Dependency and m_PassHandle as soon as
+        /// it is scheduled (a running `all`, assigned in a finally). So a later schedule that throws cannot leave ClaimJob in flight and
+        /// unknown to ECS. <paramref name="timed"/> (the `[cost]` pass): this pass first completes the vanilla jobs it waits on, times them
+        /// apart (m_CostWaitMs) and leaves them out. Then it completes our chain at once. It returns the chain's ms (schedule to complete),
+        /// otherwise −1.</summary>
         private double Schedule(bool areas, bool timed)
         {
             uint now = m_Simulation.frameIndex;
@@ -3197,8 +3203,8 @@ namespace SkiResortMod.Systems
 
             m_LeisureLookup.Update(this);
             m_CurrentBuildingLookup.Update(this);
-            // ResolveJob's lookups are updated here because it also runs without an area; the
-            // `if (areas)` block below updating some of them again is harmless.
+            // ResolveJob's lookups are updated here because it also runs without an area. The `if (areas)` block below updates some of them
+            // again, which is harmless.
             m_CitizenLookup.Update(this);
             m_DeletedLookup.Update(this);
             m_CarKeeperLookup.Update(this);
@@ -3230,8 +3236,8 @@ namespace SkiResortMod.Systems
             m_OutsideConnectionLookup.Update(this);
             m_PopulationLookup.Update(this);
             m_ResidentLookup.Update(this);
-            // The live checks' inputs, read as CitizenBehaviorSystem reads them each update (1.6.0 :1179,
-            // :1185-1186; 1.6.2 :1219, :1224-1225); exactly one of each, else LiveKnown 0 (the checks read "not checked").
+            // The live checks' inputs, read as CitizenBehaviorSystem reads them each update (1.6.0 :1179, :1185-1186, 1.6.2 :1219,
+            // :1224-1225). Exactly one of each must exist. Otherwise LiveKnown is 0 (the checks read "not checked").
             bool live = m_EconomyQuery.CalculateEntityCount() == 1 && m_TimeDataQuery.CalculateEntityCount() == 1 &&
                         m_PopulationQuery.CalculateEntityCount() == 1;
             m_ResidentNotes.Clear();
@@ -3397,9 +3403,9 @@ namespace SkiResortMod.Systems
 
                 if (m_CensusDue)
                     ScheduleCensus(ref all, now);
-                // A walker scan every Tuning.NearScanPasses passes with an area, on the hour and on the timed pass, after the census (it reads
-                // the claims ClaimJob just appended). Measure-only and makes ResidentAISystem wait on our chain: behind Options > Diagnostics,
-                // off by default.
+                // A walker scan every Tuning.NearScanPasses passes with an area, on the hour and on the timed pass, after the census (it
+                // reads the claims ClaimJob just appended). It is measure-only and makes ResidentAISystem wait on our chain. It is behind
+                // Options > Diagnostics, off by default.
                 if (SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
                 {
                     if (++m_NearPasses >= Tuning.NearScanPasses)
@@ -3416,13 +3422,13 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>NearJob after <paramref name="all"/> (ClaimJob, and the census when due), in the census's pattern (chunk lists by
-        /// ToArchetypeChunkListAsync, disposed on the job's handle, or here if Schedule throws). Per lodge (aligned with m_Lodges) the
+        /// ToArchetypeChunkListAsync, disposed on the job's handle, or here if Schedule throws). Per lodge (aligned with m_Lodges): the
         /// walkers within SkiDayTiming.NearLodgeM of the lodge's xz, and the game's per-stop waiting counts (Game.Routes.WaitingPassengers
-        /// on line waypoints with a Game.Routes.Position; taxi stands have none). A chunk walk, not the moving search tree: a creature
-        /// on a lane with a LaneObject buffer (every pedestrian lane) is not in the tree (Game.Creatures/ReferencesSystem.cs:125-138,
+        /// on line waypoints with a Game.Routes.Position. Taxi stands have none). A chunk walk, not the moving search tree. A creature on a
+        /// lane with a LaneObject buffer (every pedestrian lane) is not in the tree (Game.Creatures/ReferencesSystem.cs:125-138,
         /// Game.Prefabs/PedestrianLane.cs:36). <paramref name="lodges"/> and <paramref name="sites"/> are the arrays ScheduleJobs took
-        /// before SiteJob (which writes m_SiteOut) was scheduled; calling m_SiteOut.AsArray() here, after that writer is in the chain, is
-        /// a main-thread access the collection safety checks may reject (unverified which check).</summary>
+        /// before SiteJob (which writes m_SiteOut) was scheduled. Calling m_SiteOut.AsArray() here, after that writer is in the chain, is a
+        /// main-thread access the collection safety checks may reject (unverified which check).</summary>
         private void ScheduleNear(ref JobHandle all, uint now, NativeArray<LodgeJob> lodges, NativeArray<SiteOut> sites)
         {
             m_NearOut.Clear();
@@ -3462,8 +3468,7 @@ namespace SkiResortMod.Systems
             }
             catch
             {
-                // The TempJob lists would leak; wait for their fill jobs, free them, let the caller's
-                // catch report the failure.
+                // The TempJob lists would leak. Wait for their fill jobs, free them, and let the caller's catch report the failure.
                 JobHandle.CombineDependencies(w0, w1).Complete();
                 walkers.Dispose();
                 stops.Dispose();
@@ -3481,9 +3486,9 @@ namespace SkiResortMod.Systems
 
         private void ScheduleCensus(ref JobHandle all, uint now)
         {
-            // Resize(ClearMemory) zeroes only the elements past the old length (Unity.Collections UnsafeList<T>.Resize,
-            // the game's own copy: `length2 < length` → MemClear of the new tail); emptied first, every element starts at
-            // 0 and each census counts one hour, not the sum since the load.
+            // Resize(ClearMemory) zeroes only the elements past the old length (Unity.Collections UnsafeList<T>.Resize, the game's own
+            // copy: `length2 < length` leads to MemClear of the new tail). The list is emptied first, so every element starts at 0 and each
+            // census counts one hour, not the sum since the load.
             m_Occupants.Clear();
             m_Occupants.Resize(m_Lodges.Length * Occupant.Kinds, NativeArrayOptions.ClearMemory);
             m_Traveling.Clear();
@@ -3537,10 +3542,10 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Is this pass the synchronous one (once per load, then once per re-arm)? After CostPasses passes with work, the first
-        /// pass that follows a pass whose candidate walk ran (a night, closed, knobs-off or capped pass has none; in a new city the early
-        /// passes are NoLodge); after CostWaitPasses more passes with work, the next pass anyway. The caller also schedules the census
-        /// on it.</summary>
+        /// <summary>Is this pass the synchronous one (once per load, then once per re-arm)? After CostPasses passes with work, it is the
+        /// first pass that follows a pass whose candidate walk ran. A night, closed, knobs-off or capped pass has no walk. In a new city
+        /// the early passes are NoLodge. After CostWaitPasses more passes with work, it is the next pass anyway. The caller also schedules
+        /// the census on it.</summary>
         private bool CostTimedDue()
         {
             if (m_CostLogged || m_CostPasses < Tuning.CostPasses)
@@ -3548,9 +3553,9 @@ namespace SkiResortMod.Systems
             return m_LastPassStats[Stat.WalkRan] != 0 || m_CostWait >= Tuning.CostWaitPasses;
         }
 
-        /// <summary>`SkiDays [cost]`, once per load and once per midday re-arm (MaybeRearmCost). Only passes that scheduled ClaimJob
-        /// count; the first is left out of mean and max (one-off Mono JIT of Schedule, the rebuild that found the area, 24 climate
-        /// samples after a load). On the timed pass Schedule completed the jobs at once and returned <paramref name="jobsMs"/>.</summary>
+        /// <summary>`SkiDays [cost]`, once per load and once per midday re-arm (MaybeRearmCost). Only passes that scheduled ClaimJob count.
+        /// The first is left out of mean and max (one-off Mono JIT of Schedule, the rebuild that found the area, 24 climate samples after a
+        /// load). On the timed pass Schedule completed the jobs at once and returned <paramref name="jobsMs"/>.</summary>
         private void RecordCost(double ms, bool work, bool timed, double jobsMs)
         {
             if (work && !timed)
@@ -3601,13 +3606,13 @@ namespace SkiResortMod.Systems
                          ClockText(SkiDayTiming.MinuteOfDay(t)));
         }
 
-        /// <summary>Once the previous `[cost]` line is written, re-arm the measurement at the first pass at or after 12:00 of a game day
-        /// it has not run on (midday: claims, scans and lots are busy; the midnight roll is the quietest time). The arming pass itself is
-        /// not measured.</summary>
+        /// <summary>Once the previous `[cost]` line is written, re-arm the measurement at the first pass at or after 12:00 of a game day it
+        /// has not run on. Midday: claims, scans and lots are busy. The midnight roll is the quietest time. The arming pass itself is not
+        /// measured.</summary>
         private void MaybeRearmCost()
         {
-            // The midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default);
-            // the once-per-load measurement stays.
+            // The midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default). The once-per-load measurement
+            // stays.
             if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
                 return;
             if (!m_CostLogged || !(m_Time.normalizedTime >= 0.5f))
@@ -3623,9 +3628,9 @@ namespace SkiResortMod.Systems
             m_CostByRearm = true; // a day change before its line writes it partial (CostDayEnd)
         }
 
-        /// <summary>Every pass, before the idle returns: a midday-re-armed measurement that has not written its line when the game day
-        /// changes is written partial (SkiDayRules.CostDayEnded), so a day with no walk after noon is never silent. m_CostArmDay stays
-        /// the re-arm day, so the next noon re-arms. The load's measurement keeps its own rule (its CostWaitPasses fallback guarantees a
+        /// <summary>Runs every pass, before the idle returns. A midday-re-armed measurement that has not written its line when the game day
+        /// changes is written partial (SkiDayRules.CostDayEnded). So a day with no walk after noon is never silent. m_CostArmDay stays the
+        /// re-arm day, so the next noon re-arms. The load's measurement keeps its own rule (its CostWaitPasses fallback guarantees a
         /// line).</summary>
         private void CostDayEnd()
         {
@@ -3636,8 +3641,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The per-pass stop for a switched-off trip system ends any `[cost]` measurement that has not written its line (the
-        /// load's or a midday re-arm's): after m_Armed = false neither RecordCost nor CostDayEnd runs again this load,
-        /// so it is written skipped or partial here, as CostDayEnd writes a day change.</summary>
+        /// load's or a midday re-arm's). After m_Armed = false neither RecordCost nor CostDayEnd runs again this load. So the line is
+        /// written skipped or partial here, as CostDayEnd writes a day change.</summary>
         private void CostStopped()
         {
             if (m_CostLogged)
@@ -3646,8 +3651,8 @@ namespace SkiResortMod.Systems
             CostPartialLine($"ski days stopped before {which} ended", $"ski days stopped before {which} ended");
         }
 
-        /// <summary>The skipped (no pass with work) or partial `[cost]` line of a measurement cut short (CostDayEnd,
-        /// CostStopped); marks it logged.</summary>
+        /// <summary>The skipped (no pass with work) or partial `[cost]` line of a measurement cut short (CostDayEnd, CostStopped). Marks it
+        /// logged.</summary>
         private void CostPartialLine(string noWork, string noTimed)
         {
             m_CostLogged = true;
@@ -3675,7 +3680,7 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Entering idle (once per transition; the folds are flushed first).</summary>
+        /// <summary>Entering idle (once per transition). The folds are flushed first.</summary>
         private void SetIdle()
         {
             if (m_Idle)
@@ -3715,8 +3720,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>The car track's "cannot reach" turned on, and off: hub row 20 (HubProblemCode.SkiDaysCannotReach), named by the text
         /// the active dictionary holds for it, plus its code. The percentage is the track's faded history (×0.975 per outcome, about the
-        /// last 40), the count the outcomes since the load. Folded through m_ReachLog. The row also clears without a line at a load,
-        /// when a ski area is dropped at a roll and when ski days are switched off; the `[area]` / `[settings]` lines show those.</summary>
+        /// last 40), the count the outcomes since the load. Folded through m_ReachLog. The row also clears without a line at a load, when a
+        /// ski area is dropped at a roll and when ski days are switched off. The `[area]` / `[settings]` lines show those.</summary>
         private void ReachLine(AreaMemory mem, Entity sign, Entity reachLodge, bool on)
         {
             SkiDayRules.ClassTrack car = mem.Tracks[(int)SkiDayRules.TravelClass.Car];
@@ -3731,8 +3736,8 @@ namespace SkiResortMod.Systems
                   (reachLodge == Entity.Null ? "-" : Fmt(reachLodge)) + ") — hub row \"" + ReachRowText() + "\" (SkiDaysCannotReach) " + (on ? "on" : "off"));
         }
 
-        /// <summary>The hub row's text as the active dictionary holds it (the SkiResortStatsSystem.Lookup precedent);
-        /// "?" when no dictionary is loaded. Main thread (ApplyPass).</summary>
+        /// <summary>The hub row's text as the active dictionary holds it (the SkiResortStatsSystem.Lookup precedent). "?" when no
+        /// dictionary is loaded. Main thread (ApplyPass).</summary>
         private static string ReachRowText()
         {
             var dictionary = Game.SceneFlow.GameManager.instance?.localizationManager?.activeDictionary;
@@ -3741,8 +3746,8 @@ namespace SkiResortMod.Systems
 
         private const string ReachRowKey = "SkiResort.Hub.PROBLEM[SkiDaysCannotReach]";
 
-        /// <summary>An area state change; Full has its own line; OutOfHours reads as the state before it (SkiDayRules.AreaLogKey: the
-        /// claim window closing on a full hill is not "room again"). Written only when the key changes; a Full ↔ Open flicker at the
+        /// <summary>An area state change. Full has its own line. OutOfHours reads as the state before it (SkiDayRules.AreaLogKey: the claim
+        /// window closing on a full hill is not "room again"). Written only when the key changes. A flicker between Full and Open at the
         /// cap folds through m_AreaLog. <paramref name="onHill"/> = this area's claims on the way and on site.</summary>
         private void StateLine(AreaMemory mem, Entity sign, SkiDayRules.AreaState state, int onHill, int capacity, SkiDayLimit limit, int minute)
         {
@@ -3778,11 +3783,11 @@ namespace SkiResortMod.Systems
 
         /// <summary>One line per closure edge per area (ClosingEdgeOf: 1 no counted run, 2 the night run closed), with that pass's pulls
         /// (ResolveOut.Pulled, the last PulledTo). Written directly, NOT through the `[area]` window: StateLine offers the NoOpenRun /
-        /// NoEfficiency `[area]` line on the same pass, and two areas closing inside one 10 s window (a thaw is city-wide) would keep
-        /// only the last text, losing the once-per-edge pulled count. Volume is bounded without a window: each edge needs the hill (or
-        /// the night run) seen open again first (HillOpenSeen / NightOpenSeen). HH:MM = the clock at PulledTo; "the clock jumped this
-        /// pass" when the hour step was neither 0 nor 1 (a developer time jump moves every closing frame: a pull it fires is accepted
-        /// and named).</summary>
+        /// NoEfficiency `[area]` line on the same pass. Two areas closing inside one 10 s window (a thaw is city-wide) would keep only the
+        /// last text, which loses the once-per-edge pulled count. Volume is bounded without a window: each edge needs the hill (or the
+        /// night run) seen open again first (HillOpenSeen / NightOpenSeen). HH:MM = the clock at PulledTo. The text "the clock jumped this
+        /// pass" appears when the hour step was neither 0 nor 1 (a developer time jump moves every closing frame, and a pull it fires is
+        /// accepted and named).</summary>
         private void ClosingLine(Entity sign, byte edge, in ResolveOut ro, int minute, uint nowFrame)
         {
             string why = edge == 2 ? "the night run closed" : "no counted run";
@@ -3809,9 +3814,8 @@ namespace SkiResortMod.Systems
                 return;
             mem.LodgesLogged = true;
             mem.LodgeVerdicts.Clear();
-            // A passing mountain lodge holds skiers but is not a ski-day (target)
-            // lodge — listed apart; a tier other than the A-frame is named.
-            // An A-frame-only area writes the single-tier text.
+            // A passing mountain lodge holds skiers but is not a ski-day (target) lodge. It is listed apart, and a tier other than the
+            // A-frame is named. An A-frame-only area writes the single-tier text.
             int targets = 0, mountain = 0, depots = 0;
             var sb = new StringBuilder(160);
             var mountainText = new StringBuilder(0);
@@ -3907,10 +3911,10 @@ namespace SkiResortMod.Systems
             CultureInfo ic = CultureInfo.InvariantCulture;
             string recent = !m_LastPassKnown ? "n/a"
                 : SkiDayTiming.RecentBehaviorSlice(m_LastPassFrame, m_BehaviorInterval, m_BehaviorOffset, out uint _) ? "every pass" : "never";
-            // The trip systems, "tracked" = on the way + on site + visit over + expired and watched + followed
-            // after leaving + sent this pass exactly (ClaimJob appends this pass's claims after ResolveJob
-            // counted its buckets); "reached the lodge without Leisure" counts only citizens that still exist: they
-            // are booked as arrivals, visit ended "removed (on arrival)" (a deleted citizen in the lodge stays a failure).
+            // The trip systems, "tracked" = on the way + on site + visit over + expired and watched + followed after leaving + sent this
+            // pass exactly (ClaimJob appends this pass's claims after ResolveJob counted its buckets). The count "reached the lodge without
+            // Leisure" counts only citizens that still exist. They are booked as arrivals, visit ended "removed (on arrival)" (a deleted
+            // citizen in the lodge stays a failure).
             sb.Append("  Ski days: armed ").Append(m_Armed).Append(", disabled ").Append(m_Disabled)
               .Append(", interval ").Append(m_LeisureInterval).Append(" (TripNeededSystem ").Append(m_TripInterval)
               .Append(", CitizenBehaviorSystem ").Append(m_BehaviorInterval).Append('+').Append(m_BehaviorOffset)
@@ -3992,8 +3996,7 @@ namespace SkiResortMod.Systems
                   .Append(mem.TopKnown ? mem.TopM.ToString("F0", ic) : "-").Append(" m), claim hours ").Append(mem.ClaimHours ? "y" : "n")
                   .Append(" until ").Append(HourText(SkiDayRules.CloseHourOf(mem.NightRunOpen)))
                   .Append(", capacity ").Append(mem.Capacity).Append(" (").Append((SkiDayLimit)mem.Limit).Append(": runs ")
-                  // The ski-day (target) lodges and the lodges' per-tier
-                  // capacity; the price tolerance and the school factor of the chance.
+                  // The ski-day (target) lodges and the lodges' per-tier capacity. The price tolerance and the school factor of the chance.
                   .Append(mem.RunsCapacity.ToString("F0", ic)).Append(", lodges ").Append(mem.TargetLodges).Append(" ski-day, ")
                   .Append(mem.LodgeCapacity).Append(" skiers a day by tier (A-frame ").Append(SkiDayRules.LodgeSkiersPerDay.ToString("F0", ic))
                   .Append(")), price tolerance ").Append(mem.PriceTolerance).Append(", school x").Append(mem.SchoolFactor.ToString("0.##", ic))
@@ -4028,7 +4031,8 @@ namespace SkiResortMod.Systems
                 else
                     sb.Append("; powder year ").Append(MonthList(mem.PowderYearMarks)).Append(" (top ").Append(mem.PowderYearTopM.ToString("F0", ic))
                       .Append(" m, ").Append(mem.PowderYearWhen).Append(")\n");
-                // This month's measure lines and its failures by place, residents / tourists; last month's too, so a roll does not lose the split
+                // This month's measure lines and its failures by place, residents / tourists. Last month's too, so a roll does not lose the
+                // split
                 string[] parts = MeasureParts(mem, mem.This, mem.MThis, mem.HThis, mem.CThis, m_LeisureInterval, m_TripKnobs);
                 if (parts == null)
                 {
@@ -4132,7 +4136,7 @@ namespace SkiResortMod.Systems
         private const byte EndLiveWork = 1, EndLiveBed = 2;
 
         /// <summary>One ended ski day: who, how far, when claimed and the deadline's bound, departure, rides, closest approach, markers,
-        /// then the outcome with its place, why, visit end and exit, or the late watch; plus "pulled in", the door wait, "under 0.5 km"
+        /// then the outcome with its place, why, visit end and exit, or the late watch. Also "pulled in", the door wait, "under 0.5 km"
         /// only for claims over 0.5 km, why the Leisure went and the game's clock checks at the visit end, a no-purpose exit's place when
         /// not followed, and the first hour after leaving.</summary>
         private string RecordText(in ClaimRecord r)
@@ -4146,7 +4150,7 @@ namespace SkiResortMod.Systems
               .Append((r.Flags2 & SkiDayTiming.Flag2DeadlinePulled) != 0 ? ", pulled in" : "").Append("): ");
             bool departed = (r.Flags & SkiDayTiming.FlagDeparted) != 0;
             sb.Append(departed ? "left home " + PlusH(r, r.DepartFrame) : "did not leave home");
-            // The door wait (MoveFrame = the first pass the walker carried no Divert{PathFailed}; 0 = never seen)
+            // The door wait (MoveFrame = the first pass the walker carried no Divert{PathFailed}, 0 = never seen)
             if (departed && r.MoveFrame != 0u && (int)(r.MoveFrame - r.DepartFrame) > 0)
                 sb.Append(", waited at the door until ").Append(PlusH(r, r.MoveFrame));
             else if (departed && r.MoveFrame == 0u && r.Outcome != 0)
@@ -4230,9 +4234,9 @@ namespace SkiResortMod.Systems
                 sb.Append("; bedtime now");
         }
 
-        /// <summary>The first hour after leaving the lodge, for exits followed (going home, no trip purpose, moving away) or skipped at
-        /// the cap; nothing for other exits. "in X h" counts from leaving the lodge; "placed … at once" = the game's placement seen at
-        /// the first sample (SkiDayTiming.PlacedNow).</summary>
+        /// <summary>The first hour after leaving the lodge, for exits followed (going home, no trip purpose, moving away) or skipped at the
+        /// cap. Nothing for other exits. "in X h" counts from leaving the lodge. "placed … at once" = the game's placement seen at the
+        /// first sample (SkiDayTiming.PlacedNow).</summary>
         private void FollowSuffix(StringBuilder sb, in ClaimRecord r)
         {
             byte ff = r.FollowFlags;
@@ -4370,7 +4374,7 @@ namespace SkiResortMod.Systems
             return sb.Length > 0 ? sb.ToString() : "none";
         }
 
-        /// <summary>The markers of a record; "car path failed" when a car was ridden, else "vehicle path failed".</summary>
+        /// <summary>The markers of a record. "car path failed" when a car was ridden, else "vehicle path failed".</summary>
         private static string MarkersOf(in ClaimRecord r)
         {
             var sb = new StringBuilder(64);
@@ -4402,14 +4406,14 @@ namespace SkiResortMod.Systems
             return SkiMoneyRules.YearOfKey(key) + "-" + SkiMoneyRules.MonthOfKey(key).ToString("D2", CultureInfo.InvariantCulture);
         }
 
-        /// <summary>16.5 → "16:30".</summary>
+        /// <summary>Example: 16.5 gives "16:30".</summary>
         private static string HourText(double hour)
         {
             int minutes = (int)Math.Round(hour * 60.0);
             return (minutes / 60).ToString("D2", CultureInfo.InvariantCulture) + ":" + (minutes % 60).ToString("D2", CultureInfo.InvariantCulture);
         }
 
-        /// <summary>Minute of the day 0..1439 → "HH:MM".</summary>
+        /// <summary>Minute of the day 0..1439, formatted as "HH:MM".</summary>
         private static string ClockText(int minute)
         {
             int m = ((minute % 1440) + 1440) % 1440;
@@ -4431,7 +4435,7 @@ namespace SkiResortMod.Systems
             return cls == (byte)SkiDayRules.TravelClass.Walk ? "walk" : cls == (byte)SkiDayRules.TravelClass.Car ? "car" : "no car";
         }
 
-        /// <summary>The lower of two entities by (Index, Version); Null counts as "none" (the other wins).</summary>
+        /// <summary>The lower of two entities by (Index, Version). Null counts as "none" (the other wins).</summary>
         private static Entity Lower(Entity current, Entity candidate)
         {
             if (current == Entity.Null)
@@ -4457,10 +4461,10 @@ namespace SkiResortMod.Systems
             };
             public SkiDayMonth This = SkiDayMonth.Empty(), Last = SkiDayMonth.Empty();
             public bool FirstClaimLogged, FirstArrivalLogged, LodgesLogged;
-            public byte StateKey; // the `[area]` line's last key (SkiDayRules.LogKey…; None = nothing written yet)
-            // The hill (a counted run) and the night run seen open since the load, on a known, released
-            // score only (SkiDayRules.ClosingEdgeOf); a ski-day guest on site or followed this game hour, and whether the
-            // last hourly `[near]` line was written.
+            public byte StateKey; // the `[area]` line's last key (SkiDayRules.LogKey…, None = nothing written yet)
+            // The hill (a counted run) and the night run seen open since the load, on a known, released score only
+            // (SkiDayRules.ClosingEdgeOf). Also a ski-day guest on site or followed this game hour, and whether the last hourly `[near]`
+            // line was written.
             public bool HillOpenSeen, NightOpenSeen, GuestsThisHour, NearPrinted;
             public readonly List<LodgeVerdict> LodgeVerdicts = new List<LodgeVerdict>(4);
             // the last applied pass (DUMP copies)
@@ -4474,8 +4478,7 @@ namespace SkiResortMod.Systems
             public double OpenShare, Powder = double.NaN, RunsCapacity, TopM;
             public int OutingsOnTheWay;
             public double OldestOutingH;
-            // The month's measure rows (RM / RH / CM layouts, Jobs.cs), This and Last;
-            // preallocated once per area per load, none per pass.
+            // The month's measure rows (RM / RH / CM layouts, Jobs.cs), This and Last. Preallocated once per area per load, none per pass.
             public readonly int[] MThis = new int[RM.Count], MLast = new int[RM.Count];
             public readonly double[] HThis = new double[RH.Count], HLast = new double[RH.Count];
             public readonly int[] CThis = new int[CM.Count], CLast = new int[CM.Count];
@@ -4521,9 +4524,9 @@ namespace SkiResortMod.Systems
             public int PowderMarkPasses, PowderKnownPasses, CarsEnqueued, SentOffDay;
             // The claims sent to a bus depot and their arrivals (subsets of Sent / Arrived).
             public int SentDepot, ArrivedDepot;
-            // The highest capacity of the month with its limit and the clock of the first Full pass; the
-            // arrivals while the hill was closed for the count, the closings (no-counted-run edges) with the last one's clock
-            // and the guests on the way / on site then; the deadlines pulled in.
+            // The highest capacity of the month with its limit and the clock of the first Full pass. The arrivals while the hill was closed
+            // for the count, and the closings (no-counted-run edges) with the last one's clock and the guests on the way / on site then.
+            // The deadlines pulled in.
             public int CapacityMax, FirstFullMinute, ArrivedHillClosed, HillClosings, LastCloseMinute, OnTheWayAtClose, OnSiteAtClose, Pulled;
             public byte LimitAtMax;
 
@@ -4532,9 +4535,9 @@ namespace SkiResortMod.Systems
                 CapacityLast = -1, PowderMax = double.NaN, SnowHoursAtMax = -1, CapacityMax = -1, FirstFullMinute = -1, LastCloseMinute = -1,
             };
 
-            /// <summary>One applied pass. <paramref name="minute"/> = the clock at the apply; <paramref name="closed"/> =
+            /// <summary>One applied pass. <paramref name="minute"/> = the clock at the apply. <paramref name="closed"/> =
             /// SkiDayRules.HillClosedForCount of the snapshot the pass ran with (its arrivals, on-arrival bookings included, count as
-            /// "after the hill closed"); <paramref name="closing"/> = a no-counted-run edge (ClosingEdgeOf == 1).</summary>
+            /// "after the hill closed"). <paramref name="closing"/> = a no-counted-run edge (ClosingEdgeOf == 1).</summary>
             public void Add(in ClaimOut co, in ResolveOut ro, double powder, int snowHours, int minute, bool closed, bool closing)
             {
                 Pool += co.Pool;
@@ -4601,8 +4604,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The city's month: walk passes and fresh decisions, for the total line and `[drift]`; the running
-        /// pass cost of every pass with work (the timed pass excepted).</summary>
+        /// <summary>The city's month: walk passes and fresh decisions, for the total line and `[drift]`. Also the running pass cost of
+        /// every pass with work (the timed pass excepted).</summary>
         private struct SkiDayCityMonth
         {
             public int WalkPasses, Walked, FreshLocals, FreshTourists, FreshWithCar, ShoppingNeed;
@@ -4692,30 +4695,30 @@ namespace SkiResortMod.Systems
         public SkiDayRules.Knobs Knobs;
     }
 
-    /// <summary>One ski area's ski-day state for the hub. Published every armed
-    /// pass while the area exists; Revision moves only when !Same.</summary>
+    /// <summary>One ski area's ski-day state for the hub. Published every armed pass while the area exists. Revision moves only when
+    /// !Same.</summary>
     public struct SkiDayAreaView
     {
         public int TargetLodges;              // road-side lodges with CheckLodge == None, plus depots with CheckDepot == None
         public int LodgesNotSlopeside;        // lodges whose reject is NotSlopeside (row 22)
-        public Entity FirstLodgeNotSlopeside; // lowest (Index, Version); Null if none
+        public Entity FirstLodgeNotSlopeside; // lowest (Index, Version). Null if none
         public bool ClaimHours;               // InClaimWindow at the last pass
         public int OnTheWayOrOnSite;          // −1 before the first pass
-        public int Capacity;                  // CapacityPeople; −1 before the first pass; 0 is real (Full)
+        public int Capacity;                  // CapacityPeople. −1 before the first pass. 0 is real (Full)
         public SkiDayLimit Limit;
-        public float Powder; // (float)PowderOf(FreshSteps(fresh)); NaN unknown
+        public float Powder; // (float)PowderOf(FreshSteps(fresh)). NaN unknown
         public int SentThisMonth, SentCarThisMonth, SentNoCarThisMonth;     // Walk = Sent − Car − NoCar exactly
         public int ArrivedThisMonth, ArrivedLastMonth;                      // Last −1 unless MonthFlags.LastKnown
         public bool CannotReach;              // UpdateCannotReach(car track)
-        public Entity ReachLodge;             // most car failures this load; Null allowed
+        public Entity ReachLodge;             // most car failures this load. Null allowed
         public int LodgesNoParking; // every pass
         public Entity FirstLodgeNoParking;
-        public int Depots, DepotsNoHillLodge, DepotsNoRoad;   // the area's active bus depots; those CheckDepot rejects for the hub's row
-        public Entity FirstDepotProblem;                       // lowest (Index, Version) of the two; Null if none
+        public int Depots, DepotsNoHillLodge, DepotsNoRoad;   // the area's active bus depots. Those CheckDepot rejects for the hub's row
+        public Entity FirstDepotProblem;                       // lowest (Index, Version) of the two. Null if none
         public int DepotArrivedThisMonth;                      // ski days that arrived at a depot (a subset of ArrivedThisMonth)
 
-        /// <summary>Field by field; Powder via SkiDayTiming.SameBits (NaN == NaN; a != on NaN would move
-        /// Revision every pass, and ValueType.Equals boxes).</summary>
+        /// <summary>Field by field. Powder is compared via SkiDayTiming.SameBits (NaN == NaN). A != on NaN would move Revision every pass,
+        /// and ValueType.Equals boxes.</summary>
         public bool Same(in SkiDayAreaView o)
         {
             return TargetLodges == o.TargetLodges && LodgesNotSlopeside == o.LodgesNotSlopeside &&

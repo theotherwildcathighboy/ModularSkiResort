@@ -1,17 +1,21 @@
-// The Resort Planner tool (code name Quick runs; experimental, DECISIONS 404; the hub's Resort Planner button, Ctrl+Shift+Q). Click the
-// corners of a region (or, with the region empty, a lift station: the region becomes that lift's corridor, QuickRunsToolSystem.Plan.cs);
-// Enter scans it with the pure planner (SkiRunAutoPlanner, Resort mode) on a worker thread (Worker.cs; the Diagnostics fallback slices it
-// over frames on the main thread) and previews the plan as an overlay in the piste map's colors: pods, proposed lifts and their runs; a
-// click leaves a run, a pod or a lift out (or puts it back); the knobs (Lifts, Way home, Mix, Density, Kinds, Shuffle) live in the hub. Enter builds the
-// enabled runs in one batch (emit -> Temp -> Apply, RunAreaEmit shared with the cat track tool); a refused run is dropped and the rest
-// re-emitted once. The hub's Undo removes the batch with a refund of exactly what the binds charged (never right click). The same tool fills the region with
-// trees below a tree line (the glade compose path with a fill mask, QuickRunsToolSystem.Trees.cs).
-// Skeleton is CatTrackGradeToolSystem's (a prefab-less ToolBaseSystem, point editing, emit -> Temp -> Apply, hotkey + tooltip idioms).
+// The Resort Planner tool (code name Quick runs, experimental, DECISIONS 404). Its entry points are the hub's Resort Planner button and
+// Ctrl+Shift+Q. Click the corners of a region. With the region empty, click a lift station instead: the region becomes that lift's corridor
+// (QuickRunsToolSystem.Plan.cs).
+// Enter scans the region with the pure planner (SkiRunAutoPlanner, Resort mode) on a worker thread (Worker.cs. The Diagnostics fallback
+// slices it over frames on the main thread). The tool previews the plan as an overlay in the piste map's colors: pods, proposed lifts and
+// their runs. A click leaves a run, a pod or a lift out (or puts it back). The knobs (Lifts, Way home, Mix, Density, Kinds, Shuffle) live
+// in the hub.
+// Enter builds the enabled runs in one batch (emit, then Temp, then Apply, RunAreaEmit shared with the cat track tool). A refused run is
+// dropped and the rest are re-emitted once. The hub's Undo removes the batch with a refund of exactly what the binds charged (never right
+// click). The same tool fills the region with trees below a tree line (the glade compose path with a fill mask,
+// QuickRunsToolSystem.Trees.cs).
+// The skeleton is CatTrackGradeToolSystem's (a prefab-less ToolBaseSystem, point editing, emit then Temp then Apply, hotkey + tooltip
+// idioms).
 // Files: this (lifecycle, input, knobs), .Scan.cs (snapshot, obstacles, planner launch, warnings), .Worker.cs (the scan job on a worker
 // thread, cancel, collect, pinned lifts, access points), .Plan.cs (pod / lift toggles, picks, plan around a lift), .Build.cs (emit,
 // validate, apply, undo, refund), .Trees.cs (tree filler), .Draw.cs (overlay).
-// Logs (silence impossible): ARMED / NOT ARMED per load; one line per activation, scan, toggle, build step, undo, refusal; developer
-// probes ([probe]) only with Measurement diagnostics on; an exception disables the tool until the next load.
+// Logs (silence impossible): ARMED / NOT ARMED per load. One line per activation, scan, toggle, build step, undo, refusal. Developer probes
+// ([probe]) only with Measurement diagnostics on. An exception disables the tool until the next load.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md
 
 using System;
@@ -57,10 +61,11 @@ namespace SkiResortMod.Systems
         public bool IsArmed => m_Armed;
         public bool IsDisabled => m_Disabled;
 
-        /// <summary>The setting (Options, Runs: "Resort Planner (experimental)"); read live, null-tolerant (default off).</summary>
+        /// <summary>The setting (Options, Runs: "Resort Planner (experimental)"). It is read live, null-tolerant (default off).</summary>
         public static bool OptionOn => Mod.Settings?.QuickRunsEnabled ?? false;
 
-        /// <summary>Null when the tool can open; else the hub reason key (the button stays visible, grayed with this reason).</summary>
+        /// <summary>Null when the tool can open. Otherwise the hub reason key (the button stays visible, grayed with this
+        /// reason).</summary>
         internal string UnavailableReasonKey => !OptionOn ? ReasonOff : m_Disabled ? ReasonDisabled : !m_Armed ? ReasonNotArmed : null;
 
         internal ToolPhase Phase => m_Phase;
@@ -78,11 +83,11 @@ namespace SkiResortMod.Systems
         internal float ScanProgress => m_Phase == ToolPhase.Scanning ? m_Planner.ProgressVolatile : 0f;
         internal AutoPlanResult Result => m_Published;
         internal QuickRegionReadout Readout => m_Readout;
-        /// <summary>Mean grade of the outlined ground (0.25 = 25 %): the corner phase's sampled estimate, replaced by the scan's figure once a scan
-        /// finishes; NaN with fewer than 3 corners. The site verdict (QuickRunsRules.SiteTierOf) reads it.</summary>
+        /// <summary>Mean grade of the outlined ground (0.25 = 25 %): the corner phase's sampled estimate, replaced by the scan's figure
+        /// once a scan finishes. NaN with fewer than 3 corners. The site verdict (QuickRunsRules.SiteTierOf) reads it.</summary>
         internal float SiteGrade => m_SiteGrade;
         internal float MaxAreaM2 => SkiRunAutoPlanner.V1MaxAreaM2;
-        /// <summary>Hover label key of the cluster under the cursor (tooltip), or null; HoverClusterRuns = its run count.</summary>
+        /// <summary>Hover label key of the cluster under the cursor (tooltip), or null. HoverClusterRuns = its run count.</summary>
         internal string HoverClusterKey { get; private set; }
         internal int HoverClusterRuns { get; private set; }
         /// <summary>Bumped on every change the hub shows (the binding pushes when it moves).</summary>
@@ -114,7 +119,7 @@ namespace SkiResortMod.Systems
         private float m_SiteGrade = float.NaN;
         private float3 m_Hit;
         private bool m_HasHit, m_EnterRequested;
-        private readonly List<(string key, int value)> m_HubQueue = new List<(string key, int value)>();   // HubSet -> DrainHub
+        private readonly List<(string key, int value)> m_HubQueue = new List<(string key, int value)>();   // HubSet queues, DrainHub drains
         private int m_HoverPoint = -1, m_DragIndex = -1;
         private float2 m_DragTo;
         private string m_Notice;
@@ -160,7 +165,7 @@ namespace SkiResortMod.Systems
             base.OnGameLoadingComplete(purpose, mode);
             m_Armed = false;
             m_Disabled = m_ErrorLogged = false;
-            // Entity handles never survive a load (DECISIONS 404: undo is per tool session; the lists are cleared here and on close)
+            // Entity handles never survive a load (DECISIONS 404: undo is per tool session. The lists are cleared here and on close)
             ClearBatch("load");
             ClearTreeBatch("load");
             ResetAll("load");
@@ -197,8 +202,8 @@ namespace SkiResortMod.Systems
                              $"{m_TreeBatch.Count} tree(s) undoable — the undo lists end with the session");
                 if (m_Phase == ToolPhase.Emitted || m_Phase == ToolPhase.Retry)
                 {
-                    // ToolSystem reads the NEW tool's applyMode on a switch (ToolSystem.cs:147-156): delete our run Temps here with plain
-                    // Deleted, as ToolClearSystem does (ToolClearSystem.cs:101), the cat track tool's idiom.
+                    // ToolSystem reads the NEW tool's applyMode on a switch (ToolSystem.cs:147-156). Here we delete our run Temps with
+                    // plain Deleted, as ToolClearSystem does (ToolClearSystem.cs:101). This is the cat track tool's idiom.
                     int n = DeleteRunTemps();
                     Mod.Log.Info($"QuickRuns [build]: closed mid-build — {n} preview run(s) of the chunk in flight deleted; {m_BuildDone} of " +
                                  $"{m_BuildTotal} run(s) built before stay as ordinary runs (bind and pay as drawn runs), the rest is not built");
@@ -213,7 +218,7 @@ namespace SkiResortMod.Systems
                     m_BindCheckFrame = m_Frame + BindCheckFrames;
                 }
                 // Tree Temps: the incoming default tool's first frame clears them (the glade tool's OnStopRunning note,
-                // DefaultToolSystem.cs:973-980); never hand-delete thinning Temps.
+                // DefaultToolSystem.cs:973-980). Never hand-delete thinning Temps.
                 ClearBatch(null);
                 ClearTreeBatch(null);
                 ResetAll("stopped");
@@ -309,7 +314,7 @@ namespace SkiResortMod.Systems
                 SetActions(false, false, live);
                 if (cancelAction.WasPressedThisFrame())
                     RequestStopBuild("right click");
-                DrainHub(false);   // Stop acts; any other hub action is refused as busy
+                DrainHub(false);   // Stop acts. Any other hub action is refused as busy
                 m_EnterRequested = false;
                 if (m_Phase == ToolPhase.Emitted)
                     UpdateEmitted();
@@ -325,7 +330,7 @@ namespace SkiResortMod.Systems
             // Undo trees: every frame is a slice's emit or Apply (UpdateTreesCycle returns true), so right click is read here
             if (RemovingTrees && cancelAction.WasPressedThisFrame())
                 StopPlanting("right click");
-            DrainHub(true);   // the hub Stop reaches a tree cycle too; other actions wait for a free frame
+            DrainHub(true);   // the hub Stop reaches a tree cycle too. Other actions wait for a free frame
             if (UpdateTreesCycle())
             {
                 Draw();
@@ -334,7 +339,7 @@ namespace SkiResortMod.Systems
 
             if (m_Planting)
             {
-                // Planting slice after slice: right click stops after the slice in flight; no other input until it ends
+                // Planting slice after slice: right click stops after the slice in flight. No other input until it ends
                 if (cancelAction.WasPressedThisFrame())
                     StopPlanting("right click");
                 DrainHub(false);
@@ -384,7 +389,7 @@ namespace SkiResortMod.Systems
                 action.shouldBeEnabled = value;
         }
 
-        /// <summary>Enter by phase: trees on -> plant; Region -> scan; Preview -> build the enabled runs.</summary>
+        /// <summary>Enter by phase: with trees on, plant. In Region, scan. In Preview, build the enabled runs.</summary>
         private void Enter()
         {
             if (m_TreesOn)
@@ -405,9 +410,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Right click: cancel a drag; stop a scan; leave the preview; undo a corner edit; clear the corners; with nothing left,
-        /// close. Never an undo of built runs or planted trees: the hub's Undo / Undo trees buttons only (field test 2026-10-25: right
-        /// click after a build undid the batch 1-2 s later, twice, and the owner thought nothing was built; DECISIONS 418).</summary>
+        /// <summary>Right click: cancel a drag, stop a scan, leave the preview, undo a corner edit, clear the corners, or, with nothing
+        /// left, close. It never undoes built runs or planted trees: only the hub's Undo / Undo trees buttons do (field test 2026-10-25:
+        /// right click after a build undid the batch 1-2 s later, twice, and the owner thought nothing was built. DECISIONS 418).</summary>
         private void StepBack()
         {
             if (Dragging)
@@ -503,15 +508,16 @@ namespace SkiResortMod.Systems
                     RegionChanged($"corner inserted as {index + 1} of {m_Edit.Count} at ({hit.x:F0}, {hit.y:F0})");
                     break;
                 case QuickRegionClick.AddCorner:
-                    // Appending puts the corner on the closing edge (last -> first), which is where a click past the last corner belongs
+                    // Appending puts the corner on the closing edge (from the last corner to the first), which is where a click past the
+                    // last corner belongs
                     m_Edit.Add(hit);
                     RegionChanged($"corner {m_Edit.Count} at ({hit.x:F0}, {hit.y:F0}, ground {m_Hit.y:F1})");
                     break;
             }
         }
 
-        /// <summary>A corner edit: the readout follows; a preview (or scan) is dropped and, when one was showing, re-scanned at once;
-        /// the tree preview recomposes.</summary>
+        /// <summary>A corner edit: the readout follows. A preview (or scan) is dropped and, when one was showing, re-scanned at once. The
+        /// tree preview recomposes.</summary>
         private void RegionChanged(string what)
         {
             bool rescan = m_Phase == ToolPhase.Preview || m_Phase == ToolPhase.Scanning;
@@ -700,7 +706,7 @@ namespace SkiResortMod.Systems
         {
             m_RunPrefabs[(int)RunKind.Groomed] = m_Catalog.EntityOf(SkiCatalog.Names.RunGroomed);
             // Run types R3 (DECISIONS 578): a planned snowmaking or night run is a groomed run with the kind's sliders (FinishApplied seeds
-            // them); the retired looks are never emitted.
+            // them). The retired looks are never emitted.
             m_RunPrefabs[(int)RunKind.Snowmaking] = m_Catalog.EntityOf(SkiCatalog.Names.RunGroomed);
             m_RunPrefabs[(int)RunKind.Night] = m_Catalog.EntityOf(SkiCatalog.Names.RunGroomed);
             m_RunPrefabs[(int)RunKind.Natural] = m_Catalog.EntityOf(SkiCatalog.Names.RunNatural);

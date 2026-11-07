@@ -1,17 +1,17 @@
-// The frozen table of every persisted type of this mod, APPEND ONLY: one row per ISerializable type, one entry per layout
-// version. An entry lists the fields that version appended, in write order after the leading version byte, as "field:kind"
-// (u8 = 1 byte, i32 = 4, i64 = 8, f64 = 8, entity = int32 saved index; Colossal BinaryWriter.cs:128-141 / :305-354, 1.6.2f1),
-// and the total bytes a value of that version takes in the save.
-// tests/SaveBatch checks the serializers, the struct fields and the built DLL's [FormerlySerializedAs] self-aliases against
-// this table; the newest release/CHANGELOG.md entry's "Layout versions:" line must equal ChangelogLine.
+// The frozen table of every persisted type of this mod, APPEND ONLY: one row per ISerializable type, one entry per layout version. An entry
+// lists the fields that version appended, in write order after the leading version byte, as "field:kind" (u8 = 1 byte, i32 = 4, i64 = 8,
+// f64 = 8, entity = int32 saved index, Colossal BinaryWriter.cs:128-141 / :305-354, 1.6.2f1). An entry also lists the total bytes a value
+// of that version takes in the save.
+// tests/SaveBatch checks the serializers, the struct fields and the built DLL's [FormerlySerializedAs] self-aliases against this table. The
+// newest release/CHANGELOG.md entry's "Layout versions:" line must equal ChangelogLine.
 // Never edit a shipped entry, reorder a row's fields, or delete a row of a shipped type: the bytes are in players' saves.
-// Pure file (System only); tests/SaveBatch links it. How to bump a layout: EngineNotes/SaveLayouts.md
+// Pure file (System only). tests/SaveBatch links it. How to bump a layout: EngineNotes/SaveLayouts.md
 
 namespace SkiResortMod.Systems
 {
     public static class SaveLayouts
     {
-        /// <summary>Namespace and assembly name that every row's saved AssemblyQualifiedName starts with; never change either
+        /// <summary>Namespace and assembly name that every row's saved AssemblyQualifiedName starts with. Never change either
         /// (ComponentSerializer.cs:33-41).</summary>
         public const string Namespace = "SkiResortMod.Systems";
         public const string AssemblyName = "SkiResortMod";

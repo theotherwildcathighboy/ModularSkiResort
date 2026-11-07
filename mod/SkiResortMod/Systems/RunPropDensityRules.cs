@@ -1,7 +1,7 @@
 // What a run may carry and how a settled change is timed, for the run prop placer (RunPropPlacerRules has the walk). SkiRunPropSystem calls
-// these on the main thread; tests/ResortBatch DensityTests checks them with literal values. Snow and upkeep read a run's prop spacings only as
-// its Snowmaking and Lights features (SkiRunPropSystem.FeaturesOf, DECISIONS 577).
-// Pure file: `using System;` only (no Game.dll, no Unity types); linked into tests/ResortBatch. C# 9 / net48: no Math.Clamp.
+// these on the main thread. tests/ResortBatch DensityTests checks them with literal values. Snow and upkeep read a run's prop spacings only
+// as its Snowmaking and Lights features (SkiRunPropSystem.FeaturesOf, DECISIONS 577).
+// Pure file: `using System;` only (no Game.dll, no Unity types). It is linked into tests/ResortBatch. C# 9 / net48: no Math.Clamp.
 // Engine notes: EngineNotes/RunPropDensityRules.md
 
 using System;
@@ -28,8 +28,9 @@ namespace SkiResortMod.Systems
             return s >= SettleFrames ? SettleFrames : s + 1;
         }
 
-        /// <summary>The census class of a run prop by prefab name: null or empty → Other; a night-only member → Mast;
-        /// SkiPropNone → Empty; SkiHydrant* → Hydrant; anything else → Gun. Old saves' corner props only (the conversion's log line).</summary>
+        /// <summary>The census class of a run prop by prefab name. Null or empty gives Other. A night-only member gives Mast. SkiPropNone
+        /// gives Empty. SkiHydrant* gives Hydrant. Anything else gives Gun. Old saves' corner props only (the conversion's log
+        /// line).</summary>
         public static byte ClassOf(string prefabName, bool nightOnly)
         {
             if (string.IsNullOrEmpty(prefabName))
@@ -44,7 +45,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Which classes the placer stands on a run kind. Snowmaking: guns and hydrants. Night: those and masts. Cat track: guns
-        /// and hydrants, masts only when lit (<paramref name="lit"/> = its lights slider is above Off; no other lit state exists). Groomed and
+        /// and hydrants, masts only when lit (<paramref name="lit"/> = its lights slider is above Off, and no other lit state exists). Groomed and
         /// natural runs carry nothing. The empty marker is never placed: the spacing is the density.</summary>
         public static bool PropClassAllowed(int runKind, byte propClass, bool lit) =>
             PropClassAllowed(RunFeatures.FromKind(runKind, true, lit), propClass);
@@ -59,7 +60,7 @@ namespace SkiResortMod.Systems
     }
 
     /// <summary>The yaw a floodlight mast must have so its lamps aim INTO the run and slightly downhill. Pure, plain floats (System only),
-    /// x/z in the game's xz plane, y = height. The placer turns each mast to look along the vector returned here at placement; nothing
+    /// x/z in the game's xz plane, y = height. The placer turns each mast to look along the vector returned here at placement. Nothing
     /// rewrites a free-standing mast's rotation afterward. Interior side from the ring's winding (CCW in x,z = interior on the LEFT of
     /// travel, the glade planner's convention). Deterministic. Engine notes: EngineNotes/RunPropDensityRules.md</summary>
     public static class MastAimRules

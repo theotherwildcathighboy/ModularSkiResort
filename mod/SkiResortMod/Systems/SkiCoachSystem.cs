@@ -1,9 +1,11 @@
 // The Ski Bus Depots' coach: one SkiCoachBus (Bus01 with a decal) per working depot, in the fixed CoachColor oxblood, driving real lanes between the depot and the
 // area's nearest hill lodge with a road, back and forth. A visual: DummyTraffic carries nobody, belongs to no line, bills nothing.
-// Guests, tickets and the coach bill never read it (SkiDaySystem, SkiBusChargeSystem); no citizen routes through it (DECISIONS 392 stands).
-// Phase: GameSimulation, UpdateBefore<SkiCoachSystem, TransportCarAISystem> (Mod.cs). Anchor AND interval (16) are load-bearing: same interval
-// inherits the AI's offset 1 (UpdateSystem.cs:431-436, 1.6.2f1), so the turnaround lands between navigation and the AI tick of the same frame.
-// Stateless across a save: a coach is found by its Owner's prefab; the probe carries LivePath, which the saver skips. Pause stops it; the Editor never arms it.
+// Guests, tickets and the coach bill never read it (SkiDaySystem, SkiBusChargeSystem). No citizen routes through it (DECISIONS 392 stands).
+// Phase: GameSimulation, UpdateBefore<SkiCoachSystem, TransportCarAISystem> (Mod.cs). Anchor AND interval (16) are load-bearing: the same
+// interval inherits the AI's offset 1 (UpdateSystem.cs:431-436, 1.6.2f1), so the turnaround lands between navigation and the AI tick of the
+// same frame.
+// Stateless across a save: a coach is found by its Owner's prefab. The probe carries LivePath, which the saver skips. Pause stops it. The
+// Editor never arms it.
 // The vehicles are read in a job on the system's Dependency, never on the main thread: there, a read of a car's lane waits for that frame's navigation jobs.
 // Engine notes: EngineNotes/SkiCoachSystem.md
 
@@ -139,8 +141,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Destroys every pending road probe before a load. A probe has no PrefabRef, so the load's ClearSystem keeps it
-        /// (ClearSystem.cs:23-51), and the slots, cleared at OnGameLoadingComplete, hold the only references: without
-        /// this, each load would leak one entity per pending probe. The same destroy as a depot that stops working mid-probe.</summary>
+        /// (ClearSystem.cs:23-51). The slots, cleared at OnGameLoadingComplete, hold the only references. Without this, each load would
+        /// leak one entity per pending probe. The destroy is the same as for a depot that stops working mid-probe.</summary>
         private void DropProbes()
         {
             int dropped = 0;
@@ -451,7 +453,7 @@ namespace SkiResortMod.Systems
             else if (info.m_Origin != Entity.Null && EntityManager.Exists(slot.From) && EntityManager.Exists(slot.To))
             {
                 Spawn(commands, depot, slot.From, slot.To, slot.Probe, info);
-                slot.RetryFrame = frame + 64;   // the barrier plays back at the end of this frame; the vehicle query sees it next tick
+                slot.RetryFrame = frame + 64;   // the barrier plays back at the end of this frame. The vehicle query sees it next tick
                 slot.NoRoadLogged = false;
             }
             else

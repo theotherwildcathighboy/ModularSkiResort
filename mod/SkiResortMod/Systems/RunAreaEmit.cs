@@ -1,5 +1,5 @@
-// The run-area emission idioms shared by the tools that build runs (CatTrackGradeToolSystem: one run; QuickRunsToolSystem: a batch).
-// Lifted out of the cat track tool unchanged (2026-10-25, Quick runs package D): the area creation definition, the terrain y of a ring
+// The run-area emission idioms shared by the tools that build runs (CatTrackGradeToolSystem: one run, QuickRunsToolSystem: a batch).
+// Extracted from the cat track tool unchanged (2026-10-25, Quick runs package D): the area creation definition, the terrain y of a ring
 // node, and the bulldozer-shape delete. No state: the tools keep their own phases, queries and logs.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md ("Shared emit")
 
@@ -14,10 +14,11 @@ namespace SkiResortMod.Systems
 {
     internal static class RunAreaEmit
     {
-        /// <summary>One area creation definition (AreaToolSystem's shape for a new ownerless area, AreaToolSystem.cs:1572-1587,
-        /// 1883-1886, 1967-1968): CreationDefinition{m_Prefab} + the Node ring with the closing duplicate (GenerateAreasSystem.cs:282-291
+        /// <summary>One area creation definition (AreaToolSystem's shape for a new ownerless area, AreaToolSystem.cs:1572-1587, 1883-1886,
+        /// 1967-1968). It holds CreationDefinition{m_Prefab} + the Node ring with the closing duplicate (GenerateAreasSystem.cs:282-291
         /// marks the area Complete only then) + Updated. Elevation float.MinValue snaps each node to the terrain (GenerateAreasSystem.cs:
-        /// 307-316) and later to the graded terrain (GroundHeightSystem.cs:762-790 re-snaps such nodes inside OnAreaChanged's bounds).</summary>
+        /// 307-316) and later to the graded terrain (GroundHeightSystem.cs:762-790 re-snaps such nodes inside OnAreaChanged's
+        /// bounds).</summary>
         public static void Emit(EntityCommandBuffer ecb, Entity prefab, float2[] ring, ref TerrainHeightData hd)
         {
             Entity e = ecb.CreateEntity();
@@ -39,9 +40,9 @@ namespace SkiResortMod.Systems
             return p;
         }
 
-        /// <summary>The outline of a run or other area as xz points plus its bounds; null (bounds default) under 3 nodes. The one reader
-        /// of an area's Node buffer for the scan, the cat track tool's obstacles and the tree filler's holes (RunOutlineRules is a pure
-        /// file and cannot take an EntityManager).</summary>
+        /// <summary>The outline of a run or other area as xz points plus its bounds. Null (bounds default) under 3 nodes. The one reader of
+        /// an area's Node buffer for the scan, the cat track tool's obstacles and the tree filler's holes (RunOutlineRules is a pure file
+        /// and cannot take an EntityManager).</summary>
         public static float2[] ReadRing(EntityManager em, Entity e, out Bounds2 bounds)
         {
             bounds = default;
@@ -60,7 +61,7 @@ namespace SkiResortMod.Systems
             return ring;
         }
 
-        /// <summary>ReadRing with the node heights (the glade planner's hole rings are float3); bounds are still xz.</summary>
+        /// <summary>ReadRing with the node heights (the glade planner's hole rings are float3). Bounds are still xz.</summary>
         public static float3[] ReadRing3(EntityManager em, Entity e, out Bounds2 bounds)
         {
             bounds = default;
@@ -79,8 +80,9 @@ namespace SkiResortMod.Systems
             return ring;
         }
 
-        /// <summary>Plain Deleted with Applied / Created / Updated stripped (the SkiRunGateCascadeSystem idiom; CleanUpSystem destroys it at
-        /// frame end), through the EntityManager on the main thread. The caller checks that the entity is still the one it means.</summary>
+        /// <summary>Plain Deleted with Applied / Created / Updated stripped (the SkiRunGateCascadeSystem idiom, and CleanUpSystem destroys
+        /// it at frame end), through the EntityManager on the main thread. The caller checks that the entity is still the one it
+        /// means.</summary>
         public static void DeleteLikeBulldozer(EntityManager em, Entity e)
         {
             if (em.HasComponent<Applied>(e))
