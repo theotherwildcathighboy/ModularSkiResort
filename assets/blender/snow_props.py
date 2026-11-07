@@ -1,5 +1,5 @@
 """
-snow_props.py — piste-edge snowmaking props (generation A).
+snow_props.py: piste-edge snowmaking props (generation A).
 
     blender --background --factory-startup --python-exit-code 1 \
             --python snow_props.py -- --out ../import/props/A --variants
@@ -8,51 +8,56 @@ snow_props.py — piste-edge snowmaking props (generation A).
     blender --background --factory-startup --python-exit-code 1 --python snow_props.py -- \
             --detail ../preview/snow-props-2026-10-16 --review     # T20 preview gate, no FBX
 
-GENERATION B (T20 detail pass, 2026-10-16) — docs/research/art/snow-props-detail-2026-10-16.md.
-The four snowmaking assets are B (lathe fan head with an open nozzle ring, yoke + trunnions,
-work basket the ladder actually reaches, U-cage of flat-bar hoops, hinged lance, coiled
-hydrant hose, part-tagged LOD chains, smooth shading), then the de-CAD pass (chamfered boxes,
-SOFT_PREFIXES shading, rolled bell lip, cast feet, folded-sheet cabinets, wheel profiles;
-measured with cad_metric). The folded lance is dropped. The floodlight is still A.
+GENERATION B (T20 detail pass, 2026-10-16): docs/research/art/snow-props-detail-2026-10-16.md. The four
+snowmaking assets are B. B has:
+- a lathe fan head with an open nozzle ring
+- yoke + trunnions
+- a work basket the ladder actually reaches
+- a U-cage of flat-bar hoops
+- a hinged lance
+- a coiled hydrant hose
+- part-tagged LOD chains
+- smooth shading
 
-ALWAYS PASS --python-exit-code 1 WHEN EXPORTING. Blender swallows a Python exception in
-background mode and still exits 0: the texture-budget guard below fired on a real
-over-spend and the build reported success anyway. Without that flag a failing guard is
-indistinguishable from a passing one.
+Then the de-CAD pass added chamfered boxes, SOFT_PREFIXES shading, a rolled bell lip, cast feet,
+folded-sheet cabinets and wheel profiles (measured with cad_metric). The folded lance is dropped. The
+floodlight is still A.
 
-The family placed automatically along ski-run borders by the vanilla per-vertex spawner
-(DECISIONS 71/73). Four assets this round, in the build order the design spec argues for:
+ALWAYS PASS --python-exit-code 1 WHEN EXPORTING. Blender swallows a Python exception in background mode and
+still exits 0. The texture-budget guard below fired on a real over-spend, and the build reported success
+anyway. Without that flag, a failing guard looks the same as a passing one.
 
-    tower    SkiSnowGunTowerA   fan head on a mast — reads at max camera distance
-    hydrant  SkiHydrantBoxA     orange valve box + standpipe — cheapest realism in the pack
-    lance    SkiSnowGunLanceA   bare pole + tiny head — the anti-repetition silhouette
-    fan      SkiSnowGunFanA     carriage gun — the hero close-up
+The vanilla per-vertex spawner places the family automatically along ski-run borders (DECISIONS 71/73).
+Four assets this round, in the build order the design spec argues for:
 
-Dimensions come from docs/research/art/snowmaking-props-spec.md (manufacturer-documented:
-TechnoAlpin TF10/TT10/TL8, SMI, DemacLenko). Budgets from
-docs/research/art/snow-gun-pipeline-plan.md, measured against 20,610 vanilla RenderPrefabs.
+- tower, SkiSnowGunTowerA: fan head on a mast. Reads at max camera distance.
+- hydrant, SkiHydrantBoxA: orange valve box + standpipe. Cheapest realism in the pack.
+- lance, SkiSnowGunLanceA: bare pole + tiny head. The anti-repetition silhouette.
+- fan, SkiSnowGunFanA: carriage gun. The hero close-up.
+
+Dimensions come from docs/research/art/snowmaking-props-spec.md (manufacturer-documented: TechnoAlpin
+TF10/TT10/TL8, SMI, DemacLenko). Budgets from docs/research/art/snow-gun-pipeline-plan.md, measured against
+20,610 vanilla RenderPrefabs.
 
 THREE CONVENTIONS THAT ARE LOAD-BEARING
-  1. AUTHOR WITH +X = FORWARD, then cs2_asset.orient_for_net maps it to CS2 +Z. The area
-     spawner puts local +Z along the run border (SecondaryObjectSystem.cs:2990-2992), so
-     "forward" here means "along the piste edge".
-  2. NEVER AIM A BARREL HARD PERPENDICULAR. Polygon winding is recorded but never
-     normalized (area-prop-variation.md C2), so which side the piste sits on flips with
-     the direction the player drew the run. A perpendicular barrel fires into the trees on
-     half of all runs. Guns get GunParams.yaw_deg of 15-30 off the border tangent, which
-     reads plausibly either way.
-  3. BASE-PIVOTED, origin at ground level on the machine's own footprint center. Geometry
-     below z=0 is treated as underground and clipped (the lesson lift_chair paid for).
+1. AUTHOR WITH +X = FORWARD, then cs2_asset.orient_for_net maps it to CS2 +Z. The area spawner puts local
+   +Z along the run border (SecondaryObjectSystem.cs:2990-2992), so "forward" here means "along the piste
+   edge".
+2. NEVER AIM A BARREL HARD PERPENDICULAR. Polygon winding is recorded but never normalized
+   (area-prop-variation.md C2), so which side the piste sits on flips with the direction the player drew
+   the run. A perpendicular barrel fires into the trees on half of all runs. Guns get GunParams.yaw_deg of
+   15-30 off the border tangent, which reads plausibly either way.
+3. BASE-PIVOTED, origin at ground level on the machine's own footprint center. The game treats geometry
+   below z=0 as underground and clips it (the lesson lift_chair paid for).
 
-TEXTURE BUDGET — the top risk in the pipeline plan. quad_size is picked per asset from its
-physical size, targeting 60-150 px/m; copying the towers' 1024 default would cost ~112 MB
-for this family instead of ~9 MB, on a project already overspending an order of magnitude.
-atlas_size is ALWAYS derived as 2 x quad_size, never written as a literal — a mismatch
-silently corrupts the AO rebake and only shows up in game.
-REDO (wiki style, 2026-10-17): the 60-150 px/m band above is SUPERSEDED for the snowmaking four.
-With --repack the sizes are TEX_REDO (towers / fans / lances 1024, hydrants 512: the wiki's 512
-floor; `--tex B` restores the B sizes) and density_packer unfolds, weights and shelf-packs the
-islands with mip-safe margins (docs/research/art/snow-props-weather-2026-10-17.md "Redo").
+TEXTURE BUDGET: the top risk in the pipeline plan. quad_size is picked per asset from its physical size,
+targeting 60-150 px/m. Copying the towers' 1024 default would cost ~112 MB for this family instead of ~9
+MB, on a project already overspending an order of magnitude. atlas_size is ALWAYS derived as 2 x quad_size,
+never written as a literal. A mismatch silently corrupts the AO rebake and only shows up in game. REDO
+(wiki style, 2026-10-17): the 60-150 px/m band above is SUPERSEDED for the snowmaking four. With --repack
+the sizes are TEX_REDO (towers / fans / lances 1024, hydrants 512: the wiki's 512 floor). `--tex B`
+restores the B sizes. density_packer unfolds, weights and shelf-packs the islands with mip-safe margins
+(docs/research/art/snow-props-weather-2026-10-17.md "Redo").
 """
 
 import argparse
@@ -70,23 +75,23 @@ import cs2_asset  # noqa: E402
 import lift_tower  # noqa: E402  — make_lod, frame_camera, pick_engine
 
 
-# Atlas ZONES — cs2_asset.snow_prop_zones, the family-private recipe
-# (docs/research/art/snow-prop-materials.md). Parts are tagged with a zone NAME, not a
-# quad index, because quads 2 and 3 are sub-divided: quad 2 into rubber / grate / safety
-# plastic, quad 3 into livery paint (recolor slot 1) and accent paint (slot 3).
+# Atlas ZONES: cs2_asset.snow_prop_zones, the family-private recipe
+# (docs/research/art/snow-prop-materials.md). Parts are tagged with a zone NAME, not a quad index, because
+# quads 2 and 3 are sub-divided. Quad 2 holds rubber / grate / safety plastic. Quad 3 holds livery paint
+# (recolor slot 1) and accent paint (slot 3).
 #
 # Two material bugs the materials plan caught in the first draft, fixed here:
-#   * tires, castor, hoses and the fan intake were on the GLASS quad at 0.92 smoothness —
-#     mirror-finish rubber. They are now on `rubber` at 0.18.
-#   * the orange hydrant lid and handwheel were on recolor slot 1, so the safety cap
-#     would have recolored with the manufacturer livery. They are now on `plastic`,
-#     which is slot 2 (safety orange) — a separate picker.
+# - Tires, castor, hoses and the fan intake were on the GLASS quad at 0.92 smoothness, which gave
+#   mirror-finish rubber. They are now on `rubber` at 0.18.
+# - The orange hydrant lid and handwheel were on recolor slot 1, so the safety cap would have recolored
+#   with the manufacturer livery. They are now on `plastic`, which is slot 2 (safety orange), a separate
+#   picker.
 Z_CONCRETE = "concrete"   # pads, plinths
 Z_GALV     = "galv"       # masts, frames, ladders, hardware
 Z_LIVERY   = "livery"     # housing paint, recolor slot 1
 Z_ACCENT   = "accent"     # chassis/trim paint, recolor slot 3
 Z_RUBBER   = "rubber"     # tires, hoses, conduit
-Z_GRATE    = "grate"      # intake mesh, platform grating, louvres
+Z_GRATE    = "grate"      # intake mesh, platform grating, louvers
 Z_PLASTIC  = "plastic"    # safety plastic, recolor slot 2 (orange)
 Z_AMBER    = "amber"      # beacon lens (snow guns)
 Z_FLOODLENS = "floodlens" # cool-white floodlight lens (night-skiing masts)
@@ -100,18 +105,16 @@ BUDGETS = {
     "flood":   (660, 900),
 }
 
-# LOD chains — decimate ratios for (LOD1, LOD2), or () for "ship LOD0 only".
+# LOD chains: decimate ratios for (LOD1, LOD2), or () for "ship LOD0 only".
 #
-# Only the two GUNS get chains (prop-lod-and-lighting.md): they sit above their size
-# band's p75-p90 for LOD0 tris and get placed 200-400 times per city. The lance (192) and
-# hydrant (136) are already BELOW their band's median LOD0, so a chain would cost more in
-# extra RenderPrefabs, mesh memory and batch slots than the ~70 triangles it saves — which
-# is why 91-98% of comparable vanilla props ship none.
+# Only the two GUNS get chains (prop-lod-and-lighting.md). They sit above their size band's p75-p90 for
+# LOD0 tris and get placed 200-400 times per city. The lance (192) and hydrant (136) are already BELOW
+# their band's median LOD0. So a chain would cost more in extra RenderPrefabs, mesh memory and batch slots
+# than the ~70 triangles it saves. This is why 91-98% of comparable vanilla props ship none.
 #
-# Ratios from a fresh dump census: LOD1/LOD0 median is 0.51-0.57 in every size band,
-# LOD2/LOD0 is 0.16-0.30. LODs are DECIMATED FROM THE FINISHED MESH, never rebuilt at
-# lower detail — apply_finish_textures repacks UVs, so a rebuilt LOD would sample the
-# wrong atlas texels.
+# Ratios from a fresh dump census: LOD1/LOD0 median is 0.51-0.57 in every size band, LOD2/LOD0 is
+# 0.16-0.30. LODs are DECIMATED FROM THE FINISHED MESH, never rebuilt at lower detail.
+# apply_finish_textures repacks UVs, so a rebuilt LOD would sample the wrong atlas texels.
 LOD_CHAIN = {
     "tower":   (0.50, 0.20),
     "fan":     (0.50, 0.20),
@@ -120,10 +123,10 @@ LOD_CHAIN = {
     "flood":   (0.42, 0.12),
 }
 
-# T20: delete-then-decimate for the guns (art-pipeline-v2 section 5, "Snow props B" row).
-# Collapse decimation alone turns rungs, cage bars and nozzle studs into the chunky shards
-# A shipped at LOD1/LOD2; deleting whole parts by name first keeps the silhouette parts
-# clean and spends the decimation on the big shells. Prefixes are cumulative per level.
+# T20: delete-then-decimate for the guns (art-pipeline-v2 section 5, "Snow props B" row). Collapse
+# decimation alone turns rungs, cage bars and nozzle studs into the chunky shards A shipped at LOD1/LOD2.
+# Deleting whole parts by name first keeps the silhouette parts clean and spends the decimation on the big
+# shells. Prefixes are cumulative per level.
 LOD_DELETE = {
     "tower": (("HeadStud", "HeadBolt", "Rung", "FootNut", "Clamp", "Standoff", "Knee", "Kick",
                "Hose", "CageBar", "Gland", "Elbow", "Hinge", "Handle", "Louvre", "CabDoor"),
@@ -143,10 +146,10 @@ LOD_DELETE = {
 
 def make_lods(key, obj, name):
     """
-    LOD1..n objects for `obj` (caller exports and removes them). Guns with a LOD_DELETE
-    recipe go through cs2_asset.make_lod_chain; each level's target is the ratio x LOD0,
-    or what is left after the deletion when that is already lower (then no decimation).
-    Assets without the recipe keep the A path (plain ratio decimate).
+    LOD1..n objects for `obj` (caller exports and removes them). Guns with a LOD_DELETE recipe go through
+    cs2_asset.make_lod_chain. Each level's target is the ratio x LOD0, or what is left after the deletion
+    when that is already lower (then no decimation). Assets without the recipe keep the A path (plain ratio
+    decimate).
     """
     ratios = LOD_CHAIN.get(key, ())
     if not ratios:
@@ -164,20 +167,20 @@ def make_lods(key, obj, name):
         targets.append(min(int(round(ratio * lod0)), left))
     return cs2_asset.make_lod_chain(obj, name, targets, LOD_DELETE[key])
 
-# Parts that take the finishing-pass bevel — the BOXY ones only, same rule as
-# lift_tower.BEVEL_PREFIXES. Cylinders already read round; thin bars (rails, rungs, ribs,
-# clamps, jack feet) are too small to catch a specular line and the bevel would cost more
-# tris than it returns. Razor-sharp box edges are the single biggest procedural tell
-# against vanilla assets, so the parts a player can actually see a corner on get 0.02 m.
+# Parts that take the finishing-pass bevel: the BOXY ones only, same rule as lift_tower.BEVEL_PREFIXES.
+# Cylinders already read round. Thin bars (rails, rungs, ribs, clamps, jack feet) are too small to catch a
+# specular line, and the bevel would cost more tris than it returns. Razor-sharp box edges are the single
+# biggest procedural tell against vanilla assets, so the parts a player can actually see a corner on get
+# 0.02 m.
 BEVEL_PREFIXES = ("Pad", "BasePlate", "Cabinet", "Platform", "Body", "Lid",
                   "Compressor", "DriveHousing", "PushPlate",
                   # T20 de-CAD (generation B): every chunky box gets a real chamfer
                   "HeadCompressor")
 
-# T20 de-CAD: thin bars, plates, pins and small capped cylinders are SOFT-shaded instead
-# of bevelled: no sharp edges, face-area weighted normals, so a 2.5 cm rung reads as the
-# round bar it is and a pin cap reads domed, for zero triangles. (A geometric bevel on
-# the ~60 bars of a tower would cost ~1,000 tris against an 1,800 cap.)
+# T20 de-CAD: thin bars, plates, pins and small capped cylinders are SOFT-shaded instead of beveled. They
+# get no sharp edges and face-area weighted normals. So a 2.5 cm rung reads as the round bar it is, and a
+# pin cap reads domed, for zero triangles. (A geometric bevel on the ~60 bars of a tower would cost ~1,000
+# tris against an 1,800 cap.)
 SOFT_PREFIXES = ("Rung", "Rail", "Knee", "Kick", "Brace", "Stile", "Standoff", "CageBar",
                  "Clamp", "HeadFork", "GunFork", "HeadTrunnion", "GunTrunnion", "Chassis",
                  "Cross", "AxleArm", "Axle", "CastorFork", "Castor", "Cheek", "Rest", "Cradle",
@@ -190,9 +193,9 @@ SOFT_PREFIXES = ("Rung", "Rail", "Knee", "Kick", "Brace", "Stile", "Standoff", "
                  "GunManifold", "Lance", "Coil", "HoseCoil", "Hose", "HoseLead", "Feed", "Riser",
                  "Gland", "HeadSpinner", "GunSpinner")
 
-# Assets that ship the fifth (emissive) map. The floodlight's lens is the whole point of
-# the asset; the snow-gun tower has an amber beacon on its cabinet. The lance, hydrant and
-# carriage gun have no lit surface, and a black emissive map would cost memory for nothing.
+# Assets that ship the fifth (emissive) map. The floodlight's lens is the whole point of the asset. The
+# snow-gun tower has an amber beacon on its cabinet. The lance, hydrant and carriage gun have no lit
+# surface, and a black emissive map would cost memory for nothing.
 EMISSIVE_ASSETS = {"flood", "tower"}
 
 
@@ -246,16 +249,16 @@ def add_link(name, p0, p1, radius, segments=6, extend=0.02):
 
 
 # --------------------------------------------------------------------------------------
-# Detail-pass primitives (T20, 2026-10-16). Built from raw verts so every face is one we
-# asked for: no hidden end caps. The A-generation cage hoops were primitive_cylinder rings
-# whose filled caps rendered as SOLID DISCS around the mast, which is what read in game as
-# "the ladder goes through the platforms" (docs/research/art/snow-props-detail-2026-10-16.md).
-# Each face carries a wanted direction and is flipped to match it, so open shapes (bands,
-# ribbons, bores) are wound correctly without relying on recalc_face_normals.
+# Detail-pass primitives (T20, 2026-10-16). Built from raw verts so every face is one we asked for: no
+# hidden end caps. The A-generation cage hoops were primitive_cylinder rings. Their filled caps rendered as
+# SOLID DISCS around the mast. This is what read in game as "the ladder goes through the platforms"
+# (docs/research/art/snow-props-detail-2026-10-16.md). Each face carries a wanted direction and the code
+# flips it to match, so open shapes (bands, ribbons, bores) are wound correctly without relying on
+# recalc_face_normals.
 # --------------------------------------------------------------------------------------
 
 def _mk(name, verts, faces):
-    """faces = [(vertex index list, wanted direction Vector)]; returns a linked object."""
+    """faces = [(vertex index list, wanted direction Vector)]. Returns a linked object."""
     out = []
     for idx, want in faces:
         n = mathutils.geometry.normal([mathutils.Vector(verts[i]) for i in idx])
@@ -391,9 +394,9 @@ def add_stud(name, base, axis, size, height, roll=0.0):
 
 def add_blades(name, matrix, x, r0, r1, n, R, pitch_deg=35.0, thick=0.004):
     """
-    n flat fan blades in the local YZ plane at local x, root radius r0, tip r1, pitched
-    pitch_deg about their own radial axis; chord 0.12 R at the root widening to 0.20 R at the
-    tip. Two faces per blade, `thick` apart, no edge faces (4 tris a blade).
+    n flat fan blades in the local YZ plane at local x, root radius r0, tip r1, pitched pitch_deg about
+    their own radial axis. The chord is 0.12 R at the root, widening to 0.20 R at the tip. Two faces per
+    blade, `thick` apart, no edge faces (4 tris a blade).
     """
     p = math.radians(pitch_deg)
     verts, faces = [], []
@@ -468,8 +471,8 @@ def tri_count(obj):
 
 @dataclass
 class TowerParams:
-    """TechnoAlpin TT10-class head on a mast. Column heights 1.6/3.5/4.5 m are documented;
-    6 m and 9 m are the industry norm (SMI). 6.5 is our default, variants 4.5 / 6.5 / 8.0."""
+    """TechnoAlpin TT10-class head on a mast. Column heights 1.6/3.5/4.5 m are documented. 6 m and 9 m are the
+    industry norm (SMI). 6.5 is our default, variants 4.5 / 6.5 / 8.0."""
     mast_h: float = 6.5
     mast_r_base: float = 0.11        # 0.22 outer dia
     mast_r_top: float = 0.09
@@ -481,22 +484,22 @@ class TowerParams:
     # housing ~1.5x as long as it is wide, a flared rear intake bell, and a ring collar a
     # step wider than the body. Was 1.25 long on a 0.90 cone = a bucket.
     head_len: float = 1.45
-    head_r_muzzle: float = 0.44      # body front radius; collar = 1.10x -> 0.97 dia
-    head_r_throat: float = 0.39      # body rear radius; bell lip = 1.12x
+    head_r_muzzle: float = 0.44      # body front radius, collar = 1.10x -> 0.97 dia
+    head_r_throat: float = 0.39      # body rear radius, bell lip = 1.12x
     pitch_deg: float = 22.0          # nose-up
     yaw_deg: float = 22.0            # off the border tangent — see convention 2
     # Work basket (SMI Denali pattern, snow-gun-anatomy.md C1/C3): the DECK sits 1.5 m
     # under the mast top so a standing worker's hands reach the yoke, not 72 % up the mast
     # where the A generation put it (2.6 m below the head on the Tall: out of reach).
     deck_below_top: float = 1.50
-    deck: tuple = (0.80, 0.90)       # x (fore-aft) x y; x starts just past the ladder
+    deck: tuple = (0.80, 0.90)       # x (fore-aft) x y, x starts just past the ladder
     deck_x0: float = -0.24           # deck edge on the ladder side (ladder plane -0.30)
     rail_h: float = 1.10             # EN ISO 14122-3 top rail
     ladder_x: float = -0.30          # rung centerline: 0.19 m clear of the mast skin
     ladder_w: float = 0.40           # stile spacing (anatomy C3)
     cabinet: tuple = (0.60, 0.26, 0.95)   # W(lateral) x D x H — compressor/control cabinet
     cabinet_off: float = 0.45
-    nozzles: int = 12                # 24 real (TF10); 12 studs + the open annulus read as a ring
+    nozzles: int = 12                # 24 real (TF10), 12 studs + the open annulus read as a ring
 
 
 @dataclass
@@ -507,7 +510,7 @@ class LanceParams:
     # Anatomy study corrects the lean: real working lances sit at 25-40 degrees off
     # vertical, not the 15 the first spec assumed.
     lean_deg: float = 30.0
-    pipe_len: float = 0.0            # 0 = reach `height`; >0 = fixed length (folded pose)
+    pipe_len: float = 0.0            # 0 = reach `height`, >0 = fixed length (folded pose)
     head_len: float = 0.26
     head_r: float = 0.050
     column_r: float = 0.10           # 0.20 dia fixed column (anatomy #40)
@@ -535,32 +538,34 @@ class FanParams:
     yaw_deg: float = 20.0            # see convention 2
     wheel_r: float = 0.30
     wheel_w: float = 0.20
-    track_w: float = 1.20            # between rail centers; wheels sit outboard
+    track_w: float = 1.20            # between rail centers. Wheels sit outboard
     frame_w: float = 0.06
     drawbar_len: float = 0.90
     castor_r: float = 0.10
     jack_h: float = 0.35
     cabinet: tuple = (0.40, 0.25, 0.55)
     nozzles: int = 12                # T20 de-CAD budget: 12 studs + the open annulus
-    nucleators: int = 0              # (6 in B1; the inner row did not read and cost 42 tris)
+    nucleators: int = 0              # (6 in B1, the inner row did not read and cost 42 tris)
     tank_r: float = 0.15             # the blue accent water module
 
 
 @dataclass
 class FloodlightParams:
     """
-    Piste floodlight for night skiing (docs/research/art/piste-floodlight-spec.md).
-    Dimensions from dimensioned German catalog drawings (megamast.de 12 m mast).
+    Piste floodlight for night skiing (docs/research/art/piste-floodlight-spec.md). Dimensions from
+    dimensioned German catalog drawings (megamast.de 12 m mast).
 
-    THE DESIGN GOAL IS TELLING IT APART FROM THE SNOW-GUN TOWER AT A GLANCE, and the
-    spec's answer is INVERTED MASS DISTRIBUTION: this mast's widest point is its CROWN
-    (a 1.5 m cross-arm carrying three heads at 12 m) over a completely BARE tapered
-    shaft; the snow gun's widest point is its BASE (cabinet, standpipe, hoses, orange
-    box) under a busy shaft (platform + caged ladder). The bare shaft is authentic, not
-    a shortcut — real piste masts have no ladder and no platform, only an 85 x 400 mm
-    base access door.
+    THE DESIGN GOAL IS TELLING IT APART FROM THE SNOW-GUN TOWER AT A GLANCE. The spec's answer is INVERTED
+    MASS DISTRIBUTION:
+    - This mast's widest point is its CROWN (a 1.5 m cross-arm carrying three heads at 12 m) over a
+      completely BARE tapered shaft.
+    - The snow gun's widest point is its BASE (cabinet, standpipe, hoses, orange box) under a busy shaft
+      (platform + caged ladder).
+
+    The bare shaft is authentic, not a shortcut. Real piste masts have no ladder and no platform, only an
+    85 x 400 mm base access door.
     """
-    height: float = 12.0             # light point height; variants 8 / 12 / 16
+    height: float = 12.0             # light point height, variants 8 / 12 / 16
     # Taper rule that holds at any height: ~10 mm of diameter per meter of mast.
     r_base: float = 0.114            # 0.228 dia at ground
     r_top: float = 0.054             # 0.108 dia at the top
@@ -584,7 +589,7 @@ class HydrantParams:
     pipe_h: float = 0.90
     wheel_r: float = 0.125           # 0.25 handwheel
     hose_r: float = 0.03
-    coil_r: float = 0.30             # T20: the locale says "with a coiled hose"; A laid
+    coil_r: float = 0.30             # T20: the locale says "with a coiled hose". A laid
     with_hose: bool = True           # a straight stub instead
 
 
@@ -612,8 +617,8 @@ def add_vlathe(name, centre, profile, bands, segments=12):
 
 
 def add_foot(name, centre, r_flange, r_top, height, segments=12):
-    """Cast foot (T20 de-CAD): a flange rim, a sloped shoulder and a fillet into the tube
-    it carries; open at both ends (the plate below and the tube above close it)."""
+    """Cast foot (T20 de-CAD): a flange rim, a sloped shoulder and a fillet into the tube it carries. It is
+    open at both ends (the plate below and the tube above close it)."""
     return add_vlathe(name, centre, [(0.0, r_flange), (0.03, r_flange), (0.07, r_flange * 0.62),
                                      (height, r_top)], ["out", "out", "out"], segments)
 
@@ -632,12 +637,11 @@ def add_nuts(prefix, centre, r, z, n, size=0.034, phase=0.0):
 def add_cabinet(name, size, centre, z0, facing, zone, door=True, louvres=True,
                 lid_zone=Z_GALV):
     """
-    Folded-sheet cabinet (T20 de-CAD; "a folded-sheet look, door seam, hinges,
-    louvre band, slight overhang"): a chamfered body, a lid that overhangs on all sides,
-    a door leaf standing 5 mm proud (its outline is the seam) with two hinge barrels on one
-    edge and a handle off-center on the other, and a band of louvre slats low on the side.
-    size = (depth along `facing`, width, height); facing = +-1 along X (door side).
-    Returns [(obj, zone)].
+    Folded-sheet cabinet (T20 de-CAD, "a folded-sheet look, door seam, hinges, louvre band, slight
+    overhang"): a chamfered body, a lid that overhangs on all sides, a door leaf standing 5 mm proud (its
+    outline is the seam) with two hinge barrels on one edge and a handle off-center on the other, and a
+    band of louver slats low on the side. size = (depth along `facing`, width, height). facing = +-1 along
+    X (door side). Returns [(obj, zone)].
     """
     d, w, h = size
     cx, cy = centre
@@ -680,19 +684,21 @@ def build_gun_head(prefix, origin, r_muzzle, r_throat, length, pitch_deg, yaw_de
                    nozzles, nucleators=0, scale=1.0, manifold=False, compressor=False,
                    segments=14, ring_bolts=4, bell_segments=8, blades=7):
     """
-    Barrel along +X before aiming, then pitched nose-up and yawed off the border.
-    Returns (parts, anchors); origin is the barrel's center (the trunnion axis).
+    Barrel along +X before aiming, then pitched nose-up and yawed off the border. Returns (parts, anchors).
+    Origin is the barrel's center (the trunnion axis).
 
-    T20 detail pass (snow-props-detail-2026-10-16.md). The A head was a 16-sided cone with
-    FILLED caps: from the front it read as a flat lid with studs on it, never as a gun.
-    One lathe profile now carries what the TR10 / TF10 photographs show: a flared rear
-    INTAKE BELL closed by a dark guard disc, a straight BODY ~1.5x as long as it is wide,
-    the NOZZLE-RING COLLAR a step wider than the body (open annulus with the nozzle studs),
-    a dark BORE with the FAN disc and a hub SPINNER.
-    De-CAD (second verdict, "straight outta CAD"): no 90-degree profile corners left. The
-    bell ends in a ROLLED LIP, the collar step is a chamfer and its front edge is rounded
-    into the annulus, which itself turns into the bore over a small radius; bolt heads
-    ring the annulus between the nozzles (fasteners where the eye lands).
+    T20 detail pass (snow-props-detail-2026-10-16.md). The A head was a 16-sided cone with FILLED caps:
+    from the front it read as a flat lid with studs on it, never as a gun. One lathe profile now carries
+    what the TR10 / TF10 photographs show:
+    - a flared rear INTAKE BELL closed by a dark guard disc
+    - a straight BODY ~1.5x as long as it is wide
+    - the NOZZLE-RING COLLAR a step wider than the body (open annulus with the nozzle studs)
+    - a dark BORE with the FAN disc and a hub SPINNER
+
+    De-CAD (second verdict, "straight outta CAD"): no 90-degree profile corners left. The bell ends in a
+    ROLLED LIP, the collar step is a chamfer and its front edge is rounded into the annulus, which itself
+    turns into the bore over a small radius. Bolt heads ring the annulus between the nozzles (fasteners
+    where the eye lands).
     """
     parts = []
     L, R, Rt = length, r_muzzle, r_throat
@@ -706,9 +712,9 @@ def build_gun_head(prefix, origin, r_muzzle, r_throat, length, pitch_deg, yaw_de
                          "XYZ").to_matrix().to_4x4())
     seg = segments
 
-    # Rear intake bell on its own, coarser lathe (verdict 3: "find the tris on something the
-    # eye does not land on - the rear bell, not the ring"); the body starts 12 mm inside the
-    # bell waist so the two segment counts never meet edge to edge.
+    # Rear intake bell on its own, coarser lathe (verdict 3: "find the tris on something the eye does not
+    # land on - the rear bell, not the ring"). The body starts 12 mm inside the bell waist so the two
+    # segment counts never meet edge to edge.
     parts.append((add_lathe(f"{prefix}Bell",
                             [(xr + 0.04, Rt * 0.88), (xr, Rt * 1.00), (xr + 0.01, Rt * 1.10),
                              (xr + 0.03, Rt * 1.125), (xr + 0.07, Rt * 1.09), (xw, Rt * 0.98)],
@@ -725,9 +731,9 @@ def build_gun_head(prefix, origin, r_muzzle, r_throat, length, pitch_deg, yaw_de
     parts.append((add_spinner(f"{prefix}Spinner", xbore, R * 0.24, 0.22 * scale, M), Z_GALV))
     parts.append((add_disc(f"{prefix}Guard", xr + 0.04, Rt * 0.88, -1, M, segments=bell_segments),
                   Z_GRATE))
-    # Fan blades (verdict 3; "close up of fan gun ... fan blades": a hub and a ring of flat,
-    # pitched blades seen through the nozzle ring). One part, each blade a two-sided pitched
-    # plate 4 mm thick, root on the spinner, tip 4 % short of the bore. 4 tris a blade.
+    # Fan blades (verdict 3, "close up of fan gun ... fan blades": a hub and a ring of flat, pitched blades
+    # seen through the nozzle ring). One part, each blade a two-sided pitched plate 4 mm thick, root on the
+    # spinner, tip 4 % short of the bore. 4 tris a blade.
     parts.append((add_blades(f"{prefix}Blades", M, xbore + 0.05 * scale, R * 0.17, R * 0.74,
                              blades, R), Z_GALV))
 
@@ -815,22 +821,28 @@ def build_fork(prefix, centre, rc, yaw_deg, z_base):
 
 def build_tower(p: TowerParams):
     """
-    Fan gun on a mast with a caged ladder and a work basket (SMI Denali pattern; the TT10
-    has no ladder, DECISIONS 75). T20 rebuilt the access, after the A mesh shipped with:
-      * cage hoops made of CAPPED cylinders = solid 0.72 m discs threaded on the mast, which
-        read in game as platforms the ladder passes through (Ash Flat item 30);
-      * the cage centered 0.30 m off the ladder so it wrapped the mast, and its top hoop and
-        two straps cutting through the deck, a rail post and the kick plate;
-      * a rail closed on all four sides (no way onto the deck) and stiles stopping at deck
-        level (EN ISO 14122-4 wants them 1.1 m above it as grab rails);
-      * the deck 2.6 m under the head on the Tall: nobody standing on it reaches the gun.
-    Now: the ladder plane is 0.19 m off the mast skin, the deck starts 0.06 m past it with a
-    0.50 m opening in the rail, and the cage is a U of flat-bar hoops ON THE CLIMBER'S SIDE
-    ONLY (open toward the mast), ending 1 m above the deck beside the opening.
-    De-CAD: the mast is one open lathe standing in a CAST FOOT with nuts (no capped cones
-    meeting face to face), a weld collar under the slew drive, rail posts a size up from
-    the rails and the rails ending on them (A/B1 had 10 coplanar post/rail overlaps), and a
-    folded-sheet cabinet.
+    Fan gun on a mast with a caged ladder and a work basket (SMI Denali pattern, the TT10 has no ladder,
+    DECISIONS 75). T20 rebuilt the access, after the A mesh shipped with:
+    - cage hoops made of CAPPED cylinders = solid 0.72 m discs threaded on the mast, which read in game as
+      platforms the ladder passes through (Ash Flat item 30)
+    - the cage centered 0.30 m off the ladder so it wrapped the mast, and its top hoop and two straps
+      cutting through the deck, a rail post and the kick plate
+    - a rail closed on all four sides (no way onto the deck) and stiles stopping at deck level (EN ISO
+      14122-4 wants them 1.1 m above it as grab rails)
+    - the deck 2.6 m under the head on the Tall: nobody standing on it reaches the gun
+
+    Now:
+    - the ladder plane is 0.19 m off the mast skin
+    - the deck starts 0.06 m past it with a 0.50 m opening in the rail
+    - the cage is a U of flat-bar hoops ON THE CLIMBER'S SIDE ONLY (open toward the mast), ending 1 m above
+      the deck beside the opening
+
+    De-CAD:
+    - the mast is one open lathe standing in a CAST FOOT with nuts (no capped cones meeting face to face)
+    - a weld collar under the slew drive
+    - rail posts a size up from the rails and the rails ending on them (A/B1 had 10 coplanar post/rail
+      overlaps)
+    - a folded-sheet cabinet
     """
     parts = []
     pad_top = p.pad[2]
@@ -949,9 +961,9 @@ def build_tower(p: TowerParams):
     parts += build_fork("Head", anc["centre"], anc["rc"], p.yaw_deg, z_base)
 
     # ---- Services (routing audited, verdict 3) -------------------------------------------
-    # Water riser: comes up out of the pad OUTSIDE the cast foot on a flange, dog-legs in to
-    # the mast above the foot (the bends are the elbows), runs up through the deck opening
-    # and ends in a horizontal stub; B2 started it inside the foot and base plate.
+    # Water riser: comes up out of the pad OUTSIDE the cast foot on a flange, dog-legs in to the mast above
+    # the foot (the bends are the elbows), runs up through the deck opening and ends in a horizontal stub.
+    # B2 started it inside the foot and base plate.
     rx, ry = -0.02, -0.18
     r_top = p.mast_h - 0.35
     riser = [(0.02, -0.40, pad_top - 0.01), (0.02, -0.40, pad_top + 0.40),
@@ -961,9 +973,9 @@ def build_tower(p: TowerParams):
                            segments=6), Z_GALV))
     stub_end = (0.05, -0.31, r_top)
     parts.append((add_link("RiserStub", (rx, ry, r_top), stub_end, 0.0375, segments=6), Z_GALV))
-    # Hose: leaves the stub end through a clamp, hangs in a lopsided loop with slack inside
-    # the basket (above the deck, inside the rail), and enters the head's compressor box
-    # square to its face through a second clamp.
+    # Hose: leaves the stub end through a clamp and hangs in a lopsided loop with slack inside the basket
+    # (above the deck, inside the rail). It enters the head's compressor box square to its face through a
+    # second clamp.
     a_in = mathutils.Vector(anc["hose"])
     a_pre = a_in - anc["perp"] * 0.16
     loop = [stub_end, (0.13, -0.38, p.mast_h - 0.71),
@@ -1000,17 +1012,21 @@ def build_tower(p: TowerParams):
 
 def build_lance(p: LanceParams):
     """
-    T20: a lance is a light aluminum tube HINGED on a short galvanised column (the
-    "lance snow gun" photograph: a bracket and pin, the tube's tail running past the pivot
-    to the water inlet). The jacket covers only the lower column so the pivot reads; the
-    tube is galvanised aluminum ("aluminum tubes"); the machine-colored parts
-    are the nucleator head and the sensor box.
-    De-CAD: a cast foot with nuts replaces the square plate, the column is one open tube
-    into it with a weld collar under the cheeks, the jacket is a lathe with a rolled top
-    lip, the drum compressor has rounded ends, the sensor box is chamfered.
-    `laid` (second verdict): the summer pose. The tube is swung down through its hinge and
-    rests nearly flat on a low cradle, head out along the border; the hose is coiled at the
-    base and the compressor has gone to the shed.
+    T20: a lance is a light aluminum tube HINGED on a short galvanized column (the "lance snow gun"
+    photograph: a bracket and pin, the tube's tail running past the pivot to the water inlet). The jacket
+    covers only the lower column so the pivot reads. The tube is galvanized aluminum ("aluminum tubes").
+    The machine-colored parts are the nucleator head and the sensor box.
+
+    De-CAD:
+    - a cast foot with nuts replaces the square plate
+    - the column is one open tube into it with a weld collar under the cheeks
+    - the jacket is a lathe with a rolled top lip
+    - the drum compressor has rounded ends
+    - the sensor box is chamfered
+
+    `laid` (second verdict): the summer pose. The tube is swung down through its hinge and rests nearly
+    flat on a low cradle, head out along the border. The hose is coiled at the base and the compressor has
+    gone to the shed.
     """
     parts = []
     pad_top = p.pad[2]
@@ -1102,8 +1118,8 @@ def build_lance(p: LanceParams):
         parts.append((add_torus("HoseCoil0", (-0.62, 0.62, 0.03), 0.26, 0.03, segments=14),
                       Z_RUBBER))
     else:
-        # Hose off the tail inlet through a clamp, continuing straight off the tube end before
-        # it drops to the snow (B2 bent it back along the tube; verdict-3 routing audit).
+        # Hose off the tail inlet through a clamp, continuing straight off the tube end before it drops to
+        # the snow (B2 bent it back along the tube, verdict-3 routing audit).
         h0 = tail - d * 0.07
         parts += [(o, Z_RUBBER) for o in add_hose("Hose", [tuple(tail - d * 0.01), tuple(h0),
                                                            (-0.34, 0.22, 0.56), (-0.46, 0.40, 0.08),
@@ -1135,15 +1151,20 @@ def build_lance(p: LanceParams):
 
 def build_fan(p: FanParams):
     """
-    Carriage fan gun. T20: the TR10/TF10 head from build_gun_head on a YOKE (fork +
-    trunnions) over a turntable, a bent-tube A-frame drawbar to the groomer push plate
-    (anatomy #26/#27; the TR10 close-up shows the bent galvanised tubes), and the services
-    moved off the barrel's path.
-    De-CAD: real wheel profiles (rounded tire shoulders, dished hub with a cap) instead of
-    capped 12-gon discs, chassis and cross members of different sections so their faces
-    no longer coincide (A/B1: 4 x 108 cm2 coplanar overlaps), round axle stubs, a cast foot
-    under the pedestal, folded-sheet cabinet and compressor, everything that stands on the
-    floor sunk 3 mm into it.
+    Carriage fan gun. T20 changes:
+    - the TR10/TF10 head from build_gun_head on a YOKE (fork + trunnions) over a turntable
+    - a bent-tube A-frame drawbar to the groomer push plate (anatomy #26/#27, the TR10 close-up shows the
+      bent galvanized tubes)
+    - the services moved off the barrel's path
+
+    De-CAD:
+    - real wheel profiles (rounded tire shoulders, dished hub with a cap) instead of capped 12-gon discs
+    - chassis and cross members of different sections, so their faces no longer coincide (A/B1: 4 x 108 cm2
+      coplanar overlaps)
+    - round axle stubs
+    - a cast foot under the pedestal
+    - folded-sheet cabinet and compressor
+    - everything that stands on the floor sunk 3 mm into it
     """
     parts = []
     fw = p.frame_w
@@ -1191,10 +1212,10 @@ def build_fan(p: FanParams):
                                segments=5), Z_GALV))
         parts.append((add_box(f"JackFoot{k}", (0.18, 0.18, 0.03), (-0.62, sy, 0.03)), Z_GALV))
 
-    # The gun, then the yoke under it. The cross-head height is MEASURED from the built
-    # housing (lowest vertex over the cross-head / turntable footprint) over the working
-    # pitch AND the 45 deg tilt limit (a probe head, deleted again), minus a clearance, so
-    # one yoke height serves every pose of the same machine.
+    # The gun, then the yoke under it. The code MEASURES the cross-head height from the built housing
+    # (lowest vertex over the cross-head / turntable footprint). It measures over the working pitch AND the
+    # 45 deg tilt limit (a probe head, deleted again), and subtracts a clearance. So one yoke height serves
+    # every pose of the same machine.
     head, anc = build_gun_head("Gun", (0.0, 0.0, p.barrel_z), p.barrel_r_muzzle,
                                p.barrel_r_throat, p.barrel_len, p.pitch_deg, p.yaw_deg,
                                p.nozzles, nucleators=p.nucleators, scale=1.0, manifold=True,
@@ -1233,9 +1254,9 @@ def build_fan(p: FanParams):
                           (0.0, 0.0, zf - 0.01)), Z_GRATE))
     parts.append((add_tube("Tank", p.tank_r, 0.45, (0.40, 0.40, zf + p.tank_r - 0.003),
                            rotation=(0, math.radians(90), 0), segments=8), Z_ACCENT))
-    # Feed hose: straight off the valve-bank pipe end through a clamp, a slack drop in front
-    # of the water module, and square into its front cap through a second clamp (B2 cut
-    # diagonally down through the tank body; verdict-3 routing audit).
+    # Feed hose: straight off the valve-bank pipe end through a clamp, a slack drop in front of the water
+    # module, and square into its front cap through a second clamp (B2 cut diagonally down through the tank
+    # body, verdict-3 routing audit).
     feed = mathutils.Vector(anc["hose"])
     f1 = feed + anc["fwd"] * 0.07
     tank_in = mathutils.Vector((0.40 + 0.225 - 0.01, 0.40, zf + p.tank_r))
@@ -1292,7 +1313,7 @@ def build_floodlight(p: FloodlightParams):
     pitch = math.radians(p.lum_pitch_deg)
     lw, ld, lh = p.lum
     for i in range(p.lum_count):
-        # Spread across the arm; odd counts put one on center.
+        # Spread across the arm. Odd counts put one on center.
         t = (i - (p.lum_count - 1) / 2.0) / max(1.0, (p.lum_count - 1) / 2.0)
         y = t * (p.arm_span / 2.0 - 0.10)
         z = p.height + 0.16
@@ -1321,14 +1342,15 @@ def build_floodlight(p: FloodlightParams):
 
 def build_hydrant(p: HydrantParams):
     """
-    Snowmaking hydrant cover + standpipe. T20: two Camlock outlets and a number plate on
-    the standpipe (the "50" plate on the hydrant in the "fan gun in foreground, snow lance
-    in background" photograph), and the hose now lies COILED as the asset description
-    says; A laid a straight stub.
-    De-CAD: the lid sits 3 mm into the body (A: face on face), two hinge barrels on its back
-    edge and a pull handle off-center on the front; the standpipe stands in a cast foot and
-    is an open tube under the handwheel; the outlets start inside the pipe wall (B1: their
-    end caps overlapped at the pipe center).
+    Snowmaking hydrant cover + standpipe. T20: two Camlock outlets and a number plate on the standpipe (the
+    "50" plate on the hydrant in the "fan gun in foreground, snow lance in background" photograph), and the
+    hose now lies COILED as the asset description says. A laid a straight stub.
+
+    De-CAD:
+    - the lid sits 3 mm into the body (A: face on face)
+    - two hinge barrels on its back edge and a pull handle off-center on the front
+    - the standpipe stands in a cast foot and is an open tube under the handwheel
+    - the outlets start inside the pipe wall (B1: their end caps overlapped at the pipe center)
     """
     parts = []
     bw, bd, bh = p.box
@@ -1376,12 +1398,11 @@ def build_hydrant(p: HydrantParams):
 # Assembly
 # --------------------------------------------------------------------------------------
 
-# Long thin tubes whose smart-project island is a sliver: unwrap_into_rect keeps the
-# island's 7 m : 0.19 m aspect, so the lance tube got ~4 px of atlas around its
-# circumference, the finish repack kept that, and mip filtering bled the neighboring
-# LIVERY islands onto it (half the B tube rendered yellow in the first preview). Stretching
-# the island across its zone rect costs nothing visible (the zone swatch is plain metal)
-# and gives the repack a full-width island.
+# Long thin tubes whose smart-project island is a sliver. unwrap_into_rect keeps the island's 7 m : 0.19 m
+# aspect, so the lance tube got ~4 px of atlas around its circumference. The finish repack kept that, and
+# mip filtering bled the neighboring LIVERY islands onto it (half the B tube rendered yellow in the first
+# preview). Stretching the island across its zone rect costs nothing visible (the zone swatch is plain
+# metal) and gives the repack a full-width island.
 UV_WIDEN = ("Lance", "Stile", "CageBar", "Riser", "Brace")   # name prefixes (de-CAD round:
                                                              # a stile bled yellow the same way)
 
@@ -1449,10 +1470,10 @@ def finish(parts, name, atlas_size, base_pivot=True, bevel=False, smooth=False):
     """
     Per-part atlas UVs, join, weld, base-pivot, and rotate into the CS2 net frame.
 
-    `smooth` (T20; the four snowmaking assets pass True, the floodlight keeps the A path):
-    tag every part with the "part" face attribute so the LOD chain can delete parts by name
-    (cs2_asset.make_lod_chain), and shade by angle (66 deg) so 8-16-gon tubes and the
-    housing read round instead of faceted (art-pipeline-v2 item 1). UVs and zones unchanged.
+    `smooth` (T20, the four snowmaking assets pass True, the floodlight keeps the A path): tag every part
+    with the "part" face attribute so the LOD chain can delete parts by name (cs2_asset.make_lod_chain),
+    and shade by angle (66 deg) so 8-16-gon tubes and the housing read round instead of faceted
+    (art-pipeline-v2 item 1). UVs and zones unchanged.
     """
     # Bevel BEFORE unwrap so the new bevel faces get atlas UVs like everything else —
     # beveling after would leave them unmapped.
@@ -1461,8 +1482,8 @@ def finish(parts, name, atlas_size, base_pivot=True, bevel=False, smooth=False):
             if not obj.name.startswith(BEVEL_PREFIXES):
                 continue
             mod = obj.modifiers.new("Bevel", type="BEVEL")
-            # T20 de-CAD: 0.5-2 cm by part size (15 % of the thinnest side) on the B assets;
-            # the floodlight (smooth=False) keeps the flat 0.02.
+            # T20 de-CAD: 0.5-2 cm by part size (15 % of the thinnest side) on the B assets. The floodlight
+            # (smooth=False) keeps the flat 0.02.
             mod.width = (min(0.02, max(0.005, 0.15 * min(obj.dimensions))) if smooth else 0.02)
             mod.segments = 1
             mod.limit_method = "ANGLE"
@@ -1510,8 +1531,8 @@ def finish(parts, name, atlas_size, base_pivot=True, bevel=False, smooth=False):
     return obj
 
 
-# Generation B (T20 detail pass, 2026-10-16) for the four snowmaking assets; the floodlight
-# keeps its A geometry and names. B is free in assets/import/props/B and in ImportedData.
+# Generation B (T20 detail pass, 2026-10-16) for the four snowmaking assets. The floodlight keeps its A
+# geometry and names. B is free in assets/import/props/B and in ImportedData.
 ASSETS = {
     "tower":   ("SkiSnowGunTowerB", lambda a: build_tower(TowerParams(mast_h=a.mast)), 256),
     "lance":   ("SkiSnowGunLanceB", lambda a: build_lance(LanceParams(height=a.lance)), 128),
@@ -1525,11 +1546,10 @@ SMOOTH_ASSETS = {"tower", "lance", "fan", "hydrant"}
 
 
 # ── Variants ────────────────────────────────────────────────────────────────────────
-# The placeholder spawn group picks ONE of these per vertex, weighted
-# (area-prop-variation.md). Mast/lance height is the variety axis the design spec ranks
-# 5th but it is nearly free here — same builder, one parameter — and it is the axis that
-# breaks the SKYLINE rhythm, which is what the eye actually reads along a run.
-# Naming keeps the generation letter last (PIPELINE.md): never reuse a name.
+# The placeholder spawn group picks ONE of these per vertex, weighted (area-prop-variation.md). Mast/lance
+# height is the variety axis the design spec ranks 5th, but it is nearly free here: same builder, one
+# parameter. It is also the axis that breaks the SKYLINE rhythm, which is what the eye actually reads along
+# a run. Naming keeps the generation letter last (PIPELINE.md): never reuse a name.
 VARIANTS = {
     "tower":   [("SkiSnowGunTowerB",     dict(mast_h=6.5), 256),
                 ("SkiSnowGunTowerLowB",  dict(mast_h=4.5), 256),
@@ -1537,14 +1557,14 @@ VARIANTS = {
     # Lean varies per variant inside the documented 25-40 deg band (anatomy, Machine 3).
     "lance":   [("SkiSnowGunLanceB",     dict(height=7.0, lean_deg=30.0), 128),
                 ("SkiSnowGunLanceTallB", dict(height=10.0, pipe_r=0.035, lean_deg=35.0), 128),
-                # Folded / summer variant DROPPED (verdict 2, 2026-10-16: "if it still
-                # does not read in a 150 m shot, drop the variant"). The laid pose (tube swung
-                # flat onto a low cradle, hose coiled, compressor away) reads close up but at
-                # 150 m it is an orange dot with a hairline that vanishes into the snow
+                # Folded / summer variant DROPPED (verdict 2, 2026-10-16: "if it still does not read in a
+                # 150 m shot, drop the variant"). The laid pose (tube swung flat onto a low cradle, hose
+                # coiled, compressor away) reads close up but at 150 m it is an orange dot with a hairline
+                # that vanishes into the snow
                 # (assets/preview/snow-props-2026-10-16/SkiSnowGunLanceDownB_far150m.png).
-                # build_lance(LanceParams(laid=True, pipe_len=6.0, with_compressor=False))
-                # still builds it; the in-game SkiSnowGunLanceDown prefab stays on A until the
-                # surgery round removes it from the spawn group.
+                # build_lance(LanceParams(laid=True, pipe_len=6.0, with_compressor=False)) still builds it.
+                # The in-game SkiSnowGunLanceDown prefab stays on A until the surgery round removes it from
+                # the spawn group.
                 ],
     "fan":     [("SkiSnowGunFanB",       dict(), 256),
                 # Parked. CORRECTED by the anatomy study: an idle fan gun sits barrel
@@ -1603,23 +1623,25 @@ def mesh_area(obj):
 # WeatherHook run, so a driver can read its report / fields. Texture-only: see snow_weather.py.
 LAST_WEATHER = None
 
-# -- Texture size (REDO, wiki style, 2026-10-17; snow-props-weather-2026-10-17.md "Redo") ---------
-# The wiki floor is 512^2 ("anything smaller is unsupported", Asset Creation Guide; the B lance /
-# hydrant sets were 256^2) and B's props were under-textured 3-20x against vanilla props
+# -- Texture size (REDO, wiki style, 2026-10-17, snow-props-weather-2026-10-17.md "Redo") ---------
+# The wiki floor is 512^2 ("anything smaller is unsupported", Asset Creation Guide). The B lance / hydrant
+# sets were 256^2, and B's props were under-textured 3-20x against vanilla props
 # (wiki-best-practices-gap-2026-10-17.md section 2a). With --repack these sizes are the DEFAULTS
-# (coordinator decision, reversible: `--tex B` restores the exported B sizes). quad_size stays
-# DERIVED as tex // 2 everywhere (finish(), build_maps(), the AO rebake).
-# Lances 512 -> 1024 (2026-10-17, after the street-light comparison, weather doc section 12: the 6.9 / 11 m
-# single-quad tube is capped along its length by the atlas width; vanilla poles sit on 4096 maps).
+# (coordinator decision, reversible: `--tex B` restores the exported B sizes). quad_size stays DERIVED as
+# tex // 2 everywhere (finish(), build_maps(), the AO rebake). Lances 512 -> 1024 (2026-10-17, after the
+# street-light comparison, weather doc section 12). The atlas width caps the 6.9 / 11 m single-quad tube
+# along its length, and vanilla poles sit on 4096 maps.
 TEX_REDO = {"tower": 1024, "fan": 1024, "lance": 1024, "hydrant": 512}
-TEX_FLOOR = 512                # wiki minimum; cs2_validate texture-size ERROR below it
+TEX_FLOOR = 512                # wiki minimum, cs2_validate texture-size ERROR below it
 TEX_CEIL_UNDER_10M = 1024      # snow-prop-materials section 5: never 2048 for anything under 10 m
 
 
 def texture_size(key, quad_size, repack=False, override=None):
-    """Texture / atlas size of one variant. `override`: None = TEX_REDO with --repack, the B size
-    (2 x the VARIANTS quad_size) without; "B" = the B size; an int = every class;
-    "tower=1024,lance=512,..." = per class (unlisted classes fall back to the default)."""
+    """Texture / atlas size of one variant. `override` takes one of these:
+    - None = TEX_REDO with --repack, the B size (2 x the VARIANTS quad_size) without
+    - "B" = the B size
+    - an int = every class
+    - "tower=1024,lance=512,..." = per class (unlisted classes fall back to the default)"""
     b = int(quad_size) * 2
     default = TEX_REDO.get(key, b) if repack else b
     if override is None or str(override).strip() == "":
@@ -1634,25 +1656,25 @@ def texture_size(key, quad_size, repack=False, override=None):
 
 
 # -- Density repack -------------------------------------------------------------------------------
-# rev 3 (2026-10-17, snow-props-weather-2026-10-17.md section 4): the B finish pass kept each
-# part's atlas-time UV scale, so the painted shells shipped at 12-40 px/m while nuts got
-# 200-1,450 px/m. `--repack` replaces the finish bake's pack step (lift_tower.apply_finish_textures
-# packer=): islands equalized to 3D area, translation-identical copies stacked
-# (cs2_liftdress.share_identical), weighted per TIER, packed concave. LODs are decimated from the
-# finished mesh, so LOD1/LOD2 keep sharing this layout.
+# rev 3 (2026-10-17, snow-props-weather-2026-10-17.md section 4): the B finish pass kept each part's
+# atlas-time UV scale, so the painted shells shipped at 12-40 px/m while nuts got 200-1,450 px/m.
+# `--repack` replaces the finish bake's pack step (lift_tower.apply_finish_textures packer=). It equalizes
+# islands to 3D area, stacks translation-identical copies (cs2_liftdress.share_identical), weights per
+# TIER, and packs concave. LODs are decimated from the finished mesh, so LOD1/LOD2 keep sharing this
+# layout.
+#
 # REDO (wiki style, 2026-10-17, the "Redo" section of the same doc), four changes:
-#   1. fixed RELATIVE tier weights (DENSITY_REL) instead of rev 3's absolute floors and 105 px/m
-#      cap, so the density follows the texture size (wiki: "similar texel density" across islands,
-#      priority to the most visible parts; the hardware and masts ride below the shells);
-#   2. MIP-SAFE island margins (repack_margin_px; rev 3 kept B's 2 px, below the wiki's "spacing
-#      large enough to avoid issues with mipmapping"), held EXACTLY by our own shelf packer
-#      (_shelf_layout: Blender's pack_islands could not hold them, see there);
-#   3. DARK islands (the rubber and grate zones) fill the shelves from the bottom of the band and
-#      the light ones start an extra empty gap above them (wiki: "cluster similarly colored
-#      materials ... to prevent bleeding between very dark and very light materials"), at ONE
-#      shared scale;
-#   4. the atlas-time one-island-per-face slivers are UNFOLDED into strips / nets first
-#      (_unfold_islands), and islands may rotate (the reprojected normals are re-oriented per face).
+# 1. Fixed RELATIVE tier weights (DENSITY_REL) instead of rev 3's absolute floors and 105 px/m cap, so the
+#    density follows the texture size (wiki: "similar texel density" across islands, priority to the most
+#    visible parts). The hardware and masts ride below the shells.
+# 2. MIP-SAFE island margins (repack_margin_px, rev 3 kept B's 2 px, below the wiki's "spacing large enough
+#    to avoid issues with mipmapping"). Our own shelf packer holds them EXACTLY (_shelf_layout: Blender's
+#    pack_islands could not hold them, see there).
+# 3. DARK islands (the rubber and grate zones) fill the shelves from the bottom of the band. The light ones
+#    start an extra empty gap above them (wiki: "cluster similarly colored materials ... to prevent
+#    bleeding between very dark and very light materials"). Both use ONE shared scale.
+# 4. The atlas-time one-island-per-face slivers are UNFOLDED into strips / nets first (_unfold_islands),
+#    and islands may rotate (the reprojected normals are re-oriented per face).
 DENSITY_SMALL = ("FootNut", "HeadBolt", "GunBolt", "HeadStud", "GunStud", "Hinge", "Handle", "Clamp",
                  "HoseClamp", "Gland", "Coupling", "Pin", "HubCap", "HubIn", "Stub", "RiserStub",
                  "Outlet", "Valve", "GunValve", "Louvre", "Elbow", "WeldCollar", "MastCollar",
@@ -1665,27 +1687,27 @@ DENSITY_SHELL = ("HeadHousing", "HeadBell", "GunHousing", "GunBell", "Cabinet", 
                  "Compressor", "Body")
 DENSITY_MAST = ("Mast", "Column", "ColFoot", "Lance", "Pipe", "Riser", "Pedestal", "Chassis", "Cross",
                 "DrawbarL", "DrawbarR", "Turntable", "HeadFork", "GunFork")
-# shells 1 : hardware 0.8 : masts 0.65 : rest 0.6 - the gap doc's 1024 tower estimate
-# (~150 / ~120 / ~95 px/m) as ratios; scale-free, so a bigger texture lifts every tier.
+# shells 1 : hardware 0.8 : masts 0.65 : rest 0.6 - the gap doc's 1024 tower estimate (~150 / ~120 / ~95
+# px/m) as ratios. They are scale-free, so a bigger texture lifts every tier.
 DENSITY_REL = {"shell": 1.0, "small": 0.8, "mast": 0.65, "rest": 0.6}
-REPACK_MARGIN_PX = None         # None = repack_margin_px(A); a driver may pin an int to compare
+REPACK_MARGIN_PX = None         # None = repack_margin_px(A). A driver may pin an int to compare
 DARK_ZONES = ("rubber", "grate")
 DARK_GAP_MARGINS = 2.0          # extra empty band between the dark and the light shelves, in margins
                                 # (each side also keeps margin / 2: dark <-> light >= 3 margins)
-# Long single faces cap the scale: the lance tube is ONE 6 m quad per side, so at 512 its strip
-# cannot carry the shell density along its length and, uncapped, it pulls every island of the
-# asset down with it (one scale for all). An island longer than REPACK_MAX_LEN of the width at the
-# tested scale is compressed ALONG its long axis only, never below REPACK_MIN_SQUASH (full density
-# across, less along a uniform tube; the reprojected normals follow through reorient_normals).
+# Long single faces cap the scale: the lance tube is ONE 6 m quad per side, so at 512 its strip cannot
+# carry the shell density along its length and, uncapped, it pulls every island of the asset down with it
+# (one scale for all). An island longer than REPACK_MAX_LEN of the width at the tested scale is compressed
+# ALONG its long axis only, never below REPACK_MIN_SQUASH (full density across, less along a uniform tube).
+# The reprojected normals follow through reorient_normals.
 REPACK_MAX_LEN = 0.85
 REPACK_MIN_SQUASH = 0.35        # the 10 m LanceTall tube: ~2.9 : 1 across : along (B shipped it 28 : 1)
 LAST_REPACK = None
 
 
 def repack_margin_px(A):
-    """Island margin in texels: A // 64 = 8 @ 512, 16 @ 1024 - clean down to the 64^2 mip at both
-    sizes (mip 3 / mip 4); equals cs2_uv.default_margin_px (the buildings' rule) at 1024 and is
-    twice the A // 128 floor at 512 (write-up "Redo", margin study)."""
+    """Island margin in texels: A // 64 = 8 @ 512, 16 @ 1024 - clean down to the 64^2 mip at both sizes (mip 3
+    / mip 4). It equals cs2_uv.default_margin_px (the buildings' rule) at 1024 and is twice the A // 128
+    floor at 512 (write-up "Redo", margin study)."""
     if REPACK_MARGIN_PX is not None:
         return int(REPACK_MARGIN_PX)
     return max(8, int(A) // 64)
@@ -1703,17 +1725,17 @@ def _face_zones(mesh, A):
 
 
 # -- Unfold (REDO): one island per developable strip instead of one per face -------------------
-# The atlas-time smart project gives most parts ONE ISLAND PER FACE (tower 577 islands: every
-# stile, rail, cage bar, conduit and riser facet is its own 1-6 cm x 0.3-6 m sliver). With a
-# mip-safe margin each sliver pays 2 x margin across its whole length: at 16 px the tower's fill
-# fell to 0.07 (margin study in the write-up). `_unfold_islands` rebuilds the UVUnique start layout
-# by UNFOLDING each part's faces across shared edges whose dihedral is <= UNFOLD_MAX_DEG: every
-# face is placed exactly (rotated about the shared edge into its neighbor's plane: isometric, no
-# stretch), a face that would overlap the island already laid out starts a new island. Prism
-# sides become one strip, boxes become nets, cones / cylinder bands unroll; a face is never
-# mirrored (the 2-D frame keeps the face's own winding). Pinned (stamp strip) faces are untouched.
-# The tangent-space normals the bake reprojects from the atlas are re-oriented per face to the new
-# layout (snow_weather.reorient_normals), so nothing in the Normal map depends on the island angle.
+# The atlas-time smart project gives most parts ONE ISLAND PER FACE (tower 577 islands: every stile, rail,
+# cage bar, conduit and riser facet is its own 1-6 cm x 0.3-6 m sliver). With a mip-safe margin each sliver
+# pays 2 x margin across its whole length: at 16 px the tower's fill fell to 0.07 (margin study in the
+# write-up). `_unfold_islands` rebuilds the UVUnique start layout by UNFOLDING each part's faces across
+# shared edges whose dihedral is <= UNFOLD_MAX_DEG. It places every face exactly (rotated about the shared
+# edge into its neighbor's plane: isometric, no stretch). A face that would overlap the island already laid
+# out starts a new island. Prism sides become one strip, boxes become nets, and cones / cylinder bands
+# unroll. The code never mirrors a face (the 2-D frame keeps the face's own winding). Pinned (stamp strip)
+# faces are untouched. The code re-orients per face the tangent-space normals that the bake reprojects from
+# the atlas, to the new layout (snow_weather.reorient_normals), so nothing in the Normal map depends on the
+# island angle.
 UNFOLD = True
 UNFOLD_MAX_DEG = 92.0           # merge across edges up to a box corner (90 deg) plus bevel slack
 UNFOLD_EPS = 1e-7               # SAT shrink: faces touching along an edge are not "overlapping"
@@ -1898,7 +1920,7 @@ def _unfold_islands(mesh, pinned):
                 island_of[g] = n_isl
                 members.append(g)
                 queue.append(g)
-        # lay islands side by side (the packer moves them anyway; no overlap at the start)
+        # lay islands side by side (the packer moves them anyway, no overlap at the start)
         allp = np.concatenate([polys[m] for m in members])
         lo = allp.min(0)
         for m in members:
@@ -1912,18 +1934,20 @@ def _unfold_islands(mesh, pinned):
 
 
 # -- The pack itself (REDO): our own shelf packer with EXACT margins -------------------------------
-# Blender's pack_islands could not hold a mip-safe margin on these layouts: FRACTION / ADD left
-# 2-4 x the asked gap and collapsed the tower's fill to 0.07-0.22 at 16 px (the margin is applied
-# at the islands' pre-pack scale), SCALED ignored it (2 px gaps); margin study in the write-up.
-# `_shelf_layout` packs each island's minimum-area bounding rectangle (rotating calipers on its
-# hull, long side horizontal) first-fit-decreasing-height into full-width shelves: every island
-# keeps exactly `margin` texels to its neighbors and margin / 2 to the band edges, the DARK
-# islands fill the shelves from the bottom of the band, the light ones start DARK_GAP_MARGINS
-# margins above the last dark shelf, and ONE scale (binary search, the largest that fits) is
-# shared by both, so the tier weights hold exactly. Rotation is safe because
-# snow_weather.reorient_normals turns every reprojected tangent-space normal by its face's
-# atlas -> unique rotation. An island longer than REPACK_MAX_LEN of the width at the tested scale
-# is compressed along its long axis down to REPACK_MIN_SQUASH (block comment at REPACK_MAX_LEN).
+# Blender's pack_islands could not hold a mip-safe margin on these layouts: FRACTION / ADD left 2-4 x the
+# asked gap and collapsed the tower's fill to 0.07-0.22 at 16 px (the margin is applied at the islands'
+# pre-pack scale). SCALED ignored it (2 px gaps). Margin study in the write-up.
+#
+# `_shelf_layout` packs each island's minimum-area bounding rectangle (rotating calipers on its hull, long
+# side horizontal) first-fit-decreasing-height into full-width shelves:
+# - Every island keeps exactly `margin` texels to its neighbors and margin / 2 to the band edges.
+# - The DARK islands fill the shelves from the bottom of the band.
+# - The light ones start DARK_GAP_MARGINS margins above the last dark shelf.
+# - ONE scale (binary search, the largest that fits) is shared by both, so the tier weights hold exactly.
+#
+# Rotation is safe because snow_weather.reorient_normals turns every reprojected tangent-space normal by
+# its face's atlas -> unique rotation. An island longer than REPACK_MAX_LEN of the width at the tested
+# scale is compressed along its long axis down to REPACK_MIN_SQUASH (block comment at REPACK_MAX_LEN).
 
 
 def _hull(pts):
@@ -1947,8 +1971,8 @@ def _hull(pts):
 
 
 def _min_rect_angle(pts):
-    """Rotation (radians) that puts the minimum-area bounding rectangle of `pts` axis-aligned with
-    its LONG side along +u (rotating calipers; ties -> the smallest angle)."""
+    """Rotation (radians) that puts the minimum-area bounding rectangle of `pts` axis-aligned with its LONG
+    side along +u (rotating calipers, ties -> the smallest angle)."""
     import math
     import numpy as np
     h = _hull(pts)
@@ -2208,19 +2232,17 @@ def density_packer(obj, mesh, A, reserved):
 def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=False,
                repack=False, post_hook=None, weather_step=2):
     """
-    The texture half of export_one: atlas maps (+ emissive) into `asset_dir`, then the
-    finish rebake. Split out (T20) so the preview build can make the same maps WITHOUT
-    writing an FBX or settings.json.
+    The texture half of export_one: atlas maps (+ emissive) into `asset_dir`, then the finish rebake. Split
+    out (T20) so the preview build can make the same maps WITHOUT writing an FBX or settings.json.
 
-    `weather` (2026-10-17, opt-in until the verdict): run snow_weather's clean-style
-    texture pass inside the finish bake (post_compose). Pixels only: the mesh, UVs, LODs and
-    every file name are unchanged. Needs do_finish. `weather_step` (REDO, wiki style): 1 =
-    smoothness / metal parity + flat clean base + normal-map detail, 2 = step 1 + the
-    low-frequency soiling (snow_weather module docstring).
+    `weather` (2026-10-17, opt-in until the verdict): run snow_weather's clean-style texture pass inside
+    the finish bake (post_compose). Pixels only: the mesh, UVs, LODs and every file name are unchanged.
+    Needs do_finish. `weather_step` (REDO, wiki style): 1 = smoothness / metal parity + flat clean base +
+    normal-map detail, 2 = step 1 + the low-frequency soiling (snow_weather module docstring).
 
-    `repack` (2026-10-17, opt-in): density_packer replaces the finish pass's UV pack (new
-    UVUnique layout, same geometry / tris / file set). `post_hook`: a caller's own
-    post_compose (measurement drivers); ignored when `weather` is set.
+    `repack` (2026-10-17, opt-in): density_packer replaces the finish pass's UV pack (new UVUnique layout,
+    same geometry / tris / file set). `post_hook`: a caller's own post_compose (measurement drivers). It is
+    ignored when `weather` is set.
     """
     global LAST_WEATHER
     os.makedirs(asset_dir, exist_ok=True)
@@ -2271,11 +2293,11 @@ def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=Fa
     px_per_m = (quad_size * 2) / math.sqrt(max(area, 1e-3))
     print(f"[{key}]   atlas {quad_size * 2}px over {area:.1f} m^2 -> {px_per_m:.0f} px/m")
     if repack:
-        # REDO (wiki style, 2026-10-17): the 2026-08 60-150 px/m band and its 200 ceiling were a
-        # mesh-area metric + memory budget, not vanilla (vanilla props 158-2,520 px/m, median
-        # ~910; wiki-best-practices-gap-2026-10-17.md section 2a). With --repack the size rules
-        # are the wiki floor and the materials doc's no-2048-under-10-m ceiling; the per-PART
-        # density is gated by cs2_validate.
+        # REDO (wiki style, 2026-10-17): the 2026-08 60-150 px/m band and its 200 ceiling were a mesh-area
+        # metric + memory budget, not vanilla (vanilla props 158-2,520 px/m, median ~910,
+        # wiki-best-practices-gap-2026-10-17.md section 2a). With --repack the size rules are the wiki
+        # floor and the materials doc's no-2048-under-10-m ceiling. cs2_validate gates the per-PART
+        # density.
         A = quad_size * 2
         if A < TEX_FLOOR:
             raise RuntimeError(f"{name}: {A} px texture is below the wiki floor {TEX_FLOOR} "
@@ -2387,8 +2409,8 @@ def render_lineup(objs, out_dir, stem="SnowPropsLineup"):
     world.node_tree.nodes["Background"].inputs[0].default_value = (0.62, 0.68, 0.78, 1.0)
     scene.world = world
 
-    # Ground plane so the base-pivot and the base clutter read honestly. Mid-tone, not
-    # white — these are pale galvanised props and they vanish against a white floor.
+    # Ground plane so the base-pivot and the base clutter read honestly. Mid-tone, not white — these are
+    # pale galvanized props and they vanish against a white floor.
     bpy.ops.mesh.primitive_plane_add(size=26, location=(0, 0, 0))
     ground = bpy.context.active_object
     gm = bpy.data.materials.new("Ground")
@@ -2452,12 +2474,11 @@ def render_lineup(objs, out_dir, stem="SnowPropsLineup"):
     proxy.hide_render = True
 
     written = []
-    # frame_camera fits the bounding SPHERE against the NARROWER field of view, so a wide
-    # flat row gets framed by its diagonal and wastes most of the frame on sky. The margin
-    # compensates: sphere radius is ~sqrt(w^2+h^2)/2 but we only need h vertically.
-    # 1.06 framed the diagonal and wasted the frame on sky; the pure height ratio clipped
-    # the ends on the oblique view (the row projects wider than its own width off-axis).
-    # 0.80 is the field-tuned middle.
+    # frame_camera fits the bounding SPHERE against the NARROWER field of view, so a wide flat row gets
+    # framed by its diagonal and wastes most of the frame on sky. The margin compensates: sphere radius is
+    # ~sqrt(w^2+h^2)/2 but we only need h vertically. 1.06 framed the diagonal and wasted the frame on sky.
+    # The pure height ratio clipped the ends on the oblique view (the row projects wider than its own width
+    # off-axis). 0.80 is the field-tuned middle.
     row_margin = 0.80
     views = [("lineup_front", mathutils.Vector((0.02, -1.0, 0.16)), (2400, 1000)),
              ("lineup_three_quarter", mathutils.Vector((0.55, -1.0, 0.30)), (2400, 1050))]
@@ -2665,11 +2686,11 @@ def _far_shot(obj, asset_dir, name, out_path, tint, label):
 def cad_metric(obj):
     """
     The cabin round's "straight outta CAD" metric (lift_cabin.md R1.5 / revision1b):
-      coplanar = same-facing coplanar overlapping triangle pairs and their area (cm2), via
-                 lift_cabin.coplanar_overlaps (1 deg / 0.5 mm / > 0.1 cm2);
-      hard90_m = length of edges with an 80-100 deg dihedral whose corner normals SPLIT
-                 (they render as a razor line); hard90_geo_m = the same edges regardless of
-                 shading (soft-shaded square bars still count here).
+    - coplanar = same-facing coplanar overlapping triangle pairs and their area (cm2), via
+      lift_cabin.coplanar_overlaps (1 deg / 0.5 mm / > 0.1 cm2)
+    - hard90_m = length of edges with an 80-100 deg dihedral whose corner normals SPLIT (they render as a
+      razor line)
+    - hard90_geo_m = the same edges regardless of shading (soft-shaded square bars still count here)
     """
     import numpy as np
     import lift_cabin
