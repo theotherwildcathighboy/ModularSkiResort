@@ -1,6 +1,6 @@
-# M7 gate (code review 2026-10-19): SkiResortStatsSystem.m_BuildingQuery requires Game.Buildings.Park, so every prefab it
-# must find (the LodgeDefs prefabs in SkiCatalog + the Welcome Sign) has to carry the Game.Prefabs.Park component in its
-# prefab JSON (gamedata-mirror). Exit 0 = all carry it, 1 = at least one does not (or is missing from the mirror).
+# M7 gate (code review 2026-10-19): SkiResortStatsSystem.m_BuildingQuery requires Game.Buildings.Park.
+# Therefore each prefab it must find (the LodgeDefs prefabs in SkiCatalog + the Welcome Sign) has to carry the Game.Prefabs.Park component
+# in its prefab JSON (gamedata-mirror). Exit 0 = all carry it, 1 = at least one does not (or is missing from the mirror).
 # Usage: powershell -File tools/check-lodge-park.ps1
 $root = Split-Path -Parent $PSScriptRoot
 $mirror = Join-Path $root 'gamedata-mirror\ImportedData'

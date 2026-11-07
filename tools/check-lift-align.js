@@ -1,39 +1,58 @@
 #!/usr/bin/env node
-// check-lift-align.js - the lift alignment gates a file can show (docs: lift-alignment-2026-11-02; PIPELINE section 6 "Lift alignment").
+// check-lift-align.js - the lift alignment gates a file can show (docs: lift-alignment-2026-11-02 and PIPELINE section 6 "Lift alignment").
 //
-//   PINDROP   (G2) every carrier pose drops by LiftMoverMath.CarrierDrop (grip top minus the jaw's rope point): no system subtracts a
-//             grip top from a rope point by hand, the catalog's CarrierDrops view and the tram call the helper, ChairPinSystem reads
-//             CarrierDrops. Bug class: the grip TOP rode the rope (round-2 contract D8) and the rope ran over the jaw.
-//   ROPELANE  (G3) per loop lift type, the line piece, every line tower and both stations reference ONE haul-rope lane prefab (FindAnchor
-//             matches anchors by lane prefab, LaneSystem.cs:4049, :2466-2505: a tower or station on another lane leaves the rope end
-//             unanchored), that lane is ours (never the vanilla HV lane 5d88ac45..., m_Hanging 0.03), draws the still LOW-voltage
-//             rope mesh SkiRopeStillLVA (the vanilla LV cable bbb9724d..., 0.12 m across, DECISIONS 573 h, with swaying off) and sags
-//             exactly its type's value (sag below; = the catalog Envelope.LaneHanging, LiftBatch CT-12). The tram's track rope draws
-//             SkiRopeStillHVA, its haul rope SkiRopeStillLVA, both at 0.04. Bug classes: the FG rope sagged like a power line on the vanilla
-//             HV lane (0.03, 12.6 deg break-over per tower); a swaying cable mesh (vanilla m_HangingSwaying) moves the rope away from the
-//             carriers that ride it in wind, by about the sag.
-//   BONEROOT  every owned skinned mesh's root bone is identity (rotation 0,0,0,1, scale 1): the import gives it the FBX scene
-//             conversion and the game composes it into every skin matrix. Bug class: the rig probe drew turned and 100x.
-//   CARRIERPASS the lift-line tool keeps the carriers and their grips passable for its whole session (LiftLineToolSystem start / stop /
-//             station hooks, the grip list). Bug class: re-drawing a bulldozed middle section was refused, OverlapExisting on the
-//             neighbor section's chairs; a section delete next to riding chairs, OverlapExisting on their grips.
-//   LADDER    the tower placeholders' members: tops unique by >= 0.1 m, a twin head's E within the line's m_ElevationRange.max, a twin's
-//             rope anchors = its support member's, its comm wire anchor = the member's raised by the twin's head when its mesh has a
-//             Head bone (else the member's), membership, the twins imported together (none = pending), no top-level "version".
-//             Bug class: two members 0.05 m apart read back as each other (MemberOf) and the engine spawns either; a twin whose lanes
-//             moved lifts the rope; a twin copied with "version": 1 is invisible to LoadTwins (no hashless PrefabID alias).
+//   PINDROP   (G2) every carrier pose drops by LiftMoverMath.CarrierDrop (grip top minus the jaw's rope point).
+//             No system subtracts a grip top from a rope point by hand. The catalog's CarrierDrops view and the tram call the helper.
+//             ChairPinSystem reads CarrierDrops.
+//             Bug class: the grip TOP rode the rope (round-2 contract D8), and the rope ran over the jaw.
+//   ROPELANE  (G3) per loop lift type, these conditions hold:
+//             1. The line piece, every line tower and both stations reference ONE haul-rope lane prefab.
+//                FindAnchor matches anchors by lane prefab (LaneSystem.cs:4049, :2466-2505).
+//                A tower or station on another lane leaves the rope end unanchored.
+//             2. That lane is ours (never the vanilla HV lane 5d88ac45..., m_Hanging 0.03).
+//             3. That lane draws the still LOW-voltage rope mesh SkiRopeStillLVA
+//                (the vanilla LV cable bbb9724d..., 0.12 m across, DECISIONS 573 h, with swaying off).
+//             4. That lane sags exactly its type's value (sag below, equal to the catalog Envelope.LaneHanging, LiftBatch CT-12).
+//             The tram's track rope draws SkiRopeStillHVA. Its haul rope draws SkiRopeStillLVA. Both ropes are at 0.04.
+//             Bug classes:
+//             - The FG rope sagged like a power line on the vanilla HV lane (0.03, 12.6 deg break-over per tower).
+//             - A swaying cable mesh (vanilla m_HangingSwaying) moves the rope away from the carriers that ride it in wind, by about the sag.
+//   BONEROOT  every owned skinned mesh's root bone is identity (rotation 0,0,0,1, scale 1).
+//             The import gives it the FBX scene conversion, and the game composes it into every skin matrix.
+//             Bug class: the rig probe drew turned and 100x.
+//   CARRIERPASS the lift-line tool keeps the carriers and their grips passable for its whole session
+//             (LiftLineToolSystem start / stop / station hooks, the grip list).
+//             Bug classes:
+//             - Re-drawing a bulldozed middle section was refused, with OverlapExisting on the neighbor section's chairs.
+//             - A section delete next to riding chairs was refused, with OverlapExisting on their grips.
+//   LADDER    the tower placeholders' members follow these rules:
+//             - Tops are unique by >= 0.1 m.
+//             - A twin head's E is within the line's m_ElevationRange.max.
+//             - A twin's rope anchors = its support member's.
+//             - A twin's comm wire anchor = the member's raised by the twin's head when its mesh has a Head bone (else the member's).
+//             - Each twin is a member of the placeholder.
+//             - The twins are imported together (none = pending).
+//             - No top-level "version".
+//             Bug classes:
+//             - Two members 0.05 m apart read back as each other (MemberOf), and the engine spawns either.
+//             - A twin whose lanes moved lifts the rope.
+//             - A twin copied with "version": 1 is invisible to LoadTwins (no hashless PrefabID alias).
 //
-//   MANIFESTSHA a station manifest that was RE-FROZEN (prefab_contract.refrozen, written by assets/blender/refreeze_m_manifests.py) pins
-//             the deployed building prefab it was frozen from: prefab_contract.source_sha256 must equal the sha256 of that prefab under
-//             --root. test_fg_family_seams M1 checks the same thing but needs Blender; this finds the drift at preflight. Bug class:
-//             lift alignment phase 1 (2026-11-02) repointed the FG stations' two HV sub-lanes and the M manifests stayed frozen on the
-//             old prefab until the Blender suite failed (DECISIONS 592 q). Manifests without a "refrozen" note are import-time snapshots
-//             (the prefab as it was BEFORE that import's repoint, e.g. fixedgrip/N) and legitimately differ from the deployed file.
+//   MANIFESTSHA a station manifest that was RE-FROZEN (prefab_contract.refrozen, written by assets/blender/refreeze_m_manifests.py)
+//             pins the deployed building prefab it was frozen from.
+//             prefab_contract.source_sha256 must equal the sha256 of that prefab under --root.
+//             test_fg_family_seams M1 checks the same thing but needs Blender. This gate finds the drift at preflight.
+//             Bug class: lift alignment phase 1 (2026-11-02) repointed the FG stations' two HV sub-lanes.
+//             The M manifests stayed frozen on the old prefab until the Blender suite failed (DECISIONS 592 q).
+//             Manifests without a "refrozen" note are import-time snapshots (the prefab as it was BEFORE that import's repoint, e.g. fixedgrip/N).
+//             They legitimately differ from the deployed file.
 //
-// Usage: node tools/check-lift-align.js [--root <ImportedData dir>] [--self-test]   (default root: gamedata-mirror/ImportedData;
-//        preflight passes the game's). --self-test plants faults in the LADDER model (duplicate top, E past range, offset anchor,
-//        missing membership, partial import, versioned twin, unknown member) and runs the MANIFESTSHA fixtures (stale sha, missing
-//        prefab, snapshot, archive/); it fails unless each is caught.
+// Usage: node tools/check-lift-align.js [--root <ImportedData dir>] [--self-test]
+//        Default root: gamedata-mirror/ImportedData. Preflight passes the game's.
+//        --self-test plants faults in the LADDER model (duplicate top, E past range, offset anchor,
+//        missing membership, partial import, versioned twin, unknown member).
+//        It also runs the MANIFESTSHA fixtures (stale sha, missing prefab, snapshot, archive/).
+//        It fails unless it catches each one.
 // Exit code = number of failures. Last line: "check-lift-align: OK ..." on success.
 
 'use strict';
@@ -61,7 +80,7 @@ function* manifestFiles(dir) {
         else if (e.name.endsWith('.manifest.json')) yield p;
     }
 }
-// Every manifest under importDir that carries prefab_contract.source_sha256: a re-frozen one is checked against the prefab under rootDir.
+// The function looks at every manifest under importDir that carries prefab_contract.source_sha256. It checks a re-frozen one against the prefab under rootDir.
 function manifestShaCheck(importDir, rootDir) {
     const out = { problems: [], checked: 0, snapshots: 0 };
     for (const f of manifestFiles(importDir)) {
@@ -285,8 +304,8 @@ const passRules = [
     ['OnStartRunning', /SetCarriersPassable\(\s*true\s*\)/, 'sets the carriers passable for the tool session'],
     ['OnStopRunning', /SetCarriersPassable\(\s*m_StationPlacing\s*\)/, 'hands the carriers back to the station window (SetCarriersPassable(m_StationPlacing))'],
     ['SetStationPlacing', /if\s*\(\s*!IsActive\s*\)\s*\{[^}]*SetCarriersPassable\(\s*placing\s*\)/, 'changes the carriers only while the tool is not running'],
-    // The grips of a split carrier are separate objects, not carriers: they need the flag too (bridge 2026-11-03, F1: a section
-    // delete next to riding chairs was refused, OverlapExisting on SkiLiftChair4Grip / SkiTramCarriage).
+    // The grips of a split carrier are separate objects, not carriers. They need the flag too (bridge 2026-11-03, F1: a section
+    // delete next to riding chairs was refused, with OverlapExisting on SkiLiftChair4Grip / SkiTramCarriage).
     ['SetCarriersPassable', /GripTypes\.Keys/, 'marks the grips of split carriers (m_Catalog.GripTypes) as well as the carriers'],
 ];
 for (const [name, re, why] of passRules) {
@@ -343,7 +362,7 @@ function placeholdersOf(text) {
     return m ? [...m[1].matchAll(/CID:([0-9a-fA-F]{32})/g)].map(x => x[1].toLowerCase()) : [];
 }
 
-/** The model the LADDER rules run on (loaded from the root and the C# tables; --self-test plants faults in a copy). */
+/** The model the LADDER rules run on (loaded from the root and the C# tables). --self-test plants faults in a copy. */
 function loadLadderModel() {
     const src = fs.readFileSync(path.join(systems, 'LiftTowerPlanner.cs'), 'utf8');
     const prefabs = {};   // name -> { placeholders: [cid], anchors, versioned, mesh, top }
@@ -410,8 +429,8 @@ function ladderRules(model) {
             const p = model.prefabs[tw.name];
             if (!p) continue;
             if (!p.placeholders.includes(t.cid)) out.push(`${P}: twin ${tw.name} is not a member of the placeholder (SpawnableObject m_Placeholders)`);
-            // LoadTwins finds a twin by PrefabID(type, name): only a version-0 prefab gets that hashless alias (PrefabBase.OnDeserialized ->
-            // MarkCurrentPrefabObsolete, PrefabBase.cs:80-111); "version": 1 (copied from an Editor-saved member) hides the twin from the planner.
+            // LoadTwins finds a twin by PrefabID(type, name). Only a version-0 prefab gets that hashless alias (PrefabBase.OnDeserialized ->
+            // MarkCurrentPrefabObsolete, PrefabBase.cs:80-111). A prefab with "version": 1 (copied from an Editor-saved member) hides the twin from the planner.
             if (p.versioned) out.push(`${P}: twin ${tw.name} has a top-level "version" >= 1: drop "version" / "m_prefabFormat" or LoadTwins misses it`);
             const ms = model.prefabs[support.name];
             if (!ms) { out.push(`${P}: twin ${tw.name}: its member ${support.name} not found`); continue; }
@@ -420,9 +439,9 @@ function ladderRules(model) {
             let same = a.length === b.length && a.length > 0;
             for (let i = 0; same && i < a.length; i++) same = sameAnchor(a[i], b[i]);
             if (!same) out.push(`${P}: twin ${tw.name} anchors (ObjectSubLanes lane + curve) differ from ${support.name}'s: the rope moves when the head changes`);
-            // The comm wire: a twin with a Head bone (DQ / GD letter T) carries it on a Root post raised with its head, so its anchor is the
-            // member's raised by the twin's top over the member's (lift_head.comm_anchor; manifest comm_anchor_new_y); a twin without
-            // one keeps the member's. Both must also stay on the member's x / z.
+            // The comm wire: a twin with a Head bone (DQ / GD letter T) carries it on a Root post raised with its head.
+            // Its anchor is then the member's raised by the twin's top over the member's (lift_head.comm_anchor, manifest comm_anchor_new_y).
+            // A twin without a Head bone keeps the member's. Both must also stay on the member's x / z.
             const ca = p.anchors.filter(x => x.lane === COMM_LANE), cb = ms.anchors.filter(x => x.lane === COMM_LANE);
             const raise = p.headed ? tw.top - support.top : 0;
             if (ca.length !== cb.length || !ca.every((x, i) => sameAnchor(x, cb[i], raise)))

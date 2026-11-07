@@ -1,9 +1,10 @@
 // Round-2 integrator: T1-T3 / W1-W3 FG-only fingerprint. The SAME source is compiled against
-// (A) git HEAD's SkiResortScore.cs (numerically = Phase A: Phase A changed only LiftValue 6.0 -> the const alias 6.0)
-// and (B) the working tree's SkiResortScore.cs (+ SkiCatalog.cs). Inputs = tests/ResortBatch/ScoreTests.cs builders,
-// copied verbatim. Every public field of Result and of each RunPart is printed as raw bits (doubles via
-// BitConverter.DoubleToInt64Bits), sorted by name; the two outputs are then diffed (B may only ADD lines: the
-// Phase B fields) and an FNV-1a 64 is taken over the lines common to both field sets.
+// (A) git HEAD's SkiResortScore.cs and (B) the working tree's SkiResortScore.cs (+ SkiCatalog.cs).
+// (A) is numerically = Phase A. Phase A changed only LiftValue 6.0 -> the const alias 6.0.
+// Inputs = tests/ResortBatch/ScoreTests.cs builders, copied verbatim. The harness prints every public
+// field of Result and of each RunPart as raw bits (doubles via BitConverter.DoubleToInt64Bits), sorted by name.
+// The two outputs are then diffed (B may only ADD lines: the Phase B fields).
+// An FNV-1a 64 is taken over the lines common to both field sets.
 using System;
 using System.Collections.Generic;
 using System.Globalization;

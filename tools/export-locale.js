@@ -2,13 +2,16 @@
  * tools/export-locale.js - writes locale/en-US.json, the translation template: every key the mod registers -> its English text.
  *
  *   node tools/export-locale.js           write locale/en-US.json
- *   node tools/export-locale.js --check   change nothing; exit 1 when the file on disk differs from what the sources produce
+ *   node tools/export-locale.js --check   change nothing, exit 1 when the file on disk differs from what the sources produce
  *
- * Sources: the two IDictionarySource classes that Mod.OnLoad registers with AddSource. Their dictionary initializers are read as
- * text (no game, no compiler): string literals joined with +, nameof(X.Y), SkiResortSettings.<Const>, and the ModSetting locale-id
- * helpers the settings file calls. Anything else is an error: a guessed key would ship a template that silently misses a string.
- * Also fails when a key repeats (the game drops a whole source on a duplicate), when the entry count disagrees with a separate
- * count of the initializer's entry braces, or when a hub text differs from its src/hub/hubText.ts tuple.
+ * Sources: the two IDictionarySource classes that Mod.OnLoad registers with AddSource. The script reads their dictionary initializers as
+ * text (no game, no compiler). It accepts only these forms: string literals joined with +, nameof(X.Y), SkiResortSettings.<Const>, and the
+ * ModSetting locale-id helpers the settings file calls. Anything else is an error, because a guessed key would ship a template that
+ * silently misses a string.
+ * It also fails in these cases:
+ *   - A key repeats (the game drops a whole source on a duplicate).
+ *   - The entry count disagrees with a separate count of the initializer's entry braces.
+ *   - A hub text differs from its src/hub/hubText.ts tuple.
  */
 "use strict";
 const fs = require("fs");
@@ -23,7 +26,7 @@ const HUB_TEXT_TS = path.join(ROOT, "mod", "SkiResortUI", "src", "hub", "hubText
 const OUT_DIR = path.join(ROOT, "locale");
 
 // The dictionary sources Mod.OnLoad may register, by the class expression in its AddSource call. A third source, or one under
-// another name, fails until it is added here: its keys would otherwise be missing from the template.
+// another name, fails until someone adds it here. Otherwise its keys would be missing from the template.
 const SOURCES = {
   "LocaleEN": { file: path.join(MOD_DIR, "LocaleEN.cs"), settings: false },
   "SkiResortMod.Settings.LocaleEN": { file: path.join(MOD_DIR, "Settings", "LocaleEN.cs"), settings: true },
@@ -39,8 +42,8 @@ function read(p) {
 
 // ---- tokenizer --------------------------------------------------------------------------------------------------------------
 
-// Token: { t: "str" | "id" | "num" | "chr" | "p", v, line }. Comments are skipped. The whole file is tokenized and the parser rejects
-// any token outside the dictionary grammar; interpolated strings fail here, since their value needs running code.
+// Token: { t: "str" | "id" | "num" | "chr" | "p", v, line }. The tokenizer skips comments. It tokenizes the whole file, and the parser rejects
+// any token outside the dictionary grammar. Interpolated strings fail here, since their value needs running code.
 function tokenize(text, file) {
   const toks = [];
   let i = 0, line = 1;
@@ -128,7 +131,7 @@ function tokenize(text, file) {
       i = j + 1;
       continue;
     }
-    // Other punctuation (class headers, attributes) stays a token; the parser rejects it if it turns up inside the initializer.
+    // Other punctuation (class headers, attributes) stays a token. The parser rejects it if it appears inside the initializer.
     toks.push({ t: "p", v: c, line });
     i++;
   }
@@ -137,7 +140,7 @@ function tokenize(text, file) {
 
 // ---- the game's key formats (Game.Modding/ModSetting.cs:303-371 in the decompile) ---------------------------------------------
 
-// The helpers the two LocaleEN files call; a call to any other is an error. `argc` counts the arguments, `kind` is the kind of the
+// The helpers the two LocaleEN files call. A call to any other is an error. `argc` counts the arguments. `kind` is the kind of the
 // one argument ("str" for a string, "enum" for an enum member). The binding component name is "binding": the Press component of
 // the button composite (InputManager.GetBindingName, Game.Input/ButtonWithModifiersComposite.cs:44).
 function makeHelpers(ctx) {
@@ -390,7 +393,7 @@ function countEntryBraces(file) {
 // ---- hub text parity ------------------------------------------------------------------------------------------------------------
 
 // Every ["Prefix.KEY", "English"] tuple of hubText.ts must equal the dictionary text. The UI build's R4 gate checks the same through
-// the TypeScript parser; this reader is a regex over the file's own tuple form and also fails on any tuple it cannot decode.
+// the TypeScript parser. This reader is a regex over the file's own tuple form. It also fails on any tuple it cannot decode.
 function checkHubText(map) {
   const text = read(HUB_TEXT_TS);
   const re = /\[\s*"((?:SkiResort|Assets|SubServices)\.[^"]*)"\s*,\s*("(?:[^"\\\n]|\\.)*")\s*\]/g;

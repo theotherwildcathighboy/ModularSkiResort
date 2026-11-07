@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Gate LODGEID (merge asset P1, EngineNotes/SkiMergeSystem.md "Identity"): a merged building is a lodge that our prefab catalog does not
-// know. Every prefab-keyed lodge lookup (IsLodge, LodgeDefs, LodgePrefabSet) is either a path that must also see merged buildings (then
-// it goes through LodgeIdentity.Resolve or the attractiveness system's merged views) or one that stays prefab-only on purpose. The
-// reviewed sites are counted per file below; a new site fails until it is routed or added here with its reason.
+// know. Every prefab-keyed lodge lookup (IsLodge, LodgeDefs, LodgePrefabSet) is one of two kinds:
+//   - A path that must also see merged buildings. It goes through LodgeIdentity.Resolve or the attractiveness system's merged views.
+//   - A path that stays prefab-only on purpose.
+// The reviewed sites are counted per file below. A new site fails until someone routes it or adds it here with its reason.
 const fs = require('fs');
 const path = require('path');
 

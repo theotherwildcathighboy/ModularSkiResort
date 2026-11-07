@@ -4,14 +4,14 @@
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\deploy-check.ps1
 #
-# One PASS / STALE / UNKNOWN line per check (the source it read is named in brackets), then a summary.
+# The script prints one PASS / STALE / UNKNOWN line per check (the source it read is named in brackets), then a summary.
 # Exit 0 = every check PASS. Exit 1 = at least one STALE or UNKNOWN.
 #
 # THE STAMP carries NO commit. mod/SkiResortMod/SkiResortMod.csproj (target SkiUiBuild) makes it as
-# yyyyMMdd-HHmmss (UTC) + 6 random GUID hex chars, ONLY when the UI bundle is rebuilt (a C#-only rebuild keeps the old
-# stamp); "ui-" prefixed = a UI-only npm build. So the stamp proves "same build as" (log vs deployed DLL vs bundle),
-# never "equals HEAD". Freshness against the code is decided by file times (what MSBuild's incremental build uses)
-# and git cleanliness instead. Stamp readers:
+# yyyyMMdd-HHmmss (UTC) + 6 random GUID hex chars. It does this ONLY when the UI bundle is rebuilt (a C#-only rebuild keeps the old
+# stamp). "ui-" prefixed = a UI-only npm build. So the stamp proves "same build as" (log vs deployed DLL vs bundle),
+# never "equals HEAD". File times (what MSBuild's incremental build uses) and git cleanliness decide
+# freshness against the code instead. Stamp readers:
 #   deployed DLL   - BuildStamp.Value is a const string, found by scanning the DLL bytes (UTF-16) [dll]
 #   deployed bundle- SkiResortMod.mjs beside the DLL                                              [mjs]
 #   mod log line 3 - "DLL stamp <stamp>" (Mod.cs ReportUiModule), the stamp of the DLL the GAME loaded [log]
@@ -21,12 +21,12 @@
 #   2 log-stamp   log line 3 stamp == deployed DLL stamp (else the game ran an older deploy: restart it)
 #   3 log-time    the log's first line is newer than the deployed DLL's file time (game started after the deploy)
 #   4 bundle      bundle stamp == DLL stamp (a mismatched pair blanks the hub)
-#   5 sources     no mod/ source file is newer than the deployed DLL (else: rebuild + deploy; the owner decides)
+#   5 sources     no mod/ source file is newer than the deployed DLL (else: rebuild + deploy. The owner decides)
 #   6 git         no uncommitted changes under mod/ (else the deploy cannot be tied to HEAD)
-#   7 prefabs     game ImportedData == gamedata-mirror\ (same ownership + include rules as tools\sync-gamedata.ps1;
-#                 file hashes; the mirror is a copy of the game side, so a difference means the mirror is behind
-#                 (run sync-gamedata.ps1) or the game lacks a file. Mirror-only files are reported, not fatal)
-# Never builds. Do not build while Cities2.exe runs; this script only reads.
+#   7 prefabs     game ImportedData == gamedata-mirror\ (same ownership + include rules as tools\sync-gamedata.ps1, compared by file hashes).
+#                 The mirror is a copy of the game side, so a difference means the mirror is behind (run sync-gamedata.ps1)
+#                 or the game lacks a file. Mirror-only files are reported, not fatal.
+# Never builds. Do not build while Cities2.exe runs. This script only reads.
 
 
 $ErrorActionPreference = "Stop"

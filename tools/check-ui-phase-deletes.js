@@ -1,6 +1,7 @@
-// Gate: no system registered in a phase after ModificationSystem tags an entity Deleted. CleanUpSystem destroys Deleted entities right
-// after MainLoop, so vanilla's Modification systems never see such a tag: an area stays in Game.Areas.SearchSystem's tree and a later Burst
-// job crashes on it (field test 2026-10-31). UIUpdate is the phase a request from the hub lands in; queue it for PostTool instead.
+// Gate: no system registered in a phase after ModificationSystem tags an entity Deleted.
+// CleanUpSystem destroys Deleted entities right after MainLoop. So vanilla's Modification systems never see such a tag.
+// An area then stays in Game.Areas.SearchSystem's tree, and a later Burst job crashes on it (field test 2026-10-31).
+// UIUpdate is the phase a request from the hub lands in. Queue it for PostTool instead.
 "use strict";
 const fs = require("fs");
 const path = require("path");

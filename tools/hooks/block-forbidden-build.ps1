@@ -1,12 +1,12 @@
 # PreToolUse hook (matcher Bash|PowerShell): blocks the two commands that deploy to the game.
 # Rule source: CLAUDE.md "Build & deploy" (Claude and subagents DEPLOY NOTHING). Added 2026-10-18
 # after the 2026-10-13 deploy accident (a full `dotnet build` fired DeployWIP over the Mods folder).
-#   (a) `dotnet build` is allowed ONLY as the compile check `-t:Compile`, with no
+#   (a) The hook allows `dotnet build` ONLY as the compile check `-t:Compile`, with no
 #       --no-incremental / Rebuild alongside it (those turn it back into a deploying build).
-#   (b) `--env deploy` (webpack UI deploy, also what `npm run dev` runs) is never allowed.
-# Reads the hook JSON on stdin; exit 2 + one stderr line = block (Claude sees the line);
-# exit 0 = allow. A command that merely MENTIONS these strings (grep, echo) is blocked too:
-# rephrase it or ask the owner.
+#   (b) The hook never allows `--env deploy` (webpack UI deploy, also what `npm run dev` runs).
+# Reads the hook JSON on stdin. Exit 2 + one stderr line = block (Claude sees the line).
+# Exit 0 = allow. The hook also blocks a command that merely MENTIONS these strings (grep, echo).
+# Rephrase the command or ask the owner.
 $ErrorActionPreference = 'Stop'
 try {
     $raw = [Console]::In.ReadToEnd()

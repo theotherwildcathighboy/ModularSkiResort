@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Gate JOBREAD (DECISIONS 521, PIPELINE "per-frame work at release scale"): no mod system reads or writes a vanilla component that the
-// city's vehicle jobs write through EntityManager, and none writes AttractivenessProvider that way. Each such call completes the jobs on
-// that type, so the main thread waits for the whole city: +4.8 ms per frame at 3x on a 355k city. Use a Burst job on Dependency.
+// Gate JOBREAD (DECISIONS 521, PIPELINE "per-frame work at release scale"). No mod system reads or writes a vanilla component
+// through EntityManager when the city's vehicle jobs write that component. No mod system writes AttractivenessProvider that way.
+// Each such call completes the jobs on that type, so the main thread waits for the whole city. The cost is +4.8 ms per frame at 3x
+// on a 355k city. Use a Burst job on Dependency.
 // A rare path (a tool click, once per load) says so with "main-thread ok" on the same line.
 const fs = require('fs');
 const path = require('path');

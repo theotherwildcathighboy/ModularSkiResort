@@ -1,9 +1,9 @@
-// check-no-user-paths.js - fails when a tracked (or staged) file contains
+// check-no-user-paths.js - fails when a tracked (or staged) file contains one of these:
 //   (1) an absolute Windows user path (C:\Users\... or C:/Users/...). Paths in text must be repo-relative or %USERPROFILE% /
-//       %TEMP% placeholders;
+//       %TEMP% placeholders.
 //   (2) the owner's first name or surname. Text in tracked files states the rule or fact, never who decided it ("the owner"
-//       names a role where the role matters); credits and the license holder use the account name.
-// The name is assembled from parts so this file never spells it out.
+//       names a role where the role matters). Credits and the license holder use the account name.
+// The code assembles the name from parts, so this file never spells it out.
 // Usage: node tools/check-no-user-paths.js [--self-test]   (exit 1 + one line per hit)
 const { execFileSync } = require("child_process");
 const fs = require("fs");

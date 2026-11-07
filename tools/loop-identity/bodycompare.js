@@ -1,7 +1,7 @@
 // bodycompare.js <old LiftLoopCache.cs> <new LiftLoopCache.cs>
 // Round 3 (skeptic MUST 2): the Loop geometry, Sample and closure bodies of LiftLoopCache moved verbatim.
-// Extracts members by signature (brace matching from the signature line) and compares the text after an explicit,
-// listed token map (the chain type moved to LiftLoopTopology). Exit code = number of mismatches.
+// The script extracts members by signature (brace matching from the signature line). It compares the text
+// after an explicit, listed token map (the chain type moved to LiftLoopTopology). Exit code = number of mismatches.
 const fs = require('fs');
 const [oldPath, newPath] = process.argv.slice(2);
 const oldText = fs.readFileSync(oldPath, 'utf8'), newText = fs.readFileSync(newPath, 'utf8');
