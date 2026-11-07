@@ -1,10 +1,10 @@
 /*
- * The Money ("Finances") view: what the resort earns and costs this month, and the one net, in three rows like the game's budget panel
- * (DECISIONS 613): INCOME (fold) / RUNNING COSTS (fold) / Net. Every number is C#'s (HubRules.IncomeMonth / CostsMonth / NetMonth, contract
- * 38); the UI adds nothing up. The folds hold ONLY the Net's nine rows (four incomes, five running costs), which add up to their header;
- * an income row is hidden only while it holds no money (hubRules.netRowShown).
- * Costs arrive positive and are shown negated; a negative (unknown) cost shows "–", never "+". MONEY_PRICE_LINE shows the ticket price and
- * the ski-day share (priceFactorPct mirrors C# SkiDayRules.PriceFactor). RUNNING COSTS and ALSO are Folds, one open at a time.
+ * The Money ("Finances") view: what the resort earns and costs this month, and the one net.
+ * It has three rows like the game's budget panel (DECISIONS 613): INCOME (fold) / RUNNING COSTS (fold) / Net. Every number is C#'s (HubRules.IncomeMonth / CostsMonth / NetMonth, contract
+ * 38). The UI sums nothing. The folds hold ONLY the Net's nine rows (four incomes, five running costs). The rows sum to their header.
+ * An income row is hidden only while it holds no money (hubRules.netRowShown).
+ * Costs arrive positive and the view shows them negated. A negative (unknown) cost shows "–", never "+". MONEY_PRICE_LINE shows the
+ * ticket price and the ski-day share (priceFactorPct mirrors C# SkiDayRules.PriceFactor). RUNNING COSTS and ALSO are Folds, one open at a time.
  * Panel file (rule R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$.
  */
 import { useValue } from "cs2/api";
@@ -45,18 +45,18 @@ function Cell({ samples, children }: { samples: NumberSamples; children: JSX.Ele
   return <StableWidth samples={samples.money} align="end">{children}</StableWidth>;
 }
 
-/** A cost, shown negated; unknown (negative) -> "–". */
+/** A cost, shown negated. Unknown (negative) -> "–". */
 function costValue(v: number): JSX.Element | string {
   return Number.isFinite(v) && v >= 0 ? <SignedNum value={-v} unit={Unit.Money} /> : DASH;
 }
 
-/** An income row's value as sent; unknown (negative) -> "–". */
+/** An income row's value as sent. Unknown (negative) -> "–". */
 function incomeValue(v: number): JSX.Element | string {
   return Number.isFinite(v) && v >= 0 ? <SignedNum value={v} unit={Unit.Money} /> : DASH;
 }
 
-/** The features this area's runs have (the Runs tooltip lists only their rows; R3): natural, groomed, guns on, lights on, cat track with
- *  guns on. */
+/** The features this area's runs have: natural, groomed, guns on, lights on, cat track with guns on.
+ *  The Runs tooltip lists only their rows (R3). */
 interface RunFeatureSet { natural: boolean; groomed: boolean; guns: boolean; lights: boolean; tracks: boolean }
 
 function featuresOf(runs: readonly RunRow[]): RunFeatureSet {
@@ -98,7 +98,7 @@ function sentLines(build: readonly BuildItem[]): Array<{ id: BuildItemId; liftTy
   return out;
 }
 
-/** The lifts row: the lift charge booked this month; its tooltip has today's rate and the per-type rates. */
+/** The lifts row: the lift charge booked this month. Its tooltip has today's rate and the per-type rates. */
 function LiftsRow({ row, l, build, samples, t }: {
   row: ResortRow; l: ResortLive | null; build: readonly BuildItem[]; samples: NumberSamples; t: Translate;
 }): JSX.Element {
@@ -108,7 +108,7 @@ function LiftsRow({ row, l, build, samples, t }: {
   const REDUCED = numArg(reduced, Unit.Integer);
   const lines = sentLines(build);
   const booked = <LocText key="r" entry={HUB_FMT.moneyTipLiftsRate} args={{ RATE: numArg(l ? l.liftCostMonth : -1, Unit.Money) }} />;
-  // One type -> today's text with its rates; two or more -> the per-type lines.
+  // One type -> today's text with its rates. Two or more -> the per-type lines.
   const tip = lines.length >= 2
     ? <TipLines lines={[
       booked,
@@ -160,7 +160,7 @@ function BusRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats
   );
 }
 
-/** Run upkeep booked this month; the tooltip lists today's rate per month for each feature the area's runs have (or that bills now). */
+/** Run upkeep booked this month. The tooltip lists today's rate per month for each feature the area's runs have (or that bills now). */
 function RunsRow({ l, feats, samples, t }: { l: ResortLive | null; feats: RunFeatureSet; samples: NumberSamples; t: Translate }): JSX.Element {
   const ha = (v: number | undefined): JSX.Element | string => numArg(v ?? -1, Unit.FloatSingleFraction);
   return (
@@ -180,7 +180,7 @@ function RunsRow({ l, feats, samples, t }: { l: ResortLive | null; feats: RunFea
   );
 }
 
-/** Buildings / wages so far = today's rate × the share of the month simulated (C#'s rows; nothing multiplied here). */
+/** Buildings / wages so far = today's rate × the share of the month simulated (C#'s rows, nothing multiplied here). */
 function SoFarRow({ label, value, rateNow, l, rwh, samples, t, extra }: {
   label: string; value: number; rateNow: number; l: ResortLive | null; rwh: boolean; samples: NumberSamples; t: Translate; extra?: string;
 }): JSX.Element {
@@ -218,7 +218,7 @@ function LodgeSpendRow({ l, city, samples, t }: { l: ResortLive | null; city: Ci
   );
 }
 
-/** Season passes sold this month (pre-season sales land in their sale month); the pre-season part in the tooltip. */
+/** Season passes sold this month (pre-season sales land in their sale month). The tooltip shows the pre-season part. */
 function PassesMonthRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
   if (!l || !netRowShown("passes", l, city)) return null;
   return (
@@ -278,8 +278,8 @@ function LessonRow({ l, city, school, samples, t }: {
   );
 }
 
-/** The resort's share of the city's tourist draw x the game's TouristIncome statistic, an estimate, in the "Also" block (not
- *  resort income, not in the net); under Tourism Overhaul the row is replaced by the same Detected note as the tourist estimate.
+/** The resort's share of the city's tourist draw x the game's TouristIncome statistic. It is an estimate in the "Also" block (not
+ *  resort income, not in the net). Under Tourism Overhaul the same Detected note as the tourist estimate replaces the row.
  *  The label carries no "≈": the mark slot shows it next to the value, as on the net row (DECISIONS 568). */
 function CityIncomeRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
   if (city.tourismOverhaul) return <SubLine tip={t(HUB_LOC.estToTip)}>{t(HUB_LOC.estToNote)}</SubLine>;
@@ -305,7 +305,7 @@ function NetRow({ l, samples, t }: { l: ResortLive | null; samples: NumberSample
   );
 }
 
-/** The lift tickets booked this month (ticketsThisMonth, the Net's first row); "off" keeps its label. */
+/** The lift tickets booked this month (ticketsThisMonth, the Net's first row). "off" keeps its label. */
 function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: number; samples: NumberSamples; t: Translate }): JSX.Element {
   const off = l ? ticketsRow(l, price) === "off" : false;
   return (
@@ -323,10 +323,10 @@ function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: num
 }
 
 /** Under the tickets row, the Options price and what it does to ski days (the factor as a whole percent,
- *  hubRules.priceFactorPct). Read-only; the tooltip says where to change it.
- *  `price` = hubRules.hubPrice(city): -1 ("–") until C# has sent the city. One text node (check-bundle rule R13). */
+ *  hubRules.priceFactorPct). The line is read-only. The tooltip says where to change it.
+ *  `price` = hubRules.hubPrice(city): -1 ("–") until C# sends the city. One text node (check-bundle rule R13). */
 function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; t: Translate }): JSX.Element {
-  // The area's lodges' price tolerance (ResortLive.priceTolerance; -1 unknown reads as 0).
+  // The area's lodges' price tolerance (ResortLive.priceTolerance, -1 unknown reads as 0).
   const tol = tolerance > 0 ? tolerance : 0;
   const pct = priceFactorPct(price, tol);
   const ex = (i: number): { P: JSX.Element | string; F: JSX.Element | string } => ({
@@ -402,8 +402,8 @@ function SignMoney({ row, l, city, build, feats, problems, samples, t }: {
   );
 }
 
-/** Not linked: Net = -(lift charge + run upkeep booked for Not linked); the Runs row only while it holds money (so the rows
- *  still add up to the Net). */
+/** Not linked: Net = -(lift charge + run upkeep booked for Not linked). The Runs row shows only while it holds money (so the rows
+ *  still sum to the Net). */
 function UnlinkedMoney({ row, l, city, build, samples, t }: {
   row: ResortRow; l: ResortLive | null; city: CityStats; build: readonly BuildItem[]; samples: NumberSamples; t: Translate;
 }): JSX.Element {

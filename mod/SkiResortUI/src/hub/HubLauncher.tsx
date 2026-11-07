@@ -1,8 +1,8 @@
 /*
- * src/hub/HubLauncher.tsx - the two hub launchers. HubLauncherSquare is appended at "UniversalModMenu": its root becomes a direct child
+ * src/hub/HubLauncher.tsx - the two hub launchers. HubLauncherSquare is appended at "UniversalModMenu". Its root becomes a direct child
  * of the Universal Mod Panel's button grid, so it must stay one square element. HubFloatingButton is appended at "GameTopLeft" (mouse/keyboard
- * layout only), hidden while ShowHubButton is off. Both toggle the hub (hubState.ts) and show `selected` while it is open.
- * The tooltip is an explicit cs2/ui Tooltip (a Button's `tooltipLabel` never shows on an icon button); the icon is a tinted mask
+ * layout only), and it is hidden while ShowHubButton is off. Both toggle the hub (hubState.ts) and show `selected` while it is open.
+ * The tooltip is an explicit cs2/ui Tooltip (a Button's `tooltipLabel` never shows on an icon button). The icon is a tinted mask
  * (`tinted` on both: Button does not tint by default).
  * Engine notes: EngineNotes/HubLauncher.tsx.md
  */

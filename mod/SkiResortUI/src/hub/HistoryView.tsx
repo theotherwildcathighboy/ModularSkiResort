@@ -1,9 +1,10 @@
 /*
  * src/hub/HistoryView.tsx - the History view: guests and money month by month, by ski season for long ranges.
- * Top level shows the chart and the number that matters (headline = last whole month against the same month a year earlier); tooltips
- * hold the detail. Controls are local values (hubState.ts, nothing sent): scope area / whole city and range; both charts and (area scope) the Attraction strip always draw.
- * Snow is not drawn as a line: the Attraction strip's hover names each month's snow at the roll as its two numbers, depth and run
- * coverage (T142 B7b, contract 15; snow is never one number). Hover: one index shared by
+ * Top level shows the chart and the number that matters (headline = last whole month against the same month a year earlier). Tooltips
+ * hold the detail. Controls are local values (hubState.ts, nothing sent): scope area / whole city, and range. Both charts and (area scope)
+ * the Attraction strip always draw.
+ * Snow is not drawn as a line. The Attraction strip's hover names each month's snow at the roll as its two numbers, depth and run
+ * coverage. T142 B7b, contract 15: snow is never one number. Hover: one index shared by
  * every chart of the view. Panel file (gate R11): subscribes history$ (only this view, so C# builds `history` only while it is shown),
  * resorts$, selectedResort$.
  */
@@ -44,7 +45,7 @@ const RANGE_TIP: Readonly<Record<HistoryRange, LocEntry>> = {
 };
 
 /** Plot heights in rem: each chart, the attraction strip. Both charts are always drawn (hub redesign 2026-11-07: the Guests /
-*  Finances / Both segment and the strip's check box went); the pager (fit.tsx) puts the money chart on a second page if needed. */
+*  Finances / Both segment and the strip's check box were removed). The pager (fit.tsx) puts the money chart on a second page if needed. */
 const H_TWO = 64, H_STRIP = 26;
 
 function asRange(v: string): HistoryRange {
@@ -60,7 +61,7 @@ function bucketTitle(b: HistoryBucket, t: Translate): JSX.Element {
   return <LocText entry={HUB_FMT.historyMonthYear} args={{ MONTH: monthName(monthOfKey(b.key), t), YEAR: String(yearOfKey(b.key)) }} />;
 }
 
-/** The axis labels: a short month (the year on January when the range spans more than a year), or "25/26" ("2026" from January) for a season. */
+/** The axis labels: a short month (the year on January when the range spans more than a year). A season gets "25/26" ("2026" from January). */
 function axisLabels(buckets: readonly HistoryBucket[], t: Translate): string[] {
   const n = buckets.length;
   if (n === 0) return [];
@@ -123,8 +124,8 @@ function Segment<K extends string>({ options, value, label, tip, enabled, onSele
   );
 }
 
-/** A season drawn as its average month is faded only while it runs (the average already makes a partial season comparable;
-*  its tooltip still says "Partial" and "{N} of 12 months"). */
+/** A season drawn as its average month is faded only while it runs. The average already makes a partial season comparable,
+*  and its tooltip still says "Partial" and "{N} of 12 months". */
 function slotsOf(buckets: readonly HistoryBucket[]): ChartSlot[] {
   return buckets.map((b) => ({ none: b.none, partial: b.perMonth > 0 ? b.current : b.partial, current: b.current, gap: b.gap }));
 }
@@ -154,7 +155,7 @@ export function HistoryView(): JSX.Element {
   const buckets = useMemo(() => windowOf(area, range), [area, range]);
   const compare = useMemo(() => compareOf(area, range), [area, range]);
   const yoy = useMemo(() => yearOnYear(area), [area]);
-  // The attraction is per ski area; Whole city has no strip.
+  // The attraction is per ski area. Whole city has no strip.
   const attraction = scope === "area";
 
   const scopeRow = (
@@ -296,7 +297,7 @@ export function HistoryView(): JSX.Element {
     </>
   );
 
-  // ---- Finances (income up, costs down, the net as a line; every part in the tooltip)
+  // ---- Finances (income up, costs down, the net as a line, every part in the tooltip)
   const incomeUp: ChartSeries[] = [{ key: "i", color: HISTORY_COLOR.income, value: (i) => pos(b(i).income) }];
   const costsDown: ChartSeries[] = [{ key: "c", color: HISTORY_COLOR.costs, value: (i) => pos(b(i).costs) }];
   const netPick = (x: HistoryBucket): number => x.net;
@@ -349,7 +350,7 @@ export function HistoryView(): JSX.Element {
     </>
   );
 
-  // ---- Attraction strip (own scale: never a second axis on a chart; area scope only)
+  // ---- Attraction strip (own scale: never a second axis on a chart, area scope only)
   const attrTip = hovered
     ? head([bucketTitle(hovered, t), stateLine(hovered, t),
       !hovered.none && { label: t(HUB_LOC.historyAttraction), value: hovered.attraction >= 0 ? <Num value={round(hovered.attraction)} unit={Unit.Integer} /> : "–" },

@@ -1,11 +1,12 @@
 /*
  * src/hub/MergeCard.tsx - the merge card beside the game's selected-info panel (contract 35), for a merged building or one that could be
- * merged. Always mounted at the "Game" hook like the Ski Bus card, so it reads only mergeCard$, never a panel binding. The tier chips pick a
- * tier the lot allows; the button fires mergeBuilding, C# charges at once and says the outcome on the next push. Its fees, states and
- * refusals are C#'s numbers (SkiMergeSystem, MergeRules); the card decides nothing.
- * Contract 37: what merging does and the fee rule are the title's tooltip (hub redesign 2026-11-07: the note under the title went); merge /
- * unmerge are the hub's action buttons, and an unmerged building's status line
- * says whether it is near enough to the runs and lifts to count (MergeCardState.near), before the player pays.
+ * merged. It is always mounted at the "Game" hook, like the Ski Bus card. So it reads only mergeCard$, never a panel binding.
+ * The tier chips pick a tier the lot allows. The button fires mergeBuilding. C# charges at once and says the outcome on the next push.
+ * Its fees, states and refusals are C#'s numbers (SkiMergeSystem, MergeRules). The card decides nothing.
+ * Contract 37: the title's tooltip holds what merging does and the fee rule (hub redesign 2026-11-07: the note under the title went).
+ * Merge / unmerge are the hub's action buttons.
+ * An unmerged building's status line says whether it is near enough to the runs and lifts to count (MergeCardState.near),
+ * before the player pays.
  * Engine notes: EngineNotes/SkiMergeSystem.md
  */
 import { useEffect, useState } from "react";

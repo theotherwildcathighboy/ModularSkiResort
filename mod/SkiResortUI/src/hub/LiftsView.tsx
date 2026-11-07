@@ -1,8 +1,10 @@
 /*
  * src/hub/LiftsView.tsx - the Lifts view: the shown area's lifts and their totals.
- * Rows: census rows whose `sign` is the shown area (Entity.Null = Not linked), C#'s order, each a LiftLine2 (LiftTable.tsx), then two always-shown
- * totals. React key = liftId (entity/top) plus "#n" for a repeat: two unfinished lines from one station are two census rows with the same (entity, top).
- * Click -> focused$ + focusLift (C# flies to the gap while a section is missing); pen -> rename(row.entity, text), C# renames the base station, else the top.
+ * Rows: census rows whose `sign` is the shown area (Entity.Null = Not linked), in C#'s order. Each row is a LiftLine2 (LiftTable.tsx).
+ * Two always-shown totals follow. React key = liftId (entity/top) plus "#n" for a repeat: two unfinished lines from one station are
+ * two census rows with the same (entity, top).
+ * Click -> focused$ + focusLift (C# flies to the gap while a section is missing).
+ * Pen -> rename(row.entity, text). C# renames the base station, else the top.
  * One list, no pager: this view and the Runs view may scroll. Panel file (gate R11): subscribes resorts$, selectedResort$, lifts$.
  */
 import { useCallback, useMemo, useState } from "react";
@@ -85,7 +87,7 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
         </div>
       )}
       <Divider />
-      {/* One total on the surface (DECISIONS 613); the total length is a row of its tooltip (Finances' Lifts row names it too). */}
+      {/* One total on the surface (DECISIONS 613). The total length is a row of its tooltip (Finances' Lifts row names it too). */}
       <InfoLine
         label={t(HUB_LOC.liftsTotalCapacity)}
         value={row && row.capacityPerHour >= 0 ? <LocText entry={HUB_FMT.capacityValue} args={{ CAP: numArg(row.capacityPerHour, Unit.Integer) }} /> : "–"}

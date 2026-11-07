@@ -1,13 +1,14 @@
 /*
  * src/hub/OverviewView.tsx - the Overview (Attraction tile): the score receipt and the mountain.
- * The receipt multiplies nothing: every number is a ResortLive field of C#'s model Result; -1 or a missing live row renders "–" (numArg).
- * The equation "(runs + lifts [+ school]) × variety × vertical" (SkiResortScore.cs:468 S) and HubRules.Terrain = K × sqrt(S) are spelled out
- * in the total's tooltip; operators sit in fixed cells ("√" is not on the Gameface font safe list). While `attractionHeld` the game keeps the
- * saved score, so the result row and the bar show "…". ResortLive.luxuryIgnored is not read (always 0; kept on the wire for the contract).
- * Layers (DECISIONS 613): the view is the receipt's terms and the result; a term's breakdown is its fold; the formula is in the tooltip of the
- * number it explains. The score shows once here (the result row; the tile above names it), the snow pair once (the status line).
- * Fixed heights only, so a value change never changes layout. Panel file: subscribes resorts$, selectedResort$, resortLive$, runs$, problems$, city$;
- * its MergedFold subscribes mergedLodges$ (contract 35).
+ * The receipt multiplies nothing: every number is a ResortLive field of C#'s model Result. -1 or a missing live row renders "–" (numArg).
+ * The total's tooltip spells out the equation "(runs + lifts [+ school]) × variety × vertical" (SkiResortScore.cs:468 S) and
+ * HubRules.Terrain = K × sqrt(S). Operators sit in fixed cells ("√" is not on the Gameface font safe list). While `attractionHeld` the game
+ * keeps the saved score, so the result row and the bar show "…". The view does not read ResortLive.luxuryIgnored (always 0, kept on the
+ * wire for the contract).
+ * Layers (DECISIONS 613): the view is the receipt's terms and the result. A term's breakdown is its fold. The formula is in the tooltip of
+ * the number it explains. The score shows once here, in the result row (the tile above names it). The snow pair shows once, in the status line.
+ * Fixed heights only, so a value change never changes layout. Panel file: subscribes resorts$, selectedResort$, resortLive$, runs$, problems$, city$.
+ * Its MergedFold subscribes mergedLodges$ (contract 35).
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -64,8 +65,8 @@ function DifficultyBar({ row, unrateable, tip }: { row: ResortRow; unrateable: n
   );
 }
 
-/** Marker + count per band; a "being rated" item and a "cannot be rated" item only while one exists (at count 0 the dimmed
- *  "being rated" ring looks exactly like Flat's). The legend has no label of its own: the MOUNTAIN header names the block. */
+/** Marker + count per band. A "being rated" item and a "cannot be rated" item show only while one exists.
+ *  At count 0 the dimmed "being rated" ring looks exactly like Flat's. The legend has no label of its own: the MOUNTAIN header names the block. */
 function DifficultyLegend({ row, unrateable, t }: { row: ResortRow; unrateable: number; t: Translate }): JSX.Element {
   const counts = bandCounts(row);
   const pending = pendingCount(row, unrateable);
@@ -91,7 +92,7 @@ function DifficultyLegend({ row, unrateable, t }: { row: ResortRow; unrateable: 
 /** MOUNTAIN: difficulty bar + legend, vertical, skiable area, snow (sign and Not linked). */
 function MountainSection({ row, live, city, unrateable, t, folded }: {
   row: ResortRow; live: ResortLive | null; city: CityStats; unrateable: number; t: Translate;
-  /** Under the receipt the section is a fold (closed by default); Not linked shows it open, it is the whole view there. */
+  /** Under the receipt the section is a fold (closed by default). Not linked shows it open, because it is the whole view there. */
   folded?: boolean;
 }): JSX.Element {
   const pending = pendingCount(row, unrateable);
@@ -104,7 +105,7 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
       ]}
     />
   );
-  // Snow is always two numbers, depth in cm and run coverage in %; "≈" in the mark slot when estimated, and the tooltip says
+  // Snow is always two numbers: depth in cm and run coverage in %. The mark slot shows "≈" when estimated, and the tooltip says
   // measured or estimated. tools/test-hub-rules.js guards it.
   const snowPct = live ? live.snowPct : -1;
   const depthCm = live ? live.snowDepthCm : -1;
@@ -142,7 +143,7 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
     </>
   );
   if (folded) {
-    // The header row carries the vertical (the section's headline number); the snow is on the status line above.
+    // The header row carries the vertical (the section's headline number). The snow is on the status line above.
     return (
       <Fold view="overview" id="mountain" header label={t(HUB_LOC.sectionMountain)} value={vertical} mark={verticalMark}
         tip={t(HUB_LOC.mountainTipVertical)}>
@@ -171,8 +172,8 @@ function Receipt({ row, l, city, problems, build, t }: {
   const held = !!l && l.attractionHeld;
   const attraction = l ? l.attraction : -1;
   const full = l ? l.attractionFull : -1;
-  // While the first write is held the game keeps the SAVED score, so neither the bar's fill nor its tooltip's "now" claims this
-  // Result: an empty track and "…".
+  // While the first write is held, the game keeps the SAVED score. So neither the bar's fill nor its tooltip's "now" claims this
+  // Result. The bar shows an empty track and "…".
   const [fill, ghost, rest] = scoreBarParts(held ? -1 : attraction, full);
   const factors = factorRowsOf(problems, row.sign);
 
@@ -188,7 +189,7 @@ function Receipt({ row, l, city, problems, build, t }: {
     VERTICAL: numArg(l ? l.verticalMultiplier : -1, Unit.FloatTwoFractions),
   };
   const school = receiptPartsVariant(l) === "school";
-  // The School row's flag; built-but-0 has its own cause (the build strip's AlreadyBuilt lock = this shown sign has one).
+  // The School row's flag. Built-but-0 has its own cause (the build strip's AlreadyBuilt lock = this shown sign has one).
   const schoolNow = schoolState(l, problems, row.sign, schoolBuiltOf(build));
   const schoolFlag = schoolFlagOf(schoolNow);
   const K = numArg(city.scaleK, Unit.Integer);
@@ -198,8 +199,8 @@ function Receipt({ row, l, city, problems, build, t }: {
 
   return (
     <>
-      {/* The score itself is the result row below and the tile above (DECISIONS 613: no header row repeating it); the bar's ticks (park 10,
-          attraction 50, landmark 120) give the scale, the cap is in its tooltip (T82 B6: never "44 of 200", it read as 22 %). */}
+      {/* The score itself is the result row below and the tile above (DECISIONS 613: no header row repeating it). The bar's ticks (park 10,
+          attraction 50, landmark 120) give the scale. The cap is in its tooltip (T82 B6: never "44 of 200", because it read as 22 %). */}
       <FlexBar
         className={styles.scoreBar}
         tip={barTip}
@@ -233,8 +234,8 @@ function Receipt({ row, l, city, problems, build, t }: {
           l && bestEntry && <LocText key="b" entry={HUB_FMT.receiptTipLodgeBest} args={{ NAME: t(bestEntry), E: numArg(l.lodgeExtra, Unit.FloatSingleFraction) }} />,
         ]} />}
       />
-      {/* T80 (item 4): the section total, its full equation one layer down (the header's tooltip: RECEIPT_PARTS[_SCHOOL] +
-          RECEIPT_ROOT, T77's two lines), then one labeled row per term. Every number is C#'s (D10). */}
+      {/* T80 (item 4): the section total. Its full equation is one layer down (the header's tooltip: RECEIPT_PARTS[_SCHOOL] +
+          RECEIPT_ROOT, T77's two lines). Then one labeled row per term. Every number is C#'s (D10). */}
       <Fold
         view="overview"
         id="terrain"

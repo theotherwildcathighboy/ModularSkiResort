@@ -1,10 +1,13 @@
 /*
- * src/hub/MergedFold.tsx - the Overview's "Merged buildings" fold (contract 35): one row per merged building of the shown area (or, in the
- * Not linked view, those in no area): its name, then its tier word while counted or its state word otherwise; the tier, the state and the
- * monthly fee while billed are in the row's tooltip. A click focuses the building (focusBuilding). The name is the building's own (a
- * player may have typed it, 64 characters): it shrinks with an ellipsis under lodgeNameLabel like the Guests view's lodge names.
- * The fold is drawn only while the area has a merged building (DECISIONS 613): the merge overlay's one switch is the Build strip's
- * Mergeable buildings chip (Buildings tab, contract 36 / 37), whose status line carries MergeLegend while the overlay is on.
+ * src/hub/MergedFold.tsx - the Overview's "Merged buildings" fold (contract 35).
+ * It has one row per merged building of the shown area (or, in the Not linked view, those in no area).
+ * A row shows the building's name, then its tier word while counted or its state word otherwise.
+ * The row's tooltip shows the tier, the state and the monthly fee while billed.
+ * A click focuses the building (focusBuilding). The name is the building's own (a player may have typed it, 64 characters).
+ * It shrinks with an ellipsis under lodgeNameLabel, like the Guests view's lodge names.
+ * The fold is drawn only while the area has a merged building (DECISIONS 613).
+ * The merge overlay's one switch is the Build strip's Mergeable buildings chip (Buildings tab, contract 36 / 37).
+ * The status line of that chip carries MergeLegend while the overlay is on.
  * Panel file: subscribes mergedLodges$ (no Demand of its own).
  * Engine notes: EngineNotes/SkiMergeSystem.md
  */

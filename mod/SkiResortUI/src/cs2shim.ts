@@ -1,10 +1,10 @@
 /*
  * src/cs2shim.ts - typed access to game runtime exports whose shipped declarations hide them.
- * l10n.d.ts declares both `export interface LocalizedNumber {...}` and `export { LocalizedNumber$1 as LocalizedNumber }`; with
- * skipLibCheck the name resolves to the interface, so `import { LocalizedNumber } from "cs2/l10n"` fails (TS1444/TS2693). Same
- * for LocalizedString, LocalizedBounds, LocalizedFraction (cs2/l10n) and DropdownItem (cs2/ui); all five are runtime exports
+ * l10n.d.ts declares both `export interface LocalizedNumber {...}` and `export { LocalizedNumber$1 as LocalizedNumber }`. With
+ * skipLibCheck, the name resolves to the interface, so `import { LocalizedNumber } from "cs2/l10n"` fails (TS1444/TS2693). The same
+ * happens for LocalizedString, LocalizedBounds, LocalizedFraction (cs2/l10n) and DropdownItem (cs2/ui). All five are runtime exports
  * (tools/check-bundle.js re-reads the export tables on every build). Import these five from here, never from cs2/*. This is
- * the only file allowed a namespace import of cs2/*; check-bundle checks every `<namespace>.<Name>` access in it.
+ * the only file allowed a namespace import of cs2/*. check-bundle checks every `<namespace>.<Name>` access in it.
  */
 import * as l10n from "cs2/l10n";
 import * as ui from "cs2/ui";

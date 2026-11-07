@@ -1,13 +1,15 @@
 /*
  * src/hub/LiftTable.tsx - one lift of the Lifts view: a two-line row (LiftLine2).
- * Line 1 = [fly part | pen] (status mark, name, status word in a StableWidth of the five LIFT_STATUS words so the name never moves); line 2 is ONE
- * inert nowrap text node from hubRules.liftLine2: what the lift does for the resort (skiers/h, runs served; DECISIONS 613), its length, rise
- * and ride time one layer down in the row's tooltip. LiftRow.powered is the raw LiftPower; `counted` follows the one predicate LiftServedRule.IsPowered;
- * both arrive from C#, the UI decides nothing. While renaming, the fly part is a plain div (an <input> is never inside a <button>).
- * The "billed at 25 %" reason is hubRules.liftCostReason, mapped by liftCostReducedEntry. Rise is shown signed (a negative rise is printed, not
- * unknown). Memoised on every LiftRow field it shows plus focus, renaming, `t`, the callbacks, type, seats, speedMps and typeWords.
- * The fly part and the pen pass focusKey={FOCUS_DISABLED} like every hub control (rule R15): the hub is mouse-only and never takes the
- * game's key focus. (FIX-LIST 58 suspected a focused row re-firing; it was a test-helper false positive, the row itself is fine.)
+ * Line 1 = [fly part | pen]. It holds the status mark, the name, and the status word in a StableWidth of the five LIFT_STATUS words,
+ * so the name never moves. Line 2 is ONE inert nowrap text node from hubRules.liftLine2. It shows what the lift does for the resort
+ * (skiers/h and runs served, DECISIONS 613). The row's tooltip, one layer down, shows the length, rise and ride time.
+ * LiftRow.powered is the raw LiftPower. `counted` follows the one predicate LiftServedRule.IsPowered.
+ * Both arrive from C#, and the UI decides nothing. While renaming, the fly part is a plain div (an <input> is never inside a <button>).
+ * hubRules.liftCostReason gives the "billed at 25 %" reason, and liftCostReducedEntry maps it. The row shows the rise with its sign
+ * (it prints a negative rise and does not treat it as unknown). LiftLine2 memoizes on every LiftRow field it shows, plus focus,
+ * renaming, `t`, the callbacks, type, seats, speedMps and typeWords.
+ * The fly part and the pen pass focusKey={FOCUS_DISABLED}, like every hub control (rule R15). The hub is mouse-only and never takes
+ * the game's key focus. (FIX-LIST 58 suspected a focused row re-firing. That was a false positive of a test helper. The row itself is fine.)
  */
 import { memo } from "react";
 import { Button } from "cs2/ui";
@@ -52,7 +54,7 @@ function Line2Text({ row, partner, t }: { row: LiftRow; partner: boolean; t: Tra
   }
 }
 
-/** The tooltip line of a reduced bill (hubRules.liftCostReason picks the reason); null = billed in full */
+/** The tooltip line of a reduced bill (hubRules.liftCostReason picks the reason). Null = billed in full */
 function liftCostReducedEntry(reason: LiftCostReason): LocEntry | null {
   switch (reason) {
     case "noPower": return HUB_LOC.liftCostReducedNoPower;
@@ -63,7 +65,7 @@ function liftCostReducedEntry(reason: LiftCostReason): LocEntry | null {
   }
 }
 
-/** The type word of a row (LIFT_TYPE[row.type]); null for an unknown or missing type */
+/** The type word of a row (LIFT_TYPE[row.type]). It is null for an unknown or missing type */
 export function liftTypeWord(row: LiftRow, t: Translate): string | null {
   const e = row && typeof row.type === "string" ? LIFT_TYPE[row.type] : undefined;
   return e ? t(e) : null;
@@ -74,13 +76,13 @@ function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
     Math.abs(row.alignOffsetM) <= ALIGN_TOLERANCE_M && Math.abs(row.alignYawDeg) <= ALIGN_TOLERANCE_DEG;
   const complete = row.state === LIFT_STATE.Running || row.state === LIFT_STATE.Static;
   const reduced = liftCostReducedEntry(liftCostReason(row));
-  // Per-type numbers through placeholders; 0 (unknown) reads "–"
+  // Per-type numbers go through placeholders. 0 (unknown) reads "–"
   const SPEED = row.speedMps > 0 ? numArg(row.speedMps, Unit.FloatSingleFraction) : "–";
   const SEATS = row.seats > 0 ? numArg(row.seats, Unit.Integer) : "–";
   return (
     <TipLines
       lines={[
-        // The name, the status word and line 2 are on the row itself (DECISIONS 613); the type word only shows there when the area mixes types.
+        // The name, the status word and line 2 are on the row itself (DECISIONS 613). The type word shows there only when the area mixes types.
         liftTypeWord(row, t),
         { label: t(HUB_LOC.liftLength), value: row.lengthM >= 0 ? <Num value={row.lengthM} unit={Unit.Length} /> : "–" },
         { label: t(HUB_LOC.liftRise), value: <Num value={row.riseM} unit={Unit.Height} signed /> },
@@ -126,7 +128,7 @@ export interface LiftLineProps {
   /** The five status words, translated (the word cell's StableWidth blinds) */
   words: readonly string[];
   /** The lift-type words, translated (the type cell's StableWidth blinds), while the shown area's rows span two or more
-   *  types; null = no type cell (a one-type area keeps the plain row) */
+   *  types. A null value means no type cell (a one-type area keeps the plain row) */
   typeWords: readonly string[] | null;
   focused: boolean;
   renaming: boolean;

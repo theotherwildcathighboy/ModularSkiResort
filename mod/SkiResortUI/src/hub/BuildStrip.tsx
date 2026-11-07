@@ -1,15 +1,17 @@
 /*
- * src/hub/BuildStrip.tsx - the Build strip, the panel's footer, opened like the game's toolbar (DECISIONS 613): closed, it is the tab row
- * (Lifts | Runs | Buildings) and the one dot; a tab click opens it on that tab, a click on the open tab closes it, and it stays open while
- * anything it started is engaged (a build tool, the tree tool, the planner, the lift generator, cat track delete, the merge overlay), then
- * closes when that ends (hubRules.footerOpen / tabClick). Open, every tab is the same three rows: a family row of chips, ONE tile row,
- * ONE status line, so the tab row and the tiles never move when the tab changes (DECISIONS 612). The Buildings tab shows one family at a
- * time (Lodges: the sign and the lodge tiers; Services: bus depot, school, patrol huts) with the Mergeable buildings chip beside them.
+ * src/hub/BuildStrip.tsx - the Build strip, the panel's footer, opened like the game's toolbar (DECISIONS 613).
+ * Closed, it is the tab row (Lifts | Runs | Buildings) and the one dot. A tab click opens it on that tab. A click on the open tab
+ * closes it. It stays open while anything it started is engaged (a build tool, the tree tool, the planner, the lift generator,
+ * cat track delete, the merge overlay). It closes when that ends (hubRules.footerOpen / tabClick).
+ * Open, every tab is the same three rows: a family row of chips, ONE tile row, ONE status line. So the tab row and the tiles never
+ * move when the tab changes (DECISIONS 612). The Buildings tab shows one family at a time (Lodges: the sign and the lodge tiers.
+ * Services: bus depot, school, patrol huts) with the Mergeable buildings chip beside them.
  * The status line says what the tooltip cannot: the follow notice, the active tool and its price, a locked tile's reason, the merge
  * legend, the idle fact. A hovered tile changes nothing (its tooltip has the name, price and hint).
- * Locked tiles are dimmed with a Lock glyph, not `disabled`; a click shows the reason and still sends launch(id), C# refuses and logs it.
- * Reads only the core `build` binding (plus local pick$), so it is also the contract-mismatch panel's footer (never collapsed); the rest
- * arrives as FooterInfo. Every tile and chip is a Button with focusKey={FOCUS_DISABLED} (rule R15).
+ * The strip dims locked tiles with a Lock glyph, not `disabled`. A click shows the reason and still sends launch(id). C# refuses
+ * and logs it.
+ * The strip reads only the core `build` binding (plus local pick$), so it is also the contract-mismatch panel's footer (never
+ * collapsed). The rest arrives as FooterInfo. Every tile and chip is a Button with focusKey={FOCUS_DISABLED} (rule R15).
  * Engine notes: EngineNotes/BuildStrip.tsx.md
  */
 import { useEffect, useRef, useState } from "react";
@@ -51,17 +53,17 @@ export interface FooterInfo {
   /* The notice: the shown area's name while the 6 s notice runs, else null. */
   followName: string | null;
   /*
-   * Draw the lift generator toggle (ok panel only; it reads the non-CORE liftLine binding). The cat track tool has no chip of
+   * Draw the lift generator toggle. Ok panel only: it reads the non-CORE liftLine binding. The cat track tool has no chip of
    * its own since 2026-10-24: the Cat track tile opens it (C# ApplyLaunch).
    */
   liftTool?: boolean;
-  /* Draw the Quick runs chip on the Runs tab (ok panel only; it reads the non-CORE quickRuns binding). */
+  /* Draw the Quick runs chip on the Runs tab. Ok panel only: it reads the non-CORE quickRuns binding. */
   quickRuns?: boolean;
   /* Contract 37: draw the Mergeable buildings toggle under the Buildings rows (ok panel with a Welcome Sign), and the overlay's state for it. */
   mergeTile?: boolean;
   mergeOverlay?: MergeOverlayState | null;
-  /* The strip may close (the ok panel; the mismatch panel's footer is always open), and a mode it started is on (tree tool, planner,
-   * lift generator, cat track delete, merge overlay): the strip stays open while one is. */
+  /* collapsible: the strip may close (the ok panel). The mismatch panel's footer is always open. engaged: a mode it started is on
+   * (tree tool, planner, lift generator, cat track delete, merge overlay). The strip stays open while one is. */
   collapsible?: boolean;
   engaged?: boolean;
 }
@@ -74,10 +76,10 @@ export const FOLLOW_NOTICE_MS = 6000;
 /* The Buildings-tab kinds that each draw as their own tile group. */
 const SPLIT_KINDS: readonly string[] = ["sign", "lodge", "depot", "school", "patrol"];
 
-/* The pickers' choice for the UI session (local value: nothing sent to C#; a UI reload resets it). */
+/* The pickers' choice for the UI session (local value: nothing is sent to C#. A UI reload resets it). */
 export const pick$ = bindLocalValue<PickerSelection>(NO_PICK);
 
-// Index = RunKind; 3 (natural) is drawn separately (two bars), 4 (cat track) is green.
+// Index = RunKind. 3 (natural) is drawn separately (two bars). 4 (cat track) is green.
 const KIND_STRIPE = ["stripeGroomed", "stripeSnowmaking", "stripeNight", "stripeNight", "stripeCatTrack"] as const;
 
 function nameEntry(id: BuildItemId): LocEntry {
@@ -132,7 +134,7 @@ function onceValue(id: BuildItemId, item: BuildItem): JSX.Element | string {
 
 function monthValue(id: BuildItemId, item: BuildItem, t: Translate): JSX.Element | string {
   const kind: RunKind | undefined = BUILD_RUN_KIND[id];
-  if (kind === 3 || kind === 4) return t(HUB_LOC.buildMonthNone); // natural; cat track (no snow bill)
+  if (kind === 3 || kind === 4) return t(HUB_LOC.buildMonthNone); // natural, cat track (no snow bill)
   if (kind !== undefined) {
     return typeof item.monthlyPerHa === "number" && item.monthlyPerHa >= 0
       ? <LocText entry={HUB_FMT.buildMonthRun} args={{ RATE: numArg(item.monthlyPerHa, Unit.Money) }} /> : "–";
@@ -148,7 +150,7 @@ function monthValue(id: BuildItemId, item: BuildItem, t: Translate): JSX.Element
 
 /*
  * A building's draw rows, vanilla's asset-panel rows (each only above 0) plus Workers, then its terrain line. The Upkeep row
- * replaces "Per month" on a building the game bills; a station keeps "Per month" (the lift's running cost covers it).
+ * replaces "Per month" on a building the game bills. A station keeps "Per month" (the lift's running cost covers it).
  */
 function drawRows(id: BuildItemId, t: Translate): TipLine[] {
   const d = BUILDING_DRAW[id];
@@ -254,7 +256,7 @@ function labelEntry(id: BuildItemId): LocEntry {
 }
 
 /*
- * The tab row. Buttons are cs2/ui Buttons with FOCUS_DISABLED (R15); the ONE dot shows on the tab holding it when that tab is
+ * The tab row. Buttons are cs2/ui Buttons with FOCUS_DISABLED (R15). The ONE dot shows on the tab holding it when that tab is
  * not the one shown.
  */
 function TabBarView({ tabs, tab, dotTab, t, onTab }: {
@@ -305,7 +307,7 @@ function FamilySetView({ family, dotFamily, t, onFamily }: {
   );
 }
 
-/* The Buildings tab's Mergeable buildings chip: arms the merge overlay (contract 37); while on, the status line carries the legend. */
+/* The Buildings tab's Mergeable buildings chip: it arms the merge overlay (contract 37). While it is on, the status line carries the legend. */
 function MergeChip({ on, t }: { on: boolean; t: Translate }): JSX.Element {
   return (
     <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 2 }}>
@@ -321,14 +323,14 @@ function MergeChip({ on, t }: { on: boolean; t: Translate }): JSX.Element {
   );
 }
 
-/* The Lifts tab's lift generator toggle (the tree tool's pattern): on / off, refused by C# when the tool is not armed. */
+/* The Lifts tab's lift generator toggle (the tree tool's pattern): on / off. C# refuses it when the tool is not armed. */
 function LiftToolSet({ t }: { t: Translate }): JSX.Element {
   const g = useValue(liftLine$);
   const available = !!g?.available;
   const active = !!g?.active;
   const tip = active ? null : !available ? t(HUB_LOC.liftToolUnavailable) : t(HUB_LOC.liftToolTip);
   return (
-    // About one chip wide (the type chips keep their room; four types = 4 : 1.1).
+    // About one chip wide (the type chips keep their room, and four types = 4 : 1.1).
     <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 1.1 }}>
       <div className={styles.pickerCell}>
         <Tip tip={tip ? <TipLines lines={[tip]} /> : null}>
@@ -348,8 +350,8 @@ function LiftToolSet({ t }: { t: Translate }): JSX.Element {
 }
 
 /*
- * The Runs tab's family row: the glade (tree) tool's on / off (reads the CORE glade binding only; the Runs view shows its rows while
- * it is on), and on the ok panel the Quick runs and Delete cat tracks chips beside it.
+ * The Runs tab's family row: the glade (tree) tool's on / off, and on the ok panel the Quick runs and Delete cat tracks chips beside
+ * it. The row reads the CORE glade binding only. The Runs view shows its rows while the tool is on.
  */
 function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Element {
   const g = useValue(glade$);
@@ -406,7 +408,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
 
   let activeEntry: OrderedBuildItem | null = null;
   let lockedEntry: OrderedBuildItem | null = null;
-  // The active item is looked up among ALL sent items: a lodge tier placed from the sign's own upgrade menu may not be the
+  // The strip looks up the active item among ALL sent items: a lodge tier placed from the sign's own upgrade menu may not be the
   // chosen one yet (the effect below chooses it).
   for (const g of all) {
     for (const e of g) {
@@ -424,7 +426,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   const bothFamilies = famHas("lodges") && famHas("services");
   const family: BuildingFamily = bothFamilies ? (storedFamily === "services" ? "services" : "lodges") : famHas("services") ? "services" : "lodges";
 
-  // The shown tab's tile groups (BUILD_GROUPS keeps its shape; the split is drawing only: the sign and each building kind on its own)
+  // The shown tab's tile groups (BUILD_GROUPS keeps its shape. The split is drawing only: the sign and each building kind on its own)
   const groups: OrderedBuildItem[][] = [];
   const splitKey = (id: BuildItemId): string => { const k = kindOf(id); return SPLIT_KINDS.indexOf(k) >= 0 ? k : "rest"; };
   for (const g of all) {
@@ -438,7 +440,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     if (cur.length > 0) groups.push(cur);
   }
 
-  // When an item becomes the active tool, its option is chosen (an item of another tier or type), and its family.
+  // When an item becomes the active tool, the effect chooses its option (an item of another tier or type) and its family.
   useEffect(() => {
     const opt = optionOf(activeId, BUILD_ITEMS);
     if (opt) {
@@ -453,7 +455,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   }, [activeId]);
 
   // The tab follows the active tool (a tool started elsewhere, e.g. the Start card's button) and the idle NEXT step when it
-  // changes (not at mount, so the remembered tab survives closing and reopening the hub).
+  // changes. It does not follow at mount, so the remembered tab survives closing and reopening the hub.
   useEffect(() => {
     const at = tabOfItem(activeId, BUILD_ITEMS);
     if (at && buildTab$.value !== at) buildTab$.update(at);
@@ -569,7 +571,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   );
 }
 
-/* The ok panel's footer: computes FooterInfo from the non-CORE bindings (panel file). */
+/* The ok panel's footer. It computes FooterInfo from the non-CORE bindings (panel file). */
 export function OkFooter(): JSX.Element {
   const t = useT();
   const resorts = useValue(resorts$);
