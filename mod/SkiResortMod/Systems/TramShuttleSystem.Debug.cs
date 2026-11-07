@@ -1,5 +1,5 @@
 // TramShuttleSystem.Debug - the "Tram shuttle" foldout of the "Ski Resort" developer tab.
-// This partial carries no [DebugContainer] / [DebugTab]: DebugSystem.AddPanel replaces the widget list stored under a
+// This partial carries no [DebugContainer] / [DebugTab]. DebugSystem.AddPanel replaces the widget list stored under a
 // tab's name (Game.Debug/DebugSystem.cs:1022, :1085-1095), so a second "Ski Resort" tab would replace ChairPinSystem's rows.
 // ChairPinSystem.Debug's BuildSkiResortDebugUI calls AddDebugWidgets after its census foldout and appends AppendDump to
 // its DumpDiagnostics.
@@ -66,7 +66,7 @@ namespace SkiResortMod.Systems
             into.Add(foldout);
         }
 
-        /// <summary>The dump block on its own (this foldout's Button); ChairPin's dump appends the same block</summary>
+        /// <summary>The dump block on its own (this foldout's Button). ChairPin's dump appends the same block</summary>
         internal void DumpToLog(string reason)
         {
             var sb = new StringBuilder(1024);

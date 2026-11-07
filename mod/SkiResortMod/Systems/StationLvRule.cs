@@ -1,11 +1,12 @@
 // Pure rule behind the base stations' vanilla "low voltage not connected" icon (used by StationLvIconSystem). System only.
-// The icon (ElectricityParameterData.m_LowVoltageNotConnectedPrefab) is a topology check, not a power check: ConnectionWarningSystem
-// (UpdateConnectionWarning, ConnectionWarningSystem.cs:2376-2401) counts the stub node as connected only when an edge not owned
-// by the station ends AT that node (CheckConnectedLayers / FindEdgeConnections, :1845-1877, :2286-2310); mid-edge connections
-// are skipped for layers the node requires (:1878-1881), and the LV stub node requires PowerlineLow.
+// The icon (ElectricityParameterData.m_LowVoltageNotConnectedPrefab) is a topology check, not a power check.
+// ConnectionWarningSystem (UpdateConnectionWarning, ConnectionWarningSystem.cs:2376-2401) counts the stub node as connected only
+// when an edge not owned by the station ends AT that node (CheckConnectedLayers / FindEdgeConnections, :1845-1877, :2286-2310).
+// It skips mid-edge connections for layers the node requires (:1878-1881), and the LV stub node requires PowerlineLow.
 // The power path counts more: a wire landing on the stub's middle becomes a ConnectedNode (NetInitializeSystem.cs:2412-2454,
 // GenerateEdgesSystem.cs:1805-1856) and powers the station (CreateEdgeMiddleNodeConnections, :86-99) while the icon stays.
-// Rule: an LV wire attached to the stub (at a node or on its middle) means the station is LV-connected, so the icon is removed; no wire: the icon stays.
+// Rule: an LV wire attached to the stub (at a node or on its middle) means the station is LV-connected, so the system removes the icon.
+// With no wire, the icon stays.
 
 namespace SkiResortMod.Systems
 {
@@ -14,7 +15,7 @@ namespace SkiResortMod.Systems
 
     public static class StationLvRule
     {
-        /// <summary><paramref name="lvEdgesAtStubNodes"/> = LV edges not owned by the station ending at an LV stub node;
+        /// <summary><paramref name="lvEdgesAtStubNodes"/> = LV edges not owned by the station ending at an LV stub node.
         /// <paramref name="lvNodesOnStub"/> = LV nodes not owned by the station in the LV stub edge's ConnectedNode buffer.</summary>
         public static LvStubWire Classify(int lvEdgesAtStubNodes, int lvNodesOnStub)
         {
