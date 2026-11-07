@@ -10,27 +10,27 @@ import { Aside } from '@astrojs/starlight/components';
 | Part | License |
 |---|---|
 | Code: the C# mod, the Blender generators, the tools, this documentation site | **MIT**, copyright 2026 the mod's author |
-| Art assets and everything generated from them: meshes, textures, previews, the in-game prefabs | **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)**. Reuse in free mods with credit to "Modular Ski Resort" and its author, as named in the license files; share changes under the same license; no commercial use |
+| Art assets and everything generated from them: meshes, textures, previews, the in-game prefabs | **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)**. Reuse in free mods with credit to "Modular Ski Resort" and its author, as named in the license files. Share changes under the same license. No commercial use. |
 | Tiling materials from ambientCG | **CC0**, no attribution required |
 | Barlow Condensed, the site's heading font, self-hosted | **SIL Open Font License 1.1**, copyright 2017 The Barlow Project Authors |
 
 **Third-party code:** none. The GPL-licensed mods studied (ParkManager, ParkingLotTool) were re-derived
-from the game's own systems; no code was copied.
+from the game's own systems. No code was copied.
 
 ## Inspiration
 
 - **Modular Golf Course Pack** by joergeske: the modular-recreation concept that inspired this
   project's architecture.
-- **Meapy, CS2-TourismOverhaul**: the tourism and attraction framework this mod integrates with; studied for
+- **Meapy, CS2-TourismOverhaul**: the tourism and attraction framework this mod integrates with. Studied for
   compatibility and design reference. Optional.
 - **tomkpunkt, ParkManager** (Paradox Mods 161179, GPL-3.0): studied as a research reference for programmatic net
   and object creation, ordered cleanup and Gameface UI patterns. No code copied, no runtime dependency.
-- **Yenyang, Recolor**: the color convention the stations follow (channel masks, light-albedo regions). Optional; its
+- **Yenyang, Recolor**: the color convention the stations follow (channel masks, light-albedo regions). Optional. Its
   painter recolors line towers.
 - **klyte45, Write Everywhere**: optional. If installed, the Welcome Sign shows the ski area's name, and the lodge and
   school name boards become writable. Nothing of it is included and the mod never requires it.
 - **Lift Blog (liftblog.com, Peter Landsman)**: the lift-engineering reference behind the lift family. Photos were
-  studied as reference only; nothing from the site is redistributed.
+  studied as reference only. Nothing from the site is redistributed.
 - **krzychu124, Scene Explorer**: live ECS debugging during development.
 - **CitiesSkylinesModding community**: the agents-plugins toolchain and documentation.
 
@@ -53,8 +53,8 @@ Each asset follows a real lift or building. They are places that matter to the a
 
 ## Lettering
 
-The sign sets (lodge, Ski School, patrol and gate boards) carry text rasterized at build time from system typefaces: Bookman Old Style Bold for the resort-identity boards, Franklin Gothic Demi Cond for the
-utility boards. Only the rendered textures ship; no font file is included or required. The lift boards are
+The sign sets (lodge, Ski School, patrol and gate boards) carry text rasterized at build time from system typefaces. Bookman Old Style Bold is for the resort-identity boards. Franklin Gothic Demi Cond is for the
+utility boards. Only the rendered textures ship. No font file is included or required. The lift boards are
 lettered with Blender's built-in font.
 
 ## Visual References

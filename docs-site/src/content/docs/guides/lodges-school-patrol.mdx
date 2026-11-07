@@ -16,7 +16,7 @@ nearest **Welcome Sign** within the ski area radius (**5 km** by default). Costs
 
 <Shot src="lodge-day.jpg" label="A Chalet Lodge at a road, with parking in front." />
 
-Guest entry point and capacity source. No lodge: attraction score **0**.
+Guest entry point and skier room source. No lodge: attraction score **0**.
 
 | Tier | Role |
 |---|---|
@@ -24,67 +24,67 @@ Guest entry point and capacity source. No lodge: attraction score **0**.
 | <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> **A-Frame Day Lodge** | Base lodge. Cheapest. Default. |
 | <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> **Chalet Lodge** | Larger day lodge. Ski days stay full at a higher ticket price. |
 | <Icon name="lodge-summit" alt="Swanky Summit Lodge icon" /> **Swanky Summit Lodge** | Luxury summit lodge. High summer appeal when a lift or a lift-served run reaches it. |
-| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> **Swanky Grand Lodge** | Highest guest capacity. |
+| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> **Swanky Grand Lodge** | Most skier room. |
 
 - **Build limit:** none.
 - **Stacking:** the best lodge sets the **lodge base**. Other lodges add smaller extras, capped at **24** points (diminishing returns).
 
 ## Merged Buildings
 
-A park, landmark, signature or decor building of the city can be merged into the nearest ski area as a lodge tier: it becomes
+A park, landmark, signature or decor building of the city can be merged into the nearest ski area as a lodge tier. It becomes
 one of the area's lodges without being rebuilt.
 
 **How to merge:**
 
 1. Hub > **Buildings** tab > **Mergeable buildings** (the switch under the building tiles). Buildings within **800 m** of a ski
-   area's runs or lift stations are outlined: **green** when a lodge tier fits the lot, **gray** when the lot is too small for every
+   area's runs or lift stations are outlined. An outline is **green** when a lodge tier fits the lot. It is **gray** when the lot is too small for every
    tier. While the outlines are on, the switch shows this legend with the two counts. Click it again, or press Escape, to turn them
    off.
 2. Select an outlined building. The **merge card** opens beside its info panel: what merging does, whether the building is near
    enough to the runs and lifts to count, the tiers its lot allows, the merge fee and the monthly fee.
-3. Pick a tier and click **Merge**. The outlines turn off; the building now appears in the Overview's **Merged buildings** fold.
+3. Pick a tier and click **Merge**. The outlines turn off. The building now appears in the Overview's **Merged buildings** fold.
 
 Any building of a mergeable kind opens the card when selected, outlined or not. The fold has the same **Mergeable buildings**
 switch as the Buildings tab, with the legend beside it.
 
 - **Keeps its own use.** A park stays a park, a signature building keeps its renters. The lodge tier adds its lodge score,
-  skier room, staff and attraction to the ski area. It is not a ski-day destination: guests still need a lodge of our own.
+  skier room, staff and attraction to the ski area. It is not a ski-day destination: guests still need a lodge of your own.
 - **Lot size:** the tier must fit the lot. Smallest lots: Mountain Hut **4** cells, A-Frame **9**, Chalet and Swanky Summit
   **16**, Swanky Grand **48**.
 - **Not mergeable:** growables, city services other than parks, company and industrial buildings, and the mod's own buildings.
 - **Distance:** it counts while it is within **800 m** of the area's runs or lift stations. Before you merge, the card's status
-  line says *Near the runs and lifts* or *Too far from the runs, would not count*. A building merged too far away is charged its
-  monthly fee only while it counts, and starts counting once a run or station comes within reach.
+  line says *Near the runs and lifts* or *Too far from the runs and lifts to count*. A building merged too far away is charged its
+  monthly fee only while it counts. It starts counting once a run or station comes within reach.
 - **Fees:** a one-time merge fee (the tier's build cost less what the building cost) and a monthly fee while it counts (the
-  tier's upkeep less a park's own upkeep). A tier change charges the difference; unmerging keeps the building and refunds nothing.
+  tier's upkeep less a park's own upkeep). A tier change charges the difference. Unmerging keeps the building and refunds nothing.
 - **Tourism:** the building's attraction combines its own with the ski area's (square root of the sum of squares). Only the
   ski area's part counts toward its share of city tourism.
 - **Finding them:** the hub Overview's **Merged buildings** fold lists the merged ones with their tier or state (*Too far from
-  the runs and lifts*, *Switched off*); click a row to fly to it. Select a merged building to change its tier or unmerge it.
+  the runs and lifts*, *Deactivated*). Click a row to fly to it. Select a merged building to change its tier or unmerge it.
 
-## Visitor Requirements
+## Guest Requirements
 
 Ski days send skiers to a lodge, so they need one. Any tier works if it meets the rules below. A lodge too far from the runs still counts toward attraction and still gets tourists and residents on leisure, but no ski-day guests.
 
 - **Road access:** deck side touches a road. Hub line: *Lodge or school: road required*. Exempt: Mountain Hut and Swanky Summit Lodge (mountain sites, no road needed).
-- **Off-road A-Frame, Chalet or Grand:** with no road, a cat track within **25 m** of the lot whose chain of cat tracks reaches a lodge with a road or the Ski Bus Depot (same ski area) replaces city power, water, garbage and mail: no warnings and no utility fees. Its jobs move to the area's carrier (below). No guests arrive at it by road, and it has no parking count. With neither a road nor such a chain: *"Lodge is not at a road"*, the game's utility warnings and a lower sign efficiency. A broken chain keeps the lodge supplied for one game hour, so a cat track section can be redrawn.
+- **Off-road A-Frame, Chalet or Grand:** with no road, a cat track within **25 m** of the lot whose chain of cat tracks reaches a lodge with a road or the Ski Bus Depot (same ski area) replaces city power, water, garbage and mail: no warnings and no utility fees. Its staff move to the area's job host (below). No guests arrive at it by road, and it has no parking count. With neither a road nor such a chain, the hub shows *"Lodge is not at a road"*, the game shows its utility warnings, and the sign efficiency is lower. A broken chain keeps the lodge supplied for one game hour, so a cat track section can be redrawn.
 - **Services:** staff, power, water. Missing services lower sign efficiency, and attraction with it.
 - **Pipes:** highways and highway bridges carry no water or sewer pipes. A resort road cut off from town by them shows Water and Sewage notifications until a pipe joins the two networks. Gravel roads do carry pipes.
 - **Steep ground:** lodges and the Ski School keep the slope they stand on. On very steep ground the building sinks into the hillside, and the game can flag No Pedestrian Access there.
 - **Distance to runs:** ski-day guests only target a lodge within **800 m** of the ski area's runs or lift stations.
-- **Parking:** car spaces within **600 m** of the lodge (street parking, a parking lot, a parking garage at its entrance), counted for each lodge with a road on its own. Tourist parties from outside the city drive, park and walk, and none arrive at a lodge with 0 spaces; the nearer the spaces, the more come. Hotel guests within **900 m** walk. A blue ring on the ground shows the 600 m while you place an A-Frame, Chalet or Grand lodge or select one with a road (option *Show the ski area radius*). Hub line: *Lodge without parking* (*No parking: Lodge X* for one). The hub's **Guests** view shows each lodge's count.
+- **Parking:** car spaces within **600 m** of the lodge (street parking, a parking lot, a parking garage at its entrance), counted for each lodge with a road on its own. Tourist parties from outside the city drive, park and walk. None arrive at a lodge with 0 spaces. The nearer the spaces, the more come. Hotel guests within **900 m** walk. A blue ring on the ground shows the 600 m while you place an A-Frame, Chalet or Grand lodge, or select one with a road (option *Show the ski area radius*). Hub line: *Lodge without parking* (*No parking: Lodge X* for one). The hub's **Guests** view shows each lodge's count.
 - **Power state:** a lodge deactivated in its own info panel counts **0**.
-- **Off-season staff:** after **12 game hours** with no open run, lodges and the Ski School keep **half** their jobs (rounded up) until a run opens again. The jobs of the Mountain Hut and Swanky Summit Lodge, carried by the area's carrier, halve too. Patrol stays full. Upkeep is not reduced; deactivating a building cuts it to a tenth and stops its wages. Option *Half staff off-season*, default on.
-- **Carrier:** the jobs of buildings without staff of their own (Hut, Summit, both patrol buildings, an off-road lodge on a cat track chain) sit on the active lodge with a road nearest the Welcome Sign, else on the sign. Carried jobs take the carrier's education mix.
+- **Off-season staff:** after **12 game hours** with no open run, lodges and the Ski School keep **half** their staff (rounded up) until a run opens again. The staff of the Mountain Hut and Swanky Summit Lodge, who work on the area's job host, halve too. Patrol stays full. Upkeep is not reduced. Deactivating a building cuts it to a tenth and stops its wages. Option *Half staff off-season*, default on.
+- **Job host:** the active lodge with a road nearest the Welcome Sign, else the sign, employs the staff of the buildings without staff of their own (Hut, Summit, both patrol buildings, an off-road lodge on a cat track chain). These staff take the job host's education mix.
 
 ## Guests at a Far Hill
 
-Residents only take ski days within the ski area's reach (**7 km** by default), and the chance falls with distance. What helps a hill far from town:
+Residents only take ski days within the longest ski-day trip (**7 km** by default, option *Longest ski-day trip*). The chance falls with distance. What helps a hill far from town:
 
 - **Faster access roads:** the trip has to fit before closing. Measured in one test city, in km per game hour: 2-lane highway **8.2**, small road **2.3**, gravel **1.8**.
 - **Hotels:** only tourists staying in a hotel take ski days. A city without hotels still gets tourist parties on leisure, if the lodge has parking.
 - **Parking at the lodge:** one far hill went from 0 tourists to about 200 a month with a single 41-space lot at its road-side lodge.
-- **A [Ski Bus Depot](#ski-bus-depot) in town:** brings residents beyond that reach, for a monthly bill.
+- **A [Ski Bus Depot](#ski-bus-depot) in town:** brings residents from beyond that distance, for a monthly bill.
 
 ## Ski School
 
@@ -109,13 +109,13 @@ Two buildings: <Icon name="building-patrol-hut" alt="Ski Patrol Hut icon" /> **S
 
 **What it does:** a coach stop in town, placed from the hub **Buildings** tab, next to the lodges. A home closer to the depot than to any lodge starts its ski day at the depot, so the distance that counts is home to depot, not home to hill. In exchange you pay a monthly coach bill that grows with the distance.
 
-In testing, a depot took a hill out of reach from **0** ski-day guests to about **20 %** of its potential guests, within the range of a hill beside town, and the hill's tickets, passes and lessons earned about **5** times the coach bill. Costs and numbers: [Buildings](/reference/buildings/#ski-bus-depot).
+In testing, a depot took a hill out of reach from **0** ski-day guests to about **20 %** of its potential guests, within the range of a hill beside town. The hill's tickets, passes and lessons earned about **5** times the coach bill. Costs and numbers: [Buildings](/reference/buildings/#ski-bus-depot).
 
-- **Link:** the nearest Welcome Sign at **any distance**; the only building without the radius limit.
-- **Requirements:** its own road, and at least one working lodge on the hill. A Mountain Hut or Swanky Summit Lodge counts. It does not need to be near the runs.
+- **Link:** the nearest Welcome Sign at **any distance**. It is the only building without the radius limit.
+- **Requirements:** its own road, and at least one active lodge on the hill. A Mountain Hut or Swanky Summit Lodge counts. It does not need to be near the runs.
 - **Distance:** a guest's reach, travel time and fit are measured from home to the depot, the same way as to a lodge.
 - **Guests:** arrivals count as the area's guests and pay tickets, lessons and passes as at a lodge. No lodge spend. Leisure visitors who pick the depot count and pay too.
-- **Capacity and score:** adds neither. Ski-day capacity stays set by the runs and the lodges on the hill, and the depot is in no lodge count.
+- **Skier room and score:** adds neither. Skier room stays set by the runs and the lodges on the hill, and the depot is in no lodge count.
 - **Coach bill:** **1,500** a month plus **300** per straight-line km to the area's nearest lodge on the hill, booked in the Finances view as *Ski bus*. A depot that cannot work bills nothing.
 - **Hub lines:** *Bus depot: road required*, *Bus depot: no hill lodge*.
 
