@@ -1,14 +1,16 @@
 // The two-object carrier pose (CarrierPose.cs; the carrier grip round, docs plan carrier-pivot-swing-plan-2026-11-03 section 6).
-// Where-tags `carrier-pose/...`, CP-1..CP-18.
+// Where-tags `carrier-pose/...`, CP-1..CP-20.
 // Pinned: zero swing on a level rope is today's rigid pose (body = rope - drop, yaw = NetUtils.GetNodeRotation's); the grip's axis
 // follows the rope tangent within 0.1 deg and the rope point stays in its jaw within 1 cm; the body is plumb at zero wind and its pin
 // stays on the grip's pin under any pitch and swing; the swing stays within the clamps and leans downwind; guided segments carry no
-// swing and the ramps start at 0; the wind blend is continuous; the swing changes by at most 0.5 deg per frame at 30 fps and 3x
-// speed on every lift type at realistic winds; the pairing math inverts vanilla's EvenSpacing index. Review fixes: the static pin's body
+// swing and the ramps start at 0; the wind blend is continuous; the swing shows no step or pop (CP-9: within the analytic rate at 30 fps
+// 3x and 1/480 s, under 0.5 deg per 30 fps frame at 1x) on every lift type at realistic winds; the pairing math inverts vanilla's
+// EvenSpacing index. Review fixes: the static pin's body
 // hangs from the pitched grip's pin (CP-15), a grip assembled on a body that stays put keeps the joint (CP-16), and a late first wind
 // sample blends in instead of snapping (CP-17). The swing convention (2026-11-03): the roll turns grip and body together about the rope
 // point and the rope tangent, the fore-aft turns the body about the pin; the roll's per-type limits keep a chair's base excursion at the old 8 deg pin roll's
-// and hold the tram to 2 deg at half its fore-aft amplitude (CP-18).
+// and hold the tram to 2 deg at half its fore-aft amplitude (CP-18). The visible-sway round (2026-11-06): chairs and cabins rock 4 to 6 deg
+// peak to peak at |w| 0.31 under gusts while the lean keeps its direction (CP-19); a hold release resumes the gusts (CP-20).
 
 using System;
 using System.Globalization;
@@ -48,6 +50,8 @@ namespace LiftBatch
             Cp16GripOnBody();
             Cp17FirstWind();
             Cp18RollAboutRope();
+            Cp19Visible();
+            Cp20HoldResume();
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);
@@ -192,7 +196,7 @@ namespace LiftBatch
                         float3 rope = new float3(500.5f, 900.25f, -700.75f);
                         float3 t = Tangent(y, p);
                         quaternion yaw = Yaw(t, quaternion.identity);
-                        float2 calm = CarrierPose.Swing(float2.zero, yaw, 1.3f, new float2(1f, 1f), LimitsOf(d));
+                        float2 calm = CarrierPose.Swing(float2.zero, yaw, 1.3f, new float2(1f, 1f), LimitsOf(d), 0.9f);
                         Check(calm.x == 0f && calm.y == 0f, W, "zero wind gives swing " + calm);
                         CarrierPose.Pose(rope, t, yaw, d.Pivots, true, calm, out _, out quaternion gr, out float3 bp, out quaternion br);
                         worstUp = math.max(worstUp, AngleDeg(math.rotate(br, new float3(0f, 1f, 0f)), new float3(0f, 1f, 0f)));
@@ -228,9 +232,10 @@ namespace LiftBatch
                         foreach (float y in Yaws)
                         {
                             quaternion yaw = Yaw(Tangent(y, 0f), quaternion.identity);
-                            for (int k = 0; k < 8; k++)
+                            // Sway arguments on the quarter turns (sin / cos reach +-1 exactly) and between; the gust at both ends.
+                            for (int k = 0; k < 16; k++)
                             {
-                                float2 s = CarrierPose.Swing(w, yaw, k * 0.8f, new float2(1f, 1f), limits);
+                                float2 s = CarrierPose.Swing(w, yaw, k * (math.PI / 4f), new float2(1f, 1f), limits, (k & 1) == 0 ? 1f : 0.6f);
                                 worstLat = math.max(worstLat, math.abs(s.x));
                                 worstFa = math.max(worstFa, math.abs(s.y));
                             }
@@ -262,12 +267,12 @@ namespace LiftBatch
                     float3 f = math.rotate(yaw, new float3(0f, 0f, 1f));
                     float3 right = math.rotate(yaw, new float3(1f, 0f, 0f));
                     CarrierPose.Pose(float3.zero, t, yaw, pv, true, float2.zero, out _, out _, out float3 calmBody, out _);
-                    // sway argument chosen at a zero of sin for the lateral check, of cos for the fore-aft check: the lean alone
-                    float2 cross = CarrierPose.Swing(0.4f * new float2(right.x, right.z), yaw, 0f, new float2(1f, 0f), limits);
+                    // the lean alone (ramp (1, 0)) at a wind under the clamps (0.25: the ratio check needs both leans unclamped)
+                    float2 cross = CarrierPose.Swing(0.25f * new float2(right.x, right.z), yaw, 0f, new float2(1f, 0f), limits, 1f);
                     CarrierPose.Pose(float3.zero, t, yaw, pv, true, cross, out _, out _, out float3 bp, out _);
                     float moved = math.dot(bp - calmBody, right);
                     Check(cross.x > 0f && moved > 0.01f, W, d.Id + " yaw " + F(y) + ": a cross wind to the right leans the bottom by " + F(moved) + " m");
-                    float2 tail = CarrierPose.Swing(0.4f * new float2(f.x, f.z), yaw, 0f, new float2(1f, 0f), limits);
+                    float2 tail = CarrierPose.Swing(0.25f * new float2(f.x, f.z), yaw, 0f, new float2(1f, 0f), limits, 1f);
                     CarrierPose.Pose(float3.zero, t, yaw, pv, true, tail, out _, out _, out bp, out _);
                     moved = math.dot(bp - calmBody, f);
                     Check(tail.y > 0f && moved > 0.005f, W, d.Id + " yaw " + F(y) + ": a tail wind swings the bottom forward by " + F(moved) + " m");
@@ -289,7 +294,7 @@ namespace LiftBatch
             quaternion yaw = quaternion.identity;
             foreach (LiftTypeDef d in SkiCatalog.Lifts)
             {
-                float2 s = CarrierPose.Swing(new float2(5f, 5f), yaw, 1.1f, r0, LimitsOf(d));
+                float2 s = CarrierPose.Swing(new float2(5f, 5f), yaw, 1.1f, r0, LimitsOf(d), 1f);
                 Check(s.x == 0f && s.y == 0f, W, d.Id + ": a guided pose swings " + s);
             }
             float2 r1 = CarrierPose.Ramp(10f, 10f), r2 = CarrierPose.Ramp(20f, 10f), rh = CarrierPose.Ramp(5f, 10f);
@@ -333,59 +338,271 @@ namespace LiftBatch
                   "a re-change mid-blend jumps");
         }
 
-        // ── CP-9: no swing step over 0.5 deg per frame at 30 fps and 3x speed, through guided -> free run -> guided, with a wind change ──
+        // ── CP-9: no visible step or pop (redefined 2026-11-06, the visible-sway round). The first check (every swing step <= 0.5 deg per
+        // 30 fps frame at 3x) held the sway to 1 deg: a pendulum big enough to see moves faster than that at 3x without any step (FG:
+        // 2.85 deg x omega 2.54 rad/s = 0.72 deg per 0.1 s of clock). The intent, no visible step or pop, is three checks on the body's
+        // swing rotation per type, guided -> free run -> guided, the carrier moving through the gust field, at realistic winds from three
+        // directions with a reversal mid-span (blended over WindBlendS) and at a saturating wind with no change:
+        //  (a) rate: every 30 fps step at 3x (0.1 s of mover clock) <= RateBound x 0.1 s + 0.01 deg (RateBound: the analytic smooth rate);
+        //  (b) continuity: every step at 48x finer sampling (1/480 s of clock) <= RateBound x 1/480 s + 0.01 deg, so a jump over about
+        //      0.05 deg anywhere fails (a snap of the gust, the wind, a ramp or a clamp cannot hide between two frames);
+        //  (c) hard cap at 1x: every 30 fps step at 1x (1/30 s) <= 0.5 deg.
+        // A planted 0.1 deg jump must fail (b): the test can catch a pop. ──
+        private const double FineS = 1.0 / 480.0;
+        private const int FinePer3x = 48, FinePer1x = 16;
+        private const double StepEpsDeg = 0.01;
+
+        /// <summary>The analytic bound on the swing's rate (rad/s): |d lat/dt| + |d fa/dt| (the angle between two roll x fore-aft rotations
+        /// is at most |d lat| + |d fa|: the rotation metric is bi-invariant). Per axis with gain G (RollGain, ForeAftShare) and clamp C:
+        /// value = ramp.x x clamp(LeanPerWind2 G m c g, +-room) + ramp.y x A G sin(theta), A = min(SwayPerWind m, MaxSway) x (1 - S + S g),
+        /// room = C - A G; theta' = omega (s' = v); ramp' <= v / rampM; |d(m c)/dt| <= 2 m |w'|; g in [0.6, 1], g' <= (GustAmp1 2 pi / T1 +
+        /// GustAmp2 2 pi / T2)(1 + v / GustSpeedMps) (the carrier moves through the traveling waves); while the clamp is open the lean is at
+        /// most C / 0.6 before the gust; the room moves at |A' G|.</summary>
+        private static double RateBound(in SwingLimits lim, float omega, float v, float rampM, float mMax, float windRate)
+        {
+            double gRate = (CarrierPose.GustAmp1 * 2.0 * Math.PI / CarrierPose.GustPeriod1S + CarrierPose.GustAmp2 * 2.0 * Math.PI / CarrierPose.GustPeriod2S) *
+                           (1.0 + v / CarrierPose.GustSpeedMps);
+            double gMin = CarrierPose.GustMean - CarrierPose.GustAmp1 - CarrierPose.GustAmp2;
+            double rampRate = v / rampM;
+            double amp = Math.Min(CarrierPose.SwayPerWind * mMax, CarrierPose.MaxSway);
+            double ampRate = CarrierPose.SwayPerWind * windRate + amp * CarrierPose.SwayGustShare * gRate;
+            double total = 0.0;
+            foreach ((double gain, double clamp) in new[] { ((double)lim.RollGain, (double)lim.MaxRoll), (CarrierPose.ForeAftShare, CarrierPose.MaxForeAft) })
+            {
+                double raw = CarrierPose.LeanPerWind2 * gain * mMax * mMax;
+                double lean = Math.Min(raw, clamp);
+                double leanRate = CarrierPose.LeanPerWind2 * gain * 2.0 * mMax * windRate + Math.Min(raw, clamp / gMin) * gRate + ampRate * gain;
+                total += rampRate * lean + leanRate + rampRate * amp * gain + ampRate * gain + amp * gain * omega;
+            }
+            return total;
+        }
+
+        /// <summary>The rotation angle between two quaternions in degrees, in double (conj(a) x b): the float AngleDeg (2 acos |dot|)
+        /// has a 0.04 deg quantum near 0, too coarse for the fine steps.</summary>
+        private static double StepDeg(quaternion a, quaternion b)
+        {
+            double aw = a.value.w, ax = a.value.x, ay = a.value.y, az = a.value.z;
+            double bw = b.value.w, bx = b.value.x, by = b.value.y, bz = b.value.z;
+            double rw = aw * bw + ax * bx + ay * by + az * bz;
+            double rx = aw * bx - ax * bw - ay * bz + az * by;
+            double ry = aw * by - ay * bw - az * bx + ax * bz;
+            double rz = aw * bz - az * bw - ax * by + ay * bx;
+            return 2.0 * Math.Atan2(Math.Sqrt(rx * rx + ry * ry + rz * rz), Math.Abs(rw)) * 180.0 / Math.PI;
+        }
+
+        /// <summary>One CP-9 run: the swing rotation every FineS through guided -> span -> guided; returns the worst step at 3x (0.1 s),
+        /// at 1x (1/30 s) and fine (FineS), in degrees. <paramref name="plantRad"/> adds a roll jump after the middle (the self-test).</summary>
+        private static double3 Cp9Run(LiftTypeDef d, float2 w0, bool change, float yawRad, float plantRad)
+        {
+            float v = d.SpeedMps;
+            float omega = CarrierPose.Omega(d.Pivots.BodyPin.y);
+            float rampM = CarrierPose.RampM(v);
+            SwingLimits limits = LimitsOf(d);
+            const float guidedM = 12f, spanM = 260f;
+            float3 dir = Tangent(yawRad, 0f);
+            quaternion yaw = Yaw(dir, quaternion.identity);
+            float3 start = new float3(-1830.5f, 940f, 2210.25f);
+            double changeAt = (guidedM + spanM * 0.5) / v;
+            int steps = (int)((guidedM * 2 + spanM) / v / FineS);
+            var q = new quaternion[steps + 1];
+            for (int i = 0; i <= steps; i++)
+            {
+                double t = i * FineS;
+                double s = t * v;
+                bool guided = s < guidedM || s > guidedM + spanM;
+                float dist = CarrierPose.DistanceToGuided(guided, (float)(s - guidedM), spanM, 0f, 0f);
+                float2 wind = change && t >= changeAt ? CarrierPose.BlendWind(w0, -w0, t - changeAt) : w0;
+                float gust = CarrierPose.Gust(CarrierPose.GustClock(5000.0 + t), start + dir * (float)s);
+                float2 sw = CarrierPose.Swing(wind, yaw, CarrierPose.SwayArg(s, omega, v, 0.9f), CarrierPose.Ramp(dist, rampM), limits, gust);
+                if (plantRad != 0f && i > steps / 2)
+                    sw.x += plantRad;
+                q[i] = CarrierPose.SwingRotation(sw);
+            }
+            double w3 = 0.0, w1 = 0.0, wf = 0.0;
+            for (int i = 1; i <= steps; i++)
+            {
+                wf = Math.Max(wf, StepDeg(q[i - 1], q[i]));
+                if (i >= FinePer1x)
+                    w1 = Math.Max(w1, StepDeg(q[i - FinePer1x], q[i]));
+                if (i >= FinePer3x)
+                    w3 = Math.Max(w3, StepDeg(q[i - FinePer3x], q[i]));
+            }
+            return new double3(w3, w1, wf);
+        }
+
         private static void Cp9Continuity()
         {
             const string W = "carrier-pose/continuity";
+            // Winds: realistic magnitudes from several directions with a reversal mid-span, and a saturating wind with no change (the
+            // clamps engaged through the ramp).
+            float2[] winds = { new float2(RealisticWind, 0f), new float2(0f, RealisticWind), RealisticWind * math.normalize(new float2(1f, -1f)), new float2(3f, 1f) };
             foreach (LiftTypeDef d in SkiCatalog.Lifts)
             {
                 float v = d.SpeedMps;
                 float omega = CarrierPose.Omega(d.Pivots.BodyPin.y);
                 float rampM = CarrierPose.RampM(v);
                 SwingLimits limits = LimitsOf(d);
-                const float guidedM = 12f, spanM = 260f;
-                float worst = 0f;
-                string worstAt = "";
-                // Winds: realistic magnitudes from several directions, and a reversal mid-span; plus a saturating wind with no change
-                // (the clamps engaged through the ramp).
-                float2[] winds = { new float2(RealisticWind, 0f), new float2(0f, RealisticWind), RealisticWind * math.normalize(new float2(1f, -1f)), new float2(3f, 1f) };
+                double worst3 = 0.0, worst1 = 0.0, worstF = 0.0, worstRatio3 = 0.0, worstRatioF = 0.0, bound3 = 0.0;
                 foreach (float2 w0 in winds)
                 {
                     bool strong = math.length(w0) > RealisticWind + 1e-3f;
+                    float mMax = math.length(w0);
+                    // smoothstep's peak slope 1.5 / WindBlendS over the reversal's |w1 - w0| = 2 |w0|
+                    float windRate = strong ? 0f : 1.5f * 2f * mMax / (float)CarrierPose.WindBlendS;
+                    double rate = RateBound(limits, omega, v, rampM, mMax, windRate);
+                    double cap3 = rate * FinePer3x * FineS * 180.0 / Math.PI + StepEpsDeg;
+                    double capF = rate * FineS * 180.0 / Math.PI + StepEpsDeg;
                     foreach (float y in new[] { 0f, 0.7f, 2.2f })
                     {
-                        quaternion yaw = Yaw(Tangent(y, 0f), quaternion.identity);
-                        quaternion prevQ = quaternion.identity;
-                        bool first = true;
-                        double changeAt = (guidedM + spanM * 0.5) / v;   // a reversal mid-span
-                        for (double t = 0.0; t * v <= guidedM * 2 + spanM; t += FrameS)
-                        {
-                            double s = t * v;
-                            bool guided = s < guidedM || s > guidedM + spanM;
-                            float dist = CarrierPose.DistanceToGuided(guided, (float)(s - guidedM), spanM, 0f, 0f);
-                            float2 wind = strong ? w0 : (t < changeAt ? w0 : CarrierPose.BlendWind(w0, -w0, t - changeAt));
-                            float arg = CarrierPose.SwayArg(s, omega, v, 0.9f);
-                            float2 sw = CarrierPose.Swing(wind, yaw, arg, CarrierPose.Ramp(dist, rampM), limits);
-                            // The body's rotation in the yaw frame (roll x fore-aft); the grip turns by the roll alone, a smaller step.
-                            quaternion q = CarrierPose.SwingRotation(sw);
-                            if (!first)
-                            {
-                                float step = AngleDeg(prevQ, q);
-                                if (step > worst)
-                                {
-                                    worst = step;
-                                    worstAt = "s " + F(s) + " m, wind " + wind + ", swing " + sw;
-                                }
-                            }
-                            first = false;
-                            prevQ = q;
-                        }
+                        double3 r = Cp9Run(d, w0, !strong, y, 0f);
+                        string at = d.Id + " wind " + w0 + " yaw " + F(y);
+                        Check(r.x <= cap3, W, at + ": a 3x frame steps " + F(r.x) + " deg, over the analytic bound " + F(cap3));
+                        Check(r.z <= capF, W, at + ": a 1/480 s step of " + F(r.z) + " deg is over the analytic bound " + F(capF) + " (a pop)");
+                        Check(r.y <= MaxStepDeg, W, at + ": a 1x frame steps " + F(r.y) + " deg (hard cap " + F(MaxStepDeg) + ")");
+                        worst3 = Math.Max(worst3, r.x);
+                        worst1 = Math.Max(worst1, r.y);
+                        worstF = Math.Max(worstF, r.z);
+                        worstRatio3 = Math.Max(worstRatio3, r.x / cap3);
+                        worstRatioF = Math.Max(worstRatioF, r.z / capF);
+                        bound3 = Math.Max(bound3, cap3);
                     }
                 }
-                Check(worst <= MaxStepDeg, W, d.Id + " (v " + F(v) + " m/s, omega " + F(omega) + " rad/s, ramp " + F(rampM) + " m): worst step " +
-                      F(worst) + " deg per frame at " + worstAt);
-                Console.WriteLine("INFO  " + W + ": " + d.Id + " worst swing step " + F(worst) + " deg per frame at 30 fps, 3x");
+                Console.WriteLine("INFO  " + W + ": " + d.Id + " (omega " + F(omega) + " rad/s) worst step " + F(worst3) + " deg per 3x frame (bound up to " +
+                                  F(bound3) + ", worst share " + F(worstRatio3) + "), " + F(worst1) + " deg per 1x frame (cap 0.5), " + F(worstF) +
+                                  " deg per 1/480 s (worst share of its bound " + F(worstRatioF) + ")");
             }
+            // The self-test: a planted 0.1 deg roll jump mid-span must fail (b).
+            LiftTypeDef fg = SkiCatalog.Lifts[0];
+            float2 wp = new float2(RealisticWind, 0f);
+            double capP = RateBound(LimitsOf(fg), CarrierPose.Omega(fg.Pivots.BodyPin.y), fg.SpeedMps, CarrierPose.RampM(fg.SpeedMps), RealisticWind,
+                                    1.5f * 2f * RealisticWind / (float)CarrierPose.WindBlendS) * FineS * 180.0 / Math.PI + StepEpsDeg;
+            double3 planted = Cp9Run(fg, wp, true, 0f, math.radians(0.1f));
+            Check(planted.z > capP, W, "a planted 0.1 deg jump steps " + F(planted.z) + " deg in 1/480 s, inside the bound " + F(capP) +
+                  ": the continuity check cannot catch a pop");
+        }
+
+        // ── CP-19: the sway is visible and keeps the lean's direction (the visible-sway round, 2026-11-06; the in-game check found the
+        // lean steady and no sway): a steady |w| 0.31 cross wind (step 0's sample) on a free span, the carrier moving through the gust
+        // field for 180 s. Chairs / gondola: the roll's peak to peak over every pendulum period 3.5 to 7.5 deg, its median 4 to 6 deg;
+        // the mean roll downwind (> 1.5 deg) and upwind of plumb at most 5 % of the time. Tram (a 10 m hanger): subtle but moving, roll
+        // peak to peak at most 1.5 deg, fore-aft 0.5 to 3 deg. ──
+        private static void Cp19Visible()
+        {
+            const string W = "carrier-pose/visible";
+            const double dt = 1.0 / 60.0, runS = 180.0;
+            foreach (LiftTypeDef d in SkiCatalog.Lifts)
+            {
+                float v = d.SpeedMps;
+                float omega = CarrierPose.Omega(d.Pivots.BodyPin.y);
+                SwingLimits limits = LimitsOf(d);
+                float3 dir = Tangent(0.4f, 0f);
+                quaternion yaw = Yaw(dir, quaternion.identity);
+                float3 right = math.rotate(yaw, new float3(1f, 0f, 0f));
+                float2 wind = 0.31f * math.normalize(new float2(right.x, right.z));
+                float3 start = new float3(420.5f, 1100f, -2630.25f);
+                double period = 2.0 * Math.PI / omega;
+                int perWindow = (int)Math.Round(period / dt);
+                int n = (int)(runS / dt);
+                var lat = new double[n];
+                var fa = new double[n];
+                double sum = 0.0;
+                int upwind = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    double t = i * dt;
+                    double s = 3000.0 + t * v;
+                    float gust = CarrierPose.Gust(CarrierPose.GustClock(777.0 + t), start + dir * (float)(t * v));
+                    float2 sw = CarrierPose.Swing(wind, yaw, CarrierPose.SwayArg(s, omega, v, 0.4f), new float2(1f, 1f), limits, gust);
+                    lat[i] = math.degrees(sw.x);
+                    fa[i] = math.degrees(sw.y);
+                    sum += lat[i];
+                    if (lat[i] < 0.0)
+                        upwind++;
+                }
+                var ppLat = new System.Collections.Generic.List<double>();
+                double ppFaMax = 0.0, ppFaMin = double.MaxValue;
+                for (int w0 = 0; w0 + perWindow <= n; w0 += perWindow)
+                {
+                    double lo = double.MaxValue, hi = double.MinValue, flo = double.MaxValue, fhi = double.MinValue;
+                    for (int i = w0; i < w0 + perWindow; i++)
+                    {
+                        lo = Math.Min(lo, lat[i]);
+                        hi = Math.Max(hi, lat[i]);
+                        flo = Math.Min(flo, fa[i]);
+                        fhi = Math.Max(fhi, fa[i]);
+                    }
+                    ppLat.Add(hi - lo);
+                    ppFaMax = Math.Max(ppFaMax, fhi - flo);
+                    ppFaMin = Math.Min(ppFaMin, fhi - flo);
+                }
+                ppLat.Sort();
+                double minPp = ppLat[0], maxPp = ppLat[ppLat.Count - 1], medPp = ppLat[ppLat.Count / 2];
+                double mean = sum / n, upShare = (double)upwind / n;
+                string info = d.Id + ": period " + F(period) + " s, roll peak to peak " + F(minPp) + " / " + F(medPp) + " / " + F(maxPp) +
+                              " deg (min / median / max over " + ppLat.Count + " periods), fore-aft " + F(ppFaMin) + " to " + F(ppFaMax) +
+                              " deg, mean roll " + F(mean) + " deg, upwind " + F(100.0 * upShare) + " % of the time";
+                if (d.Mover == MoverKind.Shuttle)
+                {
+                    Check(maxPp <= 1.5 && ppFaMax <= 3.0 && ppFaMin >= 0.5, W, "the tram is not subtle-but-moving: " + info);
+                }
+                else
+                {
+                    Check(minPp >= 3.5 && maxPp <= 7.5 && medPp >= 4.0 && medPp <= 6.0, W, "the sway is not 4 to 6 deg peak to peak: " + info);
+                    Check(mean > 1.5 && upShare <= 0.05, W, "the lean's direction does not read: " + info);
+                }
+                Console.WriteLine("INFO  " + W + ": " + info);
+            }
+        }
+
+        // ── CP-20: a hold release (or a re-freeze at a rebuild) resumes the gusts and a wind blend where they froze
+        // (CarrierWind.Resume): the swing of the first running frame equals the frozen pose's (<= 0.01 deg; s is continuous by Rebase);
+        // without the shift it would jump (> 0.1 deg, the test can catch it). Gust: [0.6, 1.0] over the world and the clock, and two
+        // carriers 20 m apart nearly together. ──
+        private static void Cp20HoldResume()
+        {
+            const string W = "carrier-pose/resume";
+            SwingLimits limits = LimitsOf(SkiCatalog.Lifts[0]);
+            quaternion yaw = Yaw(Tangent(0.3f, 0f), quaternion.identity);
+            float3 pos = new float3(1520.25f, 880f, -410.5f);
+            const float arg = 1.2f;
+            var full = new float2(1f, 1f);
+            var w = new CarrierWind();
+            w.Set(new float2(0.2f, 0.1f), 100.0);
+            w.Set(new float2(-0.25f, 0.2f), 103.0);   // a blend in progress at the freeze
+            const double frozen = 105.0, now = 105.0 + 37.3;
+            float2 Pose(double clockS) => CarrierPose.Swing(w.At(clockS), yaw, arg, full, limits, CarrierPose.Gust(CarrierPose.GustClock(w.GustTimeS(clockS)), pos));
+            quaternion before = CarrierPose.SwingRotation(Pose(frozen));
+            quaternion noShift = CarrierPose.SwingRotation(Pose(now));
+            w.Resume(frozen, now);
+            quaternion after = CarrierPose.SwingRotation(Pose(now));
+            double step = StepDeg(before, after), jump = StepDeg(before, noShift);
+            Check(step <= 0.01, W, "the first running frame after a hold steps " + F(step) + " deg (<= 0.01)");
+            Check(jump > 0.1, W, "without Resume the release would step only " + F(jump) + " deg: the test cannot catch a regression");
+            // The blend continues from the frozen point: one 3x frame later the swing moves by a smooth step only.
+            double next = StepDeg(after, CarrierPose.SwingRotation(Pose(now + FrameS)));
+            Check(next <= 0.5, W, "the frame after the release steps " + F(next) + " deg");
+            // A zero or negative hold changes nothing.
+            double heldBefore = w.m_HeldS;
+            w.Resume(now, now);
+            w.Resume(now, now - 5.0);
+            Check(w.m_HeldS == heldBefore, W, "a zero or negative hold shifts the gust clock");
+            Console.WriteLine("INFO  " + W + ": a release after 37.3 s steps " + F(step) + " deg with Resume, " + F(jump) + " deg without");
+
+            // The gust range and its spatial coherence.
+            float lo = float.MaxValue, hi = float.MinValue, worstNear = 0f;
+            for (int i = 0; i < 4000; i++)
+            {
+                double t = i * 0.37;
+                float3 p = new float3(-5000f + 2.5f * i, 0f, 3000f - 1.7f * i);
+                float g = CarrierPose.Gust(CarrierPose.GustClock(t), p);
+                lo = math.min(lo, g);
+                hi = math.max(hi, g);
+                float3 near = p + new float3(20f * 0.6f, 0f, 20f * 0.8f);
+                worstNear = math.max(worstNear, math.abs(g - CarrierPose.Gust(CarrierPose.GustClock(t), near)));
+            }
+            Check(lo >= 0.6f - 1e-5f && hi <= 1f + 1e-5f && lo < 0.65f && hi > 0.95f, W, "the gust spans " + F(lo) + " to " + F(hi) + " (want [0.6, 1.0], reached)");
+            Check(worstNear <= 0.2f, W, "two carriers 20 m apart differ by " + F(worstNear) + " in gust (<= 0.2: patches, not noise)");
+            Console.WriteLine("INFO  " + W + ": gust " + F(lo) + " to " + F(hi) + ", 20 m apart at most " + F(worstNear) + " apart");
         }
 
         // ── CP-15: the static pin (TryPinChair + PinGripOf): the body comes from the same Pose call as the pitched grip (zero swing), so the
@@ -488,11 +705,11 @@ namespace LiftBatch
                 quaternion yaw = Yaw(Tangent(y, 0f), quaternion.identity);
                 const float arg = 1.1f;
                 var full = new float2(1f, 1f);
-                snap = math.max(snap, AngleDeg(CarrierPose.SwingRotation(float2.zero), CarrierPose.SwingRotation(CarrierPose.Swing(w, yaw, arg, full, limits))));
-                quaternion prev = CarrierPose.SwingRotation(CarrierPose.Swing(late.At(200.0 - FrameS), yaw, arg, full, limits));
+                snap = math.max(snap, AngleDeg(CarrierPose.SwingRotation(float2.zero), CarrierPose.SwingRotation(CarrierPose.Swing(w, yaw, arg, full, limits, 1f))));
+                quaternion prev = CarrierPose.SwingRotation(CarrierPose.Swing(late.At(200.0 - FrameS), yaw, arg, full, limits, 1f));
                 for (double t = 200.0; t <= 200.0 + CarrierPose.WindBlendS + 1.0; t += FrameS)
                 {
-                    quaternion q = CarrierPose.SwingRotation(CarrierPose.Swing(late.At(t), yaw, arg, full, limits));
+                    quaternion q = CarrierPose.SwingRotation(CarrierPose.Swing(late.At(t), yaw, arg, full, limits, 1f));
                     worst = math.max(worst, AngleDeg(prev, q));
                     prev = q;
                 }
@@ -574,8 +791,8 @@ namespace LiftBatch
                     // Half the fore-aft amplitude, lean and sway: a 45-degree wind (cross = along), unclamped; the sway at sin = cos.
                     float3 fw = math.rotate(lyaw, new float3(0f, 0f, 1f)), rt = math.rotate(lyaw, new float3(1f, 0f, 0f));
                     float2 wind45 = 0.2f * math.normalize(new float2(fw.x + rt.x, fw.z + rt.z));
-                    float2 lean = CarrierPose.Swing(wind45, lyaw, 0f, new float2(1f, 0f), limits);
-                    float2 sway = CarrierPose.Swing(wind45, lyaw, 0.25f * math.PI, new float2(0f, 1f), limits);
+                    float2 lean = CarrierPose.Swing(wind45, lyaw, 0f, new float2(1f, 0f), limits, 1f);
+                    float2 sway = CarrierPose.Swing(wind45, lyaw, 0.25f * math.PI, new float2(0f, 1f), limits, 1f);
                     Check(math.abs(lean.x / lean.y - 0.5f) <= 1e-3f && math.abs(sway.x / sway.y - 0.5f) <= 1e-3f, W,
                           d.Id + ": roll / fore-aft is " + F(lean.x / lean.y) + " (lean), " + F(sway.x / sway.y) + " (sway), want 0.5");
                 }
@@ -714,7 +931,18 @@ namespace LiftBatch
                   "the clamps are not 8 / 3 deg");
             Check(CarrierPose.WindBlendS == 8.0, W, "the wind blend is not 8 s");
             Check(math.abs(CarrierPose.ForeAftShare - 1f / 3f) < 1e-6f, W, "the fore-aft share is not 1/3");
-            Check(CarrierPose.MaxSway < CarrierPose.MaxLateral && CarrierPose.MaxSway < CarrierPose.TramMaxRoll, W, "the sway cap exceeds a roll clamp");
+            // The sway cap leaves the lean at least half of every clamp (Swing clamps the lean to the room the sway leaves).
+            foreach (LiftTypeDef d in SkiCatalog.Lifts)
+            {
+                SwingLimits lim = LimitsOf(d);
+                Check(CarrierPose.MaxSway * lim.RollGain <= 0.5f * lim.MaxRoll && CarrierPose.MaxSway * CarrierPose.ForeAftShare <= 0.5f * CarrierPose.MaxForeAft, W,
+                      d.Id + ": the sway cap takes more than half a clamp (roll " + F(math.degrees(CarrierPose.MaxSway * lim.RollGain)) + " of " +
+                      F(math.degrees(lim.MaxRoll)) + " deg)");
+            }
+            Check(math.abs(CarrierPose.GustMean - CarrierPose.GustAmp1 - CarrierPose.GustAmp2 - 0.6f) < 1e-6f &&
+                  math.abs(CarrierPose.GustMean + CarrierPose.GustAmp1 + CarrierPose.GustAmp2 - 1f) < 1e-6f, W, "the gust does not span [0.6, 1.0]");
+            Check(CarrierPose.GustPeriod1S >= 5.0 && CarrierPose.GustPeriod2S <= 20.0 && CarrierPose.GustPeriod1S < CarrierPose.GustPeriod2S, W,
+                  "the gust periods leave 5 to 20 s");
             Check(math.abs(math.degrees(CarrierPose.TramMaxRoll) - 2f) < 1e-3f && CarrierPose.TramRollShare == 0.5f, W,
                   "the tram's roll is not 2 deg at half the fore-aft amplitude");
             // A realistic wind leans 1 to 4 deg (the photos tune it; a 0 or a 20 deg lean is a typo).

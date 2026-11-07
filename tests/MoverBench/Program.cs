@@ -6,7 +6,7 @@
 //   B-1 correctness: LiftLoopSampler.Sample on the flat arrays == LiftLoopCache.Sample bit for bit, and Pose == MoveChair's pose, for
 //       every chair at three clocks (Burst may contract float ops differently); B-2 / B-3 the managed per-chair pass vs the flat
 //       MoveChairsJob kernel (p50 / p95 / max over 600 passes; one thread, then Parallel.For batch 64); B-4 pace: four camera scenarios.
-//   B-5 the carrier grip round (the brief's "B-2 case", numbered on): 2,000 carriers with grips + swing through the split kernel
+//   B-5 the carrier grip round (the brief's "B-2 case", numbered on): 2,000 carriers with grips + swing (+ gust, 2026-11-06) through the split kernel
 //       (one sample, two Transforms) vs the rigid kernel on the same carriers, and its correctness (toggle off == the rigid pose,
 //       grip axis along the rope, zero swing on guided segments, the free-run marks).
 
@@ -393,7 +393,8 @@ namespace MoverBench
                     quaternion yaw = NetUtils.GetNodeRotation(tan, quaternion.identity);
                     FlatSegment f = marked.A[seg];
                     float2 ramp = CarrierPose.Ramp(CarrierPose.DistanceToGuided(f.Guided != 0, d, f.Length, f.RunBefore, f.RunAfter), ls.RampM);
-                    float2 swing = CarrierPose.Swing(BenchWind, yaw, CarrierPose.SwayArg(s, ls.Omega, ls.Speed, CarrierPose.SeedPhase((uint)c)), ramp, ls.Limits);
+                    float2 swing = CarrierPose.Swing(BenchWind, yaw, CarrierPose.SwayArg(s, ls.Omega, ls.Speed, CarrierPose.SeedPhase((uint)c)), ramp, ls.Limits,
+                                                     CarrierPose.Gust(CarrierPose.GustClock(timeS), p));
                     compared++;
                     if (f.Guided != 0)
                     {
@@ -448,8 +449,9 @@ namespace MoverBench
             {
                 clock += dt;
                 long t0 = Stopwatch.GetTimestamp();
+                float2 gustClock = CarrierPose.GustClock(clock);   // per loop and pass on the main thread in game (SwingInputs)
                 for (int c = 0; c < n; c++)
-                    SplitKernel(ref marked, loops, segFirst, chairs, swingOf, bodies, grips, c, clock);
+                    SplitKernel(ref marked, loops, segFirst, chairs, swingOf, bodies, grips, c, clock, gustClock);
                 if (pass >= 0)
                     samples[pass] = Ms(t0);
             }
@@ -470,7 +472,7 @@ namespace MoverBench
 
         /// <summary>MoveChairsJob.Execute's split branch (ChairPinSystem.Mover.cs), minus the ECS lookups.</summary>
         private static void SplitKernel(ref ArraySegments segs, List<LiftLoopCache.Loop> loops, int[] segFirst, Chair[] chairs,
-            LoopSwing[] swingOf, Transform[] bodies, Transform[] grips, int c, double timeS)
+            LoopSwing[] swingOf, Transform[] bodies, Transform[] grips, int c, double timeS, float2 gustClock)
         {
             Chair ch = chairs[c];
             LiftLoopCache.Loop loop = loops[ch.Loop];
@@ -483,7 +485,8 @@ namespace MoverBench
             float2 ramp = CarrierPose.Ramp(CarrierPose.DistanceToGuided(f.Guided != 0, d, f.Length, f.RunBefore, f.RunAfter), ls.RampM);
             float2 swing = float2.zero;
             if (ramp.x > 0f || ramp.y > 0f)
-                swing = CarrierPose.Swing(BenchWind, yaw, CarrierPose.SwayArg(s, ls.Omega, ls.Speed, 0.37f * c), ramp, ls.Limits);
+                swing = CarrierPose.Swing(BenchWind, yaw, CarrierPose.SwayArg(s, ls.Omega, ls.Speed, 0.37f * c), ramp, ls.Limits,
+                                          CarrierPose.Gust(gustClock, p));
             CarrierPose.Pose(p, tan, yaw, ls.Pivots, true, swing, out float3 gp, out quaternion gr, out float3 bp, out quaternion br);
             if (LiftLoopSampler.Write(bp, br, ref body) == LiftLoopSampler.Moved)
                 bodies[c] = body;

@@ -10,7 +10,7 @@
 // lever is the rope point to the body's base, longer than the old pin roll's, so a chair / gondola scales its roll gain and clamp by
 // the lever ratio (Limits); the tram's long hanger damps it to half the fore-aft amplitude and 2 deg.
 // Pure (Unity.Mathematics only): MoveChairsJob (Burst), ChairPinSystem's managed paths, TramShuttleSystem, tests/LiftBatch
-// (CarrierPoseTests, CP-1 to CP-18) and tests/MoverBench (B-5) share it. CarrierWind (the per-loop wind snapshots) lives here too.
+// (CarrierPoseTests, CP-1 to CP-20) and tests/MoverBench (B-5) share it. CarrierWind (the per-loop wind snapshots) lives here too.
 // Frames: Unity's left-handed world, y up; a carrier's local frame is X right, Y up, Z forward. The YAW is the caller's: the rigid
 // pose's NetUtils.GetNodeRotation(travel tangent, fallback) (Game.Net/NetUtils.cs:316-324 in 1.6.2f1), unchanged, so the facing
 // conventions (the loop's travel yaw, the static pin's flip, the tram's -t_up) stay where they are.
@@ -18,12 +18,17 @@
 // grip mesh, GripPin = the pin center in the grip mesh, BodyPin = the pin center in the body mesh. Rigid identity (CatalogTests
 // CT-17): BodyPin + GripRope - GripPin = (0, drop, 0), drop = HangM - GripTopAboveRopeM, so zero pitch and zero swing put the
 // body exactly where today's one-piece carrier stands (rope point - drop) and the grip where the old mesh's grip was (CP-1).
-// Swing (closed form, no integrated state, plan section 3): lean = the wind's cross / along components in the carrier frame
-// (fore-aft at ForeAftShare), clamped; sway = an amplitude that grows with |w| times sin / cos of an argument that is a pure
-// function of the loop distance s (SwayArg: omega / v x s + a per-entity phase), so a paused game freezes it, a hold freezes it
-// and the hold's Rebase resumes it without a jump (s is continuous there), and neighbors differ by omega x spacing / v. Both are
-// zero on guided segments (bull wheel arcs, the synthesized station runs) and ramp in linearly: the lean over the first RampM of
-// a free run, the sway over the next RampM (CP-9: no step over 0.5 deg per frame at 30 fps and 3x speed).
+// Swing (closed form, no integrated state, plan section 3; the visible-sway round 2026-11-06): lean = the wind's cross / along
+// components in the carrier frame (fore-aft at ForeAftShare) times a GUST factor, clamped so the sway always has room; sway = an
+// amplitude that grows with |w| (and a little with the gust) times sin / cos of an argument that is a pure function of the loop
+// distance s (SwayArg: omega / v x s + a per-entity phase), so a paused game freezes it, a hold freezes it and the hold's Rebase
+// resumes it without a jump (s is continuous there), and neighbors differ by omega x spacing / v. The gust (Gust) is two traveling
+// sine waves over the world (periods GustPeriod1S / 2S, GustSpeedMps): a pure function of the mover clock and the rope point, so
+// a gust front crosses a line patch by patch instead of the whole lift breathing at once; CarrierWind.Resume shifts its clock at a
+// hold release, so a held loop's gusts resume where they froze. Lean and sway are zero on guided segments (bull wheel arcs, the
+// synthesized station runs) and ramp in linearly: the lean over the first RampM of a free run, the sway over the next RampM.
+// CP-9 (no visible step or pop): every frame's change stays within the analytic rate bound, at 30 fps 3x and 16x finer, and under
+// 0.5 deg per 30 fps frame at 1x.
 // The wind per loop: two snapshots and the clock of the change, smoothstep over WindBlendS (BlendWind; the caller samples
 // WindSystem on the main thread). Every constant below is a PLACEHOLDER until in-game photos tune it.
 // Engine notes: EngineNotes/ChairPinSystem.Mover.md ("Grips and swing")
@@ -37,8 +42,8 @@ namespace SkiResortMod.Systems
     {
         // ---- the swing constants (PLACEHOLDERS: tuned from in-game photos; step 0 measured SampleWind |w| ~ 0.31, units UNVERIFIED) ----
         // DECISIONS 601 (#17): the first values (lean 0.3, sway 0.05 capped at 1 deg) measured 0.26 deg median / 0.67 deg max tilt on
-        // running FG / DQ / gondola carriers while the vanilla power line beside them visibly swayed: raised to the tests' envelope
-        // (CP-14: lean under 4 deg at 0.31; MaxSway under the tram's 2 deg roll clamp; CP-9: 0.5 deg per frame at 30 fps, 3x).
+        // running FG / DQ / gondola carriers while the vanilla power line beside them visibly swayed: lean raised to 0.7 (CP-14: under
+        // 4 deg at 0.31).
         /// <summary>Lean (rad) per |w|^2 of full cross wind: drag grows with the square of the wind (0.7 x 0.31^2 = 3.85 deg).</summary>
         public const float LeanPerWind2 = 0.7f;
         /// <summary>The fore-aft share of the lean and the sway (the plan: fore-aft at 1/3).</summary>
@@ -52,11 +57,27 @@ namespace SkiResortMod.Systems
         public const float TramRollShare = 0.5f;
         /// <summary>Fore-aft clamp: 3 deg (about the lateral axis).</summary>
         public const float MaxForeAft = 0.05235988f;
-        /// <summary>Sway amplitude (rad) per |w| (0.1 x 0.15 = 0.86 deg), capped by MaxSway.</summary>
-        public const float SwayPerWind = 0.1f;
-        /// <summary>Sway cap: 1 deg. Bounds the sway's own rate (amplitude x omega x 0.1 s of clock per frame at 30 fps, 3x): 1.8 deg
-        /// failed CP-9 at a mid-span wind reversal (FG 0.88 deg per frame).</summary>
-        public const float MaxSway = 0.017453292f;
+        // The visible-sway round (2026-11-06): the in-game check found the lean steady and the 1 deg sway invisible beside it. The sway
+        // now rocks a chair / gondola 4.3 to 5.7 deg peak to peak at |w| 0.31 (CP-19); CP-9 checks smoothness against the analytic rate
+        // instead of a flat 0.5 deg per 3x frame, which a visible pendulum cannot meet (FG: 2.85 deg x omega 2.54 = 0.72 deg per 0.1 s).
+        /// <summary>Sway amplitude (rad) per |w| (0.17 x 0.31 = 3.02 deg; the roll takes RollGain of it), capped by MaxSway.</summary>
+        public const float SwayPerWind = 0.17f;
+        /// <summary>Sway cap: 3.5 deg. CP-14: at most half of every type's roll clamp and of MaxForeAft after the gains, so the lean
+        /// keeps at least half of each clamp and lean + sway never reach the final clamp (no flat tops).</summary>
+        public const float MaxSway = 0.061086524f;
+        /// <summary>The share of the sway amplitude that follows the gust: amplitude x (1 - share + share x gust), 0.8 to 1.0.</summary>
+        public const float SwayGustShare = 0.5f;
+        /// <summary>The gust factor's mean and the two waves' amplitudes: Gust spans [0.6, 1.0] of the lean (0.6, not 0.5: at a gust
+        /// low the sway would otherwise swing a chair past plumb into the wind every period, and the downwind lean stops reading).</summary>
+        public const float GustMean = 0.8f, GustAmp1 = 0.12f, GustAmp2 = 0.08f;
+        /// <summary>The two gust periods (s of mover clock): incommensurate (73 / 127), so the pattern repeats after 927 s.</summary>
+        public const double GustPeriod1S = 7.3, GustPeriod2S = 12.7;
+        /// <summary>The gusts' travel speed over the ground (m/s): wavelengths 88 m and 152 m, so carriers 10 to 30 m apart lean
+        /// nearly together and a long line shows several gust patches.</summary>
+        public const float GustSpeedMps = 12f;
+        /// <summary>The two waves' travel directions in world (x, z): 20 and 115 deg from +x (fixed, not the wind's: a direction taken
+        /// from the wind would flip with a wind reversal and snap the gust).</summary>
+        public const float GustDir1X = 0.9396926f, GustDir1Z = 0.34202015f, GustDir2X = -0.42261827f, GustDir2Z = 0.90630779f;
         /// <summary>Gravity for the pendulum frequency omega = sqrt(g / L).</summary>
         public const float Gravity = 9.81f;
         /// <summary>The pendulum length L as a share of the pin-to-body-bottom length (the center of mass sits about there).</summary>
@@ -218,10 +239,36 @@ namespace SkiResortMod.Systems
             return (h & 0xFFFFu) * (2f * math.PI / 65536f);
         }
 
+        /// <summary>The gust clock of mover time <paramref name="timeS"/> (CarrierWind.GustTimeS: the clock minus the held time): the
+        /// two waves' time phases, wrapped to [0, 2 pi) in double (the clock reaches days) and handed to Gust as floats. One per loop and
+        /// pass (the job gets it in JobLoop).</summary>
+        public static float2 GustClock(double timeS)
+        {
+            const double twoPi = 6.283185307179586;
+            double a = timeS * (twoPi / GustPeriod1S);
+            double b = timeS * (twoPi / GustPeriod2S);
+            a -= math.floor(a / twoPi) * twoPi;
+            b -= math.floor(b / twoPi) * twoPi;
+            return new float2((float)a, (float)b);
+        }
+
+        /// <summary>The gust factor in [GustMean - GustAmp1 - GustAmp2, GustMean + GustAmp1 + GustAmp2] = [0.6, 1.0] at the rope point
+        /// <paramref name="position"/> (world; only x, z) and the gust clock <paramref name="clock"/> (GustClock): two sine waves
+        /// traveling over the ground at GustSpeedMps. Two sin calls; continuous in the clock and the position.</summary>
+        public static float Gust(float2 clock, float3 position)
+        {
+            const float k1 = (float)(6.283185307179586 / GustPeriod1S) / GustSpeedMps;
+            const float k2 = (float)(6.283185307179586 / GustPeriod2S) / GustSpeedMps;
+            float a1 = clock.x - k1 * (GustDir1X * position.x + GustDir1Z * position.z);
+            float a2 = clock.y - k2 * (GustDir2X * position.x + GustDir2Z * position.z);
+            return GustMean + GustAmp1 * math.sin(a1) + GustAmp2 * math.sin(a2);
+        }
+
         /// <summary>The swing (roll, fore-aft) in rad for a wind <paramref name="wind"/> (world x, z), the carrier's yaw, its sway
-        /// argument, the ramp factors and its type's lateral limits (Limits). Cross wind = the wind's component along the carrier's right
-        /// ((f.z, -f.x) for forward f).</summary>
-        public static float2 Swing(float2 wind, quaternion yaw, float swayArg, float2 ramp, in SwingLimits limits)
+        /// argument, the ramp factors, its type's lateral limits (Limits) and the gust factor at the carrier (Gust; 1 = the full lean).
+        /// Cross wind = the wind's component along the carrier's right ((f.z, -f.x) for forward f). The lean is gust x the steady lean,
+        /// clamped to the room the sway leaves (clamp - sway amplitude), so lean + sway stay inside the clamps without a flat top.</summary>
+        public static float2 Swing(float2 wind, quaternion yaw, float swayArg, float2 ramp, in SwingLimits limits, float gust)
         {
             if (ramp.x <= 0f && ramp.y <= 0f)
                 return float2.zero;
@@ -231,15 +278,20 @@ namespace SkiResortMod.Systems
             float mag = math.length(wind);
             float cross = math.dot(wind, right);
             float along = math.dot(wind, f);
-            // The lean is clamped BEFORE the ramp scales it: a strong wind's unclamped lean would saturate within the first meter of
-            // the ramp (a step of degrees per frame, CP-9).
             float maxRoll = limits.MaxRoll;
-            float leanLat = math.clamp(LeanPerWind2 * limits.RollGain * mag * cross, -maxRoll, maxRoll);
-            float leanFa = math.clamp(LeanPerWind2 * ForeAftShare * mag * along, -MaxForeAft, MaxForeAft);
-            float amp = math.min(SwayPerWind * mag, MaxSway);
+            float amp = math.min(SwayPerWind * mag, MaxSway) * (1f - SwayGustShare + SwayGustShare * gust);
+            float ampLat = amp * limits.RollGain;
+            float ampFa = amp * ForeAftShare;
+            // The lean is clamped BEFORE the ramp scales it: a strong wind's unclamped lean would saturate within the first meter of
+            // the ramp (a step of degrees per frame, CP-9). The room shrinks by the sway amplitude (CP-14 keeps it at least half the
+            // clamp), so a strong wind still rocks the carrier instead of pinning it at the clamp.
+            float roomLat = math.max(maxRoll - ampLat, 0f), roomFa = math.max(MaxForeAft - ampFa, 0f);
+            float leanLat = math.clamp(LeanPerWind2 * limits.RollGain * mag * cross * gust, -roomLat, roomLat);
+            float leanFa = math.clamp(LeanPerWind2 * ForeAftShare * mag * along * gust, -roomFa, roomFa);
             math.sincos(swayArg, out float sin, out float cos);
-            float lat = ramp.x * leanLat + ramp.y * amp * limits.RollGain * sin;
-            float fa = ramp.x * leanFa + ramp.y * amp * ForeAftShare * cos;
+            float lat = ramp.x * leanLat + ramp.y * ampLat * sin;
+            float fa = ramp.x * leanFa + ramp.y * ampFa * cos;
+            // A safety net only: lean + sway stay inside by construction (CP-5).
             return new float2(math.clamp(lat, -maxRoll, maxRoll), math.clamp(fa, -MaxForeAft, MaxForeAft));
         }
 
@@ -301,6 +353,25 @@ namespace SkiResortMod.Systems
         public bool m_Known;
         /// <summary>At was read while the wind was unknown: carriers were posed with zero wind, so the first sample must blend in.</summary>
         public bool m_ServedUnknown;
+        /// <summary>The mover time this loop stood held (Resume): the gust clock runs on timeS - m_HeldS, so a release resumes the gusts
+        /// where they froze.</summary>
+        public double m_HeldS;
+
+        /// <summary>The gust clock's time at mover clock <paramref name="timeS"/> (CarrierPose.GustClock of it).</summary>
+        public double GustTimeS(double timeS) => timeS - m_HeldS;
+
+        /// <summary>A held loop runs again (or re-freezes at a later clock): its poses stood at <paramref name="frozenS"/> and continue
+        /// at <paramref name="nowS"/>. The gust clock and a wind blend in progress both shift by the held time, so At(now) = At(frozen)
+        /// and the gusts continue from the frozen pose (CP-20: no lean step at a release).</summary>
+        public void Resume(double frozenS, double nowS)
+        {
+            double held = nowS - frozenS;
+            if (!(held > 0.0))
+                return;
+            m_HeldS += held;
+            if (m_Known)
+                m_ChangeS += held;
+        }
 
         /// <summary>The blended wind at mover clock <paramref name="timeS"/>; zero while unknown.</summary>
         public float2 At(double timeS)
