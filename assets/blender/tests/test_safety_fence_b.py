@@ -1,30 +1,32 @@
 """
-test_safety_fence_b - gates for assets/blender/safety_fence_b.py (the ski safety fence, generation B:
-SkiSafetyNetB, the see-through netted lane mesh; research docs/research/fence-cutout-2026-10-29.md).
+test_safety_fence_b: gates for assets/blender/safety_fence_b.py (the ski safety fence, generation B:
+SkiSafetyNetB, the see-through netted lane mesh, research docs/research/fence-cutout-2026-10-29.md).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_safety_fence_b.py [-- --quick]
 
-Exit 1 on any failure; --quick skips the two child processes (B8 fresh-process determinism).
+Exit 1 on any failure. --quick skips the two child processes (B8 fresh-process determinism).
 
-  B1   the name passes validate_asset_name and contains no "Fence" (the Editor wraps each mesh in a
-       StaticObjectPrefab); an underscore name raises.
-  B2   per LOD: tile_contracts hold (C2 bounds, C3 columns, C4 post window, C5 tris exact + caps + LOD1 <= 50 %,
-       C6 outward twins 6 mm apart, C7 UVs inside their column, outward posts / caps); two in-process builds hash
-       identically; paint_maps is deterministic.
-  B3   raw FBX: z -200 .. +200 cm, y -15 .. 158 (LOD1 155), x within -2.5 .. +4.5; net vertices on their columns
-       (50 cm LOD0, 200 cm LOD1); post / cap z - s in [0, 4] cm; tris as built.
-  B4   written PNGs: 8-bit RGBA at the atlas size; texture_contracts hold on them (V rule, alpha, ControlMask /
-       MaskMap channels; mean alpha 0.40 - 0.50, periodic body, net edge rows, cords, mirror symmetry).
-  B5   settings.json exactly (key order too): sharedAssets LOD1 -> LOD0, LOD1 Skip, Surface the vanilla cutout
-       block.
-  B6   cs2_validate (kind hanging, no cutout flag): 0 errors / 0 warnings, the cutout read from
-       Surface.alphaCutoff; negative: the folder without the Surface block ERRORs.
-  B7   manifest: template, CurveProperties 2 / 0, tris per LOD, atlas columns, v_robust, alpha stats; no absolute
-       path anywhere in it (manifests are tracked).
-  NEG  contracts reject: a post column varying along v, an opaque net edge row, a net body that is not periodic, a
-       post-column texel with alpha < 255, a net face UV in the post column (C7), a post moved 5 cm (C4), a missing
-       twin (C6), a net vertex off its column (C3).
-  B8   two fresh Blender processes write byte-identical PNGs + settings.json and identical FBX geometry.
+- B1: the name passes validate_asset_name and contains no "Fence" (the Editor wraps each mesh in a
+  StaticObjectPrefab). An underscore name raises.
+- B2: per LOD: tile_contracts hold (C2 bounds, C3 columns, C4 post window, C5 tris exact + caps +
+  LOD1 <= 50 %, C6 outward twins 6 mm apart, C7 UVs inside their column, outward posts / caps). Two
+  in-process builds hash identically. paint_maps is deterministic.
+- B3: raw FBX: z -200 .. +200 cm, y -15 .. 158 (LOD1 155), x within -2.5 .. +4.5. Net vertices on
+  their columns (50 cm LOD0, 200 cm LOD1). Post / cap z - s in [0, 4] cm. Tris as built.
+- B4: written PNGs: 8-bit RGBA at the atlas size. texture_contracts hold on them (V rule, alpha,
+  ControlMask / MaskMap channels, mean alpha 0.40 - 0.50, periodic body, net edge rows, cords,
+  mirror symmetry).
+- B5: settings.json exactly (key order too): sharedAssets LOD1 -> LOD0, LOD1 Skip, Surface the
+  vanilla cutout block.
+- B6: cs2_validate (kind hanging, no cutout flag): 0 errors / 0 warnings, the cutout read from
+  Surface.alphaCutoff. Negative: the folder without the Surface block ERRORs.
+- B7: manifest: template, CurveProperties 2 / 0, tris per LOD, atlas columns, v_robust, alpha stats.
+  No absolute path anywhere in it (manifests are tracked).
+- NEG: contracts reject: a post column varying along v, an opaque net edge row, a net body that is
+  not periodic, a post-column texel with alpha < 255, a net face UV in the post column (C7), a post
+  moved 5 cm (C4), a missing twin (C6), a net vertex off its column (C3).
+- B8: two fresh Blender processes write byte-identical PNGs + settings.json and identical FBX
+  geometry.
 """
 
 import hashlib

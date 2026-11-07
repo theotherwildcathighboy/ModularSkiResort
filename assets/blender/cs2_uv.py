@@ -1,53 +1,54 @@
 """
-cs2_uv.py - unique UV repack with texel-density control (art pipeline v2, section 3.3).
+cs2_uv.py: unique UV repack with texel-density control (art pipeline v2, section 3.3).
 
 Contract (docs/research/art/art-pipeline-v2.md 3.3, round L spec "cs2_uv.py"):
 
     pack_unique(obj, A, reserved_rects, margin_px=None, equalise=True,
                 density_layer="density_w") -> dict
-        Creates the UV layer "UVUnique" from the active layer, then lays it out uniquely:
-          1. faces whose loops all lie inside any reserved rect are PINNED - by
-             deselection, the one pin mechanism (lift_tower.apply_finish_textures:906-919):
-             bpy.ops.uv.* only touches selected faces under UV sync-select;
-          2. bpy.ops.uv.average_islands_scale() on the rest (UV area ~ 3D area);
-          3. every non-pinned island is scaled about its UV centroid by the mean of its
-             faces' float FACE attribute `density_layer` (missing / <= 0 counts as 1.0);
-          4. ONE bpy.ops.uv.pack_islands(rotate=False, scale=True, margin_method='FRACTION',
-             margin=margin_px / A, shape_method='AABB');
-          5. the packed loops are squeezed into the tallest v-band free of every reserved
-             rect (lift_tower.py:934-946, rects treated full-width, 0.005 guard);
-          6. asserts: every loop in [0, 1]; no non-pinned loop inside a reserved rect;
-             no zero-area island.
-        margin_px defaults to max(16, A // 64) (16 @ 1024, 32 @ 2048, 64 @ 4096).
-        rotate=False is mandatory: the EMIT rebake that follows does not re-rotate the
-        tangent-space normal texels.
 
-    pack_unique(..., share=None) / _pack_layout(..., share=None)   (detail pass 1, lifts)
-        Bay sharing: `share` = [(canon_polys, [dup_polys, ...]), ...] (polygon index lists,
-        pairwise the same length and loop counts; cs2_liftdress.share_identical builds it).
-        Dup faces are held back with the pinned set for steps 2-5 (not equalized, weighted,
-        packed or squeezed); after step 5 every dup loop takes its canonical loop's UV
-        (loop k of dup poly j = loop k of canon poly j), so the copies stack on ONE island.
-        The report gains "shared_faces" / "shared_groups". share=None (the default) runs the
-        exact pre-pass code path and never passes the keyword on (cs2_bldg's drop-in packer
-        keeps its signature): byte-identical layouts, proven on the shipped lift stations.
+It creates the UV layer "UVUnique" from the active layer, then lays it out uniquely:
+1. Faces whose loops all lie inside any reserved rect are PINNED, by deselection, the one pin
+   mechanism (lift_tower.apply_finish_textures:906-919): bpy.ops.uv.* only touches selected faces
+   under UV sync-select.
+2. bpy.ops.uv.average_islands_scale() runs on the rest (UV area ~ 3D area).
+3. Every non-pinned island is scaled about its UV centroid by the mean of its faces' float FACE
+   attribute `density_layer` (missing / <= 0 counts as 1.0).
+4. ONE bpy.ops.uv.pack_islands(rotate=False, scale=True, margin_method='FRACTION', margin=margin_px
+   / A, shape_method='AABB') packs the islands.
+5. The packed loops are squeezed into the tallest v-band free of every reserved rect
+   (lift_tower.py:934-946, rects treated full-width, 0.005 guard).
+6. Asserts: every loop in [0, 1], no non-pinned loop inside a reserved rect, no zero-area island.
+
+margin_px defaults to max(16, A // 64) (16 @ 1024, 32 @ 2048, 64 @ 4096). rotate=False is mandatory:
+the EMIT rebake that follows does not re-rotate the tangent-space normal texels.
+
+pack_unique(..., share=None) / _pack_layout(..., share=None)   (detail pass 1, lifts)
+Bay sharing: `share` = [(canon_polys, [dup_polys, ...]), ...] (polygon index lists, pairwise the
+same length and loop counts. cs2_liftdress.share_identical builds it). Dup faces are held back with
+the pinned set for steps 2-5 (not equalized, weighted, packed or squeezed). After step 5, every dup
+loop takes its canonical loop's UV (loop k of dup poly j = loop k of canon poly j), so the copies
+stack on ONE island. The report gains "shared_faces" / "shared_groups". share=None (the default)
+runs the exact pre-pass code path and never passes the keyword on (cs2_bldg's drop-in packer keeps
+its signature). The layouts are byte-identical, proven on the shipped lift stations.
 
     finish_packer(obj, mesh, A, reserved) -> None
-        Drop-in packer hook for lift_tower.apply_finish_textures(packer=...): the layer
-        "UVUnique" already exists and is active; performs steps 1-6 above and nothing else.
+
+Drop-in packer hook for lift_tower.apply_finish_textures(packer=...): the layer "UVUnique" already
+exists and is active. It performs steps 1-6 above and nothing else.
 
     density_report(obj, A, source_layer="UVAtlas", shipped_layer="UVUnique") -> list
-        Per part (INT face attribute "part", names from cs2_asset.PART_TABLE_PROP):
-        (part_index, source_px_per_m, shipped_px_per_m). Prints a table and the worst
-        ratios; returns the rows sorted worst-first (largest |log(shipped/source)|).
+
+Per part (INT face attribute "part", names from cs2_asset.PART_TABLE_PROP): (part_index,
+source_px_per_m, shipped_px_per_m). It prints a table and the worst ratios. It returns the rows
+sorted worst-first (largest |log(shipped/source)|).
 
     set_density(parts, weights) -> dict
-        Writes the float FACE attribute "density_w" on every part of the generator's
-        [(obj, quad), ...] list BEFORE the join: the longest matching name prefix in
-        `weights` wins, everything else gets 1.0 (so the attribute survives the join with
-        a sane value on every face).
 
-Nothing here bakes or writes files; no top-level side effects. Import as a sibling of
+Writes the float FACE attribute "density_w" on every part of the generator's [(obj, quad), ...] list
+BEFORE the join. The longest matching name prefix in `weights` wins, and everything else gets 1.0
+(so the attribute survives the join with a sane value on every face).
+
+Nothing here bakes or writes files. There are no top-level side effects. Import as a sibling of
 cs2_asset.py (Blender's Python, numpy available).
 """
 
@@ -125,7 +126,7 @@ def face_world_areas(mesh):
 
 
 def face_px_per_m(mesh, layer, A):
-    """Per-polygon texel density sqrt(uv_area * A^2 / world_area); nan for zero-area faces."""
+    """Per-polygon texel density sqrt(uv_area * A^2 / world_area), nan for zero-area faces."""
     uv_a = face_uv_areas(mesh, loop_uvs(layer))
     w_a = face_world_areas(mesh)
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -201,7 +202,7 @@ def pinned_faces(mesh, layer, reserved, eps=PIN_EPS):
 
 
 def face_density_weights(mesh, density_layer=DENSITY_ATTR):
-    """Per-polygon density weight; missing attribute or values <= 0 read as 1.0."""
+    """Per-polygon density weight. Missing attribute or values <= 0 read as 1.0."""
     n = len(mesh.polygons)
     w = np.ones(n, dtype=np.float64)
     attr = mesh.attributes.get(density_layer)
@@ -218,10 +219,9 @@ def set_density(parts, weights):
     """
     Set the float FACE attribute "density_w" on every part before the join.
 
-    `parts` is the generator's [(obj, quad), ...] list; `weights` maps a name PREFIX to
-    a float (hero faces > 1, corrugated >= 2). The longest matching prefix wins; parts
-    without a match get 1.0 so the attribute exists (and survives the join) everywhere.
-    Returns {part_name: weight}.
+    `parts` is the generator's [(obj, quad), ...] list. `weights` maps a name PREFIX to a float
+    (hero faces > 1, corrugated >= 2). The longest matching prefix wins. Parts without a match get
+    1.0, so the attribute exists (and survives the join) everywhere. Returns {part_name: weight}.
     """
     applied = {}
     prefixes = sorted(weights.items(), key=lambda kv: -len(kv[0]))
@@ -380,9 +380,8 @@ def _share_loops(mesh, share, pinned):
 
 def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
                  density_layer=DENSITY_ATTR, share=None):
-    """Steps 1-6 of the contract on the existing 'UVUnique' layer; returns the report.
-    `share` (default None = the pre-pass code path, unchanged): bay sharing, module
-    docstring."""
+    """Steps 1-6 of the contract on the existing 'UVUnique' layer. Returns the report. `share` (default
+    None = the pre-pass code path, unchanged): bay sharing, module docstring."""
     if UNIQUE_LAYER not in mesh.uv_layers:
         raise RuntimeError(f"{mesh.name}: no '{UNIQUE_LAYER}' layer to pack")
     reserved = list(reserved or [])
@@ -401,7 +400,7 @@ def _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
     if equalise:
         bpy.ops.uv.average_islands_scale()
     bpy.ops.object.mode_set(mode="OBJECT")
-    # 3. per-island density weights (about the island centroid; global scale follows)
+    # 3. per-island density weights (about the island centroid, global scale follows)
     layer = mesh.uv_layers[UNIQUE_LAYER]           # mode switches invalidate the handle
     weights = face_density_weights(mesh, density_layer)
     n_scaled = _scale_islands_by_weight(mesh, layer, hold, weights)
@@ -454,11 +453,10 @@ def pack_unique(obj, A, reserved_rects, margin_px=None, equalise=True,
     """
     Create "UVUnique" from the active UV layer and pack it uniquely (module docstring).
 
-    The active layer keeps its name (lift_tower renames it "UVAtlas" itself). A stale
-    "UVUnique" that is not the active layer is rebuilt from the active one.
-    `share` = bay sharing (module docstring); None keeps the pre-pass call exactly (the
-    keyword is not even passed on, so a patched _pack_layout without it still works).
-    Returns the report dict.
+    The active layer keeps its name (lift_tower renames it "UVAtlas" itself). A stale "UVUnique"
+    that is not the active layer is rebuilt from the active one. `share` = bay sharing (module
+    docstring). None keeps the pre-pass call exactly (the keyword is not even passed on, so a
+    patched _pack_layout without it still works). Returns the report dict.
     """
     kw = {} if share is None else {"share": share}
     mesh = obj.data
@@ -481,9 +479,9 @@ def finish_packer(obj, mesh, A, reserved):
     """
     Packer hook for lift_tower.apply_finish_textures(packer=finish_packer).
 
-    Replaces its step 1 pack+squeeze: "UVUnique" already exists (copied from "UVAtlas")
-    and is active; pins stamped-strip islands by deselection, equalizes, applies
-    density_w, packs once and squeezes into the reserved-free v-band. Returns None and
+    It replaces the step 1 pack+squeeze of apply_finish_textures. "UVUnique" already exists (copied
+    from "UVAtlas") and is active. The hook pins stamped-strip islands by deselection, equalizes,
+    applies density_w, packs once and squeezes into the reserved-free v-band. It returns None and
     leaves the object in OBJECT mode with "UVUnique" active, exactly as the inline code did.
     """
     _pack_layout(obj, mesh, A, reserved, margin_px=None, equalise=True,
@@ -512,11 +510,12 @@ def density_report(obj, A, source_layer="UVAtlas", shipped_layer=UNIQUE_LAYER,
     Per-part texel density before and after the unique repack.
 
     Returns [(part_index, source_px_per_m, shipped_px_per_m), ...] sorted worst-first by
-    |log(shipped / source)|; part_index is the INT face attribute "part" (0 when the mesh
-    is untagged). Prints a table plus the spread checks of the plan (ERROR when the
-    shipped max/median or median/min exceeds 2 over non-pinned parts, WARN when a part
-    ships above 1.5x its source density - upsampled, no new detail). `reserved_rects`
-    lets the spread check ignore pinned (stamped) parts; `raise_on_error` turns the
+    |log(shipped / source)|. part_index is the INT face attribute "part" (0 when the mesh is
+    untagged). Prints a table plus the spread checks of the plan:
+    - ERROR when the shipped max/median or median/min exceeds 2 over non-pinned parts
+    - WARN when a part ships above 1.5x its source density (upsampled, no new detail)
+
+    `reserved_rects` lets the spread check ignore pinned (stamped) parts. `raise_on_error` turns the
     ERROR line into a RuntimeError.
     """
     mesh = obj.data

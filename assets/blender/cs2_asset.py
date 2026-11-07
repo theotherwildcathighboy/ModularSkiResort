@@ -1,10 +1,10 @@
 """
-Shared helpers for producing CS2-importable asset folders from Blender.
+Shared helpers that produce CS2-importable asset folders from Blender.
 
-The contract was reverse-engineered from the official examples shipped with the game at
+We reverse-engineered the contract from the official examples that ship with the game at
     Cities2_Data/Content/Game/.ModdingToolchain/ExampleAssets/
 
-Every asset is a FOLDER, not a loose FBX. The importer expects:
+Every asset is a FOLDER, not a loose FBX. The importer expects this layout:
 
     <Name>/
         <Name>.fbx                  LOD0 mesh
@@ -16,12 +16,12 @@ Every asset is a FOLDER, not a loose FBX. The importer expects:
         [<Name>_LOD1.fbx, <Name>_LOD2.fbx ...]        optional, supplied LODs
         [<Name>_Gls.fbx / _Win.fbx / _Wat.fbx]        optional material sub-meshes
 
-`settings.json` carries a `sharedAssets` map (texture filename -> the file it should actually
-reuse) plus a per-LOD `{"mode": "Skip"}` entry meaning "I supplied this level, don't generate it".
-Omit the LOD entries entirely and LODPostProcessor generates them by edge collapse.
+`settings.json` carries a `sharedAssets` map (texture filename -> the file it reuses) and a per-LOD `{"mode": "Skip"}` entry.
+The entry means "I supplied this level, do not generate it". Omit the LOD entries entirely, and LODPostProcessor generates
+them by edge collapse.
 
-Importing a bare .fbx with none of this produces no log output at all - the importer never
-reaches the file. That is what happened on the first attempt.
+A bare .fbx with none of this produces no log output at all, because the importer never reaches the file. That is what
+happened on the first attempt.
 """
 
 import bpy
@@ -39,22 +39,20 @@ import numpy as np
 
 def orient_for_net(obj):
     """
-    Rotate an asset authored with +X = travel so it matches CS2's network convention.
+    Rotate an asset that was authored with +X = travel, so it matches the CS2 network convention.
 
-    CS2 is Unity-handed: X = lateral, Y = up, Z = forward/along the network. The Blender ->
-    CS2 bake in export_fbx maps (x, y, z) -> (x, z, -y), so Blender's X stays lateral and
-    Blender's -Y becomes CS2's +Z. An asset built with travel along Blender X therefore lands
-    rotated 90 degrees.
+    CS2 is Unity-handed: X = lateral, Y = up, Z = forward/along the network. The Blender -> CS2 bake in export_fbx maps (x,
+    y, z) -> (x, z, -y). So Blender's X stays lateral and Blender's -Y becomes CS2's +Z. An asset built with travel along
+    Blender X therefore lands rotated 90 degrees.
 
-    Symptoms that gave this away: lane meshes never stretched (their long axis was X, but the
-    lane deforms along Z, so nothing scaled) and they sat visibly ACROSS the drawn line.
+    Symptoms that gave this away: lane meshes never stretched, and they sat visibly ACROSS the drawn line. Their long axis
+    was X, but the lane deforms along Z, so nothing scaled.
 
-    Rotating -90 degrees about Blender Z maps (x, y, z) -> (y, -x, z), sending travel from +X
-    to -Y and the lateral axis from Y to X. After the export bake that becomes travel = +Z,
-    lateral = X, up = Y. Correct.
+    A rotation of -90 degrees about Blender Z maps (x, y, z) -> (y, -x, z). It sends travel from +X to -Y and the lateral
+    axis from Y to X. After the export bake, that becomes travel = +Z, lateral = X, up = Y. This is correct.
 
-    Call at the end of a build function, before export. Generators keep authoring in the more
-    readable "+X is forward" frame.
+    Call this function at the end of a build function, before export. Generators keep authoring in the more readable "+X is
+    forward" frame.
     """
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
@@ -76,21 +74,20 @@ def validate_asset_name(name):
     """
     Asset base names must contain NO underscore.
 
-    CS2 pairs textures to a mesh by parsing `<name>_<suffix>.png`, so the underscore is a
-    reserved separator (`_BaseColor`, `_MaskMap`, `_LOD1`, `_Gls`). An underscore inside the
-    base name makes the split ambiguous and the importer silently binds nothing: the asset
-    imports, places and renders wearing CS2's default material, producing a 56-byte .Surface
-    and zero .Texture assets.
+    CS2 pairs textures to a mesh by parsing `<name>_<suffix>.png`, so the underscore is a reserved separator (`_BaseColor`,
+    `_MaskMap`, `_LOD1`, `_Gls`). An underscore inside the base name makes the split ambiguous. The importer then silently
+    binds nothing: the asset imports, places and renders wearing CS2's default material, with a 56-byte .Surface and zero
+    .Texture assets.
 
-    Proven side by side in one scene: "SkiTowerRed" -> 171-byte Surface + 4 textures, renders
-    red. "SkiTower_RED", same generator and same geometry -> 56-byte Surface, no textures,
-    renders default gray.
+    We proved this side by side in one scene. "SkiTowerRed" gave a 171-byte Surface and 4 textures, and rendered red.
+    "SkiTower_RED", with the same generator and the same geometry, gave a 56-byte Surface and no textures, and rendered
+    default gray.
 
-    Consistent with all shipped content - no official ExampleAssets name and no name in the
-    Modular Golf Course Pack contains an underscore.
+    This is consistent with all shipped content: no official ExampleAssets name and no name in the Modular Golf Course Pack
+    contains an underscore.
 
-    Failing here is deliberate: this bug costs an entire import/inspect cycle to notice, and it
-    looks like a material problem rather than a naming one.
+    Failing here is deliberate. This bug costs an entire import/inspect cycle to notice, and it looks like a material
+    problem, not a naming problem.
     """
     if "_" in name:
         raise AssetNameError(
@@ -109,10 +106,10 @@ def validate_asset_name(name):
 
 def _write_png(path, name, rgba, size, is_data):
     """
-    Write a float RGBA array as PNG via Blender's image API - avoids a PIL dependency,
-    since Blender ships its own Python.
+    Write a float RGBA array as PNG through Blender's image API. This avoids a PIL dependency, because Blender ships its own
+    Python.
 
-    `rgba` is (h, w, 4) float in 0..1. Blender's pixel buffer is bottom-up, so flip.
+    `rgba` is (h, w, 4) float in 0..1. Blender's pixel buffer is bottom-up, so flip it.
     """
     img = bpy.data.images.new(name, width=size, height=size, alpha=True, is_data=is_data)
     if is_data:
@@ -134,8 +131,7 @@ def make_texture_set(out_dir, name, size=1024, base_rgb=(0.52, 0.53, 0.55),
     """
     Generate the four maps CS2 expects.
 
-    MaskMap packing, established by measuring the official ExampleAssets rather than assuming
-    HDRP's layout:
+    MaskMap packing. We established it by measuring the official ExampleAssets, and we did not assume the HDRP layout:
 
         R = metallic     fence (chain link) mean 0.772 / median 1.0
                          firehouse (brick)  mean 0.040 / median 0.0
@@ -143,24 +139,22 @@ def make_texture_set(out_dir, name, size=1024, base_rgb=(0.52, 0.53, 0.55),
         B = 0            EXACTLY zero in every official MaskMap
         A = smoothness   fence 0.706 (shiny metal), firehouse 0.276 (matte brick)
 
-    G and B being uniformly zero across every shipped example is the useful signal. An earlier
-    version set G = 1.0 on the assumption it was ambient occlusion, and the towers rendered
-    with a strong blue sky reflection. Whatever G drives, official content leaves it at zero,
-    so we do too.
+    G and B are uniformly zero across every shipped example. That is the useful signal. An earlier version set G = 1.0 on the
+    assumption that it was ambient occlusion, and the towers rendered with a strong blue sky reflection. Whatever G drives,
+    official content leaves it at zero, so we do too.
 
     ControlMask alpha is zero in every official asset (an earlier version wrongly set 1.0).
 
-    RECOLORING (`control_rgb`): the ControlMask RGB channels are REGION MASKS for the game's
-    custom-color system - measured from ExampleColorMaskFirehouse, whose mask has three hard
-    binary regions (R ~32% of texels, G ~10%, B ~20%) over a desaturated BaseColor. Each channel
-    marks the texels tinted by one of the three color slots. `control_rgb=(1,0,0)` makes the
-    whole surface recolorable via slot 1 - the right default for our uniform procedural
-    textures. Keep `base_rgb` grayish on recolorable assets so the tint reads true.
+    RECOLORING (`control_rgb`): the ControlMask RGB channels are REGION MASKS for the game's custom-color system. We measured
+    this from ExampleColorMaskFirehouse. Its mask has three hard binary regions (R ~32% of texels, G ~10%, B ~20%) over a
+    desaturated BaseColor. Each channel marks the texels that one of the three color slots tints. `control_rgb=(1,0,0)` makes
+    the whole surface recolorable through slot 1. This is the right default for our uniform procedural textures. Keep
+    `base_rgb` grayish on recolorable assets, so the tint reads true.
     """
     os.makedirs(out_dir, exist_ok=True)
     rng = np.random.default_rng(seed)
 
-    # --- BaseColor: flat steel with a little grain so it isn't plastic-looking
+    # --- BaseColor: flat steel with a little grain, so it does not look like plastic
     base = np.zeros((size, size, 4), dtype=np.float32)
     grain = rng.normal(0.0, noise, (size, size, 1)).astype(np.float32)
     for c in range(3):
@@ -206,16 +200,15 @@ def assign_material(obj, name, tex_dir):
     """
     Give the mesh a real material with image-texture nodes.
 
-    Without this the exported FBX carries NO material at all, and CS2 then has nothing to bind
-    the sibling PNGs to. The symptom is subtle and easy to misread: the asset imports, renders,
-    and looks *plausible* - but it is wearing CS2's default surface. Two builds with completely
-    different MaskMaps produced byte-identical 56-byte .Surface assets and no .Texture assets
-    whatsoever, which is how this was caught.
+    Without this, the exported FBX carries NO material at all, and CS2 then has nothing to bind the sibling PNGs to. The
+    symptom is subtle and easy to misread: the asset imports, renders, and looks *plausible*, but it wears CS2's default
+    surface. Two builds with completely different MaskMaps produced byte-identical 56-byte .Surface assets and no .Texture
+    assets whatsoever. That is how we caught this.
 
-    Compare a working asset: the official ExampleBakedAlphaFence.fbx contains a "Texture/"
-    reference; ours contained no material or texture strings at all.
+    Compare a working asset: the official ExampleBakedAlphaFence.fbx contains a "Texture/" reference. Ours contained no
+    material or texture strings at all.
 
-    Must be called AFTER make_texture_set, since it loads the PNGs it writes.
+    Call this function AFTER make_texture_set, because it loads the PNGs that function writes.
     """
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
@@ -244,9 +237,8 @@ def assign_material(obj, name, tex_dir):
         nt.links.new(nrm.outputs["Color"], nmap.inputs["Color"])
         nt.links.new(nmap.outputs["Normal"], bsdf.inputs["Normal"])
 
-    # MaskMap and ControlMask are consumed by CS2's own shader, not Blender's. They are loaded
-    # so the exporter records them in the FBX, but left unconnected - wiring them into a
-    # Principled BSDF would misrepresent them.
+    # MaskMap and ControlMask are consumed by CS2's own shader, not Blender's. We load them so the exporter records them in
+    # the FBX, but we leave them unconnected. Wiring them into a Principled BSDF would misrepresent them.
     image_node(f"{name}_MaskMap.png", "Non-Color", -600, -300)
     image_node(f"{name}_ControlMask.png", "Non-Color", -600, -600)
 
@@ -261,9 +253,9 @@ def assign_material(obj, name, tex_dir):
 
 def _load_map(set_dir, suffix, size):
     """
-    Load one map of an ambientCG set (e.g. suffix='Color') as (size,size,4) float RGBA.
-    Returns None if the set has no such map. Orientation is irrelevant here: every consumer
-    treats texels independently, and read/write both use Blender's bottom-up buffer.
+    Load one map of an ambientCG set (e.g. suffix='Color') as (size,size,4) float RGBA. Return None if the set has no such
+    map. Orientation is irrelevant here, because every consumer treats texels independently, and read and write both use
+    Blender's bottom-up buffer.
     """
     import glob
     hits = glob.glob(os.path.join(set_dir, f"*_{suffix}.jpg")) + \
@@ -303,17 +295,16 @@ def make_texture_set_atlas(out_dir, name, quad_sets, quad_size=1024,
     """
     Build the CS2 four-map pack as a 2x2 atlas of real PBR sets.
 
-    quad_sets: {quad_index: path_to_ambientCG_set_dir} - quads 0..3 (BL, BR, TL, TR).
-               A missing quad is filled with mid-gray.
-    control_quads: per-quad ControlMask R value (recolor slot 1 coverage). Painted parts
-               get 1.0 (recolorable), raw concrete/steel get 0.0.
-    post:      optional callback (base, nrm, msk, ctl, atlas_size) invoked after the quads
-               are painted but before the PNGs are written - lets one asset stamp bespoke
-               detail (e.g. the terminal's painted tension-scale numbers) into ITS copy of
-               the atlas without touching the shared recipe every other lift asset uses.
+    - quad_sets: {quad_index: path_to_ambientCG_set_dir} - quads 0..3 (BL, BR, TL, TR). The function fills a missing quad
+      with mid-gray.
+    - control_quads: per-quad ControlMask R value (recolor slot 1 coverage). Painted parts get 1.0 (recolorable). Raw
+      concrete and steel get 0.0.
+    - post: optional callback (base, nrm, msk, ctl, atlas_size). The function calls it after it paints the quads and before
+      it writes the PNGs. It lets one asset stamp bespoke detail (e.g. the terminal's painted tension-scale numbers) into ITS
+      copy of the atlas, without touching the shared recipe that every other lift asset uses.
 
-    CS2 packing (established earlier from official assets): MaskMap R = metallic,
-    A = smoothness = 1 - roughness; G/B pinned to zero. Normal uses the GL convention.
+    CS2 packing (established earlier from official assets): MaskMap R = metallic, A = smoothness = 1 - roughness. G and B are
+    pinned to zero. Normal uses the GL convention.
     """
     os.makedirs(out_dir, exist_ok=True)
     S = quad_size
@@ -329,8 +320,8 @@ def make_texture_set_atlas(out_dir, name, quad_sets, quad_size=1024,
         sl = (slice(y0, y0 + S), slice(x0, x0 + S))
         set_dir = quad_sets.get(q)
         if isinstance(set_dir, dict) and "set" in set_dir:
-            # Photo set with adjustments: {"set": path, "tint": 0.6} multiplies the albedo -
-            # ambientCG's concrete renders near-white under CS2's sun, tint grounds it.
+            # Photo set with adjustments: {"set": path, "tint": 0.6} multiplies the albedo. ambientCG's concrete renders
+            # near-white under CS2's sun, so the tint grounds it.
             spec = set_dir
             set_dir = spec["set"]
             tint = spec.get("tint", 1.0)
@@ -396,12 +387,12 @@ def make_texture_set_atlas(out_dir, name, quad_sets, quad_size=1024,
 def paint_panel_detail(base_sl, nrm_sl, msk_sl, S, rng,
                        seam_px=96, seam_dark=0.10, bolt_every=2, groove_depth=0.35):
     """
-    Draw panel seams + bolts into a quad's slices: darkened seam lines in BaseColor and
-    height-derived grooves in the Normal map. `base_sl`/`nrm_sl`/`msk_sl` are (S,S,4) views.
+    Draw panel seams and bolts into the slices of a quad. The seams are darkened lines in BaseColor and height-derived
+    grooves in the Normal map. `base_sl`/`nrm_sl`/`msk_sl` are (S,S,4) views.
 
-    Normal-map math: build a height field (0 = flat, negative = groove), then convert with
-    finite differences. Normal = normalize(-dh/dx, -dh/dy, 1) mapped into 0..1 RGB. This is
-    what makes seams read as real grooves under game lighting without any triangles.
+    Normal-map math: build a height field (0 = flat, negative = groove), then convert it with finite differences. Normal =
+    normalize(-dh/dx, -dh/dy, 1), mapped into 0..1 RGB. This is what makes seams read as real grooves under game lighting
+    without any triangles.
     """
     height = np.zeros((S, S), dtype=np.float32)
     for p in range(0, S + 1, seam_px):
@@ -434,26 +425,29 @@ def paint_panel_detail(base_sl, nrm_sl, msk_sl, S, rng,
 # --------------------------------------------------------------------------------------
 # Recolor contract (K generation)
 #
-# The vanilla recolor UI MULTIPLIES the picked color against the albedo, so recolorable
-# regions must keep LIGHT, DESATURATED albedo or every tint collapses toward black (the
-# J-round bug: picker colors barely read against the near-black steel). Vanilla's own
-# convention: masked regions ship light-neutral albedo and the DEFAULT look is supplied by
-# the prefab's default color VariationSet. The authored default paint colors therefore
-# move prefab-side; they are recorded here as the single source of truth:
+# The vanilla recolor UI MULTIPLIES the picked color against the albedo. Recolorable regions must therefore keep a LIGHT,
+# DESATURATED albedo, or every tint collapses toward black (the J-round bug: picker colors barely read against the near-black
+# steel). Vanilla's own convention: masked regions ship light-neutral albedo, and the prefab's default color VariationSet
+# supplies the DEFAULT look. The authored default paint colors therefore move prefab-side. This file records them as the
+# single source of truth:
 # --------------------------------------------------------------------------------------
 
-STEEL_DEFAULT_RGB = (0.20, 0.21, 0.22)   # the dark Pali steel paint - slot 1 prefab default
+STEEL_DEFAULT_RGB = (0.20, 0.21, 0.22)   # the dark Pali steel paint, slot 1 prefab default
 RECOLOR_ALBEDO = 0.80                    # light neutral gray under every recolor mask
 
-# T27 (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md section 1): the station rope = the LINE rope.
-# Every lift line draws the vanilla HV / LV cable lane mesh (463c051d... / bbb9724d..., DECISIONS 243); both use ONE
-# material, "Powerline Cables" (Game/Blob.cok entry Powerline Cables_207901033b5d7c049b968f36a8a91ad9.Material, CID
-# 106cc56e9f15a135bb6ea7b99d675c2d, template id 30 = CurvedTransparent), no textures, one override:
-# _BaseColor = (0.018868, 0.018868, 0.018868, 1). A Unity Color is stored gamma-encoded (SurfaceAsset.SyncToUnityMaterial
-# -> Material.SetColor, 1.6.2f1-colossal SurfaceAsset.cs:594), so the linear albedo is 0.00146 (sRGB 4.8/255; if the game
-# fed it linear it would be 0.0189 = sRGB 37/255: UNVERIFIED, field line in T27). Smoothness / metal are the template's
-# (resources.assets Material "CurvedTransparent": _Smoothness 0.5, _Metallic 0.0). Our MaterialSpec albedo is LINEAR and
-# rough = 1 - smoothness. Before T27 every station's "rope" was albedo (0.30, 0.30, 0.32) metal 0.9 rough 0.65.
+# T27 (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md section 1): the station rope = the LINE rope. Every
+# lift line draws the vanilla HV / LV cable lane mesh (463c051d... / bbb9724d..., DECISIONS 243). Both use ONE material,
+# "Powerline Cables" (Game/Blob.cok entry Powerline Cables_207901033b5d7c049b968f36a8a91ad9.Material, CID
+# 106cc56e9f15a135bb6ea7b99d675c2d, template id 30 = CurvedTransparent). It has no textures and one override: _BaseColor =
+# (0.018868, 0.018868, 0.018868, 1).
+#
+# A Unity Color is stored gamma-encoded (SurfaceAsset.SyncToUnityMaterial -> Material.SetColor, 1.6.2f1-colossal
+# SurfaceAsset.cs:594). So the linear albedo is 0.00146 (sRGB 4.8/255). If the game fed it linear, it would be 0.0189 = sRGB
+# 37/255: UNVERIFIED, field line in T27.
+#
+# Smoothness and metal come from the template (resources.assets Material "CurvedTransparent": _Smoothness 0.5, _Metallic
+# 0.0). Our MaterialSpec albedo is LINEAR, and rough = 1 - smoothness. Before T27, every station's "rope" had albedo (0.30,
+# 0.30, 0.32), metal 0.9, rough 0.65.
 VANILLA_CABLE_BASECOLOR = 0.018868       # the stored _BaseColor (gamma-encoded Unity Color)
 VANILLA_CABLE_ALBEDO_LIN = 0.00146       # its linear value
 VANILLA_CABLE_SMOOTHNESS = 0.5
@@ -465,8 +459,8 @@ ROPE_MATERIAL_PRE_T27 = dict(albedo=(0.30, 0.30, 0.32), metal=0.9, rough=0.65)
 
 def lift_atlas_quads(tex_root):
     """
-    The ONE standard atlas for every lift asset (stations, towers, chairs), so the whole
-    system shares a palette and every painted part answers to the same recolor slot:
+    The ONE standard atlas for every lift asset (stations, towers, chairs). The whole system shares a palette, and every
+    painted part answers to the same recolor slot:
 
         0 concrete   (pads, plinths, ramps)     photo, tinted down    not recolorable
         1 galvanized (sheaves, grips, ladders)  photo Metal032        not recolorable
@@ -475,12 +469,11 @@ def lift_atlas_quads(tex_root):
         3 painted    (masts, frames, chairs)    procedural light-neutral steel,
                                                 RECOLORABLE (slot 1)
 
-    K: quad 3 albedo is RECOLOR_ALBEDO gray, not the dark Pali paint - recolor tints
-    multiply, so the region must stay light for picker colors to read true. The grain,
-    panel seams and grime detail are kept (they multiply, so they survive any tint). The
-    shipped dark look comes from STEEL_DEFAULT_RGB in each prefab's default VariationSet.
+    K: quad 3 albedo is RECOLOR_ALBEDO gray, not the dark Pali paint. Recolor tints multiply, so the region must stay light
+    for picker colors to read true. The grain, panel seams and grime detail stay (they multiply, so they survive any tint).
+    The shipped dark look comes from STEEL_DEFAULT_RGB in each prefab's default VariationSet.
 
-    Returns (quad_sets, control_quads) ready for make_texture_set_atlas.
+    Return (quad_sets, control_quads), ready for make_texture_set_atlas.
     """
     quad_sets = {
         0: {"set": os.path.join(tex_root, "Concrete034"), "tint": 0.58},
@@ -496,24 +489,23 @@ def lift_atlas_quads(tex_root):
 # --------------------------------------------------------------------------------------
 # Crash-pad strip (J follow-up)
 #
-# The tower mast pads are RECOLORABLE ON THEIR OWN SLOT (ControlMask G = slot 2),
-# default orange-red, so a player can restyle pads independently of the black steel
-# (slot 1). The pad material lives in a horizontal strip reserved out of the top of the
-# GLASS quadrant (quad 2 - procedural, mostly headroom). Both halves of the contract are
-# authored HERE: paint_pad_strip() writes the texels, and lift_tower reads CRASHPAD +
-# PAD_* to build the shell and hand-set its UVs into the strip (set_plate_uvs pattern).
+# The tower mast pads are RECOLORABLE ON THEIR OWN SLOT (ControlMask G = slot 2), default orange-red. A player can therefore
+# restyle the pads independently of the black steel (slot 1). The pad material lives in a horizontal strip reserved out of
+# the top of the GLASS quadrant (quad 2: procedural, mostly headroom). Both halves of the contract are authored HERE.
+# paint_pad_strip() writes the texels. lift_tower reads CRASHPAD + PAD_* to build the shell and hand-set its UVs into the
+# strip (set_plate_uvs pattern).
 #
-# unwrap_into_quadrant knows the reservation (QUAD_RESERVED_TOP) and squeezes quad-2
-# smart projections below the strip, so hut window islands can never land on orange.
+# unwrap_into_quadrant knows the reservation (QUAD_RESERVED_TOP). It squeezes quad-2 smart projections below the strip, so
+# hut window islands can never land on orange.
 # --------------------------------------------------------------------------------------
 
 # Strip extent in ATLAS UV space (quad 2 spans u 0..0.5, v 0.5..1.0)
 PAD_U0, PAD_U1 = 0.010, 0.490
 PAD_V0, PAD_V1 = 0.945, 0.9995
 
-# Shell geometry contract, shared with lift_tower.build_crash_pad. The paint step needs
-# it too: the strip's texel aspect is wildly anisotropic (wide arc, short height), so the
-# warning triangle must be pre-stretched horizontally to come out equilateral on the pad.
+# Shell geometry contract, shared with lift_tower.build_crash_pad. The paint step needs it too. The strip's texel aspect is
+# wildly anisotropic (wide arc, short height), so the warning triangle must be pre-stretched horizontally to come out
+# equilateral on the pad.
 CRASHPAD = {
     "radius": 0.56,        # outer shell radius (m)
     "thickness": 0.06,     # shell wall thickness
@@ -524,13 +516,14 @@ CRASHPAD = {
 }
 
 # Fraction of the top of a quadrant that unwrap_into_quadrant must keep clear.
-# 0.12 of quad 2 = atlas v 0.94..1.0, which contains the pad strip (0.945+).
-# 0.12 of quad 0 = atlas v 0.44..0.50: the tower FOUNDATION-PIER band (M generation,
-# lift_tower.PIER_*). The pier band must NOT hug the quad-0/quad-2 boundary: quad 2's
-# glass is near-black, and any strip touching v 0.5 gets that black averaged into it
-# at the first mip level (found the hard way - the pier top rendered pitch black).
-# The band therefore ends at 0.4995 as PAINTED padding while geometry only maps up
-# to 0.4900, keeping ~20 texels of same-tone insulation against the glass.
+#
+# - 0.12 of quad 2 = atlas v 0.94..1.0, which contains the pad strip (0.945+).
+# - 0.12 of quad 0 = atlas v 0.44..0.50: the tower FOUNDATION-PIER band (M generation, lift_tower.PIER_*).
+#
+# The pier band must NOT hug the quad-0/quad-2 boundary. Quad 2's glass is near-black. Any strip that touches v 0.5 gets that
+# black averaged into it at the first mip level (found the hard way: the pier top rendered pitch black). The band therefore
+# ends at 0.4995 as PAINTED padding, while geometry maps only up to 0.4900. This keeps ~20 texels of same-tone insulation
+# against the glass.
 QUAD_RESERVED_TOP = {2: 0.12, 0: 0.12}
 
 PAD_RGB = (0.85, 0.25, 0.10)          # default orange-red - slot 2 PREFAB default (K:
@@ -540,17 +533,15 @@ PAD_SMOOTH = 0.25
 
 def paint_pad_strip(base, nrm, msk, ctl, A):
     """
-    Paint the crash-pad material strip + white warning triangle into an atlas.
-    Signature matches make_texture_set_atlas `post` hooks so callers can compose it.
+    Paint the crash-pad material strip and the white warning triangle into an atlas. The signature matches the
+    make_texture_set_atlas `post` hooks, so callers can compose it.
 
-    ControlMask: G=1 (recolor slot 2) across the strip, EXCEPT under the triangle
-    markings, which are painted symbols and must not tint (same rule as the terminal's
-    tension-scale digits).
+    ControlMask: G=1 (recolor slot 2) across the strip, EXCEPT under the triangle markings. They are painted symbols and must
+    not tint (same rule as the terminal's tension-scale digits).
 
-    K: the strip albedo is light-neutral RECOLOR_ALBEDO gray, not PAD_RGB - slot-2
-    tints multiply, so the orange moves to the prefab default VariationSet (PAD_RGB is
-    kept above as its source of truth). The warning triangle/exclamation stamps stay
-    exactly as authored: they are masked out of G, so they never tint.
+    K: the strip albedo is light-neutral RECOLOR_ALBEDO gray, not PAD_RGB. Slot-2 tints multiply, so the orange moves to the
+    prefab default VariationSet (PAD_RGB stays above as its source of truth). The warning triangle/exclamation stamps stay
+    exactly as authored. They are masked out of G, so they never tint.
     """
     rng = np.random.default_rng(23)
     c0, c1 = int(PAD_U0 * A), int(PAD_U1 * A)
@@ -567,8 +558,8 @@ def paint_pad_strip(base, nrm, msk, ctl, A):
     ctl[r0:r1, c0:c1, 0] = 0.0
     ctl[r0:r1, c0:c1, 1] = 1.0                      # recolor slot 2
 
-    # Warning triangle on the uphill face. The outer wall maps arc -> u and height -> v,
-    # so horizontal texels/meter exceed vertical by `aniso`; stretch width accordingly.
+    # Warning triangle on the uphill face. The outer wall maps arc -> u and height -> v, so horizontal texels/meter exceed
+    # vertical by `aniso`. Stretch the width accordingly.
     arc_len = math.radians(CRASHPAD["arc_deg"]) * CRASHPAD["radius"]
     pad_h = CRASHPAD["z1"] - CRASHPAD["z0"]
     aniso = (w / arc_len) / (h / pad_h)
@@ -593,18 +584,15 @@ def paint_pad_strip(base, nrm, msk, ctl, A):
 # --------------------------------------------------------------------------------------
 # Snowmaking prop family atlas (docs/research/art/snow-prop-materials.md)
 #
-# A FAMILY-PRIVATE recipe living BESIDE lift_atlas_quads, never replacing or extending it.
-# QUADS, QUAD_RESERVED_TOP and unwrap_into_quadrant are untouched, so no shipped lift asset
-# re-imports. Quads 0 and 1 are deliberately byte-identical to the lift recipe (same
-# Concrete034 at tint 0.58, same Metal032) so the pack still reads as one machine shop;
-# quad 2 is re-cut into rubber / grate / safety-plastic zones, and quad 3 is split into a
-# recolorable livery rect and a recolorable accent rect, because every documented
-# manufacturer livery is two-tone.
+# This is a FAMILY-PRIVATE recipe. It lives BESIDE lift_atlas_quads and never replaces or extends it. QUADS,
+# QUAD_RESERVED_TOP and unwrap_into_quadrant are untouched, so no shipped lift asset re-imports. Quads 0 and 1 are
+# deliberately byte-identical to the lift recipe (same Concrete034 at tint 0.58, same Metal032), so the pack still reads as
+# one machine shop. Quad 2 is re-cut into rubber / grate / safety-plastic zones. Quad 3 is split into a recolorable livery
+# rect and a recolorable accent rect, because every documented manufacturer livery is two-tone.
 #
-# Why this exists: snow guns need materials the lift atlas has no slot for. The first draft
-# of snow_props.py put TIRES, HOSES AND THE FAN INTAKE on the glass quad at 0.92 smoothness
-# (mirror-finish rubber) and the ORANGE HYDRANT LID on recolor slot 1, so the safety cap
-# would have recolored with the manufacturer livery.
+# Why this exists: snow guns need materials that the lift atlas has no slot for. The first draft of snow_props.py put TIRES,
+# HOSES AND THE FAN INTAKE on the glass quad at 0.92 smoothness (mirror-finish rubber). It also put the ORANGE HYDRANT LID on
+# recolor slot 1, so the safety cap would have recolored with the manufacturer livery.
 #
 # Recolor slots: R = livery paint, G = safety orange (PAD_RGB, unchanged), B = accent.
 # --------------------------------------------------------------------------------------
@@ -624,9 +612,8 @@ def _rect_px(rect, A):
 
 
 def height_to_normal(height, nrm_view, strength=4.0):
-    """Finite-difference a height field into a tangent-space normal (GL convention),
-    written into nrm_view in place. Factored out of paint_panel_detail's idiom so every
-    rect painter shares one implementation."""
+    """Convert a height field into a tangent-space normal (GL convention) with finite differences, and write it into nrm_view in
+    place. We factored this out of paint_panel_detail's idiom, so every rect painter shares one implementation."""
     gy, gx = np.gradient(height.astype(np.float32))
     nx = np.clip(0.5 - gx * strength, 0.0, 1.0)
     ny = np.clip(0.5 + gy * strength, 0.0, 1.0)
@@ -640,11 +627,9 @@ def snow_prop_zones(A):
     """
     Named atlas rects for the snowmaking prop family, in atlas UV.
 
-    The stamped detail strip is ONE full-width band at the very top of the atlas rather
-    than a reservation inside a quad: apply_finish_textures packs AO islands into the
-    tallest reserved-free v-band, so a strip buried at a quad boundary would halve the
-    usable texel density. STRIP_PX is defined in TEXELS so a stamped chevron is equally
-    crisp at any atlas size.
+    The stamped detail strip is ONE full-width band at the very top of the atlas, not a reservation inside a quad.
+    apply_finish_textures packs AO islands into the tallest reserved-free v-band, so a strip buried at a quad boundary would
+    halve the usable texel density. STRIP_PX is defined in TEXELS, so a stamped chevron is equally crisp at any atlas size.
     """
     strip_px = 48 if A >= 512 else 32
     vs = (A - strip_px) / float(A)          # strip bottom
@@ -658,10 +643,9 @@ def snow_prop_zones(A):
         # quad 3, split
         "livery":  (0.504, 0.5,                0.770,     vs - e),
         "accent":  (0.775, 0.5,                0.996,     vs - e),
-        # the stamped strip. `floodlens` is cool-white and DELIBERATELY separate from
-        # `amber`: a piste floodlight is 4000-5000 K, and reusing the beacon's amber would
-        # tie the floodlight visually to the snow gun — backwards, since telling the two
-        # masts apart at a glance is the whole design goal (piste-floodlight-spec.md).
+        # the stamped strip. `floodlens` is cool-white and DELIBERATELY separate from `amber`. A piste floodlight is
+        # 4000-5000 K. Reusing the beacon's amber would tie the floodlight visually to the snow gun. That is backwards,
+        # because the whole design goal is to tell the two masts apart at a glance (piste-floodlight-spec.md).
         "chevron":   (0.000, vs,               0.360,     1.0),
         "reflect":   (0.360, vs,               0.540,     1.0),
         "amber":     (0.540, vs,               0.630,     1.0),
@@ -677,17 +661,16 @@ def snow_prop_zones(A):
 
 def snow_prop_atlas_quads(tex_root):
     """
-    Family-private atlas recipe. Returns (quad_sets, control_quads) for
-    make_texture_set_atlas; pair it with post=snow_prop_post.
+    Family-private atlas recipe. It returns (quad_sets, control_quads) for make_texture_set_atlas. Pair it with
+    post=snow_prop_post.
 
-    control_quads writes ControlMask R across quad 3; snow_prop_post then ZEROES R over the
-    accent rect and sets B there instead, so the two paint zones answer to different
-    recolor slots from one quad.
+    control_quads writes ControlMask R across quad 3. snow_prop_post then ZEROES R over the accent rect and sets B there
+    instead. So the two paint zones answer to different recolor slots from one quad.
     """
     quad_sets = {
         0: {"set": os.path.join(tex_root, "Concrete034"), "tint": 0.58},
         1: os.path.join(tex_root, "Metal032"),
-        # Quad 2 is fully overpainted by snow_prop_post; this is just a sane ground.
+        # snow_prop_post fully overpaints quad 2. This is just a sane ground.
         2: {"rgb": GRATE_RGB, "noise": 0.004, "smooth": 0.30, "metal": 0.0},
         3: {"rgb": (RECOLOR_ALBEDO, RECOLOR_ALBEDO, RECOLOR_ALBEDO),
             "noise": 0.010, "smooth": 0.60, "metal": 0.05,
@@ -745,15 +728,15 @@ def snow_prop_post(base, nrm, msk, ctl, A):
     pebble[int(h * 0.64):int(h * 0.68), :] += 0.05
     height_to_normal(pebble, nrm[s], strength=3.0)
 
-    # ---- accent: second livery tone. Quad 3 already carries R=1 from control_quads;
-    #      hand this rect to slot 3 instead so chassis and housing recolor separately.
+    # ---- accent: second livery tone. Quad 3 already carries R=1 from control_quads.
+    #      Hand this rect to slot 3 instead, so chassis and housing recolor separately.
     s, (h, w) = sl("accent")
     ctl[s][..., 0] = 0.0
     ctl[s][..., 2] = 1.0
     msk[s][..., 3] = 0.55
 
-    # ---- chevron: hazard band. paint_pad_strip's exact idiom — light field on slot 2,
-    #      dark chevrons masked OUT of the slot so painted symbols never tint.
+    # ---- chevron: hazard band. It uses paint_pad_strip's exact idiom: light field on slot 2,
+    #      dark chevrons masked OUT of the slot, so painted symbols never tint.
     s, (h, w) = sl("chevron")
     for ch in range(3):
         base[s][..., ch] = RECOLOR_ALBEDO
@@ -805,7 +788,7 @@ def snow_prop_post(base, nrm, msk, ctl, A):
     prism[:, ::3] = 0.02
     height_to_normal(prism, nrm[s], strength=2.0)
 
-    # ---- maker's plate and warning label. Generic marks only — no trademarks.
+    # ---- maker's plate and warning label. Generic marks only, no trademarks.
     s, (h, w) = sl("plate")
     for ch in range(3):
         base[s][..., ch] = PLATE_RGB[ch]
@@ -835,18 +818,14 @@ def make_snow_prop_emissive(out_dir, name, quad_size, lit=None):
     Write the fifth map, `<name>_Emissive.png`, for the snowmaking prop family.
 
     THREE THINGS THAT ARE EASY TO GET WRONG (docs/research/art/prop-emissive-lights.md):
-      * It is **sRGB, not linear**. The asset pipeline maps `*_Emissive` to the default
-        texture profile (linearTexture:false), unlike _MaskMap/_ControlMask which go to
-        the linear profile. So it is written is_data=False.
-      * It must be **RGBA**. A 3-channel PNG skips BC compression entirely
-        (CompressBC returns early when channels != 4).
-      * It is **emitted color, not a mask**: the shader multiplies this by the
-        EmissiveProperties intensity (0.6, which the bake scales x100 to a shader
-        multiplier of 60). Black means "not emissive".
+    - It is **sRGB, not linear**. The asset pipeline maps `*_Emissive` to the default texture profile (linearTexture:false).
+      _MaskMap and _ControlMask go to the linear profile instead. So the map is written with is_data=False.
+    - It must be **RGBA**. A 3-channel PNG skips BC compression entirely (CompressBC returns early when channels != 4).
+    - It is **emitted color, not a mask**. The shader multiplies it by the EmissiveProperties intensity (0.6, which the bake
+      scales x100 to a shader multiplier of 60). Black means "not emissive".
 
-    `lit` maps zone name -> (r, g, b) emitted color. Default lights the two lens zones:
-    the floodlight lens at full cool white, the amber beacon dimmer because a beacon is a
-    marker rather than a source. Everything else stays black.
+    `lit` maps zone name -> (r, g, b) emitted color. By default it lights the two lens zones: the floodlight lens at full
+    cool white, and the amber beacon dimmer, because a beacon is a marker and not a source. Everything else stays black.
     """
     S = quad_size
     A = S * 2
@@ -875,9 +854,8 @@ def unwrap_into_rect(obj, rect, A, inset_px=3):
     """
     Smart-project one object's UVs and squeeze them into an arbitrary atlas rect.
 
-    Generalizes unwrap_into_quadrant (left untouched for lift assets). The inset is in
-    TEXELS rather than UV, so a small rect on a small atlas keeps a real bilinear guard
-    band instead of a sub-pixel one.
+    This generalizes unwrap_into_quadrant, which stays untouched for lift assets. The inset is in TEXELS, not UV, so a small
+    rect on a small atlas keeps a real bilinear guard band, not a sub-pixel one.
     """
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
@@ -898,7 +876,7 @@ def unwrap_into_rect(obj, rect, A, inset_px=3):
 
 
 def preview_material(obj, asset_dir, name):
-    """Attach the BaseColor for preview renders only (strip again before export_fbx)."""
+    """Attach the BaseColor for preview renders only (remove it again before export_fbx)."""
     mat = bpy.data.materials.new(name + "Preview")
     mat.use_nodes = True
     nt = mat.node_tree
@@ -914,12 +892,12 @@ def unwrap_into_quadrant(obj, quad, texel_density=None):
     """
     Smart-project this single object's UVs, then squeeze them into an atlas quadrant.
 
-    Call per part BEFORE joining. Inset by 2% of the quadrant keeps bilinear sampling from
+    Call it once per part BEFORE joining. The function insets by 2% of the quadrant. This keeps bilinear sampling from
     bleeding across quadrant borders at CS2 view distances.
 
-    Quadrants listed in QUAD_RESERVED_TOP additionally keep that fraction of their top
-    clear - quad 2's headroom holds the crash-pad strip, and a smart-projected window
-    island landing on orange would be exactly the kind of bug that only shows in game.
+    Quadrants listed in QUAD_RESERVED_TOP additionally keep that fraction of their top clear. Quad 2's headroom holds the
+    crash-pad strip, and a smart-projected window island that landed on orange would be exactly the kind of bug that only
+    shows in game.
     """
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
@@ -940,28 +918,25 @@ def unwrap_into_quadrant(obj, quad, texel_density=None):
 
 
 # --------------------------------------------------------------------------------------
-# Shading (art pipeline v2 - docs/research/art/art-pipeline-v2.md section 3.1)
+# Shading (art pipeline v2, docs/research/art/art-pipeline-v2.md section 3.1)
 #
-# Every part shipped so far was FLAT-shaded (Blender primitive default). The FBX exporter
-# writes per-corner normals straight from the mesh (io_scene_fbx/export_fbx_bin.py:1198)
-# and the game's importer copies them verbatim (FBXImporter.cs -> NativeModelImport, whose
-# ImportSettings has CalculateTangents only), so a 16-gon mast reached the game as sixteen
-# lit facets. Probed in probe_smooth.py (Blender 5.2.2): after an FBX round trip
-# shade_smooth_by_angle leaves 2 normals per side vertex (smooth side + cap), the flat
-# default leaves 3.
+# Every part shipped so far was FLAT-shaded (Blender primitive default). The FBX exporter writes per-corner normals straight
+# from the mesh (io_scene_fbx/export_fbx_bin.py:1198), and the game's importer copies them verbatim (FBXImporter.cs ->
+# NativeModelImport, whose ImportSettings has CalculateTangents only). So a 16-gon mast reached the game as sixteen lit
+# facets. We probed this in probe_smooth.py (Blender 5.2.2): after an FBX round trip, shade_smooth_by_angle leaves 2 normals
+# per side vertex (smooth side + cap), and the flat default leaves 3.
 # --------------------------------------------------------------------------------------
 
 def shade_by_angle(obj, angle_deg=66.0, weighted=True):
     """
-    Smooth-shade every face and mark edges sharper than `angle_deg` as sharp (the wiki's
-    ">= 60 deg auto-smooth" rule). 66 keeps 6-segment tubes (60 deg between faces) smooth
-    while every box edge (90) and ramp break (~68) stays crisp. Uses the ATTRIBUTE route
-    (`sharp_edge` + face smooth flags), not the Smooth-by-Angle modifier: attributes
-    survive `join`, `remove_doubles`, the finish repack and decimation; modifiers do not.
+    Smooth-shade every face and mark edges sharper than `angle_deg` as sharp (the wiki's ">= 60 deg auto-smooth" rule). A
+    value of 66 keeps 6-segment tubes (60 deg between faces) smooth, while every box edge (90) and ramp break (~68) stays
+    crisp. The function uses the ATTRIBUTE route (`sharp_edge` + face smooth flags), not the Smooth-by-Angle modifier.
+    Attributes survive `join`, `remove_doubles`, the finish repack and decimation. Modifiers do not.
 
-    `weighted` applies a Weighted Normal modifier (face-area, keep_sharp) so the 0.02 m
-    finish bevels do not smear a shading gradient across the big flat faces beside them.
-    Call on the JOINED mesh after remove_doubles, before the finish bake and export.
+    `weighted` applies a Weighted Normal modifier (face-area, keep_sharp), so the 0.02 m finish bevels do not smear a shading
+    gradient across the big flat faces beside them. Call on the JOINED mesh after remove_doubles, before the finish bake and
+    export.
     """
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
@@ -987,12 +962,11 @@ def shade_by_angle(obj, angle_deg=66.0, weighted=True):
 # --------------------------------------------------------------------------------------
 # Part tags + authored LOD chain (art pipeline v2 section 3.7)
 #
-# The importer generates NO LODs by default (DECISIONS 77/104), and a chain must be
-# decimated from the FINISHED mesh - the finish pass repacks UVs, so only a decimated copy
-# samples the shipped atlas correctly. Collapse decimation alone ruins thin tubes and small
-# hardware, so each level first deletes whole parts by name prefix (the snow-prop recipe,
-# prop-lod-and-lighting.md section 5). Part names die at `join`; the INT face attribute
-# "part" written by tag_parts survives it, remove_doubles, and the finish pass.
+# The importer generates NO LODs by default (DECISIONS 77/104). A chain must be decimated from the FINISHED mesh, because the
+# finish pass repacks UVs. Only a decimated copy samples the shipped atlas correctly. Collapse decimation alone ruins thin
+# tubes and small hardware. So each level first deletes whole parts by name prefix (the snow-prop recipe,
+# prop-lod-and-lighting.md section 5). Part names die at `join`. The INT face attribute "part" that tag_parts writes survives
+# it, remove_doubles, and the finish pass.
 # --------------------------------------------------------------------------------------
 
 PART_TABLE_PROP = "cs2_part_table"
@@ -1000,12 +974,11 @@ PART_TABLE_PROP = "cs2_part_table"
 
 def canonical_order(obj):
     """
-    Sort a part's vertices and faces by their coordinates so element order is a pure
-    function of the geometry. Every downstream step is order-dependent (smart_project
-    island ids, the unique pack, the AO bake, collapse decimation), and one order-unstable
-    builder (bmesh.ops.spin in cs2_kit.sheave, review F1 / DECISIONS 107) was enough to
-    ship different textures from two identical builds. Attributes, UV layers and custom
-    props survive the bmesh round trip; call BEFORE shading (sharp_edge would not).
+    Sort a part's vertices and faces by their coordinates, so element order is a pure function of the geometry. Every
+    downstream step is order-dependent (smart_project island ids, the unique pack, the AO bake, collapse decimation). One
+    order-unstable builder (bmesh.ops.spin in cs2_kit.sheave, review F1 / DECISIONS 107) was enough to ship different
+    textures from two identical builds. Attributes, UV layers and custom props survive the bmesh round trip. Call BEFORE
+    shading (sharp_edge would not survive).
     """
     bm = bmesh.new()
     bm.from_mesh(obj.data)
@@ -1015,8 +988,8 @@ def canonical_order(obj):
 
 
 def _rank_sort(seq, keyfn):
-    """bmesh's BMElemSeq.sort only takes a NUMERIC key: compute the lexicographic order
-    in Python and hand bmesh the rank of each element instead."""
+    """bmesh's BMElemSeq.sort only takes a NUMERIC key. Compute the lexicographic order in Python, and give bmesh the rank of
+    each element instead."""
     seq.index_update()
     seq.ensure_lookup_table()
     order = sorted(range(len(seq)), key=lambda i: keyfn(seq[i]))
@@ -1029,17 +1002,16 @@ def _rank_sort(seq, keyfn):
 
 
 def canonical_order_bmesh(bm):
-    """In-place canonical vertex + face order for a bmesh (see canonical_order)."""
+    """Put the vertices and faces of a bmesh in canonical order, in place (see canonical_order)."""
     _rank_sort(bm.verts, lambda v: (round(v.co.x, 5), round(v.co.y, 5), round(v.co.z, 5)))
     _rank_sort(bm.faces, lambda f: tuple(round(c, 5) for c in f.calc_center_median()))
 
 
 def tag_parts(parts):
     """
-    Stamp every face of every part with the INT face attribute "part" (1-based index into
-    the returned name table). Call AFTER bevels (chamfer faces belong to the part) and
-    BEFORE joining. `parts` is the generator's [(obj, quad), ...] list. Every part is put
-    into canonical element order first (see canonical_order) so builds are reproducible.
+    Stamp every face of every part with the INT face attribute "part" (1-based index into the returned name table). Call
+    AFTER bevels (chamfer faces belong to the part) and BEFORE joining. `parts` is the generator's [(obj, quad), ...] list.
+    The function first puts every part into canonical element order (see canonical_order), so builds are reproducible.
     """
     table = []
     for i, (obj, _quad) in enumerate(parts, start=1):
@@ -1073,7 +1045,7 @@ def tri_count(obj):
 
 
 def _delete_tagged_faces(obj, table, prefixes):
-    """Delete every face whose part name starts with one of `prefixes`; returns the count."""
+    """Delete every face whose part name starts with one of `prefixes`, and return the count."""
     if not prefixes:
         return 0
     bm = bmesh.new()
@@ -1104,21 +1076,22 @@ def _keep_tagged_ids(obj, ids, keep):
 def make_lod_chain(obj, name, targets, delete_prefixes, tol=0.25, min_tris=60,
                    shade_angle=66.0, fixed=None):
     """
-    Build LOD1..n as decimated copies of the finished `obj`. `targets` are ABSOLUTE
-    triangle counts per level (wiki: LOD1 < 50 % of LOD0, LOD2 <= 500 for buildings);
-    `delete_prefixes` is one tuple of part-name prefixes per level, deleted outright
-    before decimation. Each level is re-shaded (decimate drops custom normals) and must
-    land within `tol` of its target. Returns the LOD objects; the caller exports and
-    removes them. Bounds drift is reported because LOD prefabs carry their own m_Bounds
-    (the top-anchor / chair-height contracts apply to every level).
+    Build LOD1..n as decimated copies of the finished `obj`. `targets` are ABSOLUTE triangle counts per level (wiki: LOD1 <
+    50 % of LOD0, LOD2 <= 500 for buildings). `delete_prefixes` is one tuple of part-name prefixes per level, deleted
+    outright before decimation. The function re-shades each level (decimate drops custom normals), and each level must land
+    within `tol` of its target. It returns the LOD objects. The caller exports and removes them. The function reports bounds
+    drift, because LOD prefabs carry their own m_Bounds (the top-anchor / chair-height contracts apply to every level).
 
-    `fixed` (T62 round 2, cs2_sheaves.lod_fixed(); None = every line below unchanged): parts that are NEVER
-    collapse-decimated. fixed.parts(table) names them (part ids); per level, after the prefix deletes, fixed.apply(lod,
-    table, level) rebuilds the surviving ones in that level's form (or deletes them) and returns (count, tris); the
-    rest of the mesh is split off, decimated alone to `target` (the targets are then CEILINGS of the REST: a rest
-    already at or under its target is not decimated and not tolerance-checked - a decimator cannot add tris; the
-    fixed tris come on top), and the fixed faces are joined back. Custom normals are cleared before the level is
-    re-shaded (sharp marks + angle, as a decimated level).
+    `fixed` (T62 round 2, cs2_sheaves.lod_fixed(). None = every line below unchanged) names parts that are NEVER
+    collapse-decimated:
+    - fixed.parts(table) names them (part ids).
+    - Per level, after the prefix deletes, fixed.apply(lod, table, level) rebuilds the surviving ones in that level's form
+      (or deletes them) and returns (count, tris).
+    - The function splits the rest of the mesh off and decimates it alone to `target`. The targets are then CEILINGS of the
+      REST: a rest already at or under its target is not decimated and not tolerance-checked, because a decimator cannot add
+      tris. The fixed tris come on top.
+    - The function joins the fixed faces back.
+    - Custom normals are cleared before the level is re-shaded (sharp marks + angle, as for a decimated level).
     """
     table = json.loads(obj.data[PART_TABLE_PROP])
     fixed_ids = fixed.parts(table) if fixed is not None else set()
@@ -1152,15 +1125,13 @@ def make_lod_chain(obj, name, targets, delete_prefixes, tol=0.25, min_tris=60,
             mod.ratio = ratio
             mod.use_collapse_triangulate = True
             bpy.ops.object.modifier_apply(modifier=mod.name)
-            # Collapse leaves a few zero-area faces that the FBX round trip drops (review
-            # F3: 2702 in the mesh, 2694 in the file). Dissolve them so the counts we
-            # assert and write to the manifest are the counts the game sees.
+            # Collapse leaves a few zero-area faces that the FBX round trip drops (review F3: 2702 in the mesh, 2694 in the
+            # file). Dissolve them, so the counts we assert and write to the manifest are the counts the game sees.
             bm = bmesh.new()
             bm.from_mesh(lod.data)
             bmesh.ops.dissolve_degenerate(bm, dist=1e-5, edges=bm.edges[:])
-            # Collinear slivers have long edges and zero area: dissolve_degenerate keeps
-            # them, the FBX round trip drops them. Delete them here so the count in the
-            # manifest is the count in the file.
+            # Collinear slivers have long edges and zero area. dissolve_degenerate keeps them, and the FBX round trip drops
+            # them. Delete them here, so the count in the manifest is the count in the file.
             slivers = [f for f in bm.faces if f.calc_area() < 1e-8]
             if slivers:
                 bmesh.ops.delete(bm, geom=slivers, context="FACES")
@@ -1169,8 +1140,8 @@ def make_lod_chain(obj, name, targets, delete_prefixes, tol=0.25, min_tris=60,
         rest_tris = None
         if fixed is not None:
             if fixed_obj is not None and ratio >= 0.999:
-                # the rest needed no collapse (already under its ceiling): triangulate it as the collapse would have,
-                # so a level carrying rebuilt fixed parts stays tri-only like every decimated level
+                # The rest needed no collapse (already under its ceiling). Triangulate it as the collapse would have, so a
+                # level that carries rebuilt fixed parts stays tri-only like every decimated level.
                 bm = bmesh.new()
                 bm.from_mesh(lod.data)
                 bmesh.ops.triangulate(bm, faces=bm.faces[:])
@@ -1213,50 +1184,43 @@ def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=(), *
     """
     Write settings.json.
 
-    `supplied_lods` is e.g. (1, 2) when LOD FBXs are shipped alongside; each gets
-    {"mode": "Skip"} so the pipeline uses ours, and its textures are pointed back at LOD0's
-    via sharedAssets rather than duplicating multi-megabyte PNGs.
+    `supplied_lods` is e.g. (1, 2) when LOD FBXs ship alongside. Each gets {"mode": "Skip"}, so the pipeline uses ours. Its
+    textures point back at LOD0's through sharedAssets, instead of duplicating multi-megabyte PNGs.
 
-    `dedicated_texture_lods` (L, art-pipeline-v2 3.7 / SkiProbeLodA): levels that ship
-    their OWN `<name>_LOD<k>_<map>.png` set beside the FBX get IDENTITY sharedAssets
-    entries (`<name>_LOD2_BaseColor.png` -> itself) instead of the LOD0 repoint - the
-    ExampleBakedAlphaFence pattern. A level listed here must also be in `supplied_lods`.
-    Default (empty) output is byte-identical to before.
+    `dedicated_texture_lods` (L, art-pipeline-v2 3.7 / SkiProbeLodA): levels that ship their OWN `<name>_LOD<k>_<map>.png`
+    set beside the FBX get IDENTITY sharedAssets entries (`<name>_LOD2_BaseColor.png` -> itself) instead of the LOD0 repoint.
+    This is the ExampleBakedAlphaFence pattern. A level listed here must also be in `supplied_lods`. Default (empty) output
+    is byte-identical to before.
 
-    CORRECTED 2026-08-13 (docs/research/art/prop-lod-and-lighting.md §11). This docstring
-    used to claim that an empty tuple lets LODPostProcessor generate the chain by edge
-    collapse. It does not. LODPostProcessor CAN edge-collapse, but PostProcessSettings'
-    default is {"LOD1": Skip, "LOD2": Skip} and ShouldExecute returns false the moment a
-    second LOD FBX exists — so generation is OPT-IN PER LEVEL and mutually exclusive with
-    authored LODs. Empty tuple therefore means "this asset ships LOD0 only and has NO
-    chain", which is the right answer for small props (91-98% of comparable vanilla props
-    ship none) but is not the same statement. SPEC §11.1 and lift_tower's --lods help text
-    carry the same inverted claim and want the same correction.
+    CORRECTED 2026-08-13 (docs/research/art/prop-lod-and-lighting.md §11). This docstring used to claim that an empty tuple
+    lets LODPostProcessor generate the chain by edge collapse. It does not. LODPostProcessor CAN edge-collapse. But
+    PostProcessSettings' default is {"LOD1": Skip, "LOD2": Skip}, and ShouldExecute returns false the moment a second LOD FBX
+    exists. So generation is OPT-IN PER LEVEL and mutually exclusive with authored LODs. An empty tuple therefore means "this
+    asset ships LOD0 only and has NO chain". That is the right answer for small props (91-98% of comparable vanilla props
+    ship none), but it is not the same statement. SPEC §11.1 and lift_tower's --lods help text carry the same inverted claim
+    and need the same correction.
 
-    `shared_from` (fine-detail pass, design C.3 / FS12 SG7; default None = the output above,
-    byte-identical): a SHARER of another asset's texture set. A path prefix relative to this
-    asset folder, e.g. "../SkiSignSetSchoolB/SkiSignSetSchoolB": one sharedAssets key per map in
-    `shared_maps` (add "Emissive" for a five-map set), `<name>_<Map>.png` ->
-    `<shared_from>_<Map>.png` (AssetImportPipeline.cs:502-509 1.6.2f1 resolves the target with
-    Path.GetFullPath(Path.Combine(rootPath, target)); share vs copy is probe F1). A sharer
-    ships LOD0 only (sign sets, kit props): supplied_lods with shared_from raises (whether the
-    importer chains a LOD key through a cross-asset key is unverified).
+    `shared_from` (fine-detail pass, design C.3 / FS12 SG7) makes the asset a SHARER of another asset's texture set. Default
+    None = the output above, byte-identical. The value is a path prefix relative to this asset folder, e.g.
+    "../SkiSignSetSchoolB/SkiSignSetSchoolB". The function writes one sharedAssets key per map in `shared_maps` (add
+    "Emissive" for a five-map set): `<name>_<Map>.png` -> `<shared_from>_<Map>.png`. AssetImportPipeline.cs:502-509 1.6.2f1
+    resolves the target with Path.GetFullPath(Path.Combine(rootPath, target)). Share vs copy is probe F1. A sharer ships LOD0
+    only (sign sets, kit props). Passing supplied_lods with shared_from raises. Whether the importer chains a LOD key through
+    a cross-asset key is unverified.
 
-    `surface` (orange safety fence, 2026-10-13, design safety-fence.md §4 / C13; default None =
-    every output above, byte-identical): a dict written as the LAST key, "Surface", e.g.
-    {"materialTemplate": "CurvedHashedCutout", "needsAlphaClip": True, "alphaCutoff": 0.54}.
-    The importer expands it to <name>, <name>_LOD1, <name>_LOD2 (Colossal.AssetPipeline 1.6.2f1
-    SettingsImporter.cs:222-241) and an explicit materialTemplate replaces the template it would
-    pick (SurfacePostProcessor.cs:156): the only way to give an imported LANE mesh a Curved*
-    template. An empty or non-dict value raises.
+    `surface` (orange safety fence, 2026-10-13, design safety-fence.md §4 / C13. Default None = every output above,
+    byte-identical) is a dict that the function writes as the LAST key, "Surface", e.g. {"materialTemplate":
+    "CurvedHashedCutout", "needsAlphaClip": True, "alphaCutoff": 0.54}. The importer expands it to <name>, <name>_LOD1,
+    <name>_LOD2 (Colossal.AssetPipeline 1.6.2f1 SettingsImporter.cs:222-241). An explicit materialTemplate replaces the
+    template that the importer would pick (SurfacePostProcessor.cs:156). This is the only way to give an imported LANE mesh a
+    Curved* template. An empty or non-dict value raises.
 
-    `procedural_animation` (rig probe AlignRigProbeA, 2026-11-02; default False = every output
-    above, byte-identical): writes "useProceduralAnimation": true as the LAST key, for a skinned
-    FBX (export_fbx_skinned). The key is the public field Settings.useProceduralAnimation that
-    JSONImporter fills by name (Colossal.AssetPipeline 1.6.2f1 Settings.cs:387,
-    JSONImporter.cs:58). Settings.GetDefault already sets it true (Settings.cs:585) and
-    AssetImportPipeline.ImportSettings starts from that default (1.6.0f1 AssetImportPipeline.cs:355,
-    :403-406), so the key is explicit, not required; a settings.json with false turns it off.
+    `procedural_animation` (rig probe AlignRigProbeA, 2026-11-02. Default False = every output above, byte-identical) writes
+    "useProceduralAnimation": true as the LAST key, for a skinned FBX (export_fbx_skinned). The key is the public field
+    Settings.useProceduralAnimation that JSONImporter fills by name (Colossal.AssetPipeline 1.6.2f1 Settings.cs:387,
+    JSONImporter.cs:58). Settings.GetDefault already sets it true (Settings.cs:585), and AssetImportPipeline.ImportSettings
+    starts from that default (1.6.0f1 AssetImportPipeline.cs:355, :403-406). So the key is explicit, not required. A
+    settings.json with false turns it off.
     """
     if surface is not None and (not isinstance(surface, dict) or not surface):
         raise ValueError(f"write_settings {name}: surface must be a non-empty dict, got {surface!r}")
@@ -1295,41 +1259,38 @@ def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=(), *
 # FBX export
 # --------------------------------------------------------------------------------------
 
-# CS2's FBXImporter reads vertex data as CENTIMETERS and ignores the FBX header's unit
-# scale factor. Blender works in meters, so everything must be multiplied by 100 on export.
+# CS2's FBXImporter reads vertex data as CENTIMETERS and ignores the FBX header's unit scale factor. Blender works in meters,
+# so everything must be multiplied by 100 on export.
 #
-# Measured, not guessed: exporting at global_scale=1.0 produced a prefab whose m_Bounds were
-# 0.0194 x 0.0382 x 0.1091 for a tower that is 1.94 x 3.82 x 10.91 m - exactly 1/100. The
-# asset imported and placed fine (collision warnings fired) but was a 10.9 cm speck, hence
-# invisible.
+# Measured, not guessed: exporting at global_scale=1.0 produced a prefab whose m_Bounds were 0.0194 x 0.0382 x 0.1091 for a
+# tower that is 1.94 x 3.82 x 10.91 m, exactly 1/100. The asset imported and placed fine (collision warnings fired), but it
+# was a 10.9 cm speck, hence invisible.
 CS2_UNIT_SCALE = 100.0
 
 
 def export_fbx(obj, path, unit_scale=CS2_UNIT_SCALE):
     """
-    Export one object using the Unity/CS2 axis convention (-Z forward, Y up), with the unit
-    scale BAKED INTO THE VERTEX DATA.
+    Export one object using the Unity/CS2 axis convention (-Z forward, Y up), with the unit scale BAKED INTO THE VERTEX DATA.
 
-    The exporter's `global_scale` is not enough. Blender applies it to the node transform, and
-    CS2's importer reads raw mesh vertices while ignoring node scale - so the asset still came
-    in at 1/100 with global_scale=100. Baking the scale with transform_apply is the only thing
-    the importer cannot ignore.
+    The exporter's `global_scale` is not enough. Blender applies it to the node transform, and CS2's importer reads raw mesh
+    vertices while it ignores node scale. So the asset still came in at 1/100 with global_scale=100. Baking the scale with
+    transform_apply is the only thing the importer cannot ignore.
 
-    Work happens on a temporary duplicate so the caller's object stays in meters for previews,
-    measurement and LOD generation.
+    The function works on a temporary duplicate, so the caller's object stays in meters for previews, measurement and LOD
+    generation.
     """
     orig_name = obj.name
 
     # CRITICAL: free the name BEFORE duplicating.
     #
-    # CS2 locates textures by the mesh name in the FBX - it looks for <meshname>_BaseColor.png
-    # and friends. If Blender's duplicate keeps its automatic ".001" suffix, the importer hunts
-    # for "<name>.001_BaseColor.png", finds nothing, and silently produces a texture-less
-    # 56-byte .Surface. The asset still imports and renders, just wearing the default material.
+    # CS2 locates textures by the mesh name in the FBX: it looks for <meshname>_BaseColor.png and friends. If Blender's
+    # duplicate keeps its automatic ".001" suffix, the importer hunts for "<name>.001_BaseColor.png", finds nothing, and
+    # silently produces a texture-less 56-byte .Surface. The asset still imports and renders, but it wears the default
+    # material.
     #
-    # Renaming the source first means the duplicate can take the clean name outright, so no
-    # ".001" ever reaches the file. Verified by string-scanning the FBX: a working official
-    # asset contains exactly ONE name (ExampleBakedAlphaFence) and nothing else.
+    # Renaming the source first means the duplicate can take the clean name outright, so no ".001" ever reaches the file. We
+    # verified this by string-scanning the FBX: a working official asset contains exactly ONE name (ExampleBakedAlphaFence)
+    # and nothing else.
     obj.name = orig_name + "__src"
     obj.data.name = orig_name + "__src"
 
@@ -1347,21 +1308,19 @@ def export_fbx(obj, path, unit_scale=CS2_UNIT_SCALE):
 
         # Bake whatever transform the caller already had FIRST.
         #
-        # The CS2 conversion below ASSIGNS rotation_euler and scale, so any existing object-level
-        # rotation would be silently discarded. That bit the cable generator: its cylinder carried
-        # a 90-degree Y rotation to lie along X, which vanished on export and left an 8 m rope
-        # standing vertically. Objects built by joining parts are unaffected (join bakes to
+        # The CS2 conversion below ASSIGNS rotation_euler and scale, so it would silently discard any existing object-level
+        # rotation. That bit the cable generator: its cylinder carried a 90-degree Y rotation to lie along X, which vanished
+        # on export and left an 8 m rope standing vertically. Objects built by joining parts are unaffected (join bakes to
         # identity), which is why the tower never showed the bug.
         bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
 
         # Bake BOTH the unit scale and the up-axis conversion into the vertices.
         #
-        # CS2 expects Y-up raw vertex data - confirmed from the official ExampleAssets, whose
-        # ground-standing meshes all run y: 0 .. height while x and z straddle zero. Blender is
-        # Z-up, and the exporter's axis_up/axis_forward options only rewrite the NODE transform,
-        # which CS2 ignores exactly as it ignores node scale. Rotating -90 deg about X maps
-        # (x, y, z) -> (x, z, -y), putting Blender's up axis onto Y. It is a proper rotation, so
-        # handedness is preserved and normals stay correct.
+        # CS2 expects Y-up raw vertex data. We confirmed this from the official ExampleAssets, whose ground-standing meshes
+        # all run y: 0 .. height while x and z straddle zero. Blender is Z-up, and the exporter's axis_up/axis_forward
+        # options only rewrite the NODE transform, which CS2 ignores exactly as it ignores node scale. A rotation of -90 deg
+        # about X maps (x, y, z) -> (x, z, -y), which puts Blender's up axis onto Y. It is a proper rotation, so handedness
+        # is preserved and normals stay correct.
         tmp.rotation_euler = (math.radians(-90.0), 0.0, 0.0)
         tmp.scale = (unit_scale, unit_scale, unit_scale)
         bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
@@ -1372,15 +1331,15 @@ def export_fbx(obj, path, unit_scale=CS2_UNIT_SCALE):
             object_types={"MESH"},
             apply_unit_scale=False,
             global_scale=1.0,
-            # Identity for Blender - the conversion is already baked in above.
+            # Identity for Blender. The conversion is already baked in above.
             axis_forward="Y",
             axis_up="Z",
             use_triangles=True,
             mesh_smooth_type="EDGE",
             use_tspace=True,
             bake_anim=False,
-            # STRIP writes bare filenames rather than copying textures into a subfolder -
-            # the PNGs already sit beside the FBX exactly as CS2's folder contract expects.
+            # STRIP writes bare filenames and does not copy textures into a subfolder. The PNGs already sit beside the FBX,
+            # exactly as the CS2 folder contract expects.
             path_mode="STRIP",
         )
     finally:
@@ -1392,30 +1351,28 @@ def export_fbx(obj, path, unit_scale=CS2_UNIT_SCALE):
 
 
 # --------------------------------------------------------------------------------------
-# Skinned FBX export (procedural bones; rig probe AlignRigProbeA, 2026-11-02)
+# Skinned FBX export (procedural bones, rig probe AlignRigProbeA, 2026-11-02)
 #
-# What the game's importer needs (1.6.0f1 Game.AssetPipeline/AssetImportPipeline.cs, 1.6.2f1
-# Colossal.AssetPipeline decompile under tools/decompile/1.6.2f1-colossal/):
-# - only mesh 0 of the FBX is read (FBXImporter.cs:137, default Options.SplitSubmeshes), so one
-#   mesh object, skinned, beside its armature;
-# - BlendIndices + BlendWeight + a root bone + bind poses, else no ProceduralAnimationProperties
-#   (AssetImportPipeline.cs:2331-2358, :2377-2392); the managed side carries 4 influences per
-#   vertex (FBXImporter.cs:249-250, :358-359);
-# - bones = the skin's cluster bones: name, local position / rotation / scale, parent, bind
-#   pose (FBXImporter.cs:393-403 -> AssetImportPipeline.cs:2393-2406); Blender writes a cluster
-#   for every bone, weighted or not (io_scene_fbx export_fbx_bin.py, "rest pose data");
-# - LOD1+ get a COPY of LOD0's component (SetupLODs :2210-2217) and SkinPostProcessor remaps
-#   each LOD's indices onto the previous LOD's bones BY NAME (SkinPostProcessor.cs:168-187), so
-#   every LOD is skinned to the same armature.
-# - no animation take: an FBX clip turns the bones into PlaybackLayer0 and writes an
-#   AnimationAsset (AssetImportPipeline.cs:1977-2010, FBXImporter.cs:494-563): bake_anim=False.
+# What the game's importer needs (1.6.0f1 Game.AssetPipeline/AssetImportPipeline.cs, 1.6.2f1 Colossal.AssetPipeline decompile
+# under tools/decompile/1.6.2f1-colossal/):
+# - The importer reads only mesh 0 of the FBX (FBXImporter.cs:137, default Options.SplitSubmeshes). So the FBX holds one
+#   skinned mesh object beside its armature.
+# - BlendIndices + BlendWeight + a root bone + bind poses are required. Without them the importer creates no
+#   ProceduralAnimationProperties (AssetImportPipeline.cs:2331-2358, :2377-2392). The managed side carries 4 influences per
+#   vertex (FBXImporter.cs:249-250, :358-359).
+# - Bones = the skin's cluster bones: name, local position / rotation / scale, parent, bind pose (FBXImporter.cs:393-403 ->
+#   AssetImportPipeline.cs:2393-2406). Blender writes a cluster for every bone, weighted or not (io_scene_fbx
+#   export_fbx_bin.py, "rest pose data").
+# - LOD1+ get a COPY of LOD0's component (SetupLODs :2210-2217). SkinPostProcessor remaps each LOD's indices onto the
+#   previous LOD's bones BY NAME (SkinPostProcessor.cs:168-187). So every LOD is skinned to the same armature.
+# - There is no animation take. An FBX clip turns the bones into PlaybackLayer0 and writes an AnimationAsset
+#   (AssetImportPipeline.cs:1977-2010, FBXImporter.cs:494-563). The export therefore uses bake_anim=False.
 # --------------------------------------------------------------------------------------
 
 def check_skin_weights(obj, armature, max_influences=4, tol=1e-4):
     """
-    Raise unless every vertex of `obj` is weighted to 1..max_influences bones of `armature`
-    with weights summing to 1 (+-tol), and every vertex group names a bone. Returns
-    {bone: vertex count with weight > 0}.
+    Raise unless every vertex of `obj` is weighted to 1..max_influences bones of `armature` with weights summing to 1
+    (+-tol), and every vertex group names a bone. Return {bone: vertex count with weight > 0}.
     """
     bones = {b.name for b in armature.data.bones}
     names = {vg.index: vg.name for vg in obj.vertex_groups}
@@ -1439,18 +1396,17 @@ def check_skin_weights(obj, armature, max_influences=4, tol=1e-4):
 
 def export_fbx_skinned(obj, armature, path, unit_scale=CS2_UNIT_SCALE):
     """
-    export_fbx for a mesh skinned to an armature: the same frame (cm, Y up, every transform
-    baked: the game reads raw vertices and ignores node transforms) applied to the mesh AND the
-    armature, so the bind poses match the baked vertices. export_fbx itself is unchanged.
+    export_fbx for a mesh skinned to an armature. It uses the same frame for the mesh AND the armature, so the bind poses
+    match the baked vertices. The frame is cm, Y up, every transform baked (the game reads raw vertices and ignores node
+    transforms). export_fbx itself is unchanged.
 
-    Authoring rule for an identity bone rest rotation in the game: the bone points UP (+Z) with
-    roll 0. The -90 deg X bake turns it onto +Y with its X axis on +X, which is the identity
-    bone frame (Blender bones run along their local Y; primary/secondary bone axes Y/X write
-    them uncorrected). The game negates FBX x on import (PIPELINE.md frame rule T: position
-    x -> -x, quaternion (qx, qy, qz, qw) -> (qx, -qy, -qz, qw)), which leaves identity alone.
+    Authoring rule for an identity bone rest rotation in the game: the bone points UP (+Z) with roll 0. The -90 deg X bake
+    turns it onto +Y with its X axis on +X. That is the identity bone frame (Blender bones run along their local Y, and
+    primary/secondary bone axes Y/X write them uncorrected). The game negates FBX x on import (PIPELINE.md frame rule T:
+    position x -> -x, quaternion (qx, qy, qz, qw) -> (qx, -qy, -qz, qw)). That leaves identity alone.
 
-    The caller's mesh needs vertex groups named after the bones (check_skin_weights runs here);
-    a parent or an Armature modifier on it is ignored and rebuilt on the temporary copies.
+    The caller's mesh needs vertex groups named after the bones (check_skin_weights runs here). A parent or an Armature
+    modifier on it is ignored and rebuilt on the temporary copies.
     """
     check_skin_weights(obj, armature)
     names = (obj.name, obj.data.name, armature.name, armature.data.name)
@@ -1524,13 +1480,13 @@ def export_fbx_skinned(obj, armature, path, unit_scale=CS2_UNIT_SCALE):
         armature.name, armature.data.name = names[2], names[3]
 
 
-# -- sibling exports (an asset on another asset's texture set; DECISIONS 592 c) ----------------------------------------------
+# -- sibling exports (an asset on another asset's texture set, DECISIONS 592 c) ----------------------------------------------
 
 SIBLING_MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal")
 
 
 def deployed_asset_names(repo):
-    """Every asset / prefab name the game has seen: the folder names under gamedata-mirror/ImportedData ('<Name> Mesh'
+    """Return every asset / prefab name the game has seen: the folder names under gamedata-mirror/ImportedData ('<Name> Mesh'
     folded to <Name>) and the stems of its files (up to the first '.' or '_')."""
     import re
     root = os.path.join(repo, "gamedata-mirror", "ImportedData")
@@ -1544,18 +1500,22 @@ def deployed_asset_names(repo):
 
 
 def assert_new_asset_name(name, repo):
-    """A new generation letter per import round: never export under a name the game already imported (the Editor mints
-    a new mesh CID per import; prefabs repoint by CID)."""
+    """Use a new generation letter per import round. Never export under a name that the game already imported (the Editor mints
+    a new mesh CID per import, and prefabs repoint by CID)."""
     if name in deployed_asset_names(repo):
         raise ValueError(f"{name} is already deployed (gamedata-mirror/ImportedData): pick a new generation letter")
 
 
 def sibling_settings(asset_dir, name, owner, levels, maps=SIBLING_MAPS):
-    """settings.json of an asset with no PNG of its own that shares its OWNER's LOD0 set (the owner a sibling folder:
-    the family-folder rule, PIPELINE section 4): every map key of LOD0 and of each supplied LOD points STRAIGHT at
-    `../<owner>/<owner>_<Map>.png` (no key chains through another key), LOD1..levels Skip, useProceduralAnimation (the
-    skinned towers). One set of one size for every level: the owner's LOD0 maps. Refuses when the owner's maps are
-    missing or differ in size (never mix map sizes in one texture set). Returns the path."""
+    """Write the settings.json of an asset that has no PNG of its own and shares its OWNER's LOD0 set. The owner is a sibling
+    folder (the family-folder rule, PIPELINE section 4). The file has these entries:
+    - Every map key of LOD0 and of each supplied LOD points STRAIGHT at `../<owner>/<owner>_<Map>.png` (no key chains through
+      another key).
+    - LOD1..levels are Skip.
+    - useProceduralAnimation is set (the skinned towers).
+
+    One set of one size serves every level: the owner's LOD0 maps. The function refuses when the owner's maps are missing or
+    differ in size (never mix map sizes in one texture set). It returns the path."""
     odir = os.path.join(os.path.dirname(asset_dir), owner)
     miss = [m for m in maps if not os.path.isfile(os.path.join(odir, f"{owner}_{m}.png"))]
     if miss:
@@ -1582,7 +1542,7 @@ def sibling_settings(asset_dir, name, owner, levels, maps=SIBLING_MAPS):
 
 
 def clean_asset_folder(asset_dir, name):
-    """Before a re-export: remove this asset's own files (`<name>*`, settings.json); never anything else."""
+    """Call before a re-export. Remove this asset's own files (`<name>*`, settings.json). Never remove anything else."""
     for f in os.listdir(asset_dir):
         p = os.path.join(asset_dir, f)
         if os.path.isfile(p) and (f.startswith(name) or f == "settings.json"):

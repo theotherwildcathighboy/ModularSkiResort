@@ -1,11 +1,13 @@
 """
-ski_thumbnail.py - the Paradox Mods thumbnail (Properties/Thumbnail.png): the hub's launcher glyph, white on the icon family's sky.
+ski_thumbnail.py generates the Paradox Mods thumbnail (Properties/Thumbnail.png): the hub's launcher
+glyph, white on the icon family's sky.
 
-Square, full bleed, deterministic, no bpy; runs on Blender's bundled python.exe:
+Square, full bleed, deterministic, no bpy. It runs on Blender's bundled python.exe:
 
     "<blender>\\<ver>\\python\\bin\\python.exe" ski_thumbnail.py --out <file.png> [--size 1024]
 
-Glyph: ski_launcher_glyph.py candidate (c), the one the hub ships as SkiLauncherGlyph.svg. Sky: ski_icons.py SKY_TOP / SKY_BOT.
+Glyph: ski_launcher_glyph.py candidate (c), the one the hub ships as SkiLauncherGlyph.svg. Sky:
+ski_icons.py SKY_TOP / SKY_BOT.
 """
 
 import argparse
@@ -18,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ski_launcher_glyph as G  # noqa: E402
 
 SKY_TOP, SKY_BOT = (44, 100, 172), (128, 186, 234)   # ski_icons.py
-GLYPH_SHARE = 0.76                                   # of the side; the listing crops corners on some pages
+GLYPH_SHARE = 0.76                                   # of the side. The listing crops corners on some pages
 
 
 def render(size):

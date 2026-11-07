@@ -1,30 +1,37 @@
 """
-test_carrier_station_sweep.py - the B2 v2 split carriers (lift_chair --split --envelope, generation O) through the
+test_carrier_station_sweep.py: the B2 v2 split carriers (lift_chair --split --envelope, generation O) through the
 stations (import prep 2026-11-03, docs/research/art/breakover-twins-2026-11/v2/import-prep.md). The towers' gate is
-test_grip_clearance; this is the stations' side. Reads the export folders under assets/import (chairs/M, N, O): a
-missing folder FAILS (this gate exists to check those files before an import).
+test_grip_clearance. This test is the stations' side. It reads the export folders under assets/import (chairs/M, N,
+O). A missing folder FAILS (this gate exists to check those files before an import).
 
-  CS1 tr, generation-M fixed-grip stations (lift_terminal M3 as it stands: chair_sweep_m + assert_sweep_m, LOD0 +
-      LOD1, both lane ends + the top's line-first ends; the chair pair assembled in the chair's authoring frame: the
-      body at its pivot, the grip raised by the pin offset 2.32 - 0.1955 = 2.1245, grip top 2.40 = FG_HANG; body =
-      z < CHAIR_BODY_Z). The shipped one-piece SkiLiftChair6M and the split N pair in BOTH facings (as M3 runs the
-      6M); the O pair in the REAL facing only: the up lane is chain A, the right one looking uphill
-      (LiftLoopTopology, StationAlign.UpLaneIsSecond; O1, branch N settled in the 2026-10-15 playtest), so the loop
-      turns left at both stations and the turn center is on the chair's LEFT = chair-local +Y (place_chair: y ->
-      up x travel) on both lanes and round the wheel: lane s faces f = -s, the arc f = +1. The O pair keeps its clamp
-      block and the stem's top run at -Y (outboard, lift_chair ENVELOPE_TR: the towers' wheel envelope), so its
-      reverse facing is a pose the game never makes. Negative: the O pair in the reverse facing fails M3 at the
-      bullwheel (body -> rope machine).
-  CS2 dq, detachable stations (lift_terminal_detach, the letter-C rail DQ_RAIL): SkiLiftChairDQ4GripO +
-      SkiLiftChairDQ4N (the dq body keeps generation N) swept along both stations' carrier path in the real facing
-      (straights anchor -> wheel tangent every 0.10 m on both lanes, the U every 2 deg; blockout build), distances by
-      station class (point-to-triangle both ways, edge samples every 2-3 cm; a triangle overlap = 0): the running
-      wheels' tops ON the rail's underside (<= 2 mm), every other grip part >= 0.02 m from the rail and its hangers,
-      the tires >= 0.04 m over the carriage, the body >= 0.10 m from rail, hangers, tires and their banks, the body ->
-      structure no closer than on the letter-B rail. Negatives: the letter-B rail (DQ_RAIL_LEGACY) leaves the O
-      wheels >= 0.20 m below it; the shipped N grip crosses the C rail (the C stations ship with the O grips).
+CS1 tr, generation-M fixed-grip stations (lift_terminal M3 as it stands: chair_sweep_m + assert_sweep_m, LOD0 + LOD1,
+both lane ends + the top's line-first ends). The chair pair is assembled in the chair's authoring frame: the body at
+its pivot, the grip raised by the pin offset 2.32 - 0.1955 = 2.1245, grip top 2.40 = FG_HANG, body = z <
+CHAIR_BODY_Z. The sweep covers these chairs:
+- The shipped one-piece SkiLiftChair6M and the split N pair, in BOTH facings (as M3 runs the 6M).
+- The O pair, in the REAL facing only. The up lane is chain A, the right one looking uphill (LiftLoopTopology,
+  StationAlign.UpLaneIsSecond, O1, branch N settled in the 2026-10-15 playtest). So the loop turns left at both
+  stations. The turn center is on the chair's LEFT = chair-local +Y (place_chair: y -> up x travel) on both lanes and
+  round the wheel: lane s faces f = -s, the arc f = +1.
 
-    blender --background --factory-startup --python-exit-code 1 --python tests\\test_carrier_station_sweep.py
+The O pair keeps its clamp block and the stem's top run at -Y (outboard, lift_chair ENVELOPE_TR: the towers' wheel
+envelope), so its reverse facing is a pose the game never makes. Negative: the O pair in the reverse facing fails M3
+at the bullwheel (body -> rope machine).
+
+CS2 dq, detachable stations (lift_terminal_detach, the letter-C rail DQ_RAIL). The sweep moves
+SkiLiftChairDQ4GripO + SkiLiftChairDQ4N (the dq body keeps generation N) along both stations' carrier path in the
+real facing (straights anchor -> wheel tangent every 0.10 m on both lanes, the U every 2 deg, blockout build).
+Distances are by station class (point-to-triangle both ways, edge samples every 2-3 cm, a triangle overlap = 0):
+- the running wheels' tops ON the rail's underside (<= 2 mm)
+- every other grip part >= 0.02 m from the rail and its hangers
+- the tires >= 0.04 m over the carriage
+- the body >= 0.10 m from rail, hangers, tires and their banks
+- the body -> structure no closer than on the letter-B rail
+
+Negatives: the letter-B rail (DQ_RAIL_LEGACY) leaves the O wheels >= 0.20 m below it. The shipped N grip crosses the
+C rail (the C stations ship with the O grips).
+
+blender --background --factory-startup --python-exit-code 1 --python tests\\test_carrier_station_sweep.py
 """
 import math
 import os
@@ -46,7 +53,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 CHAIRS = os.path.join(REPO, "assets", "import", "chairs")
 FAILS = []
 N_OK = [0]
-TR_GRIP_Z = 2.32 - 0.1955          # body rope - grip rope (carriers.json tr split; SkiCatalog Pivots, CT-17)
+TR_GRIP_Z = 2.32 - 0.1955          # body rope - grip rope (carriers.json tr split, SkiCatalog Pivots, CT-17)
 DQ_ROPE = {"grip": 0.3155, "body": 3.08}
 PAIRS_TR = {"6M": ("M", "SkiLiftChair6M", None), "N": ("N", "SkiLiftChair6N", "SkiLiftChair6GripN"),
             "O": ("O", "SkiLiftChair6O", "SkiLiftChair6GripO")}
@@ -65,7 +72,7 @@ def check(cond, label, detail=""):
 
 
 def read_fbx(path):
-    """FBX raw cm -> the chair's authoring frame m: (fz, fx, fy) (x travel, y lateral, z up; lift_terminal S1)."""
+    """FBX raw cm -> the chair's authoring frame m: (fz, fx, fy) (x travel, y lateral, z up, lift_terminal S1)."""
     if not os.path.isfile(path):
         raise FileNotFoundError(path)
     objs = cs2_validate.import_fbx_temp(path)
@@ -187,9 +194,9 @@ def dq_carrier(grip_letter, grip_name):
     g[:, 2] -= DQ_ROPE["grip"]
     b, bt = read_fbx(fbx("N", "SkiLiftChairDQ4N"))
     b[:, 2] -= DQ_ROPE["body"]
-    # the running wheels: the two 16-gon wheels at travel +-0.20 (r 0.080, centers rope + 0.0285), their lateral band
-    # found on the mesh from the vertices over the wheel centers only (the lever roller, 0.175..0.205 out, sits at
-    # travel -0.172..-0.108; lift_chair DQ_GRIP wheel 0.050 wide; O: 0.098..0.148 outboard = authoring -Y)
+    # the running wheels: the two 16-gon wheels at travel +-0.20 (r 0.080, centers rope + 0.0285). Their lateral band
+    # is found on the mesh from the vertices over the wheel centers only. The lever roller, 0.175..0.205 out, sits at
+    # travel -0.172..-0.108. The lift_chair DQ_GRIP wheel is 0.050 wide. O: 0.098..0.148 outboard = authoring -Y
     band = (np.abs(np.abs(g[:, 0]) - 0.20) <= 0.081) & (g[:, 2] >= -0.052) & (g[:, 2] <= 0.110)
     lat = g[band & (g[:, 2] >= 0.105) & (np.abs(np.abs(g[:, 0]) - 0.20) <= 0.02), 1]
     lo, hi = float(lat.min()), float(lat.max())
@@ -217,7 +224,7 @@ def dq_station(kind, legacy):
 
 
 def dq_poses(p, step=0.10, dang=2.0):
-    """The carrier path in the station's authoring frame, real facing (travel -s x on lane s; the U counterclockwise)."""
+    """The carrier path in the station's authoring frame, real facing (travel -s x on lane s, the U counterclockwise)."""
     R, X, z = p.lane_y, p.x_wheel, p.z_rope
     out = []
     for s in (-1.0, 1.0):

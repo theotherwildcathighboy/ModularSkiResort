@@ -1,83 +1,85 @@
 """
-A-Frame Day Lodge generator - the ski area's anchor building (Phase 2 flagship).
+A-Frame Day Lodge generator: the ski area's anchor building (Phase 2 flagship).
 
-DESIGN ("A-Basin day lodge, Pali era") - ROUND C: "SkiAFrameDayLodge". The round-B
-massing passed review ("looks awesome"); round C commits the asset to a TRUE A-FRAME
-and settles its place in the lodge ladder:
+DESIGN ("A-Basin day lodge, Pali era"), ROUND C: "SkiAFrameDayLodge". The round-B massing passed
+review ("looks awesome"). Round C commits the asset to a TRUE A-FRAME and settles its place in the
+lodge ladder:
 
-  C1  A-FRAME PROPORTIONS. A-Basin's actual base lodge is a steep A-frame where the
-      roof IS the building. Main + prow pitches now 53 degrees; eaves sweep down to
-      1.1 m above the wings' window heads (EAVE_Z 5.3, barely above the deck); the
-      timber story shrinks to a 2.4 m band of ribbon windows tucked under the eaves;
-      ridge height FOLLOWS from the pitch (16.7 m main / 15.9 prow). The wall plates
-      are DERIVED (S2_Z = EAVE_Z + pitch * overhang), so pitch changes can never
-      strand a wall above its roof again. Silhouette-reads as an A-frame at range.
-  C2  TIER 1 of a future lodge ladder - cheapest, first unlock, least tourism.
-      Modest is correct: ribbon bands, one loft pair per gable end, a small tucked
-      entry gable. No ornament creep.
-  C3  Deck furniture: the modeled pedestal TABLES are gone - deck dressing comes from
-      reused vanilla props at prefab level (docs/research/vanilla-reuse.md). The
-      UMBRELLAS stay (slot-2 recolorable canopies, a deliberate feature), respaced
-      into wing groups clear of the prow roof, each on a small weighted stand so the
-      pole doesn't grow out of bare decking.
+C1. A-FRAME PROPORTIONS. A-Basin's actual base lodge is a steep A-frame where the roof IS the
+building. Main and prow pitches are now 53 degrees. The eaves sweep down to 1.1 m above the wings'
+window heads (EAVE_Z 5.3, barely above the deck). The timber story shrinks to a 2.4 m band of ribbon
+windows tucked under the eaves. Ridge height FOLLOWS from the pitch (16.7 m main / 15.9 prow). The
+wall plates are DERIVED (S2_Z = EAVE_Z + pitch * overhang), so pitch changes can never strand a wall
+above its roof again. The silhouette reads as an A-frame at range.
 
-Held over from round B: solid stone-coursed masonry base (no glazing in concrete;
-painted STONE BAND, see below), framed window bands only, true-gable roofs built from
-open slabs + rake boards, the prow's mullioned glass wall filling the gable (the
-A-Basin signature), full-width sundeck, through-roof stone chimney (now 17.6 to clear
-the taller ridge), timber-framed grade entry.
+C2. TIER 1 of a future lodge ladder: cheapest, first unlock, least tourism. Modest is correct:
+ribbon bands, one loft pair per gable end, a small tucked entry gable. No ornament creep.
 
-Reference set (web round, user green-lit): A-Basin's base lodge is the steep A-FRAME
-(ex missile-test building) - now driving the whole massing, not just the prow;
-6th Alley's two-story deck / wood facade - the full-width sundeck over the masonry
-base; Colorado lodge grammar (stone bases carrying expansive decks, deep eaves,
-banded openings) - stone course, overhangs, window rhythm.
+C3. Deck furniture: the modeled pedestal TABLES are gone. Deck dressing comes from reused vanilla
+props at prefab level (docs/research/vanilla-reuse.md). The UMBRELLAS stay (slot-2 recolorable
+canopies, a deliberate feature). They are respaced into wing groups clear of the prow roof, each on
+a small weighted stand, so the pole does not grow out of bare decking.
 
-Recolor language matches the lift family: slot 1 (quad 3, light 0.80 albedo) = trim,
-fascia, barge/rake boards, corner boards, doors, window frames + mullions, deck
-railing - the accent kit; slot 2 (pad-strip texels, ControlMask G) = the deck
-UMBRELLAS' canopies, default pad-orange via the prefab VariationSet. Timber cladding
-and stone are deliberately NOT recolorable.
+Held over from round B:
+- solid stone-coursed masonry base (no glazing in concrete, painted STONE BAND, see below)
+- framed window bands only
+- true-gable roofs built from open slabs + rake boards
+- the prow's mullioned glass wall filling the gable (the A-Basin signature)
+- full-width sundeck
+- through-roof stone chimney (now 17.6 to clear the taller ridge)
+- timber-framed grade entry
 
-WOOD BAND (round A, retuned): the lift atlas has no timber, so the lodge paints lap
-siding into quad 0's reserved top (cs2_asset.QUAD_RESERVED_TOP keeps smart-projected
-islands out of v 0.44..0.50). Mip-bleed contract as the tower pier band: painted to
-0.4995, geometry maps only to 0.4900 - quad 2's near-black glass sits directly above
-v 0.5 (measured the hard way in the tower M round).
+Reference set (web round, user green-lit):
+- A-Basin's base lodge is the steep A-FRAME (ex missile-test building). It now drives the whole
+  massing, not just the prow.
+- 6th Alley's two-story deck / wood facade: the full-width sundeck over the masonry base.
+- Colorado lodge grammar (stone bases carrying expansive decks, deep eaves, banded openings): stone
+  course, overhangs, window rhythm.
 
-STONE BAND (round B; ROUND D density rework): same mechanism, second band - the top
-of quad 1 (galv) is also reserved (this generator sets cs2_asset.QUAD_RESERVED_TOP[1]
-for ITS OWN process only; tower/terminal builds run their own Blender and never see
-it). Two zones by column: zone A = base walls + skirt; zone B = the chimney.
+Recolor language matches the lift family:
+- Slot 1 (quad 3, light 0.80 albedo) = trim, fascia, barge/rake boards, corner boards, doors, window
+  frames + mullions, deck railing (the accent kit).
+- Slot 2 (pad-strip texels, ControlMask G) = the deck UMBRELLAS' canopies, default pad-orange via
+  the prefab VariationSet.
 
-ROUND D (stone-density pass): round C mapped the whole 43 m plinth run across zone A
-once - ~26 px/m, every stone ~10 blurry pixels (field-confirmed blur). Now the plinth
-walls carry 8 m segmentation loops (STONE_SEG), each bay maps across the FULL zone-A
-width, and the ashlar is painted WRAP-CONTINUOUS horizontally: stones crossing the
-right edge continue on the left, painted wrap padding sits outside both zone edges
-(bilinear/mip insurance), and each course's wrap point falls on an ordinary mortar
-joint - so bay seams are invisible. The band also grew vertically by claiming more of
-quad 1 (reserved top 0.12 -> 0.33; the galv islands - roof slabs, ridge caps - pack a
-little flatter, tolerable on the uniform Metal032 photo). Wall density: ~26 -> ~195
-px/m horizontal, ~25 -> ~82 px/m vertical. Chimney: same taller window (~10 -> ~33
-px/m vertical) and a per-face mapping fix (the old run%3 wrapped mid-face on negative
-coords); its faces cannot be tiled without cutting the chimney, which round D leaves
-untouched by design.
+Timber cladding and stone are deliberately NOT recolorable.
 
-Hand-mapped parts (wood band, stone band, canopies) skip the quadrant unwrap AND the
-finish bevel (hand-set UVs don't bevel - crash-pad rule).
+WOOD BAND (round A, retuned). The lift atlas has no timber, so the lodge paints lap siding into quad
+0's reserved top (cs2_asset.QUAD_RESERVED_TOP keeps smart-projected islands out of v 0.44..0.50).
+The mip-bleed contract is the same as for the tower pier band: painted to 0.4995, geometry maps only
+to 0.4900. Quad 2's near-black glass sits directly above v 0.5 (measured the hard way in the tower M
+round).
 
-Authoring frame: +X = slope side (deck, glass prow), -X = parking/entry side; after
-orient_for_net the entry faces CS2 -Z, the road side, like the stations.
+STONE BAND (round B, ROUND D density rework): same mechanism, second band. The top of quad 1 (galv)
+is also reserved. This generator sets cs2_asset.QUAD_RESERVED_TOP[1] for ITS OWN process only. Tower
+and terminal builds run their own Blender and never see it. Two zones by column: zone A = base walls
++ skirt, zone B = the chimney.
+
+ROUND D (stone-density pass): round C mapped the whole 43 m plinth run across zone A once. The
+result was ~26 px/m, with every stone ~10 blurry pixels (field-confirmed blur). Now the plinth walls
+carry 8 m segmentation loops (STONE_SEG), and each bay maps across the FULL zone-A width. The ashlar
+is painted WRAP-CONTINUOUS horizontally. Stones crossing the right edge continue on the left.
+Painted wrap padding sits outside both zone edges (bilinear/mip insurance). Each course's wrap point
+falls on an ordinary mortar joint. So bay seams are invisible. The band also grew vertically by
+claiming more of quad 1 (reserved top 0.12 -> 0.33). The galv islands (roof slabs, ridge caps) pack
+a little flatter, which is tolerable on the uniform Metal032 photo. Wall density: ~26 -> ~195 px/m
+horizontal, ~25 -> ~82 px/m vertical. Chimney: same taller window (~10 -> ~33 px/m vertical) and a
+per-face mapping fix (the old run%3 wrapped mid-face on negative coords). Its faces cannot be tiled
+without cutting the chimney, which round D leaves untouched by design.
+
+Hand-mapped parts (wood band, stone band, canopies) skip the quadrant unwrap AND the finish bevel
+(hand-set UVs do not bevel: crash-pad rule).
+
+Authoring frame: +X = slope side (deck, glass prow), -X = parking/entry side. After orient_for_net,
+the entry faces CS2 -Z, the road side, like the stations.
 
 Headless:
     blender --background --factory-startup --python base_lodge.py -- --out <dir>
         [--preview <dir>] [--finish] [--export]
 
-Design round C: previews only - run WITHOUT --export (no FBX/settings are written;
-the atlas + previews are the deliverable for the user verdict). Preview set includes
-prow_closeup and scale_reference (an 8 m lift-tower stand-in built from lift_tower
-beside the lodge).
+Design round C: previews only. Run WITHOUT --export (no FBX/settings are written). The atlas +
+previews are the deliverable for the user verdict. The preview set includes prow_closeup and
+scale_reference (an 8 m lift-tower stand-in built from lift_tower beside the lodge).
 """
 
 import bpy
@@ -97,17 +99,18 @@ TEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "textures")
 
 QUAD_CONCRETE, QUAD_GALV, QUAD_GLASS, QUAD_PAINT = 0, 1, 2, 3
 
-# B1: reserve the top of the GALV quadrant for the stone band, process-locally.
-# Every generator runs in its own headless Blender, so mutating the shared dict here
-# cannot leak into tower/terminal/chair builds - they import a fresh cs2_asset.
-# D: 0.12 -> 0.33 - the stone band claimed a taller window (see STONE_V0/MV0); galv
-# islands (roofs, ridge caps, umbrella hardware) now pack into the bottom 67% of
-# quad 1. That's ~24% extra vertical squeeze on the Metal032 photo - uniform mottle,
-# no directional pattern, so the anisotropy doesn't read.
+# B1: reserve the top of the GALV quadrant for the stone band, process-locally. Every generator runs
+# in its own headless Blender, so mutating the shared dict here cannot leak into
+# tower/terminal/chair builds. They import a fresh cs2_asset.
+#
+# D: 0.12 -> 0.33. The stone band claimed a taller window (see STONE_V0/MV0). Galv islands (roofs,
+# ridge caps, umbrella hardware) now pack into the bottom 67% of quad 1. That is ~24% extra vertical
+# squeeze on the Metal032 photo. The photo has uniform mottle and no directional pattern, so the
+# anisotropy does not read.
 cs2_asset.QUAD_RESERVED_TOP[1] = 0.33
 
 # ---------------------------------------------------------------------------------
-# The painted wood band (quad 0 reserved top; per-asset atlas copy, towers unaffected)
+# The painted wood band (quad 0 reserved top, per-asset atlas copy, towers unaffected)
 # ---------------------------------------------------------------------------------
 WOOD_U0, WOOD_U1 = 0.010, 0.490
 WOOD_V0, WOOD_V1 = 0.4425, 0.4995      # painted rows
@@ -115,15 +118,15 @@ WOOD_MV0, WOOD_MV1 = 0.4450, 0.4900    # window geometry maps into (mip insulati
 WOOD_TONE = (0.295, 0.235, 0.185)      # dark-stained rough-sawn cladding
 WOOD_SMOOTH = 0.30
 
-# World extents the band mapping normalizes against (fixed texel density, no tiling -
-# the band cannot wrap, so the longest wall must fit exactly once). C: the vertical
-# range now reaches the A-frame gable apex.
+# World extents the band mapping normalizes against (fixed texel density, no tiling). The band
+# cannot wrap, so the longest wall must fit exactly once. C: the vertical range now reaches the
+# A-frame gable apex.
 WOOD_SPAN_U = 43.0                     # longest horizontal run it must cover
 WOOD_Z0, WOOD_Z1 = 3.8, 16.9           # vertical range timber appears in
 WOOD_X0, WOOD_X1 = -14.0, 14.0         # for horizontal faces (deck floor plan coords)
 
 # ---------------------------------------------------------------------------------
-# The painted stone band (quad 1 reserved top - the masonry base + chimney)
+# The painted stone band (quad 1 reserved top: the masonry base + chimney)
 # ---------------------------------------------------------------------------------
 STONE_U0, STONE_U1 = 0.510, 0.990      # painted columns (quad 1 spans u 0.5..1.0)
 STONE_V0, STONE_V1 = 0.3395, 0.4995    # painted rows (D: grew down into quad 1)
@@ -133,21 +136,21 @@ STONE_UB0, STONE_UB1 = 0.916, 0.982    # zone B: the chimney
 STONE_PAD_UV = 0.0078                  # painted wrap padding outside each zone edge
                                        # (~32 texels at the 4096 atlas)
 STONE_TONE = (0.455, 0.435, 0.400)     # warm-gray Colorado fieldstone
-MORTAR_TONE = (0.580, 0.565, 0.545)    # light mortar - what makes coursing read
+MORTAR_TONE = (0.580, 0.565, 0.545)    # light mortar: what makes coursing read
 STONE_SMOOTH = 0.22
 
-STONE_SEG = 8.0                        # D: plinth walls cut + mapped in 8 m bays;
-                                       # each bay spans the FULL zone-A width
+STONE_SEG = 8.0                        # D: plinth walls cut + mapped in 8 m bays.
+                                       # Each bay spans the FULL zone-A width.
 STONE_Z0, STONE_Z1 = -3.0, 4.4         # skirt bottom .. base story top
 CHIM_SPAN_U = 3.6                      # widest chimney face (shoulder 3.4 m + margin)
 CHIM_Z0, CHIM_Z1 = -1.0, 17.6          # chimney z range (C: taller ridge to clear)
-# D: per-axis run origins for the chimney mapping (shoulder/stack faces stay course-
-# aligned). Mirror build_lodge's chimney placement: center (RIDGE_AT_X = -4.5, 21.55),
-# shoulder 3.4 x 2.4 - so x0 = -4.5 - 1.7, y0 = 21.55 - 1.2.
+# D: per-axis run origins for the chimney mapping (shoulder/stack faces stay course-aligned). They
+# mirror build_lodge's chimney placement: center (RIDGE_AT_X = -4.5, 21.55), shoulder 3.4 x 2.4. So
+# x0 = -4.5 - 1.7, y0 = 21.55 - 1.2.
 CHIM_X0, CHIM_Y0 = -6.2, 20.35
 
-# Umbrella canopies map into the crash-pad strip's quiet left margin (slot 2 texels,
-# clear of the warning triangle stamped at the strip's center).
+# Umbrella canopies map into the crash-pad strip's quiet left margin (slot 2 texels), clear of the
+# warning triangle stamped at the strip's center.
 UMB_U0, UMB_U1 = 0.012, 0.150
 UMB_V0, UMB_V1 = 0.948, 0.996
 
@@ -166,8 +169,8 @@ def add_box(name, size, center):
     o = bpy.context.active_object
     o.name = name
     o.scale = size
-    # Location AND scale into the verts: band mapping reads world coords (the tower
-    # M round shipped a black pier off local coords - never again).
+    # Bake location AND scale into the verts, because band mapping reads world coords. The tower M
+    # round shipped a black pier off local coords. Never again.
     bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
     return o
 
@@ -183,10 +186,10 @@ def add_cyl(name, radius, depth, center, segments=8, rotation=(0, 0, 0)):
 
 def add_gable_prism(name, axis, a0, a1, e0, e1, eave_z, ridge_z, ridge_at=None):
     """
-    Closed triangular prism, used ONLY for thin vertical GABLE-END WALL triangles
-    (timber) - never for roof volumes (a roof prism's end face is what made the
-    round-A prow read as a pyramid). `axis` is the RIDGE direction ('x' or 'y');
-    a0..a1 span the ridge axis, e0..e1 the eave axis.
+    Closed triangular prism, used ONLY for thin vertical GABLE-END WALL triangles (timber). Never
+    use it for roof volumes: a roof prism's end face is what made the round-A prow read as a
+    pyramid. `axis` is the RIDGE direction ('x' or 'y'). a0..a1 span the ridge axis, and e0..e1 span
+    the eave axis.
     """
     r = ridge_at if ridge_at is not None else (e0 + e1) / 2.0
     if axis == "y":
@@ -213,22 +216,22 @@ def add_gable_prism(name, axis, a0, a1, e0, e1, eave_z, ridge_z, ridge_at=None):
 
 def add_roof_slab(name, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick=0.24):
     """
-    One sloped roof PLANE as a thin tilted box: spans a0..a1 along the ridge axis,
-    slopes from the eave line (e_edge, e_z) up to the ridge line (r_edge, r_z). Two
-    of these meeting at a ridge make an OPEN gable - the gable end shows whatever
-    wall stands there, not a roof-textured triangle. Also reused (narrow span) for
-    the rake/barge boards dressing the open slab ends.
+    One sloped roof PLANE as a thin tilted box. It spans a0..a1 along the ridge axis and slopes from
+    the eave line (e_edge, e_z) up to the ridge line (r_edge, r_z). Two of these meeting at a ridge
+    make an OPEN gable. The gable end shows whatever wall stands there, not a roof-textured
+    triangle. The function is also reused (narrow span) for the rake/barge boards that dress the
+    open slab ends.
     """
     length = math.hypot(r_edge - e_edge, r_z - e_z)
     cz = (e_z + r_z) / 2.0
     ce = (e_edge + r_edge) / 2.0
     if axis == "y":
-        # slope runs in x-z; rotate about Y by -phi so local +X follows eave->ridge
+        # slope runs in x-z. Rotate about Y by -phi so local +X follows eave->ridge
         phi = math.atan2(r_z - e_z, r_edge - e_edge)
         rot, size, center = (0.0, -phi, 0.0), (length, a1 - a0, thick), \
             (ce, (a0 + a1) / 2.0, cz)
     else:
-        # slope runs in y-z; rotate about X by +psi so local +Y follows eave->ridge
+        # slope runs in y-z. Rotate about X by +psi so local +Y follows eave->ridge
         psi = math.atan2(r_z - e_z, r_edge - e_edge)
         rot, size, center = (psi, 0.0, 0.0), (a1 - a0, length, thick), \
             ((a0 + a1) / 2.0, ce, cz)
@@ -242,13 +245,12 @@ def add_roof_slab(name, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick=0.24):
 
 def segment_stone_walls(obj):
     """
-    D: cut the plinth/skirt box into STONE_SEG m bays with bisect planes so each
-    vertical wall face can map its own bay across the full stone zone (map_to_stone).
-    Pure topology - the silhouette is untouched, and remove_doubles at join welds the
-    coincident cut verts where basewalls meets skirt (their shared 8 m grid means the
-    welded corners carry identical UVs, keeping coursing unbroken across the joint).
-    Cut planes anchor at the wall corners (BASE_X0/BASE_Y0), matching map_to_stone's
-    bay origins.
+    D: cut the plinth/skirt box into STONE_SEG m bays with bisect planes, so each vertical wall face
+    can map its own bay across the full stone zone (map_to_stone). This is pure topology. The
+    silhouette is untouched, and remove_doubles at join welds the coincident cut verts where
+    basewalls meets skirt. Their shared 8 m grid means the welded corners carry identical UVs, which
+    keeps coursing unbroken across the joint. Cut planes anchor at the wall corners
+    (BASE_X0/BASE_Y0), matching map_to_stone's bay origins.
     """
     bm = bmesh.new()
     bm.from_mesh(obj.data)
@@ -271,11 +273,11 @@ def segment_stone_walls(obj):
 
 def map_to_wood(obj):
     """
-    Planar-map a timber part into the wood band at fixed world density. Vertical
-    faces: u = the wall's horizontal run, v = height (lap siding reads horizontal).
-    Horizontal faces (deck floor, soffits): u = y, v = x - the painted lap lines then
-    run lengthwise, which is exactly how deck planks lie. World coords keep adjacent
-    walls continuous; everything clamps inside the mapped window.
+    Planar-map a timber part into the wood band at fixed world density. Vertical faces: u = the
+    wall's horizontal run, v = height (lap siding reads horizontal). Horizontal faces (deck floor,
+    soffits): u = y, v = x. The painted lap lines then run lengthwise, which is exactly how deck
+    planks lie. World coords keep adjacent walls continuous. Everything clamps inside the mapped
+    window.
     """
     mesh = obj.data
     if not mesh.uv_layers:
@@ -303,10 +305,10 @@ def map_to_wood(obj):
 
 
 def _stone_uv(zone_u0, zone_u1, ufrac, vfrac):
-    # D: NO horizontal inset - a bay maps edge-to-edge across its zone. Safe because
-    # the paint is wrap-continuous and paint_stone_band lays STONE_PAD_UV of painted
-    # wrap padding OUTSIDE both zone edges, so bilinear/mip taps at u = 0/1 blend
-    # with the correct wrapped masonry, never with raw galv.
+    # D: NO horizontal inset. A bay maps edge-to-edge across its zone. This is safe because the
+    # paint is wrap-continuous and paint_stone_band lays STONE_PAD_UV of painted wrap padding
+    # OUTSIDE both zone edges. So bilinear/mip taps at u = 0/1 blend with the correct wrapped
+    # masonry, never with raw galv.
     ufrac = min(max(ufrac, 0.0), 1.0)
     vfrac = min(max(vfrac, 0.0), 1.0)
     return (zone_u0 + ufrac * (zone_u1 - zone_u0),
@@ -315,16 +317,15 @@ def _stone_uv(zone_u0, zone_u1, ufrac, vfrac):
 
 def map_to_stone(obj):
     """
-    Base walls / skirt -> stone band zone A. D: the walls are pre-cut into STONE_SEG
-    (8 m) bays by segment_stone_walls; each vertical face maps ITS OWN bay across the
-    full zone-A width, which is what buys the ~8x horizontal density. The bay index
-    comes from the FACE CENTER, its corners map 0..1 relative to that bay - so a
-    corner shared by two bays gets u=1 on the left face and u=0 on the right face,
-    and the wrap-continuous paint makes that seam invisible. v spans the whole
-    masonry range (skirt bottom -3.0 .. base top 4.4) so coursing runs unbroken
-    across the skirt/wall joint. Horizontal faces (the exposed cap ring, skirt
-    underside) take a right-hand sliver of the zone: coursing across a flat top is
-    wrong but those faces are grazing-angle or buried.
+    Base walls / skirt -> stone band zone A. D: the walls are pre-cut into STONE_SEG (8 m) bays by
+    segment_stone_walls. Each vertical face maps ITS OWN bay across the full zone-A width, which is
+    what buys the ~8x horizontal density. The bay index comes from the FACE CENTER, and the corners
+    map 0..1 relative to that bay. So a corner shared by two bays gets u=1 on the left face and u=0
+    on the right face, and the wrap-continuous paint makes that seam invisible. v spans the whole
+    masonry range (skirt bottom -3.0 .. base top 4.4), so coursing runs unbroken across the
+    skirt/wall joint. Horizontal faces (the exposed cap ring, skirt underside) take a right-hand
+    sliver of the zone. Coursing across a flat top is wrong, but those faces are grazing-angle or
+    buried.
     """
     mesh = obj.data
     if not mesh.uv_layers:
@@ -353,16 +354,14 @@ def map_to_stone(obj):
 
 def map_to_chimstone(obj):
     """
-    Chimney -> stone band zone B. The chimney's z range (18.6 m) dwarfs the walls'
-    (7.4 m); zone B is painted with proportionally shorter course rows so world
-    course height comes out similar. u = the face's run from the chimney footprint's
-    own corner (CHIM_X0/CHIM_Y0) over CHIM_SPAN_U - all faces on one axis share
-    texels AND stay course-aligned between shoulder and stack, which photo-real
-    masonry tolerates fine. (D fix: the old `run % 3` wrapped mid-face for these
-    negative/straddling coords, smearing a reversed gradient across the face.)
-    D leaves the chimney untiled: tiling would need extra cuts in the chimney box,
-    which the round-D geometry contract does not allow - it inherits the taller
-    band window instead (~3.3x vertical density).
+    Chimney -> stone band zone B. The chimney's z range (18.6 m) dwarfs the walls' (7.4 m). Zone B
+    is painted with proportionally shorter course rows, so world course height comes out similar. u
+    = the face's run from the chimney footprint's own corner (CHIM_X0/CHIM_Y0) over CHIM_SPAN_U. All
+    faces on one axis share texels AND stay course-aligned between shoulder and stack, which
+    photo-real masonry tolerates fine. (D fix: the old `run % 3` wrapped mid-face for these
+    negative/straddling coords, smearing a reversed gradient across the face.) D leaves the chimney
+    untiled: tiling would need extra cuts in the chimney box, which the round-D geometry contract
+    does not allow. It inherits the taller band window instead (~3.3x vertical density).
     """
     mesh = obj.data
     if not mesh.uv_layers:
@@ -410,11 +409,10 @@ def map_canopy(obj):
 
 def paint_wood_band(base, nrm, msk, ctl, A):
     """
-    Author the timber cladding into the band: dark-stained lap siding. Horizontal
-    plank courses (~0.42 m at wall density) with per-course tone variation, fine
-    grain noise, dark seam rows, and a matching normal groove per seam so the laps
-    catch light. Not recolorable. Course height derives from the band's texel
-    density - the vertical world range grows with the building.
+    Author the timber cladding into the band: dark-stained lap siding. Horizontal plank courses
+    (~0.42 m at wall density) with per-course tone variation, fine grain noise, dark seam rows, and
+    a matching normal groove per seam, so the laps catch light. Not recolorable. Course height
+    derives from the band's texel density. The vertical world range grows with the building.
     """
     import numpy as np
     rng = np.random.default_rng(41)
@@ -453,20 +451,18 @@ def paint_wood_band(base, nrm, msk, ctl, A):
 
 def paint_stone_band(base, nrm, msk, ctl, A):
     """
-    Author the masonry into the stone band: random-length ashlar in a running bond
-    over light mortar - the light joint grid is what makes 'stone coursing' read at
-    game distance. Per-stone tone jitter (slightly warm/cool), per-texel noise, and
-    a height-field normal so joints sit in grooves. Two zones (see STONE_U*): zone A
-    at 8 m bay density, zone B with shorter course rows for the chimney's taller
-    z range. Not recolorable.
+    Author the masonry into the stone band: random-length ashlar in a running bond over light
+    mortar. The light joint grid is what makes 'stone coursing' read at game distance. The function
+    adds per-stone tone jitter (slightly warm/cool), per-texel noise, and a height-field normal, so
+    joints sit in grooves. Two zones (see STONE_U*): zone A at 8 m bay density, zone B with shorter
+    course rows for the chimney's taller z range. Not recolorable.
 
-    D: each zone is painted WRAP-CONTINUOUS horizontally. Stones tile the zone width
-    circularly (a stone crossing the right edge continues on the left), every course
-    ends on a real mortar joint at its own random wrap position, and the joint-groove
-    normals are computed with wrapped finite differences - so u=0 and u=1 are the
-    same masonry column and bay seams cannot show. STONE_PAD_UV of wrapped padding is
-    painted OUTSIDE both zone edges so edge-texel filtering blends with wrapped
-    masonry, not raw galv (the pier-band mip lesson, applied sideways).
+    D: each zone is painted WRAP-CONTINUOUS horizontally. Stones tile the zone width circularly (a
+    stone crossing the right edge continues on the left). Every course ends on a real mortar joint
+    at its own random wrap position. The joint-groove normals are computed with wrapped finite
+    differences. So u=0 and u=1 are the same masonry column, and bay seams cannot show. STONE_PAD_UV
+    of wrapped padding is painted OUTSIDE both zone edges, so edge-texel filtering blends with
+    wrapped masonry, not raw galv (the pier-band mip lesson, applied sideways).
     """
     import numpy as np
     rng = np.random.default_rng(53)
@@ -497,9 +493,9 @@ def paint_stone_band(base, nrm, msk, ctl, A):
         while y < h:
             ch = max(3, int(rng.normal(course_px, course_px * 0.12)))
             y1 = min(y + ch, h)
-            # Circular course: start at a random phase (running-bond offset), lay
-            # stones until one course-circumference is covered, clip the last stone
-            # one joint short of the start so the wrap lands on ordinary mortar.
+            # Circular course: start at a random phase (running-bond offset). Lay stones until one
+            # course-circumference is covered. Clip the last stone one joint short of the start, so
+            # the wrap lands on ordinary mortar.
             start = rng.uniform(0.0, stone_px)
             limit = start + w - joint_px
             x = start
@@ -519,9 +515,8 @@ def paint_stone_band(base, nrm, msk, ctl, A):
 
         px += rng.normal(0.0, 0.012, (h, w, 1)).astype(np.float32)
 
-        # Normal grooves at the joints (paint_panel_detail's finite-difference
-        # recipe); horizontal gradient wraps so the groove shading is continuous
-        # across the zone edge too.
+        # Normal grooves at the joints (paint_panel_detail's finite-difference recipe). The
+        # horizontal gradient wraps, so the groove shading is continuous across the zone edge too.
         dhdx = (np.roll(height, -1, axis=1) - np.roll(height, 1, axis=1)) * 0.5
         dhdy = np.zeros_like(height)
         dhdy[1:-1, :] = (height[2:, :] - height[:-2, :]) * 0.5
@@ -547,28 +542,28 @@ def paint_stone_band(base, nrm, msk, ctl, A):
 
 
 # ---------------------------------------------------------------------------------
-# The building (round C massing - the true A-frame)
+# The building (round C massing: the true A-frame)
 # ---------------------------------------------------------------------------------
 
-# Massing constants (meters, authoring frame). The A-frame discipline: pick the eave
-# height and the pitch, DERIVE everything else. Wall plates fall out of the roof
-# planes, ridge heights fall out of the pitch - nothing is free to disagree.
+# Massing constants (meters, authoring frame). The A-frame discipline: pick the eave height and the
+# pitch, DERIVE everything else. Wall plates fall out of the roof planes, and ridge heights fall out
+# of the pitch. Nothing is free to disagree.
 S1_Z = 4.4                          # top of the stone story
-EAVE_Z = 5.30                       # eave tips - down at deck level (C1)
+EAVE_Z = 5.30                       # eave tips, down at deck level (C1)
 BASE_X0, BASE_X1 = -13.0, 14.0      # footprint depth  27 m (narrowed with the mass)
 BASE_Y0, BASE_Y1 = -21.0, 21.0      # footprint length 42 m
 S2_X0, S2_X1 = -12.0, 3.0           # A-frame mass depth (deck takes +X of this)
 RIDGE_AT_X = -4.5                   # main ridge x (centered between the eave tips)
 OVER = 1.1                          # horizontal eave overhang
-RIDGE_Z = 16.7                      # main ridge; with these eaves = 53.0 degrees
+RIDGE_Z = 16.7                      # main ridge, 53.0 degrees with these eaves
 MAIN_PITCH = (RIDGE_Z - EAVE_Z) / (RIDGE_AT_X - (S2_X0 - OVER))     # 1.326
-S2_Z = EAVE_Z + MAIN_PITCH * OVER   # wing wall plate 6.76 - DERIVED from the roof
+S2_Z = EAVE_Z + MAIN_PITCH * OVER   # wing wall plate 6.76, DERIVED from the roof
 PROW_X1 = 10.0                      # gable prow pushes over the deck
 PROW_Y0, PROW_Y1 = -5.0, 9.0
 PROW_RIDGE_Y = 2.0
-PROW_RIDGE = 15.9                   # 52.9 degrees - matches the main pitch
+PROW_RIDGE = 15.9                   # 52.9 degrees, matches the main pitch
 PROW_PITCH = (PROW_RIDGE - EAVE_Z) / (PROW_RIDGE_Y - (PROW_Y0 - 1.0))
-S2P_Z = EAVE_Z + PROW_PITCH * 1.0   # prow wall plate 6.63 - derived likewise
+S2P_Z = EAVE_Z + PROW_PITCH * 1.0   # prow wall plate 6.63, derived likewise
 DECK_X1 = 13.6
 DECK_Y = 20.5                       # full-width sundeck
 DECK_TOP = S1_Z + 0.26              # decking rides above the capbase ring (top 4.57)
@@ -582,15 +577,15 @@ BEVEL_EXCLUDE = ()
 
 
 def build_lodge(finish=False):
-    # (obj, quad): int = atlas quadrant; None = wood band; "stone"/"chim" = stone
-    # band zones; "canopy" = pad-strip margin. Strings/None skip quadrant unwrap.
+    # (obj, quad): int = atlas quadrant, None = wood band, "stone"/"chim" = stone band zones,
+    # "canopy" = pad-strip margin. Strings and None skip the quadrant unwrap.
     parts = []
 
     def band_x(tag, wx, sgn, y0, y1, sill, head, lights):
         """
-        Framed window band on a +/-X-facing wall (grouped lights sharing head and
-        sill boards, jamb casings, and mullions - never a bare punched hole). Frames
-        are slot-1 trim; glass rides proud of the wall so nothing is cut into it.
+        Framed window band on a +/-X-facing wall (grouped lights sharing head and sill boards, jamb
+        casings, and mullions, never a bare punched hole). Frames are slot-1 trim, and the glass
+        rides proud of the wall, so nothing is cut into it.
         """
         run, yc, zc = y1 - y0, (y0 + y1) / 2.0, (sill + head) / 2.0
         parts.append((add_box(f"glass{tag}", (0.14, run, head - sill),
@@ -625,8 +620,8 @@ def build_lodge(finish=False):
                                   (x0 + run * i / lights, ty, zc)), QUAD_PAINT))
 
     # ---- solid masonry base + below-grade skirt (stone, zero glazing) ------------
-    # D: both boxes get 8 m segmentation loops so map_to_stone can tile each bay
-    # across the full stone zone (the round-D density fix - a pure mesh cut).
+    # D: both boxes get 8 m segmentation loops, so map_to_stone can tile each bay across the full
+    # stone zone (the round-D density fix, a pure mesh cut).
     parts.append((segment_stone_walls(
         add_box("basewalls", (BASE_X1 - BASE_X0, BASE_Y1 - BASE_Y0, S1_Z),
                 ((BASE_X0 + BASE_X1) / 2, 0, S1_Z / 2))), "stone"))
@@ -642,7 +637,7 @@ def build_lodge(finish=False):
     parts.append((add_box("cladmain",
                           (S2_X1 - S2_X0, BASE_Y1 - BASE_Y0, S2_Z - S1_Z),
                           ((S2_X0 + S2_X1) / 2, 0, (S1_Z + S2_Z) / 2)), None))
-    # main gable end walls: TIMBER triangles - the A-frame face at each end
+    # main gable end walls: TIMBER triangles, the A-frame face at each end
     for gy in (-20.85, 20.85):
         t = add_gable_prism(f"cladgable_{gy:.0f}", "y", gy - 0.15, gy + 0.15,
                             S2_X0, S2_X1, S2_Z, RIDGE_Z + 0.05, ridge_at=RIDGE_AT_X)
@@ -653,18 +648,18 @@ def build_lodge(finish=False):
                           (PROW_X1 - 0.15 - S2_X0, PROW_Y1 - PROW_Y0, S2P_Z - S1_Z),
                           ((S2_X0 + PROW_X1 - 0.15) / 2, (PROW_Y0 + PROW_Y1) / 2,
                            (S1_Z + S2P_Z) / 2)), None))
-    # Wall triangle matches the WALL width (the rake overhang belongs to the roof);
-    # raking edges run parallel to and slightly inside the slab undersides.
+    # Wall triangle matches the WALL width (the rake overhang belongs to the roof). Raking edges run
+    # parallel to and slightly inside the slab undersides.
     t = add_gable_prism("cladprowgable", "x", PROW_X1 - 0.3, PROW_X1,
                         PROW_Y0, PROW_Y1, S2P_Z, PROW_RIDGE - 0.02,
                         ridge_at=PROW_RIDGE_Y)
     parts.append((t, None))
 
     # ---- roofs: open A-frame SLABS with ridge caps + rake boards -----------------
-    # Slabs run 0.35 PAST the ridge line so the pair overlaps under the cap; the
-    # ridge-end z is extended along the same pitch so the center planes still cross
-    # exactly at the ridge - extending the edge without the z flattens the pitch
-    # and opens a gap under the cap (learned in round B).
+    # Slabs run 0.35 PAST the ridge line, so the pair overlaps under the cap. The ridge-end z is
+    # extended along the same pitch, so the center planes still cross exactly at the ridge.
+    # Extending the edge without the z flattens the pitch and opens a gap under the cap (learned in
+    # round B).
     parts.append((add_roof_slab("roofmainW", "y", -22.0, 22.0,
                                 S2_X0 - OVER, EAVE_Z, RIDGE_AT_X + 0.35,
                                 RIDGE_Z + 0.35 * MAIN_PITCH), QUAD_GALV))
@@ -674,9 +669,9 @@ def build_lodge(finish=False):
     # ridge cap stops short of the chimney (the cap would spear straight through it)
     parts.append((add_box("ridgemain", (0.45, 42.7, 0.14),
                           (RIDGE_AT_X, -0.75, RIDGE_Z + 0.08)), QUAD_GALV))
-    # prow slabs: back ends past the ridge/plane convergence (prow ridge 15.9 meets
-    # the main east plane at x -3.9), so every buried texel is inside the attic or
-    # the story box - nothing pokes through the big roof
+    # prow slabs: back ends past the ridge/plane convergence (prow ridge 15.9 meets the main east
+    # plane at x -3.9), so every buried texel is inside the attic or the story box. Nothing pokes
+    # through the big roof.
     parts.append((add_roof_slab("roofprowS", "x", -4.1, PROW_X1 + 1.1,
                                 PROW_Y0 - 1.0, EAVE_Z, PROW_RIDGE_Y + 0.35,
                                 PROW_RIDGE + 0.35 * PROW_PITCH), QUAD_GALV))
@@ -745,15 +740,15 @@ def build_lodge(finish=False):
             parts.append((add_box(f"rail{tag}{name}", size, (mid[0], mid[1], rz)),
                           QUAD_PAINT))
     rail_run("F", (DECK_X1, -DECK_Y), (DECK_X1, DECK_Y), 20)              # slope edge
-    # side rails start clear of the swept-down eave tip (x 4.1) - a post through
-    # the roof plane would be the A-frame's version of the punched-window sin
+    # side rails start clear of the swept-down eave tip (x 4.1). A post through the roof plane would
+    # be the A-frame's version of the punched-window sin.
     rail_run("S", (4.6, -DECK_Y), (DECK_X1, -DECK_Y), 4)
     rail_run("N", (4.6, DECK_Y), (DECK_X1, DECK_Y), 4)
 
-    # deck umbrellas (slot-2 canopies - the pop of color). C3: NO modeled tables -
-    # deck furniture comes from reused vanilla props at prefab level; the umbrellas
-    # stand on small weighted bases, grouped into the two wings clear of the prow
-    # roof plan (canopy r 1.55 vs prow eave fascia at y -7.06 / +11.06).
+    # deck umbrellas (slot-2 canopies, the pop of color). C3: NO modeled tables. Deck furniture
+    # comes from reused vanilla props at prefab level. The umbrellas stand on small weighted bases,
+    # grouped into the two wings clear of the prow roof plan (canopy r 1.55 vs prow eave fascia at y
+    # -7.06 / +11.06).
     for k, (ux, uy) in enumerate(((8.6, -17.0), (11.9, -12.7), (8.8, -9.9),
                                   (9.0, 13.2), (11.9, 17.2))):
         parts.append((add_cyl(f"umbstand{k}", 0.24, 0.08, (ux, uy, DECK_TOP + 0.04),
@@ -770,9 +765,9 @@ def build_lodge(finish=False):
         parts.append((can, "canopy"))
 
     # ---- the prow's mullioned glass wall filling the A-frame gable ---------------
-    # Storefront grid under a header beam, stepped clerestory panels tracking the
-    # 53-degree gable above - bays continue through both levels so the wall reads
-    # as ONE composition reaching for the ridge (the A-Basin signature).
+    # Storefront grid under a header beam, with stepped clerestory panels that track the 53-degree
+    # gable above. Bays continue through both levels, so the wall reads as ONE composition reaching
+    # for the ridge (the A-Basin signature).
     gx = PROW_X1 + 0.05
     bay = [-4.3, -1.78, 0.74, 3.26, 5.78, 8.3]
     parts.append((add_box("glassprowmain", (0.14, bay[-1] - bay[0], 2.20),
@@ -790,8 +785,8 @@ def build_lodge(finish=False):
         mid = (bay[i] + bay[i + 1]) / 2
         parts.append((add_box(f"mullprowlt_{i}", (0.16, 0.09, 2.20),
                               (PROW_X1 + 0.08, mid, 5.95)), QUAD_PAINT))
-    # clerestory: center bay reaches toward the ridge, flanks step down with the
-    # gable; outermost bays stay timber (the roof is already at head height there)
+    # clerestory: center bay reaches toward the ridge, flanks step down with the gable. The
+    # outermost bays stay timber (the roof is already at head height there).
     clere = ((bay[1], bay[2], 10.4), (bay[2], bay[3], 13.7), (bay[3], bay[4], 10.4))
     for i, (cy0, cy1, top) in enumerate(clere):
         parts.append((add_box(f"glassprowcl_{i}", (0.14, cy1 - cy0, top - 7.65),
@@ -813,9 +808,9 @@ def build_lodge(finish=False):
     band_y("ProwS", PROW_Y0, -1, 5.4, 9.6, SILL_Z, HEAD_Z, 3)      # prow flanks
     band_y("ProwN", PROW_Y1, +1, 5.4, 9.6, SILL_Z, HEAD_Z, 3)
 
-    # ---- entry porch, parking side (C2: a small gable TUCKED UNDER the swept
-    # eave - ridge 5.35 stays below the main slab underside everywhere, so the
-    # porch nests into the A-frame instead of punching through it) ----------------
+    # ---- entry porch, parking side (C2: a small gable TUCKED UNDER the swept eave) ----------
+    # Ridge 5.35 stays below the main slab underside everywhere, so the porch nests into the A-frame
+    # instead of punching through it.
     parts.append((add_box("steps", (1.3, 6.4, 0.18), (-17.75, 0, 0.09)), QUAD_CONCRETE))
     parts.append((add_box("steps2", (0.9, 6.0, 0.18), (-17.35, 0, 0.27)), QUAD_CONCRETE))
     parts.append((add_box("porchslab", (4.0, 5.6, 0.20), (-15.4, 0, 0.42)),
@@ -823,13 +818,12 @@ def build_lodge(finish=False):
     for py in (-1.9, 1.9):
         parts.append((add_box(f"porchpost_{py:.0f}", (0.22, 0.22, 2.70),
                               (-16.5, py, 0.52 + 1.35)), None))
-    # beam length/height sized so its ends stay UNDER the porch roof planes (the
-    # first cut poked through both slabs near the eaves and read as boxes on the
-    # roof); slab underside at the beam ends (y +/-2.0) is 3.30
+    # beam length/height sized so its ends stay UNDER the porch roof planes (the first cut poked
+    # through both slabs near the eaves and read as boxes on the roof). The slab underside at the
+    # beam ends (y +/-2.0) is 3.30.
     parts.append((add_box("porchbeam", (0.24, 4.0, 0.26), (-16.5, 0, 3.16)), None))
-    # ridge 5.25 with a minimal 0.05 overlap extension: the slab tips (top 5.40)
-    # stay inside the ridge cap AND under the main slab, so the little gable truly
-    # nests beneath the swept eave
+    # ridge 5.25 with a minimal 0.05 overlap extension. The slab tips (top 5.40) stay inside the
+    # ridge cap AND under the main slab, so the little gable truly nests beneath the swept eave.
     parts.append((add_roof_slab("roofporchS", "x", -17.4, -12.95, -2.6, 2.85,
                                 0.05, 5.295, thick=0.20), QUAD_GALV))
     parts.append((add_roof_slab("roofporchN", "x", -17.4, -12.95, 2.6, 2.85,
@@ -842,8 +836,8 @@ def build_lodge(finish=False):
         parts.append((add_roof_slab(f"rakeporch_{sgn}", "x", -17.52, -17.40,
                                     sgn * 2.6, 2.78, 0.0, 5.18, thick=0.30),
                       QUAD_PAINT))
-    # timber-framed entry surround IN the masonry story - door and sidelights are
-    # framed openings in wood, never holes in raw concrete
+    # timber-framed entry surround IN the masonry story. The door and sidelights are framed openings
+    # in wood, never holes in raw concrete.
     parts.append((add_box("entrysurround", (0.26, 5.0, 3.30), (-13.05, 0, 1.65)), None))
     parts.append((add_box("doorentry", (0.14, 2.6, 2.50), (-13.22, 0, 1.30)),
                   QUAD_PAINT))
@@ -947,8 +941,8 @@ def render_previews(obj, out_dir, stem):
     fill.data.energy = 1.8
     fill.rotation_euler = (math.radians(65), 0, math.radians(215))
 
-    # Post-orient: authoring +X (slope/deck/prow) -> -Y; -X (parking/entry) -> +Y;
-    # authoring +Y (north gable, chimney) -> +X.
+    # Post-orient: authoring +X (slope/deck/prow) -> -Y. Authoring -X (parking/entry) -> +Y.
+    # Authoring +Y (north gable, chimney) -> +X.
     views = [
         ("three_quarter_slope",   mathutils.Vector((1.05, -1.0, 0.42)), (1400, 1000), None),
         ("three_quarter_parking", mathutils.Vector((-1.05, 1.0, 0.42)), (1400, 1000), None),
@@ -959,10 +953,9 @@ def render_previews(obj, out_dir, stem):
          (mathutils.Vector((-10.0, -9.5, 5.4)), 17.0, 42)),
         ("entry_closeup",         mathutils.Vector((-0.8, 1.0, 0.25)), (1300, 1000),
          (mathutils.Vector((0.0, 14.5, 2.2)), 13.0, 42)),
-        # D: the stone-density verdict view - parking-side plinth south of the entry,
-        # ~16 m out at game-camera closeness; spans two 8 m bays so the wrap seam
-        # (or its absence) is ON CAMERA. Post-orient: authoring (x -13, y -10) ->
-        # (-10, 13).
+        # D: the stone-density verdict view. It shows the parking-side plinth south of the entry,
+        # ~16 m out at game-camera closeness. It spans two 8 m bays, so the wrap seam (or its
+        # absence) is ON CAMERA. Post-orient: authoring (x -13, y -10) -> (-10, 13).
         ("stone_closeup",         mathutils.Vector((-0.35, 1.0, 0.22)), (1400, 1000),
          (mathutils.Vector((-10.0, 13.0, 1.9)), 16.0, 45)),
     ]
@@ -979,9 +972,9 @@ def render_previews(obj, out_dir, stem):
             cam.data.lens = 50
             lift_tower.frame_camera(cam, obj, direction, res)
         if vname == "entry_closeup":
-            # The porch sits in the building's own key-light shadow with no sky
-            # bounce in the studio world; a temporary camera-side fill stands in
-            # for in-game GI (same convention as the tower pier_view).
+            # The porch sits in the building's own key-light shadow with no sky bounce in the studio
+            # world. A temporary camera-side fill stands in for in-game GI (same convention as the
+            # tower pier_view).
             bpy.ops.object.light_add(type="SUN", location=(0, 14, 4))
             bounce = bpy.context.active_object
             bounce.data.energy = 2.2
@@ -994,9 +987,8 @@ def render_previews(obj, out_dir, stem):
             bpy.data.objects.remove(bounce, do_unlink=True)
 
     # ---- scale reference: an 8 m fixed-grip line tower stand-in beside the lodge -
-    # Preview-only theater: built, framed, rendered, deleted. The tower's quadrant
-    # UVs read the lodge's atlas copy correctly (same shared layout), so it borrows
-    # the lodge's preview material.
+    # Preview-only theater: built, framed, rendered, deleted. The tower's quadrant UVs read the
+    # lodge's atlas copy correctly (same shared layout), so it borrows the lodge's preview material.
     tower = lift_tower.build_tower(lift_tower.TowerParams())      # mast 8.0
     tower.location = (27.5, -7.0, 0.0)
     if obj.data.materials:
@@ -1069,10 +1061,10 @@ def main():
     cs2_asset.make_texture_set_atlas(asset_dir, name, quad_sets, quad_size=2048,
                                      control_quads=control_quads, post=_post)
     if args.finish:
-        # D: the wood and stone bands ride the same density-protected path as the
-        # pad strip - islands pinned, texels restored 1:1 after the rebake. Without
-        # these rects the repack would resample the hand-painted bands (smear) and
-        # packed islands could land under them and get stomped by the restore.
+        # D: the wood and stone bands ride the same density-protected path as the pad strip: islands
+        # are pinned, and texels are restored 1:1 after the rebake. Without these rects, the repack
+        # would resample the hand-painted bands (smear), and packed islands could land under them
+        # and get stomped by the restore.
         lift_tower.apply_finish_textures(
             lodge, asset_dir, name, atlas_size=4096,
             reserved_strips=[

@@ -1,5 +1,5 @@
 """
-cs2_kit - parts kit for the CS2 lift assets (art pipeline v2 section 3.2, round L spec).
+cs2_kit: parts kit for the CS2 lift assets (art pipeline v2 section 3.2, round L spec).
 
 CONTRACT
     Primitives return ONE object (name used verbatim):
@@ -7,43 +7,42 @@ CONTRACT
         add_box(name, size, loc, rot=(0,0,0), open_bottom=False)
         add_wedge(name, x0, x1, width, z0, z1, open_bottom=False)
         tube_along(name, pts, radius, segments=8, caps="none", bend_rings=8)
-    Assemblies return a parts list [(obj, quad), ...] - the same shape every generator
+    Assemblies return a parts list [(obj, quad), ...], the same shape that every generator
     already feeds to cs2_asset.tag_parts / unwrap_into_quadrant / join:
         flange, gusset, stiffener_ring, handrail, grating, cable_clamp, sheave, door,
         hatch, drip_edge, axle_cap
     Every object created here carries obj["relief"] in
         {"geo", "map:seams", "map:bolts", "map:corrugation", "map:grate", "map:louvre", "map:helix"}
-    ("geo" = the relief IS the geometry; "map:<kind>" = cs2_compose.detail_height paints it).
-    Assembly objects are named with a family PREFIX so make_lod_chain delete lists can match
+    ("geo" = the relief IS the geometry, "map:<kind>" = cs2_compose.detail_height paints it).
+    Assembly objects are named with a family PREFIX, so make_lod_chain delete lists can match
     them: flange_, gusset_, stiff_, post_, rail_, kick_, grate_, clamp_, sheave_, door_,
-    hatch_, drip_, axlecap_ - plus bolt_ for every real stud (flange bolts, clamp studs,
-    axle-cap studs) so LOD1 can drop all bolt geometry with one prefix. tube_along names its
-    object verbatim (callers pass "tube_..." or "rail_..." as they need).
-    Quads are cs2_asset.QUADS indices: 0 concrete, 1 galvanized, 2 glass, 3 painted steel;
-    every assembly has a trailing `quad=` (or quad_rim/quad_hub) keyword with the default
-    today's generators use for that part family.
+    hatch_, drip_, axlecap_. Every real stud (flange bolts, clamp studs, axle-cap studs) also
+    gets the prefix bolt_, so LOD1 can drop all bolt geometry with one prefix. tube_along names
+    its object verbatim (callers pass "tube_..." or "rail_..." as they need).
+    Quads are cs2_asset.QUADS indices: 0 concrete, 1 galvanized, 2 glass, 3 painted steel.
+    Every assembly has a trailing `quad=` (or quad_rim/quad_hub) keyword with the default
+    that today's generators use for that part family.
 
-ENGINE-BASE RULE (the reason open_bottom exists; spec "Engine facts", BatchMeshHelpers
-AddBaseLines): a Building mesh gets its foundation skirt built by the ENGINE from every
-edge whose two vertices lie in the band y = 0 +- 0.01 with a face rising above it, and an
-edge is DROPPED when any face touching it lies entirely at/below the band. So a ground
-part must have NO bottom face and NO geometry below z = 0 (Blender Z = CS2 Y): build it
-with open_bottom=True and loc.z = size_z / 2 so the side-face bottom edges land exactly
-on z = 0. tests/test_kit.py asserts exactly that.
+ENGINE-BASE RULE (the reason open_bottom exists, spec "Engine facts", BatchMeshHelpers
+AddBaseLines): the ENGINE builds the foundation skirt of a Building mesh from every edge whose two
+vertices lie in the band y = 0 +- 0.01 with a face rising above it. The engine DROPS an edge when
+any face touching it lies entirely at/below the band. So a ground part must have NO bottom face and
+NO geometry below z = 0 (Blender Z = CS2 Y). Build it with open_bottom=True and loc.z = size_z / 2,
+so the side-face bottom edges land exactly on z = 0. tests/test_kit.py asserts exactly that.
 
 GEOMETRY CONVENTIONS
-    - Meshes are built with bmesh in LOCAL space; `loc` / `rot` go on the object (as
-      today's primitive_*_add parts), so join() bakes them. Vertex positions are float32:
-      loc.z = size_z / 2 and the local -size_z / 2 cancel exactly.
+    - Meshes are built with bmesh in LOCAL space. `loc` / `rot` go on the object (as today's
+      primitive_*_add parts), so join() bakes them. Vertex positions are float32: loc.z =
+      size_z / 2 and the local -size_z / 2 cancel exactly.
     - Axes: `axis` is one of "X" "Y" "Z" (optionally signed "-Y" where the sign is the
       OUTWARD direction, e.g. axle_cap) or an explicit (rx, ry, rz) euler in radians.
     - `facing` (door, hatch) is "+X" "-X" "+Y" "-Y" or an (dx, dy) vector: the OUTWARD wall
-      normal; the part is built for +X and yawed.
-    - Every part gets a "UVMap" layer: cylinders/cubes use bmesh calc_uvs, custom shells a
-      per-face dominant-axis box projection in meters, tube_along its strip
+      normal. The part is built for +X and yawed.
+    - Every part gets a "UVMap" layer. Cylinders/cubes use bmesh calc_uvs. Custom shells use
+      a per-face dominant-axis box projection in meters. tube_along uses its strip
       (u = k / segments with the seam on ring vertex 0, v = arc length / (2 pi r)).
       Generators normally overwrite these with cs2_asset.unwrap_into_quadrant.
-    - No top-level side effects; nothing here shades, tags, joins or exports.
+    - No top-level side effects. Nothing here shades, tags, joins or exports.
 """
 
 import math
@@ -215,9 +214,9 @@ def _ring_bm(outer, inner, d0, d1, map_fn, faces=("outer", "inner", "top", "bott
 
 def _orient_outward(bm, probe_dir_fn):
     """
-    Flip all faces if the face nearest the probe points inward. `probe_dir_fn(face)`
-    returns the expected outward direction for a face; the face with the largest
-    |co| is used as the sample.
+    Flip all faces if the face nearest the probe points inward. `probe_dir_fn(face)` returns the
+    expected outward direction for a face. The function uses the face with the largest |co| as the
+    sample.
     """
     bm.normal_update()
     f = max(bm.faces, key=lambda f: f.calc_center_median().length)
@@ -228,8 +227,8 @@ def _orient_outward(bm, probe_dir_fn):
 
 def _object_matrix(obj):
     """
-    loc/rot/scale matrix built from the object's own transform: matrix_world is stale
-    on an object created in this script until the depsgraph updates (no parenting used).
+    loc/rot/scale matrix built from the object's own transform. matrix_world is stale on an object
+    created in this script until the depsgraph updates (no parenting used).
     """
     return Matrix.LocRotScale(obj.location, obj.rotation_euler, obj.scale)
 
@@ -323,18 +322,20 @@ def _catmull_fillet(A, B, tin, tout, n):
 def tube_along(name, pts, radius, segments=8, caps="none", bend_rings=8, fillet=None,
                bend_min_deg=1.0):
     """
-    Tube swept along the polyline `pts` (>= 2 points). Rings sit ONLY at the path ends and
-    across each bend: every interior point whose direction change exceeds `bend_min_deg`
-    is replaced by a Catmull-Rom/Hermite fillet that leaves the incoming straight `f`
-    before the corner and rejoins the outgoing one `f` after it, carrying `bend_rings`
-    rings (both fillet ends included); straight runs get no intermediate rings.
-    `f` = min(fillet, 0.5 * shorter adjacent span) with fillet=None meaning the fillets of
-    neighboring bends meet (a continuous sweep, e.g. the chair J-stem). Ring frames are
-    parallel-transported (no twist, no up-vector singularity).
-    Ring count on a path with b bends and no touching fillets = 2 + b * bend_rings.
-    UV strip: u = k / segments (seam on ring vertex 0), v = arc length / (2 pi radius).
-    caps in {"none", "both", "start", "end"} - fan caps; "none" where the ends are buried.
-    Named verbatim (pass "tube_..." / "rail_..." yourself). Returns the object.
+    Tube swept along the polyline `pts` (>= 2 points). Rings sit ONLY at the path ends and across
+    each bend. The function replaces every interior point whose direction change exceeds
+    `bend_min_deg` with a Catmull-Rom/Hermite fillet. The fillet leaves the incoming straight `f`
+    before the corner and rejoins the outgoing one `f` after it. It carries `bend_rings` rings (both
+    fillet ends included). Straight runs get no intermediate rings.
+
+    `f` = min(fillet, 0.5 * shorter adjacent span). With fillet=None, the fillets of neighboring
+    bends meet (a continuous sweep, e.g. the chair J-stem). Ring frames are parallel-transported (no
+    twist, no up-vector singularity). Ring count on a path with b bends and no touching fillets = 2
+    + b * bend_rings.
+
+    UV strip: u = k / segments (seam on ring vertex 0), v = arc length / (2 pi radius). caps in
+    {"none", "both", "start", "end"}: fan caps, "none" where the ends are buried. Named verbatim
+    (pass "tube_..." / "rail_..." yourself). Returns the object.
     """
     if caps not in ("none", "both", "start", "end"):
         raise ValueError(f"caps must be none/both/start/end, got {caps!r}")
@@ -513,11 +514,14 @@ def stiffener_ring(name, r, w=0.06, t=0.02, loc=(0, 0, 0), axis="Z", segs=16,
 def handrail(name, path_pts, h=1.10, knee=0.55, kick=0.10, post_every=1.5, segs=6,
              radius=0.028, quad=QUAD_GALV, post_radius=None):
     """
-    Guard rail along a 3D polyline (deck-level points): uncapped `segs`-gon posts every
-    `post_every` m (both ends of every span always get one), a top rail at +h and a knee
-    rail at +knee (tube_along, tight fillets at the bends, overhanging the end posts by
-    1.5 radius so the open post tops stay covered), and a kick plate 0.02 thick x `kick`
-    tall along each span. Names: post_<name>_<i>, rail_<name>_top / _knee, kick_<name>_<i>.
+    Guard rail along a 3D polyline (deck-level points). It has:
+    - uncapped `segs`-gon posts every `post_every` m (both ends of every span always get one)
+    - a top rail at +h and a knee rail at +knee
+    - a kick plate 0.02 thick x `kick` tall along each span
+
+    The rails use tube_along with tight fillets at the bends. They overhang the end posts by 1.5
+    radius, so the open post tops stay covered. Names: post_<name>_<i>, rail_<name>_top / _knee,
+    kick_<name>_<i>.
     """
     P = [Vector(p) for p in path_pts]
     if len(P) < 2:
@@ -543,12 +547,11 @@ def handrail(name, path_pts, h=1.10, knee=0.55, kick=0.10, post_every=1.5, segs=
         rp = [P[0] - d0 * ext] + P[1:-1] + [P[-1] + d1 * ext] if len(P) > 2 else \
              [P[0] - d0 * ext, P[-1] + d1 * ext]
         rp = [(q.x, q.y, q.z + dz) for q in rp]
-        # Fillet = 3 radii, not 1: with a fillet as tight as the tube itself the rings on
-        # the INSIDE of a 90 deg bend cross each other (ring spacing 14 mm vs 2r*sin 15 deg
-        # = 14.5 mm) and leave a folded sliver facet with zero UV area - the top station's
-        # bay rail tripped the validator on exactly that (DECISIONS 108). At 3r the inside
-        # spacing stays positive on any bend, and an 8 cm bent-tube corner is what real
-        # guard rails look like anyway.
+        # Fillet = 3 radii, not 1. With a fillet as tight as the tube itself, the rings on the
+        # INSIDE of a 90 deg bend cross each other (ring spacing 14 mm vs 2r*sin 15 deg = 14.5 mm).
+        # They leave a folded sliver facet with zero UV area. The top station's bay rail tripped the
+        # validator on exactly that (DECISIONS 108). At 3r the inside spacing stays positive on any
+        # bend. An 8 cm bent-tube corner is what real guard rails look like anyway.
         rail = tube_along(f"rail_{name}_{tag}", rp, radius, segs, "both", 4, fillet=3.0 * radius)
         parts.append((rail, quad))
     # kick plates per span
@@ -564,10 +567,10 @@ def handrail(name, path_pts, h=1.10, knee=0.55, kick=0.10, post_every=1.5, segs=
 
 def grating(name, w, l, t=0.03, loc=(0, 0, 0), quad=QUAD_GALV, lip=0.03):
     """
-    OPAQUE catwalk grating w (X) by l (Y) by t, centered on `loc`: a top + bottom plate
-    (relief "map:grate" - the holes are painted/normal-mapped; a see-through cutout would
-    flip the whole surface to DefaultCutout) framed by a `lip`-wide rectangular rim ring.
-    28 tris. Names: grate_<name>, grate_<name>_lip.
+    OPAQUE catwalk grating w (X) by l (Y) by t, centered on `loc`: a top + bottom plate framed by a
+    `lip`-wide rectangular rim ring. The plates use relief "map:grate": the holes are
+    painted/normal-mapped. A see-through cutout would flip the whole surface to DefaultCutout. 28
+    tris. Names: grate_<name>, grate_<name>_lip.
     """
     wi, li = w - 2 * lip, l - 2 * lip
     bm = bmesh.new()
@@ -610,11 +613,11 @@ def cable_clamp(name, r_cable, loc=(0, 0, 0), rot=(0, 0, 0), quad=QUAD_GALV):
 def sheave(name, r, w, loc, axis, segs=12, quad_rim=QUAD_GALV, quad_hub=QUAD_GALV,
            hub=True, r_hub=None, groove=None):
     """
-    Line sheave (or bullwheel rim) of radius r and width w at `loc`, axle along `axis`:
-    bmesh.ops.spin of a 7-point groove profile (hub radius -> flange -> V groove -> flange
-    -> hub radius) = 12 * segs tris, plus a proud `segs`-gon hub cylinder (hub=True).
-    r_hub defaults to 0.45 r, groove depth to max(0.02, 0.18 r). Names: sheave_<name>_rim,
-    sheave_<name>_hub. Set hub=False for the bullwheel rim (its spokes/hub already exist).
+    Line sheave (or bullwheel rim) of radius r and width w at `loc`, axle along `axis`. It is
+    bmesh.ops.spin of a 7-point groove profile (hub radius -> flange -> V groove -> flange -> hub
+    radius) = 12 * segs tris. With hub=True it adds a proud `segs`-gon hub cylinder. r_hub defaults
+    to 0.45 r, groove depth to max(0.02, 0.18 r). Names: sheave_<name>_rim, sheave_<name>_hub. Set
+    hub=False for the bullwheel rim (its spokes/hub already exist).
     """
     rh = 0.45 * r if r_hub is None else r_hub
     gd = max(0.02, 0.18 * r) if groove is None else groove
@@ -627,11 +630,11 @@ def sheave(name, r, w, loc, axis, segs=12, quad_rim=QUAD_GALV, quad_hub=QUAD_GAL
     bmesh.ops.spin(bm, geom=V + E, cent=(0, 0, 0), axis=(0, 0, 1), dvec=(0, 0, 0),
                    angle=2 * math.pi, steps=int(segs), use_merge=True,
                    use_normal_flip=False, use_duplicate=False)
-    # DETERMINISM (review F1, DECISIONS 107): bmesh.ops.spin(use_merge=True) hands back
-    # its faces in an order that varies between runs, and everything downstream
-    # (smart_project islands, the unique pack, the AO bake, decimation) is order-
-    # dependent - two builds of the same station shipped different textures. Sort the
-    # elements by geometry so the order is a pure function of the profile.
+    # DETERMINISM (review F1, DECISIONS 107): bmesh.ops.spin(use_merge=True) hands back its faces in
+    # an order that varies between runs. Everything downstream (smart_project islands, the unique
+    # pack, the AO bake, decimation) is order-dependent. Two builds of the same station shipped
+    # different textures. Sort the elements by geometry, so the order is a pure function of the
+    # profile.
     cs2_asset.canonical_order_bmesh(bm)
     _orient_outward(bm, lambda f: Vector((f.calc_center_median().x,
                                           f.calc_center_median().y, 0.0)))
@@ -647,13 +650,12 @@ def sheave(name, r, w, loc, axis, segs=12, quad_rim=QUAD_GALV, quad_hub=QUAD_GAL
 def door(name, w=0.85, h=1.95, reveal=0.04, loc=(0, 0, 0), facing="+X", quad=QUAD_GALV,
          quad_frame=None):
     """
-    Personnel door on a wall: `loc` is the bottom-center of the opening ON the wall face,
-    `facing` the outward wall normal. Frame = 2 jambs + head, 0.06 wide, `reveal` proud
-    of the wall; the leaf sits 0.02 proud (recessed reveal - 0.02 behind the frame face,
-    back face open against the wall; relief "map:seams" for the panel pressing), sill gap
-    0.02 above loc.z (keeps the leaf out of the engine's ground band); vertical handle
-    bar r 0.012 and a 0.25 m kick plate. Names: door_<name>_leaf / _jamb0 / _jamb1 /
-    _head / _handle / _kick.
+    Personnel door on a wall: `loc` is the bottom-center of the opening ON the wall face, and
+    `facing` is the outward wall normal. Frame = 2 jambs + head, 0.06 wide, `reveal` proud of the
+    wall. The leaf sits 0.02 proud (recessed reveal: 0.02 behind the frame face, back face open
+    against the wall, relief "map:seams" for the panel pressing). A sill gap of 0.02 above loc.z
+    keeps the leaf out of the engine's ground band. The door also has a vertical handle bar r 0.012
+    and a 0.25 m kick plate. Names: door_<name>_leaf / _jamb0 / _jamb1 / _head / _handle / _kick.
     """
     qf = quad if quad_frame is None else quad_frame
     yaw = _facing_yaw(facing)
@@ -715,10 +717,10 @@ def hatch(name, w, h, reveal=0.03, loc=(0, 0, 0), facing="+X", quad=QUAD_GALV):
 
 def drip_edge(box_obj, drop=0.06, t=0.02, quad=QUAD_GALV, lip=0.01):
     """
-    Four drip flashings around a roof box (world AABB of its vertices; axis-aligned boxes
-    only): each a `t` thick strip outside a side face, from `lip` above the roof top down
-    `drop` below it, inner face open against the roof. 40 tris. Names:
-    drip_<box name>_<k> for k in +x, -x, +y, -y.
+    Four drip flashings around a roof box (world AABB of its vertices, axis-aligned boxes only).
+    Each is a `t` thick strip outside a side face, from `lip` above the roof top down `drop` below
+    it, with the inner face open against the roof. 40 tris. Names: drip_<box name>_<k> for k in +x,
+    -x, +y, -y.
     """
     lo, hi = _mesh_world_bounds(box_obj)
     cx, cy = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2
@@ -737,11 +739,10 @@ def drip_edge(box_obj, drop=0.06, t=0.02, quad=QUAD_GALV, lip=0.01):
 
 def axle_cap(name, r, loc, axis, quad=QUAD_GALV, studs_geo=True, segs=8, t=0.02):
     """
-    Axle end cap: `segs`-gon disc of radius r and thickness t whose BASE center sits at
-    `loc`, growing outward along `axis` (signed, e.g. "-Y" for the far side of a sheave
-    arm); only the outer cap face is built. Four studs (4-seg, caps top) when
-    studs_geo=True, else the disc carries relief "map:bolts". Names: axlecap_<name>,
-    bolt_<name>_<k>.
+    Axle end cap: `segs`-gon disc of radius r and thickness t whose BASE center sits at `loc`,
+    growing outward along `axis` (signed, e.g. "-Y" for the far side of a sheave arm). Only the
+    outer cap face is built. Four studs (4-seg, caps top) when studs_geo=True, else the disc carries
+    relief "map:bolts". Names: axlecap_<name>, bolt_<name>_<k>.
     """
     rot = _axis_rot(axis)
     d = _axis_vec(axis)

@@ -1,12 +1,12 @@
 """
-recipes/_civic.py - recipe-local helpers shared by the civic recipes (recipes/school.py,
-recipes/patrol.py) and welcome_sign.py. NOT a recipe: bldg_recipes.load_recipes() skips
-files whose name starts with "_" (bldg_recipes.py:236-237). It imports bpy at module level,
-so recipe modules load it lazily (load_civic()) inside their builders: they stay import-safe.
+recipes/_civic.py: recipe-local helpers shared by the civic recipes (recipes/school.py, recipes/patrol.py)
+and welcome_sign.py. NOT a recipe: bldg_recipes.load_recipes() skips files whose name starts with "_"
+(bldg_recipes.py:236-237). It imports bpy at module level, so recipe modules load it lazily (load_civic())
+inside their builders: they stay import-safe.
 
-Contract: docs/research/art/assets-2026-10/design/civic-sign.md with civic-sign-skeptic.md
-applied (M1-M8). Everything here is a part the kit (cs2_bldg.py, other owner, not edited)
-lacks; each is reported as a kit need in build/civic-sign.md:
+Contract: docs/research/art/assets-2026-10/design/civic-sign.md with civic-sign-skeptic.md applied
+(M1-M8). Everything here is a part the kit (cs2_bldg.py, other owner, not edited) lacks. Each is reported
+as a kit need in build/civic-sign.md:
     new_part / face / quads_part / grid_quads   one part from explicit polygons (walls cut
                                                  round a tower, roof top quads, flags)
     cyl_into / cyl_part                          free-axis cylinder / cone part (logs, piers,
@@ -96,8 +96,8 @@ def quads_part(name, polys, mat):
 
 
 def grid_quads(point, us, vs, outward, skip=()):
-    """Quads of a planar grid: point(u, v) -> xyz; cuts `us` x `vs`; `skip` = {(i, j)}
-    cells left out (i along us, j along vs). Shared cut lines -> no T-junctions."""
+    """Quads of a planar grid: point(u, v) -> xyz. It cuts `us` x `vs`. `skip` = {(i, j)} cells left out (i
+    along us, j along vs). Shared cut lines -> no T-junctions."""
     out = []
     for i in range(len(us) - 1):
         for j in range(len(vs) - 1):
@@ -109,7 +109,7 @@ def grid_quads(point, us, vs, outward, skip=()):
 
 
 def cyl_into(bm, p0, p1, r, segs=8, cap0=True, cap1=True, r1=None, phase=0.0):
-    """Cylinder / cone p0 -> p1 into bm (fan caps, outward normals; cs2_bldg._Geo.cyl)."""
+    """Cylinder / cone p0 -> p1 into bm (fan caps, outward normals, cs2_bldg._Geo.cyl)."""
     P0, P1 = Vector(p0), Vector(p1)
     ax = P1 - P0
     L = ax.length
@@ -156,7 +156,7 @@ def cyl_part(name, p0, p1, r, mat, segs=8, cap0=True, cap1=True, r1=None, phase=
 
 
 def box_into(bm, lo, hi, drop=()):
-    """Axis-aligned box faces into bm; `drop` = world face keys "+X".."-Z"."""
+    """Axis-aligned box faces into bm. `drop` = world face keys "+X".."-Z"."""
     x0, y0, z0 = lo
     x1, y1, z1 = hi
     fs = {"-X": ([(x0, y0, z0), (x0, y1, z0), (x0, y1, z1), (x0, y0, z1)], (-1, 0, 0)),
@@ -204,7 +204,7 @@ def beam_into(bm, p0, p1, w, h, up=(0.0, 0.0, 1.0)):
 
 
 def beam_part(name, p0, p1, w, h, mat, extend=0.0):
-    """One beam part; `extend` lengthens both ends (buried ends of braces)."""
+    """One beam part. `extend` lengthens both ends (buried ends of braces)."""
     P0, P1 = Vector(p0), Vector(p1)
     d = (P1 - P0).normalized() * float(extend)
     return new_part(name, lambda bm: beam_into(bm, P0 - d, P1 + d, w, h), mat)
@@ -344,8 +344,8 @@ def check_coplanar(parts, tol=1e-3, min_area=2e-4, exempt=()):
 
 
 def check_inside(parts, volumes, shrink=0.01, exempt=()):
-    """G10b (skeptic M4): no face centroid strictly inside a massing volume
-    ((lo, hi) boxes shrunk by `shrink`); parts whose name starts with `exempt` skipped."""
+    """G10b (skeptic M4): no face centroid strictly inside a massing volume ((lo, hi) boxes shrunk by
+    `shrink`). Parts whose name starts with `exempt` are skipped."""
     names = [o.name for o, _k in parts]
     bad = []
     import cs2_bldg as _K
@@ -374,8 +374,8 @@ def check_inside(parts, volumes, shrink=0.01, exempt=()):
 # ======================================================================================
 
 def find_baking_mesh(prefix):
-    """The one mesh with a UVUnique layer whose part table holds `prefix` (cs2_bake's
-    post_compose runs on it; LOD copies do not exist yet). Raises unless exactly one."""
+    """The one mesh with a UVUnique layer whose part table holds `prefix` (cs2_bake's post_compose runs on
+    it, LOD copies do not exist yet). Raises unless exactly one."""
     cands = []
     for me in sorted(bpy.data.meshes, key=lambda m: m.name):
         if me.users == 0 or UNIQUE not in me.uv_layers:
@@ -392,9 +392,9 @@ def find_baking_mesh(prefix):
 
 
 def uv_frame(me, prefix, layer=UNIQUE, A=1.0):
-    """World vectors (Wu, Wv) per texel (A texels per UV unit) and the outward normal of
-    the FIRST polygon of part `prefix` (least squares over its loops; the obj transform is
-    applied). The face must be planar and its UV map affine."""
+    """World vectors (Wu, Wv) per texel (A texels per UV unit) and the outward normal of the FIRST polygon of
+    part `prefix` (least squares over its loops, the obj transform is applied). The face must be planar
+    and its UV map affine."""
     table = json.loads(me[cs2_asset.PART_TABLE_PROP])
     hits = {i + 1 for i, n in enumerate(table) if n.startswith(prefix)}
     attr = me.attributes.get("part")
@@ -448,9 +448,9 @@ def display_map(Wu, Wv, n):
 
 
 def texel_to_display(h, w, coeffs):
-    """Index maps (drow, dcol) (each (h, w)) from a bottom-up texel block to a top-down
-    DISPLAY image of size (Hv, Wv) as the viewer sees the face; returns (drow, dcol, Hv, Wv).
-    A swapped frame (u vertical) gives Hv = w, Wv = h."""
+    """Index maps (drow, dcol) (each (h, w)) from a bottom-up texel block to a top-down DISPLAY image of size
+    (Hv, Wv) as the viewer sees the face. Returns (drow, dcol, Hv, Wv). A swapped frame (u vertical) gives
+    Hv = w, Wv = h."""
     a, b, c, d = coeffs
     ii, jj = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
     ci, cj = ii - (h - 1) / 2.0, jj - (w - 1) / 2.0
@@ -463,11 +463,10 @@ def texel_to_display(h, w, coeffs):
 
 
 class GlyphPainter:
-    """Painter for cs2_compose.stamp_on_face: a ski_launcher_glyph primitive list
-    (`prims` = function name, e.g. "cand_d" the skier on a slope) drawn white at `frac`
-    of the face, oriented by the face's UV -> world frame (N5: the glyph is asymmetric;
-    the host material may carry uv_rot 90). Paints only the glyph: stamp_on_face then
-    zeroes ControlMask R under it, the background keeps the host's slot color."""
+    """Painter for cs2_compose.stamp_on_face: a ski_launcher_glyph primitive list (`prims` = function name,
+    e.g. "cand_d" the skier on a slope) drawn white at `frac` of the face, oriented by the face's UV ->
+    world frame (N5: the glyph is asymmetric, the host material may carry uv_rot 90). Paints only the
+    glyph: stamp_on_face then zeroes ControlMask R under it, the background keeps the host's slot color."""
 
     def __init__(self, face_prefix, prims="cand_d", frac=0.85, fg_srgb=0.92):
         self.face = face_prefix
