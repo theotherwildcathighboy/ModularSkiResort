@@ -1,112 +1,137 @@
 """
-test_lodges_swanky - L4 (lux-top) and L5 (lux-base) recipe contracts (design/lodges-swanky.md
-section 9 / 12 with design/lodges-swanky-skeptic.md applied).
+test_lodges_swanky - L4 (lux-top) and L5 (lux-base) recipe contracts (design/lodges-swanky.md section 9 / 12 with
+design/lodges-swanky-skeptic.md applied).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_lodges_swanky.py
         [-- --fast]          skip the cross-process reduced-finish determinism pass
 
-Pass 1 (in-process --blockout builds; the recipe builders assert C1, C2, C4-C8 and the L4
-slope / plinth-outline / stair-end contracts themselves, so a wrong build raises here):
-  - C3 base mode on LOD0 (L5 engine OK with every ground part present; L4 plinth: zero OK
-    edges, min z -12.00, no vertex in z 0 +- 0.01), C11 LOD0 <= cap, C14 name + keyword;
-  - C10 culling gate (skeptic MUST-CHANGE 10): a second cull_hidden pass with the strict
-    "enclosed" wall rule on a COPY of the shipped LOD0 finds <= 15 % hidden face area;
-  - C13 rooms: <= 25 distinct ids and every pane's loops decode to ONE cell
-    (int(v*5)*5 + int(u*5), cs2_bldg.win_cell_ids rule) - both triangles of a quad agree;
-  - labels: the four clock faces (L5) and the forecourt sign (L4; blank since nitpick C) are single planar parts;
-  - L5 --no-tower builds (max z = the flue pots) and clock_tower(z0=-1.5, ground=False)
-    (the hosted / tram-station variant) keeps its section-5 contract; rise=4.0 (L5 r1) lifts
-    the finial by exactly 4 m.
+Pass 1 (in-process --blockout builds). The recipe builders assert C1, C2, C4-C8 and the L4 slope / plinth-outline /
+stair-end contracts themselves, so a wrong build raises here:
+- C3 base mode on LOD0 (L5 engine OK with every ground part present. L4 plinth: zero OK edges, min z
+  -12.00, no vertex in z 0 +- 0.01), C11 LOD0 <= cap, C14 name + keyword.
+- C10 culling gate (skeptic MUST-CHANGE 10): a second cull_hidden pass with the strict "enclosed" wall
+  rule on a COPY of the shipped LOD0 finds <= 15 % hidden face area.
+- C13 rooms: <= 25 distinct ids, and every pane's loops decode to ONE cell (int(v*5)*5 + int(u*5),
+  cs2_bldg.win_cell_ids rule). Both triangles of a quad agree.
+- labels: the four clock faces (L5) and the forecourt sign (L4, blank since nitpick C) are single
+  planar parts.
+- L5 --no-tower builds (max z = the flue pots). clock_tower(z0=-1.5, ground=False) (the hosted /
+  tram-station variant) keeps its section-5 contract. rise=4.0 (L5 r1) lifts the finial by exactly 4 m.
+
 L5 revision 1 (2026-10-11, verdict B1 "bigger" / Peak 7 / pools), on the joined LOD0:
-  - lot 10 x 8, every vertex inside the lot (margins >= 0), the arrival centroid on +X;
-  - pools: every `water_` face below the deck top SW.PD by >= 0.05 m, the `deck_pool` top at
-    PD, every pool part inside the podium;
-  - no coplanar overlap: no two faces of DIFFERENT parts lie in one plane with the same
-    facing and overlap (z-fighting) - cull_hidden deletes exact duplicates, this proves none
-    survive anywhere on the shipped LOD0;
-  - `_Win` has no loose vertices (they would stretch the sub-mesh bounds).
-L5 revision 2 (2026-10-11, verdict B1' "Seventh look": plaza, clock down, tower deck), on the
-joined LOD0 (authoring frame after the X_SHIFT, i.e. the shipped one):
-  - lot 10 x 9; the plaza (`deck_e*`) is end to end (y within 2 m of both lot sides) and reaches
-    within 1 m of the road edge, its top at SW.SLAB_T; every rack / bistro / bench / planter /
-    bollard part starts at or above the plaza top;
-  - the tower deck (`deck_tw`) top at SW.DK_Z and touching the tower base on all four sides;
-    the stair treads run from the plaza to the deck top;
-  - four racks carry real gear (`skirack_pz*g*` parts), nine bistro tops (`cafetop_`);
-  - clock: every dial center at SW.CT_CLOCK_Z_L5, the dials on the shaft below the stage, and
-    from the PREVIEW cameras (cs2_preview framing: bounding sphere, 45 deg, 1300 x 1000,
-    margin 1.12) of every arrival-side view, >= 99 % of the samples of each dial that faces
-    the camera see it (no part in between); clock_tower() defaults keep the section-5 dial
-    on the stage (z CT_CLOCK_Z, plane +-2.3 + 0.08).
-L5 revision 3 (2026-10-11, verdict B1'' "Twelfth look": plaza on the pool side, vanilla props,
-stair to the right), replacing the revision-2 plaza checks (check_l5_r3, on the joined LOD0 and
-the blockout manifest, shipped frame):
-  - the slope plaza (`deck_s*`) end to end, within 1 m of the BACK lot edge, top SW.SLAB_T,
-    reaching the podium wall; podium steps `stairblk_w` from the plaza up to under the deck;
-  - the road side is the valet forecourt: drive `deck_e0` at SW.DRIVE_T to within 1 m of the
-    road edge, walks `deck_e1` at SW.SLAB_T, island `deck_e2` at SW.ISLAND_T;
-  - no modeled tree / bench / bin / table / chair / umbrella / lamp post / planter / bollard
-    part is left; four racks carry gear, and each rack's gear part face counts equal a
-    bindings=False kit build and differ from a bindings=True one (no bindings, proven on the
-    mesh);
-  - the manifest `sub_objects` block = SW.SUB_OBJECTS (85 rows, every GUID a VANILLA one);
-    every m_ParentMesh 0 row stands on a mesh face at its height (ray down at the pivot);
-  - the deck stair: treads from the walk to the deck top, beyond the deck's +Y edge (the
-    right-hand end seen from the road), every stair part >= 1 m short of the drive;
-  - the valet corridor past the deck: rays from the curb toward the road (0.2-3.5 m) meet no
-    mesh face and no vanilla prop box (rebuilt from the MANIFEST rows) for >= SW.CORRIDOR_MIN;
-  - the clock check as revision 2, from the arrival-side views incl. `valet` and `tower_deck`.
-L5 revision 4 (2026-10-12, "Eighteenth look": the porte-cochere gable closed, pool-side doors;
-check_l5_r4 on the joined LOD0 + manifest): SW.ARRIVAL_VIEWS are the real preview views; G1 again
-on the culled mesh (every ray from each arrival-side preview camera and the close walk-around
-through the gable triangle meets a front face within SW.GABLE_DEPTH_MAX of the truss face); no
-back face first-hit inside the porte-cochere in a 130 x 100 scan from those cameras (totals
-printed); D1 / D2 on the three terrace doors (rays through the clear opening meet the door's
-leaves / plates / glass backing >= DOOR_REAL_MIN behind the face, never the wall or a frame);
-the two gable lights in the manifest; parent-0 rows on their face (assert_mounted: wall mounts
-look back at the wall).
-L4 revision 1 (check_l4_r1): manifest `sub_objects` = L4_ROWS, every parent-0 row mounted; both
-cantilever soffits survive the cull; the deck from the cantilever tip at Z_DECK with its joists
-and struts; the dining door real on the mesh; E1 (no gutter / downspout face in the entrance
-portal or a door's clear box).
-Fine-detail step 3e (2026-10-12, twenty-third look "run the engine pass on them too!";
-build/fine-detail-step3e-swanky.md): both recipes are fine_detail.FineRecipes and the shipping (fine)
-builds are what passes 1-3 check. check_l5_fine: `legacy` = revision 4's fields; the fine parts =
-the --no-fine parts vertex for vertex except the replaced racks / road-face lanterns (gone), the
-12-seg finial and flue pots, the round lantern rods (same heights) and the new name board; H1: each
-kit rack row places the kit frame (ski_rack_frame 8 slots along X, prefab frame) on the removed
-frame vertex for vertex +-1 mm (identity; a 90-degree yaw misses), loadouts V1 / V2 / V3 / V1; each
-road-face wall light at its removed lantern's mount point +-0.01 m (lens - 0.22 m), yaw 0, on its
-face; the fire pits and hanging lanterns kept; the --no-fine racks still carry no bindings; the
-sign set SkiSignSetGrandB: SG1 UVs = the `l5.name` rect, SG2 its board = the --no-signset host's
-own label quad +-1 mm, SG3 the face in no host LOD / labels, SG4 one identity row, SG5 in the lot,
-SG6 tris; the manifest's kit rows = KIT_ROWS. check_l4_fine: the fine L4 = the --no-fine L4 vertex
-for vertex except the 12-seg flue pots; no sign set, no kit rows (none was modeled).
-Revision-4 guards (check_r4_guards, each shown to FAIL on the wrong build): L5 with
-PC_GABLE_INFILL False raises G1; L4 with PORCH_UNDER_EAVE False raises E1; a door on a probe wall
-without cut_recess fails D1 (with it passes); a wall light 0.10 m off its wall fails S1.
-verify_vanilla (when %TEMP%\\pltar\\dump.zip exists): every VANILLA entry re-derived from the
-dump - the variants naming the GUID, PlaceholderObject on the named prefab, union bounds
-(<= 1.5 mm), max tris, WeatherObject snow flags, base-game consumers > 0 - and the four GUIDs
-cs2_liftdress.SUBOBJ also holds agree with it. T59 (2026-10-18): a STANDALONE entry (no PlaceholderObject, no
-variants: L4's CampgroundFireplace02, added by l4_swanky_top._sw) is checked on its own mesh (bounds, tris), no
-WeatherObject, and its GUID = the PrefabsMap harvest's (docs/archive/research/field/2026-10-13/guid-harvest.json); the L4
-recipe is loaded first so the entry is there. check_l4_r1 also runs l4_swanky_top.check_fire_pit's numbers (T59).
-Pane guards (buildings-review-geometry F1-F3): L5 with the old 1.0 m cross-gable bays must
-raise F1; check_pane_clearance must raise on a roof part 0.3 m in front of a pane.
-Pass 2 (skeptic MUST-CHANGE 6: Blender runs with hash randomization on, so one process cannot
-see set-order nondeterminism): each recipe's --blockout in TWO separate Blender processes ->
-identical manifest mesh hashes (LOD0 pre-bake, _Win) and room cells; unless --fast, L4 reduced
-finish (--tex 1024 --ao-samples 4) in two processes -> identical PNG sha1s and LOD hashes.
-Pass 3 (exported folders under assets/import/lodges/B, when present): C12 batches per mesh
-group <= 16 (L5 9, L4 6 + 3 if the BaseProperties surgery fails), C15 LOD1 / LOD2 bounds vs
-LOD0 (FBX round trip), texture size and shipped w = 1 px/m from the manifest (R18 rule).
-C15 at LOD2 (revision 1, 2026-10-11): the LOD2 FBX bounds vs the bounds of the LOD0 parts
-LOD2 KEEPS (pass 1's blockout minus lodge.delete_lists' LOD2 list, <= 0.25 m), so parts the
-recipe deletes on purpose (balconies, rake boards, the clock finial) do not count but a
-collapse that eats a kept part (an eave, the tower cap) still fails. The pass-1 LOD0 must
-match the exported LOD0 FBX bounds (<= 0.01 m) for that comparison to stand; the raw LOD2
-drift vs LOD0 is printed beside it.
+- lot 10 x 8, every vertex inside the lot (margins >= 0), the arrival centroid on +X.
+- pools: every `water_` face below the deck top SW.PD by >= 0.05 m, the `deck_pool` top at PD, every
+  pool part inside the podium.
+- no coplanar overlap: no two faces of DIFFERENT parts lie in one plane with the same facing and
+  overlap (z-fighting). cull_hidden deletes exact duplicates. This proves none survive anywhere on
+  the shipped LOD0.
+- `_Win` has no loose vertices (they would stretch the sub-mesh bounds).
+
+L5 revision 2 (2026-10-11, verdict B1' "Seventh look": plaza, clock down, tower deck), on the joined LOD0 (authoring
+frame after the X_SHIFT, i.e. the shipped one):
+- lot 10 x 9. The plaza (`deck_e*`) is end to end (y within 2 m of both lot sides) and reaches within
+  1 m of the road edge, its top at SW.SLAB_T. Every rack / bistro / bench / planter / bollard part
+  starts at or above the plaza top.
+- the tower deck (`deck_tw`) top at SW.DK_Z and touching the tower base on all four sides. The stair
+  treads run from the plaza to the deck top.
+- four racks carry real gear (`skirack_pz*g*` parts), nine bistro tops (`cafetop_`).
+- clock: every dial center at SW.CT_CLOCK_Z_L5, the dials on the shaft below the stage. From the
+  PREVIEW cameras (cs2_preview framing: bounding sphere, 45 deg, 1300 x 1000, margin 1.12) of every
+  arrival-side view, >= 99 % of the samples of each dial that faces the camera see it (no part in
+  between). clock_tower() defaults keep the section-5 dial on the stage (z CT_CLOCK_Z, plane +-2.3 +
+  0.08).
+
+L5 revision 3 (2026-10-11, verdict B1'' "Twelfth look": plaza on the pool side, vanilla props, stair to the right)
+replaced the revision-2 plaza checks (check_l5_r3, on the joined LOD0 and the blockout manifest, shipped frame):
+- the slope plaza (`deck_s*`) end to end, within 1 m of the BACK lot edge, top SW.SLAB_T, reaching the
+  podium wall. Podium steps `stairblk_w` run from the plaza up to under the deck.
+- the road side is the valet forecourt: drive `deck_e0` at SW.DRIVE_T to within 1 m of the road edge,
+  walks `deck_e1` at SW.SLAB_T, island `deck_e2` at SW.ISLAND_T.
+- no modeled tree / bench / bin / table / chair / umbrella / lamp post / planter / bollard part is
+  left. Four racks carry gear, and each rack's gear part face counts equal a bindings=False kit build
+  and differ from a bindings=True one (no bindings, proven on the mesh).
+- the manifest `sub_objects` block = SW.SUB_OBJECTS (85 rows, every GUID a VANILLA one). Every
+  m_ParentMesh 0 row stands on a mesh face at its height (ray down at the pivot).
+- the deck stair: treads from the walk to the deck top, beyond the deck's +Y edge (the right-hand end
+  seen from the road). Every stair part is >= 1 m short of the drive.
+- the valet corridor past the deck: rays from the curb toward the road (0.2-3.5 m) meet no mesh face
+  and no vanilla prop box (rebuilt from the MANIFEST rows) for >= SW.CORRIDOR_MIN.
+- the clock check as revision 2, from the arrival-side views incl. `valet` and `tower_deck`.
+
+L5 revision 4 (2026-10-12, "Eighteenth look": the porte-cochere gable closed, pool-side doors. check_l5_r4 on the
+joined LOD0 + manifest):
+- SW.ARRIVAL_VIEWS are the real preview views.
+- G1 again on the culled mesh (every ray from each arrival-side preview camera and the close
+  walk-around through the gable triangle meets a front face within SW.GABLE_DEPTH_MAX of the truss
+  face).
+- no back face first-hit inside the porte-cochere in a 130 x 100 scan from those cameras (totals
+  printed).
+- D1 / D2 on the three terrace doors (rays through the clear opening meet the door's leaves / plates /
+  glass backing >= DOOR_REAL_MIN behind the face, never the wall or a frame).
+- the two gable lights in the manifest.
+- parent-0 rows on their face (assert_mounted: wall mounts look back at the wall).
+
+L4 revision 1 (check_l4_r1):
+- manifest `sub_objects` = L4_ROWS, every parent-0 row mounted.
+- both cantilever soffits survive the cull.
+- the deck from the cantilever tip at Z_DECK with its joists and struts.
+- the dining door real on the mesh.
+- E1 (no gutter / downspout face in the entrance portal or a door's clear box).
+
+Fine-detail step 3e (2026-10-12, twenty-third look "run the engine pass on them too!",
+build/fine-detail-step3e-swanky.md): both recipes are fine_detail.FineRecipes, and the shipping (fine) builds are what
+passes 1-3 check. check_l5_fine:
+- `legacy` = revision 4's fields.
+- the fine parts = the --no-fine parts vertex for vertex except the replaced racks / road-face
+  lanterns (gone), the 12-seg finial and flue pots, the round lantern rods (same heights) and the new
+  name board.
+- H1: each kit rack row places the kit frame (ski_rack_frame 8 slots along X, prefab frame) on the
+  removed frame vertex for vertex +-1 mm (identity, a 90-degree yaw misses), loadouts V1 / V2 / V3 /
+  V1.
+- each road-face wall light at its removed lantern's mount point +-0.01 m (lens - 0.22 m), yaw 0, on
+  its face.
+- the fire pits and hanging lanterns kept.
+- the --no-fine racks still carry no bindings.
+- the sign set SkiSignSetGrandB: SG1 UVs = the `l5.name` rect, SG2 its board = the --no-signset host's
+  own label quad +-1 mm, SG3 the face in no host LOD / labels, SG4 one identity row, SG5 in the lot,
+  SG6 tris.
+- the manifest's kit rows = KIT_ROWS.
+
+check_l4_fine: the fine L4 = the --no-fine L4 vertex for vertex except the 12-seg flue pots. No sign set, no kit rows
+(none was modeled).
+
+Revision-4 guards (check_r4_guards, each shown to FAIL on the wrong build):
+- L5 with PC_GABLE_INFILL False raises G1.
+- L4 with PORCH_UNDER_EAVE False raises E1.
+- a door on a probe wall without cut_recess fails D1 (with it passes).
+- a wall light 0.10 m off its wall fails S1.
+
+verify_vanilla (when %TEMP%\\pltar\\dump.zip exists): every VANILLA entry re-derived from the dump: the variants naming
+the GUID, PlaceholderObject on the named prefab, union bounds (<= 1.5 mm), max tris, WeatherObject snow flags,
+base-game consumers > 0. The four GUIDs cs2_liftdress.SUBOBJ also holds agree with it. T59 (2026-10-18): a STANDALONE
+entry (no PlaceholderObject, no variants: L4's CampgroundFireplace02, added by l4_swanky_top._sw) is checked on its own
+mesh (bounds, tris). The prefab has no WeatherObject. Its GUID = the PrefabsMap harvest's
+(docs/archive/research/field/2026-10-13/guid-harvest.json). The L4 recipe is loaded first so the entry is there.
+check_l4_r1 also runs l4_swanky_top.check_fire_pit's numbers (T59).
+
+Pane guards (buildings-review-geometry F1-F3): L5 with the old 1.0 m cross-gable bays must raise F1.
+check_pane_clearance must raise on a roof part 0.3 m in front of a pane.
+
+Pass 2 (skeptic MUST-CHANGE 6: Blender runs with hash randomization on, so one process cannot see set-order
+nondeterminism): each recipe's --blockout in TWO separate Blender processes -> identical manifest mesh hashes (LOD0
+pre-bake, _Win) and room cells. Unless --fast, L4 reduced finish (--tex 1024 --ao-samples 4) in two processes ->
+identical PNG sha1s and LOD hashes.
+
+Pass 3 (exported folders under assets/import/lodges/B, when present):
+- C12 batches per mesh group <= 16 (L5 9, L4 6 + 3 if the BaseProperties surgery fails).
+- C15 LOD1 / LOD2 bounds vs LOD0 (FBX round trip).
+- texture size and shipped w = 1 px/m from the manifest (R18 rule).
+
+C15 at LOD2 (revision 1, 2026-10-11): the LOD2 FBX bounds vs the bounds of the LOD0 parts LOD2 KEEPS (pass 1's blockout
+minus lodge.delete_lists' LOD2 list, <= 0.25 m). So parts the recipe deletes on purpose (balconies, rake boards, the
+clock finial) do not count, but a collapse that eats a kept part (an eave, the tower cap) still fails. The pass-1 LOD0
+must match the exported LOD0 FBX bounds (<= 0.01 m) for that comparison to stand. The raw LOD2 drift vs LOD0 is printed
+beside it.
 """
 
 import hashlib
@@ -140,8 +165,8 @@ LOD2_KEPT = {}          # recipe key -> (lo, hi) of the LOD0 faces LOD2 keeps
 
 
 def _fbx_frame(lo, hi):
-    """Blender-frame bounds -> the frame _fbx_bounds reports (the raw FBX axes: x, z, -y;
-    measured 2026-10-11 on the L5 export: Blender y -31.0..31.4 reads z -31.4..31.0)."""
+    """Blender-frame bounds -> the frame _fbx_bounds reports (the raw FBX axes: x, z, -y. Measured 2026-10-11 on the L5
+    export: Blender y -31.0..31.4 reads z -31.4..31.0)."""
     lo, hi = np.asarray(lo, np.float64), np.asarray(hi, np.float64)
     return np.array([lo[0], lo[2], -hi[1]]), np.array([hi[0], hi[2], -lo[1]])
 
@@ -171,10 +196,10 @@ def _t14_pos(pos):
 
 
 def _want_rows(recipe):
-    """(prefab, m_Object, position, m_ParentMesh) of the recipe's sub_objects (vanilla tuples and
-    fine-detail "mod" dicts), in manifest order (lodge.py appends a sign set's identity row after).
-    T14 x-sign N (2026-10-16): the recipes design their rows in the old frame; the manifest holds rule T, the game
-    frame (x -> -x), so the expected position here is the design position with x negated."""
+    """(prefab, m_Object, position, m_ParentMesh) of the recipe's sub_objects (vanilla tuples and fine-detail "mod"
+    dicts), in manifest order (lodge.py appends a sign set's identity row after). T14 x-sign N (2026-10-16): the
+    recipes design their rows in the old frame. The manifest holds rule T, the game frame (x -> -x), so the expected
+    position here is the design position with x negated."""
     out = []
     for e in recipe.sub_objects:
         if isinstance(e, dict):
@@ -236,11 +261,10 @@ def check_cells(win):
 
 
 def coplanar_overlaps(obj, table, tol=1e-3):
-    """Pairs of DIFFERENT parts with same-facing coplanar overlapping faces (z-fighting) on
-    the joined mesh: every face's center is tested against the faces within `tol`; a
-    parallel (n . n' > 0.999) face whose plane holds the center and whose surface is within
-    `tol` of it overlaps. Adjacent coplanar faces (bisected wall strips) only meet at an
-    edge, which is farther than `tol` from a face center."""
+    """Pairs of DIFFERENT parts with same-facing coplanar overlapping faces (z-fighting) on the joined mesh. The test
+    checks every face's center against the faces within `tol`. A parallel (n . n' > 0.999) face whose plane holds the
+    center and whose surface is within `tol` of it overlaps. Adjacent coplanar faces (bisected wall strips) only meet
+    at an edge, which is farther than `tol` from a face center."""
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     bm.transform(obj.matrix_world)
@@ -283,7 +307,7 @@ def check_l5_xg_band(recipe):
 
 
 def check_l5_r1(r, obj, table):
-    """Revision-1 contracts on the joined LOD0 (lot, facing, pools; see the docstring)."""
+    """Revision-1 contracts on the joined LOD0 (lot, facing, pools, see the docstring)."""
     from recipes import l5_swanky_bottom as SW
     recipe = R.get_recipe("L5")
     assert tuple(recipe.lot) == (10, 9), recipe.lot          # revision 2: 10 x 8 -> 10 x 9
@@ -291,16 +315,15 @@ def check_l5_r1(r, obj, table):
     assert lot["margin_x"] >= 0.0 and lot["margin_y"] >= 0.0, lot
     assert r["facing"]["arrival_centroid_x"] >= SW.H_X1 + SW.X_SHIFT, r["facing"]
     assert recipe.budget.lod0_cap == 33500 and r["tris"][0] <= 33500, r["tris"]       # 30,000 -> 33,500: DECISIONS 302
-    tf = tuple(recipe.tiled_flat)          # T66: the outriggers draw textured; T90 (DECISIONS 302): so do the porch / tower beams
+    tf = tuple(recipe.tiled_flat)          # T66: the outriggers draw textured. T90 (DECISIONS 302): so do the porch / tower beams
     assert not any("beam_xgc0o0".startswith(p) for p in tf), f"outriggers still flat: {tf}"
     assert tf == ("soffit_", "poolcap_"), f"flat list is soffits + pool coping only (T90): {tf}"
     pp = np.zeros(len(obj.data.polygons), np.int32)
     obj.data.attributes["part"].data.foreach_get("value", pp)
     W = K._world_coords(obj)
-    # the joined LOD0 is already orient_for_net'ed ((x, y) -> (y, -x)); the podium rectangle
-    # SW.POOL_* is in the authoring frame: authoring x = -y, authoring y = x; revision 2 builds
-    # in the revision-1 frame and shifts by SW.X_SHIFT, so the constants are compared after
-    # undoing the shift
+    # the joined LOD0 is already orient_for_net'ed ((x, y) -> (y, -x)). The podium rectangle SW.POOL_* is in the
+    # authoring frame: authoring x = -y, authoring y = x. Revision 2 builds in the revision-1 frame and shifts by
+    # SW.X_SHIFT, so the constants are compared after undoing the shift
     A = np.stack([-W[:, 1] - SW.X_SHIFT, W[:, 0]], axis=1)
     seen = {"water": 0, "deck": 0, "pool": 0}
     for p in obj.data.polygons:
@@ -367,9 +390,9 @@ def _rack_face_counts(SW):
 
 
 def assert_mounted(bvh, SW, row):
-    """S1 on the shipped mesh: a m_ParentMesh 0 row stands on (ground) or, revision 4, hangs on
-    (VANILLA mount "wall") a mesh face at its pivot, the face turned the right way
-    (SW.mount_ray: down from 0.3 m above / back from 0.3 m out along the row's yaw)."""
+    """S1 on the shipped mesh. A m_ParentMesh 0 row stands on (ground) or, revision 4, hangs on (VANILLA mount "wall") a
+    mesh face at its pivot. The face turns the right way (SW.mount_ray: down from 0.3 m above / back from 0.3 m out
+    along the row's yaw)."""
     o, d, nwant = SW.mount_ray(row)
     loc, nrm, _i, dist = bvh.ray_cast(o, d, 0.6)
     assert loc is not None and abs(dist - 0.3) < 2e-3 and nrm.dot(nwant) > 0.9, \
@@ -390,10 +413,10 @@ def _shipped_frame(obj, table):
 
 
 def door_on_mesh(bvh, names, SW, door, tag_note=""):
-    """D1 / D2 on the SHIPPED mesh (the lites are in `_Win`: rays meet the leaves, plates or the
-    glass backing): every ray through the clear opening (9 x 7, inset 0.02) from 0.5 m out meets
-    a part of the door no nearer than SW.DOOR_REAL_MIN behind the face (kick plates / pulls may
-    stand proud) - never the host wall or a fixed frame. Returns the nearest door depth."""
+    """D1 / D2 on the SHIPPED mesh (the lites are in `_Win`: rays meet the leaves, plates or the glass backing). Every ray
+    through the clear opening (9 x 7, inset 0.02) from 0.5 m out meets a part of the door no nearer than
+    SW.DOOR_REAL_MIN behind the face (kick plates / pulls may stand proud). It never meets the host wall or a fixed
+    frame. Returns the nearest door depth."""
     from mathutils import Vector
     side, plane, s, z0, w, h = (door[k] for k in ("side", "plane", "s", "z0", "w", "h"))
     tag = door["tag"]
@@ -421,12 +444,16 @@ def door_on_mesh(bvh, names, SW, door, tag_note=""):
 
 
 def check_l5_r4(r, obj, table, man):
-    """Revision-4 contracts on the SHIPPED L5 LOD0 + manifest (eighteenth look): the preview views
-    the builder's G1 cameras use are the real ones; G1 again on the joined, culled mesh (the
-    porte-cochere gable closed from every arrival-side preview camera and the close walk-around);
-    no back face first-hit anywhere in the porte-cochere from those preview cameras (a coarse
-    whole-frame scan: the totals are printed); D1 / D2 on the three terrace doors; the two gable
-    lights in the manifest. Returns a dict for the report."""
+    """Revision-4 contracts on the SHIPPED L5 LOD0 + manifest (eighteenth look):
+    - the preview views the builder's G1 cameras use are the real ones.
+    - G1 again on the joined, culled mesh (the porte-cochere gable closed from every arrival-side preview
+      camera and the close walk-around).
+    - no back face first-hit anywhere in the porte-cochere from those preview cameras (a coarse
+      whole-frame scan: the totals are printed).
+    - D1 / D2 on the three terrace doors.
+    - the two gable lights in the manifest.
+
+    Returns a dict for the report."""
     import math
     from mathutils import Vector
     from recipes import l5_swanky_bottom as SW
@@ -506,12 +533,16 @@ def check_l5_r4(r, obj, table, man):
 
 
 def check_l4_r1(r, obj, table, man):
-    """Revision-1 contracts on the SHIPPED L4 LOD0 + manifest (eighteenth look): the manifest
-    `sub_objects` = the recipe's L4_ROWS (every GUID a VANILLA one), every parent-0 row on its
-    face (wall lights on the wall); both cantilever soffits survived the cull (down-facing area
-    under the deck's cantilever and the dining room's); the deck one level from the tip to the
-    walkway with struts and joists; the dining door real (D1 / D2) on the mesh; no gutter /
-    downspout face inside the entrance portal or a door's clear box (E1). Returns a dict."""
+    """Revision-1 contracts on the SHIPPED L4 LOD0 + manifest (eighteenth look):
+    - the manifest `sub_objects` = the recipe's L4_ROWS (every GUID a VANILLA one), every parent-0 row on
+      its face (wall lights on the wall).
+    - both cantilever soffits survived the cull (down-facing area under the deck's cantilever and the
+      dining room's).
+    - the deck one level from the tip to the walkway with struts and joists.
+    - the dining door real (D1 / D2) on the mesh.
+    - no gutter / downspout face inside the entrance portal or a door's clear box (E1).
+
+    Returns a dict."""
     from recipes import l5_swanky_bottom as SW
     import importlib
     L4 = R.get_recipe("L4")
@@ -524,7 +555,7 @@ def check_l4_r1(r, obj, table, man):
     for o in so:
         gx, gy, gz = o["position"]
         if o["m_ParentMesh"] == 0:
-            # T14 x-sign N (2026-10-16): the manifest row is in the game frame (rule T); assert_mounted takes the
+            # T14 x-sign N (2026-10-16): the manifest row is in the game frame (rule T). assert_mounted takes the
             # design frame, so un-mirror: design x = -gx, yaw = -yaw
             assert_mounted(bvh, SW, (o["prefab"], gz, -gx + 0.0, gy, -_yaw_deg(o["rotation"])))
     # soffits: the down-facing area that survived, per part
@@ -578,11 +609,11 @@ def check_l4_r1(r, obj, table, man):
 
 def check_r4_guards():
     """Each revision-4 / L4 revision-1 contract shown to FAIL on the wrong build:
-    - G1: L5 with PC_GABLE_INFILL False (the revision-3 open gable) raises G1;
-    - E1: L4 with PORCH_UNDER_EAVE False (the revision-0 porch through the main eave) raises E1;
-    - D1: a terrace door on a probe wall WITHOUT the cut (a plate on a solid wall) fails
-      check_door, the same door with cut_recess passes;
-    - S1 wall mount: a WallLightShortRangeRandom01 row 0.10 m off its wall fails, on it passes."""
+    - G1: L5 with PC_GABLE_INFILL False (the revision-3 open gable) raises G1.
+    - E1: L4 with PORCH_UNDER_EAVE False (the revision-0 porch through the main eave) raises E1.
+    - D1: a terrace door on a probe wall WITHOUT the cut (a plate on a solid wall) fails check_door. The
+      same door with cut_recess passes.
+    - S1 wall mount: a WallLightShortRangeRandom01 row 0.10 m off its wall fails. On it, the row passes."""
     from cs2_bldg import WallRef  # noqa: F401
     L4, L5 = _recipes()
     out = {}
@@ -792,9 +823,9 @@ def check_l5_fine(tmp, r, racks):
 
 
 def check_l4_fine():
-    """Fine-detail step 3e on L4: a FineRecipe with no sign set and no kit rows; `legacy` = revision 1's
-    notes; the fine parts = the --no-fine parts vertex for vertex except the 4 flue pots (8 -> 12-seg,
-    22 -> 34 tris, same heights / centers)."""
+    """Fine-detail step 3e on L4: a FineRecipe with no sign set and no kit rows. `legacy` = revision 1's notes. The fine
+    parts = the --no-fine parts vertex for vertex except the 4 flue pots (8 -> 12-seg, 22 -> 34 tris, same heights /
+    centers)."""
     import fine_detail as FD
     rec = R.get_recipe("L4")
     assert isinstance(rec, FD.FineRecipe) and rec.fine_detail and rec.sign_set is None, type(rec)
@@ -802,8 +833,8 @@ def check_l4_fine():
     leg = FD.effective(rec, fine=False)
     g4 = rec.builder.__globals__
     assert leg.notes == g4["NOTES_R1"] and leg.sub_objects == rec.sub_objects
-    # nitpick C (2026-10-13; "Same issue with the sign outside as the chalet"): the forecourt board is a
-    # BLANK board (fine_detail.blank_board: sign cream + a graphite trim rim); --no-fine keeps the fork-and-knife
+    # nitpick C (2026-10-13, "Same issue with the sign outside as the chalet"): the forecourt board is a BLANK board
+    # (fine_detail.blank_board: sign cream + a graphite trim rim). --no-fine keeps the fork-and-knife
     assert tuple(leg.labels) == tuple(g4["PICTO_LABELS"]) and not any(FD.is_blank_label(e) for e in leg.labels)
     assert len(rec.labels) == 1 and rec.labels[0][0] == "sign_fc_face", rec.labels
     assert FD.is_blank_label(rec.labels[0]), rec.labels
@@ -858,9 +889,8 @@ def check_l5_r3(r, obj, table, man, racks):
     assert abs(dr[:, 2].max() - SW.DRIVE_T) < 1e-4 and abs(wk[:, 2].max() - SW.SLAB_T) < 1e-4 \
         and abs(il[:, 2].max() - SW.ISLAND_T) < 1e-4, (dr[:, 2].max(), wk[:, 2].max(), il[:, 2].max())
     assert dr[:, 0].max() >= SW.HX - 1.0, f"drive ends {SW.HX - dr[:, 0].max():.2f} m short of the road"
-    # (3) the vanilla rule: no modeled stand-in left; racks with gear and NO bindings (fine-detail
-    # step 3e: the racks are dressing-kit rows, none is modeled; the --no-fine racks' gear is proven
-    # bindings-free in check_l5_fine)
+    # (3) the vanilla rule: no modeled stand-in left. Racks with gear and NO bindings (fine-detail step 3e: the racks
+    # are dressing-kit rows, none is modeled. The --no-fine racks' gear is proven bindings-free in check_l5_fine)
     gone = ("cafe", "bench_", "bin_", "planter_", "shrub_", "conifer_", "bollard_", "lounger_",
             "umbstand_", "umbpole_", "umbcanopy_", "post_pl", "post_fc", "post_pz", "post_tw")
     left = sorted({nm for nm in by if nm.startswith(gone)})
@@ -884,8 +914,8 @@ def check_l5_r3(r, obj, table, man, racks):
             got = {k: faces.get(k, 0) for k in no_b}
             assert got == no_b and no_b != with_b, \
                 f"rack {nm}: gear faces {got} != the kit's no-bindings build {no_b} (bindings {with_b})"
-    # (4) the manifest's rows = the recipe's (vanilla SUB_OBJECTS [+ FINE_SUB_OBJECTS] [+ KIT_ROWS]) [+ the
-    # sign set's identity row]; every vanilla GUID a VANILLA one; parent-0 vanilla rows stand on a mesh face
+    # (4) the manifest's rows = the recipe's (vanilla SUB_OBJECTS [+ FINE_SUB_OBJECTS] [+ KIT_ROWS]) [+ the sign set's
+    # identity row]. Every vanilla GUID a VANILLA one. Parent-0 vanilla rows stand on a mesh face
     so = man.get("sub_objects") or {}
     allrows = so.get("objects") or []
     want = _want_rows(recipe)
@@ -904,7 +934,7 @@ def check_l5_r3(r, obj, table, man, racks):
     sboxes, zones = [], {}
     for row in rows:
         gx, gy, gz = row["position"]
-        # T14 x-sign N (2026-10-16): manifest rows are rule T (game frame); back to the design frame the box/mount
+        # T14 x-sign N (2026-10-16): manifest rows are rule T (game frame). Back to the design frame the box/mount
         # tests use: design x = -gx, yaw = -yaw
         X, Y, Z = gz, -gx + 0.0, gy                        # game local -> authoring (shipped)
         yaw = -_yaw_deg(row["rotation"])
@@ -913,7 +943,7 @@ def check_l5_r3(r, obj, table, man, racks):
         for kind, (lo, hi) in SW.vanilla_boxes((row["prefab"], X, Y, Z, yaw)):
             sboxes.append((lo, hi))
         zones[row["prefab"]] = zones.get(row["prefab"], 0) + 1
-    # (5) the deck stair at the right-hand end, clear of the drive; the valet corridor
+    # (5) the deck stair at the right-hand end, clear of the drive. The valet corridor
     dk = pts("deck_tw")
     assert abs(dk[:, 2].max() - SW.DK_Z) < 1e-4, dk[:, 2].max()
     hb = SW.CT_BASE_W / 2
@@ -1070,7 +1100,7 @@ def verify_vanilla():
         for v in vs:
             if v + " Mesh" in render:
                 meshes.append(v + " Mesh")
-            else:           # trees: one mesh per growth stage; Trashbin0N: Empty / Full meshes
+            else:           # trees: one mesh per growth stage. Trashbin0N: Empty / Full meshes
                 stem, num = re.match(r"(.*?)(\d+)$", v).groups()
                 hit = sorted(k for k in render if re.fullmatch(
                     re.escape(stem) + r"[A-Z][A-Za-z]*" + num + " Mesh", k))
@@ -1094,7 +1124,7 @@ def verify_vanilla():
     import cs2_liftdress as LD
     shared = sorted(set(LD.SUBOBJ) & set(SW.VANILLA))
     wider = []
-    for pf in shared:                   # same GUID; our envelope contains SUBOBJ's
+    for pf in shared:                   # same GUID. Our envelope contains SUBOBJ's
         assert LD.SUBOBJ[pf]["guid"] == SW.VANILLA[pf]["guid"], pf
         (a0, a1), (b0, b1) = LD.SUBOBJ[pf]["bounds"], SW.VANILLA[pf]["bounds"]
         assert all(b0[k] <= a0[k] + 1e-6 and b1[k] >= a1[k] - 1e-6 for k in range(3)), pf
@@ -1150,7 +1180,7 @@ def pass1(tmp):
         LOD0_BOUNDS[recipe.key] = _fbx_frame(W.min(0), W.max(0))
         LOD2_KEPT[recipe.key] = _fbx_frame(*lod2_kept_bounds(recipe, obj, table))
         over = coplanar_overlaps(obj, table)
-        if recipe.key == "L5":         # revision-1 contract; L4 reported only (not revised)
+        if recipe.key == "L5":         # revision-1 contract. L4 reported only (not revised)
             assert not over, f"{name}: {len(over)} coplanar same-facing overlaps: {over[:8]}"
             check_l5_r1(r, obj, table)
             # revision 3 (the revision-2 plaza checks retired with the road plaza)
@@ -1205,9 +1235,9 @@ def pass1(tmp):
 
 def check_pane_guards():
     """buildings-review-geometry F1-F3 guards, each shown to FAIL on a wrong build:
-    - L5 with the old 1.0 m cross-gable bays (inside the 1.46 m main eave reach) raises F1;
-    - check_pane_clearance raises on a roof part 0.3 m in front of a pane and passes at 0.7 m
-      (the 0.6 m ray reach; L4 / L5 builders and test_lodge_contracts use it)."""
+    - L5 with the old 1.0 m cross-gable bays (inside the 1.46 m main eave reach) raises F1.
+    - check_pane_clearance raises on a roof part 0.3 m in front of a pane and passes at 0.7 m (the 0.6 m
+      ray reach. L4 / L5 builders and test_lodge_contracts use it)."""
     from cs2_bldg import WallRef
     L4, L5 = _recipes()
     g = L5.builder.__globals__              # the module the registered builder really reads
@@ -1343,7 +1373,7 @@ def pass3():
             lods[lvl] = (lo, hi)
             drift[lvl] = round(float(max(np.abs(lo - lo0).max(), np.abs(hi - hi0).max())), 3)
         assert drift[1] <= 0.05, f"C15 {name}: LOD1 bounds drift {drift[1]} m"
-        # LOD2 vs the LOD0 parts LOD2 keeps (pass 1); the pass-1 LOD0 must be this export's
+        # LOD2 vs the LOD0 parts LOD2 keeps (pass 1). The pass-1 LOD0 must be this export's
         b0 = LOD0_BOUNDS.get(recipe.key)
         assert b0 is not None, f"C15 {name}: pass 1 did not record the LOD0 bounds"
         same = float(max(np.abs(b0[0] - lo0).max(), np.abs(b0[1] - hi0).max()))
@@ -1360,12 +1390,12 @@ def pass3():
         assert kept <= 0.25, f"C15 {name}: LOD2 bounds drift {kept} m vs the kept LOD0 parts " \
                              f"(lo {np.round(lo2 - klo, 2)}, hi {np.round(hi2 - khi, 2)})"
         subs = ""
-        # revision 3 / L4 revision 1: the rows ship in the manifest; fine-detail step 3e: = the recipe's
-        # rows (vanilla + kit) + the sign set's identity row (L5)
+        # revision 3 / L4 revision 1: the rows ship in the manifest. Fine-detail step 3e: = the recipe's rows (vanilla
+        # + kit) + the sign set's identity row (L5)
         so = (m.get("sub_objects") or {}).get("objects") or []
         want = _want_rows(recipe)
         # T53: the shipped export predates the T14 x-sign N rule-T mirror (2026-10-16, DECISIONS 245: _want_rows is the
-        # game frame, the shipped rows still have x un-negated), so it is stale until the next export. If the shipped
+        # game frame, the shipped rows still have x un-negated). So it is stale until the next export. If the shipped
         # rows equal the recipe rows with x negated, SKIP (loud). Any other difference still fails. (T26's parasol
         # normalization is gone: the parasols are back in the recipes and in the shipped manifest, 2026-10-17.)
         so_np = so

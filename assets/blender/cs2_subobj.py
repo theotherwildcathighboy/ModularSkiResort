@@ -1,20 +1,18 @@
 """
 cs2_subobj.py - vanilla-prop sub-object rows -> labeled review stand-ins (DECISIONS 183).
 
-WHY
----
-Standing rule (2026-10-11 ~22:05): vanilla props are REFERENCED as ObjectSubObjects rows
-(prefab GUID, position, rotation, m_ParentMesh) and never modeled. A review pack that shows only
-our own mesh hides them, so the reviewer never sees where the benches, bins, lamps and tables go.
-`cs2_review.write_pack` calls this module: every row becomes one semi-transparent BOX of the prop's
-union bounds, with a text label, in the pack's SUB collection. Nothing is exported (the pack
-only); the stand-ins never reach an FBX, a PNG or a manifest.
+WHY --- Standing rule (2026-10-11 ~22:05): vanilla props are REFERENCED as ObjectSubObjects rows (prefab
+GUID, position, rotation, m_ParentMesh) and never modeled. A review pack that shows only our own mesh
+hides them, so the reviewer never sees where the benches, bins, lamps and tables go.
+`cs2_review.write_pack` calls this module: every row becomes one semi-transparent BOX of the prop's union
+bounds, with a text label, in the pack's SUB collection. Nothing is exported (the pack only). The
+stand-ins never reach an FBX, a PNG or a manifest.
 
     CS2R_<Name>_prop<NN>            box (cs2r_prop "box"), identity transform, corners in the pack frame
     CS2R_<Name>_prop<NN>_label[k]   the label: LABEL_FACES (4) text objects 90 degrees apart, children of
-                                    the box; each hides its own back (Backfacing -> Transparent), so any
+                                    the box. Each hides its own back (Backfacing -> Transparent), so any
                                     orbit direction shows one un-mirrored face (cs2r_prop "label",
-                                    cs2r_label_face 0..3; face 0 looks at the three_quarter camera)
+                                    cs2r_label_face 0..3, face 0 looks at the three_quarter camera)
     custom props on both: cs2r_prefab / guid / family / parent_mesh / pos_game / rot_game /
                           bounds_lo / bounds_hi / bounds_src / row_source / mount / own_prop
     SUB_NOPROPS                     sibling collection with SUB's pre-existing sub-meshes only
@@ -27,7 +25,7 @@ READER (one function for every block shape the generators write today)
     collect_rows(name, asset_dir, manifest=None)     both, de-duplicated -> (rows, info)
 
 row = {prefab, guid (32 hex or None), pos (gx, gy, gz), rot (x, y, z, w), parent (m_ParentMesh),
-       mount, source, index, own_bounds (own props only)}; pos / rot are PREFAB-LOCAL ("game local").
+       mount, source, index, own_bounds (own props only)}. pos / rot are PREFAB-LOCAL ("game local").
 Block shapes read (tests/test_review_subobjects.py reads every shipped manifest):
   sub_objects.objects[]                    lodge.sub_objects_block: m_Object / prefab / position /
                                            rotation / m_ParentMesh (L1, L2, school, P1, P2)
@@ -39,15 +37,15 @@ Block shapes read (tests/test_review_subobjects.py reads every shipped manifest)
   night_subobjects[]                       lattice towers: prefab / guid / position_net_m /
                                            rotation_xyzw / parent_mesh (60A: WarningLightRandom01)
   props/A/SkiBeaconRedA hosting.rows[]     the beacon addendum (towers-transfer B1): ONE row per host
-                                           tower, anchor = beacon origin, matched by `mesh` == name;
-                                           it REPLACES a night_subobjects WarningLight at the same spot
+                                           tower, anchor = beacon origin, matched by `mesh` == name.
+                                           It REPLACES a night_subobjects WarningLight at the same spot
   sub_objects.objects[] with "kind": "mod" OUR OWN props by object-prefab CID (fine-detail pass,
                                            fine_detail.py: the dressing kit props/B, the sign sets):
                                            m_Object = the CID, prefab = the object prefab, mesh =
-                                           the mesh asset; family "mod" (FAMILY_RGB cyan), label =
-                                           the full prefab name; bounds from the JSON cache keyed by
-                                           prefab name (the kit's 11 entries) or the row's own
-                                           "bounds"; role "signset" rows get NO box (the pack shows
+                                           the mesh asset. Family "mod" (FAMILY_RGB cyan), label =
+                                           the full prefab name. Bounds come from the JSON cache keyed
+                                           by prefab name (the kit's 11 entries) or the row's own
+                                           "bounds". Role "signset" rows get NO box (the pack shows
                                            the real textured sign-set mesh, cs2_review extra_meshes).
                                            A kit row with "colour_set" (kit color variants, 2026-10-12)
                                            is TINTED with its set (colour_set_rgb: the set's slot-2 value
@@ -55,33 +53,31 @@ Block shapes read (tests/test_review_subobjects.py reads every shipped manifest)
                                            labeled with its variant name (SkiDressSkiRackV2_Red)
 
 FRAMES (verified by ray-casting every shipped row onto its pack's LOD0, 2026-10-12)
------------------------------------------------------------------------------------
-Rows are game-local (x lateral, y up, z travel). The packs hold the generators' NET-ORIENTED
-objects (cs2_asset.orient_for_net runs before write_pack in every generator), export_fbx
-bakes (x, y, z) -> (x, z, -y) and the game negates FBX x on import (x-sign gate settled N,
-2026-10-15 playtest; 2026-10-16 / T14: before that this module drew pack = (gx, -gz, gy), the
-old +x frame), so game (gx, gy, gz) = pack (-bx, bz, -by) and
+----------------------------------------------------------------------------------- Rows are game-local (x
+lateral, y up, z travel). The packs hold the generators' NET-ORIENTED objects (cs2_asset.orient_for_net
+runs before write_pack in every generator). export_fbx bakes (x, y, z) -> (x, z, -y), and the game negates
+FBX x on import (x-sign gate settled N, 2026-10-15 playtest. 2026-10-16 / T14: before that this module
+drew pack = (gx, -gz, gy), the old +x frame). So game (gx, gy, gz) = pack (-bx, bz, -by) and
     pack = (-gx, -gz, gy)                    game_to_pack()
-(tram_station._Q, lift_terminal_detach._post(blender_to_game(...)) are the same map). A yaw
-quaternion turns the prop's local +Z towards +X (cs2_liftdress.facing_quat); the corner transform
-below is cs2_liftdress.subobj_box's, so a stand-in's world AABB equals subobj_box(...) mapped to
-the pack frame (the test asserts it). m_ParentMesh 0 = on the main mesh, -1 = on the lot (snapped
-to terrain at runtime): both are placed at the row's position, -1 gets "(ground)" in its label.
+(tram_station._Q, lift_terminal_detach._post(blender_to_game(...)) are the same map). A yaw quaternion
+turns the prop's local +Z towards +X (cs2_liftdress.facing_quat). The corner transform below is
+cs2_liftdress.subobj_box's, so a stand-in's world AABB equals subobj_box(...) mapped to the pack frame
+(the test asserts it). m_ParentMesh 0 = on the main mesh, -1 = on the lot (snapped to terrain at runtime).
+Both are placed at the row's position. -1 gets "(ground)" in its label.
 
-BOUNDS
-------
-Union of the placeholder mesh and every variant mesh (RenderPrefab m_Bounds, game local, y up):
+BOUNDS ------ Union of the placeholder mesh and every variant mesh (RenderPrefab m_Bounds, game local, y
+up):
   1. cs2_liftdress.SUBOBJ (verified against the dump, K7)      source "SUBOBJ"
   2. assets/blender/subobj_bounds.json (this module's cache)   source "cache"
   3. the vanilla dump %TEMP%\\pltar\\dump.zip, in memory       source "dump"
   4. unknown: a 0.5 m cube and a "?" label                     source "unknown" (printed)
-Rebuild / extend the cache (Blender's Python; reads the LZMA zip):
+Rebuild / extend the cache (Blender's Python reads the LZMA zip):
     blender --background --factory-startup --python cs2_subobj.py -- --build-bounds
     blender --background --factory-startup --python cs2_subobj.py -- --prop FenceResidentialPieceLowRandom01 ...
 
 Side effects: data API only (no operator, no selection, nothing linked to a scene). Every datablock
-created here lives in a pack the caller removes again (cs2_review's ID-snapshot purge, which now
-includes `fonts`).
+created here lives in a pack the caller removes again (cs2_review's ID-snapshot purge, which now includes
+`fonts`).
 """
 
 import json
@@ -137,10 +133,11 @@ RECOLOR_ALBEDO = 0.80                # cs2_asset.RECOLOR_ALBEDO: the kit accent 
 
 def colour_set_rgb(key):
     """The review tint of a kit color set (fine_detail.COLOUR_SETS): its slot-2 VariationSet value x the 0.80
-    accent albedo = what the gear accent / akja shell show (linear; the in-game color space is unverified)."""
+    accent albedo = what the gear accent / akja shell show (linear. The in-game color space is
+    unverified)."""
     import fine_detail as FD
     return tuple(round(float(v) * RECOLOR_ALBEDO, 4) for v in FD.COLOUR_SETS[key].rgb)
-LABEL_SIZE = 0.30                    # m (small packs; larger packs scale it, see label_size)
+LABEL_SIZE = 0.30                    # m (small packs. Larger packs scale it, see label_size)
 LABEL_REL = 0.016                    # label size per meter of the pack's LOD0 bounding-box diagonal
 LABEL_MAX = 0.60                     # m
 LABEL_FACES = 4                      # one text object per 90 degrees of azimuth: whichever way the viewer
@@ -157,7 +154,7 @@ LABEL_FACING = (1.0, -1.2)
 
 def game_to_pack(p):
     """Prefab-local (gx, gy, gz) -> the net-oriented pack frame (bx, by, bz) = (-gx, -gz, gy) (gx NEGATED:
-    the game negates FBX x on import; x-sign gate N)."""
+    the game negates FBX x on import, x-sign gate N)."""
     return (-float(p[0]) + 0.0, -float(p[2]), float(p[1]))
 
 
@@ -166,8 +163,8 @@ def pack_to_game(p):
 
 
 def quat_matrix(q):
-    """3x3 rotation (row-major tuples) of a unit quaternion (x, y, z, w); for a pure yaw about +Y
-    this is cs2_liftdress.subobj_box's x' = x cos + z sin, z' = -x sin + z cos."""
+    """3x3 rotation (row-major tuples) of a unit quaternion (x, y, z, w). For a pure yaw about +Y this is
+    cs2_liftdress.subobj_box's x' = x cos + z sin, z' = -x sin + z cos."""
     x, y, z, w = (float(v) for v in q)
     n = math.sqrt(x * x + y * y + z * z + w * w) or 1.0
     x, y, z, w = x / n, y / n, z / n, w / n
@@ -362,10 +359,10 @@ def _load_manifest(asset_dir, name):
 
 def collect_rows(name, asset_dir, manifest=None):
     """
-    (rows, info) for pack `name`. manifest: None = read <asset_dir>/<name>.manifest.json (the
-    generator's own, or the shipped one for write_standin_pack); a dict = that manifest (or just
-    {"sub_objects": block}); {} = explicitly none; a str = a manifest path. The beacon addendum
-    rows for `name` are always added; a night_subobjects WarningLight at the same spot is dropped.
+    (rows, info) for pack `name`. manifest: None = read <asset_dir>/<name>.manifest.json (the generator's
+    own, or the shipped one for write_standin_pack). A dict = that manifest (or just {"sub_objects":
+    block}). {} = explicitly none. A str = a manifest path. The beacon addendum rows for `name` are always
+    added. A night_subobjects WarningLight at the same spot is dropped.
     """
     src = "arg"
     if isinstance(manifest, str):
@@ -538,7 +535,7 @@ def lookup_bounds(prefab, guid=None, own_bounds=None):
 # Stand-in objects (data API only)
 # --------------------------------------------------------------------------------------
 
-#: outward-facing quads over the corner index bits (x = 4, y = 2, z = 1); flipped per box if needed
+#: outward-facing quads over the corner index bits (x = 4, y = 2, z = 1), flipped per box if needed
 _QUADS = ((0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3))
 
 
@@ -634,19 +631,19 @@ def _label_object(name, text, anchor, rgb_mat, size=LABEL_SIZE, face=0):
 
 def add_standins(name, rows, root, sub_coll, info=None, ref_size=None):
     """
-    Build one box + its label (LABEL_FACES text objects, parented to the box) per row into `sub_coll` (the pack's SUB collection) and, when there is
-    at least one, the sibling collection SUB_NOPROPS (root's child) that holds only what SUB held
-    before (review_live.props swaps the SUB instance between the two). Returns a summary dict:
-    {n, families, unknown, sources, objects [names], rows [json-able], label_size, error?}. ref_size = the
-    pack's LOD0 bounding-box diagonal in m (labels scale with it).
+    Build one box + its label (LABEL_FACES text objects, parented to the box) per row into `sub_coll` (the
+    pack's SUB collection). When there is at least one, it also builds the sibling collection SUB_NOPROPS
+    (root's child) that holds only what SUB held before (review_live.props swaps the SUB instance between
+    the two). Returns a summary dict: {n, families, unknown, sources, objects [names], rows [json-able],
+    label_size, error?}. ref_size = the pack's LOD0 bounding-box diagonal in m (labels scale with it).
     """
     info = info or {}
     summary = {"n": 0, "families": {}, "unknown": 0, "sources": {}, "objects": [], "rows": [],
                "replaced": info.get("replaced") or [], "manifest": info.get("source")}
     if not rows:
         return summary
-    # role "signset" rows: no box (the real sign-set mesh is in the pack, cs2_review extra_meshes);
-    # counted and listed, so a pack without the mesh still reports the row
+    # role "signset" rows: no box (the real sign-set mesh is in the pack, cs2_review extra_meshes). They
+    # are counted and listed, so a pack without the mesh still reports the row
     sets = [r for r in rows if r.get("kind") == "mod" and r.get("role") == "signset"]
     if sets:
         summary["signset_rows"] = [{"prefab": r["prefab"], "cid": r.get("cid"), "mesh": r.get("mesh")}

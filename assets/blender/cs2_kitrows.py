@@ -1,11 +1,11 @@
 """
-cs2_kitrows.py - the dressing kit's ROW PATH on a station host, shared (fine-detail step 3c, 2026-10-12;
-docs/research/art/assets-2026-10/build/fine-detail-step3c-tram-pali.md).
+cs2_kitrows.py - the dressing kit's ROW PATH on a station host, shared (fine-detail step 3c,
+2026-10-12, docs/research/art/assets-2026-10/build/fine-detail-step3c-tram-pali.md).
 
-The dressing kit (props letter B, build/dress-kit.md) replaces host-modeled dressing (racks, hose reels,
-extinguishers, e-stops, tools) with "mod" sub-object rows (fine_detail.kit_row / kit_lean_row, written by
-cs2_liftdress.sub_object_rows(fine=True)). This module holds what every station generator needs for those
-rows, frame-agnostic:
+The dressing kit (props letter B, build/dress-kit.md) replaces host-modeled dressing (racks, hose
+reels, extinguishers, e-stops, tools) with "mod" sub-object rows (fine_detail.kit_row /
+kit_lean_row, written by cs2_liftdress.sub_object_rows(fine=True)). This module holds what every
+station generator needs for those rows, frame-agnostic:
 
     load_kit_mesh(mesh)          the SHIPPED kit FBX (assets/import/props/B/<mesh>/<mesh>.fbx) as numpy in its
                                  prefab frame (raw FBX cm / 100), checked against the kit manifest's bounds_m
@@ -20,18 +20,19 @@ rows, frame-agnostic:
     probe_object(t, rows, game_to_world)      the same as a temporary part-tagged object (contracts that read
                                  an object), removed again by remove_probe()
 
-FRAMES. Every generator now writes game x = -authoring y (x-sign gate settled N, 2026-10-15 playtest; S1b-N / T14
-2026-10-16): the DQ / gondola stations (cs2_liftdress.blender_to_game) and the Pali M stations (lift_terminal.
-m_to_game) hand this module GAME rows. The tram still checks its rows in its DESIGN frame (prefab-numbers, X = FBX-raw
-x, tram_station._fd_host = (Z, X, Y), not game) and only check_subobjects writes them through rule T
-(fine_detail.design_row_to_game) into the manifest. Every check here runs in the generator's z-up HOST frame
-(x travel, y lateral, z up); the caller passes `to_host(G)` mapping the rows' own frame (N, 3) arrays into it:
-tram (design) (gz, gx, gy), Pali M (game) (gz, -gx, gy). A row is always in the caller's own frame, so the kit prop
-stands exactly as authored; the Pali host frame reads the placed mesh mirrored along its long axis (the M map is
-a reflection), which no contract here depends on.
+FRAMES. Every generator now writes game x = -authoring y (x-sign gate settled N, 2026-10-15
+playtest, S1b-N / T14 2026-10-16): the DQ / gondola stations (cs2_liftdress.blender_to_game) and the
+Pali M stations (lift_terminal. m_to_game) hand this module GAME rows. The tram still checks its
+rows in its DESIGN frame (prefab-numbers, X = FBX-raw x, tram_station._fd_host = (Z, X, Y), not
+game) and only check_subobjects writes them through rule T (fine_detail.design_row_to_game) into the
+manifest. Every check here runs in the generator's z-up HOST frame (x travel, y lateral, z up). The
+caller passes `to_host(G)`, which maps the rows' own frame (N, 3) arrays into it: tram (design) (gz,
+gx, gy), Pali M (game) (gz, -gx, gy). A row is always in the caller's own frame, so the kit prop
+stands exactly as authored. The Pali host frame reads the placed mesh mirrored along its long axis
+(the M map is a reflection), which no contract here depends on.
 
-lift_terminal_detach.py (step 3b) keeps its own copy of these helpers until its owner moves it here (its F1
-must stay byte-identical; build/fine-detail-step3b-stations.md section 13 item 1).
+lift_terminal_detach.py (step 3b) keeps its own copy of these helpers until its owner moves it here
+(its F1 must stay byte-identical, build/fine-detail-step3b-stations.md section 13 item 1).
 """
 
 import hashlib
@@ -69,8 +70,9 @@ _KIT_LEDGE = {}
 
 
 def load_kit_mesh(mesh):
-    """The shipped kit FBX as {"V" (N, 3) prefab frame (x, y up, z), "tris", "sha1", "path"}; cached by sha1.
-    The import's objects, materials and images are removed again and the active object restored."""
+    """The shipped kit FBX as {"V" (N, 3) prefab frame (x, y up, z), "tris", "sha1", "path"}. Cached by
+    sha1. The import's objects, materials and images are removed again and the active object
+    restored."""
     path = os.path.join(KIT_ROOT, mesh, f"{mesh}.fbx")
     if not os.path.isfile(path):
         raise KitRowError(f"F1 no dressing-kit FBX at {path} (props/B must ship first)")
@@ -135,10 +137,11 @@ def host_mesh(row, to_host):
 
 
 def kit_ledge_offset(mesh, h0, h1, step=0.001):
-    """A leaning kit prop against a LEDGE (a face spanning heights h0 .. h1 above the floor, nothing in its
-    plane above h1): the distance d >= 0 its rest plane (prefab z = rest_z, the kit's min z) must sit BEHIND
-    the ledge face so the prop just touches the ledge's top edge = (the kit faces' min prefab z over h0 .. h1,
-    sliced every `step`) - rest_z. Measured on the shipped kit FBX."""
+    """A leaning kit prop against a LEDGE (a face spanning heights h0 .. h1 above the floor, nothing in
+    its plane above h1). Returns the distance d >= 0 that its rest plane (prefab z = rest_z, the
+    kit's min z) must sit BEHIND the ledge face. Then the prop just touches the ledge's top edge. d
+    = (the kit faces' min prefab z over h0 .. h1, sliced every `step`) - rest_z. Measured on the
+    shipped kit FBX."""
     km = load_kit_mesh(mesh)
     key = (km["sha1"], round(float(h0), 4), round(float(h1), 4), step)
     if key in _KIT_LEDGE:
@@ -160,11 +163,12 @@ def kit_ledge_offset(mesh, h0, h1, step=0.001):
 
 
 def kit_tube_offset(mesh, hc, r, step=0.001):
-    """A leaning kit prop against a horizontal TUBE (a railing's top rail: axis at height hc above the floor,
-    radius r, running along the wall plane): the distance d >= 0 its rest plane (prefab z = rest_z) sits behind the
-    tube's inner face (the tube surface at its equator) so the prop just touches the tube - the tube center goes
-    where the prop's cross-section, sliced every `step` over hc -+ r, first meets the circle:
-    z_c = min over h of (the kit faces' min prefab z at h - sqrt(r^2 - (h - hc)^2)), d = z_c + r - rest_z."""
+    """A leaning kit prop against a horizontal TUBE (a railing's top rail: axis at height hc above the
+    floor, radius r, running along the wall plane). d >= 0 is the distance its rest plane (prefab z
+    = rest_z) sits behind the tube's inner face (the tube surface at its equator), so the prop just
+    touches the tube. The tube center goes where the prop's cross-section, sliced every `step` over
+    hc -+ r, first meets the circle: z_c = min over h of (the kit faces' min prefab z at h -
+    sqrt(r^2 - (h - hc)^2)), d = z_c + r - rest_z."""
     km = load_kit_mesh(mesh)
     key = ("tube", km["sha1"], round(float(hc), 4), round(float(r), 4), step)
     if key in _KIT_LEDGE:
@@ -208,26 +212,28 @@ def _box_tree(lo, hi):
 
 def check_kit_rows(specs, rows, co, tris, names, to_host, *, all_names, keepouts=(), envelopes=(), clouds=(),
                    vboxes=(), lot=None, code="F1", access=ACCESS, grade_z=0.0):
-    """F1 on every kit row, in the generator's z-up HOST frame (co (N, 3), tris (T, 3) ints, names = one part
-    name per triangle; `to_host` maps game-local arrays into it). `specs[i]` belongs to `rows[i]`:
-    {"prop", "pos" (host: ground = foot center, wall = the mount point ON the wall face at the prop's bottom,
-    lean = the wall / ledge face point at the floor), "normal" (host, horizontal: the facing / the wall's
-    outward normal), "mount" (ground | wall | lean), "grade" (bool: stands on the ground, no mesh under it),
-    "removed" (part-name prefixes the row replaces), "was", optional "ledge" (h0, h1)}. Checks:
+    """F1 on every kit row, in the generator's z-up HOST frame (co (N, 3), tris (T, 3) ints, names =
+    one part name per triangle. `to_host` maps game-local arrays into it). `specs[i]` belongs to
+    `rows[i]`: {"prop", "pos" (host: ground = foot center, wall = the mount point ON the wall face
+    at the prop's bottom, lean = the wall / ledge face point at the floor), "normal" (host,
+    horizontal: the facing / the wall's outward normal), "mount" (ground | wall | lean), "grade"
+    (bool: stands on the ground, no mesh under it), "removed" (part-name prefixes the row replaces),
+    "was", optional "ledge" (h0, h1)}. Checks:
       - the row's CID is the staged object-prefab CID (fine_detail.staged_cid) of an uncolored prop or the
-        color-set VARIANT's seeded CID of a colored one (fine_detail.row_colour_error) and no part of `all_names`
-        starts with a `removed` prefix;
+        color-set VARIANT's seeded CID of a colored one (fine_detail.row_colour_error), and no part of `all_names`
+        starts with a `removed` prefix.
       - mount: ground props have a floor face <= MOUNT_GAP under the foot center and every AABB bottom corner
-        (inset 3 cm; grade props stand at grade_z exactly); wall props have a wall face <= MOUNT_GAP behind the
+        (inset 3 cm, grade props stand at grade_z exactly). Wall props have a wall face <= MOUNT_GAP behind the
         center and every corner of their silhouette, and `access` m of free space in front (no station
-        triangle, no vanilla box, no other kit row); lean props keep the foot-line rule (|lean_rest_gap| <=
-        fine_detail.FOOT_TOL), the mesh moved MOUNT_GAP toward the wall meets a station face (contact) and the
-        floor is under the feet;
-      - the REAL kit mesh, backed CLEAR_OFF off its mount, overlaps no station triangle (BVH);
+        triangle, no vanilla box, no other kit row). Lean props keep the foot-line rule (|lean_rest_gap| <=
+        fine_detail.FOOT_TOL), the mesh moved MOUNT_GAP toward the wall meets a station face (contact), and the
+        floor is under the feet.
+      - the REAL kit mesh, backed CLEAR_OFF off its mount, overlaps no station triangle (BVH).
       - its AABB meets no keep-out / envelope box, keeps the `clouds` minimum distances (a swept-carrier point
         cloud: (label, points, min_gap)), meets no vanilla row box and no other kit row, and stays in `lot`
         ((xlo, xhi, ylo, yhi) host).
-    Returns ({code: message}, {"rows": [record per row]}); raises KitRowError("<code> kit rows: ...")."""
+    Returns ({code: message}, {"rows": [record per row]}). Raises KitRowError("<code> kit rows:
+    ...")."""
     if not specs:
         return {}, None
     if len(specs) != len(rows):
@@ -249,7 +255,7 @@ def check_kit_rows(specs, rows, co, tris, names, to_host, *, all_names, keepouts
     for i, (s, r) in enumerate(zip(specs, rows)):
         tag = f"{s['prop']}@{s['pos'][0]:.2f},{s['pos'][1]:.2f}"
         # the CID: KIT's staged one for an uncolored prop, the color-set VARIANT's for a colored one
-        # (kit color variants 2026-10-12; fine_detail.row_colour_error)
+        # (kit color variants 2026-10-12, fine_detail.row_colour_error)
         cerr = FD.row_colour_error(r)
         if cerr or r["prefab"] != s["prop"]:
             raise KitRowError(f"{code} {tag}: CID {r['m_Object']}: {cerr or 'prefab ' + str(r['prefab'])}")
@@ -399,10 +405,10 @@ def augment(co, tris, names, rows, to_host, prefix=KIT_PART_PREFIX):
 
 
 def probe_object(t, rows, game_to_world, part_prop, name="KitRowProbe", prefix=KIT_PART_PREFIX):
-    """A temporary copy of the part-tagged joined object `t` with every kit row's placed mesh appended (world
-    coordinates by `game_to_world` of the game-local placement), each a part `<prefix><index>_<prop>` in the
-    copied part table (`part_prop` = cs2_asset.PART_TABLE_PROP): for the contracts that read an object
-    (tram C15 / Pali M7). remove_probe() deletes it."""
+    """A temporary copy of the part-tagged joined object `t` with every kit row's placed mesh appended
+    (world coordinates by `game_to_world` of the game-local placement). Each row is a part
+    `<prefix><index>_<prop>` in the copied part table (`part_prop` = cs2_asset.PART_TABLE_PROP). It
+    serves the contracts that read an object (tram C15 / Pali M7). remove_probe() deletes it."""
     me = t.data.copy()
     me.name = name
     table = json.loads(me[part_prop])

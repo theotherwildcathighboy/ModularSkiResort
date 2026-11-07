@@ -1,24 +1,25 @@
 """
 rig_probe.py - AlignRigProbeA: the first SKINNED mesh of this project (lift alignment, 2026-11-02).
 
-A dev probe, not a shipped asset (no `Ski` prefix). It proves that an Editor import of our FBX yields a
-RenderPrefab with ProceduralAnimationProperties whose bones the game animates (bullwheel spin, grip / train
-pitch). Import steps and the prefab surgery: assets/import/probes/A/README.md.
+A dev probe, not a shipped asset (no `Ski` prefix). It proves that an Editor import of our FBX
+yields a RenderPrefab with ProceduralAnimationProperties whose bones the game animates (bullwheel
+spin, grip / train pitch). Import steps and the prefab surgery: assets/import/probes/A/README.md.
 
-Parts (authoring frame: meters, Z up, origin = ground center; game frame = (-x, z, -y), PIPELINE.md rule T):
+Parts (authoring frame: meters, Z up, origin = ground center, game frame = (-x, z, -y), PIPELINE.md
+rule T):
   Root   static: base beam + wheel post + train post
-  Wheel  a horizontal wheel (rim, hub, 4 spokes; spoke +X is the orange marker with a block on the rim),
-         hub at WHEEL_HUB; meant to spin about its own local Y (game up), the vanilla AC fan pattern
+  Wheel  a horizontal wheel (rim, hub, 4 spokes. Spoke +X is the orange marker with a block on the rim),
+         hub at WHEEL_HUB. It is meant to spin about its own local Y (game up), the vanilla AC fan pattern
   Train  a horizontal 1.5 m bar along authoring Y (game Z) with an orange arrow on the authoring -Y end
-         (= game +Z, object forward) and a pivot pin; meant to be pitched about its local X by our code
-Every bone points UP with roll 0, so its rest rotation is identity in the game frame (export_fbx_skinned).
-LOD0 and LOD1 (fewer segments, no pin) are skinned to the same three bones.
+         (= game +Z, object forward) and a pivot pin. It is meant to be pitched about its local X by our code
+Every bone points UP with roll 0, so its rest rotation is identity in the game frame
+(export_fbx_skinned). LOD0 and LOD1 (fewer segments, no pin) are skinned to the same three bones.
 
     blender --background --factory-startup --python-exit-code 1 --python rig_probe.py -- --out <letter folder>
 
-Writes <out>/AlignRigProbeA/ (FBX x2, the four 512 maps, settings.json with useProceduralAnimation), then
-re-imports both FBX files in an empty scene, prints / writes the round-trip report and renders two previews
-(rest; wheel 45 deg + train 20 deg) into --preview. Run from assets/blender (cwd).
+Writes <out>/AlignRigProbeA/ (FBX x2, the four 512 maps, settings.json with useProceduralAnimation),
+then re-imports both FBX files in an empty scene, prints / writes the round-trip report and renders
+two previews (rest, then wheel 45 deg + train 20 deg) into --preview. Run from assets/blender (cwd).
 """
 import argparse
 import json
@@ -229,7 +230,7 @@ def _import(path):
 
 
 def roundtrip(path):
-    """Re-import one FBX into the current (empty) scene; report rig + weights in the RAW file frame."""
+    """Re-import one FBX into the current (empty) scene. Report rig + weights in the RAW file frame."""
     objs = _import(path)
     arms = [o for o in objs if o.type == "ARMATURE"]
     meshes = [o for o in objs if o.type == "MESH"]
@@ -240,7 +241,7 @@ def roundtrip(path):
     rep["armature_matrix_world"] = [list(map(lambda x: round(x, 5), r)) for r in arm.matrix_world]
     rep["mesh_parent"] = me_ob.parent.name if me_ob.parent else None
     rep["mesh_modifiers"] = [(m.type, getattr(getattr(m, "object", None), "name", None)) for m in me_ob.modifiers]
-    to_raw = arm.matrix_world  # importer frame -> world; the raw file frame is what the game reads
+    to_raw = arm.matrix_world  # importer frame -> world. The raw file frame is what the game reads
     bones = []
     for b in arm.data.bones:
         m = to_raw @ b.matrix_local
@@ -291,7 +292,7 @@ def _look_at(cam, target):
 
 
 def render_previews(asset_dir, preview_dir, res):
-    """LOD0 from the exported FBX, displayed in the authoring frame; rest and posed."""
+    """LOD0 from the exported FBX, displayed in the authoring frame. Rest and posed."""
     os.makedirs(preview_dir, exist_ok=True)
     objs = _import(os.path.join(asset_dir, f"{NAME}.fbx"))
     arm = next(o for o in objs if o.type == "ARMATURE")

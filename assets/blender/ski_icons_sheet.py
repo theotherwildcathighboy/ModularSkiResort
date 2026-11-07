@@ -1,10 +1,18 @@
 """
 Review sheet for the Build-strip icons drawn by ski_icons.py (the preview gate of docs/PIPELINE.md
-section 2 for icons): the nine icons large, the hub's Build strip mocked at the real 1080p sizes
-(text scale 100 / 130 / 150 %: icons 30 / 39 / 45 px) with an active (blue) tile, a locked tile
-and the step digits, the 30 px strip in grayscale, before / after against the installed icons,
-the bilinear-without-mipmaps worst case, 4K (60 px), and x3 zooms. Also prints the mean grayscale
-difference between the four run icons at 30 px (the "tell the run types apart" check).
+section 2 for icons). The sheet shows:
+- the nine icons large.
+- the hub's Build strip mocked at the real 1080p sizes (text scale 100 / 130 / 150 %: icons 30 / 39
+  /
+  45 px) with an active (blue) tile, a locked tile and the step digits.
+- the 30 px strip in grayscale.
+- before / after against the installed icons.
+- the bilinear-without-mipmaps worst case.
+- 4K (60 px).
+- x3 zooms.
+
+The script also prints the mean grayscale difference between the four run icons at 30 px (the "tell
+the run types apart" check).
 
 The strip mock follows hub.module.scss (.buildFooter / .buildGroup / .buildCell / .buildTile /
 .buildIcon / .buildStripe / .buildStep / .buildLock) and the installed UI colors. The game's own
@@ -12,25 +20,27 @@ downscale filter is unverified: the sheet shows an area average and a bilinear w
 
     "<blender>\\<ver>\\python\\bin\\python.exe" ski_icons_sheet.py --out <dir> [--live <root>]
 
---live = an ImportedData root holding the installed icons for the before-strip (default: the
-repo's gamedata-mirror/ImportedData; '' = no before-strip). Writes <dir>/sheet.png only.
-Ported 2026-10-04 from the session generator of the style-E round (ski_icons_e2.py).
+--live = an ImportedData root holding the installed icons for the before-strip (default: the repo's
+gamedata-mirror/ImportedData, '' = no before-strip). Writes <dir>/sheet.png only. Ported 2026-10-04
+from the session generator of the style-E round (ski_icons_e2.py).
 
     ... ski_icons_sheet.py --launcher --out <dir> [--before <png>]
 
 --launcher (Round F7 E1, 2026-10-04 night) writes the hub launcher's review sheet instead
-(docs/research/art/icons-2026-10-04/launcher/sheet.png): SkiResortTab.png large and next to the
-nine tiles, the floating button at 1080p (button 40 px, icon 33 px) and 4K (80 / 68 px) as
-measured in docs/research/field/2026-10-04/20.23.05.92.png, area average and bilinear, grayscale,
-zoomed, before / after. --before = the old launcher PNG (default: the retired copy).
+(docs/research/art/icons-2026-10-04/launcher/sheet.png): SkiResortTab.png large and next to the nine
+tiles, the floating button at 1080p (button 40 px, icon 33 px) and 4K (80 / 68 px) as measured in
+docs/research/field/2026-10-04/20.23.05.92.png, area average and bilinear, grayscale, zoomed, before
+/ after. --before = the old launcher PNG (default: the retired copy).
 
     ... ski_icons_sheet.py --contact --out <dir> [--name build-strip.png]
 
---contact (round 2, 2026-10-11; docs/research/art/assets-2026-10/build/icons-round-2.md) writes the
-contact sheet of all 25 Build-strip tiles instead: every tile at 64 px on an 88 px hub tile in
-BUILD_GROUPS order with step digits and run stripes, the round-2 tiles labeled in amber; the
-strip at the real 1080p size (30 px) as the pickers draw it for five lodge-tier / lift-type pairs,
-actual size and zoomed x3; and the 16 round-2 tiles at 160 px.
+--contact (round 2, 2026-10-11, docs/research/art/assets-2026-10/build/icons-round-2.md) writes the
+contact sheet of all 25 Build-strip tiles instead:
+- every tile at 64 px on an 88 px hub tile in BUILD_GROUPS order with step digits and run stripes,
+  the round-2 tiles labeled in amber.
+- the strip at the real 1080p size (30 px) as the pickers draw it for five lodge-tier / lift-type
+  pairs, actual size and zoomed x3.
+- the 16 round-2 tiles at 160 px.
 """
 
 import argparse
@@ -44,7 +54,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ski_icons as si  # noqa: E402
 
-# UI colors (measured in docs/research/field/2026-10-03b/20.45.49.96.png, 4K; installed index.css)
+# UI colors (measured in docs/research/field/2026-10-03b/20.45.49.96.png, 4K, installed index.css)
 FOOTER_BG = (21, 32, 44)
 TILE_BG = (53, 80, 95)
 TILE_ACTIVE = (30, 131, 170)        # --selectedColor #1e83aa
@@ -70,7 +80,7 @@ LAUNCHER_BEFORE = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(
                                                 "..", "gamedata-mirror", "retired",
                                                 "2026-10-04-launcher-pre-edit", "SkiResortTab.png"))
 # The launcher's surroundings, measured in docs/research/field/2026-10-04/20.23.05.92.png (4K):
-# floating button 80 px, color (231, 252, 254), the icon 68 px inside it; snowy terrain behind.
+# floating button 80 px, color (231, 252, 254), the icon 68 px inside it. Snowy terrain behind.
 BUTTON_BG = (231, 252, 254)
 TERRAIN_BG = (227, 229, 225)
 NEIGHBOUR = (0, 247, 253)           # the other mods' buttons on the same row (plain squares here)
@@ -129,7 +139,7 @@ def decode_png(path):
 
 
 def live_files(root):
-    """Installed icon per tile; the lift tile falls back to SkiResortTab.png where no
+    """Installed icon per tile. The lift tile falls back to SkiResortTab.png where no
     SkiChairliftLine.png is installed yet. Returns (files, lift_note)."""
     files = {n: f"SkiResortIcons/{n}.png" for n in STRIP_ORDER}
     note = "SKIRESORTICONS/SKICHAIRLIFTLINE.PNG"
@@ -159,8 +169,8 @@ def area_weights(n_in, n_out):
 
 
 def bilin_weights(n_in, n_out):
-    """Bilinear sampling at the output pixel centers, no mipmaps (the worst case the field
-    screenshot pointed to; game filter unverified)."""
+    """Bilinear sampling at the output pixel centers, no mipmaps (the worst case the field screenshot
+    pointed to, game filter unverified)."""
     w = np.zeros((n_out, n_in))
     sc = n_in / n_out
     for o in range(n_out):
@@ -287,7 +297,7 @@ FONT = {
     "_": ["00000", "00000", "00000", "00000", "00000", "00000", "11111"],
 }
 
-# Vector step digits (a plain sans; cap height h, stroke 0.15 h), drawn at the real XS font size.
+# Vector step digits (a plain sans, cap height h, stroke 0.15 h), drawn at the real XS font size.
 DIGITS = {
     "1": [[(0.18, 0.20), (0.46, 0.0), (0.46, 1.0)]],
     "2": [[(0.04, 0.22), (0.14, 0.06), (0.34, 0.0), (0.54, 0.05), (0.64, 0.22), (0.60, 0.40),
@@ -606,7 +616,7 @@ def make_launcher_sheet(icons, launcher, before, path):
 
 
 # ---------------------------------------------------------------------------------------------
-# Contact sheet of all 25 tiles (--contact; round 2, 2026-10-11)
+# Contact sheet of all 25 tiles (--contact, round 2, 2026-10-11)
 # ---------------------------------------------------------------------------------------------
 CONTACT_LABEL = {
     "SkiResortGate": "WELCOME SIGN", "SkiAFrameDayLodge": "A-FRAME LODGE",

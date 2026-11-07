@@ -1,81 +1,98 @@
 """
-cs2_signset.py - the shared BUILDING SIGN SHEET and the per-host SIGN-SET props (fine-detail
-pass, design/fine-detail-pass.md C as cut by -skeptic.md FS5 / FS12 / FS14 / FS15 / FS16;
-seventeenth look H2: name signs glow faintly at night when powered, intensity 0.2).
-Build report: docs/research/art/assets-2026-10/build/fine-detail-step2-engine.md.
+cs2_signset.py holds the shared BUILDING SIGN SHEET and the per-host SIGN-SET props (fine-detail pass,
+design/fine-detail-pass.md C as cut by -skeptic.md FS5 / FS12 / FS14 / FS15 / FS16). Seventeenth look H2: name signs glow
+faintly at night when powered, intensity 0.2. Build report:
+docs/research/art/assets-2026-10/build/fine-detail-step2-engine.md.
 
-WHY. The building signs were stamped into each host's atlas with a 5x7 bitmap font at
-38-122 px/m (4-6 texels per letter cell): "some of the TEXT SIGNS are PIXELATED". Here every
-label face of an opted-in host leaves the host and is drawn by ONE small sign-set prop per host
-(one quad per label face at its exact as-built position, placed by an identity sub-object row)
-from ONE shared 2048^2 five-map sheet at ~300 px/m in the VECTOR font (Blender's Bfont through
-cs2_liftdress._text_cov, the lift boards' path). Lift boards stay as they are (FS5: the game
-camera cannot get inside 10 m, where the 400 px/m boards are already oversampled).
+WHY. The build stamped the building signs into each host's atlas with a 5x7 bitmap font at 38-122 px/m (4-6 texels per
+letter cell). Result: "some of the TEXT SIGNS are PIXELATED". Now every label face of an opted-in host leaves the host.
+ONE small sign-set prop per host draws these faces: one quad per label face at its exact as-built position, placed by an
+identity sub-object row. The prop reads ONE shared 2048^2 five-map sheet at ~300 px/m in the VECTOR font (Blender's Bfont
+through cs2_liftdress._text_cov, the lift boards' path). Lift boards stay as they are (FS5: the game camera cannot get
+inside 10 m, where the 400 px/m boards are already oversampled).
 
-THE SHEET (SHEET, below; FROZEN and APPEND-ONLY, SS4)
-    2048^2, maps BaseColor / ControlMask / MaskMap / Normal / Emissive, SHEET_PPM 300 px/m,
-    GUTTER 8 px between rects and from the edges, each painted rect's border dilated DILATE px
-    into its gutter (mip-safe). Owned by the FIRST sign-set prop, SkiSignSetSchoolB: its folder
-    holds the only five PNGs. Every later host's sign set is a SHARER (settings.json
-    sharedAssets -> the owner's PNGs, cs2_asset.write_settings(shared_from=...), probe F1).
-    Kinds of APPROVED hosts are painted (school, L2); kinds of PENDING hosts are BLANK reserved
-    rects (FS14: P1, P2, L5, tram), painted once that host's design is approved. Once the
-    sheet is imported its rects never move (a sharer's UVs point into them): a new kind goes into
-    free space (append a Kind with a rect inside the free area), a CHANGED painted rect after
-    import means a new owner letter (both sheets coexist until the sharers migrate, design C.2).
-    Lit kinds (Emissive): the NAME signs only (SKI SCHOOL, RESTAURANT, SKI PATROL x2 when
-    painted): emissive = the letters' coverage x EMISSIVE_SRGB; surgery sets the importer's
-    EmissiveProperties intensity 5 -> EMISSIVE_INTENSITY 0.2 (vanilla shop sign, design C.2).
-    ControlMask 0 everywhere (signs are never tinted), MaskMap metal 0 / smoothness SMOOTH,
-    Normal flat (printed boards; the frames stay in the host atlas and weather with it).
+THE SHEET (SHEET, below. FROZEN and APPEND-ONLY, SS4)
+- The sheet is 2048^2 with the maps BaseColor / ControlMask / MaskMap / Normal / Emissive and
+  SHEET_PPM 300 px/m.
+- GUTTER is 8 px between rects and from the edges. Each painted rect's border is dilated DILATE px
+  into its gutter (mip-safe).
+- The FIRST sign-set prop, SkiSignSetSchoolB, owns the sheet. Its folder holds the only five PNGs.
+- Every later host's sign set is a SHARER (settings.json sharedAssets -> the owner's PNGs,
+  cs2_asset.write_settings(shared_from=...), probe F1).
+- Kinds of APPROVED hosts are painted (school, L2). Kinds of PENDING hosts are BLANK reserved rects
+  (FS14: P1, P2, L5, tram). They are painted once that host's design is approved.
+- Once the sheet is imported, its rects never move (a sharer's UVs point into them). A new kind goes
+  into free space (append a Kind with a rect inside the free area). A CHANGED painted rect after
+  import means a new owner letter (both sheets coexist until the sharers migrate, design C.2).
+- Lit kinds (Emissive): the NAME signs only (SKI SCHOOL, RESTAURANT, SKI PATROL x2 when painted).
+  Emissive = the letters' coverage x EMISSIVE_SRGB. Surgery sets the importer's EmissiveProperties
+  intensity 5 -> EMISSIVE_INTENSITY 0.2 (vanilla shop sign, design C.2).
+- ControlMask is 0 everywhere (signs are never tinted). MaskMap metal is 0 and smoothness is SMOOTH.
+  Normal is flat (printed boards). The frames stay in the host atlas and weather with it.
 
-THE SIGN-SET PROP (per host; recipe opt-in fine_detail.SignSetSpec)
+THE SIGN-SET PROP (per host. Recipe opt-in fine_detail.SignSetSpec)
     route(parts, spec)              the spec's label faces leave the host part list
     host_recipe(recipe, spec)       the host recipe without those faces' label entries
-    build_sign_set(faces, spec, yaw_deg)   one mesh: each face's own world quad (the host's
-                                    authoring frame), UVs = its sheet rect laid upright as seen
-                                    from outside (right = -n x up), then the host's yaw and
-                                    cs2_asset.orient_for_net's -90 deg about Z, so the FBX lands
-                                    in the host's own frame and the identity row puts every board
-                                    exactly where the host had it (frame-free: SG2)
-    export_sign_set(obj, spec, letter_dir, host=...)   FBX + (owner) the five sheet PNGs +
-                                    settings.json + manifest; stage_prefabs: the object prefab
-                                    template + hand-minted .cid + the mesh-prefab surgery
-                                    fragments (EmissiveProperties intensity, LodProperties m_Bias)
+    build_sign_set(faces, spec, yaw_deg)
+                                    one mesh with each face's own world quad (the host's
+                                    authoring frame). UVs = its sheet rect laid upright as seen
+                                    from outside (right = -n x up). Then the host's yaw and
+                                    cs2_asset.orient_for_net's -90 deg about Z apply. So the FBX
+                                    lands in the host's own frame, and the identity row puts
+                                    every board exactly where the host had it (frame-free: SG2)
+    export_sign_set(obj, spec, letter_dir, host=...)
+                                    writes the FBX, the five sheet PNGs (owner only),
+                                    settings.json and the manifest
+    stage_prefabs                   writes the object prefab template, the hand-minted .cid and
+                                    the mesh-prefab surgery fragments (EmissiveProperties
+                                    intensity, LodProperties m_Bias)
     The row: fine_detail.sign_set_row (kind "mod", role "signset", identity, m_ParentMesh 0).
     Cull (design C.4 recomputed with the 1.6.2f1 formula, FS10, [U] until SkiProbeLodA): a
     LodProperties component with an EMPTY m_LodMeshes and m_Bias = log2(cull at bias 0 / the
-    host's LOD2 switch) (MeshSystem.cs:458 m_LodBias = m_Bias; the <= 5 m small-mesh rule of
-    :497-503 applies only WITHOUT LodProperties; :505-511 thin-mesh term; positive bias has no
-    clamp, LodProperties.cs:10).
+    host's LOD2 switch). The code facts:
+    - MeshSystem.cs:458 m_LodBias = m_Bias.
+    - The <= 5 m small-mesh rule of :497-503 applies only WITHOUT LodProperties.
+    - :505-511 is the thin-mesh term.
+    - A positive bias has no clamp (LodProperties.cs:10).
 
-FOLDER LAYOUT (decided here; build report section 3)
+FOLDER LAYOUT (decided here, build report section 3)
     assets/import/signs/B/SkiSignSetSchoolB/   the OWNER: FBX + the five sheet PNGs + settings {}
     assets/import/signs/B/SkiSignSet<Host>B/   a sharer imported in the SAME round as the owner:
                                                sharedAssets "../SkiSignSetSchoolB/SkiSignSetSchoolB_<Map>.png"
     assets/import/signs/<L>/SkiSignSet<Host><L>/  a sharer of a LATER round (new letter, FS15):
                                                sharedAssets "../../B/SkiSignSetSchoolB/SkiSignSetSchoolB_<Map>.png"
-                                               [U] whether the importer accepts a target outside the
-                                               imported folder's parent; fallback = repoint the
-                                               sharer mesh's m_SurfaceAssets to the owner Surface CID
-                                               (FS8, the funicular pattern) - no PNG path at all
+                                               [U] whether the importer accepts a target outside
+                                               the imported folder's parent. Fallback: repoint
+                                               the sharer mesh's m_SurfaceAssets to the owner
+                                               Surface CID (FS8, the funicular pattern). That
+                                               needs no PNG path at all.
     assets/staging/prefabs/signs/<L>/SkiSignSet<Host>/   object prefab + .cid + surgery fragments
 
-NITPICK C (2026-10-13, build/nitpick-c-lodges.md; twenty-fifth look: the Bfont lettering "just looks too
-AI"): the lettered boards are drawn in INSTALLED Windows typefaces through the same vector path (draw kind "type":
-a FONT curve with the TTF loaded; TYPEFACES pins each file's sha1, the file is never copied or shipped): Bookman
-Old Style Bold for the resort-identity boards (GRAND LODGE with a rule and lozenges, SKI AREA), Franklin Gothic
-Demi Cond for every name / utility board; hut.picto is a blank board (draw kind "blank", fine_detail.blank_board).
-In place, inside the rects (layout hashes unchanged); the Bfont "text" path is unchanged for the bib numbers.
+NITPICK C (2026-10-13, build/nitpick-c-lodges.md, twenty-fifth look: the Bfont lettering "just looks too AI"). The
+lettered boards are drawn in INSTALLED Windows typefaces through the same vector path (draw kind "type": a FONT curve with
+the TTF loaded). TYPEFACES pins each file's sha1. The build never copies or ships the file.
+- Bookman Old Style Bold: the resort-identity boards (GRAND LODGE with a rule and lozenges, SKI AREA).
+- Franklin Gothic Demi Cond: every name / utility board.
+- hut.picto is a blank board (draw kind "blank", fine_detail.blank_board).
 
-CONTRACTS (tests/test_signset.py, each with a negative): SS1 rects inside the sheet, gutter >= 6
-px, no overlap; SS2 vector only (cs2_bldg._font5x7 never called while painting); SS3 stroke >= 4
-px on every word; SS4 the frozen layout hash; SS5 emissive only inside lit rects; SS6
-ControlMask 0; SS7 determinism. SG1 each face's UV inside its rect +-0.5 texel; SG2 each board's
-position = the pre-change host board +-1 mm; SG3 no routed face left in the host (LOD0-2) or its
-labels block; SG4 exactly one identity row in the host manifest; SG5 sign-set bounds inside the
-lot; SG6 tris <= SG6_CAP; SG7 cs2_asset.write_settings default output byte-identical on every
-shipped settings.json.
+The change is in place, inside the rects (layout hashes unchanged). The Bfont "text" path is unchanged for the bib
+numbers.
+
+CONTRACTS (tests/test_signset.py, each with a negative)
+- SS1: rects inside the sheet, gutter >= 6 px, no overlap.
+- SS2: vector only (cs2_bldg._font5x7 never called while painting).
+- SS3: stroke >= 4 px on every word.
+- SS4: the frozen layout hash.
+- SS5: emissive only inside lit rects.
+- SS6: ControlMask 0.
+- SS7: determinism.
+- SG1: each face's UV inside its rect +-0.5 texel.
+- SG2: each board's position = the pre-change host board +-1 mm.
+- SG3: no routed face left in the host (LOD0-2) or its labels block.
+- SG4: exactly one identity row in the host manifest.
+- SG5: sign-set bounds inside the lot.
+- SG6: tris <= SG6_CAP.
+- SG7: cs2_asset.write_settings default output byte-identical on every shipped settings.json.
 
 bpy is imported lazily (the sheet table, layout checks and row data work without Blender).
 """
@@ -108,11 +125,11 @@ SHEET_PPM = 300.0
 GUTTER = 8
 DILATE = 4                  # px of each painted rect's border extended into its gutter
 MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal", "Emissive")
-SS = 4                      # supersamples per texel axis (shapes; text uses cs2_liftdress TEXT_SS 8)
+SS = 4                      # supersamples per texel axis (shapes, text uses cs2_liftdress TEXT_SS 8)
 SHEET_BG_SRGB = (0.30, 0.30, 0.30)
 SMOOTH = 0.30
 EMISSIVE_SRGB = (1.00, 0.90, 0.70)    # warm white letters (probe card A)
-EMISSIVE_INTENSITY = 0.2              # surgery value (vanilla shop sign; H2)
+EMISSIVE_INTENSITY = 0.2              # surgery value (vanilla shop sign, H2)
 SG6_CAP = 400
 LOD_FACTOR = 652.0                    # [U] until SkiProbeLodA
 TEXT_FILL = 0.85                      # a line's width <= TEXT_FILL x the face width
@@ -155,9 +172,9 @@ _LESSON_RECTS = ((1524, 436, 1704, 616), (1712, 436, 1892, 616), (1516, 1112, 16
 _DOOR_RECTS = ((1900, 436, 1990, 526), (1884, 834, 1974, 924), (1892, 1112, 1982, 1202),
                (1884, 1360, 1974, 1450))
 
-#: the layout (packed once 2026-10-12 by shelf_pack in height order, then frozen; 68.1 % of the
-#: texels, rows 1796-2040 and x 736-2040 of the last shelf free for appends). Approved hosts
-#: painted, pending hosts reserved blank (FS14).
+#: the layout (packed once 2026-10-12 by shelf_pack in height order, then frozen. 68.1 % of the texels, rows 1796-2040
+# and x 736-2040 of the last shelf, are free for appends). Approved hosts are painted, pending hosts are reserved blank
+# (FS14).
 SHEET = (
     Kind("school.name", "school", (4.20, 0.90), (8, 834, 1268, 1104), "painted", True,
          (("text", {"lines": ("SKI SCHOOL",), "fg": WHITE, "bg": BOARD_BROWN}),)),
@@ -176,21 +193,21 @@ SHEET = (
          (("shapes", {"items": ((kind, 0.5, 0.5, size, rgb),), "bg": WHITE}),))
     for k, (kind, size, rgb) in enumerate(_LESSONS)
 ) + tuple(
-    # school revision 2 (2026-10-12, build/school-rev2.md): the door numbering is gone; the four
-    # frozen rects stay allocated and are repainted plain school red (no digits, no face uses them)
+    # school revision 2 (2026-10-12, build/school-rev2.md): the door numbering is gone. The four frozen rects stay
+    # allocated. The build repaints them plain school red (no digits, no face uses them)
     Kind(f"school.door{n}", "school", (0.30, 0.30), _DOOR_RECTS[n - 1], "painted", False,
          (("shapes", {"items": (), "bg": SCHOOL_RED}),),
          note="revision 2: plain red plate, no digit (unused by the school)")
     for n in (1, 2, 3, 4)
 ) + (
-    # L2 (approved; its sign set is a later fleet's, a SHARER of this sheet): painted now
+    # L2 is approved. Its sign set is a later fleet's, a SHARER of this sheet. It is painted now
     Kind("hut.name", "hut", (5.00, 0.80), (8, 1112, 1508, 1352), "painted", True,
          (("text", {"lines": ("RESTAURANT",), "fg": WHITE, "bg": HUT_RED}),)),
     Kind("hut.picto", "hut", (2.40, 0.60), (8, 1608, 728, 1788), "painted", False,
          (("pictogram", {"kind": "restaurant", "square": True, "bg": BOARD_BROWN}),)),
     Kind("hut.menu", "hut", (0.55, 0.80), (1787, 8, 1952, 248), "painted", False,
          (("menu", {"bg": CHALK}),)),
-    # PENDING hosts (FS14): blank, sized from their shipped faces; painted at approval
+    # PENDING hosts (FS14) are blank and sized from their shipped faces. They are painted at approval
     Kind("p1.name", "p1", (2.60, 1.30), (8, 436, 788, 826), "reserved", True,
          note="SKI / PATROL (recipes/patrol.py P1_NAME)"),
     Kind("p1.info", "p1", (0.55, 0.85), (1614, 8, 1779, 263), "reserved", False,
@@ -202,10 +219,10 @@ SHEET = (
     Kind("tram.stn", "tram", (1.20, 0.50), (1516, 1360, 1876, 1510), "reserved", False,
          note="tram top TRAM board (tram_station.py label_stn) if rev 2 moves it off the host"),
 )
-# ---- APPENDED 2026-10-12, school revision 2 (build/school-rev2.md): the photos' RED MARKINGS, in
-# free space of the last shelf (x 744-1112, rows 1616-1724; 8 px gutters). The legends are sized for
-# SS3 (>= 4 px strokes at 300 px/m): the front-door placard reads "STAFF / ONLY" (the photo's own
-# two-line legend is illegible: a stand-in), the back sign "NO / SLEDDING" (legible in 120856)
+# ---- APPENDED 2026-10-12, school revision 2 (build/school-rev2.md): the photos' RED MARKINGS, in free space of the last
+# shelf (x 744-1112, rows 1616-1724, 8 px gutters). The legends are sized for SS3 (>= 4 px strokes at 300 px/m). The
+# front-door placard reads "STAFF / ONLY". The photo's own two-line legend is illegible, so this text is a stand-in. The
+# back sign reads "NO / SLEDDING" (legible in 120856)
 SHEET = SHEET + (
     Kind("school.markstaff", "school", (0.44, 0.36), (744, 1616, 876, 1724), "painted", False,
          (("text", {"lines": ("STAFF", "ONLY"), "fg": WHITE, "bg": SCHOOL_RED, "cap_frac": 0.66,
@@ -218,14 +235,14 @@ SHEET = SHEET + (
          note="red NO SLEDDING sign with a white rim (Street View 120856)"),
 )
 # ---- PAINTED 2026-10-12, fine-detail step 3d (build/fine-detail-step3d-patrol-sign.md): the patrol shacks were approved
-# (eighteenth look: "Ski patrol shacks look good"; "some of the signs ... are pixelated but I think
-# we know our plan for that"), so their three RESERVED rects are painted in place (FS14). Only `state`, `draws`
-# and `note` change: key, size, rect and lit are untouched, so every layout_hash prefix is unchanged. Vector
-# Bfont only (the 5x7 bitmap font is retired for them); the two name boards are lit (H2, 0.2 at surgery).
+# (eighteenth look: "Ski patrol shacks look good" and "some of the signs ... are pixelated but I think we know our plan
+# for that"). So their three RESERVED rects are painted in place (FS14). Only `state`, `draws` and `note` change. Key,
+# size, rect and lit are untouched, so every layout_hash prefix is unchanged. Vector Bfont only (the 5x7 bitmap font is
+# retired for them). The two name boards are lit (H2, 0.2 at surgery).
 PATROL_RED = (0.72, 0.09, 0.08)       # recipes/patrol.PATROL_RED = cs2_bldg.PATROL_RED_SRGB
 PATROL_WHITE = 0.92                   # recipes/patrol.WHITE
-#: the P1 info board (recipes/_civic.BarsPainter, contract 3.5): white field, three LINEAR-rgb bars
-#: (center height 0..1 from the bottom, length share), left-aligned as the viewer sees the board
+#: the P1 info board (recipes/_civic.BarsPainter, contract 3.5) has a white field and three LINEAR-rgb bars (center
+# height 0..1 from the bottom, length share). The bars are left-aligned as the viewer sees the board
 INFO_BARS_LIN = ((0.78, 1.00, (0.05, 0.20, 0.45)), (0.52, 0.80, (0.05, 0.30, 0.12)),
                  (0.26, 0.55, (0.05, 0.20, 0.45)))
 _PATROL_PAINT = {
@@ -240,17 +257,20 @@ _PATROL_PAINT = {
 }
 SHEET = tuple(replace(k, state="painted", draws=_PATROL_PAINT[k.key][0], note=_PATROL_PAINT[k.key][1])
               if k.key in _PATROL_PAINT else k for k in SHEET)
-# ---- APPENDED 2026-10-12, fine-detail step 3d: the WELCOME SIGN header (welcome_sign.py, SkiResortGate). Its
-# "SKI AREA" header was vector Bfont at 186 px/m in the host's band (< 300): it moves to this sheet. A whole
-# 4.00 x 0.60 m header (1,200 px) fits only in the top rows and would leave 72 free rows (SS1 keeps >= 200 for
-# appends), so the header face is split where it is plain field (y +-1.30, between the letters' +-1.21 and the
-# snowflakes' +-1.47): the 2.60 m lettering panel (780 px, the last shelf's free run x 1260-2040) and two
-# 0.70 m snowflake end panels that share ONE rect (the flake is centered in each; free space above the lessons).
-# Field = the color the host band's slot-1 field shows: welcome_sign.SLOTS[1] (0.15, 0.31, 0.225) multiplied into
-# the band's 0.80 albedo in LINEAR space (cs2_preview._tinted_base_image's model, the look that gets reviewed), so the
-# panel meets the beam trim without a step; ControlMask 0 here (the gate has one VariationSet). [U] how the game
-# applies a VariationSet color (as linear like the preview, or decoded from sRGB, which would read darker on the
-# host) decides the in-game match; the field is one constant, repaintable before the first import.
+# ---- APPENDED 2026-10-12, fine-detail step 3d: the WELCOME SIGN header (welcome_sign.py, SkiResortGate). Its "SKI AREA"
+# header was vector Bfont at 186 px/m in the host's band (< 300). It moves to this sheet. A whole 4.00 x 0.60 m header
+# (1,200 px) fits only in the top rows. It would leave 72 free rows, and SS1 keeps >= 200 for appends. So the header face
+# is split where it is plain field (y +-1.30, between the letters' +-1.21 and the snowflakes' +-1.47). The split gives
+# these panels:
+# - the 2.60 m lettering panel (780 px, the last shelf's free run x 1260-2040)
+# - two 0.70 m snowflake end panels that share ONE rect (the flake is centered in each). The shared
+#   rect sits in free space above the lessons.
+#
+# The field is the color the host band's slot-1 field shows: welcome_sign.SLOTS[1] (0.15, 0.31, 0.225) multiplied into the
+# band's 0.80 albedo in LINEAR space (cs2_preview._tinted_base_image's model, the look that gets reviewed). So the panel
+# meets the beam trim without a step. ControlMask is 0 here (the gate has one VariationSet). [U] how the game applies a
+# VariationSet color (as linear like the preview, or decoded from sRGB, which would read darker on the host) decides the
+# in-game match. The field is one constant, repaintable before the first import.
 GATE_FIELD = (0.333, 0.47, 0.404)     # lin_to_srgb(srgb_to_lin(0.80) x (0.15, 0.31, 0.225))
 GATE_CREAM = (0.93, 0.89, 0.78)       # welcome_sign.CREAM_SRGB
 SHEET = SHEET + (
@@ -264,11 +284,11 @@ SHEET = SHEET + (
          note="snowflake end panel of the welcome sign header (ORNAMENT_D 0.36 m, centered); used twice (L / R)"),
 )
 # ---- PAINTED 2026-10-12, fine-detail step 3e (build/fine-detail-step3e-swanky.md): L5 revision 4 was approved
-# (twenty-third look: "L5 and L4 look good, run the engine pass on them too!"), so its RESERVED name slot is painted in
-# place (FS14): "GRAND LODGE" (the building's in-game name, LocaleEN SkiLodgeGrand) in the welcome sign's cream on the
-# school's board brown, the porte-cochere name board on the front truss (recipes/l5_swanky_bottom.py NB_*); lit (H2,
-# 0.2 at surgery). Only state / draws / note change: key, size, rect and lit are untouched, so every layout_hash prefix
-# (20 / 22 / 24) is unchanged. Vector Bfont only.
+# (twenty-third look: "L5 and L4 look good, run the engine pass on them too!"). So its RESERVED name slot is painted in
+# place (FS14). The text is "GRAND LODGE" (the building's in-game name, LocaleEN SkiLodgeGrand) in the welcome sign's
+# cream on the school's board brown. It is the porte-cochere name board on the front truss (recipes/l5_swanky_bottom.py
+# NB_*). It is lit (H2, 0.2 at surgery). Only state / draws / note change. Key, size, rect and lit are untouched, so every
+# layout_hash prefix (20 / 22 / 24) is unchanged. Vector Bfont only.
 _GRAND_PAINT = {
     "l5.name": ((("text", {"lines": ("GRAND LODGE",), "fg": GATE_CREAM, "bg": BOARD_BROWN}),),
                 "GRAND LODGE cream on board brown, the L5 porte-cochere name board (recipes/l5_swanky_bottom NB_TEXT); "
@@ -276,16 +296,16 @@ _GRAND_PAINT = {
 }
 SHEET = tuple(replace(k, state="painted", draws=_GRAND_PAINT[k.key][0], note=_GRAND_PAINT[k.key][1])
               if k.key in _GRAND_PAINT else k for k in SHEET)
-# ---- REPAINTED 2026-10-13, nitpick C (build/nitpick-c-lodges.md; twenty-fifth look: L5 "use a DIFFERENT
-# FONT. Hard to explain but it just looks too AI", ski school "Same comment as the swanky lodge on the fonts", L3 / L4
-# "not loving the SIGN of the FORK AND KNIFE ... leave it blank or keep it simple"). In place, within the rects: only
-# `draws` and `note` change (key, size, rect and lit untouched), so every layout_hash prefix (20 / 22 / 24) is
-# unchanged (SS4). Nothing is imported yet (S1 imports the fine versions), so no new owner letter is needed (section 3
-# of the step-2 report: a changed painted rect AFTER an import needs one). Faces (font table in the report; the TTFs
-# are rendered here, never shipped): the resort-identity boards in Bookman Old Style Bold, letter-spaced caps (GRAND
-# LODGE with the lodge-sign rule and diamonds; the welcome sign's SKI AREA), every utility / name board in ONE
-# condensed sans, Franklin Gothic Demi Cond. hut.picto (the same fork-and-knife glyph) becomes a blank board. Kinds
-# not listed keep their draws byte for byte (Bfont bib numbers, pictograms, notices, menu, flakes, bars).
+# ---- REPAINTED 2026-10-13, nitpick C (build/nitpick-c-lodges.md, twenty-fifth look): L5 "use a DIFFERENT FONT. Hard to
+# explain but it just looks too AI", ski school "Same comment as the swanky lodge on the fonts", L3 / L4 "not loving the
+# SIGN of the FORK AND KNIFE ... leave it blank or keep it simple". The repaint is in place, within the rects. Only
+# `draws` and `note` change (key, size, rect and lit untouched), so every layout_hash prefix (20 / 22 / 24) is unchanged
+# (SS4). Nothing is imported yet (S1 imports the fine versions), so no new owner letter is needed (section 3 of the step-2
+# report: a changed painted rect AFTER an import needs one). The build renders the faces here (font table in the report).
+# It never ships the TTFs. The resort-identity boards use Bookman Old Style Bold in letter-spaced caps: GRAND LODGE with
+# the lodge-sign rule and diamonds, and the welcome sign's SKI AREA. Every utility / name board uses ONE condensed sans,
+# Franklin Gothic Demi Cond. hut.picto (the same fork-and-knife glyph) becomes a blank board. Kinds not listed keep their
+# draws byte for byte (Bfont bib numbers, pictograms, notices, menu, flakes, bars).
 NC_LODGE_FACE = "bookman_bold"
 NC_UTILITY_FACE = "franklin_demi_cond"
 NC_RULE = ("frame", {"width": 0.015, "inset": 0.05, "fg": GATE_CREAM})
@@ -327,8 +347,8 @@ _NC_PAINT = {
 }
 SHEET = tuple(replace(k, draws=_NC_PAINT[k.key][0], note=_NC_PAINT[k.key][1]) if k.key in _NC_PAINT else k
               for k in SHEET)
-#: SS4: sha1 of the frozen kinds (key, size, rect, lit) in table order; extend the table, then
-#: append the new hash here (the old prefix must still hash to every earlier entry)
+#: SS4: sha1 of the frozen kinds (key, size, rect, lit) in table order. Extend the table, then append the new hash here
+# (the old prefix must still hash to every earlier entry).
 LAYOUT_SHA = {len(SHEET): None}          # filled below (module constant computed once, pinned in the test)
 DRAW_KINDS = ("text", "bibs", "menu", "shapes", "glyph", "notices", "pictogram", "cross_square", "logs",
               "frame",
@@ -416,7 +436,7 @@ def free_rows(kinds=SHEET, A=SHEET_A):
 
 
 # ======================================================================================
-# Painting (numpy; vector text needs Blender's Bfont -> bpy at call time)
+# Painting (numpy). Vector text needs Blender's Bfont -> bpy at call time
 # ======================================================================================
 
 def _K():
@@ -467,10 +487,9 @@ def word_cov(body, cap, cx, cy, W, H, w, h):
 
 
 def draw_text_vec(lines, fg=WHITE, bg=None, fill=TEXT_FILL, cap_frac=TEXT_CAP_FRAC, pitch=1.45):
-    """Words in the VECTOR font (Bfont, cs2_liftdress._text_cov, 8 x 8 supersampled): each line
-    centered, the block centered; cap = cap_frac x the face height / the line stack, shrunk so the
-    widest line is <= fill x the face width. Records cap / stroke (Bfont stem ratio x cap) /
-    tier; the coverage also feeds the Emissive of a lit kind."""
+    """Draws words in the VECTOR font (Bfont, cs2_liftdress._text_cov, 8 x 8 supersampled). Each line is centered and the
+    block is centered. cap = cap_frac x the face height / the line stack, shrunk so the widest line is <= fill x the face
+    width. Records cap / stroke (Bfont stem ratio x cap) / tier. The coverage also feeds the Emissive of a lit kind."""
     lines = (lines,) if isinstance(lines, str) else tuple(lines)
 
     def draw(cv):
@@ -587,18 +606,17 @@ def draw_flake(d=0.36, fg=(0.93, 0.89, 0.78), bg=None):
 
 
 # ======================================================================================
-# Nitpick C (2026-10-13, build/nitpick-c-lodges.md): REAL SIGNAGE TYPOGRAPHY. Twenty-fifth
-# look, L5: "use a DIFFERENT FONT. Hard to explain but it just looks too AI"; ski school: "Same comment
-# as the swanky lodge on the fonts". The sheet's lettered boards are drawn in INSTALLED Windows
-# typefaces through the SAME vector path as Bfont (a Blender FONT curve with the TTF loaded ->
-# triangulated outline -> 8 x 8 supersampled coverage, welcome_sign._tri_coverage): only the rendered
-# texels ship. The TTF files are NEVER copied into the repo or shipped (Windows font licenses allow
-# rendering into our bitmaps, not redistribution of the file); TYPEFACES pins each file's sha1 so a
-# changed / missing system font stops the paint loudly instead of silently repainting the sheet.
+# Nitpick C (2026-10-13, build/nitpick-c-lodges.md): REAL SIGNAGE TYPOGRAPHY. Twenty-fifth look, L5: "use a DIFFERENT
+# FONT. Hard to explain but it just looks too AI". Ski school: "Same comment as the swanky lodge on the fonts". The
+# sheet's lettered boards are drawn in INSTALLED Windows typefaces through the SAME vector path as Bfont (a Blender FONT
+# curve with the TTF loaded -> triangulated outline -> 8 x 8 supersampled coverage, welcome_sign._tri_coverage). Only the
+# rendered texels ship. The TTF files are NEVER copied into the repo or shipped (Windows font licenses allow rendering
+# into our bitmaps, not redistribution of the file). TYPEFACES pins each file's sha1. So a changed or missing system font
+# stops the paint loudly instead of silently repainting the sheet.
 # ======================================================================================
 
 FONT_DIR = os.path.join(os.environ.get("SystemRoot") or os.environ.get("WINDIR") or r"C:\Windows", "Fonts")
-TTF_RES = 16                # FONT curve resolution_u (bezier steps per segment; Bfont path keeps the default)
+TTF_RES = 16                # FONT curve resolution_u (bezier steps per segment, Bfont path keeps the default)
 TTF_SS = 8                  # samples per texel axis (= cs2_liftdress.TEXT_SS, the Bfont words)
 
 
@@ -609,11 +627,11 @@ class Typeface:
     file: str               # file name under FONT_DIR (never copied)
     sha1: str               # first 16 hex of the file's sha1 (pinned: a changed font stops the paint)
     weight: float = 0.0     # FONT curve outline offset (font units at size 1): 0 = the face as drawn
-    role: str = ""          # "lodge" | "utility" (what it was chosen for; build report font table)
+    role: str = ""          # "lodge" | "utility" (what it was chosen for, build report font table)
 
 
-#: candidates rendered for the font table (assets/preview/boards-2026-10-13/fonts/); the CHOSEN ones are named
-#: by FACE_FOR below. sha1 = the file on the author's machine 2026-10-13 (C:\Windows\Fonts).
+#: candidates rendered for the font table (assets/preview/boards-2026-10-13/fonts/). FACE_FOR below names the CHOSEN
+# ones. sha1 = the file on the author's machine 2026-10-13 (C:\Windows\Fonts).
 TYPEFACES = {t.key: t for t in (
     Typeface("bookman_bold", "Bookman Old Style Bold", "BOOKOSB.TTF", "275aab405883ea72", role="lodge"),
     Typeface("georgia_bold", "Georgia Bold", "georgiab.ttf", "e27ea4537381876f", role="lodge"),
@@ -662,9 +680,9 @@ def typeface_path(tf, font_dir=None):
 
 
 def _ttf_font_tris(body, tf, track=1.0):
-    """Triangles (font units, size 1, align LEFT) of `body` in the typeface `tf` (a temporary FONT curve with
-    the TTF loaded; removed again). track = FONT curve space_character (1 = the font's own spacing; each step
-    of +0.1 adds 0.05 font units per character advance, measured 2026-10-13 on Blender 5.2.2)."""
+    """Triangles (font units, size 1, align LEFT) of `body` in the typeface `tf` (a temporary FONT curve with the TTF loaded,
+    removed again). track = FONT curve space_character (1 = the font's own spacing. Each step of +0.1 adds 0.05 font units
+    per character advance, measured 2026-10-13 on Blender 5.2.2)."""
     import bmesh
     import bpy
     key = (body, tf.key, round(float(track), 6))
@@ -700,8 +718,8 @@ def _ttf_font_tris(body, tf, track=1.0):
 
 
 def _xsect(tris, axis, at):
-    """Total length of the union of the triangles' cuts by the line {coord[axis] == at} (axis 1: a horizontal
-    line, lengths along x; axis 0: a vertical line, lengths along y) and the intervals themselves."""
+    """Total length of the union of the triangles' cuts by the line {coord[axis] == at} (axis 1: a horizontal line, lengths
+    along x. Axis 0: a vertical line, lengths along y) and the intervals themselves."""
     o = 1 - axis
     iv = []
     for t in tris:
@@ -726,10 +744,10 @@ def _xsect(tris, axis, at):
 
 
 def ttf_ref(tf):
-    """(cap bottom, cap top, stem, thin) in font units: the cap box of 'H' (every line is scaled and centered
-    on it, so a Q tail or a comma never moves the baseline); stem = the 'I' cut at mid cap height (the
-    vertical stroke, serifs excluded); thin = the thinnest of the 'H' crossbar and the 'O' bowl at its top
-    and bottom (the horizontal hairlines of a serif face) - SS3 checks the THINNER of stem and thin."""
+    """(cap bottom, cap top, stem, thin) in font units. The first two values are the cap box of 'H' (every line is scaled and
+    centered on it, so a Q tail or a comma never moves the baseline). stem = the 'I' cut at mid cap height (the vertical
+    stroke, serifs excluded). thin = the thinnest of the 'H' crossbar and the 'O' bowl at its top and bottom (the
+    horizontal hairlines of a serif face). SS3 checks the THINNER of stem and thin."""
     if tf.key in _TTF_REF:
         return _TTF_REF[tf.key]
     th = _ttf_font_tris("H", tf)
@@ -775,12 +793,12 @@ def ttf_cov(tris, cx, cy, W, H, w, h):
 
 def draw_type(lines, face, fg=WHITE, bg=None, fill=TEXT_FILL, cap_frac=TEXT_CAP_FRAC, pitch=1.45,
               tracking=0.0, flank=None, flank_frac=0.42, flank_gap=0.55, cap_max=None):
-    """Nitpick C: words in an installed TYPEFACE (TYPEFACES[face]) through the vector path. Layout as
-    draw_text_vec (each line centered, the block centered; cap = cap_frac x the face height / the line stack,
-    shrunk so the widest line + its ornaments is <= fill x the face width; cap_max caps it) plus letter
-    spacing `tracking` (x the cap) and `flank` = "diamond": a small lozenge (flank_frac x the cap) each side
-    of a single line, flank_gap x the cap from the ink - the lodge-sign ornament. Records the face, file,
-    cap, stem / thin strokes and the tier; lit kinds glow with the letters AND the ornaments."""
+    """Nitpick C: words in an installed TYPEFACE (TYPEFACES[face]) through the vector path. The layout is draw_text_vec's
+    (each line centered, the block centered, cap = cap_frac x the face height / the line stack, shrunk so the widest line
+    + its ornaments is <= fill x the face width, cap_max caps it). Letter spacing `tracking` (x the cap) is added. `flank`
+    = "diamond" puts a small lozenge (flank_frac x the cap) on each side of a single line, flank_gap x the cap from the
+    ink - the lodge-sign ornament. Records the face, file, cap, stem / thin strokes and the tier. Lit kinds glow with the
+    letters AND the ornaments."""
     lines = (lines,) if isinstance(lines, str) else tuple(lines)
     tf = typeface(face)
 
@@ -986,10 +1004,9 @@ def _face_frame(obj):
 
 
 def build_sign_set(faces, spec, yaw_deg=0.0, kinds=SHEET, A=SHEET_A, size_tol=0.002):
-    """The sign-set object (meters, Z up, the host's NET-ORIENTED frame, not linked to the
-    scene): one quad per routed face at its own world position, UV layer "UVMap" = its sheet
-    rect upright as seen from outside; face attribute "part" + the part table (face names).
-    Raises when a face's size differs from its sheet kind by more than size_tol."""
+    """The sign-set object (meters, Z up, the host's NET-ORIENTED frame, not linked to the scene): one quad per routed face
+    at its own world position, UV layer "UVMap" = its sheet rect upright as seen from outside. Face attribute "part" + the
+    part table (face names). Raises when a face's size differs from its sheet kind by more than size_tol."""
     import bpy
     import mathutils
     import cs2_asset
@@ -1038,12 +1055,12 @@ def build_sign_set(faces, spec, yaw_deg=0.0, kinds=SHEET, A=SHEET_A, size_tol=0.
 
 
 def face_record(obj, yaw_deg=0.0):
-    """Nitpick C: a single-quad label face as a Write Everywhere target (another fleet lays the WE layout out):
-    center, outward normal, right / up (as seen from outside: right = -n x up, the DisplayPainter frame) in the
-    prefab-local GAME frame through the SAME chain as build_sign_set (the host's yaw, orient_for_net's -90 deg
-    about Z, export_fbx (x, y, z) -> (x, z, -y), then the game's x negation): game x = -authoring y (fine_detail.
-    X_CONVENTION; gx NEGATED, x-sign gate settled N 2026-10-15; the x of every vector is negated too), and the
-    face size (m)."""
+    """Nitpick C: a single-quad label face as a Write Everywhere target (another fleet lays the WE layout out). Returns the
+    center, the outward normal, right / up (as seen from outside: right = -n x up, the DisplayPainter frame) and the face
+    size (m). The vectors are in the prefab-local GAME frame through the SAME chain as build_sign_set: the host's yaw,
+    orient_for_net's -90 deg about Z, export_fbx (x, y, z) -> (x, z, -y), then the game's x negation. So game x =
+    -authoring y (fine_detail.X_CONVENTION, gx NEGATED, x-sign gate settled N 2026-10-15, the x of every vector is negated
+    too)."""
     P, n, R, U, s, t = _face_frame(obj)
     a, b = math.radians(-90.0), math.radians(float(yaw_deg))
     Rz = lambda th: np.array([[math.cos(th), -math.sin(th), 0.0], [math.sin(th), math.cos(th), 0.0],   # noqa: E731
@@ -1074,10 +1091,10 @@ def bounds_game(obj):
 
 
 def cull(obj, target_m, lod_factor=LOD_FACTOR):
-    """Design C.4 with the 1.6.2f1 formula (FS10; [U] until SkiProbeLodA): cull at m_Bias 0 =
-    lod_factor x (sx + sy + sz) / 3 x 2^-thin (thin = -log2(sqrt(area / box surface)),
-    MeshSystem.cs:505-511); m_Bias = log2(cull0 / target) so the set culls at the host's switch.
-    With LodProperties the <= 5 m small-mesh rule does not apply (MeshSystem.cs:458 vs 497)."""
+    """Design C.4 with the 1.6.2f1 formula (FS10, [U] until SkiProbeLodA). The cull at m_Bias 0 = lod_factor x (sx + sy + sz)
+    / 3 x 2^-thin (thin = -log2(sqrt(area / box surface)), MeshSystem.cs:505-511). m_Bias = log2(cull0 / target), so the
+    set culls at the host's switch. With LodProperties the <= 5 m small-mesh rule does not apply (MeshSystem.cs:458 vs
+    497)."""
     G = game_coords(obj)
     size = G.max(0) - G.min(0)
     sx, sy, sz = (max(float(v), 1e-4) for v in size)
@@ -1123,12 +1140,13 @@ def mint_cid(spec):
     return cid
 
 
-# Names pass 2026-10-13 (docs/research/art/assets-2026-10/NAMES-2026-10-13.md §4): a sign set placed on its own
-# floats at its host's board offsets, so it is hidden from the Find It mod. Find It (pdx 77240 v58, decompiled
+# Names pass 2026-10-13 (docs/research/art/assets-2026-10/NAMES-2026-10-13.md §4): a sign set placed on its own floats at
+# its host's board offsets, so it is hidden from the Find It mod. Find It (pdx 77240 v58, decompiled
 # PrefabIndexingSystem.cs:223-229) skips a prefab whose EditorAssetCategoryOverride has a NON-EMPTY include list and an
-# exclude entry starting with "FindIt"; the vanilla Editor files it under "Ski Resort/Internal" (EditorAssetCategorySystem
-# .AddOverrides, 1.6.0f1 :1023-1061). Serialization copied from vanilla WarningLight01 (docs/research/art/
-# prop-emissive-lights.md); positional type table 0-8, validate_prefab.ps1 OK. Display names: LocaleEN.cs Assets.NAME.
+# exclude entry starting with "FindIt". The vanilla Editor files it under "Ski Resort/Internal"
+# (EditorAssetCategorySystem.AddOverrides, 1.6.0f1 :1023-1061). Serialization copied from vanilla WarningLight01
+# (docs/research/art/prop-emissive-lights.md). The positional type table is 0-8, validate_prefab.ps1 OK. Display names:
+# LocaleEN.cs Assets.NAME.
 OBJECT_PREFAB_TMPL = """{
     "$id": 0,
     "$type": "0|Game.Prefabs.StaticObjectPrefab, Game",
@@ -1215,11 +1233,10 @@ LOD_FRAGMENT_TMPL = """            {
 
 
 def stage_prefabs(spec, cid, bias):
-    """Write the staging folder: <prop>.Prefab (object prefab template, the ONE literal
-    REPLACE_<mesh>_MESH_CID), <mesh> Mesh.LodProperties.fragment (insert as the FIRST element of
-    the imported mesh prefab's components $rcontent, $rlength + 1, @T1@ / @T2@ = the next two
-    unused type ids, @$id@ 900 / 901 unused) and <mesh> Mesh.surgery.json (the literal edits).
-    UTF-8 without BOM, LF. Returns the paths."""
+    """Write the staging folder: <prop>.Prefab (object prefab template, the ONE literal REPLACE_<mesh>_MESH_CID), <mesh>
+    Mesh.LodProperties.fragment (insert as the FIRST element of the imported mesh prefab's components $rcontent, $rlength
+    + 1, @T1@ / @T2@ = the next two unused type ids, @$id@ 900 / 901 unused) and <mesh> Mesh.surgery.json (the literal
+    edits). UTF-8 without BOM, LF. Returns the paths."""
     d = staging_dir(spec)
     os.makedirs(d, exist_ok=True)
     out = []
@@ -1257,8 +1274,8 @@ def stage_prefabs(spec, cid, bias):
 # ======================================================================================
 
 def letter_dir_for(spec, export, out=None):
-    """assets/import/<category>/<letter> with --export; beside a scratch host's letter folder
-    otherwise (<out>/../<category>/<letter>)."""
+    """assets/import/<category>/<letter> with --export. Beside a scratch host's letter folder otherwise
+    (<out>/../<category>/<letter>)."""
     if export and not out:
         return os.path.join(IMPORT_ROOT, spec.category, spec.letter)
     base = os.path.dirname(os.path.abspath(out)) if out else os.path.join(
@@ -1267,9 +1284,9 @@ def letter_dir_for(spec, export, out=None):
 
 
 def export_sign_set(obj, spec, letter_dir, *, host, cid, mint=False, kinds=SHEET):
-    """Write <letter_dir>/<spec.mesh>/: the FBX, settings.json, the manifest and, for the sheet
-    owner, the five sheet PNGs; a sharer gets shared_from settings and no PNG. host = {name,
-    recipe, lot_half (gx, gz), switch_lod2_m, x_convention}. Returns the result dict."""
+    """Write <letter_dir>/<spec.mesh>/: the FBX, settings.json, the manifest and, for the sheet owner, the five sheet PNGs. A
+    sharer gets shared_from settings and no PNG. host = {name, recipe, lot_half (gx, gz), switch_lod2_m, x_convention}.
+    Returns the result dict."""
     import cs2_asset
     import cs2_validate
     name = spec.mesh
@@ -1447,10 +1464,9 @@ def infer_settings_args(data):
 
 
 def sg7_settings_proof(paths, write_settings=None):
-    """Regenerate every listed shipped settings.json with cs2_asset.write_settings DEFAULT keywords
-    (supplied / dedicated LODs inferred) into a temp folder: byte-identical. Files that are not a
-    default output (sharers: sharedAssets to another folder) are skipped and listed.
-    -> (identical, differ, skipped)."""
+    """Regenerate every listed shipped settings.json with cs2_asset.write_settings DEFAULT keywords (supplied / dedicated
+    LODs inferred) into a temp folder: byte-identical. Files that are not a default output (sharers: sharedAssets to
+    another folder) are skipped and listed. -> (identical, differ, skipped)."""
     import shutil
     import tempfile
     import cs2_asset
@@ -1474,8 +1490,8 @@ def sg7_settings_proof(paths, write_settings=None):
 
 
 # ======================================================================================
-# Fine-detail step 3d: repaint the OWNER's sheet in place (a reserved rect painted at approval / a kind
-# appended in free space; build/fine-detail-step3d-patrol-sign.md)
+# Fine-detail step 3d: repaint the OWNER's sheet in place (a reserved rect painted at approval / a kind appended in free
+# space, build/fine-detail-step3d-patrol-sign.md)
 # ======================================================================================
 
 def owner_dir_shipped():
@@ -1483,12 +1499,12 @@ def owner_dir_shipped():
 
 
 def repaint_owner(owner_dir=None, kinds=SHEET):
-    """Repaint the sheet owner's five PNGs from `kinds` (= the frozen-then-appended SHEET) and update ONLY the
-    sheet-derived blocks of its manifest: sheet.layout_sha / free_rows_top / kinds / metrics, emissive.lit_kinds
-    and the files block's bytes / sha1 of the five PNGs (+ a "sheet_repaint" note). The owner's FBX, settings.json
-    and every other manifest key are left byte-equal, so the school (the owner's host) needs no re-export:
-    painting reserved rects / appending kinds never moves a rect the school's faces use (SS4). Refuses an owner
-    folder without its manifest. Returns {map: sha1} of the written PNGs."""
+    """Repaint the sheet owner's five PNGs from `kinds` (= the frozen-then-appended SHEET). Update ONLY the sheet-derived
+    blocks of its manifest: sheet.layout_sha / free_rows_top / kinds / metrics, emissive.lit_kinds and the files block's
+    bytes / sha1 of the five PNGs (+ a "sheet_repaint" note). The owner's FBX, settings.json and every other manifest key
+    are left byte-equal, so the school (the owner's host) needs no re-export: painting reserved rects / appending kinds
+    never moves a rect the school's faces use (SS4). Refuses an owner folder without its manifest. Returns {map: sha1} of
+    the written PNGs."""
     import datetime
     import hashlib
     d = owner_dir or owner_dir_shipped()
