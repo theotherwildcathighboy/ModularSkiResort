@@ -12,7 +12,7 @@ a hub line that points to the log.
 
 | Line | Cause and fix |
 |---|---|
-| *Out of range of every Welcome Sign* | Outside every sign's ski area radius (**5 km** by default, option *Ski area radius* in Options > Modular Ski Resort > Main > Ski area balance). Unlinked runs and lifts score **0**. |
+| *Out of range of every Welcome Sign* | Outside every sign's ski area radius (**5 km** by default, option *Ski area radius* in Options > Modular Ski Resort > Ski area balance). Unlinked runs and lifts score **0**. |
 | *No lodge* | Build one near the sign from the Buildings tab. |
 | *All lodges deactivated* / *Lodges deactivated: N* | A lodge counts only while it is active. Reactivate one in its own info panel. |
 | *Lodge or school: road required* / *Welcome Sign: road required* | Deck side (lodge) or front (sign) must touch a road. An off-road A-Frame, Chalet or Grand also passes with a cat track within 25 m chained to a lodge with a road or the Ski Bus Depot. The sign's row shows only while no active lodge of the ski area has a road. The sign then employs the staff of the Hut, Summit, patrol and off-road lodges. Move the sign with **Relocate** in its info panel and snap its front to a road. It stands 8 m back from the road on a leveled lot, and its runs stay linked. Do not bulldoze it to place a new one: that deletes every run linked to it. |
@@ -68,11 +68,11 @@ Tickets missing from the Economy panel: check the log first, then [Economy](/gui
 
 ## Common Cases
 
-- **Run never opens.** The status line tooltip says whether the snow is measured or estimated. Open requires **91 cm** of snow on **60 %** of the run. Once open it stays open on **30 cm**. Fixes: raise *Snowmaking margin*. Build as Snowmaking (guns run from 2 months before winter to 1 month after). On a map without winter, turn off **Snow & season gating**. Both options are in Options > Modular Ski Resort > Main > Snow.
+- **Run never opens.** The status line tooltip says whether the snow is measured or estimated. Open requires **91 cm** of snow on **60 %** of the run. Once open it stays open on **30 cm**. Fixes: raise *Snowmaking margin*. Build as Snowmaking (guns run from 2 months before winter to 1 month after). On a map without winter, turn off **Snow & season gating**. Both options are in Options > Modular Ski Resort > Snow.
 - **Chairs stopped.** Hub: *Lift X: chairs stopped*. The lift still counts. Log: `Lifts [state]`, `Lift [power]`.
-- **Hub button missing.** Options > Modular Ski Resort > Main > Ski Resort hub. The hub is always in the Universal Mod Panel.
+- **Hub button missing.** Options > Modular Ski Resort > Ski Resort hub. The hub is always in the Universal Mod Panel.
 - **DLL and UI version mismatch notice.** Reinstall the mod. Building works. Resort statistics stay hidden until both halves match.
-- **Resort Planner scan never finishes, or the planner is grayed after an error.** The scan runs on a background thread. A worker error turns the Resort Planner off until the next game load (hub: *The Resort Planner hit an error and is off until the next load*). Reload the save. Turn on Options > Modular Ski Resort > Main > Diagnostics > **Resort Planner on the main thread** (slower, same result). Then scan again. Log: `QuickRuns [scan]`.
+- **Resort Planner scan never finishes, or the planner is grayed after an error.** The scan runs on a background thread. A worker error turns the Resort Planner off until the next game load (hub: *The Resort Planner hit an error and is off until the next load*). Reload the save. Turn on Options > Modular Ski Resort > Diagnostics > **Resort Planner on the main thread** (slower, same result). Then scan again. Log: `QuickRuns [scan]`.
 - **Runs gone after a Welcome Sign was bulldozed.** Bulldozing a sign deletes every run linked to it, with the runs' glade trees, after a warning that shows the run count. Run fees are not refunded. To move a sign, use **Relocate** in its info panel: its runs stay linked.
 
 ## Bug Reports
@@ -80,4 +80,4 @@ Tickets missing from the Economy panel: check the log first, then [Economy](/gui
 {/* PLACEHOLDER until the threads exist: replace the FORUM_URL and DISCORD_URL tokens below with links, and delete the channel that is not used. */}
 
 - **Where:** the Paradox forum thread `{{FORUM_URL}}` or the Discord thread `{{DISCORD_URL}}`.
-- **Include:** the steps that led to the problem, and the report from **Options > Modular Ski Resort > Main > Diagnostics > Copy diagnostics** (pasted from the clipboard: versions, computer, changed options, code mods and the log's newest errors). If you can, attach `SkiResortMod.Mod.log` too (see [Log File](#log-file)).
+- **Include:** the steps that led to the problem, and the report from **Options > Modular Ski Resort > Diagnostics > Copy diagnostics** (pasted from the clipboard: versions, computer, changed options, code mods and the log's newest errors). If you can, attach `SkiResortMod.Mod.log` too (see [Log File](#log-file)).

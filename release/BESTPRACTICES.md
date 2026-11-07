@@ -40,7 +40,7 @@ Lifts are power-line networks, so they follow power-line rules.
 - The base station acts as a transformer. Wire a **low-voltage line** into the stub at the front corner of the base station. The line carries the power up the mountain. The top station needs no hookup.
 - No power, no lift. The panel lists it as a problem.
 - City high-voltage lines cannot join a lift tower, stub or lift line: the game refuses them. Low-voltage lines still power a lift.
-- **Before uninstalling the mod, bulldoze your lifts and runs** (or use Options > Modular Ski Resort > Main > Reset > **Delete all ski resort content**). Then save the city. Otherwise run paint can stay in the saved terrain. What leftover lift pieces do after removal is untested.
+- **Before uninstalling the mod, bulldoze your lifts and runs** (or use Options > Modular Ski Resort > Reset > **Delete all ski resort content**). Then save the city. Otherwise run paint can stay in the saved terrain. What leftover lift pieces do after removal is untested.
 
 ## Runs
 

@@ -126,6 +126,18 @@ if (args.has('--write')) {
   console.log(`check-ste: baseline written (${Object.keys(sorted).length} targets, ${total} hard findings)`);
   process.exit(0);
 }
-const note = lower ? ` | ${lower} target(s) below baseline: run node tools/check-ste.js --write to lower it` : '';
+// Fixed wording rule (glossary section 6): the game draws no tab for a one-tab mod, so an Options path never names "Main"
+// (verified in game, 2026-11-07). The only allowed form is "Options > Modular Ski Resort > <group>".
+const enUS = JSON.parse(fs.readFileSync(path.join(repo, 'locale', 'en-US.json'), 'utf8'));
+for (const [k, v] of Object.entries(enUS.entries || enUS)) {
+  if (typeof v === 'string' && /Modular Ski Resort > Main\b/.test(v)) { fails++; console.log(`FAIL ${k}: Options path names "Main" (write Options > Modular Ski Resort > <group>)`); }
+}
+for (const t of targets) {
+  if (t.keyAt) continue;
+  fs.readFileSync(t.file, 'utf8').split('\n').forEach((l, i) => {
+    if (/Modular Ski Resort > Main\b/.test(l)) { fails++; console.log(`FAIL ${t.name}:${i + 1}: Options path names "Main"`); }
+  });
+}
+const note = lower ?` | ${lower} target(s) below baseline: run node tools/check-ste.js --write to lower it` : '';
 console.log(`check-ste: ${byFile.size} targets, ${total} hard finding(s), ${fails} over baseline - ${fails ? 'FAIL' : 'PASS'}${note}`);
 process.exit(fails ? 1 : 0);

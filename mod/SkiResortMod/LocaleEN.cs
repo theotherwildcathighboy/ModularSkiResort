@@ -725,7 +725,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.QUICK_TOOL_TIP", "Outline a region and get a set of runs to pick from. Experimental. Ctrl+Shift+Q also opens it." },
                 { "SkiResort.Hub.CAT_TRACK_DELETE", "Delete cat tracks" },
                 { "SkiResort.Hub.CAT_TRACK_DELETE_TIP", "Opens the cat track tool in delete mode. The ground stays graded, no refund. Ctrl+Shift+D in the tool." },
-                { "SkiResort.Hub.QUICK_REASON[Off]", "Resort Planner is experimental and off. Its switch is in Options > Modular Ski Resort > Main > Runs." },
+                { "SkiResort.Hub.QUICK_REASON[Off]", "Resort Planner is experimental and off. Its switch is in Options > Modular Ski Resort > Runs." },
                 { "SkiResort.Hub.QUICK_REASON[NotArmed]", "Available once a city is loaded." },
                 { "SkiResort.Hub.QUICK_REASON[Disabled]", "The Resort Planner hit an error and is off until the next load. Details are in the mod log." },
                 { "SkiResort.Hub.QUICK_UNAVAILABLE", "The Resort Planner is not available right now." },
@@ -1283,7 +1283,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_NOTE[Est]", "≈ Some income or costs are not counted yet. They show as 0 in the net." },
                 // The Money view's price line, tooltip lines without a placeholder.
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Title]", "Lift ticket price" },
-                { "SkiResort.Hub.MONEY_PRICE_TIP[Where]", "Options > Modular Ski Resort > Main > Ski area balance. One price for every ski area." },
+                { "SkiResort.Hub.MONEY_PRICE_TIP[Where]", "Options > Modular Ski Resort > Ski area balance. One price for every ski area." },
                 { "SkiResort.Hub.MONEY_PRICE_TIP[Who]", "Only ski days react to it. Other visitors and the attraction score ignore it." },
                 // The Money view's lodge-spend income row (only while it earned money this month).
                 { "SkiResort.Hub.MONEY_ROW[LodgeSpend]", "Lodge spend" },
@@ -1293,18 +1293,18 @@ namespace SkiResortMod
                 // The pre-season sale and lesson rows, the city-income estimate row, the lesson guests row.
                 { "SkiResort.Hub.MONEY_ROW[PassesPre]", "Pre-season passes · {N}" },
                 { "SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons · {N}" },
-                { "SkiResort.Hub.MONEY_TIP[Lessons]", "Booked this month so far, one lesson per guest. Share and price: Options > Modular Ski Resort > Main > Ski area balance." },
+                { "SkiResort.Hub.MONEY_TIP[Lessons]", "Booked this month so far, one lesson per guest. Share and price: Options > Modular Ski Resort > Ski area balance." },
                 { "SkiResort.Hub.MONEY_TIP[PassesPre]", "The one sale before the season opens. It is part of the season's sales and counts in the net of the month of the sale." },
                 { "SkiResort.Hub.MONEY_ROW[CityIncome]", "City tourist income" },
                 { "SkiResort.Hub.MONEY_TIP[CityIncome]", "Estimate: this ski area's share of the city's tourist draw × the game's tourist income. City income, outside the net." },
                 { "SkiResort.Hub.GUESTS_ROW[Lessons]", "Lessons" },
                 { "SkiResort.Hub.GUESTS_TIP[Lessons]", "Guests who took a lesson, one each." },
-                { "SkiResort.Hub.MONEY_TIP[Passes]", "Sold once a season. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Main." },
+                { "SkiResort.Hub.MONEY_TIP[Passes]", "Sold once a season. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Ski area balance." },
                 { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders, {MONTH}" },
                 { "SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass: no lift ticket money now." },
                 { "SkiResort.Hub.GUESTS_ROW[PassHolders]", "Season pass" },
                 { "SkiResort.Hub.GUESTS_TIP[PassHolders]", "Residents who came in on a season pass. They paid once for the season and pay nothing at the gate. Tourists never hold one." },
-                { "SkiResort.Hub.MONEY_TIP[LodgeSpend]", "Booked this month so far: what paying ski guests spend at the lodges. Per guest: Options > Modular Ski Resort > Main." },
+                { "SkiResort.Hub.MONEY_TIP[LodgeSpend]", "Booked this month so far: what paying ski guests spend at the lodges. Per guest: Options > Modular Ski Resort > Ski area balance." },
                 { "SkiResort.Hub.UNLINKED_MONEY", "Runs and lifts that are not linked earn nothing. Their upkeep is still charged." },
                 // The school and patrol tiles, the luxury tiers, the pickers. CG-T6
                 // derives "+12", "20 %" (School), "1 km", "15 %", "70 %" (Patrol) and "40" (the luxury PriceTolerance) from SkiCatalog.
@@ -1737,8 +1737,8 @@ namespace SkiResortMod
                 { "SkiResort.CatTrack.UNDO_GONE", "That grade can no longer be undone." },
                 { "SkiResort.CatTrack.UNDONE", "Grade undone." },
                 // SkiRunGateCascadeSystem.Confirm, the dialog before a Welcome Sign with bound runs is bulldozed. {COUNT} is an integer.
-                { "SkiResort.SignDelete.CONFIRM_ONE", "Bulldozing this Welcome Sign also deletes the 1 ski run linked to it, with its glade trees and border props. There is no refund and no undo. Lifts and buildings stay. To move the sign, use Relocate in its info panel. To remove everything this mod placed in the city, use Delete all ski resort content in Options > Modular Ski Resort > Main > Reset. Bulldoze it?" },
-                { "SkiResort.SignDelete.CONFIRM_MANY", "Bulldozing this Welcome Sign also deletes the {COUNT} ski runs linked to it, with their glade trees and border props. There is no refund and no undo. Lifts and buildings stay. To move the sign, use Relocate in its info panel. To remove everything this mod placed in the city, use Delete all ski resort content in Options > Modular Ski Resort > Main > Reset. Bulldoze it?" },
+                { "SkiResort.SignDelete.CONFIRM_ONE", "Bulldozing this Welcome Sign also deletes the 1 ski run linked to it, with its glade trees and border props. There is no refund and no undo. Lifts and buildings stay. To move the sign, use Relocate in its info panel. To remove everything this mod placed in the city, use Delete all ski resort content in Options > Modular Ski Resort > Reset. Bulldoze it?" },
+                { "SkiResort.SignDelete.CONFIRM_MANY", "Bulldozing this Welcome Sign also deletes the {COUNT} ski runs linked to it, with their glade trees and border props. There is no refund and no undo. Lifts and buildings stay. To move the sign, use Relocate in its info panel. To remove everything this mod placed in the city, use Delete all ski resort content in Options > Modular Ski Resort > Reset. Bulldoze it?" },
                 // SkiSnowLineTooltipSystem, the one line under the cursor while a run or the Welcome Sign is
                 // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world meters (LocalizedNumber<int>, unit "integer");
                 // "≈" and "·" are on the UI glyph allowlist.
