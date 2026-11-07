@@ -35,9 +35,9 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowHubButton)),
-                    "Shows a Ski Resort button at the top left of the screen that opens the hub: " +
-                    "your runs, the resort totals and every building tool in one place. The hub " +
-                    "is also always in the Universal Mod Panel."
+                    "Shows a Ski Resort button at the top left of the screen. The button opens " +
+                    "the hub: your runs, the resort totals and every building tool in one place. " +
+                    "The hub is also always in the Universal Mod Panel."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.OpenHubOnSignSelect)),
@@ -114,9 +114,9 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.AttractivenessScaleK)),
                     "How much a ski area's runs and lifts add to its attraction score. Score = (lodge base " +
                     "+ K × the square root of (runs and running lifts × variety × vertical)) × the Welcome " +
-                    "Sign's efficiency, at most 200. Default 4: in winter, with every run open, at full " +
-                    "efficiency, a small ski area scores about 50, a medium one about 95, a large one " +
-                    "about 160."
+                    "Sign's efficiency. The score is at most 200. Default 4. In winter, with every run open " +
+                    "at full efficiency, a small ski area scores about 50. A medium one scores about 95, a " +
+                    "large one about 160."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.BackcountryValuePercent)),
@@ -181,8 +181,8 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.OffSeasonHalfStaff)),
                     "On: after half a day with no open run in a ski area, its lodges and ski school keep half their " +
-                    "staff and pay half the wages. This lasts until a run opens again. Upkeep stays. A deactivated " +
-                    "lodge costs a tenth of its upkeep and no wages. Default on."
+                    "staff. They also pay half the wages. This lasts until a run opens again. Upkeep stays. A " +
+                    "deactivated lodge costs a tenth of its upkeep and no wages. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
@@ -191,9 +191,9 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
                     "The share of resident households that buy a season pass (the season starts 5 months before the map's winter). Each household within the " +
-                    "longest ski-day trip rolls once when a ski area opens for a new season, at this share times its chance of skiing there. Households that " +
-                    "moved in later, or live farther away, roll on their first visit. Holders ski free at the gate and go skiing more often. Tourists never buy " +
-                    "one. 0 turns passes off. Default 50 %."
+                    "longest ski-day trip rolls once when a ski area opens for a new season. Its chance is this share times its chance of skiing there. " +
+                    "Households that moved in later, or live farther away, roll on their first visit. Holders ski free at the gate and go skiing more often. " +
+                    "Tourists never buy one. 0 turns passes off. Default 50 %."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassMultiplier)),
@@ -237,10 +237,10 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.EnableBindOnDraw)),
-                    "When enabled, a run drawn within the ski area radius of a Ski Area Welcome Sign links " +
-                    "to that ski area at once (and pays its fee), also while the game is paused. Waiting " +
-                    "runs link the moment a sign is placed. Disabled: runs link at the next periodic check, " +
-                    "which happens only while the game is running. Default on."
+                    "When enabled, a run drawn within the ski area radius of a Welcome Sign links to that " +
+                    "ski area at once. It pays its fee at that moment, also while the game is paused. " +
+                    "Waiting runs link the moment a sign is placed. Disabled: runs link at the next " +
+                    "periodic check, which happens only while the game is running. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ShowRunGradeWhileDrawing)),
@@ -274,7 +274,7 @@ namespace SkiResortMod.Settings
                     "is the average winter snow line, where the December-February average climate reaches freezing, even in " +
                     "summer. A fainter one below it shows where snow guns start to work. The tooltip gives both heights and " +
                     "the height under the cursor. While you place a sign, it also gives the lowest and highest dry ground " +
-                    "within the ski area radius, the vertical above the snow line, and how much ground lies above it. " +
+                    "within the ski area radius. It adds the vertical above the snow line and how much ground lies above it. " +
                     "Default on."
                 },
                 // The ski area ring
@@ -284,10 +284,11 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowSkiAreaRadius)),
-                    "When enabled, a ring on the ground shows how far a ski area reaches (the ski area radius): around the cursor " +
-                    "while placing a Welcome Sign, around a selected sign, and around every sign while placing a run, lift or " +
-                    "resort building. A blue ring shows the lodge parking radius: car spaces inside it count for the lodge, around the " +
-                    "cursor while placing an A-frame, Chalet or Grand lodge and around a selected one. Default on."
+                    "When enabled, a ring on the ground shows how far a ski area reaches (the ski area radius). It appears around " +
+                    "the cursor while placing a Welcome Sign, around a selected sign, and around every sign while placing a run or " +
+                    "lift. It also appears around every sign while placing a resort building. A blue ring shows the lodge parking " +
+                    "radius. Car spaces inside it count for the lodge. It appears around the cursor while placing an A-frame, " +
+                    "Chalet or Grand lodge, and around a selected one. Default on."
                 },
                 // The run names on the hill
                 {
@@ -296,9 +297,9 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowRunNamesOnTheHill)),
-                    "When enabled, each ski run's name is written on the ground at the run's center, in its difficulty color, " +
-                    "while the camera is at piste-map distance. Handy in summer, when the runs carry no snow. The names step " +
-                    "aside while you draw or edit a run. Default on."
+                    "When enabled, each ski run's name appears on the ground at the run's center, in its difficulty color. " +
+                    "This happens while the camera is at piste-map distance. Handy in summer, when the runs carry no snow. The " +
+                    "names step aside while you draw or edit a run. Default on."
                 },
                 // The setting is thickness only (no corner rule, no snapping)
                 {
@@ -317,9 +318,9 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowGunPlumes)),
-                    "Snow guns on snowmaking runs, night runs and cat tracks show a vapor plume while they run: cold enough at " +
-                    "the gun and the run's snow below the depth where the guns stop. Look only: snow and upkeep do not " +
-                    "change. Default on."
+                    "Snow guns on snowmaking runs, night runs and cat tracks show a vapor plume while they run. They run when " +
+                    "it is cold enough at the gun and the run's snow is below the depth where the guns stop. Look only: snow " +
+                    "and upkeep do not change. Default on."
                 },
                 // Look only. The machine never changes snow, rating or upkeep
                 {
@@ -355,7 +356,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeCutRun)),
-                    "How far the cut bank reaches out for each meter (foot) it drops, where the track cuts into the hill. " +
+                    "How far the cut bank extends for each meter (foot) it drops, where the track cuts into the hill. " +
                     "Lower is steeper. Default 1.5: 1.5 m out per 1 m down."
                 },
                 {
@@ -364,7 +365,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeFillRun)),
-                    "How far the fill bank reaches out for each meter (foot) it rises, where the track is built up. " +
+                    "How far the fill bank extends for each meter (foot) it rises, where the track is built up. " +
                     "Lower is steeper. Default 2: 2 m out per 1 m up."
                 },
                 {
@@ -445,9 +446,9 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CopyDiagnostics)),
-                    "Copies a short report for a bug report to the clipboard: the mod and game versions, your computer, the options you " +
-                    "changed, the code mods loaded, where the mod log is, and its latest error lines. Paste it into your report. " +
-                    "Your Windows user name is left out."
+                    "Copies a short report for a bug report to the clipboard. It has the mod and game versions, your computer, the " +
+                    "options you changed and the code mods loaded. It also has where the mod log is and its latest error lines. Paste it " +
+                    "into your report. Your Windows user name is left out."
                 },
 
                 // --- Reset ---
@@ -458,7 +459,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ResetToDefaults)),
-                    "Puts every Modular Ski Resort option and key binding back to its default. Asks you to confirm first."
+                    "Puts every Modular Ski Resort option and key binding back to its default. It asks you first."
                 },
                 // The confirmation dialog text (AutomaticSettings.GetConfirmationMessage)
                 {
@@ -471,12 +472,12 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.DeleteAllResortContent)),
-                    "Removes everything Modular Ski Resort placed in this city: lifts and their towers, stations, lodges, the ski school, " +
-                    "patrol huts, Welcome Signs, ski runs, cat tracks, safety fences and the trees the tree tool or the Resort Planner " +
-                    "planted. Use it before you unsubscribe. Your own power lines, roads and buildings are not touched. Terrain graded for " +
-                    "cat tracks stays as it is. Snow already on the runs melts with the weather. Felled trees do not come back. If one of " +
-                    "your power lines ends at a base station, bulldoze that last span first. This cannot be undone: save your city first. " +
-                    "Available only in a loaded city."
+                    "Deletes everything Modular Ski Resort placed in this city. That is lifts and their towers, stations, lodges, the ski " +
+                    "school, patrol huts, Welcome Signs, ski runs, cat tracks and safety fences. It also deletes the trees the tree tool " +
+                    "or the Resort Planner planted. Use it before you unsubscribe. Your own power lines, roads and buildings are not " +
+                    "touched. Terrain graded for cat tracks stays as it is. Snow already on the runs melts with the weather. Felled trees " +
+                    "do not come back. If one of your power lines ends at a base station, bulldoze that last span first. This cannot be " +
+                    "undone: save your city first. Available only in a loaded city."
                 },
                 {
                     m_Setting.GetOptionWarningLocaleID(nameof(SkiResortSettings.DeleteAllResortContent)),
@@ -531,8 +532,9 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleCatTrackGradeToolBinding)),
-                    "Opens or closes the cat track tool (the hub's Cat track tile): click points up the mountain, drag a point " +
-                    "to move it, right click to step back, Enter to grade the ground and build the track. Default Ctrl+Shift+K."
+                    "Opens or closes the cat track tool (the hub's Cat track tile). In the tool, click points up the mountain " +
+                    "and drag a point to move it. Right click steps back. Enter grades the ground and builds the track. Default " +
+                    "Ctrl+Shift+K."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleCatTrackGrade), "Toggle cat track tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleCatTrackGrade), "Cat track tool" },
@@ -555,8 +557,9 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleQuickRunsToolBinding)),
-                    "Opens or closes the Resort Planner (also a button on the hub's Runs tab): click the corners of a region, " +
-                    "Enter to scan it, click a run to leave it out, Enter to build. Inert while the Resort Planner is off. Default Ctrl+Shift+Q."
+                    "Opens or closes the Resort Planner (also a button on the hub's Runs tab). In the planner, click the " +
+                    "corners of a region, then press Enter to scan it. Click a run to exclude it, then press Enter to build. " +
+                    "Inert while the Resort Planner is off. Default Ctrl+Shift+Q."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleQuickRuns), "Toggle Resort Planner" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleQuickRuns), "Resort Planner" },
