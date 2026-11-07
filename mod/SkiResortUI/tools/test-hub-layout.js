@@ -15,7 +15,7 @@
 *
 * Needs `npm run build` first (it mounts build/SkiResortMod.mjs) and network for the React UMD scripts the harness loads from cdnjs.
 * Usage:   node tools/test-hub-layout.js [--verbose]
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md): the panel frame is a stand-in, so the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -273,13 +273,26 @@ const INTUITIVE = [
   ["15-start-card", 1080, { scenario: "connected, empty city" }],
 ];
 
+// 2026-11-06 merge discoverability round: the Overview, its Merged buildings fold, the overlay armed, the Buildings tab and the merge card
+// beside the info panel (`whole: 1` = the whole game viewport, not the panel crop). `--list=merge` picks this list.
+const MERGE = [
+  ["merge-01-overview-1080", 1080, { scenario: ASH, view: 0 }],
+  ["merge-02-overview-fold-1080", 1080, { scenario: ASH, view: 0, fold: 2 }],
+  ["merge-03-overlay-armed-fold-1080", 1080, { scenario: "Ash Flat, merge overlay armed", view: 0, fold: 2 }],
+  ["merge-04-tab-buildings-1080", 1080, { scenario: ASH, view: 0, tab: "buildings" }],
+  ["merge-05-tab-buildings-armed-1080", 1080, { scenario: "Ash Flat, merge overlay armed", view: 0, tab: "buildings" }],
+  ["merge-06-card-viewport-1080", 1080, { scenario: ASH, view: 0, tab: "buildings", whole: 1 }],
+  ["merge-07-tile-hover-1080", 1080, { scenario: ASH, view: 0, tab: "buildings", hover: "Merge" }],
+  ["merge-08-card-too-far-1080", 1080, { scenario: "Ash Flat, merge card too far", view: 0, tab: "buildings", whole: 1 }],
+];
+
 async function shots(b, base, dir, list) {
   fs.mkdirSync(dir, { recursive: true });
   for (const [file, h, p0] of list) {
     const w = Math.round(h * 16 / 9);
     const p = Object.assign({}, p0);
-    const { hover, click, clickRange, hoverPlot } = p;
-    delete p.hover; delete p.click; delete p.clickRange; delete p.hoverPlot;
+    const { hover, click, clickRange, hoverPlot, whole } = p;
+    delete p.hover; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole;
     await open(b, base, w, h);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
       await window.SkiLayout.shot(p); return document.body.getAttribute("data-shot-ready"); })()`, 60000);
@@ -312,7 +325,7 @@ async function shots(b, base, dir, list) {
       } else console.log(`shot ${file}: hover target "${hover}" not found`);
     }
     // Crop to the panel (+ margin), grown to hold an open tooltip
-    const rect = await evalAsync(b, `(() => { const r = document.querySelector('.h-panel').getBoundingClientRect();
+    const rect = whole ? { x: 0, y: 0, width: w, height: h } : await evalAsync(b, `(() => { const r = document.querySelector('.h-panel').getBoundingClientRect();
       const t = document.querySelector('.h-tip'); const tr = t ? t.getBoundingClientRect() : null;
       const left = Math.min(r.left, tr ? tr.left : r.left), right = Math.max(r.right, tr ? tr.right : r.right);
       const top = Math.min(r.top, tr ? tr.top : r.top), bottom = Math.max(r.bottom, tr ? tr.bottom : r.bottom);
@@ -333,7 +346,7 @@ async function main() {
   try {
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)),
-        process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

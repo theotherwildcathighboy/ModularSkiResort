@@ -70,8 +70,9 @@ vanilla back to 185 within 256 frames after the writes stopped.
 - Delete all (Options): every merged building is unmerged; the buildings stay.
 
 ## Overlay (P2.6, contract 36; SkiMergeOverlaySystem)
-- Armed from the Overview's Merged buildings fold (`armMergeOverlay`); the fold is drawn in every area view so the chip is reachable with
-  no merged building yet. `mergeOverlay` {armed, allowed, tooSmall} drives the chip and its tooltip counts.
+- Armed from the Buildings tab's Merge tile (contract 37, the top-level entry: a sixth tile in the Lodges group, footer lines = legend and
+  counts while armed) or the Overview's Merged buildings fold chip (drawn in every area view). Both fire `armMergeOverlay`; `mergeOverlay`
+  {armed, allowed, tooSmall} drives the tile, the chip and the green / gray legend with its counts.
 - Tint: `MergeRules.TintOf` over the card's own classification (`ReadFacts`, `Classify`, `AllowedMask`): green = a tier fits, gray = the
   kind qualifies but no tier fits (AllowedMask 0), nothing for a wrong kind, a transient state, or an already merged building (the fold
   lists those). Near = within `SkiDayRules.SlopesideMaxM` of any area's lift station or run outline: the attractiveness system publishes
@@ -92,4 +93,6 @@ vanilla back to 185 within 256 frames after the writes stopped.
 ## Hub (contract 35)
 `mergeCard` (always observed, like `busCard`) and the triggers `mergeBuilding (entity, tier)` / `unmergeBuilding (entity)`;
 `mergedLodges` for the Overview's "Merged buildings" fold. The card shows for a merged building, or one that could be merged (a lot too
-small included, to say why), while the city has a sign.
+small included, to say why), while the city has a sign. Contract 37: `near` (NearAnySlopeside on the building's position) gives an
+unmerged building's status line, "Near the runs and lifts" or "Too far from the runs, would not count"; merging a far building is still
+allowed (it counts once a run or station comes within reach). A visible note says what merging does; the title's tooltip gives the fee rule.

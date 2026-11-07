@@ -3,6 +3,8 @@
  * merged. Always mounted at the "Game" hook like the Ski Bus card, so it reads only mergeCard$, never a panel binding. The tier chips pick a
  * tier the lot allows; the button fires mergeBuilding, C# charges at once and says the outcome on the next push. Its fees, states and
  * refusals are C#'s numbers (SkiMergeSystem, MergeRules); the card decides nothing.
+ * Contract 37: a note under the title says what merging does (the fee rule is the title's tooltip), and an unmerged building's status line
+ * says whether it is near enough to the runs and lifts to count (MergeCardState.near), before the player pays.
  * Engine notes: EngineNotes/SkiMergeSystem.md
  */
 import { useEffect, useState } from "react";
@@ -56,9 +58,13 @@ export function MergeCard(): JSX.Element | null {
       <Tip tip={t(HUB_LOC.mergeCardTip)}>
         <div className={styles.busCardTitle}>{t(HUB_LOC.mergeCardTitle)}</div>
       </Tip>
+      {!merged && <div className={styles.mergeCardNote}>{t(HUB_LOC.mergeCardNote)}</div>}
       {card.area !== "" && <InfoLine label={t(HUB_LOC.resortCaption)} value={card.area} />}
       {state && <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(state)} />}
       {tooSmall && !merged && <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(HUB_LOC.mergeCardTooSmall)} />}
+      {!tooSmall && !merged && (
+        <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(card.near ? HUB_LOC.mergeCardNear : HUB_LOC.mergeCardFar)} />
+      )}
       {tiers.length > 0 && (
         <>
           <InfoLine label={t(HUB_LOC.mergeCardTier)} />

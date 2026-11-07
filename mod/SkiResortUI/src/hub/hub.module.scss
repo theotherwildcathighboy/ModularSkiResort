@@ -1537,6 +1537,75 @@
   padding-right: 10rem;
 }
 
+// Contract 37: what merging does, under the card's title (wraps; the card has no height budget of its own).
+.mergeCardNote {
+  padding-left: 10rem;
+  padding-right: 10rem;
+  padding-bottom: 4rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: rgba(240, 251, 255, 0.75);
+}
+
+// Contract 37: the merge overlay's legend (MergedFold.MergeLegend): beside the fold's chip and in the Build strip's first status line.
+// Swatch colors = SkiMergeOverlaySystem s_Allowed / s_TooSmall (sRGB).
+.mergeLegend {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  flex-grow: 0;
+  flex-shrink: 0;
+  padding-left: 8rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  white-space: nowrap;
+}
+
+.buildStatusLine .mergeLegend {
+  justify-content: flex-start;
+  padding-left: 0rem;
+}
+
+.mergeLegendItem {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.mergeLegendItemNext {
+  margin-left: 10rem;
+}
+
+.mergeSwatch {
+  flex-shrink: 0;
+  width: 10rem;
+  height: 10rem;
+  margin-right: 4rem;
+  border-top-left-radius: 2rem;
+  border-top-right-radius: 2rem;
+  border-bottom-left-radius: 2rem;
+  border-bottom-right-radius: 2rem;
+}
+
+.mergeSwatchFits {
+  background-color: rgb(110, 220, 120);
+}
+
+.mergeSwatchTooSmall {
+  background-color: rgb(170, 170, 170);
+}
+
+.mergeLegendCount {
+  margin-right: 4rem;
+  color: var(--normalTextColor);
+}
+
+.mergeLegendLabel {
+  color: rgba(240, 251, 255, 0.7);
+}
+
 .mergeActions {
   display: flex;
   flex-direction: row;
