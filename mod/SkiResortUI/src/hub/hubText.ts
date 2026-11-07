@@ -120,7 +120,7 @@ export const HUB_LOC = {
   problemTipSchoolsNotLinked: ["SkiResort.Hub.PROBLEM_TIP[SchoolsNotLinked]", "Out of range of every Welcome Sign, so they teach nobody."],
   problemTipSkiDaysCannotReach: ["SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive."],
   problemTipSkiDaysNoGuestsNear: ["SkiResort.Hub.PROBLEM_TIP[SkiDaysNoGuestsNear]", "Ski-day guests come from homes and hotels, within the longest ski-day trip in Options. Beyond about 7 km few arrive in time."],
-  problemTipNoParkingNearLodge: ["SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m. Tourists from outside the city drive here and none arrive; hotel guests within 900 m walk."],
+  problemTipNoParkingNearLodge: ["SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 600 m. Tourists from outside the city drive here and none arrive; hotel guests within 900 m walk."],
   problemTipLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations."],
   problemTipMixedLiftTypes: ["SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one lift type; until then the lift counts 0."],
   /* C# HubProblemCode LiftTrainLimit (LiftAlignMath.PoseTrain, relative to the mast since DECISIONS 600: a half past its 30 deg pitch limit
@@ -323,9 +323,9 @@ export const HUB_LOC = {
   guestsRowPaid: ["SkiResort.Hub.GUESTS_ROW[Paid]", "Paid"],
   guestsRowTickets: ["SkiResort.Hub.GUESTS_ROW[Tickets]", "Ticket money"],
   /* the car space rows under the folds (GuestsView LodgeParkingLines): SkiParkingRules.RadiusM, per lodge */
-  guestsTipCarSpaces: ["SkiResort.Hub.GUESTS_TIP[CarSpaces]", "Street, lot and garage spaces within 300 m of this lodge. Tourist parties drive here."],
+  guestsTipCarSpaces: ["SkiResort.Hub.GUESTS_TIP[CarSpaces]", "Street, lot and garage spaces within 600 m of this lodge. Tourist parties drive here."],
   /* the CAR SPACES fold header: its value is the total over the rows, one per active road lodge */
-  guestsTipCarSpacesAll: ["SkiResort.Hub.GUESTS_TIP[CarSpacesAll]", "Street, lot and garage spaces within 300 m of each active road lodge. Tourist parties drive here."],
+  guestsTipCarSpacesAll: ["SkiResort.Hub.GUESTS_TIP[CarSpacesAll]", "Street, lot and garage spaces within 600 m of each active road lodge. Tourist parties drive here."],
   guestsTipTourists: ["SkiResort.Hub.GUESTS_TIP[Tourists]", "People in tourist groups that arrived at this ski area's lodges or Welcome Sign."],
   guestsTipGroups: ["SkiResort.Hub.GUESTS_TIP[Groups]", "Tourists arrive in groups; each group counts once."],
   guestsTipResidents: ["SkiResort.Hub.GUESTS_TIP[Residents]", "Residents of your city who came to a lodge for leisure."],

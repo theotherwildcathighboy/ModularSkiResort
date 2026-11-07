@@ -79,6 +79,7 @@ type Game.Citizens.CarKeeper struct a3d630b955 burst:r:SkiDaySystem m_Car:Entity
 type Game.Citizens.Citizen struct 5a516121bb burst:r:SkiDaySystem,SkiGuestCounterSystem m_PseudoRandom:ushort m_State:CitizenFlags m_WellBeing:byte m_Health:byte m_LeisureCounter:byte m_PenaltyCounter:byte m_UnemploymentCounter:int m_BirthDay:short m_UnemploymentTimeCounter:float m_SicknessPenalty:int
 type Game.Citizens.CitizenAge enum 54e0f3bb59 burst:r:SkiDaySystem Child=0 Teen=1 Adult=2 Elderly=3
 type Game.Citizens.CitizenFlags enum 7f5f196c14 burst:r:SkiDaySystem None=0 AgeBit1=1 AgeBit2=2 MovingAwayReachOC=4 Male=8 EducationBit1=16 EducationBit2=32 EducationBit3=64 FailedEducationBit1=128 FailedEducationBit2=256 Tourist=512 Commuter=1024 LookingForPartner=2048 ValidCitizen=4096 BicycleUser=8192 Homeless=16384
+type Game.Citizens.CitizenUtils class b9750fd53e
 type Game.Citizens.CommuterHousehold struct 9ef0b63f6b burst:r:SkiDaySystem m_OriginalFrom:Entity
 type Game.Citizens.CoordinatedMeeting struct 5f867484e0 burst:r:SkiDaySystem,SkiGuestCounterSystem m_Status:MeetingStatus m_Phase:int m_Target:Entity m_PhaseEndTime:uint
 type Game.Citizens.CoordinatedMeetingAttendee struct 516239b743 burst:r:SkiGuestCounterSystem m_Attendee:Entity
@@ -331,6 +332,7 @@ type Game.Prefabs.ElectricityConnectionData struct 0c5e470775 m_Capacity:int m_D
 type Game.Prefabs.ElectricityParameterData struct 44301c37e3 m_InitialBatteryCharge:float m_TemperatureConsumptionMultiplier:AnimationCurve1 m_CloudinessSolarPenalty:float m_ElectricityServicePrefab:Entity m_ElectricityNotificationPrefab:Entity m_LowVoltageNotConnectedPrefab:Entity m_HighVoltageNotConnectedPrefab:Entity m_BottleneckNotificationPrefab:Entity m_BuildingBottleneckNotificationPrefab:Entity m_NotEnoughProductionNotificationPrefab:Entity m_TransformerNotificationPrefab:Entity m_NotEnoughConnectedNotificationPrefab:Entity m_BatteryEmptyNotificationPrefab:Entity m_ElectricityAssetMenuPrefab:Entity
 type Game.Prefabs.GarbageParameterData struct 7e7f6bfdc4 m_GarbageServicePrefab:Entity m_GarbageNotificationPrefab:Entity m_FacilityFullNotificationPrefab:Entity m_HomelessGarbageProduce:int m_CollectionGarbageLimit:int m_RequestGarbageLimit:int m_WarningGarbageLimit:int m_MaxGarbageAccumulation:int m_BuildingLevelBalance:float m_EducationBalance:float m_HappinessEffectBaseline:int m_HappinessEffectStep:int m_AdaptiveCollectionMargin:float
 type Game.Prefabs.Gate class 37f2202d29
+type Game.Prefabs.HumanPrefab class 117ecbc0bb
 type Game.Prefabs.InfoviewInitializeSystem class 656727e893
 type Game.Prefabs.InfoviewPrefab class b3e10ef8fa
 type Game.Prefabs.LocaleMeshFlags enum 5f9d61caf1 RequireLocaleDeDE=1 RequireLocaleEnUS=2 RequireLocaleEsES=4 RequireLocaleFrFR=8 RequireLocaleItIT=16 RequireLocaleJaJP=32 RequireLocaleKoKR=64 RequireLocalePlPL=128 RequireLocalePtBR=256 RequireLocaleRuRU=512 RequireLocaleZhHANS=1024 RequireLocaleZhHANT=2048
@@ -358,6 +360,7 @@ type Game.Prefabs.ParkingFacility class 523581f269
 type Game.Prefabs.ParkingLaneData struct 76f9308a2e burst:r:SkiLodgeParkingSystem m_SlotSize:float2 m_SlotAngle:float m_SlotInterval:float m_MaxCarLength:float m_RoadTypes:RoadTypes
 type Game.Prefabs.PathwayData struct 88dc4a897d m_SpeedLimit:float m_LeisureProvider:bool
 type Game.Prefabs.PedestrianLane class d27502243a
+type Game.Prefabs.PedestrianPathfind class 80bd999622
 type Game.Prefabs.PillarData struct 94edb4b184 m_Type:PillarType m_OffsetRange:Bounds1
 type Game.Prefabs.PillarType enum d40506476d None=-1 Vertical=0 Horizontal=1 Standalone=2 Base=3
 type Game.Prefabs.PlaceableNetData struct e71927f763 m_ElevationRange:Bounds1 m_UndergroundPrefab:Entity m_PlacementFlags:PlacementFlags m_SetUpgradeFlags:CompositionFlags m_UnsetUpgradeFlags:CompositionFlags m_DefaultConstructionCost:uint m_DefaultUpkeepCost:float m_SnapDistance:float m_MinWaterElevation:float m_XPReward:int
@@ -412,6 +415,7 @@ type Game.Prefabs.TransportVehicleSelectData struct df21f57855 m_PrefabChunks:Na
 type Game.Prefabs.TreeData struct 4c64ad3aee m_WoodAmount:float
 type Game.Prefabs.TreeObject class d076dbd62f
 type Game.Prefabs.TripPriorityParametersData struct 1a1d342fa5 m_BaseMaxCost:float m_PriorityGoingHome:byte m_PriorityGoingToWork:byte m_PriorityGoingToSchool:byte m_PriorityShopping:byte m_PriorityHospital:byte m_PrioritySafety:byte m_PriorityEscape:byte m_PriorityEmergencyShelter:byte m_PriorityDeathcare:byte m_PriorityMovingAway:byte m_PriorityTourist:byte m_PriorityCriminal:byte m_LeisurePriorityMin:byte m_LeisurePriorityMax:byte
+type Game.Prefabs.TripPriorityParametersPrefab class a0bc84aac1
 type Game.Prefabs.UIObject class cdd1372f6b
 type Game.Prefabs.Unlock struct b0ca2e886c m_Prefab:Entity
 type Game.Prefabs.UnlockAllSystem class 6445ab9b98
@@ -543,6 +547,7 @@ type Game.Simulation.TerrainUtils class 24018acaba
 type Game.Simulation.TimeSystem class 7532023526
 type Game.Simulation.TourismSystem class e99a955257
 type Game.Simulation.TouristLeaveSystem class c64bf37678
+type Game.Simulation.TouristSpawnSystem class 0c1830a00d
 type Game.Simulation.TrafficSpawnerAISystem class e3b9ccf2bc
 type Game.Simulation.TransportCarAISystem class 16935f854e
 type Game.Simulation.TreeGrowthSystem class 32a8aa13d0

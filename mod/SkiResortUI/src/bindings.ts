@@ -108,7 +108,7 @@ export const PROBLEM = {
   SignNoRoad: 18,  // the Welcome Sign's Building.m_RoadEdge is null (C# HubProblemCode.SignNoRoad)
   LodgeNoRoad: 19,  // a lodge of the area has Building.m_RoadEdge null; subject = the first such lodge
   SkiDaysCannotReach: 20,  // most car ski-day guests never arrived (sev 2); subject = that lodge, else the sign
-  NoParkingNearLodge: 21,  // ski-day lodges with 0 car spaces within 300 m (sev 1); count
+  NoParkingNearLodge: 21,  // ski-day lodges with 0 car spaces within 600 m (sev 1); count
   LodgeNotSlopeside: 22,  // active lodges more than 800 m from the runs and stations (sev 1); count
   MixedLiftTypes: 23,  // a lift's line and stations span two of our lift types (sev 2); counts 0
   SummitLodgeNotLiftServed: 24,  // summit-bonus lodges no working lift's top reaches (sev 1); count
@@ -885,7 +885,7 @@ export interface LodgeParkingRow {
   lodge: Entity;
   /** The lodge's BuildItemId (its LODGE_TIER name). */
   item: string;
-  /** Street, lot and garage spaces within 300 m of this lodge (SkiLodgeParkingSystem); -1 = not counted yet. */
+  /** Street, lot and garage spaces within 600 m of this lodge (SkiLodgeParkingSystem); -1 = not counted yet. */
   carSpaces: number;
   /** Contract 30: its number among the area's lodges of its tier (LodgeNumberSystem, persisted); 0 = the only one, no number shown. */
   number: number;

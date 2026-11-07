@@ -1,6 +1,8 @@
-// Lodge parking census: for every active road lodge on a Welcome Sign, the car spaces within 300 m (street parking lanes, lanes and
-// garages of parking lots and halls; not boarding-only, bicycle, service or private spaces), counted by a Burst job over the lane
-// search tree and the parking facilities. SkiDaySystem reads it (TryGetParking, hub row 21); rules are SkiParkingRules'. In memory only.
+// Lodge parking census: for every active road lodge on a Welcome Sign, the car spaces within SkiParkingRules.RadiusM (600 m: street
+// parking lanes by their nearest point, lanes of parking lots, garages of parking halls by their entrance lane; not boarding-only,
+// bicycle, service or private spaces), counted by a Burst job over the lane search tree and the parking facilities. SkiDaySystem
+// reads it (TryGetParking, hub row 21), the parking ring the lodge positions (CopyLodgePositions); rules and the radius's derivation
+// are SkiParkingRules'. In memory only.
 // Only lodges with a road edge whose row takes arrivals count (LodgeSupplyRule.IsRoadLodge, per building): the Hut, the Summit and
 // patrol huts are roadless by design, and an off-road A-frame, Chalet or Grand takes no arrivals. The count is per lodge (hub Guests view).
 // Phase: GameSimulation, UpdateAt (Mod.cs, after SkiDaySystem's line); not anchored (no frame order needed, the lane search tree is
@@ -38,7 +40,8 @@ namespace SkiResortMod.Systems
         public SkiDayRules.LodgeReject State; // at the census (CheckLodge)
         public int StreetSpaces, LotSpaces, GarageSpaces, StreetParked, LotParked, GarageParked;
         public int ClosedLanes, PrivateLanes, OtherLanes;   // excluded (DUMP)
-        public float NearestM;               // nearest counted lane / garage building, −1 none
+        public float NearestM;               // nearest counted lane / garage entrance, −1 none
+        public float2 Position;              // the lodge xz the census measured from (the parking ring)
         public uint Frame;                   // SimulationSystem.frameIndex at schedule
         public int CarSpaces => StreetSpaces + LotSpaces + GarageSpaces;
         public int Parked => StreetParked + LotParked + GarageParked;
@@ -138,6 +141,21 @@ namespace SkiResortMod.Systems
         internal bool TryGetParking(Entity lodge, out LodgeParking parking)
         {
             return m_ByLodge.TryGetValue(lodge, out parking);
+        }
+
+        /// <summary>The lodges of the last census with a position (Done), in census order, and that position. Main thread, managed data
+        /// only (the parking ring reads it while a road lodge is placed or selected). Clears both lists first.</summary>
+        internal void CopyLodgePositions(List<Entity> lodges, List<float2> positions)
+        {
+            lodges.Clear();
+            positions.Clear();
+            for (int i = 0; i < m_Order.Count; i++)
+            {
+                if (!m_ByLodge.TryGetValue(m_Order[i], out LodgeParking p) || !p.Done)
+                    continue;
+                lodges.Add(p.Lodge);
+                positions.Add(p.Position);
+            }
         }
 
         /// <summary>The parking lines of the stats DUMP. Appends only, never throws; managed copies only.</summary>
@@ -343,8 +361,9 @@ namespace SkiResortMod.Systems
             }
 
             m_Armed = true;
-            Mod.Log.Info("Parking: ARMED — car spaces within 300 m of each active road lodge (mountain lodges and patrol huts get no row): street parking lanes (not boarding-only " +
-                         "lanes such as the two-way Gravel Road's and Alley's), lanes and garages of parking lots and halls; " +
+            Mod.Log.Info($"Parking: ARMED — car spaces within {SkiParkingRules.RadiusM:0} m of each active road lodge (mountain lodges and patrol huts get no row): street parking lanes (not boarding-only " +
+                         "lanes such as the two-way Gravel Road's and Alley's) by their nearest point, lanes of parking lots, garages of parking " +
+                         "halls by their entrance lane; " +
                          "not bicycle, service or private spaces; census when the lodge list or the parking count changes, at " +
                          $"least every {SkiParkingRules.BackstopTicks * 16} sim frames; in memory, reset on load");
         }
@@ -743,7 +762,7 @@ namespace SkiResortMod.Systems
         private static string Invariant(FormattableString s) => FormattableString.Invariant(s);
 
 
-        /// <summary>Lane search tree hits inside the lodge's ± 300 m box (bounds test only; the distance test runs on
+        /// <summary>Lane search tree hits inside the lodge's ± RadiusM box (bounds test only; the distance test runs on
         /// each ParkingLane hit). Shape of the house iterator (SkiGladeToolSystem.TreeBoundsIterator).</summary>
         private struct LaneBoxIterator : INativeQuadTreeIterator<Entity, QuadTreeBoundsXZ>,
             IUnsafeQuadTreeIterator<Entity, QuadTreeBoundsXZ>
@@ -826,8 +845,9 @@ namespace SkiResortMod.Systems
                         continue;
                     }
                     float2 p = transform.m_Position.xz;
+                    r.Position = p;
 
-                    // 2. Lane pass: the lane tree inside the ± 300 m box.
+                    // 2. Lane pass: the lane tree inside the ± RadiusM box.
                     hits.Clear();
                     var iterator = new LaneBoxIterator
                     {
@@ -840,7 +860,7 @@ namespace SkiResortMod.Systems
                     for (int h = 0; h < hits.Length; h++)
                         CountLane(hits[h], lodge, sign, p, ref r);
 
-                    // 3. Garage pass: the parking facilities within 300 m.
+                    // 3. Garage pass: the parking facilities whose center is within RadiusM + FacilityReachM; each entrance lane measured.
                     for (int c = 0; c < FacilityChunks.Length; c++)
                     {
                         NativeArray<Entity> facilities = FacilityChunks[c].GetNativeArray(EntityType);
@@ -958,24 +978,25 @@ namespace SkiResortMod.Systems
                 return SkiParkingRules.RootOf(parkingBuilding, anyBuilding);
             }
 
-            /// <summary>Step 3 for one parking facility: within 300 m of the lodge, its garage lanes by the info
-            /// view's walk (depth fixed at 2).</summary>
+            /// <summary>Step 3 for one parking facility: its center within RadiusM + FacilityReachM of the lodge, its garage lanes by
+            /// the info view's walk (depth fixed at 2), each measured at its own entrance lane. In reach (Stats[1]) when a garage lane is
+            /// within RadiusM.</summary>
             private void CountFacility(Entity facility, Entity lodge, Entity sign, float2 p, ref LodgeParking r)
             {
                 if (Destroyeds.HasComponent(facility) || !Transforms.TryGetComponent(facility, out Game.Objects.Transform t))
                     return;
                 float df = math.distance(t.m_Position.xz, p);
-                if (!(df <= SkiParkingRules.RadiusM))
+                if (!SkiParkingRules.FacilityNear(df))
                     return;
-                Stats[1]++;
+                bool inReach = false;
                 if (SubLanes.TryGetBuffer(facility, out DynamicBuffer<Game.Net.SubLane> lanes))
-                    CountGarages(lanes, lodge, sign, df, ref r);
+                    inReach |= CountGarages(lanes, lodge, sign, p, df, ref r);
                 if (SubNets.TryGetBuffer(facility, out DynamicBuffer<Game.Net.SubNet> nets))
                 {
                     for (int k = 0; k < nets.Length; k++)
                     {
                         if (SubLanes.TryGetBuffer(nets[k].m_SubNet, out DynamicBuffer<Game.Net.SubLane> netLanes))
-                            CountGarages(netLanes, lodge, sign, df, ref r);
+                            inReach |= CountGarages(netLanes, lodge, sign, p, df, ref r);
                     }
                 }
                 if (SubObjects.TryGetBuffer(facility, out DynamicBuffer<Game.Objects.SubObject> objects))
@@ -984,33 +1005,41 @@ namespace SkiResortMod.Systems
                     {
                         Entity sub = objects[k].m_SubObject;
                         if (SubLanes.TryGetBuffer(sub, out DynamicBuffer<Game.Net.SubLane> subLanes))
-                            CountGarages(subLanes, lodge, sign, df, ref r);
+                            inReach |= CountGarages(subLanes, lodge, sign, p, df, ref r);
                         if (!SubObjects.TryGetBuffer(sub, out DynamicBuffer<Game.Objects.SubObject> inner))
                             continue;
                         for (int j = 0; j < inner.Length; j++)
                         {
                             if (SubLanes.TryGetBuffer(inner[j].m_SubObject, out DynamicBuffer<Game.Net.SubLane> innerLanes))
-                                CountGarages(innerLanes, lodge, sign, df, ref r);
+                                inReach |= CountGarages(innerLanes, lodge, sign, p, df, ref r);
                         }
                     }
                 }
+                if (inReach)
+                    Stats[1]++;
             }
 
-            /// <summary>Each GarageLane connection lane of <paramref name="lanes"/>: ClassifyGarage with its own
-            /// restriction; counted → its capacity and the cars in it.</summary>
-            private void CountGarages(DynamicBuffer<Game.Net.SubLane> lanes, Entity lodge, Entity sign, float df, ref LodgeParking r)
+            /// <summary>Each GarageLane connection lane of <paramref name="lanes"/>: its distance (GarageDistance: the lane's curve, else
+            /// the building center <paramref name="df"/>), ClassifyGarage with its own restriction; counted → its capacity and the cars in
+            /// it. True when any garage lane is within RadiusM.</summary>
+            private bool CountGarages(DynamicBuffer<Game.Net.SubLane> lanes, Entity lodge, Entity sign, float2 p, float df, ref LodgeParking r)
             {
+                bool inReach = false;
                 for (int k = 0; k < lanes.Length; k++)
                 {
                     Entity lane = lanes[k].m_SubLane;
                     if (!GarageLanes.TryGetComponent(lane, out Game.Net.GarageLane garage) ||
                         !ConnectionLanes.TryGetComponent(lane, out Game.Net.ConnectionLane connection))
                         continue;
+                    bool hasCurve = Curves.TryGetComponent(lane, out Game.Net.Curve curve);
+                    float d = SkiParkingRules.GarageDistance(hasCurve, hasCurve ? MathUtils.Distance(curve.m_Bezier.xz, p, out float _) : 0f, df);
+                    if (d <= SkiParkingRules.RadiusM)
+                        inReach = true;
                     Entity restriction = connection.m_AccessRestriction;
                     bool restricted = SkiParkingRules.IsRestricted(restriction != Entity.Null, restriction == sign || restriction == lodge,
                                                                    (uint)connection.m_Flags, SkiParkingRules.ConnFlagAllowEnterExit);
                     switch (SkiParkingRules.ClassifyGarage((uint)connection.m_Flags, (byte)connection.m_RoadTypes,
-                                                           garage.m_VehicleCapacity, df, restricted))
+                                                           garage.m_VehicleCapacity, d, restricted))
                     {
                         case ParkingLaneVerdict.Count:
                             if (!SkiParkingRules.SpaceReachable(ParkingRoot.ParkingBuilding, BuildingOnChainHasRoad(lane)))
@@ -1020,8 +1049,8 @@ namespace SkiResortMod.Systems
                             }
                             r.GarageSpaces += garage.m_VehicleCapacity;
                             r.GarageParked += garage.m_VehicleCount;
-                            if (r.NearestM < 0f || df < r.NearestM)
-                                r.NearestM = df;
+                            if (r.NearestM < 0f || d < r.NearestM)
+                                r.NearestM = d;
                             break;
                         case ParkingLaneVerdict.TooFar:
                             break;
@@ -1036,6 +1065,7 @@ namespace SkiResortMod.Systems
                             break;
                     }
                 }
+                return inReach;
             }
         }
     }

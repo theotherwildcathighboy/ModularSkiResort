@@ -282,7 +282,8 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowSkiAreaRadius)),
                     "When enabled, a ring on the ground shows how far a ski area reaches (the ski area radius): around the cursor " +
                     "while placing a Welcome Sign, around a selected sign, and around every sign while placing a run, lift or " +
-                    "resort building. Default on."
+                    "resort building. A blue ring shows the lodge parking radius: car spaces inside it count for the lodge, around the " +
+                    "cursor while placing an A-frame, Chalet or Grand lodge and around a selected one. Default on."
                 },
                 // The run names on the hill
                 {

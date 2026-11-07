@@ -14,6 +14,7 @@ const REVIEWED = {
     'LodgeSupplySystem.cs': [1, 'supply chain: a merged building roots none'],
     'MountainJobsSystem.cs': [2, 'merged views are read before the catalog (SignJobsOf, SeasonalSignJobsOf)'],
     'OffSeasonStaffSystem.cs': [2, "off season: a merged building's own WorkProvider is never touched"],
+    'SkiAreaRingOverlaySystem.cs': [1, 'parking ring while placing: the object tool places our own lodge prefabs; a merged building has no parking row'],
     'SkiGuestCounterSystem.cs': [1, 'guests: a merged building is not a guest destination in v1'],
     'SkiLiftTicketSystem.cs': [1, 'lodge spend: not a guest destination in v1'],
     'SkiLodgeSpotDiag.cs': [1, "diagnostics of our lodges' spots"],

@@ -1,10 +1,37 @@
 # SkiLodgeParkingSystem: how the lodge parking census counts car spaces and when it re-runs
 
-The lodge parking census: for every active Base lodge on a Welcome Sign, the car spaces within 300 m (street parking lanes, lanes
-and garages of parking lots and halls; not boarding-only, bicycle, service or private spaces), counted by a Burst job over the
-lane search tree and the parking facilities. `SkiDaySystem` reads it every pass (TryGetParking, hub row 21 "No parking near the
-lodge"); the stats DUMP prints it (AppendDump). The rules are `SkiParkingRules`'; the lodge verdict is `SkiDayRules.CheckLodge`.
-In memory only, reset on load.
+The lodge parking census: for every active road lodge on a Welcome Sign, the car spaces within 600 m (`SkiParkingRules.RadiusM`;
+street parking lanes, lanes of parking lots, garages of parking halls; not boarding-only, bicycle, service or private spaces),
+counted by a Burst job over the lane search tree and the parking facilities. `SkiDaySystem` reads it every pass (TryGetParking, hub
+row 21 "No parking near the lodge"); the stats DUMP prints it (AppendDump); the parking ring reads the lodge positions
+(CopyLodgePositions). The rules are `SkiParkingRules`'; the lodge verdict is `SkiDayRules.CheckLodge`. In memory only, reset on load.
+
+## The radius (600 m since 2026-11-06; was 300 m)
+
+Vanilla has no parking radius. A car trip is one pathfind: drive, park (parking cost 10 s of time, CarPathfind.cs), walk to the
+door; the pathfinder takes the cheapest whole route under the trip's cost cap. Tourist parties: TripNeededSystem.cs:1403 sets
+`m_MaxCost = GetMaxCost(priority)` and :1441-1442 seek `SetupTargetType.Attraction`, whose targets get -100 x attractiveness x
+random (CitizenPathfindSetup.cs:369); GetMaxCost = 17,000 x priority / 128 (TripPriorityParametersData.cs:83-86), tourist priority
+64 (TripPriorityParametersPrefab.cs:12, :35): 8,500. A car whose spot is taken re-paths with car + parking + walking at
+`kMaxPathfindCost` 17,000 (PersonalCarAISystem.cs:787-799), so once under way it parks at the cheapest free spot, which is the
+nearest one: walking dominates. A lane's cost = (length / speed x time weight + its own costs . weights) x random 0.5-1
+(PathUtils.cs:28-35); walking adds 0.01 comfort per m (PedestrianPathfind.cs:10, PathUtils.cs:1304) at 6 km/h (HumanPrefab.cs:14,
+:43); weights CitizenUtils.cs:81-89 (time 5 x (4 - 3.75 x leisure counter / 255), comfort 1 + 2 x random). A mid tourist (leisure
+counter 128, comfort 2, random 0.75) pays 4.78 per m on foot, about 10 times a gravel road's (research
+far-resort-travel-2026-10-31.md section 1).
+
+`SkiParkingRules.WalkCost` / `MidWalkCost` hold that model. 600 m straight x 1.3 detour (`SkiDayRules.DetourFactor`) = 780 m on
+foot = 3,728, 44 % of 8,500; 700 m = 4,350, 51 %. So 600 m is the largest round 100 m whose walk costs a mid tourist at most half
+the budget, which leaves the other half for the drive in from the border (TouristSpawnSystem.cs:105-111 starts the party at an
+outside connection). Field anchor: residents with no closer parking walked about 790 m from the car to the near hill (2.6 game
+hours at 0.30 km per hour, research far-resort-travel-2026-10-31.md section 2). All 1.6.0f1 lines, identical in 1.6.2f1.
+Unverified: the shipped TripPriorityParameters and HumanPrefab values (the class defaults were read), and how a tourist party
+without a held car gets the car it parks (the effect is field-proven, DECISIONS 489).
+
+What the row means: spaces inside the radius make arrivals possible, not certain (the drive and the competing attractions decide
+the rest, "necessary, not sufficient"), and spaces just outside it still draw some parties, fewer the farther they are. The row and
+tips state the radius (CatalogGuard T6c checks the text against `RadiusM`). The ring on the ground is `SkiAreaRingOverlaySystem`'s
+parking layer (EngineNotes/SkiAreaRadius.md).
 
 ## Which lodges
 
@@ -36,7 +63,7 @@ and applied on the next, so the main thread never waits.
    HasRoad = Building.m_RoadEdge, NearestRunOrStationM = 0`: slope-side is SkiDaySystem's to judge). No position gives Done = false
    (DUMP "no census (no position)").
 2. Lane pass: the game's lane search tree (SearchSystem.GetLaneSearchTree(readOnly), SearchSystem.cs:839-843; it holds every lane
-   with LaneGeometry or ParkingLane, :733-741) over the lodge xz +- 300 m (box, `LaneBoxIterator`: the house iterator shape,
+   with LaneGeometry or ParkingLane, :733-741) over the lodge xz +- RadiusM (box, `LaneBoxIterator`: the house iterator shape,
    `SkiGladeToolSystem.TreeBoundsIterator`); each hit with a Game.Net.ParkingLane: d = MathUtils.Distance(curve xz, lodge xz);
    restricted = `SkiParkingRules.IsRestricted(m_AccessRestriction set and not our sign or lodge, the lane's AllowEnter |
    AllowExit)`. ParkingLaneDataSystem sets the restriction to the owning building for every building lane (:383-398) and the two
@@ -45,10 +72,13 @@ and applied on the next, so the main thread never waits.
    view's own count, RoadsInfoviewUISystem.cs:134-173) and the LaneObjects that are ParkedCars; the owner walk (<= MaxOwnerDepth)
    splits street (no building on the chain) from lots (any building: a parking lot or hall, or a park's or shop's lot the game
    opens to outsiders) for the DUMP only.
-3. Garage pass: every CarParkingFacility building within 300 m (its Transform; not an upgrade, whose garage lanes sit on its root,
-   m_FacilityWalkQuery); its GarageLane connection lanes reached through SubLane, SubNet -> SubLane, SubObject -> SubLane and
-   SubObject -> SubObject -> SubLane (the info view's walk, depth fixed at 2); verdict `SkiParkingRules.ClassifyGarage` with the
-   connection lane's own restriction and AllowEnter | AllowExit; Count = m_VehicleCapacity spaces, m_VehicleCount parked. Garage
+3. Garage pass: every CarParkingFacility building whose center is within RadiusM + `FacilityReachM` 250 m (`FacilityNear`; not an
+   upgrade, whose garage lanes sit on its root, m_FacilityWalkQuery); its GarageLane connection lanes reached through SubLane,
+   SubNet -> SubLane, SubObject -> SubLane and SubObject -> SubObject -> SubLane (the info view's walk, depth fixed at 2); each
+   garage lane measured on its own, to its Curve (`GarageDistance`; the building center when it has none), so a big hall counts by
+   its entrance, not its middle (before 2026-11-06 the center, which missed a hall whose middle lay past the radius); "in reach"
+   (DUMP, [cost]) = a garage lane within RadiusM; verdict `SkiParkingRules.ClassifyGarage` with the connection lane's own
+   restriction and AllowEnter | AllowExit; Count = m_VehicleCapacity spaces, m_VehicleCount parked. Garage
    lanes are connection lanes (RoadConnectionSystem.cs:1374-1399, :1445-1448), not in the lane tree, and lot ParkingLanes come
    only from pass 2, so nothing is counted twice.
 
@@ -66,8 +96,8 @@ it): a mismatch is one WARN and the census is off for the load.
 ## Cost
 
 Estimates; the [cost] line measures. Idle tick = one int compare (two CalculateEntityCount every 16th tick); census tick = <= 10
-signs x <= 10 lodges copied, one async chunk list, one schedule; worker = every lane of a 600 x 600 m box per lodge (thousands in
-town, unverified) + every parking facility. Measured at the CostCensuses-th census with lodges after each load, which is
+signs x <= 10 lodges copied, one async chunk list, one schedule; worker = every lane of a 1,200 x 1,200 m box per lodge (4x the
+300 m radius's box; thousands in town, unverified) + every parking facility. Measured at the CostCensuses-th census with lodges after each load, which is
 completed synchronously: its dependencies first (the vanilla writers of the lookups' types, the one main-thread sync of a
 measurement), then schedule + complete (the job's own time, "job"; a Stopwatch cannot run inside a Burst job), then applied at
 once. Re-armed once per game day at the first tick at or after 12:00 (SkiDayRules.DayKey; only once the last line was written); a
