@@ -1,8 +1,8 @@
 // A run's two border-prop spacings, set per run from the hub's Runs view. A persisted component: its type name and Serialize layout are a
-// save-format contract (see SaveLayouts). On a groomed run they are its Snowmaking and Lights features (above Off = on, DECISIONS 577):
-// snow, upkeep, fees and the score read them only as features, through SkiRunPropSystem.FeaturesOf (a cat track's gun value through
-// CatTrackGunsOn, DECISIONS 563). Layout v1 (13 bytes): after the 1.0 freeze it never
-// changes: new fields go in a new type. Never rename the type or move its namespace without [FormerlySerializedAs].
+// save-format contract (see SaveLayouts). On a groomed run they are its Snowmaking and Lights features (above Off = on, DECISIONS 577).
+// Snow, upkeep, fees and the score read them only as features, through SkiRunPropSystem.FeaturesOf (a cat track's gun value through
+// CatTrackGunsOn, DECISIONS 563). Layout v1 (13 bytes). After the 1.0 freeze it never
+// changes. New fields go in a new type. Never rename the type or move its namespace without [FormerlySerializedAs].
 // Engine notes: EngineNotes/SkiRunPropMember.md
 
 using Colossal.Serialization.Entities;
@@ -10,17 +10,17 @@ using Unity.Entities;
 
 namespace SkiResortMod.Systems
 {
-    // Stripped saved AQN as a literal; rules in SkiRunBinding.cs "SELF-ALIAS"
+    // Stripped saved AQN as a literal. Rules in SkiRunBinding.cs "SELF-ALIAS"
     [FormerlySerializedAs("SkiResortMod.Systems.SkiRunPropSettings, SkiResortMod")]
     public struct SkiRunPropSettings : IComponentData, IQueryTypeParameter, ISerializable
     {
         /// <summary>Layout version written by this build.</summary>
         public const byte CurrentVersion = 1;
 
-        /// <summary>Meters between guns and hydrants along the border; RunPropPlacerRules.SpacingOff = none.</summary>
+        /// <summary>Meters between guns and hydrants along the border. RunPropPlacerRules.SpacingOff = none.</summary>
         public int m_GunSpacingM;
 
-        /// <summary>Meters between floodlight masts; RunPropPlacerRules.SpacingOff = none. On a cat track above Off = the track is lit.</summary>
+        /// <summary>Meters between floodlight masts. RunPropPlacerRules.SpacingOff = none. On a cat track above Off = the track is lit.</summary>
         public int m_LightSpacingM;
 
         /// <summary>RunPropPlacerRules.RingKey of the plan that stands (0 = none yet). A load keeps a run whose key still matches, so a prop

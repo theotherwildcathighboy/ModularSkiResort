@@ -2,9 +2,9 @@
 // SkiStationAlignSystem, SkiLiftTooltipSystem (readout), LiftCensus (per-row AlignKnown / AlignOffsetM / AlignYawDeg),
 // StationFacingRefusalSystem (AttachesBackward / LineEnds, FIX-LIST 54(b)), tests/LiftBatch.
 // StubTipLocalZ aliases the pure SkiCatalog.cs, so SkiCatalog.cs is linked wherever this file is. The stub tip is per station row:
-// StubTip(position, rotation, StationDef.StubTipLocalZ) (-16 detachable / gondola, -12 fixed-grip and tram); the 2-argument overload is -12.
+// StubTip(position, rotation, StationDef.StubTipLocalZ) (-16 detachable / gondola, -12 fixed-grip and tram). The 2-argument overload is -12.
 // Also the pure up-lane rule of the loop cache: SideLookingUphill / UpLaneIsSecond (chain A = the cable on the RIGHT looking uphill).
-// Left-handed world: lateral > 0 = the subject's tip is LEFT of the partner's axis; yaw > 0 = its stub is turned COUNTER-CLOCKWISE.
+// Left-handed world: lateral > 0 = the subject's tip is LEFT of the partner's axis. Yaw > 0 = its stub is turned COUNTER-CLOCKWISE.
 // Pure file: System, System.Collections.Generic, Unity.Mathematics only (tests/SlopeBatch host rule) plus the shared pure EntityRef.
 // Engine notes: EngineNotes/StationAlign.md
 
@@ -18,7 +18,7 @@ namespace SkiResortMod.Systems
     {
         /// <summary>Station-local z of the HV stub's outer node (the line's connection point): SkiTopStationBuilding.Prefab:86 /
         /// SkiBaseStationBuilding.Prefab:92 (curve point d). An alias of SkiCatalog.StubTipLocalZ (every StationDef carries the same
-        /// value; CatalogTests CT-6).</summary>
+        /// value. See CatalogTests CT-6).</summary>
         public const float StubTipLocalZ = SkiCatalog.StubTipLocalZ;
 
         /// <summary>Offset tolerance, meters.</summary>
@@ -47,8 +47,8 @@ namespace SkiResortMod.Systems
             World = 2,
         }
 
-        /// <summary><paramref name="subjectIsPreview"/> = the object tool's preview (subject (i)); <paramref name="subjectJustMoved"/> =
-        /// subject (ii), a station moved within SkiStationAlignSystem.MovedWindowS; <paramref name="defaultToolActive"/> =
+        /// <summary><paramref name="subjectIsPreview"/> = the object tool's preview (subject (i)). <paramref name="subjectJustMoved"/> =
+        /// subject (ii), a station moved within SkiStationAlignSystem.MovedWindowS. <paramref name="defaultToolActive"/> =
         /// ToolSystem.activeTool is the DefaultToolSystem.</summary>
         public static ReadoutPlace PlaceOf(bool subjectIsPreview, bool subjectJustMoved, bool defaultToolActive)
         {
@@ -61,14 +61,14 @@ namespace SkiResortMod.Systems
 
         public struct Result
         {
-            /// <summary>False when either axis is degenerate (a station rotated so that its -Z has no horizontal component; not reachable
-            /// with yaw-only placement, guarded anyway).</summary>
+            /// <summary>False when either axis is degenerate (a station rotated so that its -Z has no horizontal component). Yaw-only
+            /// placement does not reach this case, but the code guards it anyway.</summary>
             public bool Valid;
             /// <summary>Signed: + left, − right of the partner's axis (seen from the partner).</summary>
             public float LateralM;
-            /// <summary>Distance along the partner's axis; ≤ 0 = behind the partner's stub.</summary>
+            /// <summary>Distance along the partner's axis. ≤ 0 = behind the partner's stub.</summary>
             public float AlongM;
-            /// <summary>Signed angle from −f_p to f_s, degrees in (−180, 180]; + counter-clockwise.</summary>
+            /// <summary>Signed angle from −f_p to f_s, degrees in (−180, 180]. + counter-clockwise.</summary>
             public float YawDeg;
             /// <summary>Horizontal tip-to-tip distance, meters.</summary>
             public float DistanceM;
@@ -88,7 +88,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The HV stub tip of a station whose stub ends at <paramref name="stubTipLocalZ"/> (StationDef.StubTipLocalZ, per row:
-        /// -12 on the fixed-grip and tram stations, -16 on the detachable and gondola stations): position + mul(rotation, (0, 0,
+        /// -12 on the fixed-grip and tram stations, -16 on the detachable and gondola stations). Formula: position + mul(rotation, (0, 0,
         /// stubTipLocalZ)). A non-finite z falls back to StubTipLocalZ (the fixed-grip value).</summary>
         public static float3 StubTip(float3 position, quaternion rotation, float stubTipLocalZ)
         {
@@ -96,8 +96,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The same with the lift line axis at prefab-local x <paramref name="stubTipLocalX"/> (StationDef.StubTipLocalX: +4.00
-        /// on the tram base, whose 6 x 3 lot moved its building 4 m off the origin; 0 elsewhere): position + mul(rotation, (x, 0, z)). A
-        /// non-finite x counts as 0, a non-finite z falls back to StubTipLocalZ.</summary>
+        /// on the tram base, whose 6 x 3 lot moved its building 4 m off the origin. 0 elsewhere). Formula: position + mul(rotation, (x, 0, z)).
+        /// A non-finite x counts as 0. A non-finite z falls back to StubTipLocalZ.</summary>
         public static float3 StubTip(float3 position, quaternion rotation, float stubTipLocalZ, float stubTipLocalX)
         {
             float z = float.IsNaN(stubTipLocalZ) || float.IsInfinity(stubTipLocalZ) ? StubTipLocalZ : stubTipLocalZ;
@@ -106,7 +106,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Which side of the lift a point lies on, LOOKING UPHILL (from the base toward the top), in the horizontal plane. +1 =
-        /// right, -1 = left, 0 = on the axis (within 1 mm) or a degenerate axis (base and top within 1 mm in xz). Left-handed CS2 world
+        /// right, -1 = left. 0 = on the axis (within 1 mm) or a degenerate axis (base and top within 1 mm in xz). Left-handed CS2 world
         /// (see engine notes, Sign convention): looking along d = top - base, the right-hand normal is (d.z, -d.x).</summary>
         public static int SideLookingUphill(float2 baseXz, float2 topXz, float2 pointXz)
         {
@@ -120,11 +120,12 @@ namespace SkiResortMod.Systems
             return side > 0f ? 1 : -1;
         }
 
-        /// <summary>The up lane of a loop is the cable on the RIGHT looking uphill, so a carrier facing its travel direction with its
-        /// hanger at local +x keeps the hanger OUTBOARD of the tower decks on both sides. Given the two chains' midpoints (the mean of a
-        /// chain's two end points: independent of the chain's direction), true when the SECOND chain lies right of the first, i.e. the
-        /// caller must swap them to make chain A the up lane. False when the first is already right, or when the two cannot be told
-        /// apart (a degenerate axis or both midpoints on the same side within 1 mm: keep the order found).</summary>
+        /// <summary>The up lane of a loop is the cable on the RIGHT looking uphill. Therefore a carrier that faces its travel direction,
+        /// with its hanger at local +x, keeps the hanger OUTBOARD of the tower decks on both sides.
+        /// Input: the two chains' midpoints (the mean of a chain's two end points, independent of the chain's direction).
+        /// True when the SECOND chain lies right of the first, i.e. the caller must swap them to make chain A the up lane.
+        /// False when the first is already right, or when the two cannot be told apart (a degenerate axis, or both midpoints on the same
+        /// side within 1 mm: keep the order found).</summary>
         public static bool UpLaneIsSecond(float2 baseXz, float2 topXz, float2 firstMidXz, float2 secondMidXz)
         {
             float2 d = topXz - baseXz;
@@ -137,7 +138,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Unit horizontal direction in which the line leaves the station (local −Z), as
-        /// (x, z); (0, 0) when degenerate.</summary>
+        /// (x, z). It returns (0, 0) when degenerate.</summary>
         public static float2 Axis(quaternion rotation)
         {
             float3 f = math.mul(rotation, new float3(0f, 0f, -1f));
@@ -152,7 +153,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Signed angle from <paramref name="from"/> to <paramref name="to"/>, degrees in
-        /// (−180, 180]; + = counter-clockwise seen from above. Both must be non-zero.</summary>
+        /// (−180, 180]. + = counter-clockwise seen from above. Both must be non-zero.</summary>
         public static float SignedAngleDeg(float2 from, float2 to)
         {
             float a = math.degrees(math.atan2(Cross(from, to), math.dot(from, to)));
@@ -164,7 +165,7 @@ namespace SkiResortMod.Systems
             return alongM > 0f && math.abs(lateralM) <= AlignedOffsetM && math.abs(yawDeg) <= AlignedYawDeg;
         }
 
-        /// <summary>|yaw| &gt; 90 deg (exclusive; NaN gives false): the subject's stub points away from the partner rather than back at
+        /// <summary>|yaw| &gt; 90 deg (exclusive, and NaN gives false): the subject's stub points away from the partner rather than back at
         /// it. Yaw only: the caller decides the AlongM &lt;= 0 case first (Classify).</summary>
         public static bool FacesAway(float yawDeg)
         {
@@ -180,7 +181,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Length of every station's HV stub (the SkiLiftMarker sub-net), meters: it runs from its inner node at local z
         /// StubTipLocalZ + 3 to the tip at StubTipLocalZ, at x StubTipLocalX (all 8 station prefabs: FG / tram -9 to -12, DQ / gondola
-        /// -13 to -16; LiftBatch EI-48 checks the mirror).</summary>
+        /// -13 to -16. LiftBatch EI-48 checks the mirror).</summary>
         public const float StubLengthM = 3f;
 
         /// <summary>World position of the HV stub's INNER node (StubTipLocalZ + StubLengthM, toward the building). The vanilla snap
@@ -193,7 +194,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A station preview's stub node this close (xz) to a built lift line's end node sits on it (vanilla merges the node
-        /// there or stands its own node at the same spot; StationFacingRefusalSystem).</summary>
+        /// there or stands its own node at the same spot). See StationFacingRefusalSystem.</summary>
         public const float AttachTolM = 1f;
 
         /// <summary>Which of the station's two stub nodes a net node sits on (StationFacingRefusalSystem).</summary>
@@ -204,8 +205,8 @@ namespace SkiResortMod.Systems
             Inner = 2,
         }
 
-        /// <summary>The stub node within AttachTolM (xz) of <paramref name="nodeXz"/>, the nearer one when both are; None when neither
-        /// is or a position is not finite.</summary>
+        /// <summary>The stub node within AttachTolM (xz) of <paramref name="nodeXz"/>, the nearer one when both are. It returns None when
+        /// neither is, or when a position is not finite.</summary>
         public static StubNode StubNodeOn(float2 stubTipXz, float2 stubInnerXz, float2 nodeXz)
         {
             float dTip = math.distance(stubTipXz, nodeXz), dInner = math.distance(stubInnerXz, nodeXz);
@@ -217,12 +218,14 @@ namespace SkiResortMod.Systems
 
         /// <summary>FIX-LIST 54(b): a station preview snapped onto the END node of a built lift line (<paramref name="endXz"/>, under
         /// either of its stub nodes) while the line's next node (<paramref name="nextXz"/>) lies behind the stub, measured from the end
-        /// node (LineLeavesBackward): the line would run back through the building. Returns the stub node that sits on the end, None
-        /// when the station does not attach there or the line leaves ahead of the stub. The vanilla object tool offers the snap with
-        /// the tool's own rotation as well as the aligned one, and either stub node can land on the node (the field reversed tram base
-        /// had its INNER node merged onto the end and placed; the tip-on-node snap vanilla already refuses as "Invalid shape"), so a
-        /// reversed station snaps on; StationFacingRefusalSystem refuses it. The caller passes true ends only (LineEnds: one lift-line
-        /// edge at the node), so a station on an interior tower node is never judged here.</summary>
+        /// node (LineLeavesBackward). The line would run back through the building.
+        /// Returns the stub node that sits on the end. Returns None when the station does not attach there or the line leaves ahead of
+        /// the stub.
+        /// The vanilla object tool offers the snap with the tool's own rotation as well as the aligned one. Either stub node can land on
+        /// the node (the field reversed tram base had its INNER node merged onto the end and placed. Vanilla already refuses the
+        /// tip-on-node snap as "Invalid shape"). So a reversed station snaps on, and StationFacingRefusalSystem refuses it.
+        /// The caller passes true ends only (LineEnds: one lift-line edge at the node), so it never judges a station on an interior
+        /// tower node here.</summary>
         public static StubNode AttachesBackward(float2 stationAxis, float2 stubTipXz, float2 stubInnerXz, float2 endXz, float2 nextXz)
         {
             StubNode on = StubNodeOn(stubTipXz, stubInnerXz, endXz);
@@ -230,7 +233,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The true ends of a lift-line net: every node with exactly one edge among <paramref name="edges"/> (start, end
-        /// pairs), mapped to the other node of that edge (the line's next node). An interior tower node (two edges) is not an end; a
+        /// pairs), mapped to the other node of that edge (the line's next node). An interior tower node (two edges) is not an end. A
         /// degenerate edge (both nodes the same) is skipped.</summary>
         public static Dictionary<TNode, TNode> LineEnds<TNode>(IEnumerable<KeyValuePair<TNode, TNode>> edges) where TNode : IEquatable<TNode>
         {
@@ -239,7 +242,7 @@ namespace SkiResortMod.Systems
             return ends;
         }
 
-        /// <summary>LineEnds into caller-owned dictionaries (cleared first; the per-frame caller reuses them).</summary>
+        /// <summary>LineEnds into caller-owned dictionaries (cleared first. The per-frame caller reuses them).</summary>
         public static void LineEnds<TNode>(IEnumerable<KeyValuePair<TNode, TNode>> edges, Dictionary<TNode, int> degree,
                                            Dictionary<TNode, TNode> next, Dictionary<TNode, TNode> ends) where TNode : IEquatable<TNode>
         {
@@ -327,8 +330,8 @@ namespace SkiResortMod.Systems
             m_SeenFrame = long.MinValue;
         }
 
-        /// <summary>One observation of the census's last move. A null station and a repeat of the last (station, frame) pair are ignored;
-        /// otherwise the station's open episode takes the move, or a new episode opens.</summary>
+        /// <summary>One observation of the census's last move. The method ignores a null station and a repeat of the last (station, frame)
+        /// pair. Otherwise the station's open episode takes the move, or a new episode opens.</summary>
         public void Observe(EntityRef station, long movedFrame, double movedTime)
         {
             if (station.IsNull || (station == m_SeenStation && movedFrame == m_SeenFrame))
@@ -360,7 +363,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Closes ONE open episode that has been quiet for QuietSeconds of wall clock AND MoveGapFrames frames (so a slow frame
-        /// rate still waits for the station to settle); call until it returns false.</summary>
+        /// rate still waits for the station to settle). Call until it returns false.</summary>
         public bool TryCloseOne(long frameNow, double timeNow, out Episode closed)
         {
             for (int i = 0; i < m_Open.Count; i++)

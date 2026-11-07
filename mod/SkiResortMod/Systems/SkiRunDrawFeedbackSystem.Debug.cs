@@ -1,7 +1,7 @@
 // "Ski Runs" tab of the game's developer menu (same pattern as SkiGladeToolSystem.Debug.cs). "Dump to log" also writes the
-// .skislope capture (SkiRunDrawFeedbackSystem.WriteCapture; the button is the only file-IO path); the other dump path is the
+// .skislope capture (SkiRunDrawFeedbackSystem.WriteCapture). The button is the only file-IO path. The other dump path is the
 // dump hotkey (SkiGladeHotkeySystem).
-// A [DebugTab] method on a ComponentSystemBase runs on the LIVE system instance, hence this partial; nothing is registered in Mod.cs.
+// A [DebugTab] method on a ComponentSystemBase runs on the LIVE system instance, hence this partial. Nothing is registered in Mod.cs.
 // The tab name must be unique ("Ski Runs"): AddPanel replaces the widget list registered earlier under the same name.
 // Cost: DebugUI.Value getters run at 10 Hz, so every row reads a plain field (no EntityQuery, no job completion, no allocation).
 // Engine notes: EngineNotes/SkiRunDrawFeedbackSystem.Debug.md
@@ -95,7 +95,7 @@ namespace SkiResortMod.Systems
             list.Add(new DebugUI.Button
             {
                 // Log text + .skislope capture of the last rated polygon (survives closing the tool). Pressing the button moves the cursor
-                // off the map, so the live Temp is gone: use the dump hotkey (default Ctrl+Alt+G) to dump with a run on the cursor.
+                // off the map, so the live Temp is gone. To dump with a run on the cursor, use the dump hotkey (default Ctrl+Alt+G).
                 displayName = "Dump to log",
                 action = () => RunDebugAction("dump", DumpToLog)
             });

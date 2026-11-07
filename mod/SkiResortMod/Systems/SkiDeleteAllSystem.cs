@@ -1,14 +1,18 @@
 // The Options button "Delete all ski resort content": one request deletes everything the mod placed in the loaded city, the way the
-// bulldozer does, so a player can clean a city before unsubscribing. The button's setter only queues (an Options UI callback cannot
-// use ToolOutputBarrier / EndFrameBarrier, Game/SafeCommandBufferSystem.cs:14-21); this system does the work on the main thread.
+// bulldozer does. A player can use it to clean a city before unsubscribing.
+// The button's setter only queues the request. An Options UI callback cannot use ToolOutputBarrier / EndFrameBarrier
+// (Game/SafeCommandBufferSystem.cs:14-21). This system does the work on the main thread.
 // Frame 1: the active tool goes back to the default tool, so no Temp preview of ours outlives the delete. Frame 2: the delete.
-// Scheduling (load-bearing): UpdateBefore<SkiDeleteAllSystem, SubElementDeleteSystem>(PostTool), where a bulldoze's Deleted stands
-// after ApplyTool (Game.Common/SystemOrder.cs:712-724); PostTool runs every frame, paused included (Game.Tools/ToolSystem.cs:251-257).
-// Vanilla then cascades station sub-nets and sub-areas (SubElementDeleteSystem, PostTool), the electricity graph
-// (ElectricityGraphDeleteSystem, Modification1), sub-objects incl. towers / chairs (SubObjectSystem, Modification2B),
-// the number tiles (SecondaryObjectSystem, Modification4B) and the ConnectedEdge refs (Game.Net/ReferencesSystem.cs:143-156).
-// Selection is by our resolved prefab entities only (DeleteAllRules.Targets); a vanilla power line, road or building is never
-// selected, and a net node of ours that a foreign edge still uses is kept (DeleteAllRules.NodeVerdict). One summary log line.
+// Scheduling (load-bearing): UpdateBefore<SkiDeleteAllSystem, SubElementDeleteSystem>(PostTool). In PostTool a bulldoze's Deleted stands
+// after ApplyTool (Game.Common/SystemOrder.cs:712-724). PostTool runs every frame, paused included (Game.Tools/ToolSystem.cs:251-257).
+// Vanilla then cascades these:
+// - station sub-nets and sub-areas (SubElementDeleteSystem, PostTool)
+// - the electricity graph (ElectricityGraphDeleteSystem, Modification1)
+// - sub-objects incl. towers / chairs (SubObjectSystem, Modification2B)
+// - the number tiles (SecondaryObjectSystem, Modification4B)
+// - the ConnectedEdge refs (Game.Net/ReferencesSystem.cs:143-156)
+// The system selects only our resolved prefab entities (DeleteAllRules.Targets). It never selects a vanilla power line, road or
+// building. It keeps a net node of ours that a foreign edge still uses (DeleteAllRules.NodeVerdict). It writes one summary log line.
 // Plan, inventory and what stays (graded terrain, injected snow, felled trees): docs/research/delete-all-2026-10-29.md.
 
 using System;
@@ -46,7 +50,7 @@ namespace SkiResortMod.Systems
         private EntityQuery m_RunProps;
         private EntityQuery m_Passes;
 
-        private int m_Countdown;   // 0 = idle; 2 = tool reset this frame; 1 = delete this frame
+        private int m_Countdown;   // 0 = idle, 2 = tool reset this frame, 1 = delete this frame
         private bool m_ErrorLogged;
 
         // Scratch, reused per run
@@ -54,7 +58,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_DeleteEdges = new HashSet<Entity>();
         private readonly HashSet<Entity> m_DeleteNodes = new HashSet<Entity>();
 
-        /// <summary>Queues one delete (the Options button). Refused with a log line outside a loaded Game-mode city.</summary>
+        /// <summary>Queues one delete (the Options button). Outside a loaded Game-mode city, it refuses and writes a log line.</summary>
         public static void Request(string by)
         {
             GameManager gm = GameManager.instance;
@@ -138,7 +142,7 @@ namespace SkiResortMod.Systems
                 if (s_Requested)
                 {
                     s_Requested = false;
-                    // Frame 1: close any tool of ours (its Temp preview is cleared at the next ClearTool phase)
+                    // Frame 1: close any tool of ours (the next ClearTool phase clears its Temp preview)
                     if (m_ToolSystem.activeTool != m_DefaultTool)
                         m_ToolSystem.activeTool = m_DefaultTool;
                     m_Countdown = 2;
@@ -180,7 +184,7 @@ namespace SkiResortMod.Systems
             var areas = new NativeList<Entity>(32, Allocator.Temp);
             try
             {
-                // 1. Collect everything first; mutate after (structural changes invalidate chunks)
+                // 1. Collect everything first. Mutate after (structural changes invalidate chunks)
                 CollectEdges(edges, counts);
                 CollectNodes(nodes, counts);
                 CollectTouchedNodes(edges, touch);
@@ -206,7 +210,7 @@ namespace SkiResortMod.Systems
                     }
                 }
                 counts[(int)DeleteKind.Trees] = trees;
-                // The placed run props (free-standing, SkiRunPropMember): selected here too, so an orphan tag cannot outlive the button
+                // The placed run props (free-standing, SkiRunPropMember): this system selects them too, so an orphan tag cannot outlive the button
                 if (runProps > 0)
                 {
                     using (var propArray = m_RunProps.ToEntityArray(Allocator.Temp))
@@ -219,10 +223,10 @@ namespace SkiResortMod.Systems
                 }
                 counts[(int)DeleteKind.RunProps] = runProps;
 
-                // 3. Our component on vanilla households: removed, the households stay
+                // 3. Remove our component from vanilla households. The households stay
                 if (passes > 0)
                     EntityManager.RemoveComponent<SkiSeasonPass>(m_Passes);
-                // Merged buildings go back to plain buildings (the buildings stay; their own log line)
+                // Merged buildings go back to plain buildings. The buildings stay. Their own log line is written.
                 World.GetExistingSystemManaged<SkiMergeSystem>()?.UnmergeAll();
                 counts[(int)DeleteKind.SeasonPasses] = passes;
 

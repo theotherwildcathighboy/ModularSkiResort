@@ -1,5 +1,5 @@
 // Quick runs planner: field kernels (chamfer distance, the minimax bucket queue, the Dijkstra heap) and the exact geometry checks.
-// Pure; see SkiRunAutoPlanner.cs for the contract. Segment distances reuse CatTrackGrade's GradeRibbon / GradePath helpers.
+// Pure. See SkiRunAutoPlanner.cs for the contract. Segment distances reuse CatTrackGrade's GradeRibbon / GradePath helpers.
 
 using System;
 using System.Collections.Generic;
@@ -10,7 +10,7 @@ namespace SkiResortMod.Systems
     public sealed partial class SkiRunAutoPlanner
     {
         /// <summary>One chamfer pass (3x3 mask, texel and texel·√2) over rows [jFrom, jTo] of the window [i0, i1] x [j0, j1] of a
-        /// row-major field of width nx. Forward reads the W, NW, N, NE neighbors; backward the E, SE, S, SW ones. Seeds are the
+        /// row-major field of width nx. Forward reads the W, NW, N, NE neighbors. Backward reads the E, SE, S, SW ones. Seeds are the
         /// cells' initial values (min-plus), so a seed may be negative (a clearance). Public for the host's oracle.</summary>
         public static void Chamfer(float[] d, int nx, int i0, int i1, int j0, int j1, int jFrom, int jTo, bool forward, float texel)
         {
@@ -130,7 +130,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Lazy binary min-heap of (cost, cell); ties pop the lower cell index first (deterministic).</summary>
+        /// <summary>Lazy binary min-heap of (cost, cell). Ties pop the lower cell index first (deterministic).</summary>
         public sealed class DijkstraQueue
         {
             private float[] m_Key = new float[1024];
@@ -196,8 +196,8 @@ namespace SkiResortMod.Systems
             private static bool Less(float ka, int ca, float kb, int cb) => ka < kb || (ka == kb && ca < cb);
         }
 
-        /// <summary>Minimax field on a small grid (8-neighbor, sources = isSource, blocked = bucket 65535): out[c] = min over paths to a
-        /// source of the max bucket along the path, 65535 unreached. The planner's stage 3 kernel in one call (host oracle).</summary>
+        /// <summary>Minimax field on a small grid (8-neighbor, sources = isSource, blocked = bucket 65535). out[c] = min over paths to a
+        /// source of the max bucket along the path, 65535 if unreached. The planner's stage 3 kernel in one call (host oracle).</summary>
         public static void MinimaxField(int nx, int nz, ushort[] bucket, bool[] isSource, ushort[] result)
         {
             var q = new MinimaxQueue();
@@ -289,9 +289,9 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>Minimum distance between two closed rings (0 when they cross or one holds a vertex of the other), with the closest
-        /// points and the edges they lie on. Edge pairs whose boxes are farther apart than <paramref name="cutoff"/> are skipped, so
-        /// the result is exact up to cutoff and "at least cutoff" beyond.</summary>
+        /// <summary>Minimum distance between two closed rings (0 when they cross or one holds a vertex of the other). It also gives the
+        /// closest points and the edges they lie on. The function skips edge pairs whose boxes are farther apart than
+        /// <paramref name="cutoff"/>. So the result is exact up to cutoff and "at least cutoff" beyond.</summary>
         public static float RingDistance(float2[] a, float2[] b, float cutoff, out float2 pa, out float2 pb, out int ea, out int eb)
         {
             float best = EdgeDistance(a, b, cutoff, out pa, out pb, out ea, out eb);
@@ -304,8 +304,8 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>Minimum distance between the edges of two closed rings, containment NOT counted (a ring inside the region is
-        /// as far from it as from its nearest edge). Segment pairs farther apart than cutoff on either axis are skipped.</summary>
+        /// <summary>Minimum distance between the edges of two closed rings. Containment is NOT counted: a ring inside the region is
+        /// as far from it as from its nearest edge. The function skips segment pairs farther apart than cutoff on either axis.</summary>
         public static float EdgeDistance(float2[] a, float2[] b, float cutoff, out float2 pa, out float2 pb, out int ea, out int eb)
         {
             pa = pb = default;
@@ -344,9 +344,9 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>Inserts point p (on or next to edge e) into the ring as a vertex, unless a vertex of that edge lies within
-        /// GradeRibbon.MinSpacingM, which is reused (a new vertex that close to a corner would break the 1.5 m edge clearance). Returns
-        /// the vertex index.</summary>
+        /// <summary>Inserts point p (on or next to edge e) into the ring as a vertex. If a vertex of that edge lies within
+        /// GradeRibbon.MinSpacingM, it reuses that vertex instead (a new vertex that close to a corner would break the 1.5 m edge
+        /// clearance). Returns the vertex index.</summary>
         public static int InsertNode(List<float2> ring, int e, float2 p)
         {
             int n = ring.Count;

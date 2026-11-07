@@ -1,28 +1,34 @@
-// Mast lean (DECISIONS 600; spike tilted-towers-spike-2026-11-04 option A, section 1.2): a line tower whose rope pitch is past what its
-// head (or, on the tram, its saddle) follows leans its whole mast downhill about its foot, up to LiftAlignMath.MaxLeanDegOf (DQ / GD 20 deg, FG 25,
-// tram 25). The lean is LiftAlignMath.LeanDeg (THE lean rule, one switch) of the tower's rope pitch, LiftAlignMath.ChordPitchDeg over its
-// two neighbors' plumb rope points (the planner's own measure, so plan and game agree and the lean never feeds back into itself).
+// Mast lean (DECISIONS 600, spike tilted-towers-spike-2026-11-04 option A, section 1.2).
+// A line tower leans its whole mast downhill about its foot when its rope pitch is past what its head (or, on the tram, its saddle)
+// follows. The lean is at most LiftAlignMath.MaxLeanDegOf (DQ / GD 20 deg, FG 25, tram 25).
+// The lean is LiftAlignMath.LeanDeg (THE lean rule, one switch) of the tower's rope pitch. The rope pitch is LiftAlignMath.ChordPitchDeg
+// over its two neighbors' plumb rope points. This is the planner's own measure, so plan and game agree and the lean never feeds
+// back into itself.
 //   Where the pose comes from: SubObjectSystem (Modification2B) and AlignSystem (Modification4) re-derive a node tower's Transform as
-//     yaw-only on every Updated (Game.Objects/SubObjectSystem.cs:1032-1034, :1757-1758; Game.Objects/AlignSystem.cs:153-160 writes it
-//     when it differs), and nothing else writes it (spike section 1.1). This system runs right after AlignSystem, before LaneSystem
-//     (Game.Common/SystemOrder.cs:153, :155), so a re-aligned tower is leaned again in the same frame (no plumb frame) and LaneSystem
-//     hangs the ropes from the leaned anchors (U1 probe, DECISIONS 570 c: a rotation written after AlignSystem holds, ropes re-anchor).
-//   The pivot is the tower's Transform position (the prefab origin, the foot): only the rotation changes. The tower's own sub-objects
-//     (the GD beacon row, number tiles) are carried like AlignSystem.MoveObject does (:167-180).
-//   A tower leaned or restored without a vanilla update gets Updated (search tree, culling, raycast follow the Transform; Objects
-//     SearchSystem Modification5, PreCullingSystem.cs:718-723), and so do its node's lift edges, so LaneSystem rebuilds their ropes on
-//     the moved anchors this frame. UNVERIFIED in game: that an Updated added here (after AlignSystem, before LaneSystem) is enough for
-//     LaneSystem to re-anchor the edge's rope lanes; that the Standing leg box follows the rotation (nothing on a line collides).
-// Padded face uphill (DECISIONS 600 e): every tower mesh carries its crash pad and TrainFront half on local +z, its ladder and the Hold /
-//   Combo deck end on -z, but vanilla yaws a node tower along the draw direction (Game.Net/NodeAlignSystem.cs:85-111, :209-212). This
-//   system turns each line tower, and each ground-end tower, by 0 or 180 deg about vertical so +z points toward its section's higher rope
-//   end (LiftAlignMath.SectionUphill / PadUphillYaw; one call per section, so all its towers face the same way; a section whose ends differ
-//   by less than PadFlatRiseM keeps vanilla's yaw), then leans it. The ropes do not move: every tower's anchor set is symmetric under the
+//     yaw-only on every Updated (Game.Objects/SubObjectSystem.cs:1032-1034, :1757-1758, and Game.Objects/AlignSystem.cs:153-160, which writes it
+//     when it differs). Nothing else writes it (spike section 1.1). This system runs right after AlignSystem, before LaneSystem
+//     (Game.Common/SystemOrder.cs:153, :155). A re-aligned tower is therefore leaned again in the same frame (no plumb frame).
+//     LaneSystem then hangs the ropes from the leaned anchors (U1 probe, DECISIONS 570 c: a rotation written after AlignSystem holds, ropes re-anchor).
+//   The pivot is the tower's Transform position (the prefab origin, the foot): only the rotation changes. This system carries the tower's
+//     own sub-objects (the GD beacon row, number tiles) like AlignSystem.MoveObject does (:167-180).
+//   A tower leaned or restored without a vanilla update gets Updated (search tree, culling, raycast follow the Transform: Objects
+//     SearchSystem Modification5, PreCullingSystem.cs:718-723). Its node's lift edges get Updated too, so LaneSystem rebuilds their ropes on
+//     the moved anchors this frame. UNVERIFIED in game:
+//     1. That an Updated added here (after AlignSystem, before LaneSystem) is enough for LaneSystem to re-anchor the edge's rope lanes.
+//     2. That the Standing leg box follows the rotation (nothing on a line collides).
+// Padded face uphill (DECISIONS 600 e): every tower mesh carries its crash pad and TrainFront half on local +z. Its ladder and the Hold /
+//   Combo deck end are on -z. But vanilla yaws a node tower along the draw direction (Game.Net/NodeAlignSystem.cs:85-111, :209-212). This
+//   system turns each line tower, and each ground-end tower, by 0 or 180 deg about vertical, so +z points toward its section's higher rope
+//   end. LiftAlignMath.SectionUphill / PadUphillYaw: one call per section, so all its towers face the same way. A section whose ends differ
+//   by less than PadFlatRiseM keeps vanilla's yaw. Then the system leans the tower. The ropes do not move: every tower's anchor set is symmetric under the
 //   turn and LaneSystem matches anchors by position (EngineNotes). An edit re-checks the whole section the edge lies on.
-// Triggers: both end nodes of every Updated lift edge, the same nodes once more on the next frame (a station neighbor's rope point is
-// read from its rope lane, which LaneSystem rebuilds after this system), and every lift node once after a load (the Transform is saved,
-// so a rule change takes effect there). Event-driven: 0 work when no lift edge is updated.
-// Never: Temp or Deleted towers (a preview stays plumb), stations, junctions, Editor; a ground end (one lift edge, no Owner) is turned,
+// Triggers:
+//   - both end nodes of every Updated lift edge
+//   - the same nodes once more on the next frame (a station neighbor's rope point is read from its rope lane, which LaneSystem rebuilds
+//     after this system)
+//   - every lift node once after a load (the Transform is saved, so a rule change takes effect there)
+// Event-driven: 0 work when no lift edge is updated.
+// Never: Temp or Deleted towers (a preview stays plumb), stations, junctions, Editor. A ground end (one lift edge, no Owner) is turned,
 // never leaned.
 // Log discipline: one line per frame that leaned or restored a tower (with the steepest lean), a one-shot "!!!" catch.
 // Mod.cs: UpdateAfter<TowerLeanSystem, Game.Objects.AlignSystem>(Modification4).
@@ -223,8 +229,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The padded face's direction for every node of every section a node to check lies on (600 e), into m_Uphill, and every
-        /// node of those sections into m_Nodes: the section's higher end decides for all its towers, so an edit anywhere on it re-checks
-        /// them all (a few buffer reads per tower; an unchanged pose is skipped by the rotation test).</summary>
+        /// node of those sections into m_Nodes.
+        /// The section's higher end decides for all its towers, so an edit anywhere on it re-checks
+        /// them all (a few buffer reads per tower. The rotation test skips an unchanged pose).</summary>
         private void Sections(IReadOnlyDictionary<Entity, LiftTypeDef> lines)
         {
             m_Uphill.Clear();
@@ -373,8 +380,8 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>The node's lift edges into m_LiftEdges; true when there are exactly two of one lift type (a line tower; a line end,
-        /// a station or a junction is never leaned).</summary>
+        /// <summary>The node's lift edges into m_LiftEdges. True when there are exactly two of one lift type (a line tower). A line end,
+        /// a station or a junction is never leaned.</summary>
         private bool LiftEdgesOf(Entity node, IReadOnlyDictionary<Entity, LiftTypeDef> lines, out string typeId)
         {
             typeId = null;
@@ -400,7 +407,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The tower's rope pitch, degrees (ChordPitchDeg over the plumb rope points of the node's two lift neighbors and its
-        /// own plumb anchor; + rises toward <paramref name="next"/>, the second edge's far end).</summary>
+        /// own plumb anchor). + rises toward <paramref name="next"/>, the second edge's far end.</summary>
         private bool PitchAt(Entity node, Entity tower, Transform t, out float pitch, out float3 prev, out float3 next)
         {
             pitch = 0f;

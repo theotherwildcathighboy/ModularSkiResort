@@ -1,13 +1,13 @@
-// Makes props standing on our ski runs whiten in step with the snow we inject: nothing gives an area entity Game.Objects.Surface, so
-// props on runs render snow-free; this system adds it and keeps m_SnowAmount in step with the depth SkiSnowInjectionSystem measures.
-// Phase and interval are both load-bearing: UpdateAfter<WetnessSystem> (the same tick as vanilla's wetness write) and interval 256
-// (an anchor's runtime offset is inherited only when the intervals are equal).
+// Makes props standing on our ski runs whiten in step with the snow we inject. Nothing gives an area entity Game.Objects.Surface, so
+// props on runs render snow-free. This system adds it and keeps m_SnowAmount in step with the depth SkiSnowInjectionSystem measures.
+// Phase and interval are both load-bearing: UpdateAfter<WetnessSystem> (the same tick as vanilla's wetness write) and interval 256.
+// An anchor's runtime offset is inherited only when the intervals are equal.
 // The value is set both ways, not clamped up: props go white as the ribbon builds and come clean as it melts.
 // Placed props are free-standing with their own Game.Objects.Surface, which vanilla's WetnessSystem writes from the climate (WetnessSystem.cs:160)
-// just before this pass; the same value goes onto them here, cat track props included (the renderer reads the entity's own Surface first,
+// just before this pass. The same value goes onto them here, cat track props included (the renderer reads the entity's own Surface first,
 // BatchDataSystem.cs:795-817).
-// Game mode only; only our run prefabs and tagged props; m_Wetness and m_Dirtyness stay with vanilla. With no measured depth, vanilla is left alone.
-// Pass lines go through a LogWindow (Tuning.LogWindowS); a fold is flushed at OnGamePreload and OnDestroy.
+// Game mode only. Only our run prefabs and tagged props. m_Wetness and m_Dirtyness stay with vanilla. With no measured depth, vanilla is left alone.
+// Pass lines go through a LogWindow (Tuning.LogWindowS). A fold is flushed at OnGamePreload and OnDestroy.
 // Engine notes: EngineNotes/SkiRunSurfaceSystem.md
 
 using System;
@@ -30,16 +30,16 @@ namespace SkiResortMod.Systems
         private static class Tuning
         {
             /// <summary>Run snow depth (m) at which props read fully white. The snow shader
-            /// saturates at cm scale, and the WeatherObject RequireSnow gate trips at
-            /// m_AccumulatedSnow >= 15/255, so 5 cm gives a comfortable margin over both
-            /// while still letting a thin early-season base read as "dusted".</summary>
+            /// saturates at cm scale. The WeatherObject RequireSnow gate trips at
+            /// m_AccumulatedSnow >= 15/255. So 5 cm gives a comfortable margin over both,
+            /// and a thin early-season base still reads as "dusted".</summary>
             public const float FullWhiteDepthM = 0.05f;
             // RunSnowRules.PackedSkipMinRunDepthM (0.10 = 2 x this) depends on this value: change both.
 
             /// <summary>An unchanged pass logs as a heartbeat only when no pass line was written for this many wall-clock seconds.</summary>
             public const float HeartbeatS = 120f;
 
-            /// <summary>At most one pass line per this many wall-clock seconds; the rest of a burst is folded into one summary.</summary>
+            /// <summary>At most one pass line per this many wall-clock seconds. The rest of a burst is folded into one summary.</summary>
             public const float LogWindowS = 10f;
         }
 
@@ -65,7 +65,7 @@ namespace SkiResortMod.Systems
         private int m_LastByte = -1;
         private int m_LastAreaCount = -1;
 
-        // Folds the pass lines; reset per load, flushed before a load
+        // Folds the pass lines. Reset per load, flushed before a load
         private readonly LogWindow m_PassLog = new LogWindow(Tuning.LogWindowS);
 
         protected override void OnCreate()
@@ -114,7 +114,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A load (or leaving to the menu) writes the folded pass lines of the city being left. Never throws:
-        /// GameSystemBase.GamePreload disables a system whose OnGamePreload throws (Game/GameSystemBase.cs:85-96; same in 1.6.2).</summary>
+        /// GameSystemBase.GamePreload disables a system whose OnGamePreload throws (Game/GameSystemBase.cs:85-96, same in 1.6.2).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
@@ -155,7 +155,7 @@ namespace SkiResortMod.Systems
             m_ErrorLogged = false;
             m_LastByte = -1;
             m_LastAreaCount = -1;
-            m_PassLog.Reset();   // flushed in OnGamePreload; nothing carries over
+            m_PassLog.Reset();   // flushed in OnGamePreload. Nothing carries over
 
             if (mode != GameMode.Game)
                 return;

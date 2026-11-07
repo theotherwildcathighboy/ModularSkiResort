@@ -1,9 +1,12 @@
-// Pure rules for "the guns of this run are running", shared by the snow injection (whether a gun run's cold texels are raised, and so
-// billed, this pass) and SkiSnowGunPlumeSystem (whether a gun plumes), so a plume never shows on a run the injection is not raising and
-// the bill never runs while the guns are stopped. Linked into tests/ResortBatch (SnowGunPlumeTests); `using System;` only.
-// A run's guns run only when the temperature gate passes (some cold texel), the pack is below the stop depth with hysteresis (stop at
-// GunStopDepthM, restart below GunStopDepthM - GunRestartBandM), the pack is not already that deep from natural snow, and it is the
-// gun season (InGunSeason, around the climate's winter). Plume: setting on, the run's guns running, and the gun's own elevation cold.
+// Pure rules for "the guns of this run are running". Two systems share them: the snow injection (whether a gun run's cold texels are
+// raised, and so billed, this pass) and SkiSnowGunPlumeSystem (whether a gun plumes). So a plume never shows on a run the injection is
+// not raising, and the bill never runs while the guns are stopped. Linked into tests/ResortBatch (SnowGunPlumeTests). `using System;` only.
+// A run's guns run only when all of these hold:
+// - The temperature gate passes (some cold texel).
+// - The pack is below the stop depth, with hysteresis (stop at GunStopDepthM, restart below GunStopDepthM - GunRestartBandM).
+// - The pack is not already that deep from natural snow.
+// - It is the gun season (InGunSeason, around the climate's winter).
+// Plume: the setting is on, the run's guns are running, and the gun's own elevation is cold.
 // Lease: the plume effect is enabled while EarlyDisasterWarningDuration.m_EndFrame > the sim frame (EffectControlData.cs:419-424).
 // Engine notes: EngineNotes/SnowGunPlumeRules.md
 
@@ -14,7 +17,7 @@ namespace SkiResortMod.Systems
     /// <summary>The guns-running predicate and the plume lease (see engine notes).</summary>
     internal static class SnowGunPlumeRules
     {
-        /// <summary>A gun run's state. Unknown = no pack measured yet this load: treated as stopped until the first
+        /// <summary>A gun run's state. Unknown = no pack measured yet this load. The code treats it as stopped until the first
         /// measurement, so a load in deep winter never flashes plumes.</summary>
         public enum GunState : byte { Unknown = 0, Stopped = 1, Running = 2 }
 
@@ -28,7 +31,7 @@ namespace SkiResortMod.Systems
         public const float RestartBelowM = RunSnowRules.GunStopDepthM - RunSnowRules.GunRestartBandM;
 
         /// <summary>The plume lease in simulation frames: 16,384 = 1.5 game hours (10,922.7 frames per game hour,
-        /// RunSnowRules.FramesPerGameHour), renewed when less than PlumeRenewFrames is left.</summary>
+        /// RunSnowRules.FramesPerGameHour). The system renews it when less than PlumeRenewFrames is left.</summary>
         public const uint PlumeLeaseFrames = 16384;
         public const uint PlumeRenewFrames = 8192;
 
@@ -36,11 +39,11 @@ namespace SkiResortMod.Systems
         /// one window of the injection's decision.</summary>
         public const int PlumeIntervalFrames = RunSnowRules.TopupIntervalFrames;
 
-        /// <summary>The SkiSnowGunPlume EffectPrefab's VFX.m_MaxCount (VFXSystem.cs:154-162; over it an instance is dropped
-        /// silently, :224). The plume system WARNs once per load when more guns than this want a plume.</summary>
+        /// <summary>The SkiSnowGunPlume EffectPrefab's VFX.m_MaxCount (VFXSystem.cs:154-162). Over it the game drops an instance
+        /// silently (:224). The plume system WARNs once per load when more guns than this want a plume.</summary>
         public const int PlumeMaxCount = 256;
 
-        /// <summary>The run's pack in meters on the stop-depth scale; NaN when nothing was measured (targetSum not above
+        /// <summary>The run's pack in meters on the stop-depth scale. The value is NaN when nothing was measured (targetSum not above
         /// zero, or a non-finite sum).</summary>
         public static float PackDepthM(double targetSum, double packSum)
         {
@@ -80,17 +83,17 @@ namespace SkiResortMod.Systems
         public const float GunSeasonEnd = 15f / 12f;
 
         /// <summary>Whether snow guns may run now. A vanilla-named season decides where it is clear ("SeasonWinter" in,
-        /// "SeasonSummer" out: a map whose winter falls in June keeps its guns); any other name uses the window around a
-        /// December to February winter, October to March (the overload below takes the climate's own winter).</summary>
+        /// "SeasonSummer" out: a map whose winter falls in June keeps its guns). Any other name uses the window around a
+        /// December to February winter, October to March. The overload below takes the climate's own winter.</summary>
         public static bool InGunSeason(string seasonName, float normalizedDate) =>
             InGunSeason(seasonName, normalizedDate, GunSeasonStart + MonthsBeforeWinter / 12f, GunSeasonEnd - MonthsAfterWinter / 12f);
 
         /// <summary>How far the gun season reaches around the climate's winter. With a December to February winter
-        /// (SnowLineRules.WinterWindow) this is October to March; a map whose winter falls in June runs April to September.</summary>
+        /// (SnowLineRules.WinterWindow) this is October to March. A map whose winter falls in June runs the season April to September.</summary>
         public const float MonthsBeforeWinter = 2f;
         public const float MonthsAfterWinter = 1f;
 
-        /// <summary>InGunSeason around the climate's own winter (normalized year; the end may pass 1).</summary>
+        /// <summary>InGunSeason around the climate's own winter (normalized year: the end may pass 1).</summary>
         public static bool InGunSeason(string seasonName, float normalizedDate, float winterStart, float winterEnd)
         {
             if (seasonName == "SeasonWinter")
@@ -115,8 +118,8 @@ namespace SkiResortMod.Systems
             return inSeason && GunsRunning(state, coldTexels);
         }
 
-        /// <summary>Whether a gun run's cold texels are raised this pass (the fold writes their target into the mask, which
-        /// is also what the upkeep bills): only while Running.</summary>
+        /// <summary>Whether a gun run's cold texels are raised this pass: only while Running. The fold writes their target into the mask,
+        /// and the upkeep bills the same mask.</summary>
         public static bool RaisesThisPass(GunState state)
         {
             return state == GunState.Running;
@@ -129,7 +132,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A cat track's guns: it is in no mask (the injection grid cannot measure a 6-12 m ribbon), so there is no pack and no
-        /// texel. They can run in the gun season while part of the track is cold enough: <paramref name="coldShare"/> =
+        /// texel. They can run in the gun season while part of the track is cold enough. <paramref name="coldShare"/> =
         /// RunSnowRules.EstimatedShare with the track's own threshold (freezing + the gun margin).</summary>
         public static bool TrackGunsCanRun(bool inSeason, float coldShare)
         {
@@ -137,8 +140,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The hectares a cat track bills while its guns can run and are on: its plan area (m2, Geometry.m_SurfaceArea), since it
-        /// has no active texels. <paramref name="gunsOn"/> = its snow gun value is above Off (SkiRunPropSystem.CatTrackGunsOn): a track
-        /// set to Off stands no gun and bills nothing (DECISIONS 563). 0 for a plan area that is not a finite positive
+        /// has no active texels. <paramref name="gunsOn"/> = its snow gun value is above Off (SkiRunPropSystem.CatTrackGunsOn).
+        /// A track set to Off stands no gun and bills nothing (DECISIONS 563). The result is 0 for a plan area that is not a finite positive
         /// number.</summary>
         public static float TrackBilledHa(float planAreaM2, bool gunsCanRun, bool gunsOn)
         {

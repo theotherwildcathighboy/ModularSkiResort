@@ -1,11 +1,18 @@
 // Snow guns show a vapor plume while their run's guns are running (EffectSource entry on the gun prefabs, driven by a lease).
-// Rule (one predicate with the injection, EngineNotes/SnowGunPlumeRules.md): Options toggle on, the run's guns ran in the injection's last
-// pass (a cat track: its guns can run, no injection there), and the gun's own elevation is cold. FanIdle, hydrants and the folded lance carry no
-// plume entry and are never touched.
-// Scope: Game mode only; the guns the placer tagged with SkiRunPropMember (groomed runs with their guns on and cat tracks).
-// Cadence: every PlumeIntervalFrames (64) sim frames, after the injection (Mod.cs; not load-bearing: reads per-run flags).
-// Logs (silence must be impossible): ARMED / inert line per load, per-run start/stop lines, census on change, WARN once per load
-// when guns exceed the effect's m_MaxCount, and the house one-shot "!!!" catch.
+// Rule (one predicate with the injection, EngineNotes/SnowGunPlumeRules.md). A gun shows a plume when all of these hold:
+// - The Options toggle is on.
+// - The run's guns ran in the injection's last pass. A cat track has no injection, so there the test is that its guns can run.
+// - The gun's own elevation is cold.
+// FanIdle, hydrants and the folded lance carry no plume entry. The system never touches them.
+// Scope: Game mode only. The system handles the guns the placer tagged with SkiRunPropMember (groomed runs with their guns
+// on, and cat tracks).
+// Cadence: every PlumeIntervalFrames (64) sim frames, after the injection (Mod.cs). Not load-bearing: it reads per-run flags.
+// Logs (silence must be impossible):
+// - An ARMED / inert line per load.
+// - Per-run start/stop lines.
+// - A census on change.
+// - A WARN once per load when guns exceed the effect's m_MaxCount.
+// - The house one-shot "!!!" catch.
 // Engine notes: EngineNotes/SkiSnowGunPlumeSystem.md
 
 using System;
@@ -176,8 +183,8 @@ namespace SkiResortMod.Systems
             bool setting = ReadSetting();
             uint frame = m_Simulation.frameIndex;
             float thresholdC = m_SnowLine.GetFreezingTemperature() + m_SnowLine.GetSnowmakingMarginC();
-            // The lapse is read ONCE per pass (SnowLineSystem.GetLocalTemperature = ambient - (y - base) * scale); the same
-            // expression below, so each gun's value is bit-identical to the per-gun call.
+            // The system reads the lapse ONCE per pass (SnowLineSystem.GetLocalTemperature = ambient - (y - base) * scale). The expression below is
+            // the same, so each gun's value is bit-identical to the per-gun call.
             m_SnowLine.GetLocalTemperatureCoefficients(out float lapseAmbient, out float lapseBase, out float lapseScale);
             m_Write.Clear();
             m_WriteEnd.Clear();
@@ -304,7 +311,7 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        // House pattern: fast PrefabID path + name-scan fallback, tolerate missing. Session cache.
+        // House pattern: a fast PrefabID path with a name-scan fallback. The code tolerates a missing prefab. It caches the result for the session.
         private void Resolve()
         {
             if (m_Resolved)

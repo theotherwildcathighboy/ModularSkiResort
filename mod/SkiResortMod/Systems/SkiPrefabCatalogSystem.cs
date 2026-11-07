@@ -1,8 +1,11 @@
 // ECS side of the prefab catalog: resolves every name of the pure SkiCatalog.cs to its prefab entity through one typed
-// resolver, replacing the per-system copy-pasted resolvers. Pending-name severity never changes behavior.
-// Per-load lifetime: OnGamePreload (Game / Editor) invalidates, the first catalog query resolves lazily, every query revalidates
-// the cached entities at most once per frame. Live views are one instance each for the app run: fetch a view once, before the
-// chunk loop; TryGetValue / Contains inside it, never a per-entity member call.
+// resolver. It replaces the per-system copy-pasted resolvers. Pending-name severity never changes behavior.
+// Per-load lifetime:
+// - OnGamePreload (Game / Editor) invalidates.
+// - The first catalog query resolves lazily.
+// - Every query revalidates the cached entities at most once per frame.
+// Live views are one instance each for the app run. Fetch a view once, before the chunk loop. Use TryGetValue / Contains inside it,
+// never a per-entity member call.
 // Log discipline: silence must be impossible (ChairPinSystem header); after an exception every query answers MISSING until the
 // next load.
 // Engine notes: EngineNotes/SkiPrefabCatalogSystem.md
@@ -25,7 +28,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiPrefabCatalogSystem : GameSystemBase
     {
-        /// <summary>"[re-resolve]" WARN lines per load; the rest are counted in Describe().</summary>
+        /// <summary>"[re-resolve]" WARN lines per load. The rest are counted in Describe().</summary>
         internal const int ReResolveLinesMax = 8;
 
         /// <summary>|bounds.max.y − HangM| above this is a carrier contract drift (one WARN per carrier per load).</summary>
@@ -121,13 +124,13 @@ namespace SkiResortMod.Systems
         private readonly HashSet<string> m_HangWarned = new HashSet<string>(StringComparer.Ordinal);       // this load
         private readonly HashSet<string> m_SplitLogged = new HashSet<string>(StringComparer.Ordinal);      // this load
 
-        /// <summary>++ per resolution; consumers that cache derived state compare it.</summary>
+        /// <summary>++ per resolution. Consumers that cache derived state compare it.</summary>
         internal int Generation
         {
             get { EnsureFresh(); return m_Generation; }
         }
 
-        /// <summary>++ per OnGamePreload whose mode is Game or Editor; printed "load N".</summary>
+        /// <summary>++ per OnGamePreload whose mode is Game or Editor. Printed "load N".</summary>
         internal int Loads
         {
             get { EnsureFresh(); return m_Loads; }
@@ -145,13 +148,13 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_ExpectedMissing; }
         }
 
-        /// <summary>Last resolution: FOUND names whose flag is pending (> 0 = an import happened; flip the names).</summary>
+        /// <summary>Last resolution: FOUND names whose flag is pending (> 0 = an import happened. Flip the names).</summary>
         internal int PendingFound
         {
             get { EnsureFresh(); return m_PendingFound; }
         }
 
-        /// <summary>LIVE VIEW: every FOUND lift line prefab entity (an explicit whitelist; the marker is not in it).</summary>
+        /// <summary>LIVE VIEW: every FOUND lift line prefab entity (an explicit whitelist, the marker is not in it).</summary>
         internal HashSet<Entity> LiftLinePrefabSet
         {
             get { EnsureFresh(); return m_LiftLines; }
@@ -164,21 +167,21 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_LineTypes; }
         }
 
-        /// <summary>The lift type's line prefab entity; Entity.Null when MISSING.</summary>
+        /// <summary>The lift type's line prefab entity. Entity.Null when MISSING.</summary>
         internal Entity LineEntity(LiftTypeDef def)
         {
             EnsureFresh();
             return def != null ? FoundOf(def.LinePrefab) : Entity.Null;
         }
 
-        /// <summary>The lift type's line PrefabBase; null when MISSING (the infoview's reference compare).</summary>
+        /// <summary>The lift type's line PrefabBase. Null when MISSING (the infoview's reference compare).</summary>
         internal PrefabBase LinePrefabBase(LiftTypeDef def)
         {
             EnsureFresh();
             return def != null ? PrefabOf(def.LinePrefab) : null;
         }
 
-        /// <summary>The station's BuildingPrefab; null when MISSING (the infoview's reference compare).</summary>
+        /// <summary>The station's BuildingPrefab. Null when MISSING (the infoview's reference compare).</summary>
         internal PrefabBase StationPrefabBase(StationDef def)
         {
             EnsureFresh();
@@ -205,15 +208,15 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_CarrierTypes; }
         }
 
-        /// <summary>LIVE VIEW: grip prefab entity (the carrier grip round; FOUND grips only) → its lift type row. A type with a found grip is
-        /// SPLIT: its carriers are bodies whose CarrierGripTops / CarrierDrops come from the pivots (BuildViews), and ChairPinSystem /
+        /// <summary>LIVE VIEW: grip prefab entity (the carrier grip round, FOUND grips only) → its lift type row. A type with a found grip is
+        /// SPLIT. Its carriers are bodies whose CarrierGripTops / CarrierDrops come from the pivots (BuildViews). ChairPinSystem /
         /// TramShuttleSystem pair each body with its grip. Grips are NOT carriers: never in CarrierGripTops (roster, census, counts).</summary>
         internal IReadOnlyDictionary<Entity, LiftTypeDef> GripTypes
         {
             get { EnsureFresh(); return m_GripTypes; }
         }
 
-        /// <summary>The lift marker (stub) PowerLinePrefab entity; Entity.Null when MISSING.</summary>
+        /// <summary>The lift marker (stub) PowerLinePrefab entity. Entity.Null when MISSING.</summary>
         internal Entity MarkerEntity
         {
             get { EnsureFresh(); return m_Marker; }
@@ -306,7 +309,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A FOUND lodge, school, patrol or bus depot prefab: every top-level building the catalog links to a sign. For
-        /// event-time callers; a loop over every building fetches the sets once instead.</summary>
+        /// event-time callers. A loop over every building fetches the sets once instead.</summary>
         internal bool IsUpgradeBuilding(Entity prefab)
         {
             EnsureFresh();
@@ -319,17 +322,20 @@ namespace SkiResortMod.Systems
             return m_Signs.Contains(prefab);
         }
 
-        /// <summary>Any NAMES entry; Entity.Null when MISSING or not a catalog name.</summary>
+        /// <summary>Any NAMES entry. Entity.Null when MISSING or not a catalog name.</summary>
         internal Entity EntityOf(string catalogName)
         {
             EnsureFresh();
             return FoundOf(catalogName);
         }
 
-        /// <summary>The hub's item lookups: same resolver, same per-load cache. A catalog name asked with its own
-        /// PrefabID type is served from the catalog; any other (type, name) is an "extra": resolved on first ask with the
-        /// same resolver, cached per load, re-resolved with the catalog on every full resolution (and alone when gone) and
-        /// validated with it each frame, and listed in Describe().</summary>
+        /// <summary>The hub's item lookups: same resolver, same per-load cache. The catalog serves a catalog name asked with its own
+        /// PrefabID type. Any other (type, name) is an "extra":
+        /// - resolved on first ask with the same resolver,
+        /// - cached per load,
+        /// - re-resolved with the catalog on every full resolution (and alone when gone),
+        /// - validated with it each frame,
+        /// - listed in Describe().</summary>
         internal bool TryGetPrefab(string typeName, string name, out Entity entity, out PrefabBase prefab)
         {
             EnsureFresh();
@@ -380,7 +386,7 @@ namespace SkiResortMod.Systems
                 All = new[] { ComponentType.ReadOnly<PrefabData>() },
                 None = new[] { ComponentType.ReadOnly<Deleted>() },
             });
-            Enabled = false;   // no per-frame work; the load hooks still fire (GameSystemBase.cs:27-29)
+            Enabled = false;   // no per-frame work. The load hooks still fire (GameSystemBase.cs:27-29)
 
             IReadOnlyList<CatalogName> names = SkiCatalog.AllPrefabNames();
             for (int i = 0; i < names.Count; i++)
@@ -418,7 +424,7 @@ namespace SkiResortMod.Systems
                          Plural(SkiCatalog.BuildItems.Count, "build item", "build items") + "; resolved lazily per load)");
         }
 
-        /// <summary>Game / Editor only: invalidate; the first query after it resolves. A MainMenu preload keeps the
+        /// <summary>Game / Editor only: invalidate. The first query after it resolves. A MainMenu preload keeps the
         /// last load's views. Never throws: GameSystemBase.GamePreload DISABLES a system whose OnGamePreload throws
         /// (GameSystemBase.cs:85-96).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
@@ -476,7 +482,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Every member's first call. Serve: return. Validate: Exists && !Deleted for every FOUND entity, once
-        /// per frame; a gone one re-resolves its slot. Resolve: the load's resolution (the ARM line).</summary>
+        /// per frame. A gone one re-resolves its slot. Resolve: the load's resolution (the ARM line).</summary>
         private void EnsureFresh()
         {
             int frame = UnityEngine.Time.frameCount;
@@ -484,7 +490,7 @@ namespace SkiResortMod.Systems
             if (action == CatalogAction.Serve)
                 return;
 
-            //cleared BEFORE the work, whatever its outcome — a throwing resolution must not re-run on every call.
+            // cleared BEFORE the work, whatever its outcome. A throwing resolution must not re-run on every call.
             m_Dirty = false;
             m_ValidatedFrame = frame;
             try
@@ -499,7 +505,7 @@ namespace SkiResortMod.Systems
                 }
                 m_ResolvedSinceLoad = true;
                 m_Generation++;
-                Resolve(why);   // why == null: the load's resolution ([arm]); else a [re-resolve] of m_Gone
+                Resolve(why);   // why == null: the load's resolution ([arm]), else a [re-resolve] of m_Gone
             }
             catch (Exception e)
             {
@@ -516,7 +522,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>null when every FOUND entity is live; else why the cache is stale (allocates only then). The gone
+        /// <summary>null when every FOUND entity is live, else why the cache is stale (allocates only then). The gone
         /// slots' indices land in m_Gone.</summary>
         private string FindGone()
         {
@@ -555,7 +561,7 @@ namespace SkiResortMod.Systems
             }
             else
             {
-                // Only the gone slots, fast path first; the views are rebuilt from every slot
+                // Only the gone slots, fast path first. The views are rebuilt from every slot
                 ClearViews();
                 ResolveSlots(m_Gone, out fast, out scanFor, out scanned);
                 slots = m_Gone.Count;
@@ -733,8 +739,8 @@ namespace SkiResortMod.Systems
                         m_LineTypes.Add(line, def);
                 }
                 // The carrier grip round: a FOUND grip prefab makes the type SPLIT (the surgery that makes the grip also gives the carrier
-                // its body mesh). A split carrier's bounds end at the pin, not at the grip top, so its views come from the pivots: the
-                // assembled grip top = RigidDrop + GripTopAboveRopeM (CT-17: = HangM), the drop = RigidDrop; no hang-drift check.
+                // its body mesh). A split carrier's bounds end at the pin, not at the grip top. So its views come from the pivots: the
+                // assembled grip top = RigidDrop + GripTopAboveRopeM (CT-17: = HangM). The drop = RigidDrop. No hang-drift check.
                 NameSlot gripSlot = def.GripPrefab != null ? SlotOf(def.GripPrefab) : null;
                 bool split = gripSlot != null && gripSlot.Found != Entity.Null;
                 if (split && !m_GripTypes.ContainsKey(gripSlot.Found))
@@ -854,7 +860,7 @@ namespace SkiResortMod.Systems
             return carrierWarn;
         }
 
-        /// <summary>An extra (type, name): registered on first ask and resolved alone; afterwards re-resolved with the
+        /// <summary>An extra (type, name): registered on first ask and resolved alone. Afterwards it is re-resolved with the
         /// catalog. In a failed load it is registered but not resolved (every query answers MISSING until the next load).</summary>
         private NameSlot ExtraSlot(string typeName, string name)
         {
@@ -887,8 +893,8 @@ namespace SkiResortMod.Systems
             return slot;
         }
 
-        /// <summary>"E/30 expected FOUND, P/0 pending FOUND — … ; MISSING: … ; pending (not imported yet): …" into sb;
-        /// sets m_ExpectedMissing / m_PendingFound. True when an EXPECTED name is MISSING or any FOUND name has another
+        /// <summary>"E/30 expected FOUND, P/0 pending FOUND — … ; MISSING: … ; pending (not imported yet): …" into sb.
+        /// Sets m_ExpectedMissing / m_PendingFound. True when an EXPECTED name is MISSING or any FOUND name has another
         /// PrefabID type (pending MISSING names never raise it).</summary>
         private bool AppendSlots(StringBuilder sb)
         {

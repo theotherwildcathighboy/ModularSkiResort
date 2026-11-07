@@ -1,7 +1,7 @@
 // The pure per-resort sums of the hub's resort rows. SkiResortStatsSystem collects one small input row per run, lift and lodge
-// (ECS reads stay in the system), calls Aggregate, and adds the fields that need the game. Tested by tests/ResortBatch.
-// Resort index: inputs carry Resort = 0..resortCount-1 (the signs in the stable SkiResortIndex order) or -1 = Not linked; the
-// output array has resortCount + 1 entries, the last one being the Not linked row (always last; always sent).
+// (ECS reads stay in the system). Then it calls Aggregate and adds the fields that need the game. Tested by tests/ResortBatch.
+// Resort index: inputs carry Resort = 0..resortCount-1 (the signs in the stable SkiResortIndex order) or -1 = Not linked.
+// The output array has resortCount + 1 entries. The last one is the Not linked row (always last, always sent).
 // Pure file: System (+ System.Collections.Generic) and Unity.Mathematics only. No allocation: the caller owns every list and the
 // output array (grown once to the city's sign count + 1).
 // Engine notes: EngineNotes/SkiResortAggregate.md
@@ -22,8 +22,8 @@ namespace SkiResortMod.Systems
             public float LengthM, AreaM2, TopM, BottomM;
             public float CostMonth;     // >= 0
             public float SnowHa;        // >= 0
-            public float Cover;  // 0..1 snow cover with the run's own snowmaking; NaN = no cover (unbound; the stats always pass NaN)
-            public float NaturalCover;  // 0..1 snow cover without snowmaking; NaN = no cover
+            public float Cover;  // 0..1 snow cover with the run's own snowmaking. NaN = no cover (unbound, the stats always pass NaN)
+            public float NaturalCover;  // 0..1 snow cover without snowmaking. NaN = no cover
         }
 
         public struct LiftIn
@@ -47,7 +47,7 @@ namespace SkiResortMod.Systems
         {
             public bool HasAny;
             public int Runs, Rated, Flat, Green, Blue, Black, DoubleBlack;
-            public int Unrateable;  // RateState 2/3/4 (C# only; the UI counts band -2 rows)
+            public int Unrateable;  // RateState 2/3/4 (C# only. The UI counts band -2 rows)
             public float RunLengthM, AreaM2, VerticalM;
             public bool VerticalApprox;
             public int Lifts, LiftsRunning, LiftsOpen, Chairs;
@@ -55,7 +55,7 @@ namespace SkiResortMod.Systems
             public int Lodges, FreeLodges, LodgeScore;
             public float RunCostMonth, SnowHa, SnowPct;
             public int Season;
-            public float RunVerticalM;  // runs only; -1 when no run has a height
+            public float RunVerticalM;  // runs only. -1 when no run has a height
 
             // Accumulators (valid only inside Aggregate).
             internal float Hi, Lo;
@@ -262,7 +262,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Index comparer over the caller's lift list (one cached instance: no allocation
-        /// per call; not re-entrant — LiftOrdinals is called from the main thread only).</summary>
+        /// per call, not re-entrant). LiftOrdinals is called from the main thread only.</summary>
         private sealed class LiftOrder : IComparer<int>
         {
             public List<LiftIn> Lifts;

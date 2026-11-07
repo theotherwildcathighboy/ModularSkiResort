@@ -1,14 +1,17 @@
 // SkiRunUpkeepSystem - run operating costs: snowmaking runs cost the most (guns + water + power), groomed runs a third of that (cat
-// fuel), natural terrain is free, so season length versus money is a real decision.
-// Billing, per run and by feature (R3, DECISIONS 578; SkiRunUpkeepRates.PisteUpkeep via SkiSnowInjectionSystem.PisteUpkeep, the one rule the
-// hub's rows read): grooming and lights bill a groomed run's cold texels (the injection's active mask, plus a gun run's texels held off
-// while its guns stopped at depth), snowmaking only the texels its guns raise; each run capped at its plan area (BilledHa); first claim
-// across runs, so overlapping runs do not double-bill. A cat track is in no
-// mask: it bills its plan area at the snowmaking rate while its guns can run and its gun value is above Off (SnowGunPlumeRules.TrackBilledHa,
-// SkiRunPropSystem.CatTrackGunsOn; DECISIONS 563); a lit cat track adds the lights rate on its plan area in its season, whatever its gun
-// switch (SkiRunUpkeepRates.TrackLitHa, DECISIONS 579). No other prop slider counts.
-// Money goes to Game.City.PlayerMoney (no budget-panel line item without Harmony); every debit is also booked per ski area into SkiResortLedger.
-// Charges accrue per elapsed frame between passes (wrap-safe uint math, fractional carry); the meter stops while paused.
+// fuel), natural terrain is free. So season length versus money is a real decision.
+// Billing, per run and by feature (R3, DECISIONS 578, SkiRunUpkeepRates.PisteUpkeep via SkiSnowInjectionSystem.PisteUpkeep, the one rule the
+// hub's rows read):
+//   * Grooming and lights bill a groomed run's cold texels (the injection's active mask, plus a gun run's texels held off
+//     while its guns stopped at depth).
+//   * Snowmaking bills only the texels its guns raise.
+//   * Each run is capped at its plan area (BilledHa).
+//   * First claim across runs, so overlapping runs do not double-bill.
+// A cat track is in no mask. It bills its plan area at the snowmaking rate while its guns can run and its gun value is above Off
+// (SnowGunPlumeRules.TrackBilledHa, SkiRunPropSystem.CatTrackGunsOn, DECISIONS 563). A lit cat track adds the lights rate on its plan area
+// in its season, whatever its gun switch (SkiRunUpkeepRates.TrackLitHa, DECISIONS 579). No other prop slider counts.
+// Money goes to Game.City.PlayerMoney (no budget-panel line item without Harmony). Every debit is also booked per ski area into SkiResortLedger.
+// Charges accrue per elapsed frame between passes (wrap-safe uint math, fractional carry). The meter stops while paused.
 // Scheduling: GameSimulation, Game action mode only, anchored after SkiSnowInjectionSystem so its same-frame top-up publishes first.
 // Engine notes: EngineNotes/SkiRunUpkeepSystem.md
 
@@ -28,8 +31,8 @@ namespace SkiResortMod.Systems
         private static class Tuning
         {
             // Monthly operating cost per hectare of active run surface. Anchors: the resort gate's Park maintenance pool is 8000 and
-            // the day lodge's upkeep 3000/month; a mid-size resort (~40 ha of snowmaking) should read as a serious municipal line item
-            // without bankrupting a town: 40 ha x 500 = 20k/month while the guns run. Groomed at roughly a third (fuel and labor, no
+            // the day lodge's upkeep 3000/month. A mid-size resort (~40 ha of snowmaking) should read as a serious municipal line item
+            // without bankrupting a town (40 ha x 500 = 20k/month while the guns run). Groomed at roughly a third (fuel and labor, no
             // water/power). Needs field calibration before release.
             // The totals of the feature steps in SkiRunUpkeepRates (DECISIONS 576): groomed 150, snowmaking 150 + 350 = 500.
             public const int SnowmakingCostPerHaMonth = SkiRunUpkeepRates.GroomedPerHaMonth + SkiRunUpkeepRates.SnowmakingStepPerHaMonth;
@@ -40,25 +43,25 @@ namespace SkiResortMod.Systems
             // (+300, the lights step) is exactly twice the whole groomed rate: "lights plus a night shift cost two groomers."
             public const int NightCostPerHaMonth = SnowmakingCostPerHaMonth + SkiRunUpkeepRates.LightsStepPerHaMonth;
 
-            // Charge cadence. The injection mask refreshes every 64 frames; billing at 1024 (16 top-ups) keeps PlayerMoney writes rare
-            // while the elapsed-frame accrual keeps the amount exact regardless of cadence.
+            // Charge cadence. The injection mask refreshes every 64 frames. Billing at 1024 (16 top-ups) keeps PlayerMoney writes rare.
+            // The elapsed-frame accrual keeps the amount exact regardless of cadence.
             public const int ChargeIntervalFrames = 1024;
 
             // Heartbeat: unconditionally log every Nth charging pass even when the rate bucket is stable (~32 x 1024 frames = ~4 charge
             // lines per in-game day)
             public const int LogEveryNthCharge = 32;
 
-            // At most one charge line per this many wall-clock seconds; the rest of a burst is folded into one summary
+            // At most one charge line per this many wall-clock seconds. The rest of a burst is folded into one summary
             public const float LogWindowS = 10f;
         }
 
         // TimeSystem.kTicksPerDay is `public const int kTicksPerDay = 262144` (Game.Simulation/TimeSystem.cs:18 in 1.6.0f1 and
-        // 1.6.2f1), readable, so it is used directly. Being a const, the compiler copies the number into this DLL: a patch that
+        // 1.6.2f1), readable, so it is used directly. The compiler copies a const number into this DLL. So a patch that
         // changed it would still need a rebuild of the mod to take effect.
         private const float TicksPerDay = TimeSystem.kTicksPerDay;
 
         /// <summary>The monthly operating cost per hectare of active run surface for a run kind - the numbers Charge bills
-        /// (Tuning: groomed 150, snowmaking 500, night 800; a cat track follows the snowmaking rules). Unknown values read 0. A wrapper over
+        /// (Tuning: groomed 150, snowmaking 500, night 800. A cat track follows the snowmaking rules). Unknown values read 0. A wrapper over
         /// SkiRunUpkeepRates.PerHaMonth (RunFeatures.FromKind: a cat track with its guns on).</summary>
         public static int CostPerHaMonth(RunKind kind) => SkiRunUpkeepRates.PerHaMonth(RunFeatures.FromKind((int)kind));
 
@@ -80,7 +83,7 @@ namespace SkiResortMod.Systems
         /// for the `Guests [month]` total line (whole city: no ski-area attribution exists). Memory only.</summary>
         internal long DebitedThisLoad { get; private set; }
 
-        /// <summary>"" while billing; otherwise why nothing is billed (the idle reason of the last pass, "first charge pass pending"
+        /// <summary>"" while billing. Otherwise the reason nothing is billed (the idle reason of the last pass, "first charge pass pending"
         /// until the first pass of this load, or the disabled / not-armed state)</summary>
         public string IdleReason { get; private set; } = IdleNotArmed;
 
@@ -108,7 +111,7 @@ namespace SkiResortMod.Systems
 
         private readonly LogWindow m_ChargeLog = new LogWindow(Tuning.LogWindowS);
 
-        // The split of each debit over the ski areas (engine notes, per-area booking); carries per sign, reset per load
+        // The split of each debit over the ski areas (engine notes, per-area booking). Carries per sign, reset per load
         private SkiGuestCounterSystem m_Counter;
         private readonly List<Entity> m_SplitSigns = new List<Entity>(8);
         private readonly Dictionary<Entity, double> m_SplitCarryOf = new Dictionary<Entity, double>();
@@ -130,14 +133,14 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"{nameof(SkiRunUpkeepSystem)} created");
         }
 
-        /// <summary>Same 4-frame slot as the injection anchor chain; the real cadence is self-gated in OnUpdate off elapsed sim frames</summary>
+        /// <summary>Same 4-frame slot as the injection anchor chain. The real cadence is self-gated in OnUpdate off elapsed sim frames</summary>
         public override int GetUpdateInterval(SystemUpdatePhase phase)
         {
             return 4;
         }
 
         /// <summary>A load (or leaving to the menu) writes the folded charge lines of the city being left. Never throws:
-        /// GameSystemBase.GamePreload disables a system whose OnGamePreload throws (Game/GameSystemBase.cs:85-96; same in 1.6.2).</summary>
+        /// GameSystemBase.GamePreload disables a system whose OnGamePreload throws (Game/GameSystemBase.cs:85-96, same in 1.6.2).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
@@ -218,7 +221,7 @@ namespace SkiResortMod.Systems
                 uint frame = m_SimulationSystem.frameIndex;
                 if (!m_ChargeFrameValid)
                 {
-                    // First tick after load anchors the meter; nothing owed for the pre-load past
+                    // First tick after load anchors the meter. Nothing owed for the pre-load past
                     m_ChargeFrameValid = true;
                     m_LastChargeFrame = frame;
                     return;
@@ -313,7 +316,7 @@ namespace SkiResortMod.Systems
                               $"{SkiRunUpkeepRates.LightsStepPerHaMonth} + cat tracks {trackHa:F1} ha × " +
                               $"{Tuning.SnowmakingCostPerHaMonth}, balance {balance}" +
                               (debit > 0 ? $"; booked to {m_LastSplitAreas} ski area(s)" + (m_LastSplitNotLinked > 0 ? $" + Not linked {m_LastSplitNotLinked}" : "") : "");
-                // The first line after a quiet window (or the forced restart) is written as before; the rest of a burst is folded into one summary
+                // The first line after a quiet window (or the forced restart) is written as before. The rest of a burst is folded into one summary
                 switch (m_ChargeLog.Offer(now, force, body, debit, rateBucket))
                 {
                     case LogWindow.Verdict.Plain:
@@ -331,7 +334,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Splits <paramref name="debit"/> over the ski areas by each bound run's billed rate and books the parts into the
-        /// guest ledger (AddRunUpkeep). The parts sum exactly to the debit (SkiResortHistory.SplitDebit). Main thread; no allocation
+        /// guest ledger (AddRunUpkeep). The parts sum exactly to the debit (SkiResortHistory.SplitDebit). Main thread. No allocation
         /// once the lists have grown to the area count.</summary>
         private void BookPerArea(int debit, float monthlyRate)
         {
@@ -340,7 +343,7 @@ namespace SkiResortMod.Systems
             if (m_Counter == null || debit <= 0)
                 return;
             // Weights: the one per-run rule (SkiSnowInjectionSystem.PisteUpkeep, also SkiResortStatsSystem.CollectRuns) for every cataloged
-            // groomed run, grouped by its gate; a cat track's plan area while its guns can run and are on.
+            // groomed run, grouped by its gate. For a cat track, its plan area while its guns can run and are on.
             m_SplitSigns.Clear();
             double bound = 0.0, unbound = 0.0;
             int rows = m_Catalog.RowCount;
@@ -407,9 +410,9 @@ namespace SkiResortMod.Systems
             Array.Resize(ref m_SplitParts, size);
         }
 
-        /// <summary>The cat tracks' billed hectares: each cataloged track's plan area while its guns can run and are not set to Off; and
-        /// <paramref name="litHa"/>, its plan area while it is lit in its season (SkiRunUpkeepRates.TrackLitHa, DECISIONS 579). Main thread;
-        /// no allocation.</summary>
+        /// <summary>The cat tracks' billed hectares: each cataloged track's plan area while its guns can run and are not set to Off.
+        /// <paramref name="litHa"/> is the track's plan area while it is lit in its season (SkiRunUpkeepRates.TrackLitHa, DECISIONS 579). Main thread.
+        /// No allocation.</summary>
         private float CatTrackHa(out float litHa)
         {
             float ha = 0f;
@@ -427,7 +430,7 @@ namespace SkiResortMod.Systems
             return ha;
         }
 
-        /// <summary>Every cataloged piste's upkeep by feature, summed (SkiSnowInjectionSystem.PisteUpkeep). Main thread; no allocation.</summary>
+        /// <summary>Every cataloged piste's upkeep by feature, summed (SkiSnowInjectionSystem.PisteUpkeep). Main thread. No allocation.</summary>
         private RunUpkeep PisteUpkeepSum()
         {
             RunUpkeep sum = default;

@@ -1,15 +1,21 @@
-// The Groomed feature's toggle (DECISIONS 577): a run is re-emitted as the other surface prefab, because a placed area cannot change its
-// prefab in place (the R0 probe: the renderer and the area search keep the old prefab's batch). One request per run is queued by the hub's
-// setRunGroomed trigger and done here, main thread: a new area entity from the target prefab's archetype with the old ring and Area flags
-// (GenerateAreasSystem.cs:259-345 for a permanent creation, Applied as ApplyAreasSystem.cs:272 adds it), then the old one deleted the
-// bulldozer's way. Everything else carries over: the binding (no new bind fee: the bind trigger only takes runs without one), the prop
-// sliders (the placer re-places on the new run; the old props cascade with the old run), the custom name, the trail name (SkiRunName), the glade trees (retargeted
-// before SkiGladeCleanupSystem's Modification2 pass), and the run-keyed runtime state of the injection, the catalog, the score, the hub and
-// the Quick runs undo. A step the run has never paid (Groomed on) is charged once through SkiRunOwnershipSystem.SettleFeatureSteps.
+// The Groomed feature's toggle (DECISIONS 577): a run is re-emitted as the other surface prefab. The reason is that a placed area cannot change its
+// prefab in place (the R0 probe: the renderer and the area search keep the old prefab's batch). The hub's setRunGroomed trigger queues one
+// request per run. This system does it on the main thread. It creates a new area entity from the target prefab's archetype with the old ring and Area flags
+// (GenerateAreasSystem.cs:259-345 for a permanent creation, Applied as ApplyAreasSystem.cs:272 adds it). Then it deletes the old one the
+// bulldozer's way. Everything else carries over:
+//   * the binding (no new bind fee: the bind trigger only takes runs without one),
+//   * the prop sliders (the placer re-places on the new run. The old props cascade with the old run),
+//   * the custom name,
+//   * the trail name (SkiRunName),
+//   * the glade trees (retargeted before SkiGladeCleanupSystem's Modification2 pass),
+//   * the run-keyed runtime state of the injection, the catalog, the score, the hub and the Quick runs undo.
+// A step the run has never paid (Groomed on) is charged once through SkiRunOwnershipSystem.SettleFeatureSteps.
 // The surface redraws, so the run may flash for a frame: the game itself draws an area that changes type the same way.
-// Phase Modification1 is load-bearing (see Mod.cs): before SkiGladeCleanupSystem (Modification2), the placer's cascade and the area
-// geometry (Modification4-5) and the bind trigger (ModificationEnd), all of which must see the new run and the old one's Deleted tag in
-// the same frame. Game mode only; one-shot "!!!" disables re-emits until the next load.
+// Phase Modification1 is load-bearing (see Mod.cs). It runs before:
+//   * SkiGladeCleanupSystem (Modification2),
+//   * the placer's cascade and the area geometry (Modification4-5),
+//   * the bind trigger (ModificationEnd).
+// All of them must see the new run and the old one's Deleted tag in the same frame. Game mode only. A one-shot "!!!" disables re-emits until the next load.
 // Logs: "created", one "Reemit [groomed]" line per re-emit, "!!!" once on a throw.
 // Engine notes: EngineNotes/SkiRunReemitSystem.md
 
@@ -84,7 +90,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The hub's setRunGroomed trigger: queue a re-emit of <paramref name="run"/> as groomed or natural. Returns what happens
-        /// (for the trigger's log line); the re-emit itself runs at the next Modification1.</summary>
+        /// (for the trigger's log line). The re-emit itself runs at the next Modification1.</summary>
         internal string Request(Entity run, bool groomed)
         {
             if (!m_Armed || m_Disabled)
@@ -104,7 +110,7 @@ namespace SkiResortMod.Systems
             return "queued";
         }
 
-        /// <summary>Null when <paramref name="run"/> can be re-emitted to the requested state; else the reason.</summary>
+        /// <summary>Null when <paramref name="run"/> can be re-emitted to the requested state. Otherwise it returns the reason.</summary>
         private string Check(Entity run, bool groomed, out Entity oldPrefab, out Entity newPrefab)
         {
             oldPrefab = newPrefab = Entity.Null;

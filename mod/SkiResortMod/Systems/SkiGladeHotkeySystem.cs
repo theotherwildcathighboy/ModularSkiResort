@@ -1,10 +1,12 @@
-// Polls the three glade-tool keys and the dump-diagnostics key at SystemUpdatePhase.UIUpdate (every frame, paused or not): an
-// inactive tool never ticks, so the tool cannot poll its own toggle (ToolBaseSystem.cs:310, ToolSystem.cs:312-327).
-// toggle (Ctrl+Shift+G) -> tool.IsActive ? Deactivate() : TryActivate("hotkey"); dump (Ctrl+Alt+G) is polled BEFORE it and the gate below.
+// Polls the three glade-tool keys and the dump-diagnostics key at SystemUpdatePhase.UIUpdate (every frame, paused or not).
+// An inactive tool never ticks, so the tool cannot poll its own toggle (ToolBaseSystem.cs:310, ToolSystem.cs:312-327).
+// toggle (Ctrl+Shift+G) -> tool.IsActive ? Deactivate() : TryActivate("hotkey").
+// Dump (Ctrl+Alt+G) is polled BEFORE the toggle and the gate below.
 // GladeNextMode (Alt+G) -> tool.ToggleTarget, GladeNextVariant (Shift+G) -> tool.StepLevel: ONLY while the tool is active (no double toggle).
-// Mod actions start DISABLED and exist only after Mod.OnLoad calls RegisterKeyBindings (resolution is retried at every load); each
-// is enabled per game mode in OnGameLoadingComplete. A mod action always loses a key conflict to an enabled vanilla action.
-// Game mode only; isGameLoading guard (GameManager.cs:262-272); one-shot "!!!" disables the hotkeys until the next load.
+// Mod actions start DISABLED and exist only after Mod.OnLoad calls RegisterKeyBindings (the system retries resolution at every load).
+// OnGameLoadingComplete enables each action per game mode. A mod action always loses a key conflict to an enabled vanilla action.
+// The system works in Game mode only. An isGameLoading guard applies (GameManager.cs:262-272). A one-shot "!!!" disables the hotkeys
+// until the next load.
 // Engine notes: EngineNotes/SkiGladeHotkeySystem.md
 
 using System;
@@ -23,12 +25,12 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            /// <summary>UIUpdate frames between arming and the one-shot conflict probe; conflict resolution runs when the enabled-action set
-            /// changes and two seconds is comfortably after that (exact latency unverified).</summary>
+            /// <summary>UIUpdate frames between arming and the one-shot conflict probe. Conflict resolution runs when the enabled-action set
+            /// changes, and two seconds is comfortably after that (exact latency unverified).</summary>
             public const int ProbeDelayFrames = 120;
 
             /// <summary>Watcher drop lines per action and per cause label (mask / not mask) per load, each with its matching "live again"
-            /// line; then one "further drops not logged" line for that action and label.</summary>
+            /// line. Then one "further drops not logged" line for that action and label.</summary>
             public const int WatcherLinesPerAction = 8;
         }
 
@@ -67,8 +69,8 @@ namespace SkiResortMod.Systems
 
         public int WatcherDrops;
 
-        /// <summary>One-line hotkey status for the "Ski Glades" developer tab; written at arm/probe/watcher time, so the 10 Hz tab getter
-        /// costs nothing.</summary>
+        /// <summary>One-line hotkey status for the "Ski Glades" developer tab. The system writes it at arm/probe/watcher time, so the 10 Hz
+        /// tab getter costs nothing.</summary>
         public string StatusLine { get; private set; } = "not armed (no city loaded yet)";
 
         public long DumpPresses;
@@ -230,8 +232,8 @@ namespace SkiResortMod.Systems
                 if (!m_Tool.IsActive)
                     return;
 
-                // GladeNextMode toggles run interior / tree line, GladeNextVariant steps the tree density 1..8 with wrap. The tool writes the
-                // line ("Glade: target -> Tree line - hotkey"); one line per press.
+                // GladeNextMode toggles run interior / tree line, GladeNextVariant steps the tree density 1..8 with wrap. The tool writes one
+                // line per press ("Glade: target -> Tree line - hotkey").
                 if (m_NextMode.WasPressedThisFrame())
                     m_Tool.ToggleTarget("hotkey");
                 if (m_NextVariant.WasPressedThisFrame())
@@ -301,8 +303,8 @@ namespace SkiResortMod.Systems
             return m_Toggle != null && m_NextVariant != null && m_NextMode != null;
         }
 
-        /// <summary>Looks each action up in our input map, independently: a failed lookup costs only that action. Null-tolerant:
-        /// Mod.Settings is assigned before system registration in OnLoad, but RegisterKeyBindings may have failed (try/caught there).</summary>
+        /// <summary>Finds each action in our input map, independently: a failed lookup costs only that action. Null-tolerant: OnLoad
+        /// assigns Mod.Settings before system registration, but RegisterKeyBindings may have failed (try/caught there).</summary>
         private void TryResolveActions()
         {
             SkiResortSettings settings = Mod.Settings;
@@ -344,7 +346,7 @@ namespace SkiResortMod.Systems
         private void SafeDisableActions()
         {
             try { SetActionsEnabled(false); }
-            catch (Exception) { /* already in the failure path; the "!!!" line carries the cause */ }
+            catch (Exception) { /*already in the failure path. The "!!!" line carries the cause*/ }
         }
 
         private string DescribeMissing()
@@ -362,14 +364,14 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Per-frame watcher, re-arming (see engine notes, Probe): four bool reads per frame. Every true -> false of an armed action's
-        /// `enabled` is counted (WatcherDrops) and logged with the active tool's id and a cause label read at that moment, at most
-        /// Tuning.WatcherLinesPerAction lines per action and label per load, then one "further drops not logged" line; each logged drop
-        /// arms one "live again" line. Actions that change on the same frame share one line (all at once is the signature of a keyboard
-        /// mask rather than a key conflict). No allocation unless a line is written.</summary>
+        /// <summary>Per-frame watcher, re-arming (see engine notes, Probe): four bool reads per frame. The watcher counts every true -> false
+        /// of an armed action's `enabled` (WatcherDrops). It logs the drop with the active tool's id and a cause label read at that moment,
+        /// at most Tuning.WatcherLinesPerAction lines per action and label per load. Then it writes one "further drops not logged" line.
+        /// Each logged drop arms one "live again" line. Actions that change on the same frame share one line (all at once is the signature
+        /// of a keyboard mask rather than a key conflict). No allocation unless a line is written.</summary>
         private void WatchActions()
         {
-            // Read once per frame only when something dropped (two public getters, InputManager.cs:325, :341); labels, never filters
+            // Read once per frame only when something dropped (two public getters, InputManager.cs:325, :341). They serve as labels, never as filters
             int dropped = 0, capped = 0, back = 0;   // slot bitmasks of this frame's logged transitions
             int cause = -1;
             for (int i = 0; i < SlotCount; i++)

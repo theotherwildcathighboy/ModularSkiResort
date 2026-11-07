@@ -1,7 +1,13 @@
-// Options > Diagnostics > Copy diagnostics: one block of text for a bug report, put on the clipboard. Versions (mod, build stamp, game),
-// the machine, whether a city is loaded, the options changed from their defaults, the code mods loaded, the log file's place, and the
-// log's error lines (the last few, user folder scrubbed). Read-only: it writes nothing but the clipboard and one log line.
-// Reflection is used on our own settings class only (the Default* constants), never on another mod.
+// Options > Diagnostics > Copy diagnostics puts one block of text for a bug report on the clipboard. The block holds:
+// - versions (mod, build stamp, game)
+// - the machine
+// - whether a city is loaded
+// - the options changed from their defaults
+// - the code mods loaded
+// - the log file's place
+// - the log's error lines (the last few, user folder scrubbed)
+// Read-only: it writes nothing but the clipboard and one log line.
+// The code uses reflection on our own settings class only (the Default* constants), never on another mod.
 
 using System;
 using System.Collections.Generic;
@@ -18,13 +24,13 @@ namespace SkiResortMod.Systems
 {
     public static class SkiDiagnostics
     {
-        /// <summary>Error lines of the mod log copied at most (the newest).</summary>
+        /// <summary>Maximum number of error lines to copy from the mod log (the newest).</summary>
         public const int MaxErrorLines = 8;
         /// <summary>One copied log line is cut to this many characters.</summary>
         public const int MaxLineChars = 300;
 
-        /// <summary>The mod log: the game user data folder (Unity persistentDataPath, LocalLowColossal OrderCities Skylines II; the game
-        /// overrides it only through CSII_USERDATAPATH, read first) + Logs.</summary>
+        /// <summary>The mod log: the game user data folder + Logs. The folder is Unity persistentDataPath, LocalLowColossal OrderCities
+        /// Skylines II. The game overrides it only through CSII_USERDATAPATH, which the code reads first.</summary>
         public static string LogFilePath
         {
             get
@@ -36,7 +42,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Builds the text and puts it on the clipboard; logs one line. Never throws.</summary>
+        /// <summary>Builds the text and puts it on the clipboard. Logs one line. Never throws.</summary>
         public static void CopyToClipboard(string why)
         {
             try
@@ -80,7 +86,7 @@ namespace SkiResortMod.Systems
             catch (Exception) { return "unknown"; }
         }
 
-        /// <summary>Every option whose value differs from its Default* constant (bool / number / enum / string options only; key
+        /// <summary>Every option whose value differs from its Default* constant (only bool / number / enum / string options: key
         /// bindings and buttons have none). "none" when all are at their defaults.</summary>
         public static string ChangedSettings()
         {
@@ -132,8 +138,8 @@ namespace SkiResortMod.Systems
             sb.Append("Code mods loaded (").Append(mods.Count).Append("): ").AppendLine(string.Join(", ", mods));
         }
 
-        /// <summary>The log's error lines ("!!!" or [ERROR]), the newest MaxErrorLines, each cut to MaxLineChars, user folder scrubbed.
-        /// The log is open for writing, so it is read with FileShare.ReadWrite.</summary>
+        /// <summary>The log's error lines ("!!!" or [ERROR]). The result holds the newest MaxErrorLines, cuts each to MaxLineChars and
+        /// scrubs the user folder. The log is open for writing, so the code reads it with FileShare.ReadWrite.</summary>
         private static void AppendErrors(StringBuilder sb)
         {
             var errors = new List<string>();

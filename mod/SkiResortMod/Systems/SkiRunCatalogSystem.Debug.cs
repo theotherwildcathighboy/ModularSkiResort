@@ -1,9 +1,9 @@
 // The "Ski Resort Hub" tab of the game's developer menu: catalog, rating-cache and rating-service rows, the SkiResortStatsSystem and
 // hub rows, and action buttons. Pattern of ChairPinSystem.Debug.cs / SkiGladeToolSystem.Debug.cs. Game.Debug.DebugSystem invokes each
-// [DebugTab] method on the live instance (DebugSystem.cs:996-1045), hence a partial of the catalog; nothing is registered in Mod.cs.
+// [DebugTab] method on the live instance (DebugSystem.cs:996-1045), hence a partial of the catalog. Nothing is registered in Mod.cs.
 // The tab name is load-bearing: AddPanel keys widget lists by tab name and replaces a previous list of the same name
-// (DebugSystem.cs:1085-1095); "Ski Resort" (ChairPinSystem), "Ski Glades" and "Ski Runs" are taken.
-// DebugUI.Value getters run at 10 Hz while the tab is open: every row reads plain fields or builds one display string; no EntityQuery,
+// (DebugSystem.cs:1085-1095). "Ski Resort" (ChairPinSystem), "Ski Glades" and "Ski Runs" are taken.
+// DebugUI.Value getters run at 10 Hz while the tab is open: every row reads plain fields or builds one display string. No EntityQuery,
 // no job completion. Buttons go through the hub's request queue (SkiResortHubUISystem.DevRequest). Tool mouse input is blocked while
 // the cursor is over this panel (ToolSystem.cs:203-222): after a launch, move the cursor onto the map.
 

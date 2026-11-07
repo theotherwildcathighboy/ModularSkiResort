@@ -1,8 +1,8 @@
-// Hover kinds, plan states and the per-activation hover log of the glade tool: one log line per hover-state change and a summary
-// when the tool closes (silence must be impossible).
+// Hover kinds, plan states and the per-activation hover log of the glade tool. The log has one line per hover-state change and a
+// summary when the tool closes (silence must be impossible).
 // Pure on purpose (System, System.Collections.Generic and Unity.Mathematics only): the same file compiles into the net48 mod and
 // is linked into tests/GladeBatch.
-// Offer() dedups on the last (kind, entityIndex, reason) and caps lines per activation (MaxLinesPerActivation); read CapJustReached
+// Offer() dedups on the last (kind, entityIndex, reason) and caps lines per activation (MaxLinesPerActivation). Read CapJustReached
 // right after the Offer that returned false, before any early return (the next Offer clears it).
 // Begin / Offer / AddDwell allocate nothing (they run per frame).
 // Engine notes: EngineNotes/SkiGladeHover.md
@@ -203,7 +203,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Body of the stop line; the tool prefixes "Glade: ". Format:
+        /// <summary>Body of the stop line. The tool prefixes "Glade: ". Format:
         /// "tool stopped after T s — P plan(s), A apply(s); dwell: terrain x s, foreign x s,
         /// unbound x s, held x s, nothing x s, previewing x s, complete x s, blocked x s[, extra
         /// buckets]; L transition(s) logged, S suppressed, V via point test; last: STATE". With
@@ -226,7 +226,7 @@ namespace SkiResortMod.Systems
             return s;
         }
 
-        /// <summary>One decimal, culture-free ("12.3"); NaN / negative print "0.0".</summary>
+        /// <summary>One decimal, culture-free ("12.3"). NaN / negative print "0.0".</summary>
         private static string Sec(double seconds)
         {
             if (!(seconds > 0.0))

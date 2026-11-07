@@ -1,10 +1,11 @@
 // Every prefab of this mod is open from the first minute of a city: the mod has no progression of its own. The sign and the buildings
 // carry no Unlockable, yet they inherit a lock from ServiceObject.m_Service (Parks & Recreation, a dependency: ServiceObject.cs:42,
-// PrefabSystem.cs:137 and :540), and the lines, runs and fence add vanilla requirements on top (Unlockable.cs:43).
-// Same route as vanilla's Unlock All without its milestones (UnlockAllSystem.cs:47, SystemOrder.cs:106): one Unlock event per locked
-// prefab of ours, UnlockSystem clears the lock and the toolbar refreshes. Vanilla services and prefabs stay as the city has them.
-// Once per Game-mode load: a save stores the lock state and a city saved before this system stored it locked.
-// SkipUpdate keeps the toolbar's "new" dots off (UIHighlightSystem.cs:145), only when there are events for it to consume.
+// PrefabSystem.cs:137 and :540). The lines, runs and fence add vanilla requirements on top (Unlockable.cs:43).
+// This uses the same route as vanilla's Unlock All, without its milestones (UnlockAllSystem.cs:47, SystemOrder.cs:106). The system sends
+// one Unlock event per locked prefab of ours. UnlockSystem clears the lock and the toolbar refreshes. Vanilla services and prefabs stay
+// as the city has them.
+// The system runs once per Game-mode load. A save stores the lock state, and a city saved before this system stored it locked.
+// SkipUpdate keeps the toolbar's "new" dots off (UIHighlightSystem.cs:145). It does so only when there are events for it to consume.
 
 using System;
 using Colossal.Entities;

@@ -1,11 +1,20 @@
 // One snow groomer per bound cat track, driving back and forth along the track's centerline while the track is open. A prop, not a vehicle:
 // no pathfinding, no lanes, no traffic, no effect on snow, rating or upkeep. Never more than one per track.
-// The trip is a pure function of the render clock (GroomerRules), the path comes from the run's outline (GroomerCenterline), the ground from
-// the terrain's CPU heights. Poses are computed here on the main thread and written by one Burst job on Dependency (Transform + CullingInfo).
-// The entity is the prefab's archetype minus Static, plus Stopped, InterpolatedTransform and LivePath: no search tree (not clickable, no panel,
-// no bulldoze, no overlap with anything), and the saver skips it. Respawned from the catalog after every load; nothing stays in a save.
-// Log discipline: one ARMED line per load, one [prefab] line (or one WARN and off), one [no path] line per track per outline, one [state] line
-// per pass that changed anything, one [lights] line per day/night flip, one [cost] line per load, a one-shot "!!!" catch. The Editor never arms it.
+// The trip is a pure function of the render clock (GroomerRules). The path comes from the run's outline (GroomerCenterline).
+// The ground comes from the terrain's CPU heights. This system computes poses on the main thread.
+// One Burst job on Dependency writes them (Transform + CullingInfo).
+// The entity is the prefab's archetype minus Static, plus Stopped, InterpolatedTransform and LivePath. It has no search tree
+// (not clickable, no panel, no bulldoze, no overlap with anything), and the saver skips it. The system respawns it from the catalog
+// after every load. Nothing stays in a save.
+// Log discipline:
+// - one ARMED line per load
+// - one [prefab] line (or one WARN and off)
+// - one [no path] line per track per outline
+// - one [state] line per pass that changed anything
+// - one [lights] line per day/night flip
+// - one [cost] line per load
+// - a one-shot "!!!" catch.
+// The Editor never arms it.
 // Engine notes: EngineNotes/SkiGroomerSystem.md
 
 using System;
@@ -72,9 +81,9 @@ namespace SkiResortMod.Systems
             public quaternion Rotation;
         }
 
-        /// <summary>Writes the poses. A job on Dependency because a main-thread write of Transform would wait for every vehicle job in the city. The
-        /// bounds go straight into CullingInfo: the Updated tag vanilla would use is a structural change per groomer per frame, and the only
-        /// reader of a moving object's bounds is the culling that follows (EngineNotes/SkiGroomerSystem.md, "Culling").</summary>
+        /// <summary>Writes the poses as a job on Dependency, because a main-thread write of Transform would wait for every vehicle job in the city.
+        /// The bounds go straight into CullingInfo. The Updated tag that vanilla would use is a structural change per groomer per frame.
+        /// The only reader of a moving object's bounds is the culling that follows (EngineNotes/SkiGroomerSystem.md, "Culling").</summary>
         [BurstCompile]
         private struct WritePosesJob : IJob
         {
@@ -327,8 +336,9 @@ namespace SkiResortMod.Systems
             m_LastTimeS = timeS;
         }
 
-        /// <summary>A machine's Night-gated effects are evaluated at spawn and on EffectsUpdated, nothing else (EffectControlSystem.cs:1087-1097): without this, one
-        /// spawned by day stays dark all night. The tag is structural, so it runs here before the job, and only for the passes after a flip.</summary>
+        /// <summary>A machine's Night-gated effects are evaluated at spawn and on EffectsUpdated, nothing else (EffectControlSystem.cs:1087-1097).
+        /// Without this, one spawned by day stays dark all night. The tag is structural, so it runs here before the job, and only for the passes
+        /// after a flip.</summary>
         private void RefreshLights(double timeS)
         {
             bool night = m_EffectFlags.GetData().m_IsNightTime;
@@ -406,8 +416,8 @@ namespace SkiResortMod.Systems
 
         // ---- the tracks ---------------------------------------------------------------------------------------------------------------
 
-        /// <summary>Runs at the catalog's cadence, not per frame. A track the catalog no longer lists (gone, or unbound) loses its groomer; a new array
-        /// reference means the outline moved.</summary>
+        /// <summary>Runs at the catalog's cadence, not per frame. A track the catalog no longer lists (gone, or unbound) loses its groomer.
+        /// A new array reference means the outline moved.</summary>
         private void SyncWithCatalog()
         {
             m_SyncedRebuilds = m_Catalog.Rebuilds;
@@ -446,8 +456,9 @@ namespace SkiResortMod.Systems
                 LogState($"removed {removed} with their tracks");
         }
 
-        /// <summary>Every delete route (bulldoze, hub trash, delete mode, delete-all) ends in a Deleted tag on the run or its absence: seen here on the same
-        /// frame, without waiting for the catalog. EntityManager.Exists and HasComponent read the archetype, so they wait for no job.</summary>
+        /// <summary>Every delete route (bulldoze, hub trash, delete mode, delete-all) ends in a Deleted tag on the run or in its absence.
+        /// This system sees it on the same frame, without waiting for the catalog. EntityManager.Exists and HasComponent read the archetype,
+        /// so they wait for no job.</summary>
         private void DropDeadTracks()
         {
             int removed = 0;
@@ -581,10 +592,13 @@ namespace SkiResortMod.Systems
             var transform = new Transform(position, rotation);
             using (var one = new NativeArray<Entity>(1, Allocator.Temp))
             {
-                // The prefab's archetype (Created and Updated come with it and give the first culling pass) minus Static, plus Stopped (the culling
-                // query takes Moving or Stopped, PreCullingSystem.cs:2859-2896), InterpolatedTransform (the per-frame copy to the render,
-                // ObjectInterpolateSystem.cs:248-263) and LivePath (the saver's skip, SerializerSystem.cs:171-209). Spawns are rare, so four
-                // structural calls cost nothing that matters.
+                // The archetype is the prefab's, with these changes:
+                // - Created and Updated come with it and give the first culling pass.
+                // - Minus Static.
+                // - Plus Stopped (the culling query takes Moving or Stopped, PreCullingSystem.cs:2859-2896).
+                // - Plus InterpolatedTransform (the per-frame copy to the render, ObjectInterpolateSystem.cs:248-263).
+                // - Plus LivePath (the saver's skip, SerializerSystem.cs:171-209).
+                // Spawns are rare, so four structural calls cost nothing that matters.
                 EntityManager.CreateEntity(m_Archetype, one);
                 Entity prop = one[0];
                 EntityManager.RemoveComponent<Static>(prop);

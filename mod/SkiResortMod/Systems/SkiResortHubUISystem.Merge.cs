@@ -1,12 +1,13 @@
-// SkiResortHubUISystem, merged buildings (contract 35; MergeRules header). The merge card beside the game's selected-info panel follows the
-// selection like the Ski Bus card: shown for a merged building, or a building that could be merged (or is too small) while the city has a
-// ski area. The card's buttons are the triggers mergeBuilding (entity, tier) and unmergeBuilding (entity); SkiMergeSystem does the work. The
-// Overview's "Merged buildings" fold reads `mergedLodges`: one row per merged building of the selected area, any state.
-// Contract 36: the fold's overlay chip fires armMergeOverlay (bool); `mergeOverlay` says whether SkiMergeOverlaySystem is armed and how many
+// SkiResortHubUISystem, merged buildings (contract 35, MergeRules header). The merge card beside the game's selected-info panel follows the
+// selection like the Ski Bus card. It shows for a merged building, or for a building that could be merged (or is too small),
+// while the city has a ski area. The card's buttons are the triggers mergeBuilding (entity, tier) and unmergeBuilding (entity).
+// SkiMergeSystem does the work. The Overview's "Merged buildings" fold reads `mergedLodges`: one row per merged building of the selected
+// area, any state.
+// Contract 36: the fold's overlay chip fires armMergeOverlay (bool). `mergeOverlay` says whether SkiMergeOverlaySystem is armed and how many
 // buildings it tints (green: a tier fits, gray: lot too small).
-// Contract 37: the card says, before a merge, whether the building is within SlopesideMaxM of any area's runs or lift stations (Near, the
-// overlay's test SkiResortAttractivenessSystem.NearAnySlopeside), so a player sees it would not count before paying; the Buildings tab's
-// Mergeable buildings toggle and the fold's chip both fire armMergeOverlay.
+// Contract 37: the card says, before a merge, whether the building is Near: within SlopesideMaxM of any area's runs or lift stations
+// (the overlay's test SkiResortAttractivenessSystem.NearAnySlopeside). So a player sees before paying that it would not count.
+// The Buildings tab's Mergeable buildings toggle and the fold's chip both fire armMergeOverlay.
 // Engine notes: EngineNotes/SkiMergeSystem.md
 
 using System;
@@ -25,8 +26,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>bindings.ts MergeCardState. Tier -1 = not merged. AllowedMask: bit t = tier t fits the lot (MergeRules.AllowedMask).
         /// Refusal / State / Outcome: MergeRules.Refusal, MergeRules.State, SkiMergeSystem.Outcome numbers. Charge[t]: what merging (or
-        /// changing) to tier t costs now; Monthly[t]: its monthly fee. Near (contract 37): within SkiDayRules.SlopesideMaxM of any area's run
-        /// outline or lift station now (NearAnySlopeside, the last recompute's geometry); for a merged building the State says it.</summary>
+        /// changing) to tier t costs now. Monthly[t]: its monthly fee. Near (contract 37): within SkiDayRules.SlopesideMaxM of any area's run
+        /// outline or lift station now (NearAnySlopeside, the last recompute's geometry). For a merged building, the State says it.</summary>
         public struct HubMergeCardState : IJsonWritable, IEquatable<HubMergeCardState>
         {
             public bool Shown;
@@ -147,7 +148,7 @@ namespace SkiResortMod.Systems
 
         private ValueBinding<HubMergeOverlay> m_MergeOverlayBinding;   // contract 36: panel binding, no Demand
         private SkiMergeOverlaySystem m_MergeOverlay;
-        private ValueBinding<HubMergeCardState> m_MergeCard;   // contract 35: always observed; a compare per frame until a building is selected
+        private ValueBinding<HubMergeCardState> m_MergeCard;   // contract 35: always observed. A compare per frame until a building is selected
         private RawValueBinding m_Merged;
         private SkiMergeSystem m_Merge;
         private Entity m_MergeCardSelected, m_MergeCardBuilding;
@@ -222,8 +223,8 @@ namespace SkiResortMod.Systems
             m_MergeCardTicks = 0;
         }
 
-        /// <summary>The merge card: follows the game's selection. Hidden (a struct compare) unless the selected building is merged or could be;
-        /// refreshed every MergeCardRefreshFrames while one is.</summary>
+        /// <summary>The merge card: follows the game's selection. Hidden (a struct compare) unless the selected building is merged or could be.
+        /// Refreshed every MergeCardRefreshFrames while one is.</summary>
         private void PushMergeCard()
         {
             Entity selected = m_MergeCard.active ? m_SelectedInfo.selectedEntity : Entity.Null;
@@ -244,8 +245,8 @@ namespace SkiResortMod.Systems
             m_MergeCard.Update(MergeCardNow());
         }
 
-        /// <summary>The building a selection shows the card for: merged, or a kind that can be merged (a too-small lot included, so the card
-        /// says why) while a ski area exists. Null for anything else, our own buildings included.</summary>
+        /// <summary>The building the card shows for a selection: one that is merged, or a kind that can be merged while a ski area exists.
+        /// A too-small lot counts, so the card says why. Null for anything else, our own buildings included.</summary>
         private Entity MergeCardBuildingOf(Entity selected)
         {
             if (selected == Entity.Null || !EntityManager.Exists(selected))
@@ -315,7 +316,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>`mergedLodges`: rebuilt when the attraction system's merged views move (or every MergeCardRefreshFrames for names and
-        /// fees while the panel shows it), pushed through the usual ArrayPush.</summary>
+        /// fees while the panel shows it). Pushed through the usual ArrayPush.</summary>
         private void PushMerged()
         {
             bool active = m_Merged.active;

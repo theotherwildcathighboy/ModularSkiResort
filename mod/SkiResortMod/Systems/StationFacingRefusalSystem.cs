@@ -1,24 +1,27 @@
-// Refuses a lift station preview that snaps onto the end of a built lift line facing away from it (FIX-LIST 54(b)): one of its stub
-// nodes sits on the line's END node while the line's next node lies behind the stub, so the line would run back through the building.
-// The vanilla object tool offers two snap candidates at a net node, the tool's own rotation and the stub aligned to the edge, and ranks
-// them by snap priority from the cursor distance alone (ObjectToolSystem.cs:689-700, NetIterator), so a reversed station snaps on; the
-// field steep tram base did (yaw 128.7, the line leaving its lot front: 28.8 m above the predicted front). Either stub node can land on
-// the end: the reversed snap that PLACES puts the stub's INNER node (3 m in from the tip) on it, merged as a SkiLiftMarker Temp copy of
-// the end node (in-game check 2026-11-04); the tip-on-node one vanilla already refuses ("Invalid shape"). 7e52477 tested the tip only
-// and missed the first.
-// Which ends: TRUE ends only (one lift-line edge at the node; an interior tower node has two and is never judged), and only those the
-// preview touches: a Temp node whose Temp.m_Original is the end node (vanilla's copy of every node a preview connects to). The decision
-// is the pure StationAlign.AttachesBackward (both stub nodes, the line's next node behind the stub) and StationAlign.LineEnds
-// (LiftBatch EI-54b).
-// Mechanism as PowerJoinRefusalSystem (its header has the engine refs): the Temp station gets ErrorSeverity.Error in
-// ValidationSystem.Components.m_ErrorMap, written between ValidationSystem and Components (Mod.cs: UpdateBefore Components at
-// ModificationEnd), so the preview turns red and the tool cannot apply (ToolBaseSystem.GetAllowApply). Frames without the map change no
-// Error, so the last verdict stands. Nothing else is touched: no net geometry, no tool state, no saved data.
-// Cost: nothing unless the map exists AND a Temp catalog station exists (placing or relocating one); then a main-thread pass over the
-// Temp nodes and, when one of them copies an existing node, over the built lift-line edges (tens to hundreds). Never runs while our
-// lift tool is active.
+// Refuses a lift station preview that snaps onto the end of a built lift line facing away from it (FIX-LIST 54(b)).
+// One of its stub nodes sits on the line's END node while the line's next node lies behind the stub. The line would then run back
+// through the building.
+// The vanilla object tool offers two snap candidates at a net node: the tool's own rotation, and the stub aligned to the edge.
+// It ranks them by snap priority from the cursor distance alone (ObjectToolSystem.cs:689-700, NetIterator). So a reversed station
+// snaps on. The field steep tram base did (yaw 128.7, the line leaving its lot front: 28.8 m above the predicted front).
+// Either stub node can land on the end. The reversed snap that PLACES puts the stub's INNER node (3 m in from the tip) on it, merged
+// as a SkiLiftMarker Temp copy of the end node (in-game check 2026-11-04). Vanilla already refuses the tip-on-node snap
+// ("Invalid shape"). 7e52477 tested the tip only and missed the first case (the INNER node).
+// Which ends: TRUE ends only (one lift-line edge at the node. An interior tower node has two and is never judged).
+// It judges only the ends the preview touches: a Temp node whose Temp.m_Original is the end node (vanilla's copy of every node a
+// preview connects to). The decision is the pure StationAlign.AttachesBackward (both stub nodes, the line's next node behind the
+// stub) and StationAlign.LineEnds (LiftBatch EI-54b).
+// Mechanism as PowerJoinRefusalSystem (its header has the engine refs).
+// The Temp station gets ErrorSeverity.Error in ValidationSystem.Components.m_ErrorMap. The system writes it between
+// ValidationSystem and Components (Mod.cs: UpdateBefore Components at ModificationEnd).
+// So the preview turns red and the tool cannot apply (ToolBaseSystem.GetAllowApply).
+// A frame without the map changes no Error, so the last verdict stands. The system touches nothing else: no net geometry,
+// no tool state, no saved data.
+// Cost: nothing unless the map exists AND a Temp catalog station exists (placing or relocating one). Then a main-thread pass over
+// the Temp nodes runs. When one of them copies an existing node, a pass over the built lift-line edges runs too (tens to hundreds).
+// It never runs while our lift tool is active.
 // Logs: "created", ARMED per load, one INFO line per refusal episode (start and end), "!!!" once on a throw (then off until the next
-// load; a reversed snap builds again, as before).
+// load. A reversed snap builds again, as before).
 
 using System;
 using System.Collections.Generic;
@@ -177,7 +180,7 @@ namespace SkiResortMod.Systems
 
             if (m_Refused.Count > 0)
             {
-                // ProcessValidationResultsJob writes the map; it must be done before the main thread touches it.
+                // ProcessValidationResultsJob writes the map. It must finish before the main thread touches it.
                 m_ValidationComponents.m_ErrorMapDeps.Complete();
                 NativeHashMap<Entity, ErrorSeverity> map = m_ValidationComponents.m_ErrorMap;
                 for (int i = 0; i < m_Refused.Count; i++)
@@ -201,10 +204,10 @@ namespace SkiResortMod.Systems
         /// <summary>The station's yaw in degrees as the Temp dump prints it (local -Z = the stub axis).</summary>
         private static float YawDeg(float2 axis) => math.degrees(math.atan2(-axis.x, -axis.y));
 
-        /// <summary>The built lift lines' TRUE end nodes (one lift-line edge at the node, StationAlign.LineEnds; an interior tower node
+        /// <summary>The built lift lines' TRUE end nodes (one lift-line edge at the node, StationAlign.LineEnds. An interior tower node
         /// has two) that this frame's preview touches: a Temp node's Temp.m_Original is the end node. Vanilla gives a node a Temp copy
         /// (Temp.m_Original, the original Hidden: GenerateNodesSystem.cs:1226-1228, :1306) whenever a preview's net definition connects to
-        /// it; the 54(a) probe saw that copy on every station snap, merged into the stub (SkiLiftMarker) or not. Edges: lift-line prefab,
+        /// it. The 54(a) probe saw that copy on every station snap, merged into the stub (SkiLiftMarker) or not. Edges: lift-line prefab,
         /// no Owner (so not a station's own stub sub-net), not Temp, not Deleted.</summary>
         private void ReadSnappedEnds()
         {

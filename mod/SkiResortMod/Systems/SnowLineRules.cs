@@ -1,10 +1,10 @@
-// Pure rules of the winter snow-line overlay; no engine types (System only) so a host can link it.
+// Pure rules of the winter snow-line overlay. No engine types (System only), so a host can link it.
 //   WinterWindow    the climate's winter as a span of the normalized year: the season named "SeasonWinter" starts at its m_StartTime and
-//                   ends where the next season starts (vanilla 0.9167 -> 1.1667, ClimatePrefab.m_Seasons); December-February if none.
+//                   ends where the next season starts (vanilla 0.9167 -> 1.1667, ClimatePrefab.m_Seasons). If there is none, it is December-February.
 //   MeanOverWindow  mean of hourly climate samples over the window (authored in 24 keys per game day, ClimatePrefab.RebuildTemperatureCurves).
 //   ElevationAt     the game's own lapse formula (SnowSystem.SnowTransfer): T_local(h) = T - (h - temperatureBaseHeight) * lapse,
 //                   solved for T_local(h) = threshold.
-//   MarchingSquares the contour of a height grid at one level; the two ambiguous saddle cases are resolved by the cell mean.
+//   MarchingSquares the contour of a height grid at one level. The cell mean resolves the two ambiguous saddle cases.
 
 using System;
 

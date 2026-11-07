@@ -1,9 +1,9 @@
-// The piste-map overlay: while the hub is open with its Piste map toggle on (and the tree tool and the Quick runs tool off), the shown ski area's run
-// outlines are drawn draped on the terrain in their difficulty colors; natural runs are dashed, the hovered run is twice as wide.
-// Reads hub state (PisteMapVisible, ShownSign, HoveredRun), SkiGladeToolSystem.IsActive, QuickRunsToolSystem.IsActive, SkiRunCatalogSystem rows and each run's
-// Game.Areas.Node buffer; no ECS write. m_Segments is written only in Build, after CompleteDraw(); the draw job reads no ECS data.
-// Phase: Rendering, UpdateBefore<SkiPisteMapSystem, Game.Rendering.OverlayRenderSystem> (Mod.cs; load-bearing: the job must be
-// registered before OverlayRenderSystem completes and clears the lists in the same frame); reads the hub state written at UIUpdate
+// The piste-map overlay draws the shown ski area's run outlines draped on the terrain in their difficulty colors. It draws only while
+// the hub is open with its Piste map toggle on (and the tree tool and the Quick runs tool off). Natural runs are dashed. The hovered run is twice as wide.
+// It reads hub state (PisteMapVisible, ShownSign, HoveredRun), SkiGladeToolSystem.IsActive, QuickRunsToolSystem.IsActive, SkiRunCatalogSystem rows and each run's
+// Game.Areas.Node buffer. It makes no ECS write. m_Segments is written only in Build, after CompleteDraw(). The draw job reads no ECS data.
+// Phase: Rendering, UpdateBefore<SkiPisteMapSystem, Game.Rendering.OverlayRenderSystem> (Mod.cs). The order is load-bearing: the job must be
+// registered before OverlayRenderSystem completes and clears the lists in the same frame. It reads the hub state written at UIUpdate
 // earlier in the same MainLoop frame (SystemOrder.cs:67-68).
 // Engine notes: EngineNotes/SkiPisteMapSystem.md
 
@@ -45,13 +45,13 @@ namespace SkiResortMod.Systems
         {
             public float3 A, B;
             public float Width;          // m, before the zoom scale
-            public float OutlineWidth;   // m, before the zoom scale; 0 = none
+            public float OutlineWidth;   // m, before the zoom scale. 0 = none
             public int Slot;             // run slot in this cache (hover emphasis)
             public UnityEngine.Color Fill, Outline;
         }
 
         /// <summary>One draw: every cached segment into the overlay buffer. Field layout follows AreaBorderRenderSystem.cs:40-41, 97
-        /// (the Buffer field carries no attribute), as StripDrawJob. Reads only our own NativeArray; no ECS data.</summary>
+        /// (the Buffer field carries no attribute), as StripDrawJob. Reads only our own NativeArray, no ECS data.</summary>
         [BurstCompile]
         private struct PisteDrawJob : IJob
         {
@@ -97,7 +97,7 @@ namespace SkiResortMod.Systems
         };
         private static readonly float[] s_OutlineWidth = { 0f, 0f, 0f, 0f, 0f, Tuning.OutlineBlackM, Tuning.OutlineDoubleBlackM };
 
-        // The palette, read by the Quick runs tool's preview (one palette for the map and the preview; never written)
+        // The palette, read by the Quick runs tool's preview (one palette for the map and the preview, never written)
         internal static UnityEngine.Color[] PisteFill => s_Fill;
         internal static UnityEngine.Color[] PisteOutline => s_Outline;
         internal static float[] PisteOutlineWidth => s_OutlineWidth;
@@ -139,8 +139,8 @@ namespace SkiResortMod.Systems
             m_SlowBuildLogged, m_CostLogged;
         private static bool s_FirstDrawDone;   // per PROCESS (the JIT of Schedule<PisteDrawJob> is paid once)
 
-        /// <summary>The glade tool or the Quick runs tool is open, or the cat track tool is in Delete mode: the map hides (their overlays use
-        /// the same space and colors; the map's wider green ring would cover the armed track's red ring).</summary>
+        /// <summary>The glade tool or the Quick runs tool is open, or the cat track tool is in Delete mode: the map hides. Their overlays use
+        /// the same space and colors, and the map's wider green ring would cover the armed track's red ring.</summary>
         private bool ToolHidesMap => m_GladeTool.IsActive || (m_QuickRuns != null && m_QuickRuns.IsActive) ||
                                      (m_CatGrade != null && m_CatGrade.IsActive && m_CatGrade.DeleteMode);
 
@@ -156,7 +156,7 @@ namespace SkiResortMod.Systems
                    $"hover slot {m_HoverSlot}";
         }
 
-        /// <summary>The one `piste map:` dump line (called by the hub's DumpToLog after the stats dump). Appends only; never throws.</summary>
+        /// <summary>The one `piste map:` dump line (called by the hub's DumpToLog after the stats dump). Appends only. Never throws.</summary>
         public void AppendDump(StringBuilder sb)
         {
             try
@@ -445,14 +445,14 @@ namespace SkiResortMod.Systems
                 Overlay = buffer,
             };
             JobHandle handle = job.Schedule(deps);   // after every earlier overlay writer, ours included
-            m_Overlay.AddBufferWriter(handle);       // :636-639; completed at OverlayRenderSystem.OnUpdate :738-741
+            m_Overlay.AddBufferWriter(handle);       // :636-639. Completed at OverlayRenderSystem.OnUpdate :738-741
             m_DrawHandle = handle;
             float ms = (float)((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency);
             Draws++;
             LastDrawMs = ms;
             if (!s_FirstDrawDone)
             {
-                // The first draw of the process pays the one-time JIT of Schedule<PisteDrawJob>: reported on its own, kept out of the peak, the
+                // The first draw of the process pays the one-time JIT of Schedule<PisteDrawJob>. It is reported on its own, kept out of the peak, the
                 // mean and the slow-draw WARN.
                 s_FirstDrawDone = true;
                 Mod.Log.Info($"PisteMap: first overlay draw of this process {ms:F2} ms ({m_Count} segments; one-time first call " +
@@ -480,7 +480,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The active camera controller's zoom (IGameCameraController.zoom, Game.Rendering/IGameCameraController.cs:8); 0 when
+        /// <summary>The active camera controller's zoom (IGameCameraController.zoom, Game.Rendering/IGameCameraController.cs:8). It is 0 when
         /// there is none or it is being torn down (width x1).</summary>
         internal static float ReadZoom(CameraUpdateSystem camera)
         {
@@ -510,7 +510,7 @@ namespace SkiResortMod.Systems
             }
             catch (Exception)
             {
-                // already in the failure path; the "!!!" line carries the cause
+                // already in the failure path. The "!!!" line carries the cause
             }
             if (!m_ErrorLogged)
             {

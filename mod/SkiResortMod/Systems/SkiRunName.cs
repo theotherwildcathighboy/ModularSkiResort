@@ -1,16 +1,16 @@
-// Serializable trail name pick of a run (R3, DECISIONS 578): an index into the trail-name list (SkiRunNameRules, locale keys
-// SkiResort.RUN_NAME:<index>), or -1 when every name was taken (the catalog then shows "Run N" / "Cat track N"), and the form it takes
-// ("Upper ..." / "Lower ...", SkiRunNameRules.Form*). A persisted component: its type name and Serialize layout are a save-format contract
-// (see SaveLayouts). Added by SkiRunNameSystem once the run is rated; SkiRunReemitSystem copies it to the re-emitted run. It lives on the
-// run, so a bulldozed run frees its name with it. Layout v1 (6 bytes): after the 1.0 freeze it never changes (no payload length is
-// written): new fields go in a new type. Never rename the type or move its namespace without [FormerlySerializedAs].
+// Serializable trail name pick of a run (R3, DECISIONS 578). It holds an index into the trail-name list (SkiRunNameRules, locale keys
+// SkiResort.RUN_NAME:<index>). The index is -1 when every name was taken (the catalog then shows "Run N" / "Cat track N"). It also holds the form
+// the name takes ("Upper ..." / "Lower ...", SkiRunNameRules.Form*). A persisted component: its type name and Serialize layout
+// are a save-format contract (see SaveLayouts). SkiRunNameSystem adds it once the run is rated. SkiRunReemitSystem copies it to the
+// re-emitted run. It lives on the run, so a bulldozed run frees its name with it. Layout v1 (6 bytes). After the 1.0 freeze it never
+// changes (no payload length is written). New fields go in a new type. Never rename the type or move its namespace without [FormerlySerializedAs].
 
 using Colossal.Serialization.Entities;
 using Unity.Entities;
 
 namespace SkiResortMod.Systems
 {
-    // Stripped saved AQN as a literal; rules in SkiRunBinding.cs "SELF-ALIAS"
+    // Stripped saved AQN as a literal. Rules in SkiRunBinding.cs "SELF-ALIAS"
     [FormerlySerializedAs("SkiResortMod.Systems.SkiRunName, SkiResortMod")]
     public struct SkiRunName : IComponentData, IQueryTypeParameter, ISerializable
     {

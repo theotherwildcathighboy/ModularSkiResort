@@ -1,4 +1,4 @@
-// SkiRunBindingRules - the bind decision table, one pure function used by both the load pass and the sweep of SkiRunOwnershipSystem
+// SkiRunBindingRules - the bind decision table: one pure function. Both the load pass and the sweep of SkiRunOwnershipSystem use it,
 // so the two can never disagree about what a run's state means. tests/BindingBatch asserts every one of the 2^7 fact combinations.
 // Pure file: no usings (it compiles unchanged into the net48 mod and the net8 test host), no ECS, no Unity types, no allocation.
 // Never delete on an inferred event: no row deletes a run (a broken reference at load would wipe the resort). A paid orphan is the
@@ -29,7 +29,7 @@ namespace SkiResortMod.Systems
     public static class SkiRunBindingRules
     {
         /// <summary>The table above, first matching row wins. Pure and total: every one of the 2^7 fact combinations maps to
-        /// exactly one action, inconsistent ones included (GateLive without HasBinding is ignored, because rows 3-5 test
+        /// exactly one action. This includes inconsistent ones (GateLive without HasBinding is ignored, because rows 3-5 test
         /// HasBinding first).</summary>
         public static BindAction Decide(in BindFacts f)
         {
@@ -65,21 +65,21 @@ namespace SkiResortMod.Systems
         public const int SnowmakingBase = 4000, SnowmakingPerHa = 4000;
         public const int NightBase = 6000, NightPerHa = 7000;
 
-        /// <summary>Area cap (int-overflow guard; 2,000 ha = 20 km2): night tops out at 14,006,000</summary>
+        /// <summary>Area cap (int-overflow guard, 2,000 ha = 20 km2): night tops out at 14,006,000</summary>
         public const double MaxAreaHa = 2000.0;
         public const int RoundTo = 10;
 
-        // The feature steps (DECISIONS 576): a groomed piste pays the groomed fee, snowmaking adds its step, lights add theirs, so
-        // groomed + snowmaking = SnowmakingBase / PerHa and + lights = NightBase / PerHa. Base and per-ha parts are summed as ints before
+        // The feature steps (DECISIONS 576): a groomed piste pays the groomed fee. Snowmaking adds its step. Lights add theirs. So
+        // groomed + snowmaking = SnowmakingBase / PerHa and + lights = NightBase / PerHa. The code sums base and per-ha parts as ints before
         // the one rounding, so the totals are exact.
         public const int SnowmakingStepBase = SnowmakingBase - GroomedBase, SnowmakingStepPerHa = SnowmakingPerHa - GroomedPerHa;
         public const int LightsStepBase = NightBase - SnowmakingBase, LightsStepPerHa = NightPerHa - SnowmakingPerHa;
         // R2 (DECISIONS 577): a piste starts from the natural fee and Groomed is a step too (natural + groomed step = GroomedBase / PerHa).
         public const int GroomedStepBase = GroomedBase - NaturalBase, GroomedStepPerHa = GroomedPerHa - NaturalPerHa;
 
-        // The paid-once memory (DECISIONS 577): the steps a run has paid, kept in SkiRunBinding.m_Flags beside FlagPaid (1) and
-        // FlagRestored (2). A step is charged the first time its feature is on while the run is bound and never again: turning a feature
-        // off refunds nothing, turning it back on is free. A cat track has no steps (its guns and lights carry no fee).
+        // The paid-once memory (DECISIONS 577): the steps a run paid, kept in SkiRunBinding.m_Flags beside FlagPaid (1) and
+        // FlagRestored (2). The system charges a step the first time its feature is on while the run is bound, and never again. Turning a
+        // feature off refunds nothing. Turning it back on is free. A cat track has no steps (its guns and lights carry no fee).
         public const byte PaidGroomed = 4, PaidSnowmaking = 8, PaidLights = 16, PaidSteps = PaidGroomed | PaidSnowmaking | PaidLights;
 
         /// <summary>The steps these features pay for: none for a cat track or an unknown run.</summary>
@@ -90,7 +90,7 @@ namespace SkiResortMod.Systems
             return (byte)((f.Groomed ? PaidGroomed : 0) | (f.Snowmaking ? PaidSnowmaking : 0) | (f.Lights ? PaidLights : 0));
         }
 
-        /// <summary>The one-time fee base of a run of this base that has paid these steps: -1 for an unknown run, CatTrackBase for a cat
+        /// <summary>The one-time fee base of a run of this base that paid these steps: -1 for an unknown run, CatTrackBase for a cat
         /// track (steps ignored), NaturalBase plus each paid step for a piste.</summary>
         public static int BaseFeeOfSteps(RunFeatures f, byte steps)
         {
@@ -126,11 +126,11 @@ namespace SkiResortMod.Systems
             return (int)(System.Math.Floor(raw / RoundTo + 0.5) * RoundTo);
         }
 
-        /// <summary>What a bound run owes when its features change: the fee of every step it has ever had minus the fee of the steps it
-        /// had paid, at today's plan area, so a run that toggles any sequence pays exactly the fee of the most it ever had (rounded once
-        /// per charge; a reshape between two charges uses each charge's own area). Off costs nothing and refunds nothing. A spacing change
+        /// <summary>What a bound run owes when its features change: the fee of every step it ever had minus the fee of the steps it
+        /// paid, at today's plan area. So a run that toggles any sequence pays exactly the fee of the most it ever had (rounded once
+        /// per charge). A reshape between two charges uses each charge's own area. Off costs nothing and refunds nothing. A spacing change
         /// costs nothing either: the fee is by area, and how close the guns or masts stand changes no snow or light rule.
-        /// <paramref name="paid"/>: the run's paid steps (SkiRunBinding.m_Flags &amp; PaidSteps); <paramref name="nowPaid"/>: with this
+        /// <paramref name="paid"/>: the run's paid steps (SkiRunBinding.m_Flags &amp; PaidSteps). <paramref name="nowPaid"/>: with this
         /// change's steps added. 0 for a cat track or an unknown run.</summary>
         public static int StepCharge(RunFeatures f, byte paid, float areaM2, out byte nowPaid)
         {
@@ -159,9 +159,9 @@ namespace SkiResortMod.Systems
     }
 
     /// <summary>The monthly run upkeep per billed hectare as feature steps (DECISIONS 576): a groomed run (piste or cat track) pays
-    /// GroomedPerHaMonth, snowmaking adds its step, lights add theirs; natural and unknown pay 0. So groomed 150, snowmaking 500, night 800,
-    /// and a cat track 500 with its guns on (SkiRunUpkeepSystem bills a cat track only while its guns run). SkiRunUpkeepSystem.Tuning's
-    /// totals are derived from these.</summary>
+    /// GroomedPerHaMonth. Snowmaking adds its step. Lights add theirs. Natural and unknown pay 0. So groomed 150, snowmaking 500, night 800,
+    /// and a cat track 500 with its guns on (SkiRunUpkeepSystem bills a cat track only while its guns run). SkiRunUpkeepSystem.Tuning
+    /// derives its totals from these.</summary>
     public static class SkiRunUpkeepRates
     {
         public const int GroomedPerHaMonth = 150, SnowmakingStepPerHaMonth = 350, LightsStepPerHaMonth = 300;
@@ -175,8 +175,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>One piste's monthly upkeep by feature (R3, DECISIONS 578), the one rule SkiRunUpkeepSystem charges and the hub
         /// shows. <paramref name="snowHa"/>: the billed hectares on which its guns make snow now (the injection's active mask), or the cold
-        /// hectares of a run without guns; <paramref name="coveredHa"/>: those plus the cold hectares of a gun run whose guns stopped at
-        /// depth (both capped at the plan area by the caller). Grooming and lights bill the covered hectares, snowmaking only the
+        /// hectares of a run without guns. <paramref name="coveredHa"/>: those plus the cold hectares of a gun run whose guns stopped at
+        /// depth (the caller caps both at the plan area). Grooming and lights bill the covered hectares. Snowmaking bills only the
         /// hectares its guns raise: a gun run at depth still pays its grooming. Natural, unknown and cat tracks: zero (a cat track bills
         /// by plan area elsewhere, SnowGunPlumeRules.TrackBilledHa).</summary>
         public static RunUpkeep PisteUpkeep(RunFeatures f, float snowHa, float coveredHa)
@@ -200,9 +200,9 @@ namespace SkiResortMod.Systems
             return u;
         }
 
-        /// <summary>A cat track's lit hectares (R3 follow-up, DECISIONS 579): its plan area (m2) while it is lit and its season is on
-        /// (<paramref name="inSeason"/> = SkiSnowInjectionSystem.CatTrackGunsCanRun: the gun season and part of the track cold enough), at
-        /// LightsStepPerHaMonth, whatever its gun switch. The track has no texels, so the plan area stands in, as for its guns
+        /// <summary>A cat track's lit hectares (R3 follow-up, DECISIONS 579): its plan area (m2) while it is lit and its season is on, at
+        /// LightsStepPerHaMonth, whatever its gun switch. <paramref name="inSeason"/> = SkiSnowInjectionSystem.CatTrackGunsCanRun: the gun
+        /// season and part of the track cold enough. The track has no texels, so the plan area stands in, as for its guns
         /// (SnowGunPlumeRules.TrackBilledHa). 0 for a piste, an unlit track or a plan area that is not a finite positive number.</summary>
         public static float TrackLitHa(RunFeatures f, float planAreaM2, bool inSeason)
         {

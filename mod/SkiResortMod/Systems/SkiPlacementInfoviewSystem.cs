@@ -1,10 +1,13 @@
-// Closes the Electricity infoview that the vanilla tools open when the player starts drawing one of our lift LINES (every found
-// SkiCatalog.Lifts row with CloseElectricityView) or placing one of our STATIONS (every found SkiCatalog.Stations row: base and top of
-// every lift type, the tram terminals included; there is no mid station yet, a new row is covered by being in that list), once per tool
-// activation, and leaves it open when the player had it open before. The view shows lifts as power lines, which they are not to a
-// player; the base station's missing low-voltage feed keeps its own vanilla icon (LiftLineIconRule), so no station needs the view.
+// This system closes the Electricity infoview that the vanilla tools open in two cases:
+// - The player starts drawing one of our lift LINES (every found SkiCatalog.Lifts row with CloseElectricityView).
+// - The player starts placing one of our STATIONS (every found SkiCatalog.Stations row: base and top of every lift type, the tram
+//   terminals included).
+// There is no mid station yet. A new row is covered by being in that list.
+// It closes the view once per tool activation, and leaves it open when the player had it open before.
+// The view shows lifts as power lines, which they are not to a player. The base station's missing low-voltage feed keeps its own
+// vanilla icon (LiftLineIconRule), so no station needs the view.
 // Code, not prefab data: no prefab field names the placement infoview (InfoviewInitializeSystem.cs:277-428, :601-656).
-// Phase (Mod.cs): UpdateBefore<SkiPlacementInfoviewSystem, Game.UI.InGame.InfoviewsUISystem>(UIUpdate) only; adding UpdateAt as
+// Phase (Mod.cs): UpdateBefore<SkiPlacementInfoviewSystem, Game.UI.InGame.InfoviewsUISystem>(UIUpdate) only. Adding UpdateAt as
 // well would register the system twice (UpdateSystem.cs:158-176 -> Register :271-292 does not de-duplicate).
 // Engine notes: EngineNotes/SkiPlacementInfoviewSystem.md
 
@@ -21,7 +24,7 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            /// <summary>Close / keep lines written per load; further ones are only counted (dev tab / dump). One line per lift-tool
+            /// <summary>Close / keep lines written per load. Further ones are only counted (dev tab / dump). One line per lift-tool
             /// activation is a human-rate event.</summary>
             public const int LogLinesMax = 64;
         }
@@ -32,7 +35,7 @@ namespace SkiResortMod.Systems
         private ToolSystem m_ToolSystem;
         private SkiPrefabCatalogSystem m_PrefabCatalog;
 
-        // Resolved once per load (OnGameLoadingComplete): a list compared by reference in IsTarget; never holds null.
+        // Resolved once per load (OnGameLoadingComplete): a list compared by reference in IsTarget. It never holds null.
         private readonly List<PrefabBase> m_Targets = new List<PrefabBase>(16);
         private string m_TargetNames = "-";
 
@@ -255,7 +258,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Reference compare over the per-load target list. No allocation; null is never a target. Reference compares only (no
+        /// <summary>Reference compare over the per-load target list. No allocation. Null is never a target. Reference compares only (no
         /// UnityEngine.Object == overload).</summary>
         private bool IsTarget(PrefabBase prefab)
         {

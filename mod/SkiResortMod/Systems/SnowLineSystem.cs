@@ -1,9 +1,10 @@
-// Shared climate oracle of the mod. Pull-based: the system stays Enabled = false and does no per-tick work; consumers (e.g.
-// SkiResortAttractivenessSystem) call the accessors during their own recomputes, and ClimateSystem's public floats are cheap
-// main-thread reads. T_local(h) = T_ambient - (h - temperatureBaseHeight) x snowTemperatureHeightScale; the snow line is where
+// Shared climate oracle of the mod. Pull-based: the system stays Enabled = false and does no per-tick work.
+// Consumers (e.g. SkiResortAttractivenessSystem) call the accessors during their own recomputes.
+// ClimateSystem's public floats are cheap main-thread reads.
+// T_local(h) = T_ambient - (h - temperatureBaseHeight) x snowTemperatureHeightScale. The snow line is where
 // T_local = freezingTemperature. GetAmbientTemperature samples the climate curve at the current date, not ClimateSystem.temperature
-// (written only in OnUpdate: 0.0 before a session's first sim tick, ClimateSystem.cs:465-472). GetSnowmakingMarginC is the one
-// snowmaking margin of the mod; IsSnowGatingEnabled the one read of "Snow & season gating".
+// (ClimateSystem writes it only in OnUpdate: 0.0 before a session's first sim tick, ClimateSystem.cs:465-472).
+// GetSnowmakingMarginC is the one snowmaking margin of the mod. IsSnowGatingEnabled is the one read of "Snow & season gating".
 // Engine notes: EngineNotes/SnowLineSystem.md
 
 using System;
@@ -68,8 +69,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The lapse as its three raw coefficients, for Burst jobs that cannot call back into a managed system. Consumers must
-        /// evaluate the exact expression <see cref="GetLocalTemperature"/> uses, `ambient - (elevation - baseHeight) * scale`, so
-        /// job-side routing stays bit-identical to the managed oracle (pre-folding into two coefficients shifts threshold-adjacent
+        /// evaluate the exact expression <see cref="GetLocalTemperature"/> uses, `ambient - (elevation - baseHeight) * scale`. This keeps
+        /// job-side routing bit-identical to the managed oracle (pre-folding into two coefficients shifts threshold-adjacent
         /// texels by a float ulp). The null-climate fallback (ambient = FallbackAmbientC, base = 0, scale = 0) reproduces the old
         /// constant at every elevation.</summary>
         public void GetLocalTemperatureCoefficients(out float ambient, out float baseHeight,
@@ -87,7 +88,7 @@ namespace SkiResortMod.Systems
             scale = m_ClimateSystem.snowTemperatureHeightScale;
         }
 
-        /// <summary>Elevation of the current snow line (T_local == freezing); terrain above it holds natural snow. float.MaxValue
+        /// <summary>Elevation of the current snow line (T_local == freezing). Terrain above it holds natural snow. float.MaxValue
         /// when the lapse is degenerate (no snow anywhere).</summary>
         public float GetSnowLineElevation()
         {
@@ -101,8 +102,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Mean temperature (C) at the reference elevation over the 24 game hours up to the start of the current game hour
-        /// (hourly SampleClimate samples; equals the override under a temperature override). Cached; recomputed at most once per game
-        /// hour. FallbackAmbientC without a climate.</summary>
+        /// (hourly SampleClimate samples). It equals the override under a temperature override. The system caches it and recomputes it at
+        /// most once per game hour. It returns FallbackAmbientC without a climate.</summary>
         public float GetDayMeanTemperature()
         {
             if (m_ClimateSystem == null || m_ClimateSystem.currentClimate == Entity.Null)
@@ -133,16 +134,16 @@ namespace SkiResortMod.Systems
             return m_DayMean;
         }
 
-        /// <summary>The snowmaking margin (C above freezing at which snow guns still work), read by the injection (snowmaking and night
-        /// gates), the estimate (RunSnowRules.ThresholdC) and therefore the bill (the upkeep bills the injection's mask). Clamped to
-        /// the setting's range; RunSnowRules.DefaultSnowmakingMarginC when settings are not loaded.</summary>
+        /// <summary>The snowmaking margin (C above freezing at which snow guns still work). The injection reads it (snowmaking and night
+        /// gates), and so does the estimate (RunSnowRules.ThresholdC). Therefore the bill uses it too: the upkeep bills the injection's mask.
+        /// The system clamps it to the setting's range. It returns RunSnowRules.DefaultSnowmakingMarginC when settings are not loaded.</summary>
         public float GetSnowmakingMarginC()
         {
             SkiResortSettings s = Mod.Settings;
             return RunSnowRules.ClampMargin(s != null ? s.SnowmakingBonusCelsius : RunSnowRules.DefaultSnowmakingMarginC);
         }
 
-        /// <summary>True when "Snow &amp; season gating" is on, or settings are not loaded; the only read of the setting.</summary>
+        /// <summary>True when "Snow &amp; season gating" is on, or settings are not loaded. This is the only read of the setting.</summary>
         public bool IsSnowGatingEnabled()
         {
             SkiResortSettings s = Mod.Settings;

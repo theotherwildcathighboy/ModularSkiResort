@@ -1,10 +1,16 @@
 // SkiRunCatalogSystem - the Ski Resort hub's in-memory list of our ski runs plus the resort totals, and the always-on rating
-// service: the simulation scores runs by these ratings, so they exist with the hub closed. Read by SkiResortHubUISystem,
-// SkiResortStatsSystem and SkiResortAttractivenessSystem; owns no binding and writes nothing to the world. Main thread only.
+// service. The simulation scores runs by these ratings, so they exist with the hub closed. SkiResortHubUISystem, SkiResortStatsSystem
+// and SkiResortAttractivenessSystem read it. It owns no binding and writes nothing to the world. Main thread only.
 // Phase (Mod.cs): UpdateAt UIUpdate, registered before SkiResortStatsSystem and SkiResortHubUISystem. UIUpdate runs paused too and
-// after ModificationSystem (SystemOrder.cs:58, 60, 67); a plain UpdateAt runs in add order (UpdateSystem.cs:158-161): catalog (reads
-// the Demand the hub set last frame) -> stats -> hub. House contract: "created" line; one "Catalog [arm]" line per load; a one-shot
-// "!!!" catch stops the catalog until the next load; no per-frame managed allocation; one rating per frame at most; game mode only.
+// after ModificationSystem (SystemOrder.cs:58, 60, 67). A plain UpdateAt runs in add order (UpdateSystem.cs:158-161): catalog (reads
+// the Demand the hub set last frame) -> stats -> hub.
+// House contract:
+// - "created" line.
+// - One "Catalog [arm]" line per load.
+// - A one-shot "!!!" catch stops the catalog until the next load.
+// - No per-frame managed allocation.
+// - One rating per frame at most.
+// - Game mode only.
 // Engine notes: EngineNotes/SkiRunCatalogSystem.md
 
 using System;
@@ -90,12 +96,12 @@ namespace SkiResortMod.Systems
         {
             public Entity Entity;
             public string Name;
-            public int Kind;             // the prefab kind (the look and the default name); behavior reads Features
-            public RunFeatures Features; // SkiRunPropSystem.FeaturesOf(Entity, Kind) at this rebuild; a slider or a Groomed toggle requests one
+            public int Kind;             // the prefab kind (the look and the default name). Behavior reads Features
+            public RunFeatures Features; // SkiRunPropSystem.FeaturesOf(Entity, Kind) at this rebuild. A slider or a Groomed toggle requests one
             public bool Bound;
             public bool CustomName;
             public int Ordinal;      // N of the default name, per (Gate, NameGroup), top height descending
-            public int NameIndex;    // the trail name pick (SkiRunName); SkiRunNameRules.None = none (the pool full, not given yet)
+            public int NameIndex;    // the trail name pick (SkiRunName). SkiRunNameRules.None = none (the pool full, not given yet)
             public byte NameForm;    // its form (SkiRunNameRules.Form*)
             public float LengthM;
             public float DropM;
@@ -148,9 +154,9 @@ namespace SkiResortMod.Systems
         }
 
         // Kind tables, indexed by RunKind. The default names by name group (NameGroup: 0 piste, 1 cat track): a run shows its trail name
-        // (SkiRunName, R3 DECISIONS 578), in its "Upper" / "Lower" form (FormKeys, by SkiRunNameRules.Form* - 1), and "Run {N}" or
-        // "Cat track {N}" only without one; N per (resort, group). m_Templates takes its length from DefaultNameKeys so the tables cannot
-        // drift apart.
+        // (SkiRunName, R3 DECISIONS 578), in its "Upper" / "Lower" form (FormKeys, by SkiRunNameRules.Form* - 1). It shows "Run {N}" or
+        // "Cat track {N}" only without a trail name. N per (resort, group). m_Templates takes its length from DefaultNameKeys, so the tables
+        // cannot drift apart.
         private static readonly string[] KindNames = { "Groomed", "Snowmaking", "Night", "Natural", "CatTrack" };
         private static readonly string[] BandNames = { "Flat", "Green", "Blue", "Black", "Double black" };
         private static readonly string[] DefaultNameKeys = { "SkiResort.Hub.RUN_DEFAULT[Run]", "SkiResort.Hub.RUN_DEFAULT[CatTrack]" };
@@ -169,7 +175,7 @@ namespace SkiResortMod.Systems
         private EntityQuery m_BuildingQuery;
         private EntityQuery m_RunChangeQuery;  // our bound runs Created/Updated/Deleted this frame (both panel states)
 
-        // m_Rows is what the hub reads; a rebuild fills m_Scratch and swaps (no allocation once both lists reached the city's run
+        // m_Rows is what the hub reads. A rebuild fills m_Scratch and swaps (no allocation once both lists reach the city's run
         // count). m_RowIndex: entity -> index in m_Rows.
         private List<RunRow> m_Rows = new List<RunRow>(64);
         private List<RunRow> m_Scratch = new List<RunRow>(64);
@@ -179,7 +185,7 @@ namespace SkiResortMod.Systems
         // Default-name templates (one per kind) and the formatted names, keyed (kind << 16) | N
         private readonly string[] m_Templates = new string[DefaultNameKeys.Length];
         private readonly string[] m_FormTemplates = new string[FormKeys.Length];
-        private readonly string[] m_TrailNames = new string[SkiRunNameRules.Count * 3];   // by index * 3 + form; resolved on first use, cleared with the templates
+        private readonly string[] m_TrailNames = new string[SkiRunNameRules.Count * 3];   // by index * 3 + form. Resolved on first use, cleared with the templates
         private readonly Dictionary<int, string> m_NameCache = new Dictionary<int, string>();
         private int m_NamesGeneration;
         private int m_TemplatesGeneration = -1;
@@ -187,7 +193,7 @@ namespace SkiResortMod.Systems
         private Action<ToolBaseSystem> m_ToolChangedHandler;
 
         private readonly Dictionary<Entity, RunRating> m_Ratings = new Dictionary<Entity, RunRating>();
-        // A re-emitted run's custom name until NameSystem has it (RekeyRun); dropped by the next rebuild that finds it there.
+        // A re-emitted run's custom name until NameSystem has it (RekeyRun). The next rebuild that finds it there drops it.
         private readonly Dictionary<Entity, string> m_CarriedNames = new Dictionary<Entity, string>();
         private readonly Queue<QueueEntry> m_Front = new Queue<QueueEntry>();
         private readonly Queue<QueueEntry> m_Back = new Queue<QueueEntry>();
@@ -243,11 +249,11 @@ namespace SkiResortMod.Systems
         private float m_CostRebuildMsSum, m_CostRebuildMsMax;
         private float m_CostSince = -1f;
 
-        /// <summary>Set by SkiResortHubUISystem every frame: the hub has an observer on any of the bindings that need the catalog
+        /// <summary>SkiResortHubUISystem sets this every frame: the hub has an observer on any of the bindings that need the catalog
         /// (resorts, runs, lifts, lodges, city, build). Plain field.</summary>
         public bool Demand;
 
-        /// <summary>Bumped when a rebuild or a rating produced different rows or totals; the hub (and SkiResortStatsSystem) re-read
+        /// <summary>Bumped when a rebuild or a rating produced different rows or totals. The hub (and SkiResortStatsSystem) re-read
         /// when it differs from the revision they last saw</summary>
         public int Revision { get; private set; }
 
@@ -270,7 +276,7 @@ namespace SkiResortMod.Systems
         public float LastRateMs, MaxRateMs;
 
         /// <summary>The last rating's text ("-" before the first), logged or not. A property, not a field: it is formatted lazily on
-        /// read (dev tab, DUMP), so warm-up bursts, up to one rating per frame, format nothing.</summary>
+        /// read (dev tab, DUMP). So warm-up bursts, up to one rating per frame, format nothing.</summary>
         public string LastRateLine
         {
             get
@@ -315,8 +321,8 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>A run was re-emitted (SkiRunReemitSystem): its rating follows the new entity (keyed by the same nodes, so it stands;
-        /// a rating still queued is redone for the new one), and its custom name stands in until the hub writes it to NameSystem at
+        /// <summary>A run was re-emitted (SkiRunReemitSystem). Its rating follows the new entity (keyed by the same nodes, so it stands).
+        /// A rating still queued is redone for the new one. Its custom name stands in until the hub writes it to NameSystem at
         /// UIUpdate, so the Runs list never shows a default name in between. Main thread.</summary>
         internal void RekeyRun(Entity from, Entity to, string customName)
         {
@@ -345,7 +351,7 @@ namespace SkiResortMod.Systems
         public enum RatingServiceState : byte
         {
             Off = 0,        // not armed (menu, editor, before the first load): nothing to read
-            WarmingUp = 1,  // armed; this load's warm-up not finished
+            WarmingUp = 1,  // armed, and this load's warm-up is not finished
             Ready = 2,      // warm-up finished, or WarmupDeadlineS passed (WARN written)
             Failed = 3,     // the one-shot "!!!" disabled the catalog until the next load
         }
@@ -365,13 +371,13 @@ namespace SkiResortMod.Systems
             public float TopM;
             public float BottomM;
             public float3 TopNode;    // the highest outline node (x, y, z), always valid: the lift-served test point
-            public float2[] OutlineXZ; // every outline node (x, z) in ring order; read only (shared with the catalog row, same object until the outline moves)
-            public float[] OutlineY;   // every outline node's y, same order; read only (same object until the outline moves or its nodes are re-snapped)
+            public float2[] OutlineXZ; // every outline node (x, z) in ring order, read only (shared with the catalog row, same object until the outline moves)
+            public float[] OutlineY;   // every outline node's y, same order, read only (same object until the outline moves or its nodes are re-snapped)
             public bool Approx;
         }
 
-        /// <summary>The rating service's state (see the engine notes). Off outside Game mode and before the first load; WarmingUp from a load
-        /// until the warm-up set is rated (or the 90 s deadline); Ready; Failed after the one-shot "!!!" until the next load.</summary>
+        /// <summary>The rating service's state (see the engine notes). Off outside Game mode and before the first load. WarmingUp from a load
+        /// until the warm-up set is rated (or the 90 s deadline). Ready. Failed after the one-shot "!!!" until the next load.</summary>
         public RatingServiceState ServiceState { get; private set; }
 
         /// <summary>++ whenever any RunFacts field of any run changed, a run arrived or left, the service state changed, or a load
@@ -407,10 +413,10 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>True when the run has a current rating (state 1-4); band = SlopeBand 0..4 when state 1, else -2; topM / bottomM =
+        /// <summary>True when the run has a current rating (state 1-4). Band = SlopeBand 0..4 when state 1, else -2. topM / bottomM =
         /// SlopeResult.MaxHeight / MinHeight when state 1, else NaN. False when the run is unknown or pending. Works whether or not the
-        /// hub was ever opened. "Current" = the rating's outline key matched the row's key at the last rebuild (ApplyRating); an
-        /// outline edited since that rebuild is seen at the next one (hub open: that frame; closed: within ClosedMinRebuildIntervalS).</summary>
+        /// hub was ever opened. "Current" = the rating's outline key matched the row's key at the last rebuild (ApplyRating). The next rebuild
+        /// sees an outline edited since that rebuild (hub open: that frame, closed: within ClosedMinRebuildIntervalS).</summary>
         public bool TryGetRating(Entity run, out byte state, out sbyte band, out float topM, out float bottomM)
         {
             if (TryGetRow(run, out RunRow row) && row.RateState != RatePending)
@@ -468,12 +474,12 @@ namespace SkiResortMod.Systems
                 },
             });
             // The panel-closed trigger (and the panel-open one too, coalesced the same way). The tags live until CleanUpSystem (Cleanup,
-            // after UIUpdate), so UIUpdate sees this frame's tags (CleanUpSystem.cs:53, SystemOrder.cs:67). Scoped to our bound runs by
-            // SkiRunBinding: without it the query matched every SurfacePrefab area, and vanilla buildings carry Surface sub-areas (grass,
-            // pavement, tiles placeholders in ObjectSubAreas), so every building spawn, upgrade or demolition in a growing city owed a
-            // closed rebuild every 0.5 s for the whole session. A new run is bound by a SkiRunBinding write, caught by BindGeneration
-            // below; a Deleted run still carries its components this frame; an unbound run scores nothing and is picked up by the
-            // ClosedHeartbeatS heartbeat (or "hub opened").
+            // after UIUpdate), so UIUpdate sees this frame's tags (CleanUpSystem.cs:53, SystemOrder.cs:67). SkiRunBinding scopes the query to
+            // our bound runs. Without it the query matched every SurfacePrefab area, and vanilla buildings carry Surface sub-areas (grass,
+            // pavement, tiles placeholders in ObjectSubAreas). So every building spawn, upgrade or demolition in a growing city owed a
+            // closed rebuild every 0.5 s for the whole session. A SkiRunBinding write binds a new run, and BindGeneration
+            // below catches it. A Deleted run still carries its components this frame. An unbound run scores nothing. The
+            // ClosedHeartbeatS heartbeat (or "hub opened") finds it.
             m_RunChangeQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -492,8 +498,8 @@ namespace SkiResortMod.Systems
                 None = new[] { ComponentType.ReadOnly<Temp>() },
             });
 
-            // Localized default names: drop the cache when the language changes (the handler only bumps a counter; the next rebuild
-            // re-reads the templates)
+            // Localized default names: drop the cache when the language changes (the handler only bumps a counter). The next rebuild
+            // re-reads the templates.
             m_DictionaryChangedHandler = OnDictionaryChanged;
             try
             {
@@ -506,8 +512,8 @@ namespace SkiResortMod.Systems
                              "default run names keep the language of their first rebuild until the next load");
             }
 
-            // Terrain epoch: ToolSystem.EventToolChanged (public Action field, ToolSystem.cs:30; invoked from the activeTool setter only
-            // when the tool changes, :84-98)
+            // Terrain epoch: ToolSystem.EventToolChanged (public Action field, ToolSystem.cs:30). The activeTool setter invokes it only
+            // when the tool changes (:84-98)
             m_ToolChangedHandler = OnToolChanged;
             m_ToolSystem.EventToolChanged += m_ToolChangedHandler;
 
@@ -536,7 +542,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Leaving the terrain tool schedules a terrain epoch bump (applied TerrainEpochDelayFrames later, in OnUpdate).
-        /// Field writes only; never throws.</summary>
+        /// Field writes only. Never throws.</summary>
         private void OnToolChanged(ToolBaseSystem tool)
         {
             if (m_LastTool is TerrainToolSystem && !(tool is TerrainToolSystem))
@@ -545,7 +551,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Our own terrain write (CatTrackGradeToolSystem grade / undo) schedules the same terrain epoch bump as leaving the
-        /// vanilla terrain tool, so every run is re-rated on the new ground. Field writes only; never throws.</summary>
+        /// vanilla terrain tool, so every run is re-rated on the new ground. Field writes only. Never throws.</summary>
         public void NoteTerrainChanged(string why)
         {
             m_TerrainEpochDueFrame = m_Frame + Tuning.TerrainEpochDelayFrames;
@@ -620,7 +626,7 @@ namespace SkiResortMod.Systems
             m_LastRateLine = "-";
             m_LastRateDirty = false;
             Ratings = 0;
-            // The always-on service starts Off; Game mode arms it below
+            // The always-on service starts Off. Game mode arms it below
             m_ClosedChangePending = false;
             m_ArmedAt = 0f;
             m_WarmupDeadlineHit = false;
@@ -732,7 +738,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The panel-open change signature (see the engine notes Contract): in order "run changed" (one of our bound runs Created /
         /// Updated / Deleted, coalesced to ClosedMinRebuildIntervalS like the closed path), "bind generation", "language", the heartbeat.
-        /// Per frame: one IsEmptyIgnoreFilter, two int compares, float compares; no allocation. Null when nothing moved.</summary>
+        /// Per frame: one IsEmptyIgnoreFilter, two int compares, float compares. No allocation. Null when nothing moved.</summary>
         private string OpenSignatureWhy(float now)
         {
             if (!m_RunChangeQuery.IsEmptyIgnoreFilter)
@@ -746,9 +752,9 @@ namespace SkiResortMod.Systems
             return now >= m_NextHeartbeat ? WhyHeartbeat : null;
         }
 
-        /// <summary>The panel-closed triggers. An event on one of our bound run areas (m_RunChangeQuery carries SkiRunBinding; vanilla
-        /// surface sub-areas of buildings do not match) or a binding write marks a rebuild owed; it runs at most once per
-        /// ClosedMinRebuildIntervalS. Else the heartbeat. Per frame: one IsEmptyIgnoreFilter, one int compare, two float compares.</summary>
+        /// <summary>The panel-closed triggers. An event on one of our bound run areas (m_RunChangeQuery carries SkiRunBinding, so vanilla
+        /// surface sub-areas of buildings do not match) or a binding write marks a rebuild owed. It runs at most once per
+        /// ClosedMinRebuildIntervalS. Otherwise the heartbeat triggers it. Per frame: one IsEmptyIgnoreFilter, one int compare, two float compares.</summary>
         private string ClosedSignatureWhy(float now)
         {
             if (!m_RunChangeQuery.IsEmptyIgnoreFilter || m_Ownership.BindGeneration != m_SigBindGeneration)
@@ -778,7 +784,7 @@ namespace SkiResortMod.Systems
             bool ready = m_Ownership.PrefabSetsReady;   // sign + run prefab sets resolved this load
             if (ready)
             {
-                // The building walk only while the hub listens; closed, Signs keeps its last value (it feeds only the hub, and "hub opened" recounts)
+                // The building walk runs only while the hub listens. When closed, Signs keeps its last value (it feeds only the hub, and "hub opened" recounts)
                 signs = countSigns ? CountSigns() : Signs;
                 CollectRuns();
             }
@@ -825,7 +831,7 @@ namespace SkiResortMod.Systems
                 m_Scratch[r] = row;
             }
 
-            // Display order: linked first, unlinked last; highest top first
+            // Display order: linked first, unlinked last. Highest top first
             m_Scratch.Sort(DisplayOrder.Instance);
 
             int bound = 0, unbound = 0;
@@ -860,7 +866,7 @@ namespace SkiResortMod.Systems
                 RebuildsChanged++;
             }
             Rebuilds++;
-            // Per reason (literal why-texts; a key is added once, then only its count moves)
+            // Per reason (literal why-texts). A key is added once, then only its count moves
             m_RebuildsByReason.TryGetValue(why, out int byWhy);
             m_RebuildsByReason[why] = byWhy + 1;
 
@@ -930,8 +936,8 @@ namespace SkiResortMod.Systems
                       $"{Tuning.RebuildLinesPerWindow} per {Tuning.RebuildLineWindowS:0} s)"
                     : "";
                 m_RebuildLinesSuppressed = 0;
-                // With the hub closed the signs are not counted (Signs keeps its last value, 0 after a load), so the line says so instead of
-                // printing a count that reads as "no sign".
+                // With the hub closed the signs are not counted (Signs keeps its last value, 0 after a load). So the line says so. It does not
+                // print a count that reads as "no sign".
                 string signText = countSigns ? $"{signs} Welcome Sign(s)" : "Welcome Signs not counted (hub closed)";
                 Mod.Log.Info($"Catalog [rebuild] ({why}): {m_Rows.Count} run(s) — {bound} linked to a sign, " +
                              $"{unbound} not linked; {signText}; area {area:F0} m²; rated {rated}, " +
@@ -959,8 +965,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>FNV-1a (SkiRunRatingRules.Mix) over, per row in row order, Entity, Gate, Kind, RateState | Band &lt;&lt; 8 and the
-        /// bits of AreaM2, LengthM, DropM, TopM, BottomM and NodeTopPos; then the row count. Names, ordinals, grades and the sign count
-        /// are not inputs (a rename does not move RatingRevision; the hub's Revision covers those).</summary>
+        /// bits of AreaM2, LengthM, DropM, TopM, BottomM and NodeTopPos, then the row count. Names, ordinals, grades and the sign count
+        /// are not inputs (a rename does not move RatingRevision, and the hub's Revision covers those).</summary>
         private static ulong ComputeFactsHash(List<RunRow> rows)
         {
             ulong hash = SkiRunRatingRules.FnvOffset;
@@ -988,9 +994,9 @@ namespace SkiResortMod.Systems
             return SkiRunRatingRules.Mix(hash, (uint)rows.Count);
         }
 
-        /// <summary>FNV-1a over every row field the hub or the stats can see, plus the sign count. Gate is included (without it a free
-        /// re-link to another sign would change nothing the hub sees), as are Ordinal, RateState, Band, GradePct, SteepestPct, TopM,
-        /// BottomM and Approx.</summary>
+        /// <summary>FNV-1a over every row field the hub or the stats can see, plus the sign count. Gate is included, because without it a free
+        /// re-link to another sign would change nothing the hub sees. Ordinal, RateState, Band, GradePct, SteepestPct, TopM,
+        /// BottomM and Approx are included too.</summary>
         private static ulong ComputeHash(List<RunRow> rows, int signs, out int rated)
         {
             rated = 0;
@@ -1023,7 +1029,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Live Welcome Signs: a chunk walk of every building, PrefabRef checked against the ownership system's sign set (the
         /// same test as SkiRunOwnershipSystem.CollectGates). Chunk reads through type handles do not wait for running jobs (Entities
-        /// semantics, unverified here), so the query's writers are completed first.</summary>
+        /// semantics, unverified here), so the code completes the query's writers first.</summary>
         private int CountSigns()
         {
             if (m_BuildingQuery.IsEmptyIgnoreFilter)
@@ -1047,7 +1053,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Fills m_Scratch with every live run of ours. Two loops (the ownership pattern): the chunk walk copies entity, kind
-        /// and geometry; the node buffers and the bound test are read after the chunk array is released.</summary>
+        /// and geometry. The code reads the node buffers and the bound test after it releases the chunk array.</summary>
         private void CollectRuns()
         {
             if (m_RunQuery.IsEmptyIgnoreFilter)
@@ -1097,8 +1103,8 @@ namespace SkiResortMod.Systems
                     RingMetrics(nodes, out row.NodeLengthM, out row.NodeDropM, out row.NodeTopM, out row.NodeBottomM,
                         out row.Key, out row.YKey, out row.NodeTopPos);
                     // The outline's xz for the served rule's run links. Same x/z Key and node count as this run's row of the last rebuild = the
-                    // same outline, so its array is kept (allocation only when an outline moved, and the link graph's reference test then sees
-                    // "unchanged"). m_RowIndex / m_Rows still hold the last rebuild here.
+                    // same outline, so the code keeps its array and the link graph's reference test sees "unchanged". Allocation happens only when
+                    // an outline moved. m_RowIndex / m_Rows still hold the last rebuild here.
                     if (m_RowIndex.TryGetValue(row.Entity, out int prevIndex) && prevIndex >= 0 && prevIndex < m_Rows.Count &&
                         m_Rows[prevIndex].Entity == row.Entity && m_Rows[prevIndex].OutlineXZ != null &&
                         m_Rows[prevIndex].OutlineXZ.Length == nodes.Length && m_Rows[prevIndex].Key == row.Key)
@@ -1112,8 +1118,8 @@ namespace SkiResortMod.Systems
                             xz[k] = nodes[k].m_Position.xz;
                         row.OutlineXZ = xz;
                     }
-                    // Their heights for the served rule's downhill links: the same reuse, keyed on YKey too (a GroundHeightSystem re-snap
-                    // moves y only, so the xz array is kept and the height array is new: the link graph rebuilds).
+                    // Their heights for the served rule's downhill links: the same reuse, keyed on YKey too. A GroundHeightSystem re-snap
+                    // moves y only, so the xz array is kept and the height array is new. The link graph then rebuilds.
                     if (m_RowIndex.TryGetValue(row.Entity, out int prevY) && prevY >= 0 && prevY < m_Rows.Count &&
                         m_Rows[prevY].Entity == row.Entity && m_Rows[prevY].OutlineY != null &&
                         m_Rows[prevY].OutlineY.Length == nodes.Length && m_Rows[prevY].Key == row.Key && m_Rows[prevY].YKey == row.YKey)
@@ -1134,12 +1140,12 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>LengthRect (SkiSlopeClassifier.EquivalentRectLength, the same arithmetic in double), the node height span and
-        /// extremes over an area's Node ring, and the rating cache keys: Key = FNV-1a over every node's x and z float bits, YKey over
+        /// <summary>Computes LengthRect (SkiSlopeClassifier.EquivalentRectLength, the same arithmetic in double), the node height span and
+        /// extremes over an area's Node ring, and the rating cache keys. Key = FNV-1a over every node's x and z float bits, YKey over
         /// the y bits, each closed with the node count (SkiRunRatingRules: the same bytes in the same order as KeyOf). The ring is
-        /// implicitly closed (the last node connects to the first); a duplicated vertex adds nothing to P or A. Non-finite results
+        /// implicitly closed (the last node connects to the first). A duplicated vertex adds nothing to P or A. Non-finite results
         /// read 0. <paramref name="topNode"/> = the node whose y set the maximum (the first one on a tie), x/y/z as stored: the
-        /// lift-served test point (RunFacts.TopNode); float3.zero for an empty ring.</summary>
+        /// lift-served test point (RunFacts.TopNode). float3.zero for an empty ring.</summary>
         private static void RingMetrics(DynamicBuffer<Game.Areas.Node> nodes, out float length, out float drop,
             out float top, out float bottom, out ulong key, out ulong yKey, out float3 topNode)
         {
@@ -1205,7 +1211,7 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Copies the cached rating into a row when it belongs to the row's current outline (same x/z Key); otherwise the row
+        /// <summary>Copies the cached rating into a row when it belongs to the row's current outline (same x/z Key). Otherwise the row
         /// is pending and shows the node estimates. A rating from an older terrain epoch or older node heights (YKey) is still shown
         /// until its re-rate lands (engine notes Invalidation). A final "cannot be rated" state shows band -2 (engine notes Row band).</summary>
         private void ApplyRating(ref RunRow row)
@@ -1274,10 +1280,12 @@ namespace SkiResortMod.Systems
                 QueueRowIfNeeded(m_Rows[r], ReasonBind);
         }
 
-        /// <summary>Queues one row (SkiRunRatingRules.NeedsRating): no cache entry -> <paramref name="missingReason"/> (bind after the
-        /// warm-up, warm-up while seeding); x/z Key mismatch -> edit (front); YKey mismatch or older terrain epoch -> terrain (back). A
-        /// row already queued keeps its place unless SkiRunRatingRules.Replaces says the new reason takes over (a front reason over a
-        /// background one, never bind over warm-up; the stale back entry is skipped on dequeue).</summary>
+        /// <summary>Queues one row (SkiRunRatingRules.NeedsRating):
+        /// - no cache entry -> <paramref name="missingReason"/> (bind after the warm-up, warm-up while seeding)
+        /// - x/z Key mismatch -> edit (front)
+        /// - YKey mismatch or older terrain epoch -> terrain (back)
+        /// A row already queued keeps its place unless SkiRunRatingRules.Replaces says the new reason takes over (a front reason over a
+        /// background one, never bind over warm-up). The dequeue skips the stale back entry.</summary>
         private void QueueRowIfNeeded(RunRow row, byte missingReason)
         {
             bool cached = m_Ratings.TryGetValue(row.Entity, out RunRating r);
@@ -1308,8 +1316,8 @@ namespace SkiResortMod.Systems
                 WarmupProgress(0f);   // promoted out of the warm-up set: counts as done there
         }
 
-        /// <summary>One rating at most (engine notes Queue). Seeds the warm-up once the gate opens; runs the backstop timer; picks the front
-        /// queue first, the back queue only within the duty cycle. Runs hub open or closed; <paramref name="open"/> picks the backstop
+        /// <summary>One rating at most (engine notes Queue). Seeds the warm-up once the gate opens. Runs the backstop timer. Picks the front
+        /// queue first, the back queue only within the duty cycle. Runs hub open or closed. <paramref name="open"/> picks the backstop
         /// interval and the duty factor.</summary>
         private void RateStep(float now, bool open)
         {
@@ -1337,7 +1345,7 @@ namespace SkiResortMod.Systems
             }
 
             // Backstop: the oldest-rated run, when nothing else is waiting. Every BackstopS with the hub open, every ClosedBackstopS with
-            // it closed; a timer armed while closed is pulled in when the hub opens, so the open cadence stays the same.
+            // it closed. A timer armed while closed is moved earlier when the hub opens, so the open cadence stays the same.
             float backstopS = open ? Tuning.BackstopS : Tuning.ClosedBackstopS;
             if (open && m_NextBackstop > now + Tuning.BackstopS)
                 m_NextBackstop = now + Tuning.BackstopS;
@@ -1408,14 +1416,14 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Rates one run, stores the result, patches its row, logs (bind / edit) or counts (warm-up / terrain / backstop). The
-        /// duty cycle and the closed-panel cost counters follow <paramref name="open"/>; RatingRevision follows the patched row.</summary>
+        /// duty cycle and the closed-panel cost counters follow <paramref name="open"/>. RatingRevision follows the patched row.</summary>
         private void RateOne(QueueEntry entry, bool background, float now, bool open)
         {
             int idx = m_RowIndex[entry.Run];
             RunRow row = m_Rows[idx];
             if (!HeightsReady(out TerrainHeightData hd))
             {
-                // Not readable this frame: put it back (at the end of its queue); retried later
+                // Not readable this frame: put it back (at the end of its queue). The system retries later
                 Enqueue(entry.Run, entry.Reason, requeue: true);
                 return;
             }
@@ -1441,8 +1449,8 @@ namespace SkiResortMod.Systems
             float ms = (float)((t1 - t0) * 1000.0 / Stopwatch.Frequency);
 
             SlopeResult res = m_RateResult;
-            // The keys of the nodes actually rated (an edit since the last rebuild shows up as a mismatch at the next rebuild and is
-            // re-rated then, as "edit" or "terrain")
+            // The keys of the nodes actually rated. An edit since the last rebuild shows up as a mismatch at the next rebuild, and the system
+            // re-rates it then, as "edit" or "terrain"
             SkiRunRatingRules.Keys(m_RateNodes, n, out ulong rateKey, out ulong rateYKey);
             var rating = new RunRating
             {
@@ -1494,7 +1502,7 @@ namespace SkiResortMod.Systems
                     m_ClosedRatingMsMax = ms;
             }
 
-            // Once per load, with the numbers; read before the shrink below
+            // Once per load, with the numbers. Read before the shrink below
             if (ms > SkiRunDrawFeedbackSystem.Tuning.SlowRecomputeWarnMs && !m_SlowRateWarned)
             {
                 m_SlowRateWarned = true;
@@ -1519,7 +1527,7 @@ namespace SkiResortMod.Systems
                 m_RateResult = new SlopeResult();
             }
 
-            // Patch the row in place (no rebuild): rating fields only; the hash decides the revision
+            // Patch the row in place (no rebuild): rating fields only. The hash decides the revision
             ApplyRating(ref row);
             m_Rows[idx] = row;
             ulong hash = ComputeHash(m_Rows, Signs, out int rated);
@@ -1555,8 +1563,8 @@ namespace SkiResortMod.Systems
                    (r.Connected ? "" : " — outline broken, P90 fallback");
         }
 
-        /// <summary>Writes LastRateLine as "Catalog [rate] ...", at most RateLinesPerWindow per RateLineWindowS window; suppressed
-        /// lines are counted and reported with the next logged one</summary>
+        /// <summary>Writes LastRateLine as "Catalog [rate] ...", at most RateLinesPerWindow per RateLineWindowS window. The code counts suppressed
+        /// lines and reports them with the next logged one</summary>
         private void LogRateLine(float now)
         {
             if (now - m_RateLineWindowStart >= Tuning.RateLineWindowS)
@@ -1588,7 +1596,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The one "[rate-warmup]" line per load. The factor shown is the panel state's at the moment of writing
-        /// (m_WasDemanded = this frame's Demand); the tail says the service is ready, or that the 90 s deadline had already turned it
+        /// (m_WasDemanded = this frame's Demand). The tail says the service is ready, or that the 90 s deadline had already turned it
         /// ready (ServiceTick).</summary>
         private void LogWarmupDone()
         {
@@ -1723,7 +1731,7 @@ namespace SkiResortMod.Systems
             return a.Entity.Version.CompareTo(b.Entity.Version);
         }
 
-        /// <summary>Gate (Index, Version; Null first), kind, then Spatial: the numbering order</summary>
+        /// <summary>Gate (Index, Version, Null first), kind, then Spatial: the numbering order</summary>
         private sealed class OrdinalOrder : IComparer<RunRow>
         {
             public static readonly OrdinalOrder Instance = new OrdinalOrder();

@@ -1,20 +1,31 @@
-// Resort Planner (v2) stage A: plan graph, ways home, dead ends, verdicts, honest mix, site verdict (spec 4.6, 6.2). Runs inside Finish
-// (FinishResort, one unit, Resort mode only), after the v1 junctions, kinds, clusters and warnings: there is no separate Flow stage, so the
-// Home knob's Reselect restarts at Finish (A0). Reads the final runs and junctions, m_PadOf / m_PodOf (final after Pods), the lift skeleton
-// (LiftPlan) and the cat track obstacles; writes only the new ResortPlan, the pod clusters and the three v2 warnings.
+// Resort Planner (v2) stage A: plan graph, ways home, dead ends, verdicts, honest mix, site verdict (spec 4.6, 6.2).
+// Runs inside Finish (FinishResort, one unit, Resort mode only), after the v1 junctions, kinds, clusters and warnings. There is no
+// separate Flow stage, so the Home knob's Reselect restarts at Finish (A0).
+// Reads the final runs and junctions, m_PadOf / m_PodOf (final after Pods), the lift skeleton (LiftPlan) and the cat track obstacles.
+// Writes only the new ResortPlan, the pod clusters and the three v2 warnings.
 // Graph nodes: pads 0..P-1, then per run i its top (P + 2i) and bottom (P + 2i + 1), then per lift l its bottom (P + 2R + 2l) and top
-// (+1). Edges (PlanEdge.Kind): 0 run (top -> bottom, its rated band); 3 link (run A's bottom inside or within LinkMeters of run B's outline,
-// or A merges into B (MergeInto: the v1 merge junction) -> B's bottom with B's band: the skier skis the rest of B; a run bottom with no
-// such link (a merge whose junction BuildRing dropped, or a fan line stopped at the near gap) -> the nearest run within the merge stop
-// when the outlines pass the game's own link rule (LiftServedRule.OutlinesLinked); a run bottom inside or within LinkMeters of a pad's cells -> that pad; a run
-// bottom within LinkMeters of a lift bottom -> that lift's bottom node; lift bottom <-> its BottomPad; lift top -> its TopPad; lift top ->
-// every run the served rule reaches (LiftServedRule.Reaches on the run's highest outline node: the corridor and top margin, AR-3b)); 1 lift
-// (bottom -> top, uphill); 2 cat track (an existing cat track outline touching two or more nodes joins them, Green, both directions).
+// (+1).
+// Edges (PlanEdge.Kind):
+// 0 run (top -> bottom, its rated band).
+// 3 link, in these cases:
+// - Run A's bottom inside or within LinkMeters of run B's outline, or A merges into B (MergeInto: the v1 merge junction) -> B's
+// bottom with B's band: the skier skis the rest of B.
+// - A run bottom with no such link (a merge whose junction BuildRing dropped, or a fan line stopped at the near gap) -> the nearest
+// run within the merge stop, when the outlines pass the game's own link rule (LiftServedRule.OutlinesLinked).
+// - A run bottom inside or within LinkMeters of a pad's cells -> that pad.
+// - A run bottom within LinkMeters of a lift bottom -> that lift's bottom node.
+// - Lift bottom <-> its BottomPad.
+// - Lift top -> its TopPad.
+// - Lift top -> every run the served rule reaches (LiftServedRule.Reaches on the run's highest outline node: the corridor and top
+// margin, AR-3b).
+// 1 lift (bottom -> top, uphill).
+// 2 cat track (an existing cat track outline touching two or more nodes joins them, Green, both directions).
 // Way out (DECISIONS 451 c, AR-2): every lift bottom node, every pad holding a lift bottom, and a pad touching the v1 base band with an
-// access point (road, Welcome Sign) within its radius plus HomeAccessWalkM; ground is never a way out by itself (no lowest-pad fallback).
-// A cat track touching one of those reaches it through its edges. Home per lift = the minimax band over downhill paths (every kind but 1)
-// from its top to a way out, ties by length (Dijkstra over (band, meters), ties by node index, binary heap): that band itself
-// (DECISIONS 451 b: Green .. Double Black), Download only when no downhill path reaches a way out (a legitimate design, not an error).
+// access point (road, Welcome Sign) within its radius plus HomeAccessWalkM. Ground is never a way out by itself (no lowest-pad fallback).
+// A cat track touching one of those reaches it through its edges.
+// Home per lift = the minimax band over downhill paths (every kind but 1) from its top to a way out, ties by length. The search is
+// Dijkstra over (band, meters), ties by node index, binary heap. Home is that band itself (DECISIONS 451 b: Green .. Double Black).
+// Home is Download only when no downhill path reaches a way out (a legitimate design, not an error).
 // A dead end = a run bottom with no downhill path to a way out that is not on an existing run or cat track either.
 // Pure and Entities-free (usings System, System.Collections.Generic, Unity.Mathematics only). Spec: docs/research/quickruns-v2/spec/stage-a-spec.md.
 
@@ -27,7 +38,7 @@ namespace SkiResortMod.Systems
     public sealed partial class SkiRunAutoPlanner
     {
         public const byte EdgeRun = 0, EdgeLift = 1, EdgeCatTrack = 2, EdgeLink = 3;
-        /// <summary>The region hull of the density figure is grown by this (F-7: runs + lifts + 50 m).</summary>
+        /// <summary>The region hull of the density figure grows by this (F-7: runs + lifts + 50 m).</summary>
         public const float HullGrowM = 50f;
         /// <summary>A base pad is a way out when an access point lies within its radius (PadRadiusM) plus this walk (AR-2).</summary>
         public const float HomeAccessWalkM = 100f;
@@ -47,20 +58,25 @@ namespace SkiResortMod.Systems
         public static float PadRadiusM(in PlanPad pad) => Math.Max(pad.InscribedM, (float)Math.Sqrt(pad.AreaM2 / Math.PI));
 
         /// <summary>A base pad that is a way out by itself (AR-2): it touches the v1 base band and an access point lies within its radius
-        /// plus HomeAccessWalkM (AccessM is +inf without access points, so a plan without roads has no such pad).</summary>
+        /// plus HomeAccessWalkM. AccessM is +inf without access points, so a plan without roads has no such pad.</summary>
         public static bool PadIsWayOut(in PlanPad pad) => pad.TouchesBase && pad.AccessM <= PadRadiusM(pad) + HomeAccessWalkM;
 
-        /// <summary>End of Finish (Resort only, after kinds, clusters and v1 warnings): pads and pods (A3), the lift skeleton (A4), then
-        /// RunPod / PodRuns / RunLift, the graph, ways home, dead ends, the honest mix, the site verdict inputs, the pod clusters, the
-        /// Download / DeadEnd warnings and the plan fingerprint. The probe slots are copied into the plan by the caller afterwards.</summary>
+        /// <summary>End of Finish (Resort only, after kinds, clusters and v1 warnings). Steps, in order:
+        /// - pads and pods (A3)
+        /// - the lift skeleton (A4)
+        /// - RunPod / PodRuns / RunLift
+        /// - the graph, ways home, dead ends
+        /// - the honest mix, the site verdict inputs, the pod clusters
+        /// - the Download / DeadEnd warnings and the plan fingerprint
+        /// The caller copies the probe slots into the plan afterwards.</summary>
         private void FinishResort(AutoPlanResult res)
         {
             res.Resort = new ResortPlan { TreeLineY = m_In.TreeLineY };
-            TerrainPlan(res.Resort);   // A3: pads and pods (Pods.cs); A6 keeps this line
-            LiftPlan(res.Resort, res);   // A4: the lift skeleton, Serves / near-top / at-bottom counts, NoLiftSite (Lifts.cs); A6 keeps this line
+            TerrainPlan(res.Resort);   // A3: pads and pods (Pods.cs). A6 keeps this line
+            LiftPlan(res.Resort, res);   // A4: the lift skeleton, Serves / near-top / at-bottom counts, NoLiftSite (Lifts.cs). A6 keeps this line
             ResortPlan plan = res.Resort;
             PadBaseTouch(plan);
-            FanRunPlan(plan, res);   // A5: RunLift = the seeding lift, RunPod / PodRuns (Fans.cs); before PodClusters, which makes Cluster the pod
+            FanRunPlan(plan, res);   // A5: RunLift = the seeding lift, RunPod / PodRuns (Fans.cs). Before PodClusters, which makes Cluster the pod
             BuildGraph(plan, res);
             HomeTargets(plan, res);
             CountDeadEnds(plan, res);
@@ -94,8 +110,8 @@ namespace SkiResortMod.Systems
         private static int LiftBottomNode(int pads, int runs, int lift) => pads + 2 * runs + 2 * lift;
         private static int LiftTopNode(int pads, int runs, int lift) => pads + 2 * runs + 2 * lift + 1;
 
-        /// <summary>TouchesBase per pad from the pad components (Terrain.cs keeps IsBase with its lowest-pad fallback for the S gates;
-        /// the way out never reads that fallback, DECISIONS 451 c).</summary>
+        /// <summary>TouchesBase per pad from the pad components. Terrain.cs keeps IsBase with its lowest-pad fallback for the S gates.
+        /// The way out never reads that fallback, DECISIONS 451 c.</summary>
         private void PadBaseTouch(ResortPlan plan)
         {
             for (int k = 0; k < m_PadComps.Count; k++)
@@ -106,11 +122,11 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The merge stop of a fan line (FanApproach, FanWalk): its centerline runs on to this distance from the accepted ring
-        /// (the v1 gap, at least FanNearGapM, plus the pinch half width), capped at JunctionReachM plus that half width so the end of a
-        /// ring at least MinHalfWidthM wide lies within JunctionReachM of its parent and BuildRing keeps the junction (AR-1).</summary>
+        /// <summary>The merge stop of a fan line (FanApproach, FanWalk). Its centerline continues to this distance from the accepted ring
+        /// (the v1 gap, at least FanNearGapM, plus the pinch half width). The distance is capped at JunctionReachM plus that half width.
+        /// So the end of a ring at least MinHalfWidthM wide lies within JunctionReachM of its parent, and BuildRing keeps the junction (AR-1).</summary>
         /// <summary>NearRunLink's search radius: the merge stop's cap (JunctionReachM + MinHalfWidthM) plus a half width of slack
-        /// for the cell walk and the smoothed centerline (the host oracle uses the same constant).</summary>
+        /// for the cell walk and the smoothed centerline. The host oracle uses the same constant.</summary>
         public const float MergeLinkReachM = JunctionReachM + 2f * MinHalfWidthM;
 
         private float FanMergeStopM(int pass) => Math.Min(FanNearGap(pass), JunctionReachM) + MinHalfWidthM;
@@ -210,8 +226,8 @@ namespace SkiResortMod.Systems
         /// <summary>A run bottom with no run link: a merge line whose junction BuildRing dropped (its ring ended over JunctionReachM
         /// from the parent), or a fan line the near gap stopped beside another run (FanMergeStopM from its outline, no Merge flag).
         /// Link it to the nearest run whose outline lies within MergeLinkReachM of the bottom, when the two outlines pass the game's
-        /// own link rule (LiftServedRule.OutlinesLinked: a node pair within LinkMeters, crossing edges, or one inside the other), so
-        /// the graph says "linked" only where the served rule does too.</summary>
+        /// own link rule (LiftServedRule.OutlinesLinked: a node pair within LinkMeters, crossing edges, or one inside the other).
+        /// So the graph says "linked" only where the served rule does too.</summary>
         private void NearRunLink(AutoPlanResult res, int a, int bottom, int pads)
         {
             AutoRun run = res.Runs[a];
@@ -304,7 +320,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Existing cat tracks (obstacles) touching two or more nodes join them: Green, both directions (spec 4.6). A point node
-        /// touches when it lies inside the outline or within LinkMeters of it; a pad when a cell of it lies within LinkMeters of a ring vertex.</summary>
+        /// touches when it lies inside the outline or within LinkMeters of it. A pad touches when a cell of it lies within LinkMeters of a
+        /// ring vertex.</summary>
         private void CatTrackEdges(ResortPlan plan, AutoPlanResult res)
         {
             List<AutoObstacle> obs = m_In.Obstacles;
@@ -395,10 +412,11 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- ways home
 
-        /// <summary>Per lift: Wanted (the knob; Auto = Green when BottomPad touches the v1 base band, else Blue: information and the
-        /// color, never the verdict), Home (the easiest downhill path's hardest band, Green .. DoubleBlack; Download when no downhill path
-        /// reaches a way out; None for a pinned lift with neither station inside the region box), HomeRun (the first run of the easiest
-        /// path, any band; -1 none).</summary>
+        /// <summary>Per lift:
+        /// Wanted (the knob, Auto = Green when BottomPad touches the v1 base band, else Blue): information and the color, never the verdict.
+        /// Home (the easiest downhill path's hardest band, Green .. DoubleBlack). It is Download when no downhill path reaches a way out.
+        /// It is None for a pinned lift with neither station inside the region box.
+        /// HomeRun (the first run of the easiest path, any band, -1 none).</summary>
         private void WaysHome(ResortPlan plan, AutoPlanResult res)
         {
             int pads = plan.Pads.Length, runs = res.Runs.Count, lifts = plan.Lifts.Length;
@@ -431,10 +449,10 @@ namespace SkiResortMod.Systems
             home == HomeVerdict.Green || (home == HomeVerdict.Blue && wanted == HomeLevel.Blue);
 
         /// <summary>The easiest descent on a plan graph: Dijkstra over (hardest band so far, meters) from src along every edge but lifts
-        /// (Kind 1), ties by node index, until the first target node is settled. Link edges from src onto a pad (node below srcPadLimit)
-        /// are skipped: getting off a lift onto its own top pad is no way home (a cat track from the top still is). Returns the hardest band (SlopeBand value) of that path, -1 = no
-        /// path; firstRun = the run of the path's first edge that carries one (-1 none). One-shot form (tests); FinishResort reuses a
-        /// DescentScratch over all lifts.</summary>
+        /// (Kind 1), ties by node index, until the first target node is settled. The search skips link edges from src onto a pad (node below
+        /// srcPadLimit): leaving a lift onto its own top pad is no way home (a cat track from the top still is). Returns the hardest band
+        /// (SlopeBand value) of that path, -1 = no path. firstRun = the run of the path's first edge that carries one (-1 none).
+        /// One-shot form (tests). FinishResort reuses a DescentScratch over all lifts.</summary>
         public static int EasiestDescent(int nodes, PlanEdge[] g, double[] meters, int src, bool[] target, int srcPadLimit, out int firstRun)
         {
             var s = new DescentScratch();
@@ -442,9 +460,9 @@ namespace SkiResortMod.Systems
             return s.Run(src, target, srcPadLimit, out firstRun);
         }
 
-        /// <summary>EasiestDescent's state, Grow'd and reused (AR-17): the adjacency of every edge but lifts (built once per graph by
-        /// Prepare) and a binary heap keyed (band, meters, node), the linear scan's order exactly, so the settled sequence and the
-        /// predecessors match it (AR-7: O(E log E) instead of O(V^2) per lift).</summary>
+        /// <summary>EasiestDescent's state, Grow'd and reused (AR-17). It holds the adjacency of every edge but lifts (built once per graph by
+        /// Prepare) and a binary heap keyed (band, meters, node). That key is exactly the linear scan's order, so the settled sequence and
+        /// the predecessors match it (AR-7: O(E log E) instead of O(V^2) per lift).</summary>
         public sealed class DescentScratch
         {
             private int[] m_First = new int[0], m_Adj = new int[0], m_At = new int[0], m_Band = new int[0], m_Pred = new int[0];
@@ -611,8 +629,8 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- honest mix, density, site verdict, pod clusters
 
-        /// <summary>MountainMix = run-km share per rated band (the mix the terrain gave); RunKm; HullKm2 = the convex hull of every run
-        /// outline vertex and lift station grown by HullGrowM (Steiner: area + perimeter x grow + pi x grow^2); RunKmPerKm2.</summary>
+        /// <summary>MountainMix = run-km share per rated band (the mix the terrain gave). RunKm. HullKm2 = the convex hull of every run
+        /// outline vertex and lift station grown by HullGrowM (Steiner: area + perimeter x grow + pi x grow^2). RunKmPerKm2.</summary>
         private void MixAndHull(ResortPlan plan, AutoPlanResult res)
         {
             double total = 0.0;
@@ -670,9 +688,9 @@ namespace SkiResortMod.Systems
             return (Math.Abs(area) * 0.5 + perim * grow + Math.PI * grow * grow) / 1.0e6;
         }
 
-        /// <summary>The site verdict inputs (spec 6.2): Kind = the v1 tier of the v1 figure (QuickRunsRules.SiteTierOf of the shown
-        /// percent, so the line the player sees is v1's), plus the served pods and those whose verdict meets their Wanted (MeetsWanted),
-        /// the largest bench and base pad.</summary>
+        /// <summary>The site verdict inputs (spec 6.2). Kind = the v1 tier of the v1 figure (QuickRunsRules.SiteTierOf of the shown
+        /// percent, so the line the player sees is v1's). The inputs also hold the served pods and those whose verdict meets their Wanted
+        /// (MeetsWanted), the largest bench and base pad.</summary>
         private static void SiteInputs(ResortPlan plan, AutoPlanResult res)
         {
             var s = new SiteVerdict
@@ -700,9 +718,9 @@ namespace SkiResortMod.Systems
             plan.Site = s;
         }
 
-        /// <summary>Resort mode: Clusters carries one cluster per pod (Center = TopCenter, Pod = true, PodBand = the pod class's rated band;
-        /// Runs / Linked / HasGreen over the pod's runs) and each run's Cluster is its pod (-1 = none), so the v1 readers (cluster rows,
-        /// hover line) keep working on pods.</summary>
+        /// <summary>Resort mode: Clusters carries one cluster per pod (Center = TopCenter, Pod = true, PodBand = the pod class's rated band,
+        /// Runs / Linked / HasGreen over the pod's runs). Each run's Cluster is its pod (-1 = none). So the v1 readers (cluster rows, hover
+        /// line) keep working on pods.</summary>
         private void PodClusters(ResortPlan plan, AutoPlanResult res)
         {
             int n = res.Runs.Count;
@@ -736,7 +754,7 @@ namespace SkiResortMod.Systems
                 }
                 res.Clusters.Add(cl);
             }
-            // Runs outside every pod share one trailing plain cluster (v1 shape: its center is the highest of their tops), so every run
+            // Runs outside every pod share one trailing plain cluster (v1 shape: its center is the highest of their tops). So every run
             // keeps a cluster (the v1 invariant)
             int outside = -1;
             for (int i = 0; i < n; i++)
@@ -768,8 +786,8 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- fingerprint
 
-        /// <summary>FNV-1a over pads, pods, lifts, verdicts, the run maps, the graph, dead ends, mix and site inputs; never 0 (0 = no plan
-        /// content, AutoPlanResult.Fingerprint skips it).</summary>
+        /// <summary>FNV-1a over pads, pods, lifts, verdicts, the run maps, the graph, dead ends, mix and site inputs. It is never 0
+        /// (0 = no plan content, AutoPlanResult.Fingerprint skips it).</summary>
         private static ulong PlanFingerprint(ResortPlan p)
         {
             ulong h = 14695981039346656037UL;

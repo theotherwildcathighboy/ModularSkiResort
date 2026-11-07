@@ -1,10 +1,11 @@
-// The hub's monthly history store, the C# half. The element and its bytes are pure (SkiResortHistory.cs); this file holds their
+// The hub's monthly history store, the C# half. The element and its bytes are pure (SkiResortHistory.cs). This file holds their
 // ECS halves and the system that fills them. SkiResortHubUISystem publishes the `history` binding from these buffers.
-// Store: a DynamicBuffer<SkiResortHistoryMonth> on each Welcome Sign, one element per closed calendar month, oldest first, saved
-// by the game with no registration in Mod.cs (Colossal ComponentSerializerLibrary.cs:73-87, 1.6.2f1).
-// Sampling: GameSimulation, UpdateAfter SkiGuestCounterSystem with the counter's interval (16), so it inherits the counter's offset
-// and runs right after it in the same frame (UpdateSystem.cs:400-431); month roll / jump / start are told by LastMonthStep.Generation.
-// The month in progress is mirrored onto the sign every Tuning.MirrorEveryFrames (256) frames, so a save is at most that far behind.
+// Store: a DynamicBuffer<SkiResortHistoryMonth> on each Welcome Sign, one element per closed calendar month, oldest first.
+// The game saves it with no registration in Mod.cs (Colossal ComponentSerializerLibrary.cs:73-87, 1.6.2f1).
+// Sampling: GameSimulation, UpdateAfter SkiGuestCounterSystem with the counter's interval (16). So it inherits the counter's offset
+// and runs right after it in the same frame (UpdateSystem.cs:400-431). LastMonthStep.Generation tells month roll / jump / start.
+// The system mirrors the month in progress onto the sign every Tuning.MirrorEveryFrames (256) frames.
+// So a save is at most that far behind.
 // Engine notes: EngineNotes/SkiResortHistorySystem.md
 
 using System;
@@ -21,8 +22,8 @@ namespace SkiResortMod.Systems
 {
     /// <summary>ECS half of the pure SkiResortHistoryMonth (SkiResortHistory.cs holds the fields, the layout and the codec).
     /// NEVER rename, move or turn into a component (header of SkiResortHistory.cs).</summary>
-    // Self-alias: the stripped saved AQN, a literal; why and the rules in SkiRunBinding.cs "SELF-ALIAS". Here, not on the pure half:
-    // SkiResortHistory.cs stays free of Colossal types (tests/ResortBatch links it).
+    // Self-alias: the stripped saved AQN, a literal. SkiRunBinding.cs "SELF-ALIAS" gives the reason and the rules.
+    // It lives here, not on the pure half, so SkiResortHistory.cs stays free of Colossal types (tests/ResortBatch links it).
     [FormerlySerializedAs("SkiResortMod.Systems.SkiResortHistoryMonth, SkiResortMod")]
     [InternalBufferCapacity(0)]
     public partial struct SkiResortHistoryMonth : IBufferElementData, ISerializable
@@ -40,7 +41,7 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>ECS half of the pure SkiResortMonthInProgress. One per Welcome Sign; written only by SkiResortHistorySystem.</summary>
+    /// <summary>ECS half of the pure SkiResortMonthInProgress. One per Welcome Sign. Written only by SkiResortHistorySystem.</summary>
     // Self-alias: as SkiResortHistoryMonth above.
     [FormerlySerializedAs("SkiResortMod.Systems.SkiResortMonthInProgress, SkiResortMod")]
     public partial struct SkiResortMonthInProgress : IComponentData, IQueryTypeParameter, ISerializable
@@ -96,7 +97,7 @@ namespace SkiResortMod.Systems
         {
             /// <summary>The month-in-progress mirror period in sim frames (Engine notes: Month in progress).</summary>
             public const int MirrorEveryFrames = 256;
-            /// <summary>A roll's snapshot (stats rebuild, SkiDaySystem's month step) is waited for at most this many sim frames.</summary>
+            /// <summary>The system waits at most this many sim frames for a roll's snapshot (stats rebuild, SkiDaySystem's month step).</summary>
             public const int SnapshotTimeoutFrames = 4096;
             /// <summary>Areas listed by name in the ARMED line (the rest are counted).</summary>
             public const int ArmedListMax = 8;
@@ -254,7 +255,7 @@ namespace SkiResortMod.Systems
                     SkiResortMonthInProgress p = EntityManager.GetComponentData<SkiResortMonthInProgress>(entities[i]);
                     if (!SkiResortHistory.ShouldSeed(key, p))
                         continue;
-                    // All signs are mirrored together, so they share the state; take the most cautious reading.
+                    // All signs are mirrored together, so they share the state. Take the most cautious reading.
                     any = true;
                     partial |= (p.m_Flags & SkiResortMonthInProgress.FlagPartial) != 0;
                     byJump |= (p.m_Flags & SkiResortMonthInProgress.FlagByJump) != 0;
@@ -304,7 +305,7 @@ namespace SkiResortMod.Systems
         private void BeginRoll(in SkiGuestCounterSystem.MonthStepInfo step)
         {
             if (m_HasPending)
-                TryCommit(force: true);   // never reached (a month is ~1000x the timeout); kept so nothing is dropped silently
+                TryCommit(force: true);   // never reached (a month is ~1000x the timeout). Kept so nothing is dropped silently
             SkiResortLedger ledger = m_Counter.Ledger;
             byte flags = (byte)((step.ClosedSinceLoad ? HistoryFlags.Partial : 0) | (step.ClosedShort ? HistoryFlags.Short : 0));
             CollectSigns();

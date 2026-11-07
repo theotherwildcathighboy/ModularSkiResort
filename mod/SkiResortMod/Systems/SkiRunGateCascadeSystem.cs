@@ -1,9 +1,9 @@
-// Sign deleted -> its bound runs deleted, by our own code. Runs carry no Owner and the sign has no SubArea buffer, so vanilla's
-// delete cascades ignore the relation; the link is SkiRunBinding.m_Gate and this system walks it.
-// Runs at Modification2, anchored BEFORE SkiGladeCleanupSystem so the glade cleanup sees the deleted runs the same frame (Mod.cs).
+// When a sign is deleted, our own code deletes its bound runs. Runs carry no Owner and the sign has no SubArea buffer, so vanilla's
+// delete cascades ignore the relation. The link is SkiRunBinding.m_Gate and this system walks it.
+// The system runs at Modification2, anchored BEFORE SkiGladeCleanupSystem so the glade cleanup sees the deleted runs the same frame (Mod.cs).
 // Only Deleted triggers it, not Destroyed: a disaster keeps the sign, so its runs stay bound.
-// An exception must not switch the cascade off (degraded mode stays "runs go with their sign"); runs orphaned while it is
-// disabled are reported by the ownership sweep, never deleted on an inferred event. One log line per deleted sign (silence impossible).
+// An exception must not switch the cascade off (degraded mode stays "runs go with their sign"). The ownership sweep reports runs
+// orphaned while the cascade is disabled. It never deletes them on an inferred event. One log line per deleted sign, so silence is impossible.
 // Engine notes: EngineNotes/SkiRunGateCascadeSystem.md
 
 using System;
@@ -25,7 +25,7 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            /// <summary>Deleted runs named individually per sign line; beyond this only the count is written.</summary>
+            /// <summary>Deleted runs named individually per sign line. Beyond this only the count is written.</summary>
             public const int LogRunLabelsMax = 4;
         }
 
@@ -243,9 +243,9 @@ namespace SkiResortMod.Systems
             return sb.ToString();
         }
 
-        /// <summary>The vanilla owner-cascade shape (SubElementDeleteSystem.cs:78-79): remove Applied/Created/Updated where present,
-        /// add Deleted, batched through the EntityManager array overloads (precedents: DebugSystem.cs:2900, MapTileSystem.cs:142).
-        /// Each remove batch holds only entities that have the component, so no call depends on how the batch API treats a missing
+        /// <summary>The vanilla owner-cascade shape (SubElementDeleteSystem.cs:78-79). Remove Applied/Created/Updated where present. Add Deleted.
+        /// Batch the calls through the EntityManager array overloads (precedents: DebugSystem.cs:2900, MapTileSystem.cs:142).
+        /// Each remove batch holds only entities that have the component. So no call depends on how the batch API treats a missing
         /// one (unverified).</summary>
         private void DeleteLikeOwnerCascade(NativeList<Entity> entities)
         {

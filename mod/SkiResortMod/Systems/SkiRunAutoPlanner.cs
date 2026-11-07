@@ -1,20 +1,27 @@
 // Quick runs: the pure planner. Given a height snapshot, a player region, an obstacle model and knobs (Mix, Density, allowed kinds,
-// seed) it proposes ski run outlines, each labeled with the band OUR rater gives it (SkiRunRater.Rate on the outline itself, the call
-// the catalog makes after build), its kind, the junction node pairs that make the runs link (LiftServedRule.LinkMeters), up to three
-// top clusters and the refusal / warning state. It never touches entities: the tool (wave 2) owns the snapshot copy, the obstacle
-// collection, the overlay, emission and undo.
-// Entities-free on purpose: usings are System, System.Collections.Generic and Unity.Mathematics ONLY, so the same files compile into
+// seed), it proposes ski run outlines. It gives:
+// each run the band OUR rater gives it (SkiRunRater.Rate on the outline itself, the call the catalog makes after build).
+// each run a kind.
+// the junction node pairs that make the runs link (LiftServedRule.LinkMeters).
+// up to three top clusters.
+// the refusal / warning state.
+// It never touches entities. The tool (wave 2) owns the snapshot copy, the obstacle collection, the overlay, emission and undo.
+// Entities-free on purpose: usings are System, System.Collections.Generic and Unity.Mathematics ONLY. So the same files compile into
 // the net48 mod (default **/*.cs glob) AND link into the net8 headless host tests/AutoGenBatch.
-// Contract (the SkiSlopeClassifier one): no static mutable state, never logs, never throws on bad input (a status instead), buffers
-// grow and are reused across scans, output is a pure function of (snapshot, region, obstacles, knobs) within a runtime.
-// Time slicing: Begin does the cheap refusals; Step(budgetMs) runs bounded work units (one slope-field tile, a row chunk, a heap
+// Contract (the SkiSlopeClassifier one):
+// no static mutable state.
+// it never logs.
+// it never throws on bad input (a status instead).
+// buffers grow and are reused across scans.
+// output is a pure function of (snapshot, region, obstacles, knobs) within a runtime.
+// Time slicing: Begin does the cheap refusals. Step(budgetMs) runs bounded work units (one slope-field tile, a row chunk, a heap
 // chunk, one phase of one candidate) until the budget is spent, so no single call is a whole-region pass (skeptic finding 2). The
 // rating runs as SkiRunRater.Rate's own steps in separate units (Plan, Need heights in row chunks, Classify), each under 0.5 ms
 // CoreCLR on the alpine fixtures.
 // Files: SkiRunAutoPlanner.cs (API, stages 0-4), .Select.cs (stages 5-9), .Kernels.cs (field kernels, geometry), .Snapshot.cs.
-// Resort Planner (v2): .Plan.cs (every v2 type), .Terrain.cs, .Pods.cs, .Lifts.cs, .Fans.cs, .Flow.cs (one task each; A0 wrote the seams).
+// Resort Planner (v2): .Plan.cs (every v2 type), .Terrain.cs, .Pods.cs, .Lifts.cs, .Fans.cs, .Flow.cs (one task each, A0 wrote the seams).
 // Every v2 hook in a v1 file is guarded by m_Mode == AutoPlanMode.Resort, so Mode = Runs (the default) is bit-identical to v1.
-// Engine notes: EngineNotes/SkiRunAutoPlanner.md; research: docs/research/autogen-2026-10-25/.
+// Engine notes: EngineNotes/SkiRunAutoPlanner.md. Research: docs/research/autogen-2026-10-25/.
 
 using System;
 using System.Collections.Generic;
@@ -37,10 +44,10 @@ namespace SkiResortMod.Systems
         TooFlat,    // under TooFlatShare of the usable ground is steeper than the green floor
         NoRuns,     // the field was fine but no candidate survived (Rejects says why)
         TooNarrow,  // no usable ground EdgeSeedMarginM inside the region and clear of obstacles: no seed (checked after TooSmall, and
-                    // again after the routes for the ground they reach; review F2: it used to end as NoRuns with no reject)
+                    // again after the routes for the ground they reach. Review F2: it used to end as NoRuns with no reject)
     }
 
-    /// <summary>Preview warnings (the planner's share; the tool adds money, sign, renumbering and game-check warnings).</summary>
+    /// <summary>Preview warnings (the planner's share, the tool adds money, sign, renumbering and game-check warnings).</summary>
     [Flags]
     public enum AutoPlanWarning : ushort
     {
@@ -55,7 +62,7 @@ namespace SkiResortMod.Systems
         MixShort = 128,       // fewer runs of some band than the mix target
         CrossesCatTrack = 256,// a run crosses a cat track (legal, informational)
         PartlyBlocked = 512,  // under PartlyBlockedShare of the region is open
-        NoLiftSite = 1024,    // Resort: no pod could hold a feasible lift chord (proposals empty; runs still planned for pinned lifts)
+        NoLiftSite = 1024,    // Resort: no pod could hold a feasible lift chord (proposals empty, runs still planned for pinned lifts)
         Download = 2048,      // Resort: at least one lift top has only a Download verdict (honest, not an error)
         DeadEnd = 4096,       // Resort: a run bottom reaches nothing (gate: 0 expected)
     }
@@ -97,7 +104,7 @@ namespace SkiResortMod.Systems
         Dense,
     }
 
-    /// <summary>Kinds the player allows (default groomed + natural; night never by default).</summary>
+    /// <summary>Kinds the player allows (default groomed + natural, night never by default).</summary>
     [Flags]
     public enum AutoKinds : byte
     {
@@ -109,7 +116,7 @@ namespace SkiResortMod.Systems
         Default = Groomed | Natural,
     }
 
-    /// <summary>Obstacle classes (owner rulings, BUILD-BRIEF 1): every existing Surface area and unowned map tile blocks; cat tracks
+    /// <summary>Obstacle classes (owner rulings, BUILD-BRIEF 1): every existing Surface area and unowned map tile blocks. Cat tracks
     /// are a soft cost runs may cross. Roads, lots, lift stations and water are NOT obstacles (no class for them on purpose).</summary>
     public enum AutoObstacleKind : byte
     {
@@ -130,7 +137,7 @@ namespace SkiResortMod.Systems
         public AutoMix Mix;
         public AutoDensity Density;
         public AutoKinds Kinds;
-        /// <summary>Run cap; 0 = the density's default (8 / 12 / 16 per km2, at least 1 km2), clamped to HardRunCap.</summary>
+        /// <summary>Run cap. 0 = the density's default (8 / 12 / 16 per km2, at least 1 km2), clamped to HardRunCap.</summary>
         public int RunCap;
         /// <summary>Layout seed (SkiRunAutoPlanner.SeedOf(region, shuffle)).</summary>
         public uint Seed;
@@ -149,19 +156,19 @@ namespace SkiResortMod.Systems
         public float2[] Region;
         public List<AutoObstacle> Obstacles;
         public AutoPlanKnobs Knobs;
-        /// <summary>Owner ruling 9 km2 (3 x 3 km, DECISIONS 419; was 1 km2 in v1).</summary>
+        /// <summary>Owner ruling 9 km2 (3 x 3 km, DECISIONS 419, was 1 km2 in v1).</summary>
         public float MaxAreaM2 = SkiRunAutoPlanner.V1MaxAreaM2;
         public float MinAreaM2 = SkiRunAutoPlanner.DefaultMinAreaM2;
         public float MinVerticalM = SkiRunAutoPlanner.DefaultMinVerticalM;
-        /// <summary>Runs = v1 exactly (default; test host only). Resort = v2 (the tool always).</summary>
+        /// <summary>Runs = v1 exactly (default, test host only). Resort = v2 (the tool always).</summary>
         public AutoPlanMode Mode = AutoPlanMode.Runs;
-        /// <summary>Existing lifts touching the region (census copy), sorted by the tool (key, then xz); null = none. Resort only.</summary>
+        /// <summary>Existing lifts touching the region (census copy), sorted by the tool (key, then xz). null = none. Resort only.</summary>
         public List<PinnedLift> Pinned;
-        /// <summary>Road edge samples (every 25 m) and Welcome Sign spots within the region bbox + 450 m, sorted; null = none. Resort only.</summary>
+        /// <summary>Road edge samples (every 25 m) and Welcome Sign spots within the region bbox + 450 m, sorted. null = none. Resort only.</summary>
         public float2[] Access;
         /// <summary>The tool's tree line estimate when known (SkiGladeTreeLine), NaN = unknown. Resort only.</summary>
         public float TreeLineY = float.NaN;
-        /// <summary>Polled once per unit; null = never canceled.</summary>
+        /// <summary>Polled once per unit. null = never canceled.</summary>
         public AutoPlanCancel Cancel;
         /// <summary>The planner is stepped on the main thread (the tool's fallback setting): the Lifts stage selects its picks without a
         /// tower plan (PlanLift.TowersUnchecked). Resort only.</summary>
@@ -198,7 +205,7 @@ namespace SkiResortMod.Systems
 
     /// <summary>A top cluster: "one lift here serves N runs". Linked = runs of this cluster in the largest junction-linked group.
     /// Pod = not a summit pick but the highest ground a pass keeps its band from (beginner pods on the gentle lower slope for green,
-    /// mid-stations for blue, black only when no summit keeps the black band); PodBand is that pass's band.</summary>
+    /// mid-stations for blue, black only when no summit keeps the black band). PodBand is that pass's band.</summary>
     public struct AutoCluster
     {
         public float2 Center;
@@ -218,7 +225,7 @@ namespace SkiResortMod.Systems
         public readonly int[] BandCount = new int[5], BandTarget = new int[5];
         public readonly int[] Rejects = new int[(int)AutoReject.Count];
         public float RegionAreaM2, OpenShare, UsableShare, CliffShare, SteepShare, VerticalM;
-        /// <summary>Mean terrain grade (rise over run, 0.25 = 25 %) over the open cells, each capped at SkiRunAutoPlanner.MeanGradeCap; the
+        /// <summary>Mean terrain grade (rise over run, 0.25 = 25 %) over the open cells, each capped at SkiRunAutoPlanner.MeanGradeCap. The
         /// site verdict (QuickRunsRules.SiteTierOf) reads it. 0 with no open cell (OpenShare 0). Set before the refusal ladder, so refused scans have it.</summary>
         public float MeanGrade;
         public int Candidates, Rated;
@@ -229,13 +236,13 @@ namespace SkiResortMod.Systems
         public readonly float[] SelectPhaseMaxMs = new float[SkiRunAutoPlanner.SelectPhases];
         public int Units;
         public ulong Fingerprint;
-        /// <summary>v2 additions (Resort mode); null in Runs mode.</summary>
+        /// <summary>v2 additions (Resort mode). null in Runs mode.</summary>
         public ResortPlan Resort;
         /// <summary>Step returned early on Cancel: the result is incomplete and must be dropped.</summary>
         public bool Canceled;
 
-        /// <summary>A published copy for another thread: the lists and arrays are copied, the AutoRun objects are shared (new per Finish,
-        /// never mutated afterwards), the ResortPlan is deep-copied. Call it on the worker or after the scan is done.</summary>
+        /// <summary>A published copy for another thread. The lists and arrays are copied. The AutoRun objects are shared (new per Finish,
+        /// never mutated afterwards). The ResortPlan is deep-copied. Call it on the worker or after the scan is done.</summary>
         public AutoPlanResult Snapshot()
         {
             var c = new AutoPlanResult
@@ -257,7 +264,7 @@ namespace SkiResortMod.Systems
             return c;
         }
 
-        /// <summary>The non-zero reject counts as "Name count, ..." ("none" when empty); log text, not player text.</summary>
+        /// <summary>The non-zero reject counts as "Name count, ..." ("none" when empty). Log text, not player text.</summary>
         public string RejectText()
         {
             var sb = new System.Text.StringBuilder();
@@ -302,9 +309,9 @@ namespace SkiResortMod.Systems
     public sealed partial class SkiRunAutoPlanner
     {
         // ---------------------------------------------------------------- constants (sources: design.md 3.2, FEASIBILITY 4/9)
-        public const float V1MaxAreaM2 = 9.0e6f, ReadyMaxAreaM2 = 9.0e6f;      // owner ruling 9 km2 (DECISIONS 419); the code is tested to it
+        public const float V1MaxAreaM2 = 9.0e6f, ReadyMaxAreaM2 = 9.0e6f;      // owner ruling 9 km2 (DECISIONS 419). The code is tested to it
         public const float DefaultMinAreaM2 = 40000f, DefaultMinVerticalM = 50f;
-        public const int MaxLatticeCells = 1 << 21;                              // scan rectangle cap (5 x 5 km at 3.5 m; seed keys pack 21 bits)
+        public const int MaxLatticeCells = 1 << 21;                              // scan rectangle cap (5 x 5 km at 3.5 m, seed keys pack 21 bits)
         public const float LatticeMarginM = 40f;                                 // 20 m windows + Dilation + bilinear reach
         public const int OffMapMarginTexels = SkiSlopeClassifier.Dilation + 2;   // keeps every rating Need node on the map
         public const float BlockedShare = 0.30f, PartlyBlockedShare = 0.60f, TooFlatShare = 0.20f, AllCliffShare = 0.60f;
@@ -312,10 +319,11 @@ namespace SkiResortMod.Systems
         public const float MeanGradeCap = 2.0f;                                  // one cell counts at most 200 % in the region mean (a sheer face must not drown the rest)
         public const float MinHalfWidthM = 7.5f;                                 // half the 15 m pinch width
         // Routing passes G / B / K / DB. Each pass has a band [floor, ceiling) and a HARD ceiling = the next pass's ceiling (the double
-        // black's is the cliff grade): a step is impossible at or over the hard ceiling, cells between the ceiling and the hard ceiling
-        // cost OverBandFactor (the rater judges a run by its crux percentiles, not by every cell, so one steeper cell must not end a
-        // green or pinch its corridor), in-band cells cost InBandFactor (pulls blacks onto steep). The double black ceiling is 80 %
-        // (expert max, real-world-layout.md 1), not the classifier's open band.
+        // black's is the cliff grade).
+        // A step is impossible at or over the hard ceiling. Cells between the ceiling and the hard ceiling cost OverBandFactor (the rater
+        // judges a run by its crux percentiles, not by every cell, so one steeper cell must not end a green or pinch its corridor).
+        // In-band cells cost InBandFactor (pulls blacks onto steep).
+        // The double black ceiling is 80 % (expert max, real-world-layout.md 1), not the classifier's open band.
         public static readonly float[] PassFloor = { SkiSlopeClassifier.GradeGreen, SkiSlopeClassifier.GradeBlue, SkiSlopeClassifier.GradeBlack, SkiSlopeClassifier.GradeDoubleBlack };
         public static readonly float[] PassCeiling = { SkiSlopeClassifier.GradeBlue, SkiSlopeClassifier.GradeBlack, SkiSlopeClassifier.GradeDoubleBlack, 0.80f };
         public static readonly float[] PassHardCeiling = { SkiSlopeClassifier.GradeBlack, SkiSlopeClassifier.GradeDoubleBlack, 0.80f, CliffGrade };
@@ -324,14 +332,14 @@ namespace SkiResortMod.Systems
         public const float InBandFactor = 0.4f, OverBandFactor = 3.0f, SidehillCost = 2f, FlatCost = 3f, GullyCost = 0.5f, GullyAreaM2 = 20000f;
         public const float MaxClimbM = 0.5f, CatTrackCost = 1f;
         // A cell is IN BAND for a pass when its route to the base never crosses the pass ceiling. The rater's crux is a minimax (the
-        // easiest line's steepest cell between the end zones, SkiSlopeClassifier.cs:1), not a percentile: a P90 allowance labeled 58-85
-        // of ~280 blue-pass runs black on the alpine fixtures, the strict rule 9. Only in-band cells seed runs and pods; the hard ceiling
+        // easiest line's steepest cell between the end zones, SkiSlopeClassifier.cs:1), not a percentile. A P90 allowance labeled 58-85
+        // of ~280 blue-pass runs black on the alpine fixtures, the strict rule 9. Only in-band cells seed runs and pods. The hard ceiling
         // keeps the corridor wide and lets routes pass (their upslope cells then are not in band).
         // Green and blue routes end in the lower PassSourceShare of the base band (beginner and cruiser runs ski down into the base
-        // area; the gentle ground just above the base is too short for a green), blacks and double blacks at its top.
+        // area. The gentle ground just above the base is too short for a green). Blacks and double blacks end at its top.
         public static readonly float[] PassSourceShare = { 0.5f, 0.5f, 1f, 1f };
         // Routes and seeds keep off the player's polygon edge: seeds need DHard >= EdgeSeedMarginM (half the widest target width plus a
-        // gap), route steps closer cost EdgeCostFactor; routes never enter, and the corridor march stops at, EdgeSeedMarginM / 2 from
+        // gap). Route steps closer cost EdgeCostFactor. Routes never enter, and the corridor march stops at, EdgeSeedMarginM / 2 from
         // the region edge (DEdge: the region and map edge only, so an obstacle's clearance is not widened)
         public const float EdgeSeedMarginM = 35f, EdgeCostFactor = 1.5f;
         public const float TopBandM = 30f, ClusterRadiusM = 150f, ClusterSpacingM = 300f;
@@ -339,22 +347,22 @@ namespace SkiResortMod.Systems
         public const float SeedJitterM = 10f, SummitJitterM = 20f, ScoreJitter = 0.4f, TopShare = 0.25f;   // Shuffle: seeded per seed
         public const float RerouteShare = 0.7f, DetourFactor = 1.5f, MergePenalty = 1f;   // reroute when a merge keeps under 70 % of the line
         // H: 8192 pops a unit measured up to 1.15 ms CoreCLR. 48 k pops in all made the A* 60-90 % of Select once the seeds spread (9 km2
-        // fBm: 443 ms); 12 k halves it at the same run counts on the alpine fixtures
+        // fBm: 443 ms). 12 k halves it at the same run counts on the alpine fixtures
         private const int RerouteMaxPops = 12000, RerouteUnitPops = 4096;
         public const float BaseShare = 0.15f, BaseMinM = 10f, BaseMaxM = 60f, RunoutGrade = 0.12f;
         public const float MinWidthM = 15f, PinchShare = 0.30f, MinLengthM = 250f, MinDropM = 30f, MaxLengthM = 2500f;
         public const float MergeKeepShare = 0.4f, MergeKeepM = 400f;             // a merged line keeps 40 % of its free line or 400 m
-        public const float MaxRunAreaM2 = 200000f;                               // 20 ha; and StepMultiple must stay 1
+        public const float MaxRunAreaM2 = 200000f;                               // 20 ha, and StepMultiple must stay 1
         public const float SampleM = 4f, DecimateM = 25f, RingSimplifyM = 1.0f, WidthMarginM = 1f, MarchStepM = 1f;
         public const float SparseGapM = 30f, NormalGapM = 15f, DenseGapM = 10f, RasterSlackM = 1f;
         public const float ExactGapShare = 0.8f;                                 // exact distance >= 0.8 gap (raster approximations)
         public const float MergeGapM = 2f, MergeTaperM = 30f;                    // abutting is legal (ValidationHelpers.cs:575)
-        public const float JunctionReachM = 20f;                                 // node pair search; +2 x 2 m snap stays <= LinkMeters
+        public const float JunctionReachM = 20f;                                 // node pair search. +2 x 2 m snap stays <= LinkMeters
         public const float LinkMeters = LiftServedRule.LinkMeters;               // the link rule's own constant (one source)
         public const float SurfaceClearanceM = MergeGapM, UnownedClearanceM = 0.5f, RegionClearanceM = 0.25f;
         public const int HardRunCap = 96, MaxRatings = 48, RatingsPerRun = 3, TileCoreCells = 80;   // caps scale with AreaScale
         private const int MinimaxPops = 32768, RoutePops = 8192;                // heap work per unit (Mono: about 4-6 ms each)
-        // Mix targets by run count, G / B / K / DB (design 3.2; Balanced is the owner's ruling)
+        // Mix targets by run count, G / B / K / DB (design 3.2, Balanced is the owner's ruling)
         private static readonly float[][] MixShare =
         {
             new[] { 0.28f, 0.42f, 0.27f, 0.03f },
@@ -364,18 +372,18 @@ namespace SkiResortMod.Systems
         };
 
         // ---------------------------------------------------------------- stages
-        public const int StageCount = 16;    // the v1 probe slots (AutoPlanResult.StageMs); the Resort-only stages have none (ResortPlan.StageMs)
+        public const int StageCount = 16;    // the v1 probe slots (AutoPlanResult.StageMs). The Resort-only stages have none (ResortPlan.StageMs)
         public const int ResortStageCount = 6;   // Terrain, PodRoute, Pods, Lifts, (band) Route, Flow: the ResortPlan probe slots
         private const int SlotTerrain = 0, SlotPodRoute = 1, SlotPods = 2, SlotLifts = 3, SlotRoute = 4, SlotFlow = 5;
         public const int SelectPhases = 5;   // stage 13's m_SelPhase as probe slots: pick, A* (reroute), build, rate, chamfer (4 and 5)
         private enum Stage
         {
             Heights, Obstacles, Field, DistForward, DistBackward, FlowSort, FlowAccum, Usable, Zones, Minimax,
-            Terrain, PodRoute, Pods, Lifts,   // Resort mode only (A3, A3, A3, A4); Minimax hands over to Terrain, Lifts hands over to Route
+            Terrain, PodRoute, Pods, Lifts,   // Resort mode only (A3, A3, A3, A4). Minimax hands over to Terrain, Lifts hands over to Route
             Route, Seeds, Candidates, Select, Finish, Done,
         }
 
-        /// <summary>The v1 probe slot of a stage (v1 numbering, so StageMs and Progress mean the same in both modes); -1 for the
+        /// <summary>The v1 probe slot of a stage (v1 numbering, so StageMs and Progress mean the same in both modes). -1 for the
         /// Resort-only stages.</summary>
         private static int StageSlot(Stage s) => s < Stage.Terrain ? (int)s : s > Stage.Lifts ? (int)s - 4 : -1;
 
@@ -393,12 +401,12 @@ namespace SkiResortMod.Systems
         private Stage m_Stage = Stage.Done;
         private int m_Cursor, m_Cursor2;
         private AutoPlanKnobs m_Knobs;
-        private AutoPlanMode m_Mode;   // from the input at Begin; Resort enables every v2 hook
+        private AutoPlanMode m_Mode;   // from the input at Begin. Resort enables every v2 hook
         private volatile int m_ProgressMilli;   // Progress x 1000, written by the unit loop, read by ProgressVolatile from another thread
         private readonly int[] m_RStageUnits = new int[ResortStageCount];
         private readonly float[] m_RStageMs = new float[ResortStageCount], m_RStageMaxMs = new float[ResortStageCount];
 
-        // Lattice: cell (i, j) = texel (LI0 + i, LJ0 + j); world = Origin + texel index * Texel
+        // Lattice: cell (i, j) = texel (LI0 + i, LJ0 + j). World = Origin + texel index * Texel
         private int m_LI0, m_LJ0, m_Nx, m_Nz, m_N;
         private float m_Texel;
         private double2 m_Origin;
@@ -466,14 +474,14 @@ namespace SkiResortMod.Systems
         /// reads it. 0 before the first unit, 1 when Done (canceled scans keep their last value).</summary>
         public float ProgressVolatile => m_ProgressMilli * 0.001f;
 
-        /// <summary>Bytes of the Resort-mode layers currently held (0 until a Resort scan allocated them; the P-4 memory gate sums it).</summary>
+        /// <summary>Bytes of the Resort-mode layers currently held (0 until a Resort scan allocated them). The P-4 memory gate sums it.</summary>
         public long ResortLayerBytes =>
             (m_OS?.Length ?? 0) * 4L + (m_Band?.Length ?? 0) + (m_PadOf?.Length ?? 0) + (m_Ridge?.Length ?? 0) + (m_PodOf?.Length ?? 0) * 2L;
 
         // ---------------------------------------------------------------- public entry points
 
         /// <summary>Default seed: FNV-1a over the region's node bits, starting at the lexicographically smallest node and walking
-        /// counterclockwise, so the start vertex and the drawing direction never change the layout; Shuffle adds a counter.</summary>
+        /// counterclockwise, so the start vertex and the drawing direction never change the layout. Shuffle adds a counter.</summary>
         public static uint SeedOf(float2[] region, uint shuffle)
         {
             uint h = 2166136261u;
@@ -520,7 +528,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Starts a scan. Cheap refusals (BadInput, TooLarge, TooSmall by area) are final here; otherwise Status is Running
+        /// <summary>Starts a scan. Cheap refusals (BadInput, TooLarge, TooSmall by area) are final here. Otherwise Status is Running
         /// and Step does the rest. The input object is held until the next Begin (the tool must not mutate it meanwhile).</summary>
         public AutoPlanStatus Begin(AutoPlanInput input)
         {
@@ -593,7 +601,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Cancel seen between units: the scan stops where it is, the result is flagged and must be dropped. The planner stays
-        /// reusable (a fresh Begin / Run clears everything); Reselect refuses until the next scan completes.</summary>
+        /// reusable (a fresh Begin / Run clears everything). Reselect refuses until the next scan completes.</summary>
         private void CancelScan()
         {
             m_Result.Canceled = true;
@@ -632,8 +640,11 @@ namespace SkiResortMod.Systems
             Array.Clear(m_RStageMaxMs, 0, m_RStageMaxMs.Length);
         }
 
-        /// <summary>Re-runs only what the knobs change on the cached field: a new seed re-seeds (stage Seeds), Mix / Density / cap
-        /// re-select, Kinds only re-assigns kinds. False (nothing to do) when no field is cached (a refusal before the routing).</summary>
+        /// <summary>Re-runs only what the knobs change on the cached field:
+        /// a new seed re-seeds (stage Seeds).
+        /// Mix / Density / cap re-select.
+        /// Kinds only re-assigns kinds.
+        /// False (nothing to do) when no field is cached (a refusal before the routing).</summary>
         public bool Reselect(AutoPlanKnobs knobs)
         {
             if (!m_FieldReady || m_In == null)
@@ -684,7 +695,7 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>Easiest band reachable from the cell under a world point down to the base (the preview heat map); false outside
+        /// <summary>Easiest band reachable from the cell under a world point down to the base (the preview heat map). False outside
         /// the usable ground or before the field is ready.</summary>
         public bool EasiestBand(float2 world, out SlopeBand band)
         {
@@ -812,7 +823,7 @@ namespace SkiResortMod.Systems
 
         private int RowsPerUnit => Math.Max(1, 65536 / Math.Max(1, m_Nx));
 
-        // Stage 0a: the region raster (m_Cursor2 0: Plan; 1: its Mask in row chunks, P2: 9 km2), then heights and off-map flags in
+        // Stage 0a: the region raster (m_Cursor2 0: Plan, 1: its Mask in row chunks, P2: 9 km2), then heights and off-map flags in
         // row chunks (m_Cursor2 2)
         private void UnitHeights()
         {
@@ -1001,7 +1012,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Plans and classifies the rectangle of texel indices [k0 - apron, k1 + apron] x [l0 - apron, l1 + apron] on the
-        /// snapshot's world lattice; the caller reads CellGrade of the core. Public so the host can compare tiles with one call.</summary>
+        /// snapshot's world lattice. The caller reads CellGrade of the core. Public so the host can compare tiles with one call.</summary>
         public bool FieldTile<T>(ref T sampler, int k0, int l0, int k1, int l1, SlopeGrid grid, SlopeResult result)
             where T : struct, IHeightSampler
         {
@@ -1009,8 +1020,8 @@ namespace SkiResortMod.Systems
             return RectField(ref sampler, m_Origin, m_Texel, k0 - a, l0 - a, k1 + a, l1 + a, grid, result);
         }
 
-        /// <summary>Plan + FillHeights + Classify over the cells [k0, k1] x [l0, l1] (texel indices; the rectangle's corners sit half a
-        /// cell outside the end cells so the Mask is exactly that range).</summary>
+        /// <summary>Plan + FillHeights + Classify over the cells [k0, k1] x [l0, l1] (texel indices). The rectangle's corners sit half a
+        /// cell outside the end cells, so the Mask is exactly that range.</summary>
         public static bool RectField<T>(ref T sampler, double2 origin, float texel, int k0, int l0, int k1, int l1, SlopeGrid grid,
             SlopeResult result) where T : struct, IHeightSampler
         {
@@ -1053,7 +1064,7 @@ namespace SkiResortMod.Systems
 
         // Flow accumulation (gully cost): open cells in descending raw height, each passes its catchment to its steepest lower
         // neighbor (D8). Counting sort on the R16 value: O(N + 65536), deterministic (ties in cell order).
-        // Row chunks: phase 1 counts (m_Cursor2 = 1), phase 2 places (m_Cursor2 = 2); the result equals one pass over the lattice.
+        // Row chunks: phase 1 counts (m_Cursor2 = 1), phase 2 places (m_Cursor2 = 2). The result equals one pass over the lattice.
         private void UnitFlowSort()
         {
             int[] count = m_Count;
@@ -1147,7 +1158,7 @@ namespace SkiResortMod.Systems
                 {
                     int c = j * m_Nx + i;
                     byte f = m_Flags[c];
-                    // Open = a cell center at least one texel (plus the region clearance) inside every hard edge: an outline point marched
+                    // Open = a cell center at least one texel (plus the region clearance) inside every hard edge. An outline point marched
                     // from an open cell lies within 0.71 texel of that center, so it stays inside the region and clear of obstacles
                     if ((f & FRegion) == 0 || (f & FOffMap) != 0 || !(m_DHard[c] >= m_Texel + RegionClearanceM))
                         continue;
@@ -1197,7 +1208,7 @@ namespace SkiResortMod.Systems
                 Finish(AutoPlanStatus.TooSmall);
                 return;
             }
-            // F2: seeds and pods need DHard >= EdgeSeedMarginM; without one such usable cell the scan could only end in NoRuns with an
+            // F2: seeds and pods need DHard >= EdgeSeedMarginM. Without one such usable cell, the scan could only end in NoRuns with an
             // empty reject histogram (a 60 m corridor down one slope, or open ground hemmed in by other surfaces)
             if (m_Usable > 0 && m_MaxDHardU < EdgeSeedMarginM)
             {
@@ -1345,7 +1356,7 @@ namespace SkiResortMod.Systems
                 EnterRoute();
         }
 
-        /// <summary>Starts the band passes (stage Route); the v1 hand-over from Minimax, in Resort mode from Lifts.</summary>
+        /// <summary>Starts the band passes (stage Route). The v1 hand-over from Minimax, in Resort mode from Lifts.</summary>
         private void EnterRoute()
         {
             m_Pass = 0;
@@ -1353,7 +1364,7 @@ namespace SkiResortMod.Systems
             Next(Stage.Route);
         }
 
-        // Stage 4: one multi-source reverse Dijkstra from the base per pass (G, B, K, DB): each pass resets its arrays and pushes the
+        // Stage 4: one multi-source reverse Dijkstra from the base per pass (G, B, K, DB). Each pass resets its arrays and pushes the
         // base in row chunks (m_Cursor2 = 0), then pops in heap chunks (m_Cursor2 = 1)
         private void StartPassRows()
         {
@@ -1446,12 +1457,11 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Cost of the skier's step v -> u on a pass's graph, where v = u + Dir[d] (the route relaxes u -> v); -1 when the
+        /// <summary>Cost of the skier's step v -> u on a pass's graph, where v = u + Dir[d] (the route relaxes u -> v). Returns -1 when the
         /// step is not allowed (v not open, cliff, at or over the HARD ceiling, within EdgeSeedMarginM / 2 of the region edge, or a climb
-        /// over MaxClimbM). Over the pass ceiling a
-        /// cell costs OverBandFactor, in band InBandFactor; within EdgeSeedMarginM of a hard cell (the region edge, an obstacle)
-        /// EdgeCostFactor. v must be an interior cell. The one cost both the base routes and the per-candidate reroute use, so a
-        /// route distance is an exact A* heuristic.</summary>
+        /// over MaxClimbM). Over the pass ceiling a cell costs OverBandFactor. In band it costs InBandFactor. Within EdgeSeedMarginM of a hard
+        /// cell (the region edge, an obstacle) it costs EdgeCostFactor. v must be an interior cell. The one cost both the base routes and
+        /// the per-candidate reroute use, so a route distance is an exact A* heuristic.</summary>
         private float StepCost(int u, int v, int d, float floor, float ceil, float hard, float t, float inv2t)
         {
             byte f = m_Flags[v];
@@ -1486,8 +1496,8 @@ namespace SkiResortMod.Systems
 
         // After the last pass, row chunks over the region bbox: does any route keep its pass's band from MinDropM above that pass's
         // sources (m_RouteReach), and does one such cell lie EdgeSeedMarginM inside (m_RouteSeedable)? AfterMinimax's reach test has no
-        // edge strip and no source limit, so it can pass where no route can seed (review F11): AllCliff, or TooNarrow, then, never a
-        // NoRuns with an empty reject histogram. The same cells PodRows and SeedRows draw from.
+        // edge strip and no source limit, so it can pass where no route can seed (review F11). Then the result is AllCliff or TooNarrow,
+        // never a NoRuns with an empty reject histogram. The same cells PodRows and SeedRows draw from.
         private void ReachRows()
         {
             int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
@@ -1530,7 +1540,7 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- lattice helpers
 
-        /// <summary>Lattice cell of a world point (nearest cell center); false outside the lattice.</summary>
+        /// <summary>Lattice cell of a world point (nearest cell center). False outside the lattice.</summary>
         private bool Cell(float2 p, out int c)
         {
             long i = (long)Math.Round((p.x - m_Origin.x) / m_Texel) - m_LI0;
@@ -1557,7 +1567,7 @@ namespace SkiResortMod.Systems
             return hi.x >= x0 && lo.x <= x1 && hi.y >= z0 && lo.y <= z1;
         }
 
-        /// <summary>Plans a ring on the world lattice with the classifier (cell center inside); returns the Mask cell count.</summary>
+        /// <summary>Plans a ring on the world lattice with the classifier (cell center inside). Returns the Mask cell count.</summary>
         private int Rasterize(float2[] ring)
         {
             int n = ring.Length;

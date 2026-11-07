@@ -1,10 +1,11 @@
 // Tells SkiResortAttractivenessSystem that a lodge, lift station, Welcome Sign, ski school, patrol hut or ski run of ours was
-// placed, changed or removed, so scores follow a placement on that system's next 16-frame tick instead of its 4096-frame
-// backstop. The request is structural (never held behind a pending soft one).
-// Why ModificationEnd (Mod.cs): Cleanup strips Created / Updated / Applied before GameSimulation runs (CleanUpSystem.cs:24-32), so
-// a tool-made tag never reaches it; ModificationEnd runs last in MainLoop, before Cleanup (ModificationSystem.cs:19-26).
-// While the game is paused this watcher runs the recompute at once (RecomputeWhilePaused). Bindings, lift census, ratings,
-// settings, efficiency, lodge on/off and lift power raise no tag; the attractiveness system compares them on its own tick.
+// placed, changed or removed. Scores then follow a placement on that system's next 16-frame tick, not its 4096-frame backstop.
+// The request is structural (never held behind a pending soft one).
+// Why ModificationEnd (Mod.cs): Cleanup strips Created / Updated / Applied before GameSimulation runs (CleanUpSystem.cs:24-32).
+// So a tool-made tag never reaches it. ModificationEnd runs last in MainLoop, before Cleanup (ModificationSystem.cs:19-26).
+// While the game is paused, this watcher runs the recompute at once (RecomputeWhilePaused).
+// Bindings, lift census, ratings, settings, efficiency, lodge on/off and lift power raise no tag.
+// The attractiveness system compares them on its own tick.
 // Engine notes: EngineNotes/SkiResortAttractivenessWatchSystem.md
 
 using System;
@@ -22,7 +23,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiResortAttractivenessWatchSystem : GameSystemBase
     {
-        // Reason texts; the ski school and patrol huts trigger too
+        // Reason texts. The ski school and patrol huts trigger too
         internal const string ReasonBuildings = "lodge, ski school, patrol hut, lift station or Welcome Sign placed, moved or removed";
         internal const string ReasonRuns = "ski run drawn, edited or removed";
         internal const string ReasonBoth = "buildings and ski runs changed";
@@ -32,9 +33,9 @@ namespace SkiResortMod.Systems
         private EntityQuery m_BuildingEvents;
         private EntityQuery m_MergedEvents;   // a merged building (SkiMergedLodge) Updated or Deleted: moved, relocated, bulldozed
         private EntityQuery m_AreaEvents;
-        // While ResortPresence says no sign, run or lift of ours exists, only a CREATED building / run can start a resort (an Updated
-        // or Deleted one cannot be ours), so the per-frame test looks at these Created-only queries and an ordinary city pays no
-        // PrefabRef read for its building churn.
+        // While ResortPresence says no sign, run or lift of ours exists, only a CREATED building / run can start a resort.
+        // An Updated or Deleted one cannot be ours. So the per-frame test looks at these Created-only queries.
+        // An ordinary city then pays no PrefabRef read for its building churn.
         private EntityQuery m_BuildingCreated;
         private EntityQuery m_AreaCreated;
 
@@ -184,7 +185,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Managed PrefabRef scan of an event query's small result against the attractiveness system's sets.
-        /// ToComponentDataArray&lt;PrefabRef&gt; completes PrefabRef's write dependency itself; no query-wide CompleteDependency.</summary>
+        /// ToComponentDataArray&lt;PrefabRef&gt; completes PrefabRef's write dependency itself. The scan needs no query-wide CompleteDependency.</summary>
         private bool AnyWatched(EntityQuery query, bool areas)
         {
             using (var prefabRefs = query.ToComponentDataArray<PrefabRef>(Allocator.Temp))

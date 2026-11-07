@@ -1,6 +1,6 @@
 // The warning before a sign is bulldozed: the vanilla prompt says nothing about the runs this system deletes with it. The bulldozer
-// asks through a public delegate, so we stand in front of it: a sign with bound runs gets our dialog, anything else the vanilla chain.
-// Any failure falls back to the vanilla prompt: the tool waits in State.Waiting until someone answers (BulldozeToolSystem.cs:1567-1573).
+// asks through a public delegate, so we stand in front of it. A sign with bound runs gets our dialog. Anything else gets the vanilla chain.
+// Any failure uses the vanilla prompt instead: the tool waits in State.Waiting until someone answers (BulldozeToolSystem.cs:1567-1573).
 // Engine notes: EngineNotes/SkiRunGateCascadeSystem.md
 
 using System;
@@ -47,7 +47,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Once per world: ToolUISystem subscribed at its OnCreate (ToolUISystem.cs:123-124), so by a game load the chain holds it.
-        /// An empty chain stays alone (the bulldozer would not prompt at all) and is tried again at the next load.</summary>
+        /// An empty chain stays alone (the bulldozer would not prompt at all), and the system tries again at the next load.</summary>
         private void WrapBulldozeConfirm()
         {
             if (m_VanillaConfirm != null)

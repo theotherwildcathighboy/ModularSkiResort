@@ -1,10 +1,10 @@
 // Lift tickets: each arriving guest (SkiGuestCounterSystem.DrainArrivals) pays the ticket price from their household into the city's
-// balance when the gate is open (SkiMoneyRules.TicketGateOf). Never into debt: TicketsPaid = min(people, money / price); the rest
-// are admitted free and counted as unpaid. Money moves like the vanilla transit fare (ResidentAISystem.cs:3922-3935); one Burst IJob.
-// Every payment is one FeeEvent (public transportation, like the bus fare) and the job must NOT add it to PlayerMoney:
+// balance when the gate is open (SkiMoneyRules.TicketGateOf). Never into debt: TicketsPaid = min(people, money / price). The rest
+// are admitted free and counted as unpaid. Money moves like the vanilla transit fare (ResidentAISystem.cs:3922-3935). One Burst IJob.
+// Every payment is one FeeEvent (public transportation, like the bus fare). The job must NOT add it to PlayerMoney.
 // BudgetApplySystem.cs:28-60 credits the fee line itself, so adding it here would pay the city twice.
-// Phase: GameSimulation, UpdateAfter<SkiLiftTicketSystem, SkiGuestCounterSystem> (Mod.cs; not load-bearing: the counter's pending list
-// is DRAINED). Interval 16. OnGamePreload books the job's results first, after the counter's (BookInFlightForPreload).
+// Phase: GameSimulation, UpdateAfter<SkiLiftTicketSystem, SkiGuestCounterSystem> (Mod.cs). Not load-bearing: the counter's pending list
+// is DRAINED. Interval 16. OnGamePreload books the job's results first, after the counter's (BookInFlightForPreload).
 // Engine notes: EngineNotes/SkiLiftTicketSystem.md
 
 using System;
@@ -38,17 +38,17 @@ namespace SkiResortMod.Systems
             public const int CostTicks = 64;
         }
 
-        // SpendPerPerson = the lodge spend per paying guest of this request (0 = none), filled on the main thread; Spends / SpendIncome =
+        // SpendPerPerson = the lodge spend per paying guest of this request (0 = none). The main thread fills it. Spends / SpendIncome =
         // the guests who spent and the ₵ moved for it.
         private struct TicketRequest { public int Slot; public Entity Household; public int People; public byte Tourist; public int SpendPerPerson; }
         // RunStateKnown = score present and not held. SchoolActive = the area's score is known and its ski school is installed and not
         // Inactive (Result.SchoolActive).
         private struct TicketSlot { public Entity Sign; public byte RunStateKnown; public int OpenRuns; public byte SchoolActive; }
         // Booked = the income booked as public transportation fees instead of added to PlayerMoney (tickets, passes, lessons, lodge
-        // spend). PassSold (0/1) and PassIncome = the pass this arrival bought (PassSeason = its season key); PassHolders = the people who
+        // spend). PassSold (0/1) and PassIncome = the pass this arrival bought (PassSeason = its season key). PassHolders = the people who
         // came in on a pass.
         private struct TicketResult { public int Paid, Unpaid, Free, Income, Spends, SpendIncome, Booked, PassSold, PassIncome, PassHolders, PassSeason, Lessons, LessonIncome; public byte NoCity; }
-        // One SkiSeasonPass to add or overwrite on the main thread (Flags 0 = a pass bought, else Declined;
+        // One SkiSeasonPass to add or overwrite on the main thread (Flags 0 = a pass bought, else Declined.
         // CannotPay 1 = Declined because the household could not afford the pass it rolled).
         private struct PassWrite { public Entity Household; public int SeasonKey; public int PricePaid; public byte Flags; public byte CannotPay; }
 
@@ -85,7 +85,7 @@ namespace SkiResortMod.Systems
         private ComponentLookup<PlayerMoney> m_PlayerMoneyLookup;
         private ComponentLookup<SkiSeasonPass> m_PassLookup;   // read-only in the job, written on the main thread
 
-        // Job data (Persistent; the job owns them while in flight)
+        // Job data (Persistent, the job owns them while in flight)
         private NativeList<PassWrite> m_PassWrites;   // filled by the job, applied in ApplyResults
         private NativeList<TicketRequest> m_Requests;
         private NativeList<TicketSlot> m_Slots;
@@ -103,7 +103,7 @@ namespace SkiResortMod.Systems
         private readonly LogWindow m_PassLog = new LogWindow(Tuning.LogWindowS);   // `Passes [sold]`
         private readonly LogWindow m_LessonLog = new LogWindow(Tuning.LogWindowS); // `Lessons [sold]`
 
-        // The gate watch (engine notes "Gate watch"); all reset at load.
+        // The gate watch (engine notes "Gate watch"). All reset at load.
         private readonly List<Entity> m_WatchSigns = new List<Entity>(4);
         private readonly HashSet<Entity> m_WatchSeen = new HashSet<Entity>();
         private readonly List<Entity> m_WatchDrop = new List<Entity>(2);
@@ -116,8 +116,8 @@ namespace SkiResortMod.Systems
         private long m_BusyTicks, m_RequestsTotal, m_GuestsTotal, m_IncomeTotal;
         private long m_FeeBookedTotal;   // this load (DUMP, the counter's month line)
         private long m_SpendsTotal, m_SpendIncomeTotal; // this load (DUMP)
-        // Passes, this load (DUMP, the Passes lines). Sold / income as ApplyResults booked them; Declined = rolled out,
-        // CannotPay = rolled in without the money; HolderGuests = people who came in on a pass; SeasonKey = the last decided season.
+        // Passes, this load (DUMP, the Passes lines). Sold / income as ApplyResults booked them. Declined = rolled out.
+        // CannotPay = rolled in without the money. HolderGuests = people who came in on a pass. SeasonKey = the last decided season.
         private long m_PassesSold, m_PassIncomeTotal, m_PassesDeclined, m_PassesCannotPay, m_PassHolderGuests;
         private int m_PassSeasonKey = int.MinValue;
         private bool m_PassFirstLogged;
@@ -127,7 +127,7 @@ namespace SkiResortMod.Systems
         private int m_CostTicks, m_CostLargestBatch;
         private double m_CostSumMs, m_CostMaxMs;
         private bool m_CostLogged;
-        private bool m_CostSkipNext; // true on the arming tick only; RecordCost leaves that tick out
+        private bool m_CostSkipNext; // true on the arming tick only. RecordCost leaves that tick out
         private int m_CostArmDay = int.MinValue; // SkiDayRules.DayKey of the last midday re-arm or afternoon line
         private int m_CostMeasurements; // `Tickets [cost]` lines this load
         private bool m_CostByRearm; // the measurement in progress was armed at midday (not the load's)
@@ -194,9 +194,9 @@ namespace SkiResortMod.Systems
             base.OnDestroy();
         }
 
-        /// <summary>Called by SkiGuestCounterSystem.OnGamePreload BEFORE it writes the `(until the load)` month lines: the counter's
+        /// <summary>Called by SkiGuestCounterSystem.OnGamePreload BEFORE it writes the `(until the load)` month lines. The counter's
         /// preload runs first (it subscribes first), so without this the line missed the last ticket batch. Books the job in flight,
-        /// if any; this system's own OnGamePreload then finds nothing in flight. Never throws (one WARN instead).</summary>
+        /// if any. This system's own OnGamePreload then finds nothing in flight. Never throws (one WARN instead).</summary>
         internal void BookInFlightForPreload()
         {
             try
@@ -248,13 +248,13 @@ namespace SkiResortMod.Systems
             m_Results.Clear();
             m_SlotGate.Clear();
             m_PassWrites.Clear();
-            m_PassLog.Reset();   // flushed in OnGamePreload; nothing carries over
-            m_LessonLog.Reset(); // flushed in OnGamePreload; nothing carries over
+            m_PassLog.Reset();   // flushed in OnGamePreload. Nothing carries over
+            m_LessonLog.Reset(); // flushed in OnGamePreload. Nothing carries over
             m_Arrivals.Clear();
             m_SlotOf.Clear();
             m_LastGate.Clear();
             m_FirstPaid.Clear();
-            m_GateLog.Reset();   // flushed in OnGamePreload; nothing carries over
+            m_GateLog.Reset();   // flushed in OnGamePreload. Nothing carries over
             m_WatchSigns.Clear();
             m_WatchSeen.Clear();
             m_WatchDrop.Clear();
@@ -356,7 +356,7 @@ namespace SkiResortMod.Systems
                     return;
                 // 0a. A midday measurement not finished when the game day ended is written partial (inside the try, after the disarmed / disabled return).
                 CostDayEnd();
-                // 0. The cost measurement re-arms once per game day at midday; the arming tick is not measured (the flag lives for this tick only).
+                // 0. The cost measurement re-arms once per game day at midday. The arming tick is not measured (the flag lives for this tick only).
                 m_CostSkipNext = RearmCostAtMidday();
                 long t0 = Stopwatch.GetTimestamp();
 
@@ -424,8 +424,8 @@ namespace SkiResortMod.Systems
                 WatchGates(price);
 
                 // 2c. The pre-season pass sale of the first ski area whose gate is Open in a new season. A tick that
-                // starts one does not drain arrivals (they stay pending in the counter): a ticket job scheduled in the same window would
-                // not see the standings the sale writes next tick and could sell the same household a pass again.
+                // starts one does not drain arrivals (they stay pending in the counter). A ticket job scheduled in the same window would
+                // not see the standings the sale writes next tick. It could sell the same household a pass again.
                 if (TryStartSale(price))
                     return;
 
@@ -457,9 +457,9 @@ namespace SkiResortMod.Systems
                 {
                     // the first exception is the one worth reporting
                 }
-                // m_JobInFlight is NOT cleared here. The job above completed and may already have moved household money; leaving the flag set lets
-                // the preload path (OnGamePreload / OnDestroy) book that completed job into the ledger and write the batch's passes, instead of
-                // dropping both.
+                // m_JobInFlight is NOT cleared here. The job above completed and may already have moved household money. Leaving the flag set lets
+                // the preload path (OnGamePreload / OnDestroy) book that completed job into the ledger and write the batch's passes. A cleared flag
+                // would drop both.
                 if (!m_ErrorLogged)
                 {
                     m_ErrorLogged = true;
@@ -502,7 +502,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>One slot per distinct sign of this tick's arrivals (gate inputs) and one request per arrival. With a price and a
         /// lodge-spend setting above 0, a request whose building is a lodge carries SpendPerPerson (the catalog's LodgeDefs view, fetched
-        /// once); with either setting at 0 nothing is read.</summary>
+        /// once). With either setting at 0 nothing is read.</summary>
         private void BuildSlots(int price, int spendSetting)
         {
             m_SlotOf.Clear();
@@ -525,7 +525,7 @@ namespace SkiResortMod.Systems
                         RunStateKnown = (byte)(known ? 1 : 0),
                         OpenRuns = known ? view.Result.RunsCounted : 0,
                         // The area's ski school is installed and not Inactive (the attraction snapshot's slot.SchoolActive, echoed in
-                        // Result.SchoolActive); only meaningful once the score is known.
+                        // Result.SchoolActive). It is only meaningful once the score is known.
                         SchoolActive = (byte)(known && view.Result.SchoolActive ? 1 : 0),
                     });
                 }
@@ -602,7 +602,7 @@ namespace SkiResortMod.Systems
             m_Slots.Clear();
         }
 
-        /// <summary>Step 1: complete the job and book every request's result (ledger, the locals count), then the charged gate per slot
+        /// <summary>Step 1: complete the job and book every request's result (ledger, the locals count). Then book the charged gate per slot
         /// (recorded, not logged) and the first paid ticket per ski area. <paramref name="quiet"/> (teardown) skips the lines that read ECS data.</summary>
         private void ApplyResults(bool quiet)
         {
@@ -672,7 +672,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Step 1, main thread: the job's PassWrite rows become SkiSeasonPass components (added, or overwritten when the
-        /// household holds one of an older season), the batch's totals are counted and `Passes [first]` / `Passes [sold]` are written.
+        /// household holds one of an older season). The system counts the batch's totals and writes `Passes [first]` / `Passes [sold]`.
         /// <paramref name="quiet"/> (teardown) only counts. A household that no longer exists is skipped.</summary>
         private void ApplyPassWrites(bool quiet, int sold, long income)
         {
@@ -784,9 +784,9 @@ namespace SkiResortMod.Systems
 
 
         /// <summary>The gate the job charged under (silent). A charged gate that differs from the watch's gate for that sign is counted
-        /// (DUMP): the job reads the sign's Efficiency buffer live, the watch the last recompute's efficiency, so a short disagreement around
+        /// (DUMP). The job reads the sign's Efficiency buffer live. The watch reads the last recompute's efficiency. So a short disagreement around
         /// an efficiency change is expected. A result for a sign the primed watch no longer sees (it left between the schedule and the
-        /// booking) is neither recorded nor counted, so it does not re-add the sign.</summary>
+        /// booking) is neither recorded nor counted. So it does not re-add the sign.</summary>
         private void RecordChargedGate(TicketSlot slot, SkiMoneyRules.TicketGate gate)
         {
             if (m_WatchPrimed && !m_WatchSeen.Contains(slot.Sign))
@@ -796,9 +796,9 @@ namespace SkiResortMod.Systems
                 m_GateMismatches++;
         }
 
-        /// <summary>When the attraction Generation, the lift charge Revision or the price moved since the last evaluation, the gate of every
-        /// live sign with the hub's inputs; one line per sign whose gate changed (a new sign's first gate too); signs that left are
-        /// dropped without a line. Main thread; plain reads of the two snapshots.</summary>
+        /// <summary>When the attraction Generation, the lift charge Revision or the price moved since the last evaluation: the gate of every
+        /// live sign with the hub's inputs. One line per sign whose gate changed (a new sign's first gate too). Signs that left are
+        /// dropped without a line. Main thread, plain reads of the two snapshots.</summary>
         private void WatchGates(int price)
         {
             int generation = m_Attractiveness.Generation;
@@ -816,7 +816,7 @@ namespace SkiResortMod.Systems
             {
                 Entity sign = m_WatchSigns[i];
                 m_WatchSeen.Add(sign);
-                // known = a score present AND not in the first-write hold; the efficiency is the result's while a score is present (held or not),
+                // known = a score present AND not in the first-write hold. The efficiency is the result's while a score is present (held or not),
                 // 1 without one.
                 bool has = m_Attractiveness.TryGetAreaScore(sign, out SkiResortAttractivenessSystem.AreaScoreView view);
                 bool known = has && !view.WriteHeld;
@@ -831,8 +831,8 @@ namespace SkiResortMod.Systems
                 m_WatchGate[sign] = gate;
                 GateLine(sign, gate, efficiency, known, runs, operating);
             }
-            // The charged gates of signs that left go too (no allocation: m_WatchDrop is reused; the DUMP lists live signs only). No Count
-            // precondition (unlike the m_WatchGate prune below): a sign that left in the same evaluation a new, not yet charged sign appeared
+            // The charged gates of signs that left go too (no allocation: m_WatchDrop is reused, the DUMP lists live signs only). No Count
+            // precondition (unlike the m_WatchGate prune below). A sign that left in the same evaluation a new, not yet charged sign appeared
             // would keep m_LastGate.Count <= m_WatchSeen.Count and stay listed. The walk is over a handful of signs, only on the ticks the
             // watch re-evaluates.
             if (m_LastGate.Count > 0)
@@ -911,7 +911,7 @@ namespace SkiResortMod.Systems
         /// starts a new measurement. Returns true on the arming tick, which RecordCost leaves out.</summary>
         private bool RearmCostAtMidday()
         {
-            // The midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default); the once-per-load measurement stays.
+            // The midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default). The once-per-load measurement stays.
             if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
                 return false;
             if (!m_CostLogged || !(m_TimeSystem.normalizedTime >= 0.5f))
@@ -927,7 +927,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>A midday measurement still open when the game day changes is written partial, so the noon line is never silent — with
+        /// <summary>A midday measurement still open when the game day changes is written partial. So the noon line is never silent: it carries
         /// the ticks it has ("the game day ended before 64"), or "skipped: no tick with arrivals since noon". m_CostArmDay stays the re-arm
         /// day, so the next noon re-arms. The load's measurement (m_CostByRearm false) keeps the plain rule.</summary>
         private void CostDayEnd()
@@ -989,7 +989,7 @@ namespace SkiResortMod.Systems
                   .Append(')')
                   .Append(", lodge spend ").Append(LodgeSpend).Append(" per guest (× tier): ").Append(m_SpendsTotal)
                   .Append(" spent +").Append(m_SpendIncomeTotal)
-                  // Passes: sold / income as booked; holder guests; households decided not to buy.
+                  // Passes: sold / income as booked, holder guests, households decided not to buy.
                   .Append(", season passes share ").Append(PassShare).Append(" % × ").Append(PassMultiplier).Append(" tickets: ")
                   .Append(m_PassesSold).Append(" sold +").Append(m_PassIncomeTotal).Append(", ").Append(m_PassHolderGuests)
                   .Append(" pass-holder guest(s), ").Append(m_PassesDeclined).Append(" rolled out, ").Append(m_PassesCannotPay)
@@ -1027,8 +1027,8 @@ namespace SkiResortMod.Systems
 
 
         /// <summary>Per slot: the sign's efficiency (inline BuildingUtils.cs:121-133) and the gate. Per request: a closed gate (or a City
-        /// without PlayerMoney) books the guests free; an open one takes TicketsPaid × price from the household (never below 0) and books one
-        /// FeeEvent per paid item, credited to the city by the budget, never here. A
+        /// without PlayerMoney) books the guests free. An open one takes TicketsPaid × price from the household (never below 0). It books one
+        /// FeeEvent per paid item. The budget credits the city, never this code. A
         /// pass holder pays no ticket. The lessons (LessonsAndSpend) and then the lodge spend come out of what the household has left.</summary>
         [BurstCompile]
         private struct TicketJob : IJob
@@ -1062,7 +1062,7 @@ namespace SkiResortMod.Systems
                     SlotGate[s] = (byte)SkiMoneyRules.TicketGateOf(Price, efficiency, slot.RunStateKnown != 0, slot.OpenRuns);
                 }
                 bool cityOk = City != Entity.Null && PlayerMoneys.HasComponent(City);
-                // Households decided earlier in THIS batch (1 = holds a pass, 2 = declined), so a second arrival
+                // Households decided earlier in THIS batch (1 = holds a pass, 2 = declined). So a second arrival
                 // record of the same household in one drain does not wait for the component to exist.
                 var decided = new NativeHashMap<Entity, byte>(8, Allocator.Temp);
                 int passPrice = SkiMoneyRules.PassPrice(PassMultiplier, Price);
@@ -1083,7 +1083,7 @@ namespace SkiResortMod.Systems
                     {
                         DynamicBuffer<GameResources> buffer = HouseholdResources[q.Household];
                         int money = EconomyUtils.GetResources(Resource.Money, buffer);
-                        // A resident household's standing this season; no standing → decided now (once).
+                        // A resident household's standing this season. No standing → decided now (once).
                         if (q.Tourist == 0)
                         {
                             SkiMoneyRules.PassStanding standing;
@@ -1128,7 +1128,7 @@ namespace SkiResortMod.Systems
                         }
                         if (holder)
                         {
-                            // A holder pays nothing at the gate (ledger: pass-holder guests, not paid / unpaid / free) but still
+                            // A holder pays nothing at the gate (ledger: pass-holder guests, not paid / unpaid / free). The holder still
                             // takes lessons and spends at the lodge from what is left (shopping, not the gate).
                             r.PassHolders = people;
                             LessonsAndSpend(ref r, buffer, money, people, people, q.SpendPerPerson,
@@ -1156,9 +1156,10 @@ namespace SkiResortMod.Systems
 
             private bool SlotSchool(int slot) => Slots[slot].SchoolActive != 0;
 
-            /// <summary>After the ticket or pass, in this order and each from what the household still has (never below 0): the ski lessons
-            /// (SkiMoneyRules.LessonsTaken over <paramref name="people"/>, paid up to LessonsPaid), then the lodge spend of
-            /// <paramref name="spendPeople"/> at <paramref name="spendPerPerson"/>. Both are booked like the ticket (Book).</summary>
+            /// <summary>After the ticket or pass, in this order, each from what the household still has (never below 0):
+            /// - the ski lessons (SkiMoneyRules.LessonsTaken over <paramref name="people"/>, paid up to LessonsPaid),
+            /// - then the lodge spend of <paramref name="spendPeople"/> at <paramref name="spendPerPerson"/>.
+            /// Both are booked like the ticket (Book).</summary>
             private void LessonsAndSpend(ref TicketResult r, DynamicBuffer<GameResources> buffer, int money,
                                          int people, int spendPeople, int spendPerPerson, bool school, Entity household)
             {
@@ -1189,8 +1190,8 @@ namespace SkiResortMod.Systems
             }
 
             /// <summary>Books <paramref name="count"/> × <paramref name="unit"/> for a ticket, pass, lesson or lodge spend: one
-            /// FeeEvent{PublicTransport, 1, unit} per item as the bus fare (ResidentAISystem.cs:3929-3935; the budget credits the fee line to
-            /// PlayerMoney, BudgetApplySystem.cs:57-59, so no direct add).</summary>
+            /// FeeEvent{PublicTransport, 1, unit} per item as the bus fare (ResidentAISystem.cs:3929-3935). The budget credits the fee line to
+            /// PlayerMoney (BudgetApplySystem.cs:57-59), so no direct add.</summary>
             private void Book(ref TicketResult r, int unit, int count)
             {
                 r.Booked += unit * count;
@@ -1205,7 +1206,7 @@ namespace SkiResortMod.Systems
             }
 
             /// <summary>BuildingUtils.GetEfficiency(DynamicBuffer) re-implemented: product of
-            /// max(0, f); 0 when not > 0; else max(0.01, round(100p)/100); no buffer → 1.</summary>
+            /// max(0, f). 0 when not > 0. Else max(0.01, round(100p)/100). No buffer → 1.</summary>
             private float EfficiencyOf(Entity sign)
             {
                 if (!Efficiencies.TryGetBuffer(sign, out DynamicBuffer<Efficiency> buffer))

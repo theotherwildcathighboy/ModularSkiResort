@@ -1,13 +1,14 @@
 // The carrier grip round in TramShuttleSystem: the tram's CARRIAGE is the grip (pitched to the track rope) and its CABIN the body
-// (plumb, swinging in the wind on the span). The carriage is hosted by the base station like the cabin (a second ObjectSubObjects
-// entry per cabin entry, T138 option A, added by prefab surgery after the art import), so HarvestCabins finds both among the base's
+// (plumb, swinging in the wind on the span). The base station hosts the carriage like the cabin (a second ObjectSubObjects
+// entry per cabin entry, T138 option A, added by prefab surgery after the art import). So HarvestCabins finds both among the base's
 // sub-objects (Owner = the station). Pairing: carriage i with cabin i, i.e. the assignment of the base's carriages to its cabins
-// with the least summed xz distance (a carriage hangs its cabin straight below it; the two bays are a track gauge apart), so it holds
+// with the least summed xz distance (a carriage hangs its cabin straight below it. The two bays are a track gauge apart). It holds
 // whatever the entity order. No carriage (before the surgery, or the prefab missing) = the cabin takes the rigid pose (logged once).
-// Poses: on the path, CarrierPose with the cabin's yaw (-t_up, PlaceOnPath) at the path point; on the synthesized dock runs (the
-// station track) the carriage takes the track's pitch and the cabin's swing is 0 (guided). Parked: the cabin's hosted pose and the
-// carriage assembled above it (body pose + R x (BodyPin - GripPin)), no pitch, no swing. Wind: one CarrierWind per run (kept per base
-// station), polled every ChairPinSystem-like 512 render frames.
+// Poses:
+//   - On the path: CarrierPose with the cabin's yaw (-t_up, PlaceOnPath) at the path point.
+//   - On the synthesized dock runs (the station track): the carriage takes the track's pitch and the cabin's swing is 0 (guided).
+//   - Parked: the cabin's hosted pose and the carriage assembled above it (body pose + R x (BodyPin - GripPin)), no pitch, no swing.
+// Wind: one CarrierWind per run (kept per base station), polled every ChairPinSystem-like 512 render frames.
 // Engine notes: EngineNotes/TramShuttleSystem.md ("Carriages")
 
 using System;
@@ -105,7 +106,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Carriage i with cabin i: the least summed xz distance (2 x 2 tries both; more = greedy nearest).</summary>
+        /// <summary>Carriage i with cabin i: the least summed xz distance (2 x 2 tries both. More = greedy nearest).</summary>
         private void PairCarriages(List<Entity> cabins, List<Entity> carriages)
         {
             int n = Math.Min(cabins.Count, carriages.Count);
@@ -151,8 +152,8 @@ namespace SkiResortMod.Systems
             return math.distance(pa.xz, pb.xz);
         }
 
-        /// <summary>Fills run.Carriage, parallel to run.Cabin (after AssignCabins). On the Run, never keyed by the base station: a base
-        /// that starts two lines has a winner and a loser Run, and the loser (no cabins) must not clear the winner's carriages.</summary>
+        /// <summary>Fills run.Carriage, parallel to run.Cabin (after AssignCabins). On the Run, never keyed by the base station. A base
+        /// that starts two lines has a winner and a loser Run. The loser (no cabins) must not clear the winner's carriages.</summary>
         private Entity[] CarriagesOf(Run run)
         {
             for (int c = 0; c < 2; c++)
@@ -163,8 +164,8 @@ namespace SkiResortMod.Systems
             return run.Carriage;
         }
 
-        /// <summary>Rebuild hook: each run's carriages enrolled (InterpolatedTransform after Created + one Updated, like its cabins), its
-        /// wind state attached; one INFO when a split tram has cabins without a carriage.</summary>
+        /// <summary>Rebuild hook: each run's carriages enrolled (InterpolatedTransform after Created + one Updated, like its cabins) and its
+        /// wind state attached. One INFO when a split tram has cabins without a carriage.</summary>
         private void EnrollCarriages(Run run)
         {
             Entity[] carriages = CarriagesOf(run);
@@ -216,10 +217,12 @@ namespace SkiResortMod.Systems
                    m_WindByBase.TryGetValue(run.Base, out wind);
         }
 
-        /// <summary>Samples the wind at each split tram's path middle every WindPollFrames render frames, on the pass after a rebuild,
-        /// and at once while any samplable run's wind is still unknown (before this pass poses: the first sample is the start value,
-        /// CarrierWind.Set; a late first sample after zero-wind poses blends in, CP-17). Stamped only when something was sampled. Never
-        /// throws.</summary>
+        /// <summary>Samples the wind at each split tram's path middle in these cases:
+        ///   - every WindPollFrames render frames
+        ///   - on the pass after a rebuild
+        ///   - at once while any samplable run's wind is still unknown (before this pass poses: the first sample is the start value,
+        ///     CarrierWind.Set. A late first sample after zero-wind poses blends in, CP-17).
+        /// Stamped only when something was sampled. Never throws.</summary>
         private void PollTramWind(double timeS)
         {
             uint frame = m_RenderingSystem.frameIndex;

@@ -1,24 +1,32 @@
-// Resort Planner (v2) stage A: run fans (spec 4.5). Resort mode only; every hook falls back to v1 when no lift can take a fan.
-// Sinks: the band passes (stage Route) start from each fan lift's bottom (its BottomPad cells within SinkPadM of the station and a
-// SinkDiscM disc around it; pad cells within SinkTopKeepM of any lift top stay open, so a stacked lift's top seeds can ski off the shared
-// bench), so every route, and every run, ends on a lift bottom instead of the base band.
-// Seeds (stage Seeds): per lift the in-band cells in four tiers: 0 within TopSeedM of its top, 1 the upper third of its service corridor
-// (the served rule: ServeRadiusM of the chord, at most TopMarginM over the top), 2 the rest of the corridor, 3 its own or an unserved
-// pod above the lift's lower third whose route drains to this lift's bottom; sorted by tier, then height plus the v1 seeded jitter,
-// spaced FanSeedSpacingM per pass, at most SeedsPerLiftPass, each pre-walked along the pass's route (the MakeCandidate walk), so a seed
-// that cannot make a run (too short, flat) is never proposed. The seeds are a reserve; nothing about them depends on the density.
-// Select: each pick unit materializes one candidate (MakeCandidate, v1) from the lift with the lowest fill: its top seeds first until it
-// has FanTopRunsMin runs from its top, then the v1 band-deficit order on the lift's own targets (v1 Targets on the lift's cap). Before a
-// seed is proposed it is walked again against the accepted runs (m_DAcc): inside an accepted gap it is dropped (it would be TopTaken) or,
-// in tiers 0-1 next to a run, becomes a branch of it; a line whose merge would leave a TooShort / MergeStub line is dropped too
-// (FanDropped counts both). A top run adds branch seeds BranchTopFromM-BranchFromM below its top at once; after a lift's second run every
-// run of that lift adds them BranchFromM-BranchToM below its top. A branch abuts its parent at the top (the gap tapers from MergeGapM
-// over BranchTaperM; Finish makes the pair a merge junction), keeps the near gap and must leave it within BranchLeaveM.
-// Gaps: centerline spacing (Sparse 140 / Normal 100 / Dense 75 m) minus the class width, at least the v1 Dense gap. Fall lines to one
-// sink converge at a shallow angle, so a line that enters a run's gap merges where it reaches the near gap (the v1 gap, at least
-// FanNearGapM) if that is within MergeApproachM (FanApproach). Widths: v1 TargetWidthM; open bowls above a known tree line up to
-// BowlWidthM; the last MergeZoneM before a merge or a sink march to MergeZoneWiden x (March still caps them). A built ring that would
-// take its pod past DevelopableShare x SkiableAreaM2 is rejected as PodFull. Reroute, build attempts, rating, junctions and kinds are v1.
+// Resort Planner (v2) stage A: run fans (spec 4.5). Resort mode only. Every hook falls back to v1 when no lift can take a fan.
+// Sinks: the band passes (stage Route) start from each fan lift's bottom. The bottom is its BottomPad cells within SinkPadM of the
+// station and a SinkDiscM disc around it. Pad cells within SinkTopKeepM of any lift top stay open, so a stacked lift's top seeds can
+// ski off the shared bench. So every route, and every run, ends on a lift bottom instead of the base band.
+// Seeds (stage Seeds): per lift the in-band cells in four tiers:
+// Tier 0: within TopSeedM of its top.
+// Tier 1: the upper third of its service corridor (the served rule: ServeRadiusM of the chord, at most TopMarginM over the top).
+// Tier 2: the rest of the corridor.
+// Tier 3: its own or an unserved pod above the lift's lower third whose route drains to this lift's bottom.
+// The system sorts the seeds by tier, then height plus the v1 seeded jitter. It spaces them FanSeedSpacingM per pass, at most
+// SeedsPerLiftPass. It pre-walks each seed along the pass's route (the MakeCandidate walk), so a seed that cannot make a run
+// (too short, flat) is never proposed. The seeds are a reserve. Nothing about them depends on the density.
+// Select: each pick unit materializes one candidate (MakeCandidate, v1) from the lift with the lowest fill. It uses the lift's top
+// seeds first, until the lift has FanTopRunsMin runs from its top. Then it uses the v1 band-deficit order on the lift's own targets
+// (v1 Targets on the lift's cap).
+// Before a seed is proposed, the system walks it again against the accepted runs (m_DAcc). Inside an accepted gap it drops the seed
+// (it would be TopTaken). But a tier 0-1 seed in the gap next to a run becomes a branch of that run instead. It also drops a line whose
+// merge would leave a TooShort / MergeStub line (FanDropped counts both).
+// A top run adds branch seeds BranchTopFromM-BranchFromM below its top at once. After a lift's second run, every run of that lift
+// adds them BranchFromM-BranchToM below its top.
+// A branch abuts its parent at the top. The gap tapers from MergeGapM over BranchTaperM, and Finish makes the pair a merge junction.
+// A branch keeps the near gap and must leave it within BranchLeaveM.
+// Gaps: centerline spacing (Sparse 140 / Normal 100 / Dense 75 m) minus the class width, at least the v1 Dense gap.
+// Fall lines to one sink converge at a shallow angle. So a line that enters a run's gap merges where it reaches the near gap
+// (the v1 gap, at least FanNearGapM), if that is within MergeApproachM (FanApproach).
+// Widths: v1 TargetWidthM. Open bowls above a known tree line: up to BowlWidthM. The last MergeZoneM before a merge or a sink:
+// MergeZoneWiden x (March still caps them).
+// The system rejects a built ring that would take its pod past DevelopableShare x SkiableAreaM2 as PodFull.
+// Reroute, build attempts, rating, junctions and kinds are v1.
 // Pure and Entities-free (usings System, System.Collections.Generic, Unity.Mathematics only). Spec: docs/research/quickruns-v2/spec/stage-a-spec.md.
 
 using System;
@@ -38,7 +46,7 @@ namespace SkiResortMod.Systems
         public const int FanTopRunsMin = 2, FanTopRunsMax = 4;
         public const float TopSeedM = 100f, FanSeedSpacingM = 20f, PodSeedShare = 1f / 3f;
         public const int SeedsPerLiftPass = 80, FanOrdinalCap = 100, FanKeysPerUnit = 1500, FanWalksPerUnit = 40;   // P-1: a seed-list unit's work
-        /// <summary>SinkDiscM = LinkMeters: a route that ends in the disc off the pad links to the lift bottom (Flow.cs, AR-1; was 40 m).</summary>
+        /// <summary>SinkDiscM = LinkMeters: a route that ends in the disc off the pad links to the lift bottom (Flow.cs, AR-1, was 40 m).</summary>
         public const float SinkPadM = 90f, SinkDiscM = LinkMeters, SinkTopKeepM = 60f;
         public const float BranchFromM = 100f, BranchToM = 400f, BranchStepM = 50f, BranchTaperM = 60f, BranchLeaveM = 150f, BranchSearchM = 60f;
         public const float MergeZoneM = 60f, MergeZoneWiden = 1.5f, BowlWidthM = 60f;
@@ -89,12 +97,15 @@ namespace SkiResortMod.Systems
         /// gap, or a line the merge rules would reject), branch candidates proposed.</summary>
         public int FanReserve => m_FanRes.Count;
         public int FanDropped => m_FanDropped;
-        /// <summary>Pick drops by reason: 0 inside an accepted gap (tier 2-3, inside a ring or too far out to link), 1 a tier 0-1 seed in a
-        /// gap that cannot branch off, 2 a free line whose merge would be a stub, 3 a branch that no longer leaves its parent.</summary>
+        /// <summary>Pick drops by reason:
+        /// 0 inside an accepted gap (tier 2-3, inside a ring or too far out to link).
+        /// 1 a tier 0-1 seed in a gap that cannot branch off.
+        /// 2 a free line whose merge would be a stub.
+        /// 3 a branch that no longer leaves its parent.</summary>
         public int FanDropWhy(int why) => m_FanDropWhy[why];
         public int FanBranchCandidates => m_FanBranches;
 
-        /// <summary>One slot per lift of the skeleton (index = lift id). Ok = finite ends; Sink = its bottom is an open lattice cell out of
+        /// <summary>One slot per lift of the skeleton (index = lift id). Ok = finite ends. Sink = its bottom is an open lattice cell out of
         /// the edge strip. True when at least one lift is a sink (else the v1 base band and seeding run).</summary>
         private bool BuildFanLifts()
         {
@@ -129,9 +140,10 @@ namespace SkiResortMod.Systems
             return m_FanSinks > 0;
         }
 
-        /// <summary>Route-pass source rule in Resort mode (StartPassRows, one call per cell and pass, m_Pass is the pass): the fan lifts'
-        /// bottoms (BottomPad cells within SinkPadM of the station, not within SinkTopKeepM of any lift top, and a SinkDiscM disc). With
-        /// no fan lift: the v1 rule (base band below the pass's SourceTop). The lift table is rebuilt at the first cell of every pass.</summary>
+        /// <summary>Route-pass source rule in Resort mode (StartPassRows, one call per cell and pass, m_Pass is the pass). The sources are
+        /// the fan lifts' bottoms: BottomPad cells within SinkPadM of the station but not within SinkTopKeepM of any lift top, and a
+        /// SinkDiscM disc. With no fan lift: the v1 rule (base band below the pass's SourceTop). The lift table is rebuilt at the first cell
+        /// of every pass.</summary>
         private bool IsResortSource(int c)
         {
             if (c == 0)
@@ -164,15 +176,16 @@ namespace SkiResortMod.Systems
         /// <summary>Gap between neighbor runs: the density's centerline spacing minus the class width, at least the v1 Dense gap.</summary>
         private float FanGap(int pass) => Math.Max(DenseGapM, FanSpacingM[(int)m_Knobs.Density] - TargetWidthM[pass]);
 
-        /// <summary>The gap a fan line keeps on its last MergeApproachM before a merge: the v1 gap, at least FanNearGapM 30 m (DECISIONS 455;
-        /// neighbor centerlines stay at least the gap plus a pinch half width apart outside merge and split zones, F-5).</summary>
+        /// <summary>The gap a fan line keeps on its last MergeApproachM before a merge: the v1 gap, at least FanNearGapM 30 m (DECISIONS 455).
+        /// Neighbor centerlines stay at least the gap plus a pinch half width apart outside merge and split zones (F-5).</summary>
         private float FanLineGap(int pass, bool branch) => branch ? FanNearGap(pass) : FanGap(pass);
         private float FanNearGap(int pass) => Math.Max(GapOf(m_Knobs.Density, TargetWidthM[pass]), FanNearGapM);
 
-        /// <summary>Merge approach (BeginAttempt, a fan line that enters an accepted run's fan gap at path index len): when the line
-        /// reaches the merge stop (FanMergeStopM: the v1 gap, capped so the junction forms) within MergeApproachM it merges there instead (fall lines to one sink converge at a shallow angle, so the fan
-        /// gap alone would cut most lines to stubs); approach = the path length from the fan-gap entry to the merge (BuildRing keeps the
-        /// v1 gap on it). Else the merge stays at len.</summary>
+        /// <summary>Merge approach (BeginAttempt, a fan line that enters an accepted run's fan gap at path index len).
+        /// When the line reaches the merge stop within MergeApproachM, it merges there instead. The merge stop is FanMergeStopM: the v1 gap,
+        /// capped so the junction forms.
+        /// Fall lines to one sink converge at a shallow angle, so the fan gap alone would cut most lines to stubs.
+        /// Approach = the path length from the fan-gap entry to the merge (BuildRing keeps the v1 gap on it). Else the merge stays at len.</summary>
         private int FanApproach(int start, int len, int pathLen, int k, out float approach)
         {
             float near = FanMergeStopM(k), run = 0f;
@@ -205,8 +218,8 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- stage Seeds (m_Cursor2: 0 setup, 1 seed-cell rows, 2 one (lift, pass) list per unit)
 
-        /// <summary>Seeds hook (UnitSeeds, Resort only, once per unit): true = the fan seeding handled this unit; false = run the v1 seeding
-        /// (no fan lift). Case 0 repeats the v1 bookkeeping (m_FieldWarnings, ClearCandidates); one cluster per lift (Center = its top).</summary>
+        /// <summary>Seeds hook (UnitSeeds, Resort only, once per unit): true = the fan seeding handled this unit. False = run the v1 seeding
+        /// (no fan lift). Case 0 repeats the v1 bookkeeping (m_FieldWarnings, ClearCandidates). One cluster per lift (Center = its top).</summary>
         private bool FanSeeds()
         {
             if (m_Cursor2 == 0)
@@ -254,7 +267,7 @@ namespace SkiResortMod.Systems
                 return true;
             }
             if (m_Cursor < m_FanLifts.Count * Passes && !FanSeedList(m_Cursor / Passes, m_Cursor % Passes))
-                return true;   // the list goes on in the next unit
+                return true;   // the list continues in the next unit
             m_Cursor++;
             if (m_Cursor >= m_FanLifts.Count * Passes)
             {
@@ -265,9 +278,9 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Seed-cell rows on the v1 2-cell seed lattice: an in-band, usable cell EdgeSeedMarginM inside, not a sink, joins the list
-        /// of every fan lift whose seed tiers hold it, per pass it is in band for. Key: tier, then height plus the seeded jitter (v1
-        /// SeedRows), the cell in the low 21 bits.</summary>
+        /// <summary>Seed-cell rows on the v1 2-cell seed lattice. A cell joins when it is in band, usable, EdgeSeedMarginM inside and not a
+        /// sink. It joins the list of every fan lift whose seed tiers hold it, per pass it is in band for. Key: tier, then height plus the
+        /// seeded jitter (v1 SeedRows), the cell in the low 21 bits.</summary>
         private void FanSeedRows()
         {
             int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
@@ -338,9 +351,9 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>One (lift, pass) list: sorted (tier, then height plus jitter), spaced FanSeedSpacingM, each seed pre-walked; at most
-        /// SeedsPerLiftPass into the reserve. A unit looks at FanKeysPerUnit keys and walks FanWalksPerUnit of them (fixed work, P-1);
-        /// true when the list is done.</summary>
+        /// <summary>One (lift, pass) list: sorted (tier, then height plus jitter), spaced FanSeedSpacingM, each seed pre-walked, at most
+        /// SeedsPerLiftPass into the reserve. A unit looks at FanKeysPerUnit keys and walks FanWalksPerUnit of them (fixed work, P-1).
+        /// Returns true when the list is done.</summary>
         private bool FanSeedList(int lift, int p)
         {
             if (m_FanListK < 0)
@@ -377,9 +390,10 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Walks (cell, pass) along the route (MakeCandidate's walk). False when the line cannot be a run: flat, under MinLengthM
-        /// (plus FanLenSlackM: the smoothed centerline is shorter than the cell walk) or MinDropM. With checkGap (Select only: m_DAcc holds
-        /// the accepted runs' distance) the line BeginAttempt would cut is checked: a branch must leave its near gap within BranchLeaveM;
-        /// the merge (after the merge approach, FanApproach) must keep MinLengthM and the MergeKeepShare / MergeKeepM rule (else the line
+        /// (plus FanLenSlackM: the smoothed centerline is shorter than the cell walk) or MinDropM.
+        /// With checkGap (Select only: m_DAcc holds the accepted runs' distance), the function also checks the line BeginAttempt would cut.
+        /// A branch must leave its near gap within BranchLeaveM.
+        /// The merge (after the merge approach, FanApproach) must keep MinLengthM and the MergeKeepShare / MergeKeepM rule (else the line
         /// would be a TooShort or MergeStub reject).</summary>
         private bool FanWalk(int c, int p, bool branch, bool checkGap, out float len, out float drop, out SlopeBand expected, out int last)
         {
@@ -426,7 +440,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Adds a reserve seed when (cell, pass) walks to a run candidate (FanWalk; a branch with the gap rules). Score =
+        /// <summary>Adds a reserve seed when (cell, pass) walks to a run candidate (FanWalk, a branch with the gap rules). Score =
         /// MakeCandidate's Score0 (the same size, band, drop and seeded jitter terms).</summary>
         private bool FanAdd(int c, int lift, int p, int tier, int parent, bool branch)
         {
@@ -456,9 +470,9 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- stage Select
 
-        /// <summary>Select hook (end of BeginSelect, Resort only): per-lift caps (FanRunsPerLift by density; the run cap = their sum, at most the
-        /// v1 cap) and per-lift band targets (v1 Targets on the lift's cap); the reserve and the materialized candidates reset, so a
-        /// Reselect at Select equals a fresh run.</summary>
+        /// <summary>Select hook (end of BeginSelect, Resort only). It sets per-lift caps (FanRunsPerLift by density, the run cap = their sum,
+        /// at most the v1 cap) and per-lift band targets (v1 Targets on the lift's cap). It resets the reserve and the materialized
+        /// candidates, so a Reselect at Select equals a fresh run.</summary>
         private void FanCaps()
         {
             if (!FansOn)
@@ -515,9 +529,9 @@ namespace SkiResortMod.Systems
             m_MaxRatings = Math.Max(MaxRatings, RatingsPerRun * m_RunCap);
         }
 
-        /// <summary>The pick unit in Resort mode (UnitSelect phase 0): books the newest accepted run, adds the branch seeds of runs whose lift
-        /// has two runs (BranchRunsPerUnit runs per unit), then materializes the best usable seed as a v1 candidate (MakeCandidate) and
-        /// starts its attempt (BeginAttempt). Finish when the cap, the rating cap or the reserve runs out.</summary>
+        /// <summary>The pick unit in Resort mode (UnitSelect phase 0). It books the newest accepted run and adds the branch seeds of runs
+        /// whose lift has two runs (BranchRunsPerUnit runs per unit). Then it materializes the best usable seed as a v1 candidate
+        /// (MakeCandidate) and starts its attempt (BeginAttempt). It finishes when the cap, the rating cap or the reserve runs out.</summary>
         private void FanPick()
         {
             FanSync();
@@ -564,7 +578,7 @@ namespace SkiResortMod.Systems
             int before = m_Cands.Count;
             MakeCandidate(new SeedRec { Cell = pick.Cell, Cluster = pick.Lift, Pass = pick.Pass, Ordinal = pick.Ordinal });
             if (m_Cands.Count == before)
-                return;   // the walk is FanWalk's, so this does not happen; MakeCandidate counted the reject
+                return;   // the walk is FanWalk's, so this does not happen. MakeCandidate counted the reject
             Cand cand = m_Cands[m_Cands.Count - 1];
             cand.BranchOf = pick.Parent;
             cand.Tried = true;
@@ -593,10 +607,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The next reserve seed: among lifts under their cap the lowest fill (count / cap, ties by lift); in it, tier-0 seeds while
-        /// it has fewer than FanTopRunsMin top runs (none once it has FanTopRunsMax), else the v1 band-deficit order on the lift's own
-        /// targets (Terrain: the score), a branch worth BranchBonus and a seed draining to another lift's bottom OtherSinkFactor inside
-        /// one tier. -1 = nothing left.</summary>
+        /// <summary>The next reserve seed. Among lifts under their cap, the system takes the lowest fill (count / cap, ties by lift). In that
+        /// lift, it takes tier-0 seeds while the lift has fewer than FanTopRunsMin top runs (none once it has FanTopRunsMax). Otherwise it
+        /// uses the v1 band-deficit order on the lift's own targets (Terrain: the score). Inside one tier, a branch is worth BranchBonus and
+        /// a seed draining to another lift's bottom is worth OtherSinkFactor. -1 = nothing left.</summary>
         private int FanBest()
         {
             int nl = m_FanLifts.Count;
@@ -657,9 +671,12 @@ namespace SkiResortMod.Systems
             return 1000.0 * Math.Floor(1000.0 * (1.0 - have / (double)target)) + line;
         }
 
-        /// <summary>The seed against the accepted runs, at the pick: a branch must still be outside every ring and walk as a branch; a plain
-        /// seed outside every accepted gap must walk without a stub merge; a plain tier 0-1 seed inside a gap but outside the rings becomes
-        /// a branch of the nearest accepted run when it walks as one (runs leaving the top together). Else it is dropped.</summary>
+        /// <summary>The seed against the accepted runs, at the pick:
+        /// A branch must still be outside every ring and walk as a branch.
+        /// A plain seed outside every accepted gap must walk without a stub merge.
+        /// A plain tier 0-1 seed inside a gap but outside the rings becomes a branch of the nearest accepted run when it walks as one
+        /// (runs leaving the top together).
+        /// Else the system drops it.</summary>
         private bool FanWhy(int why, bool ok)
         {
             if (!ok)
@@ -698,9 +715,10 @@ namespace SkiResortMod.Systems
             return parent >= 0;
         }
 
-        /// <summary>Branch seeds of accepted run a: every BranchStepM from BranchFromM to BranchToM below its top, on both sides, the first
-        /// cell out along the normal whose distance to the accepted rings reaches MergeGapM + half the pass width + 2 m (the branch's
-        /// centerline, its ring abutting the parent), per pass it is in band for and not over the lift's top margin.</summary>
+        /// <summary>Branch seeds of accepted run a. Positions: every BranchStepM from BranchFromM to BranchToM below its top, on both sides.
+        /// Each seed is the first cell out along the normal whose distance to the accepted rings reaches MergeGapM + half the pass width + 2 m
+        /// (the branch's centerline, its ring abutting the parent). The system adds them per pass it is in band for and not over the lift's
+        /// top margin.</summary>
         private void FanBranchSeeds(int a, float fromM, float toM)
         {
             Accepted acc = m_Accepted[a];
@@ -743,8 +761,8 @@ namespace SkiResortMod.Systems
         /// <summary>A branch's gap near its top: MergeGapM at the top, growing to the full gap over BranchTaperM.</summary>
         private static float BranchGap(float gap, float s) => s >= BranchTaperM ? gap : MergeGapM + (gap - MergeGapM) * s / BranchTaperM;
 
-        /// <summary>Resort half width at a centerline sample: open bowls above a known tree line up to BowlWidthM, the last MergeZoneM
-        /// before a merge or a sink MergeZoneWiden x (March caps both at the free ground).</summary>
+        /// <summary>Resort half width at a centerline sample. Open bowls above a known tree line: up to BowlWidthM. The last MergeZoneM before
+        /// a merge or a sink: MergeZoneWiden x (March caps both at the free ground).</summary>
         private float FanHalfWidth(int pass, float half, float toEnd, bool widenEnd, float2 xz)
         {
             float hw = half;
@@ -765,7 +783,7 @@ namespace SkiResortMod.Systems
             return pod >= 0 && pod < m_PodList.Count ? pod : -1;
         }
 
-        /// <summary>The pod holding most of the points (m_PodOf; ties to the lower id), -1 = none.</summary>
+        /// <summary>The pod holding most of the points (m_PodOf, ties to the lower id), -1 = none.</summary>
         private int FanPodOf(float2[] pts, int n)
         {
             int pods = m_PodList.Count;
@@ -797,9 +815,9 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- the plan
 
-        /// <summary>RunLift (the lift whose fan seeded the run = its cluster; -1 without fans), RunPod (FanPodOf over the run's centerline,
+        /// <summary>RunLift (the lift whose fan seeded the run = its cluster, -1 without fans), RunPod (FanPodOf over the run's centerline,
         /// else the seeding lift's pod, else -1), PodRuns grouped by pod and each pod's RunFirst / RunCount. For FinishResort (A6) after
-        /// LiftPlan; FinishResortUnit calls it when the plan does not have them yet.</summary>
+        /// LiftPlan. FinishResortUnit calls it when the plan does not have them yet.</summary>
         private void FanRunPlan(ResortPlan plan, AutoPlanResult res)
         {
             int n = res.Runs.Count, pods = plan.Pods.Length;

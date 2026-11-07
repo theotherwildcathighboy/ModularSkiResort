@@ -1,6 +1,6 @@
-// Mouse tooltip for StationFacingRefusalSystem: while a station preview is refused for facing away from the line end it snaps to, one
-// error line says why (SkiResort.StationFacing.REFUSED). The vanilla tooltips show no text for our Error (it carries no ErrorType icon).
-// Same pattern as PowerJoinTooltipSystem; Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip. A "!!!" ERROR disables it until the
+// Mouse tooltip for StationFacingRefusalSystem. While a station preview is refused for facing away from the line end it snaps to,
+// one error line says why (SkiResort.StationFacing.REFUSED). The vanilla tooltips show no text for our Error (it carries no ErrorType icon).
+// Same pattern as PowerJoinTooltipSystem. Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip. A "!!!" ERROR disables it until the
 // next load.
 
 using System;

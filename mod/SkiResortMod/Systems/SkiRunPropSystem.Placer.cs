@@ -1,8 +1,8 @@
-// The run prop placer: walks a run's border by distance (RunPropPlacerRules) and stands guns, hydrants and masts as free-standing objects
-// tagged SkiRunPropMember, never Secondary children vanilla would reap. Rebuilt when a run's outline or slider changes, after the settle
-// (RunPropDensityRules.NextStable), diffed against what stands, and spread over frames (MaxOpsPerFrame). Removed in this same phase when the
-// run carries Deleted: bulldoze, hub trash, delete mode, the sign cascade and delete-all all mark the area before Modification4B.
-// Old saves: the load sweep deletes the run's vanilla corner props once (Secondary + Owner == run); idempotent, they cannot come back
+// The run prop placer: it walks a run's border by distance (RunPropPlacerRules). It stands guns, hydrants and masts as free-standing objects
+// tagged SkiRunPropMember, never Secondary children vanilla would reap. It rebuilds when a run's outline or slider changes, after the settle
+// (RunPropDensityRules.NextStable). It diffs against what stands and spreads the work over frames (MaxOpsPerFrame). It removes props in this
+// same phase when the run carries Deleted. Bulldoze, hub trash, delete mode, the sign cascade and delete-all all mark the area before Modification4B.
+// Old saves: the load sweep deletes the run's vanilla corner props once (Secondary + Owner == run). This is idempotent, and they cannot come back
 // with the corner chances at 0. Game mode only. House contract: ARMED line, one-shot "!!!" catch, one [cost] line per rebuild burst.
 // Engine notes: EngineNotes/SkiRunPropSystem.md, EngineNotes/SkiRunPropMember.md
 
@@ -24,8 +24,8 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiRunPropSystem
     {
-        /// <summary>Budgets per frame: objects created or deleted, and runs planned. Each run plan is a ring walk (microseconds); a 2 km run at
-        /// the closest spacing is about 100 props, so a long run or a slider settle spreads over a few frames.</summary>
+        /// <summary>Budgets per frame: objects created or deleted, and runs planned. Each run plan is a ring walk (microseconds). A 2 km run at
+        /// the closest spacing is about 100 props. So a long run or a slider settle spreads over a few frames.</summary>
         private const int MaxOpsPerFrame = 48;
         private const int MaxPlansPerFrame = 8;
 
@@ -49,7 +49,7 @@ namespace SkiResortMod.Systems
         // prefab -> RunKind, the kinds the placer can stand props on (session cache, ResolveRunPrefabs).
         private readonly Dictionary<Entity, int> m_RunKindOf = new Dictionary<Entity, int>();
 
-        // RunPropPlacerRules.Props index -> prefab; Null = not found (session cache).
+        // RunPropPlacerRules.Props index -> prefab. Null = not found (session cache).
         private Entity[] m_PropPrefabs;
         private readonly Dictionary<Entity, int> m_PropIndexOf = new Dictionary<Entity, int>();
         private bool m_PropsResolved;
@@ -91,7 +91,7 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Temp>(),
                 },
             });
-            // Every area deleted this frame (a vanilla one too, filtered by prefab): Deleted stands until CleanUp, and each delete path marks
+            // Every area deleted this frame (a vanilla one too, filtered by prefab). Deleted stands until CleanUp. Each delete path marks
             // the area before Modification4B (tool apply, PostTool, the sign cascade in Modification2).
             m_DeletedAreaQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -141,7 +141,7 @@ namespace SkiResortMod.Systems
             });
         }
 
-        /// <summary>Per-load setup (own try/catch). Non-Game load: the corner chances go back to the prefab values; the placer stays off.</summary>
+        /// <summary>Per-load setup (own try/catch). Non-Game load: the corner chances go back to the prefab values. The placer stays off.</summary>
         private void LoadPlacer(GameMode mode)
         {
             m_PlacerLive = false;
@@ -216,7 +216,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The placer's catch: one "!!!" per load, placer off until the next game load; standing props stay, the bridge keeps working.</summary>
+        /// <summary>The placer's catch: one "!!!" per load, placer off until the next game load. Standing props stay, and the bridge keeps working.</summary>
         private void PlacerFailed(Exception e)
         {
             m_PlacerDisabled = true;
@@ -249,10 +249,10 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>THE features of a built run (R2, DECISIONS 577): <paramref name="kind"/> is its prefab kind (the caller's own
-        /// classification: catalog row, injection set, ownership KindOf), the spacings are its saved SkiRunPropSettings, or the kind's defaults
-        /// before the placer gave it settings (so a preset prefab answers its kind's features from the first frame). Every snow, bill, score
-        /// and prop decision that depends on a slider reads it through here or CatTrackGunsOn (tools/check-run-props.js R2). Main thread; one
+        /// <summary>THE features of a built run (R2, DECISIONS 577). <paramref name="kind"/> is its prefab kind (the caller's own
+        /// classification: catalog row, injection set, ownership KindOf). The spacings are its saved SkiRunPropSettings, or the kind's defaults
+        /// before the placer gave it settings. So a preset prefab answers its kind's features from the first frame. Every snow, bill, score
+        /// and prop decision that depends on a slider reads it through here or CatTrackGunsOn (tools/check-run-props.js R2). Main thread. One
         /// component read.</summary>
         internal RunFeatures FeaturesOf(Entity run, int kind)
         {
@@ -264,9 +264,9 @@ namespace SkiResortMod.Systems
             return RunFeatures.FromSpacings(kind, RunPropPlacerRules.DefaultGunSpacing(kind), RunPropPlacerRules.DefaultLightSpacing(kind));
         }
 
-        /// <summary>Whether a cat track's snow guns are on (its gun value above Off; the kind's default 60 m before the placer gave it
+        /// <summary>Whether a cat track's snow guns are on (its gun value above Off, the kind's default 60 m before the placer gave it
         /// settings) = FeaturesOf(run, CatTrack).Snowmaking. SkiRunUpkeepSystem and the hub's cost row pass it to
-        /// SnowGunPlumeRules.TrackBilledHa, so a track set to Off bills nothing (DECISIONS 563). Main thread; one component read.</summary>
+        /// SnowGunPlumeRules.TrackBilledHa, so a track set to Off bills nothing (DECISIONS 563). Main thread. One component read.</summary>
         internal bool CatTrackGunsOn(Entity run)
         {
             if (run == Entity.Null || !EntityManager.Exists(run) || !EntityManager.HasComponent<SkiRunPropSettings>(run))
@@ -297,7 +297,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>A new run's features chosen before it stood (Quick runs' snowmaking and lit runs, the draw row, run types R3): both
         /// sliders at once, added when the placer has not given the run its defaults yet. The caller settles the steps
-        /// (SkiRunOwnershipSystem.SettleFeatureSteps; an unbound run pays them when it binds). False for a run the placer does not walk.</summary>
+        /// (SkiRunOwnershipSystem.SettleFeatureSteps). An unbound run pays them when it binds. False for a run the placer does not walk.</summary>
         internal bool SeedSpacing(Entity run, int gunM, int lightM)
         {
             if (!EntityManager.Exists(run) || EntityManager.HasComponent<Deleted>(run) || !EntityManager.HasComponent<PrefabRef>(run) ||
@@ -317,7 +317,7 @@ namespace SkiResortMod.Systems
 
         // --- Deletes -------------------------------------------------------------------------------------------------------------------
 
-        /// <summary>This frame's deleted runs take their props along: every delete path ends in a Deleted tag on the area, and props deleted
+        /// <summary>This frame's deleted runs lose their props: every delete path ends in a Deleted tag on the area. Props deleted
         /// here reach the search tree at Modification5 like vanilla's own (SecondaryObjectSystem deletes in this phase too).</summary>
         private void CascadeDeletes()
         {
@@ -360,7 +360,7 @@ namespace SkiResortMod.Systems
 
         // --- Load sweep ----------------------------------------------------------------------------------------------------------------
 
-        /// <summary>Once per load, on the first frame with a resort: an old save's corner props go; orphan tags go; every run of a walked kind
+        /// <summary>Once per load, on the first frame with a resort: an old save's corner props go. Orphan tags go. Every run of a walked kind
         /// gets its settings and is compared with what stands. Saved props whose key still matches stay untouched.</summary>
         private void LoadSweep()
         {
@@ -398,7 +398,7 @@ namespace SkiResortMod.Systems
             }
 
             // Mutate after collecting: structural changes invalidate the buffers. Same phase and same shape as vanilla's own reap
-            // (SecondaryObjectSystem.cs:1195-1206); SecondaryObjectReferencesSystem takes them out of the run's buffer at Modification5.
+            // (SecondaryObjectSystem.cs:1195-1206). SecondaryObjectReferencesSystem removes them from the run's buffer at Modification5.
             for (int i = 0; i < corner.Count; i++)
             {
                 Entity child = corner[i];
@@ -628,11 +628,11 @@ namespace SkiResortMod.Systems
 
         private bool RunAlive(Entity run) => EntityManager.Exists(run) && !EntityManager.HasComponent<Deleted>(run);
 
-        /// <summary>One free-standing prop, the entity shape of vanilla's own creation without the Secondary owner types
-        /// (SecondaryObjectSystem.cs:3552-3560, :3638-3649) plus the Surface an unowned physical object gets (GenerateObjectsSystem.cs:1264-1274).
+        /// <summary>One free-standing prop. It has the entity shape of vanilla's own creation without the Secondary owner types
+        /// (SecondaryObjectSystem.cs:3552-3560, :3638-3649), plus the Surface an unowned physical object gets (GenerateObjectsSystem.cs:1264-1274).
         /// The archetype brings Created + Updated (ObjectPrefab.RefreshArchetype), so the search tree and the renderer take it from here. No
-        /// Elevation: on the ground, and GroundHeightSystem re-snaps it after a terrain edit (Overridable | Brushable props,
-        /// ObjectInitializeSystem.cs:602-605; GroundHeightSystem.cs:229, :604).</summary>
+        /// Elevation: on the ground. GroundHeightSystem re-snaps it after a terrain edit (Overridable | Brushable props,
+        /// ObjectInitializeSystem.cs:602-605 and GroundHeightSystem.cs:229, :604).</summary>
         private bool CreateProp(Entity run, PlacedProp prop)
         {
             Entity prefab = m_PropPrefabs[prop.Prop];
@@ -667,7 +667,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>The object's variety seed, stable for the slot; 0 is a valid value but GetRandom clamps it away (HashSeed's note).</summary>
+        /// <summary>The object's variety seed, stable for the slot. 0 is a valid value but GetRandom clamps it away (HashSeed's note).</summary>
         private static ushort PropSeed(PlacedProp prop)
         {
             unchecked
@@ -738,7 +738,7 @@ namespace SkiResortMod.Systems
         // --- Prefabs -------------------------------------------------------------------------------------------------------------------
 
         /// <summary>The table's prefabs by name, not through any run prefab's sub-object list: a cat track needs no AreaSubObjects. Session
-        /// cache; a missing one is tolerated with a line (a slot of it stays empty).</summary>
+        /// cache. A missing one is tolerated with a line (a slot of it stays empty).</summary>
         private void ResolveProps()
         {
             if (m_PropsResolved)

@@ -1,9 +1,11 @@
-// The hub's side of the Resort Planner tool (code name Quick runs; contract 17 plus the v2 plan fields, bumped at the merge to main): the `quickRuns` value binding (bindings.ts QuickRunsState, written here from the
-// tool's fields) and the two triggers, quickRunsToggle (open / close, the glade toggle's pattern) and quickRunsSet(key, value) (every
-// knob, button and tree setting: QuickRunsToolSystem.HubSet). Pushed only while the panel observes it, when the tool's HubRevision,
-// availability or activity moved (the ArrayPush idea for one struct). Resort Planner v2 (stage A, task A7): the Lifts / Way home knobs
-// (liftsKnob, home) and, while a plan is showing, its pods, lifts and summary (pods, planLifts, plan); every one is empty or zero
-// without a plan, so a Region step writes the same binding as before plus those empty fields.
+// The hub's side of the Resort Planner tool (code name Quick runs, contract 17 plus the v2 plan fields, bumped at the merge to main).
+// It has the `quickRuns` value binding (bindings.ts QuickRunsState, written here from the tool's fields). The two triggers are
+// quickRunsToggle (open / close, the glade toggle's pattern) and quickRunsSet(key, value) (every knob, button and tree setting:
+// QuickRunsToolSystem.HubSet). The system pushes the binding only while the panel observes it, when the tool's HubRevision,
+// availability or activity moved (the ArrayPush idea for one struct).
+// Resort Planner v2 (stage A, task A7): the Lifts / Way home knobs (liftsKnob, home) and, while a plan is showing, its pods, lifts and
+// summary (pods, planLifts, plan). Every one is empty or zero without a plan, so a Region step writes the same binding as before plus
+// those empty fields.
 // Engine notes: EngineNotes/SkiResortHubUISystem.md (Quick runs)
 
 using System.Collections.Generic;
@@ -83,8 +85,8 @@ namespace SkiResortMod.Systems
             writer.Write(s_QuickPhaseNames[(int)t.Phase]);
             writer.PropertyName("corners");
             writer.Write(t.Corners);
-            // The Region step's "click a lift station" line is true only when the census knows a station (the census arms after the
-            // tool opens, so this can flip without a hub revision: PushQuickRuns folds it into its key)
+            // The Region step's "click a lift station" line is true only when the census knows a station. The census arms after the
+            // tool opens, so this can flip without a hub revision. PushQuickRuns folds it into its key.
             writer.PropertyName("canPlanAround");
             writer.Write(t.CanPlanAround);
             writer.PropertyName("areaM2");
@@ -181,21 +183,21 @@ namespace SkiResortMod.Systems
             writer.Write(t.Building ? t.BuildTotal : 0);
             writer.PropertyName("planting");
             writer.Write(t.Planting);
-            // Undo trees reuses the progress pair with planting false ("Removing trees N / M"; same shape, contract unchanged)
+            // Undo trees reuses the progress pair with planting false ("Removing trees N / M"). Same shape, contract unchanged.
             writer.PropertyName("treesDone");
             writer.Write(t.RemovingTrees ? t.RemoveDone : t.PlantDone);
             writer.PropertyName("treesTotal");
             writer.Write(t.Planting ? t.PlantTotal : t.RemovingTrees ? t.RemoveTotal : 0);
-            // What Plant will cost (contract 18): the ready preview's Temp cost per tree times the trees to plant; 0 without a preview
+            // What Plant will cost (contract 18): the ready preview's Temp cost per tree times the trees to plant. 0 without a preview
             writer.PropertyName("treesCost");
             writer.Write(t.TreeCost);
             // Why lines were dropped (contract 20): the scan's reject histogram in QuickRunsRules.RejectBuckets buckets, only when the
-            // scan has a result (a preview, or the refusal in the Region step); zeros otherwise
+            // scan has a result (a preview, or the refusal in the Region step). Zeros otherwise
             AutoPlanResult scan = t.Result;
             bool scanned = scan.Candidates > 0 && (preview || (t.Phase == QuickRunsToolSystem.ToolPhase.Region && t.StatusKey != null));
             writer.PropertyName("rejects");
             WriteInts(writer, QuickRunsRules.RejectCounts(scan.Rejects), scanned);
-            // The site verdict (contract 21): the whole percent and its tier (QuickRunsRules.SiteTier; 0 = unknown, no line)
+            // The site verdict (contract 21): the whole percent and its tier (QuickRunsRules.SiteTier, 0 = unknown, no line)
             int sitePct = QuickRunsRules.SitePercent(t.SiteGrade);
             writer.PropertyName("sitePercent");
             writer.Write(sitePct);
@@ -313,7 +315,7 @@ namespace SkiResortMod.Systems
             writer.Write(mixK);
             writer.Write(0);
             writer.ArrayEnd();
-            // The site verdict's detail line (v1 keeps sitePercent / siteTier; Resort adds this one line): pods whose lift meets its wanted
+            // The site verdict's detail line (v1 keeps sitePercent / siteTier, Resort adds this one line). Content: pods whose lift meets its wanted
             // way home (field name kept from stage A), of the pods a lift serves, and the largest bench in hectares (one decimal)
             writer.PropertyName("sitePods");
             writer.Write(plan != null ? plan.Site.Pods : 0);
@@ -330,10 +332,10 @@ namespace SkiResortMod.Systems
 
         private static string ClassKey(TerrainBand band) => QuickRunsRules.TipPrefix + "CLASS[" + s_TerrainBandNames[(int)band] + "]";
 
-        /// <summary>"" without a verdict (None, or a pod without a lift); else the verdict's tooltip locale key.</summary>
+        /// <summary>"" without a verdict (None, or a pod without a lift). Else the verdict's tooltip locale key.</summary>
         private static string VerdictKey(HomeVerdict v) => v == HomeVerdict.None ? "" : QuickRunsRules.TipPrefix + "VERDICT[" + s_VerdictNames[(int)v] + "]";
 
-        /// <summary>The level the Home knob asked for at a lift (the hub's QUICK_HOME_* text); "" while Auto is unresolved.</summary>
+        /// <summary>The level the Home knob asked for at a lift (the hub's QUICK_HOME_* text). "" while Auto is unresolved.</summary>
         private static string WantedKey(HomeLevel w) =>
             w == HomeLevel.Green ? "SkiResort.Hub.QUICK_HOME_GREEN" : w == HomeLevel.Blue ? "SkiResort.Hub.QUICK_HOME_BLUE" : "";
 

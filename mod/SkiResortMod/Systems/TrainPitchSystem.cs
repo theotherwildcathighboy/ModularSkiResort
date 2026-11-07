@@ -1,50 +1,52 @@
 // Phase 2 of the lift alignment fix (docs: lift-alignment-2026-11-02, DECISIONS 570): a line tower's sheave trains pitch with the rope.
-// CS2 draws each span's rope straight to the tower's anchor, so the rope corners there; a rigid train cannot seat its wheels on a corner.
+// CS2 draws each span's rope straight to the tower's anchor, so the rope corners there. A rigid train cannot seat its wheels on a corner.
 // The trains are articulated (owner verdict 2026-11-02, option C): two half-trains hinged on the main pin, which lies on the anchor, each
 // pitched to its own span's rope. The tower mesh is skinned with bones "TrainFront*" (the half on the tower's +z side) and "TrainBack*"
-// (-z); each bone's origin is the anchor its rope corners at (a second rope on the same half, the tram's haul rope, gets its own bone,
-// e.g. "TrainFrontHaul"). The pitch is visual only: the tower Transform stays yaw-only (AlignSystem resets it on every node update) unless
-// TowerLeanSystem leans it (DECISIONS 600), and the rope lanes keep anchoring on the prefab's sub-lane ends, which the bones turn about.
-//   TrainPitchSystem (Modification4B, after LiftCensusSystem): per tower with train bones, the pitches from the rope lanes the engine built
-//     (LaneSystem runs at Modification4): every lift-edge rope lane end on the tower's anchors gives its angle along the tower's +z
-//     (LiftAlignMath.LaneEndPitch); the lanes leaving toward +z average to the front pitch, those toward -z to the back pitch
-//     (LiftAlignMath.HalfPitches: each clamped to TrainPitchLimit, the type's steepest rope but at most 30 deg; the half-break to
-//     MaxHalfBreakDeg). Kept in TrainPitch and the TrainBonePose buffer (not saved: the first census of a load recomputes every tower).
+// (-z). Each bone's origin is the anchor its rope corners at (a second rope on the same half, the tram's haul rope, gets its own bone,
+// e.g. "TrainFrontHaul"). The pitch is visual only. The tower Transform stays yaw-only (AlignSystem resets it on every node update) unless
+// TowerLeanSystem leans it (DECISIONS 600). The rope lanes keep anchoring on the prefab's sub-lane ends, which the bones turn about.
+//   TrainPitchSystem (Modification4B, after LiftCensusSystem): per tower with train bones, it takes the pitches from the rope lanes the
+//     engine built (LaneSystem runs at Modification4). Every lift-edge rope lane end on the tower's anchors gives its angle along the
+//     tower's +z (LiftAlignMath.LaneEndPitch). The lanes leaving toward +z average to the front pitch, those toward -z to the back pitch
+//     (LiftAlignMath.HalfPitches: each clamped to TrainPitchLimit, the type's steepest rope but at most 30 deg. The half-break is clamped
+//     to MaxHalfBreakDeg). The system keeps the result in TrainPitch and the TrainBonePose buffer (not saved: the first census of a load
+//     recomputes every tower).
 //   Wide tram saddles (DECISIONS 597): a tower whose mesh is a tram tower of art letter D or later (LiftAlignMath.WideTramSaddle on
 //     the RenderPrefab name) takes the tram saddle's limits instead (LiftAlignMath.TrainLimits: each half to TramSaddlePitchLimitDeg
-//     60, the half-break to TramHalfBreakMaxDeg 30); the letter C meshes keep 30 / 20, so this code never folds them past their art.
+//     60, the half-break to TramHalfBreakMaxDeg 30). The letter C meshes keep 30 / 20, so this code never folds them past their art.
 //   Train limits (hub row LiftTrainLimit, 2026-11-03): the same pass measures every line tower with anchors, rigged or not, by how far its
-//     rope asks past those limits (LiftAlignMath.TrainOverDeg on the unclamped pitches); a tower over TrainWarnDeg enters TrainOver. When
+//     rope asks past those limits (LiftAlignMath.TrainOverDeg on the unclamped pitches). A tower over TrainWarnDeg enters TrainOver. When
 //     that set changes the pass asks LiftCensusSystem for a coalesced build, which reads it into LiftCensus.Node.TrainOverDeg.
-//   TrainBoneSystem (Rendering, after InitializeBonesSystem): writes the bones. Skeletons exist only near the camera and come back at rest
-//     on every (re)allocation (InitializeBonesSystem.cs:57-70, :161-171), and vanilla never writes a None bone (ObjectInterpolateSystem
-//     AnimateStaticBone has no case for it), so a Burst job re-applies the rotations each frame where they differ.
-// The bone indices come from the mesh's ProceduralAnimationProperties by name (bone names are not kept at runtime). The ProceduralBone
-// buffer is built in m_Bones order with m_BindIndex = that index (MeshSystem.cs:549-562), then sorted by hierarchy depth, parent and
-// source (InitializeMeshJob, MeshSystem.cs:162-164, :237): sibling order is not kept, so the slot is the one whose m_BindIndex matches. The
-// Bone buffer follows the sorted slots (ProceduralSkeletonSystem.GetSkinMatrices). The Skeleton index is the prefab SubMesh index
-// (ObjectInterpolateSystem.cs:344-351).
+//   TrainBoneSystem (Rendering, after InitializeBonesSystem): writes the bones. Skeletons exist only near the camera. They come back at rest
+//     on every (re)allocation (InitializeBonesSystem.cs:57-70, :161-171). Vanilla never writes a None bone (ObjectInterpolateSystem
+//     AnimateStaticBone has no case for it). So a Burst job re-applies the rotations each frame where they differ.
+// The bone indices come from the mesh's ProceduralAnimationProperties by name (bone names are not kept at runtime). The engine builds the
+// ProceduralBone buffer in m_Bones order with m_BindIndex = that index (MeshSystem.cs:549-562). Then it sorts the buffer by hierarchy
+// depth, parent and source (InitializeMeshJob, MeshSystem.cs:162-164, :237). Sibling order is not kept, so the slot is the one whose
+// m_BindIndex matches. The Bone buffer follows the sorted slots (ProceduralSkeletonSystem.GetSkinMatrices). The Skeleton index is the
+// prefab SubMesh index (ObjectInterpolateSystem.cs:344-351).
 //   Head (DECISIONS 594, spike tilted-towers-2026-11-04 option B): a DQ / GD mesh with a bone named "Head*" (child of Root, origin on the
-//     same pivot line as the halves) is headed: the head (gantry, deck, trains' carrier) turns to LiftAlignMath.HeadPitch, the bisector
-//     of the ropes clamped to +-HeadRelMaxDeg (20) relative to the mast (DECISIONS 600; 594's MaxTrainPitch head limits DQ 42.0 /
-//     GD 50.2 went), and the halves to the head +- MaxHalfBreakDeg (HeadedHalfPitches); its train limit is HeadedTrainOverDeg. Head
+//     same pivot line as the halves) is headed. The head (gantry, deck, trains' carrier) turns to LiftAlignMath.HeadPitch: the bisector
+//     of the ropes clamped to +-HeadRelMaxDeg (20) relative to the mast (DECISIONS 600). 594's MaxTrainPitch head limits DQ 42.0 /
+//     GD 50.2 went. The halves turn to the head +- MaxHalfBreakDeg (HeadedHalfPitches). Its train limit is HeadedTrainOverDeg. Head
 //     and halves are siblings on the mast. A pose change re-arms TowerNumberTileSystem, which poses the tiles (and the GD beacon)
 //     through the head.
 //   Mast lean (DECISIONS 600): TowerLeanSystem leans a steep tower's mast about its foot. Every bone is local to the mast, so the pass
-//     takes the mast's pitch (LiftAlignMath.MastPitch of the tower rotation; 0 on a plumb tower) off the absolute lane-end pitches
-//     before every limit above: the train limits and the hub row are relative to the mast.
+//     takes the mast's pitch (LiftAlignMath.MastPitch of the tower rotation, 0 on a plumb tower) off the absolute lane-end pitches
+//     before every limit above. So the train limits and the hub row are relative to the mast.
 //   Padded face uphill (DECISIONS 600 e): TowerLeanSystem turns a tower 180 deg where vanilla's yaw put its +z (pad, TrainFront)
-//     downhill. Nothing here depends on the yaw: front / back, the pitches and MastPitch are all read along the tower's current +z, so on
-//     a turned tower TrainFront is the uphill half and both halves read nose up (LiftBatch PF-3).
-//   Carrier clearance (DECISIONS 600 c): the carrier hangs plumb in the world, so a half whose WORLD pitch (half + mast) passes the
-//     art's limit for the tower's family and head (LiftAlignMath.WorldHalfMaxDeg: FG support / Break 41.5, GD support 55, GD Hold 45,
-//     DQ Hold 57.5; the head from the prefab name, LiftTowerPlanConstants.HeadOfTwin) is clamped to it, last (LiftAlignMath.PoseTrain:
-//     one rule for the system and LiftBatch PC-9): a built tower past it never renders the carrier through its train. Its excess joins
-//     the train limit (hub row LiftTrainLimit).
+//     downhill. Nothing here depends on the yaw. Front / back, the pitches and MastPitch are all read along the tower's current +z.
+//     So on a turned tower TrainFront is the uphill half, and both halves read nose up (LiftBatch PF-3).
+//   Carrier clearance (DECISIONS 600 c): the carrier hangs plumb in the world. So the system clamps, last, a half whose WORLD pitch
+//     (half + mast) passes the art's limit for the tower's family and head (LiftAlignMath.WorldHalfMaxDeg: FG support / Break 41.5,
+//     GD support 55, GD Hold 45, DQ Hold 57.5. The head comes from the prefab name, LiftTowerPlanConstants.HeadOfTwin).
+//     The clamp is LiftAlignMath.PoseTrain: one rule for the system and LiftBatch PC-9. Therefore a built tower past the limit never
+//     renders the carrier through its train. Its excess joins the train limit (hub row LiftTrainLimit).
 // Never: Temp or Deleted towers (a preview stays level), towers whose prefab has no train bone (unskinned art: nothing changes), Editor.
 // Log discipline: one line per rigged tower prefab per load, one line per pass that posed a tower or changed the rope-less count (with
 // the towers whose break was clamped), a one-shot "!!!" catch.
-// Mod.cs: UpdateAfter<TrainPitchSystem, LiftCensusSystem>(Modification4B); UpdateAfter<TrainBoneSystem, InitializeBonesSystem>(Rendering).
+// Mod.cs: UpdateAfter<TrainPitchSystem, LiftCensusSystem>(Modification4B).
+// Mod.cs: UpdateAfter<TrainBoneSystem, InitializeBonesSystem>(Rendering).
 
 using System;
 using System.Collections.Generic;
@@ -69,8 +71,8 @@ using Transform = Game.Objects.Transform;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>A rigged line tower's half-train pitches (runtime only, rebuilt from the rope lanes; the bone rotations are in its
-    /// TrainBonePose buffer).</summary>
+    /// <summary>A rigged line tower's half-train pitches (runtime only, rebuilt from the rope lanes). The bone rotations are in its
+    /// TrainBonePose buffer.</summary>
     public struct TrainPitch : IComponentData
     {
         public float m_Front;           // radians, nose up along the tower's +z, of the +z half (TrainFront bones)
@@ -132,7 +134,7 @@ namespace SkiResortMod.Systems
         private readonly List<Pending> m_Pending = new List<Pending>();
         private int m_Passes, m_LastNoRope;
         // Per line node, the degrees its tower's rope asks past the train limits (LiftAlignMath.TrainOverDeg over TrainWarnDeg), for every
-        // line tower with anchors, rigged or not; LiftCensusSystem reads it into LiftCensus.Node.TrainOverDeg (the hub's LiftTrainLimit).
+        // line tower with anchors, rigged or not. LiftCensusSystem reads it into LiftCensus.Node.TrainOverDeg (the hub's LiftTrainLimit).
         private Dictionary<Entity, float> m_Over = new Dictionary<Entity, float>();
         private Dictionary<Entity, float> m_OverNext = new Dictionary<Entity, float>();
         private LiftCensusSystem m_Census;
@@ -191,7 +193,7 @@ namespace SkiResortMod.Systems
                 return;
             try
             {
-                // A tower move or a span edit updates the lift edges (their lanes are rebuilt this frame at Modification4); the census
+                // A tower move or a span edit updates the lift edges (their lanes are rebuilt this frame at Modification4). The census
                 // only rebuilds on Created / Deleted edges.
                 if (!m_Dirty && m_Edges.Count > 0 && !m_UpdatedEdges.IsEmptyIgnoreFilter && LiftEdgeUpdated())
                     Arm("edge updated");
@@ -233,7 +235,7 @@ namespace SkiResortMod.Systems
             m_OverNext.Clear();
             int towers = 0, noRope = 0, clamped = 0, headed = 0, headsPosed = 0, worldHeld = 0;
             float maxDeg = 0f, maxHalfBreakDeg = 0f, maxHeadDeg = 0f, maxLeanDeg = 0f, maxWorldDeg = 0f;
-            // Read everything first; the component adds below are structural changes, which would invalidate the node buffers read here.
+            // Read everything first: the component adds below are structural changes, which would invalidate the node buffers read here.
             for (int i = 0; i < m_Edges.Count; i++)
             {
                 LiftCensus.Edge ce = m_Edges[i];
@@ -340,7 +342,7 @@ namespace SkiResortMod.Systems
             if (headsPosed > 0)
                 World.GetOrCreateSystemManaged<TowerNumberTileSystem>().OnHeadsChanged(headsPosed);
 
-            // A census rebuild re-runs the pass about every 40 s; a pass that posed nothing logs only when the rope-less count changed.
+            // A census rebuild re-runs the pass about every 40 s. A pass that posed nothing logs only when the rope-less count changed.
             if (m_Pending.Count > 0 || noRope != m_LastNoRope)
             {
                 double ms = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
@@ -357,7 +359,7 @@ namespace SkiResortMod.Systems
             m_LastNoRope = noRope;
             m_Pending.Clear();
 
-            // The towers past their train's limits: when the set or a tower's figure changed, log it and have the census re-measure, so
+            // The towers past their train's limits. When the set or a tower's figure changed, log it and have the census re-measure. So
             // the hub's LiftTrainLimit row follows the trains within one coalesce window (the census reads m_Over at its harvest).
             if (!SameOver(m_Over, m_OverNext))
             {
@@ -397,7 +399,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The mean lane-end pitches of the ropes on the tower's anchors leaving toward +z (front) and -z (back), with their counts
-        /// (the inputs of LiftAlignMath.HalfPitches / HeadedHalfPitches); false when no lane end sits on an anchor.</summary>
+        /// (the inputs of LiftAlignMath.HalfPitches / HeadedHalfPitches). False when no lane end sits on an anchor.</summary>
         private bool RopeAt(Entity node, Entity towerPrefab, Transform t, out float meanF, out int nF, out float meanB, out int nB)
         {
             meanF = meanB = 0f;
@@ -438,8 +440,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The carrier-clearance limit (radians, in the world) of a tower prefab on a <paramref name="typeId"/> line, cached per
-        /// prefab: LiftAlignMath.WorldHalfMaxDeg by the type and the prefab's head (a twin's name, LiftTowerPlanConstants.HeadOfTwin;
-        /// else the line member's "support"); +infinity without a row (the tram, DQ members, every Combo, the FG Hold).</summary>
+        /// prefab: LiftAlignMath.WorldHalfMaxDeg by the type and the prefab's head (a twin's name, LiftTowerPlanConstants.HeadOfTwin, else the
+        /// line member's "support"). +infinity without a row (the tram, DQ members, every Combo, the FG Hold).</summary>
         private float WorldMaxOf(Entity prefab, string typeId)
         {
             if (m_WorldMax.TryGetValue(prefab, out float v))
@@ -450,7 +452,7 @@ namespace SkiResortMod.Systems
             return v;
         }
 
-        /// <summary>The rig index of the prefab's Head bone; -1 when it has none (unheaded: FG, tram, the pre-head DQ / GD meshes).</summary>
+        /// <summary>The rig index of the prefab's Head bone. -1 when it has none (unheaded: FG, tram, the pre-head DQ / GD meshes).</summary>
         private static int HeadOf(List<RigBone> rig)
         {
             if (rig != null)
@@ -484,7 +486,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The prefab's train bones (TrainFront* / TrainBack*), resolved once per prefab per load from the mesh prefabs (main
-        /// thread); null when it has none.</summary>
+        /// thread). It returns null when it has none.</summary>
         private List<RigBone> RigOf(Entity prefab)
         {
             if (m_Rigs.TryGetValue(prefab, out List<RigBone> rig))

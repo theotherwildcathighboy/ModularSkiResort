@@ -1,8 +1,8 @@
-// SkiResortAttractivenessSystem, merged buildings (MergeRules header; SkiMergedLodge). A merged building is a top-level lodge of the
-// tier its tag names (LodgeIdentity), linked to a sign like our own lodges, and counted only within SkiDayRules.SlopesideMaxM of a run or
+// SkiResortAttractivenessSystem, merged buildings (MergeRules header, SkiMergedLodge). A merged building is a top-level lodge of the
+// tier its tag names (LodgeIdentity). It is linked to a sign like our own lodges. It counts only within SkiDayRules.SlopesideMaxM of a run or
 // a lift station of that area, re-checked every recompute. It roots no supply chain, is never the job carrier and needs no road: its
 // tier's jobs ride on the carrier like a mountain lodge's. Its AttractivenessProvider is never removed (vanilla cannot add a prefab's own
-// back): the write combines its own vanilla value V with the share P (WriteProvidersJob, Merged).
+// back). The write combines its own vanilla value V with the share P (WriteProvidersJob, Merged).
 // Engine notes: EngineNotes/SkiMergeSystem.md
 
 using System.Collections.Generic;
@@ -49,7 +49,7 @@ namespace SkiResortMod.Systems
         /// <summary>++ when the published merged views change (the hub re-copies).</summary>
         internal int MergedRevision => m_MergedRevision;
 
-        /// <summary>The merged buildings of the last recompute, any state; clears <paramref name="into"/>.</summary>
+        /// <summary>The merged buildings of the last recompute, any state. Clears <paramref name="into"/>.</summary>
         internal int CopyMergedViews(List<MergedView> into)
         {
             into.Clear();
@@ -63,8 +63,8 @@ namespace SkiResortMod.Systems
             return m_MergedViews.TryGetValue(building, out view);
         }
 
-        /// <summary>The area's share P this recompute writes into a merged building (its provider becomes round(sqrt(V^2 + P^2)));
-        /// false when the building is not merged or gets no write (not counted).</summary>
+        /// <summary>The area's share P this recompute writes into a merged building (its provider becomes round(sqrt(V^2 + P^2))).
+        /// False when the building is not merged or gets no write (not counted).</summary>
         internal bool TryGetMergedShare(Entity building, out int share)
         {
             share = 0;
@@ -92,9 +92,9 @@ namespace SkiResortMod.Systems
             m_SlopeRevision++;
         }
 
-        /// <summary>The merged walk, after the park walk: every top-level tagged building that is not ours and still qualifies (Classify)
-        /// joins m_LiveLodges and the top-level list as a lodge. One that no longer qualifies (a changed or missing asset) is listed as
-        /// AssetMissing and counted for nothing. The tag is never removed here.</summary>
+        /// <summary>The merged walk runs after the park walk. Every top-level tagged building that is not ours and still qualifies (Classify)
+        /// joins m_LiveLodges and the top-level list as a lodge. The walk lists one that no longer qualifies (a changed or missing asset) as
+        /// AssetMissing and counts it for nothing. The tag is never removed here.</summary>
         private void CollectMerged()
         {
             m_MergedTier.Clear();
@@ -129,15 +129,15 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The tier row of a merged building of this walk (LodgeIdentity.Resolve with no catalog row); null when not merged.</summary>
+        /// <summary>The tier row of a merged building of this walk (LodgeIdentity.Resolve with no catalog row). Null when not merged.</summary>
         private LodgeDef MergedDefOf(Entity building)
         {
             return m_MergedTier.TryGetValue(building, out int tier) ? LodgeIdentity.Resolve(null, true, tier, SkiCatalog.Lodges) : null;
         }
 
-        /// <summary>After the runs and lifts of this recompute are known: each linked merged building within SlopesideMaxM of a run outline
-        /// or a lift station of its own area joins the area as an active (or switched-off) lodge, its tier weight on the carrier's staffing
-        /// like a mountain lodge's. Then the views are published.</summary>
+        /// <summary>This step runs after the runs and lifts of this recompute are known. A linked merged building within SlopesideMaxM of a run outline
+        /// or a lift station of its own area joins that area. It joins as an active (or switched-off) lodge. Its tier weight goes on the
+        /// carrier's staffing like a mountain lodge's. Then the views are published.</summary>
         private void PlaceMerged(Snapshot next)
         {
             for (int s = 0; s < next.SlotCount; s++)
@@ -193,7 +193,7 @@ namespace SkiResortMod.Systems
             PublishSlopeside(next);
         }
 
-        // The slopeside geometry of the last recompute, for the merge overlay (SkiMergeOverlaySystem): every area's lift stations and run
+        // The slopeside geometry of the last recompute, for the merge overlay (SkiMergeOverlaySystem). It holds every area's lift stations and run
         // outlines (the catalog's arrays, never written in place), and their xz bounds grown by SlopesideMaxM. The revision moves only
         // when a station or an outline changed, so the overlay rebuilds its list on a real change, not on every recompute.
         private readonly List<float2> m_SlopeStations = new List<float2>(16);
@@ -248,7 +248,7 @@ namespace SkiResortMod.Systems
             m_SlopeRevision++;
         }
 
-        /// <summary>The geometry's bounds grown by SlopesideMaxM; false when no area has a station or a run.</summary>
+        /// <summary>The geometry's bounds grown by SlopesideMaxM. False when no area has a station or a run.</summary>
         internal bool TryGetSlopesideBounds(out float2 min, out float2 max)
         {
             min = m_SlopeMin;
@@ -311,7 +311,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>One merged building's write for WriteProvidersJob: the share P, flagged OwnSlice on the tick of its own update slice
-        /// (MergeRules.IsOwnSlice; UpdateFrame is a shared component, a chunk read with no sync). Adds the runtime V cache when missing
+        /// (MergeRules.IsOwnSlice). UpdateFrame is a shared component: a chunk read with no sync. Adds the runtime V cache when missing
         /// (it is never saved). False without a provider (SkiMergeSystem adds one at merge).</summary>
         private bool TryMergedWrite(Entity building, int share, out ProviderWrite write)
         {

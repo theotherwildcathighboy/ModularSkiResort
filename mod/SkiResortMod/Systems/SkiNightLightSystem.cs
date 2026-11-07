@@ -1,9 +1,9 @@
 // Makes Night-gated lights on our run props follow the day/night cycle.
-// Why: nothing in the engine re-evaluates EffectConditionFlags.Night on a static prop, so a light loaded at night stays ON next day until a
-// tool hover; this system stamps the re-evaluation tags at each flip (our StreetLightSystem).
-// Registration is load-bearing: UpdateAfter<EffectFlagSystem>(GameSimulation), and GetUpdateInterval must equal EffectFlagSystem's
+// Why: nothing in the engine re-evaluates EffectConditionFlags.Night on a static prop. A light loaded at night therefore stays ON next day
+// until a tool hover. This system stamps the re-evaluation tags at each flip (our StreetLightSystem).
+// Registration is load-bearing: UpdateAfter<EffectFlagSystem>(GameSimulation). GetUpdateInterval must equal EffectFlagSystem's
 // 2048 (UpdateSystem inherits an anchor's runtime offset only for EQUAL intervals, UpdateSystem.cs:406/:431).
-// Scope: the props the placer tagged with SkiRunPropMember only; a city with no resort or no such prop returns before any query result is read.
+// Scope: only the props the placer tagged with SkiRunPropMember. A city with no resort or no such prop returns before the system reads any query result.
 // A mast's aim is set once, at placement (RunPropPlacerRules, MastAimRules): nothing rewrites a free-standing prop's rotation.
 // Engine notes: EngineNotes/SkiNightLightSystem.md
 

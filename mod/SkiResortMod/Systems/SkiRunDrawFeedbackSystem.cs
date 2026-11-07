@@ -1,10 +1,11 @@
-// Slope feedback while a ski run is drawn or edited with the vanilla area tool: a heat-map of slope bands inside the Temp polygon, a
-// white ring on the crux cell, and a published Readout that SkiRunTooltipSystem shows. The rating is SkiRunRater (shared with the hub's
-// rating cache); this system keeps the heights-ready check, ping-pong grids, step hysteresis and everything after Classify, and only
-// publishes. Phase: UpdateBefore OverlayRenderSystem in Rendering (SystemOrder.cs:687; citations are 1.6.0f1 decompile); its lists are
-// cleared each frame, so draw every frame. Source of truth = the Temp Area entity. Grade comes from a world-anchored height lattice,
-// never triangle planes; GetHeightData is read fresh per recompute, never cached (TerrainSystem.cs:2603, 3538-3552). StripDrawJob reads
-// no ECS data: combine only the overlay dependencies, never base.Dependency. Game mode only; read-only on the ECS side.
+// Slope feedback while a ski run is drawn or edited with the vanilla area tool. It draws a heat-map of slope bands inside the Temp
+// polygon and a white ring on the crux cell. It also publishes a Readout that SkiRunTooltipSystem shows. The rating is SkiRunRater
+// (shared with the hub's rating cache). This system keeps the heights-ready check, ping-pong grids, step hysteresis and everything
+// after Classify, and only publishes. Phase: UpdateBefore OverlayRenderSystem in Rendering (SystemOrder.cs:687). Citations are 1.6.0f1
+// decompile. Its lists are cleared each frame, so draw every frame. Source of truth = the Temp Area entity. Grade comes from a
+// world-anchored height lattice, never triangle planes. GetHeightData is read fresh per recompute, never cached (TerrainSystem.cs:2603,
+// 3538-3552). StripDrawJob reads no ECS data: combine only the overlay dependencies, never base.Dependency. Game mode only. Read-only
+// on the ECS side.
 // Engine notes: EngineNotes/SkiRunDrawFeedbackSystem.md
 
 using System;
@@ -30,11 +31,11 @@ namespace SkiResortMod.Systems
     public sealed partial class SkiRunDrawFeedbackSystem : GameSystemBase
     {
         /// <summary>What the tooltip shows. Band is the display band (with SkiSlopeClassifier.DisplayHysteresis while the same Temp is
-        /// live) of RatingGrade. RatingGrade = the crux of the easiest line (ring mode) or the k-th largest 20 m window (polyline mode);
-        /// SteepestGrade = "the steepest patch, avoidable or not" (equal to RatingGrade in polyline mode, where a line has one path);
-        /// Connected = false when the run's Mask fell apart and the rating fell back to P90. Grades are fractions (0.15 = 15 %), Drop in
+        /// live) of RatingGrade. RatingGrade = the crux of the easiest line (ring mode) or the k-th largest 20 m window (polyline mode).
+        /// SteepestGrade = "the steepest patch, avoidable or not" (equal to RatingGrade in polyline mode, where a line has one path).
+        /// Connected = false when the run's Mask split into parts and the rating used P90 instead. Grades are fractions (0.15 = 15 %), Drop in
         /// meters. Length = SlopeResult.Length, horizontal meters. GateInRange: new run = a live sign within the tether of the Temp's
-        /// center; edited run = ownership.IsBound(Temp.m_Original).</summary>
+        /// center. Edited run = ownership.IsBound(Temp.m_Original).</summary>
         public struct Readout
         {
             public bool Valid;
@@ -46,17 +47,17 @@ namespace SkiResortMod.Systems
             public bool IsNewRun;
             public bool GateInRange;
             public float Length;
-            // The fee inputs, set at every recompute whether or not the rating succeeds; -1 / 0 after Invalidate.
-            public int Kind;          // SkiRunOwnershipSystem.KindOf(the Temp's prefab) = RunKind; -1 unknown
+            // The fee inputs. The system sets them at every recompute whether or not the rating succeeds, and to -1 / 0 after Invalidate.
+            public int Kind;          // SkiRunOwnershipSystem.KindOf(the Temp's prefab) = RunKind, -1 unknown
             public float AreaM2;      // plan area of the Temp's nodes (SkiRunRater.ShoelaceArea)
         }
 
-        /// <summary>All tuning constants; every one is logged in the per-load ARMED line.</summary>
+        /// <summary>All tuning constants. Every one is logged in the per-load ARMED line.</summary>
         public static class Tuning
         {
             /// <summary>Minimum frames between two recomputes while nodes keep moving.</summary>
             public const int MinRecomputeFrames = 3;
-            /// <summary>Seconds (wall clock) after which the last good grid's heights are re-verified (VerifyStep); also the maximum age of a
+            /// <summary>Seconds (wall clock) after which the last good grid's heights are re-verified (VerifyStep). It is also the maximum age of a
             /// reused height (engine notes, Recompute policy).</summary>
             public const double HeartbeatSeconds = 2.0;
             /// <summary>Need nodes re-sampled per verify frame (bit-exact compare).</summary>
@@ -64,9 +65,9 @@ namespace SkiResortMod.Systems
             /// <summary>A node counts as moved when its xz moved at least this far (m).</summary>
             public const float NodeMoveEpsilonM = 0.1f;
             /// <summary>Duty-cycle throttle: a movement-only recompute may not start sooner than ThrottleFactor x the last recompute's ms
-            /// after the previous one started ...</summary>
+            /// after the previous one started. The next constant caps this delay.</summary>
             public const float ThrottleFactor = 8f;
-            /// <summary>… capped at this many ms.</summary>
+            /// <summary>The cap of the throttle delay above, in ms.</summary>
             public const float MaxThrottleMs = 250f;
             /// <summary>Overlay fill alpha (inside the polygon only).</summary>
             public const float FillAlpha = 0.35f;
@@ -78,17 +79,17 @@ namespace SkiResortMod.Systems
             public const int MinHeightmapResolution = 4096;
             /// <summary>Log one WARN per load when a recompute exceeds this (4.0-5.0 ms under Mono).</summary>
             public const float SlowRecomputeWarnMs = 4f;
-            /// <summary>Largest ring-mode row stride: when full row resolution exceeds MaxStrips, the smallest stride 2..MaxRowStride that
-            /// fits draws one representative row per group of rows; only if this stride overflows is the list truncated.</summary>
+            /// <summary>Largest ring-mode row stride. When full row resolution exceeds MaxStrips, the smallest stride 2..MaxRowStride that
+            /// fits draws one representative row per group of rows. The list is truncated only if this stride overflows.</summary>
             public const int MaxRowStride = 8;
             /// <summary>Log one WARN per load when the per-frame draw (GetBuffer + job schedule + AddBufferWriter) exceeds this.</summary>
             public const double SlowDrawWarnMs = 2.0;
             /// <summary>Crux ring diameter = max(CruxRingMinDiameterM, CruxRingStepFactor x step).</summary>
             public const float CruxRingMinDiameterM = 14f;
             public const float CruxRingStepFactor = 3f;
-            /// <summary>Crux ring outline width passed to DrawCircle (meters assumed, unverified; see OVERLAY).</summary>
+            /// <summary>Crux ring outline width passed to DrawCircle (meters assumed, unverified, see OVERLAY).</summary>
             public const float CruxRingOutlineM = 1f;
-            /// <summary>At most one `RunFeedback [validation]` line per this many wall-clock seconds; a burst of changes is folded into one
+            /// <summary>At most one `RunFeedback [validation]` line per this many wall-clock seconds. The code folds a burst of changes into one
             /// summary (the LogWindow rule).</summary>
             public const float ValidationLogWindowS = 10f;
         }
@@ -108,9 +109,12 @@ namespace SkiResortMod.Systems
         private static readonly UnityEngine.Color CruxOutlineColor = new UnityEngine.Color(1f, 1f, 1f, 0.9f);
         private static readonly UnityEngine.Color CruxFillColor = new UnityEngine.Color(1f, 1f, 1f, 0f);
 
-        /// <summary>The tooltip's input. Returns true only when, as of this system's last Rendering-phase update (the previous frame for
-        /// the UITooltip phase), an eligible Temp run existed, the feature is on and the rating is usable (<c>readout.Valid</c>). The out
-        /// value is always filled (Valid=false otherwise), so a caller may still read Status.</summary>
+        /// <summary>The tooltip's input. Returns true only when all of these hold as of this system's last Rendering-phase update (the
+        /// previous frame for the UITooltip phase):
+        /// - an eligible Temp run existed
+        /// - the feature is on
+        /// - the rating is usable (<c>readout.Valid</c>)
+        /// The out value is always filled (Valid=false otherwise), so a caller may still read Status.</summary>
         public bool TryGetReadout(out Readout readout)
         {
             readout = m_Readout;
@@ -131,8 +135,8 @@ namespace SkiResortMod.Systems
             return m_Readout.Valid;
         }
 
-        /// <summary>The fee inputs of the run being drawn: live and fresh exactly like the readout (same gates, same one-frame lag), but
-        /// independent of whether the rating succeeded (a too-large or no-terrain run still shows its fee).</summary>
+        /// <summary>The fee inputs of the run being drawn. They are live and fresh exactly like the readout (same gates, same one-frame lag).
+        /// They are independent of whether the rating succeeded (a too-large or no-terrain run still shows its fee).</summary>
         public bool TryGetFeeInputs(out int kind, out float areaM2, out bool isNewRun)
         {
             kind = m_Readout.Kind;
@@ -143,8 +147,8 @@ namespace SkiResortMod.Systems
                    UnityEngine.Time.frameCount - m_ReadoutFrame <= 1 && kind >= 0;
         }
 
-        // Plain public fields for the dev tab (cheap getters; written by OnUpdate / the dump
-        // button only).
+        // Plain public fields for the dev tab (cheap getters). Only OnUpdate / the dump
+        // button write them.
         public bool AreaToolActive;
         public Entity EligibleTemp;
         public int EligibleNodes;
@@ -166,7 +170,7 @@ namespace SkiResortMod.Systems
         /// <summary>Ring-mode row stride of the current strips (1 = full row resolution).</summary>
         public int RowStride = 1;
         /// <summary>Per-frame draw cost, ms (GetBuffer + job schedule + AddBufferWriter). PeakDrawMs (reset per load) excludes the first
-        /// draw of the PROCESS, reported as FirstDrawMs (not reset per load: the JIT it pays happens once per process).</summary>
+        /// draw of the PROCESS. FirstDrawMs reports it (not reset per load: the JIT it pays happens once per process).</summary>
         public double LastDrawMs, PeakDrawMs, FirstDrawMs;
         public long Recomputes;
         public string LastError = "-";
@@ -174,13 +178,13 @@ namespace SkiResortMod.Systems
         public float P90Grade;
         /// <summary>End-zone sizes in cells (top / bottom).</summary>
         public int TopZoneCells, BottomZoneCells;
-        /// <summary>The last rated recompute's end-zone key (true = position along the mean fall line, false = node height) and
+        /// <summary>The last rated recompute's end-zone key (true = position along the mean fall line, false = node height). Also its
         /// connectivity rule (true = the diagonal rule, set here for step multiple >= 2).</summary>
         public bool ZoneByFallLine, DiagonalRule;
         /// <summary>The key gate's two inputs of the last rated ring recompute: |mean box gradient| (vs EndZoneMinMeanGrade) and
-        /// FallCoherence (vs EndZoneMinCoherence); 0 in polyline mode.</summary>
+        /// FallCoherence (vs EndZoneMinCoherence). 0 in polyline mode.</summary>
         public float ZoneMeanGradient, ZoneFallCoherence;
-        /// <summary>Crux cell (grid-local) of the last rated recompute; false in polyline mode.</summary>
+        /// <summary>Crux cell (grid-local) of the last rated recompute. False in polyline mode.</summary>
         public bool CruxValid;
         public int CruxI, CruxJ;
         /// <summary>Last fill: Need heights copied from the previous grid / sampled from the terrain.</summary>
@@ -202,20 +206,20 @@ namespace SkiResortMod.Systems
         /// (ownership.BindsNewRuns false), not because of the distance. Reset at load and on every UpdateGateInRange.</summary>
         public bool NewRunBindingOff;
         /// <summary>Heartbeat verify: complete passes that confirmed the heights, passes that found a changed height (each forced a full
-        /// resample), Need nodes compared on the last verify frame, and its / the peak cost (ms, Stopwatch timestamps; reset per
+        /// resample), Need nodes compared on the last verify frame, and its / the peak cost (ms, Stopwatch timestamps, reset per
         /// load).</summary>
         public long Verifies, VerifyChanges;
         public int VerifyNodesLast;
         public float LastVerifyMs, PeakVerifyMs;
         /// <summary>Wall-clock time (realtimeSinceStartupAsDouble) the last good grid's heights
-        /// were last known current; NegativeInfinity = never (or invalidated by a mismatch).
+        /// were last known current. NegativeInfinity = never (or invalidated by a mismatch).
         /// Age = now − this (dev tab, DUMP).</summary>
         public double GoodVerifiedAt => m_GoodVerifiedAt;
         /// <summary>True between this load and its first rated recompute (DUMP: "rating: none
         /// since load").</summary>
         public bool NoRatingSinceLoad => m_GoodGrid == null;
         /// <summary>The game's verdict on the run being drawn, as of the last recompute ("-" while no run is on the cursor or none was
-        /// read; "clear" = nothing reported), and the changes logged (offered to the LogWindow) since the load. Written on a change only
+        /// read, "clear" = nothing reported). Also the changes logged (offered to the LogWindow) since the load. Written on a change only
         /// (event-time text).</summary>
         public string ValidationText = "-";
         public long ValidationChanges;
@@ -235,7 +239,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Writes Count strips and the optional crux ring into the overlay buffer.
         /// Field layout follows AreaBorderRenderSystem.cs:40-41, 97 (the Buffer field carries no
-        /// attribute). Reads only our own NativeArray; no ECS data.</summary>
+        /// attribute). Reads only our own NativeArray. No ECS data.</summary>
         [BurstCompile]
         private struct StripDrawJob : IJob
         {
@@ -291,7 +295,7 @@ namespace SkiResortMod.Systems
         private AreaPrefab m_CachedToolPrefab;
         private bool m_CachedToolPrefabIsSurface;
 
-        // Frame counter (this system's updates; runs every frame, idle included) for the recompute policy (MinRecomputeFrames).
+        // Frame counter (this system's updates, which run every frame, idle included) for the recompute policy (MinRecomputeFrames).
         private int m_Frame;
         private int m_LastRecomputeFrame;
         private bool m_RetryPending;          // heights not ready: retry after MinRecomputeFrames
@@ -308,21 +312,24 @@ namespace SkiResortMod.Systems
         // This frame's node copy (reused).
         private float3[] m_Nodes = new float3[64];
 
-        // Classifier I/O (reused; buffers grow, never shrink). Two grids ping-pong (measure 3):
-        // m_Grid = the grid of the latest recompute (what BuildStrips and the dev tab read);
-        // m_GoodGrid = the last FULLY FILLED and RATED grid (reuse source and capture source; never
-        // planned into, so it survives failed recomputes and Invalidate).
+        // Classifier I/O (reused, buffers grow, never shrink). Two grids ping-pong (measure 3):
+        // m_Grid = the grid of the latest recompute (what BuildStrips and the dev tab read).
+        // m_GoodGrid = the last FULLY FILLED and RATED grid (reuse source and capture source). The system never
+        // plans into it, so it survives failed recomputes and Invalidate.
         private readonly SlopeGrid m_GridA = new SlopeGrid();
         private readonly SlopeGrid m_GridB = new SlopeGrid();
         private SlopeGrid m_Grid;
         private SlopeGrid m_GoodGrid;
         private readonly SlopeResult m_Result = new SlopeResult();
 
-        // Heartbeat verify. m_GoodVerifiedAt = wall-clock time at which every height of m_GoodGrid was last known current (a full
-        // resample: its start; a reuse recompute: inherited; a complete verify pass: the pass's start; a mismatch or a load:
-        // NegativeInfinity, so the reuse guard fails until a full resample). The cursor walks m_GoodGrid's Need runs: row j, run k
-        // within the row, column i within the run; m_VerifyRow < 0 = no pass in progress. Reset whenever m_GoodGrid is swapped.
-        // m_GoodStale = a pass found a changed height in m_GoodGrid: it is never verified (or reused) again, only replaced, so a Temp
+        // Heartbeat verify. m_GoodVerifiedAt = wall-clock time at which every height of m_GoodGrid was last known current:
+        // - a full resample: its start
+        // - a reuse recompute: inherited
+        // - a complete verify pass: the pass's start
+        // - a mismatch or a load: NegativeInfinity, so the reuse guard fails until a full resample
+        // The cursor walks m_GoodGrid's Need runs: row j, run k within the row, column i within the run. m_VerifyRow < 0 = no pass in
+        // progress. Reset whenever m_GoodGrid is swapped.
+        // m_GoodStale = a pass found a changed height in m_GoodGrid. The system never verifies or reuses it again, only replaces it. So a Temp
         // that keeps failing to rate cannot alternate mismatch -> recompute -> mismatch every other frame against an old grid.
         private double m_GoodVerifiedAt = double.NegativeInfinity;
         private bool m_ForceFullResample;
@@ -341,7 +348,7 @@ namespace SkiResortMod.Systems
         private Entity m_EligiblePrefab = Entity.Null; // the chosen Temp's prefab (the fee's kind)
 
         // Strips: built into a managed stage, then copied once into the persistent NativeArray
-        // the draw job reads (allocated once; never grown).
+        // the draw job reads (allocated once, never grown).
         private readonly Strip[] m_StripStage = new Strip[Tuning.MaxStrips];
         private NativeArray<Strip> m_Strips;
         private int m_StripCount;
@@ -363,8 +370,8 @@ namespace SkiResortMod.Systems
         private float m_CapRating, m_CapSteepest, m_CapMean, m_CapDrop;
         private SlopeBand m_CapBand;
 
-        // The eligible Temp's validation state at the last recompute. Masks = bit (int)Game.Tools.ErrorType of each icon by priority;
-        // tags = ValTag*. m_ValSession = a state was read since the last Invalidate (a run is on the cursor); m_ValOff = the watch threw
+        // The eligible Temp's validation state at the last recompute. Masks = bit (int)Game.Tools.ErrorType of each icon by priority.
+        // Tags = ValTag*. m_ValSession = a state was read since the last Invalidate (a run is on the cursor). m_ValOff = the watch threw
         // this load.
         private const byte ValTagError = 1;     // the Temp carries Game.Tools.Error
         private const byte ValTagWarning = 2;   // the Temp carries Game.Tools.Warning (another Temp's error names it)
@@ -415,7 +422,7 @@ namespace SkiResortMod.Systems
             });
             // Register Geometry as a read type of this system so CompleteDependency() also waits
             // for GeometrySystem's 2B job (GeometrySystem.cs:810 base.Dependency). Standard
-            // Entities behavior (type handles add reader dependencies), unverified in Game.dll;
+            // Entities behavior (type handles add reader dependencies). Unverified in Game.dll.
             // EntityManager.GetComponentData completes writers anyway.
             GetComponentTypeHandle<Game.Areas.Geometry>(isReadOnly: true);
             // The tool's own refusal set (ToolBaseSystem.cs:313, m_ErrorQuery). Read on recompute frames only (WatchValidation): one
@@ -527,8 +534,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Clears every PUBLISHED value of the previous load (the readout, the classifier result, the dev-tab / DUMP fields and
-        /// the heartbeat state), so a DUMP after a load can never print the previous city's rating. Called FIRST in
-        /// OnGameLoadingComplete; field writes only (m_Result.Clear keeps its buffers).</summary>
+        /// the heartbeat state). So a DUMP after a load can never print the previous city's rating. Called FIRST in
+        /// OnGameLoadingComplete. Field writes only (m_Result.Clear keeps its buffers).</summary>
         private void ResetPublishedState()
         {
             m_Readout = default(Readout);
@@ -641,12 +648,12 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Plan + Classify + BuildStrips of a synthetic 40 × 90 m ring and a synthetic 2-node 40 m line on a synthetic plane,
-        /// into scratch objects, so the Mono JIT cost is paid at load, not on the first real recompute. No terrain, overlay or ECS access;
-        /// the strip stage is reset afterwards (the NativeArray the draw job reads is not touched). Also
+        /// into scratch objects. This pays the Mono JIT cost at load, not on the first real recompute. No terrain, overlay or ECS access.
+        /// The strip stage is reset afterwards (the NativeArray the draw job reads is not touched). Also
         /// IJobExtensions.EarlyJobInit&lt;StripDrawJob&gt;(): the first job.Schedule of a process otherwise creates the job's reflection
-        /// data and JIT-compiles JobStruct&lt;StripDrawJob&gt; inside the first Draw's timing window (EarlyJobInit calls
+        /// data and JIT-compiles JobStruct&lt;StripDrawJob&gt; inside the first Draw's timing window. EarlyJobInit calls
         /// JobStruct&lt;T&gt;.Initialize(), which calls JobsUtility.CreateJobReflectionData only while the SharedStatic
-        /// jobReflectionData is IntPtr.Zero; read with Cecil from UnityEngine.CoreModule). Process-wide, so later loads are already
+        /// jobReflectionData is IntPtr.Zero. Read with Cecil from UnityEngine.CoreModule. Process-wide, so later loads are already
         /// warm.</summary>
         private void PrewarmJit()
         {
@@ -715,10 +722,10 @@ namespace SkiResortMod.Systems
 
         private void UpdateCore()
         {
-            // 1. Feature switch and arming (ours: Game mode; ownership: its prefab sets resolved, because IsRunPrefab is meaningless
+            // 1. Feature switch and arming (ours: Game mode. Ownership: its prefab sets resolved, because IsRunPrefab is meaningless
             // otherwise). Gated on ownership.PrefabSetsReady, NOT ownership.IsArmed: a load-pass or sweep exception disables binding
-            // (IsArmed false), and that must not also switch off the slope feedback, which needs only the prefab sets (IsRunPrefab) and the
-            // binding-independent helpers (IsBound, TryNearestGate). Whether NEW runs can bind this load is reported separately
+            // (IsArmed false), and that must not also switch off the slope feedback. The feedback needs only the prefab sets (IsRunPrefab) and the
+            // binding-independent helpers (IsBound, TryNearestGate). The system reports separately whether NEW runs can bind this load
             // (UpdateGateInRange, ownership.BindsNewRuns).
             var settings = Mod.Settings;
             if (!m_Armed || settings == null || !settings.ShowRunGradeWhileDrawing ||
@@ -738,10 +745,10 @@ namespace SkiResortMod.Systems
             }
             AreaToolActive = true;
 
-            // 3. Surface prefab selected (AreaToolSystem.prefab, :2637-2652; 1.6.2 :2648). Only Surface prefabs create or snap to our runs
-            // (AreaToolSystem.cs:320-322). SkiRunAreaTypeSystem forges the cat-track prefab's m_Type Surface -> Space at every load, so
-            // "Surface" alone rejected it and the heat map / fee row / "too steep for a cat track" line never showed. The gate therefore
-            // accepts Surface OR a prefab entity in our run-prefab set (the set the Temp filter uses in PickEligibleTemp); the Temp query
+            // 3. Surface prefab selected (AreaToolSystem.prefab, :2637-2652, 1.6.2 :2648). Only Surface prefabs create or snap to our runs
+            // (AreaToolSystem.cs:320-322). SkiRunAreaTypeSystem forges the cat-track prefab's m_Type Surface -> Space at every load. So
+            // "Surface" alone rejected it, and the heat map / fee row / "too steep for a cat track" line never showed. The gate therefore
+            // accepts Surface OR a prefab entity in our run-prefab set (the set the Temp filter uses in PickEligibleTemp). The Temp query
             // keeps its own Surface requirement.
             AreaPrefab toolPrefab = m_AreaTool.prefab;
             if (toolPrefab == null)
@@ -787,8 +794,8 @@ namespace SkiResortMod.Systems
             EligibleIsNew = tempData.m_Original == Entity.Null;
             EligibleComplete = complete;
 
-            // 6. Recompute decision (duty-cycle throttle on movement-only recomputes). On a frame WITHOUT a recompute, the heartbeat verify,
-            // only here, on the eligible-Temp path: m_GoodGrid survives Invalidate (capture), so an ungated verify would sample terrain in
+            // 6. Recompute decision (duty-cycle throttle on movement-only recomputes). On a frame WITHOUT a recompute, the heartbeat verify
+            // runs, only here, on the eligible-Temp path. m_GoodGrid survives Invalidate (capture), so an ungated verify would sample terrain in
             // normal play.
             if (NeedsRecompute(temp, nodeCount, complete))
             {
@@ -809,7 +816,7 @@ namespace SkiResortMod.Systems
             Draw();
         }
 
-        /// <summary>First eligible Temp with the most nodes; copies its nodes into m_Nodes.</summary>
+        /// <summary>First eligible Temp with the most nodes. Copies its nodes into m_Nodes.</summary>
         private Entity PickEligibleTemp(out int nodeCount, out Temp tempData, out bool complete)
         {
             nodeCount = 0;
@@ -859,7 +866,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Immediate: node count / Complete / entity change, a verify mismatch (m_ForceFullResample). A heights-not-ready retry
-        /// after MinRecomputeFrames. Movement needs MinRecomputeFrames AND the duty-cycle window (engine notes, Recompute policy); the moved
+        /// after MinRecomputeFrames. Movement needs MinRecomputeFrames AND the duty-cycle window (engine notes, Recompute policy). The moved
         /// test compares against the last recompute's snapshot. No time-based recompute.</summary>
         private bool NeedsRecompute(Entity temp, int nodeCount, bool complete)
         {
@@ -914,7 +921,7 @@ namespace SkiResortMod.Systems
             m_RetryPending = false;
             Recomputes++;
             // A verify mismatch is a one-shot TRIGGER, consumed here whatever this recompute does (a failed Plan must not re-trigger every
-            // frame). The full resample it asks for is guaranteed by the reuse guard instead: VerifyStep set m_GoodVerifiedAt to
+            // frame). Instead, the reuse guard guarantees the full resample it asks for: VerifyStep set m_GoodVerifiedAt to
             // NegativeInfinity, which only a full resample re-stamps.
             bool forceFull = m_ForceFullResample;
             m_ForceFullResample = false;
@@ -927,8 +934,8 @@ namespace SkiResortMod.Systems
             bool isNew = tempData.m_Original == Entity.Null;
             m_Readout.IsNewRun = isNew;
             // The fee inputs, set here so they exist even when the heights are not ready and the rating returns early. ShoelaceArea is the
-            // rater's public pure helper (plan area); for a simple outline it equals Geometry.m_SurfaceArea (sum of triangle areas), which
-            // the bind charges; at the closing click the cursor node sits on the first node (a zero-area edge).
+            // rater's public pure helper (plan area). For a simple outline it equals Geometry.m_SurfaceArea (sum of triangle areas), which
+            // the bind charges. At the closing click the cursor node sits on the first node (a zero-area edge).
             m_Readout.Kind = m_Ownership.KindOf(m_EligiblePrefab);
             m_Readout.AreaM2 = (float)SkiRunRater.ShoelaceArea(m_Nodes, nodeCount);
             m_Readout.Valid = false;
@@ -952,7 +959,7 @@ namespace SkiResortMod.Systems
 
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
 
-            // Fresh every time (TerrainSystem.cs:2603; never cache across frames, :3538-3552).
+            // Fresh every time (TerrainSystem.cs:2603). Never cache across frames (:3538-3552).
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
             if (!hd.isCreated || hd.resolution.x < Tuning.MinHeightmapResolution)
             {
@@ -978,10 +985,14 @@ namespace SkiResortMod.Systems
             SlopeGrid target = ReferenceEquals(source, m_GridA) ? m_GridB : m_GridA;
             m_Grid = target;
 
-            // Rating runs in SkiRunRater.Rate (the hub's rating cache uses the same code; SlopeBatch proves bit parity). What stays here: the
-            // heights-ready check, the ping-pong grids, the step hysteresis (this Temp's m goes in as stepCurrent) and the caller's half of
-            // the reuse guard (reuse only from a fully filled + rated grid verified less than HeartbeatSeconds ago; a verify mismatch and
-            // re-entry after an idle gap resample in full); the rater adds the other half (identical Step and Origin).
+            // Rating runs in SkiRunRater.Rate (the hub's rating cache uses the same code, and SlopeBatch proves bit parity).
+            // What stays here:
+            // - the heights-ready check
+            // - the ping-pong grids
+            // - the step hysteresis (this Temp's m goes in as stepCurrent)
+            // - the caller's half of the reuse guard: reuse only from a fully filled + rated grid verified less than HeartbeatSeconds ago.
+            //   A verify mismatch and re-entry after an idle gap resample in full.
+            // The rater adds the other half (identical Step and Origin).
             SlopeGrid reuseSource = !forceFull && source != null &&
                                     startTime - m_GoodVerifiedAt < Tuning.HeartbeatSeconds
                 ? source
@@ -1023,7 +1034,7 @@ namespace SkiResortMod.Systems
                 m_Readout.Connected = m_Result.Connected;
                 m_Readout.MeanGrade = m_Result.MeanGrade;
                 m_Readout.Drop = m_Result.Drop;
-                // horizontal run length (ring: max(LengthRect, AxisLength); polyline: arc length; EngineNotes/SkiSlopeClassifier.md "RUN LENGTH")
+                // horizontal run length (ring: max(LengthRect, AxisLength), polyline: arc length, EngineNotes/SkiSlopeClassifier.md "RUN LENGTH")
                 m_Readout.Length = m_Result.Length;
                 LengthRect = m_Result.LengthRect;
                 AxisLength = m_Result.AxisLength;
@@ -1040,7 +1051,7 @@ namespace SkiResortMod.Systems
                 PublishStrips();
 
                 // The target is now fully filled and rated: the next reuse source and the capture. A full resample stamps its heights current
-                // as of this recompute's START; a reuse recompute INHERITS m_GoodVerifiedAt (the age of the oldest height it copied). The grid
+                // as of this recompute's START. A reuse recompute INHERITS m_GoodVerifiedAt (the age of the oldest height it copied). The grid
                 // changed, so any verify pass restarts.
                 if (!reuse)
                     m_GoodVerifiedAt = startTime;
@@ -1097,7 +1108,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Band changes only when RatingGrade passes a threshold by &gt;= DisplayHysteresis while the same Temp is live. up =
-        /// BandOf(r - H) is the band the rating has cleared by H, down = BandOf(r + H) the highest band within H; the shown band is kept
+        /// BandOf(r - H) is the band the rating clears by H. down = BandOf(r + H) is the highest band within H. The shown band is kept
         /// while it lies in [up, down].</summary>
         private SlopeBand DisplayBand(float rating)
         {
@@ -1119,7 +1130,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Crux marker: ring mode with CruxValid only. World position of grid-local cell (CruxI, CruxJ) = Origin + (I0 + i, J0 +
-        /// j)·Step (the lattice node the cell is centered on); diameter max(14 m, 3·step).</summary>
+        /// j)·Step (the lattice node the cell is centered on). Diameter max(14 m, 3·step).</summary>
         private void UpdateCrux(bool polyline)
         {
             SlopeResult r = m_Result;
@@ -1159,7 +1170,7 @@ namespace SkiResortMod.Systems
         /// only). Center = Geometry.m_CenterPosition (valid after 2B, the same point the bind sweep uses, GeometrySystem.cs:509-576) for
         /// &gt;= 3 nodes, else the node mean. Edited run: ownership.IsBound(Temp.m_Original). Called on recomputes only, so an edit Temp
         /// held still keeps the value of its last recompute. While ownership.BindsNewRuns is false a new run reads false whatever the
-        /// distance, so the "will stay unbound" warning shows; NewRunBindingOff says why (DUMP), because that warning's text names the
+        /// distance, so the "will stay unbound" warning shows. NewRunBindingOff says why (DUMP), because that warning's text names the
         /// distance, not the cause.</summary>
         private void UpdateGateInRange(Entity temp, int nodeCount, bool isNew, Temp tempData)
         {
@@ -1201,12 +1212,14 @@ namespace SkiResortMod.Systems
 
         /// <summary>Called only from UpdateCore's eligible-Temp path on a frame with no recompute (idle cost: one clock read and a
         /// compare). Once m_GoodGrid's heights are Tuning.HeartbeatSeconds old, a pass starts and walks m_GoodGrid's Need runs
-        /// (SlopeGrid.NeedRuns / NeedRowStart) from a cursor, re-sampling at most Tuning.VerifyNodesPerFrame Need nodes per frame on a
-        /// fresh GetHeightData() at exactly FillHeights' world point, and compares bit-exact (math.asint). A mismatch: force a full
-        /// resample (m_ForceFullResample triggers the recompute, m_GoodVerifiedAt = NegativeInfinity forbids reusing these heights), mark
-        /// the grid stale, stop. A complete pass: m_GoodVerifiedAt = the pass's start. A heightmap that is not readable this frame retries
-        /// next frame; one whose lattice origin no longer matches the grid's forces a full resample. No allocation, no
-        /// formatting.</summary>
+        /// (SlopeGrid.NeedRuns / NeedRowStart) from a cursor. The pass re-samples at most Tuning.VerifyNodesPerFrame Need nodes per frame on a
+        /// fresh GetHeightData() at exactly FillHeights' world point, and compares bit-exact (math.asint).
+        /// - A mismatch: force a full resample (m_ForceFullResample triggers the recompute, m_GoodVerifiedAt = NegativeInfinity forbids
+        ///   reusing these heights), mark the grid stale, stop.
+        /// - A complete pass: m_GoodVerifiedAt = the pass's start.
+        /// - A heightmap that is not readable this frame: retry next frame.
+        /// - A lattice origin that no longer matches the grid's: force a full resample.
+        /// No allocation, no formatting.</summary>
         private void VerifyStep()
         {
             VerifyNodesLast = 0;
@@ -1324,7 +1337,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Called on a recompute frame with the eligible Temp (after CompleteDependency). Reads the verdict, and on a change of
         /// the (errors, warnings, infos, tags) set offers one line to the LogWindow. A session that starts clean says nothing. Allocates
-        /// only on a change (the line). Never throws: a failure logs one `!!!` and switches only this watch off until the next
+        /// only on a change (the line). Never throws: a failure logs one `!!!` and disables only this watch until the next
         /// load.</summary>
         private void WatchValidation(Entity temp, int nodeCount, bool complete, bool isNew)
         {
@@ -1395,8 +1408,8 @@ namespace SkiResortMod.Systems
                           $"error types are no longer logged until the next game load (the heat-map keeps working):\n{e}");
         }
 
-        /// <summary>Called on hold frames (eligible Temp, no recompute): with nothing folded it is one int test; else the window test, and
-        /// the summary once the window has passed, so a fold does not wait for the cursor to move.</summary>
+        /// <summary>Called on hold frames (eligible Temp, no recompute): with nothing folded it is one int test. Otherwise it runs the window
+        /// test, and writes the summary once the window passed, so a fold does not wait for the cursor to move.</summary>
         private void FlushValidationFold()
         {
             if (m_ValLog.Count == 0 || m_ValOff)
@@ -1414,7 +1427,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The Game.Tools.Error carriers other than the eligible Temp: the union of their error types (ReadValidation's
-        /// errors), their count and the prefab of the lowest-index one (stable across chunk order). Recompute frames only; nothing
+        /// errors), their count and the prefab of the lowest-index one (stable across chunk order). Recompute frames only. When nothing
         /// carries Error: one IsEmptyIgnoreFilter, no allocation.</summary>
         private void ReadElsewhere(Entity temp, out uint errors, out int count, out Entity firstPrefab)
         {
@@ -1452,8 +1465,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>The eligible Temp's state (ValidationState), then the other carriers': "elsewhere: error (blocks the click)
         /// InvalidShape on 1 other entity (SkiRunNaturalA)". When the other carriers have no error type of their own (elseErrors == 0),
-        /// they carry the game's Error tag for the eligible Temp's error: ValidationSystem.cs:1657-1664 tags the permanent entity an
-        /// error names, for ANY error at Override or above, and :1749-1752 gives the icon to the Temp only. So the line names that: "the
+        /// they carry the game's Error tag for the eligible Temp's error. ValidationSystem.cs:1657-1664 tags the permanent entity an
+        /// error names, for ANY error at Override or above. :1749-1752 gives the icon to the Temp only. So the line names that: "the
         /// run it overlaps" when the Temp's own errors include OverlapExisting, else "the run the game marks with this error" ("object"
         /// when the carrier is not one of our run prefabs).</summary>
         private string FullValidationState(uint errors, uint warnings, uint infos, byte tags, uint elseErrors, int elseCount,
@@ -1492,7 +1505,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The eligible Temp's verdict: the Error / Warning tags, then each icon of its IconElement buffer → PrefabRef →
-        /// ToolErrorData.m_Error, sorted by Icon.m_Priority (&gt;= Error, &gt;= Warning, below). Core EntityManager reads only; the icon
+        /// ToolErrorData.m_Error, sorted by Icon.m_Priority (&gt;= Error, &gt;= Warning, below). Core EntityManager reads only. The icon
         /// reads may complete the icon jobs of this frame (a recompute frame only).</summary>
         private void ReadValidation(Entity temp, out uint errors, out uint warnings, out uint infos, out byte tags)
         {
@@ -1614,7 +1627,7 @@ namespace SkiResortMod.Systems
             }
             catch (Exception)
             {
-                // a lost summary line must not take the frame down; the next change logs again
+                // a lost summary line must not take the frame down. The next change logs again
             }
         }
 
@@ -1658,10 +1671,10 @@ namespace SkiResortMod.Systems
             }
             else
             {
-                // Full row resolution first. Above Tuning.MaxStrips take the SMALLEST row stride 2..MaxRowStride whose strips fit, so the
+                // Full row resolution first. Above Tuning.MaxStrips, take the SMALLEST row stride 2..MaxRowStride whose strips fit, so the
                 // heat-map stays complete at a coarser row resolution. Linear search, because the count at stride s is not monotone in s
-                // (different representative rows); a failed pass stops at the first strip past the cap and the buffers are simply rewritten.
-                // Only when even MaxRowStride overflows is the list truncated (at that stride).
+                // (different representative rows). A failed pass stops at the first strip past the cap, and the buffers are simply rewritten.
+                // The list is truncated (at that stride) only when even MaxRowStride overflows.
                 int stride = 1;
                 while (!BuildRingStrips(grid, r, stride))
                 {
@@ -1698,16 +1711,16 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Ring-mode strips at row stride s into the strip stage. Lattice rows are grouped by RowGroup; each group is drawn from
-        /// its MIDDLE row's same-band run-length merge, centered on the group's z-center, width = group rows × Step (s·Step; the last
-        /// group may be shorter). s = 1 is the full-resolution layout (one group per row, width = Step, center = the row). Returns false
+        /// <summary>Ring-mode strips at row stride s into the strip stage. Lattice rows are grouped by RowGroup. Each group is drawn from
+        /// its MIDDLE row's same-band run-length merge, centered on the group's z-center, width = group rows × Step (s·Step). The last
+        /// group may be shorter. s = 1 is the full-resolution layout (one group per row, width = Step, center = the row). Returns false
         /// when the strips do not fit Tuning.MaxStrips: the stage then holds the first MaxStrips strips (the truncated
         /// list).</summary>
         private bool BuildRingStrips(SlopeGrid grid, SlopeResult r, int s)
         {
             m_StripCount = 0;
             // Row run-length merge of same-band inside cells. Cell (i, j) is centered on the lattice node x = Origin.x + (I0 + i) * Step,
-            // spanning ± Step / 2; a strip runs from the first cell's west edge to the last cell's east edge, y = mean of the two end
+            // spanning ± Step / 2. A strip runs from the first cell's west edge to the last cell's east edge, y = mean of the two end
             // heights (at the representative row).
             byte[] cellBand = r.CellBand;
             int nx = r.Nx, nz = r.Nz;
@@ -1716,9 +1729,9 @@ namespace SkiResortMod.Systems
             bool geomMatch = grid.Nx == nx && grid.Nz == nz &&
                              grid.I0 == r.I0 && grid.J0 == r.J0;
             bool heightsMatch = heights != null && geomMatch && heights.Length >= nx * nz;
-            // Walk only each row's Mask RUNS (SlopeGrid.MaskRuns / MaskRowStart from Plan) when the grid matches the result: CellBand is
-            // BandOutside everywhere outside the Mask and same-band merging never crosses an outside cell, so the strips are identical to a
-            // full-row walk and the walk is O(inside), not O(bbox) or O(row span) (a U- or C-shaped run's rows cross two arms). Otherwise
+            // Walk only each row's Mask RUNS (SlopeGrid.MaskRuns / MaskRowStart from Plan) when the grid matches the result. CellBand is
+            // BandOutside everywhere outside the Mask, and same-band merging never crosses an outside cell. So the strips are identical to a
+            // full-row walk, and the walk is O(inside), not O(bbox) or O(row span) (a U- or C-shaped run's rows cross two arms). Otherwise
             // keep the full walk.
             int[] maskRuns = grid.MaskRuns, maskStart = grid.MaskRowStart;
             bool spans = geomMatch && maskStart != null && maskStart.Length >= nz + 1 && maskStart[nz] >= 0 &&
@@ -1731,7 +1744,7 @@ namespace SkiResortMod.Systems
             {
                 RowGroup(g, s, nz, out int lo, out int hi, out int j);
                 int row = j * nx;
-                // Group z-center and height; s = 1 gives exactly the row center and Step.
+                // Group z-center and height. s = 1 gives exactly the row center and Step.
                 float wz = (float)(r.Origin.y + (r.J0 + 0.5 * (lo + hi)) * step);
                 float width = (float)((hi - lo + 1) * step);
                 int k0 = 0, k1 = 1;                  // full walk: one pseudo-run [0, nx - 1]
@@ -1783,8 +1796,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Row group g at stride s over nz lattice rows: rows lo..hi, hi = lo + s - 1 clamped to the last row (the last group
-        /// may be shorter), representative = the middle row lo + (hi - lo) / 2 (lower middle for an even count). Group count = (nz + s -
-        /// 1) / s; the groups cover rows 0..nz-1 exactly once.</summary>
+        /// may be shorter). Representative = the middle row lo + (hi - lo) / 2 (lower middle for an even count). Group count = (nz + s -
+        /// 1) / s. The groups cover rows 0..nz-1 exactly once.</summary>
         private static void RowGroup(int g, int s, int nz, out int lo, out int hi, out int rep)
         {
             lo = g * s;
@@ -1804,9 +1817,9 @@ namespace SkiResortMod.Systems
                 NativeArray<Strip>.Copy(m_StripStage, m_Strips, n);
         }
 
-        /// <summary>Waits for the last scheduled draw job (normally already finished: the
+        /// <summary>Waits for the last scheduled draw job. It is normally already finished: the
         /// OverlayRenderSystem completes every registered writer at the start of its OnUpdate,
-        /// OverlayRenderSystem.cs:740-741, the same frame).</summary>
+        /// OverlayRenderSystem.cs:740-741, the same frame.</summary>
         private void CompleteDraw()
         {
             m_DrawHandle.Complete();
@@ -1821,7 +1834,7 @@ namespace SkiResortMod.Systems
                 return;
             if (count > m_Strips.Length)
                 count = m_Strips.Length;
-            // Timed with raw timestamps (no Stopwatch object, no allocation): GetBuffer + schedule + AddBufferWriter only; the strip work
+            // Timed with raw timestamps (no Stopwatch object, no allocation): GetBuffer + schedule + AddBufferWriter only. The strip work
             // runs on a worker thread.
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             OverlayRenderSystem.Buffer buffer = m_Overlay.GetBuffer(out JobHandle overlayDeps);   // :603-634
@@ -1839,7 +1852,7 @@ namespace SkiResortMod.Systems
             };
             // Depends on every earlier overlay writer, ours included (engine notes OVERLAY (b)).
             JobHandle handle = job.Schedule(overlayDeps);
-            m_Overlay.AddBufferWriter(handle);   // :636-639; completed at OverlayRenderSystem :740
+            m_Overlay.AddBufferWriter(handle);   // :636-639. Completed at OverlayRenderSystem :740
             m_DrawHandle = handle;
             long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
             StripsDrawn = count;
@@ -1847,7 +1860,7 @@ namespace SkiResortMod.Systems
             if (!s_FirstDrawDone)
             {
                 // The first Draw of the PROCESS pays the one-time Mono JIT of Schedule<StripDrawJob> (PrewarmJit warms only the reflection
-                // data): reported on its own, kept out of PeakDrawMs and the slow-draw WARN, so those measure the steady-state schedule cost.
+                // data). The code reports it on its own and keeps it out of PeakDrawMs and the slow-draw WARN, so those measure the steady-state schedule cost.
                 s_FirstDrawDone = true;
                 FirstDrawMs = LastDrawMs;
                 Mod.Log.Info($"RunFeedback: first overlay draw of this process {LastDrawMs:F2} ms " +
@@ -1869,7 +1882,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>"Dump to log": the state as text in the mod log, plus the capture file of the last rated polygon. Button handler (dev
         /// tab) or dump-hotkey handler (SkiGladeHotkeySystem: UIUpdate, before this system's Rendering update, so it reads the PREVIOUS
-        /// frame's readout with the run still on the cursor); the only places this system does file IO. Each half has its own
+        /// frame's readout with the run still on the cursor). These are the only places this system does file IO. Each half has its own
         /// try/catch.</summary>
         public void DumpToLog()
         {
@@ -1977,7 +1990,7 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"RunFeedback: dump failed: {e.Message}");
             }
 
-            // The log dump above stays for every player; the .skislope capture is the only file the mod writes outside its log and
+            // The log dump above stays for every player. The .skislope capture is the only file the mod writes outside its log and
             // settings, so it sits behind Options > Diagnostics (off by default).
             if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
             {
@@ -2008,12 +2021,12 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Writes the last rated polygon (m_GoodGrid + the capture snapshot) as a `.skislope` file (tests/SlopeBatch parses it):
-        /// invariant culture, floats "G9" and doubles "G17" (both round-trip exactly; the .NET Framework's "R" has a known double
-        /// round-trip defect; the loader reads both), '\n' line ends, UTF-8 without BOM. Directory = Application.persistentDataPath +
-        /// "/ModsData/SkiResortMod/captures" (created if missing); name run-yyyyMMdd-HHmmss.skislope, with "-2", "-3", ... appended only
+        /// <summary>Writes the last rated polygon (m_GoodGrid + the capture snapshot) as a `.skislope` file (tests/SlopeBatch parses it).
+        /// Format: invariant culture, floats "G9" and doubles "G17" (both round-trip exactly, the .NET Framework's "R" has a known double
+        /// round-trip defect, and the loader reads both), '\n' line ends, UTF-8 without BOM. Directory = Application.persistentDataPath +
+        /// "/ModsData/SkiResortMod/captures" (created if missing). Name run-yyyyMMdd-HHmmss.skislope, with "-2", "-3", ... appended only
         /// when that name already exists (two dumps in one second). Need lines walk Plan's per-row Need runs in row-major order (j, then
-        /// i). Returns the full path, or null when nothing has been rated since the load.</summary>
+        /// i). Returns the full path, or null when the system rated nothing since the load.</summary>
         private string WriteCapture(out int needCount)
         {
             needCount = 0;
@@ -2101,8 +2114,8 @@ namespace SkiResortMod.Systems
         private const int CapturesKept = 20;
         private static readonly Regex CaptureFileName = new Regex(@"^run-\d{8}-\d{6}(-\d+)?\.skislope$", RegexOptions.CultureInvariant);
 
-        /// <summary>Keeps the newest <see cref="CapturesKept"/> run-*.skislope files in the capture folder. Only names this system
-        /// writes are touched, so anything else a player puts there stays. Newest by write time, not name: the "-2" suffix of a
+        /// <summary>Keeps the newest <see cref="CapturesKept"/> run-*.skislope files in the capture folder. The code touches only names this
+        /// system writes, so anything else a player puts there stays. Newest by write time, not name: the "-2" suffix of a
         /// same-second dump sorts before its base name. The file just written is never removed. A failure is logged and never fails
         /// the capture.</summary>
         private static void PruneCaptures(string dir, string justWritten)
@@ -2187,8 +2200,8 @@ namespace SkiResortMod.Systems
 
     /// <summary>The game's IHeightSampler for SkiRunRater: the 2-argument TerrainUtils.SampleHeight (TerrainUtils.cs:82-137, plain
     /// bilinear), at the world point the rater passes (FillHeights' expression). Holds a COPY of the TerrainHeightData the caller
-    /// fetched this frame with GetHeightData() (TerrainSystem.cs:2603; 1.6.2 :2615): never keep an instance across frames
-    /// (EnsureCPUHeights can dispose and reallocate the heights, TerrainSystem.cs:3538-3552; engine notes TERRAIN READ). SampleHeight is a
+    /// fetched this frame with GetHeightData() (TerrainSystem.cs:2603, 1.6.2 :2615). Never keep an instance across frames
+    /// (EnsureCPUHeights can dispose and reallocate the heights, TerrainSystem.cs:3538-3552, engine notes TERRAIN READ). SampleHeight is a
     /// pure function of that data and the point, so copying the struct changes no value. Internal (not private):
     /// SkiRunCatalogSystem's rating cache reads terrain through the same struct.</summary>
     internal struct TerrainHeightSampler : IHeightSampler

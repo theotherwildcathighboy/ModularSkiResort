@@ -1,9 +1,10 @@
-// Tree species groups for the Quick runs tree filler (conifer / deciduous / palm / bush), and the species pool a group or a single
-// species hands to the glade planner. Pure (System only) so tests/GladeBatch links it.
-// No prefab field encodes a botanical group (TreeData holds only m_WoodAmount, Game.Prefabs/TreeObject.cs:12-30; placeholders and
-// UIObject groups mix families), so the group comes from the prefab name: the vanilla table first, then whole-word keywords of the
-// name's camel-case / underscore tokens, else Ungrouped. A tree prefab (TreeData) with wood 0 is a bush (vanilla GreenBushWild01/02,
-// FlowerBushWild01/02). Engine notes: EngineNotes/SkiGladeSpecies.md
+// Tree species groups for the Quick runs tree filler (conifer / deciduous / palm / bush). Also the species pool that a group or a
+// single species hands to the glade planner. Pure (System only) so tests/GladeBatch links it.
+// No prefab field encodes a botanical group. TreeData holds only m_WoodAmount (Game.Prefabs/TreeObject.cs:12-30),
+// and placeholders and UIObject groups mix families.
+// So the group comes from the prefab name. The lookup order: the vanilla table first, then whole-word keywords of the
+// name's camel-case / underscore tokens, else Ungrouped.
+// A tree prefab (TreeData) with wood 0 is a bush (vanilla GreenBushWild01/02, FlowerBushWild01/02). Engine notes: EngineNotes/SkiGladeSpecies.md
 
 using System;
 using System.Collections.Generic;
@@ -46,7 +47,7 @@ namespace SkiResortMod.Systems
             new KeyValuePair<string, TreeGroup>("FlowerBushWild02", TreeGroup.Bush),
         };
 
-        // Checked in this order: palm and conifer before deciduous ("palm" never collides; "plane" stays deciduous)
+        // Checked in this order: palm and conifer before deciduous. "palm" never collides and "plane" stays deciduous
         private static readonly string[] s_Palm = { "palm" };
         private static readonly string[] s_Conifer =
         {
@@ -59,7 +60,7 @@ namespace SkiResortMod.Systems
         };
         private static readonly string[] s_Bush = { "bush", "shrub", "hedge" };
 
-        /// <summary>Group of a tree prefab (one with TreeData). <paramref name="woodAmount"/> = TreeData.m_WoodAmount; 0 = a bush.</summary>
+        /// <summary>Group of a tree prefab (one with TreeData). <paramref name="woodAmount"/> = TreeData.m_WoodAmount. 0 = a bush.</summary>
         public static TreeGroup GroupOf(string prefabName, float woodAmount)
         {
             string name = prefabName ?? "";
@@ -80,8 +81,8 @@ namespace SkiResortMod.Systems
             return TreeGroup.Ungrouped;
         }
 
-        /// <summary>Species knobs for a pool of <paramref name="count"/> prefabs (index 0 first): a group plants every member equally
-        /// (DominantShare = 1 / count makes the planner's "index 0 with p, else uniform over the rest" uniform); one species gets
+        /// <summary>Species knobs for a pool of <paramref name="count"/> prefabs (index 0 first). A group plants every member equally
+        /// (DominantShare = 1 / count makes the planner's "index 0 with p, else uniform over the rest" uniform). One species gets
         /// SpeciesCount 1. Species picks never move a tree (the planner draws them after the position), so changing the pool keeps the
         /// layout.</summary>
         public static void ApplyPool(ref GladeParams p, int count)

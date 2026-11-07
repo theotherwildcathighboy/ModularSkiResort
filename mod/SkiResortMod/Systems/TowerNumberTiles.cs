@@ -1,9 +1,9 @@
-// Pure core of the per-tower number tiles (no Unity.Entities; linked into tests/LiftBatch). The ECS side is TowerNumberTileSystem.
+// Pure core of the per-tower number tiles (no Unity.Entities, linked into tests/LiftBatch). The ECS side is TowerNumberTileSystem.
 // RULE: every line tower shows its own number, 1..200 in order from the base station along the line (LiftTowerNumbering), wrapping
-// back to 1 after 200 (201 reads 1, 400 reads 200, 401 reads 1); the layout is at most 3 digits for every int.
-// TILES (assets/blender/number_tiles.py is the source of every constant below): per plate class 11 one-quad prefabs (Blank, N0..N9);
-// a number is 1-3 digit tiles centered in the plate window, so <= 3 tiles per face, 6 per tower.
-// FRAME: two plates per numbered tower, center x 0, facing +Z and -Z; the tile prefab faces +Z with its text along -X, so the -Z face
+// back to 1 after 200 (201 reads 1, 400 reads 200, 401 reads 1). The layout is at most 3 digits for every int.
+// TILES (assets/blender/number_tiles.py is the source of every constant below): per plate class 11 one-quad prefabs (Blank, N0..N9).
+// A number is 1-3 digit tiles centered in the plate window, so <= 3 tiles per face, 6 per tower.
+// FRAME: two plates per numbered tower, center x 0, facing +Z and -Z. The tile prefab faces +Z with its text along -X, so the -Z face
 // takes it rotated 180 deg about Y.
 // Engine notes: EngineNotes/TowerNumberTiles.md
 
@@ -23,7 +23,7 @@ namespace SkiResortMod.Systems
         public const float LayerM = 0.003f;            // number_tiles.py LAYER_M: digits in front of the Blank
         public const float MatchTolM = 0.01f;          // an existing tile within 1 cm of its slot is kept
 
-        /// <summary>One plate class (number_tiles.py CLASSES; win_u = the numeral window's center right of the plate center,
+        /// <summary>One plate class (number_tiles.py CLASSES: win_u = the numeral window's center right of the plate center,
         /// cell = window width / 3, h = the window height).</summary>
         public sealed class TileClass
         {
@@ -61,7 +61,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // Measured from the shipped LOD0 FBXs (number_tiles.py --measure-plates; meshes FG/DQ/GD/Lattice letter P, tram B, as the
+        // Measured from the shipped LOD0 FBXs (number_tiles.py --measure-plates, meshes FG/DQ/GD/Lattice letter P, tram B, as the
         // hand-made prefabs reference them). Hosted terminal towers (ET62 / ET68 / ETDQ / ETGD) carry a glyph-only plate: not numbered.
         public static readonly TowerPlate[] Plates =
         {
@@ -85,7 +85,7 @@ namespace SkiResortMod.Systems
             new TowerPlate("SkiTramTower60", 2, 59.850f, 1.6560f, -1.6560f),
             // The FG8 member (SkiLiftTowerFG2, its name frozen) and the B2 head twins: measured on their shipped Q / R meshes at the
             // import (number_tiles.py --measure-plates --towers shipped-t1, 2026-11-04). The plate sits on the head (DQ / GD gantry
-            // beam, FG mast top), so a DQ / GD twin's row is its member's + the head raise (Hold 2 seats, Combo 1); FG twins keep the
+            // beam, FG mast top), so a DQ / GD twin's row is its member's + the head raise (Hold 2 seats, Combo 1). FG twins keep the
             // member's.
             new TowerPlate("SkiLiftTowerFG2", 0, 8.000f, 0.1760f, -0.1760f),
             new TowerPlate("SkiLiftTowerFG8HoldA", 0, 8.000f, 0.1760f, -0.1760f),
@@ -112,9 +112,9 @@ namespace SkiResortMod.Systems
             new TowerPlate("SkiLiftTowerGD20HoldA", 0, 20.427f, 0.1560f, -0.1560f),
         };
 
-        /// <summary>The GD gantry beacon (our StaticObjectPrefab, a lit prop). On a headed tower (DECISIONS 594) the tile system places it
-        /// posed through the head like the tiles, once the prefab's ObjectSubObjects row for it is gone (the head round's import surgery
-        /// drops the row; while the row exists the engine places it and the code writes nothing).</summary>
+        /// <summary>The GD gantry beacon (our StaticObjectPrefab, a lit prop). On a headed tower (DECISIONS 594) the tile system places it,
+        /// posed through the head like the tiles. It does so once the prefab's ObjectSubObjects row for it is gone (the head round's import
+        /// surgery drops the row. While the row exists, the engine places it and the code writes nothing).</summary>
         public const string BeaconPrefab = "SkiBeaconRed";
 
         /// <summary>The beacon's key in the per-owner diff, after every tile key (Key(cls, glyph) &lt; Classes.Length * 11).</summary>
@@ -133,7 +133,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // The rows of the shipped GD prefabs (gamedata-mirror, 2026-11-04): on the gantry beam top, 1.692 m above the pivot; the twins
+        // The rows of the shipped GD prefabs (gamedata-mirror, 2026-11-04): on the gantry beam top, 1.692 m above the pivot. The twins
         // carry the head raise (Hold 2 seats, Combo 1).
         public static readonly HeadBeacon[] Beacons =
         {
@@ -194,7 +194,7 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>1..200 for a rank >= 1 (201 -> 1, 400 -> 200); 0 for a rank &lt; 1 (no tiles).</summary>
+        /// <summary>1..200 for a rank >= 1 (201 -> 1, 400 -> 200). 0 for a rank &lt; 1 (no tiles).</summary>
         public static int Wrap(int rank) => rank < 1 ? 0 : (rank - 1) % MaxNumber + 1;
 
         /// <summary>The order rule (LiftTowerNumbering) with the wrap: one display number per tower.</summary>
@@ -269,8 +269,8 @@ namespace SkiResortMod.Systems
             public float3 LocalPos;
         }
 
-        /// <summary>The per-owner diff: an existing tile is kept when a desired tile of the same key sits within MatchTolM of it
-        /// (each desired matches at most one, nearest first); everything else is deleted / created. A changed digit is delete +
+        /// <summary>The per-owner diff keeps an existing tile when a desired tile of the same key sits within MatchTolM of it
+        /// (each desired matches at most one, nearest first). It deletes / creates everything else. A changed digit is delete +
         /// create, never an in-place PrefabRef swap (vanilla swaps prefabs only through ReplacePrefabSystem).</summary>
         public static void Reconcile(IList<Existing> existing, IList<TileSpec> desired, List<int> deleteIdx, List<int> createIdx)
         {

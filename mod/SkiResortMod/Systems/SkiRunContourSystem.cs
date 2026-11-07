@@ -1,8 +1,8 @@
-// SkiRunContourSystem - turns the vanilla terrain contour lines on while the area tool holds one of our run prefabs, and gives the
-// player's own setting back afterwards. Engine citations are `Game.X/File.cs:line` in tools/decompile/1.6.0f1.
+// SkiRunContourSystem - turns the vanilla terrain contour lines on while the area tool holds one of our run prefabs. It restores the
+// player's own setting afterwards. Engine citations are `Game.X/File.cs:line` in tools/decompile/1.6.0f1.
 // The only route is the public setter UndergroundViewSystem.globalContourLinesOn (UndergroundViewSystem.cs:67), the flag the vanilla
-// contour button reads and writes; it is not serialized and OnGameLoaded resets it on every load (:92-96).
-// Order: UpdateBefore<SkiRunContourSystem, UndergroundViewSystem>(PreCulling) in Mod.cs so our write is read the same frame; PreCulling
+// contour button reads and writes. The flag is not serialized and OnGameLoaded resets it on every load (:92-96).
+// Order: UpdateBefore<SkiRunContourSystem, UndergroundViewSystem>(PreCulling) in Mod.cs so our write is read the same frame. PreCulling
 // runs every frame, paused included. No RequireForUpdate: OnUpdate must run to restore. If someone else wrote the flag, theirs wins
 // and is never restored. Game mode only (outside it a leftover override is still restored).
 // Engine notes: EngineNotes/SkiRunContourSystem.md
@@ -65,7 +65,7 @@ namespace SkiResortMod.Systems
         {
             base.OnGameLoadingComplete(purpose, mode);
 
-            // Applied through Release so a leftover of our write (g still == m_Written) is removed instead of leaked; after a normal
+            // Applied through Release so a leftover of our write (g still == m_Written) is removed instead of leaked. After a normal
             // load vanilla already reset g (UndergroundViewSystem.cs:94) and nothing is written.
             SafeRelease("load");
 
@@ -189,8 +189,8 @@ namespace SkiResortMod.Systems
                 return false;
             if (m_ToolSystem.activeTool != m_AreaTool)
                 return false;
-            // A save loading forces the default tool anyway (ToolSystem.cs:610-614); this only makes sure we never start an
-            // override mid-load (GameManager.cs:262-272).
+            // A save loading forces the default tool anyway (ToolSystem.cs:610-614). This only makes sure we never start an override
+            // mid-load (GameManager.cs:262-272).
             GameManager gm = GameManager.instance;
             if (gm == null || gm.isGameLoading)
                 return false;

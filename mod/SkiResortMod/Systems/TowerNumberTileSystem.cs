@@ -2,11 +2,11 @@
 // Per numbered tower and plate face, 1-3 one-quad tile objects cover the baked height numeral with the tower's order number. The
 // tiles are vanilla object entities: Owner = the tower, Secondary, Elevation(local y, flags 0). The baked plate is the fallback:
 // with the tile prefabs absent this system writes nothing and logs one line per load.
-// Headed towers (DECISIONS 594): when the tower carries a TrainPitch with a head (TrainPitchSystem), every tile is posed through the head
-// (LiftAlignMath.HeadPose about the Head bone's pivot), and a GD tower whose prefab no longer carries the beacon row gets the beacon
-// (TowerNumberTiles.Beacons) as one more Secondary object on the head. A head pose change re-arms the pass (OnHeadsChanged); the
-// per-owner diff then moves the tiles (delete + create, as a renumber).
-// Never: Temp or Deleted towers; towers whose prefab has no plate row (counted in the order, not tiled); Editor mode.
+// Headed towers (DECISIONS 594): when the tower carries a TrainPitch with a head (TrainPitchSystem), the system poses every tile
+// through the head (LiftAlignMath.HeadPose about the Head bone's pivot). A GD tower whose prefab no longer carries the beacon row gets
+// the beacon (TowerNumberTiles.Beacons) as one more Secondary object on the head. A head pose change re-arms the pass (OnHeadsChanged).
+// The per-owner diff then moves the tiles (delete + create, as a renumber).
+// Never: Temp or Deleted towers, towers whose prefab has no plate row (counted in the order, not tiled), and Editor mode.
 // Log discipline: one ARMED / OFF line per load, one line per pass that changed anything, a one-shot "!!!" catch.
 // Mod.cs: UpdateAfter<TowerNumberTileSystem, LiftCensusSystem>(Modification4B), before Modification5 (the references system).
 // Engine notes: EngineNotes/TowerNumberTileSystem.md
@@ -249,7 +249,7 @@ namespace SkiResortMod.Systems
             return idx;
         }
 
-        /// <summary>The TowerNumberTiles.Beacons index whose beacon the code writes on this tower prefab's head; -1 when it has none, the
+        /// <summary>The TowerNumberTiles.Beacons index whose beacon the code writes on this tower prefab's head. It is -1 when it has none, the
         /// beacon prefab is not loaded, or the prefab still carries its ObjectSubObjects beacon row (the engine places that one).</summary>
         private int BeaconOf(Entity towerPrefab)
         {

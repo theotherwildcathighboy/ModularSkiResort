@@ -1,11 +1,14 @@
 // Removes the vanilla "low voltage not connected" icon from a lift station whose LV stub HAS a wire (the why, with decompile
-// citations: the StationLvRule.cs header). Every PollFrames sim frames (Game mode), for each of our stations carrying the icon
-// (ElectricityParameterData, ConnectionWarningSystem.cs:2366) with a wire on its LV stub (StationLvRule.Classify): queue
-// IconCommandBuffer.Remove(station, icon prefab, the icon's own Target) through IconCommandSystem (the command ConnectionWarningSystem
-// itself issues, :2390; matched on prefab + target, IconCommandSystem.cs:157). Vanilla re-adds the icon only when it re-evaluates the
-// station (the station or a sub-net Updated, CollectOwnersJob :63-140); the next poll removes it again. Nothing else is written.
-// Logs: "created"; one line per station when its wire state first clears an icon this load, again only if it changes; "!!!" once on a
-// throw (then disabled until the next load). Phase GameSimulation, not load-bearing (IconCommandSystem consumes at ModificationEnd, SystemOrder.cs:271).
+// citations: the StationLvRule.cs header).
+// Every PollFrames sim frames (Game mode), the system checks each of our stations that carries the icon
+// (ElectricityParameterData, ConnectionWarningSystem.cs:2366). For a station with a wire on its LV stub (StationLvRule.Classify),
+// it queues IconCommandBuffer.Remove(station, icon prefab, the icon's own Target) through IconCommandSystem.
+// ConnectionWarningSystem itself issues the same command (:2390). The remove matches on prefab + target (IconCommandSystem.cs:157).
+// Vanilla re-adds the icon only when it re-evaluates the station (the station or a sub-net Updated, CollectOwnersJob :63-140).
+// The next poll removes it again. Nothing else is written.
+// Logs: "created". One line per station when its wire state first clears an icon this load, and again only if it changes.
+// "!!!" once on a throw (then disabled until the next load).
+// Phase GameSimulation, not load-bearing (IconCommandSystem consumes at ModificationEnd, SystemOrder.cs:271).
 
 using System;
 using System.Collections.Generic;
@@ -204,7 +207,7 @@ namespace SkiResortMod.Systems
             return EntityManager.TryGetComponent(net, out Owner owner) && owner.m_Owner == station;
         }
 
-        /// <summary>DUMP: per station seen with icons this load, its last LV wire state; the removal count.</summary>
+        /// <summary>DUMP: per station seen with icons this load, its last LV wire state. Also the removal count.</summary>
         internal void AppendDump(StringBuilder sb)
         {
             sb.Append("  station LV icon (T117 follow-up): armed ").Append(m_Armed).Append(", disabled ").Append(m_Disabled)

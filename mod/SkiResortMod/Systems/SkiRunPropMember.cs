@@ -1,8 +1,9 @@
 // Serializable member tag that binds a placed gun, hydrant or mast to its ski run. A persisted component: its type name and Serialize layout
-// are a save-format contract (see SaveLayouts). Placed props are free-standing and carry this tag instead of Owner(run): SecondaryObjectSystem
-// reaps every Secondary child at each rebuild of the owner (SecondaryObjectSystem.cs:1159-1211) and SubObjectSystem moves or deletes every
-// owned object at each Updated of the area (the SkiRunTreeMember reasoning). Added by SkiRunPropSystem.Placer.cs; plume, night light and
-// prop snow read it. Layout v1 (6 bytes): after the 1.0 freeze it never changes (no payload length is written): new fields go in a new type.
+// are a save-format contract (see SaveLayouts). Placed props are free-standing and carry this tag instead of Owner(run).
+// SecondaryObjectSystem reaps every Secondary child at each rebuild of the owner (SecondaryObjectSystem.cs:1159-1211).
+// SubObjectSystem moves or deletes every owned object at each Updated of the area (the SkiRunTreeMember reasoning).
+// SkiRunPropSystem.Placer.cs adds the tag. Plume, night light and prop snow read it.
+// Layout v1 (6 bytes). After the 1.0 freeze it never changes (no payload length is written). New fields go in a new type.
 // Never rename the type or move its namespace without [FormerlySerializedAs].
 // Engine notes: EngineNotes/SkiRunPropMember.md
 
@@ -11,7 +12,7 @@ using Unity.Entities;
 
 namespace SkiResortMod.Systems
 {
-    // Stripped saved AQN as a literal; rules in SkiRunBinding.cs "SELF-ALIAS"
+    // Stripped saved AQN as a literal. Rules in SkiRunBinding.cs "SELF-ALIAS"
     [FormerlySerializedAs("SkiResortMod.Systems.SkiRunPropMember, SkiResortMod")]
     public struct SkiRunPropMember : IComponentData, IQueryTypeParameter, ISerializable
     {

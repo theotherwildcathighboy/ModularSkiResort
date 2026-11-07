@@ -1,10 +1,10 @@
-// Attraction model v2: ONE attraction score per ski area (one Welcome Sign), computed by the pure SkiResortScore from the area's
-// own runs, lifts, active lodges and the sign's efficiency, and written onto its active lodges so the game's tourism sum sees it.
-// Write path: vanilla AttractionSystem (interval 16, GameSimulation) rewrites AttractivenessProvider every tick; this system is
-// UpdateAfter<..., AttractionSystem>(GameSimulation) with the same interval (anchored systems inherit the offset), so our write
+// Attraction model v2: ONE attraction score per ski area (one Welcome Sign). The pure SkiResortScore computes it from the area's
+// own runs, lifts, active lodges and the sign's efficiency. The system writes it onto the area's active lodges so the game's tourism sum sees it.
+// Write path: vanilla AttractionSystem (interval 16, GameSimulation) rewrites AttractivenessProvider every tick. This system is
+// UpdateAfter<..., AttractionSystem>(GameSimulation) with the same interval (anchored systems inherit the offset). So our write
 // lands in the same tick, right after, and wins. Nothing is serialized.
-// Recomputes are requested structurally (watcher, bindings, census, settings) or softly (ratings, snow, state poll), never per
-// frame; Transform reads (sign / station positions) happen only when due, to avoid a job sync point.
+// The system requests recomputes structurally (watcher, bindings, census, settings) or softly (ratings, snow, state poll), never per
+// frame. Transform reads (sign / station positions) happen only when due, to avoid a job sync point.
 // Engine notes: EngineNotes/SkiResortAttractivenessSystem.md
 
 using System;
@@ -46,10 +46,10 @@ namespace SkiResortMod.Systems
             // by this much, or when the area wrote no line for EfficiencyLineQuietS of wall clock.
             public const int EfficiencyLineMinDeltaA = 2;
             public const float EfficiencyLineQuietS = 60f;
-            // The score uses the sign's efficiency averaged over about one game day (262,144 frames / 16 = 16,384 ticks), each
-            // sample capped at 1.0, the result held to [0.25, 1.0]. Capped because a factor above 1 is a bonus the game gives
-            // for something else, not a reason to amplify an attraction score (UNVERIFIED which factor gave the 1.16 seen in the
-            // field: EmployeeHappiness, WorkProviderSystem.cs:269-270, or the ServiceBudget curve, CityServiceEfficiencySystem.cs:59).
+            // The score uses the sign's efficiency averaged over about one game day (262,144 frames / 16 = 16,384 ticks). Each sample is capped
+            // at 1.0. The result is held to [0.25, 1.0]. Capped because a factor above 1 is a bonus the game gives for something else, not a
+            // reason to amplify an attraction score. UNVERIFIED which factor gave the 1.16 seen in the field: EmployeeHappiness
+            // (WorkProviderSystem.cs:269-270) or the ServiceBudget curve (CityServiceEfficiencySystem.cs:59).
             // The 0.25 floor: a sign swinging down to 44 % must not take the score to nothing in one sample.
             // Efficiency 0 (a Destroyed / Disabled sign: A = 0) is NOT smoothed or floored.
             // Engine notes: EngineNotes/SkiResortAttractivenessSystem.md (Near Tuning)
@@ -72,7 +72,7 @@ namespace SkiResortMod.Systems
 
         // Prefab set — tolerant resolution (not yet imported ⇒ system stays inert). The run prefab sets are
         // the ownership system's (one registry, natural included). The lodges are SkiCatalog.Lodges, the stations
-        // SkiCatalog.Stations, both resolved per load by SkiPrefabCatalogSystem (a lodge imported mid-session or a prefab
+        // SkiCatalog.Stations. SkiPrefabCatalogSystem resolves both per load (a lodge imported mid-session or a prefab
         // replaced is followed at the next load / frame).
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private SkiRunOwnershipSystem m_Ownership;       // sign set, run kinds, BindGeneration
@@ -91,7 +91,7 @@ namespace SkiResortMod.Systems
         private bool m_Disabled;
         private bool m_ErrorLogged;
 
-        // The snapshot (double-buffered; Engine notes: Snapshot)
+        // The snapshot (double-buffered, Engine notes: Snapshot)
 
         /// <summary>One ski area as one recompute built it.</summary>
         private sealed class AreaSlot
@@ -99,21 +99,21 @@ namespace SkiResortMod.Systems
             public Entity Sign;
             public readonly List<SkiResortScore.RunInput> Runs = new List<SkiResortScore.RunInput>(16);
             public readonly List<Entity> RunEntities = new List<Entity>(16);
-            public readonly List<Entity> ServedVia = new List<Entity>(16);  // parallel to Runs; the run this one is served through (Entity.Null = directly served, or unserved)
+            public readonly List<Entity> ServedVia = new List<Entity>(16);  // parallel to Runs. The run this one is served through (Entity.Null = directly served, or unserved)
             public readonly List<SkiResortScore.RunPart> Parts = new List<SkiResortScore.RunPart>(16);
             public readonly List<SkiResortScore.LiftInput> Lifts = new List<SkiResortScore.LiftInput>(8);
             public readonly List<Entity> Active = new List<Entity>(4);
             public readonly List<Entity> Inactive = new List<Entity>(2);
             public readonly List<Efficiency> Factors = new List<Efficiency>(8);   // < 1, worst first
-            public float EfficiencyValue;   // the sign's live efficiency (raw; the problem row and the DUMP read it)
+            public float EfficiencyValue;   // the sign's live efficiency (raw, the problem row and the DUMP read it)
             public int EfficiencyPct;
             public double StaffingUsed;  // the smoothed factor the score used (Result.Efficiency)
             public int StaffingUsedPct;
             public int OpenUnknown;
             public SkiResortScore.Result Result;
             public bool Held;
-            // ActiveInfo is parallel to Active (same order); Lodges is the
-            // score's AreaInput.Lodges built from it; ServeLifts = indices into m_ServeLifts of this area's lifts.
+            // ActiveInfo is parallel to Active (same order). Lodges is the
+            // score's AreaInput.Lodges built from it. ServeLifts = indices into m_ServeLifts of this area's lifts.
             public readonly List<LodgeInfo> ActiveInfo = new List<LodgeInfo>(4);
             public readonly List<SkiResortScore.LodgeInput> Lodges = new List<SkiResortScore.LodgeInput>(4);
             public readonly List<Entity> PatrolEntities = new List<Entity>(2);
@@ -121,14 +121,16 @@ namespace SkiResortMod.Systems
             public readonly List<float2> PatrolXz = new List<float2>(2);
             public readonly List<int> ServeLifts = new List<int>(8);
             public bool SchoolActive;
-            public int Schools;   // school entries listed (active or not; DUMP)
+            public int Schools;   // school entries listed (active or not, DUMP)
             // (Engine notes: Top-level buildings) Σ tier weight × efficiency and Σ tier weight over the area's ACTIVE
-            // top-level lodges (SchoolLinkRules.AreaEfficiency); 0 / 0 = no top-level lodge (the sign's efficiency alone).
+            // top-level lodges (SchoolLinkRules.AreaEfficiency). 0 / 0 = no top-level lodge (the sign's efficiency alone).
             public double LodgeEffSum, LodgeWeightSum;
             public int SignEfficiencyPct;  // the sign's own efficiency (before the top-level lodges fold in), DUMP
-            // (MountainJobsRules header EFFICIENCY) the sign's staffing product (NotEnoughEmployees x
-            // SickEmployees x EmployeeHappiness, WorkProviderSystem.cs:279-281; the mountain buildings' jobs ride on the sign unless a road lodge carries them),
-            // the sign's efficiency without it, and whether a mountain lodge took it into the top-level lodge mean.
+            // (MountainJobsRules header EFFICIENCY) three values:
+            // - the sign's staffing product (NotEnoughEmployees x SickEmployees x EmployeeHappiness, WorkProviderSystem.cs:279-281),
+            // - the sign's efficiency without it,
+            // - whether a mountain lodge took it into the top-level lodge mean.
+            // The mountain buildings' jobs ride on the sign unless a road lodge carries them.
             public float SignStaffing, SignNoStaffValue;
             public bool MountainInMean;
             // The job carrier (MountainJobsRules): the nearest active road lodge to the sign, Entity.Null = the sign itself. The slices of the
@@ -208,7 +210,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Everything one recompute publishes. m_Cur is read; m_Next is filled, then swapped.</summary>
+        /// <summary>Everything one recompute publishes. m_Cur is read. m_Next is filled, then swapped.</summary>
         private sealed class Snapshot
         {
             public readonly List<AreaSlot> Slots = new List<AreaSlot>(4);
@@ -274,9 +276,9 @@ namespace SkiResortMod.Systems
             private int m_StaffingLastTick;
 
             /// <summary>Advances the average over the ticks since the last call (the previous sample held over that
-            /// time: the efficiency only changes between two recomputes, so this is exact for a step signal) and
-            /// returns the factor for the score: the EMA held to [floor, cap] and rounded to 0.01 (the game's own
-            /// precision, so the score does not move on noise). raw ≤ 0 returns 0 and forgets the average.</summary>
+            /// time). The efficiency only changes between two recomputes, so this is exact for a step signal. Then it
+            /// returns the factor for the score: the EMA held to [floor, cap] and rounded to 0.01. That is the game's own
+            /// precision, so the score does not move on noise. raw ≤ 0 returns 0 and forgets the average.</summary>
             public double StaffingFactor(float raw, int tick)
             {
                 if (!(raw > 0f))
@@ -321,8 +323,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Per area: the last logged key (A, counts, flags, held) and the fold window. Also the logged key without A and
-        /// PerLodge (StructKey), the logged A / runs value / efficiency percent, and the last skipped key (a skip is counted once
-        /// per change, not per recompute).</summary>
+        /// PerLodge (StructKey), the logged A / runs value / efficiency percent, and the last skipped key. A skip is counted once
+        /// per change, not per recompute.</summary>
         private sealed class AreaLog
         {
             public readonly LogWindow Window = new LogWindow(Tuning.AreaLogWindowS);
@@ -351,7 +353,7 @@ namespace SkiResortMod.Systems
         private int m_HeldCount;   // areas held at the last recompute
         private long m_EfficiencyLinesSkipped;  // efficiency-only area lines not written this load (DUMP)
 
-        // Recompute scratch (reused; no allocation once grown)
+        // Recompute scratch (reused, no allocation once grown)
         // m_SignIndex and m_BaseXz are CACHES (Engine notes: Sync points): filled when positions
         // are due (a structural recompute, the backstop), reused by soft recomputes.
         private readonly SkiResortIndex m_SignIndex = new SkiResortIndex();
@@ -359,10 +361,13 @@ namespace SkiResortMod.Systems
         // The same cache rule for the summit-served lodges and the patrol huts.
         private readonly Dictionary<Entity, float2> m_LodgeXz = new Dictionary<Entity, float2>();
         private readonly Dictionary<Entity, float2> m_PatrolXz = new Dictionary<Entity, float2>();
-        // (Engine notes: Top-level buildings) the park walk's top-level resort buildings (no Owner: lodges, the school,
-        // patrol huts) with their kind (parallel list), their cached xz (same rule as m_PatrolXz), the published links (building
-        // -> sign or Null) and this recompute's, each building's kind for the log (kept until its Removed line), the log diff
-        // scratch, and one lodge's efficiency factors (reused).
+        // (Engine notes: Top-level buildings) the park walk's top-level resort buildings (no Owner: lodges, the school, patrol huts), with:
+        // - their kind (parallel list),
+        // - their cached xz (same rule as m_PatrolXz),
+        // - the published links (building -> sign or Null) and this recompute's,
+        // - each building's kind for the log (kept until its Removed line),
+        // - the log diff scratch,
+        // - one lodge's efficiency factors (reused).
         private readonly List<Entity> m_TopLevel = new List<Entity>(8);
         private readonly List<byte> m_TopKind = new List<byte>(8);
         private readonly Dictionary<Entity, float2> m_TopXz = new Dictionary<Entity, float2>();
@@ -379,8 +384,8 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_LiveLodges = new HashSet<Entity>();
         private readonly HashSet<Entity> m_LodgeClaimed = new HashSet<Entity>();
         private readonly List<float3> m_RunTops = new List<float3>(32);
-        // (LiftServedRule.AssignLinked) per run the outline xz and node heights (the catalog row's arrays, by reference), its area
-        // slot, and the link graph (self-validating: rebuilt only when an outline or height array, a slot or the run set changed).
+        // (LiftServedRule.AssignLinked) per run: the outline xz and node heights (the catalog row's arrays, by reference), its area
+        // slot, and the link graph. The link graph is self-validating: rebuilt only when an outline or height array, a slot or the run set changed.
         // ServedRoot / ServedVia: the directly served run a run is served through, and the neighbor it was reached through (-1 none).
         private readonly List<float2[]> m_RunOutlines = new List<float2[]>(32);
         private readonly List<float[]> m_RunHeights = new List<float[]>(32);
@@ -390,8 +395,12 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_ServedVia = new List<int>(32);
         private readonly List<RunRef> m_RunRefs = new List<RunRef>(32);
         private readonly List<bool> m_TrackRuns = new List<bool>(32);  // per run ref, RunKindRules.IsCatTrackLink (the cat track mask)
-        // LodgeSupplyRule: the road-optional lodges (the switch's watch list), this recompute's chain roots and off-road lodges, their lot rings
-        // (cached like m_TopXz), the raw answers (walked only when the inputs changed) and the published answers with their holds.
+        // LodgeSupplyRule state:
+        // - the road-optional lodges (the switch's watch list),
+        // - this recompute's chain roots and off-road lodges,
+        // - their lot rings (cached like m_TopXz),
+        // - the raw answers (walked only when the inputs changed),
+        // - the published answers with their holds.
         private readonly List<Entity> m_SupplyWatch = new List<Entity>(4);
         private readonly List<Entity> m_SupplyWatchNext = new List<Entity>(4);
         private int m_SupplyWatchRevision;
@@ -445,13 +454,13 @@ namespace SkiResortMod.Systems
         private double m_FirstRecomputeMs = -1.0;   // the load's first recompute, kept out of mean / max / WARN (−1 = none yet)
         private bool m_CostWarned;
         // The WARN's day (SkiDayRules.DoneDayOf: today when it fired at or after 12:00, else none, so it
-        // re-arms today at noon) and the clock of the cost max (month key SkiDayRules.NoMonth / minute −1 before any).
+        // re-arms today at noon). The clock of the cost max (month key SkiDayRules.NoMonth / minute −1 before any).
         private int m_CostWarnDay = int.MinValue;
         private int m_CostMaxMonth = SkiDayRules.NoMonth, m_CostMaxMinute = -1;
 
 
         /// <summary>++ per load, per recompute that changed any view, factor list or written value, and when
-        /// WriteProviders drops a deleted lodge (Engine notes: Generation). Plain field read; never reset (readers
+        /// WriteProviders drops a deleted lodge (Engine notes: Generation). Plain field read. Never reset (readers
         /// compare for equality).</summary>
         public int Generation => m_Generation;
 
@@ -463,7 +472,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The prefab catalog's live lodge-prefab view, for a caller
         /// that tests many buildings in one scan (SkiGuestCounterSystem.RebuildMap fetches it once instead of calling
-        /// IsLodgePrefab per building). Main thread; do not keep it across frames (the catalog revalidates per frame).</summary>
+        /// IsLodgePrefab per building). Main thread. Do not keep it across frames (the catalog revalidates per frame).</summary>
         internal HashSet<Entity> LodgePrefabSet => m_PrefabCatalog.LodgePrefabSet;
 
         /// <summary>The catalog's bus depot prefabs (same caveat as LodgePrefabSet).</summary>
@@ -477,8 +486,10 @@ namespace SkiResortMod.Systems
         /// does not count, so a placement is never delayed behind it).</summary>
         internal bool RecomputePending => m_StructuralPending;
 
-        /// <summary>A building prefab whose placement, move or removal changes a ski area: a lodge, the ski school, a
-        /// patrol hut, a bus depot, a lift station (the prefab catalog's) or a Welcome Sign (the sign stays the ownership registry's).</summary>
+        /// <summary>A building prefab whose placement, move or removal changes a ski area:
+        /// - a lodge, the ski school, a patrol hut, a bus depot,
+        /// - a lift station (the prefab catalog's),
+        /// - a Welcome Sign (the sign stays the ownership registry's).</summary>
         internal bool IsWatchedBuildingPrefab(Entity prefab)
         {
             // Lodge ∪ school ∪ patrol hut ∪ bus depot.
@@ -493,8 +504,8 @@ namespace SkiResortMod.Systems
             return m_Ownership.IsRunPrefab(prefab);
         }
 
-        /// <summary>STRUCTURAL request: the recompute runs on the next tick (it upgrades a pending soft one;
-        /// the first structural reason is kept). Counted per reason; the first of each reason per load is
+        /// <summary>STRUCTURAL request: the recompute runs on the next tick (it upgrades a pending soft one, and
+        /// the first structural reason is kept). Counted per reason. The first of each reason per load is
         /// logged. Main thread (the watcher at ModificationEnd, and this system's tick).</summary>
         internal void RequestRecompute(string reason)
         {
@@ -507,11 +518,13 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The watcher's placement request run NOW, for a paused game. GameSimulation does not run while paused
-        /// (SimulationSystem.cs:221-224: selectedSpeed 0 → no frame), so a lodge, school or patrol hut placed while paused
+        /// (SimulationSystem.cs:221-224: selectedSpeed 0 → no frame). So a lodge, school or patrol hut placed while paused
         /// stayed Not linked until the game ran. Called only by SkiResortAttractivenessWatchSystem at ModificationEnd (main
-        /// thread, runs paused) right after RequestRecompute: the same three steps as one OnUpdate tick (the pending
-        /// structural Recompute, WriteProviders, FlushAreaLogs), so the published links, the provider writes and the logs stay
-        /// in step. While the game runs the watcher leaves the request to the next 16-frame tick.</summary>
+        /// thread, runs paused) right after RequestRecompute. It does the same three steps as one OnUpdate tick:
+        /// - the pending structural Recompute,
+        /// - WriteProviders,
+        /// - FlushAreaLogs.
+        /// So the published links, the provider writes and the logs stay in step. While the game runs the watcher leaves the request to the next 16-frame tick.</summary>
         internal void RecomputeWhilePaused()
         {
             try
@@ -577,7 +590,7 @@ namespace SkiResortMod.Systems
         internal struct RunScoreView { public Entity Run, Sign; public SkiResortScore.RunInput Input; public SkiResortScore.RunPart Part; }
 
         /// <summary>One census lift as the last recompute counted it. Powered = lift.Power != LiftPower.NoPower
-        /// (what the game shows); Counted = Complete && LiftServedRule.IsPowered(lift.Power).</summary>
+        /// (what the game shows). Counted = Complete && LiftServedRule.IsPowered(lift.Power).</summary>
         internal struct LiftScoreView { public Entity Id, Base, Top, Sign; public bool Complete, Powered, Counted; }
 
         /// <summary>The last recompute's result for <paramref name="sign"/> (false: not a live sign at the
@@ -634,7 +647,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The sign's efficiency factors below 100 % from the last recompute, worst first,
-        /// appended to <paramref name="into"/> after clearing it; returns the count.</summary>
+        /// appended to <paramref name="into"/> after clearing it. Returns the count.</summary>
         internal int CopyEfficiencyFactors(Entity sign, List<Efficiency> into)
         {
             into.Clear();
@@ -647,22 +660,22 @@ namespace SkiResortMod.Systems
         }
 
         // The lodge list and the site inputs of the last recompute, for SkiDaySystem, SkiLodgeParkingSystem and
-        // SkiLiftTicketSystem's gate watch. Main thread only; plain copies (no AddRange), allocation-free once the caller's
-        // lists have grown. Same recompute as TryGetAreaScore, so the lodge list and the gate inputs agree; the guest counter's
+        // SkiLiftTicketSystem's gate watch. Main thread only. Plain copies (no AddRange), allocation-free once the caller's
+        // lists have grown. Same recompute as TryGetAreaScore, so the lodge list and the gate inputs agree. The guest counter's
         // target map uses the same lodge rule, so a lodge from this list is a counted target.
 
         private int m_LodgeSetRevision;
 
-        /// <summary>++ when the published (sign, active lodges) lists change; at every load; when WriteProviders
+        /// <summary>++ when the published (sign, active lodges) lists change, at every load, and when WriteProviders
         /// drops a deleted lodge (consumers re-copy).</summary>
         internal int LodgeSetRevision => m_LodgeSetRevision;
 
         /// <summary>False only between a load and the first recompute of an active model: the snapshot is empty
         /// then, not "no ski area". While inactive (no lodge prefab, prefab sets not ready, error-disabled) it is
-        /// true, and CopySigns' 0 is the truth (the parking census and SkiDaySystem wait on it).</summary>
+        /// true. CopySigns' 0 is then the truth (the parking census and SkiDaySystem wait on it).</summary>
         internal bool HasSnapshot => !IsActive || m_Recomputes > 0;
 
-        /// <summary>Live Welcome Signs of the last recompute, slot order; clears <paramref name="into"/>; returns
+        /// <summary>Live Welcome Signs of the last recompute, slot order. Clears <paramref name="into"/>. Returns
         /// the count (0 while inactive).</summary>
         internal int CopySigns(List<Entity> into)
         {
@@ -675,9 +688,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>One ACTIVE lodge of the last recompute with its tier. LodgeIndex = SkiCatalog.Lodges index (the lodge's
-        /// PrefabRef is its tier); SummitServed = within Ladder.SummitServedRadiusM of a complete, powered lift's top stub tip of
-        /// its ski area (evaluated for rows with μ summit &gt; μ; false for the others). Every active lodge counts.
-        /// HasRoad = Building.m_RoadEdge set at that recompute; Supplied = the published chain answer (LodgeSupplyRule), for a
+        /// PrefabRef is its tier). SummitServed = within Ladder.SummitServedRadiusM of a complete, powered lift's top stub tip of
+        /// its ski area. It is evaluated for rows with μ summit &gt; μ and false for the others. Every active lodge counts.
+        /// HasRoad = Building.m_RoadEdge set at that recompute. Supplied = the published chain answer (LodgeSupplyRule), for a
         /// road-optional row with no road. Both are per building: the catalog row alone no longer says whether a lodge takes arrivals.</summary>
         internal struct LodgeInfo
         {
@@ -689,10 +702,10 @@ namespace SkiResortMod.Systems
             public bool Merged;   // a SkiMergedLodge building: holds skiers, takes no arrivals, needs no parking, carries no jobs
         }
 
-        /// <summary>++ when the list of live road-optional lodges changes, and at every load (LodgeSupplySystem re-copies; ids remap at a load).</summary>
+        /// <summary>++ when the list of live road-optional lodges changes, and at every load (LodgeSupplySystem re-copies, ids remap at a load).</summary>
         internal int SupplyWatchRevision => m_SupplyWatchRevision;
 
-        /// <summary>The live road-optional lodges of the last recompute, linked to a sign or not; clears <paramref name="into"/>.</summary>
+        /// <summary>The live road-optional lodges of the last recompute, linked to a sign or not. Clears <paramref name="into"/>.</summary>
         internal void CopySupplyWatch(List<Entity> into)
         {
             into.Clear();
@@ -720,8 +733,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The LodgeInfo of every active lodge of <paramref name="sign"/> (AreaSlot.Active order: lodge prefab, in the park
-        /// walk, not Inactive; first sign wins; base and mountain lodges; NOT filtered for Destroyed); clears <paramref name="into"/>;
-        /// returns the count (0 for an unknown sign). Main thread, plain copy (allocation-free once the caller's list has grown).</summary>
+        /// walk, not Inactive, first sign wins, base and mountain lodges, NOT filtered for Destroyed). Clears <paramref name="into"/>.
+        /// Returns the count (0 for an unknown sign). Main thread, plain copy (allocation-free once the caller's list has grown).</summary>
         internal int CopyActiveLodgeInfo(Entity sign, List<LodgeInfo> into)
         {
             into.Clear();
@@ -733,8 +746,8 @@ namespace SkiResortMod.Systems
             return into.Count;
         }
 
-        /// <summary>The active bus depots linked to <paramref name="sign"/> (the nearest live sign at any distance; not Inactive; NOT filtered
-        /// for Destroyed: CheckDepot does); clears <paramref name="into"/>; returns the count (0 for an unknown sign). Main thread, plain copy.</summary>
+        /// <summary>The active bus depots linked to <paramref name="sign"/> (the nearest live sign at any distance, not Inactive, NOT filtered
+        /// for Destroyed: CheckDepot does). Clears <paramref name="into"/>. Returns the count (0 for an unknown sign). Main thread, plain copy.</summary>
         internal int CopyActiveDepots(Entity sign, List<Entity> into)
         {
             into.Clear();
@@ -746,9 +759,9 @@ namespace SkiResortMod.Systems
             return into.Count;
         }
 
-        /// <summary>Site inputs for SkiDaySystem's SiteJob: clears both; runs = slot.RunEntities
-        /// of <paramref name="sign"/>; stations = the non-Null Base / Top of every m_Cur.Lifts value with Sign ==
-        /// sign, deduplicated; returns runs.Count + liftStations.Count; 0 for an unknown sign.</summary>
+        /// <summary>Site inputs for SkiDaySystem's SiteJob. Clears both. runs = slot.RunEntities
+        /// of <paramref name="sign"/>. stations = the non-Null Base / Top of every m_Cur.Lifts value with Sign ==
+        /// sign, deduplicated. Returns runs.Count + liftStations.Count, 0 for an unknown sign.</summary>
         internal int CopySiteMembers(Entity sign, List<Entity> runs, List<Entity> liftStations)
         {
             runs.Clear();
@@ -788,7 +801,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             // PowerBridgeSystem is still CREATED here: this system is registered first (Mod.cs, before PowerBridge),
-            // and creation order is load-hook subscription order (GameSystemBase.cs:27-29) — kept identical.
+            // and creation order is load-hook subscription order (GameSystemBase.cs:27-29). The order is kept identical.
             World.GetOrCreateSystemManaged<PowerBridgeSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
             m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
@@ -800,7 +813,7 @@ namespace SkiResortMod.Systems
             m_Simulation = World.GetOrCreateSystemManaged<Game.Simulation.SimulationSystem>();
 
             // The park-building query (signs and lodges carry Game.Buildings.Park, Park.cs:26-41). No
-            // Transform (Engine notes: Sync points): the walk reads Entity and PrefabRef only; sign and
+            // Transform (Engine notes: Sync points): the walk reads Entity and PrefabRef only. Sign and
             // base-station positions are read through EntityManager when they are due (ReadPositions).
             m_ParkQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -852,7 +865,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>A load (or leaving to the menu) writes the folded area lines of the city being left.
         /// Never throws: GameSystemBase.GamePreload DISABLES a system whose OnGamePreload throws
-        /// (Game/GameSystemBase.cs:85-96; same in 1.6.2).</summary>
+        /// (Game/GameSystemBase.cs:85-96, same in 1.6.2).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
@@ -1139,7 +1152,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Every StatePollTicks, one hash of each area's efficiency percent and lodge on/off
-        /// bits (ReadSign, the same reads as the recompute) and the census power signature; a change asks for
+        /// bits (ReadSign, the same reads as the recompute) and the census power signature. A change asks for
         /// a soft recompute.</summary>
         private void PollState()
         {
@@ -1159,7 +1172,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>HoldTicks + 1 per tick for every held area; reaching the cap asks for a
+        /// <summary>HoldTicks + 1 per tick for every held area. Reaching the cap asks for a
         /// structural recompute (which then writes anyway).</summary>
         private void AdvanceHolds()
         {
@@ -1224,7 +1237,7 @@ namespace SkiResortMod.Systems
                 m_Census.CopyServeLifts(m_ServeLifts, m_Chords);
                 // THE served rule with downhill run links (a run skiers get onto downhill from a served run is served). Links are
                 // rebuilt only when an outline or height array, a slot or the run set changed (RunLinks.Build keeps its graph
-                // otherwise), so the pair pass does not run on every soft recompute; the lift part (Assign) is the same cost as before.
+                // otherwise). So the pair pass does not run on every soft recompute. The lift part (Assign) is the same cost as before.
                 m_RunLinks.Build(m_RunOutlines, m_RunHeights, m_RunAreas);
                 // Cat tracks carry service level or downhill along themselves (the track mask): the same rule as
                 // SkiResortStatsSystem.AssignServedLifts.
@@ -1258,7 +1271,7 @@ namespace SkiResortMod.Systems
                     slot.ServedVia[rr.Index] = next.Slots[via.Slot].RunEntities[via.Index];
                 }
                 // Patrolled = the run's top node within PatrolRule.RadiusM of an active patrol
-                // hut of its own area (the served rule's test point; NaN without facts → not patrolled).
+                // hut of its own area (the served rule's test point, NaN without facts → not patrolled).
                 if (slot.PatrolXz.Count > 0)
                 {
                     float3 top = m_RunTops[i];
@@ -1275,7 +1288,7 @@ namespace SkiResortMod.Systems
             FoldLodgeEfficiency(next);
             stateHash = SkiRunRatingRules.Mix(stateHash, unchecked((uint)m_Census.ComputePowerSignature()));
 
-            // 5. Score each area; holds; write lists; views; area logs.
+            // 5. Score each area, holds, write lists, views, area logs.
             ScoreAreas(next, k, backcountry, gating, reason);
 
             // 6. Orphan lodges (listed by no live sign) carry no provider.
@@ -1298,8 +1311,8 @@ namespace SkiResortMod.Systems
 
             // 8. Cost. The first recompute of a load pays one-off costs (Mono JIT of this call tree on the
             // session's first load, the first sync on the park query after the load, the first-call log lines
-            // written inside the timed span), so it is kept apart: not in the mean or max, not tested for the
-            // WARN; the [cost] line and the DUMP print it on its own.
+            // written inside the timed span). So it is kept apart. It is not in the mean or max, and not tested for the
+            // WARN. The [cost] line and the DUMP print it on its own.
             double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
             if (m_Recomputes == 1)
             {
@@ -1347,10 +1360,10 @@ namespace SkiResortMod.Systems
 
         /// <summary>The park walk: one slot per live Welcome Sign, every lodge building into m_LiveLodges.
         /// Syncs only PrefabRef's writers (chunk reads do not wait on running jobs — the ownership engine notes's
-        /// rule; ParkedVehiclesSystem.cs:1732). Then the sign index for the lift
-        /// rule (Engine notes: Sync points): re-read from the signs' Transforms when
-        /// <paramref name="readPositions"/>, else kept from the last read — unless it no longer holds exactly
-        /// this walk's signs (a missed tag: read anyway, counted). Returns whether positions were read.</summary>
+        /// rule, ParkedVehiclesSystem.cs:1732). Then the sign index for the lift
+        /// rule (Engine notes: Sync points). It is re-read from the signs' Transforms when
+        /// <paramref name="readPositions"/>, else kept from the last read. It is read anyway, and counted, when it no longer holds exactly
+        /// this walk's signs (a missed tag). Returns whether positions were read.</summary>
         private bool CollectAreas(Snapshot next, bool readPositions)
         {
             m_LiveLodges.Clear();
@@ -1366,8 +1379,8 @@ namespace SkiResortMod.Systems
                 EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
                 var entityHandle = GetEntityTypeHandle();
                 var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
-                // Owner presence is an archetype fact (chunk.Has reads no component data, no sync): a lodge,
-                // school or patrol hut without Owner is TOP-LEVEL (Engine notes: Top-level buildings); one with an Owner is counted
+                // Owner presence is an archetype fact (chunk.Has reads no component data, no sync). A lodge,
+                // school or patrol hut without Owner is TOP-LEVEL (Engine notes: Top-level buildings). One with an Owner is counted
                 // for no area.
                 var ownerHandle = GetComponentTypeHandle<Owner>(isReadOnly: true);
                 using (var chunks = m_ParkQuery.ToArchetypeChunkArray(Allocator.Temp))
@@ -1409,7 +1422,7 @@ namespace SkiResortMod.Systems
             if (readPositions)
             {
                 // The one Transform sync of this recompute: EntityManager.GetComponentData completes the
-                // Transform writers (the move systems' jobs) on its first call; the rest are plain reads.
+                // Transform writers (the move systems' jobs) on its first call. The rest are plain reads.
                 m_SignIndex.Clear();
                 for (int s = 0; s < next.SlotCount; s++)
                 {
@@ -1490,7 +1503,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A school or patrol hut entry counts while its building exists and is neither Deleted
-        /// nor Temp (they are not in the park walk: m_LiveLodges holds lodges only).</summary>
+        /// nor Temp. They are not in the park walk: m_LiveLodges holds lodges only.</summary>
         private bool IsLiveUpgrade(Entity building)
         {
             return building != Entity.Null && EntityManager.Exists(building) && !EntityManager.HasComponent<Deleted>(building) &&
@@ -1505,11 +1518,14 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>(Engine notes, Top-level buildings) Each top-level building of the last park walk mixes (entity, active) into
-        /// <paramref name="hash"/> (three words, so the poll and the recompute agree), and a top-level lodge also its efficiency
-        /// percent. With <paramref name="next"/> (the recompute) it also resolves the building's sign (SchoolLinkRules.Resolve over
-        /// this recompute's sign index, TetherMeters), counts it into that area's slot, folds the lodges into the area's
-        /// efficiency, logs link changes (SchoolLinkRules.Diff) and publishes the links. Active = the building's own
-        /// Building.m_OptionMask not Inactive (BuildingUtils.cs:351-354); reading Building syncs its writers
+        /// <paramref name="hash"/> (three words, so the poll and the recompute agree). A top-level lodge also mixes in its efficiency
+        /// percent. With <paramref name="next"/> (the recompute) the walk also:
+        /// - resolves the building's sign (SchoolLinkRules.Resolve over this recompute's sign index, TetherMeters),
+        /// - counts it into that area's slot,
+        /// - folds the lodges into the area's efficiency,
+        /// - logs link changes (SchoolLinkRules.Diff),
+        /// - publishes the links.
+        /// Active = the building's own Building.m_OptionMask not Inactive (BuildingUtils.cs:351-354). Reading Building syncs its writers
         /// (BuildingPoliciesSystem, RoadConnectionSystem), once per poll / recompute and only while a top-level building exists.</summary>
         private void LinkTopLevel(Snapshot next, ref ulong hash)
         {
@@ -1535,7 +1551,7 @@ namespace SkiResortMod.Systems
                 bool hasRoad = hasData && data.m_RoadEdge != Entity.Null;
                 hash = SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(hash,
                     unchecked((uint)building.Index)), unchecked((uint)building.Version)), active ? 1u : 0u);
-                // A lodge's or depot's road edge and a road-optional lodge's supply: a change asks for a recompute, so ski-day targets, the
+                // A lodge's or depot's road edge and a road-optional lodge's supply: a change asks for a recompute. So ski-day targets, the
                 // parking census and the carrier follow them.
                 LodgeDef topDef = null;
                 bool optional = false, supplied = false, merged = false;
@@ -1621,11 +1637,11 @@ namespace SkiResortMod.Systems
                         HasRoad = hasRoad,
                         Supplied = supplied,
                     });
-                    // The tier base is the weight (SkiCatalog.Lodges B; the school and patrol huts weigh 0).
+                    // The tier base is the weight (SkiCatalog.Lodges B, the school and patrol huts weigh 0).
                     double weight = known ? def.B : 0.0;
                     efficiency = ReadLodgeEfficiency(building, slot);
                     // A lodge whose jobs ride on the carrier takes the carrier's staffing for its slice, folded in below once the carrier
-                    // is known (MountainJobsRules; the fold then takes the sign term without it, so it counts once).
+                    // is known (MountainJobsRules). The fold then takes the sign term without it, so it counts once.
                     if (known && weight > 0.0 && (def.SignJobs > 0 || LodgeSupplyRule.JobsLeave(def.RoadRule, hasRoad, supplied)))
                     {
                         slot.CarriedOwn.Add(efficiency);
@@ -1647,7 +1663,7 @@ namespace SkiResortMod.Systems
             m_TopLinksNext = swap;
         }
 
-        /// <summary>Each area's efficiency with its active top-level lodges folded in (SchoolLinkRules.AreaEfficiency); the lodges whose jobs
+        /// <summary>Each area's efficiency with its active top-level lodges folded in (SchoolLinkRules.AreaEfficiency). The lodges whose jobs
         /// ride on the carrier take the carrier's staffing. Runs after PlaceMerged, so an area's merged lodges fold in like the others.</summary>
         private void FoldLodgeEfficiency(Snapshot next)
         {
@@ -1675,7 +1691,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>One lodge or depot of an area into this recompute's supply inputs and the carrier pick. A building that is destroyed or
-        /// abandoned neither roots a chain nor carries jobs. A closed (Inactive) road lodge still roots a chain, it still has its road; it
+        /// abandoned neither roots a chain nor carries jobs. A closed (Inactive) road lodge still roots a chain: it still has its road. It
         /// carries no jobs.</summary>
         private void AddSupplyInputs(Snapshot next, AreaSlot slot, Entity building, EntityRef id, float distance, bool depot, LodgeDef def, bool hasRoad, bool active)
         {
@@ -1708,8 +1724,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A building's lot rectangle in xz (BuildingUtils.CalculateCorners; a Grand lot is 80 x 72 m, so the 25 m rule measures from
-        /// the lot, not the center), cached like m_TopXz; null without a Transform or BuildingData.</summary>
+        /// <summary>A building's lot rectangle in xz (BuildingUtils.CalculateCorners). A Grand lot is 80 x 72 m, so the 25 m rule measures from
+        /// the lot, not the center. Cached like m_TopXz. Null without a Transform or BuildingData.</summary>
         private float2[] RingOf(Entity building)
         {
             if (m_RingCache.TryGetValue(building, out float2[] ring))
@@ -1725,7 +1741,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The published answer of a road-optional lodge. First sight (a load, a new lodge): the shape it stands in, so a load changes
-        /// nothing until the walk has spoken; a save's off-grid lodge has no ElectricityConsumer.</summary>
+        /// nothing until the walk gives its answer. A save's off-grid lodge has no ElectricityConsumer.</summary>
         private bool SuppliedNow(Entity lodge)
         {
             if (m_SupplyStates.TryGetValue(lodge, out LodgeSupplyState s))
@@ -1735,8 +1751,10 @@ namespace SkiResortMod.Systems
             return s.Supplied;
         }
 
-        /// <summary>After the run links of this recompute: publish the watch list, walk the chains if an input changed (the links rebuilt, a track
-        /// flag, a root, a lodge's lot or area), then step every hold.</summary>
+        /// <summary>After the run links of this recompute:
+        /// - publish the watch list,
+        /// - walk the chains if an input changed (the links rebuilt, a track flag, a root, a lodge's lot or area),
+        /// - step every hold.</summary>
         private void UpdateSupply(bool linksReady)
         {
             if (!SameEntities(m_SupplyWatch, m_SupplyWatchNext))
@@ -1786,7 +1804,7 @@ namespace SkiResortMod.Systems
             return hash;
         }
 
-        /// <summary>One read per watched lodge: at a road it reads not supplied with no hold; off-road the raw answer goes through the hold. Before
+        /// <summary>One read per watched lodge: at a road it reads not supplied with no hold. Off-road the raw answer goes through the hold. Before
         /// the links are known (census not armed yet) only the first sight is seeded. Runs at every recompute and state poll.</summary>
         private void StepSupply()
         {
@@ -1812,7 +1830,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A building's staffing product (the three factors WorkProviderSystem writes, :279-281); no buffer reads 1.</summary>
+        /// <summary>A building's staffing product (the three factors WorkProviderSystem writes, :279-281). No buffer reads 1.</summary>
         private float StaffingOf(Entity building)
         {
             float staffing = 1f;
@@ -1840,7 +1858,7 @@ namespace SkiResortMod.Systems
         internal int SupplyWalks => m_SupplyWalks;
 
         /// <summary>A top-level lodge's efficiency (SkiResortScore.SignEfficiency over its own Efficiency buffer: a
-        /// top-level CityServiceBuilding has one, Park.cs:27-37; none → 1). With <paramref name="slot"/> its factors below 1 are
+        /// top-level CityServiceBuilding has one, Park.cs:27-37, none → 1). With <paramref name="slot"/> its factors below 1 are
         /// merged into the area's list, keeping the worst value per factor (the hub's Efficiency rows).</summary>
         private float ReadLodgeEfficiency(Entity lodge, AreaSlot slot)
         {
@@ -1872,8 +1890,8 @@ namespace SkiResortMod.Systems
             return SkiResortScore.SignEfficiency(m_LodgeFactorValues, count);
         }
 
-        /// <summary>The one line per link change (Engine notes: Logs; SchoolLinkRules header LOG DISCIPLINE). The school says
-        /// "School [link] ski school …"; lodges and patrol huts say "Lodge [link] lodge …" / "Patrol [link] patrol
+        /// <summary>The one line per link change (Engine notes: Logs, SchoolLinkRules header LOG DISCIPLINE). The school says
+        /// "School [link] ski school …". Lodges and patrol huts say "Lodge [link] lodge …" / "Patrol [link] patrol
         /// hut …".</summary>
         private void LogTopLink(SchoolLinkRules.Change c)
         {
@@ -1911,8 +1929,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The published link of a TOP-LEVEL resort building (lodge, school, patrol hut, bus depot; main thread, the
-        /// last recompute): true when <paramref name="building"/> is one; <paramref name="sign"/> is its Welcome Sign, Entity.Null
+        /// <summary>The published link of a TOP-LEVEL resort building (lodge, school, patrol hut, bus depot, main thread, the
+        /// last recompute): true when <paramref name="building"/> is one. <paramref name="sign"/> is its Welcome Sign, Entity.Null
         /// = Not linked. False for a ServiceUpgrade child (its sign is its Owner) or anything else. For the hub (world selection,
         /// the Not linked view) and the stats system.</summary>
         internal bool TryGetTopLevelLink(Entity building, out Entity sign)
@@ -1926,8 +1944,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Every top-level resort building of the last recompute (lodges, the school, patrol huts, bus depots) with its
-        /// sign (Entity.Null = Not linked), in the published order; both lists cleared first (the stats system's membership, jobs
-        /// and cost sums; the hub's locks and Not linked count). Callers filter by PrefabRef when they need one kind.</summary>
+        /// sign (Entity.Null = Not linked), in the published order. Both lists are cleared first. Used for the stats system's membership, jobs
+        /// and cost sums, and the hub's locks and Not linked count. Callers filter by PrefabRef when they need one kind.</summary>
         internal void CopyTopLevelLinks(List<Entity> buildings, List<Entity> signs)
         {
             buildings.Clear();
@@ -1940,7 +1958,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Each area's active patrol huts' xz into slot.PatrolXz, from m_PatrolXz (read
-        /// when due: a structural recompute or the backstop; a miss on a soft recompute reads it and is counted as a
+        /// when due: a structural recompute or the backstop. A miss on a soft recompute reads it and is counted as a
         /// fallback, Engine notes: Sync points). A hut without a Transform is skipped (it patrols nothing).</summary>
         private void ReadPatrolPositions(Snapshot next)
         {
@@ -1956,7 +1974,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>One building's xz through a per-load cache (cleared when positions are due, Engine notes:
-        /// Sync points). A miss reads the Transform (counted as a fallback on a soft recompute); false without one.</summary>
+        /// Sync points). A miss reads the Transform (counted as a fallback on a soft recompute). False without one.</summary>
         private bool TryCachedXz(Dictionary<Entity, float2> cache, Entity building, out float2 xz)
         {
             if (cache.TryGetValue(building, out xz))
@@ -2002,8 +2020,8 @@ namespace SkiResortMod.Systems
                         int kind = m_Ownership.KindOf(prefabRefs[i].m_Prefab);
                         if (kind < 0)
                             continue;
-                        // Every run kind is a member (the cat track since 2026-10-24, at its reduced weight: SkiResortScore.CatTrackFactor);
-                        // the whitelist keeps an unknown kind out.
+                        // Every run kind is a member (the cat track since 2026-10-24, at its reduced weight: SkiResortScore.CatTrackFactor).
+                        // The whitelist keeps an unknown kind out.
                         if (!RunKindRules.CountsTowardResort(kind))
                             continue;
                         AddRun(next.Slots[slotIndex], slotIndex, entities[i], kind, geometries[i]);
@@ -2025,7 +2043,7 @@ namespace SkiResortMod.Systems
                 BottomM = bottomY,
             };
 
-            // Rating: a current rating; else the last one seen this load; else pending.
+            // Rating: a current rating, else the last one seen this load, else pending.
             if (m_Catalog.TryGetRating(run, out byte state, out sbyte band, out float topM, out float bottomM))
             {
                 m_LastRatings[run] = new LastRating { State = state, Band = band, TopM = topM, BottomM = bottomM };
@@ -2040,7 +2058,7 @@ namespace SkiResortMod.Systems
                 input.State = SkiResortScore.BandState.Pending;
             }
 
-            // Open state: the snow chapter's multiplier; no climate yet → 0, estimated, "open unknown".
+            // Open state: the snow chapter's multiplier. No climate yet → 0, estimated, "open unknown".
             RunSnow snow = m_Injection.GetRunSnow(run, (RunKind)kind, bottomY, topY);
             if (snow.Source == RunSnowSource.None)
             {
@@ -2076,8 +2094,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The catalog's (state, band, heights) → BandState / Band / heights.
-        /// Rated with a SlopeBand 0..4 → Rated (rating heights when finite, else the node heights already set);
-        /// states 2-4 → Unrateable (node heights); anything else → Pending.</summary>
+        /// Rated with a SlopeBand 0..4 → Rated (rating heights when finite, else the node heights already set).
+        /// States 2-4 → Unrateable (node heights). Anything else → Pending.</summary>
         private static void ApplyRating(ref SkiResortScore.RunInput input, byte state, sbyte band, float topM, float bottomM)
         {
             if (state == SkiRunRatingRules.RateRated && band >= 0 && band <= SkiResortScore.BandDoubleBlack)
@@ -2106,11 +2124,11 @@ namespace SkiResortMod.Systems
             return !float.IsNaN(x) && !float.IsInfinity(x);
         }
 
-        /// <summary>The lift rule: census rows whose two stations are live, Complete or Open; area by the
-        /// base station's xz; power from the CopyServeLifts row of the same index. The base xz comes from
+        /// <summary>The lift rule: census rows whose two stations are live, Complete or Open. The area comes from the
+        /// base station's xz. Power comes from the CopyServeLifts row of the same index. The base xz comes from
         /// m_BaseXz (Engine notes: Sync points): cleared and re-read when <paramref name="readPositions"/>,
-        /// else reused; a station missing from it is read (a sync; counted when it happens on a soft
-        /// recompute — a new row moves the census Revision, so it should not).</summary>
+        /// else reused. A station missing from it is read (a sync, counted when it happens on a soft
+        /// recompute: a new row moves the census Revision, so it should not).</summary>
         private void CollectLifts(Snapshot next, bool readPositions)
         {
             if (readPositions)
@@ -2156,8 +2174,8 @@ namespace SkiResortMod.Systems
                 }
                 bool complete = row.State == LiftCensus.State.Complete;
                 bool powered = LiftServedRule.IsPowered(power);
-                // The row's lift type (SkiCatalog.Lifts index; Mixed rows
-                // are Unfinished and skipped above, a NoType 255 reads the fixed-grip row in the score).
+                // The row's lift type (SkiCatalog.Lifts index). Mixed rows
+                // are Unfinished and skipped above. A NoType 255 reads the fixed-grip row in the score.
                 slot.Lifts.Add(new SkiResortScore.LiftInput { Complete = complete, Powered = powered, TypeIndex = row.Type });
                 Entity id = LiftCensusSystem.Ent(row.Id);
                 next.Lifts[new LiftKey(id, topStation)] = new LiftScoreView
@@ -2195,7 +2213,7 @@ namespace SkiResortMod.Systems
                     state = new AreaState();
                     m_AreaStates[slot.Sign] = state;
                 }
-                // The score takes the smoothed staffing factor; slot.EfficiencyValue / EfficiencyPct stay the live value.
+                // The score takes the smoothed staffing factor. slot.EfficiencyValue / EfficiencyPct stay the live value.
                 slot.StaffingUsed = state.StaffingFactor(slot.EfficiencyValue, m_Tick);
                 slot.StaffingUsedPct = (int)Math.Round(100.0 * slot.StaffingUsed);
                 var input = new SkiResortScore.AreaInput
@@ -2276,11 +2294,12 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>slot.Lodges (the score's AreaInput.Lodges) from slot.ActiveInfo, with
-        /// SummitServed evaluated for the rows whose summer share rises when served (μ summit &gt; μ): the lodge's xz
-        /// (m_LodgeXz, read when due) within Ladder.SummitServedRadiusM of the top stub tip of a complete, powered lift
-        /// of this area (LiftServedRule.SummitServed over the area's m_ServeLifts rows), or within Ladder.SummitRunRadiusM of a served
-        /// run of this area (LiftServedRule.OutlineWithin). Allocation-free once grown.</summary>
+        /// <summary>slot.Lodges (the score's AreaInput.Lodges) from slot.ActiveInfo. SummitServed is evaluated for the rows whose
+        /// summer share rises when served (μ summit &gt; μ). It is true when the lodge's xz (m_LodgeXz, read when due) is:
+        /// - within Ladder.SummitServedRadiusM of the top stub tip of a complete, powered lift of this area (LiftServedRule.SummitServed
+        ///   over the area's m_ServeLifts rows), or
+        /// - within Ladder.SummitRunRadiusM of a served run of this area (LiftServedRule.OutlineWithin).
+        /// Allocation-free once grown.</summary>
         private void BuildLodgeInputs(int slotIndex, AreaSlot slot)
         {
             slot.Lodges.Clear();
@@ -2353,12 +2372,12 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Area line: written when A, a count, a flag or WriteHeld changed since the area's last
-        /// line, through the area's LogWindow (the first after a quiet window plain, the rest folded). A held
+        /// line. It goes through the area's LogWindow (the first after a quiet window plain, the rest folded). A held
         /// area names its blocker: "ratings pending" while a member run is unrated
         /// and the rating service has not failed, else "snow settling" (the SnowSettled clock).
-        /// A change that is efficiency-only — same counts, flags and held state (StructKey), same runs value, another
-        /// efficiency percent, A within EfficiencyLineMinDeltaA of the logged A — is skipped (counted once per
-        /// change, DUMP) unless the area wrote no line for EfficiencyLineQuietS. Log only: score, Generation and
+        /// An efficiency-only change is skipped (counted once per change, DUMP) unless the area wrote no line for EfficiencyLineQuietS.
+        /// Efficiency-only means: same counts, flags and held state (StructKey), same runs value, another
+        /// efficiency percent, A within EfficiencyLineMinDeltaA of the logged A. Log only: score, Generation and
         /// the hub are unaffected.</summary>
         private void LogArea(AreaSlot slot, string reason, bool ratingFailed)
         {
@@ -2418,9 +2437,10 @@ namespace SkiResortMod.Systems
             log.LoggedEffPct = slot.EfficiencyPct;
 
             // Each Invariant(...) holds ONE interpolated string (C# 9: a `+` of two of them is a plain string).
-            // LodgeBase × LodgeShare = the ladder's applied value (display); the best tier is named when it
-            // is not the A-frame; "lifts n × 6 × λ" stays for fixed-grip-only areas, other types print their summed value;
-            // the school and patrolled runs are appended only when on / non-zero.
+            // LodgeBase × LodgeShare = the ladder's applied value (display).
+            // The line names the best tier when it is not the A-frame.
+            // "lifts n × 6 × λ" stays for fixed-grip-only areas. Other types print their summed value.
+            // The line appends the school and patrolled runs only when on / non-zero.
             string lodgeTier = r.LodgeBestIndex > 0 ? ", best " + LodgeName(r.LodgeBestIndex) : "";
             string liftsText = r.LiftsValue == SkiResortScore.LiftValue * r.LiftsCounted
                 ? Invariant($"lifts {r.LiftsCounted} × 6 × {r.LiftShare:0.##}")
@@ -2541,10 +2561,12 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>The published (sign, active lodges) lists differ — the slot
-        /// count, a sign of <paramref name="next"/> with no slot in <paramref name="cur"/>, or a sign's Active list
-        /// in count or element order, or an active lodge's road edge or supply (the ski-day targets and the parking census hang on
-        /// them). Compared per sign through SlotOfSign, so a slot reorder (chunk order) is not a change.</summary>
+        /// <summary>The published (sign, active lodges) lists differ when one of these changes:
+        /// - the slot count,
+        /// - a sign of <paramref name="next"/> with no slot in <paramref name="cur"/>,
+        /// - a sign's Active list in count or element order,
+        /// - an active lodge's road edge or supply (the ski-day targets and the parking census hang on them).
+        /// Compared per sign through SlotOfSign, so a slot reorder (chunk order) is not a change.</summary>
         private static bool LodgeSetChanged(Snapshot cur, Snapshot next)
         {
             if (cur.SlotCount != next.SlotCount)
@@ -2595,9 +2617,10 @@ namespace SkiResortMod.Systems
             return BitConverter.DoubleToInt64Bits(x);
         }
 
-        /// <summary>Per-load maps keep only what the last recompute still knows: area states and log windows
-        /// of signs that left (their folds written first), last ratings of runs that left, damping counters
-        /// of lodges no longer written.</summary>
+        /// <summary>Per-load maps keep only what the last recompute still knows:
+        /// - area states and log windows of signs that left (their folds written first),
+        /// - last ratings of runs that left,
+        /// - damping counters of lodges no longer written.</summary>
         private void Prune()
         {
             if (m_AreaStates.Count > m_Cur.SlotCount)
@@ -2654,7 +2677,7 @@ namespace SkiResortMod.Systems
         // The anchored write: every tick (interval 16, right after vanilla AttractionSystem).
         private void WriteProviders()
         {
-            // Switched-off and orphan lodges lose their provider once (a structural change; once per
+            // Switched-off and orphan lodges lose their provider once (a structural change, once per
             // lodge toggle, never per tick).
             if (m_DropProvider.Count > 0)
             {
@@ -2670,7 +2693,7 @@ namespace SkiResortMod.Systems
                 m_DropProvider.Clear();
             }
 
-            // The written lodges. The writes go through a job on Dependency: on the main thread, SetComponentData waited for every vanilla job that touches
+            // The written lodges. The writes go through a job on Dependency. On the main thread, SetComponentData waited for every vanilla job that touches
             // AttractivenessProvider (measured 1.45 ms per tick in a city of 355,000).
             NativeList<ProviderWrite> writes = new NativeList<ProviderWrite>(m_Cur.WriteValues.Count + m_ZeroSigns.Count, Allocator.TempJob);
             Dictionary<Entity, int> values = m_Cur.WriteValues;
@@ -2694,7 +2717,7 @@ namespace SkiResortMod.Systems
                     }
                     if (!EntityManager.HasComponent<AttractivenessProvider>(lodge))
                     {
-                        // The lodge now matches vanilla AttractionSystem's query; vanilla rewrites it from the
+                        // The lodge now matches vanilla AttractionSystem's query. Vanilla rewrites it from the
                         // lodge prefab (Attraction 0) per slice pass and our anchored write restores it.
                         EntityManager.AddComponentData(lodge, new AttractivenessProvider { m_Attractiveness = pair.Value });
                         if (m_ProviderAddedLogged.Add(lodge))
@@ -2714,8 +2737,8 @@ namespace SkiResortMod.Systems
                     }
                     m_ScratchEntities.Clear();
                     m_Generation++;   // never hand a deleted lodge to the hub
-                    // Consumers re-copy; the deleted lodge stays listed until the next
-                    // recompute (slot.Active keeps it; their lookups reject it).
+                    // Consumers re-copy. The deleted lodge stays listed until the next
+                    // recompute (slot.Active keeps it, their lookups reject it).
                     m_LodgeSetRevision++;
                 }
             }
@@ -2747,7 +2770,7 @@ namespace SkiResortMod.Systems
             public Entity Target;
             public int Value;
             public bool OnlyIfNonzero;
-            // A merged building: Value is the share P; the job writes round(sqrt(V^2 + P^2)) with V its own vanilla value, read from the
+            // A merged building: Value is the share P. The job writes round(sqrt(V^2 + P^2)). V is its own vanilla value, read from the
             // provider on the tick of its own update slice (vanilla wrote it this frame), else the V cached then (MergeRules.Combine).
             public bool Merged;
             public bool OwnSlice;
@@ -2791,7 +2814,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Tourism Overhaul holding a lodge below what we wrote, on 16 consecutive ticks →
-        /// one line per lodge per load (vanilla's own slice write of 0 hits one tick in 16 and resets the run).</summary>
+        /// one line per lodge per load. Vanilla's own slice write of 0 hits one tick in 16 and resets the run.</summary>
         private void CheckDamping(Entity lodge, int written)
         {
             int current = EntityManager.GetComponentData<AttractivenessProvider>(lodge).m_Attractiveness;
@@ -2824,7 +2847,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The hub DUMP's attractiveness block: the system line, one line per area, and
         /// one line per member run with its five factors. Event time only, main thread (the
-        /// provider reads complete their writers). Appends only; never throws.</summary>
+        /// provider reads complete their writers). Appends only. Never throws.</summary>
         internal void AppendDump(StringBuilder sb)
         {
             try
@@ -2905,9 +2928,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>One DUMP line per area — the ladder (best tier, winter base,
-        /// the season's applied value and extras, price tolerance), each active lodge's tier with its SummitServed flag, the
-        /// school, the patrol and the per-type lift sums.</summary>
+        /// <summary>One DUMP line per area. It holds:
+        /// - the ladder (best tier, winter base, the season's applied value and extras, price tolerance),
+        /// - each active lodge's tier with its SummitServed flag,
+        /// - the school, the patrol and the per-type lift sums.</summary>
         private static void AppendLadder(StringBuilder sb, AreaSlot slot)
         {
             CultureInfo ic = CultureInfo.InvariantCulture;
@@ -2965,7 +2989,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>"YYYY-MM HH:MM" from a SkiMoneyRules month key and a SkiDayTiming.MinuteOfDay
-        /// minute (invariant culture); "-" before any (NoMonth or a negative minute).</summary>
+        /// minute (invariant culture). "-" before any (NoMonth or a negative minute).</summary>
         private static string MonthClockText(int monthKey, int minute)
         {
             if (monthKey == SkiDayRules.NoMonth || minute < 0)
@@ -2989,11 +3013,11 @@ namespace SkiResortMod.Systems
         }
 
         // Prefab state: SkiPrefabCatalogSystem resolves per load and its "PrefabCatalog [arm]" line names
-        // every lodge FOUND / MISSING; this system still says, per load, whether it is inert (tolerated pre-import).
+        // every lodge FOUND / MISSING. This system still says, per load, whether it is inert (tolerated pre-import).
         private void LogLodgePrefabs()
         {
             // A pending name (not imported yet) is listed apart from an expected
-            // one that is missing; the school and the patrol huts are listed too (they change the score once imported).
+            // one that is missing. The school and the patrol huts are listed too (they change the score once imported).
             var found = new List<string>(SkiCatalog.Lodges.Count);
             var missing = new List<string>(SkiCatalog.Lodges.Count);
             var pending = new List<string>(SkiCatalog.Lodges.Count + 3);
