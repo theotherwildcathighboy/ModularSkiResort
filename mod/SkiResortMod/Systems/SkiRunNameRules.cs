@@ -1,9 +1,9 @@
-// The trail-name pool (R3, DECISIONS 578): Count names, one locale key each (SkiResort.RUN_NAME:<index>, LocaleEN.cs), picked once per run
-// and stored (SkiRunName). The list is APPEND ONLY: an index is a save contract (a removed or moved name renames runs in every save) and
-// translators translate per index; tests/ResortBatch pins the count, the order and the tags. A name fits the run's character: each carries
-// traits (TraitCodes) and Pick takes a random unused name among those that match the run best (a black run gets a "Chute" or a "Wall", a
-// cat track a "Road" or a "Traverse"), else any unused name, so no two runs share a name while one is free; when all are taken it returns
-// None and the catalog shows "Run N". A name tagged Prefix takes the "Upper" or "Lower" form the run asks for (FormOf).
+// The trail-name pool (R3, DECISIONS 578): Count names, one locale key each (SkiResort.RUN_NAME:<index>, LocaleEN.cs). The system picks one name
+// per run and stores it (SkiRunName). The list is APPEND ONLY. An index is a save contract (a removed or moved name renames runs in every
+// save). Translators translate per index. tests/ResortBatch pins the count, the order and the tags. A name fits the run's character:
+// each name carries traits (TraitCodes). Pick takes a random unused name among those that match the run best. A black run gets a "Chute"
+// or a "Wall". A cat track gets a "Road" or a "Traverse". Else Pick takes any unused name, so no two runs share a name while one is free.
+// When all are taken it returns None and the catalog shows "Run N". A name tagged Prefix takes the "Upper" or "Lower" form the run asks for (FormOf).
 // Pure file: no usings (it compiles unchanged into the net48 mod and the net8 test host), no ECS, no allocation.
 
 namespace SkiResortMod.Systems
@@ -26,7 +26,7 @@ namespace SkiResortMod.Systems
         public const byte Prefix = 16;   // a name only: reads well as "Upper ..." / "Lower ..."
         private const byte Character = Steep | Gentle | Glade | Track;
 
-        // The run's place in its area's elevation range, and the form its name takes (SkiRunName.m_Form; locale RUN_NAME_FORM[*])
+        // The run's place in its area's elevation range, and the form its name takes (SkiRunName.m_Form, locale RUN_NAME_FORM[*])
         public const byte FormNone = 0, FormUpper = 1, FormLower = 2;
 
         /// <summary>An area's elevation range below this (m) gives no form: too little height for "Upper" and "Lower" to mean anything.</summary>
@@ -58,7 +58,7 @@ namespace SkiResortMod.Systems
             index >= 0 && index < Count && index < TraitCodes.Length ? (byte)((TraitCodes[index] - '@') & 31) : (byte)0;
 
         /// <summary>A run's traits: Steep for black and double black (band 3, 4), Gentle for flat and green (0, 1), none for blue or no
-        /// rating; Glade when trees stand inside it. A cat track is Track and Gentle (a track name may also read gentle).</summary>
+        /// rating. Glade when trees stand inside it. A cat track is Track and Gentle (a track name may also read gentle).</summary>
         public static byte RunTraits(bool catTrack, int band, bool glade)
         {
             byte t = glade ? Glade : (byte)0;
@@ -71,9 +71,9 @@ namespace SkiResortMod.Systems
             return t;
         }
 
-        /// <summary>The form of a run whose heights run bottomM .. topM in an area spanning areaBottomM .. areaTopM: Upper when its mid
-        /// height is in the top FormShare of the range, Lower in the bottom one, none in between, for a range under FormMinRangeM or
-        /// for a NaN.</summary>
+        /// <summary>The form of a run whose heights run bottomM .. topM in an area spanning areaBottomM .. areaTopM. Upper when its mid
+        /// height is in the top FormShare of the range. Lower when it is in the bottom FormShare. None in between, for a range under
+        /// FormMinRangeM, or for a NaN.</summary>
         public static byte FormOf(float bottomM, float topM, float areaBottomM, float areaTopM)
         {
             float range = areaTopM - areaBottomM;
@@ -84,12 +84,12 @@ namespace SkiResortMod.Systems
             return at >= 1f - FormShare ? FormUpper : at <= FormShare ? FormLower : FormNone;
         }
 
-        /// <summary>A name for a run with traits <paramref name="run"/> (RunTraits) asking for <paramref name="wantForm"/> (FormOf), or
-        /// None when every index of <paramref name="used"/> (length Count; not changed here) is taken. Among the unused names that
-        /// contradict none of the run's traits (a Steep, Gentle, Glade or Track tag the run lacks; a Track run needs a Track name) it
-        /// takes those matching most (grade and track count 2, trees 1); with a form, those of them tagged Prefix if any (else the
-        /// form is dropped). With no such name, any unused name. The <c>seed % n</c>-th of the set: the same seed and set give the
-        /// same pick. <paramref name="form"/> is the form the pick takes.</summary>
+        /// <summary>A name for a run with traits <paramref name="run"/> (RunTraits) asking for <paramref name="wantForm"/> (FormOf).
+        /// Returns None when every index of <paramref name="used"/> (length Count, not changed here) is taken. The candidates are the
+        /// unused names that contradict none of the run's traits (a Steep, Gentle, Glade or Track tag the run lacks. A Track run needs a
+        /// Track name). Of these it takes those matching most (grade and track count 2, trees 1). With a form, it takes those of them tagged
+        /// Prefix if any (else it drops the form). With no such name, it takes any unused name. The <c>seed % n</c>-th of the set: the same
+        /// seed and set give the same pick. <paramref name="form"/> is the form the pick takes.</summary>
         public static int Pick(bool[] used, uint seed, byte run, byte wantForm, out byte form)
         {
             form = FormNone;
@@ -128,7 +128,7 @@ namespace SkiResortMod.Systems
         /// <summary>A trait-free pick (a blue run on its own): <see cref="Pick(bool[], uint, byte, byte, out byte)"/> with no traits and no form.</summary>
         public static int Pick(bool[] used, uint seed) => Pick(used, seed, 0, FormNone, out _);
 
-        /// <summary>A well-mixed seed from a run's first outline point (meters): the same run gives the same seed; FNV-1a then a finalizer.</summary>
+        /// <summary>A well-mixed seed from a run's first outline point (meters): the same run gives the same seed. The method applies FNV-1a, then a finalizer.</summary>
         public static uint Seed(float x, float z)
         {
             uint h = 2166136261u;
@@ -175,7 +175,7 @@ namespace SkiResortMod.Systems
             return None;   // unreachable
         }
 
-        // 1/16 m steps (net48 has no SingleToInt32Bits; map coordinates stay far inside int range). NaN reads 0.
+        // 1/16 m steps (net48 has no SingleToInt32Bits. Map coordinates stay far inside int range). NaN reads 0.
         private static uint Bits(float v) => !float.IsNaN(v) ? unchecked((uint)(int)(v * 16f)) : 0u;
     }
 }

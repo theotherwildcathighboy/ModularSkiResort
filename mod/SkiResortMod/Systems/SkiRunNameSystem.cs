@@ -1,14 +1,18 @@
 // Gives every new run a trail name that fits it (R3, DECISIONS 578). A run made this frame (drawn, built by Quick runs, re-emitted
-// without a pick, or found without one at load) waits until the catalog has rated it, then gets a SkiRunName: an unused index of the
-// trail-name pool among the names that match its traits (SkiRunNameRules.Pick, seeded by its first outline point): steep for a black,
-// gentle for a green, glade with trees inside it (SkiRunTreeMember, glade layer), track for a cat track; an "Upper" / "Lower" form near
-// the top or the base of its ski area's height range (the rated runs of its gate). None when all are taken (the catalog then shows
-// "Run N"). Until then the catalog shows "Run N" / "Cat track N". A run the rating never reaches (MaxWaitFrames while the service is
-// ready, or the service failed) is named without traits. The pick is stored, so it never changes: a reload, a reshape or a Groomed toggle
-// (SkiRunReemitSystem copies the component) keeps it, and a rename wins over it (NameSystem's custom name, read first by the catalog).
-// Picks are per city: two ski areas share the pool, so no two runs share a name while one is free; a bulldozed run frees its name.
-// Phase ModificationEnd (Mod.cs): MainLoop, paused or not (ModificationSystem.cs:19-26), the frame's Created tag still on; NOT
-// load-bearing for anyone else (the catalog rebuilds on request). Main thread; Game mode only; one-shot "!!!" disables it until the next
+// without a pick, or found without one at load) waits for the catalog to rate it. Then it gets a SkiRunName: an unused index of the
+// trail-name pool among the names that match its traits (SkiRunNameRules.Pick, seeded by its first outline point):
+//   * steep for a black,
+//   * gentle for a green,
+//   * glade with trees inside it (SkiRunTreeMember, glade layer),
+//   * track for a cat track,
+//   * an "Upper" / "Lower" form near the top or the base of its ski area's height range (the rated runs of its gate).
+// The pick is None when all are taken (the catalog then shows "Run N"). Until then the catalog shows "Run N" / "Cat track N". A run the
+// rating never reaches (MaxWaitFrames while the service is ready, or the service failed) is named without traits.
+// The pick is stored, so it never changes. A reload, a reshape or a Groomed toggle keeps it (SkiRunReemitSystem copies the component).
+// A rename wins over it (NameSystem's custom name, which the catalog reads first).
+// Picks are per city: two ski areas share the pool, so no two runs share a name while one is free. A bulldozed run frees its name.
+// Phase ModificationEnd (Mod.cs): MainLoop, paused or not (ModificationSystem.cs:19-26), the frame's Created tag still on. NOT
+// load-bearing for anyone else (the catalog rebuilds on request). Main thread. Game mode only. A one-shot "!!!" disables it until the next
 // load.
 
 using System;
@@ -199,8 +203,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Moves the waiting runs that have a rating (or waited too long, or the service failed) to m_Ready, in entity order;
-        /// drops those gone or named meanwhile. <paramref name="untraited"/>: name them without traits (no service).</summary>
+        /// <summary>Moves the waiting runs that have a rating (or waited too long, or the service failed) to m_Ready, in entity order.
+        /// It drops those gone or named meanwhile. <paramref name="untraited"/>: name them without traits (no service).</summary>
         private void CollectReady(out bool untraited)
         {
             m_Ready.Clear();
@@ -269,7 +273,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Glade-layer trees per run (all runs; only on a frame that names some).</summary>
+        /// <summary>Glade-layer trees per run (all runs, only on a frame that names some).</summary>
         private void CountGladeTrees()
         {
             m_GladeTrees.Clear();

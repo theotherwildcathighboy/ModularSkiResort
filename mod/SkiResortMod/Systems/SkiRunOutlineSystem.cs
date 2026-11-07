@@ -1,8 +1,8 @@
-// The thick outline and corner dots of a ski run while it is drawn, edited or bulldozed, drawn by us as an overlay (the game's own
+// The thick outline and corner dots of a ski run while it is drawn, edited or bulldozed. We draw them as an overlay (the game's own
 // AreaBorderRenderSystem pass, wider, for our four run prefabs only). The "Run outline size" setting means only "how thick".
 // This system NEVER writes AreaGeometryData / m_SnapDistance: that value also drives snapping and the invalid-shape clearance.
-// Phase Rendering, UpdateBefore<SkiRunOutlineSystem, OverlayRenderSystem> (Mod.cs; load-bearing: the overlay system completes
-// every registered writer, so our job must be registered before it in the same frame). The job joins base.Dependency.
+// Phase Rendering, UpdateBefore<SkiRunOutlineSystem, OverlayRenderSystem> (Mod.cs). Load-bearing: the overlay system completes
+// every registered writer, so our job must be registered before it in the same frame. The job joins base.Dependency.
 // The per-frame guard is necessary, not sufficient: any Temp or flagged Surface passes it (the job returns early if none is ours).
 // Logs: ARMED once per load, a cost line, a slow-draw WARN, a one-shot "!!!" that switches the overlay off. Nothing per frame.
 // Engine notes: EngineNotes/SkiRunOutlineSystem.md
@@ -30,7 +30,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiRunOutlineSystem : GameSystemBase
     {
-        /// <summary>Our four run SurfacePrefabs (house practice: the table is duplicated per system; the
+        /// <summary>Our four run SurfacePrefabs (house practice: the table is duplicated per system. It uses the
         /// same names as SkiRunOwnershipSystem's *SurfaceNames).</summary>
         private static readonly string[] RunSurfaceNames =
             { "SkiRunGroomedA", "SkiRunSnowmakingA", "SkiRunNightA", "SkiRunNaturalA" };
@@ -95,14 +95,14 @@ namespace SkiResortMod.Systems
 
             public void Line(float3 a, float3 b)
             {
-                // OverlayRenderSystem.cs:207-211; the game passes roundness 1 (AreaBorderRenderSystem.cs:531).
+                // OverlayRenderSystem.cs:207-211. The game passes roundness 1 (AreaBorderRenderSystem.cs:531).
                 Overlay.DrawLine(LineColour, LineColour, 0f, OverlayRenderSystem.StyleFlags.Projected,
                     new Line3.Segment(a, b), Width, new float2(1f, 1f));
             }
 
             public void Dot(float3 position)
             {
-                // OverlayRenderSystem.cs:138 (the last argument is a diameter); direction (0, 1) as :517.
+                // OverlayRenderSystem.cs:138 (the last argument is a diameter). Direction (0, 1) as :517.
                 Overlay.DrawCircle(DotRim, DotFill, RimWidth, OverlayRenderSystem.StyleFlags.Projected,
                     new float2(0f, 1f), position, Diameter);
             }
@@ -130,7 +130,7 @@ namespace SkiResortMod.Systems
 
             public void Execute()
             {
-                // :101-116 — the set capacities; and nothing at all when no area of ours is in the frame.
+                // :101-116 — the set capacities, and nothing at all when no area of ours is in the frame.
                 int nodes = 0;
                 bool ours = false;
                 for (int c = 0; c < Chunks.Length; c++)
@@ -220,7 +220,7 @@ namespace SkiResortMod.Systems
             }
 
             /// <summary>The same white dots at the nodes of our existing run areas within
-            /// NeighbourMarginM of the drawn bounds; one dot per position per frame (the shared dot set).</summary>
+            /// NeighbourMarginM of the drawn bounds. One dot per position per frame (the shared dot set).</summary>
             private void DrawNeighbourDots(float4 bounds, ref OverlaySink sink)
             {
                 for (int c = 0; c < RunChunks.Length; c++)
@@ -648,12 +648,12 @@ namespace SkiResortMod.Systems
                 RimWidth = RunOutlineRules.NodeRimWidth(size),
                 Overlay = buffer,
             };
-            // AreaBorderRenderSystem.cs:705-708: after the ECS writers of what it reads, the chunk list and every
-            // earlier overlay writer; registered with the overlay; handed back as this system's dependency.
+            // AreaBorderRenderSystem.cs:705-708: the job runs after the ECS writers of what it reads, the chunk list and every
+            // earlier overlay writer. It is registered with the overlay and handed back as this system's dependency.
             JobHandle handle = job.Schedule(JobHandle.CombineDependencies(Dependency, JobHandle.CombineDependencies(chunksHandle, runChunksHandle), overlayDeps));
             chunks.Dispose(handle);
             runChunks.Dispose(handle);
-            m_Overlay.AddBufferWriter(handle);   // OverlayRenderSystem.cs:636-639; completed at :738-741
+            m_Overlay.AddBufferWriter(handle);   // OverlayRenderSystem.cs:636-639. The overlay completes it at :738-741
             Dependency = handle;
             m_DrawHandle = handle;
 
@@ -662,15 +662,15 @@ namespace SkiResortMod.Systems
             LastDrawMs = ms;
             if (RunOutlineRules.SizeChangeDue(m_DrawnSize, size, wouldDraw: true))
             {
-                // One line per change, at the next draw (a slider drag in Options logs once); a switch to 0 is logged in OnUpdate.
+                // One line per change, at the next draw (a slider drag in Options logs once). OnUpdate logs a switch to 0.
                 Mod.Log.Info($"RunOutline: size {m_DrawnSize} -> {size} (line {RunOutlineRules.LineWidth(size):0.0#} m, dots " +
                              $"{RunOutlineRules.DotDiameter(size):0.0#} m; snapping and the corner rule are the game's)");
                 m_DrawnSize = size;
             }
             if (!s_FirstDrawDone)
             {
-                // The first draw of the PROCESS pays the one-time JIT of Schedule<RunOutlineJob>: reported on its own,
-                // kept out of the peak, the mean and the slow-draw WARN.
+                // The first draw of the PROCESS pays the one-time JIT of Schedule<RunOutlineJob>. The system reports it on its own and
+                // keeps it out of the peak, the mean and the slow-draw WARN.
                 s_FirstDrawDone = true;
                 Mod.Log.Info($"RunOutline: first overlay draw of this process {ms:F2} ms (one-time first call of the " +
                              "draw-job schedule, kept out of the draw peak; logged once per process)");
@@ -728,7 +728,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>House pattern (SkiRunOwnershipSystem.ResolveSet): fast PrefabID path + name-scan
-        /// fallback; Entity.Null when missing (pre-import states must not throw).</summary>
+        /// fallback. Returns Entity.Null when missing (pre-import states must not throw).</summary>
         private Entity Resolve(string name)
         {
             Entity prefabEntity = Entity.Null;

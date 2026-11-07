@@ -1,9 +1,10 @@
-// The run names on the hill: each of our runs gets its name written on the ground at the run's center, along the run and tilted with
-// the slope like a road name, never upside down (RunLabelRules.LongAxis, ReadsFlipped, TextBasis; a curved run takes its direction at the
-// label, CurvedAnchor; a run with no clear direction faces the camera), in the piste-map color of its difficulty, at the zoom range where the piste map reads, faded in and out like the district names. Default on
+// The run names on the hill. Each of our runs gets its name written on the ground at the run's center. The name lies along the run and
+// tilts with the slope like a road name, never upside down (RunLabelRules.LongAxis, ReadsFlipped, TextBasis). A curved run takes its
+// direction at the label (CurvedAnchor). A run with no clear direction faces the camera. The name uses the piste-map color of the
+// difficulty. It shows at the zoom range where the piste map reads, and fades in and out like the district names. Default on
 // (option ShowRunNamesOnTheHill). Built like the vanilla district labels (own TMP mesh per run, Graphics.DrawMesh), because
-// vanilla's label paths cannot be pointed at a Surface-area run.
-// Phase: Rendering, NOT anchored to OverlayRenderSystem (nothing is written to its buffers). Rebuilt only when the catalog moved.
+// vanilla's label paths cannot target a Surface-area run.
+// Phase: Rendering, NOT anchored to OverlayRenderSystem (nothing is written to its buffers). The system rebuilds the labels only when the catalog moved.
 // Logs: one INFO line per load, one WARN if the overlay text material is missing, a one-shot `!!!` that switches labels off.
 // Engine notes: EngineNotes/SkiRunLabelSystem.md
 
@@ -38,7 +39,7 @@ namespace SkiResortMod.Systems
             public const int MaxLabels = 512;         // a hard cap on the cache (a resort has tens of runs)
         }
 
-        /// <summary>One mesh of a label (one per font atlas page the text touches; normally one).</summary>
+        /// <summary>One mesh of a label (one per font atlas page the text touches, normally one).</summary>
         private sealed class Part
         {
             public Mesh Mesh;
@@ -175,7 +176,7 @@ namespace SkiResortMod.Systems
                 if (s != null && !s.ShowRunNamesOnTheHill)
                 {
                     if (m_Labels.Count != 0)
-                        ReleaseAll();                       // the option was switched off: give the memory back
+                        ReleaseAll();                       // the option was switched off: release the memory
                     return;
                 }
                 if (m_Rendering.hideOverlay)
@@ -235,8 +236,8 @@ namespace SkiResortMod.Systems
             return m_GladeTool != null && m_GladeTool.IsActive;
         }
 
-        /// <summary>Runs with a Temp copy (an edit of an existing run by the area tool or the bulldozer): their labels step aside
-        /// for the edit. Only walked while the area tool is active and a Temp surface exists.</summary>
+        /// <summary>Runs with a Temp copy (an edit of an existing run by the area tool or the bulldozer): their labels hide during
+        /// the edit. The system walks them only while the area tool is active and a Temp surface exists.</summary>
         private void CollectEditing()
         {
             m_Editing.Clear();
@@ -476,7 +477,7 @@ namespace SkiResortMod.Systems
             Draws++;
         }
 
-        /// <summary>The center height that keeps the text's plane above the ground under all of it (RunLabelRules.ClearAlong); never below the anchor's own height.</summary>
+        /// <summary>The center height that keeps the text's plane above the ground under all of it (RunLabelRules.ClearAlong). Never below the anchor's own height.</summary>
         internal static float ClearY(ref TerrainHeightData hd, float3 center, float3 axisX, float3 axisY, float halfWidth, float halfHeight, float lift)
         {
             float top = center.y - lift;
@@ -578,7 +579,7 @@ namespace SkiResortMod.Systems
             }
             catch (Exception)
             {
-                // already in the failure path; the "!!!" line carries the cause
+                // already in the failure path. The "!!!" line carries the cause
             }
         }
     }

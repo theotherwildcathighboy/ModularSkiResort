@@ -1,10 +1,10 @@
 // SkiRunDecalSystem - upgrades the live material behind our ski-run decal surfaces at runtime: no Editor re-import, no custom
 // shader, no shared asset touched. AreaBatchSystem clones the shared AreaDecalShader material once per surface prefab and names the
-// clone "Area batch (<prefab name>)" (AreaBatchSystem.cs 2094-2097); what RenderedArea does not expose is reachable only by mutating
-// that clone, which cannot leak: we never touch the shared m_RenderedAreaMaterial or another prefab's clone. We never assign
+// clone "Area batch (<prefab name>)" (AreaBatchSystem.cs 2094-2097). The only way to reach what RenderedArea does not expose is to
+// mutate that clone. This cannot leak: we never touch the shared m_RenderedAreaMaterial or another prefab's clone. We never assign
 // m_Material (AreaBatchSystem would flip RenderedArea.m_Version to OverrideMaterial in place). Scheduling: PreCulling, after
-// AreaBatchSystem (clones build lazily on prefab Created), every frame in Game and Editor, paused included, so the retry countdown and
-// the re-assert sentinel tick. Clones are found by name, retried until found.
+// AreaBatchSystem (clones build lazily on prefab Created). It runs every frame in Game and Editor, paused included, so the retry
+// countdown and the re-assert sentinel tick. The system finds clones by name and retries until found.
 // Engine notes: EngineNotes/SkiRunDecalSystem.md
 
 using System;
@@ -26,15 +26,15 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            // Batch clones build lazily (prefab Created -> AreaBatchSystem.UpdatePrefabs); scan every RetryIntervalFrames until found,
-            // give up loudly after the deadline
+            // Batch clones build lazily (prefab Created -> AreaBatchSystem.UpdatePrefabs). The system scans every RetryIntervalFrames until it
+            // finds them, and stops loudly after the deadline
             public const int BatchFindDeadlineFrames = 300;
             public const int FindRetryIntervalFrames = 15;
 
-            // Re-assert sentinel cadence: verify our live values still stand (texture-quality changes and EnabledShadersUpdated re-Load
-            // prefab assets over them; batch rebuilds Destroy the clone). Two materials, a handful of Get* calls: cheap.
+            // Re-assert sentinel cadence: verify our live values still stand. Texture-quality changes and EnabledShadersUpdated re-Load
+            // prefab assets over them. Batch rebuilds Destroy the clone. Two materials, a handful of Get* calls: cheap.
             public const int ReassertCheckFrames = 256;
-            // Sentinel lines per load; a mod that keeps rewriting these values would otherwise log on every check
+            // Sentinel lines per load. Otherwise a mod that keeps rewriting these values would log on every check
             public const int ReassertLinesMax = 6;
 
             // Doc-safe scalars (area-material-override.md section 3 Tier 0). Each is mirrored to the managed RenderedArea field of the
@@ -44,21 +44,21 @@ namespace SkiResortMod.Systems
             public const float Smoothness = 0.4f;         // 0.3-0.45: sparkle without gloss
 
             // Normal-only summer mode: terrain color untouched, corduroy relief only. Requires both the keyword and the float (HDRP
-            // gates on the keyword; the float is the inspector mirror). readonly, not const, so flipping it is a one-token change
+            // gates on the keyword, and the float is the inspector mirror). It is readonly, not const, so flipping it is a one-token change
             // without unreachable-code warnings.
             public static readonly bool ApplyNormalOnlyMode = false;
 
             // Binds the corduroy pair into the shader's snow slots for the groomed surface only (Target.UseSnowPair). An earlier
-            // enable bound textures into what were believed to be empty snow slots and the layer locked on, solid white and immune to
-            // 50 C and remove-snow. Vanilla itself ships these slots bound (snowalbedo2 defaults) with _Snow = 0 and no artifact, so
-            // texture presence is not the driver; swapping the already-bound textures while touching neither the _Snow float nor any
-            // keyword is the vanilla-parity operation. Corduroy renders in the snow layer itself, the run's deep-winter identity, which
+            // enable bound textures into what were believed to be empty snow slots. The layer then locked on, solid white and immune to
+            // 50 C and remove-snow. Vanilla itself ships these slots bound (snowalbedo2 defaults) with _Snow = 0 and no artifact. So
+            // texture presence is not the driver. The vanilla-parity operation swaps the already-bound textures and touches neither the _Snow
+            // float nor any keyword. Corduroy renders in the snow layer itself, the run's deep-winter identity, which
             // depth cannot provide (white saturates at cm scale).
             // If groomed runs go solid white and ignore 50 C / remove-snow again, this flag is the culprit.
             public static readonly bool ApplySnowSlots = true;
 
-            // Summer wears the green mowed-grass set, winter the wear/corduroy set. The dress is driven by snow presence on the runs
-            // (injection system's measured mean depth): temperature flipped the trails green while the world was still white.
+            // Summer wears the green mowed-grass set. Winter wears the wear/corduroy set. Snow presence on the runs drives the dress
+            // (injection system's measured mean depth). Temperature flipped the trails green while the world was still white.
             // Temperature hysteresis remains only as the fallback when no measurement exists yet.
             public const int SeasonCheckFrames = 1024;
             public const float WinterLookOnC = 2f;    // fallback only
@@ -66,29 +66,29 @@ namespace SkiResortMod.Systems
             public const float DressSnowyDepthM = 0.02f;  // runs this snowy -> winter dress
             public const float DressBareDepthM = 0.005f;  // runs this bare -> summer dress
 
-            // The summer green ships as an opaque terrain texture; as a decal it must be a faint worn lane, not paint. 0.40 still read
-            // as paint with a vector edge; the tree-cleared corridor carries the run's summer identity on its own, the decal only
-            // whispers. Alpha and RGB are scaled in-place at load.
+            // The summer green ships as an opaque terrain texture. As a decal it must be a faint worn lane, not paint. 0.40 still read
+            // as paint with a vector edge. The tree-cleared corridor carries the run's summer identity on its own, and the decal only
+            // whispers. The code scales alpha and RGB in-place at load.
             public const float SummerAlphaScale = 0.20f;
             public const float SummerRgbScale = 0.88f;
 
-            // Winter dress per run type: snowmaking's decal edge fought its own injected snow ("vector crisp"), so its winter body is
-            // Layer 1's snow alone (soft feathered edges through the real terrain pipeline) and the decal fades to a whisper; groomed
-            // keeps a visible corduroy lane, and a machine-cut edge is what grooming actually looks like. RGB untouched; alpha scaled
+            // Winter dress per run type: snowmaking's decal edge fought its own injected snow ("vector crisp"). So its winter body is
+            // Layer 1's snow alone (soft feathered edges through the real terrain pipeline) and the decal fades to a whisper. Groomed
+            // keeps a visible corduroy lane, and a machine-cut edge is what grooming actually looks like. RGB untouched. The code scales alpha
             // in-place at load, same mechanism as the summer set.
-            // The groomed decal's mean RGB is 153/149/143 (beige) against snowmaking's 186/190/198, so at 0.55 the beige showed through
-            // the snow and the run read gray; 0.35 keeps the corduroy lane readable while the pack's white wins. The prefab tint
-            // (SkiRunGroomedA m_BaseColor) was raised too; if still gray, the bake (ski_decal.py build_groomed `beige`) is the next knob.
+            // The groomed decal's mean RGB is 153/149/143 (beige) against snowmaking's 186/190/198. So at 0.55 the beige showed through
+            // the snow and the run read gray. 0.35 keeps the corduroy lane readable while the pack's white wins. The prefab tint
+            // (SkiRunGroomedA m_BaseColor) was raised too. If still gray, the bake (ski_decal.py build_groomed `beige`) is the next knob.
             public const float GroomedWinterAlphaScale = 0.35f;
         }
 
         // Run surfaces, with the same tolerant name resolution as the sibling systems. SkiRunNaturalA is left out on purpose: a
-        // natural run draws nothing (its RenderedArea is invisible), so there is no decal to dress; its measured snow may still
+        // natural run draws nothing (its RenderedArea is invisible), so there is no decal to dress. Its measured snow may still
         // drive the dress (SkiSnowInjectionSystem.TryGetDressDepth).
         private const string GroomedPrefabName = "SkiRunGroomedA";
         private const string SnowmakingPrefabName = "SkiRunSnowmakingA";
         private const string NightPrefabName = "SkiRunNightA";
-        // The cat track wears the groomed pair (textures, winter alpha, snow slots) until it gets its own; its prefab has
+        // The cat track wears the groomed pair (textures, winter alpha, snow slots) until it gets its own. Its prefab has
         // RendererPriority 11 so its decal draws over a run it crosses.
         private const string CatTrackPrefabName = "SkiRunCatTrackA";
 
@@ -105,12 +105,12 @@ namespace SkiResortMod.Systems
         private const string SummerNormalFile = "SkiTerrainSummerRun_Normal.png";
 
         // Shader property names (area-material-override.md section 1.1). Every use below is gated on the live shader's actual
-        // property table, so a game patch renaming one degrades to a logged skip, never an exception or a silent misapply.
+        // property table. So a game patch renaming one degrades to a logged skip, never an exception or a silent misapply.
         private const string BatchMaterialPrefix = "Area batch (";
         private const string BaseColorMapProperty = "_BaseColorMap";
         private const string NormalMapProperty = "_NormalMap";
         private const string SnowBaseColorMapProperty = "_Snow_BaseColorMap";
-        // _Snow_Normal (no "Map" suffix) per the serialized shader's property table; the alternate spelling is tried defensively
+        // _Snow_Normal (no "Map" suffix) per the serialized shader's property table. The code tries the alternate spelling defensively
         private static readonly string[] SnowNormalPropertyCandidates =
             { "_Snow_Normal", "_Snow_NormalMap" };
         private const string NormalOpacityProperty = "_NormalOpacity";
@@ -137,8 +137,8 @@ namespace SkiResortMod.Systems
             public Texture2D BaseColorTex;
             public Texture2D NormalTex;
             // The same textures wrapped as user-db TextureAssets, written into the prefab's texture references so the game's own batch
-            // re-derivation propagates our textures instead of re-binding the originals (the game re-bound the Editor whites twice in
-            // 2.5 min; the live-material swap perpetually lost the race).
+            // re-derivation propagates our textures instead of re-binding the originals. The game re-bound the Editor whites twice in
+            // 2.5 min. The live-material swap perpetually lost the race.
             public TextureAsset BaseColorAsset;
             public TextureAsset NormalAsset;
             public AssetReference<TextureAsset> OrigBaseColorRef;
@@ -217,7 +217,7 @@ namespace SkiResortMod.Systems
         private readonly List<string> m_LastScanBatchNames = new List<string>();
         // Property writes since the last count line (reset at load, before and after a season re-dress, and after the activation
         // summary). A re-assert's writes are not reported by count (its own [reassert] line and the changed writes say what
-        // happened); the next season re-dress starts from zero.
+        // happened). The next season re-dress starts from zero.
         private int m_ChangedWrites;
         private int m_SameWrites;
         private int m_ReassertLines;
@@ -236,7 +236,7 @@ namespace SkiResortMod.Systems
                 new Target(GroomedPrefabName, GroomedBaseColorFile, GroomedNormalFile,
                     Tuning.GroomedWinterAlphaScale, useSnowPair: true),
                 // Two looks (DECISIONS 577): the snowmaking and night presets are groomed runs with guns or lights on, so they wear the
-                // groomed dress; guns and masts are props, not a surface.
+                // groomed dress. Guns and masts are props, not a surface.
                 new Target(SnowmakingPrefabName, GroomedBaseColorFile, GroomedNormalFile,
                     Tuning.GroomedWinterAlphaScale, useSnowPair: true),
                 new Target(NightPrefabName, GroomedBaseColorFile, GroomedNormalFile,
@@ -248,8 +248,8 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"{nameof(SkiRunDecalSystem)} created");
         }
 
-        /// <summary>Editor safety: the prefab texture-reference patch must never be captured by an editor save of the surface
-        /// asset, so the original references are restored before any editor session (anti-contamination: no mod state is ever
+        /// <summary>Editor safety: an editor save of the surface asset must never capture the prefab texture-reference patch.
+        /// So the code restores the original references before any editor session (anti-contamination: no mod state is ever
         /// saved into an asset).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
@@ -311,7 +311,7 @@ namespace SkiResortMod.Systems
                     return;
                 }
 
-                // Even with every texture file missing the probe + scalars still justify activation; the loader logs precisely what will
+                // Even with every texture file missing the probe + scalars still justify activation. The loader logs precisely what will
                 // be skipped.
                 LoadTextures();
 
@@ -361,7 +361,7 @@ namespace SkiResortMod.Systems
                     Reassert();
                 }
 
-                // Seasonal dress check: cheap, hysteresis-guarded; on a flip every applied material gets re-dressed with the season-active
+                // Seasonal dress check: cheap, hysteresis-guarded. On a flip the system re-dresses every applied material with the season-active
                 // pair (prefab references included, so the game's own re-binds stay in season too)
                 if (m_AppliedCount > 0 && --m_FramesUntilSeasonCheck <= 0)
                 {
@@ -387,8 +387,8 @@ namespace SkiResortMod.Systems
             }
             catch (Exception e)
             {
-                // Never throw into the game loop. Unmissable, with the full stack, once per load; session caches are kept so the next
-                // load re-arms automatically.
+                // Never throw into the game loop. The log line is unmissable, with the full stack, once per load. The system keeps session caches,
+                // so the next load re-arms automatically.
                 m_Disabled = true;
                 if (!m_ErrorLogged)
                 {
@@ -400,8 +400,8 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>One pass over all loaded materials; matches pending targets by the exact clone name AreaBatchSystem assigns.
-        /// Also keeps the list of every "Area batch" material seen: that inventory is the diagnostic if ours never appears.</summary>
+        /// <summary>One pass over all loaded materials. It matches pending targets by the exact clone name AreaBatchSystem assigns.
+        /// It also keeps the list of every "Area batch" material seen: that inventory is the diagnostic if ours never appears.</summary>
         private void TryFindAndApply()
         {
             Material[] all = Resources.FindObjectsOfTypeAll<Material>();
@@ -431,7 +431,7 @@ namespace SkiResortMod.Systems
                 LogActivationSummary();
         }
 
-        /// <summary>The one-time WARN when the deadline expires with targets unfound; includes what does exist, because "our name
+        /// <summary>The one-time WARN when the deadline expires with targets unfound. It includes what does exist, because "our name
         /// never appeared" plus the actual inventory is a complete bug report.</summary>
         private void GiveUp()
         {
@@ -456,7 +456,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The probe dump: one block per material instance, logged before any mutation so every value is vanilla. Keyed
-        /// on instance id so a mid-session batch rebuild (a genuinely new clone) probes again, but re-finds of the same clone do
+        /// on instance id, so a mid-session batch rebuild (a genuinely new clone) probes again. Re-finds of the same clone do
         /// not spam.</summary>
         private void ProbeIfNewInstance(Material material)
         {
@@ -515,8 +515,8 @@ namespace SkiResortMod.Systems
             Mod.Log.Info(sb.ToString());
         }
 
-        /// <summary>Applies the full safe set to one live clone. Idempotent; the re-assert path calls it again verbatim. Every Set
-        /// that changes the slot is logged with old -> new; one already in place is only counted.</summary>
+        /// <summary>Applies the full safe set to one live clone. Idempotent: the re-assert path calls it again verbatim. The code logs every
+        /// Set that changes the slot with old -> new. It only counts one already in place.</summary>
         private void ApplyToMaterial(Target target)
         {
             Material material = target.Material;
@@ -526,7 +526,7 @@ namespace SkiResortMod.Systems
 
             // 1) Our decal texture pair: the live material for immediacy, and the prefab's texture references via runtime TextureAssets.
             //    AreaBatchSystem re-derives batch material state from the prefab component, so a live-only swap perpetually loses to the
-            //    game's re-binds. With the prefab references patched, the game's own re-binds propagate our textures; the re-assert
+            //    game's re-binds. With the prefab references patched, the game's own re-binds propagate our textures. The re-assert
             //    sentinel is then pure verification. Game mode only: editor saves must never capture runtime user-db references
             //    (OnGamePreload restores the originals before any editor session).
             //    Season-active pair: winter = the per-run wear/corduroy set, summer = the shared green mowed-grass set (falls back to the
@@ -557,7 +557,7 @@ namespace SkiResortMod.Systems
             }
 
             // 2) Snow slots, groomed surface only: swap the vanilla-bound snowalbedo2 pair for our corduroy, touching neither the _Snow
-            //    float nor any keyword (see the Tuning.ApplySnowSlots note). Live material only (RenderedArea exposes no snow refs); the
+            //    float nor any keyword (see the Tuning.ApplySnowSlots note). Live material only (RenderedArea exposes no snow refs). The
             //    re-assert sentinel restores it after the game's re-derivations.
             bool snowBase = false, snowNormal = false;
             if (Tuning.ApplySnowSlots && target.UseSnowPair)
@@ -567,7 +567,7 @@ namespace SkiResortMod.Systems
             }
             target.SnowPairSet = snowBase & snowNormal;
 
-            // 3) Doc-safe scalars, live + prefab mirror (RenderedArea fields exist for all three; set both). The mirror is
+            // 3) Doc-safe scalars, live + prefab mirror (RenderedArea fields exist for all three: set both). The mirror is
             //    runtime-only, nothing in this chain ever calls asset.Save.
             RenderedArea rendered = target.Rendered;
             if (TrySetFloat(target, props, NormalOpacityProperty, Tuning.NormalOpacity, rendered != null) &&
@@ -625,7 +625,7 @@ namespace SkiResortMod.Systems
             m_SameWrites = 0;
         }
 
-        /// <summary>True while the per-load line budget lasts; the last allowed line carries a note that later ones are dropped.</summary>
+        /// <summary>True while the per-load line budget lasts. The last allowed line carries a note that later ones are dropped.</summary>
         private bool NextReassertLine(out string capNote)
         {
             capNote = string.Empty;
@@ -638,7 +638,7 @@ namespace SkiResortMod.Systems
         }
 
         // Re-assert sentinel: our mutations must survive texture-quality changes (UpdateTextures re-Loads prefab assets over the
-        // live clone) and batch rebuilds (the clone is Destroyed and rebuilt). Verify cheaply, re-apply loudly; each re-apply line
+        // live clone) and batch rebuilds (the clone is Destroyed and rebuilt). Verify cheaply. Re-apply loudly. Each re-apply line
         // in the log is evidence, not noise (up to ReassertLinesMax per load).
         private void Reassert()
         {
@@ -756,8 +756,8 @@ namespace SkiResortMod.Systems
             material.SetTexture(id, texture);
             target.AppliedTextures.Add((id, propertyName, texture));
             // Log only a change, by UnityEngine.Object's !=: the same live texture reads as equal, a destroyed old one as null, so it
-            // counts as a change. Unity's documented equality, unverified here (no UnityEngine decompile in tools/; DetectDrift's
-            // ReferenceEquals is the stricter twin, and a stricter miss would only log one extra line). The write and the sentinel
+            // counts as a change. Unity's documented equality, unverified here. There is no UnityEngine decompile in tools/. DetectDrift's
+            // ReferenceEquals is the stricter twin, and a stricter miss would only log one extra line. The write and the sentinel
             // record above happen either way.
             if (old != texture)
             {
@@ -839,8 +839,8 @@ namespace SkiResortMod.Systems
         }
 
         // Textures: PNG files -> readable Texture2Ds, session-cached. Loader settings: Repeat wrap (the
-        // decal UV tiles world-XZ via colossal_UVScale, Clamp would smear the last texel row; trilinear, aniso 8). BaseColor is
-        // sRGB, normals are linear data; plain-RGB PNG normals decode correctly through HDRP's RGorAG unpack because their alpha is
+        // decal UV tiles world-XZ via colossal_UVScale, and Clamp would smear the last texel row), trilinear, aniso 8. BaseColor is
+        // sRGB. Normals are linear data. Plain-RGB PNG normals decode correctly through HDRP's RGorAG unpack because their alpha is
         // opaque. No TextureAssets here: live-material SetTexture needs only the Texture2D.
         private void LoadTextures()
         {
@@ -864,8 +864,8 @@ namespace SkiResortMod.Systems
                     if (target.BaseColorTex != null && target.WinterAlphaScale < 1f)
                         ScaleColors(target.BaseColorTex, 1f, target.WinterAlphaScale);
                     // Two targets may load the same file (night wears snowmaking's dress). RegisterTextureAsset keys the user-db entry on
-                    // texture.name, which comes from the filename, so without a per-target prefix the second target's asset would resolve to
-                    // the first target's texture instance, and the drift sentinel would re-apply forever (its own instance vs the shared
+                    // texture.name, which comes from the filename. Without a per-target prefix the second target's asset would resolve to
+                    // the first target's texture instance. The drift sentinel would then re-apply forever (its own instance vs the shared
                     // asset's). Names are runtime-only, never saved.
                     if (target.BaseColorTex != null)
                         target.BaseColorTex.name = target.PrefabName + target.BaseColorTex.name;
@@ -910,8 +910,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Winter-look decision: the primary driver is measured snow on the runs (TryGetDressDepth: the injection
-        /// system's managed mean, else the natural runs' measured mean; hysteresis 0.5-2 cm) so green can never show while trails
-        /// are white. The fallback, for loads where no measurement has happened yet, is temperature hysteresis on the 24-hour mean
+        /// system's managed mean, else the natural runs' measured mean, hysteresis 0.5-2 cm). So green can never show while trails
+        /// are white. The fallback, for loads where no measurement exists yet, is temperature hysteresis on the 24-hour mean
         /// (the instantaneous ambient flips daily). Records what it read for the log lines only.</summary>
         private bool EvaluateWinterLook()
         {
@@ -948,8 +948,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>In-place RGB/alpha scale (summer set only). LoadImage textures stay CPU-readable; Apply(true) regenerates mips,
-        /// readable is kept so a future pass could re-scale.</summary>
+        /// <summary>In-place RGB/alpha scale (summer set only). LoadImage textures stay CPU-readable. Apply(true) regenerates mips and
+        /// keeps readable, so a future pass could re-scale.</summary>
         private static void ScaleColors(Texture2D texture, float rgbScale, float alphaScale)
         {
             Color32[] pixels = texture.GetPixels32();
@@ -1003,7 +1003,7 @@ namespace SkiResortMod.Systems
         }
 
         // Prefab resolution: fast PrefabID path + name-scan fallback, tolerating missing prefabs (the run surfaces may not be
-        // imported yet; the system logs its inertness once per load and sleeps until they exist)
+        // imported yet. The system logs its inertness once per load and sleeps until they exist)
         private void ResolveRunPrefabs()
         {
             if (m_PrefabsResolved)

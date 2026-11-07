@@ -1,10 +1,11 @@
-// Binds a ski run the frame it is drawn, and waiting runs (unbound runs and paid orphans) the frame a Ski Area Welcome Sign is placed,
-// paused or not. No binding logic of its own: on a qualifying frame it calls SkiRunOwnershipSystem.SweepNow, the same idempotent sweep
-// (SkiRunBindingRules table) the 64-sim-frame cadence runs. Setting off = cadence-only behavior. Runs at ModificationEnd (Mod.cs
-// registration), after every vanilla ModificationEnd system, so Geometry.m_CenterPosition (the sweep's tether test) is final; SkiRunBinding
-// raises no tag, so vanilla sees nothing. SweepNow is main thread; no double charge (the binding is added right before the one Charge
-// call). Both queries also match vanilla entities, so results are filtered in managed code. Also names new signs "Ski area N" (queued
-// here, written at UIUpdate by SkiSignNameSystem). One-shot "!!!" catch disables the trigger until the next load. Game mode only.
+// Binds a ski run on the frame the player draws it. Also binds waiting runs (unbound runs and paid orphans) on the frame the player
+// places a Ski Area Welcome Sign, paused or not. The system has no binding logic of its own: on a qualifying frame it calls
+// SkiRunOwnershipSystem.SweepNow, the same idempotent sweep (SkiRunBindingRules table) the 64-sim-frame cadence runs. Setting off =
+// cadence-only behavior. Runs at ModificationEnd (Mod.cs registration), after every vanilla ModificationEnd system, so
+// Geometry.m_CenterPosition (the sweep's tether test) is final. SkiRunBinding raises no tag, so vanilla sees nothing. SweepNow runs on
+// the main thread. There is no double charge: the system adds the binding right before the one Charge call. Both queries also match
+// vanilla entities, so the system filters results in managed code. It also names new signs "Ski area N" (queued here, written at
+// UIUpdate by SkiSignNameSystem). A one-shot "!!!" catch disables the trigger until the next load. Game mode only.
 // Engine notes: EngineNotes/SkiRunBindTriggerSystem.md
 
 using System;
@@ -36,7 +37,7 @@ namespace SkiResortMod.Systems
         private const string ResortDefaultEnglish = "Ski area {N}";
         private const string OrdinalPlaceholder = "{N}";
         /// <summary>Updates after a completed load in which a Created sign is not auto-named (load
-        /// guard, engine notes). Tunable; a player cannot place a sign this fast.</summary>
+        /// guard, engine notes). Tunable. A player cannot place a sign this fast.</summary>
         private const int AutoNameLoadGuardFrames = 2;
         /// <summary>Upper bound of the N search (a city never holds this many signs).</summary>
         private const int AutoNameMaxN = 10000;
@@ -63,12 +64,12 @@ namespace SkiResortMod.Systems
         private bool m_PickErrorLogged;   // PickSignName's own one-shot line
 
         // The "Ski area N" template of the current pick and its cached formatter (the shared SkiResortAggregate.SmallestFreeOrdinal takes a
-        // Func; one delegate, created in OnCreate).
+        // Func. OnCreate creates the one delegate).
         private string m_Template = ResortDefaultEnglish;
         private Func<int, string> m_FormatOrdinal;
 
-        // Auto-name queue (engine notes "Written at UIUpdate"): filled at ModificationEnd, drained by SkiSignNameSystem at UIUpdate the same frame.
-        // Event-time only; never shrunk.
+        // Auto-name queue (engine notes "Written at UIUpdate"). The system fills it at ModificationEnd. SkiSignNameSystem drains it at
+        // UIUpdate the same frame. Event-time only. The system never shrinks it.
         private readonly List<Entity> m_PendingNameSigns = new List<Entity>(2);
         private readonly List<string> m_PendingNames = new List<string>(2);
 
@@ -167,7 +168,7 @@ namespace SkiResortMod.Systems
 
             m_Armed = true;
             // Ownership's own ARMED line follows or precedes this one (OnGameLoadingComplete
-            // order between systems is not ours to rely on); IsArmed is re-read every frame.
+            // order between systems is not ours to rely on). The system re-reads IsArmed every frame.
             Mod.Log.Info("Ownership: bind-on-draw trigger ARMED — ModificationEnd every frame " +
                          "(paused included); fires SweepNow on a Created run of ours (no Owner, " +
                          "no SkiRunBinding) or a placed (Created) Ski Area Welcome Sign — a " +
@@ -193,8 +194,8 @@ namespace SkiResortMod.Systems
                 if (m_Disabled || !m_Armed)
                     return;
 
-                // Auto-name (engine notes "Sign auto-name"): before the binding gates, since naming needs only the prefab sets, not binding being armed,
-                // and not the bind-on-draw setting.
+                // Auto-name (engine notes "Sign auto-name") runs before the binding gates. Naming needs only the prefab sets. It does not need binding
+                // to be armed, and it does not need the bind-on-draw setting.
                 GameManager gmName = GameManager.instance;
                 if (gmName != null && !gmName.isGameLoading)
                 {
@@ -202,7 +203,7 @@ namespace SkiResortMod.Systems
                         m_UpdatesSinceLoad++;
                     if (m_PendingNameSigns.Count > 0 && !m_NameStallLogged)
                     {
-                        // Engine notes "Written at UIUpdate": queued last frame, still here, so the writer is not running.
+                        // Engine notes "Written at UIUpdate": the name was queued last frame and is still here, so the writer is not running.
                         m_NameStallLogged = true;
                         Mod.Log.Error($"!!! Resort [name] {m_PendingNameSigns.Count} queued sign name(s) were not written by " +
                                       "SkiSignNameSystem (UIUpdate) — it is not running (not registered, or disabled by an " +
@@ -220,7 +221,7 @@ namespace SkiResortMod.Systems
                 if (gm == null || gm.isGameLoading)
                     return;
 
-                // Engine notes "Load-pass retry": before the setting gate (migration is not bind-on-draw).
+                // Engine notes "Load-pass retry": this runs before the setting gate, because migration is not bind-on-draw.
                 if (m_Ownership.LoadPassRetryPending)
                 {
                     LastReason = ReasonLoadPassRetry;
@@ -231,7 +232,7 @@ namespace SkiResortMod.Systems
                     return;
                 }
 
-                // Run types R3: a run drawn with the Run tile's option row starts with its sliders, before any bind charges its fee (the
+                // Run types R3: a run drawn with the Run tile's option row starts with its sliders. This happens before any bind charges its fee (the
                 // steps are in it), whether or not bind-on-draw is on.
                 if (!m_NewRuns.IsEmptyIgnoreFilter && m_Hub.TryGetDrawSeed(out int seedGunM, out int seedLightM))
                     SeedDrawnRuns(seedGunM, seedLightM);
@@ -240,10 +241,10 @@ namespace SkiResortMod.Systems
                     return;
 
                 // Cheapest first: IsEmptyIgnoreFilter syncs nothing. m_NewRuns is rarely non-empty: only new areas with neither Owner nor
-                // SkiRunBinding match, and building lots carry Owner. m_ChangedGates is non-empty on frames where any building is created: every
-                // building is born with Created (BuildingPrefab.cs:73, RefreshArchetype), so a growing city still hits it, but not on the Updated
-                // stamps of BuildingConstructionSystem.cs:225, BuildingUpkeepSystem.cs:485, ParkAISystem.cs:100 and others. On those frames the
-                // managed PrefabRef scan runs, and its only sync is PrefabRef's writers (see AnyRunPrefab).
+                // SkiRunBinding match, and building lots carry Owner. m_ChangedGates is non-empty on frames where any building is created, because
+                // every building is born with Created (BuildingPrefab.cs:73, RefreshArchetype). So a growing city still hits it. It is not hit by the
+                // Updated stamps of BuildingConstructionSystem.cs:225, BuildingUpkeepSystem.cs:485, ParkAISystem.cs:100 and others. On frames where
+                // a building is created, the managed PrefabRef scan runs, and its only sync is PrefabRef's writers (see AnyRunPrefab).
                 bool runs = !m_NewRuns.IsEmptyIgnoreFilter && AnyRunPrefab(m_NewRuns);
                 bool gates = !m_ChangedGates.IsEmptyIgnoreFilter && AnyGatePrefab(m_ChangedGates);
                 if (!runs && !gates)
@@ -254,8 +255,7 @@ namespace SkiResortMod.Systems
                 Triggers++;
                 if (!m_FirstTriggerLogged)
                 {
-                    // Once per load: proves the trigger is live; the sweep logs every bind
-                    // itself ("Ownership [bind] (<reason>)").
+                    // Once per load. This proves the trigger is live. The sweep logs every bind itself ("Ownership [bind] (<reason>)").
                     m_FirstTriggerLogged = true;
                     Mod.Log.Info($"Ownership: bind-on-draw trigger fired ({reason}) — first " +
                                  "this load; later triggers are counted on the 'Ski Runs' tab");
@@ -277,8 +277,8 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Names every Created Welcome Sign of this frame that has no custom name. Its own
-        /// try/catch and one-shot "!!!": a naming failure never stops bind-on-draw.</summary>
+        /// <summary>Names every Created Welcome Sign of this frame that has no custom name. It has its own
+        /// try/catch and one-shot "!!!". A naming failure never stops bind-on-draw.</summary>
         private void AutoNameNewSigns()
         {
             try
@@ -324,8 +324,8 @@ namespace SkiResortMod.Systems
                                          $"N={AutoNameMaxN} is taken — left unnamed");
                             continue;
                         }
-                        // Engine notes "Written at UIUpdate": SetCustomName would throw here (EndFrameBarrier not allowed at ModificationEnd); SkiSignNameSystem
-                        // writes and logs it this frame.
+                        // Engine notes "Written at UIUpdate": SetCustomName would throw here, because EndFrameBarrier is not allowed at ModificationEnd.
+                        // SkiSignNameSystem writes and logs it this frame.
                         if (m_PendingNameSigns.Contains(sign))
                             continue;
                         m_PendingNameSigns.Add(sign);
@@ -348,8 +348,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The current custom names of every live Welcome Sign except <paramref name="except"/>
-        /// (event time: a scan of every live building's PrefabRef; only on a frame where a new unnamed
-        /// sign was placed, or on a hub rename to "").</summary>
+        /// (event time: a scan of every live building's PrefabRef. It runs only on a frame where the player placed a new unnamed
+        /// sign, or on a hub rename to "").</summary>
         private void CollectSignNames(Entity except)
         {
             m_TakenNames.Clear();
@@ -373,10 +373,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The fresh auto-name a hub rename to "" writes on <paramref name="sign"/>: the smallest "Ski area N" no other live sign's
-        /// custom name uses (the auto-name's own rule, so the vanilla panel and the hub keep showing one name instead of the vanilla
-        /// default vs. a hub fallback label). Null when none is free or on an exception (then the caller removes the name, the vanilla
-        /// behavior; one "!!!" line per load). Event time only, main thread (the hub's UIUpdate).</summary>
+        /// <summary>The fresh auto-name a hub rename to "" writes on <paramref name="sign"/>: the smallest "Ski area N" that no other
+        /// live sign's custom name uses. This is the auto-name's own rule, so the vanilla panel and the hub keep showing one name instead of
+        /// the vanilla default vs. a hub fallback label. Null when none is free or on an exception (then the caller removes the name, the
+        /// vanilla behavior). One "!!!" line per load. Event time only, main thread (the hub's UIUpdate).</summary>
         internal string PickSignName(Entity sign)
         {
             try
@@ -421,10 +421,9 @@ namespace SkiResortMod.Systems
         /// <summary>Queued names not yet written (SkiSignNameSystem reads it every UIUpdate).</summary>
         internal int PendingNameCount => m_PendingNameSigns.Count;
 
-        /// <summary>Engine notes WRITTEN AT UIUpdate: writes every queued name through NameSystem.SetCustomName
-        /// (allowed at UIUpdate: AllowBarrier&lt;EndFrameBarrier&gt; ran at SystemOrder.cs:62, before
-        /// UIUpdateSystem :67) and logs one line per name. Called only by SkiSignNameSystem. Uses the
-        /// auto-name's own one-shot: a failure here never stops bind-on-draw.</summary>
+        /// <summary>Engine notes WRITTEN AT UIUpdate: writes every queued name through NameSystem.SetCustomName and logs one line per name.
+        /// UIUpdate allows this call: AllowBarrier&lt;EndFrameBarrier&gt; ran at SystemOrder.cs:62, before UIUpdateSystem :67. Only
+        /// SkiSignNameSystem calls it. It uses the auto-name's own one-shot: a failure here never stops bind-on-draw.</summary>
         internal void FlushPendingNames()
         {
             if (m_PendingNameSigns.Count == 0)
@@ -480,11 +479,11 @@ namespace SkiResortMod.Systems
 
         /// <summary>Managed PrefabRef scan of a small result. ToComponentDataArray&lt;PrefabRef&gt;
         /// completes PrefabRef's write dependency itself (Unity.Entities
-        /// EntityQueryImpl.ToComponentDataArray → DependencyManager.CompleteWriteDependency(typeIndex);
-        /// Entities package source, not in Game.dll — unverified against the shipped build).
+        /// EntityQueryImpl.ToComponentDataArray → DependencyManager.CompleteWriteDependency(typeIndex)).
+        /// This comes from the Entities package source, which is not in Game.dll. Unverified against the shipped build.
         /// EntityQuery.CompleteDependency would also wait on every in-flight writer of
         /// Building/Transform/Area/Geometry/Created/Updated
-        /// (CompleteDependenciesNoChecks(ReaderTypes, WriterTypes)), so do not add it.</summary>
+        /// (CompleteDependenciesNoChecks(ReaderTypes, WriterTypes)). Do not add it.</summary>
         /// <summary>The option row's sliders on every groomed piste drawn this frame (SkiRunPropSystem.SeedSpacing).</summary>
         private void SeedDrawnRuns(int gunM, int lightM)
         {
@@ -531,11 +530,13 @@ namespace SkiResortMod.Systems
     // SkiSignNameSystem: writes the sign auto-names SkiRunBindTriggerSystem queues (see EngineNotes/SkiRunBindTriggerSystem.md,
     // "Written at UIUpdate", for why it exists). The LiftParkSystem pattern.
     // REGISTRATION (Mod.cs): updateSystem.UpdateAt<SkiSignNameSystem>(SystemUpdatePhase.UIUpdate), added BEFORE SkiRunCatalogSystem /
-    // SkiResortStatsSystem. Load-bearing twice: UIUpdate is driven by UIUpdateSystem in MainLoop (Game.Common/SystemOrder.cs:67),
-    // AFTER AllowBarrier<EndFrameBarrier> (:62), so NameSystem.SetCustomName's EndFrameBarrier.CreateCommandBuffer is allowed here
-    // (Game/SafeCommandBufferSystem.cs:16-23; same in 1.6.2); and a plain UpdateAt runs in add order (UpdateSystem.cs:158-161), so the
-    // stats rebuild of the same frame already reads the new name (the dictionary is written at once, NameSystem.cs:236).
-    // House rules: "created" line; one ARM line per load; Game mode only; one-shot "!!!" catch that disables the writer until the next load.
+    // SkiResortStatsSystem. Load-bearing twice:
+    // 1. UIUpdateSystem drives UIUpdate in MainLoop (Game.Common/SystemOrder.cs:67), AFTER AllowBarrier<EndFrameBarrier> (:62). So
+    // NameSystem.SetCustomName's EndFrameBarrier.CreateCommandBuffer is allowed here (Game/SafeCommandBufferSystem.cs:16-23, same in 1.6.2).
+    // 2. A plain UpdateAt runs in add order (UpdateSystem.cs:158-161). So the stats rebuild of the same frame already reads the new name
+    // (the dictionary is written at once, NameSystem.cs:236).
+    // House rules: "created" line, one ARM line per load, Game mode only, and a one-shot "!!!" catch that disables the writer until the
+    // next load.
     public sealed partial class SkiSignNameSystem : GameSystemBase
     {
         private SkiRunBindTriggerSystem m_BindTrigger;

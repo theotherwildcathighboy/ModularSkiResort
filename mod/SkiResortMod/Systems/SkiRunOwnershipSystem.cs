@@ -1,10 +1,10 @@
 // Links drawn ski runs to their Ski Area Welcome Sign through our own serialized component SkiRunBinding. Runs are found by prefab
 // name. This system supplies the link, the one-time bind charge and the tether.
-// No Owner on runs and no SubArea buffer on the sign: with Owner(sign) the bulldozer walked a run's Owner to the sign and deleted it
+// No Owner on runs and no SubArea buffer on the sign. With Owner(sign) the bulldozer walked a run's Owner to the sign and deleted it
 // (and every run). The sign -> runs cascade is SkiRunGateCascadeSystem, keyed on SkiRunBinding.m_Gate.
 // One decision table (SkiRunBindingRules.Decide, pure) serves the load pass and the sweep, so they cannot disagree. Never delete a
-// run on an inferred event. Load pass: OnGameLoadingComplete, before m_Armed = true; it never calls Charge.
-// Sweep: OnUpdate (interval 64, before SkiSnowInjectionSystem in Mod.cs) + SweepNow(why), Game mode only; a one-shot "!!!" catch disables binding until reload.
+// run on an inferred event. Load pass: OnGameLoadingComplete, before m_Armed = true. It never calls Charge.
+// Sweep: OnUpdate (interval 64, before SkiSnowInjectionSystem in Mod.cs) + SweepNow(why), Game mode only. A one-shot "!!!" catch disables binding until reload.
 // Engine notes: EngineNotes/SkiRunOwnershipSystem.md
 
 using System;
@@ -30,25 +30,25 @@ namespace SkiResortMod.Systems
     {
         /// <summary>THE tether, one number: the run bind test below (Tuning.TetherM) and the hub's lift / station resort rule
         /// (SkiResortStatsSystem, SkiResortIndex.TryResolve) both read it. The option "Ski area radius" (SkiResortSettings.SkiAreaRadiusKm,
-        /// 2-10 km, default 5, SkiAreaRadiusRules.ClampKm), read live: a bound run keeps its sign after a change; lifts and buildings
+        /// 2-10 km, default 5, SkiAreaRadiusRules.ClampKm) is read live. A bound run keeps its sign after a change. Lifts and buildings
         /// re-resolve at the next recompute. Main thread only (Mod.Settings).</summary>
         internal static float TetherMeters => SkiResortMod.Settings.SkiResortSettings.SkiAreaRadiusMOf(Mod.Settings);
 
         private static class Tuning
         {
             /// <summary>Max distance (m) from a run polygon's center to its sign at BIND time. The default 5 km covers a full real-scale
-            /// resort on the 14.3 km playable map. = TetherMeters (one number for runs and lifts; the option, read live).</summary>
+            /// resort on the 14.3 km playable map. = TetherMeters (one number for runs and lifts: the option, read live).</summary>
             public static float TetherM => TetherMeters;
 
-            /// <summary>Sweep cadence: the same 64-frame family as injection; binding within one window of drawing is imperceptible.</summary>
+            /// <summary>Sweep cadence: the same 64-frame family as injection. Binding within one window of drawing is imperceptible.</summary>
             public const int SweepIntervalFrames = 64;
 
-            /// <summary>Heartbeat: an UNCHANGED census line is written at most once per this many wall-clock seconds; any change logs at
+            /// <summary>Heartbeat: an UNCHANGED census line is written at most once per this many wall-clock seconds. Any change logs at
             /// once.</summary>
             public const float CensusHeartbeatS = 120f;
 
-            /// <summary>Per-run lines ([bind]/[rebind]/[orphan]/[migrate]/[restore]) written per pass before the rest are only counted (the
-            /// census / load-pass line carries the totals). Guards the log against a mass event (e.g. a reinstall restoring 200
+            /// <summary>Count of per-run lines ([bind]/[rebind]/[orphan]/[migrate]/[restore]) written per pass. After that the system only counts them (the
+            /// census / load-pass line carries the totals). The cap guards the log against a mass event (e.g. a reinstall restoring 200
             /// runs).</summary>
             public const int RunLinesPerPassMax = 16;
         }
@@ -131,14 +131,14 @@ namespace SkiResortMod.Systems
         private float m_LastCensusLineAt = float.NegativeInfinity; // realtimeSinceStartup of the last census line
         private int m_RunLines;
         private int m_RunLinesSuppressed;
-        // The timer sweep of a city with no run of ours and no known sign does nothing; the gate walk then happens at most once per
+        // The timer sweep of a city with no run of ours and no known sign does nothing. The gate walk then happens at most once per
         // CensusHeartbeatS to keep the sign count (and ResortPresence) honest. m_LastRunCount: runs of ours at the last load pass /
         // sweep, -1 = unknown.
         private int m_LastRunCount = -1;
         private float m_LastGateWalkAt = float.NegativeInfinity;
         private const string TimerSweepWhy = "sweep";
 
-        // Never reset (a monotonically increasing counter; readers compare for equality).
+        // Never reset (a monotonically increasing counter, readers compare for equality).
         private int m_BindGeneration;
 
         /// <summary>Last census (load pass, then every sweep). -1 until this load's load pass ran. Plain fields: the glade tool's
@@ -161,7 +161,7 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
-                    // All run kinds are SurfacePrefab areas (Game.Prefabs/SurfacePrefab.cs:21-23 adds Game.Areas.Surface); lots, districts and map
+                    // All run kinds are SurfacePrefab areas (Game.Prefabs/SurfacePrefab.cs:21-23 adds Game.Areas.Surface). Lots, districts and map
                     // tiles never enter this walk.
                     ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<Geometry>(),
@@ -271,7 +271,7 @@ namespace SkiResortMod.Systems
                              "build opened in an older build re-charges every run");
 
                 RunLoadPass();
-                // IsArmed stays TRUE when the pass threw: the sweep must keep migrating; LoadPassDone stays false, so it never charges this
+                // IsArmed stays TRUE when the pass threw: the sweep must keep migrating. LoadPassDone stays false, so it never charges this
                 // load.
                 m_Armed = true;
             }
@@ -322,13 +322,13 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>True while the SWEEP is live this load (prefabs resolved in Game mode, the load pass ran, completed or failed, and
-        /// no sweep exception has disabled binding). After a failed load pass the sweep runs but never charges: use BindsNewRuns for "a
+        /// <summary>True while the SWEEP is live this load. That means: prefabs resolved in Game mode, the load pass ran (completed or
+        /// failed), and no sweep exception has disabled binding. After a failed load pass the sweep runs but never charges: use BindsNewRuns for "a
         /// new run would bind". Plain field read.</summary>
         internal bool IsArmed => m_Armed && !m_Disabled;
 
-        /// <summary>Sign set + at least one run set resolved this load (Game mode). Independent of m_Disabled: SkiRunGateCascadeSystem
-        /// gates on this, so an exception in the sweep or the load pass never switches the cascade off.</summary>
+        /// <summary>Sign set + at least one run set resolved this load (Game mode). Independent of m_Disabled.
+        /// SkiRunGateCascadeSystem gates on this, so an exception in the sweep or the load pass never switches the cascade off.</summary>
         internal bool PrefabSetsReady => m_PrefabSetsReady;
 
         /// <summary>A NEW run drawn now would be bound (and charged) by this load's sweep: armed, not disabled, load pass completed.
@@ -336,7 +336,7 @@ namespace SkiResortMod.Systems
         internal bool BindsNewRuns => m_Armed && !m_Disabled && m_LoadPassDone;
 
         /// <summary>After a failed load pass, one immediate sweep is owed so legacy runs are migrated on the first frame (paused too).
-        /// SkiRunBindTriggerSystem (ModificationEnd, every frame) reads this and calls SweepNow; any sweep clears it.</summary>
+        /// SkiRunBindTriggerSystem (ModificationEnd, every frame) reads this and calls SweepNow. Any sweep clears it.</summary>
         internal bool LoadPassRetryPending => m_LoadPassRetryPending && m_Armed && !m_Disabled;
 
         /// <summary>True for one of our run SurfacePrefab entities.</summary>
@@ -356,7 +356,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The hub's RunRow.kind (mod/SkiResortUI/src/bindings.ts RUN_KIND): 0 groomed, 1 snowmaking, 2 night, 3 natural, 4 cat
-        /// track (= RunKind); -1 when <paramref name="prefab"/> is not one of our run prefabs (or the sets are not resolved yet this
+        /// track (= RunKind). Returns -1 when <paramref name="prefab"/> is not one of our run prefabs (or the sets are not resolved yet this
         /// load). A few HashSet reads, main thread.</summary>
         internal int KindOf(Entity prefab)
         {
@@ -412,7 +412,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Immediate sweep, outside the 64-frame cadence (SkiRunBindTriggerSystem, ModificationEnd). Same guards and the same
-        /// one-shot disable path as OnUpdate; deliberately leaves m_LastSweepFrame / m_SweepFrameValid alone so the cadence sweep keeps
+        /// one-shot disable path as OnUpdate. It deliberately leaves m_LastSweepFrame / m_SweepFrameValid alone, so the cadence sweep keeps
         /// its own schedule. Main thread only.</summary>
         internal void SweepNow(string why)
         {
@@ -443,15 +443,15 @@ namespace SkiResortMod.Systems
         /// <summary>Nearest live Ski Area Welcome Sign to <paramref name="xz"/>: returns true when it lies within Tuning.TetherM (the same
         /// `d &lt;= TetherM` test the bind uses). <paramref name="distance"/> is the nearest sign's distance, or float.PositiveInfinity
         /// when there is none. A managed scan of m_GateQuery, which matches EVERY building (only the PrefabRef filter narrows it to
-        /// signs), so call it on recompute or transition only, never per frame. Main thread only; never throws for a missing sign set
+        /// signs). Call it on recompute or transition only, never per frame. Main thread only. It never throws for a missing sign set
         /// (pre-import gives false).</summary>
         internal bool TryNearestGate(float2 xz, out float distance)
         {
             return TryNearestGateEntity(xz, out Entity _, out distance);
         }
 
-        /// <summary>TryNearestGate, also returning the nearest sign (Entity.Null when there is none at any distance; set even when it
-        /// lies beyond the tether).</summary>
+        /// <summary>TryNearestGate, also returning the nearest sign. Entity.Null when there is none at any distance. It is set even when it
+        /// lies beyond the tether.</summary>
         internal bool TryNearestGateEntity(float2 xz, out Entity gate, out float distance)
         {
             gate = Entity.Null;
@@ -517,7 +517,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The one-time fee of a run of this prefab and plan area (SkiRunFees.Fee); 0 for a prefab that is not one of our
+        /// <summary>The one-time fee of a run of this prefab and plan area (SkiRunFees.Fee). It is 0 for a prefab that is not one of our
         /// runs.</summary>
         internal int RunFeeFor(Entity runPrefab, float areaM2)
         {
@@ -525,7 +525,7 @@ namespace SkiResortMod.Systems
             return kind < 0 ? 0 : SkiRunFees.Fee(kind, areaM2);
         }
 
-        /// <summary>A built run's features (SkiRunPropSystem.FeaturesOf with this prefab's kind); Unknown for a prefab that is not ours.</summary>
+        /// <summary>A built run's features (SkiRunPropSystem.FeaturesOf with this prefab's kind). Unknown for a prefab that is not ours.</summary>
         internal RunFeatures FeaturesFor(Entity run, Entity runPrefab)
         {
             int kind = KindOf(runPrefab);
@@ -540,9 +540,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A feature of a bound, paid run was turned on (a slider above Off, Groomed on by a re-emit): charge the steps it has
-        /// never paid (SkiRunFees.StepCharge) and remember them. Off costs and refunds nothing, a step paid once is free again, a cat track
+        /// never paid (SkiRunFees.StepCharge) and remember them. Off costs and refunds nothing. A step paid once is free again. A cat track
         /// and an unbound or orphaned run pay nothing here (an unbound run pays its features when it binds). Returns the charge.
-        /// <paramref name="areaM2"/>: the plan area to bill; NaN reads the run's Geometry (a re-emitted run passes its old one: the new
+        /// <paramref name="areaM2"/>: the plan area to bill. NaN reads the run's Geometry (a re-emitted run passes its old one: the new
         /// entity's Geometry is computed later in the frame).</summary>
         internal int SettleFeatureSteps(Entity run, string why, float areaM2 = float.NaN)
         {
@@ -570,7 +570,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Paid runs bound before the paid-once memory: credit the features they have (their kind fee paid for them). Once per
-        /// load, after the load pass; never charges.</summary>
+        /// load, after the load pass. Never charges.</summary>
         private int CreditKnownSteps()
         {
             int credited = 0;
@@ -613,7 +613,7 @@ namespace SkiResortMod.Systems
                 m_SignBuffersPending = true;
                 LastLoadPass = "FAILED — see the !!! line; no charges and no new binds this load; the sweep " +
                                "keeps migrating legacy runs (no charge) from the first frame";
-                // Its own one-shot (the load pass runs once per load); m_ErrorLogged stays free for the sweep's own "!!!".
+                // Its own one-shot (the load pass runs once per load). m_ErrorLogged stays free for the sweep's own "!!!".
                 Mod.Log.Error($"!!! {nameof(SkiRunOwnershipSystem)} EXCEPTION in the load pass — no charges " +
                               "and no new binds this load (SkiRunGateCascadeSystem keeps working). The sweep " +
                               "still migrates runs left carrying Owner(sign) — no charge — on the first frame " +
@@ -624,8 +624,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The degraded mode after a load-pass failure. LoadPassDone stays false (BindCharge refused, the sweep never charges);
-        /// the sweep keeps running and one immediate sweep is requested from the trigger.</summary>
+        /// <summary>The degraded mode after a load-pass failure. LoadPassDone stays false (BindCharge refused, the sweep never charges).
+        /// The sweep keeps running, and the trigger requests one immediate sweep.</summary>
         private void LoadPassFailedMode()
         {
             m_LoadPassFailed = true;
@@ -633,10 +633,10 @@ namespace SkiResortMod.Systems
             m_LoadPassRetryPending = true;
         }
 
-        /// <summary>MigrateRun under its own try/catch, so one bad run cannot stop the others. On a throw: counted in m_MigrateFailures,
-        /// the first one per load logs "!!!" naming the run and the trap it keeps; returns false. <paramref name="fee"/> =
-        /// RunFeeFor(plan.Prefab, plan.AreaM2), computed ONCE by the caller: stored as the binding's paid amount (never charged) and
-        /// printed by the load pass's line.</summary>
+        /// <summary>MigrateRun under its own try/catch, so one bad run cannot stop the others. On a throw: m_MigrateFailures counts it,
+        /// the first one per load logs "!!!" naming the run and the trap it keeps, and the method returns false. <paramref name="fee"/> =
+        /// RunFeeFor(plan.Prefab, plan.AreaM2). The caller computes it ONCE. The method stores it as the binding's paid amount (never charged)
+        /// and the load pass's line prints it.</summary>
         private bool TryMigrateRun(in RunPlan plan, int fee, string context, out int entries)
         {
             entries = 0;
@@ -661,7 +661,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Load pass steps 1-5. Collect first, mutate after; never charges.</summary>
+        /// <summary>Load pass steps 1-5. Collect first, mutate after. Never charges.</summary>
         private void LoadPass()
         {
             var timer = Stopwatch.StartNew();
@@ -676,7 +676,7 @@ namespace SkiResortMod.Systems
             int bound = 0, orphaned = 0, unbound = 0, entries = 0, buffers = 0, unexpected = 0;
 
             // (1) Migrate, strictly before the sign-buffer step and the other actions. Each run under its own try/catch: a failed run is
-            // counted and left for the sweep; the others and steps 2-3 continue.
+            // counted and left for the sweep. The others and steps 2-3 continue.
             for (int p = 0; p < m_Plan.Count; p++)
             {
                 RunPlan plan = m_Plan[p];
@@ -755,7 +755,7 @@ namespace SkiResortMod.Systems
                         unbound++;
                         break;
                     default:
-                        // BindCharge is impossible with LoadPass = true (the table's row order); never charge in the load pass, whatever the table
+                        // BindCharge is impossible with LoadPass = true (the table's row order). Never charge in the load pass, whatever the table
                         // says.
                         unbound++;
                         unexpected++;
@@ -792,11 +792,11 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Load pass step 1 / sweep row 1 (shared). (a) remove the owner's SubArea entries for this run BEFORE (b) removing
-        /// Owner: once Owner is gone, SubAreaReferencesSystem (Owner-gated, :122-134) never removes them; (c) add the binding only when
-        /// the run has none (a half-migrated run gets (a)+(b)). The order is (a), (c), (b): a throw between the two structural changes
-        /// then leaves Owner + binding (row 1 finishes it, no charge), never a run with neither (which the sweep would treat as a NEW run
-        /// to bind and charge once LoadPassDone). Never charges. Returns entries removed. The binding stores <paramref name="fee"/> (the
-        /// area fee, RunFeeFor) as its paid amount.</summary>
+        /// Owner. Once Owner is gone, SubAreaReferencesSystem (Owner-gated, :122-134) never removes them. (c) add the binding only when
+        /// the run has none (a half-migrated run gets (a)+(b)). The order is (a), (c), (b). A throw between the two structural changes
+        /// then leaves Owner + binding (row 1 finishes it, no charge). It never leaves a run with neither, which the sweep would treat as
+        /// a NEW run to bind and charge once LoadPassDone. Never charges. Returns entries removed. The binding stores <paramref name="fee"/>
+        /// (the area fee, RunFeeFor) as its paid amount.</summary>
         private int MigrateRun(in RunPlan plan, int fee)
         {
             int removed = 0;
@@ -828,8 +828,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Load pass step 2 for one live sign: drop entries that point at one of our runs or at a non-existing entity (rubble
-        /// and any other live non-run entry is kept); remove the buffer when it is then empty and the sign's PREFAB has no
-        /// Game.Prefabs.SubArea buffer (runtime test). Collect first (entries copied out), mutate after. Returns entries removed; counts
+        /// and any other live non-run entry is kept). Remove the buffer when it is then empty and the sign's PREFAB has no
+        /// Game.Prefabs.SubArea buffer (runtime test). Collect first (entries copied out), mutate after. Returns entries removed. It counts
         /// removed buffers.</summary>
         private int CleanSignBuffer(Entity sign, ref int buffersRemoved)
         {
@@ -877,7 +877,7 @@ namespace SkiResortMod.Systems
 
         private void Sweep(string why)
         {
-            // A timer sweep in a city with no run of ours and no known sign has nothing to bind, migrate or count; it only walks the
+            // A timer sweep in a city with no run of ours and no known sign has nothing to bind, migrate or count. It only walks the
             // buildings (to keep the sign count honest) once per CensusHeartbeatS. Event sweeps (a drawn run, a placed sign, the load-pass
             // retry) and any city with a run always take the full path.
             float t0 = UnityEngine.Time.realtimeSinceStartup;
@@ -906,8 +906,8 @@ namespace SkiResortMod.Systems
                 {
                     case BindAction.MigrateLegacy:
                     {
-                        // Own try/catch per run: a run that fails is counted (census suffix) and retried next sweep; the others continue. The area fee
-                        // is stored as paid (never charged; this line prints none).
+                        // Own try/catch per run: a run that fails is counted (census suffix) and retried next sweep. The others continue. The area fee
+                        // is stored as paid (never charged, and this line prints none).
                         if (!TryMigrateRun(plan, RunFeeFor(plan.Prefab, plan.AreaM2), why, out int _))
                             break;
                         migrated++;
@@ -963,11 +963,11 @@ namespace SkiResortMod.Systems
                             break;
                         }
                         Entity sign = m_Gates[plan.Nearest];
-                        // The area fee of the run's features now, SkiRunFees.Fee(features, plan area): a preset prefab answers its kind's
+                        // The area fee of the run's features now, SkiRunFees.Fee(features, plan area). A preset prefab answers its kind's
                         // features, the fee the drawing tooltip shows (SkiRunTooltipSystem). The steps paid are remembered (DECISIONS 577).
                         RunFeatures features = FeaturesFor(plan.Run, plan.Prefab);
                         int cost = Math.Max(0, SkiRunFees.Fee(features, plan.AreaM2));
-                        // Binding first, synchronously; Charge right after (a later feature: SettleFeatureSteps).
+                        // Binding first, synchronously. Charge right after (a later feature: SettleFeatureSteps).
                         EntityManager.AddComponentData(plan.Run, new SkiRunBinding(sign,
                             (byte)(SkiRunBinding.FlagPaid | SkiRunBinding.FlagStepsKnown | SkiRunFees.StepsOf(features)), cost));
                         m_BindGeneration++;
@@ -997,7 +997,7 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // Load pass step 2, owed by the sweep after a load pass that threw: drop sign SubArea entries that point at our runs or at dead
+            // Load pass step 2, owed by the sweep after a load pass that threw. It drops sign SubArea entries that point at our runs or at dead
             // entities, and the empty buffer. Only once the step completes (a throw propagates to the caller's one-shot "!!!" like any sweep
             // exception).
             if (m_SignBuffersPending)
@@ -1009,7 +1009,7 @@ namespace SkiResortMod.Systems
 
             int gates = m_Gates.Count;
             int migrateFailures = m_MigrateFailures;
-            // On any change at once; unchanged, a CensusHeartbeatS heartbeat.
+            // On any change at once. When unchanged, a CensusHeartbeatS heartbeat.
             float now = UnityEngine.Time.realtimeSinceStartup;
             m_LastRunCount = m_Plan.Count;
             ResortPresence.SetSignsRuns(gates, m_Plan.Count);
@@ -1062,7 +1062,7 @@ namespace SkiResortMod.Systems
             FlushSuppressedRunLines();
         }
 
-        /// <summary>Table row 4: m_Gate = the nearest sign in tether; flags and paid amount kept; no charge.</summary>
+        /// <summary>Table row 4: m_Gate = the nearest sign in tether. Flags and paid amount kept. No charge.</summary>
         private void Rebind(in RunPlan plan, string why)
         {
             Entity sign = m_Gates[plan.Nearest];
@@ -1080,7 +1080,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Table row 5: m_Gate = Null when it was not (the transition, WARN once per run); flags and paid amount kept. Returns
+        /// <summary>Table row 5: m_Gate = Null when it was not (the transition, WARN once per run). Flags and paid amount kept. Returns
         /// true on the transition.</summary>
         private bool Orphan(in RunPlan plan, string why)
         {
@@ -1101,7 +1101,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Any run of ours in the world. Empty query = no sync; otherwise one chunk scan of the Surface areas (a handful in a
+        /// <summary>Any run of ours in the world. Empty query = no sync. Otherwise one chunk scan of the Surface areas (a handful in a
         /// vanilla city). Main thread.</summary>
         private bool AnyRunOfOurs()
         {
@@ -1157,7 +1157,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Fills m_Plan with every live run of ours, its facts and its decision. Call CollectGates first (SignInTether reads
-        /// m_Gates). Two loops: the chunk walk only copies (entity, prefab, center); the per-run EntityManager reads happen after the
+        /// m_Gates). Two loops: the chunk walk only copies (entity, prefab, center). The per-run EntityManager reads happen after the
         /// chunk arrays are released.</summary>
         private void CollectRuns(bool loadPass)
         {
