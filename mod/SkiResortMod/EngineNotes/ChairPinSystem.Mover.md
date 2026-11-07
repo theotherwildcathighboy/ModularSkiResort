@@ -88,7 +88,7 @@ against the 1.6.2f1 decompile.
   its rope point from its grip's jaw when it has one, `RopePointOfGrip`: exact under any swing). DeleteAllRules skips the kind.
 - **Enrollment**: InterpolatedTransform + one Updated, exactly like a chair (vanilla creates the grip without it; an entity CREATED with
   InterpolatedTransform never enters the static search tree). The bounds tags cover the grips (`CollectGripsToTag`).
-- **Pose** (`CarrierPose.Pose`, pure, LiftBatch CP-1..CP-18): yaw = `NetUtils.GetNodeRotation(tangent, current)` (NetUtils.cs:316-324:
+- **Pose** (`CarrierPose.Pose`, pure, LiftBatch CP-1..CP-20): yaw = `NetUtils.GetNodeRotation(tangent, current)` (NetUtils.cs:316-324:
   y zeroed, the rigid pose's yaw); pitch = the rope tangent's slope in the yaw frame. The swing convention (2026-11-03: a chair's
   clevis and the tram's single lateral pin cannot roll, so the lateral swing is the whole assembly's): ONE world rotation Q_roll = the
   roll about the rope TANGENT through the rope point turns the assembly. Grip rotation = Q_roll x yaw x RotateX(-pitch) = yaw x pitch x
@@ -100,18 +100,38 @@ against the 1.6.2f1 decompile.
   one-piece pose exactly (CP-1, B-5: 1e-4 m), and zero roll is the unrolled pose exactly (CP-15, CP-16); the joint gap is 0 under any
   pitch, roll and fore-aft (CP-4, CP-18, B-5: 1 mm). (The first roll convention, yaw x roll x pitch about the horizontal travel axis,
   tilted the jaw off the rope by roll x sin(pitch): 3.8 deg at the FG clamp on 30 deg.) Toggle off: no pitch, no swing.
-- **Swing** (`CarrierPose.Swing`): lean = clamp(LeanPerWind2 x RollGain x |w| x w_cross) on the roll and LeanPerWind2 x ForeAftShare x
-  |w| x w_along fore-aft, CLAMPED BEFORE the ramp (a saturating wind would otherwise jump at the ramp end, CP-9); sway = min(SwayPerWind
-  x |w|, MaxSway) x (RollGain sin, ForeAftShare cos) of `SwayArg` = omega / v x s + SeedPhase(entity index), omega = sqrt(g / (0.7 x
-  BodyPin.y)) (a pendulum of 70 % of the body's pin height). The sway argument is a function of the loop distance s, not of time: it
-  is continuous across a pause, a hold, a Rebase and a far-loop stride (a frozen loop's carriers freeze mid-sway, never snap).
+- **Swing** (`CarrierPose.Swing`; the visible-sway round 2026-11-06, after an in-game check found the lean steady and no sway):
+  per axis (roll gain G = RollGain, fore-aft G = ForeAftShare) the swing is ramp.x x clamp(LeanPerWind2 x G x |w| x w_component x
+  gust, +-room) + ramp.y x A x G x (sin, cos)(`SwayArg`), with A = min(SwayPerWind x |w|, MaxSway) x (1 - SwayGustShare +
+  SwayGustShare x gust) and room = the clamp - A x G. The lean is CLAMPED BEFORE the ramp (a saturating wind would otherwise jump at
+  the ramp end, CP-9) and to the room the sway leaves, so lean + sway never reach the clamp (no flat tops; CP-14 keeps MaxSway x G at
+  most half of every clamp). `SwayArg` = omega / v x s + SeedPhase(entity index), omega = sqrt(g / (0.7 x BodyPin.y)) (a pendulum of
+  70 % of the body's pin height: FG 2.48 s, DQ 2.82 s, GD 3.32 s, tram 5.38 s). The sway argument is a function of the loop distance
+  s, not of time: it is continuous across a pause, a hold, a Rebase and a far-loop stride (a frozen loop's carriers freeze mid-sway,
+  never snap).
+- **Gust** (`CarrierPose.Gust`, `GustClock`): GustMean + GustAmp1 sin(phi1 - k1 d1.x) + GustAmp2 sin(phi2 - k2 d2.x) = 0.8 +- 0.12
+  +- 0.08, in [0.6, 1.0]: two waves of periods 7.3 s and 12.7 s traveling over the ground at 12 m/s in two FIXED world directions (a
+  direction taken from the wind would flip with a reversal and snap), x = the rope point. Wavelengths 88 m and 152 m: neighbors lean
+  nearly together (20 m apart: at most 0.17 apart, CP-20), a long line shows several gust patches. Two sin calls per carrier; the
+  clock phases phi = 2 pi t / T wrap in double once per loop and pass (`SwingInputs`, `JobLoop.GustClock`). The gust's time t is
+  `CarrierWind.GustTimeS` = the mover clock minus the loop's held time: `CarrierWind.Resume(frozen, now)` at a hold release and at a
+  rebuild's re-freeze (`PollHolds`) adds the held time to it and to the wind blend's change clock, so the first running frame repeats
+  the frozen pose (CP-20: 0 deg with Resume, 1.66 deg without). Numbers at |w| 0.31 cross (step 0's sample; CP-19, 180 s): FG / DQ /
+  GD roll 4.4 to 5.9 deg peak to peak per period (median 5.1 / 5.1 / 5.2), mean roll 2.8 to 2.9 deg downwind, upwind of plumb under
+  0.5 % of the time; tram roll 0.8 to 1.0 deg, fore-aft 1.6 to 2.0 deg.
+- **CP-9, smoothness** (redefined 2026-11-06): the first version capped every swing step at 0.5 deg per 30 fps frame at 3x, which held
+  the sway to 1 deg (a visible pendulum moves 0.7 to 1 deg per 0.1 s of clock at 3x with no step). Now, through guided -> span ->
+  guided with a mid-span wind reversal, gusts and a saturating wind: every 3x frame step <= the analytic rate bound (`RateBound` in
+  CarrierPoseTests: the sum of the lean, ramp, gust, wind-blend and pendulum rate terms of both axes) x 0.1 s + 0.01 deg; every step
+  at 1/480 s <= the bound x 1/480 s + 0.01 deg (a pop over about 0.05 deg fails; a planted 0.1 deg jump does); every 1x frame (1/30 s)
+  <= 0.5 deg. Measured worst: FG 0.97 / DQ 0.87 / GD 0.74 / tram 0.16 deg per 3x frame, 0.32 / 0.29 / 0.25 / 0.05 deg per 1x frame.
 - **Roll limits per type** (`CarrierPose.Limits`, from `SwingInputs` into the job's `JobLoop.Limits`): the roll's lever (rope point to
   the body's base, |RigidOffset.xy| on a level rope; times cos(pitch) on a span) is longer than the first convention's pin roll
   (|BodyPin.xy|), so a chair / gondola scales its
   roll gain AND clamp by k = |BodyPin.xy| / |RigidOffset.xy|: the base moves as far per unit wind as the 8 deg pin roll moved it, and
   no farther at the clamp (2 asin(k sin 4 deg)): FG k 0.951, 7.61 deg; DQ k 0.920, 7.36 deg; GD k 0.898, 7.19 deg (CP-18: 0.308 /
   0.395 / 0.554 m at the clamp). The tram: 2 deg, gain 1/6 = half its fore-aft amplitude (the 10 m hanger damps it;
-  TramShuttleSystem). Fore-aft 3 deg and the 1 deg sway cap are shared; each type's clamp is reached by a strong wind (CP-5).
+  TramShuttleSystem). Fore-aft 3 deg and the 3.5 deg sway cap are shared; each type's clamp is reached by a strong wind (CP-5).
 - **Guided segments** (a bull wheel arc or a synthesized terminal run, `Owner == Entity.Null`): no swing. `LiftLoopSampler.MarkRuns`
   stores per flat segment the free meters to the nearest guided segment behind / ahead (around the wrap, `NoGuidedM` when the loop has
   none); `CarrierPose.Ramp` brings the lean in over [0, R] and the sway over [R, 2R] after leaving a station and out before the next,
@@ -120,7 +140,7 @@ against the 1.6.2f1 decompile.
   `WindSystem.GetWind(loop box center, map)` (WindSystem.cs:68-80, the bilinear sample). Synchronous on the main thread, so no
   AddReader. Every 512 render frames (WindSystem.kUpdateInterval, WindSystem.cs:45), at every rebuild, and at once while a samplable
   loop's wind is still unknown (a new loop, a load's first passes); the cadence is stamped only when something was sampled. Held loops
-  keep their last wind. Per loop a `CarrierWind` (CarrierPose.cs, kept per base station across rebuilds) blends old to new over 4 s
+  keep their last wind. Per loop a `CarrierWind` (CarrierPose.cs, kept per base station across rebuilds) blends old to new over WindBlendS = 8 s
   (smoothstep). Its first sample is the start value when no pose read the unknown (zero) wind yet, else it blends in from that zero
   (CP-17: a late first sample would otherwise snap the lean by 1.65 deg in one frame). Units
   and direction (velocity vs "from") UNVERIFIED: the field test reads the swing against the wind arrows. A failure: one "!!!" ERROR per
@@ -141,3 +161,7 @@ against the 1.6.2f1 decompile.
 - **Cost**: the `[cost] chair mover` line counts the grips apart (paired, written per pass, Updated tags, animated on / off, the
   fallbacks). MoverBench B-5 (2,000 carriers, one thread, JIT, 2026-11-03, the roll about the rope tangent): rigid p50 0.261 ms, split p50 0.481 ms
   (0.240 us per carrier; +0.44 ms on the x2 mid-range estimate, 0.06 ms under the 0.5 ms budget); the job spreads it over the workers (B-3b: ~5x). Budget (PIPELINE.md): 0.5 ms worker, 0.1 ms main thread.
+  The gust (2026-11-06, two sin calls per carrier, one GustClock per loop and pass on the main thread): base vs head alternated, 3
+  rounds each on a loaded machine, split p50 0.249 / 0.340 / 0.335 vs 0.370 / 0.354 / 0.358 us per carrier (the steady rounds: about
+  +0.02 us, +0.04 ms per 2,000 carriers on one JIT thread). The B-5 budget line is load-noisy: it failed on the base commit too (0.70 /
+  0.71 ms in 2 of 3 rounds; 0.46 to 0.58 ms when the machine was quieter).

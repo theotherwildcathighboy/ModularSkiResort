@@ -1912,6 +1912,7 @@ namespace SkiResortMod.Systems
                 // stands on its grid places.
                 if (rebuilt && hold.Held && m_RebuildUncarried.TryGetValue(key, out bool seeded))
                 {
+                    loop.m_Wind?.Resume(hold.FrozenTimeS, timeS);   // the gusts and a wind blend continue from the frozen pose (CP-20)
                     hold.FrozenTimeS = timeS;
                     hold.PoseDirty = true;
                     hold.TagBounds = true;
@@ -1983,6 +1984,7 @@ namespace SkiResortMod.Systems
                         loop.m_Offsets[i] = LiftLoopHold.Rebase(loop.m_Offsets[i], loop.m_SpeedMps, hold.FrozenTimeS, timeS,
                                                                 loop.m_Length);
                     m_MoverArraysDirty = true;   // the Burst job reads the offsets from its own flat copy
+                    loop.m_Wind?.Resume(hold.FrozenTimeS, timeS);   // the gust clock and a wind blend resume where they froze (CP-20)
                     double place = FrozenPlace(loop, hold.FrozenTimeS);
                     hold.Held = false;
                     hold.PoseDirty = false;

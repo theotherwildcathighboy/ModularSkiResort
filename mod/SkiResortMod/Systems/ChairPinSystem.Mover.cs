@@ -47,6 +47,7 @@ namespace SkiResortMod.Systems
             public CarrierPivots Pivots;
             public SwingLimits Limits;   // the type's roll clamp and gain (CarrierPose.Limits)
             public float2 Wind;
+            public float2 GustClock;    // CarrierPose.GustClock of the loop's gust time (CarrierWind.GustTimeS)
             public float Omega, RampM, SpeedF;
             public byte Split, PitchSwing, GripWrite;
         }
@@ -145,7 +146,8 @@ namespace SkiResortMod.Systems
                     float distance = CarrierPose.DistanceToGuided(seg.Guided != 0, d, seg.Length, seg.RunBefore, seg.RunAfter);
                     float2 ramp = CarrierPose.Ramp(distance, loop.RampM);
                     if (ramp.x > 0f || ramp.y > 0f)
-                        swing = CarrierPose.Swing(loop.Wind, yaw, CarrierPose.SwayArg(s, loop.Omega, loop.SpeedF, chair.Phase), ramp, loop.Limits);
+                        swing = CarrierPose.Swing(loop.Wind, yaw, CarrierPose.SwayArg(s, loop.Omega, loop.SpeedF, chair.Phase), ramp, loop.Limits,
+                                                  CarrierPose.Gust(loop.GustClock, position));
                 }
                 CarrierPose.Pose(position, tangent, yaw, loop.Pivots, loop.PitchSwing != 0, swing,
                                  out float3 gripPosition, out quaternion gripRotation, out float3 bodyPosition, out quaternion bodyRotation);
@@ -532,7 +534,7 @@ namespace SkiResortMod.Systems
                         jl.GripWrite = (byte)(gripWrite ? 1 : 0);
                         if (loop.m_GripCount > 0)
                         {
-                            SwingInputs(loop, timeS, out jl.Pivots, out jl.Omega, out jl.RampM, out jl.Wind, out jl.Limits);
+                            SwingInputs(loop, timeS, out jl.Pivots, out jl.Omega, out jl.RampM, out jl.Wind, out jl.Limits, out jl.GustClock);
                             jl.SpeedF = (float)loop.m_SpeedMps;
                         }
                         anyActive = true;

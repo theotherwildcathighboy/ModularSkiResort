@@ -288,12 +288,14 @@ namespace SkiResortMod.Systems
                 {
                     float speed = run.Def.SpeedMps;
                     float omega = CarrierPose.Omega(pivots.BodyPin.y);
-                    float2 wind = m_WindByBase.TryGetValue(run.Base, out CarrierWind w) ? w.At(timeS) : float2.zero;
+                    bool known = m_WindByBase.TryGetValue(run.Base, out CarrierWind w);
+                    float2 wind = known ? w.At(timeS) : float2.zero;
+                    float gust = CarrierPose.Gust(CarrierPose.GustClock(known ? w.GustTimeS(timeS) : timeS), rope);
                     float phase = CarrierPose.SeedPhase((uint)cabin.Index);
                     // The tram's limits (CarrierPose.Limits): the roll about the track-rope point at most 2 deg, at half the
                     // fore-aft amplitude (the 10 m hanger damps it).
                     swing = CarrierPose.Swing(wind, yaw, CarrierPose.SwayArg(clamped, omega, speed, phase), CarrierPose.Ramp(distance, CarrierPose.RampM(speed)),
-                                              CarrierPose.Limits(pivots, run.Def.Mover == MoverKind.Shuttle));
+                                              CarrierPose.Limits(pivots, run.Def.Mover == MoverKind.Shuttle), gust);
                 }
             }
             CarrierPose.Pose(rope, baseToTop, yaw, pivots, animated, swing,

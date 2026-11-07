@@ -308,7 +308,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The per-loop swing inputs of one pass.</summary>
         private static void SwingInputs(LiftLoopCache.Loop loop, double timeS, out CarrierPivots pivots, out float omega, out float rampM,
-                                        out float2 wind, out SwingLimits limits)
+                                        out float2 wind, out SwingLimits limits, out float2 gustClock)
         {
             LiftTypeDef def = SkiCatalog.LiftByIndex(loop.m_TypeIndex);
             pivots = def != null ? def.Pivots : default;
@@ -316,6 +316,7 @@ namespace SkiResortMod.Systems
             omega = CarrierPose.Omega(pivots.BodyPin.y);
             rampM = CarrierPose.RampM((float)loop.m_SpeedMps);
             wind = loop.m_Wind != null ? loop.m_Wind.At(timeS) : float2.zero;
+            gustClock = CarrierPose.GustClock(loop.m_Wind != null ? loop.m_Wind.GustTimeS(timeS) : timeS);
         }
 
         /// <summary>The managed twin of the job's split pose (held loops, the managed A/B path): writes the body and its grip.
@@ -333,13 +334,15 @@ namespace SkiResortMod.Systems
 
             LiftLoopCache.Sample(loop, s, out float3 rope, out float3 travelTangent, out bool guided, out float distance);
             quaternion yaw = Game.Net.NetUtils.GetNodeRotation(travelTangent, transform.m_Rotation);
-            SwingInputs(loop, windTimeS, out CarrierPivots pivots, out float omega, out float rampM, out float2 wind, out SwingLimits limits);
+            SwingInputs(loop, windTimeS, out CarrierPivots pivots, out float omega, out float rampM, out float2 wind, out SwingLimits limits,
+                        out float2 gustClock);
             float2 swing = float2.zero;
             if (animated && !guided)
             {
                 float2 ramp = CarrierPose.Ramp(distance, rampM);
                 float phase = i < loop.m_SwayPhases.Count ? loop.m_SwayPhases[i] : 0f;
-                swing = CarrierPose.Swing(wind, yaw, CarrierPose.SwayArg(s, omega, (float)loop.m_SpeedMps, phase), ramp, limits);
+                swing = CarrierPose.Swing(wind, yaw, CarrierPose.SwayArg(s, omega, (float)loop.m_SpeedMps, phase), ramp, limits,
+                                          CarrierPose.Gust(gustClock, rope));
             }
             CarrierPose.Pose(rope, travelTangent, yaw, pivots, animated, swing,
                              out float3 gripPosition, out quaternion gripRotation, out float3 bodyPosition, out quaternion bodyRotation);

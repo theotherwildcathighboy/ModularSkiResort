@@ -134,11 +134,13 @@ track-rope contact, 10.2565 above the cabin's lowest vertex).
   (`CarrierPose.Limits(pivots, shuttle: true)`): the roll at most 2 deg (0.35 m at the cabin floor, 10 m below the rope), at half the
   fore-aft amplitude (gain 1/6 against ForeAftShare 1/3: the long hanger damps it; LiftBatch CP-5, CP-6, CP-18). Zero on the dock runs
   (the station track: s < BaseRunM or s > L - TopRunM, "guided"), ramped in after them over R = max(10 m, 2 s x speed) (tram: 20 m);
-  the sway argument is the path distance s (continuous through a reversal and a hold).
+  the sway argument is the path distance s (continuous through a reversal and a hold). The gust (CarrierPose.Gust at the track-rope
+  point, clock = CarrierWind.GustTimeS) scales the lean 0.6 to 1.0 as on the chairs. Subtle by design (2026-11-06, LiftBatch CP-19):
+  at |w| 0.31 the cabin rocks about 0.8 to 1.0 deg peak to peak in roll and 1.6 to 2.0 deg fore-aft, period 5.4 s (omega 1.17).
   Wind: one `CarrierWind` per base station, sampled at the path's middle (`PollTramWind`, the same synchronous `GetMap` / `GetWind`
   read as ChairPinSystem's, CellMapSystem.cs:154-158, WindSystem.cs:68-80) every 512 render frames, on the pass after a rebuild, and at
   once while a split run's wind is unknown (before the pass poses: the first sample is the start value; a late one blends in from zero,
-  LiftBatch CP-17); stamped only when something was sampled. Blended over 4 s. A read failure: one "!!!" ERROR per load, the cabins
+  LiftBatch CP-17); stamped only when something was sampled. Blended over WindBlendS (8 s). A read failure: one "!!!" ERROR per load, the cabins
   keep their last wind.
 - **Parked** (`ParkCarriage` = `CarrierPose.GripOnBody`, CP-16): the cabin's hosted pose and the carriage assembled above it, position =
   cabin + R x (BodyPin - GripPin), the cabin's rotation: no pitch, no swing, the parked picture of the one-piece cabin.
