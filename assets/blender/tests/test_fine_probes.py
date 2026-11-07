@@ -1,27 +1,28 @@
 """
-test_fine_probes - gates for assets/blender/fine_probes.py (probes B; build/probes-b.md).
+test_fine_probes - gates for assets/blender/fine_probes.py (probes B, build/probes-b.md).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_fine_probes.py
 
-Checks (exit 1 on any failure):
-  FP1 sharedAssets  each sharer's settings.json holds exactly the four `<sharer>_<map>.png` keys,
-                    each pointing at `../SkiProbeSheetB/SkiProbeSheetB_<map>.png`, and the target
-                    exists; no sharer ships a PNG; the owner ships exactly four 2048^2 maps.
-  FP2 sign cards    measure_all() on the CURRENT DQ base FBX: both spots OK (flat <= 6 mm, normal
-                    <= 2 deg, 2 m clear); the exported card front planes sit CARD_T (0.020) off the
-                    measured wall +-1 mm, card centers at their (y, z) +-1 mm, every front face
-                    normal along the wall's outward normal (-x); the shipped manifest was measured on
-                    the same FBX sha1 (stale-host guard).
-  FP3 lodge rows    every lodge row is OK (no lodge geometry above 0.05 m in its footprint, inside
-                    the 6 x 5 lot) after the in-game -> raw x negation.
-  FP4 maps          sign set: lit _Emissive texels only inside card A's inner field, BaseColor alpha
-                    255; rack: ControlMask G only in the accent rect, R = B = A = 0 everywhere.
-  FP5 determinism   two in-process builds of every mesh hash identically; paint_* twice equal.
-  FP6 shipped       an in-process export to a temp root writes PNGs + settings.json byte-identical
-                    to assets/import/probes/B (the FBX carries the clock: compared by mesh hash in
-                    the manifest instead).
-  FP7 validator     owner / sign set / rack 0 errors; sharers 0 errors when staged with the owner
-                    maps under their own names (the importer's view after sharedAssets).
+Checks (the test exits 1 on any failure):
+- FP1 sharedAssets: each sharer's settings.json holds exactly the four `<sharer>_<map>.png` keys.
+  Each key points at `../SkiProbeSheetB/SkiProbeSheetB_<map>.png`, and the target exists. No sharer
+  ships a PNG. The owner ships exactly four 2048^2 maps.
+- FP2 sign cards: measure_all() on the CURRENT DQ base FBX reports both spots OK (flat <= 6 mm,
+  normal <= 2 deg, 2 m clear). The exported card front planes sit CARD_T (0.020) off the measured
+  wall +-1 mm. The card centers sit at their (y, z) +-1 mm. Every front face normal points along the
+  wall's outward normal (-x). The shipped manifest was measured on the same FBX sha1 (stale-host
+  guard).
+- FP3 lodge rows: every lodge row is OK (no lodge geometry above 0.05 m in its footprint, inside the
+  6 x 5 lot) after the in-game -> raw x negation.
+- FP4 maps: sign set has lit _Emissive texels only inside card A's inner field, and BaseColor alpha
+  255. Rack has ControlMask G only in the accent rect, and R = B = A = 0 everywhere.
+- FP5 determinism: two in-process builds of every mesh hash identically. paint_* run twice gives
+  equal output.
+- FP6 shipped: an in-process export to a temp root writes PNGs + settings.json byte-identical to
+  assets/import/probes/B. The FBX carries the clock, so the test compares it by mesh hash in the
+  manifest instead.
+- FP7 validator: owner / sign set / rack give 0 errors. Sharers give 0 errors when staged with the
+  owner maps under their own names (the importer's view after sharedAssets).
 """
 
 import hashlib
@@ -159,7 +160,7 @@ def main():
     for _n, (_h, o) in hashes.items():
         remove(o)
 
-    # FP6 / FP1 / FP7: export to temp, compare with the shipped folder
+    # FP6 / FP1 / FP7: export to temp. Compare with the shipped folder.
     tmp = tempfile.mkdtemp(prefix="test_fine_probes_")
     try:
         data = F.export(tmp, None, args=["test"], meas=meas)

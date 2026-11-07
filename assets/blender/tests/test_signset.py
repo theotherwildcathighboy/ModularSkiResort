@@ -1,54 +1,57 @@
 """
-test_signset - contracts of the fine-detail engine's sign sets and rows (cs2_signset.py,
-fine_detail.py; build/fine-detail-step2-engine.md; design/fine-detail-pass.md C / G.2 SG1-SG6 +
-skeptic FS12 SG7). Every gate runs on the real school build AND on a mutated input that must fail.
+test_signset - contracts of the fine-detail engine's sign sets and rows (cs2_signset.py, fine_detail.py,
+build/fine-detail-step2-engine.md, design/fine-detail-pass.md C / G.2 SG1-SG6 + skeptic FS12 SG7). Every gate runs on the
+real school build AND on a mutated input that must fail.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_signset.py [-- --quick]
 
 SHEET (cs2_signset.SHEET / paint_sheet)
-  SS1 layout       rects inside the 2048^2 sheet, >= 6 px gutters, no overlap, size x 300 px/m
-                   (negatives: an overlapping copy, a rect 3 px from a neighbor, one off the sheet)
-  SS2 vector only  paint_sheet with cs2_bldg._font5x7 trapped (raises if called) succeeds
-                   (negative: the 5x7 draw_text on a canvas trips the same trap)
-  SS3 stroke       every word / number >= 4 px stroke; SKI SCHOOL and RESTAURANT tier T1
-                   (negative: a 0.10 m cap at 300 px/m reports < 4 px)
-  SS4 frozen       layout_hash of the frozen prefix = PINNED; appending a kind keeps the prefix hash;
-                   moving a rect changes it
-  SS5 emissive     lit texels only inside lit painted rects; every lit painted rect has lit texels;
-                   reserved rects blank (negative: a stray lit texel is found)
-  SS6 ControlMask  0 everywhere (negative: one tinted texel is found)
-  SS7 determinism  two paints hash identically (full mode)
-  SS8 typography   nitpick C (2026-10-13): the font table's kinds are painted in their installed typefaces
-                   (Bookman Old Style Bold: GRAND LODGE with lozenges + rule, SKI AREA; Franklin Gothic Demi
-                   Cond: SKI SCHOOL, RESTAURANT, SKI PATROL x 2, the school markings), files present and
-                   sha1-pinned, no lit Bfont name board left, thinner stroke >= 4 px (negatives: a changed font
-                   file and a missing one raise)
-  SS9 blank        hut.picto is a blank board (flat inside the trim rim, unlit) (negative: the fork-and-knife)
-  SS10 no fonts    no TTF / OTF / TTC under assets/ (the fonts are rendered, never shipped)
+
+- SS1 layout: rects lie inside the 2048^2 sheet, with >= 6 px gutters and no overlap, size x 300 px/m (negatives: an
+  overlapping copy, a rect 3 px from a neighbor, one off the sheet).
+- SS2 vector only: paint_sheet succeeds with cs2_bldg._font5x7 trapped (raises if called) (negative: the 5x7 draw_text on
+  a canvas trips the same trap).
+- SS3 stroke: every word / number has a stroke >= 4 px. SKI SCHOOL and RESTAURANT are tier T1 (negative: a 0.10 m cap at
+  300 px/m reports < 4 px).
+- SS4 frozen: layout_hash of the frozen prefix = PINNED. Appending a kind keeps the prefix hash. Moving a rect changes
+  it.
+- SS5 emissive: lit texels lie only inside lit painted rects. Every lit painted rect has lit texels. Reserved rects are
+  blank (negative: a stray lit texel is found).
+- SS6 ControlMask: 0 everywhere (negative: one tinted texel is found).
+- SS7 determinism: two paints hash identically (full mode).
+- SS8 typography: nitpick C (2026-10-13). The font table's kinds are painted in their installed typefaces (Bookman Old
+  Style Bold: GRAND LODGE with lozenges + rule, SKI AREA. Franklin Gothic Demi Cond: SKI SCHOOL, RESTAURANT, SKI PATROL x
+  2, the school markings). The font files are present and sha1-pinned. No lit Bfont name board is left. The thinner
+  stroke is >= 4 px (negatives: a changed font file and a missing one raise).
+- SS9 blank: hut.picto is a blank board (flat inside the trim rim, unlit) (negative: the fork-and-knife).
+- SS10 no fonts: no TTF / OTF / TTC under assets/ (the fonts are rendered, never shipped).
+
 SIGN SET on the real school (lodge.py blockout, the shipping recipe)
-  SG1 each face's UV bbox = its kind rect +-0.5 texel (negative: one UV shifted 1 texel)
-  SG2 each sign-set board within 1 mm of the PRE-CHANGE host's own label quad (`--no-fine`
-      build) (negative: a corner moved 2 mm)
-  SG3 no routed face in the host's LOD0 / LOD1b / LOD2b part tables or labels block (negative: a
-      table holding one)
-  SG4 exactly one identity signset row in the host manifest (negatives: rotated, parent -1, doubled)
-  SG5 sign-set game bounds inside the school's lot (recipe: 4 x 5 since school revision 2) (negative:
-      a 2 x 1 lot)
-  SG6 tris <= 400 (negative: 201 quads through build_sign_set = 402 tris)
-  SG7 cs2_asset.write_settings default output byte-identical on every shipped settings.json that
-      is a default output (sharers skipped, listed); shared_from writes the owner keys; shared_from
-      + LODs raises (negative: a patched write_settings is caught)
+
+- SG1: each face's UV bbox = its kind rect +-0.5 texel (negative: one UV shifted 1 texel).
+- SG2: each sign-set board is within 1 mm of the PRE-CHANGE host's own label quad (`--no-fine` build) (negative: a corner
+  moved 2 mm).
+- SG3: no routed face in the host's LOD0 / LOD1b / LOD2b part tables or labels block (negative: a table holding one).
+- SG4: exactly one identity signset row in the host manifest (negatives: rotated, parent -1, doubled).
+- SG5: sign-set game bounds inside the school's lot (recipe: 4 x 5 since school revision 2) (negative: a 2 x 1 lot).
+- SG6: tris <= 400 (negative: 201 quads through build_sign_set = 402 tris).
+- SG7: cs2_asset.write_settings default output is byte-identical on every shipped settings.json that is a default output
+  (sharers skipped, listed). shared_from writes the owner keys. shared_from + LODs raises (negative: a patched
+  write_settings is caught).
+
 ROWS
-  KIT  fine_detail.KIT CIDs = the staged .cid files (negative: a flipped digit is caught)
-  LEAN kit_lean_row puts the rest plane ON the wall: tools 0.3925 m out (the foot-line rule),
-       akja, spine board (negative: a row moved 1 cm reports 0.01 m)
-  REJ  cs2_liftdress.sub_object_rows refuses the two rejected mixed-spawn GUIDs; SUBOBJ holds the
-       three fine-detail placeholders with the verified GUIDs; the BUILDING path too (step 3a):
-       lodge.sub_objects_block passes the school and raises on a rejected GUID, an unverified GUID
-       (not in SUBOBJ / subobj_bounds.json) and a kit row with a foreign CID (negatives)
-  EFF  fine_detail.effective: a plain Recipe is returned unchanged (identity); --no-fine restores
-       the legacy sub_objects and drops the sign set; --no-signset keeps the fine rows
-Exit 1 on any failure; one PASS line on success. Writes only to a temp folder.
+
+- KIT: fine_detail.KIT CIDs = the staged .cid files (negative: a flipped digit is caught).
+- LEAN: kit_lean_row puts the rest plane ON the wall: tools 0.3925 m out (the foot-line rule), akja, spine board
+  (negative: a row moved 1 cm reports 0.01 m).
+- REJ: cs2_liftdress.sub_object_rows refuses the two rejected mixed-spawn GUIDs. SUBOBJ holds the three fine-detail
+  placeholders with the verified GUIDs. The BUILDING path does the same (step 3a): lodge.sub_objects_block passes the
+  school and raises on a rejected GUID, an unverified GUID (not in SUBOBJ / subobj_bounds.json) and a kit row with a
+  foreign CID (negatives).
+- EFF: fine_detail.effective returns a plain Recipe unchanged (identity). --no-fine restores the legacy sub_objects and
+  drops the sign set. --no-signset keeps the fine rows.
+
+The test exits 1 on any failure and prints one PASS line on success. It writes only to a temp folder.
 """
 
 import copy
@@ -80,13 +83,13 @@ import lodge                  # noqa: E402
 QUICK = "--quick" in sys.argv
 FAILS = []
 CHECKS = []
-#: SS4 - the frozen prefix (the first 20 kinds = the 2026-10-12 table). A later append adds a
-#: new (n, hash) pair here; these two never change while the sheet owner letter is B.
-#: 22: school revision 2 (2026-10-12, build/school-rev2.md) appended school.markstaff /
-#: school.marknosled (the red markings) in the last shelf's free space; the 20-prefix is unchanged
-#: 24: fine-detail step 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md) painted the reserved P1 / P2 rects
-#: in place (state / draws only: the 20- and 22-prefixes are unchanged) and appended gate.header / gate.flake (the
-#: welcome sign's SKI AREA lettering panel and its snowflake end panels) in free space
+# : SS4 - the frozen prefix (the first 20 kinds = the 2026-10-12 table). A later append adds a new (n, hash) pair here.
+# These two never change while the sheet owner letter is B.
+# : 22: school revision 2 (2026-10-12, build/school-rev2.md) appended school.markstaff / school.marknosled (the red
+# markings) in the last shelf's free space. The 20-prefix is unchanged.
+# : 24: fine-detail step 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md) painted the reserved P1 / P2 rects in
+# place (state / draws only: the 20- and 22-prefixes are unchanged). It appended gate.header / gate.flake (the welcome
+# sign's SKI AREA lettering panel and its snowflake end panels) in free space.
 PINNED = {20: "2c01662b97fccb4c", 22: "6107f478878da5e4", 24: "afee251d75da1b40"}
 
 
@@ -215,7 +218,7 @@ def ss5_ss6(maps):
 # Nitpick C (2026-10-13, build/nitpick-c-lodges.md): real typefaces, blank boards, no font file in the repo
 # ======================================================================================
 
-#: the font table (kind -> the typeface it must be painted in); every lettered NAME board leaves Bfont
+# : the font table (kind -> the typeface it must be painted in). Every lettered NAME board leaves Bfont
 NC_FACES = {"l5.name": "bookman_bold", "gate.header": "bookman_bold", "school.name": "franklin_demi_cond",
             "hut.name": "franklin_demi_cond", "p1.name": "franklin_demi_cond", "p2.name": "franklin_demi_cond",
             "school.markstaff": "franklin_demi_cond", "school.marknosled": "franklin_demi_cond"}
@@ -223,10 +226,10 @@ NC_BLANK = ("hut.picto",)
 
 
 def ss8_typography(metrics):
-    """SS8: each kind of the font table is painted in its typeface (manifest metrics name it, its pinned file
-    resolves), every lit painted kind is a typeface (no Bfont name board left), strokes >= 4 px on the THINNER of
-    stem and hairline; the GRAND LODGE board carries its two lozenges and the lettering is letter-spaced.
-    Negatives: a typeface whose pinned sha1 differs raises, a missing file raises."""
+    """SS8: each kind of the font table is painted in its typeface (manifest metrics name it, its pinned file resolves).
+    Every lit painted kind is a typeface (no Bfont name board is left). Strokes are >= 4 px on the THINNER of stem and
+    hairline. The GRAND LODGE board carries its two lozenges, and the lettering is letter-spaced. Negatives: a typeface
+    whose pinned sha1 differs raises, and a missing file raises."""
     bad = []
     for key, face in NC_FACES.items():
         tf = SS.typeface(face)
@@ -259,8 +262,8 @@ def ss8_typography(metrics):
 
 
 def ss9_blank(maps, metrics):
-    """SS9: hut.picto is a BLANK board: inside the rim the rect is one flat color (no pictogram), the rim is the
-    hut trim, no emissive. Negative: the old fork-and-knife draw on the same rect leaves pictogram texels."""
+    """SS9: hut.picto is a BLANK board: inside the rim the rect is one flat color (no pictogram), the rim is the hut trim,
+    and nothing is emissive. Negative: the old fork-and-knife draw on the same rect leaves pictogram texels."""
     base = maps["BaseColor"][0]
     emi = maps["Emissive"][0][..., :3].max(axis=-1)
     for key in NC_BLANK:
@@ -415,7 +418,7 @@ def sg7():
     paths = sorted(glob.glob(os.path.join(REPO, "assets", "import", "**", "settings.json"), recursive=True))
     paths = [p for p in paths if os.sep + "archive" + os.sep not in p]
     # a tiled sheet OWNER (the school X / Y, the tram base B) writes its own settings.json (LOD2 maps = the LOD1 far set,
-    # cs2_tilesheet), not a default write_settings output: it is a sharer in all but name, so it is left out
+    # cs2_tilesheet), not a default write_settings output. It is a sharer in all but name, so it is left out
     def tiled_owner(p):
         d = os.path.dirname(p)
         mp = os.path.join(d, os.path.basename(d) + ".manifest.json")
@@ -425,8 +428,8 @@ def sg7():
         return sheet.get("owner") == os.path.basename(d)
     owners = [p for p in paths if tiled_owner(p)]
     paths = [p for p in paths if p not in owners]
-    # 2026-10-13: cs2_asset.write_settings gained `surface=` (the fence fleet: a "Surface" block written last); a
-    # file carrying one is proven with that keyword (its own Surface dict), every other one with the defaults
+    # 2026-10-13: cs2_asset.write_settings gained `surface=` (the fence fleet: a "Surface" block written last). A file
+    # carrying one is proven with that keyword (its own Surface dict), every other one with the defaults
     surf = {p: json.load(open(p, encoding="utf-8")).get("Surface") for p in paths}
     plain = [p for p in paths if surf[p] is None]
     same, diff, skip = SS.sg7_settings_proof(plain)
@@ -470,9 +473,8 @@ def sg7():
 # ======================================================================================
 
 def rows():
-    # kit color variants (2026-10-12): the UNCOLORED props' CIDs = their staged .cid files; the six COLORED
-    # props' base prefabs are retired from staging (no Parent color ships) and every staged variant's .cid = its
-    # seeded CID
+    # kit color variants (2026-10-12): the UNCOLORED props' CIDs = their staged .cid files. The six COLORED props' base
+    # prefabs are retired from staging (no Parent color ships), and every staged variant's .cid = its seeded CID
     bad = [p for p, k in FD.KIT.items() if not k.coloured and FD.staged_cid(p) != k.cid]
     ok(not bad, f"KIT {sum(1 for k in FD.KIT.values() if not k.coloured)} uncoloured kit CIDs = the staged .cid "
                 f"files ({bad})")
@@ -516,9 +518,9 @@ def rows():
     finally:
         LD.SUBOBJ["BarrelRandom01"] = saved
     ok(raised, "REJ negative: a row on a rejected GUID raises")
-    # REJ on the BUILDING path (fine-detail step 3a; step-2 check item 16): lodge.sub_objects_block
-    # accepts the shipping school and raises on a rejected GUID, on a GUID nobody verified and on a
-    # mod row whose CID is not a kit object prefab
+    # REJ on the BUILDING path (fine-detail step 3a, step-2 check item 16): lodge.sub_objects_block accepts the shipping
+    # school and raises on a rejected GUID, on a GUID nobody verified and on a mod row whose CID is not a kit object
+    # prefab
     sch0 = R.get_recipe("school")
     blk = lodge.sub_objects_block(sch0)
     ok(len(blk["objects"]) == len(sch0.sub_objects), f"REJ building path: the school's {len(blk['objects'])} rows pass")
@@ -548,8 +550,8 @@ def rows():
     e6 = _raises(rack, colour_set="green")
     ok(bool(e5) and "dressing-kit" in e5, "REJ negative (building): a colored kit row on the retired base CID raises")
     ok(bool(e6), "REJ negative (building): a kit row whose color set is not its variant's / the recipe's raises")
-    # EFF (a plain recipe: P1; L1 opts in since fine-detail step 3a; P1 / P2 since step 3d, so the plain Recipe is
-    # now built from P1's base Recipe fields: independent of which hosts have opted in)
+    # EFF (a plain recipe: P1. L1 opts in since fine-detail step 3a, and P1 / P2 opt in since step 3d. So the plain
+    # Recipe is now built from P1's base Recipe fields, independent of which hosts have opted in)
     import dataclasses
     p1 = R.get_recipe("P1")
     l1 = R.Recipe(**{f.name: getattr(p1, f.name) for f in dataclasses.fields(R.Recipe)})

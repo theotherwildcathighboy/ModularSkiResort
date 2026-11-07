@@ -4,33 +4,36 @@ cs2_submesh.py - material sub-meshes (`_Win`, `_Gls`, ...) split off a joined as
 Contract (art-pipeline-v2.md section 3.8, roundL-spec.md "cs2_submesh.py"):
 
   split_submesh(parent, table, prefixes, suffix, win_cell=None) -> sub_obj
-      Runs AFTER join / orient_for_net and BEFORE the finish pass. The faces whose part
-      name (INT face attribute "part" -> `table`) starts with one of `prefixes` are
-      MOVED: deleted from `parent` (no texels, no AO, no z-fight) and kept on a copy that
-      becomes the sub-mesh. The sub carries the parent's transform, no material and
-      exactly one UV layer ("UVMap").
-        Win family (Win/Wim/Wif/Wio): pane-box faces with |n.z| > 0.9 are deleted (the top
-        and bottom of a window box are buried "windows"); every remaining connected
-        coplanar pane is mapped into the 5x5 room cell `win_cell = (col, row)`, i.e. the
+      Runs AFTER join / orient_for_net and BEFORE the finish pass. It MOVES the faces whose part
+      name (INT face attribute "part" -> `table`) starts with one of `prefixes`. It deletes them
+      from `parent` (no texels, no AO, no z-fight) and keeps them on a copy that becomes the
+      sub-mesh. The sub carries the parent's transform, no material and exactly one UV layer
+      ("UVMap").
+        Win family (Win/Wim/Wif/Wio): the function deletes pane-box faces with |n.z| > 0.9 (the
+        top and bottom of a window box are buried "windows"). It maps every remaining connected
+        coplanar pane into the 5x5 room cell `win_cell = (col, row)`, i.e. the
         UV rect (col/5, row/5)-((col+1)/5, (row+1)/5), with world +Z -> higher v. Panes
-        are tiled inside the cell so no two islands overlap, and every loop is inset from
-        the cell border so the importer's `int(v*5)*5 + int(u*5)` of each triangle's first
+        are tiled inside the cell so no two islands overlap. Every loop is inset from
+        the cell border, so the importer's `int(v*5)*5 + int(u*5)` of each triangle's first
         vertex yields exactly `row*5 + col`.
         Anything else (Gls/Glf/Glm/Gra/Wat): smart_project + one pack_islands pass, unique
         and non-overlapping (`_Gls` needs no textures: DefaultGlassDoubleSided).
   export_submeshes(sub, name, suffix, asset_dir, lods=(1,)) -> [paths]
       Writes <name>_<suffix>.fbx and <name>_LOD<k>_<suffix>.fbx (same mesh, panes are
-      never decimated) through cs2_asset.export_fbx, so the sub is baked with the very
-      same x100 / -90 deg X transform as the parent. The mesh name inside each file
+      never decimated) through cs2_asset.export_fbx, so the sub is baked with the same
+      x100 / -90 deg X transform as the parent. The mesh name inside each file
       equals the file stem (the importer pairs by name).
-  submesh_name(base, suffix) -> f"{base}_{suffix}"; suffix whitelist SUBMESH_SUFFIXES.
+  submesh_name(base, suffix) -> f"{base}_{suffix}". The suffix whitelist is SUBMESH_SUFFIXES.
 
-Engine facts this relies on (decompile 1.6.2, see the spec): a sub-mesh must have the
-parent's transform (only TryConcat compares it), no material and no overlapping UVs; the
-`_Win` room id is int(v*5)*5 + int(u*5) of the first vertex of each triangle (Window.cs:52-71),
-same-id windows merge within a distance; UV0 is rewritten afterwards, so aspect and top
-orientation are cosmetic but kept. No top-level side effects; import cs2_asset for the
-shared names.
+Engine facts this relies on (decompile 1.6.2, see the spec):
+- A sub-mesh must have the parent's transform (only TryConcat compares it), no material and no
+  overlapping UVs.
+- The `_Win` room id is int(v*5)*5 + int(u*5) of the first vertex of each triangle
+  (Window.cs:52-71).
+- Same-id windows merge within a distance.
+- UV0 is rewritten afterwards, so aspect and top orientation are cosmetic but kept.
+
+The module has no top-level side effects. Import cs2_asset for the shared names.
 """
 
 import math
@@ -46,10 +49,10 @@ SUBMESH_SUFFIXES = frozenset(
     {"LOD1", "LOD2", "Win", "Wim", "Wif", "Wio", "Gls", "Glf", "Glm", "Gra", "Wat"})
 WIN_FAMILY = ("Win", "Wim", "Wif", "Wio")
 UV_LAYER = "UVMap"
-# Cosine threshold for "same plane" when grouping pane faces; ~2.6 deg.
+# Cosine threshold for "same plane" when grouping pane faces (~2.6 deg).
 _COPLANAR_COS = 0.999
-# Inset of every pane island from its tile, as a fraction of the tile side. Keeps the
-# first vertex strictly inside the room cell and gives the importer's mip chain a gutter.
+# Inset of every pane island from its tile, as a fraction of the tile side. It keeps the first
+# vertex strictly inside the room cell and gives the importer's mip chain a gutter.
 _PANE_INSET = 0.08
 
 
@@ -229,7 +232,7 @@ def split_submesh(parent, table, prefixes, suffix, win_cell=None):
     if "." in sub.name:
         raise SubmeshError(f"sub-mesh got renamed to {sub.name!r}")
 
-    # Sub keeps only the tagged faces; parent loses exactly them.
+    # Sub keeps only the tagged faces. Parent loses exactly them.
     bm = bmesh.new()
     bm.from_mesh(sub.data)
     layer = _part_layer(bm, sub)
@@ -324,10 +327,10 @@ def _unwrap_unique(sub):
 
 def export_submeshes(sub, name, suffix, asset_dir, lods=(1,)):
     """
-    Write `<name>_<suffix>.fbx` plus `<name>_LOD<k>_<suffix>.fbx` for k in `lods`, all
-    from the same `sub` mesh (panes are never decimated; LOD2 normally omits the sub).
-    The object is renamed to each file stem for the duration of its export because
-    cs2_asset.export_fbx writes obj.name verbatim and the importer pairs by that name.
+    Write `<name>_<suffix>.fbx` plus `<name>_LOD<k>_<suffix>.fbx` for k in `lods`, all from the same
+    `sub` mesh (panes are never decimated and LOD2 normally omits the sub). The function renames the
+    object to each file stem for the duration of its export. cs2_asset.export_fbx writes obj.name
+    verbatim, and the importer pairs by that name.
     """
     cs2_asset.validate_asset_name(name)
     if suffix not in SUBMESH_SUFFIXES or suffix.startswith("LOD"):

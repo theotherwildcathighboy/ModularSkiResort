@@ -1,91 +1,107 @@
 """
-Gate for lift_chair.py's styles (asset round 2026-10, dq-chair.md section 10 with
-dq-chair-skeptic.md applied: T1 determinism, T2 contracts, T3 trace, T4 full build).
+Gate for lift_chair.py's styles (asset round 2026-10, dq-chair.md section 10 with dq-chair-skeptic.md
+applied: T1 determinism, T2 contracts, T3 trace, T4 full build).
 
-  1. Determinism per style: tr, dq and fg6l are each built twice in ONE process (parts ->
-     tags -> quadrant UVs -> join -> weld -> pivot -> orient -> shade; then the LOD1
-     decimation and, for tr / dq, the authored LOD2 proxy with its UV snap). sha1 of the
-     vertices (%.5f), faces, active UV (%.6f) and part table must match; dq is built
-     first and again after tr (order independence).
-  2. Contracts on every level, no finish (fast): C1-C9 on LOD0 / LOD1 / LOD2 through
-     lift_chair.check_contracts, C10 silhouettes, C11 atlas stage (private atlas in a
-     per-run temp dir, skeptic D13), budgets = the exact tallies (Revision 2: LOD0
-     494 / 996, LOD2 62 / 98; dq C13 inside check_contracts), names through validate_asset_name and
-     cs2_validate.lint_asset_name, the dq chair at --hanger-offset 0.40 (C7 bound = offset
-     + r + 0.02, skeptic D7). Negative checks: a shifted vertex, a wrong carrier row and a
-     shifted LOD2 must RAISE.
-  2b. Revision 1 (verdicts 2026-10-11, items 1-2), measured on LOD0:
-     tr has no footrest and no restraint part, a fixed grip (jaw block = the top, saddle on
-     the rope reaching past the block fore / aft, spring housing outboard, two clamp plates
-     below on either side of the stem) and the plank as its lowest part; dq's grip has the
-     springs on the outboard face, the lever on the inboard face, the plate still on the
-     clamp (Revision 1's top-bar restraint pins are superseded by 2c). Revision 1b (polish,
-     revision1-check-chairs 2e; this replaces the Revision 1
-     pin "wheels entirely above the rope"): the two running wheels sit BESIDE the jaw on
-     the inboard side (wholly inboard of the jaw and the rope, within the jaw's length),
-     centers within 0.04 of rope height and at the Kagelok D05 roller lateral (0.363 u x
-     S_VERT inboard), tops well below the carriage top, each on an axle running from inside
-     the jaw into the wheel; the carriage's top-face and fore / aft edges are chamfered; the
-     friction comb (<= 24 tris) sits on the carriage top inside its footprint, its top
-     0.1-5 mm below the carriage top (C2 stays the carriage's); LOD1's grip is the
-     carriage + jaw only.
-  2c. The dq restraint: Revision 2's parts (second look 2026-10-11, item 2') at
-     Revision 3's numbers (verdict 2'' "too high", the rider photos; lift_chair PHOTO_*),
-     measured on LOD0: the Revision 1 restraint parts are gone; two coaxial hinge bosses
-     (~0.06 across), one per hoop leg (outer end at the side frame, center on the leg line),
-     at the AL photo's pivot height (0.43-0.51 over the cushion, 0.05-0.15 under the backrest
-     top), well below the top bar; the lap bar (the U's lateral run) in LAP_WINDOW_M and
-     within 0.02 of the photo's 0.20 over the cushion, its back face ahead of the RIDER knee
-     line, its center 0.10-0.25 ahead of the cushion front; the arms >= 0.55 m from the hinge
-     to the lap bar axis, above the armrests; the U inside the side frames (no cantilever);
-     two inverted T's (foot bar 0.35-0.55 long at y +-0.60, bottom z 0, its top - the boots -
-     0.35-0.45 below the cushion, 0.10-0.35 ahead of the seat front and not behind the lap
-     bar; stem lap bar -> foot bar, upright in the front view, <= 20 deg lean in profile);
-     C13 passes with UP's bottom >= cushion + SEATED_HEAD_M and over the backrest, rider
-     clearance >= C13_RIDER_CLEAR_M (heads / torsos >= 0.10), >= 2 deg short of the first
-     contact. Negatives - each must RAISE: Revision 2's lap bar height (0.35), a lap bar over
-     the knees, a hinge 0.20 over the cushion (the arc runs through the riders), a 60 deg
-     swing (UP below a head), a swing past the clamp-block stop, the Revision 1 pivot
-     (bosses moved onto the top bar beside the hanger clamp) and bosses floating 0.08
-     inboard of the legs (revision2-check 2'-f).
-  2d. Revision 1c (revision1b-check-dq-grip, "the softened carriage does not shade the way the
-     build report says"): the dq carriage's big (axis-aligned) faces shade flat - corner normals
-     within lift_chair.FLAT_FACE_MAX_DEG (2 deg) of the face normal on the built LOD0 (C14) and
-     on an exported + re-imported FBX (verify_export flat_box); the pre-1c build (FLAT_PARTS
-     empty: 25 / 65 deg) must raise C14 and fail the FBX check.
-  2e. Nitpick A2 (2026-10-13, build/nitpick-a2-hanger-gondola.md): the dq grip side is the OUTBOARD
-     side lift_chair.DQ_OUTBOARD (-1: the riders' right); every side-dependent check above reads the
-     OUTBOARD-positive frame (y * DQ_OUTBOARD). The shipped side (-1) against the approved one (+1),
-     built in one process: the same parts and per-part triangles; every part outside
-     DQ_GRIP_SIDE_PARTS identical vertex for vertex; every grip-side part the exact mirror (y -> -y)
-     of its +1 self; the hanger's vertical run on -Y; C13 equal; the LOD2 proxy's grip box + hanger
-     mirrored, the rest identical.
-  2f. Carrier split (2026-11-03): tr / dq --split (SkiLiftChair6N + SkiLiftChair6GripN, SkiLiftChairDQ4N +
-     SkiLiftChairDQ4GripN) built into a temp folder; S1 / S2 / S3 (the pin sweeps pitch + fore-aft
-     only, roll 0: the sway rolls the whole assembly), the pair contracts on every level, validation,
-     the re-import and no home-folder path in the manifest args (see test_split); the tr manifests
-     carry the clevis alignment audit, dq none.
-  2g. tr split round 3 (owner verdict 2026-11-03): lift_chair.split_alignment passes on the built
-     parts and raises when the clevis drifts 6 mm off the jaw block center in plan or the tube end
-     tilts 2 deg about the pin; round 4: the split "grip" is the 0.68 m plate on the rope + the clamp box,
-     the one-piece saddle untouched.
-  3. Kagelok trace (T3): the bbox-derived [K] numbers in lift_chair.KAGELOK_U (skeptic
-     section 1 corrections) re-measured from assets/external/kagelok-chair-lift/source/*.blend
-     within 0.01 u, plus the scale chain to catalog/carriers.json (0.3505 m/u, grip top
-     0.220 above the rope, side frames 1.212). SKIP (not fail) when the gitignored
-     original is absent.
-  4. --full (slow, ~1 min): per style tr / dq, lift_chair.main() twice with --finish --lods
-     --verify (v2 bake, C12, folder validation and the manifest run inside) and the FBX
-     clock frozen; every file's sha1 must match except <name>.manifest.json (written_utc,
-     cs2_validate.py:1087), which is compared without written_utc and args.out (the two
-     runs write two folders). Then --style fg6l once: its four PNGs and settings.json must
-     equal the shipped assets/import/chairs/L/SkiLiftChair6L byte for byte (the FBX carry
-     per-process UIDs - Python's string hash seed - so they are compared within a process
-     only, by the T4 pair above).
+1. Determinism per style: tr, dq and fg6l are each built twice in ONE process (parts -> tags ->
+   quadrant UVs -> join -> weld -> pivot -> orient -> shade. Then the LOD1 decimation and, for tr / dq,
+   the authored LOD2 proxy with its UV snap). The sha1 of the vertices (%.5f), faces, active UV (%.6f)
+   and part table must match. dq is built first and again after tr (order independence).
+
+2. Contracts on every level, no finish (fast):
+- C1-C9 on LOD0 / LOD1 / LOD2 through lift_chair.check_contracts
+- C10 silhouettes
+- C11 atlas stage (private atlas in a per-run temp dir, skeptic D13)
+- budgets = the exact tallies (Revision 2: LOD0 494 / 996, LOD2 62 / 98. dq C13 inside check_contracts)
+- names through validate_asset_name and cs2_validate.lint_asset_name
+- the dq chair at --hanger-offset 0.40 (C7 bound = offset + r + 0.02, skeptic D7)
+
+Negative checks: a shifted vertex, a wrong carrier row and a shifted LOD2 must RAISE.
+
+2b. Revision 1 (verdicts 2026-10-11, items 1-2), measured on LOD0:
+- tr has no footrest and no restraint part. It has a fixed grip (jaw block = the top, saddle on the
+  rope reaching past the block fore / aft, spring housing outboard, two clamp plates below on either
+  side of the stem). The plank is its lowest part.
+- dq's grip has the springs on the outboard face, the lever on the inboard face, and the plate still on
+  the clamp. (2c supersedes Revision 1's top-bar restraint pins.)
+- Revision 1b (polish, revision1-check-chairs 2e) replaces the Revision 1 pin "wheels entirely above
+  the rope". The two running wheels sit BESIDE the jaw on the inboard side (wholly inboard of the jaw
+  and the rope, within the jaw's length). Their centers lie within 0.04 of rope height and at the
+  Kagelok D05 roller lateral (0.363 u x S_VERT inboard). Their tops are well below the carriage top.
+  Each wheel sits on an axle that runs from inside the jaw into the wheel. The carriage's top-face and
+  fore / aft edges are chamfered. The friction comb (<= 24 tris) sits on the carriage top inside its
+  footprint, its top 0.1-5 mm below the carriage top (C2 stays the carriage's). LOD1's grip is the
+  carriage + jaw only.
+
+2c. The dq restraint: Revision 2's parts (second look 2026-10-11, item 2') at Revision 3's numbers
+(verdict 2'' "too high", the rider photos, lift_chair PHOTO_*), measured on LOD0:
+- The Revision 1 restraint parts are gone.
+- Two coaxial hinge bosses (~0.06 across), one per hoop leg (outer end at the side frame, center on the
+  leg line), at the AL photo's pivot height (0.43-0.51 over the cushion, 0.05-0.15 under the backrest
+  top), well below the top bar.
+- The lap bar (the U's lateral run) is in LAP_WINDOW_M and within 0.02 of the photo's 0.20 over the
+  cushion. Its back face is ahead of the RIDER knee line. Its center is 0.10-0.25 ahead of the cushion
+  front.
+- The arms are >= 0.55 m from the hinge to the lap bar axis, above the armrests.
+- The U lies inside the side frames (no cantilever).
+- Two inverted T's: foot bar 0.35-0.55 long at y +-0.60, bottom z 0, its top (the boots) 0.35-0.45
+  below the cushion, 0.10-0.35 ahead of the seat front and not behind the lap bar. Stem lap bar -> foot
+  bar, upright in the front view, <= 20 deg lean in profile.
+- C13 passes with UP's bottom >= cushion + SEATED_HEAD_M and over the backrest, rider clearance >=
+  C13_RIDER_CLEAR_M (heads / torsos >= 0.10), >= 2 deg short of the first contact.
+
+Negatives (each must RAISE):
+- Revision 2's lap bar height (0.35)
+- a lap bar over the knees
+- a hinge 0.20 over the cushion (the arc runs through the riders)
+- a 60 deg swing (UP below a head)
+- a swing past the clamp-block stop
+- the Revision 1 pivot (bosses moved onto the top bar beside the hanger clamp)
+- bosses floating 0.08 inboard of the legs (revision2-check 2'-f)
+
+2d. Revision 1c (revision1b-check-dq-grip, "the softened carriage does not shade the way the build
+report says"): the dq carriage's big (axis-aligned) faces shade flat. Corner normals lie within
+lift_chair.FLAT_FACE_MAX_DEG (2 deg) of the face normal on the built LOD0 (C14) and on an exported +
+re-imported FBX (verify_export flat_box). The pre-1c build (FLAT_PARTS empty: 25 / 65 deg) must raise
+C14 and fail the FBX check.
+
+2e. Nitpick A2 (2026-10-13, build/nitpick-a2-hanger-gondola.md): the dq grip side is the OUTBOARD side
+lift_chair.DQ_OUTBOARD (-1: the riders' right). Every side-dependent check above reads the
+OUTBOARD-positive frame (y * DQ_OUTBOARD). The test builds the shipped side (-1) and the approved one
+(+1) in one process. It checks:
+- the same parts and per-part triangles
+- every part outside DQ_GRIP_SIDE_PARTS identical vertex for vertex
+- every grip-side part the exact mirror (y -> -y) of its +1 self
+- the hanger's vertical run on -Y
+- C13 equal
+- the LOD2 proxy's grip box + hanger mirrored, the rest identical
+
+2f. Carrier split (2026-11-03): tr / dq --split (SkiLiftChair6N + SkiLiftChair6GripN, SkiLiftChairDQ4N
++ SkiLiftChairDQ4GripN) built into a temp folder. Checks: S1 / S2 / S3 (the pin sweeps pitch + fore-aft
+only, roll 0: the sway rolls the whole assembly), the pair contracts on every level, validation, the
+re-import and no home-folder path in the manifest args (see test_split). The tr manifests carry the
+clevis alignment audit. The dq manifests carry none.
+
+2g. tr split round 3 (owner verdict 2026-11-03): lift_chair.split_alignment passes on the built parts
+and raises when the clevis drifts 6 mm off the jaw block center in plan or the tube end tilts 2 deg
+about the pin. Round 4: the split "grip" is the 0.68 m plate on the rope + the clamp box, and the
+one-piece saddle is untouched.
+
+3. Kagelok trace (T3): the bbox-derived [K] numbers in lift_chair.KAGELOK_U (skeptic section 1
+   corrections) are re-measured from assets/external/kagelok-chair-lift/source/*.blend within 0.01 u.
+   The scale chain goes to catalog/carriers.json (0.3505 m/u, grip top 0.220 above the rope, side
+   frames 1.212). The test SKIPS (not fails) when the gitignored original is absent.
+
+4. --full (slow, ~1 min): per style tr / dq, lift_chair.main() runs twice with --finish --lods --verify
+   (v2 bake, C12, folder validation and the manifest run inside) and the FBX clock frozen. Every file's
+   sha1 must match except <name>.manifest.json (written_utc, cs2_validate.py:1087). The test compares
+   that file without written_utc and args.out (the two runs write two folders). Then --style fg6l runs
+   once: its four PNGs and settings.json must equal the shipped assets/import/chairs/L/SkiLiftChair6L
+   byte for byte. (The FBX files carry per-process UIDs - Python's string hash seed - so the test
+   compares them within a process only, by the T4 pair above.)
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_chair_styles.py [-- --full]
 
-Exit 1 on any failure; one PASS line on success.
+The test exits 1 on any failure and prints one PASS line on success.
 """
 import datetime
 import glob
@@ -259,7 +275,7 @@ def test_contracts(work):
                 tbl = L.part_table(chair)
                 ids = L._part_ids(tbl, "tube_hanger")
                 vs = L._verts_of_parts(chair, ids)
-                # authoring +y = world +X after orient_for_net; outboard = DQ_OUTBOARD * y (nitpick A2)
+                # authoring +y = world +X after orient_for_net. outboard = DQ_OUTBOARD * y (nitpick A2)
                 for i in vs:
                     chair.data.vertices[int(i)].co.x += 0.10 * L.DQ_OUTBOARD
                 try:
@@ -287,7 +303,7 @@ ROPE_R = 0.024        # lift_cable.py default rope radius
 
 
 def part_box(chair, name, outboard=1.0):
-    """Authoring-frame AABB (min, max) of the part named exactly `name`; `outboard` -1 reads it in the
+    """Authoring-frame AABB (min, max) of the part named exactly `name`. `outboard` -1 reads it in the
     OUTBOARD-positive frame (y negated, nitpick A2: the dq checks pass L.DQ_OUTBOARD)."""
     tbl = L.part_table(chair)
     vs = L._verts_of_parts(chair, L._part_ids(tbl, name, exact=True))
@@ -328,7 +344,7 @@ def test_revision1():
                  f"{s1[1] - g1[1]:.3f} m proud, plates below, plank lowest")
     print(f"[rev1] tr: {out['tr']}")
 
-    # -- dq: the grip (Revision 1 / 1b); the restraint is test_revision3's ---------------
+    # -- dq: the grip (Revision 1 / 1b). The restraint is test_revision3's ---------------
     st, row, chair, _info = build("dq", "RevDq")
     hang = float(row["hang_m"])
     rope = hang - float(row["grip_top_above_rope_m"])
@@ -342,8 +358,8 @@ def test_revision1():
     wy_trace = -L.KAGELOK_U["roller_inboard"] * L.S_VERT
     wc_all = []
     for k in (0, 1):
-        # Revision 1b: BESIDE the jaw on the inboard side, center near rope height (Kagelok
-        # D05 rollers, skeptic claim 4) - was "entirely above the rope" in Revision 1
+        # Revision 1b: BESIDE the jaw on the inboard side, center near rope height (Kagelok D05
+        # rollers, skeptic claim 4). Revision 1 had "entirely above the rope"
         w0, w1 = pbo(chair, f"wheel_{k}")
         wc = (w0 + w1) / 2.0
         wc_all.append(wc)
@@ -361,9 +377,9 @@ def test_revision1():
         q0, _q1 = pbo(chair, f"spring_{k}")
         check(q0[1] >= gb1[1] - 0.02, f"dq: spring {k} y {q0[1]:.3f} not on the outboard face {gb1[1]:.3f}")
     check(wc_all[0][0] < 0.0 < wc_all[1][0], f"dq: wheels not fore and aft {[round(w[0], 3) for w in wc_all]}")
-    # Revision 1b: the carriage's edges are chamfered (its top vertices sit inside the
-    # top-face bbox by the chamfer; its fore / aft faces stop below the top) and the
-    # friction comb sits on its top just below the rim, inside its footprint
+    # Revision 1b: the carriage's edges are chamfered (its top vertices sit inside the top-face bbox by
+    # the chamfer, and its fore / aft faces stop below the top). The friction comb sits on its top just
+    # below the rim, inside its footprint
     soft = L.DQ_GRIP["soft"]
     a = L.authoring_coords(chair) * np.array([1.0, O, 1.0])
     gv = a[L._verts_of_parts(chair, L._part_ids(L.part_table(chair), "gripbody", exact=True))]
@@ -422,8 +438,8 @@ def _with_bar(**kw):
 
 
 def _move_part(chair, name, delta_auth):
-    """Translate the part's vertices by an AUTHORING-frame delta (world = (y, -x, z));
-    returns an undo callable."""
+    """Translate the part's vertices by an AUTHORING-frame delta (world = (y, -x, z)). Returns an undo
+    callable."""
     tbl = L.part_table(chair)
     vs = L._verts_of_parts(chair, L._part_ids(tbl, name, exact=True))
     dx, dy, dz = delta_auth
@@ -458,9 +474,8 @@ def test_revision3():
     (bkx, bkz), (tpx, tpz) = (d["hoop"][1][0], d["hoop"][1][2]), (d["hoop"][2][0], d["hoop"][2][2])
     leg = np.array([tpx - bkx, tpz - bkz]) / np.hypot(tpx - bkx, tpz - bkz)
 
-    # hinges: one boss per SIDE FRAME, on the leg line, coaxial, at the AL photo's pivot
-    # height (0.46-0.51 measured; 0.43-0.44 scaled by the backrest / top bar) just under
-    # the backrest top
+    # hinges: one boss per SIDE FRAME, on the leg line, coaxial, at the AL photo's pivot height
+    # (0.46-0.51 measured, 0.43-0.44 scaled by the backrest / top bar) just under the backrest top
     hc = []
     for k in (0, 1):
         b0, b1 = part_box(chair, f"barhinge_{k}")
@@ -481,8 +496,8 @@ def test_revision3():
               f"dq: hinge {k} boss {b1[0] - b0[0]:.3f} across (want ~0.06)")
     check(abs(hc[0][0] - hc[1][0]) < 1e-4 and abs(hc[0][2] - hc[1][2]) < 1e-4, "dq: hinge bosses not coaxial")
 
-    # lap bar DOWN: on the riders' laps (AL 0.19-0.21 above the cushion; Revision 2's 0.35
-    # was "too high"), ahead of the knee line, 0.10-0.25 ahead of the cushion front
+    # lap bar DOWN: on the riders' laps (AL 0.19-0.21 above the cushion. Revision 2's 0.35 was "too
+    # high"), ahead of the knee line, 0.10-0.25 ahead of the cushion front
     a = L.authoring_coords(chair)
     u = a[L._verts_of_parts(chair, L._part_ids(tbl, "barlink", exact=True))]
     lap = u[np.abs(u[:, 1]) <= L.DQ_BAR["arm_y"] - L.DQ_BAR["corner"] + 1e-3]
@@ -504,7 +519,7 @@ def test_revision3():
     # no cantilever past the arms: the U stays inside the side frames' inner faces
     check(float(np.abs(u[:, 1]).max()) < L.SIDE_Y - L.DQ_R["hoop"], f"dq: bar reaches |y| {np.abs(u[:, 1]).max():.3f}")
 
-    # two inverted T's hanging from the lap bar; the boots rest 0.35-0.45 below the cushion
+    # two inverted T's hanging from the lap bar. The boots rest 0.35-0.45 below the cushion
     for k, s in ((0, -1), (1, 1)):
         f0, f1 = part_box(chair, f"footbar_{k}")
         t0, t1 = part_box(chair, f"footstem_{k}")
@@ -525,7 +540,7 @@ def test_revision3():
         lean = math.degrees(math.atan2((t1[0] - t0[0]) - 2 * L.DQ_R["footstem"], t1[2] - t0[2]))
         check(lean <= 20.0, f"dq: stem {k} leans {lean:.1f} deg in profile (want <= 20)")
 
-    # C13: the bar swings DOWN -> UP past the chair and the seated riders; UP over the heads
+    # C13: the bar swings DOWN -> UP past the chair and the seated riders. UP is over the heads
     r = L.check_bar_mechanics(chair, row)
     check(r["up_bottom"] - seat_top >= L.SEATED_HEAD_M and r["up_bottom"] > back_top,
           f"dq: UP lap bar bottom {r['up_bottom'] - seat_top:.3f} above the cushion (want >= "
@@ -547,8 +562,8 @@ def test_revision3():
         with _with_bar(**kw):
             _st, _row, bad, _i = build("dq", "Rev3DqBad")
             raises(lambda: L.check_contracts(bad, _st, _row, 0), f"dq C13: {what}")
-    # the Revision 1 pivot: bosses on the top bar beside the hanger clamp; and bosses slid
-    # 0.08 inboard, floating beside the legs (revision2-check 2'-f: passed C13 before)
+    # the Revision 1 pivot: bosses on the top bar beside the hanger clamp. Also bosses slid 0.08
+    # inboard, floating beside the legs (revision2-check 2'-f: passed C13 before)
     st, row, chair, _info = build("dq", "Rev3DqMoved")
     for what, delta in (("Revision 1 hinge on the top bar beside the hanger clamp",
                          lambda c, s: (0.030 - c[0], s * 0.270 - c[1], 1.503 - c[2])),
@@ -626,8 +641,8 @@ def test_trace():
         got["rope_z"] = (sel[:, 2].min() + sel[:, 2].max()) / 2.0
         g = _co(by["D05"])
         got["grip_top_z"], got["grip_bottom_z"] = g[:, 2].max(), g[:, 2].min()
-        # D05's two 36-vertex rollers (skeptic claim 4; the dq wheels' Revision 1b trace):
-        # their lateral offset from the rope is KAGELOK_U roller_inboard, centers at rope height
+        # D05's two 36-vertex rollers (skeptic claim 4, the dq wheels' Revision 1b trace): their
+        # lateral offset from the rope is KAGELOK_U roller_inboard, centers at rope height
         rol = [(g[i].min(axis=0), g[i].max(axis=0)) for i in _islands(by["D05"]) if len(i) == 36]
         check(len(rol) == 2, f"trace: {len(rol)} D05 rollers")
         if rol:
@@ -769,11 +784,17 @@ def test_full(work):
 
 
 def test_split(work):
-    """2f. Carrier split (2026-11-03, docs/research/carrier-pivot-swing-plan-2026-11-03.md): tr / dq
-    --split --verify into a temp folder. Each of the four manifests (body + grip per style) carries
-    S1 rejoin <= 2 mm, S2 pin gap in (0, 5] mm and S3 0 clashes over the sweep, the pair contracts on
-    LOD0 / LOD1 / LOD2 + C10 silhouettes, 0 validation errors, a re-import OK on all 3 levels, the
-    partner's name, and no absolute home-folder path in its args (tools/check-no-user-paths.js)."""
+    """2f. Carrier split (2026-11-03, docs/research/carrier-pivot-swing-plan-2026-11-03.md): the test runs
+    tr / dq --split --verify into a temp folder. Each of the four manifests (body + grip per style)
+    carries:
+    - S1 rejoin <= 2 mm
+    - S2 pin gap in (0, 5] mm
+    - S3 0 clashes over the sweep
+    - the pair contracts on LOD0 / LOD1 / LOD2 + C10 silhouettes
+    - 0 validation errors
+    - a re-import OK on all 3 levels
+    - the partner's name
+    - no absolute home-folder path in its args (tools/check-no-user-paths.js)"""
     import carrier_split as CS
     home = os.path.normcase(os.path.realpath(os.path.expanduser("~"))).replace("\\", "/")
     out = []
@@ -828,8 +849,8 @@ def test_split_alignment():
     """2g. tr split rounds 3-4 (owner verdicts 2026-11-03): the clevis alignment audit passes on the built
     parts and RAISES (ALIGN tr BROKEN) when the clevis drifts 6 mm off the jaw center in plan or the
     hanger tube's end tilts 2 deg about the pin. Also (round 4): the split "grip" is the long plate on
-    the rope (0.68 m, underside on the rope's top, crown at GRIP_TOP_Z) + the clamp box, no "gripjaw"
-    part; the one-piece FG_GRIP saddle is untouched."""
+    the rope (0.68 m, underside on the rope's top, crown at GRIP_TOP_Z) + the clamp box, with no
+    "gripjaw" part. The one-piece FG_GRIP saddle is untouched."""
     import mathutils
     L.clear_scene()
     st, row = L.STYLES["tr"], L.CARRIERS["tr"]
@@ -880,11 +901,11 @@ def test_split_alignment():
 
 
 def test_revision1c(work):
-    """Revision 1c (revision1b-check-dq-grip): the dq carriage's big faces shade FLAT - every
-    corner normal of its axis-aligned faces within L.FLAT_FACE_MAX_DEG of the face normal, on
-    the built LOD0 (C14) and on an exported + re-imported FBX (verify_export flat_box); tr has
-    no flat part. The pre-1c build (FLAT_PARTS empty: one sharp edge per corner fan) must
-    RAISE C14 and fail the FBX check. Returns the worst built / FBX deviations."""
+    """Revision 1c (revision1b-check-dq-grip): the dq carriage's big faces shade FLAT: every corner normal
+    of its axis-aligned faces lies within L.FLAT_FACE_MAX_DEG of the face normal, on the built LOD0
+    (C14) and on an exported + re-imported FBX (verify_export flat_box). tr has no flat part. The
+    pre-1c build (FLAT_PARTS empty: one sharp edge per corner fan) must RAISE C14 and fail the FBX
+    check. Returns the worst built / FBX deviations."""
     st, row, chair, _info = build("dq", "Rev1cDq")
     rep = L.flat_face_report(chair, ("gripbody",))
     k, worst = rep["gripbody"]

@@ -1,64 +1,71 @@
 """
 lodge.py - the building recipe engine (lodges L1-L5, ski school, patrol P1/P2).
 
-Contract: docs/research/art/assets-2026-10/design/bldg-kit.md sections 1, 8, 9, 11-17 with
-design/bldg-kit-skeptic.md applied (MUST-CHANGE 1 src_uv="UVTile" + stripped part UV
-layers; 2 lot-fit / facing between apply_yaw and orient_for_net; 3 plinth stairs below
-grade; 4 ground-band hygiene; 5 height-aware cull; 6 CC0 prefilter; 7 color spaces;
-8 kept-area texel prediction + full-level LOD dry run). Recipes are data in
-bldg_recipes.py and recipes/*.py; the kit is cs2_bldg.py.
+Contract: docs/research/art/assets-2026-10/design/bldg-kit.md sections 1, 8, 9, 11-17 with design/bldg-kit-skeptic.md
+applied. The MUST-CHANGE items are:
+- 1 src_uv="UVTile" + stripped part UV layers
+- 2 lot-fit / facing between apply_yaw and orient_for_net
+- 3 plinth stairs below grade
+- 4 ground-band hygiene
+- 5 height-aware cull
+- 6 CC0 prefilter
+- 7 color spaces
+- 8 kept-area texel prediction + full-level LOD dry run
 
-CLI (headless only - refuses to run unless bpy.app.background, ROUND-SPEC R10):
+Recipes are data in bldg_recipes.py and recipes/*.py. The kit is cs2_bldg.py.
+
+CLI (headless only. It refuses to run unless bpy.app.background, ROUND-SPEC R10):
     blender --background --factory-startup --python-exit-code 1 --python lodge.py --
         (--lodge {L1..L5 | basic-base | basic-top | mid | lux-top | lux-base}
          | --school | --patrol {p1,p2} | --recipe KEY)
-        [--out DIR | --export]   letter folder; --export = assets/import/<category>/<letter> (a --tiled
-                                 building goes under the sheet owner's category, "buildings": one family folder);
-                                 neither = a scratch dir under the system temp
+        [--out DIR | --export]   letter folder. --export = assets/import/<category>/<letter> (a --tiled
+                                 building goes under the sheet owner's category, "buildings": one family folder).
+                                 Neither = a scratch dir under the system temp
         [--name BASE] [--letter X]
         [--blockout]             geometry + contracts + rooms + cull + area / density
-                                 prediction + manifest; no bake, no FBX
+                                 prediction + manifest. No bake, no FBX
         [--finalize]             tiled round, after the last building: recompose the family sheet with every
-                                 label rect into the owner (school) folder (PIPELINE section 4); builds nothing
-        [--finish | --no-finish] bake (default on); --no-finish = look-only FBX, NOT shippable
+                                 label rect into the owner (school) folder (PIPELINE section 4). Builds nothing
+        [--finish | --no-finish] bake (default on). --no-finish = look-only FBX, NOT shippable
         [--lods | --no-lods] [--no-validate]
         [--tex {auto,1024,2048,4096}] [--interior {name,settings}]
         [--tower | --no-tower] [--roof-windows {win,paint}]
         [--preview [DIR]]        default assets/preview/<category>/
         [--ab DIR] [--review [DIR]]   review pack default assets/preview/review/<Name>.blend
         [--weather-sweep [I,I,...]]   art pass: vanilla budget per weathering intensity on
-                                 the same bake (recipe.weather set; default steps
+                                 the same bake (recipe.weather set, default steps
                                  0.35..0.70), manifest weather_sweep + highest clean step
         [--signset | --no-signset] [--no-fine] [--signset-out DIR]   fine-detail pass (opt-in
-                                 per recipe: fine_detail.FineRecipe; a plain Recipe ignores
+                                 per recipe: fine_detail.FineRecipe. A plain Recipe ignores
                                  all four): --signset asserts the recipe declares a sign set,
                                  --no-signset keeps its labels in the atlas, --no-fine builds the
-                                 pre-pass host (legacy fields, no sign set); the sign set goes to
+                                 pre-pass host (legacy fields, no sign set). The sign set goes to
                                  assets/import/signs/<letter> with --export, else beside --out
-Fine-detail pass (design/fine-detail-pass.md A-D + skeptic FS1-FS16, build/fine-detail-step2-
-engine.md): a FineRecipe's builder takes fine=True kit geometry, its sub_objects carry vanilla
-AND "kind": "mod" rows (our own props by object-prefab CID: the dressing kit, the sign set), and
-with a sign_set its label faces are routed out of the host before the join into ONE sign-set
-prop on the shared building sheet (cs2_signset), exported beside the host with its identity row
-appended to the host's sub_objects; the review pack shows the sign set as its real mesh.
-Art pass, detail pass 1 (design/detail-pass-1.md section 4, skeptic M3; DECISIONS 171):
-recipe.weather (None = the old path, byte-identical) wraps the compose hook with
-cs2_weather (wrap_weather: roles by material index, label rects protected); recipe.weights
-override the kit's density weights (part_weights); recipe.sub_objects and the
-DisplayPainter numbers go into the manifest (sub_objects, labels, weather blocks).
-Nitpick C (2026-10-13, build/nitpick-c-lodges.md): a FineRecipe build lists its Write Everywhere targets (every
-host label painted by fine_detail.blank_board, every lit or blank sign-set face: center / normal / right / up in
-the game frame + size, cs2_signset.face_record) in the manifest `we_boards` block (absent when there are none).
-Exit code 1 on any exception; last line
+
+Fine-detail pass (design/fine-detail-pass.md A-D + skeptic FS1-FS16, build/fine-detail-step2-engine.md):
+- A FineRecipe's builder takes fine=True kit geometry.
+- Its sub_objects carry vanilla AND "kind": "mod" rows (our own props by object-prefab CID: the dressing kit, the sign set).
+- With a sign_set, its label faces are routed out of the host before the join into ONE sign-set prop on the shared building
+  sheet (cs2_signset). The prop is exported beside the host, with its identity row appended to the host's sub_objects.
+- The review pack shows the sign set as its real mesh.
+
+Art pass, detail pass 1 (design/detail-pass-1.md section 4, skeptic M3, DECISIONS 171): recipe.weather (None = the old path,
+byte-identical) wraps the compose hook with cs2_weather (wrap_weather: roles by material index, label rects protected).
+recipe.weights override the kit's density weights (part_weights). recipe.sub_objects and the DisplayPainter numbers go into
+the manifest (sub_objects, labels, weather blocks).
+
+Nitpick C (2026-10-13, build/nitpick-c-lodges.md): a FineRecipe build lists its Write Everywhere targets (every host label
+painted by fine_detail.blank_board, every lit or blank sign-set face: center / normal / right / up in the game frame + size,
+cs2_signset.face_record) in the manifest `we_boards` block (absent when there are none).
+
+Exit code 1 on any exception. The last line is
     PASS lodge: <Name> LOD0 n, chain [n1, n2], rooms k, engine base <verdict>, tex A, px/m med
 
-Stage order (run): clear -> build_parts -> bevel -> density_w -> tag_parts -> strip UV
-layers + cs2_bake.material_sources (UVTile) + retile -> join + weld 0.0005 ->
-shade 66 -> apply_yaw -> check_lot_fit + check_facing (authoring frame) -> orient_for_net
--> check_base_mode -> split_rooms -> cull_hidden -> assert_budget -> area_report
-(blockout stops) -> prefilter + bake_unique(src_uv="UVTile") -> (4096 rule) -> export
-LOD0 + `_Win` -> plan_lod_targets + lod_chain -> per-LOD base / pane checks -> settings
--> previews / review pack -> manifest -> validate.
+Stage order (run): clear -> build_parts -> bevel -> density_w -> tag_parts -> strip UV layers + cs2_bake.material_sources
+(UVTile) + retile -> join + weld 0.0005 -> shade 66 -> apply_yaw -> check_lot_fit + check_facing (authoring frame) ->
+orient_for_net -> check_base_mode -> split_rooms -> cull_hidden -> assert_budget -> area_report (blockout stops) -> prefilter
++ bake_unique(src_uv="UVTile") -> (4096 rule) -> export LOD0 + `_Win` -> plan_lod_targets + lod_chain -> per-LOD base / pane
+checks -> settings -> previews / review pack -> manifest -> validate.
 """
 
 import argparse
@@ -171,8 +178,8 @@ def parse_args(argv=None):
                     help="tiled: family sheet size")
     ap.add_argument("--far-tex", type=int, default=1024, choices=(512, 1024, 2048),
                     help="tiled: LOD1/LOD2 own unique set (the --tex auto size in tiled mode)")
-    # tiled ROLLOUT (2026-10-16, docs/research/art/texture-parity-rollout-2026-10-16.md): the eight
-    # buildings share ONE family sheet (an owner folder beside the buildings); "probe" rebuilds T16
+    # tiled ROLLOUT (2026-10-16, docs/research/art/texture-parity-rollout-2026-10-16.md): the eight buildings share ONE
+    # family sheet (an owner folder beside the buildings). "probe" rebuilds T16
     ap.add_argument("--sheet-layout", default="rollout", choices=("rollout", "probe"),
                     help="tiled: rollout = shared family sheet + weathering; probe = the T16 probe")
     ap.add_argument("--finalize", action="store_true",
@@ -194,8 +201,8 @@ def parse_args(argv=None):
     ap.add_argument("--window-family", default="auto",
                     choices=("auto", "base", "glazing", "chalet", "utility"),
                     help="kit v2 family preset (auto = WINDOW_FAMILY per recipe)")
-    # door kit v2 (2026-10-17, docs/research/art/door-kit-2026-10-17.md): recessed leaves in a wall
-    # hole (LOD0 only), thin casings, thresholds, `_Win` door glass; three families. Needs kit v2.
+    # door kit v2 (2026-10-17, docs/research/art/door-kit-2026-10-17.md): recessed leaves in a wall hole (LOD0 only), thin
+    # casings, thresholds, `_Win` door glass, three families. Needs kit v2.
     ap.add_argument("--door-kit", default="v1", choices=("v1", "v2"),
                     help="v2 = door kit v2 (with --window-kit v2, tiled; v1 = every build byte-identical)")
     ap.add_argument("--door-holes", default="auto", choices=("auto", "all", "arrival", "none"),
@@ -210,9 +217,9 @@ def parse_args(argv=None):
     # (posts to grade, brackets on their walls, member ends landed) + the RAISING structure audit. Needs fittings v1.
     ap.add_argument("--structure", default="off", choices=("off", "v1"),
                     help="v1 = the structure pass + gate (with --fittings v1; off = every build byte-identical)")
-    # trim v1 (T70, 2026-10-18, docs/research/art/trim-swatch-plan-2026-10-18.md): rake / fascia / deck fascia
-    # sample a strip-mapped grain swatch (cell (5,7), was lux_paver~w), the ridge cap strip-maps its galv swatch,
-    # L5 is pinned to weather level 4. Tiled rollout builds only; off = every build byte-identical.
+    # trim v1 (T70, 2026-10-18, docs/research/art/trim-swatch-plan-2026-10-18.md): rake / fascia / deck fascia sample a
+    # strip-mapped grain swatch (cell (5,7), was lux_paver~w), the ridge cap strip-maps its galv swatch, L5 is pinned to
+    # weather level 4. Tiled rollout builds only. Off = every build byte-identical.
     ap.add_argument("--trim", default="off", choices=("off", "v1"),
                     help="v1 = roof-edge trim on the strip grain swatch (tiled rollout; off = byte-identical)")
     ap.add_argument("--trim-seg", type=float, default=None, metavar="M",
@@ -228,9 +235,9 @@ def parse_args(argv=None):
     ap.add_argument("--slots", default="v1", choices=("v1", "v2"),
                     help="v2 = T89 three recolor slots: R paint (as today), G trim boards / wood trim, B window "
                          "casings; accent and metal roof become fixed colors (needs --trim v1)")
-    # ridge v2 (T95, docs/research/art/cad-review-2026-10-19.md section 8): gable slabs end on the ridge plane (3 mm
-    # overlap) under a 12-tri bent flashing; hip ridges / hips flashed too; L1's hand-built roofs follow. off = every
-    # build byte-identical.
+    # ridge v2 (T95, docs/research/art/cad-review-2026-10-19.md section 8): gable slabs end on the ridge plane (3 mm overlap)
+    # under a 12-tri bent flashing. Hip ridges / hips are flashed too. L1's hand-built roofs follow. Off = every build
+    # byte-identical.
     ap.add_argument("--ridge", default="off", choices=("off", "v2"),
                     help="v2 = ridge flashing instead of the 0.8 m galv box (off = byte-identical)")
     ap.add_argument("--ppm-report", action="store_true",
@@ -256,16 +263,16 @@ def select_recipe(args):
 
 
 def asset_base(recipe, glass="win"):
-    """The asset base name: recipe.asset, minus the interior keyword under --glass gls (T85: no `_Win`, so the
-    keyword that picks vanilla's fake interiors has no job; SkiLodgeAFrameCommercialLow -> SkiLodgeAFrame)."""
+    """The asset base name: recipe.asset, minus the interior keyword under --glass gls (T85: no `_Win`, so the keyword that
+    picks vanilla's fake interiors has no job. SkiLodgeAFrameCommercialLow -> SkiLodgeAFrame)."""
     if glass == "gls":
         return recipe.asset.replace(recipe.interior, "")
     return recipe.asset
 
 
 def asset_name(recipe, letter, override=None, interior="name", glass="win"):
-    """`<asset><letter>`; validate_asset_name + lint; the _Win interior keyword must be in
-    the FILE name on the name route (EC-sk M1). glass "gls" (T85): no `_Win`, no keyword."""
+    """`<asset><letter>`, validate_asset_name + lint. The _Win interior keyword must be in the FILE name on the name route
+    (EC-sk M1). glass "gls" (T85): no `_Win`, no keyword."""
     if interior == "settings":
         raise NotImplementedError(
             "--interior settings (the R19 probe route) needs a literal sharedAssets key in "
@@ -364,8 +371,8 @@ def _wall_of(v, side):
 
 
 def layout_facade(rule, volume):
-    """[(token, u0, u1)]: n = len(pattern) bays of rule.bay_w centered in the wall span
-    minus `margin` each side; asserts bay >= win.w + 0.6 (W tokens) and fit."""
+    """[(token, u0, u1)]: n = len(pattern) bays of rule.bay_w centered in the wall span minus `margin` each side. Asserts bay >=
+    win.w + 0.6 (W tokens) and fit."""
     wall = _wall_of(volume, rule.side)
     span0, span1 = wall.u0 + rule.margin, wall.u1 - rule.margin
     n = len(rule.pattern)
@@ -428,19 +435,23 @@ def build_extras(recipe, opts):
 
 
 def aframe_parts(c, opts):
-    """L1 massing: base_lodge.build_lodge (:579-873) rebuilt on the kit, pre-yaw (entry at
-    -X), every derived value from aframe_derived (25c). Section 13.1 port map + deltas,
-    skeptic MUST-CHANGE 4 (porch slab a ground part, entry surround on the porch).
-    Revision 1 (first live review 2026-10-11, verdicts item 12; L1 is the only
-    `aframe` recipe): `KNEE_H` (bldg_recipes.aframe_knee; absent = 0 = the base_lodge port)
-    is the vertical wall added under the eaves - every literal height above the old eave
-    moves with it (roof windows, loft bands, clerestory, chimney top = RIDGE_Z + 1.16); the
-    prow story starts at the main +X wall (its -X face contact-culls against the main
-    wall, bisected at the prow's y, instead of standing 15 m inside the hall); the porch
-    roof runs back to the main wall over the cap ledge; DECK_X1 past the cap ring builds a
-    `deck_ext` strip on `col_deckext` posts (closed, from GROUND_LIFT) + `beam_deckext` +
-    `deckfascia_ext`; the deck slab runs 0.2 past DECK_Y (rail F rule); the side rails start
-    at the wall once the eave clears them; `UMBRELLAS` / `RIBBON_TRANSOM` from the params.
+    """L1 massing: base_lodge.build_lodge (:579-873) rebuilt on the kit, pre-yaw (entry at -X), every derived value from
+    aframe_derived (25c). Section 13.1 port map + deltas, skeptic MUST-CHANGE 4 (porch slab a ground part, entry surround on
+    the porch).
+
+    Revision 1 (first live review 2026-10-11, verdicts item 12, L1 is the only `aframe` recipe): `KNEE_H`
+    (bldg_recipes.aframe_knee, absent = 0 = the base_lodge port) is the vertical wall added under the eaves. Every literal
+    height above the old eave moves with it (roof windows, loft bands, clerestory, chimney top = RIDGE_Z + 1.16). Other
+    changes:
+    - The prow story starts at the main +X wall (its -X face contact-culls against the main wall, bisected at the prow's y,
+      instead of standing 15 m inside the hall).
+    - The porch roof runs back to the main wall over the cap ledge.
+    - DECK_X1 past the cap ring builds a `deck_ext` strip on `col_deckext` posts (closed, from GROUND_LIFT) + `beam_deckext`
+      + `deckfascia_ext`.
+    - The deck slab runs 0.2 past DECK_Y (rail F rule).
+    - The side rails start at the wall once the eave clears them.
+    - `UMBRELLAS` / `RIBBON_TRANSOM` come from the params.
+
     Ski racks are recipe extras (cs2_bldg.ski_rack(..., slots=))."""
     c = R.aframe_derived(c)
     KH = float(c.get("KNEE_H", 0.0))
@@ -454,7 +465,7 @@ def aframe_parts(c, opts):
     SILL, HEAD = c["SILL_Z"], c["HEAD_Z"]
     P = []
 
-    # ---- stone base (ground part; the skirt is gone: the engine draws the base) --------
+    # ---- stone base (ground part, the skirt is gone: the engine draws the base) --------
     P += K.storey("base", BX0, BX1, BY0, BY1, 0.0, S1_Z, "stone_rubble", ground=True,
                   drop=("+Z",))
     cap = K.box_part("plinthcap_base", (BX0 - 0.2, BY0 - 0.2, S1_Z - 0.13),
@@ -474,8 +485,8 @@ def aframe_parts(c, opts):
                   drop=("-Z", "+Z"), cut_z=(S1_Z + 0.17, DTOP))
     P += K.prism_gable("prow", "X", PX1 - 0.3, PX1, PY0, PY1, S2P_Z, PRZ - 0.02, ridge_at=PRY)
     # ---- roofs (standing seam, slot 3), ridge caps, rakes, fascia, tails ----------------
-    # ridge v2 (T95, cad-review-2026-10-19 section 8): the slabs end RIDGE_GAP past the ridge plane (a 6 mm overlap,
-    # no 0.35 m crossing) under the kit's 12-tri bent flashing; v0 = the old slabs + galv boxes, byte for byte
+    # ridge v2 (T95, cad-review-2026-10-19 section 8): the slabs end RIDGE_GAP past the ridge plane (a 6 mm overlap, no 0.35
+    # m crossing) under the kit's 12-tri bent flashing. v0 = the old slabs + galv boxes, byte for byte
     v2 = K.RIDGE.get("version", 0) >= 2
     g_ = K.RIDGE_GAP
     ov = g_ if v2 else 0.35
@@ -568,9 +579,9 @@ def aframe_parts(c, opts):
                 kind="timber")
     P += K.rail("landingb", [(DX1, 1.5, DTOP), (sx0 - 0.05, 1.5, DTOP)], kind="timber")
     # ---- umbrellas (slot 2) -------------------------------------------------------------------
-    # PARASOLS_VANILLA (L1, fifteenth look 2026-10-11, no house-made umbrellas): the
-    # deck parasols are vanilla ParasolRandom01 sub-objects (bldg_recipes.L1_PARASOLS), none
-    # modeled; params without the key keep the base_lodge port's modeled umbrellas
+    # PARASOLS_VANILLA (L1, fifteenth look 2026-10-11, no house-made umbrellas): the deck parasols are vanilla
+    # ParasolRandom01 sub-objects (bldg_recipes.L1_PARASOLS), none modeled. Params without the key keep the base_lodge port's
+    # modeled umbrellas
     umbrellas = () if c.get("PARASOLS_VANILLA") else (
         c.get("UMBRELLAS") or ((8.6, -17.0), (11.9, -12.7), (8.8, -9.9), (9.0, 13.2), (11.9, 17.2)))
     for k, (ux, uy) in enumerate(umbrellas):
@@ -642,7 +653,7 @@ def aframe_parts(c, opts):
     P += K.entry("main", WallRef("-X", BX0), 0.0, w=2.6, h=2.5, sidelights=2, lamps=0,
                  room="entry", z=0.52)
     # fine-detail step 3a (PORCH_LAMPS_VANILLA in the params, L1 only): the two porch lanterns are
-    # WallLightShortRangeRandom01 rows (recipes/lodge_aframe_fine.py); params without the key: as built
+    # WallLightShortRangeRandom01 rows (recipes/lodge_aframe_fine.py). Params without the key: as built
     for py, tag in (() if c.get("PORCH_LAMPS_VANILLA") else ((-1.9, "S"), (1.9, "N"))):
         lp, _pt = K.lantern(f"porch{tag}", (-16.61, py, 0.52 + 2.2), "-X", kind="wall")
         P += lp
@@ -667,9 +678,9 @@ def aframe_parts(c, opts):
                 P += K.roof_window(f"{sl}{row}{i}", spec, side, y, z, room=f"rw{sl}{row}",
                                    panes=panes)
     for i, y in enumerate((-16.0, -8.0, 0.0, 8.0, 16.0)):
-        # T101 r2 found the placeholder ACVentRoofRandom01 too steep for this 53-degree roof (one seat for five
-        # variants); T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): the specific ACVentRoof03 passes the gate, so fittings v1 = five
-        # vanilla rows 0.5 m down the W slope (cs2_fittings ROWS["L1"]["roof"]), no modeled stack
+        # T101 r2 found the placeholder ACVentRoofRandom01 too steep for this 53-degree roof (one seat for five variants).
+        # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): the specific ACVentRoof03 passes the gate, so fittings v1
+        # = five vanilla rows 0.5 m down the W slope (cs2_fittings ROWS["L1"]["roof"]), no modeled stack
         if K.FITTINGS.get("version", 0) < 1:
             P += K.vent_stack(f"ridge{i}", spec, RX, y)
     P += K.snow_guard("W", spec, "-X")
@@ -682,10 +693,10 @@ def aframe_parts(c, opts):
     P += K.gutter("prowN", (S2X1 + OVER + 0.3, PY1 + 1.25), (PX1 + 1.1, PY1 + 1.25), gz)
     wsx = BX0 - 0.30 if KH > 0.0 else BX0 - 0.06    # rev. 1: outside the cap ring (-13.2)
     fit = K.FITTINGS.get("version", 0) >= 1
-    # close look (2026-10-17, coordinator's choices): the slope-side pipes no longer drop from the eave in front of
-    # the side rail; they run on the main wall 0.4 m inside the rail line (y +-20.6, behind it, beside its wall
-    # post) and stand on the deck. The park-side pipes land on the base story's flat top (A-Basin's lower story is
-    # a flat-roofed deck, the A-frame sheds onto it) and that ledge gets a scupper and a pipe of its own to grade.
+    # close look (2026-10-17, coordinator's choices): the slope-side pipes no longer drop from the eave in front of the side
+    # rail. They run on the main wall 0.4 m inside the rail line (y +-20.6, behind it, beside its wall post) and stand on the
+    # deck. The park-side pipes land on the base story's flat top (A-Basin's lower story is a flat-roofed deck, the A-frame
+    # sheds onto it), and that ledge gets a scupper and a pipe of its own to grade.
     ex, ey = (S2X1 + 0.06, 20.6) if fit else (S2X1 + OVER + 0.25, 20.9)
     for nm, x, y, nrm, zb in (("WS", wsx, -20.8, "-X", 0.05), ("WN", wsx, 20.8, "-X", 0.05),
                               ("ES", ex, -ey, "+X", S1_Z + 0.22),
@@ -694,9 +705,9 @@ def aframe_parts(c, opts):
         gap_e = (S2X1 + OVER + 0.25) - ex if fit and nm.startswith("E") else 0.02
         P += K.downspout(nm, x, y, gz, nrm, wall_gap=abs(gap_w) if gap_w else gap_e, z_bottom=zb,
                          ledge_drain=fit and nm.startswith("W"))
-    # detail pass 1 (second verdict 2026-10-11, DETAIL1 in the params; L1 only):
-    # snow guards on the two prow slopes (the main slopes have them), and the prow gutters'
-    # downspouts: outlet at the gutter end, an offset leader to the prow corner, down to the deck
+    # detail pass 1 (second verdict 2026-10-11, DETAIL1 in the params, L1 only): snow guards on the two prow slopes (the main
+    # slopes have them), and the prow gutters' downspouts: outlet at the gutter end, an offset leader to the prow corner,
+    # down to the deck
     if c.get("DETAIL1"):
         sp = RoofSpec("gable", S2X1, PX1, PY0, PY1, S2P_Z, c["PROW_PITCH_DEG"], axis="X",
                       overhang=1.0, rake_over=0.0, ridge_at=PRY, thick=0.24, mat="metal_roof")
@@ -713,14 +724,14 @@ def aframe_parts(c, opts):
               gap[1] - DY + piece2 * 7 / n2]
     for k, ly in enumerate(lamp_y):
         if K.FITTINGS.get("version", 0) >= 1:   # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): vanilla GardenLight03 rows on the deck
-            continue                            # by the rail (cs2_fittings ROWS["L1"]["curb"]); kit lantern out
+            continue                            # by the rail (cs2_fittings ROWS["L1"]["curb"]). Kit lantern out
         lp, _pt = K.lantern(f"railF{k}", (DX1, ly, DTOP + 1.10), "+X", kind="post")
         P += lp
     return P
 
 
-# window kit v2 mode per recipe key (window-kit doc section 5): "lean" drops the sash ring where
-# the LOD0 cap leaves no headroom; anything not listed is "full"
+# window kit v2 mode per recipe key (window-kit doc section 5): "lean" drops the sash ring where the LOD0 cap leaves no
+# headroom. Anything not listed is "full"
 WINDOW_MODE = {"L2": "lean", "L5": "lean"}
 # head-board rule override per recipe ("family" = the family's own): L2 has 208 tris of LOD0
 # headroom, so only its arrival facade gets the head board (the rest the U casing)
@@ -731,8 +742,8 @@ WINDOW_FLAT_EXTRA = {}
 # wall holes per recipe: "all" | "arrival" (the other facades get SURFACE openings: glass just
 # proud of the wall inside a built-out casing). L5's 245 holes cost ~8.6 tris each tiled: over cap
 WINDOW_HOLES = {"L5": "arrival"}
-# window family per recipe (cs2_bldg.FAMILIES; window-kit doc section 3): big-lodge glazing,
-# chalet / hut timber casings, utilitarian frames
+# window family per recipe (cs2_bldg.FAMILIES, window-kit doc section 3): big-lodge glazing, chalet / hut timber casings,
+# utilitarian frames
 WINDOW_FAMILY = {"L1": "glazing", "L4": "glazing", "L5": "glazing", "L2": "chalet", "L3": "chalet",
                  "school": "utility", "P1": "utility", "P2": "utility"}
 
@@ -753,8 +764,8 @@ def window_kit_cfg(recipe, args):
             "lintel": WINDOW_LINTEL.get(recipe.key, "family"), "holes": WINDOW_HOLES.get(recipe.key, "all")}
 
 
-# door kit v2 per recipe (door-kit doc section 3): the family follows the window family; holes
-# everywhere unless the cap says otherwise; "lean" drops the glazing beads / wedge end caps
+# door kit v2 per recipe (door-kit doc section 3): the family follows the window family. Holes everywhere unless the cap says
+# otherwise. "lean" drops the glazing beads / wedge end caps
 DOOR_FAMILY = dict(WINDOW_FAMILY)
 DOOR_HOLES = {}
 DOOR_MODE = {}
@@ -777,17 +788,17 @@ def door_kit_cfg(recipe, args):
             "mode": mode, "arrival": (math.cos(a), math.sin(a))}
 
 
-# fittings v1: modeled fitting parts named fit_* draw their material's flat color (no tile cuts);
-# the shoes ride inside downspout_ and the new snow fences are snowguard_ (both flat already)
+# fittings v1: modeled fitting parts named fit_* draw their material's flat color (no tile cuts). The shoes ride inside
+# downspout_ and the new snow fences are snowguard_ (both flat already)
 FITTINGS_FLAT = ("fit_",)
 # close look (2026-10-17): thin fittings never hide another part's face in cull_hidden (thin_occluders)
 FITTINGS_THIN = ("gutter_", "downspout_", "snowguard_", "fit_", "vent_", "stovepipe_", "flue_")
 
 
 def snap_ground_band(obj):
-    """Close look (2026-10-17): L5's grade parts now start at cs2_bldg.GROUND_LIFT (0.02) instead of its LIFT 0.05,
-    and the LOD1 / LOD2 collapse moved a few pier bottoms to 0.014, inside the forbidden 0.011..0.02 band. Put any
-    vertex in that band back on GROUND_LIFT (<= 9 mm); returns how many moved."""
+    """Close look (2026-10-17): L5's grade parts now start at cs2_bldg.GROUND_LIFT (0.02) instead of its LIFT 0.05, and the LOD1
+    / LOD2 collapse moved a few pier bottoms to 0.014, inside the forbidden 0.011..0.02 band. Put any vertex in that band
+    back on GROUND_LIFT (<= 9 mm). Returns how many moved."""
     n = 0
     for v in obj.data.vertices:
         if K.GROUND_BAND < v.co.z < K.GROUND_LIFT - 1e-6:
@@ -816,8 +827,8 @@ def structure_cfg(recipe, args):
     return {"version": 1}
 
 
-# T70 trim v1: the weather level a recipe is pinned to under the flag (L5: lux_paver~w leaves the sheet, which
-# would make its levels 0-3 cheaper and let the auto ladder change the building; level 4 = today's L5 output)
+# T70 trim v1: the weather level a recipe is pinned to under the flag (L5: lux_paver~w leaves the sheet, which would make its
+# levels 0-3 cheaper and let the auto ladder change the building. Level 4 = today's L5 output)
 TRIM_WEATHER_PIN = {"L5": 4}
 
 
@@ -835,9 +846,9 @@ def trim_cfg(recipe, args):
 
 # ---- T85 --glass gls / T89 --slots v2 (2026-10-19, docs/research/field/2026-10-19/fix-T85-T89.md) ----------------
 # T85: the `_Win` panes drew vanilla's CommercialLow fake interiors (the burger poster, lit rooms). Plain glass instead
-# (DECISIONS 281's tram route): every pane goes to ONE clear `_Gls` sub-mesh and a BACKING PLATE sits behind each light
-# group on an interior palette key, so the clear glass never shows the empty shell (back faces are culled: through a
-# bare hole you would see the sky through the far wall). Lit / dim plates carry the sheet's emissive (BuildingActive,
+# (DECISIONS 281's tram route): every pane goes to ONE clear `_Gls` sub-mesh. A BACKING PLATE sits behind each light group on
+# an interior palette key, so the clear glass never shows the empty shell (back faces are culled: through a bare hole you
+# would see the sky through the far wall). Lit / dim plates carry the sheet's emissive (BuildingActive,
 # ObjectInterpolateSystem.cs:1194-1203 1.6.0f1: lit while the building is active and powered, no day / night gate).
 PLATE_PREFIX = "winback_"
 PLATE_DELTA = 0.03          # plate behind its glass where the void allows (m)
@@ -898,8 +909,8 @@ def _pane_rects(panes):
 
 
 def _merge_rects(rects, gap=PLATE_MERGE_GAP):
-    """Greedy merge of rectangles (u0, u1, v0, v1, names) on one plane: first along u (same v range), then along
-    v (same u range); a merge only ever forms a rectangle, so no plate covers anything but its lights' span."""
+    """Greedy merge of rectangles (u0, u1, v0, v1, names) on one plane: first along u (same v range), then along v (same u
+    range). A merge only ever forms a rectangle, so no plate covers anything but its lights' span."""
     def merge(rs, axis):
         changed = True
         while changed:
@@ -936,11 +947,11 @@ def _interior_key(seed_name):
 
 
 def build_backing_plates(parts, recipe):
-    """T85: (plate parts [(obj, key)], plate records). One quad per merged rectangular light group (non-rectangular
-    panes get their own polygon), PLATE_DELTA behind the glass when the space behind is open (deep: a holed wall, a
-    glass wall, a void), else halfway to the wall (a surface opening: glass proud of an intact wall). A deep plate
-    grows by the largest PLATE_MARGINS step whose four corners all hide behind main-mesh geometry (a ray along +n
-    hits within PLATE_HIDE_REACH), so through a kit hole the plate always fills the view past the glass edge."""
+    """T85: (plate parts [(obj, key)], plate records). One quad per merged rectangular light group (non-rectangular panes get
+    their own polygon). The quad sits PLATE_DELTA behind the glass when the space behind is open (deep: a holed wall, a glass
+    wall, a void), else halfway to the wall (a surface opening: glass proud of an intact wall). A deep plate grows by the
+    largest PLATE_MARGINS step whose four corners all hide behind main-mesh geometry (a ray along +n hits within
+    PLATE_HIDE_REACH). So through a kit hole the plate always fills the view past the glass edge."""
     from mathutils.bvhtree import BVHTree
     panes = [o for o, _k in parts if o.name.startswith("win_")]
     if not panes:
@@ -1025,8 +1036,8 @@ def build_backing_plates(parts, recipe):
 
 
 def _lift_plates(obj, table):
-    """T85: move the backing-plate faces of the joined mesh onto a temporary object (same transform, attributes, UV
-    layers and material slots) so the cull neither sees them as occluders nor touches them. Returns it or None."""
+    """T85: move the backing-plate faces of the joined mesh onto a temporary object (same transform, attributes, UV layers and
+    material slots), so the cull neither sees them as occluders nor touches them. Returns it or None."""
     idx = {i + 1 for i, n in enumerate(table) if n.startswith(PLATE_PREFIX)}
     if not idx:
         return None
@@ -1062,10 +1073,10 @@ def _rejoin_plates(obj, pobj):
 
 
 def unrecess_plates(far, depth, plates):
-    """T85: the far set has no wall holes (kit v2), so K.unrecess_panes moves its recessed panes back out to
-    +PANE_OFFSET; each DEEP plate follows: a ray along +n from the plate must hit the unholed wall at
-    delta + depth (any of `depth`), then the plate moves to PLATE_FAR_PROUD in front of that wall and shrinks by its
-    margin (the far glass has no casing hole to hide a margin). Surface / polygon plates stay. Returns counts."""
+    """T85: the far set has no wall holes (kit v2), so K.unrecess_panes moves its recessed panes back out to +PANE_OFFSET. Each
+    DEEP plate follows: a ray along +n from the plate must hit the unholed wall at delta + depth (any of `depth`), then the
+    plate moves to PLATE_FAR_PROUD in front of that wall and shrinks by its margin (the far glass has no casing hole to hide
+    a margin). Surface / polygon plates stay. Returns counts."""
     from mathutils.bvhtree import BVHTree
     depths = tuple(depth) if isinstance(depth, (tuple, list, set)) else (depth,)
     me = far.data
@@ -1129,9 +1140,9 @@ def unrecess_plates(far, depth, plates):
 
 
 def slots_v2_report(recipe, layout, lod0, sdir, sname, keys, ctl_rgb):
-    """T89: the default VariationSet that reproduces the X look and the composed ControlMask per key at the LOD0 face
-    centroids (`ctl_rgb`, read before the tiling attributes were dropped). Colors are sRGB as ColorProperties stores
-    them; the game multiplies their linear value (TS.slot_default_for, BatchDataSystem.cs:716-718)."""
+    """T89: the default VariationSet that reproduces the X look and the composed ControlMask per key at the LOD0 face centroids
+    (`ctl_rgb`, read before the tiling attributes were dropped). Colors are sRGB as ColorProperties stores them. The game
+    multiplies their linear value (TS.slot_default_for, BatchDataSystem.cs:716-718)."""
     import cs2_tilesheet as TS
     s1, s2x, s3x = SLOTS_X[recipe.key]
     if recipe.key in ("L4", "L5"):
@@ -1168,9 +1179,9 @@ def slots_v2_report(recipe, layout, lod0, sdir, sname, keys, ctl_rgb):
 
 
 def build_parts(recipe, opts):
-    """Kit calls in recipe order; asserts unique part names (no Blender .001 renames).
-    opts["window_kit"] (window_kit_cfg) builds the windows with kit v2, opts["door_kit"]
-    (door_kit_cfg) the doors with door kit v2 (its part registry is read by run())."""
+    """Kit calls in recipe order. It asserts unique part names (no Blender .001 renames). opts["window_kit"] (window_kit_cfg)
+    builds the windows with kit v2, opts["door_kit"] (door_kit_cfg) the doors with door kit v2 (its part registry is read by
+    run())."""
     wk = opts.get("window_kit")
     dk = opts.get("door_kit")
     fk = opts.get("fittings")
@@ -1224,12 +1235,10 @@ def apply_yaw(obj, deg):
 
 
 def part_weights(parts, recipe=None):
-    """Texel-density weight per part: the kit rules (K.part_weights: WEIGHT_RULES, the
-    LOD1-dressing cap, material density_w, a part's obj["w_override"]), then the recipe's
-    `weights` ((prefix, w), ...; longest prefix wins) over the kit rules (detail pass 1,
-    design 2.0 label weights / 5.2 P2 frames). Precedence: obj["w_override"] (an explicit
-    per-part value, painted_board) > recipe.weights > kit rules. No recipe weights = the
-    kit's dict unchanged."""
+    """Texel-density weight per part: the kit rules (K.part_weights: WEIGHT_RULES, the LOD1-dressing cap, material density_w, a
+    part's obj["w_override"]), then the recipe's `weights` ((prefix, w), ..., longest prefix wins) over the kit rules (detail
+    pass 1, design 2.0 label weights / 5.2 P2 frames). Precedence: obj["w_override"] (an explicit per-part value,
+    painted_board) > recipe.weights > kit rules. No recipe weights = the kit's dict unchanged."""
     w = K.part_weights(parts)
     rw = tuple(getattr(recipe, "weights", ()) or ())
     if not rw:
@@ -1250,9 +1259,9 @@ def part_weights(parts, recipe=None):
 
 
 def delete_lists(recipe, table, plates=False):
-    """(LOD1, LOD2) delete prefix tuples; lod2_keep re-protects stamped faces (their delete
-    prefix is replaced by the exact names of the other parts it matched); ground parts are
-    never deleted (asserted). plates (T85 --glass gls): the backing plates go at LOD2 (500-tri budget)."""
+    """(LOD1, LOD2) delete prefix tuples. lod2_keep re-protects stamped faces (their delete prefix is replaced by the exact
+    names of the other parts it matched). Ground parts are never deleted (asserted). plates (T85 --glass gls): the backing
+    plates go at LOD2 (500-tri budget)."""
     d1 = tuple(K.LOD1_DELETE) + tuple(recipe.lod1_extra)
     d2 = list(K.LOD2_DELETE) + list(recipe.lod2_extra) + ([PLATE_PREFIX] if plates else [])
     for keep in recipe.lod2_keep:
@@ -1281,10 +1290,9 @@ def area_report(obj, recipe):
 # ======================================================================================
 
 def make_post_compose(obj, recipe, dspecs):
-    """cs2_bake post_compose hook (signature of lift_tower.py:859, used as in
-    lift_terminal.py:401-431): detail relief, compose_maps (part noise, contact band in
-    engine mode), recipe labels, then a flat normal in the uncovered gutter and
-    renormalised covered texels."""
+    """cs2_bake post_compose hook (signature of lift_tower.py:859, used as in lift_terminal.py:401-431): detail relief,
+    compose_maps (part noise, contact band in engine mode), recipe labels, then a flat normal in the uncovered gutter and
+    renormalized covered texels."""
     def hook(base, nrm, msk, ctl, ao, mesh, A):
         t0 = time.perf_counter()
         hook.density = K.shipped_density(obj, A)
@@ -1330,8 +1338,8 @@ def make_post_compose(obj, recipe, dspecs):
 
 
 # ======================================================================================
-# Weathering wiring (art pass, detail pass 1: design/detail-pass-1.md section 4, skeptic
-# M3; build/weathering-layer.md section 8 + "Fix pass 1"; DECISIONS 171)
+# Weathering wiring (art pass, detail pass 1: design/detail-pass-1.md section 4, skeptic M3, build/weathering-layer.md
+# section 8 + "Fix pass 1", DECISIONS 171)
 # ======================================================================================
 
 WEATHER_SWEEP = (0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.70)
@@ -1360,10 +1368,9 @@ def weather_spec(recipe, name, intensity=None):
 
 
 def weather_mat_roles(keys):
-    """{material index: weathering role} by INDEX (= position in sorted(keys), the order
-    cs2_bake.material_sources assigned and bake_unique keeps on every polygon; the
-    placeholder NAMES are gone by the time the hook runs): cs2_weather.MAT_ROLES +
-    cs2_bldg.WEATHER_ROLES_EXTRA; a key with no role raises (no silent default)."""
+    """{material index: weathering role} by INDEX (= position in sorted(keys), the order cs2_bake.material_sources assigned and
+    bake_unique keeps on every polygon. The placeholder NAMES are gone by the time the hook runs): cs2_weather.MAT_ROLES +
+    cs2_bldg.WEATHER_ROLES_EXTRA. A key with no role raises (no silent default)."""
     import cs2_weather as CW
     out = {}
     for i, k in enumerate(sorted(keys)):
@@ -1480,10 +1487,10 @@ _VERIFIED_GUIDS = None
 
 
 def verified_guids():
-    """(allowed GUIDs, rejected {guid: why}) for building sub-object rows (fine-detail step 2
-    check item 16 / step 3a): allowed = the dump-verified placeholders of cs2_liftdress.SUBOBJ
-    plus every GUID of subobj_bounds.json (cs2_subobj's cache, derived from the dump); rejected =
-    cs2_liftdress.REJECTED_GUIDS (mixed-spawn placeholders), never allowed. Read once per process."""
+    """(allowed GUIDs, rejected {guid: why}) for building sub-object rows (fine-detail step 2 check item 16 / step 3a): allowed
+    = the dump-verified placeholders of cs2_liftdress.SUBOBJ plus every GUID of subobj_bounds.json (cs2_subobj's cache,
+    derived from the dump). Rejected = cs2_liftdress.REJECTED_GUIDS (mixed-spawn placeholders), never allowed. Read once per
+    process."""
     global _VERIFIED_GUIDS
     if _VERIFIED_GUIDS is None:
         import cs2_liftdress as LD
@@ -1496,13 +1503,12 @@ def verified_guids():
 
 
 def sub_objects_block(recipe):
-    """The manifest's sub_objects block from recipe.sub_objects (replaces school.py
-    --merge-manifest: a re-export no longer drops it). Entries (prefab, guid, (gx, gy, gz),
-    (x, y, z, w), parent) or dicts with m_Object / prefab / position / rotation
-    [/ m_ParentMesh, default -1]; per-object keys m_Object, prefab, position, rotation,
-    m_ParentMesh (skeptic S4). Validated: 32-hex GUID, unit quaternion, parent >= -1; the GUID
-    must be dump-verified (cs2_liftdress.SUBOBJ or subobj_bounds.json) and never a rejected
-    mixed-spawn placeholder (cs2_liftdress.REJECTED_GUIDS): both raise (verified_guids)."""
+    """The manifest's sub_objects block from recipe.sub_objects (replaces school.py --merge-manifest: a re-export no longer
+    drops it). Entries (prefab, guid, (gx, gy, gz), (x, y, z, w), parent) or dicts with m_Object / prefab / position /
+    rotation [/ m_ParentMesh, default -1]. Per-object keys: m_Object, prefab, position, rotation, m_ParentMesh (skeptic S4).
+    Validated: 32-hex GUID, unit quaternion, parent >= -1. The GUID must be dump-verified (cs2_liftdress.SUBOBJ or
+    subobj_bounds.json) and never a rejected mixed-spawn placeholder (cs2_liftdress.REJECTED_GUIDS). Both raise
+    (verified_guids)."""
     objs = []
     for e in recipe.sub_objects:
         if isinstance(e, dict) and e.get("kind") == "mod":
@@ -1530,9 +1536,9 @@ def sub_objects_block(recipe):
             raise ValueError(f"{recipe.key}: sub-object {prefab!r} rotation |q| = {nq:.4f}")
         if int(parent) < -1:
             raise ValueError(f"{recipe.key}: sub-object {prefab!r} m_ParentMesh {parent}")
-        # x-sign gate N (2026-10-15 playtest; S1b-N 2026-10-16): the recipes DESIGN their rows in the old frame
-        # (gx = +authoring y, the frame their box / mesh contracts test in); the manifest gets rule T (x -> -x,
-        # q -> (qx, -qy, -qz, qw)), the game frame
+        # x-sign gate N (2026-10-15 playtest, S1b-N 2026-10-16): the recipes DESIGN their rows in the old frame (gx =
+        # +authoring y, the frame their box / mesh contracts test in). The manifest gets rule T (x -> -x, q -> (qx, -qy, -qz,
+        # qw)), the game frame
         gpos, gq = FD.rule_t_pos(pos), FD.rule_t_rot(q)
         objs.append({"m_Object": guid, "prefab": str(prefab),
                      "position": [round(float(v), 4) + 0.0 for v in gpos],
@@ -1582,12 +1588,11 @@ def _mod_row_block(recipe, e):
 
 
 def pack_margin(A, n_islands, packer="calibrated"):
-    """Pack / bake margin in px: the contract's max(16, A // 64) (cs2_uv.py:68-70, mip-4
-    safe) up to 300 islands; 8 px (mip-3 safe) for building kits beyond that. Measured on
-    L1 (2048, ~1,000-1,300 islands, Blender 5.2.2, 2026-10-11): with the library FRACTION
-    packer the w = 1 median is 15.9 px/m at 4 px, 14.9 at 8, 8.5 at 16, and at 32 px it
-    stops scaling (UVUnique up to 124, the bake raises); with the calibrated ADD packer
-    (cs2_bldg.pack_layout_calibrated) 28.1 at 4, 23.7 at 8, 16.0 at 16."""
+    """Pack / bake margin in px: the contract's max(16, A // 64) (cs2_uv.py:68-70, mip-4 safe) up to 300 islands, 8 px (mip-3
+    safe) for building kits beyond that. Measured on L1 (2048, ~1,000-1,300 islands, Blender 5.2.2, 2026-10-11): with the
+    library FRACTION packer the w = 1 median is 15.9 px/m at 4 px, 14.9 at 8, 8.5 at 16, and at 32 px it stops scaling
+    (UVUnique up to 124, the bake raises). With the calibrated ADD packer (cs2_bldg.pack_layout_calibrated) 28.1 at 4, 23.7
+    at 8, 16.0 at 16."""
     m = max(16, int(A) // 64)
     if n_islands > 300:
         return min(m, 8)
@@ -1682,14 +1687,13 @@ def _game_extent(obj):
 # ======================================================================================
 
 def remove_stale_maps(asset_dir, name, written):
-    """Fine-detail step 3d (the engine gap of build/fine-detail-step3a-buildings.md section 1): delete
-    every texture MAP of asset `name` in `asset_dir` that this build did not write. A map is a PNG that
-    cs2_validate.classify_file reads as the asset's own "map" (`<name>[_LOD<k>]_<BaseColor|Normal|
-    MaskMap|ControlMask>.png`) or "emissive" (`<name>_Emissive*.png`); `written` = the bake's file
-    names (cs2_bake.bake_unique report "files"). Anything else in the folder (FBXs, settings.json, the
-    manifest, another asset's files, stray PNGs) is never touched. settings.json is rewritten from the
-    build's own arguments afterwards (it never names an Emissive map) and the manifest's "files" block
-    hashes the folder as it is then, so both drop the removed maps. Returns the sorted removed names."""
+    """Fine-detail step 3d (the engine gap of build/fine-detail-step3a-buildings.md section 1): delete every texture MAP of
+    asset `name` in `asset_dir` that this build did not write. A map is a PNG that cs2_validate.classify_file reads as the
+    asset's own "map" (`<name>[_LOD<k>]_<BaseColor|Normal|MaskMap|ControlMask>.png`) or "emissive" (`<name>_Emissive*.png`).
+    `written` = the bake's file names (cs2_bake.bake_unique report "files"). Anything else in the folder (FBXs,
+    settings.json, the manifest, another asset's files, stray PNGs) is never touched. settings.json is rewritten from the
+    build's own arguments afterwards (it never names an Emissive map). The manifest's "files" block hashes the folder as it
+    is then, so both drop the removed maps. Returns the sorted removed names."""
     keep = {os.path.basename(str(f)) for f in written}
     removed = []
     if not os.path.isdir(asset_dir):
@@ -1708,11 +1712,11 @@ def remove_stale_maps(asset_dir, name, written):
 
 
 def _we_boards(parts, recipe, spec):
-    """Nitpick C (2026-10-13): the Write Everywhere targets of a build - every host label painted by a
-    fine_detail.blank_board (role "blank", drawn in the host atlas) and every sign-set face whose sheet kind is
-    lit (role "name") or painted blank (role "blank") - each as cs2_signset.face_record (center / normal / right
-    / up in the game frame, size). Read from the parts BEFORE the sign set routes its faces out. [] when none
-    (plain Recipes, hosts without such boards: the manifest then has no `we_boards` key)."""
+    """Nitpick C (2026-10-13): the Write Everywhere targets of a build: every host label painted by a fine_detail.blank_board
+    (role "blank", drawn in the host atlas) and every sign-set face whose sheet kind is lit (role "name") or painted blank
+    (role "blank"), each as cs2_signset.face_record (center / normal / right / up in the game frame, size). Read from the
+    parts BEFORE the sign set routes its faces out. [] when none (plain Recipes, hosts without such boards: the manifest then
+    has no `we_boards` key)."""
     if not isinstance(recipe, FD.FineRecipe):
         return []
     import cs2_signset
@@ -1748,10 +1752,10 @@ def _gls_extra_faces(win, table, prefixes):
 
 
 def family_category(recipe):
-    """The import-tree category folder a recipe's letter folder lives in. A TILED building goes
-    under the sheet owner's category (assets/import/<family>/<letter>/<Asset>/), so the owner and
-    every sharer sit under ONE parent and import in ONE Editor action (DECISIONS 298; sharedAssets
-    '../<Owner>/...', checked by cs2_validate 'family-folder'). Untiled keeps its own category."""
+    """The import-tree category folder a recipe's letter folder lives in. A TILED building goes under the sheet owner's category
+    (assets/import/<family>/<letter>/<Asset>/), so the owner and every sharer sit under ONE parent and import in ONE Editor
+    action (DECISIONS 298, sharedAssets '../<Owner>/...', checked by cs2_validate 'family-folder'). Untiled keeps its own
+    category."""
     if getattr(recipe, "tiled", False):
         return R.get_recipe(SHEET_OWNER_KEY).category
     return recipe.category
@@ -1839,8 +1843,8 @@ def run(recipe, args):
         if frows:
             recipe = replace(recipe, sub_objects=tuple(recipe.sub_objects) + tuple(frows))
     spec = FD.sign_set_of(recipe)
-    # nitpick C (2026-10-13): the Write Everywhere targets (blank boards, lit name boards), read off the faces
-    # before a sign set takes them; the manifest's `we_boards` block (absent when there are none)
+    # nitpick C (2026-10-13): the Write Everywhere targets (blank boards, lit name boards), read off the faces before a sign
+    # set takes them. The manifest gets the `we_boards` block (absent when there are none)
     we_boards = _we_boards(parts, recipe, spec)
     signset = None
     if spec is not None:
@@ -1917,15 +1921,15 @@ def run(recipe, args):
     facing = K.check_facing(obj, table, recipe.arrival_prefixes, D_)
     cs2_asset.orient_for_net(obj)
     base0 = K.check_base_mode(obj, table, recipe.base_mode, recipe.ground_prefixes, recipe.plinth)
-    # 11 rooms (before the bake: no pane texels); T85 --glass gls: every pane to ONE clear `_Gls` (no rooms)
+    # 11 rooms (before the bake: no pane texels). T85 --glass gls: every pane to ONE clear `_Gls` (no rooms)
     if glass == "gls":
         win, cells = cs2_submesh.split_submesh(obj, table, ("win_",) + tuple(getattr(recipe, "gls_extra", ())),
                                                "Gls"), {}
     else:
         win, cells = K.split_rooms(obj, table, recipe.rooms, name=name)
     subsfx = "Gls" if glass == "gls" else "Win"
-    # 12 cull (after the rooms so panes are not occluders); T85: the backing plates sit out of the mesh during the
-    # cull (a surface plate 1-3 cm in front of a wall would hide that wall, and LOD2 drops the plates)
+    # 12 cull (after the rooms so panes are not occluders). T85: the backing plates sit out of the mesh during the cull (a
+    # surface plate 1-3 cm in front of a wall would hide that wall, and LOD2 drops the plates)
     pobj = _lift_plates(obj, table) if glass == "gls" else None
     cull = K.cull_hidden(obj, protect=tuple(recipe.ground_prefixes) + K.LABEL_PREFIXES
                          + (K.KIT2_RECESSED if wk else ()) + (door2["protect"] if door2 else ()),
@@ -1998,8 +2002,8 @@ def run(recipe, args):
         mat_idx0 = np.zeros(len(obj.data.polygons), np.int32)
         obj.data.polygons.foreach_get("material_index", mat_idx0)
     if tiled:
-        # T16: the unsliced, un-aligned copy (world-anchored UVTile, material slots) becomes
-        # LOD0; `obj` goes on through the unchanged bake as the LOD1/LOD2 "far" set
+        # T16: the unsliced, un-aligned copy (world-anchored UVTile, material slots) becomes LOD0. `obj` goes on through the
+        # unchanged bake as the LOD1/LOD2 "far" set
         lod0_tiled = obj.copy()
         lod0_tiled.data = obj.data.copy()
         lod0_tiled.name = name + "Tiled"
@@ -2099,12 +2103,12 @@ def run(recipe, args):
             obj, far = _tiled_lod0(obj, lod0_tiled, recipe, args, name, asset_dir, keys, rep,
                                    result, A)
             if wk:
-                # window kit v2: the holes were cut on the tiled LOD0 (_tiled_lod0_rollout);
-                # every recessed pane must now see out of its hole
+                # window kit v2: the holes were cut on the tiled LOD0 (_tiled_lod0_rollout). Every recessed pane must now see
+                # out of its hole
                 blocked = K.check_panes_clear(obj, win) if win is not None else []
                 if blocked and glass == "gls" and getattr(recipe, "gls_extra", ()):
-                    # T95: the recipe's extra `_Gls` glass (the school's gallery tunnel) is not a kit pane in a wall
-                    # hole; its own frame ribs stand 2-4 cm proud of it. The gate judges the `win_` panes only.
+                    # T95: the recipe's extra `_Gls` glass (the school's gallery tunnel) is not a kit pane in a wall hole.
+                    # Its own frame ribs stand 2-4 cm proud of it. The gate judges the `win_` panes only.
                     xs = _gls_extra_faces(win, table, recipe.gls_extra)
                     blocked = [b for b in blocked if b[0] not in xs]
                 if blocked:
@@ -2199,8 +2203,8 @@ def run(recipe, args):
                            2: recipe.budget.lod2_cap},
                   "letter": letter, "tint": tint, "lot_cells": list(recipe.lot)},
             out_dir=args.review or args.review_out or None,
-            # vanilla props (DECISIONS 183): the manifest is written after this call, so hand the
-            # rows over; the pack shows one labeled stand-in box per row (pack only, not exported)
+            # vanilla props (DECISIONS 183): the manifest is written after this call, so hand the rows over. The pack shows
+            # one labeled stand-in box per row (pack only, not exported)
             manifest={"sub_objects": sub_objects_block(recipe)} if recipe.sub_objects else {},
             **({"extra_meshes": {"SignSet": (signset["obj"], *result["sign_set"]["texture"])}}
                if signset is not None and result["sign_set"].get("texture") else {}))
@@ -2255,8 +2259,8 @@ SHEET_OWNER_KEY = "school"      # the building whose folder carries the family s
 
 
 def sheet_paths(args, letter):
-    """(sheet WORKSPACE dir, sheet name) of the rollout family sheet: where it is composed (not an
-    asset folder; the owner building's folder receives the composed maps, install_owner_maps)."""
+    """(sheet WORKSPACE dir, sheet name) of the rollout family sheet: where it is composed (not an asset folder). The owner
+    building's folder receives the composed maps, install_owner_maps."""
     sname = cs2_asset.validate_asset_name("SkiTileSheet" + letter)
     if getattr(args, "sheet_dir", None):
         return os.path.abspath(args.sheet_dir), sname
@@ -2266,8 +2270,8 @@ def sheet_paths(args, letter):
 
 
 def sheet_owner(args, letter):
-    """(owner asset dir, owner name): the ski school of the same letter (rollout doc section 7:
-    the sheet travels as the school's own LOD0 maps; the seven others share them cross-asset)."""
+    """(owner asset dir, owner name): the ski school of the same letter (rollout doc section 7: the sheet travels as the
+    school's own LOD0 maps. The seven others share them cross-asset)."""
     rc = R.get_recipe(SHEET_OWNER_KEY)
     oname = asset_base(rc, getattr(args, "glass", "win")) + letter
     root = os.path.abspath(args.out) if args.out else os.path.join(IMPORT_ROOT, rc.category, letter)
@@ -2288,9 +2292,9 @@ def install_owner_maps(sdir, sname, odir, oname, emissive=True):
 
 
 def ensure_family_sheet(sdir, sname, A, repeats, emissive=True, trim=False, slots=False, glass=False):
-    """The composed family sheet in `sdir` (layout JSON + PNGs). Rebuilt when the layout hash
-    (rects, repeats, material definitions, smoothness table) changed; label rects already in
-    `sdir/labels` are pasted. Returns the layout dict (with per-swatch means, no pixels).
+    """The composed family sheet in `sdir` (layout JSON + PNGs). Rebuilt when the layout hash (rects, repeats, material
+    definitions, smoothness table) changed. Label rects already in `sdir/labels` are pasted. Returns the layout dict (with
+    per-swatch means, no pixels).
     trim: the T70 --trim v1 layout (its own hash, so an off and a v1 sheet never share a folder)."""
     import cs2_tilesheet as TS
     lay = TS.sheet_layout(A, "rollout", repeats, trim=trim, slots=slots, glass=glass)
@@ -2314,8 +2318,8 @@ def ensure_family_sheet(sdir, sname, A, repeats, emissive=True, trim=False, slot
 
 
 def recompose_family_sheet(sdir, sname, A=4096, trim=False, slots=False, glass=False):
-    """Rebuild the family sheet PNGs with every building's label rect pasted (run once after the
-    last building of a round; the hash check alone would keep a sheet without new labels)."""
+    """Rebuild the family sheet PNGs with every building's label rect pasted (run once after the last building of a round. The
+    hash check alone would keep a sheet without new labels)."""
     jp = os.path.join(sdir + ".aux", f"{sname}.layout.json")
     if os.path.isfile(jp):
         os.remove(jp)
@@ -2323,11 +2327,10 @@ def recompose_family_sheet(sdir, sname, A=4096, trim=False, slots=False, glass=F
 
 
 def finalize_family_sheet(args):
-    """lodge.py --finalize: after the LAST building of a tiled round, recompose the family sheet with
-    every building's label rect pasted and install it as the sheet owner's LOD0 maps (the school's
-    own folder). Replaces the research-folder finalize.py scripts. Build all eight with the same
-    --out / --export, --letter and kit flags first; the sheet flags (--trim, --slots, --glass,
-    --sheet-tex) must match those builds or the layout hash differs and the sheet is rebuilt."""
+    """lodge.py --finalize: after the LAST building of a tiled round, recompose the family sheet with every building's label
+    rect pasted and install it as the sheet owner's LOD0 maps (the school's own folder). Replaces the research-folder
+    finalize.py scripts. Build all eight with the same --out / --export, --letter and kit flags first. The sheet flags
+    (--trim, --slots, --glass, --sheet-tex) must match those builds, or the layout hash differs and the sheet is rebuilt."""
     if not (args.out or args.export):
         raise RuntimeError("--finalize needs --out DIR or --export (the family folder it installs into)")
     letter = args.letter or (os.path.basename(os.path.normpath(args.out)) if args.out else None)
@@ -2343,12 +2346,15 @@ def finalize_family_sheet(args):
 
 
 def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):
-    """Rollout (docs/research/art/texture-parity-rollout-2026-10-16.md): rename the far bake's
-    maps to <name>_LOD1_* (emissive dropped: LOD0-only engine-side, DECISIONS 77), re-mesh `lod0`
-    onto the SHARED family sheet (cs2_tilesheet.tile_mesh with the weathering rules, highest
-    ladder level under the LOD0 cap), paint this building's labels into its own label rect
-    (<sheet_dir>.aux/labels/<name>.npz; recompose_family_sheet pastes every building's rect),
-    measure. No sheet map is written into the building folder: settings.json shares them."""
+    """Rollout (docs/research/art/texture-parity-rollout-2026-10-16.md):
+    - rename the far bake's maps to <name>_LOD1_* (emissive dropped: LOD0-only engine-side, DECISIONS 77)
+    - re-mesh `lod0` onto the SHARED family sheet (cs2_tilesheet.tile_mesh with the weathering rules, highest ladder level
+      under the LOD0 cap)
+    - paint this building's labels into its own label rect (<sheet_dir>.aux/labels/<name>.npz. recompose_family_sheet pastes
+      every building's rect)
+    - measure
+
+    No sheet map is written into the building folder: settings.json shares them."""
     import cs2_tilesheet as TS
     t0 = time.perf_counter()
     renamed = []
@@ -2376,7 +2382,7 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
     tw = getattr(recipe, "tiled_weather", None) or {}
     wl = getattr(args, "weather_level", "auto")
     if tcfg and tcfg["weather_pin"] is not None:
-        # T70: lux_paver~w left the sheet; the pinned level is today's output (plan 1.3 step 4)
+        # T70: lux_paver~w left the sheet. The pinned level is today's output (plan 1.3 step 4)
         ladder = [TS.weather_level(int(tcfg["weather_pin"]))]
     elif tw.get("off"):
         ladder = [None]
@@ -2429,9 +2435,9 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
         if tm["tris_after"] <= cap:
             break
     if tcfg and tcfg["seg_m"]:
-        # T70 segment cuts (opt-in, A/B / --trim v2 only) pay tris: measure them against the UNCUT strip map run
-        # through the same ladder, refuse cuts that would only fit by dropping weathering, and leave the cap to
-        # assert_budget below (the gate is "delta under this building's cap", never "~0")
+        # T70 segment cuts (opt-in, A/B / --trim v2 only) pay tris. Measure them against the UNCUT strip map run through the
+        # same ladder. Refuse cuts that would only fit by dropping weathering. Leave the cap to assert_budget below (the gate
+        # is "delta under this building's cap", never "~0")
         ref = bpy.data.objects.new(name + "SegRef", pristine.copy())
         ref.matrix_world = lod0.matrix_world.copy()
         bpy.context.scene.collection.objects.link(ref)
@@ -2543,14 +2549,13 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
 
 
 def _tiled_settings_rollout(asset_dir, name, n_lods, tiled):
-    """Rollout settings.json: LOD0 maps shared from the family sheet owner (cross-asset
-    sharedAssets, AssetImportPipeline.cs:502-509 1.6.2f1 resolves the relative target); LOD1
-    ships its own maps (dedicated, identity entries, the ExampleBakedAlphaFence pattern); LOD2
-    shares LOD1's. Whether a LOD0 cross-asset key and dedicated LOD keys combine in one
-    import is the ONE thing the import probe must show (rollout doc section 7)."""
+    """Rollout settings.json: LOD0 maps are shared from the family sheet owner (cross-asset sharedAssets,
+    AssetImportPipeline.cs:502-509 1.6.2f1 resolves the relative target). LOD1 ships its own maps (dedicated, identity
+    entries, the ExampleBakedAlphaFence pattern). LOD2 shares LOD1's. Whether a LOD0 cross-asset key and dedicated LOD keys
+    combine in one import is the ONE thing the import probe must show (rollout doc section 7)."""
     pre = tiled["sheet"]["shared_prefix"]
     maps = ["BaseColor", "Normal", "MaskMap", "ControlMask"] + (["Emissive"] if tiled["sheet"]["emissive_bound"] else [])
-    # the owner (the school) carries the sheet as its own LOD0 maps; the others share them
+    # the owner (the school) carries the sheet as its own LOD0 maps. The others share them
     shared = {} if tiled["sheet"]["is_owner"] else {f"{name}_{m}.png": f"{pre}_{m}.png" for m in maps}
     if n_lods >= 1:
         for m in ("BaseColor", "Normal", "MaskMap", "ControlMask"):
@@ -2643,9 +2648,9 @@ def _tiled_lod0_probe(far, lod0, recipe, args, name, asset_dir, keys, rep, resul
 
 
 def _tiled_settings_probe(asset_dir, name, n_lods):
-    """T16 probe settings.json: LOD0 = the sheet maps in this folder (a production build points
-    them at the family owner with sharedAssets, cs2_asset.write_settings(shared_from=...)); LOD1
-    ships its own maps (they bind by the LOD1 name); LOD2 shares LOD1's."""
+    """T16 probe settings.json: LOD0 = the sheet maps in this folder (a production build points them at the family owner with
+    sharedAssets, cs2_asset.write_settings(shared_from=...)). LOD1 ships its own maps (they bind by the LOD1 name). LOD2
+    shares LOD1's."""
     shared = {}
     if n_lods >= 2:
         for m in ("BaseColor", "Normal", "MaskMap", "ControlMask"):
@@ -2723,7 +2728,7 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
             "boards": result["we_boards"]}
     if recipe.sub_objects:
         data["sub_objects"] = sub_objects_block(recipe)
-    # T16 probe keys (only when asked: --ppm-report / --tiled; other manifests keep their key set)
+    # T16 probe keys (only when asked: --ppm-report / --tiled. Other manifests keep their key set)
     for k in ("ppm_by_material", "smooth_by_material", "tiled"):
         if result.get(k) is not None:
             data[k] = result[k]
@@ -2760,8 +2765,8 @@ def _export_sign_set(signset, recipe, args, name, obj, lods, result, area):
                                       mint=bool(args.export))
     owner_dir = os.path.join(os.path.dirname(letter_dir), cs2_signset.SHEET_LETTER, cs2_signset.SHEET_OWNER)
     if not rep["owner"] and not os.path.isdir(owner_dir):
-        # a SHARER built beside a scratch --out (no owner there): validate / preview against the
-        # shipped owner's sheet (fine-detail step 3a; the owner is the school's sign set)
+        # a SHARER built beside a scratch --out (no owner there): validate / preview against the shipped owner's sheet
+        # (fine-detail step 3a: the owner is the school's sign set)
         owner_dir = os.path.join(IMPORT_ROOT, "signs", cs2_signset.SHEET_LETTER, cs2_signset.SHEET_OWNER)
     val = cs2_signset.validate_sign_set(rep["asset_dir"], rep["name"],
                                         None if rep["owner"] else owner_dir)

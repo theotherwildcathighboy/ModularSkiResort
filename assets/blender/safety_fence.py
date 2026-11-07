@@ -1,52 +1,57 @@
 """
 safety_fence.py - the orange safety-net fence (twenty-fifth look, 2026-10-13: "ORANGE PLASTIC
-FENCING that is ubiquitous at ski areas ... another FENCE TYPE ... use all the functions built in already
-of fences"). Design: docs/research/art/assets-2026-10/design/safety-fence.md (sections 3, 4, 7).
-Build report: docs/research/art/assets-2026-10/build/safety-fence.md. Prefab staging + S1 surgery:
-safety_fence_stage.py (pure Python, no bpy).
+FENCING that is ubiquitous at ski areas ... another FENCE TYPE ... use all the functions built in
+already of fences"). Design: docs/research/art/assets-2026-10/design/safety-fence.md (sections 3, 4,
+7). Build report: docs/research/art/assets-2026-10/build/safety-fence.md. Prefab staging + S1
+surgery: safety_fence_stage.py (pure Python, no bpy).
 
     cd assets/blender
     blender --background --factory-startup --python-exit-code 1 --python safety_fence.py -- \
         --out ../import/fences/A --export [--preview ../preview/fences/A] [--review] [--stage]
 
 THE ASSETS (prefab-local meters: x lateral, y up, z travel along the lane)
-    SkiSafetyNetA       the LANE MESH tile the vanilla curve shader repeats along a drawn fence
-                        (the FenceIndustrialPieceHigh01 Mesh pattern: posts baked into the tile).
-                        One 4.000 m tile, z in [-2, +2], two 2 m bays, vertex columns every 0.5 m so
-                        TilingCount 2 / 4 / 8 all clip on columns (clipping collapses vertices; it
-                        cannot cut a triangle). Posts: 6-sided, circumradius 17.5 mm, y -0.15 .. 1.55
-                        (15 cm in the snow), flats facing the travel axis, center 0.020 m after each
-                        bay start (z = -1.98 and +0.02) so post AND cap lie inside [s, s + 0.040].
-                        Caps: black 6-sided, circumradius 22.5 mm, y 1.52 .. 1.58. Net: one plane per
-                        bay at x = +0.020 (tied to one side of the posts), hem y -0.10 (buried), top
-                        y 1.25 at the posts sagging to 1.17 mid-bay (y = 1.25 - 0.08 (1 - (2u - 1)^2)),
-                        interior columns bulge x += 0.02 sin(pi u); every net triangle has a coincident
-                        opposite-normal twin (the Curved templates have no double-sided variant).
-                        LOD0 96 tris (cap 128). LOD1 44 tris (cap 60, < 50 % of LOD0): same columns,
-                        straight top 1.20, no bulge, 3-sided posts, no caps.
-    SkiNetPostA         the optional dead-end post (UtilityLane.m_NodeObject -> SkiNetPost): post + cap,
-                        y 0 .. 1.58 (prop ground rule), 32 tris, own 256 px set, no alpha.
 
-TEXTURES (SkiSafetyNetA 1024 px; LOD1 shares LOD0's maps through sharedAssets)
-    net region  u 0..1, v 0.3125..1 (rows 320..1023, 512 px/m across a 2 m bay): diamond mesh, 32 px
-                cells (6.25 cm), strands 5.6 px (half-width 2.8 + 1 px soft edge), mean alpha 0.45;
-                opaque 12 px selvedges top and bottom (the top edge vertices sit on v = 1, so the
-                selvedge follows the sag). RGB of alpha-0 texels = strand RGB (no dark mip fringe).
-    post strip  rows 0..319, alpha 255: post band (6 x 16 rows; LOD1 3 x 32), dark clip marks at
-                y 0.20 / 1.20, black cap block.
-    ControlMask net G = 1 (slot 2), posts B = 1 (slot 3), caps / clips 0, A = 0. MaskMap R = G = B = 0,
-    A smoothness net 0.35 / posts 0.45 / caps 0.30. Normal flat. Recolor texels RGB 0.80
-    (cs2_asset.RECOLOR_ALBEDO): the orange comes from the mesh prefab's ColorProperties (PAD_RGB).
-    settings.json: sharedAssets (LOD1 -> LOD0 maps), LOD1 Skip and the Surface block
-    {"materialTemplate": "CurvedHashedCutout", "needsAlphaClip": true, "alphaCutoff": 0.54}
-    (cs2_asset.write_settings(surface=...)): a lane mesh must land on a Curved* template.
+SkiSafetyNetA is the LANE MESH tile that the vanilla curve shader repeats along a drawn fence (the
+FenceIndustrialPieceHigh01 Mesh pattern: posts baked into the tile).
+- One 4.000 m tile, z in [-2, +2], two 2 m bays. Vertex columns sit every 0.5 m, so TilingCount 2 /
+  4 / 8 all clip on columns (clipping collapses vertices. It cannot cut a triangle).
+- Posts: 6-sided, circumradius 17.5 mm, y -0.15 .. 1.55 (15 cm in the snow), flats facing the travel
+  axis. The center sits 0.020 m after each bay start (z = -1.98 and +0.02), so post AND cap lie
+  inside [s, s + 0.040].
+- Caps: black 6-sided, circumradius 22.5 mm, y 1.52 .. 1.58.
+- Net: one plane per bay at x = +0.020 (tied to one side of the posts), hem y -0.10 (buried), top y
+  1.25 at the posts sagging to 1.17 mid-bay (y = 1.25 - 0.08 (1 - (2u - 1)^2)). Interior columns
+  bulge x += 0.02 sin(pi u). Every net triangle has a coincident opposite-normal twin (the Curved
+  templates have no double-sided variant).
+- LOD0 has 96 tris (cap 128). LOD1 has 44 tris (cap 60, < 50 % of LOD0). LOD1 has the same columns,
+  a straight top at 1.20, no bulge, 3-sided posts and no caps.
+
+SkiNetPostA is the optional dead-end post (UtilityLane.m_NodeObject -> SkiNetPost). It has a post
+and a cap, y 0 .. 1.58 (prop ground rule), 32 tris, its own 256 px set, no alpha.
+
+TEXTURES (SkiSafetyNetA 1024 px. LOD1 shares LOD0's maps through sharedAssets)
+
+- Net region: u 0..1, v 0.3125..1 (rows 320..1023, 512 px/m across a 2 m bay). Diamond mesh, 32 px
+  cells (6.25 cm), strands 5.6 px (half-width 2.8 + 1 px soft edge), mean alpha 0.45. Opaque 12 px
+  selvedges top and bottom (the top edge vertices sit on v = 1, so the selvedge follows the sag).
+  RGB of alpha-0 texels = strand RGB (no dark mip fringe).
+- Post strip: rows 0..319, alpha 255. Post band (6 x 16 rows, LOD1 3 x 32), dark clip marks at y
+  0.20 / 1.20, black cap block.
+- ControlMask: net G = 1 (slot 2), posts B = 1 (slot 3), caps / clips 0, A = 0. MaskMap: R = G = B =
+  0, A smoothness net 0.35 / posts 0.45 / caps 0.30. Normal flat. Recolor texels RGB 0.80
+  (cs2_asset.RECOLOR_ALBEDO). The orange comes from the mesh prefab's ColorProperties (PAD_RGB).
+- settings.json: sharedAssets (LOD1 -> LOD0 maps), LOD1 Skip and the Surface block
+  {"materialTemplate": "CurvedHashedCutout", "needsAlphaClip": true, "alphaCutoff": 0.54}
+  (cs2_asset.write_settings(surface=...)). A lane mesh must land on a Curved* template.
 
 DETERMINISM
-    Explicit vertex lists and hand-laid UVs (no smart_project, no unique repack, no Cycles bake),
-    cs2_asset.tag_parts canonical order, numpy maps with a fixed seed. Two builds hash identically and
-    two fresh processes write byte-identical PNGs and settings.json (tests/test_safety_fence.py).
 
-No top-level side effects; the __main__ block runs only as a Blender --python script.
+The build uses explicit vertex lists and hand-laid UVs (no smart_project, no unique repack, no
+Cycles bake), cs2_asset.tag_parts canonical order and numpy maps with a fixed seed. Two builds hash
+identically. Two fresh processes write byte-identical PNGs and settings.json
+(tests/test_safety_fence.py).
+
+No top-level side effects. The __main__ block runs only as a Blender --python script.
 """
 
 import argparse
@@ -73,7 +78,7 @@ REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 # Names, budgets
 # --------------------------------------------------------------------------------------
 
-NAME = "SkiSafetyNetA"            # lane mesh; the Editor import makes "SkiSafetyNetA Mesh" (+ _LOD1)
+NAME = "SkiSafetyNetA"            # lane mesh. The Editor import makes "SkiSafetyNetA Mesh" (+ _LOD1)
 POST_NAME = "SkiNetPostA"         # node / end post mesh -> "SkiNetPostA Mesh"
 A = 1024                          # net atlas px
 A_POST = 256                      # post set px
@@ -85,8 +90,8 @@ VALIDATE_SPEC = {"kind": "hanging", "cutout": True, "lod0_cap": LOD0_CAP, "expec
 VALIDATE_SPEC_POST = {"kind": "prop", "lod0_cap": POST_CAP, "min_texture": 128, "expected_lods": (0,)}
 
 # --------------------------------------------------------------------------------------
-# Geometry (authoring frame: x = travel along the lane, y = lateral, z = up; orient_for_net
-# turns it into the net frame: Blender x = prefab x lateral, Blender -y = prefab z travel)
+# Geometry (authoring frame: x = travel along the lane, y = lateral, z = up). orient_for_net turns
+# it into the net frame (Blender x = prefab x lateral, Blender -y = prefab z travel)
 # --------------------------------------------------------------------------------------
 
 TILE = 4.0
@@ -106,10 +111,10 @@ CAP_Y = (1.52, 1.58)
 POST_AT = 0.020                   # post center after the bay start (cap flats: [0.0005, 0.0395])
 POST_WINDOW = 0.040               # contract C4
 LOD1_POST_SIDES = 3
-NODE_POST_Y = (0.0, 1.55)         # SkiNetPostA body; its cap is CAP_Y
+NODE_POST_Y = (0.0, 1.55)         # SkiNetPostA body. Its cap is CAP_Y
 
 # --------------------------------------------------------------------------------------
-# Atlas (texel rects x0, y0, x1, y1; y up = UV v = Image.pixels row order)
+# Atlas (texel rects x0, y0, x1, y1. y up = UV v = Image.pixels row order)
 # --------------------------------------------------------------------------------------
 
 R_NET = (0, 320, 1024, 1024)
@@ -134,8 +139,8 @@ SEED = 20261013
 
 PREVIEW_DISTANCES = (2.0, 10.0, 50.0)
 PREVIEW_VIEWS = ("front", "oblique", "backlit")
-#: preview-only A/B: a deeper "fluo" orange for slot 2 / 3 (the shipped default stays PAD_RGB;
-#: the in-game VariationSet color space is unverified, so this is a JSON knob for review)
+# : preview-only A/B: a deeper "fluo" orange for slot 2 / 3 (the shipped default stays PAD_RGB). The
+# in-game VariationSet color space is unverified, so this is a JSON knob for review
 ALT_TINT = (1.0, 0.15, 0.02)
 
 
@@ -189,7 +194,7 @@ def _ring(cx, r, n, z, phase_deg):
 
 
 def _prism_sides(name, cx, r, n, z0, z1, phase_deg, rect, y_range, atlas):
-    """Outward n-gon prism sides (no caps); strip k of `rect` per side."""
+    """Outward n-gon prism sides (no caps). Strip k of `rect` per side."""
     verts = _ring(cx, r, n, z0, phase_deg) + _ring(cx, r, n, z1, phase_deg)
     faces, uvs = [], []
     for i in range(n):
@@ -238,7 +243,7 @@ def _cap(name, cx, rect, atlas):
 
 
 def _net_bay(name, bay, side, lod):
-    """One bay of net as explicit triangles. side 'a' faces -lateral, 'b' (+lateral) is the
+    """One bay of net as explicit triangles. side 'a' faces -lateral. Side 'b' (+lateral) is the
     coincident twin with reversed winding and mirrored u (both keep CCW UV winding)."""
     xs = BAY_STARTS[bay]
     col_v = []
@@ -462,7 +467,7 @@ def write_maps(asset_dir, name, maps, size):
 
 
 # --------------------------------------------------------------------------------------
-# Contracts (raise on failure; return the measured numbers)
+# Contracts (raise on failure, return the measured numbers)
 # --------------------------------------------------------------------------------------
 
 def _prefab_co(obj):
@@ -494,7 +499,7 @@ def _signed_area(pts):
 
 
 def tile_contracts(obj, lod, maps=None):
-    """C2-C7 on a finished tile (meters; the FBX-side C2 is re-checked in the test)."""
+    """C2-C7 on a finished tile (meters, the FBX-side C2 is re-checked in the test)."""
     fails = []
     me = obj.data
     P = _prefab_co(obj)
@@ -709,8 +714,8 @@ def bounds_record(obj):
 # --------------------------------------------------------------------------------------
 
 def path_point(s, radius, slope=0.0):
-    """Arc in the net frame: starts at the origin heading -y (= prefab +z travel), turns toward
-    +x. Returns (position, travel dir, lateral unit) as Vectors; z rises by slope * s."""
+    """Arc in the net frame: starts at the origin heading -y (= prefab +z travel), turns toward +x.
+    Returns (position, travel dir, lateral unit) as Vectors. z rises by slope * s."""
     if radius:
         th = s / radius
         pos = mathutils.Vector((radius * (1.0 - math.cos(th)), -radius * math.sin(th), slope * s))
@@ -917,8 +922,9 @@ def _sky_rotation_for(direction_xy):
 
 def render_previews(out_dir, lod0, lod1, post, asset_dir, post_dir, resolution=(1200, 800),
                     samples=64):
-    """Nine frames (+ an LOD1 frame at 50 m and a contact sheet) into out_dir. A 16-tile curved
-    run (64 m) with end posts on a 400 m snow plane; the camera aims at bay mid-span 0.7 m up."""
+    """Renders nine frames (+ an LOD1 frame at 50 m and a contact sheet) into out_dir. The scene is a
+    16-tile curved run (64 m) with end posts on a 400 m snow plane. The camera aims at bay mid-span
+    0.7 m up."""
     import cs2_preview
     os.makedirs(out_dir, exist_ok=True)
     sc = bpy.context.scene
