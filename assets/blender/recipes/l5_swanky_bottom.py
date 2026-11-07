@@ -1,121 +1,105 @@
 """
-recipes/l5_swanky_bottom.py - L5 "swanky bottom" lodge (lux-base) + the shared swanky helpers
-and the reusable clock-tower part.
+recipes/l5_swanky_bottom.py - L5 "swanky bottom" lodge (lux-base), the shared swanky helpers and the reusable clock-tower
+part.
 
-Contract: docs/research/art/assets-2026-10/design/lodges-swanky.md section 3 (L5) and 5 (clock
-tower), with design/lodges-swanky-skeptic.md applied (MUST-CHANGE 4 by-construction contract
-fixes, 6 determinism, 7 LOD table, 9 API alignment) and the ROUND-SPEC rulings R21 (complexity
-1, no "educated staff": prefab side, see build/lodges-swanky.md), R24 (prefiltered CC0 sources:
-the kit does it) and R25 (the kit API as built wins: cs2_bldg / lodge.py). Build report:
-docs/research/art/assets-2026-10/build/lodges-swanky.md.
+Contract: docs/research/art/assets-2026-10/design/lodges-swanky.md section 3 (L5) and 5 (clock tower), with
+design/lodges-swanky-skeptic.md applied. The applied items are MUST-CHANGE 4 (by-construction contract fixes), 6
+(determinism), 7 (LOD table) and 9 (API alignment). The ROUND-SPEC rulings also apply: R21 (complexity 1, no "educated
+staff": prefab side, see build/lodges-swanky.md), R24 (prefiltered CC0 sources: the kit does it) and R25 (the kit API as
+built wins: cs2_bldg / lodge.py). Build report: docs/research/art/assets-2026-10/build/lodges-swanky.md.
 
-REVISION 1 (2026-10-11, verdicts-2026-10-11.md B1: "the Swanky lodge should be bigger",
-reference = the Breckenridge Grand Lodge on Peak 7, "pools are a good addition"): a U-shaped
-5-story grand lodge on a 10 x 8 lot (main bar + two wings, cross gables over balcony stacks,
-stone chimneys, the revision-0 great hall / porte-cochere / clock tower, a pool terrace in the
-courtyard). Build report section "Revision 1" in build/lodges-swanky.md.
+REVISION 1 (2026-10-11, verdicts-2026-10-11.md B1: "the Swanky lodge should be bigger", reference = the Breckenridge Grand
+Lodge on Peak 7, "pools are a good addition"): The result is a U-shaped 5-story grand lodge on a 10 x 8 lot. It has a main
+bar and two wings, cross gables over balcony stacks, stone chimneys, the revision-0 great hall, porte-cochere and clock
+tower, and a pool terrace in the courtyard. Build report section "Revision 1" in build/lodges-swanky.md.
 
-REVISION 2 (2026-10-11, verdicts-2026-10-11.md "Seventh look" B1': "looks really good"; facade
-color stays): (a) an END-TO-END PLAZA on the road side (+X) - paved across the whole lot
-width, ski racks with real gear (cs2_bldg.ski_rack_frame gear=True), cafe tables with
-chairs and umbrellas, benches, bins, planters with conifers, lamp posts, a bollard-lined
-drive to the kept porte-cochere - so the lot grows 10 x 8 -> 10 x 9 (one cell deeper toward
-the road) and the whole build moves X_SHIFT = -4 m after assembly (shift_x) so the back
-margin stays 0.6 m and the plaza gets the new 8 m; (b) the CLOCK moves DOWN from the stage
-(24.9, its top under the cap's eave) onto the shaft (CT_CLOCK_Z_L5 20.3, a 2.9 m dial on a
-glulam dial board), the stage gets louvres; the sightline is a contract
-(check_clock_sightline); (c) ASYMMETRIC front: an ELEVATED DECK one story up (top Z_F[1]
-4.5) on the clock-tower side, wrapping the tower base (glulam posts on stone piers, beams,
-honey board balustrade, a 3 m stair down to the plaza, bistro tables, lanterns, a deck-level
-tower door). The -Y side of the front stays as built. Build report section "Revision 2
-(plaza, clock, tower deck)" in build/lodges-swanky.md.
+REVISION 2 (2026-10-11, verdicts-2026-10-11.md "Seventh look" B1': "looks really good" and the facade color stays):
+- (a) An END-TO-END PLAZA on the road side (+X). It is paved across the whole lot width. It has ski racks with real gear
+  (cs2_bldg.ski_rack_frame gear=True), cafe tables with chairs and umbrellas, benches, bins, planters with conifers, lamp
+  posts, and a bollard-lined drive to the kept porte-cochere. The lot grows from 10 x 8 -> 10 x 9 (one cell deeper toward
+  the road). The whole build moves X_SHIFT = -4 m after assembly (shift_x). The back margin then stays 0.6 m and the plaza
+  gets the new 8 m.
+- (b) The CLOCK moves DOWN from the stage (24.9, its top under the cap's eave) onto the shaft (CT_CLOCK_Z_L5 20.3, a 2.9 m
+  dial on a glulam dial board). The stage gets louvers. The sightline is a contract (check_clock_sightline).
+- (c) ASYMMETRIC front: an ELEVATED DECK one story up (top Z_F[1] 4.5) on the clock-tower side. It wraps the tower base. It
+  has glulam posts on stone piers, beams, honey board balustrade, a 3 m stair down to the plaza, bistro tables, lanterns,
+  and a deck-level tower door. The -Y side of the front stays as built. Build report section "Revision 2 (plaza, clock,
+  tower deck)" in build/lodges-swanky.md.
 
-REVISION 3 (2026-10-11, verdicts-2026-10-11.md "Twelfth look" B1'': "looks good, but we didn't
-need to place / create our own trees and benches - use the in-game ones. Only put placeholders
-if they are cheap, and let me know if they are placeholders"; the raised deck "is great, but
-the STAIRS should be to the RIGHT, so that cars can pull through the valet area"; "I wanted
-the PLAZA ON THE POOL SIDE"): (1) the plaza moves to the slope / pool side (`deck_s*`, end to
-end along the slope face, joined to the pool terrace by a paved strip and a flight of steps
-on the podium's -X face); the lot's extra cell moves with it (X_SHIFT = +4: the build moves
-4 m toward the road); the road side returns to a forecourt with a valet loop (`deck_e0`
-drive, `deck_e1` walks, `deck_e2` raised island); (2) every tree, bench, bin, table, chair,
-parasol, lounger, lamp post, planter and bollard is a VANILLA sub-object by reference
-(SUB_OBJECTS -> manifest `sub_objects`, GUIDs in VANILLA, verified against the dump by
-tests/test_lodges_swanky.py); the modeled ones are gone; modeled stand-ins that remain are
-listed in PLACEHOLDERS; (3) the deck stair runs from the deck's right-hand (+Y) edge
-(DK_STAIR_*), its foot on the walk, clear of the drive (contract: the drive's free corridor
-past the deck >= CORRIDOR_MIN). Build report section "Revision 3 (pool-side plaza, valet drive,
-stair right, vanilla props)" in build/lodges-swanky.md.
+REVISION 3 (2026-10-11, verdicts-2026-10-11.md "Twelfth look" B1'': "looks good, but we didn't need to place / create our
+own trees and benches - use the in-game ones. Only put placeholders if they are cheap, and let me know if they are
+placeholders", the raised deck "is great, but the STAIRS should be to the RIGHT, so that cars can pull through the valet
+area", and "I wanted the PLAZA ON THE POOL SIDE"):
+1. The plaza moves to the slope / pool side (`deck_s*`, end to end along the slope face). A paved strip and a flight of
+   steps on the podium's -X face join it to the pool terrace. The lot's extra cell moves with it (X_SHIFT = +4: the build
+   moves 4 m toward the road). The road side returns to a forecourt with a valet loop (`deck_e0` drive, `deck_e1` walks,
+   `deck_e2` raised island).
+2. Every tree, bench, bin, table, chair, parasol, lounger, lamp post, planter and bollard is a VANILLA sub-object by
+   reference (SUB_OBJECTS -> manifest `sub_objects`, GUIDs in VANILLA, verified against the dump by
+   tests/test_lodges_swanky.py). The modeled ones are gone. The modeled stand-ins that remain are listed in PLACEHOLDERS.
+3. The deck stair runs from the deck's right-hand (+Y) edge (DK_STAIR_*), its foot on the walk, clear of the drive.
+   Contract: the drive's free corridor past the deck >= CORRIDOR_MIN. Build report section "Revision 3 (pool-side plaza,
+   valet drive, stair right, vanilla props)" in build/lodges-swanky.md.
 
-REVISION 4 (2026-10-12, verdicts-2026-10-11.md "Eighteenth look": "the front triangle above the
-valet area needs... something. Right now it's empty space you can see into"; "there are no doors
-on the pool side of the building, we will probably need some"; "does it look real" detail):
-(a) the porte-cochere gable is closed: a tongue-and-groove board infill (`gable_pcgab1`, new
-material `lux_tg`) just behind the front king-post truss and one behind the back truss
-(`gable_pcgab0`), the ceiling between them, frieze boards over the tie beams (`trim_pcfrieze`);
-two vanilla WallLightShortRangeRandom01 rows light the gable (mount "wall"); contract G1 (a ray
-grid through the gable from every arrival camera and a close walk-around meets a front face
-within GABLE_DEPTH_MAX of the truss face; PC_GABLE_INFILL False = the revision-3 gable fails it);
-(b) three French doors onto the pool terrace: one in each wing's courtyard face under its cross
-gable and one in M's courtyard face on the plaza axis (terrace_door: a REAL opening cut into the
-host wall and recessed DOOR_SET, glazed leaves with lites, kick plates and pulls, a 1.80 x 2.30
-clear opening, the threshold flush with the walk), each aligned with a flight up to the podium
-(the +-Y flights re-centered on the wing doors, a new +X flight `stairblk_e2` on the plaza axis;
-the pool loungers / parasols moved off it); contracts D1-D5 (check_door: real opening, clear
-opening, threshold on the walk, aligned + unobstructed walk to the steps, no gutter / downspout
-in the clear box). Build report section "Revision 4 (gable infill, pool-side doors)".
+REVISION 4 (2026-10-12, verdicts-2026-10-11.md "Eighteenth look": "the front triangle above the valet area needs...
+something. Right now it's empty space you can see into", "there are no doors on the pool side of the building, we will
+probably need some", "does it look real" detail):
+- (a) The porte-cochere gable is closed. A tongue-and-groove board infill (`gable_pcgab1`, new material `lux_tg`) sits just
+  behind the front king-post truss. A second infill sits behind the back truss (`gable_pcgab0`). There is a ceiling between
+  them. Frieze boards (`trim_pcfrieze`) cover the tie beams. Two vanilla WallLightShortRangeRandom01 rows light the gable
+  (mount "wall"). Contract G1: a ray grid through the gable from every arrival camera and a close walk-around meets a front
+  face within GABLE_DEPTH_MAX of the truss face. PC_GABLE_INFILL False = the revision-3 gable fails the contract.
+- (b) Three French doors open onto the pool terrace. One door is in each wing's courtyard face under its cross gable. One
+  door is in M's courtyard face on the plaza axis. Each door (terrace_door) is a REAL opening cut into the host wall, with a
+  recess of DOOR_SET, glazed leaves with lites, kick plates and pulls, a 1.80 x 2.30 clear opening, and the threshold flush
+  with the walk. Each door aligns with a flight up to the podium. The +-Y flights are re-centered on the wing doors. A new
+  +X flight `stairblk_e2` sits on the plaza axis. The pool loungers / parasols moved off that flight.
+- Contracts D1-D5 (check_door): real opening, clear opening, threshold on the walk, aligned + unobstructed walk to the
+  steps, no gutter / downspout in the clear box. Build report section "Revision 4 (gable infill, pool-side doors)".
 
-FINE-DETAIL PASS, step 3e (2026-10-12, verdicts-2026-10-11.md "Twenty-third look": "L5 and L4 look
-good, run the engine pass on them too!"; design/fine-detail-pass.md A.2 / B / C as cut by -skeptic.md
-FS6 / FS14 / FS15; build report docs/research/art/assets-2026-10/build/fine-detail-step3e-swanky.md):
-RECIPE is a fine_detail.FineRecipe (fine_detail=True, sign_set=SIGN_SET); `lodge.py --no-fine`
-rebuilds the approved revision 4 from `legacy` (byte-identical, proven in the build report):
-  - the 4 modeled plaza racks (PZ_RACKS) -> dressing-kit rows SkiDressSkiRack / V2 / V3 / V1
-    (KIT_ROWS: identity, on the plaza slab, m_ParentMesh 0) = the removed frames vertex for vertex;
-    contract F1 (cs2_kitrows.check_kit_rows: the REAL kit mesh on the plaza, clear of every modeled
-    triangle, every vanilla row box and the plaza walks; rack access aisles free; inside the lot);
-  - the 4 wall lanterns on M's road face (lamp_pm0-3 + arms) -> WallLightShortRangeRandom01 rows at
-    their mount points (FINE_ROWS; pivot on the pier / wall face at the lens height, facing the road;
-    S1-S4 like every vanilla row);
-  - a porte-cochere NAME BOARD ("GRAND LODGE", 5.00 x 0.80 m on the front truss chord; the lodge carried
-    no lettered board): its face goes to the sign set SkiSignSetGrandB (the shared sheet's reserved
-    `l5.name` rect painted in place, vector Bfont at 300 px/m, lit 0.2 at night); the frame and a
-    backing slab stay in the host (FS1);
-  - fine geometry (design B.1): the clock-tower finial 12-seg (was 6), the ridge flue pots 12-seg (8),
-    the hanging lanterns' rods 8-seg round (0.04 m box);
-  - PLACEHOLDERS left: the 2 fire pits and the 2 hanging porte-cochere lanterns (vanilla has no pendant).
+FINE-DETAIL PASS, step 3e (2026-10-12, verdicts-2026-10-11.md "Twenty-third look": "L5 and L4 look good, run the engine pass
+on them too!", design/fine-detail-pass.md A.2 / B / C as cut by -skeptic.md FS6 / FS14 / FS15, build report
+docs/research/art/assets-2026-10/build/fine-detail-step3e-swanky.md): RECIPE is a fine_detail.FineRecipe (fine_detail=True,
+sign_set=SIGN_SET). `lodge.py --no-fine` rebuilds the approved revision 4 from `legacy` (byte-identical, proven in the build
+report):
+- The 4 modeled plaza racks (PZ_RACKS) become dressing-kit rows SkiDressSkiRack / V2 / V3 / V1 (KIT_ROWS: identity, on the
+  plaza slab, m_ParentMesh 0). The rows equal the removed frames vertex for vertex. Contract F1
+  (cs2_kitrows.check_kit_rows): the REAL kit mesh stands on the plaza, clear of every modeled triangle, every vanilla row
+  box and the plaza walks. The rack access aisles stay free. The racks stay inside the lot.
+- The 4 wall lanterns on M's road face (lamp_pm0-3 + arms) become WallLightShortRangeRandom01 rows at their mount points
+  (FINE_ROWS). The pivot sits on the pier / wall face at the lens height, facing the road. S1-S4 apply, like every vanilla
+  row.
+- A porte-cochere NAME BOARD ("GRAND LODGE", 5.00 x 0.80 m on the front truss chord). The lodge carried no lettered board.
+  Its face goes to the sign set SkiSignSetGrandB. The shared sheet's reserved `l5.name` rect is painted in place, in vector
+  Bfont at 300 px/m, lit 0.2 at night. The frame and a backing slab stay in the host (FS1).
+- Fine geometry (design B.1): the clock-tower finial is 12-seg (was 6). The ridge flue pots are 12-seg (8). The hanging
+  lanterns' rods are 8-seg round (0.04 m box).
+- PLACEHOLDERS left: the 2 fire pits and the 2 hanging porte-cochere lanterns (vanilla has no pendant).
 
-Authoring frame (bldg-kit.md section 2): +X = arrival / road (game +Z), -X = slope side, z 0 =
-grade at the lot center; lot 10 x 9 cells -> |Y| <= 40, |X| <= 36 (revisions 2 / 3: the
-builder works in the revision-1 frame, then shifts by X_SHIFT; revision 3 X_SHIFT = +4, so in
-that frame the lot spans x -40..32). Seen from the road, +Y is on the RIGHT.
-Engine base ON (vanilla flatten): ground parts are open-bottom boxes from z 0
-(GROUND_PREFIXES); every other part starts at z >= LIFT = 0.05 (cs2_bldg.GROUND_LIFT 0.02 +
-LOD2 collapse headroom).
+Authoring frame (bldg-kit.md section 2): +X = arrival / road (game +Z), -X = slope side, z 0 = grade at the lot center. The
+lot is 10 x 9 cells, so |Y| <= 40 and |X| <= 36. In revisions 2 / 3 the builder works in the revision-1 frame, then shifts
+by X_SHIFT. In revision 3, X_SHIFT = +4, so in that frame the lot spans x -40..32. Seen from the road, +Y is on the RIGHT.
+Engine base ON (vanilla flatten): ground parts are open-bottom boxes from z 0 (GROUND_PREFIXES). Every other part starts at
+z >= LIFT = 0.05 (cs2_bldg.GROUND_LIFT 0.02 + LOD2 collapse headroom).
 
-Kit adaptations (R25; each one listed in the build report):
-  - glazing = cs2_bldg window_bay / curtain_wall panes 0.05 PROUD of the wall (no wall holes);
-    full-glass walls get a `glass_dark` backing box (density w 0.5) so the room is closed
-    and cull_hidden removes its interior faces;
-  - LOD2 = cs2_bldg.lod_chain (delete + protected collapse) sampling the LOD0 atlas: no
-    proxy, no reserved rect (skeptic MUST-CHANGE 5 is moot: the rect costs nothing);
-  - no bay sharing (the kit has no instance()/share_signature; contract 7.3 "on for L5" is a
-    kit need);
-  - pool water is a painted glossy plane (`lux_water`, MaskMap smooth 0.95): cs2_submesh
-    whitelists `_Wat` but lodge.py routes only `_Win` (a `_Wat` probe is an import-session
-    item, not a recipe change);
-  - the clock tower is IN the L5 mesh behind lodge.py's --tower/--no-tower switch (default
-    on) and exposed as clock_tower() for reuse (tram base station), not a separate
-    SkiClockTowerA asset;
-  - swanky palette = eight recipe-local BldgMat entries registered at build time
-    (register_materials; additive keys "lux_*" only - a kit need: a material registry);
-  - revision 1 coplanar hygiene on kit-built parts (split_double_doors, inset_transom_ends,
-    drop_faces_above, flip_dormer_cheeks, drop_loose_verts; kit needs K11-K14) and an LOD2
-    list that repeats lod1_extra (lodge.delete_lists does not carry it; K15).
+Kit adaptations (R25). The build report lists each one:
+- Glazing = cs2_bldg window_bay / curtain_wall panes 0.05 PROUD of the wall (no wall holes). Full-glass walls get a
+  `glass_dark` backing box (density w 0.5), so the room is closed and cull_hidden removes its interior faces.
+- LOD2 = cs2_bldg.lod_chain (delete + protected collapse) sampling the LOD0 atlas. There is no proxy and no reserved rect.
+  Skeptic MUST-CHANGE 5 is moot because the rect costs nothing.
+- No bay sharing. The kit has no instance()/share_signature. Contract 7.3 "on for L5" is a kit need.
+- Pool water is a painted glossy plane (`lux_water`, MaskMap smooth 0.95). cs2_submesh whitelists `_Wat` but lodge.py routes
+  only `_Win`. A `_Wat` probe is an import-session item, not a recipe change.
+- The clock tower is IN the L5 mesh behind lodge.py's --tower/--no-tower switch (default on). It is exposed as clock_tower()
+  for reuse (tram base station). It is not a separate SkiClockTowerA asset.
+- The swanky palette is eight recipe-local BldgMat entries registered at build time (register_materials, additive keys
+  "lux_*" only). A material registry is a kit need.
+- Revision 1 coplanar hygiene on kit-built parts (split_double_doors, inset_transom_ends, drop_faces_above,
+  flip_dormer_cheeks, drop_loose_verts) covers kit needs K11-K14. Revision 1 also adds an LOD2 list that repeats lod1_extra,
+  because lodge.delete_lists does not carry it (K15).
 
-Every geometry contract of section 9 that can be checked on the parts is asserted in
-build_l5() (a wrong build raises); C10-C15 on the joined / exported meshes are asserted by
-tests/test_lodges_swanky.py.
+build_l5() asserts every geometry contract of section 9 that can be checked on the parts (a wrong build raises).
+tests/test_lodges_swanky.py asserts C10-C15 on the joined / exported meshes.
 """
 
 import math
@@ -130,8 +114,8 @@ from bldg_recipes import Budget, Recipe   # noqa: E402
 from fine_detail import AFRAME_RACKS, FineRecipe, SignSetSpec, kit_row   # noqa: E402  (bpy-free)
 
 # ======================================================================================
-# Shared swanky helpers (used by recipes/l4_swanky_top.py too). bpy-free at import: the
-# kit (cs2_bldg -> bpy) is imported lazily inside the functions.
+# Shared swanky helpers (L4 uses them too: recipes/l4_swanky_top.py). The module is bpy-free at import. The kit (cs2_bldg ->
+# bpy) is imported lazily inside the functions.
 # ======================================================================================
 
 
@@ -156,12 +140,12 @@ def _lin2srgb(c):
 SIDING_RED_LIN = (0.200, 0.100, 0.068)
 SIDING_WALNUT_LIN = (0.140, 0.080, 0.050)
 STONE_TAN_LIN = (0.300, 0.169, 0.0996)
-# T90 (2026-10-19, item 13 "outer wood trimmings are still too light"): the exposed structural timber (porch
-# and gable trusses, beams, posts, outriggers, clock-tower trim, deck rails) is ONE walnut-family stain, TRIM_WOOD_LIN,
-# a step lighter than the cladding (SIDING_WALNUT_LIN 0.14): it was the honey glulam (0.50, 0.24, 0.10), the brightest
-# surface of the building in the 2026-10-18 shots. T65 had split the balustrades off as BALRAIL_LIN (0.22, 0.10, 0.045);
-# they now share the constant (one constant per family). The porch gable boarding (lux_tg) follows at 1.5x so the
-# trusses still read dark in front of it.
+# T90 (2026-10-19, item 13 "outer wood trimmings are still too light"): the exposed structural timber (porch and gable
+# trusses, beams, posts, outriggers, clock-tower trim, deck rails) is ONE walnut-family stain, TRIM_WOOD_LIN, a step lighter
+# than the cladding (SIDING_WALNUT_LIN 0.14). It was the honey glulam (0.50, 0.24, 0.10), the brightest surface of the
+# building in the 2026-10-18 shots. T65 gave the balustrades their own constant, BALRAIL_LIN (0.22, 0.10, 0.045). They now
+# share TRIM_WOOD_LIN (one constant per family). The porch gable boarding (lux_tg) follows at 1.5x, so the trusses still
+# read dark in front of it.
 TRIM_WOOD_LIN = (0.20, 0.09, 0.040)
 GLULAM_LIN = TRIM_WOOD_LIN
 BALRAIL_LIN = TRIM_WOOD_LIN
@@ -169,14 +153,14 @@ TG_LIN = (0.30, 0.135, 0.060)
 
 
 def swanky_materials():
-    """{key: BldgMat} of the recipe-local swanky materials (additive keys, `lux_` prefix)."""
+    """Returns {key: BldgMat} for the recipe-local swanky materials (additive keys, `lux_` prefix)."""
     K = _kit()
     BM = K.BldgMat
     return {
-        # 8 courses per tile at 0.175 m exposure -> 2.8 x 1.4 (contract 6; 2:1 set)
+        # 8 courses per tile at 0.175 m exposure -> 2.8 x 1.4 (contract 6, 2:1 set)
         "lux_siding_red": BM("WoodSiding009", (2.8, 1.4), _lin2srgb(SIDING_RED_LIN)),
         "lux_siding_walnut": BM("WoodSiding009", (2.8, 1.4), _lin2srgb(SIDING_WALNUT_LIN)),
-        # vertical boards (clock-tower shaft): same set rotated 90 deg
+        # Vertical boards (clock-tower shaft). The same set is rotated 90 deg.
         "lux_vboard_red": BM("WoodSiding009", (1.4, 2.8), _lin2srgb(SIDING_RED_LIN),
                              detail=K.BATTEN, uv_rot=90),
         "lux_stone_tan": BM("Bricks096", (2.4, 1.2), _lin2srgb(STONE_TAN_LIN), smooth=0.22),
@@ -187,37 +171,37 @@ def swanky_materials():
         # fire-pit ember disc (emissive, LOD0 only)
         "lux_ember": BM(None, None, (0.32, 0.14, 0.06), smooth=0.3,
                         emissive_srgb=(1.0, 0.55, 0.25)),
-        # slate at the contract's roof weight 0.60 (kit slate 0.8): roofs dominate the view
-        # but carry little detail (contract 7.2 weights)
+        # Slate at the contract's roof weight 0.60 (kit slate 0.8). Roofs dominate the view but carry little detail
+        # (contract 7.2 weights).
         "lux_slate": BM("RoofingTiles003", (3.2, 3.2), None, density_w=0.6, proj="inplane"),
         # --- L5 revision 1 (2026-10-11, Peak 7 reference) ------------------------------
-        # balcony balustrades: honey glulam color as vertical boards with batten grooves
-        # (Peak 7's orange baluster rails read as a slatted band at game distance)
+        # Balcony balustrades: honey glulam color as vertical boards with batten grooves (Peak 7's orange baluster rails
+        # read as a slatted band at game distance)
         "lux_balrail": BM("WoodSiding009", (1.2, 2.4), _lin2srgb(BALRAIL_LIN), detail=K.BATTEN,
                           uv_rot=90, density_w=0.6),
         # pool deck / walkway pavers (the photo's red-brown pavers): Bricks096 laid flat
         "lux_paver": BM("Bricks096", (1.6, 0.8), (0.52, 0.34, 0.28), smooth=0.20,
                         density_w=0.5),
-        # pool water: painted glossy plane (MaskMap smooth 0.95); no `_Wat` route in lodge.py
+        # Pool water: painted glossy plane (MaskMap smooth 0.95). lodge.py has no `_Wat` route.
         "lux_water": BM(None, None, (0.07, 0.36, 0.45), smooth=0.95, density_w=0.25),
         # pool / tub inner walls (light aqua tile)
         "lux_pooltile": BM(None, None, (0.55, 0.78, 0.82), smooth=0.60, density_w=0.4),
-        # the kit "trim" (slot-1 recolor, flat) at density weight 0.5: fascia, rake, belt
-        # and corner boards are flat color whose texels carry AO only (~1,100 m2 on L5 r1)
+        # The kit "trim" (slot-1 recolor, flat) at density weight 0.5. Fascia, rake, belt and corner boards are flat color
+        # whose texels carry AO only (~1,100 m2 on L5 r1).
         "lux_trim": BM(None, None, (0.80, 0.80, 0.80), smooth=0.45, slot=1, recolor=True,
                        density_w=0.5),
-        # --- L5 revision 2 (2026-10-11, plaza): planter shrubs and the small conifers (flat
-        # dark spruce green; no CC0 foliage set in assets/textures). Unused since revision 3
-        # (vanilla trees / pots); kept as an additive key (L4 / L5 hashes do not read it)
+        # --- L5 revision 2 (2026-10-11, plaza): planter shrubs and the small conifers (flat dark spruce green, with no CC0
+        # foliage set in assets/textures). Unused since revision 3 (vanilla trees / pots). Kept as an additive key (L4 / L5
+        # hashes do not read it).
         "lux_hedge": BM(None, None, (0.13, 0.22, 0.11), smooth=0.10, density_w=0.3),
         # --- L5 revision 3 (2026-10-11, valet drive): the drive surface, gray concrete a
         # shade darker than the kit's (0.58 tint) so the loop reads against the paver walks
         "lux_drive": BM("Concrete034", (3.0, 1.5), (0.36, 0.36, 0.37), smooth=0.18,
                         density_w=0.4),
-        # --- revision 4 (2026-10-12, eighteenth look "the front triangle ... empty space you can
-        # see into"): tongue-and-groove gable boarding behind the porte-cochere trusses (L5) and
-        # the L4 entry porch: narrow vertical boards (0.15 m joints, the kit BATTEN is 0.30) in a
-        # cedar tone a step darker than the glulam so the truss reads in front of it
+        # --- revision 4 (2026-10-12, eighteenth look "the front triangle ... empty space you can see into"):
+        # tongue-and-groove gable boarding behind the porte-cochere trusses (L5) and the L4 entry porch. They are narrow
+        # vertical boards (0.15 m joints, the kit BATTEN is 0.30) in a cedar tone a step darker than the glulam, so the
+        # truss reads in front of it.
         "lux_tg": BM("WoodSiding009", (1.2, 2.4), _lin2srgb(TG_LIN), uv_rot=90,
                      detail=_tg_detail(), density_w=1.0),
     }
@@ -231,8 +215,8 @@ def _tg_detail():
 
 
 def register_materials():
-    """Add the swanky materials to cs2_bldg.BLDG_MATERIALS (idempotent; raises if a key
-    already exists with a different definition). Called by the builders, never at import."""
+    """Add the swanky materials to cs2_bldg.BLDG_MATERIALS (idempotent). Raises if a key already exists with a different
+    definition. The builders call it. It never runs at import."""
     K = _kit()
     for k, m in sorted(swanky_materials().items()):
         cur = K.BLDG_MATERIALS.get(k)
@@ -242,8 +226,8 @@ def register_materials():
 
 
 def world_coords(obj):
-    """World vertex coords of an unparented part (matrix_basis: matrix_world is stale until
-    a depsgraph update, and the cs2_kit door / handrail parts carry loc + rot)."""
+    """Returns the world vertex coords of an unparented part. It uses matrix_basis because matrix_world is stale until a
+    depsgraph update, and the cs2_kit door / handrail parts carry loc + rot."""
     import numpy as np
     me = obj.data
     co = np.empty(len(me.vertices) * 3, np.float32)
@@ -295,10 +279,9 @@ def check(cond, msg):
 
 
 def check_panes(parts, max_h, lines_of, tag):
-    """C8 (kit form, R25): every `win_` part is ONE quad (cs2_bldg panes sit 0.05 proud of
-    the wall); no pane taller than max_h; no pane crosses a story line of its own mass
-    (`lines_of(xc, yc)` -> story-line z values at the pane center: a transom at every
-    story line). Returns the pane count."""
+    """C8 (kit form, R25): every `win_` part is ONE quad (cs2_bldg panes sit 0.05 proud of the wall). No pane is taller than
+    max_h. No pane crosses a story line of its own mass (`lines_of(xc, yc)` -> story-line z values at the pane center: a
+    transom at every story line). Returns the pane count."""
     n = 0
     for o, _m in parts:
         if not o.name.startswith("win_"):
@@ -318,8 +301,8 @@ def check_panes(parts, max_h, lines_of, tag):
 
 
 def roof_face_counts(parts):
-    """C7: {roof part: face count} straight from the builders (dormers / cross gables are
-    additive parts; nothing ever cuts a roof_ part)."""
+    """C7: returns {roof part: face count} straight from the builders. Dormers / cross gables are additive parts. Nothing ever
+    cuts a roof_ part."""
     return {o.name: len(o.data.polygons) for o, _m in parts if o.name.startswith("roof_")}
 
 
@@ -333,10 +316,9 @@ PANE_CLEAR_M = 0.6
 
 def check_pane_clearance(parts, tag, blockers=PANE_BLOCKERS, dist=PANE_CLEAR_M,
                          grid=(0.25, 0.5, 0.75)):
-    """Pane-ray contract: 9 rays per `win_` pane (inner grid points of the quad, along its
-    outward normal) must not hit a `blockers` part within `dist` m. Raises on any hit and
-    names the pane and the part; returns the number of panes checked. Panes are one quad
-    each (check_panes), so the polygon's loop order is cyclic (bilinear corners)."""
+    """Pane-ray contract: 9 rays per `win_` pane (inner grid points of the quad, along its outward normal) must not hit a
+    `blockers` part within `dist` m. Raises on any hit and names the pane and the part. Returns the number of panes checked.
+    Panes are one quad each (check_panes), so the polygon's loop order is cyclic (bilinear corners)."""
     import numpy as np
     from mathutils import Vector
     from mathutils.bvhtree import BVHTree
@@ -408,8 +390,8 @@ def disc_part(name, cx, cy, z, r, mat, segs=12):
 
 
 def member(name, p0, p1, w, h, mat="lux_glulam", up=(0.0, 0.0, 1.0)):
-    """One glulam member as its OWN part (grain per member: the kit "along" projection runs
-    along a part's principal axis, so a truss built as one part would get one grain)."""
+    """One glulam member as its OWN part. The grain is per member: the kit "along" projection runs along a part's principal
+    axis, so a truss built as one part would get one grain."""
     K = _kit()
     from mathutils import Vector
     g = K._Geo()
@@ -418,8 +400,8 @@ def member(name, p0, p1, w, h, mat="lux_glulam", up=(0.0, 0.0, 1.0)):
 
 
 def curved_member(name, pts, w, h, mat="lux_glulam", up=(0.0, 0.0, 1.0)):
-    """A curved brace as one part: OBB segments along a polyline (4-6 points); structure v1 round 2: ONE mitred
-    beam through the points (cs2_bldg._mitred_into: rings shared, no notch at a joint)."""
+    """A curved brace as one part: OBB segments along a polyline (4-6 points). Structure v1 round 2: ONE mitered beam through
+    the points (cs2_bldg._mitred_into: rings shared, no notch at a joint)."""
     K = _kit()
     from mathutils import Vector
     g = K._Geo()
@@ -442,7 +424,7 @@ def arc_pts(a, b, sag, n=4):
 
 
 def renamed(parts, mapping):
-    """Rename kit parts (exact old -> new) raising on duplicates (no .001)."""
+    """Rename kit parts (exact old -> new). Raises on duplicates (no .001)."""
     K = _kit()
     for o, _m in parts:
         if o.name in mapping:
@@ -450,11 +432,15 @@ def renamed(parts, mapping):
     return parts
 
 
-# --- below-grade variants (plinth mode). cs2_bldg.curtain_wall clamps z0 >= 0.08, rail()
-# lifts every path point to >= 0.02, col() / umbrella() / entry() lift their base to 0.02:
-# all engine-mode assumptions that would float L4's terrace (deck -2.55) furniture at grade.
-# These copies keep the kit's names, prefixes and proportions and take z as given (a kit
-# need, build report). ------------------------------------------------------------------
+# --- below-grade variants (plinth mode). These engine-mode assumptions would float the furniture of L4's terrace (deck
+# -2.55) at grade:
+# - cs2_bldg.curtain_wall clamps z0 >= 0.08.
+# - rail() lifts every path point to >= 0.02.
+# - col() / umbrella() / entry() lift their base to 0.02.
+#
+# These copies keep the kit's names, prefixes and proportions and take z as given (a kit need, build report).
+# ------------------------------------------------------------------
+# ------------------------------------------------------------------
 
 def curtain_rows(name, wall, u0, u1, zs, ncol=None, grid_u=1.6, mullion=0.08, room=None,
                  per_row_rooms=False):
@@ -509,10 +495,10 @@ def post_lantern(name, x, y, z0, h=3.2, size=0.12):
 
 
 def glass_balustrade(name, path, h=1.10, post_every=1.5, panel=(0.10, 1.05)):
-    """Glass balustrade along a floor-level polyline (no grade lift): slot-1 `post_<name>`
-    posts every <= post_every, `rail_<name>` top rail, opaque `glassrail_<name>` panels
-    (glass_dark, 0.02 thick, z + panel[0] .. z + panel[1]; opaque per the kit's glass rail,
-    no alpha cutout) - contract 4.2 T balustrade with the kit's glass rule."""
+    """Glass balustrade along a floor-level polyline (no grade lift). It builds slot-1 `post_<name>` posts every <= post_every,
+    a `rail_<name>` top rail, and opaque `glassrail_<name>` panels (glass_dark, 0.02 thick, z + panel[0] .. z + panel[1]).
+    The panels are opaque per the kit's glass rail, with no alpha cutout. This follows contract 4.2 T balustrade with the
+    kit's glass rule."""
     K = _kit()
     from mathutils import Vector
     pts = [Vector(p) for p in path]
@@ -545,8 +531,8 @@ def handrail_at(name, path, h=1.10):
 
 
 def prism_xz(name, profile, y0, y1, mat, caps=(True, True)):
-    """Prism: an XZ polygon `profile` [(x, z), ...] extruded from y0 to y1; caps = (face at
-    y0, face at y1) - drop the cap that faces a closed hollow (walls are only contact-culled)."""
+    """Prism: an XZ polygon `profile` [(x, z), ...] extruded from y0 to y1. caps = (face at y0, face at y1). Drop the cap that
+    faces a closed hollow (walls are only contact-culled)."""
     K = _kit()
 
     def build(g):
@@ -555,8 +541,7 @@ def prism_xz(name, profile, y0, y1, mat, caps=(True, True)):
 
 
 def prism_yz(name, profile, x0, x1, mat, caps=(True, True)):
-    """Prism: a YZ polygon `profile` [(y, z), ...] extruded from x0 to x1; caps = (face at
-    x0, face at x1)."""
+    """Prism: a YZ polygon `profile` [(y, z), ...] extruded from x0 to x1. caps = (face at x0, face at x1)."""
     K = _kit()
 
     def build(g):
@@ -575,12 +560,11 @@ def pier_box(name, lo, hi, mat, drop=(), cap=0.15):
 
 
 def unbevelled(parts, old, new):
-    """Rename `old`-prefixed parts to `new` + the rest of the name. Used for MULTI-member
-    glulam parts (kit trusses, post rows): cs2_bldg.bevel_parts bevels truss_/col_/beam_ and
-    retile then maps every chamfer / corner face of a multi-axis part as its own UV island
-    (L5: 1,043 truss islands of 3,845; bevel corner triangles 0.0008 m2 sat 1.3x above
-    cs2_uv's zero-island limit after the pack). `trim_` keeps the LOD semantics (LOD1 keep,
-    LOD2 delete) and the material weight; single members keep their bevel."""
+    """Rename `old`-prefixed parts to `new` + the rest of the name. Used for MULTI-member glulam parts (kit trusses, post
+    rows). cs2_bldg.bevel_parts bevels truss_/col_/beam_, and retile then maps every chamfer / corner face of a multi-axis
+    part as its own UV island (L5: 1,043 truss islands of 3,845. Bevel corner triangles of 0.0008 m2 sat 1.3x above cs2_uv's
+    zero-island limit after the pack). `trim_` keeps the LOD semantics (LOD1 keep, LOD2 delete) and the material weight.
+    Single members keep their bevel."""
     K = _kit()
     for o, _m in parts:
         if o.name.startswith(old):
@@ -589,9 +573,8 @@ def unbevelled(parts, old, new):
 
 
 def strip_tiny_faces(parts, names, max_area=2e-3):
-    """Delete faces smaller than max_area from the matching parts (snow-guard bar end caps:
-    0.0003 m2 6-gon fans, invisible, but below cs2_uv's zero-area island limit after a
-    ~3,800-island pack - the L5 dry pack raised on them)."""
+    """Delete faces smaller than max_area from the matching parts (snow-guard bar end caps). These are 0.0003 m2 6-gon fans,
+    invisible, but below cs2_uv's zero-area island limit after a ~3,800-island pack. The L5 dry pack raised on them."""
     import bmesh
     n = 0
     for o, _m in parts:
@@ -610,12 +593,11 @@ def strip_tiny_faces(parts, names, max_area=2e-3):
 
 
 def retag_rooms(parts, fn):
-    """Rename every pane `win_<room>_<rest>` to `win_<fn(room)>_<rest>` and return the sorted
-    room tags. cs2_bldg.split_rooms tiles each ROOM into its id's cell separately, so two
-    rooms that share an id (assign_rooms reuses ids beyond 3 m once there are more rooms
-    than the 23-id pool) land on the same cell texels: the L5 export with 61 rooms failed
-    cs2_validate's `_Win` overlap check (60.6 % of the pane texels). <= 23 tags -> every tag
-    gets its own id and the panes of a tag are tiled without overlap (C13)."""
+    """Rename every pane `win_<room>_<rest>` to `win_<fn(room)>_<rest>` and return the sorted room tags. cs2_bldg.split_rooms
+    tiles each ROOM into its id's cell separately. So two rooms that share an id land on the same cell texels (assign_rooms
+    reuses ids beyond 3 m once there are more rooms than the 23-id pool). The L5 export with 61 rooms failed cs2_validate's
+    `_Win` overlap check (60.6 % of the pane texels). With <= 23 tags, every tag gets its own id and the panes of a tag are
+    tiled without overlap (C13)."""
     K = _kit()
     tags = set()
     for o, _m in parts:
@@ -641,12 +623,12 @@ def corner_boards(name, corners, z0, z1, mat="trim", s=0.18):
                                          for x, y in corners], mat)
 
 
-# --- coplanar hygiene (L5 revision 1, 2026-10-11). test_lodges_swanky's coplanar contract
-# (no two parts with same-facing overlapping faces on the shipped LOD0) found 37 pairs on the
-# first revision-1 build, all made by kit builders, none removable by cull_hidden (they are
-# partial overlaps, not duplicates). These helpers fix them recipe-side; each one is a kit
-# need in build/lodges-swanky.md "Revision 1". New helpers only: the shared ones L4 calls
-# are unchanged (its shipped mesh hash must not move). ----------------------------------
+# --- coplanar hygiene (L5 revision 1, 2026-10-11). test_lodges_swanky's coplanar contract (no two parts with same-facing
+# overlapping faces on the shipped LOD0) found 37 pairs on the first revision-1 build. Kit builders made all of them.
+# cull_hidden cannot remove any of them, because they are partial overlaps, not duplicates. These helpers fix them
+# recipe-side. Each one is a kit need in build/lodges-swanky.md "Revision 1". Only new helpers are added. The shared ones
+# that L4 calls are unchanged (its shipped mesh hash must not move).
+# ----------------------------------
 
 def _drop_parts(parts, names):
     """Remove the parts named in `names` from the list `parts` (in place) and delete their
@@ -671,10 +653,9 @@ def _identity(o):
 
 
 def split_double_doors(parts):
-    """cs2_bldg.entry builds a two-leaf door as two cs2_kit.door leaves whose meeting jambs
-    (`door_<n>0_jamb1`, `door_<n>1_jamb0`) overlap by 2 cm and run up through the other
-    leaf's head: same-facing coplanar faces. Drop both meeting jambs, so the leaves meet on
-    a 2 cm reveal. Returns the number of parts removed."""
+    """cs2_bldg.entry builds a two-leaf door as two cs2_kit.door leaves. Their meeting jambs (`door_<n>0_jamb1`,
+    `door_<n>1_jamb0`) overlap by 2 cm and run up through the other leaf's head. These are same-facing coplanar faces. Drop
+    both meeting jambs, so the leaves meet on a 2 cm reveal. Returns the number of parts removed."""
     names = {o.name for o, _m in parts}
     dead = set()
     for nm in sorted(names):
@@ -686,10 +667,9 @@ def split_double_doors(parts):
 
 
 def inset_transom_ends(parts, inset=0.005):
-    """cs2_bldg.curtain_wall (and the hall-gable grid) ends every transom box exactly on the
-    outer face of the end mullion: same-facing coplanar end caps. Pull both ends of every
-    `ctran_` part in along its wall by `inset`, so the caps sit inside the end mullions.
-    The wall's along-axis is the part's longer horizontal extent. Returns the count."""
+    """cs2_bldg.curtain_wall (and the hall-gable grid) ends every transom box exactly on the outer face of the end mullion.
+    This makes same-facing coplanar end caps. Move both ends of every `ctran_` part inward along its wall by `inset`, so the
+    caps sit inside the end mullions. The wall's along-axis is the part's longer horizontal extent. Returns the count."""
     import numpy as np
     n = 0
     for o, _m in parts:
@@ -713,9 +693,9 @@ def inset_transom_ends(parts, inset=0.005):
 
 
 def drop_faces_above(parts, name, z):
-    """Delete the faces of part `name` whose vertices all lie at z >= `z` (one transom box
-    of a kit curtain_wall: the hall's lower curtains and the upper one each build a transom
-    at 4.5, the same box twice). Returns the number of faces deleted."""
+    """Delete the faces of part `name` whose vertices all lie at z >= `z`. This is one transom box of a kit curtain_wall: the
+    hall's lower curtains and the upper one each build a transom at 4.5, the same box twice. Returns the number of faces
+    deleted."""
     import bmesh
     for o, _m in parts:
         if o.name != name:
@@ -734,13 +714,11 @@ def drop_faces_above(parts, name, z):
 
 
 def turn_posts(parts, prefix, deg=30.0):
-    """cs2_kit.handrail builds its posts as 6-gons with fixed flats facing +-X (and +-60 deg)
-    and its rails as 6-gon tubes framed on the run; a rail running along Y (the revision-3
-    deck stair) then has side faces facing +-X that lie on the posts' +-X flats inside every
-    post (14 same-facing coplanar pairs on the first r3 build; the revision-2 stair ran along
-    X and had none). Turn each `prefix` post's mesh by `deg` about its own axis (the object
-    origin; the kit posts carry loc on the object), so no flat faces +-X. Returns the count.
-    Kit need K21 (handrail posts oriented to the run)."""
+    """cs2_kit.handrail builds its posts as 6-gons with fixed flats facing +-X (and +-60 deg), and its rails as 6-gon tubes
+    framed on the run. A rail running along Y (the revision-3 deck stair) then has side faces facing +-X that lie on the
+    posts' +-X flats inside every post (14 same-facing coplanar pairs on the first r3 build). The revision-2 stair ran along
+    X and had none. Turn each `prefix` post's mesh by `deg` about its own axis (the object origin, because the kit posts
+    carry loc on the object), so no flat faces +-X. Returns the count. Kit need K21 (handrail posts oriented to the run)."""
     from mathutils import Matrix
     R = Matrix.Rotation(math.radians(deg), 4, "Z")
     n = 0
@@ -754,10 +732,9 @@ def turn_posts(parts, prefix, deg=30.0):
 
 
 def drop_loose_verts(parts):
-    """Delete vertices no face uses from every part (a box_part with all faces at a corner
-    dropped keeps that corner; cs2_bldg.split_rooms then copies such verts into every room
-    of `_Win`: the first r1 export had 42 at the glass backing's z-0 back corners, so the
-    `_Win` bounds reached grade). Returns the number of vertices deleted."""
+    """Delete vertices no face uses from every part. A box_part with all faces at a corner dropped keeps that corner.
+    cs2_bldg.split_rooms then copies such verts into every room of `_Win`. The first r1 export had 42 at the glass backing's
+    z-0 back corners, so the `_Win` bounds reached grade. Returns the number of vertices deleted."""
     import bmesh
     n = 0
     for o, _m in parts:
@@ -777,10 +754,9 @@ def drop_loose_verts(parts):
 
 
 def flip_dormer_cheeks(parts, name, side, t=0.12):
-    """cs2_bldg.dormer extrudes the two cheek prisms INTO the dormer on the -X and +Y roof
-    sides (its thickness sign is flipped twice there), so each cheek's outer face lies on
-    the front box's side face: same-facing coplanar. Move both cheeks of `dormer_<name>`
-    out by their thickness t, as the kit builds them on the +X and -Y sides."""
+    """cs2_bldg.dormer extrudes the two cheek prisms INTO the dormer on the -X and +Y roof sides (its thickness sign is flipped
+    twice there). So each cheek's outer face lies on the front box's side face: same-facing coplanar. Move both cheeks of
+    `dormer_<name>` outward by their thickness t, as the kit builds them on the +X and -Y sides."""
     if side not in ("-X", "+Y"):
         return 0
     import numpy as np
@@ -807,10 +783,10 @@ def flip_dormer_cheeks(parts, name, side, t=0.12):
 
 
 # ======================================================================================
-# Revision 4 shared helpers (2026-10-12, verdicts-2026-10-11.md "Eighteenth look"): REAL door
-# openings (cut_recess + terrace_door + check_door), the clear-box and see-through ray
-# contracts, the preview cameras and true close-up previews. recipes/l4_swanky_top.py (its
-# revision 1) uses them too. bpy-free at import (Blender modules are imported in the bodies).
+# Revision 4 shared helpers (2026-10-12, verdicts-2026-10-11.md "Eighteenth look"): REAL door openings (cut_recess +
+# terrace_door + check_door), the clear-box and see-through ray contracts, the preview cameras and true close-up previews.
+# recipes/l4_swanky_top.py (its revision 1) uses them too. Blender modules are imported in the function bodies, so the
+# module is bpy-free at import.
 # ======================================================================================
 
 DOOR_W, DOOR_H = 1.80, 2.30        # clear opening w x h (the gondola follow-up's door standard)
@@ -845,14 +821,16 @@ def _side_axes(side):
 
 
 def cut_recess(obj, side, plane, a0, a1, z0, z1, depth):
-    """Cut a REAL opening into the host part `obj` (identity transform): its faces on the wall
-    (side, plane) are bisected at the world along-coordinates a0 / a1 and the heights z0 / z1,
-    the rectangle is extruded `depth` m INTO the building (bmesh extrude_face_region; the
-    flipped original left on the wall plane is deleted), so its four side faces become the
-    reveal - jambs facing the opening, the head facing down, the sill (the threshold) facing up
-    at z0 - and the moved rectangle the recess back. The wall stays closed and welded (no hole
-    into the hollow story box; the LOD collapse cannot open a crack). Raises unless the
-    rectangle lies wholly on that wall (area check). Returns the number of faces added."""
+    """Cut a REAL opening into the host part `obj` (identity transform). The steps:
+
+    1. Bisect its faces on the wall (side, plane) at the world along-coordinates a0 / a1 and the heights z0 / z1.
+    2. Extrude the rectangle `depth` m INTO the building (bmesh extrude_face_region).
+    3. Delete the flipped original left on the wall plane.
+
+    The four side faces of the rectangle become the reveal: jambs facing the opening, the head facing down, and the sill
+    (the threshold) facing up at z0. The moved rectangle becomes the recess back. The wall stays closed and welded (no hole
+    into the hollow story box, so the LOD collapse cannot open a crack). Raises unless the rectangle lies wholly on that
+    wall (area check). Returns the number of faces added."""
     import bmesh
     from mathutils import Vector
     check(_identity(obj), f"{obj.name}: host part has a transform")
@@ -878,9 +856,9 @@ def cut_recess(obj, side, plane, a0, a1, z0, z1, depth):
         vs = [v.co[axis] for v in f.verts]
         return min(vs) < hi - 1e-5 and max(vs) > lo + 1e-5
     nf0 = len(bm.faces)
-    # the cuts stay local (the LOD chain protects ground parts from collapse, so every split of a
-    # ground wall ships at LOD2): the two vertical cuts only through the wall faces the opening
-    # overlaps, the two horizontal ones only through the faces between those vertical cuts
+    # The cuts stay local. The LOD chain protects ground parts from collapse, so every split of a ground wall ships at LOD2.
+    # The two vertical cuts go only through the wall faces that the opening overlaps. The two horizontal cuts go only
+    # through the faces between those vertical cuts.
     for axis, val in ((al, a0), (al, a1), (2, z0), (2, z1)):
         if axis == al:
             fs = [f for f in on_wall() if spans(f, al, a0, a1) and spans(f, 2, z0, z1)]
@@ -908,7 +886,7 @@ def cut_recess(obj, side, plane, a0, a1, z0, z1, depth):
         if abs(c[ax] - plane) < 1e-4 and inside(f):
             left.append(f)
     bmesh.ops.delete(bm, geom=left, context="FACES_ONLY")
-    # the reveal faces face the opening; the back faces out (asserted, flipped if not)
+    # The reveal faces face the opening. The back faces out (asserted, flipped if not).
     ac, zc = 0.5 * (a0 + a1), 0.5 * (z0 + z1)
     lo_d, hi_d = sorted((plane, plane - sg * depth))
     for f in bm.faces:
@@ -938,17 +916,19 @@ def cut_recess(obj, side, plane, a0, a1, z0, z1, depth):
 def terrace_door(tag, side, plane, s, z0, room, *, w=DOOR_W, h=DOOR_H, set_back=DOOR_SET,
                  frame=DOOR_FRAME, frame_sides=True, frame_mat="lux_glulam", leaf_mat="trim",
                  metal="galv"):
-    """French terrace door for a REAL opening (the caller cuts it into the host with
-    cut_recess(host, side, plane, *door["rough_a"], *door["rough_z"], set_back)): centered on
-    the world along-coordinate `s` of the wall (side, plane), threshold at z0 (the outside
-    surface), clear opening w x h. Parts: `glassback_<tag>` the dark glass backing 0.01 in
-    front of the recess back (kept at every LOD: the recess never shows the stone / hollow);
-    `doorsill_<tag>` a metal threshold strip on the recess floor; `door_<tag>_frame` the fixed
-    jambs (frame_sides; L4 uses its glulam posts instead) and head outside the clear opening;
-    per leaf k (two leaves meeting on the center line) `door_<tag>_leaf<k>` stiles + rails, a
-    lite `win_<room>_<tag>l<k>` (one pane: it glows with the room at night), the kick plate
-    `door_<tag>_kick<k>` and a pull bar on stand-offs `door_<tag>_pull<k>`. Returns (parts,
-    door) - `door` holds what cut_recess and check_door need."""
+    """French terrace door for a REAL opening. The caller cuts the opening into the host with cut_recess(host, side, plane,
+    *door["rough_a"], *door["rough_z"], set_back). The door is centered on the world along-coordinate `s` of the wall (side,
+    plane), with the threshold at z0 (the outside surface) and a clear opening w x h. Parts:
+    - `glassback_<tag>`: the dark glass backing 0.01 in front of the recess back (kept at every LOD: the recess never shows
+      the stone / hollow).
+    - `doorsill_<tag>`: a metal threshold strip on the recess floor.
+    - `door_<tag>_frame`: the fixed jambs (frame_sides: L4 uses its glulam posts instead) and head outside the clear
+      opening.
+    - Per leaf k (two leaves meeting on the center line): `door_<tag>_leaf<k>` stiles + rails, a lite `win_<room>_<tag>l<k>`
+      (one pane: it glows with the room at night), the kick plate `door_<tag>_kick<k>` and a pull bar on stand-offs
+      `door_<tag>_pull<k>`.
+
+    Returns (parts, door). `door` holds what cut_recess and check_door need."""
     K = _kit()
     from cs2_bldg import WallRef
     wall = WallRef(side, plane)
@@ -993,7 +973,7 @@ def terrace_door(tag, side, plane, s, z0, room, *, w=DOOR_W, h=DOOR_H, set_back=
 
 
 def _bvh_of(parts, skip=()):
-    """(BVHTree, owner per polygon) of the parts' world faces (parts named in `skip` left out)."""
+    """Returns (BVHTree, owner per polygon) of the parts' world faces. Parts named in `skip` are left out."""
     from mathutils import Vector
     from mathutils.bvhtree import BVHTree
     verts, polys, owner = [], [], []
@@ -1011,15 +991,15 @@ def _bvh_of(parts, skip=()):
 
 def check_door(parts, door, host, grid=(9, 7)):
     """Revision-4 door contract (raises naming the door and the part):
-      D1 REAL opening: rays from 0.5 m outside, along the inward normal, over a grid of the clear
-         opening (inset 0.02 m) meet no part of the host wall in front of the recess back and
-         reach the door (glass backing, leaves, lites) no nearer than DOOR_REAL_MIN behind the
-         face (pulls / kick plates may stand proud of the leaves);
-      D2 clear opening w x h: the first hit of every such ray is a movable or glazing part of the
-         door (leaf, lite, kick plate, pull, backing) - never a fixed frame, transom, mullion,
-         post or rail (the frame stands outside the clear opening);
-      D3 threshold on the terrace surface: the recess floor (the metal strip) at z0 +- 0.02 and the
-         surface 0.3 m outside the door at z0 +- 0.02, both facing up.
+    - D1 REAL opening: rays from 0.5 m outside, along the inward normal, over a grid of the clear opening (inset 0.02 m)
+      meet no part of the host wall in front of the recess back. They reach the door (glass backing, leaves, lites) no
+      nearer than DOOR_REAL_MIN behind the face (pulls / kick plates may stand proud of the leaves).
+    - D2 clear opening w x h: the first hit of every such ray is a movable or glazing part of the door (leaf, lite, kick
+      plate, pull, backing). It is never a fixed frame, transom, mullion, post or rail (the frame stands outside the clear
+      opening).
+    - D3 threshold on the terrace surface: the recess floor (the metal strip) at z0 +- 0.02 and the surface 0.3 m outside
+      the door at z0 +- 0.02, both facing up.
+
     Returns a dict for the report."""
     from mathutils import Vector
     K = _kit()
@@ -1104,11 +1084,10 @@ def check_clear_boxes(parts, boxes, prefixes=("gutter_", "downspout_")):
 
 
 def preview_cameras(parts, views, shift=0.0):
-    """{view: camera position (authoring frame of `parts`)} of cs2_preview's framing
-    (lift_tower.frame_camera: bounding sphere of the whole build, 45 deg lens, 1300 x 1000,
-    margin 1.12) for preview-frame directions (bx, by, bz) -> authoring (-by, bx, bz) (the
-    joined mesh is orient_for_net'ed (x, y) -> (y, -x)). Pre-shift parts give pre-shift
-    cameras (the build only translates)."""
+    """Returns {view: camera position (authoring frame of `parts`)} of cs2_preview's framing (lift_tower.frame_camera: bounding
+    sphere of the whole build, 45 deg lens, 1300 x 1000, margin 1.12) for preview-frame directions (bx, by, bz) -> authoring
+    (-by, bx, bz). The joined mesh is orient_for_net'ed (x, y) -> (y, -x). Pre-shift parts give pre-shift cameras (the build
+    only translates)."""
     import numpy as np
     lo, hi = parts_bounds(parts)
     centre, radius = (lo + hi) / 2.0, float(np.linalg.norm(hi - lo)) / 2.0
@@ -1123,11 +1102,10 @@ def preview_cameras(parts, views, shift=0.0):
 
 
 def check_gable_closed(parts, cams, x_face, ys, zs_of, depth_max, tag="G1"):
-    """See-through contract on a gable opening facing +X: for every camera in `cams` ({name:
-    point}) in front of the plane x = x_face and every sample (x_face, y, z) for y in `ys`, z in
-    zs_of(y), the first face the camera ray meets is FRONT-facing (a back face is invisible in
-    game: the eye would see into the void) and lies no deeper than `depth_max` behind the plane.
-    Raises naming the camera, the sample and the part; returns {camera: rays}."""
+    """See-through contract on a gable opening facing +X. Take every camera in `cams` ({name: point}) in front of the plane x =
+    x_face, and every sample (x_face, y, z) for y in `ys`, z in zs_of(y). The first face the camera ray meets must be
+    FRONT-facing (a back face is invisible in game: the eye would see into the void). That face must also lie no deeper than
+    `depth_max` behind the plane. Raises naming the camera, the sample and the part. Returns {camera: rays}."""
     from mathutils import Vector
     bvh, owner = _bvh_of(parts)
     out, bad = {}, []
@@ -1160,11 +1138,10 @@ def _vanilla_mount(vanilla, pf):
 
 def closeup_previews(recipe, shots, out_dir=None, ground=True, modes=("pbr", "dusk"),
                      name=None):
-    """True close-ups of the EXPORTED asset (cs2_preview's rig, lens, sky, PBR material and tint;
-    the `_Win` panes as dark-glass stand-ins): `<name>_closeup_<shot>_<mode>.png`. shots =
-    ((shot, target, eye), ...) in the shipped authoring frame (+X = road, z up). The import is
-    re-oriented to cs2_preview's frame (authoring (x, y, z) -> (y, -x, z)) whichever way the
-    FBX importer left it."""
+    """True close-ups of the EXPORTED asset (cs2_preview's rig, lens, sky, PBR material and tint, with the `_Win` panes as
+    dark-glass stand-ins): `<name>_closeup_<shot>_<mode>.png`. shots = ((shot, target, eye), ...) in the shipped authoring
+    frame (+X = road, z up). The import is re-oriented to cs2_preview's frame (authoring (x, y, z) -> (y, -x, z)) whichever
+    way the FBX importer left it."""
     import bpy
     import mathutils
     import numpy as np
@@ -1181,7 +1158,7 @@ def closeup_previews(recipe, shots, out_dir=None, ground=True, modes=("pbr", "du
     def load(path):
         o = CP.import_generation(path)
         W = np.array([v.co[:] for v in o.data.vertices])
-        # cs2_preview frame: z up with z_min = the game min_y; else the importer left it y up
+        # cs2_preview frame: z up with z_min = the game min_y. Else the importer left it y up.
         if abs(float(W[:, 2].min()) - ext["min_y"]) > 0.05 or \
                 abs(float(W[:, 2].max() - W[:, 2].min()) - ext["y"]) > 0.05:
             o.data.transform(mathutils.Matrix.Rotation(math.radians(90.0), 4, "X"))
@@ -1249,31 +1226,36 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
                 boards="lux_vboard_red", trim="trim", roof="lux_slate", door_faces=("+X", "-Y"),
                 rise=0.0, clock_z=None, clock_d=None, dial=None, louvres=False, fine=False):
     """
-    The swanky clock tower (contract section 5; Jackson Hole Teton Village proportions):
-    stone base 5.2 x 5.2 from z0 to 7.3 with recessed doors 1.6 x 2.6 on `door_faces`,
-    vertical-board shaft 4.0 x 4.0 to 19.5 with corner boards, clock stage 4.6 x 4.6 to 22.3
-    with four clock faces (d 2.5, `clock_<name><k>_face`, stamped with cs2_bldg.paint_clock:
-    list them in the host recipe's labels, one entry per face), pyramid cap (eave 22.3,
-    overhang 0.9, apex 25.0, slate) and a finial to 25.8.
+    The swanky clock tower (contract section 5, Jackson Hole Teton Village proportions):
+    - stone base 5.2 x 5.2 from z0 to 7.3 with recessed doors 1.6 x 2.6 on `door_faces`
+    - vertical-board shaft 4.0 x 4.0 to 19.5 with corner boards
+    - clock stage 4.6 x 4.6 to 22.3 with four clock faces (d 2.5, `clock_<name><k>_face`, stamped with cs2_bldg.paint_clock:
+      list them in the host recipe's labels, one entry per face)
+    - pyramid cap (eave 22.3, overhang 0.9, apex 25.0, slate)
+    - a finial to 25.8.
 
-    z0 = 0 with ground=True: the base is an open-bottom ground part (`wall_g<name>`, an
-    engine-base host such as L5 lists the prefix "wall_g"); a hosted static object passes
-    z0 = -1.5, ground=False (footing for uneven hosts, closed bottom). Heights are absolute
-    (z0 only moves the base bottom). Part names: wall_g<name>, tower_<name>shaft, trim_<name>corners,
-    tower_<name>stage, clock_<name><k>_face, clockring_<name><k>, roof_<name>cap...,
-    tower_<name>fin, entry_/door_ for the doors. Reused by the tram base station.
-    `rise` (L5 revision 1) lengthens the shaft: everything above the stone base moves up by
-    `rise` m (shaft top, stage, clock, cap apex, finial); 0 = the section-5 tower above.
-    L5 revision 2 (verdict B1' "the clock is a bit hidden by the roof so it needs to move
-    down"; all four default to the section-5 tower, byte-identical): `clock_z` = the dial
-    center (absolute); a dial whose top is below the shaft top sits ON THE SHAFT (plane
-    +-2.0) instead of the stage (+-2.3), and must clear the stage by 0.3 m; `clock_d` = the
-    dial diameter; `dial` = the side of a square glulam dial board `trim_<name>dial<k>` (0.06
-    proud) the dial sits on; `louvres` = a louvred belfry vent on each stage face
-    (`trim_<name>louvre<k>` dark backing + `trim_<name>slat<k>` glulam slats) where the clock was.
-    Fine-detail step 3e (design B.1, opt-in; the default = the geometry above, vertex for vertex):
-    `fine` = the finial spire is 12-seg (was 6), same base / tip radii and height.
-    Returns the parts list; asserts its own section-5 contract (apex, finial, footprint).
+    z0 = 0 with ground=True: the base is an open-bottom ground part (`wall_g<name>`). An engine-base host such as L5 lists
+    the prefix "wall_g". A hosted static object passes z0 = -1.5, ground=False (footing for uneven hosts, closed bottom).
+    Heights are absolute (z0 only moves the base bottom). Part names: wall_g<name>, tower_<name>shaft, trim_<name>corners,
+    tower_<name>stage, clock_<name><k>_face, clockring_<name><k>, roof_<name>cap..., tower_<name>fin, entry_/door_ for the
+    doors. The tram base station reuses this tower.
+
+    `rise` (L5 revision 1) lengthens the shaft: everything above the stone base moves up by `rise` m (shaft top, stage,
+    clock, cap apex, finial). 0 = the section-5 tower above.
+
+    L5 revision 2 (verdict B1' "the clock is a bit hidden by the roof so it needs to move down", all four default to the
+    section-5 tower, byte-identical):
+    - `clock_z` = the dial center (absolute). A dial whose top is below the shaft top sits ON THE SHAFT (plane +-2.0)
+      instead of the stage (+-2.3), and must clear the stage by 0.3 m.
+    - `clock_d` = the dial diameter.
+    - `dial` = the side of a square glulam dial board `trim_<name>dial<k>` (0.06 proud) that the dial sits on.
+    - `louvres` = a louvered belfry vent on each stage face (`trim_<name>louvre<k>` dark backing + `trim_<name>slat<k>`
+      glulam slats) where the clock was.
+
+    Fine-detail step 3e (design B.1, opt-in, the default = the geometry above, vertex for vertex): `fine` = the finial spire
+    is 12-seg (was 6), same base / tip radii and height.
+
+    Returns the parts list. Asserts its own section-5 contract (apex, finial, footprint).
     """
     K = _kit()
     from cs2_bldg import RoofSpec, WallRef
@@ -1338,9 +1320,9 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
             P += K.wall_box(f"trim_{name}louvre{k}", sw, uc - ub, uc + ub, zl0, zl1, 0.0,
                             0.03, "ski_black" if "ski_black" in K.BLDG_MATERIALS else trim)
             if K.FITTINGS.get("version", 0) >= 1:
-                # T87d (2026-10-19, item 15 "vents on the clock tower ... missed the detail pass"): the four
-                # flat slabs become a framed louvre: 8 blades 16 cm wide tilted 35 deg (bottom edge out: they shed
-                # rain) over the dark backing, inside a 7 cm frame that stands 12 cm proud (blade tips 11.6 cm)
+                # T87d (2026-10-19, item 15 "vents on the clock tower ... missed the detail pass"): the four flat slabs
+                # become a framed louver. It has 8 blades 16 cm wide, tilted 35 deg (bottom edge out, so they shed rain),
+                # over the dark backing, inside a 7 cm frame that stands 12 cm proud (blade tips 11.6 cm)
                 from mathutils import Vector
                 nrm, tan = K._SIDES[side]
                 ca, sa = math.cos(math.radians(35.0)), math.sin(math.radians(35.0))
@@ -1365,7 +1347,7 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
                       zl0 + (zl1 - zl0) * (j + 0.5) / n + 0.06, 0.03, 0.10) for j in range(n)]
             P += K.wall_boxes(f"trim_{name}slat{k}", sw, slats,
                               "lux_glulam" if "lux_glulam" in K.BLDG_MATERIALS else trim)
-    # pyramid cap: hip_roof over the stage square; pitch solved for the apex
+    # Pyramid cap: hip_roof over the stage square. The pitch is solved for the apex.
     ov = CT_CAP_OVER
     thick = 0.22
     hw = hg + ov
@@ -1406,10 +1388,9 @@ def clock_tower_labels(name="ct"):
 
 
 # ======================================================================================
-# L5 constants - REVISION 1 (2026-10-11, verdicts-2026-10-11.md B1: "the Swanky
-# lodge should be bigger", reference = the Breckenridge Grand Lodge on Peak 7, "pools are a
-# good addition"). Authoring meters; lot 10 x 8 cells = 80 x 64 m (was 8 x 6: the
-# ROUND-SPEC lot table is amended by that verdict).
+# L5 constants - REVISION 1 (2026-10-11, verdicts-2026-10-11.md B1: "the Swanky lodge should be bigger", reference = the
+# Breckenridge Grand Lodge on Peak 7, "pools are a good addition"). Authoring meters. The lot is 10 x 8 cells = 80 x 64 m
+# (was 8 x 6, and that verdict amended the ROUND-SPEC lot table).
 #
 # Plan (top view, +X = road / arrival, -X = slope):
 #   M  main bar      X -8..6,  Y -36..36: stone GF + 3 timber floors + knee wall, gable
@@ -1417,26 +1398,25 @@ def clock_tower_labels(name="ct"):
 #   WS / WN wings    X -30..-8, Y -34..-22 / 22..34: same stories, gable roofs (ridge 21.0)
 #                    running into M's roof, king-post gable ends facing the slope
 #   H  great hall    X 6..18, Y -9..9 (the revision-0 hall, moved with M's road face)
-#   P  porte-cochere X 20..27.4 on the road side; E forecourt to X 31
+#   P  porte-cochere X 20..27.4 on the road side. E forecourt to X 31
 #   CT clock tower   (12.5, 16.5) in front of M, shaft raised 4 m (finial 29.8)
 #   T  pool terrace  in the courtyard between the wings: raised paver deck (0.72) on stone
 #                    retaining walls, a lagoon pool + 2 hot tubs with coping, loungers,
-#                    umbrellas, lamp posts, a fire pit; grade walkways around it
-# Revision 3 (this frame, before the +4 shift): S slope plaza X -39.4..-30 end to end + the
-#   strip to the podium; E valet forecourt (drive X 21.75..31.4, Y -16..31, island X
-#   25.75..31.4, Y -12..7, walks along the hall, under the deck and to the stair foot); the
-#   deck stair on the deck's +Y edge at X 17.5..20.5 running to Y 28.6; loungers, umbrellas
-#   and lamp posts are vanilla sub-objects (SUB_OBJECT_ROWS)
+#                    umbrellas, lamp posts, a fire pit. Grade walkways around it
+# Revision 3 (this frame, before the +4 shift):
+#   S slope plaza X -39.4..-30 end to end + the strip to the podium.
+#   E valet forecourt (drive X 21.75..31.4, Y -16..31, island X 25.75..31.4, Y -12..7,
+#                    walks along the hall, under the deck and to the stair foot).
+#   The deck stair is on the deck's +Y edge at X 17.5..20.5 and runs to Y 28.6.
+#   Loungers, umbrellas and lamp posts are vanilla sub-objects (SUB_OBJECT_ROWS).
 # ======================================================================================
 
 LOT_W, LOT_D = 10, 9                               # revision 2: 10 x 8 -> 10 x 9 (plaza)
 HX, HY = 4.0 * LOT_D, 4.0 * LOT_W                 # 36, 40
-# revision 2: every constant below is in the revision-1 frame; build_l5 assembles there and
-# then moves the whole build by X_SHIFT (shift_x), so in that frame the lot spans x
-# -HX - X_SHIFT .. HX - X_SHIFT. Revision 2 was -4 (lot -32..40: the new cell on the road
-# side for the road plaza). Revision 3 (verdict B1'' "I wanted the PLAZA ON THE POOL SIDE"):
-# +4, lot -40..32 - the road margin is revision 1's again (forecourt to 31.4) and the new
-# cell is the slope-side plaza
+# Revision 2: every constant below is in the revision-1 frame. build_l5 assembles there and then moves the whole build by
+# X_SHIFT (shift_x). So in that frame the lot spans x -HX - X_SHIFT .. HX - X_SHIFT. Revision 2 was -4 (lot -32..40: the new
+# cell on the road side for the road plaza). Revision 3 (verdict B1'' "I wanted the PLAZA ON THE POOL SIDE") is +4, lot
+# -40..32. The road margin is revision 1's again (forecourt to 31.4), and the new cell is the slope-side plaza.
 X_SHIFT = 4.0
 
 Z_F = (0.0, 4.5, 7.7, 10.9)                        # floor levels GF, F2, F3, F4
@@ -1449,9 +1429,8 @@ M_X0, M_X1, M_Y0, M_Y1 = -8.0, 6.0, -36.0, 36.0
 M_RIDGE_X, M_PITCH, M_OVER, ROOF_T = -1.0, 45.0, 1.0, 0.30
 M_RIDGE = Z_WALL + math.tan(math.radians(M_PITCH)) * (M_RIDGE_X - M_X0)    # 22.0
 BAY = 8.0
-# cross-gable bay projection beyond the host walls: past the host eave stack (overhang 1.0
-# + fascia + gutter, ~1.26 m) so the eave, fascia and gutter die into the bay sides
-# (buildings-review-geometry F1; asserted for every bay)
+# Cross-gable bay projection beyond the host walls: past the host eave stack (overhang 1.0 + fascia + gutter, ~1.26 m) so
+# the eave, fascia and gutter die into the bay sides (buildings-review-geometry F1, asserted for every bay)
 XG_PROJ = 1.6
 XG_HALF = 3.0
 XG_RIDGE = Z_WALL + XG_HALF                        # 18.0 at 45 deg
@@ -1460,7 +1439,7 @@ XG_COURT = (-16.0, 16.0)                           # M courtyard face (-X), from
 XG_WING = -18.0                                    # wing courtyard faces, from F2 on brackets
 
 W_X0, W_X1 = -30.0, M_X0
-WINGS = (("s", -34.0, -22.0), ("n", 22.0, 34.0))  # (tag, y0, y1); inset 2 m from M's ends
+WINGS = (("s", -34.0, -22.0), ("n", 22.0, 34.0))  # (tag, y0, y1). Inset 2 m from M's ends
 W_RIDGE = Z_WALL + 6.0                             # 21.0 (12 m deep, 45 deg)
 
 H_X0, H_X1, H_Y = M_X1, 18.0, 9.0
@@ -1496,19 +1475,18 @@ TUB_TOP, TUB_WATER = PD + 0.40, PD - 0.10          # raised stone tub rim 1.12, 
 TUB_R_IN, TUB_R_OUT = 1.45, 1.95
 TUBS = ((-16.0, 10.5), (-25.5, 11.0))
 FIREPIT = (-15.6, -14.6)
-# lagoon outline (CCW control points; one Chaikin pass), waist on the east side
+# lagoon outline (CCW control points, one Chaikin pass), waist on the east side
 MAIN_POOL_CTRL = ((-18.0, -11.5), (-17.6, -6.0), (-18.8, -2.5), (-17.6, 1.5), (-18.3, 5.8),
                   (-21.5, 6.3), (-24.3, 4.0), (-24.8, -1.0), (-24.4, -6.5), (-22.5, -11.8))
 
 SLAB_T = 0.14                                      # walkway / forecourt slab top (lifted)
-# closed parts at grade start here: cs2_bldg.GROUND_LIFT (0.02) is the floor, but the LOD2
-# collapse moved lifted pier bottoms 0.02 -> 0.013 (inside the forbidden 0.011..0.02 band,
-# check_base_mode on LOD2, 2026-10-11); 0.05 leaves decimation headroom
+# Closed parts at grade start here. cs2_bldg.GROUND_LIFT (0.02) is the floor, but the LOD2 collapse moved lifted pier
+# bottoms 0.02 -> 0.013 (inside the forbidden 0.011..0.02 band, check_base_mode on LOD2, 2026-10-11). 0.05 leaves decimation
+# headroom.
 LIFT = 0.05
 
-# ground parts all start "wall_g": gm (M GF), gws / gwn (wing GFs), gxr0 / gxr1 (road
-# cross-gable GFs), gh (hall), ghgl (hall glass), gpool (pool retaining walls), gct
-# (clock-tower base; absent with --no-tower, so one shared prefix)
+# Ground parts all start "wall_g": gm (M GF), gws / gwn (wing GFs), gxr0 / gxr1 (road cross-gable GFs), gh (hall), ghgl
+# (hall glass), gpool (pool retaining walls), gct (clock-tower base, absent with --no-tower, so one shared prefix)
 GROUND_PREFIXES = ("wall_g",)
 GROUND_PARTS = ("wall_gm", "wall_gws", "wall_gwn", "wall_gxr0", "wall_gxr1", "wall_gh",
                 "wall_ghgl", "wall_gpool")
@@ -1516,21 +1494,20 @@ ARRIVAL_PREFIXES = ("entry_h", "pier_pc", "col_pc", "roof_pc", "deck_e")
 CHIM_CAPS = ("chimcap_m0", "chimcap_m1", "chimcap_hx", "chimcap_ws", "chimcap_wn")
 
 # ---------------- revision 2 (2026-10-11, verdict B1' "Seventh look") -------------------------
-# (b) the clock: dial center on the SHAFT (was CT_CLOCK_Z + CT_RISE = 24.9 on the stage, where
-# the cap's 0.9 m overhang at ~48 deg drops its eave to ~25.0, in front of the dial's top
-# third even from straight ahead; measured from the preview cameras: 41-59 % of the dial
-# samples visible at 10-20 deg, 0 % above 57 deg). On the shaft the limit is the cap fascia
-# seen past the stage corner from the 3/4 azimuths (sweep, every dial facing the camera, clear
-# up to: z 21.2 -> 48-66 deg, 20.9 -> 51-68, 20.6 -> 54-70, 20.3 -> 56-72): 20.3 keeps every
-# facing dial whole up to CLOCK_CLEAR_DEG from every arrival azimuth.
+# (b) the clock: dial center on the SHAFT (was CT_CLOCK_Z + CT_RISE = 24.9 on the stage). There the cap's 0.9 m overhang at
+# ~48 deg drops its eave to ~25.0, in front of the dial's top third even from straight ahead. Measured from the preview
+# cameras: 41-59 % of the dial samples visible at 10-20 deg, 0 % above 57 deg. On the shaft the limit is the cap fascia seen
+# past the stage corner from the 3/4 azimuths. Sweep, every dial facing the camera, clear up to: z 21.2 -> 48-66 deg, 20.9
+# -> 51-68, 20.6 -> 54-70, 20.3 -> 56-72. The value 20.3 keeps every facing dial whole up to CLOCK_CLEAR_DEG from every
+# arrival azimuth.
 CT_CLOCK_Z_L5, CT_CLOCK_D_L5, CT_DIAL_L5 = 20.3, 2.9, 3.3
 CLOCK_CLEAR_DEG = 55.0                             # contract: full dial visible 0..55 deg
 # arrival azimuths in the authoring frame (+X = road): the preview views arrival_front,
 # arrival_3q, road34left and arrival (lodge.VIEWS / RECIPE.views, (bx, by) -> (-by, bx))
 CLOCK_AZIMUTHS = (("front", (1.0, 0.05)), ("arrival_3q", (1.0, 0.8)), ("road34left", (1.0, -0.7)),
                   ("arrival", (1.0, 0.55)))
-# (c) the tower deck: one story up (F2 floor), between M's road face, the hall's +Y flank and
-# the road cross gable r1; wraps the tower base (CT_C +- CT_BASE_W / 2) on all four sides
+# (c) the tower deck: one story up (F2 floor), between M's road face, the hall's +Y flank and the road cross gable r1. It
+# wraps the tower base (CT_C +- CT_BASE_W / 2) on all four sides.
 DK_Z, DK_T = Z_F[1], 0.25                          # deck top 4.5, slab 0.25
 DK_X0, DK_X1 = M_X1, 21.0                          # M's road face .. 3 m past the hall glass
 DK_Y0, DK_Y1 = H_Y, XG_ROAD[1] - XG_HALF           # the hall's +Y wall (9.0) .. the r1 bay (21.0)
@@ -1546,18 +1523,16 @@ DK_RAIL_H = 1.0
 DK_STAIR_X, DK_STAIR_W = 19.0, 3.0                 # stair center / width (+Y edge, run to +Y)
 DK_STAIR_FOOT_Y = 28.6                             # 25 risers of 0.174, treads 0.30
 DK_STAIR_LAND = 1.5                                # free landing beyond the foot (contract)
-# (1) revision 3: the plaza on the POOL / SLOPE side (lux_paver, the pool deck's pavers, as the
-# Peak 7 pool plaza) from 0.6 m inside the back lot edge to the wing gable ends (W_X0), end to
-# end (HY - 1.5 each side), plus the strip from the wing line to the podium (|y| <= POOL_Y1):
-# it runs into the courtyard walkways (deck_w1 / w2, same SLAB_T) and up the podium steps on
-# its -X face (pool_steps "-X"). Plaza SLAB_T 0.14, podium deck PD 0.72, coping PD + 0.10.
+# (1) revision 3: the plaza on the POOL / SLOPE side (lux_paver, the pool deck's pavers, as the Peak 7 pool plaza). It runs
+# from 0.6 m inside the back lot edge to the wing gable ends (W_X0), end to end (HY - 1.5 each side), plus the strip from
+# the wing line to the podium (|y| <= POOL_Y1). The strip runs into the courtyard walkways (deck_w1 / w2, same SLAB_T) and
+# up the podium steps on the podium's -X face (pool_steps "-X"). Plaza SLAB_T 0.14, podium deck PD 0.72, coping PD + 0.10.
 PS_X0 = -HX - X_SHIFT + 0.6                        # -39.4 (revision-1 frame) = -35.4 shipped
 PS_Y = HY - 1.5                                    # 38.5
 PS_STEPS = (-2.0, 2.0)                             # the podium's -X flight (y): the plaza axis
-# four freestanding kit racks with real gear along the slope edge where skiers come in (no
-# vanilla ski rack exists); kit gear WITHOUT bindings (cs2_bldg default since the ninth
-# look; this recipe never passes bindings=); pole pairs at the kit's 1.38 m so they reach the
-# rack's 1.33 m lean (revision 2's 1.20-1.28 m poles stopped in mid-air)
+# Four freestanding kit racks with real gear along the slope edge where skiers come in (no vanilla ski rack exists). Kit
+# gear WITHOUT bindings (cs2_bldg default since the ninth look, and this recipe never passes bindings=). Pole pairs are at
+# the kit's 1.38 m, so they reach the rack's 1.33 m lean (revision 2's 1.20-1.28 m poles stopped in mid-air).
 PS_RACK_X = -37.6
 PZ_RACKS = (                                       # (name, x, y, along, gear entries)
     ("pzS", PS_RACK_X, -24.5, "Y", (
@@ -1585,50 +1560,49 @@ PZ_RACKS = (                                       # (name, x, y, along, gear en
         (2, -1, "ski", ("ski_red", "ski_black"), 1.58), (4, -1, "board", ("ski_black", "accent"), 1.52),
         (6, -1, "ski", ("trim_white", "accent"), 1.80))),
 )
-# the plaza fire pit (modeled: a PLACEHOLDER, see PLACEHOLDERS) at the -Y end, the asymmetric
-# counterweight to the cafe terrace; vanilla benches face it (SUB_OBJECT_ROWS)
+# The plaza fire pit (modeled: a PLACEHOLDER, see PLACEHOLDERS) at the -Y end, the asymmetric counterweight to the cafe
+# terrace. Vanilla benches face it (SUB_OBJECT_ROWS).
 PZ_FIREPIT = (-34.0, -31.0)
 
-# ---------------- T57 / T59 (2026-10-18, structure v1: cs2_bldg.STRUCTURE["version"] >= 1, lodge.py --structure v1;
-# off = revision 4 / the close look byte for byte; docs/research/art/structure-2026-10-18.md) --------------------
-# T57 (Blender review 2026-10-17 item 1: the F2 balcony supports "go almost into the windows below, except
-# that they don't connect so they float ... make it one long structural support pole from the top balcony on each
-# side ... all the way to the ground"): every balcony stack loses its per-balcony struts (`bracket_<n>`, 2 per
-# balcony) and gets two glulam posts `balcpost_<stack>` at the outer corners, from grade (cs2_bldg.GROUND_LIFT; on a
-# slab or the pool deck the foot is buried in it) through every balcony slab and parapet corner to BP_TOP over the
-# top parapet. LOD: kept at LOD1, dropped at LOD2 (lod2_extra).
+# ---------------- T57 / T59 (2026-10-18, structure v1: cs2_bldg.STRUCTURE["version"] >= 1, lodge.py --structure v1,
+# off = revision 4 / the close look byte for byte, docs/research/art/structure-2026-10-18.md) --------------------
+# T57 (Blender review 2026-10-17 item 1: the F2 balcony supports "go almost into the windows below, except that they don't
+# connect so they float ... make it one long structural support pole from the top balcony on each side ... all the way to
+# the ground"): every balcony stack loses its per-balcony struts (`bracket_<n>`, 2 per balcony). Each stack gets two glulam
+# posts `balcpost_<stack>` at the outer corners. The posts run from grade (cs2_bldg.GROUND_LIFT, and on a slab or the pool
+# deck the foot is buried in it) through every balcony slab and parapet corner to BP_TOP over the top parapet. LOD: kept at
+# LOD1, dropped at LOD2 (lod2_extra).
 BP_W = 0.20                                        # post section (square)
 BP_IN = 0.03                                       # post center on the parapet panels' center line (t 0.06)
 BP_TOP = 0.0                                       # the post top is flush with the top parapet (it carries its corner)
-# T57 (item 3: "the roof gable has a decorative wood piece going across the window ... I like both the decoration
-# and the window"): the cross-gable trusses' curved braces crossed the two gable windows; with structure v1 each
-# brace rises from the tie at XG_BRACE_FRAME[0] to the rafter at [1] (cs2_bldg.truss_kingpost braces="frame"), so
-# the window sits framed between king post, tie, brace and rafter; the gate check_gable_braces raises on a truss
-# member inside any gable window's opening + casing.
+# T57 (item 3: "the roof gable has a decorative wood piece going across the window ... I like both the decoration and the
+# window"): the cross-gable trusses' curved braces crossed the two gable windows. With structure v1, each brace rises from
+# the tie at XG_BRACE_FRAME[0] to the rafter at [1] (cs2_bldg.truss_kingpost braces="frame"), so the window sits framed
+# between king post, tie, brace and rafter. The gate check_gable_braces raises on a truss member inside any gable window's
+# opening + casing.
 XG_BRACE_FRAME = (1.12, 1.75)
-# round 2 (2026-10-18 "I still see some brackets going into the bottom window"): the four courtyard bays
-# (xgc0/1, xgws/n) lose their curved wall brackets (they hung over the GF glass) for two outriggers each, host wall
-# -> balcony post, under the bay floor (cross_gable)
+# Round 2 (2026-10-18 "I still see some brackets going into the bottom window"): the four courtyard bays (xgc0/1, xgws/n)
+# lose their curved wall brackets (they hung over the GF glass). Each bay gets two outriggers instead, host wall -> balcony
+# post, under the bay floor (cross_gable)
 XG_OUT = (0.18, 0.30)                              # outrigger section (w across, h): narrower than the 0.20 post
 XG_OUT_EMBED = 0.10                                # pocketed into the host wall's band over the glass head
 BRACE_SLOPE = 1.43                                 # the framing brace rises 55 deg from the tie (M / wing end gables)
 
 
 def brace_frame(span, pitch_deg, ua=XG_BRACE_FRAME[0]):
-    """(ua, ub) of a framing brace (T57) on a king-post truss of `span` / pitch: from the tie at ua it rises at
-    BRACE_SLOPE until it meets the rafter's center line at ub (the M and wing end gables; the cross gables use
-    XG_BRACE_FRAME)."""
+    """Returns (ua, ub) of a framing brace (T57) on a king-post truss of `span` / pitch. From the tie at ua it rises at
+    BRACE_SLOPE until it meets the rafter's center line at ub. This is for the M and wing end gables. The cross gables use
+    XG_BRACE_FRAME."""
     tp = math.tan(math.radians(pitch_deg))
     return (ua, round((tp * span / 2 + BRACE_SLOPE * ua) / (tp + BRACE_SLOPE), 3))
 GABLE_WIN_CASING = 0.07
 GABLE_WINS = []                                    # (side, plane, s, z0, w, h) of every gable_pair window (per build)
 # T59 (item 4: "We seem to have lost the outdoor firepit props ... Chairs should surround both"): the two S1-surgery
-# CampgroundFireplace02 rows (the stone ring, DECISIONS 231) become recipe rows at both pits, on the deck / plaza
-# surface (S1 had sat them 0.25 m up on the modeled ember disc); the modeled stone rings go (the vanilla ring IS the
-# pit) and the emissive ember disc shrinks to FP_EMBER_R inside the vanilla ring's stones (r 0.45 .. 0.73, logs to
-# 0.17 m, measured on "CampgroundFireplace02 Mesh"), FP_EMBER_Z over the surface: the pit still glows at night (the
-# vanilla prefab carries no effect). Seats: the plaza pit keeps its three GardenBenches at 2.4 m; the terrace pit
-# gets the seats of FIRE_ROWS.
+# CampgroundFireplace02 rows (the stone ring, DECISIONS 231) become recipe rows at both pits, on the deck / plaza surface
+# (S1 sat them 0.25 m up on the modeled ember disc). The modeled stone rings go (the vanilla ring IS the pit), and the
+# emissive ember disc shrinks to FP_EMBER_R inside the vanilla ring's stones (r 0.45 .. 0.73, logs to 0.17 m, measured on
+# "CampgroundFireplace02 Mesh"), FP_EMBER_Z over the surface. The pit still glows at night (the vanilla prefab carries no
+# effect). Seats: the plaza pit keeps its three GardenBenches at 2.4 m. The terrace pit gets the seats of FIRE_ROWS.
 FP_EMBER_R = 0.38
 FP_EMBER_Z = 0.03
 # (2) revision 3: the road side is a forecourt with a VALET LOOP (verdict B1''): cars come in
@@ -1642,20 +1616,20 @@ RD_X1 = HX - X_SHIFT - 0.6                         # 31.4: 0.6 m inside the road
 LANE_X0, LANE_X1 = 21.75, 25.75                    # the lane under the canopy (pier faces 21.4 / 26.1)
 DRIVE_Y0, DRIVE_Y1 = -16.0, 31.0                   # the loop's outer edges
 ENTRY_Y1 = -12.0                                   # the entry leg: y DRIVE_Y0..ENTRY_Y1
-ISLAND_Y0, ISLAND_Y1 = ENTRY_Y1, 7.0               # the island; the exit apron y ISLAND_Y1..DRIVE_Y1
+ISLAND_Y0, ISLAND_Y1 = ENTRY_Y1, 7.0               # the island. The exit apron is y ISLAND_Y1..DRIVE_Y1
 WALK_X0 = H_X1 + 0.3                               # 18.3: the hall's plinth-ring front
 WALK_XB = 17.4                                     # the walk past the hall (under the deck front)
 CORRIDOR_MIN = 6.0                                 # contract: free drive width past the deck
 
 # ---------------- revision 4 (2026-10-12, eighteenth look) -------------------------------------
-# (a) the porte-cochere gable: T&G infills just inside the two king-post trusses (members 0.40 on
-# the post lines P_POST_X), the ceiling between them, frieze boards on the tie beams. The front
-# truss face is the G1 plane; whatever a ray sees inside the gable lies within GABLE_DEPTH_MAX of it
+# (a) the porte-cochere gable: T&G infills just inside the two king-post trusses (members 0.40 on the post lines P_POST_X),
+# the ceiling between them, frieze boards on the tie beams. The front truss face is the G1 plane. Whatever a ray sees inside
+# the gable lies within GABLE_DEPTH_MAX of it.
 PC_GABLE_INFILL = True                             # False = the revision-3 open gable (G1 negative)
 PC_GAB_T = 0.12
 PC_GAB_FRONT = (P_POST_X[1] - 0.22 - PC_GAB_T, P_POST_X[1] - 0.22)    # x 26.46 .. 26.58
 PC_GAB_BACK = (P_POST_X[0] + 0.22, P_POST_X[0] + 0.22 + PC_GAB_T)     # x 20.92 .. 21.04
-PC_GAB_E, PC_GAB_BASE, PC_GAB_EAVE = 5.55, P_TIE, P_TIE + 0.30   # half width; base 5.0 = the tie-beam center (behind
+PC_GAB_E, PC_GAB_BASE, PC_GAB_EAVE = 5.55, P_TIE, P_TIE + 0.30   # half width, base 5.0 = the tie-beam center (behind
 #   the truss chord 4.8..5.2: no slot under the boards), eave point 5.30 (on the ceiling top)
 PC_CEIL_Z = (P_TIE + 0.24, P_TIE + 0.30)          # the ceiling slab between the infills
 PC_GAB_LIGHT_Y, PC_GAB_LIGHT_Z = 1.0, 6.0          # the two gable lights (under the braces)
@@ -1665,9 +1639,9 @@ GABLE_FACE_X = P_POST_X[1] + 0.20                  # the front truss face (27.0)
 # azimuth deg from +X, height) - the drive at car height, the forecourt, the island's far end
 GABLE_NEAR_CAMS = tuple((r, a, zc) for r in (12.0, 25.0) for a in (-40.0, 0.0, 40.0)
                         for zc in (1.6, 5.0, 9.0))
-# (b) the terrace doors: WS / WN courtyard faces under their cross gables (x = XG_WING) and M's
-# courtyard face on the plaza axis (y 0); threshold = the walk (SLAB_T). The podium flights that
-# meet them: the +-Y flights re-centered on XG_WING (were x -23..-19), a new +X flight on y 0
+# (b) the terrace doors: WS / WN courtyard faces under their cross gables (x = XG_WING) and M's courtyard face on the plaza
+# axis (y 0). Threshold = the walk (SLAB_T). The podium flights that meet them: the +-Y flights re-centered on XG_WING (were
+# x -23..-19), a new +X flight on y 0
 POOL_DOORS = (("dws", "+Y", WINGS[0][2], XG_WING), ("dwn", "-Y", WINGS[1][1], XG_WING),
               ("dm", "-X", M_X0, 0.0))
 NS_STEPS_HALF = 1.8                                # the +-Y flights: x XG_WING +- 1.8
@@ -1677,27 +1651,29 @@ DOOR_TRANSOM_Z = 2.70                              # the transom light over the 
 DOOR_BAYS = {"dws": (-20.9, -15.1), "dwn": (-20.9, -15.1), "dm": (-2.9, 2.9)}   # the old curtains
 DOOR_HOSTS = {"dws": "wall_gws", "dwn": "wall_gwn", "dm": "wall_gm"}
 DOOR_STEPS = {"dws": "stairblk_s", "dwn": "stairblk_n", "dm": "stairblk_e2"}
-# the arrival-side preview views (lodge.VIEWS + RECIPE.views; tests assert they match): the G1
-# gable contract's far cameras
+# The arrival-side preview views (lodge.VIEWS + RECIPE.views). Tests assert they match. They are the G1 gable contract's far
+# cameras.
 ARRIVAL_VIEWS = (("arrival_3q", (0.8, -1.0, 0.45)), ("arrival_front", (0.05, -1.0, 0.20)),
                  ("arrival", (0.55, -1.0, 0.22)), ("road34left", (-0.7, -1.0, 0.45)),
                  ("valet", (-0.35, -1.0, 0.65)), ("tower_deck", (0.95, -0.7, 0.42)),
                  ("gable_closeup", (-0.15, -1.0, 0.25)))
 
-# ---------------- revision 3: vanilla props by reference (verdict B1'' + the standing rule of the
-# twelfth look: trees, benches, bins, tables, chairs, lamp posts, planters, bollards = VANILLA
-# sub-objects; modeled only where no vanilla prop exists, each stand-in flagged) -------------
-# Placeholder GUIDs (the SpawnableObject.m_Placeholders GUID every variant names; the
-# placeholder prefab carries no GUID of its own, so the name is "inferred" in the preflight
-# whitelist sense, as cs2_liftdress.SUBOBJ). bounds = the union of the placeholder's own mesh
-# and every variant mesh (RenderPrefab m_Bounds, game local, y up; a variant without a "<V>
-# Mesh" uses its "<stem><Kind><nn> Mesh" set: the trees' growth stages, Trashbin01-04's
-# TrashbinEmpty / TrashbinFull meshes - which is why the bin here is +-0.36, wider than
-# cs2_liftdress.SUBOBJ's +-0.25 placeholder-only envelope), tris = the largest mesh, snow =
-# WeatherObject ("forbid": hidden while the owner's
-# Surface.m_AccumulatedSnow >= 15, "require": shown only then; SubObjectSystem.cs:3231-3233,
-# WeatherObject.cs:30-42, 1.6.0f1). tests/test_lodges_swanky.verify_vanilla re-derives every
-# field from %TEMP%\pltar\dump.zip and cross-checks the four cs2_liftdress.SUBOBJ entries.
+# ---------------- revision 3: vanilla props by reference (verdict B1'' + the standing rule of the twelfth look: trees,
+# benches, bins, tables, chairs, lamp posts, planters, bollards = VANILLA sub-objects, modeled only where no vanilla prop
+# exists, each stand-in flagged) -------------
+#
+# Placeholder GUIDs (the SpawnableObject.m_Placeholders GUID every variant names. The placeholder prefab carries no GUID of
+# its own, so the name is "inferred" in the preflight whitelist sense, as cs2_liftdress.SUBOBJ).
+# - bounds = the union of the placeholder's own mesh and every variant mesh (RenderPrefab m_Bounds, game local, y up). A
+#   variant without a "<V> Mesh" uses its "<stem><Kind><nn> Mesh" set: the trees' growth stages, and Trashbin01-04's
+#   TrashbinEmpty / TrashbinFull meshes. That is why the bin here is +-0.36, wider than cs2_liftdress.SUBOBJ's +-0.25
+#   placeholder-only envelope.
+# - tris = the largest mesh.
+# - snow = WeatherObject ("forbid": hidden while the owner's Surface.m_AccumulatedSnow >= 15, "require": shown only then,
+#   SubObjectSystem.cs:3231-3233, WeatherObject.cs:30-42, 1.6.0f1).
+#
+# tests/test_lodges_swanky.verify_vanilla re-derives every field from %TEMP%\pltar\dump.zip and cross-checks the four
+# cs2_liftdress.SUBOBJ entries.
 VANILLA = {
     "TableSetCommercialRandom01": dict(
         guid="fc058a3d03b337e4794c432a84170316",
@@ -1736,33 +1712,30 @@ VANILLA = {
         variants=("BirchTree01", "EU_AlderTree01", "NA_HickoryTree01", "OakTree01", "PineTree01",
                   "SpruceTree01"),
         bounds=((-9.8, -0.035, -10.128), (9.637, 21.57, 10.128)), tris=30630, snow=None),
-    # T59 (2026-10-18): the stone-ring fire pit, a STANDALONE vanilla prefab (no placeholder, no variants): the GUID
-    # from the PrefabsMap harvest (guid-harvest.json, DECISIONS 230 / 231), bounds / tris from "CampgroundFireplace02
-    # Mesh" (= subobj_bounds.json, = l4_swanky_top.FIRE_PIT_VANILLA), no WeatherObject
+    # T59 (2026-10-18): the stone-ring fire pit, a STANDALONE vanilla prefab (no placeholder, no variants). The GUID comes
+    # from the PrefabsMap harvest (guid-harvest.json, DECISIONS 230 / 231). The bounds / tris come from
+    # "CampgroundFireplace02 Mesh" (= subobj_bounds.json, = l4_swanky_top.FIRE_PIT_VANILLA). It has no WeatherObject.
     "CampgroundFireplace02": dict(
         guid="98c77a4f2885dd541a7a3700edefa21e", variants=(),
         bounds=((-0.727, -0.008, -0.732), (0.727, 0.229, 0.732)), tris=304, snow=None, placeholder=False),
-    # revision 4 (2026-10-12): the porte-cochere gable lights (and L4's entry lights, its
-    # revision 1): the fine-detail default for a wall lantern (H4, seventeenth look),
-    # 138 tris; mount "wall" = the pivot on the wall face, local +Z out of it (0..0.115), y
-    # vertical about the pivot (cs2_liftdress.SUBOBJ, verify_subobj)
+    # Revision 4 (2026-10-12): the porte-cochere gable lights (and L4's entry lights, its revision 1). They are the
+    # fine-detail default for a wall lantern (H4, seventeenth look), 138 tris. Mount "wall" = the pivot on the wall face,
+    # local +Z out of it (0..0.115), y vertical about the pivot (cs2_liftdress.SUBOBJ, verify_subobj)
     "WallLightShortRangeRandom01": dict(
         guid="cfc12fde01d9da24b86ddedd657eaae1",
         variants=("WallLightShortRange01", "WallLightShortRange02", "WallLightShortRange03"),
         bounds=((-0.142, -0.058, 0.0), (0.142, 0.058, 0.115)), tris=138, snow=None, mount="wall"),
 }
-# collision envelopes the contracts use beside the full bounds (unverified shapes, conservative
-# sizes): a parasol is a pole at its pivot (local +-0.30, to 1.80) under a canopy tier (the full
-# footprint from 1.80 up); a tree is its trunk (StandingObject m_LegSize 1 x 3, circular) for
-# clearances and the full union envelope for the clock sightline
+# Collision envelopes the contracts use beside the full bounds (unverified shapes, conservative sizes). A parasol is a pole
+# at its pivot (local +-0.30, to 1.80) under a canopy tier (the full footprint from 1.80 up). A tree is its trunk
+# (StandingObject m_LegSize 1 x 3, circular) for clearances and the full union envelope for the clock sightline.
 PARASOL_POLE, PARASOL_TIER = 0.30, 1.80
 TREE_TRUNK = (0.50, 3.0)
 SUB_PAD = 0.10                                     # clearance of every prop from every modeled part
-# the vanilla parasol convention (measured on the dump by the L1 / L3 lane, bldg_recipes
-# PARASOL_OFFSET: 442 base-game parasol / table-set pairs, pivot median 1.37 m from the table,
-# quartiles 1.30 / 1.54, local +Z pointing at it, 0 of 442 on the table's pivot): the parasol's
-# stand sits PARASOL_OFFSET behind its table and the offset canopy (local z -0.73..3.06) hangs over
-# it. _parasol() places one from its table and the yaw (the direction from the pole to the table)
+# The vanilla parasol convention (measured on the dump by the L1 / L3 lane, bldg_recipes PARASOL_OFFSET: 442 base-game
+# parasol / table-set pairs, pivot median 1.37 m from the table, quartiles 1.30 / 1.54, local +Z pointing at it, 0 of 442 on
+# the table's pivot). The parasol's stand sits PARASOL_OFFSET behind its table, and the offset canopy (local z -0.73..3.06)
+# hangs over it. _parasol() places one from its table and the yaw (the direction from the pole to the table)
 PARASOL_OFFSET = 1.37
 
 
@@ -1789,8 +1762,8 @@ SUB_OBJECT_ROWS = (
     # on the wing gable ends, bins, pots at the podium steps and the slope edge, lamp posts
     # along the slope edge, a tree at each outer corner
     *((_T, x, y, _ST, 90.0, 0, "slope plaza") for x in (-36.8, -33.2) for y in (-12.0, -6.5, 6.5, 12.0)),
-    # T26 2026-10-16 dropped the 4 plaza, 4 pool-terrace and 1 tower-deck parasols (random yellow);
-    # restored 2026-10-17 (vanilla props, random colors accepted)
+    # T26 2026-10-16 dropped the 4 plaza, 4 pool-terrace and 1 tower-deck parasols (random yellow). The parasols came back
+    # 2026-10-17 (vanilla props, random colors accepted)
     _parasol(-36.8, 6.5, _ST, 180.0, "slope plaza"), _parasol(-36.8, -6.5, _ST, 180.0, "slope plaza"),
     _parasol(-33.2, 12.0, _ST, 0.0, "slope plaza"), _parasol(-33.2, -12.0, _ST, 0.0, "slope plaza"),
     (_H, -31.4, -9.25, _ST, 0.0, 0, "slope plaza"), (_H, -31.4, 9.25, _ST, 0.0, 0, "slope plaza"),
@@ -1804,10 +1777,9 @@ SUB_OBJECT_ROWS = (
     (_POT, -38.7, -14.5, _ST, 0.0, 0, "slope plaza"), (_POT, -38.7, 14.5, _ST, 0.0, 0, "slope plaza"),
     *((_L, -38.9, y, _ST, 0.0, 0, "slope plaza") for y in (-33.0, -16.5, -3.4, 3.4, 16.5, 33.0)),
     (_TREE, -37.0, -37.0, _ST, 0.0, 0, "slope plaza"), (_TREE, -37.0, 37.0, _ST, 0.0, 0, "slope plaza"),
-    # --- the pool terrace (podium deck PD): loungers in the revision-1 rows (the west row
-    # leaves the -X steps free), parasols at the revision-1 umbrella spots, six lamp posts
-    # revision 4: the east row opens on the plaza axis for M's terrace door and the new +X
-    # flight (`stairblk_e2`, y +-E2_HALF): loungers at |y| >= 2.4, the parasols between them
+    # --- the pool terrace (podium deck PD): loungers in the revision-1 rows (the west row leaves the -X steps free),
+    # parasols at the revision-1 umbrella spots, six lamp posts. Revision 4: the east row opens on the plaza axis for M's
+    # terrace door and the new +X flight (`stairblk_e2`, y +-E2_HALF): loungers at |y| >= 2.4, the parasols between them
     *((_C, -14.85, y, _PD, 0.0, 0, "pool terrace") for y in (-6.0, -4.2, -2.4, 2.4, 4.2, 6.0)),
     *((_C, -27.25, y, _PD, 180.0, 0, "pool terrace") for y in (-8.5, -6.5, -4.5, 4.5)),
     (_P, -14.5, -3.3, _PD, 180.0, 0, "pool terrace"), (_P, -14.5, 3.3, _PD, 180.0, 0, "pool terrace"),
@@ -1875,8 +1847,8 @@ SUB_OBJECTS = tuple((pf, VANILLA[pf]["guid"], to_game(x, y, z), _yaw_q(yaw), int
 STRUCT_SUB_OBJECTS = tuple((pf, VANILLA[pf]["guid"], to_game(x, y, z), _yaw_q(yaw), int(parent))
                            for pf, x, y, z, yaw, parent, _zone in FIRE_ROWS)
 
-# modeled parts that still stand in for a vanilla prop (verdict B1'': "let me know if they are
-# placeholders"); the builder prints their tris. (part-name prefixes, what, why)
+# Modeled parts that still stand in for a vanilla prop (verdict B1'': "let me know if they are placeholders"). The builder
+# prints their tris. Entries: (part-name prefixes, what, why)
 PLACEHOLDERS = (
     (("fp_ring", "lamp_ember"), "pool-terrace fire pit (stone ring + ember disc)",
      "vanilla CampgroundFireplace01-03 exist but sit behind no placeholder, so the dump yields no "
@@ -1892,37 +1864,35 @@ PLACEHOLDERS = (
 
 
 # ======================================================================================
-# FINE-DETAIL PASS, step 3e (2026-10-12; module docstring; build/fine-detail-step3e-swanky.md).
-# Everything below is used ONLY when the recipe is fine (build_l5 reads recipe.fine_detail);
-# `lodge.py --no-fine` (fine_detail.effective: `legacy` restored) builds revision 4 unchanged.
+# FINE-DETAIL PASS, step 3e (2026-10-12, module docstring, build/fine-detail-step3e-swanky.md). Everything below is used
+# ONLY when the recipe is fine (build_l5 reads recipe.fine_detail). `lodge.py --no-fine` (fine_detail.effective: `legacy`
+# restored) builds revision 4 unchanged.
 # ======================================================================================
 
-# M's road-face wall lanterns (revision 1): y, lens height; on the pier fronts (0.6 m proud of M_X1)
-# except the one under the tower deck (revision 2: no pier there, on M's wall)
+# M's road-face wall lanterns (revision 1): y, lens height. They sit on the pier fronts (0.6 m proud of M_X1), except the
+# one under the tower deck (revision 2: no pier there, on M's wall)
 PM_YS = (-35.0, -12.0, 12.0, 35.0)
 PM_LAMP_Z = 2.6
 
 
 def pm_mount(y):
-    """The wall point of M's road-face lantern at y (cs2_bldg.lantern kind "wall" `at`: on the pier
-    / wall face at the lens height; the lens sat 0.22 m out). Revisions 1-4 used these numbers
-    inline; the legacy build passes the same floats."""
+    """The wall point of M's road-face lantern at y (cs2_bldg.lantern kind "wall" `at`: on the pier / wall face at the lens
+    height, the lens sat 0.22 m out). Revisions 1-4 used these numbers inline. The legacy build passes the same floats."""
     return ((M_X1 if DK_Y0 < y < DK_Y1 else M_X1 + 0.6), y, PM_LAMP_Z)
 
 
-# the 4 lanterns -> WallLightShortRangeRandom01 (H4): pivot ON the pier / wall face at the
-# lens height, local +Z out of it = the road (yaw 0); same tuple form / frame as SUB_OBJECT_ROWS
+# The 4 lanterns -> WallLightShortRangeRandom01 (H4): pivot ON the pier / wall face at the lens height, local +Z out of it =
+# the road (yaw 0). Same tuple form / frame as SUB_OBJECT_ROWS
 FINE_ROWS = tuple(("WallLightShortRangeRandom01", *pm_mount(y), 0.0, 0, "M road face") for y in PM_YS)
 FINE_SUB_OBJECTS = tuple((pf, VANILLA[pf]["guid"], to_game(x, y, z), _yaw_q(yaw), int(parent))
                          for pf, x, y, z, yaw, parent, _zone in FINE_ROWS)
 
-# the 4 plaza racks -> dressing-kit rows, loadouts alternating along the slope edge (FS6: -Y pair
-# V1 / V2, +Y pair V3 / V1). Identity rotation: the kit's long axis (prefab x) = game x = authoring
-# y = these racks' `along` "Y"; its +Z front (the builder's side +1) = game +Z = authoring +X; the
-# A-frame is symmetric under the 180 deg yaw, both sides carry gear. On the plaza slab (m_ParentMesh
-# 0, gy = SLAB_T: the old racks stood on it through ski_rack_frame z0 = SLAB_T, so the kit frame =
-# the removed frame vertex for vertex, no 2 cm drop). Accent color: build report (the kit color-set
-# variants re-point these rows later; FS7 Parent color dropped).
+# The 4 plaza racks -> dressing-kit rows, loadouts alternating along the slope edge (FS6: -Y pair V1 / V2, +Y pair V3 / V1).
+# Identity rotation: the kit's long axis (prefab x) = game x = authoring y = these racks' `along` "Y". Its +Z front (the
+# builder's side +1) = game +Z = authoring +X. The A-frame is symmetric under the 180 deg yaw. Both sides carry gear. On the
+# plaza slab (m_ParentMesh 0, gy = SLAB_T): the old racks stood on it through ski_rack_frame z0 = SLAB_T, so the kit frame =
+# the removed frame vertex for vertex, no 2 cm drop. Accent color: build report (the kit color-set variants re-point these
+# rows later, FS7 Parent color dropped).
 RACK_KIT = tuple((nm, AFRAME_RACKS[i % len(AFRAME_RACKS)]) for i, (nm, *_r) in enumerate(PZ_RACKS))
 #: kit color variants (build/kit-colour-variants.md): red, the Grand Lodge's deep-red slot 2 family (bronze /
 #: deep red / copper VariationSet A)
@@ -1939,12 +1909,11 @@ KIT_ROWS = tuple(
 PLAZA_WALKS = (("plaza axis walk", (PS_X0, PS_STEPS[0], SLAB_T + 0.02), (POOL_X0, PS_STEPS[1], SLAB_T + 2.2)),)
 RACK_AISLE = 0.9
 
-# the porte-cochere NAME BOARD (the lodge carried no lettered board; the shared sheet held one name
-# slot for it, cs2_signset `l5.name` 5.00 x 0.80, FS14): "GRAND LODGE" (the in-game name,
-# LocaleEN SkiLodgeGrand) on the front truss, its face centered on the tie-beam chord (4.80..5.20)
-# facing the road, a glulam frame ring (cs2_bldg.sign_board, the school's / L2's board) on a
-# glulam backing slab 5 mm off the chord face (closes the board from behind); the face leaves the
-# host for the sign set (FS1: frame + backing stay). Under it 4.44 m clear over the drive.
+# The porte-cochere NAME BOARD (the lodge carried no lettered board, the shared sheet held one name slot for it, cs2_signset
+# `l5.name` 5.00 x 0.80, FS14): "GRAND LODGE" (the in-game name, LocaleEN SkiLodgeGrand) on the front truss. Its face is
+# centered on the tie-beam chord (4.80..5.20) facing the road. It has a glulam frame ring (cs2_bldg.sign_board, the school's
+# / L2's board) on a glulam backing slab 5 mm off the chord face (closes the board from behind). The face leaves the host
+# for the sign set (FS1: frame + backing stay). Under it 4.44 m clear over the drive.
 NB_TEXT = "GRAND LODGE"
 NB_W, NB_H = 5.00, 0.80
 NB_Z0 = P_TIE - NB_H / 2                           # 4.60: face bottom
@@ -1966,11 +1935,10 @@ FINE_PLACEHOLDERS = (
 
 
 def name_board(K):
-    """The porte-cochere name board parts (fine only): `sign_l5name_back` (a CLOSED backing slab: its
-    front face is the board field the HOST shows inside the ring, because the face itself leaves the host
-    for the sign set; with that face dropped the routed host showed the slab's inside through the ring,
-    caught by G1 on the shipped mesh) + cs2_bldg.sign_board `sign_l5name_face` / `sign_l5name_frame`
-    (ring, back faces dropped) on the slab's front plane."""
+    """The porte-cochere name board parts (fine only): `sign_l5name_back` (a CLOSED backing slab: its front face is the board
+    field the HOST shows inside the ring, because the face itself leaves the host for the sign set. With that face dropped,
+    the routed host showed the slab's inside through the ring, and G1 caught this on the shipped mesh) + cs2_bldg.sign_board
+    `sign_l5name_face` / `sign_l5name_frame` (ring, back faces dropped) on the slab's front plane."""
     from cs2_bldg import WallRef
     x0, x1 = NB_BACK
     P = K.box_part("sign_l5name_back", (x0, -NB_W / 2 - NB_FRAME, NB_Z0 - NB_FRAME),
@@ -1981,13 +1949,11 @@ def name_board(K):
 
 
 def check_name_board(parts):
-    """NB contract (fine): the board stands in front of the front truss (every board vertex at x >=
-    the truss face), inside the porte-cochere's width (|y| <= the post lines), its bottom >= 4.4 m
-    over the drive; the face is exactly the sheet kind's size, upright, facing the road; nothing
-    modeled stands in front of it: rays from 1.5 m out at a 9 x 3 grid of the face meet the face
-    first; and the HOST WITHOUT the face (what ships once the sign set takes it) is closed there: the same
-    rays meet the backing slab's front face (front-facing, within NB_T + 0.01 behind the face). Returns a
-    dict for the report."""
+    """NB contract (fine): the board stands in front of the front truss (every board vertex at x >= the truss face), inside the
+    porte-cochere's width (|y| <= the post lines), its bottom >= 4.4 m over the drive. The face is exactly the sheet kind's
+    size, upright, facing the road. Nothing modeled stands in front of it: rays from 1.5 m out at a 9 x 3 grid of the face
+    meet the face first. The HOST WITHOUT the face (what ships once the sign set takes it) is closed there: the same rays
+    meet the backing slab's front face (front-facing, within NB_T + 0.01 behind the face). Returns a dict for the report."""
     from mathutils import Vector
     lo, hi = parts_bounds(parts, ("sign_l5name",))
     check(lo[0] >= GABLE_FACE_X - 1e-6 and max(-lo[1], hi[1]) <= 5.3 and lo[2] - DRIVE_T >= 4.4 - 1e-6,
@@ -2040,13 +2006,19 @@ def _host_arrays(parts):
 
 
 def check_kit_rows_l5(parts, boxes, rows):
-    """F1 on KIT_ROWS (cs2_kitrows.check_kit_rows, the step-3b / 3c contract, in this recipe's pre-shift
-    authoring frame): CIDs staged, the replaced racks gone, each REAL kit rack (the shipped props/B FBX)
-    standing on the plaza slab (floor face <= 1 cm under its foot and every footprint corner), the mesh
-    lifted 1 cm cutting no modeled triangle, its AABB clear of every vanilla row box (`boxes` from
-    check_sub_objects over `rows`), the other kit rows and the plaza walks, inside the lot; plus the
-    ACCESS AISLES (RACK_AISLE m on both long sides, over the rack's length, 0.02..1.8 m above the slab:
-    over the plaza, no modeled triangle, vanilla box or other kit row in them). Raises; returns a dict."""
+    """F1 on KIT_ROWS (cs2_kitrows.check_kit_rows, the step-3b / 3c contract, in this recipe's pre-shift authoring frame). It
+    checks these items:
+    - CIDs staged.
+    - The replaced racks are gone.
+    - Each REAL kit rack (the shipped props/B FBX) stands on the plaza slab (floor face <= 1 cm under its foot and every
+      footprint corner).
+    - The mesh lifted 1 cm cuts no modeled triangle.
+    - Its AABB is clear of every vanilla row box (`boxes` from check_sub_objects over `rows`), the other kit rows and the
+      plaza walks, inside the lot.
+    - The ACCESS AISLES (RACK_AISLE m on both long sides, over the rack's length, 0.02..1.8 m above the slab) are free over
+      the plaza: no modeled triangle, vanilla box or other kit row in them.
+
+    Raises. Returns a dict."""
     import numpy as np
     from mathutils import Vector
     from mathutils.bvhtree import BVHTree
@@ -2091,7 +2063,7 @@ def check_kit_rows_l5(parts, boxes, rows):
 
 
 # ======================================================================================
-# L5 revision-1 helpers (recipe-local; each one is listed as a kit need in the report)
+# L5 revision-1 helpers (recipe-local, each one is listed as a kit need in the report)
 # ======================================================================================
 
 def _u(side, a, b):
@@ -2102,8 +2074,8 @@ def _u(side, a, b):
 
 
 def window_at(name, side, plane, s, win, room=None):
-    """cs2_bldg.window_bay centered on the world along-coordinate `s` of the wall (side,
-    plane); the room defaults to the window name (L5 regroups rooms by zone afterwards)."""
+    """cs2_bldg.window_bay centered on the world along-coordinate `s` of the wall (side, plane). The room defaults to the
+    window name (L5 regroups rooms by zone afterwards)."""
     K = _kit()
     from cs2_bldg import WallRef
     u0, u1 = _u(side, s - win.w / 2, s + win.w / 2)
@@ -2133,11 +2105,13 @@ def wall_pier(name, side, plane, s, z0, z1, mat, w=2.0, proud=0.6):
 
 
 def balcony_lite(name, wall, u0, u1, z, depth=1.4, h=1.05, t=0.06, struts=True):
-    """A Peak 7 balcony at ~60 tris (the kit balcony's posts, double rails and knee braces
-    cost ~200, and L5 carries ~30 of them): `balc_<name>` deck slab 0.18 (top at z, back
-    face dropped), `balcwall_<name>` = front + two side baluster panels (t thick, h tall,
-    `lux_balrail` vertical boards; bottoms on the slab and the side-panel ends buried in
-    the front panel dropped), `bracket_<name>` = two diagonal glulam struts under the slab.
+    """A Peak 7 balcony at ~60 tris (the kit balcony's posts, double rails and knee braces cost ~200, and L5 carries ~30 of
+    them). Parts:
+    - `balc_<name>` deck slab 0.18 (top at z, back face dropped).
+    - `balcwall_<name>` = front + two side baluster panels (t thick, h tall, `lux_balrail` vertical boards, bottoms on the
+      slab and the side-panel ends buried in the front panel dropped).
+    - `bracket_<name>` = two diagonal glulam struts under the slab.
+
     LOD: struts go at LOD1 (bracket_), slab and panels at LOD2 (balc_ + recipe lod2_extra)."""
     K = _kit()
     P = K.wall_box(f"balc_{name}", wall, u0, u1, z - 0.18, z, 0.0, depth, "deck")
@@ -2165,9 +2139,9 @@ def _struct():
 
 
 def balcony_posts(name, wall, u0, u1, floors, depth=1.4, h=1.05):
-    """T57 (structure v1): `balcpost_<name>` = two BP_W glulam posts at the outer corners of a balcony stack, from
-    grade (GROUND_LIFT; buried in a slab / deck where one is under it) through every balcony to BP_TOP over the top
-    parapet; centered on the parapet panels' center lines (the corner the side and front panels share). 2 x 5 faces."""
+    """T57 (structure v1): `balcpost_<name>` = two BP_W glulam posts at the outer corners of a balcony stack, from grade
+    (GROUND_LIFT, buried in a slab / deck where one is under it) through every balcony to BP_TOP over the top parapet. They
+    are centered on the parapet panels' center lines (the corner the side and front panels share). 2 x 5 faces."""
     K = _kit()
     ua, ub = sorted((u0, u1))
     z_top = floors[-1][1] + 0.10 + h + BP_TOP
@@ -2223,8 +2197,8 @@ def gable_pair(name, side, plane, s, z=Z_WALL + 0.45):
 
 def check_gable_braces(parts):
     """T57 gate (structure v1): no truss_ / trim_truss member inside a gable window's opening grown by its casing
-    (GABLE_WIN_CASING), from the wall face out to 0.6 m. Returns the number of windows checked; raises naming the
-    window and the truss."""
+    (GABLE_WIN_CASING), from the wall face out to 0.6 m. Returns the number of windows checked. Raises naming the window and
+    the truss."""
     import numpy as np
     K = _kit()
     trusses = []
@@ -2257,16 +2231,14 @@ def check_gable_braces(parts):
 def cross_gable(name, side, plane, c, z0, meet, *, wall_mat, glulam, gf_mat=None,
                 floors=UPPER, brackets=False, wall_mat_lo=None):
     """
-    Peak 7 projecting bay under a cross gable, over a balcony stack. The bay box stands
-    XG_PROJ proud of the host wall (side, plane), XG_HALF either side of the along-coordinate
-    c, from z0 to the roof wall line Z_WALL; its back face is KEPT so cull_hidden removes it
-    and the host wall strip behind it by contact (the host is bisected at c +- XG_HALF).
-    gf_mat: a stone GF box from grade as a ground part `wall_gx<name>` (z0 must be 0); else
-    the bay starts at z0 (F2) on two curved glulam brackets when `brackets`. Gable roof
-    (45 deg, ridge XG_RIDGE, overhang 0.5, rake 0.8) from the front back to `meet` (where the
-    host roof's top plane reaches the xg ridge), timber-shake gable front, the kit king-post
-    truss 0.22 proud, per floor a balcony door + 3.4 x 1.4 balcony + a 1-light window either
-    side, two gable windows. Returns (parts, front plane).
+    Peak 7 projecting bay under a cross gable, over a balcony stack. The bay box stands XG_PROJ proud of the host wall
+    (side, plane), XG_HALF either side of the along-coordinate c, from z0 to the roof wall line Z_WALL. Its back face is
+    KEPT, so cull_hidden removes it and the host wall strip behind it by contact (the host is bisected at c +- XG_HALF).
+    gf_mat: a stone GF box from grade as a ground part `wall_gx<name>` (z0 must be 0). Otherwise the bay starts at z0 (F2)
+    on two curved glulam brackets when `brackets`. The gable roof (45 deg, ridge XG_RIDGE, overhang 0.5, rake 0.8) runs from
+    the front back to `meet` (where the host roof's top plane reaches the xg ridge). The bay has a timber-shake gable front,
+    the kit king-post truss 0.22 proud, per floor a balcony door + 3.4 x 1.4 balcony + a 1-light window either side, and two
+    gable windows. Returns (parts, front plane).
     """
     K = _kit()
     from cs2_bldg import RoofSpec, WallRef, WinSpec
@@ -2328,12 +2300,12 @@ def cross_gable(name, side, plane, c, z0, meet, *, wall_mat, glulam, gf_mat=None
         u0, u1 = _u(side, c - 1.7, c + 1.7)
         P += balcony_posts(f"xg{name}", wall, u0, u1, floors)
     if brackets and st and floors:
-        # structure v1 round 2 (2026-10-18: "I still see some brackets going into the bottom window"): the
-        # two curved brackets stood on the host wall at c +- 2.4, over the GF curtain / terrace-door glass below the
-        # bay. The T57 balcony posts now carry the bay: two glulam OUTRIGGERS `beam_xg<name>o<j>` run under the bay
-        # floor from the host wall's solid band over the glass head (pocketed XG_OUT_EMBED into it) out to each post,
-        # on the post lines (c +- (1.7 - BP_IN)), top flush with the bay floor (z0), XG_OUT section; nothing crosses
-        # glass (cs2_fittings.audit_glass).
+        # Structure v1 round 2 (2026-10-18: "I still see some brackets going into the bottom window"): the two curved
+        # brackets stood on the host wall at c +- 2.4, over the GF curtain / terrace-door glass below the bay. The T57
+        # balcony posts now carry the bay. Two glulam OUTRIGGERS `beam_xg<name>o<j>` run under the bay floor from the host
+        # wall's solid band over the glass head (pocketed XG_OUT_EMBED into it) out to each post, on the post lines (c +-
+        # (1.7 - BP_IN)), top flush with the bay floor (z0), XG_OUT section. Nothing crosses glass
+        # (cs2_fittings.audit_glass).
         sgn = -1.0 if side[0] == "-" else 1.0
         w_o, h_o = XG_OUT
         x_wall = plane - sgn * XG_OUT_EMBED
@@ -2368,7 +2340,7 @@ def chaikin(pts, n=1):
 
 
 def offset_loop(pts, d):
-    """Outward offset of a CCW closed polyline by d (mitred vertex normals, mitre <= 2 d)."""
+    """Outward offset of a CCW closed polyline by d (mitered vertex normals, miter <= 2 d)."""
     n = len(pts)
     out = []
     for i in range(n):
@@ -2397,9 +2369,9 @@ def circle_loop(cx, cy, r, segs=16):
 
 
 def deck_with_holes(name, rect, z, holes, mat):
-    """`<name>` = ONE upward surface: the rectangle (x0, x1, y0, y1) at z minus the hole
-    loops (bmesh triangle_fill treats nested loops as holes; measured 2026-10-11: a 20 x 20
-    plane with two 16-gon holes filled to the exact area). Raises on a loose edge."""
+    """`<name>` = ONE upward surface: the rectangle (x0, x1, y0, y1) at z minus the hole loops (bmesh triangle_fill treats
+    nested loops as holes, measured 2026-10-11: a 20 x 20 plane with two 16-gon holes filled to the exact area). Raises on a
+    loose edge."""
     import bmesh
     K = _kit()
     x0, x1, y0, y1 = rect
@@ -2459,11 +2431,10 @@ def pool_basin(name, inner, outer, z_deck, z_top, z_water, cope_mat):
 
 
 def pool_steps(name, side, s0, s1):
-    """Three stone risers from the walkway (SLAB_T) up to just under the podium coping
-    (tops 0.33 / 0.52 / 0.70, treads 0.35) against the podium edge `side` (+X, +Y, -Y or,
-    revision 3, -X: the flight down to the slope plaza), across the along-interval [s0, s1].
-    One part `stairblk_<name>`; the faces on the walkway and against the next riser / the
-    podium wall are dropped."""
+    """Three stone risers from the walkway (SLAB_T) up to just under the podium coping (tops 0.33 / 0.52 / 0.70, treads 0.35)
+    against the podium edge `side` (+X, +Y, -Y or, revision 3, -X: the flight down to the slope plaza), across the
+    along-interval [s0, s1]. One part `stairblk_<name>`. The faces on the walkway and against the next riser / the podium
+    wall are dropped."""
     K = _kit()
     tops = (0.33, 0.52, 0.70)
     boxes = []
@@ -2483,16 +2454,13 @@ def pool_steps(name, side, s0, s1):
 
 
 def pool_terrace(stone):
-    """The Peak 7 pool deck (verdict B1 "pools are a good addition"; photos `breckenridge
-    pools.jpg`, `Grand-Lodge-on-Peak-7-*.jpg`): a raised paver deck (top PD) on stone
-    retaining walls (ground part `wall_gpool`, outer faces only: the coping ring and the
-    deck close it) with a coping ring `poolcap_rim`, a lagoon pool and two raised stone hot
-    tubs with coping (water BELOW the deck top), a fire pit, 5 flights of steps (revision 3:
-    the fifth, `stairblk_w`, on the -X face down to the slope plaza) and grade walkways to M
-    and the wings. Revision 3 (verdict B1''): the 10 loungers, 4 umbrellas and 6 lamp posts
-    are vanilla sub-objects now (DeckChairRandom01, ParasolRandom01, LightpoleParkRandom01 in
-    SUB_OBJECT_ROWS, at the revision-1 spots). Returns (parts, info) with the contract numbers
-    the builder asserts."""
+    """The Peak 7 pool deck (verdict B1 "pools are a good addition", photos `breckenridge pools.jpg`,
+    `Grand-Lodge-on-Peak-7-*.jpg`): a raised paver deck (top PD) on stone retaining walls (ground part `wall_gpool`, outer
+    faces only: the coping ring and the deck close it) with a coping ring `poolcap_rim`, a lagoon pool and two raised stone
+    hot tubs with coping (water BELOW the deck top), a fire pit, 5 flights of steps (revision 3: the fifth, `stairblk_w`, on
+    the -X face down to the slope plaza) and grade walkways to M and the wings. Revision 3 (verdict B1''): the 10 loungers,
+    4 umbrellas and 6 lamp posts are vanilla sub-objects now (DeckChairRandom01, ParasolRandom01, LightpoleParkRandom01 in
+    SUB_OBJECT_ROWS, at the revision-1 spots). Returns (parts, info) with the contract numbers the builder asserts."""
     K = _kit()
     P = []
     x0, x1, y0, y1 = POOL_X0, POOL_X1, POOL_Y0, POOL_Y1
@@ -2529,10 +2497,10 @@ def pool_terrace(stone):
     P += pool_basin("main", main_in, main_out, PD, MAIN_TOP, MAIN_WATER, "concrete")
     for k, (t_in, t_out) in enumerate(tubs):
         P += pool_basin(f"t{k}", t_in, t_out, PD, TUB_TOP, TUB_WATER, stone)
-    # revision 3: loungers, umbrellas and lamp posts are vanilla sub-objects (SUB_OBJECT_ROWS);
-    # the fire pit stays modeled (a PLACEHOLDER)
+    # revision 3: loungers, umbrellas and lamp posts are vanilla sub-objects (SUB_OBJECT_ROWS). The fire pit stays modeled
+    # (a PLACEHOLDER)
     fx, fy = FIREPIT
-    if _struct():                               # T59: the vanilla ring is the pit; our ember glows inside it
+    if _struct():                               # T59: the vanilla ring is the pit. Our ember glows inside it
         P += disc_part("lamp_ember", fx, fy, PD + FP_EMBER_Z, FP_EMBER_R, "lux_ember")
     else:
         P += ring_part("fp_ring", fx, fy, PD, PD + 0.45, 1.4, 1.0, stone)
@@ -2554,12 +2522,11 @@ def pool_terrace(stone):
 
 
 def l5_zone(x, y, z, axis):
-    """Room tag of a pane group at center (x, y, z) on a wall whose normal is along `axis`.
-    Hall: hlo / hup / hgab by height. Elsewhere the floor (GF f0 .. roof story f4, by the
-    story lines) and a column class from the 8 m bay grid along the wall (4 classes on
-    F0-F3, 2 in the roof): neighboring bays and stacked floors never share a tag, the same
-    tag recurs only >= 24 m apart (or across the building), so every floor carries several
-    independently lit rooms at night. 3 + 4 x 4 + 2 = 21 tags <= the 23-id pool."""
+    """Room tag of a pane group at center (x, y, z) on a wall whose normal is along `axis`. Hall: hlo / hup / hgab by height.
+    Elsewhere the floor (GF f0 .. roof story f4, by the story lines) and a column class from the 8 m bay grid along the wall
+    (4 classes on F0-F3, 2 in the roof). Neighboring bays and stacked floors never share a tag. The same tag recurs only >=
+    24 m apart (or across the building), so every floor carries several independently lit rooms at night. 3 + 4 x 4 + 2 = 21
+    tags <= the 23-id pool."""
     if x > H_X0 + 0.3 and abs(y) < H_Y + 0.6:
         return "hgab" if z >= H_EAVE else ("hup" if z >= Z_F[1] else "hlo")
     fl = sum(1 for zl in STOREY_LINES if z >= zl)
@@ -2603,18 +2570,17 @@ def l5_storey_lines(xc, yc):
 
 
 # ======================================================================================
-# L5 revision-2 / 3 helpers (tower deck, slope plaza, forecourt, vanilla sub-object contracts,
-# clock sightline, the X shift). Recipe-local; the kit parts they would want are listed as kit
-# needs in build/lodges-swanky.md. Revision 3 removed the modeled dressing builders
-# (raised, cafe_set, planter_tree, bollards; lounger, lamp_post): vanilla props replace them.
+# L5 revision-2 / 3 helpers (tower deck, slope plaza, forecourt, vanilla sub-object contracts, clock sightline, the X
+# shift). They are recipe-local. The kit parts they would want are listed as kit needs in build/lodges-swanky.md. Revision 3
+# removed the modeled dressing builders (raised, cafe_set, planter_tree, bollards, lounger, lamp_post): vanilla props
+# replace them.
 # ======================================================================================
 
 def deck_rail(name, segs, z, h=DK_RAIL_H, t=0.06, post=0.16, every=2.6):
-    """Peak 7 honey board balustrade on a deck edge. segs = ((a, b), ...) axis-aligned plan
-    segments (the rail line, 0.03 inside the deck edge). `balcwall_<name>` panels
-    (lux_balrail, t thick, z..z+h, bottoms dropped: they stand on the deck), `trim_<name>post`
-    glulam posts post x post to z+h+0.10 at both ends and every <= `every`, `trim_<name>cap`
-    a 0.14 x 0.06 cap rail on the panels (bottom dropped: it lies on the panel tops)."""
+    """Peak 7 honey board balustrade on a deck edge. segs = ((a, b), ...) axis-aligned plan segments (the rail line, 0.03
+    inside the deck edge). `balcwall_<name>` panels (lux_balrail, t thick, z..z+h, bottoms dropped: they stand on the deck).
+    `trim_<name>post` glulam posts post x post to z+h+0.10 at both ends and every <= `every`. `trim_<name>cap` a 0.14 x 0.06
+    cap rail on the panels (bottom dropped: it lies on the panel tops)."""
     K = _kit()
     panels, posts, caps = K._Geo(), K._Geo(), K._Geo()
     seen = set()
@@ -2647,20 +2613,22 @@ def deck_rail(name, segs, z, h=DK_RAIL_H, t=0.06, post=0.16, every=2.6):
 
 
 def tower_deck(tower=True):
-    """(c) "on the clock tower side, build an elevated deck and the clock tower is sort of the
-    focal point" (verdict B1'): the deck one story up (top DK_Z = F2 4.5, slab DK_T) between
-    M's road face (x 6), the hall's +Y wall (y 9) and the road cross gable r1 (y 21), out to
-    DK_X1 = 21 (3 m past the hall glass). `deck_tw` = four boxes around the tower base (one
-    box with --no-tower), faces in contact with M, the hall and the tower dropped;
-    `deckfascia_tw` on the open edges; five glulam posts (`col_tw*`) on stone piers
-    (`pier_tw*` / `plinthcap_tw*`, from LIFT) under a front and a side beam (`beam_tw*`; the
-    hall wall and M carry the other edges); four curved knee braces on the front posts; the
-    honey board balustrade (deck_rail); a deck-level door into the tower (`entry_ctdk`).
-    Revision 3 (verdict B1'' "the STAIRS should be to the RIGHT, so that cars can pull
-    through the valet area"): the 3 m stair (`stair_tw*`, kit stair, tube rails) leaves from
-    the right-hand edge (DK_Y1, +Y seen from the road) at x DK_STAIR_X and runs on +Y down to
-    the walk at DK_STAIR_FOOT_Y; the front balustrade is closed; the bistro sets and lanterns
-    are vanilla sub-objects (SUB_OBJECT_ROWS). Returns (parts, info)."""
+    """(c) "on the clock tower side, build an elevated deck and the clock tower is sort of the focal point" (verdict B1'): the
+    deck is one story up (top DK_Z = F2 4.5, slab DK_T) between M's road face (x 6), the hall's +Y wall (y 9) and the road
+    cross gable r1 (y 21), out to DK_X1 = 21 (3 m past the hall glass). Parts:
+    - `deck_tw` = four boxes around the tower base (one box with --no-tower), faces in contact with M, the hall and the
+      tower dropped.
+    - `deckfascia_tw` on the open edges.
+    - Five glulam posts (`col_tw*`) on stone piers (`pier_tw*` / `plinthcap_tw*`, from LIFT) under a front and a side beam
+      (`beam_tw*`). The hall wall and M carry the other edges.
+    - Four curved knee braces on the front posts.
+    - The honey board balustrade (deck_rail).
+    - A deck-level door into the tower (`entry_ctdk`).
+
+    Revision 3 (verdict B1'' "the STAIRS should be to the RIGHT, so that cars can pull through the valet area"): the 3 m
+    stair (`stair_tw*`, kit stair, tube rails) leaves from the right-hand edge (DK_Y1, +Y seen from the road) at x
+    DK_STAIR_X and runs on +Y down to the walk at DK_STAIR_FOOT_Y. The front balustrade is closed. The bistro sets and
+    lanterns are vanilla sub-objects (SUB_OBJECT_ROWS). Returns (parts, info)."""
     K = _kit()
     from cs2_bldg import WallRef
     STN, GLU = "lux_stone_tan", "lux_glulam"
@@ -2670,8 +2638,8 @@ def tower_deck(tower=True):
     hb = CT_BASE_W / 2
     tx0, tx1, ty0, ty1 = CT_C[0] - hb, CT_C[0] + hb, CT_C[1] - hb, CT_C[1] + hb
     if tower:
-        # faces against M (-X), the hall wall (A1 -Y), the tower base and the neighboring
-        # boxes are dropped; B keeps +Y (the open edge past the r1 bay, behind the fascia)
+        # Faces against M (-X), the hall wall (A1 -Y), the tower base and the neighboring boxes are dropped. B keeps +Y (the
+        # open edge past the r1 bay, behind the fascia)
         boxes = [((x0, y0, zb), (H_X1, ty0, zt), ("-X", "-Y", "+X", "+Y")),   # A1 along the hall
                  ((H_X1, y0, zb), (x1, ty0, zt), ("-X", "+Y")),           # A2 past its glass
                  ((x0, ty1, zb), (x1, y1, zt), ("-X", "-Y")),             # B along the r1 bay
@@ -2709,7 +2677,7 @@ def tower_deck(tower=True):
     P += deck_rail("tw", [((rx, ry0), (rx, ry1)),
                           ((M_X1 + XG_PROJ + 0.08, ry1), (s0, ry1)), ((s1, ry1), (rx, ry1)),
                           ((H_X1 + 1.15, ry0), (rx, ry0))], zt)
-    # the stair to the walk (kit stair; foot on the walk slab, closed stringer feet), run +Y
+    # the stair to the walk (kit stair, foot on the walk slab, closed stringer feet), run +Y
     P += K.stair("tw", (DK_STAIR_X, DK_STAIR_FOOT_Y, SLAB_T), (DK_STAIR_X, y1 + 0.02, zt),
                  w=DK_STAIR_W, rise_max=0.18, rail="tube", ground=False, tread_mat="deck",
                  stringer_mat=GLU)
@@ -2722,17 +2690,17 @@ def tower_deck(tower=True):
 
 
 def slope_plaza(fine=False):
-    """(1) revision 3, "I wanted the PLAZA ON THE POOL SIDE" (verdict B1''): `deck_s0` the
-    paver plaza along the slope face from PS_X0 (0.6 m inside the back lot edge) to the wing
-    gable ends (W_X0), end to end (+-PS_Y); `deck_s1` the strip from the wing line to the
-    podium's -X wall (|y| <= POOL_Y1), top only (its sides meet the plaza, the walkways and
-    the podium), so the plaza, the courtyard walkways (deck_w*) and the podium steps
-    (`stairblk_w`, pool_terrace) read as one paved terrace like Peak 7's pool plaza; four kit
-    ski racks with real gear on the slope edge (z0 = the slab top, the kit's K17 keyword);
-    the plaza fire pit (`fp_pz` + `lamp_pzember`, a PLACEHOLDER). Tables, chairs, parasols,
-    heaters, benches, bins, pots, lamp posts and trees are vanilla sub-objects
-    (SUB_OBJECT_ROWS). Fine-detail step 3e (`fine`): the racks are dressing-kit rows (KIT_ROWS),
-    none is modeled. Returns (parts, info)."""
+    """(1) revision 3, "I wanted the PLAZA ON THE POOL SIDE" (verdict B1''):
+    - `deck_s0` the paver plaza along the slope face from PS_X0 (0.6 m inside the back lot edge) to the wing gable ends
+      (W_X0), end to end (+-PS_Y).
+    - `deck_s1` the strip from the wing line to the podium's -X wall (|y| <= POOL_Y1), top only (its sides meet the plaza,
+      the walkways and the podium). So the plaza, the courtyard walkways (deck_w*) and the podium steps (`stairblk_w`,
+      pool_terrace) read as one paved terrace like Peak 7's pool plaza.
+    - Four kit ski racks with real gear on the slope edge (z0 = the slab top, the kit's K17 keyword).
+    - The plaza fire pit (`fp_pz` + `lamp_pzember`, a PLACEHOLDER).
+
+    Tables, chairs, parasols, heaters, benches, bins, pots, lamp posts and trees are vanilla sub-objects (SUB_OBJECT_ROWS).
+    Fine-detail step 3e (`fine`): the racks are dressing-kit rows (KIT_ROWS), none is modeled. Returns (parts, info)."""
     K = _kit()
     P = []
     P += K.box_part("deck_s0", (PS_X0, -PS_Y, LIFT), (W_X0, PS_Y, SLAB_T), "lux_paver",
@@ -2753,18 +2721,19 @@ def slope_plaza(fine=False):
 
 
 def forecourt():
-    """(2) revision 3: the road side returns to a forecourt with a VALET LOOP (verdict B1''
-    "so that cars can pull through the valet area"). `deck_e0` the drive (lux_drive, top
-    DRIVE_T): the lane under the porte-cochere x LANE_X0..LANE_X1 from DRIVE_Y0 to DRIVE_Y1,
-    the entry leg on the left (y DRIVE_Y0..ENTRY_Y1) and the open exit apron on the right
-    (y ISLAND_Y1..DRIVE_Y1) out to RD_X1; `deck_e1` the walks (lux_paver, SLAB_T, a 4 cm
-    curb over the drive): along the hall front, past it under the deck front to the stair
-    foot, and the arcade under the tower deck around the tower base (the tower's two grade
-    doors stand on it); `deck_e2` the raised island (ISLAND_T) in front of the canopy (the
-    porte-cochere's front piers stand in it). All `deck_e*` (arrival parts, kept at LOD2).
-    Faces against the hall's plinth ring, M, the tower base, the r1 bay and each other are
-    dropped. Bollards, benches, a bin, lamp posts, pots and trees are vanilla sub-objects.
-    Returns (parts, info)."""
+    """(2) revision 3: the road side returns to a forecourt with a VALET LOOP (verdict B1'' "so that cars can pull through the
+    valet area"). Parts:
+    - `deck_e0` the drive (lux_drive, top DRIVE_T): the lane under the porte-cochere x LANE_X0..LANE_X1 from DRIVE_Y0 to
+      DRIVE_Y1, the entry leg on the left (y DRIVE_Y0..ENTRY_Y1) and the open exit apron on the right (y
+      ISLAND_Y1..DRIVE_Y1) out to RD_X1.
+    - `deck_e1` the walks (lux_paver, SLAB_T, a 4 cm curb over the drive): along the hall front, past it under the deck
+      front to the stair foot, and the arcade under the tower deck around the tower base (the tower's two grade doors stand
+      on it).
+    - `deck_e2` the raised island (ISLAND_T) in front of the canopy (the porte-cochere's front piers stand in it).
+
+    All `deck_e*` are arrival parts, kept at LOD2. Faces against the hall's plinth ring, M, the tower base, the r1 bay and
+    each other are dropped. Bollards, benches, a bin, lamp posts, pots and trees are vanilla sub-objects. Returns (parts,
+    info)."""
     K = _kit()
     P = []
     check(ISLAND_Y1 <= DK_Y0 and DK_STAIR_FOOT_Y + DK_STAIR_LAND <= DRIVE_Y1,
@@ -2797,11 +2766,10 @@ def forecourt():
 # --- revision 3: the vanilla sub-objects' geometry contracts (pre-shift frame) ----------------
 
 def vanilla_boxes(row, envelope=False):
-    """Authoring-frame AABBs [(kind, (lo, hi)), ...] of one SUB_OBJECT_ROWS entry from its
-    VANILLA bounds turned by the row's yaw (Unity yaw: local (x, z) -> game (x c + z s,
-    -x s + z c) -> authoring (X, Y) = (gz, gx); cs2_liftdress.subobj_box). Kinds: "solid"
-    (the full bounds), "pole" + "canopy" (a parasol), "trunk" (a tree) and, with `envelope`,
-    the tree's full union envelope."""
+    """Authoring-frame AABBs [(kind, (lo, hi)), ...] of one SUB_OBJECT_ROWS entry from its VANILLA bounds turned by the row's
+    yaw (Unity yaw: local (x, z) -> game (x c + z s, -x s + z c) -> authoring (X, Y) = (gz, gx), cs2_liftdress.subobj_box).
+    Kinds: "solid" (the full bounds), "pole" + "canopy" (a parasol), "trunk" (a tree) and, with `envelope`, the tree's full
+    union envelope."""
     pf, x, y, z, yaw = row[:5]
     lo, hi = VANILLA[pf]["bounds"]
     a = math.radians(yaw)
@@ -2865,9 +2833,9 @@ def _parts_bvh(parts, boxes=()):
 
 
 def mount_ray(row):
-    """(origin, direction, expected surface normal sign) of a row's S1 surface probe: ground
-    rows look down from 0.3 m above the pivot; "wall" rows (revision 4) look back at the wall
-    from 0.3 m out along their facing (yaw), and the face they meet must face that way."""
+    """(origin, direction, expected surface normal sign) of a row's S1 surface probe. Ground rows look down from 0.3 m above
+    the pivot. "wall" rows (revision 4) look back at the wall from 0.3 m out along their facing (yaw), and the face they
+    meet must face that way."""
     from mathutils import Vector
     pf, x, y, z, yaw = row[:5]
     if VANILLA[pf].get("mount", "ground") == "wall":
@@ -2878,18 +2846,16 @@ def mount_ray(row):
 
 
 def check_sub_objects(parts, rows=SUB_OBJECT_ROWS, pad=SUB_PAD, lot=None):
-    """Revision 3 contract on the vanilla sub-objects (pre-shift frame; raises naming the
-    prop and the part):
-      S1 surface: m_ParentMesh 0 -> the first face under the pivot is at the row's z (+-2 mm,
-         facing up: our paving / deck); revision 4: a "wall" mount (VANILLA mount) meets its
-         wall face at the pivot (+-2 mm, facing the row's yaw); -1 -> no part under the pivot
-         above grade + 0.02;
-      S2 clearance: every box (bottom 0.02 above its surface - a wall mount: 0.02 off its wall -
-         grown by `pad` otherwise) meets no modeled part (no triangle overlap, no part vertex
-         inside);
-      S3 no two props intersect (a parasol's stand in its own table set's envelope excepted);
-      S4 every box inside the lot (`lot` = (x0, x1, y0, y1) in the rows' frame; default L5's
-         lot before the shift) (trees: the trunk).
+    """Revision 3 contract on the vanilla sub-objects (pre-shift frame, raises naming the prop and the part):
+    - S1 surface: m_ParentMesh 0 -> the first face under the pivot is at the row's z (+-2 mm, facing up: our paving / deck).
+      Revision 4: a "wall" mount (VANILLA mount) meets its wall face at the pivot (+-2 mm, facing the row's yaw). -1 -> no
+      part under the pivot above grade + 0.02.
+    - S2 clearance: every box (bottom 0.02 above its surface - a wall mount: 0.02 off its wall - grown by `pad` otherwise)
+      meets no modeled part (no triangle overlap, no part vertex inside).
+    - S3 no two props intersect (a parasol's stand in its own table set's envelope excepted).
+    - S4 every box inside the lot (`lot` = (x0, x1, y0, y1) in the rows' frame, default L5's lot before the shift) (trees:
+      the trunk).
+
     Returns {zone: count} and the box list for the corridor / sightline contracts."""
     import numpy as np
     from mathutils import Vector
@@ -2963,13 +2929,11 @@ def check_sub_objects(parts, rows=SUB_OBJECT_ROWS, pad=SUB_PAD, lot=None):
 
 
 def check_drive_corridor(parts, boxes, min_w=CORRIDOR_MIN):
-    """(3) contract, verdict B1'' "so that cars can pull through the valet area": past the
-    tower deck and the stair landing (y DK_Y0 .. DK_STAIR_FOOT_Y + DK_STAIR_LAND), rays from
-    the walk curb (LANE_X0) toward the road at 0.2 / 1.0 / 2.0 / 3.0 / 3.5 m (a vehicle
-    envelope over the drive) meet no part and no vanilla prop box for >= min_w m (to RD_X1 at
-    most); the stair (every part) stays >= 1.0 m short of the curb. Also measures the lane
-    under the porte-cochere (pier face to the island curb, info only: as built since
-    revision 0). Returns (min width, y, z, blocker), lane width."""
+    """(3) contract, verdict B1'' "so that cars can pull through the valet area": past the tower deck and the stair landing (y
+    DK_Y0 .. DK_STAIR_FOOT_Y + DK_STAIR_LAND), rays from the walk curb (LANE_X0) toward the road at 0.2 / 1.0 / 2.0 / 3.0 /
+    3.5 m (a vehicle envelope over the drive) meet no part and no vanilla prop box for >= min_w m (to RD_X1 at most). The
+    stair (every part) stays >= 1.0 m short of the curb. Also measures the lane under the porte-cochere (pier face to the
+    island curb, info only: as built since revision 0). Returns (min width, y, z, blocker), lane width."""
     import numpy as np
     from mathutils import Vector
     bvh, owner, _VA, _vo = _parts_bvh(parts, [(f"sub:{rows_i}:{kind}", (lo, hi))
@@ -3039,8 +3003,8 @@ def check_door_walks(parts, doors, boxes, rows=SUB_OBJECT_ROWS):
 
 
 def placeholder_tris(parts, placeholders=PLACEHOLDERS):
-    """{what: (tris, part count)} of PLACEHOLDERS (the modeled stand-ins for vanilla props;
-    fine-detail step 3e: FINE_PLACEHOLDERS)."""
+    """Returns {what: (tris, part count)} of PLACEHOLDERS (the modeled stand-ins for vanilla props). Fine-detail step 3e uses
+    FINE_PLACEHOLDERS."""
     out = {}
     for prefixes, what, _why in placeholders:
         n, k = 0, 0
@@ -3078,14 +3042,12 @@ def clock_samples(parts, name="ct"):
 
 def check_clock_sightline(parts, name="ct", max_el=CLOCK_CLEAR_DEG, azimuths=CLOCK_AZIMUTHS,
                           boxes=()):
-    """(b) contract: from every arrival azimuth (the preview views arrival_front / arrival_3q
-    / road34left / arrival, authoring frame) and every camera elevation 0..max_el deg (1 deg
-    steps), every sample of every dial that faces the camera (n . d > 0.05) sees the sky: no
-    part (the cap, the stage, the main roofs) and (revision 3) no vanilla prop box `boxes`
-    [(label, (lo, hi)), ...] (parasols, lamp posts, the trees' full growth envelopes) between
-    it and a camera 2 km out. Raises naming the azimuth, elevation, dial and the blocking part.
-    Returns {azimuth: highest elevation (deg, <= 80) up to which every facing dial is fully
-    clear}."""
+    """(b) contract. Take every arrival azimuth (the preview views arrival_front / arrival_3q / road34left / arrival, authoring
+    frame) and every camera elevation 0..max_el deg (1 deg steps). Every sample of every dial that faces the camera (n . d >
+    0.05) must see the sky. That means nothing stands between the sample and a camera 2 km out: no part (the cap, the stage,
+    the main roofs) and (revision 3) no vanilla prop box `boxes` [(label, (lo, hi)), ...] (parasols, lamp posts, the trees'
+    full growth envelopes). Raises naming the azimuth, elevation, dial and the blocking part. Returns {azimuth: highest
+    elevation (deg, <= 80) up to which every facing dial is fully clear}."""
     from mathutils import Vector
     bvh, owner, _VA, _vo = _parts_bvh(parts, boxes)
     dials = clock_samples(parts, name)
@@ -3116,11 +3078,10 @@ def check_clock_sightline(parts, name="ct", max_el=CLOCK_CLEAR_DEG, azimuths=CLO
 
 
 def shift_x(parts, dx):
-    """Move the whole build by dx along X (revision 2: the lot grew one cell toward the road
-    and the build moves back so the plaza takes the new cell): identity parts get their mesh
-    translated (the recipe's hygiene helpers and lodge.py's join expect identity parts to
-    stay identity), the kit's transformed parts (cs2_kit doors, handrails) get their
-    location moved; the view layer is updated so matrix_world is current."""
+    """Move the whole build by dx along X (revision 2: the lot grew one cell toward the road, and the build moves back so the
+    plaza takes the new cell). Identity parts get their mesh translated (the recipe's hygiene helpers and lodge.py's join
+    expect identity parts to stay identity). The kit's transformed parts (cs2_kit doors, handrails) get their location
+    moved. The view layer is updated so matrix_world is current."""
     import bpy
     from mathutils import Matrix
     T = Matrix.Translation((dx, 0.0, 0.0))
@@ -3135,17 +3096,17 @@ def shift_x(parts, dx):
     return len(parts)
 
 
-# fittings v1 (2026-10-17): every L5 gutter ran with no downpipe; Peak 7 (L5's source) carries rail snow fences
-# above its walks. Revision-1 frame (before shift_x). Gutter tops: M / wings 13.82, hall 7.82 (gable_roof:
-# gz = eave tip - 0.18); gutter lines 1.2 m outside the walls (overhang 1.0 + 0.2).
+# fittings v1 (2026-10-17): every L5 gutter ran with no downpipe. Peak 7 (L5's source) carries rail snow fences above its
+# walks. Revision-1 frame (before shift_x). Gutter tops: M / wings 13.82, hall 7.82 (gable_roof: gz = eave tip - 0.18).
+# Gutter lines are 1.2 m outside the walls (overhang 1.0 + 0.2).
 FIT_GZ_M, FIT_GZ_H = 13.82, 7.82
 FIT_FENCE_SPANS = ((-20.0, -10.0), (10.0, 20.0))   # M road eave between the hall and the road bays
 FIT_FENCE_EVERY = 1.8                               # brackets (1.2 on the other buildings): the L5 budget
 
 
 def lower_lift_bottoms(P, lift, ground_lift):
-    """Close look: move the bottom vertices (z == lift) of every part whose lowest point is `lift` down to
-    `ground_lift`; returns how many parts moved. Tops and everything above are untouched."""
+    """Close look: move the bottom vertices (z == lift) of every part whose lowest point is `lift` down to `ground_lift`.
+    Returns how many parts moved. Tops and everything above are untouched."""
     n = 0
     for o, _m in P:
         vs = o.data.vertices
@@ -3163,8 +3124,8 @@ def lower_lift_bottoms(P, lift, ground_lift):
 
 
 def CHIM_FOOT():
-    """Foot of the three exterior stacks' shoulders. Close look (2026-10-17): at LIFT (0.05) they stood 3 cm over the
-    lifted grade beside walls that meet the ground (cs2_fittings chimney gate); with fittings on they start at
+    """Foot of the three exterior stacks' shoulders. Close look (2026-10-17): at LIFT (0.05) they stood 3 cm over the lifted
+    grade beside walls that meet the ground (cs2_fittings chimney gate). With fittings on, they start at
     cs2_bldg.GROUND_LIFT like every closed part at grade (fittings off: LIFT, byte-identical)."""
     import cs2_bldg as KK
     return KK.GROUND_LIFT if KK.FITTINGS.get("version", 0) >= 1 else LIFT
@@ -3175,11 +3136,11 @@ def fittings_l5(K, mspec):
     slope. Each pipe stands on a wall clear of the piers, balconies and doors (E1 clear boxes still apply)."""
     P = []
     gap = 1.2 - 0.06
-    # the elbows end 6 cm under the gutter top: at the gutter top they reached the slab's eave-tip underside
-    # (13.79) and the cull's contact rule then dropped the whole 29 m eave edge face of the wing roof (8.7 m2)
+    # The elbows end 6 cm under the gutter top. At the gutter top they reached the slab's eave-tip underside (13.79), and
+    # the cull's contact rule then dropped the whole 29 m eave edge face of the wing roof (8.7 m2)
     zt_m, zt_h = FIT_GZ_M - 0.06, FIT_GZ_H - 0.06
-    # M road eave (mB): offset leaders from the gutter end round the corner onto the gable-end walls, behind
-    # the road-face corner piers (pm_mount y +-35, 0.6 proud)
+    # M road eave (mB): offset leaders from the gutter end around the corner onto the gable-end walls, behind the road-face
+    # corner piers (pm_mount y +-35, 0.6 proud)
     for tag, sg in (("mBs", -1.0), ("mBn", 1.0)):
         P += K.downspout(tag, M_X1 + 1.2, sg * (M_Y1 + 0.55), FIT_GZ_M, "+X", z_bottom=LIFT,
                          leader=(M_X1 - 0.4, sg * (M_Y1 + 0.06)))
@@ -3198,10 +3159,9 @@ def fittings_l5(K, mspec):
 
 
 def build_l5(recipe, opts):
-    """Parts of L5 revision 1 (custom massing). Order is fixed (determinism); every name
-    unique; no set is ever iterated unsorted. Fine-detail step 3e: `recipe.fine_detail` (module
-    docstring) swaps the racks / road-face lanterns for rows, adds the name board, fine finial /
-    flues / rods; False = revision 4 vertex for vertex."""
+    """Parts of L5 revision 1 (custom massing). The order is fixed (determinism). Every name is unique. No set is ever iterated
+    unsorted. Fine-detail step 3e: `recipe.fine_detail` (module docstring) swaps the racks / road-face lanterns for rows,
+    adds the name board, and adds fine finial / flues / rods. False = revision 4 vertex for vertex."""
     K = _kit()
     from cs2_bldg import RoofSpec, WallRef, WinSpec
     register_materials()
@@ -3213,9 +3173,8 @@ def build_l5(recipe, opts):
     P = []
 
     # ---------------- M main bar ----------------------------------------------------------
-    # cut planes on every story: the hall (+-H_Y), the wing contacts (wing y0 / y1) and
-    # the cross-gable bays, so the covered strips are culled by contact with the abutting
-    # masses' kept faces
+    # Cut planes on every story: the hall (+-H_Y), the wing contacts (wing y0 / y1) and the cross-gable bays, so the covered
+    # strips are culled by contact with the abutting masses' kept faces
     cuts = sorted(set([-H_Y, H_Y] + [v for _t, y0, y1 in WINGS for v in (y0, y1)]
                       + [c + d for c in XG_ROAD + XG_COURT for d in (-XG_HALF, XG_HALF)]))
     P += K.storey("gm", M_X0, M_X1, M_Y0, M_Y1, 0.0, Z_F[1], STN, ground=True, drop=("+Z",))
@@ -3248,9 +3207,8 @@ def build_l5(recipe, opts):
         for o, _m in P[-4:]:
             K.bisect_part(o, [((x, 0.0, 0.0), (1.0, 0.0, 0.0))
                               for x in (XG_WING - XG_HALF, XG_WING + XG_HALF)])
-        # the roof runs into M's: its +X rake end sits where the wing ridge meets M's top
-        # plane (W_MEET); the far gable end is the only gable wall (the near one would be
-        # buried in M's attic)
+        # The roof runs into M's: its +X rake end sits where the wing ridge meets M's top plane (W_MEET). The far gable end
+        # is the only gable wall (the near one would be buried in M's attic)
         wspec = RoofSpec("gable", W_X0, W_MEET - M_OVER, y0, y1, Z_WALL, 45.0, axis="X",
                          overhang=M_OVER, rake_over=M_OVER, thick=ROOF_T, mat="lux_slate",
                          trim="lux_trim")
@@ -3363,10 +3321,9 @@ def build_l5(recipe, opts):
         P += gable_pair(f"weg{tag}", "-X", W_X0, yc)
 
     # ---------------- revision 4 (b): French terrace doors onto the pool terrace -----------------
-    # eighteenth look "there are no doors on the pool side of the building": in each wing's
-    # courtyard face under its cross gable and in M's on the plaza axis, the curtain bay becomes a
-    # glazed door wall: two sidelights, a transom light and the door in a REAL recessed opening
-    # cut into the stone ground story (threshold = the walk, SLAB_T)
+    # Eighteenth look "there are no doors on the pool side of the building". In each wing's courtyard face under its cross
+    # gable and in M's on the plaza axis, the curtain bay becomes a glazed door wall. It has two sidelights, a transom light
+    # and the door, in a REAL recessed opening cut into the stone ground story (threshold = the walk, SLAB_T)
     doors = []
     for tag, side, plane, s in POOL_DOORS:
         ps, door = terrace_door(tag, side, plane, s, SLAB_T, tag, frame_mat=GLU)
@@ -3405,7 +3362,7 @@ def build_l5(recipe, opts):
             P += K._single(f"flue_m{k}{j}", lambda g, y=y, dy=dy: g.cyl(
                 (M_RIDGE_X, y + dy, CHIM_TOP - 0.02), (M_RIDGE_X, y + dy, FLUE_TOP), 0.17,
                 8 if (not fine or K.FITTINGS.get("version", 0) >= 1) else 12, cap0=False),
-                "plaster")      # step 3e: 12-seg flue pots; close look: 8 (25 m up; pays for the downpipe clips)
+                "plaster")      # step 3e: 12-seg flue pots. Close look: 8 (25 m up, pays for the downpipe clips)
 
     # ---------------- H great hall (revision 0, moved with M's road face) --------------
     P += K.storey("gh", H_X0, H_X1, -H_Y, H_Y, 0.0, H_EAVE, SID_LO, ground=True,
@@ -3524,16 +3481,16 @@ def build_l5(recipe, opts):
         sy = 1.0 if y < 0 else -1.0
         P += K.bracket(f"pcx{k}", (x + sx * 0.25, y, P_TIE - 0.25), (sx, 0.0, 0.0), span=1.1,
                        drop=1.1, t=0.25, curved=True, mat=GLU)
-        # structure v1 round 2: the one-piece (mitred) arc's top runs level into the tie: its tip 5 cm lower seats
-        # it 7.5 cm into the tie (<= the gate's 10 cm, like pcx); the old 4-box arc's tilted last box reached less
+        # Structure v1 round 2: the one-piece (mitered) arc's top runs level into the tie. Its tip 5 cm lower seats it 7.5
+        # cm into the tie (<= the gate's 10 cm, like pcx). The old 4-box arc's tilted last box reached less
         P += K.bracket(f"pcy{k}", (x, y + sy * 0.25, P_TIE - (0.25 if _struct() else 0.2)), (0.0, sy, 0.0), span=1.1,
                        drop=1.1, t=0.25, curved=True, mat=GLU)
     if PC_GABLE_INFILL:
-        # revision 4 (a), eighteenth look "the front triangle above the valet area ... empty space
-        # you can see into": tongue-and-groove infills (pentagons from the ceiling bottom to 0.02
-        # inside the roof slab) just inside both trusses, the ceiling between them (its ends meet
-        # the infills: no exposed ceiling top), frieze boards on the tie beams closing the long
-        # slots between the ceiling edge and the roof underside
+        # Revision 4 (a), eighteenth look "the front triangle above the valet area ... empty space you can see into". Parts:
+        # - Tongue-and-groove infills (pentagons from the ceiling bottom to 0.02 inside the roof slab) just inside both
+        #   trusses.
+        # - The ceiling between them (its ends meet the infills: no exposed ceiling top).
+        # - Frieze boards on the tie beams, closing the long slots between the ceiling edge and the roof underside.
         P += K.box_part("soffit_pcceil", (PC_GAB_BACK[1], -5.3, PC_CEIL_Z[0]),
                         (PC_GAB_FRONT[0], 5.3, PC_CEIL_Z[1]), "deck", drop=("+Z", "-X", "+X"))
         # the board profile (y, z): down to the tie-beam center between the beams' inner faces,
@@ -3553,7 +3510,7 @@ def build_l5(recipe, opts):
                         (P_POST_X[1], 5.3, P_TIE + 0.30), "deck", drop=("+Z",))
     for k, y in enumerate((-2.5, 2.5)):
         if K.FITTINGS.get("version", 0) >= 1:   # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): vanilla RoofLight03 downlights
-            continue                            # (cs2_fittings ROWS["L5"]["ceiling"]); lantern + rod out
+            continue                            # (cs2_fittings ROWS["L5"]["ceiling"]). Lantern + rod out
         lp, _pt = K.lantern(f"pc{k}", (pmid, y, 3.9), "+X", kind="post")
         P += lp
         if fine:                        # step 3e: an 8-seg round rod (lantern top to the ceiling)
@@ -3566,7 +3523,7 @@ def build_l5(recipe, opts):
         P += name_board(K)
 
     # ---------------- E (revision 3): the valet forecourt (drive loop, walks, island) ---------
-    # replaces revision 2's road plaza; its lamp posts, bollards and planters are vanilla
+    # Replaces revision 2's road plaza. Its lamp posts, bollards and planters are vanilla
     ps, fc = forecourt()
     P += ps
 
@@ -3592,10 +3549,10 @@ def build_l5(recipe, opts):
     # ---------------- fittings v1 (2026-10-17, docs/research/art/fittings-2026-10-17.md) ------
     if K.FITTINGS.get("version", 0) >= 1:
         P += fittings_l5(K, mspec)
-        # paid for on L5 itself: the five chimney crowns (20-25 m up) lose their 2 cm edge bevel (44 -> 12 tris
-        # each, 1.3 px at 20 m): the over-detail the downpipes and fences are bought with
-        # close look (2026-10-17): the downpipe necks, jogs and clips and the K-style gutters are paid for by the
-        # 16 cross-gable bay rake boards (14-20 m up) losing their 2 cm edge bevel too (~42 -> ~14 tris each)
+        # Paid for on L5 itself: the five chimney crowns (20-25 m up) lose their 2 cm edge bevel (44 -> 12 tris each, 1.3 px
+        # at 20 m). This is the over-detail that the downpipes and fences are bought with.
+        # Close look (2026-10-17): the 16 cross-gable bay rake boards (14-20 m up) lose their 2 cm edge bevel too (~42 ->
+        # ~14 tris each). This pays for the downpipe necks, jogs and clips and the K-style gutters.
         for o, _m in P:
             if o.name in CHIM_CAPS or o.name.startswith("rake_xg"):
                 o["no_bevel"] = 1
@@ -3608,7 +3565,7 @@ def build_l5(recipe, opts):
     # ---------------- UV-island hygiene (see unbevelled) ----------------------------------
     unbevelled(P, "truss_xg", "trim_trussxg")
     unbevelled(P, "truss_pc", "trim_trusspc")
-    # ---------------- coplanar hygiene (revision 1; see split_double_doors & co) ------------
+    # ---------------- coplanar hygiene (revision 1, see split_double_doors & co) ------------
     split_double_doors(P)                       # hall door (the tower's did it already)
     turn_posts(P, "post_stairtw")               # revision 3: the stair runs along Y (K21)
     inset_transom_ends(P)
@@ -3675,8 +3632,8 @@ def build_l5(recipe, opts):
               f"F1 cross gable on {host}{tag} ({side}) projects {proj:.2f} m, inside the eave "
               f"reach {reach[key]:.2f} m + 0.1")
     check_pane_clearance(P, "L5")
-    # pools: water below the deck top; coping / tub rims above it; the holes inside the deck
-    # and apart; distinct horizontal levels (no coplanar deck / coping / water faces)
+    # Pools: water below the deck top. Coping / tub rims above it. The holes inside the deck and apart. Distinct horizontal
+    # levels (no coplanar deck / coping / water faces)
     for o, _m in P:
         if o.name.startswith("water_"):
             W = world_coords(o)
@@ -3708,9 +3665,9 @@ def build_l5(recipe, opts):
     check(all(len(per_floor.get(fl, [])) >= 2 for fl in range(5)),
           f"night read: room tags per story {per_floor}")
     # ---------------- revision 4 contracts (eighteenth look) ------------------------------------
-    # (a) G1: no ray from an arrival-side preview camera or the close walk-around through the
-    # porte-cochere's front gable triangle sees into it (front faces only, within GABLE_DEPTH_MAX
-    # of the truss face); a grid every 0.4 m across x 0.3 m up the triangle above the ceiling
+    # (a) G1: no ray from an arrival-side preview camera or the close walk-around through the porte-cochere's front gable
+    # triangle sees into it (front faces only, within GABLE_DEPTH_MAX of the truss face). The ray grid is every 0.4 m across
+    # x 0.3 m up the triangle above the ceiling
     gcams = preview_cameras(P, ARRIVAL_VIEWS)
     for r, a, zc in GABLE_NEAR_CAMS:
         gcams[f"near{r:g}_{a:+g}_{zc:g}"] = (GABLE_FACE_X + r * math.cos(math.radians(a)),
@@ -3721,15 +3678,15 @@ def build_l5(recipe, opts):
         top = P_TIE + P_Y - abs(y) - 0.17 - 0.06    # just under the roof slab's underside
         return [PC_GAB_EAVE + 0.06 + 0.3 * j for j in range(40) if PC_GAB_EAVE + 0.06 + 0.3 * j <= top]
     gable = check_gable_closed(P, gcams, GABLE_FACE_X, g_ys, g_zs, GABLE_DEPTH_MAX)
-    # (b) D1-D3 every terrace door: a real recessed opening, the clear 1.80 x 2.30, the threshold
-    # on the walk; D5 no gutter / downspout in a door's clear box (D4 after the vanilla rows)
+    # (b) D1-D3 every terrace door: a real recessed opening, the clear 1.80 x 2.30, the threshold on the walk. D5 no gutter
+    # / downspout in a door's clear box (D4 after the vanilla rows)
     door_rep = {d["tag"]: check_door(P, d, d["host"]) for d in doors}
     check_clear_boxes(P, [(d["tag"], clear_box(d)) for d in doors])
-    # ---------------- revision 3 contracts (pool-side plaza, valet forecourt, stair right, vanilla
-    # props; the revision-2 deck and clock contracts stand) --------------------------------------
-    # (1) the plaza on the slope side: end to end, to 0.6 m inside the back lot edge, at SLAB_T,
-    # running into the courtyard (the strip reaches the podium wall) with a flight up to the
-    # podium on its -X face (tops 0.33 / 0.52 / 0.70 under the 0.72-0.82 deck / coping)
+    # ---------------- revision 3 contracts (pool-side plaza, valet forecourt, stair right, vanilla props)
+    # The revision-2 deck and clock contracts stand. --------------------------------------
+    # (1) the plaza on the slope side: end to end, to 0.6 m inside the back lot edge, at SLAB_T, running into the courtyard
+    # (the strip reaches the podium wall) with a flight up to the podium on its -X face (tops 0.33 / 0.52 / 0.70 under the
+    # 0.72-0.82 deck / coping)
     plo, phi = parts_bounds(P, ("deck_s",))
     check(plo[0] <= -HX - X_SHIFT + 1.0 and plo[1] <= -(HY - 2.0) and phi[1] >= HY - 2.0,
           f"R3a slope plaza not end to end / short of the back edge: x {plo[0]:.2f}.., y "
@@ -3742,8 +3699,8 @@ def build_l5(recipe, opts):
           f"R3a podium steps to the plaza {wlo} {whi}")
     check(not any(o.name.startswith("deck_e") and parts_bounds(P, (o.name,))[0][0] < M_X1 - 1e-6
                   for o, _m in P), "R3a a forecourt deck_e part reaches behind M's road face")
-    # (2) the vanilla rule: no modeled tree, bench, bin, table, chair, umbrella, lamp post,
-    # planter or bollard is left; the racks carry kit gear WITHOUT bindings
+    # (2) the vanilla rule: no modeled tree, bench, bin, table, chair, umbrella, lamp post, planter or bollard is left. The
+    # racks carry kit gear WITHOUT bindings
     gone = ("cafe", "bench_", "bin_", "planter_", "shrub_", "conifer_", "bollard_", "lounger_",
             "umbstand_", "umbpole_", "umbcanopy_", "post_pl", "post_fc", "post_pz", "post_tw",
             "lamp_pl", "lamp_fc", "lamp_tw", "lamp_pz0", "lamp_pz1", "lamp_pz2", "lamp_pz3")
@@ -3764,8 +3721,8 @@ def build_l5(recipe, opts):
         if o.name.startswith("skirack_pz"):
             z0 = float(world_coords(o)[:, 2].min())
             check(z0 >= SLAB_T - 1e-4, f"R3d {o.name} starts at z {z0:.3f} (inside the plaza)")
-    # T59: the ember discs lie inside the vanilla fire pit's ring on purpose (the glow); the S1 / S2 contract judges
-    # every other part
+    # T59: the ember discs lie inside the vanilla fire pit's ring on purpose (the glow). The S1 / S2 contract judges every
+    # other part
     embers = ("lamp_ember", "lamp_pzember") if _struct() else ()
     zones, sboxes = check_sub_objects([(o, m) for o, m in P if o.name not in embers], rows=rows)
     walks = check_door_walks(P, doors, sboxes, rows=rows)   # revision 4 D4
@@ -3849,30 +3806,30 @@ FINE_NOTES = ("Fine-detail step 3e (the plaza racks are dressing-kit rows, the r
 
 RECIPE = FineRecipe(
     key="L5", aliases=("lux-base",), letter="B",
-    # prefab = the code catalog's name (SkiCatalog.Names.LodgeGrand, LocaleEN, hub; R25 /
-    # bldg-kit 11). The mesh keeps its built name (no consumer reads it). buildings-integration 1
+    # prefab = the code catalog's name (SkiCatalog.Names.LodgeGrand, LocaleEN, hub, R25 / bldg-kit 11). The mesh keeps its
+    # built name (no consumer reads it). buildings-integration 1
     asset="SkiLodgeSwankyBottomCommercialLow", prefab="SkiLodgeGrand", category="lodges",
     lot=(LOT_W, LOT_D), base_mode="engine", plinth=None, yaw_deg=0.0,
     # R18/R23: finish at 2048, lodge.py rebakes at 4096 when the shipped w=1 median < 25 px/m
     tex=2048, allow_4096=True,
-    # revision 1: LOD0 cap 26,000 (verdict B1 / this round's task). LOD2 target 480 keeps the
-    # generic assets-check (-Kind building, lod2_cap 500) green; the recipe cap stays 800
-    # (validator spec via lodge.validate; K8: the CLI cannot take a per-asset cap).
-    # revision 2: cap 30,000 - the plaza (4 racks with 36 pieces of real gear, 9 bistro sets,
-    # planters, benches, lamps, bollards) and the tower deck (posts, beams, balustrade, a
-    # 25-riser stair) add ~6,800 tris; all of it is LOD0 dressing (deleted at LOD1).
-    # revision 3: the cap and target stand (verdict brief); the modeled dressing is vanilla
-    # sub-objects now (their tris are vanilla's own, not ours), so LOD0 drops (build report)
-    budget=Budget(26000, 33500, 11000, 480, 800),   # T90 (T92): 33,500 = 31,812 measured x 1.05 (item 16 "up the tri budget by a bit"); was 30,000
-    # tiled rollout (2026-10-16, texture-parity-rollout-2026-10-16.md section 2): read only on
-    # the --tiled path. 20,833 m2 of LOD0 cut at 1.5-3 m tiles is ~51,600 tris; 2 x 2 tiles on the
-    # members, pavers and the swanky walls, plus flat trims / soffits / trusses, fit the 30,000 cap
+    # Revision 1: LOD0 cap 26,000 (verdict B1 / this round's task). LOD2 target 480 keeps the generic assets-check (-Kind
+    # building, lod2_cap 500) green. The recipe cap stays 800 (validator spec via lodge.validate, K8: the CLI cannot take a
+    # per-asset cap).
+    # Revision 2: cap 30,000. The plaza (4 racks with 36 pieces of real gear, 9 bistro sets, planters, benches, lamps,
+    # bollards) and the tower deck (posts, beams, balustrade, a 25-riser stair) add ~6,800 tris. All of it is LOD0 dressing
+    # (deleted at LOD1).
+    # Revision 3: the cap and target stand (verdict brief). The modeled dressing is vanilla sub-objects now (their tris are
+    # vanilla's own, not ours), so LOD0 drops (build report)
+    budget=Budget(26000, 33500, 11000, 480, 800),   # T90 (T92): 33,500 = 31,812 measured x 1.05 (item 16 "up the tri budget by a bit"), was 30,000
+    # Tiled rollout (2026-10-16, texture-parity-rollout-2026-10-16.md section 2): read only on the --tiled path. 20,833 m2
+    # of LOD0 cut at 1.5-3 m tiles is ~51,600 tris. 2 x 2 tiles on the members, pavers and the swanky walls, plus flat trims
+    # / soffits / trusses, fit the 30,000 cap
     tile_scale=(("timber_heavy", 2), ("galv", 2), ("deck", 2), ("lux_glulam", 2), ("lux_balrail", 2),
                 ("lux_paver", 2), ("lux_stone_tan", 2), ("lux_siding_walnut", 2), ("lux_siding_red", 2)),
-    # T66: outriggers (`beam_xg*`) draw textured (grain along the member); the porch / tower beams stay flat for the L5 cap
+    # T66: outriggers (`beam_xg*`) draw textured (grain along the member). The porch / tower beams stay flat for the L5 cap.
     # T90 (2026-10-19): truss_, beam_tw, beam_pcl and trim_ (the unbevelled trim_truss* porch / gable trusses, the deck rail
-    # posts and caps, the clock-tower dial boards and louvres: every wood trim part is a lux_glulam tiled key) left the
-    # flat list: they draw the glulam grain like the outriggers (T66); soffits and pool coping stay flat
+    # posts and caps, the clock-tower dial boards and louvers: every wood trim part is a lux_glulam tiled key) left the flat
+    # list. They draw the glulam grain like the outriggers (T66). Soffits and pool coping stay flat
     tiled_flat=("soffit_", "poolcap_"),
     massing="custom", builder=build_l5,
     rooms="auto", interior="CommercialLow",
@@ -3880,44 +3837,39 @@ RECIPE = FineRecipe(
     slots={1: (0.17, 0.12, 0.08), 2: (0.50, 0.07, 0.05), 3: (0.45, 0.22, 0.12)},
     ground_prefixes=GROUND_PREFIXES,
     arrival_prefixes=ARRIVAL_PREFIXES,
-    # revision 3: the modeled dressing prefixes are gone with the dressing (vanilla now); the
-    # racks are kit LOD1_DELETE `skirack_`, the fire pits `fp_` + `lamp_` embers
+    # Revision 3: the modeled dressing prefixes are gone with the dressing (vanilla now). The racks are kit LOD1_DELETE
+    # `skirack_`, the fire pits `fp_` + `lamp_` embers
     lod1_extra=("trsplate_", "flue_", "fp_", "banner_"),
-    # plinth_hring: see revision 0 (the hall's stone base strips; the LOD2 collapse kept a
-    # 0.87 m eave drift with it). Pool walls / steps / podium coping and the balcony
-    # balustrades are sub-pixel at the LOD2 switch.
-    # Revision 1 (the first r1 export: LOD2 lost the forecourt slab, the wing rakes and the
-    # whole clock-tower cap, 3.5 m, because 480 tris had to stand for 2,026 free tris after
-    # the deletes): lodge.delete_lists does not carry lod1_extra into LOD2, so those come
-    # again; piers, posts, soffits, grade walkways, pool coping, clock faces and the 0.2 m
-    # finial are sub-pixel at the 1.6 km switch. Measured on the shipped LOD0 (review pack):
-    # 907 free tris -> 480 keeps every kept part's extent (roof rakes, deck_e, the tower cap
-    # apex) at 470 / 480 / 490 targets, with or without the chimney caps
+    # plinth_hring: see revision 0 (the hall's stone base strips, the LOD2 collapse kept a 0.87 m eave drift with it). Pool
+    # walls / steps / podium coping and the balcony balustrades are sub-pixel at the LOD2 switch.
+    # Revision 1 (the first r1 export: LOD2 lost the forecourt slab, the wing rakes and the whole clock-tower cap, 3.5 m,
+    # because 480 tris had to stand for 2,026 free tris after the deletes): lodge.delete_lists does not carry lod1_extra
+    # into LOD2, so those come again. Piers, posts, soffits, grade walkways, pool coping, clock faces and the 0.2 m finial
+    # are sub-pixel at the 1.6 km switch. Measured on the shipped LOD0 (review pack): 907 free tris -> 480 keeps every kept
+    # part's extent (roof rakes, deck_e, the tower cap apex) at 470 / 480 / 490 targets, with or without the chimney caps
     lod2_extra=("seatwall_", "soffit_pcceil", "plinth_hring", "balcwall_", "stairblk_", "balcpost_",
                 "poolwall_", "poolcap_",
                 "trsplate_", "flue_", "fp_", "banner_",
                 "poolcope_", "clock_", "pier_", "col_", "soffit_", "deck_w", "tower_ctfin",
-                # revision 2 / 3: the deck stair; the deck slab (deck_tw), the forecourt
-                # (deck_e) and the slope plaza (deck_s) stay
+                # Revision 2 / 3: the deck stair. The deck slab (deck_tw), the forecourt (deck_e) and the slope plaza
+                # (deck_s) stay
                 "stair_tw",
-                # revision 4: the door recesses add 60 tris to the collapse-PROTECTED ground walls
-                # (146 -> 206), and with the free part squeezed (revision 3 kept 40 % of it) the
-                # 480-tri collapse ate the tower cap (2.7 m) and the plaza's -Y end (1.9 m). The new
-                # door / gable pieces and three flat slabs that are 5-20 px at the 1.76 km switch go
-                # instead (the tower deck slab, the pool deck and its water: the podium reads as its
-                # walls; the gable truss was already LOD2-deleted): 39 % kept, every extent held
-                # (variants measured: build report "Revision 4", LOD2)
+                # Revision 4: the door recesses add 60 tris to the collapse-PROTECTED ground walls (146 -> 206), and with
+                # the free part squeezed (revision 3 kept 40 % of it) the 480-tri collapse ate the tower cap (2.7 m) and the
+                # plaza's -Y end (1.9 m). The new door / gable pieces and three flat slabs that are 5-20 px at the 1.76 km
+                # switch go instead (the tower deck slab, the pool deck and its water: the podium reads as its walls, and
+                # the gable truss was already LOD2-deleted). Result: 39 % kept, every extent held (variants measured: build
+                # report "Revision 4", LOD2)
                 "gable_pcgab", "doorsill_", "glassback_", "deck_tw", "deck_pool", "water_"),
     lod2_keep=CHIM_CAPS,
-    # fine-detail step 3e: + the name board's face (painted in the atlas only with --no-signset; the
-    # sign set routes it out and drops this entry, cs2_signset.host_recipe)
+    # Fine-detail step 3e: + the name board's face (painted in the atlas only with --no-signset). The sign set routes it out
+    # and drops this entry (cs2_signset.host_recipe)
     labels=clock_tower_labels("ct") + (NAME_LABEL,),
-    # soffits under the 45 deg M eaves face down AND inward (normal (+-0.707, 0, -0.707)):
-    # only a camera below the eave within the cull's 25 m horizon sees them (revision 0
-    # had soffit_mB here for the same reason; the courtyard one is now enclosed by the
-    # wings too). deck_w0 keeps its top only: all four sides abut the podium, M and the
-    # wings (contact), the bottom is on grade. Revision 3: deck_w1 / deck_w2 likewise - their
-    # slope ends now abut the plaza (deck_s0), their long sides a wing and the podium / strip
+    # Soffits under the 45 deg M eaves face down AND inward (normal (+-0.707, 0, -0.707)): only a camera below the eave
+    # within the cull's 25 m horizon sees them (revision 0 had soffit_mB here for the same reason, and the courtyard one is
+    # now enclosed by the wings too). deck_w0 keeps its top only: all four sides abut the podium, M and the wings (contact),
+    # and the bottom is on grade. Revision 3: deck_w1 / deck_w2 likewise - their slope ends now abut the plaza (deck_s0),
+    # their long sides a wing and the podium / strip
     cull_ok=("soffit_mB", "soffit_mA", "deck_w0", "deck_w1", "deck_w2"),
     views=(("road34left", (-0.7, -1.0, 0.45)), ("slope34right", (0.8, 1.0, 0.5)),
            ("aerial", (0.4, -0.6, 1.2)), ("pools", (0.35, 1.0, 0.85)),
@@ -3927,20 +3879,20 @@ RECIPE = FineRecipe(
            # island and the stair at the deck's right-hand end)
            ("plaza_pool", (-0.15, 1.0, 0.55)), ("tower_deck", (0.95, -0.7, 0.42)),
            ("valet", (-0.35, -1.0, 0.65)),
-           # revision 4: the porte-cochere gable from the drive (front, low) and the pool-side doors
-           # from the courtyard / slope side (low); whole-building frames like every view - the
-           # true close-ups: `--closeups` (CLOSEUP_SHOTS) after the export
+           # Revision 4: the porte-cochere gable from the drive (front, low) and the pool-side doors from the courtyard /
+           # slope side (low). These are whole-building frames like every view. The true close-ups come from `--closeups`
+           # (CLOSEUP_SHOTS) after the export
            ("gable_closeup", (-0.15, -1.0, 0.25)), ("pool_doors", (0.45, 1.0, 0.30))),
     # revision 4: the T&G gable infills are the entrance's hero boards: 1.5 x the wall density
     # (their 0.15 m joints get ~4 px at the shipped density instead of ~2.7)
     weights=(("gable_pcgab", 1.5),),
-    # revision 3 (verdict B1''): every tree, bench, bin, table, chair, parasol, lounger, lamp
-    # post, planter and bollard is a vanilla prop by reference (manifest `sub_objects`)
-    # fine-detail step 3e: + the 4 road-face wall lights (FINE_SUB_OBJECTS) and the 4 kit rack rows
-    # (KIT_ROWS); lodge.py appends the sign set's identity row
+    # revision 3 (verdict B1''): every tree, bench, bin, table, chair, parasol, lounger, lamp post, planter and bollard is a
+    # vanilla prop by reference (manifest `sub_objects`)
+    # Fine-detail step 3e: + the 4 road-face wall lights (FINE_SUB_OBJECTS) and the 4 kit rack rows (KIT_ROWS). lodge.py
+    # appends the sign set's identity row
     sub_objects=SUB_OBJECTS + FINE_SUB_OBJECTS + KIT_ROWS,
     notes=FINE_NOTES,
-    # fine-detail pass step 3e (opt-in; lodge.py --no-fine restores `legacy` = the approved revision 4)
+    # Fine-detail pass step 3e (opt-in, lodge.py --no-fine restores `legacy` = the approved revision 4)
     fine_detail=True,
     sign_set=SIGN_SET,
     kit_colour_set=KIT_COLOUR_SET,
@@ -3949,12 +3901,12 @@ RECIPE = FineRecipe(
 
 
 # ======================================================================================
-# Revision 4 close-ups (CLI). lodge.py's previews frame the whole 77 m lodge from a direction;
-# the gable and the doors need a camera at a point:
+# Revision 4 close-ups (CLI). lodge.py's previews frame the whole 77 m lodge from a direction. The gable and the doors need
+# a camera at a point:
 #   blender --background --factory-startup --python recipes/l5_swanky_bottom.py -- --closeups [OUT]
-# re-imports the exported LOD0 (+ `_Win` as dark glass) and renders pbr + dusk
-# `<name>_closeup_<shot>_<mode>.png` (closeup_previews). (shot, target, eye) in the SHIPPED
-# authoring frame (after X_SHIFT): +X = road, +Y = right seen from the road, z up.
+# The command re-imports the exported LOD0 (+ `_Win` as dark glass) and renders pbr + dusk
+# `<name>_closeup_<shot>_<mode>.png` (closeup_previews). (shot, target, eye) in the SHIPPED authoring frame (after X_SHIFT):
+# +X = road, +Y = right seen from the road, z up.
 # ======================================================================================
 
 _XS = X_SHIFT
