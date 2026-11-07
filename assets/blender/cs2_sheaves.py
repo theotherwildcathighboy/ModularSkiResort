@@ -1,18 +1,17 @@
 """
 cs2_sheaves - the towers' sheave-train builder, shared by the towers and the lift stations.
 
-Extracted 2026-10-13 from lift_tower.py (twenty-fifth look S-2: "Let's all apply the same PULLEY
-WHEELS / ROLLERS we use on the lift tower onto the lift stations"; build report
-docs/research/art/assets-2026-10/build/nitpick-a-stations.md). The code below is lift_tower.py's, moved
-VERBATIM (expression for expression, the same part order and names): lift_tower imports every function
-back and passes its OWN module globals into the train builders at call time, so every tower regenerates
-byte-identical and the tests that patch lift_tower constants (DQ_SUB_Y, DQ_LINK, GD_CAR_DY, DP1_INSET ...)
-still steer the tower builds. The constants here are the towers' numbers: lift_tower aliases them (one
-source), the stations read them as the defaults.
+Extracted 2026-10-13 from lift_tower.py (twenty-fifth look S-2: "Let's all apply the same PULLEY WHEELS / ROLLERS we use on
+the lift tower onto the lift stations", build report docs/research/art/assets-2026-10/build/nitpick-a-stations.md). The code
+below is the code of lift_tower.py, moved VERBATIM (expression for expression, the same part order and names). lift_tower
+imports every function back and passes its OWN module globals into the train builders at call time. So every tower
+regenerates byte-identical, and the tests that patch lift_tower constants (DQ_SUB_Y, DQ_LINK, GD_CAR_DY, DP1_INSET ...) still
+steer the tower builds. The constants here are the numbers of the towers: lift_tower aliases them (one source), and the
+stations read them as the defaults.
 
 Parts:
   lite_sheave / lite_sheave_parts  the D4 "lite" sheave: an axis-closed V-groove (or flat-rim) wheel about a
-                                   Y axle, 6 x segs tris; the _parts form splits the side discs ("galv") from
+                                   Y axle, 6 x segs tris. The _parts form splits the side discs ("galv") from
                                    the rope liner (LINER_KEY "rubber") - the detail-pass liners
   fg_train_side                    the Yan (FG / ET) rocker tree of ONE lane: hanger -> main rocker -> pivots
                                    -> sub rockers -> sheave arms -> sheaves + liners + axle caps, hanging
@@ -21,14 +20,14 @@ Parts:
                                    sub rockers + pins, main rockers + pins, the yoke, links for a lone middle
                                    sub, the hanger to the girder - every carrier INBOARD of the sheaves
   dq_centres                       the gantry train's sheave centers (sag parabola)
-  bevel_parts / chamfer_long_edges the tower finish of these parts (BEVEL_W bevel by prefix table; the FG
+  bevel_parts / chamfer_long_edges the tower finish of these parts (BEVEL_W bevel by prefix table, the FG
                                    1-segment long-edge chamfer of rocker_sub_ / sheave_arm_)
   TRAIN_BEVEL / TRAIN_CHAMFER      the towers' bevel / chamfer tables restricted to the train's parts
 
-Every builder takes `prefix` (default ""): the stations put their trains in their own name space
-("sheave_guide_", "sheave_hold_" ...) so their LOD / C8 / density tables apply; the towers pass "".
-Materials returned are the TOWER keys ("paint" = the tower's slot-1 steel, "galv", LINER_KEY): a station
-maps them onto its own table (lift_terminal_detach: paint -> darksteel; lift_terminal M: paint -> paint1).
+Every builder takes `prefix` (default ""): the stations put their trains in their own name space ("sheave_guide_",
+"sheave_hold_" ...) so their LOD / C8 / density tables apply. The towers pass "". Materials returned are the TOWER keys
+("paint" = the tower's slot-1 steel, "galv", LINER_KEY). A station maps them onto its own table (lift_terminal_detach: paint
+-> darksteel, lift_terminal M: paint -> paint1).
 """
 
 import math
@@ -40,7 +39,7 @@ import mathutils
 import cs2_asset
 import cs2_kit as K
 
-# -- the towers' train numbers (lift_tower aliases these; one source) ---------------------------------
+# -- the towers' train numbers (lift_tower aliases these, one source) ---------------------------------
 BEVEL_W = 0.02
 LINER_KEY = "rubber"
 DP1_CHAMFER = 0.012                    # FG / ET rocker_sub_ + sheave_arm_ long edges
@@ -69,7 +68,7 @@ DQ_HANGER = dict(y0=2.30, y1=2.41, z0=0.25, z1=0.42, x=0.15)
 DQ_HANGER_Z_INSET = 0.005              # M4: top / bottom 5 mm inside the yoke's faces (DP1_INSET dq_hanger_z)
 DQ_SHEAVE = dict(r=0.223, w=0.10, pitch=0.59)                    # lift_tower._dq_spec
 DQ_PIN_S = 0.17                        # sub-rocker pivot pin length (head_kit pin_s, DQ)
-# GD: the gondola head (lift_tower GD_* constants; head_kit for family "GD")
+# GD: the gondola head (lift_tower GD_* constants, head_kit for family "GD")
 GD_SHEAVE = dict(r=0.25, w=0.10, pitch=0.62, segs=12, groove=0.0)
 GD_CAR_DY = 0.39
 GD_PIN_S = 0.14
@@ -79,76 +78,83 @@ TRAIN_CHAMFER = {"FG": (("rocker_sub_", (1.0, 0.0, 0.0)), ("sheave_arm_", (0.0, 
 
 # -- T62 (2026-10-18): ONE sheave WHEEL on every tower and station ----------------------------------------
 # 2026-10-17: "the gondola station bottom used the simpler roller wheel; let's be consistent. The ones on
-# CS2R_SkiLiftTowerDQ20O_LOD0 seem to look the best" + "it's more just the pulley wheels themselves should be
-# consistent on every tower. Different pulley housings make sense." Build note:
-# docs/research/field/2026-10-15/build/T62-sheave-wheels.md.
-# The DQ20O wheel (census, section 1 there) = lite_sheave_parts with the default V-groove (depth max(0.02, 0.18 r),
-# a 5-point axis-closed profile), 12 segments, side discs (galv) closed by a center vertex, the groove flanks as a rubber
-# liner, NO axle cap, no hub bolts (its hub is the towers' normal-map ring, lift_tower.detail_marks). Round 1 built
-# exactly that (round 2 below replaces it); a family keeps its radius / width (WHEEL_FAMILY). WHEELS "v2" (default) routes every tower head, every
-# station train and the tram haul rollers through `wheel`; "v1" rebuilds the pre-T62 wheels byte for byte (FG axle
-# caps, the GD / lattice flat 12-gon rims, the tram's 8-gon sheave_lite rollers). Set with set_wheels(); the
-# generators' CLI is --wheels v1|v2.
+# CS2R_SkiLiftTowerDQ20O_LOD0 seem to look the best" + "it's more just the pulley wheels themselves should be consistent on
+# every tower. Different pulley housings make sense." Build note: docs/research/field/2026-10-15/build/T62-sheave-wheels.md.
+# The DQ20O wheel (census, section 1 there) = lite_sheave_parts with the default V-groove (depth max(0.02, 0.18 r), a 5-point
+# axis-closed profile), 12 segments, side discs (galv) closed by a center vertex, the groove flanks as a rubber liner, NO
+# axle cap, no hub bolts (its hub is the normal-map ring of the towers, lift_tower.detail_marks). Round 1 built exactly that
+# (round 2 below replaces it). A family keeps its radius / width (WHEEL_FAMILY). WHEELS "v2" (default) routes every tower
+# head, every station train and the tram haul rollers through `wheel`. "v1" rebuilds the pre-T62 wheels byte for byte (FG
+# axle caps, the GD / lattice flat 12-gon rims, the tram's 8-gon sheave_lite rollers). Set with set_wheels(). The CLI of the
+# generators is --wheels v1|v2.
 WHEELS = "v2"
-WHEEL_ID = "cs2_sheaves.wheel"         # the stamp every wheel part carries (obj["cs2_wheel"]); tests/test_sheaves.py
-# -- T62 round 2 (2026-10-18). On round 1: "VERY confused about the T62 wheels. They all look different still and
-# of varying quality. FG tower ones look probably best, maybe a bit shiny, but still a tiny bit blocky. They'd be
-# slightly smaller than a bicycle or car wheel... So, probably raise the cap." He judged the FG wheel WITH its raised
-# axle cap the best. Decisions: every wheel = that FG wheel made round; raise the caps. Build note section "Round 2" in
-# docs/research/field/2026-10-15/build/T62-sheave-wheels.md; vanilla numbers docs/research/art/vanilla-wheels-2026-10-18.md
+WHEEL_ID = "cs2_sheaves.wheel"         # the stamp every wheel part carries (obj["cs2_wheel"]), tests/test_sheaves.py
+# -- T62 round 2 (2026-10-18). On round 1: "VERY confused about the T62 wheels. They all look different still and of varying
+# quality. FG tower ones look probably best, maybe a bit shiny, but still a tiny bit blocky. They'd be slightly smaller than
+# a bicycle or car wheel... So, probably raise the cap." He judged the FG wheel WITH its raised axle cap the best. Decisions:
+# every wheel = that FG wheel made round, raise the caps. Build note section "Round 2" in
+# docs/research/field/2026-10-15/build/T62-sheave-wheels.md. Vanilla numbers: docs/research/art/vanilla-wheels-2026-10-18.md
 # (car / bus tires 16-gon, tread smooth-radial, caps flat with a HARD split, LOD1 coarser, LOD2 no wheels).
-# The v2 wheel (one shape, scaled by the family radius; width per family), all numbers x r unless noted:
-#   segments 16 (vanilla car tire density; a multiple of 4 keeps a vertex on the rim top / bottom: ST1, C4);
-#   V groove root r - max(0.02, 0.18 r) at mid-width (the DQ20O groove); crest rings at radius r, |y| = w/2 - chamfer;
-#   rim chamfer 0.05 r at 45 deg on both corners (crest -> disc edge (r - c, +-w/2));
-#   flat n-gon side discs at +-w/2; a raised hub boss on BOTH faces: a 12-gon frustum base 0.45 r -> top 0.35 r,
-#   height 0.10 r (FG: 0.09 -> 0.07, 0.02 = the T27 kit axle cap, made round) + a flat n-gon top;
-#   every ring loop (disc edge, crest, groove root, boss base, boss top) is marked SHARP and every edge between two
-#   segments stays smooth (shade_by_angle 66 keeps sharp marks): the treads (chamfer, flanks, boss side) shade smooth
+#
+# The v2 wheel (one shape, scaled by the family radius, width per family), all numbers x r unless noted:
+#
+# - segments 16 (vanilla car tire density, a multiple of 4 keeps a vertex on the rim top / bottom: ST1, C4)
+# - V groove root r - max(0.02, 0.18 r) at mid-width (the DQ20O groove). Crest rings at radius r, |y| = w/2 - chamfer.
+# - rim chamfer 0.05 r at 45 deg on both corners (crest -> disc edge (r - c, +-w/2))
+# - flat n-gon side discs at +-w/2
+# - a raised hub boss on BOTH faces: a 12-gon frustum base 0.45 r -> top 0.35 r, height 0.10 r (FG: 0.09 -> 0.07, 0.02 =
+#   the T27 kit axle cap, made round) + a flat n-gon top
+# - every ring loop (disc edge, crest, groove root, boss base, boss top) is marked SHARP and every edge between two
+#   segments stays smooth (shade_by_angle 66 keeps sharp marks). The treads (chamfer, flanks, boss side) shade smooth
 #   around and flat across, the caps stay flat - vanilla's tire split (the round-1 disc/flank edge was smoothed: rim
-#   normals tilted 31 deg, the disc read as a dome; vanilla-wheels section 1.6).
-#   Tris: liner 4 x 16 + chamfers 4 x 16 + discs 2 x 14 + boss sides 2 x 24 + boss tops 2 x 10 = 224 (WHEEL_TRIS).
-# Material: every wheel's discs / chamfers / bosses take WHEEL_KEY (WHEEL_MATERIAL, one spec for every generator) instead
-# of the generator's "galv" (Metal032 at metal 1.0: the dark sky-tinted mirror that read as shiny; the snow-props
-# galvanised lesson, snow-props-weather-2026-10-17 section 2: light albedo, smoothness inside vanilla's band, metal low
-# for paint); liners stay rubber.
-# LODs (WHEEL_LOD, one rule for every family): a wheel is never collapse-decimated. LOD1 = 8 segments, a FLAT band on
-# the crest rings + two n-gon discs, no chamfer / boss (28 tris; vanilla LOD1 keeps a coarser wheel); LOD2 = no wheel
-# (vanilla car LOD2). Which assets still draw wheels at LOD1 is each generator's LOD table (unchanged: the towers and
-# the FG M counterweight sheaves; the lattice / tram rollers / station trains leave at LOD1 with their trains).
+#   normals tilted 31 deg and the disc read as a dome, vanilla-wheels section 1.6).
+# - Tris: liner 4 x 16 + chamfers 4 x 16 + discs 2 x 14 + boss sides 2 x 24 + boss tops 2 x 10 = 224 (WHEEL_TRIS).
+#
+# Material: every wheel's discs / chamfers / bosses take WHEEL_KEY (WHEEL_MATERIAL, one spec for every generator) instead of
+# the generator's "galv" (Metal032 at metal 1.0: the dark sky-tinted mirror that read as shiny, the snow-props galvanized
+# lesson, snow-props-weather-2026-10-17 section 2: light albedo, smoothness inside vanilla's band, metal low for paint).
+# Liners stay rubber.
+#
+# LODs (WHEEL_LOD, one rule for every family): a wheel is never collapse-decimated. LOD1 = 8 segments, a FLAT band on the
+# crest rings + two n-gon discs, no chamfer / boss (28 tris, vanilla LOD1 keeps a coarser wheel). LOD2 = no wheel (vanilla
+# car LOD2). Which assets still draw wheels at LOD1 is set by the LOD table of each generator (unchanged. The towers and the
+# FG M counterweight sheaves draw them. The lattice / tram rollers / station trains leave at LOD1 with their trains).
 # Implemented as the make_lod_chain `fixed` hook (lod_fixed / LodWheels below).
-# -- T62 round 3 (2026-10-18). On round 2's 224 tris: "Ouch, 224 tris sounds like a lot compared to vanilla
-# wheels, which is our closest analogy... We need to reduce the tris on the wheels." Budget <= 120 tris per wheel at LOD0
-# (WHEEL_TRIS_BUDGET); keep, in order, the V groove, 16 segments, a hub boss. Round 3 cut (build note "Round 3"):
-#   * the 45 deg rim chamfer is gone (the sharp tread / cap split is the hard edge): the discs sit on the crest rings
-#     again (r, +-w/2), so every rope seat is round 1's (FG 0.2783 / DQ 0.3096 / GD 0.3366);
-#   * the groove ROOT ring has 8 vertices under the 16-vertex crests (3 tris per root segment and flank, 48 for the
-#     liner instead of 64): the rim silhouette and the rope-tangent vertices (every 4th crest vertex sits over a root
-#     vertex: the rim top / bottom included) keep 16 segments; the root is inside the groove;
-#   * the hub boss is an 8-gon frustum (0.45 r -> 0.35 r, 0.10 r proud) with a flat 8-gon top: 22 tris a face (a cone
-#     read flat at 1 m in the round-3 prototype, scratch t62r3/proto);
-#   * a boss is built only on a face that is SEEN: cull_hidden_bosses measures every boss after the asset is built (rays
-#     from the boss top along the axle: a face whose rays hit another part within BOSS_HIDDEN["dist"] on
-#     >= BOSS_HIDDEN["share"] of the samples is behind a housing / rocker) and deletes the hidden ones.
-#   Tris: liner 48 + discs 2 x 14 = 76 (WHEEL_TRIS_BASE) + 22 per seen boss (WHEEL_BOSS_TRIS): 76 / 98 / 120.
+#
+# -- T62 round 3 (2026-10-18). On round 2's 224 tris: "Ouch, 224 tris sounds like a lot compared to vanilla wheels, which is
+# our closest analogy... We need to reduce the tris on the wheels." Budget <= 120 tris per wheel at LOD0 (WHEEL_TRIS_BUDGET).
+# Keep, in order: the V groove, 16 segments, a hub boss. Round 3 cut (build note "Round 3"):
+#
+# - the 45 deg rim chamfer is gone (the sharp tread / cap split is the hard edge). The discs sit on the crest rings
+#   again (r, +-w/2), so every rope seat is that of round 1 (FG 0.2783 / DQ 0.3096 / GD 0.3366).
+# - the groove ROOT ring has 8 vertices under the 16-vertex crests (3 tris per root segment and flank, 48 for the
+#   liner instead of 64). The rim silhouette and the rope-tangent vertices (every 4th crest vertex sits over a root
+#   vertex: the rim top / bottom included) keep 16 segments. The root is inside the groove.
+# - the hub boss is an 8-gon frustum (0.45 r -> 0.35 r, 0.10 r proud) with a flat 8-gon top: 22 tris a face (a cone
+#   read flat at 1 m in the round-3 prototype, scratch t62r3/proto).
+# - a boss is built only on a face that is SEEN: cull_hidden_bosses measures every boss after the asset is built (rays
+#   from the boss top along the axle: a face whose rays hit another part within BOSS_HIDDEN["dist"] on
+#   >= BOSS_HIDDEN["share"] of the samples is behind a housing / rocker) and deletes the hidden ones.
+#
+# Tris: liner 48 + discs 2 x 14 = 76 (WHEEL_TRIS_BASE) + 22 per seen boss (WHEEL_BOSS_TRIS): 76 / 98 / 120.
 WHEEL_SEGS = 16
 WHEEL_PROFILE = dict(groove=0.18, groove_min=0.02, chamfer=0.0, boss_r=0.45, boss_top=0.35, boss_h=0.10,
                      boss_segs=8, root_segs=8)
 WHEEL_TRIS_BASE = 2 * 3 * WHEEL_PROFILE["root_segs"] + 2 * (WHEEL_SEGS - 2)                  # 76
 WHEEL_BOSS_TRIS = 2 * WHEEL_PROFILE["boss_segs"] + (WHEEL_PROFILE["boss_segs"] - 2)         # 22
 WHEEL_TRIS = WHEEL_TRIS_BASE + 2 * WHEEL_BOSS_TRIS                                           # 120 (both bosses)
-WHEEL_TRIS_BUDGET = 120                # 2026-10-18 (round 3): <= 120 per wheel at LOD0; tests/test_sheaves
+WHEEL_TRIS_BUDGET = 120                # 2026-10-18 (round 3): <= 120 per wheel at LOD0, tests/test_sheaves
 BOSS_HIDDEN = dict(dist=0.10, share=0.75)
 WHEEL_LOD = {1: dict(segs=8, form="flat band on the crest rings + 2 n-gon discs (no boss)",
                      tris=2 * 8 + 2 * (8 - 2)),                                          # 28
              2: dict(segs=0, form="no wheel", tris=0)}
 WHEEL_KEY = "wheelsteel"
-# satin painted / galvanised steel, plain color (no photo set: the generators' Metal032 roots differ, prefiltered or not,
-# and a wheel must read the same on every asset): sRGB ~0.58 neutral gray (linear 0.29; vanilla galvanised luma 0.51-0.84,
+# satin painted / galvanized steel, plain color (no photo set: the generators' Metal032 roots differ, prefiltered or not, and
+# a wheel must read the same on every asset): sRGB ~0.58 neutral gray (linear 0.29, vanilla galvanized luma 0.51-0.84,
 # painted utility 0.18-0.73), metal 0.30, smoothness 0.40 (inside vanilla's painted band, under its 0.47-0.62 bare-metal one)
 WHEEL_MATERIAL = dict(albedo=(0.285, 0.290, 0.297), metal=0.30, rough=0.60, projection="box")
-# Per family (LOD0): r / w kept from the family's v1 wheel; every family the same 16-segment wheel (segs / ngon kept as
-# keys for the callers and the gate; the discs are always n-gons).
+# Per family (LOD0): r / w kept from the family's v1 wheel. Every family gets the same 16-segment wheel (segs / ngon kept as
+# keys for the callers and the gate, the discs are always n-gons).
 WHEEL_FAMILY = {
     "FG": dict(r=FG_SHEAVE["r"], w=FG_SHEAVE["w"], segs=WHEEL_SEGS, ngon=True),    # FG8-20, ET62 / ET68, FG M hold-down
     "DQ": dict(r=DQ_SHEAVE["r"], w=DQ_SHEAVE["w"], segs=WHEEL_SEGS, ngon=True),    # DQ10-20, ETDQ, DQ top nose
@@ -161,7 +167,7 @@ WHEEL_LOG = []                         # [(discs name, liner name, r, w, segs, n
 
 
 def set_wheels(mode):
-    """Select the wheel generation for this process ("v1" | "v2"); returns the previous mode."""
+    """Select the wheel generation for this process ("v1" | "v2"). Returns the previous mode."""
     global WHEELS
     if mode not in ("v1", "v2"):
         raise ValueError(f"wheels {mode!r}: want v1 | v2")
@@ -208,31 +214,31 @@ def wheel_materials(factory=dict):
 
 def wheel_roles(role="none"):
     """{WHEEL_KEY: role} for a weather role table under v2 ({} under v1): the wheel is clean steel on every asset (the
-    families' weather intensities differ; one wheel must look the same everywhere). Dress on: the rubber key as well."""
+    families' weather intensities differ, one wheel must look the same everywhere). Dress on: the rubber key as well."""
     if not wheels_v2():
         return {}
     return {k: role for k in ((WHEEL_KEY, WHEEL_RUBBER_KEY) if wheel_dress() else (WHEEL_KEY,))}
 
 
-# -- The wheel DRESS (lift alignment, 0 extra tris, material and relief only; the mesh stays <= 120 tris): the groove
-# liner takes a darker, rougher wheel rubber (the groove reads as a shaded channel between the steel discs, with the
-# bake's AO), and lift_tower's relief adds two rings on each disc face (tower_detail_specs): a recessed web ring and a
-# raised shoulder lip out to the crest, whose 1-texel outer rim draws a crisp bright edge at the groove shoulder. The
-# hub caps stay the shipped wheel steel at the shipped size. Off = every v1 / unskinned bake unchanged; the CLIs turn it
-# on for skinned builds (lift_tower / tram_tower --wheel-dress / --no-wheel-dress); set_wheel_dress before any part.
+# -- The wheel DRESS (lift alignment, 0 extra tris, material and relief only, the mesh stays <= 120 tris). The groove liner
+# takes a darker, rougher wheel rubber (the groove reads as a shaded channel between the steel discs, with the AO of the
+# bake). The relief of lift_tower adds two rings on each disc face (tower_detail_specs): a recessed web ring and a raised
+# shoulder lip out to the crest. The 1-texel outer rim of the lip draws a crisp bright edge at the groove shoulder. The hub
+# caps stay the shipped wheel steel at the shipped size. Off = every v1 / unskinned bake unchanged. The CLIs turn it on for
+# skinned builds (lift_tower / tram_tower --wheel-dress / --no-wheel-dress). Call set_wheel_dress before any part.
 WHEEL_DRESS = False
 WHEEL_RUBBER_KEY = "wheelrubber"
 # wheel rubber: sRGB ~0.14 (the towers' rubber 0.035 linear = sRGB 0.21 read gray beside the 0.58 steel), rough 0.90
 WHEEL_RUBBER_MATERIAL = dict(albedo=(0.016, 0.016, 0.017), metal=0.0, rough=0.90, projection="box")
-# x r: the two relief rings on each disc face (lift_tower normal-map marks). The bake skips (and DT-C8 fails) a ring
-# under 2 texels wide: the 0.20 r lip is 4.5 cm on DQ's 0.223 m wheel, 2.3 texels at DQ12's 52 px/m (holds down to
-# ~45 px/m); the 0.24 r web ring 2.8 texels
+# x r: the two relief rings on each disc face (lift_tower normal-map marks). The bake skips (and DT-C8 fails) a ring under 2
+# texels wide: the 0.20 r lip is 4.5 cm on DQ's 0.223 m wheel, 2.3 texels at DQ12's 52 px/m (holds down to ~45 px/m). The
+# 0.24 r web ring: 2.8 texels
 WHEEL_DRESS_RINGS = (dict(r_in=0.52, r_out=0.76, h=-0.004),     # recessed web ring
                      dict(r_in=0.80, r_out=1.00, h=0.003))      # raised shoulder lip to the crest
 
 
 def set_wheel_dress(on):
-    """Wheel dress on / off (before any part is built); returns the previous setting."""
+    """Wheel dress on / off (before any part is built). Returns the previous setting."""
     global WHEEL_DRESS
     old, WHEEL_DRESS = WHEEL_DRESS, bool(on)
     return old
@@ -258,7 +264,7 @@ def wheel_key(v1_key="galv"):
 
 
 # --------------------------------------------------------------------------------------
-# Part helpers (bmesh-built, deterministic; every part carries exactly one "UVMap")
+# Part helpers (bmesh-built, deterministic, every part carries exactly one "UVMap")
 # --------------------------------------------------------------------------------------
 
 def _box_uv_bm(bm, layer):
@@ -336,10 +342,9 @@ def lite_sheave(name, r, w, loc, segs=12, groove=None):
 
 def lite_sheave_parts(name, liner, r, w, loc, segs=12, groove=None):
     """
-    lite_sheave split in two parts (design 3.1 `liner_`): `name` keeps the two side discs (the
-    C1 / C2 / C9 measurements read its bbox center: unchanged), `liner` the rope faces - the
-    V-groove flanks (4 x segs tris) or the flat band (2 x segs) - in material rubber. Same
-    vertices, windings and tri count as lite_sheave; remove_doubles welds the two at the join.
+    lite_sheave split in two parts (design 3.1 `liner_`): `name` keeps the two side discs (the C1 / C2 / C9 measurements read
+    its bbox center: unchanged), `liner` the rope faces - the V-groove flanks (4 x segs tris) or the flat band (2 x segs) -
+    in material rubber. Same vertices, windings and tri count as lite_sheave. remove_doubles welds the two at the join.
     Returns [(discs, "galv"), (liner, LINER_KEY)].
     """
     gd = max(0.02, 0.18 * r) if groove is None else groove
@@ -390,18 +395,17 @@ def lite_sheave_parts(name, liner, r, w, loc, segs=12, groove=None):
 def wheel(name, liner, r, w, loc, segs=None, ngon=None, uv="developed"):
     """
     T62 (round 3): THE sheave wheel (every tower head, every station train, the counterweight sheaves, the tram haul
-    rollers): the WHEEL_PROFILE wheel about a Y axle through `loc`, split into `name` (the two n-gon side discs + both
-    hub bosses, material WHEEL_KEY) and `liner` (the V-groove flanks, 16 crest vertices a side over an 8-vertex root,
-    LINER_KEY rubber, prop dp_root_r = the groove root radius). Both bosses are built here; the generators drop the
-    hidden ones after the asset is assembled (cull_hidden_bosses). `segs` / `ngon` are accepted for the callers' family
-    rows and must be WHEEL_SEGS / True (one wheel everywhere; anything else raises). uv "developed" (the default since
-    round 3: the groove triangles and the boss frustum box-project at up to 1.41 anisotropy, lift_tower DT-C5) = an
-    isometric map of every face (the groove
-    triangles unfolded as one strip per flank, the boss frustum developed like tram_tower.sheave_lite's flanks, planar
-    discs / boss tops; islands 2 units apart, / circumference), kept by every generator (lift_tower's uv_rule leaves v2
-    wheel parts alone); "box" = the per-face box projection (tests). Ring loops are marked sharp (sharp_edge survives bmesh, join and remove_doubles; shade_by_angle keeps it).
-    Every part is stamped obj["cs2_wheel"] = WHEEL_ID, cs2_wheel_r / _w / _segs, the discs cs2_wheel_bosses "-+", and
-    logged in WHEEL_LOG. Returns [(discs, WHEEL_KEY), (liner, LINER_KEY)].
+    rollers): the WHEEL_PROFILE wheel about a Y axle through `loc`, split into `name` (the two n-gon side discs + both hub
+    bosses, material WHEEL_KEY) and `liner` (the V-groove flanks, 16 crest vertices a side over an 8-vertex root, LINER_KEY
+    rubber, prop dp_root_r = the groove root radius). Both bosses are built here. The generators drop the hidden ones after
+    the asset is assembled (cull_hidden_bosses). `segs` / `ngon` are accepted for the callers' family rows and must be
+    WHEEL_SEGS / True (one wheel everywhere, anything else raises). uv "developed" (the default since round 3: the groove
+    triangles and the boss frustum box-project at up to 1.41 anisotropy, lift_tower DT-C5) = an isometric map of every face
+    (the groove triangles unfolded as one strip per flank, the boss frustum developed like tram_tower.sheave_lite's flanks,
+    planar discs / boss tops, islands 2 units apart, / circumference). Every generator keeps it (lift_tower's uv_rule leaves
+    v2 wheel parts alone). "box" = the per-face box projection (tests). Ring loops are marked sharp (sharp_edge survives
+    bmesh, join and remove_doubles, shade_by_angle keeps it). Every part is stamped obj["cs2_wheel"] = WHEEL_ID, cs2_wheel_r
+    / _w / _segs, the discs cs2_wheel_bosses "-+", and logged in WHEEL_LOG. Returns [(discs, WHEEL_KEY), (liner, LINER_KEY)].
     """
     if segs is not None and int(segs) != WHEEL_SEGS:
         raise ValueError(f"wheel {name}: segs {segs} - every v2 wheel has {WHEEL_SEGS} segments (one wheel)")
@@ -422,9 +426,9 @@ def wheel(name, liner, r, w, loc, segs=None, ngon=None, uv="developed"):
 
 def _develop_band(faces, ring_of, rad_y, segs, circ, off, layer):
     """Isometric UVs of a cone-frustum band, written into `layer`: `faces` [(face, k)] between ring "A" and ring "B"
-    (ring_of[vert] = ("A"|"B", k)), rad_y = {"A": (radius, y), "B": (radius, y)}. The polygonal frustum is developed
-    exactly (corners at apex distance D and D rB / rA, alpha per segment: tram_tower.sheave_lite, DT-C5), in units of
-    the circumference, shifted by `off`; then un-mirrored (_unmirror)."""
+    (ring_of[vert] = ("A"|"B", k)), rad_y = {"A": (radius, y), "B": (radius, y)}. The polygonal frustum is developed exactly
+    (corners at apex distance D and D rB / rA, alpha per segment: tram_tower.sheave_lite, DT-C5), in units of the
+    circumference, shifted by `off`. Then un-mirrored (_unmirror)."""
     (rA, yA), (rB, yB) = rad_y["A"], rad_y["B"]
     side = math.hypot(rA - rB, yA - yB)
     D = side * rA / abs(rA - rB)
@@ -455,9 +459,9 @@ def _unmirror(faces, layer, u0):
 
 
 def _unfold_strip(tris, layer, circ, off):
-    """Isometric UVs of a triangle strip (each triangle shares an edge with the one before): the first laid flat, each
-    next one's free vertex placed by its two edge lengths on the far side of the shared edge (exact for a developable
-    strip; a V flank's strip spans 2 pi gd / side < 2 pi, so it never overlaps itself), / circ + off."""
+    """Isometric UVs of a triangle strip (each triangle shares an edge with the one before): the first laid flat, each next
+    one's free vertex placed by its two edge lengths on the far side of the shared edge (exact for a developable strip, a V
+    flank's strip spans 2 pi gd / side < 2 pi, so it never overlaps itself), / circ + off."""
     def put(f, xy):
         for lp in f.loops:
             x, y = xy[lp.vert]
@@ -570,8 +574,8 @@ def _wheel_parts(name, liner, r, w, loc, segs, uv):
     sharp_rings(bm, (K0, G, K1))
     if uv == "developed":
         for band, st in enumerate(strips):
-            # one island per 2 root segments (6 triangles, 45 deg of arc): a whole flank unfolds to a 200+ deg annular
-            # sector that packs badly (FG8 lost 9 % of its median px/m to it); the short pieces pack like quads
+            # one island per 2 root segments (6 triangles, 45 deg of arc): a whole flank unfolds to a 200+ deg annular sector
+            # that packs badly (FG8 lost 9 % of its median px/m to it). The short pieces pack like quads
             for q in range(0, len(st), 6):
                 _unfold_strip(st[q:q + 6], layer, circ, (2.0 * (q // 6), 2.0 * band))
                 _unmirror(st[q:q + 6], layer, 2.0 * (q // 6))
@@ -661,13 +665,13 @@ def hub_name(dn):
 
 def cull_hidden_bosses(parts, label=""):
     """
-    T62 round 3: on an asset's full part list (every housing built), drop every hub boss that boss_visibility finds
-    hidden (>= BOSS_HIDDEN["share"] of its rays blocked within BOSS_HIDDEN["dist"]; 22 tris a face saved where a rocker
-    plate / bar covers it) and move the SEEN bosses out of the discs part into their own part hub_name(discs) (same
-    material key), appended to `parts`: the discs part stays symmetric about the wheel's mid-plane, so every contract
-    that reads a rim's bbox center (C1 / C2, lattice C3, tram C4, the stations' ST1 / M21) reads the axle as before.
-    Stamps: discs and hub obj["cs2_wheel_bosses"] = the faces kept ("-+", "-", "+" or ""); hub obj["cs2_wheel_hub"] =
-    the discs name. v1: no-op. Returns {discs name: kept}.
+    T62 round 3: on an asset's full part list (every housing built), drop every hub boss that boss_visibility finds hidden
+    (>= BOSS_HIDDEN["share"] of its rays blocked within BOSS_HIDDEN["dist"], 22 tris a face saved where a rocker plate / bar
+    covers it). Move the SEEN bosses out of the discs part into their own part hub_name(discs) (same material key), appended
+    to `parts`. The discs part stays symmetric about the wheel's mid-plane, so every contract that reads a rim's bbox center
+    (C1 / C2, lattice C3, tram C4, the stations' ST1 / M21) reads the axle as before. Stamps: discs and hub
+    obj["cs2_wheel_bosses"] = the faces kept ("-+", "-", "+" or ""). hub obj["cs2_wheel_hub"] = the discs name. v1: no-op.
+    Returns {discs name: kept}.
     """
     if not wheels_v2():
         return {}
@@ -745,8 +749,8 @@ def cull_hidden_bosses(parts, label=""):
 
 
 def train_wheel(name, liner, r, w, loc, segs=12, groove=None, ngon=False):
-    """A train's wheel by the active generation: v2 = wheel(r, w, loc) (the one 16-segment wheel; `segs` /
-    `groove` / `ngon` are the v1 family numbers and are ignored), v1 = lite_sheave_parts(segs, groove) (pre-T62)."""
+    """A train's wheel by the active generation: v2 = wheel(r, w, loc) (the one 16-segment wheel, `segs` / `groove` / `ngon` are
+    the v1 family numbers and are ignored), v1 = lite_sheave_parts(segs, groove) (pre-T62)."""
     if wheels_v2():
         return wheel(name, liner, r, w, loc)
     return lite_sheave_parts(name, liner, r, w, loc, segs=segs, groove=groove)
@@ -769,20 +773,17 @@ def _kit(parts_q, key_of):
 def fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span, sheave_r, sheave_w,
                   arm_t=FG_ARM_T, hanger=FG_HANGER, ins=FG_HANGER_INSET, prefix="", inboard=0.0):
     """
-    The Yan (FG / ET) rocker tree of ONE lane (`tag` "n" / "p", `s` -1 / +1, the lane at `y`), hanging
-    below its carrier (lift_tower: the crossarm; its center = main_z + hanger): the hanger (its top `ins`
-    inside a carrier `arm_t` deep), the main rocker at main_z, per sub rocker a pivot pin, the sub rocker at
-    sub_z and two sheave arms down to the sheaves on axle_z (lite_sheave_parts: discs + liner) with an
-    outboard axle cap each. lift_tower.fg_parts' loop body verbatim (the same expressions, the same part
-    order). Returns [(obj, tower material key)].
-    T62 (2026-10-18): the sheaves come from train_wheel (v2 = wheel(), round 2's capped wheel - its own hub bosses, so NO
-    kit axle cap;
-    v1 = lite_sheave_parts + the kit axle cap, the pre-T62 tree).
-    T27 (2026-10-17, build/T27-rope-path.md; lift_tower.ROPE_ON_CROWN): `inboard` > 0 moves the whole carrier tree
-    (hanger, rockers, pins, sheave arms) that far INBOARD of the lane (to y - s * inboard) and hangs each sheave on an
-    axle stub `<prefix>axlecap_stub_<tag>_<si>_<m|p>` (the axlecap_ LOD class) from its arm to the sheave's inboard face, so a rope riding the sheave
-    crowns clears the tree (in-plane, the rope on the crown runs through the sub rockers and the arms). 0 = the shipped
-    tree, expression for expression.
+    The Yan (FG / ET) rocker tree of ONE lane (`tag` "n" / "p", `s` -1 / +1, the lane at `y`), hanging below its carrier
+    (lift_tower: the crossarm, its center = main_z + hanger): the hanger (its top `ins` inside a carrier `arm_t` deep), the
+    main rocker at main_z, per sub rocker a pivot pin, the sub rocker at sub_z and two sheave arms down to the sheaves on
+    axle_z (lite_sheave_parts: discs + liner) with an outboard axle cap each. lift_tower.fg_parts' loop body verbatim (the
+    same expressions, the same part order). Returns [(obj, tower material key)]. T62 (2026-10-18): the sheaves come from
+    train_wheel. v2 = wheel(), round 2's capped wheel with its own hub bosses, so NO kit axle cap. v1 = lite_sheave_parts +
+    the kit axle cap, the pre-T62 tree. T27 (2026-10-17, build/T27-rope-path.md, lift_tower.ROPE_ON_CROWN): `inboard` > 0
+    moves the whole carrier tree (hanger, rockers, pins, sheave arms) that far INBOARD of the lane (to y - s * inboard) and
+    hangs each sheave on an axle stub `<prefix>axlecap_stub_<tag>_<si>_<m|p>` (the axlecap_ LOD class) from its arm to the
+    sheave's inboard face, so a rope riding the sheave crowns clears the tree (in-plane, the rope on the crown runs through
+    the sub rockers and the arms). 0 = the shipped tree, expression for expression.
     """
     P = []
     yl = y
@@ -802,7 +803,7 @@ def fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span, 
             wx = sx + wv * sub_span / 2.0
             P.append((K.add_box(f"{prefix}sheave_arm_{tag}_{si}_{wtag}", (0.09, 0.10, 0.26),
                                 (wx, y, (sub_z + axle_z) / 2.0)), "paint"))
-            # T62: the wheel (v2 = cs2_sheaves.wheel at the FG radius / width; v1 = lite_sheave_parts)
+            # T62: the wheel (v2 = cs2_sheaves.wheel at the FG radius / width, v1 = lite_sheave_parts)
             P += train_wheel(f"{prefix}sheave_{tag}_{si}_{wtag}_rim", f"{prefix}liner_{tag}_{si}_{wtag}",
                              sheave_r, sheave_w, (wx, yl, axle_z))
             if inboard:
@@ -828,19 +829,18 @@ def fg_train_side_pinned(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main
                          pin_z, inboard, arm_t=FG_ARM_T, hanger=FG_HANGER, ins=FG_HANGER_INSET,
                          gap=0.015, poke=0.006, pin_r=0.05):
     """
-    The Yan rocker tree of ONE lane for a SKINNED tower (lift alignment Phase 2, lift_tower.SKINNED; DECISIONS 570).
-    The train (sub rockers, sheave arms, wheels, axle stubs, the main rocker and its sub pivots) pitches about the
-    lateral line through both rope points (z `pin_z` = axle + crown seat, travel 0), so the main rocker is centered ON
-    that line and turns on a main pin `pivot_main_<tag>` held by the hanger (fg_train_side hangs it 0.30 above the subs
-    on a fixed hanger: a pitch would tear the two apart). Lateral stack, lane outward to inward: wheels on the lane, the
-    T27 axle stubs, sub rockers + arms in the tree plane y - s * inboard (as fg_train_side with `inboard`), the main
-    rocker `gap` further in, the hanger `gap` further in again. Train and hanger never share a lateral slab, and a pitch
-    about the lateral axis keeps every lateral coordinate, so the two cannot meet; the crossarm sits above the swept
-    circle (lift_tower.skin_sweep measures both). The sub pivots run through the sub rocker and the main rocker at sub_z
-    (inside both z bands), the main pin from the hanger's inboard face through the main rocker, each pin end `poke`
-    proud. The hanger keeps fg_train_side's top (`ins` inside a carrier `arm_t` deep) and reaches pin_r + 0.04 below
-    the pin. Parts and names as fg_train_side (+ the main pin); wheels and stubs expression for expression.
-    Returns [(obj, tower material key)].
+    The Yan rocker tree of ONE lane for a SKINNED tower (lift alignment Phase 2, lift_tower.SKINNED, DECISIONS 570). The
+    train (sub rockers, sheave arms, wheels, axle stubs, the main rocker and its sub pivots) pitches about the lateral line
+    through both rope points (z `pin_z` = axle + crown seat, travel 0), so the main rocker is centered ON that line and turns
+    on a main pin `pivot_main_<tag>` held by the hanger (fg_train_side hangs it 0.30 above the subs on a fixed hanger: a
+    pitch would tear the two apart). Lateral stack, lane outward to inward: wheels on the lane, the T27 axle stubs, sub
+    rockers + arms in the tree plane y - s * inboard (as fg_train_side with `inboard`), the main rocker `gap` further in, the
+    hanger `gap` further in again. Train and hanger never share a lateral slab, and a pitch about the lateral axis keeps
+    every lateral coordinate, so the two cannot meet. The crossarm sits above the swept circle (lift_tower.skin_sweep
+    measures both). The sub pivots run through the sub rocker and the main rocker at sub_z (inside both z bands), the main
+    pin from the hanger's inboard face through the main rocker, each pin end `poke` proud. The hanger keeps fg_train_side's
+    top (`ins` inside a carrier `arm_t` deep) and reaches pin_r + 0.04 below the pin. Parts and names as fg_train_side (+ the
+    main pin). Wheels and stubs expression for expression. Returns [(obj, tower material key)].
     """
     P = []
     yl = y
@@ -881,15 +881,14 @@ def fg_train_side_pinned(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main
 
 def lug_plate(name, xp, zc, r, z0, z1, x_far, ya, yb, segs=5, rot=0.0, beam=None):
     """
-    A flat link plate in the travel / height plane (x, z), between lateral y = ya .. yb (signed, ya < yb), from its
-    pin at (xp, zc) to its square far end at x_far, z0 .. z1, with a ROUND lug end around the pin: an arc of radius r
-    about (xp, zc) on the side away from x_far, from the bottom edge to the top edge (r >= max(zc - z0, z1 - zc); a
-    plate symmetric about its pin gets a semicircle). `segs` arc segments (5: 36 deg facets, under the 45 deg bevel
-    limit, so the lug reads round). `rot` (radians, + raises the +x side) turns the whole profile about the pin (round
-    4: the FG yoke straps rise from the main pin to their half beams). `beam` (x0, x1, y0, y1, z0, z1; round 4, the
-    DQ / GD clevis) adds an axis-aligned box as a second shell of the same part. Box-projected "UVMap". Lift alignment
-    phase 2, round 2 (hinged half trains): the two halves' plates lap on the shared main pin, each in its own lateral
-    slab, so a relative pitch never meets.
+    A flat link plate in the travel / height plane (x, z), between lateral y = ya .. yb (signed, ya < yb), from its pin at
+    (xp, zc) to its square far end at x_far, z0 .. z1, with a ROUND lug end around the pin: an arc of radius r about (xp, zc)
+    on the side away from x_far, from the bottom edge to the top edge (r >= max(zc - z0, z1 - zc), a plate symmetric about
+    its pin gets a semicircle). `segs` arc segments (5: 36 deg facets, under the 45 deg bevel limit, so the lug reads round).
+    `rot` (radians, + raises the +x side) turns the whole profile about the pin (round 4: the FG yoke straps rise from the
+    main pin to their half beams). `beam` (x0, x1, y0, y1, z0, z1, round 4, the DQ / GD clevis) adds an axis-aligned box as a
+    second shell of the same part. Box-projected "UVMap". Lift alignment phase 2, round 2 (hinged half trains): the two
+    halves' plates lap on the shared main pin, each in its own lateral slab, so a relative pitch never meets.
     """
     if r < max(zc - z0, z1 - zc) - 1e-9:
         raise ValueError(f"{name}: lug r {r} < the plate's reach from the pin ({zc - z0:.4f} / {z1 - zc:.4f})")
@@ -922,8 +921,8 @@ def lug_plate(name, xp, zc, r, z0, z1, x_far, ya, yb, segs=5, rot=0.0, beam=None
         if f.normal.dot(f.calc_center_median() - cen) < 0.0:
             f.normal_flip()
     if beam is not None:
-        # round 4 (DQ / GD clevis): the half's full-section beam, a second closed shell in this part (x0, x1, y0, y1,
-        # z0, z1); the plate runs into it with every face inset (no shared vertex, no coplanar face)
+        # round 4 (DQ / GD clevis): the half's full-section beam, a second closed shell in this part (x0, x1, y0, y1, z0,
+        # z1). The plate runs into it with every face inset (no shared vertex, no coplanar face)
         bx0, bx1, by0, by1, bz0, bz1 = beam
         bv = [bm.verts.new((x, y, z)) for x in (bx0, bx1) for y in (by0, by1) for z in (bz0, bz1)]
         box = [bm.faces.new([bv[i] for i in q])
@@ -941,12 +940,11 @@ def lug_plate(name, xp, zc, r, z0, z1, x_far, ya, yb, segs=5, rot=0.0, beam=None
 
 def drop_plate(name, zc, r, z0, x1, x_far, ya, yb, step_deg=36.0):
     """
-    A main-rocker half plate that drops from its pin to a lower pivot (lift alignment round 3, FG bogies at axle
-    height): in the travel / height plane (x, z) between lateral y = ya .. yb (signed, ya < yb), a round lug of radius
-    r about the pin (0, zc), the top edge at zc + r out to x_far, the far end down to z0, the bottom edge from x_far
-    back to x1, then a straight edge tangent to the lug circle (the lug arc from that tangent point under and around
-    the pin to its top, facets <= step_deg). Convex; the plate passes the pin by r only (cs2_skin.bones_by_travel's
-    lug margin). Box-projected "UVMap".
+    A main-rocker half plate that drops from its pin to a lower pivot (lift alignment round 3, FG bogies at axle height): in
+    the travel / height plane (x, z) between lateral y = ya .. yb (signed, ya < yb), a round lug of radius r about the pin
+    (0, zc), the top edge at zc + r out to x_far, the far end down to z0, the bottom edge from x_far back to x1, then a
+    straight edge tangent to the lug circle (the lug arc from that tangent point under and around the pin to its top, facets
+    <= step_deg). Convex. The plate passes the pin by r only (cs2_skin.bones_by_travel's lug margin). Box-projected "UVMap".
     """
     d = 1.0 if x_far > 0.0 else -1.0
     qx, qz = abs(x1), z0 - zc
@@ -989,7 +987,7 @@ def hanger_tongue(name, zc, r, z_top, hw_top, ya, yb, segs=6):
     if hw_top < r - 1e-9 or z_top <= zc:
         raise ValueError(f"{name}: hw_top {hw_top} < r {r} or top {z_top} under the pin {zc}")
     arc = [(r * math.cos(-math.pi * k / segs), zc + r * math.sin(-math.pi * k / segs)) for k in range(segs + 1)]
-    prof = [(hw_top, z_top)] + arc + [(-hw_top, z_top)]      # clockwise seen from +y; the last edge = the top
+    prof = [(hw_top, z_top)] + arc + [(-hw_top, z_top)]      # clockwise seen from +y, the last edge = the top
     bm = bmesh.new()
     layer = bm.loops.layers.uv.new("UVMap")
     lo = [bm.verts.new((x, ya, z)) for x, z in prof]
@@ -1015,24 +1013,23 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
                          pin_r=0.05, lap_gap=0.010, bogie_low=False, beam=False):
     """
     The Yan rocker tree of ONE lane as two HALF trains hinged on the main pin (lift alignment phase 2 round 2, the
-    articulation design note option C). Each half = one 2-wheel bogie (sub rocker, its pivot, two sheave arms, two
-    wheels, two axle stubs) on its half of the main rocker, `rocker_main_<tag>_f` (authoring +X = game +z, TrainFront)
-    or `_b`. The bogies sit `shift` further out along the train than fg_train_side_pinned's (sub centers at
-    +-(main_half + shift)): the inner wheels clear each other to a 20 deg half-break. The two main-rocker halves lap on
-    the main pin `pivot_main_<tag>` in their own lateral slabs (lug_plate, round lug ends, `lap_gap` apart, the front
-    plate outboard): the main slab of fg_train_side_pinned (t_main = arm_t 0.7) holds both plates, so the hanger,
-    the sub rockers and the wheels keep the pilot's lateral stack. Each sub pivot runs from its own half's plate out
-    through the sub rocker (the back pivot crosses the front plate's slab far from that plate's lug). The hanger and
-    the main pin are the static head (Root). `bogie_low` (round 3): each bogie bar sits at AXLE height between its
-    wheel pair (the wheels on their axle stubs from the bar, no sheave arms), its pivot through the bar at the axle, and
-    the main-rocker plates drop to it (drop_plate: the round lug on the main pin, a bottom edge FG_BOGIE_LOW_BELOW
-    under the axle from FG_BOGIE_LOW_INNER inboard of the pivot out, an edge tangent to the lug between). `beam`
-    (round 4, the shipped three tiers; overrides bogie_low): each main-rocker half is a box beam at the shipped height
-    main_z (fg_train_side's section, t_p thick in its lap slab) from FG_BEAM_LAP past the pin out to the shipped end,
-    carried on the main pin by a yoke strap `yoke_<tag>_f|b` (FG_YOKE: a lug plate rising from the pin into the beam);
-    the bogie pivots float between beam and bogie bar at (main_z + sub_z) / 2 as fg_train_side's, the bars at sub_z
-    on sheave arms. Bars, arms and stubs stay in the tree plane inboard of the wheels.
-    Returns [(obj, tower material key)].
+    articulation design note option C). Each half = one 2-wheel bogie (sub rocker, its pivot, two sheave arms, two wheels,
+    two axle stubs) on its half of the main rocker, `rocker_main_<tag>_f` (authoring +X = game +z, TrainFront) or `_b`. The
+    bogies sit `shift` further out along the train than those of fg_train_side_pinned (sub centers at +-(main_half + shift)):
+    the inner wheels clear each other to a 20 deg half-break. The two main-rocker halves lap on the main pin
+    `pivot_main_<tag>` in their own lateral slabs (lug_plate, round lug ends, `lap_gap` apart, the front plate outboard). The
+    main slab of fg_train_side_pinned (t_main = arm_t 0.7) holds both plates, so the hanger, the sub rockers and the wheels
+    keep the lateral stack of the pilot. Each sub pivot runs from its own half's plate out through the sub rocker (the back
+    pivot crosses the slab of the front plate far from the lug of that plate). The hanger and the main pin are the static
+    head (Root). `bogie_low` (round 3): each bogie bar sits at AXLE height between its wheel pair (the wheels on their axle
+    stubs from the bar, no sheave arms), its pivot through the bar at the axle, and the main-rocker plates drop to it
+    (drop_plate: the round lug on the main pin, a bottom edge FG_BOGIE_LOW_BELOW under the axle from FG_BOGIE_LOW_INNER
+    inboard of the pivot out, an edge tangent to the lug between). `beam` (round 4, the shipped three tiers, overrides
+    bogie_low): each main-rocker half is a box beam at the shipped height main_z (fg_train_side's section, t_p thick in its
+    lap slab) from FG_BEAM_LAP past the pin out to the shipped end, carried on the main pin by a yoke strap `yoke_<tag>_f|b`
+    (FG_YOKE: a lug plate rising from the pin into the beam). The bogie pivots float between beam and bogie bar at (main_z +
+    sub_z) / 2 as in fg_train_side, the bars at sub_z on sheave arms. Bars, arms and stubs stay in the tree plane inboard of
+    the wheels. Returns [(obj, tower material key)].
     """
     P = []
     yl = y
@@ -1104,27 +1101,29 @@ def dq_train_halves(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y
                     pin_z, yoke_top, shift, link=DQ_LINK, ngon=False, lap_gap=0.010, yoke_t=0.072, clevis=None,
                     yoke_bot=0.25):
     """
-    The gantry trains (DQ / GD) of both lanes as two HALF trains per lane hinged on the main pin (lift alignment phase
-    2 round 2, option C). dq_train's parts and section numbers (the expressions where they apply), with:
-      - every sheave moved `shift` out along the train (x + sign(x) shift): the inner wheels clear to a 20 deg
-        half-break; sag must be 0 (each half's rope is straight: the crowns lie on one line through the pin);
-      - per half its wheels paired into subs from the OUTER end; an odd wheel count leaves the innermost wheel on a
-        1-wheel sub (DQ_SUB_SINGLE_L long; round 4, GD 10 a side: 5 wheels a half). Per half its subs from the pin
-        outward: an even count pairs (0, 1), (2, 3) ... on main rockers (DQ: one 4-wheel bogie a half), an odd count
-        pairs from the OUTER end and hangs the innermost sub on a link (GD 12 a side: a 4-wheel bogie + a 2-wheel
-        bogie on a link; GD 10: a 4-wheel bogie + the 1-wheel sub on a link); sub / main / link numbering as dq_train
-        (travel order); with the clevis the links are DQ_LINK_INSET in from the yoke slab's faces;
-      - the yoke split into two plates `yoke_<tag>_f` (authoring +X = game +z, TrainFront, the OUTBOARD half of the
-        yoke slab) and `yoke_<tag>_b` (inboard), `lap_gap` apart, each from its round lug on the main pin (lug_plate,
-        r = the pin's reach to the yoke bottom) out to its mains / links + 0.15, bottom axle + yoke_bot (0.25 as
-        dq_train: the mains' pins and the links hang there, C21), top axle + yoke_top;
-      - the hanger box as given (the caller cuts it short of the yoke);
-      - `clevis` (round 3; dict plate_t, gap, r, top_z, top_hw): the yoke plates thin to plate_t at the yoke slab's
-        outer faces and a static tongue `hanger_<tag>_t` (Root) fills the middle (yoke_t - 2 (plate_t + gap) thick,
-        `gap` off each plate) from top_z in the head down to a round lug of radius r about the main pin
-        (hanger_tongue): the two halves' plates straddle it, a clevis on the pin over the train center. With
-        clevis["beam_x"] (round 4) a plate is only the cheek on the pin: from beam_x out its half is the shipped full
-        yoke section (yoke_t thick, the band deep), a second shell of the same part.
+    The gantry trains (DQ / GD) of both lanes as two HALF trains per lane hinged on the main pin (lift alignment phase 2
+    round 2, option C). dq_train's parts and section numbers (the expressions where they apply), with:
+
+    - every sheave moved `shift` out along the train (x + sign(x) shift): the inner wheels clear to a 20 deg
+      half-break. Sag must be 0 (each half's rope is straight: the crowns lie on one line through the pin).
+    - per half its wheels paired into subs from the OUTER end. An odd wheel count leaves the innermost wheel on a
+      1-wheel sub (DQ_SUB_SINGLE_L long, round 4, GD 10 a side: 5 wheels a half). Per half its subs from the pin
+      outward: an even count pairs (0, 1), (2, 3) ... on main rockers (DQ: one 4-wheel bogie a half). An odd count
+      pairs from the OUTER end and hangs the innermost sub on a link (GD 12 a side: a 4-wheel bogie + a 2-wheel
+      bogie on a link, GD 10: a 4-wheel bogie + the 1-wheel sub on a link). Sub / main / link numbering as dq_train
+      (travel order). With the clevis the links are DQ_LINK_INSET in from the yoke slab's faces.
+    - the yoke split into two plates `yoke_<tag>_f` (authoring +X = game +z, TrainFront, the OUTBOARD half of the
+      yoke slab) and `yoke_<tag>_b` (inboard), `lap_gap` apart, each from its round lug on the main pin (lug_plate,
+      r = the pin's reach to the yoke bottom) out to its mains / links + 0.15, bottom axle + yoke_bot (0.25 as
+      dq_train: the mains' pins and the links hang there, C21), top axle + yoke_top
+    - the hanger box as given (the caller cuts it short of the yoke)
+    - `clevis` (round 3, dict plate_t, gap, r, top_z, top_hw): the yoke plates thin to plate_t at the yoke slab's
+      outer faces and a static tongue `hanger_<tag>_t` (Root) fills the middle (yoke_t - 2 (plate_t + gap) thick,
+      `gap` off each plate) from top_z in the head down to a round lug of radius r about the main pin
+      (hanger_tongue). The two halves' plates straddle it, a clevis on the pin over the train center. With
+      clevis["beam_x"] (round 4) a plate is only the cheek on the pin: from beam_x out its half is the shipped full
+      yoke section (yoke_t thick, the band deep), a second shell of the same part.
+
     The main pin is the caller's (lift_tower._dq_train). Returns [(obj, tower material key)].
     """
     P = []
@@ -1142,8 +1141,8 @@ def dq_train_halves(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y
         for k, (xk, yk, zk) in enumerate(cents):
             P += train_wheel(f"sheave_{tag}_{k}_rim", f"liner_{tag}_{k}", sheave_r, sheave_w, (xk, yk, zk),
                              segs=segs, groove=groove, ngon=ngon)
-        # per half its wheels paired from the outer end (an odd count leaves the innermost wheel on a 1-wheel sub);
-        # numbered in travel order: an even count per half is (0, 1), (2, 3) ... as dq_train
+        # per half its wheels paired from the outer end (an odd count leaves the innermost wheel on a 1-wheel sub). Numbered
+        # in travel order: an even count per half is (0, 1), (2, 3) ... as dq_train
         groups = []
         for hs in (-1.0, 1.0):
             mine = sorted((k for k, c in enumerate(cents) if c[0] * hs > 0.0), key=lambda k: -abs(cents[k][0]))
@@ -1223,7 +1222,7 @@ def fg_spans(sheaves, pitch, sheave_r):
 
 def dq_centres(n, pitch, axle, sag, gauge, side, x0=0.0):
     """[(X_k, Y, Z_k)] for one side: X_k = (k - (n-1)/2) pitch, Z_k = A - sag (2 X_k / L_c)^2
-    (lift_tower.dq_sheave_centres); `x0` shifts the train along travel (stations; the towers pass 0 and
+    (lift_tower.dq_sheave_centres); `x0` shifts the train along travel (stations, the towers pass 0 and
     take the unshifted expression)."""
     lc = (n - 1) * pitch
     out = []
@@ -1253,20 +1252,19 @@ def dq_train(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y, main_
              hz, link=DQ_LINK, prefix="", ngon=False, yoke_top=None):
     """
     The gantry sheave trains of both lanes with every carrier INBOARD of the sheaves (towers-v2 4.2, F9):
-    lift_tower._dq_train's body verbatim. `centres_of(s)` = the [(x, y, z)] sheave centers of the side s
-    (-1 / +1; dq_centres), n sheaves per side (even), `axle` the train's reference height (the main rockers,
-    pins, yoke and hanger sit at axle + their tower offsets), `sub_y` / `main_y` the |y| of the sub / main
-    rocker plates and the yoke, `pin_s` the sub pins' length, `hanger_box` {x, y0, y1, z0, z1} (z about the
-    axle), `hz` the hanger's top / bottom inset, `link` the lone-middle-sub link (DQ_LINK; None = none).
-    `yoke_top` (lift alignment Phase 2, lift_tower.SKINNED; None = every build above, expression for expression):
-    the yoke's top above the axle (default 0.42); its bottom stays at axle + 0.25 (the main pins and links hang there).
-    Returns [(obj, tower material key)].
+    lift_tower._dq_train's body verbatim. `centres_of(s)` = the [(x, y, z)] sheave centers of the side s (-1 / +1,
+    dq_centres), n sheaves per side (even), `axle` the train's reference height (the main rockers, pins, yoke and hanger sit
+    at axle + their tower offsets), `sub_y` / `main_y` the |y| of the sub / main rocker plates and the yoke, `pin_s` the sub
+    pins' length, `hanger_box` {x, y0, y1, z0, z1} (z about the axle), `hz` the hanger's top / bottom inset, `link` the
+    lone-middle-sub link (DQ_LINK, None = none). `yoke_top` (lift alignment Phase 2, lift_tower.SKINNED, None = every build
+    above, expression for expression): the yoke's top above the axle (default 0.42), its bottom stays at axle + 0.25 (the
+    main pins and links hang there). Returns [(obj, tower material key)].
     """
     P = []
     for tag, s in (("n", -1.0), ("p", 1.0)):
         cents = centres_of(s)
         for k, (xk, yk, zk) in enumerate(cents):
-            # T62: v2 = cs2_sheaves.wheel (`groove` ignored, `ngon` the cap-bound GD discs); v1 = lite_sheave_parts
+            # T62: v2 = cs2_sheaves.wheel (`groove` ignored, `ngon` the cap-bound GD discs). v1 = lite_sheave_parts
             P += train_wheel(f"{prefix}sheave_{tag}_{k}_rim", f"{prefix}liner_{tag}_{k}", sheave_r,
                              sheave_w, (xk, yk, zk), segs=segs, groove=groove, ngon=ngon)
         subs = [((cents[2 * j][0] + cents[2 * j + 1][0]) / 2.0,
@@ -1306,8 +1304,8 @@ def dq_train(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y, main_
                 P.append((K.add_box(f"{prefix}rocker_link_{tag}_{i}", (link["w"], link["t"], z1 - z0),
                                     (xs, s * main_y, (z0 + z1) / 2.0)), "paint"))
         h = hanger_box
-        # detail pass 1 reclaim: the hanger's outboard end runs 6 mm into the yoke; when the
-        # yoke's z band encloses the (inset) hanger the end face is never seen - dropped
+        # detail pass 1 reclaim: the hanger's outboard end runs 6 mm into the yoke. When the yoke's z band encloses the
+        # (inset) hanger the end face is never seen - dropped
         yz0, yz1 = axle + 0.335 + dz_y - 0.085, axle + 0.335 + dz_y + 0.085
         hz0, hz1 = axle + h["z0"] + hz, axle + h["z1"] - hz
         enclosed = yz0 <= hz0 + 1e-9 and hz1 <= yz1 + 1e-9 and h["y1"] > main_y - 0.036 + 1e-6
@@ -1412,12 +1410,12 @@ def lod_fixed():
 class LodWheels:
     """
     WHEEL_LOD on a LOD copy of a FINISHED mesh: every wheel that survives the level's prefix deletes is rebuilt in the
-    level's form from its own LOD0 vertices and corner UVs (never collapse-decimated; make_lod_chain keeps these faces
-    out of the decimation): LOD1 = WHEEL_LOD[1]["segs"] segments (every second crest vertex): a flat band crest ring ->
-    crest ring + one n-gon disc per side; LOD2 = deleted. UVs come from ONE source face per new face (the disc n-gon's
-    own corners; the band from the -side flank face of its segment, squashed 2x along the rim) so no new face spans two
-    UV islands of the repacked atlas. Wheels are found by name (WHEEL_LOG pairs present in the part table); the frame
-    (center, axle, phase) from the geometry, so it works in any frame (net, station-rotated, chord-tilted).
+    level's form from its own LOD0 vertices and corner UVs (never collapse-decimated, make_lod_chain keeps these faces out of
+    the decimation). LOD1 = WHEEL_LOD[1]["segs"] segments (every second crest vertex): a flat band crest ring -> crest ring +
+    one n-gon disc per side. LOD2 = deleted. UVs come from ONE source face per new face (the disc n-gon's own corners, the
+    band from the -side flank face of its segment, squashed 2x along the rim) so no new face spans two UV islands of the
+    repacked atlas. Wheels are found by name (WHEEL_LOG pairs present in the part table). The frame (center, axle, phase)
+    comes from the geometry, so it works in any frame (net, station-rotated, chord-tilted).
     """
 
     def __init__(self):
@@ -1439,7 +1437,7 @@ class LodWheels:
         return int(n_wheels * WHEEL_LOD[level]["tris"])
 
     def apply(self, obj, table, level):
-        """Rebuild / delete the surviving wheels of `obj` (a LOD copy) for `level`; returns (wheels, tris)."""
+        """Rebuild / delete the surviving wheels of `obj` (a LOD copy) for `level`. Returns (wheels, tris)."""
         import numpy as np
         form = WHEEL_LOD[level]
         bm = bmesh.new()
@@ -1585,8 +1583,8 @@ class LodWheels:
             root = sorted((v for v in f0.verts if v not in (Cr[-1][k], Cr[-1][k1])),
                           key=lambda v: (Cr[-1][k].co - v.co).length)
             if len(root) == 1:
-                # round 3: the source is the flank TRIANGLE (crest k, crest k + 1, root); the band's 4th corner takes the
-                # midpoint of two of its corners - every corner stays inside that one triangle's UV island
+                # round 3: the source is the flank TRIANGLE (crest k, crest k + 1, root). The band's 4th corner takes the
+                # midpoint of two of its corners: every corner stays inside the UV island of that one triangle
                 g, b_ = src[root[0]], src[Cr[-1][k1]]
                 mid = ([tuple((x + y) / 2.0 for x, y in zip(u, v)) for u, v in zip(g[0], b_[0])],
                        [tuple((x + y) / 2.0 for x, y in zip(u, v)) for u, v in zip(g[1], b_[1])])
