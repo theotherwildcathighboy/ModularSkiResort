@@ -129,10 +129,10 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
   // list every row and may scroll. A view switch, a fold toggle or an area switch returns to page 1.
   const folds = useValue(folds$);
   // The Buildings tab's footer is taller (two tile rows and the merge toggle): a tab switch re-renders the panel so the pager re-fits at
-  // once (its layout effect), not on its next poll (a 400 ms scrollbar flash).
-  useValue(buildTab$);
+  // once (its layout effect), not on its next poll (a 400 ms scrollbar flash), and drops the room it measured for the other footer.
+  const buildTab = useValue(buildTab$);
   const viewPager = useViewPager(viewRef, contentRef, hasSign && view !== "runs" && view !== "lifts",
-    `${view}|${openFold(folds, view)}|${areaKey}`, styles.foldRow);
+    `${view}|${openFold(folds, view)}|${areaKey}`, styles.foldRow, buildTab);
 
   // Plain markup only: an error-boundary fallback must not be able to throw
   const title = t(LOC.title);

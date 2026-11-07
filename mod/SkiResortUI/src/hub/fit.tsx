@@ -104,12 +104,20 @@ const VIEW_PAGER_POLL_MS = 400;
 /**
  * Pages the view slot's top-level rows (its DOM children: our views render fragments, so every InfoLine, fold header, fold
  * row, bar and chart block is one child) when the body is taller than the content box. Rows of other pages are hidden with
- * style.display = "none" (React never writes `style` on these row roots, so it stays), all in one synchronous pass: unhide,
- * measure, partition, hide, so nothing paints in between. A fold header is never the last row of a page (it moves to the
- * next). `enabled` false (the Runs / Lifts views) unhides everything. `resetKey` (view + open fold) returns to page 1.
+ * style.display = "none" (React never writes `style` on these row roots, so it stays): unhide, partition, hide in one pass, so
+ * nothing paints in between. A fold header is never the last row of a page (it moves to the next). `enabled` false (the Runs /
+ * Lifts views) unhides everything. `resetKey` (view + open fold) returns to page 1; `geometryKey` (what changes the box, the
+ * Buildings tab's taller footer) drops the measured room.
+ *
+ * Gameface does not reflow on a read: getBoundingClientRect / clientHeight after a style write return the last drawn frame (measured
+ * in game 2026-11-06: a row set to display none still reads its old height in the same task). So a pass only trusts geometry when no
+ * row was hidden in that frame. While the pager is on, rows hidden in the last frame read 0 and the box has shrunk to the shown
+ * page; measuring them anyway made every 400 ms poll read "fits", drop the pager, show all rows, read "overflows", page again: the
+ * view and the pager row flickered (field bug r611, the Attraction view with the Merged buildings fold open on the Buildings tab,
+ * 21 px over). Paging now uses each row's height from the last frame it was drawn and the room from the last trusted pass.
  */
 export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject<HTMLElement>, enabled: boolean, resetKey: string,
-  foldRowClass: string): FitPage {
+  foldRowClass: string, geometryKey = ""): FitPage {
   const [pages, setPages] = useState(1);
   const [page, setPage] = useState(0);
   const keyRef = useRef(resetKey);
@@ -119,6 +127,14 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
   }
   const state = useRef({ page, pages, enabled });
   state.current = { page, pages, enabled };
+  // Row heights from frames where the row was drawn, and the room for the view rows from the last pass with trusted geometry
+  const heightOf = useRef(new WeakMap<HTMLElement, number>());
+  const roomRef = useRef<number | null>(null);
+  const geometryRef = useRef(geometryKey);
+  if (geometryRef.current !== geometryKey) {
+    geometryRef.current = geometryKey;
+    roomRef.current = null;
+  }
 
   const layout = (): void => {
     try {
@@ -126,18 +142,47 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       const box = body ? body.parentElement : null;
       if (!slot || !body || !box) return;
       const rows = Array.prototype.slice.call(slot.children) as HTMLElement[];
+      const wasHidden = rows.map((r) => r.style.display === "none");
       for (const r of rows) if (r.style.display === "none") r.style.display = "";
-      if (!state.current.enabled) { if (state.current.pages !== 1) setPages(1); return; }
+      if (!state.current.enabled) { roomRef.current = null; if (state.current.pages !== 1) setPages(1); return; }
+      // Everything below reads the last drawn frame (no reflow on a read)
       const inner = innerHeight(box);
       const bodyH = body.getBoundingClientRect().height;
       const slotRect = slot.getBoundingClientRect();
       const pagerOn = state.current.pages > 1;
-      if (!pagerOn && bodyH <= inner + 0.5) { if (state.current.pages !== 1) setPages(1); return; }
-      // Room for the view = the box minus everything in the body that is not the view (the pager row included once it is drawn)
       const tops = rows.map((r) => r.getBoundingClientRect().top);
-      const heights = rows.map((r, i) => (i + 1 < rows.length ? tops[i + 1] : slotRect.bottom) - tops[i]);
+      const drawn: number[] = [];
+      for (let i = 0; i < rows.length; i++) if (!wasHidden[i]) drawn.push(i);
+      // A drawn row's height: down to the next drawn row when that is the next row, else to the slot's end (last drawn), else its box
+      drawn.forEach((i, k) => {
+        const next = k + 1 < drawn.length ? drawn[k + 1] : -1;
+        const h = next === i + 1 ? tops[next] - tops[i] : next < 0 ? slotRect.bottom - tops[i] : rows[i].getBoundingClientRect().height;
+        if (h > 0) heightOf.current.set(rows[i], h);
+      });
+      const heights = rows.map((r) => heightOf.current.get(r) ?? r.getBoundingClientRect().height);
       const first = rows.length > 0 ? heights[0] : 20;
-      const room = inner - (bodyH - slotRect.height) - (pagerOn ? 0 : first);
+      let room: number;
+      if (drawn.length === rows.length) {
+        // Every row was drawn in the last frame: the geometry is the view's own
+        if (!pagerOn && bodyH <= inner + 0.5) { roomRef.current = null; if (state.current.pages !== 1) setPages(1); return; }
+        // Room for the view = the box minus everything in the body that is not the view (the pager row included once it is drawn)
+        room = inner - (bodyH - slotRect.height) - (pagerOn ? 0 : first);
+        roomRef.current = room;
+      } else if (roomRef.current !== null) {
+        room = roomRef.current;
+        // The box at its full height (still scrolling) with the pager row drawn: its room is current, take it
+        const pagerRow = body.lastElementChild as HTMLElement | null;
+        const pagerDrawn = pagerOn && pagerRow !== null && pagerRow !== slot && pagerRow.getBoundingClientRect().height > 0;
+        if (pagerDrawn && box.scrollHeight > box.clientHeight + 0.5) {
+          room = inner - (bodyH - slotRect.height);
+          roomRef.current = room;
+        }
+      } else {
+        // No trusted room (geometry changed while paged): show every row; the next frame measures them
+        if (state.current.pages !== 1) setPages(1);
+        try { window.requestAnimationFrame(() => layout()); } catch { /* the poll measures */ }
+        return;
+      }
       const pageOf: number[] = [];
       let p = 0, acc = 0, start = 0;
       for (let i = 0; i < rows.length; i++) {
@@ -156,7 +201,13 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
     } catch { /* paging is best effort */ }
   };
 
-  useLayoutEffect(layout);
+  // The layout effect sees the frame before this render; one pass on the next frame measures the rows it drew
+  useLayoutEffect(() => {
+    layout();
+    let id = 0;
+    try { id = window.requestAnimationFrame(() => layout()); } catch { return undefined; }
+    return () => { try { window.cancelAnimationFrame(id); } catch { /* ignore */ } };
+  });
   useEffect(() => {
     let id = 0;
     try { id = window.setInterval(layout, VIEW_PAGER_POLL_MS); } catch { return undefined; }
