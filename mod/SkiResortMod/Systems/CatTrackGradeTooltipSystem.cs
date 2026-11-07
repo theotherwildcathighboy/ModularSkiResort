@@ -57,7 +57,7 @@ namespace SkiResortMod.Systems
                 {
                     m_Plan.color = m_Tool.PlanOk ? TooltipColor.Success : TooltipColor.Warning;
                     Show(m_Plan, ref m_LastPlan, plan);
-                    GradeMsg check = m_Tool.CheckMsg;   // the guards of this plan are still unsolved (DECISIONS 601 f)
+                    GradeMsg check = m_Tool.CheckMsg;   // the guards of this plan are still being solved (DECISIONS 601 f)
                     if (!check.IsEmpty)
                         Show(m_Check, ref m_LastCheck, check);
                     GradeMsg guard = m_Tool.GuardMsg;

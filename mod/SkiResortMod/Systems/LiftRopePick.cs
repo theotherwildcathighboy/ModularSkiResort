@@ -1,6 +1,6 @@
 // The lift-line tool's section pick (DECISIONS 591, F1): the closest rope to the cursor ray, within a screen-space tolerance, names the
 // The vanilla bulldozer tests a lift edge only on a sheet far above the ropes (EdgeGeometry + the composition's m_SurfaceHeight.max,
-// Game.Net/RaycastJobs.cs:437-460). The distance is 9.9 m on a 473 m tram span and about 13 m at 1 km
+// Game.Net/RaycastJobs.cs:437-460). The sheet is 9.9 m above the ropes on a 473 m tram span and about 13 m at 1 km
 // (docs/research/tram-bulldoze-hitbox-2026-11-03.md). So this tests what the player sees: the rope lanes' own curves.
 // Pure math over plain data (Unity.Mathematics only), so tests/LiftBatch proves it (RopePickTests, RP-1..RP-9). The Game-side harvest,
 // the camera ray and the delete live in LiftLineToolSystem.Sections.cs.

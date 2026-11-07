@@ -85,7 +85,7 @@ namespace SkiResortMod.Systems
         private SkiLodgeParkingSystem m_Parking; // registered after us. It is resolved at each load (null-safe)
         private SkiGuestCounterSystem m_Counter; // registered before us (Mod.cs). Read only
         // The six vanilla trip systems whose ComponentSystemBase.Enabled is read at each Game load and every armed pass. SystemOrder
-        // registers all six before any mod's OnLoad (SystemOrder.cs:352-353, :375, :377, :393-394. GameManager.cs:615 before :618, 1.6.2
+        // registers all six before any mod's OnLoad (SystemOrder.cs:352-353, :375, :377, :393-394; GameManager.cs:615 before :618, 1.6.2
         // :621, :624), so OnCreate finds them. A null reads "missing".
         private LeisureSystem m_LeisureSys;
         private TripNeededSystem m_TripNeededSys;
@@ -802,7 +802,7 @@ namespace SkiResortMod.Systems
                 return; // read on Game loads only: ski days never arm in the Editor
 
             // The six trip systems' Enabled flags, read after every mod's IMod.OnLoad (mods load at boot, GameManager.cs:618 after
-            // CreateSystems :615, long before a city's onGameLoadingComplete :1126, 1.6.2 :624, :621, :1136). An exception (not expected)
+            // CreateSystems :615, long before a city's onGameLoadingComplete :1126; 1.6.2 :624, :621, :1136). An exception (not expected)
             // reads as all on.
             try
             {
@@ -974,7 +974,7 @@ namespace SkiResortMod.Systems
         /// <summary>The leisure route cap under which the game prices a ski day's first route. The system logs it once per Game load, right
         /// after the ARMED line. It reads the TripPriorityParametersData singleton through the game's own GetPriority / GetMaxCost
         /// (TripPriorityParametersData.cs:39-81, Leisure :73-77, GetMaxCost :83-86, TripNeededSystem.cs:1071, :1082). The retry after a
-        /// failed route uses CitizenBehaviorSystem.kMaxPathfindCost (CitizenBehaviorSystem.cs:982, 1.6.2 :1012, ResidentAISystem.cs:3071).
+        /// failed route uses CitizenBehaviorSystem.kMaxPathfindCost (CitizenBehaviorSystem.cs:982, 1.6.2 :1012; ResidentAISystem.cs:3071).
         /// One of its lines always prints.</summary>
         private void CapLine()
         {
@@ -3236,7 +3236,7 @@ namespace SkiResortMod.Systems
             m_OutsideConnectionLookup.Update(this);
             m_PopulationLookup.Update(this);
             m_ResidentLookup.Update(this);
-            // The live checks' inputs, read as CitizenBehaviorSystem reads them each update (1.6.0 :1179, :1185-1186, 1.6.2 :1219,
+            // The live checks' inputs, read as CitizenBehaviorSystem reads them each update (1.6.0 :1179, :1185-1186; 1.6.2 :1219,
             // :1224-1225). Exactly one of each must exist. Otherwise LiveKnown is 0 (the checks read "not checked").
             bool live = m_EconomyQuery.CalculateEntityCount() == 1 && m_TimeDataQuery.CalculateEntityCount() == 1 &&
                         m_PopulationQuery.CalculateEntityCount() == 1;

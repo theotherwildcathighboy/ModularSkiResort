@@ -104,7 +104,7 @@ namespace SkiResortMod.Systems
                                   // && m_Hotel has LodgingProvider && PropertyRenter(m_Hotel).m_Property == CurrentBuilding
         }
 
-        public struct LodgeFacts                        // filled by the SiteJob / step A. The census has nearest 0
+        public struct LodgeFacts                        // filled by the SiteJob / step A, or by the census with nearest 0
         {
             public bool IsLodgePrefab, OnLiveSign, Active, Destroyed, LeisureTagged, HasRoad;
             public float NearestRunOrStationM;
@@ -574,8 +574,8 @@ namespace SkiResortMod.Systems
             return Chance(who, attraction, distanceKm, openShare, powder, ticketPrice, priceTolerance, schoolFactor, confidence, knobs, false);
         }
 
-        /// <summary>As the 10-argument Chance, except that a pass holder gets P = 1 in place of PriceFactor. A pass holder is the
-        /// household's SkiSeasonPass for this season (residents only, the caller decides). The pass is sunk cost, so the ticket price no
+        /// <summary>As the 10-argument Chance, except that a pass holder gets P = 1 in place of PriceFactor. A pass holder is a
+        /// household with a SkiSeasonPass for this season (residents only, the caller decides). The pass is sunk cost, so the ticket price no
         /// longer deters it. With <paramref name="passHolder"/> false this is the 10-argument Chance bit for bit.</summary>
         public static double Chance(GuestKind who, int attraction, double distanceKm, double openShare, double powder,
                                     int ticketPrice, int priceTolerance, double schoolFactor, double confidence, in Knobs knobs,
@@ -629,7 +629,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Resident roll, one per decision. decisionFrame = SkiDayTiming.NextLeisureVisit(chunk slice, now, leisure interval). It
         /// is the frame LeisureSystem takes this decision. It is the same for its up to 15 sightings and new for the next decision. It is
-        /// not m_LastPossibleFrame: CBS sets that to day start + a per-citizen constant (CitizenBehaviorSystem.cs:434-441, :472-494, 1.6.2
+        /// not m_LastPossibleFrame: CBS sets that to day start + a per-citizen constant (CitizenBehaviorSystem.cs:434-441, :472-494; 1.6.2
         /// :473-493), one value for every decision of a day.</summary>
         public static double ResidentRoll(int citizenIndex, int citizenVersion, uint decisionFrame)
             => UnitOf(Mix64(Mix64(KeyOf(citizenIndex, citizenVersion) ^ ResidentSalt) ^ decisionFrame));
@@ -865,7 +865,7 @@ namespace SkiResortMod.Systems
         public static bool RunsThisFrame(uint frame, int interval, int offset) => (frame & (uint)(interval - 1)) == (uint)offset;
 
         /// <summary>The exact-frame part of the skip rule. It holds when the chunk's UpdateFrame index is LeisureSystem's slice this frame
-        /// (LeisureSystem.cs:959, :322, 1.6.2 :956, :316). It also holds when CitizenBehaviorSystem runs this frame and the index is its
+        /// (LeisureSystem.cs:959, :322; 1.6.2 :956, :316). It also holds when CitizenBehaviorSystem runs this frame and the index is its
         /// slice (CitizenBehaviorSystem.cs:1138, :603, 1.6.2 :1170, :1174). The job calls SkiDayTiming.SkipChunk, which adds the
         /// recent-CBS-run window.</summary>
         public static bool SkipSlice(uint updateFrameIndex, uint frame, int leisureInterval, int behaviorInterval, int behaviorOffset)
@@ -875,8 +875,8 @@ namespace SkiResortMod.Systems
         /// <summary>x &gt; 0 and a power of two (UpdateSystem requires one, UpdateSystem.cs:303-306).</summary>
         public static bool IsPowerOfTwo(int x) => x > 0 && (x & (x - 1)) == 0;
 
-        /// <summary>ARM check on the intervals read at run time (LeisureSystem 64, LeisureSystem.cs:914-917, 1.6.2 :911-914,
-        /// TripNeededSystem 16, TripNeededSystem.cs:1939-1942, CitizenBehaviorSystem 16 / offset 11, CitizenBehaviorSystem.cs:1016-1024,
+        /// <summary>ARM check on the intervals read at run time (LeisureSystem 64, LeisureSystem.cs:914-917, 1.6.2 :911-914;
+        /// TripNeededSystem 16, TripNeededSystem.cs:1939-1942; CitizenBehaviorSystem 16 / offset 11, CitizenBehaviorSystem.cs:1016-1024,
         /// 1.6.2 :1048-1056). An interval not a power of two gives BadInterval. An offset outside [0, behaviorInterval) gives BadOffset.
         /// leisure &lt; 4 × trip gives LeisureTooFast. behaviorInterval ≤ 8 gives BehaviorTooFast (CBS could run twice in one render frame,
         /// which SkiDayTiming's recent-slice skip assumes it does not).</summary>
@@ -896,7 +896,7 @@ namespace SkiResortMod.Systems
         /// <summary>Bits of the six game trip systems whose ComponentSystemBase.Enabled SkiDaySystem reads at each Game load and every
         /// armed pass. SkiTripSystems names them. A found system that is switched off reads "OFF". A missing one reads "missing".
         /// TripNeededToArm = LeisureSystem + CitizenBehaviorSystem. The claim uses LeisureSystem's decision and slice. Only
-        /// CitizenBehaviorSystem.OnUpdate drains the car-reserve queue (CitizenBehaviorSystem.cs:1196-1210, drain :65, 1.6.2 :1235-1249,
+        /// CitizenBehaviorSystem.OnUpdate drains the car-reserve queue (CitizenBehaviorSystem.cs:1196-1210, drain :65; 1.6.2 :1235-1249,
         /// :66).</summary>
         public const int TripLeisure = 1, TripBehavior = 2, TripNeeded = 4, TripResidentAI = 8, TripResidentActions = 16,
                          TripResourceBuyer = 32, TripAll = 63, TripNeededToArm = 3;
@@ -941,7 +941,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>SkiResortLedger.Advance (:94-133) rule for rule, on the flags only: Started (first key: ThisSinceLoad), None (same
         /// key), Rolled (key = Key + 1, Key ≠ int.MaxValue: LastKnown, LastSinceLoad = ThisSinceLoad, ThisSinceLoad false), Jumped (any
-        /// other key: LastKnown and LastSinceLoad false, ThisSinceLoad true). Counting restarts as after a load. The key comes from
+        /// other key: LastKnown and LastSinceLoad false, ThisSinceLoad true: counting restarts as after a load). The key comes from
         /// SkiMoneyRules.MonthKey. It equals Advance(ref f, key, closedShort: false).</summary>
         public static MonthStep Advance(ref MonthFlags f, int key) => Advance(ref f, key, false);
 

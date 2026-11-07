@@ -7,7 +7,7 @@
 // Nothing vanilla rewrites m_MaxWorkers after the Created frame, so this re-asserts on every poll. With the setting off, it restores all.
 // The one writer of a lodge's m_MaxWorkers: its own target plus what it carries as its area's job carrier (MountainJobsSystem.CarriedBy,
 // MountainJobsRules.CarrierTarget). An off-road lodge on a cat track chain hands its own jobs to the carrier. Its target goes to 0, and the
-// game's tick dismisses the staff. Once no staff is listed, its WorkProvider and FreeWorkplaces are removed (the shape the utility-switch
+// game's tick lays the staff off. Once no staff is listed, its WorkProvider and FreeWorkplaces are removed (the shape the utility-switch
 // prototype measured: no worker icons, no staffing factor). Back at a road, or off the chain, the WorkProvider returns.
 // Logs: "created", ARMED once per load, one "OffSeason [area]" per transition, one "OffSeason [staff]" per write, "!!!" once on a throw.
 // Engine notes: EngineNotes/OffSeasonStaffSystem.md
@@ -167,7 +167,7 @@ namespace SkiResortMod.Systems
                 m_Areas.Remove(m_GoneSigns[i]);
 
             if (!m_MountainJobs.TargetsReady)
-                return;   // a carrier's sum is not known yet this load: writing its own target alone would dismiss the carried staff
+                return;   // a carrier's sum is not known yet this load: writing its own target alone would lay the carried staff off
             for (int i = 0; i < m_Buildings.Count; i++)
             {
                 Entity b = m_Buildings[i];

@@ -122,7 +122,7 @@ namespace SkiResortMod
             updateSystem.UpdateAt<SkiGroomerSystem>(SystemUpdatePhase.Modification4B);
 
             // Power bridging must run BEFORE ElectricityBuildingGraphSystem in the same phase. Then the valve we add to the station stub is
-            // visible the frame a station is created/updated (its orphan gate otherwise deletes the connection).
+            // visible the frame a station is created/updated (ElectricityBuildingGraphSystem's orphan gate otherwise deletes the connection).
             updateSystem.UpdateBefore<PowerBridgeSystem, Game.Simulation.ElectricityBuildingGraphSystem>(
                 SystemUpdatePhase.Modification4B);
 
@@ -148,7 +148,7 @@ namespace SkiResortMod
 
             // Vertex-prop bridge: adds the SubObject buffer vanilla's lot-class-gated area-prop spawner needs on OUR run surfaces. Phase is
             // load-bearing twice. It runs directly before SecondaryObjectSystem (it consumes the Updated tag at Modification4B, and Cleanup
-            // wipes it). It also writes the prop density and tags ChangedDistrict after a settled slider change. Both must land before it.
+            // wipes it). It also writes the prop density and tags ChangedDistrict after a settled slider change. Both must land before SecondaryObjectSystem.
             // Game mode only.
             updateSystem.UpdateBefore<SkiRunPropSystem, Game.Objects.SecondaryObjectSystem>(
                 SystemUpdatePhase.Modification4B);
@@ -174,7 +174,7 @@ namespace SkiResortMod
                 SystemUpdatePhase.GameSimulation);
 
             // Guest counter. Anchor is load-bearing for freshness: the interval is the same as MeetingSystem's (16), so the counter
-            // inherits its offset (UpdateSystem.cs:400-431) and reads the state that update just wrote.
+            // inherits its offset (UpdateSystem.cs:400-431) and reads the state MeetingSystem's update just wrote.
             updateSystem.UpdateAfter<SkiGuestCounterSystem, Game.Simulation.MeetingSystem>(SystemUpdatePhase.GameSimulation);
             // Lift tickets: drains the counter's arrivals. The anchor is a mod-to-mod anchor in the same phase (the SkiRunUpkeepSystem →
             // SkiSnowInjectionSystem precedent). Not load-bearing (drain semantics).
@@ -465,7 +465,7 @@ namespace SkiResortMod
 
             // Lift line icon: our "needs a lift line" icon in place of the vanilla high-voltage icon. Anchor is load-bearing: AFTER
             // ConnectionWarningSystem in ModificationEnd (SystemOrder.cs:261) and so before IconCommandSystem (:271). Our IconCommandBuffer
-            // is therefore created after its own in the same frame. Our Remove of the vanilla icon wins at playback
+            // is therefore created after ConnectionWarningSystem's buffer in the same frame, so our Remove of the vanilla icon wins at playback
             // (IconCommandSystem.cs:106-160). An UpdateAt would sort after IconCommandSystem: the vanilla icon would show for a frame each
             // time.
             updateSystem.UpdateAfter<LiftLineIconSystem, Game.Net.ConnectionWarningSystem>(SystemUpdatePhase.ModificationEnd);

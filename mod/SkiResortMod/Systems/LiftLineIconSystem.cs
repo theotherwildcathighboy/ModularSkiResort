@@ -207,7 +207,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Every station: the vanilla HV icon is removed at each stub node (when <paramref name="cover"/> is set, vanilla may have
+        /// <summary>Every station: the vanilla HV icon is removed at each stub node (always when <paramref name="cover"/> is set, because vanilla may have
         /// judged it this frame. Otherwise only when present). Our icon is shown or cleared by the rule.</summary>
         private void Stations(IconCommandBuffer icb, bool cover)
         {

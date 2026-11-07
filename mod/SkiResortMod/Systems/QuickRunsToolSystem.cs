@@ -1,8 +1,8 @@
 // The Resort Planner tool (code name Quick runs, experimental, DECISIONS 404). Its entry points are the hub's Resort Planner button and
 // Ctrl+Shift+Q. Click the corners of a region. With the region empty, click a lift station instead: the region becomes that lift's corridor
 // (QuickRunsToolSystem.Plan.cs).
-// Enter scans the region with the pure planner (SkiRunAutoPlanner, Resort mode) on a worker thread (Worker.cs. The Diagnostics fallback
-// slices it over frames on the main thread). The tool previews the plan as an overlay in the piste map's colors: pods, proposed lifts and
+// Enter scans the region with the pure planner (SkiRunAutoPlanner, Resort mode) on a worker thread (Worker.cs). The Diagnostics fallback
+// slices it over frames on the main thread. The tool previews the plan as an overlay in the piste map's colors: pods, proposed lifts and
 // their runs. A click leaves a run, a pod or a lift out (or puts it back). The knobs (Lifts, Way home, Mix, Density, Kinds, Shuffle) live
 // in the hub.
 // Enter builds the enabled runs in one batch (emit, then Temp, then Apply, RunAreaEmit shared with the cat track tool). A refused run is

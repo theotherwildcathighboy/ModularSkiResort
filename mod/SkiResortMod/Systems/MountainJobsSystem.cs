@@ -60,7 +60,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>CarriedBy has read this load's links at least once (or this system stopped on a throw and keeps its last sums). Before
-        /// that, OffSeasonStaffSystem writes no lodge, so a load does not dismiss a carrier's staff.</summary>
+        /// that, OffSeasonStaffSystem writes no lodge, so a load does not lay off a carrier's staff.</summary>
         internal bool TargetsReady => m_TargetsReady || m_Disabled;
 
         /// <summary>The sign carries jobs (MountainJobsRules.SignCarriesJobs): its target once TargetsReady, before that the workplaces the
@@ -196,8 +196,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The published top-level links become per-sign targets and per-carrier-lodge sums (MountainJobsRules.SumBySign). A
-        /// building whose area has a carrier lodge adds 0 to its sign, so the sign's target drops and the game's tick dismisses its
-        /// staff.</summary>
+        /// building whose area has a carrier lodge adds 0 to its sign, so the sign's target drops and the game's tick lays its
+        /// staff off.</summary>
         private void CollectTargets()
         {
             m_Attractiveness.CopyTopLevelLinks(m_Buildings, m_Signs);

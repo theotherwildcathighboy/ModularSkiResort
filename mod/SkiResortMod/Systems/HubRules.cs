@@ -74,7 +74,7 @@ namespace SkiResortMod.Systems
     /// <summary>One lift row of the area in `lifts` order (State = the stats LIFT_STATE). CustomName = the row's name is a station's custom
     /// name (LiftStats.CustomName), not "Lift N". Type = the row's SkiCatalog.Lifts index (its build items). 0 = fixed-grip, the struct
     /// default, so every pre-Phase-B constructor keeps today's items. Mixed = its component spans two lift types. BendTenths =
-    /// LiftCensus.BendWarnTenths of the row's sharpest tower bend (0 = none over the warning angle). The census decides. BendTower = that
+    /// LiftCensus.BendWarnTenths of the row's sharpest tower bend (0 = none over the warning angle, as the census decides). BendTower = that
     /// tower's number. TrainTower = the number of the tower whose rope goes furthest past what its sheave train follows
     /// (LiftCensus.Row.TrainTower). 0 = every train follows its rope. LowSpan = a span's carriers pass under the floor
     /// (LiftCensus.Row.LowSpan). LowFrom / LowTo = its tower numbers (0 = a station). LowTenths = LiftCensus.LowTenths of their height
@@ -107,14 +107,14 @@ namespace SkiResortMod.Systems
         public int DepotsNoHillLodge, DepotsNoRoad;  // active bus depots CheckDepot rejects for these. These depots are never in a lodge count
         // The band showed the Efficiency row on this area's previous build (hysteresis state).
         public bool EfficiencyRowWasOn;
-        // Active lodges whose row counts more when summit-served (MuSummit > Mu) and that no complete, powered lift top reaches within 300
-        // m.
+        // Active lodges whose row counts more when summit-served (MuSummit > Mu) and that no complete, powered lift top reaches
+        // within 300 m.
         // Next field (SchoolNoGreenRun): the school is active and runs count, but none of them is a counted green run (its +12 and its
         // demand share need one).
         public int SummitLodgesNotServed;
         public bool SchoolNoGreenRun;
-        // The area's top-level ski schools with no road edge. They join the LodgeNoRoad row's count, never its "every lodge" severity. On
-        // the Not linked entry, it is the top-level schools linked to no sign (row SchoolsNotLinked).
+        // The area's top-level ski schools with no road edge. They join the LodgeNoRoad row's count, never its "every lodge" severity.
+        // Next field (FreeSchools): on the Not linked entry, the top-level schools linked to no sign (row SchoolsNotLinked).
         public int SchoolsNoRoad;
         public int FreeSchools;
     }
@@ -537,7 +537,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The model's A with the area's applied lodge base replaced by <paramref name="lodgeApplied"/>, everything else as in
-        /// <paramref name="r"/>. It is a season value: the ladder's applied value of the lodges the "if fixed" assumes.
+        /// <paramref name="r"/>. <paramref name="lodgeApplied"/> is a season value: the ladder's applied value of the lodges the "if fixed" assumes.
         /// SkiResortStatsSystem's IfLodgesOn passes SkiResortScore.LodgeBase over every lodge of the area switched on. The result is
         /// (r.AOpen − r.LodgeApplied + lodgeApplied) × efficiency, clamped to 0..MaxAttraction BEFORE RoundToEven. A non-finite or negative
         /// <paramref name="lodgeApplied"/> reads 0.</summary>
@@ -740,7 +740,7 @@ namespace SkiResortMod.Systems
             else if (input.LodgesActive < input.Lodges)
                 output.Add(Row(HubProblemCode.LodgesSomeOff, 1, count: input.Lodges - input.LodgesActive));
 
-            // 2b. Road edges (the stats rebuild reads Building.m_RoadEdge). The game shows no warning for a sign off the road. It then gets
+            // 2b. Road edges (the stats rebuild reads Building.m_RoadEdge). The game shows no warning for a sign off the road. Such a sign then gets
             // no power, water or sewage.
             // A lodge with no road edge has no walking target for guests. Lodge severity mirrors LodgesAllOff / LodgesSomeOff: every lodge
             // 3, some 1. Count = lodges with no road (≤ Lodges).

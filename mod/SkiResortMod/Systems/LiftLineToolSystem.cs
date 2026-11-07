@@ -1769,7 +1769,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Every entity the game flagged (the Error query of ToolBaseSystem.GetAllowApply, ToolBaseSystem.cs:313, 533-540), one
         /// line each: kind, prefab, Temp flags, along / lateral on the line, and the error types of its icons, with the Target the icon
-        /// names. The error type is read from the icon's IconElement, then the icon's PrefabRef, then ToolErrorData.m_Error
+        /// names. The error type comes from the chain IconElement → icon PrefabRef → ToolErrorData.m_Error
         /// (ValidationSystem.AddIcon, ValidationSystem.cs:1747-1752). <paramref name="summary"/> counts per type. <paramref name="player"/>
         /// is the same in plain words. Always logged on a refusal (the 2026-10-26 field test had five errors and no type).</summary>
         private string DescribeErrors(out string summary, out string top)

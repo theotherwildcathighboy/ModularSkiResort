@@ -1,5 +1,5 @@
-// A re-emitted run's old entity maps to its new one (SkiRunReemitSystem, DECISIONS 577). Each system keeps the aliases with its run-keyed
-// runtime maps.
+// A re-emitted run's old entity maps to its new one (SkiRunReemitSystem, DECISIONS 577). Each system that has run-keyed
+// runtime maps keeps these aliases.
 // A pass that started before the swap can still write the old key after the swap. So the owner re-applies its aliases at the top of every
 // update until they age out. Move never overwrites a value already written for the new run. This code runs on the main thread and allocates
 // nothing while empty.

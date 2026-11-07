@@ -597,7 +597,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Station prefab to its catalog row (role, lift type, stub tip, bullwheel) for the stats system and the alignment aid.
-        /// False for a non-station prefab. Main thread. Event-time callers (a loop over every building) fetch
+        /// False for a non-station prefab. Main thread. Use it from event-time callers. A loop over every building fetches
         /// SkiPrefabCatalogSystem.StationDefs once instead.</summary>
         internal bool TryGetStationDef(Entity stationPrefab, out StationDef def)
         {

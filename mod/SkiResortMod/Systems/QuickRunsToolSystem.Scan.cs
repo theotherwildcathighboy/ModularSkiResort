@@ -228,7 +228,7 @@ namespace SkiResortMod.Systems
         private int[] m_WetA0 = new int[0], m_WetA1 = new int[0], m_WetB0 = new int[0], m_WetB1 = new int[0];
         private bool[] m_WetNode = new bool[0];
 
-        /// <summary>The wet layer: WaterUtils.SampleDepth over WetDepthM at each texel center, as before. It is sampled only where one of
+        /// <summary>The wet layer: WaterUtils.SampleDepth over WetDepthM at each texel center, as before, but it is sampled only where one of
         /// the four water nodes the bilinear sample reads is deeper than WetDepthM less a margin (a bilinear sample never exceeds its
         /// largest node, so every skipped texel is dry). Node indices are clamped exactly as SampleDepth clamps them (WaterUtils.cs:80-96).
         /// P2: at the 9 km2 cap a full sample per texel would cost a long frame. Dry land now costs a few table reads per texel.</summary>

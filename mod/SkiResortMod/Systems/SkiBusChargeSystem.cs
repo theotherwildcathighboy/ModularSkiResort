@@ -1,10 +1,10 @@
-// The coach bill of the Ski Bus Depots. SkiDaySystem reads each depot as working (SkiBusRules.IsBilled). Each working depot bills
+// The coach bill of the Ski Bus Depots. Every depot that SkiDaySystem reads as working (SkiBusRules.IsBilled) bills
 // SkiBusRules.MonthlyBill(straight-line distance to its area's nearest hill lodge) per month. The charge accrues like the lift charge, and
 // the system debits it from PlayerMoney. The system books each depot's share in the ledger under its ski area
 // (SkiResortLedger.AddBusCharge).
 // The bill stands for the coach that SkiCoachSystem shows. SkiCoachSystem reads the same SkiDaySystem.CopyDepots and adds no cost of its
 // own.
-// Phase: GameSimulation, UpdateAfter<SkiBusChargeSystem, SkiLiftChargeSystem> (Mod.cs). It keeps the monthly debits together and is not
+// Phase: GameSimulation, UpdateAfter<SkiBusChargeSystem, SkiLiftChargeSystem> (Mod.cs). The anchor keeps the monthly debits together and is not
 // load-bearing. GetUpdateInterval 4 equals the lift charge's slot (UpdateSystem.cs:400-431). The real cadence is self-gated. Pause stops
 // the system. The Editor never bills.
 // Engine notes: EngineNotes/SkiBusChargeSystem.md

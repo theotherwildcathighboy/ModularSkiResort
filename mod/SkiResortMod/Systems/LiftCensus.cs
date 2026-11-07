@@ -426,7 +426,7 @@ namespace SkiResortMod.Systems
 
             // 3b. A component whose edges and touched stations span two or more of our lift types is MIXED. Its EDGES are one type (split
             // nodes), so this fires only when a touched station's type differs from the edges' type or from another touched station's. Then
-            // the component is Complex (Unfinished in MakeRow), it gets one note, and every row built from it is Mixed.
+            // the component is Complex (MakeRow turns it into Unfinished), it gets one note, and every row built from it is Mixed.
             for (int c = 0; c < m_Comps.Count; c++)
             {
                 Comp comp = m_Comps[c];

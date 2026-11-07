@@ -1,5 +1,5 @@
 // Pure edit model of the lift-line tool. No ECS, no Game types: LiftBatch tests it headless. LiftLineToolSystem owns one instance per line
-// being drawn and turns its Emit() list into CreationDefinition + NetCourse entities. The tool snaps pins to the planner's sample grid
+// being drawn and turns its Emit() list into CreationDefinition + NetCourse entities. Pins are snapped to the planner's sample grid
 // (StepM, from the end the planner works from: FromB), so LiftTowerPlanner.Plan keeps them as seeds. Every edit re-plans.
 // Emit puts stations first and last. It puts each tower at (x, ground + E(member), z) with E = TopM[member] - TopM[0]
 // (LiftTowerEdit.ElevationM). Therefore the line is born fitted. LiftToolLines registers the emitted inner nodes (in-session only, not
@@ -87,8 +87,8 @@ namespace SkiResortMod.Systems
         /// <summary>No pin nearer this end of the line than this. A loose or ground end is a tower: the margin is MinSpanM, the
         /// tower-to-tower minimum (FG / DQ / GD 10 m, tram 40 m). A station end only needs the pinned tower clear of the terminal's front
         /// (the stub tip). The margin is 10 m for FG / DQ / GD, as before. For tram it is one step (10 m): the 11.4 m wide tower
-        /// (SkiTramTower30 m_LegSize) then stands 4 m clear of the stub tip. Field test 2 refused a tram pin five times. The pin was at
-        /// 1,737 m of a 1,756 m line (19 m from the top station). The old MinSpanM (40 m) applied at both kinds of end.</summary>
+        /// (SkiTramTower30 m_LegSize) then stands 4 m clear of the stub tip. Field test 2 refused a tram pin five times under
+        /// the old MinSpanM (40 m), which applied at both kinds of end. The pin was at 1,737 m of a 1,756 m line (19 m from the top station).</summary>
         public float PinEndMarginM(bool stationEnd) =>
             stationEnd && C.TypeId == "tram" ? C.StepM : math.max(C.MinSpanM, C.StepM);
 

@@ -1395,7 +1395,7 @@ namespace SkiResortMod.Systems
         public const float PieceMinHeightOffsetM = 0f;
 
         /// <summary>The ground at a sample: <paramref name="raw"/> unless it sits at <paramref name="ceiling"/> (our own cut), then
-        /// the higher of raw and the plane through <paramref name="farLeft"/> / <paramref name="farRight"/> (sampled at 
+        /// the higher of raw and the plane through <paramref name="farLeft"/> / <paramref name="farRight"/> (sampled at
         /// ±<paramref name="farM"/>) at <paramref name="lateral"/>.</summary>
         public static float UncutGround(float raw, float ceiling, float farLeft, float farRight, float lateral, float farM, out bool cut)
         {
@@ -1411,7 +1411,7 @@ namespace SkiResortMod.Systems
 
         /// <summary><paramref name="raw"/> with UncutGround applied against the line's own cut. The line runs through the node points
         /// <paramref name="pts"/> (xz distance <paramref name="cum"/> from the first), each span a HangingCurve with
-        /// <paramref name="hanging"/>, its ceiling <paramref name="cutOffset"/>[span] above the curve. The uncut reference is sampled at 
+        /// <paramref name="hanging"/>, its ceiling <paramref name="cutOffset"/>[span] above the curve. The uncut reference is sampled at
         /// ±<paramref name="farM"/>. <paramref name="onCut"/> (optional) gets the along of every replaced sample.</summary>
         public static LiftTerrainSampler UncutSampler(LiftTerrainSampler raw, float3[] pts, float[] cum, float hanging, float[] cutOffset,
                                                       float farM, Action<float> onCut = null)

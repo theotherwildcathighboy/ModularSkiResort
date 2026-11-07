@@ -496,7 +496,7 @@ namespace SkiResortMod.Systems
         //
         // After the budget, the made share melts at the speed a run's pack does at the track's air temperature: from the gun stop depth to
         // the keep bar in RunMeltOutHours (the game's melt as the protection rule estimates it). The track reaches its close line (40 %)
-        // when that pack reaches the keep bar. So a track closes no earlier than a run beside it in any thaw (DECISIONS 574). It replaced
+        // when that pack reaches the keep bar. So a track closes no earlier than a run beside it in any thaw (DECISIONS 574). This melt rule replaced
         // the flat 2 h of DECISIONS 572, which a run on the 1 ft keep bar outlasted below about 3 C. Below freezing nothing melts.
         public const float TrackWarmEpsilon = 1e-4f;   // a share difference below this is the same height
         // The game's melt per top-up window per degree above freezing, as ProtectRaisePerTopupM's derivation estimates it (6.4 mm per

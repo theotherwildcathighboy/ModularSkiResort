@@ -91,7 +91,7 @@ namespace SkiResortMod.Systems
         private int m_DiagGridLoops;               // non-identity loops given the entity-index grid
 
         // Moving-mode tuning. Bounds refresh: the system refreshes the chairs' CullingInfo/search-tree entries (one Updated tag per riding
-        // chair) every this-many meters of loop travel. 2 m keeps stale bounds inside a chair's own extents at any sim speed. The distance
+        // chair) every this-many meters of loop travel. 2 m keeps stale bounds inside a chair's own extents at any sim speed, because the distance
         // per sim frame is speed-independent. Rebuild cooldown: the system debounces cache rebuild requests (lift edits, reconnect poke
         // storms) to at most one rebuild per window.
         private const double BoundsRefreshMeters = 2.0;
@@ -1679,11 +1679,11 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Cross-system request (LiftReconnectSystem uses it after it rebuilds lanes): re-pin every chair on the next update, and
-        /// in moving mode rebuild the loop cache. Chairs never carry Secondary (SubObjectSystem.cs:2824-2827 adds only Owner + PrefabRef +
+        /// <summary>Cross-system request (LiftReconnectSystem uses it after it rebuilds lanes): re-pin every chair, and
+        /// in moving mode rebuild the loop cache, on the next update. Chairs never carry Secondary (SubObjectSystem.cs:2824-2827 adds only Owner + PrefabRef +
         /// Transform). They are in their owner edge's SubObject buffer (SubObjectReferencesSystem.cs:122-138 queries Object + Owner, None
         /// Secondary). This system uses the full idempotent pass because LaneSystem rebuilds the poked lanes later in Modification4 and a
-        /// pass over every chair is the simplest way to re-pin onto the new curves. It does not use it because chairs are unreachable. The
+        /// pass over every chair is the simplest way to re-pin onto the new curves. The reason is not that chairs are unreachable. The
         /// pass runs in the same frame when requested before Modification4B (our phase).</summary>
         internal void RequestFullPass(string label)
         {
@@ -1707,7 +1707,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Is this edge end node a station connection? Stations-first: the line reuses the owned stub node (Owner present).
-        /// Line-first: the stub course reuses the line's unowned node (GenerateEdgesSystem.TryGetNode). Ownership never appears on the node
+        /// Line-first: the stub course reuses the line's unowned node (GenerateEdgesSystem.TryGetNode). So ownership never appears on the node
         /// itself, but the station's connection stub edge (which is building-owned) sits in the node's ConnectedEdge buffer. Both shapes
         /// count.</summary>
         private bool IsStationConnectionNode(Entity node)

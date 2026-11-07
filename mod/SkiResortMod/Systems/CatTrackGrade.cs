@@ -65,7 +65,6 @@ namespace SkiResortMod.Systems
         /// the along-track correction (profile minus the ground under the centerline). The correction is clamped to InsideMaxM. It fades in
         /// from the run's outline over InsideFadeM, and it fades out sideways beyond the flat top over InsideSideFadeM. The tool lowers
         /// InsideMaxM along InsideAllowanceSteps until every crossed run keeps its rated band.</summary>
-        /// InsideAllowanceSteps until every crossed run keeps its rated band.</summary>
         public float InsideMaxM = 2f;
         public float InsideFadeM = 10f;
         public float InsideSideFadeM = 10f;

@@ -71,7 +71,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Do not change the workplaces of a building linked to this area for now: the area is in the attractiveness snapshot but
         /// this load has not observed it yet (its first score waits for ratings and snow). An unobserved area reads in season, so a write
-        /// would raise the saved half staff and dismiss them again seconds later. Step takes the first observation at once because the
+        /// would raise the saved half staff and lay them off again seconds later. Step takes the first observation at once because the
         /// saved staff already match it.</summary>
         public static bool AwaitsFirstObservation(bool linked, bool areaInSnapshot, bool observed)
         {
@@ -80,7 +80,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Do not change a lodge of this area on this poll: it still awaits the first observation, or this poll took it. A
         /// carrier's carried sum is MountainJobsSystem's last poll, taken while the area still read in season (hut, summit and chained
-        /// off-road lodges at full jobs). So a write on the observing poll would raise the saved staff and dismiss them again one poll
+        /// off-road lodges at full jobs). So a write on the observing poll would raise the saved staff and lay them off again one poll
         /// later.</summary>
         public static bool HoldsLodgeWrite(bool awaitsFirstObservation, bool observedThisPoll)
         {
