@@ -1,10 +1,16 @@
-// Lifts suite (A4): the lift skeleton (spec 4.4) on the synthetic fixtures. Norms per type and the station spots (S-4, S-1), the tower
-// check re-planned independently with the lift tool's own planner (every span clear, edge slopes under 0.97 x the cap, the same tower
-// count), lift invariants (ids, pods, keys, costs, no shared pod, no overlapping station lots), the Auto count (S-5) and the knob,
-// stacking on Benched (S-6), pinned lifts honored (S-7: a proposal pinned back, NaN stations, a lift off the map, a garbage row), the
-// tower-plan budget (P-5), determinism of the lifts (D-1 rerun / rotated / reversed, D-2 slices, D-3 Reselect of Lifts / Seed / Home),
-// Serves recounted with LiftServedRule, NoLiftSite. ResortPlan.Fingerprint is A6's, so the lift checks compare LiftsHash, not the
-// result fingerprint. LiftCase is the per-region check + REPORT for the `-- v2` matrix (V2Tests).
+// Lifts suite (A4): the lift skeleton (spec 4.4) on the synthetic fixtures. It checks:
+// - Norms per type and the station spots (S-4, S-1).
+// - The tower check, re-planned independently with the lift tool's own planner (every span clear, edge slopes under 0.97 x the cap,
+//   the same tower count).
+// - Lift invariants (ids, pods, keys, costs, no shared pod, no overlapping station lots).
+// - The Auto count (S-5) and the knob.
+// - Stacking on Benched (S-6).
+// - Pinned lifts honored (S-7: a proposal pinned back, NaN stations, a lift off the map, a garbage row).
+// - The tower-plan budget (P-5).
+// - Determinism of the lifts (D-1 rerun / rotated / reversed, D-2 slices, D-3 Reselect of Lifts / Seed / Home).
+// - Serves recounted with LiftServedRule, NoLiftSite.
+// ResortPlan.Fingerprint is A6's. So the lift checks compare LiftsHash, not the result fingerprint. LiftCase is the per-region check +
+// REPORT for the `-- v2` matrix (V2Tests).
 
 using System;
 using System.Collections.Generic;
@@ -87,7 +93,7 @@ namespace AutoGenBatch
             LiftMainThreadTest();
         }
 
-        /// <summary>AR-7: on the main thread (AutoPlanInput.MainThread) no tower plan runs; each pick is selected with its towers unchecked.
+        /// <summary>AR-7: on the main thread (AutoPlanInput.MainThread) no tower plan runs. The planner selects each pick with its towers unchecked.
         /// Where the worker run had no failed tower plan, the main-thread run selects the same lifts.</summary>
         private static void LiftMainThreadTest()
         {
@@ -409,12 +415,12 @@ namespace AutoGenBatch
             float maxMs = planner.TowerPlanMaxMs;
             if (maxMs >= 50f)
             {
-                var again = new SkiRunAutoPlanner();   // one slow plan is re-measured once (a host GC pause, as P-1); the smaller figure counts
+                var again = new SkiRunAutoPlanner();   // the test measures one slow plan once more (a host GC pause, as P-1). The smaller figure counts
                 again.Run(ResortInput(input));
                 maxMs = Math.Min(maxMs, again.TowerPlanMaxMs);
             }
-            // The plan cap is HARD everywhere; the 50 ms per plan is HARD on the synthetic fixtures and REPORT on the real heightmaps (as
-            // P-1): the time is the shared tower planner's on terrain LiftBatch never saw, and A4 does not tune that planner
+            // The plan cap is HARD everywhere. The 50 ms per plan is HARD on the synthetic fixtures and REPORT on the real heightmaps (as
+            // P-1). The time is the shared tower planner's on terrain LiftBatch never saw, and A4 does not tune that planner
             bool countOk = planner.TowerPlans <= cap;
             V2Emit(c, new Gate("P-5", countOk && maxMs < 50f, maxMs,
                 $"{planner.TowerPlans} tower plans (cap {cap}), longest {maxMs:F1} ms (want under 50), {planner.TowerPlanMs:F0} ms in all{SlowPlan(planner)}"),
@@ -440,9 +446,9 @@ namespace AutoGenBatch
             V2Emit(c, pr.Resort != null ? V2Metrics.S7Pinned(pr.Resort, pi.Pinned) : new Gate("S-7", false, 1, "no plan with the pinned lift: " + pr.Status), false);
         }
 
-        /// <summary>S-4 / S-5 SOFT where the terrain, not the selection, is the limit: fewer proposals than the Lifts stage wanted and no
+        /// <summary>S-4 / S-5 SOFT where the terrain, not the selection, is the limit. This means fewer proposals than the Lifts stage wanted and no
         /// pod left unserved by the tower-plan cap (every pod without a lift had no chord inside the norms, no clear tower line or no lot
-        /// room). S-4 is only softened when nothing was proposed (n/a); a proposal outside the norms stays HARD.</summary>
+        /// room). The test softens S-4 only when there was no proposal (n/a). A proposal outside the norms stays HARD.</summary>
         private static bool LiftsTerrainLimited(AutoPlanResult r, bool countGate, SkiRunAutoPlanner planner)
         {
             if (r.Resort == null)
@@ -456,7 +462,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>P-1 without the Lifts stage: the longest unit over the v1 probe slots and the Resort slots other than Lifts (every unit
-        /// belongs to one of them). A Lifts unit runs one tower plan (spec 4.4: 10-44 ms CoreCLR, on the worker); P-5 bounds it at 50 ms.</summary>
+        /// belongs to one of them). A Lifts unit runs one tower plan (spec 4.4: 10-44 ms CoreCLR, on the worker). P-5 bounds it at 50 ms.</summary>
         private static double UnitMsWithoutTowerPlans(AutoPlanResult r)
         {
             double ms = 0.0;

@@ -1,8 +1,8 @@
-// Starlight route middleware (https://starlight.astro.build/guides/route-data/). Starlight prefixes
-// the base path onto its sidebar and header links but not onto the `link` of a page's frontmatter
-// hero actions, so `link: /quickstart/` in index.mdx would 404 under a project base such as
-// /ModularSkiResort. Prefix it here from BASE_URL. Links in page content are handled by the mdast
-// plugin in astro.config.mjs. Checked by tools/check-base-links.js.
+// Starlight route middleware (https://starlight.astro.build/guides/route-data/). Starlight adds
+// the base path to its sidebar and header links. It does not add the base path to the `link` of a
+// page's frontmatter hero actions. So `link: /quickstart/` in index.mdx would 404 under a project
+// base such as /ModularSkiResort. This code adds the prefix from BASE_URL. The mdast plugin in
+// astro.config.mjs handles links in page content. tools/check-base-links.js checks the result.
 import { defineRouteMiddleware } from '@astrojs/starlight/route-data';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');

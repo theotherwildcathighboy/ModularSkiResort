@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Base-path link check. After `astro build`, scans every built HTML page for root-relative URLs
-// (href, src, action, poster, data-href, content="/...") and fails when one lacks the configured
+// Base-path link check. After `astro build`, it scans every built HTML page for root-relative URLs
+// (href, src, action, poster, data-href, content="/..."). It fails when a URL lacks the configured
 // base path or points at a file that is not in dist/. Under a GitHub Pages project site
-// (DOCS_BASE=/<repo>) an unprefixed `/guides/lifts/` is a 404; locally (base '/') everything passes
+// (DOCS_BASE=/<repo>) an unprefixed `/guides/lifts/` is a 404. Locally (base '/') every URL passes
 // the prefix test, so the existence test still runs.
 //
 // Usage: DOCS_BASE=/ModularSkiResort node tools/check-base-links.js [--dist <dir>]

@@ -1,7 +1,8 @@
-// RunsFirst graded tracks (round v3): how scorecard v3 reads an element, so the planner sees what the scorecard sees. A run is rated by
-// the ground under it (the 85th percentile of the raw 10 m terrain grade at its 10 m samples), as the game's classifier rates a painted
-// run: a traverse across a black face is black. A connector is a graded cat track (the grading tool cuts a bench across the face) and
-// is rated by its own grade along the path: under the blue line it is a green cat track; steeper, a diagonal run of that band.
+// RunsFirst graded tracks (round v3): how scorecard v3 reads an element, so the planner sees what the scorecard sees. The
+// scorecard rates a run by the ground under it (the 85th percentile of the raw 10 m terrain grade at its 10 m samples). The
+// game's classifier rates a painted run the same way. A traverse across a black face is black. A connector is a graded cat
+// track (the grading tool cuts a bench across the face). The scorecard rates it by its own grade along the path. Under the
+// blue line it is a green cat track. Steeper, it is a diagonal run of that band.
 
 using System;
 using System.Collections.Generic;
@@ -14,7 +15,7 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        /// <summary>The v3 band of a run: the ground under it (85th percentile of the raw 10 m grade at its 10 m samples; flat reads green).</summary>
+        /// <summary>The v3 band of a run: the ground under it (85th percentile of the raw 10 m grade at its 10 m samples, and flat reads green).</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static SlopeBand GroundBand(Grid g, List<float2> run)
         {
@@ -27,14 +28,14 @@ namespace AutoGenBatch
             return b == SlopeBand.Flat ? SlopeBand.Green : b;
         }
 
-        // v5 natural runs (RF_NATURAL): 0 none, 1 double black by the ground, 2 also a black run whose ground is mostly past the
+        // v5 natural runs (RF_NATURAL). 0: none. 1: double black by the ground. 2: also a black run whose ground is mostly past the
         // double-black line (cliffs and rock: hostile ground a designer leaves ungroomed)
         private static readonly int NaturalMode = (int)Env("RF_NATURAL", 2f);
         private static readonly float NaturalHostile = Env("RF_NATHOSTILE", 0.4f);
 
-        /// <summary>Scorecard v5: steep ground is skied ungroomed. A run (not a graded track) rated double black by its ground, or black
-        /// with NaturalHostile of it on ground past the double-black line, is natural (the mod's RunKind.Natural). Returns the runs
-        /// marked.</summary>
+        /// <summary>Scorecard v5: skiers ski steep ground ungroomed. A run (not a graded track) is natural (the mod's RunKind.Natural)
+        /// when its ground rates double black, or when its ground rates black with NaturalHostile of it past the double-black line.
+        /// Returns the runs marked.</summary>
         private static int MarkNatural(Grid g, Plan plan)
         {
             if (NaturalMode == 0)
@@ -98,11 +99,12 @@ namespace AutoGenBatch
 
         private static readonly float StraightDevM = Env("RF_STRDEV", 30f);   // a straight piece stays this close to the track's own points
 
-        /// <summary>Green cat tracks pulled straight. A route search steps between cell centers and the smoothing only softens the
-        /// staircase, so a track wobbles where a cat track on the ground runs straight. Between its anchors (its ends, and its points near
-        /// where another element starts or ends, or near a lift bottom) a track takes the longest straight pieces that stay within
-        /// StraightDevM of its points, inside the region, under the blue line and within the connector rules. A track is kept only where
-        /// it still reads green, and the pass only where the ski graph loses nothing. Returns the tracks pulled straight.</summary>
+        /// <summary>Green cat tracks pulled straight. A route search steps between cell centers, and the smoothing only softens the
+        /// staircase. So a track wobbles where a cat track on the ground runs straight. Between its anchors, a track takes the longest
+        /// straight pieces. The anchors are its ends, its points near where another element starts or ends, and its points near a lift
+        /// bottom. A piece stays within StraightDevM of the track's points, inside the region, under the blue line and within the
+        /// connector rules. The code keeps a straightened track only where it still reads green. It keeps the pass only where the ski
+        /// graph loses nothing. Returns the tracks pulled straight.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int StraightenTracks(Grid g, Plan plan, List<Lift> lifts)
         {
@@ -158,8 +160,11 @@ namespace AutoGenBatch
             return old.Count;
         }
 
-        /// <summary>Whether track c may run straight from its point i to its point k: every point between within StraightDevM of the
-        /// piece, the piece inside the region, no 30 m pitch or 50 m climb past the connector rules, no 20-30 m of it at the blue line.</summary>
+        /// <summary>Whether track c may run straight from its point i to its point k. All of these must hold:
+        /// - every point between lies within StraightDevM of the piece
+        /// - the piece lies inside the region
+        /// - the piece has no 30 m pitch or 50 m climb past the connector rules
+        /// - no 20-30 m of the piece lies at the blue line.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool StraightOk(Grid g, List<float2> c, int i, int k)
         {

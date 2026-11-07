@@ -1,13 +1,26 @@
-// Headless tests for the Quick runs planner (SkiRunAutoPlanner*.cs), design.md 2.5 / terrain-scan.md 6 plus the skeptic's changes:
-// snapshot sampler (the SampleHeightInternal shape), refusal ladder (each status and its order), planes (every rated band equals the
-// plane's band), cone / ridge / bowl / valley-with-gully, obstacles (surfaces and unowned tiles block, cat tracks and water do not),
-// knobs (mix, density, kinds), the minimax field against a brute-force oracle, the tiled slope field against one call (bit for bit),
-// determinism (rerun, rotated / reversed region, sliced Step, Reselect against a fresh run), the SlopeBatch captures, and TIME lines
-// for 1 and 4 km2. Every Ok result passes the invariants: ring inside the region and the map, obstacle clearances, pairwise gap (or a
-// merge), GradeRibbon.Clear, area under 20 ha at step multiple 1, an independent re-rate equals the stored band, and every pair of
-// runs closer than JunctionReachM has a node pair within LinkMeters (skeptic finding 1).
+// Headless tests for the Quick runs planner (SkiRunAutoPlanner*.cs), design.md 2.5 / terrain-scan.md 6 plus the skeptic's changes.
+// They cover:
+// - Snapshot sampler (the SampleHeightInternal shape).
+// - Refusal ladder (each status and its order).
+// - Planes (every rated band equals the plane's band).
+// - Cone / ridge / bowl / valley-with-gully.
+// - Obstacles (surfaces and unowned tiles block, cat tracks and water do not).
+// - Knobs (mix, density, kinds).
+// - The minimax field against a brute-force oracle.
+// - The tiled slope field against one call (bit for bit).
+// - Determinism (rerun, rotated / reversed region, sliced Step, Reselect against a fresh run).
+// - The SlopeBatch captures.
+// - TIME lines for 1 and 4 km2.
+// Every Ok result passes these invariants:
+// - Ring inside the region and the map.
+// - Obstacle clearances.
+// - Pairwise gap (or a merge).
+// - GradeRibbon.Clear.
+// - Area under 20 ha at step multiple 1.
+// - An independent re-rate equals the stored band.
+// - Every pair of runs closer than JunctionReachM has a node pair within LinkMeters (skeptic finding 1).
 // Run from the repo root: dotnet run --project tests/AutoGenBatch/AutoGenBatch.csproj -c Release
-// Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures (the LiftBatch convention).
+// Prints `FAIL  where: msg` lines and one SUMMARY line. Environment.ExitCode = failures (the LiftBatch convention).
 
 using System;
 using System.Collections.Generic;
@@ -86,9 +99,9 @@ namespace AutoGenBatch
 
         // ---------------------------------------------------------------- plumbing
 
-        /// <summary>The captures paths are repo-relative (tests/SlopeBatch/captures): when the current directory has no gamedata-mirror,
-        /// move to the first parent of AppContext.BaseDirectory (tests/AutoGenBatch/bin/&lt;cfg&gt;/net8.0/) that has one, so a run
-        /// started from tests/ or mod/SkiResortUI checks the same files as one from the root. Only the check run moves; the rf / golden
+        /// <summary>The captures paths are repo-relative (tests/SlopeBatch/captures). When the current directory has no gamedata-mirror,
+        /// this method moves to the first parent of AppContext.BaseDirectory (tests/AutoGenBatch/bin/&lt;cfg&gt;/net8.0/) that has one. So a run
+        /// started from tests/ or mod/SkiResortUI checks the same files as a run from the root. Only the check run moves. The rf / golden
         /// / diag modes keep the caller's directory for their relative output paths.</summary>
         private static void ToRepoRoot()
         {
@@ -130,7 +143,7 @@ namespace AutoGenBatch
             return r;
         }
 
-        /// <summary>Review F2 / F11: NoRuns promises the reject histogram says why; an empty one means a refusal was missed.</summary>
+        /// <summary>Review F2 / F11: NoRuns promises the reject histogram says why. An empty one means a refusal was missed.</summary>
         private static void NoRunsHasReason(string where, AutoPlanResult r)
         {
             if (r.Status != AutoPlanStatus.NoRuns)
@@ -141,9 +154,9 @@ namespace AutoGenBatch
             Check(total > 0, where, "NoRuns with an empty reject histogram (no reason)");
         }
 
-        /// <summary>Review F7: the unit-time limits are CoreCLR Release numbers; a Debug build runs the planner 1.3-1.5x slower, so
-        /// there they print without a check. A shared CI runner is no timer either (P-5 read 57.8 ms on one, 2026-10-31), so the
-        /// limits are checked on local runs only.</summary>
+        /// <summary>Review F7: the unit-time limits are CoreCLR Release numbers. A Debug build runs the planner 1.3-1.5x slower, so
+        /// there they print without a check. A shared CI runner is no timer either (P-5 read 57.8 ms on one, 2026-10-31), so the test
+        /// checks the limits on local runs only.</summary>
 #if DEBUG
         private static readonly bool TimingChecked = false;   // readonly, not const: no unreachable-code warning
 #else
@@ -444,7 +457,7 @@ namespace AutoGenBatch
             // Mostly off the map: the map ends at x = +7168 m
             float2[] edge = Terrain.Rect(7050f, -400f, 7650f, 400f);
             Expect("ladder off the map", Input(Terrain.Plane(0.3), edge), AutoPlanStatus.Blocked);
-            // Ladder order: too large wins over everything; blocked before no-vertical on a flat covered area
+            // Ladder order: too large wins over everything. On a flat covered area, blocked comes before no-vertical
             Expect("ladder order flat + covered", Input((x, z) => 900.0, sq, cover), AutoPlanStatus.Blocked);
         }
 
@@ -550,8 +563,8 @@ namespace AutoGenBatch
 
         private static double Mixed(double x, double z)
         {
-            // z from -500 (top) to +800 (bottom): 50 % to -300, 32 % to 150, 15 % to 750 (a 90 m beginner slope, enough to clear the
-            // base band of the lowest 15 % of the vertical), then 2 %
+            // z from -500 (top) to +800 (bottom): 50 % to -300, 32 % to 150, 15 % to 750, then 2 %. The 15 % part is a 90 m beginner slope,
+            // enough to clear the base band of the lowest 15 % of the vertical.
             double h = 2000.0;
             h -= 0.50 * (Math.Min(z, -300.0) + 500.0);
             if (z > -300.0) h -= 0.32 * (Math.Min(z, 150.0) + 300.0);
@@ -695,8 +708,10 @@ namespace AutoGenBatch
             k6.Density = AutoDensity.Sparse;
             ReselectCheck("reselect density, existing run", withRun, k6);
             Check(withRun.Knobs.Density == AutoDensity.Normal, "reselect density, existing run", "Reselect changed the caller's input knobs");
-            // F5 (quick runs fix round): the check above must not pass trivially. (1) the existing run changes the layout, (2) the density changes
-            // it WITH the run present, (3) Dense and a chain of Reselects equal a fresh run too.
+            // F5 (quick runs fix round): the check above must not pass trivially. Three checks follow:
+            // (1) the existing run changes the layout.
+            // (2) The density changes it WITH the run present.
+            // (3) Dense and a chain of Reselects equal a fresh run too.
             AutoPlanInput without = Input(Mixed, MixedRegion);
             ulong fpRun = Plan(withRun).Fingerprint, fpNone = Plan(without).Fingerprint;
             Check(fpRun != fpNone, "reselect density, existing run", "the existing run does not change the layout (the case proves nothing)");

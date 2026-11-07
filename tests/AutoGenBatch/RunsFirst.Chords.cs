@@ -1,7 +1,7 @@
 // RunsFirst chord repair: the serve pass and the beginner fallbacks keep a run under a lift line when it is the only one of its
-// kind (a lift's only run, a base's only green way home). Where such runs still cover the middle of a line at the end, their
-// stretches under it move out beside the line, the way a designer keeps a run off the chairs, when the moved run keeps the run
-// rules, its band and every way the plan is skied.
+// kind. Examples: a lift's only run, a base's only green way home. If such runs still cover the middle of a line at the end,
+// their stretches under it move out beside the line. A designer keeps a run off the chairs in the same way. A stretch moves
+// only when the moved run keeps the run rules, its band and every way the plan is skied.
 
 using System;
 using System.Collections.Generic;
@@ -33,7 +33,7 @@ namespace AutoGenBatch
             return n > 0 ? near / (float)n : 0f;
         }
 
-        /// <summary>Moves the runs' stretches under a lift line out beside it where the line's middle still runs along runs; returns
+        /// <summary>Moves the runs' stretches under a lift line out beside it where the line's middle still runs along runs. Returns
         /// the lifts cleared.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int RepairChords(Grid g, Plan plan, List<Lift> lifts)
@@ -146,8 +146,8 @@ namespace AutoGenBatch
                 int kept = old.Count;
                 if (!keep && old.Count > 1)
                 {
-                    // one stretch may be what breaks a join (its end slid out of the skier's reach): each run's move is kept when the
-                    // skiing stays as it was, and the line is judged again on the moves kept
+                    // one stretch may be what breaks a join (its end slid out of the skier's reach). The code keeps each run's move when the
+                    // skiing stays as it was. It then judges the line again on the moves kept
                     var moved = old.Keys.ToDictionary(ri => ri, ri => plan.Runs[ri].Pts);
                     foreach (int ri in moved.Keys)
                         Restore(ri);
@@ -221,17 +221,20 @@ namespace AutoGenBatch
             }
         }
 
-        // how far a station may move across its line: 100 m against 60 m moved three more stations 70-80 m (visible 97.64 -> 97.69,
-        // 80 % outlines 95.50 -> 95.72); 150 m one more, 120 m (ft5-r2 L5 off the summit station it shared: visible 97.69 -> 97.80);
-        // 350 m (scorecard v4): owner-4 L7 260 m off the valley runs it lay along (visible 97.30 -> 97.41)
+        // how far a station may move across its line. 100 m against 60 m moved three more stations 70-80 m (visible 97.64 -> 97.69,
+        // 80 % outlines 95.50 -> 95.72). 150 m moved one more, 120 m (ft5-r2 L5 off the summit station it shared: visible 97.69 -> 97.80).
+        // 350 m (scorecard v4) moved owner-4 L7 260 m off the valley runs it lay along (visible 97.30 -> 97.41)
         private static readonly float NudgeMaxM = Env("RF_NUDGEM", 350f);
 
-        /// <summary>A lift line whose middle still lies along runs (or that crosses another lift of its kind, or runs beside another as
-        /// scorecard v4 reads a parallel) moves instead of the runs: the whole line shifted across itself, or swung about one station,
-        /// up to NudgeMaxM, the smallest move first. A move is kept where the stations stay on pads inside the region, the rope clears
-        /// the ground, the lift keeps its type's norms and crosses no lift it may not cross, the line clears, runs beside fewer lines
-        /// (beside none when it ran beside none), crowds no terminals and the ski graph loses nothing (its runs still start at its top
-        /// and come home to its bottom). Returns the lines moved.</summary>
+        /// <summary>A lift line may move instead of the runs when its middle still lies along runs, when it crosses another lift of its
+        /// kind, or when it runs beside another as scorecard v4 reads a parallel. The move shifts the whole line across itself, or swings
+        /// it about one station, up to NudgeMaxM, smallest move first. The code keeps a move where all of these hold:
+        /// - the stations stay on pads inside the region
+        /// - the rope clears the ground
+        /// - the lift keeps its type's norms and crosses no lift it may not cross
+        /// - the line clears, runs beside fewer lines (beside none when it ran beside none), and crowds no terminals
+        /// - the ski graph loses nothing (its runs still start at its top and come home to its bottom).
+        /// Returns the lines moved.</summary>
         private static int NudgeLines(Grid g, Plan plan, List<Lift> lifts)
         {
             int moved = 0;

@@ -1,7 +1,7 @@
-// PlanTypes suite (A0): the Resort Planner (v2) seams on the stubbed hooks. Runs mode allocates nothing of v2 (V1-2); Resort mode
-// returns the v1 runs plus a ResortPlan with pads and pods (A3) carrying the probe slots, the layers are allocated, sliced Step /
-// Reselect / cancel / Snapshot behave. Checks that only hold while the hooks are stubs are named "A0 stub" and are removed by the task that fills the
-// hook (A3-A6), never loosened.
+// PlanTypes suite (A0): the Resort Planner (v2) seams on the stubbed hooks. Runs mode allocates nothing of v2 (V1-2). Resort mode
+// returns the v1 runs plus a ResortPlan with pads and pods (A3) carrying the probe slots. The layers are allocated, and sliced Step /
+// Reselect / cancel / Snapshot behave. Checks that only hold while the hooks are stubs have the name "A0 stub". The task that fills the
+// hook (A3-A6) removes these checks. Never loosen them.
 
 using System;
 using System.Collections.Generic;
@@ -52,7 +52,7 @@ namespace AutoGenBatch
                     continue;
                 Check(rRes.Runs.Count > 0, w, "Resort: no runs");   // A5: the fans plan their own runs (the A0 "same runs as Runs" checks are gone)
                 Check(rRes.Fingerprint != rRuns.Fingerprint && rRes.Resort.Fingerprint != 0UL, w, "A6: the plan fingerprint is not folded into the Resort fingerprint");
-                // A3: pads and pods are real (Terrain / PodRoute / Pods); their invariants are the Terrain suite's
+                // A3: pads and pods are real (Terrain / PodRoute / Pods). Their invariants are the Terrain suite's
                 Check(rRes.Resort.Pads.Length > 0 && rRes.Resort.Pods.Length > 0, w,
                       "Resort: no pads / pods (" + rRes.Resort.Pads.Length + " / " + rRes.Resort.Pods.Length + ")");
                 PlanInvariants(w, pRes, rRes);

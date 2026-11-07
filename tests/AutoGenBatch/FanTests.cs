@@ -1,8 +1,11 @@
-// Fans suite (A5): the run fans (spec 4.5) on the synthetic fixtures. F-1 to F-7 and F-9 HARD on Alpine 1-3 and Benched 1-2 (F-8 SOFT,
-// a REPORT), the v1 invariants on every Resort result (V1-3), every run seeded by a lift (RunLift) and inside the region of its pod's
-// plan, the PodFull reject firing on a Dense pod, and determinism of the fans (D-2 slices, D-3 Reselect of Seed / Mix / Density against a
-// fresh run). FanCase is the per-region REPORT for the `-- v2` matrix (V2Tests): runs per lift and the G / B / K / DB mix, before (the
-// Runs-mode v1 plan of the same region) and after.
+// Fans suite (A5): the run fans (spec 4.5) on the synthetic fixtures. It checks:
+// - F-1 to F-7 and F-9 HARD on Alpine 1-3 and Benched 1-2 (F-8 SOFT, a REPORT).
+// - The v1 invariants on every Resort result (V1-3).
+// - Every run seeded by a lift (RunLift) and inside the region of its pod's plan.
+// - The PodFull reject firing on a Dense pod.
+// - Determinism of the fans (D-2 slices, D-3 Reselect of Seed / Mix / Density against a fresh run).
+// FanCase is the per-region REPORT for the `-- v2` matrix (V2Tests). It reports runs per lift and the G / B / K / DB mix, before
+// (the Runs-mode v1 plan of the same region) and after.
 
 using System;
 using System.Collections.Generic;
@@ -15,7 +18,7 @@ namespace AutoGenBatch
     internal static partial class Program
     {
         /// <summary>F gates that FAIL on the HARD fixtures. F-1, F-2, F-4, F-5, F-6 and F-9 miss on short lifts and converging fall lines
-        /// (EngineNotes/ResortPlanner.md, A5): REPORT until the calibration questions of the A5 handover are ruled; F-8 is SOFT.</summary>
+        /// (EngineNotes/ResortPlanner.md, A5). They are REPORT until the calibration questions of the A5 handover are ruled. F-8 is SOFT.</summary>
         private static readonly HashSet<string> FanArmed = new HashSet<string> { "F-3", "F-7" };
 
         private static void FanTests()

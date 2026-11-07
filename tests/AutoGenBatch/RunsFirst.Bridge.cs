@@ -1,7 +1,7 @@
-// RunsFirst bridge lifts (prototype): where the lift network stays split after the link routes, the cut-off area can lie over a
+// RunsFirst bridge lifts (prototype). Case: the lift network stays split after the link routes. The cut-off area can then lie over a
 // saddle above the place the other lifts' skiers collect (a hub in a basin below the pass into the next valley). No run or cat
-// track links the two; a short lift does, as a resort's transfer chair: from where the skiers collect up onto ground a run comes
-// down from into the cut-off area (or onto the area's own runs, when they start within reach of its top).
+// track links the two. A short lift does, as a resort's transfer chair. It goes from where the skiers collect up onto ground.
+// A run comes down from that ground into the cut-off area (or onto the area's own runs, when they start within reach of its top).
 
 using System;
 using System.Collections.Generic;
@@ -15,10 +15,10 @@ namespace AutoGenBatch
     internal static partial class RunsFirst
     {
         private const float BridgeMinM = 250f, BridgeMaxM = 1500f;   // bridge chord in plan
-        private const float BridgeStartM = 140f;                     // an element starting this close to the top is skied from it
+        private const float BridgeStartM = 140f;                     // skiers ski an element that starts this close to the top from the top
         private static readonly float BridgeFallW = Env("RF_BRIDGEFALL", 2f);   // a bridge 60 degrees off the fall line costs 1 + this times as much
 
-        /// <summary>Adds bridge lifts while the network is split and the lift budget allows; returns how many.</summary>
+        /// <summary>Adds bridge lifts while the network is split and the lift budget allows. Returns how many.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int BridgeLifts(Grid g, Plan plan, List<Lift> lifts, float km2)
         {
@@ -59,10 +59,10 @@ namespace AutoGenBatch
             return added;
         }
 
-        /// <summary>The shortest lift from where the froms' skiers are up to ground the tos' bottom stations can be skied to from: a
-        /// pad beside what the froms ski (no new base), a top whose run (an existing one starting near it, else a route found uphill
-        /// from the tos) comes down to the tos; the lift norms, no crossing, its rope clear of other ropes and its chord off the runs.
-        /// Kept only when the network grows.</summary>
+        /// <summary>The shortest lift from where the froms' skiers are up to ground that skiers can ski to the tos' bottom stations from.
+        /// The lift starts at a pad beside what the froms ski (no new base). It ends at a top whose run comes down to the tos (an existing
+        /// run starting near the top, else a route found uphill from the tos). The lift keeps the lift norms, has no crossing, keeps its rope
+        /// clear of other ropes and keeps its chord off the runs. The code keeps the lift only when the network grows.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool TryBridge(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, float lowCut)
         {
@@ -138,8 +138,8 @@ namespace AutoGenBatch
                     if (t >= 0 && seenT.Add(t))
                         tops.Add((t, x));
                 }
-                // a pair with a station on another lift's station (bottom on bottom, top on top) comes after every other: each lift
-                // its own terminal (scorecard v4), though the spread may still give it one where no other pair fits
+                // a pair with a station on another lift's station (bottom on bottom, top on top) comes after every other pair. The goal is that
+                // each lift has its own terminal (scorecard v4), though the spread may still give such a pair a shared station where no other pair fits
                 var pairs = new List<(float Cost, int B, int Ti)>();
                 for (int ti = 0; ti < tops.Count; ti++)
                 {
@@ -165,8 +165,8 @@ namespace AutoGenBatch
                         break;
                     int t = tops[ti].T, x = tops[ti].X;
                     float2 bw = g.World(b), tw = g.World(t);
-                    // a pair across a placed lift is cheap to pass over and does not count against the checks (where the cut-off
-                    // area lies beyond other lifts, the shortest few thousand pairs all cross one)
+                    // a pair across a placed lift is cheap to pass over. It does not count against the checks. Where the cut-off area lies beyond
+                    // other lifts, the shortest few thousand pairs all cross one
                     if (lifts.Any(lf => SegCrossScore(lf.Bottom.xz, lf.Top.xz, bw, tw) || (NoParallel && ParallelLines(bw, tw, lf.Bottom.xz, lf.Top.xz))
                         || (NoStacked && StackedLines(bw, tw, lf.Bottom.xz, lf.Top.xz))))
                         continue;

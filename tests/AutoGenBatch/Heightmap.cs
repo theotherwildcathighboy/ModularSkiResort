@@ -1,10 +1,11 @@
 // Heightmap (A1): the 16-bit gray PNG reader and the window snapshot for the real-heightmap fixtures (stage-a-gates 1.2).
-// The fixture PNGs are 4096 x 4096, big-endian 16-bit gray, north-up (row 0 = +z; texel (col, row) center at x = -7168 + (col + 0.5) x 3.5,
-// z = 7168 - (row + 0.5) x 3.5): the host flips the rows into the game's south-up lattice (l = 4095 - row) and keeps Terrain.Scale /
-// Terrain.Offset, so a texel's world position is the game's own. Heights: elev_m = offset + value / 65535 x scale; the snapshot keeps
-// the raw value and carries the sidecar offset in Offset.y (ToWorld = raw / Scale.y - Offset.y, so Offset.y = -offset).
-// The reader decodes row by row (net8 ZLibStream, the five filter types) and copies only the requested window: no full-map array.
-// Suite HeightmapTests: filter types and bit layout on generated PNGs, the window, and (when the fixture exists) the two Mountain Village
+// The fixture PNGs are 4096 x 4096, big-endian 16-bit gray, north-up (row 0 = +z). The center of texel (col, row) is at
+// x = -7168 + (col + 0.5) x 3.5 and z = 7168 - (row + 0.5) x 3.5. The host flips the rows into the game's south-up lattice
+// (l = 4095 - row) and keeps Terrain.Scale / Terrain.Offset. So a texel's world position is the game's own.
+// Heights: elev_m = offset + value / 65535 x scale. The snapshot keeps the raw value and carries the sidecar offset in Offset.y
+// (ToWorld = raw / Scale.y - Offset.y, so Offset.y = -offset).
+// The reader decodes row by row (net8 ZLibStream, the five filter types). It copies only the requested window, with no full-map array.
+// Suite HeightmapTests checks filter types and bit layout on generated PNGs, the window, and (when the fixture exists) the two Mountain Village
 // field-logged corner heights within 1 m.
 
 using System;
@@ -242,8 +243,8 @@ namespace AutoGenBatch
 
         // ---------------------------------------------------------------- encoder (tests only)
 
-        /// <summary>Encodes a 16-bit gray PNG with a chosen filter type per row (filters[row % filters.Length]); the test fixtures. rows &lt; height writes
-        /// only the first rows (the IHDR still says height): ReadWindow stops after the window's last row, so a short stream is enough.</summary>
+        /// <summary>Encodes a 16-bit gray PNG with a chosen filter type per row (filters[row % filters.Length]). The test fixtures use it. rows &lt; height writes
+        /// only the first rows (the IHDR still says height). ReadWindow stops after the window's last row, so a short stream is enough.</summary>
         public static byte[] EncodeGray16(ushort[] v, int width, int height, int[] filters, int rows = -1)
         {
             int stride = width * 2;
@@ -287,7 +288,7 @@ namespace AutoGenBatch
             var ihdr = new byte[13];
             WriteInt(ihdr, 0, width);
             WriteInt(ihdr, 4, height);
-            ihdr[8] = 16;   // depth; color type 0 = gray; compression, filter, interlace 0
+            ihdr[8] = 16;   // depth. Color type 0 = gray. Compression, filter, interlace 0
             Chunk(png, "IHDR", ihdr, 13);
             Chunk(png, "IDAT", comp.GetBuffer(), (int)comp.Length);
             Chunk(png, "IEND", new byte[0], 0);
@@ -417,7 +418,7 @@ namespace AutoGenBatch
                 try { Directory.Delete(dir, true); } catch (IOException) { }
             }
 
-            // The two Mountain Village field-logged corner heights (field-test 3 log; research decode 2144.03 / 1239.64, [E] 0.2)
+            // The two Mountain Village field-logged corner heights (field-test 3 log, research decode 2144.03 / 1239.64, [E] 0.2)
             if (!Heightmap.TryOpen("MountainVillage", out HeightmapFile mv, out string skip))
             {
                 Console.WriteLine("SKIP  Heightmap MountainVillage corner heights: " + skip);
