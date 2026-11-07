@@ -1,16 +1,17 @@
 """
-Determinism gate for the terminal generator (review F1 / DECISIONS 107; generation M, 2026-10-11).
+Determinism gate for the terminal generator (review F1 / DECISIONS 107, generation M, 2026-10-11).
 
-Builds each station twice in one Blender process and hashes vertex coordinates, face vertex
-lists and the UV layers. Two builds must hash identically, otherwise the unique repack, the AO
-bake and the LOD decimation - all order-dependent - ship different textures from the same
-source. Exit 1 on any difference.
+The test builds each station twice in one Blender process. It hashes vertex coordinates, face vertex
+lists and the UV layers. Two builds must hash identically. Otherwise the unique repack, the AO bake
+and the LOD decimation (all order-dependent) ship different textures from the same source. The test
+exits 1 on any difference.
 
-  M (the shipping generation, design/fg-stations-m.md M16): build_station_m + assemble_m
-    (bevels on) - geometry, the part table, the pack seed (UVSeed) and the tiling layer (UVTile).
-  M --no-fine (fine-detail step 3c off, FINE_DETAIL_M False) the same; M also hashes the row block (kit rows).
-  L (kept reproducible behind --gen L): build_terminal_pali(finish=True) - geometry + the
-    quadrant UVs, as before.
+- M (the shipping generation, design/fg-stations-m.md M16): build_station_m + assemble_m (bevels
+  on). It covers geometry, the part table, the pack seed (UVSeed) and the tiling layer (UVTile).
+- M --no-fine (fine-detail step 3c off, FINE_DETAIL_M False): the same. M also hashes the row block
+  (kit rows).
+- L (kept reproducible behind --gen L): build_terminal_pali(finish=True). It covers geometry + the
+  quadrant UVs, as before.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_terminal_determinism.py
 """
@@ -49,7 +50,8 @@ def build_hash_m(kind):
     lift_terminal.clear_scene()
     parts = lift_terminal.build_station_m(kind)
     t, _table, _sources = lift_terminal.assemble_m(parts, True, kind)
-    # fine-detail step 3c: + the row block (vanilla + the dressing kit's "mod" rows, M's own frame)
+    # Fine-detail step 3c adds the row block: vanilla rows plus the dressing kit's "mod" rows, in
+    # M's own frame.
     rows = hashlib.sha1(json.dumps(lift_terminal.subobject_rows_m(kind), sort_keys=True).encode()).hexdigest()[:12]
     return mesh_hash(t.data, sorted(l.name for l in t.data.uv_layers)) + (rows,)
 

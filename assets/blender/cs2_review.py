@@ -3,21 +3,24 @@ cs2_review.py - headless review packs for the live Blender review (ROUND-SPEC R1
 
 WHY
 ---
-Generator code must never run in the live Blender session: every generator's
-clear_scene() deletes all objects and purges orphans (lift_chair.py:158-165,
-lift_terminal.py:103-110), the finish pass leaks scene settings (lift_tower.py:929,
-982-984), export_fbx renames sources (cs2_asset.py:1217-1218) and Cycles bakes block the
-UI thread (pipeline-gap.md section 6). So generators build HEADLESS as always and, with
-`--review`, also write a small library file: `assets/preview/review/<Name>.blend`.
-`review_live.py` (sent verbatim through the MCP) links that file into the live scene.
-Linked data is read-only by design, so the generator stays the single source.
+Generator code must never run in the live Blender session:
+- every generator's clear_scene() deletes all objects and purges orphans (lift_chair.py:158-165,
+  lift_terminal.py:103-110)
+- the finish pass leaks scene settings (lift_tower.py:929, 982-984)
+- export_fbx renames sources (cs2_asset.py:1217-1218)
+- Cycles bakes block the UI thread (pipeline-gap.md section 6)
+
+So generators build HEADLESS as always. With `--review`, they also write a small library file:
+`assets/preview/review/<Name>.blend`. `review_live.py` (sent verbatim through the MCP) links that
+file into the live scene. Linked data is read-only by design, so the generator stays the single
+source.
 
 Contract
 --------
     write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=None) -> path
     write_standin_pack(fbx_path=STANDIN_FBX, name=None, out_dir=None) -> path
         A SHIPPED asset as an LOD0-only pack (review_live.stand_ins links
-        SkiLiftTowerFG8N.blend): cs2_preview.import_generation + the Y-up fix for a
+        SkiLiftTowerFG8N.blend). cs2_preview.import_generation and the Y-up fix for a
         below-grade pier run here, headless, never in the live session (R10). CLI:
         blender --background --factory-startup --python cs2_review.py -- --stand-in [FBX]
     write_folder_pack(asset_dir, out_dir=None, name=None) -> path
@@ -26,12 +29,12 @@ Contract
         blender --background --factory-startup --python cs2_review.py -- --from-folder DIR [DIR ...]
     texture_sets(name, asset_dir, manifest=None) -> {"tiled", "LOD0", "LOD1", "LOD2", "sheet", ...}
 
-`lod_objs` = {0: LOD0 obj, 1: LOD1 obj, 2: LOD2 obj} (levels may be missing except 0),
-`submeshes` = {suffix: obj} (e.g. {"Win": obj}); all are the generator's already-built,
-finished objects in meters, Z-up, net-oriented. The pack holds DUPLICATES only:
+`lod_objs` = {0: LOD0 obj, 1: LOD1 obj, 2: LOD2 obj} (levels may be missing except 0), `submeshes` =
+{suffix: obj} (e.g. {"Win": obj}). All are the generator's already-built, finished objects in
+meters, Z-up, net-oriented. The pack holds DUPLICATES only:
 
     CS2R_<Name>                     collection, custom props below
-      LOD0 / LOD1 / LOD2 / SUB      child collections (always all four; prop cs2r_role)
+      LOD0 / LOD1 / LOD2 / SUB      child collections (always all four, prop cs2r_role)
         CS2R_<Name>_LOD<k>          mesh copies (prop cs2r_role, tris)
         CS2R_<Name>_<suffix>        sub-mesh copies
         CS2R_<Name>_prop<NN>        SUB: one semi-transparent BOX per vanilla sub-object row (below)
@@ -39,90 +42,104 @@ finished objects in meters, Z-up, net-oriented. The pack holds DUPLICATES only:
       SUB_NOPROPS                   only when the asset has rows: SUB's sub-meshes WITHOUT the
                                     stand-ins (review_live.props swaps the SUB instance to it)
 
-Extra meshes (fine-detail pass, opt-in `extra_meshes=`; None = the pack above unchanged): OUR OWN
-sub-object props that the pack shows as the real textured mesh instead of a box, e.g. a host's
-sign set (cs2_signset; identity row, so the mesh is already in the host's pack frame):
-{suffix: (obj, texture_name, texture_dir)} -> CS2R_<Name>_<suffix> in SUB (cs2r_role "SUB",
-cs2r_extra = texture_name) with its own PBR material from <texture_dir>/<texture_name>_<Map>.png
-(the sheet owner's maps); listed in the collection prop `extra_meshes`. SUB_NOPROPS keeps them
-(they are the asset's look, not stand-ins).
+Extra meshes (fine-detail pass, opt-in `extra_meshes=`, None = the pack above unchanged): OUR OWN
+sub-object props that the pack shows as the real textured mesh instead of a box. An example is a
+host's sign set (cs2_signset, identity row, so the mesh is already in the host's pack frame). The
+argument form is {suffix: (obj, texture_name, texture_dir)}. Each entry becomes CS2R_<Name>_<suffix>
+in SUB (cs2r_role "SUB", cs2r_extra = texture_name). It has its own PBR material from
+<texture_dir>/<texture_name>_<Map>.png (the sheet owner's maps). The collection prop `extra_meshes`
+lists the entries. SUB_NOPROPS keeps them (they are the asset's look, not stand-ins).
 
 Vanilla-prop stand-ins (DECISIONS 183: props are REFERENCED as sub-objects, never modeled):
-write_pack reads the asset's manifest sub-object rows (cs2_subobj.collect_rows: the explicit
-`manifest=` dict, else <asset_dir>/<name>.manifest.json; every block shape the generators write,
-plus the beacon addendum rows of a tower) and adds one labeled box of the prop's union bounds per
-row at its position / rotation, colored per family (lights, bins, seating, trees, fences, other).
-Pack-only: nothing is exported, no manifest or PNG changes. Collection props: n_prop_standins,
-prop_families (JSON), prop_bounds_unknown, subobj_source, subobj_replaced. A failure here is
-printed and never stops the pack.
+write_pack reads the sub-object rows of the asset's manifest. cs2_subobj.collect_rows takes the
+explicit `manifest=` dict, else <asset_dir>/<name>.manifest.json. It reads every block shape the
+generators write, plus the beacon addendum rows of a tower. For each row, write_pack adds one
+labeled box of the union bounds of the prop at its position / rotation, colored per family (lights,
+bins, seating, trees, fences, other). This is pack-only: nothing is exported, and no manifest or PNG
+changes. The collection props are n_prop_standins, prop_families (JSON), prop_bounds_unknown,
+subobj_source and subobj_replaced. A failure here is printed and never stops the pack.
 
-Material (one per pack, shared by every LOD - the importer maps LOD textures to LOD0,
-cs2_asset.write_settings): BaseColor x mix(1, slotRGB, ControlMask R/G/B), multiplied in
-linear space like cs2_preview.py:428-454 (the in-game picker tint multiplies). Each slot
-color is an RGB node named "Slot1".."Slot3" (defaults SLOT_DEFAULTS) overridden per placed
-instance by an INSTANCER Attribute node reading the instancing empty's custom property
-"cs2r_slot<k>" (3 floats; missing -> Alpha 0 -> the node default; probed on 5.2.2, plain
-3-float array only - a 4-float or COLOR-subtype property reads back gray). That is how
-review_live.tint() recolors a LINKED, read-only material. The defaults are the PNG preview
-rig's (cs2_preview._tint_colours, cs2_preview.py:421-425: cs2_asset.STEEL_DEFAULT_RGB /
-PAD_RGB / white), because the live view is there to match those previews (pipeline-gap.md
-section 6); the prefab's "compensated" steel 0.25/0.26/0.275 (PIPELINE.md:113) is an
-in-game VariationSet value. Normal map (GL, tangent space),
-MaskMap R -> Metallic, G -> Coat Weight, 1 - A -> Roughness (cs2_preview.py:489-502),
-optional `_Emissive` -> emission 5.0 (cs2_preview.EMISSIVE_STRENGTH). `_Gls` subs get a
-Glass BSDF; `_Win`-family subs dark glass plus a warm emission whose strength is
-max(node "WinEmission", instancer "cs2r_win_emit") x WIN_EMIT_STRENGTH - a mock, the game's
-parallax interior cannot be reproduced.
+Material: one per pack, shared by every LOD (the importer maps LOD textures to LOD0,
+cs2_asset.write_settings).
+- BaseColor x mix(1, slotRGB, ControlMask R/G/B), multiplied in linear space like
+  cs2_preview.py:428-454 (the in-game picker tint multiplies).
+- Each slot color is an RGB node named "Slot1".."Slot3" (defaults SLOT_DEFAULTS). An INSTANCER
+  Attribute node overrides it per placed instance. The node reads the custom property "cs2r_slot<k>"
+  of the instancing empty (3 floats, missing -> Alpha 0 -> the node default). It was probed on
+  5.2.2: only a plain 3-float array works. A 4-float or COLOR-subtype property reads back gray. That
+  is how review_live.tint() recolors a LINKED, read-only material.
+- The defaults are the PNG preview rig's (cs2_preview._tint_colours, cs2_preview.py:421-425:
+  cs2_asset.STEEL_DEFAULT_RGB / PAD_RGB / white), because the live view is there to match those
+  previews (pipeline-gap.md section 6). The "compensated" steel 0.25/0.26/0.275 of the prefab
+  (PIPELINE.md:113) is an in-game VariationSet value.
+- Normal map (GL, tangent space).
+- MaskMap R -> Metallic, G -> Coat Weight, 1 - A -> Roughness (cs2_preview.py:489-502).
+- Optional `_Emissive` -> emission 5.0 (cs2_preview.EMISSIVE_STRENGTH).
+- `_Gls` subs get a Glass BSDF.
+- `_Win`-family subs get dark glass plus a warm emission. Its strength is max(node "WinEmission",
+  instancer "cs2r_win_emit") x WIN_EMIT_STRENGTH. This is a mock: the game's parallax interior
+  cannot be reproduced.
 
-Images are COPIED from `asset_dir` to `<out_dir>/_tex/<Name>/` and loaded from there, then
-written with path_remap="RELATIVE_ALL", so the pack references `//_tex/<Name>/<file>.png`:
-valid wherever the review folder lives and independent of the build folder (T63, DECISIONS
-270: packs built into the scratchpad lost every texture in the live scene). A rebuild +
-Library.reload() refreshes them. Files in `_tex/<Name>/` that the new pack no longer uses are
-deleted after a successful write.
+Images are COPIED from `asset_dir` to `<out_dir>/_tex/<Name>/` and loaded from there. The pack is
+then written with path_remap="RELATIVE_ALL", so it references `//_tex/<Name>/<file>.png`. This path
+is valid wherever the review folder lives and independent of the build folder (T63, DECISIONS 270:
+packs built into the scratchpad lost every texture in the live scene). A rebuild + Library.reload()
+refreshes them. After a successful write, write_pack deletes the files in `_tex/<Name>/` that the
+new pack no longer uses.
 
-TILED buildings (texture-parity rollout, T63-tiled; texture_sets()): a build whose folder holds
-the far set `<Name>_LOD1_<Map>.png` AND whose LOD0 maps are the family sheet gets TWO texture
-sets, exactly as the importer binds them (rollout doc section 7, settings.json sharedAssets):
-    LOD0          the sheet: `<asset_dir>/<tiled.sheet.workspace>/<sheet>_<Map>.png` (manifest), else
-                  `<asset_dir>/../_SkiTileSheet<L>/SkiTileSheet<L>_<Map>.png`, else the settings.json
-                  cross-asset target / the owner's own `<Name>_<Map>.png`; Emissive only when the
-                  import binds it (settings key for a sharer, the file for the owner). Material
-                  CS2R_<Name>_PBR, staged under the sheet's own file names.
-    LOD1 / LOD2   `<Name>_LOD1_<Map>.png` (LOD2: its settings target, i.e. the same files); material
-                  CS2R_<Name>_PBR_LOD1, no emissive (DECISIONS 77). The far UVs address the far set.
-`_Win` subs keep the window mock. A non-tiled asset is unchanged (one material, own maps).
-Gate: a pack of an EXPORTED folder (settings.json or an FBX in `asset_dir`) whose LOD materials
-end up with ZERO images raises (no pack is written), stand-ins excepted.
+TILED buildings (texture-parity rollout, T63-tiled, texture_sets()): a build gets TWO texture sets
+when its folder holds the far set `<Name>_LOD1_<Map>.png` AND its LOD0 maps are the family sheet.
+The sets are exactly as the importer binds them (rollout doc section 7, settings.json sharedAssets):
+- LOD0: the sheet: `<asset_dir>/<tiled.sheet.workspace>/<sheet>_<Map>.png` (manifest), else
+  `<asset_dir>/../_SkiTileSheet<L>/SkiTileSheet<L>_<Map>.png`, else the settings.json cross-asset
+  target / the owner's own `<Name>_<Map>.png`. Emissive only when the import binds it (settings key
+  for a sharer, the file for the owner). Material CS2R_<Name>_PBR, staged under the sheet's own file
+  names.
+- LOD1 / LOD2: `<Name>_LOD1_<Map>.png` (LOD2: its settings target, i.e. the same files). Material
+  CS2R_<Name>_PBR_LOD1, no emissive (DECISIONS 77). The far UVs address the far set.
 
-From an exported folder (no generator run; write_folder_pack, CLI --from-folder): the folder's
-FBXs (LOD0 / LOD1 / LOD2 / `<Name>_<suffix>.fbx` subs, the manifest's sign set as the SignSet extra)
-are imported headless, the export's (x, y, z) -> (x, z, -y) x 100 is undone on the mesh data (5.x
-wm.fbx_import keeps raw vertices; checked against the manifest's extent_game_m), and write_pack
-runs with the folder's manifest, so the pack is built from exactly what gets imported.
+`_Win` subs keep the window mock. A non-tiled asset is unchanged (one material, own maps). Gate:
+write_pack raises (and writes no pack) for an EXPORTED folder (settings.json or an FBX in
+`asset_dir`) whose LOD materials end up with ZERO images. Stand-ins are excepted.
 
-Collection custom props (flat, UI-readable; everything again as JSON in "cs2r_meta_json"):
-tris_LOD<k> / tris_<suffix>, cap_LOD<k> (meta["caps"]), lod_switch_m_LOD<k> / lod_cull_m /
-lod_bias (cs2_preview.lod_switch_table WITH the LOD0 surface area: pipeline-gap-skeptic
-verdict 13 - the thin-mesh term moves the chair from 38/69 m to ~50/89 m; still a formula
-prediction until the SkiProbeLodA verdict), lod_switch_m_noarea_LOD<k> (the manifest's
-variant, lift_terminal.py:1297-1300), density_px_per_m_median / _min / density_min_part /
-texture_px (cs2_uv.density_report on the shipped UV layer), bbox_min / bbox_max /
-surface_area_m2, generator / args / git_sha / letter / kind / submeshes / blender.
+From an exported folder (no generator run, write_folder_pack, CLI --from-folder):
+1. The code imports the FBXs of the folder headless (LOD0 / LOD1 / LOD2 / `<Name>_<suffix>.fbx`
+   subs, the manifest's sign set as the SignSet extra).
+2. It undoes the export's (x, y, z) -> (x, z, -y) x 100 on the mesh data (5.x wm.fbx_import keeps
+   raw vertices). It checks the result against the manifest's extent_game_m.
+3. write_pack runs with the manifest of the folder, so the pack is built from exactly what gets
+   imported.
 
-Side effects: NONE on the build session. Only the data API is used (no operator, no
-selection change, nothing linked to a scene); every datablock created during the call
-(duplicates, collections, materials, images) is removed again in a `finally`, found by an
-ID-set snapshot diff; the session is never saved (libraries.write writes only the listed
-collection and what it references). Gate: tests/test_review_side_effects.py.
+Collection custom props (flat, UI-readable). Each value is also stored as JSON in "cs2r_meta_json":
+- tris_LOD<k> / tris_<suffix>
+- cap_LOD<k> (meta["caps"])
+- lod_switch_m_LOD<k> / lod_cull_m / lod_bias: cs2_preview.lod_switch_table WITH the LOD0 surface
+  area (pipeline-gap-skeptic verdict 13). The thin-mesh term moves the chair from 38/69 m to ~50/89
+  m. This is still a formula prediction until the SkiProbeLodA verdict.
+- lod_switch_m_noarea_LOD<k> (the manifest's variant, lift_terminal.py:1297-1300)
+- density_px_per_m_median / _min / density_min_part / texture_px (cs2_uv.density_report on the
+  shipped UV layer)
+- bbox_min / bbox_max / surface_area_m2
+- generator / args / git_sha / letter / kind / submeshes / blender
 
-Derived from: pipeline-gap.md section 6 (pack layout, material, props), ROUND-SPEC.md R10,
-cs2_preview.py:421-425 (slot defaults), cs2_preview.py:114-148 (lod_switch_table),
-cs2_uv.py:435 (density_report), cs2_submesh.py:47-48 (suffix families), cs2_preview.py:
-736-768 (import_generation; its "min y ~ 0" Y-up test misreads a below-grade pier), P0a
-review fixes (p0a-integration.md "Fixes applied": slot defaults, stand-in pack). No
-top-level side effects beyond the sibling-import path (as cs2_preview.py:59-61); the
-`__main__` block runs only as a Blender --python script.
+Side effects: NONE on the build session. Only the data API is used (no operator, no selection
+change, nothing linked to a scene). A `finally` removes every datablock created during the call
+(duplicates, collections, materials, images) again, found by an ID-set snapshot diff. The session is
+never saved (libraries.write writes only the listed collection and what it references). Gate:
+tests/test_review_side_effects.py.
+
+Derived from:
+- pipeline-gap.md section 6 (pack layout, material, props)
+- ROUND-SPEC.md R10
+- cs2_preview.py:421-425 (slot defaults)
+- cs2_preview.py:114-148 (lod_switch_table)
+- cs2_uv.py:435 (density_report)
+- cs2_submesh.py:47-48 (suffix families)
+- cs2_preview.py:736-768 (import_generation: its "min y ~ 0" Y-up test misreads a below-grade pier)
+- P0a review fixes (p0a-integration.md "Fixes applied": slot defaults, stand-in pack)
+
+The module has no top-level side effects beyond the sibling-import path (as cs2_preview.py:59-61).
+The `__main__` block runs only as a Blender --python script.
 """
 
 import contextlib
@@ -152,7 +169,7 @@ import cs2_uv       # noqa: E402  (density_report, face_world_areas)
 # --------------------------------------------------------------------------------------
 
 REPO_ROOT = os.path.normpath(os.path.join(_HERE, "..", ".."))
-#: default pack folder; gitignored through `assets/preview/` (.gitignore:5)
+#: default pack folder, gitignored through `assets/preview/` (.gitignore:5)
 DEFAULT_OUT_DIR = os.path.join(REPO_ROOT, "assets", "preview", "review")
 #: the shipped FG8N tower: review_live.stand_ins' scale stand-in (pipeline-gap.md section 6)
 STANDIN_FBX = os.path.join(REPO_ROOT, "assets", "import", "towers", "N", "SkiLiftTowerFG8N",
@@ -162,8 +179,8 @@ PACK_PREFIX = "CS2R_"
 ROLES = ("LOD0", "LOD1", "LOD2", "SUB")
 
 #: recolor slot defaults (linear multipliers): the PNG preview rig's, so the live view
-#: matches the previews (cs2_preview.py:421-425; cs2_asset.STEEL_DEFAULT_RGB is the single
-#: source of truth, cs2_asset.py:445). Slot 3 is reserved and defaults to white.
+#: matches the previews (cs2_preview.py:421-425). cs2_asset.STEEL_DEFAULT_RGB is the single
+#: source of truth (cs2_asset.py:445). Slot 3 is reserved and defaults to white.
 SLOT_DEFAULTS = {1: tuple(cs2_asset.STEEL_DEFAULT_RGB), 2: tuple(cs2_asset.PAD_RGB),
                  3: (1.0, 1.0, 1.0)}
 SLOT_LABELS = {1: "Slot 1 (ControlMask R) steel", 2: "Slot 2 (ControlMask G) pad",
@@ -186,12 +203,12 @@ WIN_EMIT_STRENGTH = 3.0
 
 LOD_FACTOR = 652.0                   # cs2_preview.lod_switch_table default (unverified)
 
-#: texture maps (the CS2 import naming, cs2_asset.write_settings); the far set has no emissive
+#: texture maps (the CS2 import naming, cs2_asset.write_settings). The far set has no emissive
 MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal", "Emissive")
 FAR_MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal")
 #: the family sheet workspace beside a tiled building (lodge.py: <out root>/_SkiTileSheet<L>)
 SHEET_DIR_PREFIX = "_SkiTileSheet"
-#: export_fbx bakes (x, y, z) -> (x, z, -y) x CS2_UNIT_SCALE into the vertices; this undoes it
+#: export_fbx bakes (x, y, z) -> (x, z, -y) x CS2_UNIT_SCALE into the vertices. This undoes it
 FBX_TO_BLENDER = (mathutils.Matrix(((1.0, 0.0, 0.0, 0.0), (0.0, 0.0, -1.0, 0.0),
                                     (0.0, 1.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)))
                   @ mathutils.Matrix.Scale(1.0 / cs2_asset.CS2_UNIT_SCALE, 4))
@@ -266,7 +283,7 @@ def _jsonable(v):
 
 
 def _caps(meta):
-    """meta["caps"] as {level: cap}; keys may be 0 / "0" / "LOD0" / "lod0"."""
+    """meta["caps"] as {level: cap}. Keys may be 0 / "0" / "LOD0" / "lod0"."""
     out = {}
     for k, v in (meta.get("caps") or {}).items():
         key = str(k).upper().replace("LOD", "")
@@ -339,7 +356,7 @@ def switch_tables(size, tris_by_level, area):
 # --------------------------------------------------------------------------------------
 
 def _fresh_tree(mat):
-    if mat.node_tree is None:          # 5.x materials come with a tree; 4.x needs the flag
+    if mat.node_tree is None:          # 5.x materials come with a tree. 4.x needs the flag
         mat.use_nodes = True
     nt = mat.node_tree
     for n in list(nt.nodes):
@@ -358,7 +375,7 @@ def _sock(sockets, name):
 
 
 def _mix(nt, factor, a, b, blend="MIX", loc=(0, 0)):
-    """ShaderNodeMix in RGBA mode; `factor`/`a`/`b` are sockets or constants."""
+    """ShaderNodeMix in RGBA mode. `factor`/`a`/`b` are sockets or constants."""
     m = nt.nodes.new("ShaderNodeMix")
     m.data_type = "RGBA"
     m.blend_type = blend
@@ -374,7 +391,7 @@ def _mix(nt, factor, a, b, blend="MIX", loc=(0, 0)):
     return _sock(m.outputs, "Result")
 
 
-_STAGE_DIR = None   # set by write_pack: <out_dir>/_tex/<Name>; images are copied there first (T63)
+_STAGE_DIR = None   # set by write_pack: <out_dir>/_tex/<Name>. Images are copied there first (T63)
 _STAGED = {}        # basename -> source path, of what this write_pack call staged
 
 
@@ -412,7 +429,7 @@ def _image(name, asset_dir, suffix, colorspace, packed=False):
 
 
 # --------------------------------------------------------------------------------------
-# Texture sets (what the importer binds per LOD; T63-tiled)
+# Texture sets (what the importer binds per LOD, T63-tiled)
 # --------------------------------------------------------------------------------------
 
 def _read_json(path):
@@ -431,8 +448,8 @@ def _shared_assets(asset_dir):
 
 def _tiled_block(name, asset_dir, manifest):
     """The manifest's `tiled` block: from the `manifest` argument when it carries one, else the
-    folder's <name>.manifest.json (a generator hands write_pack only {"sub_objects": ...}, and
-    writes the manifest after the pack; a previous build's manifest still names the sheet)."""
+    folder's <name>.manifest.json. A generator hands write_pack only {"sub_objects": ...} and writes
+    the manifest after the pack. A previous build's manifest still names the sheet."""
     if isinstance(manifest, str):
         manifest = _read_json(manifest)
     if isinstance(manifest, dict) and isinstance(manifest.get("tiled"), dict):
@@ -479,12 +496,12 @@ def texture_sets(name, asset_dir, manifest=None):
     The texture files each LOD material uses, as the importer binds them.
 
     Non-tiled (the default): {"tiled": False, "LOD0": <asset_dir>/<name>_<Map>.png that exist,
-    "LOD1": None, "LOD2": None} - one material on every LOD (the importer maps LOD textures to
-    LOD0, cs2_asset.write_settings).
-    Tiled (far set <name>_LOD1_<Map>.png present AND the LOD0 maps resolve to the family sheet):
-    "LOD0" = the sheet maps (module docstring), "LOD1" = the far set, "LOD2" = its settings.json
-    target (the far set); plus "sheet" (file prefix), "sheet_source" (manifest | letter | sibling |
-    settings | owner), "bound" (the import-bound LOD0 files, for the cross-check) and "notes".
+    "LOD1": None, "LOD2": None} - one material on every LOD (the importer maps LOD textures to LOD0,
+    cs2_asset.write_settings). Tiled (far set <name>_LOD1_<Map>.png present AND the LOD0 maps
+    resolve to the family sheet): "LOD0" = the sheet maps (module docstring), "LOD1" = the far set,
+    "LOD2" = its settings.json target (the far set). The result also has "sheet" (file prefix),
+    "sheet_source" (manifest | letter | sibling | settings | owner), "bound" (the import-bound LOD0
+    files, for the cross-check) and "notes".
     """
     asset_dir = os.path.abspath(asset_dir)
     own = _maps_in(asset_dir, name, MAPS)
@@ -553,8 +570,8 @@ def texture_sets(name, asset_dir, manifest=None):
 
 def pbr_material(name, asset_dir, uv_name, slot_defaults, *, maps=None, mat_name=None,
                  img_tag=None):
-    """The recolor material described in the module docstring. `maps` ({Map: path}; default
-    <asset_dir>/<name>_<Map>.png) and `mat_name` (default CS2R_<name>_PBR) select the set; images
+    """The recolor material described in the module docstring. `maps` ({Map: path}, default
+    <asset_dir>/<name>_<Map>.png) and `mat_name` (default CS2R_<name>_PBR) select the set. Images
     are named CS2R_<name>_<img_tag_><Map>."""
     mat = bpy.data.materials.new(mat_name or f"{PACK_PREFIX}{name}_PBR")
     if maps is None:
@@ -757,13 +774,12 @@ def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=
                manifest=None, extra_meshes=None):
     """
     Write `<out_dir>/<name>.blend` holding collection CS2R_<name> built from DUPLICATES of
-    `lod_objs` ({0: obj, 1: obj, 2: obj}) and `submeshes` ({suffix: obj}); see the module
-    docstring. `meta` keys used: generator, args, kind, caps ({level: tris}), letter,
-    tint ({"R"|"G"|"B"|1|2|3: rgb} slot-default overrides, e.g. the chair's bench slot 3).
-    `manifest`: the asset's manifest for its vanilla sub-object rows (a dict, or just
-    {"sub_objects": block}; a path; {} = none; None = read <asset_dir>/<name>.manifest.json when
-    the generator has written it already). Returns the absolute pack path. The build session
-    is left exactly as it was.
+    `lod_objs` ({0: obj, 1: obj, 2: obj}) and `submeshes` ({suffix: obj}). See the module docstring.
+    `meta` keys used: generator, args, kind, caps ({level: tris}), letter, tint ({"R"|"G"|"B"|1|2|3:
+    rgb} slot-default overrides, e.g. the chair's bench slot 3). `manifest`: the asset's manifest
+    for its vanilla sub-object rows. It is a dict (or just {"sub_objects": block}), a path, {} =
+    none, or None = read <asset_dir>/<name>.manifest.json when the generator has written it already.
+    Returns the absolute pack path. The build session is left exactly as it was.
     """
     t0 = time.perf_counter()
     name = cs2_asset.validate_asset_name(name)
@@ -988,13 +1004,14 @@ def write_pack(name, asset_dir, lod_objs, submeshes=None, *, meta=None, out_dir=
 
 def write_standin_pack(fbx_path=STANDIN_FBX, name=None, out_dir=None):
     """
-    Write a SHIPPED asset's FBX as an LOD0-only review pack `<out_dir>/<name>.blend`
-    (name: the FBX stem), textured from the FBX's own folder. Headless only: the FBX is
-    re-imported with cs2_preview.import_generation and stood up when it comes back lying
-    on its back (its "min y ~ 0" Y-up test, cs2_preview.py:757, misreads FG8N's pier that
-    runs 4 m below grade; +90 deg X undoes export_fbx's (x, y, z) -> (x, z, -y)), then
-    removed again with everything the import created; selection and active object are
-    restored. review_live.stand_ins links the result, so the live session never imports.
+    Write a SHIPPED asset's FBX as an LOD0-only review pack `<out_dir>/<name>.blend` (name: the FBX
+    stem), textured from the FBX's own folder. Headless only. The function re-imports the FBX with
+    cs2_preview.import_generation. When the FBX comes back lying on its back, the function stands it
+    up with +90 deg X, which undoes the (x, y, z) -> (x, z, -y) of export_fbx. The "min y ~ 0" Y-up
+    test of import_generation (cs2_preview.py:757) misreads the pier of FG8N that runs 4 m below
+    grade. The function then removes the FBX again, with everything the import created. Selection
+    and active object are restored. review_live.stand_ins links the result, so the live session
+    never imports.
     """
     if not bpy.app.background:
         raise RuntimeError("write_standin_pack runs headless only (ROUND-SPEC.md R10)")
@@ -1047,11 +1064,11 @@ def _is_identity(m, eps=1e-6):
 def import_exported_fbx(path):
     """
     Import one FBX written by cs2_asset.export_fbx and return it in meters, Z-up, identity
-    transform, named after the file stem. Blender 5.x wm.fbx_import keeps the raw vertices
-    (cm, Y-up: export baked (x, y, z) -> (x, z, -y) x 100, cs2_asset.py:1300-1302) and an
-    identity object matrix (probed on 5.2.2: SkiLodgeHutCommercialLowW raw y -720..880 = the
-    manifest's 16.0 m height, min_y -7.2); FBX_TO_BLENDER undoes it on the mesh data. Custom
-    split normals are re-set rotated so shading survives. Uses the operator: headless only.
+    transform, named after the file stem. Blender 5.x wm.fbx_import keeps the raw vertices (cm,
+    Y-up: export baked (x, y, z) -> (x, z, -y) x 100, cs2_asset.py:1300-1302) and an identity object
+    matrix. It was probed on 5.2.2: SkiLodgeHutCommercialLowW raw y -720..880 = the manifest's 16.0
+    m height, min_y -7.2. FBX_TO_BLENDER undoes the bake on the mesh data. Custom split normals are
+    re-set rotated so shading survives. The function uses the operator: headless only.
     """
     import numpy as np
     if not bpy.app.background:
@@ -1088,8 +1105,8 @@ def import_exported_fbx(path):
 
 
 def _check_extent(obj, manifest, label):
-    """The re-imported LOD0 against the manifest's extent_game_m (game axes: y up, z = -Blender
-    y). An axis or unit slip is meters off; returns a note or raises."""
+    """The re-imported LOD0 against the manifest's extent_game_m (game axes: y up, z = -Blender y). An
+    axis or unit slip is meters off. Returns a note or raises."""
     ext = (manifest or {}).get("extent_game_m")
     if not isinstance(ext, dict):
         return "no extent_game_m in the manifest: orientation not cross-checked"
@@ -1136,7 +1153,7 @@ def _signset_extra(manifest, letter):
     mesh = ss["mesh"]
     cands = []
     if ss.get("asset_dir"):
-        # manifests store repo-relative or %TEMP% paths (no user name); resolve against the repo
+        # manifests store repo-relative or %TEMP% paths (no user name). Resolve against the repo
         cands.append(os.path.expandvars(ss["asset_dir"]) if os.path.isabs(os.path.expandvars(ss["asset_dir"]))
                      else os.path.join(REPO_ROOT, ss["asset_dir"]))
     cands.append(os.path.join(REPO_ROOT, "assets", "import", "signs", mesh[-1:] or letter, mesh))
@@ -1175,12 +1192,16 @@ def _recipe_meta(manifest):
 
 def write_folder_pack(asset_dir, out_dir=None, name=None):
     """
-    Write the review pack of an EXPORTED asset folder (module docstring): no generator run, so a
-    pack is minutes, not a 20-minute bake, and shows exactly the files that get imported. LOD0 =
-    <name>.fbx, LOD1 / LOD2 = <name>_LOD<k>.fbx, subs = every other <name>_<suffix>.fbx whose
-    suffix does not start with LOD (the generator hands write_pack the LOD0 subs only), the
-    manifest's sign set as the SignSet extra (its texture via its own settings.json). The
-    manifest (rows, tiled block, recipe) goes to write_pack whole. Headless only; the session is
+    Write the review pack of an EXPORTED asset folder (module docstring). There is no generator run,
+    so a pack takes minutes, not a 20-minute bake, and shows exactly the files that get imported.
+    The files are:
+    - LOD0 = <name>.fbx
+    - LOD1 / LOD2 = <name>_LOD<k>.fbx
+    - subs = every other <name>_<suffix>.fbx whose suffix does not start with LOD (the generator
+      hands write_pack the LOD0 subs only)
+    - the manifest's sign set as the SignSet extra (its texture via its own settings.json)
+
+    The manifest (rows, tiled block, recipe) goes to write_pack whole. Headless only. The session is
     left as found (everything imported is removed again).
     """
     if not bpy.app.background:

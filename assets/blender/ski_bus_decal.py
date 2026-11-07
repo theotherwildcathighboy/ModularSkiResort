@@ -1,25 +1,30 @@
 """
-ski_bus_decal.py - the "SKI BUS" livery for the ski coach, painted on with a decal instead of a board.
+ski_bus_decal.py - the "SKI BUS" livery for the ski coach, painted on with a decal instead of a
+board.
 
-MODELED STAND-IN: no vanilla prop carries this text. One mesh, SkiBusDecalA: the 12-tri projection box of the game's
-DefaultDecal template, origin at its center, attached to the coach clone as sub-object rows (left side, right side,
-roof), so fit is adjusted in the prefab without a reimport. The art is ski_bus_panel.paint_strip without the board:
-letters, peaks and stripes in cream, nothing else, so the bus's own paint shows between them.
+MODELED STAND-IN: no vanilla prop carries this text. One mesh, SkiBusDecalA: the 12-tri projection
+box of the game's DefaultDecal template, origin at its center, attached to the coach clone as
+sub-object rows (left side, right side, roof), so fit is adjusted in the prefab without a reimport.
+The art is ski_bus_panel.paint_strip without the board: letters, peaks and stripes in cream, nothing
+else, so the bus's own paint shows between them.
 
-Import contract (AssetImportPipeline.SetupDecalComponent, 1.6.2f1:2659-2707): the "Surface" settings key sets the template
-(cs2_asset.write_settings `surface`); m_TextureArea comes from the UVs of the vertices whose normal is exactly up, so the
-box is flat shaded and the projection runs along local game Y. The rows point local Y out of the bus body.
+Import contract (AssetImportPipeline.SetupDecalComponent, 1.6.2f1:2659-2707): the "Surface" settings
+key sets the template (cs2_asset.write_settings `surface`). m_TextureArea comes from the UVs of the
+vertices whose normal is exactly up, so the box is flat shaded and the projection runs along local
+game Y. The rows point local Y out of the bus body.
 
 Frame: export_fbx bakes (x, y, z) -> (x, z, -y) and the game negates x, so without orient_for_net
-game = (-bx, bz, -by). Viewed from game +Y, the texture's u runs along game +X and v along game +Z, which reads unmirrored.
+game = (-bx, bz, -by). Viewed from game +Y, the texture's u runs along game +X and v along game +Z,
+which reads unmirrored.
 
-Texture: 2048^2 (decals want a power of two), the strip sits in a centered rect at ski_bus_panel.PPM. BaseColor RGB is
-cream everywhere with alpha = coverage (no dark fringe at the clip edge). Normal flat. MaskMap RGB black, A gloss. No
-ControlMask: a decal is never tinted. cs2_validate does not run here: its alpha rule forbids exactly what a decal is.
+Texture: 2048^2 (decals want a power of two), the strip sits in a centered rect at
+ski_bus_panel.PPM. BaseColor RGB is cream everywhere with alpha = coverage (no dark fringe at the
+clip edge). Normal flat. MaskMap RGB black, A gloss. No ControlMask: a decal is never tinted.
+cs2_validate does not run here: its alpha rule forbids exactly what a decal is.
 
 CLI (headless only):
     blender --background --factory-startup --python-exit-code 1 --python ski_bus_decal.py -- --out DIR
-    --out DIR receives DIR/SkiBusDecalA/ (FBX, three PNGs, settings.json). Exit 1 on any failure; last line PASS.
+    --out DIR receives DIR/SkiBusDecalA/ (FBX, three PNGs, settings.json). Exit 1 on any failure. The last line is PASS.
 """
 
 import argparse

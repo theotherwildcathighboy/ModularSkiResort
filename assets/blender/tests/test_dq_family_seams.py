@@ -1,10 +1,9 @@
 """
-test_dq_family_seams.py - cross-generator seams of the detachable-quad family (integration
-2026-10-11, docs/research/art/assets-2026-10/build/dq-family-integration.md).
+test_dq_family_seams.py - cross-generator seams of the detachable-quad family (integration 2026-10-11,
+docs/research/art/assets-2026-10/build/dq-family-integration.md).
 
-Each generator asserts its own contracts; nothing asserted the numbers one asset hands to
-another. This test does, in two layers (layer 1 builds nothing; S8 builds the base station
-and the ETDQ, about 10 s in all):
+Each generator asserts its own contracts. Nothing asserted the numbers that one asset hands to another. This test does, in
+two layers (layer 1 builds nothing, S8 builds the base station and the ETDQ, about 10 s in all):
 
   1. CODE: the generators' own constants agree with each other and with
      catalog/carriers.json (lift_chair STYLES / CARRIERS, lift_terminal_detach.params_for,
@@ -14,55 +13,54 @@ and the ETDQ, about 10 s in all):
      folder is skipped with a note (the import tree is shipping data, not a test input).
 
 Seams (S#) as checked:
-  S1 hosted entry tower rope = station lane: ETDQ axle == params_for("base").z_rope (3.70;
-     dq-terminal-skeptic MUST-CHANGE 1), and the hosted z / rotation agree (-11.0, 180 deg).
-  S2 gauge: carriers dq lane_x_m == station lane == every DQ tower gauge / 2 (2.6);
-     tr lane 1.8 == every FG/ET tower gauge / 2; station turn radius == lane.
-  S3 line lane height: carriers dq axle_m == DQ10 axle (the shortest line tower grounds at
-     node elevation 0, so its axle IS the piece lane); tr axle_m == FG8 axle (7.04).
+  S1 hosted entry tower rope = station lane: ETDQ axle == params_for("base").z_rope (3.70, dq-terminal-skeptic
+     MUST-CHANGE 1). The hosted z and rotation agree (-11.0, 180 deg).
+  S2 gauge: carriers dq lane_x_m == station lane == every DQ tower gauge / 2 (2.6). tr lane 1.8 == every FG/ET tower
+     gauge / 2. Station turn radius == lane.
+  S3 line lane height: carriers dq axle_m == DQ10 axle (the shortest line tower grounds at node elevation 0, so its
+     axle IS the piece lane). tr axle_m == FG8 axle (7.04).
   S4 hang: lift_chair STYLES dq/tr carrier rows == carriers.json == the station's hang.
   S5 chair NetSubObjects y (AnchorTop grip-top rule) = axle + grip_top_above_rope + 0.03:
      dq 8.25 (station manifest), tr 7.15 (PIPELINE constants).
-  S6 ETDQ sheave train clear of the station nose: inboard end <= -8.3 and the station's
-     hosted-tower record names the same position. (A datum check only: it compares with the
-     nose line and never saw the balcony - S8 is the geometry check.)
-  S7 manifests: tower / chair / station numbers equal the code (axle, top, gauge, hang,
-     rope_y_required, anchors y = lane rope y, wheel y).
-  S8 hosted ETDQ vs the base station GEOMETRY (review F1, dq-family-review-geometry.md): the
-     ETDQ placed at the station's hosted pose (0, 0, -11.0), 180 deg about y; BVH triangle
-     overlap of ETDQ LOD0 / LOD1 against station LOD0 / LOD1 (all four pairings: the two
-     switch at different distances), minus the station's modeled haul ropes (`haulrope_`;
-     the drawn rope runs through the sheave centers by convention, review F10), must be
-     EMPTY. Code layer: both generators build (bevels on; station LOD1 = LOD0 minus
-     LOD1_DELETE, its target is the after-delete count; tower LOD1 = lod_chain_v2). Export
-     layer: the shipped FBXs (cm, prefab frame), haul-rope faces found geometrically (every
-     vertex within ROPE_R + 5 mm of a lane axis), the pose read from both manifests.
-     Revision 1 (2026-10-11) puts new station geometry in this zone: the base nose landing
-     (x -8.55..-8.00, |y| <= 1.30, 0.06 m short of the ETDQ's inboard end -8.612) and the
-     gangplank out between the ETDQ deck strips (|y| <= 0.55 vs their inner edge 0.695, to
-     x -10.10 vs the ETDQ ladder landing plates at -10.15), both with handrails. Revision 2
-     (second look 3', 2026-10-11) adds the front ladder's run from the ground: footing
-     x -8.57..-8.10 at z 0..0.10, rails / rungs at x -8.25..-8.19 through a ladder-way in the
-     landing (nearest ETDQ geometry: its deck strip end x -8.612, 0.38 m from the rungs; its
-     ground parts end at x -9.9, 1.33 m from the footing).
-  S9 (nitpick A2, 2026-10-13; build/nitpick-a2-hanger-gondola.md) the dq CHAIR through every DQ sheave
-     train on the stations' spin: lift_chair.carrier_sweep (the chair on lane s faces f = -s, its right
-     outboard; grip top ON the lane, round-2 D8; 1 cm steps over the whole train, both lanes) +
-     carrier_verdict (the family rule: nothing crossed but the F10 convention set - rims, liners, sub
-     rockers + sub pins - and every other tower part, the rocker mains first, >= CARRIER_CLEAR_M).
-     Code: the shipped chair (DQ_OUTBOARD -1) passes on DQ10 / 12 / 14 / 16 / 18 / 20 (the shipped
-     ingest head) and the ETDQ, both lanes; the approved revision 3 (+1, hanger inboard on this spin)
-     must FAIL on each (the springs through the rocker mains: review F2, measured). The DQ top's nose
-     train is GATED since nitpick A3 (D1: its axle ON the lane, the towers' convention; the nitpick-A2
-     rope-on-the-rims nose, axle 0.278 m under the lane, is a negative: the grip's wheels / axles cross
-     its mains). Nitpick A4 adds the DOCUMENTED LIMIT: every number is a level lane at the axle's height; the
-     same sweep with the lane pitched about the nose center / raised above the axle is re-measured and must
-     equal lift_terminal_detach.NOSE_LANE_PITCH_LIMIT (the shipped manifest's sheave_trains.lane_pitch_limit;
-     a NOTE carries the numbers). Exports: the shipped DQ4M LOD0 FBX is the code build (vertex multiset,
-     0.1 mm) and its hanger's vertical run sits at FBX x < 0 (authoring -Y).
-     Both x-sign branches: the meshes (chair, towers, stations) mirror together under probe X2, and the
-     mover's up lane follows the stations (N as is, P with S1b's flip), so the chair's right is the
-     outboard side in both - the sweep is branch-invariant.
+  S6 ETDQ sheave train clear of the station nose: inboard end <= -8.3 and the station's hosted-tower record names the
+     same position. (This is a datum check only. It compares with the nose line and never saw the balcony. S8 is the
+     geometry check.)
+  S7 manifests: tower / chair / station numbers equal the code (axle, top, gauge, hang, rope_y_required, anchors
+     y = lane rope y, wheel y).
+  S8 hosted ETDQ vs the base station GEOMETRY (review F1, dq-family-review-geometry.md). The ETDQ is placed at the
+     station's hosted pose (0, 0, -11.0), 180 deg about y. The BVH triangle overlap of ETDQ LOD0 / LOD1 against
+     station LOD0 / LOD1 (all four pairings: the two switch at different distances), minus the station's modeled haul
+     ropes (`haulrope_`: the drawn rope runs through the sheave centers by convention, review F10), must be EMPTY.
+     - Code layer: both generators build (bevels on). Station LOD1 = LOD0 minus LOD1_DELETE, and its target is the
+       after-delete count. Tower LOD1 = lod_chain_v2.
+     - Export layer: the shipped FBXs (cm, prefab frame). Haul-rope faces are found geometrically (every vertex within
+       ROPE_R + 5 mm of a lane axis). The pose is read from both manifests.
+     Revision 1 (2026-10-11) puts new station geometry in this zone: the base nose landing (x -8.55..-8.00, |y| <= 1.30,
+     0.06 m short of the ETDQ's inboard end -8.612) and the gangplank out between the ETDQ deck strips (|y| <= 0.55 vs
+     their inner edge 0.695, to x -10.10 vs the ETDQ ladder landing plates at -10.15), both with handrails.
+     Revision 2 (second look 3', 2026-10-11) adds the front ladder's run from the ground: footing x -8.57..-8.10 at
+     z 0..0.10, rails / rungs at x -8.25..-8.19 through a ladder-way in the landing (nearest ETDQ geometry: its deck
+     strip end x -8.612, 0.38 m from the rungs, its ground parts end at x -9.9, 1.33 m from the footing).
+  S9 (nitpick A2, 2026-10-13, build/nitpick-a2-hanger-gondola.md) the dq CHAIR through every DQ sheave train on the
+     stations' spin.
+     - lift_chair.carrier_sweep: the chair on lane s faces f = -s, its right outboard. The grip top is ON the lane
+       (round-2 D8). The steps are 1 cm over the whole train, both lanes.
+     - carrier_verdict (the family rule): nothing is crossed but the F10 convention set (rims, liners, sub rockers +
+       sub pins). Every other tower part, the rocker mains first, is >= CARRIER_CLEAR_M away.
+     Code: the shipped chair (DQ_OUTBOARD -1) passes on DQ10 / 12 / 14 / 16 / 18 / 20 (the shipped ingest head) and
+     the ETDQ, both lanes. The approved revision 3 (+1, hanger inboard on this spin) must FAIL on each (the springs
+     through the rocker mains: review F2, measured). The DQ top's nose train is GATED since nitpick A3 (D1: its axle ON
+     the lane, the towers' convention). The nitpick-A2 rope-on-the-rims nose, axle 0.278 m under the lane, is a
+     negative: the grip's wheels / axles cross its mains.
+     Nitpick A4 adds the DOCUMENTED LIMIT: every number is a level lane at the axle's height. The same sweep with the
+     lane pitched about the nose center / raised above the axle is re-measured and must equal
+     lift_terminal_detach.NOSE_LANE_PITCH_LIMIT (the shipped manifest's sheave_trains.lane_pitch_limit). A NOTE carries
+     the numbers.
+     Exports: the shipped DQ4M LOD0 FBX is the code build (vertex multiset, 0.1 mm) and its hanger's vertical run
+     sits at FBX x < 0 (authoring -Y).
+     Both x-sign branches: the meshes (chair, towers, stations) mirror together under probe X2, and the mover's up
+     lane follows the stations (N as is, P with S1b's flip). So the chair's right is the outboard side in both, and
+     the sweep is branch-invariant.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_dq_family_seams.py
 """
@@ -165,8 +163,8 @@ def code_seams():
     check(LT.DQ_STATION_INBOARD_MAX <= base.x_nose - 0.30 + 1e-9,
           "S6 ETDQ inboard limit keeps 0.30 m off the station nose",
           f"(limit {LT.DQ_STATION_INBOARD_MAX}, nose {base.x_nose})")
-    # S1n (art-601): the base without its hosted ETDQ (BASE_NOSE_TRAIN) keeps the anchors and the lane, drops the host and
-    # carries the top's nose train with its outer rim tip at anchor_x - 0.10 and the axle on the lane
+    # S1n (art-601): the base without its hosted ETDQ (BASE_NOSE_TRAIN) keeps the anchors and the lane. It drops the host.
+    # It carries the top's nose train with its outer rim tip at anchor_x - 0.10 and the axle on the lane.
     LTD.BASE_NOSE_TRAIN = True
     try:
         nb = LTD.params_for("base", False, carrier)
@@ -283,7 +281,7 @@ def _keep(co, polys, names, drop):
 
 
 def s8_code(base):
-    """Both generators build in this process; overlaps reported by part name."""
+    """Both generators build in this process. The code reports overlaps by part name."""
     print("[seams] 3a. S8 code: base station (bevels on) x ETDQ (rebuild) at the hosted pose")
     lift_terminal.clear_scene()
     parts = LTD.build_station(base)
@@ -355,7 +353,7 @@ def s8_exports(base):
         lane, ry = base.lane_y, base.z_rope
         rr = sb.get("rope_r_m", LTD.ROPE_R) + 0.005            # per asset (art-601 --thin-rope)
         d = np.hypot(np.abs(sco[:, 0]) - lane, sco[:, 1] - ry)
-        near = (d <= rr) & (sco[:, 2] < 0.0)      # the haul ropes run anchor -> wheel; the
+        near = (d <= rr) & (sco[:, 2] < 0.0)      # the haul ropes run anchor -> wheel, the
         names = ["haulrope" if all(near[v] for v in pl) else "station"  # wheel is at z 9.6
                  for pl in spolys]
         kept = [pl for pl, n in zip(spolys, names) if n != "haulrope"]
@@ -441,9 +439,9 @@ def s9_code(top):
                       for f in d["fail"]) for d in vo.values())
         check(bad, f"S9 {key}: negative - the approved revision-3 chair (+1, hanger inboard on this spin) "
                    f"puts its springs through the rocker mains", f"({_s9_line(vo)})")
-    # nitpick A3 (ruling D1): the DQ top's nose train carries its AXLE ON THE LANE (the towers' convention):
-    # GATED now - the shipped chair clears its mains like a tower's; the approved chair and the nitpick-A2 nose
-    # (NOSE_AXLE_LEGACY: rope on the rims, axle 0.278 under the lane) are the negatives
+    # nitpick A3 (ruling D1): the DQ top's nose train carries its AXLE ON THE LANE (the towers' convention). It is GATED
+    # now: the shipped chair clears its mains like a tower's. The approved chair and the nitpick-A2 nose
+    # (NOSE_AXLE_LEGACY: rope on the rims, axle 0.278 under the lane) are the negatives.
     def nose_of(legacy):
         saved = LTD.NOSE_AXLE_LEGACY
         LTD.NOSE_AXLE_LEGACY = legacy
@@ -480,9 +478,9 @@ def s9_code(top):
     check(bad, f"S9 DQ top nose: negative - the nitpick-A2 nose (NOSE_AXLE_LEGACY, rope on the rims, axle "
                f"{axle_leg:.3f}) puts the shipped grip's wheels / axles through its mains (D1)", f"({_s9_line(vl)})")
     # nitpick A4 (A3 check 1c): the DOCUMENTED LIMIT. Every number above is a LEVEL lane at the axle's height. The same
-    # sweep with the lane pitched about the nose center / raised above the axle is re-measured here and must equal
-    # lift_terminal_detach.NOSE_LANE_PITCH_LIMIT (the manifest's sheave_trains.lane_pitch_limit): a geometry or
-    # sweep change that moves the limit fails here instead of leaving a stale note.
+    # sweep with the lane pitched about the nose center / raised above the axle is re-measured here. It must equal
+    # lift_terminal_detach.NOSE_LANE_PITCH_LIMIT (the manifest's sheave_trains.lane_pitch_limit). A geometry or sweep
+    # change that moves the limit fails here instead of leaving a stale note.
     lim = LTD.NOSE_LANE_PITCH_LIMIT
     x0 = LTD.nose_train_layout(top)["x0"]
 

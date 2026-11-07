@@ -3,61 +3,70 @@ review_live.py - the fixed snippet for the LIVE Blender review (ROUND-SPEC R10).
 
 WHY
 ---
-Generators never run in the live session (their clear_scene() wipes every object, the
-finish pass leaks scene settings, Cycles bakes block the UI: pipeline-gap.md section 6).
-They build headless and, with `--review`, write `assets/preview/review/<Name>.blend`
-(cs2_review.write_pack). This file is the only code that touches the live session: it
-LINKS those packs (read-only, so the generator stays the source), places them on a grid,
-and drives LOD / tint / lighting / camera state. It is self-contained (bpy + stdlib: it
-imports no repo module and runs no operator that edits geometry) and is sent VERBATIM
-through the MCP execute tool; executing it only defines constants and functions. Append
-the call(s) to the same message, e.g.
+Generators never run in the live session. Their clear_scene() wipes every object, the finish pass
+leaks scene settings, and Cycles bakes block the UI (pipeline-gap.md section 6). Generators build
+headless. With `--review` they write `assets/preview/review/<Name>.blend` (cs2_review.write_pack).
+This file is the only code that touches the live session. It LINKS those packs (read-only, so the
+generator stays the source), places them on a grid, and drives LOD / tint / lighting / camera state.
+It is self-contained (bpy + stdlib: it imports no repo module and runs no operator that edits
+geometry). The MCP execute tool receives it VERBATIM, and executing it only defines constants and
+functions. Append the call(s) to the same message, e.g.
 
     print(ensure_scene()); print(load("SkiLiftChair6L")); print(cams("SkiLiftChair6L"))
 
 or call install() once and later use bpy.app.driver_namespace["cs2r_review"].load(...).
 
-Scene contract (read headless from assets/preview/review/review-2026-10-10.blend,
-2026-10-11): scene "Scene"; collection "Review" (ReviewCam = camera, lens 35, TRACK_TO
-ReviewTarget; ReviewSun = SUN 3.0 at rot (50, 0, 35) deg; ReviewTarget = empty at z 4) with
-children "Review_Scale" (LotGrid8m 96 x 96 m, ScalePerson_body/_head 1.8 m at (3, -3),
-ScaleTower8m_mast/_crossarm at (-6, -3)), "Kagelok_Ref" (root at x 0, scale 0.30) and
-"Gondola_Ref" (roots at x 30, scale 0.27). All of these are KEPT: this script works in the
-ACTIVE scene, creates only what is missing and never deletes anything it did not create
-(everything it creates is named CS2R_* or ScaleRuler3m / ScaleTowerFG8N).
+Scene contract (read headless from assets/preview/review/review-2026-10-10.blend, 2026-10-11). The
+scene is "Scene". It holds the collection "Review", with these objects:
+- ReviewCam = camera, lens 35, TRACK_TO ReviewTarget.
+- ReviewSun = SUN 3.0 at rot (50, 0, 35) deg.
+- ReviewTarget = empty at z 4.
 
-Placement: one asset per 60 m grid cell at x = 60 k (k >= FIRST_CELL; cell 0 holds the two
-reference models). A pack is instanced through one COLLECTION-instance empty per role
-(LOD0 / LOD1 / LOD2 / SUB) under a root empty CS2R_<name>_root, all in a local collection
-CS2R_<name>_Live under "Review". load() re-includes / unhides "Review" and the _Live
-collection in the view layer when they are excluded or hidden (reported as
-"unhidden_layers"); lod() reports a shown role that is still invisible (a collection hidden
-later) as ok False with "hidden_roles". Tints and the window-glow toggle are custom properties on
-those empties ("cs2r_slot1..3" = 3 floats, "cs2r_win_emit" = 0/1) read by the pack
-material's INSTANCER Attribute nodes (cs2_review.SLOT_ATTR / WIN_EMIT_ATTR) - the linked
-material itself stays read-only.
+The collection "Review" has these children:
+- "Review_Scale" (LotGrid8m 96 x 96 m, ScalePerson_body/_head 1.8 m at (3, -3),
+  ScaleTower8m_mast/_crossarm at (-6, -3)).
+- "Kagelok_Ref" (root at x 0, scale 0.30).
+- "Gondola_Ref" (roots at x 30, scale 0.27).
 
-Lighting = cs2_preview.py:78-91 so the live view matches the PNG previews: Nishita sky
-(5.x MULTIPLE_SCATTERING, no disc) rotation 135 deg, altitude 1800 m, strength 0.07; sun
-55 deg / 4.0 at noon, 4 deg / 0.4 at dusk, aimed with cs2_preview.py:330-336's formula;
-AgX; 45 deg vertical fov (cs2_preview.py:358-361). ensure_scene(lighting=False) gives back
-the world (or "no world": stored as "") and the view transform it replaced. Cameras:
-cs2_preview.DEFAULT_VIEWS (cs2_preview.py:72-76) + "back" (lift_terminal.py:1291), field
-cameras at the pack's predicted LOD switch distances and at the Round L acceptance
-distances 30/140/280/600 m, and a turntable empty rotating 360 deg over 240 frames.
-props(name=None, on=None) shows / hides the VANILLA-PROP STAND-INS (DECISIONS 183): the labeled,
-semi-transparent boxes cs2_review.write_pack puts in a pack's SUB collection, one per manifest
-sub-object row (benches, bins, lamps, tables ...; pack only, never exported). SUB's other contents
-(`_Win` glass) stay: the SUB instance swaps between the pack's SUB and SUB_NOPROPS collections.
-load() / status() / stand_ins() report the stand-in count per pack ("props").
-labels() puts an upright "<cell>  <name>" sign in front of every loaded pack (CS2R_Labels);
-people() stands a 1.8 m mannequin beside each (CS2R_People, one shared CS2R_Mannequin180 mesh)
-(2026-10-17: a person for scale, a sign to tell the cell).
-stand_ins() adds a 3 m story ruler (the `_Win` slice height) and the shipped
-SkiLiftTowerFG8N into Review_Scale as a COLLECTION instance of its own review pack
-(<review_dir>/SkiLiftTowerFG8N.blend, LOD0), built HEADLESS by
-`blender --background --factory-startup --python assets/blender/cs2_review.py -- --stand-in`
-(cs2_review.write_standin_pack): the FBX import and its Y-up fix never run live (R10).
+The script KEEPS all of these. It works in the ACTIVE scene, creates only what is missing, and never
+deletes anything it did not create (everything it creates is named CS2R_* or ScaleRuler3m /
+ScaleTowerFG8N).
+
+Placement: one asset per 60 m grid cell at x = 60 k (k >= FIRST_CELL). Cell 0 holds the two reference
+models. One COLLECTION-instance empty per role (LOD0 / LOD1 / LOD2 / SUB) instances a pack. These
+empties sit under a root empty CS2R_<name>_root, all in a local collection CS2R_<name>_Live under
+"Review". load() re-includes / unhides "Review" and the _Live collection in the view layer when they
+are excluded or hidden (it reports this as "unhidden_layers"). lod() reports a shown role that is
+still invisible (a collection hidden later) as ok False with "hidden_roles". Tints and the
+window-glow toggle are custom properties on those empties ("cs2r_slot1..3" = 3 floats,
+"cs2r_win_emit" = 0/1). The INSTANCER Attribute nodes of the pack material read them
+(cs2_review.SLOT_ATTR / WIN_EMIT_ATTR). The linked material itself stays read-only.
+
+Lighting = cs2_preview.py:78-91, so the live view matches the PNG previews: Nishita sky (5.x
+MULTIPLE_SCATTERING, no disc) rotation 135 deg, altitude 1800 m, strength 0.07. Sun 55 deg / 4.0 at
+noon and 4 deg / 0.4 at dusk, aimed with the formula of cs2_preview.py:330-336. AgX. 45 deg vertical
+fov (cs2_preview.py:358-361). ensure_scene(lighting=False) gives back the world (or "no world":
+stored as "") and the view transform that it replaced. Cameras: cs2_preview.DEFAULT_VIEWS
+(cs2_preview.py:72-76) + "back" (lift_terminal.py:1291), field cameras at the predicted LOD switch
+distances of the pack and at the Round L acceptance distances 30/140/280/600 m, and a turntable empty
+that rotates 360 deg over 240 frames.
+
+props(name=None, on=None) shows / hides the VANILLA-PROP STAND-INS (DECISIONS 183). These are the
+labeled, semi-transparent boxes that cs2_review.write_pack puts in the SUB collection of a pack, one
+per manifest sub-object row (benches, bins, lamps, tables ...). They exist in the pack only and are
+never exported. SUB's other contents (`_Win` glass) stay. The SUB instance swaps between the SUB and
+SUB_NOPROPS collections of the pack. load() / status() / stand_ins() report the stand-in count per
+pack ("props").
+
+labels() puts an upright "<cell>  <name>" sign in front of every loaded pack (CS2R_Labels). people()
+stands a 1.8 m mannequin beside each (CS2R_People, one shared CS2R_Mannequin180 mesh). (2026-10-17: a
+person for scale, a sign to tell the cell.)
+
+stand_ins() adds a 3 m story ruler (the `_Win` slice height) and the shipped SkiLiftTowerFG8N into
+Review_Scale. The tower is a COLLECTION instance of its own review pack
+(<review_dir>/SkiLiftTowerFG8N.blend, LOD0). A HEADLESS run builds that pack with `blender
+--background --factory-startup --python assets/blender/cs2_review.py -- --stand-in`
+(cs2_review.write_standin_pack). The FBX import and its Y-up fix never run live (R10).
 
 Every public function returns a dict ({"ok": False, "error": ...} on an expected failure).
 """
@@ -73,10 +82,10 @@ import mathutils
 # Constants
 # --------------------------------------------------------------------------------------
 
-# The repo root comes from the environment: set MODULAR_SKI_RESORT_REPO to the checkout folder before
-# starting Blender (no user-specific path lives in this file). Without it, the pack folder is
-# inferred from the open .blend when that file sits in <repo>/assets/preview/review/, and failing
-# that _review_dir() raises with this instruction (pass review_dir= to load()/install() instead).
+# The repo root comes from the environment. Set MODULAR_SKI_RESORT_REPO to the checkout folder before
+# starting Blender (no user-specific path lives in this file). Without it, the code infers the pack
+# folder from the open .blend when that file sits in <repo>/assets/preview/review/. Failing that,
+# _review_dir() raises with this instruction (pass review_dir= to load()/install() instead).
 REPO_ROOT = os.environ.get("MODULAR_SKI_RESORT_REPO", "")
 if not REPO_ROOT and bpy.data.filepath:
     _here = os.path.dirname(os.path.abspath(bpy.data.filepath))
@@ -213,9 +222,9 @@ def _link_pack(path, coll_name, link=True):
     if pack is None:
         return None, f"could not {'link' if link else 'append'} {coll_name}"
     if link:
-        # Only the role children (LOD0/1/2/SUB) are referenced by the instance empties; the
-        # pack collection itself would be dropped as an unused linked ID at save + reopen,
-        # and reload() / props() / status() would then lose the pack. Keep it.
+        # Only the role children (LOD0/1/2/SUB) are referenced by the instance empties. The pack
+        # collection itself would be dropped as an unused linked ID at save + reopen, and reload() /
+        # props() / status() would then lose the pack. Keep it.
         pack.use_fake_user = True
     return pack, None
 
@@ -292,7 +301,7 @@ def _pack_roles(pack):
 
 
 def _prop_count(pack):
-    """Vanilla-prop stand-ins in a pack (collection prop n_prop_standins; 0 on older packs)."""
+    """Vanilla-prop stand-ins in a pack (collection prop n_prop_standins, 0 on older packs)."""
     try:
         return int(pack.get("n_prop_standins", 0)) if pack else 0
     except (TypeError, ValueError):
@@ -524,14 +533,15 @@ def _link_fg8n(coll, review_dir=None):
 
 def ensure_scene(lighting=True, viewport=None):
     """
-    Make the ACTIVE scene review-ready without removing anything: Review / Review_Scale
-    collections, ReviewSun / ReviewCam / ReviewTarget (created only when missing).
-    lighting=True: the cs2_preview sky world + AgX + the sun at the current day/night
-    state; whenever it replaces a world (or "" for none) or a view transform, that value
-    is remembered in scene["cs2r_prev_world"] / ["cs2r_prev_view_transform"];
-    lighting=False: restore both (and forget them); None: leave lighting alone.
-    viewport="MATERIAL" / "RENDERED" switches every open 3D view to that shading with
-    scene world + lights.
+    Make the ACTIVE scene review-ready without removing anything: Review / Review_Scale collections,
+    ReviewSun / ReviewCam / ReviewTarget (created only when missing).
+    lighting=True: the cs2_preview sky world + AgX + the sun at the current day/night state. Whenever
+    it replaces a world (or "" for none) or a view transform, it remembers that value in
+    scene["cs2r_prev_world"] / ["cs2r_prev_view_transform"].
+    lighting=False: restore both (and forget them).
+    None: leave lighting alone.
+    viewport="MATERIAL" / "RENDERED" switches every open 3D view to that shading with scene world +
+    lights.
     """
     sc = bpy.context.scene
     created = []
@@ -656,7 +666,7 @@ def load(name, link=True, cell=None, review_dir=None):
 
 
 def reload(name):
-    """Library.reload() of a linked pack (images re-read too); appended packs re-append."""
+    """Library.reload() of a linked pack (images re-read too). Appended packs re-append."""
     name = _clean(name)
     root = _root(name)
     if root is None:
@@ -779,11 +789,12 @@ def lod(name, level=0):
 
 def props(name=None, on=None):
     """
-    Show / hide the vanilla-prop stand-ins (DECISIONS 183): the labeled boxes cs2_review.write_pack
-    puts in SUB, one per manifest sub-object row. on=None toggles; True / False sets ("on" / "off"
-    and 1 / 0 work too). name=None: every loaded pack. SUB's other contents (`_Win` glass) stay -
-    the SUB instance swaps between the pack's SUB and SUB_NOPROPS collections. A pack without
-    rows reports count 0 and is left alone. Returns {"ok", "props": {name: {"count", "shown"}}}.
+    Show / hide the vanilla-prop stand-ins (DECISIONS 183): the labeled boxes that
+    cs2_review.write_pack puts in SUB, one per manifest sub-object row. on=None toggles. True / False
+    sets ("on" / "off" and 1 / 0 work too). name=None: every loaded pack. SUB's other contents
+    (`_Win` glass) stay - the SUB instance swaps between the SUB and SUB_NOPROPS collections of the
+    pack. A pack without rows reports count 0 and is left alone. Returns {"ok", "props": {name:
+    {"count", "shown"}}}.
     """
     if isinstance(on, str):
         on = {"on": True, "show": True, "1": True, "off": False, "hide": False, "0": False}.get(
@@ -816,8 +827,8 @@ def props(name=None, on=None):
 
 
 def tint(name, slot, rgb=None):
-    """Recolor slot 1/2/3 (or "R"/"G"/"B", "steel"/"pad") of this asset's instances to
-    `rgb` (3 floats, linear like the prefab VariationSet); rgb=None restores the default."""
+    """Recolor slot 1/2/3 (or "R"/"G"/"B", "steel"/"pad") of this asset's instances to `rgb` (3 floats,
+    linear like the prefab VariationSet). rgb=None restores the default."""
     name = _clean(name)
     s = SLOT_NAMES.get(str(slot).upper())
     if s is None:
@@ -842,8 +853,8 @@ def tint(name, slot, rgb=None):
 
 
 def night(on=True, windows=True):
-    """Dusk (sun 4 deg / 0.4) or noon (55 deg / 4.0) on ReviewSun and the CS2R sky;
-    windows=True also toggles the `_Win` warm emission on every loaded pack."""
+    """Dusk (sun 4 deg / 0.4) or noon (55 deg / 4.0) on ReviewSun and the CS2R sky. windows=True also
+    toggles the `_Win` warm emission on every loaded pack."""
     sc = bpy.context.scene
     review, _scale = _review_colls()
     sun = _ensure_sun(review, [])
@@ -873,12 +884,11 @@ def night(on=True, windows=True):
 
 def stand_ins(name=None, tower=True, review_dir=None):
     """
-    Scale stand-ins in Review_Scale: the 3 m story ruler and (when its pack exists) the
-    shipped SkiLiftTowerFG8N, an instance of the headless stand-in pack
-    <review_dir>/SkiLiftTowerFG8N.blend (STANDIN_CMD builds it; no import runs live).
-    Created once; with `name` both move beside that asset's cell, else beside the existing
-    person / 8 m mast. The existing ScalePerson_* / ScaleTower8m_* / LotGrid8m are never
-    touched.
+    Scale stand-ins in Review_Scale: the 3 m story ruler and (when its pack exists) the shipped
+    SkiLiftTowerFG8N, an instance of the headless stand-in pack <review_dir>/SkiLiftTowerFG8N.blend
+    (STANDIN_CMD builds it, and no import runs live). The function creates them once. With `name`
+    both move beside the cell of that asset, else beside the existing person / 8 m mast. The existing
+    ScalePerson_* / ScaleTower8m_* / LotGrid8m are never touched.
     """
     _review, scale = _review_colls()
     created, notes = [], []
@@ -1047,9 +1057,9 @@ def _mannequin_mesh():
 
 
 def labels(size=LABEL_SIZE_M):
-    """One upright TEXT object CS2R_Label_<name> per loaded pack ("<cell>  <name>") in
-    the CS2R_Labels collection; re-run after loading more packs (existing labels are
-    refreshed in place). Reads as a cell sign from the three_quarter / front views."""
+    """One upright TEXT object CS2R_Label_<name> per loaded pack ("<cell>  <name>") in the CS2R_Labels
+    collection. Re-run after loading more packs (existing labels are refreshed in place). Reads as a
+    cell sign from the three_quarter / front views."""
     review, _scale = _review_colls()
     coll = _ensure_coll(LABEL_COLL, review, [])
     _show_layer_chain(coll)
@@ -1077,8 +1087,8 @@ def labels(size=LABEL_SIZE_M):
 
 
 def people(name=None, on=True):
-    """A 1.8 m mannequin CS2R_People_<name> beside every loaded pack (or  only) in the
-    CS2R_People collection, sharing the CS2R_Mannequin180 mesh; on=False hides them."""
+    """A 1.8 m mannequin CS2R_People_<name> beside every loaded pack (or `name` only) in the CS2R_People
+    collection, sharing the CS2R_Mannequin180 mesh. on=False hides them."""
     review, _scale = _review_colls()
     coll = _ensure_coll(PEOPLE_COLL, review, [])
     _show_layer_chain(coll)

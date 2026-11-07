@@ -1,80 +1,97 @@
 """
-Gate for the tram stations' detail pass 1 (design/detail-pass-1-lifts.md sections 5 / 6 / 9.2 as amended
-by its skeptic MC1-MC11; build report build/detail-pass-1-lifts-tram.md).
+Gate for the tram stations' detail pass 1 (design/detail-pass-1-lifts.md sections 5 / 6 / 9.2 as amended by its skeptic
+MC1-MC11, build report build/detail-pass-1-lifts-tram.md).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_detail_tram.py
 
-  D1  dressing counts per station (blockout): the exact dressing part sets (labels, boards, ticket frames,
-      chevrons, nosings / berth stripes, extinguishers, hose reels, tools, ski rack, EXIT light, beacon,
-      hook block, gauge); every dressing family prefix the LOD lists delete names dressing parts only;
-      the kit contact pairs tram_station declares are cs2_liftdress.DRESS_CONTACTS pairs.
-  D2  emissive (shipped): lit texels inside the gates; the LED board and the clock dials keep dark marks in
-      `_Emissive`; the beacon lens texels are red (R >= 4 G).
-  D3  labels (shipped manifest + PNGs): design L1 (<= 1.5 m: >= 400 px/m, each UV axis >= 380), L2 (the
-      departure board / TICKETS at their targets), T1 / T2 flags, ControlMask 0 under every label, C13 on
-      the shipped layout lists every label.
-  D4  weathering: (a) shipped manifests: the station preset at the highest budget-clean intensity (the
-      ladder's next step WARNs, the chosen one is ok), slot wear free, no snow; (b) in-process at 512:
-      weather on vs off with the same geometry, sharing and labels -> ControlMask byte-identical, MaskMap
-      G / B identical, every stamped label / dial rect identical in BaseColor (protected), BaseColor
-      changed elsewhere.
-  D5  determinism: two finish builds in one process (512, weather on) -> identical texture bytes.
-  D6  frozen prefab numbers (design 9.1 + the 1c changes) on the shipped manifests.
-  D7  access: C15 on every variant (no orphan, every measured join >= 0.61 or redundant, the gangway
-      mouth >= 0.61, the interior floors declared not walkable by name).
-  D8  the vanilla sub-object boxes clear the real-cabin sweep (its AABB per bay) and the carrier zones (C16).
-  D9  sub-objects: GUIDs are verified SUBOBJ placeholders, rows = the manifest block, supports measured.
-  D10 resolution floors (skeptic MC11: recomputed from the post-fixer baselines, -5 % of the detail-pass
-      build): w = 1, the fixed classes, the only classes under 14 px/m are the accepted thin members;
-      bay sharing active; grating relief drawn.
-  Revision 2 (design/tram-stations-rev2.md section 8 with the skeptic's MC1-MC9; build/tram-stations-rev2.md):
-      D1 the base rack is EXACTLY a direct cs2_bldg.ski_rack_frame("t", 11.20, 10.80, slots=8, gear=True, ...) call
-      (part names and tri counts: one rack look project-wide) - the stale "6 + 9" rack count (the old leaning rack)
-      is gone; no modeled post lamp / lamp head / hut lamp / entrance lantern / pendant box is built; the top has
-      the three trail boards + labels, the frame-only wheel guard, the roof-mast dish and panel. D2 the top's
-      emissive band re-based on the measured revision-2 export (-15 % / +25 %: the square lamp heads and the hut
-      cube are gone). D3 the trail labels at 200 px/m (L2 graphics). D6 the top bound 20.70 (ruling Q3). D8 / D9
-      13 top / 14 base sub-object rows. D10 floors re-based (-5 %) for the classes revision 2 moves.
-  Fine-detail step 3c (build/fine-detail-step3c-tram-pali.md; tram_station.FINE_DETAIL, CLI --no-fine):
-  F0  the switch: D1 on the --no-fine build = the approved table (the rack = the direct ski_rack_frame call); on the
-      fine build the kit-replaced parts (2 + 1 extinguishers, 2 hose reels, the scraper + shovel, the A-frame rack)
-      and lamp_annexdoor are gone; every shared part vertex-identical fine vs --no-fine (FS5 boards / labels, FS1
-      mast, beacon, EXIT light, gates, medallions); F3 = no fine geometry on the tram (no maze / gate / post board).
-  F1  tram_station.check_kit_rows passes on both stations; negatives raise F1: the base reel 5 cm into the drive
-      house, the top extinguisher at its old spot (no 0.40 m access), the top tools 3 cm off the hut, the top reel
-      onto sgpost_R0's access zone, the base rack on the grade bin, a base extinguisher in the cabin envelope, the
-      rack turned 90 deg, a kit CID drift.
-  F2  H1: the kit A-frame = the removed skirack_t frame vertex for vertex after the 0.02 m foot drop; extinguisher
-      axes / bottoms (the top one MOVED, declared), reel plate backs, the tools = the removed pair 0.0725 m out.
-  F4  the shipped manifests' fine block (15 + 4 / 13 + 3 rows, the +y frame string, F1 rows = the mod rows).
-  D9 counts 15 / 13 vanilla + 4 / 3 kit rows by staged CID; D8 the kit rows clear the C4 zones + the T8 box (F1).
-  Nitpick B (build/nitpick-b-tram.md; tram_station.JH_DETAILS, base only):
-  NB1 the switch only adds (every JH-off base part vertex-identical, the new parts = NB_PARTS + NB_DRESS; the top the same
-      with the flag on or off); NB2 placement (V legs / shoes in front of the X-braces, canopy inside the lot and the
-      frozen bounds, chalkboard off the engine band, the annex parts on its +X face inside x 20.00); NB3 the shipped
-      base manifest's nitpick_b block (LOD0 tris per family, the PLACEHOLDER, the STOPPED ramps), none on the top.
-      D1 / D3 count the new boards / labels / frames (NB_DRESS); D3 checks LIFT TICKETS / ENTRANCE were painted with
-      their LABEL_WORDS.
-  Nitpick B2 (build/nitpick-b2-tram-ramps.md; tram_station.RAMPS): the base's lot 6 x 3 moved the building BASE_DX
-      -4.00 toward -X (prefab = design + frame_dx): D6 the base's frozen numbers re-expressed (stubs / hosted / the LV pole
-      x - 4.00, lot 6 x 3, bounds (-20.40, 0, -12) -> (23.95, 25, 12)); D8 the cabin sweep at the shifted docks; D9 / F4
-      18 base vanilla rows (+ 2 park lamps and a bin on the new cell's paving); NB2 measures in the design frame (x -
-      frame_dx); NB3 reads the ramps BUILT; D10 the base floors re-based -5 % of the measured RAMPS export (the ramp
-      costs the capped 4096 atlas w = 1 24.81 -> 23.48 px/m), the new classes (ramp, landing, plaza) floored too.
-  Revision 3 (build/tram-top-rev3.md; tram_station.PLINTH_TOP): the top in PLINTH MODE (the foundation and supports continue
-      below grade to -12.00). D6: the top's bounds min y 0.00 -> -12.00 (the prefab delta; x / z / top unchanged). D10: the
-      top's floors are UNCHANGED (w = 1 19.7, the wheels / gates 19.7, deckbeam 13.7: the plinth costs the 2048 atlas 2.0 %
-      of w = 1, 20.78 -> 20.36 px/m, with the lattice kit sharing its UV islands), and the below-grade classes (hidden on a
-      summit, seen on a cliff) are floored -5 % of the measured export (found 2.6, lattice members 9.7, pad footings 6.7);
-      they are off the 14 px/m starving list by tram_station.DENSITY_BELOW.
-  T76 round 1 (docs/research/art/tram-tile-route-plan-2026-10-18.md section 6.2; tram_station.py --tiled + tram_tilesheet.py):
-      when TRAM_SHIPPED_DIR holds a --tiled export (its manifests carry a "tiled" block) T1-T13 run and the gates that
-      measure the old unique LOD0 atlas (D2 emissive, D3 labels, D10 floors) are replaced by them (T7 / T8 / T2e); D6
-      reads the far-set atlas. T1 (flag off byte-identical): the flag-off finish assemble's geometry_hash == the HEAD
-      883d134 pins T1_PINS, and with TRAM_FLAGOFF_DIR + TRAM_HEAD_DIR set, every FBX / PNG / settings.json sha1 of the
-      two flag-off exports' manifests is equal. T13 compares the tiled manifests with the flag-off export
-      (TRAM_FLAGOFF_DIR). TRAM_TILED_ONLY=1 runs T1-T13 alone (no in-process D / F / NB checks).
-Exit 1 on any failure.
+- D1 dressing counts per station (blockout). The exact dressing part sets: labels, boards, ticket frames, chevrons,
+  nosings / berth stripes, extinguishers, hose reels, tools, ski rack, EXIT light, beacon, hook block, gauge. Every
+  dressing family prefix that the LOD lists delete names dressing parts only. The kit contact pairs that tram_station
+  declares are cs2_liftdress.DRESS_CONTACTS pairs.
+- D2 emissive (shipped): lit texels inside the gates. The LED board and the clock dials keep dark marks in `_Emissive`.
+  The beacon lens texels are red (R >= 4 G).
+- D3 labels (shipped manifest + PNGs): design L1 (<= 1.5 m: >= 400 px/m, each UV axis >= 380), L2 (the departure board /
+  TICKETS at their targets), T1 / T2 flags, ControlMask 0 under every label. C13 on the shipped layout lists every label.
+- D4 weathering: (a) shipped manifests: the station preset at the highest budget-clean intensity (the ladder's next step
+  WARNs, the chosen one is ok), slot wear free, no snow. (b) in-process at 512: weather on vs off with the same geometry,
+  sharing and labels -> ControlMask byte-identical, MaskMap G / B identical, every stamped label / dial rect identical in
+  BaseColor (protected), BaseColor changed elsewhere.
+- D5 determinism: two finish builds in one process (512, weather on) -> identical texture bytes.
+- D6 frozen prefab numbers (design 9.1 + the 1c changes) on the shipped manifests.
+- D7 access: C15 on every variant (no orphan, every measured join >= 0.61 or redundant, the gangway mouth >= 0.61, the
+  interior floors declared not walkable by name).
+- D8 the vanilla sub-object boxes clear the real-cabin sweep (its AABB per bay) and the carrier zones (C16).
+- D9 sub-objects: GUIDs are verified SUBOBJ placeholders, rows = the manifest block, supports measured.
+- D10 resolution floors (skeptic MC11: recomputed from the post-fixer baselines, -5 % of the detail-pass build): w = 1,
+  the fixed classes, and the only classes under 14 px/m are the accepted thin members. Bay sharing is active. Grating
+  relief is drawn.
+
+Revision 2 (design/tram-stations-rev2.md section 8 with the skeptic's MC1-MC9, build/tram-stations-rev2.md):
+- D1 the base rack is EXACTLY a direct cs2_bldg.ski_rack_frame("t", 11.20, 10.80, slots=8, gear=True, ...) call (part
+  names and tri counts: one rack look project-wide). The stale "6 + 9" rack count (the old leaning rack) is gone. No
+  modeled post lamp / lamp head / hut lamp / entrance lantern / pendant box is built. The top has the three trail boards +
+  labels, the frame-only wheel guard, the roof-mast dish and panel.
+- D2 the emissive band of the top is re-based on the measured revision-2 export (-15 % / +25 %: the square lamp heads and
+  the hut cube are gone).
+- D3 the trail labels at 200 px/m (L2 graphics).
+- D6 the top bound 20.70 (ruling Q3).
+- D8 / D9 13 top / 14 base sub-object rows.
+- D10 floors re-based (-5 %) for the classes that revision 2 moves.
+
+Fine-detail step 3c (build/fine-detail-step3c-tram-pali.md, tram_station.FINE_DETAIL, CLI --no-fine):
+- F0 the switch: D1 on the --no-fine build = the approved table (the rack = the direct ski_rack_frame call). On the fine
+  build, the kit-replaced parts (2 + 1 extinguishers, 2 hose reels, the scraper + shovel, the A-frame rack) and
+  lamp_annexdoor are gone. Every shared part is vertex-identical fine vs --no-fine (FS5 boards / labels, FS1 mast, beacon,
+  EXIT light, gates, medallions). F3 = no fine geometry on the tram (no maze / gate / post board).
+- F1 tram_station.check_kit_rows passes on both stations. Negatives raise F1: the base reel 5 cm into the drive house, the
+  top extinguisher at its old spot (no 0.40 m access), the top tools 3 cm off the hut, the top reel onto sgpost_R0's
+  access zone, the base rack on the grade bin, a base extinguisher in the cabin envelope, the rack turned 90 deg, a kit
+  CID drift.
+- F2 H1: the kit A-frame = the removed skirack_t frame vertex for vertex after the 0.02 m foot drop. Extinguisher axes /
+  bottoms (the top one MOVED, declared), reel plate backs, the tools = the removed pair 0.0725 m out.
+- F4 the fine block of the shipped manifests (15 + 4 / 13 + 3 rows, the +y frame string, F1 rows = the mod rows).
+- D9 counts 15 / 13 vanilla + 4 / 3 kit rows by staged CID. D8 the kit rows clear the C4 zones + the T8 box (F1).
+
+Nitpick B (build/nitpick-b-tram.md, tram_station.JH_DETAILS, base only):
+- NB1 the switch only adds (every JH-off base part vertex-identical, the new parts = NB_PARTS + NB_DRESS). The top is the
+  same with the flag on or off.
+- NB2 placement: V legs / shoes in front of the X-braces, canopy inside the lot and the frozen bounds, chalkboard off the
+  engine band, the annex parts on its +X face inside x 20.00.
+- NB3 the nitpick_b block of the shipped base manifest (LOD0 tris per family, the PLACEHOLDER, the STOPPED ramps), none on
+  the top.
+- D1 / D3 count the new boards / labels / frames (NB_DRESS). D3 checks LIFT TICKETS / ENTRANCE were painted with their
+  LABEL_WORDS.
+
+Nitpick B2 (build/nitpick-b2-tram-ramps.md, tram_station.RAMPS): the lot 6 x 3 of the base moved the building BASE_DX
+-4.00 toward -X (prefab = design + frame_dx):
+- D6 the frozen numbers of the base re-expressed (stubs / hosted / the LV pole x - 4.00, lot 6 x 3, bounds (-20.40, 0,
+  -12) -> (23.95, 25, 12)).
+- D8 the cabin sweep at the shifted docks.
+- D9 / F4 18 base vanilla rows (+ 2 park lamps and a bin on the paving of the new cell).
+- NB2 measures in the design frame (x - frame_dx).
+- NB3 reads the ramps BUILT.
+- D10 the base floors re-based -5 % of the measured RAMPS export (the ramp costs the capped 4096 atlas w = 1 24.81 ->
+  23.48 px/m). The new classes (ramp, landing, plaza) are floored too.
+
+Revision 3 (build/tram-top-rev3.md, tram_station.PLINTH_TOP): the top in PLINTH MODE (the foundation and supports continue
+below grade to -12.00).
+- D6: the top's bounds min y 0.00 -> -12.00 (the prefab delta, x / z / top unchanged).
+- D10: the floors of the top are UNCHANGED (w = 1 19.7, the wheels / gates 19.7, deckbeam 13.7). The plinth costs the 2048
+  atlas 2.0 % of w = 1, 20.78 -> 20.36 px/m, with the lattice kit sharing its UV islands. The below-grade classes (hidden
+  on a summit, seen on a cliff) are floored -5 % of the measured export (found 2.6, lattice members 9.7, pad footings
+  6.7). They are off the 14 px/m starving list by tram_station.DENSITY_BELOW.
+
+T76 round 1 (docs/research/art/tram-tile-route-plan-2026-10-18.md section 6.2, tram_station.py --tiled +
+tram_tilesheet.py):
+- When TRAM_SHIPPED_DIR holds a --tiled export (its manifests carry a "tiled" block), T1-T13 run. T7 / T8 / T2e replace
+  the gates that measure the old unique LOD0 atlas (D2 emissive, D3 labels, D10 floors). D6 reads the far-set atlas.
+- T1 (flag off byte-identical): the flag-off finish assemble's geometry_hash == the HEAD 883d134 pins T1_PINS. With
+  TRAM_FLAGOFF_DIR + TRAM_HEAD_DIR set, every FBX / PNG / settings.json sha1 of the manifests of the two flag-off exports
+  is equal.
+- T13 compares the tiled manifests with the flag-off export (TRAM_FLAGOFF_DIR).
+- TRAM_TILED_ONLY=1 runs T1-T13 alone (no in-process D / F / NB checks).
+
+The test exits 1 on any failure.
 """
 import hashlib
 import json
@@ -96,8 +113,8 @@ import cs2_validate  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(LIB))
 SHIPPED = os.environ.get("TRAM_SHIPPED_DIR") or os.path.join(REPO, "assets", "import", "stations", "tram", "A")
-# (TRAM_SHIPPED_DIR: read the manifests / textures of a scratch export instead of the imported letter folder, to
-# verify an unimported round before the export; unset = the shipped folder as before)
+# (TRAM_SHIPPED_DIR: read the manifests / textures of a scratch export instead of the imported letter folder, to verify an
+# unimported round before the export. Unset = the shipped folder as before)
 # TRAM_LETTER (T76 R3): the generation letter of the asset names inside TRAM_SHIPPED_DIR (default: tram_station.NAMES' A)
 SHIPPED_NAMES = {r: n[:-1] + os.environ.get("TRAM_LETTER", n[-1]) for r, n in ts.NAMES.items()}
 FAILS = []
@@ -139,14 +156,14 @@ DRESS = {
 }
 DRESS_FAMILIES = ("label_", "board_", "ext_", "hosereel_", "tool_", "skirack_", "ski_", "chev_", "stripe_",
                   "hook_", "gauge_", "tickframe_")
-# fine-detail step 3c: the dressing parts that leave the mesh as dressing-kit rows (tram_station.fd_kit_specs; the
-# base's A-frame rack goes too) and the lamp that becomes a vanilla row
+# fine-detail step 3c: the dressing parts that leave the mesh as dressing-kit rows (tram_station.fd_kit_specs, the base's
+# A-frame rack goes too) and the lamp that becomes a vanilla row
 FD_GONE = {"base": {"ext_annex", "ext_annex_brk", "ext_annex_head", "ext_hall", "ext_hall_brk", "ext_hall_head",
                     "hosereel_drive_plate", "hosereel_drive_drum", "hosereel_drive_fl0", "hosereel_drive_fl1"},
            "top": {"ext_hut", "ext_hut_brk", "ext_hut_head", "hosereel_hut_plate", "hosereel_hut_drum",
                    "hosereel_hut_fl0", "hosereel_hut_fl1", "tool_hut_scraper", "tool_hut_shovel"}}
 FD_ROWS = {"base": (15 + (3 if ts.RAMPS else 0), 4), "top": (13, 3)}   # (vanilla, kit) rows (nitpick B2: + 3 base)
-# nitpick B (tram_station.JH_DETAILS; build/nitpick-b-tram.md): the base's new dressing (DETAIL1: the two boards + labels,
+# nitpick B (tram_station.JH_DETAILS, build/nitpick-b-tram.md): the base's new dressing (DETAIL1: the two boards + labels,
 # the annex ticket-window frames) and its new structural parts (built with DETAIL1 off too)
 NB_DRESS = ({"board_lifttickets", "label_lifttickets", "board_entrance", "label_entrance"}
             | {f"tickframe_a{n}_{s}" for n in (0, 1, 2) for s in "lrh"})
@@ -228,7 +245,7 @@ def _d1_counts(fine):
         # LOD1_DELETE dressing families name dressing parts only (no station part shares the prefix)
         clash = sorted(n for n in names0 if n.startswith(DRESS_FAMILIES))
         check(not clash, f"D1 {role}: dressing LOD families collide with station parts {clash[:6]}")
-        # revision 2: no modeled lamp a vanilla row replaced (L1 / L3 / B2); the rev-2 top parts are built
+        # revision 2: no modeled lamp a vanilla row replaced (L1 / L3 / B2). The rev-2 top parts are built
         gone = sorted(n for n in names if n.startswith(("lamp_post_", "lamp_head_", "lamp_hut", "lamp_ent_"))
                       or re.fullmatch(r"lamp_\d+", n))
         new2 = {"top": {"cwguard_postL", "cwguard_postR", "cwguard_top", "cwguard_mid", "antdish", "antpanel",
@@ -242,11 +259,11 @@ def _d1_counts(fine):
 
 
 def d2_emissive():
-    # revision 2 (design 7 "Emissive"): the top band re-based on the measured revision-2 export (930 lit texels:
-    # the four 0.30 m lamp heads and the hut cube, modeled emissive, are vanilla rows now) -15 % / +25 %; the
-    # base (205,875 after its six pendant and two lantern boxes went) stays inside its detail-pass band
+    # revision 2 (design 7 "Emissive"): the top band is re-based on the measured revision-2 export (930 lit texels: the
+    # four 0.30 m lamp heads and the hut cube, modeled emissive, are vanilla rows now) -15 % / +25 %. The base (205,875
+    # after its six pendant and two lantern boxes went) stays inside its detail-pass band
     # nitpick B (JH_DETAILS): the base's canopy, boards and frames take atlas (w = 1 25.82 -> 24.81 px/m), so the same
-    # lit faces cover fewer texels (201,041 -> 188,468 measured): the base floor re-based -15 % of the measured (the
+    # lit faces cover fewer texels (201,041 -> 188,468 measured). The base floor is re-based -15 % of the measured (the
     # revision-2 rule for the top band)
     gates = {"base": (160_000 if ts.JH_DETAILS else 200_000, 262_000), "top": (790, 1_163)}
     for role in ("base", "top"):
@@ -361,8 +378,8 @@ FROZEN = {
     # paving reaches x 23.95 (design 27.95)
     "base": ({"bounds_y": (0.0, 25.0), "x": (-20.40, 23.95), "z": (-12.00, 12.00), "lot": [6, 3]} if ts.RAMPS else
              {"bounds_y": (0.0, 25.0), "x": (-16.40, 20.00), "z": (-12.00, 12.00), "lot": [5, 3]}),
-    # revision 2 (ruling Q3): the top bound shrinks 27.00 -> MAST_TOP 20.70 (the 8 m mast dropped); x / z unchanged
-    # revision 3 (PLINTH_TOP): the plinth reaches -12.00 (bounds min y, the prefab delta); x / z / top unchanged
+    # revision 2 (ruling Q3): the top bound shrinks 27.00 -> MAST_TOP 20.70 (the 8 m mast dropped). x / z unchanged
+    # revision 3 (PLINTH_TOP): the plinth reaches -12.00 (bounds min y, the prefab delta). x / z / top unchanged
     "top": {"bounds_y": (-ts.PLINTH["depth"] if ts.PLINTH_TOP else 0.0, ts.MAST_TOP), "x": (-11.80, 11.80),
             "z": (-12.00, 11.60), "lot": [3, 3]},
 }
@@ -459,12 +476,13 @@ def d7_d8_d9_access_subobjects():
 
 
 FLOORS = {   # skeptic MC11: -5 % of the detail-pass build's measured values (report section 5)
-    # revision 2 (design 8 D10: re-based -5 % from the measured revision-2 export for the classes it moves):
-    # base w1 25.73, bwrim / bwdrim 25.7 (the 4.0 m drive wheel and its deflection sheaves, weight 1.0); top w1
-    # 20.76, gate 20.8 (2.2 m leaves, perforation relief: no bay sharing), the wheels 20.8 (bull / lane / foot)
-    # nitpick B2 (RAMPS; build/nitpick-b2-tram-ramps.md): the ramp, its landings, rails and the paving cost the capped
-    # 4096 atlas 5.4 % of w = 1 (24.81 -> 23.48 px/m): the base floors re-based -5 % of the measured RAMPS export (the
-    # revision-2 rule), the ramp's own classes floored too; every visible class still >= 14 (the starving check)
+    # revision 2 (design 8 D10: re-based -5 % from the measured revision-2 export for the classes it moves): base w1
+    # 25.73, bwrim / bwdrim 25.7 (the 4.0 m drive wheel and its deflection sheaves, weight 1.0). Top w1 20.76, gate 20.8
+    # (2.2 m leaves, perforation relief: no bay sharing), the wheels 20.8 (bull / lane / foot)
+    # nitpick B2 (RAMPS, build/nitpick-b2-tram-ramps.md): the ramp, its landings, rails and the paving cost the capped
+    # 4096 atlas 5.4 % of w = 1 (24.81 -> 23.48 px/m). The base floors are re-based -5 % of the measured RAMPS export (the
+    # revision-2 rule), and the ramp's own classes are floored too. Every visible class is still >= 14 (the starving
+    # check)
     "base": ({"w1": 22.3, "classes": {"deck": 17.9, "purlin": 15.6, "trackrail": 13.4, "outrigger": 17.9,
                                       "girderroof": 13.4, "glazepanel": 13.4, "bwrim": 22.3, "bwdrim": 22.3,
                                       "ramp": 13.9, "landing": 17.4, "plaza": 13.5}} if ts.RAMPS else
@@ -716,9 +734,9 @@ def f4_shipped_fine():
         mods = [o for o in blk.get("objects", []) if o.get("kind") == "mod"]
         nv, nk = FD_ROWS[role]
         kr = fd.get("kit_rows") or []
-        # T14 x-sign N (2026-10-16), DECISIONS 245 / T53: the shipped manifests still carry the pre-T14 frame string
-        # ("gx NOT negated") until the next export regenerates them: only that conjunct is SKIPPED (loud); once the
-        # export lands the string must equal LD.STATION_X_CONVENTION again, and any other text still fails.
+        # T14 x-sign N (2026-10-16), DECISIONS 245 / T53: the shipped manifests still carry the pre-T14 frame string ("gx
+        # NOT negated") until the next export regenerates them: only that conjunct is SKIPPED (loud). Once the export
+        # lands the string must equal LD.STATION_X_CONVENTION again, and any other text still fails.
         xc = fd.get("x_convention")
         xc_stale = xc != LD.STATION_X_CONVENTION and "gx NOT negated" in (xc or "")
         if xc_stale:
@@ -748,17 +766,18 @@ def _blockout_jh(role, jh):
 
 
 def nb_checks():
-    """Nitpick B (tram_station.JH_DETAILS; build/nitpick-b-tram.md):
-    NB1 the switch only ADDS: every part of the JH-off base is vertex-identical with the pass on and nothing is removed;
-        the new parts are exactly NB_PARTS + NB_DRESS; the top builds the same geometry either way (no top part reads it);
-    NB2 placement: every V leg stands 0.03 in front of the front wall's X-braces, the shoes under the braces' foot and in
-        front of the front columns (all measured from the brace / column parts),
-        the canopy and its roof sheet in front of the braces and inside the lot / the frozen bounds (z <= 12.00,
-        |x| <= 12.30, under 25.00), the V heads inside the canopy's x span, the chalkboard 0.02 off the grade (out of the
-        +-0.01 engine-base band) and inside the lot, the annex frames / sills / LIFT TICKETS board on the annex's +X face
-        and inside x 20.00;
-    NB3 the shipped base manifest carries the nitpick_b block (LOD0 tris per family = the shipped mesh's parts) and the
-        chalkboard PLACEHOLDER; the top manifest has none."""
+    """Nitpick B (tram_station.JH_DETAILS, build/nitpick-b-tram.md):
+    - NB1 the switch only ADDS: every part of the JH-off base is vertex-identical with the pass on, and nothing is
+      removed. The new parts are exactly NB_PARTS + NB_DRESS. The top builds the same geometry either way (no top part
+      reads it).
+    - NB2 placement: every V leg stands 0.03 in front of the X-braces of the front wall. The shoes stand under the foot of
+      the braces and in front of the front columns (all measured from the brace / column parts). The canopy and its roof
+      sheet stand in front of the braces and inside the lot / the frozen bounds (z <= 12.00, |x| <= 12.30, under 25.00).
+      The V heads are inside the x span of the canopy. The chalkboard is 0.02 off the grade (out of the +-0.01 engine-base
+      band) and inside the lot. The annex frames / sills / LIFT TICKETS board are on the +X face of the annex and inside x
+      20.00.
+    - NB3 the shipped base manifest carries the nitpick_b block (LOD0 tris per family = the parts of the shipped mesh) and
+      the chalkboard PLACEHOLDER. The top manifest has none."""
     tri0, n0 = _blockout_jh("base", False)
     tri1, n1 = _blockout_jh("base", True)
     a, b = {}, {}
@@ -781,7 +800,7 @@ def nb_checks():
         t1_, m1 = _blockout_jh(role, True)
         check(m0 == m1 and np.array_equal(np.round(t0_, 6), np.round(t1_, 6)),
               f"NB1 {role}: the same {len(m0)} triangles with JH_DETAILS on and off")
-    # nitpick B2: the blockout is in the PREFAB frame (the RAMPS base x - 4.00); NB2 measures in the design frame
+    # nitpick B2: the blockout is in the PREFAB frame (the RAMPS base x - 4.00). NB2 measures in the design frame
     dx = ts.frame_dx("base")
     P = {n: np.array(v).reshape(-1, 3) - np.array([dx, 0.0, 0.0]) for n, v in b.items()}
     check(not any(n.startswith("timberfin_") for n in P), "T71: the floating timber corner fins are gone from the base")
@@ -845,11 +864,15 @@ def _files(folder, name):
 
 
 def fbx_equiv(pa, pb, tol=1e-6):
-    """(equal, note) of two FBX exports from DIFFERENT processes: every element identical except (a) the tangent /
-    binormal arrays, ulp noise <= tol (the mikktspace pass, test_tram_station_determinism.fbx_equal_except_tspace),
-    (b) the object UIDs (int64 props: Blender's exporter derives them from Python's per-process randomized str hash),
-    which must map one-to-one, and (c) CreationTime / FileId. Measured R1: the zlib-compressed tangent arrays make
-    the files' bytes and lengths differ while everything else is equal."""
+    """(equal, note) of two FBX exports from DIFFERENT processes. Every element must be identical except these:
+    - (a) the tangent / binormal arrays, ulp noise <= tol (the mikktspace pass,
+      test_tram_station_determinism.fbx_equal_except_tspace)
+    - (b) the object UIDs (int64 props: Blender's exporter derives them from Python's per-process randomized str hash),
+      which must map one-to-one
+    - (c) CreationTime / FileId
+
+    Measured R1: the zlib-compressed tangent arrays make the files' bytes and lengths differ while everything else is
+    equal."""
     import io_scene_fbx.parse_fbx as pf
 
     def flat(el, path, out):
@@ -900,8 +923,8 @@ def _fbx_same_but_uid(pa, pb):
 
 
 # HEAD 883d134 itself is not run-to-run deterministic here (R1, 2026-10-18): two HEAD exports of the top differ in the
-# VERTEX ORDER of the decimated LOD2 (77 of 924 coordinates moved, same counts, same coordinate sum); compared as a
-# vertex multiset + polygon count instead
+# VERTEX ORDER of the decimated LOD2 (77 of 924 coordinates moved, same counts, same coordinate sum). The test compares
+# them as a vertex multiset + polygon count instead
 T1_VERTEX_ORDER = ("SkiTramTopStationA_LOD2.fbx",)
 
 
@@ -1002,8 +1025,8 @@ def t_tiled():
             for k_, d in by.items():
                 if k_ not in tiles:
                     continue
-                # plan 6.2 T7: >= 100 px/m per class (strips: across); box projection on an oblique face reads
-                # cos(angle) of the swatch (6-sided posts 186 of 200), so the gate is the class p10, the min reported
+                # plan 6.2 T7: >= 100 px/m per class (strips: across). Box projection on an oblique face reads cos(angle)
+                # of the swatch (6-sided posts 186 of 200), so the gate is the class p10, the min reported
                 v = d["strip"]["across_p50"] if d.get("strip") else d["p10"]
                 if v < 100.0:
                     low[f"{c}/{k_}"] = (d["min"], d["p10"], tiles[k_]["ppm"])
@@ -1096,11 +1119,13 @@ def t_tiled():
         print("[detail-tram] note T13: TRAM_FLAGOFF_DIR unset: contracts not compared with a flag-off export")
 
 
-# T13: the fields the tiled build changes BY DESIGN (R1 measured, build note section 9): the atlas rule (the unique bake
-# is the far set: chosen 2048 / 1024, shipped median = the sheet), the LOD switch table (LOD0 tris), the per-family
-# LOD0 tris of the nitpick blocks (tile cuts), the C13 label deviations (upright on the sheet: <= 0.02 holds), and on the
-# base C15's not-walkable REPORT entry ctcornice (the 6-sided track ropes alone drop it: measured flag off + ropes 6;
-# C15 passes either way)
+# T13: the fields the tiled build changes BY DESIGN (R1 measured, build note section 9):
+# - the atlas rule (the unique bake is the far set: chosen 2048 / 1024, shipped median = the sheet)
+# - the LOD switch table (LOD0 tris)
+# - the per-family LOD0 tris of the nitpick blocks (tile cuts)
+# - the C13 label deviations (upright on the sheet: <= 0.02 holds)
+# - on the base, the not-walkable REPORT entry ctcornice of C15 (the 6-sided track ropes alone drop it: measured flag off
+#   + ropes 6, and C15 passes either way)
 T13_BY_DESIGN = {"prefab_contract": ("atlas_rule", "lod_switch_m"), "nitpick_b2": ("added_tris_lod0", "added_tris_lod0_total"),
                  "nitpick_b3": ("tris_lod0", "tris_lod0_total")}
 

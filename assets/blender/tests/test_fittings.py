@@ -4,39 +4,34 @@ test_fittings - fittings v1 contracts (docs/research/art/fittings-2026-10-17.md)
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_fittings.py
 
 Asserts:
-  1. downspout() outside cs2_bldg.fittings() is the pre-fittings pipe vertex for vertex (no shoe, nothing
-     registered); inside it the pipe loses its bottom face and gains the 10-tri shoe (+8), the outlet is
-     registered in FIT_SHOES, kicks out along `normal` (or `shoe_dir`), and shoe=False builds no shoe; the
-     context restores the off state;
-  2. snow_guard() brackets inside fittings(): the top face is dropped and the whole bracket stays inside the
-     rail's inscribed circle at its top (nothing that was visible is removed); 8 tris per bracket (was 10);
-  3. snow_pads(): 6 tris per pad, staggered rows, every pad on the slab top (its foot within 6 mm of the
-     roof's top plane); chimney_shroud(): 48 tris, above the crown;
-  4. cs2_fittings.design_row: the facing quaternion matches the shipped rows after rule T (school wingL lamp
-     on a -y wall = identity; L3 Bn lamp on a +x wall = game (0, -0.7071, 0, 0.7071)); FINAL <-> authoring
-     round-trips for yaw 0 / 180.
-  5. close look (2026-10-17, the GATE): cs2_fittings.audit on hand-built scenes flags a floating pipe (10 cm off
-     its wall), a gutter 3 cm into a wall (not a declared embed), a gutter 20 mm into its fascia (over the 15 mm
-     cap), a chimney with air under a corner of its base, and a 4 m pipe with nothing holding it; it passes a
-     gutter seated 2 mm into its fascia and a chimney buried in its roof; the gutter profiles cost what the doc
-     says (half-round 20, K-style 22, chamfer 14 tris a run before the cull);
-  6. close look on a real building: P2 built with fittings v1 in RAISE mode passes the audit, its gutter is
-     refit onto its fascia (back rim 2 mm in), its leader / pipe routed with a seated shoe, and the stovepipe
-     cap stands on its collar.
-  7. STRUCTURE (T58, 2026-10-18, docs/research/art/structure-2026-10-18.md, the gate): cs2_fittings.audit_structure
-     on hand-built scenes flags a post standing 30 cm over grade, a post whose top carries nothing, a beam 3 cm short
-     of its wall, a kit bracket with structure off (its members start 2 cm off the wall) and a bracket with nothing
-     on its top (or 6 cm off its wall); it passes a post on grade under a beam into a wall and the kit bracket with
-     structure v1 (its arm 1 cm into the wall, 2 cm off it without); struct_role reads the declared
-     names (P2 log newels = rail posts, flagpanel_ skipped); the snap pass (structure_fix) closes a 10 mm beam gap
-     and a 5 cm post-foot gap and the audit is then clean;
-  8. structure on real buildings: P2 and L2 built with --structure v1 in RAISE mode (both audits clean; L2's
-     abutment, deep step blocks and footings present, its bridge / wing posts gone; round 2: the glass gate clean).
-  9. NOTHING CROSSES GLASS (structure v1 round 2, 2026-10-18, the gate): cs2_fittings.audit_glass on hand-built
-     scenes flags a kit bracket (straight or curved) over a pane, a beam through the window head and a post against
-     the glass, and raises in RAISE mode; it passes the bracket on the solid wall beside the window, an outrigger
-     pocketed over the head, a free-standing post 1.4 m out and a guard rail.
-Exit 1 on the first failure; one PASS line otherwise.
+1. downspout() outside cs2_bldg.fittings() is the pre-fittings pipe vertex for vertex (no shoe, nothing registered). Inside
+   it the pipe loses its bottom face and gains the 10-tri shoe (+8). The outlet is registered in FIT_SHOES and kicks out
+   along `normal` (or `shoe_dir`). shoe=False builds no shoe. The context restores the off state.
+2. snow_guard() brackets inside fittings(): the top face is dropped and the whole bracket stays inside the rail's inscribed
+   circle at its top (nothing that was visible is removed). 8 tris per bracket (was 10).
+3. snow_pads(): 6 tris per pad, staggered rows, every pad on the slab top (its foot within 6 mm of the roof's top plane).
+   chimney_shroud(): 48 tris, above the crown.
+4. cs2_fittings.design_row: the facing quaternion matches the shipped rows after rule T (school wingL lamp on a -y wall =
+   identity, L3 Bn lamp on a +x wall = game (0, -0.7071, 0, 0.7071)). FINAL <-> authoring round-trips for yaw 0 / 180.
+5. close look (2026-10-17, the GATE): cs2_fittings.audit on hand-built scenes flags a floating pipe (10 cm off its wall), a
+   gutter 3 cm into a wall (not a declared embed), a gutter 20 mm into its fascia (over the 15 mm cap), a chimney with air
+   under a corner of its base, and a 4 m pipe with nothing holding it. It passes a gutter seated 2 mm into its fascia and a
+   chimney buried in its roof. The gutter profiles cost what the doc says (half-round 20, K-style 22, chamfer 14 tris a run
+   before the cull).
+6. close look on a real building: P2 built with fittings v1 in RAISE mode passes the audit. Its gutter is refit onto its
+   fascia (back rim 2 mm in), its leader / pipe routed with a seated shoe, and the stovepipe cap stands on its collar.
+7. STRUCTURE (T58, 2026-10-18, docs/research/art/structure-2026-10-18.md, the gate): cs2_fittings.audit_structure on
+   hand-built scenes flags a post standing 30 cm over grade, a post whose top carries nothing, a beam 3 cm short of its wall,
+   a kit bracket with structure off (its members start 2 cm off the wall) and a bracket with nothing on its top (or 6 cm off
+   its wall). It passes a post on grade under a beam into a wall and the kit bracket with structure v1 (its arm 1 cm into the
+   wall, 2 cm off it without). struct_role reads the declared names (P2 log newels = rail posts, flagpanel_ skipped). The
+   snap pass (structure_fix) closes a 10 mm beam gap and a 5 cm post-foot gap, and the audit is then clean.
+8. structure on real buildings: P2 and L2 built with --structure v1 in RAISE mode (both audits clean. L2's abutment, deep
+   step blocks and footings present, its bridge / wing posts gone. Round 2: the glass gate clean).
+9. NOTHING CROSSES GLASS (structure v1 round 2, 2026-10-18, the gate): cs2_fittings.audit_glass on hand-built scenes flags a
+   kit bracket (straight or curved) over a pane, a beam through the window head and a post against the glass, and raises in
+   RAISE mode. It passes the bracket on the solid wall beside the window, an outrigger pocketed over the head, a
+   free-standing post 1.4 m out and a guard rail. Exit 1 on the first failure. One PASS line otherwise.
 """
 
 import math
@@ -116,7 +111,7 @@ def check_brackets_and_pads():
     nb = len(b_on.data.polygons) // 4
     assert len(b_off.data.polygons) == 5 * nb and len(b_on.data.polygons) == 4 * nb, \
         (len(b_off.data.polygons), len(b_on.data.polygons))
-    # rail axis and radius (6-seg r 0.02: inscribed 0.0173); every bracket vertex at its top must sit inside it
+    # rail axis and radius (6-seg r 0.02: inscribed 0.0173). Every bracket vertex at its top must sit inside it
     rv = [v.co for v in rail.data.vertices]
     n, up, along = K.roof_frame(spec, "+X")
     c0 = sum(rv, Vector()) / len(rv)
@@ -153,7 +148,7 @@ class _R:
 
 
 def check_rows():
-    # school wingL lamp: FINAL wall facing -y -> identity; game row after rule T stays identity
+    # school wingL lamp: FINAL wall facing -y -> identity. Game row after rule T stays identity
     r = FIT.design_row("WallLightShortRangeRandom01", "x" * 32, (-3.5, -16.0, 3.02), (0.0, -1.0))
     assert r[3] == (0.0, 0.0, 0.0, 1.0) and FD.rule_t_pos(r[2]) == (3.5, 3.02, 16.0), r
     # L3 Bn lamp: FINAL wall facing +x -> game q (0, -0.7071068, 0, 0.7071068) (the shipped row)
@@ -194,7 +189,7 @@ def check_audit_gate():
     base = wall + fascia
     v, _a = _violations(base + _box("downspout_b", (-0.083, 1.0, 1.0), (-0.003, 1.08, 1.6)))
     assert not v, v
-    # a gutter seated 2 mm into its fascia passes; 20 mm (over the 15 mm cap) and 3 cm into a WALL fail
+    # a gutter seated 2 mm into its fascia passes. 20 mm (over the 15 mm cap) and 3 cm into a WALL fail
     v, _a = _violations(base + _box("gutter_c", (-0.25, 0.2, 2.62), (-0.118, 3.8, 2.72)))
     assert not v, v
     v, _a = _violations(base + _box("gutter_d", (-0.25, 0.2, 2.62), (-0.10, 3.8, 2.72)))
@@ -208,7 +203,7 @@ def check_audit_gate():
     v, _a = _violations(wall + _box("downspout_f", (-0.12, 1.0, 0.02), (-0.04, 1.08, 4.4))
                         + _box("fascia_t", (-0.15, 0.9, 4.4), (0.0, 1.2, 4.6)))
     assert any(r == "pipe" for r, _nm, _v, _d in v), v
-    # chimneys: buried in a roof slab passes; standing on the slab with air under its downhill corners fails
+    # chimneys: buried in a roof slab passes. Standing on the slab with air under its downhill corners fails
     clear()
     spec = K.RoofSpec("gable", 0.0, 6.0, 0.0, 6.0, 3.0, 30.0, axis="Y", overhang=0.3, thick=0.24, mat="slate")
     roof = K.gable_roof("t", spec, fascia=0, rake=0.0, ridge_cap=None, walls=True)
@@ -231,9 +226,9 @@ def check_audit_gate():
 
 def check_p2_build():
     """P2 (gutter, leader pipe, shoe, stove vent) through lodge.run with fittings v1 and the audit in RAISE mode. Since
-    DECISIONS 320 (T101 r3) the stovepipe under fittings v1 is the vanilla ACVentRoof03 row, seated by the roof gate: the
-    check asserts no modeled stovepipe is left and the row's base has no air (the stovepipe builder itself, cap on its
-    collar, stays covered by test_t87_t91_fixtures)."""
+    DECISIONS 320 (T101 r3) the stovepipe under fittings v1 is the vanilla ACVentRoof03 row, seated by the roof gate. The
+    check asserts no modeled stovepipe is left and the row's base has no air. The stovepipe builder itself (cap on its
+    collar) stays covered by test_t87_t91_fixtures."""
     import lodge
     import tempfile
     FIT.AUDIT_MODE = "raise"
@@ -265,7 +260,7 @@ def _sviol(parts, key="T"):
 
 
 def check_structure_gate():
-    """T58 gate on hand-built scenes (engine grade z 0, GROUND_LIFT 0.02; authoring = FINAL at yaw 90)."""
+    """T58 gate on hand-built scenes (engine grade z 0, GROUND_LIFT 0.02, authoring = FINAL at yaw 90)."""
     mode = FIT.STRUCT_AUDIT_MODE
     FIT.STRUCT_AUDIT_MODE = "report"
     try:
@@ -331,7 +326,7 @@ def check_structure_gate():
         assert FIT.struct_role("gutter_a") is None and FIT.struct_role("balcpost_x") == "post"
         assert FIT.struct_role("bell_school", "school") == "hung" and FIT.struct_role("bell_alarm", "school") is None
         assert FIT.struct_role("bell_beam", "school") == "member"
-        # T69: a bell that touches something (its stand) but ends 15 cm under its beam fails 'top'; with its hanger it passes
+        # T69: a bell that touches something (its stand) but ends 15 cm under its beam fails 'top'. With its hanger it passes
         def bell_scene(hanger):
             clear()
             parts = (_box("wall_a", (-1.7, -1.0, 0.0), (-1.5, 1.0, 3.5)) + _box("wall_b", (1.5, -1.0, 0.0), (1.7, 1.0, 3.5))
@@ -378,13 +373,13 @@ def check_glass_gate():
         assert [v for v in a["violations"] if v[0].startswith("bracket_over") and v[1] == "win_t_g"], a
         # the same bracket on the solid wall beside the window: passes
         assert not scene(lambda: kb("pier", 3.2))["violations"]
-        # a curved (mitred) bracket over the glass: fails too
+        # a curved (mitered) bracket over the glass: fails too
         with K.structure(version=1):
             cb = K.bracket("arc", (0.0, 2.0, 2.3), "-X", span=0.8, drop=1.0, t=0.12, curved=True)
         a = FIT.audit_glass(_R(90.0, "T"), [(o, m) for o, m in cb] + _box("wall_h", (0.0, 5.0, 0.0), (0.3, 6.0, 3.0))
                             + K.pane_quad("win_t_h", K.WallRef("-X", 0.0), -2.5, -1.5, 0.8, 2.0))
         assert [v for v in a["violations"] if v[0].startswith("bracket_arc")], a
-        # an outrigger pocketed into the wall over the window head (z 2.1..2.4): passes; 30 cm lower it crosses
+        # an outrigger pocketed into the wall over the window head (z 2.1..2.4): passes. 30 cm lower it crosses
         assert not scene(lambda: _box("beam_ok", (-1.4, 1.9, 2.1), (0.10, 2.1, 2.4)))["violations"]
         a = scene(lambda: _box("beam_low", (-1.4, 1.9, 1.8), (0.10, 2.1, 2.1)))
         assert [v for v in a["violations"] if v[0].startswith("beam_low")], a

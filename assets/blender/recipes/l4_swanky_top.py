@@ -1,71 +1,72 @@
 """
-recipes/l4_swanky_top.py - L4 "swanky top" summit lodge (lux-top): glass-and-stone restaurant
-stepping DOWN the slope on a stone plinth, no flatten, no engine base.
+recipes/l4_swanky_top.py - L4 "swanky top" summit lodge (lux-top): glass-and-stone restaurant stepping DOWN the slope on a
+stone plinth, no flatten, no engine base.
 
-Contract: docs/research/art/assets-2026-10/design/lodges-swanky.md section 4 (L4) with
-design/lodges-swanky-skeptic.md applied: MUST-CHANGE 2 (supported fall 17-30 %, C5 tests the
-dining floor and the terrace deck at their UPHILL end X +2 at every supported slope and the
-forecourt skirt at 30 %), 3 (plinth walls on Y 0 and X +2 down to the plinth bottom, a
-balustrade on the terrace's Y 0 edge, stair S re-routed forecourt -> terrace with walkways
-and a skirt; "plinth outline closed" and "stair ends on walkable surfaces" asserted), 4 (C4
-T centroid corrected), 9 (kit API), 11 (no default bounds clamp: prefab side). R21 / R25 as
-L5. Build report: docs/research/art/assets-2026-10/build/lodges-swanky.md.
+Contract: docs/research/art/assets-2026-10/design/lodges-swanky.md section 4 (L4) with design/lodges-swanky-skeptic.md
+applied. The applied MUST-CHANGE items:
+- 2 (supported fall 17-30 %): C5 tests the dining floor and the terrace deck at their UPHILL end X +2 at every supported
+  slope, and the forecourt skirt at 30 %.
+- 3: plinth walls on Y 0 and X +2 down to the plinth bottom, a balustrade on the terrace's Y 0 edge, and stair S re-routed
+  forecourt -> terrace with walkways and a skirt. "plinth outline closed" and "stair ends on walkable surfaces" are asserted.
+- 4 (C4 T centroid corrected).
+- 9 (kit API).
+- 11 (no default bounds clamp: prefab side). R21 / R25 as L5. Build report:
+  docs/research/art/assets-2026-10/build/lodges-swanky.md.
 
-REVISION 1 (2026-10-12, verdicts-2026-10-11.md "Eighteenth look": L4 "needs the in-game assets
-pass that the others have gotten"; "make the DECK EXTEND OUT OVER THE EDGE via supports similar
-to the indoor part"; "indoor part needs a DOOR to the outdoor part"; "roof GUTTER goes through the
-door entrance on the front"; "does it look real" detail): (a) every modeled umbrella / stand /
-table disc / post lantern / planter / entry lantern is a vanilla sub-object now (L4_ROWS ->
-manifest `sub_objects`; GUIDs = recipes/l5_swanky_bottom.VANILLA, verified against the dump by
-tests/test_lodges_swanky.py; parasols / loungers ForbidSnow, accepted), deck chairs on the
-cantilever face the view; (b) the terrace deck runs out to T_X0 -19.6 as a 5.3 m CANTILEVER past
-the plinth face (W1 moved in to T_WALL -14.0, in line with the dining room's west end) on the
-dining room's support family: glulam joists, glulam struts down onto the W1 buttress piers, a
-metal fascia, the concrete curb + glass balustrade continued round the new edge; the cantilever
-undersides (deck AND dining room) are protected soffit quads (`soffit_cant*` in ground_prefixes:
-plinth-mode cull_hidden deletes every down-facing face below grade, so the dining room's
-underside had shipped see-through); (c) a French door from the glass dining room onto the deck
-(SW.terrace_door in a REAL recessed opening of the glass wall's bay x -6.9..-4.8 between two
-glulam posts, clear 1.80 x 2.30, threshold flush with the deck); (d) the entry porch tucked UNDER
-the main eave (PORCH_UNDER_EAVE: 30 deg, eave 3.0, ridge cap 0.17 m under the main gutter, which
-now runs continuous over it), porch gutters with downspouts on the wall beside the entry, the F1
-window behind the porch roof dropped; contract E1 (no gutter / downspout meets the
-entrance portal or any door's clear box; PORCH_UNDER_EAVE False = revision 0, which fails it).
-Build report section "Revision 1 (vanilla pass, cantilevered deck, terrace door, gutter)".
+REVISION 1 (2026-10-12, verdicts-2026-10-11.md "Eighteenth look": L4 "needs the in-game assets pass that the others have
+gotten", "make the DECK EXTEND OUT OVER THE EDGE via supports similar to the indoor part", "indoor part needs a DOOR to the
+outdoor part", "roof GUTTER goes through the door entrance on the front", "does it look real" detail):
+- (a) Every modeled umbrella / stand / table disc / post lantern / planter / entry lantern is a vanilla sub-object now
+  (L4_ROWS -> manifest `sub_objects`, GUIDs = recipes/l5_swanky_bottom.VANILLA, verified against the dump by
+  tests/test_lodges_swanky.py, parasols / loungers ForbidSnow, accepted). Deck chairs on the cantilever face the view.
+- (b) The terrace deck runs out to T_X0 -19.6 as a 5.3 m CANTILEVER past the plinth face (W1 moved in to T_WALL -14.0, in
+  line with the dining room's west end). It sits on the dining room's support family: glulam joists, glulam struts down onto
+  the W1 buttress piers, a metal fascia, and the concrete curb + glass balustrade continued around the new edge. The
+  cantilever undersides (deck AND dining room) are protected soffit quads (`soffit_cant*` in ground_prefixes). Plinth-mode
+  cull_hidden deletes every down-facing face below grade, so the dining room's underside had shipped see-through.
+- (c) A French door from the glass dining room onto the deck (SW.terrace_door in a REAL recessed opening of the glass wall's
+  bay x -6.9..-4.8 between two glulam posts, clear 1.80 x 2.30, threshold flush with the deck).
+- (d) The entry porch is tucked UNDER the main eave (PORCH_UNDER_EAVE: 30 deg, eave 3.0, ridge cap 0.17 m under the main
+  gutter, which now runs continuous over it). Porch gutters with downspouts sit on the wall beside the entry. The F1 window
+  behind the porch roof is dropped. Contract E1: no gutter / downspout meets the entrance portal or any door's clear box
+  (PORCH_UNDER_EAVE False = revision 0, which fails it). Build report section "Revision 1 (vanilla pass, cantilevered deck,
+  terrace door, gutter)".
 
-FINE-DETAIL PASS, step 3e (2026-10-12, verdicts-2026-10-11.md "Twenty-third look": "L5 and L4 look
-good, run the engine pass on them too!"; design/fine-detail-pass.md A.2 / B / C as cut by -skeptic.md;
-build report docs/research/art/assets-2026-10/build/fine-detail-step3e-swanky.md): RECIPE is a
-fine_detail.FineRecipe (fine_detail=True, NO sign set); `lodge.py --no-fine` rebuilds the approved
-revision 1 (byte-identical, proven in the build report). What the pass found on L4: no modeled ski
-rack (nothing for the dressing kit); every lantern already a vanilla row since revision 1 (the entry's
-two WallLightShortRangeRandom01 on the U front wall, the post lanterns LightpoleParkRandom01); the
-forecourt board is a fork-and-knife PICTOGRAM, no lettering (design C.1: pictogram boards stay in the
-host atlas, so no sign set and the shared sheet is untouched). Fine geometry (design B.1): the four
-flue pots 12-seg (were 8). Kept as built: the kit handrail posts / rails (cs2_kit 6-gons like every
-station's: an 8-gon would put post flats in the rails' planes, kit need K21), the glass balustrade's
-box posts and the glulam columns (boxes stay boxes, B.1), the 12 deck LED pucks (PLACEHOLDER).
+FINE-DETAIL PASS, step 3e (2026-10-12, verdicts-2026-10-11.md "Twenty-third look": "L5 and L4 look good, run the engine pass
+on them too!", design/fine-detail-pass.md A.2 / B / C as cut by -skeptic.md, build report
+docs/research/art/assets-2026-10/build/fine-detail-step3e-swanky.md): RECIPE is a fine_detail.FineRecipe (fine_detail=True,
+NO sign set). `lodge.py --no-fine` rebuilds the approved revision 1 (byte-identical, proven in the build report). What the
+pass found on L4:
+- No modeled ski rack (nothing for the dressing kit).
+- Every lantern is already a vanilla row since revision 1 (the entry's two WallLightShortRangeRandom01 on the U front wall,
+  the post lanterns LightpoleParkRandom01).
+- The forecourt board is a fork-and-knife PICTOGRAM, no lettering (design C.1: pictogram boards stay in the host atlas, so no
+  sign set and the shared sheet is untouched). Fine geometry (design B.1): the four flue pots are 12-seg (were 8). Kept as
+  built: the kit handrail posts / rails (cs2_kit 6-gons like every station's: an 8-gon would put post flats in the rails'
+  planes, kit need K21), the glass balustrade's box posts and the glulam columns (boxes stay boxes, B.1), the 12 deck LED
+  pucks (PLACEHOLDER).
 
-NITPICK C (2026-10-13; twenty-fifth look: "the roof of the lower part is a different style, but we can say
-it's lore ... Same issue with the sign outside as the chalet."; build/nitpick-c-lodges.md): the forecourt board's
-fork-and-knife becomes a BLANK board (NC_LABELS: sign cream, a thin graphite trim rim; fine_detail.blank_board),
-listed in the manifest's `we_boards` block for an optional Write Everywhere layout; `--no-fine` keeps the
-pictogram (PICTO_LABELS, legacy). The roof: lore, unchanged. Geometry unchanged: only the label rect repaints.
+NITPICK C (2026-10-13, twenty-fifth look: "the roof of the lower part is a different style, but we can say it's lore ... Same
+issue with the sign outside as the chalet.", build/nitpick-c-lodges.md): the forecourt board's fork-and-knife becomes a BLANK
+board (NC_LABELS: sign cream, a thin graphite trim rim, fine_detail.blank_board). It is listed in the manifest's `we_boards`
+block for an optional Write Everywhere layout. `--no-fine` keeps the pictogram (PICTO_LABELS, legacy). The roof: lore,
+unchanged. Geometry unchanged: only the label rect repaints.
 
-Frame: +X = arrival (the lot front, game +Z); z 0 = terrain at the lot-front center (RoadSide
-pivot, contract 0.1); the lodge steps down toward -X. Lot 6 x 5 cells -> |Y| <= 24, |X| <= 20.
-Plinth mode (bldg-kit.md section 3): no vertex in |z| <= 0.01 anywhere, min z = Z_PLINTH (-16.00 since T24; was -12.00), no
-engine-base edges (check_base_mode "plinth" on LOD0/1/2 in lodge.py).
+Frame: +X = arrival (the lot front, game +Z). z 0 = terrain at the lot-front center (RoadSide pivot, contract 0.1). The lodge
+steps down toward -X. Lot 6 x 5 cells -> |Y| <= 24, |X| <= 20. Plinth mode (bldg-kit.md section 3): no vertex in |z| <= 0.01
+anywhere, min z = Z_PLINTH (-16.00 since T24, was -12.00), no engine-base edges (check_base_mode "plinth" on LOD0/1/2 in
+lodge.py).
 
-Design terrain t_S(X) = -S (20 - X), S_D = 0.20; supported S in [0.17, 0.30].
+Design terrain t_S(X) = -S (20 - X), S_D = 0.20. Supported S in [0.17, 0.30].
 
-T59 (2026-10-18; Blender review 2026-10-17 item 4: "We seem to have lost the outdoor firepit props, would like
-some ... on the patio of [the summit lodge]. Chairs should surround both. Rearrange the other props as needed."; build note
+T59 (2026-10-18, Blender review 2026-10-17 item 4: "We seem to have lost the outdoor firepit props, would like some ... on
+the patio of [the summit lodge]. Chairs should surround both. Rearrange the other props as needed.", build note
 docs/research/field/2026-10-15/build/T59-T60-chalet-summit.md): T59_FIRE_PIT (False = the pre-T59 rows, L4_ROWS_PRE_T59,
-byte-identical). A vanilla CampgroundFireplace02 (the stone ring, DECISIONS 231; GUID from the harvest map, entry 230)
-on the terrace's north-west quarter over the plinth (FIRE_PIT, a 4 m clear circle 1.0 m inside the north curb), four
-GardenBenchRandom01 round it at FIRE_PIT_R facing it (the west curb bench, unmoved, is the north one), the second table
-row 0.5 m south and the second gas heater to the east side of the middle aisle. Rows only: the mesh is unchanged.
+byte-identical). A vanilla CampgroundFireplace02 (the stone ring, DECISIONS 231, GUID from the harvest map, entry 230) sits
+on the terrace's north-west quarter over the plinth (FIRE_PIT, a 4 m clear circle 1.0 m inside the north curb). Four
+GardenBenchRandom01 stand around it at FIRE_PIT_R facing it (the west curb bench, unmoved, is the north one). The second
+table row moves 0.5 m south, and the second gas heater moves to the east side of the middle aisle. Rows only: the mesh is
+unchanged.
 """
 
 import math
@@ -80,11 +81,11 @@ from bldg_recipes import Budget, Recipe   # noqa: E402
 from fine_detail import FineRecipe, blank_board   # noqa: E402  (bpy-free)
 
 
-# T59 (2026-10-18, module docstring): the fire pit is a STANDALONE vanilla prefab (no placeholder, no variants), so the
-# dump yields its bounds but not its GUID: the GUID is the PrefabsMap harvest's (docs/research/field/2026-10-13/
-# guid-harvest.json, DECISIONS 230 / 231), bounds / tris from "CampgroundFireplace02 Mesh" (cs2_subobj.DumpIndex.derive,
-# 2026-10-18), no WeatherObject (snow None). l5_swanky_bottom.VANILLA (not this lane's file) has no entry for it; _sw()
-# adds this one with setdefault, so an entry the L5 lane adds wins (its GUID must match, else this raises).
+# T59 (2026-10-18, module docstring): the fire pit is a STANDALONE vanilla prefab (no placeholder, no variants), so the dump
+# yields its bounds but not its GUID. The GUID is the PrefabsMap harvest's (docs/research/field/2026-10-13/guid-harvest.json,
+# DECISIONS 230 / 231). Bounds / tris come from "CampgroundFireplace02 Mesh" (cs2_subobj.DumpIndex.derive, 2026-10-18). There
+# is no WeatherObject (snow None). l5_swanky_bottom.VANILLA (not this lane's file) has no entry for it. _sw() adds this one
+# with setdefault, so an entry the L5 lane adds wins (its GUID must match, else this raises).
 FIRE_PIT_VANILLA = {
     "CampgroundFireplace02": dict(
         guid="98c77a4f2885dd541a7a3700edefa21e", variants=(),
@@ -116,13 +117,13 @@ Z_LOUNGE = 3.60                                     # U first floor
 Z_DINING = -2.70                                    # D floor
 Z_DSLAB = -3.10                                     # D slab bottom
 Z_DECK = -2.55                                      # terrace deck top
-# T24 (2026-10-17, playtest item 72: "maybe the foundation could go a tad deeper"): plinth mode draws NO engine
-# skirt (ok_edges 0) and the prefab does not flatten, so the modeled plinth bottom is the only foundation.
-# -12.00 (revision 1 .. fittings close look) is flat on every wall and only 1.7 m under t30 at W1 (-10.3);
-# a cliff steeper than ~35 % leaves the wall bottoms hanging in the air. DEEP_PLINTH False = the old -12.00.
+# T24 (2026-10-17, playtest item 72: "maybe the foundation could go a tad deeper"): plinth mode draws NO engine skirt
+# (ok_edges 0) and the prefab does not flatten, so the modeled plinth bottom is the only foundation. -12.00 (revision 1 ..
+# fittings close look) is flat on every wall and only 1.7 m under t30 at W1 (-10.3). A cliff steeper than ~35 % leaves the
+# wall bottoms hanging in the air. DEEP_PLINTH False = the old -12.00.
 Z_PLINTH_OLD, Z_PLINTH_DEEP = -12.00, -16.00
 DEEP_PLINTH = True
-Z_PLINTH = Z_PLINTH_DEEP if DEEP_PLINTH else Z_PLINTH_OLD   # plinth bottom (C2); was -12.00 before T24
+Z_PLINTH = Z_PLINTH_DEEP if DEEP_PLINTH else Z_PLINTH_OLD   # plinth bottom (C2), was -12.00 before T24
 
 U_X0, U_X1, U_Y0, U_Y1 = 2.0, 14.0, -15.0, 9.0
 U_BOTTOM, U_EAVE, U_RIDGE_X = -6.0, 7.0, 8.0
@@ -154,15 +155,15 @@ EG_Y0, EG_Y1, EG_X1 = -6.0, 1.0, 15.3               # porch wall lines and front
 
 
 def porch():
-    """(eave, pitch deg, roof x0, pier top) of the entry porch for the current PORCH_UNDER_EAVE:
-    revision 1 30 deg / eave 3.0 (ridge cap top 5.35 under the main gutter's 5.52) on knee-high
-    stone bases; revision 0 45 deg / eave 4.2 (ridge 7.7, through the main eave)."""
+    """(eave, pitch deg, roof x0, pier top) of the entry porch for the current PORCH_UNDER_EAVE: revision 1 30 deg / eave 3.0
+    (ridge cap top 5.35 under the main gutter's 5.52) on knee-high stone bases. Revision 0 45 deg / eave 4.2 (ridge 7.7,
+    through the main eave)."""
     if PORCH_UNDER_EAVE:
         return 3.0, 30.0, 13.8, Z_ARRIVAL + 0.80
     return 4.2, 45.0, 12.6, Z_ARRIVAL + 1.60
 
-# revision 1 (c): the dining room's terrace door, in the north glass wall's bay between the glulam
-# posts at x -6.9 / -4.8 (post faces 1.80 m apart = the clear opening; the posts are its jambs)
+# revision 1 (c): the dining room's terrace door, in the north glass wall's bay between the glulam posts at x -6.9 / -4.8
+# (post faces 1.80 m apart = the clear opening, the posts are its jambs)
 DD_X = -5.85
 DD_BAY = (-6.9, -4.8)
 
@@ -184,11 +185,10 @@ ARRIVAL_PREFIXES = ("deck_fc", "entry_u", "roof_ueg", "pier_ueg", "col_ueg")
 
 
 # ======================================================================================
-# Revision 1 (a): vanilla props by reference (DECISIONS 183; eighteenth look "needs
-# the in-game assets pass that the others have gotten"). GUIDs / bounds / snow flags come from
-# recipes/l5_swanky_bottom.VANILLA (one table for both lodges, re-derived from the dump by the
-# test). (prefab, x, y, z, yaw deg, m_ParentMesh, zone), authoring frame (no shift): yaw turns
-# the prop's local +Z to 0 = +X (road), 90 = +Y, 180 = -X (the view), -90 = -Y.
+# Revision 1 (a): vanilla props by reference (DECISIONS 183, eighteenth look "needs the in-game assets pass that the others
+# have gotten"). GUIDs / bounds / snow flags come from recipes/l5_swanky_bottom.VANILLA (one table for both lodges,
+# re-derived from the dump by the test). Row form: (prefab, x, y, z, yaw deg, m_ParentMesh, zone), authoring frame (no
+# shift). yaw turns the prop's local +Z to 0 = +X (road), 90 = +Y, 180 = -X (the view), -90 = -Y.
 # ======================================================================================
 
 _T, _P, _C, _B = "TableSetCommercialRandom01", "ParasolRandom01", "DeckChairRandom01", "GardenBenchRandom01"
@@ -208,8 +208,8 @@ L4_ROWS_PRE_T59 = (
     # benches on the north curb, a bin by the stair walkway, pots in the corners, lamp posts on
     # the west and north edges
     *((_T, x, y, Z_DECK, 90.0, 0, "terrace") for x, y in L4_TABLES),
-    # T26 2026-10-16 dropped the 4 terrace + 2 cantilever parasols (random yellow); restored
-    # 2026-10-17 (vanilla props, random colors accepted)
+    # T26 2026-10-16 dropped the 4 terrace + 2 cantilever parasols (random yellow). The parasols came back 2026-10-17
+    # (vanilla props, random colors accepted)
     *(_parasol(x, y, Z_DECK, 90.0, "terrace") for x, y in L4_TABLES),
     (_H, -9.0, 10.5, Z_DECK, 0.0, 0, "terrace"), (_H, -9.0, 19.5, Z_DECK, 0.0, 0, "terrace"),
     (_B, -11.7, 22.1, Z_DECK, -90.0, 0, "terrace"), (_B, -4.5, 22.1, Z_DECK, -90.0, 0, "terrace"),
@@ -218,28 +218,29 @@ L4_ROWS_PRE_T59 = (
     (_POT, 0.9, 21.9, Z_DECK, 0.0, 0, "terrace"), (_POT, -8.1, 21.9, Z_DECK, 0.0, 0, "terrace"),
     (_L, -18.9, 0.75, Z_DECK, 0.0, 0, "terrace"), (_L, -18.9, 13.1, Z_DECK, 0.0, 0, "terrace"),
     (_L, -18.9, 22.25, Z_DECK, 0.0, 0, "terrace"), (_L, -0.9, 22.25, Z_DECK, -90.0, 0, "terrace"),
-    # --- the cantilever: deck chairs facing the view (-X) in two groups of three, a parasol
-    # behind each group (canopy over the chairs; ForbidSnow, accepted)
+    # --- the cantilever: deck chairs facing the view (-X) in two groups of three, a parasol behind each group (canopy over
+    # the chairs, ForbidSnow, accepted)
     *((_C, -17.4, y, Z_DECK, 180.0, 0, "cantilever") for y in (2.5, 4.3, 6.1, 16.9, 18.7, 20.5)),
     (_P, -15.5, 4.3, Z_DECK, 180.0, 0, "cantilever"), (_P, -15.5, 18.7, Z_DECK, 180.0, 0, "cantilever"),
-    # --- the forecourt: lamp posts at the revision-0 lantern spots, a bench and a bin, pots
-    # either side of the porch; the entry's two wall lanterns -> vanilla short-range wall lights
-    # (H4) on the U front wall beside the door surround
+    # --- the forecourt: lamp posts at the revision-0 lantern spots, a bench and a bin, pots either side of the porch. The
+    # entry's two wall lanterns -> vanilla short-range wall lights (H4) on the U front wall beside the door surround
     (_L, 16.5, -7.5, Z_ARRIVAL, 0.0, 0, "forecourt"), (_L, 16.5, 2.5, Z_ARRIVAL, 0.0, 0, "forecourt"),
     (_B, 18.6, -5.4, Z_ARRIVAL, 0.0, 0, "forecourt"), (_BIN, 18.9, -7.4, Z_ARRIVAL, 0.0, 0, "forecourt"),
     (_POT, 16.4, -5.4, Z_ARRIVAL, 0.0, 0, "forecourt"), (_POT, 16.4, 0.4, Z_ARRIVAL, 0.0, 0, "forecourt"),
     (_WL, U_X1, -5.10, Z_ARRIVAL + 2.2, 0.0, 0, "entry"), (_WL, U_X1, 0.10, Z_ARRIVAL + 2.2, 0.0, 0, "entry"),
 )
 
-# T59 (module docstring): the terrace with a fire pit. FIRE_PIT on the solid terrace (over the plinth, x > T_WALL), a 4 m
-# clear circle (r 2.0: y 17.7..21.7, x -13.7..-9.7) 1.0 m inside the north curb, 0.3 m inside the W1 line and clear of
-# every table set and canopy; four benches round it at FIRE_PIT_R (L5's plaza fire pit spacing, the seat 1.9 m from the
-# center, the ring's edge 0.73) each facing it: N = the old west curb bench (-11.7, 22.1, yaw -90) where it was (the pit
-# is on its axis; the north curb's deck LED pucks at x -13.5 / -9.9 leave a bench there no other x: S2 caught -10.5),
-# S / W / E new. The second table row moves 0.5 m south (y 15 -> 14.5; its
-# parasols follow, 1.37 m behind) so the S bench has 1.0 m behind it; the north gas heater (-9, 19.5, inside the circle)
-# moves to the east side of the middle aisle (-3, 10.5), mirroring the west one about the table pair. Everything else
-# as L4_ROWS_PRE_T59.
+# T59 (module docstring): the terrace with a fire pit. FIRE_PIT is on the solid terrace (over the plinth, x > T_WALL). Its 4
+# m clear circle (r 2.0: y 17.7..21.7, x -13.7..-9.7) lies 1.0 m inside the north curb, 0.3 m inside the W1 line and clear of
+# every table set and canopy. Four benches stand around it at FIRE_PIT_R (L5's plaza fire pit spacing, the seat 1.9 m from
+# the center, the ring's edge 0.73), each facing it:
+# - N = the old west curb bench (-11.7, 22.1, yaw -90) where it was. The pit is on its axis. The north curb's deck LED pucks
+#   at x -13.5 / -9.9 leave a bench there no other x (S2 caught -10.5).
+# - S / W / E are new.
+#
+# The second table row moves 0.5 m south (y 15 -> 14.5, its parasols follow, 1.37 m behind), so the S bench has 1.0 m behind
+# it. The north gas heater (-9, 19.5, inside the circle) moves to the east side of the middle aisle (-3, 10.5), mirroring the
+# west one about the table pair. Everything else as L4_ROWS_PRE_T59.
 T59_FIRE_PIT = True
 FIRE_PIT = (-11.7, 19.7)
 FIRE_PIT_R = 2.4
@@ -289,10 +290,9 @@ PLACEHOLDERS = (
 
 
 def _plinth_wall(SW, tag, a, b, top, outer, bottom=Z_PLINTH, t=W_T, stone="stone_rubble"):
-    """Plinth wall on the center line a -> b (axis-aligned), stone above the design terrain
-    + 0.3, rock (`rock_`) below (contract R: the rock band, split along z = t(X) + 0.3).
-    `outer` = the side ("-X"/"+X"/"-Y"/"+Y") that faces out; the face toward the closed
-    plinth hollow is not built (walls are only contact-culled: it would ship as texels)."""
+    """Plinth wall on the center line a -> b (axis-aligned), stone above the design terrain + 0.3, rock (`rock_`) below
+    (contract R: the rock band, split along z = t(X) + 0.3). `outer` = the side ("-X"/"+X"/"-Y"/"+Y") that faces out. The
+    face toward the closed plinth hollow is not built (walls are only contact-culled: it would ship as texels)."""
     P = []
     (ax, ay), (bx, by) = a, b
     if abs(ay - by) < 1e-9:                      # along X: sloped split, prism in XZ
@@ -344,7 +344,7 @@ def entrance_boxes(dd_door=None):
 
 
 def build_l4(recipe, opts):
-    """Parts of L4 (custom massing). Order is fixed (determinism); every name unique."""
+    """Parts of L4 (custom massing). The order is fixed (determinism). Every name is unique."""
     K = _sw()._kit()
     SW = _sw()
     from cs2_bldg import RoofSpec, WallRef, WinSpec
@@ -397,18 +397,17 @@ def build_l4(recipe, opts):
     # revision 1 (a): the entry's two wall lanterns are vanilla short-range wall lights (L4_ROWS)
     P += K.entry("u", ufront, -2.5, w=2.4, h=2.7, sidelights=2, lamps=0 if PORCH_UNDER_EAVE else 2,
                  z=Z_ARRIVAL, room="uentry", surround_mat=GLU, sidelight_w=0.7)
-    # F1 front (Y -13, -9, -2.5 three lights under the porch gable, +3, +7). Revision 1 (d): the
-    # porch is tucked under the eave and its roof stands in front of the old -2.5 window, so that
-    # one goes (a clerestory above the ridge read as a window cut by the ridge cap); the room
-    # uff0 keeps uf0 / uf4
+    # F1 front (Y -13, -9, -2.5 three lights under the porch gable, +3, +7). Revision 1 (d): the porch is tucked under the
+    # eave and its roof stands in front of the old -2.5 window, so that one goes (a clerestory above the ridge read as a
+    # window cut by the ridge cap). The room uff0 keeps uf0 / uf4
     for j, (y, w, lt) in enumerate(((-13.0, 1.6, 2), (-9.0, 1.6, 2), (-2.5, 2.2, 3), (3.0, 1.6, 2),
                                     (7.0, 1.6, 2))):
         if j == 2 and PORCH_UNDER_EAVE:
             continue
         P += K.window_bay(f"uf{j}", ufront, y - w / 2 - 0.3, y + w / 2 + 0.3,
                           WinSpec(w, 1.4, Z_LOUNGE + 0.85, lights=lt), room=f"uff{j % 2}")
-    # back (terrace side, X +2 face, u = -y): L-1 + GF windows on Y 0..9, F1 windows + the
-    # balcony door; the F1 back south of Y 0 sits over the dining-room roof (blank)
+    # back (terrace side, X +2 face, u = -y): L-1 + GF windows on Y 0..9, F1 windows + the balcony door. The F1 back south of
+    # Y 0 sits over the dining-room roof (blank)
     for j, y in enumerate((3.0, 7.0)):
         P += K.window_bay(f"ul{j}", uback, -y - 1.0, -y + 1.0, WinSpec(1.6, 1.5, Z_DECK + 0.65,
                                                                        lights=2), room="ulow")
@@ -429,7 +428,7 @@ def build_l4(recipe, opts):
                            span=1.5 - 0.15, drop=0.9)
     else:
         P += K.balcony("ub", uback, -8.5, -0.5, Z_LOUNGE, depth=1.5, rail="timber", brackets=True)
-    # ends (Y -15 "-Y" u = x; Y +9 "+Y" u = -x): GF + F1, clear of the exterior chimney
+    # ends (Y -15 "-Y" u = x, Y +9 "+Y" u = -x): GF + F1, clear of the exterior chimney
     for side, plane, tag in (("-Y", U_Y0, "s"), ("+Y", U_Y1, "n")):
         wall = WallRef(side, plane)
         sg = 1.0 if side == "-Y" else -1.0
@@ -443,7 +442,7 @@ def build_l4(recipe, opts):
         P += K.dormer(f"u{k}", uspec, y, w=2.4, h=1.6, room=f"udorm{k % 2}",
                       win=WinSpec(1.3, 1.1, 0.25, lights=2), side=side, setback=1.0,
                       pitch_deg=45.0, wall_mat=SID)
-    # chimneys: exterior on the -Y end (shoulder to 3.6; base below t30), ridge chimney
+    # chimneys: exterior on the -Y end (shoulder to 3.6, base below t30), ridge chimney
     P += K.chimney("u1", 8.0, U_Y0 - 0.8, 2.4, 1.6, 16.5, base_z=-4.6,
                    shoulder=(3.2, 2.0, Z_LOUNGE), mat=STN)
     P += K.chimney("u2", U_RIDGE_X, 4.0, 1.2, 1.8, 15.5,
@@ -451,15 +450,15 @@ def build_l4(recipe, opts):
     for k, (x, y, ztop) in enumerate(((8.0 - 0.5, U_Y0 - 0.8, 16.5), (8.0 + 0.5, U_Y0 - 0.8, 16.5),
                                       (U_RIDGE_X, 4.0 - 0.45, 15.5), (U_RIDGE_X, 4.0 + 0.45, 15.5))):
         if K.FITTINGS.get("version", 0) >= 1:      # T91: black flue liner with a rim and a rain hat, not a white cylinder
-            # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): the pots are vanilla EU_Chimney05 sunk into the stacks
-            # (cs2_fittings ROWS["L4"]["crown"]); no modeled pot
+            # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): the pots are vanilla EU_Chimney05 sunk into the
+            # stacks (cs2_fittings ROWS["L4"]["crown"]). No modeled pot
             continue
         P += K._single(f"flue_u{k}", lambda g, x=x, y=y, z=ztop: g.cyl(
             (x, y, z - 0.02), (x, y, z + 0.5), 0.15, 12 if fine else 8, cap0=False), "plaster")   # 3e: 12-seg
 
     # ---------------- U.eg entry cross gable + porch (to X 15.6) ---------------------------
-    # revision 1 (d): tucked under the main eave (EG_* above): 30 deg, eave 3.0, the main gutter
-    # continuous over it; its own gutters drain to downspouts on the U wall beside the porch
+    # Revision 1 (d): tucked under the main eave (EG_* above): 30 deg, eave 3.0, the main gutter continuous over it. Its own
+    # gutters drain to downspouts on the U wall beside the porch
     eg_y0, eg_y1 = EG_Y0, EG_Y1
     eg_eave, eg_pitch, eg_x0, eg_pier = porch()
     egspec = RoofSpec("gable", eg_x0, EG_X1, eg_y0, eg_y1, eg_eave, eg_pitch, axis="X",
@@ -493,14 +492,13 @@ def build_l4(recipe, opts):
     # X 14 on the 20 % design fall)
     for k, y in enumerate((F_Y0 + 0.12, F_Y1 - 0.12)):
         P += SW.handrail_at(f"fc{k}", [(F_X0 + 0.4, y, Z_ARRIVAL), (F_X1 - 0.3, y, Z_ARRIVAL)])
-    # forecourt sign: stone block + a board facing the road (no words; nitpick C: blank, NC_LABELS)
+    # forecourt sign: stone block + a board facing the road (no words, nitpick C: blank, NC_LABELS)
     P += SW.pier_box("fcsign", (18.5, -13.6, Z_ARRIVAL), (19.1, -11.4, 1.5), STN)
     P += K.sign_board("fc", WallRef("+X", 19.1), -12.5, 0.45, 1.6, 0.85, t=0.06, mat=GLU)
 
     # ---------------- D glass dining room -------------------------------------------------
-    # revision 1 (b): the slab keeps no underside (it was culled anyway: plinth-mode cull_hidden
-    # deletes every down-facing face below grade); the cantilever's underside is the protected
-    # soffit quad `soffit_cantd` (ground_prefixes)
+    # Revision 1 (b): the slab keeps no underside (it was culled anyway: plinth-mode cull_hidden deletes every down-facing
+    # face below grade). The cantilever's underside is the protected soffit quad `soffit_cantd` (ground_prefixes)
     P += K.box_part("deck_dslab", (D_X0, D_Y0, Z_DSLAB), (D_X1, D_Y1, Z_DINING), "concrete",
                     drop=("+Z", "+X", "-Z"))
     K.bisect_part(P[-1][0], [((-9.0, 0, 0), (1, 0, 0))])   # the part over the hollow culls
@@ -523,9 +521,9 @@ def build_l4(recipe, opts):
                          per_row_rooms=True)
     P += SW.curtain_rows("ds", ds, D_X0 + 0.5, D_X1 - 0.5, zrows, ncol=8, room="ds")
     P += SW.curtain_rows("dnc", dn, -(-9.5), -(D_X0 + 0.5), zrows, ncol=2, room="dnc")
-    # revision 1 (c): the deck-side glass wall (5 bays of 2.1 m, x -9.0..1.5) keeps 4 glazed bays;
-    # the bay DD_BAY becomes the terrace door with its transom lights above (`dnf`, the door's
-    # head under the curtain's lowest bar); same room tag dnd, no new _Win room
+    # Revision 1 (c): the deck-side glass wall (5 bays of 2.1 m, x -9.0..1.5) keeps 4 glazed bays. The bay DD_BAY becomes the
+    # terrace door with its transom lights above (`dnf`, the door's head under the curtain's lowest bar). Same room tag dnd,
+    # no new _Win room
     drows = (Z_DECK + 0.05, 0.20, D_EAVE - 0.3)
     P += SW.curtain_rows("dnd", dn, -DD_BAY[0], 9.0, drows, ncol=1, room="dnd")
     P += SW.curtain_rows("dne", dn, -(D_X1 - 0.5), -DD_BAY[1], drows, ncol=3, room="dnd")
@@ -570,7 +568,7 @@ def build_l4(recipe, opts):
             P += K.pane_quad(f"win_dgab_dg{j}", gw, -yb, -ya, D_EAVE + 0.1, top)
     P += K.truss_kingpost("d", WallRef("-X", D_X0, -D_Y1, -D_Y0), 19.4, D_EAVE, D_PITCH,
                           member=0.40, braces="curved", d=0.75, mat=GLU)
-    # cantilever: fascia (slot 3) round the 5 m overhang + 4 glulam struts to the plinth face
+    # cantilever: fascia (slot 3) around the 5 m overhang + 4 glulam struts to the plinth face
     fas = [((D_X0 - 0.10, D_Y0 - 0.10, Z_DSLAB - 0.2), (D_X0, D_Y1 + 0.10, Z_DINING + 0.02), ()),
            ((D_X0, D_Y0 - 0.10, Z_DSLAB - 0.2), (-9.0, D_Y0, Z_DINING + 0.02), ()),
            ((D_X0, D_Y1, Z_DSLAB - 0.2), (-9.0, D_Y1 + 0.10, Z_DINING + 0.02), ())]
@@ -585,8 +583,8 @@ def build_l4(recipe, opts):
     zsl = Z_DECK - 0.16                               # the slab bottom = the plinth walls' top
     P += K.box_part("deck_t", (T_X0, T_Y0, zsl), (T_X1, T_Y1, Z_DECK), "deck", drop=("-Z",))
     P[-1][0]["tile_rot"] = 0                          # boards along X (kit deck board_dir "X")
-    # the concrete curb round the deck edge (the glass balustrade stands on it, 0.10 above the
-    # boards): on the cantilever 0.10 past the edge, on W2 flush with the wall's outer face
+    # the concrete curb around the deck edge (the glass balustrade stands on it, 0.10 above the boards): on the cantilever
+    # 0.10 past the edge, on W2 flush with the wall's outer face
     P += K.boxes_part("plinthcap_t", [
         ((T_X0 - 0.10, T_Y0 - 0.10, zsl), (T_X0 + 0.25, T_Y1 + 0.10, Z_DECK + 0.10), ("-Z",)),
         ((T_X0 + 0.25, T_Y1 - 0.25, zsl), (CANT_FACE, T_Y1 + 0.10, Z_DECK + 0.10), ("-Z",)),
@@ -665,9 +663,8 @@ def build_l4(recipe, opts):
         bt.append(((-9.0 - W_T / 2 - 0.45, y - 0.45, Z_PLINTH), (-9.0 - W_T / 2, y + 0.45, Z_DSLAB),
                    ("+X",)))
     P += K.boxes_part("pier_plinth", bt, STN)
-    # cellar windows on W1 (L-2), centered between the buttress piers (Y 5.75 / 11.5 / 17.25 /
-    # 23): at Y 6 / 12 / 18 the piers covered 70 / 50 / 30 % of them (buildings-review-
-    # geometry F2; check_pane_clearance below)
+    # cellar windows on W1 (L-2), centered between the buttress piers (Y 5.75 / 11.5 / 17.25 / 23): at Y 6 / 12 / 18 the
+    # piers covered 70 / 50 / 30 % of them (buildings-review-geometry F2, check_pane_clearance below)
     for j, y in enumerate((8.625, 14.375, 20.125)):
         P += K.window_bay(f"cel{j}", WallRef("-X", CANT_FACE), -y - 0.9, -y + 0.9,
                           WinSpec(1.2, 1.2, -5.5, lights=1), room="cellar")
@@ -774,11 +771,15 @@ def build_l4(recipe, opts):
 
 
 def check_fire_pit(parts):
-    """T59 contract (raises): the fire pit row stands on the terrace deck over the plinth (x >= T_WALL); a circle of
-    FIRE_PIT_CLEAR_R round it is on the deck (inside T_X0..T_X1 / T_Y0..T_Y1 with >= 0.5 m to the curb line) and no
-    modeled part has a vertex inside its cylinder from the deck to 2.5 m above it; every other terrace row's box stays
-    out of the circle except the four benches, which each sit at FIRE_PIT_R with local +Z at the pit (+-1 deg); the
-    pit is under no parasol canopy. Returns a dict."""
+    """T59 contract (raises):
+    - The fire pit row stands on the terrace deck over the plinth (x >= T_WALL).
+    - A circle of FIRE_PIT_CLEAR_R around it is on the deck (inside T_X0..T_X1 / T_Y0..T_Y1 with >= 0.5 m to the curb line).
+    - No modeled part has a vertex inside its cylinder from the deck to 2.5 m above it.
+    - Every other terrace row's box stays out of the circle, except the four benches. Each bench sits at FIRE_PIT_R with
+      local +Z at the pit (+-1 deg).
+    - The pit is under no parasol canopy.
+
+    Returns a dict."""
     import numpy as np
     SW = _sw()
     fx, fy = FIRE_PIT
@@ -820,13 +821,15 @@ def check_fire_pit(parts):
 
 
 def check_cantilever(parts):
-    """Revision 1 (b) contract R1b "the deck extends out over the edge via supports similar to
-    the indoor part": the deck top is one level from the cantilever tip to the stair walkway
-    (T_X0..T_X1 at Z_DECK) and runs >= CANT_MIN past the plinth face; every joist line carries a
-    glulam joist and a strut whose foot lands on a W1 buttress pier's outer face (within the
-    pier's width, between its bottom and top); the protected soffit spans the cantilever between
-    the fascias; the curb and the glass balustrade follow the new edge (the tip and both
-    cantilevered sides). Raises; returns a dict for the report."""
+    """Revision 1 (b) contract R1b "the deck extends out over the edge via supports similar to the indoor part":
+    - The deck top is one level from the cantilever tip to the stair walkway (T_X0..T_X1 at Z_DECK) and runs >= CANT_MIN past
+      the plinth face.
+    - Every joist line carries a glulam joist and a strut whose foot lands on a W1 buttress pier's outer face (within the
+      pier's width, between its bottom and top).
+    - The protected soffit spans the cantilever between the fascias.
+    - The curb and the glass balustrade follow the new edge (the tip and both cantilevered sides).
+
+    Raises. Returns a dict for the report."""
     SW = _sw()
     dlo, dhi = SW.parts_bounds(parts, ("deck_t",))
     SW.check(abs(dlo[0] - T_X0) < 1e-6 and abs(dhi[0] - T_X1) < 1e-6 and abs(dhi[2] - Z_DECK) < 1e-6,
@@ -875,15 +878,15 @@ NOTES_R1 = ("Revision 1 (vanilla props; the terrace deck cantilevered 5.3 m past
 FINE_NOTES = ("Fine-detail step 3e (12-seg flue pots; no rack, the lanterns vanilla since revision 1, no "
               "lettered board: no sign set) on " + NOTES_R1 + " Nitpick C (2026-10-13): the forecourt board is "
               "blank (cream, graphite rim; manifest we_boards).")
-# the approved forecourt board (revision 1 / step 3e): the fork-and-knife painted over the whole 1.6 x 0.85 face
-# (white on the light label ground; paint_pictogram has no square mode). `--no-fine` keeps it (legacy).
+# the approved forecourt board (revision 1 / step 3e): the fork-and-knife painted over the whole 1.6 x 0.85 face (white on
+# the light label ground, paint_pictogram has no square mode). `--no-fine` keeps it (legacy).
 PICTO_LABELS = (("sign_fc_face", "paint_pictogram", {"kind": "restaurant"}),)
-# nitpick C (2026-10-13; twenty-fifth look, L4: "Same issue with the sign outside as the chalet", i.e. "not
-# loving the SIGN of the FORK AND KNIFE ... leave it blank or keep it simple, and people can paste their own labels
-# on it?"; build/nitpick-c-lodges.md): a BLANK board - a cream panel (the resort's sign cream, cs2_signset.GATE_CREAM)
-# with a thin rim in the lodge's graphite trim (slot 1 (0.12, 0.12, 0.13) as shown on the 0.80 trim paint:
-# lin_to_srgb(srgb_to_lin(0.80) x slot) = 0.298 / 0.310); no pictogram. lodge.py lists the face in the manifest's `we_boards`
-# block for an optional Write Everywhere layout. Rim 0.03 m at the label density (~135 px/m: label w 3.0 x ~45).
+# nitpick C (2026-10-13, twenty-fifth look, L4: "Same issue with the sign outside as the chalet", i.e. "not loving the SIGN
+# of the FORK AND KNIFE ... leave it blank or keep it simple, and people can paste their own labels on it?",
+# build/nitpick-c-lodges.md): a BLANK board - a cream panel (the resort's sign cream, cs2_signset.GATE_CREAM) with a thin rim
+# in the lodge's graphite trim (slot 1 (0.12, 0.12, 0.13) as shown on the 0.80 trim paint: lin_to_srgb(srgb_to_lin(0.80) x
+# slot) = 0.298 / 0.310). No pictogram. lodge.py lists the face in the manifest's `we_boards` block for an optional Write
+# Everywhere layout. Rim 0.03 m at the label density (~135 px/m: label w 3.0 x ~45).
 L4_TRIM_SRGB = (0.298, 0.298, 0.310)
 SIGN_CREAM = (0.93, 0.89, 0.78)
 NC_LABELS = (("sign_fc_face", "display",
@@ -891,8 +894,8 @@ NC_LABELS = (("sign_fc_face", "display",
 
 RECIPE = FineRecipe(
     key="L4", aliases=("lux-top",), letter="B",
-    # prefab = the code catalog's name (SkiCatalog.Names.LodgeSummit, LocaleEN, hub; R25 /
-    # bldg-kit 11). The mesh keeps its built name (no consumer reads it). buildings-integration 1
+    # prefab = the code catalog's name (SkiCatalog.Names.LodgeSummit, LocaleEN, hub, R25 / bldg-kit 11). The mesh keeps its
+    # built name (no consumer reads it). buildings-integration 1
     asset="SkiLodgeSwankyTopCommercialLow", prefab="SkiLodgeSummit", category="lodges",
     lot=(LOT_W, LOT_D), base_mode="plinth", plinth=(-Z_PLINTH, Z_LOUNGE), yaw_deg=0.0,
     tex=2048, allow_4096=True,       # R18 / R23: 4096 only if the shipped w=1 median < 25 px/m
@@ -901,10 +904,9 @@ RECIPE = FineRecipe(
     rooms="auto", interior="CommercialLow",
     # VariationSet A (contract 6): graphite / red / zinc
     slots={1: (0.12, 0.12, 0.13), 2: (0.55, 0.08, 0.06), 3: (0.30, 0.31, 0.32)},
-    # revision 1 (b): plinth mode has no ground parts; this is the cull's / LOD chain's protect
-    # list: the two cantilever soffits face down below grade, which plinth-mode cull_hidden
-    # always deletes (it assumes terrain there), and the deck would then be see-through from the
-    # slope below (the dining room's shipped revision-0 underside was); 2 tris each at every LOD
+    # Revision 1 (b): plinth mode has no ground parts. This is the cull's / LOD chain's protect list: the two cantilever
+    # soffits face down below grade, which plinth-mode cull_hidden always deletes (it assumes terrain there). The deck would
+    # then be see-through from the slope below (the dining room's shipped revision-0 underside was). 2 tris each at every LOD
     ground_prefixes=("soffit_cant",),
     arrival_prefixes=ARRIVAL_PREFIXES,
     lod1_extra=(),                    # kit LOD1 list already drops umbpole_ / lamp_ (deck LEDs)
@@ -914,13 +916,13 @@ RECIPE = FineRecipe(
     cull_ok=(),
     views=(("road34left", (-0.7, -1.0, 0.45)), ("slope34right", (0.8, 1.0, 0.35)),
            ("aerial", (0.4, -0.6, 1.2)),
-           # revision 1: the entrance from the forecourt (the porch under the continuous main
-           # gutter); the cantilever and the dining door are below grade: NOGROUND_VIEWS
+           # revision 1: the entrance from the forecourt (the porch under the continuous main gutter). The cantilever and the
+           # dining door are below grade: NOGROUND_VIEWS
            ("entry_gutter", (0.15, -1.0, 0.20))),
     # revision 1 (a): every umbrella, table, lantern, lamp and planter is a vanilla prop by reference
     sub_objects=_sub_objects(),
     notes=FINE_NOTES,
-    # fine-detail pass step 3e (opt-in; lodge.py --no-fine restores `legacy` = the approved revision 1)
+    # Fine-detail pass step 3e (opt-in, lodge.py --no-fine restores `legacy` = the approved revision 1)
     fine_detail=True,
     sign_set=None,                    # the forecourt board is a pictogram (no lettering): stays in the atlas
     legacy=(("notes", NOTES_R1), ("labels", PICTO_LABELS)),
@@ -928,12 +930,11 @@ RECIPE = FineRecipe(
 
 
 # ======================================================================================
-# No-ground previews (CLI). lodge.py renders with cs2_preview's flat z-0 ground plane, which
-# hides everything L4 has below grade (terrace -2.55, plinth to -12, the cantilever):
+# No-ground previews (CLI). lodge.py renders with cs2_preview's flat z-0 ground plane, which hides everything L4 has below
+# grade (terrace -2.55, plinth to -12, the cantilever):
 #   blender --background --factory-startup --python recipes/l4_swanky_top.py -- --noground [OUT]
-# re-imports the exported LOD0 and renders pbr + dusk without the ground (kit need: a
-# ground=False / slope-ramp switch for plinth recipes in lodge.py). Revision 1 adds the
-# deck_cantilever / deck_door frames here and true close-ups:
+# The command re-imports the exported LOD0 and renders pbr + dusk without the ground (kit need: a ground=False / slope-ramp
+# switch for plinth recipes in lodge.py). Revision 1 adds the deck_cantilever / deck_door frames here and true close-ups:
 #   blender --background --factory-startup --python recipes/l4_swanky_top.py -- --closeups [OUT]
 # ======================================================================================
 
@@ -942,7 +943,7 @@ NOGROUND_VIEWS = (("noground_slope34", (0.8, 1.0, 0.30)), ("noground_slope34left
                   # revision 1: the cantilever from the slope below, the deck door from the deck
                   ("deck_cantilever", (0.55, 1.0, -0.05)), ("deck_door", (-0.2, 1.0, 0.55)))
 
-# (shot, target, eye) in the authoring frame (+X = road, z up; no shift on L4)
+# (shot, target, eye) in the authoring frame (+X = road, z up, no shift on L4)
 CLOSEUP_SHOTS = (
     ("deck_cantilever", (-17.0, 11.5, -3.6), (-30.0, -6.0, -8.0)),
     ("deck_cantilever_under", (-16.5, 9.0, -3.2), (-24.0, 22.0, -9.5)),

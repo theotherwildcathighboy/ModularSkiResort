@@ -1,53 +1,52 @@
 """
 fine_detail.py - the fine-detail engine's RECIPE-SIDE API (no bpy: recipe modules import it).
 
-Design: docs/research/art/assets-2026-10/design/fine-detail-pass.md A-D as cut by
-design/fine-detail-pass-skeptic.md FS1-FS16 (the skeptic wins) and seventeenth look
-(H1-H6 defaults: lanterns -> WallLightShortRangeRandom01, lit name signs at 0.2, +34 MB).
-Build report: docs/research/art/assets-2026-10/build/fine-detail-step2-engine.md.
+Design: docs/research/art/assets-2026-10/design/fine-detail-pass.md A-D, as cut by
+design/fine-detail-pass-skeptic.md FS1-FS16 (the skeptic wins), and the seventeenth look (H1-H6 defaults:
+lanterns -> WallLightShortRangeRandom01, lit name signs at 0.2, +34 MB). Build report:
+docs/research/art/assets-2026-10/build/fine-detail-step2-engine.md.
 
-EVERYTHING IS OPT-IN PER HOST. A recipe that is a plain bldg_recipes.Recipe never reaches any
-code path of this module, so every host that does not opt in regenerates byte-identical
-(skeptic FS12; proven by the A/B in the build report).
+EVERYTHING IS OPT-IN PER HOST. A recipe that is a plain bldg_recipes.Recipe never reaches any code path of
+this module. So every host that does not opt in regenerates byte-identical (skeptic FS12, proven by the A/B in
+the build report).
 
-    FineRecipe(Recipe)          a Recipe with three more fields (bldg_recipes.py is NOT edited:
-                                its sha1 guards the L1 row of test_detail_kit K4):
-        fine_detail  bool       the host's builders take fine=True (design B.1 / FS6) and the
-                                recipe's vanilla / kit swaps replace the modeled parts
-        sign_set     SignSetSpec | None   the host's label faces leave the host atlas for ONE
-                                sign-set prop drawing from the shared building sign sheet
-                                (cs2_signset.py, design C as cut by FS5 / FS14 / FS15 / FS16)
-        legacy       ((field, value), ...)   the pre-pass values of the fields the pass changed
-                                (sub_objects, lod1_extra, ...): effective(fine=False) restores
-                                them, so `lodge.py --no-fine` rebuilds the approved pre-pass host
-    effective(recipe, fine=True, signset=True) -> recipe     what lodge.py builds (CLI
-                                --no-fine / --no-signset); plain Recipes pass through unchanged
-    wrap(recipe, **changes) -> FineRecipe     (step 3a) a plain Recipe's fields + the fine ones, for a
-                                recipe that cannot subclass here (L1 in bldg_recipes.py; registered by
-                                recipes/lodge_aframe_fine.py through bldg_recipes OVERRIDES)
+FineRecipe(Recipe) is a Recipe with three more fields (bldg_recipes.py is NOT edited: its sha1 guards the L1
+row of test_detail_kit K4):
+- fine_detail (bool): the host's builders take fine=True (design B.1 / FS6), and the vanilla / kit swaps of
+  the recipe replace the modeled parts.
+- sign_set (SignSetSpec | None): the label faces of the host leave the host atlas for ONE sign-set prop that
+  draws from the shared building sign sheet (cs2_signset.py, design C as cut by FS5 / FS14 / FS15 / FS16).
+- legacy (((field, value), ...)): the pre-pass values of the fields the pass changed (sub_objects, lod1_extra,
+  ...). effective(fine=False) restores them, so `lodge.py --no-fine` rebuilds the approved pre-pass host.
+
+Functions:
+- effective(recipe, fine=True, signset=True) -> recipe: what lodge.py builds (CLI --no-fine / --no-signset).
+  Plain Recipes pass through unchanged.
+- wrap(recipe, **changes) -> FineRecipe: (step 3a) a plain Recipe's fields + the fine ones, for a recipe that
+  cannot subclass here (L1 in bldg_recipes.py). recipes/lodge_aframe_fine.py registers it through bldg_recipes
+  OVERRIDES.
 
 ROW KINDS in a host manifest's `sub_objects.objects` block (lodge.sub_objects_block):
-    vanilla  (no "kind" key: the block shape every shipped manifest has) m_Object = the 32-hex
-             placeholder GUID -> surgery `$fstrref:"UnityGUID:<guid>"`
-    mod      {"kind": "mod", "ref": "CID", "m_Object": <32-hex object-prefab CID>, "prefab":
-             <object prefab>, "mesh": <mesh asset>, position, rotation, m_ParentMesh [, "role"]}
-             -> surgery `$fstrref:"CID:<cid>"`, the hosted-tower / beacon pattern
-             (surgery/towers-transfer.md B1: our own CID sub-object rows; ObjectSubObjectInfo is
-             the same component either way). role "signset" = the host's sign-set identity row.
-    kit_row(prop, pos, ...) / kit_lean_row(...) build mod rows of the dressing kit (props/B,
-    build/dress-kit.md section 3: pivots, the lean props' rest planes); sign_set_row(...) the
-    sign-set identity row. A COLORED kit prop (racks, akja) takes colour_set=<COLOUR_SETS key>:
-    its row names the color VARIANT's object-prefab CID and adds "colour_set" / "variant"
-    (build/kit-colour-variants.md; the Parent-colored base prefabs do not ship).
+- vanilla: (no "kind" key: the block shape every shipped manifest has) m_Object = the 32-hex placeholder GUID
+  -> surgery `$fstrref:"UnityGUID:<guid>"`
+- mod: {"kind": "mod", "ref": "CID", "m_Object": <32-hex object-prefab CID>, "prefab": <object prefab>,
+  "mesh": <mesh asset>, position, rotation, m_ParentMesh [, "role"]} -> surgery `$fstrref:"CID:<cid>"`, the
+  hosted-tower / beacon pattern (surgery/towers-transfer.md B1: our own CID sub-object rows.
+  ObjectSubObjectInfo is the same component either way). role "signset" = the host's sign-set identity row.
 
-FRAMES. Rows are prefab-local "game" meters: (gx, gy, gz) = (-y, z, x) of authoring; FBX-raw is
-(x, z, -y) of the net-oriented export (= authoring (y, z, x)) and the game NEGATES FBX x on import
-(build/probes-b.md section 2), so game x = -authoring y: gx NEGATED. Settled N by the 2026-10-15
-playtest (DECISIONS 201 S1b-N, applied 2026-10-16 / T14; analysis-assets.md section 3).
-The recipes still DESIGN their rows in the old frame (gx = +authoring y, the frame the box / mesh
-contracts test in); lodge.sub_objects_block / _mod_row_block apply rule T at the manifest boundary
-(x -> -x, quaternion (qx, qy, qz, qw) -> (qx, -qy, -qz, qw), lean wall_point / wall_normal x -> -x):
-design_row_to_game() below. An identity row (the sign set) is frame-free: host and set flip together.
+kit_row(prop, pos, ...) / kit_lean_row(...) build mod rows of the dressing kit (props/B, build/dress-kit.md
+section 3: pivots, the lean props' rest planes). sign_set_row(...) builds the sign-set identity row. A COLORED
+kit prop (racks, akja) takes colour_set=<COLOUR_SETS key>: its row names the color VARIANT's object-prefab CID
+and adds "colour_set" / "variant". The Parent-colored base prefabs do not ship (build/kit-colour-variants.md).
+
+FRAMES. Rows are prefab-local "game" meters: (gx, gy, gz) = (-y, z, x) of authoring. FBX-raw is (x, z, -y) of
+the net-oriented export (= authoring (y, z, x)). The game NEGATES FBX x on import (build/probes-b.md section
+2), so game x = -authoring y: gx NEGATED. The 2026-10-15 playtest settled N (DECISIONS 201 S1b-N, applied
+2026-10-16 / T14, analysis-assets.md section 3). The recipes still DESIGN their rows in the old frame (gx =
++authoring y, the frame the box / mesh contracts test in). lodge.sub_objects_block / _mod_row_block apply rule
+T at the manifest boundary (x -> -x, quaternion (qx, qy, qz, qw) -> (qx, -qy, -qz, qw), lean wall_point /
+wall_normal x -> -x): design_row_to_game() below. An identity row (the sign set) is frame-free: host and set
+flip together.
 """
 
 import math
@@ -78,14 +77,14 @@ def rule_t_pos(p):
 
 
 def rule_t_rot(q):
-    """Rule T on a quaternion (qx, qy, qz, qw) -> (qx, -qy, -qz, qw); a yaw about +Y mirrors."""
+    """Rule T on a quaternion (qx, qy, qz, qw) -> (qx, -qy, -qz, qw). A yaw about +Y mirrors."""
     return (float(q[0]) + 0.0, -float(q[1]) + 0.0, -float(q[2]) + 0.0, float(q[3]) + 0.0)
 
 
 def design_row_to_game(row):
-    """A "kind": "mod" row dict (kit_row / kit_lean_row / sign_set_row, design frame) -> its game-frame copy:
-    position and rotation through rule T, and a lean row's wall_point / wall_normal (both [x, z]) x -> -x.
-    Every other key is carried over unchanged."""
+    """Convert a "kind": "mod" row dict (kit_row / kit_lean_row / sign_set_row, design frame) to its game-frame
+    copy. Position and rotation go through rule T. A lean row's wall_point / wall_normal (both [x, z]) get x
+    -> -x. Every other key is carried over unchanged."""
     r = dict(row)
     r["position"] = rule_t_pos(row["position"])
     r["rotation"] = rule_t_rot(row["rotation"])
@@ -103,11 +102,10 @@ def design_row_to_game(row):
 
 @dataclass(frozen=True)
 class SignSetSpec:
-    """One host's sign set (design C.3 / C.6, FS15 letters). `faces` = ((host label face part
-    name, sheet rect key), ...): those faces leave the host and are drawn from the shared
-    building sheet (cs2_signset.SHEET) at their exact as-built position. `prop` is the
-    letterless object prefab (survives mesh re-imports by CID repoint, beacon pattern);
-    the mesh asset is prop + letter (one new letter per import round)."""
+    """One host's sign set (design C.3 / C.6, FS15 letters). `faces` = ((host label face part name, sheet rect
+    key), ...). Those faces leave the host and are drawn from the shared building sheet (cs2_signset.SHEET) at
+    their exact as-built position. `prop` is the letterless object prefab. It survives mesh re-imports by CID
+    repoint (beacon pattern). The mesh asset is prop + letter (one new letter per import round)."""
     prop: str                   # "SkiSignSetSchool"
     letter: str                 # "B" -> mesh asset "SkiSignSetSchoolB"
     host: str                   # sheet host key ("school")
@@ -129,15 +127,15 @@ class FineRecipe(Recipe):
     sign_set: object = None
     legacy: tuple = ()
     #: kit color variants (2026-10-12, build/kit-colour-variants.md): the COLOUR_SETS key every colored
-    #: kit row of this host names (check_kit_colours asserts it); None = the host has no colored kit row
+    #: kit row of this host names (check_kit_colours asserts it). None = the host has no colored kit row
     kit_colour_set: object = None
 
 
 def wrap(recipe, **changes):
-    """A FineRecipe carrying every field of the PLAIN `recipe`, with `changes` applied (fine-detail step
-    3a). For a recipe defined where FineRecipe cannot be imported: L1 lives in bldg_recipes.py, which
-    this module imports, so it cannot import us back (circular); recipes/lodge_aframe_fine.py wraps
-    bldg_recipes.L1 and registers it through bldg_recipes.load_recipes()'s OVERRIDES hook."""
+    """Return a FineRecipe with every field of the PLAIN `recipe`, with `changes` applied (fine-detail step 3a).
+    Use it for a recipe defined where FineRecipe cannot be imported. L1 lives in bldg_recipes.py, which this
+    module imports, so bldg_recipes.py cannot import this module back (circular). recipes/lodge_aframe_fine.py
+    wraps bldg_recipes.L1 and registers it through the OVERRIDES hook of bldg_recipes.load_recipes()."""
     if isinstance(recipe, FineRecipe) or not isinstance(recipe, Recipe):
         raise TypeError(f"wrap: {type(recipe).__name__} is not a plain bldg_recipes.Recipe")
     base = {f.name: getattr(recipe, f.name) for f in fields(Recipe)}
@@ -182,7 +180,7 @@ def effective(recipe, fine=True, signset=True):
 class KitProp:
     prop: str                   # object prefab (letterless)
     mesh: str                   # mesh asset (import folder)
-    cid: str                    # object-prefab CID, hand-minted once (assets/staging/prefabs/props/B); for a
+    cid: str                    # object-prefab CID, hand-minted once (assets/staging/prefabs/props/B). For a
     #                             COLORED prop the base CID is RETIRED (never shipped): rows name a variant
     mount: str                  # "ground" | "wall" | "lean"
     rest_z: float = 0.0         # lean props: prefab z of the plane that rests on the wall (< 0)
@@ -191,7 +189,7 @@ class KitProp:
 
 
 #: object prefab -> KitProp. CIDs = the staged .cid files of the UNCOLORED props (tests/test_signset.py KIT
-#: asserts it, so a re-mint cannot drift silently); the six colored props' base CIDs are retired with their
+#: asserts it, so a re-mint cannot drift silently). The base CIDs of the six colored props are retired with their
 #: staged base prefabs (kit color variants, 2026-10-12). rest_z = the shipped FBX min z of the three leaning
 #: props (dress-kit.md 3: tools -0.393 "the foot-line rule", akja -0.711, spine board -0.161).
 KIT = {
@@ -210,18 +208,27 @@ KIT = {
 
 
 # --------------------------------------------------------------------------------------
-# Kit color variants (2026-10-12 ~18:50: "I don't think we want the accents to follow the parent
-# color. I think they should stay a color that makes sense for that building." -> FS7 Parent DROPPED;
-# build/kit-colour-variants.md). ENGINE FACT (decompile 1.6.0f1): ColorProperties is a RenderPrefab
-# component (ColorProperties.cs:12-16 ComponentMenu RenderPrefab / CharacterOverlay; GetPrefabComponents
-# adds the ColorVariation buffer to the MESH prefab entity, :137-140) and MeshColorSystem picks an
-# instance color from the ColorVariation buffer of each SubMesh's MESH prefab (MeshColorSystem.cs:470-471,
-# 541), never from the object prefab. So a color variant = its own object prefab + its own mesh prefab
-# (a hand-made RenderPrefab clone of the imported base mesh prefab: the SAME geometry and surface assets,
-# a new name / CID and a FIXED ColorProperties with ONE VariationSet, no external channel, ranges 0), both
-# minted by dress_kit.py's registry. One VariationSet at probability 100 is always the pick (the loop at
-# MeshColorSystem.cs:560-702 with one entry), ranges 0 skip RandomizeColor (:842-857), no external channel
-# skips FindExternalSource (:768-774; ColorVariation.hasExternalChannels): deterministic.
+# Kit color variants (2026-10-12 ~18:50: "I don't think we want the accents to follow the parent color. I
+# think they should stay a color that makes sense for that building." -> FS7 Parent DROPPED,
+# build/kit-colour-variants.md).
+#
+# ENGINE FACT (decompile 1.6.0f1):
+# - ColorProperties is a RenderPrefab component (ColorProperties.cs:12-16 ComponentMenu RenderPrefab /
+#   CharacterOverlay). GetPrefabComponents adds the ColorVariation buffer to the MESH prefab entity
+#   (:137-140).
+# - MeshColorSystem picks an instance color from the ColorVariation buffer of each SubMesh's MESH prefab
+#   (MeshColorSystem.cs:470-471, 541), never from the object prefab.
+#
+# So a color variant = its own object prefab + its own mesh prefab. The mesh prefab is a hand-made
+# RenderPrefab clone of the imported base mesh prefab: the SAME geometry and surface assets, a new name / CID,
+# and a FIXED ColorProperties with ONE VariationSet, no external channel, ranges 0. The registry of
+# dress_kit.py mints both prefabs.
+#
+# The result is deterministic:
+# - One VariationSet at probability 100 is always the pick (the loop at MeshColorSystem.cs:560-702 with one
+#   entry).
+# - Ranges 0 skip RandomizeColor (:842-857).
+# - No external channel skips FindExternalSource (:768-774, ColorVariation.hasExternalChannels).
 # --------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -293,11 +300,11 @@ def kit_cid(prop, colour_set=None):
     if colour_set is not None:
         raise ValueError(f"{prop} has no ControlMask texel: no color set ({colour_set!r})")
     return k.cid
-#: A-frame rack loadouts to alternate along a row (FS6; dress-kit.md 1.2)
+#: A-frame rack loadouts to alternate along a row (FS6, dress-kit.md 1.2)
 AFRAME_RACKS = ("SkiDressSkiRack", "SkiDressSkiRackV2", "SkiDressSkiRackV3")
 WALL_RACKS = ("SkiDressSkiRackWall", "SkiDressSkiRackWallV2")
 #: the lean props' foot-line rule (dress-kit.md 3, the "0.393 m" note): the prop's
-#: rest plane (prefab z = rest_z) touches the wall face; FOOT_TOL = the contract tolerance
+#: rest plane (prefab z = rest_z) touches the wall face. FOOT_TOL = the contract tolerance
 FOOT_TOL = 0.005
 
 
@@ -315,16 +322,16 @@ def staged_cid(prop, letter="B", kind="props"):
 def staged_kit_cid(prop, colour_set=None):
     """The staged object-prefab CID of what a row of `prop` names: the variant folder
     (assets/staging/prefabs/props/B/<Variant>/<Variant>.Prefab.cid, dress_kit.stage_variant) of a colored
-    prop, the base folder of an uncolored one; None if not staged."""
+    prop, the base folder of an uncolored one. None if not staged."""
     if KIT[prop].coloured:
         return staged_cid(variant_name(prop, colour_set)) if colour_set in COLOUR_SETS else None
     return staged_cid(prop)
 
 
 def row_colour_error(row):
-    """None if a kit "mod" row names the right object prefab, else the reason: a colored prop needs a known
-    color set, CID = its variant's seeded CID and "variant" = its name, and a staged variant .cid (when one
-    exists) equal to it; an uncolored prop has no color set and CID = KIT's = the staged base .cid."""
+    """Return None if a kit "mod" row names the right object prefab. Otherwise return the reason. A colored prop
+    needs a known color set, CID = its variant's seeded CID, "variant" = its name, and a staged variant .cid
+    (when one exists) equal to it. An uncolored prop has no color set and CID = KIT's = the staged base .cid."""
     prop, cs = row.get("prefab"), row.get("colour_set")
     if prop not in KIT:
         return f"{prop!r} is not a kit prop"
@@ -346,8 +353,8 @@ def row_colour_error(row):
 
 
 def check_kit_colours(recipe):
-    """Every colored kit row of a FineRecipe names the recipe's kit_colour_set (one set per building,
-    2026-10-12); raises ValueError. Uncolored rows and sign-set rows pass."""
+    """Check that every colored kit row of a FineRecipe names the recipe's kit_colour_set (one set per building,
+    2026-10-12). Raises ValueError. Uncolored rows and sign-set rows pass."""
     want = getattr(recipe, "kit_colour_set", None)
     bad = []
     for e in getattr(recipe, "sub_objects", ()) or ():
@@ -403,12 +410,14 @@ def _colour_extra(prop, colour_set):
 
 
 def kit_row(prop, pos, facing=(0.0, 1.0), parent=-1, rot=None, note=None, colour_set=None):
-    """A dressing-kit row: `pos` game-local (the prop's pivot: foot center for ground props,
-    plate bottom on the wall plane for wall props), `facing` = the game direction (dx, dz) the
-    prop's +Z (its front / out of the wall) turns to (default (0, 1) = game +Z = identity), or an
-    explicit quaternion `rot`. parent -1 on the lot (snaps to terrain), 0 on the main mesh.
-    colour_set: a COLOUR_SETS key, REQUIRED for a colored prop (racks, akja): the row then names that
-    variant's CID and carries "colour_set" / "variant"; forbidden for an uncolored one."""
+    """A dressing-kit row.
+    - `pos`: game-local (the prop's pivot: foot center for ground props, plate bottom on the wall plane for
+      wall props).
+    - `facing`: the game direction (dx, dz) the prop's +Z (its front / out of the wall) turns to (default (0,
+      1) = game +Z = identity), or an explicit quaternion `rot`.
+    - parent: -1 on the lot (snaps to terrain), 0 on the main mesh.
+    - colour_set: a COLOUR_SETS key, REQUIRED for a colored prop (racks, akja). The row then names that
+      variant's CID and carries "colour_set" / "variant". It is forbidden for an uncolored prop."""
     k = KIT[prop]
     q = tuple(rot) if rot is not None else yaw_quat(facing)
     extra = dict({"note": note} if note else {}, **_colour_extra(prop, colour_set))
@@ -416,11 +425,13 @@ def kit_row(prop, pos, facing=(0.0, 1.0), parent=-1, rot=None, note=None, colour
 
 
 def kit_lean_row(prop, wall_point, wall_normal, floor_y, parent=-1, note=None, colour_set=None):
-    """A LEANING kit prop (tools, akja, spine board) against a wall: the prop's rest plane
-    (prefab z = KitProp.rest_z) lies ON the wall face. wall_point = any game point on the wall
-    face (its gx, gz used), wall_normal = the wall's outward horizontal normal (dx, dz); the prop
-    faces away from the wall (+Z = normal, its top leans back toward -Z = the wall), its foot
-    line on floor_y, -rest_z out from the wall face (the 0.393 m tools rule). colour_set as kit_row.
+    """A LEANING kit prop (tools, akja, spine board) against a wall. The prop's rest plane (prefab z =
+    KitProp.rest_z) lies ON the wall face.
+    - wall_point = any game point on the wall face (its gx, gz are used).
+    - wall_normal = the wall's outward horizontal normal (dx, dz).
+
+    The prop faces away from the wall (+Z = normal, its top leans back toward -Z = the wall). Its foot line is
+    on floor_y, -rest_z out from the wall face (the 0.393 m tools rule). colour_set works as in kit_row.
     Returns the row."""
     k = KIT[prop]
     if k.mount != "lean":
@@ -450,9 +461,9 @@ def lean_rest_gap(row):
 
 
 def sign_set_row(spec, cid, bounds=None):
-    """The host's sign-set identity row (design C.6): position 0, rotation identity, m_ParentMesh 0
-    (on the main mesh: -1 would snap it to terrain), role signset; `bounds` = the set's game-local
-    ((lo), (hi)) for the review stand-in readers (cs2_subobj own_bounds)."""
+    """The host's sign-set identity row (design C.6): position 0, rotation identity, m_ParentMesh 0 (on the main
+    mesh: -1 would snap it to terrain), role signset. `bounds` = the set's game-local ((lo), (hi)) for the
+    review stand-in readers (cs2_subobj own_bounds)."""
     extra = None
     if bounds is not None:
         extra = {"bounds": [[round(float(v), 4) for v in bounds[0]],
@@ -462,20 +473,20 @@ def sign_set_row(spec, cid, bounds=None):
 
 
 # ======================================================================================
-# Nitpick C (2026-10-13, build/nitpick-c-lodges.md): BLANK BOARDS. Twenty-fifth look, L3: "not
-# loving the SIGN of the FORK AND KNIFE, that looks quite bad. I wonder if we just leave it blank or keep
-# it simple, and people can paste their own labels on it?"; L4: "Same issue with the sign outside as the
-# chalet." A pictogram board becomes a plain panel with a thin rim (a draw callable for cs2_bldg's
-# "display" painter and the sheet's "blank" kind); lodge.py records every blank board's face (center /
-# normal / size, game frame) in the host manifest's `we_boards` block for an optional Write Everywhere
-# layout (another fleet's job): the face stays flat and unobstructed.
+# Nitpick C (2026-10-13, build/nitpick-c-lodges.md): BLANK BOARDS. Twenty-fifth look, L3: "not loving the SIGN
+# of the FORK AND KNIFE, that looks quite bad. I wonder if we just leave it blank or keep it simple, and
+# people can paste their own labels on it?" L4: "Same issue with the sign outside as the chalet." A pictogram
+# board becomes a plain panel with a thin rim (a draw callable for the "display" painter of cs2_bldg and the
+# "blank" kind of the sheet). lodge.py records the face of every blank board (center / normal / size, game
+# frame) in the `we_boards` block of the host manifest, for an optional Write Everywhere layout (another
+# fleet's job). The face stays flat and unobstructed.
 # ======================================================================================
 
 def blank_board(bg=(0.20, 0.14, 0.10), rim=None, rim_m=0.02, inset_m=0.05):
-    """A draw callable(cv) for a DisplayCanvas (cs2_bldg.DisplayPainter, cs2_signset._canvas): fill `bg`
-    (encoded sRGB), then, when `rim` is given, a rectangular line `rim_m` wide `inset_m` in from the face
-    edge in `rim` (encoded sRGB). No text, no pictogram. The callable carries `we_blank` (its parameters),
-    which lodge.py reads to list the face in the manifest's `we_boards` block."""
+    """A draw callable(cv) for a DisplayCanvas (cs2_bldg.DisplayPainter, cs2_signset._canvas). It fills `bg`
+    (encoded sRGB). When `rim` is given, it then draws a rectangular line in `rim` (encoded sRGB), `rim_m`
+    wide and `inset_m` in from the face edge. No text, no pictogram. The callable carries `we_blank` (its
+    parameters), which lodge.py reads to list the face in the manifest's `we_boards` block."""
     bg = tuple(float(v) for v in ((bg,) * 3 if isinstance(bg, (int, float)) else bg))
     rim_t = None if rim is None else tuple(float(v) for v in ((rim,) * 3 if isinstance(rim, (int, float)) else rim))
 

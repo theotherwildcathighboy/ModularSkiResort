@@ -1,8 +1,8 @@
 """
-test_detail_patrol - detail pass 1 contracts of the patrol huts P1 (SkiPatrolHutCommercialLowA)
-and P2 (SkiPatrolHQCommercialLowA): design/detail-pass-1.md 6.2 D1-D10 as corrected by
-design/detail-pass-1-skeptic.md (M4 boards, M6 margin, M7 LOD2, M8 flags, M9 facing, S2 / S6
-clearances) on the kit of build/detail-pass-1-kit.md; report build/detail-pass-1-patrol.md.
+test_detail_patrol - detail pass 1 contracts of the patrol huts P1 (SkiPatrolHutCommercialLowA) and P2
+(SkiPatrolHQCommercialLowA): design/detail-pass-1.md 6.2 D1-D10 as corrected by design/detail-pass-1-skeptic.md (M4
+boards, M6 margin, M7 LOD2, M8 flags, M9 facing, S2 / S6 clearances) on the kit of build/detail-pass-1-kit.md. Report
+build/detail-pass-1-patrol.md.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_detail_patrol.py
         [-- --only P1|P2]    one recipe
@@ -10,60 +10,60 @@ clearances) on the kit of build/detail-pass-1-kit.md; report build/detail-pass-1
                              the tested build (mesh hashes + PNG sha1s equal W1) and the
                              preview LOD frames' XOR (D9)
 
-Per recipe three finishes at the shipping size (tex 1024, AO 48, LODs, no previews, no
-validate) into a temp dir: W1 and W2 with the recipe's weather, N with weather None.
-  D1  detail counts: every design item's parts by exact name; sub_objects 2 / 4 with the
-      design 1.6 GUIDs; P2 repack (no gable face looks into the hut, floor / deck undersides
+Per recipe three finishes at the shipping size (tex 1024, AO 48, LODs, no previews, no validate) into a temp dir: W1 and
+W2 with the recipe's weather, N with weather None.
+  D1  detail counts: every design item's parts by exact name. sub_objects 2 / 4 with the
+      design 1.6 GUIDs. P2 repack (no gable face looks into the hut, floor / deck undersides
       are soffit_ parts).
   D2  _Emissive: lit texels <= 0.5 % of the map and within +-25 % of the UV area (texels) of
-      the emissive faces; every emissive lamp face >= 2.5 texels across; beacons red (R >= 4 G).
-  D3  labels: one part / one UV island each (quads 1 face, discs 16), stamp rects pairwise
-      disjoint, the word boards T1 (cap >= 0.40 m, stroke >= 4 texels at the shipped px/m),
-      roof-cross arm >= 4 texels; the roof crosses are on LOD2.
+      the emissive faces. Every emissive lamp face >= 2.5 texels across. Beacons red (R >= 4 G).
+  D3  labels: one part / one UV island each (quads 1 face, discs 16). Stamp rects pairwise
+      disjoint. The word boards T1 (cap >= 0.40 m, stroke >= 4 texels at the shipped px/m).
+      Roof-cross arm >= 4 texels. The roof crosses are on LOD2.
   D4  weathering: manifest weather.vanilla.ok True at the recipe intensity, free slots, snow 0
-      (VL5 0); ControlMask byte-identical to N; BaseColor identical to N inside every stamp rect.
+      (VL5 0). ControlMask byte-identical to N. BaseColor identical to N inside every stamp rect.
   D5  determinism: W2 == W1 (five PNGs, LOD0_prebake / Win / LOD0 / LOD1 / LOD2 hashes).
-  D6  budgets: LOD0 <= 1,400 / 1,750, LOD1 <= min(650, 50 % LOD0), LOD2 <= 200; w = 1 px/m
-      >= 42 / 28; P2 frames (w 0.75) >= 20; tex 1024; 9 batches; 7.0 MB.
-  D7  engine base OK on LOD0 / 1 / 2; every new part starts at z >= 0.02 (the ground band).
+  D6  budgets: LOD0 <= 1,400 / 1,750, LOD1 <= min(650, 50 % LOD0), LOD2 <= 200. w = 1 px/m
+      >= 42 / 28. P2 frames (w 0.75) >= 20. tex 1024. 9 batches. 7.0 MB.
+  D7  engine base OK on LOD0 / 1 / 2. Every new part starts at z >= 0.02 (the ground band).
   D8  lot margins >= 0.25 m and the arrival centroid (the builder raises on coplanar overlaps
       and faces inside the massing).
   D9  LOD: the new dressing is gone at LOD1 except masts, board faces (+ their frames: P2 keeps
       its frame since check-patrol F1, the two gable struts beam_strutL / R pay for it) and
-      roof crosses; gone at LOD2 except the roof crosses (on the LOD2 mesh); every part that
-      LOD1 deletes LOD2 deletes too; P2's front disc leaves LOD2 (M7); LOD2 not collapsed.
+      roof crosses. It is gone at LOD2 except the roof crosses (on the LOD2 mesh). Every part
+      that LOD1 deletes, LOD2 deletes too. P2's front disc leaves LOD2 (M7). LOD2 not collapsed.
   D10 sub-objects: a wall prop's pivot lies on one of our wall faces (<= 0.05 m) facing its
-      normal; a deck prop's pivot is on a deck top (+-0.01); every prop's box (the union of
+      normal. A deck prop's pivot is on a deck top (+-0.01). Every prop's box (the union of
       its vanilla variants' render bounds, dump.zip) inflated by 0.05 m touches no face of
       ours other than its mounting surface (skeptic S6).
-  D11 LEAN (fifteenth look: "a few of the toboggans lean against nothing"): every
-      leaning part (akja_, gear_, pole_) of the built recipe is measured by recipes/_lean.py:
-      the top of its back face has a SOLID face of the EXPECTED support part <= 0.02 m behind
-      it over >= 80 % of its width, its foot is on grade / the deck within 0.02 m; the set of
-      leaning parts is exactly the recipe's declared one; moving a part 0.10 m off its support
-      or lifting it 0.05 m makes _lean.check raise; and the builder itself fails the build
-      (CONTRACT LEAN) when its rest gap is sabotaged to 0.10 m.
-FINE-DETAIL STEP 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md): the shipping recipes are
-FineRecipes, so D1-D11 run on the FINE build (the name / info boards in the sign set, the akjas / spine
-boards / hose reel / door lanterns as rows; SPEC below lists the fine parts) and:
+  D11 LEAN (fifteenth look: "a few of the toboggans lean against nothing"): recipes/_lean.py
+      measures every leaning part (akja_, gear_, pole_) of the built recipe. The top of its
+      back face has a SOLID face of the EXPECTED support part <= 0.02 m behind it over >= 80 %
+      of its width. Its foot is on grade / the deck within 0.02 m. The set of leaning parts is
+      exactly the recipe's declared one. Moving a part 0.10 m off its support or lifting it
+      0.05 m makes _lean.check raise. The builder itself fails the build (CONTRACT LEAN) when
+      its rest gap is sabotaged to 0.10 m.
+FINE-DETAIL STEP 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md): the shipping recipes are FineRecipes, so
+D1-D11 run on the FINE build (the name / info boards in the sign set, the akjas / spine boards / hose reel / door
+lanterns as rows. SPEC below lists the fine parts) and:
   D1  rows: the approved vanilla rows + the fine rows (1 wall light, kit lean rows, P2 the hose reel) + the
-      sign-set identity row lodge appends; every vanilla GUID as listed, every mod CID = fine_detail.KIT's
-  D3  host labels only (the routed boards are gone); the boards' T1 is read from the sheet (owner manifest)
+      sign-set identity row lodge appends. Every vanilla GUID as listed, every mod CID = fine_detail.KIT's
+  D3  host labels only (the routed boards are gone). The boards' T1 is read from the sheet (owner manifest)
   D10 also the kit hose reel (its shipped bounds_m) and pairwise: no two rows' boxes overlap
   D11 LEAN on the 6 P1 poles (modeled) AND on every kit lean row's REAL mesh (recipes/_lean.check_rows): the
       declared support (the part the modeled akja / board leaned on), foot on grade / the deck, no host
-      overlap; negatives: a row moved 0.10 m off / lifted 0.05 m / pushed 0.03 m into its support / with a
-      foreign declared support raises; the builder fails the build with the rows 0.10 m off
+      overlap. Negatives: a row moved 0.10 m off / lifted 0.05 m / pushed 0.03 m into its support / with a
+      foreign declared support raises. The builder fails the build with the rows 0.10 m off
   D12 sign set: SG1 UV = the painted rect, SG2 boards within 1 mm of the --no-fine host's label quads, SG3
       none left in LOD0-2 / labels, SG4 one identity row (staged CID), SG5 inside the lot, SG6 <= 400 tris,
       sharer settings = the five owner keys, no PNG
   D13 legacy: `--no-fine` (fine_detail.effective(fine=False)) blockout = the approved shacks' hashes
       (LOD0_prebake / Win of the lean-fix export: P1 b0d4f1b4dfa7 / 463b9012de23, P2 11cb23e4083a /
-      38666256c858); the build report proves the full 13-file identity
+      38666256c858). The build report proves the full 13-file identity
   D14 the stale-map rule (lodge.remove_stale_maps): a finish into a folder seeded with a stale
       `<name>_LOD3_BaseColor.png` + `<name>_Emissive2.png` (maps this build never writes) and a foreign PNG
       removes the two, keeps the foreign one, and neither reaches settings.json nor the manifest's files
-Exit 1 on the first failure; one PASS line otherwise.
+Exit 1 on the first failure. One PASS line otherwise.
 """
 
 import glob
@@ -130,14 +130,14 @@ CLEAR_M = 0.05
 _KIT_MAN = os.path.join(REPO, "assets", "import", "props", "B", "SkiDressHoseReelB", "SkiDressHoseReelB.manifest.json")
 _BM = json.load(open(_KIT_MAN, encoding="utf-8"))["bounds_m"]
 PROP_BOUNDS["SkiDressHoseReel"] = (tuple(_BM["min"]), tuple(_BM["max"]))
-# the approved shacks' blockout hashes (lean fix export, 2026-10-11 21:19; test_detail_kit K4 before step 3d)
+# the approved shacks' blockout hashes (lean fix export, 2026-10-11 21:19, test_detail_kit K4 before step 3d)
 # P2 LOD0_prebake re-pinned 2026-10-24 (T81): was 11cb23e4083a. T94 (2026-10-19) moved P2's toboggan rack + akja
-# (P2_RACK / P2_AKJA) from south to north of the door, which the --no-fine path shares; `Win` is unchanged
+# (P2_RACK / P2_AKJA) from south to north of the door, which the --no-fine path shares. `Win` is unchanged
 LEGACY_HASH = {"P1": ("b0d4f1b4dfa7", "463b9012de23"), "P2": ("79d939910e08", "38666256c858")}
 
 SPEC = {
-    # fine-detail step 3d: the FINE build's dressing parts (the boards' faces went to the sign set; the akjas,
-    # spine boards, hose reel and door lanterns are rows: they must NOT be in the host, `gone`)
+    # fine-detail step 3d: the FINE build's dressing parts (the boards' faces went to the sign set. The akjas, spine
+    # boards, hose reel and door lanterns are rows: they must NOT be in the host, `gone`)
     "P1": dict(
         new=("sign_p1name_frame", "bench_p1", "bench_p1legs",
              "emblem_p1roof_face", "snowguard_p1E", "snowguard_p1Eb", "mast_p1", "mast_p1br",
@@ -164,8 +164,8 @@ SPEC = {
         lod0_cap=1750, ppm_w1=28.0, n_sub=10, n_vanilla=5, n_mod=5, sign_faces=1, frames_w=0.75,
         frames_ppm=20.0),
 }
-# D11: leaning part / kit row -> the part it must rest on (lean fix, fifteenth look; step 3d: the
-# kit rows keep the modeled parts' supports)
+# D11: leaning part / kit row -> the part it must rest on (lean fix, fifteenth look. Step 3d: the kit rows keep the
+# modeled parts' supports)
 SPEC["P1"]["lean"] = {f"pole_{k}": "wall_p1" for k in range(6)}
 SPEC["P1"]["lean_rows"] = {"akja_p1": "wall_p1", "akja_p1b": "tobrack_p1", "gear_p1board": "tobrack_p1"}
 SPEC["P1"]["lean_foot"] = ("grade",)
@@ -221,8 +221,8 @@ def names_present(obj, table):
 
 
 def part_keys(rec):
-    """{part name: material key} of the recipe (its builder run once more, the parts removed
-    again; the finished mesh no longer carries the keys)."""
+    """{part name: material key} of the recipe (its builder run once more, the parts removed again). The finished mesh no
+    longer carries the keys."""
     parts = lodge.build_parts(rec, {"tower": True, "roof_windows": "win"})
     out = {o.name: k for o, k in parts}
     for o, _k in parts:
@@ -422,7 +422,7 @@ def d3_labels(key, rec, res, man, obj, table, lods):
                 f"{key} D3: stamp rects of {a} {ra} and {b} {rb} overlap"
     info = man.get("labels", {})
     tiers = []
-    # fine-detail step 3d: the word boards are on the shared sheet (300 px/m): T1 from the owner; nitpick C (2026-10-13,
+    # fine-detail step 3d: the word boards are on the shared sheet (300 px/m): T1 from the owner. Nitpick C (2026-10-13,
     # build/nitpick-c-lodges.md): their typeface is cs2_signset.NC_UTILITY_FACE (Franklin Gothic Demi Cond), was Bfont
     om = json.load(open(os.path.join(SS.owner_dir_shipped(), f"{SS.SHEET_OWNER}.manifest.json"), encoding="utf-8"))
     for kk, words in SPEC[key]["boards"]:
@@ -512,8 +512,8 @@ def d9_lods(key, rec, res, obj, table, lods, infos, dl):
     kept1 = [n for n in sp["lod1_kept"] if n in p1]
     if key == "P2":
         assert "emblem_hq_face" not in p2 and "emblem_hq_rim" not in p2, "P2 D9: disc on LOD2 (M7)"
-        # detail pass 1b (check-patrol F1): the name board keeps its FRAME at LOD1 (the face floated
-        # 0.08 m without it); the two decorative gable struts pay for it, LOD1 stays <= 650
+        # detail pass 1b (check-patrol F1): the name board keeps its FRAME at LOD1 (the face floated 0.08 m without it).
+        # The two decorative gable struts pay for it, LOD1 stays <= 650
         p0 = names_present(obj, table)
         assert "sign_hqname_frame" in p1, "P2 D9: name board frame (its face is in the sign set)"
         assert {"beam_strutL", "beam_strutR"} <= p0 and not ({"beam_strutL", "beam_strutR"} & p1),             "P2 D9: the gable struts must be on LOD0 and gone at LOD1"
@@ -536,7 +536,7 @@ def d10_props(key, rec, obj, table):
     boxes = []
     for e in rec.sub_objects:
         if isinstance(e, dict):
-            # fine-detail step 3d: lean kit rows are D11's (the real mesh); the hose reel is a wall prop here
+            # fine-detail step 3d: lean kit rows are D11's (the real mesh). The hose reel is a wall prop here
             if e.get("lean") is not None or e.get("role") == "signset":
                 continue
             prefab, guid, pos, q, parent = e["prefab"], e["m_Object"], e["position"], e["rotation"], \
@@ -642,7 +642,7 @@ def d11_lean(key, rec):
             neg.append(r["name"])
     finally:
         _remove_new_objects(keep)
-    # the builder fails the build: (legacy) its rest gap sabotaged to 0.10 m; (fine) its kit rows 0.10 m off
+    # the builder fails the build: (legacy) its rest gap sabotaged to 0.10 m. (fine) its kit rows 0.10 m off
     saved = PT.REST_GAP
     PT.REST_GAP = 0.10
     try:
@@ -679,8 +679,8 @@ def _shift_row(e, d=0.0, lift=0.0):
 
 
 def d11_rows(key, rec, parts, L):
-    """The kit lean rows on the REAL kit mesh: declared support = the modeled part's, gap <= GAP_MAX over
-    >= COVER, foot on grade / the deck, no host overlap; negatives (each must raise CONTRACT LEAN)."""
+    """The kit lean rows on the REAL kit mesh: declared support = the modeled part's, gap <= GAP_MAX over >= COVER, foot on
+    grade / the deck, no host overlap. Negatives (each must raise CONTRACT LEAN)."""
     sp = SPEC[key]
     rows = PT.lean_rows(rec)
     res = L.check_rows(parts, rows, f"{key}-test", PT.LEAN_PREFIXES, expect=sorted(sp["lean_rows"]))
@@ -709,9 +709,9 @@ def d11_rows(key, rec, parts, L):
 
 
 def d12_signset(key, rec, res, man, tmp):
-    """The sign set (fine-detail step 3d): SG1 UV = the painted rect, SG2 boards within 1 mm of the --no-fine
-    host's own label quads, SG3 none left in LOD0-2 / labels, SG4 one identity row (staged CID), SG5 inside
-    the lot, SG6 <= 400 tris; the sharer folder = five owner keys, no PNG."""
+    """The sign set (fine-detail step 3d): SG1 UV = the painted rect, SG2 boards within 1 mm of the --no-fine host's own
+    label quads, SG3 none left in LOD0-2 / labels, SG4 one identity row (staged CID), SG5 inside the lot, SG6 <= 400
+    tris. The sharer folder = five owner keys, no PNG."""
     spec = rec.sign_set
     sobj = res["sign_set"]["obj"]
     names = spec.face_names()
@@ -791,7 +791,7 @@ def d14_stale(key, rec, tmp):
     man = json.load(open(os.path.join(ad, f"{name}.manifest.json"), encoding="utf-8"))
     assert not any(f in sett for f in seeds) and not any(f in man["files"] for f in seeds), "stale names listed"
     assert sorted(man["bake"]["stale_maps_removed"]) == sorted(seeds)
-    # unit-level: an _Emissive this build no longer writes goes; the build's own maps and non-maps stay
+    # unit-level: an _Emissive this build no longer writes goes. The build's own maps and non-maps stay
     u = os.path.join(tmp, key, "stale_unit")
     os.makedirs(u, exist_ok=True)
     for f in (f"{name}_BaseColor.png", f"{name}_Emissive.png", f"{name}.fbx", "settings.json", f"{name}_x.png"):
@@ -852,8 +852,8 @@ def check_export(key, rec, name, s1, h1):
         if m:
             xor.setdefault(int(m.group(1)), []).append((int(m.group(2)), float(m.group(3))))
     assert 1 in xor and 2 in xor, f"{key} export: LOD preview frames {sorted(xor)}"
-    # the gate reads the frame AT the switch (the farther of the two; the nearer one is half
-    # the switch distance, where that LOD is never shown); design D9: <= 8 %, P2 <= 9 % (WARN)
+    # the gate reads the frame AT the switch (the farther of the two. The nearer one is half the switch distance, where
+    # that LOD is never shown). Design D9: <= 8 %, P2 <= 9 % (WARN)
     at = {lvl: max(v)[1] for lvl, v in xor.items()}
     gate, warn = (9.0, 8.0) if key == "P2" else (8.0, 8.0)
     assert at[2] <= gate, f"{key} D9: preview LOD2 XOR at the switch {at[2]} % > {gate} %"

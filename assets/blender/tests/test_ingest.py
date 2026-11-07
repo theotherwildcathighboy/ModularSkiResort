@@ -3,40 +3,40 @@ test_ingest.py - cs2_ingest contract test (headless Blender 5.2).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_ingest.py
 
-Sources are the archived originals in assets/external/ (ROUND-SPEC R20; binaries are
-gitignored, so on a fresh clone copy them back from SOURCE.md's download first).
+Sources are the archived originals in assets/external/ (ROUND-SPEC R20, binaries are gitignored, so
+on a fresh clone copy them back from SOURCE.md's download first).
 
 Asserts (expected figures from understand/ref-models.md sec 1.2-1.4, sec 1.6, sec 2.1-2.3 and
 ref-models-skeptic verdicts 1, 4, 5, 7, 8, 12, 14, miss 9):
   Kagelok .blend   58 meshes kept, the BezierCurve.001 path curve dropped, 30 constraints
                    baked away (10 chairs x 2 + 10 grips), nothing parented / constrained /
-                   animated / hidden, 39,870 tris; chair "05" world extent 6.72 x 2.51 x
-                   8.50 u (+-1 %); grip D05 top - chair 05 lowest = 9.091 u (+-0.5 %); the
-                   line + entry tower head kits present (line kit 2,058 tris, its 16
+                   animated / hidden, 39,870 tris. Chair "05" world extent 6.72 x 2.51 x
+                   8.50 u (+-1 %). Grip D05 top - chair 05 lowest = 9.091 u (+-0.5 %). The
+                   line + entry tower head kits are present (line kit 2,058 tris, its 16
                    sheaves centered at x = +-7.5 u).
-  textures         30 of 33 used materials matched; exactly cable / gouttiere / val cenis
-                   tex unmatched; keep= raises for them, an override clears it; the
+  textures         30 of 33 used materials matched. Exactly cable / gouttiere / val cenis
+                   tex unmatched. keep= raises for them, an override clears it. The
                    aliases, the "et" drop, case-only collisions and truncated _DIS names
-                   resolve; every one of the 117 files belongs to exactly one set and no
-                   set borrows another set's roughness (the cs2_asset._load_map glob trap);
-                   gray, gray+alpha, palette, RGB and RGBA PNGs load as (h, w, 4).
-  gondola .fbx     522 meshes / 36,557 tris, 187 empties dropped; the cabin.001 subtree
-                   filter; fence calibration factor 27 +-10 %; body "cabin" x27 =
+                   resolve. Every one of the 117 files belongs to exactly one set and no
+                   set borrows another set's roughness (the cs2_asset._load_map glob trap).
+                   Gray, gray+alpha, palette, RGB and RGBA PNGs load as (h, w, 4).
+  gondola .fbx     522 meshes / 36,557 tris, 187 empties dropped. The cabin.001 subtree
+                   filter. Fence calibration factor 27 +-10 %. Body "cabin" x27 =
                    2.62 x 2.31 x 1.82 m and the cabin.001 subtree x27 = 2.63 x 2.36 x 1.98 m.
   clean            chair 05: 0 n-gons (25 triangulated), 1 Material Output per material
-                   targeting ALL, no color attributes, extents unchanged; gondola body:
+                   targeting ALL, no color attributes, extents unchanged. Gondola body:
                    the FBX custom normals and sharp_edge marks are cleared.
-  frame / parts    reframe puts the lowest point at z 0 and the grip on the Z axis;
-                   rescale 0.30 m/u gives a 2.727 m drop; to_parts splits 15 + 7 loose
+  frame / parts    reframe puts the lowest point at z 0 and the grip on the Z axis.
+                   Rescale 0.30 m/u gives a 2.727 m drop. to_parts splits 15 + 7 loose
                    parts, a classify rule moves the 2 small grip parts to griphw_NN, a bad
-                   classify prefix raises and leaves the sources; tag_parts + join +
+                   classify prefix raises and leaves the sources. tag_parts + join +
                    reduce(900, delete griphw_) lands +-25 %, deletes those parts, keeps the
                    mesh name (no .001) and ends weighted-shaded (custom normals).
-  edge cases       a mirrored transform and an inside-out box both end outward; recalc
+  edge cases       a mirrored transform and an inside-out box both end outward. recalc
                    "none" keeps the inside-out box, an open reversed grid keeps its source
-                   winding by default; a filtered .blend load (05 + D05) evaluates its
+                   winding by default. A filtered .blend load (05 + D05) evaluates its
                    constraint targets, then drops them with their curve / action / mesh, and
-                   restores the frame (37), the selection and the active object; an unknown
+                   restores the frame (37), the selection and the active object. An unknown
                    name raises and leaves the session untouched (.blend and .fbx).
   winding          chairs 01 / 03 / 05 / 07 (one local mesh, four poses) clean to the same
                    directed source edges and the same flips (recalc "all" flipped 4/34/0/0).
@@ -44,11 +44,11 @@ ref-models-skeptic verdicts 1, 4, 5, 7, 8, 12, 14, miss 9):
                    clashing name in the session, raises and leaves nothing behind.
   determinism      two load + clean runs of the whole Kagelok file in one process hash
                    identically (vertices + faces), with discard() between them.
-NOTE the round text asked for chair 05 = 6.72 x 2.54 x 8.52 u and the cabin.001 subtree =
-2.43 x 2.18 x 1.83 m at x27. Measured: 6.72 x 2.51 x 8.50 (= ref-models sec 1.4; 2.54 is
--1.01 % off) and 2.63 x 2.36 x 1.98 m (the round's figures are this subtree at x24.95). The
-test pins the measured values and prints the comparison.
-Prints one PASS line and exits 0, or lists the failures and exits 1.
+NOTE the round text asked for chair 05 = 6.72 x 2.54 x 8.52 u and the cabin.001 subtree = 2.43 x
+2.18 x 1.83 m at x27. Measured: 6.72 x 2.51 x 8.50 (= ref-models sec 1.4, 2.54 is -1.01 % off) and
+2.63 x 2.36 x 1.98 m (the round's figures are this subtree at x24.95). The test pins the measured
+values and prints the comparison. Prints one PASS line and exits 0, or lists the failures and exits
+1.
 """
 
 import collections
@@ -555,7 +555,7 @@ def test_gondola():
           and sum(cs2_asset.tri_count(o) for o in sub) == 2299,
           f"objects=['cabin.001'] returns that subtree: 35 meshes, 2,299 tris (got {len(sub)})")
     check(all(o.data.has_custom_normals for o in sub), "the FBX meshes arrive with custom normals")
-    # P0a review: FBX names are post-dedup names; a second load would return 1 mesh.
+    # P0a review: FBX names are post-dedup names. A second load would return 1 mesh.
     refused("a second gondola.fbx load while its objects are loaded", GONDOLA,
             objects=["cabin.001"])
     cs2_ingest.discard(sub)

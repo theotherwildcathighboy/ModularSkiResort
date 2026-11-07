@@ -1,19 +1,19 @@
 """
 ski_bus_depot.py - the Ski Bus Depot shelter -> mesh SkiBusDepotA (the art for the SkiBusDepot prefab).
 
-Design: docs/research/ski-bus-depot-art-brief-2026-10-31.md. One architect, one palette: oxblood steel, cedar,
-corten, pale concrete; yellow only on the hooks and the bench, red only on the sign.
+Design: docs/research/ski-bus-depot-art-brief-2026-10-31.md. One architect, one palette: oxblood steel, cedar, corten, pale
+concrete. Yellow appears only on the hooks and the bench. Red appears only on the sign.
 
-Form: welcome_sign.py's route (kit parts -> unique bake -> LOD chain), with the hut pilot's texture method
-(docs/PIPELINE.md section 1b, DECISIONS 459): CC0 scans at real-world scale, tinted to the palette (target_srgb),
-the swatch controls chroma / flatten_m / contrast / normal_gain, low-frequency weathering only. A building off the
-family sheet bakes its own atlas, so none of this is a family change. The controls live on the unmerged
-`hut-textures` branch; apply_controls below is a local copy of their order and math.
+Form: welcome_sign.py's route (kit parts -> unique bake -> LOD chain), with the texture method of the hut pilot
+(docs/PIPELINE.md section 1b, DECISIONS 459). The method uses CC0 scans at real-world scale, tinted to the palette
+(target_srgb). The swatch controls are chroma / flatten_m / contrast / normal_gain. Weathering is low-frequency only. A
+building off the family sheet bakes its own atlas, so none of this is a family change. The controls live on the unmerged
+`hut-textures` branch. apply_controls below is a local copy of their order and math.
 
-Frame: authoring meters, +X = the road, Y along the shelter, Z up, lot center at the origin (orient_for_net sends
-+X to game +Z). Lot 2 x 1 cells, flattened by the building's own terraform.
+Frame: authoring meters, +X = the road, Y along the shelter, Z up, lot center at the origin (orient_for_net sends +X to game
++Z). Lot 2 x 1 cells, flattened by the building's own terraform.
 
-Vanilla first: bench, trash bin, planter rocks, young trees and the lamp are NOT in the mesh. SUB_OBJECTS lists them;
+Vanilla first: bench, trash bin, planter rocks, young trees and the lamp are NOT in the mesh. SUB_OBJECTS lists them.
 --preview shows each as a plain ph_ placeholder that exists only in the render scene.
 
 CLI (headless only, never into assets/import):
@@ -155,8 +155,8 @@ DENSITY = {"plank_": 1.70, "wallcap_": 1.0, "ceil_": 1.0, "roof_": 0.85, "roofed
            "planter": 0.8, "ledcase_": 0.6, "screencase_": 0.8, "screenhang_": 0.8}
 
 
-# Back wall rows per bay -> the canonical board that bay 0 owns: the low rows (the splash band) stay on their row, the
-# rest shuffle, so bays never repeat as a block while nine boards carry all three bays (texel density, PIPELINE sec. 1).
+# Back wall rows per bay -> the canonical board that bay 0 owns. The low rows (the splash band) stay on their row. The rest
+# shuffle, so bays never repeat as a block. Nine boards carry all three bays (texel density, PIPELINE sec. 1).
 def _plank_canon():
     rng = random.Random(SEED + 21)
     out = {}
@@ -174,8 +174,8 @@ HOOK_BOARDS = {(2, n) for n in (3, 4, 5, 6, 7)}     # the boards the two hook ro
 
 
 def share_key(n):
-    """Identical members stack on one island (cs2_uv share): their weathering is by height or slope position only.
-    The key groups names; share_groups proves every member is a translation of the first and raises otherwise."""
+    """Identical members stack on one island (cs2_uv share). Their weathering depends on height or slope position only. The key
+    groups names. share_groups proves that every member is a translation of the first, and raises otherwise."""
     m = re.match(r"^plank_b(\d)_(\d+)$", n)
     if m:
         if (int(m[1]), int(m[2])) in HOOK_BOARDS:   # a stacked texel shows the last copy's AO: the hook shadows must not repeat
@@ -200,8 +200,8 @@ def share_key(n):
 DELETE1 = ("plate_", "towerplate_", "hook", "screenhang_", "wallcap_", "towerrail_", "planterin_")
 DELETE2 = DELETE1 + ("crossb_", "pfs_", "pfr_", "screencase_", "screenface_", "planterbed_", "ledcase_")
 
-# The vanilla sub-objects this art expects (authoring x, y, z; rows are written at the surgery round, not here).
-# GUIDs in subobj_bounds.json where present.
+# The vanilla sub-objects this art expects (authoring x, y, z). The surgery round writes the rows, not this file. GUIDs in
+# subobj_bounds.json where present.
 SUB_OBJECTS = (
     dict(prop="GardenBenchRandom01", guid="8df0703be09426948b5bc3262d86bc04", at=(XB + 0.42, -1.2, PZ),
          note="against the back wall; vanilla variants vary, the yellow slat bench of the reference may not exist"),
@@ -273,7 +273,7 @@ def build_parts():
         z = BOARD_Z0
         for n in range(BOARD_N):
             ya2, yb2 = ya + POST / 2 - 0.005, yb - POST / 2 + 0.005
-            # two faces, no edges: the gaps between boards are real and stay light; ends die into the posts
+            # two faces, no edges: the gaps between boards are real and stay light. Ends die into the posts
             P += C.quads_part(f"plank_b{b}_{n}", [
                 ([(XB + t, ya2, z), (XB + t, yb2, z), (XB + t, yb2, z + BOARD_H), (XB + t, ya2, z + BOARD_H)], (1, 0, 0)),
                 ([(XB - t, ya2, z), (XB - t, yb2, z), (XB - t, yb2, z + BOARD_H), (XB - t, ya2, z + BOARD_H)], (-1, 0, 0))],
@@ -289,7 +289,7 @@ def build_parts():
         for y in ys_:
             P += hook_parts(n, face_x, y, z)
             n += 1
-    # ---- clear panels: road side bays 0 and 1, the -Y end wall; bay 2 and the +Y end stay open
+    # ---- clear panels: road side bays 0 and 1, the -Y end wall. Bay 2 and the +Y end stay open
     bays = (("r0", "X", XR + POST / 2, YS[0], YS[1], PANEL_Z), ("r1", "X", XR + POST / 2, YS[1], YS[2], PANEL_Z),
             ("e0", "Y", YS[0] - POST / 2, XB + 0.02, XR - 0.02, END_PANEL_Z))
     for tag, axis, plane, a, b, zr in bays:
@@ -333,7 +333,7 @@ def build_parts():
         top = roof_line(x) - CROSS[1] + 0.02
         P += K.box_part(f"screenhang_{i}", (x - 0.02, SCREEN_Y - 0.02, zb - 0.01), (x + 0.02, SCREEN_Y + 0.02, top), "case_dark",
                         drop=("-Z", "+Z"))
-    # ---- corten planter (modeled: vanilla has no match); rocks and trees are vanilla rows ----
+    # ---- corten planter (modeled: vanilla has no match). Rocks and trees are vanilla rows ----
     x0, y0, x1, y1, zt = PLANTER
     th = PLANTER_T
     zb_ = PLANTER_BED_Z
@@ -357,8 +357,8 @@ def build_parts():
 
 
 def bar(name, p0, p1, w, h, mat, up=(0.0, 0.0, 1.0), chamfer=CHAMFER, caps=(False, False)):
-    """A steel bar from p0 to p1: w across side = axis x up, h along the up direction, section corners chamfered
-    (8 faces around; chamfer 0 = 4). caps = (at p0, at p1). uv_prisms unwraps it as one strip."""
+    """A steel bar from p0 to p1: w across side = axis x up, h along the up direction, section corners chamfered (8 faces
+    around, chamfer 0 = 4). caps = (at p0, at p1). uv_prisms unwraps it as one strip."""
     def build(bm):
         P0, P1 = Vector(p0), Vector(p1)
         ax = (P1 - P0).normalized()
@@ -509,15 +509,15 @@ def paint_band(A, out_dir, name):
         limit = led_w - 0.14
         if width > limit:           # narrow the line to the row, never the cap height
             cov, width = text_cov(body, tf, TEXT_CAP_M, w, h, ppu, ppv, track=1.05, stretch=limit / width)
-        # Solid letters with the true anti-aliased edge and only a shallow dot grid inside: a real grid of dots averages to a
-        # dim, stair-stepped smear in the mips, which is the distance this sign is read from.
+        # Solid letters with the true anti-aliased edge and only a shallow dot grid inside. A real grid of dots averages to a
+        # dim, stair-stepped smear in the mips, and players read this sign from that distance.
         X, Y = np.meshgrid((np.arange(w) + 0.5) / ppu, (np.arange(h) + 0.5) / ppv)
         dx = X - (np.floor(X / pitch) + 0.5) * pitch
         dy = Y - (np.floor(Y / pitch) + 0.5) * pitch
         dot = np.clip((0.0135 - np.hypot(dx, dy)) * ppu + 0.5, 0.0, 1.0)
         led = (cov * (0.84 + 0.16 * dot)).astype(np.float32)
         field = np.array((0.035, 0.033, 0.033), np.float32)
-        # sRGB-encoded here (written as a color PNG); dark unlit field with a hint of the dot grid
+        # sRGB-encoded here (written as a color PNG). Dark unlit field with a hint of the dot grid
         c = np.broadcast_to(field, (h, w, 3)).copy() + 0.015 * dot[..., None]
         c = c * (1.0 - cov[..., None]) + red * led[..., None]
         base[sl][..., 0:3] = c
@@ -560,8 +560,8 @@ def paint_band(A, out_dir, name):
 
 
 def set_band_uvs(obj, table, A, part_keys):
-    """LED / screen faces -> their rect, each read the right way round from its own side (authoring frame); every
-    other island moved by whole tiles so nothing lands in a reserved rect (welcome_sign's rule)."""
+    """LED / screen faces -> their rect, each read the right way round from its own side (authoring frame). Every other island
+    moves by whole tiles so nothing lands in a reserved rect (welcome_sign's rule)."""
     rects = band_rects(A)
     me = obj.data
     lay = me.uv_layers[cs2_bake.TILE_LAYER]
@@ -581,7 +581,7 @@ def set_band_uvs(obj, table, A, part_keys):
             du, dv = 0.12 * (u1 - u0), 0.12 * (v1 - v0)
             for j, li in enumerate(range(p.loop_start, p.loop_start + p.loop_total)):
                 co = me.vertices[me.loops[li].vertex_index].co
-                # hooks: root (the wall) dark, tip bright; cases: a soft top light. The small circle by loop index keeps
+                # Hooks: root (the wall) dark, tip bright. Cases: a soft top light. The small circle by loop index keeps
                 # every face a real area on the ramp (a face at one x or one z would otherwise collapse to a line).
                 s = np.clip((co.x - XB) / 0.13, 0.0, 1.0) if n.startswith("hook") else np.clip(0.5 + 0.5 * p.normal.z, 0.0, 1.0)
                 a_ = 2.0 * math.pi * j / p.loop_total
@@ -657,8 +657,8 @@ def scan_board_rows(n_boards=10):
 
 
 def set_board_uvs(obj, table):
-    """Every plank face (front and back) gets one scan board and its own phase along the grain; the ceiling bays and
-    other big tiled faces get a random phase, so the tile's knots do not line up. Authoring frame, UVTile units."""
+    """Every plank face (front and back) gets one scan board and its own phase along the grain. The ceiling bays and other big
+    tiled faces get a random phase, so the tile's knots do not line up. Authoring frame, UVTile units."""
     rows = scan_board_rows()
     me = obj.data
     lay = me.uv_layers[cs2_bake.TILE_LAYER]
@@ -697,16 +697,16 @@ def set_board_uvs(obj, table):
             y0 = min(ys)
             for li in range(p.loop_start, p.loop_start + p.loop_total):
                 co = me.vertices[me.loops[li].vertex_index].co
-                # boards run along the shelter (+Y); the slope stays in v
+                # boards run along the shelter (+Y). The slope stays in v
                 uv[li] = (du + (co.y - y0) / BOARD_TILE, dv + co.x / BOARD_TILE)
     cs2_uv.set_loop_uvs(lay, uv)
 
 
 def uv_prisms(obj, table, axes):
-    """UVTile for the bars: one strip per bar (u along the axis in meters / tile, v around the section), a cap hinged
-    onto the strip's end, so a bar is ONE island in the pack (a loose face per bar face would cost a mip margin each).
-    Flat boxes (pad, plates, cap, planter walls) get their top with the sides folded out, one island too. Runs on the
-    joined mesh, authoring frame."""
+    """UVTile for the bars: one strip per bar (u along the axis in meters / tile, v around the section). A cap hinges onto the
+    end of the strip, so a bar is ONE island in the pack (a loose face per bar face would cost a mip margin each). Flat boxes
+    (pad, plates, cap, planter walls) get their top with the sides folded out, one island too. Runs on the joined mesh,
+    authoring frame."""
     me = obj.data
     lay = me.uv_layers[cs2_bake.TILE_LAYER]
     uv = cs2_uv.loop_uvs(lay)
@@ -799,9 +799,9 @@ def uv_prisms(obj, table, axes):
 
 
 def depot_pack(obj, mesh, A, reserved, margin_px=None, equalise=True, density_layer=cs2_uv.DENSITY_ATTR, share=None):
-    """Replaces cs2_uv._pack_layout for this build's bake: exact mip-safe margins (A // 64, PIPELINE section 1: Blender's
-    pack_islands could not hold them, the snow props' finding) with one density scale found by binary search, density_w
-    honored per island, no rotation."""
+    """Replaces cs2_uv._pack_layout for this build's bake. It gives exact mip-safe margins (A // 64, PIPELINE section 1:
+    Blender's pack_islands could not hold them, the snow props' finding). It uses one density scale found by binary search,
+    honors density_w per island, and does no rotation."""
     margin = cs2_uv.default_margin_px(A) if margin_px is None else int(margin_px)
     layer = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
     mesh.uv_layers.active = layer
@@ -879,8 +879,8 @@ def _blur_periodic(img, sigma_px):
 
 
 def apply_controls(tps, lin, nrm, rough, ppm):
-    """cs2_tilesheet.texpass_apply's controls on a prefiltered tile (linear RGB, 0..1 normal, roughness); flatten and
-    contrast keep each channel's mean."""
+    """cs2_tilesheet.texpass_apply's controls on a prefiltered tile (linear RGB, 0..1 normal, roughness). Flatten and contrast
+    keep each channel's mean."""
     def keep_mean(new, old):
         return new * (old.reshape(-1, 3).mean(0) / np.maximum(new.reshape(-1, 3).mean(0), 1e-9))
     if "chroma" in tps:
@@ -904,7 +904,7 @@ def apply_controls(tps, lin, nrm, rough, ppm):
 
 
 def controlled_specs(specs, info, work_dir):
-    """The prefiltered source of each CONTROLS key through apply_controls into work_dir, the tint re-derived so the
+    """Passes the prefiltered source of each CONTROLS key through apply_controls into work_dir. It re-derives the tint so the
     palette mean holds (the hut pilot's target_srgb rule)."""
     out = dict(specs)
     for key, tps in CONTROLS.items():
@@ -995,7 +995,7 @@ def tint_mul(base, idx, f):
 
 
 def paint_weather(me, A, table, base, msk):
-    """Return the height field (meters) of the painted relief; base (linear) and msk are changed in place."""
+    """Return the height field (meters) of the painted relief. The function changes base (linear) and msk in place."""
     P, N, part = world_fields(me, A)
     h = np.zeros((A, A), np.float32)
     nz = Noise(SEED)
@@ -1030,7 +1030,7 @@ def paint_weather(me, A, table, base, msk):
     h[idx] += 0.006 * weld
     base[idx[0], idx[1], :3] *= (1.0 - 0.38 * weld)[..., None]
     msk[idx[0], idx[1], 3] = np.clip(msk[idx[0], idx[1], 3] - 0.12 * weld, 0.0, 1.0)
-    # ---- bolts on the foot plates; screw heads at the panel corners -----------------------------
+    # ---- bolts on the foot plates, screw heads at the panel corners -----------------------------
     idx = mask_of("plate_", "towerplate_")
     up = N[idx][..., 2] > 0.9
     idx = (idx[0][up], idx[1][up])
@@ -1047,7 +1047,7 @@ def paint_weather(me, A, table, base, msk):
     n_out = (N[idx][..., 0] > 0.9) | (N[idx][..., 1] < -0.9)
     idx = (idx[0][n_out], idx[1][n_out])
     x, y, z = P[idx][..., 0], P[idx][..., 1], P[idx][..., 2]
-    # along = y on the road frames, x on the end frame; a screw every rail / stile crossing, plus a mid-rail one
+    # along = y on the road frames, x on the end frame. A screw sits at every rail / stile crossing, plus a mid-rail one
     road = N[idx][..., 0] > 0.9
     along = np.where(road, y, x)
     fw = FRAME[0]
@@ -1121,8 +1121,8 @@ def paint_weather(me, A, table, base, msk):
     # lighter orange washes beside the runs near the foot, rust on the ground side
     low = 1.0 - smoothstep(PZ, 0.85, z)
     c = c * (1.0 + low[..., None] * np.array((0.10, -0.12, -0.25), np.float32))
-    # the faint mountain: a ridge line across the slab under the sign, darker rock with lighter snow fields. Procedural,
-    # the shape is noise, never traced from a photo.
+    # the faint mountain: a ridge line across the slab under the sign, darker rock with lighter snow fields. Procedural. The
+    # shape is noise, never traced from a photo.
     ridge = 2.72 + 0.46 * np.sin((y + 5.45) * 1.9 + 0.6) + 0.60 * (nz.fbm(y / 0.7, 3.5 * np.ones_like(y), 21.0, 4) - 0.5)
     body = smoothstep(0.02, -0.04, z - ridge) * smoothstep(1.76, 1.92, z)
     snow = smoothstep(0.50, 0.62, nz.fbm(y / 0.16 + z / 0.3, z / 0.22, 31.0, 3)) * smoothstep(ridge - 0.72, ridge - 0.2, z)
@@ -1370,8 +1370,8 @@ def _glass_preview(rig, sub):
     nt.nodes.remove(b)
     fr, gl, tr, mix = (nt.nodes.new("ShaderNodeFresnel"), nt.nodes.new("ShaderNodeBsdfGlossy"),
                        nt.nodes.new("ShaderNodeBsdfTransparent"), nt.nodes.new("ShaderNodeMixShader"))
-    # 11 % head on: acrylic plus the dust that makes a panel read. A plane has no inside: Cycles inverts the IOR on the
-    # back face, which would go totally internally reflective (a mirror, and no sun through it), so feed it 1 / 2 there.
+    # 11 % head on: acrylic plus the dust that makes a panel read. A plane has no inside. Cycles inverts the IOR on the back
+    # face. That would go totally internally reflective (a mirror, and no sun through it), so feed it 1 / 2 there.
     geo, ior = nt.nodes.new("ShaderNodeNewGeometry"), nt.nodes.new("ShaderNodeMath")
     ior.operation = "MULTIPLY_ADD"
     ior.inputs[1].default_value = -1.5
@@ -1456,7 +1456,7 @@ def render_previews(obj, glass, asset_dir, name, out_dir, samples, only=None):
     sc.cycles.samples = samples
     sc.cycles.use_denoising = True
     sc.render.threads_mode = "FIXED"
-    sc.render.threads = 12                  # a game may be running; BelowNormal is set by the caller
+    sc.render.threads = 12                  # a game may be running. The caller sets BelowNormal
     sc.view_settings.view_transform = "AgX"
     sc.view_settings.look = "None"
     sc.render.film_transparent = False

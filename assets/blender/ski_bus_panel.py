@@ -1,32 +1,34 @@
 """
 ski_bus_panel.py - the "SKI BUS" sign panel for the ski coach (research/ski-bus-visual-2026-10-31.md, Stage B).
 
-SUPERSEDED as a board by ski_bus_decal.py, which paints paint_strip's art on the coach. paint_strip stays the art's one source.
+SUPERSEDED as a board by ski_bus_decal.py, which paints paint_strip's art on the coach. paint_strip stays the art's
+one source.
 
 MODELED STAND-IN: no vanilla prop carries this text, so this one small board is modeled (vanilla props first).
 
-One mesh, SkiBusPanelA: a thin board, origin at its center, attached several times to the coach clone as sub-object
-rows (left side, right side, roof), so fit is adjusted in the prefab without a reimport. Export: --out assets/import/vehicles/A.
-A new look takes a new generation letter in NAME (PIPELINE section 0) and a fresh preview verdict first.
+One mesh, SkiBusPanelA: a thin board, origin at its center. The prefab attaches it several times to the coach clone
+as sub-object rows (left side, right side, roof). So the fit is adjusted in the prefab without a reimport. Export:
+--out assets/import/vehicles/A. A new look takes a new generation letter in NAME (PIPELINE section 0) and a fresh
+preview verdict first.
 
 Frame (authoring meters, Z up, as welcome_sign.py): the front faces +X, the long axis is Y, and +Y is the viewer's
-right. cs2_asset.orient_for_net + export_fbx + the game's x negation (PIPELINE section 4, frame rule) put the front on
-game +Z, the letters' top on game +Y and the viewer's right on game -X: a handedness change, not a mirror, so the text
-reads left to right from the front in game as in Blender (the same chain as cs2_signset.build_sign_set; in-game
-confirmation is still open). Rows that turn the board use a rotation, never a negative scale: a mirror row would
-mirror the text.
+right. cs2_asset.orient_for_net + export_fbx + the game's x negation (PIPELINE section 4, frame rule) put the front
+on game +Z, the letters' top on game +Y and the viewer's right on game -X. This is a handedness change, not a mirror.
+So the text reads left to right from the front in game as in Blender (the same chain as cs2_signset.build_sign_set,
+in-game confirmation is still open). Rows that turn the board use a rotation, never a negative scale: a mirror row
+would mirror the text.
 
-Texture: 1024^2, painted here (nothing baked, no AO, no weathering), the texture floor is 512 (PIPELINE section 1).
-The 6 m face would get only 165 px/m as one strip on a square map, so it is two quads cut in the word gap, which is
+Texture: 1024^2, painted here (nothing baked, no AO, no weathering). The texture floor is 512 (PIPELINE section 1).
+The 6 m face would get only 165 px/m as one strip on a square map. So it is two quads cut in the word gap, which is
 plain field, and each half has its own row at PPM (the welcome sign's header split, cs2_signset "gate.header"). The
-back and the edges share a third, plain row. The whole sheet is field color, so no island can bleed at any mip.
-Maps: BaseColor (alpha 255), Normal flat (printed board, nothing under 5 cm to relieve), MaskMap (0, 0, 0, SMOOTH),
+back and the edges share a third, plain row. The whole sheet is field color, so no island can bleed at any mip. Maps:
+BaseColor (alpha 255), Normal flat (printed board, nothing under 5 cm to relieve), MaskMap (0, 0, 0, SMOOTH),
 ControlMask 0 (never tinted: the panel keeps its paint on any coach color, like every sign set). No Emissive: the
-board is unlit at night. One LOD by design, research Stage B (20 tris; PIPELINE LOD rules bind chains, and the cull
-comes from the sign-set LodProperties pattern at surgery).
+board is unlit at night. One LOD by design, research Stage B (20 tris). PIPELINE LOD rules bind chains, and the cull
+comes from the sign-set LodProperties pattern at surgery.
 
-Type: Franklin Gothic Demi Cond, PIPELINE section 1 "Signage typefaces", rendered from the sha1-pinned installed font
-into the bitmap through cs2_signset (the TTF is never copied). Mark: the two-peak silhouette of
+Type: Franklin Gothic Demi Cond, PIPELINE section 1 "Signage typefaces". The code renders it from the sha1-pinned
+installed font into the bitmap through cs2_signset (the TTF is never copied). Mark: the two-peak silhouette of
 ski_launcher_glyph.cand_c, the shipped launcher glyph that the welcome sign emblem also uses, without its snowflake
 (the flake is 17 cm across here and closes up well before the street-zoom view).
 
@@ -34,7 +36,7 @@ CLI (headless only):
     blender --background --factory-startup --python-exit-code 1 --python ski_bus_panel.py --
         --out DIR [--preview [DIR]] [--face franklin_demi_cond] [--no-mark] [--texture-only] [--no-validate]
     --out DIR receives DIR/SkiBusPanel/ (FBX, four PNGs, settings.json, manifest), a scratch folder for the validator.
-    --preview writes SkiBusPanel_<view>.png into assets/preview/ (or DIR). Exit 1 on any failure; last line PASS.
+    --preview writes SkiBusPanel_<view>.png into assets/preview/ (or DIR). Exit 1 on any failure. The last line is PASS.
 """
 
 import argparse
@@ -68,7 +70,7 @@ LOD0_CAP = 20                                    # 10 quads: two halves, front, 
 OXBLOOD_BYTES = (0x70, 0x26, 0x24)               # the coach's paint
 CREAM_BYTES = (0xF2, 0xE8, 0xD5)
 FACE = "franklin_demi_cond"                      # SS.NC_UTILITY_FACE, PIPELINE "Signage typefaces"
-CAP_M = 0.44                                     # large letters beat decoration; margin (0.60 - 0.44) / 2 = 0.08 m
+CAP_M = 0.44                                     # large letters beat decoration. Margin (0.60 - 0.44) / 2 = 0.08 m
 TRACKING = 0.06                                  # x the cap, as the sign sheet's name boards
 WORD_GAP = 0.80                                  # x the cap, between SKI and BUS (the seam lives here)
 MARK_H_M = 0.32                                  # small: the peaks stand on the letters' baseline, under cap height
@@ -81,7 +83,7 @@ SMOOTH = SS.SMOOTH                               # the sign sheet's printed-boar
 
 # ---- sheet (texels, rows bottom-up) -----------------------------------------------------------------------------
 TEX = 1024
-PPM = 320.0                                      # px/m on every face; sign sheet 300, lift boards 400, vanilla 340-520
+PPM = 320.0                                      # px/m on every face. The sign sheet uses 300, lift boards 400, vanilla 340-520
 MARGIN_PX = TEX // 64                            # cs2_uv.default_margin_px / the props' mip-safe margin
 MIN_STROKE_PX = 4.0                              # the sign sheet's SS3 floor
 ROW_H = int(round(BOARD_H * PPM))
@@ -91,10 +93,10 @@ ROW_PLAIN = (MARGIN_PX, MARGIN_PX * 3 + ROW_H * 2)
 MAX_ROW_PX = TEX - 2 * MARGIN_PX
 SEAM_CLEAR_PX = 8                                # plain field required each side of the seam
 
-# ---- preview proxy (authoring frame: bus length along X, width along Y; NOT the real Bus01) -----------------------
+# ---- preview proxy (authoring frame: bus length along X, width along Y, NOT the real Bus01) -----------------------
 PROXY_W, PROXY_H, PROXY_L = 2.55, 3.20, 12.00
 PROXY_GAP = 0.01                                 # air between the board's back and the proxy
-FOV_DEG = 45.0                                   # cs2_preview.VERTICAL_FOV_DEG; the game camera's own FOV is unverified
+FOV_DEG = 45.0                                   # cs2_preview.VERTICAL_FOV_DEG. The game camera's own FOV is unverified
 INSET_CROP = (240, 160)                          # center of the frame, drawn again at INSET_K x, nearest neighbor
 INSET_K = 3                                      # 720 x 480 in the corner: clear of the proxy at 70 m and farther
 VIEW_DIR = (-0.60, -0.75, 0.62)                  # 3/4 high, the -Y side and the front of the proxy
@@ -125,7 +127,7 @@ def bytes_to_lin(rgb):
 # ======================================================================================
 
 def peaks_cov():
-    """(square coverage, bottom-up rows; mark width m): the launcher glyph's two peaks, MARK_H_M tall."""
+    """(square coverage, bottom-up rows, mark width m): the launcher glyph's two peaks, MARK_H_M tall."""
     fill = G.cand_c()[0]
     if fill[0] != "fill":
         raise RuntimeError("ski_launcher_glyph.cand_c no longer starts with its peaks")
@@ -168,7 +170,7 @@ def paint_strip(face, mark=True):
         glyph, mark_w = peaks_cov()
         s = glyph.shape[0]
         ink_rows = np.where(glyph.max(axis=1) > 0.0)[0]
-        glyph = glyph[ink_rows[0]:ink_rows[-1] + 1]          # the ink only; its bottom row goes on the baseline
+        glyph = glyph[ink_rows[0]:ink_rows[-1] + 1]          # the ink only. Its bottom row goes on the baseline
         r0 = int(round(MARGIN_M * PPM))
         for sx in (-1.0, 1.0):
             cx = W / 2.0 + sx * (total / 2.0 + MARK_GAP_M + mark_w / 2.0)
@@ -213,7 +215,7 @@ def check_strip(cov, layout):
 
 
 def paint_maps(cov, layout):
-    """{map: (A, A, 4) array}, rows bottom-up: the strip split into its two rows; the rest of the sheet is field."""
+    """{map: (A, A, 4) array}, rows bottom-up: the strip split into its two rows. The rest of the sheet is field."""
     A = TEX
     field, cream = bytes_to_lin(OXBLOOD_BYTES), bytes_to_lin(CREAM_BYTES)
     s = layout["seam_px"]
@@ -239,7 +241,7 @@ def write_maps(maps, asset_dir):
 
 
 def check_png_colors(asset_dir):
-    """Read back what was written: the field and the letters are the asked colors, within one byte; alpha 255."""
+    """Read back what was written: the field and the letters are the asked colors, within one byte, alpha 255."""
     px = cs2_validate.load_png_pixels(os.path.join(asset_dir, f"{NAME}_BaseColor.png"))
     b = np.round(px * 255.0).astype(int)
     if b[..., 3].min() != 255:
@@ -260,9 +262,10 @@ def check_png_colors(asset_dir):
 # ======================================================================================
 
 def build_mesh(seam_y):
-    """The board in the authoring frame, origin at its center. Two boxes' worth of quads sharing the seam ring (no
-    T-junction); all quads are wound outward. UV: the front halves on their rows (u along +y, v along +z, read from
-    +X); the back halves, top, bottom and ends stacked on the plain row with the same scale, wound unmirrored."""
+    """The board in the authoring frame, origin at its center. It has two boxes' worth of quads sharing the seam ring
+    (no T-junction). All quads are wound outward. UV: the front halves on their rows (u along +y, v along +z, read
+    from +X). The back halves, top, bottom and ends are stacked on the plain row with the same scale, wound
+    unmirrored."""
     hx, hy, hz = BOARD_T / 2.0, BOARD_W / 2.0, BOARD_H / 2.0
     ys = (-hy, seam_y, hy)
     A = float(TEX)
@@ -306,7 +309,7 @@ def build_mesh(seam_y):
     bpy.context.view_layer.objects.active = ob
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.remove_doubles(threshold=1e-5)         # UV loops keep their islands; the shell closes
+    bpy.ops.mesh.remove_doubles(threshold=1e-5)         # UV loops keep their islands. The shell closes
     bpy.ops.object.mode_set(mode="OBJECT")
     cs2_asset.shade_by_angle(ob, 66.0)
     return ob
@@ -352,7 +355,7 @@ def check_mesh(ob):
 
 
 # ======================================================================================
-# Preview (the proxy exists only here; nothing below reaches an FBX)
+# Preview (the proxy exists only here, nothing below reaches an FBX)
 # ======================================================================================
 
 def panel_material(asset_dir, specular=None):
@@ -533,7 +536,7 @@ def render_context(ob, out_dir):
     ground = flat_material("ProxyGround", lin=(0.22, 0.22, 0.22))
     box_object("ProxyGround", (-1500.0, -1500.0, -0.2), (1500.0, 1500.0, -0.01), ground, ground)
 
-    # rotations, never a scale: the mesh is shared. Side -Y faces the camera; the roof board's top points to +Y.
+    # rotations, never a scale: the mesh is shared. Side -Y faces the camera. The roof board's top points to +Y.
     off = PROXY_W / 2 + PROXY_GAP + BOARD_T / 2
     side_z = PROXY_H - 0.05 - BOARD_H / 2
     rows = (("PanelSideNegY", (0.0, -off, side_z), Matrix.Rotation(math.radians(-90.0), 3, "Z")),
@@ -636,7 +639,7 @@ def run(args):
         "stand_in": "modeled: no vanilla prop carries this text"})
     verdict = "skipped"
     if not args.no_validate:
-        # "hanging" is the declared kind (a hosted board, origin at its center, so no ground rule); the "prop" pass
+        # "hanging" is the declared kind (a hosted board, origin at its center, so no ground rule). The "prop" pass
         # adds the per-part density floor, which is the only thing wanted from it
         counts = {}
         for kind in ("hanging", "prop"):

@@ -1,47 +1,58 @@
 """
-lift_head.py - the Head bone round (DECISIONS 594; spike docs/research/tilted-towers-spike-2026-11-04.md option B).
+lift_head.py - the Head bone round (DECISIONS 594, spike docs/research/tilted-towers-spike-2026-11-04.md option B).
 
-Every DQ / GD line member and its B2 twins (Hold, Combo) get a fourth bone, `Head` (child of Root, on the trains' pivot
-line, identity rest, as the halves): the head (gantry, deck, rails, hangers, plates) turns about the rope line to the mean
-of the two halves (TrainPitchSystem: LiftAlignMath.HeadPitch, clamped to the type's planner max, DQ 42.0 / GD 50.2), the
-halves to head +- 20. The ladder, its landings, the mast and the pad stay on Root.
+Every DQ / GD line member and its B2 twins (Hold, Combo) get a fourth bone, `Head` (child of Root, on the pivot line of the
+trains, identity rest, as the halves). The head (gantry, deck, rails, hangers, plates) turns about the rope line to the mean
+of the two halves (TrainPitchSystem: LiftAlignMath.HeadPitch, clamped to the planner max of the type, DQ 42.0 / GD 50.2).
+The halves turn to head +- 20. The ladder, its landings, the mast and the pad stay on Root.
 
-Letters (HEAD_RANGES, --letter): S = the 594 round (a plumb mast, the head to the planner max); T = the tower-lean round
-(default): the mast leans up to 20 deg and the planner caps the rope pitch at 40, so the head turns +-20 and each half
-+-40 relative to the mast. T is S's geometry with the cut-outs sized for that range: the head's swept envelope (mast top,
-Hold grab extensions) at +-20, the comm wedge (arrest rail, H1) at 40; G6 and the grip clearance sweep rel_grid.
+Letters (HEAD_RANGES, --letter):
+- S = the 594 round (a plumb mast, the head to the planner max).
+- T = the tower-lean round (default). The mast leans up to 20 deg and the planner caps the rope pitch at 40, so the head
+  turns +-20 and each half +-40 relative to the mast.
+
+T is S's geometry with the cut-outs sized for that range: the swept envelope of the head (mast top, Hold grab extensions) at
++-20, and the comm wedge (arrest rail, H1) at 40. G6 and the grip clearance sweep rel_grid.
 
 The art this needs (all on the member's shipped atlas: 0 MB, lift_tower.twin_apply_atlas + a fitted island per new part):
-- trunnion: two Root cheeks on the mast's flange plate carry two Root stub pins on the pivot line; the head's hubs
-  sleeve them (Head lugs), webs carry the hubs up to a cross-head in two halves (`gantry_trunnion_yoke_n/p`, slotted
-  for the comm post) under the gantry. The girder band (DQ gantry_00 / the GD girders, under pivot + GIRDER_ZONE) is
-  cut out inside |y| GIRDER_X; the hubs, webs and cross-head take the girders' inner ends.
-- mast: lowered only as far as the swept head needs (_mast_top: the girders' lower edge on the members, the hubs on the
-  raised twins) and ended in a flat flange plate (`mast_flange`, SHOULD-3; the tube's cap faces go).
-- comm wire on a Root post (v2, critique MUST-1): a base bar between the cheeks, a square post up through the girder
-  slot, the shipped square clamp at comm_anchor (the members' shipped comm y: their comm sub-lane stays; the twins' +
-  their head raise). The wire's wedge from there (cone_z) clears the mast and every rung; only the fall-arrest rail's
-  top is cut where the wedge crosses the ladder plane.
-- the landings' outer lips step in to LAND_X (a 7 mm gap to the deck lip: the deck turns, the landing does not).
-- UVs (SHOULD-4): the trunnion's painted parts and the girder's cut ends take a small patch of the girder's own painted
-  face, the flange one of the mast's tube; the comm post and clamp copy the shipped namesakes' loops.
+- trunnion: two Root cheeks on the flange plate of the mast carry two Root stub pins on the pivot line. The hubs of the head
+  sleeve the pins (Head lugs). Webs carry the hubs up to a cross-head in two halves (`gantry_trunnion_yoke_n/p`, slotted for
+  the comm post) under the gantry. The girder band (DQ gantry_00 / the GD girders, under pivot + GIRDER_ZONE) is cut out
+  inside |y| GIRDER_X. The hubs, webs and cross-head take the inner ends of the girders.
+- mast: the code lowers it only as far as the swept head needs (_mast_top: the lower edge of the girders on the members, the
+  hubs on the raised twins) and ends it in a flat flange plate (`mast_flange`, SHOULD-3). The cap faces of the tube go.
+- comm wire on a Root post (v2, critique MUST-1): a base bar between the cheeks, a square post up through the girder slot,
+  and the shipped square clamp at comm_anchor. comm_anchor is the shipped comm y of the members (their comm sub-lane stays),
+  and the same y + their head raise on the twins. The wedge of the wire from there (cone_z) clears the mast and every rung.
+  Only the top of the fall-arrest rail is cut where the wedge crosses the ladder plane.
+- the outer lips of the landings step in to LAND_X (a 7 mm gap to the deck lip). The deck turns. The landing does not.
+- UVs (SHOULD-4): the painted parts of the trunnion and the cut ends of the girder take a small patch of the painted face of
+  the girder itself. The flange takes a patch of the tube of the mast. The comm post and clamp copy the loops of the shipped
+  namesakes.
+
 Geometry is authored in the twin frame (x travel, y lateral, z up), gated in the net frame (x lateral, y travel).
 
-Gates here (raise on failure): T0 names, the twin contracts (tops unchanged, anchors, C9 / C18), G6 with the Head bone
-over cs2_skin.joint_grid(type max) with Head = (front + back) / 2 (head vs mast / trunnion / ladder / landing, halves vs
-head, pins, ropes AND the comm wire from the post's clamp, every crown seated), the negative (the same steep poses with
-the head held level must fail), H1 (the flange under the comm wedge), H2 (Hold grab extensions), LOD budgets (5 % cap
-rule). Recorded, not raised: the posed head's bounds against the rest bounds
-(HEAD_BOUNDS; the deck ends rise past the rest top on steep poses: an owner call, see build.md).
+Gates here (they raise on failure):
+- T0 names.
+- The twin contracts (tops unchanged, anchors, C9 / C18).
+- G6 with the Head bone over cs2_skin.joint_grid(type max) with Head = (front + back) / 2 (head vs mast / trunnion / ladder
+  / landing, halves vs head, pins, ropes AND the comm wire from the clamp of the post, every crown seated).
+- The negative (the same steep poses with the head held level must fail).
+- H1 (the flange under the comm wedge).
+- H2 (Hold grab extensions).
+- LOD budgets (5 % cap rule).
+
+The code records, but does not raise, the bounds of the posed head against the rest bounds (HEAD_BOUNDS). The deck ends rise
+past the rest top on steep poses: an owner call, see build.md.
 
 Usage (headless):
   blender --background --factory-startup --python-exit-code 1 --python lift_head.py -- --keys DQ10,DQ10Hold
       --out <scratch> [--preview <dir>] [--lineup] [--report <json>]
   blender ... --python lift_head.py -- --keys all --export --letter T [--import-root <dir>] [--report <json>]
-      (the import round: each key's folder BESIDE its atlas donor, assets/import/towers/<donor letter>/<Name> (HEAD_ATLAS:
-      Q or R), the family-folder rule; skinned LOD0 / 1 / 2 with the Head bone, no PNG of its own, settings.json straight
-      at the donor's four maps (0 MB), manifest, validate_asset_folder (raises on an error). --import-root: a scratch copy
-      of assets/import for a dry run.)
+      (the import round writes each key's folder BESIDE its atlas donor, assets/import/towers/<donor letter>/<Name>
+      (HEAD_ATLAS: Q or R), the family-folder rule. It writes skinned LOD0 / 1 / 2 with the Head bone, no PNG of its
+      own, settings.json straight at the donor's four maps (0 MB), a manifest, and runs validate_asset_folder
+      (raises on an error). --import-root: a scratch copy of assets/import for a dry run.)
 """
 import argparse
 import dataclasses
@@ -62,12 +73,13 @@ import cs2_skin  # noqa: E402
 import lift_tower as LT  # noqa: E402
 import cs2_kit as K  # noqa: E402
 
-HEAD_LETTER = "T"                       # the round's mesh letter (tower letters in use: J..R; twins A; S = DECISIONS 594)
-# The head's range per letter (deg, relative to the mast; None = the type's planner max, SKIN_TYPE_MAX_SLOPE):
+HEAD_LETTER = "T"                       # the round's mesh letter (tower letters in use: J..R, twins A, S = DECISIONS 594)
+# The head's range per letter (deg, relative to the mast, with None = the type's planner max, SKIN_TYPE_MAX_SLOPE):
 #   S (DECISIONS 594): a plumb mast, the head to the planner max (DQ 42 / GD 50.2), every half too.
-#   T (the tower-lean round): the mast leans up to 20 deg and the planner caps the rope pitch (the mean of the two chords)
-#     at 40 (DQ, GD), so the head turns at most +-20 relative to the mast (40 - 20) and each half at most head +- the
-#     half-break (20) = +-40 relative to the mast; the comm wire spans the same nodes, so it too stays within 40.
+#   T (the tower-lean round): the mast leans up to 20 deg and the planner caps the rope pitch (the mean of the two
+#     chords) at 40 (DQ, GD). So the head turns at most +-20 relative to the mast (40 - 20). Each half turns at most
+#     head +- the half-break (20) = +-40 relative to the mast. The comm wire spans the same nodes, so it too stays
+#     within 40.
 HEAD_RANGES = {"S": dict(head=None, halves=None), "T": dict(head=20.0, halves=40.0)}
 HEAD_REL_MAX = HEAD_RANGES[HEAD_LETTER]["head"]
 HALF_REL_MAX = HEAD_RANGES[HEAD_LETTER]["halves"]
@@ -76,28 +88,29 @@ HEAD_BONES = ("Root", "TrainFront", "TrainBack", HEAD_BONE)
 HEAD_MEMBERS = ("DQ10", "DQ12", "DQ14", "DQ16", "DQ18", "DQ20", "GD12", "GD16", "GD20")
 HEAD_TWINS = tuple(k for k, (m, kind) in LT.TWINS.items() if m in HEAD_MEMBERS and kind in ("Hold", "Combo"))
 HEAD_KEYS = HEAD_MEMBERS + HEAD_TWINS   # 9 + 8 = 17 meshes
-# the deployed member meshes each head build reads its atlas from (gamedata-mirror prefab -> mesh CID, 2026-11-03; the
-# same table as tests/test_grip_clearance.SHIPPED): lift_tower.TWIN_ATLAS names only the members with twins
+# the deployed member meshes that each head build reads its atlas from (gamedata-mirror prefab -> mesh CID, 2026-11-03, the
+# same table as tests/test_grip_clearance.SHIPPED). lift_tower.TWIN_ATLAS names only the members with twins
 HEAD_ATLAS = {"DQ10": "Q/SkiLiftTowerDQ10Q", "DQ12": "R/SkiLiftTowerDQ12R", "DQ14": "Q/SkiLiftTowerDQ14Q",
               "DQ16": "Q/SkiLiftTowerDQ16Q", "DQ18": "Q/SkiLiftTowerDQ18Q", "DQ20": "Q/SkiLiftTowerDQ20Q",
               "GD12": "R/SkiLiftTowerGD12R", "GD16": "Q/SkiLiftTowerGD16Q", "GD20": "Q/SkiLiftTowerGD20Q"}
-# non-train parts on the head; everything else that is not a train part stays on Root
+# non-train parts on the head. Everything else that is not a train part stays on Root
 HEAD_PARTS = ("gantry_", "grate_deck", "kick_deck", "post_deck", "rail_deck", "endplate_", "hanger_", "plate_",
               "platerim_", "gusset_")
 HEAD_LUGS = ("hanger_", "gantry_")      # Head parts a Root pin runs through (coaxial: the pin gap is 0 by construction)
 HEAD_PINS = ("pivot_main_", "mast_trunnion_pin_")
 MAST_CLEAR = 0.012                      # m: the flange top under the swept head (G6 asks 5 mm)
-# SHOULD-3: the lowered mast ends in a flat flange plate (its cap faces go); the cheeks stand on it
+# SHOULD-3: the lowered mast ends in a flat flange plate (its cap faces go). The cheeks stand on it
 FLANGE = dict(over=0.05, t=0.05, segments=12)
-# MUST-1 (v2): the comm wire keeps a high anchor on a Root post: a base bar between the cheeks on the pivot line, a
-# square post up through the girder's center slot, the shipped square clamp (lift_tower.COMM_CLAMP) at the anchor
+# MUST-1 (v2): the comm wire keeps a high anchor on a Root post. The anchor has a base bar between the cheeks on the pivot
+# line, a square post up through the center slot of the girder, and the shipped square clamp (lift_tower.COMM_CLAMP) at the
+# anchor
 POST = dict(base_w=0.06, base_t=0.04, bury=0.005)
 POST_SLOT = 0.035                       # m: the cross-head's slot half width (post half 0.02 + 15 mm)
 CENTER_X = 0.125                        # m: the trunnion's half width (cheeks inside, hubs / webs outside)
 GIRDER_X = 0.20                         # m: the girders' inner ends after the center cut (DQ ingest: through, GD 0.12)
 GIRDER_ZONE = 0.40                      # m over the pivot (+ the head raise): the girder band the center cut touches
-# the cheeks' top corner (travel 0.08, z 0.08: r 0.113) stays under the cross-head's underside (0.12) at every head
-# pitch; the cross-head's underside clears the comm wire (<= 20 deg off the head) over its travel half width by 36 mm
+# the cheeks' top corner (travel 0.08, z 0.08: r 0.113) stays under the cross-head's underside (0.12) at every head pitch.
+# The cross-head's underside clears the comm wire (<= 20 deg off the head) over its travel half width by 36 mm
 TRUNNION = dict(cheek_x=(0.075, 0.115), cheek_w=0.16, cheek_top=0.08, pin_r=0.05, hub_r=0.10, web_w=0.12,
                 yoke_z=(0.12, 0.17), yoke_w=0.16, sleeve_r=0.07, sleeve_l=0.08, arm_w=0.06, arm_t=0.04)
 LAND_X = 0.688                          # m: the landings' outer lip (deck lip at 0.695)
@@ -132,9 +145,8 @@ def half_max(fam):
 
 
 def cone_z(fam, za, travel):
-    """The comm wire's underside over a point `travel` m out of its anchor (height za), at the steepest pitch relative
-    to the mast (half_max; the vanilla LV hexagon, flats top / bottom: its bottom flat h / cos below the axis), minus
-    CONE_MARGIN."""
+    """The comm wire's underside over a point `travel` m out of its anchor (height za), at the steepest pitch relative to the
+    mast (half_max, the vanilla LV hexagon, flats top / bottom: its bottom flat h / cos below the axis), minus CONE_MARGIN."""
     a = math.radians(half_max(fam))
     return za - abs(travel) * math.tan(a) - LT.LANE_ROPE["h"] / math.cos(a) - CONE_MARGIN
 
@@ -147,7 +159,7 @@ def comm_anchor(tw):
 
 def headed_spec(key):
     """The twin-shaped spec dict of a headed build: a twin key (LT.twin_spec) or a member key (kind "Member": the member
-    itself, head raise 0). comm_y is None on every spec (the shipped hanger from the gantry beam is gone; the wire
+    itself, head raise 0). comm_y is None on every spec (the shipped hanger from the gantry beam is gone, and the wire
     anchors on head_transform's Root post at comm_anchor)."""
     if key in LT.TWINS:
         tw = LT.twin_spec(key)
@@ -279,9 +291,9 @@ def _fill_cut(bm, on_plane, lay, tri=None):
 
 
 def _cut_center(obj, zlim, tri=None):
-    """The girder band (faces wholly under zlim) cut at |y| = GIRDER_X and its middle removed, both cut faces capped
-    (UVs: a patch of `tri`): the trunnion sits in the gap and the comm post rises through it; the trunnion's hubs, webs
-    and cross-head take the girders' inner ends."""
+    """The girder band (faces wholly under zlim) cut at |y| = GIRDER_X and its middle removed, both cut faces capped (UVs: a
+    patch of `tri`). The trunnion sits in the gap and the comm post rises through it. The hubs, webs and cross-head of the
+    trunnion take the inner ends of the girders."""
     out = {}
 
     def fn(bm):
@@ -333,9 +345,9 @@ def head_angles(tw):
 
 
 def _mast_top(by, tw, zp, r):
-    """SHOULD-3 / MUST-1 (v2): the highest flange top under the swept head (MAST_CLEAR) inside the flange's footprint
-    (radius r about the mast axis): every Head part sampled over |y| <= r, turned about the pivot line by every head
-    angle (both signs); the trunnion (built later) adds its hubs (coaxial: zp - hub_r) and its webs' bottom corners.
+    """SHOULD-3 / MUST-1 (v2): the highest flange top under the swept head (MAST_CLEAR) inside the flange's footprint (radius r
+    about the mast axis). The function samples every Head part over |y| <= r and turns it about the pivot line by every head
+    angle (both signs). The trunnion (built later) adds its hubs (coaxial: zp - hub_r) and the bottom corners of its webs.
     Returns (top, floor, source)."""
     head = [o for n, (o, _k) in by.items() if n.startswith(HEAD_PARTS)]
     angs = head_angles(tw)
@@ -359,10 +371,11 @@ RAIL_MIN_OVER_LANDING = 0.30            # m: a shorter grab extension than this 
 
 
 def _clip_ladder_rails(by, tw, zp):
-    """The ladder rails' grab extensions over the landing, cut under the head's swept envelope: every Head part's
-    faces sampled where they cross the rails' lateral band, turned about the pivot line by every head angle of the
-    grid (both signs), the lowest point over the rails' travel window less RAIL_CLEAR. Only the raised twin heads
-    (Hold) reach the rails; members and most twins leave them as built. Returns {rail: (old top, new top)} rel pivot."""
+    """The ladder rails' grab extensions over the landing, cut under the swept envelope of the head. The function samples the
+    faces of every Head part where they cross the lateral band of the rails and turns them about the pivot line by every
+    head angle of the grid (both signs). The cut height is the lowest point over the travel window of the rails less
+    RAIL_CLEAR. Only the raised twin heads (Hold) reach the rails. Members and most twins leave them as built. Returns
+    {rail: (old top, new top)} rel pivot."""
     rails = [(n, o) for n, (o, _k) in by.items() if n.startswith("ladder_rail_")]
     head = [o for n, (o, _k) in by.items() if n.startswith(HEAD_PARTS)]
     land = [v.co.z for n, (o, _k) in by.items() if n.startswith("grate_land") for v in o.data.vertices]
@@ -435,7 +448,7 @@ def head_transform(parts, tw, atlas):
     zt = min(zt, max(v.co.z for v in mo.data.vertices))
     LT._check(zt <= cone_z(fam, za, rf), f"[{spec.key}] H1 flange top {zt - zp:+.3f} under the comm wedge at r {rf}",
               f"(wedge {cone_z(fam, za, rf) - zp:+.3f} rel pivot)")
-    zc = zt - FLANGE["t"] / 2.0                       # the tube ends inside the plate; its cap faces go
+    zc = zt - FLANGE["t"] / 2.0                       # the tube ends inside the plate. Its cap faces go
 
     def cut_mast(bm):
         for v in bm.verts:
@@ -453,8 +466,8 @@ def head_transform(parts, tw, atlas):
         if n.startswith("grate_land"):
             LT._bm_edit(o, lambda bm: [setattr(v.co, "y", math.copysign(LAND_X, v.co.y)) for v in bm.verts
                                        if abs(v.co.y) > LAND_X + 1e-4])
-    # ladder rungs and standoffs inside the comm wire's wedge go (none at the post's anchor); the fall-arrest rail is cut
-    # to the wedge where it crosses the ladder plane
+    # ladder rungs and standoffs inside the comm wire's wedge go (none at the post's anchor). The fall-arrest rail is cut to
+    # the wedge where it crosses the ladder plane
     drop = []
     for n, (o, _k) in list(by.items()):
         if n.startswith(("ladder_rung_", "ladder_standoff_")):
@@ -604,8 +617,8 @@ def rel_grid(hmax, brk, tmax):
 
 
 def head_grid(tw, tmax=None):
-    """[{TrainFront, TrainBack, Head}] deg (Hold: the concave half), Head = the mean. S: cs2_skin.joint_grid(type max);
-    T: rel_grid(head_max, half-break, half_max), the poses a leaned mast meets."""
+    """[{TrainFront, TrainBack, Head}] deg (Hold: the concave half), Head = the mean. S: cs2_skin.joint_grid(type max). T:
+    rel_grid(head_max, half-break, half_max), the poses a leaned mast meets."""
     fam = tw["twin"].family
     brk = LT.TWIN_HALF_BREAK.get(tw["kind"], cs2_skin.HALF_BREAK_MAX)
     if HEAD_REL_MAX is None or tmax is not None:
@@ -618,9 +631,9 @@ def head_grid(tw, tmax=None):
 
 
 def comm_runs(spec, pose, za, run=None, start=COMM_START):
-    """The comm wire as the game draws it from its anchor (0, za; the post's clamp): per half one straight run outward
-    at that half's pitch about the anchor (its span's rope pitch: the comm wire spans the same nodes), lateral 0, the
-    vanilla LV hexagon."""
+    """The comm wire as the game draws it from its anchor (0, za, the post's clamp). Per half it is one straight run outward at
+    that half's pitch about the anchor (its span's rope pitch: the comm wire spans the same nodes), lateral 0, the vanilla
+    LV hexagon."""
     ext = LT.skin_half_extent(spec) + (LT.SKIN_ROPE_RUN if run is None else run)
     out = []
     for b, sign in (("TrainFront", cs2_skin.FRONT_SIGN_NET), ("TrainBack", -cs2_skin.FRONT_SIGN_NET)):
@@ -629,10 +642,10 @@ def comm_runs(spec, pose, za, run=None, start=COMM_START):
 
 
 def headed_sweep(obj, table, tw, part_bone, poses=None, label=None, gate=True):
-    """G6 with four bones (cs2_skin.sweep): the halves and the Head posed about the one pivot line, Root fixed; pins
-    (main pins, trunnion pins) exempt vs the lugs (yokes; Head hangers / gantry parts); the ropes and the comm wire;
-    every crown seated (support crowns from below, compression crowns mirrored, twin_sweep's rule). Then the posed
-    head's bounds against the rest AABB (recorded). Raises on a failed gate when `gate`."""
+    """G6 with four bones (cs2_skin.sweep): the halves and the Head posed about the one pivot line, Root fixed. Checks: pins
+    (main pins, trunnion pins) exempt vs the lugs (yokes, Head hangers / gantry parts), the ropes and the comm wire, and
+    every crown seated (support crowns from below, compression crowns mirrored, twin_sweep's rule). Then the bounds of the
+    posed head against the rest AABB (recorded). Raises on a failed gate when `gate`."""
     spec = tw["twin"]
     fam = spec.family
     zp = LT.lane_y(spec, True)
@@ -699,8 +712,8 @@ def headed_sweep(obj, table, tw, part_bone, poses=None, label=None, gate=True):
 
 
 def head_bounds(co, vb, bones, pivots, poses):
-    """The posed head against the rest AABB (net frame, the whole mesh at rest): per pose how far its vertices rise past
-    the rest top (> 0: past it; the bounds' max y is the AnchorTop seat and is never padded) and pass the rest box
+    """The posed head against the rest AABB (net frame, the whole mesh at rest): per pose how far its vertices rise past the
+    rest top (> 0: past it. The max y of the bounds is the AnchorTop seat and is never padded) and pass the rest box
     laterally / along travel. Returns the worst of each with its pose."""
     hi = bones.index(HEAD_BONE)
     lo_r, hi_r = co.min(axis=0), co.max(axis=0)
@@ -738,9 +751,9 @@ def pitch_for_top(co, vb, bones, pivots, step=0.5, tmax=60.0):
 
 
 def negative(t, table, tw, pb):
-    """The head held level on the steep uniform poses must fail G6 (the gate sees the head). Hold twins: recorded, not
-    raised. Their hold-down train reaches no head part at +-max on every key (GD Hold measured clean, v2), and v1's GD
-    Hold negative failed only on the comm wire crossing the level girder on the pivot line, which the post removed."""
+    """The head held level on the steep uniform poses must fail G6 (the gate sees the head). Hold twins: recorded, not raised.
+    Their hold-down train reaches no head part at +-max on every key (GD Hold measured clean, v2). The v1 GD Hold negative
+    failed only on the comm wire crossing the level girder on the pivot line. The post removed that crossing."""
     fam = tw["twin"].family
     tm = type_max(fam)          # the planner max on every letter: at T the GD halves at +-40 with a level head still clear
     poses = [{"TrainFront": s * tm, "TrainBack": s * tm, HEAD_BONE: 0.0} for s in (1.0, -1.0)]
@@ -786,8 +799,7 @@ def _drop(objs):
 
 
 def render_pose(t, arm, spec, pose, asset_dir, name, raw, views, za=None, extras=()):
-    """`t` posed by `arm` at `pose` with the ropes and (anchor `za` given) the comm wire at that pose; returns the
-    frame paths."""
+    """`t` posed by `arm` at `pose` with the ropes and (anchor `za` given) the comm wire at that pose. Returns the frame paths."""
     pivots = {b: LT.skin_pivot(spec) for b in HEAD_BONES[1:]}
     tmp = cs2_skin.posed_copy(t, arm, pose, pivots, t.name + "Posed")
     mat = _rope_mat(name + "_HeadRope")
@@ -857,9 +869,9 @@ def masttop_views(tw, tag):
 
 
 def key_previews(t, arm, lods, tw, asset_dir, name, raw, ref=None):
-    """Per key: the lineup frames (0 / 20 / max uniform rope pitch, side at rope height and 3/4) and the mast top /
-    ladder close-ups (rest, type max); members also the trunnion close-ups, the carrier's grip past the raised deck end,
-    the LOD sheet and the comm wire before / after."""
+    """Per key: the lineup frames (0 / 20 / max uniform rope pitch, side at rope height and 3/4) and the mast top / ladder
+    close-ups (rest, type max). Members also get the trunnion close-ups, the carrier's grip past the raised deck end, the
+    LOD sheet and the comm wire before / after."""
     spec, fam = tw["twin"], tw["twin"].family
     zp = tw["lane"]
     za = comm_anchor(tw)
@@ -937,9 +949,10 @@ def key_previews(t, arm, lods, tw, asset_dir, name, raw, ref=None):
 # -- one key ---------------------------------------------------------------------------------------------------------------
 
 def head_lod_chain(t, name, spec):
-    """lod_chain_v2 + the trunnion's small parts: the pins (inside the hubs) leave at LOD1, the hubs at LOD2; the cheeks
-    and webs stay on every level (without them the LOD2 head floats over the flange), so does the flange (`mast`); the
-    comm post and clamp leave at LOD1 with comm_ (as the shipped hanger did), the cross-head halves stay with gantry_."""
+    """lod_chain_v2 + the small parts of the trunnion. The pins (inside the hubs) leave at LOD1 and the hubs at LOD2. The
+    cheeks and webs stay on every level (without them the LOD2 head floats over the flange), and so does the flange
+    (`mast`). The comm post and clamp leave at LOD1 with comm_ (as the shipped hanger did). The cross-head halves stay with
+    gantry_."""
     l1p, l2p = LT.lod_prefixes(spec)
     l1p = tuple(l1p) + ("mast_trunnion_pin_",)
     l2p = tuple(l2p) + ("mast_trunnion_pin_", "gantry_trunnion_hub_")
@@ -1021,10 +1034,10 @@ def run_key(key, out, preview=None, keep_ref=False):
 
 
 def export_key(rep, objs):
-    """--export: one key's import folder beside its atlas donor (HEAD_ATLAS, the family-folder rule): skinned LOD0 / 1 /
-    2 FBXs (every level weighted to Root / TrainFront / TrainBack / Head), settings.json on the donor's four maps
-    (cs2_asset.sibling_settings: no PNG, 0 MB), the round trip with the four bones, the manifest, validate_asset_folder
-    (raises on an error). Returns the validator summary."""
+    """--export writes one key's import folder beside its atlas donor (HEAD_ATLAS, the family-folder rule). The folder holds
+    skinned LOD0 / 1 / 2 FBXs (every level weighted to Root / TrainFront / TrainBack / Head), settings.json on the donor's
+    four maps (cs2_asset.sibling_settings: no PNG, 0 MB), and the manifest. The function also runs the round trip with the
+    four bones and validate_asset_folder (raises on an error). Returns the validator summary."""
     import cs2_validate
     t, arm, lods, tw, name, asset_dir = objs
     spec = tw["twin"]

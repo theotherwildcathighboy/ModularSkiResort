@@ -11,8 +11,8 @@
 #   SkiRunGroomedA    - workhorse white with corduroy grooming
 #   SkiRunSnowmakingA - brighter/denser machine-snow variant, fainter corduroy, icier gloss
 #
-# All patterns are strictly periodic (integer-frequency sines + FFT spectral noise), so
-# the tiles are seamless by construction; the _tiling preview renders a 2x2 repeat to prove it.
+# All patterns are strictly periodic (integer-frequency sines + FFT spectral noise), so the tiles
+# are seamless by construction. The _tiling preview renders a 2x2 repeat to prove it.
 #
 # Usage:
 #   blender --background --factory-startup --python ski_surface.py -- [--textures] [--previews]
@@ -34,8 +34,8 @@ IMPORT_DIR = os.path.join(ROOT, "import", "surfaces", "A")
 PREVIEW_DIR = os.path.join(ROOT, "preview", "surfaces")
 
 SIZE = 1024
-GROOVES = 96          # corduroy cycles per tile; at m_UVScale 0.06 a tile is ~16.7 m -> ~17 cm pitch
-UV_SCALE = 0.06       # documented for the prefab; used to scale the preview UVs realistically
+GROOVES = 96          # corduroy cycles per tile. At m_UVScale 0.06 a tile is ~16.7 m -> ~17 cm pitch
+UV_SCALE = 0.06       # documented for the prefab. Used to scale the preview UVs realistically
 
 
 def periodic_noise(size, f_lo, f_hi, falloff, seed, rng=None):
@@ -73,7 +73,7 @@ def build_height(kind, seed):
 
 
 def normal_from_height(h, strength):
-    """OpenGL tangent-space normal (array row 0 = image top; G = +up in image space)."""
+    """OpenGL tangent-space normal (array row 0 = image top, G = +up in image space)."""
     ddu = (np.roll(h, -1, axis=1) - np.roll(h, 1, axis=1)) * 0.5 * SIZE
     ddown = (np.roll(h, -1, axis=0) - np.roll(h, 1, axis=0)) * 0.5 * SIZE
     dup = -ddown                                   # derivative along image-up

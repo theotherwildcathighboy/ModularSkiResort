@@ -1,58 +1,61 @@
 """
-snow_weather.py - the CLEAN-STYLE texture pass for the generation-B snowmaking props
-(REDO, wiki style, 2026-10-17). Write-up: docs/research/art/snow-props-weather-2026-10-17.md,
-section "Redo (wiki style)"; brief: docs/research/art/wiki-best-practices-gap-2026-10-17.md
-sections 0, 2a, 2b, 3.
+snow_weather.py - the CLEAN-STYLE texture pass for the generation-B snowmaking props (REDO, wiki style,
+2026-10-17). Write-up: docs/research/art/snow-props-weather-2026-10-17.md, section "Redo (wiki style)".
+Brief: docs/research/art/wiki-best-practices-gap-2026-10-17.md sections 0, 2a, 2b, 3.
 
-History: rev 1-4 of this module painted texel-scale weathering (galvanised spangle and haze, salt
-streaks, rust bloom, chips to primer, water runs, soot / oil, a rusty guard, relief) on 9-26 mm
-texels with a resolution gate that admitted 1.5-3 texel features. It was rejected (DECISIONS
-264 VERDICT FAIL): "too much weathering or the wrong style ... looked better before ... too
-pixelated". The wiki's only style rule is "clean, minimal grunge, no repetitive patterns", detail
-under ~5 cm belongs in the NORMAL map, and vanilla props have near-flat albedo. Every texel-scale
-overlay is RETIRED here, not tuned (the rev 4 code is in git, commit 0f7a4cf).
+History: rev 1-4 of this module painted texel-scale weathering (galvanized spangle and haze, salt
+streaks, rust bloom, chips to primer, water runs, soot / oil, a rusty guard, relief) on 9-26 mm texels
+with a resolution gate that admitted 1.5-3 texel features. It was rejected (DECISIONS 264 VERDICT FAIL):
+"too much weathering or the wrong style ... looked better before ... too pixelated". The wiki's only
+style rule is "clean, minimal grunge, no repetitive patterns". Detail under ~5 cm belongs in the NORMAL
+map, and vanilla props have near-flat albedo. Every texel-scale overlay is RETIRED here, not tuned (the
+rev 4 code is in git, commit 0f7a4cf).
 
 It runs inside lift_tower.apply_finish_textures' `post_compose` slot (linear light, AO already
-multiplied, stamped strips already restored, before the sRGB encode) and changes PIXELS ONLY:
-mesh, UVs, part table, LOD chain and file names are untouched.
+multiplied, stamped strips already restored, before the sRGB encode) and changes PIXELS ONLY. Mesh, UVs,
+part table, LOD chain and file names are untouched.
 
 STEP 1 (`step=1`, "one variable at a time"): resolution + repack + parity, no soiling.
   N0 re-orient    every reprojected atlas normal is turned by its face's atlas -> unique UV rotation
-                  (reorient_normals): the REDO packer unfolds and rotates islands, the EMIT bake
+                  (reorient_normals). The REDO packer unfolds and rotates islands, and the EMIT bake
                   copies tangent-space normals verbatim.
   T0 parity       MaskMap smoothness / metal per zone onto the measured vanilla bands (constant per
-                  zone: the atlas photo roughness was stretched by the atlas squeeze); metal only on
-                  the bare galvanised zone; galvanised albedo lifted toward sRGB luma 0.72 (was 0.64).
+                  zone: the atlas photo roughness was stretched by the atlas squeeze). Metal only on
+                  the bare galvanized zone. Galvanized albedo lifted toward sRGB luma 0.72 (was 0.64).
   T0f flat base   every zone except the stamped strip and concrete takes a per-PART flat albedo and a
-                  flat normal: the atlas photo / procedural grain was projected through smart-project
+                  flat normal. The atlas photo / procedural grain was projected through smart-project
                   islands squeezed into small atlas rects (median 1.4 : 1, p90 3.5 : 1, lance tube
-                  28 : 1), so its scale and direction were accidents; at the REDO densities it would
+                  28 : 1), so its scale and direction were accidents. At the REDO densities it would
                   read as stripes and noise. Concrete keeps its photo at CONCRETE_DETAIL contrast.
   N1 normal detail  panel seams, bolt heads, weld beads, molded ribs, a lid panel and a world-
                   anchored grating, drawn as height by cs2_compose.detail_height (the existing
                   height -> normal path) ONLY where the feature spans >= 3 texels
-                  (NORMAL_TEXEL_FLOOR); per class in NORMAL_DETAIL_CLASSES / normal_detail_specs.
+                  (NORMAL_TEXEL_FLOOR). The specs are per class in NORMAL_DETAIL_CLASSES / normal_detail_specs.
   AO              the finish bake's gentle occ = ao * 0.92 + 0.08 is kept, DENOISED with a 5 x 5
-                  binomial over covered texels (AO_DENOISE: the 24-sample bake's per-texel noise was
-                  the largest high-frequency term left once the flat base removed the atlas grain;
-                  islands sit >= 8 texels apart, so nothing mixes across islands).
+                  binomial over covered texels (AO_DENOISE). The 24-sample bake's per-texel noise was
+                  the largest high-frequency term left once the flat base removed the atlas grain.
+                  Islands sit >= 8 texels apart, so nothing mixes across islands.
 STEP 2 (`step=2`): step 1 + LOW-FREQUENCY soiling only (soil_overlays):
   S1 grade        smooth darkening from grade to 0.5 m (<= 12 % sRGB luma), broken by 0.6 m noise
   S2 pad top      broad soft dirt on the concrete pad tops (<= 12 %)
   S3 lid top      broad soft dirt on hydrant lid tops (<= 10 %, a recolorable slot: bounded)
-  S4 collar run   at most ONE soft run >= 10 cm wide below a collar (tower mast, lance column; 8 %)
-  The grade ramp is a tonal gradient, capped by its own luma limit; the STAINS (S2-S4) carry the
-  coverage budget (a 0.5 m ramp alone covers most of a 0.35 m hydrant box or a 0.45 m fan chassis,
-  so a total budget would have faded the whole step to nothing; both coverages are reported).
-  Every overlay declares its feature size and soft edge; overlay_gate() RAISES on a feature under
-  MIN_FEATURE_M (5 cm) or a soft edge under MIN_SOFT_M and weights texels by
-  smoothstep(6, 10, feature x px/m) (>= 8 texels); an overlay whose mean gate is below 0.5 is
-  SKIPPED, never shrunk; the hook re-checks that nothing was painted where the feature spans
+  S4 collar run   at most ONE soft run >= 10 cm wide below a collar (tower mast, lance column, 8 %)
+  The grade ramp is a tonal gradient, capped by its own luma limit. The STAINS (S2-S4) carry the
+  coverage budget. A 0.5 m ramp alone covers most of a 0.35 m hydrant box or a 0.45 m fan chassis,
+  so a total budget would have faded the whole step to nothing. The code reports both coverages.
+  Every overlay declares its feature size and soft edge. overlay_gate() RAISES on a feature under
+  MIN_FEATURE_M (5 cm) or a soft edge under MIN_SOFT_M. It weights texels by
+  smoothstep(6, 10, feature x px/m) (>= 8 texels). An overlay whose mean gate is below 0.5 is SKIPPED,
+  never shrunk. The hook re-checks that nothing was painted where the feature spans
   < 6 texels.
 
-Contract rules kept in code (guards raise): recolorable texels keep a LIGHT albedo (slot mean
->= SLOT_KEEP of the bake's, dirt clamped at DIRT_FLOOR); BaseColor alpha 1; MaskMap G = B = 0;
-ControlMask alpha 0 and channels exclusive (only ever copied); metal only on galvanised.
+Contract rules kept in code (guards raise):
+- Recolorable texels keep a LIGHT albedo (slot mean >= SLOT_KEEP of the bake's, dirt clamped at
+  DIRT_FLOOR).
+- BaseColor alpha 1.
+- MaskMap G = B = 0.
+- ControlMask alpha 0 and channels exclusive (only ever copied).
+- Metal only on galvanized.
 
 Public API:
     make_hook(obj, name, step=2, key=None) -> WeatherHook (post_compose signature)
@@ -62,7 +65,7 @@ Public API:
     albedo_hf(base_srgb, fields)             per-zone high-frequency luma rms (vanilla EU house 0.010)
     build_fields(mesh, A, matrix)            the raster (also used to measure exported maps)
     overlay_gate(F, sel, name, feature_m, soft_m)   the overlay-scale gate (raises)
-Determinism: seeds are zlib.crc32(f"{name}:{effect}"); no RNG state, no clock.
+Determinism: seeds are zlib.crc32(f"{name}:{effect}"). There is no RNG state and no clock.
 """
 
 import json
@@ -82,11 +85,14 @@ from cs2_weather import fbm, uniform, smoothstep, hash01  # noqa: E402,F401  (re
 LUMA = np.array((0.2126, 0.7152, 0.0722), dtype=np.float32)
 
 # ---------------------------------------------------------------------------------------
-# T0 parity. Targets from the measured vanilla bands (write-up section 2): vanilla metal
-# (R = 1.0) on utility props 0.47-0.62 at a LIGHT albedo (sRGB luma 0.51-0.84, the galvanised
-# fence 0.51 / 0.72); painted / dielectric utility props 0.18-0.73 (median ~0.44: hydrant 0.38,
-# substation 0.38); building walls 0.25-0.41; glass 0.69. Constant per zone (the atlas
-# roughness variation was stretched like its albedo). (smoothness, metal)
+# T0 parity. Targets from the measured vanilla bands (write-up section 2):
+# - vanilla metal (R = 1.0) on utility props 0.47-0.62 at a LIGHT albedo (sRGB luma 0.51-0.84, the
+#   galvanized fence 0.51 / 0.72)
+# - painted / dielectric utility props 0.18-0.73 (median ~0.44: hydrant 0.38, substation 0.38)
+# - building walls 0.25-0.41
+# - glass 0.69
+#
+# Constant per zone (the atlas roughness variation was stretched like its albedo). (smoothness, metal)
 # ---------------------------------------------------------------------------------------
 ZONE_TARGET = {
     "concrete":  (0.33, 0.0),
@@ -104,8 +110,8 @@ ZONE_TARGET = {
     "label":     (0.38, 0.0),
 }
 CONCRETE_DETAIL = 0.5        # concrete keeps half its photo contrast (albedo, smoothness, normal)
-GALV_LUMA_SRGB = 0.72        # clean galvanised albedo (vanilla metal band 0.51-0.84, fence 0.72, industrial
-                             # light pole 0.74; 2026-10-17 after the street-light comparison: was 0.64)
+GALV_LUMA_SRGB = 0.72        # clean galvanized albedo (vanilla metal band 0.51-0.84, fence 0.72, industrial
+                             # light pole 0.74. 2026-10-17 after the street-light comparison: was 0.64)
 GALV_DESAT = 0.80            # pull Metal032's blue cast toward neutral
 SLOT_ZONES = {"livery": 0, "plastic": 1, "accent": 2}    # zone -> ControlMask channel
 SLOT_KEEP = 0.90             # guard: slot-texel albedo mean (sRGB) stays >= 90 % of the bake's
@@ -114,7 +120,7 @@ DIRT_FLOOR = 0.78            # slot texels: soiling may darken to 78 % (linear) 
 STRIP_ZONES = ("amber", "plate", "chevron", "reflect", "label", "floodlens")
 NO_WEATHER_PREFIXES = ("HeadBlades", "GunBlades", "HeadSpinner", "GunSpinner", "HeadFan",
                        "GunFan", "HeadBore", "GunBore", "Beacon", "Marker")
-# = snow_props.BEVEL_PREFIXES (copied: this module must not import the generator); used by
+# = snow_props.BEVEL_PREFIXES (copied: this module must not import the generator). It is used by
 # build_fields' feature-edge test
 CHAMFER_PREFIXES = ("Pad", "BasePlate", "Cabinet", "Platform", "Body", "Lid", "Compressor",
                     "DriveHousing", "PushPlate", "HeadCompressor")
@@ -232,10 +238,10 @@ def build_fields(me, A, matrix=None, uv_layer="UVUnique", atlas_layer="UVAtlas")
     else:
         fzone = ["?"] * npoly
 
-    # feature edges (where paint chips and rust start): open rims always; convex dihedrals
-    # > 40 deg on the chamfered boxes (their 1-segment chamfer splits a 90 deg corner into two
-    # 45 deg edges), > 60 deg elsewhere - so the 8-14 sided lathes (bell 45 deg, housing 30 deg
-    # between segments) do NOT count every facet seam as an edge.
+    # feature edges (where paint chips and rust start): open rims always, and convex dihedrals above 40
+    # deg on the chamfered boxes (their 1-segment chamfer splits a 90 deg corner into two 45 deg edges)
+    # or above 60 deg elsewhere. So the 8-14 sided lathes (bell 45 deg, housing 30 deg between segments)
+    # do NOT count every facet seam as an edge.
     chamf_part = np.array([n.startswith(CHAMFER_PREFIXES) for n in table], dtype=bool)         if table else np.zeros(1, bool)
     e_polys = {}
     for li in range(nl):
@@ -444,7 +450,7 @@ def _dilate(arrays, cov, steps=10):
         for k, a in enumerate(arrays):
             a[new] = acc[k][new] / cnt[new][:, None]
         done |= new
-    # normals in the gutter: renormalise the averaged vectors
+    # normals in the gutter: renormalize the averaged vectors
     n = arrays[1]
     v = n[..., :3] * 2.0 - 1.0
     v /= np.maximum(np.linalg.norm(v, axis=-1, keepdims=True), 1e-9)
@@ -608,8 +614,8 @@ NORMAL_DETAIL_CLASSES = {
 
 
 def normal_detail_specs(F, key):
-    """{part name: DetailSpec} for the class (NORMAL_DETAIL_CLASSES). Names are exact parts;
-    a longer name that would inherit a spec by prefix gets an inactive spec."""
+    """{part name: DetailSpec} for the class (NORMAL_DETAIL_CLASSES). Names are exact parts. A longer name
+    that would inherit a spec by prefix gets an inactive spec."""
     import cs2_compose as C
     D = C.DetailSpec
     specs = {}
@@ -705,8 +711,8 @@ def normal_detail(mesh, F, key, matrix):
 # ---------------------------------------------------------------------------------------
 
 def overlay_gate(F, sel, name, feature_m, soft_m):
-    """The overlay-scale gate (the lesson of the rejected pass). RAISES OverlayScaleError for a
-    feature under MIN_FEATURE_M or a soft edge under MIN_SOFT_M; returns the per-texel weight
+    """The overlay-scale gate (the lesson of the rejected pass). RAISES OverlayScaleError for a feature
+    under MIN_FEATURE_M or a soft edge under MIN_SOFT_M. Returns the per-texel weight
     smoothstep(GATE_TEXELS, feature x px/m) on `sel` (0 elsewhere), or None when the overlay's
     area-weighted mean gate is below GATE_SKIP_MEAN (skipped whole, never shrunk)."""
     if feature_m < MIN_FEATURE_M - 1e-12:
@@ -797,9 +803,8 @@ def soil_overlays(F, name, key, exempt, is_strip):
 # ---------------------------------------------------------------------------------------
 
 def weather(base, nrm, msk, ctl, ao, F, name, mesh=None, matrix=None, step=2, key=None, skip=()):
-    """Arrays are (A, A, 4) linear; returns new arrays + stats. `skip`: ids to leave out for
-    diagnosis (N0, T0f, N1, S1_grade, S2_pad_top, S3_lid_top, S4_collar_run); the shipping path
-    skips nothing."""
+    """Arrays are (A, A, 4) linear. Returns new arrays + stats. `skip`: ids to leave out for diagnosis (N0,
+    T0f, N1, S1_grade, S2_pad_top, S3_lid_top, S4_collar_run). The shipping path skips nothing."""
     skip = set(skip)
     A = F.A
     flat = lambda arr: arr.reshape(-1, 4)[F.idx].astype(np.float64)
@@ -940,7 +945,7 @@ def weather(base, nrm, msk, ctl, ao, F, name, mesh=None, matrix=None, step=2, ke
     Mk[:, 3] = np.clip(Mk[:, 3], 0.05, 0.95)
     Mk[:, 1] = 0.0
     Mk[:, 2] = 0.0
-    Mk[~galv, 0] = 0.0                       # metal only on the bare galvanised zone
+    Mk[~galv, 0] = 0.0                       # metal only on the bare galvanized zone
     Nm[:, 3] = 1.0
 
     out = []

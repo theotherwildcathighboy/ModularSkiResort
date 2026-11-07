@@ -1,29 +1,32 @@
 """
 carrier_split_preview.py - pose previews of the split carriers (grip + body, 2026-11-03).
 
-Plan: docs/research/carrier-pivot-swing-plan-2026-11-03.md; brief: docs/research/art/carrier-split-2026-11/
-BRIEF.md (critic flow step 3). Run headless after the four split builds:
+Plan: docs/research/carrier-pivot-swing-plan-2026-11-03.md. Brief:
+docs/research/art/carrier-split-2026-11/BRIEF.md (critic flow step 3). Run the script headless after the
+four split builds:
 
     blender --background --factory-startup --python-exit-code 1 --python carrier_split_preview.py -- \\
         [--carrier tr dq gondola tram] [--out assets/preview/carrier-split]
 
-Re-imports each pair's EXPORTED LOD0 FBXs (assets/import/chairs/N, assets/import/cabins/B) with their finished
-maps, assembles them from the body manifest's pivot numbers (the constants the code reads) and renders, per
-carrier, into --out:
+The script re-imports the EXPORTED LOD0 FBXs of each pair (assets/import/chairs/N,
+assets/import/cabins/B) with their finished maps. It assembles them from the pivot numbers in the body
+manifest (the constants the code reads). It renders these images per carrier into --out:
 
-    <key>_zero_3q / _zero_side       the assembled carrier at zero (three-quarter; side = along the pin axis)
-    <key>_pitch+30_side / -30_side   the grip pitched +-30 deg about its rope point (the rope slope; + = nose
-                                     down), the body hanging PLUMB from the moved pin
-    <key>_swing8_front               max cross-wind sway: grip + body rolled TOGETHER about the rope point
-    (tram: _swing2_front)            (carrier_split.ASSEMBLY_ROLL_DEG 8 deg; tram TRAM_ROLL_DEG 2 deg about the
-                                     track rope); nothing turns at the pin (swing convention, critique
-                                     2026-11-03: the pin does pitch + fore-aft only)
-    <key>_joint_zero / _joint_pitch+30   close-ups of the joint (tram: the -y lug)
-    <key>_grip / <key>_body          each mesh alone
+- <key>_zero_3q / _zero_side: the assembled carrier at zero (three-quarter view, and side view along the
+  pin axis).
+- <key>_pitch+30_side / -30_side: the grip pitched +-30 deg about its rope point (the rope slope, + =
+  nose down). The body hangs PLUMB from the moved pin.
+- <key>_swing8_front (tram: _swing2_front): the maximum cross-wind sway. Grip and body roll TOGETHER
+  about the rope point (carrier_split.ASSEMBLY_ROLL_DEG 8 deg, tram TRAM_ROLL_DEG 2 deg about the track
+  rope). Nothing turns at the pin (swing convention, critique 2026-11-03: the pin does pitch + fore-aft
+  only).
+- <key>_joint_zero / _joint_pitch+30: close-ups of the joint (tram: the -y lug).
+- <key>_grip / <key>_body: each mesh alone.
 
-The FBX raw frame is the export bake undone by hand (cm, Y up: (X, Y, Z) -> (X, -Z, Y) / 100 = the net frame:
-x lateral = authoring y, y = -travel, z up); the pivots are authoring (x travel, y lateral, z up) and are mapped
-the same way. Renders only: nothing is exported, nothing goes near the game.
+The FBX raw frame is the export bake, undone by hand (cm, Y up). The map (X, Y, Z) -> (X, -Z, Y) / 100
+gives the net frame: x lateral = authoring y, y = -travel, z up. The pivots are authoring (x travel, y
+lateral, z up). The script maps them the same way. The script renders only: it exports nothing and
+nothing goes near the game.
 """
 
 import argparse
@@ -145,7 +148,7 @@ def load_pair(key, root):
 
 
 def pose(P, mode):
-    """Set both objects' world matrices for a pose; returns the joint center (net) for close-ups."""
+    """Set both objects' world matrices for a pose. Return the joint center (net) for close-ups."""
     lift = Matrix.Translation((0.0, 0.0, P["gz0"]))
     if mode == "zero":
         place(P["grip"], lift)
@@ -153,7 +156,8 @@ def pose(P, mode):
         return P["close"]
     if mode.startswith("pitch"):
         deg = float(mode[len("pitch"):])
-        # + = nose down: about authoring +y (x -> -z) = net +x with the same sense
+        # + = nose down. The rotation is about authoring +y (x -> -z), which is net +x with the same
+        # sense.
         R = rot_about("X", deg, P["rope"])
         place(P["grip"], R @ lift)
         moved = R @ P["pin"]
@@ -173,7 +177,8 @@ def swing_deg(P):
 
 
 def frame_helper(objs, center=None, half=None):
-    """A face-less mesh spanning the posed objects (or a cube round `center`) to frame the camera on."""
+    """Make a face-less mesh that spans the posed objects (or a cube around `center`). The camera frames
+    this mesh."""
     if center is not None:
         c = Vector(center)
         pts = [c + Vector((sx * half, sy * half, sz * half)) for sx in (-1, 1) for sy in (-1, 1)

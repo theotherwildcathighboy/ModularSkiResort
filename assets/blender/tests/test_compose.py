@@ -1,43 +1,52 @@
 """
 test_compose.py - unit tests for cs2_compose (round L spec "cs2_compose.py").
 
-Run:  blender --background --factory-startup --python tests\\test_compose.py
-Exit code 1 on any failure; prints one PASS line on success.  Small: no bakes, a
-2-quad mesh, 64..256 px arrays.
+Run the tests with this command:
 
-(1) ridge -> height_to_normal: GL sign.  Buffers are bottom-up (row 0 = v 0), so
-    np.gradient's row derivative IS dh/dv.  The unnormalised normal of a height field is
-    (-dh/du, -dh/dv, 1); encoded G = 0.5 + 0.5*ny = 0.5 - k*dh/dv (k > 0).  A ridge has
-    two flanks:
-      * the flank RISING toward +V (rows below the crest, dh/dv > 0): G < 0.5 - the
-        "+V-facing slope" of the task text, i.e. the slope you climb walking toward +V;
-      * the flank FALLING toward +V (rows above the crest, dh/dv < 0): its NORMAL tilts
-        toward +V, G > 0.5, and a light coming from +V brightens it (spec line 102).
-    Both are asserted, plus the lighting check, plus R == 0.5 (no du gradient), B > 0.5,
-    unit length.
+    blender --background --factory-startup --python tests\\test_compose.py
+
+The test exits with code 1 on any failure. It prints one PASS line on success. The test is small: no
+bakes, a 2-quad mesh, 64..256 px arrays.
+
+(1) ridge -> height_to_normal: GL sign. Buffers are bottom-up (row 0 = v 0), so np.gradient's row
+derivative IS dh/dv. The unnormalized normal of a height field is (-dh/du, -dh/dv, 1). Encoded G =
+0.5 + 0.5*ny = 0.5 - k*dh/dv (k > 0). A ridge has two flanks:
+- The flank RISING toward +V (rows below the crest, dh/dv > 0) has G < 0.5. This is the "+V-facing
+  slope" of the task text, i.e. the slope you climb walking toward +V.
+- The flank FALLING toward +V (rows above the crest, dh/dv < 0) has its NORMAL tilted toward +V, so
+  G > 0.5. A light coming from +V brightens it (spec line 102).
+
+The test asserts both flanks. It also asserts the lighting check, R == 0.5 (no du gradient), B > 0.5
+and unit length.
+
 (2) blend_rnm(flat, flat) == flat, and flat is the identity on either side.
-(3) detail_height on a 2-quad mesh: quad 1 at 50 px/m gets 1.2 m seams at the expected
-    texel columns; quad 2 (identical geometry, ~1 px/m) is below the 2-texel floor and
-    stays zero.
-(4) compose_maps keeps reserved rects byte-identical in all four maps and ships
-    ControlMask A == 0 (and MaskMap B == 0, BaseColor A == 1).
+
+(3) detail_height on a 2-quad mesh: quad 1 at 50 px/m gets 1.2 m seams at the expected texel
+columns. Quad 2 (identical geometry, ~1 px/m) is below the 2-texel floor and stays zero.
+
+(4) compose_maps keeps reserved rects byte-identical in all four maps and ships ControlMask A == 0
+(and MaskMap B == 0, BaseColor A == 1).
 
 Detail pass 1 (towers), design/detail-pass-1-towers.md section 2.6 (+ skeptic M3):
-TC1 defaults byte-identical: a legacy-only fixture and the shipped lift_tower hook on the
-    FG8 review pack LOD0 hash the same with this module and the round-L module (git
-    REF_COMMIT, loaded side by side); the fixture also matches recorded golden sha1s.
-TC2 edge rounding: crease tilt >= 35 deg, 0 beyond r + 1 texel, mirror-symmetric across
-    an in-strip crease, open prism ends and concave creases not rounded, floor skip logged.
-TC3 marks: plate on its face only (not a same-facing face 0.2 m behind, not the opposed
-    back face), bolt grid count, slot, ring / disc, boltring count + phase, band
-    continuous across 16 facets, every kind's floor skip logged.
-TC4 tone: mean, std = MOTTLE_STD, world anchoring, 1 m decorrelation, chalk only above
-    n.z 0.2, stretch correlation ratio, floor skip; compose_maps tone_l / tone_s.
-TC5 decal: "AB" reads as authored on a mirrored-UV plane and a 16-gon cylinder, AA
-    edges, ControlMask R/G 0 under solid paint, returned rects cover every changed texel;
-    M3: per-part plate rects (plate_n / plate_p) vs the prefix union.
-TC6 determinism: two runs and a child Blender process hash identically.
-TC1 reads the round-L module from tests/data/cs2_compose_roundL.py (sha1-pinned); about 5 s.
+- TC1 defaults byte-identical: a legacy-only fixture and the shipped lift_tower hook on the FG8
+  review pack LOD0 hash the same with this module and the round-L module (git REF_COMMIT, loaded
+  side by side). The fixture also matches recorded golden sha1s.
+- TC2 edge rounding checks these points: crease tilt >= 35 deg, 0 beyond r + 1 texel, mirror
+  symmetry across an in-strip crease, no rounding of open prism ends and concave creases, and a
+  logged floor skip.
+- TC3 marks check these points: plate on its face only (not a same-facing face 0.2 m behind, not the
+  opposed back face), bolt grid count, slot, ring / disc, boltring count + phase, band continuous
+  across 16 facets, and a logged floor skip for every kind.
+- TC4 tone checks these points: mean, std = MOTTLE_STD, world anchoring, 1 m decorrelation, chalk
+  only above n.z 0.2, stretch correlation ratio, and floor skip. It also checks compose_maps tone_l
+  / tone_s.
+- TC5 decal checks these points: "AB" reads as authored on a mirrored-UV plane and on a 16-gon
+  cylinder, AA edges, ControlMask R/G 0 under solid paint, and returned rects that cover every
+  changed texel. M3 compares per-part plate rects (plate_n / plate_p) with the prefix union.
+- TC6 determinism: two runs and a child Blender process hash identically.
+
+TC1 reads the round-L module from tests/data/cs2_compose_roundL.py (sha1-pinned). It takes about 5
+s.
 """
 
 import json
@@ -139,8 +148,8 @@ def test_blend_rnm():
 # --------------------------------------------------------------------------------------
 
 def build_two_quads(A):
-    """Two 2.4 x 1.0 m wall quads (normal -Y) tagged wall_hi / wall_lo.  wall_hi maps to
-    a 120 x 50 texel rect (50 px/m); wall_lo to a 3 x 2 texel rect (~1.1 px/m)."""
+    """Two 2.4 x 1.0 m wall quads (normal -Y) tagged wall_hi / wall_lo. wall_hi maps to a 120 x 50
+    texel rect (50 px/m). wall_lo maps to a 3 x 2 texel rect (~1.1 px/m)."""
     for o in list(bpy.data.objects):
         bpy.data.objects.remove(o, do_unlink=True)
     verts = [(0, 0, 0), (2.4, 0, 0), (2.4, 0, 1), (0, 0, 1),
@@ -171,9 +180,9 @@ def test_detail_height():
     specs = {"wall": C.DetailSpec(seams_m=1.2, seam_depth_m=0.002, seam_axes="ribs")}
     h = C.detail_height(me, A, specs, uv_layer="UVUnique", dilate_px=0.0)
     check(h.shape == (A, A) and h.dtype == np.float32, f"shape {h.shape} {h.dtype}")
-    # wall_hi: x = 0 .. 2.4 m spans cols 25 .. 145 (50 px/m); seams at x = 0, 1.2, 2.4 ->
-    # cols 25, 85, 145.  Width max(0.012 m, 1 texel) = 1 texel -> the interior seam lands
-    # on the single column whose center is within 0.5 texel of 85.0 (col 84 or 85).
+    # wall_hi: x = 0 .. 2.4 m spans cols 25 .. 145 (50 px/m). Seams at x = 0, 1.2, 2.4 -> cols 25,
+    # 85, 145. Width max(0.012 m, 1 texel) = 1 texel, so the interior seam lands on the single
+    # column whose center is within 0.5 texel of 85.0 (col 84 or 85).
     band = h[30:70, :]
     cols = np.where(band.min(axis=0) < -1e-6)[0]
     check(len(cols) > 0, f"seam columns present: {cols.tolist()}")
@@ -194,8 +203,8 @@ def test_detail_height():
     inner = [r for r in rows if 30 < r < 70]
     check(len(inner) >= 1 and all(abs(r - 50) <= 1 for r in inner),
           f"rings: interior seam row ~50 (z = 0.5 m) found {inner}")
-    # bolts (dia 0.06 m = 3 px) + corrugation (half period 0.05 m = 2.5 px) are above
-    # the floor at 50 px/m and get drawn: bolt domes reach +bolt_h, sine reaches +-depth
+    # Bolts (dia 0.06 m = 3 px) and corrugation (half period 0.05 m = 2.5 px) are above the floor at
+    # 50 px/m, so they get drawn. Bolt domes reach +bolt_h. The sine reaches +-depth.
     specs_b = {"wall_hi": C.DetailSpec(seams_m=1.2, bolt_pitch_m=0.15, bolt_r_m=0.03)}
     hb = C.detail_height(me, A, specs_b, dilate_px=1.0)
     region = hb[25:75, 25:145]
@@ -218,7 +227,7 @@ def test_detail_height():
     pm, dm = C.rasterise_face_fields(me, A)
     check(pm[50, 80] == 1 and pm[201, 201] == 2 and pm[10, 10] == 0, "part_map coverage")
     check(abs(dm[50, 80] - 50.0) < 0.5, f"ppm_map wall_hi {dm[50, 80]:.2f} ~ 50 px/m")
-    # stamp_on_face: painter paints half the rect; ctl R zeroed only there
+    # stamp_on_face: the painter paints half the rect. ctl R is zeroed only there.
     base = np.full((A, A, 4), 0.6, np.float32)
     ctl = np.zeros((A, A, 4), np.float32); ctl[..., 0] = 1.0
 
@@ -298,7 +307,7 @@ import tempfile  # noqa: E402
 
 REPO = os.path.normpath(os.path.join(HERE, os.pardir, os.pardir, os.pardir))
 #: the last commit of the round-L cs2_compose.py (the "before the change" module) and the
-#: sha1 of its bytes; TC1 runs it side by side with the current module
+#: sha1 of its bytes. TC1 runs it side by side with the current module
 REF_COMMIT = "e0b20681a2ca80be2889d170e1275f7abf52369f"
 REF_FILE_SHA1 = "fc0d17b750e207aa5e20ef7b2c39f07ee1dbfd9d"
 REF_FILE = os.path.join(HERE, "data", "cs2_compose_roundL.py")
@@ -324,7 +333,7 @@ def sha1_arrays(*arrs):
 
 
 def quiet(fn, *a, **k):
-    """Call fn with stdout captured; returns (result, captured text)."""
+    """Call fn with stdout captured. Return (result, captured text)."""
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         out = fn(*a, **k)
@@ -350,8 +359,9 @@ def mesh_from(name, verts, faces, face_uvs_px, part_ids, table, A):
 
 
 def load_reference_compose():
-    """The round-L cs2_compose (REF_COMMIT) as module cs2_compose_ref, read from tests/data (the history was
-    rewritten 2026-10-22, so `git show REF_COMMIT` no longer resolves; the fixture is byte-identical to it)."""
+    """The round-L cs2_compose (REF_COMMIT) as module cs2_compose_ref, read from tests/data. The
+    history was rewritten 2026-10-22, so `git show REF_COMMIT` no longer resolves. The fixture is
+    byte-identical to the module."""
     with open(REF_FILE, "rb") as fh:
         src = fh.read()
     got = hashlib.sha1(src).hexdigest()
@@ -637,7 +647,7 @@ def test_tc2_edge_round():
     check(np.allclose(left, right, atol=1e-9, rtol=0) and left[:, 0].max() < 0.0,
           f"mirror-symmetric across an in-strip crease (max |diff| "
           f"{np.abs(left - right).max():.2e})")
-    # open prism: top / bottom edges are boundaries -> not rounded; side creases still are
+    # open prism: top / bottom edges are boundaries -> not rounded. Side creases still are rounded.
     me2 = mesh_from("TC2Prism", BOX_V, BOX_SIDES, uvs[:4], [1] * 4, ["prism"], A)
     h2, _ = quiet(C.detail_height, me2, A, {"prism": C.DetailSpec(edge_round_m=r)})
     check(np.all(h2[sy + 60:sy + 64, sx + 8:sx + 56] == 0.0) and h[sy + 63, sx + 32] < 0.0,
@@ -999,8 +1009,8 @@ def test_tc5_decal():
     check(C.faces_of_prefix(pme, tab, "plate_n") == [0]
           and C.faces_of_prefix(pme, tab, "plate_") == [0, 2],
           "M3: 'plate_n' selects plate_n only (never platerim_n); 'plate_' takes both plates")
-    # the weather layer's stamped= list: per-part entries protect two small rects, the
-    # prefix protects the whole span (it would freeze mid_x unweathered)
+    # In the weather layer's stamped= list, per-part entries protect two small rects. The prefix
+    # protects the whole span (it would freeze mid_x unweathered).
     span = (union[1] - union[0]) * (union[3] - union[2])
     per_part = sum((r[1] - r[0]) * (r[3] - r[2]) for r in (rn, rp))
     check(per_part < 0.3 * span, f"M3: per-part protect area {per_part} px vs prefix {span} px")

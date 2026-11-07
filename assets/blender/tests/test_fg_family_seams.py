@@ -1,37 +1,37 @@
 """
-test_fg_family_seams.py - cross-generator seams of the FIXED-GRIP TRIPLE family (generation M
-stations, 2026-10-11; the tests/test_dq_family_seams.py pattern). Each generator asserts its own
-contracts; this test asserts the numbers one asset hands to another:
+test_fg_family_seams.py - cross-generator seams of the FIXED-GRIP TRIPLE family (generation M stations, 2026-10-11, the
+tests/test_dq_family_seams.py pattern). Each generator asserts its own contracts. This test asserts the numbers one
+asset hands to another:
 
-  1. CODE: catalog/carriers.json row tr == lift_chair (HEIGHT_CONTRACT, CARRIERS) == the station
-     generator (lift_terminal FG_HANG / FG_LANE / FG_GRIP_ABOVE / seats) == lift_tower (every FG / ET
-     gauge / 2 == the lane; FG8 axle == the line axle; ET62 / ET68 axle == the top / base HV sub-lane
-     outboard end y; the inboard end = axle + 0.03) == SkiCatalog.cs (WheelLocal, StubTipLocalZ)
-     == the deployed K building prefabs (HV ends, hosted tower pose).
-  2. EXPORTS: the manifests of the generation the GAME DRAWS agree with each other and with the code. That
-     generation is resolved, never named: each deployed prefab in gamedata-mirror (SkiBaseStationBuilding /
-     SkiTopStationBuilding, their hosted SkiLiftTerminalTowerBase / Top, the chair object prefab of
-     catalog/carriers.json tr and its grip prefab) names its mesh by CID; the mesh prefab's name is the export
-     folder under assets/import (N stations, P towers, N chair + grip when this was written), so the next
-     letter cannot strand the test. The one check that is explicitly about generation M is M1: the M station
-     manifests' frozen block is the deployed prefab, re-parsed now (sha256 of the canonical JSON; tools/
-     check-lift-align.js MANIFESTSHA pins the same sha at preflight). A missing folder is skipped with a note.
-  3. GEOMETRY on the LIVE generation's FBXs (cm, raw frame (y, z, x) of authoring); the chair is the split
-     pair, the body plus the grip placed at its assembled origin:
-     H1 hang: the chair's top - lowest point == 2.400 (+-1e-4); its cushion 0.15 over the lowest.
-     H2 the station's rope torus center == WheelLocal (+-2 mm) and r == lane (+-5 mm).
-     H3 seat height: the shipped chair at the UP-lane tangent (grip top = the lane, ChairPinSystem),
-        cushion over the shipped surface below it (base: carpet, top: crest) in [0.45, 0.55].
-     S8 hosted seam: the live hosted ET68 / ET62 tower (LOD0, LOD1) at the hosted pose (0, 0, -6.9 / -4.9),
-        rot 180, vs the shipped station LOD0 / LOD1 minus its rope faces (every vertex within rope
-        r + 5 mm of a chord / the torus) - no face within 0.10 m.
-     S9 (nitpick A2, 2026-10-13; build/nitpick-a2-hanger-gondola.md) the tr chair (code) through every
-        Yan sheave tree - FG8 / FG12 / FG16 / FG20, ET62, ET68 and the Pali base's hold-down trains (built
-        in the code chord's frame, the lane = lift_terminal.chord_z) - with lift_chair.carrier_sweep on
-        BOTH spins (facing -s: the stations' spin, its right outboard; +s: the opposite) and
-        carrier_verdict "yan" (nothing crossed but the F10 set - rims, liners, sheave arms, axle caps -
-        and every other part >= CARRIER_CLEAR_M). The fixed grip is centered (only its spring housing
-        reaches +Y), so it passes either way: the 6M keeps its frame (no mirror).
+1. CODE: catalog/carriers.json row tr == lift_chair (HEIGHT_CONTRACT, CARRIERS) == the station generator (lift_terminal
+   FG_HANG / FG_LANE / FG_GRIP_ABOVE / seats) == lift_tower (every FG / ET gauge / 2 == the lane, FG8 axle == the line
+   axle, ET62 / ET68 axle == the top / base HV sub-lane outboard end y, the inboard end = axle + 0.03) == SkiCatalog.cs
+   (WheelLocal, StubTipLocalZ) == the deployed K building prefabs (HV ends, hosted tower pose).
+
+2. EXPORTS: the manifests of the generation the GAME DRAWS agree with each other and with the code. The test resolves
+   that generation and never names it. Each deployed prefab in gamedata-mirror (SkiBaseStationBuilding /
+   SkiTopStationBuilding, their hosted SkiLiftTerminalTowerBase / Top, the chair object prefab of catalog/carriers.json
+   tr and its grip prefab) names its mesh by CID. The mesh prefab's name is the export folder under assets/import (N
+   stations, P towers, N chair + grip when this was written), so the next letter cannot strand the test. The one check
+   that is explicitly about generation M is M1: the M station manifests' frozen block is the deployed prefab, re-parsed
+   now (sha256 of the canonical JSON). tools/check-lift-align.js MANIFESTSHA pins the same sha at preflight. The test
+   skips a missing folder with a note.
+
+3. GEOMETRY on the LIVE generation's FBXs (cm, raw frame (y, z, x) of authoring). The chair is the split pair: the body
+   plus the grip placed at its assembled origin.
+- H1 hang: the chair's top - lowest point == 2.400 (+-1e-4). Its cushion is 0.15 over the lowest.
+- H2: the station's rope torus center == WheelLocal (+-2 mm) and r == lane (+-5 mm).
+- H3 seat height: the shipped chair at the UP-lane tangent (grip top = the lane, ChairPinSystem) has its cushion over
+  the shipped surface below it (base: carpet, top: crest) in [0.45, 0.55].
+- S8 hosted seam: the live hosted ET68 / ET62 tower (LOD0, LOD1) at the hosted pose (0, 0, -6.9 / -4.9), rot 180,
+  against the shipped station LOD0 / LOD1 minus its rope faces (every vertex within rope r + 5 mm of a chord / the
+  torus). No face lies within 0.10 m.
+- S9 (nitpick A2, 2026-10-13, build/nitpick-a2-hanger-gondola.md): the tr chair (code) goes through every Yan sheave
+  tree: FG8 / FG12 / FG16 / FG20, ET62, ET68 and the Pali base's hold-down trains (built in the code chord's frame, the
+  lane = lift_terminal.chord_z). The test runs lift_chair.carrier_sweep on BOTH spins (facing -s: the stations' spin,
+  its right outboard. Facing +s: the opposite) with carrier_verdict "yan" (nothing crossed but the F10 set - rims,
+  liners, sheave arms, axle caps - and every other part >= CARRIER_CLEAR_M). The fixed grip is centered (only its
+  spring housing reaches +Y), so it passes either way. The 6M keeps its frame (no mirror).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_fg_family_seams.py
 """
@@ -106,7 +106,7 @@ def live_name(prefab_path):
 
 
 def export_dir(name):
-    """assets/import/<kind>/<letter>/<name> for an export folder name (archive/ skipped); None when not exported."""
+    """assets/import/<kind>/<letter>/<name> for an export folder name (archive/ skipped). None when not exported."""
     for dp, dn, _f in os.walk(IMPORT):
         dn[:] = [x for x in dn if x != "archive"]
         if name in dn:
@@ -208,7 +208,7 @@ def export_seams(tr):
     cn, gn = LIVE["chair"], LIVE["grip"]
     ch, gr = live_manifest(cn), live_manifest(gn)
     if ch and gr:
-        # the live chair is a split pair: the body's own height is less than the hang; the assembled pair's is
+        # the live chair is a split pair: the body's own height is less than the hang. The assembled pair's height is
         # grip origin (in the assembled frame) + grip height, and both manifests carry the same pivots
         pv = ch["split"]["pivot"]
         check(pv == gr["split"]["pivot"], f"H1 {cn} / {gn} manifests carry the same pivots")
@@ -242,8 +242,8 @@ def export_seams(tr):
 
 
 def rope_faces(co, tris, spec, rope_r=None):
-    """Faces whose every vertex lies within rope r + 5 mm of a chord line or of the torus (rope_r: the asset's own
-    radius from its manifest, art-601 --thin-rope; default the shipped LT.M_ROPE_R)."""
+    """Faces whose every vertex lies within rope r + 5 mm of a chord line or of the torus (rope_r: the asset's own radius
+    from its manifest, art-601 --thin-rope. Default: the shipped LT.M_ROPE_R)."""
     wx, _wy, wz = spec.wheel
     ax, az = spec.anchor_in
     near = np.zeros(len(co), dtype=bool)
@@ -317,8 +317,8 @@ def geometry_stations(tr):
         check(over is not None and 0.45 <= over <= 0.55, f"H3 {st}: cushion over the shipped surface at the "
                                                           f"up-lane tangent in [0.45, 0.55]",
               f"({None if over is None else round(over, 4)})")
-        # S8: the hosted tower vs the station, both LODs (art-601: a deployed base without the hosted row has no
-        # ET68 to clear; its nose train sits where the tower stood)
+        # S8: the hosted tower vs the station, both LODs (art-601: a deployed base without the hosted row has no ET68
+        # to clear. Its nose train sits where the tower stood)
         if LT.hosted_row_m(kind) is None:
             print(f"  S8 {st}: no hosted {tw} row in the deployed {sp.building}, skipped")
             continue

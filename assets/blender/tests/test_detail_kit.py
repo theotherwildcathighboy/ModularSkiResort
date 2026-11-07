@@ -1,6 +1,6 @@
 """
-test_detail_kit - the detail-pass-1 kit contracts (design/detail-pass-1.md section 6.2, kit
-row, with design/detail-pass-1-skeptic.md M1-M10 applied; build report
+test_detail_kit - the detail-pass-1 kit contracts (design/detail-pass-1.md section 6.2, kit row, with
+design/detail-pass-1-skeptic.md M1-M10 applied, build report
 docs/research/art/assets-2026-10/build/detail-pass-1-kit.md).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_detail_kit.py
@@ -8,46 +8,51 @@ docs/research/art/assets-2026-10/build/detail-pass-1-kit.md).
         [-- --no-k5]     skip K5 (three 512 px finishes of a demo recipe)
         [-- --no-k9]     skip K9b (the L1 blockout: tables vs the baked umbrellas, ~25 s)
 
-K1  new builders: documented prefixes, matkeys, tri counts (REF, +-10 %), the foot (min z
-    >= z0, or <= -0.05 with leg_to), a second call with the same name raises (no .001);
-    the new LOD prefixes are on the kit lists; keyword DEFAULTS reproduce the pre-pass
-    geometry vertex for vertex (DEFAULT_HASH, measured on the pre-pass kit 2026-10-11).
-K2  DisplayPainter: "AB" text reads left to right from outside on the 4 wall sides x island
-    turn {0, 90} x mirror {no, yes} (every inked / blank texel checked against the 5x7
-    bitmap in the viewer frame); draw_pictogram(square=True) is 1:1 on a 4:1 face.
+K1  new builders: documented prefixes, matkeys, tri counts (REF, +-10 %), the foot (min z >= z0, or <= -0.05 with
+leg_to). A second call with the same name raises (no .001). The new LOD prefixes are on the kit lists. Keyword DEFAULTS
+reproduce the pre-pass geometry vertex for vertex (DEFAULT_HASH, measured on the pre-pass kit 2026-10-11).
+
+K2  DisplayPainter: "AB" text reads left to right from outside on the 4 wall sides x island turn {0, 90} x mirror {no,
+yes} (the test checks every inked / blank texel against the 5x7 bitmap in the viewer frame). draw_pictogram(square=True)
+is 1:1 on a 4:1 face.
+
 K3  label_metrics against hand values (the skeptic's V12 numbers and the M4 fixes).
-K4  byte-identity: blockout LOD0_prebake / Win and blockout-level LOD1 / LOD2 hashes of every
-    registered recipe against K4_TABLE (re-based 2026-10-11 for the gear without bindings, see
-    the comment above the table; the pre-pass values are in the build report), each guarded
-    by its recipe source sha1 (a recipe its own group has edited since is skipped, printed);
-    the Welcome Sign blockout in a child process (mesh hash + band PNG sha1s).
-K5  weathering wiring on the demo volumes recipe at --tex 512 --ao-samples 2: weather None
-    -> the five PNGs equal the pre-change engine's (K5_REF, measured with the pre-pass kit);
-    weather {} -> ControlMask identical, BaseColor changed, the label rect identical,
-    manifest weather (vanilla.ok present, intensity 0.40, slot_wear free, snow 0, G5 / G6
-    true); --weather-sweep -> rows + highest_clean, shipped maps unchanged by the sweep.
+
+K4  byte-identity: blockout LOD0_prebake / Win and blockout-level LOD1 / LOD2 hashes of every registered recipe against
+K4_TABLE (re-based 2026-10-11 for the gear without bindings, see the comment above the table. The pre-pass values are in
+the build report). Each is guarded by its recipe source sha1 (a recipe its own group has edited since is skipped,
+printed). The Welcome Sign blockout runs in a child process (mesh hash + band PNG sha1s).
+
+K5  weathering wiring on the demo volumes recipe at --tex 512 --ao-samples 2:
+- weather None -> the five PNGs equal the pre-change engine's (K5_REF, measured with the pre-pass kit).
+- weather {} -> ControlMask identical, BaseColor changed, the label rect identical, manifest weather (vanilla.ok present,
+  intensity 0.40, slot_wear free, snow 0, G5 / G6 true).
+- --weather-sweep -> rows + highest_clean, shipped maps unchanged by the sweep.
+
 K6  Recipe.sub_objects -> the manifest sub_objects block (keys, values, validation).
-K7  Recipe.weights -> the density_w face attribute; obj["w_override"] wins; no weights =
-    the kit's dict.
+
+K7  Recipe.weights -> the density_w face attribute. obj["w_override"] wins. With no weights, the kit's dict applies.
+
 K8  prism_gable(inner=), gable_roof(wall_inner=False), deck(soffit=True): face / area deltas.
-K9  detail pass 1b (ninth look, 2026-10-11): (a) every gear item on the L1 / L2 / school
-    racks spans the rack's lean, K.rack_reach() 1.33 m (integration F1; L5's short pole pairs are
-    reported, not asserted: not this pass's file); (b) REWRITTEN for the vanilla retrofit
-    (fifteenth look, 2026-10-11: no house-made umbrellas): the ten L1 table spots each carry a
-    vanilla TableSetCommercialRandom01 AND a vanilla ParasolRandom01 beside it (pivot
-    PARASOL_OFFSET from the table, local +Z at it: the base game's convention), the porch bench +
-    bin are vanilla rows (m_ParentMesh -1, on the lot), no umbstand_ / umbpole_ / umbcanopy_ /
-    bench_ / bin_ part is left in the L1 blockout, no lodge triangle inside any prop box (parasol
-    = pole +-0.30 to 1.80 + canopy tier = union footprint from 1.80, as recipes/l5), no box
-    overlap but a pole in its own table set; bounds / GUIDs re-derived from the dump when present.
-    Fine-detail step 3a: run on the SHIPPING L1 (the FineRecipe of recipes/lodge_aframe_fine.py): its
-    first 22 rows, + the 6 kit racks boxed, + no modeled rack / porch-lantern part left.
-K10 fine-detail step 3a, L1 (`-- --no-k10` skips): the kit rack rows = the removed rack frames vertex
-    for vertex (identity; yaw 90 negative), loadouts alternate, the leaning singles kept (FS6), the
-    rail-F lanterns kept, the porch wall lights on the column faces at the old lens, the flag mast fine,
-    lot bbox = the pre-pass +-5 mm. K4 source keys may join files with '+' (L1 = bldg_recipes.py +
-    recipes/lodge_aframe_fine.py).
-Exit 1 on the first failure; one PASS line otherwise.
+
+K9  detail pass 1b (ninth look, 2026-10-11):
+- (a) every gear item on the L1 / L2 / school racks spans the rack's lean, K.rack_reach() 1.33 m (integration F1). L5's
+  short pole pairs are reported, not asserted: not this pass's file.
+- (b) REWRITTEN for the vanilla retrofit (fifteenth look, 2026-10-11: no house-made umbrellas). The ten L1 table spots
+  each carry a vanilla TableSetCommercialRandom01 AND a vanilla ParasolRandom01 beside it (pivot PARASOL_OFFSET from the
+  table, local +Z at it: the base game's convention). The porch bench + bin are vanilla rows (m_ParentMesh -1, on the
+  lot). No umbstand_ / umbpole_ / umbcanopy_ / bench_ / bin_ part is left in the L1 blockout. No lodge triangle lies
+  inside any prop box (parasol = pole +-0.30 to 1.80 + canopy tier = union footprint from 1.80, as recipes/l5). No box
+  overlaps another, except a pole in its own table set. Bounds / GUIDs are re-derived from the dump when present.
+- Fine-detail step 3a: the test runs on the SHIPPING L1 (the FineRecipe of recipes/lodge_aframe_fine.py): its first 22
+  rows, + the 6 kit racks boxed, + no modeled rack / porch-lantern part left.
+
+K10 fine-detail step 3a, L1 (`-- --no-k10` skips): the kit rack rows = the removed rack frames vertex for vertex
+(identity, yaw 90 negative). Loadouts alternate. The leaning singles are kept (FS6). The rail-F lanterns are kept. The
+porch wall lights sit on the column faces at the old lens. The flag mast is the fine version. Lot bbox = the pre-pass +-5
+mm. K4 source keys may join files with '+' (L1 = bldg_recipes.py + recipes/lodge_aframe_fine.py).
+
+The test exits 1 on the first failure. Otherwise it prints one PASS line.
 """
 
 import glob
@@ -121,9 +126,8 @@ def sha1_file(p, n=12):
 
 
 def sha1_src(src, n=12):
-    """K4 source key: one file under assets/blender, or several joined by '+' (sha1 of their bytes in
-    that order; fine-detail step 3a: L1 = bldg_recipes.py + recipes/lodge_aframe_fine.py). One file =
-    sha1_file of it."""
+    """K4 source key: one file under assets/blender, or several joined by '+' (sha1 of their bytes in that order.
+    Fine-detail step 3a: L1 = bldg_recipes.py + recipes/lodge_aframe_fine.py). One file = sha1_file of it."""
     h = hashlib.sha1()
     for p in src.split("+"):
         h.update(open(os.path.join(HERE, p), "rb").read())
@@ -170,8 +174,8 @@ PREFIXES = ("sign_", "maze_", "mast_", "lamp_", "tobrack_", "gear_", "hosereel_"
 # pre-pass kit, the same calls as tests/test_bldg_kit + recipe calls, OLD arguments only
 DEFAULT_HASH = {
     "bench": "3d8cad9281f7", "flag_mast": "392db5a1fc60", "flag_mast_def": "1be59ee86cf4",
-    # the detail-pass-1 gear WITH bindings (keyword bindings=True, kept for this test only); the
-    # default is now bindingless (ninth look): its hash is "ski_rack_frame_gear_nb"
+    # the detail-pass-1 gear WITH bindings (keyword bindings=True, kept for this test only). The default is now
+    # bindingless (ninth look): its hash is "ski_rack_frame_gear_nb"
     "ski_rack_frame_gear": "af8aab4247c1", "ski_rack_frame_gear_nb": "00efa56b1692",
     "ski_rack_frame_slab": "73a6ae01602c",
     "ski_rack_frame_bare": "ca023b5ec3db", "ski_rack_panel": "fa9b6c10bf0a",
@@ -233,8 +237,8 @@ def k1_builders():
     assert all(not (-0.01 <= v.co.z <= 0.01) for v in rack.data.vertices), "leg_to rack vertex in the band"
     cr = bpy.data.objects["drum_hutfuellegs"]
     assert all(not (-0.01 <= v.co.z <= 0.01) for v in cr.data.vertices), "cradle vertex in the band"
-    # skeptic M9: facing = the OUTWARD normal of the wall leaned on; the top leans INTO it
-    # (backboard "p1" on the -X back wall at x -2.0: its top is at larger x than its foot)
+    # skeptic M9: facing = the OUTWARD normal of the wall leaned on. The top leans INTO it (backboard "p1" on the -X back
+    # wall at x -2.0: its top is at larger x than its foot)
     bb = bpy.data.objects["gear_p1board"]
     xs = [(v.co.z, v.co.x) for v in bb.data.vertices]
     x_top = max(xs)[1]
@@ -285,8 +289,8 @@ FACE = "sign_t_face"
 
 
 def _label_mesh(side, turn, mirror, w=2.0, h=0.5, A=1024):
-    """One quad `sign_t_face` on a wall `side`, its UVUnique island at turn / mirror; returns
-    (obj, table, viewer frame (right, up), A)."""
+    """One quad `sign_t_face` on a wall `side`, its UVUnique island at turn / mirror. Returns (obj, table, viewer frame
+    (right, up), A)."""
     clear()
     plane = {"+X": 3.0, "-X": -3.0, "+Y": 2.0, "-Y": -2.0}[side]
     parts = K.pane_quad(FACE, WallRef(side, plane), -w / 2 + 0.3, w / 2 + 0.3, 1.0, 1.0 + h,
@@ -386,7 +390,7 @@ def k2_display():
     assert span_m <= 0.6 + 2.0 / ppm, f"pictogram ink {span_m:.3f} m wide on a 0.6 m square"
     ok(f"K2 draw_pictogram(square=True) on a 2.4 x 0.6 face: box {rec['box_m']} (1:1), ink "
        f"{span_m:.3f} m wide <= 0.6 m (no 4:1 stretch)")
-    # every draw runs; symmetric cross; .last records
+    # every draw runs, symmetric cross, .last records
     o, table, right, up, A = _label_mesh("-Y", 90, True, w=1.5, h=1.5, A=512)
     rect = cs2_compose.uv_bbox_px(o.data, table, FACE, A)
     r0, r1, c0, c1 = rect
@@ -436,12 +440,11 @@ def k3_metrics():
 # ======================================================================================
 
 # key: (source file under assets/blender, its sha1[:12], LOD0_prebake, Win, LOD1b, LOD2b).
-# RE-BASED 2026-10-11 (detail pass 1b, ninth look: no bindings on skis / boards, pole
-# pairs that reach the rail, the P2 name board keeps its LOD1 frame): every row was measured
-# on the CURRENT recipe sources (closes integration F2: L2 / school / P1 / P2 / L5 had been
-# skipped on their source sha1 since their detail passes), so a recipe edited after this
-# table is skipped (printed), not failed. Before the gear change (the same sources, measured
-# 2026-10-11 19:22 with the kit still carrying the bindings):
+# RE-BASED 2026-10-11 (detail pass 1b, ninth look: no bindings on skis / boards, pole pairs that reach the rail, the P2
+# name board keeps its LOD1 frame). Every row was measured on the CURRENT recipe sources (closes integration F2: L2 /
+# school / P1 / P2 / L5 had been skipped on their source sha1 since their detail passes). So a recipe edited after this
+# table is skipped (printed), not failed. Before the gear change (the same sources, measured 2026-10-11 19:22 with the
+# kit still carrying the bindings):
 #   L1 c7d90868f331 / 49730cc8149f / 405d21f68fc5 / fa020fae48f8   (the kit-pass table, equal)
 #   L2 24cc76a1d5f4 / c240f5239068 / 9bd5e036ecd0 / 70c5833b8a91
 #   L5 40b5ac4046cb / 927ee60aeaae / 362d8fdbeb81 / 93c2f6c5039f
@@ -449,122 +452,121 @@ def k3_metrics():
 #   P2 0e4f28ce5ebd / 38666256c858 / 32fb41179a85 / daa31fe5413a   (only LOD1b moved: the frame)
 #   school 1795ca212003 / 4d18334a86c2 / 1a50b6ae7e31 / 2fb129b833b9
 #   L3 / L4 / sign: equal to the rows below before and after (no gear, no recipe edit).
-# What moved and why: L1, L2, school, L5 = the gear without bindings (L1 / L2 / school also the
-# longer pole pairs; L1's blockout LOD0 10,591 tris from 12,111), their LOD1b / LOD2b shift with
-# the part ids; P2 = LOD1b only (beam_strutL / R off LOD1, sign_hqname_frame kept). `Win` (the
-# room cells) is equal for every recipe.
-# RE-BASED AGAIN 2026-10-11 for L1 and L3 only (vanilla retrofit, fifteenth look: "are we
-# gonna use our house-made umbrellas?" -> no), measured on the current sources; before (the rows
-# of the 1b re-base, the 19:45 L1 / 10:20 L3 exports):
+# What moved and why: L1, L2, school and L5 changed through the gear without bindings. L1, L2 and school also changed
+# through the longer pole pairs. L1's blockout LOD0 went from 12,111 to 10,591 tris. Their LOD1b / LOD2b shift with the
+# part ids. P2 = LOD1b only (beam_strutL / R off LOD1, sign_hqname_frame kept). `Win` (the room cells) is equal for every
+# recipe.
+# RE-BASED AGAIN 2026-10-11 for L1 and L3 only (vanilla retrofit, fifteenth look: "are we gonna use our house-made
+# umbrellas?" -> no), measured on the current sources. Before (the rows of the 1b re-base, the 19:45 L1 / 10:20 L3
+# exports):
 #   L1 520cea17ca2e: db9e6e963b39 / 49730cc8149f / bf6c6dddc948 / fa020fae48f8
 #   L3 5150d42da15b: e9768df6c4e9 / adca88d938fd / 9f7ec8bc8400 / 024b3c4ae79a
-# What moved and why: L1 = the 10 modeled umbrellas (30 parts), the porch bench (2) and bin (1)
-# left for vanilla sub-objects (blockout LOD0 10,591 -> 9,913); L3 = the stair-foot lamp post
-# (col_lampTS + lamp_terrstair + arm) left for a vanilla GardenLight (6,976 -> 6,914). `Win` moved
-# on both through the `part` attribute only (the pane parts' ids shift down when earlier parts
-# leave; mesh_hash hashes it): pane geometry, cells and ids unchanged (build/lodges-basic.md,
-# "Vanilla retrofit (fifteenth look)").
-# RE-BASED AGAIN 2026-10-12 for P1 and P2 only (patrol lean fix, fifteenth look: "toboggans lean
-# against nothing"; recipes/patrol.py 20101f381606 -> 7d10428fc5f2 + recipes/_lean.py), measured
-# by the checker on the current sources in two separate processes (equal); before:
+# What moved and why: L1 = the 10 modeled umbrellas (30 parts), the porch bench (2) and bin (1) left for vanilla
+# sub-objects (blockout LOD0 10,591 -> 9,913). L3 = the stair-foot lamp post (col_lampTS + lamp_terrstair + arm) left for
+# a vanilla GardenLight (6,976 -> 6,914). `Win` moved on both through the `part` attribute only. The pane parts' ids
+# shift down when earlier parts leave, and mesh_hash hashes it. Pane geometry, cells and ids are unchanged
+# (build/lodges-basic.md, "Vanilla retrofit (fifteenth look)").
+# RE-BASED AGAIN 2026-10-12 for P1 and P2 only (patrol lean fix, fifteenth look: "toboggans lean against nothing",
+# recipes/patrol.py 20101f381606 -> 7d10428fc5f2 + recipes/_lean.py), measured by the checker on the current sources in
+# two separate processes (equal). Before:
 #   P1 20101f381606: fa5aaa8aef26 / 463b9012de23 / 3b438484f770 / 7dbfc53cf490
 #   P2 20101f381606: 0e4f28ce5ebd / 38666256c858 / 1d36fc868682 / daa31fe5413a
-# What moved and why: LOD0_prebake only on P1 (rack upper bar 1.75 -> 1.86, akja 2.0 -> 1.9 m,
-# poles on the wall); on P2 also LOD1b / LOD2b (the moved toboggans, rack bar 2.40 -> 3.18, 2 more
-# LOD0 tris; the blockout-level LOD plan targets follow the LOD0 count). `Win` equal. Every
-# moved part is on a LOD1 delete list, so P1's LOD1b / LOD2b are unchanged.
-# RE-BASED AGAIN 2026-10-12 for L5 only (revision 3, twelfth look: plaza on the pool side, valet
-# forecourt, deck stair to the right, every tree / bench / bin / table / chair / parasol / lounger /
-# lamp post / planter / bollard a vanilla sub-object; build/lodges-swanky.md "Revision 3"),
-# measured on recipes/l5_swanky_bottom.py 4c5a7eb4d3ed in two separate processes (equal); before
-# (the 1b re-base of revision 2):
+# What moved and why: LOD0_prebake only on P1 (rack upper bar 1.75 -> 1.86, akja 2.0 -> 1.9 m, poles on the wall). On P2
+# LOD1b / LOD2b moved too (the moved toboggans, rack bar 2.40 -> 3.18, 2 more LOD0 tris). The blockout-level LOD plan
+# targets follow the LOD0 count. `Win` equal. Every moved part is on a LOD1 delete list, so P1's LOD1b / LOD2b are
+# unchanged.
+# RE-BASED AGAIN 2026-10-12 for L5 only (revision 3, twelfth look: plaza on the pool side, valet forecourt, deck stair to
+# the right, every tree / bench / bin / table / chair / parasol / lounger / lamp post / planter / bollard a vanilla
+# sub-object, build/lodges-swanky.md "Revision 3"), measured on recipes/l5_swanky_bottom.py 4c5a7eb4d3ed in two separate
+# processes (equal). Before (the 1b re-base of revision 2):
 #   L5 a8ac79fa142f: 6f15489ad0a7 / 927ee60aeaae / 5226eac33be0 / a45b9a3f2b5c
-# What moved and why: everything - the road plaza and its modeled dressing left (vanilla rows now),
-# the slope plaza, the valet drive / walks / island and the stair on the deck's +Y edge came, the
-# build moved X_SHIFT -4 -> +4 (LOD0 24,383; the revision-2 export shipped 28,285); `Win` moved through the shift and
-# the `part` ids (cells and ids unchanged: 21 rooms).
+# What moved and why: everything. The road plaza and its modeled dressing left (vanilla rows now). The slope plaza, the
+# valet drive / walks / island and the stair on the deck's +Y edge came. The build moved X_SHIFT -4 -> +4. LOD0:
+# 24,383. The revision-2 export shipped 28,285. `Win` moved through the shift and the `part` ids (cells and ids
+# unchanged: 21 rooms).
 K4_TABLE = {
     # fine-detail step 3a (2026-10-12): L1 opts in through recipes/lodge_aframe_fine.py (fine_detail.wrap of
-    # bldg_recipes.L1, registered by the new load_recipes OVERRIDES hook: 6 racks -> kit rows, porch
-    # lanterns -> WallLightShortRange, fine flag mast; leaning singles kept); the key now joins both
-    # sources; ONLY this row re-based for L1 (was bldg_recipes.py 679655614353 / b09192f46d51 / b907916fb3c6 /
-    # 35a6e7745137 / 66cf350ccc79 = what `lodge.py --lodge L1 --no-fine --blockout` still reproduces);
-    # `Win` moved through the `part` ids only (pane geometry and cells unchanged)
+    # bldg_recipes.L1, registered by the new load_recipes OVERRIDES hook: 6 racks -> kit rows, porch lanterns ->
+    # WallLightShortRange, fine flag mast, leaning singles kept). The key now joins both sources. ONLY this row was
+    # re-based for L1 (was bldg_recipes.py 679655614353 / b09192f46d51 / b907916fb3c6 / 35a6e7745137 / 66cf350ccc79 =
+    # what `lodge.py --lodge L1 --no-fine --blockout` still reproduces). `Win` moved through the `part` ids only (pane
+    # geometry and cells unchanged)
     "L1": ("bldg_recipes.py+recipes/lodge_aframe_fine.py", "3916af5cd5a4", "9333f47420c4", "747d3542d1a0",
            "4c4ce02d3d12", "281eb36d2b8d"),
-    # fine-detail step 3a (2026-10-12): L2 opts in (FineRecipe: kit racks / benches / barrel / entry lamps
-    # as rows, fine flag + fuel drum, sign set SkiSignSetHutB; build/fine-detail-step3a-buildings.md);
-    # ONLY this row re-based for L2 (was aec16fdc1359 / 93c9b746b2fc / c240f5239068 / 2f413682db4b /
-    # 70c5833b8a91 = what `lodge.py --lodge L2 --no-fine --blockout` still reproduces); `Win` moved
-    # through the `part` ids only (pane geometry and cells unchanged)
-    # NITPICK C (2026-10-13, build/nitpick-c-lodges.md; twenty-fifth look: "the grill (?) on the left side of
-    # the entrance may end up in mid-air"): the fine hut's fuel station (cradle drum + legs + pump, crib, crib drum) left
-    # for two ground-following BarrelRandom01 rows (blockout LOD0 4,435 -> 4,227); RE-BASED for the five re-exported
+    # fine-detail step 3a (2026-10-12): L2 opts in (FineRecipe: kit racks / benches / barrel / entry lamps as rows, fine
+    # flag + fuel drum, sign set SkiSignSetHutB, build/fine-detail-step3a-buildings.md). ONLY this row was re-based for
+    # L2 (was aec16fdc1359 / 93c9b746b2fc / c240f5239068 / 2f413682db4b / 70c5833b8a91 = what `lodge.py --lodge L2
+    # --no-fine --blockout` still reproduces). `Win` moved through the `part` ids only (pane geometry and cells
+    # unchanged)
+    # NITPICK C (2026-10-13, build/nitpick-c-lodges.md, twenty-fifth look: "the grill (?) on the left side of the
+    # entrance may end up in mid-air"): the fine hut's fuel station (cradle drum + legs + pump, crib, crib drum) left for
+    # two ground-following BarrelRandom01 rows (blockout LOD0 4,435 -> 4,227). The re-base covers the five re-exported
     # hosts only (L2, L3, L4, L5, school), measured on the edited sources (scratchpad ncl/scripts/k4_probe.py). Before:
-    #   L2 6e6577c37747: 9feb866f1ed0 / a18af35b7148 / e934cdedfc97 / 293415625a4c (the step-3a row; its source had
+    #   L2 6e6577c37747: 9feb866f1ed0 / a18af35b7148 / e934cdedfc97 / 293415625a4c (the step-3a row. Its source had
     #   already moved to 82a480203b82 with the kit color variants, so the row was being SKIPPED, geometry unchanged)
     # `lodge.py --lodge L2 --no-fine --blockout` still reproduces aec16fdc1359's 93c9b746b2fc / c240f5239068 /
     # 2f413682db4b / 70c5833b8a91. `Win` unchanged (the fuel station has no pane).
     "L2": ("recipes/lodge_hut.py", "fdf6eb5f5272", "00d64047d71a", "a18af35b7148", "957caf54482c", "048ca311c2aa"),
-    # fine-detail step 3a (2026-10-12): L3 opts in (FineRecipe: 8 wall lanterns -> WallLightShortRange, the
-    # gazebo lantern -> RoofLight, 3 kit racks, fine flag masts; no sign set); ONLY this row re-based for L3
-    # (was 600882ce1bfb / bf7f67511d3d / eb05d8fa5cfb / ab6fee160814 / eb2855857a0f = what
-    # `lodge.py --lodge L3 --no-fine --blockout` still reproduces); `Win` moved through the `part` ids only
-    # nitpick C: the three pictogram boards are blank boards (labels only: the blockout and its LODs are unchanged);
-    # only the source key moved (cf5c8ce290e3 -> the kit color variants' b2a76689ae38, skipped since -> this edit)
+    # fine-detail step 3a (2026-10-12): L3 opts in (FineRecipe: 8 wall lanterns -> WallLightShortRange, the gazebo
+    # lantern -> RoofLight, 3 kit racks, fine flag masts, no sign set). ONLY this row was re-based for L3 (was
+    # 600882ce1bfb / bf7f67511d3d / eb05d8fa5cfb / ab6fee160814 / eb2855857a0f = what `lodge.py --lodge L3 --no-fine
+    # --blockout` still reproduces). `Win` moved through the `part` ids only
+    # nitpick C: the three pictogram boards are blank boards (labels only: the blockout and its LODs are unchanged). Only
+    # the source key moved (cf5c8ce290e3 -> the kit color variants' b2a76689ae38, skipped since -> this edit)
     "L3": ("recipes/lodge_chalet.py", "e254f8eef22c", "6ef1c2370beb", "1bd6d50e4213", "291364c2d737", "ed36571c1c3f"),
-    # L4 revision 1 / L5 revision 4 (2026-10-12, eighteenth look; build/lodges-swanky.md "Revision 1 (vanilla
-    # pass, cantilevered deck, terrace door, gutter)" / "Revision 4 (gable infill, pool-side doors)"): ONLY
-    # these two rows re-based, measured in two separate processes (equal). Before:
+    # L4 revision 1 / L5 revision 4 (2026-10-12, eighteenth look, build/lodges-swanky.md "Revision 1 (vanilla pass,
+    # cantilevered deck, terrace door, gutter)" / "Revision 4 (gable infill, pool-side doors)"): ONLY these two rows were
+    # re-based, measured in two separate processes (equal). Before:
     #   L4 8c72e376dfec: 2566625f42aa / 3c18b6ed0f19 / f287996cc220 / e7cc614fa9b6
     #   L5 4c5a7eb4d3ed: 7800f44149ad / 1c1da10f6160 / aec0eb5356de / 593e4a487f90
-    # What moved: L4 = vanilla rows for its modeled dressing, the 5.3 m deck cantilever, the dining
-    # door, the porch under the eave (blockout LOD0 8,397 -> 8,056); L5 = the porte-cochere gable
-    # infill, three terrace doors in recessed openings, the re-centered / new podium flights, six LOD2
-    # deletes (LOD0 24,383 -> 24,937); `Win` moved with the door lites / sidelights (cells unchanged:
-    # L4 23 rooms, L5 21)
-    # fine-detail step 3e (2026-10-12, twenty-third look; build/fine-detail-step3e-swanky.md): L4 and L5 opt in
+    # What moved: L4 = vanilla rows for its modeled dressing, the 5.3 m deck cantilever, the dining door, the porch under
+    # the eave (blockout LOD0 8,397 -> 8,056). L5 = the porte-cochere gable infill, three terrace doors in recessed
+    # openings, the re-centered / new podium flights, six LOD2 deletes (LOD0 24,383 -> 24,937). `Win` moved with the door
+    # lites / sidelights (cells unchanged: L4 23 rooms, L5 21)
+    # fine-detail step 3e (2026-10-12, twenty-third look, build/fine-detail-step3e-swanky.md): L4 and L5 opt in
     # (FineRecipe). L5: 4 plaza racks -> kit rows, 4 road-face lanterns -> WallLightShortRange rows, the porte-cochere
-    # name board (face in the sign set SkiSignSetGrandB), 12-seg finial / flue pots, round lantern rods (blockout
-    # LOD0 24,937 -> 23,019); L4: 12-seg flue pots only (8,056 -> 8,104), its key now joins the L5 module it
-    # imports (shared helpers). ONLY these two rows re-based, measured in separate processes; the old rows are what
-    # `lodge.py --lodge L4 | L5 --no-fine --blockout` still reproduces (measured again 2026-10-12 on the edited
-    # sources, equal): L4 e73de356d756 d9331fc0488e / 694abbbc3453 / 1233dd0af147 / b2e505abb458;
-    # L5 50d890de1deb cd5339492d8f / 2af75ce712a9 / 56181312403c / 55f5c1c398c9. `Win` moved on L5 through the
-    # `part` ids only (cells unchanged: 21 rooms); L4's `Win` is equal.
-    # nitpick C: L4's forecourt board is blank (labels only: hashes unchanged); L5 not edited (its GRAND LODGE
-    # lettering lives on the sheet). Only the source keys moved (e4f246edcee6 / f623d6e6e2e5 were stale since the
-    # kit color variants edited l5_swanky_bottom.py: skipped; the hashes measured equal on the current sources)
+    # name board (face in the sign set SkiSignSetGrandB), 12-seg finial / flue pots, round lantern rods (blockout LOD0
+    # 24,937 -> 23,019). L4: 12-seg flue pots only (8,056 -> 8,104). Its key now joins the L5 module it imports (shared
+    # helpers). ONLY these two rows were re-based, measured in separate processes. The old rows are what `lodge.py
+    # --lodge L4 | L5 --no-fine --blockout` still reproduces (measured again 2026-10-12 on the edited sources, equal): L4
+    # e73de356d756 d9331fc0488e / 694abbbc3453 / 1233dd0af147 / b2e505abb458. L5 50d890de1deb cd5339492d8f / 2af75ce712a9
+    # / 56181312403c / 55f5c1c398c9. `Win` moved on L5 through the `part` ids only (cells unchanged: 21 rooms). L4's
+    # `Win` is equal.
+    # nitpick C: L4's forecourt board is blank (labels only: hashes unchanged). L5 was not edited (its GRAND LODGE
+    # lettering lives on the sheet). Only the source keys moved (e4f246edcee6 / f623d6e6e2e5 were stale since the kit
+    # color variants edited l5_swanky_bottom.py, so the rows were skipped. The hashes measured equal on the current
+    # sources)
     "L4": ("recipes/l4_swanky_top.py+recipes/l5_swanky_bottom.py", "7d462e7c1110", "e11882c5b498", "694abbbc3453",
            "a6122de761b8", "f90147e54090"),
     "L5": ("recipes/l5_swanky_bottom.py", "2ae6a82b8990", "f9526ae3a44a", "6249bf89e4dd", "963789b32ff2", "cbfb9dbcdcbd"),
     # fine-detail step 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md): P1 / P2 opt in (FineRecipe: sign sets
     # SkiSignSetPatrolHutB / HQB on the shared sheet, kit lean rows for every akja / spine board on the SAME support +
     # P2's hose reel, door lanterns -> WallLightShortRange, 12-seg masts, 8-seg logs, 6-sided poles, planked bench, round
-    # rack bars); ONLY these two rows re-based, measured in two separate processes (equal). Before (the lean fix):
+    # rack bars). ONLY these two rows were re-based, measured in two separate processes (equal). Before (the lean fix):
     #   P1 7d10428fc5f2: b0d4f1b4dfa7 / 463b9012de23 / 3b438484f770 / 7dbfc53cf490
     #   P2 7d10428fc5f2: 11cb23e4083a / 38666256c858 / d77c208b37aa / 3158eb35d38f
-    # = what `lodge.py --patrol p1|p2 --no-fine --blockout` still reproduces (test_detail_patrol D13). `Win` unchanged.
+    # The old rows = what `lodge.py --patrol p1|p2 --no-fine --blockout` still reproduces (test_detail_patrol D13). `Win`
+    # unchanged.
     "P1": ("recipes/patrol.py", "198d8515c93b", "4c7f12bb1115", "463b9012de23", "bbceaa4d60ba", "dc189c9a09d0"),
     "P2": ("recipes/patrol.py", "198d8515c93b", "d63a459c221a", "38666256c858", "f64fd6e641e2", "0eb461889d37"),
-    # fine-detail step 2 (2026-10-12): the school is the fine-detail reference host (FineRecipe,
-    # fine_detail + sign set; build/fine-detail-step2-engine.md): ONLY this row was re-based
-    # (was a409931ac715 / be2ca903f8ba / 4d18334a86c2 / 4d7654e3fef0 / f9adccf0ab51)
-    # school REVISION 2 (2026-10-12, twentieth look; build/school-rev2.md): no door numbers, the red
-    # markings, the 13.5 deg monopitch with the braced back overhang, lot 4 x 5 (building at +12 m),
-    # both carpets in the back at 12 % (bubble gallery on the right), stacked back windows: ONLY this
-    # row re-based, measured in two separate processes (equal); before (step 2):
+    # fine-detail step 2 (2026-10-12): the school is the fine-detail reference host (FineRecipe, fine_detail + sign set,
+    # build/fine-detail-step2-engine.md). ONLY this row was re-based (was a409931ac715 / be2ca903f8ba / 4d18334a86c2 /
+    # 4d7654e3fef0 / f9adccf0ab51)
+    # school REVISION 2 (2026-10-12, twentieth look, build/school-rev2.md): no door numbers, the red markings, the 13.5
+    # deg monopitch with the braced back overhang, lot 4 x 5 (building at +12 m), both carpets in the back at 12 %
+    # (bubble gallery on the right), stacked back windows. ONLY this row was re-based, measured in two separate processes
+    # (equal). Before (step 2):
     #   ae5499d72b09: 49b57a4338c1 / 4d18334a86c2 / f55dea19243b / 50740c6713f5
-    # What moved: everything (the shift, the roof, the yard; blockout LOD0 3,497 -> 3,841); `Win` moved
-    # with the taller back panes (2 x 2 lights) and the shift (cells unchanged: 4 rooms)
-    # nitpick C: the school's SKI SCHOOL / STAFF ONLY / NO SLEDDING lettering lives on the sheet (cs2_signset): the
-    # recipe is not edited, the hashes measured equal; only the stale source key (72187a210775, skipped since the kit
-    # color variants) re-based
+    # What moved: everything (the shift, the roof, the yard). Blockout LOD0 3,497 -> 3,841. `Win` moved with the taller
+    # back panes (2 x 2 lights) and the shift (cells unchanged: 4 rooms)
+    # nitpick C: the school's SKI SCHOOL / STAFF ONLY / NO SLEDDING lettering lives on the sheet (cs2_signset). The
+    # recipe is not edited, and the hashes measured equal. Only the stale source key (72187a210775, skipped since the kit
+    # color variants) was re-based
     "school": ("recipes/school.py", "15fc26957408", "2ea888e2824f", "48b4eeca676d", "662c3f45b7e4", "aafa64874c54"),
 }
 # fine-detail step 3d (2026-10-12): the sign's default build is the fine one (the SKI AREA header in the sign set
-# SkiSignSetGateB, the band keeps the emblem only; lanterns -> WallLightShortRange rows; 12-seg masts): ONLY the sign
-# row re-based, measured in two separate processes (equal). Before (= `welcome_sign.py -- --no-fine --blockout`, checked
+# SkiSignSetGateB, the band keeps the emblem only, lanterns -> WallLightShortRange rows, 12-seg masts). ONLY the sign row
+# was re-based, measured in two separate processes (equal). Before (= `welcome_sign.py -- --no-fine --blockout`, checked
 # below as SIGN_LEGACY): 3d778a71a9ab, band 88bf4fef20d9 / e88b1fa9f78a / 828ae8976935 / cf68b6b6d391
 SIGN = ("welcome_sign.py", None, "5a22327dc22a")
 SIGN_BAND = {"BaseColor": "e6748ab2381e", "Normal": "c8069272138f", "MaskMap": "d8b521eb9f3b",
@@ -741,8 +743,8 @@ def k6_k7_blockout():
         assert so["target_prefab"] == "SkiDemoHut" and len(so["objects"]) == 2
         a, b = so["objects"]
         assert set(a) == {"m_Object", "prefab", "position", "rotation", "m_ParentMesh"}
-        # x-sign gate N (2026-10-16): the recipe rows are DESIGN frame, the manifest block is rule T (x -> -x,
-        # q -> (qx, -qy, -qz, qw)): the design (-3.5, 3.02, 4.0) / (0, 1, 0, 0) is game (3.5, 3.02, 4.0) / (0, -1, 0, 0)
+        # x-sign gate N (2026-10-16): the recipe rows are DESIGN frame, the manifest block is rule T (x -> -x, q -> (qx,
+        # -qy, -qz, qw)). The design (-3.5, 3.02, 4.0) / (0, 1, 0, 0) is game (3.5, 3.02, 4.0) / (0, -1, 0, 0)
         assert a["m_ParentMesh"] == -1 and b["m_ParentMesh"] == 0 and b["position"] == [3.5, 3.02, 4.0]
         assert a["position"] == [-6.5, 0.0, 4.8] and b["rotation"] == [0.0, -1.0, 0.0, 0.0]             and a["rotation"] == [0.0, 0.0, 0.0, 1.0], (a, b)
         for bad in ((("X", "zz", (0, 0, 0), (0, 0, 0, 1), -1),),
@@ -871,11 +873,10 @@ def _variant_bounds(variants):
     return out
 
 
-# K9b box contract (game local, prop frame): a parasol is its pole and its canopy tier (the review
-# convention of recipes/l5_swanky_bottom.PARASOL_POLE / PARASOL_TIER); every other prop is its union
-# box from 5 mm above its pivot (a prop's feet sit in the surface by design). The trash bin uses
-# the union of the TrashbinEmpty / Full variant meshes (+-0.355 x +-0.364, the dump; the cached
-# placeholder mesh alone is +-0.246).
+# K9b box contract (game local, prop frame): a parasol is its pole and its canopy tier (the review convention of
+# recipes/l5_swanky_bottom.PARASOL_POLE / PARASOL_TIER). Every other prop is its union box from 5 mm above its pivot (a
+# prop's feet sit in the surface by design). The trash bin uses the union of the TrashbinEmpty / Full variant meshes
+# (+-0.355 x +-0.364, the dump). The cached placeholder mesh alone is +-0.246.
 K9_POLE, K9_TIER = 0.30, 1.80
 K9_BIN = ((-0.355, 0.0, -0.364), (0.355, 1.036, 0.364))
 
@@ -900,13 +901,13 @@ def k9_l1_tables():
     import cs2_liftdress as LD
     import cs2_subobj as SO
     from mathutils.bvhtree import BVHTree
-    # fine-detail step 3a: the shipping L1 is the FineRecipe of recipes/lodge_aframe_fine.py (bldg_recipes
-    # OVERRIDES); its first 22 rows are the deck / porch rows checked here (the plain R.L1 holds exactly
-    # those), then the 2 porch wall lights (K10) and the 6 kit racks (boxed here too, on the lot)
+    # fine-detail step 3a: the shipping L1 is the FineRecipe of recipes/lodge_aframe_fine.py (bldg_recipes OVERRIDES).
+    # Its first 22 rows are the deck / porch rows checked here (the plain R.L1 holds exactly those), then the 2 porch
+    # wall lights (K10) and the 6 kit racks (boxed here too, on the lot)
     rec = R.get_recipe("L1")
     ums = R.AFRAME_L1["UMBRELLAS"]
-    # T26 2026-10-16 dropped the parasols (12 rows); restored 2026-10-17 (vanilla props, random colors
-    # accepted): the deck / porch rows are 10 tables + 10 parasols + 2 porch = 22 again
+    # T26 2026-10-16 dropped the parasols (12 rows). Restored 2026-10-17 (vanilla props, random colors accepted): the
+    # deck / porch rows are 10 tables + 10 parasols + 2 porch = 22 again
     rows = tuple(rec.sub_objects[:22])
     kit = tuple((e["prefab"], e["m_Object"], tuple(e["position"]), tuple(e["rotation"]), e["m_ParentMesh"])
                 for e in rec.sub_objects if isinstance(e, dict) and e.get("kind") == "mod")
@@ -1022,12 +1023,15 @@ L1_PRE_PASS_LOT = {"x": (-17.079, 18.4), "y": (-22.75, 22.12)}   # the pre-pass 
 
 
 def k10_l1_fine():
-    """recipes/lodge_aframe_fine.py (the shipping L1) against the PRE-PASS builder parts (`--no-fine`):
-    each kit rack row (identity, on the lot) = the removed ski_rack frame vertex for vertex +-1 mm, 2 cm
-    lower (the kit foot is on y 0, the old on GROUND_LIFT; negative: a 90-degree yaw misses); the 3
-    loadouts alternate; the porch wall lights on the porch columns' entry face at the old lens (y, z)
-    +-0.01 m, identity; the 8 leaning singles kept vertex for vertex (FS6); the rail-F lanterns kept;
-    the deck flag mast fine (58 tris, 20 before); lot bbox = the pre-pass +-5 mm (H9)."""
+    """The test checks recipes/lodge_aframe_fine.py (the shipping L1) against the PRE-PASS builder parts (`--no-fine`):
+    - each kit rack row (identity, on the lot) = the removed ski_rack frame vertex for vertex +-1 mm, 2 cm lower (the kit
+      foot is on y 0, the old on GROUND_LIFT. Negative: a 90-degree yaw misses)
+    - the 3 loadouts alternate
+    - the porch wall lights on the porch columns' entry face at the old lens (y, z) +-0.01 m, identity
+    - the 8 leaning singles kept vertex for vertex (FS6)
+    - the rail-F lanterns kept
+    - the deck flag mast fine (58 tris, 20 before)
+    - lot bbox = the pre-pass +-5 mm (H9)"""
     import fine_detail as FD
     from mathutils import Quaternion
     rec = R.get_recipe("L1")

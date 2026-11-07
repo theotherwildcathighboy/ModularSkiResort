@@ -1,34 +1,36 @@
 """
 Procedural chairlift tower generator for the Modular Ski Resort mod.
 
-V2 (towers/O, asset round 2026-10) - the default entry point:
+V2 (towers/O, asset round 2026-10), the default entry point:
     blender --background --factory-startup --python-exit-code 1 --python lift_tower.py --         --variant {FG8|FG12|FG16|FG20|ET62|ET68|DQ10|DQ12|DQ14|DQ16|ETDQ|GD12|GD16|GD20} --out <letter folder>         [--head ingest|rebuild] [--preview DIR] [--review [DIR]] [--export]         [--no-finish] [--no-lods] [--no-validate] [--name NAME] [--letter O]
     Contract: docs/research/art/assets-2026-10/design/towers-v2.md + towers-v2-skeptic.md
-    (see the "v2 PORT" banner below). Public: TowerSpec, VARIANTS, build_tower_v2,
-    assert_tower_contracts, ingest_gantry, lite_sheave, crashpad_parts, lod_chain_v2,
-    assert_budgets, render_tower_views, main_v2, pillar_scoring (Revision 1: FG20 / DQ16 rows;
-    Revision 1b: the gondola tubular family GD12 / GD16 / GD20, the DQ rebuild head stretched to
-    the 6.0 m gauge - see the "GD" constants block).
-    `--legacy` routes to the unchanged J..N main() below (e.g. `-- --legacy --out ...
-    --mast 8 --pier --finish`); its functions are kept byte for byte for their consumers.
+The "v2 PORT" banner below describes the port. Public names: TowerSpec, VARIANTS, build_tower_v2, assert_tower_contracts,
+ingest_gantry, lite_sheave, crashpad_parts, lod_chain_v2, assert_budgets, render_tower_views, main_v2, pillar_scoring.
+
+- Revision 1: the FG20 / DQ16 rows.
+- Revision 1b: the gondola tubular family GD12 / GD16 / GD20. The DQ rebuild head is stretched to
+  the 6.0 m gauge (see the "GD" constants block).
+
+`--legacy` routes to the unchanged J..N main() below (for example `-- --legacy --out ... --mast 8 --pier --finish`). Its
+functions stay byte for byte as they were, for their consumers.
 
 LEGACY (J..N) description follows.
 
-Phase 1 deliverable: prove the whole art pipeline (script -> mesh -> UVs -> LODs -> FBX)
-on the cheapest possible asset before investing in anything else.
+Phase 1 deliverable: prove the whole art pipeline (script -> mesh -> UVs -> LODs -> FBX) on the cheapest possible asset
+before investing in anything else.
 
 Run headless:
     blender --background --factory-startup --python lift_tower.py -- --out ../fbx --preview ../preview
 
-Everything is parametric because real lift towers ARE parametric - a resort's towers are the
-same hardware repeated at different heights. That is exactly why this asset was chosen first.
+Everything is parametric because real lift towers ARE parametric. A resort's towers are the same hardware repeated at
+different heights. That is why this asset was chosen first.
 
-Orientation convention (matters for the CS2 network prefab):
+Orientation convention (it matters for the CS2 network prefab):
     +X = direction of lift travel (the cable runs along X)
     +Y = crossarm span (sheave axles point along Y)
     +Z = up
-Origin sits at the BASE of the tower, on the ground plane, so the network can place it
-directly on terrain with no offset.
+The origin sits at the BASE of the tower, on the ground plane. The network can then place the tower directly on terrain with
+no offset.
 """
 
 import bpy
@@ -50,7 +52,7 @@ import cs2_asset  # noqa: E402
 # Parameters
 # --------------------------------------------------------------------------------------
 
-DEFAULT_NAME = "SkiLiftTowerFixedGrip"   # no underscore - see cs2_asset.validate_asset_name
+DEFAULT_NAME = "SkiLiftTowerFixedGrip"   # no underscore (see cs2_asset.validate_asset_name)
 
 # Atlas quadrants (cs2_asset.lift_atlas_quads layout, shared with stations and chairs)
 QUAD_CONCRETE, QUAD_GALV, QUAD_PAINT = 0, 1, 3
@@ -58,20 +60,19 @@ QUAD_CONCRETE, QUAD_GALV, QUAD_PAINT = 0, 1, 3
 
 @dataclass
 class TowerParams:
-    """All tower dimensions in meters. CS2 uses 1 unit = 1 meter, same as Blender default."""
+    """All tower dimensions in meters. CS2 uses 1 unit = 1 meter, the same as the Blender default."""
 
     # Foundation
     pad_size: float = 1.8
     pad_height: float = 0.45
-    pad_sink: float = 0.30          # how far the pad sits below origin, to bed into terrain
+    pad_sink: float = 0.30          # how far the pad sits below the origin, to bed into terrain
 
-    # Mast - real lift towers are constant-diameter steel tube.
+    # Mast. Real lift towers are constant-diameter steel tube.
     #
-    # 8 m rather than the original 10.5 m. Real fixed-grip towers run 6-12 m so both are
-    # accurate, but calibrated against the official ExampleAssets (site fence 2.36 m, adult
-    # tree 7.17 m, firehouse 17.9 m) 10.5 m read as too tall and too slender in game. 8 m with
-    # a slightly fatter mast sits better. Real lift lines vary tower height along the line;
-    # height variants are a later addition.
+    # The mast is 8 m, not the original 10.5 m. Real fixed-grip towers run 6-12 m, so both are accurate. We calibrated
+    # against the official ExampleAssets (site fence 2.36 m, adult tree 7.17 m, firehouse 17.9 m). Against them, 10.5 m read
+    # as too tall and too slender in game. An 8 m mast with a slightly fatter tube sits better. Real lift lines vary the
+    # tower height along the line. Height variants are a later addition.
     mast_height: float = 8.0
     mast_radius: float = 0.38
     mast_segments: int = 12         # 12-gon reads as round at game distance, stays cheap
@@ -85,12 +86,12 @@ class TowerParams:
     sheave_count: int = 4           # per side
     sheave_radius: float = 0.20
     sheave_width: float = 0.13
-    sheave_segments: int = 12       # 10 read as visibly polygonal up close; 12 is the sweet spot
+    sheave_segments: int = 12       # 10 read as visibly polygonal up close, 12 is the sweet spot
     sheave_spacing: float = 0.52    # along X, direction of travel
 
-    # Vertical layout of the rocker tree, measured down from the crossarm. Kept here rather
-    # than inline so the sheave axle height has ONE source of truth - the CS2 lane Position Y
-    # must match it exactly or the ropes float past the wheels.
+    # Vertical layout of the rocker tree, measured down from the crossarm. It is kept here, not inline, so the sheave axle
+    # height has ONE source of truth. The CS2 lane Position Y must match it exactly. If it does not, the ropes float past the
+    # wheels.
     hanger_len: float = 0.40        # crossarm tip -> main balance beam
     main_to_sub: float = 0.30       # main beam -> sub-rocker
     sub_to_axle: float = 0.26       # sub-rocker -> wheel axle
@@ -109,8 +110,8 @@ class TowerParams:
         """
         Height of the sheave axles above the tower base.
 
-        This is exactly the value CS2's NetPieceLanes `Position.Y` must use, or the ropes hang
-        past the wheels instead of sitting in them. Derived, never hand-measured.
+        This is exactly the value that CS2's NetPieceLanes `Position.Y` must use. If it does not, the ropes hang past the
+        wheels and do not sit in them. The value is derived, never hand-measured.
         """
         return self.mast_height - self.hanger_len - self.main_to_sub - self.sub_to_axle
 
@@ -125,7 +126,7 @@ class TowerParams:
 # --------------------------------------------------------------------------------------
 
 def clear_scene():
-    """Factory startup still ships a cube, camera and light. Remove everything."""
+    """Factory startup still ships a cube, a camera and a light. Remove everything."""
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     for block in (bpy.data.meshes, bpy.data.materials, bpy.data.cameras, bpy.data.lights):
@@ -145,7 +146,7 @@ def add_box(name, size, location):
 
 
 def add_cylinder(name, radius, depth, location, rotation=(0.0, 0.0, 0.0), segments=12):
-    """Cylinder along local Z by default; rotate to reorient."""
+    """Cylinder along local Z by default. Rotate it to change the direction."""
     bpy.ops.mesh.primitive_cylinder_add(
         vertices=segments, radius=radius, depth=depth,
         location=location, rotation=rotation,
@@ -163,19 +164,19 @@ def build_sheave_train(p: TowerParams, side: int, arm_z: float):
     """
     One sheave assembly hanging under a crossarm tip.
 
-    Real fixed-grip towers use a *rocker tree*: a main balance beam hangs from the crossarm,
-    and pivoting sub-rockers hang from that, each carrying a pair of sheaves. The articulation
-    lets the wheel train follow the cable's angle. It is also the silhouette detail that makes
-    the asset read as a chairlift rather than a power pylon, so it is worth the ~200 triangles.
+    Real fixed-grip towers use a *rocker tree*. A main balance beam hangs from the crossarm, and pivoting sub-rockers hang
+    from that beam. Each sub-rocker carries a pair of sheaves. The articulation lets the wheel train follow the angle of the
+    cable. It is also the silhouette detail that makes the asset read as a chairlift and not as a power pylon, so it is worth
+    the ~200 triangles.
 
-    `side` is +1 or -1 along Y. Wheels roll on the cable, so their axles point along Y,
-    which means each wheel cylinder's local Z is rotated onto the world Y axis.
+    `side` is +1 or -1 along Y. Wheels roll on the cable, so their axles point along Y. Each wheel cylinder's local Z is
+    therefore rotated onto the world Y axis.
     """
     parts = []
     y = side * (p.arm_span / 2.0)
 
-    # Vertical layout, measured down from the crossarm (constants live in TowerParams so the
-    # axle height has a single source of truth - see TowerParams.sheave_axle_height)
+    # Vertical layout, measured down from the crossarm. The constants live in TowerParams so the axle height has a single
+    # source of truth (see TowerParams.sheave_axle_height).
     hanger_len = p.hanger_len
     main_z = arm_z - hanger_len                      # main balance beam
     sub_z = main_z - p.main_to_sub                   # sub-rockers
@@ -184,10 +185,9 @@ def build_sheave_train(p: TowerParams, side: int, arm_z: float):
     n_sub = max(1, p.sheave_count // 2)              # sub-rockers, 2 sheaves each
     sub_span = p.sheave_spacing                      # wheel pair separation
 
-    # Sub-rocker separation must leave the *inner* wheels of adjacent sub-rockers clear of
-    # each other. Those wheels sit (main_span - sub_span) apart, so that gap has to exceed
-    # one wheel diameter. Deriving it beats eyeballing: at sheave_radius 0.20 the previous
-    # hand-picked 0.34 clearance overlapped the inner pair by 6 cm.
+    # The separation of the sub-rockers must leave the *inner* wheels of adjacent sub-rockers clear of each other. Those
+    # wheels sit (main_span - sub_span) apart, so that gap must exceed one wheel diameter. A derived value is better than an
+    # eyeballed one: at sheave_radius 0.20 the previous hand-picked clearance of 0.34 overlapped the inner pair by 6 cm.
     sub_clear = 2.0 * p.sheave_radius + 0.10
     main_span = (n_sub - 1) * (sub_span + sub_clear)
 
@@ -247,20 +247,18 @@ def build_tip_deflector(p: TowerParams):
     """
     Tip-deflector collar as a WRAPPED PLATE, not a closed cone (K clash fix).
 
-    The J-generation collar was a full 360-degree frustum (radius 0.62 flaring down from
-    0.40 over 0.50 m, centered at axle - 0.42); its skirt passed straight through the
-    service ladder, whose rails run up the -X face at x = -(mast_radius + 0.10) = -0.48.
-    The assembly drawing's real part is a bent plate bolted AROUND the mast - and on a
-    real tower it stops at the ladder, exactly like our crash pad's open back.
+    The J-generation collar was a full 360-degree frustum (radius 0.62 flaring down from 0.40 over 0.50 m, centered at axle -
+    0.42). Its skirt passed straight through the service ladder, whose rails run up the -X face at x = -(mast_radius + 0.10)
+    = -0.48. The real part in the assembly drawing is a bent plate bolted AROUND the mast. On a real tower it stops at the
+    ladder, exactly like our crash pad's open back.
 
-    So: a conical shell arc of 280 degrees, gap centered on -X. The gap's 80-degree
-    sector keeps every plate texel at least ~0.13 m clear of the ladder envelope
-    (rails at y +/-0.245, rungs inside them): at the widest radius (0.62, bottom) the
-    plate edge sits at (-0.475, +/-0.399) while the ladder corridor spans |y| <= 0.245.
-    Same z band and radii as the J cone, so the silhouette from the line is unchanged.
+    So the collar is now a conical shell arc of 280 degrees, with the gap centered on -X. The 80-degree gap keeps every plate
+    texel at least ~0.13 m clear of the ladder envelope (rails at y +/-0.245, rungs inside them). At the widest radius (0.62,
+    bottom) the plate edge sits at (-0.475, +/-0.399), while the ladder corridor spans |y| <= 0.245. The z band and radii are
+    the same as the J cone, so the silhouette from the line does not change.
 
-    Built like build_crash_pad (thin shell, from_pydata, smooth-shaded walls) so it
-    reads as rolled plate rather than a 12-gon. ~100 tris.
+    It is built like build_crash_pad (thin shell, from_pydata, smooth-shaded walls), so it reads as rolled plate and not as a
+    12-gon. ~100 tris.
     """
     axle = p.sheave_axle_height
     z0, z1 = axle - 0.67, axle - 0.17           # the J cone's exact 0.50 m band
@@ -303,8 +301,8 @@ def build_tip_deflector(p: TowerParams):
     bpy.ops.mesh.normals_make_consistent(inside=False)
     bpy.ops.object.mode_set(mode="OBJECT")
 
-    # Smooth-shade the conical walls (their normals lean ~24 degrees off horizontal,
-    # z component ~0.4); rims and end caps stay flat for crisp plate edges.
+    # Smooth-shade the conical walls (their normals lean ~24 degrees off horizontal, z component ~0.4). Rims and end caps
+    # stay flat for crisp plate edges.
     for poly in mesh.polygons:
         if abs(poly.normal.z) < 0.5:
             poly.use_smooth = True
@@ -313,17 +311,16 @@ def build_tip_deflector(p: TowerParams):
 
 def build_head_details(p: TowerParams):
     """
-    J-generation detail pass, from the user's Yan assembly drawing and the Pali photos
-    (liftblog img_6880/6888/6914). Everything here is parametric on TowerParams so the
-    short ET terminal towers get the identical kit. None of it touches the invariants:
-    sheave_axle_height, lane_offset, base pivot.
+    J-generation detail pass, from the user's Yan assembly drawing and the Pali photos (liftblog img_6880/6888/6914).
+    Everything here is parametric on TowerParams, so the short ET terminal towers get the identical kit. None of it touches
+    the invariants: sheave_axle_height, lane_offset, base pivot.
     """
     parts = []
     arm_top = p.mast_height + p.arm_thickness / 2.0
 
-    # LIFTING FRAME - the signature Yan tower-top (assembly drawing: a slim rectangular
-    # steel frame standing proud above the crossarm, used to jack sheave trains during
-    # maintenance). Two posts on the arm's centerline plus a top bar spanning them.
+    # LIFTING FRAME: the signature Yan tower-top. The assembly drawing shows a slim rectangular steel frame that stands proud
+    # above the crossarm and jacks the sheave trains during maintenance. It has two posts on the centerline of the arm and a
+    # top bar that spans them.
     lf_h, lf_y = 0.62, 1.15
     for side in (-1, 1):
         parts.append((add_box(
@@ -333,10 +330,9 @@ def build_head_details(p: TowerParams):
         "liftbar", (0.11, lf_y * 2 + 0.30, 0.11),
         (0.0, 0.0, arm_top + lf_h + 0.055)), QUAD_PAINT))
 
-    # CATWALK - thin perforated-plate walkway along the crossarm between the sheave
-    # trains (img_6880: the maintenance plank on the arm). Offset to the -X face so the
-    # ladder tops out right at its edge; railing kept to three posts + one handrail on
-    # the outboard edge, per the drawing's minimal rail.
+    # CATWALK: a thin perforated-plate walkway along the crossarm between the sheave trains (img_6880: the maintenance plank
+    # on the arm). It is offset to the -X face, so the ladder tops out right at its edge. The railing has three posts and one
+    # handrail on the outboard edge, as in the minimal rail of the drawing.
     cw_x = -(p.arm_depth / 2.0 + 0.21)
     cw_len = 2.70                                   # clear of the hangers at +/-1.8
     parts.append((add_box("catwalk", (0.42, cw_len, 0.035),
@@ -349,22 +345,19 @@ def build_head_details(p: TowerParams):
                                (cw_x - 0.19, 0.0, arm_top + 0.88),
                                rotation=(math.radians(90.0), 0.0, 0.0),
                                segments=6), QUAD_GALV))
-    # Two thin brackets tying the plank back to the arm
+    # Two thin brackets tie the plank back to the arm
     for ry in (-0.9, 0.9):
         parts.append((add_box(f"cwbrace_{ry:.0f}", (0.40, 0.05, 0.05),
                               (cw_x + 0.10, ry, arm_top - 0.02)), QUAD_GALV))
 
-    # TIP DEFLECTOR - the curved plate shield wrapped around the mast just below the
-    # head (assembly drawing: guides a derailed rope clear of the tower). K fix: the J
-    # version was a full 360-degree cone whose 0.62 m skirt swallowed the ladder rails
-    # at x -0.48 - now it is built as the drawing actually shows it, a bent PLATE
-    # wrapped around the mast with an open sector on the ladder face (-X), so the
-    # ladder passes clean. See build_tip_deflector.
+    # TIP DEFLECTOR: the curved plate shield wrapped around the mast just below the head (assembly drawing: guides a derailed
+    # rope clear of the tower). K fix: the J version was a full 360-degree cone. Its 0.62 m skirt swallowed the ladder rails
+    # at x -0.48. Now it is built as the drawing shows it: a bent PLATE wrapped around the mast, with an open sector on the
+    # ladder face (-X), so the ladder passes clean. See build_tip_deflector.
     parts.append((build_tip_deflector(p), QUAD_PAINT))
 
-    # COMM-LINE INSULATORS - two small vertical posts on top of the arm near the
-    # centerline (img_6914: the comm/power line rides over every tower top; the wire
-    # itself is prefab-side, we only supply the hardware).
+    # COMM-LINE INSULATORS: two small vertical posts on top of the arm near the centerline (img_6914: the comm/power line
+    # rides over every tower top). The wire itself is prefab-side. We supply only the hardware.
     for side in (-1, 1):
         y = side * 0.45
         parts.append((add_cylinder(f"insulator_{side}", 0.035, 0.28,
@@ -376,11 +369,10 @@ def build_head_details(p: TowerParams):
 
 def set_pad_uvs(obj):
     """
-    Hand-set UVs mapping the crash pad into the reserved strip of the glass quadrant
-    (cs2_asset.PAD_*), same pattern as the terminal's tension-scale plates. The OUTER
-    wall unrolls arc -> u, height -> v, so the warning triangle stamped at the strip's
-    center lands exactly on the +X (uphill) face. Inner wall, rims and end caps map to
-    the strip's left margin, which paint_pad_strip keeps plain orange.
+    Hand-set UVs map the crash pad into the reserved strip of the glass quadrant (cs2_asset.PAD_*), the same pattern as the
+    tension-scale plates of the terminal. The OUTER wall unrolls arc -> u, height -> v, so the warning triangle stamped at
+    the center of the strip lands exactly on the +X (uphill) face. The inner wall, rims and end caps map to the left margin
+    of the strip, which paint_pad_strip keeps plain orange.
     """
     cp = cs2_asset.CRASHPAD
     U0, U1 = cs2_asset.PAD_U0, cs2_asset.PAD_U1
@@ -407,8 +399,8 @@ def set_pad_uvs(obj):
                 ufrac = 0.08 + 0.84 * afrac
                 vfrac = 0.03 + 0.94 * zfrac
             else:
-                # Quiet left margin. Varied by angle/height/radius so no face has a
-                # degenerate (zero-area) UV, which would upset tangent-space export.
+                # Quiet left margin. It varies by angle, height and radius, so no face has a degenerate (zero-area) UV. A
+                # zero-area UV would upset tangent-space export.
                 rfrac = (math.hypot(co.x, co.y) - (R - t)) / t
                 ufrac = 0.008 + 0.030 * afrac + 0.015 * rfrac
                 vfrac = 0.30 + 0.34 * zfrac + 0.04 * rfrac
@@ -417,12 +409,11 @@ def set_pad_uvs(obj):
 
 def build_crash_pad():
     """
-    The red mast crash pad every real tower carries at skier height: an open-backed
-    cylindrical shell (cs2_asset.CRASHPAD contract) around the mast base. The 90-degree
-    opening faces DOWNHILL (-X, where the chairs approach and the ladder lives); the
-    padding protects the uphill face and flanks that a skier can actually hit. Textured
-    via the pad strip - recolorable on its own slot (2), default orange-red, with the
-    white warning triangle on the uphill face.
+    The red mast crash pad that every real tower carries at skier height: an open-backed cylindrical shell
+    (cs2_asset.CRASHPAD contract) around the mast base. The 90-degree opening faces DOWNHILL (-X, where the chairs approach
+    and the ladder lives). The padding protects the uphill face and the flanks, which a skier can actually hit. It is
+    textured via the pad strip. It is recolorable on its own slot (2), with a default of orange-red and the white warning
+    triangle on the uphill face.
     """
     cp = cs2_asset.CRASHPAD
     R, t = cp["radius"], cp["thickness"]
@@ -464,8 +455,8 @@ def build_crash_pad():
     bpy.ops.mesh.normals_make_consistent(inside=False)
     bpy.ops.object.mode_set(mode="OBJECT")
 
-    # Smooth-shade the walls so the shell reads as a cylinder, not a 14-gon (the
-    # closeup preview banded per facet). Rims stay flat for a crisp top edge.
+    # Smooth-shade the walls so the shell reads as a cylinder, not a 14-gon (the closeup preview banded per facet). Rims stay
+    # flat for a crisp top edge.
     for poly in mesh.polygons:
         if abs(poly.normal.z) < 0.5:
             poly.use_smooth = True
@@ -477,67 +468,59 @@ def build_crash_pad():
 # --------------------------------------------------------------------------------------
 # Foundation pier (M generation, reshaped in N - the pillar-ized line towers)
 #
-# Towers ground themselves on terrain and can float 1-3 m where the course rides above
-# ground. Vanilla buries pylon bases; our visual equivalent is a below-grade concrete
-# pier under the pad: fully buried on flat ground (below-grade renders fine - proven),
-# reading as an engineered foundation where the tower floats.
+# Towers ground themselves on terrain and can float 1-3 m where the course rides above ground. Vanilla buries the bases of
+# its pylons. Our visual equivalent is a below-grade concrete pier under the pad. On flat ground it is fully buried
+# (below-grade renders fine, proven). Where the tower floats, it reads as an engineered foundation.
 #
-# N revision (user verdict on the M previews): NO taper - the pier is a STRAIGHT
-# vertical extension of the pad block, same rectangular footprint, straight formed
-# sides, pad underside down to -4.0. And the whole pad+pier block is retoned to the
-# VANILLA HV PYLON slab look: light, clean, slightly warm concrete (sampled from the
-# user's reference screenshots - slab highlights ~0.83 display, matching bright
-# terrain; our old 0.42 cool gray read dark and muddy next to them). When --pier is
-# on, the PAD is hand-mapped into the same painted band as the pier, so pad + pier
-# are one continuously-textured formed block; quad 0's photo concrete (stations,
-# knoll, plinths) is deliberately untouched for coherence with shipped stations.
+# N revision (user verdict on the M previews): NO taper. The pier is a STRAIGHT vertical extension of the pad block, with the
+# same rectangular footprint and straight formed sides, from the pad underside down to -4.0. The whole pad+pier block is also
+# retoned to the VANILLA HV PYLON slab look: light, clean, slightly warm concrete. We sampled it from the reference
+# screenshots of the user: slab highlights ~0.83 display, matching bright terrain. Our old cool gray of 0.42 read dark and
+# muddy next to them. When --pier is on, the PAD is hand-mapped into the same painted band as the pier, so pad + pier are one
+# continuously-textured formed block. Quad 0 (photo concrete: stations, knoll, plinths) is deliberately untouched, for
+# coherence with the shipped stations.
 #
-# The block's material lives in a PAINTED BAND reserved out of the top of the CONCRETE
-# quadrant (quad 0) via cs2_asset.QUAD_RESERVED_TOP - the same mechanism that keeps
-# quad 2's headroom for the crash-pad strip. Smooth gradients only, no crisp stamps,
-# so it does NOT need density protection through the finish repack.
+# The material of the block lives in a PAINTED BAND. The band is reserved out of the top of the CONCRETE quadrant (quad 0)
+# via cs2_asset.QUAD_RESERVED_TOP. It is the same mechanism that keeps the headroom of quad 2 for the crash-pad strip. The
+# band has smooth gradients only, no crisp stamps, so it does NOT need density protection through the finish repack.
 #
-# MIP-BLEED CONTRACT (the M round's first cut failed this): quad 2's glass above
-# v 0.5 is near-black, and bilinear/mip filtering averages neighbors across the quad
-# boundary, so the block must never MAP against it. The band is painted up to
-# PIER_V1 = 0.4995, but geometry maps only into PIER_MV0..PIER_MV1 (top 0.4900) - the
-# painted rows above the mapped window are same-tone padding absorbing early mips.
+# MIP-BLEED CONTRACT (the first cut of the M round failed this): the glass of quad 2 above v 0.5 is near-black. Bilinear/mip
+# filtering averages neighbors across the quad boundary, so the block must never MAP against it. The band is painted up to
+# PIER_V1 = 0.4995, but geometry maps only into PIER_MV0..PIER_MV1 (top 0.4900). The painted rows above the mapped window are
+# same-tone padding that absorbs early mips.
 # --------------------------------------------------------------------------------------
 
 PIER_U0, PIER_U1 = 0.010, 0.490
 PIER_V0, PIER_V1 = 0.4425, 0.4995     # painted band (~116 rows at the 2048 atlas)
 PIER_MV0, PIER_MV1 = 0.4450, 0.4900   # window the block geometry actually maps into
 
-PIER_TOP_Z = -0.30                    # flush with the pad underside: same footprint,
-                                      # coplanar side planes, so no embed (an embedded
-                                      # overlap would z-fight the coplanar pad sides)
+PIER_TOP_Z = -0.30                    # flush with the pad underside, same footprint,
+                                      # coplanar side planes, so no embed (an embedded overlap would z-fight the coplanar pad
+                                      # sides)
 PIER_BOT_Z = -4.0
 
-# u-fraction split inside the band: side walls wrap the perimeter in the left zone;
-# the pad's walking surface and the hidden caps take small patches in the right zone
-# (painted clean - no streaks or grime gradient there).
+# u-fraction split inside the band: the side walls wrap the perimeter in the left zone. The walking surface of the pad and
+# the hidden caps take small patches in the right zone (painted clean, with no streaks or grime gradient there).
 PIER_USIDE = 0.84                     # sides map ufrac 0.02..0.84
 PIER_UTOP0, PIER_UTOP1 = 0.86, 0.95   # pad top-face patch (~square texels)
 PIER_UQUIET0, PIER_UQUIET1 = 0.96, 0.99
 
-# Vanilla-slab tone (N): warm light concrete, authored display-space. Sampled targets
-# render ~0.8 under full CS2 sun; 0.60 albedo lands there without blowing out.
+# Vanilla-slab tone (N): warm light concrete, authored in display space. The sampled targets render ~0.8 under full CS2 sun.
+# An albedo of 0.60 lands there without blowing out.
 PIER_TONE = (0.600, 0.585, 0.550)
 
 
 def paint_pier_strip(base, nrm, msk, ctl, A):
     """
-    Author the pad+pier block's concrete into its reserved band (post-hook signature,
-    composed after cs2_asset.paint_pad_strip when --pier is on).
+    Author the concrete of the pad+pier block into its reserved band (post-hook signature, composed after
+    cs2_asset.paint_pad_strip when --pier is on).
 
-    Two zones by column (see PIER_USIDE): the SIDE zone wraps the block perimeter and
-    is anisotropic (~820 texels around 7.2 m vs ~92 mapped rows over 4.15 m, ~5:1),
-    so per-texel noise smears into faint vertical streaks - rain-run staining down
-    formed concrete. Grime is GENTLE and weighted toward the BOTTOM (the buried end
-    shows soil staining when a float exposes it; the top stays vanilla-clean, per the
-    N verdict: display-space multipliers land ~gamma-squared in linear, so 0.86 here
-    is ~0.72 linear). The PATCH zone (pad walking surface + hidden caps) is clean
-    noise only. Not recolorable (ctl zeroed).
+    The band has two zones by column (see PIER_USIDE). The SIDE zone wraps the block perimeter and is anisotropic (~820 texels
+    around 7.2 m vs ~92 mapped rows over 4.15 m, ~5:1). Per-texel noise therefore smears into faint vertical streaks, like
+    rain-run staining down formed concrete. The grime is GENTLE and weighted toward the BOTTOM. The buried end shows soil
+    staining when a float exposes it. The top stays vanilla-clean, per the N verdict. Display-space multipliers land at
+    ~gamma-squared in linear, so 0.86 here is ~0.72 linear. The PATCH zone (pad walking surface + hidden caps) is clean noise
+    only. It is not recolorable (ctl zeroed).
     """
     import numpy as np
     rng = np.random.default_rng(31)
@@ -568,19 +551,16 @@ def paint_pier_strip(base, nrm, msk, ctl, A):
 
 def set_block_uvs(obj, hw, z_lo, z_hi):
     """
-    Hand-map an axis-aligned box (the pad or the pier) into the reserved band as part
-    of ONE continuous formed-concrete block (N). Vertex coords must be WORLD-space -
-    the caller applies transforms first (the M round shipped a pitch-black pier
-    because the cone's location was still on the object and co.z was local).
+    Hand-map an axis-aligned box (the pad or the pier) into the reserved band as part of ONE continuous formed-concrete block
+    (N). The vertex coords must be WORLD-space. The caller applies the transforms first. The M round shipped a pitch-black
+    pier because the location of the cone was still on the object and co.z was local.
 
-    Side walls wrap the perimeter CCW into the band's side zone, u continuous at
-    three corners (the fourth carries the wrap seam exactly on the corner edge, where
-    face interiors never cross it). v maps height over the WHOLE block range
-    (z_lo..z_hi = -4.0..pad top), so streak columns and the v gradient run unbroken
-    across the pad/pier joint. +Z caps (the pad's walking surface; the pier's hidden
-    top) take the clean top patch; -Z caps take the quiet patch. All mapping stays
-    inside PIER_MV0..PIER_MV1 - the painted rows above are mip insulation against
-    quad 2's black glass.
+    The side walls wrap the perimeter CCW into the side zone of the band. The u coordinate is continuous at three corners.
+    The fourth corner carries the wrap seam exactly on the corner edge, where face interiors never cross it. The v coordinate
+    maps height over the WHOLE block range (z_lo..z_hi = -4.0..pad top), so the streak columns and the v gradient run
+    unbroken across the pad/pier joint. The +Z caps (the walking surface of the pad, the hidden top of the pier) take the
+    clean top patch. The -Z caps take the quiet patch. All mapping stays inside PIER_MV0..PIER_MV1. The painted rows above
+    are mip insulation against the black glass of quad 2.
     """
     mesh = obj.data
     if not mesh.uv_layers:
@@ -617,16 +597,15 @@ def set_block_uvs(obj, hw, z_lo, z_hi):
 
 def build_pier(p: TowerParams):
     """
-    The pier body (N): a STRAIGHT rectangular column - the pad block simply continued
-    downward. Same footprint as the pad, straight formed sides, pad underside (-0.30)
-    down to -4.0. Top face sits exactly flush against the pad bottom (same footprint
-    means an embed would z-fight the coplanar side walls; the flush faces are
-    back-to-back and both culled). 12 tris + caps.
+    The pier body (N): a STRAIGHT rectangular column, the pad block simply continued downward. It has the same footprint as
+    the pad and straight formed sides, from the pad underside (-0.30) down to -4.0. The top face sits exactly flush against
+    the pad bottom. With the same footprint, an embed would z-fight the coplanar side walls. The flush faces are back-to-back
+    and both culled. 12 tris + caps.
     """
     pier = add_box("pier", (p.pad_size, p.pad_size, PIER_TOP_Z - PIER_BOT_Z),
                    (0.0, 0.0, (PIER_TOP_Z + PIER_BOT_Z) / 2.0))
-    # World-space verts BEFORE mapping - add_box leaves location on the object, and
-    # set_block_uvs reads co.z as world height (the M pitch-black-pier bug class).
+    # World-space verts BEFORE mapping. add_box leaves the location on the object, and set_block_uvs reads co.z as world
+    # height (the M pitch-black-pier bug class).
     bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
     set_block_uvs(pier, p.pad_size / 2.0, PIER_BOT_Z, p.pad_height - p.pad_sink)
     return pier
@@ -634,8 +613,8 @@ def build_pier(p: TowerParams):
 
 def build_ladder(p: TowerParams):
     """
-    Service ladder up the -X face of the mast, full height: the rails now run all the
-    way to the catwalk deck (J detail pass - previously they stopped 0.6 m short).
+    Service ladder up the -X face of the mast, full height. The rails now run all the way to the catwalk deck (J detail
+    pass). Previously they stopped 0.6 m short.
     """
     parts = []
     x = -(p.mast_radius + 0.10)
@@ -662,7 +641,7 @@ def build_ladder(p: TowerParams):
             segments=6,
         ), QUAD_GALV))
 
-    # Standoff brackets tying the ladder back to the mast, otherwise it reads as floating
+    # Standoff brackets tie the ladder back to the mast. Without them it reads as floating.
     bracket_len = (p.mast_radius + 0.10) - p.mast_radius + 0.12
     for frac in (0.18, 0.52, 0.86):
         parts.append((add_box(
@@ -673,8 +652,8 @@ def build_ladder(p: TowerParams):
     return parts
 
 
-# Parts that take the finishing-pass bevel: the boxy steel. Cylinders already read round,
-# the crash pad has hand-set UVs a bevel would smear, and tiny fittings aren't worth tris.
+# Parts that take the finishing-pass bevel: the boxy steel. Cylinders already read round. The crash pad has hand-set UVs that
+# a bevel would smear. Tiny fittings are not worth the tris.
 BEVEL_PREFIXES = ("pad", "crossarm", "hanger_", "rocker_main", "rocker_sub",
                   "sheave_arm", "liftpost", "liftbar", "catwalk", "cwbrace")
 
@@ -683,16 +662,14 @@ def build_tower(p: TowerParams, finish=False, pier=False):
     """
     Assemble every part, then join into a single mesh object.
 
-    `finish=True` runs the finishing-pass bevel (J follow-up experiment): a modest
-    0.02 m single-segment bevel on the boxy parts, applied BEFORE unwrap so the bevel
-    faces get atlas UVs like everything else. Razor-sharp box edges are the single
-    biggest procedural tell against vanilla assets - a bevel catches a specular line.
+    `finish=True` runs the finishing-pass bevel (J follow-up experiment): a modest 0.02 m single-segment bevel on the boxy
+    parts. It is applied BEFORE unwrap, so the bevel faces get atlas UVs like everything else. Razor-sharp box edges are the
+    single biggest procedural tell against vanilla assets. A bevel catches a specular line.
 
-    `pier=True` (M generation; N extends it to the ET terminal towers too - they float
-    where terrain drops at the station mouths) adds the below-grade foundation pier
-    and folds the pad into the painted block. Everything above z=0 is geometrically
-    untouched: bounds.max must stay mast + arm/2 + 0.90 exactly (the top-anchor spec
-    depends on it); only bounds.min drops from -0.30 to -4.0.
+    `pier=True` (M generation, N extends it to the ET terminal towers too, because they float where terrain drops at the
+    station mouths) adds the below-grade foundation pier and folds the pad into the painted block. Everything above z=0 is
+    geometrically untouched: bounds.max must stay mast + arm/2 + 0.90 exactly (the top-anchor spec depends on it). Only
+    bounds.min drops from -0.30 to -4.0.
     """
     parts = []
 
@@ -703,10 +680,9 @@ def build_tower(p: TowerParams, finish=False, pier=False):
         (0.0, 0.0, p.pad_height / 2.0 - p.pad_sink),
     )
     if pier:
-        # N: the pad joins the painted block - hand-mapped into the reserved band
-        # continuously with the pier (quad None skips the quadrant unwrap; the
-        # crash-pad pattern), so pad + pier read as one light formed-concrete
-        # block in the vanilla pylon-slab tone. World-space verts first.
+        # N: the pad joins the painted block. It is hand-mapped into the reserved band continuously with the pier (quad None
+        # skips the quadrant unwrap, the crash-pad pattern), so pad + pier read as one light formed-concrete block in the
+        # vanilla pylon-slab tone. World-space verts first.
         bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
         set_block_uvs(pad, p.pad_size / 2.0, PIER_BOT_Z, p.pad_height - p.pad_sink)
         parts.append((pad, None))
@@ -723,14 +699,12 @@ def build_tower(p: TowerParams, finish=False, pier=False):
         segments=p.mast_segments,
     ), QUAD_PAINT))
 
-    # L-generation: TALL masts (the pillar-ized line towers, 12/16 m) are the same
-    # head on a longer tube - real tall fixed-grip towers stack extra mast SECTIONS
-    # and keep the head hardware unchanged. A slim flange collar marks each section
-    # joint so the tube reads as stacked steel rather than one stretched extrusion.
-    # Kicks in above 9 m only: the K-class towers (6.2 / 6.8 / 8.0) rebuild
-    # identically. Collar radius +0.03 stays inside the ladder envelope (rails at
-    # x -0.445..-0.515), and the ~5-6 m joint spacing clears the crash pad (top
-    # 1.90), the tip-deflector band (axle -0.67..-0.17) and the ladder standoffs.
+    # L-generation: TALL masts (the pillar-ized line towers, 12/16 m) use the same head on a longer tube. Real tall
+    # fixed-grip towers stack extra mast SECTIONS and keep the head hardware unchanged. A slim flange collar marks each
+    # section joint, so the tube reads as stacked steel and not as one stretched extrusion. This code runs above 9 m only:
+    # the K-class towers (6.2 / 6.8 / 8.0) rebuild identically. The collar radius +0.03 stays inside the ladder envelope
+    # (rails at x -0.445..-0.515). The joint spacing of ~5-6 m clears the crash pad (top 1.90), the tip-deflector band (axle
+    # -0.67..-0.17) and the ladder standoffs.
     if p.mast_height > 9.0:
         n_sections = max(2, int(round(p.mast_height / 6.0)))
         for j in range(1, n_sections):
@@ -765,9 +739,8 @@ def build_tower(p: TowerParams, finish=False, pier=False):
     if finish:
         for obj, quad in parts:
             if pier and obj.name == "pad":
-                # N: the pad is part of the hand-mapped block - a bevel would smear
-                # its band UVs (crash-pad rule), and the vanilla slab reference is
-                # crisp formed concrete anyway. The pier is never beveled either.
+                # N: the pad is part of the hand-mapped block. A bevel would smear its band UVs (crash-pad rule), and the
+                # vanilla slab reference is crisp formed concrete anyway. The pier is never beveled either.
                 continue
             if obj.name.startswith(BEVEL_PREFIXES):
                 mod = obj.modifiers.new("Bevel", type="BEVEL")
@@ -802,13 +775,13 @@ def build_tower(p: TowerParams, finish=False, pier=False):
     bpy.ops.mesh.remove_doubles(threshold=0.0005)
     bpy.ops.object.mode_set(mode="OBJECT")
 
-    # join() inherits the origin of the first object joined - the foundation pad, whose center
-    # sits 7.5 cm below ground. Pin the origin to the world origin instead, so the asset's pivot
-    # is exactly the base of the mast at ground level, as documented at the top of this file.
+    # join() inherits the origin of the first object joined: the foundation pad, whose center sits 7.5 cm below ground. Pin
+    # the origin to the world origin instead. Then the pivot of the asset is exactly the base of the mast at ground level, as
+    # documented at the top of this file.
     bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
     bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
 
-    # Built with +X as travel for readability; CS2 networks run along Z. See cs2_asset.
+    # Built with +X as travel for readability. CS2 networks run along Z. See cs2_asset.
     cs2_asset.orient_for_net(tower)
 
     return tower
@@ -819,7 +792,7 @@ def build_tower(p: TowerParams, finish=False, pier=False):
 # --------------------------------------------------------------------------------------
 
 def unwrap(obj):
-    """Smart-project UVs. Good enough for hard-surface metal; no hand seams needed."""
+    """Smart-project UVs. Good enough for hard-surface metal. No hand seams needed."""
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
@@ -838,7 +811,7 @@ def tri_count(obj):
 
 
 def make_lod(source, ratio, name):
-    """Duplicate + decimate. CS2 expects explicit LOD meshes rather than generating them."""
+    """Duplicate + decimate. CS2 expects explicit LOD meshes. It does not generate them."""
     lod = source.copy()
     lod.data = source.data.copy()
     lod.name = name
@@ -851,7 +824,7 @@ def make_lod(source, ratio, name):
     return lod
 
 
-# FBX export lives in cs2_asset.export_fbx - shared by every asset generator.
+# FBX export lives in cs2_asset.export_fbx. Every asset generator shares it.
 
 
 # --------------------------------------------------------------------------------------
@@ -872,32 +845,29 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
       post_compose(base, nrm, msk, ctl, ao, mesh, A) -> (base, nrm, msk, ctl)
                                       called in LINEAR space after the AO multiply and
                                       BEFORE the sRGB encode (the detail layer /
-                                      cs2_compose.compose_maps go here; pass ao=None to
+                                      cs2_compose.compose_maps go here. Pass ao=None to
                                       compose_maps or the occlusion is applied twice).
 
-    The naive version (bake AO over the existing UVs, multiply into BaseColor) CANNOT
-    work with our layout: every part is smart-projected into a shared quadrant, so
-    islands OVERLAP - dozens of surfaces claim the same texels, and an AO bake would
-    scribble each surface's occlusion over the others'. The fix is a re-layout:
+    The naive version (bake AO over the existing UVs, multiply into BaseColor) CANNOT work with our layout. Every part is
+    smart-projected into a shared quadrant, so islands OVERLAP. Dozens of surfaces claim the same texels, and an AO bake
+    would scribble the occlusion of each surface over the others. The fix is a re-layout:
 
       1. add a second UV layer and pack all islands uniquely (no rotation - rotating
          islands would invalidate the tangent-space normal map), pinning stamped-strip
          islands in place for texel-density protection,
       2. EMIT-bake all four maps from the old atlas UVs into the new layout (a pure
-         texture-space reprojection; 1 sample, deterministic),
+         texture-space reprojection, 1 sample, deterministic),
       3. bake AO on the new unique layout (Cycles CPU) and multiply it into the
          rebaked BaseColor, after restoring the stamped strips 1:1,
       4. drop the old UV layer so the FBX ships the unique layout, and overwrite the
          asset's four PNGs with the rebaked set.
 
-    `tower` is any joined lift asset (the terminals reuse this). `reserved_strips` is
-    a list of (u0, v0, u1, v1) atlas rects whose texels and islands are protected;
-    default is the crash-pad strip. `ao_samples`: 48 suits a 2048 atlas; the 4096
-    stations drop to 32 to keep headless bake time sane.
+    `tower` is any joined lift asset (the terminals reuse this). `reserved_strips` is a list of (u0, v0, u1, v1) atlas rects
+    whose texels and islands are protected. The default is the crash-pad strip. `ao_samples`: 48 suits a 2048 atlas. The 4096
+    stations drop to 32 to keep the headless bake time sane.
 
-    Per-asset safe: each asset already owns its atlas copy. Returns True on success;
-    on any bake failure restores a sane state and returns False so the caller ships
-    bevels alone (the coordinator-approved fallback).
+    Per-asset safe: each asset already owns its atlas copy. The function returns True on success. On any bake failure it
+    restores a sane state and returns False, so the caller ships bevels alone (the coordinator-approved fallback).
     """
     import numpy as np
     scene = bpy.context.scene
@@ -906,14 +876,12 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
 
     try:
         # -- 1. unique UV layout with PINNED stamp strips -----------------------------
-        # TEXEL-DENSITY PROTECTION (user verdict on the first A/B: AO/bevels win, but
-        # chunky stamps are a no-go). Stamped regions - the crash-pad strip, and the
-        # tension-scale strip when a terminal calls this - must keep their crisp
-        # native density through the repack. Islands whose UVs lie inside a reserved
-        # strip KEEP their coordinates untouched; every other island packs into the
-        # tallest strip-free v-band (v 0..0.94 for the classic top strips). After the bakes,
-        # the strip rectangles are copied 1:1 from the source atlas, so the stamps
-        # ship at exactly the texels their painters authored.
+        # TEXEL-DENSITY PROTECTION (user verdict on the first A/B: AO/bevels win, but chunky stamps are a no-go). Stamped
+        # regions must keep their crisp native density through the repack. These regions are the crash-pad strip, and the
+        # tension-scale strip when a terminal calls this. Islands whose UVs lie inside a reserved strip KEEP their
+        # coordinates untouched. Every other island packs into the tallest strip-free v-band (v 0..0.94 for the classic top
+        # strips). After the bakes, the strip rectangles are copied 1:1 from the source atlas, so the stamps ship at exactly
+        # the texels their painters authored.
         reserved = reserved_strips or [(cs2_asset.PAD_U0, cs2_asset.PAD_V0,
                                         cs2_asset.PAD_U1, cs2_asset.PAD_V1)]
         mesh.uv_layers.active.name = "UVAtlas"
@@ -921,9 +889,8 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
         mesh.uv_layers.active = uniq
 
         if packer is not None:
-            # L: the caller's packer owns the layout (cs2_uv.finish_packer); it must leave
-            # the object in OBJECT mode with "UVUnique" active, exactly as the inline
-            # block below does.
+            # L: the caller's packer owns the layout (cs2_uv.finish_packer). It must leave the object in OBJECT mode with
+            # "UVUnique" active, exactly as the inline block below does.
             packer(tower, mesh, A, reserved)
         else:
             eps = 1e-4
@@ -954,14 +921,12 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
                 bpy.ops.uv.pack_islands(margin=0.004)                  # older signature
             bpy.ops.object.mode_set(mode="OBJECT")
 
-            # Squeeze the packed islands into the tallest v-band free of EVERY reserved
-            # rect (rects treated as full-width - conservative). Uniform per-loop
-            # v-scale+offset is island-safe (linear map). With the historical top strips
-            # (crash pad / tension scale, v >= 0.945) the tallest free band is v 0..0.945
-            # and, with the 0.005 margin, this reproduces the original v * 0.94 squeeze
-            # exactly. MID-ATLAS strips (the lodge's wood/stone bands) are honored too:
-            # packed islands can no longer land inside a rect where the 1:1 restore
-            # below would stomp them, and the AO bake never sees overlapped islands.
+            # Squeeze the packed islands into the tallest v-band free of EVERY reserved rect (rects treated as full-width -
+            # conservative). A uniform per-loop v-scale+offset is island-safe (linear map). With the historical top strips
+            # (crash pad / tension scale, v >= 0.945) the tallest free band is v 0..0.945 and, with the 0.005 margin, this
+            # reproduces the original v * 0.94 squeeze exactly. MID-ATLAS strips (the wood/stone bands of the lodge) are
+            # honored too. Packed islands can no longer land inside a rect where the 1:1 restore below would stomp them, and
+            # the AO bake never sees overlapped islands.
             v_edges = sorted({0.0, 1.0} | {r[1] for r in reserved} | {r[3] for r in reserved})
             free = [(a, b) for a, b in zip(v_edges, v_edges[1:])
                     if not any(v0 - eps <= (a + b) / 2.0 <= v1 + eps
@@ -997,7 +962,7 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
         scene.render.bake.margin = 8
 
         def bake_map(src_png, is_data, use_alpha=False, bake_type="EMIT", samples=1):
-            """Bake one map into a fresh target image, return (A,A,4) float array."""
+            """Bake one map into a fresh target image. Return an (A,A,4) float array."""
             img = None
             if src_png is not None:
                 img = bpy.data.images.load(os.path.join(asset_dir, src_png))
@@ -1037,11 +1002,10 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
         msk[..., 3] = msk_a[..., 0]          # smoothness rides MaskMap alpha
         ctl[..., 3] = 0.0                    # official assets: ControlMask alpha 0
 
-        # Restore the stamped strips 1:1 from the source atlas. Their islands were
-        # pinned, so geometry maps to these exact texels - but the EMIT bake resampled
-        # them bilinearly (soft) and dilated margins into the rect edges. The copy puts
-        # back precisely the texels the painters authored. BaseColor rects are
-        # linearized on the way in so the shared encode below returns them bit-close.
+        # Restore the stamped strips 1:1 from the source atlas. Their islands were pinned, so the geometry maps to these
+        # exact texels. But the EMIT bake resampled them bilinearly (soft) and dilated margins into the rect edges. The copy
+        # puts back precisely the texels the painters authored. BaseColor rects are linearized on the way in, so the shared
+        # encode below returns them bit-close.
         def srgb_to_lin(x):
             return np.where(x <= 0.04045, x / 12.92,
                             np.power((x + 0.055) / 1.055, 2.4))
@@ -1061,21 +1025,19 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
                     dst[sl] = src_px[sl]
             bpy.data.images.remove(img)
 
-        # Gentle AO: full-black corners read sooty on painted steel; floor it slightly.
-        # Applied over the restored strips too, so the pad keeps its contact shadow -
-        # AO is smooth, it darkens the stamp without blurring it.
+        # Gentle AO: full-black corners read sooty on painted steel, so floor it slightly. It is applied over the restored
+        # strips too, so the pad keeps its contact shadow. AO is smooth, so it darkens the stamp without blurring it.
         occ = np.clip(ao[..., 0:1] * 0.92 + 0.08, 0.0, 1.0)
         base[..., 0:3] *= occ
         if post_compose is not None:
-            # L: detail layer / compositing in LINEAR space (cs2_compose), before the
-            # encode. The hook returns the four arrays (compose_maps makes new ones).
+            # L: detail layer / compositing in LINEAR space (cs2_compose), before the encode. The hook returns the four
+            # arrays (compose_maps makes new ones).
             base, nrm, msk, ctl = post_compose(base, nrm, msk, ctl, ao, mesh, A)
-        # COLORSPACE: Cycles sampled the sRGB source through an sRGB->linear conversion
-        # and the EMIT bake wrote LINEAR values, but Image.pixels round-trips RAW buffer
-        # values - our PNGs store display-encoded texels. Without re-encoding, the saved
-        # BaseColor is linear-in-an-sRGB-file and the whole asset renders near-black
-        # (first --finish run: the concrete pad came out charcoal). AO is multiplied in
-        # linear (physically right), THEN the result is encoded back.
+        # COLORSPACE: Cycles sampled the sRGB source through an sRGB->linear conversion, and the EMIT bake wrote LINEAR
+        # values. But Image.pixels round-trips RAW buffer values, and our PNGs store display-encoded texels. Without
+        # re-encoding, the saved BaseColor is linear-in-an-sRGB-file and the whole asset renders near-black (first --finish
+        # run: the concrete pad came out charcoal). AO is multiplied in linear (physically right), THEN the result is encoded
+        # back.
         lin = np.clip(base[..., 0:3], 0.0, 1.0)
         base[..., 0:3] = np.where(lin <= 0.0031308, lin * 12.92,
                                   1.055 * np.power(lin, 1.0 / 2.4) - 0.055)
@@ -1105,11 +1067,11 @@ def apply_finish_textures(tower, asset_dir, name, atlas_size,
 
 
 # --------------------------------------------------------------------------------------
-# Preview render - so the geometry can actually be eyeballed without opening Blender
+# Preview render, so you can check the geometry without opening Blender
 # --------------------------------------------------------------------------------------
 
 def pick_engine():
-    """Blender 5.x renamed engines over time; choose the best one actually present."""
+    """Blender 5.x renamed engines over time. Choose the best one actually present."""
     available = {
         item.identifier
         for item in bpy.types.Scene.bl_rna.properties["render"]
@@ -1132,11 +1094,11 @@ def world_bounds(obj):
 
 def frame_camera(cam, obj, direction, resolution, margin=1.12):
     """
-    Place `cam` along `direction` from the object, far enough that the whole thing fits.
+    Place `cam` along `direction` from the object, far enough that the whole object fits.
 
-    Uses the bounding SPHERE and the narrower of the two field-of-view angles, which
-    guarantees a fit regardless of view direction. Sensor fit is pinned to VERTICAL so
-    the FOV math is unambiguous rather than depending on Blender's AUTO heuristics.
+    It uses the bounding SPHERE and the narrower of the two field-of-view angles. This guarantees a fit regardless of view
+    direction. Sensor fit is pinned to VERTICAL, so the FOV math is unambiguous and does not depend on the AUTO heuristics of
+    Blender.
     """
     center, size = world_bounds(obj)
     radius = size.length / 2.0
@@ -1156,12 +1118,10 @@ def frame_camera(cam, obj, direction, resolution, margin=1.12):
 
 def render_preview(target_obj, out_dir, stem="lift_tower", head_z=None, pier=False):
     """
-    Render a few framed views so the geometry can be checked without opening Blender.
-    `head_z` is the height the detail view aims at - pass the actual mast height so the
-    ET variants (6.8 / 6.2 m) frame their own heads instead of an 8 m tower's.
-    `pier=True` adds a below-grade view of the foundation pier (M acceptance render:
-    previews have no ground plane, so the camera simply drops below z 0 - in game this
-    is what a tower floating over a gully exposes).
+    Render a few framed views so the geometry can be checked without opening Blender. `head_z` is the height the detail view
+    aims at. Pass the actual mast height, so the ET variants (6.8 / 6.2 m) frame their own heads and not the head of an 8 m
+    tower. `pier=True` adds a below-grade view of the foundation pier (M acceptance render). Previews have no ground plane,
+    so the camera simply drops below z 0. In game this is what a tower floating over a gully exposes.
     """
     if head_z is None:
         head_z = TowerParams().mast_height - 0.25
@@ -1208,40 +1168,37 @@ def render_preview(target_obj, out_dir, stem="lift_tower", head_z=None, pier=Fal
         scene.render.resolution_x, scene.render.resolution_y = res
 
         if name == "detail_head":
-            # Tight on the crossarm and sheave assemblies - the part worth inspecting
+            # Tight on the crossarm and sheave assemblies: the part worth inspecting
             head = mathutils.Vector((0.0, 0.0, head_z))
             cam.data.lens = 85
             cam.location = head + direction.normalized() * 7.5
             cam.rotation_euler = (head - cam.location).to_track_quat("-Z", "Y").to_euler()
         elif name == "mast_head_closeup":
-            # Tight on the tip-deflector collar FROM THE LADDER SIDE (post-orient the
-            # ladder rides +Y): the K acceptance view for the deflector/ladder clash
-            # fix - the ladder must pass clean through the collar's open sector.
-            # defl_z = axle - 0.42 = (mast - 0.96) - 0.42, and head_z = mast - 0.25.
+            # Tight on the tip-deflector collar FROM THE LADDER SIDE (post-orient the ladder rides +Y). This is the K
+            # acceptance view for the deflector/ladder clash fix: the ladder must pass clean through the open sector of the
+            # collar. defl_z = axle - 0.42 = (mast - 0.96) - 0.42, and head_z = mast - 0.25.
             tgt = mathutils.Vector((0.0, 0.30, head_z - 1.05))
             cam.data.lens = 85
             cam.location = tgt + direction.normalized() * 5.0
             cam.rotation_euler = (tgt - cam.location).to_track_quat("-Z", "Y").to_euler()
         elif name == "pad_closeup":
-            # Tight on the crash pad's warning triangle (post-orient it faces -Y) -
-            # the acceptance test for stamp crispness through the finish repack.
+            # Tight on the warning triangle of the crash pad (post-orient it faces -Y). This is the acceptance test for stamp
+            # crispness through the finish repack.
             tgt = mathutils.Vector((0.0, 0.0, 1.00))
             cam.data.lens = 85
             cam.location = tgt + direction.normalized() * 5.5
             cam.rotation_euler = (tgt - cam.location).to_track_quat("-Z", "Y").to_euler()
         elif name == "pier_view":
-            # Below grade, level with the pier: pad above, tapered column below,
-            # grime band at the joint - what a floating tower exposes in game.
+            # Below grade, level with the pier: pad above, tapered column below, grime band at the joint. This is what a
+            # floating tower exposes in game.
             tgt = mathutils.Vector((0.0, 0.0, -1.4))
             cam.data.lens = 42
             cam.location = tgt + direction.normalized() * 13.0
             cam.rotation_euler = (tgt - cam.location).to_track_quat("-Z", "Y").to_euler()
-            # Both studio suns sit high, so everything under the pad is in a hard
-            # umbra (the square pad corners paint V-shaped black wedges down the
-            # column) and the frame misrepresents the authored texture - measured:
-            # band texels are 0.36-0.42, render showed near 0. In game, GI and sky
-            # light fill below-grade content. A temporary camera-side bounce sun
-            # stands in for that; removed right after this frame renders.
+            # Both studio suns sit high, so everything under the pad is in a hard umbra (the square pad corners paint
+            # V-shaped black wedges down the column). The frame therefore misrepresents the authored texture. Measured: band
+            # texels are 0.36-0.42, but the render showed near 0. In game, GI and sky light fill below-grade content. A
+            # temporary camera-side bounce sun stands in for that. It is removed right after this frame renders.
             bpy.ops.object.light_add(type="SUN", location=(8.0, -8.0, -6.0))
             bounce = bpy.context.active_object
             bounce.data.energy = 2.0
@@ -1326,7 +1283,7 @@ def main():
     clear_scene()
 
     tower = build_tower(p, finish=args.finish, pier=args.pier)
-    # UVs already laid into atlas quadrants per part inside build_tower - no re-unwrap.
+    # UVs are already laid into atlas quadrants per part inside build_tower, so no re-unwrap.
     if args.name:
         tower.name = args.name
     name = cs2_asset.validate_asset_name(tower.name)
@@ -1356,21 +1313,17 @@ def main():
     #   3. export     - an FBX exported before step 2 carries NO material, and CS2 silently
     #                   falls back to its default surface while ignoring every texture
     #
-    # Painted steel is treated as a DIELECTRIC. An early pass used metallic 0.90, which has no
-    # diffuse term at all and renders as pure environment reflection.
-    # noise 0.012 rather than the default 0.03: at 1024 over a 8 m object the coarser grain
-    # read as granite rather than painted steel.
-    # Shared lift atlas: dark painted steel (recolorable slot 1) for mast/crossarm/rockers,
-    # galvanized photo steel for sheaves/ladder, tinted concrete for the pad. Matches the
-    # stations so the whole lift line reads as one machine.
-    # post=paint_pad_strip: the crash-pad material + warning triangle live in the strip
-    # reserved out of the glass quadrant (authored in cs2_asset, slot-2 recolorable).
+    # Painted steel is treated as a DIELECTRIC. An early pass used metallic 0.90, which has no diffuse term at all and
+    # renders as pure environment reflection. Use noise 0.012, not the default 0.03: at 1024 over an 8 m object the coarser
+    # grain read as granite and not as painted steel. Shared lift atlas: dark painted steel (recolorable slot 1) for
+    # mast/crossarm/rockers, galvanized photo steel for sheaves/ladder, tinted concrete for the pad. It matches the stations,
+    # so the whole lift line reads as one machine. post=paint_pad_strip: the crash-pad material and the warning triangle live
+    # in the strip reserved out of the glass quadrant (authored in cs2_asset, slot-2 recolorable).
     tex_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "textures")
     quad_sets, control_quads = cs2_asset.lift_atlas_quads(tex_root)
 
-    # Compose the atlas post hooks: every tower carries the pad strip; --pier towers
-    # additionally paint the pier strip (M). ET / pier-less builds keep a
-    # byte-identical atlas to the K/L rounds.
+    # Compose the atlas post hooks. Every tower carries the pad strip. --pier towers additionally paint the pier strip (M).
+    # ET / pier-less builds keep an atlas that is byte-identical to the K/L rounds.
     def _post(base, nrm, msk, ctl, A):
         cs2_asset.paint_pad_strip(base, nrm, msk, ctl, A)
         if args.pier:
@@ -1381,16 +1334,15 @@ def main():
         post=_post,
     )
     if args.finish:
-        # Texture half of the finishing pass: unique-UV rebake + AO multiply. Falls
-        # back to bevels alone if any bake misbehaves headless (documented inside).
+        # Texture half of the finishing pass: unique-UV rebake + AO multiply. It falls back to bevels alone if any bake
+        # misbehaves headless (documented inside).
         apply_finish_textures(tower, asset_dir, name, atlas_size=2048)
-    # NO material is assigned on purpose. CS2 does not read materials out of the FBX at all -
-    # the official ExampleBakedAlphaFence.fbx contains no Material, no LayerElementMaterial and
-    # no FbxFileTexture, yet imports with all four textures bound. Textures are matched by MESH
-    # NAME against the sibling PNGs, so a clean name is what matters, not material wiring.
+    # NO material is assigned on purpose. CS2 does not read materials out of the FBX at all. The official
+    # ExampleBakedAlphaFence.fbx contains no Material, no LayerElementMaterial and no FbxFileTexture, yet it imports with all
+    # four textures bound. CS2 matches textures by MESH NAME against the sibling PNGs. A clean name is what matters, not
+    # material wiring.
 
-    # LODs are opt-in HERE (the tower round M flips the default). The importer generates
-    # none on its own - DECISIONS 77/104.
+    # LODs are opt-in HERE (the tower round M flips the default). The importer generates none on its own (DECISIONS 77/104).
     lods = []
     if args.lods:
         for i, ratio in enumerate(p.lod_ratios, start=1):
@@ -1428,23 +1380,24 @@ def main():
 # ======================================================================================
 # v2 PORT - towers/O (asset round 2026-10)
 #
-# Contract: docs/research/art/assets-2026-10/design/towers-v2.md with
-# design/towers-v2-skeptic.md applied in full (the skeptic wins where they disagree).
-# Everything ABOVE this banner is the legacy J..N path and is unchanged byte for byte:
-# lift_terminal.py (TowerParams at :529/:782, apply_finish_textures, frame_camera,
-# pick_engine, world_bounds), snow_props.py:894 (make_lod), cs2_preview.py and the other
-# consumers keep working, and `--legacy` routes to main().
+# Contract: docs/research/art/assets-2026-10/design/towers-v2.md with design/towers-v2-skeptic.md applied in full (the
+# skeptic wins where they disagree). Everything ABOVE this banner is the legacy J..N path and is unchanged byte for byte.
+# These consumers keep working: lift_terminal.py (TowerParams at :529/:782, apply_finish_textures, frame_camera, pick_engine,
+# world_bounds), snow_props.py:894 (make_lod), cs2_preview.py and the other consumers. `--legacy` routes to main().
 #
-# The v2 path: cs2_kit parts tagged with tag_parts, joined, remove_doubles, weighted
-# shade_by_angle(66), geometry contracts asserted in code (C1-C17 below; a wrong build
-# raises), material bake through cs2_bake (Concrete034 / Metal032 tiling + recolorable
-# paint and pad, one 1024 unique set, AO 48), authored LOD chain, cs2_preview + targeted
-# views, cs2_review pack, manifest, validation.
+# The v2 path has these steps:
+# - cs2_kit parts tagged with tag_parts, joined, remove_doubles, weighted shade_by_angle(66).
+# - Geometry contracts asserted in code (C1-C17 below). A wrong build raises.
+# - Material bake through cs2_bake (Concrete034 / Metal032 tiling + recolorable
+#   paint and pad, one 1024 unique set, AO 48).
+# - Authored LOD chain.
+# - cs2_preview + targeted views, cs2_review pack, manifest, validation.
 #
 # Skeptic MUST-CHANGE items and where they live (M = towers-v2-skeptic.md section 3):
-#   M1  shear only the gantry part; level end-plate assert ........ ingest_gantry, C15
+#
+#   M1  shear only the gantry part, level end-plate assert ........ ingest_gantry, C15
 #   M2  untilt by the measured axis rotation_difference ........... entry kit only: ETDQ is
-#       rebuild-only (M3), so no shipped variant untilts; _untilt_matrix keeps the rule
+#       rebuild-only (M3), so no shipped variant untilts. _untilt_matrix keeps the rule
 #   M3  ETDQ rebuild-only ......................................... VARIANTS["ETDQ"].heads
 #   M4  ETDQ per dq-terminal: axle DQ_ENTRY_ROPE_Y (3.70, see below), hosted by the base
 #       station only, no head comm stub, 8 sheaves/side, inboard end <= -8.3 . VARIANTS, C13
@@ -1453,7 +1406,7 @@ def main():
 #   M7  ingest H_top 1.9501 +- 0.002 ............................. H_TOP_INGEST, C3
 #   M8  DQ base flange r 0.60 + no vertex inside the pad shell .... DQ_FLANGE_R, C14
 #   M9  sheave_ deleted at LOD2, both families (FG: M5 wins the XOR gate) FG_LOD2
-#   M10 size.y = bounds.max.y; LegSize.y = leg zone above origin .. manifest prefab_notes
+#   M10 size.y = bounds.max.y, LegSize.y = leg zone above origin .. manifest prefab_notes
 #   M11 kept plates renamed endplate_0..3 ......................... ingest_gantry
 #   F9  rocker_sub 5 mm inboard, strict 1e-3 axial margin ......... DQ_SUB_Y, C9
 #   F10 deck rails split at the portal (no rail in girder/hanger) . _dq_rails, C17
@@ -1462,9 +1415,11 @@ def main():
 #   F13 saddle = the shared block between the girder ends ......... gantry_saddle
 #   F14 DQ AimHeightM 9.0 handed to the catalog ................... manifest catalog_handoff
 #   review F2 (dq-family-review-geometry): decks <= 2.15, rails 2.05, hanger column clear . C18
+#
 # Revision 1 (verdicts 2026-10-11, build/lift_tower.md "Revision 1"):
+#
 #   verdict 5: one taller line member per family, FG20 (axle 19.04, top 21.014) and DQ16
-#       (axle 14.0, top 15.950); new placeholder rows in their manifests .. VARIANTS, pillar_scoring
+#       (axle 14.0, top 15.950), new placeholder rows in their manifests .. VARIANTS, pillar_scoring
 #   review F3: crash pad sits on the base-flange plate (z0 = plate top + 5 mm), triangle-
 #       overlap + faceted-shell test ................................... crashpad_z0, C14
 #   review F5: DQ LOD2 keeps the rebuild A-braces and both deck plates . DQ_LOD2, C12 (F5)
@@ -1476,14 +1431,14 @@ import numpy as np  # noqa: E402
 import cs2_kit as K  # noqa: E402  (bpy + cs2_asset only: no import cycle)
 import cs2_uv  # noqa: E402
 import cs2_compose  # noqa: E402
-# 2026-10-13 (nitpick-a, S-2): the sheave-train builder lives in cs2_sheaves (this module's code, moved
-# verbatim) so the lift stations build the same trains; the towers pass THIS module's globals into it at call time.
+# 2026-10-13 (nitpick-a, S-2): the sheave-train builder lives in cs2_sheaves (the code of this module, moved verbatim), so
+# the lift stations build the same trains. The towers pass THIS module's globals into it at call time.
 import cs2_sheaves as S  # noqa: E402
 from cs2_sheaves import (_box_uv_bm, _new_part, lite_sheave, lite_sheave_parts, _unit,  # noqa: E402,F401
                          chamfer_long_edges, _sub_pairs)
 import cs2_skin  # noqa: E402  (lift alignment phase 2 round 2: the half-train rig, weights and G6 sweep)
-# cs2_bake / cs2_preview / cs2_review / cs2_validate / cs2_ingest are imported inside the
-# functions that use them: cs2_preview imports lift_tower at module level.
+# cs2_bake / cs2_preview / cs2_review / cs2_validate / cs2_ingest are imported inside the functions that use them, because
+# cs2_preview imports lift_tower at module level.
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.normpath(os.path.join(_HERE, "..", ".."))
@@ -1504,12 +1459,12 @@ AO_SAMPLES_V2 = 48                     # the finish pass' count (AO 48, Cycles C
 PACK_MARGIN_V2 = 6                     # station precedent: 12 px gap = 1.5 texels at mip 3
 BEVEL_W = S.BEVEL_W                    # 0.02 (cs2_sheaves)
 
-# H_top = bounds top - axle (one constant per family; D2, M7). GD = the gondola tubular family
-# (Revision 1b): 2.000 = the lattice's H_top_GD (lattice-towers D2, tram_tower.GD["h_top"]).
+# H_top = bounds top - axle (one constant per family, D2, M7). GD = the gondola tubular family (Revision 1b): 2.000 = the
+# lattice's H_top_GD (lattice-towers D2, tram_tower.GD["h_top"]).
 H_TOP = {"FG": 1.974, "DQ": 1.950, "GD": 2.000}
 H_TOP_INGEST = 1.9501                  # Kagelok end-plate top - chord mid, 6.5004 u x 0.30
 H_TOP_TOL = {"FG": 1e-3, "DQ": 2e-3, "GD": 1e-3}
-GANTRY_FAMILIES = ("DQ", "GD")         # the gantry head kit (section 4.2); FG = the Yan head
+GANTRY_FAMILIES = ("DQ", "GD")         # the gantry head kit (section 4.2). FG = the Yan head
 
 # -- FG (legacy head numbers, verbatim: lift_tower.py TowerParams / build_sheave_train) --
 FG_ARM_T, FG_ARM_D, FG_ARM_SPAN = S.FG_ARM_T, 0.34, 3.6     # FG_ARM_T 0.22 (cs2_sheaves)
@@ -1519,29 +1474,27 @@ FG_TOP_ABOVE_ARM = 0.904               # deck 0.0355 + handrail h 0.8445 + rail 
 # -- DQ head (towers-v2 section 4.2, Kagelok at 0.30, gauge fitted by translation) ------
 DQ_TT = 0.438                          # tube top above the axle [K]
 DQ_DECK = -0.296                       # deck top below the axle (brace feet after shear) [K]
-# F2 (build/dq-family-review-geometry.md), GEOMETRY fallback: the DQ chair's hanger column
-# (lane 2.6 +- 0.45, the station's C8 column) is kept clear on BOTH sides of the lane. On the
-# stations' spin (chain A = the right lane looking uphill, the stations built round it) the hanger
-# runs OUTBOARD in both x-sign branches since nitpick A2 mirrored the chair's grip side to the
-# carrier's right (lift_chair.DQ_OUTBOARD -1; the old "inboard until code round 2" reading assumed
-# branch P); the inboard side stays clear for a reversed loop. The decks stop at |Y| 2.15 (were 2.492
-# [K]) and the rails at 2.05 (were 2.30), so the column |Y| >= 2.15 is clear (C18); the rails
-# stay 0.31 outboard of the A-braces (|Y| 1.53..1.72, skeptic F10).
+# F2 (build/dq-family-review-geometry.md), GEOMETRY fallback: the hanger column of the DQ chair (lane 2.6 +- 0.45, the C8
+# column of the station) stays clear on BOTH sides of the lane. On the spin of the stations (chain A = the right lane looking
+# uphill, the stations built round it) the hanger runs OUTBOARD in both x-sign branches, since nitpick A2 mirrored the grip
+# side of the chair to the right of the carrier (lift_chair.DQ_OUTBOARD -1). The old "inboard until code round 2" reading
+# assumed branch P. The inboard side stays clear for a reversed loop. The decks stop at |Y| 2.15 (were 2.492 [K]) and the
+# rails at 2.05 (were 2.30), so the column |Y| >= 2.15 is clear (C18). The rails stay 0.31 outboard of the A-braces (|Y|
+# 1.53..1.72, skeptic F10).
 DQ_DECK_Y0, DQ_DECK_Y1 = 0.695, 2.15   # deck strip |Y| (inner edge [K])
 DQ_RAIL_Y = 2.05                       # deck rail line |Y| (tube r 0.028 -> outer 2.078)
 DQ_HANGER_COL = dict(half=0.45, depth=1.70, rise=0.22)   # C18: lane +- half, grip top down
-#   depth (the station's C8 hanger column); grip top at the rope (today) to rope + rise (Q1)
+#   depth (the station's C8 hanger column). Grip top at the rope (today) to rope + rise (Q1)
 DQ_RAIL_GAP = 0.20                     # F10: rail runs stop |X| >= 0.20 short of the portal
 DQ_SUB_Y = S.DQ_SUB_Y                  # 2.512, F9: 2.517 moved 5 mm inboard (outer face 2.545)
 DQ_MAIN_Y = S.DQ_MAIN_Y                # 2.44
-# Revision 1c (revision1b-check-gd-towers section B; verdict 7 on the tram tower, "the
-# rollers are not attached to any upper stabilizing mechanism"): a sub-rocker no main rocker
-# carries - the lone MIDDLE sub of an odd train (GD: 10 sheaves = 5 subs, _sub_pairs) - hangs from
-# the yoke on a LINK in the main rockers' section (DQ_MAIN_Y, 0.072 thick, paint, 1-segment bevel)
-# from the mains' bottom (sub center - 0.10) up into the yoke (buried 0.02); its own pivot pin runs
-# through the link's lug as through a main. It was 0.125 m below the yoke with an open pin. DQ /
-# ETDQ trains pair every sub (even counts): no link, unchanged. C21 (check_sub_hangers) asserts it.
-DQ_LINK = S.DQ_LINK                    # w 0.15, t 0.072, below 0.10, bury 0.02; None = the pre-Revision-1c build (test)
+# Revision 1c (revision1b-check-gd-towers section B, verdict 7 on the tram tower, "the rollers are not attached to any upper
+# stabilizing mechanism"): a sub-rocker that no main rocker carries is the lone MIDDLE sub of an odd train (GD: 10 sheaves =
+# 5 subs, _sub_pairs). It hangs from the yoke on a LINK in the section of the main rockers (DQ_MAIN_Y, 0.072 thick, paint,
+# 1-segment bevel). The link runs from the bottom of the mains (sub center - 0.10) up into the yoke (buried 0.02). The pivot
+# pin of the sub itself runs through the lug of the link, as through a main. Before, the sub was 0.125 m below the yoke with
+# an open pin. DQ / ETDQ trains pair every sub (even counts): no link, unchanged. C21 (check_sub_hangers) asserts it.
+DQ_LINK = S.DQ_LINK                    # w 0.15, t 0.072, below 0.10, bury 0.02. None = the pre-Revision-1c build (test)
 C21_THROUGH = 0.90                     # a pin end passes through >= 90 % of its lug's thickness ...
 C21_POKE = 0.02                        # ... and stands <= 2 cm proud of it (DQ pins: 1.3 / 1.6 cm)
 C21_BURY = 0.005                       # a link reaches >= 5 mm into the yoke
@@ -1549,10 +1502,10 @@ C21_BRIDGE = 0.001                     # a main's own pin overlaps main top and 
 DQ_FLANGE_R = 0.60                    # M8: bolt circle 0.468 + 0.025 = 0.493 < pad 0.50
 DQ_FLANGE_T, DQ_FLANGE_Z = 0.05, 0.175     # DQ base-flange plate z 0.15..0.20
 FG_FLANGE_R, FG_FLANGE_T, FG_FLANGE_Z = 0.58, 0.04, 0.17   # FG plate z 0.15..0.19 (legacy numbers)
-# Review F3 (dq-family-review-geometry, Revision 1): the base-flange PLATE (r 0.58 / 0.60) ran
-# through the crash-pad shell (r 0.50-0.56, which started at z 0.15 = the plate bottom) on all
-# nine towers - a 2-4 cm steel lip at the pad foot. The pad now SITS on the plate: its bottom is
-# the plate top + this gap (FG 0.195, DQ 0.205). C14 asserts it with a triangle-overlap test.
+# Review F3 (dq-family-review-geometry, Revision 1): the base-flange PLATE (r 0.58 / 0.60) ran through the crash-pad shell (r
+# 0.50-0.56, which started at z 0.15 = the plate bottom) on all nine towers. That left a 2-4 cm steel lip at the pad foot.
+# The pad now SITS on the plate: its bottom is the plate top + this gap (FG 0.195, DQ 0.205). C14 asserts it with a
+# triangle-overlap test.
 PAD_FLANGE_GAP = 0.005
 DQ_LADDER_X = -0.55
 DQ_LANDING_X0, DQ_LANDING_X1 = -0.85, -0.40   # F11 landing plates (clear of the r 0.45 mast)
@@ -1560,57 +1513,55 @@ DQ_GRATE_T = 0.04
 DQ_GIRDER = dict(y0=0.12, y1=2.30, z0=-0.087, z1=0.423, x=0.186)   # rebuild girder [D]
 DQ_HANGER = S.DQ_HANGER                # y0 2.30, y1 2.41, z0 0.25, z1 0.42, x 0.15
 DQ_STATION_INBOARD_MAX = -8.3          # dq-terminal.md N8: train inboard end <= z -8.3
-# ETDQ rope height = the DQ base station's lane (lift_terminal_detach Z_ROPE = 0.30 deck + 0.10
-# load clearance + 3.30 hang). dq-terminal-skeptic MUST-CHANGE 1 moved it from 3.95 after
-# towers-v2-skeptic M4 / ROUND-SPEC R26 had copied the pre-skeptic 3.95; integration
-# 2026-10-11 (build/dq-family-integration.md). tests/test_dq_family_seams.py asserts equality.
+# ETDQ rope height = the DQ base station's lane (lift_terminal_detach Z_ROPE = 0.30 deck + 0.10 load clearance + 3.30 hang).
+# dq-terminal-skeptic MUST-CHANGE 1 moved it from 3.95, after towers-v2-skeptic M4 / ROUND-SPEC R26 had copied the
+# pre-skeptic 3.95. See integration 2026-10-11 (build/dq-family-integration.md). tests/test_dq_family_seams.py asserts
+# equality.
 DQ_ENTRY_ROPE_Y = 3.70
 
-# -- GD: the gondola tubular family (Revision 1b, 2026-10-11; revision1-check-towers item 6) --
-# Verdict 5 ("towers serve gondola, fixed grip and detachable alike") had no tubular
-# gondola member: the gondola line's spec y 12.000 rested on a GD12 that did not exist
-# (tram_tower.md O2). Contract = the GD numbers the shipped lattice towers already assume
-# (tram_tower.GD; lattice-towers D2 / Q5; towers-v2 section 3 "Gondola tubular (P2)"; RS R4 / R6):
-#   numerals = bounds top (towers-v2 D1, as DQ): GD12 / GD16 / GD20 = top 12 / 16 / 20;
+# -- GD: the gondola tubular family (Revision 1b, 2026-10-11, revision1-check-towers item 6) --
+# Verdict 5 ("towers serve gondola, fixed grip and detachable alike") had no tubular gondola member. The gondola line's spec
+# y 12.000 rested on a GD12 that did not exist (tram_tower.md O2). The contract = the GD numbers that the shipped lattice
+# towers already assume (tram_tower.GD, lattice-towers D2 / Q5, towers-v2 section 3 "Gondola tubular (P2)", RS R4 / R6):
+#
+#   numerals = bounds top (towers-v2 D1, as DQ): GD12 / GD16 / GD20 = top 12 / 16 / 20.
 #   axle = top - H_top_GD 2.000 = 10 / 14 / 18 (GD12 grounds at node elevation 0 on the piece
-#   lane 10.0 = SkiCatalog gondola AxleM; NOT the FG "mast - 0.96": that is the Yan head's rocker
-#   tree, and it would put GD12's lane at 11.04); tube top A + 0.50; mast r 0.50; comm A + 1.20.
-# Head = the DQ REBUILD kit (towers-v2 section 3: rebuild only, the ingested beams do not stretch)
-# with the crossarm stretched from the 5.2 m to the 6.0 m gauge: every outboard member moves out
-# by GD_DY; the carriers, hangers and girder ends by GD_CAR_DY (1 cm less: their outer faces then
-# sit at lane - 0.065, inside the gondola head rule dy <= -0.06 below the rope, cabins.md 8.3 /
-# tram_tower.GD_HEAD_RULE); the A-braces stay at |Y| 1.622 (beam -> deck, 0.35 inboard of the
-# rails); the gantry rises GD_RISE so the end-plate tops land on H_top 2.000.
-GD_LANE = 3.0                          # RS R4; catalog/carriers.json gd8 lane_x_m; tram_tower.GD
+#   lane 10.0 = SkiCatalog gondola AxleM. NOT the FG "mast - 0.96": that is the rocker
+#   tree of the Yan head, and it would put the lane of GD12 at 11.04).
+#   tube top A + 0.50. mast r 0.50. comm A + 1.20.
+#
+# Head = the DQ REBUILD kit (towers-v2 section 3: rebuild only, the ingested beams do not stretch) with the crossarm
+# stretched from the 5.2 m to the 6.0 m gauge. Every outboard member moves out by GD_DY. The carriers, hangers and girder
+# ends move out by GD_CAR_DY (1 cm less). Their outer faces then sit at lane - 0.065, inside the gondola head rule dy <=
+# -0.06 below the rope (cabins.md 8.3 / tram_tower.GD_HEAD_RULE). The A-braces stay at |Y| 1.622 (beam -> deck, 0.35 inboard
+# of the rails). The gantry rises GD_RISE, so the end-plate tops land on H_top 2.000.
+GD_LANE = 3.0                          # RS R4, catalog/carriers.json gd8 lane_x_m, tram_tower.GD
 GD_DY = 0.40                           # GD_LANE - 2.6 (the DQ lane)
 GD_CAR_DY = S.GD_CAR_DY                # 0.39
 GD_RISE = 0.05                         # H_top 2.000 - DQ 1.950
 GD_TT = 0.50                           # tube top above the axle (tram_tower.GD tube_top_dA)
-GD_MAST_R = 0.50                       # tram_tower.GD mast_r (lattice tube neck); RS section 4 "~1.0 m"
+GD_MAST_R = 0.50                       # tram_tower.GD mast_r (lattice tube neck), RS section 4 "~1.0 m"
 GD_COMM_DA = 1.20                      # comm LV through the gantry window (tram_tower.GD comm_dA)
-# = tram_tower.SHEAVE, the lattice GD trains as of their Revision 1: 12-gon FLAT-rim sheaves,
-# 44 tris (one band + two n-gon discs; the groove is invisible - the drawn rope runs on the axle
-# line). Also what fits the RS section 4 cap: GD20 with 10 per side measured 3,662 tris on the
-# DQ 72-tri lite sheave (and 4,110 with 12 per side).
+# = tram_tower.SHEAVE, the lattice GD trains as of their Revision 1: 12-gon FLAT-rim sheaves, 44 tris (one band + two n-gon
+# discs). The groove is invisible (the drawn rope runs on the axle line). The flat sheave is also what fits the RS section 4
+# cap: GD20 with 10 per side measured 3,662 tris on the DQ 72-tri lite sheave (and 4,110 with 12 per side).
 GD_SHEAVE = S.GD_SHEAVE                # r 0.25, w 0.10, pitch 0.62, segs 12, groove 0.0
-GD_FLANGE_R = 0.65                     # mast r + 0.15 (the DQ 0.45 + 0.15); bolt circle 0.507 + 0.025
-GD_PAD_R = 0.61                        # crash pad shell r (inner 0.55 = mast + 0.05, the DQ margin;
+GD_FLANGE_R = 0.65                     # mast r + 0.15 (the DQ 0.45 + 0.15), bolt circle 0.507 + 0.025
+GD_PAD_R = 0.61                        # crash pad shell r (inner 0.55 = mast + 0.05, the DQ margin:
                                        # cs2_asset.CRASHPAD radius 0.56 would sit ON the 0.50 mast)
-# C18 for the gondola cabin (gd8): the hanger column, both lanes, either loop direction (the DQ
-# rule: on the stations' spin the stalk runs OUTBOARD since nitpick A3 mirrored the cabin to the
-# carrier's right - carriers.json gd8 outboard -Y; the inboard side stays clear for a reversed loop).
-# Lateral half-width from the exported SkiGondolaCabin8A envelope (tram_tower.CARRIER_GD, the
-# integration S6 boxes, both pin frames): jaw / carriage / stalk / arm_yoke reach |dy| 0.81 from
-# the grip top (rope + 0.08 = carriers.json gd8 grip_top_above_rope_m) down to the arm_yoke bottom
-# (rope - 2.10); the body reaches |dy| 1.10 (carriers.json gd8 bounds_lat_m [-1.05, 1.10]) from
-# rope - 1.92 down to the underside rope - 4.50 (hang 4.50, grip top on the lane = ChairPin today).
-# Decks / rails / posts / kicks therefore stop at |Y| <= lane - 0.81 = 2.19 (DQ: lane - 0.45).
+# C18 for the gondola cabin (gd8): the hanger column, both lanes, either loop direction. This is the DQ rule: on the spin of
+# the stations the stalk runs OUTBOARD since nitpick A3 mirrored the cabin to the right of the carrier (carriers.json gd8
+# outboard -Y). The inboard side stays clear for a reversed loop. The lateral half-width comes from the exported
+# SkiGondolaCabin8A envelope (tram_tower.CARRIER_GD, the integration S6 boxes, both pin frames). The jaw / carriage / stalk /
+# arm_yoke reach |dy| 0.81 from the grip top (rope + 0.08 = carriers.json gd8 grip_top_above_rope_m) down to the arm_yoke
+# bottom (rope - 2.10). The body reaches |dy| 1.10 (carriers.json gd8 bounds_lat_m [-1.05, 1.10]) from rope - 1.92 down to
+# the underside rope - 4.50 (hang 4.50, grip top on the lane = ChairPin today). Decks / rails / posts / kicks therefore stop
+# at |Y| <= lane - 0.81 = 2.19 (DQ: lane - 0.45).
 GD_HANGER_COL = (dict(half=0.81, z0=-2.10, z1=0.08), dict(half=1.10, z0=-4.50, z1=-1.92))
-# C20: the gondola carrier boxes in the lane frame (x travel about the carrier, dy = |y| - lane
-# outboard +, dz = z - rope) = tram_tower.CARRIER_GD verbatim (tests/test_tower_contracts.py
-# compares them), swept along the whole travel extent on both lanes with the hanger OUTBOARD
-# (facing travel on the stations' spin: the cabin's right since nitpick A3, carriers.json gd8 outboard
-# -Y; the shipped mesh is swept so in test_gondola_tram_seams S15); `allowed` = the accepted
+# C20: the gondola carrier boxes in the lane frame (x travel about the carrier, dy = |y| - lane outboard +, dz = z - rope) =
+# tram_tower.CARRIER_GD verbatim (tests/test_tower_contracts.py compares them). They are swept along the whole travel extent
+# on both lanes with the hanger OUTBOARD. This faces travel on the stations' spin: the cabin's right since nitpick A3,
+# carriers.json gd8 outboard -Y. The shipped mesh is swept so in test_gondola_tram_seams S15. `allowed` = the accepted
 # jaw-over-sheave pass.
 GD_CARRIER = (
     ("jaw",      (-0.15, 0.15), (-0.04, 0.30), (-0.21, 0.08), ("sheave_",)),
@@ -1622,8 +1573,8 @@ GD_CARRIER = (
 GD_HEAD_RULE = (("GD_head_rule", (-0.06, 6.0), (-1.62, 0.20), ("sheave_",)),)   # = tram_tower
 GD_SWEEP_TOL = 0.005                   # boxes shrunk 5 mm (tram_tower SWEEP_TOL)
 GD_AIM_HEIGHT_M = 11.0                 # SkiCatalog gondola AimHeightM (axle 10 / comm 11.2)
-# The rest of the GD placeholder group: the shipped lattice towers (tram_tower.py --family gondola;
-# towers/O/SkiGondolaLattice*O manifests): (key, top-anchor y, axle, comm, pier)
+# The rest of the GD placeholder group is the shipped lattice towers (tram_tower.py --family gondola,
+# towers/O/SkiGondolaLattice*O manifests). The tuple fields are (key, top-anchor y, axle, comm, pier)
 GD_LATTICE = (("Lattice25", 25.0, 23.0, 24.2, 8.0), ("Lattice32", 32.0, 30.0, 31.2, 8.0),
               ("Lattice40", 40.0, 38.0, 39.2, 8.0))
 GD_STUB_LANES = {"hv": ("SkiGondolaHaulRope", "UnityGUID:5d88ac45a40b30341a79535930e3b735"),
@@ -1631,20 +1582,21 @@ GD_STUB_LANES = {"hv": ("SkiGondolaHaulRope", "UnityGUID:5d88ac45a40b30341a79535
                         "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b")}   # = tram_tower.STUB_LANES gd_*
 
 # -- Detail pass 1 (2026-10-11): design/detail-pass-1-towers.md section 3 with the skeptic's
-# MUST-CHANGE items (detail-pass-1-towers-skeptic.md) and DECISIONS 171 ("yes to
-# both": a DQ20 member, the gondola entry tower). Build report: build/detail-pass-1-towers-o.md.
+# MUST-CHANGE items (detail-pass-1-towers-skeptic.md). It also applies DECISIONS 171 ("yes to both": a DQ20 member, the
+# gondola entry tower). Build report: build/detail-pass-1-towers-o.md.
+#
 #   M1  FG16 / FG20 mast cut at one stiff_mastjoint (+32 tris) so the metric mast island fits
 #       the 1024 atlas .................................................... _mast_cut_z
 #   M2  relief under its texel floor raised or dropped (r, half_w, stiff_ weight) . DP1_RELIEF
 #   M3  plates stamped / protected PER PART (plate_n, plate_p), never "plate_" ...... hook
-#   M4  brace a|b z-fight: brace a 0.186 -> 0.176; every tube inset named ......... DP1_INSET
-#   M6  (lattice members; the tube towers have no smooth-shaded member list)
+#   M4  brace a|b z-fight: brace a 0.186 -> 0.176, every tube inset named ......... DP1_INSET
+#   M6  (lattice members, the tube towers have no smooth-shaded member list)
 #   M7  the MaskMap-variation gate restated to the noise: DT-C9 compares the tone ON vs OFF
 #       compose of the same bake (std >= 0.9 * sqrt(s0^2 + (MOTTLE_STD * smooth)^2)) . hook
 #   M9  conduit standoff 0.05 (clears the r + 0.04 joint rings), FG foot inside the pad gap
-#       at z 1.85, DQ/GD foot on the pad rim top; data plate 45 deg off the conduit . _conduit
-#   M11 metric UVs on each part's OWN axis (revolve: u = rho theta, v = meridian; caps and
-#       flat flange faces planar, exactly isotropic) .................................. _uv_*
+#       at z 1.85, DQ/GD foot on the pad rim top, data plate 45 deg off the conduit . _conduit
+#   M11 metric UVs on each part's OWN axis (revolve: u = rho theta, v = meridian. Caps and
+#       flat flange faces planar, exactly isotropic) ................................. _uv_*
 DP1_TOWER_DEPTH = 0.006                # plate front quad proud of its host face (DT-C6: 4-8 mm)
 DP1_PLATE_BURY = 0.002                 # rim quads reach this far INTO the host (DT-C6: 1-3 mm)
 DP1_PLATE = {"FG": (0.36, 0.16), "DQ": (0.36, 0.16), "GD": (0.36, 0.16)}   # w x h, meters
@@ -1663,11 +1615,10 @@ DP1_ISLAND_MAX_PX = 1000.0             # usable 1012 px at A 1024 (6 px margins)
 DP1_RING_SEGS_RECLAIM = 12
 GD_ENTRY_ROPE_Y = 4.85                 # gondola base station lane (dq-terminal 13: 0.30 + 0.05 + 4.50)
 GD_STATION_INBOARD_MAX = -8.4          # lift_terminal_detach.GD_TOWER_KEEPOUT: x_nose -8.0 - dx 0.40
-# Weathering (DECISIONS 171; build/weathering-layer.md FP6): free slot wear, no snow, the
-# family intensity = the highest 0.05 step from 0.50 where every member is vanilla.ok
-# (the --weather-probe run in the build report).
-WEATHER_I = {"FG": 0.30, "DQ": 0.25, "GD": 0.25}   # --weather-probe 2026-10-11: FG/ET ok to 0.30;
-#   DQ / ETDQ / GD12 / ETGD first WARN at 0.30 (VL2, the >15 % share; edge wear on thin slot steel)
+# Weathering (DECISIONS 171, build/weathering-layer.md FP6): free slot wear, no snow. The family intensity = the highest 0.05
+# step from 0.50 where every member is vanilla.ok (the --weather-probe run in the build report).
+WEATHER_I = {"FG": 0.30, "DQ": 0.25, "GD": 0.25}   # --weather-probe 2026-10-11: FG/ET ok to 0.30.
+#   DQ / ETDQ / GD12 / ETGD first WARN at 0.30 (VL2, the >15 % share: edge wear on thin slot steel)
 WEATHER_PROBE = (0.50, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.15, 0.10)
 LINER_KEY, PLATE_KEY = S.LINER_KEY, "plate"
 
@@ -1693,9 +1644,9 @@ DENSITY_V2 = {
     "endplate_": 1.5, "sheave_": 1.5,
     "grate_": 1.25, "tipdeflector": 1.25,
 }
-# detail pass 1 keys (design 3.3; M2: stiff_ 1.5 on DQ / GD so the splice boltring draws)
+# detail pass 1 keys (design 3.3, M2: stiff_ 1.5 on DQ / GD so the splice boltring draws)
 DENSITY_DP1 = {"liner_": 1.5, "conduit_": 0.75, "jbox_": 1.0, "arrest_": 0.5, "gusset_apex": 1.5}
-DENSITY_PLATE = {"FG": 5.8, "DQ": 9.8, "GD": 9.8}       # >= 300 px/m on the plates (DT-C7; FG20 / GD20 bind)
+DENSITY_PLATE = {"FG": 5.8, "DQ": 9.8, "GD": 9.8}       # >= 300 px/m on the plates (DT-C7, FG20 / GD20 bind)
 DENSITY_STIFF = {"FG": 1.0, "DQ": 1.5, "GD": 1.5}
 
 
@@ -1706,11 +1657,11 @@ def density_table(spec):
     t["plate_"] = DENSITY_PLATE[spec.family]
     t["platerim_"] = 1.5              # 6 mm strips: the head's weight, not the plate's (margins)
     t["stiff_"] = DENSITY_STIFF[spec.family]
-    # T62 round 3: the seen hub bosses (cs2_sheaves.hub_name parts, 0.1 r tall) at the base weight, not the rims' 1.5:
-    # their developed islands (true area, round 3) otherwise took atlas from the galv hardware (FG8 DT-C9 0.0275 < 0.0276)
+    # T62 round 3: the seen hub bosses (cs2_sheaves.hub_name parts, 0.1 r tall) at the base weight, not the 1.5 of the rims.
+    # Their developed islands (true area, round 3) otherwise took atlas from the galv hardware (FG8 DT-C9 0.0275 < 0.0276)
     t["sheave_hub"] = 1.0
-    # lift alignment round 4: a skinned GD at 10 a side (--gd-sheaves 10, 213 parts) packs the atlas tighter and the
-    # gantry girders' bolts fell under the 2-texel floor (1.98, DT-C8); the girders take 1.6 there (SKINNED only)
+    # lift alignment round 4: a skinned GD at 10 a side (--gd-sheaves 10, 213 parts) packs the atlas tighter, and the bolts
+    # of the gantry girders fell under the 2-texel floor (1.98, DT-C8). The girders take 1.6 there (SKINNED only)
     if SKINNED and spec.family == "GD" and spec.sheaves >= 10:
         t["gantry_girder_"] = 1.6
         if spec.top >= 16.0:
@@ -1718,13 +1669,14 @@ def density_table(spec):
     return t
 
 
-# family round (2026-11-03): the skinned GD16 / GD20 at 10 a side pack a 1024 atlas the GD12 table does not fit: GD20 lost
-# 219 of 239 edge rounds, every mast weld band and boltring (DT-C8; the clevis tongue at 1.69 texels, the yokes 1.85,
-# everything else 1.98-2.0) and both plates fell to 272 / 297 px/m (DT-C7: glyph 38 / 42 < 44). Measured fix (probe, atlas
-# cost = area x w^2): the plain long parts give texels (ladder 0.75 -> 0.5, deck rails / posts 1.0 -> 0.75, the buried pier
-# 0.25 -> 0.15, conduit 0.75 -> 0.5), the train hardware, the mast bands and the deck grates take them (yoke 1.75, hanger /
-# tongue 1.8, main rockers 1.65, girders 1.75, mast 1.08, grates 1.35, plates 11.2): GD20 / GD16 draw every relief feature,
-# plates 325 / 337 px/m (glyph 46 / 47). GD12 (imported, Q) keeps its table.
+# family round (2026-11-03): the skinned GD16 / GD20 at 10 a side pack a 1024 atlas that the GD12 table does not fit. GD20
+# lost 219 of 239 edge rounds, every mast weld band and boltring (DT-C8: the clevis tongue at 1.69 texels, the yokes 1.85,
+# everything else 1.98-2.0). Both plates fell to 272 / 297 px/m (DT-C7: glyph 38 / 42 < 44).
+#
+# Measured fix (probe, atlas cost = area x w^2): the plain long parts give texels (ladder 0.75 -> 0.5, deck rails / posts 1.0
+# -> 0.75, the buried pier 0.25 -> 0.15, conduit 0.75 -> 0.5). The train hardware, the mast bands and the deck grates take
+# them (yoke 1.75, hanger / tongue 1.8, main rockers 1.65, girders 1.75, mast 1.08, grates 1.35, plates 11.2). GD20 / GD16
+# then draw every relief feature, with plates at 325 / 337 px/m (glyph 46 / 47). GD12 (imported, Q) keeps its table.
 SKIN_GD_TALL_DENSITY = {"ladder_": 0.5, "rail_": 0.75, "post_": 0.75, "pier": 0.15, "conduit_": 0.5, "yoke_": 1.75,
                         "hanger_": 1.8, "rocker_main_": 1.65, "gantry_girder_": 1.75, "plate_": 11.2, "mast": 1.08,
                         "grate_": 1.35}
@@ -1733,13 +1685,11 @@ SKIN_GD_TALL_DENSITY = {"ladder_": 0.5, "rail_": 0.75, "post_": 0.75, "pier": 0.
 FG_LOD1 = ("bolt_", "ladder_rung_", "ladder_standoff_", "pivot_", "insulator_", "insulcap_",
            "post_catwalk", "kick_catwalk", "rail_catwalk_knee", "cwbrace", "stiff_", "axlecap_",
            "gusset_", "plate_", "platerim_", "conduit_", "jbox_", "arrest_", "comm_")
-# M5: rail_catwalk_top is NOT deleted (it is the bounds top: LOD2 drift 0).
-# M9 asks to CONSIDER sheave_ for FG LOD2, gated on the lod-mode XOR. Measured 2026-10-11
-# on FG8: keeping the rims gives 11.9 / 11.7 % silhouette XOR at 209 / 105 m vs 15.2 /
-# 14.8 % deleted - BUT keeping them forces a 0.32 collapse ratio that erodes
-# rail_catwalk_top (top drift 8 mm FG8, 16 mm FG16), breaking M5's zero drift. M5 is a
-# MUST-CHANGE, so the rims are deleted (drift 0). DQ deletes them too (M9 MUST; measured
-# neutral there: 10.9 / 10.5 % deleted vs 10.8 / 11.3 % kept).
+# M5: rail_catwalk_top is NOT deleted (it is the bounds top: LOD2 drift 0). M9 asks to CONSIDER sheave_ for FG LOD2, gated on
+# the lod-mode XOR. Measured 2026-10-11 on FG8: keeping the rims gives 11.9 / 11.7 % silhouette XOR at 209 / 105 m vs 15.2 /
+# 14.8 % deleted. BUT keeping them forces a 0.32 collapse ratio that erodes rail_catwalk_top (top drift 8 mm FG8, 16 mm
+# FG16), which breaks the zero drift of M5. M5 is a MUST-CHANGE, so the rims are deleted (drift 0). DQ deletes them too (M9
+# MUST). Measured neutral there: 10.9 / 10.5 % deleted vs 10.8 / 11.3 % kept.
 FG_LOD2 = FG_LOD1 + ("sheave_", "rocker_sub_", "liftpost_", "liftbar", "grate_",
                      "tipdeflector", "ladder_rail_", "flange_", "hanger_", "liner_",
                      "yoke_")       # skinned FG only (round 4 yoke straps): they leave with the hanger
@@ -1749,36 +1699,42 @@ DQ_LOD1 = (("bolt_", "ladder_rung_", "ladder_standoff_", "pivot_", "post_", "kic
             "hanger_", "gantry_saddle")
            + tuple(f"rail_{r}_knee" for r in DQ_RAIL_RUNS)
            + ("plate_", "platerim_", "conduit_", "jbox_", "arrest_", "gusset_apex", "comm_"))
-# Review F5 (Revision 1): LOD2 keeps the rebuild head's A-braces (`gantry_brace` is no longer
-# deleted: ETDQ stopped reading as a flat goalpost; ingest heads carry theirs inside gantry_00)
-# and the two deck PLATES (`grate_deckn` / `grate_deckp`, top + underside quad = 4 tris each:
-# the top view keeps the decks). Only the deck lips and the landing gratings go.
+# Review F5 (Revision 1): LOD2 keeps the A-braces of the rebuild head. `gantry_brace` is no longer deleted: ETDQ stopped
+# reading as a flat goalpost. Ingest heads carry theirs inside gantry_00. LOD2 also keeps the two deck PLATES (`grate_deckn`
+# / `grate_deckp`, top + underside quad = 4 tris each). The top view keeps the decks. Only the deck lips and the landing
+# gratings go.
 DQ_LOD2 = DQ_LOD1 + ("rail_", "grate_land", "grate_deckn_lip", "grate_deckp_lip", "rocker_sub_",
                      "ladder_rail_", "flange_", "endplate_", "sheave_", "rocker_link_", "liner_")
 # Revision 1c: a middle sub's link (GD only) leaves with the subs at LOD2
 DQ_LOD2_KEEP = ("grate_deckn", "grate_deckp")   # F5: asserted present at LOD2 (assert_budgets)
 DQ_KEEP = ("pad", "pier", "mast", "gantry_", "rocker_main_", "yoke_", "crashpad")
 LOD_TOL = 0.10
-# C12 (D9 as corrected by M5): expected LOD2 bounds-top drift per family; LOD1 must be 0.
+# C12 (D9 as corrected by M5): expected LOD2 bounds-top drift per family. LOD1 must be 0.
 LOD2_DRIFT_EXPECT = {"FG": 0.0, "DQ": 1.950 - 1.926, "GD": 2.000 - (1.926 + GD_RISE)}
-LOD2_DRIFT_RAISE = 0.02                # beyond expected + this the build fails
-# Per-family LOD0 triangle cap (RS section 4: 3,500). DQ20 follow-up 2026-10-11: "no need
-# to hold the cap on the towers" -> the DQ family (DQ10-DQ20 + ETDQ) is held at 3,600 so the
-# transfer audit's DQ20 (3,534 rebuild / 3,554 ingest after every reclaim) ships beside DQ18.
-# FG / ET and the GD family (GD12-20, ETGD) stay at 3,500; the lattice towers have their own caps.
-# T62 round 2 (2026-10-18, "probably raise the cap"): the 16-segment capped wheel (cs2_sheaves.WHEEL_TRIS 224 vs
-# 72 / 44) on 8 (FG) / 16 (DQ) / 16-20 (GD) wheels; each cap = the smallest 100 above the family's worst LOD0 / 0.95
-# (>= 5 % headroom): FG 3,500 -> 4,600 (FG20 4,282), DQ 3,600 -> 6,400 (DQ20 5,986), GD 3,500 -> 7,500 (GD20 7,062).
-# v1 builds sit under these too (a cap is a ceiling).
-# T62 round 3 ("Ouch, 224 tris ... we need to reduce the tris on the wheels"): the <= 120-tri wheel (76 + 22 per
-# seen hub boss: FG 120 both faces seen, DQ / GD 98 inboard face behind the sub rocker) -> every cap reset to
-# max(the round-1 cap, the smallest 100 with >= 5 % headroom): FG 4,600 -> 3,700 (FG20 3,450), DQ 6,400 -> 4,200 (DQ20
-# 3,970), GD 7,500 -> 4,800 (GD20 4,542). Round 1: 3,500 / 3,600 / 3,500.
-# FG 3,700 -> 3,800 (lift alignment round 3): FG20 skinned builds 3,762 with the round-2 bogie bars (SKIN_FG
-# bogie_low off), 3,394 with bogie_low; unskinned FG20 3,450.
-# GD 4,800 -> 5,000 (lift alignment round 4): the skinned GD at the shipped 10 sheaves a side, GD12 4,626, GD20 4,938.
-# DQ 4,200 -> 4,250 (family round 2026-11-03, owner: "We can raise the cap on DQ20"): the skinned DQ20 ingest builds
-# 4,234 + the 16-tri comm hanger = 4,250.
+LOD2_DRIFT_RAISE = 0.02                # beyond expected + this, the build fails
+# Per-family LOD0 triangle cap (RS section 4: 3,500).
+#
+# DQ20 follow-up 2026-10-11: after the verdict "no need to hold the cap on the towers", the DQ family (DQ10-DQ20 + ETDQ) is
+# held at 3,600. So the DQ20 of the transfer audit (3,534 rebuild / 3,554 ingest after every reclaim) ships beside DQ18. FG /
+# ET and the GD family (GD12-20, ETGD) stay at 3,500. The lattice towers have their own caps.
+#
+# T62 round 2 (2026-10-18, "probably raise the cap"): the 16-segment capped wheel (cs2_sheaves.WHEEL_TRIS 224 vs 72 / 44) on
+# 8 (FG) / 16 (DQ) / 16-20 (GD) wheels. Each cap = the smallest 100 above the family's worst LOD0 / 0.95 (>= 5 % headroom):
+# FG 3,500 -> 4,600 (FG20 4,282), DQ 3,600 -> 6,400 (DQ20 5,986), GD 3,500 -> 7,500 (GD20 7,062). v1 builds sit under these
+# too (a cap is a ceiling).
+#
+# T62 round 3 ("Ouch, 224 tris ... we need to reduce the tris on the wheels"): the <= 120-tri wheel (76 + 22 per seen hub
+# boss: FG 120 both faces seen, DQ / GD 98 inboard face behind the sub rocker). Every cap was reset to max(the round-1 cap,
+# the smallest 100 with >= 5 % headroom): FG 4,600 -> 3,700 (FG20 3,450), DQ 6,400 -> 4,200 (DQ20 3,970), GD 7,500 -> 4,800
+# (GD20 4,542). Round 1: 3,500 / 3,600 / 3,500.
+#
+# FG 3,700 -> 3,800 (lift alignment round 3): FG20 skinned builds 3,762 with the round-2 bogie bars (SKIN_FG bogie_low off),
+# 3,394 with bogie_low. Unskinned FG20: 3,450.
+#
+# GD 4,800 -> 5,000 (lift alignment round 4): the skinned GD at the shipped 10 sheaves a side. GD12 4,626, GD20 4,938.
+#
+# DQ 4,200 -> 4,250 (family round 2026-11-03, owner: "We can raise the cap on DQ20"): the skinned DQ20 ingest build has 4,234
+# tris. With the 16-tri comm hanger it has 4,250.
 LOD0_CAP = {"FG": 3800, "DQ": 4250, "GD": 5000}
 
 
@@ -1789,7 +1745,7 @@ class TowerSpec:
     family: str             # "FG" (Yan head) | "DQ" (gantry head) | "GD" (gantry head, 6.0 gauge)
     role: str               # "line" | "terminal" (hosted)
     kind: str               # "support" | "compression" (sheaves above the rope)
-    tube_top: float         # FG: mast height; DQ: tube top TT = axle + 0.438; GD: axle + 0.50
+    tube_top: float         # FG: mast height. DQ: tube top TT = axle + 0.438. GD: axle + 0.50
     axle: float             # lane y = sheave axle (D6)
     top: float              # bounds top = top-anchor spec y
     gauge: float            # lane spacing (2 x lane offset)
@@ -1797,19 +1753,19 @@ class TowerSpec:
     sheave_r: float
     sheave_w: float
     pitch: float
-    sag: float              # m, + = ends low; ETDQ -0.06 (compression, ends high)
+    sag: float              # m, + = ends low. ETDQ -0.06 (compression, ends high)
     mast_r: float
     pad: float
     pier: float
     ladder_pitch: float
     ladder_w: float
-    comm_y: object          # LV comm wire y on the line piece; None = hosted (station owns it)
+    comm_y: object          # LV comm wire y on the line piece. None = hosted (station owns it)
     lod0: int               # LOD0 target (warn at +-15 %)
     lod1: int
     lod2: int
     heads: tuple = ("yan",)
     hosted_z: object = None  # station-frame z of the hosted tower (rot 180 deg)
-    cap: int = 3500         # LOD0 cap; the factories below set LOD0_CAP[family]
+    cap: int = 3500         # LOD0 cap. The factories below set LOD0_CAP[family]
 
     @property
     def h_top(self):
@@ -1833,10 +1789,15 @@ def _dq_spec(key, axle, role, kind, sag, pier, comm, lod0, heads, hosted_z=None)
 
 
 def _gd_spec(key, top, sheaves, lod0):
-    """GD line member: numeral = bounds top (D1), axle = top - 2.000, tube top A + 0.50, the DQ
-    ladder (0.30 / 0.56) and pad (2.2), pier 4.0 (the GD group's tubular members float at most
-    3.333 m before the lattice 25 takes over: pillar_scoring("GD")), RS section 4 budgets
-    3,500 cap / LOD1 1,400 / LOD2 400, rebuild head only."""
+    """GD line member:
+    - numeral = bounds top (D1)
+    - axle = top - 2.000
+    - tube top A + 0.50
+    - the DQ ladder (0.30 / 0.56) and pad (2.2)
+    - pier 4.0 (the tubular members of the GD group float at most 3.333 m before the lattice 25 takes over:
+      pillar_scoring("GD"))
+    - RS section 4 budgets 3,500 cap / LOD1 1,400 / LOD2 400
+    - rebuild head only"""
     axle = round(top - H_TOP["GD"], 6)
     return TowerSpec(key, "GD", "line", "support", round(axle + GD_TT, 6), axle, top, 2 * GD_LANE,
                      sheaves, GD_SHEAVE["r"], GD_SHEAVE["w"], GD_SHEAVE["pitch"], 0.0, GD_MAST_R, 2.2,
@@ -1845,12 +1806,16 @@ def _gd_spec(key, top, sheaves, lod0):
 
 
 def _gd_entry_spec(key, lod0, lod1):
-    """Detail pass 1 / towers-transfer G2 (DECISIONS 171): the GONDOLA entry compression tower,
-    hosted by the gondola base station only at (0, 0, -11.0) rot 180 deg (dq-terminal.md 12-13:
-    rope 4.85 = deck 0.30 + step-in 0.05 + hang 4.50; gauge 6.0). The ETDQ pattern on the GD
-    head kit: rebuild head, 8 flat-rim sheaves per side (even: no middle link), train sag -0.06
-    (compression: ends high), tube top A + 0.50, H_top 2.000 -> top 6.850 (inside the station's
-    keep-out z < 7.0), pier 4.0, no head comm stub (the station's LV anchor owns it)."""
+    """Detail pass 1 / towers-transfer G2 (DECISIONS 171): the GONDOLA entry compression tower, hosted by the gondola base
+    station only at (0, 0, -11.0) rot 180 deg (dq-terminal.md 12-13: rope 4.85 = deck 0.30 + step-in 0.05 + hang 4.50, gauge
+    6.0). It follows the ETDQ pattern on the GD head kit:
+    - rebuild head
+    - 8 flat-rim sheaves per side (even: no middle link)
+    - train sag -0.06 (compression: ends high)
+    - tube top A + 0.50
+    - H_top 2.000 -> top 6.850 (inside the keep-out z < 7.0 of the station)
+    - pier 4.0
+    - no head comm stub (the LV anchor of the station owns it)"""
     axle = GD_ENTRY_ROPE_Y
     return TowerSpec(key, "GD", "terminal", "compression", round(axle + GD_TT, 6), axle,
                      round(axle + H_TOP["GD"], 6), 2 * GD_LANE, 8, GD_SHEAVE["r"], GD_SHEAVE["w"],
@@ -1858,14 +1823,14 @@ def _gd_entry_spec(key, lod0, lod1):
                      ("rebuild",), -11.0, cap=LOD0_CAP["GD"])
 
 
-# LOD0 targets: FG = towers-v2 section 11 estimates; DQ = the section 11 sums re-measured
-# after the skeptic's changes (split deck rails +168, landing plates +56, 8 ETDQ sheaves) [D].
+# LOD0 targets: FG = towers-v2 section 11 estimates. DQ = the section 11 sums re-measured after the changes of the skeptic
+# (split deck rails +168, landing plates +56, 8 ETDQ sheaves) [D].
 VARIANTS = {
     "FG8": _fg_spec("FG8", 8.0, "line", 8.15, 2600),
     "FG12": _fg_spec("FG12", 12.0, "line", 12.15, 2750),
     "FG16": _fg_spec("FG16", 16.0, "line", 16.15, 2950),
-    # Revision 1 (verdict 5, 2026-10-11): one taller line member per family for big
-    # gaps; same head, pier and spec y, scored per node elevation (pillar_scoring below).
+    # Revision 1 (verdict 5, 2026-10-11): one taller line member per family for big gaps, with the same head, pier and spec
+    # y. It is scored per node elevation (pillar_scoring below).
     "FG20": _fg_spec("FG20", 20.0, "line", 20.15, 3050),
     "ET62": _fg_spec("ET62", 6.2, "terminal", None, 2550),
     "ET68": _fg_spec("ET68", 6.8, "terminal", None, 2550),
@@ -1882,52 +1847,47 @@ VARIANTS = {
     # hosted by the BASE station only at (0, 0, -11.0) rot 180 deg, no head comm stub (nose bracket).
     "ETDQ": _dq_spec("ETDQ", DQ_ENTRY_ROPE_Y, "terminal", "compression", -0.06, 4.0, None, 2950,
                      ("rebuild",), hosted_z=-11.0),
-    # Revision 1b (revision1-check-towers item 6): the gondola tubular family; GD12's top 12.000
-    # is the gondola line's spec y (tram_tower.GD tubular_tops). 10 sheaves per side on all three
-    # (task: 10-12): 12 on GD20 overruns the RS section 4 cap of 3,500 even with the 44-tri flat
-    # sheaves (measured below in the build report) [D].
+    # Revision 1b (revision1-check-towers item 6): the gondola tubular family. The top 12.000 of GD12 is the spec y of the
+    # gondola line (tram_tower.GD tubular_tops). All three have 10 sheaves per side (task: 10-12): 12 on GD20 overruns the RS
+    # section 4 cap of 3,500 even with the 44-tri flat sheaves (measured below in the build report) [D].
     "GD12": _gd_spec("GD12", 12.0, 10, 3030),
     "GD16": _gd_spec("GD16", 16.0, 10, 3130),
     "GD20": _gd_spec("GD20", 20.0, 10, 3340),
-    # Detail pass 1 (DECISIONS 171, "yes to both"): the towers-transfer audit's DQ20 (top
-    # 19.950, axle 18.0, comm 19.2) did NOT fit the 3,500 cap with the design's reclaims
-    # (superseded by the DQ20 follow-up below: the DQ cap is now 3,600, both members ship):
-    # measured 3,554 tris (ingest head; 3,534 rebuild) after every hidden-face reclaim and the
-    # 12-segment joint rings. So the audit's fallback DQ18 ships: top 17.950, axle 16.0, comm
-    # 17.2, pier 6, lanes +-2.6 (wins e 5.333.. -> DQ16 5.333-7.333, DQ18 7.333-14, grounds to
-    # 14), 3,498 tris on the shipped ingest head.
+    # Detail pass 1 (DECISIONS 171, "yes to both"): the DQ20 of the towers-transfer audit (top 19.950, axle 18.0, comm 19.2)
+    # did NOT fit the 3,500 cap with the reclaims of the design: measured 3,554 tris (ingest head, 3,534 rebuild) after every
+    # hidden-face reclaim and the 12-segment joint rings. (The DQ20 follow-up below supersedes this: the DQ cap is now 3,600,
+    # and both members ship.) So the fallback DQ18 of the audit ships: top 17.950, axle 16.0, comm 17.2, pier 6, lanes +-2.6
+    # (wins e 5.333.. -> DQ16 5.333-7.333, DQ18 7.333-14, grounds to 14), 3,498 tris on the shipped ingest head.
     "DQ18": _dq_spec("DQ18", 16.0, "line", "support", 0.0, 6.0, 17.20, 3480,
                      ("ingest", "rebuild")),
     # ... and the gondola entry compression tower (transfer audit G2).
     "ETGD": _gd_entry_spec("ETGD", 2600, 1300),
-    # Follow-up 2026-10-11 (DQ20 + sub-texel faces): "no need to hold the cap on the
-    # towers" -> LOD0_CAP["DQ"] 3,600, so the audit's DQ20 ships ALONGSIDE DQ18 (both are
-    # height options): top 19.950, axle / UtilityObject y 18.0, comm 19.2, pier 6, legs
-    # (2.2, 6, 2.2), lanes +-2.6; wins e 9.333-16 (DQ18 then wins 7.333-9.333), grounds to 16
-    # = the FG line. DQ20_MEASURED below is the build report's measurement it is built on.
+    # Follow-up 2026-10-11 (DQ20 + sub-texel faces): the verdict "no need to hold the cap on the towers" gave LOD0_CAP["DQ"]
+    # 3,600, so the DQ20 of the audit ships ALONGSIDE DQ18 (both are height options): top 19.950, axle / UtilityObject y
+    # 18.0, comm 19.2, pier 6, legs (2.2, 6, 2.2), lanes +-2.6. It wins e 9.333-16 (DQ18 then wins 7.333-9.333) and grounds
+    # to 16 = the FG line. DQ20_MEASURED below is the measurement of the build report that this member is built on.
     "DQ20": _dq_spec("DQ20", 18.0, "line", "support", 0.0, 6.0, 19.20, 3540,
                      ("ingest", "rebuild")),
 }
-# DQ20 as measured by the detail pass through the shipping code path (build report), before the
-# cap was raised: it did not fit 3,500 (+54 ingest / +34 rebuild) and DQ18 shipped instead; with
-# LOD0_CAP["DQ"] 3,600 it fits with 46 / 66 tris of margin. The exported counts are in the manifest.
+# DQ20 as measured by the detail pass through the shipping code path (build report), before the cap was raised. It did not
+# fit 3,500 (+54 ingest / +34 rebuild), and DQ18 shipped instead. With LOD0_CAP["DQ"] 3,600 it fits with 46 / 66 tris of
+# margin. The exported counts are in the manifest.
 DQ20_MEASURED = {"ingest": 3554, "rebuild": 3534, "cap_then": 3500, "cap_now": LOD0_CAP["DQ"]}
-# Members added AFTER the frozen manifests were written (towers-transfer audit): the frozen
-# blocks of the variants above (prefab_notes.switch_points, placeholder_row_new) are computed
-# without them, byte-identical (DT-C1); the new members' own manifests carry the updated family.
-# POST_FREEZE_STAGE orders the additions: stage 1 = the family as DQ18's manifest froze it
-# (DQ18 added, DQ20 NOT - that manifest is a frozen block too), stage 2 = with DQ20.
+# Members added AFTER the frozen manifests were written (towers-transfer audit): the frozen blocks of the variants above
+# (prefab_notes.switch_points, placeholder_row_new) are computed without them, byte-identical (DT-C1). The own manifests of
+# the new members carry the updated family. POST_FREEZE_STAGE orders the additions: stage 1 = the family as the manifest of
+# DQ18 froze it (DQ18 added, DQ20 NOT - that manifest is a frozen block too), stage 2 = with DQ20.
 POST_FREEZE_STAGE = {"DQ18": 1, "DQ20": 2}
 POST_FREEZE = tuple(POST_FREEZE_STAGE)
 DQ_AIM_HEIGHT_M = 9.0                  # F14: catalog AimHeightM for the DQ line (axle 8 / comm 9.2)
 
-# Revision 1 (verdict 5): the placeholder-group rows this revision ADDS. The line prefab's
-# NetSubObjects entry points at the family placeholder (spec y = the shortest member's top,
-# unchanged); each member is a SpawnableObject row scored per node elevation (pillar-system Q1).
-# Only these variants' manifests carry `placeholder_row_new` (the R0 manifests keep their shape).
+# Revision 1 (verdict 5): the placeholder-group rows this revision ADDS. The NetSubObjects entry of the line prefab points at
+# the family placeholder (spec y = the shortest member's top, unchanged). Each member is a SpawnableObject row scored per
+# node elevation (pillar-system Q1). Only these variants' manifests carry `placeholder_row_new` (the R0 manifests keep their
+# shape).
 R1_NEW_ROWS = ("FG20", "DQ16")
-# Revision 1b: the whole tubular GD family is new; its rows join the lattice ones in the gondola
-# placeholder (code-round-2 build-core: SkiLiftTowerGD12/16/20 + SkiGondolaLattice25/32/40).
+# Revision 1b: the whole tubular GD family is new. Its rows join the lattice ones in the gondola placeholder (code-round-2
+# build-core: SkiLiftTowerGD12/16/20 + SkiGondolaLattice25/32/40).
 R1B_NEW_ROWS = ("GD12", "GD16", "GD20")
 PLACEHOLDER = {"FG": "SkiLiftTowerPlaceholder", "DQ": "SkiLiftTowerDQPlaceholder",
                "GD": "SkiGondolaTowerPlaceholder"}
@@ -1936,19 +1896,18 @@ MEMBER_PREFAB = {"FG8": "SkiLiftTowerFG2"}      # the FG8 member kept its old pr
 
 def pillar_scoring(family, post_freeze=False):
     """
-    pillar-system Q1 for one family's LINE members (SubObjectSystem CreateSubObjects,
-    PillarType.Standalone): spare s = size.y - (e + y), size.y = bounds.max.y = spec.top
-    (ObjectUtils.GetSize, skeptic claim 10), y = the line NetSubObjects spec y = the shortest
-    member's top, e = node elevation above terrain; score 1 / (1 + (s >= 0 ? 2 s : -s)).
-    Consecutive members a < b switch at e = (h_a + 2 h_b) / 3 (h = top - y). A member's base
-    sits h below the node, i.e. e - h above terrain; the pier covers a float up to `pier`,
-    so the tallest member grounds nodes up to h + pier.
-    GD (Revision 1b): the group also holds the shipped lattice towers (GD_LATTICE, made by
-    tram_tower.py); their rows carry "generator": "tram_tower.py".
-    post_freeze (detail pass 1): False / 0 = the family as frozen in the shipped manifests
-    (POST_FREEZE members left out, DT-C1); True / 1 = the family with DQ18 (the DQ18 manifest);
-    2 = with DQ18 and DQ20 (the DQ20 manifest; follow-up 2026-10-11). A member joins at the
-    stage POST_FREEZE_STAGE gives it.
+    pillar-system Q1 for one family's LINE members (SubObjectSystem CreateSubObjects, PillarType.Standalone): spare s =
+    size.y - (e + y), size.y = bounds.max.y = spec.top (ObjectUtils.GetSize, skeptic claim 10), y = the line NetSubObjects
+    spec y = the shortest member's top, e = node elevation above terrain. The score is 1 / (1 + (s >= 0 ? 2 s : -s)).
+    Consecutive members a < b switch at e = (h_a + 2 h_b) / 3 (h = top - y). A member's base sits h below the node, i.e. e -
+    h above terrain. The pier covers a float up to `pier`, so the tallest member grounds nodes up to h + pier.
+
+    GD (Revision 1b): the group also holds the shipped lattice towers (GD_LATTICE, made by tram_tower.py). Their rows carry
+    "generator": "tram_tower.py".
+
+    post_freeze (detail pass 1): False / 0 = the family as frozen in the shipped manifests (POST_FREEZE members left out,
+    DT-C1). True / 1 = the family with DQ18 (the DQ18 manifest). 2 = with DQ18 and DQ20 (the DQ20 manifest, follow-up
+    2026-10-11). A member joins at the stage POST_FREEZE_STAGE gives it.
     """
     stage = int(post_freeze)
     fam = sorted((s for s in VARIANTS.values() if s.family == family and s.role == "line"
@@ -1980,11 +1939,12 @@ def pillar_scoring(family, post_freeze=False):
 
 
 def switch_points_note(family=None, post_freeze=False):
-    """Manifest prefab_notes.switch_points from pillar_scoring (M10's 'FG 8/3, 20/3 m; DQ 4/3,
-    10/3 m' before Revision 1 added FG20 / DQ16: + 32/3 and 16/3). family "GD" (Revision 1b):
-    the gondola group's own line (the FG / DQ string stays byte-identical in their manifests).
-    post_freeze (detail pass 1): 1 = the string with the DQ18 point (the DQ18 manifest only);
-    2 = with the DQ20 point as well (the DQ20 manifest only; follow-up 2026-10-11)."""
+    """Manifest prefab_notes.switch_points from pillar_scoring. M10 had 'FG 8/3, 20/3 m; DQ 4/3, 10/3 m' before Revision 1 added
+    FG20 / DQ16 (they add + 32/3 and 16/3). family "GD" (Revision 1b): the gondola group's own line. The FG / DQ string stays
+    byte-identical in their manifests.
+
+    post_freeze (detail pass 1): 1 = the string with the DQ18 point (the DQ18 manifest only). 2 = with the DQ20 point as well
+    (the DQ20 manifest only, follow-up 2026-10-11)."""
     if family == "GD":
         sw = pillar_scoring("GD")["switch_points_e_m"]
         return ("GD " + ", ".join(f"{int(round(v * 3))}/3" for v in sw)
@@ -2012,20 +1972,20 @@ def _check(cond, label, detail=""):
 
 
 # --------------------------------------------------------------------------------------
-# Part helpers (bmesh-built, deterministic; every part carries exactly one "UVMap")
+# Part helpers. They are bmesh-built and deterministic. Every part carries exactly one "UVMap"
 # --------------------------------------------------------------------------------------
 # _box_uv_bm, _new_part, lite_sheave (the D4 lite sheave): moved to cs2_sheaves (imported above).
 
 
 # --------------------------------------------------------------------------------------
-# Detail pass 1 part helpers (design 3.1; every new part is LOD0-only except the liners)
+# Detail pass 1 part helpers (design 3.1, every new part is LOD0-only except the liners)
 # --------------------------------------------------------------------------------------
 # lite_sheave_parts (discs + rubber liner), _unit: moved to cs2_sheaves (imported above).
 
 
 def _planar_uv_bm(bm, layer, ref=(0.0, 0.0, 1.0)):
-    """Per-face planar projection in meters, unmirrored (u x v = +normal), u along the face
-    plane's projection of `ref` rotated a quarter turn (v = ref's projection: 'up')."""
+    """Per-face planar projection in meters, unmirrored (u x v = +normal). The u axis runs along the face plane's projection of
+    `ref` rotated a quarter turn (v = ref's projection: 'up')."""
     bm.normal_update()
     rv = _unit(ref)
     for f in bm.faces:
@@ -2061,12 +2021,11 @@ def _quad_part(name, quads, ref=(0.0, 0.0, 1.0)):
 
 def plate_parts(tag, centre, normal, size, depth=None, bury=None):
     """
-    The tower plate (design 3.1 / 3.4): `plate_<tag>` = one front quad `depth` proud of the
-    host face (6 mm), `platerim_<tag>` = 4 rim quads from its edges back to `bury` (2 mm)
-    INSIDE the host plane; no back face. `centre` lies ON the host face, `normal` its outward
-    normal (authoring frame, horizontal), `size` (w, h). The front quad's UVMap reads
-    unmirrored from outside: u = the viewer's right (z x n), v = up, so a painter's columns
-    run left to right on both faces (M3). 2 + 8 tris.
+    The tower plate (design 3.1 / 3.4): `plate_<tag>` = one front quad `depth` proud of the host face (6 mm),
+    `platerim_<tag>` = 4 rim quads from its edges back to `bury` (2 mm) INSIDE the host plane. There is no back face.
+    `centre` lies ON the host face, `normal` is its outward normal (authoring frame, horizontal), `size` is (w, h). The UVMap
+    of the front quad reads unmirrored from outside: u = the viewer's right (z x n), v = up, so the columns of a painter run
+    left to right on both faces (M3). 2 + 8 tris.
     """
     depth = DP1_TOWER_DEPTH if depth is None else depth
     bury = DP1_PLATE_BURY if bury is None else bury
@@ -2108,11 +2067,10 @@ def _mast_surface_y(mast_r, segs, half_w):
 
 def conduit_parts(spec, z_foot, z_top):
     """
-    The comm / signal conduit (design 3.1 + M9): a 4-segment uncapped square raceway r 0.025
-    on the mast's +Y side with a 0.05 standoff (the stiff_mastjoint rings reach mast r + 0.04:
-    1 cm clear), from `z_foot` up into the junction box `jbox_0` (0.22 wide x 0.28 tall, deep
-    enough to swallow the conduit + 1 cm, back face dropped and buried 5 mm in the mast) whose
-    top is `z_top`. 8 + 10 tris. Authoring frame.
+    The comm / signal conduit (design 3.1 + M9): a 4-segment uncapped square raceway r 0.025 on the +Y side of the mast with
+    a 0.05 standoff (the stiff_mastjoint rings reach mast r + 0.04: 1 cm clear), from `z_foot` up into the junction box
+    `jbox_0`. The box is 0.22 wide x 0.28 tall, deep enough to swallow the conduit + 1 cm, with the back face dropped and
+    buried 5 mm in the mast. Its top is `z_top`. 8 + 10 tris. Authoring frame.
     """
     c = DP1_CONDUIT
     r, so = c["r"], c["standoff"]
@@ -2136,18 +2094,22 @@ def conduit_parts(spec, z_foot, z_top):
                                                "z_foot": z_foot, "z_box": (z_jb, z_top)}
 
 
-# Family round (2026-11-03, owner: "does the middle cable attach to nothing? It's just floating"): the LV comm wire's
-# anchor (0, comm_y; line piece and tower stub, unchanged) gets a hanger on the skinned heads, as real lines hang the
-# signal cable from a bracket with a clamp. FG: an inverted U strap over the wire on the crossarm top (the wire center
-# sits comm_y - arm_top = 0.04 above it); DQ / GD: a square bar down from the gantry beam's underside to a square sleeve
-# round the wire (the wire runs through the portal window, A + 1.20, beam underside A + 1.692 / + 1.742). The clamp's
-# inside half-size clears the vanilla LV hex (r 0.060, flats 0.052). FG 6 tris, DQ / GD 16; LOD1 drops them.
+# Family round (2026-11-03, owner: "does the middle cable attach to nothing? It's just floating"). The anchor of the LV comm
+# wire (0, comm_y, unchanged for the line piece and the tower stub) gets a hanger on the skinned heads, as real lines hang
+# the signal cable from a bracket with a clamp.
+#
+# - FG: an inverted U strap over the wire on the crossarm top (the wire center
+#   sits comm_y - arm_top = 0.04 above it).
+# - DQ / GD: a square bar down from the underside of the gantry beam to a square sleeve
+#   round the wire (the wire runs through the portal window, A + 1.20, beam underside A + 1.692 / + 1.742).
+#
+# The inside half-size of the clamp clears the vanilla LV hex (r 0.060, flats 0.052). FG 6 tris, DQ / GD 16. LOD1 drops them.
 COMM_CLAMP = dict(len=0.12, half=0.07, bar=0.04, bury=0.03)
 
 
 def comm_hanger_parts(spec, steel_z):
-    """The comm wire's hanger and clamp at its anchor (0, 0, spec.comm_y), authoring frame (x travel). FG: `steel_z` is
-    the crossarm top the U strap stands on; DQ / GD: the gantry beam underside the bar hangs from (buried
+    """The hanger and clamp of the comm wire at its anchor (0, 0, spec.comm_y), authoring frame (x travel). FG: `steel_z` is the
+    crossarm top that the U strap stands on. DQ / GD: it is the gantry beam underside that the bar hangs from (buried
     COMM_CLAMP["bury"] in it). Galvanized, `comm_` parts."""
     c = COMM_CLAMP
     cz, h, ln = spec.comm_y, c["half"], c["len"]
@@ -2175,9 +2137,9 @@ def _outward(quads, centre):
 
 def arrest_part(lx, rung_half, z0, z1):
     """
-    Fall-arrest rail (design 3.1): a 3-face channel 0.040 wide x 0.020 deep centered on the
-    ladder (y 0), its open back 2 mm INTO the rung fronts (the rung's outer face at
-    lx - rung_half, the climber's side = -X), from z0 to z1. 6 tris. Authoring frame.
+    Fall-arrest rail (design 3.1): a 3-face channel 0.040 wide x 0.020 deep centered on the ladder (y 0). Its open back sits
+    2 mm INTO the rung fronts (the rung's outer face at lx - rung_half, the climber's side = -X), from z0 to z1. 6 tris.
+    Authoring frame.
     """
     a = DP1_ARREST
     xb = lx - rung_half + a["bury"]
@@ -2191,10 +2153,9 @@ def arrest_part(lx, rung_half, z0, z1):
 
 def gusset_apex_parts(spec, z_beam_bottom):
     """
-    Apex gusset plates of the rebuild head's A-braces (design 3.1; M4: they do NOT fix the
-    brace a|b z-fight - DP1_INSET brace_a_w does): a 12 mm triangular plate in each brace plane
-    (|y| 1.622) under the beam, top edge 0.60 along the beam bottom buried 3 mm into it, apex
-    0.40 down between the braces. 8 tris each.
+    Apex gusset plates of the A-braces of the rebuild head (design 3.1, M4: they do NOT fix the brace a|b z-fight, DP1_INSET
+    brace_a_w does). Each is a 12 mm triangular plate in each brace plane (|y| 1.622) under the beam: the top edge is 0.60
+    along the beam bottom, buried 3 mm into it, and the apex is 0.40 down between the braces. 8 tris each.
     """
     g = DP1_GUSSET_APEX
     zt = z_beam_bottom + g["bury"]
@@ -2239,14 +2200,15 @@ def _seam_dir(axis):
 
 def uv_revolve(obj, axis, centre, kind="revolve", root=None, cut=None):
     """
-    M11 metric UVs on a part's OWN axis (surfaces of revolution): cap faces (|n.a| > 0.9) get
-    a planar projection (exactly isotropic: flanges, rings, discs); side faces u = rho theta
-    (rho per vertex, theta from the seam: -X on vertical parts, the underside on horizontal),
-    v = the meridian coordinate (rho m_rho + z m_z: cylinders v = z, cones the slant); faces
-    neither cap nor radial (end caps of an arc) planar on their own. Inward faces flip u, so
-    every island reads unmirrored (u x v = +normal). kind "liner": v = the signed slant from
-    the groove root (radius `root`), so both V flanks form ONE strip. `cut` (M1): side faces
-    above this axial coordinate move to their own island.
+    M11 metric UVs on the OWN axis of a part (surfaces of revolution):
+    - Cap faces (|n.a| > 0.9) get a planar projection (exactly isotropic: flanges, rings, discs).
+    - Side faces: u = rho theta (rho per vertex, theta from the seam: -X on vertical parts, the underside on horizontal), v =
+      the meridian coordinate (rho m_rho + z m_z: cylinders v = z, cones the slant).
+    - Faces that are neither cap nor radial (end caps of an arc) are planar on their own.
+
+    Inward faces flip u, so every island reads unmirrored (u x v = +normal). kind "liner": v = the signed slant from the
+    groove root (radius `root`), so both V flanks form ONE strip. `cut` (M1): side faces above this axial coordinate move to
+    their own island.
     """
     a = _unit(axis)
     c = mathutils.Vector(centre)
@@ -2372,10 +2334,9 @@ def _part_bbox_centre(obj):
 
 
 def uv_rule(name, spec, obj=None):
-    """(kind, axis, center-on-origin) of the M11 metric UV a part takes, or None (kit UVs kept:
-    boxes are box-projected in their local frame, isotropic; crashpad_outer is metric already).
-    The small detail parts take ONE strip island each (plate rims, arrest channel, junction
-    box sides): every island costs its 6 px pack margin all round (measured: per-face rims at
+    """(kind, axis, center-on-origin) of the M11 metric UV that a part takes, or None (kit UVs kept: boxes are box-projected in
+    their local frame, isotropic. crashpad_outer is metric already). The small detail parts take ONE strip island each (plate
+    rims, arrest channel, junction box sides): every island costs its 6 px pack margin all round (measured: per-face rims at
     the plate weight cost GD16 ~4 % of its base px/m)."""
     Z, Y, X = (0.0, 0.0, 1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0)
     if name == "crashpad_outer":
@@ -2402,9 +2363,8 @@ def uv_rule(name, spec, obj=None):
 
 
 def _mast_cut_z(spec, side_len, joints):
-    """M1: the axial coordinate where the mast island is split (its seam hidden under the
-    stiff_mastjoint ring nearest mid-height) when the metric island would overflow the atlas,
-    else None."""
+    """M1: the axial coordinate where the mast island is split (its seam hidden under the stiff_mastjoint ring nearest
+    mid-height). The function splits it when the metric island would overflow the atlas, else it returns None."""
     if side_len * DP1_MAST_PPM_EST[spec.family] <= DP1_ISLAND_MAX_PX or not joints:
         return None
     return min(joints, key=lambda z: abs(z - side_len / 2.0))
@@ -2412,9 +2372,11 @@ def _mast_cut_z(spec, side_len, joints):
 
 def detail_post(parts, spec, info):
     """
-    Detail-pass steps on the transformed parts, BEFORE the join (build_tower_v2): hidden
-    contact faces the kit has no flag for (gusset_arm tops on the crossarm bottom, landing-lip
-    faces on the deck lips), the FG / ET chamfers, and the M11 metric UVs.
+    Detail-pass steps on the transformed parts, BEFORE the join (build_tower_v2):
+    - hidden contact faces the kit has no flag for (gusset_arm tops on the crossarm bottom, landing-lip
+      faces on the deck lips)
+    - the FG / ET chamfers
+    - the M11 metric UVs
     """
     rep = {"dropped": {}, "chamfered": [], "uv": {}}
     for o, _k in parts:
@@ -2453,29 +2415,32 @@ def detail_post(parts, spec, info):
 
 
 # --------------------------------------------------------------------------------------
-# Per-family head-kit numbers (Revision 1b): DQ returns its constants untouched (every DQ /
-# ETDQ build stays byte-identical); GD stretches the kit to the 6.0 m gauge
+# Per-family head-kit numbers (Revision 1b): DQ returns its constants untouched (every DQ / ETDQ build stays byte-identical).
+# GD stretches the kit to the 6.0 m gauge
 # --------------------------------------------------------------------------------------
 
 def head_kit(spec):
-    """Gantry-kit offsets: dy (beam, posts, end plates), cdy (carriers, hangers, girder ends),
-    rise (gantry), mdr (ladder / landing shift for the wider mast) - all 0.0 on DQ - and pin_s,
-    the sub-rocker pivot pin length (DQ 0.17; GD 0.14 so the pin end stays at lane - 0.064,
-    inside the gondola head rule dy <= -0.06)."""
+    """Gantry-kit offsets. dy, cdy, rise and mdr are all 0.0 on DQ.
+    - dy: beam, posts, end plates
+    - cdy: carriers, hangers, girder ends
+    - rise: gantry
+    - mdr: ladder / landing shift for the wider mast
+    - pin_s: the length of the sub-rocker pivot pin (DQ 0.17, GD 0.14 so the pin end stays at lane - 0.064,
+      inside the gondola head rule dy <= -0.06)."""
     if spec.family == "GD":
         return {"dy": GD_DY, "cdy": GD_CAR_DY, "rise": GD_RISE, "mdr": 0.05, "pin_s": S.GD_PIN_S}
     return {"dy": 0.0, "cdy": 0.0, "rise": 0.0, "mdr": 0.0, "pin_s": S.DQ_PIN_S}
 
 
 def deck_y(spec):
-    """Deck strip |Y| (inner, outer): DQ 0.695 / 2.15 = lane - 0.45; GD 0.695 / lane - 0.81 = 2.19."""
+    """Deck strip |Y| (inner, outer): DQ 0.695 / 2.15 = lane - 0.45. GD 0.695 / lane - 0.81 = 2.19."""
     if spec.family == "GD":
         return DQ_DECK_Y0, round(GD_LANE - GD_HANGER_COL[0]["half"], 6)
     return DQ_DECK_Y0, DQ_DECK_Y1
 
 
 def rail_y(spec):
-    """Deck rail line |Y|: DQ 2.05; GD 2.09 (deck outer edge - 0.10, the DQ relation)."""
+    """Deck rail line |Y|: DQ 2.05. GD 2.09 (deck outer edge - 0.10, the DQ relation)."""
     if spec.family == "GD":
         return round(deck_y(spec)[1] - (DQ_DECK_Y1 - DQ_RAIL_Y), 6)
     return DQ_RAIL_Y
@@ -2496,8 +2461,8 @@ def hanger_box(spec):
         return dict(DQ_HANGER, y0=round(DQ_HANGER["y0"] + GD_CAR_DY, 6),
                     y1=round(DQ_HANGER["y1"] + GD_CAR_DY, 6))
     if SKINNED:
-        # lift alignment Phase 2: the hanger stops SKIN_DQ["gap"] short of the yoke's inboard face (it ran 6 mm into
-        # the yoke, which now pitches about the main pin): yoke t 0.072 (cs2_sheaves.dq_train), 2.404 - 0.010 = 2.394
+        # lift alignment Phase 2: the hanger stops SKIN_DQ["gap"] short of the yoke's inboard face (it ran 6 mm into the
+        # yoke, which now pitches about the main pin). Yoke t 0.072 (cs2_sheaves.dq_train), 2.404 - 0.010 = 2.394
         return dict(DQ_HANGER, y1=round(DQ_MAIN_Y - 0.072 / 2.0 - SKIN_DQ["gap"], 6))
     return DQ_HANGER
 
@@ -2519,54 +2484,56 @@ def pad_radius(spec):
 
 
 def sheave_segs(spec):
-    """T62: v2 = cs2_sheaves.WHEEL_SEGS (16, every family: round 2); v1 = GD 12 flat / 12."""
+    """T62: v2 = cs2_sheaves.WHEEL_SEGS (16, every family: round 2). v1 = GD 12 flat / 12."""
     if S.wheels_v2():
         return S.wheel_spec(spec.family)["segs"]
     return GD_SHEAVE["segs"] if spec.family == "GD" else 12
 
 
 def sheave_groove(spec):
-    """None = lite_sheave's default V-groove (FG / DQ; every family under T62 v2); GD 0.0 = the v1 flat rim."""
+    """None = lite_sheave's default V-groove (FG / DQ, every family under T62 v2). GD 0.0 = the v1 flat rim."""
     if S.wheels_v2():
         return None
     return GD_SHEAVE["groove"] if spec.family == "GD" else None
 
 
 def sheave_ngon(spec):
-    """T62 v2: n-gon side discs (round 2: every family, under the hub bosses); v1: never."""
+    """T62 v2: n-gon side discs (round 2: every family, under the hub bosses). v1: never."""
     return bool(S.wheels_v2() and S.wheel_spec(spec.family)["ngon"])
 
 
 # -- T27 ROPE ON THE CROWN (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md) -------------------------
-# Playtest items 25 / 27: "the cable passes straight through pulleys/rollers". The shipped contract (D6) puts
-# the LANE on the sheave AXLE, so the vanilla rope drawn on the lane runs through the wheel centers. ROPE_ON_CROWN True =
-# the lane rides the train: a SUPPORT head (rope above the sheaves: every line tower, ET62 / ET68) lane = axle + seat, a
-# COMPRESSION head (ETDQ / ETGD, rope under) lane = axle - seat, seat = rope_seat() (the lane's vanilla cable hexagon
-# resting in the groove: LANE_ROPE). The tower MESH does not change with the flag: only the lane numbers the manifest
-# hands to the surgery (piece m_Lanes y, station HV sub-lane anchors, chair / cabin NetSubObjects y) and the rope
-# height the carrier contracts (C18 hanger column, C20 gondola carrier) sweep at. False (default) = every shipped
-# tower build, byte for byte.
+# Playtest items 25 / 27: "the cable passes straight through pulleys/rollers". The shipped contract (D6) puts the LANE on the
+# sheave AXLE, so the vanilla rope drawn on the lane runs through the wheel centers. ROPE_ON_CROWN True = the lane rides the
+# train:
+# - A SUPPORT head (rope above the sheaves: every line tower, ET62 / ET68): lane = axle + seat.
+# - A COMPRESSION head (ETDQ / ETGD, rope under): lane = axle - seat.
+# - seat = rope_seat() (the lane's vanilla cable hexagon resting in the groove: LANE_ROPE).
+#
+# The tower MESH does not change with the flag. Only these numbers change: the lane numbers that the manifest hands to the
+# surgery (piece m_Lanes y, station HV sub-lane anchors, chair / cabin NetSubObjects y), and the rope height that the carrier
+# contracts (C18 hanger column, C20 gondola carrier) sweep at. False (default) = every shipped tower build, byte for byte.
 ROPE_ON_CROWN = False
 VANILLA_HV_ROPE = dict(r=0.100, h=0.0866)   # High-voltage Cable Lane Mesh m_Bounds x +-0.100, y +-0.0866 (hexagon, flats
 VANILLA_LV_ROPE = dict(r=0.060, h=0.0520)
-# the cable the FG / DQ / GD rope lanes draw (lift alignment round 4, decision 2026-11-02: the vanilla LOW-voltage
-# cable mesh bbb9724d instead of the HV one; no new rope mesh): crown_seat seats it, G6 sweeps and seats it, the
-# game-rope previews draw it (rounds 1-3 and T27 seated the HV hexagon: FG 0.2833 / DQ 0.3096 / GD 0.3366)
+# the cable that the FG / DQ / GD rope lanes draw (lift alignment round 4, decision 2026-11-02: the vanilla LOW-voltage cable
+# mesh bbb9724d instead of the HV one, no new rope mesh). crown_seat seats it, G6 sweeps and seats it, and the game-rope
+# previews draw it. Rounds 1-3 and T27 seated the HV hexagon (FG 0.2833 / DQ 0.3096 / GD 0.3366)
 LANE_ROPE = VANILLA_LV_ROPE
-# the FG / ET (Yan) carrier tree hangs IN the lane plane (cs2_sheaves.fg_train_side): sub rocker axle + 0.20..0.32,
-# sheave arms from the axle up to it, so a rope on the crown (axle + 0.19..0.37) would run through them; under T27 the
-# tree moves inboard by the rope half-width 0.10 + the main rocker half-width 0.077 + 0.023 clear = 0.20 and each sheave
-# hangs on an axle stub (the hanger stays under the 3.6 m crossarm: lane 1.8 - 0.20 = 1.60)
-FG_CROWN_INBOARD = 0.20   # top / bottom); Low-voltage Cable Lane Mesh x +-0.060, y +-0.0520 (%TEMP%\pltar dump)
+# the FG / ET (Yan) carrier tree hangs IN the lane plane (cs2_sheaves.fg_train_side): sub rocker axle + 0.20..0.32, sheave
+# arms from the axle up to it, so a rope on the crown (axle + 0.19..0.37) would run through them. Under T27 the tree moves
+# inboard by the rope half-width 0.10 + the main rocker half-width 0.077 + 0.023 clear = 0.20, and each sheave hangs on an
+# axle stub (the hanger stays under the 3.6 m crossarm: lane 1.8 - 0.20 = 1.60)
+FG_CROWN_INBOARD = 0.20   # top / bottom). Low-voltage Cable Lane Mesh x +-0.060, y +-0.0520 (%TEMP%\pltar dump)
 
 
 def rope_seat(sheave_r, sheave_w, groove, rope=VANILLA_HV_ROPE, chamfer=0.0):
-    """Rope AXIS above the sheave axle when the vanilla cable (a hexagon, circumradius R, flats top / bottom at +-h,
-    bottom flat +-R/2 wide) rests on a lite_sheave of radius r, width w and V-groove depth `groove` (0 = flat rim; the
-    groove profile radius at lateral y is r - groove (1 - |y| / (w/2))). The larger of: the bottom flat's corners on the
-    groove flanks (|y| = min(R/2, w/2)) and the slanted faces on the flange tips (|y| = w/2 when R/2 < w/2 < R).
-    T62 round 2: `chamfer` (cs2_sheaves.wheel_profile c, the v2 wheel's rim chamfer) puts the crests (the flange tips)
-    at |y| = w/2 - chamfer: the formula runs on that half width (0 = every v1 number unchanged)."""
+    """Rope AXIS above the sheave axle when the vanilla cable (a hexagon, circumradius R, flats top / bottom at +-h, bottom flat
+    +-R/2 wide) rests on a lite_sheave of radius r, width w and V-groove depth `groove` (0 = flat rim). The groove profile
+    radius at lateral y is r - groove (1 - |y| / (w/2)). The result is the larger of two values: the bottom flat's corners on
+    the groove flanks (|y| = min(R/2, w/2)) and the slanted faces on the flange tips (|y| = w/2 when R/2 < w/2 < R). T62
+    round 2: `chamfer` (cs2_sheaves.wheel_profile c, the v2 wheel's rim chamfer) puts the crests (the flange tips) at |y| =
+    w/2 - chamfer: the formula runs on that half width (0 = every v1 number unchanged)."""
     R, h, hw = rope["r"], rope["h"], sheave_w / 2.0 - chamfer
     yb = min(R / 2.0, hw)
     prof = sheave_r - groove * (1.0 - yb / hw) if groove > 0.0 else sheave_r
@@ -2585,13 +2552,13 @@ def spec_groove(spec):
 
 
 def wheel_chamfer(r, w):
-    """T62 round 2: the v2 wheel's rim chamfer (crests at w/2 - c) for rope_seat; 0 under v1."""
+    """T62 round 2: the v2 wheel's rim chamfer (crests at w/2 - c) for rope_seat. 0 under v1."""
     return S.wheel_profile(r, w)["c"] if S.wheels_v2() else 0.0
 
 
 def crown_seat(spec, rope=None):
-    """rope_seat of `rope` (default LANE_ROPE, the LV cable) for this tower's head, 0.1 mm-rounded. The HV hexagon
-    (rounds 1-3, T27): v1 FG 0.278, DQ 0.310, GD 0.337; T62 v2 chamfered crests FG 0.2833, DQ / GD unchanged."""
+    """rope_seat of `rope` (default LANE_ROPE, the LV cable) for the head of this tower, 0.1 mm-rounded. The HV hexagon (rounds
+    1-3, T27): v1 FG 0.278, DQ 0.310, GD 0.337. T62 v2 chamfered crests: FG 0.2833, DQ / GD unchanged."""
     return round(rope_seat(spec.sheave_r, spec.sheave_w, spec_groove(spec), rope=LANE_ROPE if rope is None else rope,
                            chamfer=wheel_chamfer(spec.sheave_r, spec.sheave_w)), 4)
 
@@ -2611,10 +2578,10 @@ VARIANTS_SHIPPED = None     # filled by set_rope_on_crown (the VARIANTS table as
 
 
 def set_rope_on_crown(on):
-    """Set ROPE_ON_CROWN and swap the COMPRESSION terminal heads (ETDQ, ETGD): their rope is the station's loading rope
-    (DQ_ENTRY_ROPE_Y 3.70 / GD_ENTRY_ROPE_Y 4.85, frozen by the deck and the chair hang), so under T27 the TRAIN moves
-    up by crown_seat (axle = rope + seat, tube top / bounds top with it) and lane_y = the rope again. Every support head
-    keeps its mesh (the lane rises instead). Idempotent; off restores the shipped table."""
+    """Set ROPE_ON_CROWN and swap the COMPRESSION terminal heads (ETDQ, ETGD). Their rope is the loading rope of the station
+    (DQ_ENTRY_ROPE_Y 3.70 / GD_ENTRY_ROPE_Y 4.85, frozen by the deck and the chair hang). So under T27 the TRAIN moves up by
+    crown_seat (axle = rope + seat, tube top / bounds top with it) and lane_y = the rope again. Every support head keeps its
+    mesh (the lane rises instead). Idempotent. Off restores the shipped table."""
     global ROPE_ON_CROWN, VARIANTS_SHIPPED
     if VARIANTS_SHIPPED is None:
         VARIANTS_SHIPPED = dict(VARIANTS)
@@ -2639,47 +2606,57 @@ def rope_on_crown_block(spec):
             "mesh_changes": False}
 
 
-# -- LIFT ALIGNMENT PHASE 2: SKINNED TOWERS, HINGED HALF TRAINS (round 2, 2026-11-02; cs2_skin; the articulation
+# -- LIFT ALIGNMENT PHASE 2: SKINNED TOWERS, HINGED HALF TRAINS (round 2, 2026-11-02, cs2_skin, the articulation
 # design note option C, docs/research/field/2026-11-02/liftalign/articulation-design-note.md) ------------------------
-# CS2 draws each span's rope straight to the tower's anchor, so over a train the rope CORNERS at the anchor. Each lane's
-# train is two HALF trains hinged on the main pin, which lies on the lateral line through both rope points (net frame
-# (x, 0, crown lane y)). Bones (cs2_skin module docstring, the contract): `Root` (static), `TrainFront` = the halves on
-# the game +z side (authoring +X = net -Y: cs2_skin.FRONT_SIGN_NET), `TrainBack` = the -z side, both heads on that
-# line at net (0, 0, crown lane y), up, roll 0, children of Root. Our code pitches TrainFront by the rope leaving toward
-# +z and TrainBack by the rope toward -z (+ lowers the game +z end), each clamped to SKIN_THETA_MAX, the half-break
+# CS2 draws the rope of each span straight to the anchor of the tower, so over a train the rope CORNERS at the anchor. The
+# train of each lane is two HALF trains hinged on the main pin. The pin lies on the lateral line through both rope points
+# (net frame (x, 0, crown lane y)). Bones (cs2_skin module docstring, the contract):
+# - `Root` (static)
+# - `TrainFront` = the halves on the game +z side (authoring +X = net -Y: cs2_skin.FRONT_SIGN_NET)
+# - `TrainBack` = the -z side
+#
+# Both heads are on that line at net (0, 0, crown lane y), up, roll 0, children of Root. Our code pitches TrainFront by the
+# rope leaving toward +z and TrainBack by the rope toward -z (+ lowers the game +z end). Each is clamped to SKIN_THETA_MAX,
+# and the half-break
 # |front - back| / 2 to cs2_skin.HALF_BREAK_MAX (20 deg). Every vertex weighs 1.0 on its part's bone on EVERY LOD (the
-# importer copies LOD0's ProceduralAnimationProperties onto each LOD: 1.6.0f1 AssetImportPipeline.SetupLODs
-# :2196-2218). SKINNED implies the rope on the crowns (T27, set_rope_on_crown): the pivot line is lane_y(spec, True).
+# importer copies the ProceduralAnimationProperties of LOD0 onto each LOD: 1.6.0f1 AssetImportPipeline.SetupLODs :2196-2218).
+# SKINNED implies the rope on the crowns (T27, set_rope_on_crown): the pivot line is lane_y(spec, True).
+#
 # Head recipes (SKIN_HEADS):
-#   FG Yan     cs2_sheaves.fg_train_side_halves: a half = one 2-wheel bogie on its main-rocker half; the two halves
+#
+#   FG Yan     cs2_sheaves.fg_train_side_halves: a half = one 2-wheel bogie on its main-rocker half. The two halves
 #              lap on the main pin `pivot_main_<side>`, held by the hanger one lateral slab inboard. SKIN_FG beam
 #              (round 4, the default): the shipped three tiers - a half main beam at the shipped height (mast - 0.40,
 #              0.28 over the pin) on a yoke strap `yoke_<side>_f|b` rising from the main pin, the bogie pivots floating
 #              between beam and bar as shipped, the bars at rope height on sheave arms, all inboard of the wheels.
 #              bogie_low (round 3): the bogie bar sits at AXLE height between its wheel pair (wheels on axle stubs from
 #              the bar, no sheave arms) and the main-rocker half is a drop_plate from its lug on the main pin down to
-#              the bogie pivot; both off = round 2 (lug_plate at the pin, bars at rope height on sheave arms).
+#              the bogie pivot. Both off = round 2 (lug_plate at the pin, bars at rope height on sheave arms).
 #   DQ ingest  cs2_sheaves.dq_train_halves: a half = one 4-wheel bogie (two 2-wheel bogies on a main rocker) on its
-#              yoke half `yoke_<side>_f|b`; the Kagelok girder end and the hanger cut SKIN_DQ["gap"] short of the
+#              yoke half `yoke_<side>_f|b`. The Kagelok girder end and the hanger cut SKIN_DQ["gap"] short of the
 #              yoke, a main pin through all three, the yoke's band SKIN_YOKE (its top under the
 #              gantry's slanted posts).
-#   GD rebuild dq_train_halves at SKIN_GD["sheaves"] a side (skin_spec; the shipped 10 a side has a 2-wheel bogie on
+#   GD rebuild dq_train_halves at SKIN_GD["sheaves"] a side (skin_spec). The shipped 10 a side has a 2-wheel bogie on
 #              the pin: with --gd-sheaves 10 each half pairs its 5 wheels from the outer end, a 4-wheel bogie + the
-#              inner wheel on a 1-wheel sub hung on a link); the gantry posts land on the girder ends (they came
-#              down onto the yoke, and with the rope on the crowns through the rope: the T27 C20 head-rule item), the
-#              hanger cut short of the yoke,
-#              the main pin from inside the girder end (SKIN_GD["pin_in"]).
+#              inner wheel on a 1-wheel sub hung on a link. The gantry posts land on the girder ends (they came
+#              down onto the yoke, and with the rope on the crowns through the rope: the T27 C20 head-rule item).
+#              The hanger is cut short of the yoke. The main pin runs from inside the girder end (SKIN_GD["pin_in"]).
 #   DQ / GD clevis (round 3, SKIN_CLEVIS via skin_clevis): the yoke halves thin to plate_t at the yoke slab's outer
 #              faces and a static tongue `hanger_<side>_t` (Root) fills the middle from the head down to a round lug
 #              on the main pin between the inner wheels: both halves' plates straddle it (a clevis on the pin).
-#              Round 4: the plates are only the cheeks on the pin; from beam_x out each half is the shipped full yoke
+#              Round 4: the plates are only the cheeks on the pin. From beam_x out each half is the shipped full yoke
 #              section (0.072 thick), a second shell of the yoke part.
-# Each half's bogies move SKIN_HALF_SHIFT out along the train, so the two inner wheels clear at a 20 deg half-break
-# phi: 2 (x cos phi - d sin phi) - 2 r >= SKIN_CLEAR_MIN (x the inner wheel center, d the crown seat, r the wheel).
-# G6 (skin_sweep -> cs2_skin.sweep): the joint grid cs2_skin.joint_grid(theta_max); per pose no BVH overlap half vs
-# head and half vs half, clearance >= SKIN_CLEAR_MIN (the main pins vs the lugs they run through exempt), the pin joint
-# opening <= SKIN_PIN_GAP_MAX, each half's rope (a straight run from its pivot at its pitch, both lanes) clear of the
-# head and the non-wheel train parts and seated on every crown of its half (SKIN_SEAT_GAP).
+#
+# Each half's bogies move SKIN_HALF_SHIFT out along the train, so the two inner wheels clear at a 20 deg half-break phi: 2 (x
+# cos phi - d sin phi) - 2 r >= SKIN_CLEAR_MIN (x the inner wheel center, d the crown seat, r the wheel).
+#
+# G6 (skin_sweep -> cs2_skin.sweep) uses the joint grid cs2_skin.joint_grid(theta_max). Per pose it checks:
+# - no BVH overlap, half vs head and half vs half
+# - clearance >= SKIN_CLEAR_MIN (the main pins vs the lugs they run through are exempt)
+# - the pin joint opening <= SKIN_PIN_GAP_MAX
+# - each half's rope (a straight run from its pivot at its pitch, both lanes) is clear of the
+#   head and the non-wheel train parts
+# - each half's rope is seated on every crown of its half (SKIN_SEAT_GAP)
 SKINNED = False
 SKIN_BONES = ("Root", "TrainFront", "TrainBack")
 SKIN_TYPE_MAX_SLOPE = {"FG": 38.7, "DQ": 42.0, "GD": 50.2}     # deg, research G6 (the planner's max slope per type)
@@ -2692,37 +2669,37 @@ SKIN_ROOT_FIRST = ("pivot_main_",)      # the main pin belongs to its hanger: bo
 # the train parts the main pin runs through (FG: the round 2 / 3 lap plates, the round 4 yoke straps)
 SKIN_LUG = {"FG": ("rocker_main_", "yoke_"), "DQ": "yoke_", "GD": "yoke_"}
 SKIN_HEADS = {"FG": ("yan",), "DQ": ("ingest",), "GD": ("rebuild",)}
-# m each half's bogies move out along the train: the inner-wheel clearance above at phi 20 deg is FG 11 mm (the design
-# note's 0.06 leaves FG 8 mm inside), DQ 9 mm, GD 21 mm (GD 0.07 would leave 2 mm: under SKIN_CLEAR_MIN)
+# m each half's bogies move out along the train. The inner-wheel clearance above at phi 20 deg is FG 11 mm (the design note's
+# 0.06 leaves FG 8 mm inside), DQ 9 mm, GD 21 mm (GD 0.07 would leave 2 mm: under SKIN_CLEAR_MIN)
 SKIN_HALF_SHIFT = {"FG": 0.07, "DQ": 0.06, "GD": 0.09}
 SKIN_LAP_GAP = 0.010                    # m between the two halves' lap plates on the main pin (each its own slab)
-# FG lap plates' bevel segments (FG_BEVEL gives the shipped box rocker 2: 108 tris; a 2-segment lug plate is 124, x 4 =
-# +280 on the cap-tight FG; 1 segment = 70 a plate)
+# FG lap plates' bevel segments (FG_BEVEL gives the shipped box rocker 2: 108 tris. A 2-segment lug plate is 124, x 4 = +280
+# on the cap-tight FG. 1 segment = 70 a plate)
 SKIN_PLATE_BEVEL = {"FG": 1}
 SKIN_FG = dict(gap=0.015, poke=0.006, pin_r=0.05,           # cs2_sheaves.fg_train_side_halves
                bogie_low=False,     # round 3: the bogie bars at axle height between their wheels (no sheave arms)
                beam=True)           # round 4: the shipped three tiers (half beams on yoke straps, stubs, bars)
 # DQ: pin from inside the girder end (|y| 2.30)
 SKIN_DQ = dict(gap=0.010, poke=0.006, pin_r=0.04, pin_in=2.30)
-# the yoke halves' band (bottom, top), axle-relative (cs2_sheaves.dq_train_halves yoke_bot / yoke_top). Shipped
-# dq_train: 0.25..0.42 (0.17 deep). Rounds 2-3 had the top at pin + 0.05 (DQ A + 0.36) for the 42 deg tilt: the
-# Kagelok gantry's slanted posts cross the yoke's slab (|y| 2.404..2.476) from A + 0.47 up. Round 4, at the 30 deg cap:
-# GD keeps the shipped band; DQ keeps the shipped 0.17 depth 0.01 lower (G6 measured with the LV lane rope, pin at
-# A + 0.2589, and the full-section yoke, SKIN_CLEVIS beam_x: a top of 0.42 meets the gantry_00 posts at a -30 pitch,
-# 3.5 mm, 0.41 clears; the mains' pins, axle + 0.195..0.255, bridge 15 mm into the yoke, C21)
+# the yoke halves' band (bottom, top), axle-relative (cs2_sheaves.dq_train_halves yoke_bot / yoke_top). Shipped dq_train:
+# 0.25..0.42 (0.17 deep). Rounds 2-3 had the top at pin + 0.05 (DQ A + 0.36) for the 42 deg tilt: the Kagelok gantry's
+# slanted posts cross the yoke's slab (|y| 2.404..2.476) from A + 0.47 up. Round 4, at the 30 deg cap: GD keeps the shipped
+# band. DQ keeps the shipped 0.17 depth 0.01 lower (G6 measured with the LV lane rope, pin at A + 0.2589, and the
+# full-section yoke, SKIN_CLEVIS beam_x: a top of 0.42 meets the gantry_00 posts at a -30 pitch, 3.5 mm, 0.41 clears. The
+# pins of the mains, axle + 0.195..0.255, bridge 15 mm into the yoke, C21)
 SKIN_YOKE = {"DQ": (0.24, 0.41), "GD": (0.25, 0.42)}
-# GD: sheaves a side (owner decision: 10, as shipped; 8 = two 4-wheel bogies, a wheel short of the walkway at each end;
-# 12 = 4,958 tris on GD12); the main pin
-# from 0.09 inside the girder end (2.69); the posts 5 mm in from the girder end, buried 5 mm in its top
+# GD: sheaves a side (owner decision: 10, as shipped. 8 = two 4-wheel bogies, a wheel short of the walkway at each end. 12 =
+# 4,958 tris on GD12). The main pin starts 0.09 inside the girder end (2.69). The posts sit 5 mm in from the girder end,
+# buried 5 mm in its top
 SKIN_GD = dict(sheaves=10, pin_in=2.60, post_bury=0.005, post_inset=0.005)
-# round 3 clevis (cs2_sheaves.dq_train_halves clevis): the yoke plates 20 mm at the yoke slab's faces, a static 20 mm
-# tongue 6 mm off each (G6 >= 5 mm) from the head down to a r 0.075 lug on the main pin (pin r 0.04) over the train
-# center. Top: DQ ingest in the Kagelok gantry_00 slanted post (its underside A + 0.56..0.65 across the tongue slab,
-# A + 1.15 its top side: probed), GD 0.03 into the gantry beam (bottom A + 1.692 + rise)
+# round 3 clevis (cs2_sheaves.dq_train_halves clevis). The yoke plates are 20 mm at the yoke slab's faces. A static 20 mm
+# tongue sits 6 mm off each (G6 >= 5 mm), from the head down to a r 0.075 lug on the main pin (pin r 0.04) over the train
+# center. Top: DQ ingest in the Kagelok gantry_00 slanted post (its underside A + 0.56..0.65 across the tongue slab, A + 1.15
+# its top side: probed), GD 0.03 into the gantry beam (bottom A + 1.692 + rise)
 SKIN_CLEVIS = dict(plate_t=0.020, gap=0.006, r=0.075, dq_top=0.70, dq_top_hw=0.075, gd_bury=0.03, gd_top_hw=0.12,
-                   # round 4: each half the shipped full yoke section (0.072) from beam_x out, a cheek on the pin
-                   # inside it. The beam's inner top corner at a 30 deg pitch: 0.866 x - 0.5 (top - pin) >= the
-                   # tongue's half width + 5 mm: DQ >= 0.168, GD >= 0.223 (the tongue's top half width)
+                   # round 4: each half is the shipped full yoke section (0.072) from beam_x out, with a cheek on the pin
+                   # inside it. The inner top corner of the beam at a 30 deg pitch: 0.866 x - 0.5 (top - pin) >= the tongue's
+                   # half width + 5 mm: DQ >= 0.168, GD >= 0.223 (the tongue's top half width)
                    dq_beam_x=0.20, gd_beam_x=0.25)
 SKIN_CLEAR_MIN = 0.005                  # m, half vs head and half vs half at every pose
 SKIN_PIN_GAP_MAX = 0.005                # m, main-pin joint opening over the sweep (G6)
@@ -2734,8 +2711,8 @@ SKIN_PREVIEW_ROPE = 0.10
 
 
 def set_skinned(on):
-    """Set SKINNED (before any part is built); on also puts the rope on the crowns (set_rope_on_crown(True)), whose
-    line the half bones pivot on. Off leaves the crown flag as it is."""
+    """Set SKINNED (before any part is built). On also puts the rope on the crowns (set_rope_on_crown(True)), whose line the
+    half bones pivot on. Off leaves the crown flag as it is."""
     global SKINNED
     SKINNED = bool(on)
     if SKINNED:
@@ -2743,7 +2720,7 @@ def set_skinned(on):
 
 
 def skin_spec(spec):
-    """The spec a skinned build uses: GD at SKIN_GD["sheaves"] a side (10 default as shipped, --gd-sheaves); else `spec`."""
+    """The spec a skinned build uses: GD at SKIN_GD["sheaves"] a side (10 default as shipped, --gd-sheaves). Otherwise `spec`."""
     if SKINNED and spec.family == "GD" and spec.sheaves != SKIN_GD["sheaves"]:
         return _dataclasses.replace(spec, sheaves=SKIN_GD["sheaves"])
     return spec
@@ -2770,9 +2747,9 @@ def skin_half_extent(spec):
 
 
 def skin_part_bones(obj, table, spec):
-    """{train part: TrainFront | TrainBack} on the joined NET-frame LOD0 by travel side (cs2_skin.bones_by_travel),
-    held to the builders' names: `rocker_main_<side>_f` / `yoke_<side>_f` (built at authoring +X) ride TrainFront, the
-    `_b` plates TrainBack. That is the axis record's build-time test (authoring +X -> net -Y -> game +z). Raises."""
+    """{train part: TrainFront | TrainBack} on the joined NET-frame LOD0 by travel side (cs2_skin.bones_by_travel), held to the
+    names of the builders: `rocker_main_<side>_f` / `yoke_<side>_f` (built at authoring +X) ride TrainFront, the `_b` plates
+    TrainBack. That is the build-time test of the axis record (authoring +X -> net -Y -> game +z). Raises."""
     import re
     fam = spec.family
     pb = cs2_skin.bones_by_travel(
@@ -2807,9 +2784,9 @@ def build_skin_armature(spec, name):
 
 
 def preview_rope(spec):
-    """(radius, drop below the pivot line) of the PREVIEW rope stand-in: a real rope (diameter SKIN_PREVIEW_ROPE x the
-    sheave's) with its axis at the groove bottom + its radius. Previews only (round 3; round 4 renders the game rope):
-    the game draws the lane's vanilla cable mesh (LANE_ROPE: LV, r 0.060) on the lane, and G6 checks that one."""
+    """(radius, drop below the pivot line) of the PREVIEW rope stand-in: a real rope (diameter SKIN_PREVIEW_ROPE x the sheave's)
+    with its axis at the groove bottom + its radius. Previews only (round 3, round 4 renders the game rope): the game draws
+    the lane's vanilla cable mesh (LANE_ROPE: LV, r 0.060) on the lane, and G6 checks that one."""
     rt = SKIN_PREVIEW_ROPE * spec.sheave_r
     d = crown_seat(spec) - (spec.sheave_r - spec_groove(spec) + rt)      # the lane seat minus the real rope's axis
     return rt, round(-d if spec.kind == "compression" else d, 6)
@@ -2831,8 +2808,8 @@ def skin_rope_runs(spec, pose, run=None, start=0.0, preview=False):
 
 
 def skin_sweep(obj, table, spec, part_bone):
-    """G6 on the joined net-frame LOD0 (cs2_skin.sweep over cs2_skin.joint_grid(theta_max)); raises TowerContractError
-    on a failed gate after logging every pose. Returns the report (meters)."""
+    """G6 on the joined net-frame LOD0 (cs2_skin.sweep over cs2_skin.joint_grid(theta_max)). It raises TowerContractError on a
+    failed gate after logging every pose. Returns the report (meters)."""
     fam = spec.family
     zp = lane_y(spec, True)
     tmax = SKIN_THETA_MAX[fam]
@@ -2893,13 +2870,20 @@ def skin_sweep(obj, table, spec, part_bone):
 
 
 def skin_views(spec):
-    """Round 2 previews: [(label, pose {bone: deg}, render_tower_views dicts)] in the net frame (X lateral, -Y = game
-    forward = TrainFront). Level: the head from the front, the side, 3/4, above and below, and the whole tower 3/4; then
-    the +X lane's train close up along the lateral axis (the pivot axis: pitches read true), 3/4, and the joint on the
-    main pin (FG from inboard, DQ / GD from outboard), at the uniform slope limit (front = back = theta_max), a crest
-    like the photo (front +15 / back -15: a 30 deg break), the 20 deg half-break limit (+20 / -20), the steep limit
-    (front theta_max, back theta_max - 40) and a dip (-15 / +15). Distances fit the head / train to a 50 mm lens at
-    1300 x 1000 (half-width 15.6 / 50)."""
+    """Round 2 previews: [(label, pose {bone: deg}, render_tower_views dicts)] in the net frame (X lateral, -Y = game forward =
+    TrainFront).
+
+    Level views: the head from the front, the side, 3/4, above and below, and the whole tower 3/4.
+
+    Then the +X lane's train close up along the lateral axis (the pivot axis: pitches read true), 3/4, and the joint on the
+    main pin (FG from inboard, DQ / GD from outboard). The poses are:
+    - the uniform slope limit (front = back = theta_max)
+    - a crest like the photo (front +15 / back -15: a 30 deg break)
+    - the 20 deg half-break limit (+20 / -20)
+    - the steep limit (front theta_max, back theta_max - 40)
+    - a dip (-15 / +15)
+
+    Distances fit the head / train to a 50 mm lens at 1300 x 1000 (half-width 15.6 / 50)."""
     zp = lane_y(spec, True)
     k = 50.0 / 15.6
     head_w = spec.gauge / 2.0 + 0.7
@@ -2947,17 +2931,17 @@ def skin_views(spec):
     ]
 
 
-# The round 2 preview light (render_tower_views `light`): the pilot's noon from 55 deg over a snow-white ground read flat
-# and pale; a lower key sun from the camera side over a gray ground keeps the bounce down and draws the grooves
+# The round 2 preview light (render_tower_views `light`): the pilot's noon from 55 deg over a snow-white ground read flat and
+# pale. A lower key sun from the camera side over a gray ground keeps the bounce down and draws the grooves
 SKIN_LIGHT = dict(elevation_deg=32.0, sun_energy=4.5, azimuth_deg=-40.0, ground_albedo=0.30,
                   look="AgX - Medium High Contrast")
 
 
 def render_skin_views(t, arm, spec, asset_dir, name, out_dir, views=None):
-    """skin_views through render_tower_views (the baked maps) in SKIN_LIGHT: per pose one posed copy (cs2_skin.posed_copy:
-    the armature's result, held to the sweep's pose) with each half's rope as the game draws it (skin_rope_runs: the
-    lane's LV cable on the crowns, dark steel; round 4 drops the round 3 thin stand-in) and the LV comm wire on its
-    anchor (0, comm_y), each half's run at that half's pitch, as extras. Returns the PNG paths."""
+    """skin_views through render_tower_views (the baked maps) in SKIN_LIGHT: per pose one posed copy (cs2_skin.posed_copy: the
+    armature's result, held to the pose of the sweep), with each half's rope as the game draws it (skin_rope_runs: the lane's
+    LV cable on the crowns, dark steel. Round 4 drops the round 3 thin stand-in) and the LV comm wire on its anchor (0,
+    comm_y), each half's run at that half's pitch, as extras. Returns the PNG paths."""
     mat = bpy.data.materials.new(name + "_PreviewRope")
     mat.use_nodes = True
     bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
@@ -3077,13 +3061,12 @@ def crashpad_z0(spec):
 
 def crashpad_parts(z0=None, radius=None):
     """
-    CRASHPAD shell (cs2_asset.CRASHPAD contract, open sector on -X) split in two parts:
-    `crashpad_outer` = the outer wall only, UVMap u = R * theta, v = z in meters (theta
-    -135..+135 deg, unmirrored seen from outside: the warning-triangle island keeps its 3D
-    aspect through the unique pack); `crashpad` = inner wall, rims and end caps, box UVs.
-    Windings are explicit (outward), 28 + 88 tris. `z0` overrides CRASHPAD["z0"] (0.15): the
-    v2 towers pass crashpad_z0(spec) so the pad sits on the base flange (review F3). `radius`
-    overrides the shell's outer radius (GD: pad_radius(spec) around the r 0.50 mast).
+    CRASHPAD shell (cs2_asset.CRASHPAD contract, open sector on -X) split in two parts: `crashpad_outer` = the outer wall
+    only, UVMap u = R * theta, v = z in meters (theta -135..+135 deg, unmirrored seen from outside: the warning-triangle
+    island keeps its 3D aspect through the unique pack). `crashpad` = inner wall, rims and end caps, box UVs. Windings are
+    explicit (outward), 28 + 88 tris. `z0` overrides CRASHPAD["z0"] (0.15): the v2 towers pass crashpad_z0(spec), so the pad
+    sits on the base flange (review F3). `radius` overrides the outer radius of the shell (GD: pad_radius(spec) around the r
+    0.50 mast).
     """
     cp = cs2_asset.CRASHPAD
     R, t = (cp["radius"] if radius is None else radius), cp["thickness"]
@@ -3154,8 +3137,8 @@ def _kit(parts_q, key_of):
 # --------------------------------------------------------------------------------------
 
 def _mast_part(spec, height, caps, cut):
-    """The mast (16-gon, z 0..height); `cut` (M1) adds the edge loop the metric UV splits the
-    island at (+16 quads), hidden under that stiff_mastjoint ring."""
+    """The mast (16-gon, z 0..height). `cut` (M1) adds the edge loop at which the metric UV splits the island (+16 quads),
+    hidden under that stiff_mastjoint ring."""
     m = K.add_cyl("mast", spec.mast_r, height, (0.0, 0.0, height / 2.0), segments=16, caps=caps)
     if cut is not None:
         bm = bmesh.new()
@@ -3177,8 +3160,8 @@ def _joint_zs(spec, height):
 
 
 def _ring_segs(spec, joints):
-    """DQ20 reclaim (DP1_RING_SEGS_RECLAIM): 12-segment joint rings on a DQ member with two
-    joints; every frozen variant keeps 16."""
+    """DQ20 reclaim (DP1_RING_SEGS_RECLAIM): 12-segment joint rings on a DQ member with two joints. Every frozen variant keeps
+    16."""
     return DP1_RING_SEGS_RECLAIM if (spec.family == "DQ" and len(joints) >= 2) else 16
 
 
@@ -3264,8 +3247,8 @@ def fg_parts(spec):
     if SKINNED and spec.comm_y is not None:
         P += comm_hanger_parts(spec, arm_top)
 
-    # ladder up the -X face (legacy build_ladder numbers; rungs 4-seg uncapped, detail pass 1:
-    # turned 45 deg about their axis - a flat top, the square-bar rung - instead of a corner)
+    # ladder up the -X face (legacy build_ladder numbers). Rungs: 4-seg uncapped, and in detail pass 1 turned 45 deg about
+    # their axis - a flat top, the square-bar rung - instead of a corner
     lx = -(spec.mast_r + 0.10)
     top = mast + FG_ARM_T / 2.0 + 0.05
     for tag, s in (("n", -1.0), ("p", 1.0)):
@@ -3281,20 +3264,21 @@ def fg_parts(spec):
     P += crashpad_parts(crashpad_z0(spec))
     info = {"arm_top": arm_top, "mast_cut": cut, "joints": joints}
     P += detail_parts_fg(spec, info, lx)
-    S.cull_hidden_bosses(P, label=spec.key)         # T62 round 3: hidden hub bosses dropped (measured; v1 no-op)
+    S.cull_hidden_bosses(P, label=spec.key)         # T62 round 3: hidden hub bosses dropped (measured, v1 no-op)
     return P, info
 
 
 def detail_parts_fg(spec, info, lx):
-    """FG / ET detail-pass parts (design 3.1): the two tower plates on the crossarm's travel
-    faces, conduit + junction box (below the tip deflector, which the design missed), and
-    the fall-arrest rail (from the first rung to just under the catwalk grating)."""
+    """FG / ET detail-pass parts (design 3.1):
+    - the two tower plates on the travel faces of the crossarm
+    - conduit + junction box (below the tip deflector, which the design missed)
+    - the fall-arrest rail (from the first rung to just under the catwalk grating)"""
     mast = spec.tube_top
     P = []
     for tag, s in (("n", -1.0), ("p", 1.0)):
         P += plate_parts(tag, (s * FG_ARM_D / 2.0, 0.0, mast), (s, 0.0, 0.0), DP1_PLATE["FG"])
-    # the tip deflector (build_tip_deflector) wraps the +Y side at axle - 0.67 .. axle - 0.17,
-    # r 0.40-0.62: the junction box stays 0.10 under it (design: "<= mast - 0.50")
+    # the tip deflector (build_tip_deflector) wraps the +Y side at axle - 0.67 .. axle - 0.17, r 0.40-0.62. The junction box
+    # stays 0.10 under it (design: "<= mast - 0.50")
     z_top = min(mast - DP1_CONDUIT["fg_top_below_mast"], spec.axle - 0.67 - 0.10)
     cp, cinfo = conduit_parts(spec, DP1_CONDUIT["fg_foot_z"], z_top)
     P += cp
@@ -3315,7 +3299,7 @@ DQ_BEVEL = {"rocker_main_": 1, "rocker_link_": 1, "gantry_beam": 2, "gantry_gird
 # --------------------------------------------------------------------------------------
 
 def dq_deck_length(spec):
-    """Deck length L = max(4.30, train + 0.20); train = rim tip to rim tip [K, D] (SKINNED: + the two halves' shift)."""
+    """Deck length L = max(4.30, train + 0.20), train = rim tip to rim tip [K, D] (SKINNED: + the shift of the two halves)."""
     train = (spec.sheaves - 1) * spec.pitch + 2.0 * spec.sheave_r
     if SKINNED:
         train += 2.0 * SKIN_HALF_SHIFT[spec.family]
@@ -3328,11 +3312,10 @@ def dq_sheave_centres(spec, side):
 
 
 def _gantry_rebuild(spec):
-    """Rebuilt portal (section 4.2 numbers) + the F13 saddle as the girders' shared block.
-    GD (Revision 1b): the same members stretched by head_kit (beam, posts, end plates out by
-    0.40; girder ends 0.39; the whole portal 0.05 higher -> end-plate tops at A + 2.000); no
-    saddle (the r 0.50 tube tops out at A + 0.50, above the saddle's A + 0.453: it would be
-    100 % hidden); the A-braces keep |Y| 1.622."""
+    """Rebuilt portal (section 4.2 numbers) + the F13 saddle as the shared block of the girders. GD (Revision 1b): the same
+    members stretched by head_kit (beam, posts, end plates out by 0.40, girder ends 0.39, the whole portal 0.05 higher ->
+    end-plate tops at A + 2.000). There is no saddle: the r 0.50 tube tops out at A + 0.50, above the A + 0.453 of the
+    saddle, so the saddle would be 100 % hidden. The A-braces keep |Y| 1.622."""
     A = spec.axle
     kit = head_kit(spec)
     dy, rise = kit["dy"], kit["rise"]
@@ -3354,14 +3337,14 @@ def _gantry_rebuild(spec):
             P.append((K.add_box(f"gantry_post_{tag}", (0.18, 0.198, 1.442 + rise - pb),
                                 (0.0, s * (2.51 + dy), A + 0.25 + 0.721 + rise / 2.0 + pb / 2.0),
                                 drop=("+Z",)), "paint"))
-        # the girder's inner end is hidden on the saddle's face (DQ / ETDQ; GD has no saddle)
+        # the girder's inner end is hidden on the saddle's face (DQ / ETDQ, GD has no saddle)
         inner = (("+Y",) if s < 0 else ("-Y",)) if spec.family != "GD" else ()
         P.append((K.add_box(f"gantry_girder_{tag}", (g["x"], g["y1"] - g["y0"], g["z1"] - g["z0"]),
                             (0.0, s * (g["y0"] + g["y1"]) / 2.0, A + (g["z0"] + g["z1"]) / 2.0),
                             drop=inner), "paint"))
-    # F13 [D]: the saddle is the block the two girders share (girder section, between their
-    # inner ends at Y +-0.12), dropped 0.09 into the tube top; Kagelok's is part of the
-    # gantry island (0.79 u block, z 22.23-24.23 rel flange).
+    # F13 [D]: the saddle is the block that the two girders share (girder section, between their inner ends at Y +-0.12),
+    # dropped 0.09 into the tube top. The saddle of Kagelok is part of the gantry island (0.79 u block, z 22.23-24.23 rel
+    # flange).
     if spec.family != "GD":
         P.append((K.add_box("gantry_saddle", (DQ_GIRDER["x"], 2 * DQ_GIRDER["y0"], 0.63),
                             (0.0, 0.0, A + 0.138)), "paint"))
@@ -3400,9 +3383,8 @@ def _dq_rails(spec, L):
 
 def _dq_ladder(spec):
     """
-    F11: the ladder tops out at deck level BESIDE two landing plates that bridge from the
-    ladder to each deck strip (|Y| 0.315..0.695 at X -0.85..-0.40, top = deck top); the
-    rails run on as grab rails to deck + 1.0.
+    F11: the ladder tops out at deck level BESIDE two landing plates that bridge from the ladder to each deck strip (|Y|
+    0.315..0.695 at X -0.85..-0.40, top = deck top). The rails run on as grab rails to deck + 1.0.
     """
     A = spec.axle
     P = []
@@ -3445,19 +3427,18 @@ def skin_clevis(spec):
 
 
 def _dq_train(spec):
-    """Sheave trains with every carrier INBOARD of the sheaves (section 4.2, F9). GD: carriers
-    and hangers at head_kit cdy (lane - 0.098 / - 0.17 / - 0.20..- 0.31), the lattice's
-    12-segment r 0.25 flat sheaves, odd sub counts symmetric (_sub_pairs). Revision 1c: a sub
-    no main carries hangs from the yoke on a link `rocker_link_<side>_<sub>` (DQ_LINK), its
-    pivot pin through the link's lug (C21)."""
+    """Sheave trains with every carrier INBOARD of the sheaves (section 4.2, F9). GD: carriers and hangers at head_kit cdy (lane
+    - 0.098 / - 0.17 / - 0.20..- 0.31), the lattice's 12-segment r 0.25 flat sheaves, and symmetric odd sub counts
+    (_sub_pairs). Revision 1c: a sub that no main carries hangs from the yoke on a link `rocker_link_<side>_<sub>` (DQ_LINK),
+    with its pivot pin through the lug of the link (C21)."""
     n = spec.sheaves
     if n % 2:
         raise TowerContractError(f"{spec.key}: sheaves per side must be even, got {n}")
     kit = head_kit(spec)
     cdy = kit["cdy"]
     sub_y, main_y = DQ_SUB_Y + cdy, DQ_MAIN_Y + cdy
-    # cs2_sheaves.dq_train = this function's body, moved verbatim; THIS module's globals (DQ_SUB_Y, DQ_LINK,
-    # DP1_INSET, head_kit / hanger_box) are passed at call time, so the tests' constant patches still apply
+    # cs2_sheaves.dq_train = the body of this function, moved verbatim. THIS module's globals (DQ_SUB_Y, DQ_LINK, DP1_INSET,
+    # head_kit / hanger_box) are passed at call time, so the constant patches of the tests still apply
     if not SKINNED:
         return S.dq_train(lambda s: dq_sheave_centres(spec, s), n, spec.axle, spec.sheave_r, spec.sheave_w,
                           sheave_segs(spec), sheave_groove(spec), sub_y, main_y, kit["pin_s"], hanger_box(spec),
@@ -3517,17 +3498,16 @@ def dq_parts(spec, head, kagelok=None):
     P += _dq_ladder(spec)
     P += crashpad_parts(crashpad_z0(spec), radius=pad_radius(spec))
     P += detail_parts_dq(spec, head, info, P)
-    S.cull_hidden_bosses(P, label=spec.key)         # T62 round 3: hidden hub bosses dropped (measured; v1 no-op)
+    S.cull_hidden_bosses(P, label=spec.key)         # T62 round 3: hidden hub bosses dropped (measured, v1 no-op)
     return P, info
 
 
 def ingest_beam_faces(gantry, spec):
-    """The Kagelok gantry_00 beam's two TRAVEL faces at the centerline (design 3.1; skeptic M1
-    / M10: plane AND normal measured, the ingest gantry is sheared): faces with |n.x| > 0.9
-    whose y extent reaches |y| <= 0.3 (the beam is two half-shells meeting at y 0: measured
-    faces x -0.151 / +0.149, z A + 1.691 .. A + 1.925, unbevelled) and center z A + 1.70 ..
-    A + 1.93. Returns {+1 / -1: (center on the face plane at y 0 and the faces' mid height,
-    unit normal, (z0, z1), (y0, y1))}."""
+    """The Kagelok gantry_00 beam's two TRAVEL faces at the centerline (design 3.1, skeptic M1 / M10: plane AND normal measured,
+    the ingest gantry is sheared). They are the faces with |n.x| > 0.9 whose y extent reaches |y| <= 0.3 (the beam is two
+    half-shells meeting at y 0: measured faces x -0.151 / +0.149, z A + 1.691 .. A + 1.925, unbeveled) and center z A + 1.70
+    .. A + 1.93. Returns {+1 / -1: (center on the face plane at y 0 and the faces' mid height, unit normal, (z0, z1), (y0,
+    y1))}."""
     A = spec.axle
     me = gantry.data
     out = {}
@@ -3556,10 +3536,11 @@ def ingest_beam_faces(gantry, spec):
 
 
 def detail_parts_dq(spec, head, info, parts):
-    """DQ / GD / ETDQ / ETGD detail-pass parts (design 3.1): the tower plates on the gantry
-    beam's travel faces (rebuild: the 0.30 beam's faces at x +-0.150; ingest: the measured
-    gantry_00 face), the conduit + junction box (foot on the pad rim top, M9; box top under
-    the deck), the fall-arrest rail (first rung -> the ladder rails' top)."""
+    """DQ / GD / ETDQ / ETGD detail-pass parts (design 3.1):
+    - the tower plates on the travel faces of the gantry beam (rebuild: the faces of the 0.30 beam at x +-0.150.
+      Ingest: the measured gantry_00 face)
+    - the conduit + junction box (foot on the pad rim top, M9. Box top under the deck)
+    - the fall-arrest rail (first rung -> the top of the ladder rails)"""
     A = spec.axle
     P = []
     if head == "ingest":
@@ -3595,7 +3576,7 @@ def detail_parts_dq(spec, head, info, parts):
 
 
 # --------------------------------------------------------------------------------------
-# Kagelok line-head ingest (towers-v2 section 6 with M1 / M7 / M11; skeptic claim 17)
+# Kagelok line-head ingest (towers-v2 section 6 with M1 / M7 / M11, skeptic claim 17)
 # --------------------------------------------------------------------------------------
 
 def _coords(obj):
@@ -3613,9 +3594,8 @@ def _set_coords(obj, co):
 
 def _untilt_matrix(axis_vec, pivot):
     """
-    M2 (entry kit only, kept for the record): rotate the measured tube axis onto +Z with
-    axis.rotation_difference(+Z) about `pivot` - no hand-picked sign. Not used by any
-    shipped variant: ETDQ is rebuild-only (M3).
+    M2 (entry kit only, kept for the record): rotate the measured tube axis onto +Z with axis.rotation_difference(+Z) about
+    `pivot` - no hand-picked sign. No shipped variant uses it: ETDQ is rebuild-only (M3).
     """
     q = mathutils.Vector(axis_vec).normalized().rotation_difference(mathutils.Vector((0, 0, 1)))
     p = mathutils.Vector(pivot)
@@ -3624,12 +3604,10 @@ def _untilt_matrix(axis_vec, pivot):
 
 def ingest_gantry(spec, path):
     """
-    The Kagelok LINE head kit: gantry island + its 4 end plates, onto our axle and gauge.
-    Measures P0 from the source (end-sheave chord mid, gantry x center, tube y center),
-    then: translate -P0 -> x0.30 -> reframe (+Y travel -> +X) -> shear_level on the GANTRY
-    PART ONLY (M1) -> stretch_gauge -> +A -> clean -> smart-project UVMap. Raises
-    TowerContractError on any section 6.2 assert (the caller ships rebuild then).
-    Returns ([(obj, "paint")], report).
+    The Kagelok LINE head kit: gantry island + its 4 end plates, onto our axle and gauge. It measures P0 from the source
+    (end-sheave chord mid, gantry x center, tube y center). Then the steps are: translate -P0 -> x0.30 -> reframe (+Y travel
+    -> +X) -> shear_level on the GANTRY PART ONLY (M1) -> stretch_gauge -> +A -> clean -> smart-project UVMap. It raises
+    TowerContractError on any section 6.2 assert (the caller ships rebuild then). Returns ([(obj, "paint")], report).
     """
     import cs2_ingest
     if not os.path.isfile(path):
@@ -3700,7 +3678,7 @@ def ingest_gantry(spec, path):
         o.data.update()
     factor = cs2_ingest.rescale_by_reference(keep, 1.0, "Z", KAG_SCALE)
     cs2_ingest.reframe(keep, forward="+Y", up="+Z", pivot=None)
-    # shear_level, gantry part ONLY (M1); end bands |x| within 0.05 m of each line end
+    # shear_level, gantry part ONLY (M1). End bands |x| within 0.05 m of each line end
     g = _coords(gantry)
     xmin, xmax = g[:, 0].min(), g[:, 0].max()
     lo_band = g[g[:, 0] <= xmin + 0.05]
@@ -3723,9 +3701,9 @@ def ingest_gantry(spec, path):
         _set_coords(o, c)
     girder_cut = None
     if SKINNED:
-        # lift alignment Phase 2: the girder's end block (x +-0.09, z A + 0.22..0.43) reaches |y| 2.491, through the
-        # yoke (2.404..2.476) the train now pitches in: its 4 end vertices a side move in to the skinned hanger end
-        # (hanger_box y1, SKIN_DQ["gap"] short of the yoke), the main pin bridges the gap
+        # lift alignment Phase 2: the end block of the girder (x +-0.09, z A + 0.22..0.43) reaches |y| 2.491, through the
+        # yoke (2.404..2.476) the train now pitches in. Its 4 end vertices a side move in to the skinned hanger end
+        # (hanger_box y1, SKIN_DQ["gap"] short of the yoke), and the main pin bridges the gap
         y_cut = hanger_box(spec)["y1"]
         g = _coords(gantry)
         m = ((np.abs(g[:, 1]) > y_cut) & (np.abs(g[:, 0]) < 0.12)
@@ -3831,7 +3809,7 @@ def lod_prefixes(spec):
 
 
 def check_c10(parts, spec):
-    """C10: one UV layer "UVMap" per part; every part named by a known prefix."""
+    """C10: one UV layer "UVMap" per part. Every part has a name with a known prefix."""
     l1, l2 = lod_prefixes(spec)
     keep = FG_KEEP if spec.family == "FG" else DQ_KEEP
     known = tuple(density_table(spec)) + l1 + l2 + keep
@@ -3877,7 +3855,7 @@ def build_tower_v2(spec, head=None, finish=True, kagelok=None, name=None):
     if finish:
         import cs2_bake
         bpy.context.view_layer.update()
-        # T62 round 2: + the one wheel material (cs2_sheaves.WHEEL_MATERIAL) under v2; v1 = TOWER_MATERIALS as it was
+        # T62 round 2: + the one wheel material (cs2_sheaves.WHEEL_MATERIAL) under v2. v1 = TOWER_MATERIALS as it was
         sources = cs2_bake.material_sources({**TOWER_MATERIALS, **S.wheel_materials(dict)}, parts)
     bpy.ops.object.select_all(action="DESELECT")
     for o, _k in parts:
@@ -3939,7 +3917,7 @@ def part_vertices(obj, table):
 
 
 def _frame_axes(frame):
-    """(travel index, travel sign, gauge index): authoring X/Y; net = orient_for_net's -Y/X."""
+    """(travel index, travel sign, gauge index): authoring X/Y, net = orient_for_net's -Y/X."""
     return (0, 1.0, 1) if frame == "authoring" else (1, -1.0, 0)
 
 
@@ -3977,11 +3955,10 @@ def _part_bvh(obj, table, test):
 
 
 def check_hanger_column(obj, table, spec, frame="authoring"):
-    """C18 on one gantry-head tower mesh (authoring frame: X travel, Y gauge). Returns
-    {"column": [(lane sign, part)], "gantry": [(part, gantry part)], "box_z": (z0, z1)}; empty
-    lists = clear. The column boxes come from hanger_columns(spec) (DQ: one box, the station's
-    C8 column; GD: the gd8 hanger + body boxes); "box_z" is the first box. Used by
-    assert_tower_contracts and tests/test_tower_contracts.py."""
+    """C18 on one gantry-head tower mesh (authoring frame: X travel, Y gauge). Returns {"column": [(lane sign, part)], "gantry":
+    [(part, gantry part)], "box_z": (z0, z1)}. Empty lists = clear. The column boxes come from hanger_columns(spec) (DQ: one
+    box, the station's C8 column. GD: the gd8 hanger + body boxes). "box_z" is the first box. Used by assert_tower_contracts
+    and tests/test_tower_contracts.py."""
     from mathutils.bvhtree import BVHTree
     ti, _ts, gi = _frame_axes(frame)
     lane, A, sag = spec.gauge / 2.0, lane_y(spec), abs(spec.sag)      # T27: the rope height (= axle unless ROPE_ON_CROWN)
@@ -4022,10 +3999,10 @@ def check_hanger_column(obj, table, spec, frame="authoring"):
 
 
 def _pad_facet_radii(pts, radius=None):
-    """(inner, outer) radius of the FACETED crash-pad walls (crashpad_parts: `segments` flat
-    facets between the arc ends) along each point's azimuth (authoring frame: the open sector
-    is on -X); NaN outside the arc. A facet at azimuth th sits at r_v cos(step/2) / cos(th - mid).
-    `radius` = the shell's outer radius (default cs2_asset.CRASHPAD; GD: pad_radius(spec))."""
+    """(inner, outer) radius of the FACETED crash-pad walls (crashpad_parts: `segments` flat facets between the arc ends) along
+    the azimuth of each point (authoring frame: the open sector is on -X). NaN outside the arc. A facet at azimuth th sits at
+    r_v cos(step/2) / cos(th - mid). `radius` = the outer radius of the shell (default cs2_asset.CRASHPAD, GD:
+    pad_radius(spec))."""
     cp = cs2_asset.CRASHPAD
     R, t, segs = (cp["radius"] if radius is None else radius), cp["thickness"], cp["segments"]
     half = math.radians(cp["arc_deg"]) / 2.0
@@ -4039,11 +4016,13 @@ def _pad_facet_radii(pts, radius=None):
 
 def check_pad_flange(obj, table, spec):
     """
-    C14 data on one tower mesh (AUTHORING frame, or any frame rotated about Z only for the
-    triangle test): `tri_hits` = sorted {(flange/bolt part, pad part)} whose triangles cross
-    (BVH overlap); `ring_inside` / `facet_inside` = flange/bolt vertices inside the ideal ring
-    (r 0.50-0.56) / the faceted shell over the pad's real z range; `clear_mm` = how far the
-    nearest in-arc flange/bolt vertex sits inside the inner facets; `pad_z0`, `plate_top`.
+    C14 data on one tower mesh (AUTHORING frame, or any frame rotated about Z only for the triangle test):
+    - `tri_hits` = sorted {(flange/bolt part, pad part)} whose triangles cross (BVH overlap)
+    - `ring_inside` / `facet_inside` = flange/bolt vertices inside the ideal ring
+      (r 0.50-0.56) / the faceted shell over the real z range of the pad
+    - `clear_mm` = how far the nearest in-arc flange/bolt vertex sits inside the inner facets
+    - `pad_z0`, `plate_top`
+
     Used by assert_tower_contracts and tests/test_tower_contracts.py.
     """
     cpd = dict(cs2_asset.CRASHPAD, radius=pad_radius(spec))
@@ -4097,7 +4076,7 @@ def _zone_hits(bvh, names, pv, lo, hi, allowed=()):
 def check_gd_clearances(obj, table, spec):
     """
     GD contracts on one tower mesh (AUTHORING frame, before orient_for_net):
-    C19 comm: the LV comm wire (lateral 0, z = comm_y, the whole travel extent; vanilla LV mesh
+    C19 comm: the LV comm wire (lateral 0, z = comm_y, the whole travel extent, vanilla LV mesh
         r 0.06 + 0.04) crosses no triangle - it runs through the gantry window between the
         tube top / girders (A + 0.50) and the beam (A + 1.742).
     C20 gondola carrier (the hanger OUTBOARD, facing travel): every GD_CARRIER box swept along
@@ -4122,8 +4101,8 @@ def check_gd_clearances(obj, table, spec):
         cz, cr = spec.comm_y, 0.10
         # the family round's hanger and clamp (comm_hanger_parts) hold the wire: theirs are the only hits allowed
         out["comm"] = _zone_hits(bvh, names, pv, (-xt, -cr, cz - cr), (xt, cr, cz + cr), allowed=("comm_",))
-        # the gantry window the comm wire passes at the portal (X 0, Y 0): first structure below /
-        # above it (ray casts), relative to the axle
+        # the gantry window that the comm wire passes at the portal (X 0, Y 0): first structure below / above it (ray casts),
+        # relative to the axle
         from mathutils import Vector
         dn = bvh.ray_cast(Vector((0.0, 0.0, cz)), Vector((0.0, 0.0, -1.0)))
         up = bvh.ray_cast(Vector((0.0, 0.0, cz)), Vector((0.0, 0.0, 1.0)))
@@ -4143,16 +4122,17 @@ def check_gd_clearances(obj, table, spec):
 
 
 def check_sub_hangers(pv, spec, frame="authoring"):
-    """C21 (Revision 1c, revision1b-check-gd-towers section B): every sub-rocker HANGS. For
-    each sub pivot pin `pivot_<side>_s<j>` (part AABBs; lateral as |gauge|):
+    """C21 (Revision 1c, revision1b-check-gd-towers section B): every sub-rocker HANGS. For each sub pivot pin
+    `pivot_<side>_s<j>` (part AABBs, lateral as |gauge|):
       - its OUTBOARD end runs through its own `rocker_sub_<side>_<j>` and its INBOARD end
         through a `rocker_main_<side>_*` or `rocker_link_<side>_*` lug: the pin's cross-section
         (+- r in travel and height) inside the lug, the pin overlapping >= C21_THROUGH of the
-        lug's thickness, its end <= C21_POKE proud of the lug;
+        lug's thickness, its end <= C21_POKE proud of the lug.
       - that inboard lug hangs from `yoke_<side>`: a link reaches >= C21_BURY into the yoke
-        (inside its travel span, lateral overlap >= C21_THROUGH); a main by its own pivot pin
+        (inside its travel span, lateral overlap >= C21_THROUGH). A main hangs by its own pivot pin
         `pivot_<side>_m<m>` overlapping both the main's top and the yoke's bottom >= C21_BRIDGE.
-    Raises TowerContractError naming the first unhung pin; returns a summary string."""
+
+    It raises TowerContractError naming the first unhung pin. It returns a summary string."""
     ti, _ts, gi = _frame_axes(frame)
 
     def box(n):
@@ -4251,9 +4231,9 @@ def check_sub_hangers(pv, spec, frame="authoring"):
 
 
 def assert_tower_contracts(obj, spec, frame, head):
-    """C1-C18 on the joined LOD0 (frame "authoring" before orient_for_net, "net" after);
-    GD adds C19 (comm wire) and C20 (gondola carrier sweep + head rule); every gantry head
-    C21 (Revision 1c: each sub-rocker pin through a lug at both ends, hung from the yoke)."""
+    """C1-C18 on the joined LOD0 (frame "authoring" before orient_for_net, "net" after). GD adds C19 (comm wire) and C20
+    (gondola carrier sweep + head rule). Every gantry head adds C21 (Revision 1c: each sub-rocker pin through a lug at both
+    ends, hung from the yoke)."""
     table = json.loads(obj.data[cs2_asset.PART_TABLE_PROP])
     pv = part_vertices(obj, table)
     co = _coords(obj)
@@ -4313,9 +4293,9 @@ def assert_tower_contracts(obj, spec, frame, head):
         lr = np.concatenate([v for n, v in pv.items() if n.startswith("ladder_rail_")])
         _check(np.abs(lr[:, gi]).max() <= 0.245 + 1e-6, f"{tag} C7 ladder rails |y| <= 0.245",
                f"({np.abs(lr[:, gi]).max():.4f})")
-        # T27: with the tree inboard (FG_CROWN_INBOARD) the pivot pins' outer ends (lane + 0.11 = 1.91) move in and the
-        # outboard axle caps (lane + 0.065 + 0.02 = 1.885) set the lateral extent; T62 round 2 v2: the wheels' outboard
-        # hub bosses (lane + w / 2 + 0.10 r = 1.885), the same number
+        # T27: with the tree inboard (FG_CROWN_INBOARD) the pivot pins' outer ends (lane + 0.11 = 1.91) move in, and the
+        # outboard axle caps (lane + 0.065 + 0.02 = 1.885) set the lateral extent. T62 round 2 v2: the outboard hub bosses of
+        # the wheels (lane + w / 2 + 0.10 r = 1.885), the same number
         lat_ship = 1.885 if ROPE_ON_CROWN else 1.91
         # lift alignment phase 2 round 2: the half trains' bogies sit SKIN_HALF_SHIFT further out along travel
         trav = 0.97 + (SKIN_HALF_SHIFT["FG"] if SKINNED else 0.0)
@@ -4413,13 +4393,11 @@ def assert_tower_contracts(obj, spec, frame, head):
         dk = np.concatenate([v for n, v in pv.items() if n.startswith(("grate_deckp", "grate_deckn"))])
         _check(abs(dk[:, 2].max() - deck) <= 1e-4, f"{tag} deck top A - 0.296 (level)",
                f"({dk[:, 2].max() - A:+.4f})")
-        # C18 (review F2): the DQ chair's hanger column - the station's C8 column, lane +- 0.45,
-        # from the grip top down 1.70 m; grip top on the rope today, 0.22 higher after dq-chair
-        # Q1; train sag added both ways - is clear of every grate_ / post_ / rail_ / kick_
-        # triangle and vertex on BOTH lanes over the whole travel extent (outboard on the
-        # stations' spin since nitpick A2 / A3 - the carrier's right; inboard kept clear for a
-        # reversed loop), and the rails / posts / kicks clear every gantry_ triangle (the
-        # A-braces, skeptic F10).
+        # C18 (review F2): the column of the DQ chair hanger - the C8 column of the station, lane +- 0.45, from the grip top
+        # down 1.70 m (grip top on the rope today, 0.22 higher after dq-chair Q1) with the train sag added both ways - is
+        # clear of every grate_ / post_ / rail_ / kick_ triangle and vertex on BOTH lanes over the whole travel extent. The
+        # column is outboard on the stations' spin since nitpick A2 / A3 (the carrier's right). The inboard side is kept
+        # clear for a reversed loop. The rails / posts / kicks also clear every gantry_ triangle (the A-braces, skeptic F10).
         res["C18"] = check_hanger_column(obj, table, spec)
         cols = hanger_columns(spec)
         col_txt = ", ".join(f"lane +-{c['half']} over rope {c['z0']:+.2f}..{c['z1']:+.2f}" for c in cols)
@@ -4437,8 +4415,8 @@ def assert_tower_contracts(obj, spec, frame, head):
             _check(not gd["carrier"], f"{tag} C20 gondola carrier boxes (tram_tower.CARRIER_GD, hanger "
                    f"outboard) + head rule clear on both lanes", f"(hits {gd['carrier'][:6]})")
         if spec.role == "terminal":
-            # C13 (M4): ETDQ per dq-terminal.md; ETGD (detail pass 1) per dq-terminal 13 and the
-            # gondola base station's keep-out (lift_terminal_detach.GD_TOWER_KEEPOUT)
+            # C13 (M4): ETDQ per dq-terminal.md. ETGD (detail pass 1) per dq-terminal 13 and the
+            # keep-out of the gondola base station (lift_terminal_detach.GD_TOWER_KEEPOUT)
             rope, lim, nm = ((GD_ENTRY_ROPE_Y, GD_STATION_INBOARD_MAX, "ETGD") if spec.family == "GD"
                              else (DQ_ENTRY_ROPE_Y, DQ_STATION_INBOARD_MAX, "ETDQ"))
             # T27: the ROPE (lane_y: the axle, or the hold-down crown under ROPE_ON_CROWN) is the station's loading rope
@@ -4460,7 +4438,7 @@ def assert_tower_contracts(obj, spec, frame, head):
 
 
 def gd_numbers(spec, contracts):
-    """Revision 1b report block for one GD member (manifest `gd_numbers`; the build report)."""
+    """Revision 1b report block for one GD member (manifest `gd_numbers`, the build report)."""
     A = spec.axle
     return {"top_anchor_y": spec.top, "axle": A, "h_top": round(contracts["top"] - A, 5),
             "tube_top": spec.tube_top, "mast_r": spec.mast_r, "lane_x": spec.gauge / 2.0,
@@ -4482,12 +4460,12 @@ D_BOLT = dict(bolt_pitch_m=0.15, bolt_r_m=0.022)   # DT5: r 0.018 -> 0.022 (floo
 # M2: the DQ / GD head classes ship at 41-50 px/m after the metric-UV repack (the girders' bevel
 # faces lowest): r 0.027 (floor 37 px/m)
 D_BOLT_FAM = {"FG": 0.022, "DQ": 0.027, "GD": 0.027}
-# M2: every value below clears the 2-texel floor at its part class's shipped px/m (measured
-# per variant in the build report; DT-C8 asserts 0 floor skips in the bake)
+# M2: every value below clears the 2-texel floor at the shipped px/m of its part class (measured per variant in the build
+# report, DT-C8 asserts 0 floor skips in the bake)
 DP1_RELIEF = {
     "edge_r_head": 0.048,       # DQ/GD rocker_sub, yoke, endplate, hanger, gantry post/brace/saddle
     "edge_r_ingest": 0.050,     # the Kagelok gantry_00 (smart-project islands: 45.8 px/m lowest)
-    "edge_r_fg_small": 0.040,   # FG liftpost_ / cwbrace_ (weight 1.0: 0.020 skipped; FG20 57 px/m)
+    "edge_r_fg_small": 0.040,   # FG liftpost_ / cwbrace_ (weight 1.0: 0.020 skipped, FG20 57 px/m)
     "edge_r_tipdefl": 0.033,    # FG tipdeflector (weight 1.25: 0.020 skipped)
     "edge_r_pad": {"FG": 0.06, "DQ": 0.095, "GD": 0.095},   # concrete pad (weight 0.75: 25 px/m on GD20)
     "weld_half_w": {"FG": 0.02, "DQ": 0.035, "GD": 0.035},  # mast weld bands (FG 0.015 skipped on FG16/20)
@@ -4496,8 +4474,8 @@ DP1_RELIEF = {
     "grate_m": 0.055,           # was 0.05: 2.06 texels on GD20 / DQ18 decks (weight 1.25)
     "hub": dict(r=0.075, h=0.006),                          # sheave hub caps
 }
-# compose tone (M7 / S8: the design's +-0.02 L was below a JND; amplitudes raised so the paint
-# mottle is a 1.2 % luminance std and MaskMap A gains MOTTLE_STD * 0.10 = 0.023)
+# compose tone (M7 / S8: the design's +-0.02 L was below a JND. Amplitudes raised so the paint mottle is a 1.2 % luminance
+# std and MaskMap A gains MOTTLE_STD * 0.10 = 0.023)
 DP1_TONE = {
     "paint": dict(mottle_m=0.60, mottle_amp=0.05, mottle_smooth=0.10, chalk_amp=0.06, chalk_smooth=0.08),
     "galv": dict(mottle_m=0.15, mottle_stretch=2.5, mottle_amp=0.06, mottle_smooth=0.10),
@@ -4508,10 +4486,12 @@ DP1_BLACK = 0.05                 # sRGB
 
 
 def detail_marks(spec, pv, frame="net"):
-    """World-space Marks (design 3.4) in the frame of the part vertices `pv` (the bake sees
-    the NET frame): mast weld bands (flange top, both sides of every joint ring, under the
-    arm cap / the head), splice-flange boltrings on the joint rings' top and bottom faces,
-    sheave hub caps on both discs of every rim. Returns {prefix: (Mark, ...)}."""
+    """World-space Marks (design 3.4) in the frame of the part vertices `pv` (the bake sees the NET frame):
+    - mast weld bands (flange top, both sides of every joint ring, under the arm cap / the head)
+    - splice-flange boltrings on the top and bottom faces of the joint rings
+    - sheave hub caps on both discs of every rim
+
+    Returns {prefix: (Mark, ...)}."""
     M = cs2_compose.Mark
     R = DP1_RELIEF
     ti, _ts, gi = _frame_axes(frame)
@@ -4555,11 +4535,10 @@ def detail_marks(spec, pv, frame="net"):
 
 def tower_detail_specs(spec=None, pv=None, frame="net"):
     """
-    Relief specs for detail_height (and the weather layer's lattice rust), prefix -> DetailSpec
-    (design 3.4 with M2). `spec` None = FG8 (the statics only; tests/test_compose.py TC1 calls
-    it without arguments and then runs its pre-pass snapshot). With `pv` (part vertices in
-    `frame`) the marks are added: weld bands on `mast`, boltrings on `stiff_`, hub caps on
-    every `sheave_*_rim` (keyed by the full rim names so `sheave_arm_*` never matches).
+    Relief specs for detail_height (and the lattice rust of the weather layer), prefix -> DetailSpec (design 3.4 with M2).
+    `spec` None = FG8 (the statics only: tests/test_compose.py TC1 calls it without arguments and then runs its pre-pass
+    snapshot). With `pv` (part vertices in `frame`) the marks are added: weld bands on `mast`, boltrings on `stiff_`, hub
+    caps on every `sheave_*_rim` (keyed by the full rim names so `sheave_arm_*` never matches).
     """
     D = cs2_compose.DetailSpec
     spec = spec or VARIANTS["FG8"]
@@ -4574,8 +4553,8 @@ def tower_detail_specs(spec=None, pv=None, frame="net"):
     for nm in ("catwalk", "deckp", "deckn", "landp", "landn"):
         out[f"grate_{nm}_lip"] = D()
     if fam == "FG":
-        # M2 "raise or drop": kick_ is DROPPED - a 0.04 round on the 0.02 x 0.10 kick plate
-        # rounds its whole height and the plate read as a pipe in the 2x close-up
+        # M2 "raise or drop": kick_ is DROPPED - a 0.04 round on the 0.02 x 0.10 kick plate rounds its whole height, and the
+        # plate read as a pipe in the 2x close-up
         for p in ("liftpost_", "cwbrace_"):
             out[p] = D(edge_round_m=R["edge_r_fg_small"])
         out["tipdeflector"] = D(edge_round_m=R["edge_r_tipdefl"])
@@ -4600,9 +4579,9 @@ def tower_detail_specs(spec=None, pv=None, frame="net"):
 
 
 def tone_specs(table, part_material, ppm_of):
-    """detail_tone specs keyed by FULL part name (the material split does not follow the
-    relief prefixes): paint -> DP1_TONE paint; galv -> bloom with the cell raised to
-    DP1_TONE_FLOOR_TEXELS / px/m where the part ships below 0.15 m x 4 texels (M7 b)."""
+    """detail_tone specs keyed by FULL part name (the material split does not follow the relief prefixes): paint -> DP1_TONE
+    paint. galv -> bloom with the cell raised to DP1_TONE_FLOOR_TEXELS / px/m where the part ships below 0.15 m x 4 texels
+    (M7 b)."""
     D = cs2_compose.DetailSpec
     out = {}
     for i, nm in enumerate(table, start=1):
@@ -4624,11 +4603,10 @@ def _srgb_to_lin(c):
 
 def paint_warning_triangle(rect, base, ctl):
     """
-    The legacy crash-pad stamp (cs2_asset.paint_pad_strip) on the crashpad_outer island:
-    T = 0.62 h, W = 1.12 T (no anisotropy pre-stretch: the unique island keeps its 3D
-    aspect), base row 0.16 h, centered on the island (theta 0 = the +X uphill face). White
-    display 0.92, exclamation bar + dot display 0.10. ControlMask R and G zeroed under it.
-    (Pre-pass painter, kept for the record; the shipping hook calls paint_pad_stamps.)
+    The legacy crash-pad stamp (cs2_asset.paint_pad_strip) on the crashpad_outer island: T = 0.62 h, W = 1.12 T (no
+    anisotropy pre-stretch: the unique island keeps its 3D aspect), base row 0.16 h, centered on the island (theta 0 = the +X
+    uphill face). White display 0.92, exclamation bar + dot display 0.10. ControlMask R and G zeroed under it. (Pre-pass
+    painter, kept for the record. The shipping hook calls paint_pad_stamps.)
     """
     r0, r1, c0, c1 = rect
     h, w = r1 - r0, c1 - c0
@@ -4683,9 +4661,9 @@ def triangle_coverage(h, w, ss=4):
 
 
 def hazard_coverage(h, w, pad_h, ss=4):
-    """(band, yellow) coverage (h, w), rows bottom-up, of the crash pad's top hazard band
-    (design 3.4 / Q7): 0.12 m tall, its top 0.02 m under the rim, 45 deg stripes of period
-    0.15 m; the island is metric (u = R theta, v = z), so h rows span the pad height pad_h."""
+    """(band, yellow) coverage (h, w), rows bottom-up, of the top hazard band of the crash pad (design 3.4 / Q7): 0.12 m tall,
+    its top 0.02 m under the rim, 45 deg stripes of period 0.15 m. The island is metric (u = R theta, v = z), so h rows span
+    the pad height pad_h."""
     ppm = h / pad_h
     Y, X = _ss_grid(h, w, ss)
     zt, zb = pad_h - 0.02, pad_h - 0.14
@@ -4723,8 +4701,8 @@ def make_pad_painter(pad_h):
 
 
 def pad_triangle_rect(mesh, table, A):
-    """The warning triangle's texel rect (+ 2 px) on crashpad_outer at bake size A: the weather
-    layer's protect_px (FP6: the triangle only; the hazard band wears)."""
+    """The texel rect of the warning triangle (+ 2 px) on crashpad_outer at bake size A: the protect_px of the weather layer
+    (FP6: the triangle only. The hazard band wears)."""
     r = cs2_compose.uv_bbox_px(mesh, table, "crashpad_outer", A)
     if r is None:
         return []
@@ -4735,8 +4713,8 @@ def pad_triangle_rect(mesh, table, A):
 
 
 def plate_numeral(spec):
-    """The tower plate's numeral (design 3.4 / Q2): the variant's height numeral on line
-    members (FG8 -> 8, DQ12 -> 12, GD20 -> 20); hosted terminal towers carry the glyph only."""
+    """The tower plate's numeral (design 3.4 / Q2): the height numeral of the variant on line members (FG8 -> 8, DQ12 -> 12,
+    GD20 -> 20). Hosted terminal towers carry the glyph only."""
     if spec.role != "line":
         return None
     return "".join(ch for ch in spec.key if ch.isdigit())
@@ -4766,7 +4744,7 @@ def plate_raster(spec, h, w):
         ink[gy0:gy0 + sq, gx0:gx0 + sq] = np.maximum(ink[gy0:gy0 + sq, gx0:gx0 + sq], glyph)
     cap_px = 0.0
     if num and sq >= 1 and int(w - bpx - 2) - (gx0 + sq + 2) >= 1 and inner_h - 6.0 >= 1.0:
-        # (T62 round 2/3 guard: a test atlas can leave no room for the numeral; the shipping atlas always has it)
+        # (T62 round 2/3 guard: a test atlas can leave no room for the numeral. The shipping atlas always has it)
         cap_px = float(math.floor(inner_h - 6.0))
         tris, _wm = WS.text_triangles(num, cap_px / ppm)
         rx0 = gx0 + sq + 2
@@ -4789,9 +4767,9 @@ def make_plate_painter(spec, log):
 
 
 def data_plate_decals(spec):
-    """The data plate (design 3.4, M9c): a 0.25 x 0.15 m galv-gray plate with 4 dark text bars
-    (no brand) on the mast at z 2.30, 45 deg off the conduit (+Y) toward the uphill +X face.
-    Authoring frame; the hook maps it to the net frame (cs2_compose.transform_marks)."""
+    """The data plate (design 3.4, M9c): a 0.25 x 0.15 m galv-gray plate with 4 dark text bars (no brand) on the mast at z 2.30,
+    45 deg off the conduit (+Y) toward the uphill +X face. Authoring frame. The hook maps it to the net frame
+    (cs2_compose.transform_marks)."""
     d = DP1_DATAPLATE
     th = math.radians(d["theta_deg"])
     n = (math.cos(th), math.sin(th), 0.0)
@@ -4816,48 +4794,45 @@ def data_plate_decals(spec):
 
 
 # -- Follow-up 2026-10-11, integration finding F3 (+ F3b): black-sampled sub-texel faces -------
-# A face whose UV footprint contains NO texel center (deck kick_deck* end faces, the 6 mm
-# platerim_ strips, rail end caps, gusset edges) gets no EMIT sample; where no neighboring
-# island's bake margin reaches it, it samples BLACK in game (DQ18 24 faces / 243 cm2, GD16 32 /
-# 326 cm2, GD12 14, GD20 4, ETGD 4, DQ12 / DQ14 / DQ16 4-6 in the 18:01-18:10 exports). The
-# lattice towers fixed the same defect generator-locally (tram_tower.fill_subtexel_faces:
-# 8-164 black faces before, 0-2 after); this is the same fill, ported: the uncovered texels of
-# the face's 1-texel footprint take its part's mean COVERED color (BaseColor, MaskMap,
-# ControlMask - the slot tint still applies), or, for a part with no covered texel at all (a
-# part made only of such faces), the mean of its material's parts. Covered texels are never
-# touched; geometry and UVs do not change (a flat color fill: the UV merge / pad options of
-# the finding would move islands in a packer that is byte-stable on 16 shipped variants).
-# One deliberate difference from the lattice fill: it repairs the F3 DEFECT, not every face
-# without a texel center. A face is filled only if its UV area is under SUBTEXEL_TEXEL2 AND its
-# uncovered footprint holds a black texel (SUBTEXEL_ONLY_BLACK). The other variants - whose
-# no-center faces are covered by a neighbor's margin and read a plausible color - keep their
-# approved, shipped PNGs byte-for-byte (the unconditional fill rewrote 5-187 faces on all 16:
-# FG8 5 ... GD20 187). Set SUBTEXEL_ONLY_BLACK False for the lattice behavior.
-# The unit is the TRIANGLE the game draws: cs2_asset.export_fbx writes use_triangles (bmesh
-# triangulate, default BEAUTY), so a quad whose area is fine can still split into a 2-texel
-# triangle with a black centroid; both the fill and the contract run on uv_triangles(), the
-# same triangulation (measured: the polygon-level fill left DQ18 4 / GD16 8 / DQ20 4 such
-# triangles black in the written FBX).
+# A face whose UV footprint contains NO texel center (deck kick_deck* end faces, the 6 mm platerim_ strips, rail end caps,
+# gusset edges) gets no EMIT sample. Where no neighboring island's bake margin reaches it, it samples BLACK in game (DQ18 24
+# faces / 243 cm2, GD16 32 / 326 cm2, GD12 14, GD20 4, ETGD 4, DQ12 / DQ14 / DQ16 4-6 in the 18:01-18:10 exports). The
+# lattice towers fixed the same defect generator-locally (tram_tower.fill_subtexel_faces: 8-164 black faces before, 0-2
+# after). This is the same fill, ported. The uncovered texels of the 1-texel footprint of the face take the mean COVERED
+# color of its part (BaseColor, MaskMap, ControlMask - the slot tint still applies). For a part with no covered texel at all
+# (a part made only of such faces), they take the mean of the parts of its material. Covered texels are never touched.
+# Geometry and UVs do not change (a flat color fill: the UV merge / pad options of the finding would move islands in a packer
+# that is byte-stable on 16 shipped variants).
 #
-# F3b (2026-10-11, the checker's finding F-1): the F3 class stopped at SUBTEXEL_TEXEL2 and the
-# long one-texel slivers (UV area >= 4 texel2 but shortest altitude < 1 texel: the fall-arrest
-# channel's 2 cm side walls, gusset_apex, kick_deck, platerim edges) sampled BLACK as well - 16
-# of 17 variants had 2-22 of them (DQ20 2 / 3,681 cm2, GD16 22 / 5,538 cm2) - because they hold
-# no texel center either (FG8's platerim strips even have centers exactly ON an edge: the bake
-# left them black, and the part mean of those covered-but-black texels is black too). The
-# corrected rule is area-free: AFTER the F3 pass (so every F3 texel is exactly the shipped one)
-# a second pass takes EVERY triangle of any UV area and paints each BLACK texel its square
-# overlaps (exact separating-axis test, SUBTEXEL_OVERLAP_EPS slack, so whatever 400-sample grid a
-# counter lays on the triangle lands on a texel that is not black) with the mean color of the
-# part's BAKED (non-black) covered texels, or its material's. Only black texels are written, so
-# every texel that was not black is unchanged. A face whose part and material have no baked
-# texel is counted in `slivers_unfilled` and the contract fails. SUBTEXEL_TEXEL2 now only
-# limits the F3 footprint fill; it is no longer a limit on what the contract covers.
+# One deliberate difference from the lattice fill: it repairs the F3 DEFECT, not every face without a texel center. A face is
+# filled only if its UV area is under SUBTEXEL_TEXEL2 AND its uncovered footprint holds a black texel (SUBTEXEL_ONLY_BLACK).
+# The other variants keep their approved, shipped PNGs byte-for-byte (the unconditional fill rewrote 5-187 faces on all 16:
+# FG8 5 ... GD20 187). Their no-center faces are covered by a neighbor's margin and read a plausible color. Set
+# SUBTEXEL_ONLY_BLACK False for the lattice behavior.
+#
+# The unit is the TRIANGLE the game draws. cs2_asset.export_fbx writes use_triangles (bmesh triangulate, default BEAUTY), so
+# a quad whose area is fine can still split into a 2-texel triangle with a black centroid. Both the fill and the contract run
+# on uv_triangles(), the same triangulation (measured: the polygon-level fill left DQ18 4 / GD16 8 / DQ20 4 such triangles
+# black in the written FBX).
+#
+# F3b (2026-10-11, the checker's finding F-1): the F3 class stopped at SUBTEXEL_TEXEL2. Long one-texel slivers (UV area >= 4
+# texel2 but shortest altitude < 1 texel: the 2 cm side walls of the fall-arrest channel, gusset_apex, kick_deck, platerim
+# edges) sampled BLACK as well, because they hold no texel center either. 16 of 17 variants had 2-22 of them (DQ20 2 / 3,681
+# cm2, GD16 22 / 5,538 cm2). FG8's platerim strips even have centers exactly ON an edge: the bake left them black, and the
+# part mean of those covered-but-black texels is black too.
+#
+# The corrected rule is area-free. AFTER the F3 pass (so every F3 texel is exactly the shipped one), a second pass takes
+# EVERY triangle of any UV area and paints each BLACK texel whose square it overlaps (exact separating-axis test,
+# SUBTEXEL_OVERLAP_EPS slack). So whatever 400-sample grid a counter lays on the triangle lands on a texel that is not black.
+# The paint is the mean color of the part's BAKED (non-black) covered texels, or of its material's. Only black texels are
+# written, so every texel that was not black is unchanged. A face whose part and material have no baked texel is counted in
+# `slivers_unfilled`, and the contract fails. SUBTEXEL_TEXEL2 now only limits the F3 footprint fill. It no longer limits what
+# the contract covers.
 SUBTEXEL_TEXEL2 = 4.0          # F3 footprint-fill class: UV area under 2 x 2 texels (every no-center
-                               # face measured black is 1-4 texel2; the "under 1 texel" faces are margin-covered)
+                               # face measured black is 1-4 texel2, the "under 1 texel" faces are margin-covered)
 SUBTEXEL_BLACK = 0.02          # sRGB max(rgb) under this = black (tram_tower test black_faces)
 SUBTEXEL_BLACK_LIN = SUBTEXEL_BLACK / 12.92   # the same threshold on the linear maps (c < 0.04045)
-SUBTEXEL_FILL_LIN = (6.0 / 255.0) / 12.92     # F3b: a texel that WRITES as byte 0-5 is black (0.0196 < 0.02);
+SUBTEXEL_FILL_LIN = (6.0 / 255.0) / 12.92     # F3b: a texel that WRITES as byte 0-5 is black (0.0196 < 0.02).
                                               # one byte of slack over BLACK_LIN for the rounding of the PNG write
 SUBTEXEL_ONLY_BLACK = True
 SUBTEXEL_OVERLAP_EPS = 1.0e-3  # texels of slack on the overlap test (FBX float round trip)
@@ -4907,14 +4882,13 @@ def _tri_texel_overlap(q, X, Y, eps=SUBTEXEL_OVERLAP_EPS):
 
 
 def fill_subtexel_faces(base, msk, ctl, mesh, A, part_map, table, part_material, uv_layer="UVUnique"):
-    """tram_tower.fill_subtexel_faces for the tube towers, on the exported TRIANGLES (arrays are
-    linear (A, A, 4), bottom-up rows; `part_map` = cs2_compose.rasterise_face_fields, 1-based
-    table indices, 0 = gutter). Pass 1 (F3, the shipped behavior): triangles under SUBTEXEL_TEXEL2
-    with no texel center inside get their uncovered 1-texel footprint painted when it holds a black
-    texel (SUBTEXEL_ONLY_BLACK). Pass 2 (F3b): every triangle, any UV area, gets each black texel
-    it overlaps painted with the mean BAKED color of its part (material fallback). Returns the stats
-    {faces, texels, by_class (pass 1), f3b_faces, f3b_texels, f3b_by_class (pass 2), slivers_unfilled
-    (triangles that still overlap a black texel for want of any baked color: must be {})}."""
+    """tram_tower.fill_subtexel_faces for the tube towers, on the exported TRIANGLES (arrays are linear (A, A, 4), bottom-up
+    rows, `part_map` = cs2_compose.rasterise_face_fields, 1-based table indices, 0 = gutter). Pass 1 (F3, the shipped
+    behavior): triangles under SUBTEXEL_TEXEL2 with no texel center inside get their uncovered 1-texel footprint painted when
+    it holds a black texel (SUBTEXEL_ONLY_BLACK). Pass 2 (F3b): every triangle, any UV area, gets each black texel it
+    overlaps painted with the mean BAKED color of its part (material fallback). Returns the stats {faces, texels, by_class
+    (pass 1), f3b_faces, f3b_texels, f3b_by_class (pass 2), slivers_unfilled (triangles that still overlap a black texel for
+    want of any baked color: must be {})}."""
     pid = cs2_compose.part_indices(mesh)
     pm = np.asarray(part_map)
     cov = pm > 0
@@ -5025,12 +4999,11 @@ def fill_subtexel_faces(base, msk, ctl, mesh, A, part_map, table, part_material,
 
 
 def subtexel_black_faces(mesh, base_px, uv_layer=None, max_texel2=float("inf")):
-    """The F3 / F3b contract's counter, on the SHIPPED BaseColor and the exported triangles
-    (uv_triangles): triangles of ANY UV area (`max_texel2` limits it, default none) that overlap a
-    texel which samples black (sRGB max(rgb) < SUBTEXEL_BLACK) - so a 400-sample or any other grid on
-    the triangle cannot land on black. `base_px` = cs2_validate.load_png_pixels (bottom-up rows, the
-    UV v order). Returns [(parent polygon index, uv area in texel2, area cm2)]; mesh coordinates are
-    meters (net frame)."""
+    """The counter of the F3 / F3b contract, on the SHIPPED BaseColor and the exported triangles (uv_triangles): triangles of
+    ANY UV area (`max_texel2` limits it, default none) that overlap a texel which samples black (sRGB max(rgb) <
+    SUBTEXEL_BLACK), so a 400-sample or any other grid on the triangle cannot land on black. `base_px` =
+    cs2_validate.load_png_pixels (bottom-up rows, the UV v order). Returns [(parent polygon index, uv area in texel2, area
+    cm2)]. Mesh coordinates are meters (net frame)."""
     A = base_px.shape[0]
     layer = uv_layer or mesh.uv_layers.active.name
     mx = base_px[..., :3].max(axis=-1)
@@ -5058,11 +5031,14 @@ def subtexel_black_faces(mesh, base_px, uv_layer=None, max_texel2=float("inf")):
 def make_post_compose_v2(obj, table, spec=None, info=None):
     """
     cs2_bake post_compose hook (lift_terminal.make_post_compose + the pad stamp), detail pass 1:
-    relief (bolts r 0.022, edge rounds, weld bands, splice boltrings, hub caps), compose tone
-    (paint mottle + chalk, galv bloom), then the stamps - the crash pad's anti-aliased triangle
-    and hazard band, the two tower plates PER PART (M3: plate_n, plate_p) and the data-plate
-    decal on the mast. Records: hook.relief / tone / tone_gate (M7) / plates / decal_rects.
-    spec None = the pre-pass FG8 behavior is NOT reproduced (tests use spec)."""
+    - relief (bolts r 0.022, edge rounds, weld bands, splice boltrings, hub caps)
+    - compose tone (paint mottle + chalk, galv bloom)
+    - the stamps: the anti-aliased triangle and hazard band of the crash pad, the two tower
+      plates PER PART (M3: plate_n, plate_p) and the data-plate decal on the mast
+
+    Records: hook.relief / tone / tone_gate (M7) / plates / decal_rects. spec None = the pre-pass FG8 behavior is NOT
+    reproduced (tests use spec).
+    """
     spec = spec or VARIANTS["FG8"]
     info = info or {}
     part_material = info.get("part_material") or {}
@@ -5101,7 +5077,7 @@ def make_post_compose_v2(obj, table, spec=None, info=None):
         nrm[..., 0:3] = n * 0.5 + 0.5
         nrm[uncovered, 0:3] = (0.5, 0.5, 1.0)
         nrm[..., 3] = 1.0
-        # F3: faces with no texel center would sample black; fill BEFORE the stamps and the weather layer
+        # F3: faces with no texel center would sample black. Fill BEFORE the stamps and the weather layer
         hook.subtexel = fill_subtexel_faces(base, msk, ctl, mesh, A, part_map, table, part_material)
         pad_h = cs2_asset.CRASHPAD["z1"] - crashpad_z0(spec)
         pad = make_pad_painter(pad_h)
@@ -5122,9 +5098,8 @@ def make_post_compose_v2(obj, table, spec=None, info=None):
 
 
 def relief_floor_report(mesh, A, specs):
-    """Which parts a relief kind skips below the 2-texel floor (detail_height counts faces
-    only): edge rounds on faces that HAVE a convex crease, bolt rows; {kind: {part: [faces,
-    min texels]}} - the DT-C8 diagnostic."""
+    """Which parts a relief kind skips below the 2-texel floor (detail_height counts faces only): edge rounds on faces that HAVE
+    a convex crease, bolt rows. Returns {kind: {part: [faces, min texels]}} - the DT-C8 diagnostic."""
     table = cs2_compose.read_part_table(mesh)
     parts = cs2_compose.part_indices(mesh)
     topo = cs2_compose._EdgeTopology(mesh, parts)
@@ -5160,14 +5135,16 @@ def _class_of(name):
 
 def tone_gate(table, part_material, tspecs, part_map, ppm_map, m_off, m_on, min_texels=200):
     """
-    M7 - DT-C9 restated to what the noise can deliver (the design's >= 0.03 needs mottle_smooth
-    ~0.12 from a 0.012 base; the shared report's MOTTLE_STD 0.234). Measured at the COMPOSE
-    stage (pre-weather) as the tone ON vs OFF compose of the same bake and seed:
+    M7 - DT-C9 restated to what the noise can deliver (the design's >= 0.03 needs mottle_smooth ~0.12 from a 0.012 base, the
+    MOTTLE_STD of the shared report 0.234). Measured at the COMPOSE stage (pre-weather) as the tone ON vs OFF compose of the
+    same bake and seed:
+
       gate (per MATERIAL class, paint and galv, every part above the tone floor pooled - enough
-      noise cells for the population std): s1 >= 0.9 sqrt(s0^2 + (MOTTLE_STD smooth)^2);
+      noise cells for the population std): s1 >= 0.9 sqrt(s0^2 + (MOTTLE_STD smooth)^2).
       report (per PART class, >= min_texels): s0, s1 and the delivered tone std
       sqrt(s1^2 - s0^2) / (MOTTLE_STD smooth) - small classes sample few cells (FG8 run:
       0.55-0.95), so they are reported, not gated.
+
     Returns {"material": {paint|galv: {...ok}}, "class": {class: {...}}}.
     """
     out = {"material": {}, "class": {}}
@@ -5220,10 +5197,9 @@ def weather_spec(spec, name, intensity):
 
 
 def make_weather_post(inner, spec, name, keys, table, intensity, probe=()):
-    """The weathering wrap (FP6 recipe) around the detail hook: stamped = the two plates PER
-    PART (M3), protect_px = the warning triangle + the data-plate decal rects. `probe`: extra
-    intensities evaluated on the SAME composed maps (the --weather-probe step: the family
-    constant is the highest step every member keeps vanilla.ok); the shipped maps are the
+    """The weathering wrap (FP6 recipe) around the detail hook: stamped = the two plates PER PART (M3), protect_px = the warning
+    triangle + the data-plate decal rects. `probe`: extra intensities evaluated on the SAME composed maps (the
+    --weather-probe step: the family constant is the highest step every member keeps vanilla.ok). The shipped maps are the
     `intensity` run. Returns the post_compose callable (.report / .probe / inner attrs)."""
     import cs2_weather as CW
 
@@ -5265,8 +5241,8 @@ def make_weather_post(inner, spec, name, keys, table, intensity, probe=()):
 
 def lod_chain_v2(t, name, spec):
     l1p, l2p = lod_prefixes(spec)
-    # T62 round 2: the wheels take their WHEEL_LOD forms (LOD1 8-segment flat, never decimated; LOD2 deleted by the
-    # family tables); spec.lod1 / lod2 are then the targets of the REST, the LOD1 wheels come on top (v1: fixed None)
+    # T62 round 2: the wheels take their WHEEL_LOD forms (LOD1 8-segment flat, never decimated. LOD2 deleted by the family
+    # tables). spec.lod1 / lod2 are then the targets of the REST. The LOD1 wheels come on top (v1: fixed None)
     lods = cs2_asset.make_lod_chain(t, name, targets=(spec.lod1, spec.lod2),
                                     delete_prefixes=(l1p, l2p), tol=LOD_TOL,
                                     shade_angle=SHADE_ANGLE_V2, fixed=S.lod_fixed())
@@ -5317,7 +5293,7 @@ def assert_budgets(t, lods, spec):
 def lod_keep_report(t, lod, spec):
     """Review F5 data for one DQ LOD: up-facing deck-plate area at the deck top (vs the two
     kit plates' (L - 2 lip) x (strip - 2 lip)) and the gantry_brace parts with their z extent
-    (rebuild heads; 0 on ingest heads, whose braces live inside gantry_00)."""
+    (rebuild heads, 0 on ingest heads, whose braces live inside gantry_00)."""
     table = json.loads(t.data[cs2_asset.PART_TABLE_PROP])
     me = lod.data
     part = np.zeros(len(me.polygons), dtype=np.int32)
@@ -5384,13 +5360,12 @@ def tower_views(spec):
 
 def render_tower_views(t, asset_dir, name, out_dir, views, resolution=(1300, 1000), extras=(), light=None):
     """
-    M6: cs2_preview.preview frames whole-object views only (direction, auto distance), so
-    the targeted closeups (target, lens, fixed distance, pier bounce light) run here on the
-    same rig pieces (Nishita noon, pbr material from the shipped maps, slot tints). The
-    rig restores the scene. Files: <name>_view_<view>.png. `extras` (phase 2 skinned views:
-    the ropes) render beside `t` with their own materials (default none = as before). `light` (phase 2 round 2,
-    SKIN_LIGHT; None = the noon rig as before): {elevation_deg, sun_energy, azimuth_deg (the sun's direction turned
-    about Z from the sky's), ground_albedo, look (the AgX look)}.
+    M6: cs2_preview.preview frames whole-object views only (direction, auto distance), so the targeted closeups (target,
+    lens, fixed distance, pier bounce light) run here on the same rig pieces (Nishita noon, pbr material from the shipped
+    maps, slot tints). The rig restores the scene. Files: <name>_view_<view>.png. `extras` (phase 2 skinned views: the ropes)
+    render beside `t` with their own materials (default none = as before). `light` (phase 2 round 2, SKIN_LIGHT, None = the
+    noon rig as before): {elevation_deg, sun_energy, azimuth_deg (the sun's direction turned about Z from the sky's),
+    ground_albedo, look (the AgX look)}.
     """
     import cs2_preview as P
     os.makedirs(out_dir, exist_ok=True)
@@ -5492,9 +5467,14 @@ def detail_pass_report(spec, compose, post, intensity):
 
 
 def assert_detail_pass(spec, rep, strict_weather=True, shipping=True):
-    """DT-C7 (stamps), DT-C8 (relief drawn, 0 floor skips), DT-C9 (M7 tone gate), DT-C10
-    (weathering vanilla.ok at the family intensity, ControlMask untouched, protected texels
-    identical). A failing bake raises: nothing is exported."""
+    """Asserts:
+    - DT-C7 (stamps)
+    - DT-C8 (relief drawn, 0 floor skips)
+    - DT-C9 (M7 tone gate)
+    - DT-C10 (weathering vanilla.ok at the family intensity, ControlMask untouched, protected texels
+      identical)
+
+    A failing bake raises: nothing is exported."""
     tag = f"[{spec.key}]"
     if not shipping:
         w = rep.get("weather")
@@ -5506,7 +5486,7 @@ def assert_detail_pass(spec, rep, strict_weather=True, shipping=True):
     _check(not sk, f"{tag} DT-C8 relief: 0 texel-floor skips",
            f"(skipped {sk}; parts {(rep['relief'] or {}).get('skipped_parts')})")
     dr = (rep["relief"] or {}).get("drawn") or {}
-    # T62 round 2: "marks:ring" was the sheave hub ring only; the v2 wheel's hub is a geometric boss (v1 still needs it)
+    # T62 round 2: "marks:ring" was the sheave hub ring only. The v2 wheel's hub is a geometric boss (v1 still needs it)
     need = ["bolts", "edge_round", "marks:band"] + ([] if S.wheels_v2() else ["marks:ring"])         + (["marks:boltring"] if _joint_zs(spec, spec.tube_top) else [])
     miss = [k for k in need if not dr.get(k)]
     _check(not miss, f"{tag} DT-C8 relief kinds drawn {need}", f"(missing {miss}; drawn {dr})")
@@ -5543,9 +5523,9 @@ def assert_detail_pass(spec, rep, strict_weather=True, shipping=True):
 
 
 def etgd_prefab_block(spec, name, info):
-    """Surgery numbers for the gondola entry compression tower (towers-transfer G2), the ETDQ
-    pattern: a hosted object (UtilityObject + StandingObject ONLY, never PillarObject:
-    PIPELINE 6), the station carries the anchors. New block (not frozen)."""
+    """Surgery numbers for the gondola entry compression tower (towers-transfer G2), the ETDQ pattern: a hosted object
+    (UtilityObject + StandingObject ONLY, never PillarObject: PIPELINE 6). The station carries the anchors. New block (not
+    frozen)."""
     return {
         "tower_prefab": "SkiLiftTerminalTowerGD", "mesh": name, "placeholder": None,
         "copy_from": "SkiLiftTerminalTowerDQ (the ETDQ prefab, itself SkiLiftTerminalTowerBase): "
@@ -5571,71 +5551,75 @@ def etgd_prefab_block(spec, name, info):
 
 
 # ======================================================================================
-# Breakover / hold-down twins (art phase B2, 2026-11-03; docs/research/breakover-holddown-plan-2026-11-03.md
+# Breakover / hold-down twins (art phase B2, 2026-11-03, docs/research/breakover-holddown-plan-2026-11-03.md
 # section 3, build log docs/research/art/breakover-twins-2026-11/build.md)
 # ======================================================================================
-# A twin is one more member of its support member's placeholder (plan 3.4): the SAME mast, pad, ladder, comm hanger and
-# rope anchors (lane y and comm y equal the support member's), its own train kind and its own bounds top, unique by >=
-# TWIN_TOP_GAP in the placeholder, so the vanilla height score picks it when the planner writes E = top - ladder[0] top.
+# A twin is one more member of the placeholder of its support member (plan 3.4). It has the SAME mast, pad, ladder, comm
+# hanger and rope anchors (lane y and comm y equal those of the support member), its own train kind and its own bounds top.
+# The top is unique by >= TWIN_TOP_GAP in the placeholder, so the vanilla height score picks it when the planner writes E =
+# top - ladder[0] top.
+#
 #   Hold  - every wheel ON the rope (compression): the support's half trains mirrored about the rope line, so the
 #           rockers / yokes ride under the wheels and the main pin stays on the rope line (the hinge of both halves).
 #           DQ / GD raise the head by 2 x crown seat (the ETDQ / ETGD compression recipe: the wheels keep their place in
-#           the gantry, the rope runs under them; the mast grows, the comm wire and the lanes stay); FG keeps its
+#           the gantry, the rope runs under them. The mast grows, the comm wire and the lanes stay). FG keeps its
 #           crossarm (the wheels tuck under it, the rope 1.5 wheel diameters below the crossarm's underside).
 #   Combo - push-pull (FG 2S2C, DQ / GD 4S4C): per half the inner wheels under the rope (support) and the outer ones
 #           over it (compression) on the half's frame on the main pin. DQ / GD raise the head by 1 x crown seat, the
 #           main rocker of each half sheared from the support bogie up to the compression bogie.
 #   Break - FG only (plan idea Z, owner go 2026-11-03): the 8-wheel support train, each half beam carrying two bogies.
-# FG tops: the lifting frame (liftposts + liftbar) rises to TWIN_FG_TOP_DZ over the catwalk rail (the hold-down and
-# breakover heads of the references carry tall lifting frames, refs/SOURCES.md fg_holddown).
-# Textures (owner rule 2026-11-03: "New towers should re uses existing textures if able"): NO bake. Every twin part takes
-# its UVs from the SHIPPED support member's atlas (TWIN_ATLAS): the member is rebuilt through the shipping code path
-# (the same geometry, vertex for vertex), its shipped LOD0 FBX's UVUnique is read onto it triangle by triangle, and each
-# twin part copies its namesake's loops BEFORE it is mirrored / moved / stretched (copies take their source's), so the
-# twin mesh maps onto the member's BaseColor / Normal / MaskMap / ControlMask as they ship.
+#
+# FG tops: the lifting frame (liftposts + liftbar) rises to TWIN_FG_TOP_DZ over the catwalk rail (the hold-down and breakover
+# heads of the references carry tall lifting frames, refs/SOURCES.md fg_holddown).
+#
+# Textures (owner rule 2026-11-03: "New towers should re uses existing textures if able"): NO bake. Every twin part takes its
+# UVs from the atlas of the SHIPPED support member (TWIN_ATLAS). The member is rebuilt through the shipping code path (the
+# same geometry, vertex for vertex). The UVUnique of its shipped LOD0 FBX is read onto it triangle by triangle. Each twin
+# part copies the loops of its namesake BEFORE it is mirrored / moved / stretched (copies take their source's). So the twin
+# mesh maps onto the BaseColor / Normal / MaskMap / ControlMask of the member as they ship.
 TWIN_MEMBERS = {"Hold": ("FG8", "FG12", "FG16", "DQ10", "DQ12", "DQ16", "DQ20", "GD12", "GD16", "GD20"),
                 "Combo": ("FG8", "FG12", "FG16", "DQ10", "DQ12", "GD12", "GD16"),
                 "Break": ("FG8", "FG12", "FG16", "FG20")}
 TWINS = {f"{m}{k}": (m, k) for k, ms in TWIN_MEMBERS.items() for m in ms}
 TWIN_SPEC_KIND = {"Hold": "compression", "Combo": "pushpull", "Break": "support"}
-# the shipped member whose atlas a twin reuses (assets/import/towers/<letter>/<name>; DECISIONS 586: Q family, R pilots)
+# the shipped member whose atlas a twin reuses (assets/import/towers/<letter>/<name>, DECISIONS 586: Q family, R pilots)
 TWIN_ATLAS = {"FG8": "Q/SkiLiftTowerFG8Q", "FG12": "R/SkiLiftTowerFG12R", "FG16": "Q/SkiLiftTowerFG16Q",
               "FG20": "Q/SkiLiftTowerFG20Q", "DQ10": "Q/SkiLiftTowerDQ10Q", "DQ12": "R/SkiLiftTowerDQ12R",
               "GD12": "R/SkiLiftTowerGD12R", "GD16": "Q/SkiLiftTowerGD16Q",
               "DQ16": "Q/SkiLiftTowerDQ16Q", "DQ20": "Q/SkiLiftTowerDQ20Q",   # DQ16 / DQ20 Hold: art-601 (owner note 12)
               "GD20": "Q/SkiLiftTowerGD20Q"}   # GD20 Hold: art-601 round 2 (with FG16 Hold / Combo on the FG16 Q atlas)
 TWIN_HEAD = {"FG": "yan", "DQ": "ingest", "GD": "rebuild"}
-TWIN_GD_SHEAVES = {"atlas": 10, "twin": 8}      # shipped GD members 10 a side; Hold / Combo at the ETGD count (plan 3.3)
-# DQ / GD head raise, x crown seat. v2 (critic MUST-1, 2026-11-03): the Hold train is TRANSLATED (frame above the
-# wheels as on the member, the rope below bare). The critic's 3 seats (deck to rope ~1.5 wheel diameters) do not fit:
-# the comm wire stays at the placeholder's comm y and the mast top would cross it (GD12 tube top 10.50 + 3 x 0.284 =
-# 11.35 against comm 11.20, C19 measured); 2 seats keep the mast under the wire's zone and the train exactly the
-# member's relative to its head
+TWIN_GD_SHEAVES = {"atlas": 10, "twin": 8}      # shipped GD members 10 a side. Hold / Combo at the ETGD count (plan 3.3)
+# DQ / GD head raise, x crown seat. v2 (critic MUST-1, 2026-11-03): the Hold train is TRANSLATED (frame above the wheels as
+# on the member, the rope below bare). The critic's 3 seats (deck to rope ~1.5 wheel diameters) do not fit: the comm wire
+# stays at the comm y of the placeholder and the mast top would cross it (GD12 tube top 10.50 + 3 x 0.284 = 11.35 against
+# comm 11.20, C19 measured). 2 seats keep the mast under the zone of the wire and the train exactly the member's relative to
+# its head
 TWIN_HEAD_SEATS = {"Hold": 2.0, "Combo": 1.0, "Break": 0.0}
 # FG head raise (m): 0 for every kind: the FG comm wire rides on the crossarm top (FG8 comm 8.15, arm top 8.11) at the
 # shared placeholder's comm y, so the FG head cannot rise. The FG Hold frame goes BESIDE the wheels instead (TWIN_FG_BAND)
 TWIN_FG_HEAD_DZ = {"Hold": 0.0, "Combo": 0.0, "Break": 0.0}
 TWIN_FG_TOP_DZ = {"Hold": 0.20, "Combo": 0.35, "Break": 0.50}  # FG lifting frame top over the catwalk rail (= the top)
-# FG Hold v2 (critic MUST-1): the member's three-tier frame (bars, bogie pins, half beams: 0.63 m over the axle) does not
-# fit over the wheels under the crossarm (underside 0.617 over the rope) at G6's 30 deg uniform pitch, so it is laid in
-# the band beside the wheels, inboard, between the rope and the wheel tops: bars `bar` over the axle, the bogie pins
-# `pin` over the bars, the half beams centered on the pins (top 0.44, the member's 0.40); the arms shrink from the axle to
-# the bars, the straps reach from the beams down to the main pin on the rope line. Nothing under the rope.
+# FG Hold v2 (critic MUST-1): the three-tier frame of the member (bars, bogie pins, half beams: 0.63 m over the axle) does
+# not fit over the wheels under the crossarm (underside 0.617 over the rope) at G6's 30 deg uniform pitch. So it is laid in
+# the band beside the wheels, inboard, between the rope and the wheel tops: bars `bar` over the axle, the bogie pins `pin`
+# over the bars, the half beams centered on the pins (top 0.44, the member's 0.40). The arms shrink from the axle to the
+# bars, and the straps reach from the beams down to the main pin on the rope line. Nothing under the rope.
 TWIN_FG_BAND = dict(bar=0.07, pin=0.06)
-TWIN_FG_BREAK_BEAM = 0.20               # m, the Break half beam's depth (critic SHOULD-4: ~0.5 wheel dia; was 0.15)
-# DQ / GD Hold v2: the yokes' lug ends shear down to the main pin on the rope line (full within YOKE_LUG of the pivot,
-# none beyond YOKE_RAMP); the static tongue moves inboard of the yoke slab (TWIN_TONGUE_GAP off its inner face) so the
+TWIN_FG_BREAK_BEAM = 0.20               # m, the Break half beam's depth (critic SHOULD-4: ~0.5 wheel dia, was 0.15)
+# DQ / GD Hold v2: the lug ends of the yokes shear down to the main pin on the rope line (full within YOKE_LUG of the pivot,
+# none beyond YOKE_RAMP). The static tongue moves inboard of the yoke slab (TWIN_TONGUE_GAP off its inner face), so the
 # halves, whose frame now rides 2 seats over the pivot, never swing into it at G6's 30 deg uniform pitch
 TWIN_YOKE_LUG, TWIN_YOKE_RAMP = 0.10, 0.30
 TWIN_TONGUE_GAP = 0.010
 TWIN_TOP_GAP = 0.10                     # m, plan 3.4 gate LADDER (LiftTowerFitSystem.MemberOf matches at 0.05)
 # m_ElevationRange.max of the line prefabs (plan 3.4). DQ 11.0 (art-601): the DQ20 Hold twin sits at E 10.5178 (top 20.4678 -
-# ladder[0] 9.95); the import round raises SkiDetachableHV m_ElevationRange.max 10 -> 11 with it (a twin E past the shipped
-# range is the plan's excluded case 4.4 b: the range is ours to raise, the engine then never sees E past it)
+# ladder[0] 9.95). The import round raises SkiDetachableHV m_ElevationRange.max 10 -> 11 with it (a twin E past the shipped
+# range is the excluded case 4.4 b of the plan: the range is ours to raise, the engine then never sees E past it)
 LINE_ELEVATION_MAX = {"FG": 16.0, "DQ": 11.0, "GD": 28.0}
 TWIN_BREAK_CAP = 5400                   # owner 2026-11-03 (v2): the Break kind's LOD0 cap, all four FG members
 TWIN_BREAK_CAP_X = 1.15                 # the B2 first estimate (4,370), superseded by TWIN_BREAK_CAP
-TWIN_CAP_RAISE = 1.05                   # DECISIONS 585: up to 5 % over, raise in-round; beyond: stop and report
+TWIN_CAP_RAISE = 1.05                   # DECISIONS 585: up to 5 % over, raise in-round. Beyond: stop and report
 TWIN_HALF_BREAK = {"Hold": 20.0, "Combo": 20.0, "Break": 16.0}  # G6 half-break limit (Break: 8 wheels x 4 / 2)
 TWIN_CONCAVE_ONLY = {"Hold": True, "Combo": False, "Break": False}
 TWIN_UV = "UVUnique"
@@ -5680,9 +5664,9 @@ def twin_family_tops(fam):
 
 
 def twin_spec(key):
-    """{key, member, kind, base, build, twin, seat, lane, dz}: `build` = the spec the head is built at (DQ / GD raised by
-    the head raise, FG the member), `twin` = the twin's spec (kind, wheel axle, top, sheaves, cap; lane_y(twin) = the
-    member's lane). Sets SKIN_GD sheaves to the twin count (GD)."""
+    """{key, member, kind, base, build, twin, seat, lane, dz}: `build` = the spec the head is built at (DQ / GD raised by the
+    head raise, FG the member), `twin` = the twin's spec (kind, wheel axle, top, sheaves, cap, lane_y(twin) = the member's
+    lane). Sets SKIN_GD sheaves to the twin count (GD)."""
     member, kind = TWINS[key]
     fam = VARIANTS[member].family
     if fam == "GD":
@@ -5858,7 +5842,7 @@ def twin_apply_atlas(parts, atlas):
 # -- the kinds: geometry on the transformed, atlas-mapped parts (authoring frame, z up, x travel) -------------------
 
 def _bm_edit(obj, fn, flip=False):
-    """Run fn(bm) on obj's mesh; flip=True reverses every face and puts each loop's TWIN_UV back on its vertex."""
+    """Run fn(bm) on obj's mesh. flip=True reverses every face and puts each loop's TWIN_UV back on its vertex."""
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     lay = bm.loops.layers.uv.get(TWIN_UV)
@@ -5957,7 +5941,7 @@ def twin_transform(parts, tw, info):
     if fam == "FG":
         if kind == "Hold":
             # v2 (critic MUST-1, "translate, do not mirror"): the wheels 2 seats up onto the rope, the frame in the band
-            # beside them (TWIN_FG_BAND, see the constant); the main pin and the static hanger stay on the rope line
+            # beside them (TWIN_FG_BAND, see the constant). The main pin and the static hanger stay on the rope line
             up = 2.0 * seat
             axle = lane + seat
             names = [o.name for o, _k in parts if train(o.name)]
@@ -6043,7 +6027,7 @@ def twin_transform(parts, tw, info):
         rep["stretched"] += ["liftbar", "liftpost_n", "liftpost_p"]
         rep["lift_frame_dz"] = round(d, 4)
         return parts, rep
-    # DQ / GD: the head was built at build.axle (the support train with it); the clevis tongue's lug follows the pin
+    # DQ / GD: the head was built at build.axle (the support train with it). The clevis tongue's lug follows the pin
     A2 = build.axle
     pin_old = lane_y(build, True)
     r_lug = SKIN_CLEVIS["r"]
@@ -6053,8 +6037,8 @@ def twin_transform(parts, tw, info):
             o = by[f"hanger_{tag}_t"][0]
             _move(o, dz=pin_new - pin_old, where=lambda c: c.z <= pin_old + r_lug + 1e-6)
             rep["stretched"].append(o.name)
-    # the comm wire stays at the member's comm y while the head rises: the ladder's fall-arrest channel (y 0, up to deck
-    # + 1.0) would run through it on a Hold (DQ +0.52, GD +0.57); it stops TWIN_COMM_CLEAR under the wire's zone
+    # the comm wire stays at the comm y of the member while the head rises: the fall-arrest channel of the ladder (y 0, up to
+    # deck + 1.0) would run through it on a Hold (DQ +0.52, GD +0.57). It stops TWIN_COMM_CLEAR under the zone of the wire
     zc = build.comm_y - TWIN_COMM_CLEAR if build.comm_y is not None else None
     if zc is not None and "arrest_0" in by and max(v.co.z for v in by["arrest_0"][0].data.vertices) > zc:
         def clip(bm):
@@ -6064,10 +6048,10 @@ def twin_transform(parts, tw, info):
         rep["arrest_top_clipped_to"] = round(zc, 4)
     moving = [o.name for o, _k in parts if train(o.name) or o.name.startswith(SKIN_ROOT_FIRST)]
     if kind == "Hold":
-        # v2 (critic MUST-1, "translate, do not mirror"): the head was built TWIN_HEAD_SEATS up; the train comes down
-        # to the wheels-on-the-rope height (2 seats over the member's) with its frame over the wheels as on the member,
-        # the main pin to the rope line (the halves' hinge, G6), the yokes' lug ends sheared down to it, the tongue
-        # moved inboard of the yoke slab and stretched to the pin. Under the rope: nothing but the pin's lug.
+        # v2 (critic MUST-1, "translate, do not mirror"): the head was built TWIN_HEAD_SEATS up. The train comes down to the
+        # wheels-on-the-rope height (2 seats over the member's) with its frame over the wheels as on the member, the main pin
+        # to the rope line (the hinge of the halves, G6), the lug ends of the yokes sheared down to it, and the tongue moved
+        # inboard of the yoke slab and stretched to the pin. Under the rope: nothing but the lug of the pin.
         d_train = 2.0 * seat - tw["dz"]
         for n in moving:
             if n.startswith(SKIN_ROOT_FIRST):
@@ -6358,9 +6342,9 @@ def twin_lod_chain(t, name, spec):
 
 
 def twin_budgets(t, lods, tw, over_cap_ok=False):
-    """C11 / C12 for a twin: LOD0 <= the cap (a <= 5 % overage raises the cap in-round, DECISIONS 585; more raises,
-    or with over_cap_ok (previews for the owner's cap call only) is recorded as `over_cap`), LOD1 <= 50 % LOD0 and its
-    top drift <= 0.01, LOD2 <= family target x 1.10, every level tri-only."""
+    """C11 / C12 for a twin: LOD0 <= the cap (a <= 5 % overage raises the cap in-round, DECISIONS 585. More raises, or with
+    over_cap_ok (previews for the owner's cap call only) is recorded as `over_cap`), LOD1 <= 50 % LOD0 and its top drift <=
+    0.01, LOD2 <= family target x 1.10, every level tri-only."""
     spec = tw["twin"]
     n0 = cs2_asset.tri_count(t)
     cap = spec.cap
@@ -6399,7 +6383,7 @@ def twin_budgets(t, lods, tw, over_cap_ok=False):
 def twin_cameras(member):
     """The family-shared cameras of a member's lineup (support, Hold, Combo, Break: the same frame for all): the family
     preview camera (skin_views head_34 / head_side directions, 50 mm) aimed at the rope height, framed to the widest
-    twin; and the whole-tower 3/4 of the LOD strip (skin_tower_34)."""
+    twin, and the whole-tower 3/4 of the LOD strip (skin_tower_34)."""
     base = VARIANTS[member]
     zp = lane_y(base, True)
     k = 50.0 / 15.6
@@ -6443,7 +6427,7 @@ def twin_fold_views(tw):
 
 def stage_textures(member, asset_dir, name):
     """Preview staging only: the member's shipped maps under the twin's name in the scratch asset folder (the renderer
-    reads <dir>/<name>_<map>.png). Nothing is baked; the twin mesh maps onto these exact files."""
+    reads <dir>/<name>_<map>.png). Nothing is baked. The twin mesh maps onto these exact files."""
     import shutil
     src = os.path.join(_REPO, "assets", "import", "towers", *TWIN_ATLAS[member].split("/"))
     sname = os.path.basename(src)
@@ -6460,7 +6444,7 @@ TWIN_CARRIERS = None        # --carriers: a carriers.json-shaped file whose rows
 
 def _grip_object(fam, tower_sign):
     """The carrier's split grip mesh (catalog/carriers.json split rows: tr / dq / gd8, or TWIN_CARRIERS) in the towers'
-    net frame, its rope point at the origin; a plain dark material (contact study). Returns (obj, row)."""
+    net frame, its rope point at the origin, with a plain dark material (contact study). Returns (obj, row)."""
     with open(TWIN_CARRIERS or os.path.join(_REPO, "catalog", "carriers.json"), encoding="utf-8") as f:
         cat = json.load(f)
     rows = cat.get("carriers", cat)
@@ -6502,8 +6486,8 @@ def _grip_object(fam, tower_sign):
 
 
 def grip_pass(t, spec, grip, lane_x, step=0.02, parts_of=None):
-    """The carrier grip passing the train on one lane at rest: the grip's rope point slides along the rope (net -Y =
-    travel) at lane_x every `step` m over the train; at each stop the tower faces its triangles cross (by part) and the
+    """The carrier grip passing the train on one lane at rest: the grip's rope point slides along the rope (net -Y = travel) at
+    lane_x every `step` m over the train. At each stop it records the tower faces that its triangles cross (by part) and the
     smallest drop / lateral shift that clears them (5 mm steps, up to 0.40 m). Returns the study (meters)."""
     from mathutils.bvhtree import BVHTree
     table = json.loads(t.data[cs2_asset.PART_TABLE_PROP])
@@ -6528,7 +6512,7 @@ def grip_pass(t, spec, grip, lane_x, step=0.02, parts_of=None):
     steps = np.arange(0.005, 0.405, 0.005)
 
     def clear(y, dx_of, dz_of, only):
-        """The smallest offset (5 mm steps to 0.40) that leaves no `only` part hit; None beyond 0.40."""
+        """The smallest offset (5 mm steps to 0.40) that leaves no `only` part hit. None beyond 0.40."""
         for d in steps:
             if not [p for p in hits(dx_of(d), y, dz_of(d)) if only(p)]:
                 return round(float(d), 3)
@@ -6569,9 +6553,9 @@ def grip_pass(t, spec, grip, lane_x, step=0.02, parts_of=None):
 
 
 def render_twin_previews(t, arm, lods, tw, asset_dir, name, out_dir, ref=None, grip_fam=None):
-    """Plan 3.6 per twin: the lineup frames (family camera), the train close-ups at the kind's folds with the rope, the LOD
-    strip frames; with `ref` (the rebuilt member, the Hold build) the member's own lineup frames; with grip_fam the grip
-    under the Hold train. Returns {group: [paths]}."""
+    """Plan 3.6 per twin: the lineup frames (family camera), the train close-ups at the folds of the kind with the rope, the LOD
+    strip frames. With `ref` (the rebuilt member, the Hold build) it adds the member's own lineup frames. With grip_fam it
+    adds the grip under the Hold train. Returns {group: [paths]}."""
     spec = tw["twin"]
     cams = twin_cameras(tw["member"])
     out = {"lineup": [], "closeup": [], "lod": [], "grip": []}
@@ -6687,11 +6671,11 @@ TWIN_MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal")
 
 
 def twin_settings(asset_dir, name, owner, levels):
-    """settings.json of an exported twin (DECISIONS 592c: no bake of its own, the member's set): every map key of LOD0
-    and of each supplied LOD points STRAIGHT at the member's LOD0 map in its sibling folder (`../<Owner>/<Owner>_<Map>
-    .png`: the family-folder rule, PIPELINE section 4), so no key chains through another key (cs2_asset.write_settings
-    refuses shared_from with supplied LODs: chaining is unverified in the importer); LOD1 / LOD2 Skip (ours ship);
-    useProceduralAnimation (skinned FBX), the members' last key."""
+    """settings.json of an exported twin (DECISIONS 592c: no bake of its own, the member's set).
+    Every map key of LOD0 and of each supplied LOD points STRAIGHT at the member's LOD0 map in its sibling folder
+    (`../<Owner>/<Owner>_<Map>.png`: the family-folder rule, PIPELINE section 4), so no key chains through another key
+    (cs2_asset.write_settings refuses shared_from with supplied LODs: chaining is unverified in the importer).
+    LOD1 / LOD2 Skip (ours ship). useProceduralAnimation (skinned FBX), the members' last key."""
     shared = {}
     for lod in range(levels + 1):
         for m in TWIN_MAPS:
@@ -6784,7 +6768,7 @@ def main_twin(argv):
     os.makedirs(asset_dir, exist_ok=True)
     if ref is not None:
         ref.hide_render = True
-    # the member's object stays in the scene for the studies; the twin builds beside it (the part objects are new)
+    # the member's object stays in the scene for the studies. The twin builds beside it (the part objects are new)
     t, table, info = build_twin(tw, head, atlas, name)
     n0 = cs2_asset.tri_count(t)
     print(f"[twin] {name}: {kind} of {member} ({spec.kind}), {len(table)} parts, LOD0 {n0} tris, wheel axle "
@@ -6795,7 +6779,7 @@ def main_twin(argv):
         raise TowerContractError(f"{name}: a level carries an object transform; the rig assumes none")
     arm = build_skin_armature(spec, f"{name}Rig")
     weights = {}
-    # previews: LOD0 + LOD1 rigged, LOD2 rigid at rest; --export: every level skinned, as the members ship (SetupLODs
+    # previews: LOD0 + LOD1 rigged, LOD2 rigid at rest. --export: every level skinned, as the members ship (SetupLODs
     # copies LOD0's ProceduralAnimationProperties to every LOD, skin_manifest_block "surgery")
     rigged = [t] + list(lods if args.export else lods[:1])
     for level, ob in enumerate(rigged):
@@ -6929,7 +6913,7 @@ def main_v2(argv):
     # the wheel dress (materials + relief rings, 0 tris): on by default for skinned builds, unskinned stay as shipped
     S.set_wheel_dress(args.skinned if args.wheel_dress is None else args.wheel_dress)
     if args.rope_on_crown:
-        set_rope_on_crown(True)        # T27: lanes on the crowns; the compression terminal heads (ETDQ / ETGD) rise
+        set_rope_on_crown(True)        # T27: lanes on the crowns, and the compression terminal heads (ETDQ / ETGD) rise
     if args.skinned:
         set_skinned(True)              # phase 2: the pinned trains, the rope on the crowns (the Train pivot line)
     elif args.skin_views or args.gd_sheaves:
@@ -6987,8 +6971,8 @@ def main_v2(argv):
         print(f"[tower2] detail pass 1: relief {dp1['relief']}; tone {dp1['tone']}; plates "
               f"{[(p['glyph_px'], p['cap_px'], p['ppm']) for p in dp1['plates']]}; tone gate "
               f"{dp1['tone_gate_ok']}; weather {dp1.get('weather')}")
-        # the DT-C7 / C8 / C10 gates are defined at the shipping atlas (texel floors, 300 px/m
-        # plates, the vanilla budget); test runs at --atlas 256 check the guards only
+        # the DT-C7 / C8 / C10 gates are defined at the shipping atlas (texel floors, 300 px/m plates, the vanilla budget).
+        # Test runs at --atlas 256 check the guards only
         assert_detail_pass(spec, dp1, strict_weather=args.weather == "on" and args.weather_i is None,
                            shipping=args.atlas == ATLAS_V2)
     lods = []
@@ -7202,7 +7186,7 @@ def _entry():
         main()
         return
     try:
-        if "--twin" in argv:            # B2 breakover / hold-down twins (previews; --export: the import folder)
+        if "--twin" in argv:            # B2 breakover / hold-down twins (previews, --export: the import folder)
             main_twin(argv)
         else:
             main_v2(argv)

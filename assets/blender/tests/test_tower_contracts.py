@@ -1,87 +1,96 @@
 """
-Geometry contracts for the lift_tower v2 port (towers-v2.md section 14.2-14.4, with the
-skeptic's MUST-CHANGE items), checked INDEPENDENTLY of the generator's own asserts:
+Geometry contracts for the lift_tower v2 port (towers-v2.md section 14.2-14.4, with the skeptic's MUST-CHANGE items). The
+test checks them INDEPENDENTLY of the generator's own asserts.
 
-1. All eleven variants - Revision 1 added FG20 / DQ16 (verdict 5) - (DQ line variants
-   with both heads when the Kagelok .blend is present),
-   no bake: axle = mast - 0.96 (FG), lanes from the sheave centers in the NET frame
-   (gauge = X: +-1.8 / +-2.6), bounds top per variant from a hard-coded table (the
-   top-anchor spec y; DQ ingest 1.9501 above the axle, M7), bounds min = -pier, post-orient
-   lateral +-1.91 FG / +-2.993 DQ (+-0.01), LOD1 = 0 and LOD2 bounds-top drift (FG 0 with
-   rail_catwalk_top kept - M5; DQ 0.024..0.031 = beam top, endplates deleted), LOD budgets,
-   pad clearance (crash pad inner r >= mast r + 0.03; no flange / bolt vertex inside the
-   shell - M8), names (validate_asset_name + cs2_validate.lint_asset_name), ETDQ hosted
-   inboard end <= -8.3 (M4); DQ: no grate_/post_/rail_/kick_ vertex in the hanger column
-   |gauge| > lane - 0.45 between rope - 1.70 and rope + 0.22 on every LOD (review F2).
-   Revision 1: review F3 - the crash pad sits 5 mm above the base-flange plate and no flange /
-   bolt triangle crosses a pad triangle on LOD0 / LOD1 (BVH); review F5 - DQ LOD2 keeps both
-   deck plates and, on rebuild heads, the four A-braces; node-elevation scoring (pillar-system
-   Q1) over FG8-20 / DQ10-16 switches at 8/3, 20/3, 32/3 and 4/3, 10/3, 16/3 m and grounds up
-   to 16 / 12 m, and lift_tower.pillar_scoring (the manifest rows) agrees.
-2. Wrong builds FAIL: flange r 0.70 (M8 / C14), rocker_sub back at 2.517 (F9), rails
-   unsplit through the portal (F10 / C17), a spec top 1 cm off (C3), ETDQ with 10 sheaves
-   (M4 / C13), FG LOD2 deleting rail_catwalk_top (M5 / C12), DQ decks 2.492 + rails 2.30 and
-   rails 2.30 alone in the hanger column (review F2 / C18), the pre-F3 pad from z 0.15 on FG8 and
-   DQ12 (C14 triangle test), the pre-F5 ETDQ LOD2 list (C12 F5).
-3. Bake (FG8 at A = 512 through cs2_bake, AO 8 samples, temp dir): 4 PNGs, BaseColor A 255,
-   MaskMap B 0, ControlMask R + G <= 1 + 1e-3 and A 0, 95th percentile BaseColor under ctl
-   R in [0.78, 0.82] (RECOLOR_ALBEDO), warning-triangle texels (BaseColor >= 0.85 inside the
-   crashpad_outer island) have ctl R = G = 0.
-4. main_v2 (towers-v2 section 14.6, pipeline review 7): FG8 with and without --review at
-   --atlas 512 --ao-samples 4 in one process; every asset file byte-identical (FBX clock frozen),
-   manifests equal without written_utc, the pack outside the asset folder.
-5. Revision 1b (revision1-check-towers item 6): the gondola tubular family GD12 / GD16 / GD20
-   (rebuild head) through every check above, plus: axle = top - 2.000 and tube top = axle + 0.50
-   (the lattice's H_top_GD, NOT the FG mast - 0.96), comm = axle + 1.20, lanes +-3.0; the gd8
-   hanger column (|x| <= lane - 0.81 from rope + 0.08 down to rope - 2.10, <= lane - 1.10 over the
-   cabin body rope - 1.92..- 4.50) on every LOD; the gondola carrier boxes swept on both lanes
-   with the hanger outboard (only the jaw may pass the sheaves) and the cabins.md 8.3 head rule;
-   the comm wire's corridor empty; lift_tower's GD constants == tram_tower.GD / CARRIER_GD /
-   GD_HEAD_RULE / SHEAVE / STUB_LANES == catalog/carriers.json gd8; GD-group scoring with the
-   lattice 25 / 32 / 40 (switches 8/3, 20/3, 34/3, 53/3, 76/3; tubular float <= 10/3 < pier 4).
-   Wrong builds: the GD deck at the DQ rule lane - 0.45 (C18), the carriers at the plain 0.40
-   stretch (C20 head rule), the comm wire into the tube top (C19), the 0.56 pad on the 0.50 mast
-   (C8), a GD top 1 cm off (C3).
-6. Revision 1c (revision1b-check-gd-towers section B): every sub-rocker HANGS - each sub pivot
-   pin's two ends sit in a rocker_ lug (its own sub outboard; a main or, for the lone middle sub
-   of a GD train, a rocker_link_ inboard) and that inboard lug reaches the yoke (a link buried in
-   it, a main within the 0.05 m its own pin bridges), measured here on the net-frame part boxes
-   (independent of lift_tower.check_sub_hangers / C21). Wrong builds: GD12 without the link (the
-   shipped-before middle sub, 0.125 m under the yoke with an open pin) and a link stopping 3 cm
-   short of the yoke - both must fail on C21.
-7. Detail pass 1 (design/detail-pass-1-towers.md section 6 with the skeptic's MUST-CHANGE items;
-   DECISIONS 171): every variant incl. the new DQ18 and ETGD - DT-C2 LOD0 == the measured ledger
-   (and within 1 % of the design ledger), DT-C3 same-facing coplanar <= 1 cm2 per part pair on
-   LOD0 / 1 / 2 and DT-C4 no hidden contact triangle (an independent scanner, the cabin G12
-   tolerances), DT-C5 texel anisotropy (area-weighted median <= 1.05, p95 <= 1.35 on "UVMap"),
-   DT-C6 detail parts (counts, LOD fates, plates 4-8 mm proud with rims 1-3 mm in, BVH: no
-   non-host overlap), M1 (mast islands fit, the FG16 / FG20 split), M3 (each plate's +u = the
-   viewer's right), M9 (conduit standoff / foot); ETGD inside the gondola base station's keep-out,
-   on its rope / lane / pose, and clear of its geometry; DQ18 scoring (post-freeze family).
-   Wrong builds: the pre-pass FG hanger top and GD12 brace a 0.186 (DT-C3), a create_cone mast
-   UV (DT-C5). Bake (FG8 / DQ16 / GD20 at the shipping atlas): DT-C7 stamps on the PNGs, DT-C8 /
-   C9 / C10 from the manifest, DT-C9 decorrelated twins, G5 ControlMask weather on == off.
-8. Follow-up 2026-10-11 (DQ20 + sub-texel faces). (a) DQ20 (top 19.950, axle 18.0, comm 19.2, pier 6,
-   lanes +-2.6) ships ALONGSIDE DQ18 under the per-family LOD0 cap table LOD0_CAP (DQ 3,600 after
-   the "no need to hold the cap on the towers"; FG / GD stay 3,500): the table itself, every
-   spec's cap, DQ20's measured 3,554 / 3,534 against it, scoring with both members (stage 2: switch
-   points 4/3 .. 28/3, DQ20 wins 9.333-16, grounds to 16 = the FG line) while the DQ18 stage-1 family
-   stays frozen. Wrong build: DQ20 held to the old 3,500 cap (C11).
-   (b) F3: no triangle of the WRITTEN FBX with a UV area under 4 texel2 (every face
-   under 1 texel included) samples black in the written BaseColor, measured on the FBX import and
-   the PNG (independent of lift_tower.uv_triangles / subtexel_black_faces) on DQ18 and GD16 (the
-   worst: 24 / 32 black before), DQ20 and every other bake; the fill stays out of variants without
-   the defect (FG8 fills 0). Wrong build: the fill disabled -> the generator's DT-F3 gate raises AND
-   the independent counter flags >= 20 black triangles on DQ18.
-9. F3b (2026-10-11, the checker's finding F-1; supersedes the "under 4 texel2" class of 8b): the
-   contract has NO UV-area limit. DQ18 / GD16 / DQ20 / FG8 / ET68 are baked WITH the LOD chain and
-   the written LOD0, LOD1 and LOD2 FBX are imported: no triangle of any UV area has a black sample
-   (sRGB max < 0.02) among the checker's 400 (a 20 x 20 midpoint grid folded into the triangle) on
-   the written BaseColor; the generator agrees (black_after 0 at all three LODs, nothing
-   unfillable); the F3 footprint pass and the F3b any-area pass each ran exactly where there was
-   something to fill (FG8 only F3b: its 16 platerim slivers; ET68, no defect, neither). Wrong
-   builds: the fill disabled (DQ18, >= 20 flagged) and ONLY the F3 pass running (DQ20: the long
-   fall-arrest channel slivers stay black, flagged by the generator's gate and the counter).
+1. All eleven variants (Revision 1 added FG20 / DQ16, verdict 5). The DQ line variants use both heads when the Kagelok
+   .blend is present. No bake. The test checks:
+    - axle = mast - 0.96 (FG).
+    - lanes from the sheave centers in the NET frame (gauge = X: +-1.8 / +-2.6).
+    - bounds top per variant from a hard-coded table (the top-anchor spec y, DQ ingest 1.9501 above the axle, M7).
+    - bounds min = -pier.
+    - post-orient lateral +-1.91 FG / +-2.993 DQ (+-0.01).
+    - LOD1 = 0 and LOD2 bounds-top drift (FG 0 with rail_catwalk_top kept, M5. DQ 0.024..0.031 = beam top, endplates deleted).
+    - LOD budgets.
+    - pad clearance: crash pad inner r >= mast r + 0.03, and no flange / bolt vertex inside the shell (M8).
+    - names (validate_asset_name + cs2_validate.lint_asset_name).
+    - ETDQ hosted inboard end <= -8.3 (M4).
+    - DQ: no grate_/post_/rail_/kick_ vertex in the hanger column |gauge| > lane - 0.45 between rope - 1.70 and rope + 0.22
+      on every LOD (review F2).
+    Revision 1 added these checks:
+    - review F3: the crash pad sits 5 mm above the base-flange plate. No flange / bolt triangle crosses a pad triangle on
+      LOD0 / LOD1 (BVH).
+    - review F5: DQ LOD2 keeps both deck plates and, on rebuild heads, the four A-braces.
+    - node-elevation scoring (pillar-system Q1) over FG8-20 / DQ10-16: switches at 8/3, 20/3, 32/3 and 4/3, 10/3, 16/3 m,
+      and grounds up to 16 / 12 m. lift_tower.pillar_scoring (the manifest rows) agrees.
+2. Wrong builds FAIL:
+    - flange r 0.70 (M8 / C14).
+    - rocker_sub back at 2.517 (F9).
+    - rails unsplit through the portal (F10 / C17).
+    - a spec top 1 cm off (C3).
+    - ETDQ with 10 sheaves (M4 / C13).
+    - FG LOD2 deleting rail_catwalk_top (M5 / C12).
+    - DQ decks 2.492 + rails 2.30 and rails 2.30 alone in the hanger column (review F2 / C18).
+    - the pre-F3 pad from z 0.15 on FG8 and DQ12 (C14 triangle test).
+    - the pre-F5 ETDQ LOD2 list (C12 F5).
+3. Bake (FG8 at A = 512 through cs2_bake, AO 8 samples, temp dir). The test checks: 4 PNGs, BaseColor A 255, MaskMap B 0,
+   ControlMask R + G <= 1 + 1e-3 and A 0, 95th percentile BaseColor under ctl R in [0.78, 0.82] (RECOLOR_ALBEDO). The
+   warning-triangle texels (BaseColor >= 0.85 inside the crashpad_outer island) have ctl R = G = 0.
+4. main_v2 (towers-v2 section 14.6, pipeline review 7): FG8 with and without --review at --atlas 512 --ao-samples 4 in
+   one process. Every asset file is byte-identical (FBX clock frozen). The manifests are equal without written_utc. The
+   pack is outside the asset folder.
+5. Revision 1b (revision1-check-towers item 6): the gondola tubular family GD12 / GD16 / GD20 (rebuild head) goes through
+   every check above. It also gets these checks:
+    - axle = top - 2.000 and tube top = axle + 0.50 (the lattice's H_top_GD, NOT the FG mast - 0.96).
+    - comm = axle + 1.20, lanes +-3.0.
+    - the gd8 hanger column on every LOD: |x| <= lane - 0.81 from rope + 0.08 down to rope - 2.10, and <= lane - 1.10 over
+      the cabin body rope - 1.92..- 4.50.
+    - the gondola carrier boxes swept on both lanes with the hanger outboard (only the jaw may pass the sheaves) and the
+      cabins.md 8.3 head rule.
+    - the comm wire's corridor is empty.
+    - lift_tower's GD constants == tram_tower.GD / CARRIER_GD / GD_HEAD_RULE / SHEAVE / STUB_LANES == catalog/carriers.json gd8.
+    - GD-group scoring with the lattice 25 / 32 / 40 (switches 8/3, 20/3, 34/3, 53/3, 76/3, tubular float <= 10/3 < pier 4).
+    Wrong builds: the GD deck at the DQ rule lane - 0.45 (C18), the carriers at the plain 0.40 stretch (C20 head rule), the
+    comm wire into the tube top (C19), the 0.56 pad on the 0.50 mast (C8), a GD top 1 cm off (C3).
+6. Revision 1c (revision1b-check-gd-towers section B): every sub-rocker HANGS. Each sub pivot pin's two ends sit in a
+   rocker_ lug. One end sits in its own sub outboard lug. The other end sits in a main lug or, for the lone middle sub of
+   a GD train, a rocker_link_ inboard lug. That inboard lug reaches the yoke (a link buried in it, a main within the 0.05
+   m its own pin bridges). The test measures this on the net-frame part boxes (independent of
+   lift_tower.check_sub_hangers / C21). Wrong builds: GD12 without the link (the shipped-before middle sub, 0.125 m under
+   the yoke with an open pin) and a link stopping 3 cm short of the yoke. Both must fail on C21.
+7. Detail pass 1 (design/detail-pass-1-towers.md section 6 with the skeptic's MUST-CHANGE items, DECISIONS 171): every
+   variant including the new DQ18 and ETGD. The test checks:
+    - DT-C2: LOD0 == the measured ledger (and within 1 % of the design ledger).
+    - DT-C3: same-facing coplanar <= 1 cm2 per part pair on LOD0 / 1 / 2.
+    - DT-C4: no hidden contact triangle (an independent scanner, the cabin G12 tolerances).
+    - DT-C5: texel anisotropy (area-weighted median <= 1.05, p95 <= 1.35 on "UVMap").
+    - DT-C6: detail parts (counts, LOD fates, plates 4-8 mm proud with rims 1-3 mm in, BVH: no non-host overlap).
+    - M1: mast islands fit, the FG16 / FG20 split.
+    - M3: each plate's +u = the viewer's right.
+    - M9: conduit standoff / foot.
+    - ETGD is inside the gondola base station's keep-out, on its rope / lane / pose, and clear of its geometry.
+    - DQ18 scoring (post-freeze family).
+    Wrong builds: the pre-pass FG hanger top and GD12 brace a 0.186 (DT-C3), a create_cone mast UV (DT-C5).
+    Bake (FG8 / DQ16 / GD20 at the shipping atlas): DT-C7 stamps on the PNGs, DT-C8 / C9 / C10 from the manifest, DT-C9
+    decorrelated twins, G5 ControlMask weather on == off.
+8. Follow-up 2026-10-11 (DQ20 + sub-texel faces).
+    (a) DQ20 (top 19.950, axle 18.0, comm 19.2, pier 6, lanes +-2.6) ships ALONGSIDE DQ18 under the per-family LOD0 cap table
+    LOD0_CAP (DQ 3,600 after the "no need to hold the cap on the towers", FG / GD stay 3,500). The test checks the table
+    itself, every spec's cap, and DQ20's measured 3,554 / 3,534 against it. It checks scoring with both members (stage 2:
+    switch points 4/3 .. 28/3, DQ20 wins 9.333-16, grounds to 16 = the FG line). The DQ18 stage-1 family stays frozen.
+    Wrong build: DQ20 held to the old 3,500 cap (C11).
+    (b) F3: no triangle of the WRITTEN FBX with a UV area under 4 texel2 (every face under 1 texel included) samples black in
+    the written BaseColor. The test measures this on the FBX import and the PNG (independent of lift_tower.uv_triangles /
+    subtexel_black_faces) on DQ18 and GD16 (the worst: 24 / 32 black before), DQ20 and every other bake. The fill stays out
+    of variants without the defect (FG8 fills 0). Wrong build: the fill disabled. The generator's DT-F3 gate raises AND the
+    independent counter flags >= 20 black triangles on DQ18.
+9. F3b (2026-10-11, the checker's finding F-1, supersedes the "under 4 texel2" class of 8b): the contract has NO UV-area
+   limit. DQ18 / GD16 / DQ20 / FG8 / ET68 are baked WITH the LOD chain, and the test imports the written LOD0, LOD1 and
+   LOD2 FBX. No triangle of any UV area has a black sample (sRGB max < 0.02) among the checker's 400 samples (a 20 x 20
+   midpoint grid folded into the triangle) on the written BaseColor. The generator agrees (black_after 0 at all three
+   LODs, nothing unfillable). The F3 footprint pass and the F3b any-area pass each ran exactly where there was something
+   to fill (FG8 only F3b: its 16 platerim slivers. ET68 has no defect, so neither). Wrong builds: the fill disabled (DQ18, >=
+   20 flagged) and ONLY the F3 pass running (DQ20: the long fall-arrest channel slivers stay black, flagged by the
+   generator's gate and the counter).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_tower_contracts.py
 """
@@ -109,11 +118,11 @@ TOPS = {"FG8": 9.014, "FG12": 13.014, "FG16": 17.014, "FG20": 21.014, "ET62": 7.
         "DQ10": 9.950, "DQ12": 11.950, "DQ14": 13.950, "DQ16": 15.950, "ETDQ": 5.650,
         "GD12": 12.0, "GD16": 16.0, "GD20": 20.0,
         "DQ18": 17.950, "ETGD": 6.850, "DQ20": 19.950}
-# detail pass 1 (DECISIONS 171): DQ18 (the transfer audit's fallback - DQ20 measured 3,554 tris > 3,500)
-# and the gondola entry compression tower ETGD (rope 4.85, H_top 2.000)
-# ETDQ 3.70 = the DQ base station lane (integration 2026-10-11; was 3.95, see lift_tower DQ_ENTRY_ROPE_Y)
+# detail pass 1 (DECISIONS 171): DQ18 (the transfer audit's fallback - DQ20 measured 3,554 tris > 3,500) and the gondola
+# entry compression tower ETGD (rope 4.85, H_top 2.000)
+# ETDQ 3.70 = the DQ base station lane (integration 2026-10-11, it was 3.95, see lift_tower DQ_ENTRY_ROPE_Y)
 # FG20 / DQ16: Revision 1 (verdict 5) - one taller line member per family
-# GD12/16/20: Revision 1b - axle = top - H_top_GD 2.000 (tram_tower.GD; the gondola piece lane 10.0)
+# GD12/16/20: Revision 1b - axle = top - H_top_GD 2.000 (tram_tower.GD, the gondola piece lane 10.0)
 AXLES = {"FG8": 7.04, "FG12": 11.04, "FG16": 15.04, "FG20": 19.04, "ET62": 5.24, "ET68": 5.84,
          "DQ10": 8.0, "DQ12": 10.0, "DQ14": 12.0, "DQ16": 14.0, "ETDQ": 3.70,
          "GD12": 10.0, "GD16": 14.0, "GD20": 18.0, "DQ18": 16.0, "ETGD": 4.85, "DQ20": 18.0}
@@ -122,24 +131,24 @@ LATERAL = {"FG": 1.91, "DQ": 2.993, "GD": 3.393}      # GD: end plates 2.957 + 0
 # review F3: the crash pad sits 5 mm above the base-flange plate top (FG plate 0.15-0.19, DQ 0.15-0.20)
 PAD_Z0 = {"FG": 0.195, "DQ": 0.205, "GD": 0.205}
 PAD_R = {"FG": 0.56, "DQ": 0.56, "GD": 0.61}          # crash-pad shell outer r (t 0.06)
-# hanger column bands per family: (lateral half-width, rope + z0, rope + z1); GD from the gd8 cabin
+# hanger column bands per family: (lateral half-width, rope + z0, rope + z1). GD uses the gd8 cabin
 COLUMN = {"DQ": [(0.45, -1.70, 0.22)], "GD": [(0.81, -2.10, 0.08), (1.10, -4.50, -1.92)]}
 DECK_Y1 = {"DQ": 2.15, "GD": 2.19}
-# pillar-system Q1 scoring with spec y = the shortest member's top: expected switch points and
-# the node elevation up to which the tallest member's pier still reaches the terrain
+# pillar-system Q1 scoring with spec y = the shortest member's top. These are the expected switch points and the node
+# elevation up to which the tallest member's pier still reaches the terrain
 SWITCH = {"FG": [8 / 3, 20 / 3, 32 / 3], "DQ": [4 / 3, 10 / 3, 16 / 3],
           "GD": [8 / 3, 20 / 3, 34 / 3, 53 / 3, 76 / 3]}
 GROUNDED = {"FG": 16.0, "DQ": 12.0, "GD": 36.0}
-# detail pass 1: the DQ family WITH DQ18 (the DQ18 manifest's placeholder_row_new; the frozen
-# manifests keep the scoring above)
+# detail pass 1: the DQ family WITH DQ18 (the DQ18 manifest's placeholder_row_new). The frozen manifests keep the scoring
+# above.
 SWITCH_DQ18 = [4 / 3, 10 / 3, 16 / 3, 22 / 3]
 GROUNDED_DQ18 = 14.0
-# follow-up 2026-10-11: the DQ family with DQ18 AND DQ20 (the DQ20 manifest, stage 2): DQ20 wins 9.333-16
+# follow-up 2026-10-11: the DQ family with DQ18 AND DQ20 (the DQ20 manifest, stage 2). DQ20 wins 9.333-16.
 SWITCH_DQ20 = [4 / 3, 10 / 3, 16 / 3, 22 / 3, 28 / 3]
 GROUNDED_DQ20 = 16.0
-# per-family LOD0 caps (lift_tower.LOD0_CAP): RS section 4 3,500; DQ raised to 3,600 for DQ20
-CAPS = {"FG": 3800, "DQ": 4250, "GD": 5000}     # DQ 4,200 -> 4,250 (family round: skinned DQ20 + comm hanger 4,250); GD 4,800 -> 5,000 (skinned GD20 at 10 a side 4,938); FG 3,700 -> 3,800 (FG20 3,762); T62 round 3 (<= 120-tri wheels) 3,700 / 4,200 / 4,800; round 2 4,600 / 6,400 / 7,500, round 1 3,500 / 3,600 / 3,500
-# LOD0 after detail pass 1 (shipped heads; deterministic) and the design ledger (section 3.2 + M1)
+# per-family LOD0 caps (lift_tower.LOD0_CAP): RS section 4 3,500. DQ raised to 3,600 for DQ20.
+CAPS = {"FG": 3800, "DQ": 4250, "GD": 5000}     # DQ 4,200 -> 4,250 (family round: skinned DQ20 + comm hanger 4,250). GD 4,800 -> 5,000 (skinned GD20 at 10 a side 4,938). FG 3,700 -> 3,800 (FG20 3,762). T62 round 3 (<= 120-tri wheels) 3,700 / 4,200 / 4,800. Round 2 4,600 / 6,400 / 7,500, round 1 3,500 / 3,600 / 3,500
+# LOD0 after detail pass 1 (shipped heads, deterministic) and the design ledger (section 3.2 + M1)
 LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 2722, "ET68": 2730,
           "DQ10": 3138, "DQ12": 3290, "DQ14": 3346, "DQ16": 3394, "DQ18": 3498, "ETDQ": 3010,
           "GD12": 3150, "GD16": 3254, "GD20": 3462, "ETGD": 2610,
@@ -148,8 +157,8 @@ DESIGN_LEDGER = {"FG8": 2762, "FG12": 2946, "FG16": 3170, "FG20": 3258, "ET62": 
                  "DQ10": 3148, "DQ12": 3300, "DQ14": 3356, "DQ16": 3404, "ETDQ": 3034,
                  "GD12": 3154, "GD16": 3258, "GD20": 3466}
 # T62 (2026-10-18, build/T62-sheave-wheels.md): with cs2_sheaves.WHEELS "v2" (the default) every wheel is the round-3
-# wheel: 76 tris + 22 per SEEN hub boss (cs2_sheaves.wheel_tris; measured by cull_hidden_bosses): the FG / ET wheels show
-# both faces (120), the DQ / GD gantry wheels hide the inboard face behind the sub rocker (98). v1 built FG 72 + a 24-tri
+# wheel: 76 tris + 22 per SEEN hub boss (cs2_sheaves.wheel_tris, measured by cull_hidden_bosses). The FG / ET wheels show
+# both faces (120). The DQ / GD gantry wheels hide the inboard face behind the sub rocker (98). v1 built FG 72 + a 24-tri
 # kit axle cap, DQ 72, GD 44: + 2 x sheaves x (new - v1) per tower. `--wheels v1` keeps the ledgers above.
 T62_V1_WHEEL = {"FG": 96, "DQ": 72, "GD": 44}
 T62_SEEN_BOSSES = {"FG": 2, "DQ": 1, "GD": 1}
@@ -205,11 +214,10 @@ def tri_overlap(obj, table, prefixes_a, prefixes_b):
 
 
 def scoring_case():
-    """Revision 1 (verdict 5): the line members are scored per node elevation (pillar-system Q1,
-    SubObjectSystem PillarType.Standalone): s = size.y - (e + y), size.y = bounds top, y = the
-    line NetSubObjects spec y (the shortest member's top), score 1 / (1 + (s >= 0 ? 2 s : -s)).
-    Brute force over e in [0, 20] m: the winner changes at the hard-coded switch points, the
-    tallest member's pier reaches the terrain up to GROUNDED, and lift_tower.pillar_scoring
+    """Revision 1 (verdict 5): the test scores the line members per node elevation (pillar-system Q1, SubObjectSystem
+    PillarType.Standalone). s = size.y - (e + y), size.y = bounds top, y = the line NetSubObjects spec y (the shortest
+    member's top). The score is 1 / (1 + (s >= 0 ? 2 s : -s)). Brute force over e in [0, 20] m: the winner changes at the
+    hard-coded switch points, the tallest member's pier reaches the terrain up to GROUNDED, and lift_tower.pillar_scoring
     (the manifest rows) agrees."""
     tops = dict(TOPS, **GD_LATTICE_TOPS)
     for fam, keys in (("FG", ("FG8", "FG12", "FG16", "FG20")), ("DQ", ("DQ10", "DQ12", "DQ14", "DQ16")),
@@ -227,7 +235,7 @@ def scoring_case():
               f"{[round(f, 3) for f in flips]} = {[round(f, 3) for f in SWITCH[fam]]}")
         top = keys[-1]
         pier = 8.0 if fam == "GD" else PIERS[fam]       # GD: the lattice 40's 8 m pier
-        reach = tops[top] - y + pier                     # base at terrain + e - (top - y); pier below
+        reach = tops[top] - y + pier                     # base at terrain + e - (top - y), pier below
         check(abs(reach - GROUNDED[fam]) < 1e-6 and win[-1] == len(keys) - 1,
               f"scoring {fam}: {top} wins above {SWITCH[fam][-1]:.3f} m and grounds nodes up to {reach:.1f} m")
         if fam == "GD":
@@ -243,7 +251,7 @@ def scoring_case():
               and abs(sc["grounded_up_to_e_m"] - GROUNDED[fam]) < 1e-6,
               f"pillar_scoring({fam}) rows {[(k, rows[k]['top_anchor_y']) for k in keys]}, "
               f"spec y {sc['net_subobject_y']}, switch {sc['switch_points_e_m']}")
-    # detail pass 1: the DQ family with DQ18 (post_freeze; the frozen manifests keep the above)
+    # detail pass 1: the DQ family with DQ18 (post_freeze). The frozen manifests keep the above.
     sc = LT.pillar_scoring("DQ", post_freeze=True)
     keys = [m["variant"] for m in sc["members"]]
     check(keys == ["DQ10", "DQ12", "DQ14", "DQ16", "DQ18"]
@@ -374,8 +382,8 @@ def variant_case(key, head=None):
     shell = (r > pr - cpd["thickness"]) & (r < pr) & (fb[:, 2] >= pz0) & (fb[:, 2] <= pz1)
     check(not shell.any(), f"{tag} no flange/bolt vertex in the pad shell radial band (max bolt r "
                            f"{r[r < pr - cpd['thickness']].max():.4f})")
-    # review F3: the pad sits on the flange plate, and no flange / bolt TRIANGLE crosses a pad
-    # triangle on any LOD that keeps both (BVH; the plate has no vertex inside the shell)
+    # review F3: the pad sits on the flange plate, and no flange / bolt TRIANGLE crosses a pad triangle on any LOD that
+    # keeps both (BVH). The plate has no vertex inside the shell.
     plate_top = pv["flange_mastbase"][:, 2].max()
     check(abs(pz0 - PAD_Z0[fam]) < 1e-5 and abs(pz0 - plate_top - 0.005) < 1e-5,
           f"{tag} crash pad bottom {pz0:.4f} = plate top {plate_top:.4f} + 0.005 (F3)")
@@ -387,11 +395,11 @@ def variant_case(key, head=None):
         inboard = spec.hosted_z + np.abs(co[:, 1]).max()
         check(inboard <= lim, f"{tag} hosted inboard end z {inboard:.3f} <= {lim}")
     if spec.family in ("DQ", "GD"):
-        # review F2 (independent of C18): no grate_/post_/rail_/kick_ vertex in the chair's /
-        # cabin's hanger column (net frame: gauge = X) - DQ: |x| > lane - 0.45 from 1.70 below the
-        # rope to the dq-chair Q1 grip top 0.22 above it; GD (Revision 1b): the gd8 bands, lane -
-        # 0.81 from rope + 0.08 to rope - 2.10 and lane - 1.10 over the body (+- the train sag),
-        # on any LOD
+        # review F2 (independent of C18): no grate_/post_/rail_/kick_ vertex in the chair's / cabin's hanger column (net
+        # frame: gauge = X), on any LOD.
+        # - DQ: |x| > lane - 0.45 from 1.70 below the rope to the dq-chair Q1 grip top 0.22 above it.
+        # - GD (Revision 1b): the gd8 bands, lane - 0.81 from rope + 0.08 to rope - 2.10 and lane - 1.10 over the body
+        #   (+- the train sag).
         for half, dz0, dz1 in COLUMN[spec.family]:
             z0, z1 = AXLES[key] + dz0 - abs(spec.sag), AXLES[key] + dz1 + abs(spec.sag)
             for lvl, (obj, tb) in enumerate([(t, table)] + [(l, table) for l in lods]):
@@ -432,11 +440,10 @@ def variant_case(key, head=None):
 
 
 def sub_hanger_case(tag, pv, spec):
-    """Revision 1c, independent of C21: in the NET frame (gauge = X, travel = -Y), every
-    sub pivot pin's outboard end lies in its rocker_sub_ box and its inboard end in a
-    rocker_main_ / rocker_link_ box (each within 2 cm laterally, the pin center inside the box
-    in travel and height), and that inboard box reaches its side's yoke (a link overlapping
-    it, a main within the 0.05 m gap its own pivot pin bridges)."""
+    """Revision 1c, independent of C21: in the NET frame (gauge = X, travel = -Y), every sub pivot pin's outboard end lies
+    in its rocker_sub_ box and its inboard end in a rocker_main_ / rocker_link_ box (each within 2 cm laterally, the pin
+    center inside the box in travel and height). That inboard box reaches its side's yoke (a link overlapping it, a main
+    within the 0.05 m gap its own pivot pin bridges)."""
     def bb(n):
         v = pv[n]
         return v.min(axis=0), v.max(axis=0)
@@ -473,11 +480,11 @@ def sub_hanger_case(tag, pv, spec):
 
 
 def gd_sweep_case(tag, t, table, spec):
-    """Revision 1b, independent of lift_tower.check_gd_clearances: in the NET frame (gauge = X,
-    travel = Y), the gondola carrier boxes of tram_tower.CARRIER_GD (lane frame dy outboard +,
-    dz from the rope) swept along the whole travel extent on both lanes, shrunk 5 mm, plus the
-    cabins.md 8.3 head rule, cross no tower triangle and hold no tower vertex - except the jaw
-    over the sheaves; and the comm wire corridor (x 0, z comm +- 0.10) is empty."""
+    """Revision 1b, independent of lift_tower.check_gd_clearances: in the NET frame (gauge = X, travel = Y), the gondola
+    carrier boxes of tram_tower.CARRIER_GD (lane frame dy outboard +, dz from the rope) are swept along the whole travel
+    extent on both lanes and shrunk 5 mm. The same applies to the cabins.md 8.3 head rule. These boxes cross no tower
+    triangle and hold no tower vertex, except the jaw over the sheaves. The comm wire corridor (x 0, z comm +- 0.10) is
+    empty."""
     from mathutils.bvhtree import BVHTree
     import tram_tower as TT
     me = t.data
@@ -512,9 +519,9 @@ def gd_sweep_case(tag, t, table, spec):
 
 
 def gd_seam_case():
-    """Revision 1b: lift_tower's GD numbers are the ones the shipped lattice towers and the gondola
-    cabin already assume (tram_tower.GD / CARRIER_GD / GD_HEAD_RULE / SHEAVE / STUB_LANES,
-    catalog/carriers.json gd8, the lattice manifests in towers/O)."""
+    """Revision 1b: lift_tower's GD numbers are the ones the shipped lattice towers and the gondola cabin already assume
+    (tram_tower.GD / CARRIER_GD / GD_HEAD_RULE / SHEAVE / STUB_LANES, catalog/carriers.json gd8, the lattice manifests in
+    towers/O)."""
     import tram_tower as TT
     with open(os.path.join(LT._REPO, "catalog", "carriers.json"), encoding="utf-8") as fh:
         gd8 = json.load(fh)["carriers"]["gd8"]
@@ -546,7 +553,7 @@ def gd_seam_case():
     check(all(getattr(s, a) == TT.SHEAVE[b] for s in gd.values() for a, b in
               (("sheave_r", "r"), ("sheave_w", "w"), ("pitch", "pitch"))),
           f"GD sheave r / w / pitch {LT.GD_SHEAVE} == tram_tower.SHEAVE {TT.SHEAVE}")
-    # tessellation is cosmetic (not a contract): reported, never a failure
+    # tessellation is cosmetic (not a contract): the test reports it and never fails on it
     same = all(LT.GD_SHEAVE.get(k) == TT.SHEAVE.get(k) for k in ("segs", "groove"))
     print(f"[contracts] {'note' if not same else 'ok  '} GD sheave segs / groove "
           f"{LT.GD_SHEAVE['segs']} / {LT.GD_SHEAVE['groove']} vs lattice {TT.SHEAVE.get('segs')} / "
@@ -570,8 +577,8 @@ def gd_seam_case():
 
 
 # --------------------------------------------------------------------------------------
-# Detail pass 1 (design/detail-pass-1-towers.md section 6 with the skeptic's M1-M4 / M9-M11):
-# DT-C2..C6 + M1 / M3 on the no-bake builds, independent of lift_tower's own asserts
+# Detail pass 1 (design/detail-pass-1-towers.md section 6 with the skeptic's M1-M4 / M9-M11): DT-C2..C6 + M1 / M3 on the
+# no-bake builds, independent of lift_tower's own asserts
 # --------------------------------------------------------------------------------------
 
 DP1_LOD0_ONLY = ("plate_", "platerim_", "conduit_", "jbox_", "arrest_", "gusset_apex")
@@ -623,9 +630,9 @@ def _area2(poly):
 
 
 def coplanar_scan(obj, table, tol_d=0.0005, ang_deg=1.0):
-    """(same {"a|b": cm2}, hidden [tri index]) of a mesh: same-facing coplanar overlap per part
-    pair (the cabin G12 tolerances: 1 deg, 0.5 mm; pairs sharing an edge skipped) and the
-    triangles >= 99.5 % covered by OPPOSED coplanar triangles of another part (DT-C3 / DT-C4)."""
+    """(same {"a|b": cm2}, hidden [tri index]) of a mesh: same-facing coplanar overlap per part pair (the cabin G12
+    tolerances: 1 deg, 0.5 mm. Pairs that share an edge are skipped) and the triangles >= 99.5 % covered by OPPOSED
+    coplanar triangles of another part (DT-C3 / DT-C4)."""
     co, tv, tpart = _tri_arrays(obj)
     q = np.round(co / 1e-5).astype(np.int64)
     _u, wid = np.unique(q, axis=0, return_inverse=True)
@@ -682,8 +689,8 @@ def coplanar_scan(obj, table, tol_d=0.0005, ang_deg=1.0):
 
 
 def uv_isotropy(obj, layer="UVMap", min_area=1e-4, min_w=0.02):
-    """DT-C5: area-weighted texel anisotropy (max / min singular value of the UV -> 3D map) over
-    the polygons >= 1 cm2 and not narrower than 0.02 m: (median, p95, worst class)."""
+    """DT-C5: area-weighted texel anisotropy (max / min singular value of the UV -> 3D map) over the polygons >= 1 cm2 and
+    not narrower than 0.02 m: (median, p95, worst class)."""
     me = obj.data
     me.calc_loop_triangles()
     uvl = me.uv_layers[layer].data
@@ -768,7 +775,7 @@ def detail_case(key, head, tag, t, table, lods, spec, info):
         left = {table[k - 1] for k in _part_ids(lod)}
         bad = sorted(n for n in left if n.startswith(DP1_LOD0_ONLY) or (lvl == 2 and n.startswith("liner_")))
         check(not bad, f"{tag} DT-C6 LOD{lvl} has no LOD0-only detail part{' or liner' if lvl == 2 else ''} {bad[:4]}")
-    # DT-C6 plates: 4-8 mm proud, rims 1-3 mm into the host; M3 the u axis = the viewer's right
+    # DT-C6 plates: 4-8 mm proud, rims 1-3 mm into the host. M3: the u axis = the viewer's right
     for side in ("n", "p"):
         f = _faces_of(t, table, (f"plate_{side}",))
         nrm = f[0].normal
@@ -808,7 +815,7 @@ def detail_case(key, head, tag, t, table, lods, spec, info):
     med, p95, worst = uv_isotropy(t)
     check(med <= 1.05 and p95 <= 1.35, f"{tag} DT-C5 texel anisotropy median {med:.3f} <= 1.05, p95 {p95:.3f} "
                                        f"<= 1.35 (worst tri in {worst})")
-    # M1: the FG16 / FG20 mast metric island split under a joint ring; every mast island fits
+    # M1: the FG16 / FG20 mast metric island split under a joint ring. Every mast island fits
     me = t.data
     uvl = me.uv_layers["UVMap"].data
     mf = _faces_of(t, table, ("mast",))
@@ -839,11 +846,10 @@ def _part_ids(obj):
 
 
 def etgd_station_case():
-    """ETGD vs the gondola base station (the hosted pose (0, 0, -11.0) rot 180 deg):
-    (a) inside lift_terminal_detach.GD_TOWER_KEEPOUT (station frame x < x_nose - 0.40, |y| <=
-    4.60, z < 7.0); (b) the station's rope y / gauge == the tower's axle / gauge; (c) triangle
-    overlap of tower LOD0 against the station LOD0 minus its haul ropes is empty. A station build
-    error (another group's module) is printed as a NOTE, the keep-out check still runs."""
+    """ETGD vs the gondola base station (the hosted pose (0, 0, -11.0) rot 180 deg): (a) inside
+    lift_terminal_detach.GD_TOWER_KEEPOUT (station frame x < x_nose - 0.40, |y| <= 4.60, z < 7.0). (b) the station's rope
+    y / gauge == the tower's axle / gauge. (c) triangle overlap of tower LOD0 against the station LOD0 minus its haul
+    ropes is empty. A station build error (another group's module) is printed as a NOTE. The keep-out check still runs."""
     import lift_terminal_detach as LTD
     spec = LT.VARIANTS["ETGD"]
     LT.clear_scene()
@@ -887,8 +893,8 @@ def etgd_station_case():
 
 
 def dp1_negative_cases():
-    """Detail-pass wrong builds must FAIL their checks: the pre-pass FG hanger top (DT-C3), brace
-    a at 0.186 on GD12 (M4 / DT-C3), a create_cone-UV mast (DT-C5)."""
+    """Detail-pass wrong builds must FAIL their checks: the pre-pass FG hanger top (DT-C3), brace a at 0.186 on GD12 (M4 /
+    DT-C3), a create_cone-UV mast (DT-C5)."""
     def cop(spec, head):
         LT.clear_scene()
         t, table, _s, _i = LT.build_tower_v2(spec, head, finish=False)
@@ -974,8 +980,8 @@ def negative_cases():
     expect_failure("FG LOD2 deleting rail_catwalk_top drifts the top (M5 / C12)",
                    lambda: with_const("FG_LOD2", LT.FG_LOD2 + ("rail_catwalk_top",), fg_lod2_rail))
 
-    # follow-up 2026-10-11: DQ20 measures 3,554 (ingest) / 3,534 (rebuild) tris; held to the old 3,500
-    # DQ cap it must fail C11, and it fits the raised 3,600 cap
+    # follow-up 2026-10-11: DQ20 measures 3,554 (ingest) / 3,534 (rebuild) tris. Held to the old 3,500 DQ cap it must
+    # fail C11, and it fits the raised 3,600 cap
     dq20 = LT.VARIANTS["DQ20"]
     head20 = "ingest" if os.path.isfile(LT.KAGELOK_BLEND) else "rebuild"
 
@@ -990,8 +996,8 @@ def negative_cases():
             free(lods)
     expect_failure("DQ20 held to the old DQ cap 3,500 (C11)", dq20_old_cap)
 
-    # review F3: the pre-Revision-1 pad (bottom 0.15 = the plate bottom) must fail C14's
-    # TRIANGLE test - the M8 vertex test alone passed it
+    # review F3: the pre-Revision-1 pad (bottom 0.15 = the plate bottom) must fail C14's TRIANGLE test. The M8 vertex
+    # test alone passed it
     def pre_f3(spec):
         old = LT.crashpad_z0
         LT.crashpad_z0 = lambda s: 0.15
@@ -1041,8 +1047,8 @@ def negative_cases():
                    lambda: fails_on("C8", lambda: with_const("GD_PAD_R", 0.56, lambda: build(gd12, "rebuild"))))
     expect_failure("GD spec top 1 cm off (C3)",
                    lambda: fails_on("C3", lambda: build(dataclasses.replace(gd20, top=gd20.top + 0.01), "rebuild")))
-    # Revision 1c (revision1b-check-gd-towers B): the shipped-before GD train - the middle sub
-    # 0.125 m under the yoke, its pin's inboard end in air - and a link short of the yoke
+    # Revision 1c (revision1b-check-gd-towers B): the shipped-before GD train (the middle sub 0.125 m under the yoke, its
+    # pin's inboard end in air) and a link short of the yoke
     expect_failure("GD12 middle sub-rocker without its link: the pin ends in air (C21)",
                    lambda: fails_on("C21", lambda: with_const("DQ_LINK", None, lambda: build(gd12, "rebuild"))))
     expect_failure("GD20 middle-sub link stopping 3 cm under the yoke (C21)",
@@ -1051,8 +1057,8 @@ def negative_cases():
 
 
 def _gd_deck_wide(build, spec):
-    """The GD deck strip at the DQ rule (outer edge lane - 0.45 = 2.55, rails 2.45) against the
-    real gd8 column: deck_y / rail_y are patched, the column is the shipped one."""
+    """The GD deck strip at the DQ rule (outer edge lane - 0.45 = 2.55, rails 2.45) against the real gd8 column. deck_y /
+    rail_y are patched. The column is the shipped one."""
     old_d, old_r = LT.deck_y, LT.rail_y
     LT.deck_y = lambda s: (LT.DQ_DECK_Y0, 2.55) if s.family == "GD" else old_d(s)
     LT.rail_y = lambda s: 2.45 if s.family == "GD" else old_r(s)
@@ -1063,8 +1069,8 @@ def _gd_deck_wide(build, spec):
 
 
 def _bake_variant(key, out, extra=(), lods=False):
-    """main_v2 at the SHIPPING atlas (1024; the DT-C7 / C8 / C10 gates are defined there), AO 8
-    samples, no LODs (unless `lods`) / validation; returns (asset dir, manifest, the baked tower object)."""
+    """main_v2 at the SHIPPING atlas (1024, where the DT-C7 / C8 / C10 gates are defined), AO 8 samples, no LODs (unless
+    `lods`) / validation. Returns (asset dir, manifest, the baked tower object)."""
     spec = LT.VARIANTS[key]
     name = spec.name_stem + LT.V2_LETTER
     LT.main_v2(["--variant", key, "--out", out, "--ao-samples", "8"] + ([] if lods else ["--no-lods"])
@@ -1077,15 +1083,19 @@ def _bake_variant(key, out, extra=(), lods=False):
 
 
 def bake_case():
-    """Detail pass 1 bake smoke (design 6.2: FG8 + DQ16 + GD20) at the shipping atlas, checked on
-    the written PNGs: the channel rules; DT-C7 plates (ControlMask R + G = 0 on both plate rects,
-    >= 300 px/m), the warning triangle (R = G = 0 where its coverage >= 0.99, anti-aliased edge),
-    the hazard band (yellow and black texels, R = G = 0); DT-C8 / C9 / C10 from the manifest
-    (main_v2 raises on them too); DT-C9 b: two translation-identical paint members (rocker_sub
-    0 / 1) correlate < 0.9 in BaseColor; DT-C10 / G5: FG8's ControlMask PNG is byte-identical to a
-    --weather off bake. The slot-1 albedo: tone and weathering vary it by design (DECISIONS
-    171, free slot wear): the p95 under ControlMask R stays at RECOLOR_ALBEDO (0.78-0.84, the
-    pre-pass bound + chalk), the median sits lower (AO + grime: 0.64-0.68 measured)."""
+    """Detail pass 1 bake smoke (design 6.2: FG8 + DQ16 + GD20) at the shipping atlas, checked on the written PNGs. The
+    checks:
+    - the channel rules.
+    - DT-C7 plates (ControlMask R + G = 0 on both plate rects, >= 300 px/m).
+    - the warning triangle (R = G = 0 where its coverage >= 0.99, anti-aliased edge).
+    - the hazard band (yellow and black texels, R = G = 0).
+    - DT-C8 / C9 / C10 from the manifest (main_v2 raises on them too).
+    - DT-C9 b: two translation-identical paint members (rocker_sub 0 / 1) correlate < 0.9 in BaseColor.
+    - DT-C10 / G5: FG8's ControlMask PNG is byte-identical to a --weather off bake.
+
+    The slot-1 albedo: tone and weathering vary it by design (DECISIONS 171, free slot wear). The p95 under ControlMask R
+    stays at RECOLOR_ALBEDO (0.78-0.84, the pre-pass bound + chalk). The median sits lower (AO + grime: 0.64-0.68
+    measured)."""
     import hashlib
     work = tempfile.mkdtemp(prefix="tower_bake_")
     try:
@@ -1116,7 +1126,7 @@ def bake_case():
                       and (p["numeral"] is None or p["cap_px"] >= 36),
                       f"{tag}: DT-C7 plate rect {p['rect']} ControlMask R + G 0, {p['ppm']} px/m, glyph "
                       f"{p['glyph_px']}, cap {p['cap_px']} ('{p['numeral']}')")
-            # DT-C7 pad stamps (coverage recomputed independently of the painter)
+            # DT-C7 pad stamps (the test recomputes coverage independently of the painter)
             table = json.loads(obj.data[cs2_asset.PART_TABLE_PROP])
             A = base.shape[0]
             r0, r1, c0, c1 = cs2_compose.uv_bbox_px(obj.data, table, "crashpad_outer", A)
@@ -1168,13 +1178,12 @@ def bake_case():
 
 
 def fbx_black_tris(asset_dir, name, lod=0):
-    """The F3 / F3b contract, INDEPENDENT of lift_tower.uv_triangles / subtexel_black_faces / the overlap
-    test: import the WRITTEN LODn FBX (already triangles) and read the written BaseColor; lay the
-    checker's 400 samples on every triangle (a 20 x 20 midpoint grid folded into the triangle) and look
-    each up in the PNG. A triangle FAILS if ANY of its 400 samples is black (sRGB max < 0.02, the
-    lattice test's black_faces) - whatever its UV area (the first F3 contract stopped at 4 texel2 and
-    missed the long one-texel slivers). Returns ([(triangle index, uv area texel2, black samples)],
-    triangle count); the imported object is removed again."""
+    """The F3 / F3b contract, INDEPENDENT of lift_tower.uv_triangles / subtexel_black_faces / the overlap test. The function
+    imports the WRITTEN LODn FBX (already triangles) and reads the written BaseColor. It lays the checker's 400 samples
+    on every triangle (a 20 x 20 midpoint grid folded into the triangle) and looks each up in the PNG. A triangle FAILS
+    if ANY of its 400 samples is black (sRGB max < 0.02, the lattice test's black_faces), whatever its UV area. The first
+    F3 contract stopped at 4 texel2 and missed the long one-texel slivers. Returns ([(triangle index, uv area texel2,
+    black samples)], triangle count). The function removes the imported object again."""
     fn = f"{name}.fbx" if lod == 0 else f"{name}_LOD{lod}.fbx"
     before = set(bpy.data.objects)
     bpy.ops.wm.fbx_import(filepath=os.path.join(asset_dir, fn))
@@ -1212,23 +1221,22 @@ def fbx_black_tris(asset_dir, name, lod=0):
     return out, n_tri
 
 
-# F3 / F3b cases: (variant, F3 footprint pass fills something, F3b any-area pass fills something). The
-# 18:01-18:10 exports had black triangles on DQ18 (24 small + 2 slivers), GD16 (32 + 22), DQ20 (new,
-# 2 slivers after the F3 pass); FG8 has only the 16 platerim slivers (whose centers sit ON an edge, so the
-# part mean of its covered texels is black); ET68 has no defect at all and must stay untouched.
-# T62 round 3: the round-3 wheel's UV layout moved DQ18's long slivers away (its F3b pass now has nothing to fill)
+# F3 / F3b cases: (variant, F3 footprint pass fills something, F3b any-area pass fills something). The 18:01-18:10
+# exports had black triangles on DQ18 (24 small + 2 slivers), GD16 (32 + 22), DQ20 (new, 2 slivers after the F3 pass).
+# FG8 has only the 16 platerim slivers (their centers sit ON an edge, so the part mean of its covered texels is black).
+# ET68 has no defect at all and must stay untouched. T62 round 3: the round-3 wheel's UV layout moved DQ18's long slivers
+# away (its F3b pass now has nothing to fill)
 F3_CASES = (("DQ18", True, False), ("GD16", True, True), ("DQ20", True, True), ("FG8", False, True),
             ("ET68", False, False))
 
 
 def f3_case():
-    """Follow-up 2026-10-11, findings F3 + F3b (black-sampled faces): DQ18, GD16, DQ20, FG8 and ET68 are
-    baked at the shipping atlas WITH the LOD chain; no triangle of the written LOD0 / LOD1 / LOD2 FBX,
-    of ANY UV area, has a black sample among 400 on the written BaseColor (independent count), the
-    generator reports the same (black_after 0 at LOD0 / 1 / 2, nothing unfillable), and each fill pass
-    ran exactly where there was something to fill (ET68, no defect, fills nothing). Wrong builds: the
-    fill replaced by a no-op (DQ18) and only the F3b pass disabled (DQ20 keeps the pre-F3b long slivers)
-    -> the generator's DT-F3 gate raises and the independent counter flags the triangles."""
+    """Follow-up 2026-10-11, findings F3 + F3b (black-sampled faces): DQ18, GD16, DQ20, FG8 and ET68 are baked at the
+    shipping atlas WITH the LOD chain. No triangle of the written LOD0 / LOD1 / LOD2 FBX, of ANY UV area, has a black
+    sample among 400 on the written BaseColor (independent count). The generator reports the same (black_after 0 at LOD0
+    / 1 / 2, nothing unfillable). Each fill pass ran exactly where there was something to fill (ET68, no defect, fills
+    nothing). Wrong builds: the fill replaced by a no-op (DQ18) and only the F3b pass disabled (DQ20 keeps the pre-F3b
+    long slivers). Both must show: the generator's DT-F3 gate raises and the independent counter flags the triangles."""
     work = tempfile.mkdtemp(prefix="tower_f3_")
     try:
         for key, f3_fills, f3b_fills in F3_CASES:
@@ -1259,7 +1267,7 @@ def f3_case():
                 orig_assert(spec, rep, **kw)
             except LT.TowerContractError as e:
                 seen.append(str(e))
-        # wrong build 1: no fill at all (the generator's gate recorded instead of aborting the export)
+        # wrong build 1: no fill at all (the test records the generator's gate instead of aborting the export)
         LT.fill_subtexel_faces, LT.assert_detail_pass = no_fill, recording_assert
         try:
             d, m, obj, name = _bake_variant("DQ18", os.path.join(work, "nofill"))
@@ -1272,8 +1280,8 @@ def f3_case():
               f"independent counter flags {len(bad)} black triangles (generator "
               f"{m['detail_pass_1']['subtexel_fill']['black_after']})")
         LT.clear_scene()
-        # wrong build 2: the F3 pass runs, the F3b pass is inert (no texel counts as black for it) -> the
-        # long one-texel slivers stay black, as in the 18:01-21:00 exports (DQ20: the fall-arrest channel walls)
+        # wrong build 2: the F3 pass runs, the F3b pass is inert (no texel counts as black for it). The long one-texel
+        # slivers stay black, as in the 18:01-21:00 exports (DQ20: the fall-arrest channel walls)
         seen.clear()
         LT.assert_detail_pass, LT.SUBTEXEL_FILL_LIN = recording_assert, 0.0
         try:
@@ -1294,11 +1302,11 @@ def f3_case():
 
 
 def review_case():
-    """towers-v2 section 14.6 (pipeline review 7): FG8 through main_v2 - export, settings.json,
-    manifest, validation and the review hook - twice in this process, without and with
-    --review, at --atlas 512 --ao-samples 4 (512 = the validator floor). Every file in the asset folder must be
-    byte-identical (FBX header clock frozen as tests/test_review_side_effects.py; same process
-    = same FBX UID salt); the manifests equal without written_utc; the pack lands outside."""
+    """towers-v2 section 14.6 (pipeline review 7): FG8 through main_v2 (export, settings.json, manifest, validation and the
+    review hook) twice in this process, without and with --review, at --atlas 512 --ao-samples 4 (512 = the validator
+    floor). Every file in the asset folder must be byte-identical (FBX header clock frozen as in
+    tests/test_review_side_effects.py, same process = same FBX UID salt). The manifests are equal without written_utc.
+    The pack lands outside."""
     import datetime
     import hashlib
     import types

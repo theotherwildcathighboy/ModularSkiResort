@@ -1,32 +1,32 @@
 """
-cs2_skin - articulated (skinned) sheave trains: the rig, the weights, the poses and the G6 joint sweep (lift alignment
-phase 2, round 2: hinged half trains; docs/research/field/2026-11-02/liftalign/articulation-design-note.md).
+cs2_skin: articulated (skinned) sheave trains. It holds the rig, the weights, the poses and the G6 joint sweep (lift
+alignment phase 2, round 2: hinged half trains, docs/research/field/2026-11-02/liftalign/articulation-design-note.md).
 
 CS2 draws each span's rope as its own straight curve to the tower's anchor, so over a train the rope CORNERS at the
-anchor. A rigid train cannot seat every wheel on a cornered rope; two half trains hinged on the anchor's lateral line
+anchor. A rigid train cannot seat every wheel on a cornered rope. Two half trains hinged on the anchor's lateral line
 can, at any break. Contract (every rigged tower, lift_tower and tram_tower):
+- bones: `Root` (static), `TrainFront` = the half on the tower's GAME +z side, `TrainBack` = the -z side. A second rope
+  that corners at another anchor on the same half gets `TrainFront<Suffix>` / `TrainBack<Suffix>` (the tram haul
+  rollers: TrainFrontHaul / TrainBackHaul). Each bone's head = its pivot = the anchor its rope corners at. Every bone
+  points up with roll 0 (identity rest rotation in the game). The half bones are children of Root.
+- axis: game +z = Blender net-frame -Y. The net frame is the authoring frame after cs2_asset.orient_for_net ((x, y, z)
+  -> (y, -x, z): authoring +X travel -> net -Y). cs2_asset.export_fbx_skinned bakes -90 deg about X ((x, y, z) -> (x,
+  z, -y), cs2_asset.py export_fbx_skinned), and the game negates FBX x on import (PIPELINE frame rule T). So game =
+  (-x_net, z_net, -y_net). FRONT_SIGN_NET = -1: a part whose travel centroid has net y < 0 rides TrainFront.
+  roundtrip() re-reads the exported FBX and holds it (raw file z = game z: TrainFront z > 0).
+- pose: a bone pitch theta (deg) turns its half about +X through its pivot (Matrix.Rotation(theta, 'X')). A positive
+  theta lowers the game +z end. The code pitches TrainFront* by the rope leaving toward +z and TrainBack* by the rope
+  leaving toward -z. It clamps each to the type's theta_max, and it clamps the half-break |front - back| / 2 to
+  HALF_BREAK_MAX (20 deg). front > back = a crest (both outer ends down), front < back = a dip.
 
-  bones  `Root` (static), `TrainFront` = the half on the tower's GAME +z side, `TrainBack` = the -z side; a second rope
-         that corners at another anchor on the same half gets `TrainFront<Suffix>` / `TrainBack<Suffix>` (the tram haul
-         rollers: TrainFrontHaul / TrainBackHaul). Each bone's head = its pivot = the anchor its rope corners at; every
-         bone points up with roll 0 (identity rest rotation in the game); the half bones are children of Root.
-  axis   game +z = Blender net-frame -Y. The net frame is the authoring frame after cs2_asset.orient_for_net
-         ((x, y, z) -> (y, -x, z): authoring +X travel -> net -Y); cs2_asset.export_fbx_skinned bakes -90 deg about X
-         ((x, y, z) -> (x, z, -y), cs2_asset.py export_fbx_skinned) and the game negates FBX x on import (PIPELINE frame
-         rule T), so game = (-x_net, z_net, -y_net). FRONT_SIGN_NET = -1: a part whose travel centroid has net y < 0
-         rides TrainFront. roundtrip() re-reads the exported FBX and holds it (raw file z = game z: TrainFront z > 0).
-  pose   a bone pitch theta (deg) turns its half about +X through its pivot (Matrix.Rotation(theta, 'X')): + lowers the
-         game +z end. The code pitches TrainFront* by the rope leaving toward +z and TrainBack* by the rope leaving toward
-         -z, each clamped to the type's theta_max, the half-break |front - back| / 2 clamped to HALF_BREAK_MAX (20 deg):
-         front > back = a crest (both outer ends down), front < back = a dip.
-
-G6 joint sweep (sweep): a grid of (front, back) pitches, each in {-tmax, -tmax / 2, 0, +tmax / 2, +tmax} with
-|front - back| <= 2 x HALF_BREAK_MAX, plus at each of those means the half-breaks +-HALF_BREAK_MAX (each half clamped to
-tmax, as the code clamps); at every pose: no BVH face overlap half vs head and half vs half, a vertex-to-surface
-clearance >= clear_min (the main pins vs the lugs they run through exempt), the pin joint opening 2 d sin(|theta| / 2)
-<= pin_gap_max (d = the pin axis off its bone's pivot line), the rope runs (one straight run per half from its pivot)
-clear of the head and the non-wheel train parts, and the rope of each half seated on every wheel / saddle crown of that
-half (seat()).
+G6 joint sweep (sweep): a grid of (front, back) pitches, each in {-tmax, -tmax / 2, 0, +tmax / 2, +tmax} with |front -
+back| <= 2 x HALF_BREAK_MAX. At each of those means, the grid also has the half-breaks +-HALF_BREAK_MAX (each half
+clamped to tmax, as the code clamps). At every pose the sweep checks:
+- no BVH face overlap, half vs head and half vs half
+- a vertex-to-surface clearance >= clear_min (the main pins vs the lugs they run through are exempt)
+- the pin joint opening 2 d sin(|theta| / 2) <= pin_gap_max (d = the pin axis off its bone's pivot line)
+- the rope runs (one straight run per half from its pivot) are clear of the head and the non-wheel train parts
+- the rope of each half is seated on every wheel / saddle crown of that half (seat())
 """
 import math
 
@@ -36,9 +36,9 @@ import numpy as np
 
 BONE_LEN = 0.25
 FRONT_SIGN_NET = -1.0           # net-frame travel sign of the game +z half (see the module docstring)
-HALF_BREAK_MAX = 20.0           # deg: |front - back| / 2 clamp (the code's; the art clears it)
-# deg: every family's half clamps to min(the type's max slope, TILT_CAP): a train pitched much past 30 deg reads absurd
-# on an upright tower (tilted tower bodies are a later step); the joint grid runs to that clamp
+HALF_BREAK_MAX = 20.0           # deg: |front - back| / 2 clamp (the code's value, the art clears it)
+# deg: every family's half clamps to min(the type's max slope, TILT_CAP). A train pitched much past 30 deg reads absurd
+# on an upright tower (tilted tower bodies are a later step). The joint grid runs to that clamp
 TILT_CAP = 30.0
 
 
@@ -170,8 +170,8 @@ def posed(co, vb, bones, angles, pivots):
 # --------------------------------------------------------------------------------------
 
 def build_armature(name, heads, root="Root"):
-    """The rig in the net frame: `heads` {bone: (x, y, z)} in bone order (Root first); every bone points up (+Z) with
-    roll 0, every non-root bone a child of Root. Raises unless every rest is the up / roll 0 frame (identity rest in
+    """The rig in the net frame: `heads` {bone: (x, y, z)} in bone order (Root first). Every bone points up (+Z) with roll
+    0, and every non-root bone is a child of Root. Raises unless every rest is the up / roll 0 frame (identity rest in
     the game, PIPELINE 'Skinned (procedural-bone) assets'). Returns the armature object."""
     arm_data = bpy.data.armatures.new(name)
     arm = bpy.data.objects.new(name, arm_data)
@@ -243,8 +243,8 @@ def posed_copy(t, arm, angles, pivots, name):
 # --------------------------------------------------------------------------------------
 
 def joint_grid(tmax, brk=HALF_BREAK_MAX):
-    """[(front, back)] deg: {-tmax, -tmax / 2, 0, tmax / 2, tmax}^2 with |front - back| <= 2 brk, then at each of
-    those means the half-breaks +-brk (each half clamped to +-tmax, as the code clamps). Deterministic order."""
+    """[(front, back)] deg: {-tmax, -tmax / 2, 0, tmax / 2, tmax}^2 with |front - back| <= 2 brk. Then, at each of those
+    means, the half-breaks +-brk (each half clamped to +-tmax, as the code clamps). Deterministic order."""
     vals = [-tmax, -tmax / 2.0, 0.0, tmax / 2.0, tmax]
     out = []
 
@@ -266,9 +266,10 @@ def joint_grid(tmax, brk=HALF_BREAK_MAX):
 
 def rope_run(lane_x, piv, theta_deg, sign, length, r=0.100, start=0.0, drop=0.0):
     """(verts, faces) of a hexagonal rope prism (circumradius r, corners on the lateral axis = flats top / bottom: the
-    vanilla HV cable) from `start` m to `length` m out of the pivot piv = (y, z) along net y * sign, at lateral x =
-    lane_x, the run turned theta about the pivot. `drop` (previews only; 0 = the game's rope on the lane) lowers the
-    axis that far below the pivot line in the half's frame: a real-diameter stand-in seated in the groove."""
+    vanilla HV cable). The prism runs from `start` m to `length` m out of the pivot piv = (y, z) along net y * sign, at
+    lateral x = lane_x, and the run is turned theta about the pivot. `drop` (previews only, 0 = the game's rope on the
+    lane) lowers the axis that far below the pivot line in the half's frame: a real-diameter stand-in seated in the
+    groove."""
     ring = [(lane_x + r * math.cos(a), r * math.sin(a) - drop) for a in (math.radians(60.0 * k) for k in range(6))]
     verts = []
     for d in (start, length):
@@ -281,12 +282,13 @@ def rope_run(lane_x, piv, theta_deg, sign, length, r=0.100, start=0.0, drop=0.0)
 
 def seat_half(pc, polys, wheel_faces, piv, theta_deg, lane_x, sign, extent, rope_r, rope_h, step=0.004, nx=21,
               zspan=0.6):
-    """The rope of one half on its crowns: the posed wheel / saddle faces `wheel_faces` turned back by -theta about the
-    half's pivot (so its rope is horizontal through the pivot), then rays straight down through the rope's underside
-    (the vanilla hexagon: bottom flat +-R / 2 at -h, slanted faces up to +-R) every `step` m of travel out to `extent`
-    on the half's side. Per crown (a run of hits) the smallest gap rope underside - crown (m). Returns [(travel, gap)].
-    `nx` odd with (nx - 1) % 4 == 0 puts rays exactly under the hexagon's bottom corners (+-R / 2), where it meets the V
-    groove's flanks: 15 rays measured FG 4 mm / DQ 6 mm of air the 21 of lift_tower's pilot (and this default) do not."""
+    """The rope of one half on its crowns. The function turns the posed wheel / saddle faces `wheel_faces` back by -theta
+    about the half's pivot (so its rope is horizontal through the pivot). Then it casts rays straight down through the
+    rope's underside every `step` m of travel out to `extent` on the half's side. The underside is the vanilla hexagon:
+    bottom flat +-R / 2 at -h, slanted faces up to +-R. Per crown (a run of hits), it takes the smallest gap, rope
+    underside - crown (m), and returns [(travel, gap)]. `nx` odd with (nx - 1) % 4 == 0 puts rays exactly under the
+    hexagon's bottom corners (+-R / 2), where it meets the V groove's flanks. 15 rays measured FG 4 mm / DQ 6 mm of air
+    the 21 of lift_tower's pilot (and this default) do not."""
     if (nx - 1) % 4:
         raise ValueError(f"seat_half: nx {nx} misses the rope's bottom corners (want (nx - 1) % 4 == 0)")
     from mathutils.bvhtree import BVHTree
@@ -320,11 +322,17 @@ def seat_half(pc, polys, wheel_faces, piv, theta_deg, lane_x, sign, extent, rope
 def sweep(co, polys, names, fb, bones, pivots, poses, *, pins, lugs, wheels, ropes, seats, clear_min, pin_gap_max,
           label, near=0.6, log=print):
     """
-    G6 on a joined net-frame LOD0. `fb` per-face bone index into `bones` (0 = Root). `pivots` {bone: (y, z)}.
-    `poses` [{bone: deg}]. `pins` = predicate on a part name (Root main pins, exempt vs the lugs), `lugs` {bone:
-    predicate} = the parts of that bone a pin runs through, `wheels` = predicate (the rope's crowns: exempt vs the rope).
-    `ropes(pose)` -> [(verts, faces)] (the rope runs at that pose); `seats(pc, pose)` -> {key: [(travel, gap)]}.
-    Returns the report (meters); raises SkinError on a failed gate after logging every pose.
+    G6 on a joined net-frame LOD0.
+    - `fb`: per-face bone index into `bones` (0 = Root).
+    - `pivots`: {bone: (y, z)}.
+    - `poses`: [{bone: deg}].
+    - `pins`: predicate on a part name (Root main pins, exempt vs the lugs).
+    - `lugs`: {bone: predicate} = the parts of that bone a pin runs through.
+    - `wheels`: predicate (the rope's crowns: exempt vs the rope).
+    - `ropes(pose)` -> [(verts, faces)] (the rope runs at that pose).
+    - `seats(pc, pose)` -> {key: [(travel, gap)]}.
+
+    Returns the report (meters). It raises SkinError on a failed gate after logging every pose.
     """
     from mathutils.bvhtree import BVHTree
     nb = len(bones)
@@ -473,11 +481,15 @@ def check_rows(rows, label, clear_min, pin_gap_max, seat_tops=None, seat_gap=SEA
 # --------------------------------------------------------------------------------------
 
 def roundtrip(asset_dir, name, levels, heads, check, label):
-    """Re-import every exported level (rig_probe.roundtrip) and hold the rig to the design: bones exactly `heads`
-    (Root first), every non-root bone under Root at its head (game frame cm: (-x, z, -y) x 100 of the net head),
-    identity rests, every vertex on exactly one bone, and the AXIS TEST: in the raw file frame (z = game z) every
-    TrainFront* group's bbox center has z > 0 and every TrainBack* group's z < 0. `check(ok, label, detail)`.
-    Removes what the import made. Returns {level: {...}}."""
+    """Re-import every exported level (rig_probe.roundtrip) and hold the rig to the design:
+    - bones exactly `heads` (Root first)
+    - every non-root bone under Root at its head (game frame cm: (-x, z, -y) x 100 of the net head)
+    - identity rests
+    - every vertex on exactly one bone
+    - the AXIS TEST: in the raw file frame (z = game z) every TrainFront* group's bbox center has z > 0 and every
+      TrainBack* group's z < 0
+
+    `check(ok, label, detail)`. Removes what the import made. Returns {level: {...}}."""
     import os
     import rig_probe
     out = {}
@@ -496,7 +508,7 @@ def roundtrip(asset_dir, name, levels, heads, check, label):
         want = {b: ((-h[0] * 100.0, h[2] * 100.0, -h[1] * 100.0) if b != "Root" else (0.0, 0.0, 0.0))
                 for b, h in heads.items()}
         ok = sorted(bones) == sorted(heads) and m["unweighted_verts"] == 0 and m["multi_bone_verts"] == 0
-        # the importer's local positions are in the raw frame (rig_probe: x as written); rule T negates x in the game
+        # the importer's local positions are in the raw frame (rig_probe: x as written). Rule T negates x in the game
         for b, w in want.items():
             if not ok:
                 break

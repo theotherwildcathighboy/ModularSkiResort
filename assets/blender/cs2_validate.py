@@ -1,20 +1,20 @@
 """
-cs2_validate.py - acceptance checks for a CS2 asset folder and for a Blender mesh about
-to become one (art pipeline v2, section 3.9).
+cs2_validate.py - acceptance checks for a CS2 asset folder and for a Blender mesh about to become one (art pipeline v2,
+section 3.9).
 
 Contract
 --------
-Every check produces a finding `(level, code, message)` with level in {"ERROR", "WARN",
-"INFO"}. Functions return the full list and print each finding as `[validate] LEVEL code:
-message`. Only `validate_asset_folder` raises (`AssetValidationError`, carrying the list)
-and only after every check has run, so one run reports everything that is wrong.
+
+Every check produces a finding `(level, code, message)` with level in {"ERROR", "WARN", "INFO"}. Functions return the full
+list and print each finding as `[validate] LEVEL code: message`. Only `validate_asset_folder` raises (`AssetValidationError`,
+carrying the list), and only after every check has run, so one run reports everything that is wrong.
 
     validate_asset_folder(asset_dir, name, spec=None) -> findings   (raises on any ERROR)
         name lint, folder contents vs settings.json, texture sets (header + pixels),
         FBX round-trip of every FBX in the folder, LOD ratios/caps, sub-mesh transform
         identity, `_Win` UV overlap, engine-base ring on buildings.
     validate_asset_folder_ex(asset_dir, name, spec=None) -> (findings, summary)
-        the same checks without raising; summary = tris per LOD, texture sizes, verdict.
+        the same checks without raising. summary = tris per LOD, texture sizes, verdict.
     validate_mesh(obj, kind="prop"|"building"|other, contracts=None) -> findings
         in-scene checks on a Blender object (meters, Z up): naming, loose geometry, UV
         layer count/range/zero-area/mirrored islands, color attributes, prop ground
@@ -22,7 +22,7 @@ and only after every check has run, so one run reports everything that is wrong.
     ground_ring_report(obj, band=0.01, table=None) -> dict
         the engine-base acceptance check (BatchMeshHelpers.AddBaseLines): edges in the
         z = 0 +- band whose every touching triangle has a vertex above the band are
-        base lines ("OK"); an edge with any touching triangle entirely at/below the band
+        base lines ("OK"). An edge with any touching triangle entirely at/below the band
         is dropped ("BLOCKED"). Verdict "OK" | "BLOCKED" | "NONE".
     write_manifest(asset_dir, name, data) -> path
         `<name>.manifest.json` beside settings.json (JSONImporter.CreateAsset returns
@@ -30,20 +30,29 @@ and only after every check has run, so one run reports everything that is wrong.
     uv_coverage(me, res, uv_layer=None) -> (res, res) int32 texel hit counts, bottom-up
         rows (same orientation as Image.pixels), used for overlap and covered-texel rules.
 
-`spec` (all keys optional): kind ("prop" | "building" | "hanging"), cutout (bool),
-min_texture (512: the wiki floor, ERROR below for every kind), max_texture (4096), hero (legacy,
-now covered by the floor), lod0_cap,
-lod1_ratio (0.5), lod2_cap (500), extent_m ((x, y, z) Blender meters, 2 % tolerance),
-expected_lods (tuple), expected_submeshes (tuple of suffixes).
+`spec` keys (all optional):
+- kind ("prop" | "building" | "hanging")
+- cutout (bool)
+- min_texture (512: the wiki floor, ERROR below for every kind)
+- max_texture (4096)
+- hero (legacy, now covered by the floor)
+- lod0_cap
+- lod1_ratio (0.5)
+- lod2_cap (500)
+- extent_m ((x, y, z) Blender meters, 2 % tolerance)
+- expected_lods (tuple)
+- expected_submeshes (tuple of suffixes)
 
 Command line (used by tools\\assets-check.ps1):
     blender --background --factory-startup --python cs2_validate.py -- --root <letter dir>
             [--asset-dir <dir>]... [--kind auto|prop|building|hanging] [--json <out>]
-    prints one `[assets-check] ...` line per folder and exits 1 when any folder has an ERROR.
+    It prints one `[assets-check] ...` line per folder and exits 1 when any folder has an ERROR.
 
-Engine facts relied on (decompile 1.6.2): FBX vertices read as centimeters, Y up, normals
-verbatim; textures paired by `<Model node name>_<map>.png`; BaseColor alpha != 255 flips
-the surface to DefaultCutout; MaskMap B and ControlMask A are zero in every shipped asset.
+Engine facts relied on (decompile 1.6.2):
+- FBX vertices read as centimeters, Y up, normals verbatim.
+- Textures are paired by `<Model node name>_<map>.png`.
+- BaseColor alpha != 255 flips the surface to DefaultCutout.
+- MaskMap B and ControlMask A are zero in every shipped asset.
 """
 
 import argparse
@@ -83,19 +92,18 @@ DEFAULT_SPEC = {
 }
 _EMISSIVE_RE = re.compile(r"^Emissive(?:ID)?\d*$")
 
-# Per-PART texel density (2026-10-17; docs/research/art/snow-props-weather-2026-10-17.md section 4,
-# PIPELINE "Gates"): a whole-asset px/m average hid snow props B whose painted shells shipped at
-# 12-22 px/m while nuts got 200-1,450 px/m (the buildings' T16 lesson again: density, not
-# compression). A "part" here is a connected mesh component of the re-imported LOD0 (the FBX
-# carries no part names); parts smaller than DENSITY_PART_MIN_M2 are reported, not gated.
+# Per-PART texel density (2026-10-17, docs/research/art/snow-props-weather-2026-10-17.md section 4, PIPELINE "Gates"). A
+# whole-asset px/m average hid snow props B whose painted shells shipped at 12-22 px/m while nuts got 200-1,450 px/m (the
+# buildings' T16 lesson again: density, not compression). A "part" here is a connected mesh component of the re-imported LOD0
+# (the FBX carries no part names). Parts smaller than DENSITY_PART_MIN_M2 are reported, not gated.
 DENSITY_PART_MIN_M2 = 0.05
-# REDO (wiki style, 2026-10-17, snow-props-weather-2026-10-17.md "Redo"): WARN raised 60 -> 120 px/m
-# so the gate keeps asserting vanilla-class intent at the new sizes (vanilla props 158-2,520 px/m;
-# the repacked snow set reads min part 80+); ERROR stays 30 for now.
+# REDO (wiki style, 2026-10-17, snow-props-weather-2026-10-17.md "Redo"): the WARN level rose from 60 to 120 px/m, so the
+# gate keeps asserting vanilla-class intent at the new sizes (vanilla props 158-2,520 px/m, the repacked snow set reads min
+# part 80+). ERROR stays 30 for now.
 DENSITY_FLOOR_PX_M = {"prop": (30.0, 120.0)}   # kind -> (ERROR below, WARN below)
-# Texture floor (REDO, 2026-10-17): the wiki's "minimum 512x512 ... anything smaller is unsupported"
-# (Asset Creation Guide; docs/research/wiki/asset-creation-guide.md). DEFAULT_SPEC min_texture = 512,
-# an ERROR for every kind (it was 128, with only a hero WARN below 512).
+# Texture floor (REDO, 2026-10-17): the wiki's "minimum 512x512 ... anything smaller is unsupported" (Asset Creation Guide,
+# docs/research/wiki/asset-creation-guide.md). DEFAULT_SPEC min_texture = 512, an ERROR for every kind (it was 128, with only
+# a hero WARN below 512).
 
 
 class AssetValidationError(RuntimeError):
@@ -213,7 +221,7 @@ def classify_file(fname, name):
 # --------------------------------------------------------------------------------------
 
 def read_png_header(path):
-    """(width, height, bit_depth, colour_type) from the IHDR chunk; raises on a non-PNG."""
+    """(width, height, bit_depth, colour_type) from the IHDR chunk. Raises on a non-PNG."""
     with open(path, "rb") as fh:
         head = fh.read(33)
     if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
@@ -240,9 +248,8 @@ def _is_pow2(n):
 
 def validate_texture_set(asset_dir, prefix, rep, spec, coverage=None):
     """
-    Header + pixel rules for the four maps `<prefix>_<map>.png`. `coverage` is an
-    optional (res, res) hit-count array on the same texel grid (bottom-up); when given,
-    the Normal rules apply to covered texels only. Returns the set size or None.
+    Header + pixel rules for the four maps `<prefix>_<map>.png`. `coverage` is an optional (res, res) hit-count array on the
+    same texel grid (bottom-up). When given, the Normal rules apply to covered texels only. Returns the set size or None.
     """
     spec = _merge_spec(spec)
     sizes = {}
@@ -385,8 +392,8 @@ def _mesh_uv_triangles(me, uv_layer=None):
 
 def uv_coverage(me, res=256, uv_layer=None):
     """
-    Rasterize every triangle of `me` on a res x res grid of texel centers; returns int32
-    hit counts with row 0 = v 0 (bottom-up, matching Image.pixels). Overlap = count > 1.
+    Rasterize every triangle of `me` on a res x res grid of texel centers. Returns int32 hit counts with row 0 = v 0
+    (bottom-up, matching Image.pixels). Overlap = count > 1.
     """
     tris = _mesh_uv_triangles(me, uv_layer)
     count = np.zeros((res, res), dtype=np.int32)
@@ -420,7 +427,7 @@ def uv_coverage(me, res=256, uv_layer=None):
 
 
 def _erode(mask):
-    """Boolean erosion by one texel (8-neighborhood); edges of the grid count as uncovered."""
+    """Boolean erosion by one texel (8-neighborhood). Edges of the grid count as uncovered."""
     out = mask.copy()
     out[0, :] = out[-1, :] = out[:, 0] = out[:, -1] = False
     c = mask
@@ -461,14 +468,13 @@ def _part_table(obj):
 
 def ground_ring_report(obj, band=GROUND_BAND_M, table=None, matrix=None):
     """
-    Engine-base acceptance (BatchMeshHelpers.AddBaseLines :241-420). Works on a
-    triangulated copy of `obj` in world space (Blender Z up = CS2 Y up).
+    Engine-base acceptance (BatchMeshHelpers.AddBaseLines :241-420). Works on a triangulated copy of `obj` in world space
+    (Blender Z up = CS2 Y up).
 
-    Returns dict(band_edges, ok_edges, blocked_edges, below_verts, verdict,
-    offending_parts, ok_parts). An "OK" edge has both vertices in |z| <= band and every
-    touching triangle has a vertex above the band; "BLOCKED" edges have at least one
-    touching triangle entirely at/below the band (bottom faces, skirts continuing down),
-    which the engine drops - the skirt would then be missing along that edge.
+    Returns dict(band_edges, ok_edges, blocked_edges, below_verts, verdict, offending_parts, ok_parts). An "OK" edge has both
+    vertices in |z| <= band and every touching triangle has a vertex above the band. "BLOCKED" edges have at least one
+    touching triangle entirely at/below the band (bottom faces, skirts continuing down). The engine drops those edges, so the
+    skirt would then be missing along that edge.
     """
     _sync_depsgraph()
     me = obj.data
@@ -574,7 +580,7 @@ def part_density(me, A, units_per_m=RAW_UNITS_PER_M):
 
 
 def _report_part_density(obj, A, rep, kind, label):
-    """The per-part density gate (props only); returns the rows (for the summary)."""
+    """The per-part density gate (props only). Returns the rows (for the summary)."""
     rows = part_density(obj.data, A)
     if not rows:
         return rows
@@ -650,10 +656,9 @@ def _run_contracts(obj, contracts, rep):
 
 def validate_mesh(obj, kind="prop", contracts=None):
     """
-    In-scene checks on a Blender mesh object (meters, Z up). `kind`: "prop" requires
-    world min z == 0 +- 1e-4; "building" runs the engine-base ring report (ERROR when
-    BLOCKED); any other value skips the ground rule. `contracts`: dict label -> callable(obj)
-    returning bool or (bool, detail), or a list of callables. Returns findings, never raises.
+    In-scene checks on a Blender mesh object (meters, Z up). `kind`: "prop" requires world min z == 0 +- 1e-4. "building"
+    runs the engine-base ring report (ERROR when BLOCKED). Any other value skips the ground rule. `contracts`: dict label ->
+    callable(obj) returning bool or (bool, detail), or a list of callables. Returns findings, never raises.
     """
     rep = _Report(obj.name)
     _sync_depsgraph()
@@ -885,9 +890,9 @@ KINDS = ("prop", "building", "hanging")
 
 
 def manifest_kind(asset_dir, name):
-    """The kind an asset's own manifest declares, or None. `kind` leads with the validator kind
-    ("building", "prop (hosted sub-object; ...)"); lodge.py manifests carry no `kind` but a `lot`
-    (every lodge.py asset is a building). Anything else (drive / support / ...) gives None."""
+    """The kind an asset's own manifest declares, or None. `kind` leads with the validator kind ("building", "prop (hosted
+    sub-object; ...)"). lodge.py manifests carry no `kind` but a `lot` (every lodge.py asset is a building). Anything else
+    (drive / support / ...) gives None."""
     try:
         with open(os.path.join(asset_dir, f"{name}.manifest.json"), encoding="utf-8") as fh:
             data = json.load(fh)
@@ -1064,9 +1069,9 @@ def validate_asset_folder_ex(asset_dir, name, spec=None):
             rep.error("settings", f"sharedAssets[{key!r}] -> {target!r} does not exist")
         if key in present:
             if target == key:
-                # Identity entry = the dedicated-LOD-texture-set pattern every CO example
-                # with its own LOD2 set uses (ExampleBakedAlphaFence, ExampleColorMaskFirehouse);
-                # cs2_asset.write_settings(dedicated_texture_lods=...) emits it on purpose.
+                # Identity entry = the dedicated-LOD-texture-set pattern every CO example with its own LOD2 set uses
+                # (ExampleBakedAlphaFence, ExampleColorMaskFirehouse). cs2_asset.write_settings(dedicated_texture_lods=...)
+                # emits it on purpose.
                 rep.info("settings", f"sharedAssets[{key!r}] is an identity entry (dedicated LOD texture set)")
             else:
                 rep.warn("settings", f"sharedAssets key {key!r} also exists as a real file (shadowed)")
@@ -1097,7 +1102,7 @@ def validate_asset_folder_ex(asset_dir, name, spec=None):
                 rep.warn("texture-lod", f"LOD{lvl} has neither a sharedAssets entry nor a file "
                                         f"for {key}")
     for f in emissive:
-        # The importer writes the light row (purpose 34, intensity 5) on LOD0's mesh prefab only; the LOD levels use that row
+        # The importer writes the light row (purpose 34, intensity 5) on LOD0's mesh prefab only. The LOD levels use that row
         # (ManagedBatchSystem.cs:943-946) and glow where their own surface carries the map (SkiGroomerA in game, 2026-11-01).
         lit = [lvl for lvl in sorted(lod_fbx) if lvl and f"{name}_LOD{lvl}_Emissive.png" in (set(shared) | present)]
         rep.info("emissive", f"{f} present: light row on LOD0 (importer purpose 34, intensity 5); LOD levels with the map: "

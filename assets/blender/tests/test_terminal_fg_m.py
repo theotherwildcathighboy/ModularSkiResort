@@ -1,51 +1,53 @@
 """
-test_terminal_fg_m.py - generation M of the fixed-grip stations (lift_terminal.py --gen M, the
-default): every contract of design/fg-stations-m.md section 5 (as amended by its skeptic) on both
-stations, each with the negative the design names, plus a 512 / AO 4 bake smoke through main().
+test_terminal_fg_m.py - generation M of the fixed-grip stations (lift_terminal.py --gen M, the default). It tests every
+contract of design/fg-stations-m.md section 5 (as amended by its skeptic) on both stations, each with the negative the
+design names. It also runs a 512 / AO 4 bake smoke through main().
 
-  M1  frozen block: the generator's datums = SkiCatalog.cs + carriers.json + the deployed K
-      prefab (gamedata-mirror); the manifest's prefab_contract.frozen = the re-parsed deployed
-      prefab, byte for byte (json, sorted keys).                  negative: WheelLocal y 3.50
-  M2  rope datum (torus = WheelLocal, r 1.80; rim <= 1.745; chord). negative: torus 0.05 low
-  M3  real 6M chair sweep (LOD0 + LOD1, both lane ends + the line-first top ends).
-                                    negatives: an L-style beam at the front portal; a stake 0.15 in
-  M4  cushion 0.45..0.55 over the carpet / crest; plank >= 0.30.  negatives: crest 1.42, deck 0.30
-  M5  hosted ET68O / ET62O seam (shipped FBXs).                    negative: top toe at -4.60
-  M6  engine base on the oriented mesh.                            negative: a closed cwfoot
-  M7  reachability (ramps <= 20 deg, ladders, crossings, standables).
-                                    negatives: main ladder removed; an undeclared 1.2 m box at 2 m
-  M8  part clashes (declared kinds only).                          negative: a box in a bay post
-  M9  lot.                                                         negative: a part at (-10, -6)
-  M10 windows (4 house sides, hut 3 sides + lite, no pane on a wall). negative: no -x pane
-  M11 sign / labels / tension scale (in the bake hook; the scale is VECTOR).
-                                    negative: the K strip (3 x 5 bitmap) shows < 8 AA levels
-  M12 no *binding* part; vanilla rows box-tested in M's own frame.  negative: a ski_binding part
-  M13 weathering: edge band 0.06 refused; the bake smoke ships a stepped intensity.
-  M18 top station bay: every walk route (crest -> booth door, crest -> ledge corners, the W / back /
-      E strips, the front ledge) >= 0.70 m wide at hip height (0.30-1.80 m over the surface); the
-      report names the narrowest point and the two parts that pinch it. Positive on the generator's
-      top AND on the SHIPPED FBX (an independent BVH route scan below, shares no code with the
-      contract). negatives: the first build's layout put back (bay, booth, boards, e-stop, tools,
-      propane, stop arm, extinguisher: the 0.39 m door route, 0.17 m W / back strips), each pinching
-      item alone (UNLOAD board, e-stop post, tools, booth), and a box in the E strip. (The STAY board
-      that also pinched is gone from the top since 2026-10-12: M19.)
-  M19 (2026-10-12 lift-board redraw, build/lift-boards-redraw.md) the top carries NO STAY SEATED board
-      (post, panel, label, sheet rect) - the DQ top's D11 `forbid`: positives on the generator, the
-      tables and the SHIPPED top manifest; negatives: STAY SEATED back on its old post 2.55 m past the
-      unload line, on the bay boundary, as a wall board on the booth - each raises M19 naming it.
-  Fine-detail step 3c (build/fine-detail-step3c-tram-pali.md; lift_terminal.FINE_DETAIL_M, CLI --no-fine): contracts_m
-      runs F1 on every dressing-kit row (base e-stop, 2 extinguishers, tools, wall rack W2; top e-stop, extinguisher,
-      tools) and M3 / M7 / M18 count the kit meshes; the M18 negatives and the shipped-FBX scan include them.
-  F0  --no-fine = the approved part set; fine: the kit-replaced families gone + the cabinet lid, every other shared
-      part vertex-identical (labels, the 1-16 scale, badge, sign, weather mast) but the fine families.
-  F1  check_kit_rows_m passes on both stations; negatives: an extinguisher 5 cm off its wall, the base tools on the
-      cabinet's -y face (feet off the pad), the rack 0.10 m off the pad edge, e-stops in the swept chair (load line,
-      unload lane), the top tools without the tube offset, the booth extinguisher past its corner, a kit CID drift.
-  F2  H1: e-stop posts and extinguisher bodies on the removed ones, the wall rack frame vertex for vertex, the moved
-      tools declared.  F3  fine geometry: maze / gate / post-board families grow, the finish cabinet 10 + a 12-tri lid.
-  F4  the shipped manifests' fine block (4 + 5 / 2 + 3 rows, M's -y frame string, F1 rows = the mod rows).
-  M15 budgets / M16 determinism (tests/test_terminal_determinism.py) / M17 the library API the
-      detach builder reuses (names, positional signatures, L table values unchanged).
+- M1: frozen block. The datums of the generator = SkiCatalog.cs + carriers.json + the deployed K prefab (gamedata-mirror).
+  The prefab_contract.frozen of the manifest = the re-parsed deployed prefab, byte for byte (json, sorted keys). Negative:
+  WheelLocal y 3.50.
+- M2: rope datum (torus = WheelLocal, r 1.80, rim <= 1.745, chord). Negative: torus 0.05 low.
+- M3: real 6M chair sweep (LOD0 + LOD1, both lane ends + the line-first top ends). Negatives: an L-style beam at the front
+  portal, a stake 0.15 in.
+- M4: cushion 0.45..0.55 over the carpet / crest, plank >= 0.30. Negatives: crest 1.42, deck 0.30.
+- M5: hosted ET68O / ET62O seam (shipped FBXs). Negative: top toe at -4.60.
+- M6: engine base on the oriented mesh. Negative: a closed cwfoot.
+- M7: reachability (ramps <= 20 deg, ladders, crossings, standables). Negatives: main ladder removed, an undeclared 1.2 m
+  box at 2 m.
+- M8: part clashes (declared kinds only). Negative: a box in a bay post.
+- M9: lot. Negative: a part at (-10, -6).
+- M10: windows (4 house sides, hut 3 sides + lite, no pane on a wall). Negative: no -x pane.
+- M11: sign / labels / tension scale (in the bake hook, the scale is VECTOR). Negative: the K strip (3 x 5 bitmap) shows < 8
+  AA levels.
+- M12: no *binding* part, vanilla rows box-tested in M's own frame. Negative: a ski_binding part.
+- M13: weathering: edge band 0.06 refused, the bake smoke ships a stepped intensity.
+- M18: top station bay. Every walk route (crest -> booth door, crest -> ledge corners, the W / back / E strips, the front
+  ledge) is >= 0.70 m wide at hip height (0.30-1.80 m over the surface). The report names the narrowest point and the two
+  parts that pinch it. Positive on the generator's top AND on the SHIPPED FBX (an independent BVH route scan below, which
+  shares no code with the contract). Negatives: the layout of the first build put back (bay, booth, boards, e-stop, tools,
+  propane, stop arm, extinguisher: the 0.39 m door route, 0.17 m W / back strips), each pinching item alone (UNLOAD board,
+  e-stop post, tools, booth), and a box in the E strip. (The STAY board that also pinched is gone from the top since
+  2026-10-12: M19.)
+- M19 (2026-10-12 lift-board redraw, build/lift-boards-redraw.md): the top carries NO STAY SEATED board (post, panel, label,
+  sheet rect). This is the D11 `forbid` of the DQ top. Positives on the generator, the tables and the SHIPPED top manifest.
+  Negatives: STAY SEATED back on its old post 2.55 m past the unload line, on the bay boundary, and as a wall board on the
+  booth. Each raises M19 naming it.
+
+Fine-detail step 3c (build/fine-detail-step3c-tram-pali.md, lift_terminal.FINE_DETAIL_M, CLI --no-fine):
+contracts_m runs F1 on every dressing-kit row (base: e-stop, 2 extinguishers, tools, wall rack W2. Top: e-stop,
+extinguisher, tools). M3 / M7 / M18 count the kit meshes. The M18 negatives and the shipped-FBX scan include them.
+
+- F0: --no-fine = the approved part set. Fine: the kit-replaced families gone + the cabinet lid, every other shared part
+  vertex-identical (labels, the 1-16 scale, badge, sign, weather mast) but the fine families.
+- F1: check_kit_rows_m passes on both stations. Negatives: an extinguisher 5 cm off its wall, the base tools on the
+  cabinet's -y face (feet off the pad), the rack 0.10 m off the pad edge, e-stops in the swept chair (load line, unload
+  lane), the top tools without the tube offset, the booth extinguisher past its corner, a kit CID drift.
+- F2: H1: e-stop posts and extinguisher bodies on the removed ones, the wall rack frame vertex for vertex, the moved tools
+  declared.
+- F3: fine geometry: maze / gate / post-board families grow, the finish cabinet 10 + a 12-tri lid.
+- F4: the shipped manifests' fine block (4 + 5 / 2 + 3 rows, M's -y frame string, F1 rows = the mod rows).
+- M15: budgets. M16: determinism (tests/test_terminal_determinism.py). M17: the library API that the detach builder reuses
+  (names, positional signatures, L table values unchanged).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_terminal_fg_m.py
 """
@@ -210,8 +212,8 @@ def positives():
 def m1_hv_lane_negatives():
     """M1 HV sub-lane guard (DECISIONS 592 q): the deployed station prefab's two HV sub-lanes must name the FG rope lane
     (SkiFixedGripHaulRope, by CID). Temporary copies of the mirror's prefabs with one lane, then both lanes, back on the
-    vanilla HV GUID must raise M1 (the filter used to key on that GUID and passed vacuously after lift alignment F3);
-    the untouched copy and the restored copy pass. The mirror itself is never written."""
+    vanilla HV GUID must raise M1 (the filter used to key on that GUID and passed vacuously after lift alignment F3). The
+    untouched copy and the restored copy pass. The mirror itself is never written."""
     real = LT.GAMEDATA_M
     tmp = tempfile.mkdtemp(prefix="fgm-m1-neg-")
     vanilla = "UnityGUID:5d88ac45a40b30341a79535930e3b735"
@@ -237,7 +239,7 @@ def m1_hv_lane_negatives():
                     fh.write(txt.replace(cid, vanilla, cnt).encode("utf-8"))
                 expect("M1", lambda: LT.m1_frozen(kind), f"{kind}: {label} HV sub-lane(s) back on the vanilla GUID")
             if kind == "return":
-                # art-601: only the drive base may lose its hosted tower; the top without its ET62 row must raise M1
+                # art-601: only the drive base may lose its hosted tower. The top without its ET62 row must raise M1
                 tcid = "CID:" + open(os.path.join(tmp, LT.M_SPECS[kind].tower_prefab,
                                                   LT.M_SPECS[kind].tower_prefab + ".Prefab.cid"), encoding="utf-8").read().strip()
                 check(txt.count(tcid) == 1, f"{kind}: the temp copy hosts its ET62 once", f"({txt.count(tcid)})")
@@ -347,7 +349,7 @@ def negatives():
 
     m18_raises("first-build layout put back (bay, booth, boards, e-stop, tools, propane, stop arm, ext)",
                **M18_FIRST_BUILD)
-    # (2026-10-12: the STAY board is gone from the top - M19 forbids it; its old pinch negative is m19_forbid's now)
+    # (2026-10-12: the STAY board is gone from the top - M19 forbids it. Its old pinch negative is m19_forbid's now)
     m18_raises("UNLOAD board back on the bay boundary (-0.60, -3.30)", unload=(-0.60, -3.30), board_z0=1.00)
     m18_raises("e-stop post back at (1.00, -3.35)", estop=(1.00, -3.35))
     m18_raises("scraper + shovel back on the E rail beside the extinguisher", tools=(1.48, -5.25, "-X"),
@@ -489,7 +491,7 @@ FD_GONE_M = {"drive": ("estop_ld_", "ext_house", "ext_hut", "tool_cab_", "skirac
              "return": ("estop_ul_", "ext_booth", "tool_bay_")}
 FD_ROWS_M = {"drive": (4, 5), "return": (2, 3)}           # the SHIPPED M manifests (vanilla, mod) rows
 # T17 lamp part (DECISIONS 247): the generator emits the deployed SkiPisteFloodlightLow as a mod row where it emitted the
-# vanilla LightpoleParkRandom01, so a fresh build has one vanilla row fewer and one mod row more; the kit rows are unchanged
+# vanilla LightpoleParkRandom01, so a fresh build has one vanilla row fewer and one mod row more. The kit rows are unchanged
 FD_ROWS_GEN_M = {"drive": (3, 6), "return": (1, 4)}
 FD_KIT_M = {"drive": 5, "return": 3}
 FINE_FAMS = ("maze_post_", "maze_rope_", "gate_", "board_tipsup_post", "board_slow_post", "board_unload_post",
@@ -521,8 +523,8 @@ def _vset(T):
 
 
 def f0_f3():
-    """F0: --no-fine = the approved part set; fine: the kit-replaced families gone, + the cabinet lid, every other
-    shared part vertex-identical except the fine-geometry families. F3: the fine families' tris per part."""
+    """F0: --no-fine = the approved part set. Fine: the kit-replaced families gone, + the cabinet lid, every other shared part
+    vertex-identical except the fine-geometry families. F3: the fine families' tris per part."""
     print("[fg-m] 5. F0 / F3 the switch and the fine geometry")
     for kind in ("drive", "return"):
         t0, tb0, co0, tr0, n0 = build_mode(kind, False)
@@ -708,15 +710,15 @@ def f4_m():
         fd = m.get("fine_detail") or {}
         blk = m.get("sub_objects") or {}
         mods = [o for o in blk.get("objects", []) if o.get("kind") == "mod"]
-        # T17 lamp part: the shipped manifests predate the floodlight mod row (FD_ROWS_M); a re-export carries it
+        # T17 lamp part: the shipped manifests predate the floodlight mod row (FD_ROWS_M). A re-export carries it
         # (FD_ROWS_GEN_M). Either way the F1 kit rows = the block's mod rows other than the floodlight
         okrows = [{"vanilla": v[0], "mod": v[1]} for v in (FD_ROWS_M[kind], FD_ROWS_GEN_M[kind])]
         mods = [o for o in mods if o.get("prefab") != LT.M_FLOOD["prefab"]]
         nk = FD_KIT_M[kind]
         kr = fd.get("kit_rows") or []
         # T14 x-sign N (2026-10-16), DECISIONS 245 / T53: the shipped M manifests still carry the pre-T14 frame string
-        # ("probe X2 decides") until the next export regenerates them: only that conjunct is SKIPPED (loud); once the
-        # export lands the string must equal LT.M_X_CONVENTION again, and any other text still fails.
+        # ("probe X2 decides") until the next export regenerates them: only that conjunct is SKIPPED (loud). Once the export
+        # lands the string must equal LT.M_X_CONVENTION again, and any other text still fails.
         xc = blk.get("x_convention")
         xc_stale = xc != LT.M_X_CONVENTION and "probe X2 decides" in (xc or "")
         if xc_stale:
@@ -727,7 +729,7 @@ def f4_m():
         check(ok, f"{kind}: F4 shipped fine block {fd.get('rows')}, {len(kr)} F1 rows = the mod rows, M's frame string",
               f"({blk.get('x_convention', '')[:50]}...)")
         # T17 lamp part (DECISIONS 247): the generator's floodlight row = the DEPLOYED prefab's row (CID, position,
-        # rotation, parent; gamedata-mirror) and no LightpoleParkRandom01 row is emitted any more
+        # rotation, parent, gamedata-mirror) and no LightpoleParkRandom01 row is emitted any more
         fz, _old, _sha, _p = LT.frozen_block_m(kind)
         dep = [s_ for s_ in LT._comp(fz, "ObjectSubObjects")["m_SubObjects"]["$rcontent"]
                if LT.M_FLOOD["cid"] in str(s_["m_Object"])]
@@ -743,9 +745,9 @@ def f4_m():
 
 
 def m19_forbid():
-    """M19 (2026-10-12 lift-board redraw, build/lift-boards-redraw.md): the top carries NO STAY SEATED board
-    (post, panel, label, atlas rect) - the DQ top's D11 `forbid` semantics: positives on the generator, its tables
-    and the SHIPPED top; negatives put STAY SEATED back in three mounts (each must raise M19 and name it)."""
+    """M19 (2026-10-12 lift-board redraw, build/lift-boards-redraw.md): the top carries NO STAY SEATED board (post, panel,
+    label, atlas rect) - the DQ top's D11 `forbid` semantics. Positives on the generator, its tables and the SHIPPED top.
+    Negatives put STAY SEATED back in three mounts (each must raise M19 and name it)."""
     import cs2_liftdress as LD
     print("[fg-m] 9. M19 no STAY SEATED on the top (the DQ top's D11 forbid)")
     for kind in ("drive", "return"):
@@ -792,7 +794,7 @@ def m19_forbid():
 
 
 # --------------------------------------------------------------------------------------
-# Nitpick A (2026-10-13; twenty-fifth look S-1 / S-2 / S-3; build/nitpick-a-stations.md)
+# Nitpick A (2026-10-13, twenty-fifth look S-1 / S-2 / S-3, build/nitpick-a-stations.md)
 # --------------------------------------------------------------------------------------
 LADDER_CLEAR = 0.30     # S-3: no dressing part within this (plan) of the base's main ladder rails / rungs
 
@@ -815,12 +817,13 @@ def _ladder_clear_m(co, tris, names):
 
 
 def nitpick_a_m():
-    """M20 the layout round the up lane (both stations) + negatives (UP_LANE_Y flipped); M21 the base's hold-down
-    trains = the towers' Yan rocker tree, rope tangent, in front of the portal beam + negatives (the train 2 cm off the
-    rope, pushed into the portal beam), the top reports no rope-guide group; S-3 the base has no corral (no maze_ /
-    gate_ part in either FINE_DETAIL_M mode), WAIT HERE on its own post on the pad, every dressing part >= 0.30 m (plan)
-    from the main ladder - the corral put back (M_BASE_CORRAL) fails that clearance; the shipped manifests record
-    M20 / M21 and the base's sheave block."""
+    """- M20: the layout around the up lane (both stations) + negatives (UP_LANE_Y flipped).
+    - M21: the hold-down trains of the base = the Yan rocker tree of the towers, rope tangent, in front of the portal beam.
+      Negatives: the train 2 cm off the rope, and pushed into the portal beam. The top reports no rope-guide group.
+    - S-3: the base has no corral (no maze_ / gate_ part in either FINE_DETAIL_M mode), WAIT HERE on its own post on the
+      pad, every dressing part >= 0.30 m (plan) from the main ladder. The corral put back (M_BASE_CORRAL) fails that
+      clearance.
+    - The shipped manifests record M20 / M21 and the sheave block of the base."""
     print("[fg-m] 10. nitpick A: M20 orientation, M21 the towers' sheave trains, S-3 no corral")
     for kind in ("drive", "return"):
         _t, _tb, co, tris, names = build(kind, finish=False)
@@ -857,8 +860,8 @@ def nitpick_a_m():
         check(n_maze == 0 and post and abs(pz - LT.M_BASE["pad_h"]) < 1e-3 and d >= LADDER_CLEAR,
               f"drive ({'fine' if fine else '--no-fine'}): S-3 no maze / gate part, WAIT HERE on its own post (foot z "
               f"{pz}), dressing >= {LADDER_CLEAR} m from the main ladder (nearest {d:.3f} m, {who})")
-    # the corral's maze sits where it stood before T17 (x 3.2-5.2 behind the old ramp), beside the pre-T17 main ladder
-    # (x 5.48); T17 (M_BASE_LOADROOM) moved the ladder to 8.28, so the negative runs on the pre-T17 rear end
+    # the corral's maze sits where it stood before T17 (x 3.2-5.2 behind the old ramp), beside the pre-T17 main ladder (x
+    # 5.48). T17 (M_BASE_LOADROOM) moved the ladder to 8.28, so the negative runs on the pre-T17 rear end
     saved, saved_lr = LT.M_BASE_CORRAL, LT.M_BASE_LOADROOM
     LT.M_BASE_CORRAL, LT.M_BASE_LOADROOM = True, False
     try:
@@ -867,8 +870,8 @@ def nitpick_a_m():
         LT.M_BASE_CORRAL, LT.M_BASE_LOADROOM = saved, saved_lr
     d, who = _ladder_clear_m(co, tris, names)
     check(d < LADDER_CLEAR, f"drive: S-3 negative - the corral put back stands {d:.3f} m from the main ladder ({who})")
-    # T17 (M_BASE_LOADROOM, build/T17-fg-loadroom.md): the loading bay between the front and rear leg faces, measured on
-    # the built legs, is >= 1.5 m longer than the pre-T17 6.60 m; off = the pre-T17 bay
+    # T17 (M_BASE_LOADROOM, build/T17-fg-loadroom.md): the loading bay between the front and rear leg faces, measured on the
+    # built legs, is >= 1.5 m longer than the pre-T17 6.60 m. Off = the pre-T17 bay
     for lr, want in ((True, lambda b: b >= 6.60 + 1.50 - 1e-6), (False, lambda b: abs(b - 6.60) < 1e-3)):
         saved_lr = LT.M_BASE_LOADROOM
         LT.M_BASE_LOADROOM = lr

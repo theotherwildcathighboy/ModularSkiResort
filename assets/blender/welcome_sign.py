@@ -1,38 +1,37 @@
 """
-welcome_sign.py - the resort Welcome Sign (timber-and-stone portal) -> SkiWelcomeSignA
-(assets/import/signs/A), the mesh for SkiResortGate's m_Meshes (engine base, R14).
+welcome_sign.py - the resort Welcome Sign (timber-and-stone portal) -> SkiWelcomeSignA (assets/import/signs/A),
+the mesh for SkiResortGate's m_Meshes (engine base, R14).
 
-Contract: docs/research/art/assets-2026-10/design/civic-sign.md section 4 (+ 1, 5) with
-civic-sign-skeptic.md applied (skeptic wins) and ROUND-SPEC R14, R18, R24, R25:
+Contract: docs/research/art/assets-2026-10/design/civic-sign.md section 4 (+ 1, 5) with civic-sign-skeptic.md
+applied (skeptic wins) and ROUND-SPEC R14, R18, R24, R25:
     plank   the name plank front `plankfront_sign` is EXACTLY ONE quad, 7.50 x 1.50 m,
             facing authoring +X = game +Z (the road), center / width / height exported as
             constants (PLANK_CENTRE_GAME, PLANK_W, PLANK_H) and as the manifest "we" block
-            (S6); plain walnut boards on its own island, density 1.8.
+            (S6). Plain walnut boards on its own island, density 1.8.
     header  "SKI AREA" (--header) from a Blender FONT curve (builtin Bfont: NOT Inter,
-            skeptic claim 4; DejaVu-derived, unverified) rasterized 4 x 4 supersampled
+            skeptic claim 4. DejaVu-derived, unverified) rasterized 4 x 4 supersampled
             into the reserved BAND, cream on the slot-1 field, ControlMask 0 under the
-            letters (S5), routed 3 mm (normal from height); two snowflake ornaments.
+            letters (S5), routed 3 mm (normal from height). Two snowflake ornaments.
     emblem  disc D 1.50 on the gable, ski_launcher_glyph.cand_c (the shipped launcher
             glyph, DECISIONS 148) white at 0.70 D + a white rim ring on the slot-2 field.
     M3      every painted face is a front-only part on its own island: `header_sign`,
-            `emblemfront_sign` (band) and `plankfront_sign`; rims / bodies are other parts.
+            `emblemfront_sign` (band) and `plankfront_sign`. Rims / bodies are other parts.
     M5      the front rake stops 0.09 m past the emblem face (slab front x -0.30) with a
-            flush 0.03 m barge (outer face x -0.27, no hang below the slab): S7 asserts the
+            flush 0.03 m barge (outer face x -0.27, no hang below the slab). S7 asserts the
             whole disc is visible along 45-deg-elevation head-on rays (BVH).
-    M6      SPECS["band"] is a placeholder MaterialSpec for material_sources; the band
+    M6      SPECS["band"] is a placeholder MaterialSpec for material_sources. The band
             SourceSet replaces the source at index sorted(keys).index("band") of the keys
             the parts USE (cs2_bake.material_sources indexes used keys).
     M8      S2 samples a grid inset >= 0.10 m (the WE box |y| <= 3.30, z 1.90-3.20).
     N3      cs2_bake multiplies AO over the restored band: the post-compose hook re-copies
             the band rects from the band PNGs exactly as _restore_reserved does.
-    should-fix: band rects in px multiples of 8 at 1024 (fractions of A, integral at 512);
-            non-band UVTile offset +2 u before the bake (no kit face pinned by accident);
-            density weights within 0.55-1.8; wall plate y +-3.30 (not into the roof);
+    should-fix: band rects in px multiples of 8 at 1024 (fractions of A, integral at 512).
+            Non-band UVTile offset +2 u before the bake (no kit face pinned by accident).
+            Density weights within 0.55-1.8. Wall plate y +-3.30 (not into the roof).
             G3 slack >= 0.02 m on the flags (flag 1.10 m, |y| <= 7.67).
-Kit API (R25): cs2_bldg builders (box_part, prism_gable, roof_slab, lantern), materials
-(BLDG_MATERIALS + one local walnut plank BldgMat, prefiltered by cs2_bldg.prefilter_set,
-R24), retile, check_base_mode, plan_lod_targets / lod_chain, shipped_density; recipe-local
-parts from recipes/_civic.py.
+Kit API (R25): cs2_bldg builders (box_part, prism_gable, roof_slab, lantern), materials (BLDG_MATERIALS + one
+local walnut plank BldgMat, prefiltered by cs2_bldg.prefilter_set, R24), retile, check_base_mode, plan_lod_targets
+/ lod_chain, shipped_density. Recipe-local parts from recipes/_civic.py.
 
 CLI (headless only):
     blender --background --factory-startup --python-exit-code 1 --python welcome_sign.py --
@@ -40,22 +39,23 @@ CLI (headless only):
         [--header "SKI AREA"] [--finish] [--lods] [--blockout] [--preview [DIR]]
         [--we-mock [TEXT]] [--review [DIR]] [--tex 1024] [--ao-samples 48] [--no-validate]
     Without --finish: blockout bake at A = 512, AO off (fast look). --blockout: geometry,
-    band, contracts and the manifest only (no bake, no FBX). Exit 1 on any failure; last line
+    band, contracts and the manifest only (no bake, no FBX). Exit 1 on any failure. The last line is
         PASS welcome_sign: <Name> LOD0 n, chain [n1, n2], engine base OK, tex A, ...
 
-Fine-detail step 3d (2026-10-12; build/fine-detail-step3d-patrol-sign.md; the engine of
-build/fine-detail-step2-engine.md). The DEFAULT build is the fine-detail one; `--no-fine` rebuilds the
-pre-pass sign vertex for vertex (the shipped 2026-10-11 export):
-    header  "SKI AREA" was vector Bfont at 186 px/m in the host band (< 300): the header face is split
-            where it is plain field (y +-GATE_SPLIT_Y 1.30, between the letters' +-1.21 and the snowflakes'
-            +-1.47) into the lettering panel `sign_gate_face` (2.60 x 0.60) and two snowflake panels
-            `sign_gateflake{L,R}_face` (0.70 x 0.60); all three leave the host for the sign set
-            SkiSignSetGateB (a sharer of the school's building sheet: kinds gate.header, lit, and
-            gate.flake, used twice; 300 px/m vector), placed by an identity row on SkiResortGate. The
-            band keeps the emblem only (the header rect is no longer reserved: its texels go to the pack).
+Fine-detail step 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md, the engine of
+build/fine-detail-step2-engine.md). The DEFAULT build is the fine-detail one. `--no-fine` rebuilds the pre-pass
+sign vertex for vertex (the shipped 2026-10-11 export):
+    header  "SKI AREA" was vector Bfont at 186 px/m in the host band (< 300). The header face is
+            split where it is plain field (y +-GATE_SPLIT_Y 1.30, between the letters' +-1.21 and
+            the snowflakes' +-1.47) into the lettering panel `sign_gate_face` (2.60 x 0.60) and
+            two snowflake panels `sign_gateflake{L,R}_face` (0.70 x 0.60). All three leave the
+            host for the sign set SkiSignSetGateB (a sharer of the school's building sheet: kinds
+            gate.header, lit, and gate.flake, used twice, 300 px/m vector). An identity row on
+            SkiResortGate places it. The band keeps the emblem only (the header rect is no
+            longer reserved: its texels go to the pack).
     lamps   the two post lanterns -> WallLightShortRangeRandom01 rows on the post fronts (H4): no lamp_
             part is left, so no _Emissive map (a stale one is removed, lodge.remove_stale_maps).
-    masts   12-seg masts and finials (were 8 / 6); the flags unchanged. FlagPole01 / 02 have no offline
+    masts   12-seg masts and finials (were 8 / 6). The flags unchanged. FlagPole01 / 02 have no offline
             GUID (Editor harvest, H5): the masts stay modeled (PLACEHOLDER).
     rows    the manifest gains a sub_objects block (target SkiResortGate, the hosts' (y, z, x) convention).
 """
@@ -125,7 +125,7 @@ PREFAB = "SkiResortGate"
 SPEC_TAG = "civic-sign-2026-10"
 
 # ======================================================================================
-# Constants (authoring meters; contract 4.1; lot 2 x 1 -> X +-4, Y +-8)
+# Constants (authoring meters, contract 4.1, lot 2 x 1 -> X +-4, Y +-8)
 # ======================================================================================
 
 LOT = (2, 1)                          # (W, D) cells: game X = authored Y = 16 m, Z = 8 m
@@ -183,7 +183,7 @@ EMBLEM_RING = (0.06, 0.01)            # ring width, inset from the disc edge
 ROUTE_DEPTH = 0.003
 BAND_SMOOTH = 0.45
 
-# WE constants (game frame: lot-center origin, +Z road; manifest "we" block, S6)
+# WE constants (game frame: lot-center origin, +Z road, manifest "we" block, S6)
 WE_MARGIN = 0.45
 WE_STANDOFF = 0.004
 PLANK_CENTRE_AUTH = (PLANK_FRONT_X, 0.0, 0.5 * (PLANK_Z[0] + PLANK_Z[1]))
@@ -205,11 +205,11 @@ SHADE_ANGLE = 66.0
 GROUND = ("pierplinth_", "footing_")
 FRONT_PROBE = "plankfront_"
 BAND_PARTS = ("header_", "emblemfront_")
-# LOD lists (contract 4.2: kit-style names; emissive is LOD0-only, DECISIONS 77)
+# LOD lists (contract 4.2: kit-style names, emissive is LOD0-only, DECISIONS 77)
 DELETE1 = ("strap_", "finial_", "lamp_")
 DELETE2 = DELETE1 + ("brace_", "plankframe_", "plate_")
 BEVEL = ("pierplinth_", "pier_", "piercap_", "tpost_", "beamlow_", "brace_", "ridge_")
-# density weights (longest prefix; skeptic: 0.55 .. 1.8, the report errors past 2x)
+# density weights (longest prefix, skeptic: 0.55 .. 1.8, the report errors past 2x)
 DENSITY = {"plankfront_": 1.8, "roof_": 0.6, "soffit_": 0.55, "mast_": 0.55, "finial_": 0.55,
            "footing_": 0.8, "flag_": 1.0, "lamp_": 0.55, "strap_": 0.55}
 # VariationSet defaults (target sRGB / 0.80): green trim + header field, blue emblem / flags
@@ -236,9 +236,9 @@ SUB_OBJECT_NOTE = ("ObjectSubObjects on SkiResortGate (the deployed prefab: keep
 
 
 def fine_rows():
-    """The fine build's rows (DESIGN frame (gx, gy, gz) = authoring (y, z, x); lodge.sub_objects_block writes
-    them through rule T into the game frame, gx negated): the two post
-    lanterns as short-range wall lights on the post fronts (the old lens height), facing the road (+Z)."""
+    """The fine build's rows (DESIGN frame (gx, gy, gz) = authoring (y, z, x)). lodge.sub_objects_block writes them
+    through rule T into the game frame, gx negated. The rows are the two post lanterns as short-range wall lights
+    on the post fronts (the old lens height), facing the road (+Z)."""
     lx, lz = LANTERN_AT
     return tuple(WALL_LIGHT + ((sy * PIER_Y, lz, lx), (0.0, 0.0, 0.0, 1.0), 0) for sy in (-1.0, 1.0))
 
@@ -296,7 +296,7 @@ def clear_scene():
 # ======================================================================================
 
 def band_rects(A, keys=RESERVED_KEYS):
-    """{key: (u0, v0, u1, v1)} fractions; px = BAND_PX_1024 scaled, integral (asserted)."""
+    """{key: (u0, v0, u1, v1)} fractions. px = BAND_PX_1024 scaled, integral (asserted)."""
     out = {}
     for k in keys:
         px = [p * A / 1024.0 for p in BAND_PX_1024[k]]
@@ -315,7 +315,7 @@ def ground_prefixes(args):
 def build_parts(args, fine=False):
     P = []
     px = PORTAL_X
-    # ---- piers: plinth (ground), shaft, cap; posts; beams; braces --------------------
+    # ---- piers: plinth (ground), shaft, cap, posts, beams, braces --------------------
     for tag, sy in (("l", -1.0), ("r", 1.0)):
         y = sy * PIER_Y
         w, h = PLINTH
@@ -472,8 +472,8 @@ def projection_specs(keys):
 
 
 def native_ppm(mat):
-    """Source px per meter of a set material's Color map over its image tile (PNG header);
-    None when unknown. cs2_bldg.prefilter_set has no cap and UPsamples past it (kit need)."""
+    """Source px per meter of a set material's Color map over its image tile (PNG header). None when unknown.
+    cs2_bldg.prefilter_set has no cap and UPsamples past it (kit need)."""
     p = cs2_bake.find_set_map(cs2_bake._set_dir(mat.set), "Color")
     if p is None or not p.lower().endswith(".png"):
         return None
@@ -489,10 +489,9 @@ def pack_margin(A):
 
 
 def bake_sources(keys, base_ppm, band_paths):
-    """{mat_index: SourceSet}: index = sorted(USED keys).index(key) (M6); kit materials via
-    cs2_bldg.material_specs (prefiltered, R24), the plank via cs2_bldg.prefilter_set, the
-    band from the painted A x A band PNGs (uv None = the packed source layer, for the 1:1
-    restore, cs2_bake.py:862-869)."""
+    """{mat_index: SourceSet}: index = sorted(USED keys).index(key) (M6). Kit materials via cs2_bldg.material_specs
+    (prefiltered, R24), the plank via cs2_bldg.prefilter_set, the band from the painted A x A band PNGs (uv None =
+    the packed source layer, for the 1:1 restore, cs2_bake.py:862-869)."""
     keys = sorted(keys)
     kit = [k for k in keys if k in K.BLDG_MATERIALS]
     specs, info = K.material_specs(kit, base_ppm)
@@ -597,10 +596,9 @@ def _place(dst, cov_topdown, cx_px, cy_px):
 
 
 def paint_band(A, header_text, out_dir, name, keys=RESERVED_KEYS):
-    """Paint the band (contract 4.3 steps 1-6) into A x A arrays (bottom-up; BaseColor
-    display-encoded as the importer reads it) and write <name>_band_<Map>.png into
-    `out_dir` (never the asset folder: a stray PNG is a validator ERROR). Returns
-    (paths, arrays, coverage {key: (rect slices, cov)}, report)."""
+    """Paint the band (contract 4.3 steps 1-6) into A x A arrays (bottom-up, BaseColor display-encoded as the
+    importer reads it) and write <name>_band_<Map>.png into `out_dir` (never the asset folder: a stray PNG is a
+    validator ERROR). Returns (paths, arrays, coverage {key: (rect slices, cov)}, report)."""
     rects = band_rects(A)
     base = np.zeros((A, A, 4), np.float32)
     nrm = np.zeros((A, A, 4), np.float32)
@@ -678,9 +676,9 @@ def _paint_emblem(A, rects, base, msk, ctl, cov_out, rep):
 
 
 def set_band_uvs(obj, table, A, layer=cs2_bake.TILE_LAYER, keys=RESERVED_KEYS):
-    """Band faces -> their rect (u along authoring +y, v along +z, read from +X); every
-    other loop shifted +2 u (integer: same tiling) so no kit face can be pinned (skeptic
-    determinism (a)). Runs on the joined mesh in the AUTHORING frame."""
+    """Band faces -> their rect (u along authoring +y, v along +z, read from +X). Every other loop is shifted +2 u
+    (integer: same tiling) so no kit face can be pinned (skeptic determinism (a)). Runs on the joined mesh in the
+    AUTHORING frame."""
     rects = band_rects(A)
     me = obj.data
     lay = me.uv_layers[layer]
@@ -777,7 +775,7 @@ def contracts_authoring(obj, table, args):
     if hits:
         raise RuntimeError(f"S2: {len(hits)} WE-box rays hit geometry: {hits[:6]}")
     rep["S2"] = "105 rays clear"
-    # S4: eave underside >= header top + 0.005; emblem inside the gable triangle, margin
+    # S4: eave underside >= header top + 0.005. Emblem inside the gable triangle, margin
     roof_z = min(float((obj.matrix_world @ obj.data.vertices[v].co).z)
                  for pre in ("roof_", "soffit_", "barge_") for p in _faces_of(obj, table, pre)
                  for v in p.vertices)
@@ -848,8 +846,8 @@ def contracts_oriented(obj, table):
 
 
 def check_band(arrays, cov, rects, A, uv_obj=None, table=None):
-    """S3 (texel aspect) + S5 (ControlMask zero under coverage >= 0.5, field slot, R+G+B
-    <= 1, BaseColor alpha 1); S3 UV containment is checked by set_band_uvs' pinning."""
+    """S3 (texel aspect) + S5 (ControlMask zero under coverage >= 0.5, field slot, R+G+B <= 1, BaseColor alpha 1). S3
+    UV containment is checked by set_band_uvs' pinning."""
     rep = {}
     ctl, base = arrays["ControlMask"], arrays["BaseColor"]
     if (ctl[..., 0:3].sum(-1) > 1.0 + 1e-3).any():
@@ -962,7 +960,7 @@ def _we_mock_object(obj, text, A):
     bm = bmesh.new()
     bm.from_mesh(mock.data)
     lay = bm.loops.layers.uv.get(cs2_uv.UNIQUE_LAYER)
-    # authoring (x, y, z) -> post-orient Blender (y, -x, z); the plank faces Blender -Y
+    # authoring (x, y, z) -> post-orient Blender (y, -x, z). The plank faces Blender -Y
     yb = -(PLANK_FRONT_X + WE_STANDOFF)
     zc = PLANK_CENTRE_AUTH[2]
     cream_uv = getattr(_we_mock_object, "cream_uv", (0.5 * (u0 + u1), 0.5 * (v0 + v1)))
@@ -989,7 +987,7 @@ CLOSEUP_SHOTS = (("stone", ("pier_r", "piercap_r", "tpost_r"), (0.50, -1.0, 0.30
 
 
 def render_closeups(obj, table, asset_dir, name, out_dir, tint):
-    """PBR close-ups (cs2_preview rig, the shipped textures) of CLOSEUP_SHOTS at noon; written as
+    """PBR close-ups (cs2_preview rig, the shipped textures) of CLOSEUP_SHOTS at noon. Written as
     `<name>_closeup_<shot>.png`."""
     import cs2_preview
     os.makedirs(out_dir, exist_ok=True)

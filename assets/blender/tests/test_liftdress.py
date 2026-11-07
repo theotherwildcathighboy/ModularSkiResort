@@ -1,60 +1,75 @@
 """
-test_liftdress.py - contract test for cs2_liftdress.py and the additive `share=` keyword of
-cs2_uv.pack_unique / cs2_bake.bake_unique (detail pass 1, lifts; design
-design/detail-pass-1-lifts.md 9.2 "shared" row, as amended by the skeptic's MC1-MC11).
+test_liftdress.py: contract test for cs2_liftdress.py and the additive `share=` keyword of cs2_uv.pack_unique /
+cs2_bake.bake_unique (detail pass 1, lifts, design design/detail-pass-1-lifts.md 9.2 "shared" row, as amended by
+the skeptic's MC1-MC11).
 
 Run:  blender --background --factory-startup --python-exit-code 1 --python tests\\test_liftdress.py
-Exit code 1 on any failure; prints one PASS line on success. Optional: -- --golden prints the
-K5 fixture hashes (run it with the PRE-PASS cs2_uv / cs2_bake preloaded to re-derive the
-constants below; the build report has the command).
+Exit code 1 on any failure. The test prints one PASS line on success. Optional: -- --golden prints the K5
+fixture hashes (run it with the PRE-PASS cs2_uv / cs2_bake preloaded to re-derive the constants below, the build
+report has the command).
 
-  K1 builders: every builder (sample calls in the DQ / tram frames): family prefixes
-     (BUILDER_PREFIXES), material keys (DRESS_MATERIALS), tris within +-10 % of EXPECTED_TRIS,
-     min z >= the builder's z0, no duplicate names, no dotted names; lod_split classifies
-     every part (mast / arm, bridge grating + beams, ladder rails kept to LOD1); the kind
-     pairs that touch INSIDE a builder (BVH overlap) are all in DRESS_CONTACTS; every label
-     quad's UVMap reads u = viewer right, v = up, 0..1; fixed_ladder style "dq" reproduces
-     lift_terminal_detach._ladder's parts vertex for vertex, style "tram" is parsed by
-     tram_station.walk_ladders (C15) with the right rung count, pitch, foot and first rung.
-  K2 label sheet: deterministic, rects disjoint and inside the region, gutters >= 6 px, the
-     design's DQ base / top sheets fit the reserved strip (u 806-2042, v 1648-2040 px),
-     overflow and too-wide items raise.
-  K3 painters: every BOARDS kind paints at its design density with .last metrics (cap_m,
-     stroke_px, glyph_m, rect, t1 / t2, read_m); every shipped kind holds T2 (0.07 m words,
-     >= 4-texel stems and pictogram strokes); 2026-10-12 lift-board redraw: the 0.70 x 0.55 "plate"
-     boards carry ONE real-size portrait placard (PLACARD_RATIO) on the backer - T1's 0.40 m
-     pictogram is no longer claimed for them (read_m >= 25 m instead), SLOW / stn / dep keep T1; the
-     reference-vocabulary kinds (vocab) are on NO station's label table and declare their fine print;
-     ControlMask 0 and alpha 1 over the rect; deterministic; "IW" reads I-left-of-W and "L" keeps its
-     foot at the bottom (rows bottom-up = the stamp frame, unmirrored); a circle pictogram stays round
-     in METERS at anisotropic px/m; the LED board's dots are >= 4 texels; stamp_on_face painter wrapper.
-  K9 the redraw's glyph primitives: the bar clears the rider's head in both states, the lowered
-     cross-bar sits at chest height in front of the torso, the raised bar above the head; the ski is
-     one thin line with its tip curved up (no blocks); every pictogram stroke >= 12 canvas units.
-     2026-10-12 nit fix (kit color-variant fleet): the LOWER BAR hoop is loose (>= 18 units over the
-     head top and ahead of the face), every arrow (LOWER / RAISE / TIPS UP) clears the ring's inner
-     edge (in the shipped 0.225 m circle at 400 px/m) and the figure by >= 9 canvas units (3 texels);
-     negatives: the pre-fix arrow (x 212 / 214, head 30) and the pre-fix hoop fail.
-  K4 share_identical: translation copies grouped; a rotated and a mirrored copy rejected; a
-     different material rejected; size cap / whitelist / never-list honored; an ACTIVE
-     DetailSpec prefix excluded (MC6) and the same prefix shared when inactive; pinned
-     faces excluded; deterministic; pack_unique(share=...) stacks every dup loop on its
-     canonical loop's UV, passes the layout contract, reports shared_faces, packs fewer
-     islands; a malformed share list raises.
-  K5 share=None byte-identical: pack_unique() == pack_unique(share=None) on the fixture and
-     both == the PRE-PASS module's hash (GOLDEN_PACK); bake_unique() == bake_unique(
-     share=None) PNG bytes == GOLDEN_BAKE; bake_unique(share=[]) report carries shared_faces
-     0 and the same bytes. (The shipped DQ + tram stations rebuilt before / after: the
-     build report.)
-  K6 weathering helpers: lift_mat_roles maps by material INDEX from CS2SRC_<key> slots, raises
-     on an unmapped key and on a non-placeholder slot; station_weather_spec = station preset,
-     intensity 0.40, slot_wear free, snow 0, edge_band_m 0.08 (0.06 and snow raise);
-     merge_materials agrees with the DQ and tram tables; highest_clean_step / budget_ok;
-     label_protect_px returns the exact label's texel bbox.
-  K7 vanilla sub-objects: verify_subobj re-derives every GUID / variant set / component /
-     bounds / tris from %TEMP%\\pltar\\dump.zip (SKIP when the dump is absent);
-     sub_object_rows / subobj_box / facing_quat; the WarningLight v02 top over the tram-top
-     goal beam reaches 27.75 (skeptic row 10: above the frozen 27.00).
+K1 builders: every builder (sample calls in the DQ / tram frames) is checked for these items:
+- family prefixes (BUILDER_PREFIXES)
+- material keys (DRESS_MATERIALS)
+- tris within +-10 % of EXPECTED_TRIS
+- min z >= the builder's z0
+- no duplicate names, no dotted names
+- lod_split classifies every part (mast / arm, bridge grating + beams, ladder rails kept to LOD1)
+- the kind pairs that touch INSIDE a builder (BVH overlap) are all in DRESS_CONTACTS
+- every label quad's UVMap reads u = viewer right, v = up, 0..1
+- fixed_ladder style "dq" reproduces lift_terminal_detach._ladder's parts vertex for vertex
+- fixed_ladder style "tram" is parsed by tram_station.walk_ladders (C15) with the right rung count, pitch, foot and first
+  rung
+
+K2 label sheet: deterministic. Rects are disjoint and inside the region. Gutters are >= 6 px. The design's DQ
+base / top sheets fit the reserved strip (u 806-2042, v 1648-2040 px). Overflow and too-wide items raise.
+
+K3 painters:
+- every BOARDS kind paints at its design density with .last metrics (cap_m, stroke_px, glyph_m, rect, t1 / t2,
+  read_m)
+- every shipped kind holds T2 (0.07 m words, >= 4-texel stems and pictogram strokes)
+- 2026-10-12 lift-board redraw: the 0.70 x 0.55 "plate" boards carry ONE real-size portrait placard
+  (PLACARD_RATIO) on the backer. T1's 0.40 m pictogram is no longer claimed for them (read_m >= 25 m instead).
+  SLOW / stn / dep keep T1.
+- the reference-vocabulary kinds (vocab) are on NO station's label table and declare their fine print
+- ControlMask 0 and alpha 1 over the rect
+- deterministic
+- "IW" reads I-left-of-W and "L" keeps its foot at the bottom (rows bottom-up = the stamp frame, unmirrored)
+- a circle pictogram stays round in METERS at anisotropic px/m
+- the LED board's dots are >= 4 texels
+- stamp_on_face painter wrapper
+
+K9 the redraw's glyph primitives:
+- the bar clears the rider's head in both states
+- the lowered cross-bar sits at chest height in front of the torso
+- the raised bar sits above the head
+- the ski is one thin line with its tip curved up (no blocks)
+- every pictogram stroke is >= 12 canvas units
+
+2026-10-12 nit fix (kit color-variant fleet): the LOWER BAR hoop is loose (>= 18 units over the head top and
+ahead of the face). Every arrow (LOWER / RAISE / TIPS UP) clears the ring's inner edge (in the shipped 0.225 m
+circle at 400 px/m) and the figure by >= 9 canvas units (3 texels). Negatives: the pre-fix arrow (x 212 / 214,
+head 30) and the pre-fix hoop fail.
+
+K4 share_identical: translation copies are grouped. A rotated and a mirrored copy are rejected. A different
+material is rejected. The size cap / whitelist / never-list are honored. An ACTIVE DetailSpec prefix is excluded
+(MC6), and the same prefix is shared when inactive. Pinned faces are excluded. The result is deterministic.
+pack_unique(share=...) stacks every dup loop on its canonical loop's UV, passes the layout contract, reports
+shared_faces, and packs fewer islands. A malformed share list raises.
+
+K5 share=None byte-identical: pack_unique() == pack_unique(share=None) on the fixture, and both == the PRE-PASS
+module's hash (GOLDEN_PACK). bake_unique() == bake_unique(share=None) PNG bytes == GOLDEN_BAKE. The
+bake_unique(share=[]) report carries shared_faces 0 and the same bytes. (The shipped DQ + tram stations rebuilt
+before / after: the build report.)
+
+K6 weathering helpers: lift_mat_roles maps by material INDEX from CS2SRC_<key> slots, and raises on an unmapped
+key and on a non-placeholder slot. station_weather_spec = station preset, intensity 0.40, slot_wear free, snow
+0, edge_band_m 0.08 (0.06 and snow raise). merge_materials agrees with the DQ and tram tables.
+highest_clean_step / budget_ok are checked. label_protect_px returns the exact label's texel bbox.
+
+K7 vanilla sub-objects: verify_subobj re-derives every GUID / variant set / component / bounds / tris from
+%TEMP%\\pltar\\dump.zip (SKIP when the dump is absent). sub_object_rows / subobj_box / facing_quat are checked.
+The WarningLight v02 top over the tram-top goal beam reaches 27.75 (skeptic row 10: above the frozen 27.00).
 """
 
 import hashlib
@@ -91,7 +106,7 @@ GOLDEN_PACK = "b57877191610be76"
 GOLDEN_BAKE = {"BaseColor": "88dd394eecf603f2", "Normal": "de7d8e24102f2c21", "MaskMap": "a03e38aeed8e012f",
                "ControlMask": "3f08f5b10af8dea5"}
 
-# measured on this build; the design 2.1 figure in the comment (deviations: build report)
+# measured on this build, with the design 2.1 figure in the comment (deviations: build report)
 EXPECTED_TRIS = {
     "maze": 216,          # 212
     "swing_gate": 48,     # 50 (with the label panel)
@@ -494,15 +509,15 @@ def k3_painters():
         check(float(base[..., 3].min()) == 1.0, f"K3 {k}: alpha not 1")
         check(met["l1_ppm_ok"], f"K3 {k}: L1 density")
         if spec.get("vocab"):
-            # the reference vocabulary (ref-signs): drawn, carried by NO station; fine print declared
+            # the reference vocabulary (ref-signs): drawn, carried by NO station, fine print declared
             check(k not in shipped, f"K3 {k}: a vocabulary kind is on a station's label table")
             check(bool(met.get("fineprint")) == bool(spec.get("fineprint")), f"K3 {k}: fineprint flag")
         elif k != "tension":
             check(met["t2_ok"], f"K3 {k}: T2 stroke {met['stroke_px']} / cap {met['cap_m']} / picto "
                                 f"{met.get('picto_stroke_px')}")
         if spec["layout"] == "plate":
-            # 2026-10-12 redraw: ONE real-size portrait placard on the backer; T2 words, >= 4-texel pictogram
-            # strokes; the T1 50 m pictogram is NOT claimed any more (read_m: design L3's basis, >= 25 m)
+            # 2026-10-12 redraw: ONE real-size portrait placard on the backer, T2 words, >= 4-texel pictogram
+            # strokes. The T1 50 m pictogram is NOT claimed any more (read_m: design L3's basis, >= 25 m)
             pw, ph = met["placard_m"]
             check(abs(ph / pw - LD.PLACARD_RATIO) < 1e-3 and ph <= spec["size"][1] and met["t2_ok"]
                   and met["picto_stroke_px"] >= LD.STROKE_T2_PX and met["read_m"] >= 25.0 and not met["t1_ok"],
@@ -575,11 +590,13 @@ def _seg_dist(px, py, ax, ay, bx, by):
 
 
 def k9_glyphs():
-    """K9 (2026-10-12 lift-board redraw; "the guy is getting his HEAD SLAMMED BY THE BAR ... the SKIS
-    LOOK LIKE THEY HAVE BLOCKS ON THEM"): the shared glyph primitives keep the rider's head clear of the bar in
-    BOTH states, the lowered cross-bar sits at CHEST height in front of the torso, the raised bar sits above the
-    head, the ski is ONE thin line whose front tip curves UP (no rects / fills under the rider), and every
-    pictogram stroke is >= 12 canvas units (4 texels in the smallest shipped circle at 400 px/m)."""
+    """K9 (2026-10-12 lift-board redraw, "the guy is getting his HEAD SLAMMED BY THE BAR ... the SKIS LOOK LIKE
+    THEY HAVE BLOCKS ON THEM"). The shared glyph primitives satisfy these rules:
+    - the rider's head stays clear of the bar in BOTH states
+    - the lowered cross-bar sits at CHEST height in front of the torso
+    - the raised bar sits above the head
+    - the ski is ONE thin line whose front tip curves UP (no rects / fills under the rider)
+    - every pictogram stroke is >= 12 canvas units (4 texels in the smallest shipped circle at 400 px/m)"""
     hx, hy = LD.BAR_HIP
     head = LD.g_seated(hx, hy)[0]
     torso = LD.g_seated(hx, hy)[1]
@@ -624,9 +641,10 @@ def k9_glyphs():
 
 
 def k9_arrows_hoop(min_gap=9.0, min_hoop=18.0):
-    """K9 (2026-10-12 nit fix, lift-boards-redraw-check item 1): every arrow clears the ring's inner edge and
-    the figure, the LOWER BAR hoop is loose; distances on a 0.25-unit raster of ski_launcher_glyph.sd_prim
-    (gap(A, B) = min over the raster of sdA + sdB). Negatives: the pre-fix arrow and hoop fail."""
+    """K9 (2026-10-12 nit fix, lift-boards-redraw-check item 1): every arrow clears the ring's inner edge and the
+    figure. The LOWER BAR hoop is loose. Distances are measured on a 0.25-unit raster of
+    ski_launcher_glyph.sd_prim (gap(A, B) = min over the raster of sdA + sdB). Negatives: the pre-fix arrow and
+    hoop fail."""
     import ski_launcher_glyph as slg
     xs = np.linspace(0.0, 256.0, 1025)
     X, Y = np.meshgrid(xs, xs)
@@ -1049,8 +1067,8 @@ LD_FINE_TRIS = {"ld_maze": 226, "ld_swing_gate": 80, "ld_board_post": 50, "ld_bo
 
 
 def k8_fine():
-    """K8 fine-detail pass: defaults = the pre-pass engine, fine=True = the B.1 tris, same
-    names / matkeys; the three fine-detail SUBOBJ placeholders + the rejected GUIDs."""
+    """K8 fine-detail pass: defaults = the pre-pass engine, fine=True = the B.1 tris, same names / matkeys. The
+    three fine-detail SUBOBJ placeholders + the rejected GUIDs."""
     for key, call in LD_FINE_CALLS.items():
         d = call({})
         hd = _fine_hash(d)

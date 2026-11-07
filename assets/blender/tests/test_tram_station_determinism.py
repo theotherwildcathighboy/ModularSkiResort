@@ -1,114 +1,185 @@
 """
-Gate for tram_station.py (asset round 2026-10, P5; contract tram-stations.md section 15 with the
-skeptic's MUST-CHANGEs and ROUND-SPEC R27-R31).
+Gate for tram_station.py (asset round 2026-10, P5). The contract is tram-stations.md section 15 with the skeptic's
+MUST-CHANGEs and ROUND-SPEC R27-R31.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_tram_station_determinism.py
 
-  T1  determinism: each role assembled twice in one process (blockout) hashes identically
-      (rounded vertex coords, polygon vertex lists + material indices, part ids, UVMap).
-  T2  contracts on the blockout: base, base --no-clock-tower, top, top --no-wheels pass
-      C1-C8, the R30 carrier clear (C4), C11 `_Win` cells, C6 engine-base ring, lot fit.
-  T2n a wrong build FAILS: one injected violation per contract (C1 face rule, C2 stub,
-      C4 cabin body / hanger ring both sides (R29/R30) / carriage, C5 boarding level, C6 closed ground
-      part + geometry below 0, C7 lot (and C7 strict: 0.05 m past the lot fails, by part), C8
-      height, C9 LOD0 cap, C11 cells, C13 painted label rotated 90 deg left / mirrored - revision 1;
-      C14 part clashes - revision 1b: the R1 A-frame through the hut, the R1 binoculars inside the
-      face struts, an undeclared clash, a part wholly inside a closed part, a member inside the hut).
-      T2 also asserts C14 on every variant: the open findings (F2 / F3 base, --no-wheels shaft)
-      are listed by name, the hut group is clear, the bullwheel frame keeps >= 0.30 m (F1).
-      C15 platform reachability - revision 1c (fourth look): T2 asserts on every variant
-      that every walkable surface reaches grade through the expected flights / ladders (top: the
-      +X stair s, the maintenance stair m, the new -X flights wu + wl, each <= 3.7 m; base: u + l and
-      the catwalk ladder pcat). T2n: the 1b top (LEFT_STAIR False: grate_bayL, grate_bayc,
-      plinthcap, grate_svcplat orphaned), the 1b base (PCAT_LADDER False: grate_pcat), a floating
-      grating, a beam in the -X stair's headroom, a box in the catwalk ladder's climbing corridor
-      and a railing on no walkable surface each FAIL C15.
-      Detail pass 1: T2 asserts the C15 crossing width on every join (>= 0.61, the gangway mouth
-      included), the NOT_WALKABLE list (the base's interior floors stonecap / annexcap / trenchcap by
-      name) and C16 (vanilla sub-object boxes: 14 base / 8 top). T2n: the 1c gangway mouth
-      (SGPOST0_DEG 70: 0.574 m), an undeclared standable slab, and the design's tram-top bench on the
-      diamond-plate boxes (C16) each FAIL.
-      C17 gate span vs cabin door - revision 1e (revision2-check-tram-cabin section C): T2 asserts on
-      every variant that all four berth edges leave a clear 1.90 m opening (>= 1.70) centered on the
-      cabin's door seam (DOCK_Z -5.50, read from lift_cabin.py and its manifest) with no post or leaf in
-      the door span (z -6.35..-4.65). T2n: the 1d fence grid (GATES_AT_DOOR False: base post -6.20 +
-      leaf off center, top post -5.60 at the seam), an injected post, an injected closed leaf across the
-      door, an opening under the minimum, an opening 0.04 m off the seam, an opening wider than the leaves
-      beside it can close, and a cabin manifest that hosts the cabin elsewhere each FAIL C17. T4 asserts
-      the C17 block of the exported manifest.
-      Revision 2 (design/tram-stations-rev2.md + skeptic MC1-MC9; build/tram-stations-rev2.md): T2 asserts on
-      every variant C18 (no part with more than 5 back-face first hits in the LOD0 walk-around; the cs2_bldg gear
-      reported as known), C18b (every rim closed), C19 (no visible same-facing coplanar pair > 25 cm2 outside one
-      kit), C20 / C20b (the wheels to scale, haul loops tangent within 1 mm), the haul rope <= 1,000 tris, the
-      top bound 20.70 (ruling Q3), C16 13 top / 14 base rows. T2n: the open 1e rims (RIM_BORE_CLOSED False ->
-      C18b + C18 names bullrim), a single-sided 2 x 2 m quad facing down (C18), the 1e drip lip 0.01 (C18 names
-      drip_hutroof_*), the 1e head girders (HEADGIRDER_INSET 0 -> C19 headbeam | headgirder), the 10.4 m wheel
-      (BULL_RIM 5.20 -> C20 diameter), a foot sheave at y 9.60 (C20 hut clearance), the 1e outer-bay lamp spot
-      (LightpolePark at (9.95, 6.30, -5.70) -> C16 clash with the outer rail) each FAIL with their own code.
-  T3  finish at --atlas 512 --lods --export --weather off (base AO 4, top AO 0; temp dir): C9 +
-      C10 inside main, folder validates (0 errors), `_Win` / `_LOD1_Win` / `_LOD2_Win` /
-      `_Emissive` present, BaseColor alpha 255, ControlMask B under the pictogram disc and
-      the clock-dial rings, ControlMask R + G + B <= 1, BaseColor p95 (RAMPS base: p99) 0.78-0.82 under every
-      present mask (the light-albedo contract is the pre-weathering bake: DECISIONS 171 lets the
-      layer weather slot texels, test_detail_tram D4 covers the layer), batches <= 16; C13 on the
-      shipped layout covers the dressing labels too (base 9, top 2).
-  T4  manifest prefab_contract == module constants and == mesh-measured rope ends; hosted
-      cabins identity at (+-5.50, 6.00, -5.50) with m_ParentMesh 0 (R29, skeptic MC1). Revision 2: every frozen
-      prefab number equals the shipped 1e manifest's (assets/import/archive/superseded-rev2-2026-10-11): lot,
-      levels, stubs, lanes, docks, hosted, terraform, prefab, base bounds; the top's bounds equal 1e except max y
-      27.00 -> MAST_TOP 20.70 (ruling Q3, re-pinned). The manifest's rev2 block: C18 on LOD0 / 1 / 2 clean,
-      C19 no failing pair, C20; the C16 rows 13 / 14.
-  T5  LOD2 keep list survives, LOD1 / LOD2 delete lists are gone (revision 2: the top's LOD2 keeps the roof mast).
-  T6  --review leaves the asset folder byte-identical (PNGs, settings, LOD0 + `_Win` FBX with
-      the FBX clock frozen; LOD FBX / manifest excluded as in test_review_side_effects).
-  T7  --skirt without --skirt-ack-probe exits non-zero.
-  T8  the REAL exported SkiTramCabinA (assets/import/cabins/A), hosted identity in each bay
-      (R29) and swept from the line to its dock, clears every non-rope station triangle
-      (2 cm silhouette raster; skipped when the cabin is not exported).
-  Fine-detail step 3c (build/fine-detail-step3c-tram-pali.md; tram_station.FINE_DETAIL, --no-fine): T2 counts 15 base / 13 top
-      vanilla rows (+ the annex door wall light) and runs F1 inside the contract stage; T4 the manifest fine block
-      (15 + 4 / 13 + 3 rows); T8 sweeps the real cabin against the dressing-kit rows' REAL meshes too.
-  Nitpick B (build/nitpick-b-tram.md; tram_station.JH_DETAILS, base only): T2 runs every contract on the base with the JH
-      canopy on V-struts, the annex ticket-window frames / sills / LIFT TICKETS, ENTRANCE and the chalkboard; T3 counts
-      the two new labels in C13 (base 11); T2n: a V foot into the X-braces (C14), the canopy past the village lot edge
-      (C7), the chalkboard on the grade (C6) each FAIL. The frozen numbers (T4) are unchanged.
-  Nitpick B2 (build/nitpick-b2-tram-ramps.md; tram_station.RAMPS): the base's lot 5 x 3 -> 6 x 3 (the building moved
-      BASE_DX -4.00 toward -X: every prefab-frame number = design + frame_dx) with a 1:8 switchback to the side-area door,
-      the top's end stairs replaced by 1:8 ramps to concrete pads at the back lot edge. T2: the base's ramps A / B
-      (GRADE -> landing_turn -> landing_rtop) and the door goal reached; the top's ramps R / L land on pad_R / pad_L,
-      which C15b counts as grade (no-level), its only flight the maintenance stair m; every ramp 1:8, >= its clear width
-      (2.40 base / 3.40 top), landings >= 1.50, end crossings >= 0.70; C16 18 base rows (+ 2 park lamps and a bin).
-      T2n (nitpick B2): the top built as if it flattened (TERRAFORM) and the pads off the back lot edge each FAIL C15
-      naming C15b; a 1:7 ramp, a lane narrowed under 2.40, a missing ramp rail, the balcony cut back off the side-area
-      door each FAIL C15; the C7 probe moves past the new lot (x 24); the -X stair's headroom negative becomes the -X
-      ramp's. T4 re-pinned for the base ONLY by the lot shift: the 1e numbers + frame_dx (stubs, docks, hosted), the lot
-      6 x 3, bounds min x - 4.00 and max x = the new cell's paving 23.95; the top's frozen numbers and bounds unchanged.
-      T8 sweeps the cabin at the shifted docks.
-  Nitpick B3 (build/nitpick-b2-tram-ramps.md "Annex stair (B2 check F2)"; tram_station.ANNEX_STAIR): the annex got an inside
-      stair from its 5.20 floor to the hall's inner door (sill 6.30) through a doorway cut in annexback; the annex floor
-      (annexcap) is a C15 WALKABLE surface now (it left NOT_WALKABLE). T2 (base): the flights are u + l + annex; the
-      route grade -> landing_turn -> landing_rtop -> landing_balc -> annexcap -> landing_annex -> deck_outerR is proved with
-      no other stair carrying it (rt["chain"], carried_by_no_other_stair l + u unused), the stair 7 risers of 0.157 m, 6
-      treads of 0.30, >= 1.20 m wide and between its rails, the doorway passage clear; annexcap is a surface and not in the
-      not-walkable list. T2n NB3 (each FAILS C15 with "the side area is a dead end"): no stair (the B2 base's dead end),
-      the wall not cut, 3 risers of 0.367 m, treads 1.0 m wide, the landing block begun inside the annex; ANNEX_STAIR False
-      is the B2 base again (annexcap not walkable, flights u + l, no route, door goal reached); the pure plan numbers.
-  Revision 3 (build/tram-top-rev3.md; tram_station.PLINTH_TOP; twenty-seventh look T-3): the TOP in PLINTH MODE
-      (the L4 rule): no engine base, the foundation and supports continue below grade to min y -12.00, closed.
-  T9  (a) above grade NOTHING moved: the plinth-mode top blockout vs the PLINTH_TOP False blockout (= the shipped nitpick-B2
-      top) in process - every vertex above y 0.01 identical (0.1 mm), every old part present, the parts whose vertices
-      changed are exactly the ones that now continue below grade (R3_CONTINUED: the pier, the pile caps, the pads, the ramp
-      columns, the stair posts), every new part (found_*, lat*) wholly below grade; (b) the plinth on the contract build:
-      C6p (no engine-base edge, no vertex within 0.01 of y 0, min y -12.00, every open edge below grade seated on another
-      part) and an independent ray test - 3,456 rays from 1 m under the plinth floor up and from the four sides into the
-      below-grade volume: no back face is ever the first hit (the PLINTH_TOP False top shows its open pad / footing bottoms
-      there: the self-check); (c) bounds (-11.80, -12.00, -12.00) -> (11.80, 20.70, 11.60): only min y moved; (d) T9n: a part
-      on the grade line, a part below the plinth floor, an open-bottom box floating below grade, the foundation stopped
-      short of the plinth depth each FAIL C6p; PLINTH_TOP False passes C6 (engine base) again. T3 / T4 on the top's
-      export: prefab_contract base_mode plinth, engine_base NONE (mode plinth), bounds min y -12.00 (RE-PINNED: the 1e
-      manifest's 0.00 -> -12.00, the prefab delta; every other frozen number unchanged), the plinth rule on LOD0 / LOD1 /
-      LOD2, the manifest plinth_top block (clearances), and the exported LOD0 vertex-identical above y 0.01 to the archived
-      shipped top (assets/archive/.../superseded-tramtop-rev3-2026-10-13; skipped when the archive is absent).
+- T1 determinism: the test assembles each role twice in one process (blockout). Both assemblies must hash identically. The
+  hash covers rounded vertex coords, polygon vertex lists + material indices, part ids, and UVMap.
+
+- T2 contracts on the blockout: base, base --no-clock-tower, top, and top --no-wheels pass C1-C8, the R30 carrier clear (C4),
+  C11 `_Win` cells, C6 engine-base ring, and lot fit.
+
+- T2n a wrong build FAILS. The test injects one violation per contract:
+
+- C1 face rule.
+- C2 stub.
+- C4 cabin body, hanger ring both sides (R29/R30), carriage.
+- C5 boarding level.
+- C6 closed ground part + geometry below 0.
+- C7 lot. C7 strict: a part 0.05 m past the lot fails, by part.
+- C8 height.
+- C9 LOD0 cap.
+- C11 cells.
+- C13 painted label rotated 90 deg left / mirrored (revision 1).
+- C14 part clashes (revision 1b): the R1 A-frame through the hut, the R1 binoculars inside the face struts, an undeclared
+  clash, a part wholly inside a closed part, a member inside the hut.
+
+T2 also asserts C14 on every variant. The test lists the open findings by name (F2 / F3 base, --no-wheels shaft). The hut
+group is clear. The bullwheel frame keeps >= 0.30 m (F1).
+
+C15 platform reachability (revision 1c, fourth look): T2 asserts on every variant that every walkable surface reaches grade
+through the expected flights / ladders.
+
+- Top: the +X stair s, the maintenance stair m, the new -X flights wu + wl, each <= 3.7 m.
+- Base: u + l and the catwalk ladder pcat.
+
+T2n for C15: each of these FAILS C15:
+
+- the 1b top (LEFT_STAIR False: grate_bayL, grate_bayc, plinthcap, grate_svcplat orphaned).
+- the 1b base (PCAT_LADDER False: grate_pcat).
+- a floating grating.
+- a beam in the -X stair's headroom.
+- a box in the catwalk ladder's climbing corridor.
+- a railing on no walkable surface.
+
+Detail pass 1: T2 asserts the C15 crossing width on every join (>= 0.61, the gangway mouth included). It asserts the
+NOT_WALKABLE list (the base's interior floors stonecap / annexcap / trenchcap by name). It asserts C16 (vanilla sub-object
+boxes: 14 base / 8 top). T2n: each of these FAILS: the 1c gangway mouth (SGPOST0_DEG 70: 0.574 m), an undeclared standable
+slab, and the design's tram-top bench on the diamond-plate boxes (C16).
+
+C17 gate span vs cabin door (revision 1e, revision2-check-tram-cabin section C): T2 asserts on every variant that all four
+berth edges leave a clear 1.90 m opening (>= 1.70) centered on the cabin's door seam. DOCK_Z is -5.50. The test reads it from
+lift_cabin.py and its manifest. No post or leaf is in the door span (z -6.35..-4.65). T2n: each of these FAILS C17:
+
+- the 1d fence grid (GATES_AT_DOOR False: base post -6.20 + leaf off center, top post -5.60 at the seam).
+- an injected post.
+- an injected closed leaf across the door.
+- an opening under the minimum.
+- an opening 0.04 m off the seam.
+- an opening wider than the leaves beside it can close.
+- a cabin manifest that hosts the cabin elsewhere.
+
+T4 asserts the C17 block of the exported manifest.
+
+Revision 2 (design/tram-stations-rev2.md + skeptic MC1-MC9, build/tram-stations-rev2.md): T2 asserts these on every variant:
+
+- C18: no part has more than 5 back-face first hits in the LOD0 walk-around. The test reports the cs2_bldg gear as known.
+- C18b: every rim closed.
+- C19: no visible same-facing coplanar pair > 25 cm2 outside one kit.
+- C20 / C20b: the wheels are to scale. The haul loops are tangent within 1 mm.
+- The haul rope is <= 1,000 tris.
+- The top bound is 20.70 (ruling Q3).
+- C16 has 13 top / 14 base rows.
+
+T2n: each of these FAILS with its own code:
+
+- the open 1e rims (RIM_BORE_CLOSED False -> C18b + C18 names bullrim).
+- a single-sided 2 x 2 m quad facing down (C18).
+- the 1e drip lip 0.01 (C18 names drip_hutroof_*).
+- the 1e head girders (HEADGIRDER_INSET 0 -> C19 headbeam | headgirder).
+- the 10.4 m wheel (BULL_RIM 5.20 -> C20 diameter).
+- a foot sheave at y 9.60 (C20 hut clearance).
+- the 1e outer-bay lamp spot (LightpolePark at (9.95, 6.30, -5.70) -> C16 clash with the outer rail).
+
+- T3 finish at --atlas 512 --lods --export --weather off (base AO 4, top AO 0, temp dir). The test checks these items:
+  C9 + C10 inside main. The folder validates (0 errors). `_Win` / `_LOD1_Win` / `_LOD2_Win` / `_Emissive` are present.
+  BaseColor alpha is 255. ControlMask B is under the pictogram disc and the clock-dial rings. ControlMask R + G + B <= 1.
+  BaseColor p95 (RAMPS base: p99) is 0.78-0.82 under every present mask. The light-albedo contract is the pre-weathering
+  bake: DECISIONS 171 lets the layer weather slot texels, and test_detail_tram D4 covers the layer.
+  Batches <= 16. C13 on the shipped layout covers the dressing labels too (base 9, top 2).
+
+- T4 manifest prefab_contract == module constants and == mesh-measured rope ends. Hosted cabins have identity at (+-5.50,
+  6.00, -5.50) with m_ParentMesh 0 (R29, skeptic MC1).
+
+Revision 2: every frozen prefab number equals the shipped 1e manifest's (assets/import/archive/superseded-rev2-2026-10-11).
+These numbers are lot, levels, stubs, lanes, docks, hosted, terraform, prefab, and base bounds. The top's bounds equal 1e
+except max y: 27.00 -> MAST_TOP 20.70 (ruling Q3, re-pinned). The manifest's rev2 block has these items: C18 on LOD0 / 1 / 2
+clean, C19 no failing pair, C20, and the C16 rows 13 / 14.
+
+- T5 the LOD2 keep list survives. The LOD1 / LOD2 delete lists are gone (revision 2: the top's LOD2 keeps the roof mast).
+
+- T6 --review leaves the asset folder byte-identical (PNGs, settings, LOD0 + `_Win` FBX with the FBX clock frozen). The test
+  excludes the LOD FBX / manifest, as in test_review_side_effects.
+
+- T7 --skirt without --skirt-ack-probe exits non-zero.
+
+- T8 the REAL exported SkiTramCabinA (assets/import/cabins/A) has hosted identity in each bay (R29). The test sweeps it from
+  the line to its dock. It clears every non-rope station triangle (2 cm silhouette raster). The test skips when the cabin is
+  not exported.
+
+Fine-detail step 3c (build/fine-detail-step3c-tram-pali.md, tram_station.FINE_DETAIL, --no-fine): T2 counts 15 base / 13 top
+vanilla rows (+ the annex door wall light) and runs F1 inside the contract stage. T4 checks the manifest fine block (15 + 4 /
+13 + 3 rows). T8 sweeps the real cabin against the REAL meshes of the dressing-kit rows too.
+
+Nitpick B (build/nitpick-b-tram.md, tram_station.JH_DETAILS, base only): T2 runs every contract on the base with the JH
+canopy on V-struts, the annex ticket-window frames / sills / LIFT TICKETS, ENTRANCE, and the chalkboard. T3 counts the two
+new labels in C13 (base 11). T2n: each of these FAILS: a V foot into the X-braces (C14), the canopy past the village lot edge
+(C7), the chalkboard on the grade (C6). The frozen numbers (T4) are unchanged.
+
+Nitpick B2 (build/nitpick-b2-tram-ramps.md, tram_station.RAMPS): the base's lot changed from 5 x 3 to 6 x 3. The building
+moved BASE_DX -4.00 toward -X (every prefab-frame number = design + frame_dx). A 1:8 switchback leads to the side-area door.
+1:8 ramps to concrete pads at the back lot edge replaced the top's end stairs.
+
+- T2 (base): the ramps A / B (GRADE -> landing_turn -> landing_rtop) and the door goal are reached.
+- T2 (top): the ramps R / L land on pad_R / pad_L, which C15b counts as grade (no-level). Its only flight is the maintenance
+  stair m.
+- T2 (all): every ramp is 1:8 and >= its clear width (2.40 base / 3.40 top). Landings are >= 1.50. End crossings are >= 0.70.
+  C16 has 18 base rows (+ 2 park lamps and a bin).
+
+T2n (nitpick B2): each of these FAILS C15 and names C15b: the top built as if it flattened (TERRAFORM) and the
+pads off the back lot edge. Each of these FAILS C15: a 1:7 ramp, a lane narrowed under 2.40, a missing ramp rail, the balcony
+cut back off the side-area door. The C7 probe moves past the new lot (x 24). The -X stair's headroom negative becomes the -X
+ramp's.
+
+T4 is re-pinned for the base ONLY by the lot shift: the 1e numbers + frame_dx (stubs, docks, hosted), the lot 6 x 3, bounds
+min x - 4.00, and max x = the new cell's paving 23.95. The top's frozen numbers and bounds are unchanged. T8 sweeps the cabin
+at the shifted docks.
+
+Nitpick B3 (build/nitpick-b2-tram-ramps.md "Annex stair (B2 check F2)", tram_station.ANNEX_STAIR): the annex got an inside
+stair from its 5.20 floor to the hall's inner door (sill 6.30) through a doorway cut in annexback. The annex floor (annexcap)
+is now a C15 WALKABLE surface (it left NOT_WALKABLE).
+
+- T2 (base): the flights are u + l + annex.
+- T2 proves the route grade -> landing_turn -> landing_rtop -> landing_balc -> annexcap -> landing_annex -> deck_outerR with
+  no other stair carrying it (rt["chain"], carried_by_no_other_stair l + u unused).
+- The stair has 7 risers of 0.157 m and 6 treads of 0.30. It is >= 1.20 m wide and between its rails. The doorway passage is
+  clear.
+- annexcap is a surface and not in the not-walkable list.
+
+T2n NB3: each of these FAILS C15 with "the side area is a dead end":
+
+- no stair (the B2 base's dead end).
+- the wall not cut.
+- 3 risers of 0.367 m.
+- treads 1.0 m wide.
+- the landing block begun inside the annex.
+
+ANNEX_STAIR False is the B2 base again (annexcap not walkable, flights u + l, no route, door goal reached). The test also
+checks the pure plan numbers.
+
+Revision 3 (build/tram-top-rev3.md, tram_station.PLINTH_TOP, twenty-seventh look T-3): the TOP is in PLINTH MODE (the L4
+rule). It has no engine base. The foundation and supports continue below grade to min y -12.00, closed.
+
+- T9 has four parts:
+  (a) Above grade NOTHING moved. The test compares the plinth-mode top blockout with the PLINTH_TOP False blockout (= the
+  shipped nitpick-B2 top) in process. Every vertex above y 0.01 is identical (0.1 mm). Every old part is present. The parts
+  whose vertices changed are exactly the parts that now continue below grade (R3_CONTINUED: the pier, the pile caps, the pads,
+  the ramp columns, the stair posts). Every new part (found_*, lat*) is wholly below grade.
+  (b) The plinth on the contract build: C6p (no engine-base edge, no vertex within 0.01 of y 0, min y -12.00, every open edge
+  below grade seated on another part) and an independent ray test. The ray test casts 3,456 rays from 1 m under the plinth
+  floor up and from the four sides into the below-grade volume. No back face is ever the first hit. The PLINTH_TOP False top
+  shows its open pad / footing bottoms there: this is the self-check.
+  (c) Bounds (-11.80, -12.00, -12.00) -> (11.80, 20.70, 11.60): only min y moved.
+  (d) T9n: each of these FAILS C6p: a part on the grade line, a part below the plinth floor, an open-bottom box floating below
+  grade, the foundation stopped short of the plinth depth. PLINTH_TOP False passes C6 (engine base) again.
+
+T3 / T4 on the top's export check these items: prefab_contract base_mode plinth, engine_base NONE (mode plinth), and bounds
+min y -12.00 (RE-PINNED: the 1e manifest's 0.00 -> -12.00, the prefab delta, every other frozen number unchanged). They check
+the plinth rule on LOD0 / LOD1 / LOD2 and the manifest plinth_top block (clearances). They also check that the exported LOD0
+is vertex-identical above y 0.01 to the archived shipped top (assets/archive/.../superseded-tramtop-rev3-2026-10-13). The
+test skips this when the archive is absent.
+
 Exit 1 on any failure.
 """
 import datetime
@@ -131,7 +202,7 @@ import cs2_validate  # noqa: E402
 
 FAILS = []
 FROZEN = datetime.datetime(2026, 1, 1, 0, 0, 0)
-# revision 2: the shipped 1e exports, copied before the revision-2 re-export (T4 compares the frozen numbers)
+# Revision 2: the shipped 1e exports, copied before the revision-2 re-export (T4 compares the frozen numbers).
 REPO_1E = os.path.join(os.path.dirname(os.path.dirname(LIB)), "assets", "import", "archive",
                        "superseded-rev2-2026-10-11", "stations", "tram", "A")
 
@@ -202,22 +273,22 @@ def t2_contracts():
             check(ok, f"T2 {' '.join(argv)}: C1-C8 + C11 {rep['C11']}; {rep['C7']}; {rep['C8']}")
             stubs = [(s['lane'], s['a'], s['ring_centre']) for s in rep["C2"]]
             check(len(stubs) == 4, f"T2 {' '.join(argv)}: 4 stubs measured {stubs}")
-            # C14 (revision 1b): no undeclared part clash; the open findings stay listed by name
+            # C14 (revision 1b): no undeclared part clash. The open findings stay listed by name.
             c14 = rep["C14"]
             known = {k_.split(":")[0] for k_ in c14["known_open"]}
-            # revision 2: F3 (bwrim | lamp_rod_3) closed by the 4.0 m drive wheel (ruling Q6)
+            # Revision 2: the 4.0 m drive wheel closed F3 (bwrim | lamp_rod_3) (ruling Q6).
             want = {"base": {"mplatbrace_3 | stonecap", "mplatbrace_4 | stonecap",
                              "mplatbrace_5 | stonecap", "mplatpost_2 | stonecap",
                              "mplatpost_3 | stonecap"},
                     "top": {"bwshaft | sgtie"} if "--no-wheels" in argv else set()}[argv[1]]
             check(known == want, f"T2 {' '.join(argv)}: C14 {c14['box_pairs']} box pairs, "
                                  f"{c14['declared_contacts']} declared contacts, known open {sorted(known)}")
-            # C15 (revision 1c): every walkable surface reaches grade; the expected flights / ladders
+            # C15 (revision 1c): every walkable surface reaches grade. The expected flights / ladders.
             c15 = rep["C15"]
             fl, la = c15["flights"], c15["ladders"]
             ra = c15.get("ramps") or {}
             if argv[1] == "top" and ts.RAMPS:
-                # nitpick B2: the end stairs are ramps R / L onto the pads (C15b: grade on the no-level top)
+                # Nitpick B2: the end stairs are ramps R / L onto the pads (C15b: grade on the no-level top).
                 ok = (set(fl) == {"m"} and not la and set(ra) == {"R", "L"}
                       and ra["R"]["to"] == ["grate_headR"] and ra["L"]["to"] == ["grate_gangL"]
                       and ra["R"]["from"] == ["pad_R"] and ra["L"]["from"] == ["pad_L"]
@@ -230,13 +301,14 @@ def t2_contracts():
                       and any({"grate_bayL", "grate_bayc", "plinthcap", "grate_gangL", "landing_topW"} <= set(a)
                               for a in c15["areas"]))
             else:
-                # nitpick B3: + the annex stair (flight `annex`, landing_annex -> the annex floor annexcap)
+                # Nitpick B3: + the annex stair (flight `annex`, landing_annex -> the annex floor annexcap).
                 ok = (set(fl) == ({"u", "l", "annex"} if ts.ANNEX_STAIR else {"u", "l"}) and set(la) == {"pcat"}
                       and la["pcat"]["from"] == ["deck_centre"] and la["pcat"]["to"] == ["grate_pcat"])
                 if ts.ANNEX_STAIR:
                     ok = ok and fl["annex"]["from"] == ["landing_annex"] and fl["annex"]["to"] == ["annexcap"]
                 if ts.RAMPS:
-                    # nitpick B2: lane A from the grade to the turn landing, lane B on to the top landing; the door
+                    # Nitpick B2: lane A goes from the grade to the turn landing. Lane B goes on to the top landing. Then the
+                    # door.
                     ok = (ok and set(ra) == {"A", "B"} and ra["A"]["from"] == ["GRADE"]
                           and ra["A"]["to"] == ["landing_turn"] and ra["B"]["from"] == ["landing_turn"]
                           and ra["B"]["to"] == ["landing_rtop"] and (c15.get("goal") or {}).get("reached") is True
@@ -254,8 +326,8 @@ def t2_contracts():
                     f"{[e_['crossing'] for e_ in r_['ends'].values()]}" for k_, r_ in sorted(ra.items()))
                       + f" (>= {need} clear, 1:8, landings >= 1.50, crossings >= 0.70)")
             if argv[1] == "base" and ts.ANNEX_STAIR and ts.RAMPS:
-                # nitpick B3 (B2 check F2): grade -> ramp -> annex -> stair -> hall -> boarding deck, proved by C15 with
-                # no other stair carrying it; the stair 1.10 m in 7 equal risers, >= 1.20 m wide and railed
+                # Nitpick B3 (B2 check F2): C15 proves grade -> ramp -> annex -> stair -> hall -> boarding deck with no other
+                # stair carrying it. The stair is 1.10 m in 7 equal risers, >= 1.20 m wide, and railed.
                 rt, fa = c15["route"], fl["annex"]
                 okb3 = (rt is not None and rt["ok"] and not rt["problems"]
                         and rt["chain"] == ["GRADE", "landing_turn", "landing_rtop", "landing_balc", "annexcap",
@@ -278,12 +350,12 @@ def t2_contracts():
                   f"flights {sorted((k_, f['rise_m']) for k_, f in fl.items())}, ladders "
                   f"{sorted((k_, L['rise_m']) for k_, L in la.items())}, {c15['posts']} posts seated, "
                   f"orphans {c15['orphans']}")
-            # detail pass 1: every measured join crossing >= 0.61 (N1), the interior floors declared
-            # not walkable by name (N2), nothing standable undeclared, C16 sub-objects placed
+            # Detail pass 1: every measured join crossing is >= 0.61 (N1). The interior floors are declared not walkable by
+            # name (N2). Nothing standable is undeclared. C16 sub-objects are placed.
             joins = {k_: j for k_, j in c15["joins"].items() if j.get("opening") is not None}
             narrow = {k_: j["opening"] for k_, j in joins.items() if not j["ok"]}
             mouth = c15["joins"].get("grate_gangL | plinthcap", {}).get("opening")
-            # nitpick B3: the annex floor is a WALKABLE surface now (ANNEX_STAIR): it leaves the not-walkable list
+            # Nitpick B3: the annex floor is a WALKABLE surface now (ANNEX_STAIR), so it leaves the not-walkable list.
             want_nw = ({"stonecap", "trenchcap"} | (set() if ts.ANNEX_STAIR else {"annexcap"})
                        if argv[1] == "base" else set())
             check(not c15["undeclared"] and want_nw <= set(c15["not_walkable"])
@@ -301,7 +373,7 @@ def t2_contracts():
                   and not any(r.get("above_mesh_top_m") for r in c16["rows"]),
                   f"T2 {' '.join(argv)}: C16 {len(c16['rows']) if c16 else None} sub-objects placed "
                   f"(union boxes clear, supported, outside the carrier zones, none above the mesh top)")
-            # revision 2: C18 / C18b / C19 / C20 hold; the haul rope within its budget; the top bound (ruling Q3)
+            # Revision 2: C18 / C18b / C19 / C20 hold. The haul rope is within its budget. The top bound holds (ruling Q3).
             c18 = rep["C18"]["LOD0"]
             worst = [r for r in c18["parts"] if r["part"] not in {k_["part"] for k_ in c18["known"]}]
             check(all(r["back"] <= 5 for r in worst) and not any((c18["rims_open"] or {}).values())
@@ -342,7 +414,7 @@ def t2_contracts():
                             and min(e_["leaf_lo_m"], e_["leaf_hi_m"]) >= e_["opening_m"] / 2.0
                             and e_["lo_post"].startswith("gatepost_") and e_["hi_post"].startswith("gatepost_")
                             for e_ in ed17.values()))
-            # independent of check_gate_door: no gate part's z extent overlaps the span, measured here
+            # Independent of check_gate_door: no gate part's z extent overlaps the span. The test measures this here.
             pf17, parts17 = ts._part_tris(t)
             inside17 = []
             for nm_, tr_ in parts17.items():
@@ -388,18 +460,18 @@ def t2_negative():
     expect_fail("C6 closed ground part", "C6", B, lambda k: k.box("probe_c6", -18.0, -17.0, 0.0,
                                                                    1.0, 5.0, 6.0, "concrete"))
     if ts.PLINTH_TOP:
-        # revision 3: the top is in plinth mode (geometry below y 0 is the design); its own negatives are T9n's
+        # Revision 3: the top is in plinth mode (geometry below y 0 is the design). T9n holds its own negatives.
         expect_fail("C6p a part on the grade line (the top in plinth mode)", "C6p", T,
                     lambda k: k.box("probe_below", 0.0, 1.0, 0.0, 0.50, 5.0, 6.0, "concrete"))
     else:
         expect_fail("C6 below ground", "C6", T, lambda k: k.box("probe_below", 0.0, 1.0, -0.50, 0.50,
                                                                  5.0, 6.0, "concrete"))
-    # nitpick B2: the base lot reaches design x 28.0 (prefab 24.0): the probe sits 0.4 m past it (it sat past 20.0)
+    # Nitpick B2: the base lot reaches design x 28.0 (prefab 24.0). The probe sits 0.4 m past it (it sat past 20.0).
     x7 = 28.4 if ts.RAMPS else 20.4
     expect_fail("C7 lot fit", "C7", B, lambda k: k.box("probe_c7", x7, x7 + 0.8, 0.5, 1.0, 0.0, 1.0,
                                                         "concrete"))
-    # C7 is strict (review F1): 0.05 m past the top lot's front line failed nothing under the old
-    # +0.5 tolerance; now it fails and the message names the part
+    # C7 is strict (review F1). A part 0.05 m past the top lot's front line failed nothing under the old +0.5 tolerance. Now
+    # it fails and the message names the part.
     try:
         ts.build_checked(T, inject=lambda k: k.box("probe_c7s", 0.0, 1.0, 0.5, 1.0, 11.90, 12.05,
                                                    "concrete"))
@@ -416,8 +488,8 @@ def t2_negative():
         check(False, "T2n C11 cells: top `_Win` accepted against the base cell set")
     except ts.ContractError as e:
         check(str(e).startswith("C11"), f"T2n C11 cells: fails with {str(e)[:90]}")
-    # C13 (revision 1, verdict 10): a painted label whose UVs are turned 90 deg left - the bug
-    # seen on the pictogram - and a mirrored one both fail the upright check
+    # C13 (revision 1, verdict 10): a painted label with UVs turned 90 deg left (the bug seen on the pictogram) and a
+    # mirrored label both fail the upright check.
     t, _win, tb, _r = ts.build_checked(B)
     me = t.data
     uvl = me.uv_layers["UVMap"]
@@ -438,13 +510,13 @@ def t2_negative():
             check(str(e).startswith("C13"), f"T2n C13 label {tag}: fails with {str(e)[:100]}")
     for l, uv in saved.items():
         uvl.data[l].uv = uv
-    # nitpick B (JH_DETAILS): + LIFT TICKETS and ENTRANCE (5 dressing labels)
+    # Nitpick B (JH_DETAILS): + LIFT TICKETS and ENTRANCE (5 dressing labels).
     nb13 = {"label_lifttickets", "label_entrance"} if ts.JH_DETAILS else set()
     check(set(ts.check_label_uvs(t, tb, "UVMap")) ==
           {"pictodisc", "pictoplinth", "ctface_nx", "ctface_nz", "ctface_px", "ctface_pz",
            "label_dep", "label_ops", "label_tickets"} | nb13,
           f"T2n C13: restored labels pass again (pictodisc, pictoplinth, 4 clock dials, {3 + len(nb13)} dressing labels)")
-    # C14 (revision 1b): the revision-1 wrong builds and injected clashes must each FAIL C14
+    # C14 (revision 1b): the revision-1 wrong builds and injected clashes must each FAIL C14.
     for label, attr, value, must in (
             ("R1 bullwheel A-frame feet at x +-2.60 (leg through the hut, F1)", "BULLFRAME_FOOT_X",
              2.60, ("bullframe_R | hut", "bullframe_R | hutroof", "hut clearance")),
@@ -460,14 +532,14 @@ def t2_negative():
                   f"T2n C14 {label}: fails with {str(e)[:170]}")
         finally:
             setattr(ts, attr, saved_v)
-    # revision 2: the crane beam is at y 18.00-18.70, x -6.20..6.20 (was 25.0-25.8): the probes follow it
+    # Revision 2: the crane beam is at y 18.00-18.70, x -6.20..6.20 (it was 25.0-25.8). The probes follow it.
     expect_fail("C14 undeclared clash (a post through the crane beam)", "C14", T,
                 lambda k: k.box("probe_c14", 3.00, 3.40, 17.80, 18.90, 5.10, 5.50, "steel"))
     expect_fail("C14 part wholly inside a closed part (no triangle pair)", "C14", T,
                 lambda k: k.box("probe_c14in", 3.00, 3.20, 18.20, 18.40, 5.20, 5.40, "steel"))
     expect_fail("C14 member inside the open-bottom hut", "C14", T,
                 lambda k: k.box("probe_c14hut", 2.50, 3.00, 7.00, 8.00, 0.50, 1.00, "steel"))
-    # C15 (revision 1c, fourth look): the shipped 1b builds and injected faults each FAIL
+    # C15 (revision 1c, fourth look): the shipped 1b builds and injected faults each FAIL.
     for label, attr, argv, must in (
             ("the 1b top: no -X stair, no gangway ('left platform')", "LEFT_STAIR", T,
              ("orphan surfaces", "grate_bayL", "grate_bayc", "plinthcap", "grate_svcplat")),
@@ -483,8 +555,8 @@ def t2_negative():
                   f"T2n C15 {label}: fails with {str(e)[:260]}")
         finally:
             setattr(ts, attr, saved_v)
-    # detail pass 1 (revision1c-check-tram-stair N1): the 1c gangway mouth, 0.574 m between the capf rail
-    # and sgpost_L0 at 70 deg, FAILS the C15 crossing width (the plinth deck group is orphaned)
+    # Detail pass 1 (revision1c-check-tram-stair N1): the 1c gangway mouth, 0.574 m between the capf rail and sgpost_L0 at 70
+    # deg, FAILS the C15 crossing width (the plinth deck group is orphaned).
     saved_v = ts.SGPOST0_DEG
     ts.SGPOST0_DEG = 70.0
     try:
@@ -496,8 +568,8 @@ def t2_negative():
               f"T2n C15 the 1c gangway mouth (SGPOST0_DEG 70): fails with {str(e)[-200:]}")
     finally:
         ts.SGPOST0_DEG = saved_v
-    # detail pass 1 (N2): a standable slab nobody declared FAILS; the design's top bench on the
-    # diamond-plate boxes (skeptic F) FAILS C16
+    # Detail pass 1 (N2): a standable slab nobody declared FAILS. The design's top bench on the diamond-plate boxes (skeptic
+    # F) FAILS C16.
     expect_fail("C15 undeclared standable slab", "C15", T,
                 lambda k: k.box("probe_c15s", 8.00, 10.00, 3.00, 3.20, 3.00, 5.00, "steel"))
     saved_rows = ts.SUBOBJ_ROWS["top"]
@@ -540,10 +612,11 @@ def t2_negative():
 
 
 def t2_negative_nb():
-    """Nitpick B (tram_station.JH_DETAILS; build/nitpick-b-tram.md): the JH canopy / V-struts / chalkboard, misplaced,
-    FAIL the contract that guards the slot: a V foot 0.14 m back (into the front wall's X-braces) -> C14; the canopy
-    pushed 0.15 m past the village lot edge -> C7 (strict lot); the chalkboard set on the grade (its foot edges in the
-    +-0.01 engine-base band) -> C6."""
+    """Nitpick B (tram_station.JH_DETAILS, build/nitpick-b-tram.md): the JH canopy / V-struts / chalkboard, misplaced, FAIL the
+    contract that guards the slot:
+    - a V foot 0.14 m back (into the front wall's X-braces) -> C14.
+    - the canopy pushed 0.15 m past the village lot edge -> C7 (strict lot).
+    - the chalkboard set on the grade (its foot edges in the +-0.01 engine-base band) -> C6."""
     B = ["--role", "base"]
     for label, code, patch, must in (
             ("a V-strut foot into the X-braces (foot z 10.30)", "C14", {"JH_V": {"foot_z": 10.30}}, ("brace_", "jhstrut_")),
@@ -565,16 +638,16 @@ def t2_negative_nb():
 
 
 def t2_negative_nb2():
-    """Nitpick B2 (tram_station.RAMPS; build/nitpick-b2-tram-ramps.md): C15b and the ramp rules each FAIL a wrong build
-    with C15 (and the C15b wording where the pads are at stake):
+    """Nitpick B2 (tram_station.RAMPS, build/nitpick-b2-tram-ramps.md): C15b and the ramp rules each FAIL a wrong build with C15
+    (and the C15b wording where the pads are at stake):
       - the top as if it flattened (TERRAFORM top 'flatten'): its pads are not grade -> every top surface orphaned, C15b
-        names both pads ('not no-level');
-      - the top's pads 1.0 m in from the back lot edge (TOP_RAMP pad 9.10..10.60): C15b names the edge distance;
-      - 1:7 top ramps (RAMP grade 1/7; the check keeps RAMP max_grade 1:8): 'steeper than 1:8' (the base's plan
-        asserts its door levels at 1:8, so a 1:7 base cannot be built: base_ramp_plan raises before C15);
-      - the base's 1:8 lanes against a 1:9 check (RAMP max_grade 1/9): 'steeper than 1:9' on both lanes;
-      - lane B narrowed to 2.30 m (2.132 m clear < 2.40; the shipped 2.60 m lane measures 2.432);
-      - lane A's outer rail left out: 'no handrail bounding the walking width';
+        names both pads ('not no-level').
+      - the top's pads 1.0 m in from the back lot edge (TOP_RAMP pad 9.10..10.60): C15b names the edge distance.
+      - 1:7 top ramps (RAMP grade 1/7, the check keeps RAMP max_grade 1:8): 'steeper than 1:8'. The base's plan
+        asserts its door levels at 1:8, so a 1:7 base cannot be built: base_ramp_plan raises before C15.
+      - the base's 1:8 lanes against a 1:9 check (RAMP max_grade 1/9): 'steeper than 1:9' on both lanes.
+      - lane B narrowed to 2.30 m (2.132 m clear < 2.40). The shipped 2.60 m lane measures 2.432.
+      - lane A's outer rail left out: 'no handrail bounding the walking width'.
       - the balcony cut back to z 6.20 (the side-area door's span 5.00..6.80 lands on no surface)."""
     B, T = ["--role", "base"], ["--role", "top"]
 
@@ -616,13 +689,13 @@ def t2_negative_nb2():
 
 
 def t2_negative_nb3():
-    """Nitpick B3 (tram_station.ANNEX_STAIR; build/nitpick-b2-tram-ramps.md "Annex stair (B2 check F2)"): the side area is
-    not a dead end. Each wrong annex FAILS C15 (the walk graph now has the annex floor in it) with the dead-end text:
-      - no stair at all (NB3 flight False: the B2 base's annex with a doorway and a landing block): no stair or ramp
-        joins the annex floor to the hall - the exact dead end the B2 check found, which C15 could not see;
-      - the wall not cut (NB3 wall_cut False): the doorway between the hall door and the stair head is blocked;
-      - 3 risers of 0.367 m (NB3 risers 3): the flight breaks C15's riser range and the route has no stair;
-      - treads 1.0 m wide (NB3 inset 0.60, the doorway is 2.20 m): the stair is under the 1.20 m the route needs;
+    """Nitpick B3 (tram_station.ANNEX_STAIR, build/nitpick-b2-tram-ramps.md "Annex stair (B2 check F2)"): the side area is not a
+    dead end. Each wrong annex FAILS C15 (the walk graph now has the annex floor in it) with the dead-end text:
+      - no stair at all (NB3 flight False: the B2 base's annex with a doorway and a landing block). No stair or ramp
+        joins the annex floor to the hall. This is the exact dead end the B2 check found, which C15 could not see.
+      - the wall not cut (NB3 wall_cut False): the wall blocks the doorway between the hall door and the stair head.
+      - 3 risers of 0.367 m (NB3 risers 3): the flight breaks C15's riser range and the route has no stair.
+      - treads 1.0 m wide (NB3 inset 0.60, the doorway is 2.20 m): the stair is under the 1.20 m the route needs.
       - the landing block begun inside the annex (NB3 link_x0 12.60): the hall's inner door opens onto no landing."""
     B = ["--role", "base"]
 
@@ -650,7 +723,7 @@ def t2_negative_nb3():
         {"NB3": {"inset": 0.60}})
     run("the landing block begun inside the annex (x 12.60)", ("the side area is a dead end", "no walkable landing"),
         {"NB3": {"link_x0": 12.60}})
-    # the flag off = the B2 base's own contracts: the annex floor is NOT_WALKABLE again, no `annex` flight, no route
+    # The flag off gives the B2 base's own contracts: the annex floor is NOT_WALKABLE again, no `annex` flight, no route.
     saved = ts.ANNEX_STAIR
     ts.ANNEX_STAIR = False
     try:
@@ -664,7 +737,7 @@ def t2_negative_nb3():
         check(False, f"T2n NB3 ANNEX_STAIR False: the B2 base fails its own contracts: {str(e)[:200]}")
     finally:
         ts.ANNEX_STAIR = saved
-    # the pure plan: 1.10 m in 7 equal risers, 6 treads of 0.30, the stair inside the annex, well short of the ramp door
+    # The pure plan: 1.10 m in 7 equal risers, 6 treads of 0.30, the stair inside the annex, well short of the ramp door.
     p = ts.base_annex_plan()
     check(abs(p["rise_total"] - 1.10) < 1e-9 and p["risers"] == 7 and abs(p["riser"] - 1.10 / 7) < 1e-6
           and p["treads"] == 6 and abs(p["run"] - 1.80) < 1e-9 and p["x_foot"] < ts.JH_ANNEX_X - 3.0
@@ -676,8 +749,8 @@ def t2_negative_nb3():
 
 
 def expect_rev2(label, code, argv, must, attr=None, value=None, inject=None):
-    """Revision 2: a wrong build FAILS with `code` (its own code: every older contract passes first, or C20 runs
-    at build start) and every substring of `must` appears in the message."""
+    """Revision 2: a wrong build FAILS with `code` (its own code: every older contract passes first, or C20 runs at build
+    start). Every substring of `must` appears in the message."""
     saved_v = getattr(ts, attr) if attr else None
     if attr:
         setattr(ts, attr, value)
@@ -695,7 +768,7 @@ def expect_rev2(label, code, argv, must, attr=None, value=None, inject=None):
 def t2_negative_rev2():
     """Revision 2 (design 8 T2n): each 1e defect, rebuilt, FAILS its new contract."""
     B, T = ["--role", "base"], ["--role", "top"]
-    # the open 1e rims: C18b names them, and the walk part of the message names the bull rim's back-face hits
+    # The open 1e rims: C18b names them. The walk part of the message names the back-face hits of the bull rim.
     expect_rev2("the open 1e rim bores (RIM_BORE_CLOSED False)", "C18b", T,
                 ("open rim bores", "bullrim", "dwrim_L", "fsrim_L", "back-face first hits", "bullrim "),
                 attr="RIM_BORE_CLOSED", value=False)
@@ -724,7 +797,7 @@ def t2_negative_rev2():
               f"T2n C16 a park lamp at the 1e outer-bay lamp spot (9.95, 6.30, -5.70): fails with {str(e)[:200]}")
     finally:
         ts.SUBOBJ_ROWS["top"] = saved_rows
-    # the haul routes are pure geometry: the M loop's tangents and wraps (design T3 / skeptic MC9 numbers)
+    # The haul routes are pure geometry: the M loop's tangents and wraps (design T3 / skeptic MC9 numbers).
     r = ts.haul_route_top()
     check(abs(r["strand_deg"] - 49.2) < 0.1 and abs(r["wrap_deg"]["bull"] - 98.4) < 0.1
           and abs(r["wrap_deg"]["foot"] - 139.2) < 0.1,
@@ -733,8 +806,8 @@ def t2_negative_rev2():
 
 
 def expect_c17(label, argv, must, inject=None, attr=None, value=None):
-    """A wrong gate layout FAILS C17 (and only C17: every older contract passes first); `must` are
-    substrings of the failure message. `attr` / `value` patch one module constant for the build."""
+    """A wrong gate layout FAILS C17 (and only C17: every older contract passes first). `must` is a list of substrings of the
+    failure message. `attr` / `value` patch one module constant for the build."""
     saved_v = getattr(ts, attr) if attr else None
     if attr:
         setattr(ts, attr, value)
@@ -752,8 +825,8 @@ def expect_c17(label, argv, must, inject=None, attr=None, value=None):
 def t2_negative_c17(work=None):
     """Revision 1e: the 1d fence grid and four injected faults each FAIL C17 (gate span vs cabin door)."""
     B, T = ["--role", "base"], ["--role", "top"]
-    # the shipped 1d grids: the base post at z -6.20 and the leaf 0.30 m off the door center, the top
-    # post at -5.60 with its two leaves across the doorway (revision2-check-tram-cabin section C)
+    # The shipped 1d grids: the base post at z -6.20 and the leaf 0.30 m off the door center. The top post at -5.60 with its
+    # two leaves across the doorway (revision2-check-tram-cabin section C).
     expect_c17("the 1d base grid (post -6.20 inside the door span, leaf off center)", B,
                ("inside the door span", "gatepost_0_1 z -6.24..-6.16", "gate_0_1 z -6.15..-4.25"),
                attr="GATES_AT_DOOR", value=False)
@@ -772,7 +845,7 @@ def t2_negative_c17(work=None):
                ("opening 1.900 m < 2.00",), attr="C17_OPEN_MIN", value=2.0)
     expect_c17("an opening 0.04 m off the door seam (GATE_DOOR_Z -5.46)", B, ("off the door seam -5.5",),
                attr="GATE_DOOR_Z", value=-5.46)
-    # the door center is read from the cabin manifest: a manifest that hosts the cabin elsewhere fails
+    # The test reads the door center from the cabin manifest. A manifest that hosts the cabin elsewhere fails.
     tmp = tempfile.mkdtemp(prefix="c17_manifest_")
     try:
         with open(ts.CABIN_MANIFEST, encoding="utf-8") as fh:
@@ -785,7 +858,7 @@ def t2_negative_c17(work=None):
                    attr="CABIN_MANIFEST", value=bad)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    # the pure layout: the post count and the opening hold on both fences (nothing built)
+    # The pure layout: the post count and the opening hold on both fences (nothing built).
     for role, want in (("base", (6, 4)), ("top", (6, 4))):
         posts, leaves = ts.gate_layout(ts.GATE_Z0[role])
         pa = ts.GATE_DOOR_Z - ts.GATE_OPEN_HALF - ts.GATE_POST_HALF
@@ -803,8 +876,7 @@ def t3_t4_t5(work):
     for role in ("base", "top"):
         od = os.path.join(work, "export")
         t0 = time.perf_counter()
-        # base bakes with AO 4 so the recolor-level check below also sees baked AO (review
-        # minor 6); top stays AO 0
+        # The base bakes with AO 4, so the recolor-level check below also sees baked AO (review minor 6). The top stays AO 0.
         ao = "4" if role == "base" else "0"
         try:
             rep = ts.main(["--role", role, "--finish", "--lods", "--export", "--out", od,
@@ -834,16 +906,16 @@ def t3_t4_t5(work):
         ctl = cs2_validate.load_png_pixels(os.path.join(d, f"{name}_ControlMask.png"))
         em = cs2_validate.load_png_pixels(os.path.join(d, f"{name}_Emissive.png"))
         A = ctl.shape[0]
-        # light albedo ships under every recolor mask (review minor 6): p95 0.78-0.82 (sRGB of
-        # the 0.604 linear slot albedo), ControlMask R + G + B <= 1, A 0
+        # Light albedo ships under every recolor mask (review minor 6): p95 0.78-0.82 (sRGB of the 0.604 linear slot albedo),
+        # ControlMask R + G + B <= 1, A 0.
         check(float(ctl[..., :3].sum(axis=-1).max()) <= 1.0 + 1e-3 and float(ctl[..., 3].max()) < 1e-3,
               f"T3 {role}: ControlMask R + G + B <= 1, A 0")
         lum = bc[..., :3].mean(axis=-1)
-        # nitpick B2 (RE-PINNED for the RAMPS base only; build/nitpick-b2-tram-ramps.md): AO is multiplied into
-        # BaseColor, so p95 needs >= 5 % of a slot's texels unoccluded. The base's slot 1 (steel) was at the edge
-        # (5.53 % at 0.80: p95 0.780); the ramp adds shaded steel (columns under the decks, kick plates) and shades the
-        # annex's +X frames (4.74 %: p95 0.769) while the slot albedo is unchanged (0.80). The base reads p99 (the
-        # unoccluded albedo still ships under the mask: 0.804); every other build keeps p95
+        # Nitpick B2 (RE-PINNED for the RAMPS base only, build/nitpick-b2-tram-ramps.md): AO is multiplied into BaseColor, so
+        # p95 needs >= 5 % of a slot's texels unoccluded. The base's slot 1 (steel) was at the edge (5.53 % at 0.80: p95
+        # 0.780). The ramp adds shaded steel (columns under the decks, kick plates) and shades the annex's +X frames (4.74 %:
+        # p95 0.769). The slot albedo is unchanged (0.80). The base reads p99 (the unoccluded albedo still ships under the
+        # mask: 0.804). Every other build keeps p95.
         q = 99 if (role == "base" and ts.RAMPS) else 95
         for ch, slot in enumerate("RGB"):
             under = lum[ctl[..., ch] > 0.5]
@@ -870,7 +942,7 @@ def t3_t4_t5(work):
         c13 = rep.get("C13_unique")
         want13 = {"base": {"pictodisc", "pictoplinth", "ctface_nx", "ctface_nz", "ctface_px", "ctface_pz",
                            "label_dep", "label_ops", "label_tickets"}
-                          # nitpick B: LIFT TICKETS (annex +X face) and ENTRANCE (village doors)
+                          # Nitpick B: LIFT TICKETS (annex +X face) and ENTRANCE (village doors)
                           | ({"label_lifttickets", "label_entrance"} if ts.JH_DETAILS else set()),
                   "top": {"label_stn", "label_tension", "label_trail_0", "label_trail_1", "label_trail_2"}}[role]
         check(c13 is not None and set(c13) == want13 and all(v <= 0.02 for v in c13.values()),
@@ -895,7 +967,7 @@ def t4_manifest(role, man):
     check(abs(ts.CARRIAGE_TOP_Y - ts.PIVOT_Y - 10.50) < 1e-9 and
           abs(ts.TRACK_Y - ts.PIVOT_Y - 10.00) < 1e-9 and abs(ts.HAUL_Y - ts.TRACK_Y + 0.40) < 1e-9,
           f"T4 {role}: R27/R28 hang 10.50, rope 10.00 above pivot, haul -0.40")
-    dx = ts.frame_dx(role)              # nitpick B2: the RAMPS base's prefab frame = design x - 4.00
+    dx = ts.frame_dx(role)              # Nitpick B2: the RAMPS base's prefab frame = design x - 4.00
     want = {(round(-5.5 + dx, 3), 16.0), (round(5.5 + dx, 3), 16.0), (round(-5.0 + dx, 3), 15.6),
             (round(5.0 + dx, 3), 15.6)}
     got = {(round(s["a"][0], 3), round(s["a"][1], 3)) for s in pc["stubs"]}
@@ -929,7 +1001,7 @@ def t4_manifest(role, man):
     else:
         check(hosted == [], "T4 top: hosts nothing")
     if role == "top" and ts.PLINTH_TOP:
-        # revision 3: plinth mode - no engine base by design; the plinth rule on every LOD
+        # Revision 3: plinth mode has no engine base by design. The plinth rule holds on every LOD.
         pl = pc.get("plinth") or {}
         per = pl.get("per_lod") or {}
         check(pc["engine_base"]["verdict"] == "NONE" and pc["engine_base"].get("mode") == "plinth"
@@ -958,8 +1030,8 @@ def t4_manifest(role, man):
           and all(e_["opening_m"] >= 1.70 and abs(e_["centre_z"] - ts.DOCK_Z) <= 0.02 for e_ in ed.values()),
           f"T4 {role}: manifest C17 gate span vs door: {len(ed)} edges, openings "
           f"{sorted({e_['opening_m'] for e_ in ed.values()})}, door span {c17.get('span_z')}")
-    # revision 2: every frozen prefab number == the shipped 1e manifest (archived before the re-export); the
-    # top's bounds max y is the one re-pin (ruling Q3: 27.00 -> MAST_TOP, the 8 m mast dropped)
+    # Revision 2: every frozen prefab number == the shipped 1e manifest (archived before the re-export). The top's bounds max
+    # y is the one re-pin (ruling Q3: 27.00 -> MAST_TOP, the 8 m mast dropped).
     name = ts.NAMES[role]
     p1e = os.path.join(REPO_1E, name, f"{name}.manifest.json")
     if not os.path.isfile(p1e):
@@ -974,12 +1046,12 @@ def t4_manifest(role, man):
         want_min = list(b0["min"])
         want_max = list(b0["max"]) if role == "base" else [b0["max"][0], round(ts.MAST_TOP, 3), b0["max"][2]]
         if role == "top" and ts.PLINTH_TOP:
-            # revision 3 (RE-PINNED for the top ONLY): plinth mode - the foundation reaches -PLINTH depth (the prefab delta,
-            # bounds min y 0 -> -12.00); every other frozen number is the 1e manifest's
+            # Revision 3 (RE-PINNED for the top ONLY): plinth mode. The foundation reaches -PLINTH depth (the prefab delta,
+            # bounds min y 0 -> -12.00). Every other frozen number is the 1e manifest's.
             want_min = [b0["min"][0], -round(ts.PLINTH["depth"], 3), b0["min"][2]]
         if dx:
-            # nitpick B2 (RE-PINNED by the lot shift only): the 1e numbers re-expressed in the shifted frame (every x +
-            # dx, the relative geometry identical), the lot 6 x 3; bounds min x + dx, max x = the new cell's paving edge
+            # Nitpick B2 (RE-PINNED by the lot shift only): the 1e numbers re-expressed in the shifted frame (every x + dx,
+            # the relative geometry identical), the lot 6 x 3. Bounds min x + dx, max x = the new cell's paving edge.
             old = _reexpress(old, dx)
             old["lot"] = list(ts.LOT_RAMPS[role])
             want_min = [round(b0["min"][0] + dx, 3)] + list(b0["min"][1:])
@@ -998,13 +1070,13 @@ def t4_manifest(role, man):
           f"T4 {role}: manifest rev2: C18 {({L: c18[L]['back'] for L in c18})} back-face hits per LOD, C19 failing "
           f"{(r2.get('C19') or {}).get('fail')}, C20 {(r2.get('C20') or {}).get('code')}, haul {r2.get('haul_route')}")
     rows = ((man.get("detail1") or {}).get("sub_objects") or {}).get("rows") or []
-    nv = {"base": 15 + (3 if ts.RAMPS else 0), "top": 13}[role]          # nitpick B2: + 2 park lamps and a bin
+    nv = {"base": 15 + (3 if ts.RAMPS else 0), "top": 13}[role]          # Nitpick B2: + 2 park lamps and a bin
     check(len(rows) == nv and (man.get("fine_detail") or {}).get("rows") == {"vanilla": nv,
                                                                              "mod": {"base": 4, "top": 3}[role]},
           f"T4 {role}: {len(rows)} vanilla sub-object rows in the manifest (fine-detail step 3c: + the annex wall light on the base) + kit rows {(man.get('fine_detail') or {}).get('rows')}")
     if role == "base" and ts.ANNEX_STAIR:
-        # nitpick B3: the manifest carries the annex stair block, the C15 route (grade -> ... -> annexcap -> landing_annex ->
-        # deck_outerR) and the `annex` flight; the frozen numbers above are untouched by it (the stair is inside the lot)
+        # Nitpick B3: the manifest carries the annex stair block, the C15 route (grade -> ... -> annexcap -> landing_annex ->
+        # deck_outerR), and the `annex` flight. The frozen numbers above are untouched by it (the stair is inside the lot).
         b3, c15m = man.get("nitpick_b3") or {}, man.get("C15") or {}
         rt, pl = b3.get("route") or {}, b3.get("plan") or {}
         check(bool(b3) and rt.get("ok") is True and (c15m.get("route") or {}).get("ok") is True
@@ -1017,8 +1089,8 @@ def t4_manifest(role, man):
 
 
 def _reexpress(old, dx):
-    """Nitpick B2: a 1e prefab_contract with every lateral (x) position moved by dx - the stubs' a / b / c / d, the docks,
-    the hosted cabins and the LV pole (rope, carriage top, pivot, m_Position): the relative geometry unchanged."""
+    """Nitpick B2: a 1e prefab_contract with every lateral (x) position moved by dx. This covers the stubs' a / b / c / d, the
+    docks, the hosted cabins, and the LV pole (rope, carriage top, pivot, m_Position). The relative geometry is unchanged."""
     import copy
     o = copy.deepcopy(old)
     for s_ in o.get("stubs", []):
@@ -1050,11 +1122,10 @@ TSPACE_IDS = (b"Tangents", b"Binormals")
 
 
 def fbx_equal_except_tspace(pa, pb, tol=1e-6):
-    """(equal, note): every FBX element of the two files identical, except the tangent /
-    binormal arrays, which may differ by float noise <= tol. Revision 1: the export's mikktspace
-    pass (cs2_asset.export_fbx use_tspace=True) leaves ulp-level noise (max 1.8e-7) on the 12.8k
-    tri top LOD0 between two PLAIN builds in one process - not a --review side effect; vertices,
-    faces, UVs, normals and materials stay bit-identical."""
+    """Returns (equal, note). Equal means every FBX element of the two files is identical, except the tangent / binormal arrays,
+    which may differ by float noise <= tol. Revision 1: the export's mikktspace pass (cs2_asset.export_fbx use_tspace=True)
+    leaves ulp-level noise (max 1.8e-7) on the 12.8k tri top LOD0 between two PLAIN builds in one process. This is not a
+    --review side effect. Vertices, faces, UVs, normals and materials stay bit-identical."""
     import io_scene_fbx.parse_fbx as pf
 
     def flat(el, path, out):
@@ -1127,9 +1198,8 @@ CELL = 0.02
 
 
 def cabin_sweep_mask(fbx):
-    """Rasterize the exported cabin (raw FBX cm = prefab-local) onto its X-Y cross-section
-    (2 cm cells); each cell keeps the largest travel coordinate Z covering it, i.e. how far
-    ahead of the cabin center that part of the silhouette reaches."""
+    """Rasterize the exported cabin (raw FBX cm = prefab-local) onto its X-Y cross-section (2 cm cells). Each cell keeps the
+    largest travel coordinate Z covering it. This is how far ahead of the cabin center that part of the silhouette reaches."""
     objs = cs2_validate.import_fbx_temp(fbx)
     try:
         o = [x for x in objs if x.type == "MESH"][0]
@@ -1169,9 +1239,8 @@ def cabin_sweep_mask(fbx):
 
 
 def t8_cabin_sweep():
-    """The real exported SkiTramCabinA, hosted identity in each bay (R29), swept from the line
-    (z < -12) to its dock: no non-rope station triangle may enter its silhouette. Skips when
-    the cabin lens has not exported the cabin."""
+    """The real exported SkiTramCabinA, hosted identity in each bay (R29), swept from the line (z < -12) to its dock. No
+    non-rope station triangle may enter its silhouette. Skips when the cabin lens has not exported the cabin."""
     if not os.path.isfile(CABIN_FBX):
         print(f"[tram-test] SKIP T8: {CABIN_FBX} not exported")
         return
@@ -1183,8 +1252,8 @@ def t8_cabin_sweep():
     for argv in (["--role", "base"], ["--role", "top"], ["--role", "top", "--no-wheels"]):
         t, _win, _tb, _r = ts.build_checked(argv)
         tri, names = ts.triangles(t)
-        # fine-detail step 3c: the dressing-kit rows' REAL meshes (placed by their rows, prefab = game frame) are
-        # swept against too - the kit props stand where the modeled dressing stood
+        # Fine-detail step 3c: the test also sweeps against the REAL meshes of the dressing-kit rows (placed by their rows,
+        # prefab = game frame). The kit props stand where the modeled dressing stood.
         kit = ts.fd_kit_rows(argv[1])
         if kit:
             kt = [KR.host_mesh(r, lambda G: np.asarray(G, dtype=np.float64)) for r in kit]
@@ -1196,7 +1265,7 @@ def t8_cabin_sweep():
         tri, nm = tri[keep], nm[keep]
         hits = {}
         for s in (-1, 1):
-            xl = s * ts.TRACK_X + ts.frame_dx(argv[1])          # nitpick B2: the RAMPS base's docks at x - 4.00
+            xl = s * ts.TRACK_X + ts.frame_dx(argv[1])          # Nitpick B2: the RAMPS base's docks at x - 4.00
             sel = ((tri[..., 0].max(axis=1) >= xl + ext[0] - 0.05) &
                    (tri[..., 0].min(axis=1) <= xl + ext[1] + 0.05) &
                    (tri[..., 2].min(axis=1) <= ts.DOCK_Z + ext[3] + 0.05) &
@@ -1222,7 +1291,7 @@ def t8_cabin_sweep():
 
 
 # --------------------------------------------------------------------------------------
-# T9 (revision 3, PLINTH_TOP; build/tram-top-rev3.md)
+# T9 (revision 3, PLINTH_TOP, build/tram-top-rev3.md)
 # --------------------------------------------------------------------------------------
 R3_ARCHIVE_FBX = os.path.join(os.path.dirname(os.path.dirname(LIB)), "assets", "archive", "2026-10-11-13", "import",
                               "superseded-tramtop-rev3-2026-10-13", "stations", "tram", "A", "SkiTramTopStationA",
@@ -1263,7 +1332,7 @@ def _fbx_points(path):
 
 
 def t9_export_above_grade(fbx):
-    """T9 on the export: the exported plinth-mode LOD0 vs the archived shipped top's LOD0 (the same finish geometry: bevels
+    """T9 on the export: the exported plinth-mode LOD0 vs the archived shipped top's LOD0 (the same finish geometry, bevels
     included), above y 0.01 vertex for vertex. Skipped when the archive (gitignored) is absent."""
     if not os.path.isfile(R3_ARCHIVE_FBX):
         print(f"[tram-test] SKIP T9 export: {R3_ARCHIVE_FBX} absent")
@@ -1277,8 +1346,8 @@ def t9_export_above_grade(fbx):
 
 def _below_rays(t):
     """Revision 3: rays from 1 m under the plinth floor straight up (a 0.5 m grid over the lot) and horizontally from 2 m
-    outside each lot side into the below-grade volume (every 1 m down to -11.5, 1 m apart): {part: back-face first hits},
-    rays, hits. A back face first = an open part seen from below / the side (what a cliff edge exposes)."""
+    outside each lot side into the below-grade volume (every 1 m down to -11.5, 1 m apart). Returns {part: back-face first
+    hits}, rays, hits. A back face first means an open part seen from below / the side (what a cliff edge exposes)."""
     from mathutils import Vector
     from mathutils.bvhtree import BVHTree
     tri, names = ts.triangles(t)
@@ -1305,12 +1374,12 @@ def _below_rays(t):
 
 
 def t9_plinth():
-    """T9 (revision 3; module docstring): above grade nothing moved, the plinth closed and deep, the bounds, the negatives."""
+    """T9 (revision 3, module docstring): above grade nothing moved, the plinth is closed and deep, the bounds, the negatives."""
     if not ts.PLINTH_TOP:
         print("[tram-test] SKIP T9: PLINTH_TOP off")
         return
     T = ["--role", "top"]
-    # T9a: the plinth-mode blockout vs the PLINTH_TOP False blockout (the shipped nitpick-B2 top), in process
+    # T9a: the plinth-mode blockout vs the PLINTH_TOP False blockout (the shipped nitpick-B2 top), in process.
     builds = {}
     for flag in (False, True):
         saved = ts.PLINTH_TOP

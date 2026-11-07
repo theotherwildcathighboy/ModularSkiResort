@@ -1,48 +1,58 @@
 """
-T62 gate (2026-10-18; build note docs/research/field/2026-10-15/build/T62-sheave-wheels.md, rounds 1-3):
-ONE sheave wheel on every tower and station - round 3: 16 segments, the V groove, a hub boss on every SEEN face, <= 120
-tris (cs2_sheaves.WHEEL_PROFILE, WHEEL_TRIS_BUDGET).
+T62 gate (2026-10-18, build note docs/research/field/2026-10-15/build/T62-sheave-wheels.md, rounds 1-3): ONE
+sheave wheel on every tower and station. Round 3 sets these values: 16 segments, the V groove, a hub boss on
+every SEEN face, <= 120 tris (cs2_sheaves.WHEEL_PROFILE, WHEEL_TRIS_BUDGET).
 
-Builds the PARTS (no finish) of every tower (lift_tower VARIANTS: FG8-20, ET62 / ET68, DQ10-20, ETDQ, GD12-20, ETGD),
-the lattice / tram towers (tram_tower: gondola 25 / 32 / 40, tram 30 / 45 / 60) and every station (FG M drive /
-return, DQ base / top, gondola base / top, tram base / top) with cs2_sheaves.WHEELS "v2" and RAISES unless:
+The test builds the PARTS (no finish) of these assets with cs2_sheaves.WHEELS "v2":
+- every tower (lift_tower VARIANTS: FG8-20, ET62 / ET68, DQ10-20, ETDQ, GD12-20, ETGD)
+- the lattice / tram towers (tram_tower: gondola 25 / 32 / 40, tram 30 / 45 / 60)
+- every station (FG M drive / return, DQ base / top, gondola base / top, tram base / top)
 
-  S1  every sheave part (identified by its part-name prefix, WHEEL_PARTS) carries the stamp obj["cs2_wheel"] ==
-      cs2_sheaves.WHEEL_ID with the family radius / width and 16 segments, and its measured geometry is THE wheel:
-      rim r (1e-4) at a crest ring of 16 vertices per side at |y| = w/2 (segment count; no chamfer), an 8-vertex
-      V-groove root at r - max(0.02, 0.18 r), a raised 8-gon hub boss (top ring 0.10 r proud, radius <= 0.45 r) on
-      exactly the faces its stamp cs2_wheel_bosses names, the tris 76 + 22 per boss <= WHEEL_TRIS_BUDGET 120, the sharp
-      ring loops marked; the discs part's material key is cs2_sheaves.WHEEL_KEY and the liner's rubber;
-  V1  every kept boss is SEEN and every culled one hidden (cs2_sheaves.boss_visibility re-measured on the built asset:
-      < / >= BOSS_HIDDEN["share"] of the rays blocked within BOSS_HIDDEN["dist"]);
-  S2  no stamped part outside WHEEL_PARTS (an unknown wheel) and no FG kit axle cap left (axlecap_ but the T27
-      axlecap_stub_ housing); the asset has its expected wheel count;
-  S3  the wheel itself: wheel() tris == WHEEL_TRIS (120, both bosses) <= the budget for every family, both UV modes; no
-      mirrored / zero-area UV face;
-      wheel() refuses another segment count;
-  S4  v1 (set_wheels("v1")) builds no stamped part and the pre-T62 per-family wheels (the FG axle caps, the GD flat
-      rims, the 8-gon tram rollers): the fallback really is the old code path;
-  S5  the stations with no sheave train (FG M return, DQ / gondola base: their trains are the hosted ET62 / ETDQ / ETGD
-      towers; the tram stations: bull / deflection / drum machinery wheels only) carry no wheel part;
-  S6  negatives: the S1 / S2 check RAISES on a v1 FG8 (kit axle caps, unstamped wheels), a v1 GD12 (unstamped flat
-      rims), a v2 FG8 whose one liner lost its stamp, a v2 FG8 wheel with one hub boss cut off, and a v2 FG8 with a
-      plate set in front of a kept boss (V1);
-  M1  material: cs2_sheaves.WHEEL_MATERIAL is painted / galvanised steel, not chrome (metal <= 0.35, smoothness
-      <= 0.45, albedo sRGB luma 0.45-0.70: the snow-props galvanised-luma lesson) and EVERY generator's material table
-      resolves WHEEL_KEY to that one spec (lift_tower, lift_terminal M, lift_terminal_detach, tram_tower);
-  L1  LOD pattern, one rule for every family: a finished-style mesh carrying every family's wheel (r / w), in the
-      authoring, net-rotated and chord-tilted frames, through cs2_asset.make_lod_chain(fixed=cs2_sheaves.lod_fixed()):
-      LOD1 = every wheel exactly WHEEL_LOD[1] (8 crest vertices per side, 28 tris, no boss, tri-only, every corner UV
-      inside one of that part's LOD0 UV triangles), LOD2 = no wheel face; and every generator's make_lod_chain call
-      passes fixed=...lod_fixed() (static check of the four sources);
-  N1  normals survive the export: a shaded wheel (shade_by_angle 66, weighted, as the generators) exported with
-      cs2_asset.export_fbx and re-imported: cap corners (discs, boss tops) exactly axial (flat caps, vanilla's hard
-      tread / cap split), the groove-flank corners at the crest NOT axial (the split exists), the treads smooth around
-      (the flank corners at one crest vertex within 1 deg). [The repo's .Geometry decoder (vlib.py) reads the
-      game's imported files; the FBX re-import is the check available before the import.]
+The test RAISES unless all of these hold:
 
-The ingest DQ heads need the gitignored Kagelok .blend; when it is absent DQ10-DQ20 are built with the rebuild head (the
-train is the same code) and a line says so.
+- S1: Every sheave part (identified by its part-name prefix, WHEEL_PARTS) carries the stamp obj["cs2_wheel"] ==
+  cs2_sheaves.WHEEL_ID with the family radius / width and 16 segments. Its measured geometry is THE wheel. The
+  rim r (1e-4) sits at a crest ring of 16 vertices per side at |y| = w/2 (segment count, no chamfer). The
+  V-groove root has 8 vertices at r - max(0.02, 0.18 r). The raised 8-gon hub boss (top ring 0.10 r proud,
+  radius <= 0.45 r) sits on exactly the faces that its stamp cs2_wheel_bosses names. The tris are 76 + 22 per
+  boss <= WHEEL_TRIS_BUDGET 120. The sharp ring loops are marked. The material key of the discs part is
+  cs2_sheaves.WHEEL_KEY. The liner's key is rubber.
+- V1: Every kept boss is SEEN and every culled boss is hidden. The test re-measures cs2_sheaves.boss_visibility
+  on the built asset: < / >= BOSS_HIDDEN["share"] of the rays blocked within BOSS_HIDDEN["dist"].
+- S2: No stamped part is outside WHEEL_PARTS (an unknown wheel). No FG kit axle cap is left (axlecap_ parts,
+  except the T27 axlecap_stub_ housing). The asset has its expected wheel count.
+- S3: The wheel itself: wheel() tris == WHEEL_TRIS (120, both bosses) <= the budget, for every family and both
+  UV modes. No UV face is mirrored or has zero area. wheel() refuses another segment count.
+- S4: v1 (set_wheels("v1")) builds no stamped part. It builds the pre-T62 per-family wheels (the FG axle caps,
+  the GD flat rims, the 8-gon tram rollers). So the fallback really is the old code path.
+- S5: The stations with no sheave train carry no wheel part. These stations are FG M return and DQ / gondola
+  base (their trains are the hosted ET62 / ETDQ / ETGD towers), and the tram stations (bull / deflection / drum
+  machinery wheels only).
+- S6: Negatives. The S1 / S2 check RAISES on each of these cases:
+    * a v1 FG8 (kit axle caps, unstamped wheels)
+    * a v1 GD12 (unstamped flat rims)
+    * a v2 FG8 whose one liner lost its stamp
+    * a v2 FG8 wheel with one hub boss cut off
+    * a v2 FG8 with a plate set in front of a kept boss (V1)
+- M1: Material. cs2_sheaves.WHEEL_MATERIAL is painted / galvanized steel, not chrome (metal <= 0.35, smoothness
+  <= 0.45, albedo sRGB luma 0.45-0.70: the snow-props galvanized-luma lesson). EVERY generator's material table
+  resolves WHEEL_KEY to that one spec (lift_tower, lift_terminal M, lift_terminal_detach, tram_tower).
+- L1: LOD pattern, one rule for every family. A finished-style mesh carries every family's wheel (r / w), in
+  the authoring, net-rotated and chord-tilted frames. The test runs the mesh through
+  cs2_asset.make_lod_chain(fixed=cs2_sheaves.lod_fixed()). LOD1 = every wheel exactly WHEEL_LOD[1] (8 crest
+  vertices per side, 28 tris, no boss, tri-only, every corner UV inside one of that part's LOD0 UV triangles).
+  LOD2 = no wheel face. Every generator's make_lod_chain call passes fixed=...lod_fixed() (static check of the
+  four sources).
+- N1: Normals survive the export. The test shades a wheel (shade_by_angle 66, weighted, as the generators do),
+  exports it with cs2_asset.export_fbx, and re-imports it. Then it checks these points:
+    * Cap corners (discs, boss tops) are exactly axial (flat caps, vanilla's hard tread / cap split).
+    * The groove-flank corners at the crest are NOT axial (the split exists).
+    * The treads are smooth around (the flank corners at one crest vertex within 1 deg).
+  [The repo's .Geometry decoder (vlib.py) reads the game's imported files. The FBX re-import is the
+  check available before the import.]
+
+The ingest DQ heads need the gitignored Kagelok .blend. When it is absent, the test builds DQ10-DQ20 with the
+rebuild head (the train is the same code) and prints a line that says so.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_sheaves.py
 """
@@ -88,7 +98,8 @@ WHEEL_PARTS = re.compile(
     r"|sheave_cw(?:head|defl)_[np](?:_liner)?"
     r"|haulroll_(?:liner_)?[np]_\d+"
     r"|sheave_(?:liner_)?[np]_\d+)$")
-# family wheel per part (radius from cs2_sheaves.WHEEL_FAMILY: the family radius the gate holds every asset to)
+# Family wheel per part (radius from cs2_sheaves.WHEEL_FAMILY). The gate holds every asset to the family
+# radius.
 FAM = {k: S.wheel_spec(k) for k in S.WHEEL_FAMILY}
 TOL = 1e-4
 
@@ -118,8 +129,8 @@ def _geom(o):
 
 
 def _axle_frame_co(co):
-    """(center, axle unit) of a wheel from its discs' vertices: the bbox mid (the discs + chamfers + bosses are symmetric
-    about the center) and the direction of least extent (PCA)."""
+    """Returns (center, axle unit) of a wheel from its discs' vertices. The center is the bbox mid (the discs +
+    chamfers + bosses are symmetric about the center). The axle is the direction of least extent (PCA)."""
     c = (co.min(0) + co.max(0)) / 2.0
     _u, _s, vt = np.linalg.svd(co - co.mean(0), full_matrices=False)
     return c, vt[-1] / np.linalg.norm(vt[-1])
@@ -146,8 +157,9 @@ def _n_sharp(o):
 
 
 def wheel_shape(label, dn, ln, discs, liner, W, kept="-+", hub=None):
-    """S1 geometry of one wheel (discs part, liner part, the hub_name(discs) part of a culled build or None: the bosses still
-    in the discs) against WHEEL_PROFILE at the family r / w; `kept` = the boss faces it must carry ("-+", "-", "+", "")."""
+    """S1 geometry of one wheel against WHEEL_PROFILE at the family r / w. The arguments are the discs part, the
+    liner part, and `hub`. `hub` is the hub_name(discs) part of a culled build, or None when the bosses are
+    still in the discs. `kept` = the boss faces it must carry ("-+", "-", "+", "")."""
     P = S.wheel_profile(W["r"], W["w"])
     r, hw, hc, gd, rb, h = P["r"], P["hw"], P["hc"], P["gd"], P["rb"], P["h"]
     cen, ax = _axle_frame(liner)        # the liner (two crest rings + the root ring) is symmetric whatever the discs lost
@@ -389,7 +401,7 @@ def m1_material():
 
 
 def _wheel_set(frames):
-    """Every family's wheel in each frame (name, liner, parts); returns parts + [(discs, liner, family)]."""
+    """Every family's wheel in each frame (name, liner, parts). Returns parts + [(discs, liner, family)]."""
     parts, wheels = [], []
     k = 0
     for fr, M in frames:

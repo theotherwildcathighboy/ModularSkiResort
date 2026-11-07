@@ -1,64 +1,64 @@
 """
-beacon.py - SkiBeaconRedA: ONE shared blinking red obstruction beacon, hosted as a sub-object on
-the tall gondola and tram towers (asset round 2026-10; ninth look on GD12: "emissive red
-blinking lights on the tops of the towers", ruled for the GD12 / 16 / 20 tube towers, the gondola
-lattice 25 / 32 / 40 and the 60 m tram tower only, never the 8-20 m fixed-grip / quad towers).
-Design: docs/research/art/assets-2026-10/design/blinking-lights.md, option B (section 5).
-Build report: docs/research/art/assets-2026-10/build/beacon.md. Surgery rows, the curve JSON and the
-step order: docs/research/art/assets-2026-10/surgery/towers-transfer.md, addendum "Beacon
+beacon.py - SkiBeaconRedA: ONE shared blinking red obstruction beacon. It is hosted as a sub-object
+on the tall gondola and tram towers (asset round 2026-10). Ninth look on GD12: "emissive red
+blinking lights on the tops of the towers". The ruling covers only the GD12 / 16 / 20 tube towers,
+the gondola lattice 25 / 32 / 40 and the 60 m tram tower, never the 8-20 m fixed-grip / quad towers.
+Design: docs/research/art/assets-2026-10/design/blinking-lights.md, option B (section 5). Build
+report: docs/research/art/assets-2026-10/build/beacon.md. Surgery rows, the curve JSON and the step
+order are in docs/research/art/assets-2026-10/surgery/towers-transfer.md, addendum "Beacon
 sub-objects (2026-10-11)".
 
     cd assets/blender
     blender --background --factory-startup --python-exit-code 1 --python beacon.py -- \
         --out ../import/props/A --export --preview ../preview/props --review
     blender ... --python beacon.py -- --measure [--json <path>]
-        the anchor table, RE-MEASURED on the shipped tower FBX: ray-cast down at the tower center,
-        the plate footprint, and a clearance probe of the beacon envelope. Run it again after any
-        tower re-export; the surgery rows take its numbers.
+        the anchor table, RE-MEASURED on the shipped tower FBX: a ray-cast down at the tower center, the plate
+        footprint, and a clearance probe of the beacon envelope. Run it again after any tower re-export. The
+        surgery rows take its numbers.
     blender ... --python beacon.py -- --scale-preview ../preview/props
         the beacon on a scratch copy of GD16's FBX at the measured anchor (nothing is exported).
 
-THE ASSET (prefab-local meters: x lateral, y up, z travel; origin = base-plate bottom center)
-    plate    galvanised square base plate 0.14 x 0.14 x 0.016, open bottom (it sits on a beam)
-    mast     galvanised 50 x 50 square stub mast, plate -> 0.27 (its top hides inside the housing)
+THE ASSET (prefab-local meters: x lateral, y up, z travel, origin = base-plate bottom center)
+    plate    galvanized square base plate 0.14 x 0.14 x 0.016, open bottom (it sits on a beam)
+    mast     galvanized 50 x 50 square stub mast, plate -> 0.27 (its top hides inside the housing)
     housing  dark cast funnel r 0.024 @ 0.240 -> r 0.130 @ 0.285: closes the shell underneath
     lens     red Fresnel lens, band r 0.130 @ 0.285 -> r 0.114 @ 0.365, cone cap to 0.440
              (dome 0.26 m across): the ONLY emissive surface
-    cage     four galvanised guard posts (12 mm triangular bars) leaning in from the lens rim to
+    cage     four galvanized guard posts (12 mm triangular bars) leaning in from the lens rim to
              r 0.118 @ 0.450, >= 2 mm clear of the lens above the rim and >= 5 mm above the shoulder
     86 tris (cap 100), one material, one UV layer "UVMap", 128 px maps, bounds x / z +-0.130,
     y 0 .. 0.451. The 0.25 m stub lifts the lens clear of the head-beam hardware.
 
 ONE LOD, ON PURPOSE (no LOD1 / LOD2)
-    Emissive exists on LOD0 only: the importer writes EmissiveProperties under `lod.level == 0`
-    (AssetImportPipeline.cs:2232-2243) and 0 of 45 vanilla emissive props with a chain carry it on
+    Emissive exists on LOD0 only. The importer writes EmissiveProperties under `lod.level == 0`
+    (AssetImportPipeline.cs:2232-2243), and 0 of 45 vanilla emissive props with a chain carry it on
     LOD1/2 (prop-emissive-lights.md 1.2). A 12-tri LOD1 would switch at ~40 m (reach_table) and the
     blink would stop there. 86 tris is below every vanilla prop band's median LOD0, so a chain saves
-    nothing. The reach knob is `LodProperties.m_Bias` on the mesh prefab with an EMPTY
-    m_LodMeshes (vanilla shape: "High-voltage Cable Lane Mesh", m_Bias -2, rlength 0; 20 vanilla
-    RenderPrefabs ship LodProperties without LOD meshes). MeshSystem.cs:455-460 reads m_Bias
-    whenever the LodMesh buffer exists, and LodProperties.GetPrefabComponents adds that buffer
-    unconditionally. reach_table() prints the cull distance per bias (formula, lodFactor 652
-    unverified until the SkiProbeLodA verdict).
+    nothing.
+    The reach knob is `LodProperties.m_Bias` on the mesh prefab with an EMPTY m_LodMeshes (vanilla
+    shape: "High-voltage Cable Lane Mesh", m_Bias -2, rlength 0. 20 vanilla RenderPrefabs ship
+    LodProperties without LOD meshes). MeshSystem.cs:455-460 reads m_Bias whenever the LodMesh buffer
+    exists. LodProperties.GetPrefabComponents adds that buffer unconditionally. reach_table() prints
+    the cull distance per bias (formula, lodFactor 652 unverified until the SkiProbeLodA verdict).
 
 THE EMISSIVE COLOR LIVES IN THE _Emissive MAP, NOT IN BaseColor
-    The pipeline's `_Emissive` is sRGB EMITTED COLOR (cs2_asset.make_snow_prop_emissive docstring;
-    cs2_bake SourceSet `emissive=` path | rgb; prop-emissive-lights.md 1.3): emission ~ texel.rgb x
+    The pipeline's `_Emissive` is sRGB EMITTED COLOR (cs2_asset.make_snow_prop_emissive docstring,
+    cs2_bake SourceSet `emissive=` path | rgb, prop-emissive-lights.md 1.3). Emission ~ texel.rgb x
     EmissiveProperties.color.linear x intensity*100 x LightState.m_Intensity. BaseColor is not in
-    that product, so white texels with color (1,1,1,1) would flash WHITE. The lens texels are red
-    in _Emissive (EMISSIVE_SRGB) and red glass in BaseColor (the unlit look between flashes); every
-    other surface's _Emissive texels are black. Equivalent at surgery: white texels + `color`
-    (0.95, 0.12, 0.08, 1). Not used: vanilla single lights keep `color` white and put the hue in the
-    PNG (StreetlightSingle01, WarningLight01).
+    that product, so white texels with color (1,1,1,1) would flash WHITE.
+    The lens texels are red in _Emissive (EMISSIVE_SRGB) and red glass in BaseColor (the unlit look
+    between flashes). Every other surface's _Emissive texels are black. Equivalent at surgery: white
+    texels + `color` (0.95, 0.12, 0.08, 1). Not used: vanilla single lights keep `color` white and put
+    the hue in the PNG (StreetlightSingle01, WarningLight01).
 
 DETERMINISM
-    Explicit vertex lists, hand-laid UVs (no smart_project, no unique repack, no Cycles bake: the
-    maps are painted; the AO of an 86-tri 0.45 m prop at 128 px would be a two-texel gradient),
-    cs2_asset.tag_parts canonical order, numpy maps from a fixed seed. Two builds hash identically
-    and two fresh processes write byte-identical PNGs and settings.json (tests/test_beacon.py). The
-    FBX carries the export clock, as everywhere in this pipeline.
+    The build uses explicit vertex lists, hand-laid UVs (no smart_project, no unique repack, no Cycles
+    bake: the maps are painted, and the AO of an 86-tri 0.45 m prop at 128 px would be a two-texel
+    gradient), cs2_asset.tag_parts canonical order and numpy maps from a fixed seed. Two builds hash
+    identically and two fresh processes write byte-identical PNGs and settings.json
+    (tests/test_beacon.py). The FBX carries the export clock, as everywhere in this pipeline.
 
-No top-level side effects; the __main__ block runs only as a Blender --python script.
+No top-level side effects. The __main__ block runs only as a Blender --python script.
 """
 
 import argparse
@@ -86,7 +86,7 @@ REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 # Names, budgets
 # --------------------------------------------------------------------------------------
 
-NAME = "SkiBeaconRedA"            # mesh asset; the Editor import makes "SkiBeaconRedA Mesh"
+NAME = "SkiBeaconRedA"            # mesh asset, the Editor import makes "SkiBeaconRedA Mesh"
 OBJECT_PREFAB = "SkiBeaconRed"    # hand-made StaticObjectPrefab (surgery, hand-minted .cid)
 A = 128                           # atlas px (all five maps)
 TRIS = 86                         # exact LOD0 triangle count (contract)
@@ -96,7 +96,7 @@ VALIDATE_SPEC = {"kind": "prop", "lod0_cap": LOD0_CAP, "min_texture": 128,
                  "expected_lods": (0,)}
 
 # --------------------------------------------------------------------------------------
-# Geometry (meters, Blender Z up; Blender x = prefab x lateral, Blender -y = prefab z travel)
+# Geometry (meters, Blender Z up. Blender x = prefab x lateral, Blender -y = prefab z travel)
 # --------------------------------------------------------------------------------------
 
 PLATE_HALF, PLATE_H = 0.070, 0.016
@@ -109,14 +109,14 @@ CAGE_CLEAR_SHOULDER = 0.005       # post inner face vs lens, z >= shoulder
 LENS_DIAMETER = 2.0 * LENS[0]     # 0.26 m
 
 # --------------------------------------------------------------------------------------
-# Atlas (texel rects x0, y0, x1, y1; y up = UV v / Image.pixels row order)
+# Atlas (texel rects x0, y0, x1, y1. y up = UV v / Image.pixels row order)
 # --------------------------------------------------------------------------------------
 
 R_LENS_BLOCK = (0, 72, 128, 128)  # lens material + emissive (band, cap and spare texels: mip-safe)
 R_LENS_BAND = (0, 72, 128, 96)
 R_LENS_CAP = (0, 96, 32, 128)
 R_HOUSING = (0, 48, 128, 72)
-R_GALV_BLOCK = (0, 0, 128, 48)    # galvanised: mast, plate, cage
+R_GALV_BLOCK = (0, 0, 128, 48)    # galvanized: mast, plate, cage
 R_MAST = (0, 0, 32, 48)
 R_POST_SIDES = (32, 0, 80, 40)    # 12 strips 4 px wide (4 posts x 3 faces)
 R_POST_CAPS = (80, 32, 96, 36)    # 4 caps 4 x 4 px
@@ -125,7 +125,7 @@ R_PLATE_TOP = (96, 16, 128, 48)
 INSET = 0.5                       # texels: UVs land on edge-texel centers (bilinear-safe at mip 0)
 
 # --------------------------------------------------------------------------------------
-# Materials (BaseColor / _Emissive sRGB as written; MaskMap R metal, A smoothness, linear)
+# Materials (BaseColor / _Emissive sRGB as written. MaskMap R metal, A smoothness, linear)
 # --------------------------------------------------------------------------------------
 
 GALV_SRGB = (0.50, 0.53, 0.565)   # Metal032 color mean (0.491, 0.535, 0.578): the towers' galv set
@@ -139,19 +139,19 @@ RIB_PITCH_PX = 3.0                # Fresnel rings: band rows / cap radius
 SEED = 20261011
 
 # --------------------------------------------------------------------------------------
-# Surgery values (recorded in the manifest; the JSON lives in surgery/towers-transfer.md)
+# Surgery values (recorded in the manifest). The JSON lives in surgery/towers-transfer.md
 # --------------------------------------------------------------------------------------
 
 EMISSIVE_PROPERTIES = dict(purpose=34, color=(1, 1, 1, 1), colorOff=(0, 0, 0, 1), intensity=4.0,
                            luminance=0, responseTime=0.05, animationIndex=0, materialId=0)
-CURVE = dict(m_Duration=2.0,      # 120 frames; 0.30 s on per 2.0 s = 30 flashes / min
+CURVE = dict(m_Duration=2.0,      # 120 frames. 0.30 s on per 2.0 s = 30 flashes / min
              keys=((0.0, 0.0, 0.0, 0.0), (0.4995, 0.0, 0.0, 1000.0), (0.5, 1.0, 1000.0, 0.0),
                    (0.6495, 1.0, 0.0, -1000.0), (0.65, 0.0, -1000.0, 0.0), (1.0, 0.0, 0.0, 1.0)))
 LOD_BIAS = -1                     # LodProperties.m_Bias on the mesh prefab (empty m_LodMeshes)
 LOD_FACTOR = 652.0
 
-# The seven hosts. Design anchors from blinking-lights.md section 5; the
-# surgery uses measure_anchors() on the CURRENT FBX instead.
+# The seven hosts. These are the design anchors from blinking-lights.md section 5. The surgery uses
+# measure_anchors() on the CURRENT FBX instead.
 TOWERS = (
     # gameplay prefab,      mesh asset,             folder (assets/import), design y, host
     ("SkiLiftTowerGD12",    "SkiLiftTowerGD12O",    "towers/O",     11.976, "top gantry beam"),
@@ -195,7 +195,7 @@ def _ring(r, z, n, phase=0.0):
 
 
 def _band(ring_a, ring_b, rect, base=0):
-    """Quads between two rings (a below b), outward-facing; u = azimuth, v = a -> b."""
+    """Quads between two rings (a below b), outward-facing. u = azimuth, v = a -> b."""
     n = len(ring_a)
     faces, uvs = [], []
     for i in range(n):
@@ -232,7 +232,7 @@ def _plate():
     a = _ring(r, 0.0, 4, math.pi / 4.0)
     b = _ring(r, PLATE_H, 4, math.pi / 4.0)
     faces, uvs = _band(a, b, R_PLATE_SIDES)
-    faces.append((4, 5, 6, 7))                       # top, CCW from above; no bottom face
+    faces.append((4, 5, 6, 7))                       # top, CCW from above. No bottom face
     uvs.append([_uv(R_PLATE_TOP, (x + PLATE_HALF) / (2 * PLATE_HALF),
                     (y + PLATE_HALF) / (2 * PLATE_HALF)) for x, y, _z in b])
     return _part("plate", a + b, faces, uvs)
@@ -328,7 +328,7 @@ def build_beacon(name=NAME):
 
 
 # --------------------------------------------------------------------------------------
-# Contracts (raise on failure; return the measured numbers)
+# Contracts (raise on failure, return the measured numbers)
 # --------------------------------------------------------------------------------------
 
 def _lens_radius(z):
@@ -388,7 +388,7 @@ def contracts(obj):
     if worst_sh < CAGE_CLEAR_SHOULDER:
         fails.append(f"cage clearance above the shoulder {worst_sh * 1000:.1f} mm < "
                      f"{CAGE_CLEAR_SHOULDER * 1000:.0f}")
-    # every face points away from the beacon axis (posts: from their own axis; tops: up)
+    # every face points away from the beacon axis (posts: from their own axis, tops: up)
     table = json.loads(me[cs2_asset.PART_TABLE_PROP])
     part = np.zeros(len(me.polygons), dtype=np.int64)
     me.attributes["part"].data.foreach_get("value", part)
@@ -575,8 +575,8 @@ def _tower_fbx(row):
 
 
 def _raw_metres(path):
-    """Vertices (prefab-local meters: x lateral, y up, z travel) and polygons of an exported FBX.
-    The FBX holds raw cm Y-up vertices (cs2_asset.export_fbx); mesh data is read as stored."""
+    """Vertices (prefab-local meters: x lateral, y up, z travel) and polygons of an exported FBX. The
+    FBX holds raw cm Y-up vertices (cs2_asset.export_fbx). Mesh data is read as stored."""
     objs = cs2_validate.import_fbx_temp(path)
     try:
         meshes = [o for o in objs if o.type == "MESH"]

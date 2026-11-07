@@ -1,6 +1,6 @@
 """
 cs2_compose.py - detail layer and compositing for the CS2 ski-resort art pipeline
-(art-pipeline-v2.md section 3.5; round L spec "cs2_compose.py").
+(art-pipeline-v2.md section 3.5, round L spec "cs2_compose.py").
 
 Contract
 --------
@@ -33,23 +33,23 @@ module touches color spaces.
         AO (occ = ao*0.92+0.08, reserved rects skipped), ground-contact band, detail
         normal via blend_rnm(nrm, height_to_normal(height_m, ppm_map)), gloss variation,
         MaskMap B = 0, ControlMask A = 0, BaseColor A = 1.  Reserved rects are restored
-        1:1 in all four maps.  Returns NEW arrays; inputs are not modified.
+        1:1 in all four maps.  Returns NEW arrays.  Inputs are not modified.
     stamp_on_face(base, ctl, me, part_table, prefix, painter, uv_layer="UVUnique") -> None
         Calls painter(rect_px, base_slice, ctl_slice) on the UV bounding box of every face
-        whose part name starts with `prefix`; ControlMask R is zeroed under the texels the
+        whose part name starts with `prefix`.  The function zeroes ControlMask R under the texels the
         painter changed (labels are painted, never masked, never alpha-clipped).
     rasterise_face_fields(me, A, uv_layer="UVUnique") -> (part_map int32, ppm_map float32)
         Per-texel part index (0 = no face) and px/m, the inputs compose_maps wants.
 
-Detail pass 1 (towers, design/detail-pass-1-towers.md section 2; additive - with the new
-fields / opts unset every function above is byte-identical to round L):
+Detail pass 1 (towers, design/detail-pass-1-towers.md section 2).  It is additive: with the new
+fields / opts unset, every function above is byte-identical to round L:
     DetailSpec.edge_round_m / edge_round_deg / edge_round_tilt_deg
         normal-map round on the part's own convex creases (detail_height)
     DetailSpec.marks + Mark(kind, center, ...)
         world-space plate / slot / bolts / ring / boltring / band relief (detail_height)
     DetailSpec.mottle_m / mottle_amp / mottle_smooth / mottle_stretch / chalk_amp / chalk_smooth
     detail_tone(me, A, specs, ...) -> (dl, ds)
-        world-anchored hashed mottle + up-face chalking; feed compose_maps opts
+        world-anchored hashed mottle + up-face chalking.  Feed the result to compose_maps opts
         tone_l / tone_s
     Decal(...) + decal_on_faces(base, ctl, me, A, part_table, prefix, decal, ...) -> rects
         anti-aliased painted plate projected along u x v onto a part's faces
@@ -83,7 +83,7 @@ def height_to_normal(height_m, ppm, strength=1.0):
 
     `ppm` is texels per meter: a scalar or an (H, W) array (per-texel density from
     rasterise_face_fields).  np.gradient returns meters per texel along rows (dh/dv) and
-    columns (dh/du); multiplying by ppm gives the dimensionless slope.  The unnormalised
+    columns (dh/du).  Multiplying by ppm gives the dimensionless slope.  The unnormalized
     normal is (-dh/du, -dh/dv, 1), so after the 0.5 + 0.5*n encode
 
         R = 0.5 - k * dh/du,   G = 0.5 - k * dh/dv,   B = 0.5 + 0.5/len  (> 0.5)
@@ -107,7 +107,7 @@ def height_to_normal(height_m, ppm, strength=1.0):
 def blend_rnm(n1, n2):
     """
     Reoriented normal mapping: rotate detail normal `n2` into the frame of base normal
-    `n1`.  Both are encoded 0..1 arrays (H, W, 3) or (H, W, 4) (alpha ignored); the
+    `n1`.  Both are encoded 0..1 arrays (H, W, 3) or (H, W, 4) (alpha ignored).  The
     result is (H, W, 3) encoded.  Identity for a flat partner on either side.
     """
     a = np.asarray(n1, dtype=np.float32)[..., :3]
@@ -136,26 +136,26 @@ class DetailSpec:
     plan's pseudo-code hard-wired (seam width 0.012, bolt offset 0.15, bolt height
     0.004, 3 strands) plus the axis choice for seams.
 
-    seams_m      panel-join pitch; lines of depth -seam_depth_m on a world-anchored grid
+    seams_m      panel-join pitch.  Lines of depth -seam_depth_m on a world-anchored grid
     seam_axes    "both" grid | "rings" horizontal joins only (constant height) |
                  "ribs" vertical joins only
-    bolt_pitch_m bolt spacing along a seam; bolt rows sit bolt_offset_m either side of
+    bolt_pitch_m bolt spacing along a seam.  Bolt rows sit bolt_offset_m either side of
                  every seam (or on a plain lattice when seams_m is None)
     corrugation_m sine period across the face's most horizontal in-plane world axis
                  (ridges run vertically on walls, down the slope on roofs)
-    helix_m      rope lay length; `helix_strands` grooves per period along the face's
+    helix_m      rope lay length.  `helix_strands` grooves per period along the face's
                  longest edge
     grate_m      bearing-bar pitch of an opaque painted grating (holes -grate_depth_m)
 
     Detail pass 1 (towers, design/detail-pass-1-towers.md section 2) - trailing fields, all
     off by default, so positional construction and every existing map are unchanged:
-    edge_round_m        normal-map round on the part's own convex creases (radius, meters;
+    edge_round_m        normal-map round on the part's own convex creases (radius, meters,
                         never on a prefix that already has a geometric bevel)
     edge_round_deg      min dihedral (angle between face normals) for a crease, default 30
     edge_round_tilt_deg normal tilt at the crease, default 50
     marks               tuple of world-space Mark (plate / slot / bolts / ring / boltring /
                         band) drawn as height by detail_height
-    mottle_m            tone cell (m) for detail_tone; None = no mottle
+    mottle_m            tone cell (m) for detail_tone.  None = no mottle
     mottle_amp / mottle_smooth   +- luminance fraction / +- MaskMap A (times MOTTLE_STD = the
                         noise's measured std, so A std gains ~ mottle_smooth * 0.234)
     mottle_stretch      cell x stretch along the face's longest edge (the member axis)
@@ -262,7 +262,7 @@ def read_part_table(me, part_table=None):
 
 
 def part_indices(me):
-    """Per-polygon INT face attribute "part" (1-based; 0 where untagged)."""
+    """Per-polygon INT face attribute "part" (1-based, 0 where untagged)."""
     attr = me.attributes.get("part")
     out = np.zeros(len(me.polygons), dtype=np.int32)
     if attr is not None and attr.domain == "FACE":
@@ -460,12 +460,12 @@ def detail_height(me, A, specs, uv_layer="UVUnique", part_table=None, matrix=Non
     object carries an unapplied transform.
 
     Detail pass 1 relief (DetailSpec.edge_round_m / .marks, section 2.2 / 2.3) is written
-    into its own field with CORE PRIORITY: a texel inside a face's undilated footprint
-    takes that face's value, a dilation-only texel takes the first face's value unless
-    some face's core claims it - so a feature is continuous (not doubled) across the
-    shared edges of a contiguous UV strip.  It is then added to the round-L field.  With
+    into its own field with CORE PRIORITY.  A texel inside a face's undilated footprint
+    takes that face's value.  A dilation-only texel takes the first face's value unless
+    some face's core claims it.  So a feature is continuous (not doubled) across the
+    shared edges of a contiguous UV strip.  The function then adds this field to the round-L field.  With
     no new field set nothing of this runs and the result is byte-identical to round L.
-    The log line gains `edge_round` / `marks:<kind>` drawn / skipped counts (faces); the
+    The log line gains `edge_round` / `marks:<kind>` drawn / skipped counts (faces).  The
     same counts are kept in LAST_DETAIL_STATS {"drawn": {...}, "skipped": {...}}.
     """
     table = read_part_table(me, part_table)
@@ -617,15 +617,15 @@ def compose_maps(base, nrm, msk, ctl, ao, height_m, ppm_map, opts=None):
     Composite the finished texture set in LINEAR space and return NEW
     (base, nrm, msk, ctl) float32 (A, A, 4) arrays.
 
-    Inputs: base/msk/ctl (A, A, 4); nrm (A, A, 3|4); ao (A, A) or (A, A, >=1) channel 0
-    (None skips AO); height_m (A, A) meters or None; ppm_map scalar or (A, A).
+    Inputs: base/msk/ctl (A, A, 4).  nrm (A, A, 3|4).  ao (A, A) or (A, A, >=1) channel 0
+    (None skips AO).  height_m (A, A) meters or None.  ppm_map scalar or (A, A).
     opts keys (all optional):
         reserved     [(u0, v0, u1, v1)] rects restored 1:1 in every map and excluded
                      from AO (occ = 1 there)
         part_map     (A, A) int: per-part value noise +-noise_amp seeded by part
-        noise_amp    default 0.03;  seed default 0
+        noise_amp    default 0.03,  seed default 0
         convex, concave  (A, A) 0..1 curvature masks:
-                     base *= 1 + 0.04*convex - 0.06*concave;
+                     base *= 1 + 0.04*convex - 0.06*concave,
                      smooth += 0.10*convex - 0.08*concave
         ao_floor     default 0.08  (occ = ao*(1-floor) + floor)
         contact      (A, A) 0..1 ground-contact weight: base *= 1 - 0.06*contact
@@ -635,8 +635,8 @@ def compose_maps(base, nrm, msk, ctl, ao, height_m, ppm_map, opts=None):
         tone_l       (A, A) luminance fraction from detail_tone: base *= 1 + tone_l,
                      right after the per-part noise, before curvature / AO
         tone_s       (A, A) from detail_tone: MaskMap A += tone_s, before the clip
-    Always: MaskMap B = 0, ControlMask A = 0, BaseColor A = 1 (outside reserved rects;
-    ControlMask A = 0 inside them too, it is a set-wide flag).  Without tone_l / tone_s
+    Always: MaskMap B = 0, ControlMask A = 0, BaseColor A = 1 (outside reserved rects).
+    ControlMask A = 0 inside them too (it is a set-wide flag).  Without tone_l / tone_s
     the result is byte-identical to round L (no RNG draw moves).
     """
     o = dict(opts or {})
@@ -783,12 +783,12 @@ def stamp_on_face(base, ctl, me, part_table, prefix, painter, uv_layer="UVUnique
 
 # --------------------------------------------------------------------------------------
 # Detail pass 1 (towers): edge rounding, marks, tone, decals
-# (design/detail-pass-1-towers.md section 2; additive - nothing above changes when the
+# (design/detail-pass-1-towers.md section 2, additive - nothing above changes when the
 # new DetailSpec fields are left at their defaults)
 # --------------------------------------------------------------------------------------
 
 LAST_DETAIL_STATS = {}   # detail_height: {"drawn": {kind: faces}, "skipped": {kind: faces}}
-LAST_TONE_STATS = {}     # detail_tone:   same layout; kinds mottle / chalk / chalk_noise
+LAST_TONE_STATS = {}     # detail_tone:   same layout.  Kinds mottle / chalk / chalk_noise
 TONE_FLOOR = 4.0         # a tone cell smaller than this many texels is skipped per face
 MOTTLE_STD = 0.234       # std of the [-1, 1] 2-octave mottle noise (measured, TC4): MaskMap A
                          # std gained by a part ~ mottle_smooth * MOTTLE_STD
@@ -826,15 +826,15 @@ class Mark:
 
     kind      plate | slot | bolts | ring | boltring | band
     center    world point (the plate center, the ring / band axis point)
-    u, v      in-plane axes of plate / slot / bolts (v is orthonormalised against u);
+    u, v      in-plane axes of plate / slot / bolts (v is orthonormalized against u).
               u also sets the boltring phase
-    n         ring / boltring face normal and band axis; None = u x v
-    Faces:  plate / slot / bolts / ring / boltring draw on faces whose normal is within
-    `ang_deg` of u x v (ring / boltring: of n) - signed, so a back face never matches -
-    AND whose plane lies within `reach_m` of the center.  band draws on any face of the
+    n         ring / boltring face normal and band axis.  None = u x v
+    Faces:  plate / slot / bolts / ring / boltring draw on faces that meet BOTH conditions.  The
+    normal is within `ang_deg` of u x v (ring / boltring: of n), signed, so a back face never
+    matches.  The plane lies within `reach_m` of the center.  band draws on any face of the
     part (normal-free) whose texels are within |(p - c).n| <= half_w and radial distance
     from the axis <= r_max (r_max <= 0 = unlimited).
-    Shapes (h = height, default +0.004; slot is always recessed, -|h|):
+    Shapes (h = height, default +0.004.  A slot is always recessed, -|h|):
       plate     raised rectangle +-half_u x +-half_v, 1-texel smoothstep rim
       slot      recessed rounded rectangle (corner radius 0.5 * min half), 1-texel rim
       bolts     domes of radius bolt_r on a grid centered in the rectangle: per axis
@@ -842,9 +842,9 @@ class Mark:
       ring      annulus r_in..r_out about n (r_in 0 = disc), 1-texel rim
       boltring  `count` domes of radius bolt_r on a circle of `radius`, the first on +u
       band      cosine bead h * 0.5 * (1 + cos(pi * t / half_w)) across |t| <= half_w
-    Texel floor (TEXEL_FLOOR = 2 texels at the face's px/m, per face; skipped faces are
-    counted under "marks:<kind>"): plate / slot 2 * min(half_u, half_v); bolts /
-    boltring 2 * bolt_r; ring r_out - r_in; band 2 * half_w.
+    Texel floor (TEXEL_FLOOR = 2 texels at the face's px/m, per face.  The code counts skipped
+    faces under "marks:<kind>").  Floor sizes: plate / slot 2 * min(half_u, half_v), bolts /
+    boltring 2 * bolt_r, ring r_out - r_in, band 2 * half_w.
     """
     kind: str
     centre: tuple
@@ -893,7 +893,7 @@ class Mark:
 
 @functools.lru_cache(maxsize=None)
 def _mark_frame(mk):
-    """(c, u_hat, v_hat, w_hat) of a Mark: v orthonormalised against u; w = n or u x v."""
+    """(c, u_hat, v_hat, w_hat) of a Mark: v orthonormalized against u, w = n or u x v."""
     c = np.array(mk.centre, dtype=np.float64)
     uh = _unit(mk.u, "Mark.u")
     v = np.array(mk.v, dtype=np.float64)
@@ -916,7 +916,7 @@ def transform_marks(items, matrix):
     transforms: half sizes, radii and pitches are not rescaled): center by the 4x4 affine
     `matrix` (any 4x4 / 3x4 nested sequence, e.g. a mathutils.Matrix), u / v / n by its
     3x3 part.  Example: the generators bake AFTER cs2_asset.orient_for_net, i.e. in the
-    net frame (x, y, z) -> (y, -x, z); marks written in the authoring frame go through
+    net frame (x, y, z) -> (y, -x, z).  Marks written in the authoring frame go through
     transform_marks(marks, Matrix.Rotation(-pi/2, 4, "Z")).  Returns a tuple.
     """
     m = np.array([list(r) for r in matrix], dtype=np.float64)
@@ -950,7 +950,7 @@ def _world_points(X, Y, qm, Pm, Mt, dx=0.0, dy=0.0):
 
 def _write_core_priority(dsts, own, sl, mask, core, vals):
     """Core-priority write (see detail_height): `core` texels always take this face's
-    values; dilation-only texels only where no face's core has claimed them yet.
+    values.  Dilation-only texels take them only where no face's core has claimed them yet.
     Returns the bool (h, w) of texels written."""
     ov = own[sl]
     ext = mask & ~core & ~ov
@@ -1023,7 +1023,7 @@ def _edge_round_field(p, segs, cen, n, r, tilt_deg):
     """
     Section 2.2 profile: d = distance to the nearest crease segment (signed: negative
     for dilation texels beyond the crease), h = -r k (1 - d/r)^2 for 0 <= d < r with
-    k = tan(tilt) / 2 (slope at the crease = tan(tilt)); beyond the crease (d < 0) the
+    k = tan(tilt) / 2 (slope at the crease = tan(tilt)).  Beyond the crease (d < 0) the
     tangent line continues (-r k + 2 k d, clamped at d = -r) so the border texel's
     central-difference gradient keeps the full tilt.  0 for d >= r.
     """
@@ -1207,7 +1207,7 @@ def _value_noise3(x, seed):
 
 
 def _fbm2(x, seed):
-    """2 octaves (half amplitude at half cell), mapped to [-1, 1]; std ~ MOTTLE_STD."""
+    """2 octaves (half amplitude at half cell), mapped to [-1, 1], std ~ MOTTLE_STD."""
     return (_value_noise3(x, seed)
             + 0.5 * _value_noise3(2.0 * x, (int(seed) ^ _SALT_OCT2) & 0xFFFFFFFF)) / 1.5
 
@@ -1220,15 +1220,15 @@ def detail_tone(me, A, specs, uv_layer="UVUnique", part_table=None, matrix=None,
     wins) may be the detail_height dict or a separate one keyed by material class.
 
     Mottle (spec.mottle_m set, amp or smooth non-zero): hashed trilinear value noise in
-    WORLD meters (murmur3 fmix32 of the int lattice, seed = crc32(prefix) ^ seed), cell
+    WORLD meters (murmur3 fmix32 of the int lattice, seed = crc32(prefix) ^ seed).  The cell is
     mottle_m across and mottle_m * mottle_stretch along the face's longest edge (the
-    member axis; the stretch is sign-free, so the facets of one member share it), 2
-    octaves mapped to [-1, 1] (std MOTTLE_STD): dl += amp * n1, ds += smooth * n2 (n2
+    member axis, and the stretch is sign-free, so the facets of one member share it).  The
+    noise has 2 octaves mapped to [-1, 1] (std MOTTLE_STD): dl += amp * n1, ds += smooth * n2 (n2
     an independent seed).  Chalk: s = smoothstep(0.2, 0.9, n_face.z) *
-    (0.7 + 0.3 * noise(0.5 m)); dl += chalk_amp * s; ds -= chalk_smooth * s.
-    Floor: a cell below TONE_FLOOR (4) texels at the face's px/m is skipped and counted
-    (mottle; for chalk only its 0.5 m noise is dropped - the face keeps 0.7 * up -
-    counted as chalk_noise).  Faces are written with the same core priority as
+    (0.7 + 0.3 * noise(0.5 m)), then dl += chalk_amp * s and ds -= chalk_smooth * s.
+    Floor: for mottle, a cell below TONE_FLOOR (4) texels at the face's px/m is skipped and counted.
+    For chalk, only its 0.5 m noise is dropped (the face keeps 0.7 * up), counted as
+    chalk_noise.  The function writes faces with the same core priority as
     detail_height, so tone is continuous across a contiguous strip.  Stats in
     LAST_TONE_STATS.
     """
@@ -1328,7 +1328,7 @@ class Decal:
 
 def _bilinear_zero(pad, col, row):
     """Bilinear sample of a 1-texel zero-padded image at (col, row) of the UNPADDED
-    image (texel centers at integers); 0 outside."""
+    image (texel centers at integers).  0 outside."""
     Hp, Wp = pad.shape
     x = col + 1.0
     y = row + 1.0
@@ -1351,8 +1351,8 @@ def decal_on_faces(base, ctl, me, A, part_table, prefix, decal, uv_layer="UVUniq
     ControlMask over every face of the parts starting with `prefix` (part_table None =
     the mesh's json prop) whose normal satisfies n . (u x v) >= min_cos, texels inside
     the slab |(p - c) . w| <= reach_m.  Per texel 2 x 2 sub-samples -> decal (s, t) ->
-    bilinear alpha (anti-aliased edges) -> base = mix(base, rgb, alpha); ControlMask R
-    and G scaled by (1 - alpha) (0 at alpha >= 0.99: the stamp rule); BaseColor alpha 1.
+    bilinear alpha (anti-aliased edges) -> base = mix(base, rgb, alpha).  ControlMask R
+    and G scaled by (1 - alpha) (0 at alpha >= 0.99: the stamp rule).  BaseColor alpha 1.
     Faces are written with core priority (1 px dilation into the gutter), so a decal
     spanning several facets of a strip is applied once per texel.
     Returns the touched texel rects [(row0, row1, col0, col1)] (one per face that

@@ -10,42 +10,42 @@ Contract
 
     lod_switch_table(bbox_size_xyz, tris_by_level, lod_factor=652.0, area=None) -> dict
 
-`obj` is the FINISHED LOD0 object in meters (Blender Z-up, already net-oriented), `asset_dir`
-holds the four shipped maps `<name>_{BaseColor,Normal,MaskMap,ControlMask}.png` (optionally
-`<name>_Emissive.png`). The rig never touches the export path: everything it adds to the
-scene (camera, sun, ground, world, materials, images, color attributes, imported previous-
-generation meshes) is removed again and the object's material slots and every object's
-`hide_render` flag are restored, so a generator can call it right before `export_fbx`.
+`obj` is the FINISHED LOD0 object in meters (Blender Z-up, already net-oriented). `asset_dir` holds the
+four shipped maps `<name>_{BaseColor,Normal,MaskMap,ControlMask}.png` (optionally `<name>_Emissive.png`).
+The rig never touches the export path. It removes everything it adds to the scene (camera, sun, ground,
+world, materials, images, color attributes, imported previous-generation meshes). It restores the
+object's material slots and every object's `hide_render` flag. So a generator can call the rig right
+before `export_fbx`.
 
 Modes (file names are `<name>_<mode>_<view>.png` unless stated):
-  pbr      Nishita sky (5.2: sky_type MULTIPLE_SCATTERING, no disc) sun elevation 55 deg,
-           rotation 135 deg, altitude 1800 m + a matched SUN lamp (4.0), AgX view transform,
-           45 deg vertical fov, 60 m ground plane albedo 0.85, material built from the four
-           maps: BaseColor x mix(1, STEEL_DEFAULT_RGB, ctl.R) x mix(1, PAD_RGB, ctl.G)
-           x mix(1, tint["B"] or 1, ctl.B) (multiplied in LINEAR space - the picker tint
-           multiplies), Normal -> NormalMap, MaskMap R -> Metallic, 1 - A -> Roughness,
-           G -> Coat Weight, `_Emissive` -> Emission strength 5.
+  pbr      Nishita sky (5.2: sky_type MULTIPLE_SCATTERING, no disc), sun elevation 55 deg,
+           rotation 135 deg, altitude 1800 m, and a matched SUN lamp (4.0). AgX view
+           transform, 45 deg vertical fov, 60 m ground plane with albedo 0.85. The material
+           comes from the four maps: BaseColor x mix(1, STEEL_DEFAULT_RGB, ctl.R)
+           x mix(1, PAD_RGB, ctl.G) x mix(1, tint["B"] or 1, ctl.B) (multiplied in LINEAR
+           space - the picker tint multiplies), Normal -> NormalMap, MaskMap R -> Metallic,
+           1 - A -> Roughness, G -> Coat Weight, `_Emissive` -> Emission strength 5.
   dusk     the same rig at sun elevation 4 deg / lamp 0.4 (the frame that shows emissive).
   normals  Workbench MATCAP, single color: faceting, bevels and shading seams only.
-  lod      for every LOD k: LOD0 and LODk rendered as silhouettes from the same camera at
-           the predicted switch distance d_k (lod_switch_table) and at d_k / 2; written as
+  lod      For every LOD k, the rig renders LOD0 and LODk as silhouettes from the same camera
+           at the predicted switch distance d_k (lod_switch_table) and at d_k / 2. It writes
            `<name>_lod<k>_<d>m_xor<pct>pct.png` = [LOD0 | LODk | XOR] cropped to the union
-           silhouette, the XOR percentage (xor / union) in the file name.
-  density  per-face shipped px/m (layer "UVUnique" if present, else the active layer) on a
-           log color ramp (blue 25 - cyan 50 - green 100 - yellow 200 - red 400 px/m)
-           multiplied by a 4-texel checker, rendered unlit; a per-part table is printed.
-  ab       `prev_generation` (an asset FOLDER holding `<prev>.fbx` + its maps, or the FBX
-           path) is re-imported (cm Y-up -> meters Z-up, as cs2_asset.export_fbx bakes it),
-           given the same pbr material recipe from ITS maps and rendered with the camera
-           framed on the NEW asset; written side by side as `<name>_ab_<view>.png` = [new | prev].
+           silhouette. The file name holds the XOR percentage (xor / union).
+  density  Per-face shipped px/m (layer "UVUnique" if present, else the active layer) on a log
+           color ramp (blue 25 - cyan 50 - green 100 - yellow 200 - red 400 px/m), multiplied
+           by a 4-texel checker, rendered unlit. The rig prints a per-part table.
+  ab       `prev_generation` is an asset FOLDER holding `<prev>.fbx` + its maps, or the FBX
+           path. The rig re-imports it (cm Y-up -> meters Z-up, as cs2_asset.export_fbx
+           bakes it), gives it the same pbr material recipe from ITS maps, and renders it
+           with the camera framed on the NEW asset. It writes the images side by side as
+           `<name>_ab_<view>.png` = [new | prev].
 
-Engine: EEVEE (Blender 5.x identifier BLENDER_EEVEE = EEVEE-Next) for pbr/dusk/density/ab;
-if a render raises, the rig falls back to Cycles CPU 16 samples (as lift_tower.pick_engine
-picks the best engine present). Workbench for normals and the lod silhouettes.
+Engine: EEVEE (Blender 5.x identifier BLENDER_EEVEE = EEVEE-Next) for pbr/dusk/density/ab. If a
+render raises, the rig falls back to Cycles CPU 16 samples (as lift_tower.pick_engine picks the best
+engine present). Workbench for normals and the lod silhouettes.
 
-Absolute match to CS2 lighting is unverified (documented in the plan); the value is an
-identical rig across rounds. The sun lamp aims along the sky node's `sun_direction`, so
-lamp shadows and the sky gradient agree.
+Absolute match to CS2 lighting is unverified (documented in the plan). The value is an identical rig across
+rounds. The sun lamp aims along the sky node's `sun_direction`, so lamp shadows and the sky gradient agree.
 """
 
 import math
@@ -78,8 +78,8 @@ DEFAULT_VIEWS = (
 SKY_ROTATION_DEG = 135.0
 SKY_ALTITUDE_M = 1800.0
 #: Background strength on the Nishita sky. Blender's sky is physical (noon sky-only ground
-#: radiance ~2.4 at strength 1 on a 0.5 gray) while the SUN lamp uses the 4.0 W/m^2 preview
-#: convention (0.64 on the same ground): 0.07 puts diffuse sky at ~26 % of direct sun on a
+#: radiance ~2.4 at strength 1 on a 0.5 gray), while the SUN lamp uses the 4.0 W/m^2 preview
+#: convention (0.64 on the same ground). 0.07 puts diffuse sky at ~26 % of direct sun on a
 #: horizontal surface, the real clear-noon ratio. Measured 2026-09-22, Blender 5.2.2.
 SKY_STRENGTH = 0.07
 NOON = dict(elevation_deg=55.0, sun_energy=4.0)
@@ -100,8 +100,8 @@ DENSITY_RAMP = (
     (400.0, (0.90, 0.15, 0.10)),
 )
 DENSITY_CHECKER_PX = 4
-#: lod composites are upscaled (nearest) to at least this height; the silhouette pixel
-#: counts in the console line are measured BEFORE the upscale.
+#: The rig upscales lod composites (nearest) to at least this height. It measures the silhouette
+#: pixel counts in the console line BEFORE the upscale.
 LOD_MIN_PANEL_PX = 256
 
 _PREVIEW_TAG = "cs2_preview_rig"
@@ -113,7 +113,7 @@ _PREVIEW_TAG = "cs2_preview_rig"
 
 def lod_switch_table(bbox_size_xyz, tris_by_level, lod_factor=652.0, area=None):
     """
-    Predicted LOD switch distances (plan 3.7; RequiredBatchesSystem.cs:671-698,
+    Predicted LOD switch distances (plan 3.7, RequiredBatchesSystem.cs:671-698,
     RenderingUtils.cs:142, thin-mesh bias MeshSystem.cs:505-511).
 
         csum  = sx + sy + sz
@@ -121,13 +121,13 @@ def lod_switch_table(bbox_size_xyz, tris_by_level, lod_factor=652.0, area=None):
         d_k   = lod_factor * 2^-bias * csum * 0.57735 / sqrt(3 * tris_k)
         cull  = lod_factor * csum / 3 * 2^-bias
 
-    `tris_by_level` lists LOD0..LODn triangle counts; `area` is the mesh surface area in m^2
-    (optional: the thin-mesh term needs it; a box-like building has bias ~0). lod_factor 652
+    `tris_by_level` lists LOD0..LODn triangle counts. `area` is the mesh surface area in m^2
+    (optional: the thin-mesh term needs it, and a box-like building has bias ~0). lod_factor 652
     assumes the 45 deg fov and LOD Medium zoomed out (unverified - proof = SkiProbeLodA pop
-    distances); halve at ground zoom.
+    distances). Halve it at ground zoom.
 
-    Returns {"csum", "bias", "distances": [d_0..d_n], "switch": {k: d_k for k >= 1}, "cull"}.
-    LODk is used from `switch[k]` outward; LOD0 inside `switch[1]`.
+    Returns {"csum", "bias", "distances": [d_0..d_n], "switch": {k: d_k for k >= 1}, "cull"}. LODk
+    is used from `switch[k]` outward. LOD0 is used inside `switch[1]`.
     """
     sx, sy, sz = (float(v) for v in bbox_size_xyz)
     csum = sx + sy + sz
@@ -167,7 +167,7 @@ def _load_rgba(path, is_data=False):
 
 
 def _write_rgba(path, rgba):
-    """Write an (h, w, 4) float array (bottom-up rows) as PNG; non-square allowed."""
+    """Write an (h, w, 4) float array (bottom-up rows) as PNG. Non-square arrays are allowed."""
     h, w = rgba.shape[:2]
     img = bpy.data.images.new("cs2_preview_out", width=w, height=h, alpha=True)
     try:
@@ -381,8 +381,8 @@ def _frame(cam, obj, direction, resolution):
 
 
 def _render(rig, path, engine="EEVEE", transparent=False, view_transform="AgX", look="None"):
-    """Render one frame; EEVEE failures fall back to Cycles CPU (16 samples). `look`: the view look (None = flat AgX;
-    lift_tower.SKIN_LIGHT asks for a contrast look; an unknown name falls back to None)."""
+    """Render one frame. EEVEE failures fall back to Cycles CPU (16 samples). `look`: the view look. None = flat AgX.
+    lift_tower.SKIN_LIGHT asks for a contrast look. An unknown name falls back to None."""
     sc = rig.scene
     sc.render.image_settings.file_format = "PNG"
     sc.render.image_settings.color_mode = "RGBA"
@@ -741,9 +741,9 @@ def _mode_lod(rig, cam, obj, name, out_dir, lods, resolution, view_dir):
 
 def import_generation(fbx_path):
     """
-    Re-import an FBX written by cs2_asset.export_fbx and undo its bake: vertices are cm,
-    Y-up, (x, y, z)_blender -> (x, z, -y); the inverse is (X, Y, Z) -> (X, -Z, Y) / 100.
-    Returns the imported mesh object in meters, Z-up, identity transform.
+    Re-import an FBX written by cs2_asset.export_fbx and undo its bake. The vertices are cm, Y-up,
+    with (x, y, z)_blender -> (x, z, -y). The inverse is (X, Y, Z) -> (X, -Z, Y) / 100. Returns the
+    imported mesh object in meters, Z-up, identity transform.
     """
     before = set(bpy.data.objects)
     op = bpy.ops.wm.fbx_import if hasattr(bpy.ops.wm, "fbx_import") else bpy.ops.import_scene.fbx
@@ -799,8 +799,8 @@ def preview(obj, asset_dir, name, out_dir,
     Render the preview set described in the module docstring. Returns the written paths.
 
     `views`: iterable of (name, (x, y, z) camera direction) - default DEFAULT_VIEWS.
-    `lods`: LOD objects (LOD1, LOD2, ...) for the lod mode; None = look up `<name>_LOD<k>`.
-    `prev_generation`: previous letter's asset folder (or FBX) for the ab mode; None skips it.
+    `lods`: LOD objects (LOD1, LOD2, ...) for the lod mode. None = look up `<name>_LOD<k>`.
+    `prev_generation`: previous letter's asset folder (or FBX) for the ab mode. None skips it.
     `tint`: {"R"|"G"|"B": rgb} overrides of the recolor slots (defaults steel / pad / white).
     `samples`: override the EEVEE (32) / Cycles fallback (16) sample count (tests).
     """

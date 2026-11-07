@@ -1,22 +1,26 @@
 """
 fg_loadroom_probe.py - T17 (Ash Flat 2026-10-15 item 16): the fixed-grip BASE station's loading room, measured.
 
-Shot 17.44.53.17: "The entire rear support posts need to be moved back (and thus the weight and such; we can
-have a bigger empty platform up top) so that there is more room for the skiers to get into the lift load spot."
-lift_terminal.M_BASE_LOADROOM switches the redesign (False = the pre-T17 base byte for byte). This probe:
+Shot 17.44.53.17: "The entire rear support posts need to be moved back (and thus the weight and such; we can have a
+bigger empty platform up top) so that there is more room for the skiers to get into the lift load spot."
+lift_terminal.M_BASE_LOADROOM switches the redesign (False = the pre-T17 base byte for byte). This probe has three
+modes:
 
   --hash      the determinism-style hash (geometry + part table + UVSeed/UVTile + the row block) of the drive station,
-              fine-detail on and --no-fine, at the CURRENT flag value (or --flag on|off): the flag-off build must
-              reproduce the pre-T17 hashes recorded in the build note.
-  --measure   the loading-room numbers (plan, hip band 0.30-1.80 m over the pad = z 0.60-2.10): rear-leg clearance to
-              the swept 6M chair, the bay length between the leg faces, the load line -> first obstacle behind, the
-              approach route widths (side / behind -> the ramp foot, 2 x the bottleneck clearance, cap 2.0), the free
-              area behind the load line; obstacles = the station mesh + the dressing-kit rows' real meshes + the
-              deployed vanilla / mod rows (trash bin box, the SkiPisteFloodlightLow pole) that the M1 frozen block
-              keeps where they are.  Writes JSON to --json.
-  --render ASSET_DIR TAG   the preview set of a shipped-format asset folder (EEVEE, Nishita sky, AgX):
-              the screenshot angle, the skier's eye on the
-              ramp, a plan (lot outline, the chair sweep, the legs) and 20 m.
+              with fine-detail on and with --no-fine, at the CURRENT flag value (or --flag on|off). The flag-off build
+              must reproduce the pre-T17 hashes recorded in the build note.
+  --measure   the loading-room numbers (plan, hip band 0.30-1.80 m over the pad = z 0.60-2.10):
+              - rear-leg clearance to the swept 6M chair
+              - the bay length between the leg faces
+              - the load line -> first obstacle behind
+              - the approach route widths (side / behind -> the ramp foot, 2 x the bottleneck clearance, cap 2.0)
+              - the free area behind the load line
+              The obstacles are the station mesh + the dressing-kit rows' real meshes + the deployed vanilla / mod
+              rows (trash bin box, the SkiPisteFloodlightLow pole) that the M1 frozen block keeps where they are.
+              The mode writes JSON to --json.
+  --render ASSET_DIR TAG   the preview set of a shipped-format asset folder (EEVEE, Nishita sky, AgX). The views are
+              the screenshot angle, the skier's eye on the ramp, a plan (lot outline, the chair sweep, the legs)
+              and 20 m.
 
     blender --background --factory-startup --python-exit-code 1 --python fg_loadroom_probe.py -- --measure --flag on
 Run from assets/blender (cwd) so no stray folder lands in the repo root.
@@ -106,7 +110,7 @@ def flood_radius():
         V = np.array([(M @ v.co)[:] for v in o.data.vertices]) / 100.0
     finally:
         cs2_validate.remove_objects(objs)
-    # raw FBX: cm, y up (lift_terminal.load_chair_m's reading); the pole stands on y 0
+    # raw FBX: cm, y up (lift_terminal.load_chair_m's reading). The pole stands on y 0
     low = V[V[:, 1] < 2.2]
     r = float(np.hypot(low[:, 0], low[:, 2]).max())
     return r, float(V[:, 1].max()), float(np.hypot(V[:, 0], V[:, 2]).max())
@@ -297,10 +301,14 @@ def measure():
 
 def render(asset_dir, tag, out_dir, views=("1_shot_angle", "2a_ramp_eye", "2b_approach_eye", "3_plan", "4_20m"),
            res=(1600, 1000)):
-    """The shipped-format asset in `asset_dir` (FBX + _Win + the four maps, as main_m writes it) back in the
-    authoring frame, with what stands beside it in game: the dressing-kit rows (real meshes, flat colors), the frozen
-    SkiPisteFloodlightLow row (its shipped FBX + maps), the vanilla trash bin (a box of its union bounds: stand-in),
-    two 6M chairs (shipped LOD0 + maps: at the load tangent and at the back of the arc) and 1.8 m skier stand-ins.
+    """The shipped-format asset in `asset_dir` (FBX + _Win + the four maps, as main_m writes it) back in the authoring
+    frame, with what stands beside it in game:
+    - the dressing-kit rows (real meshes, flat colors)
+    - the frozen SkiPisteFloodlightLow row (its shipped FBX + maps)
+    - the vanilla trash bin (a box of its union bounds: stand-in)
+    - two 6M chairs (shipped LOD0 + maps: at the load tangent and at the back of the arc)
+    - 1.8 m skier stand-ins
+
     The cs2_preview rig: EEVEE, Nishita sky (noon), the 4.0 sun, AgX, 60 m ground."""
     import mathutils
     from mathutils import Vector
@@ -312,8 +320,8 @@ def render(asset_dir, tag, out_dir, views=("1_shot_angle", "2a_ramp_eye", "2b_ap
     LT.clear_scene()
     name = os.path.basename(os.path.normpath(asset_dir))
     def raw_of(o):
-        """The FBX's own frame in meters (x, y up, z): cs2_preview.import_generation un-bakes it only when its
-        y-up guess fires (it does not on this station), so read the up axis from the data (min z or min y = 0)."""
+        """The FBX's own frame in meters (x, y up, z). cs2_preview.import_generation un-bakes it only when its y-up
+        guess fires (it does not on this station). So read the up axis from the data (min z or min y = 0)."""
         V = np.array([v.co[:] for v in o.data.vertices])
         return V if abs(V[:, 1].min()) <= abs(V[:, 2].min()) else np.stack([V[:, 0], V[:, 2], -V[:, 1]], axis=1)
 

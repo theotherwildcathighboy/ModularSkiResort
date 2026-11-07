@@ -4,25 +4,27 @@ test_glass_slots - T85 `--glass gls` + T89 `--slots v2` (docs/research/field/202
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_glass_slots.py [-- <letter dir>]
 
 Layout gates (no bake, seconds):
-  S1  flag off byte-identical: the rollout --trim v1 layout hash equals the X export's (0d3e5eee7bf6c131), before AND after
-      a v2 + gls layout was built in the same process (registering v2 keys mutates no module table);
-  S2  v2 layout: metal_roof_dk / metal_roof_dk~w on the two retired cells (lux_stone_tan~w (3,6), lux_siding_red~w (6,7),
-      0 m2 sampled on all eight X builds), metal_roof_lt / lux_glulam_s2 / lux_balrail_s2 on the cells of the keys they
-      replace, every other tile rect and every flag-off palette rect unchanged (the renamed keys' "~f" excepted), the new
-      flat keys appended, no rect overlap, palette <= 64;
-  S3  slots: frame = slot 3, trim_grain_s2 = slot 2 (strip band 1), lux_glulam_s2 / lux_balrail_s2 = slot 2, the
-      accent_* and metal_roof_lt / _dk keys slot 0 and their fixed color = lin(RECOLOR_ALBEDO) x lin(old default) (the game
-      reads a VariationSet color as sRGB, BatchDataSystem.cs:716-718); slot_default_for inverts fixed_srgb;
-      slots_v2_trim_remap keeps L4 / L5 boards on band 0;
-  S4  glass: the three interior keys appended, lit / dim emissive, dark none; lodge.asset_name drops the keyword under
-      gls and raises if it is kept; the default build path (glass win, slots v1) never registers a v2 key.
+- S1: flag off is byte-identical. The rollout --trim v1 layout hash equals the X export's (0d3e5eee7bf6c131). This holds
+  before AND after a v2 + gls layout is built in the same process (registering v2 keys mutates no module table).
+- S2: v2 layout. metal_roof_dk / metal_roof_dk~w sit on the two retired cells (lux_stone_tan~w (3,6), lux_siding_red~w
+  (6,7), 0 m2 sampled on all eight X builds). metal_roof_lt / lux_glulam_s2 / lux_balrail_s2 sit on the cells of the
+  keys they replace. Every other tile rect and every flag-off palette rect is unchanged (the renamed keys' "~f"
+  excepted). The new flat keys are appended. No rect overlaps. The palette has no more than 64 entries (palette <= 64).
+- S3: slots. frame = slot 3, trim_grain_s2 = slot 2 (strip band 1), lux_glulam_s2 / lux_balrail_s2 = slot 2. The
+  accent_* and metal_roof_lt / _dk keys are slot 0, and their fixed color = lin(RECOLOR_ALBEDO) x lin(old default). The
+  game reads a VariationSet color as sRGB (BatchDataSystem.cs:716-718). slot_default_for inverts fixed_srgb.
+  slots_v2_trim_remap keeps L4 / L5 boards on band 0.
+- S4: glass. The three interior keys are appended. Emissive: lit / dim have it, dark has none. lodge.asset_name drops
+  the keyword under gls and raises if it is kept. The default build path (glass win, slots v1) never registers a v2 key.
+
 Folder gates (when a letter dir with the eight Y builds is given):
-  F1  each folder: <name>_Gls / _LOD1_Gls / _LOD2_Gls FBX, no _Win FBX, no interior keyword in the name;
-  F2  manifest: glass.plates >= 1, far_plates.moved >= 1 where a kit hole exists, LOD0 <= cap, LOD1 <= 0.5 LOD0,
-      LOD2 <= 500, tiled.sheet.emissive_bound true (every building now has lit plates), tiled.slots_v2 present with
-      three defaults in [0, 1] and the ControlMask gate passed (slots_v2_report raises otherwise);
-  F3  one sheet hash across the eight; the school owns it.
-Exit 1 on the first failure; one PASS line otherwise.
+- F1: each folder has <name>_Gls / _LOD1_Gls / _LOD2_Gls FBX, no _Win FBX, and no interior keyword in the name.
+- F2: manifest. glass.plates >= 1, far_plates.moved >= 1 where a kit hole exists, LOD0 <= cap, LOD1 <= 0.5 LOD0, LOD2 <=
+  500. tiled.sheet.emissive_bound is true (every building now has lit plates). tiled.slots_v2 is present with three
+  defaults in [0, 1], and the ControlMask gate passed (slots_v2_report raises otherwise).
+- F3: one sheet hash across the eight. The school owns it.
+
+The test exits 1 on the first failure. Otherwise it prints one PASS line.
 """
 
 import json
@@ -40,9 +42,10 @@ import cs2_bldg as K                   # noqa: E402
 import cs2_tilesheet as TS             # noqa: E402
 import lodge                           # noqa: E402
 
-# the flag-off trim v1 family sheet. Export round X (DECISIONS 290) was 0d3e5eee7bf6c131; B's T90 wood constants
-# (c82e573: GLULAM_LIN / TG_LIN, unconditional) moved it to ecbcf85506aacaa6 (measured on a clean HEAD copy, integration
-# build 2026-10-19); re-pinned in T102 (DECISIONS 317). The --slots v2 / --glass gls keys never enter it.
+# X_HASH is the hash of the flag-off trim v1 family sheet. Export round X (DECISIONS 290) was 0d3e5eee7bf6c131. B's T90
+# wood constants (c82e573: GLULAM_LIN / TG_LIN, unconditional) moved it to ecbcf85506aacaa6 (measured on a clean HEAD
+# copy, integration build 2026-10-19). T102 re-pinned it (DECISIONS 317). The --slots v2 / --glass gls keys never enter
+# it.
 X_HASH = "ecbcf85506aacaa6"
 CHECKS = []
 

@@ -1,38 +1,50 @@
 """
-Launcher glyph candidates (Round S1 F9): a one-color white glyph for the hub's floating button,
+Launcher glyph candidates (Round S1 F9): a one-color white glyph for the hub's floating button. It is
 drawn the way the game draws every other button in the top-left row (cs2/ui FloatingButton with the
 default tint: a white mask on the accent plate).
 
 Same technique as assets/blender/ski_icons.py: numpy signed-distance shapes, analytic coverage at
-supersampling, a minimal PNG encoder, no bpy. Run on Blender's bundled python.exe:
+supersampling, a minimal PNG encoder, no bpy. Run it on Blender's bundled python.exe:
 
     "<blender>\\<ver>\\python\\bin\\python.exe" ski_launcher_glyph.py --out <dir> [--row <toolbar-row.png>]
         [--only a,b,c,d] [--detail]
 
-Writes per candidate: launcher-<x>.png (256 x 256, RGB 255 everywhere, the shape in alpha, so the
-mask is the same whether Gameface reads it as an alpha or a luminance mask) and launcher-<x>.svg
-(the same primitives, white, viewBox 0 0 256 256; parsed back and re-rendered on every run, so
-the SVG says exactly what the PNG shows), plus sheet.png when --row is given (the real row on
-top, each candidate in our slot, the button at 80 / 40 px normal and selected, the rejected
-outline drafts of (a)) and detail.png with --detail (a review aid).
+Writes per candidate:
+- launcher-<x>.png (256 x 256, RGB 255 everywhere, the shape in alpha). The mask is the same whether
+  Gameface reads it as an alpha or a luminance mask.
+- launcher-<x>.svg (the same primitives, white, viewBox 0 0 256 256). Every run parses it back and
+  re-renders it, so the SVG says exactly what the PNG shows.
 
-Written 2026-10-05 for the S1 spec (docs/research/ski-days/spec/ch5-launcher.md); review copy in
-docs/research/art/icons-2026-10-05/launcher-glyph/ (as launcher_glyph.py). Its repo home once a glyph
-is chosen: assets/blender/ski_launcher_glyph.py (ch5 E.1 step 2).
+It also writes sheet.png when --row is given (the real row on top, each candidate in our slot, the
+button at 80 / 40 px normal and selected, the rejected outline drafts of (a)). With --detail it
+writes detail.png (a review aid).
+
+Written 2026-10-05 for the S1 spec (docs/research/ski-days/spec/ch5-launcher.md). The review copy is
+in docs/research/art/icons-2026-10-05/launcher-glyph/ (as launcher_glyph.py). Once a glyph is
+chosen, the script's repo home is assets/blender/ski_launcher_glyph.py (ch5 E.1 step 2).
+
 Shipped: (c), as mod/SkiResortUI/src/hub/SkiLauncherGlyph.svg (a byte copy of launcher-c.svg, md5
-605f036f50ed1b03ffff6cc5dcdd0f78; the owner's pick, DECISIONS 148). Swapping the pick is a one-file copy.
+605f036f50ed1b03ffff6cc5dcdd0f78). It was the owner's pick (DECISIONS 148). Swapping the pick is a
+one-file copy.
 
-Every shape is one of five primitives that map 1:1 to SVG: a round-capped, round-joined stroke
-along a polyline (<path stroke-linecap=round stroke-linejoin=round>), a filled polygon (<path>),
-a disk (<circle>), a ring (<circle fill=none>) and a rounded rectangle (<rect rx>). No knockouts
-(a mask cannot subtract), no text.
+Every shape is one of five primitives that map 1:1 to SVG:
+- a round-capped, round-joined stroke along a polyline (<path stroke-linecap=round
+  stroke-linejoin=round>)
+- a filled polygon (<path>)
+- a disk (<circle>)
+- a ring (<circle fill=none>)
+- a rounded rectangle (<rect rx>)
 
-Targets (measured from the real row, toolbar-row.png, 4K: plate 80 px, icon box 72 px since
-.button_ke4 pads var(--gap2) = 4 px; the vanilla Info glyph is 58 px = 81 % of its box):
-  - glyph outer bbox about 80 % of the canvas (205 of 256 px) -> 72 % of the plate;
-  - main stroke 24 canvas px = 3/32 of the box, exactly Media/Glyphs/Info.svg's ring
-    (6.75 px at 4K, 3.4 px at 1080p); no stroke under 14 (2 px at 1080p);
-  - gaps between separate parts about 21 canvas px (3 px at 1080p) so they stay apart at 40 px.
+There are no knockouts (a mask cannot subtract) and no text.
+
+The measurements come from the real row (toolbar-row.png, 4K). The plate is 80 px. The icon box is
+72 px, since .button_ke4 pads var(--gap2) = 4 px. The vanilla Info glyph is 58 px = 81 % of its box.
+
+Targets:
+- The glyph outer bbox is about 80 % of the canvas (205 of 256 px) -> 72 % of the plate.
+- The main stroke is 24 canvas px = 3/32 of the box, exactly Media/Glyphs/Info.svg's ring (6.75 px
+  at 4K, 3.4 px at 1080p). No stroke is under 14 (2 px at 1080p).
+- Gaps between separate parts are about 21 canvas px (3 px at 1080p), so they stay apart at 40 px.
 """
 
 import argparse
@@ -57,11 +69,11 @@ def on_line(p0, p1, x):
 
 
 def hook_chair(gx, gy, back_x, arc_y, seat_y, seat_x1, hw, sw, n=10):
-    """Side-view chairlift chair: the hanger drops from the grip (gx, gy) on the cable and bends
-    round (a quarter circle of radius gx - back_x, starting at arc_y) into the back at back_x,
-    which drops to the seat at seat_y (one stroke, hw: a thicker back made an elbow where the
-    two met); the seat runs forward to seat_x1 (sw, the heaviest stroke). No footrest: with one
-    it read as a zigzag at 40 px."""
+    """Side-view chairlift chair. The hanger drops from the grip (gx, gy) on the cable. It bends into
+    the back at back_x along a quarter circle (radius gx - back_x, starting at arc_y). The back
+    drops to the seat at seat_y (one stroke, hw: a thicker back made an elbow where the two met).
+    The seat runs forward to seat_x1 (sw, the heaviest stroke). No footrest: with one it read as a
+    zigzag at 40 px."""
     r = gx - back_x
     arc = [(back_x + r * np.cos(t), arc_y + r * np.sin(t)) for t in np.linspace(0.0, np.pi / 2, n)]
     return [("line", [(gx, gy)] + arc + [(back_x, seat_y)], hw),
@@ -69,8 +81,8 @@ def hook_chair(gx, gy, back_x, arc_y, seat_y, seat_x1, hw, sw, n=10):
 
 
 def cand_a():
-    """(a) Peak, cable and chair: a two-peak range as a solid silhouette on the right, the cable
-    rising from the left toward the high peak, one chair hanging in the air on the left."""
+    """(a) Peak, cable and chair. A two-peak range forms a solid silhouette on the right. The cable
+    rises from the left toward the high peak. One chair hangs in the air on the left."""
     p0, p1 = (30.0, 104.0), (150.0, 48.0)
     gx = 74.0
     rng = [(98.0, 228.0), (148.0, 126.0), (168.0, 150.0), (198.0, 80.0), (236.0, 228.0)]
@@ -88,7 +100,7 @@ def cand_b():
 
 
 def snowflake(cx, cy, r, w, branch=0.32, bw=16.0):
-    """Six arms (stroke w) with one V of short branches (stroke bw) on each, 62 % out."""
+    """Six arms (stroke w). Each arm has one V of short branches (stroke bw) at 62 % out."""
     out = []
     for k in range(6):
         a = np.radians(90 + 60 * k)
@@ -102,14 +114,14 @@ def snowflake(cx, cy, r, w, branch=0.32, bw=16.0):
 
 
 def cand_c():
-    """(c) A peak with a snowflake: a two-peak range as a solid silhouette, a flake in the sky."""
+    """(c) A peak with a snowflake. A two-peak range forms a solid silhouette, with a flake in the sky."""
     mt = [(26.0, 228.0), (100.0, 126.0), (128.0, 156.0), (170.0, 98.0), (230.0, 228.0)]
     return [("fill", mt)] + snowflake(72.0, 72.0, 44.0, 20.0)
 
 
 def cand_d():
-    """(d) A skier pictogram on a slope (downhill to the right): the slope is a solid wedge whose
-    top is the snow; the skis lie on it with the tips turned up; one pole planted ahead."""
+    """(d) A skier pictogram on a slope (downhill to the right). The slope is a solid wedge whose top
+    is the snow. The skis lie on it with the tips turned up. One pole is planted ahead."""
     slope = ("fill", [(26.0, 176.0), (232.0, 226.0), (26.0, 226.0)])
     ski = ("line", [(58.0, 179.0), (184.0, 209.0), (200.0, 197.0)], 16.0)
     head = ("disk", 172.0, 44.0, 21.0)
@@ -120,8 +132,8 @@ def cand_d():
     return [slope, ski, head, body, leg, arm, pole]
 
 
-# (a) drawn as the brief's OUTLINE first. Kept for the sheet's last row: every outline version
-# failed at 40 px (it read as a line chart, the letter "A" / an upturned V, or "M").
+# (a) drawn as the brief's OUTLINE first. Kept for the sheet's last row. Every outline version
+# failed at 40 px. Each version read as a line chart, the letter "A" / an upturned V, or "M".
 def rejected_foothill():
     p0, p1 = (30.0, 102.0), (152.0, 44.0)
     gy = on_line(p0, p1, 74.0)
@@ -213,7 +225,7 @@ def sd_prim(p, x, y):
 
 def render_alpha(prims, size, ss=8):
     """Coverage (0..1) of the glyph drawn into a size x size box (the 256 canvas scaled to fit),
-    supersampled ss x ss: the vector look of an SVG mask at that size."""
+    supersampled ss x ss. This gives the vector look of an SVG mask at that size."""
     n = size * ss
     c = (np.arange(n, dtype=np.float64) + 0.5) / ss * (CANVAS / size)
     x, y = np.meshgrid(c, c)
@@ -301,8 +313,8 @@ def measure(alpha):
     x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
     span = max(x1 - x0 + 1, y1 - y0 + 1) / CANVAS * BOX_TO_PLATE
     area = alpha.sum() / CANVAS ** 2 * BOX_TO_PLATE ** 2
-    # gap: the smallest distance between two separate parts (connected components at alpha 0.5);
-    # parts that touch are one component, so gaps inside one part are judged on the sheet.
+    # gap: the smallest distance between two separate parts (connected components at alpha 0.5).
+    # Parts that touch are one component, so gaps inside one part are judged on the sheet.
     labels, n = label(m)
     gap = None
     for i in range(1, n + 1):
@@ -467,7 +479,7 @@ def plate_cov(size, radius, ss=8):
 def button(prims, size, selected, bg=SNOW_BG, rem=None):
     """The floating button as the game draws it: a rounded plate (40 rem, radius 6 rem), padding
     var(--gap2) (4 px at 4K, 2 px at 1080p), the glyph mask (mask-size contain) filled with
-    rgb(250,250,250); selected: the pale plate and drop-shadow(0 0 1rem rgba(0,0,0,0.1))."""
+    rgb(250,250,250). Selected state: the pale plate and drop-shadow(0 0 1rem rgba(0,0,0,0.1))."""
     rem = size / 40.0 if rem is None else rem
     pad = 4 if size >= 80 else 2
     radius = 6 * rem
@@ -550,8 +562,8 @@ def make_sheet(row_png, cands, path, rejected=None):
 
 
 def make_detail(cands, path):
-    """Review aid (not a deliverable): per candidate the 256 px glyph on gray, the 80 px button x2
-    and the 40 px button x4, normal and selected."""
+    """Review aid (not a deliverable). Per candidate it draws the 256 px glyph on gray, the 80 px
+    button x2 and the 40 px button x4, normal and selected."""
     keys = list(cands)
     cell_h = 300
     cv = Canvas(256 + 3 * 180 + 4 * 16, 10 + cell_h * len(keys), (246, 247, 248))
@@ -571,7 +583,7 @@ def make_detail(cands, path):
 
 
 def parse_svg(text):
-    """The five primitive forms glyph_svg writes, read back (a writer check, not an SVG engine)."""
+    """Reads back the five primitive forms that glyph_svg writes (a writer check, not an SVG engine)."""
     import re
     prims = []
     for tag in re.findall(r"<(path|circle|rect)\b([^>]*)/>", text):

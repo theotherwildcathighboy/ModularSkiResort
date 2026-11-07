@@ -1,29 +1,39 @@
 """
-tram_saddle.py - the tram saddle round (DECISIONS 597; docs/research/art/tram-saddle-2026-11/build.md).
+tram_saddle.py - the tram saddle round (DECISIONS 597, docs/research/art/tram-saddle-2026-11/build.md).
 
-The tram towers' saddles are already articulated (DECISIONS 573 option C, letter C: two saddle halves hinged on the track
-rope's anchor line, two haul-roller halves on the haul anchor line 0.40 below). What the planner asks of them is more
-than C clears: on the TS-1 sweep (tests/LiftBatch TramSaddleTests: 242 tram line towers on 132 planned lines) only 108
-towers lie inside C's limits (each half <= 30 deg, half-break <= 20 deg); the rest clamp and the rope cuts through the
-girder (up to ~1 m at a half's outer end). Letter D keeps C's topology and bones and widens the joint so each half
-follows its rope to SADDLE_MAX (60 deg: the static head's rope reach, first hit 61 deg on the lugs) with a half-break to
-HALF_BREAK (30 deg): 202 of 242 towers. The changes (tram_tower.SKIN_TRAM hooks, the defaults stay C):
-- notch_deg 22 -> 32: the halves' V-notch faces clear a 2 x 30 deg relative fold;
-- joint_d 0.45: the halves' depth at the V-notch (a haunch to the 0.70 box at xc): the open V stays as wide as C's;
-- bar_gap 0.11 -> 0.20 and roller_out 0.10: the haul bars' and inner rollers' corners clear the 30 deg break;
-- arm_dz1 -1.55 -> -2.40: the central crossbeam under the saddle drops below the halves' sweep at 60 deg (the rocker
+The saddles of the tram towers are already articulated (DECISIONS 573 option C, letter C). Two saddle halves hinge on the
+anchor line of the track rope. Two haul-roller halves hinge on the haul anchor line 0.40 below.
+
+The planner asks more of the saddles than C clears. On the TS-1 sweep (tests/LiftBatch TramSaddleTests: 242 tram line towers
+on 132 planned lines) only 108 towers lie inside the limits of C (each half <= 30 deg, half-break <= 20 deg). The rest
+clamp, and the rope cuts through the girder (up to ~1 m at the outer end of a half).
+
+Letter D keeps the topology and bones of C and widens the joint. Each half then follows its rope to SADDLE_MAX (60 deg: the
+rope reach of the static head, first hit 61 deg on the lugs), with a half-break to HALF_BREAK (30 deg). This covers 202 of
+242 towers. The changes are tram_tower.SKIN_TRAM hooks (the defaults stay C):
+- notch_deg 22 -> 32: the V-notch faces of the halves clear a 2 x 30 deg relative fold.
+- joint_d 0.45: the depth of the halves at the V-notch (a haunch to the 0.70 box at xc). The open V stays as wide as in C.
+- bar_gap 0.11 -> 0.20 and roller_out 0.10: the corners of the haul bars and inner rollers clear the 30 deg break.
+- arm_dz1 -1.55 -> -2.40: the central crossbeam under the saddle drops below the sweep of the halves at 60 deg (the rocker
   legs lengthen with it).
-Texture: 0 MB. The topology is C's, so every loop takes C's shipped UV: C is rebuilt (the shipping code path, no
-finish), its shipped LOD0 FBX is matched vertex for vertex (<= 0.2 mm) and the per-loop UVs land on D's identical loops
-(raises on any topology difference). Previews stage C's maps under D's name.
 
-Gates (raise): C rebuild = shipped C (vertex match), D topology = C topology, tram_tower contracts (authoring + net), G6
-over cs2_skin.joint_grid(SADDLE_MAX, HALF_BREAK) on LOD0 (no overlap, clearance >= 5 mm, every rope clear and seated on
-every crown), G6 at the planner's poses (TS-1, clamped as LiftAlignMath.HalfPitches clamps them), the rope reach (clear
-to SADDLE_MAX), the negative (C's geometry at D's grid must fail), C9 budgets with the 5 % cap rule, the code constants
-(LiftAlignMath.TramSaddlePitchLimitDeg / TramHalfBreakMaxDeg) = SADDLE_MAX / HALF_BREAK.
+Texture: 0 MB. The topology is the topology of C, so every loop takes the shipped UV of C. The script rebuilds C (the
+shipping code path, no finish) and matches its shipped LOD0 FBX vertex for vertex (<= 0.2 mm). The per-loop UVs then land on
+the identical loops of D. The script raises on any topology difference. Previews stage the maps of C under the name of D.
 
-Usage (headless; scratch folders only, nothing exported):
+Gates (each one raises on failure):
+- C rebuild = shipped C (vertex match).
+- D topology = C topology.
+- tram_tower contracts (authoring + net).
+- G6 over cs2_skin.joint_grid(SADDLE_MAX, HALF_BREAK) on LOD0 (no overlap, clearance >= 5 mm, every rope clear and seated on
+  every crown).
+- G6 at the planner's poses (TS-1, clamped as LiftAlignMath.HalfPitches clamps them).
+- The rope reach (clear to SADDLE_MAX).
+- The negative (the geometry of C at the grid of D must fail).
+- C9 budgets with the 5 % cap rule.
+- The code constants (LiftAlignMath.TramSaddlePitchLimitDeg / TramHalfBreakMaxDeg) = SADDLE_MAX / HALF_BREAK.
+
+Usage (headless, scratch folders only, nothing exported):
   blender --background --factory-startup --python-exit-code 1 --python tram_saddle.py -- --heights 30
       --out <scratch> [--preview <dir>] [--before-after] [--negative] [--report <json>]
   blender ... --python tram_saddle.py -- --sheets <dir>        (the sheets from the raw frames of earlier runs)
@@ -55,13 +65,14 @@ C_LIMITS = (TT.SKIN_TRAM["theta_max"], TT.SKIN_TRAM["half_break"])     # the shi
 C_DESIGN = dict(TT.SKIN_TRAM)
 D_DESIGN = dict(theta_max=SADDLE_MAX, half_break=HALF_BREAK, notch_deg=32.0, joint_d=0.45, bar_gap=0.20,
                 roller_out=0.10, arm_dz1=-2.40)
-# The tower-lean round: the tram mast leans up to LEAN_MAX and the planner caps the rope pitch (the mean of the two
-# chords) at PITCH_CAP, so the saddle's mean stays within MEAN_REL_MAX = PITCH_CAP - LEAN_MAX (30) of the mast and each half
-# within that +- the half-break (30): one half reaches 60 relative to the mast at the cap corner (mean 55, half-break 30,
-# lean 25), so D's whole range stays needed (a letter E with C's crossbeam failed at those poses: tower-lean build.md).
+# The tower-lean round: the tram mast leans up to LEAN_MAX and the planner caps the rope pitch (the mean of the two chords)
+# at PITCH_CAP. So the mean of the saddle stays within MEAN_REL_MAX = PITCH_CAP - LEAN_MAX (30) of the mast. Each half stays
+# within that value +- the half-break (30). One half reaches 60 relative to the mast at the cap corner (mean 55, half-break
+# 30, lean 25). So the whole range of D stays needed. A letter E with the crossbeam of C failed at those poses (tower-lean
+# build.md).
 PITCH_CAP, LEAN_MAX = 55.0, 25.0           # deg: LiftAlignMath.PitchCapDeg("tram"), the tram mast's max lean
 MEAN_REL_MAX = PITCH_CAP - LEAN_MAX        # deg: the saddle's mean relative to the mast (the code must clamp it there)
-CAP_RULE = 0.05                 # a LOD0 / LOD2 overage up to 5 % raises the cap in-round (recorded); more is an owner call
+CAP_RULE = 0.05                 # a LOD0 / LOD2 overage up to 5 % raises the cap in-round (recorded). More is an owner call
 POSES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests", "data", "tram_saddle_poses.json")
 ALIGN_CS = os.path.join(_REPO, "mod", "SkiResortMod", "Systems", "LiftAlignMath.cs")
 MAPS = ("BaseColor", "Normal", "MaskMap", "ControlMask")
@@ -93,9 +104,9 @@ def lean_grid():
 
 
 def lean_rows(rows, rule="min"):
-    """TS-1 rows (code deg) relative to a leaned mast: towers past PITCH_CAP drop (the planner repairs them now). rule
-    "min": the least lean that brings the mean within MEAN_REL_MAX (max(0, |mean| - 30): the worst case for the art);
-    "max": the mast takes the mean up to LEAN_MAX."""
+    """TS-1 rows (code deg) relative to a leaned mast: towers past PITCH_CAP drop (the planner repairs them now). Rule "min":
+    the least lean that brings the mean within MEAN_REL_MAX (max(0, |mean| - 30): the worst case for the art). Rule "max":
+    the mast takes the mean up to LEAN_MAX."""
     out = []
     for lab, f, b in rows:
         m = 0.5 * (f + b)
@@ -197,10 +208,13 @@ def topology(t):
 
 
 def same_loops(a, b, table):
-    """C's per-loop UVs fit D's loops when: the same vertex / polygon counts, polygon order, loop totals and part per
-    polygon; every loop of a part D_DESIGN does not touch at C's position (1e-5 m: the joined mesh numbers welded
-    vertices by a global coordinate sort, so indices shift, positions do not); every part it moves (DESIGN_PARTS) with
-    C's part-local loop structure (the same corners in the same order). Returns (ok, report)."""
+    """C's per-loop UVs fit D's loops when all of these hold:
+    - The vertex / polygon counts, polygon order, loop totals and part per polygon are the same.
+    - Every loop of a part that D_DESIGN does not touch is at C's position (1e-5 m). The joined mesh numbers welded vertices
+      by a global coordinate sort, so indices shift but positions do not.
+    - Every part that D_DESIGN moves (DESIGN_PARTS) has C's part-local loop structure (the same corners in the same order).
+
+    Returns (ok, report)."""
     if a[0] != b[0] or len(a[1]) != len(b[1]) or not np.array_equal(a[2], b[2]) or not np.array_equal(a[3], b[3]):
         return False, {"counts": [a[0], b[0], len(a[1]), len(b[1])]}
     starts = np.r_[0, np.cumsum(a[2])[:-1]]
@@ -293,7 +307,8 @@ def shipped_uvs(t, H):
 
 
 def set_uvs(t, uv):
-    """`uv` (per loop) as the UVUnique layer, the only one (the shipped mesh's layer; the bake's box UVMap goes)."""
+    """`uv` (per loop) as the UVUnique layer, the only one. It is the layer of the shipped mesh, and the box UVMap of the bake
+    goes."""
     me = t.data
     lay = me.uv_layers.get("UVUnique") or me.uv_layers.new(name="UVUnique")
     lay.data.foreach_set("uv", uv.astype(np.float32).ravel())
@@ -304,7 +319,7 @@ def set_uvs(t, uv):
 
 
 def stage_textures(H, asset_dir, name):
-    """Preview staging only: C's shipped maps under D's name (nothing baked; D's loops carry C's UVs)."""
+    """Preview staging only: C's shipped maps under D's name (nothing baked, D's loops carry C's UVs)."""
     import shutil
     os.makedirs(asset_dir, exist_ok=True)
     src = f"SkiTramTower{H}{SOURCE}"
@@ -315,7 +330,7 @@ def stage_textures(H, asset_dir, name):
 
 
 def budgets(spec, tris):
-    """C9 with the 5 % rule: (cap, raised_to or None) per LOD0 / LOD2; LOD1 target and the 50 % rule as tram_tower."""
+    """C9 with the 5 % rule: (cap, raised_to or None) per LOD0 / LOD2. The LOD1 target and the 50 % rule are as in tram_tower."""
     b = TT.budget(spec)
     out = {"tris": tris, "lod0_cap": b["lod0_cap"], "lod2_cap": b["lod2_cap"], "raised": {}}
     for lvl, key in ((0, "lod0_cap"), (2, "lod2_cap")):
@@ -339,8 +354,8 @@ def export_folder(root, H):
 
 def export_height(H, t, arm, lods, spec, sk, rep, asset_dir):
     """--export: skinned LOD0 / 1 / 2 FBXs (Root + the four half bones), settings.json on C's four maps
-    (cs2_asset.sibling_settings: no PNG, 0 MB; D's loops carry C's UVs), the round trip, the manifest,
-    validate_asset_folder (raises on an error). Returns the validator summary."""
+    (cs2_asset.sibling_settings: no PNG, 0 MB. D's loops carry C's UVs), the round trip, the manifest, validate_asset_folder
+    (raises on an error). Returns the validator summary."""
     import cs2_validate
     name = rep["name"]
     owner = f"SkiTramTower{H}{SOURCE}"
@@ -422,8 +437,8 @@ def render(t, arm, spec, pose, rope_pose, asset_dir, name, raw, views):
 
 
 def views(spec, tag):
-    """Side at rope height (outboard of the +X lane: saddle, rocker, haul row), the head 3/4, the joint close-up, from
-    below; net frame."""
+    """Side at rope height (outboard of the +X lane: saddle, rocker, haul row), the head 3/4, the joint close-up, from below.
+    Net frame."""
     z0 = spec.z0
     k = 50.0 / 15.6
     tc = (TT.TRAM["lane_y"], 0.0, z0 - 0.7)
@@ -480,7 +495,7 @@ def run_height(H, out, preview=None, before_after=False, negative=False, export_
     TT.set_skinned(True)
     rows = planner_poses()
     TT.clear_scene()
-    # C: the rebuild = the shipped LOD0; its loops' UVs
+    # C: the rebuild = the shipped LOD0, and its loops' UVs
     tc, table_c, spec_c, _parts_c, _rc = build(H, SOURCE, args)
     uv, arep = shipped_uvs(tc, H)
     topo_c = topology(tc)
@@ -535,8 +550,8 @@ def run_height(H, out, preview=None, before_after=False, negative=False, export_
         f"clear to {sk['rope_reach']['clear_to_deg']} deg (>= {SADDLE_MAX:g}), first hit {sk['rope_reach']['first_hit']}")
     pairs = blender_pairs(rows, SADDLE_MAX, HALF_BREAK)
     pl = TT.skin_sweep(t, table, spec, sk["part_bone"], pairs=pairs, label=f"tram{H}D planner")
-    # the tower-lean round: the poses relative to a leaned mast (lean grid; the TS-1 towers under the 55 deg cap, the
-    # least lean) are inside D's grid; gated all the same
+    # The tower-lean round: the poses relative to a leaned mast (lean grid, the TS-1 towers under the 55 deg cap, the least
+    # lean) are inside D's grid. They are gated all the same.
     lg = TT.skin_sweep(t, table, spec, sk["part_bone"], pairs=lean_grid(), label=f"tram{H}D lean grid")
     lrows = lean_rows(rows)
     lp = TT.skin_sweep(t, table, spec, sk["part_bone"], pairs=blender_pairs(lrows, SADDLE_MAX, HALF_BREAK),

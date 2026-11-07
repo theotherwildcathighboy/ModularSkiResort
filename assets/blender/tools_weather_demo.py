@@ -1,47 +1,52 @@
 """
-tools_weather_demo.py - before / after demo of the weathering layer (cs2_weather), design
-docs/research/art/assets-2026-10/design/weathering-layer.md section 12, extended by the
-build report's "Fix pass 1" (intensity ladder, slot_wear pair, wired-equivalent AO).
+tools_weather_demo.py: before / after demo of the weathering layer (cs2_weather), design
+docs/research/art/assets-2026-10/design/weathering-layer.md section 12, extended by the build
+report's "Fix pass 1" (intensity ladder, slot_wear pair, wired-equivalent AO).
 
 Run (headless only, game closed):
     blender --background --factory-startup --python-exit-code 1 --python tools_weather_demo.py -- [--all] [--out DIR] [--no-cube] [--no-4096] [--no-ao] [--ao-samples N] [--no-ladder]
 
-1. Kit cube: the test fixture (tests/test_weather.build_kit_cube) baked twice through the
-   REAL cs2_bake.bake_unique at A 1024 into <tempdir>/cs2_weather_demo/WeatherKitCube/
-   {before,after}/: once with a relief-only inner hook (detail_height bolts and seams +
-   compose_maps), once with make_weather_hook(inner, ...). The steel plates carry
-   density_w 2.0 so the 18 mm bolts clear the 2-texel floor (cs2_compose.TEXEL_FLOOR).
-2. Shipped assets (L2 by default; school, P1, P2 with --all): the review pack's LOD0
-   (identity transform, keeps `part`, the part table and UVUnique) + the SHIPPED four maps
-   from assets/import/... re-composed through build_fields / compute_masks /
-   apply_weathering with prefix roles and compose_contact per base mode (engine mode: the
-   shipped albedo already holds compose_maps' 6 % ground band).
-   AO (fix pass 1, checker F4): the shipped albedo already has AO multiplied in, so the
-   layer cannot tell a dark material from an occluded one; with ao=None the W9 floor then
-   blocked most eave grime. The demo therefore re-bakes the LOD0's self-occlusion AO on
-   UVUnique (Cycles CPU, seed 0, `--ao-samples`, cached under <tempdir>/cs2_weather_demo/
-   _ao/ by a hash of the vertices + UVs) and hands it to the layer exactly as bake_unique
-   would: the WIRED-EQUIVALENT look. `--no-ao` reproduces the old ao=None demo.
+1. Kit cube: the test fixture (tests/test_weather.build_kit_cube) baked twice through the REAL
+   cs2_bake.bake_unique at A 1024 into <tempdir>/cs2_weather_demo/WeatherKitCube/{before,after}/.
+   The first bake uses a relief-only inner hook (detail_height bolts and seams + compose_maps). The
+   second uses make_weather_hook(inner, ...). The steel plates carry density_w 2.0 so the 18 mm
+   bolts clear the 2-texel floor (cs2_compose.TEXEL_FLOOR).
+
+2. Shipped assets (L2 by default, plus school, P1, P2 with --all). The inputs are the review pack's
+   LOD0 (identity transform, keeps `part`, the part table and UVUnique) and the SHIPPED four maps
+   from assets/import/.... The demo re-composes them through build_fields / compute_masks /
+   apply_weathering with prefix roles and compose_contact per base mode (engine mode: the shipped
+   albedo already holds compose_maps' 6 % ground band).
+
+   AO (fix pass 1, checker F4): the shipped albedo already has AO multiplied in, so the layer cannot
+   tell a dark material from an occluded one. With ao=None, the W9 floor then blocked most eave grime.
+   The demo therefore re-bakes the LOD0's self-occlusion AO on UVUnique (Cycles CPU, seed 0,
+   `--ao-samples`, cached under <tempdir>/cs2_weather_demo/_ao/ by a hash of the vertices + UVs). It
+   hands the AO to the layer exactly as bake_unique would: the WIRED-EQUIVALENT look. `--no-ao`
+   reproduces the old ao=None demo.
+
    The AFTER set is written with the bake's own writer (cs2_asset._write_png_raw after
-   cs2_preview._linear_to_srgb; untouched texels keep their shipped sRGB bytes) into
-   <tempdir>/cs2_weather_demo/<Name>/after/; BEFORE is a byte copy of the shipped PNGs.
-   L2 also gets one frame at snow 0.6 (Q1).
-3. Intensity ladder (Q3) per shipped asset: intensity 0.35 (default) / 0.5 / 0.7, the
-   arrival 3/4 view and a 2x close-up, plus the school's slot_wear "bounded" | "free" pair
-   at 0.5 (Q2). Every intensity is measured: vanilla budget VL1-VL5 and the perceptual
-   delta (mean |dL*| and share |dL*| > 2 over the visible texels, slot-tinted with the
-   preview tint), eave grime delivered vs designed, the ground-band profile.
+   cs2_preview._linear_to_srgb, untouched texels keep their shipped sRGB bytes) into
+   <tempdir>/cs2_weather_demo/<Name>/after/. BEFORE is a byte copy of the shipped PNGs. L2 also gets
+   one frame at snow 0.6 (Q1).
+
+3. Intensity ladder (Q3) per shipped asset: intensity 0.35 (default) / 0.5 / 0.7, the arrival 3/4
+   view and a 2x close-up, plus the school's slot_wear "bounded" | "free" pair at 0.5 (Q2). Every
+   intensity is measured: vanilla budget VL1-VL5 and the perceptual delta (mean |dL*| and share
+   |dL*| > 2 over the visible texels, slot-tinted with the preview tint), eave grime delivered vs
+   designed, the ground-band profile.
+
 4. Optional timing of the layer on the kit cube at A 4096 (synthetic maps).
 
 Outputs (assets/preview/weather/, never assets/import/):
     <Name>_{before,after}_{arrival_3q,back_3q}.png   pbr renders (cs2_preview, noon), 0.35
     <Name>_ab_{arrival_3q,back_3q}.png               before | after side by side
     <Name>_ab_closeup_arrival_3q.png                 central half of 2x renders, 1:1
-    <Name>_masks.png    atlas false color: left R edge, G grime, B rust; right R scuff,
-                        G snow (L2: the snow 0.6 run), B protected texels; raw masks before
+    <Name>_masks.png    atlas false color: left R edge, G grime, B rust. Right R scuff,
+                        G snow (L2: the snow 0.6 run), B protected texels. Raw masks before
                         the intensity / role factors, max-pooled to <= 1024 px
     <Name>_crops.png    1:1 atlas crops (tinted sRGB), rows: largest door, wall ground
-                        band, roof edge, strongest rust streak; each row before | after
+                        band, roof edge, strongest rust streak. Each row before | after
     SkiLodgeHutCommercialLowB_after_snow060_arrival_3q.png
     ladder/<Name>_ladder_arrival_3q.png          BEFORE | 0.35 | 0.50 | 0.70 (labeled)
     ladder/<Name>_ladder_closeup_arrival_3q.png  the same at 2x (central half, 1:1)
@@ -49,8 +54,8 @@ Outputs (assets/preview/weather/, never assets/import/):
                                                  BEFORE | BOUNDED 0.50 | FREE 0.50
     weather_demo_summary.json   reports, ladder metrics, crop rects, timings, sha1 check
 
-Imports cs2_weather, cs2_bake, cs2_compose, cs2_preview, cs2_asset and the test fixture;
-never cs2_bldg, bldg_recipes, lodge or recipes.* (design W1).
+Imports cs2_weather, cs2_bake, cs2_compose, cs2_preview, cs2_asset and the test fixture. It never
+imports cs2_bldg, bldg_recipes, lodge or recipes.* (design W1).
 """
 
 import argparse
@@ -338,7 +343,7 @@ def ab_sheets(name, before, after, out_dir):
     return out
 
 
-#: central half of a 2x render, 1:1 (= a 2x closer look); rows bottom-up
+#: central half of a 2x render, 1:1 (= a 2x closer look). Rows bottom-up
 CLOSEUP_CROP = (500, 1500, 650, 1950)
 
 
@@ -468,9 +473,9 @@ def _grime_d(fields, masks, spec):
 
 
 def eave_check(maps, out, fields, masks, spec):
-    """Wall texels more than 1 m above ground_z with cover_h <= 0.4 m (right under an eave
-    or overhang): delivered L ratio after / before, the designed grime-only ratio, and the
-    share of texels where the W9 floor held the darkening back."""
+    """Wall texels more than 1 m above ground_z with cover_h <= 0.4 m (right under an eave or
+    overhang). It reports the delivered L ratio after / before, the designed grime-only ratio, and
+    the share of texels where the W9 floor held the darkening back."""
     F = fields
     nz = F.ngeo[:, 2].astype(np.float64)
     z = F.pos[:, 2].astype(np.float64)
@@ -555,8 +560,8 @@ def load_shipped(asset_dir, name):
 
 
 def write_after(set_dir, name, maps_in, out, raw, asset_dir):
-    """Write the AFTER set with the bake's writer; untouched BaseColor texels keep their
-    shipped sRGB bytes exactly; ControlMask (never written, G5) and Emissive are copied."""
+    """Write the AFTER set with the bake's writer. Untouched BaseColor texels keep their shipped sRGB
+    bytes exactly. ControlMask (never written, G5) and Emissive are copied."""
     os.makedirs(set_dir, exist_ok=True)
     A = out.base.shape[0]
     changed = np.any(out.base[..., :3] != maps_in.base[..., :3], axis=-1)
@@ -915,7 +920,7 @@ def main():
     if not summary["shipped_png_sha1"]["unchanged"]:
         print(f"FAIL tools_weather_demo: shipped PNGs changed {summary['shipped_png_sha1']['changed']}")
         sys.exit(1)
-    # the vanilla proxy budget must hold up to intensity 0.5 (fix pass 1); 0.7 only reports
+    # the vanilla proxy budget must hold up to intensity 0.5 (fix pass 1). 0.7 only reports
     bad = []
     for k, v in summary["assets"].items():
         if not v["vanilla"]["ok"]:

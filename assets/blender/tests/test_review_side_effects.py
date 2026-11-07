@@ -1,47 +1,51 @@
 """
 Side-effect gate for the live-review packs (ROUND-SPEC R10, pipeline-gap.md section 6).
 
-`--review` must be free: the asset folder a generator writes is byte-identical with and
-without it, and cs2_review.write_pack leaves the build session exactly as it found it.
+`--review` must be free: the asset folder a generator writes is byte-identical with and without it,
+and cs2_review.write_pack leaves the build session exactly as it found it.
 
-  1. Builds the default chair (--style tr, SkiLiftChair6M: v2 bake, authored LOD2 proxy)
-     twice in ONE Blender process through lift_chair.main(): without and with
-     `--review <tmp>`, --finish --lods --verify (plate "27" default; validation and the
-     manifest run inside the generator). The FBX header clock is frozen (io_scene_fbx
-     export_fbx_bin.py:3235 stamps datetime.now() into CreationTimeStamp - the only byte
-     that differs between runs), then every file's sha1 must match except the manifest
-     (write_manifest stamps written_utc, cs2_validate.py:1087, and records the args, which
-     include --review; dq-chair-skeptic D1 / verdict 11): it is compared without those
-     two keys. The shipped round-L chair stays reproducible as --style fg6l.
-  1b. The same for the top station (lift_terminal.main(), --kind return --finish --lods,
-     validation on): its hook passes `_Win` and runs after the manifest and the validator's
-     renames (pipeline-gap.md section 6 gate). Every file must match byte for byte except
-     the LOD1 / LOD2 main FBXs (p0a-integration O9: not reproducible even within one
-     process) and the manifest, compared without written_utc, FBX sha1s and LOD FBX sizes.
-  2. A spy around cs2_review.write_pack snapshots the session before / after the call:
-     every ID collection's members, the build objects' geometry / UV / material / matrix
-     hash, scene settings, selection and active object. All must be unchanged.
-  3. The pack: CS2R_SkiLiftChair6M with LOD0 / LOD1 / LOD2 / SUB, the custom props
-     (tris = lift_chair.STYLES["tr"] tallies, caps, LOD switch, density, generator, args,
-     git sha, letter M), the slot nodes and RELATIVE image paths that resolve to the
-     asset folder. T63-tiled: a NON-tiled asset keeps one material on every LOD (props tiled 0,
-     tex_LOD1 == tex_LOD2 == tex_LOD0, n_images 4); the tiled branch is tests/test_review_tiled.py.
-  4. review_live.py smoke run on a temporary COPY of review-2026-10-10.blend: exec only
-     defines; ensure_scene / load / lod / tint / night / stand_ins / cams / reload / unload
-     all return ok, the reference collections and stand-ins survive, unload leaves nothing.
-     P0a review additions: load() re-includes an EXCLUDED Review collection, lod() reports
-     a role hidden by an excluded _Live collection as ok False; ensure_scene(lighting=False)
-     gives back "no world" and the Standard view transform; the FG8N stand-in is an
-     instance of the headless pack cs2_review.write_standin_pack wrote (no live import).
-     (Nothing is saved; the real review file is only copied.)
-  5. Vanilla-prop stand-ins (DECISIONS 183): tests/test_review_subobjects.py runs in this process before part 4
-     (its own file, also runnable alone in ~2 s): a pack whose manifest holds N sub-object rows gets N
-     labeled boxes of the right bounds in SUB, every shipped manifest row maps through the generators' own
-     box test, review_live.props() swaps SUB <-> SUB_NOPROPS. A failure there fails this test too.
+1. Builds the default chair (--style tr, SkiLiftChair6M: v2 bake, authored LOD2 proxy) twice in ONE
+   Blender process through lift_chair.main(), without and with `--review <tmp>`. Both runs use
+   --finish --lods --verify (plate "27" default). Validation and the manifest run inside the
+   generator. The test freezes the FBX header clock (io_scene_fbx export_fbx_bin.py:3235 stamps
+   datetime.now() into CreationTimeStamp, the only byte that differs between runs). Then every file's
+   sha1 must match except the manifest. write_manifest stamps written_utc (cs2_validate.py:1087) and
+   records the args, which include --review (dq-chair-skeptic D1 / verdict 11). So the test compares
+   the manifest without those two keys. The shipped round-L chair stays reproducible as --style fg6l.
+
+1b. The same for the top station (lift_terminal.main(), --kind return --finish --lods, validation on).
+Its hook passes `_Win` and runs after the manifest and the validator's renames (pipeline-gap.md
+section 6 gate). Every file must match byte for byte, except the LOD1 / LOD2 main FBXs
+(p0a-integration O9: not reproducible even within one process) and the manifest. The test compares the
+manifest without written_utc, FBX sha1s and LOD FBX sizes.
+
+2. A spy around cs2_review.write_pack snapshots the session before / after the call: every ID
+   collection's members, the build objects' geometry / UV / material / matrix hash, scene settings,
+   selection and active object. All must be unchanged.
+
+3. The pack: CS2R_SkiLiftChair6M with LOD0 / LOD1 / LOD2 / SUB, the custom props (tris =
+   lift_chair.STYLES["tr"] tallies, caps, LOD switch, density, generator, args, git sha, letter M),
+   the slot nodes and RELATIVE image paths that resolve to the asset folder. T63-tiled: a NON-tiled
+   asset keeps one material on every LOD (props tiled 0, tex_LOD1 == tex_LOD2 == tex_LOD0, n_images
+   4). The tiled branch is tests/test_review_tiled.py.
+
+4. review_live.py smoke run on a temporary COPY of review-2026-10-10.blend: exec only defines.
+   ensure_scene / load / lod / tint / night / stand_ins / cams / reload / unload all return ok, the
+   reference collections and stand-ins survive, unload leaves nothing. P0a review additions: load()
+   re-includes an EXCLUDED Review collection. lod() reports a role hidden by an excluded _Live
+   collection as ok False. ensure_scene(lighting=False) gives back "no world" and the Standard view
+   transform. The FG8N stand-in is an instance of the headless pack cs2_review.write_standin_pack
+   wrote (no live import). (Nothing is saved. The real review file is only copied.)
+
+5. Vanilla-prop stand-ins (DECISIONS 183): tests/test_review_subobjects.py runs in this process before
+   part 4 (its own file, also runnable alone in ~2 s). A pack whose manifest holds N sub-object rows
+   gets N labeled boxes of the right bounds in SUB. Every shipped manifest row maps through the
+   generators' own box test. review_live.props() swaps SUB <-> SUB_NOPROPS. A failure there fails this
+   test too.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_review_side_effects.py
 
-Exit 1 on any failure; one PASS line on success.
+Exit 1 on any failure. One PASS line on success.
 """
 import datetime
 import hashlib

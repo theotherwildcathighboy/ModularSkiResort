@@ -1,26 +1,25 @@
 """
-test_lodges_basic - the L2 hut and L3 chalet recipes (recipes/lodge_hut.py,
-recipes/lodge_chalet.py): determinism, geometry contracts, budgets.
+test_lodges_basic - the L2 hut and L3 chalet recipes (recipes/lodge_hut.py, recipes/lodge_chalet.py): determinism,
+geometry contracts, budgets.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_lodges_basic.py [-- --quick]
 
-Contract: design/lodges-basic.md sections 4.9, 5.9, 9 (C1-C14) and 10 with
-design/lodges-basic-skeptic.md applied (M5 room prefixes, M7 bounds drift = WARN, M8 contracts
-in the authoring frame and on every LOD, M10 review tints); kit API per bldg-kit.md (R25).
+Contract: design/lodges-basic.md sections 4.9, 5.9, 9 (C1-C14) and 10 with design/lodges-basic-skeptic.md applied (M5
+room prefixes, M7 bounds drift = WARN, M8 contracts in the authoring frame and on every LOD, M10 review tints). Kit
+API per bldg-kit.md (R25).
 
-Pass 1 per recipe: --blockout twice in ONE process -> identical LOD0 / `_Win` mesh hashes,
-room cells, cull counts and tris; then the contracts on the blockout mesh (authoring frame
-recovered from the post-orient mesh: authored (x, y) = (-by, bx)).
-Pass 2 per recipe (skipped with --quick): a reduced finish (--tex 1024 --ao-samples 8
---no-validate, LODs on) twice -> the five PNGs byte-identical, LOD0 / LOD1 / LOD2 / `_Win`
-hashes identical; LOD contracts on the LOD meshes captured from cs2_bldg.lod_chain.
-Nitpick C (2026-10-13, build/nitpick-c-lodges.md): L2's fuel-station barrels are ground rows (parent -1, no
-drum_ part left in the host); L3's three boards are blank (l3_blank_boards: blank draws, we_boards, the shipped
-rims >= 4 texels, --no-fine keeps the pictograms).
-T60 (2026-10-18, build/T59-T60-chalet-summit.md): l3_t60: the kiosk door and the patio double door (bW1 replaced) on
-the blockout and on a door kit v2 parts build (leaves, a lever per leaf, glass in the existing rooms kiosk / bF1W, no
-bW1 pane left), the two T60 wall-light rows on a non-glass wall face beside their door's casing, facing out.
-Exit 1 on any failure; WARN lines are printed, never fatal.
+Pass 1 per recipe: --blockout twice in ONE process gives identical LOD0 / `_Win` mesh hashes, room cells, cull counts
+and tris. Then the contracts run on the blockout mesh (authoring frame recovered from the post-orient mesh: authored
+(x, y) = (-by, bx)). Pass 2 per recipe (skipped with --quick): a reduced finish (--tex 1024 --ao-samples 8
+--no-validate, LODs on) runs twice. The five PNGs are byte-identical, and the LOD0 / LOD1 / LOD2 / `_Win` hashes are
+identical. LOD contracts run on the LOD meshes captured from cs2_bldg.lod_chain. Nitpick C (2026-10-13,
+build/nitpick-c-lodges.md): L2's fuel-station barrels are ground rows (parent -1, no drum_ part left in the host).
+L3's three boards are blank (l3_blank_boards: blank draws, we_boards, the shipped rims >= 4 texels, --no-fine keeps
+the pictograms). T60 (2026-10-18, build/T59-T60-chalet-summit.md): l3_t60 checks the kiosk door and the patio double
+door (bW1 replaced) on the blockout and on a door kit v2 parts build. The build has leaves, a lever per leaf, and
+glass in the existing rooms kiosk / bF1W, with no bW1 pane left. It also checks the two T60 wall-light rows on a
+non-glass wall face beside their door's casing, facing out. Exit 1 on any failure. The test prints WARN lines and
+they are never fatal.
 """
 
 import hashlib
@@ -146,7 +145,7 @@ def common_contracts(recipe, mod, r, obj, win):
     assert r["lot"]["margin_x"] >= 0 and r["lot"]["margin_y"] >= 0, r["lot"]
     # C4 facing (kit rule)
     assert float(r["facing"]["arrival_centroid_x"]) >= r["facing"]["need"], r["facing"]
-    # C9 rooms: every ROOMS key has panes, ids as tabled, distinct, in 1..23; panes <= 3.2 m
+    # C9 rooms: every ROOMS key has panes, ids as tabled, distinct, in 1..23. Panes <= 3.2 m
     rooms = mod["ROOMS"]
     cells = r["cells"]
     assert set(cells) == set(rooms), f"rooms without panes / extra: {set(rooms) ^ set(cells)}"
@@ -182,8 +181,8 @@ def common_contracts(recipe, mod, r, obj, win):
     assert n0 <= b.lod0_cap, f"{name}: LOD0 {n0} > {b.lod0_cap}"
     if n0 < 0.75 * b.lod0_target:
         warn(f"{name}: LOD0 {n0} < 0.75 x target {b.lod0_target} (lodges-basic C6 WARN)")
-    # M4 labels: each stamped prefix = exactly one part with one face (one UV island); a fine-detail
-    # host's sign-set faces left the host (cs2_signset.route: step 3a, L2)
+    # M4 labels: each stamped prefix = exactly one part with one face (one UV island). A fine-detail host's sign-set
+    # faces left the host (cs2_signset.route: step 3a, L2)
     spec = getattr(recipe, "sign_set", None)
     routed = set(spec.face_names()) if spec is not None else set()
     assert not routed & set(table), f"sign-set faces left in the host: {sorted(routed & set(table))}"
@@ -224,17 +223,17 @@ def l2_contracts(recipe, mod, r, obj, win, table):
         assert abs(pitch_deg(n) - 27.97) < 0.05, (part, pitch_deg(n))
         assert abs(n[0]) < 1e-4, (part, n)                 # ridge along X
         assert abs(zc(1.5, 0.0) - 7.37) < 0.01, (part, zc(1.5, 0.0))
-    # sub-objects (detail pass 1: SUB_OBJECTS, 16, parent 0; game (gx, gy, gz) = authored
-    # (y, z, x)): deck props on the deck / bridge / ski-wing surfaces, wall props on a wall
-    # plane (story x -5.0 / y +-5.5, plinth face x -5.15) facing out of it
+    # sub-objects (detail pass 1: SUB_OBJECTS, 16, parent 0, game (gx, gy, gz) = authored (y, z, x)): deck props on
+    # the deck / bridge / ski-wing surfaces, wall props on a wall plane (story x -5.0 / y +-5.5, plinth face x -5.15)
+    # facing out of it
     rects = ((mod["DECK_X0"], mod["PL_X0"] - mod["CAP_PROUD"], mod["DECK_Y0"], mod["FL_Y"]),
              (mod["PL_X0"] - mod["CAP_PROUD"], mod["DECK_X1"], mod["DECK_Y0"], -(mod["PL_Y"] + mod["CAP_PROUD"])),
              (mod["BRIDGE_X0"], mod["BRIDGE_X1"], -mod["BRIDGE_Y"], mod["BRIDGE_Y"]),
              (mod["WING_X0"], mod["BRIDGE_X1"], mod["BRIDGE_Y"], mod["WING_Y"]),
              (mod["WING_X0"], mod["BRIDGE_X1"], -mod["WING_Y"], -mod["BRIDGE_Y"]))
     subs = mod["SUB_OBJECTS"]
-    # T26 2026-10-16 dropped the parasol (15 rows); restored 2026-10-17 (vanilla props, random colors
-    # accepted): 16 rows again, one ParasolRandom01
+    # T26 2026-10-16 dropped the parasol (15 rows). Restored 2026-10-17 (vanilla props, random colors accepted): 16
+    # rows again, one ParasolRandom01
     assert len(subs) == 16 and all(s[4] == 0 for s in subs), [(s[0], s[4]) for s in subs]
     assert sum(1 for s in subs if s[0] == "ParasolRandom01") == 1, "hut parasol row missing"
     n_wall = 0
@@ -254,17 +253,17 @@ def l2_contracts(recipe, mod, r, obj, win, table):
         assert any(x0 <= x <= x1 and y0 <= y <= y1 for x0, x1, y0, y1 in rects), (nm, x, y)
     # C11 prefix table: the detail-pass prefixes are registered
     assert {"bench_", "skirack_", "drum_", "flag_", "flagpanel_", "stripe_"} <= set(mod["PREFIXES"])
-    # fine-detail step 3a: the recipe rows = these 16 + FINE_SUB_OBJECTS (benches, barrel, entry wall
-    # lights) + KIT_ROWS (wing racks), every one parent 0: the benches on the S deck, the barrel on
-    # the crib top, the wall lights on the +X wall facing +X, the kit racks on the wing decks
+    # fine-detail step 3a: the recipe rows = these 16 + FINE_SUB_OBJECTS (benches, barrel, entry wall lights) +
+    # KIT_ROWS (wing racks), every one parent 0. The benches are on the S deck, the barrel on the crib top, the wall
+    # lights on the +X wall facing +X, and the kit racks on the wing decks
     fine, kit = mod["FINE_SUB_OBJECTS"], mod["KIT_ROWS"]
     assert tuple(recipe.sub_objects) == tuple(subs) + tuple(fine) + tuple(kit), "L2 rows"
     n_ground = 0
     for nm, _g, (gx, gy, gz), q, parent in fine:
         x, y = gz, gx
         if nm == "BarrelRandom01":
-            # nitpick C (2026-10-13): the fuel station's two barrels are GROUND-following rows (m_ParentMesh -1,
-            # gy 0) at the old drum centers beside the entry steps; nothing of the hut stands there any more
+            # nitpick C (2026-10-13): the fuel station's two barrels are GROUND-following rows (m_ParentMesh -1, gy
+            # 0) at the old drum centers beside the entry steps. Nothing of the hut stands there any more
             assert parent == -1 and gy == 0.0 and abs(x - mod["FUEL_X"]) < 1e-6 \
                 and y in (mod["FUEL_Y"], mod["FUEL_Y2"]) and tuple(q) == (0.0, 0.0, 0.0, 1.0), (nm, x, y, parent)
             assert not [n for n in table if n.startswith("drum_")], "L2: a fuel-station part is still in the host"
@@ -340,18 +339,17 @@ def l3_contracts(recipe, mod, r, obj, win, table):
             else:
                 assert gy == 0.0 and not any(inside(x, y, rc) for rc in foot), (nm, x, y)
             n += 1
-    # vanilla retrofit (fifteenth look, 2026-10-11): PROPS are the recipe's sub_objects (29 rows,
-    # grade props m_ParentMesh -1, terrace / balcony 0) and reach the manifest block; the modeled
-    # stair-foot lamp post is gone; no lodge triangle inside any prop box, no box overlap (a
-    # parasol pole in its own table set excepted), every box inside the lot
-    # fine-detail step 3a: the recipe rows = these 29 + FINE_SUB_OBJECTS (8 entry / porch / wall
-    # lanterns -> WallLightShortRange, the gazebo lantern -> RoofLight) + KIT_ROWS (3 racks at
-    # SKI_RACK_SPOTS); no lantern lens left (no lamp_ part at all: no _Emissive map)
+    # vanilla retrofit (fifteenth look, 2026-10-11): PROPS are the recipe's sub_objects (29 rows, grade props
+    # m_ParentMesh -1, terrace / balcony 0) and reach the manifest block. The modeled stair-foot lamp post is gone.
+    # No lodge triangle is inside any prop box and no boxes overlap (a parasol pole in its own table set excepted).
+    # Every box is inside the lot. fine-detail step 3a: the recipe rows = these 29 + FINE_SUB_OBJECTS (8 entry /
+    # porch / wall lanterns -> WallLightShortRange, the gazebo lantern -> RoofLight) + KIT_ROWS (3 racks at
+    # SKI_RACK_SPOTS). No lantern lens is left (no lamp_ part at all: no _Emissive map)
     subs = recipe.sub_objects
     base = tuple(mod["SUB_OBJECTS"])
     fine_rows = tuple(mod["FINE_SUB_OBJECTS"]) + tuple(mod["KIT_ROWS"]) + tuple(mod["T60_SUB_OBJECTS"])
-    # T26 2026-10-16 dropped the 4 parasols (25 rows); restored 2026-10-17 (vanilla props, random colors
-    # accepted): 29 rows again, four ParasolRandom01
+    # T26 2026-10-16 dropped the 4 parasols (25 rows). Restored 2026-10-17 (vanilla props, random colors accepted):
+    # 29 rows again, four ParasolRandom01
     assert tuple(subs) == base + fine_rows and len(base) == n == 29, (len(subs), n)
     assert sum(1 for s in base if s[0] == "ParasolRandom01") == 4, "chalet parasol rows missing"
     assert all((s[4] == -1) == (s[2][1] == 0.0) for s in base), [(s[0], s[2], s[4]) for s in base]
@@ -374,10 +372,10 @@ def l3_contracts(recipe, mod, r, obj, win, table):
 
 
 def l3_blank_boards(recipe, mod, r):
-    """Nitpick C (2026-10-13; "not loving the SIGN of the FORK AND KNIFE ... leave it blank or keep it
-    simple"): the chalet's three pictogram boards are BLANK boards (fine_detail.blank_board: the board ground + a
-    trim-color rim), each a flat label quad listed in the run's `we_boards` (role blank, game-frame center / unit
-    horizontal normal / size = the face); `--no-fine` keeps the pictograms (PICTO_LABELS: negative)."""
+    """Nitpick C (2026-10-13, "not loving the SIGN of the FORK AND KNIFE ... leave it blank or keep it simple"): the
+    chalet's three pictogram boards are BLANK boards (fine_detail.blank_board: the board ground + a trim-color rim).
+    Each is a flat label quad listed in the run's `we_boards` (role blank, game-frame center / unit horizontal normal
+    / size = the face). `--no-fine` keeps the pictograms (PICTO_LABELS: negative)."""
     labels = recipe.labels
     assert len(labels) == 3 and all(FD.is_blank_label(e) for e in labels), [e[:2] for e in labels]
     leg = FD.effective(recipe, fine=False).labels
@@ -401,8 +399,8 @@ def l3_blank_boards(recipe, mod, r):
         got_wb = [(b["face"], b["centre"], b["normal"], b["size_m"]) for b in man["we_boards"]["boards"]]
         want_wb = [(b["face"], b["centre"], b["normal"], b["size_m"]) for b in wb]
         # T14 x-sign N (2026-10-16), DECISIONS 245 / T53: the build writes we_boards in the game frame (center x and
-        # normal x negated, rule T); a shipped manifest from before the next export still holds the pre-T14 boards.
-        # Stale = it equals the build with x negated: SKIP (loud); any other difference still fails.
+        # normal x negated, rule T). A shipped manifest from before the next export still holds the pre-T14 boards.
+        # Stale = it equals the build with x negated: SKIP (loud). Any other difference still fails.
         pre_t14 = [(f, [-c[0] + 0.0, *c[1:]], [-n[0] + 0.0, *n[1:]], s) for f, c, n, s in want_wb]
         if got_wb != want_wb and got_wb == pre_t14:
             print("SKIP L3 shipped we_boards == this build's: shipped manifest is stale (pre-T14 un-mirrored boards) "
@@ -417,12 +415,15 @@ def l3_blank_boards(recipe, mod, r):
 
 
 def l3_t60(recipe, mod, table):
-    """T60 (2026-10-18; "the small building has no door ... we also need a door on the patio itself. Probably
-    turn one of the tall windows into a door."): on the blockout (door kit v1) the two entries exist and bW1 is gone;
-    on a door kit v2 parts build (lodge.build_parts with the --tiled --window-kit v2 --door-kit v2 configs) the kiosk
-    door is one chalet leaf, the patio door two, each leaf with its lever, the leaf glass in the EXISTING rooms kiosk /
-    bF1W (no new room, no bW1 pane); the two T60_SUB_OBJECTS wall lights sit on a non-glass wall face (a ray from
-    0.3 m out along the row's facing meets a wall_ face at 0.3 +- 0.005 m), clear of their door's casing."""
+    """T60 (2026-10-18, "the small building has no door ... we also need a door on the patio itself. Probably turn one
+    of the tall windows into a door."):
+
+    - On the blockout (door kit v1) the two entries exist and bW1 is gone.
+    - On a door kit v2 parts build (lodge.build_parts with the --tiled --window-kit v2 --door-kit v2 configs) the
+      kiosk door is one chalet leaf and the patio door is two. Each leaf has its lever. The leaf glass is in the
+      EXISTING rooms kiosk / bF1W (no new room, no bW1 pane).
+    - The two T60_SUB_OBJECTS wall lights sit on a non-glass wall face (a ray from 0.3 m out along the row's facing
+      meets a wall_ face at 0.3 +- 0.005 m), clear of their door's casing."""
     from mathutils import Vector
     from mathutils.bvhtree import BVHTree
     assert mod["T60_DOORS"], "T60_DOORS is off"
@@ -487,21 +488,25 @@ def l3_t60(recipe, mod, table):
           f"(tag, wall, clearance to the casing m) {out}")
 
 
-# the pre-pass chalet's lot bbox (manifest 2026-10-12 00:56); the fine flag masts' ball finials
-# (cs2_bldg.FINIAL_R 0.07 vs the mast's 0.05) may push y max (flag_m2 at y 14.0) out by 0.02 m: the
-# one documented H9 allowance (build/fine-detail-step3a-buildings.md)
+# the pre-pass chalet's lot bbox (manifest 2026-10-12 00:56). The fine flag masts' ball finials (cs2_bldg.FINIAL_R
+# 0.07 vs the mast's 0.05) may push y max (flag_m2 at y 14.0) out by 0.02 m: the one documented H9 allowance
+# (build/fine-detail-step3a-buildings.md)
 L3_PRE_PASS_LOT = {"x": (-15.755, 15.84), "y": (-19.96, 14.05)}
 L3_FINIAL_GROW = 0.07 - 0.05 + 0.001
 
 
 def l3_fine_h1(recipe, mod, lot):
-    """Fine-detail step 3a H1 / H9 on the chalet: every new row at the part it replaced, measured on
-    the PRE-PASS chalet's builder parts (`--no-fine`): each wall light on its wall / column face at the
-    removed lantern's lens (y, z) +-0.01 m (the lantern lens = the wall point + 0.22 m along the face
-    normal), the gazebo RoofLight at the removed lantern's top / plan center, the kit racks at
-    SKI_RACK_SPOTS (identity, m_ParentMesh -1, alternating loadouts); the fine flag masts (58 tris on
-    the builder parts, 20 before); host lot bbox = the pre-pass one +-5 mm (H9). Negative: a wall light
-    1 cm off is reported."""
+    """Fine-detail step 3a H1 / H9 on the chalet: every new row at the part it replaced, measured on the PRE-PASS
+    chalet's builder parts (`--no-fine`). The checks:
+
+    - each wall light on its wall / column face at the removed lantern's lens (y, z) +-0.01 m (the lantern lens = the
+      wall point + 0.22 m along the face normal).
+    - the gazebo RoofLight at the removed lantern's top / plan center.
+    - the kit racks at SKI_RACK_SPOTS (identity, m_ParentMesh -1, alternating loadouts).
+    - the fine flag masts (58 tris on the builder parts, 20 before).
+    - host lot bbox = the pre-pass one +-5 mm (H9).
+
+    Negative: a wall light 1 cm off is reported."""
     import fine_detail as FD
     def parts_of(rec):
         ps = lodge.build_parts(rec, {"tower": True, "roof_windows": "win"})
@@ -554,9 +559,9 @@ def l3_fine_h1(recipe, mod, lot):
           f"{flags} (pre-pass 20), lot x {lot['x']} y {lot['y']} = the pre-pass +-5 mm")
 
 
-# prop boxes (game local): a parasol = pole +-0.30 to 1.80 + canopy tier (union footprint from 1.80;
-# recipes/l5_swanky_bottom.PARASOL_*), any other prop = its union box from 5 mm above the pivot; the
-# trash bin uses its Empty / Full variant meshes (+-0.355 x +-0.364; the cached placeholder is +-0.246)
+# prop boxes (game local): a parasol = pole +-0.30 to 1.80 + canopy tier (union footprint from 1.80,
+# recipes/l5_swanky_bottom.PARASOL_*). Any other prop = its union box from 5 mm above the pivot. The trash bin uses
+# its Empty / Full variant meshes (+-0.355 x +-0.364, the cached placeholder is +-0.246)
 PROP_POLE, PROP_TIER = 0.30, 1.80
 PROP_BIN = ((-0.355, 0.0, -0.364), (0.355, 1.036, 0.364))
 
@@ -577,8 +582,8 @@ def prop_boxes(pf, pos, q):
     if pf == "ParasolRandom01":
         return [("pole",) + box((-PROP_POLE, 0.005, -PROP_POLE), (PROP_POLE, PROP_TIER, PROP_POLE)),
                 ("canopy",) + box((lo[0], PROP_TIER, lo[2]), hi)]
-    # fine-detail step 3a: a wall prop's box starts 5 mm off its wall (local z), a ceiling prop's
-    # ends 5 mm under its ceiling (local y): the mount face itself is not a clash
+    # fine-detail step 3a: a wall prop's box starts 5 mm off its wall (local z), and a ceiling prop's ends 5 mm under
+    # its ceiling (local y). The mount face itself is not a clash
     import cs2_liftdress as LD
     mount = (LD.SUBOBJ.get(pf) or {}).get("mount", "ground")
     if mount == "wall":
@@ -589,8 +594,8 @@ def prop_boxes(pf, pos, q):
 
 
 def props_clear(recipe, obj, table, subs):
-    """Assert the prop boxes against the LOD0 triangles, each other and the lot; return the
-    smallest gap between two boxes that may not touch."""
+    """Assert the prop boxes against the LOD0 triangles, each other and the lot. Return the smallest gap between two
+    boxes that may not touch."""
     from mathutils import Vector
     from mathutils.bvhtree import BVHTree
     me = obj.data

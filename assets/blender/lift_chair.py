@@ -1,75 +1,73 @@
 """
-Chairlift chair generator - one module, three styles, one carrier contract per style.
+Chairlift chair generator. One module, three styles, one carrier contract per style.
 
 Asset round 2026-10 (ROUND-SPEC R1 amended, R5, P1/P1b). Build contract:
-docs/research/art/assets-2026-10/design/dq-chair.md with dq-chair-skeptic.md applied
-(the skeptic wins where they disagree). Build report: .../assets-2026-10/build/lift_chair.md.
+docs/research/art/assets-2026-10/design/dq-chair.md with dq-chair-skeptic.md applied (the skeptic wins where they
+disagree). Build report: .../assets-2026-10/build/lift_chair.md.
 
-    style  default name        what                                             LOD0 / LOD1 / LOD2   carrier
-    tr     SkiLiftChair6M      fixed-grip TRIPLE, old school: the FG J-stem       494 / ~220 / 62      tr  (2.400)
-                               chair with Kagelok-shaped cushions + back pads,
-                               NO footrest and NO restraint (2026-10-11),
-                               a real FIXED GRIP (jaw block, long jaw saddle on
-                               the rope, lateral spring housing, two clamp plates
-                               on the hanger); the bench hangs 0.09 m lower so the
-                               plank bottom closes the 2.400 contract
-    dq     SkiLiftChairDQ4M    DETACHABLE QUAD traced from Kagelok chair 05:      996 / ~350 / 98      dq  (3.300)
-                               DT-style grip (soft-edged carriage / spring box with
-                               the friction comb in a tray on top, two running
-                               wheels beside the jaw at rope height on the inboard
-                               side, two coil springs, jaw on the
-                               rope, lever + roller), outboard C-hanger, hoop
-                               frame, 4 x 0.6 m bench, restraint bar DOWN hinged
-                               on the SIDE FRAMES just under the backrest top (one
-                               bent U tube: arm - lap bar - arm), the lap bar 0.20
-                               over the cushion ahead of the knees (rider photos),
-                               two inverted-T footrests hung from the lap bar,
-                               plate on the clamp; C13 sweeps the bar DOWN -> UP
-                               past a seated-rider envelope and asserts it moves
-    fg6l   SkiLiftChair6L      the SHIPPED round-L build, kept reproducible so    454 / 220 / 70       tr
-                               the old numbers can be regenerated (never imported,
-                               R1 amended). Same code path, byte-identical PNGs.
+Styles. Each item gives the style key, the default name, what the style is, the triangle counts (LOD0 / LOD1 / LOD2) and
+the carrier.
 
-Revision 1 (first live review, 2026-10-11, verdicts-2026-10-11.md items 1-2;
-build report .../build/lift_chair.md "Revision 1"): tr loses the footrest (+ links) and
-the clamp studs, gains the fixed grip, C4's bottom owner becomes the seat plank; dq gets
-the DT grip, the restraint pivots on the hoop top bar beside the hanger clamp, the
-footrest moves under the seat front (bar modeled DOWN).
-Revision 1b (polish, 2026-10-11, revision1-check-chairs.md item 2e): the dq running
-wheels move from the rope plane above the rope to beside the jaw on the inboard side,
-centers near rope height (Kagelok D05 rollers, dq-chair-skeptic claim 4), on stub axles
-buried in the jaw; the carriage gets chamfered edges and a shallow tray on top holding
-the silver friction comb (ribs = DetailSpec seams); LOD1 still keeps box + jaw only.
-Revision 2 (second look, verdicts-2026-10-11 item 2'; build report "Revision 2"):
-the restraint is rebuilt around a working hinge. Two bosses on the inboard faces of the
-hoop's side legs at shoulder height carry ONE bent tube (arm -> lap bar -> arm, ends
-buried in the bosses); the lap bar sits 0.35 above the cushion (was 0.40, "a bit high")
-and 0.40 in front of the pads; two inverted-T footrests (stem + short foot bar) hang from
-it between riders 1-2 / 3-4; the top-bar lugs, the separate front rail and the footbar
-are gone. New contract C13 (check_bar_mechanics): the bar assembly is swept about the
-measured hinge axis DOWN -> UP in 12 steps (x4 sub-poses) with a BVH overlap test
-against every other part, and UP must park over the backrest top and a seated head
-(not in front of the riders' faces). --preview adds <name>_pbr_barup_* (the UP pose).
-Revision 3 (2026-10-11 ~14:10, verdict 2'': "still ... too high", three photos with
-riders; build report "Revision 3"): the bar is placed from the RIDERS. Measured on the frontal
-AL photo (PHOTO_* constants): lap bar 0.20 above the cushion (was 0.35), pivot 0.47 above it
-just under the backrest top (was 0.60); the lap bar sits ahead of the knees (x 0.48), the T
-stems lean ~10 deg forward. C13 now also asserts the DOWN window (LAP_WINDOW_M, ahead of the
-knee line), sweeps a seated-rider envelope (RIDER: head, torso, thighs per seat) as an
-obstacle, tests that each boss end is INSIDE the hoop tube (not just near it), and parks UP
-over the head top and over the seat (the clamp block is the stop). --preview adds
-<name>_pbr_riders_{profile,three_quarter} (bar DOWN) and _pbr_riders_barup_profile with a
-boxy rider stand-in that is never exported.
-Nitpick A2 (2026-10-13; orchestrator ruling "Nitpick A follow-ups" (1) on build/nitpick-a-stations.md
-section 2.4; build report build/nitpick-a2-hanger-gondola.md): the dq grip side is MIRRORED across the
-travel plane (DQ_OUTBOARD = -1): hanger, carriage + comb, springs, lever + roller, running wheels +
-axles, clamp block and plate move from authoring +Y to -Y as an exact mirror (same triangles); the
-hoop, bench, bar and footrests are symmetric and untouched. On the stations' spin (every chair station
-is built round the up lane on the RIGHT looking uphill) a chair facing its travel has the outboard side
-on its RIGHT = authoring -Y, so the hanger now runs OUTBOARD on both lanes and the grip clears the towers'
-rocker mains (tests/test_dq_family_seams.py S9). DQ_OUTBOARD = +1 rebuilds the approved revision 3.
+- tr, default name SkiLiftChair6M. A fixed-grip TRIPLE chair, old school: the FG J-stem chair with Kagelok-shaped
+  cushions and back pads. It has NO footrest and NO restraint (2026-10-11). It has a real FIXED GRIP: a jaw block, a long
+  jaw saddle on the rope, a lateral spring housing, and two clamp plates on the hanger. The bench hangs 0.09 m lower, so
+  the plank bottom closes the 2.400 contract. Tris 494 / ~220 / 62. Carrier tr (2.400).
+- dq, default name SkiLiftChairDQ4M. A DETACHABLE QUAD traced from Kagelok chair 05. It has a DT-style grip: a soft-edged
+  carriage / spring box with the friction comb in a tray on top, two running wheels beside the jaw at rope height on the
+  inboard side, two coil springs, a jaw on the rope, and a lever + roller. It also has an outboard C-hanger, a hoop
+  frame, and a 4 x 0.6 m bench. The restraint bar is DOWN, hinged on the SIDE FRAMES just under the backrest top (one
+  bent U tube: arm - lap bar - arm). The lap bar is 0.20 over the cushion, ahead of the knees (rider photos). Two
+  inverted-T footrests hang from the lap bar. The plate is on the clamp. C13 sweeps the bar DOWN -> UP past a
+  seated-rider envelope and asserts that it moves. Tris 996 / ~350 / 98. Carrier dq (3.300).
+- fg6l, default name SkiLiftChair6L. The SHIPPED round-L build, kept reproducible so the old numbers can be regenerated
+  (never imported, R1 amended). It uses the same code path and makes byte-identical PNGs. Tris 454 / 220 / 70. Carrier
+  tr.
 
-Run headless (main() raises in an interactive session, ROUND-SPEC R10):
+Revision 1 (first live review, 2026-10-11, verdicts-2026-10-11.md items 1-2, build report .../build/lift_chair.md
+"Revision 1"): tr lost the footrest (+ links) and the clamp studs and gained the fixed grip. C4's bottom owner became the
+seat plank. dq got the DT grip. The restraint pivoted on the hoop top bar beside the hanger clamp. The footrest moved
+under the seat front (bar modeled DOWN).
+
+Revision 1b (polish, 2026-10-11, revision1-check-chairs.md item 2e): the dq running wheels moved from the rope plane
+above the rope to beside the jaw on the inboard side. Their centers are near rope height (Kagelok D05 rollers,
+dq-chair-skeptic claim 4), on stub axles buried in the jaw. The carriage got chamfered edges and a shallow tray on top
+that holds the silver friction comb (ribs = DetailSpec seams). LOD1 still keeps box + jaw only.
+
+Revision 2 (second look, verdicts-2026-10-11 item 2', build report "Revision 2"): the restraint was rebuilt around a
+working hinge. Two bosses on the inboard faces of the hoop's side legs at shoulder height carry ONE bent tube (arm -> lap
+bar -> arm, ends buried in the bosses). The lap bar sat 0.35 above the cushion (was 0.40, "a bit high") and 0.40 in front
+of the pads. Two inverted-T footrests (stem + short foot bar) hang from it between riders 1-2 / 3-4. The top-bar lugs,
+the separate front rail and the footbar were removed. Revision 2 added contract C13 (check_bar_mechanics). C13 sweeps the
+bar assembly about the measured hinge axis DOWN -> UP in 12 steps (x4 sub-poses) with a BVH overlap test against every
+other part. UP must park over the backrest top and a seated head (not in front of the riders' faces). --preview adds
+<name>_pbr_barup_* (the UP pose).
+
+Revision 3 (2026-10-11 ~14:10, verdict 2'': "still ... too high", three photos with riders, build report "Revision 3"):
+the bar was placed from the RIDERS. Measured on the frontal AL photo (PHOTO_* constants):
+- the lap bar sits 0.20 above the cushion (was 0.35)
+- the pivot sits 0.47 above the cushion, just under the backrest top (was 0.60)
+- the lap bar sits ahead of the knees (x 0.48)
+- the T stems lean ~10 deg forward
+
+C13 now also does these things:
+- It asserts the DOWN window (LAP_WINDOW_M, ahead of the knee line).
+- It sweeps a seated-rider envelope (RIDER: head, torso, thighs per seat) as an obstacle.
+- It tests that each boss end is INSIDE the hoop tube (not just near it).
+- It parks UP over the head top and over the seat (the clamp block is the stop).
+
+--preview adds <name>_pbr_riders_{profile,three_quarter} (bar DOWN) and _pbr_riders_barup_profile with a boxy rider
+stand-in that is never exported.
+
+Nitpick A2 (2026-10-13, orchestrator ruling "Nitpick A follow-ups" (1) on build/nitpick-a-stations.md section 2.4, build
+report build/nitpick-a2-hanger-gondola.md): the dq grip side was MIRRORED across the travel plane (DQ_OUTBOARD = -1). The
+hanger, carriage + comb, springs, lever + roller, running wheels + axles, clamp block and plate moved from authoring +Y
+to -Y as an exact mirror (same triangles). The hoop, bench, bar and footrests are symmetric and stay untouched. Every
+chair station is built around the up lane on the RIGHT looking uphill (the stations' spin). On that lane, a chair that
+faces its travel has the outboard side on its RIGHT = authoring -Y. So the hanger now runs OUTBOARD on both lanes, and
+the grip clears the towers' rocker mains (tests/test_dq_family_seams.py S9). DQ_OUTBOARD = +1 rebuilds the approved
+revision 3.
+
+Run headless. In an interactive session main() raises (ROUND-SPEC R10):
     blender --background --factory-startup --python lift_chair.py -- \\
         --style tr|dq|fg6l  --out assets/import/chairs/M
         [--letter M] [--name <Base><Letter>]   default name = STYLES[style].base + letter
@@ -81,41 +79,40 @@ Run headless (main() raises in an interactive session, ROUND-SPEC R10):
         [--seats N]   accepted only when N == the style's seats
         [--basecolor/--metallic/--smoothness]  kept for old command lines, ignored
 
-CARRIER CONTRACT (catalog/carriers.json, the table the C# catalog mirrors; R5)
-  * hang_m = grip top -> lowest point, asserted on the ACTUAL vertices of EVERY level
-    (LOD0, LOD1, LOD2 and the FBX re-import), lowest point at z = 0 (base pivot: only
-    geometry at y >= 0 renders in game). tr 2.400, dq 3.300.
-  * grip_top_above_rope_m = how far the mesh top sits above the haul-rope center. tr 0.080
-    (grip box +-0.08 about the rope), dq 0.220 (Kagelok D05 top 12.187 - rope 11.560 u at
-    0.3505 m/u). ChairPin pins bounds.max.y on the lane today, so a dq chair rides 0.22 m
-    low until the Phase B catalog field lands (dq-chair.md section 9 Q1).
-  * Every geometry contract C1-C12 of dq-chair.md section 8 is asserted in code
-    (check_contracts / check_atlas_stage / check_finished_maps / check_silhouettes): a
-    wrong build raises, it never ships. Budgets and the per-part triangle tally (C8/C9)
-    are exact.
+CARRIER CONTRACT (catalog/carriers.json, the table the C# catalog mirrors, R5):
 
-Axis convention: authoring +X = travel/facing (riders face +X), +Y = lateral (the riders'
-LEFT), +Z = up; orient_for_net() turns it into CS2's X-lateral / Y-up / Z-forward on export
-(FBX raw = authoring (y, z, x)). dq is authored post-pivot (footbar bottom z = 0); tr / fg6l
-are authored with the origin at the grip (all geometry at negative Z) and re-pivoted by the
-assembly.
-OUTBOARD side (nitpick A2, 2026-10-13): authoring -Y, the riders' RIGHT (DQ_OUTBOARD). The old
-text here said "+Y = OUTBOARD on both lanes (the -x NetSubObjects row is rotated 180 deg)" -
-that held only if the game kept FBX x (probe X2 branch P) AND ran the chairs up the lane the
-stations are NOT built round. The mover yaws every chair to its travel direction (the static
-NetSubObjects rotations do not survive it) and keeps chain A = the lane on the RIGHT looking
-uphill (StationAlign.UpLaneIsSecond, a WORLD rule); every chair station is built round that lane
-in the Blender picture (bases load +Y, tops unload -Y: nitpick A, contracts O1 / M20). Branch N
-(game x = -authoring y, the picture-preserving map): the rule holds as written and a chair's right
-is outboard. Branch P (game x = +authoring y): the game shows every mesh mirrored, S1b-P flips the
-rule's sign so the chairs still go up the stations' lane, and the mirrored chair's outboard is again
-the side authored as -Y. So -Y is outboard in BOTH branches once the stations are right; the tr
-chair is centered (its grip spring housing alone reaches +Y, clear of the FG trees either way,
-tests/test_fg_family_seams.py S9) and keeps its frame.
+- hang_m = grip top -> lowest point. The code asserts it on the ACTUAL vertices of EVERY level (LOD0, LOD1, LOD2 and the
+  FBX re-import), with the lowest point at z = 0 (base pivot: only geometry at y >= 0 renders in game). tr 2.400, dq
+  3.300.
+- grip_top_above_rope_m = how far the mesh top sits above the haul-rope center. tr 0.080 (grip box +-0.08 about the
+  rope), dq 0.220 (Kagelok D05 top 12.187 - rope 11.560 u at 0.3505 m/u). ChairPin pins bounds.max.y on the lane today,
+  so a dq chair rides 0.22 m low until the Phase B catalog field lands (dq-chair.md section 9 Q1).
+- The code asserts every geometry contract C1-C12 of dq-chair.md section 8 (check_contracts / check_atlas_stage /
+  check_finished_maps / check_silhouettes). A wrong build raises and never ships. Budgets and the per-part triangle tally
+  (C8/C9) are exact.
 
-Line facts this module prints but does not own: tr NetSubObjects (+-1.80, 7.15, AnchorTop,
-spacing 15 per R2); dq row (+-2.6, 8.25 = axle 8.0 + 0.22 + 0.03, spacing 30 as the spawn
-floor - the carrier COUNT comes from code, RS finding 9).
+Axis convention: authoring +X = travel/facing (riders face +X), +Y = lateral (the riders' LEFT), +Z = up. On export,
+orient_for_net() turns it into CS2's X-lateral / Y-up / Z-forward (FBX raw = authoring (y, z, x)). dq is authored
+post-pivot (footbar bottom z = 0). tr / fg6l are authored with the origin at the grip (all geometry at negative Z), and
+the assembly re-pivots them.
+
+OUTBOARD side (nitpick A2, 2026-10-13): authoring -Y, the riders' RIGHT (DQ_OUTBOARD). The old text here said "+Y =
+OUTBOARD on both lanes (the -x NetSubObjects row is rotated 180 deg)". That held only if both of these were true: the
+game kept FBX x (probe X2 branch P), AND the chairs ran up the lane the stations are NOT built around.
+
+The mover yaws every chair to its travel direction (the static NetSubObjects rotations do not survive it). It keeps chain
+A = the lane on the RIGHT looking uphill (StationAlign.UpLaneIsSecond, a WORLD rule). In the Blender picture, every chair
+station is built around that lane (bases load +Y, tops unload -Y: nitpick A, contracts O1 / M20).
+- Branch N (game x = -authoring y, the picture-preserving map): the rule holds as written, and a chair's right is
+  outboard.
+- Branch P (game x = +authoring y): the game shows every mesh mirrored, and S1b-P flips the rule's sign so the chairs
+  still go up the stations' lane. The mirrored chair's outboard is again the side authored as -Y.
+
+So -Y is outboard in BOTH branches once the stations are right. The tr chair is centered. Only its grip spring housing
+reaches +Y, clear of the FG trees either way (tests/test_fg_family_seams.py S9). It keeps its frame.
+
+Line facts this module prints but does not own: tr NetSubObjects (+-1.80, 7.15, AnchorTop, spacing 15 per R2). dq row
+(+-2.6, 8.25 = axle 8.0 + 0.22 + 0.03, spacing 30 as the spawn floor). The carrier COUNT comes from code (RS finding 9).
 """
 
 import argparse
@@ -148,10 +145,9 @@ DEFAULT_NAME = "SkiLiftChair"
 
 # Atlas quadrants (cs2_asset.lift_atlas_quads layout, shared with towers and stations)
 QUAD_GALV, QUAD_PAINT = 1, 3
-# Bench vinyl: the chair does not use the glass quad, so chair_atlas_post repaints quad 2
-# as light-neutral vinyl on recolor slot 3 (ControlMask B). NOTE for lift_terminal: its
-# atlas has no such repaint, so bench parts built through build_chair_parts there would
-# wear the glass quad - the static terminal chairs are being deleted this round anyway.
+# Bench vinyl: the chair does not use the glass quad. So chair_atlas_post repaints quad 2 as light-neutral vinyl on
+# recolor slot 3 (ControlMask B). NOTE for lift_terminal: its atlas has no such repaint. Bench parts built there through
+# build_chair_parts would wear the glass quad. This round deletes the static terminal chairs anyway.
 QUAD_BENCH = 2
 
 
@@ -178,7 +174,7 @@ def load_carriers(path=CARRIERS_PATH):
 
 CARRIERS = load_carriers()
 
-# -- the shipped 6L constants (fg6l; tr builds on the same frame) -------------------------
+# -- the shipped 6L constants (fg6l, tr builds on the same frame) -------------------------
 HEIGHT_CONTRACT = float(CARRIERS["tr"]["hang_m"])   # grip top -> lowest point (2.400)
 GRIP_TOP_Z = 0.08              # authored: grip box top above the grip origin (= the rope)
 LOWEST_Z = -2.32               # authored: fg6l footrest bar bottom = tr seat plank bottom
@@ -187,9 +183,9 @@ if abs(GRIP_TOP_Z - float(CARRIERS["tr"]["grip_top_above_rope_m"])) > 1e-9 or \
         abs((GRIP_TOP_Z - LOWEST_Z) - HEIGHT_CONTRACT) > 1e-9:
     raise RuntimeError("catalog/carriers.json row 'tr' disagrees with the authored FG frame "
                        f"(grip top {GRIP_TOP_Z}, lowest {LOWEST_Z})")
-# tr (Revision 1): no footrest, so the seat plank's bottom face is the lowest point. The
-# bench hangs 0.09 m lower than 6L's (rope -> plank center 2.29 instead of 2.20) so the
-# plank bottom (center - 0.03) lands on LOWEST_Z and the 2.400 contract still closes.
+# tr (Revision 1): there is no footrest, so the seat plank's bottom face is the lowest point. The bench hangs 0.09 m
+# lower than 6L's (rope -> plank center 2.29 instead of 2.20). So the plank bottom (center - 0.03) lands on LOWEST_Z and
+# the 2.400 contract still closes.
 TR_HANGER_LEN = 2.29
 TR_SEAT_THICK = 0.06
 if abs(-(TR_HANGER_LEN + TR_SEAT_THICK / 2.0) - LOWEST_Z) > 1e-9:
@@ -204,10 +200,9 @@ LOD2_DELETE = LOD1_DELETE + ("armrest_", "armpost_", "footlink_", "backbar_", "p
 ATLAS_QUAD_PX = 256            # private source atlas = 512
 FINISH_ATLAS = 512
 AO_SAMPLES = 24
-# v2 unique pack margin at 512 (texels; the bake extends islands by the same amount).
-# cs2_uv's default max(16, A // 64) is sized for >= 1024 sets and left the chairs at
-# 14 / 33 px/m (96 % gutter); 3 px = the towers' 6 px @ 1024 (lift_tower PACK_MARGIN_V2)
-# at the same mip fraction. Measured medians: tr 117, dq 75 px/m (build report).
+# v2 unique pack margin at 512 (texels). The bake extends islands by the same amount. The default of cs2_uv, max(16, A //
+# 64), is sized for >= 1024 sets. It left the chairs at 14 / 33 px/m (96 % gutter). 3 px = the towers' 6 px @ 1024
+# (lift_tower PACK_MARGIN_V2) at the same mip fraction. Measured medians: tr 117, dq 75 px/m (build report).
 PACK_MARGIN_PX = 3
 SHADE_ANGLE = 66.0
 WELD_M = 0.0005
@@ -218,9 +213,9 @@ PLATE_LIGHT = (0.90, 0.90, 0.86)
 PLATE_DARK = (0.08, 0.08, 0.09)
 PLATE_CELL_M = 0.0105                    # glyph cell (5 x 7 font) in meters on the plate
 
-# Post-orient_for_net the travel axis is Blender -Y; the profile view looks along X and
-# shows the J-stem edge-on. (dq-chair.md's `front_far` view is dropped, skeptic D12:
-# cs2_preview frames every view automatically and the `lod` mode already renders at d_k.)
+# After orient_for_net the travel axis is Blender -Y. The profile view looks along X and shows the J-stem edge-on. The
+# `front_far` view of dq-chair.md is dropped (skeptic D12). cs2_preview frames every view automatically, and the `lod`
+# mode already renders at d_k.
 CHAIR_VIEWS = (
     ("three_quarter", (1.0, -1.1, 0.35)),
     ("profile",       (1.0, 0.05, 0.10)),
@@ -228,11 +223,10 @@ CHAIR_VIEWS = (
     ("back",          (0.7, 1.0, 0.30)),      # number plate + stem clamp
 )
 
-# Texel-density weights per part prefix (1 = the equalized base density). The legacy
-# quadrant layout gives every part the same UV area whatever its size, and the finish
-# packer scales all islands by ONE factor, so the spread would ship (measured before this:
-# stem 60 px/m, clamp studs 2765). equalise_quadrant_density shrinks islands inside their
-# quad to area3d-proportional sizes times these weights before the join.
+# Texel-density weights per part prefix (1 = the equalized base density). The legacy quadrant layout gives every part the
+# same UV area, whatever its size. The finish packer scales all islands by ONE factor. So the spread would ship (measured
+# before this: stem 60 px/m, clamp studs 2765). equalise_quadrant_density shrinks islands inside their quad to
+# area3d-proportional sizes times these weights before the join.
 DENSITY_WEIGHTS = {
     "plate_face": 2.5,     # the painted digits
     "plate_rim": 0.8,
@@ -259,11 +253,10 @@ _DIGITS = {
 }
 
 # --------------------------------------------------------------------------------------
-# Kagelok trace (dq). World units (u) of "Chair Lift" by Kagelok (CC BY 4.0, ROUND-SPEC
-# section 8), chair 05 / grip D05 / rope mesh BezierCurve after unhide + frame 1; numbers as
-# CORRECTED by dq-chair-skeptic.md section 1 (rope x -7.633 not -7.556, pads 7.83 deg /
-# 0.453 thick, side frames +-3.232). tests/test_chair_styles.py re-derives the bbox-derived
-# ones from the .blend (SKIP when the gitignored original is absent).
+# Kagelok trace (dq). World units (u) of "Chair Lift" by Kagelok (CC BY 4.0, ROUND-SPEC section 8), chair 05 / grip D05 /
+# rope mesh BezierCurve after unhide + frame 1. The numbers are as CORRECTED by dq-chair-skeptic.md section 1 (rope x
+# -7.633 not -7.556, pads 7.83 deg / 0.453 thick, side frames +-3.232). tests/test_chair_styles.py re-derives the
+# bbox-derived ones from the .blend (SKIP when the gitignored original is absent).
 # --------------------------------------------------------------------------------------
 KAGELOK_U = {
     "rope_x": -7.633, "rope_z": 11.560,        # rope center at the grip, y -24.31
@@ -275,7 +268,7 @@ KAGELOK_U = {
     "hoop_outer_x": 3.357, "hoop_r": 0.125, "hoop_top_z": 7.190,
     "armrest_x": 3.248,
     "plate": (0.907, 0.090, 0.908),            # clamp plates (x, y, z)
-    "crossbar": (6.722, 0.461, 0.248),         # rear crossbar (x, y, z); not built (D9, [D])
+    "crossbar": (6.722, 0.461, 0.248),         # rear crossbar (x, y, z), not built (D9, [D])
     "roller_inboard": 0.363,                   # rollers INBOARD of the rope (skeptic claim 4)
 }
 S_VERT = 0.3505            # m/u vertical + grip: seat top 2.900 below the grip top
@@ -284,66 +277,66 @@ D_TRAV = 0.2573            # m/u travel: cushion depth 2.021 u -> 0.520 m
 SIDE_Y = round((KAGELOK_U["hoop_outer_x"] - KAGELOK_U["hoop_r"]) * W_LAT, 3)   # 1.212
 PAD_TILT_DEG = round(KAGELOK_U["pad_tilt_deg"], 1)                            # 7.8
 
-# dq hanger (outboard C): --hanger-offset o puts H2.y = o, H1.y = o - 0.065 ([D] 0.30;
-# relative to the rope the offset is a design pick, skeptic D6)
+# dq hanger (outboard C): --hanger-offset o puts H2.y = o and H1.y = o - 0.065 ([D] 0.30). Relative to the rope, the
+# offset is a design pick (skeptic D6).
 HANGER_OFFSET = 0.30
 HANGER_R = 0.045
-# Nitpick A2 (2026-10-13): the authoring y sign of the dq chair's OUTBOARD side (module docstring,
-# "OUTBOARD side"). -1 = the riders' right: the grip-side group below is mirrored across y = 0
-# after it is built (mirror_grip_side; an exact mirror of each part, same triangles; jaw_rope is
-# centered on the rope and needs none). +1 = the approved revision-3 build, byte for byte. Every
-# side-dependent number in this module (DQ_GRIP "y = outboard", dq_datums' H, C7, the C10 hanger
-# window, the LOD2 proxy grip) is written OUTBOARD-positive and mapped through this sign.
+# Nitpick A2 (2026-10-13): the authoring y sign of the dq chair's OUTBOARD side (module docstring, "OUTBOARD side"). -1 =
+# the riders' right. The code mirrors the grip-side group below across y = 0 after it builds the group
+# (mirror_grip_side). The mirror is exact for each part, with the same triangles. jaw_rope is centered on the rope and
+# needs no mirror. +1 = the approved revision-3 build, byte for byte. This module writes every side-dependent number
+# OUTBOARD-positive and maps it through this sign (DQ_GRIP "y = outboard", dq_datums' H, C7, the C10 hanger window, the
+# LOD2 proxy grip).
 DQ_OUTBOARD = -1.0
 DQ_GRIP_SIDE_PARTS = ("gripbody", "comb", "lever_fin", "lever_roller", "spring_", "wheel_",
                       "axle_", "tube_hanger", "clampblock", "plate_face")
-# Tube radii (skeptic D3; "4-seg only if r < 0.02", plan 3.1):
+# Tube radii (skeptic D3, "4-seg only if r < 0.02", plan 3.1):
 DQ_R = {"hanger": HANGER_R, "hoop": 0.044, "armrest": 0.020, "armpost": 0.018,
         "barhinge": 0.032, "barlink": 0.024, "footstem": 0.016, "footbar": 0.022}
 
-# dq restraint. Revision 2 (second look, verdicts-2026-10-11 item 2': "bar down is
-# good - but the safety bar is a bit high", "2 upside down T-s coming from the safety bar",
-# "think about the mechanics ... right now it would be stuck in place", "where the bar is
-# coming from is all wrong") rebuilt it around a working hinge: bosses on the side frames,
-# ONE bent tube (arm -> lap bar -> arm) whose ends are buried in them, two inverted-T
-# footrests hung from the lap bar, and contract C13 (check_bar_mechanics) sweeping it
-# DOWN -> UP. Photos detachable quad 1 (bar UP: the lap bar just under the top bar, each arm
-# running down INBOARD of the hoop leg to a pivot at the backrest's outer end), lpoa-04/-08.
+# dq restraint. Revision 2 (second look, verdicts-2026-10-11 item 2': "bar down is good - but the safety bar is a bit
+# high", "2 upside down T-s coming from the safety bar", "think about the mechanics ... right now it would be stuck in
+# place", "where the bar is coming from is all wrong") rebuilt it around a working hinge. It has these parts:
+# - bosses on the side frames
+# - ONE bent tube (arm -> lap bar -> arm) whose ends are buried in the bosses
+# - two inverted-T footrests hung from the lap bar
 #
-# Revision 3 (2026-10-11 ~14:10, verdict 2'': "quad chair safety bar still isn't quite
-# right, it's too high", with three photos of chairs WITH RIDERS in detachable quad/). The bar
-# is now placed from the riders, not from the frame:
-#   AL_New_Generation_2018_059-scaled-1.jpg (2560 x 1707, near-level frontal shot of a Poma
-#   six-pack, bar DOWN, two riders; every number below is measured on it): scale from the
-#   back pads (6 x 300 px; a rider's seat is 0.45-0.50 m) and the helmets (136 px = 0.21 m),
-#   1.50-1.67 mm/px, central 1.53. Heights are from the cushion top's front edge (y 1046 px,
-#   the sky gap under the pads); the camera sits near cushion height, so the frontal
-#   distances are close to true heights (a few cm for parts 0.2 m nearer the camera).
-#   2.17.23-lenawee-highrez-33-ian-zinner-1024x683.jpg (six-pack from below, bar DOWN) and
-#   Chairlift_in_Whistler_BC-small_1.webp (Doppelmayr-style quad, three-quarter from below):
-#   the lap bar crosses the riders' laps just above and in front of the knees with their
-#   hands resting on it. Shot from below, so they bound the height from above and give no
-#   number of their own.
+# Contract C13 (check_bar_mechanics) sweeps it DOWN -> UP. Photos: detachable quad 1 (bar UP: the lap bar just under the
+# top bar, each arm running down INBOARD of the hoop leg to a pivot at the backrest's outer end), lpoa-04/-08.
+#
+# Revision 3 (2026-10-11 ~14:10, verdict 2'': "quad chair safety bar still isn't quite right, it's too high", with three
+# photos of chairs WITH RIDERS in detachable quad/) placed the bar from the riders, not from the frame:
+# - AL_New_Generation_2018_059-scaled-1.jpg (2560 x 1707, near-level frontal shot of a Poma six-pack, bar DOWN, two
+#   riders). Every number below is measured on it. The scale comes from the back pads (6 x 300 px, a rider's seat is
+#   0.45-0.50 m) and the helmets (136 px = 0.21 m): 1.50-1.67 mm/px, central 1.53. Heights are from the cushion top's
+#   front edge (y 1046 px, the sky gap under the pads). The camera sits near cushion height, so the frontal distances are
+#   close to true heights (they differ by a few cm for parts 0.2 m nearer the camera).
+# - 2.17.23-lenawee-highrez-33-ian-zinner-1024x683.jpg (six-pack from below, bar DOWN) and
+#   Chairlift_in_Whistler_BC-small_1.webp (Doppelmayr-style quad, three-quarter from below): the lap bar crosses the
+#   riders' laps just above and in front of the knees, with their hands resting on it. The photos were shot from below.
+#   So they bound the height from above and give no number of their own.
 PHOTO_MM_PER_PX = (1.50, 1.53, 1.67)   # AL scale: low / central / high
 PHOTO_AL_PX = {                        # AL pixel rows (original frame), measured by column profiles
     "cushion": 1046, "lap_bar": 918, "pivot": 740, "pad_top": 658, "foot_top": 1378,
     "top_bar": 256, "helmet_tops": (512, 550), "t_bar_len": 318, "seat_pitch": 300,
 }
 PHOTO_LAP_ABOVE_CUSHION_M = 0.20       # AL 128 px: 0.19-0.21 (tube 28 px = 0.043 across)
-PHOTO_PIVOT_ABOVE_CUSHION_M = 0.47     # AL 306 px: 0.46-0.51; 0.12 under the pad top (388 px)
+PHOTO_PIVOT_ABOVE_CUSHION_M = 0.47     # AL 306 px: 0.46-0.51, 0.12 under the pad top (388 px)
 PHOTO_FOOT_BELOW_CUSHION_M = 0.51      # AL 332 px: 0.50-0.55 to the footrest top (boots on skis ~0.46)
 PHOTO_HELMET_TOP_M = (0.76, 0.82)      # AL riders' helmet tops above the cushion (slouched)
 PHOTO_TOP_BAR_ABOVE_CUSHION_M = 1.21   # AL 790 px: 1.19-1.32 (this traced hoop: 1.10)
 PHOTO_T_BAR_M = 0.49                   # AL 318 px: the T's foot bar (this build: 0.45)
 LAP_WINDOW_M = (0.15, 0.25)            # C13: lap bar DOWN center above the cushion (brief + AL)
 
-# Seated rider (C13's obstacle envelope + the preview stand-in; NEVER exported). [D] adult
-# medians (ANSUR-like, unverified) checked against the AL riders: head top 0.90 above the
-# cushion (AL helmets 0.76-0.82, so the envelope is generous), face / chest line 0.35 in
-# front of the pads' front plane, knee front 0.62 in front of it at cushion height
-# (buttock-knee ~0.60 + clothing), thigh top 0.15 above the cushion. Riders sit centered on
-# the four cushions; laterally the envelope stops `side_gap` inside the arm planes (the arms
-# run in the side planes beside the outer riders by construction).
+# Seated rider (C13's obstacle envelope + the preview stand-in, NEVER exported). [D] adult medians (ANSUR-like,
+# unverified), checked against the AL riders:
+# - head top 0.90 above the cushion (AL helmets 0.76-0.82, so the envelope is generous)
+# - face / chest line 0.35 in front of the pads' front plane
+# - knee front 0.62 in front of it at cushion height (buttock-knee ~0.60 + clothing)
+# - thigh top 0.15 above the cushion
+#
+# Riders sit centered on the four cushions. Laterally the envelope stops `side_gap` inside the arm planes (by
+# construction, the arms run in the side planes beside the outer riders).
 DQ_SEAT_TOP = 0.400
 SEATED_HEAD_M = 0.90
 SEATED_FACE_M = 0.35
@@ -351,83 +344,79 @@ RIDER = {"head": SEATED_HEAD_M, "face": SEATED_FACE_M, "knee": 0.62, "thigh": 0.
          "half_w": 0.24, "thigh_half_w": 0.20, "side_gap": 0.020,
          "seats_y": (-0.90, -0.30, 0.30, 0.90)}
 
-#   hinge: a boss on the INBOARD face of each hoop leg, PHOTO_PIVOT_ABOVE_CUSHION_M over the
-#     cushion (0.088 under the backrest top 0.958; AL: 0.12 under its pad top); its axis
-#     runs laterally, x follows the leg line (x -0.096). Revision 2 had it at 0.60.
-#   arms + lap bar: ONE bent tube (U), both ends buried in the bosses. The arms run straight
-#     forward-down from the hinge over the armrests (0.64 m to the lap bar axis) in the
-#     planes |y| = arm_y (inboard of the legs, which a full-width bar could never swing
-#     past); corner fillets; the lap bar across. Lap bar DOWN 0.20 above the cushion
-#     (PHOTO_LAP_ABOVE_CUSHION_M; Revision 2: 0.35, "too high") and AHEAD of the knees: its
-#     back face 0.013 in front of the RIDER knee line (center 0.157 ahead of the cushion
-#     front; not measurable on the frontal photo, [D] from the knee).
-#   footrests: two inverted T's (stem + short foot bar) under riders 1-2 / 3-4 (AL: one T per
-#     rider pair, stems upright in the front view); the stems lean ~10 deg forward in profile
-#     [D] so the boots sit ahead of the knees; the foot bars close the 3.300 contract (C4),
-#     their top 0.356 below the cushion (AL: 0.51 to the footrest top) - lower would raise the
-#     seat over the lowest point and move the station's seat_top 0.400 datum
-#     (lift_terminal_detach CARRIER_FALLBACK), so it stays (build report R2.7 item 2).
-#   swing: DOWN -> UP is a rotation of swing_deg about the hinge axis. Under this traced hoop
-#     (top bar 1.10 above the cushion, AL 1.21) a lap bar ahead of the knees cannot pass under
-#     the hanger clamp, so UP parks it just in front of the clamp at the top bar's height,
-#     1.04 above the cushion (over every seated head of the envelope, 0.10 ahead of the face
-#     line); the clamp block is the mechanical stop 4 deg further. C13 asserts it, sweeping
-#     the seated-rider envelope too.
+# - hinge: a boss on the INBOARD face of each hoop leg, PHOTO_PIVOT_ABOVE_CUSHION_M over the cushion (0.088 under the
+#   backrest top 0.958, AL: 0.12 under its pad top). Its axis runs laterally, and its x follows the leg line (x -0.096).
+#   Revision 2 had it at 0.60.
+# - arms + lap bar: ONE bent tube (U), both ends buried in the bosses. The arms run straight forward-down from the hinge
+#   over the armrests (0.64 m to the lap bar axis), in the planes |y| = arm_y (inboard of the legs, which a full-width
+#   bar could never swing past). The corners have fillets, and the lap bar runs across. Lap bar DOWN 0.20 above the
+#   cushion (PHOTO_LAP_ABOVE_CUSHION_M, Revision 2: 0.35, "too high") and AHEAD of the knees: its back face is 0.013 in
+#   front of the RIDER knee line (center 0.157 ahead of the cushion front, not measurable on the frontal photo, [D] from
+#   the knee).
+# - footrests: two inverted T's (stem + short foot bar) under riders 1-2 / 3-4 (AL: one T per rider pair, stems upright
+#   in the front view). The stems lean ~10 deg forward in profile [D], so the boots sit ahead of the knees. The foot bars
+#   close the 3.300 contract (C4). Their top is 0.356 below the cushion (AL: 0.51 to the footrest top). A lower position
+#   would raise the seat over the lowest point and move the station's seat_top 0.400 datum (lift_terminal_detach
+#   CARRIER_FALLBACK), so it stays (build report R2.7 item 2).
+# - swing: DOWN -> UP is a rotation of swing_deg about the hinge axis. Under this traced hoop (top bar 1.10 above the
+#   cushion, AL 1.21), a lap bar ahead of the knees cannot pass under the hanger clamp. So UP parks it just in front of
+#   the clamp at the top bar's height, 1.04 above the cushion (over every seated head of the envelope, 0.10 ahead of the
+#   face line). The clamp block is the mechanical stop 4 deg further. C13 asserts this and sweeps the seated-rider
+#   envelope too.
 DQ_BAR = {
-    "hinge_z": round(DQ_SEAT_TOP + PHOTO_PIVOT_ABOVE_CUSHION_M, 3),   # 0.870; x on the leg line
+    "hinge_z": round(DQ_SEAT_TOP + PHOTO_PIVOT_ABOVE_CUSHION_M, 3),   # 0.870, x on the leg line
     "arm_y": 1.120,                    # arm plane |y| (leg inner face 1.168, armrest 1.192)
     "boss_in": 0.035,                  # boss runs from SIDE_Y (buried) to arm_y - boss_in
     "down": (0.480, round(DQ_SEAT_TOP + PHOTO_LAP_ABOVE_CUSHION_M, 3)),  # lap bar DOWN (x, z)
     "corner": 0.100,                   # arm -> lap bar corner fillet
-    "foot": (0.580, 0.022),            # foot bar center (x, z); z = r -> bottom 0 (C4)
+    "foot": (0.580, 0.022),            # foot bar center (x, z), z = r -> bottom 0 (C4)
     "foot_y": 0.600,                   # T center |y| (between riders 1-2 / 3-4)
     "foot_half": 0.225,                # foot bar half-length (AL T 0.49, lpoa-04 ~0.4)
-    "swing_deg": 95.0,                 # DOWN -> UP about the hinge (C13; the clamp stops it at 99)
+    "swing_deg": 95.0,                 # DOWN -> UP about the hinge (C13, the clamp stops it at 99)
 }
 
-# dq detachable grip, Revision 1 ("the grip is not quite right"; photo detachable
-# quad/close up of grip.jpg, a Doppelmayr DT grip: carriage with the friction plate, two
-# coil-spring stacks, the jaw lever with its roller, running wheels; detachable quad 1.jpg
-# for the grip on the line). Meters; heights relative to the rope center unless noted;
-# y = outboard. The carriage keeps the mesh top (C2) and holds the rope point (C3); the
-# jaw rides on the rope (C3: bottom rope + 0.006); every other part stays below the top.
-# Revision 1b (polish, revision1-check-chairs 2e): the carriage's edges along travel and
-# lateral are chamfered ("soft"; the vertical edges stay square so the lever's buried face
-# stays buried) and its top face sinks into a shallow tray whose outer edge is still the
-# mesh top; the friction comb (the photo's silver ribbed plate) sits in the tray just
-# below that edge; the running wheels sit BESIDE the jaw on the INBOARD side with their
-# centers at the jaw's mid-height (Kagelok D05 rollers: rope height, 0.363 u inboard of the
-# rope, dq-chair-skeptic claim 4), each on a stub axle buried 1 cm in the jaw. [D] numbers
-# except the traced wheel lateral.
+# dq detachable grip, Revision 1 ("the grip is not quite right"). The reference is the photo detachable quad/close up of
+# grip.jpg, a Doppelmayr DT grip: a carriage with the friction plate, two coil-spring stacks, the jaw lever with its
+# roller, and running wheels. The photo detachable quad 1.jpg shows the grip on the line. Units are meters. Heights are
+# relative to the rope center unless noted. y = outboard. The carriage keeps the mesh top (C2) and holds the rope point
+# (C3). The jaw rides on the rope (C3: bottom rope + 0.006). Every other part stays below the top.
+#
+# Revision 1b (polish, revision1-check-chairs 2e): the carriage's edges along travel and lateral are chamfered ("soft").
+# The vertical edges stay square, so the lever's buried face stays buried. The top face sinks into a shallow tray whose
+# outer edge is still the mesh top. The friction comb (the photo's silver ribbed plate) sits in the tray just below that
+# edge. The running wheels sit BESIDE the jaw on the INBOARD side, with their centers at the jaw's mid-height (Kagelok
+# D05 rollers: rope height, 0.363 u inboard of the rope, dq-chair-skeptic claim 4). Each wheel sits on a stub axle buried
+# 1 cm in the jaw. All numbers are [D] except the traced wheel lateral.
 DQ_GRIP = {
     "body": (0.300, 0.140, 0.250),     # carriage / spring box (x, y, z), top = hang_m
     "body_y0": -0.030,                 # its inboard face (covers the rope's inboard side)
     "soft": 0.015,                     # chamfer on the carriage's x- and y-axis edges
-    "tray": (0.008, 0.008),            # top tray: inset, depth (45 deg walls; rim = hang_m)
+    "tray": (0.008, 0.008),            # top tray: inset, depth (45 deg walls, rim = hang_m)
     "comb": (0.002, 0.0015),           # friction comb: margin to the tray floor edge, top below the rim
     "jaw": (0.580, 0.080, 0.045),      # jaw bar on the rope (x, y, z), 1 cm proud inboard
     "jaw_dz": 0.006,                   # jaw bottom above the rope center
     "lever": (0.240, 0.020, 0.045),    # lever arm on the inboard face (x, y, z)
     "lever_c": (-0.030, 0.085, 20.0),  # lever center x, z (above the rope), tilt deg (aft up)
     "roller": (0.032, 0.030, -0.140, 0.125),   # roller r, width, center x, z: the lever's aft end
-    "spring": (0.032, 0.170, 0.085),   # coil cylinders r, height, +-x; on the outboard face
+    "spring": (0.032, 0.170, 0.085),   # coil cylinders r, height, +-x, on the outboard face
     "wheel": (0.080, 0.050, 0.200),    # running wheels r, width, +-x (center z = jaw mid-height)
     "wheel_y": -round(KAGELOK_U["roller_inboard"] * S_VERT, 3),   # -0.127: inboard, traced
     "axle_r": 0.016,                   # stub axle (6-seg, uncapped, both ends buried: jaw / wheel)
 }
-# Revision 1c (revision1b-check-dq-grip "the softened carriage does not shade the way the build
-# report says"): on the chamfered carriage only the 4 vertical edges came out sharp (90 deg), and
-# one sharp edge cannot split a corner fan (face -> 45 deg chamfer -> 60 deg chamfer corner -> 45
-# deg chamfer -> face), so the weighted normals bent the sides 25 deg and the ends 65 deg: the box
-# shaded like a rounded can. Every edge of a FLAT part's big faces (axis-aligned normal: the 4
-# sides, the bottom, the tray floor) is now marked sharp before shading, so those faces shade flat
-# (corner normals = face normal; C14 < FLAT_FACE_MAX_DEG, measured again on the re-imported FBX
-# by --verify) while the chamfers and tray walls still smooth into each other at the corners.
+# Revision 1c (revision1b-check-dq-grip "the softened carriage does not shade the way the build report says"): on the
+# chamfered carriage, only the 4 vertical edges came out sharp (90 deg). One sharp edge cannot split a corner fan (face
+# -> 45 deg chamfer -> 60 deg chamfer corner -> 45 deg chamfer -> face). So the weighted normals bent the sides 25 deg
+# and the ends 65 deg, and the box shaded like a rounded can.
+#
+# Now the code marks every edge of a FLAT part's big faces sharp before shading. A big face has an axis-aligned normal:
+# the 4 sides, the bottom, and the tray floor. So those faces shade flat (corner normals = face normal, C14 <
+# FLAT_FACE_MAX_DEG, measured again on the re-imported FBX by --verify). The chamfers and tray walls still smooth into
+# each other at the corners.
 FLAT_PARTS = {"dq": ("gripbody",)}     # style key -> part names (tr / fg6l: none, unchanged)
 FLAT_FACE_MAX_DEG = 2.0
 FLAT_FACE_AXIS = 0.999                 # |normal . axis| above this = a big (axis-aligned) face
-# Authored LOD2 proxy radii (skeptic D11: >= the LOD0 radius; a 3-gon of circumradius R
-# reads about as wide as a circle of 0.8 R, so R = 1.25 r)
+# Authored LOD2 proxy radii (skeptic D11: >= the LOD0 radius). A 3-gon of circumradius R reads about as wide as a circle
+# of 0.8 R, so R = 1.25 r.
 PROXY_R = {"hanger": 0.056, "hoop": 0.055, "restraint": 0.030, "footstem": 0.025,
            "footbar": 0.031, "stem": 0.056}
 
@@ -452,7 +441,7 @@ class Style:
     bake: str                     # default --bake
     lod2: str                     # default --lod2
     grip_part: str                # the part that owns the mesh top (C2/C3), exact name
-    tint: dict                    # preview / review slot tints; the prefab VariationSet owns colors
+    tint: dict                    # preview / review slot tints. The prefab VariationSet owns colors
     bottom_part: str = "footbar"  # part-name PREFIX that owns the lowest vertices (C4)
     density: dict = field(default_factory=dict)
     part_tris: tuple = ()         # ((name, tris), ...) - the contract tally, asserted exactly (C9)
@@ -472,16 +461,15 @@ class Style:
         return tuple(n for n, _t in self.part_tris)
 
 
-# Preview / review slot tints. Slot 1 left out = cs2_preview's / cs2_review's default
-# (cs2_asset.STEEL_DEFAULT_RGB, p0a fix 19); the prefab VariationSet owns the shipped look.
+# Preview / review slot tints. Slot 1 left out = the default of cs2_preview / cs2_review (cs2_asset.STEEL_DEFAULT_RGB,
+# p0a fix 19). The prefab VariationSet owns the shipped look.
 GALV_PREVIEW_RGB = (0.62, 0.64, 0.66)     # dq default frame [U] (photos lpoa-04, img_6201)
 GREY_BENCH_RGB = (0.25, 0.26, 0.29)       # dq default bench [U] (photo lpoa-08)
 
 _TR_TALLY = (
-    # Revision 1: the 6L grip box -> a fixed grip (jaw block = the top part, jaw saddle,
-    # spring housing, two hanger clamp plates); footbar + footlinks removed (old-school
-    # chair, no footrest, no restraint); the two 1 cm clamp studs removed for the 500 cap
-    # (the clampblock's map:bolts relief still paints its bolt heads)
+    # Revision 1: the 6L grip box became a fixed grip (jaw block = the top part, jaw saddle, spring housing, two hanger
+    # clamp plates). Revision 1 removed the footbar + footlinks (old-school chair, no footrest, no restraint) and the two
+    # 1 cm clamp studs (for the 500 cap). The clampblock's map:bolts relief still paints its bolt heads.
     ("grip", 12), ("gripjaw", 20), ("gripspring", 18), ("gripplate_0", 12),
     ("gripplate_1", 12),
     ("tube_stem", 128), ("clampblock", 12),
@@ -492,21 +480,19 @@ _TR_TALLY = (
     ("armrest_0", 18), ("armpost_0", 8), ("armrest_1", 18), ("armpost_1", 8),
 )
 _DQ_TALLY = (
-    # Revision 1 grip (photo "close up of grip"): carriage / spring box, jaw on the rope,
-    # lever arm (+Y face buried) + roller, two coil-spring cylinders, two running wheels.
-    # Revision 1b: the carriage chamfered on 8 edges + top tray (all quads, 36), the
-    # friction comb in the tray (box, bottom buried, 10), the wheels' stub axles (6-seg,
-    # uncapped, 12 each)
+    # Revision 1 grip (photo "close up of grip"): carriage / spring box, jaw on the rope, lever arm (+Y face buried) +
+    # roller, two coil-spring cylinders, two running wheels. Revision 1b added a carriage chamfered on 8 edges + a top
+    # tray (all quads, 36), the friction comb in the tray (box, bottom buried, 10), and the wheels' stub axles (6-seg,
+    # uncapped, 12 each).
     ("gripbody", 36), ("comb", 10), ("jaw_rope", 12), ("lever_fin", 10), ("lever_roller", 24),
     ("spring_0", 24), ("spring_1", 24), ("wheel_0", 32), ("wheel_1", 32),
     ("axle_0", 12), ("axle_1", 12),
     ("tube_hanger", 144), ("clampblock", 12),
     ("plate_face", 2), ("tube_hoop", 168), ("armrest_0", 18), ("armrest_1", 18),
     ("armpost_0", 8), ("armpost_1", 8),
-    # Revision 2 restraint (DQ_BAR): hinge bosses on the side-frame legs (6-seg, outer cap
-    # buried in the leg, 18), the bar as ONE U sweep arm -> lap bar -> arm (6-seg, 8 rings,
-    # ends buried in the bosses, 84), two inverted-T footrests (4-seg stem buried at both
-    # ends, 8; 6-seg capped foot bar, 24)
+    # Revision 2 restraint (DQ_BAR): hinge bosses on the side-frame legs (6-seg, outer cap buried in the leg, 18), the
+    # bar as ONE U sweep arm -> lap bar -> arm (6-seg, 8 rings, ends buried in the bosses, 84), two inverted-T footrests
+    # (4-seg stem buried at both ends, 8, and 6-seg capped foot bar, 24)
     ("barhinge_0", 18), ("barhinge_1", 18), ("barlink", 84),
     ("footstem_0", 8), ("footstem_1", 8), ("footbar_0", 24), ("footbar_1", 24),
     ("seatpan", 12), ("backboard", 10),
@@ -547,10 +533,9 @@ STYLES = {
                  "wheel_": 0.8, "axle_": 0.6, "armpost_": 0.8, "barhinge_": 0.8,
                  "seatpan": 0.8, "backboard": 0.7},
         part_tris=_DQ_TALLY,
-        # Revision 1: the proxy grip box also covers the hanger's top arm, so the proxy
-        # hanger is one bend (18). Revision 2: the bar line (the lap bar, one tri-link) and
-        # the two T footrests (stem + foot bar, 4 tri-links); the short arms (sub-pixel
-        # beside the hoop legs at the LOD2 switch) are left out for the 100 cap
+        # Revision 1: the proxy grip box also covers the hanger's top arm, so the proxy hanger is one bend (18). Revision
+        # 2 added the bar line (the lap bar, one tri-link) and the two T footrests (stem + foot bar, 4 tri-links). It
+        # left out the short arms (sub-pixel beside the hoop legs at the LOD2 switch) for the 100 cap.
         proxy_tris=(("gripbody", 10), ("tube_hanger", 18), ("hooptop", 6), ("hoopside_0", 6),
                     ("hoopside_1", 6), ("seatblock", 12), ("backblock", 10),
                     ("restraint", 6), ("footstem_0", 6), ("footstem_1", 6),
@@ -565,7 +550,7 @@ STYLES = {
         ab=("chairs", "K", "SkiLiftChair6K")),
 }
 
-# Part -> atlas quad family, for the C11/C12 checks (G galvanised, P paint, B bench)
+# Part -> atlas quad family, for the C11/C12 checks (G galvanized, P paint, B bench)
 FAMILY_OF_QUAD = {QUAD_GALV: "G", QUAD_PAINT: "P", QUAD_BENCH: "B"}
 
 
@@ -606,7 +591,7 @@ def clear_scene():
 # --------------------------------------------------------------------------------------
 
 def add_box(name, size, location, drop=()):
-    """Axis-aligned box centered on `location`; `drop` = buried face keys ("-Z", "+X"...)."""
+    """Axis-aligned box centered on `location`. `drop` = buried face keys ("-Z", "+X"...)."""
     return cs2_kit.add_box(name, size, location, drop=drop)
 
 
@@ -617,11 +602,10 @@ def add_tube(name, radius, depth, location, rotation=(0, 0, 0), segments=8, caps
 
 def add_link(name, p0, p1, radius, segments=6, extend=0.03, caps="both"):
     """
-    Tube spanning two 3D points, lengthened `extend` past each end. Local +Z runs
-    p0 -> p1 with local +Y tracked to world up, so a 6-gon has one vertex straight up and
-    one straight DOWN: a bar's lowest point is exactly center - radius (the height
-    contract is measured from real vertices, so this matters). caps: "both", "top"
-    (= the p1 end), "bottom" (= the p0 end) or "none".
+    Tube spanning two 3D points, lengthened `extend` past each end. Local +Z runs p0 -> p1, with local +Y tracked to
+    world up. So a 6-gon has one vertex straight up and one straight DOWN, and a bar's lowest point is exactly center -
+    radius. This matters because the height contract is measured from real vertices. caps: "both", "top" (= the p1 end),
+    "bottom" (= the p0 end) or "none".
     """
     a, b = mathutils.Vector(p0), mathutils.Vector(p1)
     d = b - a
@@ -652,9 +636,9 @@ def _mesh_object(name, bm, loc, relief="geo"):
 
 def add_cushion(name, size, loc, scoop=0.02):
     """
-    Vinyl cushion: an open-bottomed block whose top is a 4-triangle fan to a center
-    vertex lowered by `scoop` (the seat dip; smooth-shaded at 66 deg it reads as a soft
-    hollow). 12 tris. relief "map:seams" (cs2_compose draws the stitching).
+    Vinyl cushion: an open-bottomed block whose top is a 4-triangle fan to a center vertex lowered by `scoop` (the seat
+    dip, which reads as a soft hollow when smooth-shaded at 66 deg). 12 tris. relief "map:seams" (cs2_compose draws the
+    stitching).
     """
     sx, sy, sz = size
     hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
@@ -689,12 +673,11 @@ def add_plate_face(name, x, yc, zc, w, h, facing=1):
 def add_profile_slab(name, pts_xz, width, loc, rot_y=0.0, open_bottom=False,
                      relief="map:seams"):
     """
-    A convex (x, z) profile, counter-clockwise seen from -Y, extruded +-width/2 along Y
-    (dq-chair.md section 4.3). Side quads + two caps as triangle fans WITHOUT a center
-    vertex (n - 2 tris each); open_bottom drops the side quad on the first edge (P1-P2,
-    the face that sits on the seat pan). The object sits at `loc`, rotated `rot_y` rad
-    about its local Y (the profile's origin is the hinge). Box-projected "UVMap"; relief
-    "map:seams". Raises on a non-convex or clockwise profile.
+    A convex (x, z) profile, counter-clockwise seen from -Y, extruded +-width/2 along Y (dq-chair.md section 4.3). It has
+    side quads and two caps. The caps are triangle fans WITHOUT a center vertex (n - 2 tris each). open_bottom drops the side
+    quad on the first edge (P1-P2, the face that sits on the seat pan). The object sits at `loc`, rotated `rot_y` rad
+    about its local Y (the profile's origin is the hinge). UVs are box-projected "UVMap". Relief is "map:seams". Raises
+    on a non-convex or clockwise profile.
     """
     n = len(pts_xz)
     for i in range(n):
@@ -722,7 +705,7 @@ def add_profile_slab(name, pts_xz, width, loc, rot_y=0.0, open_bottom=False,
 
 
 def cushion_profile(d, tf, tb, xs=1.0):
-    """profile8 (dq-chair.md 4.3): bullnose front, raked top; x offsets scale by `xs`."""
+    """profile8 (dq-chair.md 4.3): bullnose front, raked top. The x offsets scale by `xs`."""
     return [(-d / 2.0, 0.0), (d / 2.0 - 0.040 * xs, 0.0), (d / 2.0 - 0.005 * xs, 0.020),
             (d / 2.0, 0.060 * tf / 0.11), (d / 2.0 - 0.015 * xs, tf - 0.015),
             (d / 2.0 - 0.050 * xs, tf), (-d / 2.0 + 0.020 * xs, tb), (-d / 2.0, tb - 0.017)]
@@ -791,15 +774,17 @@ def add_closed_block(name, corners_lo, corners_hi, drop_bottom=False):
 
 def add_soft_box(name, size, loc, chamfer, axes="xy", tray=None):
     """
-    Box of `size` centered on `loc` (dq carriage, Revision 1b) whose edges along the
-    listed axes ("x", "y", "z") are chamfered by `chamfer` (one bevel segment, 45 deg).
-    Shading: shade_by_angle(66) + weighted normals alone do NOT keep the big faces flat (the
-    corner fans span face -> chamfers -> face; revision1b-check-dq-grip); list the part in
-    FLAT_PARTS so _assemble marks its big faces' edges sharp (Revision 1c, C14).
-    tray = (inset, depth) sinks the top face into a shallow tray: the face's outer edge
-    loop stays at the box top (the mesh top, C2), its floor is `inset` in and `depth` lower,
-    joined by sloped walls. All quads (axes "xy": 28 tris, + tray 36); box-projected
-    "UVMap". Deterministic (bmesh bevel / inset on the fixed create_cube topology).
+    Box of `size` centered on `loc` (dq carriage, Revision 1b). Its edges along the listed axes ("x", "y", "z") are
+    chamfered by `chamfer` (one bevel segment, 45 deg).
+
+    Shading: shade_by_angle(66) + weighted normals alone do NOT keep the big faces flat (the corner fans span face ->
+    chamfers -> face, revision1b-check-dq-grip). List the part in FLAT_PARTS, so _assemble marks the edges of its big
+    faces sharp (Revision 1c, C14).
+
+    tray = (inset, depth) sinks the top face into a shallow tray. The outer edge loop of the face stays at the box top
+    (the mesh top, C2). The tray floor is `inset` in and `depth` lower, joined by sloped walls. All faces are quads (axes
+    "xy": 28 tris, + tray 36). UVs are box-projected "UVMap". The build is deterministic (bmesh bevel / inset on the
+    fixed create_cube topology).
     """
     bm = cs2_kit._box_bm(size)
     sel = []
@@ -830,34 +815,30 @@ def build_chair_parts(p: ChairParams, offset=(0, 0, 0), prefix="", facing=1,
     """
     Build the chair's parts, each tagged with its atlas quadrant: [(obj, quad), ...].
 
-    M-style rebuild of the J/K swan-neck chair (liftblog Pali photos, the Yan drawing):
-    a single continuous J-curved stem drops from the grip, sweeps back and down behind
-    the backrest and clamps to the backrest top rail (clamp block + two studs). The
-    bench is a tube-steel frame (top rail, four back bars, armrests with open front
-    ends on front posts, front lip tube, footrest bar on two links) carrying a padded
-    backrest panel and three scooped seat cushions split by two dividers, plus a number
-    plate on the back of the backrest.
+    M-style rebuild of the J/K swan-neck chair (liftblog Pali photos, the Yan drawing). A single continuous J-curved stem
+    drops from the grip, sweeps back and down behind the backrest, and clamps to the backrest top rail (clamp block + two
+    studs). The bench is a tube-steel frame: top rail, four back bars, armrests with open front ends on front posts,
+    front lip tube, and a footrest bar on two links. The frame carries a padded backrest panel and three scooped seat
+    cushions split by two dividers. A number plate sits on the back of the backrest.
 
-    variant "tr" (the 2026-10 triple, dq-chair.md section 4.2): the scooped cushions, the
-    dividers, the lip tube and the two inner back bars (hidden behind the panel) go;
-    three Kagelok profile8 cushions and three profile6 back pads (vertical: the J-stem
-    frame is vertical, section 9 Q7) come in. Revision 1 (2026-10-11): the grip
-    box becomes a real fixed grip (build_fixed_grip), the footrest bar + links and the
-    two clamp studs go, and the bench hangs at p.hanger_len = TR_HANGER_LEN so the plank
-    bottom is the lowest point. Everything else is the 6L chair. "6l" is the shipped
-    build, unchanged (same calls in the same order).
+    variant "tr" (the 2026-10 triple, dq-chair.md section 4.2) differs from 6L in these ways:
+    - It drops the scooped cushions, the dividers, the lip tube and the two inner back bars (hidden behind the panel).
+    - It adds three Kagelok profile8 cushions and three profile6 back pads (vertical: the J-stem frame is vertical,
+      section 9 Q7).
 
-    HEIGHT CONTRACT (hard invariant - the game positions chairs by this): grip top to
-    lowest point is EXACTLY 2.40 m. Grip top sits at offset.z + 0.08; the lowest point
-    sits at offset.z - 2.32: 6l the footrest bar's bottom VERTEX (add_link puts a 6-gon
-    vertex straight down), tr the seat plank's bottom face. Nothing may hang below it;
-    the contract checks assert it from the mesh.
+    Revision 1 (2026-10-11): the grip box became a real fixed grip (build_fixed_grip). The footrest bar + links and the
+    two clamp studs were dropped. The bench hangs at p.hanger_len = TR_HANGER_LEN, so the plank bottom is the lowest
+    point. Everything else is the 6L chair. Variant "6l" is the shipped build, unchanged (same calls in the same order).
 
-    Geometry hangs BELOW the grip: the grip sits at `offset`. Standalone export
-    re-pivots afterwards; a terminal generator may pass `offset` directly so the grip
-    lands on its modeled rope. `facing` is +1 (riders face +X, the travel direction)
-    or -1 (mirrored along X). `prefix` keeps part names unique when several chairs
-    share one scene. Part names are the LOD delete keys (LOD1_DELETE / LOD2_DELETE).
+    HEIGHT CONTRACT (hard invariant - the game positions chairs by this): grip top to lowest point is EXACTLY 2.40 m. The
+    grip top sits at offset.z + 0.08. The lowest point sits at offset.z - 2.32. In 6l it is the footrest bar's bottom
+    VERTEX (add_link puts a 6-gon vertex straight down). In tr it is the seat plank's bottom face. Nothing may hang below
+    it. The contract checks assert it from the mesh.
+
+    Geometry hangs BELOW the grip, and the grip sits at `offset`. Standalone export re-pivots afterwards. A terminal
+    generator may pass `offset` directly, so the grip lands on its modeled rope. `facing` is +1 (riders face +X, the
+    travel direction) or -1 (mirrored along X). `prefix` keeps part names unique when several chairs share one scene.
+    Part names are the LOD delete keys (LOD1_DELETE / LOD2_DELETE).
     """
     if variant not in ("6l", "tr"):
         raise ValueError(f"variant {variant!r}")
@@ -871,7 +852,7 @@ def build_chair_parts(p: ChairParams, offset=(0, 0, 0), prefix="", facing=1,
     seat_z = oz - p.hanger_len                       # bench plank center (-2.20)
 
     def X(relx):
-        """Author in the facing=+1 frame; mirror along X for facing=-1."""
+        """Author in the facing=+1 frame. Mirror along X for facing=-1."""
         return ox + f * relx
 
     def P(relx, rely, z):
@@ -896,11 +877,10 @@ def build_chair_parts(p: ChairParams, offset=(0, 0, 0), prefix="", facing=1,
     else:
         parts.extend(build_fixed_grip(P, oz, prefix))
 
-    # THE SWAN-NECK: one continuous tube_along sweep. Its top end is buried in the grip,
-    # its bottom end in the clamp block, so no caps. Rings only across the three bends,
-    # and the three fillets MEET end to end (stem_points: middle spans = 2 x fillet), so
-    # the sweep is one even chain of ~0.15 m chords with no sliver faces - a short face
-    # beside a long chord skews the area-weighted vertex normals and dents the tube.
+    # THE SWAN-NECK: one continuous tube_along sweep. Its top end is buried in the grip, its bottom end in the clamp
+    # block, so no caps. Rings only across the three bends. The three fillets MEET end to end (stem_points: middle spans
+    # = 2 x fillet), so the sweep is one even chain of ~0.15 m chords with no sliver faces. A short face beside a long
+    # chord skews the area-weighted vertex normals and dents the tube.
     top_dz = STEM_TOP_DZ if variant == "6l" else TR_STEM_TOP_DZ
     stem = K.tube_along(f"{prefix}tube_stem", stem_points(oz, back_top_z, X, oy, top_dz),
                         p.hanger_radius, segments=8, caps="none", bend_rings=STEM_BEND_RINGS)
@@ -909,8 +889,8 @@ def build_chair_parts(p: ChairParams, offset=(0, 0, 0), prefix="", facing=1,
                            f"got {stem['rings']}")
     parts.append((stem, QUAD_PAINT))
 
-    # Stem/rail clamp block around the joint, two studs on top (real geometry, LOD1 drops;
-    # 6l only - tr paints them through the block's map:bolts relief, 500-tri cap).
+    # Stem/rail clamp block around the joint, two studs on top (real geometry, LOD1 drops them). 6l only: tr paints them
+    # through the block's map:bolts relief (500-tri cap).
     clamp = K.add_box(f"{prefix}clampblock", (0.13, 0.15, 0.13), P(-0.51, 0.0, back_top_z))
     clamp["relief"] = "map:bolts"
     parts.append((clamp, QUAD_GALV))
@@ -979,11 +959,9 @@ def build_chair_parts(p: ChairParams, offset=(0, 0, 0), prefix="", facing=1,
                                     P(seat_cx, m * (cw + div_w) / 2.0, seat_top + 0.03),
                                     drop=("-Z",)), bench_quad))
     else:
-        # Kagelok cushions (profile8, open bottom on the plank) and vertical back pads
-        # (profile6, closed) in front of the panel. Pitch (w - 0.20) / 3 = 0.533, width
-        # = Kagelok w / pitch 0.8975 x pitch = 0.479 (a 5.5 cm gap: neighbors must not
-        # come within the 0.5 mm weld); depth 0.46 (x offsets x 0.92), front 0.09, back
-        # 0.05 (dq-chair.md 4.2).
+        # Kagelok cushions (profile8, open bottom on the plank) and vertical back pads (profile6, closed) in front of the
+        # panel. Pitch (w - 0.20) / 3 = 0.533, width = Kagelok w / pitch 0.8975 x pitch = 0.479 (a 5.5 cm gap: neighbors
+        # must not come within the 0.5 mm weld). Depth 0.46 (x offsets x 0.92), front 0.09, back 0.05 (dq-chair.md 4.2).
         pitch = (w - 0.20) / 3.0
         cw = KAGELOK_U["cushion_w"] / KAGELOK_U["cushion_pitch"] * pitch
         cush_d = 0.46
@@ -1009,8 +987,8 @@ def build_chair_parts(p: ChairParams, offset=(0, 0, 0), prefix="", facing=1,
                            P(-0.05, y, seat_top - 0.01), 0.018), QUAD_PAINT))
 
     if variant == "6l":
-        # Footrest bar on two links below the seat front. Bar bottom VERTEX at oz - 2.32
-        # CLOSES the 2.40 m height contract; the links stop inside the bar.
+        # Footrest bar on two links below the seat front. Bar bottom VERTEX at oz - 2.32 CLOSES the 2.40 m height
+        # contract. The links stop inside the bar.
         bar_r = 0.025
         bar_z = oz + LOWEST_Z + bar_r
         fl = w * 0.72
@@ -1023,7 +1001,7 @@ def build_chair_parts(p: ChairParams, offset=(0, 0, 0), prefix="", facing=1,
                                P(0.02, y, seat_z - p.seat_thick / 2.0 + 0.01),
                                P(0.13, y, bar_z + 0.012), 0.016), QUAD_GALV))
     elif abs((seat_z - p.seat_thick / 2.0) - (oz + LOWEST_Z)) > 1e-9:
-        # tr (Revision 1): no footrest - the plank's bottom face closes the contract
+        # tr (Revision 1): there is no footrest. The plank's bottom face closes the contract.
         raise RuntimeError(f"tr: plank bottom {seat_z - p.seat_thick / 2.0:.4f} != "
                            f"{oz + LOWEST_Z:.4f}; build with tr_params()")
     return parts
@@ -1040,23 +1018,25 @@ def tr_params():
 # Klemme...jpg (Doppelmayr fixed grip: long tapered jaws along the rope, lateral spring
 # housing with an end cap, hanger clamped below). [D] sizes, proportions from the photos.
 FG_GRIP = {
-    "block": (0.160, 0.100, 0.140),     # jaw block (x, y, z); top = rope + GRIP_TOP_Z
+    "block": (0.160, 0.100, 0.140),     # jaw block (x, y, z), top = rope + GRIP_TOP_Z
     "saddle": [(-0.340, 0.010), (0.340, 0.010), (0.340, 0.028), (0.075, 0.062),
                (-0.075, 0.062), (-0.340, 0.028)],   # jaw saddle (x, z) profile on the rope
     "saddle_w": 0.070,                  # saddle width (rope 0.048)
     "spring": (0.038, 0.130, 0.100, -0.005),   # housing r, length, center y, center z
     "plate": (0.140, 0.016, 0.110),     # clamp plate (x, y, z)
-    "plate_c": (-0.010, 0.055, -0.105), # plate center (x, +-y, z); stem r 0.045 between
+    "plate_c": (-0.010, 0.055, -0.105), # plate center (x, +-y, z), stem r 0.045 between
 }
 
 
 def build_fixed_grip(P, oz, prefix=""):
     """
-    The tr fixed grip [(obj, quad), ...] (Revision 1, verdicts-2026-10-11 item 1): a jaw
-    block around the rope whose top face is the mesh top (rope + 0.080, C2/C3), a long
-    tapered jaw saddle riding on the rope fore and aft, a lateral spring housing with its
-    end cap on the outboard side (inner end buried in the block), and two clamp plates
-    below that sandwich the J-stem's top (proud of the block's sides). 74 tris.
+    The tr fixed grip [(obj, quad), ...] (Revision 1, verdicts-2026-10-11 item 1). It has these parts:
+    - a jaw block around the rope, whose top face is the mesh top (rope + 0.080, C2/C3)
+    - a long tapered jaw saddle riding on the rope fore and aft
+    - a lateral spring housing with its end cap on the outboard side (inner end buried in the block)
+    - two clamp plates below that sandwich the J-stem's top (proud of the block's sides)
+
+    74 tris.
     """
     K = cs2_kit
     g = FG_GRIP
@@ -1079,7 +1059,7 @@ def build_fixed_grip(P, oz, prefix=""):
 
 
 STEM_BEND_RINGS = 3
-STEM_SPAN = 0.30                      # the two middle spans; fillet = STEM_SPAN / 2 each
+STEM_SPAN = 0.30                      # the two middle spans, fillet = STEM_SPAN / 2 each
 STEM_ANGLES_DEG = (56.0, 74.0)        # middle-span slopes below horizontal (seg0 ~38, seg3 90)
 STEM_VERT_TOP = -0.802                # where the vertical run starts (authoring z)
 STEM_RINGS = 2 + 3 * STEM_BEND_RINGS - 2   # touching fillets: two coincident rings dedupe
@@ -1087,12 +1067,11 @@ STEM_RINGS = 2 + 3 * STEM_BEND_RINGS - 2   # touching fillets: two coincident ri
 
 def stem_points(oz, back_top_z, X=lambda x: x, oy=0.0, top_dz=STEM_TOP_DZ):
     """
-    The five J-stem points, authored so cs2_kit.tube_along's fillets meet: the two middle
-    spans are exactly STEM_SPAN long, so every bend gets fillet = STEM_SPAN / 2 and the
-    end of one fillet is the start of the next (no straight slivers between bends). Built
-    backwards from the vertical run (x = -0.52, behind the backrest) at the middle-span
-    slopes; the first span (grip -> P1) comes out ~0.34 m at ~38 deg (tr: top_dz -0.020,
-    ~0.37 m at ~42 deg), the vertical run reaches the clamp block on the backrest rail.
+    The five J-stem points, authored so cs2_kit.tube_along's fillets meet. The two middle spans are exactly STEM_SPAN
+    long, so every bend gets fillet = STEM_SPAN / 2 and the end of one fillet is the start of the next (no straight
+    slivers between bends). The points are built backwards from the vertical run (x = -0.52, behind the backrest) at the
+    middle-span slopes. The first span (grip -> P1) comes out ~0.34 m at ~38 deg (tr: top_dz -0.020, ~0.37 m at ~42 deg).
+    The vertical run reaches the clamp block on the backrest rail.
     """
     a1, a2 = (math.radians(a) for a in STEM_ANGLES_DEG)
     p3 = (-0.52, oz + STEM_VERT_TOP)
@@ -1130,7 +1109,7 @@ def dq_datums(row, hanger_offset=HANGER_OFFSET):
         # restraint (Revision 2 / 3, DQ_BAR): hinge axis on the leg line, lap bar DOWN, T's
         "hinge": (hx, hz), "arm_y": DQ_BAR["arm_y"],
         "bar": DQ_BAR["down"],                   # lap bar center DOWN (x, z)
-        "foot": DQ_BAR["foot"],                  # foot bar center (x, z); r -> bottom 0
+        "foot": DQ_BAR["foot"],                  # foot bar center (x, z), r -> bottom 0
         "seat_top": DQ_SEAT_TOP, "pan": (0.073, 0.262),
         "pad_edge": (-0.177, 0.400),             # pads' front-bottom hinge
         "pad_h": 0.55, "pad_t": 0.09,
@@ -1139,9 +1118,9 @@ def dq_datums(row, hanger_offset=HANGER_OFFSET):
 
 def build_dq_parts(row, hanger_offset=HANGER_OFFSET):
     """
-    The detachable quad's parts [(obj, quad), ...] in contract order (dq-chair.md 4.1;
-    skeptic D3/D4 radii and burial applied). Grip-side heights follow the carrier row:
-    the grip body's top IS hang_m and the rope point is hang_m - grip_top_above_rope_m.
+    The detachable quad's parts [(obj, quad), ...] in contract order (dq-chair.md 4.1, skeptic D3/D4 radii and burial
+    applied). Grip-side heights follow the carrier row: the grip body's top IS hang_m and the rope point is hang_m -
+    grip_top_above_rope_m.
     """
     K = cs2_kit
     d = dq_datums(row, hanger_offset)
@@ -1160,9 +1139,9 @@ def build_dq_parts(row, hanger_offset=HANGER_OFFSET):
                       (t_in, t_dz))
     gb["relief"] = "map:bolts"
     parts.append((gb, QUAD_GALV))
-    # the friction comb (photo: the silver ribbed plate on the carriage top) in the tray:
-    # floor -> `recess` below the rim, so the carriage keeps the mesh top (C2); its ribs
-    # are relief (style_detail_specs "comb"), the box bottom is buried on the tray floor
+    # the friction comb (photo: the silver ribbed plate on the carriage top) in the tray: floor -> `recess` below the
+    # rim, so the carriage keeps the mesh top (C2). Its ribs are relief (style_detail_specs "comb"). The box bottom is
+    # buried on the tray floor
     margin, recess = g["comb"]
     floor = top - t_dz
     ct = (top - recess) - floor
@@ -1191,10 +1170,9 @@ def build_dq_parts(row, hanger_offset=HANGER_OFFSET):
         parts.append((K.add_cyl(f"spring_{k}", sr, sd,
                                 (s * sxc, g["body_y0"] + sy_ + sr - 0.012, top - 0.030 - sd / 2.0),
                                 (0.0, 0.0, 0.0), 6, "both"), QUAD_GALV))
-    # two running wheels fore / aft BESIDE the jaw on the inboard side (Revision 1b; was:
-    # in the rope's plane above the rope): centers at the jaw's mid-height, near rope
-    # height, 0.127 inboard (Kagelok D05 rollers, skeptic claim 4); each on a stub axle
-    # from 1 cm inside the jaw's inboard face to the wheel center (both ends buried)
+    # two running wheels fore / aft BESIDE the jaw on the inboard side (Revision 1b, was: in the rope's plane above the
+    # rope): centers at the jaw's mid-height, near rope height, 0.127 inboard (Kagelok D05 rollers, skeptic claim 4).
+    # Each wheel sits on a stub axle from 1 cm inside the jaw's inboard face to the wheel center (both ends buried)
     wr, wd, wx = g["wheel"]
     wy, wz = g["wheel_y"], rope + g["jaw_dz"] + jz / 2.0
     for k, s in enumerate((-1, 1)):
@@ -1232,10 +1210,9 @@ def build_dq_parts(row, hanger_offset=HANGER_OFFSET):
         parts.append((add_link(f"armpost_{k}", (0.240, s * Y, 0.510), (0.240, s * Y, 0.290),
                                R["armpost"], segments=4, extend=0.0, caps="none"), QUAD_PAINT))
 
-    # -- restraint bar, DOWN (9 Q3; Revision 2 parts, Revision 3 numbers: DQ_BAR) --------
-    # hinge bosses on the inboard faces of the hoop legs: axis lateral through (hx, hz),
-    # outer end at the leg's center line (buried, no cap), inner end capped just past the
-    # arm (the arm's open end ring sits inside it)
+    # -- restraint bar, DOWN (9 Q3, Revision 2 parts, Revision 3 numbers: DQ_BAR) --------
+    # hinge bosses on the inboard faces of the hoop legs: axis lateral through (hx, hz), outer end at the leg's center
+    # line (buried, no cap), inner end capped just past the arm (the arm's open end ring sits inside it)
     hx, hz = d["hinge"]
     ay = d["arm_y"]
     y_in = ay - DQ_BAR["boss_in"]
@@ -1246,8 +1223,8 @@ def build_dq_parts(row, hanger_offset=HANGER_OFFSET):
                          (math.pi / 2.0, 0.0, 0.0), 6, "bottom" if s < 0 else "top")
         boss["relief"] = "map:bolts"
         parts.append((boss, QUAD_PAINT))
-    # arms + lap bar: one U sweep hinge -> corner -> corner -> hinge (ends buried in the
-    # bosses; 2 bends x 3 rings + 2 ends = 8 rings)
+    # arms + lap bar: one U sweep hinge -> corner -> corner -> hinge (ends buried in the bosses, 2 bends x 3 rings + 2
+    # ends = 8 rings)
     bx, bz = d["bar"]
     u = K.tube_along("barlink", [(hx, -ay, hz), (bx, -ay, bz), (bx, ay, bz), (hx, ay, hz)],
                      R["barlink"], segments=6, caps="none", bend_rings=3,
@@ -1255,9 +1232,8 @@ def build_dq_parts(row, hanger_offset=HANGER_OFFSET):
     if u["rings"] != 8:
         raise RuntimeError(f"barlink: expected 8 rings, got {u['rings']}")
     parts.append((u, QUAD_PAINT))
-    # two inverted-T footrests hung from the lap bar: the stem's ends sit on the lap bar's
-    # and the foot bar's axes (buried: r 0.016 < the 6-gons' inscribed 0.021 / 0.019); the
-    # foot bar's bottom vertex is z 0 (C4)
+    # two inverted-T footrests hung from the lap bar: the stem's ends sit on the lap bar's and the foot bar's axes
+    # (buried: r 0.016 < the 6-gons' inscribed 0.021 / 0.019). The foot bar's bottom vertex is z 0 (C4)
     fx, fz = d["foot"]
     if abs(fz - R["footbar"]) > 1e-12:
         raise RuntimeError(f"foot bar center z {fz} != its radius {R['footbar']} (C4: bottom 0)")
@@ -1302,9 +1278,9 @@ def _mirror_part_y(obj):
 
 
 def mirror_grip_side(parts, names=DQ_GRIP_SIDE_PARTS, outboard=None):
-    """Nitpick A2: when the outboard side is authoring -Y (DQ_OUTBOARD < 0), mirror every part
-    whose name starts with one of `names` (the grip-side group; [(obj, quad|chooser)] lists of
-    build_dq_parts and _proxy_parts). Returns the number mirrored (0 for +1)."""
+    """Nitpick A2: when the outboard side is authoring -Y (DQ_OUTBOARD < 0), mirror every part whose name starts with one of
+    `names` (the grip-side group, [(obj, quad|chooser)] lists of build_dq_parts and _proxy_parts). Returns the number
+    mirrored (0 for +1)."""
     o = DQ_OUTBOARD if outboard is None else float(outboard)
     if o > 0.0:
         return 0
@@ -1322,11 +1298,10 @@ def mirror_grip_side(parts, names=DQ_GRIP_SIDE_PARTS, outboard=None):
 
 def chair_atlas_post(base, nrm, msk, ctl, A):
     """
-    make_texture_set_atlas `post` hook: repaint quad 2 (the lift atlas glass quad, which
-    the chair never uses) as bench vinyl - light-neutral RECOLOR_ALBEDO albedo with a
-    faint grain, dielectric, matte - on recolor slot 3 (ControlMask B = 1, R = G = 0).
-    The whole quad is painted, reserved top strip included (nothing maps there; the
-    finish restores it 1:1, harmlessly).
+    make_texture_set_atlas `post` hook: repaint quad 2 (the lift atlas glass quad, which the chair never uses) as bench
+    vinyl - light-neutral RECOLOR_ALBEDO albedo with a faint grain, dielectric, matte - on recolor slot 3 (ControlMask B
+    = 1, R = G = 0). The whole quad is painted, reserved top strip included (nothing maps there, and the finish restores
+    it 1:1, harmlessly).
     """
     rng = np.random.default_rng(41)
     h = A // 2
@@ -1408,9 +1383,9 @@ def equalise_quadrant_density(parts, weights=None, verbose=True):
 # --------------------------------------------------------------------------------------
 
 def mark_flat_faces(obj, table, names):
-    """Revision 1c: mark sharp every edge of the big (axis-aligned, FLAT_FACE_AXIS) faces of
-    the parts `names`, so shade_by_angle(keep_sharp_edges) + weighted normals leave those
-    faces flat. Writes the mesh's `sharp_edge` attribute; returns the number of edges marked."""
+    """Revision 1c: mark sharp every edge of the big (axis-aligned, FLAT_FACE_AXIS) faces of the parts `names`, so
+    shade_by_angle(keep_sharp_edges) + weighted normals leave those faces flat. Writes the mesh's `sharp_edge` attribute
+    and returns the number of edges marked."""
     ids = {table.index(n) + 1 for n in names if n in table}
     if not ids:
         return 0
@@ -1492,14 +1467,12 @@ def _assemble(parts, name, weights, shade=True, density_w=False, flat_parts=()):
 
     # BASE-PIVOT: shift the whole chair up so its lowest point sits at z = 0.
     #
-    # The first version put the origin at the grip, so the chair hung entirely BELOW its
-    # own origin. In game only the 8 cm grip rendered - everything below the origin was
-    # treated as underground and clipped. Every CS2 object we have inspected (the vanilla
-    # 47 m pylon, the 8 m pole, our tower) is base-pivoted with geometry at y >= 0.
+    # The first version put the origin at the grip, so the chair hung entirely BELOW its own origin. In game only the 8
+    # cm grip rendered - everything below the origin was treated as underground and clipped. Every CS2 object we have
+    # inspected (the vanilla 47 m pylon, the 8 m pole, our tower) is base-pivoted with geometry at y >= 0.
     #
-    # The grip therefore ends up at the TOP of the object, at z = height, and the
-    # NetSubObjects m_Position.y must be lowered by that height so the grip still lands
-    # on the rope.
+    # The grip therefore sits at the TOP of the object, at z = height, and the NetSubObjects m_Position.y must be lowered
+    # by that height so the grip still lands on the rope.
     bpy.ops.object.select_all(action="DESELECT")
     chair.select_set(True)
     bpy.context.view_layer.objects.active = chair
@@ -1523,8 +1496,8 @@ def _assemble(parts, name, weights, shade=True, density_w=False, flat_parts=()):
 
 def build_chair(p: ChairParams, name=DEFAULT_NAME, shade=True):
     """
-    The shipped 6L chair (fg6l): build_chair_parts -> _assemble. Returns the joined
-    object; its mesh carries cs2_asset.PART_TABLE_PROP (json name table) and "part".
+    The shipped 6L chair (fg6l): build_chair_parts -> _assemble. Returns the joined object. Its mesh carries
+    cs2_asset.PART_TABLE_PROP (json name table) and "part".
     """
     chair, _table = _assemble(build_chair_parts(p), name, DENSITY_WEIGHTS, shade=shade)
     return chair
@@ -1622,9 +1595,9 @@ def _parts_touching(obj, vmask):
 
 def check_contracts(obj, style, row, level, hanger_offset=HANGER_OFFSET, info=None):
     """
-    C1-C9 (C5/C7/C9 on LOD0) on one level of a net-oriented chair; `level` 0 / 1 / 2; dq
-    LOD0 adds C13 (bar mechanics) and C14 (Revision 1c: the carriage's big faces shade flat).
-    Returns {cid: detail}; raises ContractError on the first failure.
+    C1-C9 (C5/C7/C9 on LOD0) on one level of a net-oriented chair, `level` 0 / 1 / 2. The dq LOD0 adds C13 (bar
+    mechanics) and C14 (Revision 1c: the carriage's big faces shade flat). Returns {cid: detail}. Raises ContractError on
+    the first failure.
     """
     res = {}
     lv = f"LOD{level}"
@@ -1640,16 +1613,16 @@ def check_contracts(obj, style, row, level, hanger_offset=HANGER_OFFSET, info=No
         _fail("C1", lv, f"z {lo:.5f} .. {hi:.5f}; must be 0 .. {hang:.3f}")
     res["C1"] = f"z 0 .. {hi:.4f} (hang {hang:.3f})"
 
-    # C2 the mesh top belongs to the grip part only (exact name: tr's "grip" is the jaw
-    # block; its gripjaw / gripspring / gripplate_ siblings must stay below the top)
+    # C2 the mesh top belongs to the grip part only (exact name: tr's "grip" is the jaw block. Its gripjaw / gripspring /
+    # gripplate_ siblings must stay below the top)
     gid = _part_ids(table, style.grip_part, exact=True)
     top_parts = _parts_touching(obj, z >= hang - 1e-4)
     if not top_parts or not top_parts <= gid:
         _fail("C2", lv, f"vertices at the top belong to {sorted(table[i - 1] for i in top_parts)}")
     res["C2"] = f"top owned by {style.grip_part}"
 
-    # C3 rope point inside the grip part's bbox; dq jaw sits on the rope (LOD0/1). ENVELOPE: the grip
-    # part is outboard of the wheels, the jaw beside it (ENVELOPE_JAW) holds the rope: their union
+    # C3 rope point inside the grip part's bbox. The dq jaw sits on the rope (LOD0/1). ENVELOPE: the grip part is
+    # outboard of the wheels, and the jaw beside it (ENVELOPE_JAW) holds the rope: their union
     cid = set(gid)
     if ENVELOPE and style.key in ENVELOPE_JAW:
         cid |= _part_ids(table, ENVELOPE_JAW[style.key], exact=True)
@@ -1667,15 +1640,15 @@ def check_contracts(obj, style, row, level, hanger_offset=HANGER_OFFSET, info=No
             _fail("C3", lv, f"jaw_rope bottom {jb:.4f} not in [{rope:.3f}, {rope + 0.03:.3f}]")
         res["C3"] += f", jaw bottom {jb:.4f}"
 
-    # C4 the lowest vertices belong to the bottom part only (dq / fg6l the footbar; tr,
-    # Revision 1 without a footrest, the seat plank - "seat" also names the LOD2 seatblock)
+    # C4 the lowest vertices belong to the bottom part only (dq / fg6l: the footbar. tr, Revision 1 without a footrest:
+    # the seat plank - "seat" also names the LOD2 seatblock)
     low_parts = _parts_touching(obj, z <= 1e-5)
     fid = _part_ids(table, style.bottom_part)
     if not low_parts or not low_parts <= fid:
         _fail("C4", lv, f"vertices at z 0 belong to {sorted(table[i - 1] for i in low_parts)}")
     res["C4"] = f"bottom owned by {style.bottom_part}"
 
-    # C5 ring counts (LOD0; the tube objects asserted them before the join)
+    # C5 ring counts (LOD0, the tube objects asserted them before the join)
     if level == 0:
         # tr: rings from the contracted tally (8 segments: 16 tris a span), 9 one-piece, 11 split (round 3)
         res["C5"] = (f"tube_stem {dict(style.part_tris)['tube_stem'] // 16 + 1} rings" if style.key == "tr"
@@ -1691,8 +1664,8 @@ def check_contracts(obj, style, row, level, hanger_offset=HANGER_OFFSET, info=No
                         f"{mast_gap:.3f} (>= {mast + 0.3:.2f})")
     res["C6"] = f"width {width:.3f}, passing {passing:.3f}, mast gap {mast_gap:.3f}"
 
-    # C7 dq hanger opens to the outboard side (LOD0; bound = offset + r + 0.02, skeptic D7),
-    # measured OUTBOARD-positive (nitpick A2: outboard = authoring DQ_OUTBOARD * y)
+    # C7 dq hanger opens to the outboard side (LOD0, bound = offset + r + 0.02, skeptic D7), measured OUTBOARD-positive
+    # (nitpick A2: outboard = authoring DQ_OUTBOARD * y)
     if style.key == "dq" and level == 0:
         hv = a[_verts_of_parts(obj, _part_ids(table, "tube_hanger"))]
         yo = DQ_OUTBOARD * hv[:, 1]
@@ -1730,8 +1703,8 @@ def check_contracts(obj, style, row, level, hanger_offset=HANGER_OFFSET, info=No
     if level == 0 and style.key == "dq":
         res["C13"] = check_bar_mechanics(obj, row)["summary"]
 
-    # C14 (Revision 1c) the flat parts' big faces shade flat: every corner normal within
-    # FLAT_FACE_MAX_DEG of its face normal (LOD0; the dq carriage)
+    # C14 (Revision 1c) the flat parts' big faces shade flat: every corner normal within FLAT_FACE_MAX_DEG of its face
+    # normal (LOD0, the dq carriage)
     if level == 0 and FLAT_PARTS.get(style.key):
         rep = flat_face_report(obj, FLAT_PARTS[style.key])
         for n, (k, worst) in rep.items():
@@ -1745,24 +1718,23 @@ def check_contracts(obj, style, row, level, hanger_offset=HANGER_OFFSET, info=No
 
 
 # --------------------------------------------------------------------------------------
-# C13 bar mechanics (Revision 2; Revision 3 adds the riders): sweep the restraint about its
-# hinge, DOWN -> UP, past the chair AND a seated-rider envelope
+# C13 bar mechanics (Revision 2, with the riders added in Revision 3): sweep the restraint about its hinge, DOWN -> UP,
+# past the chair AND a seated-rider envelope
 # --------------------------------------------------------------------------------------
 
 BAR_MOVING = ("barlink", "footstem_", "footbar_")   # the rigid bar assembly (arms + lap bar + T's)
 BAR_HINGE = "barhinge_"                             # the bosses = the hinge itself (not obstacles)
 C13_STEPS = 12                                      # the contract's 12 steps DOWN -> UP ...
 C13_SUB = 4                                         # ... each checked at 4 sub-poses (a 10 deg step
-                                                    # moves a stem 9 cm at 0.5 m from the hinge, as
-                                                    # much as the top bar is thick; 4 sub-poses: 2 cm)
+                                                    # moves a stem 9 cm at 0.5 m from the hinge, as much as the top bar
+                                                    # is thick. 4 sub-poses: 2 cm)
 C13_CLEAR_M = 0.010                                 # [D] min vertex-to-surface clearance, both ways
 C13_RIDER_CLEAR_M = 0.010                           # [D] the same against the seated-rider envelope
-# The rider (RIDER, SEATED_HEAD_M, SEATED_FACE_M) is defined next to the bar's photo numbers
-# above. "UP" = the lap bar's bottom above the backrest top AND a seated head top (cushion +
-# SEATED_HEAD_M), its center over the seat (no further forward than the cushion front, where
-# the riders reach up for it). Revision 2's "no further forward than the face" cannot hold
-# with the lap bar ahead of the knees under this hoop (build report Revision 3); the rider
-# envelope sweep now proves the bar never touches a head, face, chest or thigh on the way.
+# The rider (RIDER, SEATED_HEAD_M, SEATED_FACE_M) is defined next to the bar's photo numbers above. "UP" means two
+# things. The lap bar's bottom is above the backrest top AND a seated head top (cushion + SEATED_HEAD_M). Its center is
+# over the seat (no further forward than the cushion front, where the riders reach up for it). Revision 2's "no further
+# forward than the face" cannot hold with the lap bar ahead of the knees under this hoop (build report Revision 3). The
+# rider envelope sweep now proves the bar never touches a head, face, chest or thigh on the way.
 
 
 def _part_vert_sets(obj, fp):
@@ -1801,14 +1773,14 @@ def _box_faces(base):
 
 def rider_envelope(seat_top, pad_edge, y_limit=None):
     """
-    C13's seated-rider envelope (Revision 3), authoring frame: per seat (RIDER["seats_y"]) an
-    upper-body box from the cushion top to the head top (SEATED_HEAD_M), its back on the pads'
-    front plane and its front SEATED_FACE_M ahead of it (sheared with the pad tilt), and a
-    thigh box from the pads to the knee line (RIDER knee) up to the thigh top. `y_limit` clips
-    the outer riders laterally (the arm planes minus RIDER side_gap). Returns (verts, quads,
-    labels): six quads per box, labels[i // 6] names the box of quad i. Shins and boots are
-    left out: the riders lift their feet as the bar rises, and the foot bars move
-    forward-up, away from the boots.
+    C13's seated-rider envelope (Revision 3), authoring frame. Each seat (RIDER["seats_y"]) has two boxes:
+    - an upper-body box from the cushion top to the head top (SEATED_HEAD_M), with its back on the pads' front plane and
+      its front SEATED_FACE_M ahead of it (sheared with the pad tilt)
+    - a thigh box from the pads to the knee line (RIDER knee) up to the thigh top
+
+    `y_limit` clips the outer riders laterally (the arm planes minus RIDER side_gap). Returns (verts, quads, labels): six
+    quads per box, labels[i // 6] names the box of quad i. Shins and boots are left out: the riders lift their feet as
+    the bar rises, and the foot bars move forward-up, away from the boots.
     """
     verts, quads, labels = [], [], []
     s0, s1 = seat_top, seat_top + RIDER["head"]
@@ -1833,25 +1805,26 @@ def rider_envelope(seat_top, pad_edge, y_limit=None):
 
 def check_bar_mechanics(obj, row, swing_deg=None, steps=C13_STEPS, sub=C13_SUB, verbose=True):
     """
-    C13 on a net-oriented dq LOD0 (dq-chair Revision 2; the riders, Revision 3). Measured
-    from the mesh, not the datums: the hinge axis = the two barhinge_ bosses (coaxial,
-    lateral, one on each side frame: each boss's outer end INSIDE the hoop tube - within r
-    of its surface and behind it, Revision 3 - not merely near it); the bar assembly
-    (BAR_MOVING) must be attached at it (the U's end rings centered on the axis).
-    DOWN (Revision 3, verdicts 2' / 2'' "too high"): the lap bar's center sits
-    LAP_WINDOW_M above the cushion top and its back face ahead of the riders' knee line.
-    The assembly is then rotated about the axis from DOWN (0) to UP (swing_deg, default
-    DQ_BAR) in `steps` steps, each checked at `sub` sub-poses; at every pose BVH overlap
-    against every other part except the bosses (backrest, side frames, armrests, cushions,
-    seat pan, hanger, clamp, plate, grip) AND against the seated-rider envelope
-    (rider_envelope: body and thighs of four riders) must be empty, and the vertex-to-surface
-    clearance (both ways; an upper bound on the true gap, edge-edge distances are not
-    sampled) >= C13_CLEAR_M to the chair and >= C13_RIDER_CLEAR_M to the riders. UP must
-    park the lap bar's bottom above the backrest top and a seated head (cushion top +
-    SEATED_HEAD_M) with its center over the seat (x <= the cushion front). Reported, not
-    asserted: how many degrees past UP the first contact happens (the mechanical stop) and
-    how far UP sits ahead of the face line.
-    Returns {summary, ...}; raises ContractError on any failure.
+    C13 on a net-oriented dq LOD0 (dq-chair Revision 2, the riders in Revision 3). The check measures from the mesh, not
+    the datums:
+    - The hinge axis = the two barhinge_ bosses (coaxial, lateral, one on each side frame). Each boss's outer end must be
+      INSIDE the hoop tube: within r of its surface and behind it (Revision 3), not merely near it.
+    - The bar assembly (BAR_MOVING) must be attached at the axis (the U's end rings centered on it).
+    - DOWN (Revision 3, verdicts 2' / 2'' "too high"): the lap bar's center sits LAP_WINDOW_M above the cushion top, and
+      its back face is ahead of the riders' knee line.
+
+    The assembly is then rotated about the axis from DOWN (0) to UP (swing_deg, default DQ_BAR) in `steps` steps, each
+    checked at `sub` sub-poses. At every pose these conditions must hold:
+    - The BVH overlap against every other part except the bosses (backrest, side frames, armrests, cushions, seat pan,
+      hanger, clamp, plate, grip) AND against the seated-rider envelope (rider_envelope: body and thighs of four riders)
+      must be empty.
+    - The vertex-to-surface clearance (both ways, an upper bound on the true gap, edge-edge distances are not sampled)
+      must be >= C13_CLEAR_M to the chair and >= C13_RIDER_CLEAR_M to the riders.
+
+    UP must park the lap bar's bottom above the backrest top and a seated head (cushion top + SEATED_HEAD_M), with its
+    center over the seat (x <= the cushion front). Reported, not asserted: how many degrees past UP the first contact
+    happens (the mechanical stop) and how far UP sits ahead of the face line. Returns {summary, ...}. Raises
+    ContractError on any failure.
     """
     from mathutils.bvhtree import BVHTree
     lv = "LOD0"
@@ -1882,10 +1855,9 @@ def check_bar_mechanics(obj, row, swing_deg=None, steps=C13_STEPS, sub=C13_SUB, 
     sides = sorted(yext)
     if not (sides[0][1] < -0.5 and sides[1][0] > 0.5):
         _fail("C13", lv, f"hinge bosses not one per side frame: y {sides}")
-    # each boss's outer end must sit INSIDE the hoop (the side frame): not on the hanger and
-    # not floating beside the leg. Within r of the hoop surface AND behind it - the nearest
-    # hoop face's outward normal points away from the end (Revision 3; revision2-check 2'-f:
-    # a boss slid 8 cm inboard used to pass on distance alone)
+    # each boss's outer end must sit INSIDE the hoop (the side frame): not on the hanger and not floating beside the leg.
+    # Within r of the hoop surface AND behind it - the nearest hoop face's outward normal points away from the end
+    # (Revision 3, revision2-check 2'-f: a boss slid 8 cm inboard used to pass on distance alone)
     hoop_ids = ids_of("tube_hoop")
     hoop_polys = [polys[k] for k in range(len(polys)) if int(fp[k]) in hoop_ids]
     hoop_tree = BVHTree.FromPolygons([tuple(v) for v in a], hoop_polys)
@@ -1958,9 +1930,9 @@ def check_bar_mechanics(obj, row, swing_deg=None, steps=C13_STEPS, sub=C13_SUB, 
     worst = (float("inf"), None, None)
     worst_r = (float("inf"), None, None)
     worst_b = (float("inf"), None, None)       # report: the closest pass to a head / torso
-    # the rider clearance is measured on the parts that pass IN FRONT OF / OVER the riders:
-    # the lap bar run and the T's (|y| <= arm_y - corner). The arms run beside the outer
-    # riders at the constructed RIDER side_gap; the overlap test still covers them
+    # the rider clearance is measured on the parts that pass IN FRONT OF / OVER the riders: the lap bar run and the T's
+    # (|y| <= arm_y - corner). The arms run beside the outer riders at the constructed RIDER side_gap. The overlap test
+    # still covers them
     inner = np.abs(m0[:, 1]) <= DQ_BAR["arm_y"] - DQ_BAR["corner"] + 1e-3
     ipolys = [q for q in mpolys if all(inner[v] for v in q)]
     for j in range(n + 1):
@@ -2086,19 +2058,19 @@ def bar_pose_copy(obj, hinge_xz, deg, name):
 
 # --------------------------------------------------------------------------------------
 # Nitpick A2 (2026-10-13): the carrier sweep - a chair along its lane through a sheave train
-# (tests/test_dq_family_seams.py / test_fg_family_seams.py S9; build/nitpick-a2-hanger-gondola.md)
+# (tests/test_dq_family_seams.py / test_fg_family_seams.py S9, build/nitpick-a2-hanger-gondola.md)
 # --------------------------------------------------------------------------------------
-# Frames: every input is AUTHORING (x travel, y lateral, z up). The chair rides lane s (y = s * lane)
-# with its GRIP TOP on the lane height z_lane(x) (ChairPin; round-2 contract D8: the grip top stays ON
-# the lane for every type) and faces f = -s along x: a chair facing its travel has the outboard side
-# on its RIGHT on both lanes (chain A = the right lane looking uphill; see the module docstring
-# "OUTBOARD side"), so chair (xc, yc, zc) -> (x0 + f xc, s lane + f yc, z_lane(x0) - hang + zc).
-# `facing=+1` sweeps the opposite spin (the old relation: the dq hanger inboard).
-# The family rule (gated): no chair part crosses a tower / station part other than the F10 convention
-# set below (the drawn rope runs through the sheave centers, dq-family-review-geometry F10: rims,
-# liners, the gantry heads' sub rockers + sub pins, the Yan heads' sheave arms + axle caps), and every
-# gated pair - the rocker mains first - keeps CARRIER_CLEAR_M (= C13_CLEAR_M, the chair's own
-# moving-part clearance). Distances are vertex-to-surface both ways at every step (C13's method).
+# Frames: every input is AUTHORING (x travel, y lateral, z up). The chair rides lane s (y = s * lane) with its GRIP TOP
+# on the lane height z_lane(x) (ChairPin, round-2 contract D8: the grip top stays ON the lane for every type). It faces f
+# = -s along x. A chair facing its travel has the outboard side on its RIGHT on both lanes (chain A = the right lane
+# looking uphill, see the module docstring "OUTBOARD side"). So chair (xc, yc, zc) -> (x0 + f xc, s lane + f yc,
+# z_lane(x0) - hang + zc). `facing=+1` sweeps the opposite spin (the old relation: the dq hanger inboard).
+#
+# The family rule (gated): no chair part crosses a tower / station part other than the F10 convention set below. The
+# drawn rope runs through the sheave centers (dq-family-review-geometry F10). The set has these parts: rims, liners, the
+# gantry heads' sub rockers + sub pins, the Yan heads' sheave arms + axle caps. Every gated pair, the rocker mains first,
+# keeps CARRIER_CLEAR_M (= C13_CLEAR_M, the chair's own moving-part clearance). Distances are vertex-to-surface both ways
+# at every step (C13's method).
 CARRIER_SWEEP_STEP_M = 0.01
 CARRIER_CLEAR_M = 0.010
 CARRIER_PASS = {
@@ -2119,12 +2091,11 @@ def carrier_part_core(name):
 def carrier_sweep(chair, target, lane, z_lane, facing=-1.0, step=CARRIER_SWEEP_STEP_M, near=0.25,
                   depth=1.9, window=0.9):
     """
-    Sweep `chair` = (coords (n, 3), polys, part name per poly, hang) along both lanes +-`lane` of
-    `target` = (coords, polys, part name per poly), every `step` m over the target's travel extent
-    plus the chair's. Chair faces reaching within `depth` of the grip top take part; target faces
-    with a vertex within `window` of the lane. Returns {s: {(chair part, target part): (d, x0)}}
-    with d = the min vertex-to-surface distance (m, < near) or -1.0 when the two parts' triangles
-    intersect at x0 (the first such step).
+    Sweep `chair` = (coords (n, 3), polys, part name per poly, hang) along both lanes +-`lane` of `target` = (coords,
+    polys, part name per poly), every `step` m over the target's travel extent plus the chair's. Chair faces reaching
+    within `depth` of the grip top take part. So do target faces with a vertex within `window` of the lane. Returns {s:
+    {(chair part, target part): (d, x0)}} with d = the min vertex-to-surface distance (m, < near) or -1.0 when the two
+    parts' triangles intersect at x0 (the first such step).
     """
     from mathutils.bvhtree import BVHTree
     cco, cpolys, cnames, hang = chair
@@ -2214,9 +2185,9 @@ def carrier_verdict(sweep, head, clear=CARRIER_CLEAR_M):
 
 def check_atlas_stage(chair, info, atlas_dir, name):
     """
-    C11: atlas quads 2 and 3 carry the recolor albedo (0.80 +- 0.02 sRGB-encoded; quad 3
-    measured in its top quarter - below that the shared recipe's grime gradient darkens it
-    by up to 6 %), and every face of every part sits in its family's quad on "UVMap".
+    C11: atlas quads 2 and 3 carry the recolor albedo (0.80 +- 0.02 sRGB-encoded). Quad 3 is measured in its top quarter:
+    below that, the shared recipe's grime gradient darkens it by up to 6 %. Every face of every part sits in its family's
+    quad on "UVMap".
     """
     import cs2_validate
     px = cs2_validate.load_png_pixels(os.path.join(atlas_dir, f"{name}_BaseColor.png"))
@@ -2247,11 +2218,14 @@ def check_atlas_stage(chair, info, atlas_dir, name):
 def check_finished_maps(chair, info, asset_dir, name, A, plate_prefix="plate_face",
                         plate_required=True):
     """
-    C12 on the shipped maps, per texel of every face (cs2_compose.rasterise_face_fields on
-    the shipped layer): bench -> ControlMask B >= 0.99 (R 0); paint -> R >= 0.99 except
-    the plate; galvanised -> R = G = B = 0; G = 0 everywhere; BaseColor A 255; >= 20 dark
-    (< 0.05 linear) texels inside the plate's UV rect (plate_required=False: the split GRIP,
-    which carries no plate).
+    C12 on the shipped maps, per texel of every face (cs2_compose.rasterise_face_fields on the shipped layer):
+    - bench -> ControlMask B >= 0.99 (R 0)
+    - paint -> R >= 0.99 except the plate
+    - galvanized -> R = G = B = 0
+    - G = 0 everywhere
+    - BaseColor A 255
+    - >= 20 dark (< 0.05 linear) texels inside the plate's UV rect (plate_required=False: the split GRIP, which carries
+      no plate)
     """
     import cs2_compose
     import cs2_preview
@@ -2334,11 +2308,10 @@ def _tris_auth(obj):
 
 
 SIL_PX = 0.02
-# (cover >=, extra <=) per level. LOD1 = the contract's [D] 0.60 / 0.10. The AUTHORED LOD2
-# was tuned on the first build (dq-chair.md C10 "[D, tune on first previews]"): by design
-# it draws the restraint as one straight link per side and has no clamp block, measured
-# dq side/bench extra 0.21 and side/topbar cover 0.58 (tr 0.87 / 0.01); at its ~100 m
-# switch distance one screen pixel is ~8 cm, four raster pixels here.
+# (cover >=, extra <=) per level. LOD1 = the contract's [D] 0.60 / 0.10. The AUTHORED LOD2 was tuned on the first build
+# (dq-chair.md C10 "[D, tune on first previews]"). By design it draws the restraint as one straight link per side and has
+# no clamp block. Measured: dq side/bench extra 0.21 and side/topbar cover 0.58 (tr 0.87 / 0.01). At its ~100 m switch
+# distance one screen pixel is ~8 cm, four raster pixels here.
 SIL_LIMITS = {1: (0.60, 0.10), 2: (0.55, 0.25)}
 
 
@@ -2359,11 +2332,10 @@ def silhouette_windows(style, hanger_offset=HANGER_OFFSET):
 
 def check_silhouettes(lod0, lods, style, hanger_offset=HANGER_OFFSET):
     """
-    C10: numpy raster at 0.02 m of the front (lateral-up) and side (travel-up)
-    projections. Per window and LODk: cover = |dilate(LODk) & LOD0| / |LOD0| and
-    extra = |LODk minus dilate(LOD0)| / |LOD0| against SIL_LIMITS[k] (one-pixel
-    tolerance both ways; the side projection uses the window's z range only). Returns
-    the table; raises with every failing window listed.
+    C10: numpy raster at 0.02 m of the front (lateral-up) and side (travel-up) projections. Per window and LODk: cover =
+    |dilate(LODk) & LOD0| / |LOD0| and extra = |LODk minus dilate(LOD0)| / |LOD0| against SIL_LIMITS[k] (one-pixel
+    tolerance both ways, the side projection uses the window's z range only). Returns the table. Raises with every
+    failing window listed.
     """
     t0 = _tris_auth(lod0)
     res = {}
@@ -2408,9 +2380,8 @@ def check_silhouettes(lod0, lods, style, hanger_offset=HANGER_OFFSET):
 
 def assert_height_contract(obj, label="chair", tol=1e-4, height=HEIGHT_CONTRACT):
     """
-    Grip-top -> lowest point = `height` (2.400 for the FG chair), measured from the
-    ACTUAL vertices (world space), with the lowest point at z = 0. Raises on any drift;
-    returns (lo, hi).
+    Grip-top -> lowest point = `height` (2.400 for the FG chair), measured from the ACTUAL vertices (world space), with
+    the lowest point at z = 0. Raises on any drift. Returns (lo, hi).
     """
     zs = [(obj.matrix_world @ v.co).z for v in obj.data.vertices]
     lo, hi = min(zs), max(zs)
@@ -2488,9 +2459,9 @@ def _proxy_parts(style, row, hanger_offset=HANGER_OFFSET):
             out.append((add_tri_link(f"hoopside_{k}", (0.0, s * Y, 1.503),
                                      (-0.200, s * Y, 0.190), PROXY_R["hoop"]),
                         lambda n: ("tube_hoop",)))
-        # back block: pads + board as one slab hinged like the pads (front face on the
-        # pads' front plane), reaching 0.10 below the hinge so its open bottom sits inside
-        # the seat block; the seat block runs back under it for the same reason (D11)
+        # back block: pads + board as one slab hinged like the pads (front face on the pads' front plane), reaching 0.10
+        # below the hinge so its open bottom sits inside the seat block. The seat block runs back under it for the same
+        # reason (D11)
         ex, ez = d["pad_edge"]
         up = mathutils.Vector((-math.sin(tilt), 0.0, math.cos(tilt)))
         fw = mathutils.Vector((math.cos(tilt), 0.0, math.sin(tilt)))
@@ -2533,8 +2504,8 @@ def _proxy_parts(style, row, hanger_offset=HANGER_OFFSET):
         mirror_grip_side(out)        # nitpick A2: the proxy grip box + hanger with the LOD0 grip side
         return out
 
-    # tr: the FG frame (grip origin at z = 2.32 post-pivot; Revision 1: bench lowered, no
-    # footrest - the closed seat block's bottom face is the lowest point, C4 "seat")
+    # tr: the FG frame (grip origin at z = 2.32 post-pivot). Revision 1: bench lowered, no footrest. The closed seat
+    # block's bottom face is the lowest point (C4 "seat")
     p = tr_params()
     oz = hang - GRIP_TOP_Z                              # 2.32
     w = p.width
@@ -2572,12 +2543,11 @@ def _proxy_parts(style, row, hanger_offset=HANGER_OFFSET):
 
 def snap_proxy_uvs(proxy, lod0, choosers, A, min_texels=9.0):
     """
-    UVs for the authored LOD2 from the finished LOD0 (dq-chair.md section 7): for each
-    proxy face, the nearest LOD0 face (BVH over the mapped source prefixes, preferring
-    faces of >= `min_texels` UV area) gives its UV centroid; the proxy face's loops get a
-    non-degenerate 2-texel micro-island about that point, laid out in the face's own
-    plane frame (winding kept, never mirrored), so each face samples one color and one
-    ControlMask value. The proxy ends with ONE UV layer named like LOD0's active layer.
+    UVs for the authored LOD2 from the finished LOD0 (dq-chair.md section 7). For each proxy face, the nearest LOD0 face
+    (BVH over the mapped source prefixes, preferring faces of >= `min_texels` UV area) gives its UV centroid. The loops
+    of the proxy face get a non-degenerate 2-texel micro-island about that point, laid out in the face's own plane frame
+    (winding kept, never mirrored). So each face samples one color and one ControlMask value. The proxy ends with ONE UV
+    layer named like LOD0's active layer.
     """
     from mathutils.bvhtree import BVHTree
     me0 = lod0.data
@@ -2670,9 +2640,9 @@ def build_lod2_proxy(style, row, lod0, name, hanger_offset=HANGER_OFFSET):
     lod = bpy.context.active_object
     lod.name = f"{name}_LOD2"
     lod.data.name = lod.name
-    # the join keeps the FIRST part's object transform (the grip box location); bake it
-    # into the vertices, origin at the world origin like LOD0 - export_fbx bakes only
-    # rotation and scale, so a leftover location would ship the proxy shifted
+    # the join keeps the FIRST part's object transform (the grip box location). Bake it into the vertices, origin at the
+    # world origin like LOD0. export_fbx bakes only rotation and scale, so a leftover location would ship the proxy
+    # shifted
     bpy.ops.object.select_all(action="DESELECT")
     lod.select_set(True)
     bpy.context.view_layer.objects.active = lod
@@ -2721,13 +2691,12 @@ def _digit_bitmap(text):
 
 def make_plate_painter(chair, table, number, A, plate_w, plate_h, colours=None):
     """
-    Painter for cs2_compose.stamp_on_face over the plate_face quad. Orientation is read
-    from the face itself: the UV -> world affine of its loops maps every texel center to
-    a point on the plate, and (right, up) = ((-n) x up_world, up_world) as a viewer in
-    front of the face sees it - so the digits come out upright and unmirrored whatever
-    the packer did with the island (rotate=False, but flips/aspect are free).
-    `colours` = (light, dark) in the buffer's space: default the sRGB PLATE_LIGHT /
-    PLATE_DARK (the legacy finish edits PNG-encoded values), linear for cs2_bake hooks.
+    Painter for cs2_compose.stamp_on_face over the plate_face quad. The painter reads the orientation from the face
+    itself. The UV -> world affine of its loops maps every texel center to a point on the plate. (right, up) = ((-n) x
+    up_world, up_world), as a viewer in front of the face sees it. So the digits come out upright and unmirrored,
+    whatever the packer did with the island (rotate=False, but flips/aspect are free). `colours` = (light, dark) in the
+    buffer's space. The default is the sRGB PLATE_LIGHT / PLATE_DARK (the legacy finish edits PNG-encoded values), and
+    linear for cs2_bake hooks.
     """
     import cs2_compose
     me = chair.data
@@ -2797,9 +2766,8 @@ def style_detail_specs(style):
     specs = detail_specs()
     if style.key == "tr":
         specs["pad_"] = DetailSpec(seams_m=0.15, seam_depth_m=0.003, seam_width_m=0.010)
-        # Revision 1 fixed grip: bolt heads on the jaw block ("grip", 6L spec) and the
-        # clamp plates; none on the saddle or the spring housing (inactive specs stop the
-        # "grip" prefix from reaching them)
+        # Revision 1 fixed grip: bolt heads on the jaw block ("grip", 6L spec) and the clamp plates. None on the saddle
+        # or the spring housing (inactive specs stop the "grip" prefix from reaching them)
         specs["gripjaw"] = DetailSpec()
         specs["gripspring"] = DetailSpec()
         specs["gripplate_"] = DetailSpec(bolt_pitch_m=0.05, bolt_r_m=0.008, bolt_h_m=0.004)
@@ -2847,9 +2815,9 @@ def post_finish_textures(chair, asset_dir, name, A, plate_number, specs=None):
     h = cs2_compose.detail_height(me, A, specs if specs is not None else detail_specs())
     _part_map, ppm_map = cs2_compose.rasterise_face_fields(me, A)
     det = cs2_compose.height_to_normal(h, ppm_map)
-    # The EMIT rebake leaves uncovered gutter texels black; give them a flat normal
-    # (blend_rnm would turn black into mid-gray) and renormalise every covered texel
-    # (photo normal sets are not unit length; nz clamped >= 0.05 so B > 0.5 everywhere).
+    # The EMIT rebake leaves uncovered gutter texels black. Give them a flat normal (blend_rnm would turn black into
+    # mid-gray) and renormalize every covered texel (photo normal sets are not unit length, nz clamped >= 0.05 so B > 0.5
+    # everywhere).
     uncovered = nrm[..., 0:3].max(axis=-1) < 1e-3
     nrm[..., 0:3] = cs2_compose.blend_rnm(nrm, det)
     n = nrm[..., 0:3] * 2.0 - 1.0
@@ -2871,12 +2839,10 @@ def post_finish_textures(chair, asset_dir, name, A, plate_number, specs=None):
 
 def make_post_compose(chair, plate_number, specs, plate_w=0.20, plate_h=0.13, plate=True):
     """
-    cs2_bake.bake_unique post_compose hook (dq-chair.md 6.3, skeptic D2 fixed: part_map
-    is bound), LINEAR space, AO already multiplied by the bake: relief height ->
-    compose_maps (per-part noise, detail normal, channel rules; ao=None) -> normals
-    renormalised (nz >= 0.05, uncovered gutters flat) -> the number plate stamped in
-    linear plate colors (zeroes ControlMask R under the label; plate=False: the split GRIP,
-    which carries no plate).
+    cs2_bake.bake_unique post_compose hook (dq-chair.md 6.3, skeptic D2 fixed: part_map is bound), LINEAR space, AO
+    already multiplied by the bake: relief height -> compose_maps (per-part noise, detail normal, channel rules, ao=None)
+    -> normals renormalized (nz >= 0.05, uncovered gutters flat) -> the number plate stamped in linear plate colors
+    (zeroes ControlMask R under the label, plate=False: the split GRIP, which carries no plate).
     """
     import cs2_compose
     import cs2_preview
@@ -2976,8 +2942,8 @@ def preview_rig(chair, asset_dir, name, prev_dir, lods=(), prev_generation=None,
 
 
 BAR_UP_VIEWS = (("barup_three_quarter", CHAIR_VIEWS[0][1]), ("barup_profile", CHAIR_VIEWS[1][1]))
-# Revision 3: the bar against four boxy seated riders, framed on the riders (a close-up of
-# the bench); bar DOWN in both views, then UP in profile
+# Revision 3: the bar against four boxy seated riders, framed on the riders (a close-up of the bench). Bar DOWN in both
+# views, then UP in profile
 RIDER_VIEWS = (("riders_profile", CHAIR_VIEWS[1][1]), ("riders_three_quarter", CHAIR_VIEWS[0][1]))
 RIDER_UP_VIEWS = (("riders_barup_profile", CHAIR_VIEWS[1][1]),)
 RIDER_PREVIEW_RGB = (0.80, 0.30, 0.08)      # a ski-jacket orange, so the riders read against the bar
@@ -3003,11 +2969,10 @@ def preview_bar_up(chair, row, asset_dir, name, prev_dir, tint):
 
 def rider_standins(row, name):
     """
-    Revision 3 preview only (NEVER exported, never joined): four boxy seated riders in the
-    net-oriented world frame (authoring (x, y, z) -> world (y, -x, z), as orient_for_net),
-    one mesh object: per seat a torso against the pads (sheared with their tilt, shoulders
-    0.60 over the cushion), a helmeted head (top 0.88, inside C13's 0.90 envelope), two
-    thighs to a 0.60 knee line, two shins and two boots resting on the foot bars' top.
+    Revision 3 preview only (NEVER exported, never joined): four boxy seated riders in the net-oriented world frame
+    (authoring (x, y, z) -> world (y, -x, z), as orient_for_net), in one mesh object. Each seat has a torso against the
+    pads (sheared with their tilt, shoulders 0.60 over the cushion), a helmeted head (top 0.88, inside C13's 0.90
+    envelope), two thighs to a 0.60 knee line, two shins, and two boots resting on the foot bars' top.
     """
     d = dq_datums(row)
     s, pe = d["seat_top"], d["pad_edge"]
@@ -3060,11 +3025,10 @@ def rider_standins(row, name):
 
 def preview_riders(chair, row, asset_dir, name, prev_dir, tint, r=None):
     """
-    dq only (Revision 3): <name>_pbr_riders_{profile,three_quarter}.png with the bar DOWN
-    and <name>_pbr_riders_barup_profile.png with it at C13's UP pose, each with the four
-    rider stand-ins (rider_standins) and framed on them. Same lighting / material recipe as
-    cs2_preview's pbr mode (its rig, sky and material builders); everything added - the
-    posed duplicate, the riders, camera, sun, world, materials - is removed again.
+    dq only (Revision 3): <name>_pbr_riders_{profile,three_quarter}.png with the bar DOWN and
+    <name>_pbr_riders_barup_profile.png with it at C13's UP pose, each with the four rider stand-ins (rider_standins) and
+    framed on them. Same lighting / material recipe as cs2_preview's pbr mode (its rig, sky and material builders). The
+    function removes everything it added: the posed duplicate, the riders, camera, sun, world and materials.
     """
     import cs2_preview as P
     if r is None:
@@ -3106,8 +3070,8 @@ def preview_riders(chair, row, asset_dir, name, prev_dir, tint, r=None):
 # --------------------------------------------------------------------------------------
 
 def fbx_box_of_part(obj, name):
-    """Revision 1c: a part's bbox in the exported FBX's raw frame (cm; export_fbx bakes the
-    net frame (x, y, z) m -> (x, z, -y) x 100, Y up) for verify_export's flat-face check."""
+    """Revision 1c: a part's bbox in the exported FBX's raw frame (cm, export_fbx bakes the net frame (x, y, z) m -> (x, z,
+    -y) x 100, Y up) for verify_export's flat-face check."""
     me = obj.data
     co = np.empty(len(me.vertices) * 3, dtype=np.float32)
     me.vertices.foreach_get("co", co)
@@ -3234,7 +3198,7 @@ def parse_args(argv=None):
     ap.add_argument("--ab", default=None,
                     help="previous generation asset folder for the ab preview "
                          "(default: tr chairs/L/SkiLiftChair6L, fg6l chairs/K/SkiLiftChair6K)")
-    # kept for CLI compatibility with earlier rounds; the atlas recipe owns these now
+    # kept for CLI compatibility with earlier rounds. The atlas recipe owns these now
     ap.add_argument("--basecolor", type=float, nargs=3, default=[0.13, 0.16, 0.22])
     ap.add_argument("--metallic", type=float, default=0.1)
     ap.add_argument("--smoothness", type=float, default=0.35)
@@ -3381,10 +3345,9 @@ def _main_fg6l(args, st, name):
               + f", height {info0['height_m']:.3f} m on every level, finish "
               f"{'on' if finished else 'off'}, normals histogram {info0['normals_per_vertex']}")
 
-    # -- live-review pack (ROUND-SPEC R10, --review): DUPLICATES of the built LOD0..2 go
-    # to <DIR>/<name>.blend AFTER export, previews and --verify (pipeline-gap.md section 6);
-    # the build objects and every file written above stay untouched (gate:
-    # tests/test_review_side_effects.py). The LODs are freed after it.
+    # -- live-review pack (ROUND-SPEC R10, --review): DUPLICATES of the built LOD0..2 go to <DIR>/<name>.blend AFTER
+    # export, previews and --verify (pipeline-gap.md section 6). The build objects and every file written above stay
+    # untouched (gate: tests/test_review_side_effects.py). The code frees the LODs after it.
     if args.review is not None:
         import cs2_review
         cs2_review.write_pack(name, asset_dir, dict(enumerate([chair] + lods)), {},
@@ -3422,23 +3385,28 @@ def build_lods(chair, style, row, name, lod2_mode, hanger_offset, info):
 
 # --------------------------------------------------------------------------------------
 # Carrier split (2026-11-03, --split): the chair as TWO meshes, the GRIP and the BODY
-# (docs/research/carrier-pivot-swing-plan-2026-11-03.md sections 2, 5, 6, 8; brief
-# docs/research/art/carrier-split-2026-11/BRIEF.md). The code pitches the grip with the rope
-# and keeps the body plumb (later: swings it); they meet at a LATERAL pivot pin:
+# (docs/research/carrier-pivot-swing-plan-2026-11-03.md sections 2, 5, 6, 8, brief
+# docs/research/art/carrier-split-2026-11/BRIEF.md). The code pitches the grip with the rope and keeps the body plumb
+# (later: swings it). They meet at a LATERAL pivot pin:
 #   grip  the jaws / carriage + a yoke (two cheeks) that carries the pin ends
 #   body  the hanger, ending in a knuckle (the eye, a sphere on the pin) between the cheeks,
 #         + the seat
-# Both meshes keep the base pivot (lowest vertex z = 0). carrier_split.py holds the joint
-# geometry and the split contracts S1 (rejoin within 2 mm), S2 (pin gap in (0, 5 mm] over the
-# pin sweep: +-45 deg pitch, each +-3 deg fore-aft, all about the pin), S3 (no body/grip clash over
-# that sweep, BVH as C13). The cross-wind sway rolls grip + body TOGETHER about the rope point: no
-# lateral turn at the pin (swing convention, carrier_split.py header).
-# Split-only geometry changes (critique 2026-11-03): the dq hanger head is a casting (relief geo, no
-# painted bolts; the hex pin ends stay) and the dq running wheels go 8 -> SPLIT_WHEEL_SEGS segments
-# (split_wheel: n-gon caps triangulated after their normals, segs - 2 tris a cap). The one-piece
-# M chairs are unchanged.
-# Every one-piece contract C1-C14 still runs, on the assembled pair (split_pair: body + grip at
-# zero, part table body + grip) of every level, with the pair tally and caps below.
+# Both meshes keep the base pivot (lowest vertex z = 0). carrier_split.py holds the joint geometry and the split
+# contracts:
+# - S1 (rejoin within 2 mm)
+# - S2 (pin gap in (0, 5 mm] over the pin sweep: +-45 deg pitch, each +-3 deg fore-aft, all about the pin)
+# - S3 (no body/grip clash over that sweep, BVH as C13)
+#
+# The cross-wind sway rolls grip + body TOGETHER about the rope point: no lateral turn at the pin (swing convention,
+# carrier_split.py header).
+#
+# Split-only geometry changes (critique 2026-11-03):
+# - The dq hanger head is a casting (relief geo, no painted bolts, the hex pin ends stay).
+# - The dq running wheels go 8 -> SPLIT_WHEEL_SEGS segments (split_wheel: n-gon caps triangulated after their normals,
+#   segs - 2 tris a cap).
+#
+# The one-piece M chairs are unchanged. Every one-piece contract C1-C14 still runs, on the assembled pair (split_pair:
+# body + grip at zero, part table body + grip) of every level, with the pair tally and caps below.
 # --------------------------------------------------------------------------------------
 
 SPLIT_LETTER = "N"
@@ -3447,26 +3415,25 @@ SPLIT_GRIP_INFIX = "Grip"
 #: preview): 16 segments, both caps as 16-gons triangulated after their normals = 32 side + 2 x 14
 SPLIT_WHEEL_SEGS = 16
 SPLIT_WHEEL_TRIS = 2 * SPLIT_WHEEL_SEGS + 2 * (SPLIT_WHEEL_SEGS - 2)
-# tr split touch-up (owner verdict 2026-11-03, round 3), split-only like the dq wheels (the one-piece
-# M keeps FG_GRIP and stem_points):
-#  * the clevis hangs CENTERED under the jaw block on the rope axis (round 2 had it on the J-stem's
-#    42 deg first span, 0.10 m behind the block) and the J-stem's top runs STRAIGHT DOWN into it:
-#    top point -> V (vertical, x 0) -> U (one span at slope_deg, onto the vertical run x -0.52) -> the
-#    old vertical run's end. The two 52 deg bends' fillets MEET (|TV|, |UP4| >= |VU|, so each fillet
-#    is |VU| / 2: one even S of ~0.155 m chords, the stem_points lesson) at 5 rings each = 11 rings,
-#    13 deg a joint (4 rings: 17 deg, a visible polyline in the side preview; non-meeting fillets at a
-#    steeper slope: long straights beside short chords crease the face-area weighted normals); the
-#    top segment (the cut ring at the pin -> the V fillet's first ring, 0.23 m) is a straight frustum
-#    on the clevis axis.
-#  * round 4 (owner: the round-3 F4a short jaw was wrong; photo fixed grips/close-jaw-grip-ski-lift-
-#    260nw-544514905.webp): the jaw is ONE long plate lying ON the rope (underside on the rope's top),
-#    0.68 m like the one-piece saddle, chamfered to a 7 mm edge at both ends so the rope runs in
-#    smoothly; the compact clamp box sits UNDER the plate's middle and wraps the rope; the clevis
-#    hangs under the box. No block encloses the plate any more (round 2's "two blades out of the
-#    block's sides"). The plate's crown is the mesh top (rope + GRIP_TOP_Z, C1 / C2), so plate + box
-#    are ONE part "grip" (a casting, relief geo): C2 wants the top on "grip", C3 the rope point in
-#    its bbox (the box). 32 tris = the one-piece block 12 + saddle 20.
-#  * the audit split_alignment() raises when either regresses (SPLIT_ALIGN_* below)
+# tr split touch-up (owner verdict 2026-11-03, round 3), split-only like the dq wheels (the one-piece M keeps FG_GRIP and
+# stem_points):
+# - The clevis hangs CENTERED under the jaw block on the rope axis (round 2 had it on the J-stem's 42 deg first span,
+#   0.10 m behind the block). The J-stem's top runs STRAIGHT DOWN into it: top point -> V (vertical, x 0) -> U (one span
+#   at slope_deg, onto the vertical run x -0.52) -> the old vertical run's end.
+# - The two 52 deg bends' fillets MEET (|TV|, |UP4| >= |VU|, so each fillet is |VU| / 2: one even S of ~0.155 m chords,
+#   the stem_points lesson). They have 5 rings each = 11 rings, 13 deg a joint. With 4 rings the joint is 17 deg, a
+#   visible polyline in the side preview. Non-meeting fillets at a steeper slope put long straights beside short chords,
+#   and those crease the face-area weighted normals.
+# - The top segment (the cut ring at the pin -> the V fillet's first ring, 0.23 m) is a straight frustum on the clevis
+#   axis.
+# - Round 4 (owner: the round-3 F4a short jaw was wrong, photo fixed grips/close-jaw-grip-ski-lift-260nw-544514905.webp):
+#   the jaw is ONE long plate lying ON the rope (underside on the rope's top), 0.68 m like the one-piece saddle. The
+#   plate is chamfered to a 7 mm edge at both ends so the rope runs in smoothly. The compact clamp box sits UNDER the
+#   plate's middle and wraps the rope. The clevis hangs under the box. No block encloses the plate any more (round 2's
+#   "two blades out of the block's sides"). The plate's crown is the mesh top (rope + GRIP_TOP_Z, C1 / C2), so plate +
+#   box are ONE part "grip" (a casting, relief geo). C2 wants the top on "grip", and C3 wants the rope point in its bbox
+#   (the box). 32 tris = the one-piece block 12 + saddle 20.
+# - The audit split_alignment() raises when either regresses (SPLIT_ALIGN_* below).
 TR_SPLIT_GRIP = {
     # plate (x, z) about the rope, CCW from -Y: flat underside on the rope's top (r 0.024), sloping
     # 9.6 deg up to a 0.10 m crown at GRIP_TOP_Z (edge to the end face 80 deg: crisp at SHADE_ANGLE 66)
@@ -3481,13 +3448,13 @@ TR_SPLIT_STEM_TRIS = 2 * 8 * (TR_SPLIT_STEM_RINGS - 1)                 # 8 segme
 SPLIT_ALIGN_PLAN_MAX_M = 0.005       # clevis center -> jaw block center, in plan (owner: < 5 mm)
 SPLIT_ALIGN_AXIS_MAX_DEG = 1.0       # tube end axis vs clevis axis, and each end ring's tilt off it
 SPLIT_ALIGN_AXIS_OFFSET_MAX_M = 0.001   # the pin center off the tube end axis (coaxial, not just parallel)
-# Joint numbers in each style's BUILD frame (tr: rope at z 0, all geometry below; dq: post-pivot).
-# knuckle R + the design gap c + cheek thickness t = the cheek's outer face; "over" = how far the
-# bridge / head overhangs the cheeks sideways (no coplanar faces).
+# Joint numbers in each style's BUILD frame (tr: rope at z 0, all geometry below. dq: post-pivot). Knuckle R + the design
+# gap c + cheek thickness t = the cheek's outer face. "over" = how far the bridge / head overhangs the cheeks sideways
+# (no coplanar faces).
 SPLIT_JOINT = {
-    # tr (round 3): the pin sits under the jaw block's center on the stem's vertical top run, R + c
-    # under the bridge plate; the bridge spans the cheeks + bridge_x_over fore and aft, its top buried
-    # in the block (underside -0.060), the cheeks' tops buried in the bridge
+    # tr (round 3): the pin sits under the jaw block's center on the stem's vertical top run, R + c under the bridge
+    # plate. The bridge spans the cheeks + bridge_x_over fore and aft, its top buried in the block (underside -0.060),
+    # the cheeks' tops buried in the bridge
     "tr": {"knuckle_r": 0.052, "knuckle_segs": (8, 4), "cheek_t": 0.016, "cheek_r": 0.055,
            "bridge_bottom": -0.085, "bridge_top": -0.050, "cheek_top": -0.065, "bridge_x_over": 0.004,
            "over": 0.003, "pin_r": 0.020, "pin_len": 0.012, "r_x": 0.17},
@@ -3508,10 +3475,10 @@ SPLIT_DENSITY = {
     "tr": {"gripbridge": 1.2, "gripcheek_": 1.2, "grippin_": 1.0, "knuckle": 1.0},
     "dq": {"hangerhead": 1.2, "hangercheek_": 1.2, "hangerpin_": 1.0, "knuckle": 1.0},
 }
-# The measured split (first build 2026-11-03), asserted exactly like C9 / the proxy tally:
-# body / grip LOD0 tallies, LOD1 targets + delete prefixes, LOD2 proxy tallies. pin_detail =
-# pair LOD0 - the one-piece tally (the joint parts minus what they replace): the pair cap is
-# the old cap + the pin detail (BRIEF "Budgets"); the pair LOD2 cap likewise (+ the yoke box).
+# The measured split (first build 2026-11-03), asserted exactly like C9 / the proxy tally: body / grip LOD0 tallies, LOD1
+# targets + delete prefixes, LOD2 proxy tallies. pin_detail = pair LOD0 - the one-piece tally (the joint parts minus what
+# they replace): the pair cap is the old cap + the pin detail (BRIEF "Budgets"). The pair LOD2 cap works likewise (+ the
+# yoke box).
 SPLIT_PLAN = {
     "tr": {"body_tally": (("knuckle", 48),) + tuple(
                (n, TR_SPLIT_STEM_TRIS if n == "tube_stem" else t)
@@ -3519,9 +3486,9 @@ SPLIT_PLAN = {
            "grip_tally": (("grip", 32), ("gripspring", 18), ("gripbridge", 12),
                           ("gripcheek_0", 22), ("gripcheek_1", 22), ("grippin_0", 18), ("grippin_1", 18)),
            "pin_detail": 116,             # knuckle 48 + bridge 12 + cheeks 44 + pin ends 36 - plates 24
-           # round 3: the straight-down stem (2 meeting bends x 5 rings = 11 rings) = 160 tris, +32 on
-           # the one-piece J (128); the round-4 plate + box "grip" (32) = block + saddle. The pair (610 + 32 =
-           # 642) is 26 over the BRIEF cap 500 + 116 = 616 (+4.2 %): raised by 26 (rule: <= 5 %)
+           # round 3: the straight-down stem (2 meeting bends x 5 rings = 11 rings) = 160 tris, +32 on the one-piece J
+           # (128). The round-4 plate + box "grip" (32) = block + saddle. The pair (610 + 32 =
+           # 642) is 26 over the BRIEF cap 500 + 116 = 616 (+4.2 %). Cap raised by 26 (rule: <= 5 %)
            "segs_detail": TR_SPLIT_STEM_TRIS - 128, "cap_raise": 26,
            "lod1": (200, 70), "lod1_delete": (("bolt_",), ("bolt_", "grippin_")),
            "body_proxy": (("knuckle", 8), ("tube_stem", 30), ("seatblock", 12), ("backblock", 10)),
@@ -3535,8 +3502,8 @@ SPLIT_PLAN = {
                             ("hangercheek_0", 22), ("hangercheek_1", 22),
                             ("hangerpin_0", 18), ("hangerpin_1", 18)),
            "pin_detail": 156,             # knuckle 48 + head 12 + cheeks 44 + pin ends 36 + hanger cut 16
-           # the 16-segment wheels: 2 x (60 - 32) = +56 tris; the pair (1152 + 56 = 1208) is 52 over
-           # the BRIEF cap 1000 + 156 = 1156 (+4.5 %): raised by 52 (rule: <= 5 %, DECISIONS 585)
+           # the 16-segment wheels: 2 x (60 - 32) = +56 tris. The pair (1152 + 56 = 1208) is 52 over the BRIEF cap 1000 +
+           # 156 = 1156 (+4.5 %). Cap raised by 52 (rule: <= 5 %, DECISIONS 585)
            "segs_detail": 2 * (SPLIT_WHEEL_TRIS - 32), "cap_raise": 52,
            "lod1": (280, 180),
            "lod1_delete": (("bolt_", "barhinge_"),
@@ -3547,25 +3514,27 @@ SPLIT_PLAN = {
 }
 
 # --------------------------------------------------------------------------------------
-# Jaw envelope (breakover-twins round, v2, 2026-11-03): split only, --envelope, generation O.
-# Every carrier passes every tower train under tests/test_grip_clearance.py: a tower wheel's rim /
-# liner may touch ONLY the grip's smooth jaw envelope (|z| <= ENVELOPE_Z about the rope center),
-# hubs / bosses / axle caps never, every other tower part keeps CARRIER_CLEAR_M. Real trains pass
-# grips that way: the closed jaws sit nearly flush with the rope and stand a limited, smooth amount
-# above it, and the sheave battery rocks as it rides over them (Poma US4441430, US4691643;
-# docs/research/art/breakover-twins-2026-11/refs/SOURCES.md "Grip passage under compression").
-# So everything taller than the jaw sits OUTBOARD (authoring -Y) of the widest wheel and its boss:
-#   tr  the clamp block (the mesh top, rope + GRIP_TOP_Z), the spring housing, the clevis, the pin
-#       and the J-stem's straight top run move out to y ENVELOPE_TR["block_y"]; the plate stays ON
-#       the rope as the jaw (crown lowered into the envelope) and reaches out into the block; the
-#       stem's V -> U span also leans back to the seat's center line, below the wheels
-#   dq  the carriage (body, comb, lever, springs, running wheels, axles) moves out by
-#       ENVELOPE_DQ["dy"] over the C-hanger's vertical run; the jaw bar stays on the rope and reaches
-#       out to the running wheels, the stub axles reach back into it; the hanger's top bend is drawn
-#       into the carriage. No dq pin moves: the dq body is unchanged (keeps its letter).
-# Topology is unchanged part for part, so the shipped atlas maps on loop for loop (split_shipped_uvs:
-# no bake, 0 MB added); only vertex positions move. LOD2 adds a jaw proxy (C3 holds the rope point in
-# grip part + jaw: ENVELOPE_JAW).
+# Jaw envelope (breakover-twins round, v2, 2026-11-03): split only, --envelope, generation O. Every carrier passes every
+# tower train under tests/test_grip_clearance.py:
+# - A tower wheel's rim / liner may touch ONLY the grip's smooth jaw envelope (|z| <= ENVELOPE_Z about the rope center).
+# - Hubs / bosses / axle caps never touch the grip.
+# - Every other tower part keeps CARRIER_CLEAR_M.
+#
+# Real trains pass grips that way: the closed jaws sit nearly flush with the rope and stand a limited, smooth amount
+# above it, and the sheave battery rocks as it rides over them (Poma US4441430, US4691643,
+# docs/research/art/breakover-twins-2026-11/refs/SOURCES.md "Grip passage under compression"). So everything taller than
+# the jaw sits OUTBOARD (authoring -Y) of the widest wheel and its boss:
+# - tr: the clamp block (the mesh top, rope + GRIP_TOP_Z), the spring housing, the clevis, the pin and the J-stem's
+#   straight top run move out to y ENVELOPE_TR["block_y"]. The plate stays ON the rope as the jaw (crown lowered into the
+#   envelope) and reaches out into the block. The stem's V -> U span also leans back to the seat's center line, below the
+#   wheels.
+# - dq: the carriage (body, comb, lever, springs, running wheels, axles) moves out by ENVELOPE_DQ["dy"] over the
+#   C-hanger's vertical run. The jaw bar stays on the rope and reaches out to the running wheels, and the stub axles
+#   reach back into it. The hanger's top bend is drawn into the carriage. No dq pin moves: the dq body is unchanged
+#   (keeps its letter).
+#
+# Topology is unchanged part for part, so the shipped atlas maps on loop for loop (split_shipped_uvs: no bake, 0 MB
+# added). Only vertex positions move. LOD2 adds a jaw proxy (C3 holds the rope point in grip part + jaw: ENVELOPE_JAW).
 # --------------------------------------------------------------------------------------
 ENVELOPE = False                    # --envelope (split only)
 ENVELOPE_LETTER = "O"
@@ -3583,44 +3552,47 @@ ENVELOPE_DQ = {"dy": -0.250,        # carriage shift (running wheels' inboard fa
                "arm_z_min": -0.030}
 ENVELOPE_ROLES = {"tr": ("body", "grip"), "dq": ("grip",)}    # the meshes the envelope changes (new letter)
 # --------------------------------------------------------------------------------------
-# Thin jaw (art-601, owner hand-test note 9, 2026-11-05): --envelope --thin-jaw, tr only, grip letter P.
-# From above the O plate read as a 0.68 x 0.205 m slab lying on a 0.048 m rope (4x the rope's width).
-# Vertex moves only (the O atlas maps on loop for loop, 0 MB): the plate's inboard edge comes in from
-# rope + 0.040 to THIN_JAW["inboard_y"] (it still covers the rope's center line: C3), and its outboard
-# ring (inside the clamp block) shrinks along travel to THIN_JAW["outboard_half"], so in plan the jaw
-# tapers from its full length on the rope to the block's length where it enters the block: a jaw on
-# the rope and a short neck instead of a wide slab. The body is the O body, unchanged (keeps O).
-# Q (the critique pass: P's edge on the rope center leaves half the rope bare beside a fin; a fixed
-# grip is a compact clamp straddling the rope): the inboard edge stays at O's +0.040 and the whole
-# plate shortens along the rope, 0.44 m on the rope tapering to 0.24 m at the block. Every Q plate
-# vertex stays inside the O plate's volume, so Q can add no overlap O does not have.
+# Thin jaw (art-601, owner hand-test note 9, 2026-11-05): --envelope --thin-jaw, tr only, grip letter P. From above, the
+# O plate read as a 0.68 x 0.205 m slab lying on a 0.048 m rope (4x the rope's width).
+#
+# Vertex moves only (the O atlas maps on loop for loop, 0 MB):
+# - The plate's inboard edge comes in from rope + 0.040 to THIN_JAW["inboard_y"] (it still covers the rope's center line:
+#   C3).
+# - Its outboard ring (inside the clamp block) shrinks along travel to THIN_JAW["outboard_half"].
+#
+# So in plan the jaw tapers from its full length on the rope to the block's length where it enters the block. The result
+# is a jaw on the rope and a short neck instead of a wide slab. The body is the O body, unchanged (keeps O).
+#
+# Q (the critique pass: P's edge on the rope center leaves half the rope bare beside a fin, and a fixed grip is a compact
+# clamp straddling the rope): the inboard edge stays at O's +0.040, and the whole plate shortens along the rope, 0.44 m
+# on the rope tapering to 0.24 m at the block. Every Q plate vertex stays inside the O plate's volume, so Q can add no
+# overlap O does not have.
 # --------------------------------------------------------------------------------------
 THIN_JAW = False                    # --thin-jaw [P|Q] (with --envelope, tr)
 THIN_JAW_SPECS = {
-    "P": {"inboard_y": 0.010,       # m: the plate's inboard edge (O: 0.040; the rope's r is 0.024)
+    "P": {"inboard_y": 0.010,       # m: the plate's inboard edge (O: 0.040, the rope's r is 0.024)
           "inboard_half": None,     # m: the inboard ring's half length (None: O's 0.340)
           "outboard_half": 0.054,   # m: the outboard ring's half length (O: 0.340): the block's 0.140 at its face
           "inboard_dz": 0.35},      # the inboard ring's height over the plate's flat underside x this: a wedge
     "Q": {"inboard_y": 0.040, "inboard_half": 0.22, "outboard_half": 0.12, "inboard_dz": 1.0},
 }
 # P is the shipping letter (owner verdict, round 2: "a thin tapered triangle of the shipped version", over the critique's
-# Q). "inboard_dz" (round 2): P's long edge on the rope read as a fin; the plate now also thins toward that edge (crown
+# Q). "inboard_dz" (round 2): P's long edge on the rope read as a fin. The plate now also thins toward that edge (crown
 # 0.060 -> 0.037 over the rope top 0.024 at the edge, full at the block), so it reads as a tapered wedge. The squash is
 # toward the profile's flat underside, so every vertex stays inside the round-1 P plate: no new overlap.
 THIN_JAW_LETTER = "P"
 THIN_JAW_SPEC = THIN_JAW_SPECS[THIN_JAW_LETTER]
 ENVELOPE_JAW = {"tr": "gripjaw", "dq": "jaw_rope"}             # C3: the jaw beside the grip part
-#: C15 (every split mesh, every LOD): lift_tower's wheel half width + 4 cm (FG 0.065, DQ 0.05) and the
-#: wheel bottoms under the rope (FG 0.433, DQ 0.482) + margin; jaw_x = the outboard end of the jaw
-#: (LOD1 snap window)
+#: C15 (every split mesh, every LOD): lift_tower's wheel half width + 4 cm (FG 0.065, DQ 0.05) and the wheel bottoms
+#: under the rope (FG 0.433, DQ 0.482) + margin. jaw_x = the outboard end of the jaw (LOD1 snap window)
 ENVELOPE_GATE = {"tr": {"xlim": 0.105, "z_bot": 0.47, "jaw_x": ENVELOPE_TR["plate_y"][0]},
                  "dq": {"xlim": 0.09, "z_bot": 0.49, "jaw_x": ENVELOPE_DQ["jaw_y_out"]}}
 
 
 def _envelope_lod_snap(lod, key, rope_z):
-    """ENVELOPE LOD1: collapse decimation flattens the jaw's lowered crown arc a few mm ABOVE the band
-    (the tr plate came out at rope + 0.062); jaw vertices (net x >= jaw_x) within 1 cm over the band
-    snap back onto it. Returns the count and the largest move."""
+    """ENVELOPE LOD1: collapse decimation flattens the jaw's lowered crown arc a few mm ABOVE the band (the tr plate came
+    out at rope + 0.062). Jaw vertices (net x >= jaw_x) within 1 cm over the band snap back onto it. Returns the count
+    and the largest move."""
     me = lod.data
     co = np.empty(len(me.vertices) * 3)
     me.vertices.foreach_get("co", co)
@@ -3635,10 +3607,10 @@ def _envelope_lod_snap(lod, key, rope_z):
 
 
 def check_envelope(obj, key, rope_z, label):
-    """C15 (ENVELOPE, net frame: x lateral, -x outboard, z up; rope_z = the rope center in this mesh):
-    every face's part beyond the jaw band (|z - rope| > ENVELOPE_Z) and within the wheels' reach
-    (z - rope > -z_bot) lies outboard of x -xlim. Exact: each triangle is clipped to those slabs, so a
-    face that only straddles the reach line is judged by its part above it."""
+    """C15 (ENVELOPE, net frame: x lateral, -x outboard, z up, rope_z = the rope center in this mesh): every face's part
+    beyond the jaw band (|z - rope| > ENVELOPE_Z) and within the wheels' reach (z - rope > -z_bot) lies outboard of x
+    -xlim. Exact: each triangle is clipped to those slabs, so a face that only straddles the reach line is judged by its
+    part above it."""
     g = ENVELOPE_GATE[key]
     me = obj.data
     co = np.empty(len(me.vertices) * 3)
@@ -3715,11 +3687,14 @@ def _dq_envelope(parts, row):
 
 
 def tr_split_stem_points(oz, back_top_z, lat=0.0):
-    """The split tr J-stem (round 3): the one-piece stem's top and bottom points (stem_points), the
-    top run straight DOWN to V (x of the top point, TR_SPLIT_STEM v_z) under the jaw block, one span at
-    slope_deg to U on the vertical run (x of the bottom point), then down into the clamp block. Raises
-    unless both fillets can be |VU| / 2 (they meet: |TV| and |UP4| >= |VU|). Rope frame offset by oz.
-    lat (ENVELOPE): T and V at lateral y `lat` (outboard of the wheels), U back on the center line."""
+    """The split tr J-stem (round 3). It is built from:
+    - the one-piece stem's top and bottom points (stem_points)
+    - the top run straight DOWN to V (x of the top point, TR_SPLIT_STEM v_z) under the jaw block
+    - one span at slope_deg to U on the vertical run (x of the bottom point)
+    - then down into the clamp block
+
+    Raises unless both fillets can be |VU| / 2 (they meet: |TV| and |UP4| >= |VU|). Rope frame offset by oz. lat
+    (ENVELOPE): T and V at lateral y `lat` (outboard of the wheels), U back on the center line."""
     old = stem_points(oz, back_top_z, top_dz=TR_STEM_TOP_DZ)
     (tx, _ty, tz), (bx, _by, bz) = old[0], old[-1]
     vz = oz + TR_SPLIT_STEM["v_z"]
@@ -3799,14 +3774,13 @@ def _tr_split_rebuild(parts):
 
 
 def _thin_jaw(grip, table):
-    """THIN_JAW on the ASSEMBLED grip (net frame: x lateral, -x outboard, y travel; after
-    _apply_shipped_uvs, because the assembly orders polygons by position and the remap is polygon for
-    polygon). The plate is the part "grip"'s vertices on its two lateral rings (O: x -0.165 inside the
-    clamp block, x +0.040 inboard; the block's own faces sit at -0.155 / -0.245): the inboard ring moves
-    to THIN_JAW_SPEC["inboard_y"], and every plate vertex's travel coordinate scales linearly in its
-    lateral position from outboard_half / the plate's half length at the outboard ring to 1 at the
-    inboard edge (a uniform scale of a convex profile per ring: still convex). Raises unless both rings
-    hold the plate profile's 6 + 6 vertices. Returns a report."""
+    """THIN_JAW on the ASSEMBLED grip (net frame: x lateral, -x outboard, y travel). It runs after _apply_shipped_uvs,
+    because the assembly orders polygons by position and the remap is polygon for polygon. The plate is the part "grip"'s
+    vertices on its two lateral rings (O: x -0.165 inside the clamp block, x +0.040 inboard, the block's own faces sit at
+    -0.155 / -0.245). The inboard ring moves to THIN_JAW_SPEC["inboard_y"]. The travel coordinate of every plate vertex
+    scales linearly in its lateral position, from outboard_half / the plate's half length at the outboard ring to 1 at
+    the inboard edge (a uniform scale of a convex profile per ring: still convex). Raises unless both rings hold the
+    plate profile's 6 + 6 vertices. Returns a report."""
     me = grip.data
     fp = face_parts(grip)
     gid = table.index("grip") + 1
@@ -3863,14 +3837,15 @@ def _ring_normal(P):
 
 def split_alignment(style_key, body_parts, grip_parts, joint):
     """
-    The tr clevis alignment audit (round 3; the owner's "bar slightly misaligned with the carrier"),
-    measured on the built parts at zero pose; raises when it regresses:
-      plan    the clevis (gripbridge + gripcheek_* + grippin_*, bbox center) and the pin under the
-              jaw block's ("grip" bbox) center in plan: < SPLIT_ALIGN_PLAN_MAX_M
-      axis    the hanger tube's end axis (cut ring -> the next ring, centroids) parallel to the clevis
-              axis (pin -> the bridge center, square to the pin axis) within SPLIT_ALIGN_AXIS_MAX_DEG
-              (a bend reaching into the clevis tilts that centroid line); the cut ring square to it
-              within the same angle; the pin on that axis within SPLIT_ALIGN_AXIS_OFFSET_MAX_M
+    The tr clevis alignment audit (round 3, the owner's "bar slightly misaligned with the carrier"), measured on the
+    built parts at zero pose. It raises when it regresses:
+    - plan: the clevis (gripbridge + gripcheek_* + grippin_*, bbox center) and the pin under the jaw block's ("grip"
+      bbox) center in plan: < SPLIT_ALIGN_PLAN_MAX_M
+    - axis: the hanger tube's end axis (cut ring -> the next ring, centroids) is parallel to the clevis axis (pin -> the
+      bridge center, square to the pin axis) within SPLIT_ALIGN_AXIS_MAX_DEG (a bend reaching into the clevis tilts that
+      centroid line). The cut ring is square to it within the same angle. The pin is on that axis within
+      SPLIT_ALIGN_AXIS_OFFSET_MAX_M.
+
     Returns the report dict (None for styles without the audit).
     """
     if style_key != "tr":
@@ -3926,8 +3901,8 @@ def split_alignment(style_key, body_parts, grip_parts, joint):
            "plan_max_mm": SPLIT_ALIGN_PLAN_MAX_M * 1000.0,
            "axis_angle_deg": round(axis_deg, 4), "cut_ring_tilt_deg": round(tilt, 4),
            "axis_max_deg": SPLIT_ALIGN_AXIS_MAX_DEG,
-           # info: the bend's first ring leans by tube_along's smoothed tangent (not asserted; a bend
-           # inside the clevis shows up as axis_angle_deg instead)
+           # info: the bend's first ring leans by tube_along's smoothed tangent (not asserted, a bend inside the clevis
+           # shows up as axis_angle_deg instead)
            "bend_ring_tilt_deg": round(ang(n1, ax_t), 4),
            "pin_off_axis_mm": round(off * 1000.0, 3), "pin_off_axis_max_mm": SPLIT_ALIGN_AXIS_OFFSET_MAX_M * 1000.0,
            "straight_end_m": round(float(np.linalg.norm(c0 - c1)), 4),
@@ -4009,8 +3984,8 @@ def split_wheel(name, r, depth, center, segs=SPLIT_WHEEL_SEGS):
 
 
 def _resegment_wheels(parts):
-    """The dq split's wheels: each wheel_k rebuilt at SPLIT_WHEEL_SEGS on the same center, radius and
-    width (DQ_GRIP["wheel"]); the 8-segment one-piece wheel is removed. Same list order."""
+    """The dq split's wheels: each wheel_k rebuilt at SPLIT_WHEEL_SEGS on the same center, radius and width
+    (DQ_GRIP["wheel"]). The function removes the 8-segment one-piece wheel. Same list order."""
     wr, wd, _wx = DQ_GRIP["wheel"]
     bpy.context.view_layer.update()                        # the kit parts carry loc / rot on the object
     out = []
@@ -4035,17 +4010,17 @@ def _resegment_wheels(parts):
 
 def build_split_parts(style, row, hanger_offset=HANGER_OFFSET):
     """
-    The split carrier's loose parts in the style's BUILD frame: the contracted one-piece parts
-    first (C9 names + tally asserted), a copy of them for S1, then the joint:
-      tr  the jaw and the J-stem are first rebuilt split-only (_tr_split_rebuild: round 4's plate +
-          clamp box "grip", round 3's straight-down stem top); the stem is cut square to its vertical top run
-          at the pin, which sits under the jaw block's center; the two clamp plates (gripplate_*)
-          give way to a bridge plate centered under the jaw block (gripbridge) carrying two yoke
-          cheeks (gripcheek_*) with the pin ends (grippin_*); the body's knuckle sits on the
-          stem's cut end between the cheeks
-      dq  the C-hanger is cut twice in its vertical run: the top arm (tube_hangerarm) stays with
-          the grip and ends in a head block (hangerhead) with two cheeks (hangercheek_*) and the
-          pin ends (hangerpin_*); the body's hanger starts in the knuckle at the pin
+    The split carrier's loose parts in the style's BUILD frame: the contracted one-piece parts first (C9 names + tally
+    asserted), a copy of them for S1, then the joint:
+    - tr: the jaw and the J-stem are first rebuilt split-only (_tr_split_rebuild: round 4's plate + clamp box "grip",
+      round 3's straight-down stem top). The stem is cut square to its vertical top run at the pin, which sits under the
+      jaw block's center. The two clamp plates (gripplate_*) give way to a bridge plate centered under the jaw block
+      (gripbridge) carrying two yoke cheeks (gripcheek_*) with the pin ends (grippin_*). The body's knuckle sits on the
+      stem's cut end between the cheeks.
+    - dq: the C-hanger is cut twice in its vertical run. The top arm (tube_hangerarm) stays with the grip and ends in a
+      head block (hangerhead) with two cheeks (hangercheek_*) and the pin ends (hangerpin_*). The body's hanger starts in
+      the knuckle at the pin.
+
     Returns (body [(obj, quad)], grip [(obj, quad)], old [(obj, quad)], joint dict).
     """
     K = cs2_kit
@@ -4234,11 +4209,10 @@ def _add_octa(name, center, half_xy, z_top):
 
 def split_proxy_parts(style, row, joint, body_top, hanger_offset=HANGER_OFFSET):
     """
-    The authored LOD2 of the split, in the ASSEMBLED frame (the one-piece proxy's frame):
-    (body [(obj, chooser)], grip [(obj, chooser)]). From _proxy_parts: the grip keeps the grip
-    box and gains a yoke box over the joint (bottom = the cheeks' bottom, top buried in the grip
-    box); the body's stem / hanger restarts at the pin, plus an octahedron knuckle whose top
-    vertex is the body LOD0's top (the height every level of the body keeps).
+    The authored LOD2 of the split, in the ASSEMBLED frame (the one-piece proxy's frame): (body [(obj, chooser)], grip
+    [(obj, chooser)]). From _proxy_parts: the grip keeps the grip box and gains a yoke box over the joint (bottom = the
+    cheeks' bottom, top buried in the grip box). The body's stem / hanger restarts at the pin, plus an octahedron knuckle
+    whose top vertex is the body LOD0's top (the height every level of the body keeps).
     """
     K = cs2_kit
     J = SPLIT_JOINT[style.key]
@@ -4257,12 +4231,12 @@ def split_proxy_parts(style, row, joint, body_top, hanger_offset=HANGER_OFFSET):
         pts[0] = (px, py, pz)
         old_stem, old_grip = by["tube_stem"][0], by["grip"][0]
         _remove_objects([old_stem, old_grip])
-        # ENVELOPE: the V fillet's top ring stays below the wheels' reach. The default fillet (half the
-        # pin -> V run, 0.295 m) put that ring at rope - 0.41, so the two faces down to the V -> U chord
-        # had their upper vertices inside the reach and their lower ones inboard of x -xlim (C15's
-        # exact clip passed; the conservative vertex form did not). Capped at V's depth below the
-        # reach line minus the proxy radius (0.70 - 0.47 - 0.056 = 0.174 m), the ring sits at
-        # rope - 0.53 and only the outboard straight run is within the reach; the same 6 rings, 30 tris.
+        # ENVELOPE: the V fillet's top ring stays below the wheels' reach. The default fillet (half the pin -> V run,
+        # 0.295 m) put that ring at rope - 0.41, so the two faces down to the V -> U chord had their upper vertices
+        # inside the reach and their lower ones inboard of x -xlim (C15's exact clip passed, the conservative vertex form
+        # did not). The fillet is capped at V's depth below the reach line minus the proxy radius (0.70 - 0.47 - 0.056 =
+        # 0.174 m). Then the ring sits at rope - 0.53 and only the outboard straight run is within the reach. It has the
+        # same 6 rings, 30 tris.
         fil = (-TR_SPLIT_STEM["v_z"] - ENVELOPE_GATE["tr"]["z_bot"] - PROXY_R["stem"]) if ENVELOPE else None
         stem = K.tube_along("tube_stem", pts, PROXY_R["stem"], segments=3, caps="none", bend_rings=2,
                             fillet=fil)
@@ -4489,10 +4463,10 @@ def _apply_shipped_uvs(obj, ref):
 
 
 def _main_split(args, st, row, letter):
-    """--split: the GRIP and BODY meshes (see the section comment above), each with the full
-    finish / LOD / verify / validate / manifest path of the one-piece build. ENVELOPE (--envelope):
-    no bake; the shipped atlas mapped onto the moved vertices (split_shipped_uvs, 0 MB added), and only
-    the meshes the envelope changes (ENVELOPE_ROLES) get the new letter and files."""
+    """--split: the GRIP and BODY meshes (see the section comment above), each with the full finish / LOD / verify /
+    validate / manifest path of the one-piece build. ENVELOPE (--envelope): no bake. The build maps the shipped atlas
+    onto the moved vertices (split_shipped_uvs, 0 MB added), and only the meshes the envelope changes (ENVELOPE_ROLES)
+    get the new letter and files."""
     if st.key not in SPLIT_PLAN:
         raise ValueError(f"--split: style {st.key!r} has no split")
     plan = split_plan(st.key)
@@ -4507,7 +4481,7 @@ def _main_split(args, st, row, letter):
         remap = split_shipped_uvs(st, row, ho, src)
         old_body, old_grip = split_names(st, SPLIT_LETTER)
         roles = ENVELOPE_ROLES[st.key]
-        if THIN_JAW:                       # only the grip changes; the body stays the O body
+        if THIN_JAW:                       # only the grip changes. The body stays the O body
             roles = ("grip",)
             old_body = split_names(st, ENVELOPE_LETTER)[0]
         write_role = {r: r in roles for r in write_role}
@@ -4890,8 +4864,8 @@ def main():
             for png in preview_rig(chair, asset_dir, name, prev, lods, ab, tint=st.tint):
                 print(f"[chair] preview -> {png}")
             if st.key == "dq":
-                # Revision 2: the bar UP (C13's end pose) for the verdict on the mechanics;
-                # a re-shaded duplicate, removed again (nothing exported comes from it)
+                # Revision 2: the bar UP (C13's end pose) for the verdict on the mechanics. It is a re-shaded duplicate,
+                # removed again (nothing exported comes from it)
                 for png in preview_bar_up(chair, row, asset_dir, name, prev, st.tint):
                     print(f"[chair] preview -> {png}")
                 # Revision 3: the bar against boxy seated riders (stand-ins, never exported)
@@ -4938,9 +4912,9 @@ def main():
             "args": CS.manifest_args(args, REPO_ROOT),
         })
 
-        # -- live-review pack (ROUND-SPEC R10): after export, previews, --verify, the
-        # validator and the manifest (pipeline-gap.md section 6; p0a fix 15); DUPLICATES
-        # only, nothing above changes (gate: tests/test_review_side_effects.py)
+        # -- live-review pack (ROUND-SPEC R10): after export, previews, --verify, the validator and the manifest
+        # (pipeline-gap.md section 6, p0a fix 15). DUPLICATES only, nothing above changes (gate:
+        # tests/test_review_side_effects.py)
         if args.review is not None:
             cs2_review.write_pack(name, asset_dir, dict(enumerate([chair] + lods)), {},
                                   meta={"generator": "lift_chair.py", "args": CS.manifest_args(args, REPO_ROOT),

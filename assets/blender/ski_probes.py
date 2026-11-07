@@ -1,19 +1,19 @@
 """
-ski_probes.py - four tiny CS2 probe assets that convert unverified engine rows into
-decisions before any hero asset depends on them (art-pipeline-v2.md section 7, Round L
-spec "ski_probes.py"). Each probe is a normal importable asset folder:
+ski_probes.py - four tiny CS2 probe assets (art-pipeline-v2.md section 7, Round L spec
+"ski_probes.py"). They convert unverified engine rows into decisions before any hero asset depends
+on those rows. Each probe is a normal importable asset folder:
 
     SkiProbeLodA   2 m sphere-ish object with THREE color-coded LOD levels
                    LOD0 = 400 tris, UVs in the RED band of the main 512 set
                    LOD1 = 120 tris, UVs in the GREEN band (shares LOD0's set via sharedAssets)
-                   LOD2 =  24 tris, DEDICATED 512 set that is uniformly BLUE; its UVs sit in
-                          the band that is MAGENTA in LOD0's set, so in game: blue at
+                   LOD2 =  24 tris, DEDICATED 512 set that is uniformly BLUE. Its UVs sit in
+                          the band that is MAGENTA in LOD0's set. So in game: blue at
                           distance = dedicated set bound, magenta = fell back to LOD0's set,
-                          gray = no texture bound. settings.json is written by this script
-                          with identity entries for LOD2 (ExampleBakedAlphaFence pattern).
+                          gray = no texture bound. The script writes settings.json with
+                          identity entries for LOD2 (ExampleBakedAlphaFence pattern).
                    Proves: lod_factor 652 / 45 deg fov switch distances (pops expected at
                    ~20/40/80/160 m), and dedicated_texture_lods binding.
-    SkiProbeGlsA   1 m bevelled box + a `SkiProbeGlsA_Gls` pane 0.02 m thick in front (-Y),
+    SkiProbeGlsA   1 m beveled box + a `SkiProbeGlsA_Gls` pane 0.02 m thick in front (-Y),
                    LOD1 for both (`_LOD1.fbx` + `_LOD1_Gls.fbx`). The pane ships NO textures.
                    Proves: `_Gls` binds DefaultGlassDoubleSided with zero textures, meshCount 2.
     SkiProbeCoatA  2 x 2 x 0.2 m slab, same albedo everywhere, MaskMap A = 0.5 everywhere,
@@ -21,7 +21,7 @@ spec "ski_probes.py"). Each probe is a normal importable asset folder:
                    "25" labels in the far corner of each half, plus a 2-texel seam line).
                    Proves: whether MaskMap G (coat) reaches the shader at all.
     SkiProbeFndA   two 3 x 3 x 1 m boxes on ONE asset: box "A" (at -X) is OPEN-BOTTOM with its
-                   side-face bottom edges exactly at z = 0 -> engine base expected; box "B"
+                   side-face bottom edges exactly at z = 0 -> engine base expected. Box "B"
                    (at +X) is closed with a 0.5 m modeled skirt welded below z = 0 (the K
                    station pattern) -> no engine base expected. "A"/"B" painted on the tops.
                    Proves: BatchMeshHelpers.AddBaseLines behavior (spec "engine facts").
@@ -34,7 +34,7 @@ preview PNG. Nothing here touches the repo import tree unless --out points there
     blender --background --factory-startup --python ski_probes.py -- --out <dir> [--preview <dir>]
 
 The script re-imports every FBX it wrote (names, x100 Y-up extents, custom normals) and prints a
-one-line PASS summary, exiting 1 on any failure. No top-level side effects.
+one-line PASS summary. It exits 1 on any failure. The script has no top-level side effects.
 """
 
 import argparse
@@ -91,7 +91,7 @@ def _link(name, bm):
 
 
 def add_box(name, size, loc, open_bottom=False):
-    """Axis-aligned box; `open_bottom` deletes the -Z face (engine-base rule)."""
+    """Axis-aligned box. `open_bottom` deletes the -Z face (engine-base rule)."""
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     bmesh.ops.scale(bm, vec=size, verts=bm.verts[:])
@@ -142,10 +142,10 @@ def apply_transform(obj):
 
 def project_faces(obj, rect_for_face, bounds_for_face=None):
     """
-    Planar-project every face along its dominant normal axis (extents normalized to 0..1
-    over the object bbox, or over `bounds_for_face(poly)` -> (lo, hi) when given) and
-    squeeze it into the rect returned by `rect_for_face(poly)`. Faces sharing a rect
-    overlap - fine for a flat-color probe main mesh (the legacy atlas practice).
+    Planar-project every face along its dominant normal axis and squeeze it into the rect returned
+    by `rect_for_face(poly)`. The extents are normalized to 0..1 over the object bbox, or over
+    `bounds_for_face(poly)` -> (lo, hi) when given. Faces that share a rect overlap. This is fine
+    for a flat-color probe main mesh (the legacy atlas practice).
     """
     me = obj.data
     if not me.uv_layers:
@@ -194,7 +194,7 @@ def unwrap_unique(obj, margin_px=8):
 # --------------------------------------------------------------------------------------
 
 def paint_text(buf, text, x0, y0, cell, rgb, gap=1):
-    """Paint `text` with the 5x7 font; (x0, y0) = bottom-left texel, `cell` px per bit."""
+    """Paint `text` with the 5x7 font. (x0, y0) = bottom-left texel, `cell` px per bit."""
     x = x0
     for ch in text:
         g = GLYPHS[ch]
@@ -216,9 +216,9 @@ def flat_rgba(rgb, a=1.0, size=TEX):
 
 def write_set(out_dir, name, base, msk=None, smooth=0.35, seed=3, grain=0.02):
     """
-    Write the four maps for `name` from a bottom-up BaseColor buffer (+ optional MaskMap).
-    Normal flat GL (0.5, 0.5, 1); MaskMap R 0 / G 0 / B 0 / A smooth unless given;
-    ControlMask all zero (no recolor slot - the probes must show their painted albedo).
+    Write the four maps for `name` from a bottom-up BaseColor buffer (+ optional MaskMap). Normal
+    flat GL (0.5, 0.5, 1). MaskMap R 0 / G 0 / B 0 / A smooth unless given. ControlMask all zero (no
+    recolor slot - the probes must show their painted albedo).
     """
     os.makedirs(out_dir, exist_ok=True)
     A = base.shape[0]
@@ -251,8 +251,8 @@ def preview_material(obj, tex_dir, name, coat_from_mask=False, glass=False):
     nt = mat.node_tree
     bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
     if glass:
-        # EEVEE headless has no raytraced transmission: an alpha-blended tinted pane
-        # stands in (this is preview-only; the shipped _Gls carries no material at all).
+        # EEVEE headless has no raytraced transmission: an alpha-blended tinted pane stands in. This
+        # is preview-only. The shipped _Gls carries no material at all.
         bsdf.inputs["Alpha"].default_value = 0.35
         bsdf.inputs["Roughness"].default_value = 0.05
         bsdf.inputs["Base Color"].default_value = (0.55, 0.75, 0.9, 1.0)
@@ -386,7 +386,7 @@ def build_gls_probe(out_root, name="SkiProbeGlsA"):
     cs2_asset.make_texture_set(asset_dir, name, size=TEX, base_rgb=(0.55, 0.50, 0.42),
                                smoothness=0.30, noise=0.03, control_rgb=(0, 0, 0))
 
-    # LOD0: bevelled 1 m box (so LOD1 = the plain 12-tri box is < 50 %)
+    # LOD0: beveled 1 m box (so LOD1 = the plain 12-tri box is < 50 %)
     box = add_box(name, (1.0, 1.0, 1.0), (0.0, 0.0, 0.5))
     bpy.ops.object.select_all(action="DESELECT")
     box.select_set(True)
@@ -430,9 +430,9 @@ def build_coat_probe(out_root, name="SkiProbeCoatA"):
     asset_dir = os.path.join(out_root, name)
     os.makedirs(asset_dir, exist_ok=True)
 
-    # -X half of the slab -> u 0.02..0.48, +X half -> u 0.52..0.98 (each half normalized
-    # over its OWN x range, so u 0.48 / 0.52 are the x = 0 seam). Seam line 2 texels wide
-    # on each side of the seam; labels in the far (+Y) corners: "0" at -X, "25" at +X.
+    # -X half of the slab -> u 0.02..0.48, +X half -> u 0.52..0.98 (each half normalized over its
+    # OWN x range, so u 0.48 / 0.52 are the x = 0 seam). Seam line 2 texels wide on each side of the
+    # seam. Labels in the far (+Y) corners: "0" at -X, "25" at +X.
     L = (0.02, 0.02, 0.48, 0.98)
     R = (0.52, 0.02, 0.98, 0.98)
     base = flat_rgba((0.45, 0.46, 0.48))
@@ -472,15 +472,15 @@ def build_fnd_probe(out_root, name="SkiProbeFndA"):
     os.makedirs(asset_dir, exist_ok=True)
 
     base = flat_rgba((0.58, 0.57, 0.55))
-    # top-face rects: A -> u 0.06..0.44, B -> u 0.56..0.94, v 0.54..0.96; glyph 5x7 at 20 px
+    # top-face rects: A -> u 0.06..0.44, B -> u 0.56..0.94, v 0.54..0.96. Glyph 5x7 at 20 px
     paint_text(base, "A", int(0.25 * TEX) - 50, int(0.75 * TEX) - 70, 20, (0.08, 0.08, 0.10))
     paint_text(base, "B", int(0.75 * TEX) - 50, int(0.75 * TEX) - 70, 20, (0.08, 0.08, 0.10))
     write_set(asset_dir, name, base, smooth=0.25, grain=0.02)
 
     # box A: open bottom, side-face bottom edges at z = 0, nothing below
     a = add_box("boxA", (3.0, 3.0, 1.0), (-2.0, 0.0, 0.5), open_bottom=True)
-    # box B: closed 1 m box + 0.5 m skirt welded at z = 0 (K station pattern); the two
-    # coincident interior faces at z = 0 are removed after the weld.
+    # box B: closed 1 m box + 0.5 m skirt welded at z = 0 (K station pattern). The code removes the
+    # two coincident interior faces at z = 0 after the weld.
     b_top = add_box("boxB", (3.0, 3.0, 1.0), (2.0, 0.0, 0.5))
     b_skirt = add_box("boxBskirt", (3.0, 3.0, 0.5), (2.0, 0.0, -0.25))
     b = join([b_top, b_skirt], "boxB")
@@ -590,7 +590,7 @@ def check_textures(asset_dir, name, lod_sets=()):
             if (w, h) != (TEX, TEX) or head[25] != 6:
                 raise RuntimeError(f"{p}: {w}x{h} color type {head[25]}, want {TEX} RGBA")
     # channel contract from the written files: BaseColor A == 1 everywhere, MaskMap B == 0,
-    # ControlMask A == 0; plus the per-probe MaskMap G expectation.
+    # ControlMask A == 0. It also checks the per-probe MaskMap G expectation.
     def load(stem, m):
         img = bpy.data.images.load(os.path.join(asset_dir, f"{stem}_{m}.png"))
         buf = np.empty(TEX * TEX * 4, dtype=np.float32)

@@ -1,63 +1,67 @@
 """
-recipes/lodge_chalet.py - L3 mid-tier lodge, the chalet complex (prefab SkiLodgeMid, mesh
-SkiLodgeChaletCommercialLowB, lodges/B). Engine mode on a flattened 5 x 4 lot.
+recipes/lodge_chalet.py - L3 mid-tier lodge, the chalet complex (prefab SkiLodgeMid, mesh SkiLodgeChaletCommercialLowB,
+lodges/B). Engine mode on a flattened 5 x 4 lot.
 
-Contract: docs/research/art/assets-2026-10/design/lodges-basic.md section 5 with
-design/lodges-basic-skeptic.md applied (M1-M10 + the L3 should-changes: Mass B's -X eave
-trimmed where Mass A abuts, coincident A/B wall faces dropped) and ROUND-SPEC R21-R31; the kit
-API of design/bldg-kit.md wins where the two disagree (R25). Built on cs2_bldg; this module
-arranges kit parts (recipe-local pieces listed in KIT_NEEDS). Import-safe: no bpy work at
-import.
+Contract: docs/research/art/assets-2026-10/design/lodges-basic.md section 5 with design/lodges-basic-skeptic.md applied
+(M1-M10 + the L3 should-changes: Mass B's -X eave trimmed where Mass A abuts, coincident A/B wall faces dropped) and
+ROUND-SPEC R21-R31. The kit API of design/bldg-kit.md wins where the two disagree (R25). Built on cs2_bldg. This module
+arranges kit parts (recipe-local pieces listed in KIT_NEEDS). Import-safe: no bpy work at import.
 
-MASSING (Courchevel complex, lodges-basic 5.1-5.2): Mass B (road hall, ridge along Y at
-x 7.5, ridge 9.40) on the arrival side; Mass A (slope wing, stone G + L1 with a 4-pier arcade
-on its -X gable, jettied timber L2, ridge along X at y -12.5, ridge 12.86) at right angles;
-a stone podium under a terrace (top 3.45) with an opaque balustrade, a terrace stair, a
-gable-roofed lookout gazebo on a raised platform, a kiosk, an entry porch, 3 flag masts.
+MASSING (Courchevel complex, lodges-basic 5.1-5.2):
+- Mass B (road hall, ridge along Y at x 7.5, ridge 9.40) on the arrival side.
+- Mass A (slope wing, stone G + L1 with a 4-pier arcade on its -X gable, jettied timber L2, ridge
+  along X at y -12.5, ridge 12.86) at right angles.
+- a stone podium under a terrace (top 3.45) with an opaque balustrade, a terrace stair, a
+  gable-roofed lookout gazebo on a raised platform, a kiosk, an entry porch, 3 flag masts.
+
 Authoring frame: +X = arrival = game +Z (the road), z 0 = grade (vanilla flatten).
 
-ENGINE BASE: every part reaching z < 0.011 is an open-bottom ground part (ground_prefixes);
-every other part starts at z >= 0.02 (cs2_bldg.check_base_mode, on LOD0/1/2). Faces that
-sit against another mass are not built (drop=) so the protected ground walls carry no
-hidden texels: A's +X face (B covers it), B's G -X face (A + podium), the podium's +X / -Y
-faces, the piers' +X faces, the chimney's -Y face below the gable.
+ENGINE BASE: every part reaching z < 0.011 is an open-bottom ground part (ground_prefixes). Every other part starts at z
+>= 0.02 (cs2_bldg.check_base_mode, on LOD0/1/2). Faces that sit against another mass are not built (drop=), so the
+protected ground walls carry no hidden texels. These faces are not built: A's +X face (B covers it), B's G -X face (A +
+podium), the podium's +X / -Y faces, the piers' +X faces, the chimney's -Y face below the gable.
 
-FINE-DETAIL PASS, step 3a (2026-10-12; design/fine-detail-pass.md A.2 / B as cut by -skeptic.md,
-seventeenth look H1-H6 defaults; build/fine-detail-step3a-buildings.md; the school is the
-reference host, build/fine-detail-step2-engine.md section 12). RECIPE is a fine_detail.FineRecipe
-(fine_detail=True, NO sign set); `lodge.py --no-fine` rebuilds the approved chalet from `legacy`:
+FINE-DETAIL PASS, step 3a (2026-10-12, design/fine-detail-pass.md A.2 / B as cut by -skeptic.md, seventeenth look H1-H6
+defaults, build/fine-detail-step3a-buildings.md. The school is the reference host, build/fine-detail-step2-engine.md
+section 12). RECIPE is a fine_detail.FineRecipe (fine_detail=True, NO sign set). `lodge.py --no-fine` rebuilds the
+approved chalet from `legacy`:
     B.1 kit geometry  the 3 flag masts 12-seg + ball finial (flag_mast fine=True)
     A.2 vanilla       the 8 wall lanterns (lamp_Be0 / Be1, porchB0 / porchB1, Bn, aW, podN0, kiosk)
                       -> WallLightShortRangeRandom01 rows (H4) on their wall / column face at the old
-                      lens (y, z); the gazebo's hanging lantern -> RoofLightRandom01 at the foot of
-                      its rod (the rod stays as the pendant stem, renamed trim_gzrod: no lamp_ part is
-                      left, so the chalet ships no _Emissive map)
-    D   kit rows      L3 had NO racks (SKI_RACK_SPOTS was planned, never placed): 3 kit A-frame racks
+                      lens (y, z). The gazebo's hanging lantern -> RoofLightRandom01 at the foot of
+                      its rod. The rod stays as the pendant stem, renamed trim_gzrod. No lamp_ part is
+                      left, so the chalet ships no _Emissive map
+    D   kit rows      L3 had NO racks (SKI_RACK_SPOTS was planned, never placed). 3 kit A-frame racks
                       at those spots in front of Mass A's arcade (slope side, on the flattened lot,
                       m_ParentMesh -1), alternating the three loadouts, identity (long axis along
                       authoring Y, parallel to the arcade)
     no sign set       L3's boards are pictograms only (restaurant x 2, kiosk info: no lettering), so
-                      they stay in the host atlas (design C.1); the kiosk and the gazebo stay modeled
-                      (approved; vanilla Kiosk / GazeboRandom01 exist: PLACEHOLDERS in the report)
-Row frame: every row, old and new, is game (gx, gy, gz) = authoring (y, z, x), gx NOT negated
-(fine_detail.X_CONVENTION, the chalet's existing convention; probe X2 decides, S1b mirrors on N).
+                      they stay in the host atlas (design C.1). The kiosk and the gazebo stay modeled
+                      (approved, and vanilla Kiosk / GazeboRandom01 exist: PLACEHOLDERS in the report)
+Row frame: every row, old and new, is game (gx, gy, gz) = authoring (y, z, x), gx NOT negated (fine_detail.X_CONVENTION,
+the chalet's existing convention. Probe X2 decides, S1b mirrors on N).
 
-NITPICK C (2026-10-13; twenty-fifth look: "not loving the SIGN of the FORK AND KNIFE ... leave it blank or
-keep it simple, and people can paste their own labels on it?"; build/nitpick-c-lodges.md): the three pictogram
-boards are BLANK boards (NC_LABELS: their own ground + a thin trim-color rim, fine_detail.blank_board), listed in
-the manifest's `we_boards` block for an optional Write Everywhere layout; `--no-fine` keeps the pictograms
-(PICTO_LABELS, legacy). Geometry unchanged: only the three label rects of the atlas repaint.
+NITPICK C (2026-10-13, twenty-fifth look: "not loving the SIGN of the FORK AND KNIFE ... leave it blank or keep it
+simple, and people can paste their own labels on it?", build/nitpick-c-lodges.md): the three pictogram boards are BLANK
+boards (NC_LABELS: their own ground + a thin trim-color rim, fine_detail.blank_board). The manifest's `we_boards` block
+lists them for an optional Write Everywhere layout. `--no-fine` keeps the pictograms (PICTO_LABELS, legacy). Geometry
+unchanged: only the three label rects of the atlas repaint.
 
-T60 (2026-10-18; Blender review 2026-10-17 item 5: "the small building has no door, so it just needs one. I
-think we also need a door on the patio itself. Probably turn one of the tall windows into a door."; build note
-docs/research/field/2026-10-15/build/T59-T60-chalet-summit.md): T60_DOORS (fine builds only; False = the chalet before
-T60, byte-identical). (a) the kiosk (the small building) gets a chalet-family door on its -Y gable, the end facing the
-terrace stair foot and the podium (the staff route; the -X face is the serving hatch, the +X face carries the board):
-1.0 x 2.1 m, one half-glazed leaf, its glass in the existing room `kiosk`; (b) the middle of the three tall glazed
-F1 openings on B's -X face onto the terrace (`bW1`, a 1.0 m window_bay at y -1.0) becomes a chalet DOUBLE door 1.6 x
-2.2 m (two leaves, a lever each) on the terrace deck, its glass in the existing room `bF1W` (that room's panes 3 -> 4:
-bW0 + bW2 + the two leaf lights). Each new door gets a WallLightShortRangeRandom01 row beside it (T60_LAMPS, the
-FINE_LAMPS form); the kiosk's trash bin row, which stood on the new door's axis 0.9 m out, moves 1.4 m east. With --door-kit v1 the two are v1 entries, as every other L3 door (same lamp rows).
+T60 (2026-10-18, Blender review 2026-10-17 item 5: "the small building has no door, so it just needs one. I think we also
+need a door on the patio itself. Probably turn one of the tall windows into a door.", build note
+docs/research/field/2026-10-15/build/T59-T60-chalet-summit.md): T60_DOORS (fine builds only, False = the chalet before
+T60, byte-identical).
+- (a) the kiosk (the small building) gets a chalet-family door on its -Y gable, the end facing the
+  terrace stair foot and the podium (the staff route. The -X face is the serving hatch, the +X face
+  carries the board): 1.0 x 2.1 m, one half-glazed leaf, its glass in the existing room `kiosk`.
+- (b) the middle of the three tall glazed F1 openings on B's -X face onto the terrace (`bW1`, a 1.0 m
+  window_bay at y -1.0) becomes a chalet DOUBLE door 1.6 x 2.2 m (two leaves, a lever each) on the
+  terrace deck, its glass in the existing room `bF1W` (that room's panes 3 -> 4: bW0 + bW2 + the two
+  leaf lights).
+
+Each new door gets a WallLightShortRangeRandom01 row beside it (T60_LAMPS, the FINE_LAMPS form). The kiosk's trash bin
+row, which stood on the new door's axis 0.9 m out, moves 1.4 m east. With --door-kit v1 the two are v1 entries, as every
+other L3 door (same lamp rows).
 """
 
 import math
@@ -129,50 +133,53 @@ PICTO_LABELS = (("sign_boardB_face", "paint_pictogram",
                  {"kind": "restaurant", "fg": 0.92, "bg": RED_BOARD_SRGB}),
                 ("sign_kiosk_face", "paint_pictogram",
                  {"kind": "info", "fg": 0.92, "bg": DARK_BOARD_SRGB}))
-# nitpick C (2026-10-13; twenty-fifth look, L3: "not loving the SIGN of the FORK AND KNIFE, that looks
-# quite bad. I wonder if we just leave it blank or keep it simple, and people can paste their own labels on it?";
-# build/nitpick-c-lodges.md): the three pictogram boards become BLANK boards - the board's own ground (red / dark)
-# with a thin rim in the chalet's trim color (slot 1 (0.0625, 0.3125, 0.25) as shown on the 0.80 trim paint:
-# lin_to_srgb(srgb_to_lin(0.80) x slot)), no pictogram. The kiosk's stretched info bars go too (same board family,
-# same stretch). The faces stay flat and unobstructed; lodge.py lists them in the manifest's `we_boards` block
-# (center / normal / size) for an optional Write Everywhere layout. Rim 0.056 m at the label density (71.4 px/m
-# measured: label w 3.0 x the chalet's 23.8 px/m w = 1) = 4.0 texels (0.04 m gave 2.86, under the 4 px floor).
+# nitpick C (2026-10-13, twenty-fifth look, L3: "not loving the SIGN of the FORK AND KNIFE, that looks quite bad. I
+# wonder if we just leave it blank or keep it simple, and people can paste their own labels on it?",
+# build/nitpick-c-lodges.md): the three pictogram boards become BLANK boards - the board's own ground (red / dark) with a
+# thin rim in the chalet's trim color (slot 1 (0.0625, 0.3125, 0.25) as shown on the 0.80 trim paint:
+# lin_to_srgb(srgb_to_lin(0.80) x slot)), no pictogram. The kiosk's stretched info bars go too (same board family, same
+# stretch). The faces stay flat and unobstructed. lodge.py lists them in the manifest's `we_boards` block (center /
+# normal / size) for an optional Write Everywhere layout. Rim 0.056 m at the label density (71.4 px/m measured: label w
+# 3.0 x the chalet's 23.8 px/m w = 1) = 4.0 texels (0.04 m gave 2.86, under the 4 px floor).
 L3_TRIM_SRGB = (0.214, 0.472, 0.425)
 NC_LABELS = tuple(
     (face, "display", {"draws": (blank_board(bg=bg, rim=L3_TRIM_SRGB, rim_m=0.056, inset_m=0.06),)})
     for face, bg in (("sign_boardB_face", RED_BOARD_SRGB), ("sign_boardP_face", RED_BOARD_SRGB),
                      ("sign_kiosk_face", DARK_BOARD_SRGB)))
 
-# Props (GAME coords (gx, gy, gz) = authoring (y, z, x); lodges-basic 5.7). Not in the mesh.
-# (prefab, GUID, positions, yaw deg): yaw turns the prop's local +Z to authoring 0 = +X (road),
-# 90 = +Y, 180 = -X (slope), -90 = -Y (_yaw_q). Vanilla retrofit (fifteenth look, 2026-10-11):
-# every GUID re-derived from %TEMP%\pltar\dump.zip (placeholder + variants + union bounds, as
-# cs2_liftdress.verify_subobj), the rows wired into the manifest (SUB_OBJECTS; the 10:20 export had
-# none: the recipe never set Recipe.sub_objects, which the engine only gained in detail pass 1),
-# and four placement fixes found by the box check against the built LOD0 (no lodge triangle in a
-# prop box, no box overlap, inside the lot):
-#   - parasols: the vanilla convention (bldg_recipes.L1_PARASOLS: 442 base-game parasol / table
-#     pairs) puts the parasol pivot PARASOL_OFFSET 1.37 m from its table, local +Z at it, the offset
-#     canopy (z -0.73..3.06) over the table. On the table pivots (the design) the canopy hung 1.2 m
-#     off the tables and the one over the (-1.0, -4.5) table went through Mass B's -X wall, eave and
-#     door heads. Now beside four tables (_PARASOL_TABLES): three of the design's, and the one at
-#     (-1.0, -4.5) moved to its neighbor (-4.5, -4.5): any 3.5 m canopy over that table reaches
-#     Mass B's -X fascia / gutter (x 0.60-0.79, z 5.7-6.1);
-#   - the three DeckChairRandom01 (2.39 m loungers, yaw 180) on the 1.32 m deep A -X balcony ran
-#     through the balustrade, the L2 wall and two window sills: ChairCommercialRandom01 (single
-#     cafe chair 0.76 x 0.81 m, ActivityLocation seat facing local +Z, no snow rule; 146 buildings)
-#     at the same spots, facing the slope;
-#   - the two LightpoleParkRandom01 (lamp arm to local z +0.83) reached 3 cm past the road-side lot
-#     edge (x 16.03): x 15.2 -> 15.1;
-#   - the modeled lamp post at the terrace stair foot (col_lampTS + lamp_terrstair) is a seventh
-#     GardenLightRandom01 (lit bollard) on its spot.
+# Props (GAME coords (gx, gy, gz) = authoring (y, z, x), lodges-basic 5.7). Not in the mesh. (prefab, GUID, positions,
+# yaw deg): yaw turns the prop's local +Z to authoring 0 = +X (road), 90 = +Y, 180 = -X (slope), -90 = -Y (_yaw_q).
+# Vanilla retrofit (fifteenth look, 2026-10-11):
+# - every GUID was re-derived from %TEMP%\pltar\dump.zip (placeholder + variants + union bounds, as
+#   cs2_liftdress.verify_subobj).
+# - the rows were wired into the manifest (SUB_OBJECTS). The 10:20 export had none: the recipe never
+#   set Recipe.sub_objects, which the engine only gained in detail pass 1.
+# - four placement fixes came from the box check against the built LOD0 (no lodge triangle in a prop
+#   box, no box overlap, inside the lot).
+#
+# The four placement fixes:
+# - parasols: the vanilla convention (bldg_recipes.L1_PARASOLS: 442 base-game parasol / table pairs)
+#   puts the parasol pivot PARASOL_OFFSET 1.37 m from its table, local +Z at it, the offset canopy (z
+#   -0.73..3.06) over the table. On the table pivots (the design) the canopy hung 1.2 m off the
+#   tables. The canopy over the (-1.0, -4.5) table went through Mass B's -X wall, eave and door heads.
+#   Now the parasols stand beside four tables (_PARASOL_TABLES): three of the design's, and the one at
+#   (-1.0, -4.5) moved to its neighbor (-4.5, -4.5). Any 3.5 m canopy over that table reaches Mass B's
+#   -X fascia / gutter (x 0.60-0.79, z 5.7-6.1).
+# - the three DeckChairRandom01 (2.39 m loungers, yaw 180) on the 1.32 m deep A -X balcony ran through
+#   the balustrade, the L2 wall and two window sills. ChairCommercialRandom01 (single cafe chair 0.76 x
+#   0.81 m, ActivityLocation seat facing local +Z, no snow rule, 146 buildings) takes their place at
+#   the same spots, facing the slope.
+# - the two LightpoleParkRandom01 (lamp arm to local z +0.83) reached 3 cm past the road-side lot edge
+#   (x 16.03): x 15.2 -> 15.1.
+# - the modeled lamp post at the terrace stair foot (col_lampTS + lamp_terrstair) is a seventh
+#   GardenLightRandom01 (lit bollard) on its spot.
 _TABLE_AT = ((-4.5, 3.45, -11.5), (-4.5, 3.45, -8.0), (-4.5, 3.45, -4.5), (-4.5, 3.45, -1.0),
              (-1.0, 3.45, -11.5), (-1.0, 3.45, -4.5), (-1.0, 3.45, -1.0), (3.0, 3.45, -4.5))
-# (table, parasol yaw): the A-wall row's pair faces +X / -X (poles outside the pair, canopies
-# across y, clear of the A wall at y -7.0), the north table +X, the middle one -Y (its canopy fits
-# between the rows' canopies; along x it would touch them)
+# (table, parasol yaw): the A-wall row's pair faces +X / -X (poles outside the pair, canopies across y, clear of the A
+# wall at y -7.0). The north table: +X. The middle one: -Y (its canopy fits between the rows' canopies. Along x it would
+# touch them)
 _PARASOL_TABLES = (((-4.5, 3.45, -8.0), 0), ((-4.5, 3.45, -4.5), 180), ((3.0, 3.45, -4.5), 0),
-                   ((-1.0, 3.45, -4.5), -90))   # T26 2026-10-16 emptied this; restored 2026-10-17 (random colors accepted)
+                   ((-1.0, 3.45, -4.5), -90))   # T26 2026-10-16 emptied this. Restored 2026-10-17 (random colors accepted)
 
 
 def _parasol_at(table, yaw):
@@ -196,8 +203,8 @@ PROPS = (
       (6.5, 0.0, 14.6), (15.5, 0.0, 14.6), (6.5, 0.0, -14.9)), 0),
     ("LightpoleParkRandom01", "c987b53e24a01e744b4a00ee5b1f8a08",
      ((-18.6, 0.0, 15.1), (17.0, 0.0, 15.1)), 0),
-    # T60: the kiosk bin stood 0.9 m in front of the new kiosk door on its axis (auth x -14.0, y 7.2): 1.4 m east,
-    # under the door's lamp, off the door line (T60_DOORS False keeps -14.0)
+    # T60: the kiosk bin stood 0.9 m in front of the new kiosk door on its axis (auth x -14.0, y 7.2). It moves 1.4 m
+    # east, under the door's lamp, off the door line (T60_DOORS False keeps -14.0)
     ("TrashbinRandom01", "41e3c9ba6e1d6b948a6b1bc3499a5397",
      ((-9.2, 0.0, 15.4), (7.2, 0.0, -12.6 if T60_DOORS else -14.0)), 0),
     ("FirewoodShelterRandom01", "c1d98e3e6f5e1204cb071deaf0f74020", ((6.3, 0.0, 10.8),), 90),
@@ -212,21 +219,20 @@ def _yaw_q(deg):
     return (0.0, round(math.sin(h), 7), 0.0, round(math.cos(h), 7))
 
 
-# the manifest rows (lodge.sub_objects_block): grade props (gy 0) on the flattened lot
-# m_ParentMesh -1, terrace / balcony props on our mesh 0 (lodges-basic report D13 + the skeptic's
-# should-change); 29 rows
+# the manifest rows (lodge.sub_objects_block): grade props (gy 0) on the flattened lot m_ParentMesh -1, terrace / balcony
+# props on our mesh 0 (lodges-basic report D13 + the skeptic's should-change). 29 rows
 SUB_OBJECTS = tuple((nm, guid, tuple(float(v) for v in p), _yaw_q(yaw), -1 if p[1] == 0.0 else 0)
                     for nm, guid, pts, yaw in PROPS for p in pts)
 
-# ---- fine-detail pass step 3a (module docstring): the rows that replace modeled parts --------------
-# (same frame and tuple form as SUB_OBJECTS; GUIDs = cs2_liftdress.SUBOBJ, dump-verified)
+# ---- fine-detail pass step 3a (module docstring): the rows that replace modeled parts -------------- (same frame and
+# tuple form as SUB_OBJECTS, GUIDs = cs2_liftdress.SUBOBJ, dump-verified)
 _WALL_SHORT = "cfc12fde01d9da24b86ddedd657eaae1"      # WallLightShortRangeRandom01 (mount wall, 138 tris)
 _ROOF_LIGHT = "b0ea4a4915b28f14a826bb809e02db7a"      # RoofLightRandom01 (mount ceiling, 380 tris)
 _LIFT = 0.02                                          # cs2_bldg.GROUND_LIFT (entry floors on grade)
-#: the 8 wall lanterns as WallLightShortRange rows: (lantern tag, authoring wall point (x, y, z) =
-#: the lantern's `at` on its wall / column face, yaw of the face normal). cs2_bldg.entry puts its lamps
-#: at u -+(w / 2 + 0.2 + 0.35), floor + 2.2; cs2_bldg.lantern(kind "wall") puts the lens 0.22 m out
-#: from `at` at the same height (lodges' rows: on the face at the old lens (y, z))
+#: the 8 wall lanterns as WallLightShortRange rows: (lantern tag, authoring wall point (x, y, z) = the lantern's `at` on
+#: its wall / column face, yaw of the face normal). cs2_bldg.entry puts its lamps at u -+(w / 2 + 0.2 + 0.35), floor +
+#: 2.2. cs2_bldg.lantern(kind "wall") puts the lens 0.22 m out from `at` at the same height (lodges' rows: on the face at
+#: the old lens (y, z))
 FINE_LAMPS = (
     ("Be0", (B_X1, -6.5 - (1.8 / 2 + 0.2 + 0.35), 0.15 + 2.2), 0),    # entry Be (u -6.5, w 1.8, z 0.15)
     ("Be1", (B_X1, -6.5 + (1.8 / 2 + 0.2 + 0.35), 0.15 + 2.2), 0),
@@ -247,9 +253,9 @@ FINE_SUB_OBJECTS = tuple(
     ("RoofLightRandom01", _ROOF_LIGHT, (round(GZ_LAMP[1], 4), round(GZ_LAMP[2], 4), round(GZ_LAMP[0], 4)),
      _yaw_q(0), 0),
 )
-#: T60 (module docstring): an entry light beside each new door, the FINE_LAMPS form and the entry() lamp spot
-#: (u + (w / 2 + 0.2 + 0.35), floor + 2.2) on the wall face: the kiosk door's on the podium side of its -Y gable, the
-#: patio door's on its south side (between it and bW0)
+#: T60 (module docstring): an entry light beside each new door, in the FINE_LAMPS form and at the entry() lamp spot (u +
+#: (w / 2 + 0.2 + 0.35), floor + 2.2) on the wall face. The kiosk door's light is on the podium side of its -Y gable. The
+#: patio door's light is on its south side (between it and bW0)
 T60_LAMPS = (
     ("kio", (KIOSK_DOOR[0] + (KIOSK_DOOR[1] / 2 + 0.2 + 0.35), KI_Y0, _LIFT + 2.2), -90),
     ("bWd", (B_X0, PATIO_DOOR[0] - (PATIO_DOOR[1] / 2 + 0.2 + 0.35), TERR_TOP + 2.2), 180),
@@ -257,10 +263,10 @@ T60_LAMPS = (
 T60_SUB_OBJECTS = tuple(
     ("WallLightShortRangeRandom01", _WALL_SHORT, (round(y, 4), round(z, 4), round(x, 4)), _yaw_q(yaw), 0)
     for _tag, (x, y, z), yaw in T60_LAMPS) if T60_DOORS else ()
-#: the planned SKI_RACK_SPOTS (never placed: L3 had no racks) as kit rows on the flattened lot in front
-#: of Mass A's arcade, alternating the three loadouts (FS6), identity (long axis along authoring Y)
-#: kit color variants (2026-10-12 ~18:50; build/kit-colour-variants.md): the chalet's trim green (slot 1,
-#: "one resort, one trim"); L1 next door is orange
+#: the planned SKI_RACK_SPOTS (never placed: L3 had no racks) as kit rows on the flattened lot in front of Mass A's
+#: arcade, alternating the three loadouts (FS6), identity (long axis along authoring Y)
+#: kit color variants (2026-10-12 ~18:50, build/kit-colour-variants.md): the chalet's trim green (slot
+#: 1, "one resort, one trim"). L1 next door is orange
 KIT_COLOUR_SET = "green"
 KIT_ROWS = tuple(
     kit_row(AFRAME_RACKS[i % len(AFRAME_RACKS)], tuple(float(v) for v in spot), parent=-1,
@@ -351,10 +357,15 @@ def _roof_b(K):
 
 
 def _gazebo(K, fine=False):
-    """Lookout gazebo on the terrace: platform (top 4.85) on 4 posts that run up to the
-    eave beams, gable roof 35 deg ridge along X (peak 9.66), 8 knee braces, timber rail with
-    the stair opening on +X, 8-riser stair from the terrace, a hanging lantern. fine (step 3a):
-    no lantern (a RoofLightRandom01 row hangs at the rod's foot), the rod is `trim_gzrod`."""
+    """Lookout gazebo on the terrace:
+    - platform (top 4.85) on 4 posts that run up to the eave beams.
+    - gable roof 35 deg, ridge along X (peak 9.66).
+    - 8 knee braces.
+    - timber rail with the stair opening on +X.
+    - 8-riser stair from the terrace.
+    - a hanging lantern.
+
+    fine (step 3a): no lantern (a RoofLightRandom01 row hangs at the rod's foot), the rod is `trim_gzrod`."""
     cx = 0.5 * (GZ_POSTS[0][0] + GZ_POSTS[1][0])
     cy = 0.5 * (GZ_POSTS[0][1] + GZ_POSTS[2][1])
     t = math.tan(math.radians(GZ_PITCH))
@@ -443,9 +454,9 @@ def build_chalet(recipe, opts):
     P += K.gable_roof("A", specA, tails=None, snow_guard=1, gutters=True, walls=True,
                       wall_mat="timber_shake")
     gzA = L2_TOP - T27 * EAVE_OVER - 0.18
-    # close look (2026-10-17): v1's pipes stood at the jettied L2 corner and hung 6.5 m in front of the arcade
-    # with nothing behind them; with fittings they come down the L2 side wall just inside the stone corner and
-    # jog in under the jetty onto the stone (cs2_fittings.route_downspouts)
+    # close look (2026-10-17): v1's pipes stood at the jettied L2 corner and hung 6.5 m in front of the arcade with
+    # nothing behind them. With fittings they come down the L2 side wall just inside the stone corner and jog in under
+    # the jetty onto the stone (cs2_fittings.route_downspouts)
     ax = A_X0 + 0.35 if K.FITTINGS.get("version", 0) >= 1 else A2_X0 - 0.10
     for nm, y, n in (("AS", A2_Y0 - 0.10, "-Y"), ("AN", A2_Y1 + 0.10, "+Y")):
         P += K.downspout(nm, ax, y, gzA, n, wall_gap=EAVE_OVER + 0.20 - 0.10,
@@ -539,7 +550,7 @@ def build_chalet(recipe, opts):
         P += _win(K, f"bS{k}", wBS, x, *WIN, gs, "bGS")
         P += _win(K, f"bS{k}f", wBS, x, *WIN, f1s, "bF1S")
     P += _win(K, "bSa", wBS, B_RIDGE_X, 0.9, 1.0, 7.20, "bF1S", lights=1)
-    # B +Y gable: G door + window, F1 2; lantern by the door (chimney at x 6.8-8.2)
+    # B +Y gable: G door + window, F1 2. Lantern by the door (chimney at x 6.8-8.2)
     P += K.entry("Bn", wBN, -4.6, w=1.0, h=2.1, sidelights=0, lamps=0, room="bGN")
     P += _win(K, "bN", wBN, -10.5, *WIN, gs, "bGN")
     for k, x in enumerate((4.6, 10.5)):
@@ -561,7 +572,7 @@ def build_chalet(recipe, opts):
     for k, (y0, y1) in enumerate(bays):
         P += K.curtain_wall(f"aW{k}", wAW, -y1, -y0, 0.20, 6.40, grid_u=1.0, transom_at=3.20,
                             room="aW")
-    # A L2 -X: 2 balcony doors + 2 windows; lantern between the doors
+    # A L2 -X: 2 balcony doors + 2 windows. Lantern between the doors
     wA2W = WallRef("-X", A2_X0)
     for k, y in enumerate((-14.0, -11.0)):
         P += _win(K, f"aWd{k}", wA2W, -y, 0.9, 2.2, 6.90, "aL2W", sill_board=False)
@@ -584,7 +595,7 @@ def build_chalet(recipe, opts):
     for k, x in enumerate((-10.0, -6.0, -2.0)):
         P += _win(K, f"aN{k}d", wAN, -x, *GDOOR, TERR_TOP + 0.05, "aL1N", sill_board=False)
         P += _win(K, f"aN{k}w", wA2N, -x, *WIN, l2s, "aL2N")
-    # podium -X: 2 windows + door; +Y: 2 windows + door with a lantern, red board above
+    # podium -X: 2 windows + door. +Y: 2 windows + door with a lantern, red board above
     wPW, wPN = WallRef("-X", POD_X0), WallRef("+Y", POD_Y1)
     for k, y in enumerate((-4.5, 3.0)):
         P += _win(K, f"pW{k}", wPW, -y, *WIN, gs, "podW")
@@ -608,15 +619,15 @@ def build_chalet(recipe, opts):
 
 RECIPE = FineRecipe(
     key="L3", aliases=("mid",), letter="B",
-    # prefab = the code catalog's name (SkiCatalog.Names.LodgeMid, LocaleEN, hub; R25 /
-    # bldg-kit 11). The mesh keeps its built name (no consumer reads it). buildings-integration 1
+    # prefab = the code catalog's name (SkiCatalog.Names.LodgeMid, LocaleEN, hub, R25 / bldg-kit 11). The mesh keeps its
+    # built name (no consumer reads it). buildings-integration 1
     asset="SkiLodgeChaletCommercialLow", prefab="SkiLodgeMid", category="lodges",
     lot=LOT, base_mode="engine", plinth=None, yaw_deg=0.0, tex=2048, allow_4096=False,
     budget=Budget(11000, 12000, 4800, 500, 500),
     massing="custom", builder=build_chalet,
     rooms=ROOMS, interior="CommercialLow",
-    # one resort, one trim (lodges-basic Q6): L1's shipped green; slot 2 = house orange
-    # (banners); slot 3 inert (no slot-3 surface on L3)
+    # one resort, one trim (lodges-basic Q6): L1's shipped green. Slot 2 = house orange (banners). Slot 3 inert (no
+    # slot-3 surface on L3)
     slots={1: (0.0625, 0.3125, 0.25), 2: (0.85, 0.25, 0.10), 3: (0.30, 0.31, 0.325)},
     ground_prefixes=("wall_Bg", "wall_Ag", "wall_pod", "wall_kiosk", "pier_A", "chim_B",
                      "step_porchB", "stair_terr_str", "col_tland"),
@@ -628,7 +639,7 @@ RECIPE = FineRecipe(
     lod2_keep=("gazebocol_gz", "flagpanel_m0", "flagpanel_m1", "flagpanel_m2"),
     labels=NC_LABELS,                 # nitpick C (2026-10-13): blank boards (was PICTO_LABELS, kept in legacy)
     sub_objects=SUB_OBJECTS + FINE_SUB_OBJECTS + KIT_ROWS + T60_SUB_OBJECTS,   # 29 PROPS + 9 vanilla + 3 kit (+ 2 T60)
-    # fine-detail pass step 3a (opt-in; lodge.py --no-fine restores `legacy` = the approved chalet)
+    # fine-detail pass step 3a (opt-in, lodge.py --no-fine restores `legacy` = the approved chalet)
     fine_detail=True,
     sign_set=None,
     kit_colour_set=KIT_COLOUR_SET,

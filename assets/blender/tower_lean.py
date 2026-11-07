@@ -1,42 +1,47 @@
 """
 tower_lean.py - the tower-lean round, art half: leaned towers on sloped ground (previews) and the foundation check.
 
-The planner now caps the rope pitch at a tower (the mean of the two chords; FG 38, DQ 40, GD 40, tram 55) and the mast
-leans downhill to carry it, head first (the code's rule): lean = clamp(|pitch| - REL, 0, LEAN_MAX) with REL 20 / LEAN_MAX
-20 for DQ, GD, REL 12 / LEAN_MAX 25 for FG (600 a, code 6eb3138: the FG has no head, so the mast is its head) and
-REL 30 / LEAN_MAX 25 for trams, so the head (lift_head letter T), the FG halves' mean or the tram saddle's mean
-(tram_saddle letter D, its range unchanged) sits at most REL off the mast below the cap (FG: 13 at the cap). The lean turns the whole tower
-about its foot (the Transform origin: the node on the ground; the position does not move), so the rope anchor moves by
-yA sin(lean) (tilted-towers spike section 1) and the foundation turns with the tower.
+The planner now caps the rope pitch at a tower (the mean of the two chords: FG 38, DQ 40, GD 40, tram 55). The mast leans
+downhill to carry it, head first (the code's rule): lean = clamp(|pitch| - REL, 0, LEAN_MAX). The constants:
+- DQ, GD: REL 20 / LEAN_MAX 20.
+- FG: REL 12 / LEAN_MAX 25 (600 a, code 6eb3138: the FG has no head, so the mast is its head).
+- trams: REL 30 / LEAN_MAX 25.
 
-Yaw (2026-11-04, the owner on the approved sheets: the crash pad faced downhill): the scenes put uphill at +y, and every
-tower is built with its uphill face at net -y (the crash pad's padded face and warning triangle, lift_tower.build_crash_pad
-/ cs2_asset.CRASHPAD: authoring +X -> net -y; the opening, the ladder and the deck ends downhill; TrainFront = net -y =
-game +z). So every tower is turned 180 deg about z (yaw(): x -> -x, y -> -y) into the scene: the padded face uphill (+y),
-TrainFront on the uphill half. pose_fn(down, up) takes the halves BY SIDE (the downhill -y half first) and names the
-bones; the ropes are built in the mesh frame (the angles negated) and turned with the tower.
+So the head (lift_head letter T), the FG halves' mean or the tram saddle's mean (tram_saddle letter D, its range unchanged)
+sits at most REL off the mast below the cap (FG: 13 at the cap). The lean turns the whole tower about its foot (the
+Transform origin: the node on the ground, the position does not move). So the rope anchor moves by yA sin(lean)
+(tilted-towers spike section 1), and the foundation turns with the tower.
 
-Poses (Blender deg, scene frame: x lateral, y travel, z up; a uniform pose theta raises the +y end): at a lean L the world
-rope pitch is min(L + REL, PITCH_CAP), PITCH_CAP at L = LEAN_MAX (the steepest pitch that lean meets; FG: 38 at 25, the
-mean 13 off the mast) (L = 0: the steepest plumb pitch, REL), the mean relative to the mast pitch - L, the
-terrain a plane through the foot rising toward +y at that pitch ("matched"), the mast turned by +L about x through the
-origin (the top moves toward -y: downhill). The "max" column: the steepest lean with one half at the type's widest
-relative angle (FG_MAX_HALVES: at the 38 cap with a 25 lean, mean 13 +- the FG half-break 16 = 29 / -3; trams the TS-1
-tower with the widest half relative to the mast).
+Yaw (2026-11-04, the owner on the approved sheets: the crash pad faced downhill). The scenes put uphill at +y. Every tower
+is built with its uphill face at net -y: the crash pad's padded face and warning triangle (lift_tower.build_crash_pad /
+cs2_asset.CRASHPAD: authoring +X -> net -y). The opening, the ladder and the deck ends are downhill. TrainFront = net -y =
+game +z. So every tower is turned 180 deg about z (yaw(): x -> -x, y -> -y) into the scene: the padded face uphill (+y),
+TrainFront on the uphill half. pose_fn(down, up) takes the halves BY SIDE (the downhill -y half first) and names the bones.
+The ropes are built in the mesh frame (the angles negated) and turned with the tower.
 
-Close frames (--close, the pre-import check of 600 a): every DQ / GD Hold / Combo key at head +-20 relative to the mast on
-a mast leaned 20 the same way, the kind's widest fold (Hold: halves head -+ 20, concave; Combo: head -+ 8), two frames
-3 m, ladder side and side-on (the grab extensions, the landing rail, the fall-arrest rail's top under the comm wedge).
+Poses (Blender deg, scene frame: x lateral, y travel, z up. A uniform pose theta raises the +y end). At a lean L:
+- the world rope pitch is min(L + REL, PITCH_CAP), PITCH_CAP at L = LEAN_MAX (the steepest pitch that lean meets.
+  FG: 38 at 25, the mean 13 off the mast). At L = 0 it is the steepest plumb pitch, REL.
+- the mean relative to the mast is pitch - L.
+- the terrain is a plane through the foot rising toward +y at that pitch ("matched").
+- the mast is turned by +L about x through the origin (the top moves toward -y: downhill).
 
-Foundation check (numbers, every key; no render): the Root foot parts (lift towers: `pad` + `pier`, the block continued
-to z -4; trams: the pedestals `ped_*` + open piers `pier_*` + base plates) posed at each lean on matched ground and on a
-level crest, against the plumb tower on the same ground:
-  bottom_m       the highest pier bottom over the terrain (> 0: a pier's bottom shows: the foundation lifts off);
-  float_cover_m  the largest float of the origin over the terrain the piers still cover (= -bottom_m);
-  pier_show_m    the most pier (below the pad underside z -0.30 / the pedestal feet z 0) over the terrain at float 0;
+The "max" column: the steepest lean with one half at the type's widest relative angle (FG_MAX_HALVES: at the 38 cap with a
+25 lean, mean 13 +- the FG half-break 16 = 29 / -3. For trams: the TS-1 tower with the widest half relative to the mast).
+
+Close frames (--close, the pre-import check of 600 a): every DQ / GD Hold / Combo key at head +-20 relative to the mast on a
+mast leaned 20 the same way, the kind's widest fold (Hold: halves head -+ 20, concave. Combo: head -+ 8). Two frames 3 m,
+ladder side and side-on (the grab extensions, the landing rail, the fall-arrest rail's top under the comm wedge).
+
+Foundation check (numbers, every key, no render): the Root foot parts (lift towers: `pad` + `pier`, the block continued to z
+-4. Trams: the pedestals `ped_*` + open piers `pier_*` + base plates) posed at each lean on matched ground and on a level
+crest, against the plumb tower on the same ground:
+  bottom_m       the highest pier bottom over the terrain (> 0: a pier's bottom shows: the foundation lifts off).
+  float_cover_m  the largest float of the origin over the terrain the piers still cover (= -bottom_m).
+  pier_show_m    the most pier (below the pad underside z -0.30 / the pedestal feet z 0) over the terrain at float 0.
   steel_buried_m the deepest point of the tower's steel (Root, non-foundation, z 0..2 m) under the terrain.
 
-Usage (headless; scratch folders only, nothing exported):
+Usage (headless, scratch folders only, nothing exported):
   blender --background --factory-startup --python-exit-code 1 --python tower_lean.py -- --out <scratch>
       [--types FG,DQ,GD,tram] [--foundation <json>] [--preview <dir>] [--fg-reach <json>]
 """
@@ -107,7 +112,7 @@ def max_pose(typ):
         f, b = -pf, -pb                                  # Blender sign
         if m > 0:                                        # mirror along the line: the rope rises toward +y (Blender = -code)
             f, b = -b, -f
-        key = (round(max(abs(f), abs(b))), lean)        # the widest half; among those the most lean
+        key = (round(max(abs(f), abs(b))), lean)        # the widest half. Among those the most lean
         if best is None or key > best[0]:
             best = (key, lean, abs(m), (round(f, 1), round(b, 1)))
     return best[1], best[2], best[3]
@@ -177,8 +182,8 @@ def fg_tower(key, out):
 
 
 def fg_reach(tw):
-    """The FG art's G6 (lift_tower.skin_sweep) with its theta max raised to each FG_REACH value: how far the halves
-    already reach relative to the mast without a new letter. Report only; the module constant is restored."""
+    """The FG art's G6 (lift_tower.skin_sweep) with its theta max raised to each FG_REACH value: how far the halves already
+    reach relative to the mast without a new letter. Report only. The module constant is restored."""
     keep, out = LT.SKIN_THETA_MAX["FG"], {}
     try:
         for tmax in FG_REACH:
@@ -281,7 +286,7 @@ def foundation(tw, lean, slope):
 
 
 def foundation_table(tw):
-    """Per lean: matched ground (the pose's world pitch) and a level crest; plus the plumb tower on each slope."""
+    """Per lean: matched ground (the pose's world pitch) and a level crest. Plus the plumb tower on each slope."""
     rows = []
     for lean in LEANS[tw.typ]:
         wp = world_pitch(tw.typ, lean)
@@ -424,8 +429,8 @@ def close_poses(tw):
 
 
 def close_frames(tw, raw):
-    """One ladder-side frame per close pose: the target is the ladder rails' top (the grab extensions), leaned with the
-    mast; CLOSE_VIEWS, the travel component on the ladder's side."""
+    """One ladder-side frame per close pose: the target is the ladder rails' top (the grab extensions), leaned with the mast.
+    CLOSE_VIEWS, the travel component on the ladder's side."""
     rails = np.array([n.startswith("ladder_rail_") for n in tw.vpart])
     if not rails.any():
         raise RuntimeError(f"{tw.name}: no ladder_rail_ parts")

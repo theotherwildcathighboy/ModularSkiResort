@@ -1,78 +1,78 @@
 """
-recipes/school.py - the ski school (Palisades board-and-batten + lantern tower) as a
-lodge.py recipe: `lodge.py --school` -> SkiSchoolCommercialLowA (buildings/A).
+recipes/school.py - the ski school (Palisades board-and-batten + lantern tower) as a lodge.py recipe: `lodge.py --school` ->
+SkiSchoolCommercialLowA (buildings/A).
 
-Contract: docs/research/art/assets-2026-10/design/civic-sign.md section 2 with
-civic-sign-skeptic.md applied (skeptic wins) and ROUND-SPEC R21-R25 (kit API wins, R25):
-    M4  the tower is CUT cleanly through the wings: the ground-floor (GF) and upper-floor
-        (UF) walls are boxes / quads with the tower footprint left out, the GF / UF roofs
-        stop at the tower, the tower walls start where they become exposed (front from
-        grade, sides above the GF roof strip / UF roof, back above the UF roof), the white
-        bands stop at the tower corner boards; G10 (no same-facing coplanar overlap between
-        parts, no face centroid inside a massing volume) is asserted in the builder, so a
+Contract: docs/research/art/assets-2026-10/design/civic-sign.md section 2 with civic-sign-skeptic.md applied (skeptic wins)
+and ROUND-SPEC R21-R25 (kit API wins, R25):
+    M4  the tower is CUT cleanly through the wings. The ground-floor (GF) and upper-floor
+        (UF) walls are boxes / quads with the tower footprint left out. The GF / UF roofs
+        stop at the tower. The tower walls start where they become exposed (front from
+        grade, sides above the GF roof strip / UF roof, back above the UF roof). The white
+        bands stop at the tower corner boards. The builder asserts G10 (no same-facing
+        coplanar overlap between parts, no face centroid inside a massing volume), so a
         wrong build FAILS.
     _Win cells: store (1,1)=6, upper (3,1)=8, tower (2,2)=12, back (4,3)=19 (4 cells).
-Kit adaptations (R25): materials from cs2_bldg.BLDG_MATERIALS (siding_paint slot 1 for the
-barn-red board-and-batten, trim_white bands / frames / doors, metal_roof slot 3 for the
-tower and lantern roofs, concrete roofs); prefixes follow the kit LOD tables (LOD1/LOD2
-deletes + lod1_extra / lod2_extra / lod2_keep below); ground parts never deleted (kit
-assert), so steps, cones and pennant poles are closed parts from z 0.02.
-Pictogram: the field `emblem_school_face` (siding_paint, coplanar in the tower front grid)
-gets ski_launcher_glyph.cand_d (skier on a slope) white at 0.85 of the field through
-_civic.GlyphPainter, which reads the face's UV -> world frame at bake time (N5).
+Kit adaptations (R25):
+- Materials come from cs2_bldg.BLDG_MATERIALS (siding_paint slot 1 for the barn-red board-and-batten, trim_white bands /
+  frames / doors, metal_roof slot 3 for the tower and lantern roofs, concrete roofs).
+- Prefixes follow the kit LOD tables (LOD1/LOD2 deletes + lod1_extra / lod2_extra / lod2_keep below).
+- The kit never deletes ground parts (kit assert), so steps, cones and pennant poles are closed parts from z 0.02.
 
-Authoring frame: +X = road / arrival (game +Z), origin = lot center at grade. No bpy at
-import (recipe modules must be import-safe): geometry is built in build(recipe, opts), which
-loads recipes/_civic.py lazily.
+Pictogram: the field `emblem_school_face` (siding_paint, coplanar in the tower front grid) gets ski_launcher_glyph.cand_d
+(skier on a slope), white, at 0.85 of the field. _civic.GlyphPainter paints it. GlyphPainter reads the UV -> world frame of
+the face at bake time (N5).
 
-Art pass, detail pass 1 (2026-10-11; design/detail-pass-1.md 3.1 with the ten MUST-CHANGE items
-of design/detail-pass-1-skeptic.md): word / pictogram boards on their own label quads (SKI SCHOOL
-name board, meeting / bib / notice boards), 4 lesson-meeting post signs, a lift-line maze, ski
-racks, a flag, yellow nosing stripes, belfry glow, sign lamps, the rubber magic-carpet belt;
-vanilla sub-objects (Recipe.sub_objects), weathering (Recipe.weather).
+Authoring frame: +X = road / arrival (game +Z), origin = lot center at grade. No bpy at import (recipe modules must be
+import-safe). build(recipe, opts) builds the geometry and loads recipes/_civic.py lazily.
 
-Fine-detail pass, step 2 (2026-10-12; build/fine-detail-step2-engine.md): the school is the
-REFERENCE HOST: RECIPE is a fine_detail.FineRecipe (fine_detail=True, sign_set=SIGN_SET;
-`lodge.py --no-fine` rebuilds this revision without the pass from `legacy`): kit fine geometry
-(maze posts, flag masts, lesson poles), vanilla rows for the cones and entry lanterns, kit
-racks, and the sign set SkiSignSetSchoolB (the OWNER of the shared building sheet, cs2_signset).
+Art pass, detail pass 1 (2026-10-11, design/detail-pass-1.md 3.1 with the ten MUST-CHANGE items of
+design/detail-pass-1-skeptic.md). The pass covers: word / pictogram boards on their own label quads (SKI SCHOOL name board,
+meeting / bib / notice boards), 4 lesson-meeting post signs, a lift-line maze, ski racks, a flag, yellow nosing stripes,
+belfry glow, sign lamps, the rubber magic-carpet belt, vanilla sub-objects (Recipe.sub_objects), and weathering
+(Recipe.weather).
 
-REVISION 2 (2026-10-12, twentieth look; build/school-rev2.md; 9 reference photos:
-the original "palisades ski school.jpg" + 8 Google Street View screenshots, 12:07-12:10):
-    DOORS   the door numbering is gone (no plates "1"-"4"); the RED MARKINGS of the photos are
-            reproduced: a red placard with a white legend on the upper half of the two white
-            doors (wingl = the left-wing door, main = the tower door), a red NO SLEDDING sign
-            above the back door (svc; 120856 shows it beside a back door), and a red fire-alarm
-            bell high on the wall above-left of the tower door (original photo). The placards
-            are sign-set faces (cs2_signset kinds school.markstaff / school.marknosled, vector
-            font); the bell is modeled (fire_red, LOD0 only).
+Fine-detail pass, step 2 (2026-10-12, build/fine-detail-step2-engine.md). The school is the REFERENCE HOST. RECIPE is a
+fine_detail.FineRecipe (fine_detail=True, sign_set=SIGN_SET). `lodge.py --no-fine` rebuilds this revision without the pass
+from `legacy`. The pass adds kit fine geometry (maze posts, flag masts, lesson poles), vanilla rows for the cones and entry
+lanterns, kit racks, and the sign set SkiSignSetSchoolB (the OWNER of the shared building sheet, cs2_signset).
+
+REVISION 2 (2026-10-12, twentieth look, build/school-rev2.md, 9 reference photos: the original "palisades ski school.jpg" + 8
+Google Street View screenshots, 12:07-12:10):
+    DOORS   the door numbering is gone (no plates "1"-"4"). The build reproduces the RED
+            MARKINGS of the photos: a red placard with a white legend on the upper half of
+            the two white doors (wingl = the left-wing door, main = the tower door), a red
+            NO SLEDDING sign above the back door (svc, and 120856 shows it beside a back
+            door), and a red fire-alarm bell high on the wall above-left of the tower door
+            (original photo). The placards are sign-set faces (cs2_signset kinds
+            school.markstaff / school.marknosled, vector font). The bell is modeled
+            (fire_red, LOD0 only).
     ROOF    the UF roof is a MONOPITCH (shed) roof rising from the road side to the hill side
             at ROOF_PITCH_DEG 13.5 (measured on 121022, report section 1.2): front eave at the
             old band (top 6.75 at the UF front wall), back wall 8.49 m to the soffit, a 1.80 m
             back overhang carried by 7 diagonal glulam braces (120838 / 120856 / 120905), a
             0.60 m front overhang with outrigger ends, 0.40 m rakes, white fascia, timber
-            soffits. The tower, the UF walls and the corner boards follow the slope; the back
-            UF windows are the photos' stacked tall windows (0.95 x 2.40, 2 x 2 lights); the two
-            back downspouts went (the back is the HIGH side).
+            soffits. The tower, the UF walls and the corner boards follow the slope. The back
+            UF windows are the photos' stacked tall windows (0.95 x 2.40, 2 x 2 lights). The
+            two back downspouts went (the back is the HIGH side).
     LOT     4 x 5 (was 4 x 2): the building keeps its own frame (BF, the constants below) and
-            moves OX = +12 m toward the road (its front stays 4 m from the lot edge); the yard
+            moves OX = +12 m toward the road (its front stays 4 m from the lot edge). The yard
             behind it (LOT frame) holds the learning area.
-    CARPETS both in the BACK, 20.5 m apart, at a FIXED 12 % grade (6.8 deg; Sunkid rates its
-            beginner surface lift "beginners max. 15%"), each on a closed-sided ramp (timber
-            skirt from grade, open bottom = an engine-base ground part) rising from the loading
-            end (belt 0.20 m up, loading ramp + yellow nosing) to a 2.0 m top platform at the
-            lot's back edge (x -19.75), where the player's sculpted learning hill continues:
-            A = open carpet (left, y -10.0, 12 m belt, rise 1.44 m), B = the covered BUBBLE
-            carpet (right, y +10.5, 16 m belt, rise 1.92 m) under a gallery of plumb arched
-            frames every 2.0 m with frosted panels (an opaque baked panel: our pipeline has no
-            verified see-through glass) and dark tinted side panels. The maze sits at A's
-            loading end (the approved maze, mirrored onto the new carpet), the cones are a
-            slalom in the learning area, pennants mark its corners, the lesson signs face the
-            back door, the corral fences line the area, the corral floodlights moved to the
-            back wall, two kit e-stops stand at the loading ends.
-Row frame: every row is game (gx, gy, gz) = authoring (y, z, x) of the LOT frame, gx NOT negated
-(fine_detail.X_CONVENTION; probe X2 decides, S1b mirrors on branch N). Building rows are written
-in BF and shifted by OX (_bf).
+    CARPETS both in the BACK, 20.5 m apart, at a FIXED 12 % grade (6.8 deg, and Sunkid rates
+            its beginner surface lift "beginners max. 15%"). Each carpet sits on a
+            closed-sided ramp (timber skirt from grade, open bottom = an engine-base ground
+            part). The ramp rises from the loading end (belt 0.20 m up, loading ramp + yellow
+            nosing) to a 2.0 m top platform at the lot's back edge (x -19.75), where the
+            player's sculpted learning hill continues. A = open carpet (left, y -10.0, 12 m
+            belt, rise 1.44 m). B = the covered BUBBLE carpet (right, y +10.5, 16 m belt,
+            rise 1.92 m) under a gallery of plumb arched frames every 2.0 m with frosted
+            panels (an opaque baked panel: our pipeline has no verified see-through glass)
+            and dark tinted side panels. The maze sits at A's loading end (the approved
+            maze, mirrored onto the new carpet). The cones are a slalom in the learning
+            area. Pennants mark its corners. The lesson signs face the back door. The corral
+            fences line the area. The corral floodlights moved to the back wall. Two kit
+            e-stops stand at the loading ends.
+Row frame: every row is game (gx, gy, gz) = authoring (y, z, x) of the LOT frame, gx NOT negated (fine_detail.X_CONVENTION.
+Probe X2 decides, and S1b mirrors on branch N). Building rows are written in BF and shifted by OX (_bf).
 """
 
 import importlib.util
@@ -102,18 +102,18 @@ def load_civic():
 
 
 # ======================================================================================
-# Constants. BUILDING FRAME (BF): authoring meters of the building as approved (contract
-# 2.2); the lot frame = BF + (OX, 0, 0). Yard constants (marked LOT) are in the lot frame.
+# Constants. BUILDING FRAME (BF): authoring meters of the building as approved (contract 2.2). The lot frame = BF + (OX, 0,
+# 0). Yard constants (marked LOT) are in the lot frame.
 # ======================================================================================
 
-LOT = (4, 5)                         # (W, D) cells: Y +-16, X +-20 (revision 2; was (4, 2))
+LOT = (4, 5)                         # (W, D) cells: Y +-16, X +-20 (revision 2, was (4, 2))
 HALF_X, HALF_Y = 4.0 * LOT[1], 4.0 * LOT[0]
 OX = 12.0                            # BF -> lot frame (+X, toward the road)
 GF = (-7.0, 4.0, -8.0, 15.0)         # x0, x1, y0, y1 (BF)
 UF = (-7.0, 1.5, -8.0, 15.0)
 TW = (-1.0, 4.0, -1.5, 3.5)          # tower, front flush with the GF front
 GF_TOP, UF_TOP = 3.30, 6.60          # UF_TOP: the old flat-roof wall top (check volume only)
-ROOF_GF_Z, ROOF_UF_Z = 3.45, 6.75    # GF flat roof top; UF roof top AT THE UF FRONT WALL
+ROOF_GF_Z, ROOF_UF_Z = 3.45, 6.75    # GF flat roof top. UF roof top AT THE UF FRONT WALL
 BAND_GF, BAND_UF = (3.15, 3.45), (6.45, 6.75)
 BAND_PROUD = 0.06
 GRADE_H, GRADE_PROUD = 0.30, 0.02
@@ -137,8 +137,8 @@ def roof_bot(x):
     return roof_top(x) - ROOF_TH
 
 
-# tower roof: hip 18 deg, overhang 0.70, truncated at a 3.0 x 3.0 deck at z 11.05,
-# white fascia 0.25; the tower walls stop at the soffit
+# tower roof: hip 18 deg, overhang 0.70, truncated at a 3.0 x 3.0 deck at z 11.05, white fascia 0.25. The tower walls stop at
+# the soffit
 TOWER_PITCH, TOWER_OVER, TOWER_FASCIA = 18.0, 0.70, 0.25
 DECK_Z0, DECK_Z1, DECK_HALF = 11.05, 11.20, 1.50
 _TAN = 0.3249196962329063            # tan(18 deg)
@@ -160,7 +160,7 @@ FIELD = (-0.6, 2.6, 4.6, 7.8)        # y0, y1, z0, z1
 FIELD_FRAC = 0.85
 TC = (0.5 * (TW[0] + TW[1]), 0.5 * (TW[2] + TW[3]))    # tower center (1.5, 1.0)
 
-# windows (contract 2.2): WinSpec(w, h, sill, lights, rows); u along the wall
+# windows (contract 2.2): WinSpec(w, h, sill, lights, rows). u along the wall
 WIN6 = (0.95, 1.15)                  # 6-light 3 x 2
 STOREFRONTS = ((4.5, 8.5, 4), (10.0, 14.0, 4), (-7.4, -4.4, 3))   # +X face, sill 0.45 head 2.85
 CORRAL_WIN = (-3.0, -0.5)            # -Y face (u = x), sill 0.60 head 2.40
@@ -175,9 +175,9 @@ STEP = (0.02, 0.17, 0.60)            # z0, z1, depth (closed, not ground: delete
 STEP_SIDE = 0.25                     # step runs past the door opening each side (= band gap)
 HVAC = ((-4.0, 6.0), (-4.0, 11.0))
 
-# ---- revision 2: the red markings (photos; build/school-rev2.md section 1) ----------------
+# ---- revision 2: the red markings (photos, build/school-rev2.md section 1) ----------------
 LEAF_PROUD = 0.02                    # cs2_kit.door leaf face (0.02 proud of the wall)
-MARK_PROUD = 0.004                   # placard 4 mm proud of the leaf; the wall sign 6 mm
+MARK_PROUD = 0.004                   # placard 4 mm proud of the leaf. The wall sign 6 mm
 MARK_STAFF = (0.44, 0.36)            # cs2_signset school.markstaff (white "STAFF / ONLY" on red)
 MARK_NOSLED = (0.76, 0.36)           # cs2_signset school.marknosled ("NO / SLEDDING", white rim)
 MARK_DOORS = (("markL", "wingl"), ("markM", "main"))     # placards on these door leaves
@@ -187,7 +187,7 @@ ALARM_BELL = (-0.30, 2.75, 0.11, 0.07)   # (y, z, r, depth) on the tower front, 
 
 # ---- revision 2: the yard (LOT frame) -------------------------------------------------
 GRADE = 0.12                         # 12 % = 6.84 deg, both carpets
-BELT_W, BELT_Z0 = 0.80, 0.20         # belt width; belt surface height at the loading end
+BELT_W, BELT_Z0 = 0.80, 0.20         # belt width. Belt surface height at the loading end
 RAMP_L, DECK_L, COVER_H = 0.60, 2.00, 0.08
 # carpets: (tag, center y, loading-end x, belt length, side cover width, top deck width, bubble)
 CARPETS = (("a", -10.0, -5.75, 12.0, 0.20, 2.40, False),
@@ -213,16 +213,14 @@ def _carpet_z(c, x):
     return BELT_Z0 + GRADE * (xl - x)
 
 
-# Vanilla sub-objects for the hand-made SkiSchool prefab (contract 2.7, game local
-# coordinates (gx, gy, gz) = authoring (y, z, x) of the LOT frame; GUIDs inferred from the
-# shared SpawnableObject placeholder of each variant pair, civicsign/guids.py). Facing (local
-# +Z out of the wall / the bench front, game frame): authoring +X -> identity, -X -> Y180,
-# +Y -> Y90, -Y -> Y-90. m_ParentMesh: -1 on the lot, 0 = on the main mesh (wall lights,
-# vents). Benches / bins >= 0.3 m clear of every mesh part (D10, vanilla render bounds read
-# from the dump); wall lights over the three secondary doors are WallLightShortRange (S7).
-# Revision 2: the corral moved to the back yard (the fences line the learning area, the snowman
-# stands in it), the two corral floodlights light it from the back wall (between a window and
-# a brace, z 3.70 over the GF band), the AC vents moved 0.9 m off the brace lines.
+# Vanilla sub-objects for the hand-made SkiSchool prefab (contract 2.7). Game local coordinates (gx, gy, gz) = authoring (y,
+# z, x) of the LOT frame. The GUIDs are inferred from the shared SpawnableObject placeholder of each variant pair
+# (civicsign/guids.py). Facing (local +Z out of the wall / the bench front, game frame): authoring +X -> identity, -X ->
+# Y180, +Y -> Y90, -Y -> Y-90. m_ParentMesh: -1 on the lot, 0 = on the main mesh (wall lights, vents). Benches / bins >= 0.3
+# m clear of every mesh part (D10, vanilla render bounds read from the dump). Wall lights over the three secondary doors are
+# WallLightShortRange (S7). Revision 2: the corral moved to the back yard (the fences line the learning area, the snowman
+# stands in it). The two corral floodlights light it from the back wall (between a window and a brace, z 3.70 over the GF
+# band). The AC vents moved 0.9 m off the brace lines.
 Y90 = (0.0, 0.7071068, 0.0, 0.7071068)
 YM90 = (0.0, -0.7071068, 0.0, 0.7071068)
 Y180 = (0.0, 1.0, 0.0, 0.0)
@@ -249,8 +247,8 @@ def _bf(pos):
 
 
 SUB_OBJECTS = (
-    # T87 (2026-10-19, item 6): the white picket fence rows (FenceResidentialPieceLow*, six pieces lining the
-    # learning area at lot y -13.6 / 12.6) are gone; FENCE_4M / FENCE_2M stay defined for the record
+    # T87 (2026-10-19, item 6): the white picket fence rows (FenceResidentialPieceLow*, six pieces lining the learning area
+    # at lot y -13.6 / 12.6) are gone. FENCE_4M / FENCE_2M stay defined for the record
     _so(SNOWMAN, "SnowmanRandom01", (3.5, 0.0, -4.0), QID, -1),                    # learning area
     _so(BENCH, "GardenBenchRandom01", _bf((6.5, 0.0, 5.0)), QID, -1),          # +X, storefront 1
     _so(BENCH, "GardenBenchRandom01", _bf((-9.0, 0.0, 1.8)), YM90, -1),        # under the meeting board
@@ -273,7 +271,7 @@ SUB_OBJECT_NOTES = ("ObjectSubObjects on SkiSchool: m_GroupIndex 0, m_Probabilit
 
 # ---- fine-detail pass step 2 (module docstring) ------------------------------------------
 SAFETY_CONE = "dc8abeea43367b24ba2668784a309e56"    # SafetyConeRandom01 (cs2_liftdress.SUBOBJ, verified)
-ENTRY_LAMPS = (("mainL", 0.25), ("mainR", 1.75))    # the old lanterns' (tag, y); lens height LAMP_Z
+ENTRY_LAMPS = (("mainL", 0.25), ("mainR", 1.75))    # the old lanterns' (tag, y). Lens height LAMP_Z
 ENTRY_LAMP_Z = 2.55
 # kit racks replacing RACKS (same order): alternating loadouts, prefab = the kit object prefab
 KIT_RACKS = ("SkiDressSkiRack", "SkiDressSkiRackV2")
@@ -283,7 +281,7 @@ FINE_SUB_OBJECTS = tuple(
     _so(WALL_SHORT, "WallLightShortRangeRandom01", _bf((y, ENTRY_LAMP_Z, TW[1])), QID, 0)
     for _tag, y in ENTRY_LAMPS
 )
-# RACKS is defined below; the kit rows are appended there (KIT_ROWS)
+# RACKS is defined below. The kit rows are appended there (KIT_ROWS)
 SIGN_SET = SignSetSpec(
     prop="SkiSignSetSchool", letter="B", host="school", owner=True,
     faces=(("sign_school_face", "school.name"), ("sign_meet_face", "school.meet"),
@@ -292,7 +290,7 @@ SIGN_SET = SignSetSpec(
     + tuple((f"sign_{tag}_face", "school.markstaff") for tag, _door in MARK_DOORS)
     + (("sign_nosled_face", "school.marknosled"),))
 
-# ---- detail pass 1 (design 3.1, skeptic M1-M10; build/detail-pass-1-kit.md API) ------
+# ---- detail pass 1 (design 3.1, skeptic M1-M10, build/detail-pass-1-kit.md API) ------
 BOARD_BROWN = (0.20, 0.14, 0.10)     # cs2_bldg.BOARD_BROWN_SRGB (the slot-3 roof target)
 WHITE = 0.92                         # cs2_bldg.WHITE_SRGB
 SCHOOL_RED = (0.62, 0.10, 0.08)      # cs2_bldg.HUT_RED_SRGB: flag cloth, red markings
@@ -304,8 +302,8 @@ BOARDS = (("school", "+X", 4.0, 1.0, 3.30, 4.20, 0.90, "trim_white"),    # name 
           ("meet", "-Y", -8.0, 1.8, 1.00, 2.40, 1.20, "trim_white"),      # meeting board
           ("bibs", "-Y", -8.0, -5.0, 1.20, 2.00, 0.90, "trim_white"),     # bib board
           ("notice", "+X", 4.0, 2.65, 1.10, 0.70, 1.00, "timber_heavy"))  # notice board
-# S7 racks (M10 gear=True, BF): in front of storefronts 3 and 2 (the legacy path builds them;
-# the fine path hosts the kit racks instead)
+# S7 racks (M10 gear=True, BF): in front of storefronts 3 and 2. The legacy path builds them. The fine path hosts the kit
+# racks instead
 _A, _W, _K, _B, _R = "accent", "trim_white", "ski_black", "ski_blue", "ski_red"
 RACKS = (
     ("schoolA", 5.6, -5.9, (
@@ -319,8 +317,8 @@ RACKS = (
         (3, -1, "ski", (_K, _W), 1.62), (5, -1, "poles", _K, 1.38),
         (7, -1, "ski", (_B, _K), 1.44))),
 )
-# kit color variants (2026-10-12 ~18:50; build/kit-colour-variants.md): blue, the school's lesson /
-# trail-board blue (TRAIL_BLUE); the brown siding has no slot-2 surface to match
+# kit color variants (2026-10-12 ~18:50, build/kit-colour-variants.md): blue, the school's lesson / trail-board blue
+# (TRAIL_BLUE). The brown siding has no slot-2 surface to match
 KIT_COLOUR_SET = "blue"
 # the kit rows at the racks' own centers (on grade: m_ParentMesh -1), facing game +Z (identity)
 KIT_ROWS = tuple(kit_row(KIT_RACKS[i % len(KIT_RACKS)], _bf((y, 0.0, x)), parent=-1,
@@ -342,12 +340,12 @@ SLOTS = {1: (0.575, 0.35, 0.25), 2: PAD_RGB, 3: (0.25, 0.19, 0.15)}
 # kit window_bay internals: jambs start at the sill bottom / end at the head top inside
 # those boxes (hidden coplanar caps, cs2_bldg.window_bay) - not a recipe overlap
 KIT_INTERNAL = (("jamb_", "sill_"), ("jamb_", "head_"))
-# revision 2: the carpet skirts (open-bottom closed-sided ramps from grade) are the carpets'
-# ground parts; the belt now starts 0.20 m up the ramp (no longer a ground part)
+# revision 2: the carpet skirts (open-bottom closed-sided ramps from grade) are the carpets' ground parts. The belt now
+# starts 0.20 m up the ramp (no longer a ground part)
 GROUND = ("wall_gf", "wall_tower", "band_grade", "carpet_skirt")
 FIELD_FACE = "emblem_school_face"
-# the flag cloth labels go with their mast at LOD1 (skeptic M8), the alarm bell and the gallery
-# frames are LOD0 only; the carpet covers stay to LOD1 (they close the ramp tops)
+# the flag cloth labels go with their mast at LOD1 (skeptic M8), the alarm bell and the gallery frames are LOD0 only. The
+# carpet covers stay to LOD1 (they close the ramp tops)
 LOD1_EXTRA = ("bell_", "step_", "hvac_", "cone_", "flagpanel_", "lanterncap_spire",
               "emblem_schoolflag", "galleryrib_")
 LOD2_EXTRA = LOD1_EXTRA + ("lanternrail_", "lamp_glow", "carpetrail_", "glulam_", "gallery_in")
@@ -365,8 +363,8 @@ def _boxes(C, name, boxes, mat):
 
 
 def _shift(parts, dx):
-    """Move BF parts into the lot frame (+dx along X). A part at identity gets its mesh moved
-    (it may become the join's active object); a placed kit part (cs2_kit doors) its location."""
+    """Move BF parts into the lot frame (+dx along X). A part at identity gets its mesh moved (it may become the join's active
+    object). A placed kit part (cs2_kit doors) gets its location moved."""
     import bpy
     from mathutils import Matrix
     T = Matrix.Translation((dx, 0.0, 0.0))
@@ -384,8 +382,8 @@ def _shift(parts, dx):
 
 
 def roof_parts(C):
-    """Revision 2 UF roof (BF): slab top `roof_uf` (concrete), edge `fascia_uf` (white), soffits
-    `soffit_uf` (timber); the slab is cut around the tower (x >= tx0, ty0..ty1)."""
+    """Revision 2 UF roof (BF): slab top `roof_uf` (concrete), edge `fascia_uf` (white), soffits `soffit_uf` (timber). The slab
+    is cut around the tower (x >= tx0, ty0..ty1)."""
     ux0, ux1 = UF[0], UF[1]
     gy0, gy1 = GF[2], GF[3]
     tx0, _tx1, ty0, ty1 = TW
@@ -419,9 +417,8 @@ def roof_parts(C):
 
 
 def glulam_parts(C):
-    """The back overhang's 7 glulam braces (an outrigger under the soffit + a diagonal strut
-    from the back wall above the GF band; 120838 / 120856) and the front outrigger ends
-    (original photo: the dark beam ends under the main eave)."""
+    """The back overhang's 7 glulam braces (an outrigger under the soffit + a diagonal strut from the back wall above the GF
+    band, 120838 / 120856) and the front outrigger ends (original photo: the dark beam ends under the main eave)."""
     ux0, ux1 = UF[0], UF[1]
     xB = ux0 - OV_BACK
     cosr = math.cos(math.radians(ROOF_PITCH_DEG))
@@ -479,18 +476,17 @@ def marking_parts(K, C):
 
 
 def detail_parts(K, C, fine=False):
-    """Detail pass 1 dressing ON THE BUILDING (BF; design/detail-pass-1.md 3.1 as corrected by
-    the skeptic) + the revision-2 markings. LOD rules: `sign_` boards to LOD1 (kit
-    LOD2_DELETE), `emblem_schoolflag` LOD0 only (LOD1_EXTRA), stripes / flag mast / lamps
-    LOD0 only (kit LOD1_DELETE). fine: the kit's fine=True geometry and NO modeled racks
-    (KIT_ROWS replace them)."""
+    """Detail pass 1 dressing ON THE BUILDING (BF, design/detail-pass-1.md 3.1 as corrected by the skeptic) + the revision-2
+    markings. LOD rules: `sign_` boards to LOD1 (kit LOD2_DELETE), `emblem_schoolflag` LOD0 only (LOD1_EXTRA), stripes / flag
+    mast / lamps LOD0 only (kit LOD1_DELETE). fine: the kit's fine=True geometry and NO modeled racks (KIT_ROWS replace
+    them)."""
     from cs2_bldg import WallRef
     P = []
     fk = {"fine": True} if fine else {}
     # S1-S4 boards (label quads stamped by recipe.labels "display" entries)
     for nm, side, plane, u, z, w, h, mat in BOARDS:
         P += K.sign_board(nm, WallRef(side, plane), u, z, w, h, mat=mat)
-    # S7 ski racks with real gear (M10); the fine-detail pass hosts the kit racks instead
+    # S7 ski racks with real gear (M10). The fine-detail pass hosts the kit racks instead
     if not fine:
         for nm, x, y, gear in RACKS:
             P += K.ski_rack_frame(nm, x, y, slots=8, mat="galv", along="Y", skis=gear,
@@ -509,8 +505,8 @@ def detail_parts(K, C, fine=False):
     P += marking_parts(K, C)
     # S11 belfry glow: a lit floor on the lantern deck + the balustrade's inner faces
     cx, cy = TC
-    # T87c (2026-10-19, item 10 "too bright, floating"): with fittings v1 the 9.0 m2 of lit floor (5.76) + balustrade faces (3.3)
-    # faces are gone (a whole lit belfry read as a white-hot box at night); the light is ONE small lantern lens
+    # T87c (2026-10-19, item 10 "too bright, floating"): with fittings v1 the 9.0 m2 of lit floor (5.76) + balustrade faces
+    # (3.3) are gone (a whole lit belfry read as a white-hot box at night). The light is ONE small lantern lens
     # (bell_lantern, in school_parts) at the vanilla lens scale
     if K.FITTINGS.get("version", 0) < 1:
         f, zf = BELFRY_FLOOR, DECK_Z1 + BELFRY_LIFT
@@ -530,8 +526,8 @@ def detail_parts(K, C, fine=False):
     # S12 sign lamps over the name board (lenses `lamp_sign<k>`, arms remapped to galv)
     for k, (y, z) in enumerate(SIGN_LAMPS):
         if K.FITTINGS.get("version", 0) >= 1:
-            # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): the sign lamps are a matched pair of vanilla WallLight03
-            # goosenecks (cs2_fittings ROWS["school"]["wall"]); the modeled gooseneck (T102 r2) is out
+            # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): the sign lamps are a matched pair of vanilla
+            # WallLight03 goosenecks (cs2_fittings ROWS["school"]["wall"]). The modeled gooseneck (T102 r2) is out
             continue
         else:
             lp, _pt = K.lantern(f"sign{k}", (TW[1], y, z), "+X", kind="wall", h=0.18, w=0.25)
@@ -600,17 +596,17 @@ def carpet_parts(K, C, c):
 
 
 def gallery_parts(C, c, gls=False):
-    """The bubble carpet's covered gallery (LOT frame): plumb arched frames every GALLERY[3] m,
-    standing on the side covers; `gallery_side` dark tinted side panels (glass_dark),
-    `gallery_roof` the frosted arc (trim_white: an OPAQUE baked panel, see-through glass is
-    unverified in our pipeline), `gallery_in` the inside (seen through the open ends),
-    `galleryrib_<t>` white stiles on the sides + frame strips over the arc.
-    gls (T95, cad-review-2026-10-19 section 6; lodge.py --glass gls): the most CAD-looking object of the resort
-    (a white plastic tube, shot 22.17) becomes a clear tunnel: `gallery_side` / `gallery_roof` go to the plain-glass
-    `_Gls` sub-mesh (RECIPE.gls_extra, DECISIONS 281), the ribs `galv` aluminum hoops, and the opaque inner skin
-    `gallery_in` is dropped (the double-sided glass shows the belt). The arc has the review's 12 facets (15 deg
-    steps, +252 LOD0 tris): T101 (DECISIONS 317) moved the rooftop units to vanilla rows, which pays for it under the
-    7,000 cap at weather level 0 (the integration build had kept 6 facets: 7,170 with 12)."""
+    """The bubble carpet's covered gallery (LOT frame): plumb arched frames every GALLERY[3] m, standing on the side covers.
+    `gallery_side` dark tinted side panels (glass_dark), `gallery_roof` the frosted arc (trim_white: an OPAQUE baked panel,
+    see-through glass is unverified in our pipeline), `gallery_in` the inside (seen through the open ends), `galleryrib_<t>`
+    white stiles on the sides + frame strips over the arc.
+
+    gls (T95, cad-review-2026-10-19 section 6, lodge.py --glass gls): the most CAD-looking object of the resort (a white
+    plastic tube, shot 22.17) becomes a clear tunnel. `gallery_side` / `gallery_roof` go to the plain-glass `_Gls` sub-mesh
+    (RECIPE.gls_extra, DECISIONS 281), the ribs are `galv` aluminum hoops, and the code drops the opaque inner skin
+    `gallery_in` (the double-sided glass shows the belt). The arc has the review's 12 facets (15 deg steps, +252 LOD0 tris).
+    T101 (DECISIONS 317) moved the rooftop units to vanilla rows, which pays for it under the 7,000 cap at weather level 0
+    (the integration build had kept 6 facets: 7,170 with 12)."""
     tag, yc, xl, L, _cov, _wd, _b = c
     xt = xl - L
     a, hs, rise, step = GALLERY
@@ -726,7 +722,7 @@ def build(recipe, opts):
         ((gx0, gy0, 0.0), (gx1, ty0, GF_TOP), ("-Z", "+Z", "+Y")),
         ((gx0, ty1, 0.0), (gx1, gy1, GF_TOP), ("-Z", "+Z", "-Y")),
         ((gx0, ty0, 0.0), (tx0, ty1, GF_TOP), ("-Z", "+Z", "+Y", "-Y", "+X"))], "siding_paint")
-    # ---- UF walls (revision 2): tops follow the roof underside; the tower left out --------
+    # ---- UF walls (revision 2): tops follow the roof underside, the tower left out --------
     zf, zb = roof_bot(ux1), roof_bot(ux0)
     P += C.quads_part("wall_uf", [
         ([(ux1, gy0, GF_TOP), (ux1, ty0, GF_TOP), (ux1, ty0, zf), (ux1, gy0, zf)], (1, 0, 0)),
@@ -794,7 +790,7 @@ def build(recipe, opts):
     gb.append(((gx0 - gp, gy1, 0.0), (gx1 + gp, gy1 + gp, GRADE_H), ("-Y", "-Z")))
     P += _boxes(C, "band_grade", gb, "concrete")
 
-    # ---- white corner boards (trim_: LOD2 delete); UF corners up to the roof underside ---
+    # ---- white corner boards (trim_: LOD2 delete), UF corners up to the roof underside ---
     def cbox(x, y, z0, z1):
         return ((x - cb, y - cb, z0), (x + cb, y + cb, z1), ())
     corners = [cbox(x, y, GRADE_H, BAND_GF[0]) for x in (gx0, gx1) for y in (gy0, gy1)]
@@ -874,19 +870,20 @@ def build(recipe, opts):
                 "trim_white")
     P += C.cyl_part("bell_hanger", (cx, cy, bz1 - 0.02), (cx, cy, HEAD_Z[0] + 0.05), 0.04, "galv", segs=6)
     if K.FITTINGS.get("version", 0) >= 1:
-        # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): NO belfry light at all (the hung lantern read as hanging in front of / inside the bell);
-        # no lens, no glow, no emissive in the belfry. (T87c before it: a LANTERN hung from the cross beam beside the
-        # bell: a rod from the beam (underside 13.18) into a cone cap, an 8-seg lens 0.18 m across x 0.22 m (0.124 m2 lit,
-        # the scale of a vanilla wall-light lens; the prefab keeps the vanilla house intensity 0.6, prop-emissive-lights.md
-        # section 1.1) and a base plate. The old 0.5 x 0.5 m lit quad floated at 13.10 and the 2.4 m lit floor + balustrade
-        # faces (together 9.0 m2) are gone with it (above). z0 / z1 = LANTERN_Z; every piece overlaps its neighbor by >= 1 cm
+        # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): NO belfry light at all (the hung lantern read as hanging
+        # in front of / inside the bell).
+        # No lens, no glow, no emissive in the belfry. (T87c before it: a LANTERN hung from the cross beam beside the bell: a
+        # rod from the beam (underside 13.18) into a cone cap, an 8-seg lens 0.18 m across x 0.22 m (0.124 m2 lit, the scale
+        # of a vanilla wall-light lens, and the prefab keeps the vanilla house intensity 0.6, prop-emissive-lights.md section
+        # 1.1) and a base plate. The old 0.5 x 0.5 m lit quad floated at 13.10 and the 2.4 m lit floor + balustrade faces
+        # (together 9.0 m2) are gone with it (above). z0 / z1 = LANTERN_Z. Every piece overlaps its neighbor by >= 1 cm
         pass
     else:
         P += C.quads_part("lamp_glow", [([(cx - 0.25, cy - 0.25, GLOW_Z), (cx + 0.25, cy - 0.25, GLOW_Z),
                                           (cx + 0.25, cy + 0.25, GLOW_Z), (cx - 0.25, cy + 0.25, GLOW_Z)],
                                          (0, 0, -1))], "lamp")
 
-    # ---- windows (kit window_bay; frames remapped to white) ---------------------------
+    # ---- windows (kit window_bay, frames remapped to white) ---------------------------
     front = WallRef("+X", gx1)
     for k, (y0, y1, n) in enumerate(STOREFRONTS):
         P += K.window_bay(f"store{k}", front, y0, y1, WinSpec(y1 - y0, 2.40, 0.45, lights=n),
@@ -932,7 +929,7 @@ def build(recipe, opts):
         P += K.box_part(f"step_{nm}", (xs[0], y - w / 2 - STEP_SIDE, s0),
                         (xs[1], y + w / 2 + STEP_SIDE, s1), "concrete",
                         drop=("-X",) if side == "+X" else ("+X",))
-        if K.DOOR_KIT["version"] == 2:  # door kit v2 (utility): recessed steel leaf, posts + header;
+        if K.DOOR_KIT["version"] == 2:  # door kit v2 (utility): recessed steel leaf, posts + header.
             # the photo's two STAFF ONLY doors (MARK_DOORS) are flush, the others get a vision panel
             u = y if side == "+X" else -y
             P += K.door_unit(nm, WallRef(side, xw), u, w, hh, s1,
@@ -943,7 +940,7 @@ def build(recipe, opts):
         for o, _q in cs2_kit.door(nm, w=w, h=hh, loc=(xw, y, s1), facing=side):
             P.append((o, "trim_white"))
 
-    # ---- entry lanterns (beside the main door); fine: vanilla WallLightShortRange rows (H4)
+    # ---- entry lanterns (beside the main door). fine: vanilla WallLightShortRange rows (H4)
     if not fine:
         for tag, y in ENTRY_LAMPS:
             lp, _pt = K.lantern(tag, (tx1, y, ENTRY_LAMP_Z), "+X", kind="wall", h=0.35, w=0.20)
@@ -959,11 +956,12 @@ def build(recipe, opts):
                          shoe_dir="+X")      # fittings v1: the shoe kicks out (nrm points at the wall)
     for k, (x, y) in enumerate(HVAC):
         if K.FITTINGS.get("version", 0) >= 1:
-            # T101 (DECISIONS 305 / 317, vanilla props first): only the level curb is ours; the unit on it is a vanilla
-            # ACMachineRoofRandom01 row (cs2_fittings ROWS["school"]["curb"]). T87b's modeled unit
-            # (cs2_bldg.rooftop_unit, 284 tris) stays in the kit, unused here.
-            # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): no curb either ("vanilla only, never ours"; the units sit on
-            # the roof with no gap: cs2_fittings ROWS["school"]["roof"] seats ACMachineRoof02 / 03 on the 13.5-deg slope)
+            # T101 (DECISIONS 305 / 317, vanilla props first): only the level curb is ours. The unit on it is a vanilla
+            # ACMachineRoofRandom01 row (cs2_fittings ROWS["school"]["curb"]). T87b's modeled unit (cs2_bldg.rooftop_unit,
+            # 284 tris) stays in the kit, unused here.
+            # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): no curb either ("vanilla only, never ours"). The
+            # units sit on the roof with no gap: cs2_fittings ROWS["school"]["roof"] seats ACMachineRoof02 / 03 on the
+            # 13.5-deg slope.
             continue
         P += K.box_part(f"hvac_{'ab'[k]}", (x - 0.75, y - 0.5, roof_top(x + 0.75) - 0.05),
                         (x + 0.75, y + 0.5, roof_top(x - 0.75) + 0.75), "galv", drop=("-Z",))
@@ -1012,9 +1010,9 @@ RECIPE = FineRecipe(
     # lodge.delete_lists: LOD2 = kit LOD2_DELETE + lod2_extra (lod1_extra is NOT inherited)
     lod1_extra=LOD1_EXTRA,
     lod2_extra=LOD2_EXTRA,
-    # lanterncol_school: kit LOD2_DELETE drops "lanterncol_", which left the lantern cap
-    # floating 1.95 m over the deck at LOD2 (buildings-review-geometry F4); lod2_keep takes
-    # exact part names. fascia_uf: the monopitch's edge (revision 2) closes the roof at LOD2
+    # lanterncol_school: kit LOD2_DELETE drops "lanterncol_", which left the lantern cap floating 1.95 m over the deck at
+    # LOD2 (buildings-review-geometry F4). lod2_keep takes exact part names. fascia_uf: the monopitch's edge (revision 2)
+    # closes the roof at LOD2
     lod2_keep=(FIELD_FACE, "fascia_gf", "fascia_uf", "lanterncol_school"),
     # T95: under --glass gls the gallery tunnel is clear glass on the `_Gls` sub-mesh (gallery_parts)
     gls_extra=("gallery_side", "gallery_roof"),
@@ -1029,7 +1027,7 @@ RECIPE = FineRecipe(
     weather=None,                          # set below (WEATHER)
     weights=(),                            # set below (WEIGHTS)
     sub_objects=SUB_OBJECTS + FINE_SUB_OBJECTS + KIT_ROWS + ESTOP_ROWS,
-    # fine-detail pass (opt-in; lodge.py --no-fine restores `legacy`: this revision without it)
+    # fine-detail pass (opt-in, lodge.py --no-fine restores `legacy`: this revision without it)
     fine_detail=True,
     sign_set=SIGN_SET,
     kit_colour_set=KIT_COLOUR_SET,
@@ -1038,7 +1036,7 @@ RECIPE = FineRecipe(
 
 
 def _disp(face, *draws, symmetric=False):
-    """A "display" label entry (cs2_bldg.display via make_painter; plain data)."""
+    """A "display" label entry (cs2_bldg.display via make_painter, plain data)."""
     return (face, "display", {"draws": tuple(draws), "symmetric": symmetric})
 
 
@@ -1046,8 +1044,8 @@ def _seed(face):
     return zlib.crc32(face.encode("utf-8")) & 0xFFFF
 
 
-# Stamp table (the LEGACY / --no-signset path: the host atlas paints these faces with the kit's
-# 5x7 display font; the shipping path routes them to the sign set, cs2_signset.SHEET)
+# Stamp table (the LEGACY / --no-signset path: the host atlas paints these faces with the kit's 5x7 display font). The
+# shipping path routes them to the sign set, cs2_signset.SHEET
 LESSON_SHAPES = (("circle", 0.80, TRAIL_GREEN), ("square", 0.70, TRAIL_BLUE),
                  ("diamond", 0.86, TRAIL_BLACK), ("glyph:cand_d", 0.86, SCHOOL_RED))
 DISPLAY_LABELS = (
@@ -1077,17 +1075,16 @@ DISPLAY_LABELS = (
                                                    "bg": SCHOOL_RED}))
     for s in "AB"
 )
-# Texel-density weights (design 2.0 rule w = clamp(4 / (stroke_m x ppm_w1), 1, 3), M4):
-# exact face names (longest prefix wins in lodge.part_weights); revision 2: the yard's large
-# low-detail surfaces (skirts, deck, gallery) and the bigger slab top are down-weighted so the
-# building's w = 1 density holds (D6 >= 40 px/m)
+# Texel-density weights (design 2.0 rule w = clamp(4 / (stroke_m x ppm_w1), 1, 3), M4): exact face names (longest prefix wins
+# in lodge.part_weights). Revision 2: the yard's large low-detail surfaces (skirts, deck, gallery) and the bigger slab top
+# are down-weighted so the building's w = 1 density holds (D6 >= 40 px/m)
 WEIGHTS = (("sign_school_face", 1.75), ("sign_meet_face", 1.5), ("emblem_schoolflag", 1.5)) + \
     tuple((f"sign_lesson{k}_face", 1.5) for k in range(len(LESSON_Y))) + \
     (("carpet_skirt", 0.5), ("carpetdeck_", 0.5), ("carpet_belt", 0.5), ("carpetrail_", 0.4),
      ("gallery_in", 0.25), ("gallery_", 0.4), ("galleryrib_", 0.3), ("roof_uf", 0.5),
      ("glulam_", 0.45))
-# Weathering (design 3.1 overrides; DECISIONS 171: free slots + snow 0.0 are the module
-# defaults, ground "grade" automatic in engine mode)
+# Weathering (design 3.1 overrides, DECISIONS 171: free slots + snow 0.0 are the module defaults, ground "grade" automatic in
+# engine mode)
 WEATHER = {"intensity": WEATHER_INTENSITY, "overrides": (
     ("carpet_belt", {"role": "pad"}),              # rubber belt: scuffs
     ("carpetrail_", {"role": "paint"}), ("cone_", {"role": "pad", "scale": 0.6}),
@@ -1113,14 +1110,14 @@ RECIPE = _labels()
 
 
 # ======================================================================================
-# Manifest sub-object block. Detail pass 1: lodge.py writes it from Recipe.sub_objects on
-# every export (lodge.sub_objects_block, skeptic S4 keys), so a re-export no longer drops
-# it; merge_manifest stays as a no-op-safe script for older exports.
+# Manifest sub-object block. Detail pass 1: lodge.py writes it from Recipe.sub_objects on every export
+# (lodge.sub_objects_block, skeptic S4 keys), so a re-export no longer drops it. merge_manifest stays as a no-op-safe script
+# for older exports.
 # ======================================================================================
 
 def manifest_block():
-    """{"sub_objects": <the block lodge.py writes>} (lodge imported lazily: needs bpy); with the
-    sign set, lodge appends its identity row at export (the staged CID), so does this."""
+    """{"sub_objects": <the block lodge.py writes>} (lodge imported lazily: needs bpy). With the sign set, lodge appends its
+    identity row at export (the staged CID), and so does this."""
     import dataclasses
     import lodge
     import fine_detail as FD

@@ -1,94 +1,105 @@
 """
-Bake smoke + shipping-path gate for lift_terminal_detach.py (contract dq-terminal.md section 14,
-delivered after build/dq-family-review-pipeline.md major 1: before this file no test called
-lift_terminal_detach.main(), so the lift_terminal table overrides, the band stamps
-(stamp_signbands / check_sign_uv since Revision 1, 2026-10-11), engine_base_gate, the LOD
-chain, the export and settings.json only ran at export time).
+Bake smoke + shipping-path gate for lift_terminal_detach.py (contract dq-terminal.md section 14, delivered after
+build/dq-family-review-pipeline.md major 1). Before this file, no test called lift_terminal_detach.main(). So the
+lift_terminal table overrides, the band stamps (stamp_signbands / check_sign_uv since Revision 1, 2026-10-11),
+engine_base_gate, the LOD chain, the export and settings.json only ran at export time.
 
-  1. C8 negative: a 0.2 m box inside the hanger column of the carrier envelope (lane straight,
-     under the soffit slot) must make check_clearance raise ContractError("C8 ...").
-     Revision 1 negatives: a handrail on the left flank (y -4.0) must raise "R1d", a second
-     underside ladder (on the nose side of pedestal F) must raise "R1b". Revision 2 (second
-     look 3', front ladder to the ground) negatives: the nose ladder without its footing
-     must raise "R2a", a grating re-closing the landing's ladder-way must raise "R2c".
-     Revision 1c (revision2-check-dq-stations item 6): the same per kind - the BASE's ground
-     flight now stands beside the landing (lfoot_gf; the +Y landing wing put back over its
-     climbing side must raise "R2c") - and the pre-1c base (GF_ON_BASE False: the straight
-     ground run through the ladder-way, 0.25 m) must fail R2c's climbing-room gate (0.61 m).
-  2. Bake smoke, DQ BASE, through main() with --out <tmp> --finish --lods --atlas 512
-     --ao-samples 4 --no-preview (validation on; main raises on any validator ERROR):
-       validate_asset_folder_ex 0 ERROR (hero); BaseColor (and _Emissive when shipped) alpha 255; MaskMap B 0;
-       ControlMask A 0 and R + G + B <= 1 (exclusive); _Emissive present and lit somewhere WHEN the build has a
-       lamp_ part (the gondola) - the DQ stations ship FOUR maps since 2026-10-12 (no lamp_ part: no map, a stale
-       one is removed, the manifest blocks say "no map", settings.json never named it);
-       95th-percentile BaseColor under each ControlMask slot (R / B: 0.75..0.85 = RECOLOR_ALBEDO
-       0.80; G: >= 0.45, see below); SIGN BANDS (Revision 1 (e), replaced the name bands): each
-       side's rect IS its reserved UV rect x A (pinned, density-protected), px/m >= 4x the old
-       band (scaled with the atlas), the emblem's full-coverage texels (D.emblem_alpha) are
-       MARK_WHITE with ControlMask B = R = 0, its zero-coverage texels stay slot 3 (B), every
-       plate texel has ControlMask 0; Revision 1b (polish, 2026-10-11, vector digits): the
-       plate border is the dark color and every plate-field texel is the linear-light mix
-       of light and dark by D.digit_coverage (the Bfont outline, anti-aliased), the coverage
-       sum is 80-120 % of the outline area x (px/m)^2 and equals the manifest's, the edge
-       shows >= D.DIGIT_AA_LEVELS_MIN partial levels and the PNG has in-between texels (no
-       5x7 staircase); the plate edge: the Normal map tilts on the panel's rounded edge (top
-       bevel G > 0.5, bottom G < 0.5, OpenGL) and is flat in the emblem panel's field, and
-       the emblem panel's background is darker at its border than in its field (occlusion);
-       T2 engine base: the manifest's LOD0 + per-LOD verdicts OK, and cs2_validate.
-       ground_ring_report on every re-imported LOD FBX: verdict OK, 0 blocked, 0 below;
-       T3 budgets / LOD chain: LOD0 <= cap, LOD1 <= 50 % LOD0 and <= the LOD1 cap, LOD2 < 500
-       (F9 margin), every level's re-imported tris == the manifest, settings.json wires
-       LOD1 / LOD2;
-       T5 _Win: `_Win`, `_LOD1_Win`, `_LOD2_Win` exist; `_Win` = cabin 6 tris + 4 housing
-       windows (Revision 1 (f)) in exactly the room cells D.expected_room_ids ([7, 13]);
-       T6 names: validate_asset_name + lint_asset_name clean; every FBX stem is <Name>[_suffix];
-       T7 front ladder (Revision 2): the manifest's front_ladder block (open-bottom footing,
-       rails from its top, the rung count on the 0.30 grid, no cage); in the re-imported LOD0
-       and LOD1 FBX the footing has vertices at z 0 and the rails run from its top to the
-       crown + 0.35; LOD2 carries no footing (dropped with the rails). Revision 1c (base): the
-       ground flight's block (footing, rails, rungs, climbing room >= CLIMB_MIN to fixed objects
-       and to the chairs, step-across GF_STEP) and, in the FBX, its rails footing -> landing +
-       GF_EXT while the front ladder runs landing -> crown + 0.35.
-  2b. Gondola draft 1 follow-up (detail pass 1, 2026-10-11; draft1-check-gondola-stations F1 / F5):
-     the NEGATIVES of G1-G8 - each contract must FAIL on a deliberately wrong gondola build
-     (assert_gondola on a blockout): G1 a portal narrowed to u_hi 1.30 (the cabin body box + 0.30
-     leaves it), G2 the boarding edge moved to |y| 4.20 (0.11 m off the cabin), G3 the doors put
-     back as leaves on solid walls (GD_DOOR_OPENINGS off: rays through the opening meet the wall),
-     G4 a box in the nose ladder's climbing zone, G5 a hall window removed, G6 a box in the hosted
-     entry tower's keep-out (base), G7 the top's draft-1 portal sign height 6.40 (it sat behind
-     the nose band), G8 a box at the boarding edge 0.11 m off the real cabin's path; and a gondola
-     BAKE SMOKE through main() (base, 512, AO 4): the folder / channel / sign (n + p own their
-     rects, q shares p) / engine base / budget / `_Win` (18 tris, cells 7 + 13) / names checks,
-     the nose ladder's footing on the ground (LOD0 / LOD1) and gone at LOD2, the manifest's G3
-     doors block (three real openings).
-     Gondola revision 1 (2026-10-11, the long glazed hall; build/gondola-stations-rev1.md): the
-     negatives follow the hall - G5 a curtain-wall pane removed (a hole), G7 the top's portal sign
-     raised to 7.00 (into the nose ring beam), G9 a box past the 3 x 4 lot's lateral line, G10 a
-     dressing board pushed into a mullion (an undeclared part clash); the smoke checks the `_Win` of
-     the manifest's room allocation (2 tris per pane, one cell per id, <= 25 ids), p and q sharing
-     n's sign rect, the labels pinned, the weathering step, the vanilla sub-object rows (verified
-     GUIDs, parent 0, 4 lamp posts), the lot [3, 4] and the hosted tower seam record (base).
-     DQ follow-up (2026-10-11, build/dq-stations-followup.md; rev-1 checker F3 / F4): two more G3 negatives -
-     revision 1's fixed center post back in the +Y double door (the clear-opening rays count the fixed
-     frame) and an undeclared 1 x 1 m flat top (the standable-top census); the smoke checks the manifest's
-     clear opening (1.80 x 2.30, no center post, head 2.60) and the declared not-walkable tops with reasons.
-     Detail pass 1 (DQ): the sign band +Y shares the -Y rect (one stamp: sign_band holds
-     signband_n with shared_with signband_p), the base's front ladder is 0.48 wide (MC4), the
-     manifest's detail1 block carries the labels (pinned rects), the weathering ladder, bay
-     sharing and the sub-object rows.
-     Fine-detail step 3b (2026-10-12, build/fine-detail-step3b-stations.md; FINE_DETAIL on): the sub-object
-     blocks hold the vanilla rows AND the dressing kit's "mod" rows (guid CID:<the staged object-prefab CID>,
-     parent 0, the block's kinds count); the DQ's _Emissive was dark (its box lamps are vanilla rows now) and is
-     DROPPED (2026-10-12: four maps, no map file, no stale file), the gondola's still lit (the linear soffit lights).
-  3. --review byte identity, DQ TOP: main() twice in this process (FBX header clock frozen,
-     as tests/test_review_side_effects.py), without and with --review <tmp>; every file in the
-     asset folder must be byte-identical (FBX included: same process = same UID salt) and the
-     manifests equal without written_utc; the pack lands in <tmp>, never in the asset folder.
-     The top build gets the channel / T2 / T3 / T5 / T6 checks as well.
+1. C8 negative:
+- A 0.2 m box inside the hanger column of the carrier envelope (lane straight, under the soffit slot) must make
+  check_clearance raise ContractError("C8 ...").
+- Revision 1 negatives: a handrail on the left flank (y -4.0) must raise "R1d". A second underside ladder (on the
+  nose side of pedestal F) must raise "R1b".
+- Revision 2 (second look 3', front ladder to the ground) negatives: the nose ladder without its footing must raise
+  "R2a". A grating re-closing the landing's ladder-way must raise "R2c".
+- Revision 1c (revision2-check-dq-stations item 6): the same per kind. The BASE's ground flight now stands beside
+  the landing (lfoot_gf). The +Y landing wing put back over its climbing side must raise "R2c". The pre-1c base
+  (GF_ON_BASE False: the straight ground run through the ladder-way, 0.25 m) must fail R2c's climbing-room gate
+  (0.61 m).
 
-ControlMask G (slot-2 pedestal pads) is held to >= 0.45 only: the canopy's baked AO multiplies
-the recolored 0.80 down to ~0.54 under the canopy (pipeline review finding 4, open: a cs2_bake
-AO floor on recolor texels or a DECISIONS acceptance). Raise the G bound to 0.75 when it lands.
+2. Bake smoke, DQ BASE, through main() with --out <tmp> --finish --lods --atlas 512 --ao-samples 4 --no-preview
+   (validation on, main raises on any validator ERROR):
+- validate_asset_folder_ex 0 ERROR (hero)
+- BaseColor (and _Emissive when shipped) alpha 255
+- MaskMap B 0
+- ControlMask A 0 and R + G + B <= 1 (exclusive)
+- _Emissive present and lit somewhere WHEN the build has a lamp_ part (the gondola). The DQ stations ship FOUR maps
+  since 2026-10-12 (no lamp_ part: no map, a stale one is removed, the manifest blocks say "no map", settings.json
+  never named it).
+- 95th-percentile BaseColor under each ControlMask slot (R / B: 0.75..0.85 = RECOLOR_ALBEDO 0.80. G: >= 0.45, see
+  below).
+- SIGN BANDS (Revision 1 (e), replaced the name bands): each side's rect IS its reserved UV rect x A (pinned,
+  density-protected). px/m >= 4x the old band (scaled with the atlas). The emblem's full-coverage texels
+  (D.emblem_alpha) are MARK_WHITE with ControlMask B = R = 0. Its zero-coverage texels stay slot 3 (B). Every plate
+  texel has ControlMask 0.
+- Revision 1b (polish, 2026-10-11, vector digits): the plate border is the dark color and every plate-field texel
+  is the linear-light mix of light and dark by D.digit_coverage (the Bfont outline, anti-aliased). The coverage sum
+  is 80-120 % of the outline area x (px/m)^2 and equals the manifest's. The edge shows >= D.DIGIT_AA_LEVELS_MIN
+  partial levels and the PNG has in-between texels (no 5x7 staircase). At the plate edge, the Normal map tilts on
+  the panel's rounded edge (top bevel G > 0.5, bottom G < 0.5, OpenGL) and is flat in the emblem panel's field. The
+  emblem panel's background is darker at its border than in its field (occlusion).
+- T2 engine base: the manifest's LOD0 + per-LOD verdicts OK, and cs2_validate.ground_ring_report on every
+  re-imported LOD FBX: verdict OK, 0 blocked, 0 below.
+- T3 budgets / LOD chain: LOD0 <= cap, LOD1 <= 50 % LOD0 and <= the LOD1 cap, LOD2 < 500 (F9 margin), every level's
+  re-imported tris == the manifest, settings.json wires LOD1 / LOD2.
+- T5 _Win: `_Win`, `_LOD1_Win`, `_LOD2_Win` exist. `_Win` = cabin 6 tris + 4 housing windows (Revision 1 (f)) in
+  exactly the room cells D.expected_room_ids ([7, 13]).
+- T6 names: validate_asset_name + lint_asset_name clean. Every FBX stem is <Name>[_suffix].
+- T7 front ladder (Revision 2): the manifest's front_ladder block (open-bottom footing, rails from its top, the
+  rung count on the 0.30 grid, no cage). In the re-imported LOD0 and LOD1 FBX the footing has vertices at z 0 and
+  the rails run from its top to the crown + 0.35. LOD2 carries no footing (dropped with the rails). Revision 1c
+  (base): the ground flight's block (footing, rails, rungs, climbing room >= CLIMB_MIN to fixed objects and to the
+  chairs, step-across GF_STEP) and, in the FBX, its rails footing -> landing + GF_EXT while the front ladder runs
+  landing -> crown + 0.35.
+
+2b. Gondola draft 1 follow-up (detail pass 1, 2026-10-11, draft1-check-gondola-stations F1 / F5): the NEGATIVES of
+G1-G8. Each contract must FAIL on a deliberately wrong gondola build (assert_gondola on a blockout):
+- G1 a portal narrowed to u_hi 1.30 (the cabin body box + 0.30 leaves it)
+- G2 the boarding edge moved to |y| 4.20 (0.11 m off the cabin)
+- G3 the doors put back as leaves on solid walls (GD_DOOR_OPENINGS off: rays through the opening meet the wall)
+- G4 a box in the nose ladder's climbing zone
+- G5 a hall window removed
+- G6 a box in the hosted entry tower's keep-out (base)
+- G7 the top's draft-1 portal sign height 6.40 (it sat behind the nose band)
+- G8 a box at the boarding edge 0.11 m off the real cabin's path
+
+A gondola BAKE SMOKE through main() (base, 512, AO 4) checks: the folder / channel / sign (n + p own their rects, q
+shares p) / engine base / budget / `_Win` (18 tris, cells 7 + 13) / names checks, the nose ladder's footing on the
+ground (LOD0 / LOD1) and gone at LOD2, the manifest's G3 doors block (three real openings).
+
+Gondola revision 1 (2026-10-11, the long glazed hall, build/gondola-stations-rev1.md): the negatives follow the
+hall:
+- G5 a curtain-wall pane removed (a hole)
+- G7 the top's portal sign raised to 7.00 (into the nose ring beam)
+- G9 a box past the 3 x 4 lot's lateral line
+- G10 a dressing board pushed into a mullion (an undeclared part clash)
+
+The smoke checks the `_Win` of the manifest's room allocation (2 tris per pane, one cell per id, <= 25 ids), p and
+q sharing n's sign rect, the labels pinned, the weathering step, the vanilla sub-object rows (verified GUIDs,
+parent 0, 4 lamp posts), the lot [3, 4] and the hosted tower seam record (base).
+
+DQ follow-up (2026-10-11, build/dq-stations-followup.md, rev-1 checker F3 / F4): two more G3 negatives: revision
+1's fixed center post back in the +Y double door (the clear-opening rays count the fixed frame) and an undeclared 1
+x 1 m flat top (the standable-top census). The smoke checks the manifest's clear opening (1.80 x 2.30, no center
+post, head 2.60) and the declared not-walkable tops with reasons.
+
+Detail pass 1 (DQ): the sign band +Y shares the -Y rect (one stamp: sign_band holds signband_n with shared_with
+signband_p), the base's front ladder is 0.48 wide (MC4), the manifest's detail1 block carries the labels (pinned
+rects), the weathering ladder, bay sharing and the sub-object rows.
+
+Fine-detail step 3b (2026-10-12, build/fine-detail-step3b-stations.md, FINE_DETAIL on): the sub-object blocks hold
+the vanilla rows AND the dressing kit's "mod" rows (guid CID:<the staged object-prefab CID>, parent 0, the block's
+kinds count). The DQ's _Emissive was dark (its box lamps are vanilla rows now) and is DROPPED (2026-10-12: four
+maps, no map file, no stale file). The gondola's is still lit (the linear soffit lights).
+
+3. --review byte identity, DQ TOP: main() runs twice in this process (FBX header clock frozen, as
+   tests/test_review_side_effects.py), without and with --review <tmp>. Every file in the asset folder must be
+   byte-identical (FBX included: same process = same UID salt) and the manifests equal without written_utc. The
+   pack lands in <tmp>, never in the asset folder. The top build gets the channel / T2 / T3 / T5 / T6 checks as
+   well.
+
+ControlMask G (slot-2 pedestal pads) is held to >= 0.45 only. The canopy's baked AO multiplies the recolored 0.80
+down to ~0.54 under the canopy (pipeline review finding 4, open: a cs2_bake AO floor on recolor texels or a
+DECISIONS acceptance). Raise the G bound to 0.75 when it lands.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_terminal_detach_bake.py
 """
@@ -200,12 +211,11 @@ def r1_negatives():
 
 
 def r2_negatives():
-    """Revision 2 (second look 3') and Revision 1c: per kind, a ground ladder without its
-    footing (R2a: base lfoot_gf, top lfoot_nz) and a grating in the climber's way (R2c: base
-    the trimmed +Y landing wing put back over the ground flight's climbing side, top the
-    ladder-way re-closed) must each fail assert_revision2; and the pre-1c BASE - the
-    straight ground run up the nose line through the ladder-way (GF_ON_BASE False, the shipped
-    Revision 2 base) - must fail R2c's climbing-room gate (0.25 m < CLIMB_MIN 0.61)."""
+    """Revision 2 (second look 3') and Revision 1c: per kind, a ground ladder without its footing (R2a: base lfoot_gf,
+    top lfoot_nz) and a grating in the climber's way (R2c: base the trimmed +Y landing wing put back over the
+    ground flight's climbing side, top the ladder-way re-closed) must each fail assert_revision2. The pre-1c BASE
+    (the straight ground run up the nose line through the ladder-way, GF_ON_BASE False, the shipped Revision 2
+    base) must fail R2c's climbing-room gate (0.25 m < CLIMB_MIN 0.61)."""
     def no_footing(name):
         def edit(p, parts):
             keep = []
@@ -280,8 +290,9 @@ def check_folder(p, name, asset_dir):
     files = sorted(os.listdir(asset_dir))
     with open(os.path.join(asset_dir, f"{name}.manifest.json"), encoding="utf-8") as fh:
         man = json.load(fh)
-    # 2026-10-12: the _Emissive map exists only while a modeled lamp_ part does (lift_terminal_detach.
-    # has_emissive_map): the fine-detail DQ stations ship FOUR maps, the gondola (lamp_eave*) five
+    # 2026-10-12: the _Emissive map exists only while a modeled lamp_ part does
+    # (lift_terminal_detach.has_emissive_map). The fine-detail DQ stations ship FOUR maps, the gondola (lamp_eave*)
+    # five
     n_lamps = int(((man.get("contract") or {}).get("emissive") or {}).get("lamps", 1))
     has_emi = n_lamps > 0
     maps = ("BaseColor", "Normal", "MaskMap", "ControlMask") + (("Emissive",) if has_emi else ())
@@ -304,7 +315,7 @@ def check_folder(p, name, asset_dir):
               f"{tag} no-emissive manifest blocks: detail1.emissive {em_blk.get('map')} / lit {em_blk.get('lit_texels')}, "
               f"contract.emissive {ce.get('map')} / {ce.get('purpose')} / {ce.get('intensity')}, settings.json "
               f"names no Emissive map")
-    # validator (main already raised on ERROR; this re-runs it for the record)
+    # validator (main already raised on ERROR. This re-runs it for the record)
     findings, _summary = cs2_validate.validate_asset_folder_ex(asset_dir, name, {
         "kind": "building", "lod0_cap": p.lod0_cap, "lod2_cap": p.lod2, "hero": True,
         "expected_lods": (1, 2), "expected_submeshes": ("Win",)})
@@ -325,9 +336,9 @@ def check_folder(p, name, asset_dir):
     check(ctl[..., 3].max() < 1e-6, f"{tag} ControlMask A = 0")
     check(ctl[..., 0:3].sum(axis=-1).max() <= 1.0 + 1e-3,
           f"{tag} ControlMask R + G + B <= 1 (exclusive)")
-    # fine-detail step 3b: the DQ's modeled box lamps are vanilla rows now (no lamp_ part left), so its
-    # _Emissive would be lit nowhere - 2026-10-12: it is not baked or shipped at all (folder check above); the
-    # gondola keeps its linear soffit lights (lamp_eave*) and their map
+    # fine-detail step 3b: the DQ's modeled box lamps are vanilla rows now (no lamp_ part left), so its _Emissive
+    # would be lit nowhere. 2026-10-12: it is not baked or shipped at all (folder check above). The gondola keeps
+    # its linear soffit lights (lamp_eave*) and their map
     if has_emi:
         check(emi[..., 0:3].max() > 0.2, f"{tag} _Emissive lit somewhere "
                                          f"(max {emi[..., 0:3].max():.2f}; {n_lamps} lamp_ parts)")
@@ -340,9 +351,9 @@ def check_folder(p, name, asset_dir):
         sel = ctl[..., c] > 0.5
         p95[ch] = float(np.percentile(lum[sel], 95)) if sel.any() else None
     print(f"[bake-test] {tag} p95 BaseColor under ControlMask {p95}")
-    # detail pass 1 (DECISIONS 171, slot_wear "free"): the weathering's edge wear lifts worn slot
-    # texels above the 0.80 recolor albedo (measured p95 0.855 on the 512 smoke): a weathered build's
-    # upper bound is P95_RB_WEATHERED
+    # detail pass 1 (DECISIONS 171, slot_wear "free"): the weathering's edge wear lifts worn slot texels above the
+    # 0.80 recolor albedo (measured p95 0.855 on the 512 smoke). A weathered build's upper bound is
+    # P95_RB_WEATHERED
     wblk = man.get("detail1") or man.get("rev1") or {}
     rb = P95_RB_WEATHERED if (wblk.get("weather") or {}).get("intensity") else P95_RB
     for ch in "RB":
@@ -482,9 +493,9 @@ def check_folder(p, name, asset_dir):
     try:
         mesh = [o for o in objs if o.type == "MESH"]
         cells = cs2_validate._win_cells(mesh[0].data) if mesh else {}
-        # Revision 1 (f): cabin band 3 panes (6 tris, cell 7) + 4 housing window n-gons of
-        # 4 x (WIN_CORNER_SEGS + 1) vertices (cell 13); gondola draft 1: 1 operator pane (2
-        # tris, cell 7) + 8 hall panes (16 tris, cell 13)
+        # Revision 1 (f): cabin band 3 panes (6 tris, cell 7) + 4 housing window n-gons of 4 x (WIN_CORNER_SEGS +
+        # 1) vertices (cell 13). Gondola draft 1: 1 operator pane (2 tris, cell 7) + 8 hall panes (16 tris, cell
+        # 13)
         want_tris = 18 if p.gondola else 6 + 4 * (4 * (D.WIN_CORNER_SEGS + 1) - 2)
         want_cells = D.expected_room_ids(p)
         if p.gondola and D.GD_REV1:
@@ -550,8 +561,8 @@ def check_folder(p, name, asset_dir):
             rails = a[(np.abs(a[:, 0] - nl["x"]) <= 0.035)
                       & (np.abs(np.abs(a[:, 1] - nl["y"]) - hw) <= 0.035)]
             if lvl < 2 and gf is not None:
-                # 1c: the ground flight's rails (x0 / x1 on the rung line y) from the footing to
-                # the landing + GF_EXT; the front ladder's from the landing to the crown
+                # 1c: the ground flight's rails (x0 / x1 on the rung line y) from the footing to the landing +
+                # GF_EXT. The front ladder's run from the landing to the crown
                 grails = a[(np.minimum(np.abs(a[:, 0] - gf["x"][0]), np.abs(a[:, 0] - gf["x"][1])) <= 0.035)
                            & (np.abs(a[:, 1] - gf["y"]) <= 0.035) & (a[:, 2] <= gf["z_top"] + 1e-3)]
                 ok = (ground >= 4 and len(grails) and len(rails)
@@ -633,8 +644,8 @@ def check_rows(tag, p, sub, vanilla_rows):
     import fine_detail as FD
     objs = sub.get("objects") or []
     van = [o for o in objs if o.get("kind") != "mod"]
-    # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow: the 2 floodlight "mod" rows per station are
-    # not kit rows (no staged kit CID); literal expectations (game local pos, yaw quaternion x y z w)
+    # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow: the 2 floodlight "mod" rows per station are not kit
+    # rows (no staged kit CID). Literal expectations (game local pos, yaw quaternion x y z w)
     fl = [o for o in objs if o.get("kind") == "mod" and o["prefab"] == "SkiPisteFloodlightLow"]
     mod = [o for o in objs if o.get("kind") == "mod" and o["prefab"] != "SkiPisteFloodlightLow"]
     q155, q205 = (0.0, 0.976296, 0.0, 0.2164396), (0.0, 0.976296, 0.0, -0.2164396)
@@ -760,8 +771,8 @@ def check_gondola_rev1(p, name, asset_dir, man, g, doors):
 
 
 def gd_negatives():
-    """Gondola draft 1 follow-up (draft1-check-gondola-stations F5): every G contract must FAIL
-    on a deliberately wrong build - assert_gondola on a blockout, one fault each."""
+    """Gondola draft 1 follow-up (draft1-check-gondola-stations F5): every G contract must FAIL on a deliberately
+    wrong build. assert_gondola runs on a blockout, one fault each."""
     import lift_terminal_detach as DD
 
     def box(name, x, y, z, h=0.10):
@@ -838,12 +849,12 @@ def gd_negatives():
 
 
 def g11_checks():
-    """Nitpick A2 (2026-10-13): G11 - the gondola operator room on the station's up lane (the base's departing +Y,
-    the top's ARRIVING -Y) with LIFT OPS, the operator-door wall light and the hose reel; the stair and the deck's
-    stairwell on the other side. Positives on both stations (fine on, as shipped); negatives must raise: the old
-    top (GD_OPR_LEGACY: the room on +Y), the base's room flipped onto -Y, the top's LIFT OPS board + label left on
-    +Y, the top's hose-reel row left on the +Y wall. Nitpick A3 (F2): WAIT HERE at the loading (+Y) entry on both
-    stations (positives) and the pre-2026-10-13 -Y board (GD_WAIT_LEGACY) raises on each."""
+    """Nitpick A2 (2026-10-13): G11 - the gondola operator room on the station's up lane (the base's departing +Y, the
+    top's ARRIVING -Y) with LIFT OPS, the operator-door wall light and the hose reel. The stair and the deck's
+    stairwell are on the other side. Positives on both stations (fine on, as shipped). Negatives must raise: the
+    old top (GD_OPR_LEGACY: the room on +Y), the base's room flipped onto -Y, the top's LIFT OPS board + label left
+    on +Y, the top's hose-reel row left on the +Y wall. Nitpick A3 (F2): WAIT HERE at the loading (+Y) entry on
+    both stations (positives). The pre-2026-10-13 -Y board (GD_WAIT_LEGACY) raises on each."""
     import lift_terminal_detach as DD
     out = {}
 
@@ -962,7 +973,7 @@ def main():
         gd_negatives()
         g11_checks()                 # nitpick A2: the gondola operator room on the up lane
         # 2026-10-12: a STALE <name>_Emissive.png from an earlier export sits in the folder (the bake never deletes
-        # a file): the generator removes it before the bake because the fine-detail DQ has no lamp_ part left
+        # a file). The generator removes it before the bake because the fine-detail DQ has no lamp_ part left
         stale = os.path.join(work, "base", "SkiDQBaseStationA", "SkiDQBaseStationA_Emissive.png")
         os.makedirs(os.path.dirname(stale), exist_ok=True)
         with open(stale, "wb") as fh:

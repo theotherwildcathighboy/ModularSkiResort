@@ -1,9 +1,11 @@
 """
-T121 preview gate (2026-10-20): before / after / diff renders of the stations station_cable_strip.py stripped.
+T121 preview gate (2026-10-20): before / after / diff renders of the stations that
+station_cable_strip.py stripped.
 
-Shipped FBX (before) and stripped FBX (after) are loaded in the game frame (cm, Y up) under a parent that maps them to
-Blender (m, Z up), with the station's hosted terminal tower at its prefab row (context only, untouched). "diff" is the
-before mesh with every triangle that the after mesh lacks painted red. Workbench, the station's own BaseColor.
+The script loads the shipped FBX (before) and the stripped FBX (after) in the game frame (cm, Y up).
+A parent maps them to Blender (m, Z up). The station's hosted terminal tower stays at its prefab row
+(context only, untouched). "diff" is the before mesh with every triangle that the after mesh lacks
+painted red. The render uses Workbench and the station's own BaseColor.
 
     blender -b --factory-startup --python-exit-code 1 --python assets\\blender\\station_cable_preview.py --
         --stripped <strip out dir> --out <preview dir> [--names ...]
@@ -150,7 +152,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--names", nargs="*", default=None)
     args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:])
-    args.out = os.path.abspath(args.out)          # a relative render path resolves against Blender's own dir
+    args.out = os.path.abspath(args.out)          # A relative render path resolves against Blender's own directory.
     os.makedirs(args.out, exist_ok=True)
     views = ("three_quarter", "nose", "side_low")
     for name in (args.names or list(SHIPPED)):
@@ -169,7 +171,8 @@ def main():
                     w = load(wp)
                     w.data.materials.append(tex_mat("win", png))
             if tower:
-                # hosted row: game (0, 0, tz), 180 deg about game Y = Blender (0, -tz, 0), yaw 180
+                # Hosted row: game (0, 0, tz), turned 180 deg about game Y, is Blender (0, -tz, 0)
+                # with yaw 180.
                 t = load(os.path.join(TW, tower, tower + ".fbx"), parent_loc=(0.0, -tz, 0.0), yaw=math.radians(180.0))
                 t.data.materials.append(tex_mat("tw", os.path.join(TW, tower, tower + "_BaseColor.png")))
             n = paint_removed(st, os.path.join(args.stripped, name, name + ".fbx")) if state == "diff" else 0

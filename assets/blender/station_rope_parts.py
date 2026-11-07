@@ -1,13 +1,16 @@
 """
-T121 (2026-10-20): list the modeled rope parts of each shipped station, by part name, in the EXPORT frame.
+T121 (2026-10-20): list the modeled rope parts of each shipped station, by part name, in the EXPORT
+frame.
 
-Builds every station's tagged mesh with its own generator (no finish, no bake, no export; the rope parts take no
-bevel, so their vertices equal the finish build's) and writes, per station, the vertices of every face whose part
-name starts with one of that generator's rope prefixes, in the generator's object space (meters). station_cable_strip.py matches these against the shipped FBX.
+The script builds every station's tagged mesh with its own generator (no finish, no bake, no
+export). The rope parts take no bevel, so their vertices equal the finish build's. Per station, it
+writes the vertices of every face whose part name starts with one of that generator's rope prefixes,
+in the generator's object space (meters). station_cable_strip.py matches these against the shipped
+FBX.
 
     blender --background --factory-startup --python-exit-code 1 --python assets\\blender\\station_rope_parts.py -- <out.json>
 
-Rope prefixes (the lift ropes only; the comm cable, queue-maze ropes and anything else stay):
+Rope prefixes (the lift ropes only. The comm cable, queue-maze ropes and anything else stay):
     lift_terminal_detach.py (DQ, gondola): haulrope_ (anchor -> bullwheel), wheelrope (the rope round the bullwheel)
     lift_terminal.py M (fixed grip):        ropechord_ (anchor -> wheel), wheelrope (half torus)
     tram_station.py:                        rope_haul, rope_track_
@@ -27,8 +30,9 @@ ROPES = {"detach": ("haulrope_", "wheelrope"), "fg": ("ropechord_", "wheelrope")
 
 
 def export_frame(co):
-    """Raw object-space meters as the generator leaves them; station_cable_strip.py finds the axis map to the FBX
-    (one of the 48 signed axis permutations, x 100) by matching, so a generator that orients early or late both work."""
+    """Raw object-space meters as the generator leaves them. station_cable_strip.py finds the axis map
+    to the FBX (one of the 48 signed axis permutations, x 100) by matching, so a generator that
+    orients early or late works either way."""
     return co
 
 

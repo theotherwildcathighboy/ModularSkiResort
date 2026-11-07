@@ -4,13 +4,18 @@ test_submesh.py - cs2_submesh contract test (headless Blender 5.2).
     blender --background --factory-startup --python tests\test_submesh.py
 
 Scene: a 2 m hut box + a "hutwin" pane box (as lift_terminal builds them), tagged with
-cs2_asset.tag_parts and joined into "ExampleX". split_submesh moves hutwin off as
-ExampleX_Win into room cell (2, 1). Asserts: the parent lost exactly the hutwin faces
-(and nothing else), the sub has no |n.z| > 0.9 faces, every sub UV lies strictly inside
-the cell, no two pane islands overlap, each pane's top edge maps to the higher v, and a
-_Gls split unwraps non-overlapping. Then exports parent + _Win + _LOD1_Win, re-imports the
-three FBXs and asserts names, raw extent = Blender extent x100, and identity transforms.
-Prints one PASS line and exits 0, or exits 1.
+cs2_asset.tag_parts and joined into "ExampleX". split_submesh moves hutwin off as ExampleX_Win into
+room cell (2, 1). Asserts:
+- The parent lost exactly the hutwin faces (and nothing else).
+- The sub has no |n.z| > 0.9 faces.
+- Every sub UV lies strictly inside the cell.
+- No two pane islands overlap.
+- Each pane's top edge maps to the higher v.
+- A _Gls split unwraps non-overlapping.
+
+Then the test exports parent + _Win + _LOD1_Win, re-imports the three FBXs and asserts names, raw
+extent = Blender extent x100, and identity transforms. It prints one PASS line and exits 0, or exits
+1.
 """
 
 import math
@@ -34,7 +39,7 @@ CELL_RECT = (CELL[0] / 5.0, CELL[1] / 5.0, (CELL[0] + 1) / 5.0, (CELL[1] + 1) / 
 
 
 def add_box(name, size, centre):
-    """Axis-aligned box with vertices offset in mesh space; object stays at the origin."""
+    """Axis-aligned box with vertices offset in mesh space. Object stays at the origin."""
     me = bpy.data.meshes.new(name)
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
@@ -209,11 +214,11 @@ def check_export(parent, sub, out_dir):
     assert set(objs) == set(expect), f"imported names {sorted(objs)} != {sorted(expect)}"
     for name, ext in expect.items():
         o = objs[name]
-        # Geometry node = "<stem>.001" in every export_fbx file (shipped towers too); CS2
-        # pairs textures by the Model node, which is the object name.
+        # Geometry node = "<stem>.001" in every export_fbx file (shipped towers too). CS2 pairs
+        # textures by the Model node, which is the object name.
         assert o.data.name.split(".")[0] == name, (name, o.data.name)
         raw = extent(o)
-        # Blender z -> CS2 y (up); the importer with axis identity keeps raw vertex data.
+        # Blender z -> CS2 y (up). The importer with axis identity keeps raw vertex data.
         want = sorted(e * cs2_asset.CS2_UNIT_SCALE for e in ext)
         got = sorted(raw)
         assert all(abs(a - b) < 1e-2 for a, b in zip(want, got)), (name, want, got)

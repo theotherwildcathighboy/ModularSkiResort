@@ -1,16 +1,18 @@
-# ski_terrain.py - seamless TILING texture sets for the run decals' snow and summer slots
-# (SkiRunDecalSystem binds them to the area decal shader's snow slots and the summer dress).
-# Written first for the terrain splatmap route (removed 2026-11-05, DECISIONS 607), hence the names.
+# ski_terrain.py - seamless TILING texture sets for the snow and summer slots of the run decals
+# (SkiRunDecalSystem binds them to the snow slots of the area decal shader and to the summer dress).
+# The script was written first for the terrain splatmap route (removed 2026-11-05, DECISIONS 607),
+# hence the names.
 #
-# The decal tiles them world-XZ, so they must
-# tile seamlessly on BOTH axes. All pattern math is strictly periodic (integer-frequency
-# sines + FFT random-phase spectral noise), so the tiles are seamless by construction; a
-# roll-by-half seam check verifies it numerically and prints PASS/FAIL per texture.
+# The decal tiles them world-XZ, so they must tile seamlessly on BOTH axes. All pattern math is
+# strictly periodic (integer-frequency sines + FFT random-phase spectral noise), so the tiles are
+# seamless by construction. A roll-by-half seam check verifies this numerically and prints PASS/FAIL
+# per texture.
 #
 # World-scale assumption: one tile covers ~8 x 8 m (documented in Textures/README.md).
-#   Winter: corduroy pitch ~16.7 cm -> 48 ridge lines per tile, ridges run along V.
-#   Summer: mower stripes, 3 light/dark band pairs per tile (6 bands, ~1.33 m each,
-#           nearest seamless fit to the ~1.5 m deck-width spec), bands run along V.
+# - Winter: the corduroy pitch is ~16.7 cm, which gives 48 ridge lines per tile. The ridges run
+#   along V.
+# - Summer: mower stripes. Each tile has 3 light/dark band pairs (6 bands of ~1.33 m each, the
+#   nearest seamless fit to the ~1.5 m deck-width spec). The bands run along V.
 #
 # Outputs (file contract - SkiRunDecalSystem loads these EXACT names):
 #   mod/SkiResortMod/Textures/SkiTerrainSnowCorduroy_BaseColor.png   sRGB (display-encoded)
@@ -21,13 +23,13 @@
 #   assets/preview/terrain/<Name>_tiling2x2.png   2x2 repeat, 2048 box-downscaled to 1024
 #   assets/preview/terrain/<Name>_closeup.png     center 4 m crop upscaled to 1024
 #
-# Pattern code (periodic_noise / normal_from_height / sparkle_mask) is lifted from
-# ski_surface.py, which runs main() on import and therefore cannot be imported.
+# Pattern code (periodic_noise / normal_from_height / sparkle_mask) is lifted from ski_surface.py,
+# which runs main() on import and therefore cannot be imported.
 #
 # Usage:
 #   blender --background --factory-startup --python ski_terrain.py
 #
-# Deterministic: fixed seeds, no wall-clock or GPU dependence.
+# The output is deterministic: fixed seeds, no wall-clock or GPU dependence.
 
 import os
 import sys
@@ -73,7 +75,7 @@ def periodic_noise(size, f_lo, f_hi, falloff, seed):
 
 
 def normal_from_height(h, strength):
-    """OpenGL tangent-space normal (array row 0 = image top; G = +up in image space)."""
+    """OpenGL tangent-space normal (array row 0 = image top, G = +up in image space)."""
     size = h.shape[0]
     ddu = (np.roll(h, -1, axis=1) - np.roll(h, 1, axis=1)) * 0.5 * size
     ddown = (np.roll(h, -1, axis=0) - np.roll(h, 1, axis=0)) * 0.5 * size
@@ -124,7 +126,7 @@ def build_snow(seed):
     h /= np.abs(h).max()
     normal = normal_from_height(h, 0.0032)
 
-    # BaseColor: display values kept in ~0.78-0.88 (ledger 46: >=0.9 reads blown-out).
+    # BaseColor display values stay in ~0.78-0.88 (ledger 46: >=0.9 reads blown-out).
     trough = np.clip(-groove, 0.0, 1.0)                             # 1 in groove bottoms
     patch = periodic_noise(SIZE, 3, 8, 1.1, seed + 10) * 0.018      # 1-3 m patchiness
     fine = periodic_noise(SIZE, 80, 400, 0.8, seed + 11) * 0.007
@@ -151,8 +153,8 @@ def build_summer(seed):
     u = (np.arange(SIZE) + 0.5) / SIZE
     X, _Y = np.meshgrid(u, u)
 
-    # Stripe wave: soft-edged alternating bands, slight waviness so edges look mowed,
-    # not printed. stripe in -1..1, +1 = light (blades bent away) band.
+    # Stripe wave: soft-edged alternating bands with slight waviness, so the edges look mowed, not
+    # printed. stripe is in -1..1 and +1 = the light band (blades bent away).
     swobble = periodic_noise(SIZE, 2, 6, 1.2, seed + 1) * 0.55
     s = np.sin(2.0 * np.pi * STRIPE_PAIRS * X + swobble)
     stripe = np.tanh(s * 2.6)                        # flatten band interiors, soft edges
@@ -250,8 +252,8 @@ def write_previews(name, base, normal):
 
 
 # --------------------------------------------------------------------------------------
-# Readback sanity: confirm the PNG bytes really are the display-encoded values we wrote
-# (guards against a colorspace transform sneaking into the write path).
+# Readback sanity: confirm the PNG bytes really are the display-encoded values we wrote. This guards
+# against a colorspace transform that enters the write path.
 # --------------------------------------------------------------------------------------
 
 def readback_stats(path):

@@ -1,21 +1,28 @@
 """
-Tram saddle round gate (DECISIONS 597; docs/research/art/tram-saddle-2026-11/build.md): the letter D tram towers
-(tram_saddle.py) on tram_tower's SKINNED path with the D design.
+Tram saddle round gate (DECISIONS 597, docs/research/art/tram-saddle-2026-11/build.md): the letter D
+tram towers (tram_saddle.py) on tram_tower's SKINNED path with the D design.
 
-Each case RAISES unless:
+Each case RAISES unless its condition holds:
 
-  SD1  tram_saddle.run_height holds every gate of the round for the height(s): the C rebuild matches the shipped C LOD0
-       (<= 0.2 mm, every loop one UV), D's topology = C's (vertices, loops, polygons, parts: C's UVs 1:1, 0 MB), the
-       tram_tower contracts in both frames, G6 over cs2_skin.joint_grid(60, 30) (the grid's pose count, no overlap,
-       clearance >= 5 mm, every rope clear and seated on all 20 crowns), G6 at the planner's TS-1 poses (clamped as the
-       code clamps them), the rope reach (clear to 60), the negative (C's geometry at the D grid fails G6), C9 budgets
-       (the 5 % cap rule), the code's limits (LiftAlignMath.TramSaddlePitchLimitDeg / TramHalfBreakMaxDeg) = the art's;
-       and the TS-1 coverage: D follows >= 200 of the 242 towers, C 108. The tower-lean round adds: G6 at the lean grid
-       (tram_saddle.lean_grid: the saddle's mean to +-30 relative to a leaned mast, the half-break to +-30) and at the
-       TS-1 towers under the 55 deg pitch cap relative to the least lean (tram_saddle.lean_rows).
-  SD2  the hooks' defaults rebuild C: tram_tower.SKIN_TRAM = the shipped C manifest's skin design on every key the
-       manifest has; half_break 20, joint_d None, roller_out 0 (D's values live in tram_saddle.D_DESIGN only).
-  SD3  deterministic: two D builds hash alike (vertices, loops, part table).
+  SD1  tram_saddle.run_height holds every gate of the round for the height(s):
+       - The C rebuild matches the shipped C LOD0 (<= 0.2 mm, every loop one UV).
+       - D's topology = C's (vertices, loops, polygons, parts: C's UVs 1:1, 0 MB).
+       - The tram_tower contracts hold in both frames.
+       - G6 holds over cs2_skin.joint_grid(60, 30). The pose count is the grid's. No parts overlap. Clearance is
+         >= 5 mm. Every rope is clear and seated on all 20 crowns.
+       - G6 holds at the planner's TS-1 poses (clamped as the code clamps them).
+       - The rope reach (clear to 60).
+       - The negative: C's geometry at the D grid fails G6.
+       - C9 budgets (the 5 % cap rule).
+       - The code's limits (LiftAlignMath.TramSaddlePitchLimitDeg / TramHalfBreakMaxDeg) = the art's.
+       - The TS-1 coverage: D follows >= 200 of the 242 towers, C 108.
+       The tower-lean round adds two checks:
+       - G6 at the lean grid (tram_saddle.lean_grid): the saddle's mean to +-30 relative to a leaned mast, and the
+         half-break to +-30.
+       - G6 at the TS-1 towers under the 55 deg pitch cap relative to the least lean (tram_saddle.lean_rows).
+  SD2  The hooks' defaults rebuild C. tram_tower.SKIN_TRAM = the shipped C manifest's skin design on every key the
+       manifest has. half_break is 20, joint_d is None and roller_out is 0 (D's values live in tram_saddle.D_DESIGN only).
+  SD3  Deterministic: two D builds hash alike (vertices, loops, part table).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_tram_saddle.py [-- --heights all]
 """

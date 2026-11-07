@@ -4,12 +4,13 @@ test_snow_weather.py - the REDO gates of snow_weather (wiki style, 2026-10-17).
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_snow_weather.py
 
 1. overlay_gate RAISES OverlayScaleError for a feature under 5 cm and for a soft edge under 5 cm
-   (the rejected rev 4 pass painted 1-6 cm features); a 5 cm feature at 100 px/m (5 texels) gets weight
-   0 and the overlay is SKIPPED (None), at 250 px/m (12.5 texels) weight 1; the 8-texel midpoint
-   gives 0.5.
-2. face_rotations: a quad whose unique UVs are its atlas UVs turned 90 deg (and scaled) yields a
-   90 deg rotation; identical layers yield the identity (the N0 re-orientation the REDO packer needs).
-Prints one PASS line and exits 0; any failure prints FAIL and exits 1.
+   (the rejected rev 4 pass painted 1-6 cm features). A 5 cm feature at 100 px/m (5 texels) gets
+   weight 0, and the overlay is SKIPPED (None). At 250 px/m (12.5 texels) it gets weight 1. The
+   8-texel midpoint gives 0.5.
+2. face_rotations: a quad whose unique UVs are its atlas UVs turned 90 deg (and scaled) yields a 90
+   deg rotation. Identical layers yield the identity (the N0 re-orientation the REDO packer needs).
+
+The test prints one PASS line and exits 0. Any failure prints FAIL and exits 1.
 """
 
 import math

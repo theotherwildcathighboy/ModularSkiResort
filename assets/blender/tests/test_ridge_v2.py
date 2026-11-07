@@ -8,13 +8,13 @@ Asserts:
       sorted vertex lists) as before ridge_kit existed: the v1 box ridge (12 tris) and slabs past the ridge.
   R2  gable v2: both slabs end on vertical planes RIDGE_GAP (3 mm) either side of the ridge line (closed 8-face slabs,
       no coincident end faces) and their top edges reach the ridge line (no overshoot, no notch).
-  R3  gable v2: ridge_ = 12 tris (closed); its hems sit RIDGE_CLEAR (<= 5 mm) above the slab tops, its apex RIDGE_RISE above the
-      higher slab top; plan width 2 x RIDGE_LEG (was >= 0.8 m); nothing of it lies below the slab-top planes.
+  R3  gable v2: ridge_ = 12 tris (closed). Its hems sit RIDGE_CLEAR (<= 5 mm) above the slab tops, its apex RIDGE_RISE above the
+      higher slab top. Plan width 2 x RIDGE_LEG (was >= 0.8 m). Nothing of it lies below the slab-top planes.
   R4  asymmetric pitch (eave_z1) and both axes: R2-R3 hold.
-  R5  hip v2: ridge_ = 12 tris per edge (4 hips + ridge; 4 on a pyramid), every vertex within 6 cm of the roof top
+  R5  hip v2: ridge_ = 12 tris per edge (4 hips + ridge, 4 on a pyramid), every vertex within 6 cm of the roof top
       surface or above it, none more than RIDGE_RISE + 5 mm above it.
   R6  ridge_kit restores RIDGE on exit (also on an exception).
-Exit 1 on the first failure; one PASS line otherwise.
+Exit 1 on the first failure. One PASS line otherwise.
 """
 
 import math

@@ -1,18 +1,20 @@
 """
-T121 (2026-10-20, "extra cables are MODELED into the DQ stations and the gondola base and top stations ...
-the chairlift attachment already draws every rope"): strip ONLY the modeled rope triangles out of the SHIPPED station
-FBX files and touch nothing else.
+T121 (2026-10-20, "extra cables are MODELED into the DQ stations and the gondola base and top stations
+... the chairlift attachment already draws every rope"): the script strips ONLY the modeled rope
+triangles out of the SHIPPED station FBX files. It touches nothing else.
 
-No generator re-run: the shipped FBX (assets/import/stations/<family>/<letter>/<Name>/) is imported, the triangles that
-belong to a named rope part are deleted, and the rest is written back with export_fbx's exact settings. A rope triangle
-is one whose three corners all sit (0.5 cm) on the corners of ONE face of a generator rope part (station_rope_parts.py
-output: the part names come from the generator's own part table), and every part must match its full triangle count.
+The script does not re-run the generator. It imports the shipped FBX
+(assets/import/stations/<family>/<letter>/<Name>/). It deletes the triangles that belong to a named rope
+part. It writes the rest back with export_fbx's exact settings. A rope triangle has all three corners on
+the corners of ONE face of a generator rope part (tolerance 0.5 cm). The part names come from the
+generator's own part table (station_rope_parts.py output). Every part must match its full triangle count.
 
     blender -b --factory-startup --python-exit-code 1 --python assets\\blender\\station_cable_strip.py --
         --parts <rope_parts.json> --out <dir> [--names N1 N2 ...] [--write] [--preview DIR]
 
-Without --write it only reports. --write saves <out>/<Name>/<file>.fbx (stripped) next to a control round trip and the
-before / after diff (<out>/<Name>/diff.json). The preview gate holds: nothing lands in assets/import from here.
+Without --write it only reports. --write saves <out>/<Name>/<file>.fbx (stripped) next to a control round
+trip and the before / after diff (<out>/<Name>/diff.json). The preview gate holds: nothing lands in
+assets/import from here.
 """
 import argparse
 import hashlib
@@ -57,15 +59,17 @@ def import_fbx(path):
         raise RuntimeError(f"{path}: {len(obs)} mesh objects")
     o = obs[0]
     if np.abs(np.array(o.matrix_world) - np.eye(4)).max() > 1e-9:
-        # the export wrote raw vertices with an identity node; the importer must hand them back untouched
+        # The export wrote raw vertices with an identity node. The importer must hand them back
+        # untouched.
         raise RuntimeError(f"{path}: imported node transform is not identity: {o.matrix_world}")
     return o
 
 
 def tri_records(o, only=None):
-    """Per triangle: key = sha1 of its corners' positions (0.001 cm) + every UV layer (1e-6), in loop order;
-    value = the corner normals (full float). Normals are compared with a tolerance (corner_normals_max_delta): a pure
-    Blender FBX import -> export round trip re-quantizes custom normals by up to ~1e-4."""
+    """Per triangle, the key is the sha1 of its corner positions (0.001 cm) + every UV layer (1e-6), in loop
+    order. The value is the corner normals (full float). The comparison uses a tolerance for normals
+    (corner_normals_max_delta). A pure Blender FBX import -> export round trip re-quantizes custom
+    normals by up to ~1e-4."""
     me = o.data
     me.calc_loop_triangles()
     uvl = [l.data for l in me.uv_layers]
@@ -99,8 +103,8 @@ def fbx_names(path, stem):
 
 
 def stats(o, path):
-    """What the rule names: object / mesh names (as imported and as written in the file), vertex and triangle
-    counts, bounds, material slots, UV layers."""
+    """The rule names these values: object / mesh names (as imported and as written in the file), vertex and
+    triangle counts, bounds, material slots, UV layers."""
     me = o.data
     me.calc_loop_triangles()
     co = np.array([v.co[:] for v in me.vertices]) if me.vertices else np.zeros((0, 3))
@@ -176,10 +180,12 @@ def delete_tris(o, tri_idx):
 
 
 def export_like_shipped(o, path, geom_name):
-    """cs2_asset.export_fbx's exporter call, minus the frame bake (the imported vertices are already baked).
-    geom_name = the geometry name the shipped file carries ("<name>.001", once "<name>.002"): the exporter writes a mesh
-    whose name equals its object's as "<name>.001" and "<name>.001" as "<name>.002", so the mesh is named one step back
-    (checked by names_in_file before == after)."""
+    """This function makes the exporter call of cs2_asset.export_fbx, minus the frame bake. The imported
+    vertices are already baked.
+
+    geom_name is the geometry name that the shipped file carries ("<name>.001", once "<name>.002"). The
+    exporter writes a mesh whose name equals its object's as "<name>.001", and it writes "<name>.001" as
+    "<name>.002". So the code names the mesh one step back (checked by names_in_file before == after)."""
     stem, _dot, k = geom_name.rpartition(".")
     want = o.name if (stem == o.name and k == "001") else f"{stem}.{int(k) - 1:03d}"
     for other in bpy.data.meshes:

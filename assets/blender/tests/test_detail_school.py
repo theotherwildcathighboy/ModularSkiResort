@@ -1,62 +1,60 @@
 """
-test_detail_school - detail pass 1 contracts of the ski school (design/detail-pass-1.md
-section 6.2, school row, D1-D10, with design/detail-pass-1-skeptic.md M1-M10 applied; build
-report docs/research/art/assets-2026-10/build/detail-pass-1-school.md), UPDATED for the
-fine-detail pass step 2 (build/fine-detail-step2-engine.md): the school is the reference host
-(recipes/school.py RECIPE = fine_detail.FineRecipe, fine_detail=True, sign_set=SIGN_SET).
+test_detail_school - detail pass 1 contracts of the ski school (design/detail-pass-1.md section 6.2, school row,
+D1-D10, with design/detail-pass-1-skeptic.md M1-M10 applied, build report
+docs/research/art/assets-2026-10/build/detail-pass-1-school.md), UPDATED for the fine-detail pass step 2
+(build/fine-detail-step2-engine.md): the school is the reference host (recipes/school.py RECIPE =
+fine_detail.FineRecipe, fine_detail=True, sign_set=SIGN_SET).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_detail_school.py [-- --quick]
 
-One finish at the shipping size (2048, 48 AO samples, LODs) is re-used by every check; D5
-adds a second identical finish in the same process, D4 a weather=None finish of the same
-build (--quick skips those two).
+One finish at the shipping size (2048, 48 AO samples, LODs) is re-used by every check. D5 adds a second identical
+finish in the same process. D4 adds a weather=None finish of the same build (--quick skips those two).
 
-D1  detail counts: every design 3.1 item's parts by exact name that the HOST still models (the
-    12 routed label faces live in the sign set; racks / cones / entry lanterns are rows), S13
-    belt key `rubber`, stripes `safety_yellow`, sign-lamp lenses `lamp`, arms galv; no `cone_`,
-    `lamp_main`, `skirack_` part; the B.1 fine geometry (maze posts 22 tris each, flag masts 58,
-    lesson poles 34); sub_objects = the recipe's 30 + the sign-set identity row: vanilla GUIDs of
-    the known families, m_ParentMesh 0 on wall props, the kit rows by their staged CIDs.
-D2  emissive: covered lamp texels all lit, within +-25 % of the area prediction; no stray lit
-    texel; <= 0.5 % of the map; every face of an emissive part >= 2.5 texels across.
-D3  labels: the host's remaining labels (tower field, flag cloths) 1 part / 1 face / 1 island,
-    rects disjoint, flag skier >= 0.70 m; the SIGN SET's sheet metrics: SKI SCHOOL T1 (cap >= 0.40
-    m, stroke >= 4 px), bib numbers / door plates stroke >= 4 px (vector), lesson shapes >= 0.40 m,
-    meeting-board trail shapes >= 0.33 m.
-D4  weathering: manifest weather.vanilla.ok, intensity = school.WEATHER_INTENSITY, free slots,
-    snow 0, G5 / G6 true; full mode: ControlMask byte-identical to a weather=None finish and every
-    host label rect of BaseColor identical.
-D5  determinism (full mode): two finishes in one process give identical host PNGs, LOD0 / LOD1 /
-    LOD2 / _Win hashes and identical sign-set PNGs.
-D6  budgets: LOD0 <= 4,400 (skeptic M10), LOD1 <= 2,800, LOD2 <= 500; w = 1 median >= 40 px/m;
-    tex 2048; batches 9.
-D7  base mode: engine base OK on LOD0 / 1 / 2; no new part below GROUND_LIFT.
-D8  lot / geometry: lot margins >= 0.25 m; _civic assert_lot_margin / check_coplanar /
-    check_inside on the parts.
-D9  LOD: new dressing absent from LOD1 except the `sign_` frames / post signs, every new part
-    absent from LOD2; the exported preview LOD2 XOR <= 8 % when the frames exist.
-D10 sub-object placement: a wall prop's pivot within 0.05 m of one of our faces facing its +Z, its
-    box >= 0.05 m clear of every other face of ours; a grade prop (vanilla or kit) on grade and
-    >= 0.30 m clear of every mesh part; the new rows' boxes overlap no other row's box.
-D11 fine-detail H1 / H9: every new row at its removed part (cones' plan center +-0.01 m, entry
-    lamps on the wall plane at the old lens (y, z) +-0.01 m, each kit rack's frame = the removed
-    rack's frame vertex for vertex +-1 mm, 2 cm lower: the kit foot is on y 0); host lot bounds =
-    the pre-pass school's +-0.005 m (H9, design FS1).
-UPDATED for REVISION 2 (2026-10-12, twentieth look; build/school-rev2.md): no door
-numbering, the red markings, the 13.5 deg monopitch, lot 4 x 5, both carpets in the back at 12 %
-(the right one a bubble gallery). D1 / D3 / D8 / D10 / D11 follow the new parts and rows (the
-sub_objects are now 32 + the sign set; H9 pins the revision-2 lot bounds), and:
-R2  revision-2 contracts, each with a negative: (a) NO door numbering (no `emblem_door` part, the
-    four frozen door rects of the sheet carry no text, no digit-only label line) and the red
-    markings where the photos put them (placards on the two white door leaves, 4 mm proud, inside
-    the leaf; NO SLEDDING over the svc door head and under its wall light; the alarm bell
-    above-left of the tower door); (b) the roof: every `roof_uf` face rises toward -X at
-    ROOF_PITCH_DEG +-0.01 deg (dz/dy 0), the UF walls meet the slab underside, back wall height;
-    (c) the carpets: belt grade = GRADE +-1e-6 from 0.20 m at the loading end, closed skirts from
-    grade (z 0) under the whole belt on both sides, the deck flush with the belt end and its far
-    edge on the lot margin, both loading ends behind the back eave, the bubble on the right (+Y)
-    and longer, the gallery spanning the belt.
-Exit 1 on the first failure; one PASS line otherwise.
+- D1 detail counts: every design 3.1 item's parts by exact name that the HOST still models (the 12 routed label
+  faces live in the sign set, racks / cones / entry lanterns are rows). S13 belt key `rubber`, stripes
+  `safety_yellow`, sign-lamp lenses `lamp`, arms galv. No `cone_`, `lamp_main`, `skirack_` part. The B.1 fine
+  geometry (maze posts 22 tris each, flag masts 58, lesson poles 34). sub_objects = the recipe's 30 + the sign-set
+  identity row: vanilla GUIDs of the known families, m_ParentMesh 0 on wall props, the kit rows by their staged
+  CIDs.
+- D2 emissive: covered lamp texels all lit, within +-25 % of the area prediction. No stray lit texel. <= 0.5 % of
+  the map. Every face of an emissive part >= 2.5 texels across.
+- D3 labels: the host's remaining labels (tower field, flag cloths) 1 part / 1 face / 1 island, rects disjoint,
+  flag skier >= 0.70 m. The SIGN SET's sheet metrics: SKI SCHOOL T1 (cap >= 0.40 m, stroke >= 4 px), bib numbers /
+  door plates stroke >= 4 px (vector), lesson shapes >= 0.40 m, meeting-board trail shapes >= 0.33 m.
+- D4 weathering: manifest weather.vanilla.ok, intensity = school.WEATHER_INTENSITY, free slots, snow 0, G5 / G6
+  true. Full mode: ControlMask byte-identical to a weather=None finish and every host label rect of BaseColor
+  identical.
+- D5 determinism (full mode): two finishes in one process give identical host PNGs, LOD0 / LOD1 / LOD2 / _Win
+  hashes and identical sign-set PNGs.
+- D6 budgets: LOD0 <= 4,400 (skeptic M10), LOD1 <= 2,800, LOD2 <= 500. w = 1 median >= 40 px/m. tex 2048. batches
+  9.
+- D7 base mode: engine base OK on LOD0 / 1 / 2. No new part below GROUND_LIFT.
+- D8 lot / geometry: lot margins >= 0.25 m. _civic assert_lot_margin / check_coplanar / check_inside on the parts.
+- D9 LOD: new dressing absent from LOD1 except the `sign_` frames / post signs. Every new part absent from LOD2.
+  The exported preview LOD2 XOR <= 8 % when the frames exist.
+- D10 sub-object placement: a wall prop's pivot within 0.05 m of one of our faces facing its +Z, its box >= 0.05 m
+  clear of every other face of ours. A grade prop (vanilla or kit) on grade and >= 0.30 m clear of every mesh part.
+  The new rows' boxes overlap no other row's box.
+- D11 fine-detail H1 / H9: every new row at its removed part (cones' plan center +-0.01 m, entry lamps on the wall
+  plane at the old lens (y, z) +-0.01 m, each kit rack's frame = the removed rack's frame vertex for vertex +-1 mm,
+  2 cm lower: the kit foot is on y 0). Host lot bounds = the pre-pass school's +-0.005 m (H9, design FS1).
+
+UPDATED for REVISION 2 (2026-10-12, twentieth look, build/school-rev2.md): no door numbering, the red markings, the
+13.5 deg monopitch, lot 4 x 5, both carpets in the back at 12 % (the right one a bubble gallery). D1 / D3 / D8 /
+D10 / D11 follow the new parts and rows (the sub_objects are now 32 + the sign set, and H9 pins the revision-2 lot
+bounds), and:
+- R2 revision-2 contracts, each with a negative:
+- (a) NO door numbering: no `emblem_door` part, the four frozen door rects of the sheet carry no text, no
+  digit-only label line. The red markings sit where the photos put them: placards on the two white door leaves (4
+  mm proud, inside the leaf), NO SLEDDING over the svc door head and under its wall light, the alarm bell
+  above-left of the tower door.
+- (b) the roof: every `roof_uf` face rises toward -X at ROOF_PITCH_DEG +-0.01 deg (dz/dy 0), the UF walls meet the
+  slab underside, back wall height.
+- (c) the carpets: belt grade = GRADE +-1e-6 from 0.20 m at the loading end, closed skirts from grade (z 0) under
+  the whole belt on both sides, the deck flush with the belt end and its far edge on the lot margin, both loading
+  ends behind the back eave, the bubble on the right (+Y) and longer, the gallery spanning the belt.
+
+The test exits 1 on the first failure and prints one PASS line otherwise.
 """
 
 import glob
@@ -103,9 +101,9 @@ HOST_LABELS = SS.host_recipe(REC, SPEC).labels
 
 LOD0_CAP, LOD1_CAP, LOD2_CAP = 4400, 2800, 500       # D6 (skeptic M10: 4,000 -> ~4,400)
 W1_MIN = 40.0
-# H9 pin. Revision 2 (lot 4 x 5, building at OX +12, the yard behind it): x from the carpet decks'
-# far edge (-19.75, the lot margin) to the flag (18.861), y from the maze (-12.528) to the +Y rake
-# (15.40). Was the pre-pass school's {"x": (-7.6, 6.984), "y": (-15.3, 15.15)} (lot 4 x 2).
+# H9 pin. Revision 2 (lot 4 x 5, building at OX +12, the yard behind it): x runs from the far edge of the carpet
+# decks (-19.75, the lot margin) to the flag (18.861). y runs from the maze (-12.528) to the +Y rake (15.40). It
+# was the pre-pass school's {"x": (-7.6, 6.984), "y": (-15.3, 15.15)} (lot 4 x 2).
 PRE_PASS_LOT = {"x": (-19.75, 18.861), "y": (-12.528, 15.4)}
 # vanilla render bounds, game local (x, y up, z out / front): envelope of every variant mesh
 # of the placeholder family (00_BaseGame dump, *Mesh.Prefab m_Bounds, 2026-10-11 / -12)
@@ -167,8 +165,8 @@ def new_part_names():
     names += ["maze_carpet", "maze_carpettape"]
     names += ["flag_school", "emblem_schoolflagA_face", "emblem_schoolflagB_face"]
     names += [f"stripe_step{nm}" for nm, *_r in SCH["DOORS"]]
-    # revision 2: the carpets' nosing stripes (loading edge + landing edge) and the alarm bell; the
-    # door plates are gone (R2a)
+    # revision 2: the carpets' nosing stripes (loading edge + landing edge) and the alarm bell.
+    # The door plates are gone (R2a)
     names += [f"stripe_{e}{c[0]}" for c in SCH["CARPETS"] for e in ("ramp", "top")]
     names += ["bell_alarm"]
     names += ["lamp_belfryfloor", "lamp_belfryrail"]
@@ -323,7 +321,7 @@ def _game_to_auth(v):
 def _prop_box(o):
     """(center, axes 3x3 rows = local x / y / z in authoring, lo, hi local) of a prop."""
     lo, hi = row_bounds(o)
-    # the manifest rows are game frame (rule T: gx negated since the x-sign gate N); this test reasons in the
+    # the manifest rows are game frame (rule T: gx negated since the x-sign gate N). This test reasons in the
     # recipe's design frame (gx = +authoring y), so undo rule T first (it is an involution)
     x, y, z, w = FD.rule_t_rot(o["rotation"])
     q = Quaternion((w, x, y, z))
@@ -425,7 +423,7 @@ def d10_props(T, tnames, man):
 
 def d11_fine(man, verts_fine, legacy):
     """H1 (rows at the removed parts) and H9 (lot bounds), design G.2 / skeptic FS1."""
-    # the manifest rows are game frame (rule T, gx negated); the removed parts' vertices (lverts) are authoring, so
+    # the manifest rows are game frame (rule T, gx negated). The removed parts' vertices (lverts) are authoring, so
     # compare in the recipe's design frame: undo rule T (an involution) on every row
     objs = [dict(o, position=list(FD.rule_t_pos(o["position"])), rotation=list(FD.rule_t_rot(o["rotation"])))
             for o in man["sub_objects"]["objects"]]
@@ -508,7 +506,7 @@ def _grade_of(V):
 
 
 def r2_revision(parts, keys, verts):
-    """Runs on the live parts (before the finish clears the scene); rows from REC.sub_objects."""
+    """Runs on the live parts (before the finish clears the scene). Rows from REC.sub_objects."""
     ox = SCH["OX"]
     # (a) no door numbering, the red markings where the photos put them
     assert not [n for n in keys if n.startswith("emblem_door")], "R2a: a door plate part is still built"
@@ -694,7 +692,7 @@ def d3_labels(res, man, obj):
     assert t["tier"] == "T1" and t["cap_m"] >= 0.40 and t["stroke_px"] >= 4.0, f"D3: SKI SCHOOL {t}"
     bib = met["school.bibs"]["draws"][0]
     assert bib["stroke_px"] >= 4.0, f"D3: bib numbers {bib}"
-    # revision 2: the red markings' legends (vector, SS3); the retired door rects draw no text (R2a)
+    # revision 2: the red markings' legends (vector, SS3). The retired door rects draw no text (R2a)
     marks = {}
     for key in ("school.markstaff", "school.marknosled"):
         d = [x for x in met[key]["draws"] if x["kind"] == "text"][0]

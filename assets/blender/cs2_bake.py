@@ -1,33 +1,42 @@
 """
-cs2_bake.py - multi-material unique bake, high-to-low bake and the tiling-material route
-for the CS2 ski-resort art pipeline (asset round 2026-10, phase P0; ROUND-SPEC.md section 6).
+cs2_bake.py - multi-material unique bake, high-to-low bake and the tiling-material route for the CS2
+ski-resort art pipeline (asset round 2026-10, phase P0, ROUND-SPEC.md section 6).
 
 WHY
 ---
-The only bake in the tree is lift_tower.apply_finish_textures (lift_tower.py:848-1091): ONE
-bake material that re-projects the asset's own four PNGs from "UVAtlas" onto a unique
-layout. The 2026-10 round brings meshes with N source materials (the Kagelok chair and grip,
-the gondola cabin shell: one texture set or flat color per material) and procedural
-buildings that want tiling CC0 sets per material (the never-built art-pipeline-v2
-section 3.3/3.4 route). This module is that finish pass generalized to N SOURCE MATERIALS,
-plus a Cycles selected-to-active bake for a high-poly source, with the same output contract:
-four PNGs (+ `_Emissive`), one UV layer, no materials, ready for cs2_asset.export_fbx.
+
+The only bake in the tree is lift_tower.apply_finish_textures (lift_tower.py:848-1091). It uses ONE
+bake material that re-projects the four PNGs of the asset from "UVAtlas" onto a unique layout.
+
+The 2026-10 round brings two new needs:
+- Meshes with N source materials (the Kagelok chair and grip, the gondola cabin shell: one texture
+  set or flat color per material).
+- Procedural buildings that want tiling CC0 sets per material (the never-built art-pipeline-v2
+  section 3.3/3.4 route).
+
+This module is that finish pass generalized to N SOURCE MATERIALS, plus a Cycles selected-to-active
+bake for a high-poly source. The output contract is the same: four PNGs (+ `_Emissive`), one UV
+layer, no materials, ready for cs2_asset.export_fbx.
 
 Contract
 --------
+
     SourceSet(base, normal=None, normal_convention="unknown", height=None, rough=None,
               metal=0.0, slot=0, recolor_albedo=None, emissive=None,
               uv=None, tint=1.0, mask=None, control=None, height_depth_m=0.004)
-        One source material (pipeline-gap.md section 3.3). `base` is a path or LINEAR rgb;
-        never None (no silent mid-gray). recolor_albedo None = auto: True when slot > 0
-        and no `control` image (PIPELINE section 1: light 0.80 under every mask, because
-        the tint multiplies; a slot set after match_texture_sets cannot forget the flag).
+        One source material (pipeline-gap.md section 3.3). `base` is a path or LINEAR rgb.
+        It is never None (no silent mid-gray).
+        recolor_albedo None = auto: True when slot > 0 and there is no `control` image
+        (PIPELINE section 1: light 0.80 under every mask, because the tint multiplies.
+        A slot set after match_texture_sets cannot forget the flag).
         An explicit False under a mask prints a WARN when the masked albedo averages below
-        DARK_UNDER_MASK_SRGB. The last five fields are cs2_bake extensions:
-        `uv` names the UV layer this material samples (default: the bake's source layer),
-        `tint` multiplies the albedo in linear, `mask` / `control` take an existing CS2
-        MaskMap (R metal, A smoothness) / ControlMask image so our own atlases are valid
-        sources, `height_depth_m` is the relief of a 0..1 height swing.
+        DARK_UNDER_MASK_SRGB.
+        The last five fields are cs2_bake extensions:
+        - `uv` names the UV layer this material samples (default: the bake's source layer).
+        - `tint` multiplies the albedo in linear.
+        - `mask` / `control` take an existing CS2 MaskMap (R metal, A smoothness) /
+          ControlMask image, so our own atlases are valid sources.
+        - `height_depth_m` is the relief of a 0..1 height swing.
         Any object (or dict) carrying these attribute names is accepted (duck-typed), so
         cs2_ingest may define or re-export its own class.
 
@@ -40,50 +49,58 @@ Contract
            (cs2_uv.density_report defaults) work unchanged.
         2. ONE bake material per source material: its own UVMap node -> image (or constant)
            -> Emission, and the shared target image node active in every material.
-        3. Passes (Cycles CPU, seed 0, 1 sample): BaseColor (sRGB source -> linear),
-           Normal (tangent NORMAL bake of NormalMap(source layer) into UVUnique; DX sources
-           get G -> 1 - G first; "unknown" conventions are DROPPED and, when a height map
-           exists, rebuilt by cs2_compose.height_to_normal on the unique layout), scalars
-           (R metal, G rough, B height), ControlMask (R/G/B exclusive by slot, A 0),
-           material ids (margin 0 and margin m), optional Emissive, then AO
-           (`ao_samples`, self-occlusion with every other object hidden from render) or,
-           with `high`, the selected-to-active normal + AO of bake_high_to_low.
-        4. Linear-space compose: recolor slots (slot > 0 and recolor_albedo) are
-           desaturated and luminance-normalized to cs2_asset.RECOLOR_ALBEDO (0.80 as
-           written to the PNG) because the vanilla tint MULTIPLIES (PIPELINE.md section 1);
-           height / high normals blended with cs2_compose.blend_rnm; reserved rects restored
-           1:1 from A x A source images; AO multiplied (occ = ao*0.92 + 0.08); then
-           `post_compose(base, nrm, msk, ctl, ao, mesh, A)` (finish-pass signature; call
-           cs2_compose.compose_maps there with ao=None) or, without a hook,
-           cs2_compose.compose_maps for the channel rules.
-        5. sRGB encode, BaseColor / Emissive alpha 255 everywhere (any UV-covered alpha
-           <= 128 turns the whole surface DefaultCutout), ControlMask A 0, MaskMap B 0;
-           writes <name>_{BaseColor,Normal,MaskMap,ControlMask}.png (+ _Emissive).
-        6. Removes every UV layer but "UVUnique" and every material slot; removes every
-           datablock it created; restores every render / bake / Cycles / tool / color-
-           management setting it touched, the selection, the active object and hide_render.
-        Raises on any failure after restoring the mesh (UV layers, layer name, materials).
+        3. The passes run in Cycles CPU, seed 0, 1 sample, in this order:
+           - BaseColor (sRGB source -> linear).
+           - Normal: a tangent NORMAL bake of NormalMap(source layer) into UVUnique. DX
+             sources get G -> 1 - G first. "unknown" conventions are DROPPED. When a height
+             map exists, cs2_compose.height_to_normal rebuilds the normal on the unique layout.
+           - Scalars (R metal, G rough, B height).
+           - ControlMask (R/G/B exclusive by slot, A 0).
+           - Material ids (margin 0 and margin m).
+           - Optional Emissive.
+           - AO (`ao_samples`, self-occlusion with every other object hidden from render) or,
+             with `high`, the selected-to-active normal + AO of bake_high_to_low.
+        4. Linear-space compose, in this order:
+           - Recolor slots (slot > 0 and recolor_albedo) are desaturated and
+             luminance-normalized to cs2_asset.RECOLOR_ALBEDO (0.80 as written to the PNG),
+             because the vanilla tint MULTIPLIES (PIPELINE.md section 1).
+           - Height / high normals are blended with cs2_compose.blend_rnm.
+           - Reserved rects are restored 1:1 from A x A source images.
+           - AO is multiplied (occ = ao*0.92 + 0.08).
+           - Then `post_compose(base, nrm, msk, ctl, ao, mesh, A)` runs (finish-pass
+             signature: call cs2_compose.compose_maps there with ao=None). Without a hook,
+             cs2_compose.compose_maps applies the channel rules.
+        5. sRGB encode. BaseColor / Emissive alpha is 255 everywhere (any UV-covered alpha
+           <= 128 turns the whole surface DefaultCutout). ControlMask A is 0 and MaskMap B is 0.
+           The step writes <name>_{BaseColor,Normal,MaskMap,ControlMask}.png (+ _Emissive).
+        6. The function removes every UV layer but "UVUnique" and every material slot. It
+           removes every datablock it created. It restores every render / bake / Cycles /
+           tool / color-management setting it touched, the selection, the active object and
+           hide_render.
+        The function raises on any failure after it restores the mesh (UV layers, layer
+        name, materials).
         `share=None` (detail pass 1, lifts): bay sharing, passed through to
-        cs2_uv.pack_unique (see there); the report then carries "shared_faces". A stacked
-        texel is baked once per copy, so it shows the LAST copy's source sample, AO and
-        weathering (Cycles: the later face in index order wins an overlapping texel); only
-        translation-identical hardware without world-anchored relief is ever shared
+        cs2_uv.pack_unique (see there). The report then carries "shared_faces". A stacked
+        texel is baked once per copy, so it shows the source sample, AO and weathering of
+        the LAST copy (Cycles: the later face in index order wins an overlapping texel).
+        Only translation-identical hardware without world-anchored relief is ever shared
         (cs2_liftdress.share_identical). None = the pre-pass code path, byte-identical.
 
     bake_high_to_low(high, low, asset_dir, name, A, *, cage_extrusion=0.03, max_ray=0.10,
                      ao_samples=48, margin_px=None, out_dir=None, uv_layer="UVUnique")
         -> (normal_path, ao_path)
-        Cycles selected-to-active into `low`'s existing `uv_layer`: tangent NORMAL in the
-        OpenGL convention (+X, +Y, +Z swizzle = cs2_compose.height_to_normal's sign) and AO.
-        PNGs go to `out_dir` (default <tempdir>/cs2_bake/<name>), never into asset_dir:
-        cs2_validate errors on a stray PNG in an asset folder (cs2_validate.py:863).
+        Cycles selected-to-active into `low`'s existing `uv_layer`. It bakes a tangent NORMAL
+        in the OpenGL convention (+X, +Y, +Z swizzle = cs2_compose.height_to_normal's sign)
+        and AO. PNGs go to `out_dir` (default <tempdir>/cs2_bake/<name>), never into
+        asset_dir, because cs2_validate errors on a stray PNG in an asset folder
+        (cs2_validate.py:863).
         `ao_path` is None when ao_samples == 0. bake_unique(high=...) runs the same bake on
         its own unique layout and feeds both maps into its compose step.
 
     material_sources(spec_table, parts, *, layer="UVTile", texture_root=None)
         -> {mat_index: SourceSet}
         The art-pipeline-v2 section 3.3/3.4 route for PROCEDURAL buildings. `parts` is the
-        generator's [(obj, key), ...] list BEFORE the join; `spec_table` maps key ->
+        generator's [(obj, key), ...] list BEFORE the join. `spec_table` maps key ->
         MaterialSpec (or a dict of its fields). Every part gets project_world_uv into
         `layer` at its spec's metres_per_tile and the full sorted material list (so the
         join keeps the indices: mat_index = position of the key in sorted(keys)). CC0 sets
@@ -93,8 +110,8 @@ Contract
         World-anchored tiling UVs ("box" dominant-axis, "planar" face frame for roofs,
         "cyl" about world Z), never mirrored, in tiles (coordinate / metres_per_tile).
         Reads the CURRENT world matrix: a generator's `obj.location = ...` leaves
-        matrix_world stale until the depsgraph runs, so the view layer is updated first
-        (objects outside it: the parent chain is composed by hand).
+        matrix_world stale until the depsgraph runs, so the function updates the view layer
+        first (objects outside it: the parent chain is composed by hand).
 
     find_set_map(set_dir, map_name) -> path | None
         Strict ambientCG lookup: `<Set>_<n>K-<JPG|PNG>_<Map>.<ext>` or `<Set>_<Map>.<ext>`
@@ -103,9 +120,10 @@ Contract
 
 Derived from (file:line)
 ------------------------
+
     finish pass: lift_tower.py:848-1091 (source layer renamed "UVAtlas" :906, bake
         material :966-980, Cycles CPU + margin :982-984, EMIT per map :986-1020, strip
-        restore + linearise :1022-1049, AO floor + multiply :1050-1055, post_compose
+        restore + linearize :1022-1049, AO floor + multiply :1050-1055, post_compose
         :1056-1060, sRGB encode + alpha 1 :1061-1069, write :1071-1074, drop UVAtlas +
         materials :1076-1078)
     pack: cs2_uv.py:381-403 (pack_unique), :68-70 (margin_px default), :237-253 (the
@@ -118,16 +136,16 @@ Derived from (file:line)
         every Image / Material it makes, prefix CS2BAKE_)
     alpha: ref-models-skeptic.md verdict 9 (UV-covered alpha <= 128 -> DefaultCutout)
     set names: cs2_asset.py:262-280 (_load_map suffixes), pipeline-gap-skeptic.md verdict 3
-    tiling route: art-pipeline-v2.md:181-193 (project_world_uv), :208-220 (MaterialSpec;
-        NormalMap(UVTile) -> NORMAL bake with UVUnique active_render; bake.margin EXTEND
-        per call; CPU + seed 0)
+    tiling route: art-pipeline-v2.md:181-193 (project_world_uv), :208-220 (MaterialSpec,
+        NormalMap(UVTile) -> NORMAL bake with UVUnique active_render, bake.margin EXTEND
+        per call, CPU + seed 0)
     live session: ROUND-SPEC.md R10, pipeline-gap.md section 6 (headless only)
     review fixes: p0a-integration.md "Fixes applied" (stale matrix_world, reserved-rect uv
         name, pre-existing UVUnique restore, recolor_albedo auto)
 
-Headless only (raises when bpy.app.background is False). Deterministic: sorted iteration,
-Cycles CPU, fixed seed, fixed sample counts, no wall-clock in the outputs. No top-level side
-effects. Import as a sibling of cs2_asset.py.
+Headless only (raises when bpy.app.background is False). Deterministic: sorted iteration, Cycles
+CPU, fixed seed, fixed sample counts, no wall-clock in the outputs. No top-level side effects.
+Import as a sibling of cs2_asset.py.
 """
 
 import math
@@ -198,7 +216,7 @@ class SourceSet:
     rough: object = None                # path | float | None (ROUGH_DEFAULT)
     metal: object = 0.0                 # path | float
     slot: int = 0                       # ControlMask 0 none, 1 R, 2 G, 3 B
-    recolor_albedo: object = None       # neutral gray at RECOLOR_ALBEDO; None = slot > 0
+    recolor_albedo: object = None       # neutral gray at RECOLOR_ALBEDO. None = slot > 0
     emissive: object = None             # path (sRGB) | linear (r, g, b) | None
     uv: object = None                   # UV layer to sample (None: the bake's source layer)
     tint: object = 1.0                  # linear multiply on the albedo (float or rgb)
@@ -243,7 +261,7 @@ def _tint3(v, what):
 
 
 def as_source_set(x, index="?"):
-    """Coerce a SourceSet, a dict, or any object with SourceSet attribute names; validate."""
+    """Coerce a SourceSet, a dict, or any object with SourceSet attribute names. Validate it."""
     if isinstance(x, SourceSet):
         s = x
     elif isinstance(x, dict):
@@ -299,7 +317,7 @@ def _normal_route(s):
 
 
 # --------------------------------------------------------------------------------------
-# Scene state: snapshot / restore (the finish pass leaks these; lift_tower.py:929, 982-984)
+# Scene state: snapshot / restore. The finish pass leaks these (lift_tower.py:929, 982-984).
 # --------------------------------------------------------------------------------------
 
 def _require_background():
@@ -398,7 +416,7 @@ class _SceneState:
 
 
 def _setup_cycles(scene):
-    """Cycles CPU with a fixed seed and no texture limits; restored by _SceneState."""
+    """Cycles CPU with a fixed seed and no texture limits. _SceneState restores the settings."""
     scene.render.engine = "CYCLES"
     c = scene.cycles
     for key, val in (("device", "CPU"), ("seed", BAKE_SEED), ("use_animated_seed", False),
@@ -448,8 +466,8 @@ def _read_pixels(img, A):
 
 def _bake(low, bake_type, samples, margin, *, high=None, cage_extrusion=0.0, max_ray=0.0,
           uv_layer=UNIQUE_LAYER):
-    """One bpy.ops.object.bake call; every bake option passed explicitly (none read from
-    the scene's bake settings, so the caller's settings never leak in)."""
+    """One bpy.ops.object.bake call. Every bake option is passed explicitly (none is read from the
+    scene's bake settings, so the caller's settings never leak in)."""
     bpy.context.scene.cycles.samples = int(samples)
     bpy.ops.object.select_all(action="DESELECT")
     if high is not None:
@@ -525,9 +543,9 @@ class _TargetMaterials:
 
 class _BakeRig:
     """
-    One bake material per material slot. Each holds the channel endpoints of its
-    SourceSet (an output socket, or a constant linear rgb) and the shared target node;
-    a pass relinks Emission.Color (EMIT) or the Diffuse BSDF (NORMAL) into the output.
+    One bake material per material slot. Each holds the channel endpoints of its SourceSet (an
+    output socket, or a constant linear rgb) and the shared target node. A pass relinks
+    Emission.Color (EMIT) or the Diffuse BSDF (NORMAL) into the output.
     """
 
     def __init__(self, mesh, name, srcs, n_slots, layer_of, ext_of):
@@ -588,7 +606,7 @@ class _BakeRig:
             return sep.outputs["Red"]
 
         tint = _tint3(s.tint, f"material {i}.tint")
-        # albedo (linear after the sRGB image node; constants are linear already)
+        # albedo is linear after the sRGB image node. Constants are linear already.
         if _is_path(s.base):
             sock = tex(s.base, "sRGB").outputs["Color"]
             if tint != (1.0, 1.0, 1.0):
@@ -711,7 +729,7 @@ def _layer_extension(mesh, layer):
 
 def _high_to_low_arrays(high, low, A, margin, cage_extrusion, max_ray, ao_samples,
                         set_target, uv_layer):
-    """Selected-to-active NORMAL (+ AO) into `low`'s uv_layer; returns (nrm, ao | None)."""
+    """Selected-to-active NORMAL (+ AO) into `low`'s uv_layer. Returns (nrm, ao | None)."""
     if high is low:
         raise ValueError("bake_high_to_low: high and low are the same object")
     if not isinstance(high.data, bpy.types.Mesh):
@@ -739,9 +757,9 @@ def default_work_dir(name):
 def bake_high_to_low(high, low, asset_dir, name, A, *, cage_extrusion=0.03, max_ray=0.10,
                      ao_samples=48, margin_px=None, out_dir=None, uv_layer=UNIQUE_LAYER):
     """
-    Cycles selected-to-active from `high` onto `low`'s existing `uv_layer` (module
-    docstring). Returns (normal_path, ao_path); ao_path is None when ao_samples == 0.
-    `asset_dir` only names the asset in the log: the intermediate PNGs never enter it.
+    Cycles selected-to-active from `high` onto `low`'s existing `uv_layer` (module docstring).
+    Returns (normal_path, ao_path). ao_path is None when ao_samples == 0. `asset_dir` only names the
+    asset in the log: the intermediate PNGs never enter it.
     """
     _require_background()
     A = _check_size(A)
@@ -813,11 +831,10 @@ def _polygon_material_indices(mesh):
 
 def index_sources(mesh, sources):
     """
-    ({mat_index: source}, [unused names]) from a dict keyed by material_index (int) or by
-    material slot name (str, as cs2_ingest.match_texture_sets returns it). A name binds
-    every slot holding that material; names no slot holds are returned, not raised (a
-    match over a whole file covers more materials than one object uses). Two keys
-    binding one slot raise.
+    ({mat_index: source}, [unused names]) from a dict keyed by material_index (int) or by material
+    slot name (str, as cs2_ingest.match_texture_sets returns it). A name binds every slot holding
+    that material. Names no slot holds are returned, not raised (a match over a whole file covers
+    more materials than one object uses). Two keys that bind one slot raise.
     """
     names = [m.name if m is not None else None for m in mesh.materials]
     out, unused = {}, []
@@ -926,12 +943,11 @@ def bake_unique(obj, asset_dir, name, A, sources, *, reserved=(), margin_px=None
                 ao_samples=48, post_compose=None, emissive=False, high=None,
                 cage_extrusion=0.03, max_ray=0.10, src_uv=None, share=None):
     """
-    Bake N source materials onto a unique layout and write the CS2 texture set (module
-    docstring). `sources` maps polygon material_index (int) or material slot NAME (str,
-    e.g. cs2_ingest.match_texture_sets output) -> SourceSet; every index a face uses must
-    resolve. `share` = bay sharing for cs2_uv.pack_unique (None: not passed on at all).
-    Returns the report dict; raises on failure after restoring the mesh and the
-    scene.
+    Bake N source materials onto a unique layout and write the CS2 texture set (module docstring).
+    `sources` maps polygon material_index (int) or material slot NAME (str, e.g.
+    cs2_ingest.match_texture_sets output) -> SourceSet. Every index a face uses must resolve.
+    `share` = bay sharing for cs2_uv.pack_unique (None: not passed on at all). Returns the report
+    dict. Raises on failure after restoring the mesh and the scene.
     """
     pack_kw = {} if share is None else {"share": share}
     _require_background()
@@ -1261,16 +1277,16 @@ def _placeholder(key):
 
 
 def _compose_world(obj):
-    """World matrix from matrix_basis and the parent chain (never stale; no constraints)."""
+    """World matrix from matrix_basis and the parent chain (never stale, no constraints)."""
     if obj.parent is None:
         return obj.matrix_basis.copy()
     return _compose_world(obj.parent) @ obj.matrix_parent_inverse @ obj.matrix_basis
 
 
 def _current_world(obj):
-    """obj's world matrix NOW. `obj.location = ...` leaves matrix_world stale until the
-    depsgraph runs (5.2.2, measured: 10 tiles off at 1 m/tile, P0a review), so update the
-    view layer first; an object outside it is never evaluated - compose by hand."""
+    """obj's world matrix NOW. `obj.location = ...` leaves matrix_world stale until the depsgraph runs
+    (5.2.2, measured: 10 tiles off at 1 m/tile, P0a review), so update the view layer first. An
+    object outside it is never evaluated, so compose it by hand."""
     vl = bpy.context.view_layer
     if vl.objects.get(obj.name) == obj:
         vl.update()
@@ -1280,14 +1296,15 @@ def _current_world(obj):
 
 def project_world_uv(obj, metres_per_tile, kind="box", layer=TILE_LAYER):
     """
-    World-anchored tiling UVs in tiles (art-pipeline-v2.md:181-193), read through the
-    CURRENT world matrix (_current_world; the object's transform is not applied or changed):
-      box     dominant world axis per face; (u, v) frames chosen so u x v = +axis and u is
-              negated on negative faces - no mirrored islands; walls get v = world Z.
-      planar  per-face plane frame: u horizontal in the face, v up the slope (roofs: no
-              1/cos stretch, rows run along the eaves).
-      cyl     angle about world Z through the part's bbox center x mean radius, v = z,
-              per-face unwrap about the face's own center angle; caps (|n.z| > 0.7) planar.
+    World-anchored tiling UVs in tiles (art-pipeline-v2.md:181-193), read through the CURRENT world
+    matrix (_current_world, the object's transform is not applied or changed):
+    - box: dominant world axis per face. The (u, v) frames are chosen so u x v = +axis and u is
+      negated on negative faces, so no island is mirrored. Walls get v = world Z.
+    - planar: per-face plane frame. u is horizontal in the face and v goes up the slope (roofs: no
+      1/cos stretch, rows run along the eaves).
+    - cyl: angle about world Z through the part's bbox center x mean radius, v = z, per-face unwrap
+      about the face's own center angle. Caps (|n.z| > 0.7) are planar.
+
     Creates `layer` if needed without changing the active layer (unless it is the first).
     """
     if kind not in PROJECTIONS:

@@ -1,18 +1,25 @@
 """
-test_export_tooling.py - T83 export-round tooling gaps (DECISIONS 290, 298).
+test_export_tooling.py: T83 export-round tooling gaps (DECISIONS 290, 298).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_export_tooling.py
 
 A. cs2_validate.guess_kind reads the kind from the asset's manifest (school / patrol / sign have no
-   building word in their names); the name guess is only the fallback.
-B. The one-batch layout gate: a sharedAssets path must be `../<Owner>/<file>`; a folder whose sharer
-   reaches out of its family folder gets a `family-folder` ERROR from validate_asset_folder_ex.
+building word in their names). The name guess is only the fallback.
+
+B. The one-batch layout gate: a sharedAssets path must be `../<Owner>/<file>`. A folder whose sharer
+reaches out of its family folder gets a `family-folder` ERROR from validate_asset_folder_ex.
+
 C. welcome_sign takes the letter: default A = the old signs/A + SkiWelcomeSignA, X -> signs/X.
-D. lodge.py: every tiled building (all five lodges, school, both patrol huts) exports under ONE parent
-   (assets/import/buildings/<letter>) with the owner at `../<Owner>`; an untiled build keeps its category.
+
+D. lodge.py: every tiled building (all five lodges, school, both patrol huts) exports under ONE
+parent (assets/import/buildings/<letter>) with the owner at `../<Owner>`. An untiled build keeps its
+category.
+
 E. lodge.py --finalize recomposes the family sheet and installs the owner maps (no building built).
-   The argument guards always run; the sheet build itself (2048 px, ~7.5 min) only with `-- --full`.
-Prints one PASS line and exits 0; any failure raises (exit 1 with --python-exit-code 1).
+The argument guards always run. The sheet build itself (2048 px, ~7.5 min) runs only
+with `-- --full`.
+
+Prints one PASS line and exits 0. Any failure raises (exit 1 with --python-exit-code 1).
 """
 
 import json

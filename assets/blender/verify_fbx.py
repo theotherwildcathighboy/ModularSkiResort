@@ -26,7 +26,7 @@ def main():
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
 
-    # Blender 5.x ships a new importer at wm.fbx_import; fall back to the classic one.
+    # Blender 5.x ships a new importer at wm.fbx_import. Fall back to the classic one.
     if hasattr(bpy.ops.wm, "fbx_import"):
         op, label = bpy.ops.wm.fbx_import, "wm.fbx_import"
     else:
