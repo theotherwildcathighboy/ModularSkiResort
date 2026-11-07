@@ -1,13 +1,13 @@
 """
-safety_fence_stage.py - prefab JSON staging + S1 surgery for the orange safety-net fence
-(design: docs/research/art/assets-2026-10/design/safety-fence.md; build report:
-docs/research/art/assets-2026-10/build/safety-fence.md). Pure Python (no bpy): runs under
-Blender's bundled interpreter (`python.exe -I safety_fence_stage.py ...`) or is imported by
-safety_fence.py / tests/test_safety_fence.py.
+safety_fence_stage.py - prefab JSON staging + S1 surgery for the orange safety-net fence (design:
+docs/research/art/assets-2026-10/design/safety-fence.md, build report:
+docs/research/art/assets-2026-10/build/safety-fence.md). Pure Python (no bpy). It runs under Blender's bundled
+interpreter (`python.exe -I safety_fence_stage.py ...`). safety_fence.py and tests/test_safety_fence.py can also
+import it.
 
-WHAT IT STAGES (assets/staging/prefabs/fences/A/, idempotent; a .cid is minted ONCE and never
-re-minted, 32 lowercase hex, no newline, no BOM; .Prefab files UTF-8 without BOM, CRLF like the
-game-side files)
+WHAT IT STAGES in assets/staging/prefabs/fences/A/. The staging is idempotent. A .cid is minted ONCE and never
+re-minted (32 lowercase hex, no newline, no BOM). .Prefab files are UTF-8 without BOM, CRLF like the game-side
+files.
 
     SkiSafetyFence/            NetFencePrefab  (clone of 1.6.2 FenceIndustrialHigh01, design section 2)
     SkiSafetyFenceSection/     NetSectionPrefab
@@ -22,29 +22,30 @@ game-side files)
                                re-writing SkiRunGroomedA_en-US.loc byte for byte, see prove_loc)
     safety-fence-staging.json  the record (names, cids, placeholders, GUIDs and their sources)
 
-Every $type table is written by one emitter (`emit`): ids are declared at first use in document
-order (monotonic, no forward reference), $ids are pre-order. Placeholders for not-yet-imported
-meshes follow the sign-set convention: `$fstrref:"CID:REPLACE_<Mesh>_MESH_CID"`.
+One emitter (`emit`) writes every $type table. Ids are declared at first use in document order (monotonic, no
+forward reference). $ids are pre-order. Placeholders for not-yet-imported meshes follow the sign-set convention:
+`$fstrref:"CID:REPLACE_<Mesh>_MESH_CID"`.
 
-SURGERY (`surgery(imported_data, apply=False, ...)`, game CLOSED; dry run unless apply=True)
+SURGERY (`surgery(imported_data, apply=False, ...)`). The game must be CLOSED. The call is a dry run unless
+apply=True.
     probe=True   install the three probe prefabs only (no import needed).
     default      after the import of assets/import/fences/A:
-      1 find "SkiSafetyNetA Mesh_*", "SkiSafetyNetA_LOD1 Mesh_*", "SkiNetPostA Mesh_*" under
-        ImportedData/c030ee3ff256df91 (exactly one each, else STOP);
-      2 TEMPLATE GATE: the .Surface each net mesh prefab references must carry template hash 34
-        (CurvedHashedCutout) in bytes 2-5 (SurfaceAsset.cs:421-425 1.6.2f1-colossal); 0 / 1 =
-        the settings.json Surface block did not apply -> STOP;
-      3 LOD GATE: the LOD0 mesh prefab's LodProperties lists the LOD1 mesh CID;
-      4 append CurveProperties + ColorProperties (LOD0), CurveProperties (LOD1), ColorProperties
-        (SkiNetPostA Mesh), renumbering the whole $type table to first-use order;
-      5 write the five staged prefabs into ImportedData/<Name>/ with the mesh CIDs filled in
-        (end_posts=True also sets UtilityLane.m_NodeObject = SkiNetPost and installs it);
-      6 re-check every written file (the validate_prefab.ps1 rules, ported: check_prefab_text).
-    Backups of every touched game file go to %TEMP%/safety-fence-surgery-<stamp>/ first.
+      1 Find "SkiSafetyNetA Mesh_*", "SkiSafetyNetA_LOD1 Mesh_*", "SkiNetPostA Mesh_*" under
+        ImportedData/c030ee3ff256df91 (exactly one each, else STOP).
+      2 TEMPLATE GATE: the .Surface that each net mesh prefab references must carry template hash 34
+        (CurvedHashedCutout) in bytes 2-5 (SurfaceAsset.cs:421-425 1.6.2f1-colossal). A hash of 0 or 1 =
+        the settings.json Surface block did not apply -> STOP.
+      3 LOD GATE: the LodProperties of the LOD0 mesh prefab lists the LOD1 mesh CID.
+      4 Append CurveProperties + ColorProperties (LOD0), CurveProperties (LOD1), ColorProperties
+        (SkiNetPostA Mesh). Renumber the whole $type table to first-use order.
+      5 Write the five staged prefabs into ImportedData/<Name>/ with the mesh CIDs filled in
+        (end_posts=True also sets UtilityLane.m_NodeObject = SkiNetPost and installs it).
+      6 Re-check every written file (the validate_prefab.ps1 rules, ported: check_prefab_text).
+    The script first saves backups of every touched game file to %TEMP%/safety-fence-surgery-<stamp>/.
 
     simulate_import(scratch) fabricates the importer's output (mesh prefabs, .cid files and
     .Surface headers) in a SCRATCH copy of ImportedData only (it refuses any folder without the
-    SCRATCH-COPY.txt marker), so the surgery, validate_prefab.ps1 and preflight.ps1 can be run
+    SCRATCH-COPY.txt marker). With it, you can run the surgery, validate_prefab.ps1 and preflight.ps1
     end to end before the real import.
 
 CLI
@@ -118,7 +119,7 @@ ICON_PLACEHOLDER = "Media/Game/Icons/Fences/TallIndustrialChainLinkFence.svg"   
 FENCE_STATE = 95                      # NetPieceRequirements.Fence (enum line 100 - 5, 1.6.0 = 1.6.2)
 
 # --------------------------------------------------------------------------------------
-# Values (design section 2 / 5; the knobs the probe may change are marked KNOB)
+# Values (design section 2 / 5). The knobs that the probe may change are marked KNOB
 # --------------------------------------------------------------------------------------
 
 MAX_SLOPE = 2.0                       # vanilla fences 0.2 (20 %): useless on a ski run
@@ -126,18 +127,19 @@ UI_PRIORITY = 1000
 PROBE_UI_PRIORITY = 1001
 PIECE_WIDTH = 1.0
 PIECE_LENGTH = 4.0
-PIECE_HEIGHT = (0.0, 1.6)             # vanilla chain link {0, 2.6}; our net + caps reach 1.58
+PIECE_HEIGHT = (0.0, 1.6)             # vanilla chain link {0, 2.6}. Our net + caps reach 1.58
 PIECE_LAYER = 0                       # KNOB: 0 Surface (grades a 1 m strip) vs 2 Top (cut only)
 NODE_OFFSET = 0.5                     # KNOB
-ALLOW_PARALLEL = False                # KNOB (vanilla false; open question 6)
+ALLOW_PARALLEL = False                # KNOB (vanilla false, open question 6)
 LANE_WIDTH = 0.1
 LANE_CAPACITY = 2.0
 UTILITY_FENCE = 16                    # UtilityTypes.Fence
 TILING_COUNT = 4                      # KNOB: 2 / 4 / 8 all clip on the tile's 0.5 m vertex columns
 OVERRIDE_LENGTH = 4.0
 PAD_RGB = (1.0, 0.15, 0.02)           # orchestrator 2026-10-13: the checker's redder "tintB" (the photo's net is
-                                      # crimson-red; cs2_asset.PAD_RGB 0.85/0.25/0.10 read terracotta); slot 2 (net)
-                                      # and slot 3 (posts). One constant: change here, re-run surgery, no re-import.
+                                      # crimson-red, and cs2_asset.PAD_RGB 0.85/0.25/0.10 read terracotta). It
+                                      # colors slot 2 (net) and slot 3 (posts). One constant: change here, re-run
+                                      # surgery, no re-import.
 TEMPLATE_HASH = {0: "Default", 1: "DefaultCutout", 13: "DefaultDoubleSided",
                  14: "DefaultCutoutDoubleSided", 16: "Curved", 30: "CurvedTransparent",
                  31: "CurvedCutout", 34: "CurvedHashedCutout", 35: "DefaultHashedCutout",
@@ -233,7 +235,7 @@ def emit(root):
         return _num(v)
 
     def block(v, ind, prefix):
-        """Write `prefix` + v; `prefix` is the '"key": ' part (or '' for array items)."""
+        """Write `prefix` + v. `prefix` is the '"key": ' part (or '' for array items)."""
         pad = " " * ind
         if isinstance(v, (Obj, Struct)):
             lines.append(f"{pad}{prefix}{{")
@@ -281,8 +283,8 @@ def _component(type_short, name, fields):
 
 
 def net_prefab(name, section_cid, ui_priority):
-    """NetFencePrefab: UIObject (Pathways) + UIObjectOverrideGroup (Fences) + PlaceableNet +
-    ServiceObject (Landscaping) + Unlockable (Surfaces); one section; Fence edge / node states."""
+    """NetFencePrefab: UIObject (Pathways) + UIObjectOverrideGroup (Fences) + PlaceableNet + ServiceObject
+    (Landscaping) + Unlockable (Surfaces). It has one section and Fence edge / node states."""
     comps = [
         _component("UIObject", "UIObject", [
             ("m_Group", fref("UnityGUID", GUID["pathways_group"][0])),
@@ -393,8 +395,8 @@ def post_prefab(name, mesh_ref):
 
 
 # --------------------------------------------------------------------------------------
-# Mesh-prefab surgery fragments (appended to the IMPORTED mesh prefabs; @Tk@ = type ids,
-# assigned and renumbered at surgery time)
+# Mesh-prefab surgery fragments (appended to the IMPORTED mesh prefabs). @Tk@ = type ids, assigned and renumbered at
+# surgery time
 # --------------------------------------------------------------------------------------
 
 def curve_fragment(id0=900):

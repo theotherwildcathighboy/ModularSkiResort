@@ -1,39 +1,50 @@
 """
-Lift alignment phase 2 gate, round 2 (2026-11-02; docs/research/field/2026-11-02/liftalign/articulation-design-note.md,
-option C): hinged HALF trains. The SKINNED towers: FG12 (Yan), DQ12 (Kagelok ingest), GD12 (rebuild, SKIN_GD sheaves a
-side) through lift_tower.set_skinned, and the tram SkiTramTower30A through tram_tower.set_skinned (saddle halves +
-haul-row halves on their own anchor bones).
+Lift alignment phase 2 gate, round 2 (2026-11-02, docs/research/field/2026-11-02/liftalign/articulation-design-note.md,
+option C): hinged HALF trains. The gate covers the SKINNED towers:
+- FG12 (Yan), DQ12 (Kagelok ingest) and GD12 (rebuild, SKIN_GD sheaves a side) through lift_tower.set_skinned.
+- The tram SkiTramTower30A through tram_tower.set_skinned (saddle halves + haul-row halves on their own anchor bones).
 
-Each build RAISES unless:
+Each build RAISES unless its condition holds:
 
   K1  G6 held (cs2_skin.sweep over cs2_skin.joint_grid(theta_max), theta_max = min(type max slope, TILT_CAP 30) = 30
       for every family: both halves in {-30, -15, 0, 15, 30} with |front - back| <= 40, plus the +-20 deg half-breaks
-      at every mean): no overlap half vs head / half vs half, clearance >= SKIN_CLEAR_MIN, the main-pin gap <=
-      SKIN_PIN_GAP_MAX, the rope runs clear, every half's rope seated on all its crowns (SEAT_GAP) at every pose; the
-      pose count is the grid's; the round 3 hardware: DQ / GD a static clevis tongue `hanger_<side>_t` (Root) per
-      lane, FG (SKIN_FG beam, round 4) the half beams at the shipped height on yoke straps with the sheave arms and
-      nothing outboard of a wheel's inboard face (bogie_low: the bars at axle height, no sheave arms), the tram's
-      rocker frame (pin block, two legs, bearer, pin boss, crossbeam) per lane;
-  K2  every level (LOD0, LOD1, LOD2) skinned: vertex groups exactly the bones, every vertex 1.0 on one bone
-      (cs2_asset.check_skin_weights), both main halves non-empty at LOD0;
-  K3  the rig: Root at the origin, every half bone under Root at its pivot with the up / roll 0 rest; the
-      Armature-modifier pose at a crest (front +15 / back -15) and a dip is the sweep's pose (cs2_skin.posed_copy);
-  K4  export: cs2_asset.export_fbx_skinned of the three levels re-imports (cs2_skin.roundtrip) with exactly the bones at
-      the pivots (game cm), identity rests, one bone per vertex, and THE AXIS TEST: in the raw file frame (z = game z)
-      every TrainFront* group's bbox center at z > 0 and every TrainBack* group's at z < 0 (game +z = net -Y =
-      authoring +X: cs2_asset.py:40, :1484-1487, PIPELINE rule T);
-  K5  deterministic (two skinned builds hash alike: vertices, faces, part table);
-  K6  negatives: a skinned DQ12 rebuild head refuses (no recipe); G6 fails on the DQ12 clevis with the full-section
-      yoke from 0.10 m (SKIN_CLEVIS dq_beam_x 0.20: at a 30 deg pitch the beam meets the static tongue); a flipped
-      travel sign (cs2_skin.FRONT_SIGN_NET +1) trips the build-time axis test
-      (skin_part_bones: the _f halves must ride TrainFront); seat_half refuses ray counts that miss the rope's corners;
-  K7  off is off: unskinned FG12 and tram30 carry no main pin / saddle halves, no `skin` report, no vertex groups;
-  K9  the family (2026-11-03): every other line tower (FG8 / FG16 / FG20, DQ10..DQ20 ingest, GD16 / GD20 rebuild at 10 a
-      side, tram 45 / 60) builds skinned with G6 held over the same grid (the K1 rows and the round 3-4 hardware) and
-      LOD0 at or under its cap; FAMILY_CAP_PENDING lists an over-cap member awaiting an owner call at its exact count
-      (any growth fails); the tall GD (top >= 16) carry lift_tower.SKIN_GD_TALL_DENSITY, GD12 does not.
+      at every mean). At every pose these conditions hold:
+      - No overlap half vs head / half vs half.
+      - Clearance >= SKIN_CLEAR_MIN.
+      - The main-pin gap <= SKIN_PIN_GAP_MAX.
+      - The rope runs clear.
+      - Every half's rope is seated on all its crowns (SEAT_GAP).
+      The pose count is the grid's. The round 3 hardware is in place:
+      - DQ / GD: a static clevis tongue `hanger_<side>_t` (Root) per lane.
+      - FG (SKIN_FG beam, round 4): the half beams at the shipped height on yoke straps, with the sheave arms and nothing
+        outboard of a wheel's inboard face (bogie_low: the bars at axle height, no sheave arms).
+      - Tram: the rocker frame (pin block, two legs, bearer, pin boss, crossbeam) per lane.
+  K2  Every level (LOD0, LOD1, LOD2) is skinned. The vertex groups are exactly the bones. Every vertex has weight 1.0 on
+      one bone (cs2_asset.check_skin_weights). Both main halves are non-empty at LOD0.
+  K3  The rig: Root at the origin, every half bone under Root at its pivot with the up / roll 0 rest. The Armature-modifier
+      pose at a crest (front +15 / back -15) and at a dip is the sweep's pose (cs2_skin.posed_copy).
+  K4  Export: cs2_asset.export_fbx_skinned of the three levels re-imports (cs2_skin.roundtrip) with these results:
+      - Exactly the bones at the pivots (game cm), identity rests, one bone per vertex.
+      - THE AXIS TEST: in the raw file frame (z = game z) the bbox center of every TrainFront* group is at z > 0 and
+        the bbox center of every TrainBack* group is at z < 0.
+        Game +z = net -Y = authoring +X: cs2_asset.py:40, :1484-1487, PIPELINE rule T.
+  K5  Deterministic: two skinned builds hash alike (vertices, faces, part table).
+  K6  Negatives:
+      - A skinned DQ12 rebuild head refuses (no recipe).
+      - G6 fails on the DQ12 clevis with the full-section yoke from 0.10 m (SKIN_CLEVIS dq_beam_x 0.20). At a 30 deg pitch
+        the beam meets the static tongue.
+      - A flipped travel sign (cs2_skin.FRONT_SIGN_NET +1) trips the build-time axis test (skin_part_bones: the _f halves
+        must ride TrainFront).
+      - seat_half refuses ray counts that miss the rope's corners.
+  K7  Off is off: unskinned FG12 and tram30 carry no main pin / saddle halves, no `skin` report, no vertex groups.
+  K9  The family (2026-11-03): every other line tower builds skinned. These are FG8 / FG16 / FG20, DQ10..DQ20 ingest,
+      GD16 / GD20 rebuild at 10 a side, and tram 45 / 60. Each of them must meet these conditions:
+      - G6 holds over the same grid (the K1 rows and the round 3-4 hardware).
+      - LOD0 is at or under its cap. FAMILY_CAP_PENDING lists an over-cap member awaiting an owner call at its exact count
+        (any growth fails).
+      - The tall GD (top >= 16) carry lift_tower.SKIN_GD_TALL_DENSITY. GD12 does not.
 
-The DQ12 cases need the gitignored Kagelok .blend; when it is absent they SKIP with a printed line.
+The DQ12 cases need the gitignored Kagelok .blend. When it is absent they SKIP with a printed line.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_tower_skinned.py
 """
@@ -89,10 +100,12 @@ def build_lift(key, head, sweep=True):
 
 
 def k1_round3_lift(spec, t, table, info):
-    """Round 3-4 hardware and the tilt clamp (K1): theta_max = min(type max, TILT_CAP); DQ / GD the static clevis tongue
-    per lane between the yoke plates; FG beam (round 4) the half beams at the shipped height on their yoke straps, the
-    sheave arms, nothing of the train or hanger outboard of a wheel's inboard face; FG bogie_low (round 3) no sheave
-    arms and every bogie bar centered on the axle."""
+    """Round 3-4 hardware and the tilt clamp (K1). theta_max = min(type max, TILT_CAP).
+    - DQ / GD: the static clevis tongue per lane between the yoke plates.
+    - FG beam (round 4): the half beams at the shipped height on their yoke straps, the sheave arms, and nothing of the
+      train or
+      hanger outboard of a wheel's inboard face.
+    - FG bogie_low (round 3): no sheave arms and every bogie bar centered on the axle."""
     fam = spec.family
     want_t = min(LT.SKIN_TYPE_MAX_SLOPE[fam], cs2_skin.TILT_CAP)
     if LT.SKIN_THETA_MAX[fam] != want_t or want_t != 30.0:
@@ -104,8 +117,11 @@ def k1_round3_lift(spec, t, table, info):
             _fail(f"{spec.key} K1: clevis tongues {tongues} missing or not static ({[n for n in tongues if n in pb]})")
     txt = ", clevis tongues static"
     if fam == "FG" and LT.SKIN_FG.get("beam"):
-        # round 4, the shipped three tiers: the half beams at the shipped height (mast - 0.40), a yoke strap per half
-        # on the main pin, the sheave arms back, every train part and hanger inboard of the wheels' inboard faces
+        # Round 4, the shipped three tiers:
+        # - the half beams at the shipped height (mast - 0.40)
+        # - a yoke strap per half on the main pin
+        # - the sheave arms back
+        # - every train part and hanger inboard of the wheels' inboard faces
         cen = cs2_skin.part_centroids(t, table)
         zc = {n: float((c[1][2] + c[2][2]) / 2.0) for n, c in cen.items()}
         main_z = spec.tube_top - LT.FG_HANGER

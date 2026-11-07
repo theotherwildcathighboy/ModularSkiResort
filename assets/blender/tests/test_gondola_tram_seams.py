@@ -1,84 +1,93 @@
 """
-test_gondola_tram_seams.py - cross-generator seams of the gondola + tram family (integration
-2026-10-11, docs/research/art/assets-2026-10/build/gondola-tram-integration.md).
+test_gondola_tram_seams.py - cross-generator seams of the gondola + tram family (integration 2026-10-11,
+docs/research/art/assets-2026-10/build/gondola-tram-integration.md).
 
-lift_cabin.py, tram_tower.py and tram_station.py each assert their own contracts. This test
-asserts the numbers one asset hands to another, and builds nothing (it imports the three shipped
-cabin FBXs per LOD; about 2 s):
+lift_cabin.py, tram_tower.py and tram_station.py each assert their own contracts. This test asserts the numbers
+that one asset hands to another. It builds nothing (it imports the three shipped cabin FBXs per LOD, about 2 s):
 
   1. CODE: the generators' constants agree with each other and with the rulings R27-R31.
-  2. EXPORTS: the shipped manifests under assets/import (cabins/A, tramtowers/A, towers/O lattice,
-     stations/tram/A) agree with each other and with the code; the shipped cabin MESHES fit the
-     carrier envelopes the towers were checked with. All ten ship, so a missing manifest or FBX
-     FAILS (fixer 2026-10-11, review note 9); `-- --allow-missing` turns that back into a note
-     for pre-export runs.
+  2. EXPORTS: the shipped manifests under assets/import (cabins/A, tramtowers/A, towers/O lattice, stations/tram/A)
+     agree with each other and with the code. The shipped cabin MESHES fit the carrier envelopes that the towers
+     were checked with. All ten ship, so a missing manifest or FBX FAILS (fixer 2026-10-11, review note 9).
+     `-- --allow-missing` turns that back into a note for pre-export runs.
 
 Seams (S#):
-  S1 tram hang chain (R27): hang 10.50, rope = pivot + 10.00, haul 0.40 below the rope, in the
-     cabin, the tower and the stations.
-  S2 tram lanes (R28): track HV x +-5.5, haul x +-5.0; cabin haul grips at dy = track - haul.
-  S3 R30: carriage half-width 1.10; the cabin's keep-outs k1 / k2 == the tower's R30 bands.
+  S1 tram hang chain (R27): hang 10.50, rope = pivot + 10.00, haul 0.40 below the rope. The chain holds in the cabin,
+     the tower and the stations.
+  S2 tram lanes (R28): track HV x +-5.5, haul x +-5.0. Cabin haul grips at dy = track - haul.
+  S3 R30: carriage half-width 1.10. The cabin's keep-outs k1 / k2 == the tower's R30 bands.
   S4 drawn rope radii (HV 0.100, LV 0.060) in the cabin wheel seat and the tower saddles.
   S5 tram envelope: every vertex of the shipped SkiTramCabinA LOD0/1/2 lies inside the union of
      tram_tower.CARRIER_TRAM (lane frame, both lanes, dz = y - 10.00).
-  S6 gondola envelope: every vertex of the shipped SkiGondolaCabin8A LOD0/1/2 lies inside the
-     union of tram_tower.CARRIER_GD in BOTH pin frames (rope point on the lane; grip top on the
-     lane = what ChairPinSystem does today, cabin manifest clearance note).
-  S7 gondola line: cabin gd8 lane / hang / axle == tram_tower GD (H_top 2.0 on the GD12 spec
-     top 12.0 -> axle 10.0); NetSubObjects y = axle + grip-above-rope + 0.03 = 10.11.
-  S8 lane prefab identity: FindAnchors pairs a stub with a lane only by prefab (PHASE3 10.3), so
-     the tram tower stubs name the same lane prefabs (and fallbacks) as the tram station stubs;
-     the gondola HV stubs name SkiGondolaHaulRope (round-2-contract 10.1).
-  S9 manifests: tower datum / stubs / UtilityObject; station levels, stubs, docks and hosted
-     poses (base only, identity, m_ParentMesh 0; top hosts none); cabin contract rows; the
-     cabin's hosted-pose formula (pivot = deck - 0.30) == the stations' deck / pivot.
-  S10 lift_terminal_detach --gondola's carrier envelope (GD_ENV: per height band, off-center
-     OUTBOARD by the 6th field) encloses every vertex of the shipped SkiGondolaCabin8A
-     LOD0/1/2. A FAIL once stations/gondola/A is exported (a NOTE before).
-  S12 gondola stations (draft 1, 2026-10-11) vs cabin, towers and catalog: the shipped
-     stations/gondola/A manifests carry gauge 6.0 (= cabin gd8 lane 3.0 = GD towers), lane /
-     rope y 4.85 = deck 0.30 + step-in 0.05 + hang 4.50 (carriers.json gd8), wheel (0, 4.85,
-     9.40 / 5.40) and stub tip -16 == the SkiCatalog.cs station rows, HV anchors at x +-3.0
-     naming SkiGondolaHaulRope (== tram_tower.STUB_LANES gd_haul), the line rows y 10.11 ==
-     the cabin manifest, the hosted entry-tower pose (0, 0, -11) 180 deg / rope 4.85 on the
-     base only (the tower is NOT built yet: towers-transfer audit G2), and the build's real-
-     cabin sweep (G8) >= 0.30 m made with the CURRENT shipped cabin FBX (sha1).
-  S11 catalog: the carriers.json gd8 / tram rows carry lift_cabin.CARRIERS' CONTRACT FIELDS
-     (lift_cabin.CONTRACT_FIELDS: hang, grip-above-rope, lane, axle, haul x / dy, bounds,
-     carriage half-width, lane hanging; numbers within 1e-6). Catalog-owned keys (line_prefab,
-     lift_type, owner, seats, speed, spacing) are the catalog owner's (round-2-contract 10.2) and
-     never compared (fixer 2026-10-11, review finding 1). lift_cabin, tram_tower and tram_station
+  S6 gondola envelope: every vertex of the shipped SkiGondolaCabin8A LOD0/1/2 lies inside the union of
+     tram_tower.CARRIER_GD in BOTH pin frames (rope point on the lane, and grip top on the lane = what ChairPinSystem
+     does today, cabin manifest clearance note).
+  S7 gondola line: cabin gd8 lane / hang / axle == tram_tower GD (H_top 2.0 on the GD12 spec top 12.0 -> axle 10.0).
+     NetSubObjects y = axle + grip-above-rope + 0.03 = 10.11.
+  S8 lane prefab identity: FindAnchors pairs a stub with a lane only by prefab (PHASE3 10.3). So the tram tower stubs
+     name the same lane prefabs (and fallbacks) as the tram station stubs. The gondola HV stubs name
+     SkiGondolaHaulRope (round-2-contract 10.1).
+  S9 manifests. The test checks these items:
+     - Tower datum / stubs / UtilityObject.
+     - Station levels, stubs, docks and hosted poses (base only, identity, m_ParentMesh 0, top hosts none).
+     - Cabin contract rows.
+     - The cabin's hosted-pose formula (pivot = deck - 0.30) == the stations' deck / pivot.
+  S10 lift_terminal_detach --gondola's carrier envelope (GD_ENV: per height band, off-center OUTBOARD by the 6th
+     field) encloses every vertex of the shipped SkiGondolaCabin8A LOD0/1/2. The result is a FAIL once
+     stations/gondola/A is exported. Before that it is a NOTE.
+  S12 gondola stations (draft 1, 2026-10-11) vs cabin, towers and catalog. The shipped stations/gondola/A manifests
+     carry these values:
+     - Gauge 6.0 (= cabin gd8 lane 3.0 = GD towers).
+     - Lane / rope y 4.85 = deck 0.30 + step-in 0.05 + hang 4.50 (carriers.json gd8).
+     - Wheel (0, 4.85, 9.40 / 5.40) and stub tip -16 == the SkiCatalog.cs station rows.
+     - HV anchors at x +-3.0 naming SkiGondolaHaulRope (== tram_tower.STUB_LANES gd_haul).
+     - The line rows y 10.11 == the cabin manifest.
+     - The hosted entry-tower pose (0, 0, -11) 180 deg / rope 4.85 on the base only (the tower is NOT built yet:
+       towers-transfer audit G2).
+     - The build's real-cabin sweep (G8) >= 0.30 m, made with the CURRENT shipped cabin FBX (sha1).
+  S11 catalog: the carriers.json gd8 / tram rows carry lift_cabin.CARRIERS' CONTRACT FIELDS (lift_cabin.CONTRACT_FIELDS:
+     hang, grip-above-rope, lane, axle, haul x / dy, bounds, carriage half-width, lane hanging, numbers within 1e-6).
+     The catalog owner owns the catalog keys (line_prefab, lift_type, owner, seats, speed, spacing) (round-2-contract
+     10.2). The test never compares them (fixer 2026-10-11, review finding 1). lift_cabin, tram_tower and tram_station
      read the rows with no drift.
-  S13 bay gates vs the cabin doors (revision 1e): lift_cabin's door (leaves -+T["door"]["x_out"] 0.850
-     about the cabin center = TRAM_STATION dock z = the cabin manifest's hosted z_bay = tram_station
-     DOCK_Z = GATE_DOOR_Z) against tram_station's fence layout (gate_layout, nothing built) on both
-     stations: no post or leaf in the door span (1.70 m), a clear opening >= 1.70 centered on the seam
-     with leaves beside it long enough to close on the seam (each >= half the opening),
-     the gate line outside the cabin's lateral bound; the 1d grid (GATES_AT_DOOR False) would fail the
-     same predicate (self-check); the shipped station manifests' C17 blocks carry the same door and four
-     centered openings.
-  S14 the tram top's haul loop (revision 2, design 8 / skeptic MC9): recomputed HERE from tram_station's
-     constants (the internal tangent of the foot sheave and the bullwheel, the lane wheel's top and back points),
-     every tangent point of tram_station.haul_route_top() lies on its lane-wheel / foot-sheave / bullwheel rope
-     circle within 1 mm, the level run from the stubs is unchanged (y 15.60 at x +-5.00 from z -12.00 to the lane
-     wheel's top at z DW_Z), the lane-wheel / foot-sheave identities hold, and the shipped top manifest's
-     prefab_contract.wheel_centres equals the code (bullwheel, lane wheels, foot sheaves); the base's drive wheel
-     and deflection sheaves the same way (haul_route_base, its manifest).
-  Nitpick A3 (2026-10-13, build/nitpick-a3-cabin-nose.md): the gondola cabin is mirrored to OUTBOARD -Y (its right on the
-     stations' spin). S6 / S10 read the shipped cabin's outboard side from carriers.json gd8 "outboard" (outboard =
-     sign * raw x); S11 gates ONE side: carriers.json gd8 == lift_cabin.GD_OUTBOARD == the shipped cabin's manifest
-     (args, prefab numbers, catalog agree) == -Y.
+  S13 bay gates vs the cabin doors (revision 1e). The test compares lift_cabin's door with tram_station's fence layout
+     (gate_layout, nothing built) on both stations. The door: leaves -+T["door"]["x_out"] 0.850 about the cabin center
+     = TRAM_STATION dock z = the cabin manifest's hosted z_bay = tram_station DOCK_Z = GATE_DOOR_Z. Requirements:
+     - No post or leaf in the door span (1.70 m).
+     - A clear opening >= 1.70 centered on the seam, with leaves beside it long enough to close on the seam (each >=
+       half the opening).
+     - The gate line is outside the cabin's lateral bound.
+     The 1d grid (GATES_AT_DOOR False) would fail the same predicate (self-check). The shipped station manifests' C17
+     blocks carry the same door and four centered openings.
+  S14 the tram top's haul loop (revision 2, design 8 / skeptic MC9). The test recomputes it HERE from tram_station's
+     constants (the internal tangent of the foot sheave and the bullwheel, the lane wheel's top and back points).
+     Checks:
+     - Every tangent point of tram_station.haul_route_top() lies on its lane-wheel / foot-sheave / bullwheel rope
+       circle within 1 mm.
+     - The level run from the stubs is unchanged (y 15.60 at x +-5.00 from z -12.00 to the lane wheel's top at
+       z DW_Z).
+     - The lane-wheel / foot-sheave identities hold.
+     - The shipped top manifest's prefab_contract.wheel_centres equals the code (bullwheel, lane wheels, foot
+       sheaves).
+     The base's drive wheel and deflection sheaves get the same checks (haul_route_base, its manifest).
+  Nitpick A3 (2026-10-13, build/nitpick-a3-cabin-nose.md): the gondola cabin is mirrored to OUTBOARD -Y (its right on
+     the stations' spin). S6 / S10 read the shipped cabin's outboard side from carriers.json gd8 "outboard"
+     (outboard = sign * raw x). S11 gates ONE side: carriers.json gd8 == lift_cabin.GD_OUTBOARD == the shipped
+     cabin's manifest (args, prefab numbers, catalog agree) == -Y.
   S15 (nitpick A3) the SHIPPED gondola cabin through every GD sheave train on the stations' spin (lift_chair.carrier_sweep
-     + carrier_verdict "gantry", the S9 family rule of test_dq_family_seams): GD12 / GD16 / GD20, the ETGD and the gondola
-     top's nose train, both lanes, both pin heights; its stalk on authoring -Y; the approved +Y cabin (its mirror) must
-     cross the rocker mains of each. Builds 4 towers + the gondola top (~1 min); `-- --no-s15` skips it (quick runs).
-     r611: also the gondola BASE's own nose train (built with --no-hosted-tower), so the opposite spin is the negative.
+     + carrier_verdict "gantry", the S9 family rule of test_dq_family_seams).
+     - The trains: GD12 / GD16 / GD20, the ETGD and the gondola top's nose train, both lanes, both pin heights.
+     - The cabin's stalk is on authoring -Y.
+     - The approved +Y cabin (its mirror) must cross the rocker mains of each.
+     The check builds 4 towers + the gondola top (~1 min). `-- --no-s15` skips it (quick runs).
+     r611: also the gondola BASE's own nose train (built with --no-hosted-tower), so the opposite spin is the
+     negative.
   S16 (r611) the gondola base without its hosted ETGDO (--no-hosted-tower): anchors, lane, wheel and nose unchanged,
-     no host; the nose train is the top's GD train (rope tangent on the rims, outer tip anchor - 0.10, inboard end
-     outside the portal wall) with its hangers at their yokes, the top's train unchanged; the exported
+     no host. The nose train is the top's GD train (rope tangent on the rims, outer tip anchor - 0.10, inboard end
+     outside the portal wall) with its hangers at their yokes. The top's train is unchanged. The exported
      stations/gondola/C manifest agrees (no hosted row, nose guide tip -11, ST1 block, G8 with the current cabin).
   Nitpick B2 (2026-10-13, build/nitpick-b2-tram-ramps.md): the tram base's lot 6 x 3 moved its building 4.00 m toward
-     -X; its manifest's prefab_contract.axis_x (-4.00) is the line axis, and S9 / S14 compare the base's stubs, hosted
+     -X. Its manifest's prefab_contract.axis_x (-4.00) is the line axis. S9 / S14 compare the base's stubs, hosted
      cabins and wheel centers RELATIVE to it (the seams are relative: lane gauge, hang, haul offset, wheel geometry).
   INFO: the parked wheel float over the stations' thinner modeled track rope.
 
@@ -110,9 +119,10 @@ NO_S15 = "--no-s15" in ARGV      # skip the S15 cabin sweep (builds 4 towers + t
 
 
 def gd_outboard_sign():
-    """Nitpick A3 (2026-10-13): the gondola cabin's outboard side as an authoring-y sign, from catalog/carriers.json gd8
-    "outboard" ("-Y" -> -1: the carrier's right on the stations' spin). Raw FBX x = authoring y, so the outboard-
-    positive lateral of a shipped cabin vertex is sign * x, and sign * z keeps the frame a proper rotation."""
+    """Nitpick A3 (2026-10-13): the gondola cabin's outboard side as an authoring-y sign, from catalog/carriers.json
+    gd8 "outboard" ("-Y" -> -1: the carrier's right on the stations' spin). Raw FBX x = authoring y. So the
+    outboard-positive lateral of a shipped cabin vertex is sign * x, and sign * z keeps the frame a proper
+    rotation."""
     with open(CARRIERS_JSON, "r", encoding="utf-8") as fh:
         side = json.load(fh)["carriers"]["gd8"].get("outboard")
     return {"+Y": 1.0, "-Y": -1.0}[side]
@@ -260,9 +270,8 @@ def code_seams():
           "S8 tram haul stubs: tower lane prefab + fallback == station", f"{tr_haul}")
     check(TT.STUB_LANES["gd_haul"][0] == "SkiGondolaHaulRope",
           "S8 gondola HV stubs name SkiGondolaHaulRope (round-2-contract 10.1)")
-    # S11 catalog: the gd8 / tram rows of catalog/carriers.json are the ONE source the C# catalog
-    # mirrors (integration 2026-10-11 pasted lift_cabin.md section 5); every generator reads them
-    # without drift
+    # S11 catalog: the gd8 / tram rows of catalog/carriers.json are the ONE source that the C# catalog mirrors
+    # (integration 2026-10-11 pasted lift_cabin.md section 5). Every generator reads them without drift.
     with open(CARRIERS_JSON, "r", encoding="utf-8") as fh:
         rows = json.load(fh)["carriers"]
     check(close(rows["tram"]["hang_m"], 10.50) and close(rows["tram"]["lane_x_m"], 5.5)
@@ -357,8 +366,9 @@ def manifest_seams():
               "S7 gondola rows y = axle + grip-above-rope + 0.03 (AnchorTop rule, 7.15 precedent)")
         check(not mg.get("catalog", {}).get("drift"),
               "S11 SkiGondolaCabin8A manifest records no catalog drift", f"({mg.get('catalog', {}).get('drift')})")
-        # nitpick A3: ONE outboard side - carriers.json gd8 (the stations pose the cabin by it), lift_cabin's
-        # GD_OUTBOARD (the default build) and the shipped cabin (its manifest + prefab numbers)
+        # nitpick A3: ONE outboard side. These three agree: carriers.json gd8 (the stations pose the cabin by
+        # it), lift_cabin's GD_OUTBOARD (the default build) and the shipped cabin (its manifest + prefab
+        # numbers).
         with open(CARRIERS_JSON, "r", encoding="utf-8") as fh:
             cat_side = json.load(fh)["carriers"]["gd8"].get("outboard")
         built = (mg.get("args") or {}).get("outboard")
@@ -534,8 +544,9 @@ def haul_loop_seams():
     print("[seams] 6. tram haul loops (revision 2)")
     tol = 0.001
     hx, hy = TS.HAUL_X, TS.HAUL_Y
-    # independent tangent geometry (top): internal tangent of the -X foot sheave and the bullwheel in the plane
-    # z = BULL_Z; the rope leaves the foot sheave going counter-clockwise under it and arrives over the bullwheel
+    # Independent tangent geometry (top): the internal tangent of the -X foot sheave and the bullwheel in the
+    # plane z = BULL_Z. The rope leaves the foot sheave going counter-clockwise under it and arrives over the
+    # bullwheel.
     c1, r1 = (-TS.FS_X, TS.FS_Y), TS.FS_RR
     c2, r2 = (0.0, TS.BULL_Y), TS.BULL_RR
     d = math.hypot(c2[0] - c1[0], c2[1] - c1[1])
@@ -723,8 +734,8 @@ def gondola_station_seams():
                   and ht["rotation_quat"] == [0, 1, 0, 0] and close(ht["rope_y_required"], rope_y)
                   and close(ht["gauge_m"], 2 * lane),
                   f"S12 {name} hosted entry tower pose (0, 0, -11) 180 deg, rope {rope_y}, gauge {2 * lane}")
-            # gondola revision 1: the entry tower exists (SkiLiftTowerETGDO, towers/O); the station's
-            # G6 records its LOD0 / LOD1 seam against the revised hall (no overlap, the gap)
+            # gondola revision 1: the entry tower exists (SkiLiftTowerETGDO, towers/O). The station's G6 records
+            # its LOD0 / LOD1 seam against the revised hall (no overlap, the gap).
             ts = (m.get("gondola") or {}).get("tower_seam")
             if ts is None:
                 note(f"S12 {name}: no tower seam record (the station predates revision 1 or the tower "
@@ -760,10 +771,11 @@ GD_NOHOST_LETTER = "C"
 
 def gondola_nohost_seams():
     """S16 (r611, the art-601 S1n idea for the gondola): the base without its hosted SkiLiftTowerETGDO keeps the
-    anchors, the lane, the wheel and the lot, hosts nothing, and carries the gondola top's nose train: GD head, the
-    rope tangent on the rim tops, outer rim tip at anchor_x - 0.10, inboard end outside the portal wall, each hanger
-    at its yoke (the top's train keeps its x-0 hangers). The exported manifest (stations/gondola/C) agrees: no
-    hosted row, nose_guide_tip_z -11, ST1 numbers, the G8 cabin sweep made with the current shipped cabin."""
+    anchors, the lane, the wheel and the lot. It hosts nothing. It carries the gondola top's nose train: GD head,
+    the rope tangent on the rim tops, outer rim tip at anchor_x - 0.10, inboard end outside the portal wall, each
+    hanger at its yoke (the top's train keeps its x-0 hangers). The exported manifest (stations/gondola/C)
+    agrees: no hosted row, nose_guide_tip_z -11, ST1 numbers, the G8 cabin sweep made with the current shipped
+    cabin."""
     print("[seams] 4b. S16 the gondola base without its hosted tower (r611)")
     import lift_terminal_detach as LTD  # noqa: E402
     carrier = LTD.load_carrier("gd8", CARRIERS_JSON)
@@ -815,7 +827,8 @@ S15 = {}
 
 def _s15_cabin():
     """The shipped SkiGondolaCabin8A LOD0 in the AUTHORING frame (x travel = raw z, y lateral = raw x, z up = raw y,
-    underside at 0) as lift_chair.carrier_sweep's carrier tuple (coords, polys, names, hang); None when not shipped."""
+    underside at 0) as lift_chair.carrier_sweep's carrier tuple (coords, polys, names, hang). Returns None when
+    it is not shipped."""
     p = os.path.join(IMPORT, "cabins", "A", "SkiGondolaCabin8A", "SkiGondolaCabin8A.fbx")
     if not os.path.isfile(p):
         return None
@@ -832,15 +845,20 @@ def _s15_cabin():
 
 
 def s15_cabin_sweep():
-    """S15 (nitpick A3, 2026-10-13; build/nitpick-a3-cabin-nose.md): the SHIPPED gondola cabin through every GD sheave
-    train on the stations' spin - lift_chair.carrier_sweep (the carrier on lane s faces f = -s, so its RIGHT, authoring
-    -Y, is outboard: the mover's yaw; 1 cm steps over the whole train plus the cabin, both lanes) at both pin heights
-    (the grip top ON the lane = ChairPin today, the rope point on the lane = +0.08) + carrier_verdict "gantry" (nothing
-    crossed but the F10 convention set - rims, liners, sub rockers + sub pins - and every other part, the rocker mains /
-    links / girders first, >= CARRIER_CLEAR_M): GD12 / GD16 / GD20 and the ETGD (their shipped rebuild heads, lane flat
-    at the axle as S9 does it) and the gondola top's nose train (station lane 4.85, rope tangent on its rims). The cabin
-    is read as shipped (its own side, no catalog sign: S11 gates the sign). Negative: its exact y-mirror (= the approved
-    +Y cabin: stalk, carriage and doors on its left = INBOARD on this spin) must cross the mains on every head."""
+    """S15 (nitpick A3, 2026-10-13, build/nitpick-a3-cabin-nose.md): the SHIPPED gondola cabin through every GD
+    sheave train on the stations' spin.
+    - The sweep is lift_chair.carrier_sweep. The carrier on lane s faces f = -s, so its RIGHT, authoring -Y, is
+      outboard (the mover's yaw). It uses 1 cm steps over the whole train plus the cabin, both lanes, at both pin
+      heights (the grip top ON the lane = ChairPin today, the rope point on the lane = +0.08).
+    - The verdict is carrier_verdict "gantry": nothing is crossed but the F10 convention set (rims, liners, sub
+      rockers + sub pins), and every other part, the rocker mains / links / girders first, is >= CARRIER_CLEAR_M
+      away.
+    - The trains are GD12 / GD16 / GD20 and the ETGD (their shipped rebuild heads, lane flat at the axle as S9
+      does it) and the gondola top's nose train (station lane 4.85, rope tangent on its rims).
+
+    The cabin is read as shipped (its own side, no catalog sign: S11 gates the sign). Negative: its exact
+    y-mirror (= the approved +Y cabin: stalk, carriage and doors on its left = INBOARD on this spin) must cross
+    the mains on every head."""
     print("[seams] 5. S15 the shipped gondola cabin through every GD sheave train (stations' spin)")
     if NO_S15:
         note("S15 skipped (-- --no-s15)")

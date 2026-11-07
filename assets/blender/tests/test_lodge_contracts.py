@@ -4,28 +4,36 @@ test_lodge_contracts - recipe contracts (bldg-kit.md section 17 row test_lodge_c
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_lodge_contracts.py
         [-- --fast]          skip the cross-process blockouts (two child Blenders per asset)
 
-For EVERY registered recipe (bldg_recipes.load_recipes: L1 + recipes/*.py) a --blockout
-build must pass lot fit + facing (authoring frame, after the yaw, before orient - the
-engine raises otherwise), the base mode on LOD0 (engine: ring OK, ground prefixes OK,
-ground-band hygiene; plinth: no band vertex), LOD0 <= cap, complete part tags, and the
-asset name must pass validate_asset_name + lint and carry its interior keyword.
-L1 only: base_lodge.py parsed with `ast` (never imported: it mutates
-cs2_asset.QUAD_RESERVED_TOP at import, base_lodge.py:107) - every AFRAME constant equal,
-the derived MAIN_PITCH 1.32558 / 52.97 deg, S2_Z 6.758, PROW_PITCH 1.325, S2P_Z 6.625,
-DECK_TOP 4.66 within 1e-3 of both base_lodge's expressions and aframe_derived, and the
-main W slab's CENTER plane passes through (S2_X0 - OVER, EAVE_Z) and (RIDGE_AT_X, RIDGE_Z)
-pre-yaw (25c: wall plates derived from the roof).
-Prefab names (buildings-review-pipeline 3; the prefab name is save identity): every
-registered recipe's `prefab`, welcome_sign.PREFAB and the `prefab` of every exported building
-manifest (assets/import/{lodges,buildings,signs}) is a BuildingPrefab name of the
-SkiCatalog.cs NAMES block (parsed with preflight / LiftBatch CT-8's line regex).
-Pane clearance (buildings-review-geometry F1-F3): on every registered recipe's parts no
-`win_` pane looks into a roof / gutter / fascia / rake / pier part within 0.6 m
-(recipes/l5_swanky_bottom.check_pane_clearance; L4 / L5 also assert it in their builders).
-L1 (legacy A-frame massing) is skipped: its prow panes sit under the AFRAME eave by design.
-Cross-process determinism (buildings-review-pipeline 4): every registered recipe and the
-Welcome Sign, --blockout in two separate Blender processes -> identical manifest mesh hashes
-and room cells (sign: band PNG sha1s).
+For EVERY registered recipe (bldg_recipes.load_recipes: L1 + recipes/*.py) a --blockout build must
+pass these checks:
+- Lot fit and facing (authoring frame, after the yaw, before orient). The engine raises otherwise.
+- The base mode on LOD0. Engine mode: ring OK, ground prefixes OK, ground-band hygiene. Plinth mode:
+  no band vertex.
+- LOD0 <= cap.
+- Complete part tags.
+- The asset name passes validate_asset_name + lint and carries its interior keyword.
+
+L1 only: the test parses base_lodge.py with `ast`. It never imports the file, because the import
+mutates cs2_asset.QUAD_RESERVED_TOP (base_lodge.py:107). The test checks these items:
+- Every AFRAME constant is equal.
+- The derived MAIN_PITCH 1.32558 / 52.97 deg, S2_Z 6.758, PROW_PITCH 1.325, S2P_Z 6.625 and DECK_TOP
+  4.66 are within 1e-3 of both base_lodge's expressions and aframe_derived.
+- The CENTER plane of the main W slab passes through (S2_X0 - OVER, EAVE_Z) and (RIDGE_AT_X,
+  RIDGE_Z) pre-yaw (25c: wall plates derived from the roof).
+
+Prefab names (buildings-review-pipeline 3): the prefab name is save identity. Every registered
+recipe's `prefab`, welcome_sign.PREFAB and the `prefab` of every exported building manifest
+(assets/import/{lodges,buildings,signs}) is a BuildingPrefab name of the SkiCatalog.cs NAMES block.
+The test parses the block with the line regex of preflight / LiftBatch CT-8.
+
+Pane clearance (buildings-review-geometry F1-F3): on the parts of every registered recipe, no `win_`
+pane looks into a roof / gutter / fascia / rake / pier part within 0.6 m
+(recipes/l5_swanky_bottom.check_pane_clearance). L4 / L5 also assert it in their builders. L1
+(legacy A-frame massing) is skipped: its prow panes sit under the AFRAME eave by design.
+
+Cross-process determinism (buildings-review-pipeline 4): the test builds every registered recipe and
+the Welcome Sign with --blockout in two separate Blender processes. The manifest mesh hashes and
+room cells must be identical (sign: band PNG sha1s).
 """
 
 import ast
@@ -93,8 +101,8 @@ def check_prefab_names(recipes):
             data = json.load(open(path, encoding="utf-8"))
             prefab = data.get("prefab")
             if not prefab and data.get("object_prefab"):
-                # fine-detail pass: a sign-set PROP (signs/B, cs2_signset) is a StaticObjectPrefab
-                # hosted by a building's identity sub-object row, not a SkiCatalog building
+                # Fine-detail pass: a sign-set PROP (signs/B, cs2_signset) is a StaticObjectPrefab.
+                # A building's identity sub-object row hosts it. It is not a SkiCatalog building.
                 props.append(data["object_prefab"])
                 continue
             assert prefab, f"{path}: no prefab field"
@@ -119,10 +127,11 @@ def _only_manifest(d):
 
 
 def check_cross_process(recipes, tmp):
-    """buildings-review-pipeline 4: every registered recipe and the Welcome Sign, --blockout in
-    TWO separate Blender processes (hash seed and BMesh set order change per process; one
-    process cannot see it) -> identical manifest mesh hashes, plus room cells (recipes) or
-    the band PNG sha1s (sign). The two processes of an asset run side by side."""
+    """buildings-review-pipeline 4: the test builds every registered recipe and the Welcome Sign with
+    --blockout in TWO separate Blender processes. The hash seed and the BMesh set order change per
+    process, and one process cannot see this. The manifest mesh hashes must be identical. So must
+    the room cells (recipes) or the band PNG sha1s (sign). The two processes of an asset run side by
+    side."""
     jobs = [(key, "lodge.py", ["--recipe", key, "--blockout"], recipes[key].letter)
             for key in sorted(recipes)] + [("sign", "welcome_sign.py", ["--blockout"], "A")]
     for key, script, argv, letter in jobs:
@@ -149,10 +158,10 @@ def check_cross_process(recipes, tmp):
 
 
 def check_pane_rule(recipe):
-    """None for the legacy A-frame massing: L1's prow panes sit under the AFRAME roof by
-    design (constants verbatim from base_lodge.py; buildings-review-geometry "known, not
-    re-raised"): 18 top-row rays meet roof_prowN / roof_prowS at 0.60 m, the deep eave over
-    the glass, not a part across it."""
+    """Returns None for the legacy A-frame massing. L1's prow panes sit under the AFRAME roof by design
+    (constants verbatim from base_lodge.py, buildings-review-geometry "known, not re-raised"). 18
+    top-row rays meet roof_prowN / roof_prowS at 0.60 m. That is the deep eave over the glass, not a
+    part across it."""
     from recipes import l5_swanky_bottom as SW
     if recipe.massing == "aframe":
         return None
@@ -254,8 +263,8 @@ def check_recipe(recipe, tmp):
 
 
 def demo_volumes_recipe():
-    """A small synthetic `volumes` recipe (not registered): every facade token, a gable
-    roof extra, an extra builder, a recipe lamp - the engine path the L2-L5 / school /
+    """A small synthetic `volumes` recipe (not registered). It has every facade token, a gable roof
+    extra, an extra builder and a recipe lamp. This is the engine path that the L2-L5 / school /
     patrol recipes use."""
     from bldg_recipes import Recipe, Budget, Volume, FacadeRule, Extra
     from cs2_bldg import RoofSpec, WinSpec

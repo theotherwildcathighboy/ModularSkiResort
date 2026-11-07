@@ -4,62 +4,67 @@ groomer.py - SkiGroomerA, a generic snow groomer (snowcat).
     blender --background --factory-startup --python-exit-code 1 --python assets/blender/groomer.py -- \
             --out <letter folder> --export --preview <folder> --review
 
-USE. A moving prop whose Transform our code writes, following the terrain like the lift chairs (docs/V2-IDEAS.md,
-"Driving groomers on the piste"), and the same asset parked. Not a vehicle prefab: no bones and no moving parts in v1, so
-the tracks are static geometry that has to read as tracks. Seen from city-builder distance, sometimes in Photo Mode.
+USE. A moving prop whose Transform our code writes, following the terrain like the lift chairs (docs/V2-IDEAS.md, "Driving
+groomers on the piste"), and the same asset parked. Not a vehicle prefab: no bones and no moving parts in v1, so the tracks
+are static geometry that has to read as tracks. Seen from city-builder distance, sometimes in Photo Mode.
 
 DIMENSIONS (references and status of each number: docs/research/art/groomer-refs/SOURCES.md, git-ignored)
     overall length, blade lip to comb tail   8.92 m    PistenBully 600 data sheet (Bison X catalog 8.96, unverified)
     width over tracks                        4.21 m    same sheet: 1.648 m per track, gap 0.914 m
     hull width                               2.50 m    same sheet
     blade                                    4.79 m wide with the wings swept forward (sheet: 4.41 closed, 5.25 open), 1.17 m high
-    tiller and comb                          5.30 m    between the Bison X tiller widths (5.365 m raised; repo spec 4.1)
-    roof / light bar / beacon top            2.80 / 2.93 / 3.03 m   (sheet 2.88 to the roof fittings; Bison X 3.03, unverified)
+    tiller and comb                          5.30 m    between the Bison X tiller widths (5.365 m raised, repo spec 4.1)
+    roof / light bar / beacon top            2.80 / 2.93 / 3.03 m   (sheet 2.88 to the roof fittings, Bison X 3.03, unverified)
     track length                             5.00 m    MEASURED from pb600-burgeralpe-12.jpg and leitwolf-plateau-rosa.jpg (+-0.3 m)
     top of track, road wheels, cleat pitch   0.88 m, 5 wheels 0.77 m apart, 0.30 m   measured from photos (estimates)
-The older note of a 0.85 m track unit in docs/research/art/snowmaking-props-spec.md section 4 is what shows outside the
-hull from above (pb400-wallis.jpg), not the track.
+The older note of a 0.85 m track unit in docs/research/art/snowmaking-props-spec.md section 4 is what shows outside the hull
+from above (pb400-wallis.jpg), not the track.
 
 AXES. Authored with +X = forward, +Y = the machine's left, +Z = up, origin on the ground at the center of the footprint
-(blade lip to comb tail, tiller end to tiller end). cs2_asset.orient_for_net + export_fbx bake that to raw FBX (y, z, x)
-cm, so forward = CS2 +Z, up = CS2 +Y; the game negates FBX x on import, so an author point (x, y, z) sits at game local
-(-y, z, x) (frame rule T, cs2_liftdress.blender_to_game). The track center is TRACK_CENTER_X ahead of the origin: a driver
-that samples the terrain under the tracks needs that offset; it is in the manifest.
+(blade lip to comb tail, tiller end to tiller end). cs2_asset.orient_for_net + export_fbx bake that to raw FBX (y, z, x) cm,
+so forward = CS2 +Z, up = CS2 +Y. The game negates FBX x on import, so an author point (x, y, z) sits at game local (-y, z,
+x) (frame rule T, cs2_liftdress.blender_to_game). The track center is TRACK_CENTER_X ahead of the origin. A driver that
+samples the terrain under the tracks needs that offset. It is in the manifest.
 
 BUDGET (docs/research/art/snow-gun-pipeline-plan.md, PIPELINE.md Constants). LOD0 3,500 to 5,000 tris, hard. LOD1 <= 50 % of
-LOD0, LOD2 <= 500. 1024 x 1024: never 2048 under 10 m (snow-prop-materials.md section 5); the floor is 512. Density
-per part per cs2_validate (prop: ERROR < 30, WARN < 120 px/m).
+LOD0, LOD2 <= 500. 1024 x 1024: never 2048 under 10 m (snow-prop-materials.md section 5). The floor is 512. Density per part
+per cs2_validate (prop: ERROR < 30, WARN < 120 px/m).
 
 HOW IT IS BUILT. One explicit vertex and face list (no bpy.ops, no canonical sort), so element order is a pure function of
 this file and rigid copies keep their loop order. That loop order is what lets rotated copies stack on one UV island:
-cleats, road wheels, idlers and lamps are placed through proper rotations of one template (never mirrored), so all share
-one island; single-color bars, rods and hoses stack too, each on its biggest copy; the belts share one tile per face through
-tile coordinates (Asset.tile). Parts a rigid unfold would shred are mapped by projection (Asset.set_planar). Everything else
-is unfolded and shelf-packed by snow_props (_unfold_islands, _pack_once) with the mip-safe margin: at 16 px per island the
-island count decides the density, which is why so much stacks. lift_tower.apply_finish_textures bakes the flat zone atlas
-onto the unique layout and bakes AO; the post_compose hook paints detail in the final UV space from the author-frame position
-of every texel, at twice the atlas size and reduced (PAINT_SS), so seams and holes do not alias into stairs: door seams, slats,
-perforation, spokes, belts, comb grooves live in the maps, not the mesh. Stacked islands take a constant occlusion because a
-bake would write the AO of whichever copy came last.
+- Cleats, road wheels, idlers and lamps are placed through proper rotations of one template (never mirrored), so all share
+  one island.
+- Single-color bars, rods and hoses stack too, each on its biggest copy.
+- The belts share one tile per face through tile coordinates (Asset.tile).
+- Parts a rigid unfold would shred are mapped by projection (Asset.set_planar).
+- Everything else is unfolded and shelf-packed by snow_props (_unfold_islands, _pack_once) with the mip-safe margin. At 16 px
+  per island the island count decides the density, which is why so much stacks.
 
-LODS. Each level is LOD0 minus whole parts (LOD_DELETE), no collapse. LOD1 has no real cleats: the outer belt tile paints a bar
-under every cleat, so it still reads as cleated. Every level keeps the blade and the tiller attached to the machine
-(audit_lods_attached), through the push frame and the rear arms, and the parts the top-down camera sees (deck rails, hood panel)
-do not pop at the first switch.
+lift_tower.apply_finish_textures bakes the flat zone atlas onto the unique layout and bakes AO. The post_compose hook paints
+detail in the final UV space from the author-frame position of every texel, at twice the atlas size and reduced (PAINT_SS),
+so seams and holes do not alias into stairs. Door seams, slats, perforation, spokes, belts and comb grooves live in the maps,
+not the mesh. Stacked islands take a constant occlusion because a bake would write the AO of whichever copy came last.
 
-COLOR. The red is the game's own fire engine red, baked into BaseColor. Measured on EU_FireTruck01: tint channel 0 (1, 0.2028, 0.2028), read
-as sRGB and uploaded linear (BatchDataSystem.cs:716-718), over a flat BaseColor of 180 under its ControlMask, so (180, 33, 33) in the end,
-with gloss 0.85 and coat 1. ControlMask is empty, so the machine does not recolor and needs no ColorProperties. One palette: ZONES
-below. No brand name, logo or photo texture on the model; names appear only in the source notes above.
+LODS. Each level is LOD0 minus whole parts (LOD_DELETE), no collapse. LOD1 has no real cleats: the outer belt tile paints a
+bar under every cleat, so it still reads as cleated. Every level keeps the blade and the tiller attached to the machine
+(audit_lods_attached), through the push frame and the rear arms. The parts that the top-down camera sees (deck rails, hood
+panel) do not pop at the first switch.
+
+COLOR. The red is the game's own fire engine red, baked into BaseColor. Measured on EU_FireTruck01: tint channel 0 (1,
+0.2028, 0.2028), read as sRGB and uploaded linear (BatchDataSystem.cs:716-718), over a flat BaseColor of 180 under its
+ControlMask. The result is (180, 33, 33), with gloss 0.85 and coat 1. ControlMask is empty, so the machine does not recolor
+and needs no ColorProperties. One palette: ZONES below. No brand name, logo or photo texture on the model. Names appear only
+in the source notes above.
 
 GLASS is opaque by design (alpha 255 everywhere, no sub-mesh): a low-frequency gradient with an interior silhouette and high
 smoothness.
 
-LIGHTS. One Emissive map (sRGB, RGBA, the texel is the emitted color, black is dark): amber beacons, white roof lamps, two white slits on the
-nose panel. The mesh prefab's single light is purpose 71, so it follows the prefab's Night effects, and BaseColor is untouched, so nothing shows
-by day. That is what lets the far levels keep their lights: the bar under the lamps and the beacons also emits, hidden by them on LOD0 and LOD1
-and on its own on LOD2, where they are deleted. settings.json shares the map with both levels. The engine path, the surgery and the mover's
-one small job are in docs/research/groomer-lights-2026-11-01.md.
+LIGHTS. One Emissive map (sRGB, RGBA, the texel is the emitted color, black is dark): amber beacons, white roof lamps, two
+white slits on the nose panel. The mesh prefab's single light is purpose 71, so it follows the prefab's Night effects.
+BaseColor is untouched, so nothing shows by day. That is what lets the far levels keep their lights. The bar under the lamps
+and the beacons also emits. The lamps and beacons hide it on LOD0 and LOD1. It shows on its own on LOD2, where the lamps and
+beacons are deleted. settings.json shares the map with both levels. The engine path, the surgery and the mover's one small
+job are in docs/research/groomer-lights-2026-11-01.md.
 """
 
 import argparse
@@ -117,7 +122,7 @@ RIM_END_X = 2.44                      # where the rim runs into the cab's corner
 
 # (sRGB byte color, metal, gloss)
 ZONES = {
-    "red":    ((189, 35, 35), 0.0, 0.85),     # ships at a median of (180, 33, 33), EU_FireTruck01's tinted paint, once baked AO has darkened it; its gloss 0.85
+    "red":    ((189, 35, 35), 0.0, 0.85),     # ships at a median of (180, 33, 33), EU_FireTruck01's tinted paint, once baked AO has darkened it. Its gloss is 0.85
     "black":  ((36, 37, 40), 0.0, 0.40),
     "steel":  ((66, 69, 74), 0.5, 0.45),
     "gray":   ((122, 126, 132), 0.6, 0.50),
@@ -178,8 +183,8 @@ class Asset:
         self.planar = {}
 
     def add(self, name, zone, verts, faces, stack=None, tier="shell", raw=False, meta=None):
-        """`faces`: index lists, or (index list, wanted direction); the winding flips to match (center-out when no
-        direction is given). raw=True keeps the winding as given. Unused vertices are dropped. Returns the face ids."""
+        """`faces`: index lists, or (index list, wanted direction). The winding flips to match (center-out when no direction is
+        given). raw=True keeps the winding as given. Unused vertices are dropped. Returns the face ids."""
         if name in self.names:
             raise ValueError(f"duplicate part name {name}")
         if zone not in ZONES:
@@ -232,8 +237,8 @@ class Asset:
         self.planar[name] = (u, n.cross(u))
 
     def tile(self, key, face, corners=None):
-        """Belt tile: the first face with `corners=None` is the canonical island; every later face gets its UVs by
-        bilinear lookup inside it from (t, w) per loop, each in 0..1 of the tile."""
+        """Belt tile: the first face with `corners=None` is the canonical island. Every later face gets its UVs by bilinear
+        lookup inside it from (t, w) per loop, each in 0..1 of the tile."""
         t = self.tiles.setdefault(key, {"canon": None, "dups": []})
         if corners is None:
             if t["canon"] is not None:
@@ -313,7 +318,7 @@ def box(b, name, zone, lo, hi, skip=(), **kw):
 
 
 def bar(b, name, zone, p0, p1, w, h, up=(0, 0, 1), caps=(False, False), taper=1.0, **kw):
-    """Rectangular bar: w along the side axis, h along the bar's own up; `taper` scales the p1 end."""
+    """Rectangular bar: w along the side axis, h along the bar's own up. `taper` scales the p1 end."""
     a, c = Vector(p0), Vector(p1)
     d = (c - a).normalized()
     ref = Vector(up)
@@ -339,7 +344,7 @@ def bar(b, name, zone, p0, p1, w, h, up=(0, 0, 1), caps=(False, False), taper=1.
 
 
 def _frame(axis):
-    """Right-handed frame (u, v, a) with u x v = a; deterministic."""
+    """Right-handed frame (u, v, a) with u x v = a, deterministic."""
     a = Vector(axis).normalized()
     ref = Vector((0, 0, 1)) if abs(a.z) < 0.9 else Vector((1, 0, 0))
     u = ref.cross(a).normalized()
@@ -369,8 +374,8 @@ def tube(b, name, zone, p0, p1, r, n=6, caps=(False, True), r1=None, **kw):
 
 
 def hose(b, name, zone, pts, r, n=4, smooth=2, **kw):
-    """Tube through a polyline, Catmull-Rom smoothed, with mitered rings, parallel-transported so it never twists; the ends
-    are buried in what they connect."""
+    """Tube through a polyline, Catmull-Rom smoothed, with mitered rings, parallel-transported so it never twists. The ends are
+    buried in what they connect."""
     Q = [Vector(p) for p in pts]
     P_ = []
     for i in range(len(Q) - 1):
@@ -405,7 +410,7 @@ def hose(b, name, zone, pts, r, n=4, smooth=2, **kw):
 
 
 def loft(b, name, zone, rings, closed=True, skip=None, want=None, caps=(False, False), cap_want=(None, None), **kw):
-    """Rings of equal length joined by quads. `skip(i, j)` drops a face; `want(i, j)` gives its direction."""
+    """Rings of equal length joined by quads. `skip(i, j)` drops a face. `want(i, j)` gives its direction."""
     K = len(rings[0])
     V = [p for r in rings for p in r]
     F = []
@@ -530,8 +535,8 @@ class TrackPath:
         return 0
 
     def boundaries(self):
-        """Belt vertex positions in cleat-pitch units: the straight runs and ramps take the longest step that stays on the
-        run, at most 3 pitches (one tile); the arcs take 1/2 so the round ends stay round."""
+        """Belt vertex positions in cleat-pitch units: the straight runs and ramps take the longest step that stays on the run,
+        at most 3 pitches (one tile). The arcs take 1/2 so the round ends stay round."""
         out = [0.0]
         k = 0.0
         p = self.p
@@ -632,8 +637,8 @@ def _tracks(b):
         _wheel(b, f"F{tag}", s, FRONT_C[0], FRONT_C[1], FRONT_R - TB)
         _wheel(b, f"R{tag}", s, REAR_C[0], REAR_C[1], REAR_R - TB)
         # a dark plate inside each track: what the eye reads between the wheels instead of daylight, and what LOD2 keeps
-        # (symmetric about the track center and inside the belt on both ends, so the right plate is the left one rotated
-        # 180 degrees about Z and both stack on one island; seen from one side only)
+        # (symmetric about the track center and inside the belt on both ends, so the right plate is the left one rotated 180
+        # degrees about Z and both stack on one island. The plate is seen from one side only)
         poly = [(-2.16, 0.80), (2.16, 0.80), (2.38, 0.62), (2.36, 0.42), (1.40, 0.155), (-1.40, 0.155), (-2.36, 0.42), (-2.38, 0.62)]
         V = [Vector((TRACK_CENTER_X + s * x, s * WHEEL_Y, z)) for x, z in poly]
         tris = mathutils.geometry.tessellate_polygon([V])
@@ -666,7 +671,7 @@ def _wheel(b, tag, s, x, z, r, n=12):
 
 
 def _chassis(b):
-    # the belly between the tracks: walls and ends only (a rotated pair each, so they stack); top and bottom never show
+    # the belly between the tracks: walls and ends only (a rotated pair each, so they stack). Top and bottom never show
     xa, xb, ya, za, zb = XR - 0.02, XF + 0.12, 0.40, 0.42, 1.00
     xm = 0.5 * (xa + xb)
     for s, tag in ((1, "L"), (-1, "R")):
@@ -712,7 +717,8 @@ def _hull(b):
         i = next(k for k in range(len(st) - 1) if st[k][0] > x_new >= st[k + 1][0])
         t = (st[i][0] - x_new) / (st[i][0] - st[i + 1][0])
         st.insert(i + 1, tuple(a + (c - a) * t for a, c in zip(st[i], st[i + 1])))
-    # the rim stays level with the windshield base up to the cab's corner facet, so it shows no tab beside the glass; behind that it is inside the cab
+    # the rim stays level with the windshield base up to the cab's corner facet, so it shows no tab beside the glass. Behind
+    # that it is inside the cab
     k = next(k for k, row in enumerate(st) if abs(row[0] - RIM_END_X) < 1e-6)
     st[k] = st[k][:5] + (GLASS_BASE_Z,)
     rings = [[(x, w, zb), (x, w, zm), (x, wt, zt), (x, -wt, zt), (x, -w, zm), (x, -w, zb)] for x, w, wt, zb, zm, zt in st]
@@ -1067,7 +1073,7 @@ def _tiller(b):
         loft(b, f"Drum{tag}", "steel", rr, closed=True, want=lambda i, j: (math.cos(2 * math.pi * (j + 0.5) / n), 0.0, math.sin(2 * math.pi * (j + 0.5) / n)),
              skip=lambda i, j: j < 4, stack="drum", tier="hidden")
         # comb: a ribbed rubber mat lying on the snow behind the drum, with a straight rear edge (pb-laterns-carrier.jpg,
-        # pb600-laterns-6plus-02.jpg); the ribs along the direction of travel are painted (p_comb)
+        # pb600-laterns-6plus-02.jpg). The ribs along the direction of travel are painted (p_comb)
         L = HALF_L + COMB_FRONT_X
         pts = [(COMB_FRONT_X, y0, COMB_FRONT_Z), (COMB_FRONT_X, y1, COMB_FRONT_Z), (-HALF_L, y1, 0.0), (-HALF_L, y0, 0.0)]
         b.add(f"Comb{tag}", "black", pts, [([0, 1, 2, 3], (0.32, 0, 1))], stack="comb", tier="stack", meta={"y0": y0, "y1": y1})
@@ -1149,7 +1155,7 @@ UNFOLD_FILL, UNFOLD_LEN_M = 0.5, 3.0
 
 
 def _apply_planar(b, mesh, dup):
-    """Overwrite the start layout of the planar parts (b.set_planar). Meters, like the unfold; the packer places them."""
+    """Overwrite the start layout of the planar parts (b.set_planar). Meters, like the unfold. The packer places them."""
     lay = mesh.uv_layers[cs2_uv.UNIQUE_LAYER]
     uv = cs2_uv.loop_uvs(lay)
     start, total = cs2_uv.face_loop_table(mesh)
@@ -1288,7 +1294,7 @@ def sstep(a, b, x):
 
 
 class Tx:
-    """One face's texel fields; painters write to alb, metal, gloss and H (meters), paint_lights to emit."""
+    """One face's texel fields. Painters write to alb, metal, gloss and H (meters), paint_lights to emit."""
     __slots__ = ("x", "y", "z", "n", "alb", "metal", "gloss", "coat", "emit", "H", "meta", "name", "meta_f")
 
     def tone(self, where, k):
@@ -1472,7 +1478,7 @@ def p_perf(pitch, r):
 
 
 def p_band(c):
-    """The blade's perforated band; opaque, so the square holes are dark texels in a lighter plate, inside a solid margin."""
+    """The blade's perforated band. It is opaque, so the square holes are dark texels in a lighter plate, inside a solid margin."""
     f = np.array(c.meta["f"])
     along = c.x * (-f[1]) + c.y * f[0]
     zr = c.z - BLADE_Z0
@@ -1523,7 +1529,7 @@ def p_thood(c):
 
 def p_comb(c):
     y = c.y
-    # a black rubber mat with fine, shallow ribs (pb600-laterns-6plus-02); deep steel-gray ribs read as corrugated sheet
+    # a black rubber mat with fine, shallow ribs (pb600-laterns-6plus-02). Deep steel-gray ribs read as corrugated sheet
     groove = lat(y, 0.062) < 0.016
     c.zone(np.ones_like(y, dtype=bool), "rubber")
     c.alb[~groove] *= 1.6
@@ -1892,7 +1898,8 @@ def audit_nothing_floats(b):
     return len(comps)
 
 
-# the tracks sit under the hull with a shadow gap; below LOD0 the cross tubes that carry them are gone, which no camera can tell
+# the tracks sit under the hull with a shadow gap. Below LOD0 the cross tubes that carry them are gone, which no camera can
+# tell
 LOD_ATTACH_IGNORE = ("Belt", "Wheel", "TrackBack")
 
 
@@ -2082,11 +2089,12 @@ def build(asset_dir, export=True):
 VALIDATE_SPEC = {"kind": "prop", "lod0_cap": LOD0_CAP, "lod1_ratio": 0.5, "lod2_cap": LOD2_CAP, "expected_lods": (1, 2), "max_texture": snow_props.TEX_CEIL_UNDER_10M}
 
 
-# The effects' lamps have no mesh, so they sit where they light best: the flood at the bar's center, the amber well above it, where it leaves no hot spot.
-# The rear flood mirrors the front one, aimed back and 25 degrees down: real rear work lights light the slope behind the tiller as well as
-# ahead. It sits at the front one's height over the tiller hood's rear edge, so every red panel is outside its 110 degree cone (in game,
-# 2026-11-01/02): on the rear roof bar it burned a hot spot on the engine hood 1 to 2 m below, and over the deck's rear end (x -2.21) it lit
-# the red tiller hood 2.5 m away at full strength, which read as an amber light bar from 350 m. From here the pool starts behind the comb.
+# The effects' lamps have no mesh, so they sit where they light best: the flood at the bar's center, the amber well above it,
+# where it leaves no hot spot. The rear flood mirrors the front one, aimed back and 25 degrees down: real rear work lights
+# light the slope behind the tiller as well as ahead. It sits at the front one's height over the tiller hood's rear edge, so
+# every red panel is outside its 110 degree cone. Findings in game (2026-11-01/02): on the rear roof bar it burned a hot spot
+# on the engine hood 1 to 2 m below. Over the deck's rear end (x -2.21) it lit the red tiller hood 2.5 m away at full
+# strength, which read as an amber light bar from 350 m. From here the pool starts behind the comb.
 FLOOD_AUTHOR, AMBER_AUTHOR = (2.36, 0.0, 2.90), (BEACON_X, 0.0, 3.35)
 REAR_FLOOD_AUTHOR = (-3.60, 0.0, 2.90)
 
@@ -2237,12 +2245,13 @@ def render_previews(built, out_dir, res=(1400, 1000)):
     return written
 
 
-# A preview's stand-ins for the game's night: a dark sky, a moon, and the two effects as Blender lamps with no shadows (the game's have none:
-# Game.Effects/LightCullingSystem.cs). Tuned to judge the lights by, not measured; the game's bloom is not here. Standard view, because AgX bleaches
-# amber to peach at these strengths and the point is the color on the map; the game has its own tonemapper.
+# A preview's stand-ins for the game's night: a dark sky, a moon, and the two effects as Blender lamps with no shadows (the
+# game's have none: Game.Effects/LightCullingSystem.cs). Tuned to judge the lights by, not measured. The game's bloom is not
+# here. Standard view, because AgX bleaches amber to peach at these strengths and the point is the color on the map. The game
+# has its own tonemapper.
 NIGHT_SKY, NIGHT_MOON, NIGHT_EMISSION = 0.006, 0.12, 1.15
 NIGHT_SPOT_W, NIGHT_POINT_W = 240.0, 10.0
-NIGHT_EMISSION_FAR = P.EMISSIVE_STRENGTH   # a far lamp is under a pixel, so its light is diluted and its color survives; the game's emissive is HDR (kIntensityMultiplier 100)
+NIGHT_EMISSION_FAR = P.EMISSIVE_STRENGTH   # a far lamp is under a pixel, so its light is diluted and its color survives. The game's emissive is HDR (kIntensityMultiplier 100)
 NIGHT_GROUND_M = 1200.0
 NIGHT_FAR_LOD2_M = 250.0
 NIGHT_VIEW = "Standard"

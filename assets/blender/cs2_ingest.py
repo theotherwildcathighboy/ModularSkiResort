@@ -1,26 +1,29 @@
 """
-cs2_ingest - bring a FOREIGN mesh (a Sketchfab .blend or .fbx) into the generator frame:
-load + bake transforms, relink texture sets, rescale, reframe, split into named parts,
-clean, reduce. Asset round 2026-10, phase P0a (ROUND-SPEC.md sec 6; R3 adapt route; R20
-originals live in assets/external/<id>/ with a SOURCE.md).
+cs2_ingest - bring a FOREIGN mesh (a Sketchfab .blend or .fbx) into the generator frame: load + bake
+transforms, relink texture sets, rescale, reframe, split into named parts, clean, reduce. Asset
+round 2026-10, phase P0a (ROUND-SPEC.md sec 6, R3 adapt route). R20: originals live in
+assets/external/<id>/ with a SOURCE.md.
 
 WHY
-    Nothing in assets/blender could take a mesh it did not build. FBX import only re-read
-    our own exports (cs2_validate.import_fbx_temp, cs2_preview.import_generation - which
-    guesses units and would leave Kagelok's chair 37.7 m tall), no texture relink existed,
-    and cs2_asset._load_map reads ambientCG names only (pipeline-gap.md sec 3.2, skeptic
-    verdict 1). The two reference models break every shortcut:
+    Nothing in assets/blender could take a mesh it did not build.
+    - FBX import only re-read our own exports (cs2_validate.import_fbx_temp,
+      cs2_preview.import_generation). The second one guesses units and would leave Kagelok's
+      chair 37.7 m tall.
+    - No texture relink existed.
+    - cs2_asset._load_map reads ambientCG names only (pipeline-gap.md sec 3.2, skeptic
+      verdict 1).
+    The two reference models break every shortcut:
       * Kagelok "Chair Lift" (.blend from 2.79): 58 of 59 objects are hide_viewport, so
-        their matrix_world stays identity until unhide + frame_set + view_layer.update;
-        chairs 01-10 ride FOLLOW_PATH + COPY_ROTATION, grips D01-D10 FOLLOW_PATH; every
+        their matrix_world stays identity until unhide + frame_set + view_layer.update.
+        Chairs 01-10 ride FOLLOW_PATH + COPY_ROTATION. Grips D01-D10 ride FOLLOW_PATH. Every
         material carries a versioning tree with TWO Material Outputs (EEVEE + CYCLES) and
-        no image node; the 117 PNGs on disk are named unlike the materials
-        (ref-models.md sec 1.2, sec 1.6; ref-models-skeptic verdicts 1, 7, 8, misses 6, 9).
-      * gondola.fbx (ASCII FBX 7.5): only bpy.ops.wm.fbx_import reads it; the two roots
+        no image node. The 117 PNGs on disk are named unlike the materials
+        (ref-models.md sec 1.2, sec 1.6, ref-models-skeptic verdicts 1, 7, 8, misses 6, 9).
+      * gondola.fbx (ASCII FBX 7.5): only bpy.ops.wm.fbx_import reads it. The two roots
         arrive with scale 0.01 and a +90 deg X turn (Y-up file) above 187 empties
-        (ref-models.md sec 2.1; measured 2026-10-11 with Blender 5.2.2).
-    A generator must never open_mainfile (it would replace the session - R10 keeps
-    generator code out of the live Blender), so .blend sources are APPENDED through
+        (ref-models.md sec 2.1, measured 2026-10-11 with Blender 5.2.2).
+    A generator must never open_mainfile (it would replace the session, and R10 keeps
+    generator code out of the live Blender). So the code APPENDS .blend sources through
     bpy.data.libraries.load(link=False) into a fresh "CS2_INGEST_<stem>" collection.
 
 CONTRACT (pipeline-gap.md sec 3.3, corrected by its skeptic verdict 3 and miss 4)
@@ -28,40 +31,42 @@ CONTRACT (pipeline-gap.md sec 3.3, corrected by its skeptic verdict 3 and miss 4
                                   metal / slot / recolor_albedo / emissive (+ key)
     load_external(path, objects=None, report=None) -> [Object]
         Mesh objects only, sorted by name, parentless, constraint-free, animation-free,
-        identity transform: the EVALUATED world matrix at frame BAKE_FRAME (FOLLOW_PATH /
+        identity transform. The EVALUATED world matrix at frame BAKE_FRAME (FOLLOW_PATH /
         COPY_ROTATION results included) is baked into the vertices (mirror-safe), the FBX
-        0.01 root scale included. Curves, empties and other helpers - and, for a filtered
-        .blend load, dependencies nobody asked for (constraint targets) - are removed.
+        0.01 root scale included. The function removes curves, empties and other helpers.
+        For a filtered .blend load, it also removes dependencies nobody asked for
+        (constraint targets).
         `objects` filters by source name (.blend) or by any ancestor name (.fbx subtree).
         Each object carries SRC_NAME_PROP (library / imported name), SRC_PATH_PROP (the
         pre-flatten hierarchy "root/child/obj") and SRC_FILE_PROP. An .fbx load REFUSES
-        (ValueError) while objects of the same file are still loaded, or when the import
-        had to rename a node ".NNN" against a name already in the session: FBX names are
+        (ValueError) in two cases: objects of the same file are still loaded, or the import
+        had to rename a node ".NNN" against a name already in the session. FBX names are
         Blender's post-dedup names, so the filter, SRC_NAME / SRC_PATH and to_parts'
-        rename map would drift. discard() first, or pass every subtree in ONE objects=[...]
-        call. The frame, the selection and the active object are restored on return.
+        rename map would drift. Call discard() first, or pass every subtree in ONE
+        objects=[...] call. The function restores the frame, the selection and the active
+        object on return.
     match_texture_sets(materials, tex_dir, overrides=None, keep=None)
         -> ({material name: SourceSet}, [unmatched material names])
         Every returned set HAS a base map. `keep` (names, or True for all) RAISES
-        ValueError for a kept material without one: no silent mid-gray. Never calls
-        cs2_asset._load_map (its *_Roughness glob matches *_Albedo_Roughness first).
+        ValueError for a kept material without one: no silent mid-gray. The function never
+        calls cs2_asset._load_map (its *_Roughness glob matches *_Albedo_Roughness first).
     load_map(path, size=None) -> (h, w, 4) float32, raw stored values (palette, gray and
         gray + alpha PNGs expand to RGBA)
     rescale_by_reference(objs, ref, axis, meters) -> factor     (scales about the origin)
     reframe(objs, forward, up, pivot="base", pivot_ref=None) -> Matrix
-        +X travel, +Z up; "base" puts the lowest point at z = 0 and the ref's XY center on
+        +X travel, +Z up. "base" puts the lowest point at z = 0 and the ref's XY center on
         the Z axis (lift_chair.py:551-569: base pivot, grip at the top).
-    to_parts(objs, rename, classify=None) -> [(obj, None), ...]   loose parts "<prefix>_NN";
+    to_parts(objs, rename, classify=None) -> [(obj, None), ...]   loose parts "<prefix>_NN".
         classify(part, source_name, (lo, hi)) -> prefix | None re-prefixes single loose
-        parts (small hardware inside a kit) so LOD delete-by-prefix can drop them alone
+        parts (small hardware inside a kit), so LOD delete-by-prefix can drop them alone.
     clean(obj, merge_dist=MERGE_DIST, recalc="manifold") -> report dict
         recalc "manifold" (default) recalculates outward normals only on CLOSED 2-manifold
         components (pose-invariant there) and keeps the source winding on open / non-
-        manifold ones; "all" is the old whole-mesh recalc (pose-dependent on non-manifold
-        meshes: Kagelok chairs 01/03/05/07, one local mesh, flipped 4/34/0/0 faces);
-        "none" keeps every source winding. Foreign custom normals and sharp_edge marks are
-        CLEARED (the FBX exporter writes custom normals verbatim and the importer copies
-        them; shade_by_angle keeps existing sharp edges).
+        manifold ones. "all" is the old whole-mesh recalc (pose-dependent on non-manifold
+        meshes: Kagelok chairs 01/03/05/07, one local mesh, flipped 4/34/0/0 faces).
+        "none" keeps every source winding. The function CLEARS foreign custom normals and
+        sharp_edge marks (the FBX exporter writes custom normals verbatim, the importer
+        copies them, and shade_by_angle keeps existing sharp edges).
     reduce(obj, target_tris, delete_prefixes=(), tol=0.25) -> obj   (cuts LOD0 in place,
         re-shaded weighted at SHADE_ANGLE_DEG)
     Helpers: world_bounds, used_materials, colour_sets, material_key, discard.
@@ -70,38 +75,38 @@ ORDER
     load_external -> rescale_by_reference (foreign units -> meters) -> reframe -> clean ->
     to_parts -> cs2_asset.tag_parts -> join -> cs2_asset.store_part_table -> reduce (only
     over budget) -> cs2_asset.shade_by_angle(obj, 66) (PIPELINE sec 1: every joined mesh is
-    shaded weighted at 66 deg; reduce already ends with exactly that call).
+    shaded weighted at 66 deg. reduce already ends with exactly that call).
     clean's distances are in the object's CURRENT units: rescale the gondola (imported
     meters, a bolt is ~0.2 mm there) before cleaning it.
 
 Derived from (file:line):
-    load / bake      ref-models.md sec 1.2, sec 4 (unhide, frame_set(1), update); skeptic verdict 1
-    FBX              ref-models.md sec 2.1; skeptic verdict 11 (import_scene.fbx refuses ASCII)
-    name normalizer  ref-models.md sec 1.6; ref-models-skeptic verdict 8 (9 exact + 19 + 2
-                     manual + 3 untextured); pipeline-gap-skeptic miss 4 (case-only prefix
+    load / bake      ref-models.md sec 1.2, sec 4 (unhide, frame_set(1), update), skeptic verdict 1
+    FBX              ref-models.md sec 2.1, skeptic verdict 11 (import_scene.fbx refuses ASCII)
+    name normalizer  ref-models.md sec 1.6, ref-models-skeptic verdict 8 (9 exact + 19 + 2
+                     manual + 3 untextured), pipeline-gap-skeptic miss 4 (case-only prefix
                      collisions, Therm_Bas_Haut HAS a full set, St_Verre_Haut albedo only)
-    _load_map trap   cs2_asset.py:262-280; pipeline-gap-skeptic verdict 3
+    _load_map trap   cs2_asset.py:262-280, pipeline-gap-skeptic verdict 3
     PNG formats      ref-models-skeptic miss 9 (57 RGBA, 51 gray, 6 gray+alpha, 2 palette, 1 RGB)
     Material Output  ref-models-skeptic verdict 7 / miss 6 (two outputs per material)
     color attrs     cs2_validate.py:587-589 (the importer reads Color as window/emissive IDs)
-    parts            cs2_asset.py:984-1047 (tag_parts / canonical_order / store_part_table);
+    parts            cs2_asset.py:984-1047 (tag_parts / canonical_order / store_part_table),
                      lift_chair.py:83-84 ("<family>_" LOD-delete prefixes)
     reduce           cs2_asset.py:1075-1133 (make_lod_chain: tagged-part delete, COLLAPSE,
                      degenerate + sliver cleanup, shade_by_angle, tolerance assert)
-    shading          cs2_asset.py:925-966 (the exporter writes per-corner normals verbatim;
+    shading          cs2_asset.py:925-966 (the exporter writes per-corner normals verbatim,
                      shade_by_angle: keep_sharp_edges=True, weighted FACE_AREA)
     base pivot       lift_chair.py:551-569
     review fixes     p0a-integration.md "Fixes applied" (manifold-only recalc, custom-normal
                      clear, FBX dedup refusal, scene-state restore, classify, re-shade)
 
-Credits (CC BY 4.0, ROUND-SPEC sec 8; full lines in assets/external/<id>/SOURCE.md):
+Credits (CC BY 4.0, ROUND-SPEC sec 8, full lines in assets/external/<id>/SOURCE.md):
     "Chair Lift" by Kagelok - https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236
     "Ski gongola and lift station detailed drafts" by Wilin_Amaurea -
     https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db
     License: https://creativecommons.org/licenses/by/4.0/
 
-No top-level side effects; nothing here renders, bakes or exports. Deterministic: sorted
-iteration everywhere, no randomness, canonical part order via cs2_asset.tag_parts.
+No top-level side effects. Nothing here renders, bakes or exports. Deterministic: sorted iteration
+everywhere, no randomness, canonical part order via cs2_asset.tag_parts.
 """
 
 import os
@@ -140,9 +145,9 @@ SRC_FILE_PROP = "cs2_src_file"  # basename of the source file
 
 TEX_EXTS = (".png", ".jpg", ".jpeg")
 
-# Map-kind suffixes on the collapsed stem (accent-stripped, casefolded, [ _]+ -> "_").
-# Longest first. Displacement names are truncated in the Kagelok set (_DIS, _DISPLA,
-# _DISPLACEM, _Displacement), roughness is spelled _Albedo_Roughness AND _AlbedoRoughness.
+# Map-kind suffixes on the collapsed stem (accent-stripped, casefolded, [ _]+ -> "_"). Longest
+# first. Displacement names are truncated in the Kagelok set (_DIS, _DISPLA, _DISPLACEM,
+# _Displacement), and roughness is spelled _Albedo_Roughness AND _AlbedoRoughness.
 MAP_SUFFIXES = (
     ("height", re.compile(r"_albedo_normal_dis[a-z]*$")),
     ("normal", re.compile(r"_albedo_normal$")),
@@ -202,7 +207,7 @@ def _world_matrix(obj):
 
 
 def _apply_matrix(obj, m):
-    """Transform the mesh data by `m`; mirror matrices flip the winding back outward."""
+    """Transform the mesh data by `m`. Mirror matrices flip the winding back outward."""
     me = obj.data
     me.transform(m, shape_keys=True)
     if m.to_3x3().determinant() < 0.0:
@@ -211,7 +216,7 @@ def _apply_matrix(obj, m):
 
 
 def _bake_world(obj):
-    """Apply the object's world transform into its (single-user) mesh; identity after."""
+    """Apply the object's world transform into its (single-user) mesh. The transform is identity after."""
     m = _world_matrix(obj)
     if obj.data.users > 1:
         obj.data = obj.data.copy()
@@ -322,7 +327,7 @@ def _load_blend(path, wanted):
 
 
 def _load_fbx(path, coll):
-    """bpy.ops.wm.fbx_import (5.x; reads ASCII) into `coll` via the active layer collection."""
+    """bpy.ops.wm.fbx_import (5.x, reads ASCII) into `coll` via the active layer collection."""
     vl = bpy.context.view_layer
     prev = vl.active_layer_collection
     vl.active_layer_collection = _layer_collection(vl.layer_collection, coll)
@@ -336,24 +341,23 @@ def _load_fbx(path, coll):
 
 def load_external(path, objects=None, report=None):
     """
-    Load a foreign .blend or .fbx into a new "CS2_INGEST_<stem>" collection and return
-    its mesh objects, sorted by name, with every transform baked into the vertices.
+    Load a foreign .blend or .fbx into a new "CS2_INGEST_<stem>" collection and return its mesh
+    objects, sorted by name, with every transform baked into the vertices.
 
-    .blend: bpy.data.libraries.load(link=False) - never open_mainfile. All appended
-            objects (constraint targets included) are linked, UNHIDDEN (hide_viewport and
-            hide_set) and evaluated at BAKE_FRAME, so FOLLOW_PATH / COPY_ROTATION land
-            where Sketchfab showed them.
-    .fbx:   bpy.ops.wm.fbx_import; the 0.01 root scale and the Y-up turn are part of the
-            baked world matrix (vertices end in "imported meters").
-    Then: modifiers applied from the evaluated object, shared meshes made single-user,
-    parents cleared, constraints + animation removed, sorted by name; non-mesh objects
-    and unrequested dependencies deleted with their orphaned data.
+    .blend: bpy.data.libraries.load(link=False) - never open_mainfile. The function links all
+    appended objects (constraint targets included), UNHIDES them (hide_viewport and hide_set) and
+    evaluates them at BAKE_FRAME, so FOLLOW_PATH / COPY_ROTATION land where Sketchfab showed them.
+    .fbx: bpy.ops.wm.fbx_import. The 0.01 root scale and the Y-up turn are part of the baked world
+    matrix (vertices end in "imported meters").
+    Then the function applies modifiers from the evaluated object, makes shared meshes single-user,
+    clears parents, removes constraints + animation, sorts by name, and deletes non-mesh objects and
+    unrequested dependencies with their orphaned data.
 
-    `objects`: None = everything; else source names (.blend) or names of any ancestor
-    (.fbx: "cabin.001" returns that subtree). Unknown names raise ValueError.
+    `objects`: None = everything. Otherwise source names (.blend) or names of any ancestor (.fbx:
+    "cabin.001" returns that subtree). Unknown names raise ValueError.
     `report`: optional dict, filled with what happened (dropped helpers, counts, tris).
-    .fbx: refuses while objects of the same file are loaded, or when the import renamed a
-    node ".NNN" against a name already in the session (module docstring).
+    .fbx: refuses while objects of the same file are loaded, or when the import renamed a node
+    ".NNN" against a name already in the session (module docstring).
     The scene frame, the selection and the active object are restored before returning.
     """
     path = os.path.abspath(path)
@@ -590,10 +594,10 @@ def _join_tokens(tokens):
 
 def material_key(name):
     """
-    Normalized key of a material name: strip Blender's ".NNN" FIRST (a second load makes
-    "si<e-grave>ge.001"), NFKD accent strip, casefold, split on [ _]+, drop "et" between
-    haut/bas, join without separators, then NAME_ALIASES.
-    "pil st haut bas 01" -> "pilsthautbas01"; "Fennetre Rectangle" -> "fenetrerect".
+    Normalized key of a material name. The steps are: strip Blender's ".NNN" FIRST (a second load
+    makes "si<e-grave>ge.001"), NFKD accent strip, casefold, split on [ _]+, drop "et" between
+    haut/bas, join without separators, then NAME_ALIASES. "pil st haut bas 01" -> "pilsthautbas01",
+    "Fennetre Rectangle" -> "fenetrerect".
     """
     s = _fold(BLENDER_DUP_SUFFIX.sub("", name)).strip()
     key = _join_tokens([t for t in re.split(r"[ _]+", s) if t])
@@ -613,10 +617,9 @@ def _texture_key(stem):
 
 def scan_texture_sets(tex_dir):
     """
-    Group the image files of `tex_dir` into {set key: {kind: path}}. Case-only prefix
-    collisions (Guide_Cable / Guide_cable, Neige / neige, pil_Haut_01 / pil_haut_01)
-    fold into ONE set; two files claiming the same (set, kind) raise ValueError.
-    Returns (sets, ignored file names).
+    Group the image files of `tex_dir` into {set key: {kind: path}}. Case-only prefix collisions
+    (Guide_Cable / Guide_cable, Neige / neige, pil_Haut_01 / pil_haut_01) fold into ONE set. Two
+    files claiming the same (set, kind) raise ValueError. Returns (sets, ignored file names).
     """
     if not os.path.isdir(tex_dir):
         raise FileNotFoundError(tex_dir)
@@ -648,13 +651,13 @@ def match_texture_sets(materials, tex_dir, overrides=None, keep=None):
     Relink foreign materials to the texture sets in `tex_dir`.
 
     materials: Material datablocks or names (duplicates collapse).
-    overrides: {material name or key: SourceSet | str}; a str names the texture set
-               (file stem prefix, e.g. "fenetre_rect"), a SourceSet is used as given
+    overrides: {material name or key: SourceSet | str}. A str names the texture set
+               (file stem prefix, e.g. "fenetre_rect"). A SourceSet is used as given
                (e.g. a constant base color for an untextured "cable").
-    keep:      material names (or True = all) that MUST resolve to a base map; any that
+    keep:      material names (or True = all) that MUST resolve to a base map. Any that
                does not raises ValueError naming its key. None = only report.
     Returns ({material name: SourceSet}, sorted unmatched material names). Every returned
-    set has a base map; a set found without one (normal-only) counts as unmatched.
+    set has a base map. A set found without one (normal-only) counts as unmatched.
     """
     sets, ignored = scan_texture_sets(tex_dir)
     names = sorted({m if isinstance(m, str) else m.name for m in materials})
@@ -779,10 +782,10 @@ def colour_sets(materials):
 
 def rescale_by_reference(objs, ref, axis, metres):
     """
-    Uniformly scale `objs` (about the world origin) so that `ref` spans `metres` along
-    `axis`. `ref` is an Object, a list of Objects (their joint AABB) or a number (the
-    current extent in source units). Transforms are baked first. Returns the factor.
-    e.g. Kagelok rung pitch 1.00 u -> 0.30 m; gondola fence 0.0369 -> 1.00 m (x27).
+    Uniformly scale `objs` (about the world origin) so that `ref` spans `metres` along `axis`. `ref`
+    is an Object, a list of Objects (their joint AABB) or a number (the current extent in source
+    units). Transforms are baked first. Returns the factor. e.g. Kagelok rung pitch 1.00 u -> 0.30
+    m, gondola fence 0.0369 -> 1.00 m (x27).
     """
     ax = _axis_index(axis)
     if isinstance(ref, (int, float)):
@@ -802,12 +805,12 @@ def rescale_by_reference(objs, ref, axis, metres):
 
 def reframe(objs, forward, up, pivot="base", pivot_ref=None):
     """
-    Rotate `objs` into the authoring frame - `forward` -> +X (travel), `up` -> +Z,
-    lateral = up x forward -> +Y - and, with pivot="base", translate so the lowest point
-    sits at z = 0 and the XY center of `pivot_ref` (Object / list; default: all `objs`)
-    sits on the Z axis: lift_chair's base pivot, grip on top (lift_chair.py:551-569).
-    pivot=None rotates only. `forward` / `up` are "+X".."-Z" or vectors; `forward` is
-    made orthogonal to `up`. Returns the 4x4 applied (reuse it on related objects).
+    Rotate `objs` into the authoring frame: `forward` -> +X (travel), `up` -> +Z, lateral = up x
+    forward -> +Y. With pivot="base", also translate so the lowest point sits at z = 0 and the XY
+    center of `pivot_ref` (Object / list, default: all `objs`) sits on the Z axis. This is
+    lift_chair's base pivot, grip on top (lift_chair.py:551-569). pivot=None rotates only. `forward`
+    / `up` are "+X".."-Z" or vectors. The function makes `forward` orthogonal to `up`. Returns the
+    4x4 applied (reuse it on related objects).
     """
     f, u = _axis_vec(forward), _axis_vec(up)
     u.normalize()
@@ -880,21 +883,21 @@ def _check_prefix(prefix, what):
 
 def to_parts(objs, rename, classify=None):
     """
-    Split every object into its loose parts and name them for the part vocabulary:
-    `rename` maps a SOURCE name (SRC_NAME_PROP, else the name without ".NNN") to an ASCII
-    prefix such as "seat_" / "grip_"; parts become "<prefix>_00", "<prefix>_01", ...,
-    numbered per prefix across all objects in canonical order (rounded center, then
-    size), so make_lod_chain delete prefixes and cs2_asset.tag_parts (which canonical-
-    orders each part) see a stable list. Unmapped objects raise ValueError. The source
-    objects are replaced (only once every part exists: an error - a bad classify prefix -
-    removes the new parts and leaves the sources). Returns [(obj, None), ...] sorted by
-    name - tag_parts' input.
+    Split every object into its loose parts and name them for the part vocabulary.
 
-    `classify(part, source_name, (lo, hi))` (optional) is called once per loose part
-    (`part` = the new part object, lo / hi = its vertex AABB corners in the current
-    units) and returns a prefix for THAT part or None for the object's `rename` prefix:
-    small hardware inside one imported kit (Roues Pil Haut's sheaves inside the head)
-    gets its own prefix, so a LOD level can delete it without the whole object.
+    `rename` maps a SOURCE name (SRC_NAME_PROP, else the name without ".NNN") to an ASCII prefix
+    such as "seat_" / "grip_". Parts become "<prefix>_00", "<prefix>_01", ..., numbered per prefix
+    across all objects in canonical order (rounded center, then size), so make_lod_chain delete
+    prefixes and cs2_asset.tag_parts (which canonical-orders each part) see a stable list. Unmapped
+    objects raise ValueError. The function replaces the source objects only once every part exists.
+    On an error (a bad classify prefix) it removes the new parts and leaves the sources. Returns
+    [(obj, None), ...] sorted by name - tag_parts' input.
+
+    `classify(part, source_name, (lo, hi))` (optional) is called once per loose part (`part` = the
+    new part object, lo / hi = its vertex AABB corners in the current units). It returns a prefix
+    for THAT part or None for the object's `rename` prefix. Small hardware inside one imported kit
+    (Roues Pil Haut's sheaves inside the head) gets its own prefix, so a LOD level can delete it
+    without the whole object.
     """
     for src, prefix in rename.items():
         _check_prefix(prefix, repr(src))
@@ -980,10 +983,10 @@ def to_parts(objs, rename, classify=None):
 
 def _single_output(mat):
     """
-    Keep ONE Material Output: the one fed by a Principled BSDF (else the active one,
-    else the first by name), retargeted to ALL so EEVEE and the Cycles bake both see it.
-    The 2.79 versioning tree has an EEVEE output (Principled) and a CYCLES output
-    (Diffuse); a relink wired into the wrong one is invisible. Returns outputs removed.
+    Keep ONE Material Output: the one fed by a Principled BSDF (else the active one, else the first
+    by name), retargeted to ALL so EEVEE and the Cycles bake both see it. The 2.79 versioning tree
+    has an EEVEE output (Principled) and a CYCLES output (Diffuse). A relink wired into the wrong
+    one is invisible. Returns outputs removed.
     """
     nt = mat.node_tree
     if nt is None:
@@ -1054,12 +1057,12 @@ def _face_components(bm):
 
 def _recalc_normals(bm, recalc):
     """
-    Outward normals per edge-connected component. "manifold": only CLOSED 2-manifold
-    components (every edge has exactly two faces), where outward is intrinsic and so
-    pose-invariant; open shells and non-manifold components keep the source winding,
-    because recalc_face_normals guesses there and the guess depends on the pose the mesh
-    was baked in (P0a review). "all": every component (the old behavior). "none": none.
-    Returns (components, closed, recalculated, flipped, [(component, faces, flipped)]).
+    Outward normals per edge-connected component. "manifold": only CLOSED 2-manifold components
+    (every edge has exactly two faces), where outward is intrinsic and so pose-invariant. Open
+    shells and non-manifold components keep the source winding, because recalc_face_normals guesses
+    there and the guess depends on the pose the mesh was baked in (P0a review). "all": every
+    component (the old behavior). "none": none. Returns (components, closed, recalculated, flipped,
+    [(component, faces, flipped)]).
     """
     comps = _face_components(bm)
     closed = [all(len(e.link_faces) == 2 for f in c for e in f.edges) for c in comps]
@@ -1082,10 +1085,10 @@ def _recalc_normals(bm, recalc):
 
 
 def _clear_foreign_normals(me):
-    """Drop imported custom split normals and sharp_edge marks (FOREIGN_NORMAL_ATTRS):
-    export_fbx writes per-corner normals verbatim (cs2_asset.py:925-934) and
-    shade_by_angle keeps existing sharp edges, so both would ship the source's shading
-    (gondola.fbx: all 35 cabin meshes carry custom normals). Returns (cleared, sharp)."""
+    """Drop imported custom split normals and sharp_edge marks (FOREIGN_NORMAL_ATTRS). export_fbx
+    writes per-corner normals verbatim (cs2_asset.py:925-934) and shade_by_angle keeps existing
+    sharp edges. So both would ship the source's shading (gondola.fbx: all 35 cabin meshes carry
+    custom normals). Returns (cleared, sharp)."""
     cleared = me.attributes.get(FOREIGN_NORMAL_ATTRS[0]) is not None
     sharp = 0
     attr = me.attributes.get(FOREIGN_NORMAL_ATTRS[1])
@@ -1105,14 +1108,21 @@ def _clear_foreign_normals(me):
 
 def clean(obj, merge_dist=MERGE_DIST, recalc=RECALC_DEFAULT):
     """
-    Make a foreign mesh pipeline-legal, in place (distances in the CURRENT units):
-    bake transforms; remove_doubles(merge_dist); delete loose edges and vertices;
-    dissolve degenerate geometry and zero-area slivers; triangulate n-gons (BEAUTY);
-    recalc outward normals per `recalc` (RECALC_MODES, module docstring: "manifold" =
-    closed components only, the source winding elsewhere); clear foreign custom normals
-    and sharp_edge marks; drop color attributes (cs2_validate.py:587-589: the importer
-    reads Color as window/emissive IDs); drop unused material slots; keep ONE Material
-    Output per material. Returns a report dict; raises if n-gons remain.
+    Make a foreign mesh pipeline-legal, in place (distances in the CURRENT units). The steps are:
+    - bake transforms
+    - remove_doubles(merge_dist)
+    - delete loose edges and vertices
+    - dissolve degenerate geometry and zero-area slivers
+    - triangulate n-gons (BEAUTY)
+    - recalc outward normals per `recalc` (RECALC_MODES, module docstring: "manifold" = closed
+      components only, the source winding elsewhere)
+    - clear foreign custom normals and sharp_edge marks
+    - drop color attributes (cs2_validate.py:587-589: the importer reads Color as window/emissive
+      IDs)
+    - drop unused material slots
+    - keep ONE Material Output per material
+
+    Returns a report dict. Raises if n-gons remain.
     """
     if recalc not in RECALC_MODES:
         raise ValueError(f"clean: recalc {recalc!r} not in {RECALC_MODES}")
@@ -1189,12 +1199,15 @@ def clean(obj, merge_dist=MERGE_DIST, recalc=RECALC_DEFAULT):
 def reduce(obj, target_tris, delete_prefixes=(), tol=0.25):
     """
     Cut LOD0 itself down to `target_tris` with cs2_asset.make_lod_chain's own recipe
-    (cs2_asset.py:1075-1133): delete the tagged parts whose names start with
-    `delete_prefixes`, COLLAPSE-decimate the rest, dissolve degenerate faces and slivers
-    and assert the result within `tol` of the target; then re-shade LOD0's way,
-    cs2_asset.shade_by_angle(obj, SHADE_ANGLE_DEG, weighted=True) (make_lod_chain's own
-    pass is unweighted, LOD style). `obj` must carry the part table (tag_parts -> join ->
-    store_part_table). The mesh is replaced in place; the object, its name (mesh name =
+    (cs2_asset.py:1075-1133):
+    - delete the tagged parts whose names start with `delete_prefixes`
+    - COLLAPSE-decimate the rest
+    - dissolve degenerate faces and slivers
+    - assert the result within `tol` of the target
+
+    Then re-shade LOD0's way, cs2_asset.shade_by_angle(obj, SHADE_ANGLE_DEG, weighted=True)
+    (make_lod_chain's own pass is unweighted, LOD style). `obj` must carry the part table (tag_parts
+    -> join -> store_part_table). The mesh is replaced in place. The object, its name (mesh name =
     object name, no ".001") and its materials stay. Returns `obj`.
     """
     if cs2_asset.PART_TABLE_PROP not in obj.data:

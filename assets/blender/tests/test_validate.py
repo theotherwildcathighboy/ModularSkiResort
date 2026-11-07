@@ -3,16 +3,19 @@ test_validate.py - exercises cs2_validate against a tiny generated asset folder.
 
     blender --background --factory-startup --python tests\\test_validate.py
 
-1. A valid folder (LOD0 cylinder + LOD1 box, 512 px maps from make_texture_set,
-   settings.json with LOD1 Skip, a manifest) validates with zero ERRORs.
-2. Four corruptions are each caught with the expected code: underscore in the name,
-   a BaseColor alpha 0.3 patch, MaskMap B non-zero, LOD1 FBX declared but missing.
-   Per-part texel density (props): LOD0 UVs shrunk to 1/10 -> texel-density ERROR,
-   not on kind building. Texture floor (wiki 512): a 256 px set -> texture-size ERROR on a prop
-   AND a building (REDO 2026-10-17).
-3. validate_mesh(kind="building"): a closed box on z=0 reports engine base BLOCKED,
-   an open-bottom box reports OK (ground_ring_report verdicts likewise).
-Prints one PASS line and exits 0; any failure prints FAIL and exits 1.
+1. A valid folder validates with zero ERRORs. The folder holds a LOD0 cylinder, a LOD1 box, 512 px
+   maps from make_texture_set, settings.json with LOD1 Skip, and a manifest.
+2. Four corruptions are each caught with the expected code: an underscore in the name, a BaseColor
+   alpha 0.3 patch, MaskMap B non-zero, and a LOD1 FBX declared but missing.
+
+Per-part texel density (props): with LOD0 UVs shrunk to 1/10, the check gives a texel-density ERROR.
+It gives no ERROR on kind building. Texture floor (wiki 512): a 256 px set gives a texture-size ERROR
+on a prop AND on a building (REDO 2026-10-17).
+
+3. validate_mesh(kind="building"): a closed box on z=0 reports engine base BLOCKED. An open-bottom box
+   reports OK (ground_ring_report verdicts likewise).
+
+The test prints one PASS line and exits 0. Any failure prints FAIL and exits 1.
 """
 
 import os
@@ -70,7 +73,8 @@ def box(name, size=(1.0, 1.0, 1.0), open_bottom=False):
 
 
 def build_folder(root):
-    """LOD0 = 12-seg cylinder (44 tris), LOD1 = box (12 tris); 512 px maps; settings."""
+    """LOD0 is a 12-seg cylinder (44 tris). LOD1 is a box (12 tris). The maps are 512 px. The folder also
+    gets settings."""
     clear_scene()
     os.makedirs(root, exist_ok=True)
     bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.4, depth=1.2, location=(0, 0, 0.6))
@@ -220,7 +224,7 @@ def run():
         clear_scene()
         closed = box("SkiValClosed", (3.0, 3.0, 1.0), open_bottom=False)
         r = cs2_validate.ground_ring_report(closed)
-        # 4 ring edges + the bottom face's triangulation diagonal (the engine sees triangles)
+        # 4 ring edges plus the bottom face's triangulation diagonal (the engine sees triangles)
         check(r["verdict"] == "BLOCKED" and r["blocked_edges"] >= 4 and r["ok_edges"] == 0,
               f"closed box report {r}")
         f_closed = cs2_validate.validate_mesh(closed, kind="building")

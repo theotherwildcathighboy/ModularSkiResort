@@ -1,13 +1,18 @@
 """
-refreeze_m_manifests.py - re-freeze the prefab_contract block of the FG generation-M station manifests
-(assets/import/stations/fixedgrip/M/*/*.manifest.json) from the DEPLOYED K building prefabs (gamedata-mirror).
+refreeze_m_manifests.py - re-freezes the prefab_contract block of the FG generation-M station
+manifests (assets/import/stations/fixedgrip/M/*/*.manifest.json) from the DEPLOYED K building
+prefabs (gamedata-mirror).
 
-Run it in the SAME round as any surgery on SkiBaseStationBuilding / SkiTopStationBuilding (DECISIONS 388, 592 q):
-test_fg_family_seams M1 and tools/check-lift-align.js (MANIFESTSHA) fail on a stale baseline. It re-runs
-lift_terminal.m1_frozen (which re-checks SkiCatalog, carriers.json, the HV sub-lane ends and the hosted tower pose
-against the prefab), writes the new frozen block + shas, and adds a `refrozen` note that nests the previous one.
-The JSON byte format (CRLF, indent 2, ensure_ascii) is reproduced first; the script stops if it cannot.
-No FBX, texture or mesh is touched.
+Run it in the SAME round as any surgery on SkiBaseStationBuilding / SkiTopStationBuilding (DECISIONS
+388, 592 q). Otherwise test_fg_family_seams M1 and tools/check-lift-align.js (MANIFESTSHA) fail on a
+stale baseline.
+
+The script re-runs lift_terminal.m1_frozen. That function re-checks SkiCatalog, carriers.json, the
+HV sub-lane ends and the hosted tower pose against the prefab. The script writes the new frozen
+block and shas. It adds a `refrozen` note that nests the previous one.
+
+The script first reproduces the JSON byte format (CRLF, indent 2, ensure_ascii). It stops if it
+cannot. It touches no FBX, texture or mesh.
 
     blender --background --factory-startup --python-exit-code 1 --python assets\blender\refreeze_m_manifests.py -- --why "<what changed in the prefab>" [--write]
 
