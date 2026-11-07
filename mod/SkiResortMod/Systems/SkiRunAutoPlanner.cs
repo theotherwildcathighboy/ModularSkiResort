@@ -453,7 +453,7 @@ namespace SkiResortMod.Systems
         public AutoPlanResult Result => m_Result;
         public bool Done => m_Stage == Stage.Done;
 
-        /// <summary>0..1 by stage (for the "Scanning the slope... 40 %" line).</summary>
+        /// <summary>0..1 by stage (for the "Scanning the region... 40 %" line).</summary>
         public float Progress
         {
             get

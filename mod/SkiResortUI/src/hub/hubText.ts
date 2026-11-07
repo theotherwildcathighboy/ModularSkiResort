@@ -22,7 +22,7 @@ export const HUB_LOC = {
   busCardDistance: ["SkiResort.Hub.BUS_CARD[Distance]", "To the hill lodge, straight line"],
   busCardStatus: ["SkiResort.Hub.BUS_CARD[Status]", "Status"],
   busCardNoRoad: ["SkiResort.Hub.BUS_CARD[NoRoad]", "No road to the hill"],
-  busCardNoHillLodge: ["SkiResort.Hub.BUS_CARD[NoHillLodge]", "No lodge on the hill"],
+  busCardNoHillLodge: ["SkiResort.Hub.BUS_CARD[NoHillLodge]", "No hill lodge"],
   busCardOff: ["SkiResort.Hub.BUS_CARD[Off]", "Not running"],
 
   /* the merge card (contract 35) and the Overview's merged buildings fold */
@@ -365,7 +365,7 @@ export const HUB_LOC = {
   sectionIncome: ["SkiResort.Hub.SECTION[Income]", "Income"],
   moneyRowRuns: ["SkiResort.Hub.MONEY_ROW[Runs]", "Runs"],
   moneyRowBus: ["SkiResort.Hub.MONEY_ROW[Bus]", "Ski bus"],
-  moneyTipBusBooked: ["SkiResort.Hub.MONEY_TIP[BusBooked]", "Coach bill booked this month so far: 1,500 a month per depot plus 300 per straight-line km to the nearest lodge on the hill."],
+  moneyTipBusBooked: ["SkiResort.Hub.MONEY_TIP[BusBooked]", "Coach bill booked this month so far: 1,500 a month per depot plus 300 per straight-line km to the nearest hill lodge."],
   moneyTipRunsBooked: ["SkiResort.Hub.MONEY_TIP[RunsBooked]", "Run upkeep booked this month so far. Today's rate per month, by kind:"],
   moneyRowBuildings: ["SkiResort.Hub.MONEY_ROW[Buildings]", "Building upkeep"],
   moneyRowWages: ["SkiResort.Hub.MONEY_ROW[Wages]", "Staff wages"],
@@ -409,7 +409,7 @@ export const HUB_LOC = {
   buildShortDepot: ["SkiResort.Hub.BUILD_SHORT[Depot]", "Ski days start here, in town."],
   buildHintFence: ["SkiResort.Hub.BUILD_HINT_FENCE", "Decorative only."],
   buildShortPatrol: ["SkiResort.Hub.BUILD_SHORT[Patrol]", "Covers the steep runs nearby."],
-  buildTipDepot: ["SkiResort.Hub.BUILD_TIP_DEPOT", "Coach bill: 1,500 a month plus 300 per straight-line km to the nearest lodge on the hill. It adds no skier room and no score."],
+  buildTipDepot: ["SkiResort.Hub.BUILD_TIP_DEPOT", "Coach bill: 1,500 a month plus 300 per straight-line km to the nearest hill lodge. It adds no skier room and no score."],
   buildTipSchool: ["SkiResort.Hub.BUILD_TIP_SCHOOL", "Adds +12 to Runs, lifts and school while a green run counts. Locals come 20 % more often."],
   buildTipPatrol: ["SkiResort.Hub.BUILD_TIP_PATROL", "Black and double-black runs within 1 km score 15 % more. Runs there without a lift count at least 70 %."],
   /* the A-frame, Chalet and Grand tiles (buildItems.ts ROAD_OPTIONAL_LODGES): LodgeSupplyRule, LiftServedRule.LinkMeters */

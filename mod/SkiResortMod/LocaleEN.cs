@@ -41,7 +41,7 @@ namespace SkiResortMod
                 { "Assets.NAME[SkiBusDepot]", "Ski Bus Depot" },
                 { "Assets.DESCRIPTION[SkiBusDepot]", "A coach stop in town for skiers who live nearer to it than to a lodge." },
                 { "Assets.NAME[SkiCoachBus]", "Ski Bus" },
-                { "Assets.DESCRIPTION[SkiCoachBus]", "The coach between a Ski Bus Depot and the nearest lodge on the hill." },
+                { "Assets.DESCRIPTION[SkiCoachBus]", "The coach between a Ski Bus Depot and the nearest hill lodge." },
                 // The cat track groomer (SkiGroomerSystem places it; never selectable, so the name shows in the Editor and in mods that list
                 // prefabs). Vanilla names its vehicles with the plain noun ("Snowplow").
                 { "Assets.NAME[SkiGroomerA]", "Snow Groomer" },
@@ -922,7 +922,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUS_CARD[Distance]", "To the hill lodge, straight line" },
                 { "SkiResort.Hub.BUS_CARD[Status]", "Status" },
                 { "SkiResort.Hub.BUS_CARD[NoRoad]", "No road to the hill" },
-                { "SkiResort.Hub.BUS_CARD[NoHillLodge]", "No lodge on the hill" },
+                { "SkiResort.Hub.BUS_CARD[NoHillLodge]", "No hill lodge" },
                 { "SkiResort.Hub.BUS_CARD[Off]", "Not running" },
                 // The merge card (contract 35) and the Overview's merged buildings fold.
                 { "SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area" },
@@ -1268,7 +1268,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SECTION[Income]", "Income" },
                 { "SkiResort.Hub.MONEY_ROW[Runs]", "Runs" },
                 { "SkiResort.Hub.MONEY_ROW[Bus]", "Ski bus" },
-                { "SkiResort.Hub.MONEY_TIP[BusBooked]", "Coach bill booked this month so far: 1,500 a month per depot plus 300 per straight-line km to the nearest lodge on the hill." },
+                { "SkiResort.Hub.MONEY_TIP[BusBooked]", "Coach bill booked this month so far: 1,500 a month per depot plus 300 per straight-line km to the nearest hill lodge." },
                 { "SkiResort.Hub.MONEY_FACT[Bus]", "Depots {N} · guests by bus {GUESTS} · bill {RATE}" },
                 { "SkiResort.Hub.MONEY_TIP[RunsBooked]", "Run upkeep booked this month so far. Today's rate per month, by kind:" },
                 { "SkiResort.Hub.MONEY_ROW[Buildings]", "Building upkeep" },
@@ -1310,7 +1310,7 @@ namespace SkiResortMod
                 // derives "+12", "20 %" (School), "1 km", "15 %", "70 %" (Patrol) and "40" (the luxury PriceTolerance) from SkiCatalog.
                 { "SkiResort.Hub.BUILD_SHORT[School]", "Teaches on green runs." },
                 { "SkiResort.Hub.BUILD_SHORT[Depot]", "Ski days start here, in town." },
-                { "SkiResort.Hub.BUILD_TIP_DEPOT", "Coach bill: 1,500 a month plus 300 per straight-line km to the nearest lodge on the hill. It adds no skier room and no score." },
+                { "SkiResort.Hub.BUILD_TIP_DEPOT", "Coach bill: 1,500 a month plus 300 per straight-line km to the nearest hill lodge. It adds no skier room and no score." },
                 { "SkiResort.Hub.BUILD_SHORT[Patrol]", "Covers the steep runs nearby." },
                 { "SkiResort.Hub.BUILD_TIP_SCHOOL", "Adds +12 to Runs, lifts and school while a green run counts. Locals come 20 % more often." },
                 { "SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", "Off-road, a cat track within 25 m that reaches a road lodge or Ski Bus Depot brings the utilities. No guests arrive there by road." },

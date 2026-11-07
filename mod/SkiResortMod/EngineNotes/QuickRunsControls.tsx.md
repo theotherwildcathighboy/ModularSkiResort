@@ -18,7 +18,7 @@
   - "Building runs N / M" (QUICK_BUILDING_PROGRESS) shows above the building line, with Stop after Undo.
   - "Planting trees N / M" (QUICK_PLANTING_PROGRESS) shows in place of the tree counts, with Stop in place of Plant (beside its progress).
   - Stop sends `stop`.
-  - The Build and Plant tips and the building line say "Large areas can take a few seconds to a minute."
+  - The Build and Plant tips and the building line say "A large region can take a few seconds to a minute."
 - Rows use `.quickRow`: the tree row's look with wrap. So a narrow panel or text scale 1.25 wraps chips instead of clipping. The Runs
   view may scroll (listAll), and it does while the tool is open (test-hub-layout: "Quick runs open" +310 rem at 1080p, allowed).
 - The harness scenario "Quick runs open, Ash Flat (runs, lifts, problems)" draws a preview with the filler on. "Quick runs building"

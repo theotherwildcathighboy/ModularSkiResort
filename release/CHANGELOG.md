@@ -59,7 +59,7 @@ First public release. Draft notes (check against the build at upload):
 - Lodge parking: car spaces within 600 m of a lodge with a road count for it (street parking, parking lots, a parking garage
   at its entrance); tourist parties drive in and need them. A blue ring shows the 600 m while placing or selecting a lodge.
 - Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts
-  its ski day there; guests pay as at a lodge. It adds no capacity and no score, needs a lodge on the hill, and bills 1,500
+  its ski day there; guests pay as at a lodge. It adds no skier room and no score, needs a hill lodge, and bills 1,500
   a month plus 300 per km to that lodge (Finances, row Ski bus). An oxblood coach, with SKI BUS painted on it, drives between the depot and the hill. Selecting the coach or the depot shows a Ski Bus card beside the game's panel: guests by bus this month, the coach bill and the distance to the hill lodge.
 - Merge an existing building into a ski area as a lodge: a park, landmark, signature or decor building near the runs can be merged as
   a lodge tier its lot allows. It keeps working as before and adds score, skier room, staff and attraction, for a one-time charge and a

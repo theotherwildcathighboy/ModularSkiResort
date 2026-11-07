@@ -16,7 +16,7 @@ SkiRunAutoPlanner.md). This tool feeds it a snapshot and turns its result into r
   DECISIONS 443. `OptionOn` reads it. `OptionOn` falls back to false when Mod.Settings is null. When the setting is off:
   - `TryActivate` refuses and logs.
   - The hotkey is inert.
-  - The hub chip stays visible but disabled with `SkiResort.Hub.QUICK_REASON[Off]` ("Resort Planner is experimental and off. Turn it on in Options > Modular Ski Resort > Runs."). The hotkey path only logs the same hint.
+  - The hub chip stays visible but disabled with `SkiResort.Hub.QUICK_REASON[Off]` ("Resort Planner is experimental and off. Its switch is in Options > Modular Ski Resort > Main > Runs."). The hotkey path only logs the same hint.
 
   Turning it off while the tool is open closes the tool on its next frame.
 - `UnavailableReasonKey`: Off, then Disabled (an exception, until the next load), then NotArmed (no city loaded, run prefabs not
