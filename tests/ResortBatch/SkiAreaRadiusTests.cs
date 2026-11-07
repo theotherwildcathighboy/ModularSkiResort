@@ -1,5 +1,7 @@
 // Tests for the pure rules in SkiAreaRadiusRules.cs (the ski area radius option, its ring and the site survey).
-//   AR-1 clamp and step   AR-2 ring points   AR-3 survey: flat, slope, skiable vertical, water, playable clip, lines
+//   AR-1 clamp and step
+//   AR-2 ring points
+//   AR-3 survey: flat, slope, skiable vertical, water, playable clip, lines
 // Oracles are literal hand values (the comments show the arithmetic).
 
 using System;
@@ -85,7 +87,7 @@ namespace ResortBatch
             var wet = R.Survey((x, z) => float.NaN, 0f, 0f, 5000f, -big, -big, big, big, 1000f, 950f);
             C(wet.Samples == 0 && wet.InDisc > 0 && float.IsNaN(wet.MinM) && wet.VerticalM == 0f && wet.PctAboveSnow == 0, W, "all water: no samples, NaN ground");
 
-            // Playable clip: the map ends at x = 0: only the east half is sampled at all.
+            // Playable clip: the map ends at x = 0. The survey samples only the east half at all.
             var edge = R.Survey((x, z) => 1000f, 0f, 0f, 5000f, 0f, -big, big, big, 1000f, 950f);
             C(edge.InDisc * 2 > flat.InDisc - 80 && edge.InDisc * 2 < flat.InDisc + 80, W, $"clip: half the disc on the map ({edge.InDisc})");
 
@@ -93,7 +95,7 @@ namespace ResortBatch
             var far = R.Survey((x, z) => 800f, 0f, 0f, 10000f, -big, -big, big, big, 1000f, 900f);
             C(far.InDisc == flat.InDisc, W, "10 km samples as many cells as 5 km");
 
-            // NaN snow line: nothing counts above it; bad input gives an empty result.
+            // NaN snow line: nothing counts above it. Bad input gives an empty result.
             var noLine = R.Survey((x, z) => 800f, 0f, 0f, 5000f, -big, -big, big, big, float.NaN, float.NaN);
             C(noLine.Samples > 0 && noLine.PctAboveSnow == 0 && noLine.PctAboveGuns == 0 && noLine.SkiableVerticalM == 0f, W, "NaN lines: 0 % above, 0 skiable");
             C(R.Survey(null, 0f, 0f, 5000f, -big, -big, big, big, 1000f, 900f).InDisc == 0 &&

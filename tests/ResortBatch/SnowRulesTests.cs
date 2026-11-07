@@ -1,6 +1,10 @@
-// Tests for the snow rules. Oracles are literal hand values. The Burst jobs, the snapshot state machine, the async
-// request, the merge with stepScale, the episode bookkeeping and the Snow [day] roll need the Unity runtime and are
-// covered by the field test.
+// Tests for the snow rules. Oracles are literal hand values. These items need the Unity runtime, so the field test covers them:
+// - the Burst jobs
+// - the snapshot state machine
+// - the async request
+// - the merge with stepScale
+// - the episode bookkeeping
+// - the Snow [day] roll
 
 using System;
 using SkiResortMod.Systems;
@@ -289,7 +293,7 @@ namespace ResortBatch
         }
 
         // Packed skip records and arguments. H = the file's footprint hash. P = a packed record: 478 texels and 0.212 m are a
-        // field run's last footprint and run mean. D = a dry record. Arguments (cold, contained, hash, sinceReal, calm); the
+        // field run's last footprint and run mean. D = a dry record. Arguments (cold, contained, hash, sinceReal, calm). The
         // base is (0, 478, H, 188u, true): 188 sim frames = one 8x pass.
         private const ulong PackedHash = 0x732AD62604202A70UL;
 
@@ -388,7 +392,7 @@ namespace ResortBatch
         }
 
         // Row 3 ("D.PackGuardNext = true -> Dry", dry first) also sets RunMeanDepthM 0.212 so that both predicates hold on
-        // that synthetic record and the order is really tested (with 0 m only Dry holds)
+        // that synthetic record. The test then really checks the order (with 0 m only Dry holds)
         private static void SkipKindCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S21 SkipKind";
@@ -435,11 +439,11 @@ namespace ResortBatch
             check(!RunSnowRules.IsForcedCheck(p, 0, 478, H, 5000u, true), W, "no real pass this load: not forced");
         }
 
-        // Properties over seed 20261010, 20,000 records: one check per property, violations counted (the oracle is 0). Draw
-        // order per record (fixed), each value tables[rng.Next(length)]: Valid, ColdTexels, Injected, Lowered, PackGuardNext,
-        // RunDepthSum, RunMeanDepthM (drawn only when RunDepthSum != 0; else 0f), then the arguments cold, contained, hash,
-        // sinceReal, calm; the record's footprint is 478 texels / H. 20,000 records give 18 packed and 103 dry for this seed
-        // (2,000 give one packed record), and each check also requires that both kinds were drawn (no vacuous pass).
+        // Properties over seed 20261010, 20,000 records: one check per property, and the test counts violations (the oracle is 0).
+        // The draw order is the same for every record. Each value is tables[rng.Next(length)]. The order is: Valid, ColdTexels, Injected, Lowered,
+        // PackGuardNext, RunDepthSum, RunMeanDepthM (drawn only when RunDepthSum != 0, else 0f), then the arguments cold, contained, hash,
+        // sinceReal, calm. The record's footprint is 478 texels / H. 20,000 records give 18 packed and 103 dry for this seed
+        // (2,000 give one packed record). Each check also requires that the draw includes both kinds (no vacuous pass).
         private static void PackedProperties(Func<bool, string, string, bool> check)
         {
             const string W = "snow S23 packed properties";
@@ -484,15 +488,15 @@ namespace ResortBatch
                     packed++;
                 if (canDry)
                     dry++;
-                // A packed skip implies the terms that make the merge a no-op (no cold texel now or at the last real pass, nothing
-                // raised or lowered, the pack guard on for the next merge) and the pass not due
+                // A packed skip implies the pass is not due. It also implies the terms that make the merge a no-op. These terms are: no cold texel now
+                // or at the last real pass, nothing raised or lowered, and the pack guard on for the next merge
                 if (canPacked && !(cold == 0 && last.ColdTexels == 0 && last.Injected == 0 && last.Lowered == 0 &&
                                    last.PackGuardNext && since < RunSnowRules.ForcedRealPassFrames))
                 {
                     if (bad1++ == 0)
                         first1 = Describe(last, cold, contained, hash, since, calm);
                 }
-                // Never both skips on these records; SkipKind is Dry exactly when CanSkipDry, Packed exactly when CanSkipPacked
+                // Never both skips on these records. SkipKind is Dry exactly when CanSkipDry, and Packed exactly when CanSkipPacked
                 if ((canDry && canPacked) || (kind == TopupSkip.Dry) != canDry || (kind == TopupSkip.Packed) != canPacked)
                 {
                     if (bad2++ == 0)
@@ -564,8 +568,14 @@ namespace ResortBatch
             check(Near(v, 11.5, 1e-3), W, "days 0 counts as 1 -> " + v + ", expected 11.5");
         }
 
-        // Snow-rule scenarios: constants, the skiable bar per run, the gun reaching "open" by itself, aspect, spring, the
-        // budget, the protection machine, field-sheet scenarios in rule form, the ledger. Hand-value oracles.
+        // Snow-rule scenarios with hand-value oracles:
+        // - constants
+        // - the skiable bar per run
+        // - the gun reaching "open" by itself
+        // - aspect, spring, the budget
+        // - the protection machine
+        // - field-sheet scenarios in rule form
+        // - the ledger
 
         private static void T09Cases(Func<bool, string, string, bool> check)
         {
@@ -596,8 +606,8 @@ namespace ResortBatch
             check(RunSnowRules.ProtectBudgetHours == 48f && RunSnowRules.ProtectMaxLocalC == 10f, W, "budget 48 game h, stop above 10 C");
             check(RunSnowRules.ProtectSpringFactor == 0.5f && RunSnowRules.ProtectNorthFactor == 1.5f && RunSnowRules.ProtectSouthFactor == 0.5f,
                 W, "spring x0.5, north x1.5, south x0.5");
-            // The re-raise must beat the melt it faces: 2e-5 x T x 0.2 x 16 snow ticks x 8 m at T = 10 C is 6.4 mm per window
-            // (linear form unverified), with 1.5x headroom
+            // The re-raise must beat the melt it faces, with 1.5x headroom. At T = 10 C the melt is 2e-5 x T x 0.2 x 16 snow ticks x 8 m = 6.4 mm
+            // per window (linear form unverified)
             double meltAt10C = 2e-5 * 10.0 * 0.2 * 16.0 * 8.0;
             check(RunSnowRules.ProtectRaisePerTopupM >= 1.5 * meltAt10C - 1e-9, W, "the protection step beats the estimated melt at 10 C by 1.5x");
         }
@@ -632,7 +642,7 @@ namespace ResortBatch
             float thr = RunSnowRules.DefaultSnowmakingMarginC;   // freezing 0 + 3.3
             float slow = RunSnowRules.RampRateMin;
             float mean = RunSnowRules.RampRateMin + RunSnowRules.RampRateSpan * 0.5f;
-            // The gun target is the 3 ft open bar (0.91 m). -3 C: chill (3.3 + 3) / 4 > 1 -> output 2.0; slowest step 0.002 m.
+            // The gun target is the 3 ft open bar (0.91 m). -3 C: chill (3.3 + 3) / 4 > 1 -> output 2.0. Slowest step 0.002 m.
             float w91 = RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, -3f, thr, slow);
             check(Near(w91, 455.0, 1.0), W, "T133 slowest texel to 91 cm at -3 C: " + w91 + " windows, expected 455");
             check(RunSnowRules.WindowsToGameHours(w91) < 3f, W, "T133 slowest texel opens (3 ft) within 3 game h at -3 C");
@@ -675,7 +685,7 @@ namespace ResortBatch
             check(!RunSnowRules.IsSpring(null, 0.1f), W, "no season name: February is winter");
             check(RunSnowRules.IsSpring(null, 1.3f), W, "the date wraps over the year: 1.3 is 0.3");
             check(!RunSnowRules.IsSpring(null, 5f / 12f), W, "1 June is not spring (end exclusive)");
-            // The fallback follows the climate's winter end; the vanilla names still decide first.
+            // The fallback follows the climate's winter end. The vanilla names still decide first.
             check(RunSnowRules.IsSpring("MySeason", 0.72f, 8f / 12f), W, "a winter ending 1 September: late September is spring");
             check(!RunSnowRules.IsSpring("MySeason", 0.3f, 8f / 12f), W, "a winter ending 1 September: April is not spring");
             check(RunSnowRules.IsSpring("MySeason", 0.3f, 14f / 12f), W, "a winter ending 1 March (14 / 12): April is spring, the calendar case");
@@ -784,7 +794,7 @@ namespace ResortBatch
             Step(ref hot, 0.1f, true, true, 12f, false, out started);
             check(hot.State == RunSnowRules.ProtectState.Idle && !started, W, "+12 C: no protection");
             check(!RunSnowRules.TexelProtected(0f, 12f, false, 1f), W, "+12 C: no texel is held");
-            // Natural runs: the machine is driven only for gun runs (SkiSnowInjectionSystem.RefreshRunSnow); a natural black run's bar is 31 cm.
+            // Natural runs: SkiSnowInjectionSystem.RefreshRunSnow drives the machine only for gun runs. A natural black run's bar is 31 cm.
             check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 3) == RunSnowRules.SkiableBarNorm(RunKind.Snowmaking, 3), W, "T133 a natural black needs the same 3 ft as a gun black");
         }
 

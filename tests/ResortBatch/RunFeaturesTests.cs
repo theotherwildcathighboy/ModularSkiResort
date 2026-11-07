@@ -1,8 +1,8 @@
 // Run types R1 (DECISIONS 576): the golden parity table and the RunFeatures model. GOLDEN is every per-kind rule's answer for the five
-// kinds and two unknown values, dumped from the kind-based code BEFORE the rules moved onto RunFeatures (origin/main 7db7b63) and
-// pasted here as a literal: the parity shim must reproduce it line for line. Set RESORTBATCH_DUMP_GOLDEN=<file> to write the current
-// dump (to diff it against the literal when a rule changes on purpose; the literal then changes in the same commit, with a ledger
-// entry). The feature-level checks after it pin the model itself.
+// kinds and two unknown values. It is the dump of the kind-based code BEFORE the rules moved onto RunFeatures (origin/main 7db7b63),
+// pasted here as a literal. The parity shim must reproduce it line for line. Set RESORTBATCH_DUMP_GOLDEN=<file> to write the current
+// dump. Use it to diff against the literal when a rule changes on purpose. The literal then changes in the same commit, with a ledger
+// entry. The feature-level checks after it pin the model itself.
 
 using System;
 using System.Collections.Generic;
@@ -45,7 +45,7 @@ namespace ResortBatch
                   "cat track, guns off, lit: " + RunFeatures.FromKind(4, false, true));
             Check(RunFeatures.FromKind((int)RunKind.Snowmaking, true, true).Equals(RunFeatures.FromKind((int)RunKind.Snowmaking)), W, "lit ignored on a run");
             Check(RunFeatures.FromKind((int)RunKind.Groomed, false).Equals(RunFeatures.FromKind((int)RunKind.Groomed)), W, "gunsOn ignored on a groomed run");
-            // Of: snowmaking and lights need groomed; a cat track is groomed.
+            // Of: snowmaking and lights need groomed. A cat track is groomed.
             Check(RunFeatures.Of(RunBase.Piste, false, true, true).Equals(RunFeatures.FromKind((int)RunKind.Natural)), W, "ungroomed piste drops snowmaking and lights");
             Check(RunFeatures.Of(RunBase.CatTrack, false, false, false).Groomed, W, "a cat track is groomed");
             // Equality and hash: all 16 known combinations plus Unknown are distinct.

@@ -1,8 +1,9 @@
 // Tests for RunOutlineRules (width and dot size from size, Temp and dot eligibility, color order, closing side) and the outline walks.
 // Oracles are literal hand values read off Game.Rendering/AreaBorderRenderSystem.cs (1.6.0f1), never a second run of the same code.
-// Own Near with tolerance 1e-5 for the float widths; Program.Main calls Run(Check). Sections A-I: sizes, flag mirrors (TempFlags /
+// Own Near with tolerance 1e-5 for the float widths. Program.Main calls Run(Check). Sections A-I: sizes, flag mirrors (TempFlags /
 // AreaFlags literals), Outlined, Dots, color order (Error > Warning > Parent > hovered), ClosingSide and shared-edge keys, the walks on
-// hand-built shapes (two squares sharing a side draw that side by neither), SizeChangeDue (the size-change log rule), run-visual constants.
+// hand-built shapes, SizeChangeDue (the size-change log rule), run-visual constants. In the walks, neither of two squares that share
+// a side draws that side.
 // Engine notes: EngineNotes/ResortBatch.RunOutlineTests.md
 
 using System;
@@ -268,7 +269,7 @@ namespace ResortBatch
             TestSink s6 = Frame(new[] { Shape(0, 0, 0, 10, 10, 10, 10, 0) }, new byte[] { 1 }, new[] { false });
             Check(Join(s6.Ops) == "L 0,0>0,10 | L 0,10>10,10 | L 10,10>10,0 | L 10,0>0,0", w, "Delete copy: " + Join(s6.Ops));
 
-            // Two clockwise 10 m squares sharing the side x = 10 (A walks it 10,10 > 10,0; B walks it 10,0 > 10,10): the game draws that
+            // Two clockwise 10 m squares share the side x = 10. A walks it 10,10 > 10,0. B walks it 10,0 > 10,10. The game draws that
             // side for neither, and the shared corners once.
             TestNodes a = Shape(0, 0, 0, 10, 10, 10, 10, 0);
             TestNodes b = Shape(10, 0, 10, 10, 20, 10, 20, 0);
@@ -284,8 +285,8 @@ namespace ResortBatch
             Check(!s8.Ops.Contains("L 10,10>10,0") && !s8.Ops.Contains("L 10,0>10,10"), w, "CCW neighbor, shared side drawn: " + Join(s8.Ops));
             Check(CountOps(s8.Ops, 'L') == 6 && CountOps(s8.Ops, 'D') == 6, w, "CCW neighbor: " + Join(s8.Ops));
 
-            // A neighbor stored counter-clockwise without its flag walks the side the same way as A: not a shared key, both draw it (the
-            // game's rule keys on the flag, not on geometry).
+            // A neighbor stored counter-clockwise without its flag walks the side the same way as A. Not a shared key: both draw it.
+            // The game's rule keys on the flag, not on geometry.
             TestSink s9 = Frame(new[] { a, bCcw }, new byte[] { 1, 1 }, new[] { true, true });
             Check(CountOps(s9.Ops, 'L') == 8, w, $"unflagged reversed neighbor: {CountOps(s9.Ops, 'L')} lines, want 8");
 
@@ -300,7 +301,7 @@ namespace ResortBatch
             Check(!s11.Ops.Contains("L 10,0>10,10") && !s11.Ops.Contains("L 10,10>10,0"), w, "open run on a neighbor's side: " + Join(s11.Ops));
             Check(CountOps(s11.Ops, 'L') == 4 && CountOps(s11.Ops, 'D') == 3, w, "open run on a neighbor's side: " + Join(s11.Ops));
 
-            // A square touching A only at the corner 10,10: no shared side; the corner dotted once.
+            // A square touching A only at the corner 10,10: no shared side. The corner gets one dot.
             TestNodes c = Shape(10, 10, 10, 20, 20, 20, 20, 10);
             TestSink s12 = Frame(new[] { a, c }, new byte[] { 1, 1 }, new[] { true, true });
             Check(CountOps(s12.Ops, 'L') == 8 && CountOps(s12.Ops, 'D') == 7, w, "corner-touching squares: " + Join(s12.Ops));
@@ -322,7 +323,7 @@ namespace ResortBatch
             Check(RunOutlineRules.SizeChangeDue(-1, 8, true), w, "never logged (-1) -> 8: due");
             Check(!RunOutlineRules.SizeChangeDue(-1, 8, false), w, "never logged, nothing to draw: waits");
 
-            // The review's sequence from 8: 0, then 16, then back to 8; each setting held a few frames, the first frame of each without a
+            // The review's sequence from 8: 0, then 16, then back to 8. The test holds each setting a few frames, the first frame of each without a
             // surface. Three lines, each with the right old value.
             int logged = 8;
             var lines = new List<string>();

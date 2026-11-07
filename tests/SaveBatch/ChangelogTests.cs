@@ -1,4 +1,4 @@
-// Release entries in CHANGELOG.md are "## X.Y.Z ..." headings outside ``` fences (the template block is fenced), newest first.
+// Release entries in CHANGELOG.md are "## X.Y.Z ..." headings outside ``` fences (fences enclose the template block), newest first.
 
 using System;
 using System.Collections.Generic;

@@ -1,11 +1,11 @@
-// Reads the BUILT mod DLL (mod/SkiResortMod/obj/<cfg>/net48/SkiResortMod.dll) as metadata only (System.Reflection.Metadata; nothing of the
-// game is loaded) and replays Colossal.Core 1.6.2f1's save-type mechanism (Colossal.Serialization.Entities/):
-//   * save: the type is written as GetComponentType().AssemblyQualifiedName (ComponentSerializer.cs:33-41);
-//   * boot: ComponentSerializerLibrary.Initialize registers every ISerializable / IEmptySerializable TypeManager type (:45-98) and
-//     UpdateTypeTable adds each [FormerlySerializedAs] oldName -> type with Dictionary.Add (:113-121: a duplicate key THROWS inside Initialize);
-//   * load: DeserializeType tries Type.GetType(saved); on null it strips the last ", ..." segment until the table hits (:51-65); a miss
-//     logs "Not serializable type" and the block is skipped (:66-73).
-// So a self-alias "Ns.Type, Assembly" is reached from any saved "Ns.Type, Assembly, Version=x, Culture=y, PublicKeyToken=z".
+// Reads the BUILT mod DLL (mod/SkiResortMod/obj/<cfg>/net48/SkiResortMod.dll) as metadata only (System.Reflection.Metadata). The test
+// loads nothing of the game. It replays Colossal.Core 1.6.2f1's save-type mechanism (Colossal.Serialization.Entities/):
+//   * save: ComponentSerializer writes the type as GetComponentType().AssemblyQualifiedName (ComponentSerializer.cs:33-41).
+//   * boot: ComponentSerializerLibrary.Initialize registers every ISerializable / IEmptySerializable TypeManager type (:45-98).
+//     UpdateTypeTable adds each [FormerlySerializedAs] oldName -> type with Dictionary.Add (:113-121). A duplicate key THROWS inside Initialize.
+//   * load: DeserializeType tries Type.GetType(saved). On null it strips the last ", ..." segment until the table hits (:51-65).
+//     On a miss it logs "Not serializable type" and skips the block (:66-73).
+// So any saved "Ns.Type, Assembly, Version=x, Culture=y, PublicKeyToken=z" reaches a self-alias "Ns.Type, Assembly".
 
 using System;
 using System.Collections.Generic;

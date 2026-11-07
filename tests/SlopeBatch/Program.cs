@@ -1,10 +1,11 @@
 // Headless invariant tests for SkiSlopeClassifier. Run (from the ModularSkiResort root): dotnet run --project tests\SlopeBatch\SlopeBatch.csproj -c Release
-// Prints `FAIL  test/case: msg` lines, report-only INFO/TIME/WARN/SPIKE lines and one SUMMARY line; Environment.ExitCode = failures.
-// `WARN  SPEC-GAP` = a spec invariant the classifier does not meet at a run's operating step (measured numbers shown); an asserted
+// Prints `FAIL  test/case: msg` lines, report-only INFO/TIME/WARN/SPIKE lines and one SUMMARY line. Environment.ExitCode = failures.
+// `WARN  SPEC-GAP` = a spec invariant the classifier does not meet at a run's operating step (measured numbers shown). An asserted
 // regression envelope keeps the gap from widening. WARN lines do not count as failures.
-// The terrain is a test-local stand-in (a 3.5 m texel lattice with the game's heightmap quantization and bilinear sampling) and the oracles
-// are deliberately different code from the classifier's. Within-runtime replay is proven bit-identical; CoreCLR vs the game's Mono bit
-// equality is unverified, so no golden values are asserted. The terrain stand-in, oracle design and run-length checks are described in the note.
+// The terrain is a test-local stand-in (a 3.5 m texel lattice with the game's heightmap quantization and bilinear sampling).
+// The oracles are deliberately different code from the classifier's. Replay within one runtime is proven bit-identical. Bit
+// equality between CoreCLR and the game's Mono is unverified, so no golden values are asserted. The note describes the terrain
+// stand-in, the oracle design and the run-length checks.
 // Engine notes: EngineNotes/SlopeBatch.Program.md
 
 using System;
@@ -119,8 +120,8 @@ namespace SlopeBatch
             return math.lerp(r0, r1, fz);
         }
 
-        /// <summary>Texel index nearest to world coordinate w; with multiple m only texels that
-        /// are lattice nodes at step m·texel (index ≡ 0 mod m) are returned.</summary>
+        /// <summary>Texel index nearest to world coordinate w. With multiple m, the method returns only texels that
+        /// are lattice nodes at step m·texel (index ≡ 0 mod m).</summary>
         public static int NearestTexel(double w, double origin, int m)
         {
             return m * (int)Math.Round((w - origin) / (m * (double)Texel));
@@ -237,7 +238,7 @@ namespace SlopeBatch
             {
                 Array.Copy(g.Mask, s.Mask, gn);
                 Array.Copy(g.Need, s.Need, gn);
-                // Only Mask cells are meaningful; everything else is compared as 0.
+                // Only Mask cells are meaningful. The comparison treats everything else as 0.
                 if (n == gn)
                     for (int q = 0; q < gn; q++)
                         if (g.Mask[q] != 0)
@@ -306,8 +307,8 @@ namespace SlopeBatch
 
     /// <summary>End-zone parameters of one classification (the classifier's test-only Classify overload): EndZoneShare, EndZoneMaxM2
     /// (height key's area cap), EndZoneDepthM (fall-line key's depth cap), and the key gate's two clauses: EndZoneMinMeanGrade (|mean
-    /// g|) OR EndZoneMinCoherence (FallCoherence). Both +inf forces the height key; MinMean 0 the fall-line key whenever a fall line
-    /// exists; MinCoh +inf alone is the |mean g| gate only.</summary>
+    /// g|) OR EndZoneMinCoherence (FallCoherence). Both at +inf force the height key. MinMean 0 forces the fall-line key whenever a
+    /// fall line exists. With MinCoh +inf alone, the gate is the |mean g| gate only.</summary>
     internal struct Zp
     {
         public float Share, MaxM2, DepthM, MinMean, MinCoh;
@@ -572,9 +573,9 @@ namespace SlopeBatch
             return Rate(t, Pts(ring, false), m, s_Grid, s_Result);
         }
 
-        /// <summary>The caller's connectivity rule (SkiRunDrawFeedbackSystem sets SlopeGrid.DiagonalRule = step multiple >= 2).
-        /// s_DiagOverride (random sweep only): -1 = the caller's rule, 0 / 1 = forced off / on (the classifier does not know m, so the rule
-        /// is exercised at m = 1 too).</summary>
+        /// <summary>The caller's connectivity rule. SkiRunDrawFeedbackSystem sets SlopeGrid.DiagonalRule = step multiple >= 2.
+        /// s_DiagOverride (random sweep only): -1 = the caller's rule, 0 / 1 = forced off / on. The classifier does not know m,
+        /// so the test exercises the rule at m = 1 too.</summary>
         private static int s_DiagOverride = -1;
 
         private static bool DiagFor(int m)
@@ -582,10 +583,9 @@ namespace SlopeBatch
             return s_DiagOverride < 0 ? m >= 2 : s_DiagOverride != 0;
         }
 
-        /// <summary>Plan -> fill -> Classify (the test-only overload with the given end-zone
-        /// parameters; with the shipped constants it is exactly the public overload) with the
-        /// caller's DiagonalRule, then the post-checks: polyline fields, and the brute-force
-        /// minimax oracle on every ring-mode rating.</summary>
+        /// <summary>Plan -> fill -> Classify with the caller's DiagonalRule. Classify is the test-only overload with the given end-zone
+        /// parameters. With the shipped constants it is exactly the public overload. Then the post-checks run: polyline fields, and the
+        /// brute-force minimax oracle on every ring-mode rating.</summary>
         private static SlopeStatus RateWith(Terrain t, float3[] pts, int m, SlopeGrid g, SlopeResult r, Zp zp, string where)
         {
             s_Classifies++;
@@ -613,10 +613,10 @@ namespace SlopeBatch
             return SkiSlopeClassifier.CruxForTest(g, r, zp.Share, zp.MaxM2, zp.DepthM, zp.MinMean, zp.MinCoh);
         }
 
-        // Every classification that passes PostCheck (RateWith, the degenerate / mask sections and the capture replays) folds its rating
-        // outputs into one FNV-1a 64 fingerprint, printed before SUMMARY. The length sections switch the fold off (s_FingerprintOn), so
-        // the value is comparable across classifier changes: equal fingerprints = every PostCheck'd rating, crux cell, zone, P90, band
-        // share, mean, drop and area bit-identical.
+        // The host folds the rating outputs of every classification that passes PostCheck into one FNV-1a 64 fingerprint. These
+        // classifications come from RateWith, the degenerate / mask sections and the capture replays. The host prints the fingerprint
+        // before SUMMARY. The length sections switch the fold off (s_FingerprintOn), so the value is comparable across classifier changes.
+        // Equal fingerprints mean that every PostCheck'd rating, crux cell, zone, P90, band share, mean, drop and area is bit-identical.
         private static ulong s_Fingerprint = 14695981039346656037UL;
         private static long s_FingerprintCount;
         private static bool s_FingerprintOn = true;
@@ -703,12 +703,14 @@ namespace SlopeBatch
         private static long s_LenChecksRing, s_LenChecksLine, s_LenAxisChecks, s_LenAxisExact;
         private static double s_LenRectWorstRel, s_LenLineWorstRel, s_LenAxisWorstAbs;
 
-        /// <summary>On EVERY PostCheck'd classification: a non-rating status leaves Length / LengthRect / AxisLength at 0 (Clear); polyline
-        /// mode Length = the horizontal arc length of the sanitized points (recomputed here from the world xz in double, not from the
-        /// classifier's lattice units) with LengthRect = AxisLength = 0; ring mode LengthRect = (P + sqrt(max(0, P² − 16A))) / 4
-        /// recomputed with a different area formula (trapezoids Σ (x₂ − x₁)(z₂ + z₁) / 2 on unshifted coordinates; classifier: shoelace
-        /// relative to point 0), AxisLength = 0 unless ZoneByFallLine (OracleCheck pins its value against the oracle's key range), and
-        /// Length == max(LengthRect, AxisLength) exactly.</summary>
+        /// <summary>On EVERY PostCheck'd classification, these checks hold:
+        /// - A non-rating status leaves Length / LengthRect / AxisLength at 0 (Clear).
+        /// - In polyline mode, Length = the horizontal arc length of the sanitized points, with LengthRect = AxisLength = 0. The test
+        ///   recomputes the arc length here from the world xz in double, not from the classifier's lattice units.
+        /// - In ring mode, LengthRect = (P + sqrt(max(0, P² − 16A))) / 4. The test recomputes it with a different area formula
+        ///   (trapezoids Σ (x₂ − x₁)(z₂ + z₁) / 2 on unshifted coordinates). The classifier uses the shoelace formula relative to point 0.
+        /// - In ring mode, AxisLength = 0 unless ZoneByFallLine (OracleCheck pins its value against the oracle's key range).
+        /// - Length == max(LengthRect, AxisLength) exactly.</summary>
         private static void LengthCheck(string w, SlopeGrid g, SlopeResult r, SlopeStatus st)
         {
             bool rated = st == SlopeStatus.Ok || st == SlopeStatus.ShortRun || st == SlopeStatus.Polyline;
@@ -776,7 +778,7 @@ namespace SlopeBatch
             }
         }
 
-        // Profiles in run-local coordinates (s = along, downhill; t = across).
+        // Profiles in run-local coordinates, where s = along (downhill) and t = across.
         private static double BankProfile(double s, double bankLen, double bankGrade)
         {
             return 1000.0 - 0.10 * s - Math.Min(Math.Max(s - 120.0, 0.0), bankLen) * (bankGrade - 0.10);
@@ -799,8 +801,8 @@ namespace SlopeBatch
                              + 3.0 * Math.Sin(x / 23.0 + z / 31.0) + 0.3 * Math.Sin(x / 7.3 - z / 9.1);
         }
 
-        /// <summary>Closed-form max over s in [s0, s1 - L] of |p(s + L) - p(s)| / L for a
-        /// piecewise-linear p with the given breakpoints: g(s) = p(s+L) - p(s) is itself
+        /// <summary>Closed-form max of |p(s + L) - p(s)| / L over s in [s0, s1 - L], for a
+        /// piecewise-linear p with the given breakpoints. g(s) = p(s+L) - p(s) is itself
         /// piecewise linear with kinks at b and b - L, so the max sits on one of those or an end.</summary>
         private static double OracleMaxWindow(Func<double, double> p, double[] breaks, double s0, double s1, double len)
         {
@@ -883,8 +885,8 @@ namespace SlopeBatch
         private static long s_OracleFallKey, s_OracleHeightKey, s_OracleDiag, s_OracleGateAmbiguous, s_OracleCohKey;
         private static double s_OracleMaxAbove, s_OracleFallLineWorstDeg, s_OracleMeanGradWorst, s_OracleCohWorst;
 
-        // Connectivity of the oracle's flood fills: 8-neighbor (step multiple 1), 4-neighbor (report-only evidence), and the DiagonalRule
-        // (4-neighbor plus a diagonal only when both orthogonally shared cells are outside the Mask; step multiple >= 2).
+        // Connectivity of the oracle's flood fills. 8-neighbor is for step multiple 1. 4-neighbor is report-only evidence. The DiagonalRule
+        // is for step multiple >= 2: 4-neighbor plus a diagonal, only when both orthogonally shared cells are outside the Mask.
         private const int Conn8 = 0, Conn4 = 1, ConnDiag = 2;
 
         /// <summary>True when the oracle's connectivity lets (i, j) step to (i + di, j + dj)
@@ -958,13 +960,15 @@ namespace SlopeBatch
             return false;
         }
 
-        /// <summary>The oracle's end zones, written from the spec: the key is the position along the mean fall line, -(FallLine · (i,
-        /// j))·step, when the mean box gradient |Σg| / n >= EndZoneMinMeanGrade OR the coherence |Σg| / Σ|g| >= EndZoneMinCoherence, else
-        /// the node height; 1024 equal bins over the Mask cells' [min, max] key (one bin below 1 mm), whole bins from each end until >= z
-        /// cells, z = clamp(round(share·n), 1, max(1, cap)) with cap = floor(n·EndZoneDepthM / L), L = key range + step (fall-line key),
-        /// or floor(EndZoneMaxM2 / step²) (height key). Built with a SortedDictionary bin table and brute-force min/max (classifier:
-        /// histogram walk, run-end key range). The mean box gradient is recomputed independently (5×5 central differences summed in
-        /// double) and decides the key; the published FallLine (float) is checked against it and then used for the key.</summary>
+        /// <summary>The oracle's end zones, written from the spec.
+        /// The key is the position along the mean fall line, -(FallLine · (i, j))·step, when the mean box gradient |Σg| / n >=
+        /// EndZoneMinMeanGrade OR the coherence |Σg| / Σ|g| >= EndZoneMinCoherence. Otherwise the key is the node height.
+        /// The oracle builds 1024 equal bins over the Mask cells' [min, max] key (one bin below 1 mm). It takes whole bins from each end
+        /// until >= z cells, with z = clamp(round(share·n), 1, max(1, cap)).
+        /// For the fall-line key, cap = floor(n·EndZoneDepthM / L), with L = key range + step. For the height key, cap = floor(EndZoneMaxM2 / step²).
+        /// The oracle uses a SortedDictionary bin table and brute-force min/max. The classifier uses a histogram walk and the run-end key range.
+        /// The oracle recomputes the mean box gradient independently (5×5 central differences summed in double). This value decides
+        /// the key. The test checks the published FallLine (float) against it and then uses FallLine for the key.</summary>
         private sealed class OZones
         {
             public List<int> Cells = new List<int>();
@@ -999,8 +1003,7 @@ namespace SlopeBatch
             {
                 o.HMin = Math.Min(o.HMin, h[q]);
                 o.HMax = Math.Max(o.HMax, h[q]);
-                // 5×5 box of central differences: Σ over the 5 rows of h(+3) + h(+2) - h(-2) - h(-3)
-                // along x, and the same along z over the 5 columns.
+                // 5×5 box of central differences. Along x: Σ over the 5 rows of h(+3) + h(+2) - h(-2) - h(-3). Along z: the same over the 5 columns.
                 double cx = 0.0, cz = 0.0;
                 for (int b = -2; b <= 2; b++)
                 {
@@ -1022,16 +1025,15 @@ namespace SlopeBatch
                 o.FallZ = -gsz / gl;
             }
             o.Coherence = gl > 0.0 && sabs > 0.0 ? Math.Min(1.0, gl / o.SumAbs) : 0.0;
-            // Coherence = |mean g| / mean |g|, so the |mean g| tolerance (1e-5 absolute below 1,
-            // OracleCheck: float per-cell sums vs these double ones) scales by 1 / mean |g|.
+            // Coherence = |mean g| / mean |g|, so the |mean g| tolerance scales by 1 / mean |g|. The tolerance is 1e-5 absolute below 1
+            // (OracleCheck: float per-cell sums vs these double ones).
             o.CohTol = 1e-5 * Math.Max(1.0, o.MeanGrad) / Math.Max(n > 0 ? o.SumAbs / n : 0.0, 1e-6) + 1e-6;
             bool hasFall = r.FallLine.x != 0f || r.FallLine.y != 0f;
             bool byMean = o.MeanGrad >= zp.MinMean, byCoh = o.Coherence >= zp.MinCoh;
             o.ByFall = hasFall && (byMean || byCoh);
             o.ByCoherenceOnly = hasFall && byCoh && !byMean;
-            // Within the tolerance of a clause's threshold the double-vs-float sums may disagree;
-            // the OR is decided only when a sure clause is true or both clauses are sure — else
-            // follow the classifier.
+            // Within the tolerance of a clause's threshold, the double-vs-float sums may disagree.
+            // The test decides the OR only when a sure clause is true or both clauses are sure. Otherwise it follows the classifier.
             bool meanSure = !(Math.Abs(o.MeanGrad - zp.MinMean) <= 1e-5), cohSure = !(Math.Abs(o.Coherence - zp.MinCoh) <= o.CohTol);
             if (hasFall && !((meanSure && byMean) || (cohSure && byCoh) || (meanSure && cohSure)))
             {
@@ -1092,8 +1094,7 @@ namespace SlopeBatch
 
         /// <summary>Exact minimax of the per-cell values from the top to the bottom zone (shipped
         /// zone parameters) with the given connectivity (NaN when disconnected). Report-only
-        /// evidence (4- vs 8-connectivity); the classifier's own rule is checked by
-        /// OracleCheck.</summary>
+        /// evidence (4- vs 8-connectivity). OracleCheck checks the classifier's own rule.</summary>
         private static float OracleMinimax(SlopeGrid g, SlopeResult r, int conn)
         {
             OZones oz = OracleZones(g, r, Zp.Shipped);
@@ -1119,12 +1120,14 @@ namespace SlopeBatch
             return distinct[lo];
         }
 
-        /// <summary>The crux cell from the traversal contract, written from the spec text with its own data structures: BFS seeds = the
-        /// top-zone traversable cells in row-major scan order (a seed that is also in the bottom zone is the crux at once); traversable =
-        /// Mask cells with o &lt;= limit (the rating); the neighbors expanded in row-major order (dj = -1, 0, 1 outer; di = -1, 0, 1
-        /// inner), under `conn` (ConnDiag skips a diagonal past an inside orthogonal cell); the search stops when the first bottom-zone
-        /// cell is DISCOVERED; walk the parents back from it and take the largest o, the cell nearest the top on ties. Returns the flat
-        /// index, or -1 when no path exists.</summary>
+        /// <summary>The crux cell from the traversal contract, written from the spec text with its own data structures:
+        /// - BFS seeds = the top-zone traversable cells in row-major scan order (a seed that is also in the bottom zone is the crux at once).
+        /// - Traversable = Mask cells with o &lt;= limit (the rating).
+        /// - The search expands the neighbors in row-major order (dj = -1, 0, 1 outer, di = -1, 0, 1 inner), under `conn` (ConnDiag skips
+        ///   a diagonal past an inside orthogonal cell).
+        /// - The search stops when the first bottom-zone cell is DISCOVERED.
+        /// - Then walk the parents back from that cell and take the largest o. On ties, take the cell nearest the top.
+        /// Returns the flat index, or -1 when no path exists.</summary>
         private static int OracleCrux(SlopeGrid g, OZones oz, float[] v, float limit, int conn)
         {
             int nx = g.Nx, nz = g.Nz, total = nx * nz;
@@ -1211,9 +1214,9 @@ namespace SlopeBatch
             Check(mgErr <= 1e-5 * Math.Max(1.0, oz.MeanGrad), w, "mean box gradient " + F(r.MeanGradient) + " vs oracle " + F(oz.MeanGrad));
             if (oz.MeanGrad * n > 1e-3)
             {
-                // The classifier sums float per-cell gradients, the oracle doubles: their difference
+                // The classifier sums float per-cell gradients and the oracle sums doubles. Their difference
                 // is a fraction of Σ|g|, so the direction tolerance scales with 1 / coherence
-                // (|Σg| / Σ|g|; a cone or saddle cancels to ~0.2 %).
+                // (|Σg| / Σ|g|). A cone or saddle cancels to ~0.2 %.
                 double dot = r.FallLine.x * oz.FallX + r.FallLine.y * oz.FallZ, cross = r.FallLine.x * oz.FallZ - r.FallLine.y * oz.FallX;
                 double deg = Math.Atan2(Math.Abs(cross), dot) * 180.0 / Math.PI;   // atan2: acos of a float-normalized dot reads ~0.01° on equal vectors
                 double coh = oz.SumAbs > 0.0 ? oz.MeanGrad * n / oz.SumAbs : 1.0;
@@ -1297,8 +1300,8 @@ namespace SlopeBatch
                 }
                 float minimax = distinct[lo];
                 int bstar = OBucket(minimax);
-                // Below 200 % the rating is the largest value of the minimax's bucket; in the open last bucket (>= 2047/1024) it is the exact
-                // minimax (the largest o in the bucket would be the largest value of ANY cell above 199.9 %, avoidable or not).
+                // Below 200 % the rating is the largest value of the minimax's bucket. In the open last bucket (>= 2047/1024) it is the exact
+                // minimax. Reason: the largest o in the bucket would be the largest value of ANY cell above 199.9 %, avoidable or not.
                 float expected = float.MinValue;
                 if (bstar == 2047)
                 {
@@ -1538,7 +1541,7 @@ namespace SlopeBatch
         }
 
 
-        // Up above 16384 estimated cells, back down below 12288. Test-local copies on purpose (CellBudgetDown is private); the first
+        // Up above 16384 estimated cells, back down below 12288. Test-local copies on purpose (CellBudgetDown is private). The first
         // check pins the public constant.
         private const double SpecCellBudget = 16384.0, SpecCellBudgetDown = 12288.0;
 
@@ -1702,7 +1705,7 @@ namespace SlopeBatch
                     g.Heights[other] = float.NaN;
                     Check(SkiSlopeClassifier.Classify(g, r) == SlopeStatus.Ok, "degenerate", "a NaN outside Need must be ignored");
                 }
-                // Step 100 exactly is allowed.
+                // Plan allows step 100 exactly.
                 double2[] big = Rect(2000, 600, Frame.Make(0.5, 0.5, 0));
                 Check(SkiSlopeClassifier.Plan(Pts(big, false), 4, Terrain.Origin, 100f, g) == SlopeStatus.Ok, "degenerate", "step 100 must plan");
             }
@@ -1734,8 +1737,8 @@ namespace SlopeBatch
         }
 
         /// <summary>Hand-tampered grids (fields written after Plan): Mask on the border, run lists past the grid / overlapping / with a
-        /// broken row index, NaN inside-cell heights, a Mask cell outside Need. Classify must not throw; when it rates, the outputs must be
-        /// finite and internally consistent. Every variant also with DiagonalRule on, and with the fall-line key forced (gate 0), so
+        /// broken row index, NaN inside-cell heights, a Mask cell outside Need. Classify must not throw. When it rates, the outputs must be
+        /// finite and internally consistent. Every variant also runs with DiagonalRule on, and with the fall-line key forced (gate 0), so
         /// neither path can index out of range.</summary>
         private static void TamperTests(Terrain t, double2[] ring)
         {
@@ -1924,7 +1927,7 @@ namespace SlopeBatch
                 rings.Add(new KeyValuePair<string, double2[]>("rect a" + ang, r));
                 rings.Add(new KeyValuePair<string, double2[]>("rect cw a" + ang, Reversed(r)));
             }
-            // Concave L and a comb; a triangle; an axis-aligned rect with edges ON lattice rows.
+            // Concave L and a comb, a triangle, an axis-aligned rect with edges ON lattice rows.
             rings.Add(new KeyValuePair<string, double2[]>("L", new[]
             {
                 new double2(10.2, 10.7), new double2(210.2, 10.7), new double2(210.2, 60.7), new double2(60.2, 60.7),
@@ -1940,7 +1943,7 @@ namespace SlopeBatch
             comb.Add(new double2(-500.0 + 8 * 30.0, 60.0));
             comb.Add(new double2(-500.0, 60.0));
             rings.Add(new KeyValuePair<string, double2[]>("comb", comb.ToArray()));
-            // U shapes whose rows hold two Mask runs; a 5 m gap makes their Need runs merge, a 300 m gap keeps them apart (the run lists'
+            // U shapes whose rows hold two Mask runs. A 5 m gap makes their Need runs merge. A 300 m gap keeps them apart (the run lists'
             // two merge cases).
             rings.Add(new KeyValuePair<string, double2[]>("U gap 5 m", UShape(800.3, -900.6, 12, 150, 5)));
             rings.Add(new KeyValuePair<string, double2[]>("U gap 300 m", UShape(800.3, -900.6, 25, 200, 300)));
@@ -2108,9 +2111,9 @@ namespace SlopeBatch
             }
         }
 
-        /// <summary>Plan's run lists against a brute-force row scan: Mask runs
-        /// (ring mode; none in polyline mode) and Need runs are exact, sorted, disjoint and
-        /// non-adjacent, row index monotone, counts consistent.</summary>
+        /// <summary>Plan's run lists against a brute-force row scan. Mask runs
+        /// (ring mode, none in polyline mode) and Need runs are exact, sorted, disjoint and
+        /// non-adjacent. The row index is monotone and the counts are consistent.</summary>
         private static void CheckRuns(string w, SlopeGrid g)
         {
             int nx = g.Nx, nz = g.Nz;
@@ -2249,21 +2252,21 @@ namespace SlopeBatch
             return (asserted ? "asserted: " : "report only: ") + op;
         }
 
-        // Regression envelopes for measured gaps, keyed by case name. Bank (on SteepestGrade): the bound is not met at m = 2 (WARN
-        // SPEC-GAP), envelope ~0.5 % beyond the measured worst (-2.66 %). Invariance at m = 1: a measured excess is a WARN SPEC-GAP; at
-        // m = 2 (the "xl" runs) it is outside the invariance scope and only kept from widening by the envelope (INFO). Values next to
-        // each key are the measured worst shifts.
+        // Regression envelopes for measured gaps, keyed by case name. Bank (on SteepestGrade): the bound is not met at m = 2
+        // (WARN SPEC-GAP). The envelope is ~0.5 % beyond the measured worst (-2.66 %). Invariance at m = 1: a measured excess is a
+        // WARN SPEC-GAP. At m = 2 (the "xl" runs) it is outside the invariance scope, and the envelope only keeps it from widening
+        // (INFO). Values next to each key are the measured worst shifts.
         private static readonly Dictionary<string, double> s_GapEnvelope = new Dictionary<string, double>
         {
             { "bank 12 w60", 0.032 },          // bank 12 m @ 50 % at m = 2: steepest - oracle down to -2.66 %
             { "bank 12 w80", 0.032 },          // -2.66 %
             { "bank 12 w100", 0.032 },         // -2.66 %
             // Invariance at m = 1, WARN SPEC-GAP: a knife-edge ridge (12 % along the crest, 25 % flanks). The easiest line runs down the
-            // crest, and the crest cells' values depend on where the crest falls between lattice nodes (12 % on a node, up to ~20 % between).
+            // crest. The crest cells' values depend on where the crest falls between lattice nodes (12 % on a node, up to ~20 % between).
             // The fall-line zones at the crest's ends read 12.29-15.23 % (all Green), worst shift +1.69 %.
             { "inv ridge m1", 0.022 },
-            // Invariance at m = 1, WARN SPEC-GAP: the 2,000 × 80 ridge on the fall-line key reads 12.29-15.33 % over 3 starts × 7 angles,
-            // worst shift +1.78 % (envelope ~2.3 %).
+            // Invariance at m = 1, WARN SPEC-GAP: the 2,000 × 80 ridge on the fall-line key reads 12.29-15.33 % over 3 starts × 7 angles.
+            // Worst shift +1.78 % (envelope ~2.3 %).
             { "inv long ridge m1", 0.023 },
             // Invariance at m = 2 (outside the m = 1 scope), INFO + envelope. The diagonal rule closes the 8-connected path's slip through a
             // 12 m bank's one-cell-wide ridge of high values: 31.50-34.16 / 31.23-34.16 / 31.64-34.16 % (reference 33.35 %).
@@ -2271,13 +2274,13 @@ namespace SlopeBatch
             { "inv xl bank12@50 w80 m2", 0.027 },   // worst -2.12 %
             { "inv xl bank12@50 w100 m2", 0.023 },  // worst -1.71 %
             // The knife-edge ridge at m = 2 under the diagonal rule: a crest running diagonally across the lattice is a diagonal chain of
-            // cells, which the rule only links through an orthogonal (flank) cell, so at 37° / 45° / 211° the crux reads 20.2-20.5 % for a
-            // 14.04 % reference (12.53-20.49 %, worst +6.45 %). The predicted trade-off of the rule (a diagonal ridge crest reading up to
-            // 20.5 % instead of ~14 %); all Green.
+            // cells. The rule links such a chain only through an orthogonal (flank) cell. So at 37° / 45° / 211° the crux reads 20.2-20.5 % for a
+            // 14.04 % reference (12.53-20.49 %, worst +6.45 %). This is the predicted trade-off of the rule (a diagonal ridge crest reading up to
+            // 20.5 % instead of ~14 %). All Green.
             { "inv xl ridge m2", 0.070 },           // worst +6.45 %
-            // ZoneDepthTests, WARN SPEC-GAP against "~20 m of run whatever the width": zone depth in METERS down (up) the run from a
-            // narrowing top (bottom) end, measured worst + one step (3.5 m) over the 8 frames. The depth cap is a cell count from the MEAN
-            // width, so a 20 m end of a 106.7 m-mean run gets ~5× EndZoneDepthM.
+            // ZoneDepthTests, WARN SPEC-GAP against "~20 m of run whatever the width". The zone depth is in METERS down (up) the run from a
+            // narrowing top (bottom) end. The value is the measured worst + one step (3.5 m) over the 8 frames. The depth cap is a cell count
+            // from the MEAN width, so a 20 m end of a 106.7 m-mean run gets ~5× EndZoneDepthM.
             { "zone depth trail top 20 m -> 150 m bowl, 45% pitch s20-80", 110.2 },              // 103.0-106.7 m
             { "zone depth trail top 20 m -> 150 m bowl, 45% pitch s40-80", 110.2 },              // 103.0-106.7 m
             { "zone depth top 200 m 50 wide -> 150, 45% wall s0-40", 52.2 },                     // 44.8-48.7 m
@@ -2286,9 +2289,9 @@ namespace SlopeBatch
             { "zone depth 150 wide -> last 200 m 50, 45% wall 0-40 m above bottom", 50.8 },      // 45.1-47.3 m
         };
 
-        // Crux (RatingGrade) regression envelopes of the full-width banks at m = 2 (INFO, no spec bound). ~0.5 % beyond the measured
-        // worst crux - oracle. The diagonal rule closes an 8-connected path's slip across a one-cell-wide band of high values (-2.88 % at
-        // 60 m, -2.66 % at 80 m and 30 m, -0.15 % for the 5 m bank). Absent keys = 1 %.
+        // Crux (RatingGrade) regression envelopes of the full-width banks at m = 2 (INFO, no spec bound). Each is ~0.5 % beyond the measured
+        // worst crux - oracle. The diagonal rule closes an 8-connected path's slip across a one-cell-wide band of high values. Values:
+        // -2.88 % at 60 m, -2.66 % at 80 m and 30 m, -0.15 % for the 5 m bank. Absent keys = 1 %.
         private static readonly Dictionary<string, double> s_CruxEnvelope = new Dictionary<string, double>
         {
             { "bank crux 12 w60", 0.034 },   // -2.88 %
@@ -2297,9 +2300,9 @@ namespace SlopeBatch
             { "bank crux 5 w60", 0.010 },    // -0.46 %
             { "bank crux 5 w80", 0.007 },    // -0.15 %
             { "bank crux 5 w100", 0.007 },   // -0.15 %
-            // Short full-width headwalls at m = 1 (ShortHeadwallTests; no spec bound): a pitch of length L at 50 % in 10.5 % has a 20
-            // m-window plateau only 20 - L m wide, narrower than a 3.5 m cell for L > 16.5 m, so the lattice nodes straddle the peak and
-            // every per-cell value reads below it (falls ~2 %/m off the plateau). Measured worst:
+            // Short full-width headwalls at m = 1 (ShortHeadwallTests, no spec bound). A pitch of length L at 50 % in 10.5 % has a 20
+            // m-window plateau only 20 - L m wide. That is narrower than a 3.5 m cell for L > 16.5 m. So the lattice nodes straddle the
+            // peak, and every per-cell value reads below it (falls ~2 %/m off the plateau). Measured worst:
             { "short headwall x16 m1", 0.025 },            // crux -1.99 %
             { "short headwall x18 m1", 0.039 },            // crux -3.36 %
             { "short headwall x20 m1", 0.052 },            // crux -4.66 %
@@ -2347,9 +2350,9 @@ namespace SlopeBatch
             cases.Add(new InvCase("long bank12@50 w30", bank, 1700, 30));
             cases.Add(new InvCase("long bank12@50 w60", bank, 900, 60));
             cases.Add(new InvCase("headwall45 400x100", headwall, 400, 100));
-            // The 40 m top headwall ran ~6.5 m past a height-binned top zone (~33.5 m on a 60 m-wide run), and o falls ~1.7 %/m across that
-            // transition, so where the sub-cell zone boundary fell moved the crux by several %. The fall-line zone is ~20 m deep, 20 m above
-            // the wall's foot: kept as a regression case.
+            // The 40 m top headwall ran ~6.5 m past a height-binned top zone (~33.5 m on a 60 m-wide run). The value o falls ~1.7 %/m across
+            // that transition, so where the sub-cell zone boundary fell moved the crux by several %. The fall-line zone is ~20 m deep, 20 m
+            // above the wall's foot. The test keeps it as a regression case.
             cases.Add(new InvCase("R2-e top headwall x40", fr => R2e(40).Height(fr), 600, 60));
             // Runs that operate at m = 2 (area > M2Area = 200,704 m²).
             cases.Add(new InvCase("xl plane20", plane20, 2600, 80));
@@ -2505,8 +2508,8 @@ namespace SlopeBatch
 
         private static void RunoutTests()
         {
-            // A 100 m 30 % pitch, 60 m wide, followed by a 3 % runout of 450 m AND of 2,000 m -> 30 ± 1.5 % (Blue); the same with the runout
-            // ABOVE the pitch is reported.
+            // A 100 m 30 % pitch, 60 m wide, followed by a 3 % runout of 450 m AND of 2,000 m -> 30 ± 1.5 % (Blue). The test reports the same
+            // with the runout ABOVE the pitch.
             Scn pitchOnly = new Scn("pitch30 alone", "100x60", LRect(100, 60), (s, t) => 1000.0 - 0.30 * s);
             foreach (double runout in new double[] { 450, 2000 })
             {
@@ -2545,8 +2548,8 @@ namespace SlopeBatch
         }
 
 
-        /// <summary>The invariant "nested P ⊂ Q: rating(Q) >= rating(P)" is dropped (widening a run can add an easier line). Reported to
-        /// show how often and by how much widening now lowers the rating.</summary>
+        /// <summary>The test drops the invariant "nested P ⊂ Q: rating(Q) >= rating(P)" (widening a run can add an easier line). It reports
+        /// how often and by how much widening now lowers the rating.</summary>
         private static void NestedReport()
         {
             HeightFn mtn = Mountain();
@@ -2680,7 +2683,7 @@ namespace SlopeBatch
 
 
         /// <summary>A ±3 m single texel anywhere on mid-band planes: same band, |Δ| &lt;= 1 %, at m = 1 and m = 2, on RatingGrade.
-        /// SteepestGrade (whose k = 7 was settled by this sweep) is asserted the same way, so MinRatingCells keeps its evidence.</summary>
+        /// The test asserts SteepestGrade (whose k = 7 this sweep settled) the same way, so MinRatingCells keeps its evidence.</summary>
         private static void SpikeTests()
         {
             double2[] offsets = { new double2(5000.3, -3000.7), new double2(123.45, 987.6) };
@@ -2815,9 +2818,9 @@ namespace SlopeBatch
                                       " (regression envelope [-" + P(s_GapEnvelope[gapKey]) + ", +1.00%])");
                             else
                                 Check(Math.Abs(d) <= 0.01, w, "steepest " + P(s_Result.SteepestGrade) + " vs oracle " + P(runOracle));
-                            // The crux (RatingGrade) of a FULL-WIDTH bank is unavoidable, so it must read the bank (a wrong per-cell value that happens to
-                            // be rotation-stable would otherwise pass every value assertion). m = 1: ±1 %, like SteepestGrade. m = 2: no spec bound exists
-                            // for the crux; the measured diagonal leak is kept from widening by a regression envelope: INFO, not a SPEC-GAP.
+                            // The crux (RatingGrade) of a FULL-WIDTH bank is unavoidable, so it must read the bank. Otherwise a wrong per-cell value that
+                            // happens to be rotation-stable would pass every value assertion. m = 1: ±1 %, like SteepestGrade. m = 2: no spec bound exists
+                            // for the crux. A regression envelope keeps the measured diagonal leak from widening: INFO, not a SPEC-GAP.
                             double dc = s_Result.RatingGrade - runOracle;
                             string crKey = "bank crux " + F(len) + " w" + width;
                             if (m == 1)
@@ -3112,8 +3115,8 @@ namespace SlopeBatch
 
 
         /// <summary>Axis-aligned runs on z-invariant profiles: the box direction is exactly ±x, so every full window is |PL(x + half) -
-        /// PL(x - half)| / 20 with PL the piecewise-linear interpolation of the node heights along the row. The oracle builds its own mask
-        /// (winding-number PIP), its own validity rule (nodes x ± round(half) inside the row) and sorts the values to take the k-th, exact
+        /// PL(x - half)| / 20, with PL the piecewise-linear interpolation of the node heights along the row. The oracle builds its own mask
+        /// (winding-number PIP) and its own validity rule (nodes x ± round(half) inside the row). It sorts the values to take the k-th, exact
         /// up to float rounding. Asserted on SteepestGrade.</summary>
         private static void KthAndAbsoluteDropTests()
         {
@@ -3171,9 +3174,9 @@ namespace SlopeBatch
                                                                      " (max " + P(vals[0]) + ")");
             Check(s_Result.RatingGrade >= 0f && s_Result.SteepestGrade >= 0f, w, "negative rating");
 
-            // Per-cell value o (CellGrade, what the crux and the heat-map read) for EVERY Mask cell, from the spec text: on a z-invariant
-            // profile the box gradient is along ±x, so o = the longest centered row window of {20, 15, 10, 7} m (a length only when >= 2
-            // steps; 20 always) whose nodes round(-half) .. round(+half) are all inside, else |g| of the 5×5 box =
+            // Per-cell value o (CellGrade, what the crux and the heat-map read) for EVERY Mask cell, from the spec text. On a z-invariant
+            // profile the box gradient is along ±x. So o = the longest centered row window of {20, 15, 10, 7} m (a length only when >= 2
+            // steps, 20 always) whose nodes round(-half) .. round(+half) are all inside. Otherwise o = |g| of the 5×5 box =
             // |h(i+3) + h(i+2) - h(i-2) - h(i-3)| / (10·step) on the row.
             double[] lens = { SkiSlopeClassifier.WindowLength, 15.0, 10.0, 7.0 };
             int cellBad = 0, cells = 0, fullCells = 0;
@@ -3249,11 +3252,11 @@ namespace SlopeBatch
                     Frame fr = Frame.Make(-2500.5, -1500.5, ang);
                     double2[] ring = Rect(300, 60, fr);
                     // Cliffs (60 %) on one side and past the downhill end, starting one lattice
-                    // step outside the polygon: a valid window's endpoint lies within half a cell of
-                    // an inside node, so its bilinear can read at most one node beyond the last
-                    // inside node — anything further out must never move a FULL window. The crux
+                    // step outside the polygon. A valid window's endpoint lies within half a cell of
+                    // an inside node. So its bilinear can read at most one node beyond the last
+                    // inside node. Anything further out must never move a FULL window. The crux
                     // also reads the fallback values of edge cells (short windows, |g| from the
-                    // 5×5 box, which reaches 3 nodes out); the easiest line avoids them.
+                    // 5×5 box, which reaches 3 nodes out). The easiest line avoids them.
                     HeightFn cliff = (x, z) =>
                     {
                         double s = fr.Along(x, z), t = fr.Across(x, z);
@@ -3266,9 +3269,9 @@ namespace SlopeBatch
                     double d = s_Result.RatingGrade - g, ds = s_Result.SteepestGrade - g;
                     if (Math.Abs(d) > Math.Abs(worst)) worst = d;
                     if (Math.Abs(ds) > Math.Abs(worstSteep)) worstSteep = ds;
-                    // The crux gets 1 %, not 0.5 %: cells 2-3 nodes from the cliff side have a box
-                    // gradient tilted toward the cliff, so their (valid) window runs off the fall
-                    // line and reads g·cos(tilt) < g; the easiest line uses them (measured -0.55 %).
+                    // The crux gets 1 %, not 0.5 %. Cells 2-3 nodes from the cliff side have a box
+                    // gradient tilted toward the cliff. So their (valid) window runs off the fall
+                    // line and reads g·cos(tilt) < g. The easiest line uses them (measured -0.55 %).
                     Check(Math.Abs(d) <= 0.01, w, "outside terrain moved the rating to " + P(s_Result.RatingGrade));
                     Check(Math.Abs(ds) <= 0.005, w, "outside terrain moved the steepest patch to " + P(s_Result.SteepestGrade));
                     HeightFn edge = (x, z) =>
@@ -3318,9 +3321,9 @@ namespace SlopeBatch
             return g0 * ns + Math.Sqrt(g0 * g0 * ns * ns - g0 * g0 + gb * gb);
         }
 
-        /// <summary>A g0 meadow L × W whose top corner (s = 0, t = +W/2) lies on a bank: the
+        /// <summary>A g0 meadow L × W whose top corner (s = 0, t = +W/2) lies on a bank. The
         /// polygon's corner triangle with legs legS (down the side) × legT (along the top edge) is
-        /// on a half-plane bank whose combined grade is gb; the bank continues outside the
+        /// on a half-plane bank whose combined grade is gb. The bank continues outside the
         /// polygon. Optional gentle undulation (amplitude `wave` m).</summary>
         private static Scn CornerBankScn(string name, double len, double width, double g0, double legS, double legT, double gb, double wave)
         {
@@ -3339,8 +3342,8 @@ namespace SlopeBatch
         }
 
         // Corner triangle legs (m): 35 × 45 is the smallest tried that meets the fixture's own premise "SteepestGrade >= 35 %" in every
-        // orientation (tuning sweep, 7 rotations × 2 offsets, m = 1: 30×40 -> 32.16-37.88 %, 40×30 -> 32.84-40.36 %, 35×45 ->
-        // 39.28-44.81 %, 40×40 -> 38.71-43.83 %, 40×50 -> 44.79-45.01 %; the crux rating was <= 10.74 % for all of them).
+        // orientation. Tuning sweep, 7 rotations × 2 offsets, m = 1: 30×40 -> 32.16-37.88 %, 40×30 -> 32.84-40.36 %, 35×45 ->
+        // 39.28-44.81 %, 40×40 -> 38.71-43.83 %, 40×50 -> 44.79-45.01 %. The crux rating was <= 10.74 % for all of them.
         private const double R2aLegS = 35.0, R2aLegT = 45.0;
 
         private static Scn R2a()
@@ -3351,7 +3354,7 @@ namespace SlopeBatch
         private static Scn R2b()
         {
             // 45 % bank along the +t side, 30 % of the width, over the middle third, with 20 m
-            // ramps in and out (avoidable, so their steepness does not matter).
+            // ramps in and out. The ramps are avoidable, so their steepness does not matter.
             double len = 400, width = 100, t0 = width / 2 - 0.3 * width, s1 = len / 3, s2 = 2 * len / 3;
             double kb = Math.Sqrt(0.45 * 0.45 - MeadowGrade * MeadowGrade);
             return new Scn("R2-b avoidable side bank 45%", "400x100", LRect(len, width),
@@ -3545,8 +3548,8 @@ namespace SlopeBatch
         }
 
         /// <summary>The open-last-bucket case: a 400 × 100 run on a 10.5 % plane with a full-width 45 m vertical step at s = 201 m (every
-        /// line crosses ~235 %), optionally plus an AVOIDABLE 60 m-deep pit at s 90-130 m, t &lt;= -32 m (a line passes at t > -10 m).
-        /// Earlier the pit's ~310 % cells shared bucket 2047 with the step, so the rating read the pit (310.72 % vs an exact minimax of
+        /// line crosses ~235 %). Optionally the run also has an AVOIDABLE 60 m-deep pit at s 90-130 m, t &lt;= -32 m (a line passes at t > -10 m).
+        /// Earlier the pit's ~310 % cells shared bucket 2047 with the step. The rating then read the pit (310.72 % vs an exact minimax of
         /// 235.45 %) and the crux ring sat in it.</summary>
         private static Scn StepScn(bool pit)
         {
@@ -3591,7 +3594,7 @@ namespace SlopeBatch
         }
 
 
-        /// <summary>The invariance starts (InvarianceTests); the top-headwall and limit reports use all of them, so a printed band range
+        /// <summary>The invariance starts (InvarianceTests). The top-headwall and limit reports use all of them, so a printed band range
         /// is honest (one start printed "Blue..Blue" for the x40 top headwall, whose ratings over these starts span Blue..Black).</summary>
         private static readonly double2[] InvStarts = { new double2(0.3, -0.7), new double2(7000.3, -6999.6), new double2(-3123.4, 2345.6) };
 
@@ -3755,9 +3758,9 @@ namespace SlopeBatch
                 (s, t) => 1000.0 - 0.15 * s + KValley * Math.Max(0.0, t));
         }
 
-        // C-run geometry (local s = x, t = z): two straight 150 m arms 40 m wide on centerlines
-        // s = +60 (the first arm, run descends +t) and s = -60 (the last arm, descends -t), joined
-        // by a half-annulus bend of centerline radius 60 m around (0, 150).
+        // C-run geometry (local s = x, t = z). Two straight 150 m arms, 40 m wide, lie on centerlines
+        // s = +60 (the first arm) and s = -60 (the last arm). The run descends +t on the first arm and -t on the last arm.
+        // A half-annulus bend of centerline radius 60 m around (0, 150) joins them.
         private const double CArmLen = 150.0, CRad = 60.0, CWidth = 40.0;
 
         /// <summary>The C-run's position along its centerline u (m from the start) and its
@@ -3771,13 +3774,13 @@ namespace SlopeBatch
         }
 
         /// <summary>Known and deliberate: a C-run 180° around a convex hill. The run climbs
-        /// down the first arm at 40 % for its first 120 m (the steep first arm), then 12 % through
-        /// the rest of the arm, the bend and the last arm (the run ends beside its own start); the
+        /// down the first arm at 40 % for its first 120 m (the steep first arm). Then the grade is 12 % through
+        /// the rest of the arm, the bend and the last arm (the run ends beside its own start). The
         /// hill falls 10 % away from the run's centerline outward everywhere, so the fall line
         /// turns with the run. The arms' along-run fall lines (+t, -t) cancel in the mean, which
-        /// therefore points along +t (the steep arm wins): the fall-line key puts BOTH arms'
-        /// south ends (the run's start and its end) in the top zone and the bend in the bottom
-        /// zone, so the easiest "line" climbs the gentle last arm to the bend — lenient.</summary>
+        /// therefore points along +t (the steep arm wins). So the fall-line key puts BOTH arms'
+        /// south ends (the run's start and its end) in the top zone. It puts the bend in the bottom
+        /// zone. The easiest "line" then climbs the gentle last arm to the bend: lenient.</summary>
         private static Scn CRunHill()
         {
             const double hw = CWidth / 2;
@@ -3803,9 +3806,9 @@ namespace SlopeBatch
             });
         }
 
-        /// <summary>Known and deliberate: a switchback with a CONSTANT fall line (+s): three
-        /// 300 m traverses 40 m wide at s 0-40, 100-140, 200-240, joined by 40 m-wide turns at the
-        /// +t end (s 0-140) and the -t end (s 100-240); 20 % above s = 150, 35 % below.</summary>
+        /// <summary>Known and deliberate: a switchback with a CONSTANT fall line (+s). It has three
+        /// 300 m traverses 40 m wide at s 0-40, 100-140, 200-240. Turns 40 m wide join them at the
+        /// +t end (s 0-140) and the -t end (s 100-240). The grade is 20 % above s = 150, 35 % below.</summary>
         private static Scn Switchback()
         {
             double2[] z =
@@ -3829,9 +3832,9 @@ namespace SlopeBatch
         {
             public Scn Sc;
             public ZExp Want;
-            public double Target, Tol, Lo, Hi;   // Target ± Tol when Tol > 0; [Lo, Hi] when Hi > 0
-            // The fixture lies BELOW the |mean g| gate and must take the fall-line key through the coherence clause (asserted premise, plus
-            // the |mean g| gate alone must have taken the height key).
+            public double Target, Tol, Lo, Hi;   // Target ± Tol when Tol > 0, [Lo, Hi] when Hi > 0
+            // The fixture lies BELOW the |mean g| gate and must take the fall-line key through the coherence clause. The test asserts this
+            // premise. It also asserts that the |mean g| gate alone must have taken the height key.
             public bool BelowGate;
 
             public ZoneCase(Scn sc, ZExp want, double target, double tol, double lo, double hi)
@@ -3853,8 +3856,8 @@ namespace SlopeBatch
 
 
         /// <summary>A 10 × 2000 trail with a 60 m 50 % wall at s 100-160, on gentle ground g0 (|mean g| 0.015-0.025 &lt; 3 %: below the
-        /// |mean g| gate; the gate alone fell back to the height key and its area cap, which skips ~200 m at each end of a 10 m
-        /// trail).</summary>
+        /// |mean g| gate). The gate alone fell back to the height key and its area cap, which skips ~200 m at each end of a 10 m
+        /// trail.</summary>
         private static Scn Trail10WallOn(double g0)
         {
             return new Scn("trail10 50% wall s100-160 on " + F(g0 * 100) + "% ground", "2000x10", LRect(2000, 10), PitchProfile(g0, 100, 60, 0.50));
@@ -3899,16 +3902,16 @@ namespace SlopeBatch
                 Step2(600, 450, 150, 20), PitchProfile(0.15, 600 - above - len, len, 0.45));
         }
 
-        /// <summary>A polygon drawn d m past a crest onto a back slope gb at its top end; 400 m at
-        /// 20 % below the crest; 60 m wide.</summary>
+        /// <summary>A polygon drawn d m past a crest onto a back slope gb at its top end. The polygon is 400 m at
+        /// 20 % below the crest and 60 m wide.</summary>
         private static Scn PastCrest(double d, double gb)
         {
             return new Scn("top drawn " + F(d) + " m past a crest onto a " + F(gb * 100) + "% back slope", F(400 + d) + "x60", LRect(400 + d, 60),
                 (s, t) => s < d ? 1000.0 - gb * (d - s) : 1000.0 - 0.20 * (s - d));
         }
 
-        /// <summary>A polygon drawn d m past a valley floor up a counter-slope gc at its bottom end;
-        /// 400 m at 20 % above the floor; 60 m wide.</summary>
+        /// <summary>A polygon drawn d m past a valley floor up a counter-slope gc at its bottom end. The polygon is 400 m at
+        /// 20 % above the floor and 60 m wide.</summary>
         private static Scn PastValley(double d, double gc)
         {
             return new Scn("bottom drawn " + F(d) + " m past a valley floor up a " + F(gc * 100) + "% counter-slope", F(400 + d) + "x60", LRect(400 + d, 60),
@@ -3923,11 +3926,11 @@ namespace SlopeBatch
         }
 
         /// <summary>The F116 meadow (16 %, 2 m wave) with the TERRAIN fixed in the run frame and a
-        /// 48 % half-plane bank whose edge joins the legs legS (along the polygon side from corner
-        /// ci toward vertex sideIdx) and legT (along its top edge toward topIdx) — the poke follows
-        /// the polygon. Used with the polygon rotated about the poke corner or its top edge
-        /// slanted, i.e. a top edge NOT along the contours (EndZoneTests' other fixtures rotate
-        /// polygon and terrain together).</summary>
+        /// 48 % half-plane bank. The bank's edge joins the legs legS (along the polygon side from corner
+        /// ci toward vertex sideIdx) and legT (along its top edge toward topIdx). The poke follows
+        /// the polygon. Tests use it with the polygon rotated about the poke corner or its top edge
+        /// slanted, i.e. a top edge NOT along the contours. EndZoneTests' other fixtures rotate
+        /// polygon and terrain together.</summary>
         private static Scn PokeOnRing(string name, string size, double2[] ring, int ci, int sideIdx, int topIdx, double legS, double legT)
         {
             double g0 = F116Grade, gb = F116BankGrade, wave = F116Wave;
@@ -3945,7 +3948,7 @@ namespace SlopeBatch
         }
 
         /// <summary>The 545 × 125 F116 meadow polygon rotated by deg about its +t top corner (the
-        /// poke corner; deg > 0 makes it the highest point), poke legS × legT.</summary>
+        /// poke corner, which deg > 0 makes the highest point), poke legS × legT.</summary>
         private static Scn PokeRotated(double legS, double legT, double deg)
         {
             double2 c = new double2(0, 62.5);
@@ -4001,7 +4004,7 @@ namespace SlopeBatch
                 new ZoneCase(Crater(), ZExp.HeightFallback, 0, 0, 0, 0),
                 new ZoneCase(Saddle(), ZExp.HeightFallback, 0, 0, 0, 0),
                 // The trail fixtures and the drop-in on GENTLE ground, below the |mean g| gate. The |mean g| gate alone fell back to the height
-                // key and its area cap there and skipped the pitch (trail10 on 1 % ground 0.95-1.16 % Flat); the coherence clause keeps the
+                // key and its area cap there. It skipped the pitch (trail10 on 1 % ground 0.95-1.16 % Flat). The coherence clause keeps the
                 // fall-line key.
                 new ZoneCase(Trail10WallOn(0.01), ZExp.Black, 0.50, 0.015, 0, 0, true),
                 new ZoneCase(Trail10WallOn(0.0), ZExp.Black, 0.50, 0.015, 0, 0, true),
@@ -4137,7 +4140,7 @@ namespace SlopeBatch
         }
 
         /// <summary>One report row over the 8 frames: rating range, band range, key used, zone
-        /// sizes, crux position (s, t; for the C-run also its angle along the run); with
+        /// sizes, crux position (s, t, and for the C-run also its angle along the run). With
         /// `bothKeys`, a second row under the height key.</summary>
         private static void ZoneReportRow(Scn sc, bool bothKeys)
         {
@@ -4214,8 +4217,8 @@ namespace SlopeBatch
         }
 
         /// <summary>Report rows (the asserted fixtures are the 'below the gate' rows of EndZoneTests). The |mean g| gate alone sent a long
-        /// gentle run whose gradients all agree (coherence ~1) to the height key and its area cap, so a full-width pitch within
-        /// EndZoneMaxM2 / width of an end was skipped, and dragging the end node across the gate flipped the band. Each row: shipped (with
+        /// gentle run whose gradients all agree (coherence ~1) to the height key and its area cap. So the area cap skipped a full-width
+        /// pitch within EndZoneMaxM2 / width of an end, and dragging the end node across the gate flipped the band. Each row: shipped (with
         /// the coherence clause) and the |mean g| gate alone. Then the coherence survey: terrain that must keep the height fallback, and
         /// where the clause's own threshold is crossed.</summary>
         private static void KeyGateReport()
@@ -4254,8 +4257,8 @@ namespace SlopeBatch
         }
 
         /// <summary>Top-zone depth (max s of a top-zone node above the run's top, run-local) and
-        /// bottom-zone depth (bottom minus the min s of a bottom-zone node) from the oracle's
-        /// zones, which OracleCheck asserts equal to the classifier's (counts) on this same grid.</summary>
+        /// bottom-zone depth (bottom minus the min s of a bottom-zone node), both from the oracle's
+        /// zones. OracleCheck asserts that these zones equal the classifier's (counts) on this same grid.</summary>
         private static void ZoneDepths(Scn sc, Frame fr, SlopeGrid g, SlopeResult r, out double topDepth, out double botDepth)
         {
             double sMin = 1e9, sMax = -1e9;
@@ -4278,11 +4281,11 @@ namespace SlopeBatch
             }
         }
 
-        /// <summary>Each fall-line zone is sized by a cell COUNT, z = floor(n·EndZoneDepthM / L): that is EndZoneDepthM of run at the run's
-        /// MEAN width n·step² / L, so at an end narrower than the mean the zone runs EndZoneDepthM × mean / end width down the fall line,
-        /// and a full-width pitch inside it is skipped (an area-cap limit again, by shape instead of by width). Constant-width controls:
+        /// <summary>The classifier sizes each fall-line zone by a cell COUNT, z = floor(n·EndZoneDepthM / L). That is EndZoneDepthM of run at the run's
+        /// MEAN width n·step² / L. So at an end narrower than the mean, the zone runs EndZoneDepthM × mean / end width down the fall line.
+        /// The rating then skips a full-width pitch inside it (an area-cap limit again, by shape instead of by width). Constant-width controls:
         /// asserted Black 45 ± 1.5 % with a zone depth &lt;= EndZoneDepthM + one step. Narrowing ends: one WARN SPEC-GAP per end against
-        /// "at most ~20 m of run whatever the width", each row's zone depth kept inside a regression envelope (s_GapEnvelope "zone depth
+        /// "at most ~20 m of run whatever the width". Each row's zone depth stays inside a regression envelope (s_GapEnvelope "zone depth
         /// ...").</summary>
         private static void ZoneDepthTests()
         {
@@ -4358,9 +4361,9 @@ namespace SlopeBatch
                         " m, Black 45 ± 1.5 %); regression envelopes on each row's zone depth");
         }
 
-        /// <summary>Report (a known limit of the fall-line key): the key is position along the mean fall line and never reads height, so a
+        /// <summary>Report (a known limit of the fall-line key). The key is position along the mean fall line and never reads height. So a
         /// polygon drawn more than ~EndZoneDepthM past a crest (past a valley floor) puts its top (bottom) zone on the back slope
-        /// (counter-slope), and every line climbs it. Each row under the shipped key and the height key. Regression guard, asserted: an
+        /// (counter-slope). Every line climbs it. Each row runs under the shipped key and the height key. Regression guard, asserted: an
         /// overshoot of EndZoneDepthM (20 m) still reads Green.</summary>
         private static void OvershootReport()
         {
@@ -4388,9 +4391,9 @@ namespace SlopeBatch
         }
 
         /// <summary>EndZoneTests' corner pokes rotate polygon and terrain together, so their top edge always runs along the contours.
-        /// Here the TERRAIN stays fixed and the polygon is rotated about the poke corner (corner highest for angle > 0) or its top edge
-        /// slanted: the count-capped top zone collects in the highest corner wedge. Asserted: the field-size 30 × 40 poke stays Green at
-        /// every angle and slant; the larger pokes are reported (known limit).</summary>
+        /// Here the TERRAIN stays fixed and the test rotates the polygon about the poke corner (corner highest for angle > 0) or slants its top
+        /// edge. The count-capped top zone collects in the highest corner wedge. Asserted: the field-size 30 × 40 poke stays Green at
+        /// every angle and slant. The test reports the larger pokes (known limit).</summary>
         private static void RotatedPokeTests()
         {
             Console.WriteLine("INFO  R2b fixer round, F116 meadow pokes with the top edge NOT along the contours (review finding rule-and-tests-rotated-poke-not-exercised; " +
@@ -4415,12 +4418,12 @@ namespace SlopeBatch
             }
         }
 
-        /// <summary>SkiRunRater.SlopeReadout, the drawing tooltip's "Avg N ° (P %) · steepest N ° (P %)" numbers. (a) unit cases
-        /// (rounding, the steepest = max of window / crux / mean rule, bad input); (b) a worked example: a 300 x 60 m run at 12.5 % with a
-        /// full-width 100 m pitch of 35 % at s 100-200 (mean 20 %, steepest 35 %), 2 angles x 2 step multiples: the classifier's
-        /// MeanGrade is the run's mean grade (+/- 1 %), the rating is the pitch (crux 35 %, Blue: 35 % is under the 40 % Black
-        /// threshold), and the readout is avg 11 deg (20 %), steepest 19 deg (35 %); (c) a uniform 20 % plane rates Green with avg ==
-        /// rating == steepest.</summary>
+        /// <summary>SkiRunRater.SlopeReadout, the drawing tooltip's "Avg N ° (P %) · steepest N ° (P %)" numbers.
+        /// (a) unit cases (rounding, the steepest = max of window / crux / mean rule, bad input).
+        /// (b) a worked example: a 300 x 60 m run at 12.5 % with a full-width 100 m pitch of 35 % at s 100-200 (mean 20 %, steepest 35 %).
+        ///     It runs at 2 angles x 2 step multiples. The classifier's MeanGrade is the run's mean grade (+/- 1 %). The rating is the pitch
+        ///     (crux 35 %, Blue: 35 % is under the 40 % Black threshold). The readout is avg 11 deg (20 %), steepest 19 deg (35 %).
+        /// (c) a uniform 20 % plane rates Green with avg == rating == steepest.</summary>
         private static void SlopeReadoutTests()
         {
             const string u = "slope-readout/unit";
@@ -4548,8 +4551,8 @@ namespace SlopeBatch
 
         private static void DifficultyTests()
         {
-            // Sidecutter: black, 1 km, 281 m drop. A 400 m face at 46 % between a 12 % approach and a 20 % runout: 40 % of the
-            // cells are at/above 40 %, the pitch is long, the mean is 28 %: black by every rule.
+            // Sidecutter: black, 1 km, 281 m drop. A 400 m face at 46 % between a 12 % approach and a 20 % runout. 40 % of the
+            // cells are at/above 40 %. The pitch is long. The mean is 28 %. It is black by every rule.
             DiffCase("Sidecutter 1 km", 1000, 40, new[] { 300.0, 400.0, 300.0 }, new[] { 0.12, 0.46, 0.20 },
                      SlopeBand.Black, SlopeBand.Black, SlopeNote.None);
             // Shortcut: blue, 250 m. A uniform 28 % slope (70 m drop): the layer never looks at a blue crux outside the green/blue boundary.
@@ -4559,7 +4562,7 @@ namespace SlopeBatch
             // 20 % mean with ONE 50 m 55 % full-width wall: black whatever the mean (the wall is longer than CruxLengthForBlack).
             DiffCase("20% mean, one 50 m 55% wall", 600, 60, new[] { 275.0, 50.0, 275.0 }, new[] { 0.164, 0.55, 0.164 },
                      SlopeBand.Black, SlopeBand.Black, SlopeNote.LongKept);
-            // The same with a 15 m 55 % pitch over 5 % of the cells: hard blue (green-mean rule; the 20 m window reads it ~46 %).
+            // The same with a 15 m 55 % pitch over 5 % of the cells: hard blue (green-mean rule). The 20 m window reads it ~46 %.
             DiffCase("20% mean, one 15 m 55% pitch (5% of cells)", 300, 60, new[] { 142.5, 15.0, 142.5 }, new[] { 0.18, 0.55, 0.18 },
                      SlopeBand.Black, SlopeBand.Blue, SlopeNote.GreenMean);
             // Blue-band mean (29 %) with a 15 m 48 % pitch: the steep-share cap proper.
@@ -4568,18 +4571,18 @@ namespace SlopeBatch
             // A 12 m wide gully: the same kind of short 50 % pitch (31 % mean) stays black when narrow ...
             DiffCase("12 m gully, 12 m 50% pitch, 31% mean", 300, 12, new[] { 144.0, 12.0, 144.0 }, new[] { 0.30, 0.50, 0.30 },
                      SlopeBand.Black, SlopeBand.Black, SlopeNote.NarrowKept);
-            // ... and is capped to hard blue at 60 m wide.
+            // ... and the classifier caps it to hard blue at 60 m wide.
             DiffCase("60 m wide, 12 m 50% pitch, 31% mean", 300, 60, new[] { 144.0, 12.0, 144.0 }, new[] { 0.30, 0.50, 0.30 },
                      SlopeBand.Black, SlopeBand.Blue, SlopeNote.Capped);
             // Double black: a 15 m 70 % pitch over a 35 % run: black, not double black (one band only, never to blue).
             DiffCase("35% mean, 15 m 70% pitch", 300, 60, new[] { 142.5, 15.0, 142.5 }, new[] { 0.35, 0.70, 0.35 },
                      SlopeBand.DoubleBlack, SlopeBand.Black, SlopeNote.Capped);
-            // a cat track is not a black diamond. 6 m wide, 8 % mean, one 25 m 45 % pitch: blue; a 60 m wall: black.
+            // a cat track is not a black diamond. 6 m wide, 8 % mean, one 25 m 45 % pitch: blue. A 60 m wall: black.
             DiffCase("cat track 6 m, one 25 m 45% pitch", 400, 6, new[] { 187.5, 25.0, 187.5 }, new[] { 0.08, 0.45, 0.08 },
                      SlopeBand.Black, SlopeBand.Blue, SlopeNote.GreenMean);
             DiffCase("cat track 6 m, one 60 m 45% wall", 400, 6, new[] { 170.0, 60.0, 170.0 }, new[] { 0.08, 0.45, 0.08 },
                      SlopeBand.Black, SlopeBand.Black, SlopeNote.LongKept);
-            // Wide ease: a 26 % crux (1 pp above the green/blue boundary) on a 90 m wide run with a 16 % mean is green; 30 m wide it stays blue; a 28 % crux (3 pp above) stays blue.
+            // Wide ease: a 26 % crux (1 pp above the green/blue boundary) on a 90 m wide run with a 16 % mean is green. At 30 m wide it stays blue. A 28 % crux (3 pp above) stays blue.
             DiffCase("wide 90 m, 40 m pitch at 26%, 16% mean", 400, 90, new[] { 180.0, 40.0, 180.0 }, new[] { 0.15, 0.26, 0.15 }, SlopeBand.Blue, SlopeBand.Green, SlopeNote.WideEase);
             DiffCase("narrow 30 m, 40 m pitch at 26%, 16% mean", 400, 30, new[] { 180.0, 40.0, 180.0 }, new[] { 0.15, 0.26, 0.15 }, SlopeBand.Blue, SlopeBand.Blue, SlopeNote.None);
             DiffCase("wide 90 m, 40 m pitch at 28%, 17% mean", 400, 90, new[] { 180.0, 40.0, 180.0 }, new[] { 0.15, 0.28, 0.15 }, SlopeBand.Blue, SlopeBand.Blue, SlopeNote.None);
@@ -4604,10 +4607,12 @@ namespace SlopeBatch
         }
 
 
-        /// <summary>SkiSlopeClassifier.SteepestPatchShown. (a) unit cases; (b) near-threshold planes: nothing to avoid, so the line must
-        /// NEVER show, with the shown band = the raw band (first recompute) and the hysteresis-held band below it; (c) the field case and
-        /// the corner-bank fixture: it MUST show; (d) a hair-thin hourglass neck (Mask falls apart, rating = P90) with a full-width
-        /// headwall: it must not show.</summary>
+        /// <summary>SkiSlopeClassifier.SteepestPatchShown.
+        /// (a) unit cases.
+        /// (b) near-threshold planes: nothing to avoid, so the line must NEVER show. This holds with the shown band = the raw band
+        ///     (first recompute) and with the hysteresis-held band below it.
+        /// (c) the field case and the corner-bank fixture: it MUST show.
+        /// (d) a hair-thin hourglass neck (Mask falls apart, rating = P90) with a full-width headwall: it must not show.</summary>
         private static void TooltipLineTests()
         {
             const string u = "tooltip/unit";
@@ -4681,8 +4686,8 @@ namespace SlopeBatch
                 }
             }
 
-            // (d) hourglass 60 x 200 m, 20 m neck (s 90-110) narrower than a cell, 10.5 % slope, a
-            // full-width 25 m 45 % headwall (s 150-175) in the lower lobe.
+            // (d) hourglass 60 x 200 m with a 20 m neck (s 90-110) narrower than a cell. The slope is 10.5 %. A full-width 25 m 45 % headwall
+            // (s 150-175) sits in the lower lobe.
             int disc = 0, conn = 0;
             foreach (double neck in new[] { 0.6, 1.0, 2.0, 8.0 })
             {
@@ -4792,9 +4797,9 @@ namespace SlopeBatch
         }
 
 
-        // Field-case parameters, tuned (sweep of meadow grade 15.5/16/16.5 % × bank 42/45/48/52 % × wave 1/2 m × legs 30×40/40×50 on 125
-        // × 545, 7 rotations, m = 1) to the field dump's numbers: SteepestGrade 40.27-44.90 % (field 41.7 %), drop 93.3-95.3 m (93.9),
-        // mean 17.01-17.03 % (17.2), area 68,125 m² (68,300). Wave = a 2 m undulation, 140 m along × 110 m across.
+        // Field-case parameters. A sweep tuned them to the field dump's numbers. The sweep covered meadow grade 15.5/16/16.5 % × bank
+        // 42/45/48/52 % × wave 1/2 m × legs 30×40/40×50 on 125 × 545, 7 rotations, m = 1. Results: SteepestGrade 40.27-44.90 % (field 41.7 %),
+        // drop 93.3-95.3 m (93.9), mean 17.01-17.03 % (17.2), area 68,125 m² (68,300). Wave = a 2 m undulation, 140 m along × 110 m across.
         private const double F116Grade = 0.16, F116Wave = 2.0, F116LegS = 30.0, F116LegT = 40.0, F116BankGrade = 0.48;
 
         private static Scn F116Long()
@@ -4811,7 +4816,7 @@ namespace SlopeBatch
         /// <summary>The field case (68,300 m², drop 93.9 m, mean 17.2 %, once rated Double black 41.7 % because the polygon's top corner
         /// touched a bank). A plane meadow cannot have all of 170 × 400, drop 94 m AND mean 17 %: drop &lt;= mean × extent along the fall
         /// line &lt;= 0.172 × √(400² + 170²) = 75 m. So the fixture comes twice: 125 × 545 (area, drop, mean match) and 170 × 400 (shape,
-        /// area, mean match; drop ~70).</summary>
+        /// area, mean match, drop ~70).</summary>
         private static void FieldFixture()
         {
             foreach (Scn sc in new[] { F116Long(), F116Wide() })
@@ -5039,8 +5044,8 @@ namespace SlopeBatch
                     zp.DepthM = (float)rng.NextDouble(0, 60);
                     float[] gates = { 0f, SkiSlopeClassifier.EndZoneMinMeanGrade, 0.1f, float.PositiveInfinity };
                     zp.MinMean = gates[rng.NextInt(0, 4)];
-                    // The gate's coherence clause, chosen by a multiplicative hash of the case index (not drawn from rng, so the main sequence
-                    // (polygons, terrains, the other parameters) is unchanged).
+                    // The gate's coherence clause. A multiplicative hash of the case index chooses it. It is not drawn from rng, so the main sequence
+                    // (polygons, terrains, the other parameters) stays unchanged.
                     float[] cohs = { 0f, SkiSlopeClassifier.EndZoneMinCoherence, 0.9f, float.PositiveInfinity };
                     zp.MinCoh = cohs[(int)(((uint)c * 2654435761u) >> 30)];
                 }
@@ -5151,15 +5156,15 @@ namespace SlopeBatch
 
         /// <summary>The field captures as REGRESSION fixtures of the computed Length (±0.1 %), plus a cross-check of LengthRect against
         /// independently recomputed values ("092600 434 / 510 m (max), 093404 1,011 / 1,031, 093455 and 093534 240 / 309, 093640 833,
-        /// 093940 2,170, 094240 2,666, 095100 826 / 864"; whole meters, so ±1 m). A capture that is not in the table (a new file) is
-        /// reported, not failed.</summary>
+        /// 093940 2,170, 094240 2,666, 095100 826 / 864", whole meters, so ±1 m). The test reports a capture that is not in the table
+        /// (a new file) and does not fail it.</summary>
         private static void CaptureLengthCheck(string w, string name, SlopeResult r)
         {
             // name -> { regression Length, independently recomputed LengthRect (m) }
             Dictionary<string, float[]> table = new Dictionary<string, float[]>(StringComparer.Ordinal)
             {
-                // Regression values (CoreCLR). Length = max(rect, axis): 092600 rect 433.8 / axis 509.9; 093404 1010.8 / 1030.6; 093455 + 093534
-                // 239.8 / 308.5; 093640 833.1 / 703.8; 093940 2170.2 / 1940.4; 094240 2665.6 / 2618.5; 095100 825.6 / 864.4 (all on the
+                // Regression values (CoreCLR). Length = max(rect, axis): 092600 rect 433.8 / axis 509.9, 093404 1010.8 / 1030.6, 093455 + 093534
+                // 239.8 / 308.5, 093640 833.1 / 703.8, 093940 2170.2 / 1940.4, 094240 2665.6 / 2618.5, 095100 825.6 / 864.4 (all on the
                 // fall-line key).
                 { "run-20261001-092600.skislope", new[] { 509.91565f, 434f } },
                 { "run-20261001-093404.skislope", new[] { 1030.6295f, 1011f } },
@@ -5323,11 +5328,14 @@ namespace SlopeBatch
             return false;
         }
 
-        /// <summary>Every reason a field capture's replay is a FAIL, or null: step != multiple·texel (the game's step is m·texel
-        /// exactly); the re-Plan is not Ok (the game writes captures of RATED polygons only — SkiRunDrawFeedbackSystem.SnapshotCapture
-        /// runs only for Ok / ShortRun / Polyline — so a polygon that no longer plans means Plan or the rasterizer changed, or the file is
-        /// corrupt); the re-planned grid (I0, J0, Nx, Nz) differs from the captured `grid` line; a Need node the capture does not cover;
-        /// a replay status that is not a rating.</summary>
+        /// <summary>Every reason a field capture's replay is a FAIL, or null:
+        /// - step != multiple·texel (the game's step is m·texel exactly).
+        /// - the re-Plan is not Ok (the game writes captures of RATED polygons only. SkiRunDrawFeedbackSystem.SnapshotCapture
+        ///   runs only for Ok / ShortRun / Polyline. So a polygon that no longer plans means Plan or the rasterizer changed, or the file is
+        ///   corrupt).
+        /// - the re-planned grid (I0, J0, Nx, Nz) differs from the captured `grid` line.
+        /// - a Need node the capture does not cover.
+        /// - a replay status that is not a rating.</summary>
         private static string CaptureProblem(Capture cap, SlopeGrid g, SlopeResult r, string where, out SlopeStatus st)
         {
             st = SlopeStatus.NoCells;
@@ -5377,7 +5385,7 @@ namespace SlopeBatch
             return st;
         }
 
-        /// <summary>Test-side writer: invariant culture, floats "G9" and doubles "G17" (both round-trip exactly); `legacy` writes the
+        /// <summary>Test-side writer: invariant culture, floats "G9" and doubles "G17" (both round-trip exactly). `legacy` writes the
         /// older "R" for both (the format of captures already on disk, which the loader must keep reading).</summary>
         private static void WriteCapture(string path, SlopeGrid g, SlopeResult r, float texel, int multiple, float3[] nodes, string extraLine, bool legacy)
         {
@@ -5422,9 +5430,9 @@ namespace SlopeBatch
             return true;
         }
 
-        /// <summary>Self-test: a synthetic run (the F116 field fixture at an odd angle, with
-        /// non-zero node y) is written with the test-side writer, read back with the loader and
-        /// replayed; the classification must be bit-identical. Also: a truncated capture must
+        /// <summary>Self-test: the test writes a synthetic run (the F116 field fixture at an odd angle, with
+        /// non-zero node y) with the test-side writer, reads it back with the loader and
+        /// replays it. The classification must be bit-identical. Also: a truncated capture must
         /// report its uncovered Need nodes, and a bad expect line must not parse.</summary>
         private static void CaptureRoundTrip()
         {
@@ -5577,19 +5585,19 @@ namespace SlopeBatch
             }
         }
 
-        // Run length: Length = max(LengthRect, AxisLength) in ring mode, horizontal meters; LengthRect = (P + sqrt(max(0, P² − 16A))) / 4
-        // over the sanitized ring; AxisLength = the fall-line key range + step when ZoneByFallLine, else 0; polyline = arc length.
+        // Run length: Length = max(LengthRect, AxisLength) in ring mode, horizontal meters. LengthRect = (P + sqrt(max(0, P² − 16A))) / 4
+        // over the sanitized ring. AxisLength = the fall-line key range + step when ZoneByFallLine, else 0. Polyline = arc length.
         // LengthCheck (every PostCheck) and OracleCheck (AxisLength vs the oracle's key range) pin the DEFINITION on every classification
-        // of this host; this section pins the VALUES: 11 synthetic shapes and the 8 field captures are REGRESSION fixtures of the
-        // computed Length (±0.1 %, CoreCLR, frame 0 of each shape), each shape's error against its designed centerline length is INFO
-        // only (asserting ±2 % against the true length would fail the funnel and the height-key diamond by design: the two known limits
-        // in the classifier engine notes). The constant-width bands (rectangles, the mitred L and dogleg) additionally assert LengthRect
+        // of this host. This section pins the VALUES. The 11 synthetic shapes and the 8 field captures are REGRESSION fixtures of the
+        // computed Length (±0.1 %, CoreCLR, frame 0 of each shape). Each shape's error against its designed centerline length is INFO
+        // only. Asserting ±2 % against the true length would fail the funnel and the height-key diamond by design: the two known limits
+        // in the classifier engine notes. The constant-width bands (rectangles, the mitred L and dogleg) additionally assert LengthRect
         // against the true length (±0.01 %): the closed form is exact for them.
 
         /// <summary>A mitred constant-width band of width w around a centerline polyline:
         /// left offsets forward, right offsets back. Interior vertices sit on the bisector at
         /// (w / 2) / cos(θ / 2), so the band's area is centerline × w and its perimeter 2 ×
-        /// centerline + 2w — the case where LengthRect is exact.</summary>
+        /// centerline + 2w. This is the case where LengthRect is exact.</summary>
         private static double2[] MitredBand(double2[] c, double w)
         {
             int n = c.Length;
@@ -5801,8 +5809,8 @@ namespace SlopeBatch
             Terrain tc = Terrain.For((x, z) => 1500.0 - 2.5 * fc.Along(x, z) + 4 * Math.Sin(x / 37.0), cliff, 60);
             double2[] uRing = UShape(-2600.3, -2600.7, 20, 300, 200);
             Terrain tu = Terrain.For((x, z) => 1500.0 - 0.15 * z + 3 * Math.Sin(x / 41.0), uRing, 60);
-            // a cone (|mean g| < EndZoneMinMeanGrade: the height-key fallback); every fixture
-            // under both connectivity rules (DiagonalRule off and on) at m = 1 and 2.
+            // a cone (|mean g| < EndZoneMinMeanGrade: the height-key fallback). Every fixture
+            // runs under both connectivity rules (DiagonalRule off and on) at m = 1 and 2.
             double2[] cone = Rect(240, 240, Frame.Make(-1200.3, 2600.6, 0));
             Terrain tk = Terrain.For((x, z) => 1500.0 - 0.30 * Math.Sqrt((x + 1080.3) * (x + 1080.3) + (z - 2600.6) * (z - 2600.6)), cone, 60);
             SlopeGrid g = new SlopeGrid();
@@ -5901,8 +5909,8 @@ namespace SlopeBatch
                     string rule = g.DiagonalRule ? "diagonal rule" : "8-nbr";
                     if (g.DiagonalRule)
                     {
-                        // The same crux pass with the 8-neighbor path, for the per-neighbor union's cost (report only; CruxForTest re-reads the grid's
-                        // rule).
+                        // The same crux pass with the 8-neighbor path, for the per-neighbor union's cost (report only). CruxForTest re-reads the grid's
+                        // rule.
                         g.DiagonalRule = false;
                         double t8 = CruxMs(g, r, reps);
                         g.DiagonalRule = true;
@@ -5920,9 +5928,9 @@ namespace SlopeBatch
                 }
             }
 
-            // Long thin shapes whose bbox dwarfs their Need set: a 2-node 5 km diagonal (the first
-            // stroke of every new run; shoelace 0 -> m = 1) and a thin 3-node 5 km sliver ring
-            // (5,000 m² -> m = 1). ~1M bbox cells each; the cost must follow Need, not the bbox.
+            // Long thin shapes whose bbox dwarfs their Need set. One is a 2-node 5 km diagonal (the first
+            // stroke of every new run, shoelace 0 -> m = 1). The other is a thin 3-node 5 km sliver ring
+            // (5,000 m² -> m = 1). ~1M bbox cells each. The cost must follow Need, not the bbox.
             {
                 double cx = -4000.3, cz = -4000.6, d = 5000.0 / Math.Sqrt(2.0);
                 HeightFn f = (x, z) => 1500 - 0.18 * (x + z) / Math.Sqrt(2.0) + 6 * Math.Sin(x / 90) * Math.Cos(z / 130);
@@ -5932,8 +5940,8 @@ namespace SlopeBatch
                 TimeShape("5000 sliver 3-node", new[] { a, b, mid }, f);
             }
 
-            // Concave runs: every lattice row of these crosses two arms, so per-row first/last spans would walk the whole outside gap (span
-            // = 37× / 163× the inside cells for the C / 10 m U); the run lists make the managed work follow the inside cells. All operate at
+            // Concave runs: every lattice row of these crosses two arms. So per-row first/last spans would walk the whole outside gap (span
+            // = 37× / 163× the inside cells for the C / 10 m U). The run lists make the managed work follow the inside cells. All operate at
             // m = 1.
             {
                 double x0 = 1000.3, z0 = -5000.6;
@@ -5978,7 +5986,7 @@ namespace SlopeBatch
         }
 
         /// <summary>Mean ms of the crux pass alone (CruxForTest on the result Classify just
-        /// produced; idempotent), 0 in polyline mode.</summary>
+        /// produced, idempotent), 0 in polyline mode.</summary>
         private static double CruxMs(SlopeGrid g, SlopeResult r, int reps)
         {
             if (g.PolylineMode)
@@ -6052,8 +6060,8 @@ namespace SlopeBatch
         }
 
         /// <summary>The game's fill (SkiRunDrawFeedbackSystem.FillHeights): Plan's per-row Need
-        /// runs only, with the Need test kept. The classifier is linked into this assembly, so its
-        /// internal run lists are visible here.</summary>
+        /// runs only, with the Need test kept. The classifier is linked into this assembly, so the
+        /// code here can see its internal run lists.</summary>
         private static void FillSpans(SlopeGrid g, Terrain t)
         {
             int nx = g.Nx, nz = g.Nz;

@@ -1,5 +1,5 @@
-// Tests for the pure rules in SnowGunPlumeRules.cs, the one predicate that snow injection (raise / bill) and the
-// plume system (vapor) share. Run(check) is called from Program.Main like the other test files.
+// Tests for the pure rules in SnowGunPlumeRules.cs. Snow injection (raise / bill) and the plume system (vapor) share the one predicate
+// there. Program.Main calls Run(check) like the other test files.
 //   GP-1 constants   GP-2 pack measure   GP-3 gun state cases and hysteresis   GP-4 plume of one gun
 //   GP-5 lease   GP-6 hours from bare to the stop depth, and the gun season
 // Oracles are literal hand values (the comments show the arithmetic).
@@ -62,7 +62,7 @@ namespace ResortBatch
             C(float.IsNaN(S.PackDepthM(0.1, double.NaN)), W, "a NaN sum -> NaN");
         }
 
-        // GP-3: one run, pass by pass. running = GunsRunning(state the fold used, cold); the fold uses the state stepped
+        // GP-3: one run, pass by pass. running = GunsRunning(state the fold used, cold). The fold uses the state stepped
         // after the previous pass.
         private static void Cases()
         {
@@ -85,7 +85,7 @@ namespace ResortBatch
             st = S.NextGunState(U, S.PackDepthM(0.075 * 1000, 0.075 * 1000));
             C(st == P && !S.GunsRunning(st, 5000), W, "cold + deep natural (first measurement) -> off");
             C(S.NextGunState(R, S.PackDepthM(0.075, 0.075)) == P, W, "running guns stop on a natural dump that reaches the stop depth");
-            // warm -> off (no cold texel; the state may be Running from the night before).
+            // warm -> off (no cold texel). The state may be Running from the night before.
             C(!S.GunsRunning(R, 0), W, "warm (no cold texel) -> off even while Running");
             C(!S.GunsRunning(S.NextGunState(R, float.NaN), 0), W, "warm pass, nothing measured -> state kept, still off");
             // protection-only pass: warm texels held by protection are never cold -> cold 0 -> off.
@@ -125,8 +125,8 @@ namespace ResortBatch
             C(!S.PlumeOn(true, false, -10f, thr), W, "guns not running -> no plume, however cold");
             C(!S.PlumeOn(false, true, -10f, thr), W, "Options off -> no plume");
             C(!S.PlumeOn(true, true, float.NaN, thr), W, "NaN temperature reads warm");
-            // The thermal line crosses a run: lapse 0.006 C/m (illustrative), ambient 5 C at 0 m -> the gate (3.3 C) sits
-            // at 283 m: a top gun at 400 m (2.6 C) plumes, a bottom gun at 200 m (3.8 C) does not.
+            // The thermal line crosses a run. Lapse 0.006 C/m (illustrative), ambient 5 C at 0 m -> the gate (3.3 C) sits
+            // at 283 m. A top gun at 400 m (2.6 C) plumes. A bottom gun at 200 m (3.8 C) does not.
             float top = 5f - 400f * 0.006f, bottom = 5f - 200f * 0.006f;
             C(S.PlumeOn(true, true, top, thr) && !S.PlumeOn(true, true, bottom, thr), W, "top gun plumes, bottom gun does not");
         }
@@ -162,22 +162,22 @@ namespace ResortBatch
             double hMean = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunStopDepthM, -5f, thr, mean));
             C(Near(hSlow, 480 * 64 / 10922.6667, 0.01), W, "-5 C, slowest texel to 0.96 m: 2.81 game h (" + hSlow + ")");
             C(Near(hMean, 106.6667 * 64 / 10922.6667, 0.01), W, "-5 C, mean texel to 0.96 m: 0.63 game h (" + hMean + ")");
-            // At the gate (3.3 C): output 0.35. Slowest 0.96 / 0.00035 = 2743 windows = 16.1 h; mean 0.96 / 0.001575 = 610 = 3.57 h.
+            // At the gate (3.3 C): output 0.35. Slowest 0.96 / 0.00035 = 2743 windows = 16.1 h. Mean 0.96 / 0.001575 = 610 = 3.57 h.
             double gSlow = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunStopDepthM, thr, thr, slow));
             double gMean = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunStopDepthM, thr, thr, mean));
             C(Near(gSlow, 2742.86 * 64 / 10922.6667, 0.02), W, "at the gate, slowest texel to 0.96 m: 16.1 game h (" + gSlow + ")");
             C(Near(gMean, 609.52 * 64 / 10922.6667, 0.02), W, "at the gate, mean texel to 0.96 m: 3.57 game h (" + gMean + ")");
-            // A restart from 0.91: the band (0.05 m) at -5 C, slowest: 25 windows = 0.15 h; at the gate 143 windows = 0.84 h.
+            // A restart from 0.91: the band (0.05 m) at -5 C, slowest: 25 windows = 0.15 h. At the gate 143 windows = 0.84 h.
             double rSlow = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunRestartBandM, -5f, thr, slow));
             double rGate = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunRestartBandM, thr, thr, slow));
             C(Near(rSlow, 25 * 64 / 10922.6667, 0.01) && Near(rGate, 142.86 * 64 / 10922.6667, 0.01), W,
               "a restart refills the 0.05 m band in 0.15 game h at -5 C and 0.84 h at the gate (slowest texel)");
-            // The 3 ft base: the mean texel reaches it within one night (8 game h) even at the gate; the slowest within a game day.
+            // The 3 ft base: the mean texel reaches it within one night (8 game h) even at the gate. The slowest texel reaches it within a game day.
             C(RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, thr, thr, mean)) <= 8f, W,
               "T133 the 3 ft base: mean texel within one night at the gate");
             C(RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, thr, thr, slow)) <= 24f, W,
               "T133 the 3 ft base: slowest texel within one game day at the gate");
-            // The gun season (October to March around a December winter; a vanilla winter / summer name decides first).
+            // The gun season (October to March around a December winter). A vanilla winter / summer name decides first.
             C(S.InGunSeason("SeasonWinter", 6.5f / 12f), W, "T135 a season named winter is in, whatever the calendar (southern map)");
             C(!S.InGunSeason("SeasonSummer", 0.5f / 12f), W, "T135 a season named summer is out");
             C(!S.InGunSeason("SeasonSpring", 4.8f / 12f), W, "T135 late May (spring) is out: the 2026-10-20 guns in May");

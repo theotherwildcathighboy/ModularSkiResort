@@ -1,10 +1,16 @@
-// Run types R3 (DECISIONS 578): the trail-name pool and the per-feature upkeep rule. Names: a pick is unused while any name is free, None
-// once all are taken, a freed name comes back, the same seed picks the same name; the locale holds exactly Count names, unique, Title Case,
-// in the pinned order with pinned tags (APPEND ONLY: a moved or removed name renames runs in every save). Traits: on a fixed fixture set a
-// black run gets a steep name, a green a gentle one, a glade run a glade one, a cat track a track one, a blue a neutral one, and a run high
-// or low in its area the Upper / Lower form; with its bucket used up a run takes a name that does not contradict it, then any. Upkeep: grooming and lights bill the covered
-// hectares, snowmaking only where the guns make snow, so a gun run at depth still pays its grooming; with guns running it equals the R2
-// rate per hectare.
+// Run types R3 (DECISIONS 578): the trail-name pool and the per-feature upkeep rule.
+// Names:
+// - A pick is unused while any name is free, and None once all are taken.
+// - A freed name comes back.
+// - The same seed picks the same name.
+// - The locale holds exactly Count names, unique, Title Case, in the pinned order with pinned tags
+//   (APPEND ONLY: a moved or removed name renames runs in every save).
+// Traits, on a fixed fixture set:
+// - A black run gets a steep name, a green run a gentle one, a glade run a glade one, a cat track a track one, a blue run a neutral one.
+// - A run high or low in its area gets the Upper / Lower form.
+// - With its bucket used up, a run takes a name that does not contradict it, then any.
+// Upkeep: grooming and lights bill the covered hectares, snowmaking only where the guns make snow. So a gun run at depth still
+// pays its grooming. With guns running it equals the R2 rate per hectare.
 
 using System;
 using System.Collections.Generic;
@@ -227,7 +233,7 @@ namespace ResortBatch
             }
         }
 
-        /// <summary>PisteUpkeep: by feature; a gun run at depth pays grooming (and lights); guns running = the R2 per-hectare rate.</summary>
+        /// <summary>PisteUpkeep: by feature. A gun run at depth pays grooming (and lights). Guns running = the R2 per-hectare rate.</summary>
         private static void Upkeep()
         {
             const string W = "upkeep/features";
@@ -275,8 +281,8 @@ namespace ResortBatch
                   "out of season, unlit, a lit piste (PisteUpkeep bills it) and unknown: 0");
             Check(SkiRunUpkeepRates.TrackLitHa(litTrack, float.NaN, true) == 0f && SkiRunUpkeepRates.TrackLitHa(litTrack, float.PositiveInfinity, true) == 0f &&
                   SkiRunUpkeepRates.TrackLitHa(litTrack, -5f, true) == 0f, T, "NaN, infinite and negative plan areas bill 0");
-            // Parity row: a lit track with its guns running bills what a night piste of its size bills with guns on every hectare
-            // (guns 150 + 350, lights 300 = PerHaMonth); the upkeep system's track rate is Groomed + Snowmaking step.
+            // Parity row: a lit track with its guns running bills what a night piste of its size bills with guns on every hectare.
+            // That is guns 150 + 350 and lights 300 = PerHaMonth. The upkeep system's track rate is Groomed + Snowmaking step.
             float track = SnowGunPlumeRules.TrackBilledHa(20000f, true, true) *
                           (SkiRunUpkeepRates.GroomedPerHaMonth + SkiRunUpkeepRates.SnowmakingStepPerHaMonth) +
                           SkiRunUpkeepRates.TrackLitHa(litGunTrack, 20000f, true) * SkiRunUpkeepRates.LightsStepPerHaMonth;
