@@ -70,8 +70,8 @@ vanilla back to 185 within 256 frames after the writes stopped.
 - Delete all (Options): every merged building is unmerged; the buildings stay.
 
 ## Overlay (P2.6, contract 36; SkiMergeOverlaySystem)
-- Armed from the Buildings tab's Merge tile (contract 37, the top-level entry: a sixth tile in the Lodges group, footer lines = legend and
-  counts while armed) or the Overview's Merged buildings fold chip (drawn in every area view). Both fire `armMergeOverlay`; `mergeOverlay`
+- Armed from the Buildings tab's Mergeable buildings toggle (contract 37, the top-level entry: a full-width switch under the building
+  tiles, legend and counts in it while armed) or the Overview's Merged buildings fold chip (drawn in every area view). Both fire `armMergeOverlay`; `mergeOverlay`
   {armed, allowed, tooSmall} drives the tile, the chip and the green / gray legend with its counts.
 - Tint: `MergeRules.TintOf` over the card's own classification (`ReadFacts`, `Classify`, `AllowedMask`): green = a tier fits, gray = the
   kind qualifies but no tier fits (AllowedMask 0), nothing for a wrong kind, a transient state, or an already merged building (the fold

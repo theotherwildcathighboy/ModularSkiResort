@@ -15,7 +15,7 @@
  *   - the header is one row and the name never pushes the buttons out;
  *   - Runs / Lifts views are the one exception: their list (class listAll) draws every row with no pager and may
  *     scroll; the check asserts no pager row is drawn and records their overflow as "scrolls";
- *   - Buildings tab: one tile per sent building id, no lodge chip; Lifts tile "built / drawn".
+ *   - Buildings tab: one tile per sent building id, no lodge chip, no tile label cut at text scale 1; Lifts tile "built / drawn".
  * The harness panel frame is a stand-in for the game's, so the report also gives each case's slack (rem left);
  * MIN_SLACK_REM is a margin rule for the title bar / padding difference.
  */
@@ -176,10 +176,14 @@
     const bTab = buildTabs().find((b) => /Buildings/.test(b.textContent));
     if (bTab) {
       bTab.click(); await settle();
-      const tilesN = qa("button", q(cls("buildRow"))).length;
+      const tilesN = qa(cls("buildRow")).reduce((n, r) => n + qa("button", r).length, 0);
       const chips = qa(cls("pickerChip"), q(cls("pickerRow"))).length;
-      out.buildings.push({ scenario: name, fs, tiles: tilesN, lodgeChips: chips, caption: qa(cls("groupCaption")).map((e) => e.textContent.trim()).filter(Boolean).join(" | ") });
+      // 2026-11-06: every Buildings tile shows its whole label at text scale 1 (two rows; the game cut a row of 12 to "A-f...").
+      const cut = qa(cls("buildTileLabel"), q(cls("buildFooter"))).filter((l) => l.scrollWidth > l.clientWidth + 1).map((l) => l.textContent.trim());
+      out.buildings.push({ scenario: name, fs, tiles: tilesN, rows: qa(cls("buildRow")).length, lodgeChips: chips, cut: cut.join(", "),
+        caption: qa(cls("groupCaption")).map((e) => e.textContent.trim()).filter(Boolean).join(" | ") });
       if (chips !== 0) fail("Buildings tab still has picker chips", { chips });
+      if (fs === 1 && cut.length > 0) fail("Buildings tab tile labels cut at text scale 1", { cut });
     }
     // The Lifts tab carries the lift generator toggle
     const lTab = buildTabs().find((b) => /^Lifts/.test(b.textContent.trim()));

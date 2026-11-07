@@ -952,8 +952,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MERGED_FOLD_TIP", "Buildings merged into this ski area as lodges. Each keeps its own use and adds its tier's score, skier room and staff." },
                 { "SkiResort.Hub.MERGE_OVERLAY", "Mergeable buildings" },
                 { "SkiResort.Hub.MERGE_OVERLAY_TIP", "Outlines the buildings near the runs and lifts that can be merged into a ski area as a lodge." },
-                // The Buildings tab's Merge tile (contract 37) and the green / gray legend beside the tile's footer and the fold's chip.
-                { "SkiResort.Hub.MERGE_TILE", "Merge" },
+                // The Buildings tab's Mergeable buildings toggle (contract 37; label MERGE_OVERLAY) and the green / gray legend beside the tile's footer and the fold's chip.
                 { "SkiResort.Hub.MERGE_TILE[Name]", "Merge a city building" },
                 { "SkiResort.Hub.MERGE_TILE[Fact]", "A park, landmark or signature near the runs can be a lodge" },
                 { "SkiResort.Hub.MERGE_TILE[Armed]", "Outlined buildings near the runs and lifts can be merged" },
