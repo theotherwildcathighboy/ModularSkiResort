@@ -62,6 +62,7 @@ namespace SkiResortMod.Systems
         private IntTooltip m_Steepest; // steepest avoidable patch (line 5)
         private IntTooltip m_Fee; // one-time run fee (new runs only), money unit
         private StringTooltip m_NoGate;
+        private float m_NoGateKm = float.NaN;
         private int m_ShownBand = -1; // band currently written into m_Grade.value
 
         // Per-load state, reset at OnGameLoadingComplete.
@@ -125,7 +126,6 @@ namespace SkiResortMod.Systems
             m_NoGate = new StringTooltip
             {
                 path = "skiRunNoGate",
-                value = LocalizedString.Id(KeyNoGate),
                 color = TooltipColor.Warning,
             };
             // The vanilla cost row's widget shape (TempCostTooltipSystem.cs:44-56) with our label.
@@ -307,7 +307,16 @@ namespace SkiResortMod.Systems
                 // warning is for the draw decision. Shown with the fee row too, rated or not: both failure paths of the feedback recompute set
                 // GateInRange (UpdateGateInRange), and TryGetReadout always fills r.
                 if ((rated || fee) && r.IsNewRun && !r.GateInRange)
+                {
+                    // {RADIUS} = the ski area radius option in km; the LocalizedString is rebuilt only when it changes.
+                    float km = SkiRunOwnershipSystem.TetherMeters / 1000f;
+                    if (km != m_NoGateKm)
+                    {
+                        m_NoGateKm = km;
+                        m_NoGate.value = LocalizedString.Id(KeyNoGate, ("RADIUS", new LocalizedNumber<float>(km, "floatSingleFraction")));
+                    }
                     AddMouseTooltip(m_NoGate);
+                }
 
                 FramesShown++;
             }

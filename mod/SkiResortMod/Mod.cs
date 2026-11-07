@@ -391,6 +391,10 @@ namespace SkiResortMod
             // until the hub's armMergeOverlay trigger arms it; Game mode only inside.
             updateSystem.UpdateBefore<SkiMergeOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
 
+            // Ski area ring (the radius option on the ground). Before OverlayRenderSystem (same reason as the snow line); ONE anchor only.
+            // Gated by ShowSkiAreaRadius inside; Game mode only.
+            updateSystem.UpdateBefore<SkiAreaRingOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
+
             // Run names on the hill: NO anchor to OverlayRenderSystem (labels are Graphics.DrawMesh calls; nothing is written to the
             // overlay buffers). Must run after the catalog's UIUpdate rebuilds (Rendering does). Gated by ShowRunNamesOnTheHill inside.
             updateSystem.UpdateAt<SkiRunLabelSystem>(SystemUpdatePhase.Rendering);

@@ -241,7 +241,7 @@ namespace SkiResortMod.Systems
         private const string TerrainStatus = "terrain — no run here";
         /// <summary>Binding happens on draw (paused too) or when a sign is placed; a moved sign binds on the next unpaused 64-frame sweep</summary>
         private const string UnboundStatus =
-            "unbound run — a Ski Area Welcome Sign must stand within 5 km of the run's center; " +
+            "unbound run — a Ski Area Welcome Sign must stand within the ski area radius of the run's center; " +
             "it binds at once when the run is drawn or a sign is placed (paused too), else on the " +
             "next unpaused 64-frame sweep";
 
@@ -622,7 +622,7 @@ namespace SkiResortMod.Systems
                              $"({LevelName(m_Level)}); this city " +
                              $"(last ownership census): {census}; hover a bound run to preview" +
                              (b == 0
-                                 ? " — nothing to preview until a run is drawn within 5 km of a Welcome Sign"
+                                 ? " — nothing to preview until a run is drawn within the ski area radius of a Welcome Sign"
                                  : "") +
                              (m_Ownership.PrefabSetsReady
                                  ? ""
@@ -1659,20 +1659,20 @@ namespace SkiResortMod.Systems
             {
                 return $"unbound run {label} — paid orphan (its Welcome Sign is gone); nearest sign " +
                        $"{DistanceText(distance)} from the run's center: it re-links free to a sign within " +
-                       $"5 km on the next unpaused 64-frame sweep{notReady}";
+                       $"{SkiRunOwnershipSystem.TetherMeters:F0} m on the next unpaused 64-frame sweep{notReady}";
             }
             if (float.IsPositiveInfinity(distance))
             {
                 return $"unbound run {label} — no Ski Area Welcome Sign in this city; place one within " +
-                       $"5 km of the run's center (binds at once){notReady}";
+                       $"{SkiRunOwnershipSystem.TetherMeters:F0} m of the run's center (binds at once){notReady}";
             }
             if (inRange)
             {
                 return $"unbound run {label} — nearest Welcome Sign {DistanceText(distance)} from the " +
-                       $"run's center, within 5 km: it binds on the next unpaused 64-frame sweep{notReady}";
+                       $"run's center, within {SkiRunOwnershipSystem.TetherMeters:F0} m: it binds on the next unpaused 64-frame sweep{notReady}";
             }
             return $"unbound run {label} — nearest Welcome Sign {DistanceText(distance)} from the run's " +
-                   "center (max 5 km); place a sign within 5 km (binds at once) or move one there (binds " +
+                   $"center (max {SkiRunOwnershipSystem.TetherMeters:F0} m); place a sign within {SkiRunOwnershipSystem.TetherMeters:F0} m (binds at once) or move one there (binds " +
                    $"on the next unpaused 64-frame sweep){notReady}";
         }
 
@@ -1689,7 +1689,7 @@ namespace SkiResortMod.Systems
                 {
                     NearestBoundRun(h.Point, out int count, out Entity nearest, out float d);
                     string city = count == 0
-                        ? "city: 0 bound run(s) — nothing to preview until a run is drawn within 5 km of a Welcome Sign"
+                        ? "city: 0 bound run(s) — nothing to preview until a run is drawn within the ski area radius of a Welcome Sign"
                         : $"city: {count} bound run(s), nearest {EntityText(nearest)} {DistanceText(d)}";
                     return $"Glade: hover -> terrain (x {h.Point.x:F0}, z {h.Point.y:F0}); no run here; {city}";
                 }

@@ -53,6 +53,9 @@ First public release. Draft notes (check against the build at upload):
   Runs view. Cat tracks carry guns and hydrants on one side, and pay snowmaking upkeep by plan area while their guns can run; with the gun value at Off, none, and snow already made stays until it melts.
 - Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol
   buildings.
+- The Welcome Sign is the ski area: runs, lifts and buildings within its radius belong to it (5 km by default, 2 to 10 km
+  in Options). While placing a sign, a ring shows the radius and the tooltip gives the height under the cursor, the lowest and
+  highest dry ground in the ring, the vertical above the winter snow line, and how much ground lies above it. A selected sign shows its ring too.
 - Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts
   its ski day there; guests pay as at a lodge. It adds no capacity and no score, needs a lodge on the hill, and bills 1,500
   a month plus 300 per km to that lodge (Finances, row Ski bus). An oxblood coach, with SKI BUS painted on it, drives between the depot and the hill. Selecting the coach or the depot shows a Ski Bus card beside the game's panel: guests by bus this month, the coach bill and the distance to the hill lodge.

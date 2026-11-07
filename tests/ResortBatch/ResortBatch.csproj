@@ -29,6 +29,9 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRatingRules.cs" Link="SkiRunRatingRules.cs" />
     <!-- The hub's "camera already on the sign" rule. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\HubCameraRules.cs" Link="HubCameraRules.cs" />
+    <!-- The ski area radius option, its ring and the site survey. -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiAreaRadiusRules.cs" Link="SkiAreaRadiusRules.cs" />
+    <Compile Include="SkiAreaRadiusTests.cs" />
   </ItemGroup>
   <!-- The economy pure files and their tests. -->
   <ItemGroup>

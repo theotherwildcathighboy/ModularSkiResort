@@ -96,6 +96,16 @@ namespace SkiResortMod.Settings
                 // --- Balance and Snow, continued ---
 
                 {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SkiAreaRadiusKm)),
+                    "Ski area radius (km)"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiAreaRadiusKm)),
+                    "How far a ski area reaches from its Welcome Sign. Lifts, lodges, ski schools and patrol huts belong to the " +
+                    "nearest sign within this distance and follow a change while the game runs. A run joins the nearest sign within it when drawn " +
+                    "and keeps that sign. Default 5 km (3.1 mi)."
+                },
+                {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.AttractivenessScaleK)),
                     "Attractiveness scale (K)"
                 },
@@ -225,7 +235,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.EnableBindOnDraw)),
-                    "When enabled, a run drawn within 5 km (3.1 mi) of a Ski Area Welcome Sign joins " +
+                    "When enabled, a run drawn within the ski area radius of a Ski Area Welcome Sign joins " +
                     "the resort (and is charged) immediately, even while paused, and waiting " +
                     "runs join the moment a sign is placed. Disabled, runs join on the next " +
                     "periodic check, which only happens while the game is running. Default on."
@@ -259,7 +269,20 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowSnowLineWhilePlacing)),
                     "When enabled, drawing a ski run or placing a Ski Area Welcome Sign draws two lines on the terrain: the " +
                     "average winter snow line (where the December-February average climate reaches freezing, even in " +
-                    "summer) and a fainter one below it where snow guns start to work. The tooltip gives both heights. Default on."
+                    "summer) and a fainter one below it where snow guns start to work. The tooltip gives both heights and the height " +
+                    "under the cursor; while placing a sign, also the lowest and highest dry ground within the ski area radius, " +
+                    "the vertical above the snow line, and how much ground lies above it. Default on."
+                },
+                // The ski area ring
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ShowSkiAreaRadius)),
+                    "Show the ski area radius"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowSkiAreaRadius)),
+                    "When enabled, a ring on the ground shows how far a ski area reaches (the ski area radius): around the cursor " +
+                    "while placing a Welcome Sign, around a selected sign, and around every sign while placing a run, lift or " +
+                    "resort building. Default on."
                 },
                 // The run names on the hill
                 {

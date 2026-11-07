@@ -29,14 +29,16 @@ namespace SkiResortMod.Systems
     public sealed partial class SkiRunOwnershipSystem : GameSystemBase
     {
         /// <summary>THE tether, one number: the run bind test below (Tuning.TetherM) and the hub's lift / station resort rule
-        /// (SkiResortStatsSystem, SkiResortIndex.TryResolve) both read it.</summary>
-        internal const float TetherMeters = 5000f;
+        /// (SkiResortStatsSystem, SkiResortIndex.TryResolve) both read it. The option "Ski area radius" (SkiResortSettings.SkiAreaRadiusKm,
+        /// 2-10 km, default 5, SkiAreaRadiusRules.ClampKm), read live: a bound run keeps its sign after a change; lifts and buildings
+        /// re-resolve at the next recompute. Main thread only (Mod.Settings).</summary>
+        internal static float TetherMeters => SkiResortMod.Settings.SkiResortSettings.SkiAreaRadiusMOf(Mod.Settings);
 
         private static class Tuning
         {
-            /// <summary>Max distance (m) from a run polygon's center to its sign at BIND time. 5 km covers a full real-scale resort on the
-            /// 14.3 km playable map. = TetherMeters (one number for runs and lifts).</summary>
-            public const float TetherM = TetherMeters;
+            /// <summary>Max distance (m) from a run polygon's center to its sign at BIND time. The default 5 km covers a full real-scale
+            /// resort on the 14.3 km playable map. = TetherMeters (one number for runs and lifts; the option, read live).</summary>
+            public static float TetherM => TetherMeters;
 
             /// <summary>Sweep cadence: the same 64-frame family as injection; binding within one window of drawing is imperceptible.</summary>
             public const int SweepIntervalFrames = 64;
@@ -486,6 +488,33 @@ namespace SkiResortMod.Systems
                 }
             }
             return distance <= Tuning.TetherM;
+        }
+
+        /// <summary>The plan positions of every live Ski Area Welcome Sign, appended to <paramref name="into"/> (cleared first). Same managed
+        /// scan as TryNearestGateEntity (every building, PrefabRef-filtered): call it on activation or every few dozen frames, never per
+        /// frame. Main thread only. Used by SkiAreaRingOverlaySystem.</summary>
+        internal void CollectGatePositions(System.Collections.Generic.List<float2> into)
+        {
+            into.Clear();
+            if (m_GatePrefabs.Count == 0 || m_GateQuery.IsEmptyIgnoreFilter)
+                return;
+            m_GateQuery.CompleteDependency();
+            var entityManager = EntityManager;
+            var prefabRefHandle = entityManager.GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
+            var transformHandle = entityManager.GetComponentTypeHandle<Game.Objects.Transform>(isReadOnly: true);
+            using (var gateChunks = m_GateQuery.ToArchetypeChunkArray(Allocator.Temp))
+            {
+                for (int c = 0; c < gateChunks.Length; c++)
+                {
+                    var prefabRefs = gateChunks[c].GetNativeArray(ref prefabRefHandle);
+                    var transforms = gateChunks[c].GetNativeArray(ref transformHandle);
+                    for (int i = 0; i < prefabRefs.Length; i++)
+                    {
+                        if (m_GatePrefabs.Contains(prefabRefs[i].m_Prefab))
+                            into.Add(transforms[i].m_Position.xz);
+                    }
+                }
+            }
         }
 
         /// <summary>The one-time fee of a run of this prefab and plan area (SkiRunFees.Fee); 0 for a prefab that is not one of our

@@ -696,6 +696,7 @@ anchor PowerBridgeSystem before Game.Simulation.ElectricityBuildingGraphSystem M
 anchor PowerJoinRefusalSystem before Game.Tools.ValidationSystem.Components ModificationEnd
 anchor PowerJoinTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
 anchor QuickRunsTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor SkiAreaRingOverlaySystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiCatTrackDeleteSystem before Game.Objects.SubElementDeleteSystem PostTool
 anchor SkiCoachSystem before Game.Simulation.TransportCarAISystem GameSimulation interval{return 16;} offset{return 1;}
 anchor SkiDaySystem after Game.Simulation.LeisureSystem GameSimulation interval{return 262144 / kUpdatePerDay;}

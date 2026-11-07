@@ -1,0 +1,27 @@
+# The ski area radius: the option, the ring and the site survey
+
+**The rule.** A Welcome Sign owns what lies within the ski area radius of it: a run binds to the nearest sign within the radius of its
+polygon center when drawn and keeps that sign (SkiRunOwnershipSystem); lifts (base station), lodges, the ski school and patrol huts
+resolve to the nearest live sign within the radius at every recompute (SkiResortIndex.TryResolve, SchoolLinkRules.Resolve). The bus
+depot is the exception: any distance.
+
+**The number.** `SkiRunOwnershipSystem.TetherMeters` is a static property over the option `SkiResortSettings.SkiAreaRadiusKm`
+(float slider 2-10 km, step 0.5, default 5), clamped and stepped by `SkiAreaRadiusRules.ClampKm`. It used to be `const 5000f`; every
+caller is main thread (no Burst job reads it). A change in a running city: bound runs keep their sign; lifts and buildings move or
+unlink at the next recompute (16-frame cadence). No save data holds the radius: loading a city with another option value re-links
+lifts and buildings the same way.
+
+**Player text.** Tooltips built in C# carry the live number (`NO_GATE_IN_RANGE` {RADIUS}, the survey line). Hub texts are number-free
+("out of range of every Welcome Sign", "within its radius"): the hub gets no new binding (contract unchanged); the ring and the
+Options page show the number.
+
+**The ring** (`SkiAreaRingOverlaySystem`). 160 projected chords per ring (`SkiAreaRadiusRules.RingSegments`, sag under 2 m at 10 km).
+A projected overlay covers the whole terrain height range (`OverlayRenderSystem.GetBuffer` passes `heightScaleOffset.y - 50 ..
+heightScaleOffset.x + 100`, OverlayRenderSystem.cs:633 in 1.6.2f1), so a chord drapes over a ridge between its ends and the ring needs
+no terrain sampling. Width scales with zoom up to x10 (wider than the piste map's x6: a whole 10 km ring is only in view far out).
+When: placing a sign (bright ring at the cursor's raycast hit, faint rings at every sign), a sign selected (`ToolSystem.selected`:
+its ring bright), placing a run (area tool, our run prefab), the lift tool, or the object tool with a lodge / school / patrol hut /
+depot / station prefab (faint rings). Sign positions come from `SkiRunOwnershipSystem.CollectGatePositions` (managed scan of every
+building) on activation and every 60 frames. Option `ShowSkiAreaRadius`, default on.
+
+**The survey:** see EngineNotes/SkiSnowLineOverlaySystem.md, "The cursor lines and the site survey". Tests: ResortBatch AR-1..AR-3.

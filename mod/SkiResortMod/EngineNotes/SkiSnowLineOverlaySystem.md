@@ -58,3 +58,17 @@ load; both times are in StateText). Timings unmeasured.
 `SkiSnowLineOverlaySystem created`; ONE INFO line per load (ARMED) with the elevations and the climate inputs ("SnowLine: ARMED - winter
 mean ... snow line ... guns line ..."); one WARN when the climate is missing, once per load, one WARN for a slow build; a one-shot `!!!`
 switches it off until the next load. Nothing per frame. Game mode only.
+
+## The cursor lines and the site survey (2026-11-06)
+
+- **Here:** the terrain height (`TerrainUtils.SampleHeight`) under the tool's raycast hit (`ToolRaycastSystem.GetRaycastResult`,
+  ToolRaycastSystem.cs:57-67 in 1.6.2f1; `RaycastSystem.GetResult` completes the raycast the tool already ran this frame, so the read
+  at Rendering costs nothing extra). Shown while the overlay shows (runs and the sign), as height and the distance above or below the
+  snow line (two keys, HERE_ABOVE / HERE_BELOW, so no signed number).
+- **Survey** (only while the object tool places the Welcome Sign): `SkiAreaRadiusRules.Survey` over the disc of the ski area radius
+  around the cursor, 72 x 72 cell centers over the bounding box (cell = 2R / 72, ~4,070 samples in a full disc at every radius),
+  clipped to `TerrainSystem.playableOffset` .. `+ playableArea` (TerrainSystem.cs:2514-2516; the world map outside is not buildable),
+  water deeper than 0.5 m left out (`WaterUtils.SampleDepth`, the cat track grade's pattern: GetSurfaceData, deps.Complete()). Redone
+  when the cursor moved more than 50 m, the radius or a line changed, at most once per 6 frames. One `SnowLine [cost] survey` INFO line
+  per load (the first survey), a WARN once over 3 ms. The line also names the skiable vertical, MaxM - max(MinM, snow line) (AREA_SURVEY), or says no ground reaches the snow line (AREA_SURVEY_NO_SNOW). Water at the cursor's own spot still shows "Here": the sign cannot be placed
+  there anyway.

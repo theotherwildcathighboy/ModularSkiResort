@@ -8,7 +8,7 @@ import Shot from '../../../components/Shot.astro';
 import Icon from '../../../components/Icon.astro';
 
 All three are standalone buildings, placed from the hub **Buildings** tab like any other building. Each belongs to the
-nearest **Welcome Sign** within **5 km**. Costs and numbers: [Buildings](/reference/buildings/).
+nearest **Welcome Sign** within the ski area radius (**5 km** by default). Costs and numbers: [Buildings](/reference/buildings/).
 
 <Shot src="buildings-tab.jpg" label="The hub's Buildings tab: lodge tier picker, Ski School and patrol tiles." />
 
@@ -84,7 +84,7 @@ Residents only take ski days within the ski area's reach (**7 km** by default), 
 
 Two buildings: <Icon name="building-patrol-hut" alt="Ski Patrol Hut icon" /> **Ski Patrol Hut**, <Icon name="building-patrol-hq" alt="Ski Patrol HQ icon" /> **Ski Patrol HQ**.
 
-- **Placement:** within **5 km** of the Welcome Sign, near steep runs.
+- **Placement:** within the ski area radius of the Welcome Sign, near steep runs.
 - **Effect:** black and double-black runs within **1 km** score **15 %** more.
 - **Unserved runs:** within **1 km**, count at least **70 %** instead of **40 %**.
 
@@ -96,7 +96,7 @@ Two buildings: <Icon name="building-patrol-hut" alt="Ski Patrol Hut icon" /> **S
 
 In testing, a depot took a hill out of reach from **0** ski-day guests to about **20 %** of its potential guests, within the range of a hill beside town, and the hill's tickets, passes and lessons earned about **5** times the coach bill. Costs and numbers: [Buildings](/reference/buildings/#ski-bus-depot).
 
-- **Link:** the nearest Welcome Sign at **any distance**; the only building without the **5 km** limit.
+- **Link:** the nearest Welcome Sign at **any distance**; the only building without the radius limit.
 - **Requirements:** its own road, and at least one working lodge on the hill. A Mountain Hut or Swanky Summit Lodge counts. It does not need to be near the runs.
 - **Distance:** a guest's reach, travel time and fit are measured from home to the depot, the same way as to a lodge.
 - **Guests:** arrivals count as the area's guests and pay tickets, lessons and passes as at a lodge. No lodge spend. Leisure visitors who pick the depot count and pay too.

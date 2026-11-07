@@ -18,7 +18,7 @@ The **Ski Resort hub** is the mod's single panel.
 
 Persistent elements above the views.
 
-- **Header:** one ski area, keyed to its Welcome Sign. Arrows: switch ski area. Fly button: jump to the sign. Pen: rename (empty name restores the default). Runs and lifts more than **5 km** from every sign are listed as *Not linked to a ski area* and score **0**.
+- **Header:** one ski area, keyed to its Welcome Sign. Arrows: switch ski area. Fly button: jump to the sign. Pen: rename (empty name restores the default). Runs and lifts outside every sign's radius (**5 km** by default, option **Ski area radius**) are listed as *Not linked to a ski area* and score **0**.
 - **Status line:** *Open*, *Closed* or *Patchy*, with *· 1 patchy* while some runs are patchy and *≈* while the snow is estimated. On its right: snow depth and cover (*124 cm · 100 %*), *Powder day*, or a season warning. Tooltip: open, patchy and closed run counts, snow rule (open at **91 cm** on **60 %** of a run; an open run closes when **30 cm** covers under **40 %**), measured or estimated snow. The hub shows depths in your game's unit setting.
 - **Problem band:** one fact per line (*No lift yet*, *Lodge or school: road required*, *Lift X: no power*). Hover: cost. Click: fly to the cause or open the list. See [Troubleshooting](/guides/troubleshooting/).
 - **Tiles:** Attraction, Runs, Lifts, Guests, Finances, History. Click opens the view; tooltip lists figures.
@@ -94,5 +94,5 @@ Three tabs along the bottom hold every tool.
 
 <Aside type="note" title="Standalone Buildings">
 Lodges, Ski School and patrol are ordinary buildings, placed with the game's building tool like any other. A tile
-only starts the placement. A building within **5 km** of a Welcome Sign belongs to the nearest one.
+only starts the placement. A building within the ski area radius (**5 km** by default) of a Welcome Sign belongs to the nearest one.
 </Aside>

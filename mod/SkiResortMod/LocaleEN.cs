@@ -398,7 +398,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.RUN_FEE", "Run fee (one-time)" },
                 {
                     "SkiResort.Tooltip.NO_GATE_IN_RANGE",
-                    "No Ski Area Welcome Sign within 5 km: this run will not count until " +
+                    "No Ski Area Welcome Sign within {RADIUS} km: this run will not count until " +
                     "one is placed nearby"
                 },
                 // The run's horizontal length, an IntTooltip label in front of a "length" unit value
@@ -411,7 +411,7 @@ namespace SkiResortMod
                 // Target; COMPLETE_BLOCKED / COMPLETE_FIXED are a complete plan below / above its target. Details: EngineNotes/LocaleEN.md
                 { "SkiResort.GladeTooltip.HINT", "Point at a ski run to plan trees" },
                 { "SkiResort.GladeTooltip.NO_RUNS", "No ski run in this city is linked to a Welcome Sign yet" },
-                { "SkiResort.GladeTooltip.UNBOUND", "Run not linked: a Ski Area Welcome Sign must stand within 5 km of its center" },
+                { "SkiResort.GladeTooltip.UNBOUND", "Run not linked: no Ski Area Welcome Sign was within the ski area radius of its center" },
                 { "SkiResort.GladeTooltip.BLOCKED", "Trees cannot be planned on this run (see the mod log)" },
                 { "SkiResort.GladeTooltip.COMPLETE", "Nothing to change: the run is already at this tree density" },
                 { "SkiResort.GladeTooltip.COMPLETE_BLOCKED", "Nothing more can be planted: the remaining spots are blocked (roads, buildings)" },
@@ -853,7 +853,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_WARN[MoneyShort]", "The city cannot pay the total fee: building is refused." },
                 { "SkiResort.Tooltip.QUICK_WARN[Renumber]", "Runs with default names will be renumbered." },
                 { "SkiResort.Tooltip.QUICK_WARN[OtherResort]", "These runs belong to more than one ski area." },
-                { "SkiResort.Tooltip.QUICK_WARN[NoSign]", "No Welcome Sign within 5 km: the runs will not count until one is placed nearby." },
+                { "SkiResort.Tooltip.QUICK_WARN[NoSign]", "No Welcome Sign in range: the runs will not count until one is placed nearby." },
                 { "SkiResort.Tooltip.QUICK_WARN[ChecksOff]", "Anarchy is installed: while it is on, the game's own checks are off and only this tool's checks protect the build." },
                 { "SkiResort.Tooltip.QUICK_NEED_CORNERS", "Click at least three corners first." },
                 { "SkiResort.Tooltip.QUICK_NEED_SCAN", "Scan the region first." },
@@ -956,7 +956,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RESORT_COUNTS[LodgeOne]", "{RUNS} runs · 1 lodge" },
                 { "SkiResort.Hub.RESORT_COUNTS[One]", "1 run · 1 lodge" },
                 { "SkiResort.Hub.UNLINKED_ENTRY", "Not linked to a ski area" },
-                { "SkiResort.Hub.UNLINKED_HINT", "More than 5 km from every Welcome Sign." },
+                { "SkiResort.Hub.UNLINKED_HINT", "Out of range of every Welcome Sign." },
                 { "SkiResort.Hub.RENAME", "Rename" },
                 { "SkiResort.Hub.RENAME_TIP", "An empty name restores the default." },
                 // The trash button of a cat track's Runs row (DECISIONS 423b): first click arms, second deletes.
@@ -988,7 +988,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_NAME_TIP", "The name is stored on the base station, or on the top station while there is no base." },
                 { "SkiResort.Hub.LIFT_SIGN_TIP", "A lift belongs to the ski area of its base station; a run keeps the ski area it was drawn for." },
                 // Build strip.
-                { "SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: lifts and runs within 5 km join it." },
+                { "SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: lifts and runs within its radius join it." },
                 // An extra TOOLTIP line of the base, top and lift tiles (the footer's two
                 // one-string lines would cut it at 130-150 % text; src/hub/BuildStrip.tsx header).
                 // The link states.
@@ -1002,9 +1002,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.START_STEP[2]", "A lift: two stations, then the line" },
                 { "SkiResort.Hub.START_STEP[3]", "Runs from the top of the lift" },
                 { "SkiResort.Hub.START_STEP[4]", "A lodge within 800 m of the runs" },
-                { "SkiResort.Hub.START_NOTE[Areas]", "One ski area per Welcome Sign; runs and lifts within 5 km join it." },
+                { "SkiResort.Hub.START_NOTE[Areas]", "One ski area per Welcome Sign; runs and lifts within its radius join it." },
                 { "SkiResort.Hub.STATUS_NO_RUNS", "Closed" },
-                { "SkiResort.Hub.STATUS_UNLINKED", "No Welcome Sign within 5 km" },
+                { "SkiResort.Hub.STATUS_UNLINKED", "No Welcome Sign in range" },
                 { "SkiResort.Hub.STATUS_TIP_RULE", "Open: enough snow on 60 % of the run. Closed: under 40 %. Patchy: in between." },
                 { "SkiResort.Hub.STATUS_TIP_ESTIMATED", "Some runs are estimated from the day's temperature until their snow can be measured." },
                 { "SkiResort.Hub.STATUS_TIP_GATING", "Snow & season gating is off in Options, so every run counts as open." },
@@ -1012,7 +1012,7 @@ namespace SkiResortMod
                 // The status line's hint slot at powder >= 0.5.
                 { "SkiResort.Hub.POWDER_DAY", "Powder day" },
                 { "SkiResort.Hub.PROBLEM[None]", "No problems" },
-                { "SkiResort.Hub.PROBLEM[Unlinked]", "More than 5 km from every Welcome Sign" },
+                { "SkiResort.Hub.PROBLEM[Unlinked]", "Out of range of every Welcome Sign" },
                 { "SkiResort.Hub.PROBLEM[NoLodge]", "No lodge" },
                 { "SkiResort.Hub.PROBLEM[LodgesAllOff]", "All lodges deactivated" },
                 { "SkiResort.Hub.PROBLEM[NoRuns]", "No runs yet" },
@@ -1044,12 +1044,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[LiftChairsStopped]", "The lift is complete and still counts, but its chairs stopped. The mod log says why." },
                 { "SkiResort.Hub.PROBLEM_TIP[RunsUnrateable]", "The outline is too large or too thin, or has no terrain under it. These runs count very little." },
                 { "SkiResort.Hub.PROBLEM_TIP[RunsRating]", "Runs are rated one at a time. A new run counts 0 until it is rated; a reshaped run keeps its last rating." },
-                { "SkiResort.Hub.PROBLEM_TIP[FreeLodges]", "They are more than 5 km from every Welcome Sign, so they count nowhere." },
+                { "SkiResort.Hub.PROBLEM_TIP[FreeLodges]", "They are out of range of every Welcome Sign, so they count nowhere." },
                 // The tooltip's first line is the row ("Welcome Sign is not at a road" /
                 // "Lodge is not at a road: ..."), so "it" names the building; the fix hints: the deck side is the lot front,
                 // and the game links a road within 8.4 m of the front point.
                 // Top-level ski schools on no Welcome Sign (C# HubProblemCode SchoolsNotLinked; its row text is FMT below).
-                { "SkiResort.Hub.PROBLEM_TIP[SchoolsNotLinked]", "More than 5 km from every Welcome Sign, so they teach nobody." },
+                { "SkiResort.Hub.PROBLEM_TIP[SchoolsNotLinked]", "Out of range of every Welcome Sign, so they teach nobody." },
                 // 300 m is the parking census radius, 800 m the slopeside distance.
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive." },
                 { "SkiResort.Hub.PROBLEM_TIP[DepotNoHillLodge]", "A depot sends guests only while its ski area has a working lodge on the hill; a mountain lodge counts. It bills nothing until then." },
@@ -1586,7 +1586,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_SHORT[Night]", "Floodlit snowmaking run: scores 25 % more." },
                 { "SkiResort.Hub.BUILD_SHORT[Natural]", "Natural snow only, no running cost; easy runs score less." },
                 { "SkiResort.Hub.BUILD_SHORT[CatTrack]", "Graded as you lay it out; always green, counts a quarter." },
-                { "SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within 5 km." },
+                { "SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within its radius." },
                 { "SkiResort.Hub.NEXT[Lodge]", "Ski-day guests need a lodge within 800 m of the runs." },
                 { "SkiResort.Hub.NEXT[Lift]", "Runs a lift serves count in full." },
                 { "SkiResort.Hub.NEXT[Run]", "Natural runs cost nothing to run; the others cost per hectare." },
@@ -1750,6 +1750,17 @@ namespace SkiResortMod
                 // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world meters (LocalizedNumber<int>, unit "integer");
                 // "≈" and "·" are on the UI glyph allowlist.
                 { "SkiResort.Tooltip.SNOW_LINE", "Winter snow line ≈ {SNOW_LINE} m · guns work above ≈ {GUN_LINE} m" },
+                // SkiSnowLineTooltipSystem, the cursor lines. HERE_ABOVE / HERE_BELOW: {HERE} the ground under the cursor, {DIFF} its
+                // distance to the snow line (both integer meters). AREA_SURVEY (only while the Welcome Sign is placed): the dry ground within
+                // the ski area radius of the cursor, {RADIUS} km (floatSingleFraction), {LOW} / {HIGH} / {VERT} integer meters, {PCT}
+                // percentage of that ground at or above the snow line, {SKI} the skiable vertical (highest ground minus the snow line, or minus
+                // the lowest ground when that is higher; integer meters). AREA_SURVEY_NO_SNOW: no ground reaches the snow line.
+                // AREA_SURVEY_WET: no dry ground on the map within the radius.
+                { "SkiResort.Tooltip.HERE_ABOVE", "Here {HERE} m · {DIFF} m above the snow line" },
+                { "SkiResort.Tooltip.HERE_BELOW", "Here {HERE} m · {DIFF} m below the snow line" },
+                { "SkiResort.Tooltip.AREA_SURVEY", "Within {RADIUS} km: {LOW} to {HIGH} m · {VERT} m vertical, {SKI} m of it above the snow line · {PCT} of the ground above it" },
+                { "SkiResort.Tooltip.AREA_SURVEY_NO_SNOW", "Within {RADIUS} km: {LOW} to {HIGH} m · {VERT} m vertical · no ground above the snow line" },
+                { "SkiResort.Tooltip.AREA_SURVEY_WET", "Within {RADIUS} km: no dry ground on the map" },
             };
         }
 

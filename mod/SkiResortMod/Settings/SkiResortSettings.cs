@@ -101,6 +101,17 @@ namespace SkiResortMod.Settings
         public bool OpenHubOnSignSelect { get; set; }
 
 
+        /// <summary>The ski area radius in km (the tether): a run binds to the nearest Welcome Sign within it when drawn (and keeps it), and
+        /// lifts, lodges, schools and patrol huts link to the nearest sign within it, live, at every recompute. Float slider 2-10, step 0.5,
+        /// default 5 (SkiAreaRadiusRules). Read through SkiRunOwnershipSystem.TetherMeters (SkiAreaRadiusMOf).</summary>
+        [SettingsUISlider(min = SkiAreaRadiusRules.MinKm, max = SkiAreaRadiusRules.MaxKm, step = SkiAreaRadiusRules.StepKm, unit = "floatSingleFraction")]
+        [SettingsUISection(SectionMain, GroupBalance)]
+        public float SkiAreaRadiusKm { get; set; }
+
+        /// <summary>The radius in meters, clamped; null settings -> the default. Main thread only.</summary>
+        public static float SkiAreaRadiusMOf(SkiResortSettings s)
+            => SkiAreaRadiusRules.MetersOf(s == null ? SkiAreaRadiusRules.DefaultKm : s.SkiAreaRadiusKm);
+
         /// <summary>K: A = lodge base + K x sqrt(runs and running lifts) x variety x vertical, x the Welcome Sign's efficiency, at most
         /// 200. Read by SkiResortAttractivenessSystem as Mod.Settings?.AttractivenessScaleK ?? DefaultAttractivenessScaleK, clamped
         /// SkiResortScore.MinK..MaxK.</summary>
@@ -242,6 +253,12 @@ namespace SkiResortMod.Settings
         /// the terrain, with one tooltip line (SkiSnowLineOverlaySystem + SkiSnowLineTooltipSystem). Read live every frame. Default on.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ShowSnowLineWhilePlacing { get; set; }
+
+        /// <summary>Draw the ski area radius (SkiAreaRadiusKm) as a ring on the ground: around the cursor while a Welcome Sign is placed,
+        /// around a selected sign, and around every sign while a sign, run, lift or resort building is placed (SkiAreaRingOverlaySystem).
+        /// Read live every frame. Default on.</summary>
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public bool ShowSkiAreaRadius { get; set; }
 
         /// <summary>Write each ski run's name flat on the ground at the run's center, in the piste-map color of its difficulty, while the
         /// camera is at piste-map distance (SkiRunLabelSystem). Read live every frame. Default on.</summary>
@@ -442,6 +459,7 @@ namespace SkiResortMod.Settings
 
         public override void SetDefaults()
         {
+            SkiAreaRadiusKm = SkiAreaRadiusRules.DefaultKm;
             AttractivenessScaleK = DefaultAttractivenessScaleK;
             BackcountryValuePercent = DefaultBackcountryValuePercent;
             LiftTicketPrice = SkiMoneyRules.TicketPriceDefault;
@@ -461,6 +479,7 @@ namespace SkiResortMod.Settings
             ShowRunGradeWhileDrawing = true;
             ContourLinesWhileDrawingRuns = true;
             ShowSnowLineWhilePlacing = true;
+            ShowSkiAreaRadius = true;
             ShowRunNamesOnTheHill = true;
             RunOutlineSize = DefaultRunOutlineSize;
             SnowGunPlumes = DefaultSnowGunPlumes;

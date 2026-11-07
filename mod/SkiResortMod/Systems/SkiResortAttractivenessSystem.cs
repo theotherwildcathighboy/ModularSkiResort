@@ -430,6 +430,7 @@ namespace SkiResortMod.Systems
         private int m_LastBindGeneration, m_LastCensusRevision, m_LastRatingRevision, m_LastSnowGeneration;
         private int m_LastK, m_LastBackcountry;
         private bool m_LastGating;
+        private float m_LastRadiusM;   // the ski area radius option (TetherMeters): a change re-links lifts and buildings at once
         private bool m_LastSnowSettled;
         private ulong m_StateHash;
 
@@ -1076,6 +1077,7 @@ namespace SkiResortMod.Systems
             int rating = m_Catalog.RatingRevision;
             int snow = m_Injection.RunSnowGeneration;
             ReadSettings(out int k, out int backcountry, out bool gating);
+            float radius = SkiRunOwnershipSystem.TetherMeters;
             bool settled = m_Injection.SnowSettled;
 
             if (!m_CountersPrimed)
@@ -1088,6 +1090,7 @@ namespace SkiResortMod.Systems
                 m_LastK = k;
                 m_LastBackcountry = backcountry;
                 m_LastGating = gating;
+                m_LastRadiusM = radius;
             }
             else
             {
@@ -1108,6 +1111,14 @@ namespace SkiResortMod.Systems
                     m_LastK = k;
                     m_LastBackcountry = backcountry;
                     m_LastGating = gating;
+                    RequestRecompute(ReasonSettings);
+                }
+                if (radius != m_LastRadiusM)
+                {
+                    // Without this the links would follow only at the next backstop (PeriodicRefreshTicks, ~4,096 frames).
+                    Mod.Log.Info(Invariant($"Attractiveness [settings]: ski area radius {m_LastRadiusM:F0} m → {radius:F0} m — recompute (lifts and buildings re-link; bound runs keep their sign)"));
+                    m_LastRadiusM = radius;
+                    m_PositionsDue = true;
                     RequestRecompute(ReasonSettings);
                 }
                 if (rating != m_LastRatingRevision)
@@ -1875,7 +1886,7 @@ namespace SkiResortMod.Systems
             string what = (kind == SchoolLinkRules.KindSchool ? "ski school " : kind == SchoolLinkRules.KindPatrol ? "patrol hut " : depot ? "bus depot " : "lodge ") +
                           IdOf(LiftCensusSystem.Ent(c.School));
             string role = kind == SchoolLinkRules.KindSchool ? "the school" : kind == SchoolLinkRules.KindPatrol ? "the patrol hut" : depot ? "the bus depot" : "the lodge";
-            string rule = depot ? "nearest sign at any distance" : "nearest sign within 5000 m";
+            string rule = depot ? "nearest sign at any distance" : Invariant($"nearest sign within {SkiRunOwnershipSystem.TetherMeters:F0} m");
             string at = float.IsInfinity(c.After.Distance) ? "no position or no sign"
                 : Invariant($"nearest sign {c.After.Distance:F0} m");
             switch (c.Kind)
@@ -1889,7 +1900,7 @@ namespace SkiResortMod.Systems
                                  $"{IdOf(LiftCensusSystem.Ent(c.Before.Sign))}: a nearer sign takes {role})");
                     break;
                 case SchoolLinkRules.ChangeKind.Unlinked:
-                    Mod.Log.Info($"{tag} [link] {what} NOT LINKED ({at}; no Welcome Sign{(depot ? "" : " within 5000 m")}" +
+                    Mod.Log.Info($"{tag} [link] {what} NOT LINKED ({at}; no Welcome Sign{(depot ? "" : Invariant($" within {SkiRunOwnershipSystem.TetherMeters:F0} m"))}" +
                                  (c.Before.Linked ? $", was {IdOf(LiftCensusSystem.Ent(c.Before.Sign))}" : "") +
                                  "): it counts for no ski area");
                     break;

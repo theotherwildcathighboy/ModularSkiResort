@@ -1,6 +1,8 @@
 // The winter snow line on the ground while a run or the Welcome Sign is being placed: where the climate's mean winter temperature,
 // lapsed with elevation, crosses 0 °C (a pale contour) and, fainter and lower, where our snow guns start (+SnowmakingMargin °C).
-// The tooltip (SkiSnowLineTooltipSystem, same file) names both elevations once. Game mode only.
+// The tooltip (SkiSnowLineTooltipSystem, same file) names both elevations once, the ground height under the cursor, and while the sign is
+// placed the site survey: the dry ground within the ski area radius of the cursor (SkiAreaRadiusRules.Survey, clipped to the playable
+// area, water deeper than SurveyWetDepthM left out). Game mode only.
 // Phase: Rendering, anchored UpdateBefore<SkiSnowLineOverlaySystem, Game.Rendering.OverlayRenderSystem> (Mod.cs; load-bearing:
 // OverlayRenderSystem uploads and clears its lists in the same frame, :738-741, :781, :790).
 // Logs: ONE INFO line per load (ARMED) with the elevations; WARN once per load for a missing climate and for a slow build; a one-shot
@@ -12,6 +14,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Colossal.Serialization.Entities;
 using Game;
+using Game.Common;
 using Game.Prefabs;
 using Game.Prefabs.Climate;
 using Game.Rendering;
@@ -33,6 +36,9 @@ namespace SkiResortMod.Systems
             public const float GunsLineWidthM = 2f;
             public const float SlowBuildWarnMs = 3f;     // one cache build
             public const string WinterSeasonName = "SeasonWinter";   // ClimateSystem.SeasonInfo.name (the vanilla prefab name)
+            public const float SurveyWetDepthM = 0.5f;   // a survey sample under deeper water is not dry ground
+            public const int SurveyMinFrames = 6;        // at most one survey per this many frames while the cursor moves
+            public const float SlowSurveyWarnMs = 3f;
         }
 
         // Pale ice for the snow line, the same hue fainter for the guns line (sRGB / 255: OverlayRenderSystem converts
@@ -51,6 +57,8 @@ namespace SkiResortMod.Systems
         private TerrainSystem m_Terrain;
         private OverlayRenderSystem m_Overlay;
         private CameraUpdateSystem m_Camera;
+        private ToolRaycastSystem m_Raycast;
+        private WaterSystem m_Water;
 
         // tool prefab reference → "ours" caches (re-resolved only when the reference changes).
         private PrefabBase m_AreaPrefabRef, m_ObjectPrefabRef;
@@ -85,6 +93,22 @@ namespace SkiResortMod.Systems
         public int SnowLineRounded { get; private set; }
         public int GunsLineRounded { get; private set; }
 
+        /// <summary>The ground under the cursor (valid while <see cref="HereValid"/>): rounded height and rounded height minus the snow line.</summary>
+        public bool HereValid { get; private set; }
+        public int HereRounded { get; private set; }
+        public int HereAboveSnowRounded { get; private set; }
+
+        /// <summary>The site survey while the Welcome Sign is placed (valid while <see cref="SurveyValid"/>), and its radius in km.</summary>
+        public bool SurveyValid { get; private set; }
+        public SkiAreaRadiusRules.SurveyResult Survey { get; private set; }
+        public float SurveyRadiusKm { get; private set; }
+
+        public int Surveys;
+        public float LastSurveyMs, MaxSurveyMs;
+        private float m_SurveyX = float.NaN, m_SurveyZ = float.NaN, m_SurveyRadius = float.NaN, m_SurveySnow = float.NaN, m_SurveyGuns = float.NaN;
+        private int m_SurveyFrame = int.MinValue;
+        private bool m_SlowSurveyLogged, m_FirstSurveyLogged;
+
         /// <summary>Builds and draws this load, last/peak build ms (dev tab, DUMP).</summary>
         public int Builds, Draws;
         public float LastBuildMs, MaxBuildMs;
@@ -97,7 +121,10 @@ namespace SkiResortMod.Systems
             return $"armed {m_Armed}, disabled {m_Disabled}, showing {Showing}, winter mean {m_WinterMeanC.ToString("F1", ci)} C " +
                    $"({m_WinterSource}), snow line {m_SnowLineM.ToString("F0", ci)} m, guns line {m_GunsLineM.ToString("F0", ci)} m " +
                    $"(margin {m_MarginC.ToString("F1", ci)} C), segments {m_SnowCount}+{m_GunsCount}, builds {Builds} (last {LastBuildMs.ToString("F2", ci)} " +
-                   $"ms, max {MaxBuildMs.ToString("F2", ci)}), draws {Draws}";
+                   $"ms, max {MaxBuildMs.ToString("F2", ci)}), draws {Draws}, here {(HereValid ? HereRounded.ToString(ci) : "-")} m, surveys {Surveys} " +
+                   $"(last {LastSurveyMs.ToString("F2", ci)} ms, max {MaxSurveyMs.ToString("F2", ci)}), survey " +
+                   (SurveyValid ? $"{Survey.Samples}/{Survey.InDisc} samples {Survey.MinM.ToString("F0", ci)}..{Survey.MaxM.ToString("F0", ci)} m, " +
+                                  $"{Survey.SkiableVerticalM.ToString("F0", ci)} m skiable vertical, {Survey.PctAboveSnow} % above the snow line" : "-");
         }
 
         protected override void OnCreate()
@@ -114,6 +141,8 @@ namespace SkiResortMod.Systems
             m_Terrain = World.GetOrCreateSystemManaged<TerrainSystem>();
             m_Overlay = World.GetOrCreateSystemManaged<OverlayRenderSystem>();
             m_Camera = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
+            m_Raycast = World.GetOrCreateSystemManaged<ToolRaycastSystem>();
+            m_Water = World.GetOrCreateSystemManaged<WaterSystem>();
             Mod.Log.Info($"{nameof(SkiSnowLineOverlaySystem)} created");
         }
 
@@ -137,6 +166,12 @@ namespace SkiResortMod.Systems
             Showing = false;
             Builds = Draws = 0;
             LastBuildMs = MaxBuildMs = 0f;
+            HereValid = SurveyValid = false;
+            Surveys = 0;
+            LastSurveyMs = MaxSurveyMs = 0f;
+            m_SurveyX = m_SurveyZ = m_SurveyRadius = m_SurveySnow = m_SurveyGuns = float.NaN;
+            m_SurveyFrame = int.MinValue;
+            m_SlowSurveyLogged = m_FirstSurveyLogged = false;
             if (mode != GameMode.Game)
                 return;
             m_Armed = true;
@@ -160,6 +195,7 @@ namespace SkiResortMod.Systems
                 {
                     m_WasActive = false;
                     Showing = false;
+                    HereValid = SurveyValid = false;
                     return;
                 }
                 if (!m_WasActive)
@@ -172,6 +208,7 @@ namespace SkiResortMod.Systems
                 if (!m_WinterValid)
                 {
                     Showing = false;
+                    HereValid = SurveyValid = false;
                     return;
                 }
                 // The guns line follows the option (a slider; read here at the activation rate of a frame).
@@ -188,6 +225,7 @@ namespace SkiResortMod.Systems
                 Showing = true;
                 SnowLineRounded = (int)math.round(m_SnowLineM);
                 GunsLineRounded = (int)math.round(m_GunsLineM);
+                UpdateCursor();
             }
             catch (Exception e)
             {
@@ -365,6 +403,88 @@ namespace SkiResortMod.Systems
             Draws++;
         }
 
+        /// <summary>The cursor lines: the terrain height under the tool's raycast hit (ToolRaycastSystem.GetRaycastResult,
+        /// ToolRaycastSystem.cs:57-67; RaycastSystem.GetResult completes the raycast it already ran this frame), and while the object tool
+        /// places the Welcome Sign the site survey around it, redone when the cursor moved farther than SurveyRebuildMoveM, the radius or
+        /// a line changed, at most once per SurveyMinFrames frames.</summary>
+        private void UpdateCursor()
+        {
+            HereValid = false;
+            bool sign = m_ToolSystem.activeTool == m_ObjectTool && m_ObjectPrefabIsGate;
+            if (!sign)
+                SurveyValid = false;
+            if (!m_Raycast.GetRaycastResult(out RaycastResult hit))
+                return;
+            float3 p = hit.m_Hit.m_HitPosition;
+            if (!math.all(math.isfinite(p)))
+                return;
+            TerrainHeightData hd = m_Terrain.GetHeightData();
+            if (!hd.isCreated)
+                return;
+            float h = TerrainUtils.SampleHeight(ref hd, p);
+            HereRounded = (int)math.round(h);
+            HereAboveSnowRounded = (int)math.round(h - m_SnowLineM);
+            HereValid = true;
+            if (!sign)
+                return;
+
+            float radius = SkiRunOwnershipSystem.TetherMeters;
+            int frame = UnityEngine.Time.frameCount;
+            float dx = p.x - m_SurveyX, dz = p.z - m_SurveyZ;
+            bool moved = !(dx * dx + dz * dz <= SkiAreaRadiusRules.SurveyRebuildMoveM * SkiAreaRadiusRules.SurveyRebuildMoveM);
+            bool changed = radius != m_SurveyRadius || m_SnowLineM != m_SurveySnow || m_GunsLineM != m_SurveyGuns;
+            if (SurveyValid && !changed && (!moved || frame - m_SurveyFrame < Tuning.SurveyMinFrames))
+                return;
+
+            long t0 = Stopwatch.GetTimestamp();
+            WaterSurfaceData<SurfaceWater> water = m_Water.GetSurfaceData(out JobHandle wdeps);   // WaterSystem.cs:792
+            wdeps.Complete();
+            bool hasWater = water.depths.IsCreated;
+            TerrainHeightData cpu = hd;
+            float wet = Tuning.SurveyWetDepthM;
+            Func<float, float, float> dry = (x, z) =>
+            {
+                var w = new float3(x, 0f, z);
+                if (hasWater && WaterUtils.SampleDepth(ref water, w) > wet)              // WaterUtils.cs:80
+                    return float.NaN;
+                return TerrainUtils.SampleHeight(ref cpu, w);
+            };
+            float2 lo = m_Terrain.playableOffset, size = m_Terrain.playableArea;          // TerrainSystem.cs:2514-2516
+            SkiAreaRadiusRules.SurveyResult r = SkiAreaRadiusRules.Survey(dry, p.x, p.z, radius, lo.x, lo.y, lo.x + size.x, lo.y + size.y,
+                m_SnowLineM, m_GunsLineM);
+            Survey = r;
+            SurveyRadiusKm = radius / 1000f;
+            SurveyValid = true;
+            m_SurveyX = p.x;
+            m_SurveyZ = p.z;
+            m_SurveyRadius = radius;
+            m_SurveySnow = m_SnowLineM;
+            m_SurveyGuns = m_GunsLineM;
+            m_SurveyFrame = frame;
+
+            float ms = (float)((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency);
+            Surveys++;
+            LastSurveyMs = ms;
+            if (ms > MaxSurveyMs)
+                MaxSurveyMs = ms;
+            var ci = CultureInfo.InvariantCulture;
+            if (!m_FirstSurveyLogged)
+            {
+                m_FirstSurveyLogged = true;
+                Mod.Log.Info($"SnowLine [cost] survey: first site survey {ms.ToString("F2", ci)} ms, radius {radius.ToString("F0", ci)} m, " +
+                             $"{r.Samples} dry of {r.InDisc} samples in the disc (water " + (hasWater ? "read" : "not ready") + "), ground " +
+                             $"{r.MinM.ToString("F0", ci)}..{r.MaxM.ToString("F0", ci)} m, {r.SkiableVerticalM.ToString("F0", ci)} m skiable vertical, {r.PctAboveSnow} % above the snow line " +
+                             $"{m_SnowLineM.ToString("F0", ci)} m, {r.PctAboveGuns} % above the guns line; playable " +
+                             $"{lo.x.ToString("F0", ci)},{lo.y.ToString("F0", ci)} + {size.x.ToString("F0", ci)} x {size.y.ToString("F0", ci)} (once per load)");
+            }
+            if (ms > Tuning.SlowSurveyWarnMs && !m_SlowSurveyLogged)
+            {
+                m_SlowSurveyLogged = true;
+                Mod.Log.Warn($"SnowLine [cost] survey: one site survey took {ms.ToString("F2", ci)} ms (> {Tuning.SlowSurveyWarnMs:0} ms), " +
+                             $"{r.InDisc} samples (once per load)");
+            }
+        }
+
         /// <summary>Where the camera looks (the controller's pivot), else the camera position (the hub's CameraPoint rule).</summary>
         private float3 CameraPoint()
         {
@@ -415,11 +535,27 @@ namespace SkiResortMod.Systems
     /// rebuilt only when a rounded elevation changes (never per frame: LocalizedString.Id(key, args) builds a Dictionary).</summary>
     public sealed partial class SkiSnowLineTooltipSystem : TooltipSystemBase
     {
+        /// <summary>Same text: the rounded numbers the line shows.</summary>
+        private static bool SameShown(SkiAreaRadiusRules.SurveyResult a, SkiAreaRadiusRules.SurveyResult b)
+        {
+            return a.Samples > 0 == b.Samples > 0 && Math.Round(a.MinM) == Math.Round(b.MinM) && Math.Round(a.MaxM) == Math.Round(b.MaxM) &&
+                   a.PctAboveSnow == b.PctAboveSnow && Math.Round(a.SkiableVerticalM) == Math.Round(b.SkiableVerticalM);
+        }
+
         public const string KeySnowLine = "SkiResort.Tooltip.SNOW_LINE";
 
         private SkiSnowLineOverlaySystem m_Overlay;
-        private StringTooltip m_Line;
+        public const string KeyHereAbove = "SkiResort.Tooltip.HERE_ABOVE";
+        public const string KeyHereBelow = "SkiResort.Tooltip.HERE_BELOW";
+        public const string KeySurvey = "SkiResort.Tooltip.AREA_SURVEY";
+        public const string KeySurveyWet = "SkiResort.Tooltip.AREA_SURVEY_WET";
+        public const string KeySurveyNoSnow = "SkiResort.Tooltip.AREA_SURVEY_NO_SNOW";
+
+        private StringTooltip m_Line, m_Here, m_Survey;
         private int m_ShownSnow = int.MinValue, m_ShownGuns = int.MinValue;
+        private int m_ShownHere = int.MinValue, m_ShownDiff = int.MinValue;
+        private SkiAreaRadiusRules.SurveyResult m_ShownSurvey;
+        private float m_ShownRadiusKm = float.NaN;
         private bool m_Disabled, m_ErrorLogged;
 
         protected override void OnCreate()
@@ -431,6 +567,16 @@ namespace SkiResortMod.Systems
                 path = "skiSnowLine",
                 color = TooltipColor.Info,
             };
+            m_Here = new StringTooltip
+            {
+                path = "skiSnowHere",
+                color = TooltipColor.Info,
+            };
+            m_Survey = new StringTooltip
+            {
+                path = "skiAreaSurvey",
+                color = TooltipColor.Info,
+            };
             Mod.Log.Info($"{nameof(SkiSnowLineTooltipSystem)} created");
         }
 
@@ -440,6 +586,9 @@ namespace SkiResortMod.Systems
             m_Disabled = false;
             m_ErrorLogged = false;
             m_ShownSnow = m_ShownGuns = int.MinValue;
+            m_ShownHere = m_ShownDiff = int.MinValue;
+            m_ShownSurvey = default;
+            m_ShownRadiusKm = float.NaN;
         }
 
         protected override void OnUpdate()
@@ -458,6 +607,47 @@ namespace SkiResortMod.Systems
                         ("GUN_LINE", new LocalizedNumber<int>(guns, "integer")));
                 }
                 AddMouseTooltip(m_Line);
+
+                if (m_Overlay.HereValid)
+                {
+                    int here = m_Overlay.HereRounded, diff = m_Overlay.HereAboveSnowRounded;
+                    if (here != m_ShownHere || diff != m_ShownDiff)
+                    {
+                        m_ShownHere = here;
+                        m_ShownDiff = diff;
+                        m_Here.value = LocalizedString.Id(diff >= 0 ? KeyHereAbove : KeyHereBelow,
+                            ("HERE", new LocalizedNumber<int>(here, "integer")),
+                            ("DIFF", new LocalizedNumber<int>(Math.Abs(diff), "integer")));
+                    }
+                    AddMouseTooltip(m_Here);
+                }
+
+                if (m_Overlay.SurveyValid)
+                {
+                    SkiAreaRadiusRules.SurveyResult r = m_Overlay.Survey;
+                    float km = m_Overlay.SurveyRadiusKm;
+                    if (km != m_ShownRadiusKm || !SameShown(r, m_ShownSurvey))
+                    {
+                        m_ShownRadiusKm = km;
+                        m_ShownSurvey = r;
+                        var radius = ("RADIUS", (ILocElement)new LocalizedNumber<float>(km, "floatSingleFraction"));
+                        int ski = (int)Math.Round(r.SkiableVerticalM);
+                        m_Survey.value = r.Samples == 0
+                            ? LocalizedString.Id(KeySurveyWet, radius)
+                            : ski > 0
+                                ? LocalizedString.Id(KeySurvey, radius,
+                                    ("LOW", new LocalizedNumber<int>((int)Math.Round(r.MinM), "integer")),
+                                    ("HIGH", new LocalizedNumber<int>((int)Math.Round(r.MaxM), "integer")),
+                                    ("VERT", new LocalizedNumber<int>((int)Math.Round(r.VerticalM), "integer")),
+                                    ("SKI", new LocalizedNumber<int>(ski, "integer")),
+                                    ("PCT", new LocalizedNumber<int>(r.PctAboveSnow, "percentage")))
+                                : LocalizedString.Id(KeySurveyNoSnow, radius,
+                                    ("LOW", new LocalizedNumber<int>((int)Math.Round(r.MinM), "integer")),
+                                    ("HIGH", new LocalizedNumber<int>((int)Math.Round(r.MaxM), "integer")),
+                                    ("VERT", new LocalizedNumber<int>((int)Math.Round(r.VerticalM), "integer")));
+                    }
+                    AddMouseTooltip(m_Survey);
+                }
             }
             catch (Exception e)
             {

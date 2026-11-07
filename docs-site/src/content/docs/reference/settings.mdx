@@ -20,6 +20,7 @@ Economy and attraction tuning.
 
 | Option | Range | Default | What it does |
 |---|---|---|---|
+| Ski area radius (km) | 2 to 10, step 0.5 | 5 | How far a ski area reaches from its Welcome Sign. Lifts and buildings follow a change; a run keeps the sign it joined when drawn. |
 | Attractiveness scale (K) | 1 to 10 | 4 | How much runs and lifts add to the attraction score. See [Attraction Formula](/reference/attraction/). |
 | Backcountry run value | 0 to 100 %, step 5 | 40 % | What a run no running lift serves is worth, against a lift-served one. |
 | Lift ticket price | 0 to 200, step 5 | 80 | What each guest pays on arrival, one price for every ski area. Above 40 it lowers ski days. 0 turns tickets off. |
@@ -56,10 +57,11 @@ Run drawing feedback and cosmetics.
 
 | Option | Default | What it does |
 |---|---|---|
-| Bind runs the moment they are drawn | On | A run drawn within 5 km of a Welcome Sign joins and is charged immediately, even while paused. |
+| Bind runs the moment they are drawn | On | A run drawn within the ski area radius of a Welcome Sign joins and is charged immediately, even while paused. |
 | Show run difficulty while drawing | On | Slope heat-map and a tooltip with rating, pitch, length and drop. |
 | Contour lines while drawing runs | On | Terrain contours switch on while a run is selected in the area tool, then off again. |
-| Show the winter snow line while placing | On | Two lines on the terrain: the average winter snow line, and a fainter one below where snow guns start to work. |
+| Show the winter snow line while placing | On | Two lines on the terrain: the average winter snow line, and a fainter one below where snow guns start to work. The tooltip adds the height under the cursor; while placing a sign, the lowest and highest dry ground within the radius, the vertical above the snow line and the share of ground above it. |
+| Show the ski area radius | On | A ring on the ground: around the cursor while placing a Welcome Sign, around a selected sign, and around every sign while placing a run, lift or resort building. |
 | Show run names on the hill | On | Each run's name written on the snow along the run, in its difficulty color, at piste-map distance. |
 | Run outline width | 0 to 16, step 1, default 8 | Thickness of the outline and corner dots while you draw, edit or bulldoze a run: 0.3 m (1 ft) a step, so 8 = 2.4 m (8 ft). 0 keeps the game's thin outline. |
 | Snow-gun plumes | On | A vapor plume while the guns make snow. Look only. |
