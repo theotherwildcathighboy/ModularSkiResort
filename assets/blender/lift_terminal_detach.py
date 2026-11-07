@@ -910,7 +910,7 @@ def params_for(kind, gondola, carrier):
         x_wheel=x_wheel, ped_f=None, ped_r=None, anchor_x=anchor_x, slot_half=0.0,
         notch_top=None, lowest_abs=DECK_H + GONDOLA_STEP_IN,
         env=GD_ENV,
-        lod0_cap=13000 if base else 10000, lod1_max=None, lod2=500, hosted_tower=base,
+        lod0_cap=13000 if base else 10000, lod1_max=None, lod2=500, hosted_tower=base and not BASE_NOSE_TRAIN,
         engine_base=("wall_n", "wall_p", "wall_back", "wall_nose", "stonebase_n", "stonebase_p",
                      "stonebase_back", "stonebase_nose", "stepside_n", "stepside_p"),
         win_part="ctrlwin", folder="stations/gondola/A",
@@ -1881,6 +1881,12 @@ NOSE_TRAIN = True              # False = the pre-2026-10-13 3-sheave guides (A-B
 # 0.10, the axle on the lane) and every hosted-tower branch (p.hosted_tower: the narrowed nose balcony, the gangplank
 # out between the ETDQ decks, the ETDQ keep-out, the climb-room floor, the stand-in) falls back to the top's layout.
 # The HV sub-lanes and the anchors do not move; the import round drops the prefab's hosted row. False = shipped.
+# r611 (2026-11-06, the same note for the gondola: "drop the gondola's first tower too"): --no-hosted-tower on the
+# GONDOLA base drops the hosted ETGDO (SkiLiftTerminalTowerGD, prefab z -11) the same way: the base builds the gondola
+# top's nose train (GD head, the rope tangent on the rim tops, outer rim tip at anchor_x - 0.10 = -11.1, inboard end
+# outside the portal wall), its guide beams out of the portal wall, hung from the lintel and tied back to the nose wall
+# (gd_base_nose_ties), and each hanger box at its yoke (the top keeps its x-0 hangers byte for byte, NOSE_HANGER_AT_YOKE).
+# G6 / the tower stand-in / the hosted block go with the host; the lot, the anchors and the sub-lanes do not move.
 BASE_NOSE_TRAIN = False
 NOSE_TRAIN_N = 4               # sheaves per lane (2 subs on 1 main: the towers' smallest even train)
 NOSE_TRAIN_PREFIX = "sheave_guide_"
@@ -2046,7 +2052,8 @@ def nose_train_layout(p):
         hb.update(y0=round(S.DQ_HANGER["y0"] + cdy, 6), y1=round(S.DQ_HANGER["y1"] + cdy, 6))
     yf = p.lane_y - (NOSE_BEAM_IN_A3 if NOSE_A4_LEGACY else NOSE_BEAM_IN)[fam]
     z0, z1 = round(axle + hb["z0"], 6), round(axle + hb["z1"], 6)
-    at_yoke = nose_hanger_at_yoke(fam)
+    # r611: the gondola base without its ETGDO puts each hanger at its yoke (the DQ rule); the gondola top keeps x 0
+    at_yoke = nose_hanger_at_yoke(fam) or (gd and p.kind == "base" and not p.hosted_tower)
     out = dict(family=fam, n=n, r=r, w=w, pitch=pitch, segs=segs, groove=groove, ngon=bool(wv2 and wv2["ngon"]),
                 axle=axle, axle_on_lane=on_lane, x_out=x_out, x0=x0, x_in=round(x0 + (n - 1) / 2.0 * pitch + r, 6),
                 hanger_at_yoke=at_yoke, hanger_x=x0 if at_yoke else 0.0,
@@ -2085,9 +2092,37 @@ def build_nose_train(p):
         out.append((_box(f"guideframe_{tag}", B["x0"], B["x1"], ya, yb, B["z0"], B["z1"]), "galv"))
         if p.gondola:   # hang the beam from the lintel above the portal (as the 3-sheave frame did)
             yc = s * (B["y0"] + B["y1"]) / 2.0
-            out.append((_box(f"guideframe_h{tag}", p.x_nose - 0.16, p.x_nose - 0.04, yc - 0.05, yc + 0.05,
-                             B["z1"], 5.80), "galv"))
+            nohost = p.kind == "base" and not p.hosted_tower
+            # r611: the shipped strap stands 0.04 m off the portal wall's face (x_nose - 0.04: touching only its beam);
+            # on the no-host base it lies ON the wall, 0.02 m into it (the top keeps its strap byte for byte)
+            sx0, sx1 = (p.x_nose - 0.12, p.x_nose + 0.02) if nohost else (p.x_nose - 0.16, p.x_nose - 0.04)
+            out.append((_box(f"guideframe_h{tag}", sx0, sx1, yc - 0.05, yc + 0.05, B["z1"], 5.80), "galv"))
+            if nohost:
+                out += gd_base_nose_ties(p, T, s, tag, yc)
     return out
+
+
+# r611: the gondola base's guide beams run 3.1 m out of the portal wall (the top's 2.1 m, its train partly inside the
+# hall): the line rope presses the train down, so each beam is a cantilever whose tip wants a TIE back to the wall. A
+# round rod from the lintel strap's head (z GD_TIE_TOP_Z, on the concrete portal wall, below the glazing at 5.95) down
+# to a lug plate on the beam's top just past the outer sheave pair; both ends buried in their hosts (strap / lug), the
+# rod in the beam's vertical plane (|y| = the beam's center line, inboard of the hanger slot and of every cabin part).
+GD_TIE_TOP_Z = 5.74            # rod axis at the strap head (strap top 5.80, wall top GD_LINTEL_Z 5.95)
+GD_TIE_R = 0.03                # tie rod radius
+GD_TIE_LUG = dict(dx=0.22, w=0.04, h=0.08)    # lug plate on the beam top (along x, thick in y, height)
+
+
+def gd_base_nose_ties(p, T, s, tag, yc):
+    """The two tie parts of one lane (gondola base without its hosted tower): guideframe_lug{tag} on the beam top at
+    the outer sheave pair (x0 - pitch / 2) and guideframe_tie{tag} from the lintel strap's head to the lug."""
+    B, L = T["beam"], GD_TIE_LUG
+    xl = T["x0"] - T["pitch"] / 2.0                       # between the two outer sheaves, over the outer sub rocker
+    lug = _box(f"guideframe_lug{tag}", xl - L["dx"] / 2.0, xl + L["dx"] / 2.0, yc - L["w"] / 2.0, yc + L["w"] / 2.0,
+               B["z1"] - 0.01, B["z1"] + L["h"])
+    a = (p.x_nose - 0.07, yc, GD_TIE_TOP_Z)                # inside the strap head (x_nose - 0.12 .. + 0.02)
+    b = (xl, yc, B["z1"] + L["h"] / 2.0)                    # inside the lug
+    rod = cs2_kit.tube_along(f"guideframe_tie{tag}", [a, b], GD_TIE_R, segments=6, caps="both")
+    return [(lug, "galv"), (rod, "galv")]
 
 
 def nose_train_numbers(p):
@@ -4091,7 +4126,7 @@ def build_station(p):
         parts += build_gd_roof(p)
         parts += build_gd_eaves(p)
         parts += build_machine(p)
-        if p.kind == "top":
+        if p.kind == "top" or not p.hosted_tower:      # r611: the base without its ETGDO carries its own train
             parts += build_nose_guides(p)
         parts += build_gd_interior(p)        # draft 1: platforms, operator room, deck, stair
         parts += build_gd_ladders(p)         # draft 1: nose ladder from the ground + roof ladder
@@ -6592,7 +6627,7 @@ def gd_fit(t, me, table, fparts, co, p, tower):
     res["G9"] = (f"lot {GD_LOT[0]} x {GD_LOT[1]} (24 m across = prefab x, 32 m along the travel = prefab z): "
                  f"mesh x {co[:, 0].min():.2f}..{co[:, 0].max():.2f} (<= {lx} + {LOT_TOL}), y "
                  f"{co[:, 1].min():.2f}..{co[:, 1].max():.2f} (<= {ly}); hosted tower "
-                 f"{'x %.2f..%.2f' % (tw_box[0][0], tw_box[1][0]) if tw_box is not None else 'not exported'}, "
+                 f"{'x %.2f..%.2f' % (tw_box[0][0], tw_box[1][0]) if tw_box is not None else ('not exported' if p.hosted_tower else 'none (no hosted tower)')}, "
                  f"HV stub tip -16 inside; {len(boxes)} vanilla footprints inside")
     res["G10"] = (f"{len(groups)} fitted parts box-tested on their faces: no undeclared overlap, none in the "
                   f"C8 envelope (nearest {near_c8:.3f} m) or the tower keep-out; {len(boxes)} vanilla "
@@ -6963,8 +6998,9 @@ def assert_nose_train(me, table, fparts, co, p):
            else "rope tangent on the rims")
     msg = (f"{T['family']} head x {T['n']} per lane, {how} (err {worst_t * 1000:.2f} mm), carriers "
            f"<= lane {worst_in:+.3f} (gate -{NOSE_CARRIER_IN}), x >= {T['x_out']}, {len(names)} parts / {tris} tris")
-    if T["family"] == "DQ":
-        # nitpick A4 (DQ only: the gondola top's manifest keeps its keys): where the hanger boxes and the beams stand
+    if T["family"] == "DQ" or T["hanger_at_yoke"]:
+        # nitpick A4 (DQ, and the r611 gondola base; the gondola top's manifest keeps its keys): where the hanger boxes
+        # and the beams stand
         bm = T["beam"]
         nums.update(hanger_at_yoke=bool(T["hanger_at_yoke"]), hanger_x=T["hanger_x"],
                     hanger_x_err_m=round(worst_hx, 5) if T["hanger_at_yoke"] else None,
@@ -7141,6 +7177,96 @@ def assert_nose_clash(me, table, fparts, co, p):
            f"{len(scan['pairs'])} intersecting pairs = {sum(declared.values())} declared ({len(declared)} rules) + "
            f"{len(known)} known-open (comm cable corner fillet, pre-existing), 0 undeclared, 0 contained")
     return {"C14": msg}, nums
+
+
+# r611 C14g (the gondola base without its hosted ETGDO): the nose-zone pairs the new train / frame may make, each with
+# its reason (part names with the CUT_PIECES suffix removed), and the support chain that must hang off the portal wall.
+GD_BASE_NOSE_CONTACTS = (
+    (r"sheave_guide_\w+", r"sheave_guide_\w+", "the GD head's own mechanics, as on every GD tower: pins through their "
+     "rockers and the yoke, liners in their rims, hub bosses on their wheels, the hanger in its yoke and girder stub"),
+    (r"guideframe_[np]", r"wall_nose", "the guide beam's end sockets 5 cm into the portal wall"),
+    (r"guideframe_h[np]", r"wall_nose|guideframe_[np]", "the lintel strap lies 2 cm into the portal wall, the beam "
+     "hangs from it"),
+    (r"guideframe_tie[np]", r"guideframe_(?:h|lug)[np]", "the tie rod's ends are buried in the strap head and the lug"),
+    (r"guideframe_lug[np]", r"guideframe_[np]", "the lug plate stands 1 cm into the beam's top"),
+    (r"sheave_guide_girder_[np]", r"guideframe_[np]", "the girder stub leaves the beam's inboard face"),
+)
+# the support chain: each part must touch (intersect or within GD_NOSE_TOUCH) a part already hung off wall_nose
+GD_NOSE_CHAIN = ("guideframe_", "sheave_guide_girder_", "sheave_guide_hanger_", "sheave_guide_yoke_")
+GD_NOSE_TOUCH = 0.001
+
+
+def assert_gd_base_nose(me, table, fparts, co, p):
+    """C14g (r611; the gondola base built with --no-hosted-tower): (a) every intersecting pair that involves the nose
+    train or its frame matches a GD_BASE_NOSE_CONTACTS rule, none contained in another part's closed volume; (b)
+    nothing floats: the support chain (beams, straps, ties, lugs, girder stubs, hangers, yokes) hangs off the portal
+    wall, each link a touch (intersection or a face within GD_NOSE_TOUCH). Returns ({"C14g": msg}, numbers)."""
+    import re as _re
+    scan = nose_clash_scan(me, table, fparts, co)
+    own = (NOSE_TRAIN_PREFIX, "guideframe_")
+    pairs = {k: v for k, v in scan["pairs"].items() if k[0].startswith(own) or k[1].startswith(own)}
+    contained = [c for c in scan["contained"] if c[0].startswith(own) or c[1].startswith(own)]
+    rules = [(_re.compile(a), _re.compile(b), why) for a, b, why in GD_BASE_NOSE_CONTACTS]
+    declared, undeclared = {}, []
+    for (a, b), cnt in sorted(pairs.items()):
+        ca, cb = _clash_name(a), _clash_name(b)
+        why = next((w for ra, rb, w in rules if (ra.fullmatch(ca) and rb.fullmatch(cb))
+                    or (ra.fullmatch(cb) and rb.fullmatch(ca))), None)
+        if why is None:
+            undeclared.append((a, b, cnt))
+        else:
+            declared[why] = declared.get(why, 0) + 1
+    # (b) the support chain, by touch
+    polys = {}
+    for i, pl in enumerate(me.polygons):
+        polys.setdefault(table[int(fparts[i]) - 1], []).append(tuple(int(v) for v in pl.vertices))
+    chain = sorted(n for n in polys if n.startswith(GD_NOSE_CHAIN))
+    nodes = chain + ["wall_nose"]
+    vids = {n: sorted({k for pl in polys[n] for k in pl}) for n in nodes}
+    box = {n: (co[vids[n]].min(axis=0) - 0.01, co[vids[n]].max(axis=0) + 0.01) for n in nodes}
+    trees = {}
+
+    def tree(n):
+        if n not in trees:
+            trees[n] = BVHTree.FromPolygons([tuple(v) for v in co], polys[n], epsilon=0.0)
+        return trees[n]
+
+    def touch(a, b):
+        if (a, b) in pairs or (b, a) in pairs:
+            return True
+        if not ((box[a][0] < box[b][1]).all() and (box[b][0] < box[a][1]).all()):
+            return False
+        for x, y in ((a, b), (b, a)):
+            tb = tree(y)
+            for k in vids[x]:
+                hit = tb.find_nearest(Vector(co[k]), GD_NOSE_TOUCH)
+                if hit[0] is not None:
+                    return True
+        return False
+    hung, todo = {"wall_nose"}, ["wall_nose"]
+    while todo:
+        cur = todo.pop()
+        for n in chain:
+            if n not in hung and touch(cur, n):
+                hung.add(n)
+                todo.append(n)
+    floating = [n for n in chain if n not in hung]
+    msgs = []
+    if undeclared:
+        msgs.append(f"{len(undeclared)} undeclared nose part clashes: "
+                    + ", ".join(f"{a} | {b}: {c}" for a, b, c in undeclared[:12]))
+    if contained:
+        msgs.append("nose parts inside another part's closed volume: " + ", ".join(f"{a} in {b}" for a, b in contained))
+    if floating:
+        msgs.append(f"support parts not hung off the portal wall: {floating}")
+    if msgs:
+        raise ContractError("C14g " + "; ".join(msgs))
+    nums = {"scope": list(own), "intersecting_pairs": len(pairs), "declared_pairs": sum(declared.values()),
+            "declared_by_rule": dict(sorted(declared.items())), "undeclared": 0, "contained": 0,
+            "support_chain": chain, "chain_hung_off": "wall_nose", "touch_m": GD_NOSE_TOUCH}
+    msg = (f"{len(pairs)} intersecting nose-train pairs = {sum(declared.values())} declared ({len(declared)} rules), "
+           f"0 undeclared, 0 contained; {len(chain)} support parts hung off wall_nose (touch <= {GD_NOSE_TOUCH} m)")
+    return {"C14g": msg}, nums
 
 
 def assert_orientation_dq(me, table, fparts, co, p):
@@ -7339,6 +7465,11 @@ def assert_contracts(t, table, p):
             res.update(r_c14)
             st_nums["part_clash"] = c14_nums
             st_nums["lane_pitch_limit"] = NOSE_LANE_PITCH_LIMIT
+        if p.gondola and p.kind == "base" and not p.hosted_tower:
+            # r611: C14g the gondola base's own nose train - no undeclared clash, nothing floating
+            r_c14, c14_nums = assert_gd_base_nose(me, table, fparts, co, p)
+            res.update(r_c14)
+            st_nums["part_clash"] = c14_nums
     if not p.gondola and DETAIL1:
         r_or, or_nums = assert_orientation_dq(me, table, fparts, co, p)
         res.update(r_or)
@@ -8556,6 +8687,15 @@ def gd_view_shots(p):
                  (X + GD_OPR_X0 - 2.4, so * (GD_WALK_IN + 0.05), 1.75), True),
                 ("plan", (xm, 0.0, 0.0), (xm, 0.0, 40.0), True, (GD_DECK_Z - 0.35, 27.0)),
                 ("machinery", (xm, 0.0, 0.0), (xm, 0.0, 40.0), True, (p.z_top - 0.3, 27.0))]
+    if p.kind == "base" and not p.hosted_tower:
+        # r611: the base's own nose train (no hosted ETGDO): the line side 3/4, the rope hand-over side-on, from above
+        T = nose_train_layout(p)
+        x0, za = T["x0"], T["axle"]
+        closeups += [("nose_train", (x0 + 0.3, p.lane_y, za), (x0 - 5.5, p.lane_y + 5.0, za + 1.6), False),
+                     ("nose_handover", (x0, -p.lane_y, za + 0.2), (x0 - 0.4, -p.lane_y - 6.5, za + 0.3), False),
+                     ("nose_above", (x0 + 0.6, 0.0, za), (x0 - 3.5, 0.6, za + 8.5), False),
+                     ("nose_three_quarter", (xn - 1.0, 0.0, 4.0), (xn - 17.0, 13.0, 11.0), False),
+                     ("top_down", (xm - 1.5, 0.0, 0.0), (xm - 1.5, 0.0, 40.0), False, (39.0, 34.0))]
     return views, closeups
 
 
@@ -8802,7 +8942,8 @@ def parse_args(argv=None):
                     help="art-601 #10: the modeled station rope at THIN_ROPE_R (the lines' 0.048 m rope), a new letter; "
                          "off = the shipped radius 0.055")
     ap.add_argument("--no-hosted-tower", action="store_true", dest="no_hosted_tower",
-                    help="DQ base, art-601 (BASE_NOSE_TRAIN): no hosted ETDQ; the base carries the top's nose train. "
+                    help="DQ base (art-601) or gondola base (r611), BASE_NOSE_TRAIN: no hosted ETDQ / ETGDO; the base "
+                         "carries the top's nose train. "
                          "Off = the shipped station byte for byte.")
     ap.add_argument("--rope-on-crown", action="store_true", dest="rope_on_crown",
                     help="T27 preview flag (ROPE_ON_CROWN): the HV anchor where the vanilla cable rides the hosted / "
@@ -8953,8 +9094,8 @@ def main(argv=None):
     ROPE_ON_CROWN = bool(args.rope_on_crown)     # T27: every run follows its own args (tests call main() in-process)
     BASE_NOSE_TRAIN = bool(args.no_hosted_tower)
     ROPE_R = THIN_ROPE_R if args.thin_rope else ROPE_R_SHIPPED   # every run follows its args (tests call main())
-    if BASE_NOSE_TRAIN and (args.kind != "base" or args.gondola):
-        raise SystemExit("--no-hosted-tower is DQ base only")
+    if BASE_NOSE_TRAIN and args.kind != "base":
+        raise SystemExit("--no-hosted-tower is base only (DQ or gondola)")
     import cs2_sheaves as S
     S.set_wheels(args.wheels)                    # T62: every run follows its own args, before any part is built
     carrier = load_carrier("gd8" if args.gondola else "dq", args.carriers)

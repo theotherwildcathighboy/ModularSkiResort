@@ -72,6 +72,11 @@ Seams (S#):
      + carrier_verdict "gantry", the S9 family rule of test_dq_family_seams): GD12 / GD16 / GD20, the ETGD and the gondola
      top's nose train, both lanes, both pin heights; its stalk on authoring -Y; the approved +Y cabin (its mirror) must
      cross the rocker mains of each. Builds 4 towers + the gondola top (~1 min); `-- --no-s15` skips it (quick runs).
+     r611: also the gondola BASE's own nose train (built with --no-hosted-tower), so the opposite spin is the negative.
+  S16 (r611) the gondola base without its hosted ETGDO (--no-hosted-tower): anchors, lane, wheel and nose unchanged,
+     no host; the nose train is the top's GD train (rope tangent on the rims, outer tip anchor - 0.10, inboard end
+     outside the portal wall) with its hangers at their yokes, the top's train unchanged; the exported
+     stations/gondola/C manifest agrees (no hosted row, nose guide tip -11, ST1 block, G8 with the current cabin).
   Nitpick B2 (2026-10-13, build/nitpick-b2-tram-ramps.md): the tram base's lot 6 x 3 moved its building 4.00 m toward
      -X; its manifest's prefab_contract.axis_x (-4.00) is the line axis, and S9 / S14 compare the base's stubs, hosted
      cabins and wheel centers RELATIVE to it (the seams are relative: lane gauge, hang, haul offset, wheel geometry).
@@ -749,6 +754,62 @@ def gondola_station_seams():
                   f"S12 {name} lot {c.get('lot')} (3 across x 4 along the travel) with the stub tip -16")
 
 
+# r611: the gondola base without its hosted ETGDO (lift_terminal_detach --no-hosted-tower, letter C)
+GD_NOHOST_LETTER = "C"
+
+
+def gondola_nohost_seams():
+    """S16 (r611, the art-601 S1n idea for the gondola): the base without its hosted SkiLiftTowerETGDO keeps the
+    anchors, the lane, the wheel and the lot, hosts nothing, and carries the gondola top's nose train: GD head, the
+    rope tangent on the rim tops, outer rim tip at anchor_x - 0.10, inboard end outside the portal wall, each hanger
+    at its yoke (the top's train keeps its x-0 hangers). The exported manifest (stations/gondola/C) agrees: no
+    hosted row, nose_guide_tip_z -11, ST1 numbers, the G8 cabin sweep made with the current shipped cabin."""
+    print("[seams] 4b. S16 the gondola base without its hosted tower (r611)")
+    import lift_terminal_detach as LTD  # noqa: E402
+    carrier = LTD.load_carrier("gd8", CARRIERS_JSON)
+    base, top = LTD.params_for("base", True, carrier), LTD.params_for("top", True, carrier)
+    LTD.BASE_NOSE_TRAIN = True
+    try:
+        nb = LTD.params_for("base", True, carrier)
+        T = LTD.nose_train_layout(nb)
+        tt = LTD.nose_train_layout(LTD.params_for("top", True, carrier))
+    finally:
+        LTD.BASE_NOSE_TRAIN = False
+    check(base.hosted_tower and not nb.hosted_tower and close(nb.anchor_x, base.anchor_x)
+          and close(nb.z_rope, base.z_rope) and close(nb.x_wheel, base.x_wheel) and close(nb.x_nose, base.x_nose),
+          "S16 no-host gondola base: no host, anchors / lane / wheel / nose unchanged",
+          f"(anchor {nb.anchor_x}, lane {nb.z_rope}, wheel {nb.x_wheel})")
+    check(T["family"] == "GD" and not T["axle_on_lane"]
+          and close(T["axle"], nb.z_rope - LTD.ROPE_R - T["r"]) and close(T["x_out"], nb.anchor_x - 0.10)
+          and T["x_in"] < nb.x_nose and T["hanger_at_yoke"] and close(T["hanger_x"], T["x0"]),
+          "S16 nose train: GD head, rope tangent on the rims, outer tip at anchor - 0.10, inboard end outside the "
+          "portal wall, hangers at their yokes",
+          f"(x {T['x_out']}..{T['x_in']}, axle {T['axle']}, nose {nb.x_nose}, hanger x {T['hanger_x']})")
+    check(not tt["hanger_at_yoke"] and tt["hanger_x"] == 0.0 and not top.hosted_tower,
+          "S16 the gondola top's train is unchanged (hangers at x 0, its shipped layout)")
+    name = f"SkiGondolaBaseStation{GD_NOHOST_LETTER}"
+    m = manifest(f"stations/gondola/{GD_NOHOST_LETTER}", name)
+    if not m:
+        return
+    c, g = m["contract"], m.get("gondola") or {}
+    st = m.get("sheave_trains") or {}
+    check(c.get("hosted_tower") is None and close(c.get("nose_guide_tip_z"), nb.anchor_x),
+          f"S16 {name} hosts no tower; nose guide tip z {c.get('nose_guide_tip_z')} == anchor {nb.anchor_x}")
+    check(st.get("head") == "GD" and st.get("hanger_at_yoke") is True and st.get("tangent_err_m", 1.0) <= 0.002
+          and st.get("x_extent") == [T["x_out"], T["x_in"]],
+          f"S16 {name} ST1 block: GD head, rope tangent, hangers at the yokes, x {st.get('x_extent')}")
+    cab_fbx = os.path.join(IMPORT, "cabins", "A", "SkiGondolaCabin8A", "SkiGondolaCabin8A.fbx")
+    import hashlib
+    with open(cab_fbx, "rb") as fh:
+        cab_sha = hashlib.sha1(fh.read()).hexdigest()
+    sw = g.get("cabin_sweep") or {}
+    check(sw.get("min_clear_m", 0.0) >= 0.30 - 1e-9 and (sw.get("cabin") or {}).get("sha1") == cab_sha,
+          f"S16 {name} G8 cabin sweep {sw.get('min_clear_m')} m >= 0.30 with the current shipped cabin")
+    check(c.get("lot") == [3, 4] and close(c["stub_tip_local_z"], -16.0)
+          and sorted(round(a["a"][0], 4) for a in c["anchors_hv"]) == [-nb.lane_y, nb.lane_y],
+          f"S16 {name} lot {c.get('lot')}, stub tip -16, HV anchors +-{nb.lane_y} (prefab sub-lanes unchanged)")
+
+
 S15 = {}
 
 
@@ -846,6 +907,19 @@ def s15_cabin_sweep():
     sweep(f"gondola top nose train (axle {LTD.nose_train_layout(top)['axle']:.3f}, lane {top.z_rope})",
           (co, [polys[i] for i in k], [names[i] for i in k]), top.lane_y, top.z_rope)
     lift_terminal.clear_scene()
+    # r611: the base without its hosted ETGDO carries the same train (hangers at their yokes)
+    LTD.BASE_NOSE_TRAIN = True
+    try:
+        nb = LTD.params_for("base", True, LTD.load_carrier("gd8", CARRIERS_JSON))
+        parts = LTD.build_station(nb)
+        st, stable, _src = LTD.assemble(parts, True, nb)
+        co, polys, names = named(st, stable)
+        k = [i for i, n in enumerate(names) if n.startswith(("sheave_guide_", "guideframe_"))]
+        sweep(f"gondola base nose train, no hosted tower (axle {LTD.nose_train_layout(nb)['axle']:.3f}, "
+              f"lane {nb.z_rope})", (co, [polys[i] for i in k], [names[i] for i in k]), nb.lane_y, nb.z_rope)
+    finally:
+        LTD.BASE_NOSE_TRAIN = False
+        lift_terminal.clear_scene()
 
 
 def main():
@@ -857,6 +931,7 @@ def main():
     haul_loop_seams()
     latent_gondola_station()
     gondola_station_seams()
+    gondola_nohost_seams()
     s15_cabin_sweep()
     dt = time.time() - t0
     if FAILS:
