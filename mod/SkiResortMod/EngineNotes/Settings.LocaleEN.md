@@ -9,8 +9,8 @@ Every key is built with the `ModSetting` helpers (ModSetting.cs:303-371):
 - Option row label / description: `GetOptionLabelLocaleID` / `GetOptionDescLocaleID(property)`. The KeyBinding widget uses the normal item
   displayName / description (AutomaticSettings.cs:1492-1500).
 - `GetBindingKeyLocaleID(action)` gives `Options.OPTION[<id>/<action>/<binding>]` (ModSetting.cs:343-361) and
-  `GetBindingKeyHintLocaleID(action)` gives `Common.ACTION[<id>/<action>]` (ModSetting.cs:363-366). They are consumed by the frontend
-  rebinding UI and input hints, not by Game.dll C# (which screens show them: unverified).
+  `GetBindingKeyHintLocaleID(action)` gives `Common.ACTION[<id>/<action>]` (ModSetting.cs:363-366). The frontend rebinding
+  UI and the input hints consume them, not Game.dll C# (which screens show them: unverified).
 - `GetBindingMapLocaleID()` gives `Options.INPUT_MAP[<id>]` (ModSetting.cs:368-371), the map title the conflict notification falls back to
   (InputManager.cs:1522).
 

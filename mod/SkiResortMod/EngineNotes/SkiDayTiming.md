@@ -2,19 +2,19 @@
 
 ## Near EndCauseOf
 
-At the Left verdict, in this order:
+At the Left verdict, the cases apply in this order:
 
-1. gone: `Deleted`;
-2. still "there" (Leisure aimed at the lodge and in it: Left fires there only past the grace): `PastGrace`;
-3. now >= deadline (`Resolve`'s compare): `DeadlineClosing` when the claim's deadline was the lifts' closing, else `DeadlineOwn` (sleep
-   or work);
-4. Leisure aimed elsewhere: `NewOuting`;
-5. no Leisure and a counter >= `NeedFilledCounter`: `NeedFilled` (inferred);
-6. no Leisure: `Removed` (`CitizenBehaviorSystem`: moving away, illness, shopping errand; why: `RemoveWhyOf`). Bedtime and work time
-   end at the claim's deadline, since `DoLeisure` sets it to the next sleep or work start (1.6.2 :472-494), and the claim deadline is
-   min(that, closing), so they read `DeadlineOwn` / `DeadlineClosing`;
-7. else (Leisure at the lodge, not in it): `WalkedOut`.
+1. Gone: `Deleted`.
+2. Still "there": Leisure is aimed at the lodge and the citizen is in it. Left fires there only past the grace. Result: `PastGrace`.
+3. Now >= deadline (the compare in `Resolve`): `DeadlineClosing` when the claim's deadline was the lifts' closing. Otherwise `DeadlineOwn`
+   (sleep or work).
+4. Leisure is aimed elsewhere: `NewOuting`.
+5. No Leisure and a counter >= `NeedFilledCounter`: `NeedFilled` (inferred).
+6. No Leisure: `Removed`. The causes in `CitizenBehaviorSystem` are moving away, illness and a shopping errand. `RemoveWhyOf` gives the reason.
+   Bedtime and work time end at the claim's deadline. `DoLeisure` sets that deadline to the next sleep or work start (1.6.2 :472-494).
+   The claim deadline is min(that, closing). So bedtime and work time read `DeadlineOwn` / `DeadlineClosing`.
+7. Else (Leisure is at the lodge and the citizen is not in it): `WalkedOut`.
 
 Not told apart: `LeisureSystem.SpendLeisure` also removes Leisure at a venue that is switched off (`BuildingOption.Inactive`), has
-`ServiceAvailable <= 0` or no output resource (1.6.2 `LeisureSystem.cs:285-310`); for our lodge that is the player deactivating it,
-which lands in `Removed` (or `NeedFilled` with a high counter). Rare, and visible in the `[lodges]` line.
+`ServiceAvailable <= 0` or has no output resource (1.6.2 `LeisureSystem.cs:285-310`). For our lodge, the cause is the player deactivating it.
+That case lands in `Removed` (or `NeedFilled` with a high counter). It is rare, and the `[lodges]` line shows it.
