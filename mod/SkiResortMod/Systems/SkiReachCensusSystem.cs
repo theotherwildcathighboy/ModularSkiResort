@@ -20,7 +20,7 @@ namespace SkiResortMod.Systems
 {
     public partial class SkiReachCensusSystem : GameSystemBase
     {
-        /// <summary>One area's reading. Households = the city's homes and hotel parties; Near = those within SkiDayRules.DayTripM;
+        /// <summary>One area's reading. Households = the city's homes and hotel parties. Near = those within SkiDayRules.DayTripM.
         /// NearestM = the closest, infinity with no household.</summary>
         public struct Reading
         {
@@ -80,7 +80,7 @@ namespace SkiResortMod.Systems
             m_Logged.Clear();
         }
 
-        /// <summary>This area's last reading; false until its first one is in.</summary>
+        /// <summary>This area's last reading. False until its first one is in.</summary>
         internal bool TryGetReading(Entity sign, out Reading reading) => m_Readings.TryGetValue(sign, out reading);
 
         protected override void OnUpdate()

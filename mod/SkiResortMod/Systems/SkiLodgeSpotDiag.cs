@@ -1,10 +1,13 @@
-// Read-only diagnostic: the spawn spots the engine registered for every lodge ("Lodge [spots]"). Changes nothing (no command
-// buffer, component write or prefab touch); every read is guarded. Mod.cs: UpdateAt<SkiLodgeSpotDiag>(GameSimulation), not
+// Read-only diagnostic: the spawn spots the engine registered for every lodge ("Lodge [spots]"). It changes nothing (no command
+// buffer, component write or prefab touch). Every read is guarded. Mod.cs: UpdateAt<SkiLodgeSpotDiag>(GameSimulation), not
 // load-bearing.
-// Output: one INFO line at every Game-mode load (registered count per lodge: spawn / hangaround / parking, how many spawn entries
-// are seats and how many are linked to a lane, then the sign's totals), and again when the signature changes (at most
-// MaxChangeLines per load), polled every PollFrames. The hub dev-tab dump (SkiResortHubUISystem.DumpToLog) adds per lodge a header
-// and per spot a line, positions in the lodge's frame (+Z = road side, the frame the prefab JSON rows use).
+// Output: one INFO line at every Game-mode load. It holds:
+// - the registered count per lodge: spawn / hangaround / parking,
+// - how many spawn entries are seats and how many are linked to a lane,
+// - then the sign's totals.
+// The system polls the signature every PollFrames. It writes the line again when the signature changes (at most MaxChangeLines per load).
+// The hub dev-tab dump (SkiResortHubUISystem.DumpToLog) adds a header per lodge and a line per spot. Positions are in the
+// lodge's frame (+Z = road side, the frame the prefab JSON rows use).
 // Engine notes: EngineNotes/SkiLodgeSpotDiag.md
 
 using System;
@@ -232,7 +235,7 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>On demand (hub dev-tab DUMP). Main thread; never throws.</summary>
+        /// <summary>On demand (hub dev-tab DUMP). Main thread, never throws.</summary>
         internal void DumpAll(string reason)
         {
             if (!m_Armed)

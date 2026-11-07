@@ -1,10 +1,13 @@
-// Pure part of the hub's history store, linked by tests/ResortBatch (HistoryTests.cs): SkiResortHistoryMonth, SkiResortMonthInProgress,
-// the ring / season / bucket ops of SkiResortHistory and the seams IHistoryWriter / IHistoryReader / IHistoryStore. The ECS halves are
-// the other `partial` in SkiResortHistorySystem.cs; the bytes are written here, so the round-trip test checks what the save gets.
-// Save layouts are frozen once shipped: no payload length is written, so never reorder, retype or rename these types, move their
-// namespace or turn the buffer into a component. A new field is appended under a version bump (EngineNotes/SaveLayouts.md): the
-// element is v2 since T142 (m_SnowDepthCm, B7b), a v1 element reads it as unknown.
-// Money in whole ₵ as int32, clamped; unknown: skiDays / buildingsCost / wagesCost / attraction / snowDepthCm -1, snowPct 255. Net is never stored.
+// Pure part of the hub's history store, linked by tests/ResortBatch (HistoryTests.cs). It holds SkiResortHistoryMonth,
+// SkiResortMonthInProgress, the ring / season / bucket ops of SkiResortHistory and the seams IHistoryWriter / IHistoryReader /
+// IHistoryStore. The ECS halves are the other `partial` in SkiResortHistorySystem.cs. This file writes the bytes, so the
+// round-trip test checks what the save gets.
+// Save layouts are frozen once shipped: no payload length is written. Never reorder, retype or rename these types,
+// move their namespace or turn the buffer into a component.
+// A new field is appended under a version bump (EngineNotes/SaveLayouts.md). The element is v2 since T142 (m_SnowDepthCm, B7b).
+// A v1 element reads it as unknown.
+// Money in whole ₵ as int32, clamped. Unknown: skiDays / buildingsCost / wagesCost / attraction / snowDepthCm -1, snowPct 255.
+// Net is never stored.
 // Pure file: System, System.Collections.Generic, Unity.Mathematics (SkiMoneyRules), SkiResortLedger, HubRules and EntityRef only.
 // Engine notes: EngineNotes/SkiResortHistory.md
 
@@ -69,7 +72,7 @@ namespace SkiResortMod.Systems
         public int m_MonthKey; // SkiMoneyRules.MonthKey of the closed month
         public int m_Tourists; // ledger TouristGuests
         public int m_Residents; // ledger LocalGuests
-        public int m_SkiDays; // SkiDaySystem arrivals of the month; -1 unknown (ski days off / not measured)
+        public int m_SkiDays; // SkiDaySystem arrivals of the month. -1 unknown (ski days off / not measured)
         public int m_TicketsPaid; // ledger TicketsPaid
         public int m_TicketIncome;
         public int m_LodgeIncome; // ledger LodgeSpendIncome
@@ -77,15 +80,15 @@ namespace SkiResortMod.Systems
         public int m_LessonIncome;
         public int m_LiftCost; // the ledger's LiftCharged + BusCharged rounded (a closed month keeps no bus column: History net stays true)
         public int m_RunCost; // the ledger's RunUpkeep (booked per area)
-        public int m_BuildingsCost; // per-month rate at the roll; -1 unknown
-        public int m_WagesCost; // per-month rate at the roll; -1 unknown
-        public int m_Attraction; // point value at the roll; -1 unknown
-        public byte m_SnowPct; // 0..100 at the roll; 255 unknown
-        public int m_SnowDepthCm; // v2: area-weighted mean depth on the runs at the roll, whole cm; -1 unknown (and every v1 element)
+        public int m_BuildingsCost; // per-month rate at the roll. -1 unknown
+        public int m_WagesCost; // per-month rate at the roll. -1 unknown
+        public int m_Attraction; // point value at the roll. -1 unknown
+        public byte m_SnowPct; // 0..100 at the roll. 255 unknown
+        public int m_SnowDepthCm; // v2: area-weighted mean depth on the runs at the roll, whole cm. -1 unknown (and every v1 element)
 
         public bool IsGap => (m_Flags & HistoryFlags.Gap) != 0;
 
-        /// <summary>The element's eight Net terms, as stored (buildings / wages -1 unknown; the coach bill is inside LiftCost). HubRules.NetMonth over them is the
+        /// <summary>The element's eight Net terms, as stored (buildings / wages -1 unknown, the coach bill is inside LiftCost). HubRules.NetMonth over them is the
         /// month's Net, the number historyRules.ts finish() derives (income - lift - run - max(0, buildings) - max(0, wages)).</summary>
         public HubMonthMoney Money => new HubMonthMoney
         {
@@ -122,7 +125,7 @@ namespace SkiResortMod.Systems
             };
         }
 
-        /// <summary>Snow cover % for the element: rounded, clamped 0..100; not finite or below 0 gives 255 (unknown).</summary>
+        /// <summary>Snow cover % for the element: rounded, clamped 0..100. A value not finite or below 0 gives 255 (unknown).</summary>
         public static byte SnowByte(float pct)
         {
             if (float.IsNaN(pct) || float.IsInfinity(pct) || pct < 0f)
@@ -130,8 +133,8 @@ namespace SkiResortMod.Systems
             return (byte)Math.Min(100, (int)Math.Round(pct, MidpointRounding.AwayFromZero));
         }
 
-        /// <summary>Snow depth for the element (ResortLive.SnowDepthCm): whole cm, rounded; not finite or below 0 gives -1 (unknown);
-        /// clamped to 100,000 cm (1 km, far above any snow) so a stray value never wraps.</summary>
+        /// <summary>Snow depth for the element (ResortLive.SnowDepthCm): whole cm, rounded. A value not finite or below 0 gives -1 (unknown).
+        /// The method clamps to 100,000 cm (1 km, far above any snow), so a stray value never wraps.</summary>
         public static int DepthCm(float cm)
         {
             if (float.IsNaN(cm) || float.IsInfinity(cm) || cm < 0f)
@@ -164,7 +167,7 @@ namespace SkiResortMod.Systems
             w.Write(m_SnowDepthCm);   // v2
         }
 
-        /// <summary>v1 fields (frozen, see engine notes), then the v2 field when the element is v2 or newer; a v1 element reads
+        /// <summary>v1 fields (frozen, see engine notes), then the v2 field when the element is v2 or newer. A v1 element reads
         /// m_SnowDepthCm as unknown.</summary>
         public void ReadFrom<TReader>(ref TReader r) where TReader : IHistoryReader
         {
@@ -209,7 +212,7 @@ namespace SkiResortMod.Systems
         public const int V2Bytes = V1Bytes + 8;
 
         public const byte FlagPartial = 1; // the ledger's ThisMonthSinceLoad at the mirror (counting started partway)
-        public const byte FlagByJump = 2; // ... and it started at a calendar jump (the counter's label), not at a load
+        public const byte FlagByJump = 2; // together with FlagPartial: counting started at a calendar jump (the counter's label), not at a load
 
         public byte m_Version;
         public byte m_Flags;
@@ -268,7 +271,7 @@ namespace SkiResortMod.Systems
             w.Write(m_Month.BusCharged);   // v2
         }
 
-        /// <summary>v1 fields (frozen, see engine notes), then the v2 field when the value is v2 or newer; a v1 value reads no coach bill.</summary>
+        /// <summary>v1 fields (frozen, see engine notes), then the v2 field when the value is v2 or newer. A v1 value reads no coach bill.</summary>
         public void ReadFrom<TReader>(ref TReader r) where TReader : IHistoryReader
         {
             r.Read(out m_Version);
@@ -315,7 +318,7 @@ namespace SkiResortMod.Systems
 
         public static int ClampInt(long v) => v > int.MaxValue ? int.MaxValue : v < int.MinValue ? int.MinValue : (int)v;
 
-        /// <summary>A ₵ amount (double) rounded half away from zero and clamped to int32; not finite gives 0.</summary>
+        /// <summary>A ₵ amount (double) rounded half away from zero and clamped to int32. Not finite gives 0.</summary>
         public static int RoundMoney(double v)
         {
             if (double.IsNaN(v) || double.IsInfinity(v))
@@ -330,11 +333,11 @@ namespace SkiResortMod.Systems
             return store.Count > 0 ? store[store.Count - 1].m_MonthKey : SkiResortLedger.NoMonth;
         }
 
-        /// <summary>Appends <paramref name="m"/> (keys strictly increasing): the same key as the last element replaces it (the later
-        /// sample wins); a key more than one month after the last inserts one Gap marker at last + 1 first; an older key is Rejected (a
+        /// <summary>Appends <paramref name="m"/> (keys strictly increasing). The same key as the last element replaces it (the later
+        /// sample wins). A key more than one month after the last inserts one Gap marker at last + 1 first. An older key is Rejected (a
         /// backward calendar jump: history never rewrites its past). An empty store just appends (the First flag is the caller's).
-        /// Then drops the oldest elements above CapMonths (a leading Gap marker left at the front is dropped too: it would describe
-        /// months before the store's start).</summary>
+        /// Then it drops the oldest elements above CapMonths. It drops a leading Gap marker left at the front too: that marker would
+        /// describe months before the store's start.</summary>
         public static AppendResult Append<TStore>(ref TStore store, SkiResortHistoryMonth m) where TStore : IHistoryStore
         {
             AppendResult result = AppendResult.Appended;
@@ -365,7 +368,7 @@ namespace SkiResortMod.Systems
             return result;
         }
 
-        /// <summary>Keeps at most <paramref name="cap"/> elements (the newest); returns how many were dropped.</summary>
+        /// <summary>Keeps at most <paramref name="cap"/> elements (the newest). Returns how many were dropped.</summary>
         public static int Trim<TStore>(ref TStore store, int cap) where TStore : IHistoryStore
         {
             int drop = store.Count - Math.Max(1, cap);
@@ -394,9 +397,9 @@ namespace SkiResortMod.Systems
             public long SkiDays; public int SkiDaysMonths; // over months with skiDays known
             public long BuildingsCost; public int BuildingsMonths; // over months with the rate known
             public long WagesCost; public int WagesMonths;
-            public float Attraction; // mean over months known; -1 none
-            public float SnowPct; // mean over months known; -1 none
-            public float SnowDepthCm; // mean over months known (v2 elements); -1 none
+            public float Attraction; // mean over months known. -1 none
+            public float SnowPct; // mean over months known. -1 none
+            public float SnowDepthCm; // mean over months known (v2 elements). -1 none
             public long Income => TicketIncome + LodgeIncome + PassIncome + LessonIncome;
             public long Guests => Tourists + Residents;
         }
@@ -446,12 +449,12 @@ namespace SkiResortMod.Systems
             return Sum(ref store, first, first + 11);
         }
 
-        /// <summary>Splits one integer debit over <paramref name="count"/> slots by weight so that the parts sum exactly to
-        /// <paramref name="debit"/> and no slot drifts over time: target t = carry + debit x w / sum(w); part = floor(t) (never below 0);
-        /// the units left over (or over-given) go to (come from) the slots with the largest (smallest) fractions; carry = t - part. The
-        /// sum of carries is conserved pass to pass. Weights that are not finite or &lt;= 0 count 0; sum(w) &lt;= 0 (or count 0) puts the
-        /// whole debit in slot <paramref name="fallback"/> (the caller's Not linked slot) and leaves carries alone. debit &lt;= 0 books
-        /// nothing. Allocation-free; O(count^2) worst case (count = ski areas + 1).</summary>
+        /// <summary>Splits one integer debit over <paramref name="count"/> slots by weight. The parts sum exactly to
+        /// <paramref name="debit"/> and no slot drifts over time. Target t = carry + debit x w / sum(w). Part = floor(t) (never below 0).
+        /// The units left over (or over-given) go to (come from) the slots with the largest (smallest) fractions. Carry = t - part. The
+        /// sum of carries is conserved pass to pass. Weights that are not finite or &lt;= 0 count 0. If sum(w) &lt;= 0 (or count is 0),
+        /// the method puts the whole debit in slot <paramref name="fallback"/> (the caller's Not linked slot). It leaves the carries
+        /// unchanged. debit &lt;= 0 books nothing. Allocation-free. Worst case O(count^2) (count = ski areas + 1).</summary>
         public static void SplitDebit(long debit, double[] weights, double[] carry, long[] parts, int count, int fallback)
         {
             for (int i = 0; i < count; i++)
@@ -473,7 +476,7 @@ namespace SkiResortMod.Systems
                 double t = W(weights[i]) > 0.0 ? carry[i] + debit * (W(weights[i]) / sum) : carry[i];
                 long p = t > 0.0 ? (long)Math.Floor(t) : 0;
                 parts[i] = p;
-                carry[i] = t; // the target for now; becomes t - part below
+                carry[i] = t; // the target for now. It becomes t - part below
                 given += p;
             }
             while (given < debit)
@@ -510,8 +513,8 @@ namespace SkiResortMod.Systems
 
         private static double W(double w) => double.IsNaN(w) || double.IsInfinity(w) || w <= 0.0 ? 0.0 : w;
 
-        /// <summary>A saved month in progress seeds the ledger only when it is the ledger's month (same key) and was mirrored at all;
-        /// any other key (stale mirror, a save from another month) is ignored, and counting stays "since load".</summary>
+        /// <summary>A saved month in progress seeds the ledger only when it is the ledger's month (same key) and was mirrored at all.
+        /// The ledger ignores any other key (stale mirror, a save from another month), and counting stays "since load".</summary>
         public static bool ShouldSeed(int ledgerMonthKey, in SkiResortMonthInProgress saved)
             => ledgerMonthKey != SkiResortLedger.NoMonth && saved.m_MonthKey != SkiResortLedger.NoMonth && saved.m_MonthKey == ledgerMonthKey;
     }

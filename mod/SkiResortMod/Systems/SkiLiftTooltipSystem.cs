@@ -1,10 +1,12 @@
 // The lift building aids' tooltips: the station alignment readout and the bulldozer warning (Settings > Lifts > LiftBuildAids).
-// The alignment state comes from SkiStationAlignSystem (Rendering); TooltipUISystem runs earlier in MainLoop (SystemOrder.cs:67-68),
+// The alignment state comes from SkiStationAlignSystem (Rendering). TooltipUISystem runs earlier in MainLoop (SystemOrder.cs:67-68),
 // so the readout is the PREVIOUS frame's measurement (one frame of lag, accepted).
-// Where the rows go is decided by the pure StationAlign.PlaceOf: mouse list for a preview or just-moved subject, world group at the
-// stub tip for the default tool, nothing for any other tool with a merely selected station.
+// The pure StationAlign.PlaceOf decides where the rows go:
+// - mouse list for a preview or just-moved subject,
+// - world group at the stub tip for the default tool,
+// - nothing for any other tool with a merely selected station.
 // Registration (Mod.cs): UpdateAfter<SkiLiftTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(UITooltip), after the vanilla cost line.
-// No per-frame managed allocation; a one-shot "!!!" catch silences these tooltips until the next load.
+// No per-frame managed allocation. A one-shot "!!!" catch silences these tooltips until the next load.
 // Engine notes: EngineNotes/SkiLiftTooltipSystem.md
 
 using System;
@@ -54,12 +56,12 @@ namespace SkiResortMod.Systems
         private TooltipGroup m_AlignGroup;
         private StringTooltip m_Straight, m_FacingAway, m_PartnerAway;
         private FloatTooltip m_Offset, m_Angle, m_Distance, m_Rise;
-        private int m_GroupLayout = -1;   // (int)StationAlign.Readout of the current child list; -1 = none
+        private int m_GroupLayout = -1;   // (int)StationAlign.Readout of the current child list. -1 = none
         private StringTooltip m_NoPartner;
 
         // Bulldozer (mouse).
         private StringTooltip m_SectionWarn, m_TowerWarn, m_SectionsWarn, m_Stub;
-        private readonly List<Entity> m_DeletedOriginals = new List<Entity>(8);   // reused; never shrunk
+        private readonly List<Entity> m_DeletedOriginals = new List<Entity>(8);   // reused, never shrunk
         private IntTooltip m_Count;
         private FloatTooltip m_Length;
 
@@ -235,9 +237,10 @@ namespace SkiResortMod.Systems
 
         private void AlignReadout()
         {
-            // Engine notes 1 WHERE: the tool's preview → mouse rows; the default tool → the world group; any other tool → mouse rows for a
-            // JUST-MOVED station (Move It), nothing for a station that is only still selected, no-partner row included
-            // (StationAlign.PlaceOf, engine notes READOUT PLACE).
+            // Engine notes 1 WHERE (StationAlign.PlaceOf, engine notes READOUT PLACE):
+            // - the tool's preview → mouse rows.
+            // - the default tool → the world group.
+            // - any other tool → mouse rows for a JUST-MOVED station (Move It), nothing for a station that is only still selected, no-partner row included.
             StationAlign.ReadoutPlace place = StationAlign.PlaceOf(m_Align.SubjectIsTemp, m_Align.SubjectIsMoved,
                 m_ToolSystem.activeTool == m_DefaultTool);
             if (place == StationAlign.ReadoutPlace.None)
@@ -247,8 +250,9 @@ namespace SkiResortMod.Systems
             if (!m_Align.HasPartner)
             {
                 // Placing or selecting the FIRST station of a lift (a base, in the guided base → top → line order) has nothing to align
-                // with: warn only for a top station, or when a free station of the other kind exists but is behind it or farther than
-                // the radius.
+                // with. The tooltip warns only in these cases:
+                // - for a top station,
+                // - when a free station of the other kind exists but is behind it or farther than the radius.
                 if (!m_Align.SubjectIsBase || m_Align.OtherKindExists)
                     AddMouseTooltip(m_NoPartner);
                 return;
@@ -368,7 +372,7 @@ namespace SkiResortMod.Systems
             }
             else if (sections >= 2)
             {
-                // The tower text only when the deleted sections ARE one tower's sections; a drag over several cables gets the neutral
+                // The tower text only when the deleted sections ARE one tower's sections. A drag over several cables gets the neutral
                 // text.
                 AddMouseTooltip(IsOneTower(lines, sections) ? m_TowerWarn : m_SectionsWarn);
                 m_Count.value = sections;
@@ -386,12 +390,13 @@ namespace SkiResortMod.Systems
 
         /// <summary>The deleted lift sections (their ORIGINAL edges, Temp.m_Original of the preview's Delete copies,
         /// GenerateEdgesSystem.cs:1371-1377, 1.6.2 :1404-1410) all meet at one node AND that node has no other lift section (its
-        /// ConnectedEdge buffer, lift prefab only), i.e. the click removes exactly one tower's sections. A bulldozer drag across
-        /// several cables (BulldozeToolSystem.cs:1548-1551, :1705-1707 add a control point per entity; :431-463 delete the edges of
-        /// the dragged path) fails it. A 2-section drag through one tower passes it: its outcome is the same as clicking that
-        /// tower (the node is orphaned and deleted with them, GenerateNodesSystem.cs:1250-1255), so the text stays true. Main
-        /// thread; EntityManager reads sync their own writers; at most every frame while the bulldozer previews two or more lift
-        /// sections. A lift section is an edge of any catalog lift line (the live LiftLinePrefabSet the caller fetched).</summary>
+        /// ConnectedEdge buffer, lift prefab only). That means the click removes exactly one tower's sections.
+        /// A bulldozer drag across several cables fails it. The tool adds a control point per entity (BulldozeToolSystem.cs:1548-1551,
+        /// :1705-1707) and deletes the edges of the dragged path (:431-463).
+        /// A 2-section drag through one tower passes it. Its outcome is the same as clicking that tower, so the text stays true
+        /// (the node is orphaned and deleted with them, GenerateNodesSystem.cs:1250-1255).
+        /// It runs on the main thread. EntityManager reads sync their own writers. It runs at most every frame while the bulldozer previews
+        /// two or more lift sections. A lift section is an edge of any catalog lift line (the live LiftLinePrefabSet the caller fetched).</summary>
         private bool IsOneTower(HashSet<Entity> liftPrefabs, int sections)
         {
             if (m_DeletedOriginals.Count != sections || sections < 2)

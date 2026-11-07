@@ -1,12 +1,12 @@
-// SkiMergeSystem - merge an existing building into a ski area as a lodge (MergeRules header; research merge-asset-into-resort-2026-11-02.md).
+// SkiMergeSystem - merge an existing building into a ski area as a lodge (MergeRules header, research merge-asset-into-resort-2026-11-02.md).
 // The actions (merge, tier change, unmerge) come from the hub's merge card on the main thread. A merge charges the one-time fee at once
-// (MergeRules.MergeFee, never refunded), tags the building (SkiMergedLodge, a new serial) and adds an AttractivenessProvider only when the
+// (MergeRules.MergeFee, never refunded). It tags the building (SkiMergedLodge, a new serial). It adds an AttractivenessProvider only when the
 // prefab has none (FlagAddedProvider: unmerge removes only that one). The building keeps its prefab, renters, jobs and own provider.
-// The monthly fee (MergeRules.MonthlyFee) accrues per elapsed frame while the building is counted and switched on (MergeRules.Billed), the
-// SkiRunUpkeepSystem pattern: PlayerMoney.Subtract on the City entity, fractional carry, the meter stops while paused. No ledger line: like our
-// own lodges' upkeep it is a city cost; the hub's BuildingsCost shows the rate.
-// The duplicate guard: two buildings with one serial (a copy that kept the component) - the later entity loses its tag (MergeRules.IsDuplicateLoser).
-// Scheduling: GameSimulation, Game mode only; the billing and the guard run every ChargeIntervalFrames.
+// The monthly fee (MergeRules.MonthlyFee) accrues per elapsed frame while the building is counted and switched on (MergeRules.Billed).
+// It follows the SkiRunUpkeepSystem pattern: PlayerMoney.Subtract on the City entity, fractional carry, and the meter stops while paused.
+// No ledger line: like our own lodges' upkeep it is a city cost, and the hub's BuildingsCost shows the rate.
+// The duplicate guard: when two buildings have one serial (a copy that kept the component), the later entity loses its tag (MergeRules.IsDuplicateLoser).
+// Scheduling: GameSimulation, Game mode only. The billing and the guard run every ChargeIntervalFrames.
 // Engine notes: EngineNotes/SkiMergeSystem.md
 
 using System;
@@ -152,7 +152,7 @@ namespace SkiResortMod.Systems
         // Facts and fees
 
         /// <summary>MergeRules.Facts of <paramref name="building"/> from its components and its prefab's. <paramref name="forTag"/>: the
-        /// re-check of an already merged building (the walk), where Destroyed is a state of its own and not a refusal.</summary>
+        /// re-check of an already merged building (the walk). There Destroyed is a state of its own and not a refusal.</summary>
         internal static MergeRules.Facts ReadFacts(EntityManager em, SkiPrefabCatalogSystem catalog, Entity building, bool forTag)
         {
             var f = new MergeRules.Facts();
@@ -185,7 +185,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The monthly fee of <paramref name="building"/> at <paramref name="tier"/> (MergeRules.MonthlyFee over its kind's
-        /// city-billed upkeep); 0 for an unknown tier.</summary>
+        /// city-billed upkeep). It is 0 for an unknown tier.</summary>
         internal int MonthlyFeeOf(Entity building, int tier)
         {
             if (tier < 0 || tier >= SkiCatalog.Lodges.Count)
@@ -271,7 +271,7 @@ namespace SkiResortMod.Systems
             return Outcome.Merged;
         }
 
-        /// <summary>Unmerge: the tag and the runtime cache go; the provider only when the merge added it. No refund.</summary>
+        /// <summary>Unmerge: the tag and the runtime cache go. The provider goes only when the merge added it. No refund.</summary>
         internal Outcome Unmerge(Entity building)
         {
             if (!EntityManager.Exists(building) || !EntityManager.TryGetComponent(building, out SkiMergedLodge tag))
@@ -337,7 +337,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The highest serial, and the duplicate guard: of two buildings with one serial the later entity loses its tag (a copy that
-        /// kept our component; Move It 0.5.16 has no clone, kept for any other copier). A serial of 0 (never given) gets a fresh one.</summary>
+        /// kept our component). Move It 0.5.16 has no clone. The guard stays for any other copier. A serial of 0 (never given) gets a fresh one.</summary>
         private void GuardSerials()
         {
             m_SerialsKnown = true;
@@ -377,7 +377,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A lot that no longer fits the tier (a prefab swap, an asset update) lowers the tier to the best one below that fits
-        /// (MergeRules.BestAllowed) and sets FlagTierLowered for the hub. No fit at all: left as it is (the walk lists it as AssetMissing).</summary>
+        /// (MergeRules.BestAllowed). It also sets FlagTierLowered for the hub. No fit at all: the system leaves it as it is (the walk lists it as AssetMissing).</summary>
         private void LowerTierIfShrunk(Entity building, ref SkiMergedLodge tag)
         {
             if (!EntityManager.TryGetComponent(building, out PrefabRef pr) || !EntityManager.TryGetComponent(pr.m_Prefab, out BuildingData data))

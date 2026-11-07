@@ -1,9 +1,9 @@
 // The pure money rules: lift running charge, lift tickets, season passes, lessons, lodge spend, month bookkeeping, guest-day counting.
 // Consumers: SkiLiftChargeSystem, SkiLiftTicketSystem (from its Burst job), SkiGuestCounterSystem, SkiDaySystem, SkiResortStatsSystem /
-// HubRules, SkiResortAttractivenessSystem (MonthKey / YearOfKey / MonthOfKey for its [cost] clock), the settings; tests/ResortBatch MoneyBatch.
+// HubRules, SkiResortAttractivenessSystem (MonthKey / YearOfKey / MonthOfKey for its [cost] clock), the settings. Tests: tests/ResortBatch MoneyBatch.
 // Pure file: `using System;` and `using Unity.Mathematics;` only, plus SkiCatalog consts (compile-time literals: Burst sees numbers,
 // never a SkiCatalog.Lifts[…] row read here). Every method is static, allocation-free and Burst-callable (the ticket job calls
-// TicketGateOf / TicketsPaid). Rate numbers are passed in by the caller.
+// TicketGateOf / TicketsPaid). The caller supplies the rate numbers.
 // Engine notes: EngineNotes/SkiMoneyRules.md
 
 using System;
@@ -19,7 +19,7 @@ namespace SkiResortMod.Systems
         public const int TicketPriceDefault = 80; // the ski-day price factor at 80 is 0.8
         public const int TicketPriceMax = 200;
         public const int TicketPriceStep = 5;
-        // time (TimeSystem.kTicksPerDay, Game.Simulation/TimeSystem.cs:18; the ECS systems assert it at arm time)
+        // time (TimeSystem.kTicksPerDay, Game.Simulation/TimeSystem.cs:18). The ECS systems assert it at arm time
         public const int TicksPerDay = 262144;
         public const int MonthsPerYear = 12;
 
@@ -35,8 +35,8 @@ namespace SkiResortMod.Systems
             => !complete ? LiftBilling.Unfinished : !powered ? LiftBilling.NoPower
                : areaRunOpen ? LiftBilling.Full : LiftBilling.NoOpenRun;
 
-        /// <summary>The billing of the lift charge: power never reduces the upkeep, so this is LiftBillingOf(complete, powered: true,
-        /// areaRunOpen): Unfinished, else NoOpenRun when the area has no counted run, else Full. It takes no power argument on purpose.</summary>
+        /// <summary>The billing of the lift charge. Power never reduces the upkeep, so this is LiftBillingOf(complete, powered: true,
+        /// areaRunOpen). The result is Unfinished, else NoOpenRun when the area has no counted run, else Full. It takes no power argument on purpose.</summary>
         public static LiftBilling LiftUpkeepBillingOf(bool complete, bool areaRunOpen)
             => LiftBillingOf(complete, true, areaRunOpen);
 
@@ -45,7 +45,7 @@ namespace SkiResortMod.Systems
         public static bool LiftAreaRunOpen(bool linked, bool scoreKnown, bool writeHeld, int runsCounted)
             => !linked || !scoreKnown || writeHeld || runsCounted > 0;
 
-        /// <summary>2500 + 1000 × km; a negative or non-finite length counts as 0 m. The fixed-grip row's
+        /// <summary>2500 + 1000 × km. A negative or non-finite length counts as 0 m. The fixed-grip row's
         /// LiftFullRate(lengthM, LiftFixedPerMonth, LiftPerKmPerMonth).</summary>
         public static float LiftFullRate(float lengthM)
             => LiftFullRate(lengthM, LiftFixedPerMonth, LiftPerKmPerMonth);
@@ -53,8 +53,8 @@ namespace SkiResortMod.Systems
         public static float LiftRate(LiftBilling billing, float lengthM)
             => LiftRate(billing, lengthM, LiftFixedPerMonth, LiftPerKmPerMonth);
 
-        /// <summary>The lift type's full rate, fixedPerMonth + perKmPerMonth × km (LiftTypeDef.FixedPerMonth / PerKmPerMonth, passed in by
-        /// the caller); a negative or non-finite length counts as 0 m, a negative or non-finite rate part as 0.</summary>
+        /// <summary>The lift type's full rate, fixedPerMonth + perKmPerMonth × km (LiftTypeDef.FixedPerMonth / PerKmPerMonth, supplied by
+        /// the caller). A negative or non-finite length counts as 0 m. A negative or non-finite rate part counts as 0.</summary>
         public static float LiftFullRate(float lengthM, float fixedPerMonth, float perKmPerMonth)
         {
             float m = math.isfinite(lengthM) && lengthM > 0f ? lengthM : 0f;
@@ -63,16 +63,16 @@ namespace SkiResortMod.Systems
             return fixedPart + perKm * m / 1000f;
         }
 
-        /// <summary>LiftRate with the lift type's two rate numbers; any billing but Full bills LiftReducedShare (global policy) of the
+        /// <summary>LiftRate with the lift type's two rate numbers. Any billing but Full bills LiftReducedShare (global policy) of the
         /// full rate.</summary>
         public static float LiftRate(LiftBilling billing, float lengthM, float fixedPerMonth, float perKmPerMonth)
             => LiftRate(billing, lengthM, fixedPerMonth, perKmPerMonth, LiftReducedShare);
 
-        /// <summary>The share a Shuttle type (the tram, sightseeing) bills while its ski area has no open run: it keeps running, so half
-        /// the full rate instead of the quarter of a stopped lift.</summary>
+        /// <summary>The share a Shuttle type (the tram, sightseeing) bills while its ski area has no open run. It keeps running, so the share is
+        /// half the full rate instead of the quarter of a stopped lift.</summary>
         public const float ShuttleNoOpenRunShare = 0.5f;
 
-        /// <summary>LiftRate with the type's share for NoOpenRun (<paramref name="noOpenRunShare"/>, LiftClosedRule.NoOpenRunShare);
+        /// <summary>LiftRate with the type's share for NoOpenRun (<paramref name="noOpenRunShare"/>, LiftClosedRule.NoOpenRunShare).
         /// Unfinished and NoPower keep LiftReducedShare. A share that is not finite or not in 0..1 reads LiftReducedShare.</summary>
         public static float LiftRate(LiftBilling billing, float lengthM, float fixedPerMonth, float perKmPerMonth, float noOpenRunShare)
         {
@@ -93,12 +93,12 @@ namespace SkiResortMod.Systems
         public static int ClampLodgeSpend(int v) => math.clamp(v, 0, LodgeSpendMax);
 
         /// <summary>Spend per person at one lodge: floor(setting × multiplier + 0.5) (LodgeDef.SpendMultiplier: A-frame
-        /// and hut 1, chalet 1.5, summit and grand 3); 0 when the setting is not &gt; 0 or the multiplier not &gt; 0.</summary>
+        /// and hut 1, chalet 1.5, summit and grand 3). The result is 0 when the setting is not &gt; 0 or the multiplier is not &gt; 0.</summary>
         public static int LodgeSpendOf(int setting, float multiplier)
             => setting <= 0 || !(multiplier > 0f) ? 0 : (int)math.floor(setting * multiplier + 0.5f);
 
         /// <summary>Paying guests of a household that also spend at the lodge: min(paid, money left after the tickets /
-        /// spend per person) — never into debt; 0 when any input is not &gt; 0.</summary>
+        /// spend per person), never into debt. The result is 0 when any input is not &gt; 0.</summary>
         public static int SpendPaid(int paidPeople, int spendPerPerson, int moneyAfterTickets)
             => paidPeople <= 0 || spendPerPerson <= 0 || moneyAfterTickets <= 0
                 ? 0
@@ -106,10 +106,10 @@ namespace SkiResortMod.Systems
 
         public static float MonthFrames(int daysPerYear) => (float)TicksPerDay * math.max(1, daysPerYear) / MonthsPerYear;
 
-        // A developer time jump moves the clock, not the frame counter, so a jump that lands exactly one month later rolls a month that
+        // A developer time jump moves the clock, not the frame counter. So a jump that lands exactly one month later rolls a month that
         // was barely simulated. Such a month is partial.
-        /// <summary>A month counts as full from this share of its frames simulated on (one "+1 h" press keeps a month full at 95.8 %, two
-        /// make it partial).</summary>
+        /// <summary>A month counts as full from this share of its frames simulated on. One "+1 h" press keeps a month full at 95.8 %. Two
+        /// make it partial.</summary>
         public const float FullMonthShare = 0.95f;
 
         /// <summary>Fewer than FullMonthShare × MonthFrames(daysPerYear) frames simulated (double compare, so a
@@ -120,7 +120,7 @@ namespace SkiResortMod.Systems
         public static int SimulatedPct(uint framesSimulated, int daysPerYear)
             => (int)math.min(100.0, math.floor(100.0 * framesSimulated / MonthFrames(daysPerYear)));
 
-        /// <summary>The upkeep's accrual: carry += rate × elapsed / month; returns the whole credits to debit
+        /// <summary>The upkeep's accrual: carry += rate × elapsed / month. It returns the whole credits to debit
         /// and keeps the fraction. A rate that is not > 0 accrues nothing.</summary>
         public static int Accrue(ref float carry, float monthlyRate, uint elapsedFrames, int daysPerYear)
         {
@@ -136,8 +136,8 @@ namespace SkiResortMod.Systems
 
         public static int ClampTicketPrice(int price) => math.clamp(price, 0, TicketPriceMax);
 
-        /// <summary>Tickets need a counted open run. runStateKnown = a score is present AND not in the first-write hold (callers: the ticket
-        /// job, the gate watch, the hub). Free entry during a load hold is accepted (at most RatingHoldMaxTicks = 1,024 ticks = 16,384 frames).</summary>
+        /// <summary>Tickets need a counted open run. runStateKnown = a score is present AND not in the first-write hold. Callers: the ticket
+        /// job, the gate watch, the hub. Free entry during a load hold is accepted (at most RatingHoldMaxTicks = 1,024 ticks = 16,384 frames).</summary>
         public static TicketGate TicketGateOf(int price, float efficiency, bool runStateKnown, int openRuns)
         {
             if (price <= 0) return TicketGate.Off;
@@ -161,7 +161,7 @@ namespace SkiResortMod.Systems
         /// <summary>The ski season of a map with a December winter starts with this calendar month (1..12): July. Months 7..12 belong to
         /// the year, 1..6 to the year before, so December and the following March share a season key.</summary>
         public const int SeasonFirstMonth = 7;
-        /// <summary>A season starts this many months before the climate's winter, so one winter never spans two season keys: July for a
+        /// <summary>A season starts this many months before the climate's winter, so one winter never spans two season keys. Examples: July for a
         /// December winter, January for a June winter.</summary>
         public const int SeasonMonthsBeforeWinter = 5;
         /// <summary>SkiSeasonPass.Flags bit: the household was asked this season and did not buy (rolled out or could not pay).</summary>
@@ -178,8 +178,8 @@ namespace SkiResortMod.Systems
         public static int SeasonKeyOfDate(int year, float normalizedDate)
             => SeasonKeyOf(year, MonthOfKey(MonthKey(year, normalizedDate)));
 
-        /// <summary>The season's first calendar month (1..12) for a winter starting at <paramref name="winterStart"/> (normalized year;
-        /// wraps; not finite reads the December winter).</summary>
+        /// <summary>The season's first calendar month (1..12) for a winter starting at <paramref name="winterStart"/> (normalized year, wraps).
+        /// A value that is not finite reads the December winter.</summary>
         public static int SeasonFirstMonthOf(float winterStart)
         {
             if (!math.isfinite(winterStart))
@@ -201,7 +201,7 @@ namespace SkiResortMod.Systems
         public static int ClampPassShare(int v) => math.clamp(v, 0, PassShareMax);
 
         /// <summary>The pass price: multiplier × the day-ticket price at the moment of sale (multiplier clamped to
-        /// PassMultiplierMin..Max); 0 when the ticket price is not &gt; 0 (no pass without a ticket to price it by).</summary>
+        /// PassMultiplierMin..Max). It is 0 when the ticket price is not &gt; 0 (no pass without a ticket to price it by).</summary>
         public static int PassPrice(int multiplier, int ticketPrice)
             => ticketPrice <= 0 ? 0 : (int)math.min((long)ClampPassMultiplier(multiplier) * ticketPrice, (long)int.MaxValue);
 
@@ -220,8 +220,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The household's one roll of the season: true with probability sharePct/100. A fixed integer hash of the
-        /// household entity index and the season key (no state), so the same inputs give the same answer on every call and
-        /// after a load. share &lt;= 0 never, &gt;= 100 always; rolling at a lower share implies the same household rolls
+        /// household entity index and the season key (no state) decides it. The same inputs give the same answer on every call and
+        /// after a load. share &lt;= 0 never, &gt;= 100 always. Rolling at a lower share implies the same household rolls
         /// true at every higher one.</summary>
         public static bool PassRoll(int householdIndex, int seasonKey, int sharePct)
         {
@@ -237,16 +237,18 @@ namespace SkiResortMod.Systems
             return Mix(h) % 100u < (uint)sharePct;
         }
 
-        /// <summary>What the household's SkiSeasonPass says for <paramref name="seasonKey"/>: None when it has no component or the
-        /// component is of another season (an older pass counts as absent), Declined with PassFlagDeclined, else Holder.</summary>
+        /// <summary>What the household's SkiSeasonPass says for <paramref name="seasonKey"/>. None: it has no component, or the
+        /// component is of another season (an older pass counts as absent). Declined: it has PassFlagDeclined. Else Holder.</summary>
         public static PassStanding PassStandingOf(bool hasComponent, int storedSeasonKey, byte flags, int seasonKey)
             => !hasComponent || storedSeasonKey != seasonKey ? PassStanding.None
                : (flags & PassFlagDeclined) != 0 ? PassStanding.Declined : PassStanding.Holder;
 
-        /// <summary>The first-arrival decision for a household with no pass standing this season (job-callable): NotEligible when
-        /// it is not a resident, the share is not &gt; 0 or the price not &gt; 0; Declined when the roll fails; Bought when the
-        /// roll succeeds and the household has at least the price (never into debt); else CannotPay. Callers store Declined for
-        /// both Declined and CannotPay (not asked again this season).</summary>
+        /// <summary>The first-arrival decision for a household with no pass standing this season (job-callable):
+        /// - NotEligible when it is not a resident, the share is not &gt; 0 or the price is not &gt; 0.
+        /// - Declined when the roll fails.
+        /// - Bought when the roll succeeds and the household has at least the price (never into debt).
+        /// - Else CannotPay.
+        /// Callers store Declined for both Declined and CannotPay (not asked again this season).</summary>
         public static PassSaleResult PassSale(bool resident, int sharePct, int householdIndex, int seasonKey, int passPrice, int householdMoney)
         {
             if (!resident || sharePct <= 0 || passPrice <= 0)
@@ -256,10 +258,10 @@ namespace SkiResortMod.Systems
             return householdMoney >= passPrice ? PassSaleResult.Bought : PassSaleResult.CannotPay;
         }
 
-        // Ski-school lessons: a counted arrival at an OPEN gate of a ski area whose sign has an ACTIVE ski school: each person counted
-        // takes a lesson with probability LessonShare %, decided by a stateless hash of (household index, day key, person index); the
-        // lesson costs LessonMultiplier × the day ticket now, is taken from what the household has left after the ticket / pass (never
-        // into debt), and is booked exactly like tickets. Called from the ticket job (Burst).
+        // Ski-school lessons: a counted arrival at an OPEN gate of a ski area whose sign has an ACTIVE ski school.
+        // Each person counted takes a lesson with probability LessonShare %, decided by a stateless hash of (household index, day key, person index).
+        // The lesson costs LessonMultiplier × the day ticket now. It is taken from what the household has left after the ticket / pass (never
+        // into debt). The lesson is booked exactly like tickets. Called from the ticket job (Burst).
         public const int LessonShareMax = 50;
         public const int LessonShareStep = 5;
         public const int LessonShareDefault = 30; // 0 = lessons off
@@ -267,22 +269,22 @@ namespace SkiResortMod.Systems
         public const float LessonMultiplierMax = 3.0f;
         public const float LessonMultiplierStep = 0.5f;
         public const float LessonMultiplierDefault = 1.5f;
-        /// <summary>A household never has more people than this in a counted arrival; LessonsTaken stops here (a guard, not a rule).</summary>
+        /// <summary>A household never has more people than this in a counted arrival. LessonsTaken stops here (a guard, not a rule).</summary>
         public const int LessonPeopleGuard = 64;
 
         public static int ClampLessonShare(int v) => math.clamp(v, 0, LessonShareMax);
 
-        /// <summary>The multiplier clamped to 1.0..3.0; a non-finite value reads the default (the settings file can hold anything).</summary>
+        /// <summary>The multiplier clamped to 1.0..3.0. A non-finite value reads the default (the settings file can hold anything).</summary>
         public static float ClampLessonMultiplier(float v)
             => !math.isfinite(v) ? LessonMultiplierDefault : math.clamp(v, LessonMultiplierMin, LessonMultiplierMax);
 
-        /// <summary>The lesson price: floor(multiplier × the day ticket now + 0.5), the multiplier clamped; 0 when the ticket price is not &gt; 0.</summary>
+        /// <summary>The lesson price: floor(multiplier × the day ticket now + 0.5), the multiplier clamped. It is 0 when the ticket price is not &gt; 0.</summary>
         public static int LessonPrice(float multiplier, int ticketPrice)
             => ticketPrice <= 0 ? 0 : (int)math.min(math.floor((double)ClampLessonMultiplier(multiplier) * ticketPrice + 0.5), (double)int.MaxValue);
 
-        /// <summary>One person's roll: true with probability sharePct/100. A fixed integer hash (pre-image constants different
-        /// from PassRoll's) of the household entity index, the day key (SkiDayRules.DayKey) and the person's index within the arrival,
-        /// so the same inputs give the same answer on every call. share &lt;= 0 never, &gt;= 100 always; monotone in the share.</summary>
+        /// <summary>One person's roll: true with probability sharePct/100. The roll is a fixed integer hash (pre-image constants different
+        /// from PassRoll's). Its inputs are the household entity index, the day key (SkiDayRules.DayKey) and the person's index within the arrival.
+        /// The same inputs give the same answer on every call. share &lt;= 0 never, &gt;= 100 always. It is monotone in the share.</summary>
         public static bool LessonRoll(int householdIndex, int dayKey, int personIndex, int sharePct)
         {
             if (sharePct <= 0)
@@ -313,14 +315,14 @@ namespace SkiResortMod.Systems
         public static int LessonsPaid(int taken, int lessonPrice, int moneyAfter)
             => taken <= 0 || lessonPrice <= 0 || moneyAfter <= 0 ? 0 : math.min(taken, moneyAfter / lessonPrice);
 
-        // Pre-season pass sale: once per (ski area, season) at the first ticket tick in which the area's gate is Open, every resident
-        // household in the pool (within reach of the area, no SkiSeasonPass standing this season) rolls ONE deterministic roll against
-        // p = PassShare % × SkiDayRules.Chance(resident, openShare 1, powder 0, pass holder, its own distance / class / confidence).
+        // Pre-season pass sale: once per (ski area, season), at the first ticket tick in which the area's gate is Open.
+        // Every resident household in the pool rolls ONE deterministic roll. The pool: within reach of the area, no SkiSeasonPass standing this season.
+        // The roll runs against p = PassShare % × SkiDayRules.Chance(resident, openShare 1, powder 0, pass holder, its own distance / class / confidence).
         // Called from the sale job (Burst).
 
-        /// <summary>The household's one pre-season roll, uniform in [0, 1): a fixed integer hash (the PassRoll pre-image plus 1, so it
-        /// is unrelated to the first-arrival roll of the same household and season) of the household entity index and the season key;
-        /// 24 bits of the hash. Same inputs, same answer on every call and after a load.</summary>
+        /// <summary>The household's one pre-season roll, uniform in [0, 1). It is a fixed integer hash of the household entity index and the
+        /// season key. Its pre-image is the PassRoll pre-image plus 1, so it is unrelated to the first-arrival roll of the same household and season.
+        /// It uses 24 bits of the hash. Same inputs, same answer on every call and after a load.</summary>
         public static double PresaleUniform(int householdIndex, int seasonKey)
         {
             uint h;
@@ -331,7 +333,7 @@ namespace SkiResortMod.Systems
             return (Mix(h) >> 8) * (1.0 / 16777216.0);
         }
 
-        /// <summary>p = (PassShare clamped 0..100) / 100 × chance, in [0, 1]; 0 when the share is not &gt; 0 or the chance not &gt; 0 (NaN included).</summary>
+        /// <summary>p = (PassShare clamped 0..100) / 100 × chance, in [0, 1]. It is 0 when the share is not &gt; 0 or the chance not &gt; 0 (NaN included).</summary>
         public static double PresaleProbability(int sharePct, double chance)
         {
             int share = ClampPassShare(sharePct);
@@ -341,9 +343,12 @@ namespace SkiResortMod.Systems
             return p >= 1.0 ? 1.0 : p;
         }
 
-        /// <summary>One pool household's outcome: NotEligible when the price is not &gt; 0; Declined when p is not &gt; 0 or the roll
-        /// (PresaleUniform &lt; p) fails; Bought when it succeeds and the household has at least the price (never into debt);
-        /// else CannotPay. Callers store Declined for both Declined and CannotPay, like the first-arrival sale.</summary>
+        /// <summary>One pool household's outcome:
+        /// - NotEligible when the price is not &gt; 0.
+        /// - Declined when p is not &gt; 0 or the roll (PresaleUniform &lt; p) fails.
+        /// - Bought when it succeeds and the household has at least the price (never into debt).
+        /// - Else CannotPay.
+        /// Callers store Declined for both Declined and CannotPay, like the first-arrival sale.</summary>
         public static PassSaleResult PresaleDecision(int householdIndex, int seasonKey, double probability, int passPrice, int householdMoney)
         {
             if (passPrice <= 0)

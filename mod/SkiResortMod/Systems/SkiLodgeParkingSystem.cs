@@ -1,11 +1,14 @@
-// Lodge parking census: for every active road lodge on a Welcome Sign, the car spaces within SkiParkingRules.RadiusM (600 m: street
-// parking lanes by their nearest point, lanes of parking lots, garages of parking halls by their entrance lane; not boarding-only,
-// bicycle, service or private spaces), counted by a Burst job over the lane search tree and the parking facilities. SkiDaySystem
-// reads it (TryGetParking, hub row 21), the parking ring the lodge positions (CopyLodgePositions); rules and the radius's derivation
-// are SkiParkingRules'. In memory only.
-// Only lodges with a road edge whose row takes arrivals count (LodgeSupplyRule.IsRoadLodge, per building): the Hut, the Summit and
-// patrol huts are roadless by design, and an off-road A-frame, Chalet or Grand takes no arrivals. The count is per lodge (hub Guests view).
-// Phase: GameSimulation, UpdateAt (Mod.cs, after SkiDaySystem's line); not anchored (no frame order needed, the lane search tree is
+// Lodge parking census: for every active road lodge on a Welcome Sign, the car spaces within SkiParkingRules.RadiusM (600 m).
+// A Burst job over the lane search tree and the parking facilities counts them. These spaces count:
+// - street parking lanes, by their nearest point,
+// - lanes of parking lots,
+// - garages of parking halls, by their entrance lane.
+// Boarding-only, bicycle, service and private spaces do not count.
+// SkiDaySystem reads the census (TryGetParking, hub row 21). The parking ring reads the lodge positions (CopyLodgePositions).
+// The rules and the radius's derivation are in SkiParkingRules. In memory only.
+// Only lodges with a road edge whose row takes arrivals count (LodgeSupplyRule.IsRoadLodge, per building). The Hut, the Summit and
+// patrol huts are roadless by design. An off-road A-frame, Chalet or Grand takes no arrivals. The count is per lodge (hub Guests view).
+// Phase: GameSimulation, UpdateAt (Mod.cs, after SkiDaySystem's line). Not anchored (no frame order needed, the lane search tree is
 // read through the reader handle). A job scheduled on one tick is completed and applied on the next: the main thread never waits.
 // SkiParkingRules' flag constants are asserted against the Game.Net enums at arm time: a mismatch is one WARN, census off for the load.
 // Engine notes: EngineNotes/SkiLodgeParkingSystem.md
@@ -96,7 +99,7 @@ namespace SkiResortMod.Systems
         private BufferLookup<Game.Net.SubNet> m_SubNetLookup;
         private BufferLookup<Game.Objects.SubObject> m_SubObjectLookup;
 
-        // Job data (Persistent; the job owns them while in flight)
+        // Job data (Persistent, the job owns them while in flight)
         private NativeList<Entity> m_JobLodges, m_JobSigns;
         private NativeList<LodgeParking> m_Results;
         private NativeList<int> m_LodgeHits;       // lane-tree hits per lodge (the [cost] line's "at most for one lodge")
@@ -128,7 +131,7 @@ namespace SkiResortMod.Systems
         private int m_CostCensuses;
         private double m_CostSumMs, m_CostMaxMs;
         private bool m_CostLogged;
-        private bool m_CostSkipNext;               // true on the arming tick only; RecordCost leaves that tick out
+        private bool m_CostSkipNext;               // true on the arming tick only. RecordCost leaves that tick out
         private int m_CostArmDay = int.MinValue;   // SkiDayRules.DayKey of the last midday re-arm or afternoon line
         private int m_CostMeasurements;            // `Parking [cost]` lines this load
 
@@ -158,7 +161,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The parking lines of the stats DUMP. Appends only, never throws; managed copies only.</summary>
+        /// <summary>The parking lines of the stats DUMP. Appends only, never throws. Managed copies only.</summary>
         internal void AppendDump(StringBuilder sb)
         {
             try
@@ -212,8 +215,8 @@ namespace SkiResortMod.Systems
                 None = new[] { ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Deleted>() },
             });
             // Walked by the garage pass: upgrades excluded, as ParkingFacilityAISystem.cs:245 (1.6.2) excludes them. An installed
-            // parking extension gives its root CarParkingFacility too (ParkingFacility.cs:45-57), its garage lanes sit on the root
-            // (RoadConnectionSystem.cs:1026-1043) and the root's SubObject walk reaches the extension's lanes, so walking the
+            // parking extension gives its root CarParkingFacility too (ParkingFacility.cs:45-57). Its garage lanes sit on the root
+            // (RoadConnectionSystem.cs:1026-1043). The root's SubObject walk reaches the extension's lanes, so walking the
             // extension again would count a second building in reach.
             m_FacilityWalkQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -290,8 +293,8 @@ namespace SkiResortMod.Systems
             base.OnDestroy();
         }
 
-        /// <summary>A load (or leaving to the menu): the census in flight is completed and discarded (the world is
-        /// replaced), the census fold written. Never throws: GameSystemBase.GamePreload DISABLES a system whose
+        /// <summary>A load (or leaving to the menu): the system completes and discards the census in flight (the world is
+        /// replaced) and writes the census fold. Never throws: GameSystemBase.GamePreload DISABLES a system whose
         /// OnGamePreload throws (Game/GameSystemBase.cs:85-96).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
@@ -347,7 +350,7 @@ namespace SkiResortMod.Systems
             m_LodgeInfo.Clear();
             m_LastMountainSkipped = 0;
             m_Paired.Clear();
-            m_CensusLog.Reset();   // flushed in OnGamePreload; nothing carries over
+            m_CensusLog.Reset();   // flushed in OnGamePreload. Nothing carries over
 
             if (mode != GameMode.Game)
                 return;
@@ -381,7 +384,7 @@ namespace SkiResortMod.Systems
                 }
                 if (!m_Armed || m_Disabled)
                     return;
-                // 0. The cost measurement re-arms once per game day at midday; a census on the arming tick is not measured (the flag lives
+                // 0. The cost measurement re-arms once per game day at midday. A census on the arming tick is not measured (the flag lives
                 // for this tick only).
                 m_CostSkipNext = RearmCostAtMidday();
 
@@ -389,7 +392,7 @@ namespace SkiResortMod.Systems
                 if (m_InFlight)
                     ApplyCensus();
 
-                // After a load the attraction snapshot is empty until its first recompute; a census before it would find no lodge and
+                // After a load the attraction snapshot is empty until its first recompute. A census before that recompute would find no lodge and
                 // write a false `Parking [idle]` line. m_LastRev stays int.MinValue, so the first tick after the recompute is due.
                 if (!m_Attractiveness.HasSnapshot)
                     return;
@@ -415,8 +418,8 @@ namespace SkiResortMod.Systems
                 m_TicksSince = 0;
                 long t0 = Stopwatch.GetTimestamp();
 
-                // 3. The (lodge, sign) pairs of the attraction snapshot (first sign wins, as CopyActiveLodgeInfo does): road lodges only
-                // (the ski-day targets); mountain and off-road lodges are counted for the DUMP and get no row.
+                // 3. The (lodge, sign) pairs of the attraction snapshot (first sign wins, as CopyActiveLodgeInfo does). Road lodges only
+                // (the ski-day targets). Mountain and off-road lodges are counted for the DUMP and get no row.
                 m_JobLodges.Clear();
                 m_JobSigns.Clear();
                 m_Paired.Clear();
@@ -484,10 +487,12 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Schedules the census: lookups updated, the facility chunk list (async), the lane tree (reader), one
-        /// IJob on Dependency + both handles; AddLaneSearchTreeReader. <paramref name="timed"/>: the [cost] census
-        /// — dependencies completed first (timed with the rest as "schedule to complete"), then schedule + complete
-        /// (the job's own time), then applied at once.</summary>
+        /// <summary>Schedules the census. Steps: lookups updated, the facility chunk list (async), the lane tree (reader), one
+        /// IJob on Dependency + both handles, AddLaneSearchTreeReader.
+        /// <paramref name="timed"/>: the [cost] census. The system:
+        /// - completes the dependencies first (timed with the rest as "schedule to complete"),
+        /// - then schedules and completes the job (the job's own time),
+        /// - then applies the result at once.</summary>
         private void Schedule(bool timed, long t0)
         {
             int n = m_JobLodges.Length;
@@ -581,7 +586,7 @@ namespace SkiResortMod.Systems
             m_CostMeasurements++;
             if (m_TimeSystem.normalizedTime >= 0.5f)   //a line written at or after 12:00 is today's (as SkiDaySystem)
                 m_CostArmDay = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear);
-            // The synchronous figure includes the wait for the vanilla writers of the job's inputs (deps.Complete above), printed on
+            // The synchronous figure includes the wait for the vanilla writers of the job's inputs (deps.Complete above). It is printed on
             // its own: that part is not ours.
             Mod.Log.Info(Invariant($"Parking [cost] main thread per census tick: mean {m_CostSumMs / Math.Max(1, m_CostCensuses):F3} ms, ") +
                          Invariant($"max {m_CostMaxMs:F3} ms over {m_CostCensuses} census(es); last: {m_LastLodges} lodge(s), ") +
@@ -593,11 +598,11 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Once the last `Parking [cost]` line was written, the first tick at or after 12:00 of a new game day
-        /// (SkiDayRules.DayKey) starts a new measurement; the CostCensuses-th census after it is the synchronous one. Returns true
+        /// (SkiDayRules.DayKey) starts a new measurement. The CostCensuses-th census after it is the synchronous one. Returns true
         /// on the arming tick, which RecordCost leaves out.</summary>
         private bool RearmCostAtMidday()
         {
-            // The midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default); the once-per-load
+            // The midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default). The once-per-load
             // measurement stays.
             if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
                 return false;
@@ -628,10 +633,12 @@ namespace SkiResortMod.Systems
                 m_CostMaxMs = ms;
         }
 
-        /// <summary>Completes the census (scheduled ≥ 16 frames ago: free by now), copies the job's counters into
-        /// managed fields (the DUMP and [cost] read only these), stamps each result with the schedule
-        /// frame, writes one census line per lodge whose Done, State or car spaces changed (or that is new), drops
-        /// the lodges no longer listed (no line), and moves the private revision once when anything changed.</summary>
+        /// <summary>Completes the census (scheduled ≥ 16 frames ago: free by now). Then it:
+        /// - copies the job's counters into managed fields (the DUMP and [cost] read only these),
+        /// - stamps each result with the schedule frame,
+        /// - writes one census line per lodge whose Done, State or car spaces changed (or that is new),
+        /// - drops the lodges no longer listed (no line),
+        /// - moves the private revision once when anything changed.</summary>
         private void ApplyCensus()
         {
             m_Handle.Complete();
@@ -682,7 +689,7 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>One census line through m_CensusLog (Plain now, Summary = the fold line, Fold = counted;
+        /// <summary>One census line through m_CensusLog (Plain now, Summary = the fold line, Fold = counted,
         /// slot 0 = the lodge's car spaces).</summary>
         private void CensusLine(LodgeParking p)
         {
@@ -729,7 +736,7 @@ namespace SkiResortMod.Systems
                 return;
             if (m_CensusLog.Count > 0)
                 WriteCensusSummary(UnityEngine.Time.realtimeSinceStartup);
-            // A ski area with mountain or off-road lodges only is idle too (they take no arrivals); the line says so.
+            // A ski area with mountain or off-road lodges only is idle too (they take no arrivals). The line says so.
             Mod.Log.Info("Parking [idle]: no active road lodge on a Welcome Sign — nothing counted" +
                          (m_LastMountainSkipped > 0 ? $" ({m_LastMountainSkipped} active mountain or off-road lodge(s): no arrivals, no parking row)" : ""));
         }
@@ -762,7 +769,7 @@ namespace SkiResortMod.Systems
         private static string Invariant(FormattableString s) => FormattableString.Invariant(s);
 
 
-        /// <summary>Lane search tree hits inside the lodge's ± RadiusM box (bounds test only; the distance test runs on
+        /// <summary>Lane search tree hits inside the lodge's ± RadiusM box (bounds test only, the distance test runs on
         /// each ParkingLane hit). Shape of the house iterator (SkiGladeToolSystem.TreeBoundsIterator).</summary>
         private struct LaneBoxIterator : INativeQuadTreeIterator<Entity, QuadTreeBoundsXZ>,
             IUnsafeQuadTreeIterator<Entity, QuadTreeBoundsXZ>
@@ -860,7 +867,7 @@ namespace SkiResortMod.Systems
                     for (int h = 0; h < hits.Length; h++)
                         CountLane(hits[h], lodge, sign, p, ref r);
 
-                    // 3. Garage pass: the parking facilities whose center is within RadiusM + FacilityReachM; each entrance lane measured.
+                    // 3. Garage pass: the parking facilities whose center is within RadiusM + FacilityReachM. Each entrance lane is measured.
                     for (int c = 0; c < FacilityChunks.Length; c++)
                     {
                         NativeArray<Entity> facilities = FacilityChunks[c].GetNativeArray(EntityType);
@@ -874,7 +881,7 @@ namespace SkiResortMod.Systems
                 hits.Dispose();
             }
 
-            /// <summary>Step 2 for one tree hit: only ParkingLanes; ClassifyLane; a counted lane's slots (the game's
+            /// <summary>Step 2 for one tree hit: only ParkingLanes, ClassifyLane, a counted lane's slots (the game's
             /// own count) and parked cars, split street / lot by the owner walk.</summary>
             private void CountLane(Entity lane, Entity lodge, Entity sign, float2 p, ref LodgeParking r)
             {
@@ -945,7 +952,7 @@ namespace SkiResortMod.Systems
             }
 
             /// <summary>The owner walk (≤ MaxOwnerDepth): a CarParkingFacility or CarParking on the chain → a parking
-            /// building; else any Building → another building's lot; else the street (DUMP split only).</summary>
+            /// building. Else any Building → another building's lot. Else the street (DUMP split only).</summary>
             /// <summary>Any building on the lane's owner chain has a road (an attached lot takes its parent's).</summary>
             private bool BuildingOnChainHasRoad(Entity lane)
             {
@@ -978,7 +985,7 @@ namespace SkiResortMod.Systems
                 return SkiParkingRules.RootOf(parkingBuilding, anyBuilding);
             }
 
-            /// <summary>Step 3 for one parking facility: its center within RadiusM + FacilityReachM of the lodge, its garage lanes by
+            /// <summary>Step 3 for one parking facility: its center within RadiusM + FacilityReachM of the lodge. Its garage lanes come from
             /// the info view's walk (depth fixed at 2), each measured at its own entrance lane. In reach (Stats[1]) when a garage lane is
             /// within RadiusM.</summary>
             private void CountFacility(Entity facility, Entity lodge, Entity sign, float2 p, ref LodgeParking r)
@@ -1020,7 +1027,7 @@ namespace SkiResortMod.Systems
             }
 
             /// <summary>Each GarageLane connection lane of <paramref name="lanes"/>: its distance (GarageDistance: the lane's curve, else
-            /// the building center <paramref name="df"/>), ClassifyGarage with its own restriction; counted → its capacity and the cars in
+            /// the building center <paramref name="df"/>), ClassifyGarage with its own restriction. Counted → its capacity and the cars in
             /// it. True when any garage lane is within RadiusM.</summary>
             private bool CountGarages(DynamicBuffer<Game.Net.SubLane> lanes, Entity lodge, Entity sign, float2 p, float df, ref LodgeParking r)
             {

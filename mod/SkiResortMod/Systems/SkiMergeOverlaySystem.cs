@@ -1,17 +1,21 @@
-// SkiMergeOverlaySystem - the hub-armed merge overlay (P2.6; MergeRules "merge overlay" rules). While armed it outlines every building near
-// a ski area that the merge card would take: green when a lodge tier fits its lot, gray when the kind qualifies but the lot is too small
-// for every tier (MergeRules.TintOf). Buildings that can never be merged, and merged ones, are not drawn. A click selects a building the
-// vanilla way and the merge card follows the selection (SkiResortHubUISystem.Merge.cs); this system selects nothing.
-// "Near" is the merged buildings' slopeside rule over every area: within SkiDayRules.SlopesideMaxM of a lift station or a run outline
+// SkiMergeOverlaySystem - the hub-armed merge overlay (P2.6, MergeRules "merge overlay" rules). While armed, it outlines every building near
+// a ski area that the merge card would take. Green means a lodge tier fits its lot. Gray means the kind qualifies but the lot is too small
+// for every tier (MergeRules.TintOf). The system does not draw buildings that can never be merged, or merged ones.
+// A click selects a building the vanilla way, and the merge card follows the selection (SkiResortHubUISystem.Merge.cs). This system selects nothing.
+// "Near" is the merged buildings' slopeside rule over every area. It means within SkiDayRules.SlopesideMaxM of a lift station or a run outline
 // (SkiResortAttractivenessSystem.NearAnySlopeside, the published geometry of the last recompute).
-// Tint: OverlayRenderSystem.Buffer projected lines along the lot (BuildingUtils.CalculateCorners, BuildingUtils.cs:72-86), the
-// SkiSnowLineOverlaySystem main-thread pattern: GetBuffer(out deps), deps.Complete() (OverlayRenderSystem.cs:603-634). No game component
-// is written (vanilla Highlighted has one color and is a structural change per building).
-// The candidate list is built when the mode arms, when the slopeside geometry moved, when the building count changed (polled every
-// CountPollFrames) or after an unmerge (MergeRules.OverlayRebuild); drawing reads the cached corners only. One `Merge [cost] overlay` line
-// per build. Disarms on the hub button, Escape, a merge or tier change, a load, and when the city has no Welcome Sign (MergeRules.NextArmed).
-// Phase: Rendering, anchored UpdateBefore<SkiMergeOverlaySystem, OverlayRenderSystem> (Mod.cs; load-bearing like the snow line's: the
-// renderer uploads and clears its lists in the same frame).
+// Tint: OverlayRenderSystem.Buffer projected lines along the lot (BuildingUtils.CalculateCorners, BuildingUtils.cs:72-86).
+// It uses the SkiSnowLineOverlaySystem main-thread pattern: GetBuffer(out deps), deps.Complete() (OverlayRenderSystem.cs:603-634).
+// The system writes no game component (vanilla Highlighted has one color and is a structural change per building).
+// The system builds the candidate list when:
+// - the mode arms,
+// - the slopeside geometry moved,
+// - the building count changed (polled every CountPollFrames),
+// - an unmerge happened (MergeRules.OverlayRebuild).
+// Drawing reads the cached corners only. One `Merge [cost] overlay` line per build.
+// It disarms on the hub button, Escape, a merge or tier change, a load, and when the city has no Welcome Sign (MergeRules.NextArmed).
+// Phase: Rendering, anchored UpdateBefore<SkiMergeOverlaySystem, OverlayRenderSystem> (Mod.cs). The order is load-bearing like the snow line's:
+// the renderer uploads and clears its lists in the same frame.
 // Engine notes: EngineNotes/SkiMergeSystem.md (Overlay)
 
 using System;
@@ -151,9 +155,9 @@ namespace SkiResortMod.Systems
 
         private static bool EscapePressed()
         {
-            // The default tool overrides its cancel action with the right mouse button (DefaultToolSystem.cs:741), so Escape is read from
-            // the keyboard. Escape also does its vanilla job (deselect, then the pause menu). A gamepad's B (buttonEast, its back button;
-            // vanilla's binding lives in the input asset, not the decompile) disarms the same way.
+            // The default tool overrides its cancel action with the right mouse button (DefaultToolSystem.cs:741), so the system reads Escape from
+            // the keyboard. Escape also does its vanilla job (deselect, then the pause menu). A gamepad's B disarms the same way (buttonEast, its back button).
+            // Vanilla's binding lives in the input asset, not the decompile.
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             var gamepad = UnityEngine.InputSystem.Gamepad.current;
             return (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) || (gamepad != null && gamepad.buttonEast.wasPressedThisFrame);
