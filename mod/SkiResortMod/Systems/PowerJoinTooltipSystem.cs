@@ -1,6 +1,7 @@
-// Mouse tooltip for PowerJoinRefusalSystem: while the preview holds a refused vanilla HV join, one error line says why
-// (SkiResort.PowerJoin.REFUSED). The vanilla tooltips show no text for our Error (it carries no ErrorType icon). Same pattern as
-// CatTrackGradeTooltipSystem; Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip. A "!!!" ERROR disables it until the next load.
+// Mouse tooltip for PowerJoinRefusalSystem. While the preview holds a refused vanilla HV join, one error line says why
+// (SkiResort.PowerJoin.REFUSED).
+// The vanilla tooltips show no text for our Error. It carries no ErrorType icon. The pattern is the same as CatTrackGradeTooltipSystem.
+// In Mod.cs, the system runs UpdateAfter TempCostTooltipSystem at UITooltip. A "!!!" ERROR disables it until the next load.
 
 using System;
 using Game.UI.Localization;

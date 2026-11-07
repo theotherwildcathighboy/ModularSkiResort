@@ -1,11 +1,12 @@
-// Ski patrol's two levers. A member run is PATROLLED when its top (RunFacts.TopNode, xz) lies within RadiusM (1 km,
-// inclusive) of an ACTIVE patrol hut of its own ski area (hut and HQ prefabs share one row's numbers). Patrol lives
-// in the score, not in SkiDayRules. A patrolled run:
-//   * rated Black or Double Black: type factor × ExpertFactor (1.15);
-//   * not lift-served: served factor max(backcountry, BackcountryServedMin); a served run stays 1.
-// Capacity follows via the served factor SkiResortScore.RunSkiersPerDay already multiplies. Never gates night runs or powder.
-// Pure file, linked into tests/ResortBatch; main thread (List). The consts alias SkiCatalog.Patrol (CatalogGuardTests reads
-// RadiusM, ExpertFactor and BackcountryServedMin by name).
+// Ski patrol's two levers. A member run is PATROLLED when its top (RunFacts.TopNode, xz) lies within RadiusM (1 km, inclusive) of an ACTIVE
+// patrol hut of its own ski area (hut and HQ prefabs share one row's numbers). Patrol lives in the score, not in SkiDayRules. A patrolled
+// run gets these changes:
+//   * Rated Black or Double Black: the type factor is multiplied by ExpertFactor (1.15).
+//   * Not lift-served: the served factor is max(backcountry, BackcountryServedMin). A served run stays 1.
+// Capacity follows through the served factor, which SkiResortScore.RunSkiersPerDay already multiplies. Patrol never gates night runs or
+// powder.
+// The file is pure and linked into tests/ResortBatch. It runs on the main thread (List). The consts alias SkiCatalog.Patrol.
+// CatalogGuardTests reads RadiusM, ExpertFactor and BackcountryServedMin by name.
 
 using System;
 using System.Collections.Generic;
@@ -20,8 +21,8 @@ namespace SkiResortMod.Systems
         public const double ExpertFactor = SkiCatalog.Patrol.ExpertFactor;
         public const double BackcountryServedMin = SkiCatalog.Patrol.BackcountryServedMin;
 
-        /// <summary>True when any finite entry of <paramref name="activePatrolXz"/> lies within RadiusM (inclusive, compared
-        /// squared in float) of a finite <paramref name="runTopXz"/>. Null / empty list or non-finite run top → false.</summary>
+        /// <summary>True when any finite entry of <paramref name="activePatrolXz"/> lies within RadiusM (inclusive, compared squared in
+        /// float) of a finite <paramref name="runTopXz"/>. A null or empty list, or a non-finite run top, gives false.</summary>
         public static bool Patrolled(float2 runTopXz, List<float2> activePatrolXz)
         {
             if (activePatrolXz == null || activePatrolXz.Count == 0)
@@ -40,7 +41,7 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>× ExpertFactor when <paramref name="patrolled"/> and the run is Rated Black or Double Black; else
+        /// <summary>Gives × ExpertFactor when <paramref name="patrolled"/> and the run is Rated Black or Double Black. Otherwise it gives
         /// <paramref name="typeFactor"/> unchanged (bit for bit).</summary>
         public static double TypeFactorOf(double typeFactor, bool patrolled, SkiResortScore.BandState state, byte band)
         {
@@ -50,8 +51,8 @@ namespace SkiResortMod.Systems
             return typeFactor;
         }
 
-        /// <summary>served → 1; patrolled → max(backcountry, BackcountryServedMin); else backcountry. A NaN backcountry
-        /// reads the minimum when patrolled.</summary>
+        /// <summary>If served, the result is 1. If patrolled, it is max(backcountry, BackcountryServedMin). Otherwise it is backcountry. A
+        /// NaN backcountry reads the minimum when patrolled.</summary>
         public static double ServedFactorOf(bool served, bool patrolled, double backcountry)
         {
             if (served)

@@ -1,7 +1,8 @@
-// Cached "is this lane prefab a high-voltage utility lane" lookup shared by the two lane harvests (ChairPinSystem's
-// loop build, TramShuttleSystem.HarvestLanes). The harvests walk every utility lane in the city
-// (Game.Prefabs/UtilityLane.cs:51) but there are few lane PREFABS, so the per-prefab answer is cached and tested
-// first; only lanes of an HV prefab go on to the owner test. Main thread; cleared per load by ChairPinSystem.
+// Cached lookup that answers "is this lane prefab a high-voltage utility lane". The two lane harvests share it (ChairPinSystem's loop
+// build, TramShuttleSystem.HarvestLanes).
+// The harvests walk every utility lane in the city (Game.Prefabs/UtilityLane.cs:51). There are few lane PREFABS, so the cache holds the
+// answer per prefab and the code tests it first.
+// Only lanes of an HV prefab go on to the owner test. The code runs on the main thread. ChairPinSystem clears the cache on each load.
 
 using System.Collections.Generic;
 using Colossal.Entities;

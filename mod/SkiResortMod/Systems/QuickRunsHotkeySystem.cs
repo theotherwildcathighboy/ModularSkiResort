@@ -1,12 +1,15 @@
-// Quick runs tool keys and the every-frame watch. Pattern of CatTrackGradeHotkeySystem (EngineNotes/LiftLineHotkeySystem.md covers the
-// action plumbing: an inactive tool never ticks, ToolSystem.cs:312-327; GetAction is null before RegisterKeyBindings, ModSetting.cs:289-292;
-// mod actions start disabled, ProxyAction.cs:322-349).
-// ToggleQuickRunsTool (default Ctrl+Shift+Q) -> QuickRunsToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city; inert while the
-// Quick runs option is off (TryActivate refuses and logs). The Build key (BuildLiftLine, default Enter) is shared with the lift tool:
-// LiftLineHotkeySystem keeps it live while any of our build tools is open (one writer of shouldBeEnabled); this system reads the press
-// while the Quick runs tool is active and calls RequestEnter. Every frame it also calls the tool's TickWatch (the bind line after a
-// build also runs while the tool is closed). UIUpdate, SystemOrder.cs:67: every frame, paused or not. Logs: one ARMED / INERT line per
-// load; one line if the toggle is not live 120 frames after the load.
+// Quick runs tool keys and the every-frame watch. The pattern is the same as CatTrackGradeHotkeySystem. EngineNotes/LiftLineHotkeySystem.md
+// covers the action plumbing:
+//   * An inactive tool never ticks (ToolSystem.cs:312-327).
+//   * GetAction is null before RegisterKeyBindings (ModSetting.cs:289-292).
+//   * Mod actions start disabled (ProxyAction.cs:322-349).
+// ToggleQuickRunsTool (default Ctrl+Shift+Q) calls QuickRunsToolSystem.TryActivate("hotkey") or Deactivate, in a loaded city. It is inert
+// while the Quick runs option is off (TryActivate refuses and logs).
+// The Build key (BuildLiftLine, default Enter) is shared with the lift tool. LiftLineHotkeySystem keeps it live while any of our build
+// tools is open (one writer of shouldBeEnabled). This system reads the press while the Quick runs tool is active and calls RequestEnter.
+// Every frame, the system also calls the tool's TickWatch. The bind line after a build also runs while the tool is closed.
+// The system runs in UIUpdate (SystemOrder.cs:67), every frame, paused or not.
+// Logs: one ARMED / INERT line per load. One line if the toggle is not live 120 frames after the load.
 
 using System;
 using Colossal.Serialization.Entities;

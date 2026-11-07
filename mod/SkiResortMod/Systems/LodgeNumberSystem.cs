@@ -1,7 +1,8 @@
-// Numbers same-tier lodges per ski area (LodgeNumberRule): the hub's car space rows say "Chalet 2" while an area has more than one Chalet.
-// The number lives in SkiLodgeNumber on the lodge (persisted), so it is the same across frames, saves and loads. Game mode only. A pass runs
-// when the attraction snapshot generation moves (a lodge placed, bulldozed or relinked) and every PollFrames frames as a backstop, after
-// the first recompute of a load (HasSnapshot). Writes only the lodges whose number is missing or belongs to another area.
+// Numbers same-tier lodges per ski area (LodgeNumberRule). The hub's car space rows say "Chalet 2" while an area has more than one Chalet.
+// The number lives in SkiLodgeNumber on the lodge (persisted), so it is the same across frames, saves and loads. Game mode only.
+// A pass runs when the attraction snapshot generation moves (a lodge placed, bulldozed or relinked). It also runs every PollFrames frames
+// as a backstop, after the first recompute of a load (HasSnapshot). The pass writes only the lodges whose number is missing or belongs to
+// another area.
 // Phase GameSimulation (not load-bearing: the hub keys its rows on Revision).
 // Logs: "created", ARMED once per load, one "LodgeNumber [assign]" per number given, "!!!" once on a throw. DUMP: the shown numbers.
 // Engine notes: EngineNotes/LodgeNumberSystem.md
@@ -42,8 +43,8 @@ namespace SkiResortMod.Systems
         /// <summary>Moves when any shown number changes (the hub's lodgeParking rows key on it).</summary>
         internal int Revision => m_Revision;
 
-        /// <summary>The number shown after the lodge's tier word: 0 while it is the only one of its tier in its area, is not linked, or has not
-        /// been numbered yet.</summary>
+        /// <summary>The number shown after the lodge's tier word. It is 0 while the lodge is the only one of its tier in its area, is not
+        /// linked, or has no number yet.</summary>
         internal int ShownNumberOf(Entity lodge)
         {
             return m_Shown.TryGetValue(lodge, out int n) ? n : 0;

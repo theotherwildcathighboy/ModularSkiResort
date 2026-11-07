@@ -1,10 +1,11 @@
-// "Ski Grading" tab of the game's developer menu, same pattern as SkiGladeToolSystem.Debug.cs: DebugSystem.RegisterDebug invokes
-// each [DebugTab] method of every [DebugContainer] type on the live system (DebugSystem.cs:996-1045), so this partial needs no
-// registration in Mod.cs. The tab name must be unique: AddPanel replaces a panel registered under the same name (:1085-1095).
-// Value getters read plain fields at 10 Hz; work runs on a button press only.
-// "Probe: grade a 40 m strip" writes a 40 m constant ramp with a 1.5 m cut at its middle, starting 5 m ahead of the camera pivot
-// along the view direction, through the tool's full apply path. 30 frames later it compares CPU heights with what it wrote;
-// 120 frames later it logs the water sim speed. "Undo last probe grade" restores the newest probe grade of the session (built cat tracks are never on the undo stack).
+// "Ski Grading" tab of the game's developer menu. The pattern is the same as SkiGladeToolSystem.Debug.cs. DebugSystem.RegisterDebug invokes
+// each [DebugTab] method of every [DebugContainer] type on the live system (DebugSystem.cs:996-1045), so this partial needs no registration
+// in Mod.cs. The tab name must be unique. AddPanel replaces a panel registered under the same name (:1085-1095).
+// Value getters read plain fields at 10 Hz. Work runs on a button press only.
+// The "Probe: grade a 40 m strip" button writes a 40 m constant ramp with a 1.5 m cut at its middle. The ramp starts 5 m ahead of the
+// camera pivot along the view direction. The write goes through the tool's full apply path. 30 frames later, the probe compares CPU heights
+// with what it wrote. 120 frames later, it logs the water sim speed.
+// "Undo last probe grade" restores the newest probe grade of the session. Built cat tracks are never on the undo stack.
 
 using System;
 using System.Collections.Generic;

@@ -1,9 +1,10 @@
-// Ski school levers, applied while the school is active and the area has a counted green run:
-//   * Score: +ScoreValue added to the terrain sum S, before the variety and vertical multipliers.
-//   * Demand: residents' ski-day chance x DemandFactor, outside the cap; tourists ignore it.
-// Never gates night runs or powder.
-// Pure and Burst-callable (`using System;` only). The constants alias SkiCatalog.School; CatalogGuardTests compares them
-// by name. SkiDaySystem passes the factor into its jobs, computed on the main thread.
+// Ski school levers. They apply while the school is active and the area has a counted green run:
+//   * Score: +ScoreValue goes to the terrain sum S, before the variety and vertical multipliers.
+//   * Demand: residents' ski-day chance is multiplied by DemandFactor, outside the cap. Tourists ignore it.
+// The school never gates night runs or powder.
+// The file is pure and Burst-callable (`using System;` only). The constants alias SkiCatalog.School. CatalogGuardTests compares them by
+// name.
+// The main thread computes the factor, and SkiDaySystem passes it into its jobs.
 
 using System;
 
