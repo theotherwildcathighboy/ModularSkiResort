@@ -131,8 +131,13 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
   // The Buildings tab's footer is taller (two tile rows and the merge toggle): a tab switch re-renders the panel so the pager re-fits at
   // once (its layout effect), not on its next poll (a 400 ms scrollbar flash), and drops the room it measured for the other footer.
   const buildTab = useValue(buildTab$);
+  // A fold toggle within the view (not a view switch) bumps foldSeq: the pager then shows the page holding that fold's header
+  const fold = openFold(folds, view);
+  const foldSeen = useRef({ view, fold, seq: 0 });
+  if (foldSeen.current.view !== view) foldSeen.current = { view, fold, seq: foldSeen.current.seq };
+  else if (foldSeen.current.fold !== fold) foldSeen.current = { view, fold, seq: foldSeen.current.seq + 1 };
   const viewPager = useViewPager(viewRef, contentRef, hasSign && view !== "runs" && view !== "lifts",
-    `${view}|${openFold(folds, view)}|${areaKey}`, styles.foldRow, buildTab);
+    `${view}|${fold}|${areaKey}`, styles.foldRow, buildTab, styles.foldRowOpen, foldSeen.current.seq);
 
   // Plain markup only: an error-boundary fallback must not be able to throw
   const title = t(LOC.title);

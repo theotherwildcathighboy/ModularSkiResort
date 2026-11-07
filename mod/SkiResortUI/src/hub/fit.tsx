@@ -104,10 +104,12 @@ const VIEW_PAGER_POLL_MS = 400;
 /**
  * Pages the view slot's top-level rows (its DOM children: our views render fragments, so every InfoLine, fold header, fold
  * row, bar and chart block is one child) when the body is taller than the content box. Rows of other pages are hidden with
- * style.display = "none" (React never writes `style` on these row roots, so it stays): unhide, partition, hide in one pass, so
- * nothing paints in between. A fold header is never the last row of a page (it moves to the next). `enabled` false (the Runs /
- * Lifts views) unhides everything. `resetKey` (view + open fold) returns to page 1; `geometryKey` (what changes the box, the
- * Buildings tab's taller footer) drops the measured room.
+ * style.display = "none" (React never writes `style` on these row roots, so it stays); a pass writes a row's display only when
+ * it changes, so a steady page writes nothing. A fold header is never the last row of a page (it moves to the next). `enabled`
+ * false (the Runs / Lifts views) unhides everything. `resetKey` (view + open fold) returns to page 1, except that a fold toggle
+ * (`foldSeq` changed) shows the page holding that fold's header (`openRowClass`): opening a fold whose rows push it past page 1
+ * must not hide the header the player just clicked. `geometryKey` (what changes the box, the Buildings tab's taller footer)
+ * drops the measured room.
  *
  * Gameface does not reflow on a read: getBoundingClientRect / clientHeight after a style write return the last drawn frame (measured
  * in game 2026-11-06: a row set to display none still reads its old height in the same task). So a pass only trusts geometry when no
@@ -117,13 +119,21 @@ const VIEW_PAGER_POLL_MS = 400;
  * 21 px over). Paging now uses each row's height from the last frame it was drawn and the room from the last trusted pass.
  */
 export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject<HTMLElement>, enabled: boolean, resetKey: string,
-  foldRowClass: string, geometryKey = ""): FitPage {
+  foldRowClass: string, geometryKey = "", openRowClass = "", foldSeq = 0): FitPage {
   const [pages, setPages] = useState(1);
   const [page, setPage] = useState(0);
   const keyRef = useRef(resetKey);
   if (keyRef.current !== resetKey) {
     keyRef.current = resetKey;
     if (page !== 0) setPage(0);
+  }
+  // foldSeq counts fold toggles within one view: the next passes (this render's two) show the toggled fold's page
+  const focusOpen = useRef(0);
+  const lastOpenRow = useRef<HTMLElement | null>(null);
+  const foldSeqRef = useRef(foldSeq);
+  if (foldSeqRef.current !== foldSeq) {
+    foldSeqRef.current = foldSeq;
+    focusOpen.current = 2;
   }
   const state = useRef({ page, pages, enabled });
   state.current = { page, pages, enabled };
@@ -143,8 +153,9 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       if (!slot || !body || !box) return;
       const rows = Array.prototype.slice.call(slot.children) as HTMLElement[];
       const wasHidden = rows.map((r) => r.style.display === "none");
-      for (const r of rows) if (r.style.display === "none") r.style.display = "";
-      if (!state.current.enabled) { roomRef.current = null; if (state.current.pages !== 1) setPages(1); return; }
+      // Write a row's style only when it changes (a pass that keeps the page writes nothing)
+      const showAll = (): void => { for (const r of rows) if (r.style.display === "none") r.style.display = ""; };
+      if (!state.current.enabled) { showAll(); roomRef.current = null; if (state.current.pages !== 1) setPages(1); return; }
       // Everything below reads the last drawn frame (no reflow on a read)
       const inner = innerHeight(box);
       const bodyH = body.getBoundingClientRect().height;
@@ -164,7 +175,7 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       let room: number;
       if (drawn.length === rows.length) {
         // Every row was drawn in the last frame: the geometry is the view's own
-        if (!pagerOn && bodyH <= inner + 0.5) { roomRef.current = null; if (state.current.pages !== 1) setPages(1); return; }
+        if (!pagerOn && bodyH <= inner + 0.5) { showAll(); roomRef.current = null; if (state.current.pages !== 1) setPages(1); return; }
         // Room for the view = the box minus everything in the body that is not the view (the pager row included once it is drawn)
         room = inner - (bodyH - slotRect.height) - (pagerOn ? 0 : first);
         roomRef.current = room;
@@ -179,6 +190,7 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         }
       } else {
         // No trusted room (geometry changed while paged): show every row; the next frame measures them
+        showAll();
         if (state.current.pages !== 1) setPages(1);
         try { window.requestAnimationFrame(() => layout()); } catch { /* the poll measures */ }
         return;
@@ -195,8 +207,20 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         acc += heights[i];
       }
       const n = p + 1;
-      const shown = Math.min(state.current.page, n - 1);
-      rows.forEach((r, i) => { if (pageOf[i] !== shown) r.style.display = "none"; });
+      let shown = Math.min(state.current.page, n - 1);
+      // A fold was just toggled: show the page that holds its header (the open one, or after a close the header that was open),
+      // so the fold the player clicked never lands on a page that is not shown
+      const openIdx = openRowClass ? rows.findIndex((r) => r.className.indexOf(openRowClass) >= 0) : -1;
+      if (openIdx >= 0) lastOpenRow.current = rows[openIdx];
+      if (focusOpen.current > 0) {
+        focusOpen.current--;
+        const target = openIdx >= 0 ? openIdx : lastOpenRow.current ? rows.indexOf(lastOpenRow.current) : -1;
+        if (target >= 0 && pageOf[target] !== shown) { shown = pageOf[target]; setPage(shown); }
+      }
+      rows.forEach((r, i) => {
+        const want = pageOf[i] === shown ? "" : "none";
+        if (r.style.display !== want) r.style.display = want;
+      });
       if (n !== state.current.pages) setPages(n);
     } catch { /* paging is best effort */ }
   };
