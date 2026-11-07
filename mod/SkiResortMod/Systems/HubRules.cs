@@ -97,7 +97,7 @@ namespace SkiResortMod.Systems
         // Set by the stats system only while ski days are on (not Off) and the area has a view.
         public bool SkiDaysCannotReach;  // car confidence < 0.5 after ≥ 20 car claims
         public int NoGuestsNearTenthsKm;  // SkiDayRules.NoGuestsNear on an open hill: the nearest home or hotel in tenths of a km; 0 = no row
-        public int LodgesNoParking;  // ski-day lodges with 0 car spaces within 300 m
+        public int LodgesNoParking;  // ski-day lodges with 0 car spaces within 600 m
         public int LodgesNotSlopeside;  // active lodges more than 800 m from the area's runs and stations
         public int DepotsNoHillLodge, DepotsNoRoad;  // active bus depots CheckDepot rejects for these; never in a lodge count
         // The band showed the Efficiency row on this area's previous build (hysteresis state).

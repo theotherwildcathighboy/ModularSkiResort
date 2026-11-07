@@ -56,6 +56,8 @@ First public release. Draft notes (check against the build at upload):
 - The Welcome Sign is the ski area: runs, lifts and buildings within its radius belong to it (5 km by default, 2 to 10 km
   in Options). While placing a sign, a ring shows the radius and the tooltip gives the height under the cursor, the lowest and
   highest dry ground in the ring, the vertical above the winter snow line, and how much ground lies above it. A selected sign shows its ring too.
+- Lodge parking: car spaces within 600 m of a lodge with a road count for it (street parking, parking lots, a parking garage
+  at its entrance); tourist parties drive in and need them. A blue ring shows the 600 m while placing or selecting a lodge.
 - Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts
   its ski day there; guests pay as at a lodge. It adds no capacity and no score, needs a lodge on the hill, and bills 1,500
   a month plus 300 per km to that lodge (Finances, row Ski bus). An oxblood coach, with SKI BUS painted on it, drives between the depot and the hill. Selecting the coach or the depot shows a Ski Bus card beside the game's panel: guests by bus this month, the coach bill and the distance to the hill lodge.

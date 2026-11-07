@@ -1050,13 +1050,13 @@ namespace SkiResortMod
                 // and the game links a road within 8.4 m of the front point.
                 // Top-level ski schools on no Welcome Sign (C# HubProblemCode SchoolsNotLinked; its row text is FMT below).
                 { "SkiResort.Hub.PROBLEM_TIP[SchoolsNotLinked]", "Out of range of every Welcome Sign, so they teach nobody." },
-                // 300 m is the parking census radius, 800 m the slopeside distance.
+                // 600 m is the parking census radius (SkiParkingRules.RadiusM, CatalogGuard T6c), 800 m the slopeside distance.
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive." },
                 { "SkiResort.Hub.PROBLEM_TIP[DepotNoHillLodge]", "A depot sends guests only while its ski area has a working lodge on the hill; a mountain lodge counts. It bills nothing until then." },
                 { "SkiResort.Hub.PROBLEM_TIP[DepotNoRoad]", "A depot with no road sends nobody and bills nothing." },
                 { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "No active road lodge: the sign employs the Hut, Summit, patrol and cat track lodge staff. They come by road." },
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysNoGuestsNear]", "Ski-day guests come from homes and hotels, within the longest ski-day trip in Options. Beyond about 7 km few arrive in time." },
-                { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m. Tourists from outside the city drive here and none arrive; hotel guests within 900 m walk." },
+                { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 600 m. Tourists from outside the city drive here and none arrive; hotel guests within 900 m walk." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations." },
                 // C# HubProblemCode MixedLiftTypes and SummitLodgeNotLiftServed (summit-served 300 m = SkiCatalog.Ladder
                 // .SummitServedRadiusM, CG-T6), SchoolNoGreenRun (the school's green run).
@@ -1221,9 +1221,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.GUESTS_ROW[Residents]", "Residents" },
                 { "SkiResort.Hub.GUESTS_ROW[Paid]", "Paid" },
                 { "SkiResort.Hub.GUESTS_ROW[Tickets]", "Ticket money" },
-                { "SkiResort.Hub.GUESTS_TIP[CarSpaces]", "Street, lot and garage spaces within 300 m of this lodge. Tourist parties drive here." },
+                { "SkiResort.Hub.GUESTS_TIP[CarSpaces]", "Street, lot and garage spaces within 600 m of this lodge. Tourist parties drive here." },
                 // The CAR SPACES fold header: its value is the total over the rows, one per active road lodge.
-                { "SkiResort.Hub.GUESTS_TIP[CarSpacesAll]", "Street, lot and garage spaces within 300 m of each active road lodge. Tourist parties drive here." },
+                { "SkiResort.Hub.GUESTS_TIP[CarSpacesAll]", "Street, lot and garage spaces within 600 m of each active road lodge. Tourist parties drive here." },
                 { "SkiResort.Hub.GUESTS_TIP[Tourists]", "People in tourist groups that arrived at this ski area's lodges or Welcome Sign." },
                 { "SkiResort.Hub.GUESTS_TIP[Groups]", "Tourists arrive in groups; each group counts once." },
                 { "SkiResort.Hub.GUESTS_TIP[Residents]", "Residents of your city who came to a lodge for leisure." },

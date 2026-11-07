@@ -24,4 +24,12 @@ its ring bright), placing a run (area tool, our run prefab), the lift tool, or t
 depot / station prefab (faint rings). Sign positions come from `SkiRunOwnershipSystem.CollectGatePositions` (managed scan of every
 building) on activation and every 60 frames. Option `ShowSkiAreaRadius`, default on.
 
+**The parking ring** (second layer of the same system, parking blue, independent of the first). `SkiParkingRules.RadiusM` (600 m)
+around a road lodge (`LodgeSupplyRule.IsRoadLodge(row, true)`: A-frame, Chalet, Grand; never Hut or Summit). Placing one with the
+object tool: bright around the ghost (the Temp building of that prefab, its Transform; the cursor's raycast hit when there is no
+ghost this frame) and faint around every lodge of the last parking census (`SkiLodgeParkingSystem.CopyLodgePositions`: road lodges
+with a row). A selected lodge with a census row: bright around it (its Transform), faint around the others. The Temp lookup is a
+main-thread `ToEntityArray` over Temp buildings, only while a road lodge is being placed (a handful of entities). Same option;
+nothing per frame in the log; the ARMED line names both layers. Why 600 m: EngineNotes/SkiLodgeParkingSystem.md "The radius".
+
 **The survey:** see EngineNotes/SkiSnowLineOverlaySystem.md, "The cursor lines and the site survey". Tests: ResortBatch AR-1..AR-3.
