@@ -161,3 +161,7 @@ against the 1.6.2f1 decompile.
 - **Cost**: the `[cost] chair mover` line counts the grips apart (paired, written per pass, Updated tags, animated on / off, the
   fallbacks). MoverBench B-5 (2,000 carriers, one thread, JIT, 2026-11-03, the roll about the rope tangent): rigid p50 0.261 ms, split p50 0.481 ms
   (0.240 us per carrier; +0.44 ms on the x2 mid-range estimate, 0.06 ms under the 0.5 ms budget); the job spreads it over the workers (B-3b: ~5x). Budget (PIPELINE.md): 0.5 ms worker, 0.1 ms main thread.
+  The gust (2026-11-06, two sin calls per carrier, one GustClock per loop and pass on the main thread): base vs head alternated, 3
+  rounds each on a loaded machine, split p50 0.249 / 0.340 / 0.335 vs 0.370 / 0.354 / 0.358 us per carrier (the steady rounds: about
+  +0.02 us, +0.04 ms per 2,000 carriers on one JIT thread). The B-5 budget line is load-noisy: it failed on the base commit too (0.70 /
+  0.71 ms in 2 of 3 rounds; 0.46 to 0.58 ms when the machine was quieter).
