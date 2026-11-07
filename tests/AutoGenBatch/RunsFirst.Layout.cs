@@ -1,8 +1,8 @@
-// RunsFirst layout (round v4): what a designer sees on the trail map, and scorecard v4's layout term reads. Each lift has its own
-// terminal: two bottoms (or two tops) on one spot are one shared station, which no real lift has; a top beside the next lift's bottom
-// is a transfer and is fine. A hub does not crowd: more than 4 terminals within 300 m (6 at a base) read as a knot of ropes. Lift
-// lines do not climb side by side up one valley (same direction within 20 degrees, under 250 m apart, overlapping 40 % of the longer
-// line): a designer runs one long lift and branches from its top.
+// RunsFirst layout (round v4): what a designer sees on the trail map, and what scorecard v4's layout term reads. Each lift has
+// its own terminal. Two bottoms (or two tops) on one spot are one shared station, which no real lift has. A top beside the next
+// lift's bottom is a transfer and is fine. A hub does not crowd: more than 4 terminals within 300 m (6 at a base) read as a
+// knot of ropes. Lift lines do not climb side by side up one valley (same direction within 20 degrees, under 250 m apart,
+// overlapping 40 % of the longer line). A designer runs one long lift and branches from its top.
 
 using System;
 using System.Collections.Generic;
@@ -50,9 +50,11 @@ namespace AutoGenBatch
                 && math.distance(bi, bj) > StackBottomMm;
         }
 
-        /// <summary>Scorecard v5's lone base, for a lift about to be placed: its bottom low (the lowest third of the lift-served vertical,
-        /// the new lift counted), no lift top within 150 m, no other low bottom within 300 m (it would be a base area of one) while
-        /// the plan has another base area, and no run from a base lift's top ending at it (a pod).</summary>
+        /// <summary>Scorecard v5's lone base, for a lift about to be placed. The lift is a lone base when:
+        /// - its bottom is low (the lowest third of the lift-served vertical, the new lift counted)
+        /// - no lift top lies within 150 m
+        /// - no other low bottom lies within 300 m (it would be a base area of one) while the plan has another base area
+        /// - no run from a base lift's top ends at it (a pod).</summary>
         private static bool LoneBase(Grid g, Plan plan, List<Lift> lifts, float2 b, float2 t)
         {
             if (lifts.Count == 0)
@@ -66,7 +68,7 @@ namespace AutoGenBatch
             var low = lifts.Where(lf => Low(lf.Bottom.xz)).ToList();
             if (low.Count == 0 || low.Any(lf => math.distance(lf.Bottom.xz, b) < BaseAreaM2))
                 return false;
-            // a pod: a run from a base lift's top ends at the bottom (unknown while the lifts are placed: no runs yet)
+            // a pod: a run from a base lift's top ends at the bottom (unknown while the code places the lifts: no runs yet)
             if (plan == null)
                 return true;
             return !plan.Runs.Any(r => !r.Graded && r.Pts.Count >= 2 && math.distance(r.Pts[r.Pts.Count - 1], b) < 55f
@@ -74,8 +76,8 @@ namespace AutoGenBatch
         }
 
         private const float BaseTopM2 = 160f, BaseAreaM2 = 290f;
-        // off by default (RF_LONEBASE=1): rejecting lone-base cover lifts and bridges took 24 -> 15 lone bases but cost coverage and grade
-        // mix where those lifts open terrain (ft5-r3 94.7 -> 92.8); visible 82.59 -> 82.06
+        // off by default (RF_LONEBASE=1): rejecting lone-base cover lifts and bridges took 24 -> 15 lone bases. It cost coverage and
+        // grade mix where those lifts open terrain (ft5-r3 94.7 -> 92.8). Visible 82.59 -> 82.06
         private static readonly bool NoLoneBase = Environment.GetEnvironmentVariable("RF_LONEBASE") == "1";
 
         private static readonly float StackDegM = Env("RF_STACKDEG", 33f), StackTopMm = Env("RF_STACKTOP", 330f), StackBottomMm = Env("RF_STACKBOT", 280f);
@@ -85,7 +87,7 @@ namespace AutoGenBatch
         private const float FallFreeDeg = 30f, FallFullDeg = 60f;
 
         /// <summary>Scorecard v5's fall-line angle of a lift line: the chord against the mean uphill gradient of the raw ground under it
-        /// (sampled every step m); 0 where that mean is under the green line (no fall line).</summary>
+        /// (sampled every step m). The angle is 0 where that mean is under the green line (no fall line).</summary>
         private static float FallDeg(Grid g, float2 b, float2 t, float step = 10f)
         {
             float2 d = t - b;
@@ -144,13 +146,13 @@ namespace AutoGenBatch
             return excess;
         }
 
-        // the spread may move a station along its own line too (RF_NOSPREADAXIS=1: off), and runs after each lift of the search and
-        // of the coverage pass (RF_NOSPREADEACH=1: off)
+        // the spread may move a station along its own line too (RF_NOSPREADAXIS=1: off). It also runs after each lift of the search
+        // and of the coverage pass (RF_NOSPREADEACH=1: off)
         private static readonly bool SpreadAxis = Environment.GetEnvironmentVariable("RF_NOSPREADAXIS") != "1";
         private static readonly bool SpreadEach = Environment.GetEnvironmentVariable("RF_NOSPREADEACH") != "1";
 
         /// <summary>A flat pad 46-130 m from cell c (for a bottom no higher than c, for a top no lower) that no other station of that
-        /// end holds: where a station on another lift's station can move to.</summary>
+        /// end holds. It is where a station on another lift's station can move to.</summary>
         private static bool FreePad(Grid g, List<Lift> lifts, int c, bool bottom)
         {
             float2 at = g.World(c);
@@ -172,12 +174,15 @@ namespace AutoGenBatch
             return false;
         }
 
-        /// <summary>Each lift its own terminal: a bottom on an earlier lift's bottom (or a top on an earlier lift's top) moves to a pad
-        /// of its own 46-130 m away, the nearest first, a bottom no higher than it was (the runs come down to it) and a top no lower
-        /// (its traverses leave from it); where it cannot, the earlier lift's station moves instead. A move is kept where the lift
-        /// still fits (pads, norms, rope clearance, no crossing of its kind, no station under a rope), its line stays off the runs,
-        /// the layout gets no worse (crowded terminals, parallel lines) and, once there is a plan, the ski graph loses nothing.
-        /// Before the plan (plan null) the line is held off the picked lines instead. Returns the stations moved.</summary>
+        /// <summary>Each lift gets its own terminal. A bottom on an earlier lift's bottom (or a top on an earlier lift's top) moves to
+        /// a pad of its own 46-130 m away, the nearest first. A bottom moves to a pad no higher than it was (the runs come down to it).
+        /// A top moves to a pad no lower (its traverses leave from it). Where it cannot move, the earlier lift's station moves
+        /// instead. The code keeps a move where all of these hold:
+        /// - the lift still fits (pads, norms, rope clearance, no crossing of its kind, no station under a rope)
+        /// - its line stays off the runs
+        /// - the layout gets no worse (crowded terminals, parallel lines)
+        /// - once there is a plan, the ski graph loses nothing.
+        /// Before the plan (plan null) the code holds the line off the picked lines instead. Returns the stations moved.</summary>
         private static int SpreadTerminals(Grid g, List<Lift> lifts, Plan plan, PointHash runs, bool bottomsOnly = false)
         {
             int moved = 0;
@@ -202,8 +207,8 @@ namespace AutoGenBatch
                             continue;
                         moves.Add((math.distance(p, at) + (end == 0 ? Math.Max(0f, dh) * 4f : Math.Max(0f, -dh) * 3f), c));
                     }
-                // or along its own line, toward the other station: where lines fan out from one spot a sideways move crosses the
-                // next line, a shorter line crosses nothing new (a little more rise allowed: the station stays on its own axis)
+                // or along its own line, toward the other station. Where lines fan out from one spot, a sideways move crosses the next line.
+                // A shorter line crosses nothing new (a little more rise allowed: the station stays on its own axis)
                 if (SpreadAxis)
                 {
                     float2 to = end == 0 ? lf.Top.xz : lf.Bottom.xz, u = math.normalize(to - at);

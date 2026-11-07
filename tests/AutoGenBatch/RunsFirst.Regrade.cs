@@ -1,10 +1,13 @@
-// RunsFirst regrade (round v3): the traverse from a lift top to the runs it opens falls at a run's grade where the reach let it, and
-// scorecard v3 reads such a piece as a diagonal blue run: across a face of fall-line runs it crowds every run it crosses, the short
-// pieces between forks are stubs, and one under a lift line lies on the chord. The grading tool cuts the traverse instead as a green
-// cat track: a bench that winds across the face between the same two points. The pass searches that bench for every diagonal
-// piece, then takes them in the order of the crowding and stubs they clear per meter of track, while the connector km stay inside
-// the economy share of the served run km; a piece no bench fits stays a diagonal run. After the chord repair has moved the runs, the
-// diagonal pieces still under the middle of a lift line that lies on runs are cut the same way, past the economy share.
+// RunsFirst regrade (round v3): the traverse from a lift top to the runs it opens falls at a run's grade where the reach let it.
+// Scorecard v3 reads such a piece as a diagonal blue run. Three things follow:
+// - Across a face of fall-line runs, the piece crowds every run it crosses.
+// - The short pieces between forks are stubs.
+// - A piece under a lift line lies on the chord.
+// The grading tool cuts the traverse instead as a green cat track: a bench that winds across the face between the same two points.
+// The pass searches that bench for every diagonal piece. Then it takes the pieces in the order of the crowding and stubs they
+// clear per meter of track. The connector km stay inside the economy share of the served run km. A piece that no bench fits
+// stays a diagonal run. After the chord repair moves the runs, the pass cuts the diagonal pieces the same way. It cuts only the
+// pieces still under the middle of a lift line that lies on runs. This cut goes past the economy share.
 
 using System;
 using System.Collections.Generic;
@@ -75,8 +78,8 @@ namespace AutoGenBatch
             return math.sqrt(best);
         }
 
-        /// <summary>The green cat tracks a diagonal piece could be cut as: the direct bench from its head to its foot (Keeps: it passes
-        /// every join the piece carried between its ends), and where that misses a join, a bench routed through the joins; null where
+        /// <summary>The green cat tracks a diagonal piece could be cut as. First, the direct bench from its head to its foot (Keeps: it passes
+        /// every join the piece carried between its ends). Where that misses a join, a bench routed through the joins. Null where
         /// none fits. tally counts the legs past the search budget [0] and the legs no bench reached [1].</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static (List<float2> Direct, bool Keeps, List<float2> Routed) Benches(Grid g, List<float2> old, JoinPoints jp, int[] tally)
@@ -431,7 +434,7 @@ namespace AutoGenBatch
         private static readonly float RegradeMinGain = Env("RF_RGMIN", 0.005f);   // a cut that moves the score less than this stays a diagonal
 
         /// <summary>Cuts diagonal traverse pieces as green cat tracks where a bench fits and the cut gains score (crowding, stubs and
-        /// economy against coverage, as the scorecard reads them); returns the pieces regraded.</summary>
+        /// economy against coverage, as the scorecard reads them). Returns the pieces regraded.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int RegradeTraverses(Grid g, Plan plan, List<Lift> lifts)
         {
@@ -453,8 +456,8 @@ namespace AutoGenBatch
                     open.Add((e, direct, keeps, routed));
             }
             int benches = open.Count;
-            // the cut that gains the most score first, while one gains; a direct bench that misses a join is kept where the ski graph
-            // loses nothing by it, else the bench routed through the joins
+            // the cut that gains the most score first, while one gains. The code keeps a direct bench that misses a join where the ski graph
+            // loses nothing by it. Otherwise it uses the bench routed through the joins
             int done = 0, checkedCuts = 0, refused = 0;
             float km = 0f, gained = 0f;
             SkiRead before = null;
@@ -638,8 +641,8 @@ namespace AutoGenBatch
         }
 
         /// <summary>The runs a lift line's middle may not lie along, as scorecard v3 reads them (runs, and graded tracks steeper than
-        /// the blue line), with the connector each graded track is (-1 for a plan run) and whether it is a green run (a learning
-        /// chair's own green run is not counted under its line).</summary>
+        /// the blue line). It returns each with the connector that the graded track is (-1 for a plan run). It also returns whether the
+        /// element is a green run (a learning chair's own green run does not count under its line).</summary>
         private static List<(List<float2> D, int Conn, PlanRun Run, bool Green)> ChordEls(Grid g, Plan plan)
         {
             var els = new List<(List<float2>, int, PlanRun, bool)>();
@@ -704,11 +707,11 @@ namespace AutoGenBatch
 
         private const float ChordViolationWorth = 0.8f;   // the score a cleared line may cost elsewhere (a violation costs 0.86 to 0.95)
 
-        /// <summary>A lift line whose middle still lies along runs after the chord repair: the diagonal pieces under it are cut as green
-        /// cat tracks (a cat track under a lift line is no run), the most under the line first, and where that does not clear it, the
-        /// plan runs under it go, while the ground and crowding they cost (as the scorecard reads them) stay under a violation's
-        /// worth. Each change is kept where the ski graph loses nothing, and a line's changes are undone when it does not clear.
-        /// Returns the lines cleared.</summary>
+        /// <summary>A lift line whose middle still lies along runs after the chord repair. The method cuts the diagonal pieces under it as green
+        /// cat tracks (a cat track under a lift line is no run), the most under the line first. Where that does not clear the line, the
+        /// method removes the plan runs under it. It does this only while the ground and crowding they cost (as the scorecard reads them)
+        /// stay under a violation's worth. It keeps each change where the ski graph loses nothing. It undoes a line's changes when they
+        /// do not clear the line. Returns the lines cleared.</summary>
         private static int ClearChordTracks(Grid g, Plan plan, List<Lift> lifts)
         {
             int cleared = 0;

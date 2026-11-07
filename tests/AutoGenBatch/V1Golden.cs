@@ -1,9 +1,9 @@
-// Gate V1-1 (Resort Planner v2, stage A): the v1 planner's result fingerprints, recorded from main at the branch point (before any
-// v2 hook existed), replayed here in Runs mode (the planner's default). Any change to the v1 stage machine, field, seeds, select,
-// finish or fingerprint that is not bit-identical shows up as a FAIL line naming the fixture.
+// Gate V1-1 (Resort Planner v2, stage A) holds the v1 planner's result fingerprints. They were recorded from main at the branch point
+// (before any v2 hook existed). This file replays them in Runs mode (the planner's default). Any change to the v1 stage machine, field,
+// seeds, select, finish or fingerprint that is not bit-identical causes a FAIL line naming the fixture.
 // `dotnet run --project tests/AutoGenBatch/AutoGenBatch.csproj -c Release -- golden` prints the table in source form (CoreCLR,
 // the fingerprint is a pure function of the input within a runtime, SkiRunAutoPlanner.cs header). Re-record only when main's v1
-// planner changed on purpose (the merge commit says so), never to silence a v2 difference.
+// planner changed on purpose (the merge commit says so). Never re-record to silence a v2 difference.
 
 using System;
 using System.Collections.Generic;
@@ -114,7 +114,7 @@ namespace AutoGenBatch
             }
         }
 
-        /// <summary>V1-1: every golden case in Runs mode reproduces its recorded fingerprint; V1-2: and allocates nothing of v2.</summary>
+        /// <summary>V1-1: every golden case in Runs mode reproduces its recorded fingerprint. V1-2: every golden case also allocates nothing of v2.</summary>
         private static void V1GoldenTests()
         {
             Check(GoldenTable.Length > 0, "V1Golden", "no golden fingerprints recorded");

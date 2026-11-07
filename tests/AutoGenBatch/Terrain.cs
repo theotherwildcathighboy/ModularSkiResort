@@ -1,5 +1,5 @@
-// Synthetic terrains for AutoGenBatch: an analytic height function sampled into a HeightSnapshot exactly as the game stores heights
-// (R16 texels on the vanilla 4096 x 14,336 m map, 3.5 m texels, heightScale 4096 m), region polygons, and value-noise fBm.
+// Synthetic terrains for AutoGenBatch. The code samples an analytic height function into a HeightSnapshot exactly as the game stores
+// heights (R16 texels on the vanilla 4096 x 14,336 m map, 3.5 m texels, heightScale 4096 m). The file also has region polygons and value-noise fBm.
 
 using System;
 using SkiResortMod.Systems;
@@ -11,8 +11,8 @@ namespace AutoGenBatch
 
     internal static class Terrain
     {
-        // The vanilla default map: TerrainSystem.cs:2618-2622 (scale = (res.x, res.y - 1, res.z) / (14336, heightScale, 14336);
-        // texel 0's center at -offset.xz = -7166.25, the capture origin of tests/SlopeBatch/captures).
+        // The vanilla default map: TerrainSystem.cs:2618-2622. The scale is (res.x, res.y - 1, res.z) / (14336, heightScale, 14336).
+        // Texel 0's center is at -offset.xz = -7166.25. This is the capture origin of tests/SlopeBatch/captures.
         public const int Res = 4096;
         public static readonly float3 Scale = new float3(4096f / 14336f, 65535f / 4096f, 4096f / 14336f);
         public static readonly float3 Offset = new float3(7166.25f, 0f, 7166.25f);
@@ -84,7 +84,7 @@ namespace AutoGenBatch
         private const double AlpineRimS = -1100.0, AlpineSpanS = 2200.0, AlpineRimY = 1750.0, BowlR = 5000.0;
         private const double ProfileStep = 2.0, ProfileS0 = -1600.0, ProfileS1 = 1700.0;
 
-        /// <summary>Grade along the fall line at t = (s - rim) / span (0 rim, 1 base); negative behind the rim (the crest).</summary>
+        /// <summary>Grade along the fall line at t = (s - rim) / span (0 rim, 1 base). The grade is negative behind the rim (the crest).</summary>
         private static double AlpineGrade(double t)
         {
             if (t < 0.0)
@@ -113,7 +113,7 @@ namespace AutoGenBatch
             return h;
         }
 
-        /// <summary>The field-mirror mountain (see the block comment above); seed moves the summits, the relief, the cliff bands and
+        /// <summary>The field-mirror mountain (see the block comment above). The seed moves the summits, the relief, the cliff bands and
         /// the gullies.</summary>
         public static HeightFn Alpine(uint seed)
         {
@@ -200,9 +200,9 @@ namespace AutoGenBatch
         // so the terrain above the bench is lowered by S x 1.5 W and noise on the bench is damped with the slope. T never reverses the
         // height order (the slope stays at least 1 - S), so ridges, gullies and cliffs survive everywhere else.
 
-        /// <summary>A Mountain-Village-like steep synthetic over the 2.5 km square Square(0, 0, 1250): about 1,100-1,400 m of vertical,
-        /// face slope 45-55 % plus relief that puts the mean grade at 50-65 % and about 15 % of the cells over 100 %, patchy rock
-        /// bands, drainage gullies, and two benches of about 6-10 ha at 0.35 and 0.6 of the vertical. Seed moves the relief, the bands,
+        /// <summary>A Mountain-Village-like steep synthetic over the 2.5 km square Square(0, 0, 1250). It has about 1,100-1,400 m of vertical
+        /// and a face slope of 45-55 %. Relief puts the mean grade at 50-65 % and about 15 % of the cells over 100 %. It also has patchy rock
+        /// bands, drainage gullies, and two benches of about 6-10 ha at 0.35 and 0.6 of the vertical. The seed moves the relief, the bands,
         /// the gullies and the face slope.</summary>
         public static HeightFn Steep(uint seed)
         {
@@ -248,8 +248,8 @@ namespace AutoGenBatch
         }
 
         /// <summary>The Alpine bowl with three benches cut into its fall line (the Whistler / Revelstoke pattern: a wide shelf between two
-        /// steep faces) at 0.22, 0.42 and 0.62 of the vertical: about 35-40 ha, 22-24 ha and 10-14 ha (the top one is cut into the rim
-        /// face and cannot grow wider than that without merging with the middle one).</summary>
+        /// steep faces) at 0.22, 0.42 and 0.62 of the vertical. The benches are about 35-40 ha, 22-24 ha and 10-14 ha. The top one is cut into
+        /// the rim face and cannot grow wider than that without merging with the middle one.</summary>
         public static HeightFn Benched(uint seed) =>
             Terraced(Alpine(seed), 0.0, 1000.0, new[] { 0.22, 0.42, 0.62 }, new[] { 170.0, 330.0, 150.0 }, new[] { 750.0, 750.0, 750.0 }, 300.0, 0.97);
 
@@ -326,7 +326,7 @@ namespace AutoGenBatch
                 return m_S * mask * m_W * f;
             }
 
-            /// <summary>F(u) = integral from -1 to u of the window (1 for |v| &lt;= 0.5, cos^2 fades to 0 at |v| = 1); F(1) = 1.5.</summary>
+            /// <summary>F(u) = integral from -1 to u of the window (1 for |v| &lt;= 0.5, cos^2 fades to 0 at |v| = 1). F(1) = 1.5.</summary>
             private static double[] BuildF()
             {
                 var f = new double[N + 1];

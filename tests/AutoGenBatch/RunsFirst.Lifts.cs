@@ -1,8 +1,11 @@
 // RunsFirst lifts (prototype): lifts placed to serve the picked lines, the way a resort is laid out around its terrain.
-// A lift top "reaches" every cell a skier gets to from it without climbing (+3 % at most) and without anything steeper than a
-// black start (40 %) or crossing a cliff cell: the traverse along a ridge that opens a whole wall or bowl. A line counts for a lift
-// from the highest point the top reaches down to where the line (or the drainage below it) passes the lift's bottom station.
-// Greedy by new vertical served; stacked lifts fall out of it (a lower lift is credited with the lower parts of long lines).
+// A lift top "reaches" every cell a skier gets to from it with these limits:
+// - no climbing (+3 % at most)
+// - nothing steeper than a black start (40 %)
+// - no crossing of a cliff cell.
+// The traverse along a ridge that opens a whole wall or bowl is an example. A line counts for a lift from the highest point the
+// top reaches down to where the line (or the drainage below it) passes the lift's bottom station. The search is greedy by new
+// vertical served. Stacked lifts fall out of it (a lower lift is credited with the lower parts of long lines).
 
 using System;
 using System.Collections.Concurrent;
@@ -24,8 +27,8 @@ namespace AutoGenBatch
         private const float StationMax = 0.34f;   // raw 10 m grade a station pad may sit on (the scorecard flags over 0.40)
         private static readonly float TopLatticeM = Env("RF_LAT", 100f), ReturnM = Env("RF_RET", 150f);
         private static readonly float ReachBudget = Env("RF_RBUDGET", 15e6f);   // cells the top lattice's reach searches may visit
-        // a lattice point with no pad within 30 m takes the flattest pad within this reach (about half the lattice diagonal, so
-        // every pad on a steep ridge belongs to some lattice point), as a top for the coverage lifts only
+        // a lattice point with no pad within 30 m takes the flattest pad within this reach, as a top for the coverage lifts only.
+        // The reach is about half the lattice diagonal, so every pad on a steep ridge belongs to some lattice point
         private static readonly float PadReachM = Env("RF_PADR", 70f);
         private static readonly int ScanThreads = Math.Max(1, (int)Env("RF_THREADS", 4f));   // threads for the top lattice's reach scan
         private const float MarginalShare = 0.1f;   // a lift worth less than this share of the first is marginal
@@ -52,7 +55,7 @@ namespace AutoGenBatch
             public int TopCell, BottomCell, TopIndex, BottomIndex;
             public float Transfer;          // credit for delivering skiers to other lifts' bottoms (over a ridge into a bowl)
             public bool RidesDown;          // a download lift (no ski-out): a gondola or tram whatever its rise
-            public float OpensKm2;          // a coverage lift: the skiable ground it was placed to open
+            public float OpensKm2;          // a coverage lift: the skiable ground the code placed it to open
             public float Length, Rise, Gain, BottomGrade;
             public readonly List<Line> Lines = new List<Line>();
             public readonly List<List<float2>> Traverses = new List<List<float2>>();
@@ -157,7 +160,7 @@ namespace AutoGenBatch
                             bottoms.Add(c);
                     }
             }
-            // where each line passes each bottom (first / last index along Pts + Flow; -1 = never)
+            // where each line passes each bottom (first / last index along Pts + Flow, -1 = never)
             int B = bottoms.Count;
             var passFirst = new int[lines.Count, B];
             var passLast = new int[lines.Count, B];
@@ -191,9 +194,9 @@ namespace AutoGenBatch
             var cReachBits = new List<ulong[]>();
             var dist = new float[n];
             Array.Fill(dist, float.PositiveInfinity);
-            // the lattice in levels, coarse to fine (400 m, its centers, 200 m, its centers, 100 m): on wide gentle ground every
-            // top reaches most of the region, so a finer level is scanned only while the reach work stays in budget (a gentle
-            // 9 km2 valley would take seconds); the tops keep the lattice order
+            // the lattice in levels, coarse to fine (400 m, its centers, 200 m, its centers, 100 m). On wide gentle ground every
+            // top reaches most of the region. So the code scans a finer level only while the reach work stays in budget (a gentle
+            // 9 km2 valley would take seconds). The tops keep the lattice order
             var lattice = new List<(int Order, int Level, int T, bool Far)>();
             for (int z = step / 2, j = 0, order = 0; z < g.D; z += step, j++)
                 for (int x = step / 2, i = 0; x < g.W; x += step, i++, order++)
@@ -213,7 +216,7 @@ namespace AutoGenBatch
             var scanned = new SortedDictionary<int, (int T, int[] E, bool Any, bool[] Rb, ulong[] Bits, bool Far)>();
             long work = 0;
             int levels = 0;
-            // each top's reach is independent of the others, so a level's tops are scanned on a few threads, each with its own
+            // each top's reach is independent of the others. So the code scans a level's tops on a few threads, each with its own
             // search buffers (the plan is the same on any thread count)
             var buffers = new ConcurrentBag<(float[] Dist, int[] Parent, bool[] Mark)>();
             (float[] Dist, int[] Parent, bool[] Mark) NewBuffers()
@@ -361,7 +364,7 @@ namespace AutoGenBatch
                         string type = TypeFor(g, bc, t);
                         if (type == null || (gain + transfer) * Capacity(type) <= best)
                             continue;
-                        // v5: a lift climbs its slope's fall line; one that climbs sideways across the slope is worth less (no cost to
+                        // v5: a lift climbs its slope's fall line. A lift that climbs sideways across the slope is worth less (no cost to
                         // 30 degrees off the fall line, FallW of the value at 60)
                         float value = (gain + transfer) * Capacity(type);
                         if (LiftFallW > 0f)
@@ -383,8 +386,8 @@ namespace AutoGenBatch
                 }
                 if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
                     Console.WriteLine($"DEBUG lift {lifts.Count + 1}: {bestType} gain {bestOwn:F0} transfer {bestTransfer:F0} value {best:F0} top {g.World(tops[bt]).x:F0},{g.World(tops[bt]).y:F0} bottom {g.World(bottoms[bb]).x:F0},{g.World(bottoms[bb]).y:F0}{(firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut) ? " (marginal, opens a base: skipped)" : "")}");
-                // a marginal lift may not open a base of its own: a low station away from every other base needs its own beginner
-                // terrain and services, which a lift worth that little does not earn
+                // a marginal lift may not open a base of its own. A low station away from every other base needs its own beginner
+                // terrain and services. A lift worth that little does not earn them
                 if (firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut))
                 {
                     excluded.Add(bb);
@@ -402,9 +405,9 @@ namespace AutoGenBatch
                 };
                 lift.Rise = lift.Top.y - lift.Bottom.y;
                 lift.Length = math.distance(lift.Top, lift.Bottom);
-                // a bottom on a placed lift's bottom moves to a pad of its own now, while the lines that fan out from that spot are
-                // few (once all are placed, every sideways move crosses the next line); tops wait for the coverage lifts (their index).
-                // Where no pad is free (a crowded base) the lift is not placed: the search takes the next pair
+                // a bottom on a placed lift's bottom moves to a pad of its own now. The lines that fan out from that spot are few now. Once
+                // the search places all of them, every sideways move crosses the next line. Tops wait for the coverage lifts (their index).
+                // Where no pad is free (a crowded base) the lift is not placed. The search takes the next pair
                 if (spread)
                 {
                     var keep = lifts.ConvertAll(lf => (lf.Bottom, lf.BottomCell, lf.Top, lf.TopCell, lf.Rise, lf.Length));
@@ -497,7 +500,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The flattest cell (raw 10 m grade) within r meters of c that a station pad may sit on, nearer cells first on a
-        /// tie; -1 when none is at or under StationMax.</summary>
+        /// tie. Returns -1 when none is at or under StationMax.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int FlatCell(Grid g, int c, float r)
         {
@@ -525,7 +528,7 @@ namespace AutoGenBatch
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         /// <summary>A lift line along the region edge: over half of its chord's middle within EdgeLiftM of ground outside the region (the
-        /// low ground a station wants often lies on the edge of a cut-out region; a designer keeps the line inside it).</summary>
+        /// low ground a station wants often lies on the edge of a cut-out region, and a designer keeps the line inside it).</summary>
         private static bool AlongEdge(Grid g, int b, int t)
         {
             if (EdgeLiftM <= 0f)
@@ -563,15 +566,17 @@ namespace AutoGenBatch
         private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f, string type = null, int beside = 0)
         {
             int v4 = 0;
-            // a twin (both ends within TwinM), a parallel (the middle 60 % within parallelM of the placed chord), or a crossing in
-            // plan away from a shared station (a gondola or tram may cross a chair: the owner's rule, pending an in-game check)
+            // this check returns true for:
+            // - a twin (both ends within TwinM)
+            // - a parallel (the middle 60 % within parallelM of the placed chord)
+            // - a crossing in plan away from a shared station (a gondola or tram may cross a chair: the owner's rule, pending an in-game check)
             float2 a0 = g.World(b), a1 = g.World(t);
             foreach (Lift lf in lifts)
             {
                 float2 b0 = lf.Bottom.xz, b1 = lf.Top.xz;
                 if (math.distance(a1, b1) < TwinM && math.distance(a0, b0) < TwinM)
                     return true;
-                // scorecard v5.1: one lift riding up on another's line (tops together, bottoms apart) is rejected
+                // scorecard v5.1: the code rejects one lift riding up on another's line (tops together, bottoms apart)
                 if (NoStacked && StackedLines(a0, a1, b0, b1))
                     return true;
                 bool parallel = true;
@@ -658,8 +663,8 @@ namespace AutoGenBatch
         }
 
         /// <summary>Dijkstra from a lift top over the cells a skier reaches without climbing (+3 %), without a pitch over 35 % and
-        /// without a cliff cell, out to 1.5 km; on the raw terrain the path back holds the connector rules (no 30 m pitch over
-        /// AccessRawPitch, no rise over AccessRawRise within 55 m). Returns the touched cells (the caller resets dist); parent points
+        /// without a cliff cell, out to 1.5 km. On the raw terrain the path back holds the connector rules (no 30 m pitch over
+        /// AccessRawPitch, no rise over AccessRawRise within 55 m). Returns the touched cells (the caller resets dist). Parent points
         /// home.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<int> Reach(Grid g, float[] slope, int t, float[] dist, int[] parent)
@@ -734,7 +739,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The cheapest lift type whose length / rise / mean grade norms fit and whose chord clears the ground (terrain at
-        /// most TowerLiftM above the straight line); null when none fits. Long chairs prefer the detachable.</summary>
+        /// most TowerLiftM above the straight line). Returns null when none fits. Long chairs prefer the detachable.</summary>
         private static readonly float MaxRiseM = Env("RF_MAXRISE", 0f);
 
         private static string TypeFor(Grid g, int b, int t)
@@ -742,8 +747,8 @@ namespace AutoGenBatch
             // the real ground, as the rope sees it: raw heights at the stations and every 10 m along the chord
             float3 a = new float3(g.World(b).x, g.Hr[b], g.World(b).y), c = new float3(g.World(t).x, g.Hr[t], g.World(t).y);
             float len = math.distance(a, c), rise = c.y - a.y, run = math.distance(a.xz, c.xz);
-            // optional stacking cap (from the opus-med contest entry): no lift over RF_MAXRISE m of rise. Off by default: at 560 m it
-            // halved the served vertical on alpine terrain (Chamonix 97.9 -> 93.9) and cost ft5-r4 4 points; at 700 m ft5-r2 lost 6.6
+            // optional stacking cap (from the opus-med contest entry): no lift over RF_MAXRISE m of rise. Off by default. At 560 m it
+            // halved the served vertical on alpine terrain (Chamonix 97.9 -> 93.9) and cost ft5-r4 4 points. At 700 m ft5-r2 lost 6.6
             if (MaxRiseM > 0f && rise > MaxRiseM)
                 return null;
             for (float d = 10f; d < run - 10f; d += 10f)
@@ -784,10 +789,10 @@ namespace AutoGenBatch
             return "gondola";
         }
 
-        /// <summary>v5, the type by use on the finished plan (RF_TYPEUSE=2, the default): the lifts are placed as before (the ladder
-        /// by rise sets their value), then a gondola or tram that is neither the village lift nor a download lift becomes the chair
-        /// its line allows, and a gondola past TramRise a tram, where no chair line crosses it and the ski graph keeps its links and
-        /// ways home (a gondola top also takes skiers down). Returns the lifts changed.</summary>
+        /// <summary>v5, the type by use on the finished plan (RF_TYPEUSE=2, the default). The code places the lifts as before (the
+        /// ladder by rise sets their value). Then a gondola or tram that is neither the village lift nor a download lift becomes the
+        /// chair its line allows. A gondola past TramRise becomes a tram. Both changes happen where no chair line crosses the lift and
+        /// the ski graph keeps its links and ways home (a gondola top also takes skiers down). Returns the lifts changed.</summary>
         private static int RetypeByUse(Grid g, Plan plan, List<Lift> lifts, Lift village)
         {
             int changed = 0;

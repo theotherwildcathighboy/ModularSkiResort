@@ -1,8 +1,11 @@
-// V2 gate matrix (A1): `dotnet run ... -- v2` plans every region of every fixture (synthetic in git, real heightmaps from the fixture
-// folder) in Resort mode and evaluates the gate metrics of stage-a-gates section 2. Output per gate ID: FAIL (a HARD gate missed),
-// REPORT (a SOFT or not yet armed gate: value and target), SKIP (nothing to run on this machine). A gate becomes HARD when its owner task
-// adds its ID to V2Hard below (A3: S-1..S-3, A4: S-4..S-7, A5: F-1..F-10, A6: H-1..H-6); until then a miss is a REPORT, so a stubbed
-// planner never fails the host. The default run (CI) never reaches this file: it only runs the in-git unit suites.
+// V2 gate matrix (A1): `dotnet run ... -- v2` plans every region of every fixture in Resort mode. The fixtures are synthetic (in git)
+// or real heightmaps (from the fixture folder). The run evaluates the gate metrics of stage-a-gates section 2. Output per gate ID:
+// - FAIL (a HARD gate missed)
+// - REPORT (a SOFT or not yet armed gate: value and target)
+// - SKIP (nothing to run on this machine)
+// A gate becomes HARD when its owner task adds its ID to V2Hard below (A3: S-1..S-3, A4: S-4..S-7, A5: F-1..F-10, A6: H-1..H-6).
+// Until then a miss is a REPORT, so a stubbed planner never fails the host. The default run (CI) never reaches this file.
+// It only runs the in-git unit suites.
 
 using System;
 using System.Collections.Generic;
@@ -24,7 +27,7 @@ namespace AutoGenBatch
             "H-1", "H-2", "H-3", "H-5", "H-6", "F-10",   // A6 (H-5 / H-6 stay SOFT: V2AlwaysSoft)
             "F-9",   // A-R round 1 (calibration f): the redefined kept share where the fans run. H-4 / F-2 are coded to their
                      // armed definitions but stay REPORT: their -- v2 misses need planner work past this round (EngineNotes ResortPlanner.md)
-            "F-5",   // DECISIONS 455: the 30 m near gap; the floor is the gap plus a pinch half width outside merge and split zones
+            "F-5",   // DECISIONS 455: the 30 m near gap. The floor is the gap plus a pinch half width outside merge and split zones
         };
 
         /// <summary>IDs that stay REPORT even when armed: SOFT in the gates table (F-8, H-5 for pinned-only plans, H-6, the bottom height).</summary>
@@ -53,7 +56,7 @@ namespace AutoGenBatch
             Console.WriteLine($"SKIP  {id}: {why}");
         }
 
-        /// <summary>One gate result of one case: HARD miss = FAIL, any other miss = REPORT; passes print a REPORT line too (value and target).</summary>
+        /// <summary>One gate result of one case: HARD miss = FAIL, any other miss = REPORT. Passes print a REPORT line too (value and target).</summary>
         private static void V2Emit(V2Case c, Gate g, bool softHere)
         {
             string id = g.Id;
@@ -149,7 +152,7 @@ namespace AutoGenBatch
             double seconds = sw.Elapsed.TotalSeconds;
             float km2 = r.RegionAreaM2 > 0f ? r.RegionAreaM2 / 1.0e6f : c.AreaKm2;
 
-            // V1-2 / V1-4: Runs mode allocates nothing of v2; Resort keeps the refusal ladder (same status as Runs)
+            // V1-2 / V1-4: Runs mode allocates nothing of v2. Resort keeps the refusal ladder (same status as Runs)
             V2Emit(c, new Gate("V1-2", v1.Resort == null && pRuns.ResortLayerBytes == 0 && (r.Status != AutoPlanStatus.Ok || r.Resort != null), 0, "Runs mode: no ResortPlan and no v2 layers; Resort mode: a plan whenever the scan is Ok"), false);
             V2Emit(c, new Gate("V1-4", r.Status == v1.Status || (v1.Status == AutoPlanStatus.NoRuns && r.Status == AutoPlanStatus.Ok), 0, $"Resort status {r.Status}, Runs status {v1.Status}"), false);   // NoRuns is a selection outcome, not a refusal: the A5 fans may find runs v1 did not
 
@@ -195,7 +198,7 @@ namespace AutoGenBatch
             V2Emit(c, V2Metrics.F7Density(r, p, km2, steepCompact, knobs.Density), softFans);
             V2Emit(c, V2Metrics.F8RunGeometry(r), false);
             V2Emit(c, V2Metrics.F9Collapse(r), (softFans && !(c.Fixture == "Alpine" || c.Id.StartsWith("MountainVillage field", StringComparison.Ordinal))) || r.Candidates <= 0 ||
-                p.Lifts.Length == 0);   // F-9 is named HARD on the Alpine bowl and every MV region; a plan without lifts seeds v1 runs (class 1), not fans
+                p.Lifts.Length == 0);   // F-9 is named HARD on the Alpine bowl and every MV region. A plan without lifts seeds v1 runs (class 1), not fans
             V2Emit(c, V2Metrics.F10MixHonest(r, p, rate), softFans);
             V2Emit(c, V2Metrics.H1Verdicts(p), p.Lifts.Length == 0);   // A6: n/a without lifts is no miss
             V2Emit(c, V2Metrics.H2Honesty(r, p, rate), p.Lifts.Length == 0);
@@ -205,9 +208,9 @@ namespace AutoGenBatch
             V2Emit(c, V2Metrics.H5Reachability(r, p), false);
             V2Emit(c, V2Metrics.H6GreenShare(p), false);
 
-            // P-1 is a v1 gate (synthetic 9 km2 fixtures, FillTests): one run is noisy at the millisecond (GC, JIT), so a miss is re-measured
+            // P-1 is a v1 gate (synthetic 9 km2 fixtures, FillTests). One run is noisy at the millisecond (GC, JIT), so a miss is re-measured
             // once and the smaller figure counts. On the real heightmaps a miss stays REPORT (that is v1 unit time on terrain the v1 gate
-            // never saw; the planner is not tuned here, DECISIONS / handover note).
+            // never saw). The planner is not tuned here (DECISIONS / handover note).
             double unitMs = UnitMsWithoutTowerPlans(r);   // A4: tower plan units are P-5's (spec 4.4: 10-44 ms each, on the worker)
             if (unitMs >= 4.0)
                 unitMs = Math.Min(unitMs, UnitMsWithoutTowerPlans(new SkiRunAutoPlanner().Run(inRes)));
@@ -228,8 +231,9 @@ namespace AutoGenBatch
                      $"{home[1]}/{home[2]}/{home[3]}/{home[4]}/{home[5]} | {p.DeadEnds} | {seconds:F2} | {r.MaxUnitMs:F1} | {pRes.ResortLayerBytes / 1.0e6:F1}");
         }
 
-        /// <summary>AR-1 fix 3: the host recount of the dead ends from the graph (FAIL when it disagrees with DeadEnds; the matrix has no
-        /// obstacles) and one REPORT line per dead end with its cause figures, so the next round counts causes instead of inferring them.</summary>
+        /// <summary>AR-1 fix 3: the host recount of the dead ends from the graph. The recount is FAIL when it disagrees with DeadEnds.
+        /// The matrix has no obstacles. The test also adds one REPORT line per dead end with its cause figures, so the next round counts causes
+        /// instead of inferring them.</summary>
         private static void V2DeadEnds(V2Case c, AutoPlanResult r, ResortPlan p)
         {
             List<int> dead = V2Metrics.HostDeadEnds(r, p);

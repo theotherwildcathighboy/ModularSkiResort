@@ -1,12 +1,14 @@
 // RunsFirst way home (round v3): every lift needs an easy way home, Whistler's "easiest way down": a green cat track cut with the
-// grading tool that winds across whole faces from the lift's top to a base, crossing black runs as a bench where it must. The
-// planner reads the plan the way scorecard v3 does (bases, bands, a gondola or tram top a skier may ride down from) and, for every
-// lift whose top has no green or blue route home, searches uphill from where home is (the base lifts' bottoms, gondola and tram tops,
-// and every green or blue run or track already leading home) over ground a graded track can be cut across, until it reaches
-// the lift's top. The routes share one search tree, so later tracks join earlier ones. The search takes pitches up to the blue
-// line along the path, so the shortest easy route home is a blue diagonal run where it takes them (a run, not connector km: the
-// green cat tracks it saves leave the connector budget to the regrade) and a green cat track where it stays under the blue line;
-// a second search under the green limits takes the lifts the first could not serve (a blue route lying along a lift line). Where
+// grading tool. The track winds across whole faces from the lift's top to a base, crossing black runs as a bench where it must.
+// The planner reads the plan the way scorecard v3 does (bases, bands, a gondola or tram top a skier may ride down from). For every
+// lift whose top has no green or blue route home, it searches uphill from where home is, until it reaches the lift's top. Home is
+// the base lifts' bottoms, gondola and tram tops, and every green or blue run or track already leading home. The search runs over
+// ground a graded track can be cut across.
+// The routes share one search tree, so later tracks join earlier ones. The search takes pitches up to the blue
+// line along the path. So the shortest easy route home is a blue diagonal run where it takes them. It is a run, not connector km:
+// the green cat tracks it saves leave the connector budget to the regrade. The route is a green cat track where it stays under
+// the blue line.
+// A second search under the green limits takes the lifts the first could not serve (a blue route lying along a lift line). Where
 // none fits at all, the lift is a download lift, and a download lift must be a gondola or tram.
 
 using System;
@@ -26,7 +28,7 @@ namespace AutoGenBatch
         private static readonly EasyLimits WayBlue = new EasyLimits(0.45f, 0.37f, ConnPitchMax, 3.5f, 0.08f, 9000f, true);
         private const float WayStartM = 120f;   // a way home starts this close to the top (the scorecard's 150 m)
 
-        /// <summary>Scorecard v3's bases: lift bottoms chained within 400 m; a base is such a cluster with two or more bottoms in the
+        /// <summary>Scorecard v3's bases: lift bottoms chained within 400 m. A base is such a cluster with two or more bottoms in the
         /// lowest 35 % of the region's relief, or the lowest lift's cluster when none has. Returns each lift's cluster root.</summary>
         private static int[] V3Bases(Grid g, List<Lift> lifts, out HashSet<int> bases)
         {
@@ -149,7 +151,7 @@ namespace AutoGenBatch
         }
 
         // round v3's rule (every lift needs an easy way home: way-home tracks from every top, download gondolas, stranded lifts taken
-        // out); scorecard v4 reads experts-only lifts as normal, so it is off (RF_V3HOME=1 turns it back on)
+        // out). Scorecard v4 reads experts-only lifts as normal, so the rule is off (RF_V3HOME=1 turns it back on)
         private static readonly bool V3Home = Environment.GetEnvironmentVariable("RF_V3HOME") == "1";
 
         /// <summary>A lift still without an easy way home is a download lift: its riders ride it down, so it is a gondola, or a tram
@@ -164,7 +166,7 @@ namespace AutoGenBatch
             for (int L = 0; L < lifts.Count; L++)
             {
                 Lift lf = lifts[L];
-                // v4: an experts-only lift is normal; only a lift with no ski-out at all (nothing from its top comes back to a lift)
+                // v4: an experts-only lift is normal. Only a lift with no ski-out at all (nothing from its top comes back to a lift)
                 // rides down
                 if (ok[L] || Aerial(lf.Type) || !V3Home && sg.Skied[L].Any(i => sg.Returns[i]))
                     continue;
@@ -183,13 +185,17 @@ namespace AutoGenBatch
             return changed;
         }
 
-        /// <summary>A lift that still has no way home and cannot be a download lift breaks the owner's first rule (every upper lift
-        /// gets a green or blue way down), and a lift with no served run is a dead lift. Each is taken out with the skiing that then
-        /// serves no one (runs and tracks no other lift's skiers reach, runs that came home only to its bottom), where the rest of the
-        /// ski graph loses nothing: every other lift keeps its way home and its served runs, the links hold (the largest linked set
-        /// loses at most the lift itself), the bases keep their share of green laps, and every element left keeps being reached and
-        /// coming home. With chords set (after the chord repairs): a lift whose line still lies along runs (the scorecard's
-        /// chord-on-run test) or crosses another lift of its kind, taken out only where every run it serves is another lift's run too. Returns the lifts taken out.</summary>
+        /// <summary>A lift can break the owner's first rule (every upper lift gets a green or blue way down). That happens when it still has
+        /// no way home and cannot be a download lift. A lift with no served run is a dead lift. The method takes out each of these lifts
+        /// together with the skiing that then serves no one. This skiing is runs and tracks no other lift's skiers reach, and runs that came
+        /// home only to its bottom. The method does this only where the rest of the ski graph loses nothing:
+        /// - every other lift keeps its way home and its served runs
+        /// - the links hold (the largest linked set loses at most the lift itself)
+        /// - the bases keep their share of green laps
+        /// - every element left keeps being reached and coming home
+        /// With chords set (after the chord repairs), the method also takes out two kinds of lift. One kind is a lift whose line still lies
+        /// along runs (the scorecard's chord-on-run test). The other kind is a lift whose line crosses another lift of its kind. It does this
+        /// only where every run the lift serves is another lift's run too. Returns the lifts taken out.</summary>
         private static int DropStrandedLifts(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands, bool chords = false)
         {
             int dropped = 0;
@@ -314,7 +320,7 @@ namespace AutoGenBatch
             return added;
         }
 
-        /// <summary>Adds a way-home cat track from the top of every lift that has none; returns the tracks added.</summary>
+        /// <summary>Adds a way-home cat track from the top of every lift that has none. Returns the tracks added.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int AddLiftWaysHome(Grid g, Plan plan, List<Lift> lifts)
         {
@@ -422,10 +428,10 @@ namespace AutoGenBatch
         }
 
         /// <summary>Scorecard v4: a resort strives for an intermediate way down from at least one of its peaks. The highest lift top
-        /// without an easy way home gets one: the uphill search from home (base lift bottoms, other gondola and tram tops to ride down,
-        /// the easy skiing already leading home) takes the shortest route under the blue limits first (a blue diagonal where it takes
-        /// pitches past the blue line), then the green ones. Where none fits, the next highest top; one is enough, and the lifts below
-        /// it may stay experts-only. Returns the tracks added.</summary>
+        /// without an easy way home gets one. The uphill search from home takes the shortest route under the blue limits first (a blue
+        /// diagonal where it takes pitches past the blue line). Then it takes the shortest route under the green limits. Home is the base lift
+        /// bottoms, other gondola and tram tops to ride down, and the easy skiing already leading home. Where none fits, the search moves to
+        /// the next highest top. One is enough, and the lifts below it may stay experts-only. Returns the tracks added.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int AddPeakWayHome(Grid g, Plan plan, List<Lift> lifts)
         {
