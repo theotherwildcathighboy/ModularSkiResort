@@ -1,50 +1,46 @@
 """
 cs2_bldg.py - the building kit for the 2026-10 lodge / school / patrol round.
 
-Contract: docs/research/art/assets-2026-10/design/bldg-kit.md (sections 4-7, 9) with the
-eight MUST-CHANGE items of design/bldg-kit-skeptic.md applied (the skeptic wins where they
-disagree). The recipe engine is lodge.py, the recipes are data in bldg_recipes.py and
-recipes/<key>.py. No side effects at import (unlike base_lodge.py:107).
+Contract: docs/research/art/assets-2026-10/design/bldg-kit.md (sections 4-7, 9). The eight MUST-CHANGE items of
+design/bldg-kit-skeptic.md are applied. Where the two documents disagree, the skeptic wins. The recipe engine is lodge.py.
+The recipes are data in bldg_recipes.py and recipes/<key>.py. The kit has no side effects at import (unlike
+base_lodge.py:107).
 
 CONVENTIONS
-    Every builder returns a parts list [(obj, matkey)], matkey in BLDG_MATERIALS. Part
-    names start with the section-5 prefix (`wall_`, `roof_`, `win_<room>_<k>`, ...); a
-    duplicate object name raises (Blender would silently rename it `.001` and break every
-    prefix match, skeptic "Determinism"). Geometry is written in WORLD coordinates into
-    the mesh (objects at identity) except the few cs2_kit parts (door, handrail), which
-    carry loc/rot on the object; the join bakes both.
-    Authoring frame (section 2): +X = arrival / road, -X = back (slope), +Y/-Y = lot width,
-    z 0 = grade at the lot center. WallRef(side, plane, u0, u1): side in +X/-X/+Y/-Y, plane
-    = the wall's outer coordinate, u = position along the wall growing to the viewer's right
-    when facing the wall from outside: +X face u = y, -X face u = -y, +Y face u = -x,
-    -Y face u = x (the box-projection sign rule). No randomness except crc32 seeds.
-    COLOR SPACES (skeptic MUST-CHANGE 7): every color constant below is declared
-    `_srgb` (display-encoded, what a photo sample or a PNG byte/255 gives) or `_lin`
-    (linear light). BldgMat.target_srgb / emissive_srgb are encoded; they are linearised by
-    material_specs() before they reach cs2_bake.MaterialSpec (whose albedo is LINEAR,
-    cs2_bake.py:198-201). Painters receive LINEAR BaseColor views (post_compose runs before
-    the sRGB encode, cs2_bake step 4) and linearise their own sRGB constants.
+- Every builder returns a parts list [(obj, matkey)], matkey in BLDG_MATERIALS.
+- Part names start with the section-5 prefix (`wall_`, `roof_`, `win_<room>_<k>`, ...). A duplicate object name raises.
+  Blender would silently rename it `.001` and break every prefix match (skeptic "Determinism").
+- Geometry is written in WORLD coordinates into the mesh (objects at identity). The few cs2_kit parts (door, handrail) are
+  the exception: they carry loc/rot on the object. The join bakes both.
+- Authoring frame (section 2): +X = arrival / road, -X = back (slope), +Y/-Y = lot width, z 0 = grade at the lot center.
+- WallRef(side, plane, u0, u1): side in +X/-X/+Y/-Y. plane = the wall's outer coordinate. u = position along the wall. u
+  grows to the viewer's right when the viewer faces the wall from outside. Values: +X face u = y, -X face u = -y, +Y face u =
+  -x, -Y face u = x (the box-projection sign rule).
+- No randomness except crc32 seeds.
+- COLOR SPACES (skeptic MUST-CHANGE 7): every color constant below is declared `_srgb` (display-encoded, what a photo sample
+  or a PNG byte/255 gives) or `_lin` (linear light). BldgMat.target_srgb / emissive_srgb are encoded. material_specs()
+  linearizes them before they reach cs2_bake.MaterialSpec (whose albedo is LINEAR, cs2_bake.py:198-201). Painters receive
+  LINEAR BaseColor views (post_compose runs before the sRGB encode, cs2_bake step 4). Painters linearize their own sRGB
+  constants.
 
 ENGINE BASE / GROUND BAND (section 3, skeptic MUST-CHANGE 3 + 4)
-    Engine mode: a part whose min z < 0.011 must be an open-bottom ground part (listed in
-    recipe.ground_prefixes) or start at z >= 0.02; check_base_mode enforces it. Builders
-    that may sit at grade but are not ground parts (door, entry surround, lanterns, flag
-    masts, racks, akja, downspouts, umbrellas) lift themselves to GROUND_LIFT = 0.02.
-    Plinth mode: no vertex in |z| <= 0.01 anywhere; plinth stairs use ground=False with the
-    foot below grade (stair(..., ground=False, foot z <= -0.05)).
+Engine mode: a part whose min z < 0.011 must be an open-bottom ground part (listed in recipe.ground_prefixes) or start at z
+>= 0.02. check_base_mode enforces it. Builders that may sit at grade but are not ground parts (door, entry surround,
+lanterns, flag masts, racks, akja, downspouts, umbrellas) lift themselves to GROUND_LIFT = 0.02.
+
+Plinth mode: no vertex in |z| <= 0.01 anywhere. Plinth stairs use ground=False with the foot below grade (stair(...,
+ground=False, foot z <= -0.05)).
 
 CC0 PREFILTER (skeptic MUST-CHANGE 6, N13)
-    cs2_bake point-samples its sources once per texel (EMIT_SAMPLES 1, cs2_bake.py:147);
-    a 2K CC0 tile minified 50-65x aliases (skeptic alias2.py: 1.7x the box-filtered texel
-    noise). prefilter_set() area-averages Color (in linear light), NormalGL (decoded,
-    averaged, renormalised) and Roughness to `factor` x the predicted shipped px/m,
-    stacking the 2:1 sets (WoodSiding009, Bricks096, Concrete034) into square tiles so a
-    scalar MaterialSpec.metres_per_tile keeps UVTile ISOTROPIC (pack_unique scales islands
-    uniformly: an anisotropic UVTile ships anisotropic texels, skeptic "UV source layer").
-    Output is deterministic (separable exact-overlap box filter, sorted inputs) and cached
-    in <tempdir>/cs2_bldg_prefilter/<Set>_<N>/ (meta.json carries the source sha1s).
+cs2_bake point-samples its sources once per texel (EMIT_SAMPLES 1, cs2_bake.py:147). A 2K CC0 tile minified 50-65x aliases
+(skeptic alias2.py: 1.7x the box-filtered texel noise). prefilter_set() area-averages Color (in linear light), NormalGL
+(decoded, averaged, renormalized) and Roughness to `factor` x the predicted shipped px/m. It stacks the 2:1 sets
+(WoodSiding009, Bricks096, Concrete034) into square tiles. So a scalar MaterialSpec.metres_per_tile keeps UVTile ISOTROPIC
+(pack_unique scales islands uniformly: an anisotropic UVTile ships anisotropic texels, skeptic "UV source layer"). The output
+is deterministic (separable exact-overlap box filter, sorted inputs). It is cached in <tempdir>/cs2_bldg_prefilter/<Set>_<N>/
+(meta.json carries the source sha1s).
 
-PUBLIC API (one line each; full signatures below)
+PUBLIC API (one line each, full signatures below)
     data:     BldgMat, WallRef, RoofSpec, WinSpec, BLDG_MATERIALS, BEVEL_PREFIXES,
               LABEL_PREFIXES, LOD1_DELETE, LOD2_DELETE, WIN_POOL, NEIGHBOUR_M, GROUND_LIFT,
               srgb_to_linear, linear_to_srgb, roof_z, roof_frame, chimney_top, wall_point
@@ -57,16 +53,16 @@ PUBLIC API (one line each; full signatures below)
               umbrella, ski_rack (painted panel | slots= modeled A-frame), ski_rack_frame,
               SKI_SLABS, akja, snow_guard, gutter, downspout
     detail 1: ski_gear (+ ski_rack_frame gear=True: real ski pairs / boards / poles,
-              GEAR_KINDS, GEAR_LEN, GEAR_W; NO bindings by default, keyword bindings=True
-              for tests; rack_reach() = the length a rack item needs, 1.33 m),
+              GEAR_KINDS, GEAR_LEN, GEAR_W. NO bindings by default, keyword bindings=True
+              for tests. rack_reach() = the length a rack item needs, 1.33 m),
               painted_board (stamp target, obj["w_override"]),
               bench, litter_bin, string_lights (L1 detail pass 1, 2026-10-11)
     detail 1b (school / L2 / patrol, design/detail-pass-1.md 6.1 + skeptic M1-M10):
               post_sign, maze_fence, radio_mast, toboggan_rack, backboard, hose_reel, drum,
-              fuel_cradle, log_stack, safety_stripe, roof_emblem; keywords bench(z0, back),
+              fuel_cradle, log_stack, safety_stripe, roof_emblem. Keywords bench(z0, back),
               flag_mast(z0, along, face), ski_rack_frame(z0, leg_to), prism_gable(inner),
-              gable_roof(wall_inner), deck(soffit); materials rubber, safety_yellow,
-              fire_red, lamp_red; WEATHER_ROLES_EXTRA (lodge.wrap_weather)
+              gable_roof(wall_inner), deck(soffit). Materials rubber, safety_yellow,
+              fire_red, lamp_red. WEATHER_ROLES_EXTRA (lodge.wrap_weather)
     material: bevel_parts, strip_uv_layers, projection_specs, material_specs, prefilter_set,
               box_filter, image_tile_m, square_tile_m, retile (cross nets, along, uv_rot),
               align_islands, split_poor_islands, pack_layout_calibrated, calibrated_packer
@@ -76,24 +72,27 @@ PUBLIC API (one line each; full signatures below)
               contact_map, lod_level, plan_lod_targets, lod_chain
     painters: paint_cross_disc, paint_pictogram, paint_skis, paint_clock, paint_text5x7,
               paint_glyph (the cabins' resort glyph / a menu board, mesh-oriented),
-              make_painter (recipe label entries); DisplayPainter + draw_text,
+              make_painter (recipe label entries). DisplayPainter + draw_text,
               draw_shapes, draw_glyph, draw_pictogram, draw_cross_square, draw_bibs,
-              draw_notices, draw_logs (DRAWS; factory "display"), label_metrics
+              draw_notices, draw_logs (DRAWS, factory "display"), label_metrics
 
-PACKING (measured on L1 2026-10-11, build/lodge.md): box projection splits every box face
-into its own UV island and cs2_uv packs axis-aligned boxes without rotation through
-Blender's FRACTION-margin solver, which collapses with ~1,000+ islands. Small boxes carry a
-cross-net UV (one island per box), poorly filled islands are rotated / split before the
-bake, and lodge.py routes its bake through pack_layout_calibrated (ADD margin calibrated
-to real pixels; library function restored on exit).
+PACKING (measured on L1 2026-10-11, build/lodge.md): box projection splits every box face into its own UV island. cs2_uv
+packs axis-aligned boxes without rotation through the FRACTION-margin solver of Blender. That solver collapses with ~1,000+
+islands.
+- Small boxes carry a cross-net UV (one island per box).
+- The kit rotates or splits poorly filled islands before the bake.
+- lodge.py routes its bake through pack_layout_calibrated (ADD margin calibrated to real pixels). It restores the library
+  function on exit.
 
-Derived from (file:line): base_lodge.py:184-240 (gable prism, roof slab), :589-608 (window
-band members), :729-770 (deck, rail_run, umbrellas), :819-873 (porch, entry, chimney),
-:876-891 (bevel); cs2_kit.py:30-37 (open-bottom rule), :513-560 (handrail), :647-683
-(door); cs2_bake.py:1271-1390 (material_sources, project_world_uv), :919 (bake_unique);
-cs2_submesh.py:210-278 (split_submesh); cs2_validate.py:447-503 (ground_ring_report);
-cs2_asset.py:1075-1133 (make_lod_chain, re-implemented here with the N9 planar pass and
-ground protection); lift_terminal.py:1139-1173 (split_windows), :401-431 (compose hook).
+Derived from (file:line):
+- base_lodge.py:184-240 (gable prism, roof slab), :589-608 (window band members), :729-770 (deck, rail_run, umbrellas),
+  :819-873 (porch, entry, chimney), :876-891 (bevel).
+- cs2_kit.py:30-37 (open-bottom rule), :513-560 (handrail), :647-683 (door).
+- cs2_bake.py:1271-1390 (material_sources, project_world_uv), :919 (bake_unique).
+- cs2_submesh.py:210-278 (split_submesh).
+- cs2_validate.py:447-503 (ground_ring_report).
+- cs2_asset.py:1075-1133 (make_lod_chain, re-implemented here with the N9 planar pass and ground protection).
+- lift_terminal.py:1139-1173 (split_windows), :401-431 (compose hook).
 """
 
 import functools
@@ -161,7 +160,7 @@ class BldgMat:
     """One building material (section 7.1). Colors are ENCODED sRGB (`_srgb`)."""
     set: object = None              # CC0 set folder name under assets/textures, or None (flat)
     tile_m: object = None           # (u, v) meters per tile in the WORLD (after uv_rot)
-    target_srgb: object = None      # encoded mean albedo after tint; None = native / RECOLOR
+    target_srgb: object = None      # encoded mean albedo after tint. None = native / RECOLOR
     smooth: object = None           # None = 1 - set Roughness per texel
     metal: float = 0.0
     slot: int = 0                   # ControlMask channel 1 R, 2 G, 3 B (0 none)
@@ -184,9 +183,9 @@ class WallRef:
 
 @dataclass(frozen=True)
 class RoofSpec:
-    """A pitched roof over the wall rectangle [x0, x1] x [y0, y1]. `eave_z` is the height
-    of the slab CENTER plane at the wall line (the A-frame's wall plate S2_Z); the eave tip
-    sits `overhang` further out and tan(pitch) x overhang lower (base_lodge 25c rule)."""
+    """A pitched roof over the wall rectangle [x0, x1] x [y0, y1]. `eave_z` is the height of the slab CENTER plane at the wall
+    line (the A-frame's wall plate S2_Z). The eave tip sits `overhang` further out and tan(pitch) x overhang lower
+    (base_lodge 25c rule)."""
     kind: str
     x0: float
     x1: float
@@ -233,19 +232,20 @@ LOD1_DELETE = ("tail_", "bracket_", "brace_", "snowguard_", "gutter_", "downspou
                "sill_", "jamb_", "mull_", "rwin_", "door_", "post_", "rail_", "kick_",
                "trail_", "bar_", "lamp_", "flag_", "umbstand_", "umbpole_", "skirack_",
                "akja_",
-               # window kit v2 (2026-10-17): the reveal liners and sash rings sit BEHIND the
-               # wall face; only the LOD0 copy gets the wall holes (punch_openings), so the
-               # far set (LOD1 / LOD2) drops them. No v1 part carries either prefix.
+               # window kit v2 (2026-10-17): the reveal liners and sash rings sit BEHIND the wall face. Only the LOD0 copy
+               # gets the wall holes (punch_openings), so the far set (LOD1 / LOD2) drops them. No v1 part carries either
+               # prefix.
                "reveal_", "sash_",
-               # fittings v1 (2026-10-17): the modeled fittings (chimney hoods, ...) are LOD0 dressing;
-               # no pre-fittings part carries the prefix
+               # fittings v1 (2026-10-17): the modeled fittings (chimney hoods, ...) are LOD0 dressing. No pre-fittings part
+               # carries the prefix.
                "fit_",
-               # detail pass 1 (school / L2 / patrol, design/detail-pass-1.md 6.1 + skeptic
-               # M1): maze fence, toboggan rack, rescue gear, hose reel, fuel drum, log stack,
-               # safety stripes. NOT bench_ (L1 keeps its bench through lod1_extra; a global
-               # entry would cap its density weight and move L1's blockout hash) and no
-               # festoon_ (string_lights parts are lamp_). No existing recipe part carries
-               # one of these prefixes (M2 part lists, build/detail-pass-1-kit.md)
+               # detail pass 1 (school / L2 / patrol, design/detail-pass-1.md 6.1 + skeptic M1): maze fence, toboggan rack,
+               # rescue gear, hose reel, fuel drum, log stack, safety stripes.
+               #
+               # The list has NOT bench_: L1 keeps its bench through lod1_extra, and a global entry would cap its density
+               # weight and move the blockout hash of L1. The list has no festoon_ either: the string_lights parts are lamp_.
+               #
+               # No existing recipe part carries one of these prefixes (M2 part lists, build/detail-pass-1-kit.md).
                "maze_", "tobrack_", "gear_", "hosereel_", "drum_", "wood_", "stripe_")
 LOD2_DELETE = LOD1_DELETE + ("dormerroof_", "dormer_", "ridge_", "fascia_", "rake_",
                              "parapet_", "chimcap_", "stovepipe_", "head_", "cmull_", "ctran_",
@@ -253,8 +253,8 @@ LOD2_DELETE = LOD1_DELETE + ("dormerroof_", "dormer_", "ridge_", "fascia_", "rak
                              "beam_", "truss_", "gazebocol_", "lanterncol_", "bell_",
                              "clockring_", "flagpanel_", "umbcanopy_", "trim_", "sign_",
                              "emblem_",
-                             # detail pass 1: radio masts are kept to LOD1 (a 0.08 m pole is
-                             # < 1 px at the LOD1 switch) and go at LOD2
+                             # detail pass 1: radio masts stay in LOD1 (a 0.08 m pole is < 1 px at the LOD1 switch) and go at
+                             # LOD2.
                              "mast_")
 
 WIN_POOL = tuple(range(1, 24))      # AV2 section 3.8 "1-23" (why 0 / 24 are skipped: unverified)
@@ -262,17 +262,16 @@ NEIGHBOUR_M = 3.0                   # Slice.ConservativeMerge 3 m (Room.Merge 2 
 SOFT_GAP_M = 1.5                    # vertically adjacent rooms: prefer different ids
 MAX_ROOM_IDS = 25
 
-# DetailSpec presets (cs2_compose has no batten / standing-seam kind, section 7.5 / N7;
-# "ribs" draws lines of constant s_h = vertical on walls, down the slope on roofs. A
-# NEGATIVE depth would be a raised rib, but the "ribs" branch combines with np.minimum
-# (cs2_compose.py detail_height), which drops positive heights - grooves only, measured
-# by reading the code 2026-10-11).
+# DetailSpec presets (cs2_compose has no batten / standing-seam kind, section 7.5 / N7). "ribs" draws lines of constant s_h:
+# vertical on walls, down the slope on roofs. A NEGATIVE depth would be a raised rib. But the "ribs" branch combines with
+# np.minimum (cs2_compose.py detail_height), which drops positive heights. So only grooves work (measured by reading the code
+# 2026-10-11).
 STANDING_SEAM = cs2_compose.DetailSpec(seams_m=0.50, seam_axes="ribs", seam_depth_m=0.006,
                                        seam_width_m=0.03)
 BATTEN = cs2_compose.DetailSpec(seams_m=0.30, seam_axes="ribs", seam_depth_m=0.010,
                                 seam_width_m=0.06)
 
-# Section 7.1. tile_m in WORLD meters (after uv_rot); target_srgb encoded.
+# Section 7.1. tile_m in WORLD meters (after uv_rot). target_srgb encoded.
 BLDG_MATERIALS = {
     "timber_lap": BldgMat("WoodSiding009", (2.4, 1.2), (0.295, 0.235, 0.185)),
     "timber_shake": BldgMat("WoodSiding013", (1.8, 1.8), None),
@@ -295,10 +294,9 @@ BLDG_MATERIALS = {
                              proj="inplane"),
     "trim": BldgMat(None, None, (0.80, 0.80, 0.80), smooth=0.45, slot=1, recolor=True),
     "trim_white": BldgMat(None, None, (0.85, 0.85, 0.85), smooth=0.40),
-    # window kit v2 (2026-10-17): the painted-trim pair. trim_w = the slot-1 trim's weathered
-    # sill (same recolor slot, darker base: dirt reads in whatever color the variation
-    # picks); trim_paint / trim_paint_w = a fixed warm off-white for buildings that want
-    # light frames whatever their slot 1 is (the school: was trim_white, a pure 0.85 gray)
+    # window kit v2 (2026-10-17): the painted-trim pair. trim_w = the slot-1 trim's weathered sill (same recolor slot, darker
+    # base: dirt reads in whatever color the variation picks). trim_paint / trim_paint_w = a fixed warm off-white for
+    # buildings that want light frames whatever their slot 1 is (the school: was trim_white, a pure 0.85 gray).
     "trim_w": BldgMat(None, None, (0.62, 0.61, 0.59), smooth=0.35, slot=1, recolor=True),
     "trim_paint": BldgMat(None, None, (0.80, 0.78, 0.72), smooth=0.40),
     "trim_paint_w": BldgMat(None, None, (0.66, 0.63, 0.57), smooth=0.35),
@@ -308,8 +306,8 @@ BLDG_MATERIALS = {
     "label": BldgMat(None, None, (0.85, 0.85, 0.85), smooth=0.40, density_w=3.0),
     "lamp": BldgMat(None, None, (0.60, 0.58, 0.52), smooth=0.50,
                     emissive_srgb=(0.95, 0.85, 0.65)),
-    # detail pass 1 (L1 ski gear, 2026-10-11): fixed paint colors beside accent (slot 2)
-    # and trim_white; ski bases, bindings and pole baskets are ski_black
+    # detail pass 1 (L1 ski gear, 2026-10-11): fixed paint colors beside accent (slot 2) and trim_white. Ski bases, bindings
+    # and pole baskets are ski_black.
     "ski_black": BldgMat(None, None, (0.06, 0.06, 0.065), smooth=0.55, density_w=0.5),
     "ski_blue": BldgMat(None, None, (0.09, 0.26, 0.64), smooth=0.55, density_w=0.5),
     "ski_red": BldgMat(None, None, (0.72, 0.09, 0.08), smooth=0.55, density_w=0.5),
@@ -323,10 +321,9 @@ BLDG_MATERIALS = {
                         emissive_srgb=(0.95, 0.12, 0.08)),
 }
 
-# Weathering roles (cs2_weather role names) of the kit keys cs2_weather.MAT_ROLES does not
-# list (cs2_weather never imports the kit; lodge.wrap_weather merges the two tables and
-# raises on a key with no role). Ski gear is under one texel wide at building densities
-# (detail1-check-aframe F4): left unweathered.
+# Weathering roles (cs2_weather role names) of the kit keys that cs2_weather.MAT_ROLES does not list. cs2_weather never
+# imports the kit. lodge.wrap_weather merges the two tables and raises on a key with no role. Ski gear is under one texel
+# wide at building densities (detail1-check-aframe F4), so it stays unweathered.
 WEATHER_ROLES_EXTRA = {"rubber": "pad", "safety_yellow": "paint", "fire_red": "paint",
                        "lamp_red": "none", "ski_black": "none", "ski_blue": "none",
                        "ski_red": "none", "trim_w": "paint", "trim_paint": "paint",
@@ -375,12 +372,10 @@ class _Geo:
         return self.face([self.v(p) for p in pts], outward)
 
     def obb(self, c, axes, half, drop=(), net=None):
-        """Oriented box: center c, orthonormal axes (ax, ay, az), half sizes; drop = local
-        face keys "+X".."-Z" (in the box's own axes) to omit. net (default: boxes whose
-        longest edge <= NET_MAX_M with their +Z face present) records a cross-net UV
-        (meters) on the loops, so retile() maps the whole box as ONE UV island instead of
-        five or six (box projection splits every face; ~2,000 islands on L1 left the
-        32 px pack margins no room, measured 2026-10-11)."""
+        """Oriented box: center c, orthonormal axes (ax, ay, az), half sizes. drop = local face keys "+X".."-Z" (in the box's
+        own axes) to omit. net (default: boxes whose longest edge <= NET_MAX_M with their +Z face present) records a
+        cross-net UV (meters) on the loops, so retile() maps the whole box as ONE UV island instead of five or six. Box
+        projection splits every face. ~2,000 islands on L1 left the 32 px pack margins no room (measured 2026-10-11)."""
         C = Vector(c)
         A = [Vector(a).normalized() for a in axes]
         h = [float(x) for x in half]
@@ -462,8 +457,8 @@ class _Geo:
                 self.face([ring1[0], ring1[k], ring1[k + 1]], ax)
 
     def prism(self, base_pts, extrude, caps=(True, True), outward_hint=None):
-        """Extrude a planar polygon (world points) by vector `extrude`; side quads face
-        away from the polygon centroid, caps along -/+ extrude."""
+        """Extrude a planar polygon (world points) by vector `extrude`. Side quads face away from the polygon centroid, caps
+        along -/+ extrude."""
         E = Vector(extrude)
         B = [Vector(p) for p in base_pts]
         T = [p + E for p in B]
@@ -488,9 +483,9 @@ NET_MAX_M = 2.5         # boxes up to this long get a one-island cross-net UV
 
 
 def _net_uv(key, sid, h):
-    """Cross net of a box in meters, seen from outside (orientation preserving: every
-    face keeps a positive UV winding w.r.t. its outward normal). Top (+Z) in the center,
-    +Y / -Y / +X / -X folded out of its edges, bottom (-Z) beyond +Y."""
+    """Cross net of a box in meters, seen from outside (orientation preserving: every face keeps a positive UV winding w.r.t.
+    its outward normal). The net puts the top (+Z) in the center, folds +Y / -Y / +X / -X out of its edges and places the
+    bottom (-Z) beyond +Y."""
     hx, hy, hz = h
     x, y, z = sid[0] * hx, sid[1] * hy, sid[2] * hz
     if key == "+Z":
@@ -609,7 +604,7 @@ def bisect_part(obj, planes):
 
 
 def box_part(name, lo, hi, mat, drop=(), ground=False):
-    """Generic axis-aligned box part (world keys in `drop`; ground -> open bottom at z 0)."""
+    """Generic axis-aligned box part (world keys in `drop`, ground -> open bottom at z 0)."""
     keys = tuple(drop) + (("-Z",) if ground else ())
     if ground and abs(lo[2]) > 1e-9:
         raise ValueError(f"{name}: a ground part must start at z 0 (got {lo[2]})")
@@ -622,7 +617,7 @@ def _lift(z):
 
 
 def _rename(obj, new):
-    """Rename a part; raises instead of letting Blender append .001."""
+    """Rename a part. Raises instead of letting Blender append .001."""
     if new != obj.name and new in bpy.data.objects:
         raise ValueError(f"duplicate part name {new!r}")
     obj.name = new
@@ -730,9 +725,8 @@ def chimney_top(spec, x, y, w, d):
 # ======================================================================================
 
 def storey(name, x0, x1, y0, y1, z0, z1, mat, ground=False, drop=(), cut_z=()):
-    """`wall_<name>` box; ground -> open bottom (z0 must be 0); `drop` world face keys
-    ("+Z" when roofed or stacked); `cut_z` horizontal bisect loops so cull_hidden can
-    remove covered strips."""
+    """`wall_<name>` box. ground -> open bottom (z0 must be 0). `drop` = world face keys ("+Z" when roofed or stacked). `cut_z`
+    = horizontal bisect loops so cull_hidden can remove covered strips."""
     keys = tuple(drop) + (("-Z",) if ground else ())
     if ground and abs(z0) > 1e-9:
         raise ValueError(f"storey() {name}: ground stories start at z 0 (got {z0})")
@@ -757,13 +751,13 @@ def plinth(name, x0, x1, y0, y1, depth, top, mat="stone_rubble", built_on=True):
 
 def prism_gable(name, axis, a0, a1, e0, e1, eave_z, ridge_z, ridge_at=None, eave_z1=None,
                 mat="timber_lap", base_z=None, bottom=False, inner=True):
-    """`gable_<name>`: thin gable-end wall prism (port of base_lodge.add_gable_prism,
-    :184-211) spanning a0..a1 along the ridge axis (its thickness) and e0..e1 across;
-    `eave_z1` gives the e1 side its own eave height (saltbox); `base_z` turns the triangle
-    into a pentagon down to base_z; the bottom face is omitted unless `bottom`.
-    inner (detail pass 1, design 5.2 P2 repack): True keeps both end faces; "a0" / "a1"
-    drops the end face at a0 (normal -axis) / a1 (normal +axis) - the one that looks INTO
-    the building (the kit cannot tell which side is inside, so the caller names it)."""
+    """`gable_<name>`: thin gable-end wall prism (port of base_lodge.add_gable_prism, :184-211) spanning a0..a1 along the ridge
+    axis (its thickness) and e0..e1 across. `eave_z1` gives the e1 side its own eave height (saltbox). `base_z` turns the
+    triangle into a pentagon down to base_z. The bottom face is omitted unless `bottom`.
+
+    inner (detail pass 1, design 5.2 P2 repack): True keeps both end faces. "a0" / "a1" drops the end face at a0 (normal
+    -axis) / a1 (normal +axis), the one that looks INTO the building. The kit cannot tell which side is inside, so the caller
+    names it."""
     if inner not in (True, "a0", "a1"):
         raise ValueError(f"prism_gable {name}: inner {inner!r} (True | 'a0' | 'a1': name the "
                          f"end face that looks into the building)")
@@ -800,11 +794,11 @@ def prism_gable(name, axis, a0, a1, e0, e1, eave_z, ridge_z, ridge_at=None, eave
 
 
 def _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line=None, ridge_x=None):
-    """Tilted slab between the eave point and the ridge point (base_lodge.add_roof_slab
-    analytic port). Returns the soffit corner loops when `wall_line` splits the underside:
-    (soffit_pts) for a separate part, or None. ridge_x (ridge v2, T95): the ridge end is cut
-    on the VERTICAL plane across = ridge_x (top and bottom lines end there), so two slabs meet
-    in a clean apex with no overshoot; None = the end perpendicular to the slab (as before)."""
+    """Tilted slab between the eave point and the ridge point (base_lodge.add_roof_slab analytic port). Returns the soffit
+    corner loops when `wall_line` splits the underside: (soffit_pts) for a separate part, or None.
+
+    ridge_x (ridge v2, T95): the ridge end is cut on the VERTICAL plane across = ridge_x (top and bottom lines end there). So
+    two slabs meet in a clean apex with no overshoot. None = the end perpendicular to the slab (as before)."""
     ax = axis.upper()
     E = Vector((e_edge, e_z))
     R = Vector((r_edge, r_z))
@@ -851,11 +845,10 @@ def _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line=None, 
 
 def roof_slab(name, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick=0.24, wall_line=None,
               mat="slate", prefix="roof_", ridge_x=None):
-    """`roof_<name>` slab from the eave line (e_edge, e_z) to the ridge line (r_edge, r_z),
-    spanning a0..a1 along `axis` (the ridge direction); `wall_line` splits the underside
-    into `soffit_<name>` (the visible overhang, its own part, w 0.25) and the inner
-    underside (attic, culled). `prefix` lets rakes reuse it (`rake_`). `ridge_x`: see
-    _slab_geo (ridge v2 vertical ridge cut; None = unchanged)."""
+    """`roof_<name>` slab from the eave line (e_edge, e_z) to the ridge line (r_edge, r_z), spanning a0..a1 along `axis` (the
+    ridge direction). `wall_line` splits the underside into `soffit_<name>` (the visible overhang, its own part, w 0.25) and
+    the inner underside (attic, culled). `prefix` lets rakes reuse it (`rake_`). `ridge_x`: see _slab_geo (ridge v2 vertical
+    ridge cut, None = unchanged)."""
     g = _Geo()
     res = _slab_geo(g, axis, a0, a1, e_edge, e_z, r_edge, r_z, thick, wall_line, ridge_x=ridge_x)
     parts = [(g.finish(f"{prefix}{name}"), mat)]
@@ -886,19 +879,21 @@ RIDGE_RISE = 0.035          # ridge v2: apex above the higher slab top at the ri
 RIDGE_SHEET = 0.025         # ridge v2: apex sheet depth (outer apex -> inner apex)
 RIDGE_CLEAR = 0.004         # ridge v2: leg hem above the slab top (contact, no z-fight)
 RIDGE_GAP = 0.003           # ridge v2: each slab runs this far PAST the ridge plane (a 6 mm overlap), so the two closed
-#                             slabs' end faces never coincide (lodge WELD_M 0.5 mm would fuse them into a zero-area
-#                             island) and no slot opens along the ridge (L5 gate G1 casts rays in the ridge plane); the
-#                             overlap tips stay under the flashing's inner apex (<= 3 mm x pitch above the slab top)
+# slabs' end faces never coincide (lodge WELD_M 0.5 mm would fuse them into a zero-area island) and no slot opens along the
+# ridge (L5 gate G1 casts rays in the ridge plane). The overlap tips stay under the flashing's inner apex (<= 3 mm x pitch
+# above the slab top).
 
 
 def _ridge_flashing(name, spec, g, a_lo, a_hi, mat="galv"):
-    """Ridge v2 (T95 CAD pass, 2026-10-19): a bent sheet-metal ridge flashing whose two legs
-    follow the slopes, on slabs cut vertically at the ridge (gable_roof under ridge_kit(2)).
-    Replaces the v1 box (0.8 m wide, up to 0.5 m tall on a 45-degree roof: it had to hide the
-    crossed slab overshoot, RIDGE_EXT) that read as a CAD bar on every gable. Profile (across,
-    up): hem L on slope 0, apex A, hem R on slope 1, inner apex B (A - RIDGE_SHEET); the
-    underside faces sit 4 mm over the slab tops and close the shell. 12 tris (= the v1 box): two
-    top quads, two underside quads and a two-triangle chevron cap at each end."""
+    """Ridge v2 (T95 CAD pass, 2026-10-19): a bent sheet-metal ridge flashing whose two legs follow the slopes, on slabs cut
+    vertically at the ridge (gable_roof under ridge_kit(2)).
+
+    It replaces the v1 box (0.8 m wide, up to 0.5 m tall on a 45-degree roof). That box had to hide the crossed slab
+    overshoot (RIDGE_EXT). It read as a CAD bar on every gable.
+
+    Profile (across, up): hem L on slope 0, apex A, hem R on slope 1, inner apex B (A - RIDGE_SHEET). The underside faces sit
+    4 mm over the slab tops and close the shell. 12 tris (= the v1 box): two top quads, two underside quads and a
+    two-triangle chevron cap at each end."""
     r, zr = g["r"], g["ridge_z"]
     h = 0.5 * spec.thick
     top0 = zr + h * math.sqrt(1.0 + g["t0"] ** 2)       # slab-top heights at the ridge line
@@ -923,8 +918,8 @@ def _ridge_flashing(name, spec, g, a_lo, a_hi, mat="galv"):
     V = {k: (G.v(P(p, a_lo)), G.v(P(p, a_hi))) for k, p in (("L", L), ("A", A), ("R", R), ("B", B))}
     G.face([V["L"][0], V["A"][0], V["A"][1], V["L"][1]], nrm(L, A))
     G.face([V["A"][0], V["R"][0], V["R"][1], V["A"][1]], nrm(A, R))
-    # closed underside (hem -> inner apex -> hem): nothing of the cap is ever seen from behind through the
-    # gable end (L5 gate G1 "the gable is open" ray-casts the porte-cochere gable)
+    # closed underside (hem -> inner apex -> hem). Nothing of the cap is ever seen from behind through the gable end (L5 gate
+    # G1 "the gable is open" ray-casts the porte-cochere gable).
     G.face([V["L"][0], V["B"][0], V["B"][1], V["L"][1]], -nrm(L, B))
     G.face([V["B"][0], V["R"][0], V["R"][1], V["B"][1]], -nrm(B, R))
     for e, s in ((0, -1.0), (1, 1.0)):
@@ -936,19 +931,20 @@ def _ridge_flashing(name, spec, g, a_lo, a_hi, mat="galv"):
 
 
 def ridge_flashing(name, axis, r, ridge_z, t0, t1, thick, a_lo, a_hi, mat="galv"):
-    """Public ridge v2 flashing for hand-built gables (lodge.aframe_parts' L1 main / prow / porch roofs): the same
-    12-tri bent cap as gable_roof under ridge_kit(2). r / ridge_z = the ridge line in the across axis / the slab
-    CENTER plane height there; t0 / t1 = the slopes (rise per meter) on the low / high across side; the slabs must
-    end on the vertical planes across = r +/- RIDGE_GAP, overlapping (roof_slab(..., ridge_x=r +/- RIDGE_GAP))."""
+    """Public ridge v2 flashing for hand-built gables (lodge.aframe_parts' L1 main / prow / porch roofs). It is the same 12-tri
+    bent cap as gable_roof under ridge_kit(2).
+    - r / ridge_z = the ridge line in the across axis / the slab CENTER plane height there.
+    - t0 / t1 = the slopes (rise per meter) on the low / high across side. The slabs must end on the vertical planes across =
+      r +/- RIDGE_GAP and overlap (roof_slab(..., ridge_x=r +/- RIDGE_GAP))."""
     spec = RoofSpec("gable", 0.0, 1.0, 0.0, 1.0, 0.0, 30.0, axis=axis, thick=thick)
     g = {"ax": axis.upper(), "r": r, "ridge_z": ridge_z, "t0": t0, "t1": t1}
     return _ridge_flashing(name, spec, g, a_lo, a_hi, mat=mat)
 
 
 def _edge_flashing(G, pa, pb, n1, n2, leg=RIDGE_LEG):
-    """Ridge v2 hip / ridge flashing along the roof-top edge pa -> pb between two planes with upward normals n1, n2:
-    a chevron (hem in plane 1, apex RIDGE_RISE out along the bisector, hem in plane 2, inner apex RIDGE_SHEET
-    under it) swept along the edge; 12 tris (two top quads, two underside quads, a two-triangle cap at each end)."""
+    """Ridge v2 hip / ridge flashing along the roof-top edge pa -> pb between two planes with upward normals n1, n2: a chevron
+    (hem in plane 1, apex RIDGE_RISE out along the bisector, hem in plane 2, inner apex RIDGE_SHEET under it) swept along the
+    edge. 12 tris (two top quads, two underside quads, a two-triangle cap at each end)."""
     e = (pb - pa).normalized()
     b = (n1 + n2).normalized()
     legs = []
@@ -973,9 +969,9 @@ def _edge_flashing(G, pa, pb, n1, n2, leg=RIDGE_LEG):
         G.face([V[k]["B"], V[k]["A"], V[k]["R"]], e * s)
 
 
-# ridge v2 (T95 CAD pass, 2026-10-19): gable_roof cuts both slabs vertically on the ridge line (no RIDGE_EXT
-# overshoot) and caps them with _ridge_flashing instead of the v1 box. RIDGE["version"] 0 / 1 = the old
-# geometry, byte for byte (lodge.py wires it as an opt-in flag; until then a driver enters ridge_kit(2)).
+# ridge v2 (T95 CAD pass, 2026-10-19): gable_roof cuts both slabs vertically on the ridge line (no RIDGE_EXT overshoot) and
+# caps them with _ridge_flashing instead of the v1 box. RIDGE["version"] 0 / 1 = the old geometry, byte for byte. lodge.py
+# wires it as an opt-in flag. Until then a driver enters ridge_kit(2).
 RIDGE = {"version": 0}
 
 
@@ -1007,11 +1003,10 @@ def _eave_tip(spec, g, side):
 def gable_roof(name, spec, fascia=0.42, rake=0.40, ridge_cap=(0.45, 0.14), tails=None,
                snow_guard=0, gutters=False, walls=True, wall_mat=None, ext=RIDGE_EXT,
                wall_inner=True):
-    """Two slabs (ridge-end extension along the pitch, 25b lesson), ridge cap, fascia,
-    rake boards, optional rafter tails `tail_` (spacing `tails` m, 0.62 x 0.12 x 0.16),
-    snow-guard rows, gutters; `walls` adds the two `gable_` end walls (0.3 m prisms);
-    wall_inner=False (detail pass 1, design 3.2 H11) drops their faces that look into the
-    building (2 triangles / pentagons; no texels spent on interior faces)."""
+    """Two slabs (ridge-end extension along the pitch, 25b lesson), ridge cap, fascia, rake boards, optional rafter tails
+    `tail_` (spacing `tails` m, 0.62 x 0.12 x 0.16), snow-guard rows and gutters. `walls` adds the two `gable_` end walls
+    (0.3 m prisms). wall_inner=False (detail pass 1, design 3.2 H11) drops the faces of these walls that look into the
+    building (2 triangles / pentagons). No texels are spent on interior faces."""
     g = _roof_geometry(spec)
     ro = spec.overhang if spec.rake_over is None else spec.rake_over
     a_lo, a_hi = g["a0"] - ro, g["a1"] + ro
@@ -1069,8 +1064,8 @@ def gable_roof(name, spec, fascia=0.42, rake=0.40, ridge_cap=(0.45, 0.14), tails
                 p0, p1 = (a_lo, et + off), (a_hi, et + off)
             parts += gutter(f"{name}{tag}", p0, p1, gz)
     if ridge_cap and v2:
-        # flush with the slab ends (as the v1 box): an overrun pushes a dormer flashing's inner end into the wall it
-        # meets and the hidden-face cull slices its end caps into zero-area UV islands (L4 ridge_ueg / ridge_d)
+        # flush with the slab ends (as the v1 box). An overrun pushes the inner end of a dormer flashing into the wall it
+        # meets. Then the hidden-face cull slices its end caps into zero-area UV islands (L4 ridge_ueg / ridge_d)
         parts += _ridge_flashing(name, spec, g, a_lo, a_hi)
     elif ridge_cap:
         parts += _ridge_cap_parts(name, spec, g, ridge_cap[0], ridge_cap[1], a_lo, a_hi)
@@ -1078,8 +1073,8 @@ def gable_roof(name, spec, fascia=0.42, rake=0.40, ridge_cap=(0.45, 0.14), tails
         wm = wall_mat or "timber_lap"
         for aw, atag in ((g["a0"], "0"), (g["a1"], "1")):
             a_in = aw + (0.3 if atag == "0" else -0.3)
-            # the end at a_in looks into the building: the prism's a1 end for wall "0"
-            # (a0 .. a0 + 0.3), its a0 end for wall "1" (a1 - 0.3 .. a1)
+            # the end at a_in looks into the building. That end is the a1 end of the prism for wall "0" (a0 .. a0 + 0.3) and
+            # the a0 end for wall "1" (a1 - 0.3 .. a1).
             inner = True if wall_inner else ("a1" if atag == "0" else "a0")
             parts += prism_gable(f"{name}{atag}", g["ax"], min(aw, a_in), max(aw, a_in),
                                  g["e0"], g["e1"], g["z0"], g["ridge_z"] - 0.02,
@@ -1088,10 +1083,9 @@ def gable_roof(name, spec, fascia=0.42, rake=0.40, ridge_cap=(0.45, 0.14), tails
 
 
 def hip_roof(name, spec, fascia=0.42, ridge_cap=(0.45, 0.14), snow_guard=0, gutters=False):
-    """Four planes over the wall rectangle (+ overhang), eave band, flat soffit ring
-    `soffit_`, ridge + hip caps `ridge_`. `spec.axis` = ridge direction (long side).
-    `snow_guard` is accepted for the contract signature but not built on hip roofs (no
-    recipe uses it; snow_guard() needs a gable slope frame)."""
+    """Four planes over the wall rectangle (+ overhang), eave band, flat soffit ring `soffit_`, ridge + hip caps `ridge_`.
+    `spec.axis` = ridge direction (long side). `snow_guard` is accepted for the contract signature but not built on hip
+    roofs. No recipe uses it. snow_guard() needs a gable slope frame."""
     ov = spec.overhang
     t = math.tan(math.radians(spec.pitch_deg))
     X0, X1, Y0, Y1 = spec.x0 - ov, spec.x1 + ov, spec.y0 - ov, spec.y1 + ov
@@ -1230,18 +1224,18 @@ def _beam_into(g, p0, p1, w, h, up=Vector((0, 0, 1))):
     g.obb((P0 + P1) * 0.5, (ax, side, upv), (0.5 * L, 0.5 * w, 0.5 * h))
 
 
-# structure v1 round 2 (2026-10-18: "that break in brace frame ... I think it would need to be curved. You
-# can see there is a slight gap"): a curved member is ONE mitred beam (rings shared at every joint), never OBB
-# segments (two boxes meeting at an angle leave a notch on the outside of every joint).
+# structure v1 round 2 (2026-10-18: "that break in brace frame ... I think it would need to be curved. You can see there is a
+# slight gap"). A curved member is ONE mitered beam (rings shared at every joint). Never use OBB segments: two boxes meeting
+# at an angle leave a notch on the outside of every joint.
 CURVE_SEGS = 6                  # segments of a curved brace / curved bracket (structure v1)
 BRACE_SAG = 0.10                # a framing brace's sagitta: this x its chord ...
 BRACE_SAG_MIN = 0.12            # ... and at least this (m)
 
 
 def arc_points(a, b, bulge, n=CURVE_SEGS):
-    """n + 1 points of the CIRCULAR arc from a to b whose sagitta is the component of `bulge` perpendicular to the
-    chord (the arc lies in the plane of the chord and that component; its mid point is the chord's mid point plus
-    it). A bulge parallel to the chord (or ~0) gives the straight line."""
+    """n + 1 points of the CIRCULAR arc from a to b whose sagitta is the component of `bulge` perpendicular to the chord. The
+    arc lies in the plane of the chord and that component. Its mid point is the mid point of the chord plus that component. A
+    bulge parallel to the chord (or ~0) gives the straight line."""
     A, B, S = Vector(a), Vector(b), Vector(bulge)
     ch = B - A
     c = ch.length
@@ -1254,18 +1248,20 @@ def arc_points(a, b, bulge, n=CURVE_SEGS):
     R = (c * c / 4.0 + s * s) / (2.0 * s)
     O = (A + B) * 0.5 + nv * (s - R)            # the circle's center (on the far side of the chord when s < c / 2)
     phi = math.asin(min(1.0, 0.5 * c / R))
-    if s > 0.5 * c:                             # more than a half circle: the long way round
+    if s > 0.5 * c:                             # more than a half circle: the long way around
         phi = math.pi - phi
     return [O + (nv * math.cos(t) + d * math.sin(t)) * R
             for t in (-phi + 2.0 * phi * k / n for k in range(n + 1))]
 
 
 def _mitred_into(g, pts, w, h, up=Vector((0, 0, 1)), caps=(True, True), back=None):
-    """ONE continuous w x h beam along a polyline into geometry g: every segment uses _beam_into's frame (w along
-    side = axis x up, h along side x axis) and each interior ring is the segments' corner lines cut by the
-    joint's bisector plane, so the neighbors share it (an exact mitre: no notch, no overlap, the section stays
-    w x h square to the member in every segment). caps = (first, last) end faces; back = a direction whose
-    facing long faces are left out (a face against a wall nobody can see). Returns the rings (vert lists)."""
+    """ONE continuous w x h beam along a polyline into geometry g. Every segment uses the frame of _beam_into (w along side =
+    axis x up, h along side x axis). Each interior ring is the corner lines of the segments, cut by the bisector plane of the
+    joint, so the neighbors share it. This is an exact miter: no notch, no overlap, and the section stays w x h square to the
+    member in every segment.
+
+    caps = (first, last) end faces. back = a direction whose facing long faces are left out (a face against a wall nobody can
+    see). Returns the rings (vert lists)."""
     P = [Vector(p) for p in pts]
     D = []
     for p, q in zip(P, P[1:]):
@@ -1366,8 +1362,8 @@ def shed_roof(name, spec, low_side="-X", fascia=0.42, brackets=0):
 
 
 def flat_roof(name, x0, x1, y0, y1, z, parapet=0.3, band=None, mat="metal_roof"):
-    """`roof_<name>` deck (top at z) + `parapet_<name>` ring (0.2 thick, `parapet` tall);
-    `band=(h, proud, mat)` adds a fascia band `trim_<name>band` around the top."""
+    """`roof_<name>` deck (top at z) + `parapet_<name>` ring (0.2 thick, `parapet` tall). `band=(h, proud, mat)` adds a fascia
+    band `trim_<name>band` around the top."""
     parts = box_part(f"roof_{name}", (x0, y0, z - 0.2), (x1, y1, z), mat, drop=("-Z",))
     if parapet:
         g = _Geo()
@@ -1520,7 +1516,7 @@ def chimney(name, x, y, w, d, top_z, base_z=0.0, shoulder=None, ground=False,
     if shoulder is not None:
         sw, sd, stop = shoulder
         # T64: the +Z face stays. The stack is narrower (its -Z is dropped), so a dropped shoulder top left a hollow ring
-        # 0.2-0.5 m wide around the shaft (review 9 / 10.webp); the part under the stack is interior.
+        # 0.2-0.5 m wide around the shaft (review 9 / 10.webp). The part under the stack is interior.
         parts += box_part(f"chim_{name}sh", (x - sw / 2, y - sd / 2, base_z),
                           (x + sw / 2, y + sd / 2, stop), mat,
                           ground=ground and base_z == 0.0)
@@ -1530,8 +1526,8 @@ def chimney(name, x, y, w, d, top_z, base_z=0.0, shoulder=None, ground=False,
     parts += box_part(f"chim_{name}", (x - w / 2, y - d / 2, stack_z0),
                       (x + w / 2, y + d / 2, cap0 + 0.04), mat,
                       drop=("+Z",) + (() if ground else ("-Z",)), ground=ground)
-    # T95 (cad-review-2026-10-19 section 6, fittings v1): a mortar crown with a 6 cm drip past the stack, not a
-    # galvanised tray 0.2 m proud (metal 1.0 read as a flat gray / navy slab on the stone, shot 22.28)
+    # T95 (cad-review-2026-10-19 section 6, fittings v1): a mortar crown with a 6 cm drip past the stack, not a galvanized
+    # tray 0.2 m proud. Metal 1.0 read as a flat gray / navy slab on the stone (shot 22.28).
     dr, ck = (CHIM_DRIP, "concrete") if FITTINGS.get("version", 0) >= 1 else (0.2, "galv")
     parts += box_part(f"chimcap_{name}", (x - w / 2 - dr, y - d / 2 - dr, cap0),
                       (x + w / 2 + dr, y + d / 2 + dr, top_z), ck)
@@ -1540,17 +1536,20 @@ def chimney(name, x, y, w, d, top_z, base_z=0.0, shoulder=None, ground=False,
 
 def stovepipe(name, spec, x, y, r=0.15, rise=1.2, detail="auto"):
     """`stovepipe_<name>` pipe from the roof plus a cap disc `stovepipe_<name>cap`.
-    Fittings v1 (T91, 2026-10-19): painted black stove-pipe (`ski_black`: flat, non-metal; the galv swatch is metal
-    1.0 and read as a white / chrome CAD cylinder in the 2026-10-18 field test) with a flashing skirt on the roof,
-    two crimp bands, a rain collar, a lap seam rib and a conical rain hat standing on a collar (the 2026-10-17
-    close look: the cap never floats)."""
+
+    Fittings v1 (T91, 2026-10-19): painted black stove-pipe (`ski_black`: flat, non-metal). The galv swatch is metal 1.0 and
+    read as a white / chrome CAD cylinder in the 2026-10-18 field test. The pipe has a flashing skirt on the roof, two crimp
+    bands, a rain collar, a lap seam rib and a conical rain hat standing on a collar (the 2026-10-17 close look: the cap
+    never floats)."""
     z0 = roof_z(spec, x, y) - 0.1
     zt = z0 + 0.1 + rise
     if FITTINGS.get("version", 0) >= 1:
         zr = z0 + 0.1                                                       # the roof surface at the pipe
         zc = zr + 0.55 * rise                                               # rain collar height
-        # detail: "auto" = lean for the patrol huts' 16 cm pipes (6-gons, no bands / seam: P2's tiled LOD0 sits 11 tris under its
-        # 2,500 cap at weather level 0), full otherwise; "mid" = 8-gon + one crimp band, no seam (L2: 57 tris under its 6,000 cap)
+        # detail:
+        # - "auto" = lean for the patrol huts' 16 cm pipes (6-gons, no bands / seam: the tiled LOD0 of P2 sits 11 tris under
+        #   its 2,500 cap at weather level 0), full otherwise.
+        # - "mid" = 8-gon + one crimp band, no seam (L2: 57 tris under its 6,000 cap).
         mode = detail if detail != "auto" else ("lean" if r < 0.10 else "full")
         lean = mode == "lean"
         sg = 6 if lean else 8
@@ -1580,21 +1579,27 @@ def stovepipe(name, spec, x, y, r=0.15, rise=1.2, detail="auto"):
 
 
 def chimney_pot(name, x, y, z0, z1, r=0.17, segs=8):
-    """`flue_<name>` chimney flue pot (T91, fittings v1): a black metal liner with a rim band and a rain hat, replacing
-    the plain plaster cylinder (white) of the L4 / L5 stacks; z0..z1 = the pot's bottom / top (hat included)."""
+    """`flue_<name>` chimney flue pot (T91, fittings v1): a black metal liner with a rim band and a rain hat. It replaces the
+    plain plaster cylinder (white) of the L4 / L5 stacks. z0..z1 = the bottom / top of the pot (hat included)."""
     def pot(g):
         g.cyl((x, y, z0), (x, y, z1 - 0.08), r, segs, cap0=False, cap1=False)
-        g.cyl((x, y, z1 - 0.15), (x, y, z1 - 0.06), r * 1.22, segs)                                   # solid rim band round the pot top
+        g.cyl((x, y, z1 - 0.15), (x, y, z1 - 0.06), r * 1.22, segs)                                   # solid rim band around the pot top
         g.cyl((x, y, z1 - 0.06), (x, y, z1), r * 1.45, segs, r1=r * 0.35)                            # rain hat on the rim
     return _single(f"flue_{name}", pot, "ski_black")
 
 
 def rooftop_unit(name, x, y, z_lo, z_hi, w=1.5, d=1.0, h=0.75):
-    """A rooftop HVAC unit (T87, school, fittings v1): `hvac_<name>*` parts on a level curb over a sloping roof whose
-    top plane spans z_lo..z_hi under the footprint (w along x, d along y): curb, housing in a matte warm-gray paint
-    (`trim_paint_w`), a lid overhang, dark louvre panels with angled slats on both long (+-y) faces, a fan shroud with a
-    guard on top and a refrigerant line down the low end. Flat palette materials, no metal: the bare galv swatch is
-    metal 1.0 and read as shiny black / white boxes in the 2026-10-18 field test."""
+    """A rooftop HVAC unit (T87, school, fittings v1): `hvac_<name>*` parts on a level curb over a sloping roof. The top plane
+    of the roof spans z_lo..z_hi under the footprint (w along x, d along y). The unit has these parts:
+    - curb
+    - housing in a matte warm-gray paint (`trim_paint_w`)
+    - a lid overhang
+    - dark louver panels with angled slats on both long (+-y) faces
+    - a fan shroud with a guard on top
+    - a refrigerant line down the low end.
+
+    The materials are flat palette materials with no metal. The bare galv swatch is metal 1.0 and read as shiny black / white
+    boxes in the 2026-10-18 field test."""
     zb = z_hi + 0.10                                             # housing bottom (the curb top)
     hx, hy = w / 2, d / 2
     parts = []
@@ -1642,12 +1647,12 @@ def rooftop_unit(name, x, y, z_lo, z_hi, w=1.5, d=1.0, h=0.75):
 # ======================================================================================
 
 def window_bay(name, wall, u0, u1, win, room=None, sill_board=True, head_board=True):
-    """Framed window centered in [u0, u1] (width win.w): panes = ONE quad per light per row
-    `win_<room>_<k>` at wall + 0.05 (a transom splits each light in two); frame members
-    `sill_` 0.30 x 0.16, `head_` 0.26 x 0.20, `jamb_` 0.22 x 0.16, `mull_` 0.20 x 0.12 with
-    their outer face at pane + reveal (base_lodge.py:589-608); `ctran_<name>` transom bar.
-    With the window kit v2 active (window_kit(), lodge.py --window-kit v2) this is
-    window_bay_v2: same signature, same panes (rect, names, rooms), recessed REVEAL_M."""
+    """Framed window centered in [u0, u1] (width win.w). Panes = ONE quad per light per row `win_<room>_<k>` at wall + 0.05 (a
+    transom splits each light in two). Frame members: `sill_` 0.30 x 0.16, `head_` 0.26 x 0.20, `jamb_` 0.22 x 0.16, `mull_`
+    0.20 x 0.12, with their outer face at pane + reveal (base_lodge.py:589-608). `ctran_<name>` = transom bar.
+
+    With the window kit v2 active (window_kit(), lodge.py --window-kit v2) this is window_bay_v2: same signature, same panes
+    (rect, names, rooms), recessed REVEAL_M."""
     room = room or name
     if "_" in room or not room.isalnum():
         raise ValueError(f"room tag {room!r} must be alphanumeric (no underscore)")
@@ -1709,22 +1714,30 @@ def window_bay(name, wall, u0, u1, win, room=None, sill_board=True, head_board=T
 
 
 # --------------------------------------------------------------------------------------
-# Window kit v2 (2026-10-17, docs/research/art/window-kit-2026-10-17.md). On the
-# rollout previews: "the vanilla school's window frames next to ours is, uh, rough. Ours need
-# to be a bit more detailed and fine." Dimensions from the vanilla meshes (window-kit doc
-# section 1: EU_ResidentialLow01 glass 12 cm behind the wall, casing 10.5 cm wide / 3 cm
-# proud, sash bar 4 cm, sill 10.5 cm out / 3 cm thick and sloped; NA_ResidentialLow01 7.7 cm
-# reveal, 4.6 cm casing 2 cm proud; ElementarySchool01 15.5 cm splayed reveal; the hotel 7 cm
-# frames). One opening = a HOLE in the wall face (punch_openings, LOD0 copy only), a jamb-board
-# liner `reveal_` round the tunnel, a thin casing (`head_` = the U-shaped casing, or `jamb_`
-# posts + a `head_` lintel board on the arrival facade), a sloped `sill_` with a drip nose
-# (weathered trim key), a sash ring `sash_` with a glazing-bead step (mode "full"), thin
-# glazing bars `mull_`, panes `win_` REVEAL_M behind the wall face. Tris per opening: section 4
-# of the doc (kit_tris()). The far set (LOD1 / LOD2) never gets holes: reveal_ / sash_ / mull_
-# are LOD1 deletes and the LOD1 / LOD2 `_Win` panes move back to PANE_OFFSET (unrecess_panes).
+# Window kit v2 (2026-10-17, docs/research/art/window-kit-2026-10-17.md). On the rollout previews: "the vanilla school's
+# window frames next to ours is, uh, rough. Ours need to be a bit more detailed and fine."
+#
+# Dimensions come from the vanilla meshes (window-kit doc section 1):
+# - EU_ResidentialLow01: glass 12 cm behind the wall, casing 10.5 cm wide / 3 cm proud, sash bar 4 cm, sill 10.5 cm out / 3
+#   cm thick and sloped.
+# - NA_ResidentialLow01: 7.7 cm reveal, 4.6 cm casing 2 cm proud.
+# - ElementarySchool01: 15.5 cm splayed reveal.
+# - The hotel: 7 cm frames.
+#
+# One opening has these parts:
+# - a HOLE in the wall face (punch_openings, LOD0 copy only)
+# - a jamb-board liner `reveal_` around the tunnel
+# - a thin casing (`head_` = the U-shaped casing, or `jamb_` posts + a `head_` lintel board on the arrival facade)
+# - a sloped `sill_` with a drip nose (weathered trim key)
+# - a sash ring `sash_` with a glazing-bead step (mode "full")
+# - thin glazing bars `mull_`
+# - panes `win_` REVEAL_M behind the wall face.
+#
+# Tris per opening: section 4 of the doc (kit_tris()). The far set (LOD1 / LOD2) never gets holes. reveal_ / sash_ / mull_
+# are LOD1 deletes, and the LOD1 / LOD2 `_Win` panes move back to PANE_OFFSET (unrecess_panes).
 # --------------------------------------------------------------------------------------
 
-REVEAL_M = 0.10         # glass behind the wall face (vanilla 7.7-15.5 cm; houses 7.7 / 12)
+REVEAL_M = 0.10         # glass behind the wall face (vanilla 7.7-15.5 cm, houses 7.7 / 12)
 CASING_W = 0.07         # casing board width (vanilla 4.6-10.5 cm)
 CASING_P = 0.025        # casing proud of the wall (vanilla 2-3 cm)
 LINTEL_H = 0.13         # arrival-facade head board: height, proud, ears past the casing
@@ -1749,15 +1762,15 @@ KIT2_RECESSED = ("reveal_", "sash_", "mull_")       # behind the (unholed) wall 
 KIT2_PARTS = ("reveal_", "sash_", "mull_", "jamb_", "head_", "sill_")
 PUNCH_ORDER = "v"       # punch_openings: "h" = sill / head lines first (shared along a row), "v"
 
-# FAMILIES (lodge window references, 2026-10-16: Snowbasin Needles / John Paul, the
-# glazed BC lodge, A-Basin's 6th Alley, a residential ski lodge, a European timber casement):
+# FAMILIES (lodge window references, 2026-10-16: Snowbasin Needles / John Paul, the glazed BC lodge, A-Basin's 6th Alley, a
+# residential ski lodge, a European timber casement):
 #   glazing  big-lodge window walls: thin dark / timber frames, no sash ring, aluminum-width
 #            mullions (5 cm), a slim sill flashing, a header on the arrival facade (L1, L4, L5)
 #   chalet   divided-light sashes in WIDE timber casings (12 cm, the building's heavy timber),
 #            painted sash + bars + deep sill, a head board on every window (L2, L3)
-#   utility  plain frames, a thin frame ring, a header board on every window (school, P1, P2;
-#            the school's own photo, Palisades "Squaw Kids", keeps 2-row divided lights in
-#            light casings, so the rows stay)
+#   utility  plain frames, a thin frame ring, a header board on every window (school, P1, P2).
+#            The school's own photo (Palisades "Squaw Kids") keeps 2-row divided lights in
+#            light casings, so the rows stay.
 FAMILIES = {
     "glazing": dict(reveal=0.08, casing_w=0.05, casing_p=0.02, casing_key=None, sash=False,
                     sash_w=0.04, sash_wb=0.04, sash_step=0.02, bar_w=0.05, row_w=0.05,
@@ -1789,9 +1802,10 @@ def kit_params():
 
 class window_kit:
     """Context manager: window_bay builds kit v2 inside it (lodge.build_parts).
-    mode "full" (sash ring) | "lean" (no sash ring: the no-headroom buildings);
-    arrival = authoring-frame (x, y) of the arrival direction (lintel boards on the wall that
-    faces it); lintel "arrival" | "all" | "none"; trim / trim_w = casing and sill keys."""
+    - mode "full" (sash ring) | "lean" (no sash ring: the no-headroom buildings)
+    - arrival = authoring-frame (x, y) of the arrival direction (lintel boards on the wall that faces it)
+    - lintel "arrival" | "all" | "none"
+    - trim / trim_w = casing and sill keys."""
 
     def __init__(self, version=2, mode="full", arrival=None, lintel="family", trim="trim",
                  trim_w="trim_w", family="base", holes="all"):
@@ -1835,8 +1849,8 @@ def _wpoly(g, wall, pts, out):
 
 
 def window_bay_v2(name, wall, u0, u1, win, room, sill_board=True, head_board=True):
-    """Kit v2 opening centered in [u0, u1] (module notes above). The panes keep the v1 rects
-    and names (rooms unchanged); only their depth moves to -REVEAL_M."""
+    """Kit v2 opening centered in [u0, u1] (module notes above). The panes keep the v1 rects and names (rooms unchanged). Only
+    their depth moves to -REVEAL_M."""
     cfg = WINDOW_KIT
     p = kit_params()
     full = cfg["mode"] == "full" and p["sash"]
@@ -1867,9 +1881,9 @@ def window_bay_v2(name, wall, u0, u1, win, room, sill_board=True, head_board=Tru
     holes = cfg.get("holes", "all")
     recessed = holes == "all" or (holes == "arrival" and faces_arrival)
     if not recessed:
-        # SURFACE opening (no wall hole; the budget-bound buildings off their arrival facade):
-        # glass SURF_GLASS proud of the wall, the casing built out to SURF_CASING_P round it,
-        # so the glass still sits 5 cm behind the frame face
+        # SURFACE opening (no wall hole). The budget-bound buildings use it off their arrival facade. The glass is SURF_GLASS
+        # proud of the wall, and the casing is built out to SURF_CASING_P around it, so the glass still sits 5 cm behind the
+        # frame face
         R, CP = -SURF_GLASS, SURF_CASING_P
         LINTEL_P = max(LINTEL_P, CP + 0.02)
         SILL_P = max(SILL_P, CP + 0.03)
@@ -1889,7 +1903,7 @@ def window_bay_v2(name, wall, u0, u1, win, room, sill_board=True, head_board=Tru
             lb = a0 + (a1 - a0) * (li + 1) / win.lights
             parts += pane_quad(f"win_{room}_{name}{k}", wall, la, lb, rz0, rz1, d=-R)
             k += 1
-    # -- reveal: jamb-board liner round the tunnel (sides run out to the casing face) -----
+    # -- reveal: jamb-board liner around the tunnel (sides run out to the casing face) -----
     lz = 0.015 if sill_board else 0.0
     g = _Geo()
     _wpoly(g, wall, [(a0, z0 - lz, -R), (a0, z1, -R), (a0, z1, CP), (a0, z0 - lz, CP)], (1, 0, 0))
@@ -2010,17 +2024,18 @@ def _over_ring(f, t, ua, ub, za, zb, m=0.6):
 
 
 def punch_openings(obj, table, tol=2e-3, triangulate=True, merge=True):
-    """LOD0 copy only (lodge.run, kit v2): cut a hole in the wall face behind every `reveal_`
-    liner. The hole rect is read back from the liner itself (its side quads run out to the
-    casing face, its top / bottom quads stop at the wall plane: that tells outward and the
-    plane), so recipe transforms after the kit never matter. Faces of ANY non-kit part that
-    lie in the wall plane, face outward and overlap the rect are cut LOCALLY: the two
-    vertical lines through the faces that overlap the opening's height, then the two
-    horizontal lines through the middle column only, and the pieces inside the rect are
-    deleted. bmesh splits shared edges for both faces: no T-junction. lodge runs it on the
-    tiled LOD0 AFTER cs2_tilesheet.tile_mesh (only the tile pieces under an opening split;
-    run before it, every hole line crossed every tile row: +31 tris / hole on the school),
-    then re-triangulates the cut pieces and re-shades. Returns the report."""
+    """LOD0 copy only (lodge.run, kit v2). It cuts a hole in the wall face behind every `reveal_` liner. The hole rect is read
+    back from the liner itself. Its side quads run out to the casing face, and its top / bottom quads stop at the wall plane.
+    That tells outward and the plane, so recipe transforms after the kit never matter.
+
+    Faces of ANY non-kit part that lie in the wall plane, face outward and overlap the rect are cut LOCALLY:
+    1. Cut the two vertical lines through the faces that overlap the opening's height.
+    2. Cut the two horizontal lines through the middle column only.
+    3. Delete the pieces inside the rect. bmesh splits shared edges for both faces: no T-junction.
+
+    lodge runs it on the tiled LOD0 AFTER cs2_tilesheet.tile_mesh. Only the tile pieces under an opening split. If it ran
+    before tile_mesh, every hole line crossed every tile row (+31 tris / hole on the school). It then re-triangulates the cut
+    pieces and re-shades. Returns the report."""
     me = obj.data
     M = obj.matrix_world
     if any(abs(M[i][j] - (1.0 if i == j else 0.0)) > 1e-9 for i in range(4) for j in range(4)):
@@ -2147,9 +2162,8 @@ def punch_openings(obj, table, tol=2e-3, triangulate=True, merge=True):
             report["holes"] += 1
             report["faces_cut"] += len(hole)
     if merge and touched:
-        # re-merge the pieces round each hole where they share one swatch mapping (delimit UV:
-        # a tile-cell or weather boundary stays), then triangulate: the hole costs its outline,
-        # not every tile triangle its lines crossed
+        # re-merge the pieces around each hole where they share one swatch mapping (delimit UV: a tile-cell or weather
+        # boundary stays). Then triangulate. The hole costs its outline, not every tile triangle its lines crossed
         faces = list(dict.fromkeys(f for f in touched if f.is_valid))
         n0 = sum(len(f.verts) - 2 for f in faces)
         bm.verts.index_update()
@@ -2180,9 +2194,8 @@ def punch_openings(obj, table, tol=2e-3, triangulate=True, merge=True):
 
 
 def check_panes_clear(lod0, win, reach=REVEAL_M + 0.03):
-    """Every recessed pane must see out of its hole: a ray from the pane center along its
-    normal may not hit the LOD0 mesh within REVEAL_M + 3 cm (that would be an unholed wall).
-    Returns [(pane index, distance)] of blocked panes."""
+    """Every recessed pane must see out of its hole. A ray from the pane center along its normal may not hit the LOD0 mesh
+    within REVEAL_M + 3 cm (that would be an unholed wall). Returns [(pane index, distance)] of blocked panes."""
     bm = bmesh.new()
     bm.from_mesh(lod0.data)
     bm.transform(lod0.matrix_world)
@@ -2201,11 +2214,10 @@ def check_panes_clear(lod0, win, reach=REVEAL_M + 0.03):
 
 
 def unrecess_panes(win, far, depth=REVEAL_M, offset=PANE_OFFSET, tol=0.01):
-    """The LOD1 / LOD2 `_Win`: a copy of `win` whose recessed panes (an unholed wall face of
-    the far set `depth` in front of the pane center) move back out to `offset` in front of
-    that face: the v1 pane positions, so the far set needs no holes. Same faces, UVs and
-    room cells. `depth` may be a sequence (door kit v2 adds its glass depths). Returns
-    (copy, panes moved)."""
+    """The LOD1 / LOD2 `_Win`: a copy of `win` whose recessed panes move back out to `offset` in front of the wall face. A
+    recessed pane has an unholed wall face of the far set `depth` in front of the pane center. The new positions are the v1
+    pane positions, so the far set needs no holes. Same faces, UVs and room cells. `depth` may be a sequence (door kit v2
+    adds its glass depths). Returns (copy, panes moved)."""
     depths = tuple(depth) if isinstance(depth, (tuple, list, set)) else (depth,)
     bm = bmesh.new()
     bm.from_mesh(far.data)
@@ -2242,31 +2254,38 @@ def unrecess_panes(win, far, depth=REVEAL_M, offset=PANE_OFFSET, tol=0.01):
 
 
 # --------------------------------------------------------------------------------------
-# Door kit v2 (2026-10-17, docs/research/art/door-kit-2026-10-17.md). On window kit
-# v2: "big thumbs up"; the doors get the same treatment and ride the same re-export. Vanilla
-# measured (doc section 1): EU_ResidentialLow01's door leaf sits 9.5 cm behind the wall face
-# in an 11.7 cm casing 3 cm proud, 2 cm panel moldings and frame steps, a 12 cm threshold;
-# EU_CommercialHotel01's glass double doors: 5.3 cm aluminum stiles, frame face 12.5 cm and
-# glass 18 cm behind the wall, a 28 cm transom light, canopy over. One builder (door_unit),
-# three family presets matching the window families:
+# Door kit v2 (2026-10-17, docs/research/art/door-kit-2026-10-17.md). On window kit v2: "big thumbs up". The doors get the
+# same treatment and ride the same re-export.
+#
+# Vanilla measured (doc section 1):
+# - EU_ResidentialLow01: the door leaf sits 9.5 cm behind the wall face in an 11.7 cm casing 3 cm proud, 2 cm panel moldings
+#   and frame steps, a 12 cm threshold.
+# - EU_CommercialHotel01: glass double doors with 5.3 cm aluminum stiles, frame face 12.5 cm and glass 18 cm behind the wall,
+#   a 28 cm transom light, canopy over.
+#
+# One builder (door_unit), three family presets matching the window families:
 #   glazing  glass double doors in a dark frame (the window trim key), timber posts (the
 #            surround key), a transom light when the opening is >= 2.45 m tall, a flat concrete
-#            threshold plate, galvanised pull bars (L1, L4, L5)
+#            threshold plate, galvanized pull bars (L1, L4, L5)
 #   chalet   half-glazed painted timber door (stiles + rails, a raised panel below the lock
 #            rail) in a 12 cm timber casing, a sloped timber threshold, a lever (L2, L3)
 #   utility  flat steel leaf, optional vision panel, a dark (ski_black) kick plate, a lever at
 #            0.95 m (the EU house door's lever), 6 cm casing posts + a header board, a flat
-#            concrete threshold plate (school, P1, P2); galv is metallic and the previews draw it
-#            navy (sky reflection), so plates are flat non-metal keys, unverified in game
-# Recessed (default): the leaf face sits `reveal` behind the wall face in a REAL hole cut on
-# the tiled LOD0 only (punch_openings reads the `reveal_d<name>` liner: two jamb sides out
-# to the casing face + the head soffit, NO stool: the threshold plate closes the bottom, so
-# the hole's z range comes from the jamb sides). Surface (holes "none" / not arrival): no
-# hole, the leaf at the old depth `ds` inside a casing built out to the wall. Every kit part
-# draws its material's flat palette color (door2_flat), is protected from the cull
-# (door2_protect) and, except the `entry_` casing, is LOD1-deleted (door_ / reveal_).
-# The leaf glass, sidelights and transom are `_Win` panes (one quad per light) in an
-# EXISTING room (glass_room), so the rooms do not change.
+#            concrete threshold plate (school, P1, P2).
+#            Galv is metallic and the previews draw it navy (sky reflection), so plates are
+#            flat non-metal keys (unverified in game).
+#
+# Recessed (default): the leaf face sits `reveal` behind the wall face in a REAL hole cut on the tiled LOD0 only.
+# punch_openings reads the `reveal_d<name>` liner: two jamb sides out to the casing face + the head soffit, NO stool. The
+# threshold plate closes the bottom, so the z range of the hole comes from the jamb sides.
+#
+# Surface (holes "none" / not arrival): no hole, the leaf at the old depth `ds` inside a casing built out to the wall.
+#
+# Every kit part draws its material's flat palette color (door2_flat) and is protected from the cull (door2_protect). Except
+# the `entry_` casing, every kit part is LOD1-deleted (door_ / reveal_).
+#
+# The leaf glass, sidelights and transom are `_Win` panes (one quad per light) in an EXISTING room (glass_room), so the rooms
+# do not change.
 # --------------------------------------------------------------------------------------
 
 DOOR_FAMILIES = {
@@ -2303,9 +2322,10 @@ DOOR_HARDWARE_KINDS = ("pull", "lever", "knob")   # the gate: one of these per l
 
 class door_kit:
     """Context manager: entry() / door_unit build door kit v2 inside it (lodge.build_parts).
-    family = DOOR_FAMILIES key; holes "all" | "arrival" | "none"; mode "full" | "lean" (lean:
-    no glazing bead / panel-free glass step, no wedge end caps); arrival = authoring-frame
-    (x, y) of the arrival direction (holes "arrival")."""
+    - family = DOOR_FAMILIES key
+    - holes "all" | "arrival" | "none"
+    - mode "full" | "lean" (lean: no glazing bead / panel-free glass step, no wedge end caps)
+    - arrival = authoring-frame (x, y) of the arrival direction (holes "arrival")."""
 
     def __init__(self, version=2, family="glazing", holes="all", mode="full", arrival=None):
         if family not in DOOR_FAMILIES or holes not in ("all", "arrival", "none") \
@@ -2367,18 +2387,17 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
               sill_key=None, casing=None, casing_name=None, glass=True, vision=True,
               vision_rect=None, vision_name=None, hardware="auto", ds=0.02, recessed=None,
               lean=None):
-    """One door kit v2 opening (module notes above): opening [u - w/2, u + w/2] (+ sidelights)
-    x [zf, zf + h] on `wall`; returns the parts. casing_name defaults to `door_<name>_cas`
-    (LOD1-deleted, the cs2_kit doors' jambs were); entry() passes `entry_<name>` (LOD1 kept,
-    LOD2 deleted, the old surround's rule). ds = the leaf face depth in surface mode."""
+    """One door kit v2 opening (module notes above): opening [u - w/2, u + w/2] (+ sidelights) x [zf, zf + h] on `wall`. Returns
+    the parts. casing_name defaults to `door_<name>_cas` (LOD1-deleted, as the jambs of the cs2_kit doors were). entry()
+    passes `entry_<name>` (LOD1 kept, LOD2 deleted, the rule of the old surround). ds = the leaf face depth in surface mode."""
     if DOOR_KIT["version"] != 2:
         raise RuntimeError("door_unit outside door_kit()")
     p = DOOR_FAMILIES[DOOR_KIT["family"]]
     n, _t = _SIDES[wall.side]
     full = (DOOR_KIT["mode"] == "full") if lean is None else not lean
-    # HARDWARE GATE (2026-10-17: "It's good to render levers or doorknobs. Vanilla
-    # buildings tend to have them"): every leaf ends with a pull / lever / knob part; the only
-    # way out is an explicit, reasoned opt-out hardware="none:<reason>" (no silent off switch)
+    # HARDWARE GATE (2026-10-17: "It's good to render levers or doorknobs. Vanilla buildings tend to have them"). Every leaf
+    # ends with a pull / lever / knob part. The only way out is an explicit, reasoned opt-out: hardware="none:<reason>" (no
+    # silent off switch)
     if hardware == "auto":
         handle = True
     elif isinstance(hardware, str) and hardware.startswith("none:") and hardware[5:].strip():
@@ -2443,9 +2462,9 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
             DOOR2_GLASS_D.add(round(-dg, 4))
 
     # -- liner: two jamb sides out to the casing face + head soffit (no stool) ------------
-    # The liner runs back past the glass plane (Dg): a sidelight / transom light meets the jamb
-    # or the head directly, and a liner stopping at the leaf face left a slit to the sky between
-    # it and the recessed glass (follow-up 2026-10-17, L1 left sidelight). Same tris.
+    # The liner runs back past the glass plane (Dg). A sidelight / transom light meets the jamb or the head directly. A liner
+    # that stopped at the leaf face left a slit to the sky between it and the recessed glass (follow-up 2026-10-17, L1 left
+    # sidelight). Same tris.
     Dg = dg - 0.005
     g = _Geo()
     _wpoly(g, wall, [(aL, zf, Dg), (aL, zt, Dg), (aL, zt, Dc), (aL, zf, Dc)], (1, 0, 0))
@@ -2516,9 +2535,9 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
                 quads = quads
             for (qa, qb, qz0, qz1) in quads:
                 _wpoly(g, wall, [(qa, qz0, Dl), (qb, qz0, Dl), (qb, qz1, Dl), (qa, qz1, Dl)], (0, 0, 1))
-            # raised panel below the lock rail: the field between the stiles and rails stands
-            # `panel_raise` proud with square sides (a shallow bevel shades smooth under the
-            # 66 deg split and vanishes; the square edge keeps a crisp shadow line): 10 tris
+            # raised panel below the lock rail: the field between the stiles and rails stands `panel_raise` proud with square
+            # sides. A shallow bevel shades smooth under the 66 deg split and vanishes. The square edge keeps a crisp shadow
+            # line. 10 tris
             rz = p["panel_raise"]
             pz0, pz1 = zl0 + rb, zlk0
             O = [(ia, pz0), (ib, pz0), (ib, pz1), (ia, pz1)]
@@ -2583,19 +2602,18 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
         elif handle and p["handle"] == "lever":
             ll, lh, lz, so, ldp = DOOR_LEVER
             lz = p.get("lever_z", lz)
-            # latch edge: a single leaf's high-u edge; a pair's meeting edge (each leaf its own
-            # lever, pointing back toward its hinge side)
+            # latch edge: the high-u edge of a single leaf, or the meeting edge of a pair (each leaf has its own lever,
+            # pointing back toward its hinge side)
             if L == 1:
                 ue, sgn = lb - p.get("stile", 0.16) / 2, -1.0
             elif k == 0:
                 ue, sgn = lb - 0.06, -1.0
             else:
                 ue, sgn = la + 0.06, 1.0
-            # An L-shaped lever on a rose (follow-up 2, "School door handle looks like it
-            # is floating"): the bar (front, top, bottom, free-end cap) runs from the latch end
-            # `ue` toward the hinge; at the latch end a return leg (DOOR_LEVER_NECK wide) runs
-            # back to the leaf face, so no gap; a rose plate (DOOR_ROSE, the EU house door's
-            # 11 cm plate) sits on the leaf under it. 18 tris (DOOR_LEVER_TRIS), one part.
+            # An L-shaped lever on a rose (follow-up 2, "School door handle looks like it is floating"). The bar (front, top,
+            # bottom, free-end cap) runs from the latch end `ue` toward the hinge. At the latch end a return leg
+            # (DOOR_LEVER_NECK wide) runs back to the leaf face, so there is no gap. A rose plate (DOOR_ROSE, the 11 cm plate
+            # of the EU house door) sits on the leaf under it. 18 tris (DOOR_LEVER_TRIS), one part.
             uf = ue + sgn * ll                              # free end
             un = ue + sgn * DOOR_LEVER_NECK                 # inner face of the return leg
             z0_, z1_ = zf + lz, zf + lz + lh
@@ -2735,9 +2753,8 @@ def entry_v2(name, wall, u, w, h, sidelights, canopy, lamps, room, z, sidelight_
 
 def curtain_wall(name, wall, u0, u1, z0, z1, grid_u=1.6, transom_at=3.0, mullion=0.08,
                  room=None, per_storey_rooms=True):
-    """Glazed wall: panes `win_<room><s>_<k>` on a grid ~grid_u wide, rows cut every
-    transom_at m above z0 (no pane exceeds one story: a pane is never cut by the floor
-    slicer, PG-sk 9), mullions `cmull_<name>`, transoms + rails `ctran_<name>`."""
+    """Glazed wall: panes `win_<room><s>_<k>` on a grid ~grid_u wide, rows cut every transom_at m above z0. No pane exceeds one
+    story: the floor slicer never cuts a pane (PG-sk 9). Mullions `cmull_<name>`, transoms + rails `ctran_<name>`."""
     room = room or name
     z0 = max(z0, GROUND_LIFT + 0.06)        # bottom rail clear of the engine ground band
     ncol = max(1, int(round((u1 - u0) / grid_u)))
@@ -2768,13 +2785,16 @@ def curtain_wall(name, wall, u0, u1, z0, z1, grid_u=1.6, transom_at=3.0, mullion
 
 def entry(name, wall, u, w=1.8, h=2.4, sidelights=0, canopy=None, lamps=2, room=None,
           z=0.0, sidelight_w=0.9, surround_mat="timber_heavy", glass=True, glass_room=None):
-    """`entry_<name>` timber surround (0.26 deep: 0.18 proud, 0.08 buried; +0.2 each side;
-    head 0.30 above the door), two cs2_kit.door leaves (`door_`, w/2 each), sidelight panes
-    `win_<room>_<name>s<k>`, optional `canopy=(depth, pitch_deg)` gable porch
-    (`roof_<name>canopy0/1`, `bracket_`), `lamps` lanterns (`lamp_`) at 2.2 m. z = floor
-    height of the doorway; closed parts never start below GROUND_LIFT (engine band).
-    Inside door_kit() (lodge.py --door-kit v2) this is entry_v2 (door kit v2: glass /
-    glass_room apply there only; every v1 build is byte-identical)."""
+    """`entry_<name>` timber surround, with these parts:
+    - the surround: 0.26 deep (0.18 proud, 0.08 buried), +0.2 each side, head 0.30 above the door
+    - two cs2_kit.door leaves (`door_`, w/2 each)
+    - sidelight panes `win_<room>_<name>s<k>`
+    - optional `canopy=(depth, pitch_deg)` gable porch (`roof_<name>canopy0/1`, `bracket_`)
+    - `lamps` lanterns (`lamp_`) at 2.2 m. z = floor height of the doorway. Closed parts never start below GROUND_LIFT
+      (engine band).
+
+    Inside door_kit() (lodge.py --door-kit v2) this is entry_v2 (door kit v2). glass / glass_room apply there only. Every v1
+    build is byte-identical."""
     room = room or f"entry{name}"
     if DOOR_KIT["version"] == 2:
         return entry_v2(name, wall, u, w, h, sidelights, canopy, lamps, room, z, sidelight_w,
@@ -2925,16 +2945,15 @@ def beam(name, p0, p1, w, h, mat="timber_heavy"):
 
 def bracket(name, at, wall_normal, span=1.0, drop=1.0, t=0.15, curved=False,
             mat="timber_heavy"):
-    """`bracket_<name>` knee brace under an overhang: `at` = top point on the wall face,
-    a horizontal arm `span` out along `wall_normal` and a strut from `drop` below `at` to
-    the arm end; curved -> a 4-segment glulam arc (one tube)."""
+    """`bracket_<name>` knee brace under an overhang: `at` = top point on the wall face, a horizontal arm `span` out along
+    `wall_normal` and a strut from `drop` below `at` to the arm end. curved -> a 4-segment glulam arc (one tube)."""
     n = _SIDES[wall_normal][0] if isinstance(wall_normal, str) else Vector(wall_normal)
     A = Vector(at)
     tip = A + n * span
     foot = A - Vector((0, 0, drop))
     g = _Geo()
     if curved and STRUCTURE.get("version", 0) >= 1:
-        # structure v1 round 2: one mitred glulam arc (CURVE_SEGS segments, rings shared: no notch at a joint)
+        # structure v1 round 2: one mitered glulam arc (CURVE_SEGS segments, rings shared: no notch at a joint)
         pts = []
         for k in range(CURVE_SEGS + 1):
             a = 0.5 * math.pi * k / CURVE_SEGS
@@ -2948,8 +2967,8 @@ def bracket(name, at, wall_normal, span=1.0, drop=1.0, t=0.15, curved=False,
         for p, q in zip(pts, pts[1:]):
             _beam_into(g, p, q, t, t)
     else:
-        # structure v1 (T58, 2026-10-18): both members start 1 cm INSIDE the wall (they began 2 cm in front of
-        # it: every kit bracket floated off its wall); off = the old 2 cm gap, byte for byte
+        # structure v1 (T58, 2026-10-18): both members start 1 cm INSIDE the wall. They began 2 cm in front of it, so every
+        # kit bracket floated off its wall. off = the old 2 cm gap, byte for byte
         back = -STRUCT_WALL_EMBED if STRUCTURE.get("version", 0) >= 1 else 0.02
         _beam_into(g, A + n * back, tip, t, t)
         _beam_into(g, foot + n * back, tip - n * 0.05, t, t)
@@ -2958,20 +2977,21 @@ def bracket(name, at, wall_normal, span=1.0, drop=1.0, t=0.15, curved=False,
 
 def truss_kingpost(name, wall, span, eave_z, pitch_deg, member=0.35, braces="curved",
                    d=0.25, mat="timber_heavy", frame=None):
-    """L5 king-post truss in front of a gable face: `truss_<name>` = tie beam at eave_z,
-    two rafters, king post, two braces (curved arcs or straight), all `d` m proud.
-    The WallRef's (u0 + u1) / 2 is the truss center.
-    braces="frame" (T57, structure v1, 2026-10-18): each brace rises from the tie at uc +- frame[0] to the
-    rafter at uc +- frame[1], curved outward (away from the king post), so a gable window between the king post
-    and the brace is FRAMED by tie, king post, brace and rafter instead of crossed ("a decorative wood
-    piece going across the window in a weird way").
-    Structure v1 round 2 (2026-10-18: "that break in brace frame ... it would need to be curved"): both
-    "frame" and "curved" braces are ONE circular arc each (arc_points, CURVE_SEGS segments, _mitred_into: no notch
-    at any joint, 0.7 x member square to the member), each its own part `truss_<name>br<k>` (the kit "along"
-    projection runs along a part's principal axis: grain along the brace, not along the tie). A "frame" brace
-    bulges away from the king post (sagitta BRACE_SAG x its chord, >= BRACE_SAG_MIN); a "curved" brace keeps its
-    0.25 m droop. Both ends sit on the center lines of what they meet (end faces buried). A "frame" brace has no
-    wall-facing side (d m in front of its gable: never seen; the L5 cap)."""
+    """L5 king-post truss in front of a gable face: `truss_<name>` = tie beam at eave_z, two rafters, king post, two braces
+    (curved arcs or straight), all `d` m proud. The truss center is (u0 + u1) / 2 of the WallRef.
+
+    braces="frame" (T57, structure v1, 2026-10-18): each brace rises from the tie at uc +- frame[0] to the rafter at uc +-
+    frame[1], curved outward (away from the king post). So tie, king post, brace and rafter FRAME a gable window between the
+    king post and the brace instead of crossing it ("a decorative wood piece going across the window in a weird way").
+
+    Structure v1 round 2 (2026-10-18: "that break in brace frame ... it would need to be curved"): "frame" and "curved"
+    braces are each ONE circular arc (arc_points, CURVE_SEGS segments, _mitred_into: no notch at any joint, 0.7 x member
+    square to the member). Each brace is its own part `truss_<name>br<k>` (the kit "along" projection runs along the
+    principal axis of a part: grain along the brace, not along the tie).
+    - A "frame" brace bulges away from the king post (sagitta BRACE_SAG x its chord, >= BRACE_SAG_MIN).
+    - A "curved" brace keeps its 0.25 m droop.
+    - Both ends sit on the center lines of what they meet (end faces buried).
+    - A "frame" brace has no wall-facing side (d m in front of its gable: never seen, the L5 cap)."""
     uc = 0.5 * (wall.u0 + wall.u1)
     tp = math.tan(math.radians(pitch_deg))
     apex_z = eave_z + tp * span / 2
@@ -3035,14 +3055,13 @@ def truss_kingpost(name, wall, span, eave_z, pitch_deg, member=0.35, braces="cur
 
 def deck(name, x0, x1, y0, y1, z, support="col", support_every=3.2, support_to=0.0,
          fascia=0.30, board_dir="X", thick=0.16, mat="deck", soffit=False):
-    """`deck_<name>` floor (top at z, `thick`), `deckfascia_<name>` band, supports `col_`
-    / `pier_` along the perimeter every `support_every` (ground when support_to == 0;
-    plinth mode: support_to = -D); support "solid" (on a base: bottom dropped) or "none"
-    (caller places supports). board_dir "X"/"Y" -> obj["tile_rot"] (Planks021 boards run
-    along u = world X on a deck top, measured: row-profile std 0.059 vs column 0.008).
-    soffit=True (detail pass 1, design 5.2 P2 repack): the slab underside becomes its own
-    part `soffit_deck<name>` (one quad, mat `mat`, soffit_ weight 0.25) instead of the
-    deck_ slab's bottom face; ignored on a solid deck (no underside)."""
+    """`deck_<name>` floor (top at z, `thick`), `deckfascia_<name>` band, supports `col_` / `pier_` along the perimeter every
+    `support_every` (ground when support_to == 0. Plinth mode: support_to = -D). support "solid" (on a base: bottom dropped)
+    or "none" (caller places supports). board_dir "X"/"Y" -> obj["tile_rot"] (Planks021 boards run along u = world X on a
+    deck top, measured: row-profile std 0.059 vs column 0.008).
+
+    soffit=True (detail pass 1, design 5.2 P2 repack): the slab underside becomes its own part `soffit_deck<name>` (one quad,
+    mat `mat`, soffit_ weight 0.25) instead of the deck_ slab's bottom face. It is ignored on a solid deck (no underside)."""
     solid = support == "solid"
     split = bool(soffit) and not solid
     parts = box_part(f"deck_{name}", (x0, y0, z - thick), (x1, y1, z), mat,
@@ -3086,13 +3105,12 @@ def deck(name, x0, x1, y0, y1, z, support="col", support_every=3.2, support_to=0
 
 def stair(name, foot, top, w=1.2, rise_max=0.18, run=0.28, stringers=True, rail="tube",
           ground=True, rail_sides=(-1, 1), tread_mat="deck", stringer_mat="trim"):
-    """n = ceil(dz / rise_max) risers from `foot` (bottom of the first riser) to `top`
-    (top nosing): `stair_<name>_treads` (0.05 thick, open risers), `stair_<name>_str0/1`
-    stringers (feet open on z 0 when ground -> engine-base edges), rails per `rail`
-    ("tube" cs2_kit.handrail / "timber" / "none") on `rail_sides` (+1 = right of the run).
-    ground=False (plinth mode): the foot must sit at z <= -0.05 (below grade) or >= 0.02,
-    stringer feet are closed (skeptic MUST-CHANGE 3). `run` is informative: the run is
-    derived from the foot / top points."""
+    """n = ceil(dz / rise_max) risers from `foot` (bottom of the first riser) to `top` (top nosing). The stair has these parts:
+    - `stair_<name>_treads` (0.05 thick, open risers)
+    - `stair_<name>_str0/1` stringers (feet open on z 0 when ground -> engine-base edges)
+    - rails per `rail` ("tube" cs2_kit.handrail / "timber" / "none") on `rail_sides` (+1 = right of the run). ground=False
+      (plinth mode): the foot must sit at z <= -0.05 (below grade) or >= 0.02. The stringer feet are closed (skeptic
+      MUST-CHANGE 3). `run` is informative: the run is derived from the foot / top points."""
     F, T = Vector(foot), Vector(top)
     if ground and abs(F.z) > 1e-9:
         raise ValueError(f"stair {name}: ground stairs start at z 0")
@@ -3184,11 +3202,12 @@ def _split_path(path, gaps):
 
 
 def rail(name, path, h=1.10, kind="tube", gaps=(), post_every=None):
-    """Guard rail along a 3D polyline (floor-level points). tube = cs2_kit.handrail (h 1.10,
-    knee 0.55, posts 1.5 m: `post_`, `rail_`, `kick_`); timber = base_lodge rail_run port
-    (posts 0.07 sq, rails 0.09 x 0.06 at h - 0.08 and h - 0.54: `trail_`); glass = opaque
-    `glassrail_` panels 0.02 thick (no alpha) + `trail_` cap; bars = 2 steel `bar_` + posts
-    `trail_`; `gaps` = arc-length openings."""
+    """Guard rail along a 3D polyline (floor-level points).
+    - tube = cs2_kit.handrail (h 1.10, knee 0.55, posts 1.5 m: `post_`, `rail_`, `kick_`).
+    - timber = base_lodge rail_run port (posts 0.07 sq, rails 0.09 x 0.06 at h - 0.08 and h - 0.54: `trail_`).
+    - glass = opaque `glassrail_` panels 0.02 thick (no alpha) + `trail_` cap.
+    - bars = 2 steel `bar_` + posts `trail_`.
+    - `gaps` = arc-length openings."""
     parts = []
     for pi, piece in enumerate(_split_path(path, gaps)):
         tag = f"{name}{pi}" if len(_split_path(path, gaps)) > 1 else name
@@ -3312,10 +3331,9 @@ def porte_cochere(name, x0, x1, y0, y1, clear_h=4.5, piers=4, pier=(1.4, 1.6),
 
 def tower(name, cx, cy, size, eave_z, roof="hip", pitch_deg=15.0, wall_mat="stone_rubble",
           lantern=None, clock=None, cap_z=None, roof_mat="slate", overhang=0.5):
-    """`tower_<name>` shaft (ground part, open bottom; wall_mat = str or ((z_top, mat), ...)
-    bands -> `tower_<name>`, `tower_<name>b1`, ...), hip roof `roof_<name>`;
-    lantern=(w, post, h, cap_pitch) -> `lanterncol_` posts, `lanterncap_` hip, `bell_`;
-    clock=(d, z) -> `clock_<k>_face` discs on the four faces + `clockring_<name>`."""
+    """`tower_<name>` shaft (ground part, open bottom, wall_mat = str or ((z_top, mat), ...) bands -> `tower_<name>`,
+    `tower_<name>b1`, ...), hip roof `roof_<name>`. lantern=(w, post, h, cap_pitch) -> `lanterncol_` posts, `lanterncap_`
+    hip, `bell_`. clock=(d, z) -> `clock_<k>_face` discs on the four faces + `clockring_<name>`."""
     hs = size / 2
     x0, x1, y0, y1 = cx - hs, cx + hs, cy - hs, cy + hs
     bands = [(eave_z, wall_mat)] if isinstance(wall_mat, str) else list(wall_mat)
@@ -3371,9 +3389,9 @@ def tower(name, cx, cy, size, eave_z, roof="hip", pitch_deg=15.0, wall_mat="ston
 
 
 def lantern(name, at, normal, kind="wall", h=0.45, w=0.25):
-    """`lamp_<name>` lens box 0.25 x 0.25 x 0.45 (mat `lamp`, emissive) + `lamp_<name>arm`
-    bracket. kind "wall": `at` = point on the wall at lens-center height, lens 0.22 out
-    along `normal`; "post": `at` = post top, lens sits on it. Returns (parts, lens center)."""
+    """`lamp_<name>` lens box 0.25 x 0.25 x 0.45 (mat `lamp`, emissive) + `lamp_<name>arm` bracket. kind "wall": `at` = point on
+    the wall at lens-center height, lens 0.22 out along `normal`. kind "post": `at` = post top, lens sits on it. Returns
+    (parts, lens center)."""
     n = _SIDES[normal][0] if isinstance(normal, str) else Vector(normal).normalized()
     A = Vector(at)
     if kind == "post":
@@ -3395,20 +3413,20 @@ def lantern(name, at, normal, kind="wall", h=0.45, w=0.25):
 
 def flag_mast(name, x, y, h=8.0, flag=(1.6, 1.0), *, z0=GROUND_LIFT, along="X", face=False,
               fine=False):
-    """`flag_<name>` 6-seg mast r 0.05 from GROUND_LIFT (closed, not a ground part: it is
-    deleted at LOD1) to h, `flagpanel_<name>` 0.01 slab (mat accent, slot 2).
+    """`flag_<name>` 6-seg mast r 0.05 from GROUND_LIFT (closed, not a ground part: it is deleted at LOD1) to h,
+    `flagpanel_<name>` 0.01 slab (mat accent, slot 2).
+
     Detail pass 1 keywords (defaults = the geometry above, vertex for vertex):
-      z0     foot of the mast (a deck top, or <= -0.05 below grade in plinth mode); the
-             whole flag rises by z0 - GROUND_LIFT, so `h` stays the top height ON GRADE;
-      along  "X" (default) | "Y": the axis the cloth runs along, out from the mast;
-      face   True: the cloth is two LABEL quads instead of the accent slab -
-             `emblem_<n>flagA_face` facing the front (+X when along "Y", -Y when along "X")
-             and `emblem_<n>flagB_face` facing back, 5 mm either side of the cloth plane
-             (stamp both). The kit keeps them to LOD2 (`emblem_`): a recipe that drops the
-             mast at LOD1 lists `emblem_<n>flag` in lod1_extra (skeptic M8).
-    Fine-detail pass (design B.1, opt-in, fine=True): the mast is 12-seg with a 10-tri top cap
-    (no bottom cap: it stands on its foot) and a 6 x 3 ball finial (FINIAL_R) sitting on the cap;
-    the cloth is unchanged. 58 tris instead of 20."""
+    - z0 = foot of the mast (a deck top, or <= -0.05 below grade in plinth mode). The whole flag rises by z0 - GROUND_LIFT,
+      so `h` stays the top height ON GRADE.
+    - along = "X" (default) | "Y": the axis the cloth runs along, out from the mast.
+    - face = True: the cloth is two LABEL quads instead of the accent slab - `emblem_<n>flagA_face` facing the front (+X when
+      along "Y", -Y when along "X") and `emblem_<n>flagB_face` facing back, 5 mm either side of the cloth plane (stamp both).
+      The kit keeps them to LOD2 (`emblem_`). A recipe that drops the mast at LOD1 lists `emblem_<n>flag` in lod1_extra
+      (skeptic M8).
+
+    Fine-detail pass (design B.1, opt-in, fine=True): the mast is 12-seg with a 10-tri top cap (no bottom cap: it stands on
+    its foot) and a 6 x 3 ball finial (FINIAL_R) sitting on the cap. The cloth is unchanged. 58 tris instead of 20."""
     if str(along).upper() not in ("X", "Y"):
         raise ValueError(f"flag_mast {name}: along {along!r} (X | Y)")
     _check_foot(f"flag_mast {name}", z0)
@@ -3462,13 +3480,11 @@ def ski_rack(name, x, y, length=4.0, facing="+X", h=1.3, *, slots=None, w=None, 
              along="Y", skis=(), ski_mat="accent", gear=False, z0=0.0, leg_to=None,
              bindings=False):
     """Two racks behind one name.
-    Painted panel (default, the 2026-10 kit build): `skirack_<name>` frame (2 legs, top +
-    bottom rails, from GROUND_LIFT) and `skirack_<name>_face` panel (ONE quad facing
-    `facing`, stamped with paint_skis).
-    Modeled A-frame (keyword `slots=` given; L1 revision 1, the verdict "ski racks
-    around the base - not a prop in the game so add it to the asset"): see ski_rack_frame
-    (`length` / `facing` / `h` are ignored on that path; `gear`, `z0`, `leg_to` and
-    `bindings` (detail pass 1) are passed on; the painted panel takes none of them)."""
+    - Painted panel (default, the 2026-10 kit build): `skirack_<name>` frame (2 legs, top + bottom rails, from GROUND_LIFT)
+      and `skirack_<name>_face` panel (ONE quad facing `facing`, stamped with paint_skis).
+    - Modeled A-frame (keyword `slots=` given, L1 revision 1, the verdict "ski racks around the base - not a prop in the game
+      so add it to the asset"): see ski_rack_frame. `length` / `facing` / `h` are ignored on that path. `gear`, `z0`,
+      `leg_to` and `bindings` (detail pass 1) are passed on. The painted panel takes none of them."""
     if slots is not None:
         return ski_rack_frame(name, x, y, slots=slots, w=w, mat=mat, along=along, skis=skis,
                               ski_mat=ski_mat, gear=gear, z0=z0, leg_to=leg_to,
@@ -3496,8 +3512,7 @@ SKI_SLABS = {"ski": (1.65, 0.15), "board": (1.50, 0.26)}    # (length, width): a
 
 
 def _bar_into(g, p0, p1, t, across):
-    """Square bar t x t from p0 to p1, one cross axis = `across`; end caps not built (they
-    sit inside a rail / foot bar)."""
+    """Square bar t x t from p0 to p1, one cross axis = `across`. End caps are not built (they sit inside a rail / foot bar)."""
     P0, P1 = Vector(p0), Vector(p1)
     d = P1 - P0
     L = d.length
@@ -3509,39 +3524,42 @@ def _bar_into(g, p0, p1, t, across):
 def ski_rack_frame(name, x, y, slots=8, w=None, mat="galv", along="Y", skis=(),
                    ski_mat="accent", h=1.20, spread=0.40, bar=0.035, pitch=0.20, gear=False,
                    *, z0=0.0, leg_to=None, bindings=False):
-    """Freestanding A-frame ski rack (L1 revision 1: no vanilla ski-rack prop exists).
-    Center (x, y) on grade, long axis `along` ("X" | "Y").
-    `skirack_<name>` (mat): top rail 0.05 square at `h`; one base rail per side at z 0.35,
-    `spread` out; slots + 1 inclined divider bars per side (`bar` square) at `pitch` = 0.20 m
-    slot spacing from the base rail to the top rail (the two sides meet there: an A at every
-    divider); the two end dividers run on down to a foot bar on grade (the legs).
-    `skirack_<name>skis` (`ski_mat`, accent = slot 2), only when `skis` is given: one slab
-    per (slot, side, kind), slot 0..slots-1, side +1 / -1, kind in SKI_SLABS ("ski" = a pair
-    0.15 x 1.65, "board" 0.26 x 1.50), foot on grade 0.62 out, leaning on the top rail,
-    outside the divider plane (a board may overhang its slot, so the neighboring slots on
-    its side must be empty: asserted).
-    w defaults to slots x pitch + 0.10 (8 slots: 1.70 m); a given w sets the pitch (>= 0.16).
-    Closed parts from GROUND_LIFT, not ground parts (asserted); bar end caps and the foot
-    bars' undersides are not built. The `skirack_` prefix puts both parts on LOD1_DELETE
-    (LOD0 only) and on the cull's protect list (LABEL_PREFIXES).
-    gear=True (detail pass 1, "actual skis/boards on the racks instead of wooden
-    planks"): `skis` entries are (slot, side, kind[, color[, length]]), kind in GEAR_KINDS
-    (a ski PAIR base to base, a snowboard, a pole pair), color a matkey or a (body, tip) /
-    (top, stripe) pair (default ski_mat), length default GEAR_LEN; the same foot / top-rail
-    lean as the slabs, the back face on that line; occupancy GEAR_W (a board's neighbors on
-    its side may hold skis / poles, not a board: asserted). Parts `skirack_<name>g<code>`,
-    one per matkey (GEAR_CODE), instead of `skirack_<name>skis`.
-    bindings (default False, 2026-10-11: "I don't think we need to render the
-    bindings. They just come out as blocks and looks bad"): the ski pairs and boards carry NO
-    binding blocks. True restores the detail-pass-1 geometry (galv blocks on the skis, base
-    plates + highbacks on the boards) and exists for tests only. An item that cannot reach
-    the lean point (shorter than rack_reach(): 1.33 m on the default rack) stops in mid-air:
-    it is reported on stdout, not refused (L5's pole pairs still do that).
+    """Freestanding A-frame ski rack (L1 revision 1: no vanilla ski-rack prop exists). Center (x, y) on grade, long axis `along`
+    ("X" | "Y").
+
+    `skirack_<name>` (mat): top rail 0.05 square at `h`. One base rail per side at z 0.35, `spread` out. Slots + 1 inclined
+    divider bars per side (`bar` square) at `pitch` = 0.20 m slot spacing from the base rail to the top rail (the two sides
+    meet there: an A at every divider). The two end dividers run on down to a foot bar on grade (the legs).
+
+    `skirack_<name>skis` (`ski_mat`, accent = slot 2), only when `skis` is given: one slab per (slot, side, kind), slot
+    0..slots-1, side +1 / -1, kind in SKI_SLABS ("ski" = a pair 0.15 x 1.65, "board" 0.26 x 1.50), foot on grade 0.62 out,
+    leaning on the top rail, outside the divider plane. A board may overhang its slot, so the neighboring slots on its side
+    must be empty (asserted).
+
+    w defaults to slots x pitch + 0.10 (8 slots: 1.70 m). A given w sets the pitch (>= 0.16). Closed parts start from
+    GROUND_LIFT and are not ground parts (asserted). The build does not make bar end caps or the undersides of the foot bars.
+    The `skirack_` prefix puts both parts on LOD1_DELETE (LOD0 only) and on the protect list of the cull (LABEL_PREFIXES).
+
+    gear=True (detail pass 1, "actual skis/boards on the racks instead of wooden planks"): `skis` entries are (slot, side,
+    kind[, color[, length]]).
+    - kind in GEAR_KINDS (a ski PAIR base to base, a snowboard, a pole pair).
+    - color a matkey or a (body, tip) / (top, stripe) pair (default ski_mat).
+    - length default GEAR_LEN.
+    - The lean is the same foot / top-rail lean as the slabs, with the back face on that line.
+    - Occupancy is GEAR_W (a board's neighbors on its side may hold skis / poles, not a board: asserted). Parts
+      `skirack_<name>g<code>`, one per matkey (GEAR_CODE), instead of `skirack_<name>skis`.
+
+    bindings (default False, 2026-10-11: "I don't think we need to render the bindings. They just come out as blocks and
+    looks bad"): the ski pairs and boards carry NO binding blocks. True restores the detail-pass-1 geometry (galv blocks on
+    the skis, base plates + highbacks on the boards) and exists for tests only. An item that cannot reach the lean point
+    (shorter than rack_reach(): 1.33 m on the default rack) stops in mid-air. The build reports it on stdout and does not
+    refuse it (L5's pole pairs still do that).
+
     Detail pass 1 keywords (defaults = the geometry above, vertex for vertex):
-    z0 = the surface the rack stands on (a deck top); the feet go to max(z0, GROUND_LIFT)
-    and the whole rack rises by that - GROUND_LIFT. leg_to (plinth mode, <= -0.05): the four
-    end-leg feet run on down to leg_to as square posts (the rack stands on unflattened
-    ground; no vertex in the ground band)."""
+    - z0 = the surface the rack stands on (a deck top). The feet go to max(z0, GROUND_LIFT) and the whole rack rises by that
+      - GROUND_LIFT.
+    - leg_to (plinth mode, <= -0.05): the four end-leg feet run on down to leg_to as square posts (the rack stands on
+      unflattened ground, no vertex in the ground band)."""
     ax = str(along).upper()
     if ax not in ("X", "Y"):
         raise ValueError(f"ski_rack {name}: along {along!r} (X | Y)")
@@ -3653,26 +3671,25 @@ def ski_rack_frame(name, x, y, slots=8, w=None, mat="galv", along="Y", skis=(),
 
 
 def rack_reach(h=1.20, spread=0.40, bar=0.035):
-    """Length (m) a gear item needs to span ski_rack_frame's lean, from its foot (c_leg +
-    0.075 out, z 0.035 above the rack's base) to the lean point at the top rail (0.06 out,
-    h + 0.04): 1.33 m on the default rack. A shorter item stops in mid-air (detail pass 1
-    integration F1: L1's and L2's pole pairs were 1.18-1.28 m)."""
+    """Length (m) a gear item needs to span the lean of ski_rack_frame. The lean runs from its foot (c_leg + 0.075 out, z 0.035
+    above the rack's base) to the lean point at the top rail (0.06 out, h + 0.04). The length is 1.33 m on the default rack.
+    A shorter item stops in mid-air (detail pass 1 integration F1: L1's and L2's pole pairs were 1.18-1.28 m)."""
     zb = 0.35                                       # base rail center, as ski_rack_frame
     c_leg = spread + (zb - (GROUND_LIFT + bar / 2)) * (spread / (h - zb))
     return math.hypot(c_leg + 0.075 - 0.06, h + 0.04 - 0.035)
 
 
 # --------------------------------------------------------------------------------------
-# Detail pass 1 (L1, second verdict 2026-10-11: "actual skis/boards on the racks
-# instead of wooden planks, put our icon on it etc."). Additive: real ski gear (ski pairs,
-# snowboards, pole pairs) for ski_rack_frame(gear=True) and free-standing ski_gear; the
-# painted_board sign (stamp target with a texel-density override); bench, litter_bin and
-# string_lights. Nothing above changes for a caller that does not use them.
+# Detail pass 1 (L1, second verdict 2026-10-11: "actual skis/boards on the racks instead of wooden planks, put our icon on it
+# etc."). Additive. It adds these builders:
+# - real ski gear (ski pairs, snowboards, pole pairs) for ski_rack_frame(gear=True) and free-standing ski_gear
+# - the painted_board sign (stamp target with a texel-density override)
+# - bench, litter_bin and string_lights. Nothing above changes for a caller that does not use them.
 # --------------------------------------------------------------------------------------
 
 GEAR_KINDS = ("ski", "board", "poles")
-# default lengths (m); a pole pair must span the rack lean (rack_reach() 1.33 m) or it stops
-# in mid-air: 1.38 (was 1.20, detail pass 1 integration F1; explicit lengths are untouched)
+# default lengths (m). A pole pair must span the rack lean (rack_reach() 1.33 m) or it stops in mid-air, so poles are 1.38
+# (was 1.20, detail pass 1 integration F1). Explicit lengths are untouched.
 GEAR_LEN = {"ski": 1.70, "board": 1.52, "poles": 1.38}
 GEAR_W = {"ski": 0.10, "board": 0.29, "poles": 0.08}        # rack slot occupancy across (m)
 GEAR_BACK = {"ski": 0.021, "board": 0.007, "poles": 0.012}  # center plane -> back face (m)
@@ -3683,8 +3700,8 @@ SKI_TH = 0.018              # a ski PAIR stands base to base: each top sheet 18 
 SKI_STATIONS = ((0.00, 0.041, 0.0), (0.45, 0.033, 0.0), (0.80, 0.049, 0.0),
                 (0.90, 0.044, 0.012), (0.965, 0.030, 0.040), (1.00, 0.011, 0.060))
 SKI_TIP_FROM = 2            # stations from this index: tip color + the exposed (curled) base
-# (bindings are NOT drawn by default - 2026-10-11 "they just come out as blocks and
-# looks bad"; SKI_BINDING / BOARD_BINDINGS below serve bindings=True, kept for a test)
+# bindings are NOT drawn by default - 2026-10-11 "they just come out as blocks and looks bad". SKI_BINDING / BOARD_BINDINGS
+# below serve bindings=True, kept for a test.
 SKI_BINDING = (0.36, 0.60, 0.036, 0.050)    # (s0 / L, s1 / L, half width, height)
 # snowboard, (s / L, half width, kick toward the top sheet): rounded tail / nose, waist
 BOARD_STATIONS = ((0.00, 0.070, 0.050), (0.035, 0.128, 0.030), (0.11, 0.146, 0.0),
@@ -3706,8 +3723,8 @@ def _hw_at(stations, s):
 
 
 def _strip_into(g, O, d, a, n, L, stations, off, cs, face_n):
-    """One surface of a ski / board: per station (s, hw, curl) the cross pair
-    O + d s L + n (off + cs curl) -+ a hw; one quad per station gap facing `face_n`."""
+    """One surface of a ski / board: per station (s, hw, curl) the cross pair O + d s L + n (off + cs curl) -+ a hw. One quad
+    per station gap facing `face_n`."""
     rows = []
     for (s, hw, curl) in stations:
         c = O + d * (s * L) + n * (off + cs * curl)
@@ -3717,10 +3734,9 @@ def _strip_into(g, O, d, a, n, L, stations, off, cs, face_n):
 
 
 def _ski_pair_into(G, O, d, a, n, L, colour, bindings=False):
-    """A ski PAIR base to base (as it stands in a rack slot): per ski the top sheet (body
-    color to the shovel, tip color beyond) and the curled tip's black base (the V of the
-    two tips). color = matkey | (body, tip). bindings=True adds the detail-pass-1 binding
-    block (galv) per ski; the default draws none (2026-10-11)."""
+    """A ski PAIR base to base (as it stands in a rack slot): per ski the top sheet (body color to the shovel, tip color beyond)
+    and the curled tip's black base (the V of the two tips). color = matkey | (body, tip). bindings=True adds the
+    detail-pass-1 binding block (galv) per ski. The default draws none (2026-10-11)."""
     body, tip = (colour, colour) if isinstance(colour, str) else tuple(colour)
     k = SKI_TIP_FROM
     s0, s1, bw, bh = SKI_BINDING
@@ -3735,10 +3751,9 @@ def _ski_pair_into(G, O, d, a, n, L, colour, bindings=False):
 
 
 def _board_into(G, O, d, a, n, L, colour, bindings=False):
-    """A snowboard, base to the support: top sheet (+n), black base (-n), nose / tail kick
-    toward the top, two graphic bands proud of the top sheet. color = matkey | (top,
-    stripe). bindings=True adds the detail-pass-1 pair (base plate + highback; black, galv
-    on a black board); the default draws none (2026-10-11)."""
+    """A snowboard, base to the support: top sheet (+n), black base (-n), nose / tail kick toward the top, two graphic bands
+    proud of the top sheet. color = matkey | (top, stripe). bindings=True adds the detail-pass-1 pair (base plate + highback,
+    black, galv on a black board). The default draws none (2026-10-11)."""
     top, stripe = (colour, None) if isinstance(colour, str) else tuple(colour)
     _strip_into(G(top), O, d, a, n, L, BOARD_STATIONS, BOARD_TH, 1, n)
     _strip_into(G("ski_black"), O, d, a, n, L, BOARD_STATIONS, -BOARD_TH, 1, -n)
@@ -3784,8 +3799,8 @@ def _gear_into(G, kind, O, d, a, n, L, colour, bindings=False):
 
 
 class _GeoSet:
-    """One _Geo per matkey; finish() -> parts `<base><code>` in code order, each checked to
-    start at z >= GROUND_LIFT (closed parts, not ground parts)."""
+    """One _Geo per matkey. finish() -> parts `<base><code>` in code order, each checked to start at z >= GROUND_LIFT (closed
+    parts, not ground parts)."""
 
     def __init__(self):
         self.g = {}
@@ -3818,14 +3833,14 @@ def _gear_entry(e, ski_mat):
 
 
 def ski_gear(name, items, *, bindings=False):
-    """Free-standing real gear leaning on something (detail pass 1: the "leaning singles"):
-    items = ((kind, foot, lean_to, color, length), ...), kind in GEAR_KINDS. `foot` = the
-    tail / basket end on grade (z >= GROUND_LIFT + 0.01), `lean_to` = the point of the
-    support (post face, wall) the item's BACK touches; the width runs horizontally across
-    the lean, the top sheet faces away from the support. Parts
-    `skirack_<name>g<code>` (one per matkey): LOD0 only and cull-protected, as the racks.
-    bindings=False (default): no binding blocks on skis or boards, here or on any rack
-    (2026-10-11); True is the detail-pass-1 geometry, for tests only."""
+    """Free-standing real gear leaning on something (detail pass 1: the "leaning singles"): items = ((kind, foot, lean_to,
+    color, length), ...), kind in GEAR_KINDS. `foot` = the tail / basket end on grade (z >= GROUND_LIFT + 0.01), `lean_to` =
+    the point of the support (post face, wall) the item's BACK touches. The width runs horizontally across the lean, and the
+    top sheet faces away from the support. Parts `skirack_<name>g<code>` (one per matkey): LOD0 only and cull-protected, as
+    the racks.
+
+    bindings=False (default): no binding blocks on skis or boards, here or on any rack (2026-10-11). True is the
+    detail-pass-1 geometry, for tests only."""
     G = _GeoSet()
     for kind, foot, lean, colour, L in items:
         F, T = Vector(foot), Vector(lean)
@@ -3865,16 +3880,17 @@ BENCH_SEAT_SLATS, BENCH_BACK_SLATS, BENCH_GAP = 4, 3, 0.012     # fine bench pla
 
 def bench(name, x, y, facing, length=1.6, mat="timber_heavy", leg_mat="galv", *,
           z0=GROUND_LIFT, back=True, fine=False):
-    """Porch bench, back to a wall: the sitter faces `facing`; (x, y) = the back line's
-    center (the wall face). `bench_<name>` seat + backrest (mat), `bench_<name>legs` two end
-    frames (leg_mat); from GROUND_LIFT. Not on LOD1_DELETE: a recipe lists `bench_` in
-    lod1_extra.
-    Detail pass 1 keywords (skeptic M1: the one bench; defaults = the geometry above):
-    z0 = the leg feet (a deck top; the whole bench rises by z0 - GROUND_LIFT), back=False
-    leaves the backrest out (a free-standing bench under a sign board).
-    fine=True (design B.1 / the task's "planked bench where still modeled"): the seat is
-    BENCH_SEAT_SLATS slats and the backrest BENCH_BACK_SLATS slats with BENCH_GAP gaps over the
-    same envelope (boxes, no bevel strips); legs unchanged."""
+    """Porch bench, back to a wall: the sitter faces `facing`. (x, y) = the center of the back line (the wall face).
+    `bench_<name>` seat + backrest (mat), `bench_<name>legs` two end frames (leg_mat), from GROUND_LIFT. Not on LOD1_DELETE:
+    a recipe lists `bench_` in lod1_extra.
+
+    Detail pass 1 keywords (skeptic M1: the one bench, defaults = the geometry above):
+    - z0 = the leg feet (a deck top, the whole bench rises by z0 - GROUND_LIFT).
+    - back=False leaves the backrest out (a free-standing bench under a sign board).
+
+    fine=True (design B.1 / the task's "planked bench where still modeled"): the seat is BENCH_SEAT_SLATS slats and the
+    backrest BENCH_BACK_SLATS slats with BENCH_GAP gaps over the same envelope (boxes, no bevel strips). The legs are
+    unchanged."""
     _check_foot(f"bench {name}", z0)
     n, t = _SIDES[facing]
     Z = Vector((0.0, 0.0, 1.0))
@@ -3916,8 +3932,8 @@ def litter_bin(name, x, y, r=0.26, h=0.90, mat="trim"):
 
 
 def _tube_into(g, pts, r):
-    """3-sided tube through a polyline (one top edge; joined rings, so box projection keeps
-    a few long UV islands instead of one per segment)."""
+    """3-sided tube through a polyline (one top edge, joined rings, so box projection keeps a few long UV islands instead of one
+    per segment)."""
     P = [Vector(p) for p in pts]
     rings = []
     for i, p in enumerate(P):
@@ -3941,12 +3957,10 @@ def _tube_into(g, pts, r):
 
 def string_lights(name, anchors, sag=0.40, bulb_every=1.30, bulb=0.07, wire_r=0.008,
                   wire_seg=1.8, pole=0.07):
-    """Festoon lights (detail pass 1: the deck's night read). anchors = ((x, y, z,
-    pole_base_z | None), ...): consecutive anchors span a parabola with `sag` at mid-span;
-    bulbs (boxes `bulb` wide, mat lamp = emissive) every ~bulb_every m hang from the wire; a
-    3-sided wire tube (r wire_r) and, for an anchor with a pole_base_z, a square pole up to
-    it. Parts `lamp_<name>` (bulbs) and `lamp_<name>wire` (wire + poles, galv); `lamp_` is
-    on LOD1_DELETE (LOD0 only)."""
+    """Festoon lights (detail pass 1: the deck's night read). anchors = ((x, y, z, pole_base_z | None), ...). Consecutive
+    anchors span a parabola with `sag` at mid-span. Bulbs (boxes `bulb` wide, mat lamp = emissive) hang from the wire every
+    ~bulb_every m. The build adds a 3-sided wire tube (r wire_r) and, for an anchor with a pole_base_z, a square pole up to
+    it. Parts: `lamp_<name>` (bulbs) and `lamp_<name>wire` (wire + poles, galv). `lamp_` is on LOD1_DELETE (LOD0 only)."""
     A = [Vector((float(p[0]), float(p[1]), float(p[2]))) for p in anchors]
     if len(A) < 2:
         raise ValueError(f"string_lights {name}: needs two anchors")
@@ -3976,9 +3990,9 @@ def string_lights(name, anchors, sag=0.40, bulb_every=1.30, bulb=0.07, wire_r=0.
 
 
 def akja(name, at, facing, lean_deg=70.0, length=2.0, width=0.6):
-    """`akja_<name>` rescue toboggan: half-tube shell (6 segments of a 12-gon) leaning
-    against a wall at `lean_deg` from horizontal; `at` = foot point (z >= GROUND_LIFT),
-    `facing` = the wall's outward normal (the akja stands in front of it). Slot 2."""
+    """`akja_<name>` rescue toboggan: half-tube shell (6 segments of a 12-gon) leaning against a wall at `lean_deg` from
+    horizontal. `at` = foot point (z >= GROUND_LIFT), `facing` = the wall's outward normal (the akja stands in front of it).
+    Slot 2."""
     n = _SIDES[facing][0] if isinstance(facing, str) else Vector(facing)
     A = Vector(at)
     A.z = max(A.z, GROUND_LIFT)
@@ -4005,9 +4019,9 @@ def akja(name, at, facing, lean_deg=70.0, length=2.0, width=0.6):
 
 
 def snow_guard(name, spec, side, offset=0.6, bracket_every=1.2, spans=None):
-    """`snowguard_<name>` bar (6-seg, r 0.02) `offset` m up-slope of the eave tip, 0.08
-    above the slab top, plus brackets (one part) every `bracket_every` m. `spans` =
-    ((a0, a1), ...) along the ridge axis (skip a prow junction); default the whole slab."""
+    """`snowguard_<name>` bar (6-seg, r 0.02) `offset` m up-slope of the eave tip, 0.08 above the slab top, plus brackets (one
+    part) every `bracket_every` m. `spans` = ((a0, a1), ...) along the ridge axis (skip a prow junction). Default: the whole
+    slab."""
     if spans:
         parts = []
         for k, (s0, s1) in enumerate(spans):
@@ -4046,9 +4060,9 @@ def snow_guard(name, spec, side, offset=0.6, bracket_every=1.2, spans=None):
         else:
             c.x = a
         if FITTINGS.get("version", 0) >= 1:
-            # fittings v1: the bracket stops at the rail center line (0.08 off the slab, was 0.09) and is
-            # 0.034 across the slope (was 0.04), inside the 6-seg rail's 0.0346 inscribed circle, so its top
-            # face is wholly inside the rail: dropped, 2 tris per bracket, nothing visible changes
+            # fittings v1: the bracket stops at the rail center line (0.08 off the slab, was 0.09). It is 0.034 across the
+            # slope (was 0.04), inside the 0.0346 inscribed circle of the 6-seg rail. So its top face is wholly inside the
+            # rail and the build drops it. 2 tris per bracket, nothing visible changes
             bg.obb(c + n * 0.04, (along, up, n), (0.02, 0.017, 0.04), drop=("-Z", "+Z"))
         else:
             bg.obb(c + n * 0.045, (along, up, n), (0.02, 0.02, 0.045), drop=("-Z",))
@@ -4060,11 +4074,10 @@ PAD = (0.12, 0.10, 0.06)    # snow pad: width along the eave, depth up-slope, he
 
 
 def snow_pads(name, spec, side, offsets=(1.4, 2.0), every=0.75, spans=None, inset=0.4):
-    """fittings v1: pad-style snow guards (the slate-roof kind, Courchevel) as `snowguard_<name>p`: staggered
-    rows at `offsets` m up-slope of the eave tip, one pad every `every` m along the eave (the second row shifted
-    half a step). A pad is a wedge on the slab top: a vertical-ish face toward the eave, a top sloping back onto
-    the slab, two end triangles, no bottom: 6 tris. `spans` ((a0, a1), ...) along the ridge axis; default the
-    whole slab inset `inset` from the rakes."""
+    """fittings v1: pad-style snow guards (the slate-roof kind, Courchevel) as `snowguard_<name>p`: staggered rows at `offsets`
+    m up-slope of the eave tip, one pad every `every` m along the eave (the second row shifted half a step). A pad is a wedge
+    on the slab top: a vertical-ish face toward the eave, a top sloping back onto the slab, two end triangles, no bottom: 6
+    tris. `spans` ((a0, a1), ...) along the ridge axis. Default: the whole slab inset `inset` from the rakes."""
     g = _roof_geometry(spec)
     n, up, along = roof_frame(spec, side)
     s0 = side.startswith("-")
@@ -4109,10 +4122,10 @@ SHROUD = (0.25, 0.05, 0.05, 0.30)   # chimney shroud: leg height, leg size, plat
 
 def chimney_shroud(name, lo, hi):
     """fittings v1: a raised metal hood over a chimney crown (Courchevel's hooded stack, Peak 7's capped flues) as
-    `fit_shroud<name>`: four corner legs from the crown top, a plate 5 cm past the stack each side, a low pyramid
-    on it. lo / hi = the crown slab (`chimcap_<name>`) bounds in the authoring frame; the plate covers the stack
-    (crown minus its 0.2 m drip each side). Close look: a screen band (8, no ends) + 12 (plate) + 4 (pyramid) =
-    24 tris (v1's four legs were 32 of 48)."""
+    `fit_shroud<name>`: four corner legs from the crown top, a plate 5 cm past the stack each side, a low pyramid on it. lo /
+    hi = the crown slab (`chimcap_<name>`) bounds in the authoring frame. The plate covers the stack (crown minus its 0.2 m
+    drip each side). Close look: a screen band (8, no ends) + 12 (plate) + 4 (pyramid) = 24 tris (v1's four legs were 32 of
+    48)."""
     leg_h, leg, th, rise = SHROUD
     # T95: the crowns now drip CHIM_DRIP (fittings v1, the only path that builds a shroud), so the plate still ends
     # 5 cm past the stack each side (was crown - 0.15 against the old 0.2 m galv drip)
@@ -4120,8 +4133,8 @@ def chimney_shroud(name, lo, hi):
     x0, y0, x1, y1 = lo[0] + ins, lo[1] + ins, hi[0] - ins, hi[1] - ins
     z0 = hi[2]
     g = _Geo()
-    # close look (2026-10-17): a screen band (four walls, 1 cm into the crown and the plate) replaces the four
-    # 5 cm legs, which vanished at 6-20 m and left the hood reading as floating over the crown (8 tris, was 32)
+    # close look (2026-10-17): a screen band (four walls, 1 cm into the crown and the plate) replaces the four 5 cm legs. The
+    # legs vanished at 6-20 m and left the hood reading as floating over the crown (8 tris, was 32)
     g.aabb((x0 + 0.08 - leg / 2, y0 + 0.08 - leg / 2, z0 - 0.01),
            (x1 - 0.08 + leg / 2, y1 - 0.08 + leg / 2, z0 + leg_h + 0.01), drop=("-Z", "+Z"))
     zp = z0 + leg_h
@@ -4136,8 +4149,8 @@ def chimney_shroud(name, lo, hi):
     return [(g.finish(f"fit_shroud{name}"), "galv")]
 
 
-# structure v1 (T58, 2026-10-18, docs/research/art/structure-2026-10-18.md): lodge.py --structure v1; kit and recipe
-# changes read STRUCTURE["version"] (0 = the old geometry, byte for byte); cs2_fittings.audit_structure is the gate
+# structure v1 (T58, 2026-10-18, docs/research/art/structure-2026-10-18.md): lodge.py --structure v1. Kit and recipe changes
+# read STRUCTURE["version"] (0 = the old geometry, byte for byte). cs2_fittings.audit_structure is the gate
 STRUCTURE = {"version": 0}
 STRUCT_WALL_EMBED = 0.01        # a bracket / ledger starts this far inside its wall
 
@@ -4163,7 +4176,7 @@ class structure:
 # fittings v1 (2026-10-17, docs/research/art/fittings-2026-10-17.md): the shoe at the foot of every downspout
 FITTINGS = {"version": 0}
 FIT_SHOES = []                  # (downspout part name, outlet point, direction) built inside fittings()
-FIT_PIPES = []                  # close look (2026-10-17): every downspout() call's parameters; cs2_fittings re-routes
+FIT_PIPES = []                  # close look (2026-10-17): every downspout() call's parameters. cs2_fittings re-routes
 SHOE = (0.20, 0.26, 0.04)       # shoe: run out along the normal, top of the bend above the pipe foot, outlet height
 
 
@@ -4190,8 +4203,8 @@ class fittings:
 
 
 def _shoe_into(g, x, y, zb, n, size):
-    """The shoe: an obb from inside the pipe foot (zb + SHOE[1]) out SHOE[0] along n to the outlet at
-    zb + SHOE[2], its start face dropped (inside the pipe): 10 tris; the pipe itself loses its bottom face."""
+    """The shoe: an obb from inside the pipe foot (zb + SHOE[1]) out SHOE[0] along n to the outlet at zb + SHOE[2], its start
+    face dropped (inside the pipe): 10 tris. The pipe itself loses its bottom face."""
     run, top, out_z = SHOE
     P0 = Vector((x, y, zb + top))
     P1 = Vector((x, y, zb + out_z)) + Vector((n.x, n.y, 0.0)).normalized() * run
@@ -4223,24 +4236,23 @@ def gutter(name, p0, p1, z, size=(0.12, 0.10)):
 
 def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05,
               leader=None, shoe=None, shoe_dir=None, ledge_drain=False):
-    """`downspout_<name>` square 0.08 pipe from the gutter (z_top) down to z_bottom (0.05
-    above grade: outside the ground band; or onto a deck / cap) with an elbow to the
-    gutter line `wall_gap` m out along `normal`.
-    leader = (lx, ly) (detail pass 1, L1 prow): the outlet drops 0.30 under the gutter at
-    (x, y), an offset leg runs down to the pipe line (lx, ly) (a wall corner) and the pipe
-    runs down there; `normal` / `wall_gap` are not used on that path."""
+    """`downspout_<name>` square 0.08 pipe from the gutter (z_top) down to z_bottom (0.05 above grade: outside the ground band,
+    or onto a deck / cap) with an elbow to the gutter line `wall_gap` m out along `normal`.
+
+    leader = (lx, ly) (detail pass 1, L1 prow): the outlet drops 0.30 under the gutter at (x, y), an offset leg runs down to
+    the pipe line (lx, ly) (a wall corner) and the pipe runs down there. `normal` / `wall_gap` are not used on that path."""
     n = _SIDES[normal][0] if isinstance(normal, str) else Vector(normal)
     g = _Geo()
     s = size / 2
-    # fittings v1: the shoe, unless the caller says the pipe runs on into a drain / another run (shoe=False);
-    # it kicks out along `shoe_dir` (default `normal`: the recipes that pass the elbow's direction TOWARD the
-    # wall, the school's, pass the outward one here)
+    # fittings v1: the shoe, unless the caller says the pipe runs on into a drain / another run (shoe=False). It kicks out
+    # along `shoe_dir` (default `normal`). The recipes that pass the elbow's direction TOWARD the wall, the school's, pass
+    # the outward one here
     shoe = FITTINGS.get("version", 0) >= 1 and shoe is not False
     sd = n if shoe_dir is None else (_SIDES[shoe_dir][0] if isinstance(shoe_dir, str) else Vector(shoe_dir))
     if FITTINGS.get("version", 0) >= 1:
-        # close look (2026-10-17): cs2_fittings.route_downspouts rebuilds this part from these numbers with the
-        # whole building in view (outlet drop into the gutter, a neck under the soffit, the pipe clear of trims,
-        # clips, the shoe on its support)
+        # close look (2026-10-17): cs2_fittings.route_downspouts rebuilds this part from these numbers with the whole
+        # building in view. The rebuild includes the outlet drop into the gutter, a neck under the soffit, the pipe clear of
+        # trims, clips and the shoe on its support
         FIT_PIPES.append({"name": f"downspout_{name}", "x": float(x), "y": float(y), "z_top": float(z_top),
                           "n": tuple(n), "size": float(size), "wall_gap": float(wall_gap),
                           "z_bottom": float(z_bottom), "shoe": bool(shoe), "shoe_dir": tuple(sd),
@@ -4274,12 +4286,10 @@ def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05
 
 
 # --------------------------------------------------------------------------------------
-# Detail pass 1, school / L2 / patrol (kit group, 2026-10-11): design/detail-pass-1.md
-# section 6.1 with design/detail-pass-1-skeptic.md M1-M10 applied (M1: the one bench, the
-# one string-lights builder, labels on _label_frame). Additive: new builders here; the new
-# keywords on bench / flag_mast / ski_rack_frame / prism_gable / gable_roof / deck default
-# to the old geometry vertex for vertex (blockout hashes of every recipe unchanged,
-# build/detail-pass-1-kit.md K4).
+# Detail pass 1, school / L2 / patrol (kit group, 2026-10-11): design/detail-pass-1.md section 6.1 with
+# design/detail-pass-1-skeptic.md M1-M10 applied (M1: the one bench, the one string-lights builder, labels on _label_frame).
+# Additive: new builders here. The new keywords on bench / flag_mast / ski_rack_frame / prism_gable / gable_roof / deck
+# default to the old geometry vertex for vertex (blockout hashes of every recipe unchanged, build/detail-pass-1-kit.md K4).
 # --------------------------------------------------------------------------------------
 
 LABEL_PROUD = 0.004         # a stamp quad sits this far proud of the board it labels
@@ -4291,8 +4301,8 @@ def _as_wall(wall):
 
 
 def _check_foot(what, z0):
-    """A closed part's foot: on grade at >= GROUND_LIFT (or on a deck), or below grade at
-    <= -0.05 (plinth mode, skeptic MUST-CHANGE 3 rule); never inside the ground band."""
+    """A closed part's foot: on grade at >= GROUND_LIFT (or on a deck), or below grade at <= -0.05 (plinth mode, skeptic
+    MUST-CHANGE 3 rule). Never inside the ground band."""
     if -0.05 < float(z0) < GROUND_LIFT - 1e-9:
         raise ValueError(f"{what}: foot z {z0} sits in the ground band (use >= {GROUND_LIFT} "
                          f"or <= -0.05)")
@@ -4314,10 +4324,10 @@ def _bar_open(g, p0, p1, w, h, up=(0.0, 0.0, 1.0)):
     g.obb((P0 + P1) * 0.5, (ax, side, upv), (0.5 * L, 0.5 * w, 0.5 * h), drop=("+X", "-X"))
 
 
-# ---- fine-detail pass (design/fine-detail-pass.md B.1 as cut by -skeptic.md FS6; opt-in) --------
-# Every builder below takes `fine=False`; False is the old geometry vertex for vertex (the
-# default path is the unchanged code), True the B.1 shape: more segments on what stays round,
-# caps where a cut end shows, NO bevel strips (vanilla boxy props carry none: benchmark 2.2).
+# ---- fine-detail pass (design/fine-detail-pass.md B.1 as cut by -skeptic.md FS6, opt-in) --------
+# Every builder below takes `fine=False`. False is the old geometry vertex for vertex (the default path is the unchanged
+# code). True is the B.1 shape: more segments on what stays round, caps where a cut end shows, NO bevel strips (vanilla boxy
+# props carry none: benchmark 2.2).
 FINIAL_R = 0.07             # flag-mast ball finial radius (m)
 
 
@@ -4345,12 +4355,10 @@ def _ball_into(g, c, r, segs=6, rings=3):
 
 def post_sign(name, x, y, facing, w, h, top_z, z0=GROUND_LIFT, r=0.04, t=0.04,
               mat="trim_white", pole_mat="galv", *, fine=False):
-    """Free-standing sign on one pole (school lesson-meeting signs, design S5). (x, y) = the
-    pole axis; `sign_<n>_post` 6-seg pole r from z0 to top_z (no bottom cap),
-    `sign_<n>_frame` board box w x h x t on the pole's `facing` side (top edge at top_z) and
-    `sign_<n>_face` = ONE quad LABEL_PROUD in front of it (the stamp target, mat label).
-    About 30 tris. fine=True (design B.1): the pole is 12-seg with a 10-tri top cap (34 tris
-    instead of 18); frame and face unchanged."""
+    """Free-standing sign on one pole (school lesson-meeting signs, design S5). (x, y) = the pole axis. `sign_<n>_post` 6-seg
+    pole r from z0 to top_z (no bottom cap), `sign_<n>_frame` board box w x h x t on the pole's `facing` side (top edge at
+    top_z) and `sign_<n>_face` = ONE quad LABEL_PROUD in front of it (the stamp target, mat label). About 30 tris. fine=True
+    (design B.1): the pole is 12-seg with a 10-tri top cap (34 tris instead of 18). Frame and face are unchanged."""
     _check_foot(f"post_sign {name}", z0)
     if top_z - h <= z0 + 0.3:
         raise ValueError(f"post_sign {name}: board bottom {top_z - h:.2f} too close to the foot")
@@ -4373,11 +4381,10 @@ def post_sign(name, x, y, facing, w, h, top_z, z0=GROUND_LIFT, r=0.04, t=0.04,
 
 def maze_fence(name, segs, h=1.0, post_every=1.5, z0=GROUND_LIFT, r=0.03, tape=(0.06, 0.02),
                *, fine=False):
-    """Lift-line maze (school magic carpet, design S6): segs = (((x0, y0), (x1, y1)), ...).
-    `maze_<n>` 4-seg posts r (galv, uncapped: 8 tris each) at every segment end and at most
-    `post_every` apart (shared corners once), `maze_<n>tape` one tape `tape` = (height,
-    thickness) per segment centered h - 0.10 above z0 (accent, slot 2; ends open: 8 tris).
-    fine=True (design B.1): 8-seg posts with a 6-tri top cap (22 tris each); tape unchanged."""
+    """Lift-line maze (school magic carpet, design S6): segs = (((x0, y0), (x1, y1)), ...). `maze_<n>` 4-seg posts r (galv,
+    uncapped: 8 tris each) at every segment end and at most `post_every` apart (shared corners once), `maze_<n>tape` one tape
+    `tape` = (height, thickness) per segment centered h - 0.10 above z0 (accent, slot 2, ends open: 8 tris). fine=True
+    (design B.1): 8-seg posts with a 6-tri top cap (22 tris each). The tape is unchanged."""
     _check_foot(f"maze_fence {name}", z0)
     pts = []
     for a, b in segs:
@@ -4405,14 +4412,15 @@ def maze_fence(name, segs, h=1.0, post_every=1.5, z0=GROUND_LIFT, r=0.03, tape=(
 
 
 def radio_mast(name, x, y, z0, z1, brackets=(), whip=1.2, arm=0.8, r=0.04, *, fine=False):
-    """Patrol radio mast + red beacon (design P1-3 / P2-3). `mast_<n>` (galv): 6-seg mast r
-    from z0 to z1 (no bottom cap), a dipole arm 2 cm square, `arm` long, 0.35 under the top
-    (across the first bracket's direction), a 4-seg whip r 0.012 `whip` long on the beacon;
-    `mast_<n>br` (galv): one 4 cm bar per bracket (z, side, length) from the mast axis
-    `length` m toward `side` (the wall it is fixed to); `lamp_<n>beacon` (lamp_red,
-    emissive) 0.12 x 0.12 x 0.16 on the mast top. `mast_` is kept to LOD1 (LOD2_DELETE
-    only); the beacon is lamp_ (LOD0). About 60 tris with two brackets.
-    fine=True (design B.1): the mast is 12-seg (+12 tris); the rest unchanged."""
+    """Patrol radio mast + red beacon (design P1-3 / P2-3).
+    - `mast_<n>` (galv): 6-seg mast r from z0 to z1 (no bottom cap), a dipole arm 2 cm square, `arm` long, 0.35 under the top
+      (across the first bracket's direction), a 4-seg whip r 0.012 `whip` long on the beacon.
+    - `mast_<n>br` (galv): one 4 cm bar per bracket (z, side, length) from the mast axis `length` m toward `side` (the wall
+      it is fixed to).
+    - `lamp_<n>beacon` (lamp_red, emissive) 0.12 x 0.12 x 0.16 on the mast top. `mast_` is kept to LOD1 (LOD2_DELETE only).
+      The beacon is lamp_ (LOD0). About 60 tris with two brackets.
+
+    fine=True (design B.1): the mast is 12-seg (+12 tris). The rest is unchanged."""
     _check_foot(f"radio_mast {name}", z0)
     if z1 <= z0 + 0.5:
         raise ValueError(f"radio_mast {name}: z1 {z1} <= z0 {z0} + 0.5")
@@ -4462,12 +4470,10 @@ def toboggan_rack(name, wall, u0, u1, bars_z, depth=0.12, bar=0.04, *, fine=Fals
 
 
 def backboard(name, at, facing, lean_deg=85.0, length=1.85, width=0.45, t=0.05):
-    """Rescue spine board (design P1-4 / P2-5): `gear_<n>board` box (safety_yellow) leaning
-    on a wall. Same rule as akja: `facing` = the OUTWARD normal of the wall it leans on, the
-    top leans toward that wall (up = z sin(lean) - n cos(lean)); `at` = the foot of the
-    board's BACK face (the face toward the wall), so its top edge is at
-    at + up x length: put the foot length x cos(lean) out from the wall face for the top to
-    rest on it. 12 tris."""
+    """Rescue spine board (design P1-4 / P2-5): `gear_<n>board` box (safety_yellow) leaning on a wall. Same rule as akja:
+    `facing` = the OUTWARD normal of the wall it leans on. The top leans toward that wall (up = z sin(lean) - n cos(lean)).
+    `at` = the foot of the BACK face of the board (the face toward the wall), so its top edge is at at + up x length. Put the
+    foot length x cos(lean) out from the wall face for the top to rest on it. 12 tris."""
     n = _SIDES[facing][0] if isinstance(facing, str) else Vector(facing).normalized()
     A = Vector(at)
     _check_foot(f"backboard {name}", A.z)
@@ -4537,13 +4543,12 @@ def drum(name, centre, axis=None, r=0.30, l=0.88, z0=None, mat="fire_red", *, fi
 
 
 def fuel_cradle(name, x, y, axis, z_top, leg_to, r=0.30, l=0.88, pump=True, *, fine=False):
-    """Cradle under a horizontal drum (design H5): `drum_<n>legs` (galv) = two A-frames at
-    +-(l / 2 - 0.12) along `axis`, each a saddle bar across at z_top (the drum's underside)
-    and two legs splaying from +-0.18 at the saddle to +-0.40 at `leg_to` (>= GROUND_LIFT,
-    or <= -0.05 below grade in plinth mode: no vertex in the ground band); `drum_<n>pump`
-    (galv) a hand pump (body + spout) on the drum top (center height z_top + r). The drum
-    itself is drum(name, (x, y, z_top + r), axis, r, l). fine=True (design B.1): the pump is a
-    6-seg body with a top cap, a 6-seg spout and a crank bar (36 tris); the legs unchanged."""
+    """Cradle under a horizontal drum (design H5): `drum_<n>legs` (galv) = two A-frames at +-(l / 2 - 0.12) along `axis`, each a
+    saddle bar across at z_top (the drum's underside) and two legs splaying from +-0.18 at the saddle to +-0.40 at `leg_to`
+    (>= GROUND_LIFT, or <= -0.05 below grade in plinth mode: no vertex in the ground band). `drum_<n>pump` (galv) = a hand
+    pump (body + spout) on the drum top (center height z_top + r). The drum itself is drum(name, (x, y, z_top + r), axis, r,
+    l). fine=True (design B.1): the pump is a 6-seg body with a top cap, a 6-seg spout and a crank bar (36 tris). The legs
+    are unchanged."""
     _check_foot(f"fuel_cradle {name}", leg_to)
     if z_top <= leg_to + 0.2:
         raise ValueError(f"fuel_cradle {name}: z_top {z_top} too close to leg_to {leg_to}")
@@ -4604,10 +4609,9 @@ def log_stack(name, x0, x1, y0, y1, z0, z1, face_side="+X", mat="timber_heavy"):
 
 
 def safety_stripe(name, p0, p1, z, depth=0.05, t=0.008):
-    """Yellow nosing stripe (design S9 / H10 / P1-7 / P2-10): `stripe_<n>` box centered on
-    the plan line p0 -> p1 (pass the line depth / 2 inside the nosing), `depth` wide, from
-    the tread top z up t; bottom dropped (5 faces, 10 tris). Geometry, not a stamp: a flat
-    color needs no texels (design 2.1)."""
+    """Yellow nosing stripe (design S9 / H10 / P1-7 / P2-10): `stripe_<n>` box centered on the plan line p0 -> p1 (pass the line
+    depth / 2 inside the nosing), `depth` wide, from the tread top z up t, bottom dropped (5 faces, 10 tris). Geometry, not a
+    stamp: a flat color needs no texels (design 2.1)."""
     _check_foot(f"safety_stripe {name}", z)
     a = Vector((p0[0], p0[1], 0.0))
     b = Vector((p1[0], p1[1], 0.0))
@@ -4671,9 +4675,8 @@ def roof_emblem(name, spec, side, size, s0=None, centre=None, lift=ROOF_PANE_OFF
 
 def bevel_parts(parts, prefixes=BEVEL_PREFIXES, width=0.02, heavy_width=0.03, segments=1,
                 angle_deg=45.0):
-    """0.02 m x 1 segment angle-limited bevel (base_lodge.py:876-891); 0.03 on
-    col_/beam_/truss_/pier_; parts whose bbox min dimension < 0.06 are skipped. Applied
-    before any UV and before tag_parts. Returns the number of bevelled parts."""
+    """0.02 m x 1 segment angle-limited bevel (base_lodge.py:876-891). 0.03 on col_/beam_/truss_/pier_. The bevel skips parts
+    whose bbox min dimension is < 0.06. Applied before any UV and before tag_parts. Returns the number of beveled parts."""
     n = 0
     for obj, _m in parts:
         if not obj.name.startswith(tuple(prefixes)):
@@ -4701,8 +4704,8 @@ def bevel_parts(parts, prefixes=BEVEL_PREFIXES, width=0.02, heavy_width=0.03, se
 
 
 def strip_uv_layers(parts):
-    """Remove every UV layer from every part (skeptic MUST-CHANGE 1: cs2_kit parts carry
-    `UVMap`, from_pydata parts carry none; material_sources then sees ONE list)."""
+    """Remove every UV layer from every part (skeptic MUST-CHANGE 1: cs2_kit parts carry `UVMap`, from_pydata parts carry none.
+    material_sources then sees ONE list)."""
     for obj, _m in parts:
         me = obj.data
         for lay in list(me.uv_layers):
@@ -4710,7 +4713,7 @@ def strip_uv_layers(parts):
 
 
 PREFILTER_FACTOR = 3.0          # filtered px/m = factor x shipped px/m x w (alias wall: 2x 0.74,
-                                # 3x 0.79, 4x 0.84 of the box-filtered noise; raw 2.32x)
+                                # 3x 0.79, 4x 0.84 of the box-filtered noise, raw 2.32x)
 PREFILTER_VERSION = 1
 PREFILTER_MAPS = ("Color", "NormalGL", "Roughness")
 PREFILTER_ROOT = os.path.join(tempfile.gettempdir(), "cs2_bldg_prefilter")
@@ -4757,8 +4760,8 @@ def _box_weights(n_in, n_out):
 
 
 def box_filter(img, n_out):
-    """Separable exact-overlap box filter of an (H, W, C) array to (n_out, n_out, C): two
-    BLAS tensordots (a 3-operand einsum runs unoptimised, ~1e11 ops on a 2K map)."""
+    """Separable exact-overlap box filter of an (H, W, C) array to (n_out, n_out, C): two BLAS tensordots (a 3-operand einsum
+    runs unoptimized, ~1e11 ops on a 2K map)."""
     H, W, _C = img.shape
     Wy, Wx = _box_weights(H, n_out), _box_weights(W, n_out)
     tmp = np.tensordot(Wy, img, axes=(1, 0))                        # (n_out, W, C)
@@ -4782,11 +4785,10 @@ def image_tile_m(mat):
 def prefilter_set(set_name, tile_m_img, ppm, *, cache_dir=None, texture_root=None,
                   maps=PREFILTER_MAPS):
     """
-    Area-average one CC0 set to `ppm` px per meter over a SQUARE tile (2:1 sets stacked
-    along their short axis) and write `<cache>/<Set>_<N>/<Set>_<N>_<Map>.png`
-    (N = round(tile_sq x ppm)). Color is averaged in linear light, NormalGL decoded /
-    averaged / renormalised, Roughness averaged raw. Returns dict(dir, N, tile_sq, stack,
-    mean_lin, mean_srgb, cached). Deterministic: the same inputs give byte-identical PNGs.
+    Area-average one CC0 set to `ppm` px per meter over a SQUARE tile (2:1 sets stacked along their short axis) and write
+    `<cache>/<Set>_<N>/<Set>_<N>_<Map>.png` (N = round(tile_sq x ppm)). Color is averaged in linear light, NormalGL decoded /
+    averaged / renormalized, Roughness averaged raw. Returns dict(dir, N, tile_sq, stack, mean_lin, mean_srgb, cached).
+    Deterministic: the same inputs give byte-identical PNGs.
     """
     root = texture_root or cs2_bake.TEXTURE_ROOT
     sdir = os.path.join(root, set_name)
@@ -4857,12 +4859,10 @@ def prefilter_set(set_name, tile_m_img, ppm, *, cache_dir=None, texture_root=Non
 def material_specs(keys, base_ppm, *, factor=PREFILTER_FACTOR, cache_dir=None,
                    texture_root=None):
     """
-    {key: cs2_bake.MaterialSpec} for the keys a build uses, plus an info dict. CC0 sets go
-    through prefilter_set at factor x base_ppm x density_w (px/m), tint = per-channel
-    lin(target_srgb) / mean_lin(filtered Color) (or the explicit linear BldgMat.tint);
-    flat materials get albedo = lin(target_srgb). rough = 1 - smooth (None = the set's
-    Roughness map); projection "inplane" -> cs2_bake "planar", "along" -> "box" (retile
-    overwrites it).
+    {key: cs2_bake.MaterialSpec} for the keys a build uses, plus an info dict. CC0 sets go through prefilter_set at factor x
+    base_ppm x density_w (px/m), tint = per-channel lin(target_srgb) / mean_lin(filtered Color) (or the explicit linear
+    BldgMat.tint). Flat materials get albedo = lin(target_srgb). rough = 1 - smooth (None = the set's Roughness map).
+    Projection "inplane" -> cs2_bake "planar", "along" -> "box" (retile overwrites it).
     """
     specs, info = {}, {}
     for key in sorted(set(keys)):
@@ -4947,13 +4947,11 @@ def _rot_uv(uv, deg):
 
 
 def retile(parts, spec_table, layer=cs2_bake.TILE_LAYER):
-    """After cs2_bake.material_sources: per-part `along` projection (u along the part's
-    principal axis, v across; end caps planar), `uv_rot` + obj["tile_rot"] rotations
-    (vertical boards, deck boards perpendicular to the host wall). Keeps UVTile isotropic
-    (meters / tile_sq on both axes). Small boxes built with a cross net (_Geo.obb) get
-    their net instead (one UV island per box; not on bevelled parts, whose chamfers
-    would distort it). The net attributes are removed from every part. Returns
-    {part name: (proj, rotation, net faces)} for changed parts."""
+    """After cs2_bake.material_sources: per-part `along` projection (u along the part's principal axis, v across, end caps
+    planar), `uv_rot` + obj["tile_rot"] rotations (vertical boards, deck boards perpendicular to the host wall). Keeps UVTile
+    isotropic (meters / tile_sq on both axes). Small boxes built with a cross net (_Geo.obb) get their net instead (one UV
+    island per box). This does not apply to beveled parts, whose chamfers would distort the net. The function removes the net
+    attributes from every part. Returns {part name: (proj, rotation, net faces)} for changed parts."""
     changed = {}
     for obj, key in parts:
         m = BLDG_MATERIALS[key]
@@ -5021,15 +5019,12 @@ def retile(parts, spec_table, layer=cs2_bake.TILE_LAYER):
 
 
 def align_islands(obj, layer=cs2_bake.TILE_LAYER, min_gain=0.15, max_edges=24):
-    """Rotate each UV island of `layer` about its centroid to the orientation of minimum
-    bounding-box area (candidates: the island's own edge directions) when that shrinks the
-    box by more than `min_gain`. cs2_uv.pack_unique packs AXIS-ALIGNED boxes without
-    rotation (rotate=False is mandatory there), so a box-projected rake board or slab end
-    - a diagonal strip - wastes up to 18x its area (L1 pack median 8.5 px/m against a
-    17 px/m prediction, measured 2026-10-11). A rotation keeps the winding (no mirror)
-    and the tangent frame follows the UVs, so the tiling texture and its normal map stay
-    consistent (grain then runs along the board). Deterministic. Returns (islands
-    rotated, box area before, after)."""
+    """Rotate each UV island of `layer` about its centroid to the orientation of minimum bounding-box area (candidates: the
+    island's own edge directions) when that shrinks the box by more than `min_gain`. cs2_uv.pack_unique packs AXIS-ALIGNED
+    boxes without rotation (rotate=False is mandatory there). So a box-projected rake board or slab end - a diagonal strip -
+    wastes up to 18x its area (L1 pack median 8.5 px/m against a 17 px/m prediction, measured 2026-10-11). A rotation keeps
+    the winding (no mirror). The tangent frame follows the UVs, so the tiling texture and its normal map stay consistent
+    (grain then runs along the board). Deterministic. Returns (islands rotated, box area before, after)."""
     me = obj.data
     lay = me.uv_layers[layer]
     uv = cs2_uv.loop_uvs(lay)
@@ -5074,11 +5069,10 @@ def align_islands(obj, layer=cs2_bake.TILE_LAYER, min_gain=0.15, max_edges=24):
 
 
 def split_poor_islands(obj, layer=cs2_bake.TILE_LAYER, min_fill=0.35, min_box=20.0):
-    """Break UV islands whose area fills < `min_fill` of their bounding box (rings such
-    as a culled cap's frame, L-shapes) into per-face islands by shifting each face by
-    a whole number of tiles: the tiling texture samples identically (period 1), the pack
-    sees compact boxes. Only islands whose box exceeds `min_box` tile^2. Deterministic.
-    Returns the number of islands split."""
+    """Break UV islands whose area fills < `min_fill` of their bounding box (rings such as a culled cap's frame, L-shapes) into
+    per-face islands by shifting each face by a whole number of tiles. The tiling texture samples identically (period 1), and
+    the pack sees compact boxes. Only islands whose box exceeds `min_box` tile^2. Deterministic. Returns the number of
+    islands split."""
     me = obj.data
     lay = me.uv_layers[layer]
     uv = cs2_uv.loop_uvs(lay)
@@ -5097,7 +5091,7 @@ def split_poor_islands(obj, layer=cs2_bake.TILE_LAYER, min_fill=0.35, min_box=20
         for k, f in enumerate(sorted(isl)):
             shift += 1
             sl = slice(start[f], start[f] + total[f])
-            uv[sl, 1] += 2.0 * (shift % 97) + 2.0       # whole tiles; keeps islands near origin
+            uv[sl, 1] += 2.0 * (shift % 97) + 2.0       # whole tiles, keeps islands near origin
             uv[sl, 0] += float(k % 2)
         n_split += 1
     cs2_uv.set_loop_uvs(lay, uv)
@@ -5106,13 +5100,14 @@ def split_poor_islands(obj, layer=cs2_bake.TILE_LAYER, min_fill=0.35, min_box=20
 
 def pack_layout_calibrated(obj, mesh, A, reserved, margin_px=None, equalise=True,
                            density_layer=cs2_uv.DENSITY_ATTR, iterations=3):
-    """Drop-in for cs2_uv._pack_layout (same arguments, same report, same asserts) that
-    packs with margin_method "ADD" calibrated to `margin_px` texels: pack, measure the
-    pack scale s from the UV area, set the pre-scale margin to margin_px / (A s), repack
-    (3 passes). Blender 5.2.2's FRACTION solver collapses on building kits (L1, ~1,300
-    islands, 8 px: w = 1 median 14.9 px/m, atlas fill 0.17); the calibrated ADD pack
-    reaches 23.7 px/m, fill 0.42 with measured gutters of 15.5 px between islands
-    (2026-10-11). Reserved rects fall back to the library packer (stamped strips)."""
+    """Drop-in for cs2_uv._pack_layout (same arguments, same report, same asserts). It packs with margin_method "ADD" calibrated
+    to `margin_px` texels:
+    1. Pack.
+    2. Measure the pack scale s from the UV area.
+    3. Set the pre-scale margin to margin_px / (A s).
+    4. Repack (3 passes). The FRACTION solver of Blender 5.2.2 collapses on building kits (L1, ~1,300 islands, 8 px: w = 1
+       median 14.9 px/m, atlas fill 0.17). The calibrated ADD pack reaches 23.7 px/m, fill 0.42 with measured gutters of 15.5
+       px between islands (2026-10-11). Reserved rects fall back to the library packer (stamped strips)."""
     if reserved:
         return _LIB_PACK_LAYOUT(obj, mesh, A, reserved, margin_px=margin_px, equalise=equalise,
                                 density_layer=density_layer)
@@ -5160,8 +5155,8 @@ _LIB_PACK_LAYOUT = cs2_uv._pack_layout
 
 
 class calibrated_packer:
-    """Context manager: route cs2_uv.pack_unique (and so cs2_bake.bake_unique) through
-    pack_layout_calibrated for the duration; restores the library function on exit."""
+    """Context manager: route cs2_uv.pack_unique (and so cs2_bake.bake_unique) through pack_layout_calibrated for the duration.
+    It restores the library function on exit."""
 
     def __enter__(self):
         cs2_uv._pack_layout = pack_layout_calibrated
@@ -5187,11 +5182,12 @@ DRESSING_W = 0.5       # LOD1-deleted dressing (tails, frames, rails, gutters, l
 
 
 def part_weight(name, matkey):
-    """Exact-name texel-density weight: `*_face` labels 3.0, entry_/door_ 1.5, soffit_
-    0.25; LOD1-deleted dressing min(material w, 0.5) (flat trim / galv / timber bits a
-    few cm wide: their texels carry AO only; measured on L1: +1.5-2 px/m on the w = 1
-    walls, Blender's packer chokes on ~1,100 small islands, 2026-10-11); else the
-    material's density_w."""
+    """Exact-name texel-density weight:
+    - `*_face` labels 3.0, entry_/door_ 1.5, soffit_ 0.25.
+    - LOD1-deleted dressing min(material w, 0.5). These are flat trim / galv / timber bits a few cm wide, and their texels
+      carry AO only. Measured on L1: +1.5-2 px/m on the w = 1 walls. The packer of Blender chokes on ~1,100 small islands
+      (2026-10-11).
+    - Else the material's density_w."""
     for kind, pat, w in WEIGHT_RULES:
         if (kind == "suffix" and name.endswith(pat)) or (kind == "prefix" and name.startswith(pat)):
             return w
@@ -5202,8 +5198,8 @@ def part_weight(name, matkey):
 
 
 def part_weights(parts):
-    """part_weight per part; a part's obj["w_override"] wins (painted_board, detail pass 1:
-    the stamped resort sign ships at >= 400 px/m)."""
+    """part_weight per part. A part's obj["w_override"] wins (painted_board, detail pass 1: the stamped resort sign ships at >=
+    400 px/m)."""
     return {obj.name: (float(obj["w_override"]) if "w_override" in obj
                        else part_weight(obj.name, key)) for obj, key in parts}
 
@@ -5241,9 +5237,9 @@ def _poly_parts(obj):
 
 
 def check_lot_fit(obj, lot_w, lot_d, slack=0.25):
-    """AUTHORING frame (after apply_yaw, before orient_for_net - skeptic MUST-CHANGE 2):
-    |y| <= 4 W + slack and |x| <= 4 D + slack else raise (the engine warns past lot +
-    0.5 m total, BuildingInitializeSystem.cs:1326-1334); WARN beyond the lot itself."""
+    """AUTHORING frame (after apply_yaw, before orient_for_net - skeptic MUST-CHANGE 2): |y| <= 4 W + slack and |x| <= 4 D +
+    slack else raise (the engine warns past lot + 0.5 m total, BuildingInitializeSystem.cs:1326-1334). WARN beyond the lot
+    itself."""
     W = _world_coords(obj)
     lo, hi = W.min(0), W.max(0)
     hx, hy = 4.0 * lot_d, 4.0 * lot_w
@@ -5285,11 +5281,10 @@ def check_facing(obj, table, arrival_prefixes, lot_d):
 
 
 def check_base_mode(obj, table, mode, ground_prefixes, plinth=None):
-    """Engine base contract (section 3) on any LOD. engine: ground_ring_report verdict OK,
-    no vertex below -1 cm, every ground prefix contributes OK edges, and the ground-band
-    hygiene rule (a part with min z < 0.011 is a ground prefix; nothing starts in
-    0.011..0.02). plinth: ok_edges == 0 and min z == -D +- 0.01 and no vertex in |z| <= 0.01.
-    Raises; returns the report."""
+    """Engine base contract (section 3) on any LOD.
+    - engine: ground_ring_report verdict OK, no vertex below -1 cm, every ground prefix contributes OK edges, and the
+      ground-band hygiene rule (a part with min z < 0.011 is a ground prefix, nothing starts in 0.011..0.02).
+    - plinth: ok_edges == 0 and min z == -D +- 0.01 and no vertex in |z| <= 0.01. Raises on a violation. Returns the report."""
     r = cs2_validate.ground_ring_report(obj, table=table)
     W = _world_coords(obj)
     pp = _poly_parts(obj)
@@ -5338,7 +5333,7 @@ def check_base_mode(obj, table, mode, ground_prefixes, plinth=None):
 
 
 def assert_budget(obj, budget, level=0):
-    """LOD0: ERROR (raise) > lod0_cap, WARN < 0.6 x target; LOD1/2 vs their targets."""
+    """LOD0: ERROR (raise) > lod0_cap, WARN < 0.6 x target. LOD1/2 vs their targets."""
     n = cs2_asset.tri_count(obj)
     if level == 0:
         if n > budget.lod0_cap:
@@ -5378,31 +5373,28 @@ def cull_hidden(obj, protect=(), rays=24, samples=9, contact_m=0.02, horizon_z=N
                 table=None, cull_ok=(), min_keep=0.20, max_dist=200.0, ground_prefixes=None,
                 thin_occluders=()):
     """
-    Delete faces nobody can see (section 6.2, skeptic MUST-CHANGE 5). Per face of the
-    joined, pane-free mesh: up to 9 samples (center + 15 %-inset vertices / edge mids).
-    A sample is CONTACT-hidden when another face touches it face to face (opposite
-    normal within `contact_m` in front), duplicates it (coplanar same-facing, lower
-    index kept), or a ray along the normal hits mesh within `contact_m`. Otherwise:
-      - walls (|n.z| < 0.5) under wall_rule "contact" (default; orchestrator ruling
-        "never culling walls except by contact") are VISIBLE; "arrival" ray-tests only
-        walls not facing `arrival` (n_xy . arrival <= 0.5); "enclosed" ray-tests walls
-        with every hemisphere direction and no ground credit;
-      - other faces are visible when one of `rays` golden-spiral hemisphere directions
-        (+ a ring of `ring` near-horizontal azimuths at w.z = ring_z for faces with
-        n.z < -0.5) escapes the BVH within max_dist. HEIGHT-AWARE horizon: a downward
-        direction is ground-blocked only when it reaches grade within d_min
-        (-w.z > z_sample / d_min) or crosses grade inside the xy footprint of a ground part
-        (`ground_prefixes`, default `protect`: terrain and engine base close every open-
-        bottom part, so a ray leaving under its walls is blocked); `horizon_z` (fixed, the
-        pre-skeptic rule) is used
-        only when d_min is None.
-    thin_occluders (close look, 2026-10-17; default none = the old behavior byte for byte): parts of these
-    prefixes (thin fittings: gutters, downpipes, snow rails, hoods) never hide a face of ANOTHER part, by
-    contact or by ray: an 8 cm pipe on a facade cannot take a sill's underside or a 29 m eave face with it (the
-    fittings-v1 lesson); their own faces are culled as before.
-    A face goes when ALL samples are hidden; faces of `protect` prefixes never go. Asserts
-    every part keeps >= min_keep of its faces unless matched by `cull_ok`. Returns the
-    report (areas, faces per part, wall area deleted by rays - 0 under "contact").
+    Delete faces nobody can see (section 6.2, skeptic MUST-CHANGE 5). Per face of the joined, pane-free mesh: up to 9 samples
+    (center + 15 %-inset vertices / edge mids). A sample is CONTACT-hidden when another face touches it face to face
+    (opposite normal within `contact_m` in front), duplicates it (coplanar same-facing, lower index kept), or a ray along the
+    normal hits mesh within `contact_m`. Otherwise:
+    - walls (|n.z| < 0.5) under wall_rule "contact" (default, orchestrator ruling "never culling walls except by contact")
+      are VISIBLE. "arrival" ray-tests only walls not facing `arrival` (n_xy . arrival <= 0.5). "enclosed" ray-tests walls
+      with every hemisphere direction and no ground credit.
+    - other faces are visible when one of `rays` golden-spiral hemisphere directions (+ a ring of `ring` near-horizontal
+      azimuths at w.z = ring_z for faces with n.z < -0.5) escapes the BVH within max_dist. HEIGHT-AWARE horizon: a downward
+      direction is ground-blocked only when it reaches grade within d_min (-w.z > z_sample / d_min) or crosses grade inside
+      the xy footprint of a ground part (`ground_prefixes`, default `protect`: terrain and engine base close every
+      open-bottom part, so a ray leaving under its walls is blocked). `horizon_z` (fixed, the pre-skeptic rule) is used only
+      when d_min is None.
+
+    thin_occluders (close look, 2026-10-17, default none = the old behavior byte for byte): parts of these prefixes (thin
+    fittings: gutters, downpipes, snow rails, hoods) never hide a face of ANOTHER part, by contact or by ray. An 8 cm pipe on
+    a facade cannot take a sill's underside or a 29 m eave face with it (the fittings-v1 lesson). The cull treats their own
+    faces as before.
+
+    A face goes when ALL samples are hidden. Faces of `protect` prefixes never go. Asserts every part keeps >= min_keep of
+    its faces unless matched by `cull_ok`. Returns the report (areas, faces per part, wall area deleted by rays - 0 under
+    "contact").
     """
     me = obj.data
     if table is None:
@@ -5593,10 +5585,9 @@ def _room_of(name):
 
 
 def room_graph(obj, table, neighbour_m=NEIGHBOUR_M):
-    """Pure: ({room: (min xyz, max xyz)}, hard edges, soft edges) from the `win_<room>_`
-    panes. Hard = vertical intervals overlap AND horizontal gap < neighbour_m (they would
-    merge into one interior: different ids); soft = vertically adjacent (gap < 1.5 m)
-    with horizontal overlap (prefer different ids)."""
+    """Pure: ({room: (min xyz, max xyz)}, hard edges, soft edges) from the `win_<room>_` panes. Hard = vertical intervals
+    overlap AND horizontal gap < neighbour_m (they would merge into one interior: different ids). Soft = vertically adjacent
+    (gap < 1.5 m) with horizontal overlap (prefer different ids)."""
     W = _world_coords(obj)
     pp = _poly_parts(obj)
     boxes = {}
@@ -5632,10 +5623,9 @@ def room_graph(obj, table, neighbour_m=NEIGHBOUR_M):
 
 
 def assign_rooms(rooms, hard, soft, name, pool=WIN_POOL):
-    """Greedy coloring in sorted room order; candidates = pool rotated by crc32(name);
-    take the first id unused by hard neighbors, preferring one unused by soft neighbors,
-    then the least-used id so far (variety tie-break; ids are still reused freely beyond
-    neighbour_m, where no merge is possible)."""
+    """Greedy coloring in sorted room order. candidates = pool rotated by crc32(name). Take the first id unused by hard
+    neighbors, preferring one unused by soft neighbors, then the least-used id so far (variety tie-break). Ids are still
+    reused freely beyond neighbour_m, where no merge is possible."""
     pool = list(pool)
     rot = _seed(name) % len(pool)
     cand = pool[rot:] + pool[:rot]
@@ -5935,11 +5925,10 @@ def _remove_obj(o):
 
 def plan_lod_targets(obj, table, recipe, delete_lists=None, protect_prefixes=None, tol=0.25):
     """
-    Dry-run the WHOLE level on copies (deletes + planar pass + protected collapse,
-    skeptic claim 9): t1 = min(r.lod1, round(0.45 n0), achievable), t2 = min(r.lod2,
-    achievable); never asks the decimator to grow a mesh. When the protected collapse
-    overshoots the target beyond `tol` (ground faces stall it), retarget to the achieved
-    count and report instead of raising blind. Returns ((t1, t2), report).
+    Dry-run the WHOLE level on copies (deletes + planar pass + protected collapse, skeptic claim 9): t1 = min(r.lod1,
+    round(0.45 n0), achievable), t2 = min(r.lod2, achievable). It never asks the decimator to grow a mesh. When the protected
+    collapse overshoots the target beyond `tol` (ground faces stall it), retarget to the achieved count and report instead of
+    raising blind. Returns ((t1, t2), report).
     """
     n0 = cs2_asset.tri_count(obj)
     b = recipe.budget
@@ -5968,7 +5957,7 @@ def plan_lod_targets(obj, table, recipe, delete_lists=None, protect_prefixes=Non
 
 
 def lod_chain(obj, name, targets, delete_lists, protect_prefixes=(), tol=0.25):
-    """Build LOD1..n with lod_level; each must land within tol of its (planned) target."""
+    """Build LOD1..n with lod_level. Each must land within tol of its (planned) target."""
     lods, infos = [], []
     for level, (t, dl) in enumerate(zip(targets, delete_lists), start=1):
         lod, info = lod_level(obj, json.loads(obj.data[cs2_asset.PART_TABLE_PROP]),
@@ -5982,8 +5971,8 @@ def lod_chain(obj, name, targets, delete_lists, protect_prefixes=(), tol=0.25):
 
 
 # ======================================================================================
-# Painters (section 4.6): numpy, 4x supersampled SDF, bottom-up rows; called through
-# cs2_compose.stamp_on_face(base, ctl, me, table, prefix, painter). `base` is LINEAR.
+# Painters (section 4.6): numpy, 4x supersampled SDF, bottom-up rows. Called through cs2_compose.stamp_on_face(base, ctl, me,
+# table, prefix, painter). `base` is LINEAR.
 # ======================================================================================
 
 SS = 4
@@ -6029,9 +6018,9 @@ def _cover(sd, px):
 
 
 def paint_cross_disc(rect, base, ctl, red=(0.72, 0.09, 0.08), white=0.92, ring=0.06):
-    """White Greek cross (arm 0.62 d, width 0.20 d [K]) on a red disc with a white rim
-    ring (R ruling "white cross on red" [DB 1.11]). Colors are sRGB-encoded; linearised
-    here (skeptic MUST-CHANGE 7: raw they would encode pink)."""
+    """White Greek cross (arm 0.62 d, width 0.20 d [K]) on a red disc with a white rim ring (R ruling "white cross on red" [DB
+    1.11]). Colors are sRGB-encoded and the function linearizes them here (skeptic MUST-CHANGE 7: raw they would encode
+    pink)."""
     X, Y, h, w = _grid(rect)
     px = 1.0 / (max(h, w) * SS)
     disc = _cover(_sd_disk(X, Y, 0.5, 0.5, 0.5), px)
@@ -6177,8 +6166,8 @@ PAINTER_FACTORIES = {"paint_pictogram": paint_pictogram, "paint_text5x7": paint_
 
 
 def make_painter(painter, kwargs=None, face=None):
-    """Resolve a recipe label entry: a callable, a PAINTERS name (kwargs bound; paint_skis
-    gets seed = crc32(face)) or a PAINTER_FACTORIES name (called with kwargs)."""
+    """Resolve a recipe label entry: a callable, a PAINTERS name (kwargs bound, paint_skis gets seed = crc32(face)) or a
+    PAINTER_FACTORIES name (called with kwargs)."""
     kwargs = dict(kwargs or {})
     if callable(painter):
         return functools.partial(painter, **kwargs) if kwargs else painter
@@ -6295,12 +6284,11 @@ def _menu_sdf(X, Y):
 
 def paint_glyph(face, kind="resort", bg=None, fg_lin=GLYPH_LIN, glyph_frac=0.86,
                 keyline=(0.045, 0.012)):
-    """Painter factory (PAINTER_FACTORIES "paint_glyph"; recipe label kwargs carry `face`,
-    the label's part prefix). kind "resort": the cabins' glyph in white on SIGN_GREEN, inside
-    a white keyline (inset, stroke as fractions of the face height), glyph square =
-    glyph_frac x the face's short side, centered; kind "menu": chalkboard ground, a title bar
-    and six item / price rows. Paints every texel of the rect (the island's UV bbox) with the
-    ground, so no gray label texel survives at the island edge."""
+    """Painter factory (PAINTER_FACTORIES "paint_glyph", recipe label kwargs carry `face`, the label's part prefix).
+    - kind "resort": the cabins' glyph in white on SIGN_GREEN, inside a white keyline (inset, stroke as fractions of the face
+      height), glyph square = glyph_frac x the face's short side, centered.
+    - kind "menu": chalkboard ground, a title bar and six item / price rows. The painter paints every texel of the rect (the
+      island's UV bbox) with the ground, so no gray label texel survives at the island edge."""
     def painter(rect, base, ctl):
         r0, r1, c0, c1 = rect
         M, R, U, C, (s0, s1, t0, t1), A = _label_frame(face, rect)
@@ -6341,17 +6329,15 @@ PAINTER_FACTORIES["paint_glyph"] = paint_glyph
 
 
 # --------------------------------------------------------------------------------------
-# Detail pass 1, school / L2 / patrol (kit group, 2026-10-11): oriented display painters
-# (design/detail-pass-1.md 2.0 / 6.1 with skeptic M1 + M4). Built on _label_quad /
-# _label_frame (the UVUnique -> world affine of the ONE quad being stamped; no second port of
-# _civic.uv_frame): every texel of the stamp rect is supersampled LABEL_SS x LABEL_SS and
-# each sample is mapped to FACE meters as the viewer sees the face from outside (x right
-# from the left edge, y down from the top edge), so words read left to right on any wall
-# side, any island turn, any mirror. Draw functions paint layers on a DisplayCanvas.
-# Text uses the 5x7 font of ski_launcher_glyph (the same table as ski_icons_sheet.FONT,
-# without importing ski_icons). label_metrics() is the layout the painter really uses:
-# columns 6 n - 1, rows 7 L + gap (L - 1) + 2 (= 9 per line at the default gap), cell =
-# fill x min(W / cols, H / rows); cap = 7 cells, stroke = 1 cell (skeptic M4).
+# Detail pass 1, school / L2 / patrol (kit group, 2026-10-11): oriented display painters (design/detail-pass-1.md 2.0 / 6.1
+# with skeptic M1 + M4). Built on _label_quad / _label_frame (the UVUnique -> world affine of the ONE quad being stamped,
+# with no second port of _civic.uv_frame). Every texel of the stamp rect is supersampled LABEL_SS x LABEL_SS. Each sample is
+# mapped to FACE meters as the viewer sees the face from outside (x right from the left edge, y down from the top edge), so
+# words read left to right on any wall side, any island turn, any mirror. Draw functions paint layers on a DisplayCanvas.
+#
+# Text uses the 5x7 font of ski_launcher_glyph (the same table as ski_icons_sheet.FONT, without importing ski_icons).
+# label_metrics() is the layout the painter really uses: columns 6 n - 1, rows 7 L + gap (L - 1) + 2 (= 9 per line at the
+# default gap), cell = fill x min(W / cols, H / rows), cap = 7 cells, stroke = 1 cell (skeptic M4).
 # --------------------------------------------------------------------------------------
 
 LABEL_FILL = 0.85           # text block / board, design 2.0 (the word boards: build report)
@@ -6371,11 +6357,10 @@ def _font5x7():
 
 
 def label_metrics(face_w, face_h, lines, ppm, fill=LABEL_FILL, line_gap=2):
-    """The 5x7 text layout draw_text uses, for a face of face_w x face_h meters shipped at
-    `ppm` texels per meter: cols = 6 n - 1 (n = longest line), rows = 7 L + line_gap (L - 1)
-    + 2, cell = fill x min(face_w / cols, face_h / rows); cap = 7 cell, stroke = 1 cell.
-    Returns the numbers (unrounded) and the legibility tier: T1 (reads at 50 m: cap >= 0.40
-    m and stroke >= 4 texels), T2 (close-up: stroke >= 2 texels) or "none"."""
+    """The 5x7 text layout draw_text uses, for a face of face_w x face_h meters shipped at `ppm` texels per meter: cols = 6 n -
+    1 (n = longest line), rows = 7 L + line_gap (L - 1) + 2, cell = fill x min(face_w / cols, face_h / rows). cap = 7 cell,
+    stroke = 1 cell. Returns the numbers (unrounded) and the legibility tier: T1 (reads at 50 m: cap >= 0.40 m and stroke >=
+    4 texels), T2 (close-up: stroke >= 2 texels) or "none"."""
     lines = (lines,) if isinstance(lines, str) else tuple(lines)
     if not lines or max(len(s) for s in lines) == 0:
         raise ValueError("label_metrics: no text")
@@ -6399,10 +6384,13 @@ def label_metrics(face_w, face_h, lines, ppm, fill=LABEL_FILL, line_gap=2):
 
 
 class DisplayCanvas:
-    """What a draw function receives. x, y: (h, w, S) sample positions in face meters (x
-    right from the face's left edge, y down from its top edge, as seen from outside); W, H
-    the face size (m); ppm the shipped texels per meter; base the (h, w, >=3) LINEAR
-    BaseColor view of the stamp rect; last the painter's record dict."""
+    """What a draw function receives:
+    - x, y: (h, w, S) sample positions in face meters (x right from the left edge of the face, y down from its top edge, as
+      seen from outside).
+    - W, H: the face size (m).
+    - ppm: the shipped texels per meter.
+    - base: the (h, w, >=3) LINEAR BaseColor view of the stamp rect.
+    - last: the painter's record dict."""
 
     def __init__(self, base, x, y, W, H, ppm, last):
         self.base, self.x, self.y = base, x, y
@@ -6424,14 +6412,14 @@ class DisplayCanvas:
 
 
 class DisplayPainter:
-    """Painter for cs2_compose.stamp_on_face on ONE single-quad part `face` (the label's part
-    prefix): maps the stamp rect's texel sub-samples through the quad's UVUnique -> world
-    affine (_label_frame) to face meters and runs `draw` (a draw function or a sequence of
-    them, see DRAWS) on a DisplayCanvas. symmetric=True allows a face whose normal is
-    vertical (no viewer "up": the quad's first edge gives the frame; the drawing must not
-    care); sloped faces (roof crosses) use the up-slope direction as up either way.
-    `.last` records rect, atlas size, ppm, face size and every draw's numbers (text cap /
-    stroke / tier, pictogram square, ...) for tests and the manifest `labels` block."""
+    """Painter for cs2_compose.stamp_on_face on ONE single-quad part `face` (the label's part prefix). It maps the texel
+    sub-samples of the stamp rect through the quad's UVUnique -> world affine (_label_frame) to face meters. It runs `draw`
+    (a draw function or a sequence of them, see DRAWS) on a DisplayCanvas. symmetric=True allows a face whose normal is
+    vertical (no viewer "up": the quad's first edge gives the frame, and the drawing must not care). Sloped faces (roof
+    crosses) use the up-slope direction as up either way.
+
+    `.last` records rect, atlas size, ppm, face size and every draw's numbers (text cap / stroke / tier, pictogram square,
+    ...) for tests and the manifest `labels` block."""
 
     def __init__(self, face, draw, symmetric=False, ss=LABEL_SS):
         self.face = str(face)
@@ -6567,10 +6555,9 @@ SHAPE_KINDS = ("circle", "square", "diamond", "cross")
 
 
 def draw_shapes(items, bg=WHITE_SRGB):
-    """Pictogram shapes on a ground: items = ((kind, cx, cy, size, rgb_srgb), ...), kind in
-    SHAPE_KINDS or "glyph:<prims>" (draw_glyph's primitive lists); cx, cy fractions of the
-    face (x right, y down), size = the shape's extent as a fraction of the face's short
-    side (circle diameter, square side, diamond diagonal, cross arm span)."""
+    """Pictogram shapes on a ground: items = ((kind, cx, cy, size, rgb_srgb), ...), kind in SHAPE_KINDS or "glyph:<prims>"
+    (draw_glyph's primitive lists). cx, cy fractions of the face (x right, y down), size = the shape's extent as a fraction
+    of the face's short side (circle diameter, square side, diamond diagonal, cross arm span)."""
     items = tuple(items)
     for it in items:
         if not (it[0] in SHAPE_KINDS or str(it[0]).startswith("glyph:")):
@@ -6750,11 +6737,9 @@ DRAWS = {"text": draw_text, "shapes": draw_shapes, "glyph": draw_glyph,
 
 
 def display(face, draws=(), symmetric=False):
-    """PAINTER_FACTORIES "display": a DisplayPainter from plain recipe data, e.g.
-    ("sign_school_face", "display", {"draws": (("text", {"lines": ("SKI SCHOOL",),
-    "bg": BOARD_BROWN_SRGB}),)}); `face` defaults to the label's prefix in make_painter.
-    draws = ((DRAWS name, kwargs), ...) or callables (a menu board is paint_glyph
-    kind="menu", skeptic M1)."""
+    """PAINTER_FACTORIES "display": a DisplayPainter from plain recipe data, e.g. ("sign_school_face", "display", {"draws":
+    (("text", {"lines": ("SKI SCHOOL",), "bg": BOARD_BROWN_SRGB}),)}). `face` defaults to the label's prefix in make_painter.
+    draws = ((DRAWS name, kwargs), ...) or callables (a menu board is paint_glyph kind="menu", skeptic M1)."""
     fns = []
     for d in draws:
         if callable(d):
