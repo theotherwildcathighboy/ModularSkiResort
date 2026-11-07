@@ -27,7 +27,7 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 - **Lodges, Ski School and Ski Patrol.** Five lodges, a school and two patrol buildings, each following a real place.
 - **Merge your own buildings.** A landmark, signature or recreation building near the runs can join a ski area as a lodge and keep working as before.
 - **Ski Bus Depot.** A coach stop in town that brings guests to a hill too far away to draw them on its own.
-- **One hub.** The Ski Resort button (top left) opens Attraction, Runs, Lifts, Guests, Finances and History views, plus a problem list that flies you to what is wrong.
+- **One hub.** The Ski Resort button (top left) opens Attraction, Runs, Lifts, Guests, Finances and History views. It also has a problem list that flies you to what is wrong.
 - **A resort economy.** Lift tickets, season passes, lessons, lodge spend and running costs. A ski area's attraction score feeds the game's tourism, so a bigger resort brings more visitors.
 
 ## Requirements
@@ -52,12 +52,12 @@ Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from
 - Resorts cost money all year and earn in winter. Build in steps.
 
 ## Guides and details
-Step-by-step guides, every number, settings and troubleshooting are on the docs site: {{DOCS_URL}}
+Guides, every number, settings and troubleshooting are on the docs site: {{DOCS_URL}}
 Start with the Resort Quickstart at {{DOCS_URL}}/quickstart/ and the Lifts guide at {{DOCS_URL}}/guides/lifts/.
 Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}. Paste the text from the Copy diagnostics button in the mod's Options. Source code: {{GITHUB_URL}}
 
 ## Works with
-Nothing else is required, but Move It is highly recommended: lift stations sit on the slope as placed, and on steep ground they can end up partly in the hillside. Move It works on every building and station. Write Everywhere is recommended too: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the panel shows a notice and changes nothing in them.
+Nothing else is required, but Move It is highly recommended. Lift stations sit on the slope as placed, and on steep ground they can sit partly in the hillside. Move It works on every building and station. Write Everywhere is recommended too: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the hub shows a notice and changes nothing in them.
 Realistic Trips replaces the game's leisure system that ski days need: with it, the resort sends no skiers of its own. Lifts, runs, snow and buildings still work.
 
 ## Credits

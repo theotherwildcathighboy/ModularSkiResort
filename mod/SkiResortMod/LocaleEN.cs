@@ -1057,7 +1057,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive." },
                 { "SkiResort.Hub.PROBLEM_TIP[DepotNoHillLodge]", "A depot sends guests only while its ski area has a working hill lodge. A Hut or Summit counts. It bills nothing until then." },
                 { "SkiResort.Hub.PROBLEM_TIP[DepotNoRoad]", "A depot with no road sends nobody and bills nothing." },
-                { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "No active lodge with a road. The sign employs the staff of the Hut, Summit, patrol and off-road lodges. They come by road." },
+                { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "No active lodge with a road. The sign is the job host for the Hut, Summit, patrol and off-road lodges. Their staff come by road." },
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysNoGuestsNear]", "Ski-day guests come from homes and hotels, within the longest ski-day trip in Options. Beyond about 7 km few arrive in time." },
                 { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 600 m. Tourists from outside the city drive here, so none arrive. Hotel guests within 900 m walk." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations." },
