@@ -1,41 +1,46 @@
 """
-test_bake.py - contract test for cs2_bake (asset round 2026-10, P0; ROUND-SPEC.md section 6).
+test_bake.py - contract test for cs2_bake (asset round 2026-10, P0, ROUND-SPEC.md section 6).
 
 Run:  blender --background --factory-startup --python-exit-code 1 --python tests\\test_bake.py
-Exit code 1 on any failure; prints one PASS line on success. 256 px bakes, AO 16 samples.
+The test exits with code 1 on any failure. It prints one PASS line on success. The bakes use 256 px
+and AO 16 samples.
 
-(1) bake_unique on a 2-material cube (material 0 constants, material 1 A x A images with a
-    DirectX normal), a bystander plane 5 cm from the cube (would darken AO if the bake did
-    not isolate the object), one reserved rect holding a checker strip:
-      * BaseColor texels of every face == the source constants within 2/255 after the sRGB
-        round trip; the reserved rect == its source texels 1:1 (within 1/255);
-      * Normal: material 0 flat, material 1 == the DX source with G flipped (GL);
-      * MaskMap R = metal, A = 1 - rough; ControlMask R/G/B exclusive, R on slot-1 faces,
-        A 0; BaseColor and Normal alpha 255 everywhere;
-      * one UV layer ("UVUnique"), no material slots, no CS2BAKE_/CS2SRC_ datablocks left;
-      * every render / bake / Cycles / tool / color setting, the selection, the active
-        object and hide_render equal their values before the bake.
+(1) bake_unique runs on a 2-material cube (material 0 constants, material 1 A x A images with a
+    DirectX normal). The scene also has a bystander plane 5 cm from the cube (it would darken AO
+    if the bake did not isolate the object) and one reserved rect that holds a checker strip.
+    The bake must give these results:
+      * BaseColor texels of every face == the source constants within 2/255 after the sRGB round
+        trip. The reserved rect == its source texels 1:1 (within 1/255).
+      * Normal: material 0 flat, material 1 == the DX source with G flipped (GL).
+      * MaskMap R = metal and A = 1 - rough. ControlMask R/G/B are exclusive, R is on slot-1 faces,
+        and A is 0. BaseColor and Normal alpha are 255 everywhere.
+      * The mesh has one UV layer ("UVUnique"), no material slots, and no CS2BAKE_/CS2SRC_
+        datablocks left.
+      * Every render / bake / Cycles / tool / color setting, the selection, the active object and
+        hide_render equal their values before the bake.
 (2) Two identical bakes in one process write byte-identical PNGs.
-(3) recolor_albedo: slot-1 faces ship RECOLOR_ALBEDO (0.80 -> 204) neutral gray (the
-    reserved strip does not steer the mean); a constant emissive lands in `_Emissive`
-    (alpha 255); an "unknown" normal is dropped and rebuilt from a height ramp (G < 0.5).
-(4) bake_high_to_low from a bevelled cube onto a plain cube: a non-flat normal map whose
-    covered-texel mean is (0.5, 0.5, ~1.0); bake_unique(high=...) reproduces it.
-(5) Ramp: a high plane tilted 10 deg about X baked onto a flat plane has G < 0.5, the same
+(3) recolor_albedo: slot-1 faces ship RECOLOR_ALBEDO (0.80 -> 204) neutral gray (the reserved
+    strip does not steer the mean). A constant emissive lands in `_Emissive` (alpha 255). The bake
+    drops an "unknown" normal and rebuilds it from a height ramp (G < 0.5).
+(4) bake_high_to_low from a beveled cube onto a plain cube gives a non-flat normal map whose
+    covered-texel mean is (0.5, 0.5, ~1.0). bake_unique(high=...) reproduces it.
+(5) Ramp: a high plane tilted 10 deg about X, baked onto a flat plane, has G < 0.5. G has the same
     sign and value as cs2_compose.height_to_normal on the synthetic height ramp (GL).
-(6) find_set_map / material_sources: strict ambientCG names (no *_Albedo_Roughness match),
-    a missing set fails before any mesh changes, UVTile in tiles of metres_per_tile, and a
-    bake through the tiling layer (cross-layer tangent NORMAL bake) writes a sane set.
-(7) Our own CS2-packed maps as a source (mask / control / emissive images, GL normal)
-    come through unchanged; MaskMap G/B are forced to 0.
-(8) A mid-bake failure (reserved rect over a 16 px source) raises and restores the UV
-    layers, material slots, polygon material indices, settings and datablocks; a
-    pre-existing UVUnique comes back with its loops unchanged; a used material index
-    without a source raises KeyError up front.
-P0a review additions: a reserved rect whose source names the layer by its ORIGINAL name
-(uv="UVMap") bakes byte-identically to uv=None (2); recolor_albedo None is auto (slot > 0,
-no control image) (3); project_world_uv and material_sources read the CURRENT world matrix
-after a bare `.location =` edit (6).
+(6) find_set_map / material_sources: the names are strict ambientCG names (no *_Albedo_Roughness
+    match). A missing set fails before any mesh changes. UVTile works in tiles of metres_per_tile.
+    A bake through the tiling layer (cross-layer tangent NORMAL bake) writes a sane set.
+(7) Our own CS2-packed maps as a source (mask / control / emissive images, GL normal) come through
+    unchanged. MaskMap G/B are forced to 0.
+(8) A mid-bake failure (reserved rect over a 16 px source) raises and restores the UV layers,
+    material slots, polygon material indices, settings and datablocks. A pre-existing UVUnique
+    comes back with its loops unchanged. A used material index without a source raises KeyError up
+    front.
+P0a review additions:
+    * A reserved rect whose source names the layer by its ORIGINAL name (uv="UVMap") bakes
+      byte-identically to uv=None (2).
+    * recolor_albedo None is auto (slot > 0, no control image) (3).
+    * project_world_uv and material_sources read the CURRENT world matrix after a bare
+      `.location =` edit (6).
 """
 
 import dataclasses
@@ -187,7 +192,7 @@ def make_sources(src_dir):
 
 
 def build_cube():
-    """Default cube + a bystander plane 5 cm off its +X face; returns (cube, mat1 faces)."""
+    """Default cube + a bystander plane 5 cm off its +X face. Returns (cube, mat1 faces)."""
     clear_scene()
     bpy.ops.mesh.primitive_plane_add(size=3.0, location=(1.05, 0.0, 0.0),
                                      rotation=(0.0, math.radians(90.0), 0.0))
@@ -491,7 +496,7 @@ def test_failure_restores(paths, out_dir):
 
 
 # --------------------------------------------------------------------------------------
-# (4) bevelled cube -> plain cube
+# (4) beveled cube -> plain cube
 # --------------------------------------------------------------------------------------
 
 def make_bevel_pair():
@@ -544,7 +549,7 @@ def test_high_to_low(out_dir):
                                ao_samples=AO_SAMPLES, high=high)
     n2 = read_png(os.path.join(out_dir, "BevelLowA_Normal.png"))[cov][:, 0:3] / 255.0
 
-    def unit(x):        # Cycles leaves a few corner texels at |n| ~ 0.9; blend_rnm renormalises
+    def unit(x):        # Cycles leaves a few corner texels at |n| ~ 0.9. blend_rnm renormalizes them.
         v = x * 2.0 - 1.0
         return v / np.linalg.norm(v, axis=1, keepdims=True)
     err = float(np.abs(unit(n2) - unit(n)).max()) * 0.5
@@ -646,7 +651,7 @@ def test_material_sources(out_dir):
                                                tint=0.6),
              "paint": cs2_bake.MaterialSpec(albedo=(0.3, 0.1, 0.1), slot=1,
                                             recolor_albedo=True, projection="planar")}
-    wall.location = (0.0, 4.0, 1.0)         # 2 tiles in y; stale matrix_world would say 0
+    wall.location = (0.0, 4.0, 1.0)         # 2 tiles in y. A stale matrix_world would say 0.
     srcs = cs2_bake.material_sources(table, parts)
     wtop = max(wall.data.polygons, key=lambda p: p.normal.z)
     wuv = cs2_uv.loop_uvs(wall.data.uv_layers["UVTile"])[wtop.loop_start:

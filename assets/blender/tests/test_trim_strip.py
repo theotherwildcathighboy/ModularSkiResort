@@ -1,33 +1,39 @@
 """
-test_trim_strip - T70 `--trim v1` (docs/research/art/trim-swatch-plan-2026-10-18.md section 5, gates G1-G9).
+test_trim_strip - T70 `--trim v1` (docs/research/art/trim-swatch-plan-2026-10-18.md section 5, gates
+G1-G9).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_trim_strip.py
 
-Hand-built scene (the lodge.py prep: bevel, density, tags, UVTile projection, retile, join + weld): a gable_roof,
-a hip_roof (four fascia boxes in ONE part, mitred ridge beams), a deck with its four-box deckfascia_, a box ridge_ on
-galv, a trim_white and a lux_trim fascia, a 44 m trim fascia (L1's stress case) and a timber_lap wall beside them,
-run through cs2_tilesheet.tile_mesh with the weathering rules on. Asserts:
-  G1  every face of a rake_ / fascia_ / deckfascia_ part is on a strip key after trim_remap (trim / lux_trim ->
-      trim_grain, trim_white -> trim_grain_w) and strip-mapped; every ridge_ face strip-mapped on galv; no strip face
-      weathered;
-  G2  grain along the member: every long feature edge (>= 1 m, between faces of different planes) of a strip part
-      maps to sheet x (|dy| <= 0.5 px + 0.5 % |dx|);
-  G3  check_uv_cells == {} and every strip loop inside its band's usable rows (guards excluded) / the galv content;
-  G4  across px/m within 10 % of the band (400) / galv (120); along >= 8 px/m; the 44 m fascia at 480 / 44; a 74 m
-      member is cut at the 60 m world lines (only it pays tris), a 0.6 m wide board raises; strip_seg_m 4 cuts every
-      member over 1.2 m (tris up, along 120 px/m);
-  G5  the strip cell's ControlMask (the sheet writer's own _strip_maps) at face centroids: trim_grain R = 1,
-      trim_grain_w R = 0; galv slot 0 / metal 1; strip metal 0;
-  G6  layout: v1 has trim_grain at (5, 7), no lux_paver~w, no rect overlap (tiles, palette, label region), every other
-      tile and every palette rect equal to the off layout; the off layout equals the pre-T70 module's (git 53defed)
-      byte for byte (hash included), before and after a v1 layout was built in the same process;
-  G7  tri parity: the v1 scene's LOD0 tris == the flag-off scene's (flat keys, flat-drawn ridge);
-  G8  flag off byte-identical: the off scene through the current tile_mesh (default kwargs) hashes identical to the
-      pre-T70 tile_mesh (53defed), and carries no cs2ts_strip; lodge.trim_cfg is None by default and a default
-      lodge.py run never calls trim_remap / register_trim_materials (monkeypatched to raise); --trim v1 without a
-      tiled build raises;
-  G9  determinism: two v1 scenes hash identical.
-Exit 1 on the first failure; one PASS line otherwise.
+The test builds a scene by hand (the lodge.py prep: bevel, density, tags, UVTile projection, retile,
+join + weld). The scene holds a gable_roof, a hip_roof (four fascia boxes in ONE part, mitered ridge
+beams), a deck with its four-box deckfascia_, a box ridge_ on galv, a trim_white and a lux_trim
+fascia, a 44 m trim fascia (L1's stress case) and a timber_lap wall beside them. The test runs the
+scene through cs2_tilesheet.tile_mesh with the weathering rules on. Asserts:
+- G1: Every face of a rake_ / fascia_ / deckfascia_ part is on a strip key after trim_remap (trim /
+  lux_trim -> trim_grain, trim_white -> trim_grain_w) and is strip-mapped. Every ridge_ face is
+  strip-mapped on galv. No strip face is weathered.
+- G2: Grain runs along the member. Every long feature edge (>= 1 m, between faces of different
+  planes) of a strip part maps to sheet x (|dy| <= 0.5 px + 0.5 % |dx|).
+- G3: check_uv_cells == {}. Every strip loop is inside the usable rows of its band (guards excluded)
+  or inside the galv content.
+- G4: Across px/m is within 10 % of the band (400) / galv (120). Along px/m is >= 8. The 44 m fascia
+  is at 480 / 44. A 74 m member is cut at the 60 m world lines (only it pays tris). A 0.6 m wide
+  board raises. strip_seg_m 4 cuts every member over 1.2 m (tris up, along 120 px/m).
+- G5: The ControlMask of the strip cell (the sheet writer's own _strip_maps) at face centroids has
+  these values: trim_grain R = 1, trim_grain_w R = 0, galv slot 0 / metal 1, strip metal 0.
+- G6: Layout. v1 has trim_grain at (5, 7), no lux_paver~w, and no rect overlap (tiles, palette,
+  label region). Every other tile and every palette rect equals the off layout. The off layout
+  equals the layout of the pre-T70 module (git 53defed) byte for byte (hash included), before and
+  after the test builds a v1 layout in the same process.
+- G7: Tri parity. The LOD0 tris of the v1 scene == the LOD0 tris of the flag-off scene (flat keys,
+  flat-drawn ridge).
+- G8: Flag off is byte-identical. The off scene through the current tile_mesh (default kwargs)
+  hashes identical to the pre-T70 tile_mesh (53defed). It carries no cs2ts_strip. lodge.trim_cfg is
+  None by default. A default lodge.py run never calls trim_remap / register_trim_materials
+  (monkeypatched to raise). --trim v1 without a tiled build raises.
+- G9: Determinism. Two v1 scenes hash identical.
+
+The test exits 1 on the first failure. Otherwise it prints one PASS line.
 """
 
 import hashlib
@@ -50,7 +56,7 @@ import cs2_tilesheet as TS             # noqa: E402
 import cs2_uv                          # noqa: E402
 import lodge                           # noqa: E402
 
-PRE_T70 = "53defed"                    # the last commit before T70: the flag-off reference implementation
+PRE_T70 = "53defed"                    # The last commit before T70. It is the flag-off reference implementation.
 PRE_T70_SHA1 = "8dd04295205481d3197e913a0b351044969d2e58"    # sha1 of its cs2_tilesheet.py (tests/data fixture)
 CHECKS = []
 
@@ -69,8 +75,9 @@ def clear():
 
 
 def pre_t70_module():
-    """cs2_tilesheet as of PRE_T70, imported under another name (tests/data fixture: the history was rewritten
-    2026-10-22, so `git show PRE_T70` no longer resolves; the fixture is byte-identical to that commit's file)."""
+    """cs2_tilesheet as of PRE_T70, imported under another name (tests/data fixture). The history was
+    rewritten 2026-10-22, so `git show PRE_T70` no longer resolves. The fixture is byte-identical to
+    that commit's file."""
     with open(os.path.join(HERE, "tests", "data", "cs2_tilesheet_pre_t70.py"), "rb") as fh:
         src = fh.read()
     assert hashlib.sha1(src).hexdigest() == PRE_T70_SHA1, "tests/data/cs2_tilesheet_pre_t70.py changed"
@@ -85,7 +92,7 @@ def pre_t70_module():
 
 
 def scene(trim, extra=()):
-    """(obj, uvtile, keys, moved) of the hand-built scene after the lodge.py prep."""
+    """Returns (obj, uvtile, keys, moved) of the hand-built scene after the lodge.py prep."""
     clear()
     TS.ensure_materials()
     spec = K.RoofSpec("gable", 0.0, 8.0, 0.0, 12.0, 3.0, 35.0, axis="Y")

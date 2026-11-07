@@ -1,21 +1,25 @@
 """
-test_door_kit - door kit v2 contracts (docs/research/art/door-kit-2026-10-17.md), the HARDWARE GATE first
-(2026-10-17: "It's good to render levers or doorknobs. Vanilla buildings tend to have them").
+test_door_kit - door kit v2 contracts (docs/research/art/door-kit-2026-10-17.md). The HARDWARE GATE
+comes first (2026-10-17: "It's good to render levers or doorknobs. Vanilla buildings tend to have
+them").
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_door_kit.py
 
 Asserts:
-  1. one door per family and leaf count (glazing double + 2 sidelights + transom, glazing solid double,
-     chalet single + double, utility flush + with a vision panel, utility without a casing): every leaf
-     carries a hardware part (door_<tag>_pull / _lever / _knob), DOOR2_HARDWARE lists them, and the main-
-     mesh tri count equals door_tris() for the same arguments; every lever reaches the leaf face (its
-     return leg / rose: no floating bar) and has DOOR_LEVER_TRIS tris;
-  2. hardware="none:<reason>" builds without hardware and records the reason; "none:", "none", False,
-     None and any other value RAISE; a family whose handle kind is not a hardware kind raises;
-  3. door_unit outside door_kit() raises; entry() inside door_kit() returns the v2 door (gate applies);
-  4. every door kit part lands in door2_flat() / door2_protect(); `_Win` panes are not in them; the
-     liner `reveal_d<name>` has 3 faces and no upward (stool) face.
-Exit 1 on the first failure; one PASS line otherwise.
+1. The test builds one door per family and leaf count. These cases are: glazing double + 2
+   sidelights + transom, glazing solid double, chalet single + double. More cases are utility flush
+   + with a vision panel, and utility without a casing. Every leaf carries a hardware part
+   (door_<tag>_pull / _lever / _knob). DOOR2_HARDWARE lists these parts. The main-mesh tri count
+   equals door_tris() for the same arguments. Every lever reaches the leaf face (its return leg /
+   rose: no floating bar) and has DOOR_LEVER_TRIS tris.
+2. hardware="none:<reason>" builds without hardware and records the reason. "none:", "none", False,
+   None and any other value RAISE. A family whose handle kind is not a hardware kind raises.
+3. door_unit outside door_kit() raises. entry() inside door_kit() returns the v2 door (gate
+   applies).
+4. Every door kit part lands in door2_flat() / door2_protect(). `_Win` panes are not in them. The
+   liner `reveal_d<name>` has 3 faces and no upward (stool) face.
+
+The test exits 1 on the first failure. Otherwise it prints one PASS line.
 """
 
 import os
@@ -55,7 +59,7 @@ def tris(parts, skip_win=True):
 
 
 CASES = (
-    # family, name, kwargs to door_unit, door_tris kwargs
+    # Fields: family, name, kwargs for door_unit, kwargs for door_tris
     ("glazing", "gd", dict(w=2.4, h=2.7, sidelights=2, sidelight_w=0.7, room="r"),
      dict(leaves=2, sidelights=2, transom=True)),
     ("glazing", "gs", dict(w=1.6, h=2.4, glass=False, room="r"),
@@ -97,11 +101,11 @@ def check_hardware_present():
         assert len(liner.data.polygons) == 3, f"{name}: liner faces {len(liner.data.polygons)}"
         liner.data.update()
         assert all(p.normal.z < 0.5 for p in liner.data.polygons), f"{name}: liner has a stool"
-        for hn in hw[name]:                       # levers attach: no floating bar (follow-up 2)
+        for hn in hw[name]:                       # Levers attach. No floating bar (follow-up 2).
             if not hn.endswith("_lever"):
                 continue
             o = next(o for o, _k in parts if o.name == hn)
-            d = [v.co.x - 5.0 for v in o.data.vertices]          # wall +X at x 5: depth = x - 5
+            d = [v.co.x - 5.0 for v in o.data.vertices]          # The wall is +X at x 5, so depth = x - 5
             leaf_d = K.DOOR2_LEAF_TEST[name]
             assert min(d) - leaf_d <= 0.003, f"{hn}: nearest point {min(d) - leaf_d:.4f} m off the leaf"
             assert sum(len(p_.vertices) - 2 for p_ in o.data.polygons) == K.DOOR_LEVER_TRIS, hn

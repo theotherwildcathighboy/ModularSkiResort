@@ -1,37 +1,37 @@
 """
-number_tiles.py — per-tower number tiles (T123, DECISIONS 358; route V1 of docs/research/dynamic-numbers.md).
+number_tiles.py: per-tower number tiles (T123, DECISIONS 358, route V1 of docs/research/dynamic-numbers.md).
 
     blender --background --factory-startup --python-exit-code 1 --python number_tiles.py -- \
             --preview <dir>                       # PREVIEW GATE: tiles composed over each class's plate, no FBX
     blender ... --python number_tiles.py -- --measure-plates <out.json>     # re-measure the shipped plates
     blender ... --python number_tiles.py -- --export --out ../import/numtiles/<LETTER>   # after the owner's verdict ONLY
 
-WHAT IT MAKES. Per tower plate class, 11 one-quad tiles: `SkiNumTile<cls>Blank` (covers the baked numeral's whole
-window) and `SkiNumTile<cls>N0..N9` (one digit cell, a third of the window wide). The code mod (TowerNumberTileSystem)
-hangs them on every line tower as Secondary sub-objects: per plate face a number 1..200 is drawn as 1-3 digit tiles
-centered in the window; for 1-2 digits the Blank tile sits behind them (digits LAYER_M in front of it), 3 digits fill
-the window on their own. So at most 3 tiles per face, exact centering for every count, and the baked plate (glyph +
-height numeral) is the fallback when the tiles are off or the prefabs are missing.
+WHAT IT MAKES. The script makes 11 one-quad tiles per tower plate class: `SkiNumTile<cls>Blank` (covers the whole window of
+the baked numeral) and `SkiNumTile<cls>N0..N9` (one digit cell, a third of the window wide). The code mod
+(TowerNumberTileSystem) hangs them on every line tower as Secondary sub-objects. It draws a number 1..200 on each plate
+face as 1-3 digit tiles centered in the window. For 1-2 digits the Blank tile sits behind the digits (digits LAYER_M in
+front of it). 3 digits fill the window on their own. So a face has at most 3 tiles, and every count is centered exactly.
+The baked plate (glyph + height numeral) is the fallback when the tiles are off or the prefabs are missing.
 
-CLASSES (the shipped plates; frames and numbers MEASURED from the shipped LOD0 FBXs with --measure-plates, 2026-10-20,
-docs/research/lifts/tower-numbers-build-2026-10-20.md §1):
+CLASSES (the shipped plates). The script MEASURED the frames and numbers from the shipped LOD0 FBXs with --measure-plates
+(2026-10-20, docs/research/lifts/tower-numbers-build-2026-10-20.md §1):
     T1 tube     FG8/12/16/20, DQ10-20, GD12/16/20 and the 16 B2 head twins   plate 0.36 x 0.16  (lift_tower.py DP1_PLATE,
-                plate_raster; FG8 and the twins measured 2026-11-04 on their shipped Q / R meshes, SHIPPED_T1)
+                plate_raster). FG8 and the twins were measured 2026-11-04 on their shipped Q / R meshes (SHIPPED_T1).
     T2 lattice  SkiGondolaLattice25/32/40          plate 0.44 x 0.20  (tram_tower.py PLATE["gondola"], plate_layout)
     T3 lattice  SkiTramTower30/45/60               plate 0.56 x 0.26  (tram_tower.py PLATE["tram"], plate_layout)
-Hosted terminal towers (ET62 / ET68 / ETDQ / ETGD) are not numbered (glyph-only plate, lift_tower.py plate_numeral).
-Chairs (T124) will add a class C here later; the tile system is class-agnostic.
+Hosted terminal towers (ET62 / ET68 / ETDQ / ETGD) are not numbered (glyph-only plate, lift_tower.py plate_numeral). Chairs
+(T124) will add a class C here later. The tile system is class-agnostic.
 
 FIELD / INK / FONT = the baked plate's, measured on the shipped textures (FG12P / GD16P / Lattice25P / Tram30B plate
-texels): field sRGB 0.851, ink sRGB 0.051 (T1) / 0.039 (T2, T3), MaskMap R (metal) 0.0 (T1) / 0.349 (T2, T3), A
-(smoothness) 0.555; ControlMask 0 (fixed colors, never recolored). Font = Blender's built-in Bfont, the one
-welcome_sign.text_triangles / tram_tower._text_coverage paint the baked numeral with.
+texels). Field sRGB 0.851. Ink sRGB 0.051 (T1) / 0.039 (T2, T3). MaskMap R (metal) 0.0 (T1) / 0.349 (T2, T3). A
+(smoothness) 0.555. ControlMask 0 (fixed colors, never recolored). Font = Blender's built-in Bfont, the font that
+welcome_sign.text_triangles / tram_tower._text_coverage use to paint the baked numeral.
 
-FRAME (load-bearing). The tile quad is authored in Blender's XZ plane facing -Y, text left -> right along +X, up +Z,
-origin at the quad center, and exported WITHOUT orient_for_net. export_fbx maps (x, y, z) -> (x, z, -y) and the game
-negates FBX x (PIPELINE "Frame rule", DECISIONS 245), so in the prefab frame the tile faces +Z, reads left -> right
-along -X, up +Y: exactly the shipped plate's +Z face (measured: normal (0, 0, 1), viewer-right (-1, 0, 0)). The -Z
-face takes the tile rotated 180 deg about Y.
+FRAME (load-bearing). The tile quad is authored in Blender's XZ plane facing -Y, text left -> right along +X, up +Z, origin
+at the quad center. The script exports it WITHOUT orient_for_net. export_fbx maps (x, y, z) -> (x, z, -y), and the game
+negates FBX x (PIPELINE "Frame rule", DECISIONS 245). So in the prefab frame the tile faces +Z, reads left -> right along
+-X, and has up +Y. This is exactly the shipped plate's +Z face (measured: normal (0, 0, 1), viewer-right (-1, 0, 0)). The
+-Z face takes the tile rotated 180 deg about Y.
 """
 
 import argparse
@@ -50,14 +50,14 @@ import cs2_asset  # noqa: E402
 
 # -- the classes ---------------------------------------------------------------------------------------------------
 # window = the baked numeral's area, meters in the plate's own frame (u = viewer-right from the plate center, v = up):
-#   T1: plate_raster puts the glyph square in [b + 1 px, b + inner_h - 1 px] and centers the numeral in
-#       [glyph right + 2 px, w - b - 2 px] (b = 0.006, inner_h = 0.148, px = 1 / 362 m measured on FG12P):
-#       numeral span 0.157 .. 0.351 from the left edge, center 0.254 -> u +0.074; the tiles span 0.200 (to the border's
-#       inner edge minus 1 mm) x the inner height 0.148.
-#   T2 / T3: tram_tower.plate_layout centers the numeral in avail = [b + pad + gs + pad, W - b - pad] (b 0.006, pad
-#       0.008, gs = H - 2 (b + pad)): gondola 0.194 .. 0.426 (center u +0.090), tram 0.254 .. 0.546 (center u +0.120);
-#       the tiles span avail + 4 mm each side x (H - 2 b).
-# cap_max = the baked numeral's own cap rule (T1 inner_h - 6 px; T2 / T3 0.85 * gs) - the tiles never print larger.
+#   T1: plate_raster puts the glyph square in [b + 1 px, b + inner_h - 1 px]. It centers the numeral in
+#       [glyph right + 2 px, w - b - 2 px] (b = 0.006, inner_h = 0.148, px = 1 / 362 m measured on FG12P).
+#       The numeral spans 0.157 .. 0.351 from the left edge, center 0.254 -> u +0.074. The tiles span 0.200
+#       (to the border's inner edge minus 1 mm) x the inner height 0.148.
+#   T2 / T3: tram_tower.plate_layout centers the numeral in avail = [b + pad + gs + pad, W - b - pad]
+#       (b 0.006, pad 0.008, gs = H - 2 (b + pad)). Gondola: 0.194 .. 0.426 (center u +0.090). Tram: 0.254 .. 0.546
+#       (center u +0.120). The tiles span avail + 4 mm each side x (H - 2 b).
+# cap_max = the baked numeral's own cap rule (T1 inner_h - 6 px, T2 / T3 0.85 * gs). The tiles never print larger.
 CLASSES = {
     "T1": dict(plate=(0.36, 0.16), win_u=0.0740, win_w=0.200, win_h=0.148, cap_max=0.131,
                field=0.851, ink=0.051, metal=0.0, smooth=0.555, src="lift_tower.plate_raster"),
@@ -66,7 +66,8 @@ CLASSES = {
     "T3": dict(plate=(0.56, 0.26), win_u=0.1200, win_w=0.300, win_h=0.248, cap_max=0.197,
                field=0.851, ink=0.039, metal=0.349, smooth=0.555, src="tram_tower.plate_layout tram"),
 }
-# The towers each class numbers (prefab names; the code mod's TowerNumberPlates table holds their measured plate rows).
+# The towers that each class numbers (prefab names). The TowerNumberPlates table of the code mod holds their measured plate
+# rows.
 CLASS_TOWERS = {
     "T1": ["SkiLiftTower" + k for k in ("FG12", "FG16", "FG20", "DQ10", "DQ12", "DQ14", "DQ16", "DQ18", "DQ20",
                                        "GD12", "GD16", "GD20")],
@@ -77,8 +78,9 @@ MEASURE_SRC = {   # shipped LOD0 mesh folder per class tower (assets/import/...)
     **{t: f"towers/P/{t}P/{t}P.fbx" for t in CLASS_TOWERS["T1"] + CLASS_TOWERS["T2"]},
     **{t: f"tramtowers/B/{t}B/{t}B.fbx" for t in CLASS_TOWERS["T3"]},
 }
-# The 8 m FG member (prefab SkiLiftTowerFG2, mesh FG8Q) and the B2 head twins (DECISIONS 592), measured on the meshes their
-# prefabs ship: towers/<letter>/<mesh>/<mesh>.fbx, the twin beside its member's letter (lift_tower.py TWIN_ATLAS).
+# The script measures the 8 m FG member (prefab SkiLiftTowerFG2, mesh FG8Q) and the B2 head twins (DECISIONS 592) on the
+# meshes that their prefabs ship: towers/<letter>/<mesh>/<mesh>.fbx, with the twin beside its member's letter
+# (lift_tower.py TWIN_ATLAS).
 SHIPPED_T1 = {
     "SkiLiftTowerFG2": "towers/Q/SkiLiftTowerFG8Q/SkiLiftTowerFG8Q.fbx",
     **{f"SkiLiftTower{k}": f"towers/{letter}/SkiLiftTower{k}/SkiLiftTower{k}.fbx" for letter, keys in (
@@ -86,7 +88,7 @@ SHIPPED_T1 = {
                "GD16HoldA", "GD16ComboA")),
         ("R", ("FG12HoldA", "FG12ComboA", "FG12BreakA", "DQ12HoldA", "DQ12ComboA", "GD12HoldA", "GD12ComboA")),
     ) for k in keys},
-    # art-601: the taller twins; the DQ / GD prefabs ship the headed mesh letter T (lift_head), FG the twin's own A
+    # art-601: the taller twins. The DQ / GD prefabs ship the headed mesh letter T (lift_head). FG ships the twin's own A.
     **{f"SkiLiftTower{k}A": f"towers/Q/SkiLiftTower{k}{m}/SkiLiftTower{k}{m}.fbx" for k, m in (
         ("FG16Hold", "A"), ("FG16Combo", "A"), ("DQ16Hold", "T"), ("DQ20Hold", "T"), ("GD20Hold", "T"))},
 }
@@ -94,10 +96,10 @@ CLASS_TOWERS["T1"] += list(SHIPPED_T1)
 MEASURE_SRC.update(SHIPPED_T1)
 BAKED_NUMERAL = {"T1": "12", "T2": "25", "T3": "30"}   # what the preview's "before" plate shows
 
-MAX_DIGITS = 3            # numbers 1..200 (DECISIONS 358); the code wraps 201 -> 1
+MAX_DIGITS = 3            # Numbers 1..200 (DECISIONS 358). The code wraps 201 -> 1.
 TILE_DEPTH_M = 0.004      # Blank / 3-digit tiles: in front of the plate's FRONT face (dynamic-numbers.md §5)
 LAYER_M = 0.003           # digits in front of the Blank tile (1-2 digit numbers)
-CONDENSE = 0.82           # glyph x scale: verdict B (2026-10-20, DECISIONS 361: "B for tiles"); 1.0 = the baked font (A)
+CONDENSE = 0.82           # Glyph x scale: verdict B (2026-10-20, DECISIONS 361: "B for tiles"). 1.0 = the baked font (A).
 ATLAS = 512               # texture floor (PIPELINE / blender-build: 512^2)
 COLS, ROWS = 6, 2         # cells 0-9 = digits, 10 = Blank (plain field), 11 = spare (plain field)
 SS = 4                    # coverage supersampling
@@ -150,8 +152,8 @@ def font_metrics():
 
 
 def layout(cls, condense=CONDENSE):
-    """Cell width (window / 3), digit cap (m) and scale for one class: the cap is the largest at which three tabular
-    digits fit the window at the font's own advance (so 200 fits), never above the baked cap rule."""
+    """Cell width (window / 3), digit cap (m) and scale for one class. The cap is the largest at which three tabular digits
+    fit the window at the font's own advance (so 200 fits). It is never above the baked cap rule."""
     c = CLASSES[cls]
     f = font_metrics()
     cell_w = c["win_w"] / MAX_DIGITS
@@ -162,7 +164,7 @@ def layout(cls, condense=CONDENSE):
 
 # -- rasters (rows bottom-up, linear coverage) -------------------------------------------------------------------------
 def _cov(tris, w, h, x0_m, y0_m, ppm):
-    """Coverage (h, w) of triangles given in meters; pixel (0, 0) bottom-left sits at (x0_m, y0_m)."""
+    """Coverage (h, w) of triangles given in meters. Pixel (0, 0) bottom-left sits at (x0_m, y0_m)."""
     Ws, Hs = w * SS, h * SS
     xs = x0_m + (np.arange(Ws) + 0.5) / (SS * ppm)
     ys = y0_m + (np.arange(Hs) + 0.5) / (SS * ppm)
@@ -303,8 +305,8 @@ def number_tiles(n):
 
 
 def compose(cls, n, ppm, condense=CONDENSE, tile_ppm=None):
-    """The plate with number n's tiles over it (sRGB, rows bottom-up), viewed square-on. tile_ppm = the texel density
-    the tiles are sampled at (None = ppm: the design view; the atlas density gives the in-game texel view)."""
+    """The plate with number n's tiles over it (sRGB, rows bottom-up), viewed square-on. tile_ppm = the texel density at which
+    the script samples the tiles. None = ppm, the design view. The atlas density gives the in-game texel view."""
     c = CLASSES[cls]
     L = layout(cls, condense)
     img = baked_plate(cls, ppm, BAKED_NUMERAL[cls]).copy()
@@ -360,9 +362,9 @@ def _label(img, text, x, y, h_px, val=0.0):
 
 
 def preview(out_dir):
-    """PREVIEW GATE sheets, one per class: rows = the baked plate (today) / tiles A (font unchanged) / tiles B
-    (condensed 0.82), columns = 7, 42, 128, 200; each panel at 2,000 px/m (design) with the in-game texel view
-    beside it (baked plate at its shipped ~340 px/m, tiles at the atlas density, both upscaled nearest)."""
+    """PREVIEW GATE sheets, one per class. Rows = the baked plate (today) / tiles A (font unchanged) / tiles B (condensed
+    0.82). Columns = 7, 42, 128, 200. Each panel is at 2,000 px/m (design). The in-game texel view sits beside it: baked
+    plate at its shipped ~340 px/m, tiles at the atlas density, both upscaled nearest."""
     os.makedirs(out_dir, exist_ok=True)
     nums = (7, 42, 128, 200)
     report = {}
@@ -423,9 +425,9 @@ def preview(out_dir):
 
 # -- measurement (the code mod's plate table) ------------------------------------------------------------------------
 def measure_plates(import_root, out_json, only=None):
-    """Find both plate FRONT quads of every class tower in its shipped LOD0 FBX: center, normal and viewer-right in the
-    PREFAB frame (game = (-fx, fy, fz) / 100: FBX centimeters, the game negates FBX x). `only`: a set of prefab names to
-    measure (the rest are skipped, e.g. when their FBX is not exported in this checkout)."""
+    """Find both plate FRONT quads of every class tower in its shipped LOD0 FBX. Measured values: center, normal and
+    viewer-right in the PREFAB frame (game = (-fx, fy, fz) / 100: FBX centimeters, the game negates FBX x). `only`: a set
+    of prefab names to measure (the script skips the rest, for example when their FBX is not exported in this checkout)."""
     from mathutils import Vector
     res = {}
     if only:
@@ -487,9 +489,9 @@ def manifest_path(out_dir):
 
 
 def export(out_dir):
-    """One import folder: per class the Blank tile owns the atlas (4 PNG), the ten digits share it (settings.json
+    """One import folder. Per class the Blank tile owns the atlas (4 PNG), and the ten digits share it (settings.json
     sharedAssets, DECISIONS 298: import the whole folder in ONE action). LOD0 only (2 tris). Mesh asset names carry the
-    generation letter (= the folder name, e.g. SkiNumTileT1N7A); the hand-made prefabs (surgery) drop it (SkiNumTileT1N7)."""
+    generation letter (= the folder name, e.g. SkiNumTileT1N7A). The hand-made prefabs (surgery) drop it (SkiNumTileT1N7)."""
     os.makedirs(out_dir, exist_ok=True)
     letter = os.path.basename(os.path.normpath(out_dir))
     if not (len(letter) == 1 and letter.isupper()):
@@ -508,7 +510,7 @@ def export(out_dir):
             if glyph is None:
                 for m, arr in maps.items():
                     rgba = arr if arr.ndim == 3 else np.repeat(arr[..., None], 4, axis=2)
-                    # rows here are bottom-up (UV v = 0 at row 0); _write_png flips a TOP-DOWN array, so hand it one
+                    # Rows here are bottom-up (UV v = 0 at row 0). _write_png flips a TOP-DOWN array, so hand it one.
                     cs2_asset._write_png(os.path.join(d, f"{name}_{m}.png"), f"{name}_{m}", np.flipud(rgba), ATLAS, is_data=True)
                 cs2_asset.write_settings(d, name)
             else:
@@ -524,9 +526,10 @@ def export(out_dir):
 
 
 def verify_export(out_dir):
-    """Round trip of the written folder (raises on a miss): every FBX re-imported faces +Z in the PREFAB frame with its text
-    (UV u) running along -X and the measured tile size; every owner's BaseColor reads the field byte 217 (sRGB 0.851) at a
-    Blank texel and ink in a digit cell. The same frame rule the plate measurement used: game = (-fx, fy, fz) / 100."""
+    """Round trip of the written folder (raises on a miss). Every FBX re-imported faces +Z in the PREFAB frame, with its text
+    (UV u) running along -X and the measured tile size. Every owner's BaseColor reads the field byte 217 (sRGB 0.851) at a
+    Blank texel and ink in a digit cell. The frame rule is the same one the plate measurement used: game = (-fx, fy, fz) /
+    100."""
     from mathutils import Vector
     with open(manifest_path(out_dir), encoding="utf-8") as fh:
         man = json.load(fh)
