@@ -1,48 +1,65 @@
 """
-Grip clearance gate (breakover / hold-down round v2, 2026-11-03; docs/research/art/breakover-twins-2026-11/v2/): every
-carrier, grip and body, past every tower sheave train, on both lanes, along the rope, at every train pose.
+Grip clearance gate (breakover / hold-down round v2, 2026-11-03, docs/research/art/breakover-twins-2026-11/v2/). The gate
+checks every carrier (grip and body) past every tower sheave train, on both lanes, along the rope, at every train pose.
 
-Why the rule reads this way: on a real lift the grip passes the support, hold-down and compression sheaves on its
-jaws, which sit nearly flush with the rope and stand a limited, smooth amount above it while the sheave battery rocks
-over them; the grip body, springs and hanger stay outboard of the wheels (Poma US4441430, US4691643;
+Why the rule reads this way: on a real lift the grip passes the support, hold-down and compression sheaves on its jaws. The
+jaws sit nearly flush with the rope and stand a limited, smooth amount above it while the sheave battery rocks over them.
+The grip body, springs and hanger stay outboard of the wheels (Poma US4441430, US4691643,
 docs/research/art/breakover-twins-2026-11/refs/SOURCES.md "Grip passage under compression").
 
 The rule (gated, no exceptions):
+
   W1  a wheel's rim or liner (`sheave_*_rim`, `liner_*`) may touch the carrier ONLY inside the grip's smooth jaw
       envelope: the grip surface within |z| <= lift_chair.ENVELOPE_Z (0.06 m) of the rope center, in the grip's own
-      frame. The grip clipped to |z| > ENVELOPE_Z + ENV_TOL (0.1 mm: a jaw top drawn AT the band edge is inside it,
-      float32 after the FBX round trip) and the whole body cross no rim / liner face.
+      frame. No rim / liner face crosses the grip clipped to |z| > ENVELOPE_Z + ENV_TOL, or the whole body. ENV_TOL is
+      0.1 mm: a jaw top drawn AT the band edge is inside the envelope (float32 after the FBX round trip).
   W2  every other tower part (hubs, bosses, axle caps, sheave arms, rockers, yokes, pins, hangers, tongues, the head,
       the deck, the mast): no face crosses the carrier, and the distance is >= lift_chair.CARRIER_CLEAR_M (0.010 m).
-How the carrier rides (CarrierPose.Pose at zero swing, mod/SkiResortMod/Systems/CarrierPose.cs): the grip's rope point
-(the split row's grip_rope_m) ON the crown lane (lift_tower.lane_y), the grip pitched with its half's rope run, the body
-plumb from the pin (body = pin - BodyPin). CS2 corners the rope at the anchor (cs2_skin), so per half one straight run
-from the pivot and the grip switches tangent there. Lanes: n (the grip as exported: -x outboard, away from the mast) and
-p (the carrier turned 180 deg about z); both travel directions (the carrier also mirrored along travel, a superset of
-either spin). Stops every STEP m from the pivot out past each half's last wheel. Distances: vertices plus edge samples
-every SAMPLE m on both sides (a reported distance overstates the true one by at most SAMPLE / 2); an overlap is a BVH
-triangle intersection (mathutils BVHTree.overlap), tested wherever a sample comes within OVERLAP_PROBE.
-Trains: FG8..FG20 rebuilt through the shipping path and held to their shipped LOD0 vertex for vertex (lift_tower.twin_atlas,
-0.2 mm), the FG twins built by lift_tower.build_twin; every DQ / GD member (DQ10..DQ20, GD12..GD20) and its Hold / Combo
-twins built headed by lift_head.build_headed (the Head round, DECISIONS 594: the head turns about the rope line with the
-mean of the halves). Poses (kind_poses): the G6 grid (cs2_skin.joint_grid: rest, uniform +-theta, the half-breaks at
-every mean; theta = SKIN_THETA_MAX for FG, the planner max SKIN_TYPE_MAX_SLOPE DQ 42 / GD 50.2 for DQ / GD with Head =
-(front + back) / 2) on the kind's side of the fold, the planner's kind rule (breakover-holddown plan 2.2): support and
-Break convex to the art fold 40 deg, Hold concave to 40, Combo +-COMBO_FOLD (its drawn |d| stays under 7.3), so the fold
-extremes of each kind are in. LOD0 carrier x LOD0 tower.
-The tower lean (lift_head letter T, DECISIONS 600 / 600 a): poses are relative to the mast; DQ / GD sweep rel_grid (head
-+-20, halves +-40), FG joint_grid(30) plus joint_grid(36) as headroom (plumb); the mast leans as the code leans it (head
-first, LEAN_RULE: DQ / GD 10 / 20 at the head's limit, FG 12.5 / 25 at a mean of 12, 25 at the cap mean 13) with the
-mean's sign, and the carrier body hangs plumb in the WORLD (theta + lean off the half). Poses past ART_WORLD_HALF_MAX
-(the rope half's world pitch the art clears) are left out and printed: a contract on the code. --world-scan measures
-those limits at the cap corner; --lean-superset sweeps every lean at every mean (both report only).
-Carriers: catalog/carriers.json split rows (tr = FG, dq = DQ, gd8 = GD), meshes found under assets/import, or --carriers
-<json> (the same rows; a row's "fbx": {"grip": {"lod0": path}, "body": {"lod0": path} | "unchanged: <repo dir>"}
-names the files: a round's carriers before their import).
-Negatives (always run): the FG8 member with its carrier moved 0.12 m inboard must fail W1 and W2; every DQ / GD member
-with its head held level at uniform +-planner max must fail W2 (the deck end meets the carrier body).
-Report only (not gated): --entry sweeps the station-entry compression heads ETDQ / ETGD at rest; --art sweeps every
-train over its whole G6 grid both ways (the folds the code can draw, past what the planner gives the kind).
+
+How the carrier rides (CarrierPose.Pose at zero swing, mod/SkiResortMod/Systems/CarrierPose.cs):
+
+- The grip's rope point (the split row's grip_rope_m) is ON the crown lane (lift_tower.lane_y).
+- The grip is pitched with its half's rope run. The body hangs plumb from the pin (body = pin - BodyPin).
+- CS2 corners the rope at the anchor (cs2_skin). So per half there is one straight run from the pivot, and the grip
+  switches tangent there.
+
+Lanes: n (the grip as exported: -x outboard, away from the mast) and p (the carrier turned 180 deg about z). The gate
+covers both travel directions (the carrier also mirrored along travel, a superset of either spin). Stops are every STEP m
+from the pivot out past each half's last wheel. Distances use vertices plus edge samples every SAMPLE m on both sides (a
+reported distance overstates the true one by at most SAMPLE / 2). An overlap is a BVH triangle intersection (mathutils
+BVHTree.overlap), tested wherever a sample comes within OVERLAP_PROBE.
+
+Trains: FG8..FG20 are rebuilt through the shipping path and held to their shipped LOD0 vertex for vertex
+(lift_tower.twin_atlas, 0.2 mm). lift_tower.build_twin builds the FG twins. lift_head.build_headed builds every DQ / GD
+member (DQ10..DQ20, GD12..GD20) and its Hold / Combo twins headed (the Head round, DECISIONS 594: the head turns about the
+rope line with the mean of the halves).
+
+Poses (kind_poses): the G6 grid on the kind's side of the fold (cs2_skin.joint_grid: rest, uniform +-theta, the half-breaks
+at every mean). theta = SKIN_THETA_MAX for FG. For DQ / GD, theta = the planner max SKIN_TYPE_MAX_SLOPE (DQ 42 / GD 50.2)
+with Head = (front + back) / 2. The planner's kind rule (breakover-holddown plan 2.2) sets the side:
+
+- support and Break: convex to the art fold 40 deg.
+- Hold: concave to 40.
+- Combo: +-COMBO_FOLD (its drawn |d| stays under 7.3).
+
+So the fold extremes of each kind are in. The gate pairs LOD0 carrier x LOD0 tower.
+
+The tower lean (lift_head letter T, DECISIONS 600 / 600 a): poses are relative to the mast. DQ / GD sweep rel_grid (head
++-20, halves +-40). FG sweeps joint_grid(30) plus joint_grid(36) as headroom (plumb). The mast leans as the code leans it
+(head first, LEAN_RULE: DQ / GD 10 / 20 at the head's limit, FG 12.5 / 25 at a mean of 12, 25 at the cap mean 13) with the
+mean's sign. The carrier body hangs plumb in the WORLD (theta + lean off the half). Poses past ART_WORLD_HALF_MAX (the rope
+half's world pitch the art clears) are left out and printed: a contract on the code. --world-scan measures those limits at
+the cap corner. --lean-superset sweeps every lean at every mean. Both report only.
+
+Carriers: catalog/carriers.json split rows (tr = FG, dq = DQ, gd8 = GD), with meshes found under assets/import. Or use
+--carriers <json> (the same rows). A row's "fbx": {"grip": {"lod0": path}, "body": {"lod0": path} | "unchanged: <repo
+dir>"} names the files: a round's carriers before their import.
+
+Negatives (always run): the FG8 member with its carrier moved 0.12 m inboard must fail W1 and W2. Every DQ / GD member with
+its head held level at uniform +-planner max must fail W2 (the deck end meets the carrier body).
+
+Report only (not gated): --entry sweeps the station-entry compression heads ETDQ / ETGD at rest. --art sweeps every train
+over its whole G6 grid both ways (the folds the code can draw, past what the planner gives the kind).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_grip_clearance.py -- [--carriers <json>]
         [--only FG8,FG8Hold] [--shard 1/3] [--report <json>] [--entry] [--art]
@@ -69,9 +86,9 @@ import lift_head as LH  # noqa: E402
 
 REPO = LT._REPO
 ENV = LC.ENVELOPE_Z                 # m, the jaw band about the rope center
-# m, applied ONLY at the band edge (the clip plane |z| = ENV): a jaw top drawn AT 0.06 m lands up to ~1e-7 m above it after
-# the FBX round trip (Blender keeps vertex coordinates as float32; the FBX is in cm), so the edge face would read as
-# "past the band" and every compression wheel would fail W1 on it. 0.1 mm is 1000x that error and far under any real gap.
+# m, applied ONLY at the band edge (the clip plane |z| = ENV). A jaw top drawn AT 0.06 m lands up to ~1e-7 m above it after
+# the FBX round trip (Blender keeps vertex coordinates as float32, and the FBX is in cm). So the edge face would read as
+# "past the band", and every compression wheel would fail W1 on it. 0.1 mm is 1000x that error and far under any real gap.
 ENV_TOL = 1e-4
 CLEAR = LC.CARRIER_CLEAR_M          # m, every non-wheel tower part
 STEP = 0.01                         # m between stops along the rope
@@ -90,38 +107,39 @@ ENTRY = {"ETDQ": "rebuild", "ETGD": "rebuild"}
 COMBO_FOLD = {"FG": 8.0, "DQ": 16.0, "GD": 16.0}    # deg, the push-pull caps (plan 2.2: FG 2S2C 8, DQ / GD 4S4C 16)
 BONES = list(LT.SKIN_BONES)
 # DQ / GD: the Head round (DECISIONS 594, lift_head.py). The head (gantry, deck, rails, hangers, plates) is skinned to a
-# Head bone that TrainPitchSystem turns to the mean of the halves (clamped to the planner max), the halves to head +-20;
-# the head no longer stays level while a half pitches, so the carrier body no longer rises into the deck end (the
-# limit before this round: DQ 20 / GD 17.5 deg end-raised). DQ / GD trains here are the headed builds, swept to the
-# planner max (lift_tower.SKIN_TYPE_MAX_SLOPE: DQ 42 / GD 50.2) with Head = (front + back) / 2. FG has no head.
+# Head bone that TrainPitchSystem turns to the mean of the halves (clamped to the planner max), and the halves to head
+# +-20. The head no longer stays level while a half pitches, so the carrier body no longer rises into the deck end (the
+# limit before this round: DQ 20 / GD 17.5 deg end-raised). DQ / GD trains here are the headed builds, swept to the planner
+# max (lift_tower.SKIN_TYPE_MAX_SLOPE: DQ 42 / GD 50.2) with Head = (front + back) / 2. FG has no head.
 HEADED = ("DQ", "GD")
-# The tower lean (DECISIONS 600 / 600 a): the mast leans downhill about its foot, so a pose relative to the mast is
-# `lean` deg further from plumb in the world, and the carrier body (plumb in the world) hangs theta + lean off the half,
-# not theta. The lean has the sign of the mean (it carries part of the rope pitch); it is a pose key ("Lean"), not a
-# bone. LEAN_MAX: the code's clamp per type (FG clamp(|p| - 12, 0, 25), DQ / GD clamp(|p| - 20, 0, 20)). Swept at
-# LEAN_STEPS x LEAN_MAX on every pose with a nonzero mean, a superset of the head-first rule (it leans only once the
-# mean sits at its limit: DQ / GD head 20, FG 12..13 at the 38 cap) that also covers a proportional rule.
+# The tower lean (DECISIONS 600 / 600 a): the mast leans downhill about its foot. So a pose relative to the mast is `lean`
+# deg further from plumb in the world, and the carrier body (plumb in the world) hangs theta + lean off the half, not
+# theta. The lean has the sign of the mean (it carries part of the rope pitch). It is a pose key ("Lean"), not a bone.
+# LEAN_MAX: the code's clamp per type (FG clamp(|p| - 12, 0, 25), DQ / GD clamp(|p| - 20, 0, 20)). The gate sweeps
+# LEAN_STEPS x LEAN_MAX on every pose with a nonzero mean. This is a superset of the head-first rule (it leans only once
+# the mean sits at its limit: DQ / GD head 20, FG 12..13 at the 38 cap) that also covers a proportional rule.
 LEAN = "Lean"                       # the pose key (deg, Blender sign: the sign of the mean)
 LEAN_MAX = {"FG": 25.0, "DQ": 20.0, "GD": 20.0}
 LEAN_STEPS = (0.0, 0.5, 1.0)
-# LEAN_RULE "headfirst" (the gate): the code's rule only. DQ / GD lean only at |head| = 20; FG plumb on the joint grids,
+# LEAN_RULE "headfirst" (the gate): the code's rule only. DQ / GD lean only at |head| = 20. FG is plumb on the joint grids,
 # leaned 0 / 12.5 / 25 at a mean of FG_REL and 25 at FG_CAP_MEAN (the 38 cap - 25), halves mean -+ the kind's break.
 # "superset" (--lean-superset, report only): every nonzero mean at every lean step (any lean rule).
 LEAN_RULE = "headfirst"
 FG_REL = 12.0                       # deg: the FG lean starts here (code 6eb3138: clamp(|p| - 12, 0, 25))
 FG_CAP_MEAN = 13.0                  # deg: the FG mean rel mast at the 38 cap (38 - 25)
-# The art's world half limit per (family, kind), deg (--world-scan, 2026-11-04, 2.5 deg steps; the last passing value):
-# past it the carrier body, plumb in the world, swings into the own train (FG support / Break: sheave hubs and liners;
-# GD members: the sub-rocker) or the head's deck end (DQ / GD Hold). The clash depends on the world pitch of the rope
-# half, not on the lean. Not listed: clear over the code's whole range (DQ members, every Combo, FG Hold).
+# The art's world half limit per (family, kind), deg (--world-scan, 2026-11-04, 2.5 deg steps, the last passing value).
+# Past it the carrier body, plumb in the world, swings into the own train or the head's deck end. For FG support / Break
+# the body hits the sheave hubs and liners. For GD members it hits the sub-rocker. For DQ / GD Hold it hits the head's deck
+# end. The clash depends on the world pitch of the rope half, not on the lean. Not listed: clear over the code's whole
+# range (DQ members, every Combo, FG Hold).
 ART_WORLD_HALF_MAX = {("FG", "support"): 41.5, ("FG", "Break"): 41.5, ("GD", "support"): 55.0, ("GD", "Hold"): 45.0,
                       ("DQ", "Hold"): 57.5}
 SCAN_STEP = 2.5                     # deg: --world-scan lean step
 SCAN_FG_BREAK = 16.0                # deg: the FG half-break the planner reaches (DECISIONS 600: mean + up to 16)
 # FG (no head): the halves relative to the mast at the 38 cap with a 25 lean are mean 13 +- the half-break (29 / -3),
-# inside the art's 30 (SKIN_THETA_MAX); the grid is the union of joint_grid(30) and joint_grid(FG_HEADROOM): the old
-# 36 bound (a plumb FG at the cap: mean 20 + a 16 half-break), kept as headroom for pitches past the cap ("too steep" is
-# a warning, never a refusal).
+# inside the art's 30 (SKIN_THETA_MAX). The grid is the union of joint_grid(30) and joint_grid(FG_HEADROOM): the old 36
+# bound (a plumb FG at the cap: mean 20 + a 16 half-break), kept as headroom for pitches past the cap ("too steep" is a
+# warning, never a refusal).
 FG_HEADROOM = 36.0
 
 
@@ -420,9 +438,9 @@ class Tower:
         return [b for b in range(1, len(self.bones)) if b != own]
 
     def frame(self, theta_own, own, pose, with_other=True):
-        """Coords in the frame of half `own` (bone index) pitched theta_own: own half at rest, Root turned -theta_own,
-        every other moving bone (the other half, the Head) turned pose[bone] - theta_own (about the one pivot line; a
-        bone missing from `pose` is at 0). Faces of the other moving bones dropped unless with_other."""
+        """Coords in the frame of half `own` (bone index) pitched theta_own: own half at rest, Root turned -theta_own, every
+        other moving bone (the other half, the Head) turned pose[bone] - theta_own (about the one pivot line, a bone
+        missing from `pose` is at 0). Faces of the other moving bones are dropped unless with_other."""
         pc = self.co.copy()
         m = self.vb == 0
         if theta_own:
@@ -447,7 +465,7 @@ def _class_side(pc, tris, keep, parts, cls):
 
 
 def _probe(a_pts, a_label_own, b_bvh, b_label, shift, best):
-    """Nearest distances (< PROBE) from points a_pts (+ shift) to tree b; updates best = [d, a part, b part]."""
+    """Nearest distances (< PROBE) from points a_pts (+ shift) to tree b. Updates best = [d, a part, b part]."""
     for p, o in zip(a_pts, a_label_own):
         hit = b_bvh.find_nearest(mathutils.Vector((p[0] + shift[0], p[1] + shift[1], p[2] + shift[2])), PROBE)
         if hit[0] is not None and hit[3] < best[0]:
@@ -513,7 +531,7 @@ def sweep_train(tw, car, label, report=False):
     stats = {g: {"min": 9.0, "at": None, "overlaps": 0, "overlap_at": None, "by_pose": {}} for g in ("W1", "W2")}
     halves = ((1, "TrainFront", cs2_skin.FRONT_SIGN_NET), (2, "TrainBack", -cs2_skin.FRONT_SIGN_NET))
     nstops = 0
-    # the lateral corridor (pose-invariant: the halves turn about x): faces within the carrier's reach of a lane
+    # the lateral corridor (pose-invariant, the halves turn about x): faces within the carrier's reach of a lane
     W = float(np.abs(car.posed(0.0, -1.0, False)["full"]["co"][:, 0]).max()) + PROBE + CELL
     fx = tw.co[tw.tris][:, :, 0]
     flo, fhi = fx.min(axis=1), fx.max(axis=1)
@@ -529,9 +547,9 @@ def sweep_train(tw, car, label, report=False):
         for th in thetas:
             mine = [p for p in tw.poses if abs(p.get(bname, 0.0) - th) < 1e-6]
             leans = sorted({round(p.get(LEAN, 0.0), 4) for p in mine})
-            # |y| extent: the same on every lane / direction; the widest over the leans met at this theta
+            # y| extent: the same on every lane / direction. The widest over the leans met at this theta
             hy = max(car.posed(th + ln, -1.0, False)["half_y"] for ln in leans)
-            # far stops: the other half and the head out of reach at every pose with this theta (measured)
+            # far stops: the other half and the head are out of reach at every pose with this theta (measured)
             reach = -9.0
             for p in mine:
                 pc, _k = tw.frame(th, own, p)
@@ -570,7 +588,7 @@ def sweep_train(tw, car, label, report=False):
                         nstops += len(ds)
     w1, w2 = stats["W1"], stats["W2"]
     world = world_half
-    # failed poses: W2 under CLEAR; W1 only at contact (a W1 distance is not a failure, an overlap is; approximate)
+    # failed poses: W2 under CLEAR. W1 only at contact (a W1 distance is not a failure, an overlap is, approximate)
     failed = set(w2["by_pose"]) | {k for k, v in w1["by_pose"].items() if v <= 1e-4}
     fw = [world(json.loads(k)) for k in failed if k.startswith("{")]
     pw = [world(p) for p in tw.poses if json.dumps({k: round(v, 2) for k, v in p.items()}) not in failed]
@@ -607,17 +625,20 @@ def sweep_train(tw, car, label, report=False):
 # --------------------------------------------------------------------------------------
 
 def kind_poses(fam, kind, art=False):
-    """The poses a kind meets in the game (fold = front - back, + = crest): the G6 grid (uniform pitch to +-theta_max,
-    the half-breaks at every mean) on the kind's side of the fold. The planner gives a tower its kind from the two load
-    cases (breakover-holddown-plan 2.2): support (members, Break) only where d(h / 1.4) >= +1 deg, so the drawn fold is
-    convex, up to the art fold 2 x 20 (field: FG towers by a low ground end reach it); Hold only where d(1.5625 h) <= -1
-    deg, concave to the art fold; push-pull (Combo) between, its drawn |d| under 7.3 deg: COMBO_FOLD. DQ / GD (headed,
-    DECISIONS 594): the grid to the planner max (SKIN_TYPE_MAX_SLOPE, DQ 42 / GD 50.2) with Head = (front + back) / 2;
-    at the lean letter (lift_head T) lift_head.rel_grid: the head to +-20 and each half to +-40 relative to the mast;
-    FG at T: joint_grid(30) + joint_grid(FG_HEADROOM 36). At T every pose with a nonzero mean is also swept on a mast
-    leaned LEAN_STEPS x LEAN_MAX with the sign of the mean (pose key Lean: the carrier body hangs theta + lean off
-    the half).
-    art=True: the whole G6 grid both ways (report only)."""
+    """The poses a kind meets in the game (fold = front - back, + = crest). The G6 grid (uniform pitch to +-theta_max, the
+    half-breaks at every mean) on the kind's side of the fold. The planner gives a tower its kind from the two load cases
+    (breakover-holddown-plan 2.2):
+
+    - support (members, Break) only where d(h / 1.4) >= +1 deg, so the drawn fold is convex, up to the art fold 2 x 20
+      (field: FG towers by a low ground end reach it).
+    - Hold only where d(1.5625 h) <= -1 deg, concave to the art fold.
+    - push-pull (Combo) between, its drawn |d| under 7.3 deg: COMBO_FOLD.
+
+    DQ / GD (headed, DECISIONS 594): the grid to the planner max (SKIN_TYPE_MAX_SLOPE, DQ 42 / GD 50.2) with Head = (front
+    + back) / 2. At the lean letter (lift_head T) lift_head.rel_grid applies: the head to +-20 and each half to +-40
+    relative to the mast. FG at T: joint_grid(30) + joint_grid(FG_HEADROOM 36). At T every pose with a nonzero mean is also
+    swept on a mast leaned LEAN_STEPS x LEAN_MAX with the sign of the mean (pose key Lean: the carrier body hangs theta +
+    lean off the half). art=True: the whole G6 grid both ways (report only)."""
     headed = fam in HEADED
     tmax = LT.SKIN_TYPE_MAX_SLOPE[fam] if headed else LT.SKIN_THETA_MAX[fam]
     if kind == "support":
@@ -628,8 +649,8 @@ def kind_poses(fam, kind, art=False):
         brk = LT.TWIN_HALF_BREAK[kind]
     lean_round = LH.HEAD_REL_MAX is not None         # the tower-lean letters (T): masts lean
     if LEAN_RULE == "scan" and lean_round:
-        # report only: the corner the code reaches at the cap (head / mean at its cap value, the widest half at mean +
-        # the break), the lean stepped 0..LEAN_MAX: the widest half's WORLD pitch runs e .. e + LEAN_MAX
+        # report only: the corner the code reaches at the cap (head / mean at its cap value, the widest half at mean + the
+        # break), the lean stepped 0..LEAN_MAX. The widest half's WORLD pitch runs e .. e + LEAN_MAX
         h = LH.head_max(fam) if headed else FG_CAP_MEAN
         d = min(brk, SCAN_FG_BREAK) if not headed else brk
         side = {"support": 1, "Break": 1, "Hold": -1, "Combo": -1}[kind]
@@ -657,8 +678,8 @@ def kind_poses(fam, kind, art=False):
         grid = cs2_skin.joint_grid(tmax, brk)
     leaned_fg = []
     if fg_rule:
-        # the means the FG rule leans at: 10 (lean 0..25 below the cap) and FG_CAP_MEAN (lean 25 at the cap), each
-        # with the kind's half-breaks; the joint grids above stay plumb (lean 0)
+        # the means the FG rule leans at: 10 (lean 0..25 below the cap) and FG_CAP_MEAN (lean 25 at the cap), each with the
+        # kind's half-breaks. The joint grids above stay plumb (lean 0)
         for m in (-FG_CAP_MEAN, -FG_REL, FG_REL, FG_CAP_MEAN):
             for d in (-brk, -brk / 2.0, 0.0, brk / 2.0, brk):
                 p = (round(max(-FG_HEADROOM, min(FG_HEADROOM, m + d)), 4),
@@ -709,8 +730,8 @@ def world_half(p):
 
 
 def head_negative(tw, car, label):
-    """The headed negative (always run on a DQ / GD member): the same train with the head held level at uniform
-    +-planner max must fail W2 (the deck end meets the carrier body: the clash the Head bone removes)."""
+    """The headed negative (always run on a DQ / GD member): the same train with the head held level at uniform +-planner max
+    must fail W2 (the deck end meets the carrier body: the clash the Head bone removes)."""
     fam = tw.spec.family
     tm = LT.SKIN_TYPE_MAX_SLOPE[fam]
     keep = tw.poses
@@ -740,7 +761,7 @@ def _drop(t):
 
 def run_member(member, twins, carriers, rows, negative=False):
     """The member and its twins, each swept with its family's carrier. FG: the member held to its shipped LOD0, the twins
-    by lift_tower.build_twin. DQ / GD: the headed builds (lift_head.build_headed) for the member and every twin, and
+    built by lift_tower.build_twin. DQ / GD: the headed builds (lift_head.build_headed) for the member and every twin, and
     the head-level negative on every member."""
     fam = LT.VARIANTS[member].family
     head = LT.TWIN_HEAD[fam]
@@ -795,9 +816,9 @@ def run_entry(carriers, rows):
     """Report only: ETDQ / ETGD (station-entry compression heads) at rest, and their part boxes about the n lane."""
     for key, head in ENTRY.items():
         LT.clear_scene()
-        # the entry heads are rigid (no skinned recipe for a compression head): built as shipped (unskinned,
-        # ROPE_ON_CROWN off: T27 would lift the ETGD train a crown seat through the station keep-out, C13 top < 7.0),
-        # the v2 wheels without the dress; swept with the rope on the crowns (lane_y(spec, True) = axle - seat)
+        # the entry heads are rigid (no skinned recipe for a compression head): built as shipped (unskinned, ROPE_ON_CROWN
+        # off: T27 would lift the ETGD train a crown seat through the station keep-out, C13 top < 7.0), with the v2 wheels
+        # without the dress. The sweep puts the rope on the crowns (lane_y(spec, True) = axle - seat)
         LT.set_skinned(False)
         LT.set_rope_on_crown(False)
         S.set_wheel_dress(False)

@@ -1,38 +1,39 @@
 """
 Determinism gate for the lift_tower v2 port (towers-v2.md section 14.1 + 14.5).
 
-Builds FG8, ET68, DQ12 (rebuild head), ETDQ, DQ12 (Kagelok ingest head), the Revision 1
-taller members FG20 and DQ16 (ingest head) and the Revision 1b gondola tubular family
-GD12 / GD16 / GD20 (rebuild head) twice each in
-one Blender process - parts, bevels, part tags, the kit "UVMap", join, remove_doubles,
-shading, contracts, orient_for_net and the authored LOD chain (no bake) - and hashes the
-vertex coordinates (%.5f), face vertex lists, the "UVMap" loops, the part table and both
-LOD levels' geometry (the LOD chain is in the hash because p0a-integration O9 found the
-station LODs drift across processes). Two builds must hash identically: the unique pack,
-the AO bake and the decimation are all order-dependent. The ingest pair SKIPS with a
-printed line when the gitignored Kagelok .blend is absent.
+The test builds these variants twice each in one Blender process:
+
+- FG8, ET68, DQ12 (rebuild head), ETDQ, DQ12 (Kagelok ingest head).
+- the Revision 1 taller members FG20 and DQ16 (ingest head).
+- the Revision 1b gondola tubular family GD12 / GD16 / GD20 (rebuild head).
+
+A build covers parts, bevels, part tags, the kit "UVMap", join, remove_doubles, shading, contracts,
+orient_for_net and the authored LOD chain (no bake). The test hashes the vertex coordinates (%.5f),
+face vertex lists, the "UVMap" loops, the part table and both LOD levels' geometry. The LOD chain is
+in the hash because p0a-integration O9 found the station LODs drift across processes. Two builds
+must hash identically: the unique pack, the AO bake and the decimation are all order-dependent. The
+ingest pair SKIPS with a printed line when the gitignored Kagelok .blend is absent.
 
 Detail pass 1 (design 6.1 DT-C11, 2026-10-11): the hash also covers EVERY UV layer (the metric
 "UVMap" and the tile-projection layer when present) and the corner normals (the sheave liners,
-chamfers and metric UVs are new order-sensitive steps); the new members DQ18 (ingest) and ETGD
-(rebuild) join the cases; and a FRESH-PROCESS check runs main_v2 for FG8 at --atlas 256
---ao-samples 4 in two child Blender processes: the four PNGs and settings.json must be
-byte-identical (the FBX carries the export clock and is compared in-process by
-test_tower_contracts review_case instead).
+chamfers and metric UVs are new order-sensitive steps). The new members DQ18 (ingest) and ETGD
+(rebuild) join the cases. A FRESH-PROCESS check runs main_v2 for FG8 at --atlas 256 --ao-samples 4
+in two child Blender processes: the four PNGs and settings.json must be byte-identical. The FBX
+carries the export clock, so test_tower_contracts review_case compares it in-process instead.
 
-Follow-up 2026-10-11 (DQ20 + sub-texel faces): DQ20 (ingest head) joins the in-process cases, and
-the fresh-process check also bakes DQ18 at the SHIPPING atlas (1024, --ao-samples 4) in two child
-processes: its sub-texel fill (lift_tower.fill_subtexel_faces, 19 triangles on DQ18, a bmesh
+Follow-up 2026-10-11 (DQ20 + sub-texel faces): DQ20 (ingest head) joins the in-process cases. The
+fresh-process check also bakes DQ18 at the SHIPPING atlas (1024, --ao-samples 4) in two child
+processes. Its sub-texel fill (lift_tower.fill_subtexel_faces, 19 triangles on DQ18, a bmesh
 triangulation + a dilated raster in a fixed face order) must give byte-identical PNGs, and the
 manifest must report the same fill and black_after 0. F3b (2026-10-11): the fill gained a second,
-any-area pass (black texels under every triangle, separating-axis overlap, fixed face order); the
-same two-process comparison covers it (DQ18 at the shipping atlas, FG8 at the
-256 atlas), and the manifest fill stats (now with f3b_*) must still agree between the runs.
+any-area pass (black texels under every triangle, separating-axis overlap, fixed face order). The
+same two-process comparison covers it (DQ18 at the shipping atlas, FG8 at the 256 atlas). The
+manifest fill stats (now with f3b_*) must still agree between the runs.
 
-Legacy stability (section 14.5): build_tower(TowerParams(8.0), finish=True, pier=True) -
-the path lift_terminal and the shipped N towers use - must hash exactly as it did before
-the port (recorded 2026-10-11 from the pre-port lift_tower.py: 1332 verts, 1137 faces,
-2370 tris = FG8N m_IndexCount 7,110 / 3).
+Legacy stability (section 14.5): build_tower(TowerParams(8.0), finish=True, pier=True), the path
+lift_terminal and the shipped N towers use, must hash exactly as it did before the port (recorded
+2026-10-11 from the pre-port lift_tower.py: 1332 verts, 1137 faces, 2370 tris = FG8N m_IndexCount
+7,110 / 3).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_tower_determinism.py
 """
@@ -97,10 +98,10 @@ def legacy_hash():
 
 
 def fresh_process_case(variant="FG8", atlas=256):
-    """DT-C11: main_v2 <variant> (--ao-samples 4, no LODs / validation) in two CHILD Blender
-    processes; every PNG and settings.json byte-identical (FG8 at --atlas 256; the follow-up adds
-    DQ18 at the shipping atlas, where the F3 sub-texel fill runs and the manifest's fill stats and
-    black_after must agree too). Returns (ok, sha summary)."""
+    """DT-C11: main_v2 <variant> (--ao-samples 4, no LODs / validation) in two CHILD Blender processes.
+    Every PNG and settings.json must be byte-identical (FG8 at --atlas 256). The follow-up adds DQ18
+    at the shipping atlas, where the F3 sub-texel fill runs and the manifest's fill stats and
+    black_after must agree too. Returns (ok, sha summary)."""
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     work = tempfile.mkdtemp(prefix="tower_fresh_")
     shas = []

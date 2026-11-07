@@ -2,28 +2,35 @@
 T63-tiled gate: the review packs of the eight TILED W buildings carry their textures.
 
 The 2026-10-17 W packs were flat untextured meshes: cs2_review.write_pack only looked for
-<Name>_<Map>.png, while a tiled build has LOD0 on the family sheet (_SkiTileSheetW) and the far
-set as <Name>_LOD1_<Map>.png (docs/research/field/2026-10-15/build/T63-review-packs-tiled.md).
+<Name>_<Map>.png, while a tiled build has LOD0 on the family sheet (_SkiTileSheetW) and the far set
+as <Name>_LOD1_<Map>.png (docs/research/field/2026-10-15/build/T63-review-packs-tiled.md).
 
-  A. Each of the eight packs in assets/preview/review/ is LINKED the way review_live.load does
-     (fresh process; every image's pixels are read): props tiled == 1; LOD0's material uses the
-     sheet maps (<sheet>_<Map>.png, >= 4 of them, texture_px square), LOD1 and LOD2 use the far
-     set <Name>_LOD1_<Map>.png (4 maps, no emissive, far_px square) through their own UV layer;
-     the `_Win` sub keeps the window mock (no image); every image of the pack resolves under
-     <review>/_tex/<Name>/ (//_tex/ relative), has pixels, 0 missing, count == n_images > 0; the
-     eight staged sheet BaseColors are byte-identical (one family sheet).
-  B. Negative: write_folder_pack of an EXPORTED folder with no maps RAISES and writes no pack, and
-     so does a tiled folder whose sheet cannot be found (far set only); a synthetic empty folder
-     (not exported: test_review_subobjects' packs) still writes.
-  C. Path parity: write_pack called the generator's way (lodge.py: manifest={"sub_objects": ...},
-     no tiled block in the argument) gives the same per-LOD texture files as write_folder_pack, also
-     for a first build with NO manifest on disk (sheet found as ../_SkiTileSheet<L>).
-     Source: the closelook export of SkiPatrolHutCommercialLowW (assets/preview/fittings-closelook-
-     2026-10-17/assets/W); temp copies only, nothing under assets/preview/review is written.
+A. Each of the eight packs in assets/preview/review/ is LINKED the way review_live.load does (fresh
+process, every image's pixels are read). The test checks:
+
+- props tiled == 1.
+- LOD0's material uses the sheet maps (<sheet>_<Map>.png, >= 4 of them, texture_px square).
+- LOD1 and LOD2 use the far set <Name>_LOD1_<Map>.png (4 maps, no emissive, far_px square) through
+  their own UV layer.
+- the `_Win` sub keeps the window mock (no image).
+- every image of the pack resolves under <review>/_tex/<Name>/ (//_tex/ relative), has pixels, 0
+  missing, count == n_images > 0.
+- the eight staged sheet BaseColors are byte-identical (one family sheet).
+
+B. Negative: write_folder_pack of an EXPORTED folder with no maps RAISES and writes no pack. So does
+a tiled folder whose sheet cannot be found (far set only). A synthetic empty folder (not exported:
+test_review_subobjects' packs) still writes.
+
+C. Path parity: write_pack called the generator's way (lodge.py: manifest={"sub_objects": ...}, no
+tiled block in the argument) gives the same per-LOD texture files as write_folder_pack. This holds
+also for a first build with NO manifest on disk (sheet found as ../_SkiTileSheet<L>). Source: the
+closelook export of SkiPatrolHutCommercialLowW
+(assets/preview/fittings-closelook-2026-10-17/assets/W). The test uses temp copies only and writes
+nothing under assets/preview/review.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_review_tiled.py
 
-Exit 1 on any failure; one PASS line on success.
+Exit 1 on any failure. One PASS line on success.
 """
 import hashlib
 import json

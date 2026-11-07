@@ -1,37 +1,37 @@
 """
 tram_tilesheet.py - T76: the two tram stations on their OWN 4096^2 swatch sheet (`SkiTramSheet<letter>`).
 
-Plan: docs/research/art/tram-tile-route-plan-2026-10-18.md (DECISIONS 282; the Q1-Q5 answers in its section 0).
-Round 1 build note: docs/research/art/tram-tile-build-1-2026-10-18.md.
+Plan: docs/research/art/tram-tile-route-plan-2026-10-18.md (DECISIONS 282, the Q1-Q5 answers in its section 0). Round 1
+build note: docs/research/art/tram-tile-build-1-2026-10-18.md.
 
 Only tram_station.py --tiled imports this module, so a flag-off build is byte-identical to before. The base station's
-folder carries the composed sheet as its own LOD0 maps (the owner); the top shares them through settings.json
-(`../SkiTramBaseStation<L>/SkiTramBaseStation<L>_<Map>.png`, the lodges' cross-asset pattern). LOD1 / LOD2 keep the
-old unique bake as a FAR SET (`<Name>_LOD1_*`, LOD2 -> LOD1), as the lodges do.
+folder carries the composed sheet as its own LOD0 maps (the owner). The top shares them through settings.json
+(`../SkiTramBaseStation<L>/SkiTramBaseStation<L>_<Map>.png`, the lodges' cross-asset pattern). LOD1 / LOD2 keep the old
+unique bake as a FAR SET (`<Name>_LOD1_*`, LOD2 -> LOD1), as the lodges do.
 
-REUSE, NOT EDITS. cs2_tilesheet (the lodges' module, owned by the lodge exports) is called, never changed: tile_mesh
-(with T70's strip path), strip_region / strip_stats / face_ppm / check_uv_cells, _swatch_maps / weather_overlay and
-write_sheet. Its lookups go through cs2_bldg.BLDG_MATERIALS, cs2_tilesheet.FLAT_TILE_M and cs2_tilesheet.W_CLASS, so
-register_materials() adds the station swatches there IN-PROCESS under "tram_*" names (setdefault: the
-cs2_tilesheet.register_trim_materials idiom). A tram process never builds the family layout, so nothing a lodge ships
-can see these entries.
+REUSE, NOT EDITS. The module calls cs2_tilesheet (the lodges' module, owned by the lodge exports) and never changes it.
+It calls tile_mesh (with T70's strip path), strip_region / strip_stats / face_ppm / check_uv_cells, _swatch_maps /
+weather_overlay and write_sheet. Its lookups go through cs2_bldg.BLDG_MATERIALS, cs2_tilesheet.FLAT_TILE_M and
+cs2_tilesheet.W_CLASS. So register_materials() adds the station swatches there IN-PROCESS under "tram_*" names
+(setdefault: the cs2_tilesheet.register_trim_materials idiom). A tram process never builds the family layout, so nothing
+a lodge ships can see these entries.
 
-SHEET (plan 1.4; 8 x 8 cells of 512 at 4096; heroes 2 x 2 = 960 px content + 32 pad, singles 480 + 16)
+SHEET (plan 1.4, 8 x 8 cells of 512 at 4096, heroes 2 x 2 = 960 px content + 32 pad, singles 480 + 16)
     swatch world size T = r x the material tile, one T per swatch for BOTH stations, px/m = content / T:
     steel_b 4.8 (200) | steel_t 4.8 (200) | roof 8.0 (120) | concrete 6.0 (160) | stone 6.0 (160) | grate 4.8 (200)
     galv 4.8 (200) | timber 4.8 (200) | render 7.2 (133) | dplate 1.2 (400) | gate_perf 2.4 (200) | hut_clad 2.4 (200)
-    weathered "~w" (Q4) of stone, concrete, roof, steel_b, timber on single cells: same T, half the px/m;
-    palette (4, 5): 8 x 8 flat cells of 64 px; labels: base (0, 6) 2 x 2 (1024 x 1024), top (2, 6) 2 x 1 (1024 x 512).
+    weathered "~w" (Q4) of stone, concrete, roof, steel_b, timber on single cells: same T, half the px/m.
+    palette (4, 5): 8 x 8 flat cells of 64 px. Labels: base (0, 6) 2 x 2 (1024 x 1024), top (2, 6) 2 x 1 (1024 x 512).
 ROUTES (plan 2.2, rules after the table): per part and key -
     tile     faces cut at the swatch grid (design-frame box projection, origins on the lift axis / grade)
     stack    a planar patch under one swatch maps whole into one cell (cs2_tilesheet.shift_patches: 0 tris)
-    strip    a long thin member on a strip key (steel, plain galv; concrete <= 0.6 m wide; roof fascias) mapped
+    strip    a long thin member on a strip key (steel, plain galv, concrete <= 0.6 m wide, roof fascias) mapped
              whole-length along u over the swatch width (T70's strip path: 0 tris)
     palette  only keys that are a flat color today (glass, rope, safety, trim red, wheels, lamps ...)
     label    dials, pictograms and boards in the role's label rect (dials and the two pictograms stacked)
-    _Gls     the hall glazing leaves the main mesh (DECISIONS 281: clear plain glass); `_Win` panes unchanged
-WEATHER (Q4: a weathered swatch per EXISTING piece, no band cuts): after tile_mesh, whole pieces chosen by
-    WEATHER_RULES move from the clean swatch to its "~w" cell (same relative position, so the pattern continues).
+    _Gls     the hall glazing leaves the main mesh (DECISIONS 281: clear plain glass). `_Win` panes unchanged
+WEATHER (Q4: a weathered swatch per EXISTING piece, no band cuts): after tile_mesh, whole pieces chosen by WEATHER_RULES
+move from the clean swatch to its "~w" cell (same relative position, so the pattern continues).
 """
 
 import hashlib
@@ -64,10 +64,10 @@ ROLE_PREFIX = {"base": "SkiTramBaseStation", "top": "SkiTramTopStation"}
 FAR_TEX = {"base": 2048, "top": 1024}          # plan section 5 (base 1024 would be a 1.25 x margin only)
 MAPS = ("BaseColor", "Normal", "MaskMap", "ControlMask", "Emissive")
 
-# ---- swatches (plan 1.4 / 2.1); "cell" (col, row, span) in cells of A / 8, rows bottom-up ------------------------
-# set swatches: CC0 set + its natural (square) tile; T = repeat x tile. Today's tram mapped the 2:1 Concrete034 /
-# Bricks096 images onto SQUARE 3.0 / 2.0 m tiles (material_table metres_per_tile), so the square tile keeps today's
-# grain and course height. Flat swatches (set None): T = cs2_tilesheet.FLAT_TILE_M[key], procedural detail ("proc").
+# ---- swatches (plan 1.4 / 2.1), "cell" (col, row, span) in cells of A / 8, rows bottom-up ------------------------
+# set swatches: CC0 set + its natural (square) tile. T = repeat x tile. Today's tram mapped the 2:1 Concrete034 /
+# Bricks096 images onto SQUARE 3.0 / 2.0 m tiles (material_table metres_per_tile), so the square tile keeps today's grain
+# and course height. Flat swatches (set None): T = cs2_tilesheet.FLAT_TILE_M[key], procedural detail ("proc").
 SWATCHES = {
     "tram_steel_b": dict(cell=(0, 0, 2), T=4.8, slot=1, recolor=True, metal=0.10, smooth=0.45, proc="paint"),
     "tram_steel_t": dict(cell=(2, 0, 2), T=4.8, slot=1, recolor=True, metal=0.50, smooth=0.40, proc="paint"),
@@ -88,11 +88,11 @@ W_CLASS = {"tram_stone": "stone", "tram_concrete": "concrete", "tram_roof": "met
            "tram_steel_b": "paint", "tram_timber": "timber"}
 PALETTE_CELL = (4, 5, 1)
 PALETTE_GRID = 8
-# label rects (col, row, w cells, h cells). Plan 1.4 put both in (0, 6) 2 x 2; R1 measured the base needing 1024 x 760
-# at its targets (dials 120, pictograms 100, boards 200-400 px/m) and the top 1024 x 275, so the top takes two of the
-# spare cells (2, 6)-(3, 6) instead of shrinking its boards (deviation, build note section 2)
+# label rects (col, row, w cells, h cells). Plan 1.4 put both in (0, 6) 2 x 2. R1 measured the base needing 1024 x 760 at
+# its targets (dials 120, pictograms 100, boards 200-400 px/m) and the top 1024 x 275. So the top takes two of the spare
+# cells (2, 6)-(3, 6) instead of shrinking its boards (deviation, build note section 2)
 LABEL_CELLS = {"base": (0, 6, 2, 2), "top": (2, 6, 2, 1)}
-# fallback ladder (plan 3.3), one measured step at a time; --tiled-step N applies steps 1..N
+# fallback ladder (plan 3.3), one measured step at a time. --tiled-step N applies steps 1..N
 LADDER = {1: "roof swatch 8 -> 10 m (96 px/m)", 2: "timber canopy soffits strip along their boards"}
 
 # ---- per-face key remap (plan 6.1) -------------------------------------------------------------------------------
@@ -108,15 +108,15 @@ STRIP_CONCRETE_MAX_M = 0.60
 STRIP_ROOF_PREFIXES = ("fascia_",)
 STRIP_TIMBER_PREFIXES = ("jhcanopy", "entrycanopy")  # ladder step 2 only
 STRIP_SHORT_FRAC = 0.9                               # a strip face may be at most 0.9 T across (plan 2.2 rules)
-# labels: the group prefix -> target px/m; the dials and the pictograms stack (one painted rect per group)
+# labels: the group prefix -> target px/m. The dials and the pictograms stack (one painted rect per group)
 LABEL_STACK = ("ctface_",)
 LABEL_TARGET = {"ctface_": 120.0, "pictodisc": 100.0, "pictoplinth": 100.0}
-LABEL_PPM0 = 100.0            # tile_mesh packs at ONE ppm; each group's uvtile is pre-scaled by target / LABEL_PPM0
+LABEL_PPM0 = 100.0            # tile_mesh packs at ONE ppm. Each group's uvtile is pre-scaled by target / LABEL_PPM0
 
-# Q4 weathering by piece: (key, rule). Design frame: Y up, grade Y 0, +Z the base's village front, -Z the line face.
-# A weathered piece samples a SINGLE cell (half the clean px/m, plan 1.4), so the rules stay narrow: walls only on the
-# back (the line face, -Z: the family's "the back facade plays the weather side", cs2_tilesheet.TileWeather), only on
-# TILE-route parts (stacked small parts and strips stay clean), the roof's low eave row.
+# Q4 weathering by piece: (key, rule). Design frame: Y up, grade Y 0, +Z the base's village front, -Z the line face. A
+# weathered piece samples a SINGLE cell (half the clean px/m, plan 1.4), so the rules stay narrow. They allow walls only
+# on the back (the line face, -Z: the family's "the back facade plays the weather side", cs2_tilesheet.TileWeather), only
+# on TILE-route parts (stacked small parts and strips stay clean), and the roof's low eave row.
 WEATHER_RULES = (
     ("tram_stone", "grade_wall"),          # stone walls standing on the grade
     ("tram_concrete", "grade_wall"),       # concrete walls through the grade (base plaza walls, top plinth band)
@@ -126,7 +126,7 @@ WEATHER_RULES = (
 )
 WEATHER_BACK_NZ = -0.7                     # a wall piece is on the back when its normal's design Z < this
 # T6 (R1 measurement): open-backed parts mounted on what is clear `_Gls` glass under --tiled (the C18 walk sees their
-# missing back face through the glass from the hall): their open boundary loops are filled on the LOD0 copy
+# missing back face through the glass from the hall). The code fills their open boundary loops on the LOD0 copy
 GLASS_BACKED = ("door_hall_leaf", "door_opcab_leaf", "board_dep")
 
 
@@ -268,7 +268,7 @@ def _procedural(proc, key, b, n, sm, C, T, seed):
         sm = sm + 0.03 * np.clip(TS._pnoise(C, C / 4.0, seed + 1, 2.0), -2, 2)
         n = _height_normal(n, 0.0003 * TS._pnoise(C, C / 90.0, seed + 2, 1.4), ppm)
     elif proc == "seam":
-        # today's roof relief (tram_station.detail_specs "roof": corrugation 0.50 m, 10 mm sine, across the slope; R2:
+        # today's roof relief (tram_station.detail_specs "roof": corrugation 0.50 m, 10 mm sine, across the slope. R2:
         # K.STANDING_SEAM's grooves read flat in the previews): 16 ribs a swatch, running down the slope (constant u)
         tone = TS._pnoise(C, C / 3.0, seed, 2.2)
         b = b * (1.0 + 0.025 * np.clip(tone, -2, 2))[..., None]
@@ -280,8 +280,8 @@ def _procedural(proc, key, b, n, sm, C, T, seed):
         n = _height_normal(n, h, ppm)
         b = b * (0.97 + 0.03 * np.sin(2.0 * math.pi * U / pitch))[..., None]
     elif proc == "grate":
-        # galvanised grating: bearing bars along v every T / 50 (0.096 m: today 0.09 / 0.11), 0.022 m tops, cross bars
-        # every T / 12 (0.40 m); the gaps read dark (opaque: alpha would flip the surface to cutout)
+        # galvanized grating: bearing bars along v every T / 50 (0.096 m, today 0.09 / 0.11), 0.022 m tops, cross bars
+        # every T / 12 (0.40 m). The gaps read dark (opaque: alpha would flip the surface to cutout)
         pb, wb = T / 50.0, 0.022
         pc, wc = T / 12.0, 0.012
         du = np.abs(((U + pb / 2) % pb) - pb / 2)
@@ -420,8 +420,8 @@ def build_sheet(sdir, sname, layout, palette_specs, label_npz=(), cache_dir=None
 # ======================================================================================
 
 def design_frame(obj, dx):
-    """(P (n_verts, 3), N (n_faces, 3)) in the DESIGN frame (X lift-axis origin, Y up, Z) of an oriented tram mesh
-    (prefab X = Blender x, Y = z, Z = -y; the base is shifted by frame_dx after assembly)."""
+    """(P (n_verts, 3), N (n_faces, 3)) in the DESIGN frame (X lift-axis origin, Y up, Z) of an oriented tram mesh (prefab X
+    = Blender x, Y = z, Z = -y, the base is shifted by frame_dx after assembly)."""
     me = obj.data
     Mw = np.array(obj.matrix_world, np.float64)
     co = np.zeros(len(me.vertices) * 3); me.vertices.foreach_get("co", co)
@@ -435,8 +435,8 @@ def design_frame(obj, dx):
 
 
 def box_uv(P, n):
-    """Unmirrored box projection in the design frame (meters): walls u = the viewer's right, v = up (courses level
-    round corners); floors / roofs u = X, v = -Z from above (+Z from below)."""
+    """Unmirrored box projection in the design frame (meters): walls u = the viewer's right, v = up (courses level round
+    corners). Floors / roofs u = X, v = -Z from above (+Z from below)."""
     ax = int(np.argmax(np.abs(n)))
     sg = 1.0 if n[ax] >= 0 else -1.0
     if ax == 1:
@@ -492,9 +492,9 @@ def _face_extents(P, me):
 
 
 def plan_routes(names_of_face, fkey, ext, keys, step=0, label_prefixes=()):
-    """{part: route} for the taxonomy of plan 2.2 and the strip part list. A part on a tiled key strips when it is
-    longer than T, every face is thinner than 0.9 T and its key allows strips (painted steel, plain galv; concrete
-    under 0.6 m wide; roof fascias; ladder step 2: the timber canopy soffits)."""
+    """{part: route} for the taxonomy of plan 2.2 and the strip part list. A part on a tiled key strips when it is longer
+    than T, every face is thinner than 0.9 T and its key allows strips (painted steel, plain galv, concrete under 0.6 m
+    wide, roof fascias, ladder step 2: the timber canopy soffits)."""
     by = {}
     for i, nm in enumerate(names_of_face):
         by.setdefault(nm, []).append(i)
@@ -717,8 +717,8 @@ def close_glass_backs(obj, table):
         if new:
             out[nm] = sum(len(f.verts) - 2 for f in new)
             continue
-        # no fillable loop (a door leaf: its open side is welded into the frame): a back plate = the largest face
-        # (the leaf front), reversed, 0.5 mm behind the part's far side along its normal
+        # no fillable loop (a door leaf: its open side is welded into the frame). A back plate = the largest face (the
+        # leaf front), reversed, 0.5 mm behind the part's far side along its normal
         big = max(faces, key=lambda f: f.calc_area())
         nrm = big.normal.copy()
         depth = min((v.co - big.verts[0].co).dot(nrm) for f in faces for v in f.verts)
@@ -930,8 +930,8 @@ def paint_labels(ts, obj, table, layout, groups, specs, out_npz):
 
 
 def _host_look(key, layout, specs, rec):
-    """(base linear rgb, metal, smooth, slot) mean look of a label's host key: a swatch's clean mean (a small
-    _swatch_maps run of the same material and repeat) or its palette cell; None when unknown."""
+    """(base linear rgb, metal, smooth, slot) mean look of a label's host key: a swatch's clean mean (a small _swatch_maps
+    run of the same material and repeat) or its palette cell. None when unknown."""
     if key is None:
         return None
     if key in SWATCHES:
@@ -1026,7 +1026,7 @@ def _look(s):
         int(s.get("slot", 0) or 0), tuple(s.get("emissive") or ()))
 
 
-# the material keys each station's LOD0 carries (finish build, assembled 2026-10-18; asserted in tiled_lod0)
+# the material keys each station's LOD0 carries (finish build, assembled 2026-10-18, asserted in tiled_lod0)
 OTHER_KEYS = {"base": ("clockface", "concrete", "galv", "glass", "label", "lamp_green", "led", "render", "roof", "rope",
                        "safety", "safety_black", "safety_yellow", "steel", "stone", "timber", "trim"),
               "top": ("concrete", "darksteel", "dplate", "galv", "glass", "label", "lamp_red", "roof", "rope", "safety",
@@ -1034,9 +1034,9 @@ OTHER_KEYS = {"base": ("clockface", "concrete", "galv", "glass", "label", "lamp_
 
 
 def write_settings(asset_dir, name, n_lods, tiled):
-    """The lodges' rollout settings.json (lodge._tiled_settings_rollout): LOD0 maps shared from the sheet owner
-    (cross-asset sharedAssets, AssetImportPipeline.cs:502-509 1.6.2f1), LOD1 its own far set (identity entries), LOD2
-    shares LOD1's; the owner (the base) carries the sheet as its own LOD0 maps."""
+    """The lodges' rollout settings.json (lodge._tiled_settings_rollout): LOD0 maps are shared from the sheet owner
+    (cross-asset sharedAssets, AssetImportPipeline.cs:502-509 1.6.2f1). LOD1 has its own far set (identity entries). LOD2
+    shares LOD1's. The owner (the base) carries the sheet as its own LOD0 maps."""
     sh = tiled["sheet"]
     shared = {} if sh["is_owner"] else {f"{name}_{m}.png": f"{sh['shared_prefix']}_{m}.png" for m in MAPS}
     if n_lods >= 1:
@@ -1054,10 +1054,10 @@ def write_settings(asset_dir, name, n_lods, tiled):
 
 
 def tiled_lod0(ts, far, lod0, role, name, args, asset_dir, bake, table, report):
-    """The far bake's maps -> <name>_LOD1_* (emissive dropped: LOD0-only engine-side, DECISIONS 77); `lod0` re-meshed
-    onto the station sheet (remap, routes, tile_mesh, weather pieces), labels painted into the role's rect, the sheet
-    composed in the workspace (the base, the owner, installs it as its own LOD0 maps), every R1 measurement into
-    report["tiled"]. Returns (lod0 renamed to `name`, far)."""
+    """The far bake's maps -> <name>_LOD1_* (emissive dropped: LOD0-only engine-side, DECISIONS 77). `lod0` is re-meshed
+    onto the station sheet (remap, routes, tile_mesh, weather pieces), labels are painted into the role's rect, the sheet
+    is composed in the workspace (the base, the owner, installs it as its own LOD0 maps), and every R1 measurement goes
+    into report["tiled"]. Returns (lod0 renamed to `name`, far)."""
     import time
     t0 = time.perf_counter()
     step = int(getattr(args, "tiled_step", 0) or 0)
@@ -1107,7 +1107,7 @@ def tiled_lod0(ts, far, lod0, role, name, args, asset_dir, bake, table, report):
     routes, strips, rinfo = plan_routes(fnames, fkey, ext, keys, step, groups)
     pbad = strip_prefix_check(strips, sorted(set(fnames)), routes)
     for pre, extra in list(pbad.items()):
-        # a strip name that prefixes other parts (deckbeam_1 -> deckbeam_10..13): those strip-map too, which is safe when
+        # a strip name that prefixes other parts (deckbeam_1 -> deckbeam_10..13): those strip-map too. This is safe when
         # they are on a strip key and every face fits the band (short members map isotropic, plan 2.2)
         ok = all(len(rinfo[e]["keys"]) == 1 and rinfo[e]["keys"][0] in STRIP_KEYS
                  and rinfo[e]["short_m"] <= STRIP_SHORT_FRAC * rinfo[e]["T"] for e in extra if e in rinfo)
@@ -1180,7 +1180,8 @@ def tiled_lod0(ts, far, lod0, role, name, args, asset_dir, bake, table, report):
         t4 = {"C6p": ts.check_plinth(lod0, "LOD0")}
     else:
         t4 = {"C6": ts.check_engine_base(lod0, ts.engine_base_parts(role, args))}
-    # T6: the C18 walk-around on the tiled LOD0 (glass out: the rays enter the hall); recorded, gated by the test
+    # T6: the C18 walk-around on the tiled LOD0 (glass out: the rays enter the hall). The code records it and the test
+    # gates it
     try:
         c18, _w = ts.check_see_through(lod0, role, 0)
         t6 = {"ok": True, "back": c18["back"], "hits": c18["hits"], "rays": c18["rays"],

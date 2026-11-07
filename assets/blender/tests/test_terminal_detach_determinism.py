@@ -2,60 +2,107 @@
 Determinism gate for lift_terminal_detach.py (contract dq-terminal.md section 14 T1, the
 test_terminal_determinism.py pattern).
 
-For every role - DQ base, DQ top, gondola base, gondola top - the station is built TWICE in
-one Blender process (geometry, bevels on, part tags, the per-part pack seed, the tiling UVs of
-material_sources, join, remove_doubles, shading) and hashed: vertex coordinates (5 dp),
-polygon vertex lists, the INT "part" and the material_index face attributes, the part table
-and both UV layers (UVTile, UVSeed; 6 dp). Two builds must hash identically: the unique pack,
-the AO bake and the LOD decimation downstream are all order-dependent. The first build of
-each role also runs the authoring-frame geometry contracts (C1-C3, C6-C9, C13, and the
-Revision 1 checks R1a-R1f of 2026-10-11: nose ladder, one underside ladder, gangplank, no
-left-flank railing, sign band, housing windows; Revision 2 R2a-R2d of the second look: the
-front ladder from an open-bottom ground footing, one 0.30 rung grid, an open ladder-way through
-the landing, no cage, inboard of the hosted ETDQ; Revision 1c: on the base those run on the
-ground flight beside the landing, and R2c gates the climbing room). Revision 1b (polish, 2026-10-11): the sign's
-vector plate digits (bpy FONT curve -> triangles -> anti-aliased coverage, D.digit_coverage)
-and its plate-edge relief / occlusion (D.sign_relief) are rebuilt from scratch twice per role
-(caches cleared, a new FONT object each time) at the shipping 2048 density and must hash
-identically too. Gondola stations draft 1 (2026-10-11): the gondola roles' first build runs
-the G1-G8 contracts instead of R2 (portal silhouette vs the carrier boxes + 0.30, boarding
-platforms, every walkable surface reachable from grade, nose-ladder climbing room and stair
-headroom, glazing band, hosted-tower keep-out, portal-face sign, and the REAL shipped
-SkiGondolaCabin8A swept through the hall with >= 0.30 m clearance). Exit 1 on any difference
-or failed contract.
+For every role (DQ base, DQ top, gondola base, gondola top) the test builds the station TWICE in one
+Blender process and hashes it. The build covers geometry, bevels on, part tags, the per-part pack
+seed, the tiling UVs of material_sources, join, remove_doubles, and shading. The hash covers:
 
-Detail pass 1 (2026-10-11, build/detail-pass-1-lifts-detach.md): the DQ builds now carry the dressing
-(cs2_liftdress builders, label quads seeded at their reserved sheet rects, the pf hatch cut into the
-soffit, the base's MC4 roof route) and their first build also runs R2e / R2f / R2g (one reachability
-rule, MC3-MC5) and D8 / D9 (every dressing part and vanilla footprint box-tested, MC10); the gondola
-roles carry the real door openings (G3) and the explicit G7 sign test. The hashes cover all of it
-(the dressing's names, the seeded label rects and the ski colors by crc32 included).
-Gondola revision 1 (2026-10-11, the long glazed hall, build/gondola-stations-rev1.md): the gondola
-roles' first build runs G1-G10 (G5 the glazed hall and its room ids, G6 the real hosted entry tower,
-G9 the 3 x 4 lot, G10 part clash + vanilla footprints); the DQ roles' hashes must not move.
-DQ follow-up (2026-10-11, build/dq-stations-followup.md): ALL FOUR roles change on purpose (DQ: flood masts out,
-SLOW boards on posts, the top's STAY SEATED before the unload line, D11 board order in the first build; gondola: the
-doors' center post out, the door-head transom 2.60 -> 2.64, G3 clear-opening rays + the standable-top census).
-The gate still compares two builds per role; the new hashes are recorded in the build report, none is pinned here.
-Fine-detail step 3b (2026-10-12, build/fine-detail-step3b-stations.md): ALL FOUR roles change on purpose again
-(FINE_DETAIL on by default: the kit's dressing leaves the host for "mod" rows, the DQ box lamps for vanilla rows, the
-maze / gate / board posts and rods get their fine segments, the cabinets lose their bevel strips for a lid); the first
-build also runs F1 (assert_kit_rows on the real kit meshes, which loads props/B FBXs mid-build and must leave the scene
-as it was - the second build hashing identically proves it). The pre-pass (--no-fine) is proved byte-identical to the
-approved exports by the build report's A/B, not here.
-STAY SEATED removed at the top; DQ _Emissive dropped (2026-10-12, nineteenth look): the DQ TOP's geometry hash
-moves on purpose (board_stay + 2 rods + label_stay leave the host: 331 -> 327 parts, 4614 -> 4578 vertices, 3778 -> 3759
-polygons; the label sheet repacks without the STAY SEATED rect); the DQ BASE and both gondola roles must NOT move. This
-gate PINS NO HASH (it compares two builds per role), so there is nothing to re-pin; the run lines are recorded in the
-build report: before dq-base c7d8c71e519e, dq-top 3049bb5acf82, gd-base 6819b7548d41, gd-top db4042a8af7d; after
-dq-base c7d8c71e519e (same), dq-top c2718cf4bdad (moved: STAY SEATED), gd-base 6819b7548d41 (same), gd-top db4042a8af7d
-(same). Dropping the DQ _Emissive map is a bake / export change (has_emissive_map), invisible to this geometry hash.
-Nitpick A3 -> A4 (2026-10-13, build/nitpick-a3-cabin-nose.md "Nose overlaps"): ONLY the DQ TOP moves, on purpose (the
-guide beams and girder stubs 0.08 m outboard, the hanger boxes to their yokes' x; the same 348 parts, 4858 vertices,
-4056 polygons; the first build now also runs C14 and the hanger gate of ST1). Recorded run lines (this gate pins no hash):
-before dq-base c7d8c71e519e, dq-top cd00b1b8f115, gd-base 36ff32c45933, gd-top 90da6ee0826e; after dq-base c7d8c71e519e
-(same), dq-top 42dab6a1e77c (moved), gd-base 36ff32c45933 (same), gd-top 90da6ee0826e (same). NOSE_A4_LEGACY = True
-rebuilds the cd00b1b8f115 top.
+- vertex coordinates (5 dp).
+- polygon vertex lists.
+- the INT "part" and the material_index face attributes.
+- the part table.
+- both UV layers (UVTile, UVSeed, 6 dp).
+
+Two builds must hash identically: the unique pack, the AO bake and the LOD decimation downstream are
+all order-dependent.
+
+The first build of each role also runs the authoring-frame geometry contracts (C1-C3, C6-C9, C13)
+and these checks:
+
+- Revision 1 checks R1a-R1f of 2026-10-11: nose ladder, one underside ladder, gangplank, no
+  left-flank railing, sign band, housing windows.
+- Revision 2 R2a-R2d of the second look: the front ladder from an open-bottom ground footing, one
+  0.30 rung grid, an open ladder-way through the landing, no cage, inboard of the hosted ETDQ.
+- Revision 1c: on the base those run on the ground flight beside the landing, and R2c gates the
+  climbing room.
+
+Revision 1b (polish, 2026-10-11): the test rebuilds the sign's vector plate digits (bpy FONT curve
+-> triangles -> anti-aliased coverage, D.digit_coverage) and its plate-edge relief / occlusion
+(D.sign_relief) from scratch twice per role (caches cleared, a new FONT object each time) at the
+shipping 2048 density. They must hash identically too.
+
+Gondola stations draft 1 (2026-10-11): the first build of the gondola roles runs the G1-G8 contracts
+instead of R2:
+
+- portal silhouette vs the carrier boxes + 0.30.
+- boarding platforms.
+- every walkable surface reachable from grade.
+- nose-ladder climbing room and stair headroom.
+- glazing band.
+- hosted-tower keep-out.
+- portal-face sign.
+- the REAL shipped SkiGondolaCabin8A swept through the hall with >= 0.30 m clearance.
+
+Exit 1 on any difference or failed contract.
+
+Detail pass 1 (2026-10-11, build/detail-pass-1-lifts-detach.md): the DQ builds now carry the
+dressing (cs2_liftdress builders, label quads seeded at their reserved sheet rects, the pf hatch cut
+into the soffit, the base's MC4 roof route). Their first build also runs R2e / R2f / R2g (one
+reachability rule, MC3-MC5) and D8 / D9 (every dressing part and vanilla footprint box-tested,
+MC10). The gondola roles carry the real door openings (G3) and the explicit G7 sign test. The hashes
+cover all of it (the dressing's names, the seeded label rects and the ski colors by crc32 included).
+
+Gondola revision 1 (2026-10-11, the long glazed hall, build/gondola-stations-rev1.md): the first
+build of the gondola roles runs G1-G10 (G5 the glazed hall and its room ids, G6 the real hosted
+entry tower, G9 the 3 x 4 lot, G10 part clash + vanilla footprints). The DQ roles' hashes must not
+move.
+
+DQ follow-up (2026-10-11, build/dq-stations-followup.md): ALL FOUR roles change on purpose.
+
+- DQ: flood masts out, SLOW boards on posts, the top's STAY SEATED before the unload line, D11 board
+  order in the first build.
+- gondola: the doors' center post out, the door-head transom 2.60 -> 2.64, G3 clear-opening rays +
+  the standable-top census.
+
+The gate still compares two builds per role. The build report records the new hashes. This gate pins
+none.
+
+Fine-detail step 3b (2026-10-12, build/fine-detail-step3b-stations.md): ALL FOUR roles change on
+purpose again (FINE_DETAIL on by default):
+
+- the kit's dressing leaves the host for "mod" rows.
+- the DQ box lamps become vanilla rows.
+- the maze / gate / board posts and rods get their fine segments.
+- the cabinets lose their bevel strips for a lid.
+
+The first build also runs F1 (assert_kit_rows on the real kit meshes). F1 loads props/B FBXs
+mid-build and must leave the scene as it was: the second build hashing identically proves it. The
+build report's A/B proves the pre-pass (--no-fine) byte-identical to the approved exports, not this
+test.
+
+STAY SEATED removed at the top, DQ _Emissive dropped (2026-10-12, nineteenth look): the DQ TOP's
+geometry hash moves on purpose (board_stay + 2 rods + label_stay leave the host: 331 -> 327 parts,
+4614 -> 4578 vertices, 3778 -> 3759 polygons). The label sheet repacks without the STAY SEATED rect.
+The DQ BASE and both gondola roles must NOT move. This gate PINS NO HASH (it compares two builds per
+role), so there is nothing to re-pin. The build report records the run lines:
+
+- before: dq-base c7d8c71e519e, dq-top 3049bb5acf82, gd-base 6819b7548d41, gd-top db4042a8af7d.
+- after: dq-base c7d8c71e519e (same), dq-top c2718cf4bdad (moved: STAY SEATED), gd-base 6819b7548d41
+  (same), gd-top db4042a8af7d (same).
+
+Dropping the DQ _Emissive map is a bake / export change (has_emissive_map), invisible to this
+geometry hash.
+
+Nitpick A3 -> A4 (2026-10-13, build/nitpick-a3-cabin-nose.md "Nose overlaps"): ONLY the DQ TOP
+moves, on purpose. The guide beams and girder stubs move 0.08 m outboard, and the hanger boxes move
+to their yokes' x. The part, vertex and polygon counts stay the same: 348 parts, 4858 vertices, 4056
+polygons. The first build now also runs C14 and the hanger gate of ST1. The recorded run lines (this
+gate pins no hash):
+
+- before: dq-base c7d8c71e519e, dq-top cd00b1b8f115, gd-base 36ff32c45933, gd-top 90da6ee0826e.
+- after: dq-base c7d8c71e519e (same), dq-top 42dab6a1e77c (moved), gd-base 36ff32c45933 (same),
+  gd-top 90da6ee0826e (same).
+
+NOSE_A4_LEGACY = True rebuilds the cd00b1b8f115 top.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_terminal_detach_determinism.py
 """

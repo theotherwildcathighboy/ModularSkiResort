@@ -1,44 +1,43 @@
 """
-fine_probes.py - PROBES B for import session S1 (fine-detail pass, design section F as cut
-down by the skeptic: F1 + F4 + the FS7 lodge rack row; FS2 / FS8 / FS9 applied).
+fine_probes.py - PROBES B for import session S1 (fine-detail pass, design section F as cut down by the
+skeptic: F1 + F4 + the FS7 lodge rack row. FS2 / FS8 / FS9 applied).
 
 Design: docs/research/art/assets-2026-10/design/fine-detail-pass.md section F (+ C.3, C.6) and
-design/fine-detail-pass-skeptic.md FS7 / FS8 / FS9 / FS12 / FS15 (the skeptic wins).
-Build report: docs/research/art/assets-2026-10/build/probes-b.md.
-S1 steps, surgery JSON and outcome table: docs/research/art/assets-2026-10/surgery/probes-B.md
-(+ surgery/probes-B.data/).
+design/fine-detail-pass-skeptic.md FS7 / FS8 / FS9 / FS12 / FS15 (the skeptic wins). Build report:
+docs/research/art/assets-2026-10/build/probes-b.md. S1 steps, surgery JSON and outcome table:
+docs/research/art/assets-2026-10/surgery/probes-B.md (+ surgery/probes-B.data/).
 
     cd assets/blender
     blender --background --factory-startup --python-exit-code 1 --python fine_probes.py -- \
         --out ../import/probes/B --export [--preview ../preview/probes/B]
     blender ... --python fine_probes.py -- --measure [--json <path>]
         re-measures the two sign-card wall spots on the CURRENT SkiDQBaseStationA FBX and the four
-        ground spots in front of the deployed SkiAFrameDayLodge FBX; exit 1 if any spot is not OK.
+        ground spots in front of the deployed SkiAFrameDayLodge FBX. Exit 1 if any spot is not OK.
         Run it again before the import if the DQ base was re-exported (the sign set is authored in
         the host's own frame: a moved wall means a re-export of SkiProbeSignSetB first).
 
-THE FIVE PROBE ASSETS (assets/import/probes/B/<Name>/; letter B, PIPELINE.md:21 / FS15)
+THE FIVE PROBE ASSETS (assets/import/probes/B/<Name>/, letter B, PIPELINE.md:21 / FS15)
   F1  cross-asset sharedAssets: does a sharer get the owner's texture or a copy, within one import
       batch and across batches (FS8)?
       SkiProbeSheetB      OWNER: a 1.0 x 1.0 m panel + a full 2048^2 four-map set (the sheet).
                           Tiles: A lift boards (UNLOAD 900 / 400 px/m, LIFT OPS 450 px/m),
                           B SKI SCHOOL vector 300 px/m above 5x7 71 px/m, C "USER B", D "LATE B".
-      SkiProbeSheetUserB  SHARER, import batch 1 with the owner: a 2.4 x 1.2 m two-post billboard;
-                          front = tile B at true density (vector over 5x7), back = tile C.
-      SkiProbeSheetLateB  SHARER, import batch 2 ALONE: a 0.9 m A-frame sandwich board; front =
-                          tile D, back = tile A. No own PNGs; settings.json sharedAssets ->
+      SkiProbeSheetUserB  SHARER, import batch 1 with the owner: a 2.4 x 1.2 m two-post billboard.
+                          Front = tile B at true density (vector over 5x7), back = tile C.
+      SkiProbeSheetLateB  SHARER, import batch 2 ALONE: a 0.9 m A-frame sandwich board. Front =
+                          tile D, back = tile A. No own PNGs. settings.json sharedAssets ->
                           ../SkiProbeSheetB/SkiProbeSheetB_<map>.png (4 keys).
-      Three different shapes, three different UV placements on one sheet: whichever texture each
-      .Surface binds is readable at a glance (and by GUID: tools/probe-surfaces.ps1).
+      The three assets have different shapes and different UV placements on one sheet. So whichever
+      texture each .Surface binds is readable at a glance (and by GUID: tools/probe-surfaces.ps1).
   F4  SkiProbeSignSetB    an identity-row sign-set sub-object on SkiDQBaseStationBuilding: two
                           cards authored in SkiDQBaseStationA's game-local frame, on walls measured
-                          on the shipped FBX: card A "PROBE B" (1.20 x 0.40, lit lettering,
-                          EmissiveProperties intensity 0.2 at surgery) on the engine-room wall
-                          x = 5.600 beside LIFT OPS; card B a 1.000 m ruler (10 x 0.100 m bands)
+                          on the shipped FBX. Card A "PROBE B" (1.20 x 0.40, lit lettering,
+                          EmissiveProperties intensity 0.2 at surgery) is on the engine-room wall
+                          x = 5.600 beside LIFT OPS. Card B is a 1.000 m ruler (10 x 0.100 m bands)
                           on the -x fascia x = -4.500 (the known 1 m feature for the min-zoom
                           shot). Bounds ~10.1 x 2.4 x 6.1 m. Own 512^2 five-map set.
-  FS7 SkiProbeRackB       a free-standing ski-rack proxy whose skis are ControlMask G (slot 2);
-                          surgery gives its mesh ColorProperties m_ExternalColorSource = Parent with
+  FS7 SkiProbeRackB       a free-standing ski-rack proxy whose skis are ControlMask G (slot 2).
+                          Surgery gives its mesh ColorProperties m_ExternalColorSource = Parent with
                           channel 1 external. Hosted on the deployed lodge SkiAFrameDayLodge (a
                           ServiceUpgrade of SkiResortGate): orange skis = Parent resolved to the
                           lodge, green = its own fallback (no source).
@@ -46,22 +45,24 @@ THE FIVE PROBE ASSETS (assets/import/probes/B/<Name>/; letter B, PIPELINE.md:21 
 FRAMES (measured 2026-10-12, see build/probes-b.md section 2)
     FBX-raw meters = what export_fbx writes: (x_B, z_B, -y_B) of the Blender authoring frame, y up.
     THE GAME NEGATES X ON IMPORT: the deployed mesh prefabs' m_Bounds read x in -(raw x range) with
-    z and y unchanged (SkiLiftBaseStationK raw x -3.80..6.10 -> m_Bounds -6.10..3.80; SkiAFrameDayLodge
-    raw -22.12..22.75 -> -22.75..22.12; both FBX older than their import, untouched since). So the
-    in-game prefab frame is (-x_B, z_B, -y_B): the same physical object (Unity is left-handed), not a
-    mirror. Consequences here: (1) the sign set is authored in the HOST's raw frame and placed by
-    the identity row (0,0,0) / (0,0,0,1), m_ParentMesh 0, so host and set flip together and every
-    card lands where it was measured; (2) the lodge rows' m_Position are IN-GAME values, so they are
-    converted to raw (x negated) before ray-casting the lodge FBX and for the previews.
+    z and y unchanged. Two examples (both FBX are older than their import and untouched since):
+      SkiLiftBaseStationK raw x -3.80..6.10 -> m_Bounds -6.10..3.80.
+      SkiAFrameDayLodge raw -22.12..22.75 -> -22.75..22.12.
+    So the in-game prefab frame is (-x_B, z_B, -y_B): the same physical object (Unity is left-handed), not a
+    mirror. Consequences here:
+    (1) The sign set is authored in the HOST's raw frame and placed by the identity row (0,0,0) / (0,0,0,1),
+        m_ParentMesh 0. So host and set flip together and every card lands where it was measured.
+    (2) The lodge rows' m_Position are IN-GAME values. The code converts them to raw (x negated) before
+        ray-casting the lodge FBX and for the previews.
 
 DETERMINISM
     Explicit vertex lists, hand-laid texel UVs, no RNG, Bfont text through cs2_liftdress._text_cov
-    (read-only), cs2_asset.tag_parts canonical order. Two builds hash identically; two exports write
+    (read-only), cs2_asset.tag_parts canonical order. Two builds hash identically. Two exports write
     byte-identical PNGs and settings.json (tests/test_fine_probes.py). The FBX carries the clock.
 
 Read-only users of shared code: cs2_asset (export_fbx, tag_parts, shade_by_angle, _write_png_raw,
-tri_count), cs2_validate, cs2_liftdress (paint_board, _text_cov), ski_launcher_glyph.FONT,
-cs2_preview (preview rig). Nothing shared is edited. No top-level side effects.
+tri_count), cs2_validate, cs2_liftdress (paint_board, _text_cov), ski_launcher_glyph.FONT, cs2_preview
+(preview rig). Nothing shared is edited. No top-level side effects.
 """
 
 import argparse
@@ -121,8 +122,8 @@ LODGE_BOUNDS_DEPLOYED = ((-22.75, -0.01, -18.4), (22.12, 17.86, 14.2))
 LODGE_LOT_HALF = (24.0, 20.0)       # m_LotWidth 6 x m_LotDepth 5 cells of 8 m
 
 # --------------------------------------------------------------------------------------
-# Sign-set cards (game frame; walls measured on the shipped DQ base FBX)
-#   axis 0 = wall normal along prefab x; outward -1 = the wall faces -x
+# Sign-set cards (game frame, walls measured on the shipped DQ base FBX)
+#   axis 0 = wall normal along prefab x. Outward -1 = the wall faces -x
 # --------------------------------------------------------------------------------------
 
 CARD_T = 0.020                      # = board_ops thickness (0.020): card front flush with LIFT OPS front
@@ -141,8 +142,8 @@ NORMAL_TOL_DEG = 2.0
 CLEAR_M = 2.0                       # nothing in front of a card within 2 m (first hit = the wall)
 
 # --------------------------------------------------------------------------------------
-# Lodge rows (IN-GAME prefab frame = the m_Position values; ground; facing +z = the road side)
-# FS7 rack + F1 visual. raw_of() converts to the FBX-raw frame (x negated) for casts / previews.
+# Lodge rows (IN-GAME prefab frame = the m_Position values, ground, facing +z = the road side) FS7
+# rack + F1 visual. raw_of() converts to the FBX-raw frame (x negated) for casts / previews.
 # --------------------------------------------------------------------------------------
 
 LODGE_ROWS = (
@@ -233,8 +234,8 @@ class _MeshBuf:
         self.verts, self.faces, self.uvs = [], [], []
 
     def quad(self, c, n, up, hw, hh, rect):
-        """Planar quad centered on c, outward normal n, 'up' in-plane, half sizes; UV rect
-        laid upright as seen from outside (never mirrored)."""
+        """Planar quad centered on c, outward normal n, 'up' in-plane, half sizes. The UV rect is laid
+        upright as seen from outside (never mirrored)."""
         c, n, up = (mathutils.Vector(v) for v in (c, n, up))
         right = (-n).cross(up)
         corners = [c - right * hw - up * hh, c + right * hw - up * hh,
@@ -251,8 +252,8 @@ class _MeshBuf:
         self.uvs.append([_uvr(rect, 0, 0), _uvr(rect, 1, 0), _uvr(rect, 0.5, 1)])
 
     def box(self, c, size, rects, skip=()):
-        """Axis-aligned box (Blender frame) centered c, size (sx, sy, sz); rects: face -> rect
-        ('px','nx','py','ny','pz','nz', or 'all'); skip: faces to omit (e.g. 'nz' bottom)."""
+        """Axis-aligned box (Blender frame) centered c, size (sx, sy, sz). rects: face -> rect
+        ('px','nx','py','ny','pz','nz', or 'all'). skip: faces to omit (e.g. 'nz' bottom)."""
         c = mathutils.Vector(c)
         sx, sy, sz = (s / 2.0 for s in size)
         Z, Y = (0, 0, 1), (0, 1, 0)
@@ -440,8 +441,8 @@ def _blank_maps(A, smooth):
 # --------------------------------------------------------------------------------------
 
 def paint_sheet():
-    """{suffix: (array, is_data)}; BaseColor painted LINEAR then encoded sRGB (as the importer
-    reads the PNG), plus the metrics of every density sample."""
+    """{suffix: (array, is_data)}. BaseColor is painted LINEAR then encoded sRGB (as the importer reads
+    the PNG). The function also returns the metrics of every density sample."""
     import cs2_liftdress
     base_l = np.zeros((S, S, 4), np.float32)          # linear working copy
     base_l[..., 3] = 1.0
@@ -510,7 +511,7 @@ def paint_sheet():
 # --------------------------------------------------------------------------------------
 
 def build_owner(name=OWNER):
-    """1.00 x 1.00 x 0.04 m panel, bottom at y 0; front (+z game) = the whole sheet."""
+    """1.00 x 1.00 x 0.04 m panel, bottom at y 0. Front (+z game) = the whole sheet."""
     m = _MeshBuf("panel", S)
     m.box((0.0, 0.0, 0.5), (1.00, 0.04, 1.00),
           {"ny": FULL, "all": GREY}, skip=("nz",))
@@ -518,8 +519,8 @@ def build_owner(name=OWNER):
 
 
 def build_user(name=USER):
-    """Two-post billboard: board 2.40 x 1.20 x 0.05 m at y 0.60-1.80; front upper half = SKI
-    SCHOOL vector (true 300 px/m), lower half = 5x7 (true ~71 px/m); back = tile C."""
+    """Two-post billboard: board 2.40 x 1.20 x 0.05 m at y 0.60-1.80. Front upper half = SKI SCHOOL
+    vector (true 300 px/m), lower half = 5x7 (true ~71 px/m). Back = tile C."""
     bd = _MeshBuf("board", S)
     yc_up, yc_lo = 1.50, 0.90                       # game y centers of the two front halves
     front = (0.0, -1.0, 0.0)                        # +z game
@@ -539,8 +540,8 @@ def build_user(name=USER):
 
 
 def build_late(name=LATE):
-    """A-frame sandwich board 0.90 wide, 1.10 tall, base 0.70 deep: front = tile D, back =
-    tile A; triangular sides gray; open bottom."""
+    """A-frame sandwich board 0.90 wide, 1.10 tall, base 0.70 deep: front = tile D, back = tile A. The
+    triangular sides are gray. The bottom is open."""
     m = _MeshBuf("aframe", S)
     hw, H, D = 0.45, 1.10, 0.35
     L = math.hypot(H, D)
@@ -612,8 +613,8 @@ def _sha1(path):
 
 
 def measure_card(bvh, card, names=None):
-    """Ray-cast a 9 x 5 grid over the card footprint from 0.30 m (plane) and CLEAR_M (clearance)
-    in front of the expected wall. Returns the row dict; 'ok' False with reasons on failure."""
+    """Ray-cast a 9 x 5 grid over the card footprint from 0.30 m (plane) and CLEAR_M (clearance) in front
+    of the expected wall. Returns the row dict. 'ok' is False with reasons on failure."""
     V = mathutils.Vector
     out = -1.0 if card["outward"] < 0 else 1.0
     d_in = V((-out, 0.0, 0.0))                     # toward the wall (prefab frame)
@@ -711,8 +712,8 @@ def measure_all():
 
 
 def build_signset(meas, name=SIGNSET):
-    """Two cards on the measured walls (front quad + 4 edges each; no back: it sits on the
-    wall). Returns the object (Blender frame = the host's frame)."""
+    """Two cards on the measured walls (front quad + 4 edges each, no back: it sits on the wall). Returns
+    the object (Blender frame = the host's frame)."""
     parts = []
     rows = {r["key"]: r for r in meas["cards"]}
     for card, rect in zip(CARDS, (R_CARD_A, R_CARD_B)):
@@ -794,7 +795,7 @@ def build_rack(name=RACK):
         r = _MeshBuf(key, RA)
         r.box(c, (1.25, 0.05, 0.05), {"all": R_GALV})
         parts.append(r.to_object())
-    # skis lean from (y 0.01, z 0.36) to (y 1.61, z -0.08) game; Blender (x, -z, y)
+    # skis lean from (y 0.01, z 0.36) to (y 1.61, z -0.08) game. Blender uses (x, -z, y)
     for i, x in enumerate(SKI_X):
         a = g2b((x, 0.01, 0.36))
         b = g2b((x, 1.61, -0.08))
@@ -1022,7 +1023,7 @@ def export(out_root, preview_dir=None, args=None, meas=None):
 
 
 # --------------------------------------------------------------------------------------
-# Previews (scratch scenes; nothing exported)
+# Previews (scratch scenes, nothing exported)
 # --------------------------------------------------------------------------------------
 
 def _import_metres(fbx):
@@ -1039,8 +1040,8 @@ def _import_metres(fbx):
 
 
 def render_previews(root, out_dir, meas):
-    """Scale previews: the sign set on a scratch copy of the DQ base; the lodge-front row of
-    F1 cards + rack on a scratch copy of the deployed lodge. Returns written paths."""
+    """Scale previews: the sign set on a scratch copy of the DQ base, and the lodge-front row of F1 cards
+    + rack on a scratch copy of the deployed lodge. Returns written paths."""
     import cs2_preview as P
     out_dir = os.path.abspath(out_dir)
     os.makedirs(out_dir, exist_ok=True)

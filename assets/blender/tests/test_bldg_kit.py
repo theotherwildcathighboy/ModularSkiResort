@@ -1,36 +1,32 @@
 """
-test_bldg_kit - the building kit contracts (bldg-kit.md section 17 rows test_bldg_kit,
-test_split_rooms, test_bldg_materials; skeptic MUST-CHANGE 3-7).
+test_bldg_kit - the building kit contracts (bldg-kit.md section 17 rows test_bldg_kit, test_split_rooms,
+test_bldg_materials, skeptic MUST-CHANGE 3-7).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_bldg_kit.py
 
 Asserts:
-  1. every builder: part names start with a documented prefix, matkeys in BLDG_MATERIALS,
-     face counts within +-10 % of the recorded reference build (REF), no zero-area face;
-  2. ground parts (open bottom) give ground_ring_report OK with no face at/below z 0;
-     closed parts at grade lift to GROUND_LIFT (door, lantern, flag, rack, umbrella);
-     plinth stairs refuse a foot in the ground band; plinth has no vertex in |z| <= 0.01;
-  3. window_bay: panes = lights x rows (x 2 with a transom), each ONE quad facing the
-     wall normal at +0.05; roof_slab(wall_line) splits the underside into soffit_;
-     prism_gable(eave_z1) heights; chimney_top rule; no kit column named post_;
-  4. split_rooms on a synthetic 3-story x 6-bay facade + one tall pane: <= 25 ids, hard
-     neighbors differ, same room same id, equal ids only beyond 3 m, first-vertex decode
-     == id on every polygon, the tall pane uncut, one UV layer; _Win + _LOD1_Win +
-     _LOD2_Win written from one mesh;
-  5. cull_hidden: a wall visible only through a 3 deg slot under an eave is KEPT (walls
-     are never ray-culled), a sealed attic floor and a coincident duplicate are removed,
-     a soffit seen only through the near-horizontal ring is kept, the floor of an open-
-     bottom ground box is blocked by the ground-footprint rule;
-  6. prefilter: byte-identical twice, square stacked tile, mean preserved; bake alias
-     check: Planks021 on a 24 x 12 m wall at ~20 px/m keeps the baked texel std within
-     1.3x of the box-filtered reference (skeptic MUST-CHANGE 6);
-  7. materials: every set has Color / NormalGL / Roughness, image aspect == tile aspect
-     (after uv_rot), targets in [0, 1], recolor materials have slot > 0; color
-     transfer round trip; paint_cross_disc encodes its declared sRGB red; retile keeps
-     UVTile isotropic and rotates vertical boards;
-  8. lod_level keeps every ground edge (protected collapse) and the planar pass;
-     plan_lod_targets never asks for more than the dry run achieves.
-Exit 1 on the first failure; one PASS line otherwise.
+1. every builder: part names start with a documented prefix, matkeys are in BLDG_MATERIALS, face counts are within
+   +-10 % of the recorded reference build (REF), no zero-area face.
+2. ground parts (open bottom) give ground_ring_report OK with no face at/below z 0. Closed parts at grade lift to
+   GROUND_LIFT (door, lantern, flag, rack, umbrella). Plinth stairs refuse a foot in the ground band. Plinth has no
+   vertex in
+z| <= 0.01.
+3. window_bay: panes = lights x rows (x 2 with a transom), each ONE quad facing the wall normal at +0.05.
+   roof_slab(wall_line) splits the underside into soffit_. prism_gable(eave_z1) heights. chimney_top rule. No kit
+   column named post_.
+4. split_rooms on a synthetic 3-story x 6-bay facade + one tall pane: <= 25 ids, hard neighbors differ, same room
+   same id, equal ids only beyond 3 m, first-vertex decode == id on every polygon, the tall pane uncut, one UV
+   layer. _Win + _LOD1_Win + _LOD2_Win are written from one mesh.
+5. cull_hidden: a wall visible only through a 3 deg slot under an eave is KEPT (walls are never ray-culled). A
+   sealed attic floor and a coincident duplicate are removed. A soffit seen only through the near-horizontal ring is
+   kept. The floor of an open-bottom ground box is blocked by the ground-footprint rule.
+6. prefilter: byte-identical twice, square stacked tile, mean preserved. Bake alias check: Planks021 on a 24 x 12 m
+   wall at ~20 px/m keeps the baked texel std within 1.3x of the box-filtered reference (skeptic MUST-CHANGE 6).
+7. materials: every set has Color / NormalGL / Roughness, image aspect == tile aspect (after uv_rot), targets in [0,
+   1], recolor materials have slot > 0. Color transfer round trip. paint_cross_disc encodes its declared sRGB red.
+   retile keeps UVTile isotropic and rotates vertical boards.
+8. lod_level keeps every ground edge (protected collapse) and the planar pass. plan_lod_targets never asks for more
+   than the dry run achieves. Exit 1 on the first failure. One PASS line otherwise.
 """
 
 import hashlib
@@ -101,8 +97,8 @@ PREFIXES = ("wall_", "plinth_", "gable_", "roof_", "soffit_", "rake_", "ridge_",
             "clockring_", "lamp_", "flag_", "flagpanel_", "umbstand_", "umbpole_",
             "umbcanopy_", "skirack_", "akja_", "parapet_", "trim_", "dormer_", "dormerroof_",
             "step_",
-            # detail pass 1 (L1 builders, detail1-check-aframe F5) and 1b (school / L2 /
-            # patrol kit group; contracts in tests/test_detail_kit.py)
+            # detail pass 1 (L1 builders, detail1-check-aframe F5) and 1b (school / L2 / patrol kit group, contracts
+            # in tests/test_detail_kit.py)
             "bench_", "bin_", "maze_", "mast_", "tobrack_", "gear_", "hosereel_", "drum_",
             "wood_", "stripe_")
 
@@ -184,7 +180,7 @@ BUILDERS = [
     ("safety_stripe", lambda: K.safety_stripe("st", (168, 0), (168, 1.2), 0.18)),
     ("roof_emblem", lambda: K.roof_emblem("re", SPEC, "+X", 1.5, s0=0.3)),
 ]
-# Face counts of the reference build (2026-10-11, Blender 5.2.2); +-10 % allowed.
+# Face counts of the reference build (2026-10-11, Blender 5.2.2). +-10 % allowed.
 REF = {
     "storey": 9, "plinth": 4, "prism_gable": 4, "roof_slab": 9, "gable_roof": 472,
     "hip_roof": 78, "shed_roof": 77, "flat_roof": 41, "dormer": 53, "roof_window": 21,
@@ -262,9 +258,9 @@ def check_builders():
 
 
 def check_gear_bindings():
-    """2026-10-11 (ninth look): NO binding blocks on skis or boards, anywhere.
-    bindings=False is the default of ski_gear / ski_rack_frame / ski_rack; the keyword
-    bindings=True is the detail-pass-1 geometry and exists for this test."""
+    """2026-10-11 (ninth look): NO binding blocks on skis or boards, anywhere. bindings=False is the default of
+    ski_gear / ski_rack_frame / ski_rack. The keyword bindings=True is the detail-pass-1 geometry and exists for
+    this test."""
     # a ski pair and a board, free-standing: default has no galv part, bindings=True adds
     # 2 binding blocks per pair (2 x 5 faces) and 2 x (base plate + highback) per board (4 x 5)
     items = {"ski": ("ski", (200.0, 0.6, 0.04), (200.6, 0.6, 1.48), ("trim_white", "ski_blue"), 1.72),
@@ -313,7 +309,7 @@ def _copy_bm(parts):
 
 
 def check_windows_roofs(built):
-    # window_bay: 3 lights x 2 rows = 6 panes; 4 lights + transom = 8
+    # window_bay: 3 lights x 2 rows = 6 panes. 4 lights + transom = 8
     for nm, n_exp, n_dir in (("window_bay", 6, Vector((1, 0, 0))), ("window_bay_tr", 8, Vector((0, -1, 0)))):
         panes = [o for o, _ in built[nm] if o.name.startswith("win_")]
         assert len(panes) == n_exp, f"{nm}: {len(panes)} panes, expected {n_exp}"
@@ -784,12 +780,17 @@ def _closed_one_shell(o):
 
 
 def check_curved_braces():
-    """Structure v1 round 2 (2026-10-18: "that break in brace frame ... it would need to be curved. You can
-    see there is a slight gap"): a framing / curved truss brace and a curved bracket are ONE mitred beam each - one
-    closed shell (every edge on exactly two faces: no gap or notch at any joint), CURVE_SEGS equal segments turning
-    by equal angles (a circular arc), the section 0.7 x member square to the member in every segment, every corner
-    edge parallel to its segment (exact mitre), the frame brace bulging away from the king post with both ends on the
-    tie / rafter center lines; each brace its own part (grain along it). Flag off: the old one-part truss."""
+    """Structure v1 round 2 (2026-10-18: "that break in brace frame ... it would need to be curved. You can see there
+    is a slight gap"): a framing / curved truss brace and a curved bracket are ONE mitred beam each. Each beam has
+    these properties:
+
+    - one closed shell (every edge on exactly two faces: no gap or notch at any joint).
+    - CURVE_SEGS equal segments turning by equal angles (a circular arc).
+    - the section 0.7 x member square to the member in every segment.
+    - every corner edge parallel to its segment (exact mitre).
+
+    The frame brace bulges away from the king post with both ends on the tie / rafter center lines. Each brace is
+    its own part (grain along it). Flag off: the old one-part truss."""
     clear()
     n = K.CURVE_SEGS
     m, span, eave, uc = 0.30, 5.6, 15.0, 0.0
