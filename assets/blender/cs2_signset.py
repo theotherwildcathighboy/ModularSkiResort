@@ -173,8 +173,8 @@ _DOOR_RECTS = ((1900, 436, 1990, 526), (1884, 834, 1974, 924), (1892, 1112, 1982
                (1884, 1360, 1974, 1450))
 
 #: the layout (packed once 2026-10-12 by shelf_pack in height order, then frozen. 68.1 % of the texels, rows 1796-2040
-# and x 736-2040 of the last shelf, are free for appends). Approved hosts are painted, pending hosts are reserved blank
-# (FS14).
+#: and x 736-2040 of the last shelf, are free for appends). Approved hosts are painted, pending hosts are reserved blank
+#: (FS14).
 SHEET = (
     Kind("school.name", "school", (4.20, 0.90), (8, 834, 1268, 1104), "painted", True,
          (("text", {"lines": ("SKI SCHOOL",), "fg": WHITE, "bg": BOARD_BROWN}),)),
@@ -242,7 +242,7 @@ SHEET = SHEET + (
 PATROL_RED = (0.72, 0.09, 0.08)       # recipes/patrol.PATROL_RED = cs2_bldg.PATROL_RED_SRGB
 PATROL_WHITE = 0.92                   # recipes/patrol.WHITE
 #: the P1 info board (recipes/_civic.BarsPainter, contract 3.5) has a white field and three LINEAR-rgb bars (center
-# height 0..1 from the bottom, length share). The bars are left-aligned as the viewer sees the board
+#: height 0..1 from the bottom, length share). The bars are left-aligned as the viewer sees the board
 INFO_BARS_LIN = ((0.78, 1.00, (0.05, 0.20, 0.45)), (0.52, 0.80, (0.05, 0.30, 0.12)),
                  (0.26, 0.55, (0.05, 0.20, 0.45)))
 _PATROL_PAINT = {
@@ -348,7 +348,7 @@ _NC_PAINT = {
 SHEET = tuple(replace(k, draws=_NC_PAINT[k.key][0], note=_NC_PAINT[k.key][1]) if k.key in _NC_PAINT else k
               for k in SHEET)
 #: SS4: sha1 of the frozen kinds (key, size, rect, lit) in table order. Extend the table, then append the new hash here
-# (the old prefix must still hash to every earlier entry).
+#: (the old prefix must still hash to every earlier entry).
 LAYOUT_SHA = {len(SHEET): None}          # filled below (module constant computed once, pinned in the test)
 DRAW_KINDS = ("text", "bibs", "menu", "shapes", "glyph", "notices", "pictogram", "cross_square", "logs",
               "frame",
@@ -631,7 +631,7 @@ class Typeface:
 
 
 #: candidates rendered for the font table (assets/preview/boards-2026-10-13/fonts/). FACE_FOR below names the CHOSEN
-# ones. sha1 = the file on the author's machine 2026-10-13 (C:\Windows\Fonts).
+#: ones. sha1 = the file on the author's machine 2026-10-13 (C:\Windows\Fonts).
 TYPEFACES = {t.key: t for t in (
     Typeface("bookman_bold", "Bookman Old Style Bold", "BOOKOSB.TTF", "275aab405883ea72", role="lodge"),
     Typeface("georgia_bold", "Georgia Bold", "georgiab.ttf", "e27ea4537381876f", role="lodge"),

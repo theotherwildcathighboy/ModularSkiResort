@@ -16,8 +16,8 @@ parent (assets/import/buildings/<letter>) with the owner at `../<Owner>`. An unt
 category.
 
 E. lodge.py --finalize recomposes the family sheet and installs the owner maps (no building built).
-The argument guards always run. The sheet build itself (2048 px, ~7.5 min) runs only with `--
---full`.
+The argument guards always run. The sheet build itself (2048 px, ~7.5 min) runs only
+with `-- --full`.
 
 Prints one PASS line and exits 0. Any failure raises (exit 1 with --python-exit-code 1).
 """

@@ -547,7 +547,7 @@ def sweep_train(tw, car, label, report=False):
         for th in thetas:
             mine = [p for p in tw.poses if abs(p.get(bname, 0.0) - th) < 1e-6]
             leans = sorted({round(p.get(LEAN, 0.0), 4) for p in mine})
-            # y| extent: the same on every lane / direction. The widest over the leans met at this theta
+            # |y| extent: the same on every lane / direction. The widest over the leans met at this theta
             hy = max(car.posed(th + ln, -1.0, False)["half_y"] for ln in leans)
             # far stops: the other half and the head are out of reach at every pose with this theta (measured)
             reach = -9.0

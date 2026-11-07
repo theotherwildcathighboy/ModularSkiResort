@@ -7,10 +7,10 @@ Contract: docs/research/art/assets-2026-10/design/lattice-towers.md with the ske
 (lattice-towers-skeptic.md section 4) applied. The overnight rulings R27-R31 of ROUND-SPEC.md override the contract where
 they conflict. Build report: docs/research/art/assets-2026-10/build/tram_tower.md.
 
-The module depends only on cs2_kit / cs2_asset / cs2_uv / cs2_compose / cs2_validate. It also imports cs2_bake, cs2_preview
-and cs2_review, but lazily. These pull lift_tower in through cs2_preview, which another fleet is rebuilding. So a
-geometry-only build and the tests never depend on them. The module does NOT use lift_tower.py and the shared cs2_lattice /
-lift_tower hook of the design: every lattice helper lives in this module (task rule).
+The module depends only on cs2_kit / cs2_asset / cs2_uv / cs2_compose / cs2_validate, plus cs2_bake, cs2_preview and
+cs2_review, which it imports lazily. These pull lift_tower in through cs2_preview, which another fleet is rebuilding. So a
+geometry-only build and the tests never depend on lift_tower. The module does NOT use lift_tower.py and the shared
+cs2_lattice / lift_tower hook of the design: every lattice helper lives in this module (task rule).
 
 WHAT THE RULINGS CHANGED AGAINST THE CONTRACT
 

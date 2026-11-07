@@ -17,7 +17,9 @@ and must stay vertex-identical:
 3. rooftop_unit() (the school's HVAC): parts hvac_<n>* only, materials in (ski_black, trim_paint_w,
    trim_paint), no galv, the housing is level on a curb that reaches down through the roof band, 12
    angled louver blades, no same-facing coplanar overlap between parts (the G10 gate that caught the
-   first draft), <= 300 tris a unit. Exit 1 on the first failure. One PASS line otherwise.
+   first draft), <= 300 tris a unit.
+
+Exit 1 on the first failure. One PASS line otherwise.
 """
 
 import os

@@ -21,7 +21,7 @@ Revision 1 (verdicts 7 / 8, 2026-10-11, build/tram_tower.md "Revision 1"):
 - 2r ladder, rails (both families): the rails run from below grade to >= arrival + 1.0. Revision 1c: the rails go to the
   pier depth, with rungs, on the variants that float (30A / 45A 10.0, 25O 4.66, 32O 5.33 m). The other variants use the
   LADDER_FAM sink 2.2 / 3.0, deeper than the face-normal drop at the piers' grade allowance, with rungs down to -1.85
-  (60A) / -2.15 (40O, its 4,500-tri cap). That is revision 1d. The first above-grade rung is still 0.234.
+  (60A) / -2.15 (40O, its 4,500-tri cap). These rungs are revision 1d. The first above-grade rung is still 0.234.
 - 2r ladder, layout: flights offset >= 0.70, one side basket per flight break (never over the flight below: corridor
   clear), flights <= 10.5. C11 exempts only the ladder prefixes.
 - 2r tram head: curved saddle girder (L 4.8, tip drop >= 0.20, depth 0.70). >= 6 haul sheaves per saddle on the haul line,

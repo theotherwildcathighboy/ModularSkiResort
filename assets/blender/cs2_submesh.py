@@ -329,8 +329,8 @@ def export_submeshes(sub, name, suffix, asset_dir, lods=(1,)):
     """
     Write `<name>_<suffix>.fbx` plus `<name>_LOD<k>_<suffix>.fbx` for k in `lods`, all from the same
     `sub` mesh (panes are never decimated and LOD2 normally omits the sub). The function renames the
-    object to each file stem for the duration of its export. cs2_asset.export_fbx writes obj.name
-    verbatim, and the importer pairs by that name.
+    object to each file stem for the duration of its export, because cs2_asset.export_fbx writes obj.name
+    verbatim and the importer pairs by that name.
     """
     cs2_asset.validate_asset_name(name)
     if suffix not in SUBMESH_SUFFIXES or suffix.startswith("LOD"):

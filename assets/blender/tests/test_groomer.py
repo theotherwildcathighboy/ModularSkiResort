@@ -18,7 +18,7 @@ The test checks these points:
   under-budget LOD0, a LOD1 over 50 %, a LOD2 over its cap, an off-center origin, a brand word, a mirrored UV face, and alpha
   below 255.
 - Full run only (no --quick). The test bakes and exports into a temp folder. Then it runs validate_asset_folder, which
-  reports 0 errors. It checks the LOD caps and ratio. It checks the raw FBX frame on every level (x lateral, y up, z forward,
+  must report 0 errors. It checks the LOD caps and ratio. It checks the raw FBX frame on every level (x lateral, y up, z forward,
   centimeters: base pivot, overall length, origin at the footprint center, forward is +Z, tris in the file). The textures are
   1024 with alpha 255. The ControlMask is empty. No UV face is mirrored. The manifest has no absolute path. A fresh-process
   rebuild gives identical FBX tri counts and geometry.

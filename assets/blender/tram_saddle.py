@@ -10,7 +10,7 @@ clamp, and the rope cuts through the girder (up to ~1 m at the outer end of a ha
 
 Letter D keeps the topology and bones of C and widens the joint. Each half then follows its rope to SADDLE_MAX (60 deg: the
 rope reach of the static head, first hit 61 deg on the lugs), with a half-break to HALF_BREAK (30 deg). This covers 202 of
-242 towers. The changes are tram_tower.SKIN_TRAM hooks. The defaults stay C:
+242 towers. The changes are tram_tower.SKIN_TRAM hooks (the defaults stay C):
 - notch_deg 22 -> 32: the V-notch faces of the halves clear a 2 x 30 deg relative fold.
 - joint_d 0.45: the depth of the halves at the V-notch (a haunch to the 0.70 box at xc). The open V stays as wide as in C.
 - bar_gap 0.11 -> 0.20 and roller_out 0.10: the corners of the haul bars and inner rollers clear the 30 deg break.

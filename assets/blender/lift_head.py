@@ -101,7 +101,7 @@ HEAD_PINS = ("pivot_main_", "mast_trunnion_pin_")
 MAST_CLEAR = 0.012                      # m: the flange top under the swept head (G6 asks 5 mm)
 # SHOULD-3: the lowered mast ends in a flat flange plate (its cap faces go). The cheeks stand on it
 FLANGE = dict(over=0.05, t=0.05, segments=12)
-# MUST-1 (v2): the comm wire keeps a high anchor on a Root post. The post has a base bar between the cheeks on the pivot
+# MUST-1 (v2): the comm wire keeps a high anchor on a Root post. The anchor has a base bar between the cheeks on the pivot
 # line, a square post up through the center slot of the girder, and the shipped square clamp (lift_tower.COMM_CLAMP) at the
 # anchor
 POST = dict(base_w=0.06, base_t=0.04, bury=0.005)

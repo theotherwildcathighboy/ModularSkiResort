@@ -29,9 +29,9 @@ T2 also asserts C14 on every variant. The test lists the open findings by name (
 group is clear. The bullwheel frame keeps >= 0.30 m (F1).
 
 C15 platform reachability (revision 1c, fourth look): T2 asserts on every variant that every walkable surface reaches grade
-through the expected flights / ladders. Each flight is <= 3.7 m.
+through the expected flights / ladders.
 
-- Top: the +X stair s, the maintenance stair m, the new -X flights wu + wl.
+- Top: the +X stair s, the maintenance stair m, the new -X flights wu + wl, each <= 3.7 m.
 - Base: u + l and the catwalk ladder pcat.
 
 T2n for C15: each of these FAILS C15:
@@ -127,7 +127,7 @@ moved BASE_DX -4.00 toward -X (every prefab-frame number = design + frame_dx). A
 - T2 (all): every ramp is 1:8 and >= its clear width (2.40 base / 3.40 top). Landings are >= 1.50. End crossings are >= 0.70.
   C16 has 18 base rows (+ 2 park lamps and a bin).
 
-T2n (nitpick B2): each of these FAILS C15 and names C15b where relevant: the top built as if it flattened (TERRAFORM) and the
+T2n (nitpick B2): each of these FAILS C15 and names C15b: the top built as if it flattened (TERRAFORM) and the
 pads off the back lot edge. Each of these FAILS C15: a 1:7 ramp, a lane narrowed under 2.40, a missing ramp rail, the balcony
 cut back off the side-area door. The C7 probe moves past the new lot (x 24). The -X stair's headroom negative becomes the -X
 ramp's.

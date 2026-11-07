@@ -1226,7 +1226,7 @@ def detail_tone(me, A, specs, uv_layer="UVUnique", part_table=None, matrix=None,
     noise has 2 octaves mapped to [-1, 1] (std MOTTLE_STD): dl += amp * n1, ds += smooth * n2 (n2
     an independent seed).  Chalk: s = smoothstep(0.2, 0.9, n_face.z) *
     (0.7 + 0.3 * noise(0.5 m)), then dl += chalk_amp * s and ds -= chalk_smooth * s.
-    Floor: a cell below TONE_FLOOR (4) texels at the face's px/m is skipped and counted as mottle.
+    Floor: for mottle, a cell below TONE_FLOOR (4) texels at the face's px/m is skipped and counted.
     For chalk, only its 0.5 m noise is dropped (the face keeps 0.7 * up), counted as
     chalk_noise.  The function writes faces with the same core priority as
     detail_height, so tone is continuous across a contiguous strip.  Stats in

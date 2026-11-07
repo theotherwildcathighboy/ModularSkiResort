@@ -3,8 +3,8 @@ refreeze_m_manifests.py - re-freezes the prefab_contract block of the FG generat
 manifests (assets/import/stations/fixedgrip/M/*/*.manifest.json) from the DEPLOYED K building
 prefabs (gamedata-mirror).
 
-Run it in the SAME round as any surgery on SkiBaseStationBuilding / SkiTopStationBuilding (DECISIONS
-388, 592 q). Otherwise test_fg_family_seams M1 and tools/check-lift-align.js (MANIFESTSHA) fail on a
+Run it in the SAME round as any surgery on SkiBaseStationBuilding / SkiTopStationBuilding
+(DECISIONS 388, 592 q). Otherwise test_fg_family_seams M1 and tools/check-lift-align.js (MANIFESTSHA) fail on a
 stale baseline.
 
 The script re-runs lift_terminal.m1_frozen. That function re-checks SkiCatalog, carriers.json, the

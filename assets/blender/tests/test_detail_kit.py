@@ -481,7 +481,7 @@ def k3_metrics():
 # processes (equal). Before (the 1b re-base of revision 2):
 #   L5 a8ac79fa142f: 6f15489ad0a7 / 927ee60aeaae / 5226eac33be0 / a45b9a3f2b5c
 # What moved and why: everything. The road plaza and its modeled dressing left (vanilla rows now). The slope plaza, the
-# valet drive / walks / island and the stair on the deck's +Y edge came. The build moved X_SHIFT -4 -> +4. LOD0 is now
+# valet drive / walks / island and the stair on the deck's +Y edge came. The build moved X_SHIFT -4 -> +4. LOD0:
 # 24,383. The revision-2 export shipped 28,285. `Win` moved through the shift and the `part` ids (cells and ids
 # unchanged: 21 rooms).
 K4_TABLE = {

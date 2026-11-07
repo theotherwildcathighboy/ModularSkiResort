@@ -23,7 +23,7 @@ L5 revision 1 (2026-10-11, verdict B1 "bigger" / Peak 7 / pools), on the joined 
 - pools: every `water_` face below the deck top SW.PD by >= 0.05 m, the `deck_pool` top at PD, every
   pool part inside the podium.
 - no coplanar overlap: no two faces of DIFFERENT parts lie in one plane with the same facing and
-  overlap (z-fighting). cull_hidden deletes exact duplicates. This proves none survive anywhere on
+  overlap (z-fighting). cull_hidden deletes exact duplicates. This check proves none survive anywhere on
   the shipped LOD0.
 - `_Win` has no loose vertices (they would stretch the sub-mesh bounds).
 

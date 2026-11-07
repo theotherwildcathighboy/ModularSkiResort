@@ -24,7 +24,7 @@ THE ASSET (prefab-local meters: x lateral, y up, z travel along the lane)
   facing +x). Vanilla's chain-link panel twins sit at x = +-0.003. The hem is at y -0.10 (buried).
 
 V-ROBUST ATLAS (the generation A lesson) In field test 3, the net faces of generation A sampled the
-opaque post strip of the atlas (rows 0 .. ~340, V remapped). The mechanism is unverified. So the
+opaque post strip of the atlas (rows 0 .. ~340, V remapped, by an unverified mechanism). So the
 cutout never saw a net texel. The generation B atlas is laid out in COLUMNS along u, each uniform
 (or periodic) along v. So no V remap can put a net face on post texels:
         1024 px: post [0, 64) | black [64, 96) | guard [96, 128) | sheet (net) [128, 1024)

@@ -80,7 +80,7 @@ PACKING (measured on L1 2026-10-11, build/lodge.md): box projection splits every
 packs axis-aligned boxes without rotation through the FRACTION-margin solver of Blender. That solver collapses with ~1,000+
 islands.
 - Small boxes carry a cross-net UV (one island per box).
-- The kit rotates or splits poorly filled islands before the bake.
+- Poorly filled islands are rotated / split before the bake.
 - lodge.py routes its bake through pack_layout_calibrated (ADD margin calibrated to real pixels). It restores the library
   function on exit.
 
@@ -2790,8 +2790,9 @@ def entry(name, wall, u, w=1.8, h=2.4, sidelights=0, canopy=None, lamps=2, room=
     - two cs2_kit.door leaves (`door_`, w/2 each)
     - sidelight panes `win_<room>_<name>s<k>`
     - optional `canopy=(depth, pitch_deg)` gable porch (`roof_<name>canopy0/1`, `bracket_`)
-    - `lamps` lanterns (`lamp_`) at 2.2 m. z = floor height of the doorway. Closed parts never start below GROUND_LIFT
-      (engine band).
+    - `lamps` lanterns (`lamp_`) at 2.2 m.
+
+    z = floor height of the doorway. Closed parts never start below GROUND_LIFT (engine band).
 
     Inside door_kit() (lodge.py --door-kit v2) this is entry_v2 (door kit v2). glass / glass_room apply there only. Every v1
     build is byte-identical."""
@@ -3108,9 +3109,10 @@ def stair(name, foot, top, w=1.2, rise_max=0.18, run=0.28, stringers=True, rail=
     """n = ceil(dz / rise_max) risers from `foot` (bottom of the first riser) to `top` (top nosing). The stair has these parts:
     - `stair_<name>_treads` (0.05 thick, open risers)
     - `stair_<name>_str0/1` stringers (feet open on z 0 when ground -> engine-base edges)
-    - rails per `rail` ("tube" cs2_kit.handrail / "timber" / "none") on `rail_sides` (+1 = right of the run). ground=False
-      (plinth mode): the foot must sit at z <= -0.05 (below grade) or >= 0.02. The stringer feet are closed (skeptic
-      MUST-CHANGE 3). `run` is informative: the run is derived from the foot / top points."""
+    - rails per `rail` ("tube" cs2_kit.handrail / "timber" / "none") on `rail_sides` (+1 = right of the run).
+
+    ground=False (plinth mode): the foot must sit at z <= -0.05 (below grade) or >= 0.02. The stringer feet are closed
+    (skeptic MUST-CHANGE 3). `run` is informative: the run is derived from the foot / top points."""
     F, T = Vector(foot), Vector(top)
     if ground and abs(F.z) > 1e-9:
         raise ValueError(f"stair {name}: ground stairs start at z 0")
@@ -3546,8 +3548,9 @@ def ski_rack_frame(name, x, y, slots=8, w=None, mat="galv", along="Y", skis=(),
     - color a matkey or a (body, tip) / (top, stripe) pair (default ski_mat).
     - length default GEAR_LEN.
     - The lean is the same foot / top-rail lean as the slabs, with the back face on that line.
-    - Occupancy is GEAR_W (a board's neighbors on its side may hold skis / poles, not a board: asserted). Parts
-      `skirack_<name>g<code>`, one per matkey (GEAR_CODE), instead of `skirack_<name>skis`.
+    - Occupancy is GEAR_W (a board's neighbors on its side may hold skis / poles, not a board: asserted).
+
+    Parts `skirack_<name>g<code>`, one per matkey (GEAR_CODE), instead of `skirack_<name>skis`.
 
     bindings (default False, 2026-10-11: "I don't think we need to render the bindings. They just come out as blocks and
     looks bad"): the ski pairs and boards carry NO binding blocks. True restores the detail-pass-1 geometry (galv blocks on
@@ -3556,8 +3559,8 @@ def ski_rack_frame(name, x, y, slots=8, w=None, mat="galv", along="Y", skis=(),
     refuse it (L5's pole pairs still do that).
 
     Detail pass 1 keywords (defaults = the geometry above, vertex for vertex):
-    - z0 = the surface the rack stands on (a deck top). The feet go to max(z0, GROUND_LIFT) and the whole rack rises by that
-      - GROUND_LIFT.
+    - z0 = the surface the rack stands on (a deck top). The feet go to max(z0, GROUND_LIFT) and the whole rack rises by
+      that - GROUND_LIFT.
     - leg_to (plinth mode, <= -0.05): the four end-leg feet run on down to leg_to as square posts (the rack stands on
       unflattened ground, no vertex in the ground band)."""
     ax = str(along).upper()
@@ -3671,7 +3674,7 @@ def ski_rack_frame(name, x, y, slots=8, w=None, mat="galv", along="Y", skis=(),
 
 
 def rack_reach(h=1.20, spread=0.40, bar=0.035):
-    """Length (m) a gear item needs to span the lean of ski_rack_frame. The lean runs from its foot (c_leg + 0.075 out, z 0.035
+    """Length (m) a gear item needs to span the lean of ski_rack_frame: from the item's foot (c_leg + 0.075 out, z 0.035
     above the rack's base) to the lean point at the top rail (0.06 out, h + 0.04). The length is 1.33 m on the default rack.
     A shorter item stops in mid-air (detail pass 1 integration F1: L1's and L2's pole pairs were 1.18-1.28 m)."""
     zb = 0.35                                       # base rail center, as ski_rack_frame
@@ -3684,7 +3687,8 @@ def rack_reach(h=1.20, spread=0.40, bar=0.035):
 # etc."). Additive. It adds these builders:
 # - real ski gear (ski pairs, snowboards, pole pairs) for ski_rack_frame(gear=True) and free-standing ski_gear
 # - the painted_board sign (stamp target with a texel-density override)
-# - bench, litter_bin and string_lights. Nothing above changes for a caller that does not use them.
+# - bench, litter_bin and string_lights.
+# Nothing above changes for a caller that does not use them.
 # --------------------------------------------------------------------------------------
 
 GEAR_KINDS = ("ski", "board", "poles")
@@ -4252,7 +4256,7 @@ def downspout(name, x, y, z_top, normal, size=0.08, wall_gap=0.10, z_bottom=0.05
     if FITTINGS.get("version", 0) >= 1:
         # close look (2026-10-17): cs2_fittings.route_downspouts rebuilds this part from these numbers with the whole
         # building in view. The rebuild includes the outlet drop into the gutter, a neck under the soffit, the pipe clear of
-        # trims, clips and the shoe on its support
+        # trims, the clips and the shoe on its support
         FIT_PIPES.append({"name": f"downspout_{name}", "x": float(x), "y": float(y), "z_top": float(z_top),
                           "n": tuple(n), "size": float(size), "wall_gap": float(wall_gap),
                           "z_bottom": float(z_bottom), "shoe": bool(shoe), "shoe_dir": tuple(sd),
@@ -4417,8 +4421,9 @@ def radio_mast(name, x, y, z0, z1, brackets=(), whip=1.2, arm=0.8, r=0.04, *, fi
       (across the first bracket's direction), a 4-seg whip r 0.012 `whip` long on the beacon.
     - `mast_<n>br` (galv): one 4 cm bar per bracket (z, side, length) from the mast axis `length` m toward `side` (the wall
       it is fixed to).
-    - `lamp_<n>beacon` (lamp_red, emissive) 0.12 x 0.12 x 0.16 on the mast top. `mast_` is kept to LOD1 (LOD2_DELETE only).
-      The beacon is lamp_ (LOD0). About 60 tris with two brackets.
+    - `lamp_<n>beacon` (lamp_red, emissive) 0.12 x 0.12 x 0.16 on the mast top.
+
+    `mast_` is kept to LOD1 (LOD2_DELETE only). The beacon is lamp_ (LOD0). About 60 tris with two brackets.
 
     fine=True (design B.1): the mast is 12-seg (+12 tris). The rest is unchanged."""
     _check_foot(f"radio_mast {name}", z0)
@@ -5105,9 +5110,11 @@ def pack_layout_calibrated(obj, mesh, A, reserved, margin_px=None, equalise=True
     1. Pack.
     2. Measure the pack scale s from the UV area.
     3. Set the pre-scale margin to margin_px / (A s).
-    4. Repack (3 passes). The FRACTION solver of Blender 5.2.2 collapses on building kits (L1, ~1,300 islands, 8 px: w = 1
-       median 14.9 px/m, atlas fill 0.17). The calibrated ADD pack reaches 23.7 px/m, fill 0.42 with measured gutters of 15.5
-       px between islands (2026-10-11). Reserved rects fall back to the library packer (stamped strips)."""
+    4. Repack (3 passes).
+
+    The FRACTION solver of Blender 5.2.2 collapses on building kits (L1, ~1,300 islands, 8 px: w = 1 median 14.9 px/m,
+    atlas fill 0.17). The calibrated ADD pack reaches 23.7 px/m, fill 0.42 with measured gutters of 15.5 px between islands
+    (2026-10-11). Reserved rects fall back to the library packer (stamped strips)."""
     if reserved:
         return _LIB_PACK_LAYOUT(obj, mesh, A, reserved, margin_px=margin_px, equalise=equalise,
                                 density_layer=density_layer)
@@ -5284,7 +5291,9 @@ def check_base_mode(obj, table, mode, ground_prefixes, plinth=None):
     """Engine base contract (section 3) on any LOD.
     - engine: ground_ring_report verdict OK, no vertex below -1 cm, every ground prefix contributes OK edges, and the
       ground-band hygiene rule (a part with min z < 0.011 is a ground prefix, nothing starts in 0.011..0.02).
-    - plinth: ok_edges == 0 and min z == -D +- 0.01 and no vertex in |z| <= 0.01. Raises on a violation. Returns the report."""
+    - plinth: ok_edges == 0 and min z == -D +- 0.01 and no vertex in |z| <= 0.01.
+
+    Raises. Returns the report."""
     r = cs2_validate.ground_ring_report(obj, table=table)
     W = _world_coords(obj)
     pp = _poly_parts(obj)

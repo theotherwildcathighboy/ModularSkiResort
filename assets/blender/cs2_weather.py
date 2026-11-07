@@ -210,8 +210,8 @@ NONE_ID = ROLE_ID["none"]
 # changes:
 # - edge lift x ~1.45
 # - scuff x ~1.3, except deck (kept 0.60: at 0.70 the flat test deck leaves the VL4 budget)
-# - roof_tile rust 0.30 -> 0.20 (the streak band below the L2 snow-guard rails read as dirt) Design
-#   values are in ROLE_COEFF_DESIGN.
+# - roof_tile rust 0.30 -> 0.20 (the streak band below the L2 snow-guard rails read as dirt).
+# Design values are in ROLE_COEFF_DESIGN.
 #
 # Fix pass 1 (visibility, budget re-checked on the visible texels at 0.35 / 0.5 / 0.7):
 # - edge lift x ~1.4-1.6 again (the 3-texel band made it resolvable, the budget had room)
@@ -1899,7 +1899,7 @@ def perceptual_delta(before, after, fields, spec, *, tint=None, visible=None):
     the linear luminance of BaseColor before and after. When `tint` is given, BaseColor is
     multiplied by the slot tint under ControlMask first, as the vanilla picker does. Returns the
     mean
-    dL*|, the share of texels with |dL*| > 2 (a just-noticeable step), p95 |dL*| and the
+    |dL*|, the share of texels with |dL*| > 2 (a just-noticeable step), p95 |dL*| and the
     mean L* before. Texture space: what a texel can show, not what the camera resolves.
     """
     F = fields

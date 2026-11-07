@@ -149,12 +149,12 @@ MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal")
 STAGING = os.path.join(REPO, "assets", "staging", "prefabs", "props", LETTER)
 SUBOBJ_JSON = os.path.join(HERE, "subobj_bounds.json")
 
-# The 11 meshes.
-# - cap: the design D.1 / DK1 cap of the PART.
-# - kind: ground | wall | lean.
-# - color "variants": colored (ControlMask G accent texels). Ships ONLY as fixed color-set VARIANTS
-#   (kit color variants, 2026-10-12). The FS7 Parent block and the base object prefab are retired.
-# - rows: design D.1 approved / pending instances.
+#: The 11 meshes.
+#: - cap: the design D.1 / DK1 cap of the PART.
+#: - kind: ground | wall | lean.
+#: - color "variants": colored (ControlMask G accent texels). Ships ONLY as fixed color-set VARIANTS
+#:   (kit color variants, 2026-10-12). The FS7 Parent block and the base object prefab are retired.
+#: - rows: design D.1 approved / pending instances.
 PROPS = (
     dict(code="R1", name="SkiDressSkiRackB", obj="SkiDressSkiRack", part="SkiDressSkiRack",
          cap=900, kind="ground", colour="variants", variant=1,
@@ -216,8 +216,8 @@ GEAR = {
 }
 GEAR_BACK_W = 0.5           # density weight of gear faces that face the rack (back ski, board base)
 FRAME_W = 1.0               # galvanized rack bars: visible, full weight
-# A-frame: 8 slots per side. Side +1 = front = prefab +Z. None = empty slot. Boards never sit next to a board on one
-# side (cs2_bldg.ski_rack_frame occupancy rule, GEAR_W).
+#: A-frame: 8 slots per side. Side +1 = front = prefab +Z. None = empty slot. Boards never sit next to a board on one
+#: side (cs2_bldg.ski_rack_frame occupancy rule, GEAR_W).
 AFRAME_LOADOUTS = {
     "R1": {+1: ("S1", "S2", "B1", "S3", "P1", "S4", "B2", "S1"),          # design: 10 + 3 + 2
            -1: ("S3", "B2", "S1", "S2", "S4", "P1", "S3", None)},
@@ -2856,8 +2856,8 @@ def settings_proof():
 #   .Prefab.cid of both           seeded md5 of the names (fine_detail.variant_cids): stable across runs
 #
 # ONE VariationSet at probability 100 with ranges 0 and no external channel = one deterministic color
-# (MeshColorSystem.cs:560-702, 742-857). [U] No precedent of ours exists for a hand-made RenderPrefab that shares an
-# imported geometry asset. The funicular pack ships two NetPiecePrefabs (RenderPrefab subclasses) on ONE geometry +
+# (MeshColorSystem.cs:560-702, 742-857). [U] a hand-made RenderPrefab that shares an imported geometry asset. No
+# precedent of ours exists. The funicular pack ships two NetPiecePrefabs (RenderPrefab subclasses) on ONE geometry +
 # surface (docs/research/funicular-network-vehicle.md 3.4). S1 is the first proof.
 
 VARIANT_TABLE = os.path.join(STAGING, "kit-variants.json")

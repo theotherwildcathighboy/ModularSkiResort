@@ -515,7 +515,7 @@ def paint_pier_strip(base, nrm, msk, ctl, A):
     Author the concrete of the pad+pier block into its reserved band (post-hook signature, composed after
     cs2_asset.paint_pad_strip when --pier is on).
 
-    The columns have two zones (see PIER_USIDE). The SIDE zone wraps the block perimeter and is anisotropic (~820 texels
+    The band has two zones by column (see PIER_USIDE). The SIDE zone wraps the block perimeter and is anisotropic (~820 texels
     around 7.2 m vs ~92 mapped rows over 4.15 m, ~5:1). Per-texel noise therefore smears into faint vertical streaks, like
     rain-run staining down formed concrete. The grime is GENTLE and weighted toward the BOTTOM. The buried end shows soil
     staining when a float exposes it. The top stays vanilla-clean, per the N verdict. Display-space multipliers land at
@@ -1491,8 +1491,8 @@ DQ_MAIN_Y = S.DQ_MAIN_Y                # 2.44
 # Revision 1c (revision1b-check-gd-towers section B, verdict 7 on the tram tower, "the rollers are not attached to any upper
 # stabilizing mechanism"): a sub-rocker that no main rocker carries is the lone MIDDLE sub of an odd train (GD: 10 sheaves =
 # 5 subs, _sub_pairs). It hangs from the yoke on a LINK in the section of the main rockers (DQ_MAIN_Y, 0.072 thick, paint,
-# 1-segment bevel). The link runs from the bottom of the mains (sub center - 0.10) up into the yoke (buried 0.02). The own
-# pivot pin of the sub runs through the lug of the link, as through a main. Before, the sub was 0.125 m below the yoke with
+# 1-segment bevel). The link runs from the bottom of the mains (sub center - 0.10) up into the yoke (buried 0.02). The pivot
+# pin of the sub itself runs through the lug of the link, as through a main. Before, the sub was 0.125 m below the yoke with
 # an open pin. DQ / ETDQ trains pair every sub (even counts): no link, unchanged. C21 (check_sub_hangers) asserts it.
 DQ_LINK = S.DQ_LINK                    # w 0.15, t 0.072, below 0.10, bury 0.02. None = the pre-Revision-1c build (test)
 C21_THROUGH = 0.90                     # a pin end passes through >= 90 % of its lug's thickness ...
@@ -1854,9 +1854,9 @@ VARIANTS = {
     "GD16": _gd_spec("GD16", 16.0, 10, 3130),
     "GD20": _gd_spec("GD20", 20.0, 10, 3340),
     # Detail pass 1 (DECISIONS 171, "yes to both"): the DQ20 of the towers-transfer audit (top 19.950, axle 18.0, comm 19.2)
-    # did NOT fit the 3,500 cap with the reclaims of the design. The DQ20 follow-up below supersedes this: the DQ cap is now
-    # 3,600, and both members ship. Measured: 3,554 tris (ingest head, 3,534 rebuild) after every hidden-face reclaim and the
-    # 12-segment joint rings. So the fallback DQ18 of the audit ships: top 17.950, axle 16.0, comm 17.2, pier 6, lanes +-2.6
+    # did NOT fit the 3,500 cap with the reclaims of the design: measured 3,554 tris (ingest head, 3,534 rebuild) after every
+    # hidden-face reclaim and the 12-segment joint rings. (The DQ20 follow-up below supersedes this: the DQ cap is now 3,600,
+    # and both members ship.) So the fallback DQ18 of the audit ships: top 17.950, axle 16.0, comm 17.2, pier 6, lanes +-2.6
     # (wins e 5.333.. -> DQ16 5.333-7.333, DQ18 7.333-14, grounds to 14), 3,498 tris on the shipped ingest head.
     "DQ18": _dq_spec("DQ18", 16.0, "line", "support", 0.0, 6.0, 17.20, 3480,
                      ("ingest", "rebuild")),
@@ -2618,7 +2618,7 @@ def rope_on_crown_block(spec):
 # Both heads are on that line at net (0, 0, crown lane y), up, roll 0, children of Root. Our code pitches TrainFront by the
 # rope leaving toward +z and TrainBack by the rope toward -z (+ lowers the game +z end). Each is clamped to SKIN_THETA_MAX,
 # and the half-break
-# front - back| / 2 to cs2_skin.HALF_BREAK_MAX (20 deg). Every vertex weighs 1.0 on its part's bone on EVERY LOD (the
+# |front - back| / 2 to cs2_skin.HALF_BREAK_MAX (20 deg). Every vertex weighs 1.0 on its part's bone on EVERY LOD (the
 # importer copies the ProceduralAnimationProperties of LOD0 onto each LOD: 1.6.0f1 AssetImportPipeline.SetupLODs :2196-2218).
 # SKINNED implies the rope on the crowns (T27, set_rope_on_crown): the pivot line is lane_y(spec, True).
 #
@@ -4806,8 +4806,8 @@ def data_plate_decals(spec):
 #
 # One deliberate difference from the lattice fill: it repairs the F3 DEFECT, not every face without a texel center. A face is
 # filled only if its UV area is under SUBTEXEL_TEXEL2 AND its uncovered footprint holds a black texel (SUBTEXEL_ONLY_BLACK).
-# The other variants keep their approved, shipped PNGs byte-for-byte. Their no-center faces are covered by a neighbor's
-# margin and read a plausible color (the unconditional fill rewrote 5-187 faces on all 16: FG8 5 ... GD20 187). Set
+# The other variants keep their approved, shipped PNGs byte-for-byte (the unconditional fill rewrote 5-187 faces on all 16:
+# FG8 5 ... GD20 187). Their no-center faces are covered by a neighbor's margin and read a plausible color. Set
 # SUBTEXEL_ONLY_BLACK False for the lattice behavior.
 #
 # The unit is the TRIANGLE the game draws. cs2_asset.export_fbx writes use_triangles (bmesh triangulate, default BEAUTY), so

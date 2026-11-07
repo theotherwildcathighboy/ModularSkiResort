@@ -16,7 +16,7 @@ Every asset is a FOLDER, not a loose FBX. The importer expects this layout:
         [<Name>_LOD1.fbx, <Name>_LOD2.fbx ...]        optional, supplied LODs
         [<Name>_Gls.fbx / _Win.fbx / _Wat.fbx]        optional material sub-meshes
 
-`settings.json` carries a `sharedAssets` map (texture filename -> the file it reuses) and a per-LOD `{"mode": "Skip"}` entry.
+`settings.json` carries a `sharedAssets` map (texture filename -> the file it should reuse) and a per-LOD `{"mode": "Skip"}` entry.
 The entry means "I supplied this level, do not generate it". Omit the LOD entries entirely, and LODPostProcessor generates
 them by edge collapse.
 

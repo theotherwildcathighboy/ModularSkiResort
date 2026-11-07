@@ -1,7 +1,9 @@
 """
 cs2_subobj.py - vanilla-prop sub-object rows -> labeled review stand-ins (DECISIONS 183).
 
-WHY --- Standing rule (2026-10-11 ~22:05): vanilla props are REFERENCED as ObjectSubObjects rows (prefab
+WHY
+---
+Standing rule (2026-10-11 ~22:05): vanilla props are REFERENCED as ObjectSubObjects rows (prefab
 GUID, position, rotation, m_ParentMesh) and never modeled. A review pack that shows only our own mesh
 hides them, so the reviewer never sees where the benches, bins, lamps and tables go.
 `cs2_review.write_pack` calls this module: every row becomes one semi-transparent BOX of the prop's union
@@ -53,8 +55,9 @@ Block shapes read (tests/test_review_subobjects.py reads every shipped manifest)
                                            labeled with its variant name (SkiDressSkiRackV2_Red)
 
 FRAMES (verified by ray-casting every shipped row onto its pack's LOD0, 2026-10-12)
------------------------------------------------------------------------------------ Rows are game-local (x
-lateral, y up, z travel). The packs hold the generators' NET-ORIENTED objects (cs2_asset.orient_for_net
+-----------------------------------------------------------------------------------
+Rows are game-local (x lateral, y up, z travel).
+The packs hold the generators' NET-ORIENTED objects (cs2_asset.orient_for_net
 runs before write_pack in every generator). export_fbx bakes (x, y, z) -> (x, z, -y), and the game negates
 FBX x on import (x-sign gate settled N, 2026-10-15 playtest. 2026-10-16 / T14: before that this module
 drew pack = (gx, -gz, gy), the old +x frame). So game (gx, gy, gz) = pack (-bx, bz, -by) and
@@ -65,8 +68,9 @@ cs2_liftdress.subobj_box's, so a stand-in's world AABB equals subobj_box(...) ma
 (the test asserts it). m_ParentMesh 0 = on the main mesh, -1 = on the lot (snapped to terrain at runtime).
 Both are placed at the row's position. -1 gets "(ground)" in its label.
 
-BOUNDS ------ Union of the placeholder mesh and every variant mesh (RenderPrefab m_Bounds, game local, y
-up):
+BOUNDS
+------
+Union of the placeholder mesh and every variant mesh (RenderPrefab m_Bounds, game local, y up):
   1. cs2_liftdress.SUBOBJ (verified against the dump, K7)      source "SUBOBJ"
   2. assets/blender/subobj_bounds.json (this module's cache)   source "cache"
   3. the vanilla dump %TEMP%\\pltar\\dump.zip, in memory       source "dump"

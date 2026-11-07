@@ -84,12 +84,12 @@ QUICK = "--quick" in sys.argv
 FAILS = []
 CHECKS = []
 #: SS4 - the frozen prefix (the first 20 kinds = the 2026-10-12 table). A later append adds a new (n, hash) pair here.
-# These two never change while the sheet owner letter is B.
+#: These two never change while the sheet owner letter is B.
 #: 22: school revision 2 (2026-10-12, build/school-rev2.md) appended school.markstaff / school.marknosled (the red
-# markings) in the last shelf's free space. The 20-prefix is unchanged.
+#: markings) in the last shelf's free space. The 20-prefix is unchanged.
 #: 24: fine-detail step 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md) painted the reserved P1 / P2 rects in
-# place (state / draws only: the 20- and 22-prefixes are unchanged). It appended gate.header / gate.flake (the welcome
-# sign's SKI AREA lettering panel and its snowflake end panels) in free space.
+#: place (state / draws only: the 20- and 22-prefixes are unchanged). It appended gate.header / gate.flake (the welcome
+#: sign's SKI AREA lettering panel and its snowflake end panels) in free space.
 PINNED = {20: "2c01662b97fccb4c", 22: "6107f478878da5e4", 24: "afee251d75da1b40"}
 
 

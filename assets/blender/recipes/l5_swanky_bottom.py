@@ -440,7 +440,6 @@ def renamed(parts, mapping):
 #
 # These copies keep the kit's names, prefixes and proportions and take z as given (a kit need, build report).
 # ------------------------------------------------------------------
-# ------------------------------------------------------------------
 
 def curtain_rows(name, wall, u0, u1, zs, ncol=None, grid_u=1.6, mullion=0.08, room=None,
                  per_row_rooms=False):

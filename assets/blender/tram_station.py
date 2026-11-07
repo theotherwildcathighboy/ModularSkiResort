@@ -50,7 +50,7 @@ The pass also added:
 - the top's track ropes at 6 segments (MC9 budget)
 
 C15 gained a crossing-width term on every join between two walkable surfaces (>= 0.61 m). The 1c gangway mouth measured 0.574
-at sgpost_L0 and moved (SGPOST0_DEG). C15 also gained an explicit NOT_WALKABLE list with reasons (an undeclared standable
+at sgpost_L0. The post moved (SGPOST0_DEG). C15 also gained an explicit NOT_WALKABLE list with reasons (an undeclared standable
 surface fails).
 
 Revision 1e (bay gates vs the cabin doors, 2026-10-11, revision2-check-tram-cabin section C): the tram cabin's revision 2 put

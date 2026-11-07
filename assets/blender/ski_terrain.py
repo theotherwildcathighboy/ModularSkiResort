@@ -1,5 +1,5 @@
 # ski_terrain.py - seamless TILING texture sets for the snow and summer slots of the run decals
-# (SkiRunDecalSystem binds them to the snow slots and the summer dress of the area decal shader).
+# (SkiRunDecalSystem binds them to the snow slots of the area decal shader and to the summer dress).
 # The script was written first for the terrain splatmap route (removed 2026-11-05, DECISIONS 607),
 # hence the names.
 #

@@ -45,8 +45,8 @@ STEP 2 (`step=2`): step 1 + LOW-FREQUENCY soiling only (soil_overlays):
   so a total budget would have faded the whole step to nothing. The code reports both coverages.
   Every overlay declares its feature size and soft edge. overlay_gate() RAISES on a feature under
   MIN_FEATURE_M (5 cm) or a soft edge under MIN_SOFT_M. It weights texels by
-  smoothstep(6, 10, feature x px/m) (>= 8 texels). It SKIPS an overlay whose mean gate is below 0.5
-  and never shrinks the overlay. The hook re-checks that nothing was painted where the feature spans
+  smoothstep(6, 10, feature x px/m) (>= 8 texels). An overlay whose mean gate is below 0.5 is SKIPPED,
+  never shrunk. The hook re-checks that nothing was painted where the feature spans
   < 6 texels.
 
 Contract rules kept in code (guards raise):

@@ -18,7 +18,7 @@ K1 builders: every builder (sample calls in the DQ / tram frames) is checked for
 - the kind pairs that touch INSIDE a builder (BVH overlap) are all in DRESS_CONTACTS
 - every label quad's UVMap reads u = viewer right, v = up, 0..1
 - fixed_ladder style "dq" reproduces lift_terminal_detach._ladder's parts vertex for vertex
-- style "tram" is parsed by tram_station.walk_ladders (C15) with the right rung count, pitch, foot and first
+- fixed_ladder style "tram" is parsed by tram_station.walk_ladders (C15) with the right rung count, pitch, foot and first
   rung
 
 K2 label sheet: deterministic. Rects are disjoint and inside the region. Gutters are >= 6 px. The design's DQ

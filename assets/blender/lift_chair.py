@@ -62,7 +62,7 @@ Nitpick A2 (2026-10-13, orchestrator ruling "Nitpick A follow-ups" (1) on build/
 report build/nitpick-a2-hanger-gondola.md): the dq grip side was MIRRORED across the travel plane (DQ_OUTBOARD = -1). The
 hanger, carriage + comb, springs, lever + roller, running wheels + axles, clamp block and plate moved from authoring +Y
 to -Y as an exact mirror (same triangles). The hoop, bench, bar and footrests are symmetric and stay untouched. Every
-chair station is built round the up lane on the RIGHT looking uphill (the stations' spin). On that lane, a chair that
+chair station is built around the up lane on the RIGHT looking uphill (the stations' spin). On that lane, a chair that
 faces its travel has the outboard side on its RIGHT = authoring -Y. So the hanger now runs OUTBOARD on both lanes, and
 the grip clears the towers' rocker mains (tests/test_dq_family_seams.py S9). DQ_OUTBOARD = +1 rebuilds the approved
 revision 3.
@@ -98,11 +98,11 @@ the assembly re-pivots them.
 
 OUTBOARD side (nitpick A2, 2026-10-13): authoring -Y, the riders' RIGHT (DQ_OUTBOARD). The old text here said "+Y =
 OUTBOARD on both lanes (the -x NetSubObjects row is rotated 180 deg)". That held only if both of these were true: the
-game kept FBX x (probe X2 branch P), AND the chairs ran up the lane the stations are NOT built round.
+game kept FBX x (probe X2 branch P), AND the chairs ran up the lane the stations are NOT built around.
 
 The mover yaws every chair to its travel direction (the static NetSubObjects rotations do not survive it). It keeps chain
 A = the lane on the RIGHT looking uphill (StationAlign.UpLaneIsSecond, a WORLD rule). In the Blender picture, every chair
-station is built round that lane (bases load +Y, tops unload -Y: nitpick A, contracts O1 / M20).
+station is built around that lane (bases load +Y, tops unload -Y: nitpick A, contracts O1 / M20).
 - Branch N (game x = -authoring y, the picture-preserving map): the rule holds as written, and a chair's right is
   outboard.
 - Branch P (game x = +authoring y): the game shows every mesh mirrored, and S1b-P flips the rule's sign so the chairs
@@ -673,8 +673,8 @@ def add_plate_face(name, x, yc, zc, w, h, facing=1):
 def add_profile_slab(name, pts_xz, width, loc, rot_y=0.0, open_bottom=False,
                      relief="map:seams"):
     """
-    A convex (x, z) profile, counter-clockwise seen from -Y, extruded +-width/2 along Y (dq-chair.md section 4.3). The
-    side quads and the two caps are triangle fans WITHOUT a center vertex (n - 2 tris each). open_bottom drops the side
+    A convex (x, z) profile, counter-clockwise seen from -Y, extruded +-width/2 along Y (dq-chair.md section 4.3). It has
+    side quads and two caps. The caps are triangle fans WITHOUT a center vertex (n - 2 tris each). open_bottom drops the side
     quad on the first edge (P1-P2, the face that sits on the seat pan). The object sits at `loc`, rotated `rot_y` rad
     about its local Y (the profile's origin is the hinge). UVs are box-projected "UVMap". Relief is "map:seams". Raises
     on a non-convex or clockwise profile.
@@ -3517,7 +3517,7 @@ SPLIT_PLAN = {
 # Jaw envelope (breakover-twins round, v2, 2026-11-03): split only, --envelope, generation O. Every carrier passes every
 # tower train under tests/test_grip_clearance.py:
 # - A tower wheel's rim / liner may touch ONLY the grip's smooth jaw envelope (|z| <= ENVELOPE_Z about the rope center).
-# - Hubs / bosses / axle caps never touch it.
+# - Hubs / bosses / axle caps never touch the grip.
 # - Every other tower part keeps CARRIER_CLEAR_M.
 #
 # Real trains pass grips that way: the closed jaws sit nearly flush with the rope and stand a limited, smooth amount

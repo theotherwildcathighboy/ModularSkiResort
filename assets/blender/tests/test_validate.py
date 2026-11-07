@@ -7,11 +7,9 @@ test_validate.py - exercises cs2_validate against a tiny generated asset folder.
    maps from make_texture_set, settings.json with LOD1 Skip, and a manifest.
 2. Four corruptions are each caught with the expected code: an underscore in the name, a BaseColor
    alpha 0.3 patch, MaskMap B non-zero, and a LOD1 FBX declared but missing.
-
-Per-part texel density (props): with LOD0 UVs shrunk to 1/10, the check gives a texel-density ERROR.
-It gives no ERROR on kind building. Texture floor (wiki 512): a 256 px set gives a texture-size ERROR
-on a prop AND on a building (REDO 2026-10-17).
-
+   Per-part texel density (props): with LOD0 UVs shrunk to 1/10, the check gives a texel-density ERROR.
+   It gives no ERROR on kind building. Texture floor (wiki 512): a 256 px set gives a texture-size ERROR
+   on a prop AND on a building (REDO 2026-10-17).
 3. validate_mesh(kind="building"): a closed box on z=0 reports engine base BLOCKED. An open-bottom box
    reports OK (ground_ring_report verdicts likewise).
 

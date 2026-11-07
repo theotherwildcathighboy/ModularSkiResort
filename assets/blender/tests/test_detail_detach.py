@@ -25,9 +25,10 @@ assert_contracts. Negatives:
 - The 1c front ladder (ROOF_ROUTE_D1 off: y -0.70, the closed outer rail) raises R2e.
 - A box in the base front ladder's zone raises R2e.
 - The pf ladder pushed into the spine (PF_Y 0.45) raises R2f.
-- The top's draft ladder-way 0.60 raises R2c (gate 0.61). The REAL hosted ETDQ (lift_tower rebuild, at its hosted pose) puts
-  no face in the base front ladder's zone above its deck top. Its -Y deck strip (top 3.404) is the standing surface of the
-  bottom stop.
+- The top's draft ladder-way 0.60 raises R2c (gate 0.61).
+
+Also, the REAL hosted ETDQ (lift_tower rebuild, at its hosted pose) puts no face in the base front ladder's zone above its
+deck top. Its -Y deck strip (top 3.404) is the standing surface of the bottom stop.
 
 D8: MC10: assert_detail1 passes (every dressing part on its real faces, every vanilla footprint with the variant-union
 bounds). Negatives:

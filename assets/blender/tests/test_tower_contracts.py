@@ -88,7 +88,7 @@ test checks them INDEPENDENTLY of the generator's own asserts.
    LOD2 FBX. No triangle of any UV area has a black sample (sRGB max < 0.02) among the checker's 400 samples (a 20 x 20
    midpoint grid folded into the triangle) on the written BaseColor. The generator agrees (black_after 0 at all three
    LODs, nothing unfillable). The F3 footprint pass and the F3b any-area pass each ran exactly where there was something
-   to fill (FG8 only F3b: its 16 platerim slivers, ET68, no defect, neither). Wrong builds: the fill disabled (DQ18, >=
+   to fill (FG8 only F3b: its 16 platerim slivers. ET68 has no defect, so neither). Wrong builds: the fill disabled (DQ18, >=
    20 flagged) and ONLY the F3 pass running (DQ20: the long fall-arrest channel slivers stay black, flagged by the
    generator's gate and the counter).
 
@@ -119,8 +119,9 @@ TOPS = {"FG8": 9.014, "FG12": 13.014, "FG16": 17.014, "FG20": 21.014, "ET62": 7.
         "GD12": 12.0, "GD16": 16.0, "GD20": 20.0,
         "DQ18": 17.950, "ETGD": 6.850, "DQ20": 19.950}
 # detail pass 1 (DECISIONS 171): DQ18 (the transfer audit's fallback - DQ20 measured 3,554 tris > 3,500) and the gondola
-# entry compression tower ETGD (rope 4.85, H_top 2.000) ETDQ 3.70 = the DQ base station lane (integration 2026-10-11, it
-# was 3.95, see lift_tower DQ_ENTRY_ROPE_Y) FG20 / DQ16: Revision 1 (verdict 5) - one taller line member per family
+# entry compression tower ETGD (rope 4.85, H_top 2.000)
+# ETDQ 3.70 = the DQ base station lane (integration 2026-10-11, it was 3.95, see lift_tower DQ_ENTRY_ROPE_Y)
+# FG20 / DQ16: Revision 1 (verdict 5) - one taller line member per family
 # GD12/16/20: Revision 1b - axle = top - H_top_GD 2.000 (tram_tower.GD, the gondola piece lane 10.0)
 AXLES = {"FG8": 7.04, "FG12": 11.04, "FG16": 15.04, "FG20": 19.04, "ET62": 5.24, "ET68": 5.84,
          "DQ10": 8.0, "DQ12": 10.0, "DQ14": 12.0, "DQ16": 14.0, "ETDQ": 3.70,

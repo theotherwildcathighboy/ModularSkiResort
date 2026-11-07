@@ -18,17 +18,17 @@ Run (headless only, game closed):
    apply_weathering with prefix roles and compose_contact per base mode (engine mode: the shipped
    albedo already holds compose_maps' 6 % ground band).
 
-AO (fix pass 1, checker F4): the shipped albedo already has AO multiplied in, so the layer cannot
-tell a dark material from an occluded one. With ao=None, the W9 floor then blocked most eave grime.
-The demo therefore re-bakes the LOD0's self-occlusion AO on UVUnique (Cycles CPU, seed 0,
-`--ao-samples`, cached under <tempdir>/cs2_weather_demo/_ao/ by a hash of the vertices + UVs). It
-hands the AO to the layer exactly as bake_unique would: the WIRED-EQUIVALENT look. `--no-ao`
-reproduces the old ao=None demo.
+   AO (fix pass 1, checker F4): the shipped albedo already has AO multiplied in, so the layer cannot
+   tell a dark material from an occluded one. With ao=None, the W9 floor then blocked most eave grime.
+   The demo therefore re-bakes the LOD0's self-occlusion AO on UVUnique (Cycles CPU, seed 0,
+   `--ao-samples`, cached under <tempdir>/cs2_weather_demo/_ao/ by a hash of the vertices + UVs). It
+   hands the AO to the layer exactly as bake_unique would: the WIRED-EQUIVALENT look. `--no-ao`
+   reproduces the old ao=None demo.
 
-The AFTER set is written with the bake's own writer (cs2_asset._write_png_raw after
-cs2_preview._linear_to_srgb, untouched texels keep their shipped sRGB bytes) into
-<tempdir>/cs2_weather_demo/<Name>/after/. BEFORE is a byte copy of the shipped PNGs. L2 also gets
-one frame at snow 0.6 (Q1).
+   The AFTER set is written with the bake's own writer (cs2_asset._write_png_raw after
+   cs2_preview._linear_to_srgb, untouched texels keep their shipped sRGB bytes) into
+   <tempdir>/cs2_weather_demo/<Name>/after/. BEFORE is a byte copy of the shipped PNGs. L2 also gets
+   one frame at snow 0.6 (Q1).
 
 3. Intensity ladder (Q3) per shipped asset: intensity 0.35 (default) / 0.5 / 0.7, the arrival 3/4
    view and a 2x close-up, plus the school's slot_wear "bounded" | "free" pair at 0.5 (Q2). Every

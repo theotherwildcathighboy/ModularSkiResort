@@ -230,7 +230,7 @@ Nitpick A2 (2026-10-13, orchestrator ruling "Nitpick A follow-ups" (2) on nitpic
 build/nitpick-a2-hanger-gondola.md). The gondola stations get the rule of the DQ stations: the operator room stands on the UP
 lane of the station (the base's departing +Y, unchanged, the TOP's ARRIVING -Y). The room of the top (floor, walls, door,
 inner glazing band `oprglass`, ceiling slab), its LIFT OPS board, the operator-door wall-light row and the hose-reel row move
-to -Y. The stair and the stairwell of the deck take the back corner that they leave. The whole back-corner pair is mirrored
+to -Y. The back corner that these parts leave takes the stair and the stairwell of the deck. The whole back-corner pair is mirrored
 across y = 0 (GD_SIDE_MIRROR, an exact mirror of each part). The boards are rebuilt at the mirrored place so their labels
 read right. The walkway ends of the platforms follow (gd_platform_layout). The `_Win` panes of the room are those of the -Y
 wall (gd_hall_layout). GD_OPR_SIDE / gd_opr_side. GD_OPR_LEGACY = the old top (room on +Y). Contract G11
@@ -822,7 +822,7 @@ FD_KIT_ROOT = os.path.join(REPO, "assets", "import", "props", "B")
 #: (its back rope 0.20 m off it). Neither has access (F1's access box). The kit reel hangs on the +X
 #: face of the operator CABIN (the open-ground side, beside the door), under the cabin extinguisher -
 #: a fire point. Plate center at y FD_DQ_REEL[0], FD_DQ_REEL[1] above grade (0.65 over the opbase).
-#: The reel of the DQ top hangs at 0.92, 0.77 over it.
+#: The reel of the DQ top hangs at 0.92, 0.77 over the opbase.
 FD_DQ_REEL = (7.45, 0.80)
 FD_ACCESS = 0.40               # F1: wall props keep this much free space in front of their face (no station face,
 #                                no other row): a reel / extinguisher must be reachable
@@ -4274,7 +4274,7 @@ def materials_for(p, parts=None):
 
 
 
-# Long parts are cut into pieces along X before the pack seed. smart_project keeps a part connected. So 20-33 m weighted
+# Long parts are cut into pieces along X before the pack seed. smart_project keeps a part connected, and 20-33 m weighted
 # strips (roof, band sides, haul ropes) left the shared packer (cs2_uv.pack_unique, AABB, rotate=False) a third of the square
 # (measured 33 % coverage, median 18 px/m at 2048). Piece names keep the part prefix (LOD / relief / density / contract
 # keys).

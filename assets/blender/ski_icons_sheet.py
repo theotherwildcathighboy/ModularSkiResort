@@ -2,8 +2,7 @@
 Review sheet for the Build-strip icons drawn by ski_icons.py (the preview gate of docs/PIPELINE.md
 section 2 for icons). The sheet shows:
 - the nine icons large.
-- the hub's Build strip mocked at the real 1080p sizes (text scale 100 / 130 / 150 %: icons 30 / 39
-  /
+- the hub's Build strip mocked at the real 1080p sizes (text scale 100 / 130 / 150 %: icons 30 / 39 /
   45 px) with an active (blue) tile, a locked tile and the step digits.
 - the 30 px strip in grayscale.
 - before / after against the installed icons.

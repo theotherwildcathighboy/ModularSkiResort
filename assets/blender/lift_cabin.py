@@ -1517,8 +1517,8 @@ def soften_shell(parts, report):
     """Revision 1: weld the shell parts (body / roof / trim / hw / glass / door plug) into one closed bmesh.
     Bevel the frame edges (1 seg), the roof crown ring (3 segs) and the skirt foot ring (2 segs). Split
     the faces back into their parts by a face tag (new bevel faces inherit an adjacent face's tag). The
-    function asserts the ingest facts (739 -> 571, plug 3 loops / 17 tris, the material split) BEFORE
-    this, on the untouched Wilin topology."""
+    ingest facts (739 -> 571, plug 3 loops / 17 tris, the material split) are asserted BEFORE this, on
+    the untouched Wilin topology."""
     shell = [(o, k) for o, k in parts if o.name.endswith("shell")]
     names = [o.name for o, _k in shell]
     trim_ids = {i for i, n in enumerate(names) if n.startswith("trim_")}

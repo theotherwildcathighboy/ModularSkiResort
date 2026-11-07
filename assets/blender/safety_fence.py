@@ -140,7 +140,7 @@ SEED = 20261013
 PREVIEW_DISTANCES = (2.0, 10.0, 50.0)
 PREVIEW_VIEWS = ("front", "oblique", "backlit")
 #: preview-only A/B: a deeper "fluo" orange for slot 2 / 3 (the shipped default stays PAD_RGB). The
-# in-game VariationSet color space is unverified, so this is a JSON knob for review
+#: in-game VariationSet color space is unverified, so this is a JSON knob for review
 ALT_TINT = (1.0, 0.15, 0.02)
 
 

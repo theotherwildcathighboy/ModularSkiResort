@@ -9,8 +9,7 @@ Asserts:
    +-10 % of the recorded reference build (REF), no zero-area face.
 2. ground parts (open bottom) give ground_ring_report OK with no face at/below z 0. Closed parts at grade lift to
    GROUND_LIFT (door, lantern, flag, rack, umbrella). Plinth stairs refuse a foot in the ground band. Plinth has no
-   vertex in
-z| <= 0.01.
+   vertex in |z| <= 0.01.
 3. window_bay: panes = lights x rows (x 2 with a transom), each ONE quad facing the wall normal at +0.05.
    roof_slab(wall_line) splits the underside into soffit_. prism_gable(eave_z1) heights. chimney_top rule. No kit
    column named post_.
@@ -26,7 +25,8 @@ z| <= 0.01.
    1], recolor materials have slot > 0. Color transfer round trip. paint_cross_disc encodes its declared sRGB red.
    retile keeps UVTile isotropic and rotates vertical boards.
 8. lod_level keeps every ground edge (protected collapse) and the planar pass. plan_lod_targets never asks for more
-   than the dry run achieves. Exit 1 on the first failure. One PASS line otherwise.
+   than the dry run achieves.
+Exit 1 on the first failure. One PASS line otherwise.
 """
 
 import hashlib
@@ -781,13 +781,13 @@ def _closed_one_shell(o):
 
 def check_curved_braces():
     """Structure v1 round 2 (2026-10-18: "that break in brace frame ... it would need to be curved. You can see there
-    is a slight gap"): a framing / curved truss brace and a curved bracket are ONE mitred beam each. Each beam has
+    is a slight gap"): a framing / curved truss brace and a curved bracket are ONE mitered beam each. Each beam has
     these properties:
 
     - one closed shell (every edge on exactly two faces: no gap or notch at any joint).
     - CURVE_SEGS equal segments turning by equal angles (a circular arc).
     - the section 0.7 x member square to the member in every segment.
-    - every corner edge parallel to its segment (exact mitre).
+    - every corner edge parallel to its segment (exact miter).
 
     The frame brace bulges away from the king post with both ends on the tie / rafter center lines. Each brace is
     its own part (grain along it). Flag off: the old one-part truss."""

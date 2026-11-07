@@ -1,6 +1,6 @@
 """
-Launcher glyph candidates (Round S1 F9): a one-color white glyph for the hub's floating button. The
-game draws every other button in the top-left row the same way (cs2/ui FloatingButton with the
+Launcher glyph candidates (Round S1 F9): a one-color white glyph for the hub's floating button. It is
+drawn the way the game draws every other button in the top-left row (cs2/ui FloatingButton with the
 default tint: a white mask on the accent plate).
 
 Same technique as assets/blender/ski_icons.py: numpy signed-distance shapes, analytic coverage at
