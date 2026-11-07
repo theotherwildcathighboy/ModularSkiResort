@@ -1,11 +1,11 @@
 /*
- * tools/test-history-rules.js - literal oracles for src/hub/historyRules.ts: seasons, range windows (12 months / this season
- * vs last / by season), month / season bucketing (flows summed, point values averaged, gaps and absent months empty), the
- * whole-city sum, year on year, line ends and gap bands, netChange, the axis helpers. Compiles bindings.ts + historyRules.ts
- * with the installed typescript (transpileModule, CommonJS) and runs them in a vm context with cs2/api stubbed, like
- * tools/test-hub-rules.js, which calls run() as part of the gate.
+ * tools/test-history-rules.js - literal oracles for src/hub/historyRules.ts. They cover seasons, range windows (12 months / this
+ * season vs last / by season), month / season bucketing (flows summed, point values averaged, gaps and absent months empty), the
+ * whole-city sum, year on year, line ends and gap bands, netChange and the axis helpers. The test compiles bindings.ts +
+ * historyRules.ts with the installed typescript (transpileModule, CommonJS). It runs them in a vm context with cs2/api stubbed,
+ * like tools/test-hub-rules.js. That file calls run() as part of the gate.
  * Standalone: `node tools/test-history-rules.js [srcDir]` -> `test-history-rules: N check(s), failures=0`.
- * Oracles are literals computed by hand from the fixtures below (never recomputed with the code under test).
+ * Oracles are literals. We computed them by hand from the fixtures below. Never recompute them with the code under test.
  */
 "use strict";
 const fs = require("fs");
@@ -37,7 +37,7 @@ function load(srcDir, ts) {
   return compile(rulesFile);
 }
 
-/* An area of n months from `first`; fill(i) returns overrides of the month's defaults. */
+/* An area of n months from `first`. fill(i) returns overrides of the month's defaults. */
 function area(first, n, fill) {
   const a = { sign: { index: 1, version: 1 }, firstMonthKey: first, seasonFirstMonth0: 6, flags: [], tourists: [], residents: [], skiDays: [], ticketsPaid: [], ticketIncome: [],
     lodgeIncome: [], passIncome: [], lessonIncome: [], liftCost: [], runCost: [], buildingsCost: [], wagesCost: [], attraction: [], snowPct: [], snowDepthCm: [] };
@@ -62,14 +62,14 @@ function run(srcDir) {
     if (g !== w) failures.push(`${name}: got ${g}, want ${w}`);
   };
 
-  // Fixture A: Apr 2025 (key 24303) .. Jun 2026 (24317, the month in progress), 15 months; i0 First, i2 GAP, i7 Partial,
+  // Fixture A: Apr 2025 (key 24303) .. Jun 2026 (24317, the month in progress), 15 months. i0 First, i2 GAP, i7 Partial,
   // i5 buildings unknown, i14 Current.
   const A = area(24303, 15, (i) => i === 2 ? GAP : {
     flags: i === 0 ? 64 : i === 7 ? 1 : i === 14 ? 128 : 0,
     tourists: 100 + 10 * i, residents: 50, skiDays: i % 2 === 0 ? 20 : -1, ticketIncome: 1000, lodgeIncome: 200, passIncome: i === 3 ? 3000 : 0,
     lessonIncome: 50, liftCost: 300, runCost: 100, buildingsCost: i === 5 ? -1 : 400, wagesCost: 600, attraction: 40 + i, snowPct: i < 5 ? 80 : -1,
   });
-  // Fixture B: Feb 2026 (24313) .. Jun 2026, 5 months; snapshot and ski days unknown.
+  // Fixture B: Feb 2026 (24313) .. Jun 2026, 5 months. Snapshot and ski days unknown.
   const B = area(24313, 5, (i) => ({ flags: i === 0 ? 64 : i === 4 ? 128 : 0, tourists: 10, ticketIncome: 100, attraction: 20 }));
   // Fixture C: Jan 2000 (24000) .. Oct 2005 (24069), 70 whole months.
   const C = area(24000, 70, () => ({ tourists: 1, buildingsCost: 0, wagesCost: 0 }));
@@ -163,7 +163,7 @@ function run(srcDir) {
   const yN = { now: { net: 500 }, before: { net: 5000 } };
   eq("TH9.7 netChange: the year-on-year change in money (not a %), null without both months", [R.netChange(yN), R.netChange(R.yearOnYear(A)), R.netChange(R.yearOnYear(B)), R.netChange(R.yearOnYear(null))], [-4500, 0, null, null]);
   // TH10 (T142 B7b): snow depth per month, contract 15. Point value like the coverage: averaged over the months that know it, the
-  // areas averaged in Whole city; a missing or short snowDepthCm array reads unknown and never shortens the other series.
+  // areas averaged in Whole city. A missing or short snowDepthCm array reads unknown and never shortens the other series.
   const F = area(24303, 3, (i) => ({ tourists: 1, snowPct: 80, snowDepthCm: [100, -1, 40][i] }));
   const F2 = area(24303, 3, (i) => ({ tourists: 2, snowPct: 60, snowDepthCm: [200, 50, -1][i] }));
   const fS = R.seasonBuckets(F, 2024, 2024)[0];

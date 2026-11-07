@@ -1,9 +1,9 @@
 /*
  * The registrar: the only code the game calls directly. The game calls every mod's registrar in ONE loop with no try/catch
- * (index.js@800454): a throwing registrar skips every later mod. So it NEVER throws (each append and the whole body in try/catch;
- * failures go to the console and are queued for C#), is append-only on documented hooks, and appends PLAIN FUNCTIONS wrapping an
- * ErrorBoundary. The "/*!" banner comment on `hasCSS` is load-bearing (tools/check-bundle.js checks it); never write the at-sign
- * words license/preserve in src comments (terser extracts them too).
+ * (index.js@800454), so a throwing registrar skips every later mod. So the registrar NEVER throws. It wraps each append and the
+ * whole body in try/catch (failures go to the console and are queued for C#). It is append-only on documented hooks. It appends
+ * PLAIN FUNCTIONS that wrap an ErrorBoundary. The "/*!" banner comment on `hasCSS` is load-bearing (tools/check-bundle.js checks it).
+ * Never write the at-sign words license/preserve in src comments (terser extracts them too).
  * Engine notes: EngineNotes/index.tsx.md
  */
 import type { ModRegistrar } from "cs2/modding";
@@ -16,7 +16,7 @@ import { HubRoot } from "./hub/HubRoot";
 import { queueRegistrarError } from "./hub/report";
 
 /*! SkiResortMod UI module - Modular Ski Resort for Cities: Skylines II (MIT license). */
-// Read by the game's module loader: fetch SkiResortMod.css (index.js@2306554).
+// The game's module loader reads this and fetches SkiResortMod.css (index.js@2306554).
 export const hasCSS = true;
 
 /** "UniversalModMenu": the square in the Universal Mod Panel. */

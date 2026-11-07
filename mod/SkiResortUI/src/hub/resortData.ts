@@ -1,8 +1,8 @@
 /*
  * src/hub/resortData.ts - which resort the hub shows, and which rows belong to it. Pure functions (no React), called on each render.
- * Switcher entries: the sign rows (kind 0) in C#'s order, then the "Not linked" row (kind 1) only when it has any run, lift row or
- * lodge. The current entry is the row whose sign equals C#'s selectedResort (Entity.Null = Not linked, which C# always sends); while
- * the selection names no row the first entry is shown, and the UI never "fixes" the selection by sending one of its own.
+ * Switcher entries: the sign rows (kind 0) in C#'s order. Then the "Not linked" row (kind 1), only when it has any run, lift row or
+ * lodge. The current entry is the row whose sign equals C#'s selectedResort (Entity.Null = Not linked, which C# always sends).
+ * While the selection names no row, the UI shows the first entry. The UI never "fixes" the selection by sending one of its own.
  * List rows of the selected resort: `sameEntity(row.sign, selected)`.
  */
 import type { Entity } from "cs2/utils";
@@ -69,7 +69,7 @@ export function entryKey(row: ResortRow): string {
   return row.kind === 1 ? "unlinked" : `${row.sign.index}:${row.sign.version}`;
 }
 
-/** The sign (or Null) of the entry `step` places after the current one, wrapping around. */
+/** The sign (or Null) of the entry `step` places after the current one. The list wraps at its ends. */
 export function stepResort(e: ResortEntries, cur: CurrentResort, step: number): Entity | null {
   const n = e.entries.length;
   if (n < 2) return null;

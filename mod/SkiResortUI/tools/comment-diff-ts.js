@@ -1,5 +1,6 @@
-// Proves a comment-only edit of the hub sources: every changed .ts / .tsx / .js file under mod/SkiResortUI must print
-// identically (TypeScript printer, comments removed) to its version at the given git ref. Exit 1 on any code change.
+// Proves that an edit changed only comments in the hub sources. For every changed .ts / .tsx / .js file under mod/SkiResortUI,
+// the TypeScript printer (comments removed) must print the same text as for that file at the given git ref.
+// Exit 1 on any code change.
 // Usage (from mod/SkiResortUI): node tools/comment-diff-ts.js [ref=HEAD]
 const { execFileSync } = require("child_process");
 const ts = require("typescript");

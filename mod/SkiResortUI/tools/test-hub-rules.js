@@ -1,15 +1,15 @@
 /*
- * tools/test-hub-rules.js - literal oracles for src/hub/hubRules.ts (pure display rules); tools/check-bundle.js runs it as
+ * tools/test-hub-rules.js - literal oracles for src/hub/hubRules.ts (pure display rules). tools/check-bundle.js runs it as
  * rule R18 (full gate and --contract-only, against --src= when given). Standalone: `node tools/test-hub-rules.js [srcDir]`
  * prints `test-hub-rules: N check(s), failures=0`.
- * Compiles src/bindings.ts and src/hub/hubRules.ts with the installed typescript (transpileModule, CommonJS) and runs them in
- * a vm context: cs2/api is stubbed (bindValue returns { value: fallback }, trigger is a no-op), __BUILD_STAMP__ = "test".
- * No new npm package. Exports run(srcDir) -> { checks, failures: string[] }.
+ * The test compiles src/bindings.ts and src/hub/hubRules.ts with the installed typescript (transpileModule, CommonJS). It runs them
+ * in a vm context. cs2/api is stubbed (bindValue returns { value: fallback }, trigger is a no-op), __BUILD_STAMP__ = "test".
+ * It needs no new npm package. It exports run(srcDir) -> { checks, failures: string[] }.
  * T11 reads bindings.ts too (FALLBACK.city, TRIP_PLANNER_UNKNOWN), the same compiled module hubRules.ts imports. priceFactor /
  * priceFactorPct take a tolerance, so the T10 table rows call them through an arrow (Array.map would pass the INDEX as the
  * tolerance). T12 runs the pickers over the real buildItems.ts BUILD_ITEMS, which load() compiles too. T20 checks the History
  * view and runs tools/test-history-rules.js.
- * A new rule in hubRules.ts adds its literal rows here (oracles are literals, never recomputed).
+ * A new rule in hubRules.ts adds its literal rows here. Oracles are literals, never recomputed.
  */
 "use strict";
 const fs = require("fs");
@@ -31,7 +31,7 @@ function load(srcDir, ts) {
     const mod = { exports: {} };
     cache.set(abs, mod);
     const req = (spec) => {
-      // hubRules.ts itself may load no value but ../bindings - a cs2/* value import would otherwise pass against the stubs
+      // hubRules.ts itself may load no value but ../bindings. A cs2/* value import would otherwise pass against the stubs
       // below (type-only imports are erased by transpileModule and never reach here).
       if (abs === rulesFile && spec !== "../bindings") {
         throw new Error(`test-hub-rules: hubRules.ts imports the value(s) of "${spec}" - it must stay pure (values only from ../bindings)`);
@@ -47,9 +47,10 @@ function load(srcDir, ts) {
     return mod.exports;
   };
   const rules = compile(path.join(srcDir, "hub", "hubRules.ts"));
-  // The bindings module hubRules.ts loaded (same cache entry, so the same values) for T11; buildItems.ts (BUILD_ITEMS, the table
-  // the strip passes to the pickers) for T12, importing values only from ../bindings (the purity check above applies to
-  // hubRules.ts only); historyRules.ts for T20, pure like hubRules.ts (its own purity check is in tools/test-history-rules.js).
+  // This returns the bindings module that hubRules.ts loaded (same cache entry, so the same values) for T11. It also returns
+  // buildItems.ts (BUILD_ITEMS, the table the strip passes to the pickers) for T12. That file imports values only from ../bindings
+  // (the purity check above applies to hubRules.ts only). The last is historyRules.ts for T20, pure like hubRules.ts (its own
+  // purity check is in tools/test-history-rules.js).
   return { rules, bindings: compile(path.join(srcDir, "bindings.ts")), items: compile(path.join(srcDir, "hub", "buildItems.ts")),
     history: compile(path.join(srcDir, "hub", "historyRules.ts")) };
 }
@@ -179,7 +180,7 @@ function run(srcDir) {
     R.footerState(true, false, true, true), R.footerState(true, false, false, true), R.footerState(true, false, false, false)],
     ["empty", "follow", "active", "locked", "idle"]);
   eq("T5.13 run kinds", ["runNatural", "runGroomed", "runSnowmaking", "runNight", "lift"].map(R.runKindOfItem), [3, 0, 1, 2, undefined]);
-  // Every kind (a line of any lift type reads "about per km"; an unknown kind reads its cost).
+  // Every kind (a line of any lift type reads "about per km", and an unknown kind reads its cost).
   const full = item({ cost: 125000, costPerKm: 15000, price: 500, pricePerHa: 250 });
   eq("T5.14 line1 every kind", ["sign", "lodge", "school", "patrol", "station", "line", "run", undefined, "bogus"].map((k) => R.line1Variant(k, full)),
     ["cost", "cost", "cost", "cost", "cost", "lift", "run", "cost", "cost"]);
@@ -247,7 +248,7 @@ function run(srcDir) {
   eq("T9.4 skiDayTip", [R.skiDayTip(sd(1)), R.skiDayTip(sd(4)), R.skiDayTip(sd(6, 1)), R.skiDayTip(sd(7, 2)), R.skiDayTip(sd(5)), R.skiDayTip(sd(6, 0))],
     ["off", "noLodge", "runs", "lodges", null, null]);
 
-  // T10 ticket price line: the price factor; T10.1's table is also ResortBatch HubRulesTests H17 (the C# half, on factors).
+  // T10 ticket price line: the price factor. T10.1's table is also ResortBatch HubRulesTests H17 (the C# half, on factors).
   const prices = [0, 5, 40, 45, 80, 100, 120, 150, 200, 260];
   // priceFactor / priceFactorPct take a tolerance (default 0), so every row calls them through an arrow.
   const pf = (p) => R.priceFactor(p), pfp = (p) => R.priceFactorPct(p);
@@ -285,7 +286,7 @@ function run(srcDir) {
     ["baseStation", "lift", "lodge", "runGroomed", "runNatural", "runNight", "runSnowmaking", "sign", "topStation"]);
   const TWO_LODGES = FG_ONLY.concat(sent("lodgeMid"));
   eq("T12.3 two tiers sent: lodge set", R.pickerSets(TWO_LODGES, META).lodge, ["lodge", "lodgeMid"]);
-  // Every sent lodge tier is its own Buildings tile; the lodge choice does not filter.
+  // Every sent lodge tier is its own Buildings tile. The lodge choice does not filter.
   eq("T12.4 T114: every sent tier drawn", [R.visibleIds(TWO_LODGES, META, NO).has("lodge"), R.visibleIds(TWO_LODGES, META, NO).has("lodgeMid")], [true, true]);
   eq("T12.5 T114: a lodge choice hides no tier", [R.visibleIds(TWO_LODGES, META, { lodge: "lodgeMid", lift: "" }).has("lodge"),
     R.visibleIds(TWO_LODGES, META, { lodge: "lodgeMid", lift: "" }).has("lodgeMid")], [true, true]);
@@ -316,7 +317,7 @@ function run(srcDir) {
     ["patrolHQ", "patrolHut", "school"]);
   eq("T12.20 unknown ids and junk are ignored", R.pickerSets([null, { id: 7 }, item({ id: "runPowder" })].concat(FG_ONLY), META), { lodge: ["lodge"], lift: ["fixedGrip"] });
 
-  // T13 price tolerance (C# SkiDayRules.PriceFactor(price, tolerance); ResortBatch SkiDayTests holds the C# half).
+  // T13 price tolerance (C# SkiDayRules.PriceFactor(price, tolerance)). ResortBatch SkiDayTests holds the C# half.
   eq("T13.1 priceFactor(price, tolerance)", [[80, 0], [80, 20], [80, 40], [200, 40], [250, 40], [0, 40], [200, 0]].map(([p, t]) => R.priceFactor(p, t)),
     [0.8, 0.9, 1, 0.4, 0.4, 1, 0.2]);
   eq("T13.2 priceFactorPct(price, tolerance)", [[80, 0], [80, 20], [80, 40], [200, 40], [250, 40]].map(([p, t]) => R.priceFactorPct(p, t)), [80, 90, 100, 40, 40]);
@@ -363,7 +364,7 @@ function run(srcDir) {
     ["depot", "buildings", "buildings", null]);
   eq("T17.3 spot rows", [kindTabs.sign, kindTabs.lodgeGrand, kindTabs.school, kindTabs.patrolHQ, kindTabs.liftTram, kindTabs.topStationGondola, kindTabs.runNight],
     ["buildings", "buildings", "buildings", "buildings", "lifts", "lifts", "runs"]);
-  // The safety net fence (a net prefab drawn like a path) is a Runs-tab tile of its own kind, not a run item and not a lift or a building.
+  // The safety net fence (a net prefab drawn like a path) is a Runs-tab tile of its own kind. It is not a run item and not a lift or a building.
   eq("T17.3b the safety fence: kind fence, Runs tab, not a run item, its own group, its own style-E icon (SkiSafetyFence.png, 2026-10-26)",
     [META.find((m) => m.id === "safetyFence").kind, kindTabs.safetyFence, R.RUN_ITEMS.has("safetyFence"), R.runKindOfItem("safetyFence"), R.tabOfKind("fence"),
       ITEMS.BUILD_GROUPS.filter((g) => g.includes("safetyFence")).map((g) => g.length), ITEMS.BUILD_ITEM_ICON.safetyFence === "assetdb://global/0e39601f806f95d2a8a542e3575d7e75",
@@ -426,7 +427,7 @@ function run(srcDir) {
     [rejectKeys, BIND.QUICK_REJECT_BUCKETS, BIND.FALLBACK.quickRuns.rejects.length, BIND.HUB_CONTRACT >= 20], [BIND.QUICK_REJECT_BUCKETS, 8, 8, true]);
   // T18 source checks over the texts and the Attraction view. (a) Snow is ALWAYS two numbers, depth in cm and run coverage in %:
   // the MOUNTAIN snow entries name both, no "Snow now" label survives, and OverviewView.tsx renders both fields. (b) No wall of
-  // text: every tooltip entry (a key with "TIP") is at most 25 words; a word is a token with a letter, a digit or a {PLACEHOLDER}
+  // text: every tooltip entry (a key with "TIP") is at most 25 words. A word is a token with a letter, a digit or a {PLACEHOLDER}
   // ("·", ">", "×", "%" do not count). The two lift-money tips carry live figures and a billing rule, so they are capped at
   // their own length (CG-T8 caps them at 42 / 44).
   const textSrc = fs.readFileSync(path.join(srcDir, "hub", "hubText.ts"), "utf8") + "\n" + fs.readFileSync(path.join(srcDir, "l10n.ts"), "utf8");
@@ -446,14 +447,14 @@ function run(srcDir) {
   for (const [k, v] of tuples) if (/TIP/.test(k) && words(v) > (CAPS[k] ?? 25)) over.push(`${k} ${words(v)}`);
   eq("T18.4 every tooltip text is at most 25 words (lift-money tips: their T80 caps)", over, []);
 
-  // T19 the ski school's row state; the Lessons and School rows flag a 0 with "No ski school" / "No green run".
+  // T19 the ski school's row state. The Lessons and School rows flag a 0 with "No ski school" / "No green run".
   const S1 = { index: 1, version: 1 }, S2 = { index: 2, version: 1 };
   const P25 = [{ sign: S1, code: BIND.PROBLEM.SchoolNoGreenRun }];
   eq("T19.1 schoolState", [R.schoolState({ schoolValue: 12 }, P25, S1), R.schoolState({ schoolValue: 0 }, P25, S1), R.schoolState({ schoolValue: 0 }, P25, S2),
     R.schoolState({ schoolValue: 0 }, [], S1), R.schoolState({ schoolValue: -1 }, [], S1), R.schoolState(null, P25, S1)],
     ["on", "noGreen", "none", "none", "unknown", "unknown"]);
   // A built school (the tile's AlreadyBuilt lock) at 0 is never "No ski school": no counted run (live.summer) -> "waiting", runs
-  // count with no row 25 -> "off" (switched off); row 25 still wins; the lock must be the school's.
+  // count with no row 25 -> "off" (switched off). Row 25 still wins. The lock must be the school's.
   const AB = R.REASON_ALREADY_BUILT;
   eq("T19.2 schoolBuiltOf", [R.schoolBuiltOf([{ id: "school", locked: true, reason: AB }]), R.schoolBuiltOf([{ id: "school", locked: true, reason: "SkiResort.Hub.REASON[Locked]" }]),
     R.schoolBuiltOf([{ id: "lodge", locked: true, reason: AB }]), R.schoolBuiltOf([{ id: "school", locked: false, reason: "" }]), R.schoolBuiltOf(null)],
@@ -468,7 +469,7 @@ function run(srcDir) {
     R.schoolState({ schoolValue: 0, summer: true }, [], S1, R.schoolBuiltOf([{ id: "school", locked: true, reason: AB }])), "waiting");
   eq("T19.6 the views pass the lock", [fs.readFileSync(path.join(srcDir, "hub", "OverviewView.tsx"), "utf8").includes("schoolBuiltOf(build)"), fs.readFileSync(path.join(srcDir, "hub", "MoneyView.tsx"), "utf8").includes("schoolBuiltOf(build)")], [true, true]);
   // The run stripe has its own band: .buildTile lays out from the top under an 8 rem padding (the
-  // stripe is absolute at top 2, height 4), border-box, height 12 rem + 44 rem x fontScale; never centered content again.
+  // stripe is absolute at top 2, height 4), border-box, height 12 rem + 44 rem x fontScale. Do not center the content again.
   {
     const scss = fs.readFileSync(path.join(srcDir, "hub", "hub.module.scss"), "utf8");
     const tile = (scss.match(/\n\.buildTile \{[^}]*\}/) || [""])[0].replace(/\/\/[^\n]*/g, "");
@@ -487,7 +488,7 @@ function run(srcDir) {
     eq("T23.2 tier label, upgrade line", [strip.includes("LODGE_TIER[id] ?? BUILD_LABEL.lodge"),
       (strip.match(/HUB_LOC\.buildActiveUpgrade/g) || []).length], [true, 0]);
   }
-  // T24 the header selector. Its item counts (singular forms; the Not linked row adds its free lodges) and the source facts the
+  // T24 the header selector. Its item counts (singular forms, and the Not linked row adds its free lodges) and the source facts the
   // gate cannot see: the vanilla Dropdown with FOCUS_DISABLED, DropdownItem from the shim, picking = selectResort(entrySign), the
   // drag guard around it, the note.
   eq("T24.1 resortCountsVariant", [[5, 3], [1, 3], [5, 1], [1, 1], [0, 0], [1, 0], [0, 1]].map(([r, l]) => R.resortCountsVariant(r, l)),
@@ -498,7 +499,7 @@ function run(srcDir) {
     [{ runs: 5, lodges: 3 }, { runs: 1, lodges: 1 }, { runs: 0, lodges: 0 }, { runs: 0, lodges: 0 }]);
   {
     // The name is a plain Button (FOCUS_DISABLED, drag guard) that opens AreaList, an overlay in the content (no Dropdown, no
-    // Portal); picking = selectResort(entrySign(r)); note and caption (the list title) stay.
+    // Portal). Picking = selectResort(entrySign(r)). Note and caption (the list title) stay.
     const header = fs.readFileSync(path.join(srcDir, "hub", "HubHeader.tsx"), "utf8");
     const panel = fs.readFileSync(path.join(srcDir, "hub", "HubPanel.tsx"), "utf8");
     eq("T24.3 T114 selector source: no Dropdown, name Button with FOCUS_DISABLED + drag guard, AreaList in the panel body, selectResort(entrySign(r)), note, caption",
@@ -546,15 +547,15 @@ function run(srcDir) {
       [/set="lodge"/.test(strip), strip.includes("<FamilySetView family={family}"), tiles.includes("liftsTile(row, l)")], [false, true, true]);
   }
 
-  // T25 problem 26 (top-level schools on no sign) renders and flies to the school; the school's hints say "goes near the sign" and
-  // its active line is the plain one (it is no upgrade); a launcher click with no mounted HubRoot reports and still sends toggleHub.
+  // T25 problem 26 (top-level schools on no sign) renders and flies to the school. The school's hints say "goes near the sign", and
+  // its active line is the plain one (it is no upgrade). A launcher click with no mounted HubRoot reports and still sends toggleHub.
   eq("T25.1 code 26: variant schoolsNotLinked, click flies to the subject", [BIND.PROBLEM.SchoolsNotLinked, R.problemVariant(P(NUL, 26, 1, { count: 2 })), R.problemClick(P(NUL, 26, 1))],
     [26, "schoolsNotLinked", "sign"]);
   {
     const strip = fs.readFileSync(path.join(srcDir, "hub", "BuildStrip.tsx"), "utf8");
     const status = fs.readFileSync(path.join(srcDir, "hub", "StatusBlock.tsx"), "utf8");
     eq("T25.2 school hints: never the selected-sign hint; active line plain; row 26 drawn with its FMT text and tip",
-      // The school's hint is its own BUILD_SHORT[School]; no selected-sign hint exists.
+      // The school's hint is its own BUILD_SHORT[School]. No selected-sign hint exists.
       [(strip.match(/case "school": return HUB_LOC\.buildShortSchool;/g) || []).length === 1, !strip.includes("buildHintLodgeSelected"),
         strip.includes('k === "lodge" || k === "school"'), status.includes("HUB_FMT.problemSchoolsNotLinked"), status.includes("HUB_LOC.problemTipSchoolsNotLinked")],
       [true, true, false, true, true]);
@@ -603,7 +604,7 @@ function run(srcDir) {
   const historyUsers = allSrc.filter(([p, s]) => /\bhistory\$/.test(s) && !/bindings\.ts$/.test(p)).map(([p]) => path.relative(srcDir, p).split(path.sep).join("/"));
   eq("T20.6 history$ is subscribed only by the History view (C# builds `history` only while it is observed)", historyUsers, ["hub/HistoryView.tsx"]);
   // T142 B7b (contract 15): the store has the depth too, so the Attraction strip's hover names a month's snow, always as the pair
-  // (both labels, both fields, in one conditional block: neither number alone); still no snow line or series in a chart.
+  // (both labels, both fields, in one conditional block: neither number alone). A chart still has no snow line or series.
   const snowBlock = (viewSrc.match(/hovered\.snowDepthCm >= 0 \|\| hovered\.snowPct >= 0\) \? \[([\s\S]*?)\] : \[\]/) || [, ""])[1];
   eq("T20.7 History shows snow only as depth + coverage together in the strip hover (T18), never as a chart line",
     [["HUB_LOC.mountainSnowDepth", "HUB_LOC.mountainSnowCover", "hovered.snowDepthCm", "hovered.snowPct"].map((x) => snowBlock.includes(x)),
@@ -611,9 +612,9 @@ function run(srcDir) {
     [[true, true, true, true], true]);
   eq("T20.8 the History tile shows a glyph, not a number from `history` (ViewTiles never reads history$)", /history\$/.test(read(path.join("hub", "ViewTiles.tsx"))), false);
   // T21 source checks for what the pure rules cannot see: two money series (income blue, costs red, the validated pair) and the
-  // legend Income / Costs / Net; lines take linePoints, the chart hatches gaps and has a scale gutter with "0"; the status line
-  // renders STATUS_SNOW with depth and coverage; the receipt's six operator cells, no "of 200"; no attraction control or strip in
-  // Whole city; our own History glyph.
+  // legend Income / Costs / Net. Lines take linePoints. The chart hatches gaps and has a scale gutter with "0". The status line
+  // renders STATUS_SNOW with depth and coverage. The receipt has six operator cells, no "of 200". Whole city has no attraction
+  // control or strip. The view uses our own History glyph.
   const chartSrc = read(path.join("hub", "HistoryChart.tsx"));
   const statusSrc = read(path.join("hub", "StatusBlock.tsx"));
   const tilesSrc = read(path.join("hub", "ViewTiles.tsx"));
@@ -634,8 +635,8 @@ function run(srcDir) {
   const glyphSvg = fs.readFileSync(path.join(srcDir, "hub", "HistoryGlyph.svg"), "utf8");
   eq("T21.6 B8: the History tile uses our HistoryGlyph.svg (three bars + a baseline), not the game's CityStatistics.svg",
     [tilesSrc.includes('from "./HistoryGlyph.svg"'), tilesSrc.includes('"Media/Game/Icons/CityStatistics.svg"'), (glyphSvg.match(/<rect /g) || []).length], [true, false, 4]);
-  // T22 the Finances column holds the Net's eight rows in order and they add up to netMonth (C#'s invariant: Σ max(0, income) −
-  // Σ max(0, cost); -1 reads 0); an income row is hidden only while it is 0; the harness rows satisfy the invariant and equal
+  // T22 the Finances column holds the Net's eight rows in order, and they add up to netMonth (C#'s invariant: Σ max(0, income) −
+  // Σ max(0, cost). -1 reads 0). An income row is hidden only while it is 0. The harness rows satisfy the invariant and equal
   // their area's month in progress in History.
   const N8 = { ticketsThisMonth: 1000, lodgeIncomeMonth: 200, lessonIncomeMonth: 50, passIncomeMonth: 3000, liftChargedMonth: 300, runCostMonth: 100,
     buildingsSoFar: 400, wagesSoFar: 600, busChargedMonth: 0 };
@@ -701,7 +702,7 @@ function run(srcDir) {
     const work = bl.find((b) => b.name === "Workplace");
     const tf = bl.find((b) => b.name === "BuildingTerraformOverride");
     const last = (t, fld) => { const all = [...t.matchAll(new RegExp('"' + fld + '": (true|false)', "g"))]; return all.length ? all[all.length - 1][1] === "true" : false; };
-    // The catalog row that names this build id (rows start at "new LodgeDef(" / "new PatrolDef(" / "new SchoolDef("); its signJobs, if any.
+    // The catalog row that names this build id (rows start at "new LodgeDef(" / "new PatrolDef(" / "new SchoolDef("), with its signJobs if any.
     const rows = catalogCs.split(/new (?:LodgeDef|PatrolDef|SchoolDef)\(/).slice(1).map((r) => r.slice(0, r.indexOf(")")));
     const own = rows.find((r) => r.includes('"' + id + '"'));
     const sj = own ? /signJobs: (\d+)/.exec(own) : null;
@@ -720,8 +721,8 @@ function run(srcDir) {
   const linkText = [...tuples.entries()].filter(([, v]) => /join(s|ed)? (this ski area's |the )?Welcome Sign|(near|on) (this ski area's |the |a )?(selected )?Welcome Sign|needs staff/i.test(v)).map(([k]) => k);
   eq("T29.3 no hub text tells the player a building joins or goes near the Welcome Sign, or that it \"needs staff\" (T129)", linkText, []);
   // A depth is a number with cm or ft, or with in not followed by a word ("0 in Options", "0 in the net" are not depths). Checked
-  // on the text WITHOUT its placeholders, so a {DEPTH} text cannot also bake a threshold ("3 ft reached", "opens at 3 ft (91 cm)"
-  // slipped through the first version: the "ft + word" exception and the {DEPTH} exemption; DECISIONS 381).
+  // on the text WITHOUT its placeholders, so a {DEPTH} text cannot also bake a threshold. The first version let "3 ft reached" and
+  // "opens at 3 ft (91 cm)" slip through because of the "ft + word" exception and the {DEPTH} exemption (DECISIONS 381).
   const bakedDepth = [...tuples.entries()].filter(([, v]) => /\d\s*(cm|ft)\b|\d\s*in\b(?!\s+[A-Za-z])/.test(v.replace(/\{[A-Z_]+\}/g, ""))).map(([k]) => k);
   eq("T29.4 no hub text bakes a snow depth (the open depth is C#'s and changes, T133; depth goes through {DEPTH})", bakedDepth, []);
   const stripSrc = read(path.join("hub", "BuildStrip.tsx"));
@@ -732,8 +733,8 @@ function run(srcDir) {
   const listViews = ["RunsView.tsx", "LiftsView.tsx"].map((v) => read(path.join("hub", v)));
   eq("T30.1 Runs / Lifts: every row in one list (styles.listAll), no useFitPage, no <Pager>",
     listViews.map((v) => [v.includes("styles.listAll"), /useFitPage|<Pager/.test(v)]), [[true, false], [true, false]]);
-  // T31 (DECISIONS 423b) the cat track delete: a trash only on a cat track row (other rows keep an empty slot), armed by the first click,
-  // sent by the second; the trigger is the deleteCatTrack one (C# queues it and applies it in OnUpdate).
+  // T31 (DECISIONS 423b) the cat track delete: a trash only on a cat track row (other rows keep an empty slot), armed by the first click
+  // and sent by the second. The trigger is the deleteCatTrack one (C# queues it and applies it in OnUpdate).
   const runList = read(path.join("hub", "RunList.tsx"));
   // Since the 2026-11-07 redesign the trash sits on the picked cat track's name line in the Runs view's context area (RunPropRows), so
   // every list row keeps the same columns without an empty slot.
@@ -745,7 +746,7 @@ function run(srcDir) {
   eq("T31.3 the arm times out (4 s) and picking another run disarms (RunPropRows keyed by the focused run)",
     [runList.includes("setTimeout(() => setArmed(false), 4000)"), read(path.join("hub", "RunsView.tsx")).includes("<RunPropRows key={focusedId} row={focusedRow} />")], [true, true]);
   // T32 (contract 19, field test 2026-10-26b) the Runs tab's Delete cat tracks chip: the catTrackDeleteMode value (off by default, C#
-  // owns it and follows the tool) and the setCatTrackDeleteMode(bool) trigger; the chip flips the C# value and is drawn on the ok panel
+  // owns it and follows the tool) and the setCatTrackDeleteMode(bool) trigger. The chip flips the C# value and is drawn on the ok panel
   // only, beside the Quick runs chip, always (nothing moves under the mouse).
   eq("T32.1 binding, trigger and fallback (off)",
     [BIND.BINDING.catTrackDeleteMode, BIND.TRIGGER.setCatTrackDeleteMode, BIND.FALLBACK.catTrackDeleteMode, BIND.HUB_CONTRACT >= 19,
@@ -762,9 +763,9 @@ function run(srcDir) {
   const hubTuples = read(path.join("hub", "hubText.ts")).split("\n")
     .map((l) => /\["(?:SkiResort|Assets)[^"]*", "([^"]*)"\]/.exec(l)).filter(Boolean).map((m) => m[1]);
   eq("T34 no over-instructive hub text", [hubTuples.length > 500, hubTuples.filter((s) => obvious.test(s))], [true, []]);
-  // T35 (contract 28) the Runs view's prop rows: Fewer / More on a spacing ladder (DECISIONS 601). Range from RunPropPlacerRules (tools/check-run-props.js compares the constants); the rows act on the focused run.
+  // T35 (contract 28) the Runs view's prop rows: Fewer / More on a spacing ladder (DECISIONS 601). Range from RunPropPlacerRules (tools/check-run-props.js compares the constants). The rows act on the focused run.
   const step = R.runPropSpacingStep;
-  // DECISIONS 601: Fewer / More walk the ladder one way; More from off lands on 50, Fewer past 200 is off, a between-rungs value steps to the next rung
+  // DECISIONS 601: Fewer / More walk the ladder one way. More from off lands on 50. Fewer past 200 is off. A between-rungs value steps to the next rung
   eq("T35.1 runPropSpacingStep", [step(0, true), step(0, false), step(50, true), step(50, false), step(20, true), step(200, false), step(90, true), step(90, false), step(25, true), step(30, true)],
     [50, 0, 40, 60, 20, 0, 80, 100, 20, 20]);
   const propRows = read(path.join("hub", "RunPropControls.tsx"));
@@ -778,7 +779,7 @@ function run(srcDir) {
     [read(path.join("hub", "RunList.tsx")).includes("row.kind !== RUN_KIND.Natural && row.bound && {\n          label: t(HUB_LOC.runCost)")], [true]);
 
   // T36 (owner verdict 2026-11-02: warn, never refuse) code 30 LiftBend: a dim band row naming the lift, the bend (detail = tenths) and the
-  // tower (count); its click flies to the bent tower (focusLift with the tower node as subject and no top, SkiResortHubUISystem).
+  // tower (count). Its click flies to the bent tower (focusLift with the tower node as subject and no top, SkiResortHubUISystem).
   eq("T36.1 code 30: variant liftBend, click lift, info glyph", [BIND.PROBLEM.LiftBend, R.problemVariant(P(A, 30, 1, { count: 7, detail: 124 })),
     R.problemClick(P(A, 30, 1)), R.problemIcon(P(A, 30, 1)).tone], [30, "liftBend", "lift", "info"]);
   {
@@ -787,8 +788,8 @@ function run(srcDir) {
       [status.includes("HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.FloatSingleFraction), N }}"),
         status.includes("HUB_LOC.problemTipLiftBend")], [true, true]);
   }
-  // T37 code 31 LiftTrainLimit: a dim band row naming the lift and the tower (count) whose rope goes past what its sheave train follows;
-  // its click flies to that tower like LiftBend (subject = the tower node, no top).
+  // T37 code 31 LiftTrainLimit: a dim band row naming the lift and the tower (count) whose rope goes past what its sheave train follows.
+  // Its click flies to that tower like LiftBend (subject = the tower node, no top).
   eq("T37.1 code 31: variant liftTrainLimit, click lift, info glyph", [BIND.PROBLEM.LiftTrainLimit,
     R.problemVariant(P(A, 31, 1, { count: 7 })), R.problemClick(P(A, 31, 1)), R.problemIcon(P(A, 31, 1)).tone],
     [31, "liftTrainLimit", "lift", "info"]);
@@ -798,8 +799,8 @@ function run(srcDir) {
       [status.includes("HUB_FMT.problemLiftTrainLimit} args={{ NAME, N }}"), status.includes("HUB_LOC.problemTipLiftTrainLimit")],
       [true, true]);
   }
-  // T38 code 32 LiftLowSpan: a dim band row naming the lift, its carriers (pct 1 = cabins), their height (detail tenths; 0 = touching)
-  // and the span (count / more = tower numbers, 0 = a station); its click flies to the low point (subject = the span's edge, no top).
+  // T38 code 32 LiftLowSpan: a dim band row naming the lift, its carriers (pct 1 = cabins), their height (detail tenths, 0 = touching)
+  // and the span (count / more = tower numbers, 0 = a station). Its click flies to the low point (subject = the span's edge, no top).
   eq("T38.1 code 32: variant liftLowSpan, click lift, info glyph", [BIND.PROBLEM.LiftLowSpan,
     R.problemVariant(P(A, 32, 1, { count: 3 })), R.problemClick(P(A, 32, 1)), R.problemIcon(P(A, 32, 1)).tone],
     [32, "liftLowSpan", "lift", "info"]);
@@ -818,7 +819,7 @@ function run(srcDir) {
   }
   {
     // T39 band slots (DECISIONS 588 f): C# SortAndCut counts a folded code as ONE of MaxBandRows slots, so its folded codes must be
-    // the ones foldBandRows folds; and the C# cut of P50 (lodges off, four "No power", a missing section, an unfinished line, chairs
+    // the ones foldBandRows folds. And the C# cut of P50 (lodges off, four "No power", a missing section, an unfinished line, chairs
     // stopped, a bend, a train limit, a low span: eight slots in eleven rows) folds to eight band rows with the low span last.
     // the real C# beside this tool (a --src= copy run, check-bundle R18 and the gate fixtures, has no C# tree at srcDir/../..)
     const cs = fs.readFileSync(path.join(__dirname, "..", "..", "SkiResortMod", "Systems", "HubRules.cs"), "utf8");
@@ -835,8 +836,8 @@ function run(srcDir) {
       [band.length, band[1].group.length, band[band.length - 1].row.code, R.bandSlots(band).more], [8, 4, 32, 7]);
   }
   {
-    // 2026-11-02 small calls: a band row whose tooltip only repeated it has none; the CAR SPACES header names every lodge, its rows
-    // "this lodge"; the Guests tooltips name the bare month, as the bars do.
+    // 2026-11-02 small calls: a band row whose tooltip only repeated it has none. The CAR SPACES header names every lodge, its rows
+    // "this lodge". The Guests tooltips name the bare month, as the bars do.
     const status = read(path.join("hub", "StatusBlock.tsx"));
     const guests = read(path.join("hub", "GuestsView.tsx"));
     const text = read(path.join("hub", "hubText.ts"));
@@ -851,9 +852,9 @@ function run(srcDir) {
   }
 
   // T40 the design language (hub redesign 2026-11-07, docs/research/ui/redesign-2026-11-07/vanilla-design-language.md section 5):
-  // every color literal of hub.module.scss stands in the token block (rgba(0, 0, 0, 0) excepted); no legacy-only variable outside
-  // the .legacy-interface block (they follow the old interface, the hub follows the game's current one through --hubGood / Bad /
-  // Caution); the tokens sit on the panel, the cards and the tooltip body.
+  // every color literal of hub.module.scss stands in the token block (rgba(0, 0, 0, 0) excepted). No legacy-only variable outside
+  // the .legacy-interface block (they follow the old interface, and the hub follows the game's current one through --hubGood / Bad /
+  // Caution). The tokens sit on the panel, the cards and the tooltip body.
   {
     const scss = fs.readFileSync(path.join(srcDir, "hub", "hub.module.scss"), "utf8");
     const end = scss.indexOf("// ---- end of tokens");
@@ -865,7 +866,7 @@ function run(srcDir) {
 
   // T41 a count names what it counts (hub redesign 2026-11-07, DECISIONS 613): the band's "+3" read as an attraction delta and
   // "3 more" still left "3 more what?". No player string may show a count placeholder (N, COUNT, MORE, NUM) signed ("+{N}")
-  // or end on "{N} more" without its noun; "Runs without a lift: {N}", "{N} more problems" and "{NAME} and {N} more" (the named
+  // or end on "{N} more" without its noun. "Runs without a lift: {N}", "{N} more problems" and "{NAME} and {N} more" (the named
   // item is the noun) are fine.
   {
     const COUNT = "\\{(?:N|COUNT|MORE|NUM)\\}";

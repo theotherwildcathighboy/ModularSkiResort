@@ -2,15 +2,15 @@
 * tools/sync-types.js - copy the game's cs2/* TypeScript declarations into ./types (git-ignored).
 *
 * The declarations ship only inside the game install (Cities2_Data/Content/Game/.ModdingToolchain/
-* npx-create-csii-ui-mod/template/types) and carry no license text, so they are copied at build time, every build,
-* instead of committed. That also makes a game patch's new typings arrive automatically.
+* npx-create-csii-ui-mod/template/types) and carry no license text. The build therefore copies them on every build
+* and does not commit them. A game patch's new typings then arrive automatically.
 *
 * - Resolves the install path from the USER environment scope first (tools/user-env.js), then process.env.
-* - Copies every *.d.ts except validateTypes.ts (it imports ../src/index, and its "only default export is
-*   processed" comment is wrong: hasCSS is read too).
-* - Writes a file only when its content changed; deletes stale *.d.ts the game no longer ships.
-* - Exits non-zero (failing `npm run build` and the C# build's SkiUiBuild target) when the folder or a declaration
-*   for an externalized module is missing.
+* - Copies every *.d.ts except validateTypes.ts. That file imports ../src/index, and its "only default export is
+*   processed" comment is wrong: hasCSS is read too.
+* - Writes a file only when its content changed. Deletes stale *.d.ts files that the game no longer ships.
+* - Exits non-zero when the folder is missing or when a declaration for an externalized module is missing.
+*   This fails `npm run build` and the SkiUiBuild target of the C# build.
 */
 "use strict";
 
@@ -22,7 +22,7 @@ const ROOT = path.resolve(__dirname, "..");
 const DEST = path.join(ROOT, "types");
 const TEMPLATE_TYPES_REL = path.join(
   "Cities2_Data", "Content", "Game", ".ModdingToolchain", "npx-create-csii-ui-mod", "template", "types");
-// One declaration file per window external in webpack.config.js
+// One declaration file for each window external in webpack.config.js
 const REQUIRED = ["api.d.ts", "bindings.d.ts", "cohtml.d.ts", "input.d.ts", "l10n.d.ts", "modding.d.ts", "ui.d.ts", "utils.d.ts"];
 
 function fail(msg) {
