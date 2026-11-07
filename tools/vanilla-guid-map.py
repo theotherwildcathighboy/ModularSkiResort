@@ -1,6 +1,6 @@
 # vanilla-guid-map.py - map every vanilla prefab UnityGUID to its prefab name (2026-10-13, DECISIONS 230).
 # Reads Cities2_Data\resources.assets (Unity 2022.3.71f1, SerializedFile v22, no type trees): the MonoBehaviour
-# field "PrefabsMap" holds N GUID strings + N PPtrs; each target MonoBehaviour's m_Name sits at data+12+4+12.
+# field "PrefabsMap" holds N GUID strings + N PPtrs. The m_Name of each target MonoBehaviour sits at data+12+4+12.
 # Read-only. Run with Blender's python: "C:\Program Files (x86)\Steam\steamapps\common\Blender\5.2\python\bin\python.exe" -I tools\vanilla-guid-map.py
 # Writes docs/research/field/2026-10-13/guid-harvest.json (the S1 targets) and vanilla-guid-map.json (all 47,432).
 # Edit the "targets" list for a new harvest; validate against the known GUIDs printed first.
