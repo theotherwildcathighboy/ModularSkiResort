@@ -46,7 +46,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.OpenHubOnSignSelect)),
                     "Selecting a Ski Area Welcome Sign opens the Ski Resort hub beside its panel. " +
-                    "It never closes the hub; close it with its X or Escape."
+                    "It never closes the hub. The hub closes with its X or Escape."
                 },
 
                 // --- Balance and Snow ---
@@ -63,7 +63,8 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiDayLocalsPct)),
                     "How often residents spend a day out skiing. More attraction, fresh snow and a shorter trip " +
-                    "bring more; a lift ticket price above 40 brings fewer. 0 turns ski days off for residents. Default 25 %."
+                    "bring more. A lift ticket price above 40 brings fewer. 0 turns ski days off for residents. " +
+                    "Default 25 %."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SkiDayTouristsPct)),
@@ -89,8 +90,8 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiDayPowderPct)),
-                    "How much a fresh-snow day adds. At 100 % a full powder day doubles the residents who go; " +
-                    "at 0 powder brings no extra skiers. Default 100 %."
+                    "How much a fresh-snow day adds. At 100 % a full powder day doubles the residents who go. " +
+                    "At 0, powder brings no extra skiers. Default 100 %."
                 },
 
                 // --- Balance and Snow, continued ---
@@ -102,20 +103,20 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiAreaRadiusKm)),
                     "How far a ski area reaches from its Welcome Sign. Lifts, lodges, ski schools and patrol huts belong to the " +
-                    "nearest sign within this distance and follow a change while the game runs. A run joins the nearest sign within it when drawn " +
-                    "and keeps that sign. Default 5 km (3.1 mi)."
+                    "nearest sign within this distance. They update when this value changes, also while the game runs. A run " +
+                    "links to the nearest sign within it when you draw it and keeps that sign. Default 5 km (3.1 mi)."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.AttractivenessScaleK)),
-                    "Attractiveness scale (K)"
+                    "Attraction scale (K)"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.AttractivenessScaleK)),
-                    "How much a ski area's runs and lifts add to its attraction score. Score = lodge base " +
-                    "+ K times the square root of its runs and running lifts, times variety and vertical, " +
-                    "then times the Welcome Sign's efficiency, at most 200. Default 4: in winter, with " +
-                    "every run open, at full efficiency, a small ski area scores about 50, a medium one " +
-                    "about 95, a large one about 160."
+                    "How much a ski area's runs and lifts add to its attraction score. Score = (lodge base " +
+                    "+ K × the square root of (runs and running lifts × variety × vertical)) × the Welcome " +
+                    "Sign's efficiency, at most 200. Default 4: in winter, with every run open, at full " +
+                    "efficiency, a small ski area scores about 50, a medium one about 95, a large one " +
+                    "about 160."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.BackcountryValuePercent)),
@@ -136,9 +137,9 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
                     "What each guest pays on arrival, one price for every ski area. Resort income shows in the Economy panel under public " +
-                    "transportation fees: the game has no ski line. Above 40 it lowers ski days " +
-                    "(about 90 % as many at 60, 80 % at 80, 20 % at 200); visitors the game sends on its own come " +
-                    "at any price and still pay it. 0 turns lift tickets off. Default 80."
+                    "transportation fees: the game has no ski line. Above 40 it lowers ski days: about 90 % as many at 60, 80 % at 80, 20 " +
+                    "% at 200. Visitors the game sends on its own come at any price and still pay it. 0 turns lift tickets off. Default " +
+                    "80."
                 },
                 // Lodge spend per guest: "price 0 = nothing charged" is documented in the slider tip. Multipliers: SkiCatalog.LodgeDef.SpendMultiplier.
                 {
@@ -147,7 +148,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LodgeSpendPerGuest)),
-                    "What each paying ski guest also spends at the lodge they arrive at, more at bigger lodges: at the " +
+                    "What each paying ski guest also spends at the lodge they arrive at. Bigger lodges get more: at the " +
                     "default, 15 at a hut or A-frame, 23 at a chalet and 45 at a summit or grand lodge. It comes out of " +
                     "what the household has left after the lift ticket, so nothing is spent while lift tickets are off. " +
                     "0 turns it off. Default 15."
@@ -179,9 +180,9 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.OffSeasonHalfStaff)),
-                    "On: when a ski area has had no open run for half a day, its lodges and ski school keep half their " +
-                    "jobs, so half the wages, until a run opens again. Upkeep stays. A deactivated lodge costs a tenth of its " +
-                    "upkeep and no wages. Default on."
+                    "On: after half a day with no open run in a ski area, its lodges and ski school keep half their " +
+                    "staff and pay half the wages. This lasts until a run opens again. Upkeep stays. A deactivated " +
+                    "lodge costs a tenth of its upkeep and no wages. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
@@ -189,10 +190,10 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
-                    "The share of resident households that buy a season pass (the season starts 5 months before the map's winter). Each household within reach " +
-                    "rolls once when a ski area opens for a new season, at this share times its chance of skiing there; " +
-                    "households that moved in later or live farther away roll on their first visit. Holders ski free at " +
-                    "the gate and go skiing more often. Tourists never buy one. 0 turns passes off. Default 50 %."
+                    "The share of resident households that buy a season pass (the season starts 5 months before the map's winter). Each household within the " +
+                    "longest ski-day trip rolls once when a ski area opens for a new season, at this share times its chance of skiing there. Households that " +
+                    "moved in later, or live farther away, roll on their first visit. Holders ski free at the gate and go skiing more often. Tourists never buy " +
+                    "one. 0 turns passes off. Default 50 %."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassMultiplier)),
@@ -201,7 +202,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassMultiplier)),
                     "A season pass costs this many lift tickets at the ticket price when it is sold, locked for the " +
-                    "season. It pays off for a household that skis more often than this many times. Needs a lift " +
+                    "season. It saves money for a household that skis more often than this many times. Needs a lift " +
                     "ticket price above 0. Default 2."
                 },
                 {
@@ -210,12 +211,12 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.EnableSnowGating)),
-                    "On: a run adds to its ski area's score only while snow lies on it - open when 60 % " +
-                    "of it has 91 cm (3 ft) of snow, closed below 40 % (measured in the game's own snow, or estimated " +
-                    "from the climate until the first measurement). A ski area with no open run counts " +
-                    "as summer sightseeing. Off: every run counts as open all year, for maps without " +
-                    "winter. Runs pay upkeep only while their grooming or snow guns run, so on a warm " +
-                    "map with gating off they cost no upkeep. Default on."
+                    "On: a run adds to its ski area's score only while snow lies on it. A run opens when " +
+                    "60 % of it has 91 cm (3 ft) of snow and closes below 40 %. The snow is measured in " +
+                    "the game's own snow, or estimated from the climate until the first measurement. A " +
+                    "ski area with no open run counts as summer sightseeing. Off: every run counts as " +
+                    "open all year, for maps without winter. Runs pay upkeep only while their grooming " +
+                    "or snow guns run, so on a warm map with gating off they cost no upkeep. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SnowmakingBonusCelsius)),
@@ -224,21 +225,22 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowmakingBonusCelsius)),
                     "Snow guns on snowmaking runs, night runs and cat tracks work where the air on the run is at most " +
-                    "this many degrees above freezing, from 2 months before winter to 1 month after, until the run has 91 cm (3 ft) of snow. " +
-                    "Higher means a longer season and a bigger snowmaking bill. Default 3.3 °C (6 °F): guns run in air up to 3.3 °C (38 °F)."
+                    "this many degrees above freezing. They work from 2 months before winter to 1 month after, until " +
+                    "the run has 91 cm (3 ft) of snow. Higher means a longer season and a bigger snowmaking bill. " +
+                    "Default 3.3 °C (6 °F): guns run in air up to 3.3 °C (38 °F)."
                 },
                 // --- Runs (bind on draw + drawing feedback) ---
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupRuns), "Runs" },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.EnableBindOnDraw)),
-                    "Bind runs the moment they are drawn"
+                    "Link runs the moment they are drawn"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.EnableBindOnDraw)),
-                    "When enabled, a run drawn within the ski area radius of a Ski Area Welcome Sign joins " +
-                    "the resort (and is charged) immediately, even while paused, and waiting " +
-                    "runs join the moment a sign is placed. Disabled, runs join on the next " +
-                    "periodic check, which only happens while the game is running. Default on."
+                    "When enabled, a run drawn within the ski area radius of a Ski Area Welcome Sign links " +
+                    "to that ski area at once (and pays its fee), also while the game is paused. Waiting " +
+                    "runs link the moment a sign is placed. Disabled: runs link at the next periodic check, " +
+                    "which happens only while the game is running. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ShowRunGradeWhileDrawing)),
@@ -247,8 +249,9 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowRunGradeWhileDrawing)),
                     "When enabled, drawing or editing a ski run shows a slope heat-map over " +
-                    "the run (gray flat, green, blue, black, red double black) and a tooltip " +
-                    "with its rating, hardest unavoidable pitch, length and vertical drop. Default on."
+                    "the run: gray flat, green, blue, black, red double black. A tooltip " +
+                    "shows its rating, hardest unavoidable pitch, length and vertical drop. " +
+                    "Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ContourLinesWhileDrawingRuns)),
@@ -257,7 +260,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ContourLinesWhileDrawingRuns)),
                     "When enabled, terrain contour lines turn on while a ski run is selected " +
-                    "in the area tool and turn off again afterwards. If you already had them " +
+                    "in the area tool and turn off again afterward. If you already had them " +
                     "on, they stay on. Default on."
                 },
                 // The winter snow line while placing
@@ -267,11 +270,12 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowSnowLineWhilePlacing)),
-                    "When enabled, drawing a ski run or placing a Ski Area Welcome Sign draws two lines on the terrain: the " +
-                    "average winter snow line (where the December-February average climate reaches freezing, even in " +
-                    "summer) and a fainter one below it where snow guns start to work. The tooltip gives both heights and the height " +
-                    "under the cursor; while placing a sign, also the lowest and highest dry ground within the ski area radius, " +
-                    "the vertical above the snow line, and how much ground lies above it. Default on."
+                    "When enabled, drawing a ski run or placing a Ski Area Welcome Sign draws two lines on the terrain. One " +
+                    "is the average winter snow line, where the December-February average climate reaches freezing, even in " +
+                    "summer. A fainter one below it shows where snow guns start to work. The tooltip gives both heights and " +
+                    "the height under the cursor. While you place a sign, it also gives the lowest and highest dry ground " +
+                    "within the ski area radius, the vertical above the snow line, and how much ground lies above it. " +
+                    "Default on."
                 },
                 // The ski area ring
                 {
@@ -378,9 +382,9 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.QuickRunsEnabled)),
-                    "Outline a mountainside and the planner proposes lifts and a set of linked runs around them: you review and change the " +
-                    "plan, place the lift stations yourself, and build the runs in one go, with an optional tree filler. Experimental. " +
-                    "Off: the tool cannot open and its hub button is grayed. Default off."
+                    "Outline a mountainside and the planner proposes lifts and a set of linked runs around them. You review and change the " +
+                    "plan, place the lift stations yourself, and build the runs together, with an optional tree filler. Experimental. Off: " +
+                    "the tool cannot open and its hub button is grayed. Default off."
                 },
 
                 // --- Lifts ---
@@ -391,8 +395,8 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftBuildAids)),
-                    "Guide line and offset readout while placing a station; a warning on the bulldozer " +
-                    "showing what a click on a lift removes. Default on."
+                    "Shows a guide line and an offset readout while you place a station. The bulldozer " +
+                    "warns what a click on a lift removes. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LiftTowerPlanner)),
@@ -400,8 +404,9 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTowerPlanner)),
-                    "After you draw or change a lift line, its towers are raised and moved along the line so the chairs " +
-                    "and cabins stay at least 3 m (10 ft) above the ground (trams 5 m, 16 ft). Off: the towers stay where the game puts them. Default on."
+                    "After you draw or change a lift line, the mod raises its towers and moves them along the line. " +
+                    "Chairs and cabins then stay at least 3 m (10 ft) above the ground (trams 5 m, 16 ft). Off: the " +
+                    "towers stay where the game puts them. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.AnimatedLiftCarriers)),
@@ -429,9 +434,10 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.PlannerOnMainThread)),
-                    "For field tests, off by default. The Resort Planner scans on a background thread; turn this on to scan on the " +
+                    "For field tests, off by default. The Resort Planner scans on a background thread. Turn this on to scan on the " +
                     "game's main thread in small steps instead (slower, same result). Use it only if a scan never finishes or the " +
-                    "log reports a scan worker error. A worker error turns the Resort Planner off until the next game load. Default off."
+                    "log reports a scan worker error. A worker error turns the Resort Planner off until the next game load. Default " +
+                    "off."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CopyDiagnostics)),
@@ -466,11 +472,11 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.DeleteAllResortContent)),
                     "Removes everything Modular Ski Resort placed in this city: lifts and their towers, stations, lodges, the ski school, " +
-                    "patrol huts, Welcome Signs, ski runs, cat tracks, safety fences and the trees the glade tool or the Resort Planner " +
-                    "planted. Use it before you unsubscribe. Your own power lines, roads and buildings are not touched. Terrain graded " +
-                    "for cat tracks stays as it is, snow already on the runs melts with the weather, and felled trees do not come back. " +
-                    "If one of your power lines ends at a base station, bulldoze that last span first. This cannot be undone: save your " +
-                    "city first. Available only in a loaded city."
+                    "patrol huts, Welcome Signs, ski runs, cat tracks, safety fences and the trees the tree tool or the Resort Planner " +
+                    "planted. Use it before you unsubscribe. Your own power lines, roads and buildings are not touched. Terrain graded for " +
+                    "cat tracks stays as it is. Snow already on the runs melts with the weather. Felled trees do not come back. If one of " +
+                    "your power lines ends at a base station, bulldoze that last span first. This cannot be undone: save your city first. " +
+                    "Available only in a loaded city."
                 },
                 {
                     m_Setting.GetOptionWarningLocaleID(nameof(SkiResortSettings.DeleteAllResortContent)),
@@ -484,13 +490,14 @@ namespace SkiResortMod.Settings
                 { m_Setting.GetBindingMapLocaleID(), "Modular Ski Resort" },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ToggleGladeToolBinding)),
-                    "Glade tool: toggle"
+                    "Tree tool: toggle"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleGladeToolBinding)),
-                    "Opens or closes the ski-run glade tool. Point at a run of a ski area " +
-                    "to preview it at the chosen tree density (felled, removed and " +
-                    "planted trees); left click applies. Works in a loaded city only. Default Ctrl+Shift+G."
+                    "Opens or closes the tree tool. Point at a run of a ski area to " +
+                    "preview it at the chosen tree density (felled, removed and planted " +
+                    "trees). Left click applies. Works in a loaded city only. Default " +
+                    "Ctrl+Shift+G."
                 },
                 // The lift-line tool
                 {
@@ -499,10 +506,10 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleLiftLineToolBinding)),
-                    "Opens or closes the lift-line tool: click a lift station, then the other station of the same lift. " +
+                    "Opens or closes the lift-line tool. Click a lift station, then the other station of the same lift. " +
                     "The planned towers appear (fewest towers, tall ones where they save a tower). Click on the line to " +
-                    "add a tower, drag a tower to move it (release it off the line to remove it), right click or Esc to " +
-                    "step back, then press the Build key. Default Ctrl+Shift+L."
+                    "add a tower. Drag a tower to move it, or release it off the line to remove it. Right click or Esc " +
+                    "steps back. Then press the Build key. Default Ctrl+Shift+L."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleLiftLine), "Toggle lift-line tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleLiftLine), "Lift-line tool" },
@@ -537,7 +544,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackDeleteModeBinding)),
                     "Turns the cat track tool's delete mode on or off. In delete mode, click a cat track to select it and click it " +
                     "again to delete it (the ground stays graded, no refund). Right click or Esc leaves delete mode. Only while the " +
-                    "tool is open; the hub Runs tab's Delete cat tracks chip does the same. Default Ctrl+Shift+D."
+                    "tool is open. The hub Runs tab's Delete cat tracks chip does the same. Default Ctrl+Shift+D."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActCatTrackDeleteMode), "Cat track delete mode" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActCatTrackDeleteMode), "Delete mode" },
@@ -553,29 +560,30 @@ namespace SkiResortMod.Settings
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleQuickRuns), "Toggle Resort Planner" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleQuickRuns), "Resort Planner" },
-                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleGlade), "Toggle glade tool" },
-                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleGlade), "Glade tool" },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleGlade), "Toggle tree tool" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleGlade), "Tree tool" },
                 // The two persisted actions keep their names. Only the labels and descriptions change.
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.GladeNextVariantBinding)),
-                    "Glade tool: next tree density (1-8)"
+                    "Tree tool: next tree density (1-8)"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.GladeNextVariantBinding)),
-                    "Steps the tree density the glade tool brings a run to: 1 clears the run, each higher " +
-                    "level holds more trees per hectare (felling or planting to reach it), 8 is a thick " +
-                    "forest; after 8 it starts again at 1. Only while the glade tool is open. Default Shift+G."
+                    "Steps the tree density the tree tool brings a run to. 1 clears the run, each higher " +
+                    "level holds more trees per hectare (felling or planting to reach it), and 8 is a " +
+                    "thick forest. After 8 it starts again at 1. Only while the tree tool is open. Default " +
+                    "Shift+G."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActGladeNextVariant), "Next tree density" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActGladeNextVariant), "Tree density" },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.GladeNextModeBinding)),
-                    "Glade tool: interior / tree line"
+                    "Tree tool: interior / tree line"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.GladeNextModeBinding)),
-                    "Switches what the glade tool works on: the trees inside the run, or the tree " +
-                    "line along its outside edge. Only while the glade tool is open. Default Alt+G."
+                    "Switches what the tree tool works on: the trees inside the run, or the tree " +
+                    "line along its outside edge. Only while the tree tool is open. Default Alt+G."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActGladeNextMode), "Interior / tree line" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActGladeNextMode), "Interior / tree line" },
@@ -586,7 +594,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.DumpDiagnosticsBinding)),
-                    "Writes the drawing-feedback and glade-tool state to the mod log, also while a run is on the cursor. Needs Measurement diagnostics on. Default Ctrl+Alt+G."
+                    "Writes the drawing-feedback and tree-tool state to the mod log, also while a run is on the cursor. Needs Measurement diagnostics on. Default Ctrl+Alt+G."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActDumpDiagnostics), "Dump diagnostics" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActDumpDiagnostics), "Dump" },

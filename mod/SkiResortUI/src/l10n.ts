@@ -18,7 +18,7 @@ export const LOC = {
   launcherTooltip: ["SkiResort.Hub.LAUNCHER_TOOLTIP", "Ski Resorts"],
   notConnected: ["SkiResort.Hub.NOT_CONNECTED", "The mod is not answering: its hub system is missing or failed. See SkiResortMod.Mod.log."],
   stampDiffers: ["SkiResort.Hub.STAMP_DIFFERS", "The UI bundle comes from a different build than the DLL."],
-  uiError: ["SkiResort.Hub.UI_ERROR", "The Ski Resort panel hit an error and was closed. Details are in the mod log."],
+  uiError: ["SkiResort.Hub.UI_ERROR", "The Ski Resort hub hit an error and was closed. Details are in the mod log."],
 } as const; // TypeScript 4.8: no `satisfies`
 
 export type Translate = (entry: LocEntry) => string;

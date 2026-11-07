@@ -18,14 +18,14 @@ score = min( 200 , efficiency × ( lodge base + K × √S ) )
 S     = ( runs + lifts + Ski School ) × variety × vertical
 ```
 
-- **K:** option *Attractiveness scale*, default **4**. All runs open, full efficiency: small ski area about **50**, medium about **95**, large about **160**.
-- **Square root:** doubling runs and lifts does not double the score. The game squares each building's attractiveness when counting tourists, so tourists scale in proportion to ski area size.
+- **K:** option *Attraction scale*, default **4**. All runs open, full efficiency: small ski area about **50**, medium about **95**, large about **160**.
+- **Square root:** doubling runs and lifts does not double the score. The game squares each building's attraction score when counting tourists. So tourists scale in proportion to ski area size.
 - **Cap:** **200**.
-- **Hub:** receipt rows per term; full equation in the section header tooltip.
+- **Hub:** receipt rows per term. The full equation is in the section header tooltip.
 
 ## Lodge Base
 
-Best lodge contributes its **base**; every other lodge contributes its **extra**. Extras are capped at **24**.
+The best lodge contributes its **base**. Every other lodge contributes its **extra**. Extras are capped at **24**.
 
 | Lodge | Base | Extra |
 |---|---|---|
@@ -58,8 +58,8 @@ Snow moves the score: a closed run adds **0**. The receipt shows both the actual
 
 ### Size Factor
 
-Bigger runs are worth more, with diminishing returns: each doubling of the area adds only about **0.21**. A run of
-2 ha is the reference (**1**); the cap of **2** needs about 56 ha.
+Bigger runs are worth more, with diminishing returns. Each doubling of the area adds only about **0.21**. A run of
+2 ha is the reference (**1**). The cap of **2** needs about 56 ha.
 
 | Area | Size factor |
 |---|---|
@@ -89,11 +89,11 @@ Each complete, powered lift adds its type's **score value**.
 
 ## Ski School
 
-**+12** while a green run counts; otherwise **0**. The hub names the cause.
+**+12** while a green run counts. Otherwise **0**. The hub names the cause.
 
 ## Variety
 
-**×1.15** while a green, a blue and a black (or harder) run all count; otherwise **×1**.
+**×1.15** while a green, a blue and a black (or harder) run all count. Otherwise **×1**.
 
 ## Vertical
 
@@ -103,7 +103,7 @@ Drop from the lowest run bottom to the highest run top, among counting runs.
 vertical factor = 1 + clamp( vertical meters ÷ 600 , 0 , 1 )
 ```
 
-**×1** at 0 m; **×2** at 600 m or more.
+**×1** at 0 m. **×2** at 600 m or more.
 
 ## Efficiency
 
@@ -115,11 +115,11 @@ Welcome Sign efficiency as in its info panel: staff, power, water, sewage, garba
 
 ## Tourist Draw
 
-The score is the ski area's attractiveness in the game's tourist formula.
+The score is the ski area's attraction score in the game's tourist formula.
 
-- **Lodge panels:** show **0** (the ski area carries the score).
+- **Lodge info panels:** show **0** (the ski area carries the score).
 - **Game counting:** each building's score squared. The hub shows this ski area's **share of the city's tourist draw**.
-- **Effect:** the share sets how many tourists come to the city; their destination is unaffected.
+- **Effect:** the share sets how many tourists come to the city. Their destination is unaffected.
 
 <Aside type="note" title="Ski Days">
 Ski days are a separate stream: mod-owned visitors reacting to score, fresh snow, distance and lift ticket price.

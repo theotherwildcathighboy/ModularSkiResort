@@ -7,28 +7,28 @@ import { Aside } from '@astrojs/starlight/components';
 import Icon from '../../../components/Icon.astro';
 
 <Aside type="note" title="Build Tooltip">
-Listed prices are defaults. The build tile tooltip shows the actual price. Jobs and upkeep per month are billed
+Listed prices are defaults. The build tile tooltip shows the actual price. Staff wages and upkeep per month are billed
 under Parks & Recreation.
 </Aside>
 
 ## Welcome Sign
 
-The ski area. Runs, lifts and buildings within its radius (**5 km** by default, option **Ski area radius**) belong to it (the nearest sign wins). Every lodge, the Ski School and the patrol buildings are standalone buildings, not sign upgrades.
+The ski area. Runs, lifts and buildings within its radius (**5 km** by default, option **Ski area radius**) belong to it (the nearest sign wins). Every lodge, the Ski School and the patrol buildings are standalone buildings. They are not sign upgrades.
 
 | | |
 |---|---|
 | Icon | <Icon name="building-welcome-sign" alt="Welcome Sign icon" /> |
 | Name | Ski Area Welcome Sign |
 | Cost | 12,000 |
-| Lot | 2 x 2 cells; the sign stands about 8 m back from the road, on leveled ground |
+| Lot | 2 x 2 cells. The sign stands about 8 m back from the road, on leveled ground. |
 | Requirements | Road at its front: place it snapped to a road (the setback is built in). |
-| Move | **Relocate** in its info panel; its runs stay linked. Bulldozing it deletes every run linked to it, with the runs' glade trees; run fees are not refunded. |
+| Move | **Relocate** in its info panel. Its runs stay linked. Bulldozing it deletes every run linked to it, with the runs' glade trees. Run fees are not refunded. |
 
 ## Lodges
 
-Guest entry points; capacity and score source.
+Guest entry points. Source of skier room and score.
 
-| Lodge | Build | Upkeep / month | Jobs | Base / extra | Holds at once | Ticket tolerance | Spend |
+| Lodge | Build | Upkeep / month | Staff | Base / extra | Holds at once | Ticket tolerance | Spend |
 |---|---|---|---|---|---|---|---|
 | <Icon name="lodge-hut" alt="Mountain Hut icon" /> Mountain Hut | 50,000 | 3,000 | 4 | 16 / 4 | 200 | +0 | ×1 |
 | <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> A-Frame Day Lodge | 40,000 | 3,000 | 4 | 20 / 4 | 360 | +0 | ×1 |
@@ -40,33 +40,33 @@ Guest entry points; capacity and score source.
 - **Holds at once:** ski-day skiers accepted at once (more on a powder day).
 - **Ticket tolerance:** ski days stay full up to a lift ticket price of **40** plus this.
 - **Spend:** multiplies *Lodge spend per guest* (default **15**): **15**, **23** or **45** per paying guest.
-- **Road:** not required for Mountain Hut and Swanky Summit Lodge. A-Frame, Chalet and Grand work off-road with a cat track within **25 m** chained to a lodge with a road or the Ski Bus Depot: no city utilities, no guests by road, no parking count. Those off-road lodges, the Hut, the Summit and both patrol buildings have no staff of their own: their jobs (Hut 4, Summit 8, patrol 2 each, an off-road lodge its own) sit on the area's active lodge with a road nearest the Welcome Sign, else on the sign.
-- **Off-season:** with no open run for 12 game hours, lodges and the Ski School keep half their jobs (rounded up) until a run opens. Upkeep is not reduced. Option *Half staff off-season*.
+- **Road:** not required for Mountain Hut and Swanky Summit Lodge. A-Frame, Chalet and Grand work off-road with a cat track within **25 m** chained to a lodge with a road or the Ski Bus Depot. They get no city utilities, no guests by road and no parking count. Those off-road lodges, the Hut, the Summit and both patrol buildings have no staff of their own. Their staff (Hut 4, Summit 8, patrol 2 each, an off-road lodge its own) sit on the job host. The job host is the area's active lodge with a road nearest the Welcome Sign, else the sign.
+- **Off-season:** with no open run for 12 game hours, lodges and the Ski School keep half their staff (rounded up) until a run opens. Upkeep is not reduced. Option *Half staff off-season*.
 - **Summer share of score:** **0.5** (Grand **0.6**). Hut **0.75** and Summit **1.0** when a working lift top station is within **300 m**, or a lift-served run within **100 m**.
 
 ## Ski Bus Depot
 
-A ski-day target in town for a far hill; no capacity, no score. [What it does](/guides/lodges-school-patrol/#ski-bus-depot).
+A ski-day target in town for a far hill. It adds no skier room and no score. [What it does](/guides/lodges-school-patrol/#ski-bus-depot).
 
 | | |
 |---|---|
 | Icon | <Icon name="building-bus-depot" alt="Ski Bus Depot icon" /> |
-| Cost / upkeep / jobs | 60,000 / 2,000 a month / 0 |
-| Coach bill | 1,500 a month + 300 per straight-line km to the area's nearest lodge on the hill, per depot; in the hub's Finances view, not in the Economy panel |
+| Cost / upkeep / staff | 60,000 / 2,000 a month / 0 |
+| Coach bill | 1,500 a month + 300 per straight-line km to the area's nearest lodge on the hill, per depot. It shows in the hub's Finances view, not in the Economy panel |
 | Link | Nearest Welcome Sign at any distance |
 | Road | Required |
-| Needs | At least one working lodge on the hill (a Mountain Hut or Swanky Summit Lodge counts) |
+| Needs | At least one working hill lodge (a Mountain Hut or Swanky Summit Lodge counts) |
 | Build limit | None |
 | Lot | 2 x 1 cells, on its own leveled pad |
 
 ## Ski School
 
-Lesson seller; green-run score bonus.
+Lesson seller. Green-run score bonus.
 
 | | |
 |---|---|
 | Icon | <Icon name="building-school" alt="Ski School icon" /> |
-| Cost / upkeep / jobs | 80,000 / 3,000 a month / 4 |
+| Cost / upkeep / staff | 80,000 / 3,000 a month / 4 |
 | Score | +12 to *Runs, lifts and school* while a green run counts |
 | Demand | Locals ski 20 % more often |
 | Lessons | [Passes and Lessons](/guides/passes-and-lessons/) |
@@ -78,8 +78,8 @@ Boosts steep and unserved runs nearby.
 
 | | <Icon name="building-patrol-hut" alt="Ski Patrol Hut icon" /> Patrol Hut | <Icon name="building-patrol-hq" alt="Ski Patrol HQ icon" /> Patrol HQ |
 |---|---|---|
-| Cost / upkeep / jobs | 15,000 / 1,500 a month / 2 | 15,000 / 1,500 a month / 2 |
-| Effect | Black and double-black runs within 1 km score 15 % more; unserved runs there count at least 70 % | Same |
+| Cost / upkeep / staff | 15,000 / 1,500 a month / 2 | 15,000 / 1,500 a month / 2 |
+| Effect | Black and double-black runs within 1 km score 15 % more. Unserved runs there count at least 70 %. | Same |
 | Road | Not required | Not required |
 
 ## Stations and Lines
@@ -88,7 +88,7 @@ See [Lift Types](/reference/lifts/).
 
 ## Runs
 
-Area-priced, by feature: a run pays the natural fee, and each feature it has adds its step, charged once (see [Run Features](/guides/runs-and-snow/#run-features)).
+Runs are priced by area and by feature. A run pays the natural fee, and each feature it has adds its step, charged once (see [Run Features](/guides/runs-and-snow/#run-features)).
 
 | Feature | Build fee | Upkeep / hectare / month | Score factor |
 |---|---|---|---|
@@ -96,7 +96,7 @@ Area-priced, by feature: a run pays the natural fee, and each feature it has add
 | <Icon name="run-groomed" alt="Groomed run icon" /> Groomed | +1,500 + 750 / ha (2,000 + 1,000 in all) | 150 | ×1 |
 | <Icon name="run-snowmaking" alt="Snow guns icon" /> Snow guns | +2,000 + 3,000 / ha | +350 | ×1 |
 | <Icon name="run-night" alt="Lights icon" /> Lights | +2,000 + 3,000 / ha | +300 | ×1.25 |
-| <Icon name="run-cat-track" alt="Cat track icon" /> Cat track | 2,000 + 1,000 / ha | 500 while its guns can run; +300 lit in its season | green ×0.25 |
+| <Icon name="run-cat-track" alt="Cat track icon" /> Cat track | 2,000 + 1,000 / ha | 500 while its guns can run. +300 lit in its season | green ×0.25 |
 
-- **Upkeep:** grooming and lights while the run has snow (also while its guns are stopped because the snow is deep enough), snow guns only where they make snow; a cat track by its plan area while its guns can run, plus lights by its plan area while lit in its snow season.
+- **Upkeep:** grooming and lights while the run has snow (also while its guns are stopped because the snow is deep enough). Snow guns only where they make snow. A cat track by its plan area while its guns can run, plus lights by its plan area while lit in its snow season.
 - **Skiers on the slope at once, per hectare:** green **45**, blue **25**, black **15**, double black **7.5**. Natural runs: half.

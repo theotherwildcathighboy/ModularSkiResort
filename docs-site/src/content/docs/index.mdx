@@ -25,19 +25,19 @@ import Shot from '../../components/Shot.astro';
 
 <CardGrid>
   <FeatureCard title="Lifts" icon="lift-detachable" alt="Detachable lift icon">
-    Fixed-grip and detachable chairlifts, gondolas and an aerial tram. Chairs and cabins ride the cable.
-    Tower height follows the terrain and the cable sags under the carriers.
+    Fixed-grip and detachable chairlifts, gondolas and an aerial tram. Chairs and cabins ride the rope.
+    Tower height follows the terrain and the rope sags under the carriers.
   </FeatureCard>
   <FeatureCard title="Runs" icon="run-groomed" alt="Groomed run icon">
-    Draw a run; its slope sets the rating, green to double black. Snow comes from the game's own simulation;
-    snow guns extend the season where it is cold enough.
+    Draw a run. Its slope sets the rating, green to double black. Snow comes from the game's own simulation.
+    Snow guns extend the season where it is cold enough.
   </FeatureCard>
   <FeatureCard title="Lodges, Ski School, Patrol" icon="lodge-grand" alt="Swanky Grand Lodge icon">
     **5** lodge tiers, a Ski School and two patrol buildings, all standalone buildings. The Welcome Sign starts the ski area.
-    Guests and locals ski; the city's tourism responds.
+    Guests and locals ski. The city's tourism responds.
   </FeatureCard>
   <FeatureCard title="Hub" icon="glyph-history" alt="Hub History tile glyph">
-    Interface for attractiveness score, runs, lifts, guests, finances, historical performance, and building tools.
+    Views for the attraction score, runs, lifts, guests, finances, historical performance, and building tools.
   </FeatureCard>
 </CardGrid>
 
@@ -59,32 +59,32 @@ import Shot from '../../components/Shot.astro';
 1. Subscribe to **Modular Ski Resort** on Paradox Mods. *(The link goes here at the first upload.)*
 2. **Dependencies:**
    - **Required mods:** none. Everything works on the base game.
-   - **Highly recommended:** Move It. Lift stations sit on the slope as placed and can end up partly in the hillside; Move It lifts them out.
-   - **Recommended:** Write Everywhere. With it the Welcome Sign shows your ski area's name; without it the sign keeps its plain "SKI AREA" header over a blank name board.
-   - **Optional:** Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding and other trip-planner mods. The mod detects them for labels and adjusts nothing. Those mods are maintained by others; the author does not control their updates or their compatibility.
+   - **Highly recommended:** Move It. Lift stations sit on the slope as placed and can end up partly in the hillside. Move It lifts them out.
+   - **Recommended:** Write Everywhere. With it the Welcome Sign shows your ski area's name. Without it the sign keeps its plain "SKI AREA" header over a blank name board.
+   - **Optional:** Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding and other trip-planner mods. The mod detects them for labels and adjusts nothing. Other people maintain those mods. The author does not control their updates or their compatibility.
 3. **Access:** the **Ski Resort** button at the top left. Nothing is added to the game's build menus.
 
 ## Compatibility
 
 - **Game version:** Cities: Skylines II 1.6.2f1
 - **Tested with:** Move It, Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding (unverified)
-- **Partly incompatible:** Realistic Trips. It replaces the game's own leisure and citizen-behavior systems, which ski days need, so with it installed the resort sends no skiers of its own (the panel shows a notice). Lifts, runs, snow and the buildings still work.
+- **Partly incompatible:** Realistic Trips. It replaces the game's own leisure and citizen-behavior systems, which ski days need. With it installed, the resort sends no skiers of its own (the hub shows a notice). Lifts, runs, snow and the buildings still work.
 
 ## Known Limitations
 
 - **Riders:** chairs and cabins move empty. Skiers are counted, not simulated.
-- **Chair numbers:** towers are numbered; chairs all show the same number.
-- **Stations:** no terrain flattening, so a station can sit partly in the hillside on steep ground (Move It fixes it). The aerial tram's base levels its own pad.
+- **Chair numbers:** towers are numbered. Chairs all show the same number.
+- **Stations:** no terrain flattening. A station can sit partly in the hillside on steep ground (Move It fixes it). The aerial tram's base levels its own pad.
 - **Summer:** chairlifts and gondolas stop when no run is open. The aerial tram keeps running as sightseeing.
 - **Power:** a lift needs a low-voltage line at its base station. The game refuses a city high-voltage line at a lift.
-- **Crossing lifts:** a lift crosses a lift of another type over or under it, where the towers can give the height the game needs. Two lifts of the same type cannot cross, and no crossing is built near a station, beside a tower of the other lift, or at an angle under 20°. See [Lifts, Terrain](/guides/lifts/#terrain).
+- **Crossing lifts:** a lift crosses a lift of another type over or under it, where the towers can give the height the game needs. Two lifts of the same type cannot cross. No crossing is built near a station, beside a tower of the other lift, or at an angle under 20°. See [Lifts, Terrain](/guides/lifts/#terrain).
 - **Cat tracks and lifts:** a cat track cannot pass under a lift that is already built. Build cat tracks first, then the lifts over them.
-- **Roads under lifts:** towers stand clear of roads, tracks and paths where the line allows it, but not of the roads and paths inside a building's lot. Where the line does not allow it, the game reports the tower as overlapping: move the road or the tower.
-- **Trees:** a lift fells the trees along its whole corridor, also where the cable runs high above them.
+- **Roads under lifts:** towers stand clear of roads, tracks and paths where the line allows it. They do not stand clear of the roads and paths inside a building's lot. Where the line does not allow it, the game reports the tower as overlapping. Move the road or the tower.
+- **Trees:** a lift fells the trees along its whole corridor, also where the rope runs high above them.
 - **Far hills:** a hill far from the city's homes and hotels gets few ski-day guests. The hub shows the distance.
 - **Language:** English only for now.
-- **Uninstall:** first bulldoze all lifts and runs, or use **Delete all ski resort content** (Options > Modular Ski Resort > Main > Reset), then save. Without that, buildings and stations turn into checkered placeholder blocks and runs stay as flat patches. See [Uninstall](/guides/lifts/#uninstall).
-- **Resort Planner:** experimental. It may change, and it is off until you turn it on in Options. It proposes lifts and builds runs only: you build its lifts yourself with the lift tool. On steep ground expect mostly black runs and few greens. See [Runs and Snow](/guides/runs-and-snow/#resort-planner-experimental).
+- **Uninstall:** first bulldoze all lifts and runs, or use **Delete all ski resort content** (Options > Modular Ski Resort > Main > Reset), then save. Without that, buildings and stations turn into checkered placeholder blocks. Runs stay as flat patches. See [Uninstall](/guides/lifts/#uninstall).
+- **Resort Planner:** experimental. It may change, and it is off until you turn it on in Options. It proposes lifts and builds runs only. You build its lifts yourself with the lift tool. On steep ground expect mostly black runs and few greens. See [Runs and Snow](/guides/runs-and-snow/#resort-planner-experimental).
 - **Saves:** start from a new city. Saves from test builds are not supported.
 
 ## Rough Roadmap
@@ -92,7 +92,7 @@ import Shot from '../../components/Shot.astro';
 *(subject to change)*
 
 - **First two weeks after launch:** assessing player feedback and gathering bug reports. Hot fixes for any mod-related crashes.
-- **Next two weeks:** UI and interface passes, and/or asset tune-ups (lifts riding the cable lines more accurately, turning bullwheels, etc.).
+- **Next two weeks:** UI and interface passes, and/or asset tune-ups (lifts riding the rope lines more accurately, turning bullwheels, etc.).
 - **December-ish:** summer activities ("mountain biking", "hiking trails").
 - **January:** more lift types: T-bars, 8-packs, etc.
 - **Sometime in the spring, after the Park Adventures patch:** expect large changes, and possibly Cims animated to ski, though the travel time down the trail still needs solving.

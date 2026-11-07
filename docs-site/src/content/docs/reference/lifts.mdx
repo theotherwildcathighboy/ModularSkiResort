@@ -7,7 +7,7 @@ import { Aside } from '@astrojs/starlight/components';
 import Icon from '../../../components/Icon.astro';
 
 <Aside type="note" title="Prices">
-Station and line prices are defaults; the build tile tooltip shows the actual price.
+Station and line prices are defaults. The build tile tooltip shows the actual price.
 </Aside>
 
 Four lift families. A line and its two stations share one type.
@@ -25,7 +25,7 @@ Four lift families. A line and its two stations share one type.
 | Base station | 60,000 | 125,000 | 190,000 | 300,000 |
 | Top station | 30,000 | 65,000 | 110,000 | 190,000 |
 | Line, per km | 7,500 | 15,000 | 21,875 | 33,750 |
-| Running cost, per month | 2,500 + 1,000 per km | 5,000 + 2,000 per km | 8,000 + 3,000 per km | 11,000 + 4,500 per km |
+| Upkeep, per month | 2,500 + 1,000 per km | 5,000 + 2,000 per km | 8,000 + 3,000 per km | 11,000 + 4,500 per km |
 | Score value (winter) | 6 | 15 | 25 | 30 |
 | Share of that value in summer | 25 % | 25 % | 25 % | 100 % |
 | Serves a run if | within 150 m of the line, ≤ 15 m above the top station | Same | Same | within 300 m of the top terminal |
@@ -34,8 +34,8 @@ Four lift families. A line and its two stations share one type.
 
 ## Running Cost
 
-- **Billing:** full amount every month, including without power.
-- **Reduction:** ×**0.25** while the lift is unfinished or its ski area has no open run. The tram keeps running with no open run and bills ×**0.5** then.
+- **Billing:** full upkeep every month, including without power.
+- **Reduction:** ×**0.25** while the lift is unfinished or its ski area has no open run. The tram keeps running with no open run and pays ×**0.5** then.
 
 ## Score Value
 
@@ -63,4 +63,4 @@ Shuttle: two cabins travel back and forth and dwell at each terminal.
 
 ## Summer
 
-A ski area with no open run for one game hour stops its chairlifts and gondolas. Only the tram keeps running, as sightseeing. A running tram with no open run bills **half** its running cost; a stopped lift bills **a quarter**.
+A ski area with no open run for one game hour stops its chairlifts and gondolas. Only the tram keeps running, as sightseeing. A running tram with no open run pays **half** its upkeep. A stopped lift pays **a quarter**.
