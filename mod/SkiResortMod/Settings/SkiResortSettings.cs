@@ -1,4 +1,4 @@
-// Mod options (Options > Mods > Modular Ski Resort). A setting for every balance constant, so players can fix tuning mistakes without
+// Mod options (Options > Modular Ski Resort). A setting for every balance constant, so players can fix tuning mistakes without
 // waiting for a patch. Property names are persisted: never rename them (labels may change). The Default* constants are the one copy of each
 // default. SetDefaults and every null-settings fallback use them. Systems read Mod.Settings?.X ?? DefaultX because Mod.Settings is null
 // before OnLoad and after OnDispose.
@@ -23,7 +23,10 @@ namespace SkiResortMod.Settings
     [SettingsUIKeyboardAction(ActGladeNextMode)]
     [SettingsUIKeyboardAction(ActDumpDiagnostics)]
     [SettingsUIKeyboardAction(ActToggleLiftLine)]
-    [SettingsUIKeyboardAction(ActBuildLiftLine)]
+    // BuildLiftLine (Enter) has its own usage, BuildUsage. No other binding has that usage, so the Options page shows no conflict
+    // triangle for Enter (ProxyBinding.cs:694, Usages.TestAny). The runtime conflict pass ignores usages (InputManager.cs:760,
+    // checkUsage false), so Enter works in our tools as before. See EngineNotes/SkiResortSettings.md.
+    [SettingsUIKeyboardAction(ActBuildLiftLine, ActionType.Button, BuildUsage)]
     [SettingsUIKeyboardAction(ActToggleCatTrackGrade)]
     [SettingsUIKeyboardAction(ActCatTrackDeleteMode)]
     [SettingsUIKeyboardAction(ActToggleQuickRuns)]
@@ -50,6 +53,9 @@ namespace SkiResortMod.Settings
         public const string ActDumpDiagnostics = "DumpDiagnostics";
         public const string ActToggleLiftLine = "ToggleLiftLineTool";
         public const string ActBuildLiftLine = "BuildLiftLine";
+        // The usage that only BuildLiftLine carries. Keep the name stable: the composite string carries it (InputManager.cs:2092).
+        // Whether a saved rebind stores it is unverified.
+        public const string BuildUsage = "SkiResortLineTools";
         public const string ActToggleCatTrackGrade = "ToggleCatTrackGradeTool";
         public const string ActCatTrackDeleteMode = "CatTrackDeleteMode";
         public const string ActToggleQuickRuns = "ToggleQuickRunsTool";

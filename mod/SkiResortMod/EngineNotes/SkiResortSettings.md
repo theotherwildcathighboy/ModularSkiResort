@@ -1,6 +1,6 @@
 # SkiResortSettings: option design, density polling and key-binding plumbing
 
-Options live under Options > Mods > Modular Ski Resort. Every balance constant has a setting so players can fix tuning mistakes
+Options live under Options > Modular Ski Resort. The mod has its own entry in the Options list and one page with no tab strip (seen in game 2026-11-07). Every balance constant has a setting so players can fix tuning mistakes
 without waiting for a patch. Never rename a property name, because the game persists the names (labels may change). The `Default*` constants are the
 one copy of each default: `SetDefaults` and every null-settings fallback use them. Each property names its readers. Systems read
 through `Mod.Settings?.X ?? DefaultX` (or a clamped `*Of` reader) because `Mod.Settings` is null before `OnLoad` and after
@@ -33,6 +33,13 @@ Key bindings are plain `ModSetting` members (no `UIInputActionCollection`, no re
   shows a conflict warning.
 - The actions only exist once `Mod.OnLoad` has called `RegisterKeyBindings()` (ModSetting.cs:141-231). Before that, `GetAction`
   returns null (:289-292). Mod actions start disabled (ProxyAction.cs:322-349). `SkiGladeHotkeySystem` enables them per mode.
+- The Options conflict triangle and the runtime conflict pass use different rules:
+  - The triangle: same key and at least one shared usage bit. Code: ProxyBinding.cs:414-455 and :694 (checkUsage true), Usages.TestAny.
+  - The runtime pass: same key only. Usages do not count (InputManager.cs:760, checkUsage false).
+  - With the default usages, Enter (BuildLiftLine) showed the triangle in the owner's playset. Enter still worked in our tools, because no
+    enabled action on Enter competes while they are open. Fix (2026-11-07): BuildLiftLine carries its own usage, SkiResortSettings.BuildUsage.
+    The triangle goes, and the key stays Enter. A custom name gets its own bit (Usages.AddOrGetUsage). The other actions keep the
+    default usages, so a real clash on a global toggle still shows the triangle.
 - A mod action always loses to an enabled vanilla system/UI action and is silently disabled (InputConflictResolution.cs:118-190,
   mods are never built-in, ModSetting.cs:181). Defaults therefore avoid camera keys. Whether vanilla binds Ctrl/Shift/Alt+G is
   input-asset data, not code (unverified). The conflict triangle of the options row answers it in the field.
