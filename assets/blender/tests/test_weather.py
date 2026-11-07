@@ -1,35 +1,54 @@
 """
 test_weather.py - tests for cs2_weather (design/weathering-layer.md section 11).
 
-Run:  blender --background --factory-startup --python-exit-code 1 --python tests\\test_weather.py
-Exit code 1 on any failure; prints one PASS line on success.
+Run the tests with this command:
 
-Fixture: a "kit cube" built with bmesh-free from_pydata parts (no cs2_bldg import), tagged
-with cs2_asset.tag_parts / store_part_table, with a hand-made isotropic UVUnique (one
-axis-aligned island per face, one island rotated 90 deg, uniform rho px/m; hidden faces at
-0.1 rho, one steel plate at 1.6 rho and one at 0.5 rho; skyline-packed with every rect corner
-on a texel EDGE, so no texel center sits on a face boundary at rho 40 or 80, and the
-RESERVED_RECT kept free):
-    wall_t       3.6 x 3.0 x 2.5 m closed timber box on z 0 (top face removed, as cull)
-    gable_t0/1   gable triangles;  roof_tS / roof_tN  25 deg slabs, 0.24 m thick, 0.6 m
-                 eave overhang (n.z 0.906), downward soffits
-    trim_t       0.15 m slot-1 trim board (floating);  bar_t  unslotted steel bar
-                 (override paint_steel, floating)
-    bracket_g    0.10 x 0.10 x 0.20 m galv bracket on the +X wall at z 2.0
-    deck_t       1.2 m deck slab (top z 0.30) half under the -Y eave, steps step_t0 / t1
-    door_t0_leaf / door_t0_jamb0 on the deck wall;  sign_t_face quad on the -X wall
-    steelplate_hi / steelplate_lo  bolted steel quads (DetailSpec seams 1.2, bolts 0.15,
-                 r 0.018) at 64 / 20 px/m
-The synthetic maps are flat linear albedo per material key (slot texels at 0.604 =
-RECOLOR_ALBEDO 0.80 encoded), flat normals, MaskMap from the key, ControlMask R on the trim
-and AO 1 except 0.4 on walls right under the soffit (cover_h <= 0.3), multiplied into base
-as the bake does. Tests T1-T11 as the design table (see the build report for the exact
-thresholds and the two documented interpretations: T5 selects walls beyond the eave band,
-T9's low face carries a bolts-only spec), plus fix pass 1 (build report "Fix pass 1"):
-T3 gains the slot-bounded gutter (F6), a dark-timber key that makes the W9 floor bind and
-a 0.5-slot seam (F7), and protect_px; T4 the 3-texel edge band; T7 scuff and tone (F3);
-T10 the budget at 0.5; T12 the tower preset on lift_tower's vocabulary (F1); T13
-slot_wear "free".
+    blender --background --factory-startup --python-exit-code 1 --python tests\\test_weather.py
+
+The test exits with code 1 on any failure. It prints one PASS line on success.
+
+Fixture: a "kit cube". It is built bmesh-free from from_pydata parts (no cs2_bldg import) and tagged
+with cs2_asset.tag_parts / store_part_table. It has a hand-made isotropic UVUnique with these
+properties:
+- One axis-aligned island per face, and one island rotated 90 deg. The density is uniform rho px/m.
+- Hidden faces sit at 0.1 rho, one steel plate at 1.6 rho and one at 0.5 rho.
+- The islands are skyline-packed with every rect corner on a texel EDGE. So no texel center sits on
+  a face boundary at rho 40 or 80.
+- The RESERVED_RECT stays free.
+
+The fixture parts are:
+- wall_t: 3.6 x 3.0 x 2.5 m closed timber box on z 0 (top face removed, as cull).
+- gable_t0/1: gable triangles.
+- roof_tS / roof_tN: 25 deg slabs, 0.24 m thick, 0.6 m eave overhang (n.z 0.906), downward soffits.
+- trim_t: 0.15 m slot-1 trim board (floating).
+- bar_t: unslotted steel bar (override paint_steel, floating).
+- bracket_g: 0.10 x 0.10 x 0.20 m galv bracket on the +X wall at z 2.0.
+- deck_t: 1.2 m deck slab (top z 0.30) half under the -Y eave, steps step_t0 / t1.
+- door_t0_leaf / door_t0_jamb0: on the deck wall.
+- sign_t_face: quad on the -X wall.
+- steelplate_hi / steelplate_lo: bolted steel quads (DetailSpec seams 1.2, bolts 0.15, r 0.018) at
+  64 / 20 px/m.
+
+The synthetic maps have this content:
+- flat linear albedo per material key (slot texels at 0.604 = RECOLOR_ALBEDO 0.80 encoded)
+- flat normals
+- MaskMap from the key
+- ControlMask R on the trim
+- AO 1 except 0.4 on walls right under the soffit (cover_h <= 0.3), multiplied into base as the bake
+  does
+
+Tests T1-T11 follow the design table. The build report gives the exact thresholds and the two
+documented interpretations: T5 selects walls beyond the eave band, and the low face of T9 carries a
+bolts-only spec.
+
+Fix pass 1 (build report "Fix pass 1") adds these tests:
+- T3 gains the slot-bounded gutter (F6), a dark-timber key that makes the W9 floor bind and a
+  0.5-slot seam (F7), and protect_px.
+- T4: the 3-texel edge band.
+- T7: scuff and tone (F3).
+- T10: the budget at 0.5.
+- T12: the tower preset on lift_tower's vocabulary (F1).
+- T13: slot_wear "free".
 
 The fixture builders are importable (tools_weather_demo.py uses them).
 """
@@ -95,9 +114,9 @@ def detail_specs():
 
 
 def kit_spec(name="WeatherKitCube", **kw):
-    # the fixture's thresholds were tuned on the pre-DECISIONS-171 defaults (W8 bounded slot
-    # wear, intensity 0.35): pinned here so the module defaults (now "free" / 0.40) do not
-    # move the guard checks; T13 still runs both slot_wear modes explicitly
+    # The thresholds of the fixture were tuned on the pre-DECISIONS-171 defaults (W8 bounded slot
+    # wear, intensity 0.35). They are pinned here, so the module defaults (now "free" / 0.40) do not
+    # move the guard checks. T13 still runs both slot_wear modes explicitly.
     args = dict(overrides=OVERRIDES, mat_roles_extra=MAT_EXTRA, slot_wear="bounded",
                 intensity=0.35)
     args.update(kw)
@@ -144,7 +163,7 @@ class _Kit:
         self.records = []      # (obj, face index, local (n, 2) meters x factor)
 
     def add(self, name, key, verts, faces, flags=None):
-        """faces: list of vertex-index tuples; flags: {face index: (rho factor, rotate)}."""
+        """faces: list of vertex-index tuples. flags: {face index: (rho factor, rotate)}."""
         me = bpy.data.meshes.new(name)
         me.from_pydata([tuple(v) for v in verts], [], [tuple(f) for f in faces])
         me.update()
@@ -213,9 +232,9 @@ def _pack(records, A, rho):
         if best is None:
             raise RuntimeError(f"kit cube UV pack overflow at A {A} (rect {w} x {h})")
         x, y = best
-        # rect corners on texel EDGES (integer coords): at rho 40 and rho 80 alike the
-        # first texel center sits half a texel inside every face, so no texel center lies
-        # on a face boundary where float rounding decides its face (T7 meter parity)
+        # Rect corners sit on texel EDGES (integer coords). At rho 40 and rho 80 alike, the first
+        # texel center sits half a texel inside every face. So no texel center lies on a face
+        # boundary, where float rounding decides its face (T7 meter parity).
         out[i] = (np.array((float(x), float(y))) - lo * rho, rho)
         top = max(top, y + h)
         x1 = x + w + M                        # [x, x1) rises to y + h + M
@@ -241,8 +260,8 @@ def _pack(records, A, rho):
 
 
 def build_kit_cube(name="WeatherKitCube", with_uvmap=False):
-    """Build the fixture; returns (obj, part table). UVs are normalized (A-independent):
-    rho = 40 px/m at A 512, 80 at A 1024, ..."""
+    """Build the fixture and return (obj, part table). UVs are normalized (A-independent): rho = 40
+    px/m at A 512, 80 at A 1024, ..."""
     clear_scene()
     K = _Kit()
     K.box("wall_t", "timber_lap", (-1.8, -1.5, 0.0), (1.8, 1.5, EAVE_Z), drop=("top",),
@@ -488,7 +507,8 @@ def t3_extra(obj, maps, f0):
         check(moved.sum() > 0 and rr <= 0.10 / val + 1e-5,
               f"F6 gutter under ControlMask {val}: {int(moved.sum())} texels moved, "
               f"worst |d|/in {rr:.4f} <= {0.10 / val:.2f}")
-    # F7: a dark-timber key (Y < 0.03) makes the W9 floor bind; a 0.5-slot seam strip
+    # F7 uses a dark-timber key (Y < 0.03), which makes the W9 floor bind, and a 0.5-slot seam
+    # strip.
     dark = W.WeatherMaps(maps.base.copy(), maps.nrm, maps.msk, maps.ctl.copy(), maps.ao)
     wsel = part_sel(f0, "wall_t")
     wi = f0.idx[wsel]
@@ -598,8 +618,8 @@ def t4_edge(obj, maps, f0):
     check(1.02 <= Rt <= 1.10 + 1e-3 and Rt1 <= 1.10 + 1e-3,
           f"slot-1 trim: R {Rt:.4f} at 0.35 in [1.02, 1.10], {Rt1:.4f} at 1.0 <= 1.10")
     check(res[("dS", 0.35)] < -0.02, f"smoothness drops at bar edges (mean {res[('dS', 0.35)]:+.4f} < -0.02)")
-    # fix pass 1: the band is never narrower than EDGE_MIN_TEXELS texels (it read as a 1-2
-    # texel line at 39-46 px/m); measured on the bar at rho 40 and 80
+    # Fix pass 1: the band is never narrower than EDGE_MIN_TEXELS texels (it read as a 1-2 texel
+    # line at 39-46 px/m). The test measures this on the bar at rho 40 and 80.
     for A in (A0, 2 * A0):
         m2, f2 = synth_maps(obj, A)
         _m, fl, masks, _o = run_layer(obj, A, kit_spec(), m2, f2)
@@ -700,10 +720,10 @@ def t7_density(obj):
     covc = np.zeros(A0 * A0, bool)
     covc[fc.idx] = True
     both = allf & covc.reshape(A0, A0)
-    # the edge band's 3-texel floor (fix pass 1) widens it on purpose where it binds
-    # everywhere on a part, and on parts thinner than two bands (step risers, door leaf,
-    # trim board: the band covers their faces, so the widening shows 1:1); meter parity is
-    # asserted on the remaining parts
+    # The 3-texel floor of the edge band (fix pass 1) widens the band on purpose where the floor
+    # binds everywhere on a part. It also widens the band on parts thinner than two bands (step
+    # risers, door leaf, trim board). The band covers their faces, so the widening shows 1:1. The
+    # test asserts meter parity on the remaining parts.
     ppm_c = np.bincount(fc.tpart, fc.ppm.reshape(-1)[fc.idx], minlength=len(fc.part_names) + 1) \
         / np.maximum(np.bincount(fc.tpart, minlength=len(fc.part_names) + 1), 1)
     bmax = spec.edge_band_m * (W.EDGE_VAR[0] + W.EDGE_VAR[1])
@@ -837,11 +857,11 @@ def t9_lattice(obj, maps, f0):
 
 
 def textured(maps, f0, cov=0.25, seed=0x5EED):
-    """The synthetic maps with a CC0-like albedo variation: base x (1 + cov * f), f a
-    unit-variance hashed fbm of the texel's world position (0.15 m cells), clipped to
-    +-2 sigma. VL4 measures wear against the texture variation already there (design 8);
-    the flat synthetic colors have none (D10 floors std at 10 % of the mean), so the
-    budget is asserted on this variant - the shipped L2 parts measure CoV 0.18-1.3."""
+    """The synthetic maps with a CC0-like albedo variation: base x (1 + cov * f). f is a unit-variance
+    hashed fbm of the texel's world position (0.15 m cells), clipped to +-2 sigma. VL4 measures wear
+    against the texture variation already there (design 8). The flat synthetic colors have none (D10
+    floors std at 10 % of the mean). So the test asserts the budget on this variant. The shipped L2
+    parts measure CoV 0.18-1.3."""
     f = W.fbm(f0.pos.astype(np.float64), 0.15, f0.ppm.reshape(-1)[f0.idx], seed)
     k = 1.0 + cov * np.clip(f.astype(np.float64), -2.0, 2.0)
     base = maps.base.copy()
@@ -998,8 +1018,8 @@ def t11_hook(tmp):
     A = 256
     d0 = os.path.join(tmp, "plain")
     d1 = os.path.join(tmp, "weather")
-    # margin_px 4: the default max(16, A // 64) = 16 px at A 256 leaves Blender's packer no
-    # room for the cube's 62 one-face islands (loops end up outside [0, 1])
+    # margin_px 4. The default max(16, A // 64) = 16 px at A 256 leaves Blender's packer no room for
+    # the cube's 62 one-face islands (loops end up outside [0, 1]).
     obj, table = build_kit_cube("WeatherKitCube", with_uvmap=True)
     cs2_bake.bake_unique(obj, d0, "WeatherKitCube", A, kit_sources(), ao_samples=8,
                          post_compose=None, src_uv="UVMap", margin_px=4)

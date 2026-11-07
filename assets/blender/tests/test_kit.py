@@ -1,14 +1,17 @@
 """
-test_kit - builds every cs2_kit part once and checks the round-L contracts.
+test_kit builds every cs2_kit part once and checks the round-L contracts.
 
     blender --background --factory-startup --python tests\\test_kit.py
 
-Asserts: every part has a name prefix from cs2_kit.PREFIXES (or the verbatim primitive
-name), a valid obj["relief"], a UVMap layer, no zero-area faces; open_bottom on add_box /
-add_wedge removes the -Z face and leaves the side-face bottom edges exactly on z = 0 with
-nothing below (the engine-base rule); tube_along ring count on a 3-point path is
-2 + bend_rings; and the whole kit joins with bpy.ops.object.join. Prints tri counts.
-Exits 1 on the first failure, prints one PASS line otherwise.
+The test asserts these points:
+- Every part has a name prefix from cs2_kit.PREFIXES (or the verbatim primitive name), a valid
+  obj["relief"], a UVMap layer and no zero-area faces.
+- open_bottom on add_box / add_wedge removes the -Z face. It leaves the side-face bottom edges
+  exactly on z = 0 with nothing below (the engine-base rule).
+- The tube_along ring count on a 3-point path is 2 + bend_rings.
+- The whole kit joins with bpy.ops.object.join.
+
+The test prints tri counts. It exits 1 on the first failure and prints one PASS line otherwise.
 """
 
 import math
@@ -50,14 +53,14 @@ def check_part(obj, quad):
         assert len(f.verts) <= 4, f"{obj.name}: n-gon ({len(f.verts)} verts)"
         if f.normal.dot(f.calc_center_median() - centre) >= -1e-6:
             outward += 1
-    # inside-out shells show up as a majority of faces pointing at their own centroid
+    # Inside-out shells show up as a majority of faces that point at their own centroid.
     assert outward >= 0.5 * len(bm.faces), f"{obj.name}: {outward}/{len(bm.faces)} faces outward"
     bm.free()
     return cs2_asset.tri_count(obj)
 
 
 def wm(obj):
-    """matrix_world after a depsgraph refresh (stale on freshly created objects)."""
+    """Return matrix_world after a depsgraph refresh. The value is stale on freshly created objects."""
     bpy.context.view_layer.update()
     return obj.matrix_world
 
@@ -77,8 +80,8 @@ def check_open_bottom(obj, expect_bottom_edges):
     for p in me.polygons:
         n = (m3 @ p.normal).normalized()
         assert n.z > -0.5, f"{obj.name}: bottom face survived (normal {tuple(n)})"
-    # every edge with both verts in the band must have exactly one face, and that face
-    # must rise above the band (no face entirely at/below it)
+    # Every edge with both verts in the band must have exactly one face. That face must rise above
+    # the band (no face entirely at or below it).
     edge_faces = {}
     for p in me.polygons:
         for ek in p.edge_keys:
@@ -142,7 +145,7 @@ def main():
     assert tube_rings == 2 + 8, tube_rings
     assert len(tube.data.vertices) == (2 + 8) * 8, len(tube.data.vertices)
     assert len(tube.data.polygons) == (2 + 8 - 1) * 8
-    # every vertex sits at exactly `radius` from the ring center: check both ends
+    # Every vertex sits at exactly `radius` from the ring center. Check both ends.
     for p in (Vector((0, 5, 1)), Vector((1, 5, 2))):
         near = [v for v in tube.data.vertices if (v.co - p).length < 0.03 + 1e-4]
         assert len(near) == 8, f"end ring at {tuple(p)} has {len(near)} verts"
@@ -151,7 +154,7 @@ def main():
     assert us[0] == 0.0 and us[-1] == 1.0, f"u strip must span 0..1, got {us[0]}..{us[-1]}"
     vmax = max(l.uv.y for l in uvs)
     circ = 2 * math.pi * 0.03
-    # v is arc length over circumference: between the chord (1.71 m) and the polyline (2 m)
+    # v is arc length over circumference. It lies between the chord (1.71 m) and the polyline (2 m).
     assert 1.70 / circ < vmax < 2.0 / circ, (vmax, 1.70 / circ, 2.0 / circ)
     tube_c = K.tube_along("tube_capped", [(0, 6, 1), (2, 6, 1)], 0.05, segments=6, caps="both",
                           bend_rings=8)
@@ -184,7 +187,7 @@ def main():
 
     hr = K.handrail("catwalk", [(-2, -3, 0.5), (1, -3, 0.5), (1, -1, 0.5)], h=1.10)
     names = [o.name for o, _ in hr]
-    assert sum(n.startswith("post_") for n in names) == 5, names   # 3 m span: 3 posts, 2 m span: +2
+    assert sum(n.startswith("post_") for n in names) == 5, names   # The 3 m span has 3 posts. The 2 m span adds 2 posts.
     assert "rail_catwalk_top" in names and "rail_catwalk_knee" in names
     assert sum(n.startswith("kick_") for n in names) == 2
     top = next(o for o, _ in hr if o.name == "rail_catwalk_top")
@@ -206,7 +209,7 @@ def main():
     assert [o.name for o, _ in sh] == ["sheave_bank_rim", "sheave_bank_hub"]
     rim = sh[0][0]
     assert cs2_asset.tri_count(rim) == 12 * 12, cs2_asset.tri_count(rim)
-    # rim normals point away from the axle (outer flange faces radially outward)
+    # Rim normals point away from the axle (the outer flange faces radially outward).
     for p in rim.data.polygons:
         c = p.center
         if abs(c.xy.length - 0.17) < 1e-3 and abs(c.z) > 0.05:
@@ -267,7 +270,7 @@ def main():
         counts.append((obj.name, n))
         total += n
     prefixed = [o for o, _ in parts if not o.name.startswith(K.PREFIXES)]
-    # only the bare primitives built by name here are allowed outside the prefix families
+    # Only the bare primitives built by name here are allowed outside the prefix families.
     allowed = {"pad", "crate", "shelf", "rampup", "rampdown", "boxroof"}
     stray = [o.name for o in prefixed if o.name not in allowed]
     assert not stray, f"unprefixed assembly parts: {stray}"
@@ -287,7 +290,7 @@ def main():
     assert len(joined.data.polygons) > 0
     cs2_asset.store_part_table(joined, table)
     assert cs2_asset.tri_count(joined) == total, (cs2_asset.tri_count(joined), total)
-    # the engine-base edges survived the join at world z = 0
+    # The engine-base edges survived the join at world z = 0.
     W = [wm(joined) @ v.co for v in joined.data.vertices]
     assert min(p.z for p in W) >= -1e-6, min(p.z for p in W)
     print(f"[kit] joined {len(parts)} parts -> {joined.name}: {cs2_asset.tri_count(joined)} tris, "

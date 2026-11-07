@@ -1,9 +1,9 @@
 """
 Report per-channel statistics for texture PNGs.
 
-Used to work out CS2's MaskMap channel packing empirically, by comparing our generated maps
-against the official ExampleAssets whose real-world material is known (a wooden fence is not
-metal; a tree is not metal). Whichever channel sits near zero on a known dielectric is the
+The script helped find the CS2 MaskMap channel packing by experiment. It compared our generated maps
+with the official ExampleAssets. The real-world material of each example is known: a wooden fence is
+not metal, and a tree is not metal. The channel that sits near zero on a known dielectric is the
 metallic channel.
 
     blender --background --factory-startup --python inspect_texture.py -- --img a.png b.png

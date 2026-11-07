@@ -1,68 +1,70 @@
 """
-test_detail_hut - the L2 hut detail-pass-1 contracts D1-D10 (design/detail-pass-1.md 6.2,
-hut row, with design/detail-pass-1-skeptic.md M1-M10; kit build/detail-pass-1-kit.md; build
-report build/detail-pass-1-hut.md), UPDATED for the fine-detail pass step 3a
-(build/fine-detail-step3a-buildings.md): recipes/lodge_hut.py RECIPE is a fine_detail.FineRecipe
-(fine_detail=True, sign_set=SIGN_SET); the benches, the wing racks, the upright drum and the two
-entry lanterns are ROWS (GardenBench / kit racks / BarrelRandom01 / WallLightShortRange), the three
-label faces live in the sign set SkiSignSetHutB (a sharer of the building sheet). NITPICK C (2026-10-13,
-build/nitpick-c-lodges.md; "The GRILL (?) on the left side of the entrance may end up in mid-air depending
-on terrain"): the fuel station (cradle drum + legs + pump, the timber crib, the barrel on it) left the host for two
-GROUND-FOLLOWING BarrelRandom01 rows (m_ParentMesh -1) at the old drum centers; D13 audits every part whose foot is
-on grade outside the plinth (structure / access only: no dressing).
+test_detail_hut - the L2 hut detail-pass-1 contracts D1-D10 (design/detail-pass-1.md 6.2, hut row, with
+design/detail-pass-1-skeptic.md M1-M10, kit build/detail-pass-1-kit.md, build report build/detail-pass-1-hut.md),
+UPDATED for the fine-detail pass step 3a (build/fine-detail-step3a-buildings.md).
+
+Step 3a changes:
+- recipes/lodge_hut.py RECIPE is a fine_detail.FineRecipe (fine_detail=True, sign_set=SIGN_SET).
+- The benches, the wing racks, the upright drum and the two entry lanterns are ROWS (GardenBench / kit racks /
+  BarrelRandom01 / WallLightShortRange).
+- The three label faces live in the sign set SkiSignSetHutB (a sharer of the building sheet).
+
+NITPICK C (2026-10-13, build/nitpick-c-lodges.md, "The GRILL (?) on the left side of the entrance may end up in
+mid-air depending on terrain"): the fuel station (cradle drum + legs + pump, the timber crib, the barrel on it) left
+the host for two GROUND-FOLLOWING BarrelRandom01 rows (m_ParentMesh -1) at the old drum centers. D13 audits every
+part whose foot is on grade outside the plinth (structure / access only: no dressing).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_detail_hut.py
         [-- --quick]     blockout checks only (D1 parts / props, D7 geometry, D8, D10, D11, D5b)
         [-- --no-det]    skip D5 (the second weathered finish in this process)
         [-- --no-xproc]  skip D5b (two child-process blockouts)
 
-One finish at the shipping size (recipe tex 2048, 48 AO samples, LODs, weather on) feeds
-D1-D4, D6, D7, D9, D10, D12; a weather=None finish of the same build gives D4 its reference
-(ControlMask byte-identical, every remaining host label rect identical in BaseColor: none since
-step 3a); a second weathered finish in the same process is D5 (five PNGs + LOD0 / LOD1 / LOD2 /
-_Win hashes identical); D5b runs --blockout in two child Blenders and compares the manifest hashes.
+One finish at the shipping size (recipe tex 2048, 48 AO samples, LODs, weather on) feeds D1-D4, D6, D7, D9, D10,
+D12. A weather=None finish of the same build gives D4 its reference (ControlMask byte-identical, every remaining
+host label rect identical in BaseColor: none since step 3a). A second weathered finish in the same process is D5
+(five PNGs + LOD0 / LOD1 / LOD2 / _Win hashes identical). D5b runs --blockout in two child Blenders and compares the
+manifest hashes.
 
-D1  detail parts by exact name the HOST still models (H1-H10 minus the parts rows replaced), 12
-    bulbs, no bench_ / skirack_ / drum_ (nitpick C: the whole fuel station) / lamp_hut0 / lamp_hut1
-    part, no routed label face; the B.1 fine geometry (flag mast 58 tris); no interior gable face
-    (H11); 24 recipe rows: the 16 detail-pass rows + 2 GardenBench + 2 ground Barrels (nitpick C) +
-    2 entry WallLightShortRange (known, dump-verified GUIDs) + 2 kit racks by their staged CIDs
-D2  _Emissive lit texels <= 0.5 % of the map, split into lamp-face content and gutter
-    dilation; every lamp lit inside its own rect; every lamp-material face >= 2.5 texels across
-D3  host labels: none left (the three faces left for the sign set; D12 checks them there)
-D4  manifest weather.vanilla.ok, snow share 0, G5 / G6; ControlMask = the weather=None
-    finish byte for byte
-D5  determinism (above); D5b cross-process blockout hashes
-D6  LOD0 <= 5,300 (M10), LOD1 <= 2,400, LOD2 <= 450; w=1 median >= 35 px/m; non-soffit
-    faces < 16 px/m <= 0.5 m2; tex 2048; batches 9
-D7  plinth mode: no vertex in |z| <= 0.01 on LOD0 / 1 / 2 / _Win; every grade-standing new part
-    reaches <= -0.05 and <= the 35 % design grade at its uphill edge; deck-standing dressing
-    stands on the deck top
-D8  lot: the bbox equals the shipped one (every new part inside it); coplanar
-    same-facing overlaps involving a new part: none; no new face inside a massing volume
-D9  LOD: new dressing absent from LOD1 (board frames, wing slabs / fascia / posts kept) and from
-    LOD2 (wing slabs kept); ortho LOD2 XOR (5 cm) <= 8 % front / side / top
-D10 sub-objects: deck props at the deck top (ray down hits a deck at gy +- 0.01); GROUND rows
-    (m_ParentMesh -1, nitpick C: the two fuel barrels) at gy 0 with NO host geometry anywhere in
-    their footprint's column (+0.05 m, z -8..+3: the terrain may put them at any height); wall props on one of our wall faces (<= 0.05 m, facing its normal); the render
-    box of every new / moved prop (union of its variants, + 0.05 m) clear of our mesh, and every
-    prop box clear of the new dressing; new / moved props clear of each other
-D11 fine-detail H1 / H9 (step 3a): every new row at the part it replaced, measured on the
-    PRE-PASS hut (`--no-fine` builder parts): benches' back plane = the removed bench's back plane
-    +-15 mm (built 0.01 m out) and x within 0.015 m of its center; the two ground barrels (nitpick C) on the
-    removed cradle drum's / crib drum's plan centers +-0.01, parent -1, gy 0; the entry wall lights on the wall plane at the old lens (y, z) +-0.01; each kit
-    rack at the removed rack frame's plan center +-0.01 on the wing deck, its box inside the wing
-    slab (negative: the 90-degree yaw the old along-X rack would need overhangs the wing); host lot
-    bbox = the pre-pass one +-0.005 (H9)
-D12 sign set (SkiSignSetHutB, a sharer): SG1 UV rects, SG2 each board within 1 mm of the pre-pass
-    host's label quad (negative: 2 mm), SG3 no routed face in LOD0 / LOD1 / LOD2 or the labels
-    block, SG4 one identity signset row with the staged CID, SG5 inside the lot, SG6 tris, the
-    sharer settings = the five owner keys and no PNG, RESTAURANT T1 on the owner's sheet metrics
-D13 nitpick C grade audit (builder parts): the parts whose foot stands on / below the design grade
-    >= 0.2 m outside the plinth + cap footprint are exactly GRADE_AUDIT (piers, deck posts, bridge /
-    wing posts, the entry steps, the basement stair + landing posts: structure and access); no
-    dressing; the `--no-fine` hut still has the fuel station there (negative)
-Exit 1 on the first failure; one PASS line otherwise.
+- D1 detail parts by exact name that the HOST still models (H1-H10 minus the parts that rows replaced), 12 bulbs. No
+  bench_ / skirack_ / drum_ (nitpick C: the whole fuel station) / lamp_hut0 / lamp_hut1 part, no routed label face.
+  The B.1 fine geometry (flag mast 58 tris). No interior gable face (H11). 24 recipe rows: the 16 detail-pass rows +
+  2 GardenBench + 2 ground Barrels (nitpick C) + 2 entry WallLightShortRange (known, dump-verified GUIDs) + 2 kit
+  racks by their staged CIDs.
+- D2 _Emissive lit texels <= 0.5 % of the map, split into lamp-face content and gutter dilation. Every lamp is lit
+  inside its own rect. Every lamp-material face is >= 2.5 texels across.
+- D3 host labels: none left (the three faces left for the sign set, D12 checks them there).
+- D4 manifest weather.vanilla.ok, snow share 0, G5 / G6. ControlMask = the weather=None finish byte for byte.
+- D5 determinism (above). D5b cross-process blockout hashes.
+- D6 LOD0 <= 5,300 (M10), LOD1 <= 2,400, LOD2 <= 450. w=1 median >= 35 px/m. Non-soffit faces < 16 px/m <= 0.5 m2.
+  tex 2048. batches 9.
+- D7 plinth mode: no vertex in |z| <= 0.01 on LOD0 / 1 / 2 / _Win. Every grade-standing new part reaches <= -0.05
+  and <= the 35 % design grade at its uphill edge. Deck-standing dressing stands on the deck top.
+- D8 lot: the bbox equals the shipped one (every new part inside it). Coplanar same-facing overlaps involving a new
+  part: none. No new face inside a massing volume.
+- D9 LOD: new dressing absent from LOD1 (board frames, wing slabs / fascia / posts kept) and from LOD2 (wing slabs
+  kept). Ortho LOD2 XOR (5 cm) <= 8 % front / side / top.
+- D10 sub-objects: deck props at the deck top (ray down hits a deck at gy +- 0.01). GROUND rows (m_ParentMesh -1,
+  nitpick C: the two fuel barrels) at gy 0 with NO host geometry anywhere in their footprint's column (+0.05 m, z
+  -8..+3: the terrain may put them at any height). Wall props on one of our wall faces (<= 0.05 m, facing its
+  normal). The render box of every new / moved prop (union of its variants, + 0.05 m) is clear of our mesh, and
+  every prop box is clear of the new dressing. New / moved props are clear of each other.
+- D11 fine-detail H1 / H9 (step 3a): every new row at the part it replaced, measured on the PRE-PASS hut
+  (`--no-fine` builder parts). The back plane of the benches = the back plane of the removed bench +-15 mm (built
+  0.01 m out), and x is within 0.015 m of its center. The two ground barrels (nitpick C) are on the plan centers of
+  the removed cradle drum and crib drum +-0.01, parent -1, gy 0. The entry wall lights are on the wall plane at the
+  old lens (y, z) +-0.01. Each kit rack is at the plan center of the removed rack frame +-0.01 on the wing deck,
+  with its box inside the wing slab (negative: the 90-degree yaw the old along-X rack would need overhangs the
+  wing). The host lot bbox = the pre-pass one +-0.005 (H9).
+- D12 sign set (SkiSignSetHutB, a sharer): SG1 UV rects. SG2 each board within 1 mm of the label quad of the
+  pre-pass host (negative: 2 mm). SG3 no routed face in LOD0 / LOD1 / LOD2 or the labels block. SG4 one identity
+  signset row with the staged CID. SG5 inside the lot. SG6 tris. The sharer settings = the five owner keys and no
+  PNG. RESTAURANT T1 on the owner's sheet metrics.
+- D13 nitpick C grade audit (builder parts): the parts whose foot stands on / below the design grade >= 0.2 m
+  outside the plinth + cap footprint are exactly GRADE_AUDIT (piers, deck posts, bridge / wing posts, the entry
+  steps, the basement stair + landing posts: structure and access). No dressing. The `--no-fine` hut still has the
+  fuel station there (negative).
+
+The test exits 1 on the first failure and prints one PASS line otherwise.
 """
 
 import glob
@@ -124,15 +126,16 @@ FINE_TRIS = {"flag_hut": 58}         # nitpick C: the cradle drum (124) and pump
 GRADE_STANDING = ("col_skiN", "col_skiS", "downspout_hutSEext")
 # D13 (nitpick C): every builder part of the SHIPPING hut whose foot is on / below the design grade >= 0.2 m outside
 # the plinth + cap footprint (scratchpad audit ncl/l2_grade_audit.json): structure (piers, deck posts, bridge / wing
-# posts) and access (entry steps, the basement stair + its landing posts; its rail stands on the stair) only
+# posts) and access (entry steps, the basement stair + its landing posts, and the rail that stands on the stair)
+# only
 GRADE_AUDIT = ("col_baslanding", "col_bridge", "col_hutposts", "col_skiN", "col_skiS", "pier_hut0", "pier_hut1",
                "pier_hut2", "stair_bas_str0", "stair_bas_str1", "stair_bas_treads", "step_hut1", "step_hut2")
 GRADE_AUDIT_LEGACY = ("drum_hutfuel2base", "drum_hutfuellegs")     # the pre-pass hut (negative)
 DECK_STANDING = ("lamp_hutS", "flag_hut", "flagpanel_hut")
 LOD1_KEEP_NEW = ("sign_hutname_", "sign_hutmenu_", "deck_ski", "deckfascia_ski", "col_ski")
 LOD2_KEEP_NEW = ("deck_ski",)
-# design 1.6 placeholder GUIDs + the shipped L2 table (lodges-basic 4.7) + step 3a (GardenBench,
-# Barrel); every one must also be dump-verified (lodge.verified_guids, asserted in D1)
+# design 1.6 placeholder GUIDs + the shipped L2 table (lodges-basic 4.7) + step 3a (GardenBench, Barrel). Every one
+# must also be dump-verified (lodge.verified_guids, asserted in D1)
 KNOWN_GUIDS = {
     "fc058a3d03b337e4794c432a84170316", "b7e2343fd7ff9f642b77084a04738e43",
     "63c46490ab59afd4dae01ee442f1e462", "0d01c98e6f7cd9b44ac31084b6ba7ccd",
@@ -140,9 +143,9 @@ KNOWN_GUIDS = {
     "cfc12fde01d9da24b86ddedd657eaae1", "b99325ff4ff4dfd459734d8f765c2597",
     "8df0703be09426948b5bc3262d86bc04", "fb4247f7a6f75b1478d9dd01ac88ce86"}
 WALL_PROPS = ("WallLightShortRangeRandom01", "ACVentWallRandom01")
-# render bounds, union over the family's variants, local (x, y up, z), from
-# %TEMP%\pltar\dump.zip RenderPrefab m_Bounds (2026-10-11, build report section 3); step 3a: the
-# bench / barrel = cs2_liftdress.SUBOBJ (dump-verified); kit props from subobj_bounds.json
+# render bounds, union over the family's variants, local (x, y up, z), from %TEMP%\pltar\dump.zip RenderPrefab
+# m_Bounds (2026-10-11, build report section 3). Step 3a: the bench / barrel = cs2_liftdress.SUBOBJ (dump-verified).
+# Kit props come from subobj_bounds.json
 PROP_BOUNDS = {
     "WallLightShortRangeRandom01": ((-0.14, -0.06, 0.0), (0.14, 0.06, 0.11)),
     "ACVentWallRandom01": ((-0.19, -0.20, 0.0), (0.19, 0.28, 0.25)),
@@ -155,14 +158,15 @@ PROP_BOUNDS = {
     "GardenBenchRandom01": ((-1.059, 0.0, -0.496), (1.059, 1.054, 0.496)),
     "BarrelRandom01": ((-0.345, 0.0, -0.345), (0.345, 0.864, 0.345)),
 }
-# props this pass added or moved (index into the recipe's sub_objects): the detail-pass second deck
-# chair, firewood, heaters, wall lights, vents; step 3a: rows 16-22 (2 benches, barrel, 2 entry
-# wall lights, 2 kit racks); nitpick C: rows 16-23 (2 benches, 2 ground barrels, 2 entry lights, 2 kit racks)
-# T26 2026-10-16 dropped the parasol row (index 3); restored 2026-10-17, so the indices are the original (24 rows)
+# props this pass added or moved (index into the recipe's sub_objects): the detail-pass second deck chair, firewood,
+# heaters, wall lights, vents. Step 3a: rows 16-22 (2 benches, barrel, 2 entry wall lights, 2 kit racks). Nitpick C:
+# rows 16-23 (2 benches, 2 ground barrels, 2 entry lights, 2 kit racks)
+# T26 2026-10-16 dropped the parasol row (index 3). It was restored 2026-10-17, so the indices are the original (24
+# rows)
 NEW_OR_MOVED = (5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23)
 BOX_SKIP = ("ParasolRandom01",)      # an offset canopy: its AABB is mostly air over the rail
-# a row standing on a modeled part other than a deck: prefab -> (part, top z) (nitpick C: none left; the barrels
-# are ground rows)
+# a row standing on a modeled part other than a deck: prefab -> (part, top z) (nitpick C: none left, the barrels are
+# ground rows)
 STANDS = {}
 GROUND_ROWS = ("BarrelRandom01",)     # m_ParentMesh -1 (nitpick C)
 
@@ -370,7 +374,7 @@ def d1_parts(recipe, mod, me, M, label):
             inward += p.area
     assert inward < 0.01, f"D1 H11: {inward:.2f} m2 of gable faces look inward"
     rows = rows_of(recipe)
-    # T26 2026-10-16 dropped the parasol (23 rows); restored 2026-10-17: 24 rows, the detail-pass rows 16
+    # T26 2026-10-16 dropped the parasol (23 rows). It was restored 2026-10-17: 24 rows, the detail-pass rows 16
     assert len(rows) == 24, len(rows)
     assert [r[:5] for r in rows[:16]] == [tuple(s) for s in mod["SUB_OBJECTS"]], "D1: the 16 detail-pass rows moved"
     van = [r for r in rows if r[5] == "vanilla"]
@@ -392,9 +396,9 @@ def d1_parts(recipe, mod, me, M, label):
 
 
 def d1_fine_geometry(parts, legacy):
-    """B.1 fine geometry on the BUILDER parts (before the join / weld / cull): the flag mast, the
-    cradle drum and its pump take the fine=True builders (tris pinned); the pre-pass builder gave
-    fewer (negative: the legacy parts do not match)."""
+    """B.1 fine geometry on the BUILDER parts (before the join / weld / cull): the flag mast, the cradle drum and its
+    pump take the fine=True builders (tris pinned). The pre-pass builder gave fewer (negative: the legacy parts do
+    not match)."""
     tri = {o.name: sum(len(p.vertices) - 2 for p in o.data.polygons) for o, _k in parts}
     got = {k: tri.get(k) for k in FINE_TRIS}
     assert got == FINE_TRIS, f"D1 fine geometry {got} != {FINE_TRIS}"
@@ -426,8 +430,8 @@ def _grade_feet(named_verts, mod):
 
 
 def d13_grade_audit(parts, lp, mod):
-    """D13 (nitpick C): the shipping hut's grade-standing parts outside the plinth = GRADE_AUDIT (structure +
-    access, no dressing); the pre-pass hut adds the fuel station (negative: the audit sees it)."""
+    """D13 (nitpick C): the shipping hut's grade-standing parts outside the plinth = GRADE_AUDIT (structure + access,
+    no dressing). The pre-pass hut adds the fuel station (negative: the audit sees it)."""
     bpy.context.view_layer.update()
     cur = {o.name: np.array([tuple(o.matrix_world @ v.co) for v in o.data.vertices], np.float64)
            for o, _k in parts}
@@ -486,8 +490,8 @@ def d8_lot(recipe, mod, res, me, M, parts=None):
 
 
 def d8_coplanar_inside(mod, parts):
-    """recipes/_civic check_coplanar / check_inside on the builder parts: coplanar same-facing
-    overlaps where at least one part is new; new faces inside the story / plinth boxes."""
+    """recipes/_civic check_coplanar / check_inside on the builder parts: coplanar same-facing overlaps where at least
+    one part is new. New faces inside the story / plinth boxes."""
     import importlib.util
     spec = importlib.util.spec_from_file_location("_civic_t", os.path.join(HERE, "recipes", "_civic.py"))
     C = importlib.util.module_from_spec(spec)
@@ -913,7 +917,7 @@ def d12_signset(fin, legacy_blk):
     for i, me in enumerate(fin["lods"], start=1):
         tables[f"LOD{i}"] = part_names_of(me)
     assert not SS.sg3_no_routed_left(tables, fin["man"].get("labels") or {}, spec), "D12 SG3"
-    # SG4 one identity row with the staged CID; SG5 lot; SG6 tris
+    # SG4 one identity row with the staged CID. SG5 lot. SG6 tris
     cid = FD.staged_cid(spec.prop, spec.letter, kind="signs")
     assert cid and ss["cid"] == cid, (cid, ss["cid"])
     assert not SS.sg4_identity_row(fin["man"]["sub_objects"], spec, cid), "D12 SG4"

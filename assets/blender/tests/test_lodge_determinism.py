@@ -1,17 +1,24 @@
 """
-test_lodge_determinism - the L1 recipe built twice in ONE Blender process must be
-identical (bldg-kit.md section 17; the order-dependent steps are the cull, the rooms,
-the unique pack, the AO bake and the LOD collapse; p0a-integration O9 found a
-non-reproducible LOD chain in lift_terminal, so the LOD meshes are hashed here too).
+test_lodge_determinism - this test builds the L1 recipe twice in ONE Blender process. The two builds
+must be identical (bldg-kit.md section 17). The order-dependent steps are the cull, the rooms, the
+unique pack, the AO bake and the LOD collapse. p0a-integration O9 found a non-reproducible LOD chain
+in lift_terminal. So the test also hashes the LOD meshes.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_lodge_determinism.py
 
-Pass 1: --blockout twice -> lodge.mesh_hash of the joined pre-bake mesh (vertex coords
-%.5f, face vertex lists, UVTile, material index, part, density_w) and of `_Win`, the
-cull report and the room cells must match.
-Pass 2: a reduced finish twice (--tex 1024 --ao-samples 8 --no-validate, LODs on, into two
-scratch folders) -> the five PNGs (incl. _Emissive) byte-identical, LOD0 / LOD1 / LOD2 /
-`_Win` mesh hashes identical. Exit 1 on any difference.
+Pass 1 runs --blockout twice. These items must match between the two runs:
+- lodge.mesh_hash of the joined pre-bake mesh (vertex coords %.5f, face vertex lists, UVTile,
+  material index, part, density_w)
+- the hash of `_Win`
+- the cull report
+- the room cells
+
+Pass 2 runs a reduced finish twice (--tex 1024 --ao-samples 8 --no-validate, LODs on, into two
+scratch folders). These items must be identical:
+- the five PNGs (incl. _Emissive), byte for byte
+- the LOD0, LOD1, LOD2 and `_Win` mesh hashes
+
+The test exits 1 on any difference.
 """
 
 import hashlib

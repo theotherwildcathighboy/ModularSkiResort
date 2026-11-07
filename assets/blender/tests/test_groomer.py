@@ -3,24 +3,29 @@ test_groomer.py - gates for SkiGroomerA (assets/blender/groomer.py).
 
     blender --background --factory-startup --python-exit-code 1 --python assets/blender/tests/test_groomer.py [-- --quick]
 
-Checks:
-  * the name passes the asset-name rule and no part carries a brand word;
-  * two in-process builds give the identical mesh (vertices, faces, part ids, stacks);
-  * contracts on the raw mesh: LOD0 budget, cleat tips and comb tail on z = 0, origin at the footprint center, overall
-    length, nothing floating (one connected machine, and blade and tiller attached on every level), the comb a rectangle,
-    the cleat bars about a third of the belt, track center as documented, every stack and tile well formed;
-  * cleats, wheels and lamps are copies of one template: rigid and never mirrored;
-  * the lights table holds the headlights, roof lamps, beacons and tail lamps, in the author and the game frame;
-  * the hull rim stops at the windshield base; the red, its gloss and coat are the measured vanilla ones; the bars that carry the lights stay on the levels that need them;
-  * NEG mutations: the audits raise on a floating part, on a LOD2 that loses the push frame, on an over-cap and an
-    under-budget LOD0, on a LOD1 over 50 %, on a LOD2 over its cap, on an off-center origin, on a brand word, on a mirrored UV face, on alpha below 255;
-  * full run only (no --quick): bake and export into a temp folder, then validate_asset_folder with 0 errors, LOD caps
-    and ratio, raw FBX frame on every level (x lateral, y up, z forward, centimeters: base pivot, overall length, origin at
-    the footprint center, forward is +Z, tris in the file), textures 1024 with alpha 255, ControlMask empty, no mirrored UV
-    face, no absolute path in the manifest, and a fresh-process rebuild with identical FBX tri counts and geometry;
-  * full run only, the lights: the Emissive map (size, RGBA, alpha 255, a small lit share, only the two authored colors), both LODs share it through
-    settings.json, every level keeps lit white and amber surface (NEG: a black map, a full map, a broken alpha and a LOD2 without the bar all raise),
-    the tris stay at the pre-lights counts, the red's median texel is the target, and the manifest carries the surgery rows.
+The test checks these points:
+- The name passes the asset-name rule and no part carries a brand word.
+- Two in-process builds give the identical mesh (vertices, faces, part ids, stacks).
+- Contracts on the raw mesh: the LOD0 budget, the overall length, and the origin at the footprint center. Cleat tips and comb
+  tail sit on z = 0. Nothing floats: the machine is one connected piece, and blade and tiller stay attached on every level.
+  The comb is a rectangle. The cleat bars cover about a third of the belt. The track center is as documented. Every stack and
+  tile is well formed.
+- Cleats, wheels and lamps are copies of one template. The copies are rigid and never mirrored.
+- The lights table holds the headlights, roof lamps, beacons and tail lamps, in the author and the game frame.
+- The hull rim stops at the windshield base. The red, its gloss and coat are the measured vanilla ones. The bars that carry
+  the lights stay on the levels that need them.
+- NEG mutations: the audits raise on each of these: a floating part, a LOD2 that loses the push frame, an over-cap LOD0, an
+  under-budget LOD0, a LOD1 over 50 %, a LOD2 over its cap, an off-center origin, a brand word, a mirrored UV face, and alpha
+  below 255.
+- Full run only (no --quick). The test bakes and exports into a temp folder. Then it runs validate_asset_folder, which
+  reports 0 errors. It checks the LOD caps and ratio. It checks the raw FBX frame on every level (x lateral, y up, z forward,
+  centimeters: base pivot, overall length, origin at the footprint center, forward is +Z, tris in the file). The textures are
+  1024 with alpha 255. The ControlMask is empty. No UV face is mirrored. The manifest has no absolute path. A fresh-process
+  rebuild gives identical FBX tri counts and geometry.
+- Full run only, the lights. The test checks the Emissive map for size, RGBA, alpha 255, a small lit share and only the two
+  authored colors. Both LODs share it through settings.json. Every level keeps lit white and amber surface. NEG: a black map,
+  a full map, a broken alpha and a LOD2 without the bar all raise. The tris stay at the pre-lights counts. The red's median
+  texel is the target. The manifest carries the surgery rows.
 """
 
 import hashlib
@@ -139,8 +144,8 @@ def test_structure():
     ok((ra - Vector((-c25, 0.0, -s25))).length < 1e-4, f"rear flood aims back, 25 degrees down {tuple(round(v, 4) for v in ra)}")
     ok(es[2]["m_PositionOffset"][1] == es[0]["m_PositionOffset"][1] and es[2]["m_PositionOffset"][2] < min(x for x, _ in G.HOOD_PROFILE) + 0.2,
        "rear flood at the front one's height, over the tiller hood's rear edge")
-    # every red panel outside the rear flood's 110 degree cone (half angle 55): in game the engine hood (light on the roof bar) and the
-    # tiller hood (light over the deck's rear end) both glowed like lamps
+    # Every red panel lies outside the rear flood's 110 degree cone (half angle 55). In game the engine hood (light on the
+    # roof bar) and the tiller hood (light over the deck's rear end) both glowed like lamps.
     rp = Vector((es[2]["m_PositionOffset"][2], 0.0, es[2]["m_PositionOffset"][1]))       # game (0, y, z) -> author (z, 0, y)
     for label, prof in (("engine hood", G.HOOD_STATIONS), ("tiller hood", G.HOOD_PROFILE)):
         deg = min(math.degrees(ra.angle(Vector((x, 0.0, zt)) - rp)) for x, zt in prof)
@@ -153,7 +158,7 @@ def test_structure():
     ok(abs(2.0 * (G.YI + G.TW) - 4.21) < 0.001, "width over the tracks 4.21 m")
     tips = G.blade_tips()
     ok(tips[0][1] > 2.3 and tips[1][1] < -2.3 and abs(tips[0][1] + tips[1][1]) < 1e-6, f"blade tips {tips}")
-    # one tile face per belt surface is canonical; every other face has corners in the tile
+    # One tile face per belt surface is canonical. Every other face has corners in the tile.
     for key in ("BeltOuter", "BeltInner", "edge"):
         t = b.tiles[key]
         ok(t["canon"] is not None and len(t["dups"]) > 20, f"tile {key}: canon + {len(t['dups'])} copies")
