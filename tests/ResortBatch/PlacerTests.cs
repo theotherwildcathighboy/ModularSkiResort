@@ -1,6 +1,6 @@
 // Tests for the run prop placer's pure rules (RunPropPlacerRules, PlacerRing) and the cat track gun rules (SnowGunPlumeRules, HubRules.GunWhyOf).
-// Oracles are literal hand values (positions on simple rings; the Pick sequence comes from an independent plain-JS run of the hash), never a second
-// run of the code. Not testable headless: the entities, the settle, the delete cascade, how a prop stands on the ground.
+// Oracles are literal hand values, never a second run of the code. Examples: positions on simple rings. The Pick sequence comes
+// from an independent plain-JS run of the hash. Not testable headless: the entities, the settle, the delete cascade, how a prop stands on the ground.
 // Engine notes: EngineNotes/RunPropPlacerRules.md
 
 using System;
@@ -91,11 +91,11 @@ namespace ResortBatch
             Check(R.DefaultGunSpacing(Snowmaking) == 50 && R.DefaultGunSpacing(Night) == 90 && R.DefaultGunSpacing(Track) == 60, w, "gun defaults by kind");
             Check(R.DefaultGunSpacing(Groomed) == 0 && R.DefaultGunSpacing(Natural) == 0, w, "groomed and natural: no guns");
             Check(R.DefaultLightSpacing(Night) == 90 && R.DefaultLightSpacing(Track) == 0 && R.DefaultLightSpacing(Snowmaking) == 0, w, "light defaults by kind");
-            // R2 (DECISIONS 577): every groomed run carries both sliders (they are its Snowmaking and Lights features); natural runs none.
+            // R2 (DECISIONS 577): every groomed run carries both sliders (they are its Snowmaking and Lights features). Natural runs carry none.
             Check(R.CarriesGuns(Snowmaking) && R.CarriesGuns(Night) && R.CarriesGuns(Track) && R.CarriesGuns(Groomed) && !R.CarriesGuns(Natural), w, "CarriesGuns");
             Check(R.CarriesLights(Night) && R.CarriesLights(Track) && R.CarriesLights(Snowmaking) && R.CarriesLights(Groomed) && !R.CarriesLights(Natural), w, "CarriesLights");
 
-            // The table: no empty marker; its weights are the prefabs' (the prefab side is in tools/check-run-props.js).
+            // The table: no empty marker. Its weights are the prefabs' (the prefab side is in tools/check-run-props.js).
             string[] names = { "SkiSnowGunTower", "SkiSnowGunTowerLow", "SkiSnowGunTowerTall", "SkiSnowGunFan", "SkiSnowGunFanIdle", "SkiSnowGunLance", "SkiSnowGunLanceDown",
                                "SkiSnowGunLanceTall", "SkiHydrantBox", "SkiHydrantBoxBare", "SkiPisteFloodlight", "SkiPisteFloodlightLow", "SkiPisteFloodlightTall" };
             int[] weights = { 25, 13, 12, 18, 9, 17, 8, 8, 24, 16, 100, 28, 22 };
@@ -110,7 +110,7 @@ namespace ResortBatch
         private static void RingForm()
         {
             const string w = "placer ring";
-            // Counter-clockwise from (0,0); perimeter 400; PointAt walks and wraps.
+            // Counter-clockwise from (0,0). Perimeter 400. PointAt walks and wraps.
             PlacerRing a = Ring(0f, 0f, 100f, 0f, 100f, 100f, 0f, 100f);
             Check(a.Valid && a.N == 4 && a.Perimeter == 400.0, w, "square: 4 nodes, perimeter 400");
             Check(a.X[0] == 0f && a.Z[0] == 0f && a.X[1] == 100f && a.Z[1] == 0f, w, "square: starts at (0,0), then (100,0)");
@@ -227,7 +227,7 @@ namespace ResortBatch
             }
             Check(Plan(null, Night, 50, 50).Count == 0 && !R.SideChain(null, out _, out _), w, "a null ring plans nothing");
 
-            // A tiny ring keeps its one prop; a spacing that is off stands nothing.
+            // A tiny ring keeps its one prop. A spacing that is off stands nothing.
             PlacerRing tiny = Ring(0f, 0f, 1f, 0f, 1f, 1f);
             Check(Plan(tiny, Snowmaking, 50, 0).Count == 1, w, "a 3.4 m ring keeps one prop");
             Check(Plan(tiny, Snowmaking, 0, 0).Count == 0, w, "off stands nothing");
@@ -314,7 +314,7 @@ namespace ResortBatch
             PlacerRing r = Ring(ring);
             Check(r.Valid, w, "the ribbon is a valid ring");
             Check(R.SideChain(r, out double start, out double end), w, "a side chain");
-            // Canonical start: (0,-5) on the outer side; outer length 100 + pi x 55 + 100 = 372.8 (a polygon, so a touch under).
+            // Canonical start: (0,-5) on the outer side. Outer length 100 + pi x 55 + 100 = 372.8 (a polygon, so a touch under).
             Check(start == 0.0 && Near(end - start, 372.8, 0.3), w, $"chain {start}..{end}");
 
             foreach (int spacing in new[] { 20, 60, 200 })
@@ -404,7 +404,7 @@ namespace ResortBatch
                       Near(m[i].FwdX, expected[i, 2], 1e-4) && Near(m[i].FwdZ, expected[i, 3], 1e-4),
                       w, $"mast {i} at ({m[i].X},{m[i].Z}) aims ({m[i].FwdX},{m[i].FwdZ})");
 
-            // A border falling 15 m over its 100 m: fall 0.15, the full 25 deg toward travel; inward is +z.
+            // A border falling 15 m over its 100 m: fall 0.15, the full 25 deg toward travel. Inward is +z.
             var sloped = new PlacerRing(new[] { 0f, 100f, 100f, 0f }, new[] { 0f, -15f, -15f, 0f }, new[] { 0f, 0f, 100f, 100f }, 4);
             List<PlacedProp> s = Plan(sloped, Night, 0, 100);
             Check(s.Count == 4 && Near(s[0].FwdX, 0.42262, 1e-4) && Near(s[0].FwdZ, 0.90631, 1e-4), w, $"sloped mast aims ({s[0].FwdX},{s[0].FwdZ})");

@@ -30,7 +30,7 @@ namespace ResortBatch
             check(SkiRunRatingRules.NextServiceState(F, true, 500f, 0f) == F, "state", "Failed must stay Failed");
             check(SkiRunRatingRules.NextServiceState(O, true, 500f, 0f) == O, "state", "Off must stay Off");
 
-            // Natural is appended; the existing values must not shift
+            // Natural is appended. The existing values must not shift
             check((byte)RunKind.Groomed == 0 && (byte)RunKind.Snowmaking == 1 && (byte)RunKind.Night == 2 &&
                   (byte)RunKind.Natural == 3, "runkind", "RunKind values != 0/1/2/3");
         }

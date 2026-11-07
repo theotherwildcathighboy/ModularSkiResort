@@ -1,14 +1,20 @@
-// Tests for the pure rules of the cat-track run type, RunKind.CatTrack = 4 (SkiRunCatTrackA); oracles are literal hand values. The ECS side
-// (the AreaGeometryData write, the hub rows, the tooltip, the cat track tool) is not covered. Case tags CT54-1..CT54-7, CT139-M, CT139-G.
-// Pinned: CatTrack is 4 and appended (0..3 unchanged); since 2026-10-24 it counts minimally toward the resort (a member: Runs / RunsOpen /
-// RunsCounted, a quarter of a run its size in value and capacity, never the variety or school green, the vertical or the end of the
-// summer mode; worth 0 unless rated green), is rated Green by construction once rated (SkiRunRatingRules.CatTrackBand: the cat
-// track tool grades every track under 25 %), passes service DOWNHILL only (LiftServedRule.AssignLinked track mask, 2026-10-25:
-// entered where it meets a served run, traveled either way while it climbs no more than ClimbToleranceM in all, serving the runs it
-// meets that fall away below; a null / empty / all-false mask changes nothing), never gets snow injection, reads its open state
-// like any member run (no Unsuitable state since 2026-10-25), carries hydrants only, and is the fifth RunDef in SkiCatalog (kind 4,
-// prefab SkiRunCatTrackA, item runCatTrack).
-// Not tested headless: that GradeBlue (25 %, SkiSlopeClassifier.cs) is where band 2 begins; tests/SlopeBatch owns BandOf.
+// Tests for the pure rules of the cat-track run type, RunKind.CatTrack = 4 (SkiRunCatTrackA). Oracles are literal hand values.
+// The ECS side (the AreaGeometryData write, the hub rows, the tooltip, the cat track tool) is not covered.
+// Case tags CT54-1..CT54-7, CT139-M, CT139-G.
+// Pinned:
+// - CatTrack is 4 and appended (0..3 unchanged).
+// - Since 2026-10-24 it counts minimally toward the resort. It is a member: Runs / RunsOpen / RunsCounted. It counts as a quarter of a
+//   run its size in value and capacity. It never counts for the variety or school green, the vertical or the end of the summer mode.
+//   It is worth 0 unless rated green.
+// - It is rated Green by construction once rated (SkiRunRatingRules.CatTrackBand: the cat track tool grades every track under 25 %).
+// - It passes service DOWNHILL only (LiftServedRule.AssignLinked track mask, 2026-10-25). Skiers enter it where it meets a served run.
+//   They travel it either way while it climbs no more than ClimbToleranceM in all. It serves the runs it meets that fall away below.
+//   A null / empty / all-false mask changes nothing.
+// - It never gets snow injection.
+// - It reads its open state like any member run (no Unsuitable state since 2026-10-25).
+// - It carries hydrants only.
+// - It is the fifth RunDef in SkiCatalog (kind 4, prefab SkiRunCatTrackA, item runCatTrack).
+// Not tested headless: that GradeBlue (25 %, SkiSlopeClassifier.cs) is where band 2 begins. tests/SlopeBatch owns BandOf.
 
 using System;
 using System.Collections.Generic;
@@ -89,7 +95,7 @@ namespace ResortBatch
             return new[] { new float2(x0, z0), new float2(x1, z0), new float2(x1, z1), new float2(x0, z1) };
         }
 
-        /// <summary>The test mountain: y = 1000 - 0.5 z (a 50 % fall line toward +z; x is level).</summary>
+        /// <summary>The test mountain: y = 1000 - 0.5 z (a 50 % fall line toward +z, and x is level).</summary>
         private static float Slope(float z) => 1000f - 0.5f * z;
 
         private static float[] SlopeHeights(float2[] ring)
@@ -100,8 +106,8 @@ namespace ResortBatch
             return y;
         }
 
-        /// <summary>A cat track ribbon along x at z = zc (half width 5 m), a node pair every 50 m from x0 to x1: the near edge forward,
-        /// the far edge back (the cat track tool's ring order). heightAt(x) gives both edges' height at x.</summary>
+        /// <summary>A cat track ribbon along x at z = zc (half width 5 m). It has a node pair every 50 m from x0 to x1. The near edge goes forward
+        /// and the far edge goes back (the cat track tool's ring order). heightAt(x) gives both edges' height at x.</summary>
         private static float2[] RibbonX(float x0, float x1, float zc, Func<float, float> heightAt, out float[] heights)
         {
             int m = (int)Math.Round((x1 - x0) / 50f) + 1;
@@ -117,7 +123,7 @@ namespace ResortBatch
             return ring;
         }
 
-        /// <summary>A cat track straight down the fall line along z at x = xc (half width 5 m), a node pair every 20 m, on the slope.</summary>
+        /// <summary>A cat track straight down the fall line along z at x = xc (half width 5 m). It has a node pair every 20 m, on the slope.</summary>
         private static float2[] RibbonZ(float z0, float z1, float xc, out float[] heights, float step = 20f)
         {
             int m = (int)Math.Round((z1 - z0) / step) + 1;
@@ -206,7 +212,7 @@ namespace ResortBatch
             Check(s.Served(west) && s.Via[west] == c, W, "the run west of A is served through the track (either direction)");
             Eq(1, s.ServedCount[0], W, "the lift's direct count stays one run (A)");
 
-            // D-2 Tolerance: a +2 m bump is crossed, a +4 m bump stops the track.
+            // D-2 Tolerance: skiers cross a +2 m bump. A +4 m bump stops the track.
             s = FlatTrack(out a, out c, x => x == 310f ? 902f : 900f);
             int near = s.AddCrossing(210f);
             int past = s.AddCrossing(460f);
@@ -223,9 +229,9 @@ namespace ResortBatch
             int beyond = s.AddCrossing(810f);
             s.Solve();
             Check(s.Served(beyond), W, "past two separate 2 m bumps: served (never 3 m above the entry)");
-            // A track rising 1 m per node pair east of x 10 (y 900 at x 10, 903 at x 160, 904 at x 210): the skiers from A get on at
-            // about 900.6 (cap 903.6) and stop before x 210. R crosses the track at x 160 (903 m): served, and stepping from R back onto
-            // the track does not raise the cap (no 3 m ratchet per crossing run), so S at x 260 stays unserved.
+            // A track rising 1 m per node pair east of x 10 (y 900 at x 10, 903 at x 160, 904 at x 210). The skiers from A get on at
+            // about 900.6 (cap 903.6) and stop before x 210. R crosses the track at x 160 (903 m), and R is served. Stepping from R back onto
+            // the track does not raise the cap (no 3 m ratchet per crossing run). So S at x 260 stays unserved.
             s = FlatTrack(out a, out c, x => 900f + math.max(0f, (x - 10f) / 50f));
             int low = s.AddCrossing(85f);
             int r = s.AddCrossing(160f);
@@ -247,8 +253,8 @@ namespace ResortBatch
             Check(s.Served(lower) && s.Via[lower] == c, W, "a run the track meets below the entry is served through it");
 
             // D-3b The same track as the cat track tool simplifies a straight one (GradeRibbon): four nodes, its two ends only. A crosses
-            // it at z 300-340 (y 850-830): the skiers get on between the ends and reach the lower end; the upper run's crossing (z 100,
-            // y 950) lies above them, the lower run's (z 700, y 650) below.
+            // it at z 300-340 (y 850-830). The skiers get on between the ends and reach the lower end. The upper run's crossing (z 100,
+            // y 950) lies above them. The lower run's (z 700, y 650) lies below them.
             s = new Scene();
             c = s.Add(Far, RibbonZ(0f, 1000f, 500f, out float[] sy, 1000f), sy, track: true);
             a = s.AddRun(Served1, Rect(450f, 300f, 550f, 340f));
@@ -282,7 +288,7 @@ namespace ResortBatch
             Check(s.Served(c) && s.Root[c] == c && s.Via[c] == -1, W, "a directly served track is its own root");
             Check(s.Served(r5) && s.Via[r5] == c, W, "a directly served track serves the runs it meets");
 
-            // D-6 The mask: null, empty and all-false are the same (no track); a track mask on a plain run changes what it passes on.
+            // D-6 The mask: null, empty and all-false are the same (no track). A track mask on a plain run changes what it passes on.
             Scene none = FlatTrack(out _, out _).Solve(null);
             Scene empty = FlatTrack(out _, out _).Solve(new List<bool>());
             Scene falses = FlatTrack(out _, out _).Solve(new List<bool> { false, false });
@@ -344,9 +350,10 @@ namespace ResortBatch
             return kept;
         }
 
-        /// <summary>CT139-M: the cat track's minimal weight. A blue groomed + a black snowmaking run, then the same with a 4 ha green cat
-        /// track whose top is 600 m higher than theirs: one more run (Runs / RunsOpen / RunsCounted), exactly a quarter of a groomed green
-        /// of 4 ha in value and in capacity, the same vertical, no variety / school green, no summer end on its own.</summary>
+        /// <summary>CT139-M: the cat track's minimal weight. The test uses a blue groomed + a black snowmaking run. Then it repeats with a 4 ha green
+        /// cat track whose top is 600 m higher than theirs. The track adds one more run (Runs / RunsOpen / RunsCounted). It adds exactly a quarter
+        /// of a groomed green of 4 ha in value and in capacity. The vertical stays the same. It adds no variety / school green and no summer end
+        /// on its own.</summary>
         private static void Minimal()
         {
             const string W = "cattrack/minimal";
@@ -381,8 +388,8 @@ namespace ResortBatch
             Check((l.Flags & Score.ScoreFlags.SummerMode) != 0 && (l.Flags & Score.ScoreFlags.NoRuns) == 0, W, "a lone cat track keeps the summer mode, no NoRuns flag");
             Check(HubRules.Status(lone.Count, 1, 0) != ResortStatus.NoRuns, W, "a lone cat track is a run for the hub status");
 
-            // Worth nothing unless rated green (the score's own guard; the catalog sends a rated cat track as Green): blue, flat, unrateable,
-            // pending; still a listed member run.
+            // Worth nothing unless rated green. This is the score's own guard. The catalog sends a rated cat track as Green. Cases: blue, flat,
+            // unrateable, pending. The track is still a listed member run.
             foreach (Score.RunInput bad in new[]
             {
                 Input(4, Score.BandBlue, 40000.0), Input(4, Score.BandFlat, 40000.0),
@@ -397,8 +404,8 @@ namespace ResortBatch
             }
         }
 
-        /// <summary>CT139-G: the green rule. A rated cat track reads Green whatever band the classifier gave (the tool grades it under 25 %;
-        /// the rater reads a hairpin or a crossing steeper than the track's own grade, GradeBatch GR-20); pending / unrateable pass through.</summary>
+        /// <summary>CT139-G: the green rule. A rated cat track reads Green whatever band the classifier gave. The tool grades it under 25 %.
+        /// The rater reads a hairpin or a crossing steeper than the track's own grade (GradeBatch GR-20). Pending / unrateable pass through.</summary>
         private static void GreenRule()
         {
             const string W = "cattrack/green";
@@ -420,15 +427,15 @@ namespace ResortBatch
             Check(RunSnowRules.ThresholdC(RunKind.Natural, 0f, 3.3f) == 0f, W, "natural is unchanged: freezing");
             Check(RunSnowRules.ThresholdC(RunKind.Snowmaking, 0f, 3.3f) == 3.3f && RunSnowRules.ThresholdC(RunKind.Night, 0f, 3.3f) == 3.3f, W,
                   "snowmaking and night are unchanged");
-            // The estimate at 2 C day mean on a 300 m run starting at the base height: a cat track (threshold 3.3) is cold enough
-            // everywhere (share 1, open), a groomed run (threshold 0) is not (share 0, closed).
+            // The estimate at 2 C day mean on a 300 m run starting at the base height gives these results. A cat track (threshold 3.3) is cold
+            // enough everywhere (share 1, open). A groomed run (threshold 0) is not (share 0, closed).
             float cat = RunSnowRules.EstimatedShare(1000f, 1300f, 2f, RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f), 1000f, 0.0065f);
             float groomed = RunSnowRules.EstimatedShare(1000f, 1300f, 2f, RunSnowRules.ThresholdC(RunKind.Groomed, 0f, 3.3f), 1000f, 0.0065f);
             Check(cat >= 1f && RunSnowRules.OpenMultiplier(cat) == 1f, W, "at +2 C the cat track estimate is fully open (share " + cat + ")");
             Check(groomed <= 0f && RunSnowRules.OpenMultiplier(groomed) == 0f, W, "at +2 C a groomed run's estimate is closed (share " + groomed + ")");
 
-            // The estimate's threshold (EstimateThresholdC): the gun margin only while the guns make snow, in the gun season with the guns
-            // on (DECISIONS 568, 571); else the natural threshold (freezing).
+            // The estimate's threshold (EstimateThresholdC) is the gun margin only while the guns make snow, in the gun season with the guns
+            // on (DECISIONS 568, 571). Otherwise it is the natural threshold (freezing).
             Check(RunSnowRules.EstimateThresholdC(RunKind.CatTrack, 0f, 3.3f, true, true) == 3.3f, W, "in season, guns on: freezing + the gun margin");
             Check(RunSnowRules.EstimateThresholdC(RunKind.CatTrack, 0f, 3.3f, true, false) == 0f, W, "guns Off: the natural threshold, freezing");
             Check(RunSnowRules.EstimateThresholdC(RunKind.CatTrack, 0f, 3.3f, false, true) == 0f, W,
@@ -455,16 +462,20 @@ namespace ResortBatch
             SnowParity();
         }
 
-        /// <summary>CT-PARITY (DECISIONS 571): a cat track opens and closes exactly as a run with snowmaking. Every input of the estimate
-        /// (gun season x guns On / Off x the day-mean temperature from natural snow to warm x three run heights) gives the cat track the same
-        /// share, multiplier, hub state and label as its run: guns On = a snowmaking run (the run path passes gunsOn true, its gun value is
-        /// look only), guns Off = a run that makes no snow (natural). Both go through RunSnowRules.EstimatedRunShare, the one call
-        /// SkiSnowInjectionSystem makes for a run it could not measure and for every cat track (GetRunSnow). Oracles pin the season rule.</summary>
+        /// <summary>CT-PARITY (DECISIONS 571): a cat track opens and closes exactly as a run with snowmaking. Every input of the estimate gives
+        /// the cat track the same share, multiplier, hub state and label as its run. The inputs are the gun season x guns On / Off x the day-mean
+        /// temperature from natural snow to warm x three run heights. Guns On = a snowmaking run (the run path passes gunsOn true, its gun value is
+        /// look only). Guns Off = a run that makes no snow (natural). Both go through RunSnowRules.EstimatedRunShare. SkiSnowInjectionSystem makes
+        /// this one call for a run it could not measure and for every cat track (GetRunSnow). Oracles pin the season rule.</summary>
         private static void SnowParity()
         {
             const string W = "cattrack/parity";
             const float freezing = 0f, margin = 3.3f, baseH = 1000f, lapse = 0.0065f;
-            // -5: natural snow everywhere; 1: natural snow on the upper half; 2: none natural, the guns cover it; 4.3: the guns cover half;
+            // Temperature cases:
+            // -5: natural snow everywhere.
+            // 1: natural snow on the upper half.
+            // 2: none natural, the guns cover it.
+            // 4.3: the guns cover half.
             // 9.4: warm (the field day mean at date 0.885).
             float[] temps = { -5f, 1f, 2f, 4.3f, 9.4f };
             float[][] heights = { new[] { 1000f, 1300f }, new[] { 1400f, 1700f }, new[] { 800f, 1000f } };
@@ -495,9 +506,9 @@ namespace ResortBatch
                         }
             Check(cases == 60 && same == cases, W, same + " of " + cases + " cases: the cat track's share, multiplier, hub state and label equal its run's");
 
-            // Since the run-types round the estimate is the track's floor, not its whole share: its table share is TrackShare(measured or
-            // estimated, made), and its guns' made snow starts at the snowmaking run's own estimate (TrackGunShare). So from no made snow, one
-            // refresh gives the track at least its run's share in every case, and exactly the run's when the guns cover nothing more.
+            // Since the run-types round the estimate is the track's floor, not its whole share. Its table share is TrackShare(measured or
+            // estimated, made). Its guns' made snow starts at the snowmaking run's own estimate (TrackGunShare). So from no made snow, one
+            // refresh gives the track at least its run's share in every case. It gives exactly the run's share when the guns cover nothing more.
             int floorCases = 0, floorOk = 0;
             foreach (bool season in new[] { true, false })
                 foreach (bool guns in new[] { true, false })
@@ -529,15 +540,18 @@ namespace ResortBatch
                       "out of season, " + t + " C: a snowmaking run's estimate equals a natural run's");
 
             // Oracles (hand values). The field case: a track high on the hill (1400-1700 m, base 300 m) at a 9.4 C day mean. Margin line
-            // 300 + (9.4 - 3.3) / 0.0065 = 1238 m: all of it cold enough for the guns; natural line 300 + 9.4 / 0.0065 = 1746 m: none.
+            // 300 + (9.4 - 3.3) / 0.0065 = 1238 m: all of it is cold enough for the guns. Natural line 300 + 9.4 / 0.0065 = 1746 m: none of it is.
             float inSeason = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1400f, 1700f, 9.4f, freezing, margin, 300f, lapse, true, true);
             float outSeason = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1400f, 1700f, 9.4f, freezing, margin, 300f, lapse, false, true);
             Check(inSeason == 1f && HubRules.OpenStateOf(RunSnowRules.OpenMultiplier(inSeason), true) == RunOpenState.Open, W,
                   "field case in the gun season, guns on: open (share " + inSeason + ")");
             Check(outSeason == 0f && HubRules.OpenStateOf(RunSnowRules.OpenMultiplier(outSeason), true) == RunOpenState.Closed, W,
                   "field case out of the gun season, guns on: closed, was Open 100 % (share " + outSeason + ")");
-            // 1000-1300 m at base 1000: +2 C open only in the season with the guns on; -5 C open in every case; 9.4 C closed in every case;
-            // 4.3 C in the season with the guns on: patchy (line 1153.8 m, share 0.487, multiplier 0.436).
+            // 1000-1300 m at base 1000:
+            // - +2 C: open only in the season with the guns on.
+            // - -5 C: open in every case.
+            // - 9.4 C: closed in every case.
+            // - 4.3 C in the season with the guns on: patchy (line 1153.8 m, share 0.487, multiplier 0.436).
             foreach (bool season in new[] { true, false })
                 foreach (bool guns in new[] { true, false })
                 {
@@ -554,15 +568,14 @@ namespace ResortBatch
                   "4.3 C in the season, guns on: patchy (share " + half + ")");
         }
 
-        /// <summary>CT-MEASURE (run-types round): a cat track's own snow. The snow map under it is measured as a natural run's is
-        /// (SkiSnowInjectionSystem, not headless); its guns' snow is RunSnowRules.TrackMadeSnow, raised to the snowmaking estimate, held by the
-        /// runs' protection machine at the largest run budget, melted at a run pack's speed after it (RunMeltOutHours). Oracles are hand
-        /// values.</summary>
+        /// <summary>CT-MEASURE (run-types round): a cat track's own snow. SkiSnowInjectionSystem measures the snow map under it as for a natural
+        /// run (not headless). Its guns' snow is RunSnowRules.TrackMadeSnow. It rises to the snowmaking estimate. The runs' protection machine
+        /// holds it at the largest run budget. After the hold it melts at a run pack's speed (RunMeltOutHours). Oracles are hand values.</summary>
         private static void SnowMeasure()
         {
             const string W = "cattrack/measure";
             const float freezing = 0f, margin = 3.3f, baseH = 1000f, lapse = 0.0065f, lo = 1000f, hi = 1300f;
-            // The pieces are the estimate's own: the guns' share is the snowmaking estimate while they make snow, else 0; the cold share is
+            // The pieces are the estimate's own. The guns' share is the snowmaking estimate while they make snow, else 0. The cold share is
             // the natural estimate.
             foreach (float t in new[] { -5f, 1f, 2f, 4.3f, 9.4f })
                 foreach (bool season in new[] { true, false })
@@ -586,7 +599,7 @@ namespace ResortBatch
                   "+2 C, season, guns on: made 100 %, nothing warm, no spell (share " + track.Share + ")");
 
             // Thaw out of the season at +2 C: no gun, no cold share, so all of it is warm. The spell holds it for the largest budget (72 h,
-            // a north face), then it melts as a run's pack would at +2 C (RunMeltOutHours, 3.0 h to the close line): open while >= 40 %.
+            // a north face). Then it melts as a run's pack would at +2 C (RunMeltOutHours, 3.0 h to the close line): open while >= 40 %.
             float hours = 0f, openHours = -1f;
             RunSnowState label = RunSnowState.Open;
             bool sawStart = false, sawSpent = false;
@@ -625,15 +638,15 @@ namespace ResortBatch
             Check(springOpen > 36f + RunSnowRules.RunMeltOutHours(2f) - 0.5f && springOpen <= 36f + RunSnowRules.RunMeltOutHours(2f) + 0.5f, W,
                   "spring thaw: closed after the 36 h budget and the melt to the close line (" + springOpen + " h)");
 
-            // Cold out of the season (-10 C): the cold keeps all of it, nothing is warm, it holds for any time (a run's made snow stays too).
+            // Cold out of the season (-10 C): the cold keeps all of it and nothing is warm. It holds for any time (a run's made snow stays too).
             var cold = new RunSnowRules.TrackMadeSnow { Share = 1f };
             float cCold = RunSnowRules.TrackColdShare(lo, hi, -10f, freezing, baseH, lapse);
             for (int step = 0; step < 100; step++)
                 RunSnowRules.StepTrackMadeSnow(ref cold, 6f, 0f, cCold, -10f, false, out bool _);
             Check(cold.Share == 1f && cold.Spell.State == RunSnowRules.ProtectState.Idle, W, "-10 C out of season: held 600 h, no spell");
 
-            // Too warm (12 C at the track, above ProtectMaxLocalC): no spell; it melts as a run's pack would: at the close line (40 %) after
-            // RunMeltOutHours(12) = 0.50 h, gone after 1 h.
+            // Too warm (12 C at the track, above ProtectMaxLocalC): no spell. It melts as a run's pack would. It is at the close line (40 %) after
+            // RunMeltOutHours(12) = 0.50 h. It is gone after 1 h.
             float m12 = RunSnowRules.RunMeltOutHours(12f);
             var warm = new RunSnowRules.TrackMadeSnow { Share = 1f };
             RunSnowRules.StepTrackMadeSnow(ref warm, m12, 0f, 0f, 12f, false, out bool warmStart);
@@ -655,8 +668,8 @@ namespace ResortBatch
             Check(float.IsPositiveInfinity(RunSnowRules.RunMeltOutHours(0f)) && float.IsPositiveInfinity(RunSnowRules.RunMeltOutHours(-5f)) &&
                   float.IsPositiveInfinity(RunSnowRules.RunMeltOutHours(float.NaN)), W, "RunMeltOutHours: infinite at or below freezing and for NaN");
 
-            // Closes last (DECISIONS 574): a run pack at the gun stop depth, held for its texel budget (none above 10 C) and then melting to the
-            // keep bar, closes no later than a track beside it at the same air, for every aspect, spring or not.
+            // Closes last (DECISIONS 574). A run pack at the gun stop depth holds for its texel budget (none above 10 C) and then melts to the
+            // keep bar. It closes no later than a track beside it at the same air. This holds for every aspect, spring or not.
             foreach (float airC in new[] { 0.5f, 1f, 2f, 4f, 7f, 9.9f, 12f })
                 foreach (bool spring in new[] { false, true })
                     for (float aspect = RunSnowRules.ProtectSouthFactor; aspect <= RunSnowRules.ProtectNorthFactor + 1e-4f; aspect += 0.5f)
@@ -691,12 +704,12 @@ namespace ResortBatch
             RunSnowRules.StepTrackMadeSnow(ref off, 1f, gOff, c2, 2f, false, out bool offStart);
             Check(gOff == 0f && offStart && off.Share == 1f, W, "guns Off at +2 C: no gun share, the spell holds the made snow");
 
-            // The guns come back: the share is raised at once and, all cold again for ProtectRearmColdHours, the spell is Idle.
+            // The guns come back: the share rises at once. When all is cold again for ProtectRearmColdHours, the spell is Idle.
             var back = new RunSnowRules.TrackMadeSnow { Share = 0.2f, Spell = new RunSnowRules.ProtectRun { State = RunSnowRules.ProtectState.Spent } };
             RunSnowRules.StepTrackMadeSnow(ref back, 3f, 1f, 0f, 2f, false, out bool _);
             Check(back.Share == 1f && back.Spell.State == RunSnowRules.ProtectState.Idle, W, "guns back: 100 % at once, the spell re-arms after 3 h cold");
 
-            // TrackShare: the larger; a NaN snow share (no measurement and no estimate) gives the made share; bad values clamp.
+            // TrackShare: the larger. A NaN snow share (no measurement and no estimate) gives the made share. Bad values clamp.
             Check(RunSnowRules.TrackShare(0.3f, 0.7f) == 0.7f && RunSnowRules.TrackShare(0.8f, 0.1f) == 0.8f, W, "TrackShare is the larger");
             Check(RunSnowRules.TrackShare(float.NaN, 0.4f) == 0.4f && RunSnowRules.TrackShare(float.NaN, float.NaN) == 0f, W, "TrackShare with NaN");
             Check(RunSnowRules.TrackShare(1.5f, -1f) == 1f, W, "TrackShare clamps");
@@ -710,9 +723,9 @@ namespace ResortBatch
                   RunSnowRules.NextState(RunSnowState.Unknown, 0.55f) == RunSnowState.Open, W, "the label's hysteresis at 55 %");
         }
 
-        /// <summary>KEEP (DECISIONS 574): a run opens at the open bar (3 ft on 60 %) and, once open, stays open while the keep bar (1 ft)
-        /// covers 40 %; the label is RunSnowRules.MeasuredShare then NextState, as RefreshRunSnow applies them. Texels are uniform-weight here
-        /// (the fold weighs by coverage). Also MadeSnowLeads, which hides a cat track's depth line.</summary>
+        /// <summary>KEEP (DECISIONS 574): a run opens at the open bar (3 ft on 60 %). Once open, it stays open while the keep bar (1 ft)
+        /// covers 40 %. The label is RunSnowRules.MeasuredShare then NextState, as RefreshRunSnow applies them. Texels are uniform-weight here
+        /// (the fold weighs by coverage). The test also covers MadeSnowLeads, which hides a cat track's depth line.</summary>
         private static void KeepBar()
         {
             const string W = "snow/keep-bar";
@@ -765,7 +778,7 @@ namespace ResortBatch
             for (int i = 0; i < 50; i++) patchy[i] = 0.5f;
             Check(Pass(RunSnowState.Open, patchy, out float pShare) == RunSnowState.Open && Math.Abs(pShare - 0.5f) < 1e-6f &&
                   Pass(RunSnowState.Closed, patchy, out float pc) == RunSnowState.Closed && pc == 0f, W, "half at 0.5 m: open stays open (50 %), closed stays closed (0 %)");
-            // A load: the label is not saved; Unknown reads the keep share at the midpoint, so a settled open pack stays open.
+            // A load: the label is not saved. Unknown reads the keep share at the midpoint, so a settled open pack stays open.
             Check(Pass(RunSnowState.Unknown, Uniform(0.5f), out float _) == RunSnowState.Open &&
                   Pass(RunSnowState.Unknown, Uniform(0.25f), out float _) == RunSnowState.Closed, W, "after a load: 0.5 m open, 0.25 m closed");
             // The field case (Entry Point, spring thaw at 7 C): mean 0.59 m, 66 % at 3 ft before the pass: it now stays open.
@@ -816,7 +829,7 @@ namespace ResortBatch
                   "share 50 % Partly, 65 % Open, 30 % Closed");
         }
 
-        // Guns and hydrants, masts only when lit (the full table: DensityTests; the walk: PlacerTests). Names read through ClassOf as the load sweep does.
+        // Guns and hydrants, masts only when lit. The full table is in DensityTests. The walk is in PlacerTests. Names read through ClassOf as the load sweep does.
         private static void Props()
         {
             const string W = "cattrack/props";

@@ -1,12 +1,18 @@
 // A run connected to a served run is served: LiftServedRule.RunLinks.Build + AssignLinked, the one rule the attraction and
 // stats paths both call. Where-tags `served-link/...`.
-//   SL-1..3 connectors, unserved neighbors, chains and gaps    SL-4 distance boundary (24.99 / 25 m linked, 25.01 m not;
-//   nodes are compared, not edges)    SL-5 other ski area or area id < 0 never links    SL-6 outline overlap without near nodes
-//   SL-7 no links reproduces Assign    SL-8 graph reuse, size mismatch, cycles, cost of 200 runs x 120 nodes
+// - SL-1..3 connectors, unserved neighbors, chains and gaps
+// - SL-4 distance boundary (24.99 / 25 m linked, 25.01 m not: nodes are compared, not edges)
+// - SL-5 other ski area or area id < 0 never links
+// - SL-6 outline overlap without near nodes
+// - SL-7 no links reproduces Assign
+// - SL-8 graph reuse, size mismatch, cycles, cost of 200 runs x 120 nodes
 // Downhill (2026-10-25): SL-1..8 pass no heights (flat terrain), which reproduces the old linking exactly. With node heights:
-//   SL-9 BelowJunction boundaries    SL-10 a run touching only at its bottom is not served    SL-11 a run joined mid-way is served,
-//   and service never flows up it past its entry    SL-12 downhill chains    SL-13 a terrain re-snap (new height array) rebuilds
-//   SL-14 (quick runs fix round) a LEVEL cat track crossing a run at mid height vs in its bottom 20 m (30.0 / 29.9 m boundary), and two
+// - SL-9 BelowJunction boundaries
+// - SL-10 a run touching only at its bottom is not served
+// - SL-11 a run joined mid-way is served, and service never flows up it past its entry
+// - SL-12 downhill chains
+// - SL-13 a terrain re-snap (new height array) rebuilds
+// - SL-14 (quick runs fix round) a LEVEL cat track crossing a run at mid height vs in its bottom 20 m (30.0 / 29.9 m boundary), and two
 //   parallel runs side by side on a sidehill sharing an edge: the "board highest" pick serves both from one lift, whichever is served
 
 using System;
@@ -49,7 +55,7 @@ namespace LiftBatch
         }
 
 
-        /// <summary>One lift: a chord (0,0) to (0,500), top station y 300, powered; a run top within x 150 and y 315 is served.</summary>
+        /// <summary>One lift: a chord (0,0) to (0,500), top station y 300, powered. A run top within x 150 and y 315 is served.</summary>
         private static void Lift(LiftPower power, out List<LiftServedRule.Lift> lifts, out List<LiftServedRule.Chord> chords)
         {
             chords = new List<LiftServedRule.Chord> { new LiftServedRule.Chord { A = new float2(0f, 0f), B = new float2(0f, 500f) } };
@@ -119,7 +125,7 @@ namespace LiftBatch
         }
 
 
-        /// <summary>The test mountain: y = 1000 - 0.5 z (a 50 % fall line toward +z; x is level).</summary>
+        /// <summary>The test mountain: y = 1000 - 0.5 z (a 50 % fall line toward +z, and x is level).</summary>
         private static float[] SlopeHeights(float2[] ring)
         {
             var y = new float[ring.Length];
@@ -148,7 +154,7 @@ namespace LiftBatch
             var s = new Scene();
             int a = s.Add(Served1, Rect(90f, 100f, 130f, 200f));
             int b = s.Add(Served2, Rect(90f, 400f, 130f, 500f));
-            // The connector runs from A's lower end (z 200) to B's upper end (z 400); its own top (Far) fails the lift test.
+            // The connector runs from A's lower end (z 200) to B's upper end (z 400). Its own top (Far) fails the lift test.
             int c = s.Add(Far, Rect(100f, 215f, 120f, 385f));
             s.Solve();
             Check(s.Served(a) && s.Served(b), W, "A and B directly served");
@@ -167,7 +173,7 @@ namespace LiftBatch
             var s = new Scene();
             int d = s.Add(Far, Rect(1000f, 100f, 1040f, 200f));
             int e = s.Add(new float3(1100f, 200f, 200f), Rect(1050f, 100f, 1090f, 200f));   // 10 m from D, also unserved
-            int f = s.Add(TooHigh, Rect(40f, 150f, 80f, 250f));                                // near the chord but too high; no neighbor
+            int f = s.Add(TooHigh, Rect(40f, 150f, 80f, 250f));                                // near the chord but too high. No neighbor
             s.Solve();
             Check(!s.Served(d) && !s.Served(e), W, "two linked runs, neither near a lift: both unserved");
             Eq(1, s.Links.LinkCount, W, "D-E linked");
@@ -217,7 +223,7 @@ namespace LiftBatch
             var t = new Scene();
             t.Add(Served1, new[] { new float2(0f, 0f), new float2(200f, 0f), new float2(200f, 10f), new float2(0f, 10f) });
             int b2 = t.Add(Far, new[] { new float2(100f, 20f), new float2(100f, 120f), new float2(110f, 120f), new float2(110f, 20f) });
-            // b2 nodes (100, 20) and (110, 20) are 10 m from a2's edge and 100 m from a2's nodes; outlines do not cross or contain.
+            // b2 nodes (100, 20) and (110, 20) are 10 m from a2's edge and 100 m from a2's nodes. Outlines do not cross or contain.
             t.Solve();
             Check(t.Served(b2), W, "a node 10 m from the other run's edge links, with no node within 25 m");
             // Two runs side by side, corners staggered 50 m along a 5 m gap (measured in game: nodes alone left this unlinked).
@@ -232,7 +238,7 @@ namespace LiftBatch
             int b4 = v.AddSloped(Far, Rect(-31f, 150f, 64f, 670f));
             v.Solve();
             Check(!v.Served(b4), W, "parallel runs 26 m apart do not link");
-            // Side contact keeps the bottom-touch rule: on the test mountain y falls toward +z, so a run ending beside a served run's top has nothing below the entry.
+            // Side contact keeps the bottom-touch rule. On the test mountain y falls toward +z, so a run ending beside a served run's top has nothing below the entry.
             var x = new Scene();
             x.AddSloped(Served1, Rect(90f, 100f, 195f, 720f));
             int b5 = x.AddSloped(Far, Rect(-10f, 30f, 85f, 105f));
@@ -258,7 +264,7 @@ namespace LiftBatch
         private static void Sl6Overlap()
         {
             const string W = "served-link/SL-6";
-            // A plus: a long horizontal bar and a long vertical bar crossing in the middle; every node of one is far from every node of the other.
+            // A plus: a long horizontal bar and a long vertical bar crossing in the middle. Every node of one is far from every node of the other.
             float2[] h = Rect(-300f, -10f, 300f, 10f);
             float2[] v = Rect(-10f, -300f, 10f, 300f);
             Check(LiftServedRule.OutlinesLinked(h, v), W, "crossing outlines (a plus) are linked");
@@ -403,7 +409,7 @@ namespace LiftBatch
             Console.WriteLine(string.Format(System.Globalization.CultureInfo.InvariantCulture,
                 "INFO  served-link/SL-8 cost: 200 runs x 120 nodes, graph build + assign {0:F2} ms, {1} links", ms, big.Links.LinkCount));
             Check(ms < 1000.0, W, "200 runs x 120 nodes under a second (" + ms.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " ms)");
-            // 40 m between neighboring ring nodes' centers minus 2 x 20 m radius = 20 m gap: every grid neighbor is linked; Served1 is run 0.
+            // 40 m between neighboring ring nodes' centers minus 2 x 20 m radius = 20 m gap: the rule links every grid neighbor. Served1 is run 0.
             int bigServed = 0;
             for (int i = 0; i < big.Tops.Count; i++)
                 if (big.Served(i)) bigServed++;
@@ -462,8 +468,8 @@ namespace LiftBatch
         private static void Sl11MidJoin()
         {
             const string W = "served-link/SL-11";
-            // A (served): x 0-40, z 0-400 (y 1000-800). B: x 30-100, z -200 to 300 (y 1100-850): A's top corner (40, 0) lies inside B and
-            // B's left edge crosses A's top edge at (30, 0), so the entry onto B is y 1000, mid-way down B; 150 m of B lies below it.
+            // A (served): x 0-40, z 0-400 (y 1000-800). B: x 30-100, z -200 to 300 (y 1100-850). A's top corner (40, 0) lies inside B.
+            // B's left edge crosses A's top edge at (30, 0). So the entry onto B is y 1000, mid-way down B. 150 m of B lies below it.
             var s = new Scene();
             int a = s.AddSloped(Served1, Rect(0f, 0f, 40f, 400f));
             int b = s.AddSloped(Far, Rect(30f, -200f, 100f, 300f));
@@ -496,8 +502,8 @@ namespace LiftBatch
         {
             const string W = "served-link/SL-12";
             // A (served) z 0-200 (y 1000-900). B below it, z 210-400: entry y 895 at its top, served. C beside B's top, x 60-100,
-            // z 220-260 (y 890-870): its node (60, 220) is 22.4 m from B's node (40, 210) at y 895, B's entry height: usable; C's drop
-            // 20, need 6.7, below 20: served. H touches C's bottom node (100, 260) with its top (110, 270), 14.1 m; H z 270-500.
+            // z 220-260 (y 890-870). Its node (60, 220) is 22.4 m from B's node (40, 210) at y 895, B's entry height: usable.
+            // C's drop 20, need 6.7, below 20: served. H touches C's bottom node (100, 260) with its top (110, 270), 14.1 m. H z 270-500.
             var s = new Scene();
             int a = s.AddSloped(Served1, Rect(0f, 0f, 40f, 200f));
             int b = s.AddSloped(Far, Rect(0f, 210f, 40f, 400f));
@@ -531,7 +537,7 @@ namespace LiftBatch
             Eq(1, s.Links.Rebuilds, W, "same outline and height arrays: kept");
             Check(!s.Served(b), W, "B touches at its bottom: not served");
             // A terrain re-snap: the catalog hands a new height array (same xz array). B now falls AWAY from A (y 950 at its z 90
-            // nodes, beside A's top at 950; 900 at z -10): the graph rebuilds and B lies below the junction.
+            // nodes, beside A's top at 950, and 900 at z -10). The graph rebuilds and B lies below the junction.
             var resnap = new float[s.Outlines[b].Length];
             for (int k = 0; k < resnap.Length; k++)
                 resnap[k] = 905f + 0.5f * s.Outlines[b][k].y;
@@ -564,13 +570,16 @@ namespace LiftBatch
         }
 
         /// <summary>SL-14 (a): A (served directly, x 0-40, z 0-400, y 1000-800) and a LEVEL cat track at y 900 (A's height at z 200) from x 10
-        /// to 510 that crosses A and then runs X: x 455-475, from z 0 down to zBottom on the same mountain (y = 1000 - 0.5 z). The track
+        /// to 510. The track crosses A and then runs X: x 455-475, from z 0 down to zBottom on the same mountain (y = 1000 - 0.5 z). The track
         /// meets X at its edge crossing, 900 m high on the track and 899.5-900.5 on X: the junction is p = 900. X is served iff
-        /// p - lowest(X) >= min(30, drop / 3): mid height (zBottom 400, lowest 800: 100 m below) yes; zBottom 260 (lowest 870, exactly 30.0 m
-        /// below) yes; 259.8 (lowest 870.1, 29.9 m) no; 240 (the bottom 20 m, 20 m below) no.
-        /// (b) Two runs side by side on a sidehill (y = 1000 - 0.5 z - 0.2 x), sharing the edge x = 40 and its corner nodes: one lift serves
-        /// either of them directly and the other is served through the shared edge. A skier boards the neighbor at its HIGHEST shared node
-        /// (992 m at z 0), not the lowest (792 m at z 400, only 8 m above its bottom), so both are served in both directions.</summary>
+        /// p - lowest(X) >= min(30, drop / 3). The cases:
+        /// - mid height (zBottom 400, lowest 800: 100 m below): yes
+        /// - zBottom 260 (lowest 870, exactly 30.0 m below): yes
+        /// - 259.8 (lowest 870.1, 29.9 m): no
+        /// - 240 (the bottom 20 m, 20 m below): no
+        /// (b) Two runs side by side on a sidehill (y = 1000 - 0.5 z - 0.2 x) share the edge x = 40 and its corner nodes. One lift serves
+        /// either of them directly. The other is served through the shared edge. A skier boards the neighbor at its HIGHEST shared node
+        /// (992 m at z 0), not the lowest (792 m at z 400, only 8 m above its bottom). So both are served in both directions.</summary>
         private static void Sl14LevelCrossingAndNeighbours()
         {
             const string W = "served-link/SL-14";

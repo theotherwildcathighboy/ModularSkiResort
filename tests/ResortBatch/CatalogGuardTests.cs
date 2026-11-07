@@ -1,10 +1,11 @@
 // The constants guard between the pure prefab catalog SkiCatalog.cs and the pure rule files that alias it. `public static class` with
-// `Run(Func<bool, string, string, bool> check)`; Main passes its Check. Where-tags `catalog-guard...`.
-// CG-1 every alias == row == const against Lifts[0], SkiCatalog.FixedGrip and the other catalog rows (the aliases stay the FG row's; per-row
-// numbers reach Burst jobs as struct fields). The consts of other rule files are read by REFLECTION over this test assembly, so the host
-// builds when one does not exist yet (one "INFO ... not landed yet" line; once present, any mismatch FAILs). CG-2 RideTimeS uses the catalog speed.
-// CG-T is a text guard over mod/SkiResortMod/LocaleEN.cs: every number in the hub tips is DERIVED from the catalog, and the tip wording
-// must follow the lift rules (a tram row shares the tips; an unpowered lift is inert). Oracles elsewhere: ScoreTests, HubRulesTests, MoneyBatch.
+// `Run(Func<bool, string, string, bool> check)`. Main passes its Check. Where-tags `catalog-guard...`.
+// CG-1 every alias == row == const against Lifts[0], SkiCatalog.FixedGrip and the other catalog rows (the aliases stay the FG row's, and
+// per-row numbers reach Burst jobs as struct fields). The test reads the consts of other rule files by REFLECTION over this test assembly.
+// So the host builds when one does not exist yet (one "INFO ... not landed yet" line). Once it is present, any mismatch FAILs.
+// CG-2 RideTimeS uses the catalog speed.
+// CG-T is a text guard over mod/SkiResortMod/LocaleEN.cs. Every number in the hub tips is DERIVED from the catalog. The tip wording
+// must follow the lift rules (a tram row shares the tips, and an unpowered lift is inert). Oracles elsewhere: ScoreTests, HubRulesTests, MoneyBatch.
 // Engine notes: EngineNotes/ResortBatch.CatalogGuardTests.md
 
 using System;
@@ -32,9 +33,9 @@ namespace ResortBatch
             OffSeasonTexts();
         }
 
-        /// <summary>The texts of the off-season staffing: the Staff wages tooltip line names the off-season half staff and its Options setting,
-        /// the setting's description names a deactivated lodge's cost (a tenth of upkeep, no wages; the note carried it until DECISIONS 566);
-        /// the reduced lift texts no longer say "at a quarter" flat (the tram bills half).</summary>
+        /// <summary>The texts of the off-season staffing. The Staff wages tooltip line names the off-season half staff and its Options setting.
+        /// The setting's description names a deactivated lodge's cost (a tenth of upkeep, no wages). The note carried that cost until DECISIONS 566.
+        /// The reduced lift texts no longer say "at a quarter" flat (the tram bills half).</summary>
         private static void OffSeasonTexts()
         {
             const string W = "catalog-guard-t137";
@@ -69,7 +70,7 @@ namespace ResortBatch
             return s_Check(cond, where, msg);
         }
 
-        // Values (not consts) on purpose: comparing two consts folds at compile time and hides nothing, but passing
+        // Values (not consts) on purpose. Comparing two consts folds at compile time and hides nothing. But passing
         // them through parameters keeps every comparison a real runtime check with a readable message.
         private static void Same(double alias, double row, double constant, string where, string what)
         {
@@ -118,7 +119,7 @@ namespace ResortBatch
             SeamFile(asm, W, "SkiResortMod.Systems.PatrolRule", "mod/SkiResortMod/Systems/PatrolRule.cs", "economy (round-2-contract §7.2)",
                      new[] { "RadiusM", "ExpertFactor", "BackcountryServedMin" },
                      new double[] { SkiCatalog.Patrol.RadiusM, SkiCatalog.Patrol.ExpertFactor, SkiCatalog.Patrol.BackcountryServedMin });
-            // SkiMoneyRules exists today; its lodge-spend consts land with the lift group
+            // SkiMoneyRules exists today. Its lodge-spend consts land with the lift group
             string[] spend = { "LodgeSpendDefault", "LodgeSpendMax", "LodgeSpendStep" };
             double[] spendWant = { SkiCatalog.LodgeSpend.Default, SkiCatalog.LodgeSpend.Max, SkiCatalog.LodgeSpend.Step };
             Type money = typeof(SkiMoneyRules);
@@ -161,7 +162,7 @@ namespace ResortBatch
             }
         }
 
-        /// <summary>A public const (literal) field's value as double; false when absent or not a numeric const.</summary>
+        /// <summary>A public const (literal) field's value as double. Returns false when absent or not a numeric const.</summary>
         private static bool ConstOf(Type t, string name, out double value)
         {
             value = double.NaN;
@@ -228,7 +229,7 @@ namespace ResortBatch
                 Check(!HasDigit(ride.Replace("1×", "")), W + "-t3", rideKey + " = \"" + ride + "\" bakes a number besides \"1×\"");
             }
 
-            // Both tips hold for a Shuttle row too: the ride tip names no "loop" (a tram cabin rides dock to dock) and the capacity tip no
+            // Both tips hold for a Shuttle row too. The ride tip names no "loop" (a tram cabin rides dock to dock). The capacity tip names no
             // "spaced" (a tram counts its stops).
             if (Check(loc.TryGetValue(rideKey, out string ride7), W + "-t7", rideKey + " not found as a single-line entry"))
                 Check(ride7.IndexOf("loop", StringComparison.OrdinalIgnoreCase) < 0, W + "-t7",
@@ -319,8 +320,8 @@ namespace ResortBatch
                      SkiCatalog.Ladder.SummitServedRadiusM.ToString("0", CultureInfo.InvariantCulture) + " m");
         }
 
-        /// <summary>CG-T8: an unpowered lift of every type stops, has no capacity and serves no run, power never lowers its upkeep, its
-        /// power is its base station's; the four tooltips keep the 25-word rule and the two money tips may not grow.</summary>
+        /// <summary>CG-T8: an unpowered lift of every type stops, has no capacity and serves no run. Power never lowers its upkeep. Its
+        /// power is its base station's. The four tooltips keep the 25-word rule. The two money tips may not grow.</summary>
         private static void UnpoweredTexts(Dictionary<string, string> loc, string w, string capKey, string totalKey)
         {
             const string tileKey = "SkiResort.Hub.TILE_TIP[Lifts]";
@@ -340,8 +341,8 @@ namespace ResortBatch
                 if (Check(loc.TryGetValue(key, out string text), w, key + " not found as a single-line entry"))
                     Check(Has(text, "power"), w, key + " = \"" + text + "\" does not name power (an unpowered lift shows capacity –)");
             }
-            // (c) the problem tip: stops, base station, maintenance still charged, and no "full" (the NoOpenRun quarter still reaches an
-            // unpowered lift whose area counts no run)
+            // (c) the problem tip: stops, base station, maintenance still charged, and no "full".
+            // The NoOpenRun quarter still reaches an unpowered lift whose area counts no run.
             if (Check(loc.TryGetValue(problemKey, out string problem), w, problemKey + " not found as a single-line entry"))
             {
                 Check(Has(problem, "stops"), w, problemKey + " = \"" + problem + "\" does not say the lift stops");

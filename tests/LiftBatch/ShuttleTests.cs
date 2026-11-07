@@ -1,11 +1,21 @@
-// Tests for the pure stateless shuttle profile (ShuttleProfile.cs). Where-tags `shuttle/...`, SH-1..SH-12; v 10 m/s, a 0.8 m/s^2, dwell 60 s.
-// Pinned: TripTimeS (triangle below 125 m, trapezoid above), DistanceAt (continuous, monotone, C1 at the ramp ends), PeriodS, FractionA /
-// HoldFractionA legs and periodicity, cabin B = 1 - A, TimeSOf == ((double)f + ft) / 60.0 bit for bit (one game day = 262,144 frames),
-// CapacityPerHour (a -> infinity gives 2,250 at 1 km and 1,000 at 3 km), invalid inputs -> DwellBase, QuantizeLengthM (1 cm buckets).
-// SH-11, the tram's terminal reach on LiftLoopTopology: a Shuttle station owns a terminal within MaxDockRunM of a dock (rope tips
-// ~29 / 30 m out close both chains, 31 m and ~60 m stay unclosed); Loop mode and docks-less stations keep the 20 m origin radius.
-// SH-12, the station list order: LiftLoopTopology.SortedStationOrder sorts the harvest by entity (Index, then Version), so two chunk orders of one
-// station set give one signature (the TramShuttle watchdog WARN after an icon clear reordered the chunks); a real change of set still changes it.
+// Tests for the pure stateless shuttle profile (ShuttleProfile.cs). Where-tags `shuttle/...`, SH-1..SH-12. Values: v 10 m/s,
+// a 0.8 m/s^2, dwell 60 s.
+// Pinned:
+// - TripTimeS (triangle below 125 m, trapezoid above)
+// - DistanceAt (continuous, monotone, C1 at the ramp ends)
+// - PeriodS
+// - FractionA / HoldFractionA legs and periodicity
+// - cabin B = 1 - A
+// - TimeSOf == ((double)f + ft) / 60.0 bit for bit (one game day = 262,144 frames)
+// - CapacityPerHour (a -> infinity gives 2,250 at 1 km and 1,000 at 3 km)
+// - invalid inputs -> DwellBase
+// - QuantizeLengthM (1 cm buckets)
+// SH-11, the tram's terminal reach on LiftLoopTopology: a Shuttle station owns a terminal within MaxDockRunM of a dock. Rope tips
+// ~29 / 30 m out close both chains. Rope tips at 31 m and ~60 m stay unclosed. Loop mode and docks-less stations keep the 20 m
+// origin radius.
+// SH-12, the station list order: LiftLoopTopology.SortedStationOrder sorts the harvest by entity (Index, then Version). So two chunk
+// orders of one station set give one signature (the TramShuttle watchdog WARN after an icon clear reordered the chunks). A real
+// change of set still changes it.
 
 using System;
 using System.Collections.Generic;
@@ -99,7 +109,7 @@ namespace LiftBatch
                 Check(monotone, W, "L " + L + ": DistanceAt not monotone over 10,000 samples");
                 Near(L, prev, 1e-9, W, "L " + L + ": the last sample");
 
-                // Continuity at the ramp ends (trapezoid: v/a and T - v/a; triangle: T/2).
+                // Continuity at the ramp ends (trapezoid: v/a and T - v/a, triangle: T/2).
                 double[] joints = L >= V * V / A ? new[] { V / A, trip - V / A } : new[] { trip / 2 };
                 foreach (double j in joints)
                 {
@@ -304,8 +314,8 @@ namespace LiftBatch
             }
         }
 
-        /// <summary>One synthetic two-rope line in the topology's stand-ins. Station i has owner index 100 + i; the two rope anchors
-        /// at each end belong to the line's own nodes (owner 7000 +), not to a station: the "line-first" case where the census sees
+        /// <summary>One synthetic two-rope line in the topology's stand-ins. Station i has owner index 100 + i. The two rope anchors
+        /// at each end belong to the line's own nodes (owner 7000 +), not to a station. This is the "line-first" case: the census sees
         /// the stub tip through the stub edge's ConnectedEdge while the chain's PathNode owner is the line's.</summary>
         private sealed class Rig
         {
@@ -358,7 +368,7 @@ namespace LiftBatch
             });
         }
 
-        /// <summary>The catalog tram: base (role Base, yaw 180, axis at its StubTipLocalX) at y 0, top at (0, 400, 1000) yaw 0; two
+        /// <summary>The catalog tram: base (role Base, yaw 180, axis at its StubTipLocalX) at y 0, top at (0, 400, 1000) yaw 0. It has two
         /// rope lanes per end at lateral +- GaugeHalfM of each station's axis, at rope height AxleM, StubTipLocalZ out. baseShiftZ moves
         /// both base rope anchors along world z (toward the top): the line starts that far past the stub tip. baseTipFromDock (>= 0)
         /// overrides it: both base anchors then sit this far along z from a dock, at dock height.</summary>
@@ -413,8 +423,8 @@ namespace LiftBatch
             if (!Check(tram != null && tram.Mover == MoverKind.Shuttle, W, "no tram row"))
                 return;
 
-            // (a) Both base rope tips more than 20 m from the origin (the catalog numbers give 30.4 / 28.9 m), 12 m out and ~12 m from
-            //     their docks. Both chains close, base 0 -> top 1.
+            // (a) Both base rope tips are more than 20 m from the origin (the catalog numbers give 30.4 / 28.9 m). They are 12 m out and ~12 m
+            //     from their docks. Both chains close, base 0 -> top 1.
             Rig rig = TramRig();
             for (int k = 0; k < 2; k++)
                 Check(math.distance(rig.BaseTip[k], rig.Stations[0].Position) > LiftLoopTopology.StationTerminalRadius, W,
@@ -433,7 +443,7 @@ namespace LiftBatch
             Check(t.Diags.Count == 2 && t.Diags[0].StartHow.StartsWith("dock ") && t.Diags[1].StartHow.StartsWith("dock "), W,
                   "(a) the how strings: " + (t.Diags.Count > 0 ? t.Diags[0].StartHow : "none"));
 
-            // (b) The same graph as a Loop (FG / DQ / gondola rules): the 20 m radius is untouched, the text is the original.
+            // (b) The same graph as a Loop (FG / DQ / gondola rules): the 20 m radius does not change, and the text is the original.
             LiftLoopTopology loop = rig.Build(LiftLoopTopology.Mode.Loop);
             Eq(2, loop.UnclosedChainCount, W, "(b) Loop mode: chains still unclosed");
             bool loopText = loop.Diags.Count == 2;
@@ -467,8 +477,8 @@ namespace LiftBatch
             LiftLoopTopology t31 = TramRig(baseTipFromDock: 31f).Build(LiftLoopTopology.Mode.Shuttle);
             Eq(2, t31.UnclosedChainCount, W, "(e) 31 m from the dock: unclosed");
 
-            // (f) FG / DQ / gondola: Loop mode, their catalog stub tips, unowned anchors: classified by the 20 m origin radius as before
-            //     ("pos N.Nm"), the pair closes; 25 m out stays unclassified. One docks-less Shuttle probe (fixedGrip) too.
+            // (f) FG / DQ / gondola: Loop mode, their catalog stub tips, unowned anchors. The 20 m origin radius classifies them as before
+            //     ("pos N.Nm"), and the pair closes. 25 m out stays unclassified. One docks-less Shuttle probe (fixedGrip) too.
             foreach (string id in new[] { "fixedGrip", "detachable", "gondola" })
             {
                 LiftTypeDef def = SkiCatalog.LiftById(id);
@@ -560,8 +570,8 @@ namespace LiftBatch
         {
             const string W = "shuttle/SH-12";
 
-            // (a) The order function: any shuffle of one entity set sorts to the same entity sequence; Version breaks an Index tie;
-            //     equal keys keep list order; empty and single lists are fine.
+            // (a) The order function: any shuffle of one entity set sorts to the same entity sequence. Version breaks an Index tie.
+            //     Equal keys keep list order. Empty and single lists are fine.
             var idx = new List<int> { 412, 97, 412, 5, 1030, 97 };
             var ver = new List<int> { 3, 1, 2, 9, 1, 4 };
             var expected = new List<string> { "5:9", "97:1", "97:4", "412:2", "412:3", "1030:1" };
@@ -621,8 +631,10 @@ namespace LiftBatch
             Check(sortedFwd == sortedRev, W, "(c) sorted orders differ: " + sortedFwd + " / " + sortedRev);
             Check(sortedRev.Contains("Ok, base = station 0 100:1 -> top station 1 101:1"), W, "(c) base / top entities after the sort: " + sortedRev);
 
-            // (d) A real change of set still changes the signature: a station gone, a station added (it sorts first, so the other
-            //     stations' indices move too), a recycled entity (same Index, new Version) as the base.
+            // (d) A real change of set still changes the signature:
+            //     - a station gone
+            //     - a station added (it sorts first, so the other stations' indices move too)
+            //     - a recycled entity (same Index, new Version) as the base
             Rig gone = TramRig();
             gone.Stations.RemoveAt(1);
             var goneVer = new List<int> { 1 };

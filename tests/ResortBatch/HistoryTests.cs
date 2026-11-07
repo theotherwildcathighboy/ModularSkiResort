@@ -1,9 +1,15 @@
-// Tests of the pure history store (SkiResortHistory.cs) and the ledger's history additions (SkiResortLedger.cs); `Run(check)` is called from
-// Program.Main. Cases H-1..H-10. Pinned: the element codec (v2: 63 literal bytes, little-endian; the version byte is CurrentVersion whatever
-// m_Version holds; a v1 element of 59 bytes still loads with the depth unknown, T142 B7b) and the month-in-progress codec (142 bytes = V1Bytes) round-trip byte for byte; Append orders, dedupes (same key replaces,
-// an older key is rejected) and adds one GAP marker per jump; the 1200-month cap drops the oldest; SplitDebit conserves the debit and its
-// carries; a closed month's element net == HubRules.NetMonth of the ledger's month == a literal oracle (historyRules.ts finish() derives it
-// from the element's terms). Oracles are literal hand values; the byte oracle is our reading of Colossal's BinaryWriter (raw little-endian
+// Tests of the pure history store (SkiResortHistory.cs) and the ledger's history additions (SkiResortLedger.cs). Program.Main calls
+// `Run(check)`. Cases H-1..H-10.
+// Pinned:
+// - The element codec round-trips byte for byte (v2: 63 literal bytes, little-endian). The version byte is CurrentVersion whatever
+//   m_Version holds. A v1 element of 59 bytes still loads with the depth unknown (T142 B7b).
+// - The month-in-progress codec round-trips byte for byte (142 bytes = V1Bytes).
+// - Append orders and dedupes (same key replaces, an older key is rejected). It adds one GAP marker per jump.
+// - The 1200-month cap drops the oldest.
+// - SplitDebit conserves the debit and its carries.
+// - A closed month's element net == HubRules.NetMonth of the ledger's month == a literal oracle (historyRules.ts finish() derives it
+//   from the element's terms).
+// Oracles are literal hand values. The byte oracle is our reading of Colossal's BinaryWriter (raw little-endian
 // values in call order, BinaryWriter.cs 1.6.2f1).
 
 using System;
@@ -87,7 +93,7 @@ namespace ResortBatch
               "version / V1Bytes / V2Bytes");
             var m = new SkiResortHistoryMonth
             {
-                m_Version = 0,   // not what is written: Serialize always writes CurrentVersion
+                m_Version = 0,   // Serialize ignores this value and always writes CurrentVersion
                 m_Flags = HistoryFlags.First | HistoryFlags.Partial,          // 0x41
                 m_MonthKey = 2026 * 12 + 2,                                    // 24314 = 0x5EFA
                 m_Tourists = 120, m_Residents = 40, m_SkiDays = -1, m_TicketsPaid = 100,
@@ -135,8 +141,8 @@ namespace ResortBatch
                 again = w.Bytes[i] == w2.Bytes[i];
             C(again, "H-1 rewrite", "read-then-write is not byte-identical");
 
-            // H-1b: a v1 element (the 59 bytes a pre-T142 build wrote: version 1, no depth) still loads whole, its depth unknown, and
-            // writes back as v2.
+            // H-1b: a v1 element (the 59 bytes a pre-T142 build wrote: version 1, no depth) still loads whole with its depth unknown.
+            // It writes back as v2.
             var v1 = new List<byte>(want);
             v1.RemoveRange(59, 4);
             v1[0] = 0x01;
@@ -156,9 +162,9 @@ namespace ResortBatch
         private static void ProgressCodec()
         {
             C(SkiResortMonthInProgress.V1Bytes == 142 && SkiResortMonthInProgress.V2Bytes == 150, "H-MP1 consts", "V1Bytes = " + SkiResortMonthInProgress.V1Bytes + " (want 142), V2Bytes = " + SkiResortMonthInProgress.V2Bytes + " (want 150)");
-            // The month-in-progress codec copies Ledger.Month's fields BY NAME (SkiResortHistory.cs), so a 21st public field would silently
+            // The month-in-progress codec copies Ledger.Month's fields BY NAME (SkiResortHistory.cs). So a 21st public field would silently
             // not persist or seed while H-MP1's 150 bytes still pass. The saved SkiResortMonthInProgress bytes carry exactly these 20 fields
-            // (v2 appended BusCharged before the first release); after 1.0 adding one means a NEW ISerializable type (SaveLayouts.cs).
+            // (v2 appended BusCharged before the first release). After 1.0, adding one means a NEW ISerializable type (SaveLayouts.cs).
             int monthFields = typeof(SkiResortLedger.Month).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance).Length;
             C(monthFields == 20, "H-MP1 Month fields", "SkiResortLedger.Month has " + monthFields + " public instance fields (want exactly 20): " +
               "the history element and month-in-progress codecs copy them by name, so a new field is NOT persisted or seeded until a NEW " +
@@ -231,7 +237,7 @@ namespace ResortBatch
             for (int i = 1; i < s.Count; i++)
                 inc &= s[i].m_MonthKey > s[i - 1].m_MonthKey;
             C(inc, "H-3 order", "keys not strictly increasing");
-            // a stored marker as the last element: data at a later key appends without a second marker; at its key replaces it
+            // a stored marker as the last element: data at a later key appends without a second marker. Data at its key replaces it
             ListStore g = NewStore();
             g.Add(M(10));
             g.Add(SkiResortHistoryMonth.Gap(11));
@@ -258,7 +264,7 @@ namespace ResortBatch
             H.Append(ref t, M(5000));
             C(t.Count == 1200 && t[0].m_MonthKey == 1 && t[1198].IsGap && t[1199].m_MonthKey == 5000, "H-4 cap gap",
               $"count {t.Count}, first {t[0].m_MonthKey}");
-            // a marker that would lead the store is dropped with the month before it
+            // Trim drops a marker that would lead the store, with the month before it
             ListStore u = NewStore();
             u.Add(M(1));
             u.Add(SkiResortHistoryMonth.Gap(2));
@@ -271,7 +277,7 @@ namespace ResortBatch
 
         private static void Seasons()
         {
-            // month index 0..11 of the key; MonthOfKey 1..12. June 2026 = 2026*12+5, July 2026 = 2026*12+6.
+            // month index 0..11 of the key. MonthOfKey 1..12. June 2026 = 2026*12+5, July 2026 = 2026*12+6.
             C(H.SeasonOf(2026 * 12 + 5) == 2025 && H.SeasonOf(2026 * 12 + 6) == 2026 && H.SeasonOf(2025 * 12 + 11) == 2025 &&
               H.SeasonOf(2026 * 12 + 0) == 2025, "H-5 SeasonOf", "June / July / December / January");
             C(H.SeasonFirstKey(2025) == 2025 * 12 + 6, "H-5 first key", "July 2025 = " + H.SeasonFirstKey(2025));
@@ -306,7 +312,7 @@ namespace ResortBatch
             C(next.Months == 2 && next.Tourists == 20, "H-5 July boundary", $"season 2026: {next.Months} months");
             H.Bucket prev = H.SumSeason(ref s, 2024);   // May, June 2025 only
             C(prev.Months == 2 && prev.Tourists == 20, "H-5 June boundary", $"season 2024: {prev.Months} months");
-            // a gap inside a season is skipped (not a zero month)
+            // SumSeason skips a gap inside a season (not a zero month)
             ListStore g = NewStore();
             H.Append(ref g, M(2025 * 12 + 6, 5));
             H.Append(ref g, M(2025 * 12 + 9, 5));   // marker at August
@@ -321,7 +327,7 @@ namespace ResortBatch
             var w = new double[4];
             var c = new double[4];
             var p = new long[4];
-            // three areas 500 / 300 / 200 + Not linked 0; debit 10 → 5 / 3 / 2 / 0 exactly
+            // three areas 500 / 300 / 200 + Not linked 0. Debit 10 → 5 / 3 / 2 / 0 exactly
             w[0] = 500; w[1] = 300; w[2] = 200; w[3] = 0;
             H.SplitDebit(10, w, c, p, 4, 3);
             C(p[0] == 5 && p[1] == 3 && p[2] == 2 && p[3] == 0, "H-6 exact", $"{p[0]}/{p[1]}/{p[2]}/{p[3]}");
@@ -346,7 +352,7 @@ namespace ResortBatch
             C(everyExact && a + b == 20000, "H-6 sum", "a pass did not sum to its debit");
             C(Math.Abs(a - 600) <= 1 && Math.Abs(c[0]) < 1.0 && Math.Abs(c[0] + c[1]) < 1e-6, "H-6 no drift",
               $"small area {a} (want 600 ± 1), carry {c[0]:F3}, carry sum {c[0] + c[1]:E2}");
-            // nothing to weigh → the fallback slot takes it all; bad weights count 0
+            // nothing to weigh → the fallback slot takes it all. Bad weights count 0
             Array.Clear(c, 0, 4);
             w[0] = 0; w[1] = double.NaN; w[2] = -5; w[3] = 0;
             H.SplitDebit(9, w, c, p, 4, 3);
@@ -410,7 +416,7 @@ namespace ResortBatch
             C(SkiResortLedger.PassSeasonSoldOf(e, 2025) == 3 && SkiResortLedger.PassSeasonIncomeOf(e, 2025) == 600 &&
               SkiResortLedger.PassSeasonPreOf(e, 2025) == 1 && SkiResortLedger.PassSeasonPreIncomeOf(e, 2025) == 150, "H-8 season taken",
               "pass season not taken into an empty entry");
-            // same season again adds; another season is ignored once this one has sales
+            // same season again adds. Another season is ignored once this one has sales
             l.SeedThis(a, default, 2025, 2, 400, 0, 0);
             l.SeedThis(a, default, 2026, 9, 900, 0, 0);
             C(l.TryGet(a, out e) && SkiResortLedger.PassSeasonSoldOf(e, 2025) == 5 && SkiResortLedger.PassSeasonIncomeOf(e, 2025) == 1000 &&
@@ -467,8 +473,11 @@ namespace ResortBatch
         }
 
 
-        /// <summary>historyRules.ts finish() for one month, transcribed: income = ticket + lodge + pass + lesson; staff = max(0, b) +
-        /// max(0, w) when either is known, else −1; costs = max(0, lift) + max(0, run) + max(0, staff); net = income − costs.</summary>
+        /// <summary>historyRules.ts finish() for one month, transcribed:
+        /// income = ticket + lodge + pass + lesson.
+        /// staff = max(0, b) + max(0, w) when either is known, else −1.
+        /// costs = max(0, lift) + max(0, run) + max(0, staff).
+        /// net = income − costs.</summary>
         private static long TsNet(in SkiResortHistoryMonth m)
         {
             long income = (long)m.m_TicketIncome + m.m_LodgeIncome + m.m_PassIncome + m.m_LessonIncome;
