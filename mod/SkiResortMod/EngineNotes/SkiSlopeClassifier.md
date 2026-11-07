@@ -11,7 +11,7 @@ Contract:
 * It never logs. It never throws on bad input.
 * Every degenerate input returns a `SlopeStatus` and leaves the outputs cleared.
 * A tampered grid (public fields edited after `Plan`) cannot index out of range.
-* Zero managed allocation per call after the caller's reused `SlopeGrid` / `SlopeResult` buffers reach their final size. Buffers grow and never shrink.
+* Zero managed allocation per call after the caller's reused `SlopeGrid` / `SlopeResult` buffers have grown. Buffers grow and never shrink.
 * The code uses fixed top-k insertion arrays, a counting sort, union-find, a binary heap (open last bucket only) and BFS on reused arrays, with
   per-row run lists. It uses no Sort and no LINQ.
 
@@ -373,8 +373,8 @@ allocation. Each rule is a pure function of those numbers (for constants and rea
    * The share of inside cells with `CellGrade` >= the floor is below `SteepShareForBlack` (`DoubleBlackShare`).
 
    Then the run rates one band lower (black -> blue, double black -> black, never two). The rule does not apply when the crux pitch is
-   `CruxLengthForBlack` or longer (`LongKept`). It also does not apply when the crux stretch is narrower than `NarrowWidthM`. It also does not
-   apply when the width-weighted share (cells in a section narrower than `NarrowWidthM` counted twice) reaches the limit (`NarrowKept`: the width decided).
+   `CruxLengthForBlack` or longer (`LongKept`). It also does not apply when the crux stretch is narrower than `NarrowWidthM`, or when
+   the width-weighted share (cells in a section narrower than `NarrowWidthM` counted twice) reaches the limit (`NarrowKept`: the width decided).
 2. Wide ease. A blue crux less than `WideEase` above the green/blue boundary, with `MeanGrade` below the boundary and a crux stretch wider than
    `WideRunM`, rates Green.
 3. Green mean. `MeanGrade` below `GreenMeanKeepsBlueMax` (the green band): the run rates at most blue however short and steep the crux (double

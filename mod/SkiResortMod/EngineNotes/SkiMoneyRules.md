@@ -21,8 +21,8 @@ The rules `SkiMoneyRules` implements, by topic. All of it is pure static code. T
 
 ## Accrual
 
-The run-upkeep pattern (`SkiRunUpkeepSystem`'s month = TicksPerDay x daysPerYear / 12 sim frames. `TimeSystem.kTicksPerDay`,
-Game.Simulation/TimeSystem.cs:18. The ECS systems assert it at arm time): carry += rate x elapsed / month. The whole credits are
+The run-upkeep pattern (`SkiRunUpkeepSystem`'s month = TicksPerDay x daysPerYear / 12 sim frames; `TimeSystem.kTicksPerDay`,
+Game.Simulation/TimeSystem.cs:18; the ECS systems assert it at arm time): carry += rate x elapsed / month. The whole credits are
 debited, and the fraction is carried.
 
 ## Ticket gate

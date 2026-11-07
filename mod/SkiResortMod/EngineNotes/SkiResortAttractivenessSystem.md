@@ -77,7 +77,7 @@ This system computes membership, independent of the hub. The score works with th
   (State Complete, or Open = a section missing). Its area = `SkiResortIndex.TryResolve(base station xz, TetherMeters)` over this
   recompute's signs (the stats system's lift rule). Complete = census Complete. Powered = `LiftServedRule.IsPowered` (the row's
   `ReadLiftPower` via `CopyServeLifts`), the one power predicate. Unfinished lines and lone stations carry no value and are skipped.
-- Efficiency = `SkiResortScore.SignEfficiency` over the sign's Efficiency buffer (BuildingUtils.cs:121-133 re-done.
+- Efficiency = `SkiResortScore.SignEfficiency` over the sign's Efficiency buffer (BuildingUtils.cs:121-133 re-done;
   `BuildingUtils.GetEfficiency(DynamicBuffer)` does not compile on net48, CS7069). The system keeps the factors below 1, worst first, for
   the hub (`CopyEfficiencyFactors`).
 
@@ -89,13 +89,13 @@ both of these are true:
 - No member run is pending, or the catalog's rating service Failed.
 - `SkiSnowInjectionSystem.SnowSettled`.
 
-While it waits, each active lodge that carried a saved value keeps it (the system writes it every tick. Vanilla would rewrite it from the
+While it waits, each active lodge that carried a saved value keeps it (the system writes it every tick; vanilla would rewrite it from the
 prefab, now 0), and the snapshot says `WriteHeld`. The wait is capped at `RatingHoldMaxTicks` = 1024 ticks (one WARN, then unrated runs
 count 0). A new area (sign placed later) follows the same rule.
 
 ## Cadence
 
-This system never sees a Created/Updated/Deleted tag (Cleanup strips them before GameSimulation runs, the chain is in
+This system never sees a Created/Updated/Deleted tag (Cleanup strips them before GameSimulation runs; the chain is in
 `SkiResortAttractivenessWatchSystem`'s header). It has one pending flag and two kinds of request:
 
 - STRUCTURAL (next tick). These cause it:

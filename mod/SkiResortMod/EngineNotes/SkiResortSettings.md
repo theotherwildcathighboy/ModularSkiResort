@@ -24,8 +24,8 @@ The Default / Min / Max constants alias those of `SkiDayRules` (one source). tes
 Key bindings are plain `ModSetting` members (no `UIInputActionCollection`, no reflection).
 
 - `ModSetting` discovers only public get+set properties typed `ProxyBinding` (ModSetting.cs:32-34). Its constructor generates each
-  default binding from the `[SettingsUIKeyboardBinding]` attribute (ModSetting.cs:43, 56-64, action name =
-  `attribute.actionName ?? property name`, :78, SettingsUIKeyboardBindingAttribute.cs:41, 119-136, ctor :153-160). So `SetDefaults`
+  default binding from the `[SettingsUIKeyboardBinding]` attribute (ModSetting.cs:43, 56-64; action name =
+  `attribute.actionName ?? property name`, :78; SettingsUIKeyboardBindingAttribute.cs:41, 119-136, ctor :153-160). So `SetDefaults`
   must not assign them, because that would replace the generated binding with an empty `default(ProxyBinding)`.
 - The class-level `[SettingsUIKeyboardAction(name)]` gives the keyboard composite of each action the default usages
   (SettingsUIKeyboardActionAttribute.cs:9, SettingsUIInputActionAttribute.cs:41-51, read by `RegisterKeyBindings` at
@@ -42,7 +42,7 @@ Key bindings are plain `ModSetting` members (no `UIInputActionCollection`, no re
 - Glade toggle is Ctrl+Shift+G (plain Ctrl+G showed a conflict marker, likely from two installed mods' defaults, unverified). A saved
   rebind survives. Whether a changed default reaches players who never rebound is unverified.
 - `DumpDiagnostics` is Ctrl+Alt+G. Every live probe logged ctrl/shift/alt+G all live, so no vanilla binding on G disallows
-  modifiers (`PathEquals` uses the path-only comparer when either side disallows them, ProxyBinding.cs:822-825. The runtime pass,
+  modifiers (`PathEquals` uses the path-only comparer when either side disallows them, ProxyBinding.cs:822-825; the runtime pass,
   InputConflictResolution.cs:148-182, disables the losing mod action).
 - Ctrl+Alt+G vs our Alt+G: an Allow-modifiers composite gets a prohibition processor for every supported modifier the binding does
   not use (InputManager.cs:2104-2112). So Alt+G should not fire on Ctrl+Alt+G (Unity-side behavior unverified).

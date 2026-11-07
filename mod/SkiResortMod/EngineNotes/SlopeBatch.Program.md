@@ -37,10 +37,10 @@ recomputes the following by brute force and with its own data structures:
 - the EXACT crux cell, from an independent BFS written from the traversal contract (row-major seeds, row-major neighbor order, stop on
   discovery, largest o nearest the top)
 
-`OracleCheck` takes the per-cell values (`CellGrade`) as given. Separate tests pin them:
-- `KthCase` asserts `CellGrade` of EVERY Mask cell against a per-cell oracle (20/15/10/7 m row windows, |g| fallback) on z-invariant profiles.
-- `BankTests` and `ShortHeadwallTests` assert `RatingGrade` of full-width (unavoidable) features against the closed-form max window.
-- The plane / bank / ridge tests assert `SteepestGrade`, a separate top-k list.
+`OracleCheck` takes the per-cell values (`CellGrade`) as given. They are pinned separately. `KthCase` asserts `CellGrade` of EVERY Mask
+cell against a per-cell oracle (20/15/10/7 m row windows, |g| fallback) on z-invariant profiles. `BankTests` and
+`ShortHeadwallTests` assert `RatingGrade` of full-width (unavoidable) features against the closed-form max window. The plane / bank /
+ridge tests assert `SteepestGrade`, a separate top-k list.
 
 ## The caller and the diagonal rule
 

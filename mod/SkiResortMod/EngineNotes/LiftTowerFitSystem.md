@@ -93,7 +93,7 @@ A line is BUILT when both of these hold:
 - Every inner node's Elevation is exactly (E, E) of the member and head `MemberOf` reads from it.
 - There is evidence: a node raised above E 0, or every node classified this session.
 
-An engine line on the ground or the tool's fresh nodes are not BUILT. Over a built line, the fit writes its plan in one of two cases:
+An engine line on the ground or the tool's fresh nodes are not BUILT. Over a built line, the fit writes its plan only in one of these two cases:
 - The plan is sound (every span clear, no tower over its cap).
 - The plan is no worse than the line as it stands (the "before" plan: its own members and heads, `HeadsAsGiven`). The comparison
   covers every one of these axes: floor margin (0.05 m), violated spans, towers over cap, worst excess over a cap.

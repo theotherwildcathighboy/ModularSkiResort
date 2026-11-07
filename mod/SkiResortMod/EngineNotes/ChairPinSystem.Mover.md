@@ -35,7 +35,7 @@ cost that grows with the city. Engine citations are `File.cs:line` against the G
   reads the Transform of another chair. The stress mode never schedules two writers of one entity at the same time. Its K passes are
   chained jobs, and each depends on the previous one.
 - Dependency: the lookup is a RW declaration of Transform by this system, and the job handle is assigned to `Dependency`. So the
-  Entities dependency manager makes every later reader or writer of Transform wait for the job in this frame. These readers and writers
+  Entities dependency manager makes every later reader or writer of Transform in this frame wait for the job. These readers and writers
   include Modification5 `Objects.SearchSystem` via `UpdateCollectSystem`, PreCulling, and the copy that
   `ObjectInterpolateSystem.UpdateStaticAnimations` makes into InterpolatedTransform. A later main-thread EntityManager read or write of
   Transform completes the job first. Examples are the cabin pass of `TramShuttleSystem` and a structural change by a barrier. The main
@@ -137,7 +137,7 @@ in this section refer to the 1.6.2f1 decompile.
   - Each carrier needs two sin calls. The clock phases phi = 2 pi t / T wrap in double once per loop and pass (`SwingInputs`,
     `JobLoop.GustClock`).
   - The gust's time t is `CarrierWind.GustTimeS` = the mover clock minus the held time of the loop. `CarrierWind.Resume(frozen, now)` runs
-    at a hold release and at the re-freeze of a rebuild (`PollHolds`). It adds the held time to GustTimeS and to the change clock of the
+    at a hold release and at the re-freeze of a rebuild (`PollHolds`). It adds the held time to the held time of the loop and to the change clock of the
     wind blend. So the first running frame repeats the frozen pose (CP-20: 0 deg with Resume, 1.66 deg without).
   - Numbers at |w| 0.31 cross (sample of step 0, CP-19, 180 s):
     - FG / DQ / GD roll: 4.4 to 5.9 deg peak to peak per period (median 5.1 / 5.1 / 5.2).

@@ -34,8 +34,8 @@ A claim carries `SkiDayTiming.FlagToDepot` (claim Flags bit 128). `SentDepot` / 
 
 `SkiGuestCounterSystem.RebuildMap` adds an active linked depot to the target map, outside the lodge counters (`Guests [targets]` prints
 `N bus depot(s) counted`). Arrivals there count as the area's guests and pay tickets, lessons and passes through the usual ticket
-pass. No lodge spend: `SkiLiftTicketSystem` reads spend only from `LodgeDefs`. The depot keeps its LeisureProvider. `CheckLodge`'s tag
-rule wants it, and vanilla's `LeisureSystem` searches on it. So a vanilla leisure visitor who picks the depot also counts and pays
+pass. No lodge spend: `SkiLiftTicketSystem` reads spend only from `LodgeDefs`. The depot keeps its LeisureProvider, because `CheckLodge`'s tag
+rule wants it and vanilla's `LeisureSystem` searches on it. So a vanilla leisure visitor who picks the depot also counts and pays
 (DECISIONS 505).
 
 ## Bill

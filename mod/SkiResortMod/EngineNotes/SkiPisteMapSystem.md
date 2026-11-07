@@ -7,7 +7,7 @@ are dashed. The run under the mouse in the run list of the hub is drawn twice as
 
 - `SkiResortHubUISystem.PisteMapVisible`, `ShownSign` and `HoveredRun`.
 - `SkiGladeToolSystem.IsActive` (the tree tool draws its own outlines on the same edges, so the piste map yields).
-- `SkiRunCatalogSystem` rows (Gate, Kind, Band. Its Revision hash includes the band, so a rating recolors within a frame).
+- `SkiRunCatalogSystem` rows (Gate, Kind, Band; its Revision hash includes the band, so a rating recolors within a frame).
 - The `Game.Areas.Node` buffer of each run.
 
 The system makes no ECS write.

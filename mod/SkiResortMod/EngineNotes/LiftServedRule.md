@@ -93,7 +93,7 @@ The served rule with downhill run-to-run links. The attraction path and the stat
   - The cat track mask (`catTracks`, RunKindRules.IsCatTrackLink = RunKind.CatTrack, null = none).
 
   Node y is the area node's terrain-snapped height. GroundHeightSystem re-snaps it (AreaUtils.cs:672-677), and the catalog's YKey hashes it.
-  It is the same data as the run top's y in rule 3. The system keeps the graph while every outline AND height array is the same object.
+  It is the same data as the run top's y in rule 3. The graph stays while every outline AND height array is the same object.
 - Contacts (`RunLinks.ContactsOf`, per direction of a link) are the places where a skier can pass from one run to the other, with the
   place's height on each run. There are three kinds:
   - Near nodes: per node of the source, the node of the target within LinkMeters that a skier boards highest (the most of min(both
@@ -121,4 +121,4 @@ The served rule with downhill run-to-run links. The attraction path and the stat
   (breadth-first order, so with flat input the nearest by link count, ties to the lower index). For an unserved run, both are -1. Without
   heights, every contact is usable and every linked run passes. This is the old link rule (ServedLinkTests SL-1..8 run flat and unchanged).
 - Cost (tests/LiftBatch SL-8, 200 runs x 120 nodes, 370 links): cold Build + assign about 140 ms in the test host (the old graph: 113 ms,
-  T06). A kept graph takes about 0.3 ms. The system clears and fills output lists. It is allocation-free after the lists grow.
+  T06). A kept graph takes about 0.3 ms. Output lists are cleared and filled. It is allocation-free after the lists grow.

@@ -65,7 +65,7 @@ Slopes clamp at 0.8. A height jump over 3 m is a terrain edit or a new path: sna
 
 ## Season
 
-`SeasonStep` uses `GetRunSnow(...).Share`, not `.State`. With snow gating off, `State` is always Open while `Share` stays real (`SkiSnowInjectionSystem.GetRunSnow`), and the machine must still leave in summer. Cat tracks are never in the table of the injection, so the hub calls one open at or above the midpoint (`NextState(Unknown, share)`). The groomer closes at that same line, so it is never on a closed track. It reopens only at `OpenAtShare` (0.60), so a share that hovers at the midpoint does not make it pop in and out. In the band 0.50 to 0.60 after a closing, the hub may say open with no machine yet.
+`SeasonStep` uses `GetRunSnow(...).Share`, not `.State`, because with snow gating off `State` is always Open while `Share` stays real (`SkiSnowInjectionSystem.GetRunSnow`), and the machine must still leave in summer. Cat tracks are never in the table of the injection, so the hub calls one open at or above the midpoint (`NextState(Unknown, share)`). The groomer closes at that same line, so it is never on a closed track. It reopens only at `OpenAtShare` (0.60), so a share that hovers at the midpoint does not make it pop in and out. In the band 0.50 to 0.60 after a closing, the hub may say open with no machine yet.
 
 ## Lights
 

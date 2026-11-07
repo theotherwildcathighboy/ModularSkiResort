@@ -76,7 +76,7 @@ bills them. They are never in the mask, decay or ramp planes. They are never in 
 Texels an injected run manages this pass are excluded from them.
 
 - Cheaper top-ups work in two ways:
-    - A dry skip (no readback, merge or upload) happens when all of these hold:
+  - A dry skip (no readback, merge or upload) happens when all of these hold:
     - No run texel is cold enough.
     - The last real pass found the whole footprint warm and bare.
     - The footprint is the same (`RunSnowRules.CanSkipDry`).

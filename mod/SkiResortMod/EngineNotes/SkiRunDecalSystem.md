@@ -41,5 +41,5 @@ We never assign `m_Material`, so this cannot arise here. This note records it so
 
 The system runs in PreCulling, anchored after `AreaBatchSystem` (clones build lazily on prefab Created). It runs every frame in Game and Editor, paused included,
 so the retry countdown and the re-assert sentinel tick. Logging and the defensive contract are the ChairPinSystem pattern. The system logs a property
-write only when it changes the slot (texture: not the object already bound, by `UnityEngine.Object`'s `!=`. Float: a
-different value). Every write still happens and the sentinel records it. The system finds clones by name and retries until it finds them.
+write only when it changes the slot (texture: not the object already bound, by `UnityEngine.Object`'s `!=`; float: a
+different value). Every write still happens, and the system records it for the sentinel. The system finds clones by name and retries until it finds them.

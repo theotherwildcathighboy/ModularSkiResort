@@ -19,7 +19,7 @@
 - Render cost: `OkPanel` subscribes only the slow bindings (`resorts$`, `selectedResort$`, `runs$`, `lifts$`) and the local `view$`. So
   a snow, guest or money push (`resortLive$`, `runLive$`, `problems$`) never re-renders the frame, the header or the difficulty bar.
   The leaf components that show those numbers subscribe them.
-- The body is the anchor (`.bodyAnchor`, position relative) of two overlays. The code draws them over the top of the content: the area
+- The body is the anchor (`.bodyAnchor`, position relative) of two overlays. The code draws them over the top of the content: the ski-area
   list of the header (`HubHeader` `AreaList`) and the +N popover of the problems band (`StatusBlock` `ProblemsPopover`). One dimming backdrop
   (`OverlayBackdrop`) closes either. Both close on panel mount and on an area switch. The content of the panel must fit without the bar
   of the Scrollable (`harness/layout-check.js`).

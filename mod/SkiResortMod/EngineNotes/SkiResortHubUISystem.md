@@ -41,7 +41,8 @@ last stored one and the month in progress are GAP.
 
 The month in progress takes its values from these sources:
 
-- Guests: the ledger's This (booked so far) and `SkiDaySystem`'s `ArrivedThisMonth`.
+- Guests: the ledger's This (booked so far).
+- `SkiDaySystem`'s `ArrivedThisMonth`.
 - Its eight money terms = the ResortLive row's Net rows (`ResortLiveStats.NetTerms`). These are booked so far. Buildings / wages =
   the rate x the share of the month simulated. So its net is the Finances tile's `netMonth`.
 - The ledger's This supplies the money terms only when that row has no terms yet (-1, the counter was not armed at the last rebuild).
@@ -239,7 +240,7 @@ prefab whose cost differs from its row's informational mirror (`StationDef` / `L
   AlreadyBuilt at launch time (the shown sign, else the one nearest the camera). It refuses with one Info line and `LastTriggerText`.
 - Locked first: `ToolSystem.ActivatePrefabTool` itself does not check it (ToolSystem.cs:263-277, same in 1.6.2), but both vanilla
   callers do (ToolbarUISystem.cs:922-932, 1.6.2 :983, and UpgradeMenuUISystem.cs:379-390). The check is
-  `EntityManager.HasEnabledComponent<Locked>(prefab entity)` (`Colossal.Entities.EntitiesExtensions`. Locked is
+  `EntityManager.HasEnabledComponent<Locked>(prefab entity)` (`Colossal.Entities.EntitiesExtensions`; Locked is
   `IEnableableComponent`, Game.Prefabs/Locked.cs). Our prefabs are off the toolbar (`UIObject.m_Group = null`).
   `ActivatePrefabTool` ignores groups (:263-278). `UIObject` still writes `UIObjectData` with a Null group (UIObject.cs:67-84), and
   the icon is the prefab's own `m_Icon`. So launching is unaffected.
@@ -400,7 +401,7 @@ The DUMP comes from the dev tab or the hub's `dumpHub` trigger, at event time on
 
 ## Near HubContract
 
-The contract number is bindings.ts `HUB_CONTRACT`. Bump both numbers together whenever a binding, trigger, field or meaning changes.
+Bump the contract number here and in bindings.ts (`HUB_CONTRACT`) together whenever a binding, trigger, field or meaning changes.
 Appended fields and bindings by contract:
 
 - 5: `CityStats.tripPlanner` and `tripPlannerBlocksSkiDays`.
@@ -511,7 +512,7 @@ clusters as 0 / empty unless the tool shows a preview. `quickRunsToggle` follows
 TryActivate, which owns the gating and logs a refusal with its reason key). `quickRunsSet` calls `QuickRunsToolSystem.HubSet`, which
 ignores a call while the tool is closed and clamps every value. Each call writes one `Hub [quickRuns]` log line. The DUMP gains one
 `quickRuns:` line. `plant` is the whole slope's shortfall (TreeToPlant). buildDone / buildTotal and planting / treesDone /
-treesTotal carry the staged build's and planting's progress (totals 0 when none is in flight. Undo trees reuses treesDone /
+treesTotal carry the staged build's and planting's progress (totals 0 when none is in flight; Undo trees reuses treesDone /
 treesTotal with planting false). The `stop` key ends either one at its next boundary. `treesCost` (contract 18) is the planting cost
 the counts line shows before Plant.
 
@@ -531,8 +532,8 @@ keys are:
 
 - `lifts` (0 Auto, 1-9)
 - `home` (0 Auto, 1 Green, 2 Blue)
-- `pod` (value = the plan key. A toggle, refused while scanning or without a preview)
-- `lift` (value = the plan key. A toggle, refused while scanning or without a preview)
+- `pod` (value = the plan key; a toggle, refused while scanning or without a preview)
+- `lift` (value = the plan key; a toggle, refused while scanning or without a preview)
 
 The site verdict keeps `sitePercent` / `siteTier` (contract 21). The detail numbers (sitePods, siteGreenHome, siteBenchHa) come from
-`ResortPlan.Site` (A6 fills them. Zero pods = no detail line).
+`ResortPlan.Site` (A6 fills them; zero pods = no detail line).

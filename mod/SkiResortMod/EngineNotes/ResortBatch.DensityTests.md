@@ -8,7 +8,7 @@ The ECS writes and the census are not testable headless.
 - Settle: `SettleFrames` is 30. `NextStable` counts up and caps. A change restarts the count.
 - Classes: `ClassOf` works by prefab name.
 - Allowed: `PropClassAllowed` is a literal table of kind x (gun, hydrant, mast, mast lit). The empty marker and other never stand.
-- Aim: `AimFromTangent` runs on hand values, and so does `AngleDeg`. The values cover:
+- Aim: `AngleDeg`, and `AimFromTangent` on hand values that cover:
   - inward by winding
   - half the fall, half the lean
   - the 25 deg clamp

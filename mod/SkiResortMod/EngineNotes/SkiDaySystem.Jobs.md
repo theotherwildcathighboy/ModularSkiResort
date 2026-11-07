@@ -21,7 +21,7 @@ the cap). The ring record is 108.
   outings still Traveling to a sign or lodge. Measure only.
 - `NearJob` (every `Tuning.NearScanPasses` passes with an area, on the hour and on the timed `[cost]` pass. `SkiDaySystem` schedules it
   after `ClaimJob`). Per lodge, it counts the walkers within `SkiDayTiming.NearLodgeM`. The groups are: waiting for transport, failed path, hanging
-  around, walking, not drawn, ski-day guests among them, and the game timer's wait so far. It also counts the game's own waiting count at
+  around and walking. It also counts the walkers not drawn and the ski-day guests among them, and reads the game timer's wait so far. It also counts the game's own waiting count at
   the line stop points within that radius. It uses read-only type handles. It writes only its own `NearOut` / `Totals`.
 
 ## Burst rules
@@ -125,8 +125,8 @@ Numbered as in the code:
    frames after it.
 2. Turned back: a non-Leisure `TravelPurpose` away from the origin. `GoingHome` is `ResidentAISystem`'s ReturnHome after a failed
    re-path (1.6.2 :1344-1358).
-3. Departure (`SkiDayTiming.DepartedNow`): a walker was spawned, path failed or not. The test is true in any of these cases:
-   - The citizen is out of the origin and in no building.
+3. Departure (`SkiDayTiming.DepartedNow`): a walker was spawned, path failed or not. The test is true when the citizen is out of the origin and one of these holds:
+   - The citizen is in no building.
    - The citizen has `TravelPurpose` Leisure.
    - The citizen is in the lodge.
 4. Walker and vehicle, read ONLY while the citizen is in no building. After an arrival, the creature can live on and be reused for the

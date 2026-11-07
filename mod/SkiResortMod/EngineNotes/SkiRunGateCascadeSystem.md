@@ -67,7 +67,7 @@ Vanilla already prompts for any non-spawnable building (`ConfirmationNeeded`, Bu
 "Common.DIALOG_MESSAGE[Bulldozer]" line (ToolUISystem.cs:447-450), which says nothing about its runs.
 
 * `BulldozeToolSystem.EventConfirmationRequested` is a public `Action` and `ConfirmAction` is public, so no Harmony and no reflection is needed.
-  The chain moves into `m_VanillaConfirm` and our handler takes the field. Then `ToolUISystem.OnDestroy` removes its delegate and misses. This is harmless,
+  The chain moves into `m_VanillaConfirm` and our handler takes the field. As a result, the delegate removal in `ToolUISystem.OnDestroy` misses. This is harmless,
   because it only happens at world shutdown.
 * A sign with no bound run, or a preview with no sign, goes to the vanilla chain. So it is one prompt either way.
 * The tool sits in `State.Waiting` until `ConfirmAction` (BulldozeToolSystem.cs:1567-1573, 1610-1616). Every path must end in a dialog. Any

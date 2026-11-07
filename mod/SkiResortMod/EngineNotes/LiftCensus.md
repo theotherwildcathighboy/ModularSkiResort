@@ -5,8 +5,8 @@ lists and calls `Build` on events. The hub and the lift logs read the rows. `tes
 synthetic graphs.
 
 ## Why a census
-`ChairPinSystem`'s loop cache exists only in moving mode (ChairPinSystem.cs:443-447). It measures the CIRCUIT (chain A + top turn + chain B
-+ base turn, LiftLoopCache.cs:371-386). It is lane-based and up to 30 frames stale. The census is independent of moving chairs and is the
+`ChairPinSystem`'s loop cache exists only in moving mode (ChairPinSystem.cs:443-447). It measures the CIRCUIT (chain A + top turn +
+chain B + base turn, LiftLoopCache.cs:371-386). It is lane-based and up to 30 frames stale. The census is independent of moving chairs and is the
 lift authority for the hub and the logs. The loop cache contributes only "chairs riding" per station pair (`ChairPinSystem.TryGetLoop`).
 
 ## Inputs (the ECS side is in LiftCensusSystem)

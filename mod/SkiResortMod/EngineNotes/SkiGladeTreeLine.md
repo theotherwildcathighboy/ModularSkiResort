@@ -20,7 +20,7 @@ The result is clamped into [groundMin, groundMax] when they are finite. The resu
 
 A tree line is where wild trees stop. The top few percent are strays on ridges and in gullies. 95 % keeps the fill visibly below the
 natural forest edge. The slider in the tool corrects it. UNVERIFIED on real maps: a map whose region lies wholly below the natural
-line gets a line just under its highest trees. The top 5 % of treed ground stays unfilled until the player raises the slider.
+line gets a line just under its highest trees (the top 5 % of treed ground stays unfilled until the player raises the slider).
 
 ## Drawing it
 

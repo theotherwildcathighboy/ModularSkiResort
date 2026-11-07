@@ -73,7 +73,7 @@ One per layer. It is level-independent, so `PlanKey`, skip sets and cached plans
   bulldozed hole can push a member beyond m).
 - Slice ran out of attempts: the planner's attempt budget reads the target, so a clamped slice can stop short ("Saturated" while
   "Clamped"). P is then re-planned with an unbounded `MaxPlant` and cut back to m (`FullReplan`). Cost: on a run with no room, a level-8
-  plant request runs out of attempts and is re-planned in full That gives two plans on the first compose of that `PlanKey`. Later composes hit
+  plant request runs out of attempts and is re-planned in full. That gives two plans on the first compose of that `PlanKey`. Later composes hit
   the tool's plan cache. The tool does not plan such requests in full at once, because that makes every unsaturated level-8 compose pack
   the denser tail (+45 % attempts).
 - Matching: slot s is matched iff a current in-region member of the layer lies at xz distance < `MinSpacing` / 2. Slots are
@@ -151,7 +151,7 @@ slice. P is then its prefix, identical to a fresh compute.
 - It runs on re-plan only (never per frame). It allocates.
 - `input.Params` supplies spacing, margins, belt shape, species, ages and `AttemptsPerTree`.
 - `Params.MinSpacing` must be the target layer's spacing (`GladeMinSpacing` for the interior, `BeltMinSpacing` for the tree line).
-- Compose does not read `Params.Mode`, `ThinFraction`, `GladeDensity` and `MaxPlant` (Compose sets them).
+- Compose does not read `Params.Mode`, `ThinFraction`, `GladeDensity` or `MaxPlant` (Compose sets them).
 
 ## Retired (do not reintroduce)
 

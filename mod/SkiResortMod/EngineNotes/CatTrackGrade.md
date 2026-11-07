@@ -20,7 +20,7 @@ One solve per change, never per frame.
    - Constant grade: the straight ramp between the two end heights.
 
    A fixed height gain over a fixed path length bounds the grade from below: |dh| / L > G is infeasible (`ShortfallM` more meters
-   are needed: a longer line or a switchback). The system still produces the profile, and its steep part shows red.
+   are needed: a longer line or a switchback). The profile is still produced, and its steep part shows red.
 3. `GradeRaster.Build`: the cross-section per heightmap texel. The flat top is `TopWidthM` wide (default 20 m since 2026-10-24, 2.5x the
    first 8 m, settings 8-32 m) at the profile height. The side slopes are cut 1 : `CutRun` (h rises 1 m every `CutRun` m outward) and
    fill 1 : `FillRun`. Each slope meets the ground where its line crosses it (so the edit blends into the base with no step). Every
@@ -64,7 +64,7 @@ One solve per change, never per frame.
 6. `GradeRibbon.Build` (2026-10-24): the outline of the cat-track run = the flat top as one closed ring (left edge forward, right edge
    back). Each edge = the centerline offset by half the top width. The loop that an offset makes inside a bend tighter than the half
    width is cut at its crossing (`CutLoops`, window (4 hw + 20 m) / step samples). Then Douglas-Peucker 0.5 m and thinning to 2 m. The
-   ring must keep 1.5 m between non-adjacent edges (`Clear`). This is above the InvalidShape distance of the engine of snap / 2 = 0.5 m
+   ring must keep 1.5 m between non-adjacent edges (`Clear`). This is above the InvalidShape distance that the engine uses, snap / 2 = 0.5 m
    for Space (Game.Areas/ValidationHelpers.cs:887-943, AreaUtils.cs:55-58). Otherwise guard `RunShape` applies (switchback legs closer
    than the width). There is no closing duplicate: the engine half adds it (GenerateAreasSystem.cs:282-291). A 1.5 km zigzag at 20 m:
    ~170 nodes, 2 ms.

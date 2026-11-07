@@ -28,8 +28,8 @@ The header is the title bar of the panel: the ski-area selector, or the plain ti
 - `.title` (`index.css@57050` / `@55900`): flex:1, centered, uppercase, max-height 2.4em with `coh-font-fit-mode: shrink`. Our root
   therefore sets `text-transform: none`, `flex: 1 1 0; min-width: 0` and its own fixed row height (`hub.module.scss` `.switcher`), so the
   fit-shrink has nothing to shrink.
-- `Button variant="icon"` + `src` renders the vanilla IconButton (`$b`, variant table `@712900`, IconButton `@633990`), the own
-  component of the close button. `tinted` draws the glyph as a mask in `--iconColor` (TintedIcon `@633525`).
+- `Button variant="icon"` + `src` renders the vanilla IconButton (`$b`, variant table `@712900`, IconButton `@633990`), the same
+  component that the close button uses. `tinted` draws the glyph as a mask in `--iconColor` (TintedIcon `@633525`).
 - Focus: every button passes `focusKey={FOCUS_DISABLED}`, like the close button (`$b` with `focusKey:Ug`, `@686490`). The Panel wraps
   its header in a `FocusKeyOverride` whose `KeyFocusController` hosts one child (`@684800` `Tp`, `registerChild` `@578500`). A Button
   registers itself by default (`FOCUS_AUTO`, `@629600`). Without `FOCUS_DISABLED`, the buttons logged "Cannot register second focus

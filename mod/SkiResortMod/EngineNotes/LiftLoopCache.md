@@ -4,7 +4,7 @@
 (Shuttle mode).
 
 It is pure topology/geometry over plain data. `ChairPinSystem` hands in every HV cable lane owned by the chairlift net, plus the station entities.
-The lanes are edges AND nodes, because both carry PrefabRef to the net prefab. The topology (chaining, terminal classification, pairing,
+The owners are edges AND nodes, because both carry PrefabRef to the net prefab. The topology (chaining, terminal classification, pairing,
 base / top, up lane, orientation, gap check, common type) lives in the pure LiftLoopTopology.cs (see LiftLoopTopology.md). This class
 is its Game-side adapter:
 - It interns PathNodes to int ids (equal ids <=> PathNode.Equals: the 64-bit m_SearchKey, Game.Pathfind/PathNode.cs:62-65, owner =

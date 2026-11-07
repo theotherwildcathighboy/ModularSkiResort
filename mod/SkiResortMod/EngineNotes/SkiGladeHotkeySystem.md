@@ -30,6 +30,7 @@ What each key does:
   - area tool active -> `SkiRunDrawFeedbackSystem.DumpToLog()`.
   - glade tool active -> `SkiGladeToolSystem.DumpToLog()`.
   - otherwise both.
+
   UIUpdate precedes Rendering in MainLoop (`SystemOrder.cs:67-68`). So the feedback dump reads the PREVIOUS frame's readout with the cursor
   still on the map. A dev-tab button press loses the Temp.
 

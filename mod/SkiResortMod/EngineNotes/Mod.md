@@ -9,7 +9,7 @@ in the 1.6.0f1 decompile unless a 1.6.2 line is given. Where a line says "same i
 - A plain `UpdateAt` sorts after every vanilla `UpdateAt` of its phase. Mods register after `SystemOrder.Initialize`, so add-index
   order applies (UpdateSystem.cs:39-47, :158-161). An anchorless `UpdateBefore` sorts ahead of every `UpdateAt` (SystemOrder.cs:49,
   UpdateSystem.cs:39-47, :163-166).
-- Each `UpdateBefore` / `UpdateAfter` call adds one entry (UpdateSystem.cs:173-176, :271-292). Give a system ONE registration:
+- Each `UpdateBefore` / `UpdateAfter` call adds one entry (UpdateSystem.cs:173-176, :271-292). So a system gets ONE registration:
   an `UpdateAt` as well would run it twice a frame.
 - Anchoring a mod system to a mod system works regardless of registration order. `UpdateBefore<T, Anchor>` files T under the anchor
   in the reference map of `UpdateSystem`. When both are in the same phase, Refresh emits T right before the anchor (UpdateSystem.cs:173-176, :278-292, :388-413).
@@ -191,7 +191,7 @@ uses the public car-reserve queue (CitizenBehaviorSystem.cs:1094-1103, 1.6.2 :11
   `LeisureSystem`, before `TripNeededSystem` (SystemOrder.cs:393, 1.6.2 :394). NEVER override `GetUpdateOffset`.
 - `Leisure` and `TripNeeded` are read-write in the job. ECS orders our job after the job of `LeisureSystem`. It orders the job of
   `TripNeededSystem` after our job. No main-thread wait.
-- We register it before `SkiResortStatsSystem`, so this line creates `SkiResortStatsSystem` (UpdateSystem.cs:178-181).
+- We register it before `SkiResortStatsSystem`, so this line creates it (UpdateSystem.cs:178-181).
 - Pause stops it. The Editor never arms it. ONE registration only.
 
 ## Near SkiRunOwnershipSystem
@@ -339,7 +339,7 @@ So the Created/Updated/Deleted tags of this frame are still visible (`CleanUpSys
 ignores update intervals (UpdateSystem.cs:183-221), and a plain `UpdateAt` runs in add order (UpdateSystem.cs:158-161). Each frame:
 
 1. `SkiSignNameSystem` first. It writes the sign auto-names that `SkiRunBindTriggerSystem` (ModificationEnd) queues.
-   `NameSystem.SetCustomName` needs `EndFrameBarrier`, and the game refuses that barrier until `AllowBarrier<EndFrameBarrier>`
+   It writes them here because `NameSystem.SetCustomName` needs `EndFrameBarrier`, and the game refuses that barrier until `AllowBarrier<EndFrameBarrier>`
    (SystemOrder.cs:62, after ModificationSystem :60, and Game/SafeCommandBufferSystem.cs:16-23). UIUpdate (:67) is after it. We add it
    before the catalog and stats, so the stats rebuild of this frame reads the name.
 2. The catalog (run rows + rating cache). It reads the hub's Demand of the previous frame, so it runs at a slower cadence while the
@@ -480,7 +480,7 @@ runs paused included. The `ShowRunNamesOnTheHill` setting gates it inside the sy
 ## Near ResortPlanLabelSystem
 
 Resort Planner plan labels (one per lift and per pod). Same rule as the run names: NO anchor to `OverlayRenderSystem` (the labels are
-`Graphics.DrawMesh` calls, nothing is written to the overlay buffers). Use a plain `UpdateAt` at Rendering. The system is a stub until
+`Graphics.DrawMesh` calls, nothing is written to the overlay buffers): a plain `UpdateAt` at Rendering. The system is a stub until
 stage A4 of the Resort Planner (EngineNotes/ResortPlanner.md). Registering it now keeps `Mod.cs` out of the file lists of the later
 tasks.
 

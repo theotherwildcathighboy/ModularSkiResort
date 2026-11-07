@@ -9,7 +9,7 @@ The carrier is the nearest active road lodge to the sign. A road lodge is a lodg
 (`SkiResortAttractivenessSystem.CarrierOf`). With no road lodge, the carrier is the sign. So staff use a real door, and a chain that touches only a depot keeps
 the staff on the sign (a depot has no jobs). An off-road lodge on a cat track chain hands its own jobs (its prefab's WorkplaceData) to the
 carrier too (`LodgeSupplyRule.JobsLeave`).
-- The sign is written here only. Its target is the jobs it carries (0 while a lodge carries). The tick lays the staff off.
+- The sign is written here only. Its target is the jobs it carries (0 while a lodge carries, and the tick then lays the staff off).
 - `OffSeasonStaffSystem` reads a carrier lodge's sum (`CarriedBy`). It is the one writer of a lodge's m_MaxWorkers
   (`MountainJobsRules.CarrierTarget`: own target + carried). Two writers would undo each other every poll.
 - The hub's SignNoRoad row shows only while the sign carries jobs (`SignCarriesJobs`: its target once `TargetsReady`, before that the

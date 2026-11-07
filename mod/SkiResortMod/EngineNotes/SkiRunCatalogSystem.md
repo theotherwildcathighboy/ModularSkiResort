@@ -19,7 +19,7 @@ installed 1.6.2f1 DLL).
 | backstop | `BackstopS` 60 s | `ClosedBackstopS` 600 s (a safety net) |
 
 The service does at most one front rating per UIUpdate frame. It serves an explicit `RequestRebuild` (dev tab, load) in both states. While paused, the
-service keeps working (UIUpdate runs paused, SystemOrder.cs:67. Throttles use `realtimeSinceStartup`). So a run drawn while paused
+service keeps working (UIUpdate runs paused, SystemOrder.cs:67; throttles use `realtimeSinceStartup`). So a run drawn while paused
 binds (`SkiRunBindTriggerSystem.SweepNow` at ModificationEnd) and is rated the next frame.
 
 After a load, OnGameLoadingComplete clears everything, sets `ServiceState = WarmingUp` and requests a "load" rebuild.
@@ -48,7 +48,7 @@ unchanged runs is not possible cheaply. Node moves and re-snaps already re-rate 
 
 ## Rebuild triggers while Demand is true
 
-The panel-open path listens only to our runs. The vanilla building, surface-area and area-edit triggers fired about once per wall second.
+The panel-open path listens only to our runs (the vanilla building, surface-area and area-edit triggers fired about once per wall second).
 
 - One of our bound runs Created / Updated / Deleted this frame (`m_RunChangeQuery`). ApplyAreasSystem tags an edited run Updated on its original
   entity (ApplyAreasSystem.cs:167-202). The tag lives until CleanUpSystem at Cleanup (CleanUpSystem.cs:53), and UIUpdate
@@ -88,7 +88,7 @@ Names, in order of priority:
 4. Only without a trail name (pool full, not given yet): "Run N" from `SkiResort.Hub.RUN_DEFAULT[Run]` or, for a
    cat track, "Cat track N" from `RUN_DEFAULT[CatTrack]`.
 
-The game replaces "{N}" (NameSystem.cs:250). English is the fallback if the key is missing. N counts per
+"{N}" is replaced (NameSystem.cs:250). English is the fallback if the key is missing. N counts per
 (Gate, piste / cat track). The order is `Geometry.m_Bounds.max.y` descending, then center x, z, then entity index/version. Numbers shift when a run above is
 added or removed (accepted). The system caches formatted names per (kind, N) and drops them when the dictionary changes
 (`LocalizationManager.onActiveDictionaryChanged`, AreaBufferSystem.cs:661).

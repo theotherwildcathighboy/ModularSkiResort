@@ -79,7 +79,7 @@ There is no synchronous part: nothing here waits on the job. The load-time measu
 
 ## Gate watch
 
-Step 2b runs every tick, whether or not guests arrive. When the attraction Generation, the lift-charge Revision or the price moved, the watch computes one gate per live sign. It uses `SkiMoneyRules.TicketGateOf` with exactly the hub's inputs (SkiResortStatsSystem, the `live.TicketGate` line). A changed gate (or a new sign) writes one `Tickets [gate]` line through m_GateLog. The LogWindow is 10 s, because a counted run can flip with the snow. The watch drops a sign that left silently, and prunes it from the charged gates too. Releasing the first-write
+Step 2b runs every tick, whether or not guests arrive. When the attraction Generation, the lift-charge Revision or the price moved, the watch computes one gate per live sign. It uses `SkiMoneyRules.TicketGateOf` with exactly the hub's inputs (SkiResortStatsSystem, the `live.TicketGate` line). A changed gate (or a new sign) writes one `Tickets [gate]` line through m_GateLog. The LogWindow is 10 s, because a counted run can flip with the snow. The watch silently drops a sign that left, and prunes it from the charged gates too. Releasing the first-write
 hold moves the attraction Generation, so the watch leaves NotKnownYet on that pass. The system records the job's charged gate per sign
 (DUMP "gates (charged)"). It counts each disagreement with the watch and does not log it.
 
@@ -108,8 +108,8 @@ Price 0 = gate Off = nothing charged. Setting 0 = no change at all.
 
 ## Season passes
 
-The job decides ONCE per season for a RESIDENT household (request.Tourist == 0) at an OPEN gate with no standing for this season. It decides at the household's first such arrival. No standing means SkiSeasonPass is absent or of an older season (`SkiMoneyRules.PassStandingOf`). The exception: the
-pre-season sale may have decided it already. The decision is `SkiMoneyRules.PassSale(share, household index, season key,
+The job decides ONCE per season for a RESIDENT household (request.Tourist == 0) at an OPEN gate with no standing for this season. It decides at the household's first such arrival. No standing means SkiSeasonPass is absent or of an older season (`SkiMoneyRules.PassStandingOf`). The exception: the job skips the decision
+when the pre-season sale decided it already. The decision is `SkiMoneyRules.PassSale(share, household index, season key,
 PassPrice(multiplier, the lift ticket now), household money)`. The outcomes are:
 
 - Bought -> the job takes the price from the household (never below 0). The arrival's people ski free (ledger PassHolders). The job books

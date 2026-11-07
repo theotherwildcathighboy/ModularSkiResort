@@ -42,7 +42,7 @@ Per active lodge, a catalog row (`SkiCatalog.Lodges`: B base, E extra, mu summer
 - Order-free: "better" = higher B*mu, then higher E, then higher Capacity, then lower LodgeIndex. Two lodges that tie on all four are
   the same row with the same mu, so which one counts changes no number.
 - AOpen = LodgeApplied + K x sqrt(S). For A-frames only, LodgeApplied = LodgeBase x 0.5 exactly in summer.
-- LodgeShare = `LodgeBase > 0 ? applied / base : (summer ? 0.5 : 1)` (display. The season share holds when there is no lodge).
+- LodgeShare = `LodgeBase > 0 ? applied / base : (summer ? 0.5 : 1)` (display; the season share holds when there is no lodge).
 - `AreaInput.Lodges == null` means ActiveLodges A-frame rows (the closed form `LodgeBaseOf(n)`, x 0.5 in summer). LadderTests proves it
   equals the ladder over explicit A-frame lists bit for bit.
 

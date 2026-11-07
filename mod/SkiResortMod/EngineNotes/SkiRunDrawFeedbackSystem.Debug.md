@@ -3,7 +3,7 @@
 ## Registration
 
 `DebugSystem.RegisterDebug` invokes each `[DebugTab]` method of every `[DebugContainer]` type (DebugSystem.cs:1026-1045). A tab
-method declared on a `ComponentSystemBase` runs on the LIVE system instance (`ExecuteMethod`, DebugSystem.cs:996-1024.
+method declared on a `ComponentSystemBase` runs on the LIVE system instance (`ExecuteMethod`, DebugSystem.cs:996-1024;
 `GetOrCreateSystemManaged` at :1006-1009). That is why the debug tab is a partial of the system. Nothing is registered in Mod.cs.
 
 ## Tab name

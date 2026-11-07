@@ -17,8 +17,8 @@ The tool keeps both for the session. It does not store them per run.
 
 `SkiGladeCompose` (pure) owns the count rule:
 
-- Interior: T = round(area * InteriorDensity(L)). Remove own members first. Then fell wild trees by hash rank, or plant T - N at the
-  first unmatched slots.
+- Interior: T = round(area * InteriorDensity(L)). Compose removes own members first. Then it fells wild trees by hash rank, or plants
+  T - N at the first unmatched slots.
 - Tree line: BeltFactor(L) of the belt.
 
 The tool hands it ComposeInput.Level / .TreeLine and the census. It emits what Compose returns. It tags new plantings variant 0
@@ -55,7 +55,7 @@ the run. Never add StaticObjects (an owned hit would resolve to the building).
   disabled input raycasts nothing, RaycastSystem.cs:772-775) -> SWITCHING. This state covers every hotkey activation's first frame(s).
   The tool holds the preview and never logs it.
 - (b) No raycast result -> NOTHING.
-- (c) The hit is one of our bound runs -> BOUND. Keep the planned run when it also contains the point, because overlapping runs tie on
+- (c) The hit is one of our bound runs -> BOUND. The tool keeps the planned run when it also contains the point, because overlapping runs tie on
   distance (RaycastResult.cs:12-18).
 - (d) Otherwise the tool scans our runs at the hit xz (bounds, then triangles with
   `MathUtils.Intersect(AreaUtils.GetTriangle3(nodes, tri).xz, p, out float2 _)`, RaycastJobs.cs:168). A bound run there -> BOUND
@@ -207,7 +207,8 @@ On the Apply frame, the tool snapshots three things:
 - the census it planned from
 - the planted spots that validation canceled
 - the live fell / remove counts
- The first re-plan after the apply re-takes the census of the applied run. It writes one "Glade: apply check" line. The line reports these counts: trees created vs tagged, own members, non-member trees, new untagged trees, vanished trees and un-overridden trees. It classifies new untagged trees as "at a canceled spot" / "near a felled tree" / "elsewhere". The line is INFO when every count balances, and WARN "APPLY MISMATCH"
+
+The first re-plan after the apply re-takes the census of the applied run. It writes one "Glade: apply check" line. The line reports these counts: trees created vs tagged, own members, non-member trees, new untagged trees, vanished trees and un-overridden trees. It classifies new untagged trees as "at a canceled spot" / "near a felled tree" / "elsewhere". The line is INFO when every count balances, and WARN "APPLY MISMATCH"
 otherwise. This costs one extra census per apply.
 
 ## Load reset

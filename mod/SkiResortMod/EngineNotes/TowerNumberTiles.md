@@ -14,8 +14,8 @@ assets/blender/number_tiles.py is the source of every constant in `TowerNumberTi
 - SkiNumTile<cls>N0..N9 is one digit cell (window / 3).
 
 Per plate face, a number is 1-3 digit tiles centered in the window (digit i of k at (i - (k-1)/2) cells from the window center). A 1-2 digit
-number puts the Blank behind the digits (digits LayerM in front of it). A 3 digit number fills the window alone. So a face has <= 3 tiles
-and a tower has 6.
+number puts the Blank behind the digits (digits LayerM in front of it). A 3 digit number fills the window alone. So there are <= 3 tiles per face,
+6 per tower.
 
 ## Frame
 

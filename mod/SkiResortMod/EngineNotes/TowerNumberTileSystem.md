@@ -14,7 +14,7 @@ prefabs are absent, this system writes nothing and logs one line per load.
   - Tiles die with their tower.
   - The engine sweeps tiles when the tower itself is Updated. We re-create them (see the updated-tower probe below).
 - The references systems index m_SubObjects[owner] without a guard for a Created child (SecondaryObjectReferencesSystem.cs:62,72).
-  Our tower prefabs have no ObjectSubObjects, so their instances have no buffer. Therefore call AddBuffer<SubObject>(tower) BEFORE
+  Our tower prefabs have no ObjectSubObjects, so their instances have no buffer. The system therefore calls AddBuffer<SubObject>(tower) BEFORE
   the first tile (precedent SkiRunPropSystem :342). The buffer is IEmptySerializable. The engine refills it from Owner on load
   (SubObject.cs:7-8, Game.Serialization/SubObjectSystem.cs:24-60). Unverified in game: a buffer added at run time on a tower survives
   save / load.

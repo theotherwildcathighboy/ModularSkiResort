@@ -4,7 +4,7 @@ The persisted run->sign link. Save-format contract: never change the type's name
 
 ## Why runs carry no Owner
 
-Run areas carry no Owner(sign). In game mode the bulldozer walks an owned area's Owner up to the sign
+Run areas carry no Owner(sign), because in game mode the bulldozer walks an owned area's Owner up to the sign
 (Game.Areas/RaycastJobs.cs:80-93). So clicking one run deleted the sign and, through its SubArea buffer, every run. A border prop is a
 second path to the same result (Game.Objects/RaycastJobs.cs:328-442). Without Owner, both walks stop at the run. The sign->runs cascade
 is `SkiRunGateCascadeSystem`, keyed on `m_Gate`.

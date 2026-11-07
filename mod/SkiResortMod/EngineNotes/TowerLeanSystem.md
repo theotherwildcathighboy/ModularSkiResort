@@ -14,7 +14,7 @@ planner uses the same measure, so plan and game agree and the lean never feeds b
 ## Why after AlignSystem, before LaneSystem
 - SubObjectSystem re-derives a node tower's Transform yaw-only (Modification2B, `Game.Objects/SubObjectSystem.cs:1032-1034`,
   `:1757-1758`). AlignSystem does the same on every Updated (Modification4, `Game.Objects/AlignSystem.cs:153-160`, query `:927`). Nothing
-  else writes it (spike 1.1). If the system writes the lean later in Modification4, the lean survives until the next node update (U1 probe,
+  else writes it (spike 1.1). The system writes the lean later in Modification4, so the lean survives until the next node update (U1 probe,
   DECISIONS 570 c).
 - The system uses `UpdateAfter<TowerLeanSystem, Game.Objects.AlignSystem>(Modification4)` (`Game/UpdateSystem.cs:178`). AlignSystem then
   LaneSystem are `SystemOrder.cs:153`, `:155`. So LaneSystem hangs the ropes from the leaned anchors in the same frame (no plumb frame).

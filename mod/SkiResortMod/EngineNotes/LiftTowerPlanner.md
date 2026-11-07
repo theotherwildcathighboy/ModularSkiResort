@@ -67,8 +67,8 @@ Constants provenance:
   - The planner repairs first the tower whose rope deflection (`LiftAlignMath.DeflectionDeg`, sag h) is furthest past its train's cap. It
     re-evaluates after every change and makes one repair per original tower.
   - Candidates, cheapest first (fewer towers, fewer ladder steps, smaller max |deflection|, shorter spacing, nearer the old spot):
-    - (1) The tower shifts within AngleShiftM 20 m with any member. Or, beside a fixed tower (a pin, a seed, the junction end), it
-      moves anywhere in that tower's partner window, PairMaxM or nearer. A fixed tower only changes member.
+    - (1) The tower shifts within AngleShiftM 20 m with any member. Or, when it stands PairMaxM or nearer beside a fixed tower (a pin, a seed,
+      the junction end), it moves anywhere in that tower's partner window. A fixed tower only changes member.
     - (2) A free tower is replaced by a pair PairMinM..PairMaxM (10..40 m) apart within 20 m of its spot.
     - (3) A fixed tower keeps its spot and gets a new free partner.
     - (4) Two fixed towers 40 m or nearer are the player's pair. The planner only re-members them.
@@ -196,12 +196,12 @@ ground becomes a Breakover. It moves one sample past the crest toward the higher
   - (b) a pair on the shoulder (the tram too: only its pitch cap brings it to the pass, and it has no partner / pull candidates).
   - (c) dropping the tower when the span over its spot stays fine (a longer span).
 
-  The pass now runs whenever Pairs is on and the cap is finite (the tram included). If a tower is still over, these follow (FIX-LIST 55's mechanism):
+  The pass now runs whenever Pairs is on and the cap is finite (the tram included). If a tower is still over, these follow:
   - `LiftTowerPlan.IsTooSteep`, `TooSteepTowers`.
   - The Verdict / OverCapNote "N tower(s) TOO STEEP (pitch past P deg)".
   - Not Sound.
   - The lift tool's PLAN_PITCH / TOWER_PITCH.
-  - A red tower.
+  - A red tower (FIX-LIST 55's mechanism).
 - **Soft caps** `PitchSoftDeg` (36 / 38 / 39 / 45) are stored and logged only: no search cost uses them.
 - **Lean**: `SetLeans` (Build) gives every judged tower `PitchDeg`, `LeanDeg` (LiftAlignMath.LeanDeg) and the leaned anchor
   `AnchorAlongM` / `AnchorRopeM` (LiftAlignMath.LeanedAnchor, foot pivot). Pitch is judged on the plumb rope points, so the lean
@@ -228,10 +228,10 @@ docs/research/planner-direction-2026-11-04.md.
   world xz (`EndKeyA` / `EndKeyB`: the smaller x, then z, the tool sets them). With no keys, it works from A.
 
   Working from B, it takes these steps:
-  1. Mirror the seeds and `Forbidden`.
-  2. Swap every per-end input (`StationA/B`, `EndNodeYA/B`, `EndOuterDistA/B`, `EndOuterRopeA/B`).
-  3. Plan (`PlanCore`, the old body, untouched).
-  4. Mirror the plan back (`Mirrored`: nodes, spans, the profile, the per-end outputs).
+  1. It mirrors the seeds and `Forbidden`.
+  2. It swaps every per-end input (`StationA/B`, `EndNodeYA/B`, `EndOuterDistA/B`, `EndOuterRopeA/B`).
+  3. It plans (`PlanCore`, the old body, untouched).
+  4. It mirrors the plan back (`Mirrored`: nodes, spans, the profile, the per-end outputs).
 
   The code restores the inputs in a `finally`. A deflection reads the same from either side, so the angles are copied. The code writes the
   angle notes in the caller's frame (`NoteAt` / `NoteNode`, a PAIR note names its towers in the caller's order).
@@ -371,8 +371,8 @@ A tower node is raised so that the vanilla placeholder ladder spawns exactly the
   unverified.
 
 ## Own cut (the trench the fit must not mistake for ground)
-A lift line is a FlattenTerrain power line. `TerrainSystem` cuts the terrain down to a ceiling of edge y + NetCompositionData.m_HeightRange.min
-+ TerrainComposition.m_MinHeightOffset (`AddSegment`, TerrainSystem.cs:1397-1516) and never fills. Our pieces have min 4 (DQ 3.8) and 0, so
+A lift line is a FlattenTerrain power line. `TerrainSystem` cuts the terrain down to a ceiling of edge y +
+NetCompositionData.m_HeightRange.min + TerrainComposition.m_MinHeightOffset (`AddSegment`, TerrainSystem.cs:1397-1516) and never fills. Our pieces have min 4 (DQ 3.8) and 0, so
 the ceiling = edge y + 4. Before the 2026-11-05 collision box round, the pieces had {6, 20} and -2. The cut is live. The game draws it into the height cascade from the base
 heightmap on every update of the area (`DrawHeightAdjustments`, :4727-4800, and the brush path writes the base map, :3950). The CPU
 heights that the fit samples are read back from the cascade (:3598-3646).
@@ -380,8 +380,9 @@ heights that the fit samples are read back from the cascade (:3598-3646).
   ground and stood towers in the trench (node y = cut floor + E).
 - Once the old edges were replaced, the trench refilled around the towers (the ground at a fitted tower rose +0.5 / +0.4 / +1.9 m after the
   write). A node left more than 4 m under the ground keeps its own round cut: pits.
-- Rule: the planner replaces a sample that sits at this line's own cut ceiling (within OwnCutTolM). Natural ground is never exactly there, and the cut never fills. The replacement is the plane through the ground just outside the cut (lateral +- (half width + CutFarMarginM)), when that plane is
-  higher. Ground below the ceiling (a valley the rope crosses) is the player's, and the planner keeps it.
+- Rule: a sample that sits at this line's own cut ceiling (within OwnCutTolM) is replaced by the plane through the ground just outside
+  the cut (lateral +- (half width + CutFarMarginM)), when that plane is higher. Natural ground is never exactly there, and the cut never
+  fills. Ground below the ceiling (a valley the rope crosses) is the player's and is kept.
 
 ## Tram span: 3 km (TramMaxSpanM)
 Peak 2 Peak's record span is 3.03 km. Only the lift-line tool builds a span this long. While the tool is open, it raises the line prefab's

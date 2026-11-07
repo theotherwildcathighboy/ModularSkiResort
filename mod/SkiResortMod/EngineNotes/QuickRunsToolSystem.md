@@ -15,8 +15,8 @@ SkiRunAutoPlanner.md). This tool feeds it a snapshot and turns its result into r
 - The setting `QuickRunsEnabled` ("Resort Planner (experimental)", Options > Modular Ski Resort > Runs) is OFF by default since
   DECISIONS 443. `OptionOn` reads it. `OptionOn` falls back to false when Mod.Settings is null. When the setting is off:
   - `TryActivate` refuses and logs.
-  - The hotkey is inert. The hotkey path only logs the same hint.
-  - The hub chip stays visible but disabled with `SkiResort.Hub.QUICK_REASON[Off]` ("Resort Planner is experimental and off. Turn it on in Options > Modular Ski Resort > Runs.").
+  - The hotkey is inert.
+  - The hub chip stays visible but disabled with `SkiResort.Hub.QUICK_REASON[Off]` ("Resort Planner is experimental and off. Turn it on in Options > Modular Ski Resort > Runs."). The hotkey path only logs the same hint.
 
   Turning it off while the tool is open closes the tool on its next frame.
 - `UnavailableReasonKey`: Off, then Disabled (an exception, until the next load), then NotArmed (no city loaded, run prefabs not
@@ -129,7 +129,7 @@ It holds no state: each tool keeps its own phases, queries and logs.
 - Apply is all-or-nothing per emission (ToolBaseSystem.cs:533-540). `AfterValidation` picks one of three:
   - Apply.
   - Retry (drop the refused, clear, re-emit the rest of the chunk once).
-  - GiveUp (back to Preview with the refused runs red and left out, or PARTIAL after built chunks).
+  - GiveUp (back to Preview with the refused runs red and left out. After built chunks: PARTIAL).
 - The permanent runs bind and pay exactly like drawn runs (SkiRunOwnershipSystem: one charge at bind, `SkiRunBinding` FlagPaid +
   `m_PaidAmount`). 150 frames after the apply, the tool logs one bind line: runs bound, signs, paid, charged against the preview total.
 

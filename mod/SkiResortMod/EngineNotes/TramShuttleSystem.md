@@ -276,9 +276,9 @@ Never:
 
 - No save data (no new IComponentData / buffer / serializable). Positions come from the clock.
 - No Hidden / Deleted on a cabin.
-- Never touch a Loop carrier.
-- Never touch a Temp entity (tool previews keep vanilla's hosted pose).
-- Never touch anything in the Editor (a moved hosted cabin could be saved into a map or asset).
+- The system never touches a Loop carrier.
+- The system never touches a Temp entity (tool previews keep vanilla's hosted pose).
+- The system never touches anything in the Editor (a moved hosted cabin could be saved into a map or asset).
 
 ## Cross-references
 

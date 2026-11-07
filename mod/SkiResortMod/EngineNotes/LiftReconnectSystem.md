@@ -3,7 +3,7 @@
 `LiftReconnectSystem` makes the line-first build order work (draw the line, then place the station).
 
 ## The problem
-A station may snap onto the end of an existing lift line when the player places it. The net-level connection then succeeds, but the cables do not draw.
+When the player places a station that snaps onto the end of an existing lift line, the net-level connection succeeds, but the cables do not draw.
 The game builds or rebuilds lanes only for owners that match LaneSystem's trigger query - All{SubLane} + Any{Updated, Deleted}
 (LaneSystem.OnCreate, m_OwnerQuery). Placing a building marks neither the line's node nor its edges Updated. So the game never searches again for anchors that did not
 exist at edge creation. The fix is to mark the affected net entities Updated on station placement. The game's own systems then rebuild lanes and

@@ -35,7 +35,7 @@ Re-derived from the vanilla net tool. Nothing is copied from the ParkManager ref
 ## Span length raise
 `CourseSplitSystem` cuts any course longer than `NetGeometryData.m_EdgeLengthRange.max` into equal pieces (CourseSplitSystem.cs:3487-3493).
 `ValidationHelpers` flags an edge longer than 1.1 x max (ValidationHelpers.cs:1395-1425). While this tool is open, it raises
-`m_EdgeLengthRange.max` and `m_ElevatedLength` of the four line prefabs to the planner's MaxSpanM. (The game sets `m_ElevatedLength` from
+`m_EdgeLengthRange.max` and `m_ElevatedLength` of the four line prefabs to the planner's MaxSpanM. (The game sets both from
 `m_MaxPylonDistance`, NetInitializeSystem.cs:2180-2181.) The tool restores both values when it closes. This follows the `CursorAimSystem`
 precedent: a prefab-entity data write, logged. The vanilla net tool keeps its own split. A permanent raise cut a long line to one engine
 node (LiftBatch LP-20).
@@ -83,7 +83,7 @@ The "generate, edit, build" pattern. `LiftLineEdit` holds the model. The input r
 - Build key (Enter by default) = build.
 - Esc = the frontend's Back, which closes the tool. It is unverified in game whether Esc also fires the tool's Cancel action. If it does,
   Esc steps back.
-- Right click is the tool's Cancel action ONLY. Secondary Apply stays off. Both are the right mouse button by default, and with both live,
+- Right click is the tool's Cancel action ONLY. Secondary Apply stays off, because both are the right mouse button by default, and with both live,
   one click removed a tower AND dropped the line.
 
 ## Preview
@@ -301,7 +301,7 @@ type, becomes a LiftPlanCrossing for the planner. History:
 - With the tight box, CourseSplitSystem IsOver / IsUnder (:2119-2185) judge a same-type line a few meters higher as over, with no join.
   Validation over the whole overlap still finds an overlap: "Clearance too low".
 - Planned over with the box rule (78e0ff5), the game still split the drawn course beside the crossing, unjoined (same layer: a CourseSplit
-candidate). The fit then stood a second tower there.
+  candidate). The fit then stood a second tower there.
 - So the tool refuses a same-type crossing before planning (LiftCrossRefusal.SameType, CROSS_SAME_TYPE).
 
 For each crossing, CollectCrossings records:

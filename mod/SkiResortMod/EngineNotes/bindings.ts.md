@@ -20,8 +20,8 @@
 
   C# must register nothing else.
 - `CORE_NAMES = [ "...", ... ]` (string literals): the names frozen since contract 1. A CORE name may only gain OPTIONAL fields in its
-  shape. Never rename, retype or remove a CORE name.
-- Every `export interface X` below: the gate reads the field list of `writer.TypeBegin("SkiResortMod.X")` in C#.
+  shape. It is never renamed, retyped or removed.
+- Every `export interface X` below: the gate reads it as the field list of `writer.TypeBegin("SkiResortMod.X")` in C#.
 - Every `bindValue<T>(GROUP, BINDING.x, FALLBACK.x)`: the gate reads the TS type of binding x.
 - Every `hubTriggers` entry `(a: A, b: B): void => fire(TRIGGER.x, ...)`: the gate reads the argument list of x.
 - Rule R16: the gate compares `BUILD_ITEM_IDS`, the `BuildItemId` union and `BUILD_ITEM_PREFAB` (with `src/hub/buildItems.ts`

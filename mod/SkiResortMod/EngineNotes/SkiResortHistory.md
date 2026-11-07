@@ -30,7 +30,7 @@ It reads the rest of the block shifted (and a garbage int32 becomes the element 
 `ISerializable` type (a companion component or buffer, e.g. `SkiResortHistoryMonth2`). An older build skips such a type cleanly as an
 unknown type. Before the 1.0 freeze, an append + `CurrentVersion` bump (read under `if (m_Version >= 2)`) is still allowed. Never
 reorder, retype or rename these types. Never move their namespace. Never turn the buffer into a component (the saved type name is the
-`AssemblyQualifiedName`). The game writes a buffer as int32 length + the own Serialize of each element, stride 0
+`AssemblyQualifiedName`). The game writes a buffer as int32 length + each element's own Serialize, stride 0
 (Colossal.Serialization.Entities BufferElementDataSerializer.cs:80-92, BinaryWriter.cs:120-126, 158-161).
 
 ## Flags

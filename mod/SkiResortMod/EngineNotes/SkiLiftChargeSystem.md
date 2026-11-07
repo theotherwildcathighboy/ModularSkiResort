@@ -31,7 +31,7 @@ For the other rows, Powered = true (not read), and the state line says "power no
 
 ## Ski area
 
-The code calls `SkiResortIndex.TryResolve(xz, SkiRunOwnershipSystem.TetherMeters)` at the first of these positions that exists:
+The code calls `SkiResortIndex.TryResolve(xz, SkiRunOwnershipSystem.TetherMeters)` at the first of these positions that is available, in this order:
 
 1. The live base station's Transform xz.
 2. The live top station's Transform xz.

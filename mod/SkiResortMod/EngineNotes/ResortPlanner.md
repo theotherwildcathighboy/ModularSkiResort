@@ -43,8 +43,7 @@ TreeLineY / Cancel into the restart input.
 ## Threads
 
 - The `Step` loop polls `AutoPlanCancel` once per unit at the top. A canceled `Step` returns true with `Result.Canceled` set, and
-  the scan stops.
-- Reselect refuses until the next scan completes. A fresh `Begin` / `Run` clears everything.
+  the scan stops. Reselect then refuses until the next scan completes. A fresh `Begin` / `Run` clears everything.
 - `ProgressVolatile` is written after every unit into a volatile int (per-mille).
 - `AutoPlanResult.Snapshot()` copies lists and arrays, shares the `AutoRun` objects and deep-copies the `ResortPlan` (`ResortPlan.Copy`).
   It lives in `SkiRunAutoPlanner.cs` (A0 wrote it there because A2 does not own that file).
@@ -97,7 +96,7 @@ Each region runs Runs mode and Resort mode. Resort results get the shared `Invar
 - a `ROW` table
 - a per-ID tally (`GATE`)
 
-**Arming a gate**: the owner task of A3-A6 adds the gate's IDs to `V2Hard` in `V2Tests.cs`. Armed now: V1-2, V1-3, V1-4, D-1, D-2, D-3,
+**Arming a gate** (the owner task of A3-A6): add the gate's IDs to `V2Hard` in `V2Tests.cs`. Armed now: V1-2, V1-3, V1-4, D-1, D-2, D-3,
 P-1..P-4. `V2AlwaysSoft` (F-8, H-5, H-6, S-6 bottoms) never fails. `V2SoftOnSteeper` (F-1..F-7, F-9, F-10, S-5) is REPORT on Steep, on
 Mountain Village and on any region with mean grade over 45 % (the gates table's "HARD under 45 % mean"). F-9 is HARD on Alpine and on the
 Mountain Village field regions (the gates table names them).
@@ -107,7 +106,7 @@ Mountain Village field regions (the gates table names them).
    (S-7) and, for F-10 / H-2, a re-rate delegate. The host passes `SkiRunRater.Rate` over the snapshot. Tests pass `run => run.Band`.
 2. A metric with nothing to measure (no pad, no lift, no pod with runs) returns `n/a` with pass = false. So a stubbed planner cannot turn a
    HARD gate green by being empty. Gates not yet armed print REPORT, so nothing fails today.
-3. The host recomputes S-2 from the stored `BandShare` (80th percentile band over the listed shares), because it cannot see the cells.
+3. S-2 is recomputed from the stored `BandShare` (80th percentile band over the listed shares), because the host cannot see the cells.
 4. H-2 / H-5 host search:
    - Start runs = tops within 100 m of the lift Top.
    - Run A continues into run B when A's bottom is inside B's outline or within 25 m of it.
@@ -116,7 +115,7 @@ Mountain Village field regions (the gates table names them).
    - Lifts, cat tracks and obstacles are not edges in the host search (stage A has no earthworks).
 5. F-2 / F-3 count the runs with `RunLift == lift`. F-4 counts a run top inside, or within 25 m of, another run's outline.
 6. P-4 sums the exact v2 layers (`ResortLayerBytes`) plus 49 B per snapshot cell for the v1 layers (an estimate, because the v1 arrays are private).
-7. P-1: the host measures a miss once more, and the smaller figure counts. Single runs showed 5-10 ms outliers on Delta / Snowbird that did not
+7. P-1: a miss is measured once more, and the smaller figure counts. Single runs showed 5-10 ms outliers on Delta / Snowbird that did not
    repeat. On the real heightmaps, P-1 stays REPORT because the v1 gate never covered real terrain. Synthetic cases are HARD.
 8. D-4 / D-5 are SKIP here (A2's `WorkerTests` owns them). P-5 is SKIP (no tower-plan counter until A4). The 2.6 realism report is SKIP
    (needs the real lift / run layouts). S-7 only has the unit test (the matrix plans without pinned lifts).
@@ -159,7 +158,7 @@ labeled Dijkstra is `DijkstraQueue` + `StepCost` inline in PodRoute. The labelin
   - Pads = inscribed >= 9 m, at most 255 (largest kept), ids in smallest-cell order, built 16 per unit (R2).
   - Output: m_PadOf.
 - **Pad = a graded site** (DECISIONS 447): `PlanPad.GradeM3 / GradeMaxM` (added to Plan.cs) = balanced cut (= fill) / the deepest
-  cut or fill. Both values level the cheapest station's 16 x 24 m lot at the station spot (long side along x or z, the smaller). This is a screening
+  cut or fill. Both values are for leveling the cheapest station's 16 x 24 m lot at the station spot (long side along x or z, the smaller). This is a screening
   number. Stage B grades with the cat track kernel. Station capability stays `InscribedM >= StationHalfDiagonalOf(t)`.
 - **PodRoute**: sources = cells of pads with InscribedM >= 14.4 m (and m_O < 0.70, out of the edge strip), label = the pad, cost =
   StepCost(floor 0.08, ceiling = hard 0.70). The label rides each relaxation (m_PodOf scratch, cost m_Dist[0]). A multi-source

@@ -12,7 +12,7 @@ command buffer, no component write, no prefab touch, no per-frame work (an int c
 
 ## Output
 The log tag "Towers [nodes]" has one block per line, <= MaxNodes nodes. The log tag "Towers [summary]" has one line per line.
-- Per node: world y, terrain y under it, clearance, net Elevation component (float2. The engine uses cmin of it, SubObjectSystem.cs:980).
+- Per node: world y, terrain y under it, clearance, net Elevation component (float2, and the engine uses cmin of it, SubObjectSystem.cs:980).
 - Per span to the next node:
   - the min chord clearance over 4 samples (t = .2 .4 .6 .8) and where,
   - the largest Curve droop below/above the chord.
@@ -37,7 +37,7 @@ carries (`RopeAboveNode`). `RopeAboveNode` is the shortest member's rope for a L
 - It logs "Towers [plan]" and one "Towers [plan summary]" line. The first has the planned vs actual node count, per planned node the
   member, rope and flags, and per span the lowest carrier above ground and the max rope height.
 - It caches the planned geometry for `LiftTowerPlanOverlaySystem`, keyed by every edge and node entity of the line. Selecting a line whose
-  plan is not cached queues the plan here (RequestPlan, next update).
+  plan is not cached queues the line here (RequestPlan, next update).
 
 ## Registration
 Mod.cs: `UpdateAfter<LiftTowerDiagSystem, LiftCensusSystem>(Modification4B)`, the same anchor family as `TramShuttleSystem`.

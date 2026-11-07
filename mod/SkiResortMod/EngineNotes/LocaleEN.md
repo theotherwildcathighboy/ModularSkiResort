@@ -33,7 +33,7 @@ DESCRIPTION here, deployed and to-import alike. A key whose prefab does not exis
 no key: pieces, sections, effects, meshes.
 - Order: family first, then size, then the variant in parentheses ("Gondola Tower 16 m", "Ski Rack, Freestanding, 12 pairs + 2 boards
   (Red)"). Test objects say so ("Ski Resort — import probe B: Sheet (delete after test)").
-- Parts a player can meet put the variant first and drop the "Ski Resort — <kind>:" prefix. These parts are pickers, station towers, cable lanes and stubs, sign sets, fence lane, run-edge groups and the empty slot. Test objects keep it.
+- Parts a player can meet put the variant first and drop the "Ski Resort — <kind>:" prefix. These parts are pickers, station towers, cable lanes and stubs, sign sets, fence lane, run-edge groups and the empty slot. Test objects keep the prefix.
 - Station buildings say the lift type and the end ("Fixed-Grip Chairlift: Base Station", "Gondola: Base Station"). The tram says "Aerial
   Tram: Base Terminal" / "Top Terminal", never "Tram Station", because a stranger reads it as the city tram.
 - `hubText.ts` ASSET_NAME follows these names (gate R4). Internal prefab names are untouched: deployed ones are save identity.
@@ -57,7 +57,7 @@ no key: pieces, sections, effects, meshes.
   `LEVEL`, `LEVEL_NAME[1..8]` (also `SkiGladeToolSystem.Tuning.LevelNames` for the log), `TREES_NOW`, `TREES_TARGET`.
 - PLANT / FELL / REMOVE / BLOCKED_SPOTS / LEVEL / TREES_NOW / TREES_TARGET label IntTooltips (unit "integer"), so they carry no number.
   REMOVE is "Planted trees to remove". The tool removes members to lower the density. It replaces nothing.
-- COMPLETE shows "the run is already at this tree density" only when Trees now = Target. Level 1 plants nothing. COMPLETE_BLOCKED is a
+- COMPLETE ("the run is already at this tree density", and level 1 plants nothing) shows only when Trees now = Target. COMPLETE_BLOCKED is a
   complete plan below its target (learned blocked spots used up the stream). COMPLETE_FIXED is one above it (trees left inside may not be
   felled).
 

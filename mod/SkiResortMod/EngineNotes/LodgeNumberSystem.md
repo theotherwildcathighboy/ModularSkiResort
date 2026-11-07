@@ -11,7 +11,7 @@ loads. A lodge keeps it while the lodge exists and stays in that area.
   archetypes (an off-grid lodge has another archetype than one at a road) [UNVERIFIED, not measured]. So the mod stores the number on
   the lodge.
 - `SkiLodgeNumber { m_Sign, m_Number }`, layout v1, 9 bytes (version byte, entity, i32). `m_Sign` is the Welcome Sign the number was
-  given for. The game remaps it on load like `Owner` (Owner.cs:17, :22). Null after a load means that sign was gone at save time.
+  given for. It is remapped on load like `Owner` (Owner.cs:17, :22). Null after a load means that sign was gone at save time.
 
 ## The rule (`LodgeNumberRule.Assign`)
 Per (published sign link, `SkiCatalog.Lodges` index):

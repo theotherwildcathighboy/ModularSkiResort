@@ -161,7 +161,7 @@ A lift's power is its base station's. Each item below applies per loop (station 
    ramp.
 4. Rebuilds: an identity rebuild carries the offsets by entity and the hold by pair, so a held loop stays put. Its chairs are
    re-written at the frozen pose (idempotent). A held loop whose offsets this rebuild did not carry (restart seed or grid) is re-frozen
-   at this frame's clock (= the rebuild's `seedTimeS`). `BuildLoopCache` records the pair, a record-only edit.
+   at this frame's clock (= the rebuild's `seedTimeS`). `BuildLoopCache` records the pair (a record-only edit). The re-frozen pose is:
    - Seeded: exactly where its chairs stood.
    - Gridded: once to its grid places, as a running loop would.
 
@@ -181,7 +181,7 @@ loops (`ChairPinSystem.Mover.cs`) with far-loop pacing (`LiftMoverMath.cs`). Cab
 ## Near MaxPinDistanceMargin and EndClampMeters
 
 On the final edge (last tower -> station), the cable lane is not the edge curve. `LaneSystem` moves the lane's endpoints onto the anchor
-stubs (tower sheave tips / the station's bullwheel stubs). The station's bullwheel stubs sit several meters past the edge node, inside the station. Then it
+stubs (tower sheave tips / the station's bullwheel stubs). The station's bullwheel stubs sit several meters past the edge node, inside the station. Then LaneSystem
 rebuilds the bezier as straight-line-plus-droop between the anchors. Near the station, that lane can diverge laterally and vertically
 from the chair row's spawn line. Projecting chairs onto it gave visibly wrong positions and yaw there. Two guards exist. Both are inert
 on normal spans:

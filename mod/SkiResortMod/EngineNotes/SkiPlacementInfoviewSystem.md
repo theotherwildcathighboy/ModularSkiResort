@@ -46,14 +46,14 @@ Both causes are load-bearing. A station whose prefab scores no view is a harmles
 ## Rule
 
 On an activePrefab change, clear the latch. `playerHadIt` = the view at our previous update equaled the new tool's infoview and that
-view was not opened by a tool. Then, when all of these conditions hold, `playerHadIt` latches and counts Kept ("Infoview [keep]"):
+view was not opened by a tool. Then the system acts when all of these conditions hold:
 - the prefab is a target
 - `activeInfoview != null`
 - `activeInfoview == activeTool.infoview`
 - the latch is clear
 
-Otherwise `ToolSystem.infoview = null`, latch, Closed++ ("Infoview [close]"). Re-opening the view by hand during the same activation is
-kept.
+If `playerHadIt`, latch and count Kept ("Infoview [keep]"). Otherwise `ToolSystem.infoview = null`, latch, Closed++
+("Infoview [close]"). Re-opening the view by hand during the same activation is kept.
 
 "The view equaled the tool's at the previous update" is also true when the previous tool opened it (a vanilla transformer tool opens
 Electricity, :290). So we track who opened the current view. A view change seen in the same
@@ -68,7 +68,7 @@ Our close goes through the public setter, which changes only `m_CurrentInfoview`
 ToolSystem's private `m_LastToolInfoview` keeps Electricity. It is written only inside ToolUpdate's
 `infoviewPrefab != m_LastToolInfoview` arm (:333-336), and the re-apply arm needs `activeInfoview` == the tool's view, null after
 our close. So a direct switch from a lift tool to another tool with the same Electricity view would leave that tool without its view.
-Example: a vanilla power line or transformer, because `ToolSystem.ActivatePrefabTool` switches tools with no default tool between
+Such a tool is a vanilla power line or transformer. `ToolSystem.ActivatePrefabTool` switches tools with no default tool between
 (:263-277). A switch to another of our targets (line -> station tile) keeps it closed, which is the rule.
 
 `m_ClosedView` = the view we closed. The system clears it in either of these cases:
@@ -104,5 +104,6 @@ The system writes these log lines:
 - a one-shot "!!!" catch that disables the system until the next load
 - a "!!!" line when the target prefab is missing (the view then stays open while drawing lifts)
 
-It writes at most one line per tool activation or restore. A cap per load (`LogLinesMax`) adds one "cap reached" line. So a long
+It writes at most one line per tool activation or restore. These lines are capped per load (`LogLinesMax`), with one "cap reached"
+line. So a long
 bulldoze/redraw session cannot flood. Game mode only. Per frame: three property reads and a few reference compares.

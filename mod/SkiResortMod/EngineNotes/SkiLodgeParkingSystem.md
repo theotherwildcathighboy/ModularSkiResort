@@ -15,9 +15,7 @@ is `SkiDayRules.CheckLodge`. The census lives in memory only and resets on load.
 Vanilla has no parking radius. A car trip is one pathfind: drive, park (parking cost 10 s of time, CarPathfind.cs), walk to the
 door. The pathfinder takes the cheapest whole route under the cost cap of the trip.
 
-Tourist parties:
-
-- TripNeededSystem.cs:1403 sets `m_MaxCost = GetMaxCost(priority)`, and :1441-1442 seek `SetupTargetType.Attraction`,
+- Tourist parties: TripNeededSystem.cs:1403 sets `m_MaxCost = GetMaxCost(priority)`, and :1441-1442 seek `SetupTargetType.Attraction`,
   whose targets get -100 x attractiveness x random (CitizenPathfindSetup.cs:369).
 - GetMaxCost = 17,000 x priority / 128 (TripPriorityParametersData.cs:83-86). The tourist priority is 64
   (TripPriorityParametersPrefab.cs:12, :35). This gives 8,500.

@@ -44,8 +44,8 @@ load.
 - Net = `HubRules.NetMonth` over what the ledger booked this month and buildings / wages x the share of the month simulated. The eight
   terms go out as rows that add up to it, "~" when a term is unknown.
 - Buildings and wages: CityServiceBudgetSystem.cs:392-421 for the sign split into wage part and rest. The value is that split x the
-  current service budget (`GetServiceBudget`, once per service per rebuild, it completes its temp arrays, :1060-1072) x daysPerYear /
-  12. The value is -1 when the prefab has no service upkeep or the budget reads 0.
+  current service budget (`GetServiceBudget`, once per service per rebuild; it completes its temp arrays, :1060-1072) x
+  daysPerYear / 12. The value is -1 when the prefab has no service upkeep or the budget reads 0.
 - Last month: the system sends it whenever the ledger knows one (a since-load month too: LastMonthFull false, the hub marks it
   "(partial)"). It sends -1 only before the first month roll. Tickets off (price 0) gives 0, not estimated. The ticket gate is
   `SkiMoneyRules.TicketGateOf` with the counted runs of the Result, known = a result present and not in the first-write hold.

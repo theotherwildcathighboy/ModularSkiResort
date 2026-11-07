@@ -37,7 +37,7 @@ elsewhere on the ring keeps the mix. `tools/check-run-props.js` compares the tab
 ## Defaults
 
 Off, then `SpacingMinM`..`SpacingMaxM` in `SpacingStepM` steps. A hand-drawn or Quick run with many nodes has a node about every 40 m (an estimate, not measured). Quick runs simplify
-at 12 m. The corner roll stood a gun or hydrant on 75 % of the snowmaking nodes and on 43 % of the night nodes. It stood a mast on another 43 %. So 40 / 0.75 = about 50 m on snowmaking, and
+at 12 m. The corner roll stood a gun or hydrant on 75 % of the snowmaking nodes and on 43 % of the night nodes. It stood a mast on another 43 % of the night nodes. So 40 / 0.75 = about 50 m on snowmaking, and
 40 / 0.43 = about 90 m on night. A cat track has no such reference: guns at 60 m, lights off.
 
 ## The diff and the key
