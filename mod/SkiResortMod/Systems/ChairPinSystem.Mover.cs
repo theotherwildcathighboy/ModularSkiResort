@@ -1,8 +1,8 @@
 // The per-frame chair move pass at release scale: under 0.5 ms a frame on the main thread for 20 lifts / ~3,000 chairs.
 // Running loops are flattened once into persistent native arrays (EnsureMoverArrays) and moved by MoveChairsJob (Burst, IJobParallelFor).
-// Threading: each job index writes a different chair's Transform; the job handle goes into Dependency; the bounds-tag structural change
-// runs BEFORE the job is scheduled; the native arrays are written on the main thread only after MoverCompleteJob.
-// Timing: Modification4B; vanilla 4B systems and ModificationBarrier4B run after it (SystemOrder.cs:83,:91).
+// Threading: each job index writes a different chair's Transform. The job handle goes into Dependency. The bounds-tag structural change
+// runs BEFORE the job is scheduled. The native arrays are written on the main thread only after MoverCompleteJob.
+// Timing: Modification4B. Vanilla 4B systems and ModificationBarrier4B run after it (SystemOrder.cs:83,:91).
 // Held loops, Temp-chair previews and the static flow stay managed. Far loops (>= 500 m from the camera) are paced (LiftMoverMath).
 // Engine notes: EngineNotes/ChairPinSystem.Mover.md
 
@@ -23,7 +23,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class ChairPinSystem
     {
-        // Settings (static: the dev tab flips them; per app run, like MovingChairs)
+        // Settings. They are static and per app run, like MovingChairs. The dev tab flips them.
         private static bool s_MoverUseJob = true;
         private static LiftMoverMath.PaceSettings s_Pace = LiftMoverMath.PaceSettings.Default;
         private static int s_StressFactor = 1;
@@ -41,9 +41,9 @@ namespace SkiResortMod.Systems
             public double Length, Phase, Speed;
             public byte Active;   // 1 = write this loop's chairs this pass
             // The carrier grip round (ChairPinSystem.Grips.cs): the type's pivots, the pass's blended wind, the pendulum frequency, the
-            // ramp length and the flags. Split = the loop has paired grips; PitchSwing = the Options toggle "Animated lift carriers"
-            // (pitch + swing; not named Animated: that is a Game.Rendering component, and the surface gate reads names); GripWrite = 0
-            // when a fallback hook skips the grips this pass (the bodies still move).
+            // ramp length and the flags. Split = the loop has paired grips. PitchSwing = the Options toggle "Animated lift carriers" (pitch
+            // + swing). It is not named Animated: that is a Game.Rendering component, and the surface gate reads names. GripWrite = 0 when
+            // a fallback hook skips the grips this pass (the bodies still move).
             public CarrierPivots Pivots;
             public SwingLimits Limits;   // the type's roll clamp and gain (CarrierPose.Limits)
             public float2 Wind;
@@ -89,7 +89,7 @@ namespace SkiResortMod.Systems
             public NativeArray<byte> Results;
             /// <summary>Per chair index: its grip's result (Skipped when it has none or the loop skips grips this pass).</summary>
             public NativeArray<byte> GripResults;
-            public double ShiftS;   // stress mode only; 0.0 = the real pass (phase + speed × 0.0 == phase exactly)
+            public double ShiftS;   // stress mode only. 0.0 = the real pass (phase + speed × 0.0 == phase exactly)
             /// <summary>The Burst probe: [0] = 1 when Execute(0) ran as managed code (MarkManaged is [BurstDiscard]: Burst
             /// strips the call, so a Burst-compiled job leaves it 0). Written at index 0 only, by Execute(0).</summary>
             public NativeArray<int> ManagedProbe;
@@ -137,7 +137,7 @@ namespace SkiResortMod.Systems
                     return;
                 }
 
-                // The split carrier: ONE sample, two Transforms (CarrierPose; the body's yaw is the rigid pose's).
+                // The split carrier: ONE sample, two Transforms (CarrierPose: the body's yaw is the rigid pose's).
                 quaternion yaw = Game.Net.NetUtils.GetNodeRotation(tangent, transform.m_Rotation);
                 float2 swing = float2.zero;
                 if (loop.PitchSwing != 0)
@@ -358,7 +358,7 @@ namespace SkiResortMod.Systems
                     LiftLoopSampler.GrowBox(flat, ref min, ref max);
                     m_JobSegments.Add(flat);
                 }
-                // The free runs around each segment (the swing ramp; the carrier grip round).
+                // The free runs around each segment (the swing ramp and the carrier grip round).
                 var store = new NativeSegmentList { List = m_JobSegments };
                 LiftLoopSampler.MarkRuns(ref store, first, loop.m_Segments.Count);
                 loop.m_BoxKnown = loop.m_Segments.Count > 0 && math.all(math.isfinite(min)) && math.all(math.isfinite(max)) &&
@@ -432,8 +432,8 @@ namespace SkiResortMod.Systems
                     JobLoop jl = l < m_JobLoops.Length ? m_JobLoops[l] : default;
                     jl.Active = 0;
 
-                    // 2a. A HELD loop is written only at a rebuild or the hold's entry, at the frozen pose
-                    // (LiftLoopHold.FrozenPhase = PhaseOf's product at FrozenTimeS, bit for bit), managed; its entry tag below.
+                    // 2a. A HELD loop is written only at a rebuild or the hold's entry, at the frozen pose (LiftLoopHold.FrozenPhase =
+                    // PhaseOf's product at FrozenTimeS, bit for bit). It is managed. Its entry tag is below.
                     if (m_HeldLoopCount > 0 && l < m_HoldByLoop.Count && m_HoldByLoop[l].Held)
                     {
                         LoopHold hold = m_HoldByLoop[l];
@@ -616,7 +616,7 @@ namespace SkiResortMod.Systems
                     m_MoveHandle = handle;
                     m_MoveScheduled = true;
                     if (s_SyncMeasure)
-                        MoverCompleteJob();   // measured inside the span below; the counts are this pass's
+                        MoverCompleteJob();   // measured inside the span below. The counts are this pass's
                 }
                 else
                 {
@@ -638,9 +638,9 @@ namespace SkiResortMod.Systems
 
             long moverTicks = Stopwatch.GetTimestamp() - moverStart - boundsTicks;
             if (!useJob && missing > 0)
-                m_LoopCacheDirty = true; // roster chair died mid-window — heal next rebuild
+                m_LoopCacheDirty = true; // roster chair died mid-window: heal next rebuild
 
-            // Diagnostics (plain fields; the dev tab formats them on read).
+            // Diagnostics (plain fields, the dev tab formats them on read).
             m_PassNear = near;
             m_PassFar = far;
             m_PassWritten = written;

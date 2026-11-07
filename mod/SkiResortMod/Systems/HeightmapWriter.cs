@@ -1,10 +1,10 @@
 // THE one place the mod writes the game's base terrain heightmap (CatTrackGradeToolSystem apply / undo and its dev-tab probe).
 // Not a system: a helper the tool owns, main thread only. Writes the base map, not the render cascade (the cascade is re-blitted from it).
-// Every write is verified by reading the rect back and comparing every texel (a mismatch is an ERROR; the caller restores the pre-image).
+// Every write is verified by reading the rect back and comparing every texel (a mismatch is an ERROR. The caller restores the pre-image).
 // FORMAT GATE (once per load, logged): the heightmap must be a created R16_UNorm RenderTexture, at least 1024 texels a side, with a
-// positive playable area and height scale; anything else refuses every write. The mapping uses playableArea / playableOffset /
+// positive playable area and height scale. Anything else refuses every write. The mapping uses playableArea / playableOffset /
 // heightScaleOffset, never the 14,336 m defaults (custom maps).
-// LOGS: every read and write is one line (rect, texels, ms, verify result); the gate one line per load; failures WARN / ERROR.
+// LOGS: every read and write is one line (rect, texels, ms, verify result). The gate is one line per load. Failures WARN / ERROR.
 // Engine notes: EngineNotes/HeightmapWriter.md
 
 using System;
@@ -88,7 +88,7 @@ namespace SkiResortMod.Systems
             return new Bounds2(min, max);
         }
 
-        /// <summary>Synchronous readback of a base-map rect (engine notes THE WRITE 1); null on a readback error (logged).</summary>
+        /// <summary>Synchronous readback of a base-map rect (engine notes THE WRITE 1). Null on a readback error (logged).</summary>
         public ushort[] Read(int4 rect, string why)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -113,9 +113,9 @@ namespace SkiResortMod.Systems
             return result;
         }
 
-        /// <summary>Write a rect into the base map, verify it by readback and run the vanilla notification tail (engine notes THE WRITE 2-3).
-        /// <paramref name="mismatches"/> = texels the readback did not find as written (0 = the write landed); -1 when the verify
-        /// readback itself failed. Returns false when nothing was attempted (gate) or the verify found mismatches.</summary>
+        /// <summary>Write a rect into the base map, verify it by readback and run the vanilla notification tail (engine notes THE WRITE
+        /// 2-3). <paramref name="mismatches"/> = texels the readback did not find as written (0 = the write landed). It is -1 when the
+        /// verify readback itself failed. Returns false when nothing was attempted (gate) or the verify found mismatches.</summary>
         public bool Write(GradeMap map, int4 rect, ushort[] data, string why, out int mismatches)
         {
             mismatches = -1;

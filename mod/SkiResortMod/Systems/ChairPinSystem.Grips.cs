@@ -1,19 +1,19 @@
 // The carrier grip round in ChairPinSystem: each rostered carrier (the BODY) is paired with its GRIP, a second vanilla sub-object of the
-// same edge, and both are posed by CarrierPose (the grip pitched with the rope, the body plumb and swinging in the wind).
-// Pairing: the grips are rows of the line prefab's NetSubObjects (prefab surgery after the art import) with the carrier row's
-// EvenSpacing and spacing, so vanilla's EvenSpacing loop gives both the same slot m on their edge: Aligned.m_SubObjectIndex =
-// m x rowCount + row (Game.Objects/SubObjectSystem.cs:1742-1757 in 1.6.2f1; rowCount = the line prefab's Game.Prefabs.SubObject
-// buffer length, the loop's bufferData2). A body pairs with the grip of the same (owner edge, m, lane side), the side being the sign
-// of the row's m_Position.x. A line prefab without grip rows (before the surgery) gives no grips: the bodies keep the rigid pose
-// (one INFO per line prefab per load). Grips are NOT carriers (never in CarrierGripTops): no roster, census, count, hold or seeding.
-// The static pin flow takes the body's pose from the same CarrierPose.Pose call as its pitched grip (LiftBatch CP-15) and assembles
-// the grip on a body it leaves at vanilla's placement (CP-16). Contract breaks (two grips on a key, a grip two bodies pair with) keep
-// the first and log once.
-// Enrollment: a rostered grip gets InterpolatedTransform + one Updated exactly like its chair (an entity CREATED with
-// InterpolatedTransform never enters the static search tree, the spike's step-0 finding; vanilla creates the grip without it).
-// Wind: WindSystem's map sampled on the main thread per loop (the loop box center) every WindPollFrames render frames and at rebuilds
-// (the map changes every 512 sim frames, WindSystem.cs:45), blended per loop by CarrierWind; the job gets the blended
-// value per loop. Engine notes: EngineNotes/ChairPinSystem.Mover.md ("Grips and swing")
+// same edge. CarrierPose poses both (the grip pitched with the rope, the body plumb and swinging in the wind).
+// Pairing: the grips are rows of the line prefab's NetSubObjects (prefab surgery after the art import) with the carrier row's EvenSpacing
+// and spacing. So vanilla's EvenSpacing loop gives both the same slot m on their edge: Aligned.m_SubObjectIndex = m x rowCount + row
+// (Game.Objects/SubObjectSystem.cs:1742-1757 in 1.6.2f1, rowCount = the line prefab's Game.Prefabs.SubObject buffer length, the loop's
+// bufferData2). A body pairs with the grip of the same (owner edge, m, lane side). The side is the sign of the row's m_Position.x. A line
+// prefab without grip rows (before the surgery) gives no grips. The bodies keep the rigid pose (one INFO per line prefab per load). Grips
+// are NOT carriers (never in CarrierGripTops): no roster, census, count, hold or seeding.
+// The static pin flow takes the body's pose from the same CarrierPose.Pose call as its pitched grip (LiftBatch CP-15). It assembles the
+// grip on a body it leaves at vanilla's placement (CP-16). Contract breaks (two grips on a key, a grip two bodies pair with) keep the first
+// and log once.
+// Enrollment: a rostered grip gets InterpolatedTransform + one Updated exactly like its chair. An entity CREATED with InterpolatedTransform
+// never enters the static search tree (the spike's step-0 finding). Vanilla creates the grip without it.
+// Wind: WindSystem's map is sampled on the main thread per loop (the loop box center) every WindPollFrames render frames and at rebuilds
+// (the map changes every 512 sim frames, WindSystem.cs:45). CarrierWind blends it per loop. The job gets the blended value per loop.
+// Engine notes: EngineNotes/ChairPinSystem.Mover.md ("Grips and swing")
 
 using System;
 using System.Collections.Generic;
@@ -33,9 +33,10 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class ChairPinSystem
     {
-        // ---- the fallback hooks (the owner's order if the cost is over budget, plan section 4; NOT switched on: the field test flips them)
+        // ---- the fallback hooks (the owner's order if the cost is over budget, plan section 4). NOT switched on: the field test flips
+        // them
         /// <summary>Fallback (1): grips are posed and bounds-tagged only on near loops (closer than the far-loop pace boundary,
-        /// LiftMoverMath FarMinM); a far loop's grips keep their last pose while the bodies move on.</summary>
+        /// LiftMoverMath FarMinM). A far loop's grips keep their last pose while the bodies keep moving.</summary>
         private static readonly bool GripNearOnly = false;
         /// <summary>Fallback (3): grips are written every second pass only.</summary>
         private static readonly bool GripHalfRate = false;
@@ -48,15 +49,15 @@ namespace SkiResortMod.Systems
         private bool m_WindErrorLogged;
         private bool m_GripHalfOdd;
 
-        // the pairing index (one rebuild or static pass): (edge, slot, side) → grip, built per edge on first use
+        // the pairing index (one rebuild or static pass): (edge, slot, side) maps to grip. It is built per edge on first use
         private readonly Dictionary<GripKey, Entity> m_GripIndex = new Dictionary<GripKey, Entity>();
         private readonly HashSet<Entity> m_GripIndexedEdges = new HashSet<Entity>();
         private readonly Dictionary<Entity, bool> m_LineHasGripRows = new Dictionary<Entity, bool>();
         private readonly HashSet<Entity> m_NoGripRowsLogged = new HashSet<Entity>();   // line prefabs, per load
-        // the grips rostered this rebuild: a grip paired twice would be written by two job indices at once (the Transform lookup's
-        // NativeDisableParallelForRestriction relies on one writer per entity), so the second body stays rigid
+        // the grips rostered this rebuild. A grip paired twice would be written by two job indices at once (the Transform lookup's
+        // NativeDisableParallelForRestriction relies on one writer per entity). So the second body stays rigid
         private readonly HashSet<Entity> m_GripRostered = new HashSet<Entity>();
-        // the static pass's twin: grip -> the body that posed it this pass
+        // the static pass's twin: grip maps to the body that posed it this pass
         private readonly Dictionary<Entity, Entity> m_GripStaticBody = new Dictionary<Entity, Entity>();
         private bool m_GripTwiceLogged;
 
@@ -185,8 +186,8 @@ namespace SkiResortMod.Systems
                 if (row < 0 || row >= rows.Length || rows[row].m_Prefab != pr.m_Prefab)
                     continue;
                 var key = new GripKey(edge, CarrierPose.AlignSlot(a.m_SubObjectIndex, rows.Length), CarrierPose.RowSide(rows[row].m_Position.x));
-                // Two grips on one key (two grip rows on one side of the line prefab, a contract break): the first keeps the key, the
-                // other is never posed and stays at its own spawn (vanilla's placement), never mid-span where a body left it. Logged once.
+                // Two grips on one key (two grip rows on one side of the line prefab, a contract break). The first keeps the key. The other
+                // is never posed and stays at its own spawn (vanilla's placement), never mid-span where a body left it. Logged once.
                 if (m_GripIndex.TryGetValue(key, out Entity first) && first != e)
                 {
                     LogGripContract($"two grips ({first}, {e}) on one slot and side of edge {edge}: two grip rows on one side of the line " +
@@ -212,7 +213,7 @@ namespace SkiResortMod.Systems
             Entity grip = FindGrip(chair, def, gripTypes);
             if (grip != Entity.Null && !m_GripRostered.Add(grip))
             {
-                // The grip stays with its first body (posed every pass); this body keeps the rigid pose.
+                // The grip stays with its first body (posed every pass). This body keeps the rigid pose.
                 LogGripContract($"grip {grip} pairs with two carriers (two carrier rows on one side of the '{def.Id}' line prefab?); it rides " +
                                 "with the first, the second keeps the rigid pose");
                 grip = Entity.Null;
@@ -247,8 +248,8 @@ namespace SkiResortMod.Systems
             return w;
         }
 
-        /// <summary>A loop whose wind this poll can sample: split, with a known box; a held loop only while its wind is unknown (its
-        /// frozen pose keeps its wind).</summary>
+        /// <summary>A loop whose wind this poll can sample: split, with a known box. A held loop is samplable only while its wind is
+        /// unknown (its frozen pose keeps its wind).</summary>
         private bool WindSamplable(int l, LiftLoopCache.Loop loop)
         {
             if (loop.m_GripCount == 0 || loop.m_Wind == null || !loop.m_BoxKnown)
@@ -256,10 +257,10 @@ namespace SkiResortMod.Systems
             return !(m_HeldLoopCount > 0 && l < m_HoldByLoop.Count && m_HoldByLoop[l].Held && loop.m_Wind.m_Known);
         }
 
-        /// <summary>Samples WindSystem's map at every samplable split loop (main thread; the writer completed first) every WindPollFrames
-        /// render frames, now when <paramref name="force"/> (a rebuild), and at once while any samplable loop's wind is still unknown
-        /// (a new loop, a load's first passes: it runs before the pass poses, so the first sample is the start value, CarrierWind.Set).
-        /// The cadence is stamped only when something was sampled. Never throws.</summary>
+        /// <summary>Samples WindSystem's map at every samplable split loop (main thread, the writer completed first). It samples every
+        /// WindPollFrames render frames, now when <paramref name="force"/> (a rebuild), and at once while any samplable loop's wind is
+        /// still unknown (a new loop, a load's first passes). It runs before the pass poses, so the first sample is the start value
+        /// (CarrierWind.Set). The cadence is stamped only when something was sampled. Never throws.</summary>
         private void PollWind(double timeS, bool force)
         {
             uint frame = m_RenderingSystem.frameIndex;
@@ -278,8 +279,8 @@ namespace SkiResortMod.Systems
                 return;
             try
             {
-                // CellMapSystem.GetMap (CellMapSystem.cs:154-158): readOnly → the writers' handle; completed here, the read is synchronous,
-                // so no AddReader. WindSystem.GetWind (WindSystem.cs:68-80) = the bilinear sample SampleWind does.
+                // CellMapSystem.GetMap (CellMapSystem.cs:154-158): readOnly gives the writers' handle. It is completed here, so the read is
+                // synchronous and needs no AddReader. WindSystem.GetWind (WindSystem.cs:68-80) = the bilinear sample SampleWind does.
                 NativeArray<Wind> map = m_WindSystem.GetMap(readOnly: true, out JobHandle deps);
                 deps.Complete();
                 if (!map.IsCreated || map.Length == 0)
@@ -319,7 +320,7 @@ namespace SkiResortMod.Systems
             gustClock = CarrierPose.GustClock(loop.m_Wind != null ? loop.m_Wind.GustTimeS(timeS) : timeS);
         }
 
-        /// <summary>The managed twin of the job's split pose (held loops, the managed A/B path): writes the body and its grip.
+        /// <summary>The managed twin of the job's split pose (held loops, the managed A/B path). It writes the body and its grip.
         /// <paramref name="windTimeS"/> = the clock the wind is blended at (a held loop's FrozenTimeS).</summary>
         private MoveResult MoveCarrier(LiftLoopCache.Loop loop, int i, double s, double windTimeS, bool animated, bool writeGrip)
         {
@@ -357,7 +358,7 @@ namespace SkiResortMod.Systems
             return MoveResult.Moved;
         }
 
-        /// <summary>One grip write with the mover's idempotence; the static flow also refreshes InterpolatedTransform (when present) and
+        /// <summary>One grip write with the mover's idempotence. The static flow also refreshes InterpolatedTransform (when present) and
         /// tags Updated. Returns false when the grip is gone.</summary>
         private bool WriteGrip(Entity grip, float3 position, quaternion rotation, bool tagUpdated, bool interpolated)
         {
@@ -381,10 +382,10 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>The static pin flow's grip (TryPinChair: unclosed lifts, the load pass, Temp tool previews): a pitched grip over a plumb,
-        /// still body. True when the carrier has a grip: <paramref name="bodyPosition"/> / <paramref name="bodyRotation"/> are then the
-        /// body's pose from the SAME CarrierPose.Pose call (zero swing), which TryPinChair writes instead of the rigid pose, so the pin
-        /// joint holds on a pitched span (CP-15). False: no grip, TryPinChair keeps the rigid pose.</summary>
+        /// <summary>The static pin flow's grip (TryPinChair: unclosed lifts, the load pass, Temp tool previews): a pitched grip over a
+        /// plumb, still body. True when the carrier has a grip. Then <paramref name="bodyPosition"/> / <paramref name="bodyRotation"/> are
+        /// the body's pose from the SAME CarrierPose.Pose call (zero swing). TryPinChair writes this pose instead of the rigid pose, so the
+        /// pin joint holds on a pitched span (CP-15). False: no grip, and TryPinChair keeps the rigid pose.</summary>
         private bool PinGripOf(Entity chair, LiftTypeDef def, float3 rope, float3 tangent, quaternion yaw, bool tagUpdated,
                                out float3 bodyPosition, out quaternion bodyRotation)
         {
@@ -399,8 +400,9 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>A carrier the static pass leaves where vanilla placed it (no cable lane, lane too far): its grip assembled on the
-        /// body where the body stands (CarrierPose.GripOnBody, the tram's parked carriage rule, CP-16), never left at its own spawn.</summary>
+        /// <summary>A carrier the static pass leaves where vanilla placed it (no cable lane, lane too far). Its grip is assembled on the
+        /// body where the body stands (CarrierPose.GripOnBody, the tram's parked carriage rule, CP-16), never left at its own
+        /// spawn.</summary>
         private void ParkGripOnBody(Entity chair, LiftTypeDef def, bool tagUpdated)
         {
             Entity grip = StaticGripOf(chair, def);
@@ -411,7 +413,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The grip the static pass may pose for <paramref name="chair"/>: its pairing, unless another body took it earlier in
-        /// this pass (two carrier rows on one side, a contract break, logged once): the first body keeps it, this one stays rigid.</summary>
+        /// this pass (two carrier rows on one side, a contract break, logged once). The first body keeps it. This one stays
+        /// rigid.</summary>
         private Entity StaticGripOf(Entity chair, LiftTypeDef def)
         {
             IReadOnlyDictionary<Entity, LiftTypeDef> gripTypes = m_PrefabCatalog.GripTypes;
@@ -430,7 +433,8 @@ namespace SkiResortMod.Systems
             return grip;
         }
 
-        /// <summary>A seeded chair's rope point from its grip's jaw (exact under any body swing); false = no grip (seed from the body).</summary>
+        /// <summary>A seeded chair's rope point from its grip's jaw (exact under any body swing). False = no grip (seed from the
+        /// body).</summary>
         private bool RopePointOfGrip(LiftLoopCache.Loop loop, int i, out float3 rope)
         {
             rope = default;

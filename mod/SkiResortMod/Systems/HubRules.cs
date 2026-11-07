@@ -1,10 +1,15 @@
-// The hub's PURE rules: the literal-valued enums of the hub contract (gate R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and
-// value with bindings.ts, so every value is written out and HubProblemCode is APPEND ONLY), the small rules behind the ResortLive / RunLive /
-// LiftRow fields, the area-weighted snow sums, rule 7's guard (FollowCheck) and the problems band (HubProblems.Build).
-// Callers: SkiResortStatsSystem and SkiResortHubUISystem. Never the UI: it receives numbers and enum values and never recomputes the score.
-// Pure file: System / System.Collections.Generic only, plus SkiResortScore, ShuttleProfile, SkiResortLedger and SkiCatalog consts, all
-// linked into tests/ResortBatch. No Entities, Game or Unity.Mathematics. net48 traps: no Math.Clamp, MathF, double.IsFinite, Span<T>
-// (private Clamp and IsFinite below); no allocation once the caller's lists have grown.
+// The hub's PURE rules. This file holds:
+//   * the literal-valued enums of the hub contract. Gate R17 of mod/SkiResortUI/tools/check-bundle.js
+//     compares each name and value with bindings.ts. So every value is written out, and HubProblemCode is APPEND ONLY.
+//   * the small rules behind the ResortLive / RunLive / LiftRow fields.
+//   * the area-weighted snow sums.
+//   * rule 7's guard (FollowCheck).
+//   * the problems band (HubProblems.Build).
+// Callers: SkiResortStatsSystem and SkiResortHubUISystem. The UI never calls these rules. It receives numbers and enum values and never
+// recomputes the score.
+// Pure file: it uses System / System.Collections.Generic only, plus SkiResortScore, ShuttleProfile, SkiResortLedger and SkiCatalog consts.
+// All are linked into tests/ResortBatch. It uses no Entities, Game or Unity.Mathematics. net48 traps: do not use Math.Clamp, MathF,
+// double.IsFinite or Span<T> (private Clamp and IsFinite below). The code allocates nothing once the caller's lists have grown.
 // Engine notes: EngineNotes/HubRules.md
 
 using System;
@@ -16,8 +21,8 @@ namespace SkiResortMod.Systems
     public enum ResortStatus : byte { NoRuns = 0, Closed = 1, Partly = 2, Open = 3 }
 
     /// <summary>bindings.ts OPEN_STATE (gate R17).</summary>
-    /// <summary>bindings.ts RUN_GUN_WHY (gate R17), RunLive.gunWhy: on a snowmaking or night run,
-    /// whether its snow guns make snow now and why not. None = not a gun run, not bound, or snow gating off.</summary>
+    /// <summary>bindings.ts RUN_GUN_WHY (gate R17), RunLive.gunWhy. On a snowmaking or night run, it tells whether its snow guns make snow
+    /// now and why not. None = not a gun run, not bound, or snow gating off.</summary>
     public enum RunGunWhy : byte { None = 0, Making = 1, DepthReached = 2, TooWarm = 3, OutOfSeason = 4, Waiting = 5 }
 
     public enum RunOpenState : sbyte { None = -1, Closed = 0, Partly = 1, Open = 2 }
@@ -30,7 +35,7 @@ namespace SkiResortMod.Systems
 
     /// <summary>bindings.ts LIFT_STATUS (gate R17).</summary>
     public enum HubLiftStatus : byte { Running = 0, NoPower = 1, ChairsStopped = 2, SectionMissing = 3, Unfinished = 4,
-        // A complete, powered lift held still because its ski area has no open run (LiftClosedRule.ClosedForLift; a tram is never held).
+        // A complete, powered lift held still because its ski area has no open run (LiftClosedRule.ClosedForLift). A tram is never held.
         Closed = 5 }
 
     /// <summary>bindings.ts PROBLEM (gate R17). APPEND ONLY, never renumber.</summary>
@@ -44,36 +49,36 @@ namespace SkiResortMod.Systems
         SkiDaysCannotReach = 20, NoParkingNearLodge = 21, LodgeNotSlopeside = 22,
         MixedLiftTypes = 23, SummitLodgeNotLiftServed = 24, SchoolNoGreenRun = 25,
         SchoolsNotLinked = 26,  // top-level ski schools on no sign, Not linked entry only
-        SkiDaysNoGuestsNear = 27,  // an open hill with almost no homes or hotels within a ski day's drive; Detail = the nearest, tenths of a km
-        DepotNoHillLodge = 28, DepotNoRoad = 29,  // a bus depot that cannot work: the area has no passing hill lodge / it has no road; Count
-        LiftBend = 30,  // a complete or open lift's sharpest tower bend in plan is over LiftAlignMath.BendWarnDeg; Count = the tower's number, Detail = tenths of a degree
-        LiftTrainLimit = 31,  // a complete or open lift has a tower whose rope goes past what its sheave train follows (a half past its pitch limit or the 40 deg break); Count = the tower's number
-        LiftLowSpan = 32,  // a complete or open lift has a span whose carriers pass under the floor (LiftClearanceSystem); Count / More = the tower numbers at its ends (0 = a station), Detail = the carriers' height above the ground in tenths (rounded down, 0 at or below it), Pct = 1 cabins / 0 chairs
+        SkiDaysNoGuestsNear = 27,  // an open hill with almost no homes or hotels within a ski day's drive. Detail = the nearest, tenths of a km
+        DepotNoHillLodge = 28, DepotNoRoad = 29,  // a bus depot that cannot work: the area has no passing hill lodge / it has no road. Count
+        LiftBend = 30,  // a complete or open lift's sharpest tower bend in plan is over LiftAlignMath.BendWarnDeg. Count = the tower's number, Detail = tenths of a degree
+        LiftTrainLimit = 31,  // a complete or open lift has a tower whose rope goes past what its sheave train follows (a half past its pitch limit or the 40 deg break). Count = the tower's number
+        LiftLowSpan = 32,  // a complete or open lift has a span whose carriers pass under the floor (LiftClearanceSystem). Count / More = the tower numbers at its ends (0 = a station), Detail = the carriers' height above the ground in tenths (rounded down, 0 at or below it), Pct = 1 cabins / 0 chairs
     }
 
-    /// <summary>bindings.ts SKI_DAY_STATE (gate R17): ResortLive.skiDaysState, the Guests view's state line. The hub's display
-    /// state; SkiDaySystem keeps its own.</summary>
+    /// <summary>bindings.ts SKI_DAY_STATE (gate R17): ResortLive.skiDaysState, the Guests view's state line. The hub's display state.
+    /// SkiDaySystem keeps its own.</summary>
     public enum HubSkiDayState : byte { Unknown = 0, Off = 1, SignOff = 2, NoRun = 3, NoLodge = 4, Night = 5, Room = 6, Full = 7 }
 
     /// <summary>Rule 7's verdict (C# only, not in the contract).</summary>
     public enum FollowVerdict : byte { Follow = 0, HubClosed = 1, RuleSwitched = 2, UserJustSelected = 3, TooSoon = 4 }
 
-    /// <summary>One lift row of the shown area for LiftNoPair (State = the stats LIFT_STATE). Type = the
-    /// row's SkiCatalog.Lifts index — the hub calls LiftNoPair once per lift type with that type's rows.</summary>
+    /// <summary>One lift row of the shown area for LiftNoPair (State = the stats LIFT_STATE). Type = the row's SkiCatalog.Lifts index. The
+    /// hub calls LiftNoPair once per lift type with that type's rows.</summary>
     public struct HubLiftHintRow { public int State; public bool HasBase, HasTop; public byte Type; }
 
     /// <summary>One efficiency factor below 100 % (worst first): the EfficiencyFactor enum NAME and the
     /// game's effect number (FactorEffectPct).</summary>
     public struct HubProblemFactor { public string Name; public int EffectPct; }
 
-    /// <summary>One lift row of the area in `lifts` order (State = the stats LIFT_STATE). CustomName = the row's name is a
-    /// station's custom name (LiftStats.CustomName), not "Lift N". Type = the row's SkiCatalog.Lifts index (its build items;
-    /// 0 = fixed-grip, the struct default, so every pre-Phase-B constructor keeps today's items), Mixed = its component spans two lift
-    /// types. BendTenths = LiftCensus.BendWarnTenths of the row's sharpest tower bend (0 = none over the warning angle; the census
-    /// decides), BendTower = that tower's number. TrainTower = the number of the tower whose rope goes furthest past what its sheave
-    /// train follows (LiftCensus.Row.TrainTower; 0 = every train follows its rope). LowSpan = a span's carriers pass under the floor
-    /// (LiftCensus.Row.LowSpan): LowFrom / LowTo its tower numbers (0 = a station), LowTenths = LiftCensus.LowTenths of their height above
-    /// the ground, Cabins = the lift's carriers are cabins (gondola, tram), not chairs.</summary>
+    /// <summary>One lift row of the area in `lifts` order (State = the stats LIFT_STATE). CustomName = the row's name is a station's custom
+    /// name (LiftStats.CustomName), not "Lift N". Type = the row's SkiCatalog.Lifts index (its build items). 0 = fixed-grip, the struct
+    /// default, so every pre-Phase-B constructor keeps today's items. Mixed = its component spans two lift types. BendTenths =
+    /// LiftCensus.BendWarnTenths of the row's sharpest tower bend (0 = none over the warning angle). The census decides. BendTower = that
+    /// tower's number. TrainTower = the number of the tower whose rope goes furthest past what its sheave train follows
+    /// (LiftCensus.Row.TrainTower). 0 = every train follows its rope. LowSpan = a span's carriers pass under the floor
+    /// (LiftCensus.Row.LowSpan). LowFrom / LowTo = its tower numbers (0 = a station). LowTenths = LiftCensus.LowTenths of their height
+    /// above the ground. Cabins = the lift's carriers are cabins (gondola, tram), not chairs.</summary>
     public struct HubProblemLift
     {
         public int State; public bool Powered, HasBase, HasTop, CustomName; public byte Type; public bool Mixed; public int BendTenths, BendTower, TrainTower;
@@ -86,29 +91,30 @@ namespace SkiResortMod.Systems
         public bool Unlinked;
         public int Lodges, LodgesActive, FreeLodges;
         public int EfficiencyPct;                 // −1 = no result
-        public List<HubProblemFactor> Factors;    // < 100 %, worst first; may be null = none
-        public List<HubProblemLift> Lifts;        // the area's lift rows, `lifts` order; may be null = none
+        public List<HubProblemFactor> Factors;    // < 100 %, worst first. May be null = none
+        public List<HubProblemLift> Lifts;        // the area's lift rows, `lifts` order. May be null = none
         public int LiftRows, Runs, RunsUnserved, RunsUnrateable, RunsRating, RunsFlat, BackcountryPct;
         public int AttractionFull;                // −1 = unknown
-        public int IfOneLodge, IfLodgesOn;        // AttractionWithLodges; −1 = unknown
+        public int IfOneLodge, IfLodgesOn;        // AttractionWithLodges. −1 = unknown
         // Building.m_RoadEdge is Entity.Null on the sign / on this many of the area's lodges.
         public bool SignNoRoad;
         public int LodgesNoRoad;
         // Set by the stats system only while ski days are on (not Off) and the area has a view.
         public bool SkiDaysCannotReach;  // car confidence < 0.5 after ≥ 20 car claims
-        public int NoGuestsNearTenthsKm;  // SkiDayRules.NoGuestsNear on an open hill: the nearest home or hotel in tenths of a km; 0 = no row
+        public int NoGuestsNearTenthsKm;  // SkiDayRules.NoGuestsNear on an open hill: the nearest home or hotel in tenths of a km. 0 = no row
         public int LodgesNoParking;  // ski-day lodges with 0 car spaces within 600 m
         public int LodgesNotSlopeside;  // active lodges more than 800 m from the area's runs and stations
-        public int DepotsNoHillLodge, DepotsNoRoad;  // active bus depots CheckDepot rejects for these; never in a lodge count
+        public int DepotsNoHillLodge, DepotsNoRoad;  // active bus depots CheckDepot rejects for these. These depots are never in a lodge count
         // The band showed the Efficiency row on this area's previous build (hysteresis state).
         public bool EfficiencyRowWasOn;
-        // Active lodges whose row counts more when summit-served (MuSummit > Mu) and that no complete, powered lift top reaches
-        // within 300 m; the school is active and runs count but none of them is a counted green run (its +12 and its demand share
-        // need one).
+        // Active lodges whose row counts more when summit-served (MuSummit > Mu) and that no complete, powered lift top reaches within 300
+        // m.
+        // Next field (SchoolNoGreenRun): the school is active and runs count, but none of them is a counted green run (its +12 and its
+        // demand share need one).
         public int SummitLodgesNotServed;
         public bool SchoolNoGreenRun;
-        // The area's top-level ski schools with no road edge (they join the LodgeNoRoad row's count, never its "every lodge"
-        // severity), and on the Not linked entry the top-level schools linked to no sign (row SchoolsNotLinked).
+        // The area's top-level ski schools with no road edge. They join the LodgeNoRoad row's count, never its "every lodge" severity. On
+        // the Not linked entry, it is the top-level schools linked to no sign (row SchoolsNotLinked).
         public int SchoolsNoRoad;
         public int FreeSchools;
     }
@@ -147,7 +153,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>100 × ShareArea / Area; −1 when Runs == 0 or Area ≤ 0.</summary>
+        /// <summary>100 × ShareArea / Area. −1 when Runs == 0 or Area ≤ 0.</summary>
         public float SnowPct()
         {
             if (Runs == 0 || !(Area > 0.0))
@@ -155,7 +161,7 @@ namespace SkiResortMod.Systems
             return (float)(100.0 * ShareArea / Area);
         }
 
-        /// <summary>100 × DepthWeighted / DepthArea (cm); −1 when DepthArea ≤ 0.</summary>
+        /// <summary>100 × DepthWeighted / DepthArea (cm). −1 when DepthArea ≤ 0.</summary>
         public float DepthCm()
         {
             if (!(DepthArea > 0.0))
@@ -164,13 +170,13 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>The eight terms of one month's Net (EngineNotes/HubRules.md, ONE NET), whole ₵, each −1 when unknown. Booked: the six income /
-    /// lift / run terms; rate snapshots: BuildingsCost and WagesCost.</summary>
+    /// <summary>The eight terms of one month's Net (EngineNotes/HubRules.md, ONE NET), whole ₵, each −1 when unknown. Booked: the six
+    /// income / lift / run terms. Rate snapshots: BuildingsCost and WagesCost.</summary>
     public struct HubMonthMoney
     {
         public int TicketIncome, LodgeIncome, LessonIncome, PassIncome;
         public int LiftCost, RunCost, BuildingsCost, WagesCost;
-        public int BusCost;   // the bus depots' coach bill; a closed month's element holds it inside LiftCost (0 here)
+        public int BusCost;   // the bus depots' coach bill. A closed month's element holds it inside LiftCost (0 here)
 
         /// <summary>Every term unknown (−1).</summary>
         public static HubMonthMoney Unknown => new HubMonthMoney
@@ -189,8 +195,8 @@ namespace SkiResortMod.Systems
     /// <summary>The hub's pure rules. Rules: EngineNotes/HubRules.md, RULES.</summary>
     public static class HubRules
     {
-        /// <summary>Simulation frames after a load before the hub's live numbers are facts: the ski-day, snow and lodge systems run in the
-        /// simulation, so a city loaded paused has not read them yet (field test 2026-10-31: all correct within 1 s of unpausing).</summary>
+        /// <summary>Simulation frames after a load before the hub's live numbers are facts. The ski-day, snow and lodge systems run in the
+        /// simulation, so a city loaded paused has not read them yet. Field test 2026-10-31: all correct within 1 s of unpausing.</summary>
         public const uint LoadSettleFrames = 64;
 
         public static bool FactsKnownAfterLoad(uint framesSinceLoad) => framesSinceLoad >= LoadSettleFrames;
@@ -203,8 +209,8 @@ namespace SkiResortMod.Systems
         public const int FactorRowMinLossPct = 5;  // a Factor row only from a 5-point loss
         public const int MaxBandRows = 8;
 
-        /// <summary>The codes the hub folds into one band line when two or more rows share them; SortAndCut counts such a group as one
-        /// of the MaxBandRows slots. Mirror of hubRules.ts FOLDED_PROBLEM_CODES (tools/test-hub-rules.js T39 compares the two).</summary>
+        /// <summary>The codes the hub folds into one band line when two or more rows share them. SortAndCut counts such a group as one of
+        /// the MaxBandRows slots. Mirror of hubRules.ts FOLDED_PROBLEM_CODES (tools/test-hub-rules.js T39 compares the two).</summary>
         public static readonly HubProblemCode[] FoldedCodes =
             { HubProblemCode.LiftUnfinished, HubProblemCode.LiftNoPower, HubProblemCode.LiftSectionMissing };
 
@@ -227,10 +233,10 @@ namespace SkiResortMod.Systems
             return ResortStatus.Partly;
         }
 
-        /// <summary>The hub's open factor of a member run from the snow read it just made (RunSnow.Multiplier; 1 with gating off), clamped
-        /// as SkiResortScore clamps its open factor (NaN and below 0 to 0, above 1 to 1). The hub used the score's cached part.OpenFactor, a
-        /// value from the last attractiveness pass, so a run's state trailed its share by one pass (DECISIONS 571 c); the score keeps its
-        /// own value for ValueNow.</summary>
+        /// <summary>The hub's open factor of a member run from the snow read it just made (RunSnow.Multiplier, 1 with gating off). It is
+        /// clamped as SkiResortScore clamps its open factor (NaN and below 0 to 0, above 1 to 1). The hub used the score's cached
+        /// part.OpenFactor, a value from the last attractiveness pass. So a run's state trailed its share by one pass (DECISIONS 571 c).
+        /// The score keeps its own value for ValueNow.</summary>
         public static double LiveOpenFactor(float multiplier)
         {
             if (!(multiplier > 0f))
@@ -247,11 +253,10 @@ namespace SkiResortMod.Systems
             return openFactor >= 1.0 ? RunOpenState.Open : RunOpenState.Partly;
         }
 
-        /// <summary>The gun word reads the live gun gates (gunsLiveKnown = the injection has measured a
-        /// mask this load and is active, or it is not active at all and injects nothing (the caller passes
-        /// anyGunOn false then); anyGunOn = a bound snowmaking or night run had gun-gated texels at the
-        /// last mask pass); without them (the load to the first mask pass) it falls back to the mean-based test. The 24-hour mean
-        /// decides natural snow.</summary>
+        /// <summary>The gun word reads the live gun gates. gunsLiveKnown = the injection has measured a mask this load and is active, or it
+        /// is not active at all and injects nothing (the caller passes anyGunOn false then). anyGunOn = a bound snowmaking or night run had
+        /// gun-gated texels at the last mask pass. Without the gates (from the load to the first mask pass) it uses the mean-based test
+        /// instead. The 24-hour mean decides natural snow.</summary>
         public static SeasonHint Season(bool gating, int runs, int runsOpenAny, bool anyGunRun, bool gunsLiveKnown,
                                         bool anyGunOn, bool topTempKnown, float topTempC, float freezingC, float marginC)
         {
@@ -278,12 +283,12 @@ namespace SkiResortMod.Systems
             return NextStepKind.Done;
         }
 
-        /// <summary>The run tooltip's snow-gun line. <paramref name="gunRun"/> = a bound snowmaking or night run;
-        /// <paramref name="gating"/> = the snow gating setting is on; <paramref name="inSeason"/> = SnowGunPlumeRules.InGunSeason;
-        /// <paramref name="stateKnown"/> / <paramref name="stateRunning"/> = the run's gun hysteresis state (Unknown = not
-        /// known; Running vs Stopped); <paramref name="runningNow"/> = SnowGunPlumeRules.GunsRunning for the last pass (Running and
-        /// a cold texel). Order: not a gun run, out of season, no measurement yet, making snow, too warm (Running but no texel cold
-        /// enough), else stopped at the 3 ft depth (built, or natural snow that deep).</summary>
+        /// <summary>The run tooltip's snow-gun line. <paramref name="gunRun"/> = a bound snowmaking or night run. <paramref name="gating"/>
+        /// = the snow gating setting is on. <paramref name="inSeason"/> = SnowGunPlumeRules.InGunSeason. <paramref name="stateKnown"/> /
+        /// <paramref name="stateRunning"/> = the run's gun hysteresis state (Unknown = not known, Running vs Stopped).
+        /// <paramref name="runningNow"/> = SnowGunPlumeRules.GunsRunning for the last pass (Running and a cold texel). Order: not a gun run, out of
+        /// season, no measurement yet, making snow, too warm (Running but no texel cold enough), else stopped at the 3 ft depth (built, or
+        /// natural snow that deep).</summary>
         public static RunGunWhy GunWhyOf(bool gunRun, bool gating, bool inSeason, bool stateKnown, bool stateRunning, bool runningNow)
         {
             if (!gunRun || !gating)
@@ -297,9 +302,9 @@ namespace SkiResortMod.Systems
             return stateRunning ? RunGunWhy.TooWarm : RunGunWhy.DepthReached;
         }
 
-        /// <summary>What decides a push of the build binding. Odd multipliers only: an even factor shifts the early items out of the 32 bits
-        /// (x 496 per item once dropped all but the last 7 of 28, so a placed sign left the lodge tiles locked until another tile was
-        /// clicked). Multiplying by an odd number loses nothing, so one changed field always changes the result.</summary>
+        /// <summary>What decides a push of the build binding. Odd multipliers only. An even factor shifts the early items out of the 32
+        /// bits. A factor of x 496 per item once dropped all but the last 7 of 28, so a placed sign left the lodge tiles locked until
+        /// another tile was clicked. Multiplying by an odd number loses nothing, so one changed field always changes the result.</summary>
         public static int BuildSignature(int active, byte[] reasons, int[] prices, bool[] sent, bool[] liftFlags)
         {
             unchecked
@@ -317,8 +322,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A run's coverage-weighted mean snow depth in whole centimeters; -1 when not measured (NaN, an
-        /// estimate) or not finite.</summary>
+        /// <summary>A run's coverage-weighted mean snow depth in whole centimeters. -1 when not measured (NaN, an estimate) or not
+        /// finite.</summary>
         public static int DepthCm(float meanDepthM)
         {
             if (float.IsNaN(meanDepthM) || float.IsInfinity(meanDepthM) || meanDepthM < 0f)
@@ -331,10 +336,10 @@ namespace SkiResortMod.Systems
             return LiftStatusOf(statsState, powered, false);
         }
 
-        /// <summary>The closed overload: <paramref name="closed"/> = the lift's held-closed flag (SkiLiftChargeSystem LiftCharge.Closed: its area has
-        /// no open run, one game hour of hysteresis; never a tram). A complete lift (state 0 or 1) that is powered and closed reads
-        /// Closed whether or not its chairs are on the loop (held chairs stand on it: state 0 with riding &gt; 0 used to read
-        /// Running). No power wins over Closed (the fix the player can make); SectionMissing / Unfinished are not complete.</summary>
+        /// <summary>The closed overload. <paramref name="closed"/> = the lift's held-closed flag (SkiLiftChargeSystem LiftCharge.Closed:
+        /// its area has no open run, one game hour of hysteresis, never a tram). A complete lift (state 0 or 1) that is powered and closed
+        /// reads Closed whether or not its chairs are on the loop. Held chairs stand on it: state 0 with riding &gt; 0 used to read
+        /// Running. No power wins over Closed (the fix the player can make). SectionMissing / Unfinished are not complete.</summary>
         public static HubLiftStatus LiftStatusOf(int statsState, bool powered, bool closed)
         {
             if ((statsState == 0 || statsState == 1) && powered && closed)
@@ -352,16 +357,15 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Seconds a chair takes from base to top: half the loop at ChairSpeedMps; −1 without a
-        /// finite loop &gt; 0. Equals RideTimeS(loopM, ChairSpeedMps).</summary>
+        /// <summary>Seconds a chair takes from base to top: half the loop at ChairSpeedMps. −1 without a finite loop &gt; 0. Equals
+        /// RideTimeS(loopM, ChairSpeedMps).</summary>
         public static float RideTimeS(float loopM)
         {
             return RideTimeS(loopM, ChairSpeedMps);
         }
 
-        /// <summary>Seconds a carrier takes from base to top on a loop of
-        /// <paramref name="loopM"/> at <paramref name="speedMps"/> (LiftTypeDef.SpeedMps): half the loop / speed; −1
-        /// without a finite loop &gt; 0 or a finite speed &gt; 0.</summary>
+        /// <summary>Seconds a carrier takes from base to top on a loop of <paramref name="loopM"/> at <paramref name="speedMps"/>
+        /// (LiftTypeDef.SpeedMps): half the loop / speed. −1 without a finite loop &gt; 0 or a finite speed &gt; 0.</summary>
         public static float RideTimeS(float loopM, float speedMps)
         {
             if (!IsFiniteF(loopM) || !(loopM > 0f) || !IsFiniteF(speedMps) || !(speedMps > 0f))
@@ -369,14 +373,14 @@ namespace SkiResortMod.Systems
             return loopM / 2f / speedMps;
         }
 
-        /// <summary>false = a tram row's ride time is the trip alone; true = trip + dwell ("L/v + dwell"). An open decision: this
-        /// constant is the whole flip (plus HubRulesTests J's ride oracles and the LIFT_RIDE_TIP wording).</summary>
+        /// <summary>false = a tram row's ride time is the trip alone. true = trip + dwell ("L/v + dwell"). An open decision: this constant
+        /// is the whole flip (plus HubRulesTests J's ride oracles and the LIFT_RIDE_TIP wording).</summary>
         public const bool ShuttleRideIncludesDwell = false;
 
-        /// <summary>Seconds a tram cabin rides dock to dock on a path of
-        /// <paramref name="pathM"/> (ShuttleView.PathM) at line speed <paramref name="speedMps"/> with the trapezoid's
-        /// <paramref name="accelMps2"/> ramps (ShuttleProfile.TripTimeS: 1 km at 10 m/s, 0.8 m/s² = 112.5 s); the dwell is
-        /// added only when ShuttleRideIncludesDwell. −1 unless ShuttleProfile.Valid(path, speed, accel, dwell).</summary>
+        /// <summary>Seconds a tram cabin rides dock to dock on a path of <paramref name="pathM"/> (ShuttleView.PathM) at line speed
+        /// <paramref name="speedMps"/> with the trapezoid's <paramref name="accelMps2"/> ramps (ShuttleProfile.TripTimeS: 1 km at 10 m/s,
+        /// 0.8 m/s² = 112.5 s). The dwell is added only when ShuttleRideIncludesDwell. −1 unless ShuttleProfile.Valid(path, speed, accel,
+        /// dwell).</summary>
         public static float ShuttleRideTimeS(float pathM, float speedMps, float accelMps2, float dwellS)
         {
             if (!ShuttleProfile.Valid(pathM, speedMps, accelMps2, dwellS))
@@ -395,10 +399,9 @@ namespace SkiResortMod.Systems
             return capacity < 0.0 ? -1f : (float)capacity;
         }
 
-        /// <summary>The capacity the hub shows for a lift row —
-        /// <paramref name="capacity"/> when the lift carries (LiftServedRule.Carries: complete, powered at its base station,
-        /// not closed), else −1 ("–"). The caller passes its Loop or Shuttle capacity (the tram keeps its own O2 Running test
-        /// as well); a carrying row gets its argument back bit for bit (HK-1).</summary>
+        /// <summary>The capacity the hub shows for a lift row: <paramref name="capacity"/> when the lift carries (LiftServedRule.Carries:
+        /// complete, powered at its base station, not closed), else −1 ("–"). The caller passes its Loop or Shuttle capacity (the tram
+        /// keeps its own O2 Running test as well). A carrying row gets its argument back bit for bit (HK-1).</summary>
         public static float LiftCapacityShown(float capacity, bool carries)
         {
             return carries ? capacity : -1f;
@@ -414,9 +417,8 @@ namespace SkiResortMod.Systems
             return (int)Math.Round(ClampD(pct, 0.0, 100.0), MidpointRounding.AwayFromZero);
         }
 
-        /// <summary>The game's factor effect (EfficiencySection.cs:99-127): max(−99, round(100f × e) − 100),
-        /// the multiply in float, Math.Round(double) half to even (= Unity.Mathematics math.round); −100
-        /// when e is not &gt; 0 (NaN too).</summary>
+        /// <summary>The game's factor effect (EfficiencySection.cs:99-127): max(−99, round(100f × e) − 100), the multiply in float,
+        /// Math.Round(double) half to even (= Unity.Mathematics math.round). −100 when e is not &gt; 0 (NaN too).</summary>
         public static int FactorEffectPct(float efficiency)
         {
             if (!(efficiency > 0f))
@@ -428,9 +430,9 @@ namespace SkiResortMod.Systems
             return Math.Max(-99, (int)rounded - 100);
         }
 
-        /// <summary>The share of the current calendar month the ledger's "this month" covers. Not since
-        /// load: the elapsed fraction of the month; since load: also at most the frames simulated since
-        /// the load over one month's frames. 0 for a non-finite date.</summary>
+        /// <summary>The share of the current calendar month the ledger's "this month" covers. Not since load: the elapsed fraction of the
+        /// month. Since load: the elapsed fraction of the month, and at most the frames simulated since the load over one month's frames. 0
+        /// for a non-finite date.</summary>
         public static float CountedFraction(bool thisMonthSinceLoad, float normalizedDate, uint framesSinceLoad, int daysPerYear)
         {
             if (!IsFiniteF(normalizedDate))
@@ -443,8 +445,8 @@ namespace SkiResortMod.Systems
             return (float)Math.Min(frac, framesSinceLoad / monthFrames);
         }
 
-        /// <summary>Last month when it was counted in full (not estimated); else this month
-        /// projected from at least MinCountedFraction of it (estimated); else −1 (estimated, unknown).</summary>
+        /// <summary>Last month when it was counted in full (not estimated). Otherwise this month, projected from at least
+        /// MinCountedFraction of it (estimated). Otherwise −1 (estimated, unknown).</summary>
         public static int TicketIncomeMonth(bool lastMonthFull, long incomeLast, int paidLast, long incomeThis, int paidThis,
                                             float countedFraction, out int paidMonth, out bool estimated)
         {
@@ -482,9 +484,9 @@ namespace SkiResortMod.Systems
 
         public static int CostsMonth(in HubMonthMoney m) => ClampInt(m.Costs);
 
-        /// <summary>The terms of a ledger month with the history element's mapping (SkiResortHistoryMonth.FromLedger: ClampInt of
-        /// each long, LiftCharged rounded half away from zero, not finite → 0); <paramref name="buildings"/> / <paramref name="wages"/>
-        /// as given (−1 unknown).</summary>
+        /// <summary>The terms of a ledger month with the history element's mapping (SkiResortHistoryMonth.FromLedger: ClampInt of each
+        /// long, LiftCharged rounded half away from zero, not finite gives 0). <paramref name="buildings"/> / <paramref name="wages"/> as
+        /// given (−1 unknown).</summary>
         public static HubMonthMoney MonthMoneyOf(in SkiResortLedger.Month m, int buildings, int wages)
         {
             return new HubMonthMoney
@@ -501,9 +503,9 @@ namespace SkiResortMod.Systems
             };
         }
 
-        /// <summary>The share of the month simulated, framesSimulated / monthFrames clamped to 0..1 (0 when either is not
-        /// finite or monthFrames is not &gt; 0). The caller passes SkiGuestCounterSystem.MonthFramesSimulated and
-        /// SkiMoneyRules.MonthFrames(daysPerYear) — the frames the ledger's month in progress has booked.</summary>
+        /// <summary>The share of the month simulated, framesSimulated / monthFrames clamped to 0..1 (0 when either is not finite or
+        /// monthFrames is not &gt; 0). The caller passes SkiGuestCounterSystem.MonthFramesSimulated and
+        /// SkiMoneyRules.MonthFrames(daysPerYear): the frames the ledger's month in progress has booked.</summary>
         public static double MonthShare(double framesSimulated, double monthFrames)
         {
             if (!IsFiniteD(framesSimulated) || !IsFiniteD(monthFrames) || !(monthFrames > 0.0))
@@ -511,8 +513,8 @@ namespace SkiResortMod.Systems
             return ClampD(framesSimulated / monthFrames, 0.0, 1.0);
         }
 
-        /// <summary>A rate snapshot's part for the month so far: round(rate × share) half away from zero; −1 when the rate is
-        /// unknown (&lt; 0); a share that is not finite reads 0, else it is clamped to 0..1.</summary>
+        /// <summary>A rate snapshot's part for the month so far: round(rate × share) half away from zero. −1 when the rate is unknown (&lt;
+        /// 0). A share that is not finite reads 0, else it is clamped to 0..1.</summary>
         public static int RateSoFar(int ratePerMonth, double share)
         {
             if (ratePerMonth < 0)
@@ -521,10 +523,10 @@ namespace SkiResortMod.Systems
             return ClampInt(Math.Round(ratePerMonth * s, MidpointRounding.AwayFromZero));
         }
 
-        /// <summary>The model's A with <paramref name="lodges"/> active A-frame lodges, everything else as in
-        /// <paramref name="r"/> (the problems' "if fixed" numbers — IfOneLodge). Clamp before rounding.
-        /// r.AOpen − r.LodgeApplied + LodgeBaseOf(n) × the A-frame's season share (SummerLodgeShare in summer mode, else 1): no
-        /// base × share reconstruction, so a summer area with no lodge keeps its value whatever LodgeShare the Result reports.</summary>
+        /// <summary>The model's A with <paramref name="lodges"/> active A-frame lodges, everything else as in <paramref name="r"/> (the
+        /// problems' "if fixed" numbers: IfOneLodge). Clamp before rounding. Formula: r.AOpen − r.LodgeApplied + LodgeBaseOf(n) × the
+        /// A-frame's season share (SummerLodgeShare in summer mode, else 1). It uses no base × share reconstruction, so a summer area with
+        /// no lodge keeps its value whatever LodgeShare the Result reports.</summary>
         public static int AttractionWithLodges(in SkiResortScore.Result r, int lodges)
         {
             if (lodges <= 0)
@@ -534,15 +536,14 @@ namespace SkiResortMod.Systems
             return AttractionWithLodgeApplied(in r, SkiResortScore.LodgeBaseOf(lodges) * share);
         }
 
-        /// <summary>The model's A with the area's applied
-        /// lodge base replaced by <paramref name="lodgeApplied"/> (a season value: the ladder's applied value of the
-        /// lodges the "if fixed" assumes — SkiResortStatsSystem's IfLodgesOn passes SkiResortScore.LodgeBase over every
-        /// lodge of the area switched on), everything else as in <paramref name="r"/>: (r.AOpen − r.LodgeApplied +
-        /// lodgeApplied) × efficiency, clamped to 0..MaxAttraction BEFORE RoundToEven. A non-finite or negative
+        /// <summary>The model's A with the area's applied lodge base replaced by <paramref name="lodgeApplied"/>, everything else as in
+        /// <paramref name="r"/>. It is a season value: the ladder's applied value of the lodges the "if fixed" assumes.
+        /// SkiResortStatsSystem's IfLodgesOn passes SkiResortScore.LodgeBase over every lodge of the area switched on. The result is
+        /// (r.AOpen − r.LodgeApplied + lodgeApplied) × efficiency, clamped to 0..MaxAttraction BEFORE RoundToEven. A non-finite or negative
         /// <paramref name="lodgeApplied"/> reads 0.</summary>
         public static int AttractionWithLodgeApplied(in SkiResortScore.Result r, double lodgeApplied)
         {
-            double eff = r.Efficiency > 0.0 ? r.Efficiency : 0.0;   // NaN → 0
+            double eff = r.Efficiency > 0.0 ? r.Efficiency : 0.0;   // NaN gives 0
             double applied = IsFiniteD(lodgeApplied) && lodgeApplied > 0.0 ? lodgeApplied : 0.0;
             double aOpen = r.AOpen - FiniteOr0(r.LodgeApplied) + applied;
             double raw = aOpen * eff;
@@ -553,12 +554,11 @@ namespace SkiResortMod.Systems
             return SkiResortScore.RoundToEven(raw);
         }
 
-        /// <summary>true = HINT[LiftNoPair] (place the other station first). False when the shown area
-        /// has a base and a top station with a line to draw or finish: one row with both stations live in state
-        /// 2, 3 or 4, OR a lone base and a lone top on DIFFERENT rows. The census
-        /// never builds a state-4 row with both stations — each untouched station is its own StationsOnly
-        /// row (LiftCensus.cs rows step 5) and an Unfinished row carries at most one — so the pair has to be
-        /// found across rows. A lone station = state 3 or 4 with exactly one of HasBase / HasTop.</summary>
+        /// <summary>true = HINT[LiftNoPair] (place the other station first). False when the shown area has a base and a top station with a
+        /// line to draw or finish. That means one row with both stations live in state 2, 3 or 4, OR a lone base and a lone top on
+        /// DIFFERENT rows. The census never builds a state-4 row with both stations. Each untouched station is its own StationsOnly row
+        /// (LiftCensus.cs rows step 5), and an Unfinished row carries at most one. So the pair has to be found across rows. A lone station
+        /// = state 3 or 4 with exactly one of HasBase / HasTop.</summary>
         public static bool LiftNoPair(IReadOnlyList<HubLiftHintRow> rowsOfShownArea)
         {
             if (rowsOfShownArea == null)
@@ -609,15 +609,15 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The receipt's "Lodge base": the ladder's season value r.LodgeApplied (non-finite → 0); equal to
-        /// r.LodgeBase × r.LodgeShare for A-frames (LodgeApplied = LodgeBase × 0.5 in summer exactly).
-        /// LodgePart + Terrain = AOpen (= LodgeApplied + K√S).</summary>
+        /// <summary>The receipt's "Lodge base": the ladder's season value r.LodgeApplied (non-finite gives 0). It equals r.LodgeBase ×
+        /// r.LodgeShare for A-frames (LodgeApplied = LodgeBase × 0.5 in summer exactly). LodgePart + Terrain = AOpen (= LodgeApplied +
+        /// K√S).</summary>
         public static double LodgePart(in SkiResortScore.Result r)
         {
             return FiniteOr0(r.LodgeApplied);
         }
 
-        /// <summary>The receipt's "Terrain": r.K × √r.S (S ≤ 0 or NaN → 0). LodgePart + Terrain = AOpen.</summary>
+        /// <summary>The receipt's "Terrain": r.K × √r.S (S ≤ 0 or NaN gives 0). LodgePart + Terrain = AOpen.</summary>
         public static double Terrain(in SkiResortScore.Result r)
         {
             if (!(r.S > 0.0))
@@ -631,7 +631,7 @@ namespace SkiResortMod.Systems
             return FiniteOr0(p.BandValue * p.SizeFactor * p.TypeFactor * p.ServedFactor);
         }
 
-        /// <summary>round(100 × clamp01(share)) half away from zero; non-finite → −1.</summary>
+        /// <summary>round(100 × clamp01(share)) half away from zero. Non-finite gives −1.</summary>
         public static int Percent(double share)
         {
             if (!IsFiniteD(share))
@@ -639,9 +639,8 @@ namespace SkiResortMod.Systems
             return (int)Math.Round(100.0 * ClampD(share, 0.0, 1.0), MidpointRounding.AwayFromZero);
         }
 
-        /// <summary>The day-mean temperature at <paramref name="topM"/>: dayMeanC − (topM − baseHeight) ×
-        /// lapsePerM (SnowLineSystem.GetLocalTemperature's expression with the day mean); NaN when any input
-        /// is not finite.</summary>
+        /// <summary>The day-mean temperature at <paramref name="topM"/>: dayMeanC − (topM − baseHeight) × lapsePerM
+        /// (SnowLineSystem.GetLocalTemperature's expression with the day mean). NaN when any input is not finite.</summary>
         public static float TopTempC(float dayMeanC, float topM, float baseHeight, float lapsePerM)
         {
             if (!IsFiniteF(dayMeanC) || !IsFiniteF(topM) || !IsFiniteF(baseHeight) || !IsFiniteF(lapsePerM))
@@ -663,12 +662,11 @@ namespace SkiResortMod.Systems
             return FollowVerdict.Follow;
         }
 
-        /// <summary>The Guests view's ski-day state, first match wins.
-        /// <paramref name="off"/> = both ski-day settings 0; <paramref name="hasView"/> = SkiDaySystem armed with a
-        /// view of the area; <paramref name="scoreKnown"/>, <paramref name="signRunning"/>, <paramref
-        /// name="runsCounted"/> from the attraction view (a result and no first-write hold, efficiency &gt; 0, the
-        /// Result's RunsCounted); the rest from SkiDayAreaView. A capacity of 0 reads Full, as in the simulation;
-        /// a negative capacity or count means "before the first pass" (Unknown).</summary>
+        /// <summary>The Guests view's ski-day state, first match wins. <paramref name="off"/> = both ski-day settings 0.
+        /// <paramref name="hasView"/> = SkiDaySystem armed with a view of the area. <paramref name="scoreKnown"/>, <paramref name="signRunning"/>,
+        /// <paramref name="runsCounted"/> come from the attraction view (a result and no first-write hold, efficiency &gt; 0, the Result's
+        /// RunsCounted). The rest come from SkiDayAreaView. A capacity of 0 reads Full, as in the simulation. A negative capacity or count
+        /// means "before the first pass" (Unknown).</summary>
         public static HubSkiDayState SkiDayStateOf(bool off, bool hasView, bool scoreKnown, bool signRunning,
                                                    int runsCounted, int targetLodges, bool claimHours, int now, int cap)
         {
@@ -715,8 +713,8 @@ namespace SkiResortMod.Systems
     /// <summary>The problems band of one area. Rules: EngineNotes/HubRules.md, RULES.</summary>
     public static class HubProblems
     {
-        /// <summary>Clears <paramref name="output"/>, then the band rows (sorted, at most MaxBandRows), then
-        /// the Factor rows. No allocation once <paramref name="output"/> has grown.</summary>
+        /// <summary>Clears <paramref name="output"/>, then adds the band rows (sorted, at most MaxBandRows), then the Factor rows. No
+        /// allocation once <paramref name="output"/> has grown.</summary>
         public static void Build(in HubProblemInput input, List<HubProblem> output)
         {
             output.Clear();
@@ -742,10 +740,10 @@ namespace SkiResortMod.Systems
             else if (input.LodgesActive < input.Lodges)
                 output.Add(Row(HubProblemCode.LodgesSomeOff, 1, count: input.Lodges - input.LodgesActive));
 
-            // 2b. Road edges (the stats rebuild reads Building.m_RoadEdge). The game shows no warning
-            // for a sign off the road; it then gets no power, water or sewage.
-            // A lodge with no road edge has no walking target for guests. Lodge severity
-            // mirrors LodgesAllOff / LodgesSomeOff: every lodge 3, some 1. Count = lodges with no road (≤ Lodges).
+            // 2b. Road edges (the stats rebuild reads Building.m_RoadEdge). The game shows no warning for a sign off the road. It then gets
+            // no power, water or sewage.
+            // A lodge with no road edge has no walking target for guests. Lodge severity mirrors LodgesAllOff / LodgesSomeOff: every lodge
+            // 3, some 1. Count = lodges with no road (≤ Lodges).
             if (input.SignNoRoad)
                 output.Add(Row(HubProblemCode.SignNoRoad, 3));
             // A top-level ski school with no road edge joins the count (severity 1 on its own: it is not a lodge, so it
@@ -756,14 +754,13 @@ namespace SkiResortMod.Systems
                 output.Add(Row(HubProblemCode.LodgeNoRoad, (byte)(lodgesNoRoad > 0 && lodgesNoRoad >= input.Lodges ? 3 : 1),
                     count: buildingsNoRoad));
 
-            // 3. Efficiency (the worst factor named; the rest counted): shown at or below
-            // EfficiencyProblemPct, and held while the band showed it on the area's previous build until the percent
-            // reaches EfficiencyClearPct (the row flapped 98 times around 90 % without it). The state is the stats
-            // system's (EfficiencyRowWasOn); the rule stays pure.
-            // "and {N} more" counts the factors the tooltip lists, i.e. step 9's Factor rows: the worst factor is
-            // first, so it is a listed one whenever any is listed.
-            // With none listed (all under 5 points) the row keeps counting every factor, so it never presents one
-            // small factor as the whole loss.
+            // 3. Efficiency (the worst factor named, the rest counted). The row shows at or below EfficiencyProblemPct.
+            // It is held while the band showed it on the area's previous build, until the percent reaches EfficiencyClearPct (the row
+            // flapped 98 times around 90 % without it). The state is the stats system's (EfficiencyRowWasOn). The rule stays pure.
+            // "and {N} more" counts the factors the tooltip lists, i.e. step 9's Factor rows. The worst factor is first, so it is a listed
+            // one whenever any is listed.
+            // With none listed (all under 5 points) the row keeps counting every factor, so it never presents one small factor as the whole
+            // loss.
             int factors = input.Factors != null ? input.Factors.Count : 0;
             int listed = 0;
             for (int i = 0; i < factors; i++)
@@ -781,24 +778,25 @@ namespace SkiResortMod.Systems
                     more: Math.Max(0, (listed > 0 ? listed : factors) - 1), ifFixed: input.AttractionFull));
             }
 
-            // 4. Lifts, in `lifts` order. The stats system already merged a lone base and a lone top of one type into one row
-            // (HubRules.PairLoneStations), so the pre-scan below finds pairs only in lists built without it. Pre-scan: the i-th
-            // lone base of state 4 pairs with the i-th lone top of state 4 (one Detail 0 "draw the lift line" row, build "lift"; the other
-            // station's row is not listed). The pair row sits at the row whose name the finished lift keeps (SkiResortAggregate.LiftOrdinals).
-            // Pairing runs per lift type (a fixed-grip base never pairs with a detachable top: Mixed); a Mixed row does not count as an
+            // 4. Lifts, in `lifts` order.
+            // The stats system already merged a lone base and a lone top of one type into one row (HubRules.PairLoneStations). So the
+            // pre-scan below finds pairs only in lists built without it. Pre-scan: the i-th lone base of state 4 pairs with the i-th lone
+            // top of state 4. The pair gives one Detail 0 "draw the lift line" row, build "lift". The other station's row is not listed.
+            // The pair row sits at the row whose name the finished lift keeps (SkiResortAggregate.LiftOrdinals).
+            // Pairing runs per lift type (a fixed-grip base never pairs with a detachable top: Mixed). A Mixed row does not count as an
             // unfinished line. No allocation: per-type counts are rescans.
             // Details: EngineNotes/HubRules.md, "Near HubProblems.Build, step 4".
             int lifts = input.Lifts != null ? input.Lifts.Count : 0;
             for (int k = 0; k < lifts; k++)
             {
                 HubProblemLift l = input.Lifts[k];
-                // The build items come from the row's lift type (the fixed-grip
-                // row's are "lift" / "topStation" / "baseStation"; an unknown type falls back to them).
+                // The build items come from the row's lift type (the fixed-grip row's are "lift" / "topStation" / "baseStation"). An
+                // unknown type uses these.
                 string lineItem = LineItem(l.Type);
                 if (l.Mixed && l.State != 0 && l.State != 1)
                 {
-                    // A component that mixes our lift types is Unfinished in the census; the band
-                    // names the cause (redraw the line with the stations' kind) instead of "unfinished".
+                    // A component that mixes our lift types is Unfinished in the census. The band names the cause (redraw the line with the
+                    // stations' kind) instead of "unfinished".
                     output.Add(Row(HubProblemCode.MixedLiftTypes, 2, liftIndex: k, buildItem: lineItem));
                     continue;
                 }
@@ -854,8 +852,9 @@ namespace SkiResortMod.Systems
                         }
                         break;
                 }
-                // 4b. A complete (0, 1) or open (2) line whose sharpest tower bend in plan is over the warning angle: dim (1), a fact only
-                // (owner verdict 2026-11-02: warn, never refuse). Count = the tower's number, Detail = tenths of a degree.
+                // 4b. A complete (0, 1) or open (2) line whose sharpest tower bend in plan is over the warning angle gets a row. The row is
+                // dim (1), a fact only (owner verdict 2026-11-02: warn, never refuse). Count = the tower's number, Detail = tenths of a
+                // degree.
                 if (l.State >= 0 && l.State <= 2 && l.BendTenths > 0)
                     output.Add(Row(HubProblemCode.LiftBend, 1, liftIndex: k, count: l.BendTower, detail: l.BendTenths));
                 // 4c. The same lines with a tower whose rope goes past what its sheave train follows: dim (1), a fact only. Count = the
@@ -884,9 +883,9 @@ namespace SkiResortMod.Systems
                 output.Add(Row(HubProblemCode.RunsFlat, 1, count: input.RunsFlat));
 
             // 8b. The ski-day rows. The stats system sets the inputs only while ski days are
-            // on and the area has a SkiDaySystem view. CannotReach and no parking are severity 2 (warning glyph: a door
-            // with 0 spaces got 0 tourist parties in 2 months, 202 and 175 with a lot, 0 again without; DECISIONS 489);
-            // the far-lodge row is dim (1). Both lodge rows count up to the area's lodges, so a stray count never outnumbers them.
+            // on and the area has a SkiDaySystem view. CannotReach and no parking are severity 2 (warning glyph). A door with 0 spaces got
+            // 0 tourist parties in 2 months, 202 and 175 with a lot, and 0 again without (DECISIONS 489). The far-lodge row is dim (1).
+            // Both lodge rows count up to the area's lodges, so a stray count never outnumbers them.
             if (input.SkiDaysCannotReach)
                 output.Add(Row(HubProblemCode.SkiDaysCannotReach, 2));
             if (input.NoGuestsNearTenthsKm > 0)
@@ -895,21 +894,20 @@ namespace SkiResortMod.Systems
             if (lodgesNoParking > 0)
                 output.Add(Row(HubProblemCode.NoParkingNearLodge, 2, count: lodgesNoParking));
             int lodgesFar = Math.Min(input.LodgesNotSlopeside, input.Lodges);
-            // "far from the runs" needs runs; an area without any already shows NoRuns and sends no
-            // ski days (SkiDayRules.AreaStateOf).
+            // "far from the runs" needs runs. An area without any already shows NoRuns and sends no ski days (SkiDayRules.AreaStateOf).
             if (lodgesFar > 0 && input.Runs > 0)
                 output.Add(Row(HubProblemCode.LodgeNotSlopeside, 1, count: lodgesFar));
 
-            // 8b. A bus depot that cannot work, on its own row: never in the lodge rows above. No hill lodge is dim (the hill's own lodge rows
-            // already warn); no road stops the depot itself.
+            // 8b. A bus depot that cannot work, on its own row: never in the lodge rows above. No hill lodge is dim (the hill's own lodge
+            // rows already warn). No road stops the depot itself.
             if (input.DepotsNoRoad > 0)
                 output.Add(Row(HubProblemCode.DepotNoRoad, 2, count: input.DepotsNoRoad));
             if (input.DepotsNoHillLodge > 0)
                 output.Add(Row(HubProblemCode.DepotNoHillLodge, 1, count: input.DepotsNoHillLodge));
 
-            // 8c. Summit lodges no working lift top reaches (they count their
-            // summit-served summer share only within 300 m), counted up to the area's lodges; the ski school
-            // without a counted green run (its +12 and its demand factor need one). Both dim (severity 1).
+            // 8c. Summit lodges no working lift top reaches (they count their summit-served summer share only within 300 m), counted up to
+            // the area's lodges. The ski school without a counted green run (its +12 and its demand factor need one). Both dim (severity
+            // 1).
             int summitNotServed = Math.Min(input.SummitLodgesNotServed, Math.Max(0, input.Lodges));
             if (summitNotServed > 0)
                 output.Add(Row(HubProblemCode.SummitLodgeNotLiftServed, 1, count: summitNotServed));
@@ -918,10 +916,10 @@ namespace SkiResortMod.Systems
 
             SortAndCut(output);
 
-            // 9. Factor rows (only with a result), input order: only a factor
-            // that costs at least FactorRowMinLossPct points (EffectPct <= −5); small factors near 0 % coming and going
-            // churned the band. A pure threshold, no dwell. The Overview's
-            // factor list and the Efficiency row's tooltip read these rows (hubRules.ts factorRowsOf), so they follow.
+            // 9. Factor rows (only with a result), input order.
+            // Only a factor that costs at least FactorRowMinLossPct points (EffectPct <= −5) gets a row. Small factors near 0 % coming and
+            // going churned the band. A pure threshold, no dwell. The Overview's factor list and the Efficiency row's tooltip read these
+            // rows (hubRules.ts factorRowsOf), so they follow.
             if (input.EfficiencyPct >= 0)
             {
                 for (int i = 0; i < factors; i++)
@@ -933,9 +931,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The CustomName of the <paramref name="n"/>-th (1-based) lone base of state
-        /// 4 in `lifts` order (false when there is none). O(lifts) per call, no allocation; called once per
-        /// paired top, and an area has a handful of lift rows.</summary>
+        /// <summary>The CustomName of the <paramref name="n"/>-th (1-based) lone base of state 4 in `lifts` order (false when there is
+        /// none). O(lifts) per call, no allocation. It is called once per paired top, and an area has a handful of lift rows.</summary>
         private static bool LoneBaseNamed(List<HubProblemLift> lifts, byte type, int n)
         {
             // The n-th lone base OF THE SAME LIFT TYPE (pairing per type, Build step 4).
@@ -968,9 +965,9 @@ namespace SkiResortMod.Systems
             return n;
         }
 
-        /// <summary>An Unfinished (state 3), not Mixed, row of lift type <paramref name="type"/> that
-        /// carries exactly one station — its base when <paramref name="fromBase"/>, else its top (a line drawn from that
-        /// station, waiting for the other kind). The pairing rule per type.</summary>
+        /// <summary>An Unfinished (state 3), not Mixed, row of lift type <paramref name="type"/> that carries exactly one station: its base
+        /// when <paramref name="fromBase"/>, else its top (a line drawn from that station, waiting for the other kind). The pairing rule
+        /// per type.</summary>
         private static bool UnfinishedLine(List<HubProblemLift> lifts, byte type, bool fromBase)
         {
             for (int k = 0; k < lifts.Count; k++)
@@ -984,15 +981,15 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>The row type's LINE build item ("lift", "liftDetachable", …); an unknown type reads
-        /// the fixed-grip "lift" (SkiCatalog.LineItemOf returns null out of range).</summary>
+        /// <summary>The row type's LINE build item ("lift", "liftDetachable", …). An unknown type reads the fixed-grip "lift"
+        /// (SkiCatalog.LineItemOf returns null out of range).</summary>
         private static string LineItem(byte type)
         {
             return SkiCatalog.LineItemOf(type) ?? SkiCatalog.FixedGrip.BuildItemId;
         }
 
-        /// <summary>The row type's base / top STATION build item ("baseStation", "topStationGondola",
-        /// …); an unknown type reads the fixed-grip station's.</summary>
+        /// <summary>The row type's base / top STATION build item ("baseStation", "topStationGondola", …). An unknown type reads the
+        /// fixed-grip station's.</summary>
         private static string StationItem(byte type, StationRole role)
         {
             return SkiCatalog.StationItemOf(type, role) ?? SkiCatalog.StationItemOf(0, role) ??
@@ -1009,12 +1006,11 @@ namespace SkiResortMod.Systems
             };
         }
 
-        /// <summary>Stable insertion sort by (severity descending, code ascending); equal keys keep their
-        /// insertion order. Then the band is cut to MaxBandRows SLOTS: the hub draws every row of a HubRules.FoldedCodes code as one
-        /// line (hubRules.ts foldBandRows), so such a code takes one slot however many rows it has; it keeps up to MaxBandRows of its
-        /// rows (the line and its tip name them; the cap bounds the tip, as the old row cut did). Rows of one code are adjacent after
-        /// the sort. The cut used to count rows: four "No power" rows took four slots and pushed a low-span row off the band
-        /// (DECISIONS 588 f).</summary>
+        /// <summary>Stable insertion sort by (severity descending, code ascending). Equal keys keep their insertion order. Then the band is
+        /// cut to MaxBandRows SLOTS. The hub draws every row of a HubRules.FoldedCodes code as one line (hubRules.ts foldBandRows), so such
+        /// a code takes one slot however many rows it has. It keeps up to MaxBandRows of its rows (the line and its tip name them, and the
+        /// cap bounds the tip, as the old row cut did). Rows of one code are adjacent after the sort. The cut used to count rows: four "No
+        /// power" rows took four slots and pushed a low-span row off the band (DECISIONS 588 f).</summary>
         private static void SortAndCut(List<HubProblem> rows)
         {
             for (int i = 1; i < rows.Count; i++)

@@ -1,6 +1,11 @@
-// Pure rules of the snow groomer: the path source per run kind, the restraint rule, the season gate, the trip along the path as a function
-// of the clock (drive, stop, pivot, stop, drive back), the ground plane under the footprint, its smoothing and the pose. SkiGroomerSystem is
-// the only caller. Linked into tests/ResortBatch (GroomerTests, with EntityRef.cs and RunSnowRules.cs); `System` + `Unity.Mathematics` only.
+// Pure rules of the snow groomer:
+//   * The path source per run kind.
+//   * The restraint rule.
+//   * The season gate.
+//   * The trip along the path as a function of the clock (drive, stop, pivot, stop, drive back).
+//   * The ground plane under the footprint, its smoothing and the pose.
+// SkiGroomerSystem is the only caller. Linked into tests/ResortBatch (GroomerTests, with EntityRef.cs and RunSnowRules.cs). `System` +
+// `Unity.Mathematics` only.
 // Engine notes: EngineNotes/SkiGroomerSystem.md
 
 using System;
@@ -8,7 +13,7 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>Where a groomer drives on one run. Cat tracks use the ribbon centerline; a later pass can add a source for groomed runs
+    /// <summary>Where a groomer drives on one run. Cat tracks use the ribbon centerline. A later pass can add a source for groomed runs
     /// (for example lanes across a wide polygon) without touching the system.</summary>
     public interface IGroomerPathSource
     {
@@ -67,14 +72,15 @@ namespace SkiResortMod.Systems
         public const string StandInPrefabName = "SkiDressAkja_Red";
         /// <summary>Where the mesh's nose points, as a yaw from local +Z in degrees. SkiGroomerA is built with forward = +Z in game terms.</summary>
         public const float LocalForwardYawDeg = 0f;
-        /// <summary>The same for the stand-in (UNVERIFIED: read it off the first in-game screenshot; only the heading's look depends on it).</summary>
+        /// <summary>The same for the stand-in (UNVERIFIED: read it off the first in-game screenshot. Only the heading's look depends on
+        /// it).</summary>
         public const float StandInForwardYawDeg = 0f;
         /// <summary>Lift of the origin above the sampled terrain. 0: the mesh's origin sits on the ground. Whether snow buries the tracks is a bridge check.</summary>
         public const float GroundOffsetM = 0f;
 
         // ---- the trip (seconds and meters of the render clock, the clock the chairs use: 60 clock s = 3,600 frames) --------------------
-        /// <summary>12 km/h on the render clock, inside the 10-20 km/h real cats work at. It reads as a real speed on screen at 1x; against game
-        /// time it is about 1/20 of real (a game hour is 182 clock s), the same trade the chairs make. See the engine notes.</summary>
+        /// <summary>12 km/h on the render clock, inside the 10-20 km/h real cats work at. It reads as a real speed on screen at 1x. Against
+        /// game time it is about 1/20 of real (a game hour is 182 clock s), the same trade the chairs make. See the engine notes.</summary>
         public const float SpeedMps = 3.33f;
         /// <summary>Seconds to reach full speed from a stop, and to stop again. A track shorter than speed x ramp peaks lower (a triangle).</summary>
         public const float RampS = 3f;
@@ -92,10 +98,11 @@ namespace SkiResortMod.Systems
         public const int FootprintSamplesLong = 5;
         public const int FootprintSamplesWide = 3;
         public const int FootprintSamples = FootprintSamplesLong * FootprintSamplesWide;
-        /// <summary>Tilt past this (about 39 degrees) is a cliff under the footprint, not a pose: clamped so the machine never stands on its nose.</summary>
+        /// <summary>Tilt past this (about 39 degrees) is a cliff under the footprint, not a pose. It is clamped so the machine never stands
+        /// on its nose.</summary>
         public const float MaxSlope = 0.8f;
-        /// <summary>Time constants on the clock. The height is short so the tracks do not sink on a climb (25 % at 3.33 m/s lags 0.1 m); the tilt
-        /// is longer, because a lag in tilt does not show and it takes out the kinks of the 3.5 m terrain grid.</summary>
+        /// <summary>Time constants on the clock. The height is short so the tracks do not sink on a climb (25 % at 3.33 m/s lags 0.1 m).
+        /// The tilt is longer, because a lag in tilt does not show and it takes out the kinks of the 3.5 m terrain grid.</summary>
         public const float HeightTauS = 0.12f;
         public const float TiltTauS = 0.35f;
         /// <summary>A height jump larger than this is a terrain edit or a new path, not a bump: snap, do not slide.</summary>
@@ -103,7 +110,7 @@ namespace SkiResortMod.Systems
 
         // ---- restraint ------------------------------------------------------------------------------------------------------------
         public const int MaxGroomersPerTrack = 1;
-        /// <summary>Cost guard for a city with an absurd number of tracks; the system logs once when it is reached.</summary>
+        /// <summary>Cost guard for a city with an absurd number of tracks. The system logs once when it is reached.</summary>
         public const int MaxGroomers = 64;
         /// <summary>Clock seconds between two looks at one track's snow share.</summary>
         public const float SeasonPollS = 5f;
@@ -132,10 +139,10 @@ namespace SkiResortMod.Systems
             return !wanted && hasProp ? GroomerAction.Remove : GroomerAction.None;
         }
 
-        /// <summary>The season gate on the run's snow share (GetRunSnow, whose Share stays real with snow gating off, so the machine still leaves in
-        /// summer). The hub calls a cat track closed below the midpoint (RunSnowRules.InitialOpenShare), so that closes it here too and a groomer is
-        /// never on a closed track; it returns only at OpenAtShare, so a share hovering at the midpoint does not make it pop in and out. The first
-        /// look after a load uses the midpoint. NaN = closed. Returns true when open.</summary>
+        /// <summary>The season gate on the run's snow share (GetRunSnow, whose Share stays real with snow gating off, so the machine still
+        /// leaves in summer). The hub calls a cat track closed below the midpoint (RunSnowRules.InitialOpenShare), so that closes it here
+        /// too and a groomer is never on a closed track. The groomer returns only at OpenAtShare, so a share hovering at the midpoint does
+        /// not make it pop in and out. The first look after a load uses the midpoint. NaN = closed. Returns true when open.</summary>
         public static bool SeasonStep(ref RunSnowState state, float share)
         {
             float line = state == RunSnowState.Closed ? RunSnowRules.OpenAtShare : RunSnowRules.InitialOpenShare;
@@ -184,9 +191,9 @@ namespace SkiResortMod.Systems
             return u * u * (3f - 2f * u);
         }
 
-        /// <summary>The trip at t clock seconds into the cycle (any t: wrapped to the period). A pure function of the clock, like the chairs: it
-        /// never drifts, stands still when the clock is paused, loses nothing at 3x and comes back at the same place after a save and reload.
-        /// pivotSign (+1 or -1) is the turning sense. S and TurnRad are continuous over every leg change.</summary>
+        /// <summary>The trip at t clock seconds into the cycle (any t: wrapped to the period). A pure function of the clock, like the
+        /// chairs. It never drifts. It stands still when the clock is paused. It loses nothing at 3x. It returns to the same place after a
+        /// save and reload. pivotSign (+1 or -1) is the turning sense. S and TurnRad are continuous over every leg change.</summary>
         public static GroomerTrip TripAt(double t, double lengthM, int pivotSign)
         {
             double drive = DriveSeconds(lengthM);
@@ -229,8 +236,8 @@ namespace SkiResortMod.Systems
             return trip;
         }
 
-        /// <summary>A stable per-track start of the cycle, and the turning sense, from the track's first node: tracks do not move in step, and a
-        /// reload resumes the same trip. Any seed gives a phase in [0, period).</summary>
+        /// <summary>A stable per-track start of the cycle, and the turning sense, from the track's first node. Tracks do not move in step,
+        /// and a reload resumes the same trip. Any seed gives a phase in [0, period).</summary>
         public static double PhaseFor(uint seed, double periodS)
         {
             return (seed & 0xFFFFu) / 65536.0 * periodS;
@@ -292,8 +299,8 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Exponential smoothing with the step in clock seconds, so it holds at any frame rate and speed. dt 0 (paused) changes nothing;
-        /// a long step lands on the target.</summary>
+        /// <summary>Exponential smoothing with the step in clock seconds, so it holds at any frame rate and speed. dt 0 (paused) changes
+        /// nothing. A long step reaches the target.</summary>
         public static float Smooth(float value, float target, double dtS, float tauS)
         {
             if (!(dtS > 0.0))

@@ -1,9 +1,9 @@
 // The cat track tool's FULL solve as one pure function (2026-11-05, DECISIONS 601 f: hand-test note 20, "massive hitches" while adding
-// points). Everything that is slow and does not need the engine: the raster over the whole rect, the crossed-run band rating (twice per
-// allowance step), the guards over every changed texel, the along-track crossing check and the run outline. The tool takes the engine
-// inputs on the main thread (heights and water of the rect as a HeightSnapshot, the obstacles, the profile) and runs this either on a
-// worker (the debounced preview) or inline (Enter, and the fallback), so the plan the player sees and the plan Enter checks are the
-// same function of the same inputs. The pure parts it calls (CatTrackGrade.cs) are unchanged.
+// points). It holds everything that is slow and does not need the engine: the raster over the whole rect, the crossed-run band rating
+// (twice per allowance step), the guards over every changed texel, the along-track crossing check and the run outline. The tool takes the
+// engine inputs on the main thread (heights and water of the rect as a HeightSnapshot, the obstacles, the profile). It runs this solve
+// either on a worker (the debounced preview) or inline (Enter, and the fallback). So the plan the player sees and the plan Enter checks are
+// the same function of the same inputs. The pure parts it calls (CatTrackGrade.cs) are unchanged.
 // Pure file: System, Unity.Mathematics and the rater (the tests/GradeBatch rule). No Entities, no Unity API, no log on the worker.
 // Engine notes: EngineNotes/CatTrackGradeToolSystem.md (Solve split)
 
@@ -26,7 +26,7 @@ namespace SkiResortMod.Systems
         public void Request() => m_Requested = true;
     }
 
-    /// <summary>What the full solve reads. All of it is private to the solve once handed over (the worker owns Obstacles: it fills
+    /// <summary>What the full solve reads. All of it is private to the solve once passed to it (the worker owns Obstacles and fills
     /// WetTexels).</summary>
     public sealed class GradeSolveInput
     {
@@ -36,7 +36,7 @@ namespace SkiResortMod.Systems
         public GradeParams Params;
         public int4 Rect;
         public float Reach;
-        /// <summary>Lots, lift lines and crossed run outlines of the rect (CollectObstacles); WetTexels is filled by the solve.</summary>
+        /// <summary>Lots, lift lines and crossed run outlines of the rect (CollectObstacles). The solve fills WetTexels.</summary>
         public GradeObstacles Obstacles;
         /// <summary>The base terrain height at a world point (xz used): texel centers of the rect, and anywhere the crossed runs' rating
         /// reads outside it.</summary>
@@ -58,20 +58,21 @@ namespace SkiResortMod.Systems
         public GradeParams PlanParams;
         public GradeGuardKind Guard;
         public float2 GuardAt;
-        /// <summary>The chosen inside allowance in meters; -1 when no step keeps every crossed run's band; the params' own when no run is crossed.</summary>
+        /// <summary>The chosen inside allowance in meters. It is -1 when no step keeps every crossed run's band. It is the params' own when
+        /// no run is crossed.</summary>
         public float Allowance;
         public bool Crossing;
         public string BandText;
         public string StepText = string.Empty;
-        /// <summary>The run outline of the flat top (GradeRibbon); null when there is a guard before it or the ring fails.</summary>
+        /// <summary>The run outline of the flat top (GradeRibbon). Null when there is a guard before it or the ring fails.</summary>
         public float2[] Ring;
         public double RasterMs, GuardMs, RingMs, TotalMs;
     }
 
     public static class GradeSolver
     {
-        /// <summary>The profile of the first inside-allowance step: what the preview shows while the full solve is out. Equal to the full
-        /// solve's profile when no crossed run changes the allowance (always without a crossing).</summary>
+        /// <summary>The profile of the first inside-allowance step: what the preview shows while the full solve is not finished. Equal to
+        /// the full solve's profile when no crossed run changes the allowance (always without a crossing).</summary>
         public static GradeProfile QuickProfile(GradePath path, float[] ground, GradeParams p, IList<float2[]> runs)
         {
             GradeParams pa = p.Clone();
@@ -110,7 +111,7 @@ namespace SkiResortMod.Systems
             bool BuildAt(float a)
             {
                 if (Canceled(inp))
-                    return true;   // ends ChooseInsideAllowance at once; the result is dropped below
+                    return true;   // ends ChooseInsideAllowance at once. The result is dropped below
                 double t0 = sw.Elapsed.TotalMilliseconds;
                 pa = p.Clone();
                 pa.InsideMaxM = a;
@@ -203,7 +204,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The rated band of each entered crossed run on the raster's Before (or After) terrain, the catalog's own rater
-        /// (SkiRunRater, the catalog's origin and texel); -3 for an outline the path does not enter or a rating that did not finish.</summary>
+        /// (SkiRunRater, the catalog's origin and texel). The value is -3 for an outline the path does not enter or a rating that did not
+        /// finish.</summary>
         public static sbyte[] RateCrossed(GradeSolveInput inp, GradeRaster r, bool[] entered, bool after)
         {
             IList<float2[]> runs = inp.Obstacles.Runs;

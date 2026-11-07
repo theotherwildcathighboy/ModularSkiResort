@@ -1,36 +1,37 @@
-// The two-object carrier pose (the carrier grip round, docs plan carrier-pivot-swing-plan-2026-11-03 sections 2-4): a lift carrier
-// is a GRIP (the rope side: jaws or carriage plus the hanger head that carries the pivot pin) and a BODY (hanger + seat or cabin below
-// the pin). The grip pitches with the rope about the rope point; the body hangs from the pin, plumb, and swings in the wind.
-// Swing convention (the art critique, 2026-11-03: a tram hangs from one lateral pin, no cardan, and a chair's clevis cannot roll
-// either): the LATERAL swing is ONE world rotation Q_roll of the whole assembly, grip and body together, about the rope point and the
-// ROPE TANGENT (the pitched travel axis, so the jaw never leaves the rope); the FORE-AFT swing turns the body alone about the pin.
-// Grip rotation = Q_roll x yaw x pitch (= yaw x pitch x roll), body rotation = Q_roll x yaw x foreAft; pin = rope + R_grip x
-// (GripPin - GripRope); body = pin - R_body x BodyPin (CP-18). On a pitched span the roll about the inclined axis also yaws the body
-// a little (about roll x sin(pitch)) and leans it by about roll x cos(pitch): what a carrier swinging about its rope does. The roll's
-// lever is the rope point to the body's base, longer than the old pin roll's, so a chair / gondola scales its roll gain and clamp by
-// the lever ratio (Limits); the tram's long hanger damps it to half the fore-aft amplitude and 2 deg.
-// Pure (Unity.Mathematics only): MoveChairsJob (Burst), ChairPinSystem's managed paths, TramShuttleSystem, tests/LiftBatch
-// (CarrierPoseTests, CP-1 to CP-20) and tests/MoverBench (B-5) share it. CarrierWind (the per-loop wind snapshots) lives here too.
-// Frames: Unity's left-handed world, y up; a carrier's local frame is X right, Y up, Z forward. The YAW is the caller's: the rigid
-// pose's NetUtils.GetNodeRotation(travel tangent, fallback) (Game.Net/NetUtils.cs:316-324 in 1.6.2f1), unchanged, so the facing
-// conventions (the loop's travel yaw, the static pin's flip, the tram's -t_up) stay where they are.
-// Pivots (SkiCatalog, per carrier type, from each mesh's base-pivot origin = its lowest vertex): GripRope = the rope point in the
-// grip mesh, GripPin = the pin center in the grip mesh, BodyPin = the pin center in the body mesh. Rigid identity (CatalogTests
-// CT-17): BodyPin + GripRope - GripPin = (0, drop, 0), drop = HangM - GripTopAboveRopeM, so zero pitch and zero swing put the
-// body exactly where today's one-piece carrier stands (rope point - drop) and the grip where the old mesh's grip was (CP-1).
-// Swing (closed form, no integrated state, plan section 3; the visible-sway round 2026-11-06): lean = the wind's cross / along
-// components in the carrier frame (fore-aft at ForeAftShare) times a GUST factor, clamped so the sway always has room; sway = an
-// amplitude that grows with |w| (and a little with the gust) times sin / cos of an argument that is a pure function of the loop
-// distance s (SwayArg: omega / v x s + a per-entity phase), so a paused game freezes it, a hold freezes it and the hold's Rebase
-// resumes it without a jump (s is continuous there), and neighbors differ by omega x spacing / v. The gust (Gust) is two traveling
-// sine waves over the world (periods GustPeriod1S / 2S, GustSpeedMps): a pure function of the mover clock and the rope point, so
-// a gust front crosses a line patch by patch instead of the whole lift breathing at once; CarrierWind.Resume shifts its clock at a
-// hold release, so a held loop's gusts resume where they froze. Lean and sway are zero on guided segments (bull wheel arcs, the
-// synthesized station runs) and ramp in linearly: the lean over the first RampM of a free run, the sway over the next RampM.
+// The two-object carrier pose (the carrier grip round, docs plan carrier-pivot-swing-plan-2026-11-03 sections 2-4). A lift carrier is a
+// GRIP (the rope side: jaws or carriage plus the hanger head that carries the pivot pin) and a BODY (hanger + seat or cabin below the pin).
+// The grip pitches with the rope about the rope point. The body hangs from the pin, plumb, and swings in the wind.
+// Swing convention (the art critique, 2026-11-03: a tram hangs from one lateral pin, no cardan, and a chair's clevis cannot roll either).
+// The LATERAL swing is ONE world rotation Q_roll of the whole assembly, grip and body together. It turns about the rope point and the ROPE
+// TANGENT (the pitched travel axis, so the jaw never leaves the rope). The FORE-AFT swing turns the body alone about the pin.
+// Grip rotation = Q_roll x yaw x pitch (= yaw x pitch x roll). Body rotation = Q_roll x yaw x foreAft. Pin = rope + R_grip x (GripPin -
+// GripRope). Body = pin - R_body x BodyPin (CP-18).
+// On a pitched span the roll about the inclined axis also yaws the body a little (about roll x sin(pitch)) and leans it by about roll x
+// cos(pitch). This is what a carrier swinging about its rope does.
+// The roll's lever is the rope point to the body's base, longer than the old pin roll's. So a chair / gondola scales its roll gain and
+// clamp by the lever ratio (Limits). The tram's long hanger damps it to half the fore-aft amplitude and 2 deg.
+// This file is pure (Unity.Mathematics only). These share it: MoveChairsJob (Burst), ChairPinSystem's managed paths, TramShuttleSystem,
+// tests/LiftBatch (CarrierPoseTests, CP-1 to CP-20) and tests/MoverBench (B-5). CarrierWind (the per-loop wind snapshots) lives here too.
+// Frames: Unity's left-handed world, y up. A carrier's local frame is X right, Y up, Z forward. The YAW is the caller's: the rigid pose's
+// NetUtils.GetNodeRotation(travel tangent, fallback) (Game.Net/NetUtils.cs:316-324 in 1.6.2f1), unchanged. So the facing conventions (the
+// loop's travel yaw, the static pin's flip, the tram's -t_up) stay where they are.
+// Pivots (SkiCatalog, per carrier type, from each mesh's base-pivot origin = its lowest vertex): GripRope = the rope point in the grip
+// mesh, GripPin = the pin center in the grip mesh, BodyPin = the pin center in the body mesh. Rigid identity (CatalogTests CT-17): BodyPin
+// + GripRope - GripPin = (0, drop, 0), drop = HangM - GripTopAboveRopeM. So zero pitch and zero swing put the body exactly where today's
+// one-piece carrier stands (rope point - drop). They put the grip where the old mesh's grip was (CP-1).
+// Swing (closed form, no integrated state, plan section 3, the visible-sway round 2026-11-06). Lean = the wind's cross / along components
+// in the carrier frame (fore-aft at ForeAftShare) times a GUST factor, clamped so the sway always has room. Sway = an amplitude that grows
+// with |w| (and a little with the gust) times sin / cos of an argument. The argument is a pure function of the loop distance s (SwayArg:
+// omega / v x s + a per-entity phase). So a paused game freezes it, and a hold freezes it. The hold's Rebase resumes it without a jump (s
+// is continuous there). Neighbors differ by omega x spacing / v.
+// The gust (Gust) is two traveling sine waves over the world (periods GustPeriod1S / 2S, GustSpeedMps). It is a pure function of the mover
+// clock and the rope point, so a gust front crosses a line patch by patch instead of the whole lift breathing at once. CarrierWind.Resume
+// shifts its clock at a hold release, so a held loop's gusts resume where they froze. Lean and sway are zero on guided segments (bull wheel
+// arcs, the synthesized station runs). They ramp in linearly: the lean over the first RampM of a free run, the sway over the next RampM.
 // CP-9 (no visible step or pop): every frame's change stays within the analytic rate bound, at 30 fps 3x and 16x finer, and under
 // 0.5 deg per 30 fps frame at 1x.
-// The wind per loop: two snapshots and the clock of the change, smoothstep over WindBlendS (BlendWind; the caller samples
-// WindSystem on the main thread). Every constant below is a PLACEHOLDER until in-game photos tune it.
+// The wind per loop: two snapshots and the clock of the change, smoothstep over WindBlendS (BlendWind). The caller samples WindSystem on
+// the main thread. Every constant below is a PLACEHOLDER until in-game photos tune it.
 // Engine notes: EngineNotes/ChairPinSystem.Mover.md ("Grips and swing")
 
 using Unity.Mathematics;
@@ -40,10 +41,10 @@ namespace SkiResortMod.Systems
     // CarrierPivots (the three offsets) lives in SkiCatalog.cs: the catalog is linked into six test hosts, this file into two.
     internal static class CarrierPose
     {
-        // ---- the swing constants (PLACEHOLDERS: tuned from in-game photos; step 0 measured SampleWind |w| ~ 0.31, units UNVERIFIED) ----
+        // ---- the swing constants (PLACEHOLDERS: tuned from in-game photos. Step 0 measured SampleWind |w| ~ 0.31, units UNVERIFIED) ----
         // DECISIONS 601 (#17): the first values (lean 0.3, sway 0.05 capped at 1 deg) measured 0.26 deg median / 0.67 deg max tilt on
-        // running FG / DQ / gondola carriers while the vanilla power line beside them visibly swayed: lean raised to 0.7 (CP-14: under
-        // 4 deg at 0.31).
+        // running FG / DQ / gondola carriers. At the same time, the vanilla power line beside them visibly swayed. The lean was raised to
+        // 0.7 (CP-14: under 4 deg at 0.31).
         /// <summary>Lean (rad) per |w|^2 of full cross wind: drag grows with the square of the wind (0.7 x 0.31^2 = 3.85 deg).</summary>
         public const float LeanPerWind2 = 0.7f;
         /// <summary>The fore-aft share of the lean and the sway (the plan: fore-aft at 1/3).</summary>
@@ -57,26 +58,26 @@ namespace SkiResortMod.Systems
         public const float TramRollShare = 0.5f;
         /// <summary>Fore-aft clamp: 3 deg (about the lateral axis).</summary>
         public const float MaxForeAft = 0.05235988f;
-        // The visible-sway round (2026-11-06): the in-game check found the lean steady and the 1 deg sway invisible beside it. The sway
-        // now rocks a chair / gondola 4.3 to 5.7 deg peak to peak at |w| 0.31 (CP-19); CP-9 checks smoothness against the analytic rate
-        // instead of a flat 0.5 deg per 3x frame, which a visible pendulum cannot meet (FG: 2.85 deg x omega 2.54 = 0.72 deg per 0.1 s).
-        /// <summary>Sway amplitude (rad) per |w| (0.17 x 0.31 = 3.02 deg; the roll takes RollGain of it), capped by MaxSway.</summary>
+        // The visible-sway round (2026-11-06): the in-game check found the lean steady and the 1 deg sway invisible beside it. The sway now
+        // rocks a chair / gondola 4.3 to 5.7 deg peak to peak at |w| 0.31 (CP-19). CP-9 checks smoothness against the analytic rate instead
+        // of a flat 0.5 deg per 3x frame. A visible pendulum cannot meet the flat limit (FG: 2.85 deg x omega 2.54 = 0.72 deg per 0.1 s).
+        /// <summary>Sway amplitude (rad) per |w| (0.17 x 0.31 = 3.02 deg, the roll takes RollGain of it), capped by MaxSway.</summary>
         public const float SwayPerWind = 0.17f;
-        /// <summary>Sway cap: 3.5 deg. CP-14: at most half of every type's roll clamp and of MaxForeAft after the gains, so the lean
-        /// keeps at least half of each clamp and lean + sway never reach the final clamp (no flat tops).</summary>
+        /// <summary>Sway cap: 3.5 deg. CP-14: at most half of every type's roll clamp and of MaxForeAft after the gains. So the lean keeps
+        /// at least half of each clamp, and lean + sway never reach the final clamp (no flat tops).</summary>
         public const float MaxSway = 0.061086524f;
         /// <summary>The share of the sway amplitude that follows the gust: amplitude x (1 - share + share x gust), 0.8 to 1.0.</summary>
         public const float SwayGustShare = 0.5f;
-        /// <summary>The gust factor's mean and the two waves' amplitudes: Gust spans [0.6, 1.0] of the lean (0.6, not 0.5: at a gust
-        /// low the sway would otherwise swing a chair past plumb into the wind every period, and the downwind lean stops reading).</summary>
+        /// <summary>The gust factor's mean and the two waves' amplitudes: Gust spans [0.6, 1.0] of the lean (0.6, not 0.5). At a gust low
+        /// the sway would otherwise swing a chair past plumb into the wind every period, and the downwind lean stops reading.</summary>
         public const float GustMean = 0.8f, GustAmp1 = 0.12f, GustAmp2 = 0.08f;
         /// <summary>The two gust periods (s of mover clock): incommensurate (73 / 127), so the pattern repeats after 927 s.</summary>
         public const double GustPeriod1S = 7.3, GustPeriod2S = 12.7;
-        /// <summary>The gusts' travel speed over the ground (m/s): wavelengths 88 m and 152 m, so carriers 10 to 30 m apart lean
-        /// nearly together and a long line shows several gust patches.</summary>
+        /// <summary>The gusts' travel speed over the ground (m/s): wavelengths 88 m and 152 m. So carriers 10 to 30 m apart lean nearly
+        /// together, and a long line shows several gust patches.</summary>
         public const float GustSpeedMps = 12f;
-        /// <summary>The two waves' travel directions in world (x, z): 20 and 115 deg from +x (fixed, not the wind's: a direction taken
-        /// from the wind would flip with a wind reversal and snap the gust).</summary>
+        /// <summary>The two waves' travel directions in world (x, z): 20 and 115 deg from +x (fixed, not the wind's). A direction taken
+        /// from the wind would flip with a wind reversal and snap the gust.</summary>
         public const float GustDir1X = 0.9396926f, GustDir1Z = 0.34202015f, GustDir2X = -0.42261827f, GustDir2Z = 0.90630779f;
         /// <summary>Gravity for the pendulum frequency omega = sqrt(g / L).</summary>
         public const float Gravity = 9.81f;
@@ -117,16 +118,16 @@ namespace SkiResortMod.Systems
             return math.atan2(d.y, h);
         }
 
-        /// <summary>The roll (lateral swing) in a carrier's own frame: about its travel axis (Z; + = bottom to the right). Exactly
-        /// identity at 0.</summary>
+        /// <summary>The roll (lateral swing) in a carrier's own frame: about its travel axis (Z, + = bottom to the right). Exactly identity
+        /// at 0.</summary>
         public static quaternion RollRotation(float roll)
         {
             return roll == 0f ? quaternion.identity : quaternion.RotateZ(roll);
         }
 
-        /// <summary>The body's swing rotation in the yaw frame under the grip's pitch rotation <paramref name="pitch"/>: the roll about
-        /// the pitched travel axis (Q_roll in the yaw frame = pitch x roll x pitch^-1), then the fore-aft turn about the pin's lateral axis
-        /// (X; + = bottom forward). Exactly identity at zero swing, exactly the fore-aft turn at zero roll.</summary>
+        /// <summary>The body's swing rotation in the yaw frame under the grip's pitch rotation <paramref name="pitch"/>. It is the roll
+        /// about the pitched travel axis (Q_roll in the yaw frame = pitch x roll x pitch^-1), then the fore-aft turn about the pin's
+        /// lateral axis (X, + = bottom forward). Exactly identity at zero swing, exactly the fore-aft turn at zero roll.</summary>
         public static quaternion BodySwing(float2 swing, quaternion pitch)
         {
             quaternion foreAft = swing.y == 0f ? quaternion.identity : quaternion.RotateX(-swing.y);
@@ -141,14 +142,14 @@ namespace SkiResortMod.Systems
             return BodySwing(swing, quaternion.identity);
         }
 
-        /// <summary>The grip and body pose. <paramref name="rope"/> = the sampled rope point, <paramref name="yaw"/> = the rigid
-        /// pose's yaw, <paramref name="pitch"/> false = the grip keeps the yaw only (the Options toggle off), <paramref name="swing"/>
-        /// = (roll, fore-aft) rad. One world rotation Q_roll (the roll about the rope tangent, through the rope point) turns the whole
-        /// assembly: grip rotation = Q_roll x yaw x pitch = yaw x pitch x roll (the jaw stays along the rope, CP-18), body rotation =
-        /// Q_roll x yaw x foreAft (BodySwing; plumb under pitch at zero swing). The fore-aft turns the body alone about the pin. Grip
-        /// position = rope - R_grip x GripRope; pin = rope + R_grip x (GripPin - GripRope); body position = pin - R_body x BodyPin. The
-        /// offsets rotate in the yaw frame first, so zero pitch and swing reproduce the rigid pose to the float (math.rotate by identity
-        /// returns its vector unchanged, math.mul of identities is the identity), and zero roll reproduces the unrolled pose exactly.</summary>
+        /// <summary>The grip and body pose. <paramref name="rope"/> = the sampled rope point. <paramref name="yaw"/> = the rigid pose's
+        /// yaw. <paramref name="pitch"/> false = the grip keeps the yaw only (the Options toggle off). <paramref name="swing"/> = (roll,
+        /// fore-aft) rad. One world rotation Q_roll (the roll about the rope tangent, through the rope point) turns the whole assembly.
+        /// Grip rotation = Q_roll x yaw x pitch = yaw x pitch x roll (the jaw stays along the rope, CP-18). Body rotation = Q_roll x yaw x
+        /// foreAft (BodySwing, plumb under pitch at zero swing). The fore-aft turns the body alone about the pin. Grip position = rope -
+        /// R_grip x GripRope. Pin = rope + R_grip x (GripPin - GripRope). Body position = pin - R_body x BodyPin. The offsets rotate in the
+        /// yaw frame first. So zero pitch and swing reproduce the rigid pose to the float (math.rotate by identity returns its vector
+        /// unchanged, math.mul of identities is the identity), and zero roll reproduces the unrolled pose exactly.</summary>
         public static void Pose(float3 rope, float3 travelTangent, quaternion yaw, in CarrierPivots pivots, bool pitch, float2 swing,
                                 out float3 gripPosition, out quaternion gripRotation, out float3 bodyPosition, out quaternion bodyRotation)
         {
@@ -165,11 +166,11 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A carrier type's lateral limits. Tram (<paramref name="shuttle"/>): TramMaxRoll, gain TramRollShare x ForeAftShare
-        /// (half the fore-aft amplitude). Chairs / gondola: the lever ratio k = |BodyPin.xy| / |RigidOffset.xy| (the old pin roll's
-        /// lever over the rope-point roll's, both in the roll's plane on a level rope: a roll about Z leaves z alone), at most 1; gain k
-        /// (the same base excursion per unit wind) and clamp 2 asin(k sin(MaxLateral / 2)) (the same base excursion, the chord, at the
-        /// clamp: FG 7.6, DQ 7.4, GD 7.2 deg on the build's pivots; CP-18). On a pitched span the inclined roll axis shortens the
-        /// base's lever by cos(pitch), so the excursion only shrinks.</summary>
+        /// (half the fore-aft amplitude). Chairs / gondola: the lever ratio k = |BodyPin.xy| / |RigidOffset.xy| (the old pin roll's lever
+        /// over the rope-point roll's, both in the roll's plane on a level rope: a roll about Z leaves z alone), at most 1. Gain: k (the
+        /// same base excursion per unit wind). Clamp: 2 asin(k sin(MaxLateral / 2)) (the same base excursion, the chord, at the clamp: FG
+        /// 7.6, DQ 7.4, GD 7.2 deg on the build's pivots, CP-18). On a pitched span the inclined roll axis shortens the base's lever by
+        /// cos(pitch), so the excursion only shrinks.</summary>
         public static SwingLimits Limits(in CarrierPivots pivots, bool shuttle)
         {
             if (shuttle)
@@ -184,9 +185,9 @@ namespace SkiResortMod.Systems
         {
             return rope + math.rotate(gripRotation, pivots.GripPin - pivots.GripRope);
         }
-        /// <summary>The grip assembled on a body that stands where it stands (no pitch of its own): the tram's parked carriage and a
-        /// static carrier the pin pass leaves at vanilla's placement (no cable lane, lane too far). Grip position = body position +
-        /// R_body x (BodyPin - GripPin), the body's rotation; the two pins coincide (CP-16).</summary>
+        /// <summary>The grip assembled on a body that stands where it stands (no pitch of its own): the tram's parked carriage and a static
+        /// carrier the pin pass leaves at vanilla's placement (no cable lane, lane too far). Grip position = body position + R_body x
+        /// (BodyPin - GripPin), the body's rotation. The two pins coincide (CP-16).</summary>
         public static void GripOnBody(float3 bodyPosition, quaternion bodyRotation, in CarrierPivots pivots,
                                       out float3 gripPosition, out quaternion gripRotation)
         {
@@ -194,7 +195,7 @@ namespace SkiResortMod.Systems
             gripRotation = bodyRotation;
         }
 
-        /// <summary>The distance between the grip's pin and the body's pin (0 = the joint holds; CP-15, CP-16).</summary>
+        /// <summary>The distance between the grip's pin and the body's pin (0 = the joint holds, CP-15, CP-16).</summary>
         public static float PinGap(float3 gripPosition, quaternion gripRotation, float3 bodyPosition, quaternion bodyRotation,
                                    in CarrierPivots pivots)
         {
@@ -202,8 +203,8 @@ namespace SkiResortMod.Systems
                                  bodyPosition + math.rotate(bodyRotation, pivots.BodyPin));
         }
 
-        /// <summary>The ramp factors (lean, sway) at <paramref name="distanceM"/> from the nearest guided segment: the lean ramps
-        /// linearly over [0, rampM], the sway over [rampM, 2 x rampM] (one ramp for both fails CP-9 at the gondola's 3x speed).</summary>
+        /// <summary>The ramp factors (lean, sway) at <paramref name="distanceM"/> from the nearest guided segment. The lean ramps linearly
+        /// over [0, rampM], the sway over [rampM, 2 x rampM] (one ramp for both fails CP-9 at the gondola's 3x speed).</summary>
         public static float2 Ramp(float distanceM, float rampM)
         {
             float r = math.max(rampM, 1e-3f);
@@ -253,8 +254,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The gust factor in [GustMean - GustAmp1 - GustAmp2, GustMean + GustAmp1 + GustAmp2] = [0.6, 1.0] at the rope point
-        /// <paramref name="position"/> (world; only x, z) and the gust clock <paramref name="clock"/> (GustClock): two sine waves
-        /// traveling over the ground at GustSpeedMps. Two sin calls; continuous in the clock and the position.</summary>
+        /// <paramref name="position"/> (world, only x, z) and the gust clock <paramref name="clock"/> (GustClock): two sine waves traveling
+        /// over the ground at GustSpeedMps. Two sin calls. Continuous in the clock and the position.</summary>
         public static float Gust(float2 clock, float3 position)
         {
             const float k1 = (float)(6.283185307179586 / GustPeriod1S) / GustSpeedMps;
@@ -265,7 +266,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The swing (roll, fore-aft) in rad for a wind <paramref name="wind"/> (world x, z), the carrier's yaw, its sway
-        /// argument, the ramp factors, its type's lateral limits (Limits) and the gust factor at the carrier (Gust; 1 = the full lean).
+        /// argument, the ramp factors, its type's lateral limits (Limits) and the gust factor at the carrier (Gust, where 1 = the full lean).
         /// Cross wind = the wind's component along the carrier's right ((f.z, -f.x) for forward f). The lean is gust x the steady lean,
         /// clamped to the room the sway leaves (clamp - sway amplitude), so lean + sway stay inside the clamps without a flat top.</summary>
         public static float2 Swing(float2 wind, quaternion yaw, float swayArg, float2 ramp, in SwingLimits limits, float gust)
@@ -295,8 +296,8 @@ namespace SkiResortMod.Systems
             return new float2(math.clamp(lat, -maxRoll, maxRoll), math.clamp(fa, -MaxForeAft, MaxForeAft));
         }
 
-        /// <summary>The blended wind <paramref name="sinceChangeS"/> seconds of mover clock after a change from
-        /// <paramref name="from"/> to <paramref name="to"/> (smoothstep over WindBlendS; continuous, flat at both ends).</summary>
+        /// <summary>The blended wind <paramref name="sinceChangeS"/> seconds of mover clock after a change from <paramref name="from"/> to
+        /// <paramref name="to"/> (smoothstep over WindBlendS). It is continuous and flat at both ends.</summary>
         public static float2 BlendWind(float2 from, float2 to, double sinceChangeS)
         {
             if (!(sinceChangeS > 0.0))
@@ -384,9 +385,9 @@ namespace SkiResortMod.Systems
             return CarrierPose.BlendWind(m_From, m_To, timeS - m_ChangeS);
         }
 
-        /// <summary>A new snapshot: the blend restarts from where it is now (CP-8), only when the sample changed. The FIRST sample
-        /// starts there when nothing was posed with the unknown wind yet (the poll runs before the first pose), else it blends in from
-        /// the zero those poses used (CP-17: no snap when a late first sample arrives mid-span).</summary>
+        /// <summary>A new snapshot: the blend restarts from where it is now (CP-8), only when the sample changed. The FIRST sample starts
+        /// there when nothing was posed with the unknown wind yet (the poll runs before the first pose). Otherwise it blends in from the
+        /// zero those poses used (CP-17: no snap when a late first sample arrives mid-span).</summary>
         public void Set(float2 sample, double timeS)
         {
             if (!m_Known)

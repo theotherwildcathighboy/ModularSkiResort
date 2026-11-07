@@ -1,12 +1,14 @@
-// The cat track tool (one action since 2026-10-24: the hub's Cat track tile, Ctrl+Shift+K). Click points up the mountain; the tool
-// solves a grade-limited track through them (CatTrackGrade.cs, pure, tested in GradeBatch) and previews it as an overlay. On Enter it
-// emits the cat-track run (SkiRunCatTrackA, outline = the graded flat top, GradeRibbon) as an area creation definition, waits for the
-// game's Temp area and validation, then in ONE frame writes the corridor into the game's BASE heightmap (HeightmapWriter: terrain
-// the player keeps, stored in the save by the game itself) and applies the run. A refusal by the game grades nothing.
-// Skeleton is LiftLineToolSystem's (a prefab-less ToolBaseSystem, emit -> Temp -> Apply). Solve on change, not per frame: a quick solve per edit,
-// the full one (raster, band rating, guards, outline) debounced on a worker (CatTrackGradeSolve.cs; hand-test note 20, DECISIONS 601 f).
-// Logs (silence impossible): ARMED / NOT ARMED per load; one line per activation, edit, solve, apply, undo, refusal; an exception
-// disables the tool.
+// The cat track tool (one action since 2026-10-24: the hub's Cat track tile, Ctrl+Shift+K). The player clicks points up the mountain. The
+// tool solves a grade-limited track through them (CatTrackGrade.cs, pure, tested in GradeBatch) and previews it as an overlay. On Enter the
+// tool emits the cat-track run (SkiRunCatTrackA, outline = the graded flat top, GradeRibbon) as an area creation definition. It then waits
+// for the game's Temp area and validation. After that, in ONE frame, it writes the corridor into the game's BASE heightmap
+// (HeightmapWriter: terrain the player keeps, stored in the save by the game itself) and applies the run. A refusal by the game grades
+// nothing.
+// The skeleton is LiftLineToolSystem's (a prefab-less ToolBaseSystem, emit -> Temp -> Apply). The tool solves on change, not per frame: a
+// quick solve per edit, and the full one (raster, band rating, guards, outline) debounced on a worker (CatTrackGradeSolve.cs, hand-test
+// note 20, DECISIONS 601 f).
+// Logs (silence impossible): ARMED / NOT ARMED per load. One line per activation, edit, solve, apply, undo, refusal. An exception disables
+// the tool.
 // Engine notes: EngineNotes/CatTrackGradeToolSystem.md
 
 using System;
@@ -44,7 +46,7 @@ namespace SkiResortMod.Systems
         private const float ProbeLengthM = 40f;
         private const int TempTimeoutFrames = 30;   // frames to wait for the run definition's Temp area (LiftLineToolSystem's value)
         private const double DebounceMs = 150.0;   // the full solve starts this long after the last edit (DECISIONS 601 f)
-        private const int MaxSnapshotTexels = 4 * 1024 * 1024;   // 8 MB of heights; a bigger rect solves inline on the engine sampler
+        private const int MaxSnapshotTexels = 4 * 1024 * 1024;   // 8 MB of heights. A bigger rect solves inline on the engine sampler
         private const int DeleteRingsFrames = 30;   // Delete mode re-reads the cat track outlines this often (and after each delete)
 
         /// <summary>Edit: points and preview. Emitted: the run definition is out, waiting for its Temp area and the game's validation.
@@ -77,7 +79,7 @@ namespace SkiResortMod.Systems
         internal string DeletePromptKey => GradeDeleteInput.PromptKey(m_DelHover, ArmedIndex);
         internal GradeMsg Notice => !m_Notice.IsEmpty && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : GradeMsg.Empty;
         internal GradeMsg PlanMsg => m_Path != null ? GradeInput.PlanMsg(m_Path, m_Prof, m_Raster, m_Params) : GradeMsg.Empty;
-        internal bool PlanOk => m_Prof != null && m_Prof.Feasible && m_Guard == GradeGuardKind.None;   // while Checking this is the plan so far; the guards follow
+        internal bool PlanOk => m_Prof != null && m_Prof.Feasible && m_Guard == GradeGuardKind.None;   // while Checking this is the plan so far. The guards follow
         internal GradeMsg GuardMsg => GradeGuards.Reason(m_Guard);
         /// <summary>The raster, guards and outline of the plan on screen are still being solved (DebounceMs after the last edit, on a worker).</summary>
         internal GradeMsg CheckMsg => m_Checking ? GradeMsg.Of("CHECKING") : GradeMsg.Empty;
@@ -232,8 +234,8 @@ namespace SkiResortMod.Systems
                                  "— dropped (nothing graded, no run built)");
                 if (m_Phase == RunPhase.Emitted)
                 {
-                    // ToolSystem reads the NEW tool's applyMode on a switch (ToolSystem.cs:147-156), so nothing clears our preview Temp: delete it
-                    // here with plain Deleted, as ToolClearSystem does (ToolClearSystem.cs:101).
+                    // ToolSystem reads the NEW tool's applyMode on a switch (ToolSystem.cs:147-156), so nothing clears our preview Temp.
+                    // Delete it here with plain Deleted, as ToolClearSystem does (ToolClearSystem.cs:101).
                     Entity temp = FindTempRun();
                     if (temp != Entity.Null)
                         EntityManager.AddComponent<Deleted>(temp);
@@ -242,8 +244,8 @@ namespace SkiResortMod.Systems
                 }
                 else if (m_Phase == RunPhase.Applying)
                 {
-                    // Closed in the one frame after Apply: FinishApplied will not run, so say what is known (applied this frame, the run is permanent
-                    // once ApplyAreasSystem has run; the terrain is graded and undo is on the stack).
+                    // Closed in the one frame after Apply. FinishApplied will not run, so say what is known. Applied this frame. The run is
+                    // permanent once ApplyAreasSystem has run. The terrain is graded and undo is on the stack.
                     Mod.Log.Info($"Grade [run]: closed in the frame after Apply — run {Describe(m_AppliedRun)} applied with the grade (exists " +
                                  $"{EntityManager.Exists(m_AppliedRun)}, Temp {EntityManager.Exists(m_AppliedRun) && EntityManager.HasComponent<Temp>(m_AppliedRun)})");
                 }
@@ -326,8 +328,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Delete mode on / off (the field-test ruling of 2026-10-26b). While on, a click on a cat track arms it (red), a second
-        /// click on it deletes it with the hub row trash's path (DeleteTrack); right click / Esc only turn the mode off. Refused while a
-        /// build is in flight; the points of a track being drawn stay.</summary>
+        /// click on it deletes it with the hub row trash's path (DeleteTrack). Right click / Esc only turn the mode off. The call is
+        /// refused while a build is in flight. The points of a track being drawn stay.</summary>
         public bool SetDeleteMode(bool on, string why)
         {
             if (!IsActive || m_DeleteMode == on)
@@ -505,8 +507,8 @@ namespace SkiResortMod.Systems
 
         private int ArmedIndex => m_DelArmed == Entity.Null ? -1 : m_DelTracks.IndexOf(m_DelArmed);
 
-        /// <summary>Delete mode, one frame: pick the cat track under the terrain hit (point in outline, no area raycast: the tool's raycast
-        /// stays Terrain only), then the two-click confirm (GradeDeleteInput).</summary>
+        /// <summary>Delete mode, one frame. Pick the cat track under the terrain hit (point in outline, no area raycast: the tool's raycast
+        /// stays Terrain only). Then the two-click confirm (GradeDeleteInput).</summary>
         private void UpdateDelete()
         {
             if (m_DelRingsFrame == int.MinValue || m_Frame - m_DelRingsFrame >= DeleteRingsFrames)   // int.MinValue = stale (the subtraction would overflow)
@@ -560,14 +562,14 @@ namespace SkiResortMod.Systems
         }
 
         // ---------------------------------------------------------------- the solve, split (DECISIONS 601 f, hand-test note 20)
-        // Every edit runs the QUICK solve on the main thread (path, ground, rect, obstacles, profile: ~2 ms at 30 points) and shows the
-        // plan line and the overlay at once; "Checking the ground." stands in for the rest. The FULL solve (raster over the whole rect,
-        // crossed-run band rating, guards, outline: 10 to 190 ms, growing with the rect) starts DebounceMs after the last edit, on a worker,
-        // from a private copy of the heights and water (HeightSnapshot, the Resort Planner's idiom) and the obstacles; the main thread
-        // only copies the rect first and applies the result after. A newer edit cancels the job and drops its result. Enter never uses a
-        // stale plan: it waits for the job of the current revision or runs the same function inline (GradeSolver.Run), so the guards it
-        // checks are always those of the points on screen. A snapshot that cannot be taken (over MaxSnapshotTexels) or that is read
-        // outside its rect falls back to the engine's own sampler inline (the pre-split solve, a hitch, logged as such).
+        // Every edit runs the QUICK solve on the main thread (path, ground, rect, obstacles, profile: ~2 ms at 30 points). It shows the
+        // plan line and the overlay at once. "Checking the ground." stands in for the rest. The FULL solve (raster over the whole rect,
+        // crossed-run band rating, guards, outline: 10 to 190 ms, growing with the rect) starts DebounceMs after the last edit, on a
+        // worker. It works from a private copy of the heights and water (HeightSnapshot, the Resort Planner's idiom) and the obstacles. The
+        // main thread only copies the rect first and applies the result after. A newer edit cancels the job and drops its result. Enter
+        // never uses a stale plan. Enter waits for the job of the current revision or runs the same function inline (GradeSolver.Run). So
+        // the guards it checks are always those of the points on screen. A snapshot that cannot be taken (over MaxSnapshotTexels) or that
+        // is read outside its rect makes the solve use the engine's own sampler inline (the pre-split solve, a hitch, logged as such).
 
         /// <summary>What the quick solve hands to the full one: the inputs of the plan on screen.</summary>
         private sealed class SolveCtx
@@ -618,7 +620,7 @@ namespace SkiResortMod.Systems
             m_DrawWidth.Clear();
         }
 
-        /// <summary>Stops the worker job of the plan on screen (its result is dropped; the job ends at its next stage boundary).</summary>
+        /// <summary>Stops the worker job of the plan on screen (its result is dropped, the job ends at its next stage boundary).</summary>
         private void CancelFull()
         {
             m_FullCancel?.Request();
@@ -651,8 +653,9 @@ namespace SkiResortMod.Systems
             var ground = new float[path.Count];
             for (int i = 0; i < path.Count; i++)
                 ground[i] = TerrainUtils.SampleHeight(ref hd, new float3(path.Xz[i].x, 0f, path.Xz[i].y));
-            // The rect and the obstacles come BEFORE the profile: in a crossing's fade band the profile is held to the ground, inside a
-            // crossed run within InsideMaxM of it (GradeProfile.Solve pinTol), so the plan meets each crossed run at its own ground.
+            // The rect and the obstacles come BEFORE the profile. In a crossing's fade band the profile is held to the ground. Inside a
+            // crossed run it is held within InsideMaxM of the ground (GradeProfile.Solve pinTol). So the plan meets each crossed run at its
+            // own ground.
             bool haveRect = GradeRaster.Bounds(map, path, null, p, out int4 rect, out float reach);
             bool tooLarge = haveRect && GradeRaster.TooLarge(rect);
             if (haveRect && !tooLarge)
@@ -738,8 +741,9 @@ namespace SkiResortMod.Systems
             ApplyFull(ctx, res, "worker", m_FullSnapMs, probe, MsSince(ctx.EditTicks));
         }
 
-        /// <summary>The full solve on the main thread: Enter's path, and the fallback. The snapshot first (same function, same inputs as the
-        /// worker); the engine's sampler when it cannot be taken or was read outside (<paramref name="engine"/> skips the snapshot).</summary>
+        /// <summary>The full solve on the main thread: Enter's path, and the fallback. It takes the snapshot first (same function, same
+        /// inputs as the worker). It uses the engine's sampler when the snapshot cannot be taken or was read outside
+        /// (<paramref name="engine"/> skips the snapshot).</summary>
         private void RunInline(SolveCtx ctx, string why, bool engine)
         {
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -767,8 +771,8 @@ namespace SkiResortMod.Systems
             ApplyFull(ctx, res, mode, 0d, null, MsSince(ctx.EditTicks), why);
         }
 
-        /// <summary>Enter: the plan on screen must be fully solved. The job of this revision is waited for (it is already out); else the same
-        /// solve runs inline.</summary>
+        /// <summary>Enter: the plan on screen must be fully solved. Enter waits for the job of this revision (it is already out). Otherwise
+        /// the same solve runs inline.</summary>
         private void FinishFullNow()
         {
             if (m_FullTask != null && m_FullCtx != null && ReferenceEquals(m_FullCtx, m_Ctx))
@@ -782,8 +786,8 @@ namespace SkiResortMod.Systems
 
         private static double MsSince(long ticks) => (System.Diagnostics.Stopwatch.GetTimestamp() - ticks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
 
-        /// <summary>The inputs of the full solve. snapshot: heights and water of the rect copied now (main thread; false = the rect plus the
-        /// crossed runs is over MaxSnapshotTexels); else the engine's own samplers, to be used on the main thread only.</summary>
+        /// <summary>The inputs of the full solve. snapshot: heights and water of the rect copied now (main thread, false = the rect plus
+        /// the crossed runs is over MaxSnapshotTexels). Otherwise the engine's own samplers, to be used on the main thread only.</summary>
         private bool TryBuildInput(SolveCtx ctx, bool snapshot, out GradeSolveInput input, out SnapshotProbe probe)
         {
             probe = null;
@@ -856,9 +860,9 @@ namespace SkiResortMod.Systems
         private bool[] m_WetNode = new bool[0];
 
         /// <summary>The wet layer of the rect: WaterUtils.SampleDepth over WetDepthM at each texel center, as the guard always read it, but
-        /// sampled only where one of the four water nodes the bilinear sample reads is deeper than WetDepthM less a margin (a bilinear sample
-        /// never exceeds its largest node, so every skipped texel is dry; the Resort Planner's FillWet, here per GradeMap texel). False when
-        /// there is no water layer.</summary>
+        /// sampled only where one of the four water nodes the bilinear sample reads is deeper than WetDepthM less a margin. A bilinear
+        /// sample never exceeds its largest node, so every skipped texel is dry. This is the Resort Planner's FillWet, here per GradeMap
+        /// texel. False when there is no water layer.</summary>
         private bool FillWet(GradeMap map, int4 rect, out byte[] wet)
         {
             wet = null;
@@ -1006,7 +1010,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The obstacles of the rect, before the raster: building lots, lift lines, and the outlines of the other runs a cat
-        /// track may cross (the raster keeps their ground, GradeRaster.Build keep; GradeParams.CrossBlendM).</summary>
+        /// track may cross (the raster keeps their ground, GradeRaster.Build keep, GradeParams.CrossBlendM).</summary>
         private void CollectObstacles(GradeMap map, int4 rect)
         {
             m_Obstacles = new GradeObstacles();
@@ -1070,9 +1074,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The crossing guard (m_Obstacles.Runs): the FINAL surface along the track steeper than the max grade + 1 pp where a crossed
-        /// outline or its fade reaches (GradeRaster.AlongTrackSteepSample). Inside a run that surface is the run's ground plus the up-to-2 m
-        /// correction, so it fires only where the correction cannot reach (DECISIONS 420); also the only protection of a constant grade.</summary>
+        /// <summary>The crossing guard (m_Obstacles.Runs): the FINAL surface along the track steeper than the max grade + 1 pp where a
+        /// crossed outline or its fade reaches (GradeRaster.AlongTrackSteepSample). Inside a run that surface is the run's ground plus the
+        /// up-to-2 m correction, so it fires only where the correction cannot reach (DECISIONS 420). It is also the only protection of a
+        /// constant grade.</summary>
         private bool CrossingSteep(GradeMap map, GradePath path, GradeRaster raster, GradeParams p, out float2 at)
         {
             at = default;
@@ -1086,7 +1091,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The rated band of each entered crossed run on the raster's Before (or After) terrain, the catalog's own rater
-        /// (SkiRunRater, the catalog's origin and texel); -3 for an outline the path does not enter or a rating that did not finish.</summary>
+        /// (SkiRunRater, the catalog's origin and texel). The value is -3 for an outline the path does not enter or a rating that did not
+        /// finish.</summary>
         private sbyte[] RateCrossed(GradeMap map, GradeRaster r, bool[] entered, bool after)
         {
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
@@ -1125,7 +1131,7 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Enter: refuse an infeasible or guarded plan, else emit the cat-track run's definition (the plan's ring). The grade
+        /// <summary>Enter: refuse an infeasible or guarded plan. Otherwise emit the cat-track run's definition (the plan's ring). The grade
         /// itself waits for the game's verdict on the run (UpdateEmitted).</summary>
         private void BuildFromTool()
         {
@@ -1168,8 +1174,9 @@ namespace SkiResortMod.Systems
                 "game's Temp area and validation");
         }
 
-        /// <summary>Emitted: wait for our Temp area; the game's errors refuse it (nothing graded); else grade (ApplyCore on the base
-        /// map) and Apply in the same frame. ApplyAreasSystem keeps the Temp entity as the permanent run (ApplyAreasSystem.cs:204-208).</summary>
+        /// <summary>Emitted: wait for our Temp area. The game's errors refuse it (nothing graded). Otherwise grade (ApplyCore on the base
+        /// map) and Apply in the same frame. ApplyAreasSystem keeps the Temp entity as the permanent run
+        /// (ApplyAreasSystem.cs:204-208).</summary>
         private void UpdateEmitted()
         {
             Entity temp = FindTempRun();
@@ -1207,7 +1214,7 @@ namespace SkiResortMod.Systems
                 "stays: delete it with the hub row's trash; the ground stays graded)", GradeMsg.Of("BUILT"));
         }
 
-        /// <summary>Applying (the frame after Apply): the run must be permanent now; one line either way.</summary>
+        /// <summary>Applying (the frame after Apply): the run must be permanent now. One line either way.</summary>
         private void FinishApplied()
         {
             Entity run = m_AppliedRun;
@@ -1325,8 +1332,8 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"Grade [apply:{label}]: the verify readback failed; the write is assumed to have landed (undo kept)");
             }
             int trees = ClearTrees(path, p);
-            // Only a grade without a run (the dev-tab probe) goes on the undo stack: a built cat track is never un-graded by a right click,
-            // Esc or the dev tab (field test 2026-10-26b: repeated right clicks popped built tracks); it is deleted by the hub row's trash.
+            // Only a grade without a run (the dev-tab probe) goes on the undo stack. A built cat track is never un-graded by a right click,
+            // Esc or the dev tab (field test 2026-10-26b: repeated right clicks popped built tracks). The hub row's trash deletes it.
             int dropped = run == Entity.Null
                 ? m_Undo.Push(new GradeUndoEntry { X0 = rect.x, Z0 = rect.y, W = rect.z, H = rect.w, Before = before, After = after, Label = label })
                 : 0;
@@ -1342,10 +1349,10 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Delete the free-standing trees on the flat top (+ TreeMarginM) outside crossed runs, the way a road clears its lane: plain Deleted with
-        /// Applied / Created / Updated stripped (CleanUpSystem destroys it at frame end). Through EntityManager on the main thread, NOT
-        /// ToolOutputBarrier: that SafeCommandBufferSystem's CreateCommandBuffer throws outside its window (SafeCommandBufferSystem.cs:14-21),
-        /// and the probe runs from a dev-tab callback.</summary>
+        /// <summary>Delete the free-standing trees on the flat top (+ TreeMarginM) outside crossed runs, the way a road clears its lane.
+        /// Each tree gets plain Deleted with Applied / Created / Updated stripped (CleanUpSystem destroys it at frame end). Use
+        /// EntityManager on the main thread, NOT ToolOutputBarrier. That SafeCommandBufferSystem's CreateCommandBuffer throws outside its
+        /// window (SafeCommandBufferSystem.cs:14-21), and the probe runs from a dev-tab callback.</summary>
         private int ClearTrees(GradePath path, GradeParams p)
         {
             float clear = 0.5f * p.TopWidthM + TreeMarginM;
@@ -1429,10 +1436,11 @@ namespace SkiResortMod.Systems
             e != Entity.Null && m_RunPrefab != Entity.Null && EntityManager.Exists(e) && !EntityManager.HasComponent<Deleted>(e) &&
             !EntityManager.HasComponent<Temp>(e) && EntityManager.TryGetComponent(e, out PrefabRef pr) && pr.m_Prefab == m_RunPrefab;
 
-        /// <summary>Deletes a cat track (the hub row's trash button, DECISIONS 423b; the game-mode bulldozer cannot pick a Space area,
-        /// BulldozeToolSystem.cs:1495-1500, RaycastJobs.cs:113): the bulldozer's end state, the ground stays as graded and no fee comes back.
-        /// Main thread, before Modification only: this tool's update or SkiCatTrackDeleteSystem (PostTool, the hub row), never UIUpdate. False
-        /// when the entity is not a live cat track (already gone, or the index was reused).</summary>
+        /// <summary>Deletes a cat track (the hub row's trash button, DECISIONS 423b). The game-mode bulldozer cannot pick a Space area
+        /// (BulldozeToolSystem.cs:1495-1500, RaycastJobs.cs:113). The result is the bulldozer's end state: the ground stays as graded and
+        /// no fee comes back. Call it on the main thread, before Modification only: from this tool's update or SkiCatTrackDeleteSystem
+        /// (PostTool, the hub row), never UIUpdate. False when the entity is not a live cat track (already gone, or the index was
+        /// reused).</summary>
         public bool DeleteTrack(Entity e, string why)
         {
             if (m_RunPrefab == Entity.Null && m_Catalog != null)
@@ -1448,9 +1456,9 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Grades a fixed ProbeLengthM strip in front of the camera through the full apply path (constant grade, the current
-        /// width and side slopes, guards on; steeper than the limit allowed). TickWatch then checks the CPU heights after 30 frames and
-        /// the water sim after 30 / 120 frames.</summary>
+        /// <summary>Grades a fixed ProbeLengthM strip in front of the camera through the full apply path (constant grade, the current width
+        /// and side slopes, guards on). Steeper than the limit is allowed. TickWatch then checks the CPU heights after 30 frames and the
+        /// water sim after 30 / 120 frames.</summary>
         internal void Probe()
         {
             if (!m_Armed || m_Disabled)
