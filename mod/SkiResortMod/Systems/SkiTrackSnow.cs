@@ -1,15 +1,16 @@
-// Serializable made snow of a cat track: the share of its vertical its guns have covered (RunSnowRules.TrackMadeSnow), so a load keeps
-// a track open where its made snow was, as the saved snow map keeps a run's. A persisted component: its type name and Serialize layout
-// are a save-format contract (see SaveLayouts). Added and written by SkiSnowInjectionSystem (RefreshRunSnow) on bound, measured or
-// estimated cat tracks only; read once per track after a load. Layout v1 (5 bytes): after the 1.0 freeze it never changes (no payload
-// length is written): new fields go in a new type. Never rename the type or move its namespace without [FormerlySerializedAs].
+// Serializable made snow of a cat track: the share of its vertical that its guns have covered (RunSnowRules.TrackMadeSnow). So a load
+// keeps a track open where its made snow was, as the saved snow map keeps a run's. This is a persisted component: its type name and
+// Serialize layout are a save-format contract (see SaveLayouts). SkiSnowInjectionSystem (RefreshRunSnow) adds and writes it on bound,
+// measured or estimated cat tracks only. The system reads it once per track after a load. Layout v1 (5 bytes): after the 1.0 freeze it
+// never changes, and no payload length is written. New fields go in a new type. Never rename the type or move its namespace without
+// [FormerlySerializedAs].
 
 using Colossal.Serialization.Entities;
 using Unity.Entities;
 
 namespace SkiResortMod.Systems
 {
-    // Stripped saved AQN as a literal; rules in SkiRunBinding.cs "SELF-ALIAS"
+    // Stripped saved AQN as a literal. Rules: SkiRunBinding.cs "SELF-ALIAS"
     [FormerlySerializedAs("SkiResortMod.Systems.SkiTrackSnow, SkiResortMod")]
     public struct SkiTrackSnow : IComponentData, IQueryTypeParameter, ISerializable
     {

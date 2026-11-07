@@ -1,12 +1,13 @@
-// The winter snow line on the ground while a run or the Welcome Sign is being placed: where the climate's mean winter temperature,
-// lapsed with elevation, crosses 0 °C (a pale contour) and, fainter and lower, where our snow guns start (+SnowmakingMargin °C).
-// The tooltip (SkiSnowLineTooltipSystem, same file) names both elevations once, the ground height under the cursor, and while the sign is
-// placed the site survey: the dry ground within the ski area radius of the cursor (SkiAreaRadiusRules.Survey, clipped to the playable
-// area, water deeper than SurveyWetDepthM left out). Game mode only.
-// Phase: Rendering, anchored UpdateBefore<SkiSnowLineOverlaySystem, Game.Rendering.OverlayRenderSystem> (Mod.cs; load-bearing:
-// OverlayRenderSystem uploads and clears its lists in the same frame, :738-741, :781, :790).
-// Logs: ONE INFO line per load (ARMED) with the elevations; WARN once per load for a missing climate and for a slow build; a one-shot
-// `!!!` switches it off until the next load. Nothing per frame.
+// The system draws the winter snow line on the ground while a run or the Welcome Sign is being placed. The line is where the climate's
+// mean winter temperature, lapsed with elevation, crosses 0 °C (a pale contour). A fainter, lower line shows where our snow guns start
+// (+SnowmakingMargin °C).
+// The tooltip (SkiSnowLineTooltipSystem, same file) names both elevations once and the ground height under the cursor. While the sign is
+// placed, it also names the site survey: the dry ground within the ski area radius of the cursor (SkiAreaRadiusRules.Survey, clipped to
+// the playable area, water deeper than SurveyWetDepthM left out). Game mode only.
+// Phase: Rendering, anchored UpdateBefore<SkiSnowLineOverlaySystem, Game.Rendering.OverlayRenderSystem> (Mod.cs). Load-bearing:
+// OverlayRenderSystem uploads and clears its lists in the same frame, :738-741, :781, :790.
+// Logs: ONE INFO line per load (ARMED) with the elevations. WARN once per load for a missing climate and for a slow build. A one-shot
+// `!!!` disables the system until the next load. Nothing per frame.
 // Engine notes: EngineNotes/SkiSnowLineOverlaySystem.md
 
 using System;
@@ -84,8 +85,8 @@ namespace SkiResortMod.Systems
         // Per-load state.
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_SlowBuildLogged, m_NoClimateLogged;
 
-        /// <summary>Read by SkiSnowLineTooltipSystem in the same frame's UITooltip phase (written at Rendering of the
-        /// previous frame: one frame of lag, as the run tooltip's readout). True while the contours are drawn and the
+        /// <summary>SkiSnowLineTooltipSystem reads it in the same frame's UITooltip phase. This system writes it at Rendering of the
+        /// previous frame: one frame of lag, as the run tooltip's readout. True while the contours are drawn and the
         /// elevations are valid.</summary>
         public bool Showing { get; private set; }
 
@@ -211,7 +212,7 @@ namespace SkiResortMod.Systems
                     HereValid = SurveyValid = false;
                     return;
                 }
-                // The guns line follows the option (a slider; read here at the activation rate of a frame).
+                // The guns line follows the option (a slider, read here at the activation rate of a frame).
                 float margin = m_SnowLine.GetSnowmakingMarginC();
                 if (margin != m_MarginC)
                     ApplyMargin(margin);
@@ -403,10 +404,10 @@ namespace SkiResortMod.Systems
             Draws++;
         }
 
-        /// <summary>The cursor lines: the terrain height under the tool's raycast hit (ToolRaycastSystem.GetRaycastResult,
-        /// ToolRaycastSystem.cs:57-67; RaycastSystem.GetResult completes the raycast it already ran this frame), and while the object tool
-        /// places the Welcome Sign the site survey around it, redone when the cursor moved farther than SurveyRebuildMoveM, the radius or
-        /// a line changed, at most once per SurveyMinFrames frames.</summary>
+        /// <summary>The cursor lines show the terrain height under the tool's raycast hit (ToolRaycastSystem.GetRaycastResult,
+        /// ToolRaycastSystem.cs:57-67). RaycastSystem.GetResult completes the raycast it already ran this frame. While the object tool
+        /// places the Welcome Sign, they also show the site survey around the hit. The system redoes the survey when the cursor moved farther
+        /// than SurveyRebuildMoveM, or when the radius or a line changed, at most once per SurveyMinFrames frames.</summary>
         private void UpdateCursor()
         {
             HereValid = false;
@@ -531,8 +532,8 @@ namespace SkiResortMod.Systems
 
     /// <summary>The one tooltip line of the overlay: "Winter snow line ≈ N m · guns work above ≈ M m" (locale key
     /// SkiResort.Tooltip.SNOW_LINE with {SNOW_LINE} / {GUN_LINE} as integers). UITooltip phase, anchored after the run
-    /// tooltip (Mod.cs). Built like SkiRunTooltipSystem: one StringTooltip widget as a field, its LocalizedString
-    /// rebuilt only when a rounded elevation changes (never per frame: LocalizedString.Id(key, args) builds a Dictionary).</summary>
+    /// tooltip (Mod.cs). Built like SkiRunTooltipSystem: one StringTooltip widget as a field. It rebuilds the LocalizedString
+    /// only when a rounded elevation changes (never per frame: LocalizedString.Id(key, args) builds a Dictionary).</summary>
     public sealed partial class SkiSnowLineTooltipSystem : TooltipSystemBase
     {
         /// <summary>Same text: the rounded numbers the line shows.</summary>

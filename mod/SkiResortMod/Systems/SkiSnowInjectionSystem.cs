@@ -1,10 +1,11 @@
 // Layer 1 of the run-rendering stack: writes run-shaped snow into the game's own snow simulation buffer (SnowSystem), so runs render
-// as native terrain snow (shading, melt, wind drift, save/load); the mod contributes only periodic depth top-ups (never additive).
-// Buffer: 1024x1024 R16G16_UNorm; R = depth 0..8 m, G = rain/water (untouched). Read, merge and upload happen in one frame.
-// Scheduling: GameSimulation, UpdateAfter SnowSystem; GetUpdateInterval 4 like SnowSystem, 64-frame top-up cadence self-gated off
-// SimulationSystem.frameIndex. Game mode only (the Editor never bakes our snow into a map); pause needs no code.
-// Defensive contract (ChairPinSystem precedent): never throw into the game loop; try/catch per update and load hook, one-shot "!!!"
-// log, disabled for the current load only, re-armed at OnGameLoadingComplete. The buffer guard WARNs once if a patch drifts.
+// as native terrain snow (shading, melt, wind drift, save/load). The mod contributes only periodic depth top-ups (never additive).
+// Buffer: 1024x1024 R16G16_UNorm. R = depth 0..8 m, G = rain/water (untouched). Read, merge and upload happen in one frame.
+// Scheduling: GameSimulation, UpdateAfter SnowSystem. GetUpdateInterval 4 like SnowSystem. The 64-frame top-up cadence is self-gated off
+// SimulationSystem.frameIndex. Game mode only (the Editor never bakes our snow into a map). Pause needs no code.
+// Defensive contract (ChairPinSystem precedent): never throw into the game loop. Use try/catch per update and load hook, with a one-shot
+// "!!!" log. The system stays disabled for the current load only and is re-armed at OnGameLoadingComplete. The buffer guard WARNs once
+// if a patch drifts.
 // Logs: an ARMED line per load with every tuning constant. Engine notes: EngineNotes/SkiSnowInjectionSystem.md
 
 using System;
@@ -36,30 +37,30 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            // Target depths. 0.35 m reads as a solid snowmaking base at the 8 m display scale (4.4% of range, ~2867 quantization steps;
-            // fringe texels keep smooth gradients). Both far exceed the estimated 5-13 mm melt sag per 64-frame window, so the sawtooth stays
-            // sub-visual. Targets sit just above the full-white visual threshold so summer melt clears runs on a season-like timescale
-            // (deeper snow took sim-months to recede while vanilla seasonal cover clears in weeks); raise only with a melt-rate measurement.
-            // The snowmaking ramp's ceiling is RunSnowRules.GunStopDepthM, where the guns stop (SnowGunPlumeRules); GunTargetDepthM stays the
+            // Target depths. 0.35 m reads as a solid snowmaking base at the 8 m display scale (4.4% of range, ~2867 quantization steps).
+            // Fringe texels keep smooth gradients. Both far exceed the estimated 5-13 mm melt sag per 64-frame window, so the sawtooth stays
+            // sub-visual. Targets sit just above the full-white visual threshold, so summer melt clears runs on a season-like timescale.
+            // Deeper snow took sim-months to recede, while vanilla seasonal cover clears in weeks. Raise the targets only with a melt-rate measurement.
+            // The snowmaking ramp's ceiling is RunSnowRules.GunStopDepthM, where the guns stop (SnowGunPlumeRules). GunTargetDepthM stays the
             // base they guarantee within a night. The groomed ceiling is the gun stop depth too.
             public const float SnowmakingTargetDepthM = RunSnowRules.GunStopDepthM;
             public const float GroomedTargetDepthM = RunSnowRules.GroomedTargetDepthM;
 
             // Edge raggedness: the fold blurs each run's coverage over a (2F+1)^2 neighborhood and thresholds it against two-octave
-            // deterministic noise, so the contour wanders in ~30-60 m lobes instead of tracing the polygon (crisp isolines and a visible dither
-            // pattern at the boundary otherwise) and the partial-depth fringe breaks the snow shader's regular edge dither.
+            // deterministic noise. So the contour wanders in ~30-60 m lobes instead of tracing the polygon (otherwise: crisp isolines and a visible
+            // dither pattern at the boundary). The partial-depth fringe also breaks the snow shader's regular edge dither.
             public const int EdgeFeatherTexels = 3;      // blur radius (≈42 m at 14 m/texel)
             public const float EdgeNoiseFloor = 0.15f;   // min blurred coverage that can pass
             public const float EdgeNoiseSpan = 0.55f;    // noise-modulated threshold band
             public const float EdgeSoftness = 0.30f;     // ramp width above the threshold
 
-            // Fringe texels are capped at a depth below/around saturation: the snow shader saturates to full white at cm-scale depth, so
-            // depth-proportional fringes do not fade (bilinear filtering crosses saturation within ~1 m and the contour still reads as a
-            // cliff). Only full-interior texels get the run target.
+            // The code caps fringe texels at a depth below/around saturation. The snow shader saturates to full white at cm-scale depth, so
+            // depth-proportional fringes do not fade. Bilinear filtering crosses saturation within ~1 m, and the contour still reads as a
+            // cliff. Only full-interior texels get the run target.
             public const float FringeMaxDepthM = 0.02f;
 
-            // Spine rescue: the (2F+1)^2 blur only lets a texel reach full target when its whole 7x7 neighborhood is in-polygon, i.e. runs
-            // ~100 m wide; typical drawn runs are 30-60 m, so narrow sections rode the fringe cap and read as "not started yet". A second 3x3
+            // Spine rescue: the (2F+1)^2 blur lets a texel reach full target only when its whole 7x7 neighborhood is in-polygon, that is, runs
+            // ~100 m wide. Typical drawn runs are 30-60 m, so narrow sections rode the fringe cap and read as "not started yet". A second 3x3
             // pass detects the run spine: texels whose immediate neighborhood is nearly all in-polygon carry full target regardless of the wide
             // blur. The boundary ring still belongs to the coarse noise fold, so edges stay ragged. Runs narrower than ~2 texels (~28 m) have
             // no spine and stay soft.
@@ -67,70 +68,70 @@ namespace SkiResortMod.Systems
             public const float SpineSoftness = 0.30f;      // full spine at coverage 0.90
 
             // Managed melt: when a run's gate is off (too warm to make snow), snow inside our own mask decays by this much per top-up window
-            // (guns off, the groomed surface melts); off-run snow is never touched. 0.004 m stretches a 0.12 m pack over ~30 windows (a larger
-            // step drained a run in seconds and read as a switch); the per-texel thermal line shapes it spatially (the bottom melts first).
+            // (guns off, the groomed surface melts). The code never touches off-run snow. 0.004 m stretches a 0.12 m pack over ~30 windows (a larger
+            // step drained a run in seconds and read as a switch). The per-texel thermal line shapes the melt spatially (the bottom melts first).
             public const float DecayPerTopupM = 0.004f;
 
             // Ramp-up: injection approaches the target at a noisy per-texel rate (RampPerTopupM scaled RampRateMin..(Min+Span)x by the same
-            // two-octave spatial noise family as the edge fold), so coarse ~112 m lobes whiten at different speeds: guns building base, not a
+            // two-octave spatial noise family as the edge fold). So coarse ~112 m lobes whiten at different speeds: guns building base, not a
             // switch. The visible fade-in is time-to-white-saturation (~0.02 m), ~3-20 windows across a run. Mean step ~ DecayPerTopupM, so
             // buildup and managed melt stay symmetric.
             public const float RampPerTopupM = RunSnowRules.RampPerTopupM;   // the ramp constants live in RunSnowRules (GunWindowsToReach)
             public const float RampRateMin = RunSnowRules.RampRateMin;
             public const float RampRateSpan = RunSnowRules.RampRateSpan;
 
-            // Chill bias: a climate-time scrub can drop ambient 18.8 -> 3.0 C in one top-up window, so the whole run gates open at once, fill
-            // order falls to pure noise and noise reads bottom-up on typical run geometry. Real snowmaking physics fixes it: gun output follows
-            // how far below threshold the air is (wet-bulb). Ramp rate is scaled by saturate((threshold - T_local) / ChillSpanC) mapped to
-            // Floor..Floor+Gain; the top of a run is always colder at the same instant, so fill reads top-down.
+            // Chill bias: a climate-time scrub can drop ambient 18.8 -> 3.0 C in one top-up window. Then the whole run gates open at once. Fill
+            // order falls to pure noise, and noise reads bottom-up on typical run geometry. Real snowmaking physics fixes it: gun output follows
+            // how far below threshold the air is (wet-bulb). The code scales the ramp rate by saturate((threshold - T_local) / ChillSpanC) mapped
+            // to Floor..Floor+Gain. The top of a run is always colder at the same instant, so fill reads top-down.
             public const float RampChillSpanC = RunSnowRules.RampChillSpanC;    // °C below threshold for full output
             public const float RampChillFloor = RunSnowRules.RampChillFloor; // marginal-temperature gun output
             public const float RampChillGain = RunSnowRules.RampChillGain;  // full-cold gun output = Floor+Gain
 
             // Season gates. The snowmaking margin is not a constant here: it is SnowLineSystem.GetSnowmakingMarginC() (Options > Snow, clamped
-            // 0..6, default 2), read once per evaluated pass and passed to BuildMask; the estimate (RunSnowRules.ThresholdC) and, through this
-            // mask, the upkeep bill read the same value, so the attractiveness score, this injection and the snow shader share one climate
-            // model. Groomed runs get help only while ambient hovers near freezing.
+            // 0..6, default 2). The system reads it once per evaluated pass and passes it to BuildMask. The estimate (RunSnowRules.ThresholdC) and,
+            // through this mask, the upkeep bill read the same value. So the attractiveness score, this injection and the snow shader share one
+            // climate model. Groomed runs get help only while ambient hovers near freezing.
             //
-            // Night runs are snowmaking runs: same guns, water and thermal window (the same margin). These are explicit aliases; do not diverge
-            // them, the one-climate-model consistency depends on it. What differs is accounting: night texels are counted separately so the
+            // Night runs are snowmaking runs: same guns, water and thermal window (the same margin). These are explicit aliases. Do not diverge
+            // them: the one-climate-model consistency depends on it. What differs is accounting: the system counts night texels separately, so the
             // upkeep system can bill them at the night rate.
             public const float NightTargetDepthM = SnowmakingTargetDepthM;
-            // Per-texel thermal margins: snow guns work down to freezing + the snowmaking margin at each texel's own elevation; groomed runs
+            // Per-texel thermal margins: snow guns work down to freezing + the snowmaking margin at each texel's own elevation. Groomed runs
             // hold snow only where it is locally at/below freezing + GroomedMarginC (= RunSnowRules.GroomedMarginC, the estimate's groomed gate).
             public const float GroomedMarginC = RunSnowRules.GroomedMarginC;
 
             // Pack guard: managed decay outran natural melt and cleared runs first out of a full winter snowpack. When the map-wide mean depth
-            // says a pack covers the world, our decay stands down and runs melt with the landscape; decay only shapes the shoulder seasons. The
-            // value lives in RunSnowRules, whose PackGuard is the one guard (the merge and the packed skip both read it, so they cannot disagree).
+            // says a pack covers the world, our decay stops and runs melt with the landscape. Decay only shapes the shoulder seasons. The
+            // value lives in RunSnowRules, whose PackGuard is the one guard. The merge and the packed skip both read it, so they cannot disagree.
             public const float PackGuardMeanDepthM = RunSnowRules.PackGuardMeanDepthM;
 
-            // Cadence: melt between top-ups is millimeters against a 250-350 mm target, so 64 sim frames carries ~4x headroom. The mask is
-            // rebuilt every top-up (trivial CPU rasterization at ~14 m/texel), so polygon edits self-heal within one window without event
-            // watching (our 64-frame slot could not reliably see Created/Updated tags: they are cleaned up each frame). The value lives in
+            // Cadence: melt between top-ups is millimeters against a 250-350 mm target, so 64 sim frames carries ~4x headroom. The system rebuilds
+            // the mask every top-up (trivial CPU rasterization at ~14 m/texel). So polygon edits self-heal within one window without event
+            // watching. Our 64-frame slot could not reliably see Created/Updated tags: the game cleans them up each frame. The value lives in
             // RunSnowRules (the step scale is exactly 1 at this many frames).
             public const int TopupIntervalFrames = RunSnowRules.TopupIntervalFrames;
 
             // Log an unchanged pass as a heartbeat only when no top-up line was written for this many wall-clock seconds.
             public const float HeartbeatS = 120f;
 
-            // At most one top-up line per this many wall-clock seconds; the rest of a burst folds into one summary.
+            // At most one top-up line per this many wall-clock seconds. The rest of a burst folds into one summary.
             public const float LogWindowS = 10f;
 
-            // Mask antialiasing: SupersampleGrid^2 point tests per texel per triangle; partial-coverage edge texels inject reduced depth, a
+            // Mask antialiasing: SupersampleGrid^2 point tests per texel per triangle. Partial-coverage edge texels inject reduced depth, a
             // thin-snow fringe like real overspray.
             public const int SupersampleGrid = 4;
         }
 
         // Structural constants (not tuning). TexSize mirrors SnowSystem's kTexSize and the Load kernel's fixed 64x64x(16x16) dispatch
-        // geometry; SnowHeightScaleM mirrors kSnowHeightScale (private consts, SnowSystem.cs:123/:131, unreadable at runtime, so a patch
-        // changing them is not caught by the guard; a wrong scale only mis-sizes our target).
+        // geometry. SnowHeightScaleM mirrors kSnowHeightScale (private consts, SnowSystem.cs:123/:131, unreadable at runtime). So the guard does
+        // not catch a patch that changes them. A wrong scale only mis-sizes our target.
         private const int TexSize = 1024;
         private const int TexelCount = TexSize * TexSize;
         private const float SnowHeightScaleM = 8f;
         private const float HalfQuantum = 0.5f / 65535f; // R16_UNorm rounding tolerance
         // The ramp-plane value a stopped gun run writes on its cold texels (FoldRowsJob.GunGate). Negative, so no chill (0..1) is mistaken
-        // for it; the merge reads it as a run texel.
+        // for it. The merge reads it as a run texel.
         private const float StoppedMark = -1f;
         private const string LoadKernelName = "LoadR16G16_UNorm";
 
@@ -143,7 +144,7 @@ namespace SkiResortMod.Systems
         // The cat track: measured only, like a natural run (the snow map under it), never injected (DECISIONS 551). Its guns' snow is the
         // made-snow model (RunSnowRules.StepTrackMadeSnow). Never add this name to an injected set.
         private static readonly string[] CatTrackMeasureNames = { "SkiRunCatTrackA" };
-        // The sign test lives in SkiRunOwnershipSystem (IsBound); there is no local gate-prefab set here.
+        // The sign test lives in SkiRunOwnershipSystem (IsBound). There is no local gate-prefab set here.
 
         /// <summary>R16G16_UNorm texel as AsyncGPUReadback delivers it (the layout SnowSystem.Serialize reads back, :244-266).</summary>
 #pragma warning disable 0649 // fields are filled by the GPU readback, not by C# code
@@ -169,16 +170,16 @@ namespace SkiResortMod.Systems
             public int SnowmakingMaskTexels;
             public int GroomedMaskTexels;
             public int NightMaskTexels;
-            // Runs skipped because they are not bound to a live sign (SkiRunOwnershipSystem.IsBound, paid orphans included): they count in the
+            // Runs skipped because they are not bound to a live sign (SkiRunOwnershipSystem.IsBound, paid orphans included). They count in the
             // Totals but never rasterize, so they cannot inject, bill or score.
             public int UnboundRuns;
             // Natural runs: every live one, the bound ones recorded for measurement (a run with no on-map coverage is found at pre-clip and ends
             // up estimated), the unbound ones, and the ones measured this pass. Never part of the counts above.
             public int NaturalTotal, NaturalScheduled, NaturalUnbound, NaturalMeasured;
-            // Of those, the cat tracks (measured only, like a natural run, since the run-types round; counted in the Natural fields too).
+            // Of those, the cat tracks (measured only, like a natural run, since the run-types round, counted in the Natural fields too).
             public int TrackTotal, TrackScheduled;
             // Over the bound injected runs' contained texels: the cold ones (T_local <= the run's gate, counted before the edge noise), their
-            // count and the wrapping sum of RunSnowRules.Mix64(texel index) (sums of the per-row fields); the dry skip's footprint test.
+            // count and the wrapping sum of RunSnowRules.Mix64(texel index) (sums of the per-row fields). Also the dry skip's footprint test.
             public int ColdTexels, ContainedTexels;
             public ulong FootprintHash;
             // Texels measured this pass (injected and natural) and the natural chain's own time (the cost record).
@@ -186,18 +187,18 @@ namespace SkiResortMod.Systems
             public double NaturalMs;
         }
 
-        /// <summary>One scheduled run's measurement for RefreshRunSnow (any of the four types). Main thread; reused list, no allocation
+        /// <summary>One scheduled run's measurement for RefreshRunSnow (any of the four types). Main thread. Reused list, no allocation
         /// once grown.</summary>
         private struct RunSnowInput
         {
             public Entity Run;
             public RunKind Kind;            // public RunKind (0 groomed, 1 snowmaking, 2 night, 3 natural, 4 cat track: measured only)
-            public bool GunsOn;             // a cat track's gun switch (SkiRunPropSystem.CatTrackGunsOn); true for every run
+            public bool GunsOn;             // a cat track's gun switch (SkiRunPropSystem.CatTrackGunsOn). True for every run
             public float BottomY, TopY;     // Geometry.m_Bounds.min.y / max.y (the attraction's heights)
             public bool Measured;           // sums computed this pass from a usable snapshot
             public bool CarryOver;          // natural run with no measurement due, or no usable snapshot this pass
             public double WhiteW, KeepW, FootprintW, DepthW, ExcludedW;   // White at the open bar, Keep at the keep bar (RunSnowRules.MeasuredShare)
-            // the fold's texel counts (injected runs; 0 for a natural run): contained, those cold enough for the guns, and
+            // the fold's texel counts (injected runs, 0 for a natural run): contained, those cold enough for the guns, and
             // those a protection spell holds this pass. A warm texel = contained > cold.
             public int Contained, Cold, ProtectedTexels;
         }
@@ -210,7 +211,7 @@ namespace SkiResortMod.Systems
             public float BottomY, TopY;
             public float BarNorm;           // the skiable bar (31 cm when rated black or double black)
             public RunKind Kind;            // Natural, or CatTrack (measured the same way)
-            public bool GunsOn;             // a cat track's gun switch; true for a natural run
+            public bool GunsOn;             // a cat track's gun switch. True for a natural run
         }
 
         /// <summary>The snapshot a pass measures from.</summary>
@@ -230,7 +231,7 @@ namespace SkiResortMod.Systems
         }
 
         // The same math the managed loops ran, split over texture rows: each worker owns whole rows, so no two threads write the same
-        // texel (the fold reads neighbor rows, but only from the read-only scratch plane). Counts reduce exactly; the float depth sums
+        // texel (the fold reads neighbor rows, but only from the read-only scratch plane). Counts reduce exactly. The float depth sums
         // change only in association order, which is sub-quantum against their byte-level consumers. [BurstCompile] is best-effort: if the
         // game does not Burst-compile mod jobs, these still run parallel as managed IL.
 
@@ -238,7 +239,7 @@ namespace SkiResortMod.Systems
         /// stays invisible, fine enough that a 100-row run still spreads across cores.</summary>
         private const int RowBatch = 8;
 
-        /// <summary>Triangle pre-clipped to texel space on the main thread; jobs never
+        /// <summary>Triangle pre-clipped to texel space on the main thread. Jobs never
         /// touch ECS buffers.</summary>
         private struct TriData
         {
@@ -257,7 +258,7 @@ namespace SkiResortMod.Systems
             public ulong FootprintHash;   // wrapping Σ RunSnowRules.Mix64((ulong)idx) over contained texels
             public float FootprintW, WhiteW, KeepW, DepthW, ExcludedW;
             // The pack measure over this run's cold texels with a target (Measure only), in normalized units: sum of own target and sum of
-            // min(depth, own target); and the cold texels a stopped gun run held off.
+            // min(depth, own target). A second count: the cold texels a stopped gun run held off.
             public float GunTargetW, GunPackW;
             public int Stopped;
             // The stopped texels this run marked first (no other run's target or mark there): its grooming and lights bill on them (R3).
@@ -335,12 +336,12 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The fold pass of one run. The lapse is inlined because a job cannot call the managed SnowLineSystem, as the exact
-        /// expression GetLocalTemperature evaluates, `ambient - (elevation - baseHeight) * scale`, with its three raw coefficients, so
+        /// <summary>The fold pass of one run. The lapse is inlined because a job cannot call the managed SnowLineSystem. It uses the exact
+        /// expression GetLocalTemperature evaluates, `ambient - (elevation - baseHeight) * scale`, with its three raw coefficients. So
         /// threshold routing is bit-identical to the managed call (pre-folding the coefficients shifted threshold-adjacent texels by a float
-        /// ulp). The per-texel routing lives in RouteTexel. Execute adds the footprint count and hash, the cold count (dry skip) and, when a
-        /// usable snapshot exists (Measure), this run's own measurement: coverage-weighted footprint, depth and skiable weight (IsSkiable
-        /// with the texel's own target). Measure false: Snapshot is never read (it may hold uninitialized memory).</summary>
+        /// ulp). The per-texel routing lives in RouteTexel. Execute adds the footprint count and hash and the cold count (dry skip). When a
+        /// usable snapshot exists (Measure), it also adds this run's own measurement: coverage-weighted footprint, depth and skiable weight
+        /// (IsSkiable with the texel's own target). Measure false: Snapshot is never read (it may hold uninitialized memory).</summary>
         [BurstCompile]
         private struct FoldRowsJob : IJobFor
         {
@@ -371,7 +372,7 @@ namespace SkiResortMod.Systems
             public float HoursUsed;     // game hours of the run's current protection spell
             public float NorthSign;     // 1, or -1 for a southern latitude
             // True = this gun run's guns do not raise this pass (state Stopped or Unknown). Its cold texels then write no mask target (no
-            // raise, no bill) and mark the ramp plane with StoppedMark instead, so the merge still counts them as run texels (the dress depth)
+            // raise, no bill) and mark the ramp plane with StoppedMark instead. So the merge still counts them as run texels (the dress depth),
             // and the natural measurement still excludes them.
             public bool GunGate;
 
@@ -411,7 +412,7 @@ namespace SkiResortMod.Systems
             }
 
             /// <summary>The fold's routing (blur, thermal test, edge noise, spine, fringe cap, chill). Returns this run's own target for the
-            /// texel; cold = the thermal test passed (set right after the decay branch, before the noise test).</summary>
+            /// texel. cold = the thermal test passed (set right after the decay branch, before the noise test).</summary>
             private float RouteTexel(int idx, int tx, int ty, ref FoldRowPartial partial, out bool cold)
             {
                 const int F = Tuning.EdgeFeatherTexels;
@@ -448,9 +449,9 @@ namespace SkiResortMod.Systems
                     float localT = LapseAmbient - (elevation - LapseBaseHeight) * LapseScale;
                     if (localT > ThermalThresholdC)
                     {
-                        // Warm-spell protection: while this run's spell is on, a warm texel no warmer than ProtectMaxLocalC whose aspect-scaled budget is
-                        // not spent is held (raised back toward the depth it had) instead of left to the managed melt. Natural runs are never folded, so
-                        // never protected.
+                        // Warm-spell protection: while this run's spell is on, the fold holds a warm texel (raises it back toward the depth it had) instead of
+                        // leaving it to the managed melt. The texel must be no warmer than ProtectMaxLocalC, and its aspect-scaled budget must be unspent.
+                        // Natural runs are never folded, so never protected.
                         if (Protecting && localT <= RunSnowRules.ProtectMaxLocalC)
                         {
                             float aspect = AspectAt(wx, wz);
@@ -483,8 +484,8 @@ namespace SkiResortMod.Systems
                     if (value <= 0f)
                         return 0f;
                     // guns stopped (pack at the stop depth, or not measured yet): no mask target, no raise, no snowmaking bill (the grooming and
-                    // lights steps still bill these texels: m_RunStopped, SkiRunUpkeepRates.PisteUpkeep; DECISIONS 578).
-                    // The stopped mark only on a texel no other run claimed (a running run's chill, >= 0, overwrites it).
+                    // lights steps still bill these texels: m_RunStopped, SkiRunUpkeepRates.PisteUpkeep, DECISIONS 578).
+                    // The code sets the stopped mark only on a texel no other run claimed (a running run's chill, >= 0, overwrites it).
                     if (GunGate)
                     {
                         if (Mask[idx] == 0f && RampMask[idx] == 0f)
@@ -510,7 +511,7 @@ namespace SkiResortMod.Systems
             }
 
             /// <summary>The edge shape of a texel in this run: the two-octave noise against the blurred coverage, the spine rescue and the
-            /// fringe cap; shared with the protected branch. 0 = dropped by the noise, else this run's own target for the texel (the full
+            /// fringe cap. The protected branch shares it. 0 = dropped by the noise, else this run's own target for the texel (the full
             /// target, or a fringe partial).</summary>
             private float EdgeValue(float blurred, float sumFine, int tx, int ty)
             {
@@ -528,9 +529,9 @@ namespace SkiResortMod.Systems
                     : math.min(math.max(t, tFine) * (Tuning.FringeMaxDepthM / SnowHeightScaleM), TargetNorm);
             }
 
-            /// <summary>The slope aspect factor at a world position, from central differences of the heights the fold already samples (four
-            /// extra SampleHeight calls, only for a warm texel under protection): the terrain normal's horizontal part is the (negated) height
-            /// gradient. RunSnowRules.AspectFactor turns it into 0.5..1.5.</summary>
+            /// <summary>The slope aspect factor at a world position. It comes from central differences of the heights the fold already samples
+            /// (four extra SampleHeight calls, only for a warm texel under protection). The terrain normal's horizontal part is the (negated)
+            /// height gradient. RunSnowRules.AspectFactor turns it into 0.5..1.5.</summary>
             private float AspectAt(float wx, float wz)
             {
                 float dx = TexelSize.x;
@@ -545,9 +546,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>Measure-only pass over one natural run. Writes only its own partials, never Mask, DecayMask or RampMask. Texels owned
         /// by an injected run this pass are excluded (their snow may be managed) and their weight is reported. Neighbor exclusion: the
-        /// fold writes only texels inside its own raster and routes each to the decay plane (too warm), the mask (cold, passes the noise)
-        /// or nowhere (cold, dropped by the noise); only mask texels are raised and only decay texels lowered, so managed snow lives exactly
-        /// on `Mask > 0 || DecayMask > 0 || ProtectMask > 0` texels of this pass's footprint. The mask is this pass's and the snapshot one
+        /// fold writes only texels inside its own raster. It routes each to the decay plane (too warm), the mask (cold, passes the noise)
+        /// or nowhere (cold, dropped by the noise). Only mask texels are raised and only decay texels lowered, so managed snow lives exactly
+        /// on `Mask > 0 || DecayMask > 0 || ProtectMask > 0` texels of this pass's footprint. The mask is this pass's and the snapshot is one
         /// window older: when a neighbor is redrawn, a few edge texels can be misattributed for one window (accepted).</summary>
         [BurstCompile]
         private struct MeasureRowsJob : IJobFor
@@ -608,7 +609,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The CPU max-merge; semantic comments live at the merge call site in Topup.</summary>
+        /// <summary>The CPU max-merge. Semantic comments live at the merge call site in Topup.</summary>
         [BurstCompile]
         private struct MergeRowsJob : IJobFor
         {
@@ -659,7 +660,7 @@ namespace SkiResortMod.Systems
                     else if (hold > 0f)
                     {
                         // Protection: remember the depth this texel had when the spell began (at most the run's own target: only made snow is held, never a
-                        // deeper natural pack) and raise it back toward that by one step per pass, never past it. Natural snow that falls on top simply
+                        // deeper natural pack). Raise it back toward that depth by one step per pass, never past it. Natural snow that falls on top simply
                         // raises the base.
                         float b = ProtectBase[i];
                         if (b <= 0f)
@@ -687,8 +688,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Snow-made ledger: the depth one run gained in this pass's merge, over the run's texel box, for the texels the run owns
-        /// (Owner plane): x = made (the texel has a gun/groomed target and was raised toward it), y = held (warm-spell protection put
-        /// melted snow back), both as sums of normalized depth, one entry per row.</summary>
+        /// (Owner plane). One entry per row, both values as sums of normalized depth:
+        /// - x = made (the texel has a gun/groomed target and was raised toward it).
+        /// - y = held (warm-spell protection put melted snow back).</summary>
         [BurstCompile]
         private struct LedgerRowsJob : IJobFor
         {
@@ -750,16 +752,18 @@ namespace SkiResortMod.Systems
 
         // Working buffers: created lazily on first use, kept for the session (~36 MB: 4x NativeArray<float>[1M] planes + 4 MB readback +
         // 4 MB measure-only copy + 8 MB upload staging + 8 MB GPU buffer). Native because every per-texel loop runs as a row-parallel Burst
-        // job and jobs cannot touch managed arrays. Buffer ownership: m_Readback is written only by the blocking readback of a real pass
-        // and read by later passes' fold / natural measurement (when chosen) and the same pass's merge, never before m_ReadbackValid;
-        // m_MeasureReadback is written only by the measure-only request and read only when chosen, never while m_MeasurePending, and a
-        // request is issued only after BuildMask's chains completed.
+        // job and jobs cannot touch managed arrays. Buffer ownership:
+        // - m_Readback: written only by the blocking readback of a real pass. Read by later passes' fold / natural measurement (when chosen)
+        //   and the same pass's merge, never before m_ReadbackValid.
+        // - m_MeasureReadback: written only by the measure-only request. Read only when chosen, never while m_MeasurePending. A request is
+        //   issued only after BuildMask's chains completed.
         private NativeArray<float> m_Mask;         // target depth (normalized /8 m) per texel
         private NativeArray<float> m_DecayMask;    // 1 where a gate-OFF run manages melt
         private NativeArray<float> m_RampMask;     // chill factor 0..1 per texel (gun output)
-        // ProtectMask = the depth (normalized) a protected warm texel is held toward this pass (0 elsewhere); ProtectBase =
-        // the depth the merge captured when protection first held the texel (persists between passes, cleared when a pass does
-        // not protect the texel and at load); Owner = the run slot (1..N, schedule order) that claimed the texel for the ledger.
+        // ProtectMask = the depth (normalized) a protected warm texel is held toward this pass (0 elsewhere).
+        // ProtectBase = the depth the merge captured when protection first held the texel (persists between passes, cleared when a pass does
+        // not protect the texel and at load).
+        // Owner = the run slot (1..N, schedule order) that claimed the texel for the ledger.
         private NativeArray<float> m_ProtectMask;
         private NativeArray<float> m_ProtectBase;
         private NativeArray<ushort> m_Owner;
@@ -768,7 +772,7 @@ namespace SkiResortMod.Systems
         private NativeArray<Ushort2> m_MeasureReadback;   // the measure-only snapshot (4 MB)
         private NativeArray<float2> m_Upload;
         private ComputeBuffer m_UploadBuffer;
-        private ComputeShader m_SnowUpdateShader;  // vanilla; cached after validation
+        private ComputeShader m_SnowUpdateShader;  // vanilla, cached after validation
         private int m_LoadKernel;
         private int m_LoadSourceId;
         private int m_ResultId;
@@ -778,8 +782,8 @@ namespace SkiResortMod.Systems
         // FoldRowsJob is the only writer of the five planes, so ClearPlanesJob runs only when the last BuildMask scheduled a run (or the
         // planes are fresh from a load / a throw).
         private bool m_PlanesDirty = true;
-        // Resort-present test: the last evaluated pass found no run polygon of ours at all (the "no run polygons placed" exit); while true
-        // and ResortPresence.Present is false OnUpdate returns before any query or sync.
+        // Resort-present test: the last evaluated pass found no run polygon of ours at all (the "no run polygons placed" exit). While true
+        // and ResortPresence.Present is false, OnUpdate returns before any query or sync.
         private bool m_NoRunsSettled;
         private bool m_Disabled;                   // one-shot catch or buffer drift
         private bool m_ErrorLogged;                // one "!!!" with stack per load
@@ -790,8 +794,8 @@ namespace SkiResortMod.Systems
         private int m_LastInjectedTexels;
         private int m_LastLoweredTexels;
         private int m_LastMaskTexels;
-        // The previous pass's gate counts (snowmaking, groomed, night: active, total; unbound runs; mask empty (1) or not (0)) and when a
-        // gate change last forced a line (at most one forced line per LogWindowS).
+        // The previous pass's gate counts: active and total for snowmaking, groomed and night, the unbound runs, and the mask state (empty (1)
+        // or not (0)). Also when a gate change last forced a line (at most one forced line per LogWindowS).
         private int4 m_LastGateA;
         private int4 m_LastGateB;
         private float m_LastGateForceAt;
@@ -799,17 +803,17 @@ namespace SkiResortMod.Systems
 
         private ClimateSystem m_ClimateSystem;       // the current season's name (spring halves the budget)
         private PlanetarySystem m_PlanetarySystem;   // the latitude's sign (which way "north" faces)
-        private SkiRunCatalogSystem m_Catalog;       // the run's rating (natural black needs 31 cm); resolved lazily, may stay null
+        private SkiRunCatalogSystem m_Catalog;       // the run's rating (natural black needs 31 cm), resolved lazily, may stay null
         private readonly Dictionary<Entity, RunSnowRules.ProtectRun> m_Protect = new Dictionary<Entity, RunSnowRules.ProtectRun>();
         private readonly Dictionary<Entity, RunSnowRules.RunLedger> m_Ledger = new Dictionary<Entity, RunSnowRules.RunLedger>();
         private readonly List<LedgerRun> m_LedgerRuns = new List<LedgerRun>();
         private bool m_PassSpring;                   // this pass: the budget halves
         private bool m_PassGunSeason = true;         // this pass is in the gun season (SnowGunPlumeRules.InGunSeason)
         // The gun season is known only from the first evaluated pass of a load (the same idea as OffSeasonRules.AwaitsFirstObservation for
-        // lodge staff): until then the hub's gun line reads Waiting, no estimate credits the guns, and a cat track holds its saved made snow.
+        // lodge staff). Until then the hub's gun line reads Waiting, no estimate credits the guns, and a cat track holds its saved made snow.
         private bool m_GunSeasonKnown;
-        // Each bound cat track's made snow (RunSnowRules.TrackMadeSnow), seeded from its saved SkiTrackSnow on its first refresh of a load;
-        // swapped each refresh like the table. m_TrackSaves: the SkiTrackSnow values to write after the refresh.
+        // Each bound cat track's made snow (RunSnowRules.TrackMadeSnow), seeded from its saved SkiTrackSnow on its first refresh of a load.
+        // The code swaps it each refresh like the table. m_TrackSaves: the SkiTrackSnow values to write after the refresh.
         private Dictionary<Entity, RunSnowRules.TrackMadeSnow> m_TrackMade = new Dictionary<Entity, RunSnowRules.TrackMadeSnow>();
         private Dictionary<Entity, RunSnowRules.TrackMadeSnow> m_TrackMadeNext = new Dictionary<Entity, RunSnowRules.TrackMadeSnow>();
         private readonly List<KeyValuePair<Entity, int>> m_TrackSaves = new List<KeyValuePair<Entity, int>>();
@@ -830,7 +834,7 @@ namespace SkiResortMod.Systems
         // Measure-only readback: one request in flight (vanilla BaseDataReader pattern).
         private AsyncGPUReadbackRequest m_MeasureRequest;
         private bool m_MeasurePending;
-        private int m_LoadSerial;                // ++ per load; a request completing in a later load is discarded
+        private int m_LoadSerial;                // ++ per load. A request completing in a later load is discarded
         private int m_MeasureRequestLoad;
         private uint m_MeasureRequestFrame;
         private int m_MeasureRequestRenderFrame;
@@ -850,7 +854,8 @@ namespace SkiResortMod.Systems
         private int m_SkipEpisodeCount;
         private float m_SkipEpisodeStartAt;
         private int m_SkipsSinceLastReal;        // for the top-up line's suffix
-        // The packed skip beside the dry one, and the Snow [day] count. All reset in OnGameLoadingComplete; m_UncalmRuns also in ClearRunSnow.
+        // The packed skip beside the dry one, and the Snow [day] count. OnGameLoadingComplete resets all of them. ClearRunSnow also resets
+        // m_UncalmRuns.
         private TopupSkip m_SkipKind;            // the open episode's kind (None when no episode)
         private TopupSkip m_LastSkipKind;        // the kind of the skips since the last real pass (the top-up line's suffix)
         private int m_UncalmRuns;                // measured runs whose share is in [30 %, 70 %) at the last refresh
@@ -867,7 +872,7 @@ namespace SkiResortMod.Systems
         private ulong m_LastNaturalInjectedHash;
         private readonly List<NaturalRun> m_NaturalRuns = new List<NaturalRun>();
         private readonly List<PendingRun> m_NaturalPending = new List<PendingRun>();
-        // The per-run table: swapped like m_RunTexels (no allocation once grown); main thread.
+        // The per-run table: swapped like m_RunTexels (no allocation once grown). Main thread.
         private Dictionary<Entity, RunSnow> m_RunSnow = new Dictionary<Entity, RunSnow>();
         private Dictionary<Entity, RunSnow> m_RunSnowNext = new Dictionary<Entity, RunSnow>();
         private readonly List<RunSnowInput> m_RunSnowInputs = new List<RunSnowInput>();
@@ -883,7 +888,7 @@ namespace SkiResortMod.Systems
         private uint m_LastUsableSnapFrame;
         private bool m_SourceDisabledLogged;     // once per load
         // SnowSettled: the clock starts at the first evaluated pass of the load (also one
-        // that idles before RefreshRunSnow, second pass); m_TableAllMeasured is set by each refresh.
+        // that idles before RefreshRunSnow, second pass). Each refresh sets m_TableAllMeasured.
         private bool m_FirstPassSet;
         private uint m_FirstPassFrame;
         private uint m_LastEvalFrame;
@@ -928,11 +933,11 @@ namespace SkiResortMod.Systems
 
         // Each mask pass (BuildMask, every top-up) refills a run -> active-texel map from the per-run reduction that already exists: a
         // run's count is its NewMaskTexels, the texels it claimed first. Attribution is first-claim in schedule order (FoldRowsJob counts a
-        // texel only when Mask[idx] was still 0, and runs are chained sequentially), so the per-run counts sum exactly to the billed
-        // Snowmaking/Groomed/NightActiveTexels, but a run overlapped by an earlier one, or narrower than the ~14 m texel grid, can read 0
+        // texel only when Mask[idx] was still 0, and runs are chained sequentially). So the per-run counts sum exactly to the billed
+        // Snowmaking/Groomed/NightActiveTexels. But a run overlapped by an earlier one, or narrower than the ~14 m texel grid, can read 0
         // while making snow: > 0 means "making snow", 0 does not mean "off". Only bound runs with on-map coverage are scheduled, so an
         // unbound or off-map run has no entry (false). RunTexelGeneration bumps only when the map's content changed (a run added / removed
-        // or any count changed). Two dictionaries are swapped, so a pass allocates nothing once both have grown. Main thread (filled after
+        // or any count changed). The code swaps two dictionaries, so a pass allocates nothing once both have grown. Main thread (filled after
         // chain.Complete()).
         private Dictionary<Entity, int> m_RunTexels = new Dictionary<Entity, int>();
         private Dictionary<Entity, int> m_RunTexelsNext = new Dictionary<Entity, int>();
@@ -948,7 +953,7 @@ namespace SkiResortMod.Systems
         // m_GunState: the hysteresis state per bound, scheduled snowmaking / night run, stepped after every mask pass from the pack that
         // pass measured (SnowGunPlumeRules.NextGunState) and used by the next pass's fold (FoldRowsJob.GunGate). m_GunRunning: "the guns of
         // this run ran this pass" (the state the fold used and a cold texel), the read for the plume system. Two dictionaries each, swapped
-        // (runs that left the schedule drop out); cleared at a load and when the injection disables. Main thread.
+        // (runs that left the schedule drop out). The code clears them at a load and when the injection disables. Main thread.
         private Dictionary<Entity, SnowGunPlumeRules.GunState> m_GunState = new Dictionary<Entity, SnowGunPlumeRules.GunState>();
         private Dictionary<Entity, SnowGunPlumeRules.GunState> m_GunStateNext = new Dictionary<Entity, SnowGunPlumeRules.GunState>();
         private Dictionary<Entity, bool> m_GunRunning = new Dictionary<Entity, bool>();
@@ -966,7 +971,7 @@ namespace SkiResortMod.Systems
         /// <summary>Whether the guns of <paramref name="run"/> ran in the last mask pass (SnowGunPlumeRules.GunsRunning).
         /// False when the run was not scheduled (unbound, off the map, not a gun run, injection idle or disabled).</summary>
         /// <summary>Whether the last pass was in the gun season (the run tooltip's "out of season"). Before the first pass of a load
-        /// (GunSeasonKnown false) this is true, so HubRules.GunWhyOf, which callers then pass stateKnown false, answers Waiting and never a
+        /// (GunSeasonKnown false) this is true. Callers then pass stateKnown false to HubRules.GunWhyOf, so it answers Waiting and never a
         /// season it has not seen (the last load's value would be stale).</summary>
         internal bool GunSeasonNow => !m_GunSeasonKnown || m_PassGunSeason;
 
@@ -974,8 +979,8 @@ namespace SkiResortMod.Systems
         internal bool GunSeasonKnown => m_GunSeasonKnown;
 
         /// <summary>Whether a cat track's guns can run: bound (only bound runs are scheduled or billed, as for a gun run), the gun season and part of
-        /// the track cold enough at the day-mean temperature (SnowGunPlumeRules.TrackGunsCanRun; asked with the guns on, so in the season the
-        /// share is the guns' own reach, freezing + the margin). No state: a cat track stays out of the fold.</summary>
+        /// the track cold enough at the day-mean temperature (SnowGunPlumeRules.TrackGunsCanRun). The code asks it with the guns on, so in the season the
+        /// share is the guns' own reach, freezing + the margin. No state: a cat track stays out of the fold.</summary>
         internal bool CatTrackGunsCanRun(Entity run, float bottomY, float topY)
         {
             return IsRunBound(run) && SnowGunPlumeRules.TrackGunsCanRun(m_GunSeasonKnown && m_PassGunSeason, EstimateShare(RunKind.CatTrack, bottomY, topY));
@@ -986,7 +991,7 @@ namespace SkiResortMod.Systems
             return m_GunRunning.TryGetValue(run, out running);
         }
 
-        /// <summary>The run's hysteresis state and last measured pack (m; NaN before the first measurement).</summary>
+        /// <summary>The run's hysteresis state and last measured pack (m, NaN before the first measurement).</summary>
         internal bool TryGetRunGunState(Entity run, out SnowGunPlumeRules.GunState state, out float packM)
         {
             if (!m_GunPackM.TryGetValue(run, out packM))
@@ -994,8 +999,10 @@ namespace SkiResortMod.Systems
             return m_GunState.TryGetValue(run, out state);
         }
 
-        /// <summary>One gun run after the reduction: record the flag the fold used this pass, step the state from the pack this pass
-        /// measured (NaN: kept), and write one line per start / stop (the hysteresis bounds how often).</summary>
+        /// <summary>One gun run after the reduction:
+        /// - Record the flag the fold used this pass.
+        /// - Step the state from the pack this pass measured (NaN: kept).
+        /// - Write one line per start / stop (the hysteresis bounds how often).</summary>
         private void StepGuns(PendingRun run, int cold, float packM)
         {
             SnowGunPlumeRules.GunState before = run.GunState;
@@ -1017,7 +1024,7 @@ namespace SkiResortMod.Systems
                          $"{cold} cold texel(s) now (the guns raise, bill and plume only while running and cold)");
         }
 
-        /// <summary>Swap the stepped maps in; ++GunGeneration when the running flags changed.</summary>
+        /// <summary>Swap the stepped maps in. ++GunGeneration when the running flags changed.</summary>
         private void PublishGuns()
         {
             bool changed = m_GunRunningNext.Count != m_GunRunning.Count;
@@ -1063,8 +1070,8 @@ namespace SkiResortMod.Systems
             return m_RunTexels.TryGetValue(run, out texels);
         }
 
-        /// <summary>The cold texels <paramref name="run"/> held off in the last mask pass because its guns are stopped (first mark only; 0 for
-        /// a run whose guns run, a run without guns, or one not scheduled). Its grooming and lights bill them (SkiRunUpkeepRates.PisteUpkeep).</summary>
+        /// <summary>The cold texels <paramref name="run"/> held off in the last mask pass because its guns are stopped (first mark only). The value is 0 for
+        /// a run whose guns run, a run without guns, or one not scheduled. Its grooming and lights bill them (SkiRunUpkeepRates.PisteUpkeep).</summary>
         internal int RunStoppedTexels(Entity run)
         {
             return m_RunStopped.TryGetValue(run, out int texels) ? texels : 0;
@@ -1085,24 +1092,24 @@ namespace SkiResortMod.Systems
         }
 
         // Run snow, open state, the estimate. Main thread only, O(1) (a dictionary lookup, or for an estimate a handful of float operations
-        // on SnowLineSystem's cached day-mean). Consumers: the score (GetRunSnow -> Multiplier, Source; RunSnowGeneration and SnowSettled
+        // on SnowLineSystem's cached day-mean). Consumers: the score (GetRunSnow -> Multiplier, Source, plus RunSnowGeneration and SnowSettled
         // on its tick), the hub's stats (GetRunSnow, GetSnowSummary, RunSnowGeneration), the decal dress and the props' snow
         // (TryGetDressDepth). State / Phase are log and summary words only: the hub and the piste map use the multiplier.
 
         /// <summary>City-wide snow status for the hub's status line and the logs (a copy).</summary>
         internal struct SnowSummary
         {
-            public RunSnowSource Source;            // None before the first pass; GatingOff; Measured if any run is; else Estimated
+            public RunSnowSource Source;            // None before the first pass, GatingOff, Measured if any run is, else Estimated
             public int Runs, Measured, Estimated;
             public int Open, Closed;                // by State
             public int Opening, Closing;            // by Phase
             public bool InjectionActive;            // armed and not disabled this load
-            public bool DrySkip, MeasureOnly;       // episodes in progress; DrySkip = a dry one
+            public bool DrySkip, MeasureOnly;       // episodes in progress. DrySkip = a dry one
             public bool PackedSkip;                 // a packed skip episode (no reader outside this system)
             public bool SnowVisualsOff;             // read live: SharedSettings.instance?.gameplay?.snowVisual == false
             public float SnowmakingMarginC;         // read live: SnowLineSystem.GetSnowmakingMarginC()
             public float DayMeanC;                  // read live: SnowLineSystem.GetDayMeanTemperature()
-            public uint NewestSnapshotAgeFrames;    // at the last pass; uint.MaxValue when none
+            public uint NewestSnapshotAgeFrames;    // at the last pass. uint.MaxValue when none
             public RunDressSource DressSource;
             public float DressDepthM;
         }
@@ -1113,8 +1120,8 @@ namespace SkiResortMod.Systems
         /// (≤ 2 per wall-clock second) plus one per gating flip.</summary>
         internal int RunSnowGeneration => m_RunSnowGeneration;
 
-        /// <summary>The read for score, stats, overlay, groomer and hub: the table entry if the run is scheduled, else an on-the-spot estimate
-        /// from the caller's heights (Geometry.m_Bounds y) and kind, through the one estimate rule a run in the table uses too
+        /// <summary>The read for score, stats, overlay, groomer and hub. It gives the table entry if the run is scheduled. Else it gives an
+        /// on-the-spot estimate from the caller's heights (Geometry.m_Bounds y) and kind, through the one estimate rule a run in the table uses too
         /// (RunSnowRules.EstimatedRunShare). A cat track (never in the table) opens like a snowmaking run: freezing + the margin while its guns
         /// make snow, on natural snow only out of the gun season or with its guns Off (DECISIONS 568, 571). Gating off: Source GatingOff, State
         /// Open, Multiplier 1 (Share and depth are still the measured or estimated values, for display). Always answers.</summary>
@@ -1124,7 +1131,7 @@ namespace SkiResortMod.Systems
             {
                 // not in the table (injection disabled or not armed, run unbound or off the map,
                 // no pass yet) → the day-mean estimate. A groomed run's prefab kind becomes its snow kind (its gun slider is its
-                // Snowmaking feature, R2: RunFeatures.SnowKind); a cat track's switch travels as gunsOn. No history: the first label uses the
+                // Snowmaking feature, R2: RunFeatures.SnowKind). A cat track's switch travels as gunsOn. No history: the first label uses the
                 // midpoint, the multiplier is published as is.
                 RunFeatures runFeatures = m_RunProps.FeaturesOf(run, (int)kind);
                 if (runFeatures.IsPiste)
@@ -1156,8 +1163,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>City-wide status for the hub's status line and the logs (a copy). The table counts are
-        /// those of the last evaluated pass; injection state, episodes, the game's Snow visuals option, the
-        /// margin, the day-mean, the gating source and the dress are read live.</summary>
+        /// those of the last evaluated pass. The code reads injection state, episodes, the game's Snow visuals option, the
+        /// margin, the day-mean, the gating source and the dress live.</summary>
         internal SnowSummary GetSnowSummary()
         {
             SnowSummary s = m_Summary;
@@ -1165,7 +1172,7 @@ namespace SkiResortMod.Systems
             s.DrySkip = m_InSkip && m_SkipKind == TopupSkip.Dry;
             s.PackedSkip = m_InSkip && m_SkipKind == TopupSkip.Packed;
             s.MeasureOnly = m_InMeasureOnly;
-            // The game's Gameplay > "Snow visuals" only scales the drawn snow to 0 (SnowSystem.cs:199-206, the same read); the simulation keeps
+            // The game's Gameplay > "Snow visuals" only scales the drawn snow to 0 (SnowSystem.cs:199-206, the same read). The simulation keeps
             // running, so the measurement stays the truth and the hub adds a note.
             Game.Settings.GameplaySettings gameplay = Game.Settings.SharedSettings.instance?.gameplay;
             s.SnowVisualsOff = gameplay != null && !gameplay.snowVisual;
@@ -1199,9 +1206,11 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>True once every scheduled run has a Measured entry this load, or the injection is not active this load, or 256 sim
-        /// frames have passed since the first evaluated pass of the load (a pass that idled before RefreshRunSnow counts as the first).
-        /// Evaluated at the last pass; false before the first pass of the load. An empty table is vacuously "every entry Measured": true
+        /// <summary>True once any of these holds:
+        /// - Every scheduled run has a Measured entry this load.
+        /// - The injection is not active this load.
+        /// - 256 sim frames have passed since the first evaluated pass of the load (a pass that idled before RefreshRunSnow counts as the first).
+        /// Evaluated at the last pass. False before the first pass of the load. An empty table is vacuously "every entry Measured": true
         /// from the first refresh. The attraction chapter holds the first provider write of a load until it is true and turns its
         /// false -> true edge into a soft recompute.</summary>
         internal bool SnowSettled
@@ -1219,10 +1228,10 @@ namespace SkiResortMod.Systems
         private bool m_ForceNextTopupLog;
         private string m_LastIdleReason;
 
-        // Folds the top-up lines; reset per load, flushed before a load.
+        // Folds the top-up lines. Reset per load, flushed before a load.
         private readonly LogWindow m_TopupLog = new LogWindow(Tuning.LogWindowS);
         // The run state changes (slots: city open count, closed count, 1), the skip episodes (dry or packed) and the measure-only episodes
-        // each fold through their own window; FlushWindows covers all four (before an idle line, on a load, at quit; TrailingDue after every
+        // each fold through their own window. FlushWindows covers all four (before an idle line, on a load, at quit, and TrailingDue after every
         // evaluated pass).
         private readonly LogWindow m_OpenLog = new LogWindow(Tuning.LogWindowS);
         private readonly LogWindow m_SkipLog = new LogWindow(Tuning.LogWindowS);
@@ -1247,7 +1256,7 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
-                    // Every run kind is a SurfacePrefab area (Game.Prefabs/SurfacePrefab.cs:18-23 adds Game.Areas.Surface); the walk skips lots,
+                    // Every run kind is a SurfacePrefab area (Game.Prefabs/SurfacePrefab.cs:18-23 adds Game.Areas.Surface). The walk skips lots,
                     // districts and the 529 map tiles that used to be tested against the prefab sets on every pass.
                     ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<Geometry>(),
@@ -1271,9 +1280,9 @@ namespace SkiResortMod.Systems
 
         protected override void OnDestroy()
         {
-            // Quit to desktop raises no onGamePreload, but the world's systems are destroyed while the logger still lives (LogWindow.cs header),
-            // so the folded lines are written here, before any native state is disposed. Teardown must never throw: a write that fails is
-            // dropped (the logger itself may be what failed).
+            // Quit to desktop raises no onGamePreload, but the game destroys the world's systems while the logger still lives (LogWindow.cs header).
+            // So this code writes the folded lines here, before any native state is disposed. Teardown must never throw: it drops a write that
+            // fails (the logger itself may be what failed).
             try
             {
                 // An open skip spell ends with the reason "quit" and the counted part day is written.
@@ -1287,10 +1296,10 @@ namespace SkiResortMod.Systems
             {
                 // nothing left to report to
             }
-            // Wait before disposing the array a measure-only request writes into (vanilla BaseDataReader.Dispose, BaseDataReader.cs:148-153;
-            // WaterRenderSystem.ReleaseShader, :291-296). It stays: disposing an array a readback still writes is the real hazard; it
+            // Wait before disposing the array a measure-only request writes into (vanilla BaseDataReader.Dispose, BaseDataReader.cs:148-153, and
+            // WaterRenderSystem.ReleaseShader, :291-296). It stays: disposing an array a readback still writes is the real hazard. It
             // writes one line when it actually waited, so a slow quit is attributable. A "Game terminated due to timeout" line at quit is
-            // not from this wait (GameManager.cs:779-819; details in EngineNotes/SkiSnowInjectionSystem.md).
+            // not from this wait (GameManager.cs:779-819). Details: EngineNotes/SkiSnowInjectionSystem.md.
             try
             {
                 if (m_MeasurePending && !m_MeasureRequest.done)
@@ -1343,14 +1352,14 @@ namespace SkiResortMod.Systems
 
         /// <summary>A load (or leaving to the menu) writes the folded top-up lines of the city being left, so the last state before a
         /// reload is in the log. Never throws: GameSystemBase.GamePreload disables a system whose OnGamePreload throws
-        /// (Game/GameSystemBase.cs:85-96, base.Enabled = false at :94; same in 1.6.2).</summary>
+        /// (Game/GameSystemBase.cs:85-96, base.Enabled = false at :94, same in 1.6.2).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
             try
             {
-                // Open episodes end with the reason "a load" (written at once, with any fold); the cost line is written now if 8-63 evaluated passes
-                // ran; the counted part day is written right after the skip's end line; then every window is flushed.
+                // Open episodes end with the reason "a load" (written at once, with any fold). The cost line is written now if 8-63 evaluated passes
+                // ran. The counted part day is written right after the skip's end line. Then every window is flushed.
                 float now = UnityEngine.Time.realtimeSinceStartup;
                 if (m_InSkip)
                     EndSkip("a load", now, force: true);
@@ -1368,7 +1377,7 @@ namespace SkiResortMod.Systems
             }
             try
             {
-                // Wait before resetting (vanilla ActiveWaterTilesHelper.Reset, ActiveWaterTilesHelper.cs:78-84); the stall happens during a load,
+                // Wait before resetting (vanilla ActiveWaterTilesHelper.Reset, ActiveWaterTilesHelper.cs:78-84). The stall happens during a load,
                 // where it is invisible. Then neither snapshot may be read again before a copy succeeds in the next load.
                 if (m_MeasurePending)
                 {
@@ -1381,7 +1390,7 @@ namespace SkiResortMod.Systems
             catch (Exception e)
             {
                 // m_MeasurePending stays as it is: no second request may target an array a request might
-                // still write; the poll (or the defensive wait at load complete) settles it.
+                // still write. The poll (or the defensive wait at load complete) settles it.
                 m_MeasureValid = false;
                 m_ReadbackValid = false;
                 Mod.Log.Warn($"Snow [measure]: the pending snow-map readback could not be awaited before the load " +
@@ -1419,7 +1428,7 @@ namespace SkiResortMod.Systems
             HasMaskMeasurement = false;
             m_ForceNextTopupLog = true;
             m_LastIdleReason = null;
-            m_TopupLog.Reset();           // flushed in OnGamePreload; nothing carries over
+            m_TopupLog.Reset();           // flushed in OnGamePreload. Nothing carries over
             m_RunTexels.Clear();          // the previous city's runs are gone
             m_RunTexelsNext.Clear();
             m_RunStopped.Clear();
@@ -1428,7 +1437,7 @@ namespace SkiResortMod.Systems
             m_RunTexelGeneration++;
 
             // Every per-load field of the snapshot, skip, measure and run-table state. A measure-only request that is somehow still pending is
-            // awaited first (defensive; OnGamePreload normally did it).
+            // awaited first (defensive, OnGamePreload normally did it).
             try
             {
                 if (m_MeasurePending)
@@ -1616,7 +1625,7 @@ namespace SkiResortMod.Systems
                     frame - m_LastTopupFrame < (uint)Tuning.TopupIntervalFrames)
                     return;
                 float now = UnityEngine.Time.realtimeSinceStartup;
-                // At most one evaluated pass per MinPassIntervalS of wall clock. A postponed pass re-checks in 4 sim frames (a float compare); the
+                // At most one evaluated pass per MinPassIntervalS of wall clock. A postponed pass re-checks in 4 sim frames (a float compare). The
                 // frames keep counting into `elapsed`. The first pass after a load is exempt.
                 if (!m_InitialTopupPending && now - m_LastPassRealTime < RunSnowRules.MinPassIntervalS)
                     return;
@@ -1636,7 +1645,7 @@ namespace SkiResortMod.Systems
             catch (Exception e)
             {
                 // Never throw into the game loop. Unmissable, with the full stack, once per
-                // load; session caches are KEPT so the next load re-arms automatically.
+                // load. Session caches are KEPT, so the next load re-arms automatically.
                 m_Disabled = true;
                 if (!m_ErrorLogged)
                 {
@@ -1645,7 +1654,7 @@ namespace SkiResortMod.Systems
                                   "injection disabled until the next game load. Please report " +
                                   $"this stack:\n{e}");
                 }
-                // A pending measure-only request is left to complete (the preload and destroy paths await it); the run table is cleared (every run
+                // A pending measure-only request is left to complete (the preload and destroy paths await it). The run table is cleared (every run
                 // is then estimated) and the generation bumped.
                 ClearRunSnow();
             }
@@ -1697,8 +1706,8 @@ namespace SkiResortMod.Systems
             if (m_GunSeasonLogged < 0)
                 SkiClimateCalendar.WinterWindow(m_ClimateSystem, m_PrefabSystem, out m_GunWinterStart, out m_GunWinterEnd);
             m_PassSpring = RunSnowRules.IsSpring(m_ClimateSystem.currentSeasonName, m_TimeSystem.normalizedDate, m_GunWinterEnd);
-            // the gun season (around this climate's winter; a vanilla winter / summer name decides first). Out of it the guns raise,
-            // bill and plume nothing; one line per change.
+            // the gun season (around this climate's winter: a vanilla winter / summer name decides first). Out of it the guns raise,
+            // bill and plume nothing. One line per change.
             m_PassGunSeason = SnowGunPlumeRules.InGunSeason(m_ClimateSystem.currentSeasonName, m_TimeSystem.normalizedDate, m_GunWinterStart, m_GunWinterEnd);
             m_GunSeasonKnown = true;
             if (m_GunSeasonLogged != (m_PassGunSeason ? 1 : 0))
@@ -1746,7 +1755,7 @@ namespace SkiResortMod.Systems
                 return;
             }
             // This early-out must not fire whenever all gates are off: that is exactly when managed decay must run. Idle only when there is
-            // neither anything to inject nor anything to decay; a gates-off pass with decay coverage proceeds to the merge (0 raised, N lowered).
+            // neither anything to inject nor anything to decay. A gates-off pass with decay coverage proceeds to the merge (0 raised, N lowered).
             // A stopped gun run's cold texels keep the pass real (a readback every window): the guns restart from the pack this snapshot
             // measures, so it must stay fresh.
             if (stats.MaskTexels == 0 && stats.DecayTexels == 0 && stats.ProtectedTexels == 0 && stats.StoppedTexels == 0)
@@ -1772,11 +1781,11 @@ namespace SkiResortMod.Systems
             }
 
             // Dry skip: no texel cold enough now, the last real pass found the whole footprint warm and bare, the footprint is the same, and
-            // the forced real pass is not due, so a real pass would provably raise nothing and lower nothing it is owed. No readback, merge or
-            // upload; a measure-only request is normally a no-op here (the forced real pass is the 1,024-frame snapshot).
+            // the forced real pass is not due. So a real pass would provably raise nothing and lower nothing it is owed. No readback, merge or
+            // upload. A measure-only request is normally a no-op here (the forced real pass is the 1,024-frame snapshot).
             // Packed skip: no texel cold now, the last real pass raised and lowered nothing and left the pack guard on, the runs held >=
             // PackedSkipMinRunDepthM, every measured share is calm, the same footprint, the forced pass not due. Dry is tested first and
-            // ignores the share guard. The share guard is moot with gating off (GetRunSnow then answers Open and multiplier 1 to every reader);
+            // ignores the share guard. The share guard is moot with gating off (GetRunSnow then answers Open and multiplier 1 to every reader).
             // m_LastGating was refreshed in step 3 (NoteSettingChanges).
             uint sinceReal = frame - m_LastRealPassFrame;
             bool calm = !m_LastGating || m_UncalmRuns == 0;
@@ -1792,8 +1801,8 @@ namespace SkiResortMod.Systems
                 return;
             }
             // Step 11: a forced real pass (the 1,024-frame check) keeps the episode open unless the record it makes would not skip the same way
-            // (step 15); any other reason to do a real pass ends it now, with the first failing term. "Forced" only when the frame term is the
-            // only failing term, so a pass where the frame term is due and a texel turned cold (or the footprint changed, or a measured share
+            // (step 15). Any other reason to do a real pass ends it now, with the first failing term. "Forced" only when the frame term is the
+            // only failing term. So a pass where the frame term is due and a texel turned cold (or the footprint changed, or a measured share
             // left the calm band) ends the episode here with that reason, not at step 15.
             bool forced = m_InSkip && m_ProtectActiveRuns == 0 && RunSnowRules.IsForcedCheck(m_LastReal, stats.ColdTexels,
                 stats.ContainedTexels, stats.FootprintHash, sinceReal, calm);
@@ -1828,8 +1837,8 @@ namespace SkiResortMod.Systems
             // CPU max-merge (MergeRowsJob). R: r = max(r, target x coverage): idempotent, monotone, never reduces. G: exact ushort round-trip
             // (k/65535 re-quantizes to k), water is untouched. Deep winter: natural depth already exceeds every target, injected stays 0, and
             // the upload below is skipped. Ramp semantics: coarse-lobe rate noise + chill factor, deterministic per texel (see the job body).
-            // The pack guard (RunSnowRules.PackGuard, also read by the packed skip) uses the last pass's map mean (one-window lag, harmless):
-            // while a winter pack covers the world, decay stands down and runs melt with the landscape, never ahead of it. The mean it read is
+            // The pack guard (RunSnowRules.PackGuard, also read by the packed skip) uses the last pass's map mean (one-window lag, harmless).
+            // While a winter pack covers the world, decay stops and runs melt with the landscape, never ahead of it. The mean it read is
             // kept in packMean for the top-up line: m_LastGlobalMeanDepthM gets this pass's mean below, before the line is built.
             float packMean = m_LastGlobalMeanDepthM;
             bool packGuard = RunSnowRules.PackGuard(packMean);
@@ -1882,7 +1891,7 @@ namespace SkiResortMod.Systems
                 ? (float)(runDepthSum / runTexels) * SnowHeightScaleM : 0f;
             HasRunSnowMeasurement = true;
 
-            // What the next pass's skip predicates compare against; also Lowered, the pack guard the next merge applies (from this pass's map
+            // What the next pass's skip predicates compare against. Also Lowered, the pack guard the next merge applies (from this pass's map
             // mean, written just above) and the run mean (the dress depth).
             m_LastReal = new DryPass
             {
@@ -1897,10 +1906,10 @@ namespace SkiResortMod.Systems
                 RunMeanDepthM = MeanRunSnowDepthM,
             };
             m_LastRealPassFrame = frame;
-            // Step 15: a forced check ends its episode when the record it just made would not let the next pass skip the same way (frame term
-            // ignored; the share guard as of this pass, which measured the old snapshot: a share this readback moves out of the calm band ends
-            // the spell at the next pass's step 11). For a dry episode this is exactly "ends when runDepthSum > 0 || injected > 0" (forced
-            // implies no cold texel, so injected is 0 and the record is dry iff runDepthSum == 0).
+            // Step 15: a forced check ends its episode when the record it just made would not let the next pass skip the same way. The code
+            // ignores the frame term and takes the share guard as of this pass, which measured the old snapshot. A share this readback moves out
+            // of the calm band ends the spell at the next pass's step 11. For a dry episode this is exactly "ends when runDepthSum > 0 || injected > 0"
+            // (forced implies no cold texel, so injected is 0 and the record is dry iff runDepthSum == 0).
             if (forced)
             {
                 TopupSkip next = RunSnowRules.SkipKind(m_LastReal, stats.ColdTexels, stats.ContainedTexels,
@@ -1911,10 +1920,9 @@ namespace SkiResortMod.Systems
 
             if (injected + lowered + heldTexels > 0)
             {
-                // The game's own Deserialize upload path (SnowSystem.cs:323-327), aimed at
-                // the Read buffer only: the renderer samples it as _SnowMap immediately,
-                // and the next AddSnow consumes it as _Previous — the Write buffer is
-                // fully rewritten from Read every snow tick, so it needs no copy.
+                // The game's own Deserialize upload path (SnowSystem.cs:323-327), aimed at the Read buffer only. The renderer samples it as _SnowMap
+                // immediately, and the next AddSnow consumes it as _Previous. The Write buffer is fully rewritten from Read every snow tick, so it
+                // needs no copy.
                 m_UploadBuffer.SetData(m_Upload);
                 m_SnowUpdateShader.SetBuffer(m_LoadKernel, m_LoadSourceId, m_UploadBuffer);
                 m_SnowUpdateShader.SetTexture(m_LoadKernel, m_ResultId, snowDepth);
@@ -1933,8 +1941,8 @@ namespace SkiResortMod.Systems
             m_SkipsSinceLastReal = 0;
 
             // A gate change against the previous pass (a run's gate opening or closing, a run added, removed, bound or unbound, the mask
-            // emptying or filling) is the event a reader looks for, so it is forced like a load or an idle spell, but at most once per
-            // LogWindowS; a second change inside the window folds.
+            // emptying or filling) is the event a reader looks for. So the system forces its line like a load or an idle spell, but at most once per
+            // LogWindowS. A second change inside the window folds.
             int4 gateA = new int4(stats.SnowmakingActive, stats.SnowmakingTotal, stats.GroomedActive, stats.GroomedTotal);
             int4 gateB = new int4(stats.NightActive, stats.NightTotal, stats.UnboundRuns, stats.MaskTexels == 0 ? 1 : 0);
             bool gateChanged = math.any(gateA != m_LastGateA) || math.any(gateB != m_LastGateB);
@@ -2002,7 +2010,7 @@ namespace SkiResortMod.Systems
                               $"{m_Summary.Opening} opening, {m_Summary.Closed - m_Summary.Opening} closed " +
                               $"({m_Summary.Estimated} estimated); by multiplier (the hub's marks): " +
                               $"{m_MultFull} at 100 %, {m_MultPartly} partly, {m_MultZero} at 0 %";
-                // The first line after a quiet window (or after a load or an idle spell: force) is written as before; the rest of a burst is folded.
+                // The first line after a quiet window (or after a load or an idle spell: force) is written as before. The rest of a burst is folded.
                 switch (m_TopupLog.Offer(now, force, body, injected, lowered, passMs))
                 {
                     case LogWindow.Verdict.Plain:
@@ -2023,7 +2031,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Idle states log once per reason transition (silence impossible, spam
-        /// impossible); the next successful top-up is force-logged so resumption is visible.</summary>
+        /// impossible). The next successful top-up is force-logged so resumption is visible.</summary>
         private void SetIdle(string reason)
         {
             if (m_LastIdleReason == reason)
@@ -2069,7 +2077,7 @@ namespace SkiResortMod.Systems
             window.Wrote(now);
         }
 
-        /// <summary>Offers one episode line to its window: written at once after a quiet window (or when forced: a load), else folded; a
+        /// <summary>Offers one episode line to its window: written at once after a quiet window (or when forced: a load), else folded. A
         /// passed window writes the summary.</summary>
         private static void OfferEpisodeLine(LogWindow window, string prefix, string what, string body, bool force,
             float now)
@@ -2113,8 +2121,8 @@ namespace SkiResortMod.Systems
             return default;
         }
 
-        /// <summary>A non-blocking measure-only readback into m_MeasureReadback, only on an evaluated pass without a real pass, only with
-        /// natural runs to measure, only when no snapshot is younger than MeasureIntervalFrames, one request in flight. In a skip episode
+        /// <summary>A non-blocking measure-only readback into m_MeasureReadback. It runs only on an evaluated pass without a real pass, only with
+        /// natural runs to measure, and only when no snapshot is younger than MeasureIntervalFrames. At most one request is in flight. In a skip episode
         /// (dry or packed) the forced real pass refreshes m_Readback every 1,024 frames, so `fresh` holds and no request is made: a packed
         /// spell adds no GPU work. Called only after BuildMask's chains completed (no job reads the array). With no natural run an open
         /// measure-only episode ends.</summary>
@@ -2161,10 +2169,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Vanilla's poll order: hasError, then done (TerrainSystem.cs:3571-3592); no copy is needed, the array is the snapshot. A
-        /// failure WARNs once per load and is retried at the next pass; MeasureFailLimit failures in a row stop measure-only for the load
+        /// <summary>Vanilla's poll order: hasError, then done (TerrainSystem.cs:3571-3592). No copy is needed: the array is the snapshot. A
+        /// failure WARNs once per load and is retried at the next pass. MeasureFailLimit failures in a row stop measure-only for the load
         /// (TerrainSystem.cs:3595-3603). m_MeasureFrame is the sim frame of the request: the GPU copy is queued behind that frame's work, so
-        /// the data is at least that new (unverified ordering; used as a lower bound only).</summary>
+        /// the data is at least that new (unverified ordering, used as a lower bound only).</summary>
         private void PollMeasureReadback(uint frame)
         {
             if (!m_MeasurePending)
@@ -2220,7 +2228,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The day-mean estimate for a run not in the table (RunSnowRules.EstimatedRunShare, the rule RefreshRunSnow uses for a run it
         /// could not measure): freezing + the margin while a snowmaking run, night run or cat track can make snow (this pass's gun season, and
-        /// <paramref name="gunsOn"/>: a cat track's switch, true for a run), else freezing; groomed freezing + 0. CatTrackGunsCanRun asks with
+        /// <paramref name="gunsOn"/>: a cat track's switch, true for a run), else freezing. A groomed run gets freezing + 0. CatTrackGunsCanRun asks with
         /// the guns on, as the guns' own reach.</summary>
         private float EstimateShare(RunKind kind, float bottomY, float topY, bool gunsOn = true)
         {
@@ -2280,7 +2288,7 @@ namespace SkiResortMod.Systems
                 else if (input.CarryOver && hasPrev && prev.Source == RunSnowSource.Measured &&
                          frame - prev.SnapshotFrame <= RunSnowRules.MaxSnapshotAgeFrames)
                 {
-                    // A natural run whose measurement is not due this pass keeps its last one; so does any run while no snapshot is usable (a failed
+                    // A natural run whose measurement is not due this pass keeps its last one. So does any run while no snapshot is usable (a failed
                     // readback), within the age cap.
                     share = prev.Share;
                     next.Source = RunSnowSource.Measured;
@@ -2300,14 +2308,14 @@ namespace SkiResortMod.Systems
                         m_GunSeasonKnown && m_PassGunSeason, input.GunsOn);
                 }
                 // A cat track: the larger of its snow (above: the snow map under it, or the estimate) and its made snow (the guns' model,
-                // held by the runs' protection machine; RunSnowRules.StepTrackMadeSnow).
+                // held by the runs' protection machine, RunSnowRules.StepTrackMadeSnow).
                 if (input.Kind == RunKind.CatTrack)
                 {
                     if (float.IsNaN(dayMean))
                         dayMean = m_SnowLineSystem.GetDayMeanTemperature();
                     float snowShare = share;
                     share = StepTrack(input, share, dayMean, freezing, margin, baseHeight, lapse, protectDtHours);
-                    // The depth is the measured snow under the track; made snow has a share, not a depth (it is never on the map). While the
+                    // The depth is the measured snow under the track. Made snow has a share, not a depth (it is never on the map). While the
                     // made share leads, the depth line would read near 0 under an open track, so it is hidden (NaN: HubRules.DepthCm -1).
                     if (RunSnowRules.MadeSnowLeads(snowShare, share))
                         next.MeanDepthM = float.NaN;
@@ -2461,8 +2469,8 @@ namespace SkiResortMod.Systems
 
 
         /// <summary>Snow made / held per run, read from this pass's merge (Upload against Readback over each run's texel box, the
-        /// texels the run owns in the Owner plane). "Made" = raised toward a gun or groomed target; "held" = melted snow put
-        /// back by protection. Runtime only, per load; main thread, after the merge.</summary>
+        /// texels the run owns in the Owner plane). "Made" = raised toward a gun or groomed target, "held" = melted snow put
+        /// back by protection. Runtime only, per load. Main thread, after the merge.</summary>
         private void AccumulateLedger()
         {
             if (m_LedgerRuns.Count == 0)
@@ -2516,7 +2524,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The run's snow ledger (cubic meters this season and in total; made by guns or grooming, and held by protection). False
+        /// <summary>The run's snow ledger (cubic meters this season and in total, made by guns or grooming, and held by protection). False
         /// before the run has gained anything this load. Main thread. The catalog's dump row prints it.</summary>
         internal bool TryGetRunLedger(Entity run, out RunSnowRules.RunLedger ledger)
         {
@@ -2566,10 +2574,13 @@ namespace SkiResortMod.Systems
                 active++;
         }
 
-        /// <summary>One cat track's made snow for this refresh (RunSnowRules.StepTrackMadeSnow): seeded from its saved SkiTrackSnow on its
-        /// first refresh of a load, raised by its guns (the estimate at freezing + the margin while GunsMakeSnow), held by the protection
-        /// machine at the largest run budget, melted at a run pack's speed after it (RunMeltOutHours). Queues the saved value when it moved. Returns the
-        /// track's share: the larger of <paramref name="snowShare"/> (measured or estimated) and the made share.</summary>
+        /// <summary>One cat track's made snow for this refresh (RunSnowRules.StepTrackMadeSnow). The steps:
+        /// - Seed it from its saved SkiTrackSnow on its first refresh of a load.
+        /// - Raise it by its guns (the estimate at freezing + the margin while GunsMakeSnow).
+        /// - Hold it with the protection machine at the largest run budget.
+        /// - Melt it at a run pack's speed after that (RunMeltOutHours).
+        /// Queues the saved value when it moved. Returns the track's share: the larger of <paramref name="snowShare"/> (measured or estimated)
+        /// and the made share.</summary>
         private float StepTrack(in RunSnowInput input, float snowShare, float dayMean, float freezing, float margin, float baseHeight,
             float lapse, float dtHours)
         {
@@ -2603,7 +2614,7 @@ namespace SkiResortMod.Systems
             return RunSnowRules.TrackShare(snowShare, made.Share);
         }
 
-        /// <summary>After a refresh: the stepped made snow replaces the old (a track no longer in the table drops out), and the moved values
+        /// <summary>After a refresh: the stepped made snow replaces the old (a track no longer in the table drops out). The moved values
         /// are written to SkiTrackSnow (added once per track: a structural change on the main thread, at most once in its life).</summary>
         private void PublishTracks()
         {
@@ -2693,7 +2704,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The age of the newest valid snapshot at <paramref name="frame"/>; uint.MaxValue when none.</summary>
+        /// <summary>The age of the newest valid snapshot at <paramref name="frame"/>. The value is uint.MaxValue when none.</summary>
         private uint NewestSnapshotAge(uint frame)
         {
             uint best = uint.MaxValue;
@@ -2724,7 +2735,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>One skipped pass (dry or packed); the first of an episode writes the episode line. Also the Snow [day] and cost counts
+        /// <summary>One skipped pass (dry or packed). The first of an episode writes the episode line. Also the Snow [day] and cost counts
         /// of skipped passes.</summary>
         private void NoteSkip(TopupSkip kind, MaskStats stats, float ambient, float now, double maskMs)
         {
@@ -2785,7 +2796,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The first failing term of the skip predicate, in its order (the frames term is the forced pass, which does not end an
-        /// episode by itself). A packed episode also ends when a measured share left the calm band (the share guard; numbers interpolated).</summary>
+        /// episode by itself). A packed episode also ends when a measured share left the calm band (the share guard, numbers interpolated).</summary>
         private string SkipEndReason(MaskStats stats, bool calm)
         {
             if (m_ProtectActiveRuns > 0)
@@ -2804,9 +2815,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Why a forced check ended its episode: the record it just made would skip the other way (dry and packed) or not at all.
-        /// Packed to none cannot come from Lowered or Injected (the forced merge ran with the pack guard on and no cold texel) nor from the
-        /// share guard (the same `calm` let the check be forced), so it is the pack gone or the runs under the dress guard. Every number is
-        /// interpolated.</summary>
+        /// Packed to none cannot come from Lowered or Injected (the forced merge ran with the pack guard on and no cold texel). It cannot come
+        /// from the share guard either (the same `calm` let the check be forced). So it is the pack gone or the runs under the dress guard.
+        /// Every number is interpolated.</summary>
         private string ForcedEndReason(TopupSkip was, TopupSkip next)
         {
             if (was == TopupSkip.Dry)
@@ -2836,7 +2847,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>One Snow [day] line per game day, keyed by SkiDayRules.DayKey (the mod's one day key, the SkiGuestCounterSystem.AdvanceDay
         /// pattern). The key moves every kTicksPerDay = 262,144 ticks: normalizedDate is the tick count mod 262,144 x daysPerYear over that
-        /// (TimeSystem.cs:18, :38, :120-124; identical in 1.6.2f1). The first pass of a load starts its day without a line and marks it "from
+        /// (TimeSystem.cs:18, :38, :120-124). Identical in 1.6.2f1. The first pass of a load starts its day without a line and marks it "from
         /// the load". Main thread (Topup).</summary>
         private void AdvanceSnowDay()
         {
@@ -2847,7 +2858,7 @@ namespace SkiResortMod.Systems
             if (!first)
             {
                 WriteDayLine(null);
-                WriteMadeLine();   // both belong to a day roll; the ledger is empty at the first pass of a load
+                WriteMadeLine();   // both belong to a day roll. The ledger is empty at the first pass of a load
             }
             m_DayKey = day;
             m_DayFromLoad = first;
@@ -2858,7 +2869,7 @@ namespace SkiResortMod.Systems
             ZeroDayCounts();
         }
 
-        /// <summary>The counted day's line, then the counters are zeroed. <paramref name="end"/> null = a day roll; "the load" / "quit" = a
+        /// <summary>The counted day's line, then the counters are zeroed. <paramref name="end"/> null = a day roll. "the load" / "quit" = a
         /// part day. "idle or failed" is every counted pass that was neither real nor skipped: the idle exits and the failed readbacks.
         /// Nothing is written when no pass was counted. Never reads the TimeSystem (also called from OnDestroy).</summary>
         private void WriteDayLine(string end)
@@ -2924,7 +2935,7 @@ namespace SkiResortMod.Systems
             }
             catch (Exception)
             {
-                // the disable path must not throw; the table is per load and reset at the next one
+                // the disable path must not throw. The table is per load and reset at the next one
             }
         }
 
@@ -2994,7 +3005,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Once per load: after CostPasses evaluated passes (OnUpdate), or at OnGamePreload when 8-63 ran. The rate counts
-        /// intervals ((N - 1) / span): the floor caps every interval at 0.5 s, so it never exceeds the cap; "with {nr} run(s)" is the most
+        /// intervals ((N - 1) / span): the floor caps every interval at 0.5 s, so it never exceeds the cap. "with {nr} run(s)" is the most
         /// natural runs one pass measured.</summary>
         private void WriteCostLine()
         {
@@ -3016,8 +3027,8 @@ namespace SkiResortMod.Systems
                          $"per pass, step clamped at x{RunSnowRules.MaxStepScale:F0} on {m_StepClampedPasses} pass(es)");
         }
 
-        // Buffer contract guard — the single dependency surface. Checked once per load;
-        // any drift means a game patch changed snow internals: WARN once and disable.
+        // Buffer contract guard — the single dependency surface. Checked once per load.
+        // Any drift means a game patch changed snow internals: WARN once and disable.
         // Failure mode is "no injected snow", never corruption (we write nothing).
         private bool ValidateBuffer(float2 playSize)
         {
@@ -3071,7 +3082,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Both snapshot arrays (session-scoped, uninitialized; validity is per load, m_ReadbackValid / m_MeasureValid). Called
+        /// <summary>Both snapshot arrays (session-scoped, uninitialized). Validity is per load (m_ReadbackValid / m_MeasureValid). Called
         /// right after ValidateBuffer succeeds and before BuildMask, so the jobs always get created arrays (a job never reads one whose
         /// Measure flag is off).</summary>
         private void EnsureSnapshotBuffers()
@@ -3098,8 +3109,8 @@ namespace SkiResortMod.Systems
         // Mask build: run polygons -> per-texel target depth (normalized /8 m) in snow-buffer texel space. Texel (x,y) covers world
         // playableOffset + ((x,y)+0.5)/1024 * playableArea (snow UV == playable UV, TerrainSystem.cs:2502-2508). Per run: triangles
         // accumulate additive supersampled coverage in a scratch plane (triangles of one polygon never overlap, so partial coverages on
-        // shared texels sum correctly), then fold max(coverage x target) into the mask: max-blend across runs, so overlapping runs take the
-        // deeper target.
+        // shared texels sum correctly). Then the code folds max(coverage x target) into the mask: max-blend across runs, so overlapping runs
+        // take the deeper target.
         /// <summary>One scheduled run's pending results, reduced after the single
         /// Complete(): per-run Active attribution stays exactly what the sequential fold
         /// produced — a texel counts for whichever run claimed it first.</summary>
@@ -3109,13 +3120,13 @@ namespace SkiResortMod.Systems
             public Entity Run; // the run entity, for the per-run active-texel map
             public NativeList<TriData> Tris;
             public NativeArray<FoldRowPartial> Partials;
-            // The public kind and the heights for RefreshRunSnow; natural runs carry Natural = true and are skipped by the mask reduction
+            // The public kind and the heights for RefreshRunSnow. Natural runs carry Natural = true and are skipped by the mask reduction
             // (never MaskTexels, DecayTexels, the active counts or m_RunTexels: TryGetRunActiveTexels stays false for them).
             public RunKind PublicKind;
             public bool Natural;
-            public bool GunsOn;             // a cat track's gun switch (measure-only runs); true otherwise
+            public bool GunsOn;             // a cat track's gun switch (measure-only runs). True otherwise
             public float BottomY, TopY;
-            public ushort Slot;             // 1..N in schedule order (the Owner plane value; 0 for a natural run)
+            public ushort Slot;             // 1..N in schedule order (the Owner plane value, 0 for a natural run)
             public int X0, Y0, X1, Y1;      // the run's texel bounds (the ledger job's box)
             public bool Protecting;         // this pass's fold held warm texels of the run
             public bool GunRun;             // a snowmaking or night run (its guns follow SnowGunPlumeRules)
@@ -3161,7 +3172,7 @@ namespace SkiResortMod.Systems
                 m_PlanesDirty = false;
             }
 
-            // The snapshot every fold of this pass measures from (Measure = snap.Usable; with Measure false the jobs never read it).
+            // The snapshot every fold of this pass measures from (Measure = snap.Usable, with Measure false the jobs never read it).
             // m_RunSnowInputs gets one entry per scheduled run.
             NativeArray<Ushort2> snapshot = snap.FromMeasure ? m_MeasureReadback : m_Readback;
             m_RunSnowInputs.Clear();
@@ -3170,7 +3181,7 @@ namespace SkiResortMod.Systems
             ulong naturalSig = 0;
 
             var pending = new List<PendingRun>();
-            // The chunk reads below go through type handles, which do not wait for running jobs; GeometrySystem writes Triangle / Node /
+            // The chunk reads below go through type handles, which do not wait for running jobs. GeometrySystem writes Triangle / Node /
             // Geometry at Modification2B.
             EntityManager.CompleteDependencyBeforeRO<Triangle>();
             EntityManager.CompleteDependencyBeforeRO<Node>();
@@ -3195,9 +3206,10 @@ namespace SkiResortMod.Systems
                     {
                         // A groomed run's class comes from its features (R2, DECISIONS 577): the prefab says groomed (any of the three groomed
                         // prefabs, presets of the same look), the gun and light sliders say snowmaking and lights (SkiRunPropSystem.FeaturesOf).
-                        // Snowmaking + lights = the night class (snowmaking physics, the night bill); snowmaking = the snowmaking class; anything
-                        // else groomed = the groomed class (guns Off: no made snow, no snowmaking bill; a lit groomed run's lights are billed by
-                        // SkiRunUpkeepSystem on top of the groomed rate).
+                        // Snowmaking + lights = the night class (snowmaking physics, the night bill).
+                        // Snowmaking = the snowmaking class.
+                        // Anything else groomed = the groomed class (guns Off: no made snow, no snowmaking bill. SkiRunUpkeepSystem bills
+                        // a lit groomed run's lights on top of the groomed rate).
                         Entity runPrefab = prefabRefs[i].m_Prefab;
                         bool groomedPrefab = m_NightPrefabs.Contains(runPrefab) || m_SnowmakingPrefabs.Contains(runPrefab) ||
                                              m_GroomedPrefabs.Contains(runPrefab);
@@ -3208,16 +3220,16 @@ namespace SkiResortMod.Systems
                         bool groomed = injected && !features.Snowmaking;
                         if (!nightRun && !snowmaking && !groomed)
                         {
-                            // Natural runs come last and are only recorded here (entity, Geometry heights, a signature term); they are pre-clipped and measured
+                            // Natural runs come last and are only recorded here (entity, Geometry heights, a signature term). The system pre-clips and measures them
                             // after the injected chain, and only when a measurement is due. Never scheduled into the fold: no mask, decay or ramp texel, no
                             // active texels, no bill.
                             // The cat track (SkiRunCatTrackA, RunKind.CatTrack) is in none of the four sets, so it lands on this `continue`: no injection, no
                             // measurement, no bill from a mask (SkiRunUpkeepSystem bills its plan area while CatTrackGunsCanRun). A 6-12 m ribbon cannot be measured
-                            // on the 14 m texel grid; GetRunSnow answers it by the day-mean estimate (RunSnowRules.ThresholdC gives it freezing + the gun margin,
+                            // on the 14 m texel grid. GetRunSnow answers it by the day-mean estimate (RunSnowRules.ThresholdC gives it freezing + the gun margin,
                             // or freezing alone while its guns are Off, DECISIONS 568).
                             // Do not add its name to a set here.
                             // Since the run-types round the cat track is measured here too, as a natural run is (the snow map under its ribbon:
-                            // coverage-weighted over partial texels; MinFootprintTexels decides when it is too small), and its guns' snow is the
+                            // coverage-weighted over partial texels, and MinFootprintTexels decides when it is too small), and its guns' snow is the
                             // made-snow model in RefreshRunSnow. It is still never injected.
                             bool track = m_TrackMeasurePrefabs.Contains(prefabRefs[i].m_Prefab);
                             if (!track && !m_NaturalPrefabs.Contains(prefabRefs[i].m_Prefab))
@@ -3235,7 +3247,7 @@ namespace SkiResortMod.Systems
                             stats.NaturalScheduled++;
                             if (track)
                                 stats.TrackScheduled++;
-                            // The skiable bar of a natural run (RunSnowRules.SkiableBarNorm; 0.91 m for every band today). The band comes from the catalog's row
+                            // The skiable bar of a natural run (RunSnowRules.SkiableBarNorm, 0.91 m for every band today). The band comes from the catalog's row
                             // (an unrated run reads band -1). A cat track has the bar of every run.
                             float naturalBar = track
                                 ? RunSnowRules.SkiableBarNorm(RunKind.CatTrack, -1)
@@ -3253,7 +3265,7 @@ namespace SkiResortMod.Systems
                                 (RunSnowRules.Mix64(((ulong)(uint)ne.Index << 32) | (uint)ne.Version) ^
                                  RunSnowRules.Mix64(math.asuint(ng.m_SurfaceArea)) ^
                                  RunSnowRules.Mix64(math.asuint(naturalBar)) ^
-                                 RunSnowRules.Mix64(track ? 0x7472616BUL : 0UL)));   // a rating that lands re-measures; a track is its own term
+                                 RunSnowRules.Mix64(track ? 0x7472616BUL : 0UL)));   // a rating that lands re-measures. A track is its own term
                             continue;
                         }
 
@@ -3298,7 +3310,7 @@ namespace SkiResortMod.Systems
 
                         Geometry geometry = geometries[i];
                         // an Active protection spell of this gun run (never groomed, never natural) holds its warm texels
-                        // in this pass's fold; the spell state was stepped by the last RefreshRunSnow.
+                        // in this pass's fold. The last RefreshRunSnow stepped the spell state.
                         bool protecting = false;
                         float hoursUsed = 0f;
                         if ((publicKind == RunKind.Snowmaking || publicKind == RunKind.Night) &&
@@ -3308,7 +3320,7 @@ namespace SkiResortMod.Systems
                             protecting = true;
                             hoursUsed = spell.HoursUsed;
                         }
-                        // a gun run raises its cold texels only while its guns run (SnowGunPlumeRules; Unknown until the
+                        // a gun run raises its cold texels only while its guns run (see SnowGunPlumeRules: Unknown until the
                         // first measurement of the load = no raise). Groomed runs have no guns and keep the old routing.
                         bool gunRun = publicKind == RunKind.Snowmaking || publicKind == RunKind.Night;
                         SnowGunPlumeRules.GunState gunState = SnowGunPlumeRules.GunState.Unknown;
@@ -3339,7 +3351,7 @@ namespace SkiResortMod.Systems
                 chunks.Dispose();
             }
             if (pending.Count > 0)
-                m_PlanesDirty = true;   // this pass's folds wrote the planes; the next BuildMask clears them
+                m_PlanesDirty = true;   // this pass's folds wrote the planes. The next BuildMask clears them
 
             // Vanilla contract for job-side height reads (AreaResourceSystem /
             // GeometrySystem / LaneSystem precedent): register the chain as a CPU-height
@@ -3349,7 +3361,7 @@ namespace SkiResortMod.Systems
             m_TerrainSystem.AddCPUHeightReader(chain);
             chain.Complete();
 
-            // Reduce per-run partials in schedule order, identical attribution to the sequential fold; the same per-run numbers fill the
+            // Reduce per-run partials in schedule order, identical attribution to the sequential fold. The same per-run numbers fill the
             // run -> texel map, plus each run's own measurement (float per row, double per run) and the footprint count, cold count and hash
             // over all bound injected runs.
             m_RunTexelsNext.Clear();
@@ -3397,8 +3409,8 @@ namespace SkiResortMod.Systems
                     BottomY = run.BottomY,
                     TopY = run.TopY,
                     Measured = snap.Usable,
-                    // With no usable snapshot this pass (a failed blocking readback invalidates m_Readback; an injected-only city keeps no measure-only
-                    // copy), a run measured within MaxSnapshotAgeFrames keeps its last measurement, as a natural run does, instead of flipping to the
+                    // With no usable snapshot this pass (a failed blocking readback invalidates m_Readback, and an injected-only city keeps no measure-only
+                    // copy), a run measured within MaxSnapshotAgeFrames keeps its last measurement, as a natural run does. It does not flip to the
                     // day-mean estimate for one pass.
                     CarryOver = !snap.Usable,
                     WhiteW = whiteW,
@@ -3452,11 +3464,11 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The second chain: per recorded natural run, pre-clip (main thread), then RasterizeRowsJob -> MeasureRowsJob ->
-        /// ClearScratchRowsJob, runs one after another, one Complete(), timed on its own (stats.NaturalMs). Runs only when a measurement is
-        /// due: a usable snapshot that is new, or a changed natural set (signature) or injected footprint (hash); otherwise every natural run
-        /// is a carry-over, so in a natural-only city 15 of 16 passes do no natural raster work. A run with no on-map coverage gets an
-        /// estimate. Same exception contract as the injected chain: buffers registered before their first job, the chain threaded through,
-        /// drained on a throw.</summary>
+        /// ClearScratchRowsJob. Runs go one after another, with one Complete(), timed on its own (stats.NaturalMs). The chain runs only when a
+        /// measurement is due: a usable snapshot that is new, a changed natural set (signature), or a changed injected footprint (hash).
+        /// Otherwise every natural run is a carry-over, so in a natural-only city 15 of 16 passes do no natural raster work. A run with no
+        /// on-map coverage gets an estimate. Same exception contract as the injected chain: buffers registered before their first job, the
+        /// chain threaded through, drained on a throw.</summary>
         private void MeasureNaturalRuns(float2 playOffset, float2 texelSize, SnapshotChoice snap, ulong naturalSig,
             ref MaskStats stats)
         {
@@ -3483,7 +3495,7 @@ namespace SkiResortMod.Systems
 
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             NativeArray<Ushort2> snapshot = snap.FromMeasure ? m_MeasureReadback : m_Readback;
-            List<PendingRun> pending = m_NaturalPending;   // reused; empty between passes
+            List<PendingRun> pending = m_NaturalPending;   // reused, empty between passes
             pending.Clear();
             JobHandle chain = default;
             int naturalTriangles = 0;   // not part of stats.Triangles (the top-up line counts injected runs)
@@ -3613,7 +3625,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>A managed throw mid-schedule must not leave jobs in flight against arrays a later pass (or OnDestroy) will touch: drain
         /// the chain and free the per-run buffers. An interrupted run may have rasterized coverage whose scratch re-zero never got scheduled.
-        /// m_Disabled is per load but m_Scratch is per session, so a dirty scratch plane would read as phantom polygon coverage after the
+        /// m_Disabled is per load but m_Scratch is per session. So a dirty scratch plane would read as phantom polygon coverage after the
         /// next load: restore the scratch-is-zero invariant (the caller rethrows).</summary>
         private void DrainPending(ref JobHandle chain, List<PendingRun> pending)
         {
@@ -3663,7 +3675,7 @@ namespace SkiResortMod.Systems
                 m_RunTexelGeneration++;
         }
 
-        /// <summary>One run polygon: pre-clip its triangles to texel space (main thread; jobs never touch ECS buffers), then append
+        /// <summary>One run polygon: pre-clip its triangles to texel space (main thread: jobs never touch ECS buffers), then append
         /// rasterize -> fold -> scratch re-zero to the chain. Additive coverage into the scratch plane, fold into the mask over the run's
         /// texel bounds, re-zero only the touched bbox (no full-plane clears: cost stays proportional to run area). Texels beyond the
         /// playable area are clipped: the snow map ends there, backdrop runs get nothing. The fold's semantic load (containment, thermal
@@ -3755,8 +3767,8 @@ namespace SkiResortMod.Systems
             }.ScheduleParallel(rowCount, RowBatch, chain);
         }
 
-        /// <summary>One polygon's triangles pre-clipped to texel space (main thread; jobs never touch ECS buffers), with the run's texel
-        /// bounds; runX0 > runX1 when nothing lies on the playable area. The first half of ScheduleRun, shared with the natural
+        /// <summary>One polygon's triangles pre-clipped to texel space (main thread: jobs never touch ECS buffers), with the run's texel
+        /// bounds, with runX0 > runX1 when nothing lies on the playable area. The first half of ScheduleRun, shared with the natural
         /// measurement. The caller owns (and disposes) the returned list.</summary>
         private static NativeList<TriData> PreClip(DynamicBuffer<Triangle> triangles, DynamicBuffer<Node> nodes,
             float2 playOffset, float2 texelSize, ref int triangleCount,
@@ -3848,8 +3860,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>A run only operates (injects, bills, scores) while bound to a live sign. SkiRunOwnershipSystem does the binding
         /// (SkiRunBinding to the nearest sign within 5 km at bind time) and owns the bound test: binding present and its sign live (exists,
-        /// not Deleted, sign prefab); a paid orphan is unbound. This is the one enforcement point, so every downstream consumer (upkeep reads
-        /// active texels, attractiveness reads cover) gates for free. Unbound runs stay summer-bare; border props still spawn deliberately:
+        /// not Deleted, sign prefab). A paid orphan is unbound. This is the one enforcement point, so every downstream consumer (upkeep reads
+        /// active texels, attractiveness reads cover) gates for free. Unbound runs stay summer-bare. Border props still spawn deliberately:
         /// installed hardware without snow is the player-visible "no sign in range" signal. Called for live runs only (m_RunScanQuery
         /// excludes Temp), never a Temp.</summary>
         private bool IsRunBound(Entity run)
@@ -3857,7 +3869,7 @@ namespace SkiResortMod.Systems
             return m_Ownership.IsBound(run);
         }
 
-        /// <summary>The slope band (0 flat .. 4 double black, SkiResortScore.Band*) of a natural run from the catalog's last rebuild; -1 while
+        /// <summary>The slope band (0 flat .. 4 double black, SkiResortScore.Band*) of a natural run from the catalog's last rebuild. The value is -1 while
         /// it is unrated or the catalog is absent (the run then needs the default 15 cm). The catalog is resolved lazily and may stay null:
         /// nothing here depends on it being there.</summary>
         private int NaturalBand(Entity run)

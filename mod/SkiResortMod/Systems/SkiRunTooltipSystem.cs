@@ -1,10 +1,10 @@
-// The mouse tooltip shown while the vanilla area tool draws or edits one of our ski runs: band name, hardest unavoidable pitch,
+// The mouse tooltip shown while the vanilla area tool draws or edits one of our ski runs. It holds: band name, hardest unavoidable pitch,
 // length, vertical drop, live slope, avoidable steepest patch, "no Welcome Sign" warning and the one-time run fee.
-// Order: UpdateAfter<SkiRunTooltipSystem, AreaToolTooltipSystem>(UITooltip) in Mod.cs; a plain UpdateAt would sort after the input hints.
+// Order: UpdateAfter<SkiRunTooltipSystem, AreaToolTooltipSystem>(UITooltip) in Mod.cs. A plain UpdateAt would sort after the input hints.
 // Widgets are built once in OnCreate and never subclassed (the JS renderer knows only the Game.UI.Tooltip.* type names).
 // Zero allocation per frame: LocalizedString values compare by boxing, so the band value is assigned only when the band changes.
-// Data comes from SkiRunDrawFeedbackSystem.TryGetReadout, one frame behind by design; that system filters runs (not the tool's prefab).
-// Game mode only; a one-shot "!!!" catch silences the tooltip until the next game load.
+// Data comes from SkiRunDrawFeedbackSystem.TryGetReadout, one frame behind by design. That system filters runs (not the tool's prefab).
+// Game mode only. A one-shot "!!!" catch silences the tooltip until the next game load.
 // Engine notes: EngineNotes/SkiRunTooltipSystem.md
 
 using System;
@@ -35,7 +35,7 @@ namespace SkiResortMod.Systems
         public const string KeyNoGate ="SkiResort.Tooltip.NO_GATE_IN_RANGE";
         public const string KeyFee = "SkiResort.Tooltip.RUN_FEE"; // "Run fee (one-time)"
 
-        /// <summary>Built once; index = (int)SlopeBand (Flat 0 .. DoubleBlack 4).</summary>
+        /// <summary>Built once, index = (int)SlopeBand (Flat 0 .. DoubleBlack 4).</summary>
         private static readonly LocalizedString[] BandText =
         {
             LocalizedString.Id(KeyBandPrefix + "[Flat]"),
@@ -70,7 +70,7 @@ namespace SkiResortMod.Systems
         private bool m_Disabled;
         private bool m_ErrorLogged;
 
-        /// <summary>Frames on which the lines were added since the last load (dev-tab aid; plain field).</summary>
+        /// <summary>Frames on which the lines were added since the last load (dev-tab aid, plain field).</summary>
         public long FramesShown;
 
         protected override void OnCreate()
@@ -110,7 +110,7 @@ namespace SkiResortMod.Systems
             {
                 path = "skiRunDrop",
                 label = LocalizedString.Id(KeyDrop),
-                unit = "length", // meters in; the unit is JS-side, so IntTooltip + "length" is unverified in game (cf. WaterSourceTooltipSystem.cs:51)
+                unit = "length", // meters in. The unit is JS-side, so IntTooltip + "length" is unverified in game (cf. WaterSourceTooltipSystem.cs:51)
             };
             m_Slope = new StringTooltip
             {
@@ -182,7 +182,7 @@ namespace SkiResortMod.Systems
                     return;
                 if (m_ToolSystem.activeTool != m_AreaTool) // ToolSystem.cs:84-99
                     return;
-                // The fee row shows for a new run even when the rating failed (too large, no terrain); an edited run never shows a fee (no
+                // The fee row shows for a new run even when the rating failed (too large, no terrain). An edited run never shows a fee (no
                 // re-charge on a reshape).
                 bool rated = m_Feedback.TryGetReadout(out SkiRunDrawFeedbackSystem.Readout r) && r.Valid;
                 bool fee = m_Feedback.TryGetFeeInputs(out int kind, out float areaM2, out bool isNew) && isNew;
@@ -190,7 +190,7 @@ namespace SkiResortMod.Systems
                     return;
 
                 // Lines 1-5, the rating lines. Defensive: an out-of-contract band shows none of them rather than garbage (the fee still
-                // shows). Line 1 takes the rated band from the classifier result; the readout's own Band is the crux band and stays the input
+                // shows). Line 1 takes the rated band from the classifier result. The readout's own Band is the crux band and stays the input
                 // of line 5.
                 bool haveDiff = m_Feedback.TryGetDifficulty(out SkiRunDrawFeedbackSystem.Difficulty dif);
                 int band = haveDiff ? (int)dif.Band : (int)r.Band;
@@ -205,7 +205,7 @@ namespace SkiResortMod.Systems
                     m_Grade.color = band == (int)SlopeBand.Flat ? TooltipColor.Warning : TooltipColor.Info;
                     AddMouseTooltip(m_Grade);
 
-                    // Hardest unavoidable pitch, percent; when the Mask is not connected (RatingGrade = P90 fallback) the same number under a
+                    // Hardest unavoidable pitch, percent. When the Mask is not connected (RatingGrade = P90 fallback) the same number under a
                     // Warning label that does not claim "unavoidable".
                     if (math.isfinite(r.RatingGrade))
                     {
@@ -214,7 +214,7 @@ namespace SkiResortMod.Systems
                         AddMouseTooltip(pitch);
                     }
 
-                    // Run length, horizontal meters. Shown only when positive (a cleared result reads 0; Valid already excludes it).
+                    // Run length, horizontal meters. Shown only when positive (a cleared result reads 0, Valid already excludes it).
                     if (math.isfinite(r.Length) && r.Length > 0f)
                     {
                         m_Length.value = (int)math.round(r.Length);
@@ -228,7 +228,7 @@ namespace SkiResortMod.Systems
                     }
 
                     // The live grade. The LocalizedString (a Dictionary of LocalizedNumber args, the vanilla pattern) is rebuilt only when one of
-                    // the four rounded numbers changes, never per frame (engine notes: zero allocation).
+                    // the four rounded numbers changes. It is never rebuilt per frame (engine notes: zero allocation).
                     if (SkiRunRater.SlopeReadout(r.MeanGrade, r.RatingGrade, r.SteepestGrade,
                             out int avgDeg, out int avgPct, out int maxDeg, out int maxPct))
                     {
@@ -286,8 +286,8 @@ namespace SkiResortMod.Systems
                     }
                 }
 
-                // Run fee: SkiRunFees.Fee, the function the bind charges, of the kind and the plan area, with the draw row's sliders on a
-                // groomed piste (SkiRunBindTriggerSystem.SeedDrawnRuns seeds them before the bind); Error color when the city has less money
+                // Run fee: SkiRunFees.Fee, the function the bind charges, of the kind and the plan area. On a groomed piste it uses the draw row's sliders
+                // (SkiRunBindTriggerSystem.SeedDrawnRuns seeds them before the bind). Error color when the city has less money
                 // (TempCostTooltipSystem.cs:79-82). value / color assignments allocate nothing.
                 if (fee)
                 {
@@ -303,12 +303,12 @@ namespace SkiResortMod.Systems
                     }
                 }
 
-                // New run with no gate in tether range: it will not bind until one is placed. An edited run is bound or not already; the
+                // New run with no gate in tether range: it will not bind until one is placed. An edited run is bound or not already. The
                 // warning is for the draw decision. Shown with the fee row too, rated or not: both failure paths of the feedback recompute set
                 // GateInRange (UpdateGateInRange), and TryGetReadout always fills r.
                 if ((rated || fee) && r.IsNewRun && !r.GateInRange)
                 {
-                    // {RADIUS} = the ski area radius option in km; the LocalizedString is rebuilt only when it changes.
+                    // {RADIUS} = the ski area radius option in km. The LocalizedString is rebuilt only when it changes.
                     float km = SkiRunOwnershipSystem.TetherMeters / 1000f;
                     if (km != m_NoGateKm)
                     {

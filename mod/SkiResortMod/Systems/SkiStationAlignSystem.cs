@@ -1,10 +1,10 @@
 // Station alignment aid: subject, partner, overlay guide lines and the placement log. Read-only guide + readout + an "aligned" state
-// at 0.5 m / 0.5 deg. The math is the pure StationAlign; the readout tooltip is SkiLiftTooltipSystem, which reads this system's state.
-// Read-only by design: snapping is not possible inside the vanilla object tool (rotation is private, ObjectToolSystem.cs:54-63, :2275);
-// this system never writes to a tool, a station or a definition. Active only while Settings > Lifts > LiftBuildAids is on.
-// Draw: Rendering, UpdateBefore<SkiStationAlignSystem, Game.Rendering.OverlayRenderSystem> (Mod.cs; load-bearing: OverlayRenderSystem
-// consumes and clears the overlay lists later in the same phase, OverlayRenderSystem.cs:781, :790).
-// House rules: one `Align: ARMED` line per load; Game mode only; one-shot `!!!` catch disables the aid until the next load.
+// at 0.5 m / 0.5 deg. The math is the pure StationAlign. The readout tooltip is SkiLiftTooltipSystem, which reads this system's state.
+// Read-only by design: snapping is not possible inside the vanilla object tool (rotation is private, ObjectToolSystem.cs:54-63, :2275).
+// This system never writes to a tool, a station or a definition. It is active only while Settings > Lifts > LiftBuildAids is on.
+// Draw: Rendering, UpdateBefore<SkiStationAlignSystem, Game.Rendering.OverlayRenderSystem> (Mod.cs). Load-bearing: OverlayRenderSystem
+// consumes and clears the overlay lists later in the same phase (OverlayRenderSystem.cs:781, :790).
+// House rules: one `Align: ARMED` line per load. Game mode only. The one-shot `!!!` catch disables the aid until the next load.
 // Engine notes: EngineNotes/SkiStationAlignSystem.md
 
 using System;
@@ -177,7 +177,7 @@ namespace SkiResortMod.Systems
                 m_SubjectAxis = StationAlign.Axis(subjectTransform.m_Rotation);
                 SubjectTip = tip;
 
-                // A real station uses its row's other station; so does a Move-mode preview, through the station being relocated
+                // A real station uses its row's other station. So does a Move-mode preview, through the station being relocated
                 // (Temp.m_Original). A Create-mode preview has no original and takes the free-station rule.
                 bool found = isTemp
                     ? (original != Entity.Null && TryRowPartner(original)) ||
@@ -220,7 +220,7 @@ namespace SkiResortMod.Systems
             Last = default;
         }
 
-        /// <summary>The row's stub tip z (StationAlign.StubTipLocalZ; the fixed-grip -12 without a row).</summary>
+        /// <summary>The row's stub tip z (StationAlign.StubTipLocalZ, the fixed-grip -12 without a row).</summary>
         private static float StubZ(StationDef def)
         {
             return def != null ? def.StubTipLocalZ : StationAlign.StubTipLocalZ;
@@ -363,12 +363,12 @@ namespace SkiResortMod.Systems
 
         /// <summary>The other station of <paramref name="station"/>'s census row (both stations alive), set as the partner.
         /// <paramref name="station"/> is a real station: the subject itself, or the station a Move-mode preview relocates (its
-        /// Temp.m_Original: GenerateObjectsSystem.cs:989-992 copies the definition's original into Temp; the Relocate definition's
+        /// Temp.m_Original: GenerateObjectsSystem.cs:989-992 copies the definition's original into Temp. The Relocate definition's
         /// original is ObjectToolSystem.m_MovingObject, set by StartMoving :3020 and passed to CreateDefinitions :4353).</summary>
         private bool TryRowPartner(Entity station)
         {
-            // The row partner must share the subject's lift type (a mixed row's other station is no partner: the free-station rule picks
-            // one of the right type instead).
+            // The row partner must share the subject's lift type. A mixed row's other station is no partner: the free-station rule picks
+            // one of the right type instead.
             if (m_Census.TryGetOppositeStation(station, out Entity other) &&
                 TryRealStation(other, out bool otherIsBase, out Transform t, out StationDef otherDef) && SameType(otherDef))
             {
@@ -382,7 +382,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Best free station of the opposite kind (see engine notes, Partner), with hysteresis. Also sets OtherKindExists: a free
-        /// station of the opposite kind exists at all, in front or not, near or far (the tooltip warns only then, or for a top station).</summary>
+        /// station of the opposite kind exists at all, in front or not, near or far. The tooltip warns only then, or for a top station.</summary>
         private bool PickCandidate(Entity subject, Entity original, bool subjectIsBase, float3 tip, float2 axis)
         {
             Entity best = Entity.Null;
@@ -545,9 +545,9 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"Align: … and {suppressed} more station(s) placed this frame (lines capped at {PlacementLinesPerFrame})");
         }
 
-        /// <summary>Feeds the census's last move (recorded at Modification4B of this frame; this system runs at Rendering) into the
-        /// per-station episodes and writes ONE line per episode that has gone quiet. Per frame: one compare, and a walk over the open
-        /// episodes (a station or two at most); strings only when a line is written.</summary>
+        /// <summary>Feeds the census's last move into the per-station episodes. The census records it at Modification4B of this frame, and
+        /// this system runs at Rendering. It writes ONE line per episode that has gone quiet. Per frame: one compare, and a walk over the
+        /// open episodes (a station or two at most). It builds strings only when a line is written.</summary>
         private void LogSettledMove()
         {
             Entity moved = m_Census.LastMovedStation;
@@ -575,7 +575,7 @@ namespace SkiResortMod.Systems
                 return $"station {station.Index}:{station.Version} (gone)";
             string name = EntityManager.TryGetComponent<PrefabRef>(station, out var prefab)
                 ? m_PrefabSystem.GetPrefabName(prefab.m_Prefab) : "station";
-            // The station row's stub tip; partners of the same lift type only
+            // The station row's stub tip. Partners of the same lift type only
             float3 tip = StationAlign.StubTip(t.m_Position, t.m_Rotation, StubZ(stationDef), StubX(stationDef));
             float2 axis = StationAlign.Axis(t.m_Rotation);
             int type = stationDef != null ? stationDef.LiftTypeIndex : -1;

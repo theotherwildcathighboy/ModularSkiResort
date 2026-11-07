@@ -1,9 +1,11 @@
-// Names and texts of the game's six trip systems (whose Enabled SkiDaySystem reads at every Game load and armed pass) and of the two
-// known trip-planner swaps, detected by assembly name only (SkiOtherMods.Refresh ORs BitOfAssembly over every loaded assembly).
-// Labels and log lines, never behavior; the one behavior, ArmVerdict.SystemOff, is SkiDayRules' and reads the Enabled bits only.
-// Found / on mask bits are SkiDayRules' (TripLeisure 1 ... TripResourceBuyer 32). Planners mask: bit 1 Realistic PathFinding (assembly
-// RealisticPathFinding; its IMod.OnLoad switches off TripNeededSystem, ResidentAISystem, ResidentAISystem.Actions and
-// ResourceBuyerSystem), bit 2 Realistic Trips (assembly Time2Work, inferred from its csproj; the shipped build is unverified).
+// Names and texts of the game's six trip systems and of the two known trip-planner swaps. SkiDaySystem reads the Enabled state of the
+// trip systems at every Game load and armed pass. The code detects the swaps by assembly name only (SkiOtherMods.Refresh ORs
+// BitOfAssembly over every loaded assembly). These are labels and log lines, never behavior. The one behavior, ArmVerdict.SystemOff,
+// belongs to SkiDayRules and reads the Enabled bits only.
+// The Found / on mask bits belong to SkiDayRules (TripLeisure 1 ... TripResourceBuyer 32). Planners mask:
+// - Bit 1: Realistic PathFinding (assembly RealisticPathFinding). Its IMod.OnLoad disables TripNeededSystem, ResidentAISystem,
+//   ResidentAISystem.Actions and ResourceBuyerSystem.
+// - Bit 2: Realistic Trips (assembly Time2Work, inferred from its csproj). The shipped build is unverified.
 // Strings live here because SkiDayRules is pure (no strings). Main thread only. UnknownLabel is mirrored by hand in bindings.ts
 // TRIP_PLANNER_UNKNOWN. Tests: tests/ResortBatch SkiDayTests section X.
 
@@ -21,13 +23,13 @@ namespace SkiResortMod.Systems
         public const string T2wAssembly = "Time2Work";
         public const string T2wName = "Realistic Trips";
         public const string LookedFor = "looked for assemblies RealisticPathFinding, Time2Work";
-        /// <summary>Hub label when a trip system is off and no known swap is loaded; mirrors bindings.ts TRIP_PLANNER_UNKNOWN
+        /// <summary>Hub label when a trip system is off and no known swap is loaded. It mirrors bindings.ts TRIP_PLANNER_UNKNOWN
         /// (tools/test-hub-rules.js tests the TS literal).</summary>
         public const string UnknownLabel = "?";
 
         private const int PlannerRpf = 1, PlannerT2w = 2;
 
-        /// <summary>The planner bit of an assembly name: exact, case-sensitive; 1 RealisticPathFinding, 2 Time2Work, else 0.</summary>
+        /// <summary>The planner bit of an assembly name (exact, case-sensitive match): 1 RealisticPathFinding, 2 Time2Work, else 0.</summary>
         public static int BitOfAssembly(string name)
         {
             if (name == null)
@@ -39,7 +41,7 @@ namespace SkiResortMod.Systems
             return 0;
         }
 
-        /// <summary>The known planners of a mask in bit order, joined ", " (with the assembly name if asked); 0 gives "".</summary>
+        /// <summary>The known planners of a mask in bit order, joined ", " (with the assembly name if asked). A mask of 0 gives "".</summary>
         public static string Names(int planners, bool withAssembly)
         {
             string s = "";
@@ -50,7 +52,7 @@ namespace SkiResortMod.Systems
             return s;
         }
 
-        /// <summary>The game system of one trip bit; "?" for anything else.</summary>
+        /// <summary>The game system of one trip bit. Anything else gives "?".</summary>
         public static string SystemName(int bit)
         {
             switch (bit)
@@ -110,8 +112,8 @@ namespace SkiResortMod.Systems
             return "SkiDays: trip systems: " + Long(found, on) + " — " + tail + " (read at city load, after every mod loaded)";
         }
 
-        /// <summary>A change of the trip systems during play (WARN, at most Tuning.TripChangeLines per load;
-        /// <paramref name="last"/> marks the last one written).</summary>
+        /// <summary>A change of the trip systems during play (WARN, at most Tuning.TripChangeLines per load).
+        /// <paramref name="last"/> marks the last one written.</summary>
         public static string ChangeLine(int oldFound, int oldOn, int found, int on, int planners, bool disarms, bool last)
         {
             return "SkiDays: trip systems changed during play: " + Long(found, on) + " (was: " + Short(oldFound, oldOn, planners) + "); " +

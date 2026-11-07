@@ -1,8 +1,8 @@
 // Pure decisions of the built-run rating cache in SkiRunCatalogSystem, linked into tests/ResortBatch so the key, queue and band rules
-// are tested headless. Nothing here reads the game; System and Unity.Mathematics only.
-// Key hashes node x and z only (all the rating reads); YKey hashes y, so a terraform re-snap never flips a run to "pending".
-// Queue: front reasons (bind, edit) skip the duty cycle; warm-up, terrain and backstop are duty-cycled. A queued warm-up entry is
-// never promoted by a bind (every rebuild re-asks unrated rows as "bind"); an edit still promotes it.
+// are tested headless. Nothing here reads the game. System and Unity.Mathematics only.
+// Key hashes node x and z only (all the rating reads). YKey hashes y, so a terraform re-snap never flips a run to "pending".
+// Queue: front reasons (bind, edit) skip the duty cycle. Warm-up, terrain and backstop are duty-cycled. A queued warm-up entry is
+// never promoted by a bind (every rebuild re-asks unrated rows as "bind"). An edit still promotes it.
 // Row band: -1 = not rated yet, -2 = cannot be rated (final for this outline and terrain), so the hub never says "Being rated" forever.
 // Engine notes: EngineNotes/SkiRunRatingRules.md
 
@@ -82,7 +82,7 @@ namespace SkiResortMod.Systems
             return ReasonNone;
         }
 
-        /// <summary>Front reasons run at once, one per frame; the rest obey the duty cycle.</summary>
+        /// <summary>Front reasons run at once, one per frame. The rest obey the duty cycle.</summary>
         public static bool IsFront(byte reason)
         {
             return reason == ReasonBind || reason == ReasonEdit;
@@ -106,20 +106,20 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The grade every cat track is built under: the cat track tool's max grade (GradeParams.DefaultMaxGrade, the
-        /// settings cap it at 25 %; GradeBatch GR-18 pins the two equal).</summary>
+        /// settings cap it at 25 %). GradeBatch GR-18 pins the two equal.</summary>
         public const float CatTrackMaxGrade = 0.25f;
 
         /// <summary>The band a RATED cat track shows: always Green (2026-10-25). Every cat track is built by the cat track tool (the hub
-        /// tile has no area-tool fallback), which grades its whole length under CatTrackMaxGrade, so the 25 % rule holds by
-        /// construction. The rater is not the judge: on a ribbon it reads the surface's steepest slope, not the grade along the track
-        /// (a hairpin graded to 25 % reads up to 29 %, and a crossing rides the crossed run's own fall line; GradeBatch GR-20).
+        /// tile has no area-tool fallback). The tool grades the whole length under CatTrackMaxGrade, so the 25 % rule holds by
+        /// construction. The rater is not the judge: on a ribbon it reads the surface's steepest slope, not the grade along the track.
+        /// A hairpin graded to 25 % reads up to 29 %, and a crossing rides the crossed run's own fall line (GradeBatch GR-20).
         /// Pending / unrateable rows (band &lt; 0) pass through.</summary>
         public static sbyte CatTrackBand(sbyte band)
         {
             return band < 0 ? band : BandGreenValue;
         }
 
-        /// <summary>SlopeBand.Green as a row band (SkiSlopeClassifier.SlopeBand; the ScoreTests / CatTrackTests oracles pin 1).</summary>
+        /// <summary>SlopeBand.Green as a row band (SkiSlopeClassifier.SlopeBand). The ScoreTests / CatTrackTests oracles pin 1.</summary>
         public const sbyte BandGreenValue = 1;
 
         public static bool IsUnrateable(byte state)
@@ -149,8 +149,8 @@ namespace SkiResortMod.Systems
             return startS + wait;
         }
 
-        /// <summary>Off and Failed never change here (load / exception set them); WarmingUp becomes Ready when the warm-up is done or
-        /// nowS - armedAtS &gt;= WarmupDeadlineS; Ready stays Ready.</summary>
+        /// <summary>Off and Failed never change here (load / exception set them). WarmingUp becomes Ready when the warm-up is done or
+        /// nowS - armedAtS &gt;= WarmupDeadlineS. Ready stays Ready.</summary>
         public static byte NextServiceState(byte state, bool warmupDone, float nowS, float armedAtS)
         {
             if (state != ServiceWarmingUp)

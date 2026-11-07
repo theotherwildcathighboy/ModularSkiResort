@@ -1,10 +1,10 @@
 // The Plan, Fill, Classify path of a ski run's rating, shared by the drawing tooltip (SkiRunDrawFeedbackSystem) and the hub's
-// built-run rating cache (SkiRunCatalogSystem) so both rate a polygon with the same code. A failed Plan is not classified.
-// Callers keep the heights-ready check and their part of the reuse guard (verify age, forced resample); one that may not reuse passes null.
+// built-run rating cache (SkiRunCatalogSystem). Both rate a polygon with the same code. A failed Plan is not classified.
+// Callers keep the heights-ready check and their part of the reuse guard (verify age, forced resample). A caller that may not reuse passes null.
 // ShoelaceArea returns double because SkiSlopeClassifier.StepMultiple takes double (a float would move m at a budget boundary).
-// Parity: tests/SlopeBatch links this file and proves Rate bit-identical to the direct Plan, fill, Classify calls; bit equality
+// Parity: tests/SlopeBatch links this file and proves Rate bit-identical to the direct Plan, fill, Classify calls. Bit equality
 // between CoreCLR and the game's Mono is unverified (as for the classifier).
-// Pure file: `using System;` and `using Unity.Mathematics;` only (the tests/SlopeBatch rule); Stopwatch by full name (net48 and net8).
+// Pure file: `using System;` and `using Unity.Mathematics;` only (the tests/SlopeBatch rule). Stopwatch by full name (net48 and net8).
 // No allocation except FillHeights' growth of a too-small Heights array.
 
 using System;
@@ -13,15 +13,15 @@ using Unity.Mathematics;
 namespace SkiResortMod.Systems
 {
     /// <summary>The terrain read of a rating: the height at a world point. The game's implementation is
-    /// SkiRunDrawFeedbackSystem's TerrainHeightSampler; test hosts pass their own.</summary>
+    /// SkiRunDrawFeedbackSystem's TerrainHeightSampler. Test hosts pass their own.</summary>
     public interface IHeightSampler
     {
         float Sample(float3 world);
     }
 
-    /// <summary>Outcome of a rating. Rated = the classifier returned Ok, ShortRun or Polyline; NoTerrain = the plan was
-    /// fine but the heights were not usable (NonFinite or BadHeights); TooLarge = Plan refused the lattice (bbox &gt; 2^21
-    /// cells, SkiSlopeClassifier.cs:651); Failed = any other degenerate status.</summary>
+    /// <summary>Outcome of a rating. Rated = the classifier returned Ok, ShortRun or Polyline. NoTerrain = the plan was
+    /// fine but the heights were not usable (NonFinite or BadHeights). TooLarge = Plan refused the lattice (bbox &gt; 2^21
+    /// cells, SkiSlopeClassifier.cs:651). Failed = any other degenerate status.</summary>
     public enum RateStatus : byte
     {
         Rated,
@@ -52,7 +52,7 @@ namespace SkiResortMod.Systems
 
     public static class SkiRunRater
     {
-        /// <summary>|shoelace area| of the first n points in xz, closing edge included; 0 below 3 points.</summary>
+        /// <summary>|shoelace area| of the first n points in xz, closing edge included. 0 below 3 points.</summary>
         public static double ShoelaceArea(float3[] ring, int n)
         {
             if (n < 3)
@@ -75,9 +75,9 @@ namespace SkiResortMod.Systems
             return s == SlopeStatus.Ok || s == SlopeStatus.ShortRun || s == SlopeStatus.Polyline;
         }
 
-        /// <summary>Fills every Need height of grid g. With a source grid (the caller checked Step, Origin and, in the feedback
-        /// system, age), a Need node whose world lattice index (I0 + i, J0 + j) is a Need node of the source with a finite height
-        /// copies it; every other Need node is sampled at the world point (float)(Origin + (I0 + i)·Step), so a copied and a
+        /// <summary>Fills every Need height of grid g. A source grid may be given (the caller checked Step, Origin and, in the feedback
+        /// system, age). A Need node copies the source height when its world lattice index (I0 + i, J0 + j) is a Need node there with a
+        /// finite height. Every other Need node is sampled at the world point (float)(Origin + (I0 + i)·Step). So a copied and a
         /// sampled value are the same function of the same inputs.</summary>
         public static void FillHeights<T>(ref T sampler, SlopeGrid g, SlopeGrid src, out int reused, out int sampled)
             where T : struct, IHeightSampler
@@ -90,8 +90,8 @@ namespace SkiResortMod.Systems
             double step = g.Step;
             double ox = g.Origin.x, oz = g.Origin.y;
             // O(Need), not O(bbox): Plan records each row's exact Need runs (SlopeGrid.NeedRuns / NeedRowStart). A long diagonal
-            // stroke has ~1M bbox cells but few Need cells, and a row of a U- or C-shaped run crosses two arms with a wide gap
-            // between them. Runs are clamped to the row; the need[q] test stays as a guard. Falls back to the full scan if the runs
+            // stroke has ~1M bbox cells but few Need cells. A row of a U- or C-shaped run crosses two arms with a wide gap
+            // between them. Runs are clamped to the row. The need[q] test stays as a guard. The code falls back to the full scan if the runs
             // are missing or inconsistent with this grid.
             int[] needRuns = g.NeedRuns, needStart = g.NeedRowStart;
             bool spans = needStart != null && needStart.Length >= nz + 1 && needStart[nz] >= 0 &&
@@ -176,7 +176,7 @@ namespace SkiResortMod.Systems
             sampled = nSampled;
         }
 
-        /// <summary>Overload without RateDetail; see the detailed overload.</summary>
+        /// <summary>Overload without RateDetail. See the detailed overload.</summary>
         public static RateStatus Rate<T>(float3[] nodes, int n, double2 origin, ref T sampler, float texelM, int stepCurrent,
             SlopeGrid target, SlopeGrid reuseSource, SlopeResult result, out int stepMultiple,
             out float fillMs, out float classifyMs) where T : struct, IHeightSampler
@@ -186,10 +186,10 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Rates the polygon (n &gt;= 3) or line (n = 2) of the first n nodes on the world lattice (origin, m·texelM).
-        /// m = SkiSlopeClassifier.StepMultiple(ShoelaceArea, texelM, stepCurrent), at least 1: stepCurrent &lt; 1 is
-        /// deterministic for a polygon (the smallest m within CellBudget, SkiSlopeClassifier.cs:729-741), stepCurrent &gt;= 1
-        /// applies the up/down hysteresis. Plans into <paramref name="target"/>; reuses heights from
-        /// <paramref name="reuseSource"/> only with the identical Step and Origin; classifies into
+        /// m = SkiSlopeClassifier.StepMultiple(ShoelaceArea, texelM, stepCurrent), at least 1. stepCurrent &lt; 1 is
+        /// deterministic for a polygon (the smallest m within CellBudget, SkiSlopeClassifier.cs:729-741). stepCurrent &gt;= 1
+        /// applies the up/down hysteresis. Plans into <paramref name="target"/>. Reuses heights from
+        /// <paramref name="reuseSource"/> only with the identical Step and Origin. Classifies into
         /// <paramref name="result"/> only when Plan produced a lattice. Never throws for null grids.</summary>
         public static RateStatus Rate<T>(float3[] nodes, int n, double2 origin, ref T sampler, float texelM, int stepCurrent,
             SlopeGrid target, SlopeGrid reuseSource, SlopeResult result, out int stepMultiple,
@@ -208,7 +208,7 @@ namespace SkiResortMod.Systems
             detail.StepM = step;
 
             // The crux connectivity follows the step multiple (8-neighbor at m = 1, the diagonal rule at m >= 2). The classifier does
-            // not know m, so set it on the target before every Plan; Plan leaves it untouched.
+            // not know m, so set it on the target before every Plan. Plan leaves it untouched.
             if (target != null)
                 target.DiagonalRule = m >= 2;
             SlopeStatus status = SkiSlopeClassifier.Plan(nodes, n, origin, step, target);
@@ -218,7 +218,7 @@ namespace SkiResortMod.Systems
             long t2 = t1;
             if (IsPlanOk(status))
             {
-                // Reuse only on the identical world lattice (exact Step and Origin); the caller decided everything else by passing null or not
+                // Reuse only on the identical world lattice (exact Step and Origin). The caller decided everything else by passing null or not
                 bool reuse = reuseSource != null &&
                              reuseSource.Step == step &&
                              reuseSource.Origin.x == origin.x && reuseSource.Origin.y == origin.y;
@@ -238,10 +238,10 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The drawing tooltip's "avg N° (P %) · steepest N° (P %)" numbers. Average = the classifier's MeanGrade (the
-        /// mean of |g| over the run's inside cells; polyline: the length-weighted mean segment grade); steepest = the largest of
-        /// SteepestGrade (the k-th largest 20 m window), RatingGrade (the crux) and the average itself, so the line never reads
+        /// mean of |g| over the run's inside cells, polyline: the length-weighted mean segment grade). Steepest = the largest of
+        /// SteepestGrade (the k-th largest 20 m window), RatingGrade (the crux) and the average itself. So the line never reads
         /// below the crux row or its own average (the window statistic can sit under the crux when the crux came from a shorter
-        /// fallback window). Percent = grade × 100 rounded; degrees = atan(grade) rounded (atan of the mean grade, not the mean
+        /// fallback window). Percent = grade × 100 rounded. Degrees = atan(grade) rounded (atan of the mean grade, not the mean
         /// of the angles). False (all zero) when an input is not finite or negative.</summary>
         public static bool SlopeReadout(float meanGrade, float ratingGrade, float steepestGrade,
             out int avgDeg, out int avgPct, out int maxDeg, out int maxPct)

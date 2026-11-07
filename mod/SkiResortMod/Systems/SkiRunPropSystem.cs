@@ -1,7 +1,7 @@
-// Our run props: this file keeps the bridge that gives our run surfaces a seed, Game.Objects.Surface and the runtime SubObject buffer, and
-// stops vanilla's per-node border props; SkiRunPropSystem.Placer.cs walks the border by distance and stands the guns, hydrants and masts.
+// Our run props. This file keeps the bridge: it gives our run surfaces a seed, Game.Objects.Surface and the runtime SubObject buffer.
+// It also stops vanilla's per-node border props. SkiRunPropSystem.Placer.cs walks the border by distance and stands the guns, hydrants and masts.
 // Corner stop: the vanilla spawner rolls one prop per outline node (SecondaryObjectSystem.cs:2972-3007, :3279), with the run prefab's
-// sub-object chance as its bound, so writing that chance to 0 at a Game load stops it without an Editor import (written back at a non-Game load).
+// sub-object chance as its bound. So writing that chance to 0 at a Game load stops it without an Editor import (written back at a non-Game load).
 // Phase is load-bearing: UpdateBefore<SecondaryObjectSystem> in Modification4B (the Created/Updated tags are wiped at Cleanup each frame).
 // Game mode only, never Editor (spawned props are real entities a map author must not bake into a map).
 // House contract: ARMED line, one-shot "!!!" catch.
@@ -61,7 +61,7 @@ namespace SkiResortMod.Systems
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
 
             // Areas that could still need the bridge. The marker of a fully bridged area is PseudoRandomSeed (added last), not the SubObject
-            // buffer, so runs bridged by an earlier buffer-only version are picked up again and completed. Only LotPrefab adds PseudoRandomSeed
+            // buffer. So the system finds runs bridged by an earlier buffer-only version again and completes them. Only LotPrefab adds PseudoRandomSeed
             // (Game.Prefabs/LotPrefab.cs:37), so Game.Areas.Surface (SurfacePrefab.cs:21-23) keeps map tiles and districts out.
             // Every vanilla surface area stays in: 31,183 in a city of 355,000, 0.53 ms per scan measured. So this whole query is scanned once after a
             // load, and from then on only the areas of m_FreshAreaQuery.
@@ -221,7 +221,7 @@ namespace SkiResortMod.Systems
                         addedBuffer = true;
                     }
 
-                    // The bridge's done-marker (see m_UnbridgedAreaQuery). LotPrefab's archetype hard-adds PseudoRandomSeed; SurfacePrefab's does not. Hashed
+                    // The bridge's done-marker (see m_UnbridgedAreaQuery). LotPrefab's archetype hard-adds PseudoRandomSeed. SurfacePrefab's does not. Hashed
                     // from the area's first node position: deterministic and it serializes with the save like any vanilla seed. The placer does not read it
                     // (its picks hash the canonical ring, RunPropPlacerRules).
                     ushort seed = 1;
@@ -234,7 +234,7 @@ namespace SkiResortMod.Systems
                     // system sets both fields every pass, so a zero seed is never fought over. Runs carry no Owner (the run -> sign link is SkiRunBinding).
                     EntityManager.AddComponent<Game.Objects.Surface>(area);
 
-                    // Pre-existing areas (older saves) carry no Updated this frame; freshly drawn areas already have it (AddComponent on an existing
+                    // Pre-existing areas (older saves) carry no Updated this frame. Freshly drawn areas already have it (AddComponent on an existing
                     // component is a no-op). SecondaryObjectSystem then sees this area with every corner chance at 0: nothing to place.
                     EntityManager.AddComponent<Updated>(area);
                     m_BridgedCount++;
@@ -269,7 +269,7 @@ namespace SkiResortMod.Systems
                 h = (h ^ (uint)(int)math.round(position.y * 10f)) * 16777619u;
                 h = (h ^ (uint)(int)math.round(position.z * 10f)) * 16777619u;
                 h ^= h >> 15;
-                // 0 is a valid seed value but GetRandom clamps it away; keep 1..65535
+                // 0 is a valid seed value but GetRandom clamps it away. Keep 1..65535
                 // so the logged number always matches what the game actually uses.
                 return (ushort)math.max(1u, h & 0xFFFFu);
             }
@@ -316,7 +316,7 @@ namespace SkiResortMod.Systems
                 }
                 m_RunPrefabs.Add(prefabEntity);
                 // The kinds the placer walks: every surface above, its kind from the catalog (since R2 a groomed run carries both feature
-                // sliders, DECISIONS 577; RunPropDensityRules.PropClassAllowed decides what each carries).
+                // sliders, DECISIONS 577). RunPropDensityRules.PropClassAllowed decides what each carries.
                 m_RunKindOf[prefabEntity] = (int)SkiCatalog.RunByPrefab(name).Kind;
                 Mod.Log.Info($"Props: resolved run surface prefab '{name}'");
             }
@@ -355,7 +355,7 @@ namespace SkiResortMod.Systems
                 CornerEntry entry = m_CornerEntries[e];
                 var buffer = EntityManager.GetBuffer<Game.Prefabs.SubObject>(entry.Prefab);
                 if (entry.Index >= buffer.Length)
-                    continue;   // the buffer is filled once per session (AreaInitializeSystem.cs:235-247); never seen shorter
+                    continue;   // the buffer is filled once per session (AreaInitializeSystem.cs:235-247). Never seen shorter
                 Game.Prefabs.SubObject element = buffer[entry.Index];
                 int value = stop ? 0 : entry.Base;
                 if (element.m_Probability == value)

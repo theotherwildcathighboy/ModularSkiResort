@@ -1,10 +1,10 @@
-// Pure, deterministic slope rating of a ski-run polygon: RatingGrade = the crux of the easiest line (a minimax path between the end zones); a difficulty layer then moves the band.
-// Entities-free on purpose: usings are System, System.Collections.Generic and Unity.Mathematics ONLY, so the same file is compiled
-// into the net48 mod (default **/*.cs glob) AND linked into the net8 headless test host tests/SlopeBatch.
+// Pure, deterministic slope rating of a ski-run polygon: RatingGrade = the crux of the easiest line (a minimax path between the end zones). A difficulty layer then moves the band.
+// Entities-free on purpose. The usings are System, System.Collections.Generic and Unity.Mathematics ONLY. So the same file compiles
+// into the net48 mod (default **/*.cs glob) AND links into the net8 headless test host tests/SlopeBatch.
 // Contract: no static mutable state (consts only), never logs, never throws on bad input (every degenerate input returns a
-// SlopeStatus and leaves the outputs cleared; a tampered grid cannot index out of range). Zero managed allocation per call once the
+// SlopeStatus and leaves the outputs cleared. A tampered grid cannot index out of range). Zero managed allocation per call once the
 // caller's reused SlopeGrid / SlopeResult buffers have grown (no Sort, no LINQ).
-// Cross-runtime bit equality (CoreCLR test host vs the game's Mono) is unverified; within a runtime a replay is bit-identical.
+// Cross-runtime bit equality (CoreCLR test host vs the game's Mono) is unverified. Within a runtime a replay is bit-identical.
 // Engine notes: EngineNotes/SkiSlopeClassifier.md
 
 using System;
@@ -24,9 +24,9 @@ namespace SkiResortMod.Systems
 
     /// <summary>Difficulty layer: why SlopeResult.Band differs from (or nearly differs from) BandOf(RatingGrade). None = the crux
     /// band stands. Capped = a black (double black) crux capped one band down by the steep-cell share. WideEase = a crux just above
-    /// the green/blue boundary on a wide gentle run rounded down to green. NarrowKept / LongKept = the cap WOULD have applied but
-    /// the steep section is narrower than NarrowWidthM (the width decides) / the crux pitch is at least CruxLengthForBlack long (the
-    /// length decides). GreenMean = a black or double black crux on a run whose MEAN grade is green, rated blue.</summary>
+    /// the green/blue boundary on a wide gentle run rounded down to green. NarrowKept = the cap WOULD have applied but
+    /// the steep section is narrower than NarrowWidthM (the width decides). LongKept = the cap WOULD have applied but the crux pitch is at least
+    /// CruxLengthForBlack long (the length decides). GreenMean = a black or double black crux on a run whose MEAN grade is green, rated blue.</summary>
     public enum SlopeNote : byte
     {
         None = 0,
@@ -50,7 +50,7 @@ namespace SkiResortMod.Systems
         BadHeights,
     }
 
-    /// <summary>Lattice plan of one polygon. Reused by the caller; buffers grow, never shrink.
+    /// <summary>Lattice plan of one polygon. The caller reuses it. Buffers grow, never shrink.
     /// After Plan: world x of node (i, j) = Origin.x + (I0 + i)·Step, z = Origin.y + (J0 + j)·Step,
     /// flat index j·Nx + i.</summary>
     public sealed class SlopeGrid
@@ -68,9 +68,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>Connectivity of the crux pass, set by the
         /// CALLER (the classifier does not know the step multiple): true when the caller's step
-        /// multiple is >= 2. false (default) = 8-neighbor connectivity;
+        /// multiple is >= 2. false (default) = 8-neighbor connectivity.
         /// true = the four orthogonal neighbors plus a diagonal neighbor only when BOTH cells
-        /// orthogonally shared between the two are outside the Mask. Plan leaves it untouched;
+        /// orthogonally shared between the two are outside the Mask. Plan leaves it untouched.
         /// Classify copies it into SlopeResult.DiagonalRule.</summary>
         public bool DiagonalRule;
 
@@ -82,9 +82,8 @@ namespace SkiResortMod.Systems
         internal double[] ArcLength;            // polyline cumulative arc length, meters
 
         // Per-row RUN LISTS (a per-row first/last span would bridge the outside gap of every row that crosses two arms of a concave
-        // ring). Row j's runs are the inclusive column pairs (Runs[2k], Runs[2k + 1]) for k in [RowStart[j], RowStart[j + 1]);
-        // RowStart has Nz + 1 entries. Runs are EXACT, sorted, disjoint and non-adjacent (same for Need). Ring mode has Mask and
-        // Need runs; polyline mode has Need runs only. Consumers (Classify, SkiRunDrawFeedbackSystem's fill / strips / capture,
+        // ring). Row j's runs are the inclusive column pairs (Runs[2k], Runs[2k + 1]) for k in [RowStart[j], RowStart[j + 1]). RowStart has Nz + 1 entries. Runs are EXACT, sorted, disjoint and non-adjacent (same for Need). Ring mode has Mask and
+        // Need runs. Polyline mode has Need runs only. Consumers (Classify, SkiRunDrawFeedbackSystem's fill / strips / capture,
         // SlopeBatch) walk these, so managed work is O(Mask) / O(Need), never O(bbox): the bbox-sized memsets (Plan's Array.Clear,
         // Classify's FillOutside) excepted.
         internal int[] MaskRuns, MaskRowStart;
@@ -111,7 +110,7 @@ namespace SkiResortMod.Systems
         public int SegmentCount;
 
         // Ring mode: RatingGrade = the crux of the easiest line.
-        public float[] CellGrade;               // per cell overlay value o, index j·Nx + i; only Mask cells are meaningful
+        public float[] CellGrade;               // per cell overlay value o, index j·Nx + i. Only Mask cells are meaningful
         public float SteepestGrade;             // k-th largest full 20 m window (ShortRun: k-th/last overlay value)
         public float P90Grade;                  // smallest bucket top with >= 90 % of inside cells at or below it
         public float CruxHeight;                // node height of the crux cell (valid when CruxValid)
@@ -126,22 +125,22 @@ namespace SkiResortMod.Systems
         // Run length (HORIZONTAL map meters). Geometry only:
         // computed in Classify from the sanitized points and the end-zone key range, never read by
         // the rating.
-        public float Length;                    // m; ring: max(LengthRect, AxisLength); polyline: arc length
-        public float LengthRect;                // m; ring: (P + sqrt(max(0, P² − 16A))) / 4 over the sanitized ring (closing edge included); polyline 0
-        public float AxisLength;                // m; ring: ZoneByFallLine ? fall-line key range of the inside cells + step : 0; polyline 0
+        public float Length;                    // m, ring: max(LengthRect, AxisLength), polyline: arc length
+        public float LengthRect;                // m, ring: (P + sqrt(max(0, P² − 16A))) / 4 over the sanitized ring (closing edge included), polyline 0
+        public float AxisLength;                // m, ring: ZoneByFallLine ? fall-line key range of the inside cells + step : 0, polyline 0
 
         // The difficulty layer
-        // on top of the crux. RatingGrade stays the raw crux (the oracle, "Hardest unavoidable pitch");
+        // on top of the crux. RatingGrade stays the raw crux (the oracle, "Hardest unavoidable pitch").
         // Band = the band the run is RATED (the catalog, the hub and the economy read it). Polyline mode,
         // a broken Mask (!Connected) and cleared results: CruxBand == Band, BandGrade == RatingGrade,
         // Note None. Evaluated in ring mode only when the crux band is Blue, Black or Double black.
         public SlopeBand CruxBand;              // BandOf(RatingGrade): the crux's own band
         public float BandGrade;                 // the grade Band reads: RatingGrade, or when the layer moved the band the crux limited to just below the band's ceiling (a DisplayBand input)
         public SlopeNote Note;                  // why Band moved / nearly moved (SlopeNote)
-        public float SteepShare;                // black/double-black crux: share of inside cells at/above the band floor (40 / 60 %), unweighted; else 0
+        public float SteepShare;                // black/double-black crux: share of inside cells at/above the band floor (40 / 60 %), unweighted, else 0
         public float SteepShareWeighted;        // the same with cells in a section narrower than NarrowWidthM counted twice
-        public float CruxPitchM;                // black/double-black crux: estimated length of the crux pitch along the easiest line, m (CruxStretchM + PitchBlurM); else 0
-        public float CruxWidthM;                // mean perpendicular extent over the crux stretch, m; -1 = not evaluated / no usable fall line
+        public float CruxPitchM;                // black/double-black crux: estimated length of the crux pitch along the easiest line, m (CruxStretchM + PitchBlurM), else 0
+        public float CruxWidthM;                // mean perpendicular extent over the crux stretch, m. -1 = not evaluated / no usable fall line
 
         // Classifier-private: the easiest line (cell indices, bottom zone -> top zone) the crux pass walked,
         // and the index of the crux cell on it. Grown, never shrunk.
@@ -156,13 +155,13 @@ namespace SkiResortMod.Systems
         internal float[] TopFull, TopCell;
 
         // Classifier-private crux-pass buffers (grow, never shrink): union-find / BFS state per
-        // flat cell index plus the two virtual nodes TOP = Nx·Nz and BOTTOM = Nx·Nz + 1; inside
-        // cells in bucket order; BFS queue; bucket bounds (RatingBuckets + 1); end-zone key
-        // histogram; the neighbor offset tables of the current grid (see Crux).
+        // flat cell index plus the two virtual nodes TOP = Nx·Nz and BOTTOM = Nx·Nz + 1, inside
+        // cells in bucket order, BFS queue, bucket bounds (RatingBuckets + 1), end-zone key
+        // histogram, the neighbor offset tables of the current grid (see Crux).
         internal int[] Uf, Order, Queue, BucketBound, HeightHist, Nbr;
         internal float[] HeapKey;               // open last bucket: the heap's keys, parallel to its Order segment
 
-        /// <summary>Resets every output (arrays keep their capacity; Nx = Nz = SegmentCount = 0
+        /// <summary>Resets every output (arrays keep their capacity. Nx = Nz = SegmentCount = 0
         /// marks their contents as void). A cleared result reads Status NoCells, never Ok.</summary>
         public void Clear()
         {
@@ -224,7 +223,7 @@ namespace SkiResortMod.Systems
 
         // Crux end zones (key, size and cap: EngineNotes/SkiSlopeClassifier.md). RatingBuckets = the counting-sort resolution of the
         // per-cell values: bucket = min(2047, (int)(o·1024)), i.e. 1/1024 = 0.098 % grade wide up to 200 %.
-        // Difficulty layer, applied AFTER the crux (see FinishBand); the reason for each constant is in the same note:
+        // Difficulty layer, applied AFTER the crux (see FinishBand). The reason for each constant is in the same note:
         //  SteepShareForBlack, DoubleBlackShare  steep-cell share below which a black / double black crux is capped one band
         //  CruxLengthForBlack, PitchBlurM        a pitch this long (measured as stretch + blur) is never capped
         //  CapMaxOverFloor                       only a BORDERLINE band is capped (crux < floor + 10 pp)
@@ -234,7 +233,7 @@ namespace SkiResortMod.Systems
         public const float CapMaxOverFloor = 0.10f, NarrowWidthM = 20f, WideRunM = 60f, WideEase = 0.02f;
         //  GreenMeanKeepsBlueMax 25 %  a run whose MEAN grade is below this (the green band, the classifier's own green/blue
         //                           boundary) rates at most BLUE however short and steep its crux, unless the unavoidable pitch
-        //                           is CruxLengthForBlack or longer: a cat track is narrow and has a short kick, it is not a
+        //                           is CruxLengthForBlack or longer: a cat track is narrow and has a short kick. It is not a
         //                           black diamond. The share, margin and width rules do not apply to it.
         public const float GreenMeanKeepsBlueMax = GradeBlue;
 
@@ -243,36 +242,36 @@ namespace SkiResortMod.Systems
         public const int RatingBuckets = 2048;
         private const float BucketsPerUnit = 1024f;           // buckets per 1.0 of grade
         private const int HeightBins = 1024;                  // end-zone key histogram
-        private const float OneBinRange = 1e-3f;              // m; key range below this -> one bin
+        private const float OneBinRange = 1e-3f;              // m, key range below this -> one bin
         private const int Inactive = 0;                       // union-find state in Uf (see Crux)
         // BFS state in Uf (see Crux): Unvisited | UnvisitedTop / UnvisitedBottom = traversable, not
         // yet reached, in the top / bottom zone (the zone bits of its Order entry). Every value
-        // below UnvisitedLimit is unvisited; Inactive, -1 (seed) and predecessors (> 0) are not.
+        // below UnvisitedLimit is unvisited. Inactive, -1 (seed) and predecessors (> 0) are not.
         private const int Unvisited = int.MinValue, UnvisitedTop = 1, UnvisitedBottom = 2, UnvisitedLimit = int.MinValue + 4;
         private const int TopBit = 1 << 29, BottomBit = 1 << 30, CellMask = TopBit - 1;   // Order entries (see Crux)
         private const int ZoneShift = 29;                     // (entry >> ZoneShift) & 3 = UnvisitedTop | UnvisitedBottom bits
 
         public const float WindowLength = 20f, RatingAreaM2 = 60f, DisplayHysteresis = 0.005f;
-        // MinRatingCells = 7 (5 does not hold): measured in SlopeBatch (SPIKE lines; ±3 m single
+        // MinRatingCells = 7 (5 does not hold): measured in SlopeBatch (SPIKE lines, ±3 m single
         // texel on 10.5/20/32.5 % planes, 180 orientations × 2 offsets × 5 spots), worst shift at
-        // m = 1: k=5 +1.96 % (315 of 10800 cases >= 1 %), k=6 +1.14 % (59), k=7 +0.40 % (0);
+        // m = 1: k=5 +1.96 % (315 of 10800 cases >= 1 %), k=6 +1.14 % (59), k=7 +0.40 % (0).
         // m = 2 stays <= 0.23 % for k = 5..7. A texel spike perturbs the 5×5 box direction of the
-        // cells around it, so up to ~6 cells' windows reach it, not the 4 of the bilinear footprint.
-        // CellBudget 16384: every run up to 200,704 m² (e.g. 2.5 km × 80 m) rates at m = 1; at 4096 every run over 50,176 m² fell to
+        // cells around it. So up to ~6 cells' windows reach it, not the 4 of the bilinear footprint.
+        // CellBudget 16384: every run up to 200,704 m² (e.g. 2.5 km × 80 m) rates at m = 1. At 4096 every run over 50,176 m² fell to
         // m = 2 and narrow banks rated up to 14.7 % low.
         public const int MinRatingCells = 7, CellBudget = 16384, Dilation = 3;
 
         private const int CellBudgetDown = 12288;             // StepMultiple hysteresis: back down only below this (3/4 of CellBudget)
-        private const float MaxStep = 100f;                   // m; larger -> BadStep
+        private const float MaxStep = 100f;                   // m, larger -> BadStep
         private const long MaxBboxCells = 1L << 21;           // larger -> TooLarge
-        private const long MaxCrossings = MaxBboxCells;       // scanline row crossings (8 B each, retained); more than bbox cells -> TooLarge (a ring zigzagging across thousands of rows)
+        private const long MaxCrossings = MaxBboxCells;       // scanline row crossings (8 B each, retained). More than bbox cells -> TooLarge (a ring zigzagging across thousands of rows)
         private const double MaxLatticeIndex = 1.0e9;         // |index| beyond this -> TooLarge (int safety)
         private const double DuplicateEpsSq = 1e-6;           // 1 mm in xz
         private const double MinRingArea = 1.0;               // m²
         private const float FlatGradient = 1e-6f;             // |g| below this -> fallback direction (1, 0)
         // Polyline k = max(PolylineMinWindows, ceil(8 m / ds)). 11, not the spec's original 3: windows are
-        // sampled every half cell and a texel's bilinear support crossed diagonally spans up to
-        // 2√2 cells, so a spike touches up to ~6 window starts AND ~6 window ends — and with the
+        // sampled every half cell, and a texel's bilinear support crossed diagonally spans up to
+        // 2√2 cells. So a spike touches up to ~6 window starts AND ~6 window ends. With the
         // absolute drop both ends raise a near-contour line. Measured (SlopeBatch SPIKE-POLY,
         // m = 1): min 5 -> worst +6.54 % with 202 band flips, 7 -> +3.32 %, 9 -> +0.89 %,
         // 11 -> +0.13 %.
@@ -295,12 +294,16 @@ namespace SkiResortMod.Systems
             return (SlopeBand)b;
         }
 
-        /// <summary>Display rule of the tooltip's "Steepest patch (avoidable)" line; kept here, pure and Entities-free, so the net8 test
-        /// host can sweep it (SlopeBatch TooltipLineTests). Shown only when ALL hold: (a) Connected (with a broken Mask the rating is
-        /// the P90 fallback, not a crux, so no patch can be called "avoidable" relative to it); (b) both grades finite; (c)
-        /// SteepestGrade >= RatingGrade + DisplayHysteresis (0.5 %): on a uniform plane height quantization alone puts SteepestGrade up
-        /// to +0.29 % above the crux; (d) the two rounded percentages differ (the tooltip shows round(100·g)), so the line never
-        /// repeats the crux line's number; (e) BandOf(SteepestGrade) is above the SHOWN band. Polyline mode never shows it (the
+        /// <summary>Display rule of the tooltip's "Steepest patch (avoidable)" line. It is kept here, pure and Entities-free, so the net8 test
+        /// host can sweep it (SlopeBatch TooltipLineTests). Shown only when ALL hold:
+        /// (a) Connected (with a broken Mask the rating is the P90 fallback, not a crux, so no patch can be called "avoidable" relative to it),
+        /// (b) both grades finite,
+        /// (c) SteepestGrade >= RatingGrade + DisplayHysteresis (0.5 %): on a uniform plane height quantization alone puts SteepestGrade up
+        /// to +0.29 % above the crux,
+        /// (d) the two rounded percentages differ (the tooltip shows round(100·g)), so the line never
+        /// repeats the crux line's number,
+        /// (e) BandOf(SteepestGrade) is above the SHOWN band.
+        /// Polyline mode never shows it (the
         /// feedback system publishes SteepestGrade == RatingGrade there, which fails (c)).</summary>
         public static bool SteepestPatchShown(float ratingGrade, float steepestGrade, SlopeBand shownBand, bool connected)
         {
@@ -313,7 +316,7 @@ namespace SkiResortMod.Systems
             return (int)BandOf(steepestGrade) > (int)shownBand;
         }
 
-        /// <summary>Base value of a band; unknown values -> 0.</summary>
+        /// <summary>Base value of a band. Unknown values -> 0.</summary>
         public static int BaseValue(SlopeBand band)
         {
             switch (band)
@@ -334,7 +337,7 @@ namespace SkiResortMod.Systems
         /// <summary>Step multiple m (step = m·texel) for a polygon of the given shoelace area.
         /// Without a current value (current &lt; 1): the smallest m >= 1 with area/(m·texel)² <=
         /// CellBudget. With one: go UP (to that smallest m) only when the current m would exceed
-        /// CellBudget estimated cells; go DOWN only to an m whose estimate is below CellBudgetDown
+        /// CellBudget estimated cells. Go DOWN only to an m whose estimate is below CellBudgetDown
         /// (12288). Never
         /// sized from the bbox. Invalid area or texel -> current (or 1).</summary>
         public static int StepMultiple(double areaM2, float texel, int current)
@@ -378,7 +381,7 @@ namespace SkiResortMod.Systems
         public static SlopeStatus Plan(float3[] points, int count, double2 latticeOrigin, float step, SlopeGrid grid)
         {
             if (grid == null)
-                return SlopeStatus.NoCells; // never throw; nothing to plan into
+                return SlopeStatus.NoCells; // never throw, nothing to plan into
             ResetGrid(grid, latticeOrigin, step);
             SlopeStatus status = PlanCore(points, count, latticeOrigin, step, grid);
             if (status != SlopeStatus.Ok)
@@ -436,7 +439,7 @@ namespace SkiResortMod.Systems
             if (m < 2)
                 return SlopeStatus.TooFewPoints;
 
-            // ---- lattice coordinates (double; world-anchored)
+            // ---- lattice coordinates (double, world-anchored)
             Grow(ref grid.LocalU, m);
             Grow(ref grid.LocalV, m);
             double[] u = grid.LocalU, v = grid.LocalV;
@@ -541,12 +544,12 @@ namespace SkiResortMod.Systems
             return SlopeStatus.Ok;
         }
 
-        /// <summary>Even-odd scanline per lattice row (local v = j exactly) in double; a node is inside when it lies in [x_2k, x_2k+1]
-        /// of the sorted crossings. Records each row's inside runs into grid.MaskRuns (two consecutive pairs that meet at one node are
+        /// <summary>Even-odd scanline per lattice row (local v = j exactly) in double. A node is inside when it lies in [x_2k, x_2k+1]
+        /// of the sorted crossings. It records each row's inside runs into grid.MaskRuns (two consecutive pairs that meet at one node are
         /// merged, so the runs are disjoint and non-adjacent). Returns the inside count, or -1 when the polygon has more than
         /// MaxCrossings row crossings (Plan: TooLarge).
         /// Edge bucketing: row j crosses edge (k, l) iff min(v_k, v_l) <= j < max(v_k, v_l), so each edge visits rows ceil(min) ..
-        /// ceil(max) - 1: a count pass, a prefix sum and a fill pass bucket every crossing by row, then each row is insertion-sorted
+        /// ceil(max) - 1. A count pass, a prefix sum and a fill pass bucket every crossing by row. Then each row is insertion-sorted
         /// (no Sort). Testing every edge against every row cost 0.42 ms of Plan for a 662-vertex C-shaped run on CoreCLR. The Mask
         /// does not depend on the bucketing (a sorted list of equal values is the same list whatever the insertion order).</summary>
         private static int Rasterize(SlopeGrid grid, int m)
@@ -597,7 +600,7 @@ namespace SkiResortMod.Systems
                 rowStart[j] = runCount;
                 int rowFirst = runCount;
                 int c0 = cs[j], c = cs[j + 1] - c0;
-                // insertion sort of this row's bucket (few crossings per row; no Sort)
+                // insertion sort of this row's bucket (few crossings per row, no Sort)
                 for (int s = c0 + 1; s < c0 + c; s++)
                 {
                     double x = xs[s];
@@ -669,7 +672,7 @@ namespace SkiResortMod.Systems
         /// row j's Need is the union over rows j - Dilation .. j + Dilation of their Mask runs
         /// widened by Dilation on each side (the Chebyshev dilation of a row run is exactly that
         /// rectangle). Each source row's runs are sorted, so a (2·Dilation + 1)-way merge by
-        /// run start emits row j's union in ascending order, merging overlapping and adjacent
+        /// run start emits row j's union in ascending order. The merge combines overlapping and adjacent
         /// intervals: O(7·runs) per row, no Sort, never O(bbox). Plan writes the Need bytes from
         /// these runs afterwards.</summary>
         private static void BuildRingNeedRuns(SlopeGrid grid)
@@ -739,8 +742,8 @@ namespace SkiResortMod.Systems
         /// <summary>Polyline Need: walk every segment at <= 0.5 cell spacing and mark the
         /// (2·Dilation+1)² box around each sample's rounded node. Any point on a segment is
         /// within 0.25 cell of a sample, so every bilinear read (floor, floor + 1) is covered.
-        /// Then each row's exact Need runs are read back from its marked first..last span (a
-        /// polyline crossing a row twice bridges the gap here, once, in Plan only).</summary>
+        /// Then each row's exact Need runs are read back from its marked first..last span.
+        /// A polyline crossing a row twice bridges the gap here, once, in Plan only.</summary>
         private static void MarkPolylineNeed(SlopeGrid grid, int m)
         {
             int nx = grid.Nx, nz = grid.Nz;
@@ -815,14 +818,14 @@ namespace SkiResortMod.Systems
 
         /// <summary>Test-only overload (tests/SlopeBatch: sensitivity table, the curved-run
         /// report rows under the height key via endZoneMinMeanGrade = endZoneMinCoherence = +inf,
-        /// the key-gate rows with the coherence clause off (+inf), the random oracle sweep; the
+        /// the key-gate rows with the coherence clause off (+inf), the random oracle sweep. The
         /// host links this file, so `internal` is visible there). The mod calls the public
         /// overload, which passes the shipped constants.</summary>
         internal static SlopeStatus Classify(SlopeGrid grid, SlopeResult result, float endZoneShare, float endZoneMaxM2,
                                              float endZoneDepthM, float endZoneMinMeanGrade, float endZoneMinCoherence)
         {
             if (result == null)
-                return SlopeStatus.NoCells; // never throw; nowhere to write
+                return SlopeStatus.NoCells; // never throw, nowhere to write
             result.Clear();
             SlopeStatus pre = Validate(grid);
             if (pre != SlopeStatus.Ok)
@@ -892,7 +895,7 @@ namespace SkiResortMod.Systems
             if (!(grid.Step > 0f) || grid.Step > MaxStep)
                 return SlopeStatus.BadStep;
             int nx = grid.Nx, nz = grid.Nz;
-            // A planned grid is always >= 2·Dilation + 3 wide; anything smaller was tampered with.
+            // A planned grid is always >= 2·Dilation + 3 wide. Anything smaller was tampered with.
             if (nx < 2 * Dilation + 3 || nz < 2 * Dilation + 3 || (long)nx * nz > MaxBboxCells)
                 return SlopeStatus.NoCells;
             int total = nx * nz;
@@ -925,8 +928,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Run-list structure check (a tampered grid must not index out of range or
-        /// visit a cell twice): RowStart has Nz + 1 non-decreasing entries from 0 within Runs,
-        /// every run lies in [0, Nx - 1] with start <= end, and a row's runs are strictly
+        /// visit a cell twice). RowStart has Nz + 1 non-decreasing entries from 0 within Runs.
+        /// Every run lies in [0, Nx - 1] with start <= end. A row's runs are strictly
         /// ascending and disjoint. O(Nz + runs).</summary>
         private static bool RunsValid(int[] runs, int[] rowStart, int nx, int nz)
         {
@@ -992,7 +995,7 @@ namespace SkiResortMod.Systems
 
             FillOutside(cellBand, nx * nz);
 
-            // Plan never puts a Mask cell within Dilation of the border; the clamps below only
+            // Plan never puts a Mask cell within Dilation of the border. The clamps below only
             // make a tampered grid unable to index out of range (such cells stay BandOutside).
             // Walks the Mask RUNS (Validate checked their structure): O(inside), not O(row span).
             int[] mRuns = grid.MaskRuns, mStart = grid.MaskRowStart;
@@ -1105,7 +1108,7 @@ namespace SkiResortMod.Systems
                 double coh = sumAbs > 0.0 ? fl / sumAbs : 0.0;
                 result.FallCoherence = (float)(coh > 1.0 ? 1.0 : coh);
             }
-            result.MeanGradient = (float)(fl / n);   // |ḡ| = |Σg| / n, the end-zone key gate; NaN only for tampered heights
+            result.MeanGradient = (float)(fl / n);   // |ḡ| = |Σg| / n, the end-zone key gate. NaN only for tampered heights
 
             // The crux (needs MinHeight / MaxHeight, CellGrade, CellBand, and the FINAL FallLine,
             // MeanGradient and FallCoherence: the end-zone key gate reads them, so they are set
@@ -1113,8 +1116,8 @@ namespace SkiResortMod.Systems
             Crux(grid, result, endZoneShare, endZoneMaxM2, endZoneDepthM, endZoneMinMeanGrade, endZoneMinCoherence);
             FinishBand(grid, result);  // Band = BandOf(RatingGrade) moved by the difficulty layer
 
-            // Run length = max(equivalent rectangle, fall-line extent). Reads only the sanitized points and AxisLength (set by Crux);
-            // writes only the three length fields, no rating output depends on them.
+            // Run length = max(equivalent rectangle, fall-line extent). Reads only the sanitized points and AxisLength (set by Crux).
+            // It writes only the three length fields. No rating output depends on them.
             float rect = (float)EquivalentRectLength(grid.Points, grid.PointCount);
             result.LengthRect = rect;
             result.Length = rect > result.AxisLength ? rect : result.AxisLength;
@@ -1123,8 +1126,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>The centerline length of the rectangle with the ring's perimeter P and area A, (P + sqrt(max(0, P² − 16A))) / 4,
         /// horizontal meters (xz only). P includes the closing edge explicitly (Plan stripped the duplicated closing vertex, so
-        /// pts[m - 1] → pts[0] is an edge here); A = |shoelace| relative to point 0, in double. Exact for an L × W rectangle and for
-        /// any constant-width band (mitred polygonal bends, circular arcs); shapes far from a band clamp the root at 0 (a circle reads
+        /// pts[m - 1] → pts[0] is an edge here). A = |shoelace| relative to point 0, in double. Exact for an L × W rectangle and for
+        /// any constant-width band (mitered polygonal bends, circular arcs). Shapes far from a band clamp the root at 0 (a circle reads
         /// P / 4). Returns 0 for fewer than 3 points, a short buffer (tampered grid) or a non-finite result.</summary>
         private static double EquivalentRectLength(float3[] pts, int m)
         {
@@ -1150,8 +1153,8 @@ namespace SkiResortMod.Systems
 
 
         /// <summary>RatingGrade = min over all connected Mask paths (8-neighbor, or the diagonal rule when result.DiagonalRule) from the
-        /// top end zone to the bottom end zone of the max per-cell value o along the path, via a counting sort into RatingBuckets
-        /// buckets and a union-find with TOP / BOTTOM virtual nodes; then a BFS for the crux cell. Also P90Grade, Connected, the zone
+        /// top end zone to the bottom end zone of the max per-cell value o along the path. It uses a counting sort into RatingBuckets
+        /// buckets and a union-find with TOP / BOTTOM virtual nodes. Then a BFS finds the crux cell. Also P90Grade, Connected, the zone
         /// sizes and ZoneByFallLine. "Inside cell" = a cell the per-cell loop processed (CellBand != BandOutside). Bucket 2047 is OPEN
         /// (o >= 199.9 %): its cells are activated in ascending o (binary min-heap) so RatingGrade is the exact minimax. End zones, the
         /// Uf encoding and the dilated-runs initialization: EngineNotes/SkiSlopeClassifier.md ("Near Crux").</summary>
@@ -1172,10 +1175,10 @@ namespace SkiResortMod.Systems
             result.PathLen = 0;
 
             // ---- end-zone key (Crux summary "END ZONES"). The fall-line key is
-            // computed inline per cell by ZoneKey (no per-cell buffer); it is linear in i along a
-            // row and float rounding is monotone, so its range over the inside cells is the range
+            // computed inline per cell by ZoneKey (no per-cell buffer). It is linear in i along a
+            // row and float rounding is monotone. So its range over the inside cells is the range
             // over the clamped Mask runs' END cells (O(runs)). The SAME ZoneKey / HeightBin call
-            // feeds the histogram (pass 1) and the zone bits (pass 2); the BFS reads those bits.
+            // feeds the histogram (pass 1) and the zone bits (pass 2). The BFS reads those bits.
             float s = grid.Step;
             float2 fall = result.FallLine;
             float flx = fall.x, flz = fall.y;
@@ -1215,7 +1218,7 @@ namespace SkiResortMod.Systems
                 range = result.MaxHeight - result.MinHeight;
             }
             // The run's extent along the mean fall line, the
-            // same L as the depth cap (an output only; nothing below reads it). 0 on the height key.
+            // same L as the depth cap (an output only, nothing below reads it). 0 on the height key.
             result.AxisLength = byFall ? (float)keyLength : 0f;
             int bins = range >= OneBinRange ? HeightBins : 1;   // also 1 for a NaN range (tampered heights)
             float binScale = bins > 1 ? HeightBins / range : 0f;
@@ -1223,7 +1226,7 @@ namespace SkiResortMod.Systems
             // ---- pass 1 (Mask runs): union-find init, count, histogram. Uf is set to Inactive
             // over every Mask run DILATED BY ONE CELL (rows j - 1 .. j + 1, columns lo - 1 ..
             // hi + 1), so every 8-neighbor of an inside cell holds fresh state and the later
-            // passes test Uf alone (no CellBand read per neighbor); O(3·inside + 6·runs).
+            // passes test Uf alone (no CellBand read per neighbor). Cost: O(3·inside + 6·runs).
             int n = 0;
             for (int j = Dilation; j < nz - Dilation; j++)
             {
@@ -1266,7 +1269,7 @@ namespace SkiResortMod.Systems
                 }
             }
             bound[RatingBuckets] = run;
-            result.P90Grade = (p90Bucket + 1) / BucketsPerUnit;   // exact in float; saturates at 2.0 (200 %)
+            result.P90Grade = (p90Bucket + 1) / BucketsPerUnit;   // exact in float, saturates at 2.0 (200 %)
 
             // ---- end zones: whole key bins from each end until >= z cells. Cap: the depth cap
             // floor(n·EndZoneDepthM / L) on the fall-line key, the area cap on the height key.
@@ -1286,12 +1289,12 @@ namespace SkiResortMod.Systems
             result.TopZoneCells = topCells;
             result.BottomZoneCells = bottomCells;
 
-            // ---- pass 2 (Mask runs): counting-sort placement; afterwards bound[b] = start of
+            // ---- pass 2 (Mask runs): counting-sort placement. Afterwards bound[b] = start of
             // bucket b and bound[b + 1] = its end (in-bucket order is irrelevant to the result
-            // below bucket 2047; the last bucket is ordered by the heap below).
+            // below bucket 2047. The last bucket is ordered by the heap below).
             // Each entry carries its cell's zone membership in bits 29 / 30 (flat indices are
-            // < MaxBboxCells + 2 < 2^29): this sequential scan reads the heights cache-friendly,
-            // the bucket-ordered union-find below would read them at random.
+            // < MaxBboxCells + 2 < 2^29). This sequential scan reads the heights cache-friendly.
+            // The bucket-ordered union-find below would read them at random.
             Grow(ref result.Order, n);
             int[] order = result.Order;
             for (int j = Dilation; j < nz - Dilation; j++)
@@ -1313,11 +1316,11 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // ---- union-find, bucket by bucket (ascending); stop at the first connecting bucket. Activation turns Inactive into a
+            // ---- union-find, bucket by bucket (ascending). Stop at the first connecting bucket. Activation turns Inactive into a
             // size-1 root and joins the cell to its ACTIVE inside neighbors under the grid's connectivity rule.
-            //  * 8-neighbor (DiagonalRule false): walking the neighbors as a cycle (NW N NE E SE S SW W), consecutive ones are
-            //    8-adjacent to each other, so by induction on activation order every run of consecutive active neighbors is already
-            //    one set: one union per run (usually one instead of up to eight; the union-find is most of this pass's cost).
+            //  * 8-neighbor (DiagonalRule false): the neighbors form a cycle (NW N NE E SE S SW W). Consecutive ones are
+            //    8-adjacent to each other. So by induction on activation order every run of consecutive active neighbors is already
+            //    one set: one union per run (usually one instead of up to eight. The union-find is most of this pass's cost).
             //  * DiagonalRule (step multiple >= 2): N W E S, plus a diagonal only when both cells it shares orthogonally with q are
             //    outside the Mask. Two orthogonal neighbors of q are NOT adjacent under this rule, so the run trick does not hold:
             //    one union per allowed active neighbor.
@@ -1340,7 +1343,7 @@ namespace SkiResortMod.Systems
             nbr[14] = nx - 1;
             nbr[15] = -1;
             // DiagonalRule: for row-major neighbor e, the two cells it shares orthogonally with q
-            // (nbr[16 + e], nbr[24 + e]); 0 for the orthogonal neighbors (always allowed).
+            // (nbr[16 + e], nbr[24 + e]), 0 for the orthogonal neighbors (always allowed).
             for (int e = 16; e < 32; e++)
                 nbr[e] = 0;
             nbr[16] = -nx; nbr[24] = -1;            // NW: N and W
@@ -1353,7 +1356,7 @@ namespace SkiResortMod.Systems
             uf[bottom] = -1;
             int connecting = -1;
             const int last = RatingBuckets - 1;
-            int heapEnd = bound[RatingBuckets];     // last bucket only: its popped (activated or tied) cells end up in order[heapEnd .. n)
+            int heapEnd = bound[RatingBuckets];     // last bucket only: its popped (activated or tied) cells are in order[heapEnd .. n)
             float exactRating = float.NaN;
             float[] key = null;
             for (int b = 0; b < RatingBuckets && connecting < 0; b++)
@@ -1425,7 +1428,7 @@ namespace SkiResortMod.Systems
                     {
                         connecting = b;
                         exactRating = key[heapEnd - start];   // the popped cell's key (= ValueKey(o))
-                        // Ties join the traversable set (o <= RatingGrade); they stay Inactive
+                        // Ties join the traversable set (o <= RatingGrade). They stay Inactive
                         // in the union-find, which is finished.
                         while (heapEnd > start && key[0] <= exactRating)
                         {
@@ -1469,10 +1472,10 @@ namespace SkiResortMod.Systems
             result.Connected = true;
             result.RatingGrade = rating;
 
-            // ---- crux cell: BFS from the top-zone cells (row-major seed order) through the traversable cells (o <= RatingGrade),
-            // neighbors expanded in row-major order (nbr[0..7]: NW N NE W E SW S SE; under DiagonalRule a diagonal only where the
-            // union-find above allows it), stopped when the first bottom-zone cell is DISCOVERED (not dequeued), walked back. Below
-            // bucket 2047 the traversable cells are order[0 .. bound[connecting + 1]); in the last bucket, order[0 .. bound[2047])
+            // ---- crux cell: BFS from the top-zone cells (row-major seed order) through the traversable cells (o <= RatingGrade).
+            // The BFS expands neighbors in row-major order (nbr[0..7]: NW N NE W E SW S SE. Under DiagonalRule a diagonal only where the
+            // union-find above allows it). It stops when the first bottom-zone cell is DISCOVERED (not dequeued), then walks back. Below
+            // bucket 2047 the traversable cells are order[0 .. bound[connecting + 1]). In the last bucket they are order[0 .. bound[2047])
             // plus the popped segment order[heapEnd .. n). Each traversable cell's Unvisited state carries its Order entry's zone
             // bits, so seeds and the stop test read exactly the zones the union-find used (no key recomputation here).
             int traversable = connecting == last ? bound[last] : bound[connecting + 1];
@@ -1540,9 +1543,9 @@ namespace SkiResortMod.Systems
                 }
             }
             if (found < 0)
-                return; // cannot happen once connected; CruxValid stays false
+                return; // cannot happen once connected. CruxValid stays false
 
-            // Walk bottom -> top; ">=" lets a later (nearer the top) cell win ties.
+            // Walk bottom -> top. The ">=" lets a later (nearer the top) cell win ties.
             // The walked cells are also recorded (bottom -> top) so the difficulty layer can
             // measure the crux pitch and its width without a second traversal.
             Grow(ref result.Path, n + 2);
@@ -1589,10 +1592,10 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Sets Band / CruxBand / BandGrade / Note and the evidence fields from the finished crux pass. Pure: reads only the
-        /// result (CellGrade, the recorded easiest line Path, FallLine, MeanGrade, RatingGrade) and the grid's Mask; no terrain sampling,
-        /// no allocation. Three rules: steep-share cap, green mean (checked before the share rule) and wide ease; their text and
-        /// constants are in EngineNotes/SkiSlopeClassifier.md ("Near FinishBand"). Widths need a usable fall line (ZoneByFallLine);
-        /// without one width is unknown (CruxWidthM -1) and no width rule fires. Polyline mode, a broken Mask (the rating is the P90
+        /// result (CellGrade, the recorded easiest line Path, FallLine, MeanGrade, RatingGrade) and the grid's Mask, with no terrain sampling and
+        /// no allocation. Three rules: steep-share cap, green mean (checked before the share rule) and wide ease. Their text and
+        /// constants are in EngineNotes/SkiSlopeClassifier.md ("Near FinishBand"). Widths need a usable fall line (ZoneByFallLine).
+        /// Without one, width is unknown (CruxWidthM -1) and no width rule fires. Polyline mode, a broken Mask (the rating is the P90
         /// fallback, no easiest line) and ShortRun results with no valid crux keep Band = BandOf(RatingGrade).</summary>
         private static void FinishBand(SlopeGrid grid, SlopeResult result)
         {
@@ -1620,7 +1623,7 @@ namespace SkiResortMod.Systems
             float floor = FloorOf(crux);
 
             // The crux stretch: the cells of the easiest line around the crux cell that read at/above the
-            // crux band's floor (the line is recorded bottom -> top; indices lo..hi, lo the downhill end).
+            // crux band's floor (the line is recorded bottom -> top, indices lo..hi, lo the downhill end).
             int lo = pc, hi = pc;
             while (lo > 0 && cg[path[lo - 1]] >= floor)
                 lo--;
@@ -1632,8 +1635,8 @@ namespace SkiResortMod.Systems
                 int d = path[k + 1] - path[k];
                 stretchM += (d == 1 || d == -1 || d == nx || d == -nx) ? s : 1.41421356 * s;   // 8-neighbor step: orthogonal or diagonal
             }
-            // A stretch that reaches an end of the easiest line is cut by the end zone (the line starts / ends inside it, engine notes limit (a)):
-            // the pitch may continue into the zone, so each touched end adds the zone depth and a short-looking wall is not capped.
+            // A stretch that reaches an end of the easiest line is cut by the end zone (the line starts / ends inside it, engine notes limit (a)).
+            // The pitch may continue into the zone. So each touched end adds the zone depth, and a short-looking wall is not capped.
             if (lo == 0)
                 stretchM += EndZoneDepthM;
             if (hi == pathLen - 1)
@@ -1801,7 +1804,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Depth cap (fall-line key): floor(n·EndZoneDepthM / L) cells, L = the
         /// key range of the inside cells + step (> 0) — EndZoneDepthM of run at the run's MEAN
-        /// width n·step² / L. It is a cell COUNT, so at an end narrower than the mean the zone
+        /// width n·step² / L. It is a cell COUNT. So at an end narrower than the mean the zone
         /// reaches EndZoneDepthM × mean / end width along the fall line (engine notes limit (g)).</summary>
         private static double DepthCap(int n, float depthM, double keyLength)
         {
@@ -1817,8 +1820,8 @@ namespace SkiResortMod.Systems
             return -(flx * i + flz * j) * step;
         }
 
-        /// <summary>Counting-sort bucket of a per-cell value: min(2047, (int)(o·1024)); NaN,
-        /// negative and >= 200 % go to the last bucket (a guard; cannot occur with finite
+        /// <summary>Counting-sort bucket of a per-cell value: min(2047, (int)(o·1024)). NaN,
+        /// negative and >= 200 % go to the last bucket (a guard. It cannot occur with finite
         /// heights below 200 %).</summary>
         private static int BucketOf(float o)
         {
@@ -1889,7 +1892,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>End-zone key bin: (int)((key - min key) · (1024 / key range)) in float, clamped
-        /// to [0, bins - 1]; always 0 with one bin. NaN -> 0. The key is the node height
+        /// to [0, bins - 1]. Always 0 with one bin. NaN -> 0. The key is the node height
         /// (min key = MinHeight) or ZoneKey (the fall-line key).</summary>
         private static int HeightBin(float hv, float hmin, float scale, int bins)
         {
@@ -1943,9 +1946,9 @@ namespace SkiResortMod.Systems
         /// |H(p - half·d) - H(p + half·d)| / lengthM, or -1 when any of the checks + 1 evenly
         /// spaced points (both endpoints included) rounds to a node outside the Mask. Every
         /// accepted endpoint lies within 0.5 cell of an interior Mask node, so the bilinear
-        /// reads stay inside the Need set — but may read one node outside the Mask (engine notes,
+        /// reads stay inside the Need set. But they may read one node outside the Mask (engine notes,
         /// LATTICE RESOLUTION). All positions are OFFSETS from the node, computed
-        /// without (i, j), so a cell's value is bit-identical wherever the grid's local origin
+        /// without (i, j). So a cell's value is bit-identical wherever the grid's local origin
         /// lies (a superset polygon or a panning bbox never perturbs an old window).</summary>
         private static float Window(float[] h, byte[] mask, int nx, int nz, int i, int j, float dx, float dz,
                                     float half, int checks, float lengthM)
@@ -1974,8 +1977,8 @@ namespace SkiResortMod.Systems
             }
             // Rounded endpoint check on purpose: the bilinear can read ONE node past the last inside node (engine notes, LATTICE RESOLUTION).
             // Stricter endpoint rules were measured in SlopeBatch and each broke an invariant: four inside corners -> a 30x15 ShortRun in
-            // 12 of 14 cases and a ridge at m=2 reading 26.07 % vs 27.73 %; renormalised inside-corner weights -> planes up to +2.46 % at
-            // m = 2; pulling the end inward <= 1 cell -> runout -0.11 %, 2 cases, classify +70 % (worst 1.6 ms).
+            // 12 of 14 cases and a ridge at m=2 reading 26.07 % vs 27.73 %. Renormalized inside-corner weights -> planes up to +2.46 % at
+            // m = 2. Pulling the end inward <= 1 cell -> runout -0.11 %, 2 cases, classify +70 % (worst 1.6 ms).
             float a = BilinearAt(h, nx, i, j, ox0, oz0);
             float b = BilinearAt(h, nx, i, j, ox1, oz1);
             return math.abs(a - b) / lengthM;
@@ -2019,7 +2022,7 @@ namespace SkiResortMod.Systems
             float[] h = grid.Heights;
             double[] u = grid.LocalU, v = grid.LocalV;
             // No Mask in polyline mode: CellBand is BandOutside everywhere (no consumer reads it
-            // here; the overlay draws segments). Memset-speed fill, not a managed per-cell pass.
+            // here. The overlay draws segments). Memset-speed fill, not a managed per-cell pass.
             FillOutside(result.CellBand, nx * nz);
 
             int segs = m - 1;
@@ -2118,7 +2121,7 @@ namespace SkiResortMod.Systems
             return status;
         }
 
-        /// <summary>Height at arc length `at` (meters) along the sanitized polyline; `seg` is a
+        /// <summary>Height at arc length `at` (meters) along the sanitized polyline. `seg` is a
         /// forward-only cursor (calls must be non-decreasing in `at`).</summary>
         private static float HeightAt(SlopeGrid grid, float[] h, int nx, int nz, ref int seg, double at)
         {
@@ -2136,8 +2139,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Bilinear with the cell index clamped into the grid — polyline points lie at
-        /// least Dilation + 1 cells inside by construction, so the clamp never bites after Plan;
-        /// it only keeps a tampered grid from indexing out of range.</summary>
+        /// least Dilation + 1 cells inside by construction, so the clamp never bites after Plan.
+        /// It only keeps a tampered grid from indexing out of range.</summary>
         private static float BilinearClamped(float[] h, int nx, int nz, double x, double z)
         {
             float xf = (float)x, zf = (float)z;
@@ -2160,7 +2163,7 @@ namespace SkiResortMod.Systems
 
         // ================================================================== helpers
 
-        /// <summary>a[0..n) = BandOutside by doubling Buffer.BlockCopy (memset-speed; net48 has
+        /// <summary>a[0..n) = BandOutside by doubling Buffer.BlockCopy (memset-speed, net48 has
         /// no Array.Fill). The lattice is the polygon bbox (up to MaxBboxCells), so a managed
         /// per-byte loop here was an O(bbox) pass on every Classify.</summary>
         private static void FillOutside(byte[] a, int n)

@@ -1,10 +1,10 @@
-// A player's power line outlives the station it was wired to: vanilla drops the station's stub node but keeps it for the line
-// (Game.Objects/SubElementDeleteSystem.cs:125-136, Owner removed), with OUR marker prefab still on it. Saved that way, a city depends on
-// this mod for one node of a vanilla line. So an unowned marker node with only foreign edges becomes a plain node of that line: its
-// PrefabRef takes the edge's prefab, its components the difference between the two node archetypes, and Updated lets vanilla rebuild it.
-// A node still on one of our lines stays: a lift line's loose end at a removed station is the section-by-section workflow.
-// Scheduling (load-bearing): UpdateBefore<SkiStubCleanupSystem, SubElementDeleteSystem>(PostTool), so the Updated tag reaches the
-// Modification phases this frame; PostTool runs every frame, paused included (Game.Tools/ToolSystem.cs:251-257).
+// A player's power line outlives the station it was wired to. Vanilla drops the station's stub node but keeps it for the line
+// (Game.Objects/SubElementDeleteSystem.cs:125-136, Owner removed), with OUR marker prefab still on it. A city saved that way depends on
+// this mod for one node of a vanilla line. So an unowned marker node with only foreign edges becomes a plain node of that line.
+// Its PrefabRef takes the edge's prefab. Its components take the difference between the two node archetypes. Updated lets vanilla
+// rebuild it. A node still on one of our lines stays. A lift line's loose end at a removed station is the section-by-section workflow.
+// Scheduling (load-bearing): UpdateBefore<SkiStubCleanupSystem, SubElementDeleteSystem>(PostTool). So the Updated tag reaches the
+// Modification phases this frame. PostTool runs every frame, paused included (Game.Tools/ToolSystem.cs:251-257).
 
 using System.Collections.Generic;
 using Colossal.Entities;
@@ -87,7 +87,7 @@ namespace SkiResortMod.Systems
                 !EntityManager.TryGetComponent(was.m_Prefab, out NetData oldNet) || !EntityManager.TryGetComponent(plain, out NetData newNet))
                 return;
 
-            // Only the components the two node archetypes disagree on (Marker at least); what the simulation added at run time stays.
+            // Only the components on which the two node archetypes disagree (Marker at least). What the simulation added at run time stays.
             using (NativeArray<ComponentType> oldTypes = oldNet.m_NodeArchetype.GetComponentTypes(Allocator.Temp))
             using (NativeArray<ComponentType> newTypes = newNet.m_NodeArchetype.GetComponentTypes(Allocator.Temp))
             {
