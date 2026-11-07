@@ -1,6 +1,6 @@
-// Compare the two fingerprint outputs: every A line (HEAD = Phase A numerics) must appear unchanged in B (working tree);
-// B may add lines only for fields A does not have. Prints the FNV-1a 64 of A's lines and of B's lines restricted to
-// A's field names, per row group and overall.
+// Compare the two fingerprint outputs. Every A line (HEAD = Phase A numerics) must appear unchanged in B (working tree).
+// B may add lines only for fields A does not have. The script prints the FNV-1a 64 of A's lines and of B's lines
+// restricted to A's field names, per row group and overall.
 "use strict";
 const fs = require("fs");
 const a = fs.readFileSync(process.argv[2], "utf8").split(/\r?\n/).filter(Boolean);

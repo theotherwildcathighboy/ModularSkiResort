@@ -1,5 +1,5 @@
-// Step sequences: mouse and keyboard input spread over frames, because a tool sees a hover only on a later frame than the move, and
-// a click needs the button held across frames. World targets are resolved on the frame they run, after any camera move has settled.
+// Step sequences: mouse and keyboard input spread over frames. A tool sees a hover only on a later frame than the move, and
+// a click needs the button held across frames. The bridge resolves world targets on the frame they run, after any camera move settles.
 
 using System;
 using Newtonsoft.Json.Linq;
@@ -92,7 +92,7 @@ namespace SkiTestBridge
                     s.waitFrames--;
                     return;
                 }
-                // Steps with no wait run on the same frame; the bound only stops a runaway list from stalling one frame.
+                // Steps with no wait run on the same frame. The bound only stops a runaway list from stalling one frame.
                 for (int i = 0; i < 64 && !s.done && s.waitFrames == 0; i++)
                 {
                     if (s.index >= s.steps.Count)
@@ -239,7 +239,7 @@ namespace SkiTestBridge
             return new float2(screen.x, Screen.height - 1 - screen.y);
         }
 
-        /// <summary>Waits until the camera has held still for a few frames, so a world target projects to where it will stay.</summary>
+        /// <summary>Waits until the camera stays still for a few frames, so a world target projects to where it will stay.</summary>
         private bool RunSettle(Sequence s, JObject step)
         {
             Transform camera = m_Camera.activeCamera.transform;
@@ -277,7 +277,7 @@ namespace SkiTestBridge
             return true;
         }
 
-        /// <summary>The last move aimed at a world point; it outlives its sequence, the cursor stays there.</summary>
+        /// <summary>The last move aimed at a world point. It outlives its sequence. The cursor stays there.</summary>
         private static bool s_AimedAtWorld;
 
         /// <summary>A press aimed at a world point must reach the world: a panel or dialog under the cursor would take the click instead.

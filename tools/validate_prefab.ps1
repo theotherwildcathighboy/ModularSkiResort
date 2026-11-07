@@ -1,9 +1,9 @@
 # Validate a hand-edited CS2 prefab JSON against the known hard-crash rules:
-#   1. Positional type table: "$type": N may only appear AFTER "N|Full.Type" is declared
-#      earlier in the file ("Missing type id" crash otherwise).
+#   1. Positional type table: "$type": N may only appear AFTER the file declares "N|Full.Type"
+#      earlier ("Missing type id" crash otherwise).
 #   2. An index must not be declared twice with different type names.
 #   3. Declaration ORDER is NOT checked: it is unconstrained (SkiChairliftHV declares 11 after
-#      17 and loads fine; gaps are fine too). The 2026-08-05 "Entry ... missing a name" /
+#      17 and loads fine. Gaps are fine too). The 2026-08-05 "Entry ... missing a name" /
 #      "Missing type ID" spam came from mangled newlines (see the suspicious-line check below),
 #      not from ordering. See the NOTE in the loop and PIPELINE section 6.
 param([Parameter(Mandatory = $true)][string]$Path)
@@ -30,8 +30,8 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
             $errors++
         }
         # NOTE: declaration ORDER is unconstrained — SkiChairliftHV declares 11 after 17 and
-        # has always loaded fine. (A monotonic-order rule was briefly enforced here during
-        # the 2026-08-05 debugging; the real culprit was mangled newlines, not ordering.)
+        # has always loaded fine. (This script briefly enforced a monotonic-order rule here during
+        # the 2026-08-05 debugging. The real culprit was mangled newlines, not ordering.)
         $maxDeclared = [math]::Max($maxDeclared, $idx)
         $declared[$idx] = $name
     }

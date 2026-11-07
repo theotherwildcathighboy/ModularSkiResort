@@ -1,24 +1,27 @@
 # release-check.ps1 - READ-ONLY gate for the folder a publish build uploads (release review 2026-10-30: B1, B2, S4).
 # Builds nothing, deploys nothing, writes nothing. mod/SkiResortMod/SkiPublish.targets runs it at the end of every publish build
-# (PublishNewMod / PublishNewVersion) and of the dry run (-p:SkiPublishDryRun=true), after the .cok, the layouts and the strip, and
-# BEFORE ModPublisher uploads: a FAIL fails the build, so nothing is uploaded. By hand, after a dry run, from the repo root:
+# (PublishNewMod / PublishNewVersion) and of the dry run (-p:SkiPublishDryRun=true). It runs after the .cok, the layouts and the
+# strip, and BEFORE ModPublisher uploads. A FAIL fails the build, so nothing is uploaded. To run it by hand, after a dry run, use
+# this command from the repo root:
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\release-check.ps1
 #
 # -DeployDir <folder> picks another folder. Default: %CSII_LOCALMODSPATH%\SkiResortMod, the toolchain's deploy folder
-# (%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\Mods\SkiResortMod; Mod.props LocalModsPath, Mod.targets:52).
+# (%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\Mods\SkiResortMod. It comes from Mod.props LocalModsPath and
+# Mod.targets:52).
 # One PASS / FAIL line per check, then a SUMMARY. Exit 0 = every check PASS, 1 = any FAIL.
 #   cok         exactly one .cok at the folder root (the Editor package, mod/SkiResortMod/Package/README.md), under 2 GB (expected
-#               about 0.8 GB; near 3 GB means the whole ImportedData\c030ee3ff256df91 library was packaged)
-#   textures    at least 8 Textures\*.png (the run textures; mod/SkiResortMod/Textures is git-ignored, release review S4)
+#               about 0.8 GB. A size near 3 GB means the build packaged the whole ImportedData\c030ee3ff256df91 library)
+#   textures    at least 8 Textures\*.png (the run textures. mod/SkiResortMod/Textures is git-ignored, release review S4)
 #   layouts     K45_WE\layouts\*.wedefault.xml: the same file names as the repo's assets\we\K45_WE\layouts
 #   dll         SkiResortMod.dll and SkiResortMod_win_x86_64.dll (the Burst library the game loads)
 #   bundle      SkiResortMod.mjs + .css, and the bundle's build stamp equals the DLL's (a mismatched pair blanks the hub)
-#   profile     no file holds the Windows profile folder name or its 8.3 short form, as UTF-8 or UTF-16 bytes, any case; a .cok is
-#               read entry by entry (names and inflated contents). Prints file names only, never the name.
+#   profile     no file holds the Windows profile folder name or its 8.3 short form, as UTF-8 or UTF-16 bytes, any case. The check
+#               reads a .cok entry by entry (names and inflated contents). It prints file names only, never the name.
 #   user-paths  node tools\check-no-user-paths.js passes (tracked files: no absolute user path, no owner name)
-#   surface     node tools\game-surface-check.js --require-decompile passes: the code, the prefabs, the vanilla references and the tested-version
-#               strings all match tools\game-surface.lock, and the lock matches the decompile of the game it names (docs/PIPELINE.md section 7)
+#   surface     node tools\game-surface-check.js --require-decompile passes. The code, the prefabs, the vanilla references and the
+#               tested-version strings all match tools\game-surface.lock. The lock matches the decompile of the game it names
+#               (docs/PIPELINE.md section 7)
 
 param([string]$DeployDir)
 

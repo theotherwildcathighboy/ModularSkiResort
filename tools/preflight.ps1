@@ -12,35 +12,35 @@
 #   6. DUPCID    - no cid value held by two .cid files anywhere under ImportedData (F7 fixer).
 #   7. NAMES     - every prefab name of mod/SkiResortMod/Systems/SkiCatalog.cs (the lines between
 #                  // NAMES-BEGIN and // NAMES-END) is the root name of exactly one owned prefab whose
-#                  root $type is the catalog's PrefabID type, and a hub build item carries an icon
-#                  (Catalog Phase A, 2026-10-11; docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md
-#                  R12; extensibility.md F9 / row 24). Catalog Phase B (code-round-2/round-2-contract.md 1.1, D5,
-#                  D14): a line ending ", pending" is a designed name not imported yet - absent = OK (pending),
-#                  present = WARN until its ", pending" is dropped and its row set Expected (the rows work either way).
+#                  root $type is the catalog's PrefabID type. A hub build item carries an icon
+#                  (Catalog Phase A, 2026-10-11, docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md
+#                  R12, extensibility.md F9 / row 24). Catalog Phase B (code-round-2/round-2-contract.md 1.1, D5,
+#                  D14): a line ending ", pending" is a designed name not imported yet. Absent = OK (pending).
+#                  Present = WARN until its ", pending" is dropped and its row set Expected (the rows work either way).
 #   8. LANES     - every owned NetLaneGeometryPrefab's m_Meshes[].m_Mesh is curve-capable: a known vanilla cable-lane
-#                  mesh GUID, or a CID whose mesh prefab carries CurveProperties; the superseded August lanes
-#                  (SkiLiftHaulRope / SkiLiftHaulRopeB) must not be referenced by any other prefab (DECISIONS 243;
-#                  PIPELINE.md section 6 lift-line invariant). Bug class: a rigid rope rod ~90 degrees across the line.
+#                  mesh GUID, or a CID whose mesh prefab carries CurveProperties. No other prefab may reference the superseded August lanes
+#                  (SkiLiftHaulRope / SkiLiftHaulRopeB). See DECISIONS 243 and the
+#                  PIPELINE.md section 6 lift-line invariant. Bug class: a rigid rope rod ~90 degrees across the line.
 #   9. IDIOMS    - PIPELINE.md section 6 rules a file check can catch: HOSTED (no PillarObject on SkiLiftTerminalTower*),
 #                  SPAWN (no plain spawn marker on a ServiceUpgrade child), WEATHER (no WeatherObject on a spawnable),
 #                  NETNULL (no null m_Lane / m_Piece / m_Section), PROP (no gameplay components on scenery props), KEEP (SkiLiftTowerFG2 present), ARRLEN ($rlength /
 #                  $plength match the real array counts). Also in LANES: rope-lane m_Hanging <= its type's ceiling ($RopeSagCeiling, else 0.01).
 #  10. SHIPPED   - every (name, type, CID) of tools/shipped-prefabs.json (tools/freeze-shipped.ps1) is still an owned prefab
-#                  with that CID (FAIL otherwise); an owned non-RenderPrefab not in the list WARNs until re-frozen (T74).
+#                  with that CID (FAIL otherwise). An owned non-RenderPrefab not in the list WARNs until re-frozen (T74).
 #  11b. MOVERLIGHT - the prop our code moves (GroomerRules.PrefabName) lights only through purpose 71 EffectSource, carries an
-#                  EffectSource row for it to follow, and its far surfaces carry the emissive map (SkiGroomerA, 2026-11-01);
-#                  its owned light effects are owner-culled (m_DisableDistanceCulling false), so no pool outlives the mesh (2026-11-03).
+#                  EffectSource row for it to follow, and its far surfaces carry the emissive map (SkiGroomerA, 2026-11-01).
+#                  Its owned light effects are owner-culled (m_DisableDistanceCulling false), so no pool outlives the mesh (2026-11-03).
 #  13. STUBNET   - every station stub marker net is wider than the widest lift line and has no lanes (T121 / T126).
 #  14. POWERFLOW - every owned lift line (PowerLinePrefab, not a MarkerNet) carries ElectricityConnection Voltage High (1),
 #                  Direction Both (3), Capacity == the vanilla Low-voltage Line's 800000 (DECISIONS 369 / R-1).
-#  12d. ALIGN    - tools/check-lift-align.js: carriers pose by LiftMoverMath.CarrierDrop (rope point, not grip top) and each loop
-#                  lift type's piece, towers and stations reference one own haul-rope lane (vanilla LV mesh, its type's sag).
+#  12d. ALIGN    - tools/check-lift-align.js: carriers pose by LiftMoverMath.CarrierDrop (rope point, not grip top).
+#                  Each loop lift type's piece, towers and stations reference one own haul-rope lane (vanilla LV mesh, its type's sag).
 #                  LADDER: the tower placeholders' member tops unique by >= 0.1 m, twin E within the line's elevation range, twin
 #                  anchors = the support member's, the twins imported together.
-#  12e. GAMESURFACE - tools/game-surface-check.js: the code, prefabs and vanilla references against tools/game-surface.lock, and
-#                  the lock against the decompile of its game version when that tree is beside the repo (patch readiness).
-#  15. LODGEPARK - every lodge tier and the Welcome Sign carry Game.Prefabs.Park (tools/check-lodge-park.ps1; the stats query
-#                  requires Game.Buildings.Park).
+#  12e. GAMESURFACE - tools/game-surface-check.js: the code, prefabs and vanilla references against tools/game-surface.lock.
+#                  It also checks the lock against the decompile of its game version, when that tree is beside the repo (patch readiness).
+#  15. LODGEPARK - every lodge tier and the Welcome Sign carry Game.Prefabs.Park (tools/check-lodge-park.ps1).
+#                  The stats query requires Game.Buildings.Park.
 #
 # Ownership = directories named Ski* under ImportedData, Ski* prefabs inside the
 # Editor library folder (c030ee3ff256df91), plus legacy FixedGripChairLift (reported).
@@ -70,9 +70,9 @@ $KnownVanilla = @{
     "a534d6be94fb0cb4eb683f62412d0b1a" = "Electricity service (vanilla HV Line ServiceObject)"
     "c92b9810143a9ba4ca5e004fc709d92f" = "vanilla HV Line unlock milestone 1"
     "9af2c85bf8f3400438a82523ed61b8a4" = "vanilla HV Line unlock milestone 2"
-    # Relabelled 2026-10-03 (Round M1, hub-u2-spec.md 6.1 b/h): SkiChairliftHV no longer references it
-    # (its m_UndergroundPrefab is null since M1); the two station markers still do. Likely, not verified:
-    # the dump carries no GUIDs - it is the m_UndergroundPrefab of the vanilla Low-voltage Line and Marker.
+    # Relabeled 2026-10-03 (Round M1, hub-u2-spec.md 6.1 b/h). SkiChairliftHV no longer references it
+    # (its m_UndergroundPrefab is null since M1). The two station markers still do. Likely, not verified:
+    # the dump carries no GUIDs. It is the m_UndergroundPrefab of the vanilla Low-voltage Line and Marker.
     # Relabel, never drop: an unlisted vanilla ref turns into a WARN (section 3 below).
     "9cbf401c04ad63b44a36c0dc0db26e67" = "Low-voltage Ground Cable (m_UndergroundPrefab of the vanilla LV line; used by SkiLiftMarker/LV)"
     "3e47e765f44f210409edf4e6229fd0df" = "Grass Surface 01 unlock requirement (verified: vanilla Grass 01 ships same ref)"
@@ -80,8 +80,8 @@ $KnownVanilla = @{
     "4010d5851d69dbb418c62e6bd4d19759" = "PowerLinePole01 placeholder (verified: Low-voltage Line NetSubObjects m_Object + PowerLinePole8m01 SpawnableObject back-ref; resolves PowerLinePole 8/13/18m)"
     # Vanilla sub-object placeholders of the shipped manifests' rows (fine-detail step 3d, 2026-10-12: every
     # sub_objects / detail1 / detail row GUID of assets/import/**/*.manifest.json, archive excluded). Each is the
-    # placeholder GUID its variants' m_Placeholders back-reference in the vanilla dump (%TEMP%\pltar\dump.zip);
-    # dump-verified by cs2_liftdress.SUBOBJ and / or assets/blender/subobj_bounds.json (lodge.verified_guids).
+    # placeholder GUID its variants' m_Placeholders back-reference in the vanilla dump (%TEMP%\pltar\dump.zip).
+    # They are dump-verified by cs2_liftdress.SUBOBJ and / or assets/blender/subobj_bounds.json (lodge.verified_guids).
     "b99325ff4ff4dfd459734d8f765c2597" = "ACVentWallRandom01 placeholder (inferred: variants ACVentWall01/ACVentWall02/ACVentWall03/ACVentWall04 back-ref it; dump-verified subobj_bounds.json)"
     "fb4247f7a6f75b1478d9dd01ac88ce86" = "BarrelRandom01 placeholder (inferred: variants Barrel01/Barrel02/Barrel03 back-ref it; dump-verified cs2_liftdress.SUBOBJ + subobj_bounds.json)"
     # Orange safety-net fence (S1, build/safety-fence.md 4.3): the vanilla UI group and category its staged
@@ -132,7 +132,7 @@ $KnownVanilla = @{
     # Fittings v1 (2026-10-17, DECISIONS 263, docs/research/art/fittings-2026-10-17.md): roof vents / kitchen exhausts as rows on the lodges at the next import.
     "e334c9885e132684488e4fa21e06d975" = "ACVentRoofRandom01 placeholder (plumbing vents; dump-verified subobj_bounds.json)"
     "57d3607bc6f3c79408a27d4990e38565" = "CommercialACVentRoofRandom01 placeholder (kitchen exhausts; variants CommercialACVentRoof01-06; dump-verified subobj_bounds.json)"
-    # Vanilla SPECIFIC variants (T101 round 3, DECISIONS 324; surgery Y 2026-10-19): one named variant per row instead of a Random
+    # Vanilla SPECIFIC variants (T101 round 3, DECISIONS 324, surgery Y 2026-10-19): one named variant per row instead of a Random
     # placeholder. GUIDs from the installed resources.assets PrefabsMap (tools/vanilla-guid-map.py), bounds in assets/blender/subobj_bounds.json.
     "e73db1817f8e60543897e8c94e92d2ae" = "ACMachineRoof01 (heat pump; SkiSchool back wall at grade; PrefabsMap 2026-10-19)"
     "2ea04b52c3797114cb8e4c281a6c91c3" = "ACMachineRoof02 (rooftop unit; SkiSchool flat front roof; PrefabsMap 2026-10-19)"
@@ -144,8 +144,8 @@ $KnownVanilla = @{
     "b916e77fd42bccf448ed1020e15673e4" = "EU_Chimney05 (chimney pot; SkiLodgeSummit, SkiLodgeGrand stacks; PrefabsMap 2026-10-19)"
     "64dc87161400b8b4eab7ef0b1f75fda2" = "WallLight04 (carriage lantern; registered by cs2_fittings VARIANT_GUIDS, placed on no prefab yet; PrefabsMap 2026-10-19)"
     # T51 step 1 (2026-10-16, docs/research/field/2026-10-15/build/T51-markers-step1.md): the two vanilla rows on the A-frame's apron.
-    # Both read from the vanilla dump (%TEMP%\pltar\00_BaseGame\...\WaterTower01 Viewing Deck.Prefab: ObjectSubAreas row 0 and the
-    # ObjectSubObjects row at (0, 0, 15.5)) and name2guid.json; each is used by hundreds of vanilla prefabs (Hangaround Area: 1963 files).
+    # Both come from the vanilla dump (%TEMP%\pltar\00_BaseGame\...\WaterTower01 Viewing Deck.Prefab: ObjectSubAreas row 0 and the
+    # ObjectSubObjects row at (0, 0, 15.5)) and name2guid.json. Each is used by hundreds of vanilla prefabs (Hangaround Area: 1963 files).
     "eb0c6cfabb61428468ef54336829d021" = "Hangaround Area (vanilla area prefab, HangaroundArea + NavigationArea Pedestrian; T51 2026-10-16: SkiAFrameDayLodge ObjectSubAreas row; dump-verified WaterTower01 Viewing Deck)"
     "c30226ded1fc8d64abee5d0bd2554bc4" = "Pedestrian Spawn Location (vanilla MarkerObjectPrefab, SpawnLocation ConnectionType Pedestrian; T51 step 2 2026-10-19: SkiSchool x4 door markers - a TOP-LEVEL building only, never a ServiceUpgrade child (Route P, 141/143; the SPAWN gate above checks that); asset-markers-spawners.md section a)"
     "d69b0d6310cb4f5469934fd93238e54b" = "Pedestrian Access Location (vanilla MarkerObjectPrefab, TakeoffLocation types 2/2; T51 2026-10-16: SkiAFrameDayLodge x4 ObjectSubObjects rows; dump-verified Game.Prefabs.MarkerObjectPrefab + WaterTower01 Viewing Deck)"
@@ -157,7 +157,7 @@ $NullCid = "00000000000000000000000000000000"
 # Vanilla ASSET CIDs an owned prefab may reference (they live in the game's own databases, not ImportedData). The still rope
 # meshes (rope sag round, 2026-11-03) are the vanilla HV / LV cable lane mesh prefabs with swaying off: same geometry, same
 # surface. Values read from the vanilla prefab dump (%TEMP%\pltar\dump.zip: "High-voltage Cable Lane Mesh",
-# "Low-voltage Cable Lane Mesh"); field-verified 2026-11-03: the ropes draw. Add one only from the dump.
+# "Low-voltage Cable Lane Mesh"). Field-verified 2026-11-03: the ropes draw. Add one only from the dump.
 $VanillaAssetCids = @{
     "fca90cab9a5b6a1f8aa088fe38f1dcb3" = "High-voltage Cable Lane Mesh geometry (SkiRopeStillHVA Mesh)"
     "5d53b43c3c4f017f458bd94a1ab1275d" = "Low-voltage Cable Lane Mesh geometry (SkiRopeStillLVA Mesh)"
@@ -187,12 +187,12 @@ if (Test-Path $lib) {
 $ownedPrefabs = @($ownedPrefabs | Sort-Object FullName -Unique)
 $ownedCids    = @($ownedCids    | Sort-Object FullName -Unique)
 
-# All resolvable CIDs anywhere in the install (vanilla refs never point here; ours must)
+# All resolvable CIDs anywhere in the install (vanilla refs never point here, but ours must)
 $failures = 0
 $warnings = 0
 $rows = New-Object System.Collections.Generic.List[string]
 
-# A cid value held by two files is two assets with one GUID: the asset database resolves the reference to
+# A cid value held by two files is two assets with one GUID. The asset database resolves the reference to
 # whichever it indexes (F7 fixer: a bulk copy of ski_icons.py output once could duplicate the launcher's cid).
 $allCidValues = @{}
 Get-ChildItem $ImportedData -Recurse -Filter *.cid -File | ForEach-Object {
@@ -390,8 +390,8 @@ $CableLaneMeshes = @{
     "bbb9724d6daa32241821c52b428c196c" = "Low-voltage Cable Lane Mesh (CurveProperties; dump-verified, DECISIONS 243)"
 }
 $SupersededLanes = @("SkiLiftHaulRope", "SkiLiftHaulRopeB")
-# Rope sag ceilings per own rope lane (m_Hanging = mid-span sag / span; docs research rope-sag-2026-11-03: real ropes sag
-# 0.02-0.10, the tram's long spans most). Any other rope lane: 0.01.
+# Rope sag ceilings per own rope lane (m_Hanging = mid-span sag / span). Docs research rope-sag-2026-11-03: real ropes sag
+# 0.02-0.10, the tram's long spans most. Any other rope lane: 0.01.
 $RopeSagCeiling = @{ "SkiFixedGripHaulRope" = 0.02; "SkiDetachableHaulRope" = 0.025; "SkiGondolaHaulRope" = 0.025;
                      "SkiTramTrackRope" = 0.04; "SkiTramHaulRope" = 0.04 }
 $SupersededChain = @("FixedGripChairLift", "SkiLiftSection", "SkiLiftPiece", "SkiLiftHaulRope", "SkiLiftHaulRopeB")
@@ -428,9 +428,9 @@ foreach ($p in $ownedPrefabs) {
         else { $why.Add("m_Mesh uses $kind (unsupported for a lane mesh)") }
     }
     if ($why.Count -eq 0) {
-        # Rope sag per lift type (PIPELINE constants table; the catalog's Envelope.LaneHanging, LiftBatch CT-12): each own rope
-        # lane may sag at most its type's value, any other rope lane 0.01 (the superseded HaulRopeB 0.03 sagged like a power
-        # line). Rope classes = utility type 64 (HV) and 8 (LV); the fence lane (16) is exempt.
+        # Rope sag per lift type (PIPELINE constants table, the catalog's Envelope.LaneHanging, LiftBatch CT-12). Each own rope
+        # lane may sag at most its type's value. Any other rope lane may sag at most 0.01 (the superseded HaulRopeB 0.03 sagged like a power
+        # line). Rope classes = utility type 64 (HV) and 8 (LV). The fence lane (16) is exempt.
         $um = [regex]::Match($text, '"m_UtilityType":\s*(\d+)'); $hm = [regex]::Match($text, '"m_Hanging":\s*([0-9.]+)')
         $sagCap = if ($RopeSagCeiling.ContainsKey($laneName)) { $RopeSagCeiling[$laneName] } else { 0.01 }
         if ($um.Success -and $hm.Success -and (@("64", "8") -contains $um.Groups[1].Value) -and [double]::Parse($hm.Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture) -gt $sagCap) {
@@ -516,13 +516,13 @@ foreach ($p in $ownedPrefabs) {
     if (($rootName -like "SkiLiftTerminalTower*") -and ($text -match 'Game\.Prefabs\.PillarObject')) {
         $rows.Add("FAIL  HOSTED    ${rel}: a hosted terminal tower carries PillarObject (UtilityObject + StandingObject ONLY)"); $failures++
     }
-    # PROP: scenery props (snow guns, floodlights, hydrants, beacons) carry NONE of the gameplay / network components
-    # (prop-integration-plan.md section 4: a decorative prop on a run border must never plant lanes, bill, place or light).
+    # PROP: scenery props (snow guns, floodlights, hydrants, beacons) carry NONE of the gameplay / network components.
+    # Reason (prop-integration-plan.md section 4): a decorative prop on a run border must never plant lanes, bill, place or light.
     if (($rootName -match '^Ski(SnowGun|PisteFloodlight|HydrantBox|Beacon)') -and ($text -match '"\$type":\s*"0\|Game\.Prefabs\.StaticObjectPrefab, Game"')) {
         $forbidden = [regex]::Matches($text, 'Game\.Prefabs\.(UtilityObject|PillarObject|ObjectSubLanes|ObjectSubNets|PlaceableObject|UIObject|Unlockable|ServiceObject|CityServiceBuilding|ServiceUpkeepItem|Workplace|ServiceConsumption|Attraction|LeisureProvider|ServiceCoverage|BuildingTerraformOverride|StreetLightObject|WeatherObject|PlaceholderObject)\b') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
         if ($forbidden) { $rows.Add("FAIL  PROP       ${rel}: scenery prop carries $($forbidden -join ', ') (prop-integration-plan.md section 4; PIPELINE section 6)"); $failures++ }
-        # T46 (2026-10-17, snow-gun-plume-2026-10-17.md section 3): a prop VFX is gated by OUR EffectPrefab (Disaster + a lease),
-        # never by a vanilla Operational-gated VFX: on a prop that one is always on, and the only per-instance switch for
+        # T46 (2026-10-17, snow-gun-plume-2026-10-17.md section 3): OUR EffectPrefab (Disaster + a lease) gates a prop VFX,
+        # never a vanilla Operational-gated VFX. On a prop, that one is always on. The only per-instance switch for
         # Operational (Game.Buildings.Extension) is a Burst crash class on props (BuildingLotRenderSystem).
         $opVfx = [regex]::Matches($text, 'UnityGUID:(9c2a3524858d71648877eb2e25375199|1c3a42b06b7d07a478704b8ad0ad7a4e|99d95c6abfdb5114180ed7f75837c364|30b9f1f56fc96274bb7c0c76ca80df30|cd4b962b7ecd94a4a860b6686b251ba2|02a8e7da8dbccc04fb2dc98d62260cc2)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
         if ($opVfx) { $rows.Add("FAIL  PROP       ${rel}: scenery prop references a vanilla Operational-gated VFX ($($opVfx -join ', ')): always on, use SkiSnowGunPlume (PIPELINE section 6 Plumes)"); $failures++ }
@@ -544,16 +544,16 @@ foreach ($p in $ownedPrefabs) {
     if (-not $isRender) {
         $idiomRows++
         $parsed = $null
-        # Odin writes a UnityEngine.AnimationCurve (an EffectSource curve, copied from vanilla EU_Snowplow01 onto SkiGroomerA) as an
-        # unnamed Keyframe[] member after "$type" and two bare wrap-mode numbers before the closing brace. Name both so the file
+        # Odin writes a UnityEngine.AnimationCurve (an EffectSource curve, copied from vanilla EU_Snowplow01 onto SkiGroomerA) in a non-JSON shape.
+        # It writes an unnamed Keyframe[] member after "$type", and two bare wrap-mode numbers before the closing brace. Name both so the file
         # parses and ARRLEN still counts the keyframes. A "$type" followed by ", {" never occurs in strict JSON, so nothing else matches.
         $jsonText = $text -replace '\$fstrref:("[^"]*")', '$1'
         $jsonText = [regex]::Replace($jsonText, '("\$type":\s*(?:"[^"]*"|\d+)),(\s*)\{(?=\s*"\$id")', '$1,$2"$$keys": {')
         $jsonText = [regex]::Replace($jsonText, '\}(\s*),(\s*)(-?\d+),(\s*)(-?\d+)(\s*)\}', '}$1,$2"$$preWrap": $3,$4"$$postWrap": $5$6}')
         try { $parsed = $jsonSer.DeserializeObject($jsonText) }
         catch {
-            # Odin writes a UnityEngine.Color as bare numbers after its "$type" line (not strict JSON): those few files
-            # are skipped and counted; any other parse failure is a real malformed prefab.
+            # Odin writes a UnityEngine.Color as bare numbers after its "$type" line (not strict JSON). The script skips and counts those few files.
+            # Any other parse failure is a real malformed prefab.
             if ($text -match '"\$type":\s*"\d+\|UnityEngine\.Color,') { $arrSkipped++ }
             else { $rows.Add("FAIL  ARRLEN     ${rel}: does not parse as JSON once `$fstrref is quoted ($($_.Exception.Message.Split([char]10)[0]))"); $failures++ }
         }
@@ -569,7 +569,7 @@ if ($lib -and (Test-Path $lib)) {
     if ($fg2.Count -eq 0) { $rows.Add("FAIL  KEEP       c030ee3ff256df91\SkiLiftTowerFG2\SkiLiftTowerFG2_*.Prefab is missing (the 8 m FG tower family member; entry 173 'the FG2 trap')"); $failures++ }
     else { $rows.Add("OK    KEEP      SkiLiftTowerFG2 object prefab present") }
     # CARRIERCOLOR (DECISIONS 601): every carrier body / grip mesh in catalog/carriers.json carries ColorProperties on LOD0. The grip round
-    # (590) and B2 (592 m) imported new carrier letters without it and every chair, cabin and tram rendered flat white in the owner's test.
+    # (590) and B2 (592 m) imported new carrier letters without it. Every chair, cabin and tram rendered flat white in the owner's test.
     $carriersPath = Join-Path $PSScriptRoot "..\catalog\carriers.json"
     if (Test-Path $carriersPath) {
         $cc = Get-Content $carriersPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -740,9 +740,9 @@ foreach ($mn in $mlNames) {
         }
     }
     $effects = [regex]::Matches($obj, '"m_Effect":\s*\$fstrref:"(CID|UnityGUID):[0-9a-f]{32}"').Count
-    # Its lights must end with the mesh, as vanilla vehicle lights do: an owned LightEffect with m_DisableDistanceCulling true has
-    # m_OwnerCulling false (EffectPrefab.cs:43), so EffectControlSystem.cs:215-231, :299-353 never disable it when the prop leaves
-    # NearCamera, and its pool stays lit past the culled machine (the groomer's floods showed at 7.9 km; groomer-lights-2026-11-01.md section 8).
+    # Its lights must end with the mesh, as vanilla vehicle lights do. An owned LightEffect with m_DisableDistanceCulling true has
+    # m_OwnerCulling false (EffectPrefab.cs:43). So EffectControlSystem.cs:215-231, :299-353 never disable it when the prop leaves
+    # NearCamera. Its pool stays lit past the culled machine (the groomer's floods showed at 7.9 km, groomer-lights-2026-11-01.md section 8).
     $farLights = @()
     foreach ($em in [regex]::Matches($obj, '"m_Effect":\s*\$fstrref:"CID:([0-9a-f]{32})"')) {
         $ef = $mlByCid[$em.Groups[1].Value]

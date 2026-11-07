@@ -1,5 +1,6 @@
-// Measuring performance: frame times from one Stopwatch in OnUpdate, memory, and a switch for the ski mod's systems, for an A/B in one
-// session on one camera (README.md, "Measuring performance"). Nothing here allocates per frame. Never `dump` during a window.
+// Measuring performance: this file measures frame times from one Stopwatch in OnUpdate, and memory. It also has a switch for the
+// ski mod's systems, for an A/B in one session on one camera (README.md, "Measuring performance").
+// Nothing here allocates per frame. Never `dump` during a window.
 
 using System;
 using System.Collections.Generic;

@@ -1,5 +1,5 @@
-// Op "pm": Photo Mode through the game's own properties (PhotoModeRenderSystem.photoModeProperties, the sliders of the panel), so a
-// shot's settings mean what they mean in the panel. README.md, "Photo Mode".
+// Op "pm": Photo Mode through the game's own properties (PhotoModeRenderSystem.photoModeProperties, the sliders of the panel).
+// A shot's settings then mean what they mean in the panel. README.md, "Photo Mode".
 
 using System;
 using Game.Rendering;
@@ -71,7 +71,7 @@ namespace SkiTestBridge
             camera.SnapToTarget();
         }
 
-        /// <summary>A number sets the property (and its override); null turns the override off, like the panel's checkbox.</summary>
+        /// <summary>A number sets the property (and its override). null turns the override off, like the panel's checkbox.</summary>
         private static void SetPhotoProperty(PhotoModeRenderSystem render, string id, JToken value)
         {
             foreach (var pair in render.photoModeProperties)

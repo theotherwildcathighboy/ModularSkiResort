@@ -1,19 +1,19 @@
 /*
  * tools/strip-pdb-path.js - shortens the PDB path in a PE file's CodeView (RSDS) debug record to the bare file name, in place.
  * Written for this repo (MIT). Release review 2026-10-30, B2. mod/SkiResortMod/SkiPublish.targets runs it on the deploy folder's
- * DLLs in publish builds only; the build output in bin\ keeps the original files.
+ * DLLs in publish builds only. The build output in bin\ keeps the original files.
  *
  * Why: the CS2 ModPostProcessor runs the Burst compiler with its temp folder fixed under the LocalApplicationData known folder
- * (%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\.cache\Modding\Burst, PathSet.TempDir; no argument or variable
- * changes it), and the linker writes that absolute PDB path into <name>_win_x86_64.dll. The path holds the Windows profile folder
+ * (%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\.cache\Modding\Burst, PathSet.TempDir). No argument or variable
+ * changes this folder. The linker writes that absolute PDB path into <name>_win_x86_64.dll. The path holds the Windows profile folder
  * name. Every subscribed Burst mod in the local cache carries the same record. Unity's own AOT pipeline avoids it with the linker
- * option PdbAltPath (com.unity.burst Editor/BurstAotCompiler.cs:758-761), which the post-processor does not pass. This does the same
- * after the link: the file size, the code, the GUID and the age (what a debugger matches a PDB by) stay; only the path string
- * changes, and the Windows loader never reads it. A non-zero PE checksum is recomputed.
+ * option PdbAltPath (com.unity.burst Editor/BurstAotCompiler.cs:758-761), which the post-processor does not pass. This script does
+ * the same after the link. The file size, the code, the GUID and the age (what a debugger matches a PDB by) stay. Only the path string
+ * changes, and the Windows loader never reads it. The script recomputes a non-zero PE checksum.
  *
  * Usage: node tools/strip-pdb-path.js <file.dll> [...]
- * Exit 0 = shortened, or nothing to do; 1 = not a PE file or an unexpected debug record (that file is not written); 2 = usage.
- * Prints file names only, never the old path.
+ * Exit 0 = shortened, or nothing to do. Exit 1 = not a PE file or an unexpected debug record (the script does not write that file).
+ * Exit 2 = usage. The script prints file names only, never the old path.
  */
 "use strict";
 const fs = require("fs");
@@ -130,7 +130,7 @@ for (const f of files) {
     console.log(`strip-pdb-path: ${path.basename(f)}: ${strip(f)}`);
   } catch (err) {
     bad++;
-    // fs messages quote the full path, so only the code is printed.
+    // fs messages quote the full path, so the script prints only the code.
     const why = err.expected ? err.message : err.code ? `cannot read or write the file (${err.code})` : `malformed PE file (${err.name})`;
     console.log(`strip-pdb-path: ${path.basename(f)}: FAILED - ${why}`);
   }

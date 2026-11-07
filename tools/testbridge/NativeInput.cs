@@ -1,4 +1,4 @@
-// Real OS input through SendInput, so the game sees exactly what a player's mouse and keyboard send: the Input System, the UI's
+// Real OS input through SendInput. The game sees exactly what a player's mouse and keyboard send. The Input System, the UI's
 // hit test (mouseOverUI, Game.SceneFlow/UserInterface.cs:136-150) and the tools' raycast (ToolRaycastSystem.cs:71) all take their
 // normal path. Every call requires the game to be the foreground window, so input can never land in another application.
 
@@ -92,7 +92,7 @@ namespace SkiTestBridge
             0x2E, 0x2D, 0x24, 0x23, 0x21, 0x22, 0x25, 0x26, 0x27, 0x28,
         };
 
-        /// <summary>INPUT is 40 bytes on x64; any other size makes every SendInput fail.</summary>
+        /// <summary>INPUT is 40 bytes on x64. Any other size makes every SendInput fail.</summary>
         internal static void CheckLayout()
         {
             int size = Marshal.SizeOf(typeof(INPUT));

@@ -1,7 +1,9 @@
-// U1 probe (lift alignment Phase 2, docs lift-alignment-2026-11-02 risk U1): are the node sub-objects SubObjectSystem creates or moves
-// at Modification2B visible to a Modification3 system in the same frame, does Game.Objects.AlignSystem (Modification4) reset a pitch
-// written before it, and does LaneSystem (Modification4) read a pitch written after AlignSystem? Stand-in for the future sheave
-// train: the line towers themselves (node rows, Aligned, they carry the rope anchors today). Dev bridge only, never in the product.
+// U1 probe (lift alignment Phase 2, docs lift-alignment-2026-11-02 risk U1). It asks three questions:
+// 1. Are the node sub-objects SubObjectSystem creates or moves at Modification2B visible to a Modification3 system in the same frame?
+// 2. Does Game.Objects.AlignSystem (Modification4) reset a pitch written before it?
+// 3. Does LaneSystem (Modification4) read a pitch written after AlignSystem?
+// The probe uses the line towers themselves as a stand-in for the future sheave train (node rows, Aligned, they carry the rope
+// anchors today). Dev bridge only, never in the product.
 // Op: u1probe {on, prefab: "SkiChairliftHV", tilt: 5, frames: 400}. Log lines start with [U1] in SkiTestBridge.log.
 
 using System.Collections.Generic;
@@ -47,7 +49,7 @@ namespace SkiTestBridge
         public static string Prefab = "SkiChairliftHV";
         public static float TiltDeg = 5f;
         public static int LinesLeft;
-        // towers written at M3 this frame (M4 re-writes them and tags their edges); edges to read at M4B; towers to re-read later
+        // towers written at M3 this frame (M4 re-writes them and tags their edges), edges to read at M4B, towers to re-read later
         public static readonly HashSet<Entity> WroteM3 = new HashSet<Entity>();
         public static readonly HashSet<Entity> EdgesToRead = new HashSet<Entity>();
         public static readonly Dictionary<Entity, int> Watch = new Dictionary<Entity, int>();   // tower -> frame written

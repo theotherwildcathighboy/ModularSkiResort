@@ -189,7 +189,7 @@ namespace SkiTestBridge
             };
         }
 
-        /// <summary>The world point of a command: wx, wz and optionally wy; without wy the point sits on the terrain.</summary>
+        /// <summary>The world point of a command: wx, wz and optionally wy. Without wy the point sits on the terrain.</summary>
         private float3 WorldPoint(JObject args)
         {
             float x = (float)args["wx"];
@@ -215,9 +215,9 @@ namespace SkiTestBridge
                 && screen.y > marginY && screen.y < Screen.height - marginY;
         }
 
-        // `name` is a bare file name (no folder parts, ".png" appended); `dir` is an absolute folder the caller picks, so a test
-        // collects its shots where it reports them (default: Screenshots under the game's user data folder). The folder is
-        // created here, so a bad `dir` fails this reply instead of the capture frame. The reply's `path` is the file to read.
+        // `name` is a bare file name (no folder parts, ".png" appended). `dir` is an absolute folder the caller picks. So a test
+        // collects its shots where it reports them (default: Screenshots under the game's user data folder). This code creates the
+        // folder, so a bad `dir` fails this reply instead of the capture frame. The reply's `path` is the file to read.
         private static JObject PhotoCommand(JObject args)
         {
             string name = (string)args["name"] ?? "shot";
@@ -320,7 +320,7 @@ namespace SkiTestBridge
             return ClimateState();
         }
 
-        /// <summary>A number overrides the property; null hands it back to the simulation; a missing key leaves it as it is.</summary>
+        /// <summary>A number overrides the property. null hands it back to the simulation. A missing key leaves it as it is.</summary>
         private static void Override(Game.OverridableProperty<float> property, JToken value)
         {
             if (value == null)
