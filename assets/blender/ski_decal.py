@@ -1,49 +1,52 @@
-# ski_decal.py - Layer-2 "alpha-coverage" DECAL texture sets for the RenderedArea run
-# decals (research: docs/research/run-rendering-synthesis.md "Layer 2" +
+# ski_decal.py - Layer-2 "alpha-coverage" DECAL texture sets for the RenderedArea run decals
+# (research: docs/research/run-rendering-synthesis.md "Layer 2" +
 # docs/research/area-material-override.md Tier 0 / property inventory / verdict).
 #
-# Unlike the SkiTerrain* TERRAIN pairs (untouched by this script - the snow-slot code
-# reuses SkiTerrainSnowCorduroy_* as-is), these are DECAL textures for the
-# AreaDecalShader: BaseColor ALPHA is per-texel decal coverage (official: "The alpha
-# channel of the BaseColor texture is used to control surface transparency, on a
-# per-pixel basis"). Terrain albedo/relief/shading must ghost through, and the color must
-# read sensibly over BOTH summer grass and winter snow - the game's snow sim (plus the
-# Layer-1 injected snow) supplies winter white; these decals are the year-round
-# grooming/wear layer, NOT white paint.
+# Unlike the SkiTerrain* TERRAIN pairs, these are DECAL textures for the AreaDecalShader. This
+# script leaves the terrain pairs untouched (the snow-slot code reuses SkiTerrainSnowCorduroy_*
+# as-is). BaseColor ALPHA is per-texel decal coverage (official: "The alpha channel of the BaseColor
+# texture is used to control surface transparency, on a per-pixel basis"). Terrain
+# albedo/relief/shading must ghost through. The color must read sensibly over BOTH summer grass and
+# winter snow. The game's snow sim (plus the Layer-1 injected snow) supplies winter white. These
+# decals are the year-round grooming/wear layer, NOT white paint.
 #
-# ALPHA DESIGN NOTE: the texture TILES across the run polygon, so there is no "tile edge"
-# to feather - a border vignette would render as a repeating grid of holes. Coverage is
-# therefore built from multi-octave periodic noise EVERYWHERE: ~55-70% mean opacity
-# (groomed) / ~70-80% (snowmaking) with patchy thin spots fading toward 0. Feathering at
-# the actual polygon boundary is the shader's own job (colossal_EdgeFadeRange /
-# colossal_EdgeNoise - already good, per the research doc).
+# ALPHA DESIGN NOTE: the texture TILES across the run polygon, so there is no "tile edge" to
+# feather. A border vignette would render as a repeating grid of holes. Coverage is therefore built
+# from multi-octave periodic noise EVERYWHERE: ~55-70% mean opacity (groomed) / ~70-80% (snowmaking)
+# with patchy thin spots fading toward 0. Feathering at the actual polygon boundary is the shader's
+# own job (colossal_EdgeFadeRange / colossal_EdgeNoise, already good per the research doc).
 #
-# With the albedo mostly transparent, the NORMAL carries the grooming signature: corduroy
-# at the same 16.7 cm pitch / V-alignment as ski_terrain.py (48 grooves per 8 m tile,
-# same sine + wobble + depth-modulation math), noticeably STRONGER than the terrain pair
-# (intended to run with m_NormalAlphaSource = 1, i.e. full-strength normals independent
-# of albedo coverage), plus subtle along-V ski-track streaks. The snowmaking set adds
-# faint mogul-scale (3-5 m) undulation.
+# The albedo is mostly transparent, so the NORMAL carries the grooming signature. It has these
+# parts:
+# - corduroy at the same 16.7 cm pitch / V-alignment as ski_terrain.py (48 grooves per 8 m tile,
+#   same sine + wobble + depth-modulation math), noticeably STRONGER than the terrain pair. It is
+#   intended to run with m_NormalAlphaSource = 1, i.e. full-strength normals independent of albedo
+#   coverage.
+# - subtle along-V ski-track streaks.
 #
-# Outputs (file contract - the runtime material code loads these EXACT names):
+# The snowmaking set adds faint mogul-scale (3-5 m) undulation.
+#
+# Outputs (file contract): the runtime material code loads these EXACT names:
 #   mod/SkiResortMod/Textures/SkiRunDecalGroomed_BaseColor.png     sRGB + coverage alpha
 #   mod/SkiResortMod/Textures/SkiRunDecalGroomed_Normal.png        OpenGL tangent, linear
 #   mod/SkiResortMod/Textures/SkiRunDecalSnowmaking_BaseColor.png  sRGB + coverage alpha
 #   mod/SkiResortMod/Textures/SkiRunDecalSnowmaking_Normal.png     OpenGL tangent, linear
-# Previews (numpy compositing only - NO Cycles, per machine rule):
+# Previews (numpy compositing only, NO Cycles, per machine rule):
 #   assets/preview/terrain/<Name>_tiling2x2.png    2x2 repeat over neutral gray
 #   assets/preview/terrain/<Name>_closeup.png      center 4 m over neutral gray
 #   assets/preview/terrain/<Name>_overGrass.png    alpha-blend over summer grass, 2x2
 #   assets/preview/terrain/<Name>_overSnow.png     alpha-blend over winter snow, 2x2
-# The over-context comps composite the decal the way the shader will: albedo lerped by
-# BaseColor alpha, decal normal at FULL strength regardless of albedo alpha (the
-# m_NormalAlphaSource = 1 configuration), blended into the background's own terrain
-# relief by slope addition (DECAL_SURFACE_GRADIENT semantics: decal normals blend into
-# the receiver's normal, they do not replace it), then numpy-Lambert relit with
-# ski_terrain.py's raking light.
+# The over-context comps composite the decal the way the shader will:
+# 1. Lerp the albedo by BaseColor alpha.
+# 2. Use the decal normal at FULL strength regardless of albedo alpha (the m_NormalAlphaSource = 1
+#    configuration).
+# 3. Blend it into the background's own terrain relief by slope addition (DECAL_SURFACE_GRADIENT
+#    semantics: decal normals blend into the receiver's normal, they do not replace it).
+# 4. Relight the result with numpy-Lambert, using the raking light of ski_terrain.py.
 #
-# Pattern primitives are lifted from ski_terrain.py (which runs main() on import and
-# therefore cannot be imported), extended with an anisotropic streak-noise variant.
+# The script lifts the pattern primitives from ski_terrain.py, because that file runs main() on
+# import and therefore cannot be imported. They are extended with an anisotropic streak-noise
+# variant.
 #
 # Usage:
 #   blender --background --factory-startup --python ski_decal.py
@@ -98,9 +101,9 @@ def periodic_noise(size, f_lo, f_hi, falloff, seed):
 
 
 def periodic_noise_aniso(size, fu_lo, fu_hi, fv_max, falloff, seed):
-    """Tileable STREAK noise: spectral energy at U frequencies fu_lo..fu_hi but only low
-    V frequencies (|fv| <= fv_max) -> long coherent streaks running along V (image
-    vertical) - ski/board track texture aligned with the corduroy/fall-line axis."""
+    """Tileable STREAK noise. The spectral energy is at U frequencies fu_lo..fu_hi but only low V
+    frequencies (|fv| <= fv_max). This gives long coherent streaks that run along V (image
+    vertical). They look like the ski/board track texture, aligned with the corduroy/fall-line axis."""
     rng = np.random.default_rng(seed)
     f1 = np.fft.fftfreq(size) * size
     fu, fv = np.meshgrid(f1, f1)          # fu varies along axis 1 (U), fv along axis 0
@@ -114,7 +117,7 @@ def periodic_noise_aniso(size, fu_lo, fu_hi, fv_max, falloff, seed):
 
 
 def normal_from_height(h, strength):
-    """OpenGL tangent-space normal (array row 0 = image top; G = +up in image space)."""
+    """OpenGL tangent-space normal (array row 0 = image top, G = +up in image space)."""
     size = h.shape[0]
     ddu = (np.roll(h, -1, axis=1) - np.roll(h, 1, axis=1)) * 0.5 * size
     ddown = (np.roll(h, -1, axis=0) - np.roll(h, 1, axis=0)) * 0.5 * size
@@ -151,11 +154,11 @@ def corduroy_groove(seed):
 
 
 def coverage_alpha(seed, base_cov, amp, ridge, worn_edges, worn_floor):
-    """Per-texel coverage: multi-octave periodic noise everywhere (NO vignette - the tile
-    repeats, so patchiness must be stationary), with 'worn' thin spots where the broad
-    field dips low, fading toward 0. `ridge` (0..1 groove crests) adds a touch more
-    coverage along the groomed lines, per the research doc's 'higher along groomed
-    lines, lower between'. Returns (alpha, field, worn) so color can correlate."""
+    """Per-texel coverage: multi-octave periodic noise everywhere. There is NO vignette: the tile
+    repeats, so patchiness must be stationary. 'Worn' thin spots appear where the broad field dips
+    low, and they fade toward 0. `ridge` (0..1 groove crests) adds a touch more coverage along the
+    groomed lines, per the research doc's 'higher along groomed lines, lower between'. The function
+    returns (alpha, field, worn) so color can correlate."""
     broad = periodic_noise(SIZE, 2, 6, 1.10, seed + 10)             # 1.3-4 m patches
     mid = periodic_noise(SIZE, 7, 26, 1.00, seed + 11)              # 0.3-1.1 m detail
     fine = periodic_noise(SIZE, 40, 200, 0.85, seed + 12)           # 4-20 cm speckle
@@ -179,9 +182,9 @@ def build_groomed(seed):
         seed, base_cov=GROOMED_COVERAGE, amp=0.30, ridge=ridge,
         worn_edges=(-0.80, -0.34), worn_floor=0.12)
 
-    # Color: desaturated trampled-snow / dirt-track blend (mean RGB ~0.5-0.6). Whiter
-    # where coverage is dense (packed corduroy), beiger in normal wear, dirt-toned in
-    # the worn thin patches. Reads as faint groomed-path wear over grass AND snow.
+    # Color: desaturated trampled-snow / dirt-track blend (mean RGB ~0.5-0.6). It is whiter where
+    # coverage is dense (packed corduroy), beiger in normal wear, and dirt-toned in the worn thin
+    # patches. It reads as faint groomed-path wear over grass AND snow.
     white = np.array([0.640, 0.630, 0.615])          # trampled snow, slightly warm gray
     beige = np.array([0.545, 0.515, 0.465])          # packed dirt-track beige
     dirt = np.array([0.430, 0.390, 0.340])           # worn-through earth
@@ -217,8 +220,8 @@ def build_groomed(seed):
 # --------------------------------------------------------------------------------------
 
 def build_snowmaking(seed):
-    """Returns (base_rgba, normal_rgba). Higher coverage (~70-80% mean), whiter tone
-    (snowmaking wets/whitens the surface), faint 3-5 m mogul undulation in the normal."""
+    """Return (base_rgba, normal_rgba). Coverage is higher (~70-80% mean) and the tone is whiter
+    (snowmaking wets/whitens the surface). The normal has a faint 3-5 m mogul undulation."""
     groove = corduroy_groove(seed)
     ridge = np.clip(groove, 0.0, 1.0)
 
@@ -226,8 +229,8 @@ def build_snowmaking(seed):
         seed, base_cov=SNOWMAKING_COVERAGE, amp=0.20, ridge=ridge,
         worn_edges=(-0.92, -0.50), worn_floor=0.30)
 
-    # Color: wet machine-made snow - cool white, denser and brighter than the groomed
-    # set but still translucent enough for terrain to ghost through.
+    # Color: wet machine-made snow, a cool white. It is denser and brighter than the groomed set but
+    # still translucent enough for terrain to ghost through.
     white = np.array([0.760, 0.775, 0.800])          # wet snow, cool
     base_tone = np.array([0.640, 0.650, 0.665])      # thinner coverage, grayer
 
@@ -244,9 +247,9 @@ def build_snowmaking(seed):
     base[..., :3] = np.clip(rgb, 0.0, 1.0)
     base[..., 3] = alpha
 
-    # Normal: corduroy + FAINT mogul-scale undulation (3-5 m -> integer frequencies
-    # 2..3 on the 8 m tile) + streaks + grain. Low-frequency relief contributes little
-    # slope, so the moguls read as broad soft shading - intended.
+    # Normal: corduroy + FAINT mogul-scale undulation (3-5 m -> integer frequencies 2..3 on the 8 m
+    # tile) + streaks + grain. Low-frequency relief contributes little slope, so the moguls read as
+    # broad soft shading. This is intended.
     mogul = periodic_noise(SIZE, 2, 3, 1.5, seed + 6)
     streak = periodic_noise_aniso(SIZE, 6, 90, 3, 0.8, seed + 5)
     grain = periodic_noise(SIZE, 60, 320, 0.9, seed + 4)
@@ -257,10 +260,10 @@ def build_snowmaking(seed):
 
 
 # --------------------------------------------------------------------------------------
-# Seam verification (ski_terrain.py's check): roll 50% on both axes, compare the
-# relocated wrap edge against the image's own adjacent-pixel differences. Checks EVERY
-# channel it is given - for BaseColor that includes the coverage alpha, which is just as
-# load-bearing for tiling as the color.
+# Seam verification (ski_terrain.py's check): roll 50% on both axes and compare the relocated wrap
+# edge against the image's own adjacent-pixel differences. The check covers EVERY channel it gets.
+# For BaseColor that includes the coverage alpha, which is just as load-bearing for tiling as the
+# color.
 # --------------------------------------------------------------------------------------
 
 def seam_check(label, arr, tolerance=1.5):
@@ -287,9 +290,10 @@ LIGHT = LIGHT / np.linalg.norm(LIGHT)
 
 
 def comp_over(bg_rgb, bg_normal, base, normal):
-    """Albedo lerped by BaseColor alpha; decal normal at FULL strength independent of
-    albedo alpha (m_NormalAlphaSource = 1), added to the background's slopes
-    (DECAL_SURFACE_GRADIENT semantics); Lambert-lit with the raking preview light."""
+    """The function lerps the albedo by BaseColor alpha. It uses the decal normal at FULL strength,
+    independent of albedo alpha (m_NormalAlphaSource = 1), and adds it to the background's slopes
+    (DECAL_SURFACE_GRADIENT semantics). It lights the result with the Lambert model and the raking
+    preview light."""
     a = base[..., 3:4]
     rgb = bg_rgb[..., :3] * (1.0 - a) + base[..., :3] * a
 
@@ -357,9 +361,9 @@ def write_previews(name, base, normal, backdrops):
 
 
 # --------------------------------------------------------------------------------------
-# Readback sanity: confirm the PNG really carries the coverage alpha and the
-# display-encoded values we wrote (guards against a colorspace transform or an alpha
-# drop sneaking into the write path).
+# Readback sanity: confirm the PNG really carries the coverage alpha and the display-encoded values
+# we wrote. This guards against a colorspace transform or an alpha drop sneaking into the write
+# path.
 # --------------------------------------------------------------------------------------
 
 def readback_stats(path):

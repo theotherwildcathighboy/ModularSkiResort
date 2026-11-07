@@ -1,61 +1,56 @@
 """
-Gate for tram_tower.py (tram 30 / 45 / 60 + gondola lattice 25 / 32 / 40): one headless process,
-exit 1 on any failure. Nothing is written into the repo (the bake smoke uses a temp folder).
+Gate for tram_tower.py (tram 30 / 45 / 60 + gondola lattice 25 / 32 / 40): one headless process, exit 1 on any failure.
+Nothing is written into the repo (the bake smoke uses a temp folder).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_lattice_towers.py
 
 Groups (lattice-towers.md section 14, adapted to the R27-R31 rulings):
-  1 determinism   tram 60 and gondola 40 built twice: vertex coords, faces, UVMap loops, part table
-  2 contracts     every variant, authoring + net frame: bounds top / bottom, H_top, saddle crown /
-                  tips (no burial), haul-roller tops, lane offsets (+-5.5 / +-5.0 / +-3.0), axle =
-                  datum, R30 + carrier zones, rope corridors, leg feet, ladder, symmetry; LOD chain by
-                  deletion (targets exact, drift 0, budgets), footings open-bottom at z 0
-  3 negatives     a part in the R30 band, a part in the carriage band, a closed-bottom pedestal and a
-                  buried saddle must each FAIL
-  4 scoring       D13 variant pick: tram switches 10 / 25, float <= 10, burial <= 5, stub = node + 26.25;
-                  gondola family 12/16/20 (provisional tubular) + 25/32/40
-  5 bake smoke    tram 30 through cs2_bake at 512 px with --beacon (emissive only on the lens) and the
-                  shipping path (no beacon, no _Emissive) on gondola 25: maps, channel rules (R + G + B
-                  <= 1), recolor level p95 0.78-0.82 under every present mask; temp folder removed
+- 1 determinism: tram 60 and gondola 40 built twice: vertex coords, faces, UVMap loops, part table
+- 2 contracts: every variant, authoring + net frame: bounds top / bottom, H_top, saddle crown / tips (no burial),
+  haul-roller tops, lane offsets (+-5.5 / +-5.0 / +-3.0), axle = datum, R30 + carrier zones, rope corridors, leg feet,
+  ladder, symmetry. LOD chain by deletion (targets exact, drift 0, budgets), footings open-bottom at z 0
+- 3 negatives: a part in the R30 band, a part in the carriage band, a closed-bottom pedestal and a buried saddle must each
+  FAIL
+- 4 scoring: D13 variant pick: tram switches 10 / 25, float <= 10, burial <= 5, stub = node + 26.25. Gondola family
+  12/16/20 (provisional tubular) + 25/32/40
+- 5 bake smoke: tram 30 through cs2_bake at 512 px with --beacon (emissive only on the lens), and the shipping path (no
+  beacon, no _Emissive) on gondola 25: maps, channel rules (R + G + B <= 1), recolor level p95 0.78-0.82 under every
+  present mask. The temp folder is removed.
 
-Revision 1 (verdicts 7 / 8, 2026-10-11; build/tram_tower.md "Revision 1"):
-  2r ladder       both families: rails from below grade (revision 1c: the pier depth with rungs on the
-                  variants that float - 30A / 45A 10.0, 25O 4.66, 32O 5.33 m - else LADDER_FAM sink
-                  2.2 / 3.0, deeper than the face-normal drop at the piers' grade allowance, with rungs
-                  down to -1.85 (60A) / -2.15 (40O, its 4,500-tri cap) - revision 1d; first
-                  above-grade rung still 0.234) to >= arrival + 1.0, flights offset
-                  >= 0.70, one side basket per flight break (never over the flight below: corridor
-                  clear), flights <= 10.5; C11 exempts only the ladder prefixes
-  2r tram head    curved saddle girder (L 4.8, tip drop >= 0.20, depth 0.70); >= 6 haul sheaves per
-                  saddle on the haul line, no straight roller beam; upper stabilizing frame: 4 hanger
-                  posts crossarm -> top beam, main diagonals inner-post top -> crossarm end, top-beam
-                  tips overhang each lane with a lug centered on it; a crane jib per side reaching over
-                  its lane with its hook block centered over it
-  2r gondola head lugs under both gantry-beam tips, centered on the lanes
-  2r frozen       bounds lateral / travel within +-0.2 of the integration table; m_LegSize as shipped
-  3r negatives    a centered landing over a flight, flights not offset, a ladder that stops short of
-                  the deck, rails that end at grade (the revision-1 build, F1: tram 60 and, revision
-                  1c N7, gondola 40), the 1b ladder on a floatable 30A / 32O (rails to the 1b sink only)
-                  and a floatable 30A with bare rails below grade (no rungs) must each FAIL C7
+Revision 1 (verdicts 7 / 8, 2026-10-11, build/tram_tower.md "Revision 1"):
+- 2r ladder, rails (both families): the rails run from below grade to >= arrival + 1.0. Revision 1c: the rails go to the
+  pier depth, with rungs, on the variants that float (30A / 45A 10.0, 25O 4.66, 32O 5.33 m). The other variants use the
+  LADDER_FAM sink 2.2 / 3.0, deeper than the face-normal drop at the piers' grade allowance, with rungs down to -1.85
+  (60A) / -2.15 (40O, its 4,500-tri cap). That is revision 1d. The first above-grade rung is still 0.234.
+- 2r ladder, layout: flights offset >= 0.70, one side basket per flight break (never over the flight below: corridor
+  clear), flights <= 10.5. C11 exempts only the ladder prefixes.
+- 2r tram head: curved saddle girder (L 4.8, tip drop >= 0.20, depth 0.70). >= 6 haul sheaves per saddle on the haul line,
+  no straight roller beam. Upper stabilizing frame: 4 hanger posts crossarm -> top beam, main diagonals inner-post top ->
+  crossarm end, top-beam tips overhang each lane with a lug centered on it. A crane jib per side reaches over its lane
+  with its hook block centered over it.
+- 2r gondola head: lugs under both gantry-beam tips, centered on the lanes
+- 2r frozen: bounds lateral / travel within +-0.2 of the integration table. m_LegSize as shipped
+- 3r negatives: a centered landing over a flight, flights not offset, a ladder that stops short of the deck, rails that
+  end at grade (the revision-1 build, F1: tram 60 and, revision 1c N7, gondola 40), the 1b ladder on a floatable 30A / 32O
+  (rails to the 1b sink only) and a floatable 30A with bare rails below grade (no rungs) must each FAIL C7
 
-Detail pass 1 (design/detail-pass-1-towers.md 6.1 DT-C1..C12 + skeptic M1-M11; build report
+Detail pass 1 (design/detail-pass-1-towers.md 6.1 DT-C1..C12 + skeptic M1-M11, build report
 build/detail-pass-1-towers-lattice.md):
-  1d determinism  two builds: vertices, faces, every UV layer, part table, corner normals, LOD1 / LOD2
-  2d per variant  DT-C1 frozen prefab / carving blocks (canonical-JSON sha1 = the revision-1d
-                  manifests), bounds +-0.5 mm, HEIGHTS / TRAM / GD repr hashes; DT-C2 LOD0 = the design
-                  ledger +-1 % (60A minus the 52-tri lens, M8), LOD1 = 1d - the hidden-face reclaim,
-                  LOD2 = 1d; DT-C3..C6 (check_dp1_geometry: coplanar <= 1 cm2 per pair on LOD0 / 1 / 2,
-                  no hidden contact tri, texel anisotropy whole + per class >= 0.5 m2, detail part counts,
-                  plate offsets, arrest front <= 0.036, collars, BVH); M6 smooth members keep ONE normal
-                  per vertex on every LOD; DT-C12 night rows (60A only, the WarningLight on gantryx_1)
-  3d negatives    headx_ 0.22 (DT-C3), a buried box face (DT-C4), create_cone post UVs (DT-C5), an
-                  arrest rail beyond rung plane + 0.036 / collars 0.08 proud (DT-C6), an UNREGISTERED
-                  arrest rail (C7 via M5), the stock make_lod_chain LODs (faceted members, M6)
-  5d shipping bake gondola 25 at 1024 (weather on, family intensity): DT-C7 stamps (sizes, ControlMask
-                  0, M3 unmirrored UVs on both plates), no face samples a black texel (sub-texel fill), DT-C8 relief drawn / no floor skips, DT-C9 tone
-                  (restated by M7), DT-C10 weathering (budget ok, guards, free slots, no snow; ControlMask
-                  PNG byte-identical to a --weather off bake; plates byte-identical); DT-C11 a child
-                  Blender process bakes the same folder byte-identically (PNG + settings.json)
+- 1d determinism: two builds: vertices, faces, every UV layer, part table, corner normals, LOD1 / LOD2
+- 2d per variant: DT-C1 frozen prefab / carving blocks (canonical-JSON sha1 = the revision-1d manifests), bounds +-0.5 mm,
+  HEIGHTS / TRAM / GD repr hashes. DT-C2 LOD0 = the design ledger +-1 % (60A minus the 52-tri lens, M8), LOD1 = 1d - the
+  hidden-face reclaim, LOD2 = 1d. DT-C3..C6 (check_dp1_geometry: coplanar <= 1 cm2 per pair on LOD0 / 1 / 2, no hidden
+  contact tri, texel anisotropy whole + per class >= 0.5 m2, detail part counts, plate offsets, arrest front <= 0.036,
+  collars, BVH). M6 smooth members keep ONE normal per vertex on every LOD. DT-C12 night rows (60A only, the WarningLight
+  on gantryx_1)
+- 3d negatives: headx_ 0.22 (DT-C3), a buried box face (DT-C4), create_cone post UVs (DT-C5), an arrest rail beyond rung
+  plane + 0.036 / collars 0.08 proud (DT-C6), an UNREGISTERED arrest rail (C7 via M5), the stock make_lod_chain LODs
+  (faceted members, M6)
+- 5d shipping bake: gondola 25 at 1024 (weather on, family intensity). DT-C7 stamps (sizes, ControlMask 0, M3 unmirrored
+  UVs on both plates), no face samples a black texel (sub-texel fill), DT-C8 relief drawn / no floor skips, DT-C9 tone
+  (restated by M7), DT-C10 weathering (budget ok, guards, free slots, no snow, ControlMask PNG byte-identical to a
+  --weather off bake, plates byte-identical). DT-C11: a child Blender process bakes the same folder byte-identically (PNG
+  + settings.json)
 """
 import hashlib
 import json
@@ -84,8 +79,8 @@ T0 = time.perf_counter()
 # bound half extents in the authoring frame (y, x) and StandingObject m_LegSize
 BOUNDS_INT = {("tram", 30): (6.0, 5.7), ("tram", 45): (6.2, 6.2), ("tram", 60): (6.7, 6.7),
               ("gondola", 25): (3.32, 2.44), ("gondola", 32): (3.32, 3.06), ("gondola", 40): (3.32, 3.68)}
-# revision 1c (revision1b-check-tram N1): how far each variant's base floats when the D13 score picks
-# it, over the family's elevation range (tram 0..30, gondola 0..28; 0.01 sweep)
+# revision 1c (revision1b-check-tram N1): how far each variant's base floats when the D13 score picks it, over the
+# family's elevation range (tram 0..30, gondola 0..28, 0.01 sweep)
 FLOAT_WANT = {("tram", 30): 10.0, ("tram", 45): 10.0, ("tram", 60): 0.0,
               ("gondola", 25): 4.66, ("gondola", 32): 5.33, ("gondola", 40): 0.0}
 # revision 1d (revision1c-check-tram-ladder R2): lowest below-grade rung center on the never-floaters
@@ -129,8 +124,8 @@ def geom_hash(t, table):
 
 
 def smooth_member_normals(obj, table, family):
-    """M6: the largest number of distinct corner normals at one vertex of a smooth lattice member's
-    side faces (1 = smooth round-tube read; 2 = faceted), over every SMOOTH_MEMBERS part present."""
+    """M6: the largest number of distinct corner normals at one vertex of a smooth lattice member's side faces (1 = smooth
+    round-tube read, 2 = faceted), over every SMOOTH_MEMBERS part present."""
     me = obj.data
     pid = np.zeros(len(me.polygons), dtype=np.int64)
     me.attributes["part"].data.foreach_get("value", pid)
@@ -197,13 +192,14 @@ GOLDEN = {("gondola", 25): ("0222115d5dec", "c8377be6e02c", [-2.44, -3.32, -8.0]
           ("tram", 45): ("940a281ed2c0", "0e3abc98730b", [-6.2, -6.2, -12.0], [6.2, 6.2, 45.0]),
           ("tram", 60): ("a771ebdc4f6c", "0e3abc98730b", [-6.7, -6.7, -12.0], [6.7, 6.7, 60.0])}
 FROZEN_REPR = {"HEIGHTS": "ce12d43af54f", "TRAM": "361080e8b49c", "GD": "35d6b1fb03df"}
-# design ledgers 4.1 / 5.1 (60A: 6,454 minus the 52 tris of the lens + ring the design kept there;
-# M8 option 1 drops them); +-1 %
+# design ledgers 4.1 / 5.1 (60A: 6,454 minus the 52 tris of the lens + ring the design kept there, which M8 option 1
+# drops). +-1 %
 DP1_LEDGER = {("gondola", 25): 3316, ("gondola", 32): 3986, ("gondola", 40): 4490,
               ("tram", 30): 4606, ("tram", 45): 5666, ("tram", 60): 6402}
 # T62 (2026-10-18, build/T62-sheave-wheels.md): cs2_sheaves.WHEELS "v2" (default) builds the tram haul rollers and the
-# lattice GD wheels as the round-3 wheel (98 tris: the inboard hub boss is culled, cs2_sheaves.cull_hidden_bosses) instead
-# of v1's 44-tri 8-gon sheave_lite rollers / flat 12-gon sheaves: + 54 per wheel. `--wheels v1` keeps the ledger above.
+# lattice GD wheels as the round-3 wheel. That wheel has 98 tris (the inboard hub boss is culled,
+# cs2_sheaves.cull_hidden_bosses). v1 had 44-tri 8-gon sheave_lite rollers and flat 12-gon sheaves, so v2 adds 54 per
+# wheel. `--wheels v1` keeps the ledger above.
 T62_V1_WHEEL = 44
 
 
@@ -219,8 +215,8 @@ def _t62_ledger(table):
 DP1_LEDGER = _t62_ledger(DP1_LEDGER)
 PRE_LOD12 = {("gondola", 25): (938, 302), ("gondola", 32): (1058, 334), ("gondola", 40): (1114, 334),
              ("tram", 30): (1748, 456), ("tram", 45): (2228, 456), ("tram", 60): (2516, 488)}
-# hidden-contact reclaim on parts that LOD1 keeps (trans_ ends 16, rocksub inner faces 2 per sub,
-# gdstring tops 8; tram: the deck lip strips on the chords 4); LOD2 keeps none of them
+# hidden-contact reclaim on parts that LOD1 keeps (trans_ ends 16, rocksub inner faces 2 per sub, gdstring tops 8, tram:
+# the deck lip strips on the chords 4). LOD2 keeps none of them
 LOD1_RECLAIM = {("gondola", 25): 40, ("gondola", 32): 44, ("gondola", 40): 48,
                 ("tram", 30): 4, ("tram", 45): 4, ("tram", 60): 4}
 
@@ -380,9 +376,9 @@ for family in tt.FAMILIES:
         z_arr = tt.ladder_arrival(spec)
         r0 = np.concatenate([mv.verts(f"lrail_0_{t_}") for t_ in "pn"])
         rl = np.concatenate([mv.verts(f"lrail_{len(plan['flights']) - 1}_{t_}") for t_ in "pn"])
-        # revision 1c (revision1b-check-tram N1 / N2): a variant the score floats runs rails AND rungs
-        # to the pier depth; the others keep rails to the (raised) sink - and, revision 1d
-        # (revision1c-check-tram-ladder R2), rungs down it to SINK_RUNG_WANT (center; vertex 0.016 lower)
+        # revision 1c (revision1b-check-tram N1 / N2): a variant the score floats runs rails AND rungs to the pier depth.
+        # The others keep rails to the (raised) sink and, revision 1d (revision1c-check-tram-ladder R2), rungs down it to
+        # SINK_RUNG_WANT (center, vertex 0.016 lower)
         fl_want = FLOAT_WANT[(family, H)]
         depth = pier if fl_want > 0 else tt.LADDER_FAM[family]["sink"]
         rung_lo = min(float(mv.verts(n_)[:, 2].min()) for n_ in mv.names("rung_0_"))
@@ -577,9 +573,9 @@ expect_fail(neg_ladder_short, "C7", "ladder stops short of the head deck (verdic
 
 
 def neg_sink(family, H, sink_bad):
-    """Flight-0 rails of a variant that never floats (60A / 40O) end `sink_bad` below grade: 0 = the
-    revision-1 build (revision1-check-tram-towers F1); 2.0 / 2.7 = the 1b sinks, short of the
-    face-normal drop 2.14 / 2.95 (revision1b-check-tram N2)."""
+    """Flight-0 rails of a variant that never floats (60A / 40O) end `sink_bad` below grade. 0 = the revision-1 build
+    (revision1-check-tram-towers F1). 2.0 / 2.7 = the 1b sinks, short of the face-normal drop 2.14 / 2.95
+    (revision1b-check-tram N2)."""
     def fn():
         sink = tt.LADDER_FAM[family]["sink"]
         tt.LADDER_FAM[family]["sink"] = sink_bad
@@ -601,8 +597,8 @@ expect_fail(neg_sink("gondola", 40, 2.7), "C7", "gondola 40 on the 1b sink 2.7 <
 
 
 def neg_floater_1b(family, H, sink_1b):
-    """The 1b ladder on a variant the score floats (revision1b-check-tram N1): planned as if it never
-    floated (rails to the 1b sink, no rungs below grade); C7 reads the real float."""
+    """The 1b ladder on a variant the score floats (revision1b-check-tram N1). It is planned as if the variant never floated
+    (rails to the 1b sink, no rungs below grade). C7 reads the real float."""
     def fn():
         vf, sink = tt.variant_float, tt.LADDER_FAM[family]["sink"]
         tt.variant_float, tt.LADDER_FAM[family]["sink"] = (lambda spec, step=0.01: 0.0), sink_1b
@@ -645,7 +641,7 @@ expect_fail(neg_floater_bare_rails, "C7", "tram 30 floated with bare rails below
 
 # Detail pass 1 negatives
 def dp1_geo(family, H, before=None):
-    """Build, then check_dp1_geometry (authoring frame); `before(parts, spec)` mutates the parts first."""
+    """Build, then check_dp1_geometry (authoring frame). `before(parts, spec)` mutates the parts first."""
     tt.clear_scene()
     spec = tt.make_spec(family, H)
     parts, lay = tt.build_parts(spec)
@@ -853,8 +849,8 @@ def plate_uv_reads(name):
 
 
 def black_faces(name, png):
-    """Faces of the baked mesh whose UV-centroid texel is black in the shipped BaseColor (a sub-texel
-    island the EMIT bake never sampled; fill_subtexel_faces paints them)."""
+    """Faces of the baked mesh whose UV-centroid texel is black in the shipped BaseColor (a sub-texel island the EMIT bake
+    never sampled, which fill_subtexel_faces paints)."""
     o = bpy.data.objects.get(name + "Src") or bpy.data.objects.get(name)
     me = o.data
     img = load(png)
@@ -870,10 +866,9 @@ def black_faces(name, png):
 
 
 def tone_decorrelated(family, H, a, b, prefix, cell, stretch):
-    """DT-C9 (second clause): the tone field is world-anchored, so two TRANSLATION-identical members
-    (not stacked hardware) carry different mottle - the fbm the bake evaluates (cs2_compose.detail_tone:
-    seed crc32(prefix), cell across, cell x stretch along the member) sampled at corresponding points
-    of `a` and `b` correlates < 0.9."""
+    """DT-C9 (second clause): the tone field is world-anchored, so two TRANSLATION-identical members (not stacked hardware)
+    carry different mottle. The fbm that the bake evaluates (cs2_compose.detail_tone: seed crc32(prefix), cell across,
+    cell x stretch along the member), sampled at corresponding points of `a` and `b`, correlates < 0.9."""
     import zlib
     import cs2_compose
     t, table, spec, parts, lay = build(family, H)
@@ -921,7 +916,7 @@ try:
     check(all(p["px_per_m"] >= 300 and p["glyph_px"] >= 56 and p["numeral_cap_px"] >= 48 and p["ctl_RGB_max"] == 0.0
               for p in dp["plates"].values()),
           f"DT-C7 plates {[(k, v['px_per_m'], v['glyph_px'], v['numeral_cap_px']) for k, v in dp['plates'].items()]}")
-    # T62 round 2: "marks:ring" was the sheave hub ring (v1 only; the v2 hub is a geometric boss)
+    # T62 round 2: "marks:ring" was the sheave hub ring (v1 only, the v2 hub is a geometric boss)
     ring = set() if man.get("wheels") or tt.cs2_sheaves.wheels_v2() else {"marks:ring"}
     check(not dp["relief"]["skipped"] and {"edge_round", "marks:plate", "marks:band", "marks:bolts",
                                             "grate"} | ring <= set(dp["relief"]["drawn"]),

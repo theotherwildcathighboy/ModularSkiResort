@@ -1,30 +1,30 @@
 """
-test_beacon - gates for assets/blender/beacon.py (SkiBeaconRedA; build/beacon.md).
+test_beacon - gates for assets/blender/beacon.py (SkiBeaconRedA and build/beacon.md).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_beacon.py [-- --quick]
 
-Checks (exit 1 on any failure; --quick skips the two child processes):
-  determinism  two in-process builds hash identically: vertex coordinates (%.5f), face vertex
-               lists, the "UVMap" loops, corner normals and the part table; paint_maps() returns
-               equal arrays twice.
-  fresh        two child Blender processes export (--export --no-measure) into temp folders: the
-               five PNGs and settings.json are byte-identical (the FBX carries the export clock and
-               is compared by its re-imported geometry instead: tris, extents, normals present).
-  caps         LOD0 tris == beacon.TRIS (86) <= beacon.LOD0_CAP (100); exactly five maps, all
-               128 x 128 RGBA; no LOD FBX and settings.json == {} (single LOD by design); VRAM of the
-               five maps with mips <= 0.5 MB uncompressed.
-  emissive     _Emissive.png: every texel covered by a lens face (eroded 1 texel) is red (R >= 0.75,
-               G and B <= 0.2); every texel covered by a non-lens face is black (their UVs sit on
-               texel centers 0.5 texel inside their rects, so bilinear never reaches the lens);
-               BaseColor of the lens texels is red-dominant too (the unlit look between flashes).
-  contracts    beacon.contracts() holds (ground, 0.26 m rim, cage clearance, outward normals, UV
-               rules, lens faces inside the lens block).
-  validator    cs2_validate.validate_asset_folder_ex(kind prop, lod0_cap 100): 0 errors on the
-               temp export and on the shipped folder assets/import/props/A/SkiBeaconRedA (when
-               present).
-  measure      beacon.measure_anchors() on the shipped tower FBX: 7 rows, center hit normal +y,
-               footprint flat <= 5 mm, nothing inside the beacon envelope (a row SKIPs when its FBX
-               is missing).
+The test exits 1 on any failure. --quick skips the two child processes. Checks:
+- determinism: two in-process builds hash identically. The hash covers vertex coordinates (%.5f),
+  face vertex lists, the "UVMap" loops, corner normals and the part table. paint_maps() returns
+  equal arrays twice.
+- fresh: two child Blender processes export (--export --no-measure) into temp folders. The five PNGs
+  and settings.json are byte-identical. The FBX carries the export clock, so the test compares the
+  FBX by its re-imported geometry instead: tris, extents, normals present.
+- caps: LOD0 tris == beacon.TRIS (86) <= beacon.LOD0_CAP (100). There are exactly five maps, all 128
+  x 128 RGBA. There is no LOD FBX, and settings.json == {} (single LOD by design). The VRAM of the
+  five maps with mips is <= 0.5 MB uncompressed.
+- emissive: in _Emissive.png, every texel covered by a lens face (eroded 1 texel) is red (R >= 0.75,
+  G and B <= 0.2). Every texel covered by a non-lens face is black. The UVs of the non-lens faces
+  sit on texel centers 0.5 texel inside their rects, so bilinear filtering never reaches the lens.
+  BaseColor of the lens texels is also red-dominant (the unlit look between flashes).
+- contracts: beacon.contracts() holds (ground, 0.26 m rim, cage clearance, outward normals, UV
+  rules, lens faces inside the lens block).
+- validator: cs2_validate.validate_asset_folder_ex(kind prop, lod0_cap 100) gives 0 errors on the
+  temp export. It also gives 0 errors on the shipped folder assets/import/props/A/SkiBeaconRedA
+  (when present).
+- measure: beacon.measure_anchors() on the shipped tower FBX gives 7 rows, center hit normal +y,
+  footprint flat <= 5 mm, and nothing inside the beacon envelope. A row SKIPs when its FBX is
+  missing.
 """
 
 import hashlib

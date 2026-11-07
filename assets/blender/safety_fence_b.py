@@ -1,51 +1,55 @@
 """
 safety_fence_b.py - generation B of the orange ski safety fence (2026-10-29): SkiSafetyNetB, a
-see-through orange net lane mesh, plus its previews and review pack. Research (how vanilla gap
-fences get their cutout, why generation A rendered opaque): docs/research/fence-cutout-2026-10-29.md.
-A solid panel variant (SkiSafetyPanelB) was previewed and dropped (DECISIONS 457; commit 79d1f08).
-Generation A (safety_fence.py) stays: it builds SkiNetPostA, the end post the lane keeps.
+see-through orange net lane mesh, plus its previews and review pack. The research is in
+docs/research/fence-cutout-2026-10-29.md (how vanilla gap fences get their cutout, why generation A
+rendered opaque). A solid panel variant (SkiSafetyPanelB) was previewed and dropped (DECISIONS 457,
+commit 79d1f08). Generation A (safety_fence.py) stays: it builds SkiNetPostA, the end post the lane
+keeps.
 
     cd assets/blender
     blender --background --factory-startup --python-exit-code 1 --python safety_fence_b.py -- \
         --out ../import/fences/B --export [--preview <dir>] [--review]
 
 THE ASSET (prefab-local meters: x lateral, y up, z travel along the lane)
-    SkiSafetyNetB    see-through orange plastic net (vertical openings, 8 cm sag between posts,
-                     2 cm bulge). Template CurvedHashedCutout (34), alphaCutoff 0.54: the vanilla
-                     chain-link recipe. LOD0 68 tris (cap 76), LOD1 20 (cap 34: straight top 1.20,
-                     3-sided posts, no caps).
-    Tile = vanilla's chain-link layout (FenceIndustrialPieceHigh01 Mesh: a 4 m tile, two bays, a post
-    at each bay start): z in [-2, +2], bays [-2, 0] and [0, 2]. Posts 30 mm square (flats on the
-    axes), y -0.15 .. 1.55, centered 0.020 after each bay start so post AND cap stay inside
-    [s, s + 0.040] (contract C4). Black square caps 39 mm, y 1.52 .. 1.58, sides + top. The net
-    hangs at x = 0.020 as two single-sided twins 3 mm either side (0.017 facing -x, 0.023 facing +x;
-    vanilla's chain-link panel twins sit at x = +-0.003), hem y -0.10 (buried).
+- SkiSafetyNetB: a see-through orange plastic net (vertical openings, 8 cm sag between posts, 2 cm
+  bulge). Its template is CurvedHashedCutout (34) with alphaCutoff 0.54: the vanilla chain-link
+  recipe. LOD0 has 68 tris (cap 76). LOD1 has 20 tris (cap 34): straight top 1.20, 3-sided posts, no
+  caps.
+- Tile = vanilla's chain-link layout (FenceIndustrialPieceHigh01 Mesh: a 4 m tile, two bays, a post
+  at each bay start). z is in [-2, +2], and the bays are [-2, 0] and [0, 2].
+- Posts: 30 mm square (flats on the axes), y -0.15 .. 1.55. Each post is centered 0.020 after its
+  bay start, so post AND cap stay inside [s, s + 0.040] (contract C4).
+- Caps: black, square, 39 mm, y 1.52 .. 1.58, sides + top.
+- Net: it hangs at x = 0.020 as two single-sided twins 3 mm either side (0.017 facing -x, 0.023
+  facing +x). Vanilla's chain-link panel twins sit at x = +-0.003. The hem is at y -0.10 (buried).
 
-V-ROBUST ATLAS (the generation A lesson)
-    In field test 3 generation A's net faces sampled the atlas's opaque post strip (rows 0 .. ~340,
-    V remapped; the mechanism is unverified), so the cutout never saw a net texel. The generation B
-    atlas is laid out in COLUMNS along u, each uniform (or periodic) along v, so no V remap can put
-    a net face on post texels:
+V-ROBUST ATLAS (the generation A lesson) In field test 3, the net faces of generation A sampled the
+opaque post strip of the atlas (rows 0 .. ~340, V remapped). The mechanism is unverified. So the
+cutout never saw a net texel. The generation B atlas is laid out in COLUMNS along u, each uniform
+(or periodic) along v. So no V remap can put a net face on post texels:
         1024 px: post [0, 64) | black [64, 96) | guard [96, 128) | sheet (net) [128, 1024)
-    Post side k samples sub-column k of the post column, caps the black column, the net the sheet
-    column (u across the bay, side b mirrored; v from the hem 0 to the top 1). The net body is
-    periodic in v (rows r and r + 512 equal outside the two cords) and its first and last rows are
-    net, not cord: a clamped V can never stretch an opaque row over the net.
+
+Post side k samples sub-column k of the post column. Caps sample the black column. The net samples
+the sheet column (u across the bay, side b mirrored, v from the hem 0 to the top 1). The net body is
+periodic in v (rows r and r + 512 equal outside the two cords). Its first and last rows are net, not
+cord. So a clamped V can never stretch an opaque row over the net.
 
 TEXTURES
-    Recolor texels RGB 0.80 (cs2_asset.RECOLOR_ALBEDO), black 0.04, no noise (noise would break the
-    V rule). Net alpha: vertical openings (superellipse p 1.4) on a staggered lattice, 30 per row per
-    bay (6.67 cm pitch), 20 rows (6.75 cm pitch at the posts), openings 4.3 x 8.8 cm, mean alpha
-    ~0.45 (vanilla chain link 0.443); RGB of alpha-0 texels = strand RGB (no dark mip fringe).
-    ControlMask sheet + guard G = 1 (slot 2), post B = 1 (slot 3), black 0, A = 0. MaskMap
-    R = G = B = 0, A smoothness (sheet 0.35, post 0.45, cap 0.30). Normal flat. settings.json:
-    sharedAssets LOD1 -> LOD0 maps, LOD1 Skip, Surface last.
+- Recolor texels: RGB 0.80 (cs2_asset.RECOLOR_ALBEDO). Black texels: 0.04. There is no noise (noise
+  would break the V rule).
+- Net alpha: vertical openings (superellipse p 1.4) on a staggered lattice, 30 per row per bay (6.67
+  cm pitch), 20 rows (6.75 cm pitch at the posts), openings 4.3 x 8.8 cm, mean alpha ~0.45 (vanilla
+  chain link 0.443). The RGB of alpha-0 texels = strand RGB (no dark mip fringe).
+- ControlMask: sheet + guard G = 1 (slot 2), post B = 1 (slot 3), black 0, A = 0.
+- MaskMap: R = G = B = 0, A smoothness (sheet 0.35, post 0.45, cap 0.30).
+- Normal: flat.
+- settings.json: sharedAssets LOD1 -> LOD0 maps, LOD1 Skip, Surface last.
 
-DETERMINISM
-    Explicit vertex lists, hand-laid texel UVs, cs2_asset.tag_parts canonical order, analytic maps
-    (no random numbers). Two builds hash identically (tests/test_safety_fence_b.py).
+DETERMINISM The build uses explicit vertex lists, hand-laid texel UVs, the cs2_asset.tag_parts
+canonical order and analytic maps (no random numbers). Two builds hash identically
+(tests/test_safety_fence_b.py).
 
-No top-level side effects; the __main__ block runs only as a Blender --python script.
+The module has no top-level side effects. The __main__ block runs only as a Blender --python script.
 """
 
 import argparse
@@ -81,8 +85,8 @@ VALIDATE_SPEC = {"kind": "hanging", "cutout": False, "lod0_cap": CAPS[0], "expec
 TILING_COUNT, OVERRIDE_LENGTH = 2, 0.0           # the mesh prefabs' CurveProperties (vanilla's chain link)
 
 # --------------------------------------------------------------------------------------
-# Geometry (authoring frame: x = travel along the lane, y = lateral, z = up; orient_for_net turns
-# it into the net frame: Blender x = prefab x lateral, Blender -y = prefab z travel)
+# Geometry in the authoring frame: x = travel along the lane, y = lateral, z = up. orient_for_net
+# turns it into the net frame: Blender x = prefab x lateral, Blender -y = prefab z travel.
 # --------------------------------------------------------------------------------------
 
 TILE = 4.0
@@ -146,8 +150,8 @@ def _sub_column(region, k):
 
 
 def _post(name, cx, sides):
-    """Post prism sides (no top: the cap covers it; no bottom: buried). Side k -> post sub-column k,
-    v over the whole atlas (the column is uniform along v)."""
+    """Post prism sides, with no top (the cap covers it) and no bottom (buried). Side k -> post
+    sub-column k, v over the whole atlas (the column is uniform along v)."""
     r = POST_HALF * math.sqrt(2.0)
     phase = 45.0 if sides == 4 else 270.0
     verts = F._ring(cx, r, sides, POST_Y[0], phase) + F._ring(cx, r, sides, POST_Y[1], phase)
@@ -180,9 +184,9 @@ def _cap(name, cx):
 
 
 def _sheet_bay(name, bay, side, lod):
-    """One bay of net as explicit triangles. Side 'a' at SHEET_LAT - TWIN faces -lateral, side
-    'b' at SHEET_LAT + TWIN faces +lateral (reversed winding, mirrored u: both keep CCW UVs).
-    LOD0 sags and bulges over NET_COLS columns; LOD1 is one straight quad at FLAT_TOP."""
+    """One bay of net as explicit triangles. Side 'a' at SHEET_LAT - TWIN faces -lateral, side 'b' at
+    SHEET_LAT + TWIN faces +lateral (reversed winding, mirrored u: both keep CCW UVs). LOD0 sags and
+    bulges over NET_COLS columns. LOD1 is one straight quad at FLAT_TOP."""
     s0, s1 = COLUMNS["sheet"]
     u_lo, u_hi = s0 + INSET, s1 - INSET
     shaped = lod == 0
@@ -246,9 +250,9 @@ def build_tile(lod):
 # --------------------------------------------------------------------------------------
 
 def net_alpha(atlas=ATLAS, x0=0):
-    """(atlas, atlas - x0) alpha of the net pattern for texel columns x0 .. atlas (rows bottom-up =
-    v). Openings sit on a staggered lattice centered on the bay center u = 576 (mirror-symmetric,
-    so the mirrored side b lines up), 1 px anti-aliased edges, the two cords opaque."""
+    """(atlas, atlas - x0) alpha of the net pattern for texel columns x0 .. atlas (rows bottom-up = v).
+    Openings sit on a staggered lattice centered on the bay center u = 576 (mirror-symmetric, so the
+    mirrored side b lines up). The edges are 1 px anti-aliased, and the two cords are opaque."""
     s0, s1 = COLUMNS["sheet"]
     u_lo, u_hi = s0 + INSET, s1 - INSET
     uc = 0.5 * (u_lo + u_hi)
@@ -304,7 +308,7 @@ def paint_maps():
 
 
 # --------------------------------------------------------------------------------------
-# Contracts (raise on failure; return the measured numbers)
+# Contracts (they raise on failure and return the measured numbers)
 # --------------------------------------------------------------------------------------
 
 def _region_of(part):
@@ -375,7 +379,7 @@ def tile_contracts(obj, lod, maps=None):
     n_sheet = sum(1 for n in names if _region_of(n) == "sheet")
     if bad_twin or n_sheet != 2 * len(keyed):
         fails.append(f"C6 {bad_twin} sheet faces without an outward twin 2 x {TWIN} m apart ({n_sheet} faces)")
-    # C7 UVs: CCW, non-zero, inside the face's column; posts / caps on alpha-255 texels
+    # C7 UVs: CCW, non-zero, inside the face's column. Posts / caps on alpha-255 texels
     alpha = maps["BaseColor"][0][..., 3] if maps else None
     bad_uv = zero = mirrored = 0
     for p, n, pts in zip(polys, names, F._uv_faces(obj, ATLAS)):
@@ -493,7 +497,7 @@ def texture_contracts(maps):
 
 # --------------------------------------------------------------------------------------
 # Previews: 2 / 10 / 50 m x front / oblique / backlit, LOD1 at 50 m, a 120 m city-camera frame and
-# the post-color options; a 3 x 3 sheet + an extras sheet
+# the post-color options. Sheets: a 3 x 3 sheet + an extras sheet
 # --------------------------------------------------------------------------------------
 
 def _tinted_image(name, asset_dir, size, tint_g, tint_b, tag):
@@ -602,7 +606,7 @@ def _sheet(rows, out_path, cell=(600, 400), pad=4):
 
 
 def render_previews(out_dir, built, post, post_dir, resolution=(1200, 800), samples=64):
-    """All preview frames into out_dir; returns the written paths. `built`: {"lod0", "lod1", "dir"}.
+    """All preview frames into out_dir. Returns the written paths. `built`: {"lod0", "lod1", "dir"}.
     The rig (runs, end posts, figures, ground, camera, materials) is removed afterwards."""
     import cs2_preview
     os.makedirs(out_dir, exist_ok=True)
@@ -761,8 +765,8 @@ def write_review(built, post, post_dir, out_dir=None, args=None):
 # --------------------------------------------------------------------------------------
 
 def _portable(path_or_arg):
-    """Repo-relative form of an absolute path inside the repo; '<outside-repo>' for any other
-    absolute path (manifests are tracked: no home paths)."""
+    """Repo-relative form of an absolute path inside the repo. Any other absolute path gives
+    '<outside-repo>' (manifests are tracked: no home paths)."""
     if not os.path.isabs(path_or_arg):
         return path_or_arg
     rel = os.path.relpath(os.path.abspath(path_or_arg), REPO)

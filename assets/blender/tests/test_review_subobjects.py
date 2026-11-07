@@ -1,30 +1,40 @@
 """
-Vanilla-prop stand-ins in the live-review packs (DECISIONS 183: props are REFERENCED as
-sub-objects, never modeled, so the review shows them as labeled boxes).
+Vanilla-prop stand-ins in the live-review packs (DECISIONS 183: props are REFERENCED as sub-objects, never modeled, so
+the review shows them as labeled boxes).
 
-  A. READER: for every shipped manifest under assets/import, cs2_subobj.rows_from_manifest returns
-     exactly as many rows as the manifest's own block holds (counted here by hard-coded paths,
-     independent of the reader's generic search): sub_objects.objects (lodges, school, patrol),
-     detail1.sub_objects.objects (DQ stations), detail1.sub_objects.rows (tram stations),
-     night_subobjects (lattice towers). Every GUID has known bounds (cs2_liftdress.SUBOBJ or the
-     assets/blender/subobj_bounds.json cache), and the cache agrees with SUBOBJ.
-  B. FRAMES: every shipped row's stand-in box equals cs2_liftdress.subobj_box(...) (the generators'
-     own box test) mapped to the net-oriented pack frame (-gx, -gz, gy) (x-sign gate N, 2026-10-16: was (gx, -gz, gy)); the tram rows' recorded
-     `box` too.
-  C. PACK: a synthetic asset with N rows in three block shapes (+ one unknown prop) is written with
-     cs2_review.write_pack: N boxes + N text labels in SUB with the right bounds, positions,
-     rotations, family colors (distinct), semi-transparent material, a "(ground)" tag for
-     m_ParentMesh -1, a 0.5 m cube and "?" for unknown bounds, SUB_NOPROPS holding the sub-meshes
-     only, collection props (n_prop_standins ...), a night_subobjects WarningLight replaced by the
-     beacon addendum row on a beacon host, and the build session left exactly as it was (every ID
-     collection, fonts included). A pack without rows is unchanged (four roles, no SUB_NOPROPS).
-  D. LIVE: review_live.py in a fresh scene: load() / status() / stand_ins() report the count per
-     pack, props() swaps the SUB instance to SUB_NOPROPS and back (the sub-meshes stay), reload()
-     keeps the state, a pack without rows reports 0.
+A. READER: for every shipped manifest under assets/import, cs2_subobj.rows_from_manifest returns exactly as many rows as
+the manifest's own block holds. The test counts the rows by hard-coded paths, independent of the reader's generic search.
+The blocks are:
+- sub_objects.objects (lodges, school, patrol)
+- detail1.sub_objects.objects (DQ stations)
+- detail1.sub_objects.rows (tram stations)
+- night_subobjects (lattice towers)
+
+Every GUID has known bounds (cs2_liftdress.SUBOBJ or the assets/blender/subobj_bounds.json cache), and the cache agrees
+with SUBOBJ.
+
+B. FRAMES: every shipped row's stand-in box equals cs2_liftdress.subobj_box(...) (the generators' own box test) mapped to
+the net-oriented pack frame (-gx, -gz, gy). The x-sign gate N (2026-10-16) changed this frame. It was (gx, -gz, gy)
+before. The test also checks the recorded `box` of the tram rows.
+
+C. PACK: a synthetic asset with N rows in three block shapes (+ one unknown prop) is written with cs2_review.write_pack.
+The test checks these points:
+- SUB holds N boxes + N text labels with the right bounds, positions, rotations, family colors (distinct) and a
+  semi-transparent material.
+- A row with m_ParentMesh -1 gets a "(ground)" tag. A row with unknown bounds gets a 0.5 m cube and "?".
+- SUB_NOPROPS holds the sub-meshes only.
+- The collection props are right (n_prop_standins ...).
+- On a beacon host, the beacon addendum row replaces a night_subobjects WarningLight.
+- The build session is left exactly as it was (every ID collection, fonts included).
+
+A pack without rows is unchanged (four roles, no SUB_NOPROPS).
+
+D. LIVE: review_live.py in a fresh scene. load() / status() / stand_ins() report the count per pack. props() swaps the
+SUB instance to SUB_NOPROPS and back (the sub-meshes stay). reload() keeps the state. A pack without rows reports 0.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_review_subobjects.py
 
-Exit 1 on any failure; one PASS line on success. Writes only to a temp folder.
+The test exits 1 on any failure and prints one PASS line on success. It writes only to a temp folder.
 """
 import json
 import math
@@ -139,18 +149,19 @@ def test_shipped_manifests():
                     elo, ehi = pack_aabb_from_game(glo, ghi)
                     check(near(lo, elo) and near(hi, ehi),
                           f"{tag}: stand-in AABB {lo} {hi} != subobj_box mapped {elo} {ehi}")
-                # fine-detail step 3c: a tram block lists its kit "mod" rows after the vanilla C16 rows (which carry
-                # the recorded boxes), so only the first len(tram_boxes) rows have one
+                # fine-detail step 3c: a tram block lists its kit "mod" rows after the vanilla C16 rows. The vanilla rows
+                # carry the recorded boxes. So only the first len(tram_boxes) rows have one.
                 if tram_boxes and i < len(tram_boxes) and tram_boxes[i]:
                     blo, bhi = tram_boxes[i]
                     if "NEGATED" in str(((d1.get("block") or {}).get("x_convention")) or ""):
-                        # the recorded boxes stay in the DESIGN frame; the rows (and the pack) are game frame, gx negated
+                        # The recorded boxes stay in the DESIGN frame. The rows (and the pack) are in the game frame,
+                        # with gx negated.
                         blo, bhi = (-bhi[0], blo[1], blo[2]), (-blo[0], bhi[1], bhi[2])
                     elo, ehi = pack_aabb_from_game(blo, bhi)
                     check(near(lo, elo, 0.002) and near(hi, ehi, 0.002),
                           f"{tag}: AABB {lo} {hi} != the manifest's recorded box mapped {elo} {ehi}")
     check(seen >= 8 and total >= 80, f"only {seen} manifests / {total} rows had sub-objects")
-    # the beacon addendum: one row per host tower, own bounds, 60A's WarningLight replaced
+    # the beacon addendum has one row per host tower, with its own bounds. It replaces the WarningLight of 60A.
     bm = S._beacon_manifest()
     check(bm is not None, "beacon manifest unreadable")
     if bm:
@@ -414,7 +425,7 @@ def test_synthetic_pack(work):
 # E: our own props by CID ("kind": "mod", fine-detail pass) + the sign set as an extra mesh
 # --------------------------------------------------------------------------------------
 
-KIT_CID = "e8c76b0b9f9340a08f728e6d992d4692"      # SkiDressHoseReel (fine_detail.KIT; uncolored: the cyan box)
+KIT_CID = "e8c76b0b9f9340a08f728e6d992d4692"      # SkiDressHoseReel (fine_detail.KIT), uncolored: the cyan box
 SET_CID = "1" * 32
 #: kit color variants (2026-10-12): a colored rack row names its variant and is TINTED with the set
 RED_VARIANT = "SkiDressSkiRackV2_Red"

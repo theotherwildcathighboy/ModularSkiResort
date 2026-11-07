@@ -1,23 +1,26 @@
 """
-cs2_weather.py - the weathering layer of the art pass (detail pass 1): edge wear, grime
-(ground contact, under eaves, cavities, door thresholds), rust streaks below bolts and below
-galvanised fittings, scuffs on walking surfaces and crash pads, and optional snow caps,
-composited in LINEAR light over a finished texture set.
+cs2_weather.py - the weathering layer of the art pass (detail pass 1). It composites these effects
+in LINEAR light over a finished texture set:
+- edge wear
+- grime (ground contact, under eaves, cavities, door thresholds)
+- rust streaks below bolts and below galvanized fittings
+- scuffs on walking surfaces and crash pads
+- optional snow caps
 
-Contract: docs/research/art/assets-2026-10/design/weathering-layer.md (sections 2-8); the
-build report is docs/research/art/assets-2026-10/build/weathering-layer.md.
+Contract: docs/research/art/assets-2026-10/design/weathering-layer.md (sections 2-8). The build
+report is docs/research/art/assets-2026-10/build/weathering-layer.md.
 
 Where it runs
 -------------
-Inside cs2_bake.bake_unique's post_compose slot, as a WRAPPER around the generator's own
-hook (lift_terminal_detach.py:2541-2555 idiom):
+Inside cs2_bake.bake_unique's post_compose slot, as a WRAPPER around the generator's own hook
+(lift_terminal_detach.py:2541-2555 idiom):
 
     hook = make_weather_hook(inner, spec, mat_keys=keys, detail_specs=dspecs,
                              stamped=[p for p, _, _ in recipe.labels], compose_contact=...)
     cs2_bake.bake_unique(..., post_compose=hook)
 
-The maps are LINEAR there, rows bottom-up (row 0 = v 0), AO already multiplied into base,
-reserved rects already restored; bake_unique clips, sets the channel invariants and does
+The maps are LINEAR there, with rows bottom-up (row 0 = v 0), AO already multiplied into base, and
+reserved rects already restored. bake_unique clips the maps, sets the channel invariants and does
 the sRGB encode afterwards (cs2_bake step 5). Nothing here touches color spaces.
 
 Public API
@@ -27,14 +30,14 @@ Public API
                 slot_wear="free")  .key() .validate() .preset()
                 (defaults per DECISIONS 171, 2026-10-11: slots may weather beyond
                 +-10 %, intensity = the highest budget-clean step on L2 with free slots,
-                snow stays 0.0; a building may raise its own intensity to its own highest
+                snow stays 0.0. A building may raise its own intensity to its own highest
                 budget-clean step: lodge.py --weather-sweep)
     WeatherMaps(base, nrm, msk, ctl, ao=None)
     build_fields(me, A, spec, maps=None, *, uv_layer, matrix, part_table, mat_keys,
                  mat_roles, detail_specs, stamped, reserved, protect_px) -> WeatherFields
     compute_masks(maps, fields, spec, *, compose_contact=False) -> dict of (N,) masks
     apply_weathering(maps, fields, spec, *, compose_contact=False, gutter_px=3,
-                     effects=EFFECTS, masks=None) -> WeatherMaps (new base/nrm/msk;
+                     effects=EFFECTS, masks=None) -> WeatherMaps (new base/nrm/msk.
                      ctl and ao are the SAME objects, never written)
     weather_report(before, after, fields, spec, masks=None) -> dict (vanilla VL1-VL5,
                      perceptual dL*, guards, coverage, sources, roles, seed, key)
@@ -42,25 +45,31 @@ Public API
                      share |dL*| > 2 over the visible texels, optionally slot-tinted)
     make_weather_hook(inner, spec, *, ...) -> WeatherHook (post_compose signature)
 
-Fix pass 1 (2026-10-11, build report "Fix pass 1"): visibility retune (edge band >= 3
-texels, 0.6 m deeper ground band, large-scale tone, AO-aware eave grime), slot_wear
-"bounded" | "free" (Q2 is one spec field), scuffs fixed in meters and oriented
-by the part axis (no radial sunburst), gutter deltas slot-bounded, tower preset keeps the
-concrete foundation `pad` out of the crash-pad role, `protect_px` for painter sub-rects.
+Fix pass 1 (2026-10-11, build report "Fix pass 1"):
+- visibility retune (edge band >= 3 texels, 0.6 m deeper ground band, large-scale tone, AO-aware
+  eave grime)
+- slot_wear "bounded" | "free" (Q2 is one spec field)
+- scuffs fixed in meters and oriented by the part axis (no radial sunburst)
+- gutter deltas slot-bounded
+- the tower preset keeps the concrete foundation `pad` out of the crash-pad role
+- `protect_px` for painter sub-rects
+
     hash3 / vnoise3 / fbm / uniform   world-meter hashed value noise (no tiling, no seams)
     ROLES, ROLE_COEFF, MAT_ROLES, PREFIX_ROLES   the role tables (design section 3.3)
 
-Masks are COMPACT: one value per covered texel, in the order of fields.idx (flat row-major
-indices, rows bottom-up); fields.full(name) / scatter(fields, arr) give (A, A) arrays.
+Masks are COMPACT: one value per covered texel, in the order of fields.idx (flat row-major indices,
+rows bottom-up). fields.full(name) / scatter(fields, arr) give (A, A) arrays.
 
-Determinism: seed = zlib.crc32(asset name) (or spec.seed), per-effect sub-seeds
-crc32(f"{name}:{effect}"); uint32 hash arithmetic (murmur3 fmix32); polygons and parts in
-index order; no RNG state, no wall clock in the outputs.
+Determinism:
+- seed = zlib.crc32(asset name) (or spec.seed), with per-effect sub-seeds crc32(f"{name}:{effect}")
+- uint32 hash arithmetic (murmur3 fmix32)
+- polygons and parts in index order
+- no RNG state, no wall clock in the outputs
 
-Imports numpy, zlib, json, math, hashlib, dataclasses, cs2_compose (public API plus the
-private lattice helpers cs2_bldg already uses) and cs2_asset.PART_TABLE_PROP. Never imports
-cs2_bldg, bldg_recipes, lodge or recipes.*. bpy is used only through the mesh it is handed.
-No side effects at import (beyond the sibling-module path, as cs2_bake).
+Imports numpy, zlib, json, math, hashlib, dataclasses, cs2_compose (public API plus the private
+lattice helpers cs2_bldg already uses) and cs2_asset.PART_TABLE_PROP. Never imports cs2_bldg,
+bldg_recipes, lodge or recipes.*. bpy is used only through the mesh it is handed. No side effects at
+import (beyond the sibling-module path, as cs2_bake).
 """
 
 import hashlib
@@ -125,8 +134,8 @@ COMPOSE_CONTACT_BAND_M = 0.4
 # noise scales (meters) - see the build report for the ones retuned from the design
 EDGE_WIDTH_CELL_M = 0.30
 #: edge band (fix pass 1): b = max(edge_band_m * (0.7 + 0.6 u), EDGE_MIN_TEXELS / ppm),
-#: full weight out to EDGE_CORE * b, smoothstep to 0 at b. No area renormalisation where
-#: the floor binds (it was D3; at 39-46 px/m it left a 1-2 texel line nobody could see)
+#: full weight out to EDGE_CORE * b, smoothstep to 0 at b. No area renormalization where
+#: the floor binds (it was D3: at 39-46 px/m it left a 1-2 texel line nobody could see)
 EDGE_MIN_TEXELS = 3.0
 EDGE_VAR = (0.7, 0.6)
 EDGE_CORE = 0.35
@@ -134,15 +143,15 @@ CHIP_CELL_M = 0.12
 CHIP_LO, CHIP_HI = 0.35, 0.62
 GROUND_CELL_M = 0.10
 #: ground contact (fix pass 1): profile (1 - smoothstep(0, 1, t))^GROUND_EXP over the
-#: 0.6 m band, and the darkening at the contact deepened by GROUND_GAIN relative to the
+#: 0.6 m band. The darkening at the contact is deepened by GROUND_GAIN relative to the
 #: other grime terms: d = c * w_grime * (1 + (GROUND_GAIN - 1) * w_ground)
 GROUND_EXP = 1.2
 GROUND_GAIN = 2.0
-#: AO terms (fix pass 1): the wired bake hands the layer the raw AO, and the design's
-#: ranges - cavity 1 - smoothstep(0.35, 0.85, ao), eave assist 0.6 (1 - smoothstep(0.4,
-#: 0.9, ao)) - grimed 46-68 % of the visible texels of every building (AO is already in
-#: the albedo, so that was the "darken every crevice twice" the design warned about) and
-#: spent the whole vanilla budget on a uniform murk. Only deep occlusion counts now
+#: AO terms (fix pass 1): the wired bake hands the layer the raw AO. The design's ranges
+#: (cavity 1 - smoothstep(0.35, 0.85, ao), eave assist 0.6 (1 - smoothstep(0.4, 0.9, ao)))
+#: grimed 46-68 % of the visible texels of every building. AO is already in the albedo, so
+#: that was the "darken every crevice twice" the design warned about. It also spent the whole
+#: vanilla budget on a uniform murk. Only deep occlusion counts now
 CAVITY_AO = (0.08, 0.40)
 CAVITY_AMP = 0.4
 EAVE_AO = (0.25, 0.65)
@@ -151,7 +160,7 @@ EAVE_AO_AMP = 0.4
 #: soffit, so the designed ~5 % reaches the wall when the broad AO assist is narrowed
 EAVE_EXP = 1.0
 #: large-scale tone (fix pass 1): 1-3 m blotches on walls and roofs so flat planes stop
-#: reading as CAD; luminance x (1 + TONE_AMP * intensity * tone), tone in [-1, 1]
+#: reading as CAD. Luminance x (1 + TONE_AMP * intensity * tone), tone in [-1, 1]
 #: (+-4 % at intensity 0.5). Cells taller than wide: rain-washed, not camouflage
 TONE_CELLS_M = (1.6, 1.6, 2.4)
 TONE_OCTAVES = 3
@@ -168,18 +177,18 @@ SPOT_AMP = 0.6
 CURTAIN_AMP = 0.5
 CURTAIN_GAP_CELL_M = 0.25
 #: geometric rust "sits on": the UNDILATED source bbox comes within this distance of the
-#: target plane (design 4.6 used 0.25 m on the 0.05-dilated corners; on L2 that let the
-#: eave snow guards, 0.30 m outside the wall and up on the roof, streak 14 m of eave wall;
-#: build-report deviation D7)
+#: target plane. Design 4.6 used 0.25 m on the 0.05-dilated corners. On L2 that let the
+#: eave snow guards, 0.30 m outside the wall and up on the roof, streak 14 m of eave wall
+#: (build-report deviation D7)
 GEO_CONTACT_M = 0.10
 GEO_LONG_M = 0.50           # sources longer than this across the streak drip at points
 DRIP_CELL_M = 0.40
 DRIP_LO, DRIP_HI = 0.55, 0.75
 SNOW_CELL_M = 0.50
 #: scuffs (fix pass 1, F3): cells FIXED in meters - along the part's principal axis,
-#: across, z. Octave 0 is never faded and octaves k >= 1 fade with the texel density
-#: (fbm), so a 2048 -> 4096 rebake keeps the same lattice (it used to floor the across
-#: cell at 2 texels, which moved every scuff)
+#: across, z. Octave 0 is never faded. Octaves k >= 1 fade with the texel density
+#: (fbm), so a 2048 -> 4096 rebake keeps the same lattice. It used to floor the across
+#: cell at 2 texels, which moved every scuff
 SCUFF_CELLS_M = (0.30, 0.06, 1.00)
 SCUFF_LO, SCUFF_HI = 0.55, 0.80
 #: door_d over which scuffs go from an isotropic worn patch (cells along x along) to
@@ -196,20 +205,28 @@ ROLES = ("paint_steel", "paint", "paint_metal", "pad", "galv", "timber", "deck",
 ROLE_ID = {r: i for i, r in enumerate(ROLES)}
 NONE_ID = ROLE_ID["none"]
 
-# Section 3.3 at intensity 1.0, as retuned by the builder inside the design's +-50 %
-# allowance after the L2 demo (build report "coefficients"): edge lift x ~1.45, scuff
-# x ~1.3 except deck (kept 0.60: at 0.70 the flat test deck leaves the VL4 budget) - wear
-# was below the preview's resolving power - and roof_tile rust 0.30 -> 0.20 (the streak
-# band below the L2 snow-guard rails read as dirt). Design values in ROLE_COEFF_DESIGN.
+# Section 3.3 at intensity 1.0, as retuned by the builder inside the design's +-50 % allowance after
+# the L2 demo (build report "coefficients"). Wear was below the preview's resolving power. The
+# changes:
+# - edge lift x ~1.45
+# - scuff x ~1.3, except deck (kept 0.60: at 0.70 the flat test deck leaves the VL4 budget)
+# - roof_tile rust 0.30 -> 0.20 (the streak band below the L2 snow-guard rails read as dirt) Design
+#   values are in ROLE_COEFF_DESIGN.
+#
 # Fix pass 1 (visibility, budget re-checked on the visible texels at 0.35 / 0.5 / 0.7):
-# edge lift x ~1.4-1.6 again (the 3-texel band made it resolvable, the budget had room),
-# grime moved toward the LIGHT materials where it reads (masonry 0.55 -> 0.65, deck 0.50
-# -> 0.60) and off dark timber (0.55 -> 0.45: a 5 % darkening of a 0.03-0.05 albedo is
-# |dL*| < 1 but costs as much VL1 as on stone). Beyond the design's +-50 % on edge lift:
-# the fixer's brief overrides it, recorded in the build report.
-#   lift / dsmooth: edge-wear albedo lift and smoothness change; grime: darkening weight;
-#   rust: rust target; source: "lattice" | "geometric" | None; scuff; snow: eligible
-#   (subject to slot < 0.05 everywhere, so the table's "if not slot" == True here).
+# - edge lift x ~1.4-1.6 again (the 3-texel band made it resolvable, the budget had room)
+# - grime moved toward the LIGHT materials where it reads (masonry 0.55 -> 0.65, deck 0.50 -> 0.60)
+# - grime moved off dark timber (0.55 -> 0.45: a 5 % darkening of a 0.03-0.05 albedo is |dL*| < 1
+#   but costs as much VL1 as on stone) Beyond the design's +-50 % on edge lift: the fixer's brief
+#   overrides it, recorded in the build report.
+#
+# The table columns are:
+# - lift / dsmooth: edge-wear albedo lift and smoothness change
+# - grime: darkening weight
+# - rust: rust target
+# - source: "lattice" | "geometric" | None
+# - scuff
+# - snow: eligible (subject to slot < 0.05 everywhere, so the table's "if not slot" == True here)
 ROLE_COEFF = {
     "paint_steel": dict(lift=0.85, dsmooth=-0.25, grime=0.40, rust=0.55, source="lattice", scuff=0.40, snow=False),
     "paint":       dict(lift=0.70, dsmooth=-0.20, grime=0.40, rust=0.30, source=None, scuff=0.50, snow=True),
@@ -249,7 +266,7 @@ MAT_ROLES = {
     "glass_dark": "none", "label": "none", "lamp": "none",
 }
 
-# Kit and lift vocabularies; the longest matching prefix wins.
+# Kit and lift vocabularies. The longest matching prefix wins.
 PREFIX_ROLES = tuple(
     [(p, "none") for p in ("win_", "pane_", "lamp_") + LABEL_PREFIXES]
     + [(p, "galv") for p in ("gutter_", "downspout_", "snowguard_", "stovepipe_", "vent_",
@@ -275,7 +292,7 @@ EDGE_KAPPA_ROLES = ("timber", "deck", "masonry")
 # --------------------------------------------------------------------------------------
 
 def smoothstep(e0, e1, x):
-    """Hermite smoothstep; e0 / e1 may be arrays (a zero-width ramp is a step at e0)."""
+    """Hermite smoothstep. e0 / e1 may be arrays (a zero-width ramp is a step at e0)."""
     x = np.asarray(x, dtype=np.float64)
     e0 = np.asarray(e0, dtype=np.float64)
     d = np.asarray(e1, dtype=np.float64) - e0
@@ -340,7 +357,7 @@ def hash01(ix, iy, iz, seed):
 
 
 def vnoise3(p, seed):
-    """Trilinear value noise with the quintic fade at lattice coords p (N, 3); [0, 1)."""
+    """Trilinear value noise with the quintic fade at lattice coords p (N, 3), in [0, 1)."""
     p = np.asarray(p, dtype=np.float64).reshape(-1, 3)
     out = np.empty(len(p), dtype=np.float64)
     for a in range(0, len(p), NOISE_CHUNK):
@@ -363,13 +380,13 @@ def vnoise3(p, seed):
 
 def fbm(coords, cells_m, ppm, seed, octaves=4):
     """
-    Zero-mean, unit-variance fractal value noise at world coordinates `coords` (N, 3) in
-    meters. `cells_m`: scalar, (3,) or (N, 3) cell size per axis (anisotropic cells make
-    streaks); axes 0 and 1 are the in-plane axes for the density fade. Octave k uses
-    cells / 2^k and amplitude 0.5^k; octaves k >= 1 fade with smoothstep(2, 4, cell * ppm)
-    (cells under 2 texels add nothing) and the sum is renormalised by sqrt(sum (w a)^2), so a
-    threshold gives the same coverage whichever octaves survive. Octave 0 is the effect's
-    designed scale and is never faded (build-report deviation D2).
+    Zero-mean, unit-variance fractal value noise at world coordinates `coords` (N, 3) in meters.
+    `cells_m`: scalar, (3,) or (N, 3) cell size per axis (anisotropic cells make streaks). Axes 0
+    and 1 are the in-plane axes for the density fade. Octave k uses cells / 2^k and amplitude 0.5^k.
+    Octaves k >= 1 fade with smoothstep(2, 4, cell * ppm) (cells under 2 texels add nothing). The
+    sum is renormalized by sqrt(sum (w a)^2), so a threshold gives the same coverage whichever
+    octaves survive. Octave 0 is the effect's designed scale and is never faded (build-report
+    deviation D2).
     """
     c = np.asarray(coords, dtype=np.float64).reshape(-1, 3)
     n = len(c)
@@ -410,7 +427,7 @@ PW_ATTRS = ("scale", "edge", "grime", "rust", "scuff", "snow", "rust_source", "s
 
 @dataclass(frozen=True)
 class PartWeather:
-    """Per-part override; None = inherit. `scale` 1.0 counts as unset when merging."""
+    """Per-part override. None = inherit. `scale` 1.0 counts as unset when merging."""
     role: str = None
     scale: float = 1.0
     edge: float = None
@@ -432,13 +449,13 @@ class PartWeather:
 
 @dataclass(frozen=True)
 class WeatherSpec:
-    """Section 3.1. Frozen; overrides / tables are coerced to tuples."""
+    """Section 3.1. Frozen. Overrides / tables are coerced to tuples."""
     name: str
     kind: str = "building"
     #: DECISIONS 171 (2026-10-11, applied by the detail-pass kit group): 0.40 = the
     #: highest step of the 0.35 / 0.40 / 0.45 ... ladder that keeps the vanilla budget on
-    #: every one of L2 / school / P1 / P2 with free slots (weathering-layer-check-2 section 7;
-    #: L2 first WARNs at 0.45). Was 0.35
+    #: every one of L2 / school / P1 / P2 with free slots. L2 first WARNs at 0.45
+    #: (weathering-layer-check-2 section 7). Was 0.35
     intensity: float = 0.40
     edge: float = 1.0
     grime: float = 1.0
@@ -455,7 +472,7 @@ class WeatherSpec:
     slot_bound: float = 0.10
     #: Q2 switch: "free" (DEFAULT since DECISIONS 171: slot texels take the full luminance
     #: change, kept NEUTRAL so the picker tint still reads) or "bounded" (opt-in, W8:
-    #: +-slot_bound per channel on slot texels); ControlMask stays untouched either way (G5)
+    #: +-slot_bound per channel on slot texels). ControlMask stays untouched either way (G5)
     slot_wear: str = "free"
     tone: float = 1.0
     albedo_floor: float = 0.03
@@ -524,15 +541,15 @@ class WeatherSpec:
 
     @classmethod
     def preset(cls, kind, name, **kw):
-        """Section 3.4 presets; keyword arguments override any field."""
+        """Section 3.4 presets. Keyword arguments override any field."""
         if kind not in KINDS:
             raise ValueError(f"preset kind {kind!r} not in {KINDS}")
         args = dict(name=name, kind=kind)
         ov = []
         if kind == "tower":
             # "crashpad" covers crashpad and crashpad_outer. NOT "pad": that is lift_tower's
-            # concrete foundation (lift_tower.py:699-703; checker F1) - it resolves by its
-            # material (concrete -> masonry) or by PREFIX_ROLES ("pad" -> masonry)
+            # concrete foundation (lift_tower.py:699-703, checker F1). It resolves by its material
+            # (concrete -> masonry) or by PREFIX_ROLES ("pad" -> masonry)
             ov = [("crashpad", PartWeather(role="pad"))]
         elif kind == "carrier":
             args.update(ground="none", snow=0.0)
@@ -544,8 +561,8 @@ class WeatherSpec:
 
 @dataclass
 class WeatherMaps:
-    """(A, A, 4) float32 LINEAR maps, rows bottom-up, as post_compose receives them; ao is
-    the raw AO ((A, A) or (A, A, >=1), channel 0) before the 0.92 / 0.08 floor, or None."""
+    """(A, A, 4) float32 LINEAR maps, rows bottom-up, as post_compose receives them. ao is the raw AO
+    ((A, A) or (A, A, >=1), channel 0) before the 0.92 / 0.08 floor, or None."""
     base: object
     nrm: object
     msk: object
@@ -686,8 +703,8 @@ def _face_geometry(co, ls, lt, lv):
 
 
 def _convex_edges(co, ev, le, loop_face, fn, fc, spec):
-    """Edge weight k (E,): smoothstep(20, 60 deg) of the dihedral on convex two-face edges;
-    0 on boundary, concave, non-manifold and (grade mode) on-grade edges."""
+    """Edge weight k (E,): smoothstep(20, 60 deg) of the dihedral on convex two-face edges. It is 0 on
+    boundary, concave, non-manifold and (grade mode) on-grade edges."""
     E = len(ev)
     k = np.zeros(E, dtype=np.float64)
     if E == 0:
@@ -730,9 +747,9 @@ def _seg_dist(p, a, b):
 
 def _protect_rects_px(protect_px, me, A):
     """protect_px: iterable of (row0, row1, col0, col1) texel rects (rows bottom-up, as
-    cs2_compose.uv_bbox_px), or a callable (me, A) -> such an iterable (a generator that
-    paints a sub-rect of a part's island - lift_tower's warning triangle - passes its
-    painter's rect without knowing A in advance)."""
+    cs2_compose.uv_bbox_px), or a callable (me, A) -> such an iterable. A generator that paints a
+    sub-rect of a part's island (lift_tower's warning triangle) passes the rect of its painter
+    without knowing A in advance."""
     if protect_px is None:
         return []
     rects = protect_px(me, A) if callable(protect_px) else protect_px
@@ -751,14 +768,14 @@ def build_fields(me, A, spec, maps=None, *, uv_layer="UVUnique", matrix=None, pa
                  protect_px=()):
     """
     Per-texel fields of mesh `me` on its `uv_layer` at A x A (section 4). One pass over
-    cs2_compose.iter_face_rasters (the rasterizer of rasterise_face_fields, so part / ppm
-    agree texel for texel); everything else is derived from the mesh: world position, the
-    face normal and gravity frame, distance to convex edges (dihedral-weighted), cover above
-    (top-down peel of down-facing faces), rust sources (DetailSpec lattice + geometric),
-    doors, traffic directions, normal-map curvature, protect rects. `maps` (WeatherMaps) is
-    optional: it feeds the role refinement (MaskMap R, ControlMask), kappa and slot.
-    `protect_px` adds texel rects (or a callable (me, A) -> rects) restored 1:1, for a
-    painter that stamps only part of an island (see _protect_rects_px).
+    cs2_compose.iter_face_rasters (the rasterizer of rasterise_face_fields, so part / ppm agree
+    texel for texel). Everything else is derived from the mesh: world position, the face normal and
+    gravity frame, distance to convex edges (dihedral-weighted), cover above (top-down peel of
+    down-facing faces), rust sources (DetailSpec lattice + geometric), doors, traffic directions,
+    normal-map curvature, protect rects. `maps` (WeatherMaps) is optional: it feeds the role
+    refinement (MaskMap R, ControlMask), kappa and slot. `protect_px` adds texel rects (or a
+    callable (me, A) -> rects) restored 1:1, for a painter that stamps only part of an island (see
+    _protect_rects_px).
     """
     spec.validate()
     t0 = time.perf_counter()
@@ -1116,9 +1133,9 @@ def _geo_rust(src, p, n, g, l, Pv, ppm, spec):
     out = np.maximum(np.maximum(a0 - ta, ta - a1), 0.0)
     lat = 1.0 - smoothstep(0.0, fall, out)
     if a1 - a0 > GEO_LONG_M:
-        # a long source (snow-guard rail, ridge cap, gutter) drips at points, not along its
-        # whole length: 1D hashed value noise along the across axis (world meters, so it
-        # is continuous over faces sharing l) keeps ~1/4 of it (build-report D8)
+        # a long source (snow-guard rail, ridge cap, gutter) drips at points, not along its whole
+        # length. 1D hashed value noise along the across axis keeps ~1/4 of it. The noise is in
+        # world meters, so it is continuous over faces sharing l (build-report D8)
         gp = np.stack([ta / DRIP_CELL_M, np.full_like(ta, float(_part) * 7.31),
                        np.zeros_like(ta)], axis=1)
         lat = lat * smoothstep(DRIP_LO, DRIP_HI, vnoise3(gp, spec.sub_seed("drip")))
@@ -1130,9 +1147,9 @@ def _geo_rust(src, p, n, g, l, Pv, ppm, spec):
 
 
 def _lattice_rust(ds, e_h, e_v, Xs, Ys, qm, Pm, Mt, Pv, ppm, spec):
-    """Bolt streaks and ring-seam curtain on one lattice face: (w, curtain?) or (None, 0).
-    Rows / columns are detail_height's (cs2_compose.py:414-425); a streak is drawn only
-    where detail_height draws its bolt or seam (same texel-floor test)."""
+    """Bolt streaks and ring-seam curtain on one lattice face: (w, curtain?) or (None, 0). Rows /
+    columns are detail_height's (cs2_compose.py:414-425). A streak is drawn only where detail_height
+    draws its bolt or seam (same texel-floor test)."""
     s_h = _world_coord_field(e_h, Xs, Ys, qm, Pm, Mt)
     s_v = _world_coord_field(e_v, Xs, Ys, qm, Pm, Mt)
     vz = Pv @ e_v
@@ -1345,10 +1362,10 @@ def _doors_and_traffic(fl, table, spec, co, lv, loop_face, poly_part, fn, farea,
     fl.door_dz = door_dz
     fl.doors = doors
 
-    # traffic: the part's principal XY axis on up-facing texels of traffic parts (the
-    # MINOR axis on steps and stairs = the run direction). Fix pass 1 (F5): the direction
-    # toward the nearest threshold is no longer used - every radial direction converges on
-    # the door and drew a sunburst; near a door the scuffs turn isotropic instead
+    # traffic: the part's principal XY axis on up-facing texels of traffic parts (the MINOR axis on
+    # steps and stairs = the run direction). Fix pass 1 (F5): the direction toward the nearest
+    # threshold is no longer used, because every radial direction converges on the door and drew a
+    # sunburst. Near a door the scuffs turn isotropic instead
     traffic = np.zeros((N, 2), dtype=np.float64)
     tparts = [p for p in range(1, P + 1) if table[p - 1].startswith(spec.traffic_prefixes)
               and fl.part_role[p] != NONE_ID]
@@ -1371,8 +1388,8 @@ def _doors_and_traffic(fl, table, spec, co, lv, loop_face, poly_part, fn, farea,
 
 
 def _kappa(nrm, part_map, ppm_map, covered):
-    """Section 4.5: kappa = (dn_x/du + dn_y/dv) * ppm on the input normal map (1/m, +
-    convex); 0 where any 4-neighbor is uncovered or belongs to another part."""
+    """Section 4.5: kappa = (dn_x/du + dn_y/dv) * ppm on the input normal map (1/m, + convex). It is 0
+    where any 4-neighbor is uncovered or belongs to another part."""
     n = nrm[..., :3] * 2.0 - 1.0
     _gr, gx_col = np.gradient(n[..., 0])
     gy_row, _gc = np.gradient(n[..., 1])
@@ -1496,7 +1513,7 @@ def compute_masks(maps, fields, spec, *, compose_contact=False):
             wg = np.where(have, _ground_inv(e), wg)
     out["grime_ground"] = np.where(act, wg, 0.0)
 
-    # eave (walls under a down-facing surface; AO assists only in sheltered zones)
+    # eave (walls under a down-facing surface, AO assists only in sheltered zones)
     we = np.zeros(N)
     wall = act & (np.abs(nz) < 0.5)
     ch = F.cover_h.astype(np.float64)
@@ -1553,7 +1570,7 @@ def compute_masks(maps, fields, spec, *, compose_contact=False):
         wr[galv] = np.maximum(wr[galv], spots)
     out["rust"] = np.clip(wr, 0.0, 1.0)
 
-    # 6.4 snow (coverage target, NOT x intensity; off at snow = 0)
+    # 6.4 snow (coverage target, NOT x intensity, off at snow = 0)
     sn = np.zeros(N)
     if float(spec.snow) > 0.0:
         elig = (act & F.part_snow[tp] & (F.slot < 0.05) & (nz >= 0.70)
@@ -1566,10 +1583,10 @@ def compute_masks(maps, fields, spec, *, compose_contact=False):
                         * smoothstep(spec.snow_inset_m, spec.snow_inset_m + 0.3, F.edge_d[elig]))
     out["snow"] = sn
 
-    # 6.5 scuffs: streaks along the part's principal axis on traffic texels (no radial
-    # direction: F5), an isotropic worn patch within SCUFF_ISO_M of a threshold, density
-    # falling off isotropically with the distance to the door; horizontal on pads. Every
-    # cell is FIXED in meters (F3): octave 0 never fades, octaves k >= 1 fade by density
+    # 6.5 scuffs: streaks along the part's principal axis on traffic texels (no radial direction:
+    # F5), an isotropic worn patch within SCUFF_ISO_M of a threshold, density falling off
+    # isotropically with the distance to the door, horizontal on pads. Every cell is FIXED in meters
+    # (F3): octave 0 never fades, octaves k >= 1 fade by density
     sc = np.zeros(N)
     tr = F.traffic.astype(np.float64)
     tsel = act & (np.abs(tr).sum(axis=1) > 0.5)
@@ -1624,11 +1641,11 @@ def _occ(ao, fields):
 def apply_weathering(maps, fields, spec, *, compose_contact=False, gutter_px=3, effects=EFFECTS,
                      masks=None):
     """
-    Composite the section-6 effects over `maps` (WeatherMaps, linear) in the order tone ->
-    grime -> rust -> edge -> scuff -> snow, then the section-7 guards (ranges, slot bound
-    per spec.slot_wear, albedo floor), the 1:1 protect restore and the gutter dilation
-    (slot-bounded too). Returns a NEW WeatherMaps; ctl and ao are the same objects as the
-    input (never written). `effects` drops effects (tests).
+    Composite the section-6 effects over `maps` (WeatherMaps, linear) in the order tone -> grime ->
+    rust -> edge -> scuff -> snow. Then apply these steps: the section-7 guards (ranges, slot bound
+    per spec.slot_wear, albedo floor), the 1:1 protect restore and the gutter dilation (slot-bounded
+    too). Returns a NEW WeatherMaps. ctl and ao are the same objects as the input (never written).
+    `effects` drops effects (tests).
     """
     _check_pair(fields, spec)
     F = fields
@@ -1748,10 +1765,10 @@ def apply_weathering(maps, fields, spec, *, compose_contact=False, gutter_px=3, 
 
 
 def _neutral_on_slot(b0, b1, slot):
-    """slot_wear "free": on recolor-slot texels the change becomes a pure luminance ratio
-    of the input (b0 * L(b1) / L(b0)), mixed in by the slot weight, so the vanilla picker
-    tint (a multiply under ControlMask) still reads on worn paint and rust turns into a
-    neutral darkening instead of a tinted orange. ControlMask itself is never written."""
+    """slot_wear "free": on recolor-slot texels the change becomes a pure luminance ratio of the input
+    (b0 * L(b1) / L(b0)), mixed in by the slot weight. So the vanilla picker tint (a multiply under
+    ControlMask) still reads on worn paint. Rust turns into a neutral darkening instead of a tinted
+    orange. ControlMask itself is never written."""
     LU = LUMA.astype(np.float64)
     L0 = b0 @ LU
     L1 = b1 @ LU
@@ -1822,11 +1839,11 @@ def _gutter(base_in, base, msk_in, msk, F, steps, ctl=None, spec=None):
 VL_BUDGET = dict(VL1=0.05, VL2=0.08, VL3_lo=-0.06, VL3_hi=0.01, VL3_abs=0.30, VL4=0.5)
 VL4_STD_FLOOR = 0.10        # std(L) floored at 10 % of the part's mean L (flat-color parts)
 #: perceptual delta (fix pass 1): texels more than this far below ground_z are not
-#: "visible" (L2's plinth runs to z -7.2 m; the terrain covers it in game)
+#: "visible" (L2's plinth runs to z -7.2 m, and the terrain covers it in game)
 VIS_BELOW_M = 0.5
 #: texels with raw AO below this are enclosed - the inner sides of 0.3 m gables and walls,
 #: whose AO rays all hit the opposite wall (measured on P2: gable_hqback / _hqfront inner
-#: faces, AO 0.000, 42 k texels). Never seen from outside; not "visible" when AO is known
+#: faces, AO 0.000, 42 k texels). Never seen from outside. Not "visible" when AO is known
 AO_ENCLOSED = 0.02
 DLSTAR_JND = 2.0            # |dL*| above ~2 is a just-noticeable lightness step
 
@@ -1839,11 +1856,15 @@ def lstar(Y):
 
 
 def visible_texels(fields, spec, ao=None):
-    """(N,) bool: covered texels a 3/4 camera can see and the layer may touch - not
-    protected, not role none, not an underside (n.z > -0.2), not buried (z >= ground_z -
-    VIS_BELOW_M in grade / plinth mode) and, when the raw AO is known, not enclosed (AO >=
-    AO_ENCLOSED: interior faces of thick walls). The vanilla budget and the perceptual
-    delta are both measured on this set (fix pass 1)."""
+    """(N,) bool: covered texels a 3/4 camera can see and the layer may touch. A texel is visible when
+    it is:
+    - not protected
+    - not role none
+    - not an underside (n.z > -0.2)
+    - not buried (z >= ground_z - VIS_BELOW_M in grade / plinth mode)
+    - not enclosed, when the raw AO is known (AO >= AO_ENCLOSED: interior faces of thick walls)
+
+    The vanilla budget and the perceptual delta are both measured on this set (fix pass 1)."""
     F = fields
     nz = F.ngeo[:, 2].astype(np.float64)
     vis = ~F.protect_c & (F.role != NONE_ID) & (nz > -0.2)
@@ -1874,10 +1895,11 @@ def _tint_rgbs(tint):
 
 def perceptual_delta(before, after, fields, spec, *, tint=None, visible=None):
     """
-    Perceptual size of the change on the visible texels (visible_texels): CIE L* of the
-    linear luminance of BaseColor - multiplied by the slot tint under ControlMask when
-    `tint` is given, as the vanilla picker does - before and after. Returns the mean
-    |dL*|, the share of texels with |dL*| > 2 (a just-noticeable step), p95 |dL*| and the
+    Perceptual size of the change on the visible texels (visible_texels). It compares the CIE L* of
+    the linear luminance of BaseColor before and after. When `tint` is given, BaseColor is
+    multiplied by the slot tint under ControlMask first, as the vanilla picker does. Returns the
+    mean
+    dL*|, the share of texels with |dL*| > 2 (a just-noticeable step), p95 |dL*| and the
     mean L* before. Texture space: what a texel can show, not what the camera resolves.
     """
     F = fields
@@ -1915,9 +1937,9 @@ def _r(v, nd=5):
 
 
 def weather_report(before, after, fields, spec, masks=None):
-    """Vanilla-look budget VL1-VL5 (section 8) on covered, unprotected texels, the guard
-    results, per-effect coverage, roles and source counts. Prints one WARN line outside the
-    budget; never raises."""
+    """Vanilla-look budget VL1-VL5 (section 8) on covered, unprotected texels, the guard results,
+    per-effect coverage, roles and source counts. Prints one WARN line outside the budget. Never
+    raises."""
     F = fields
     idx = F.idx
     b0 = np.asarray(before.base, dtype=np.float32)
@@ -1933,9 +1955,9 @@ def weather_report(before, after, fields, spec, masks=None):
     L1 = B1 @ LUMA.astype(np.float64)
     S0 = m0.reshape(-1, m0.shape[-1])[idx, 3].astype(np.float64)
     S1 = m1.reshape(-1, m1.shape[-1])[idx, 3].astype(np.float64)
-    # VL1-VL4 measure the visible WEAR (fix pass 1: on visible_texels - buried plinth
-    # and enclosed interior faces are never seen); snowed texels (a coverage target, VL5)
-    # are left out. VL1 over every covered texel is kept as VL1_all_covered
+    # VL1-VL4 measure the visible WEAR (fix pass 1: on visible_texels, because buried plinth and
+    # enclosed interior faces are never seen). Snowed texels (a coverage target, VL5) are left out.
+    # VL1 over every covered texel is kept as VL1_all_covered
     vis = visible_texels(F, spec, before.ao)
     wear = act & vis
     if masks is not None and "snow" in masks:

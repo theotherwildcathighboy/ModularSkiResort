@@ -1,19 +1,24 @@
 """
-test_uv.py - contract test for cs2_uv (pack_unique / finish_packer / density_report /
-set_density).
+test_uv.py - contract test for cs2_uv (pack_unique / finish_packer / density_report / set_density).
 
 Run:  blender --background --factory-startup --python tests\test_uv.py
 
-Scene: six boxes of different sizes, each smart-projected into an atlas quadrant the way
-the lift generators do (cs2_asset.unwrap_into_quadrant), plus a strip plane whose UVs sit
-inside the crash-pad reserved rect (the pinned island). Joined with part tags.
+Scene: six boxes of different sizes. The test smart-projects each box into an atlas quadrant the way
+the lift generators do (cs2_asset.unwrap_into_quadrant). It also adds a strip plane whose UVs sit
+inside the crash-pad reserved rect (the pinned island). The test joins all parts with part tags.
 
-Asserts: every loop in [0, 1]; pinned loops byte-identical to their source UVs; no
-non-pinned loop inside a reserved rect; per-face px/m spread (max/min) of the non-pinned
-faces within 2x after average_islands_scale; two fresh builds pack to identical UV hashes;
-finish_packer on a lift_tower-style pre-made "UVUnique" layer satisfies the same contract;
-density_w scales an island's density; density_report returns one row per part.
-Exits 1 on any failure, prints one PASS line on success.
+The test asserts:
+- every loop is in [0, 1]
+- pinned loops are byte-identical to their source UVs
+- no non-pinned loop is inside a reserved rect
+- the per-face px/m spread (max/min) of the non-pinned faces is within 2x after
+  average_islands_scale
+- two fresh builds pack to identical UV hashes
+- finish_packer on a lift_tower-style pre-made "UVUnique" layer satisfies the same contract
+- density_w scales an island's density
+- density_report returns one row per part
+
+The test exits 1 on any failure and prints one PASS line on success.
 """
 
 import hashlib

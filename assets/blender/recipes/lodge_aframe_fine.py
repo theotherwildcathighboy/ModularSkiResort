@@ -1,16 +1,16 @@
 """
-recipes/lodge_aframe_fine.py - the FINE-DETAIL L1 A-frame day lodge (fine-detail pass step 3a, 2026-10-12;
-design/fine-detail-pass.md A.2 / B / D as cut by -skeptic.md FS4 / FS6 / FS7, seventeenth look
-H1-H6 defaults; build/fine-detail-step3a-buildings.md; the school is the reference host,
-build/fine-detail-step2-engine.md section 12).
+recipes/lodge_aframe_fine.py - the FINE-DETAIL L1 A-frame day lodge (fine-detail pass step 3a, 2026-10-12).
+Sources: design/fine-detail-pass.md A.2 / B / D as cut by -skeptic.md FS4 / FS6 / FS7, seventeenth look H1-H6
+defaults, build/fine-detail-step3a-buildings.md. The school is the reference host
+(build/fine-detail-step2-engine.md section 12).
 
-WHY THIS MODULE. L1 is a plain bldg_recipes.Recipe defined IN bldg_recipes.py (its sha1 guards L1's K4
-row), and fine_detail.FineRecipe cannot be imported there (fine_detail imports bldg_recipes: a circular
-import). So the base L1 stays where it is, data untouched, and this module WRAPS it
-(fine_detail.wrap: every Recipe field copied, the fine fields set) and hands it to the registry through
-OVERRIDES: bldg_recipes.load_recipes() swaps it in for the base L1 (the one bldg_recipes.py edit, a generic
-override hook). `lodge.py --lodge L1 --no-fine` rebuilds the approved pre-pass L1 from `legacy`
-(byte-identical, proven in the build report); bldg_recipes.L1 itself is that pre-pass recipe.
+WHY THIS MODULE. L1 is a plain bldg_recipes.Recipe defined IN bldg_recipes.py. Its sha1 guards the K4 row of
+L1. fine_detail.FineRecipe cannot be imported there, because fine_detail imports bldg_recipes (a circular
+import). So the base L1 stays where it is, with its data untouched. This module WRAPS it (fine_detail.wrap
+copies every Recipe field and sets the fine fields) and hands it to the registry through OVERRIDES.
+bldg_recipes.load_recipes() swaps it in for the base L1. This is the one bldg_recipes.py edit, a generic
+override hook. `lodge.py --lodge L1 --no-fine` rebuilds the approved pre-pass L1 from `legacy`
+(byte-identical, proven in the build report). bldg_recipes.L1 itself is that pre-pass recipe.
 
 WHAT CHANGES (fine=True)
     D   kit rows      the 6 modeled A-frame racks (ski_rack slots 8 along Y) -> SkiDressSkiRack / V2 / V3
@@ -23,15 +23,16 @@ WHAT CHANGES (fine=True)
                       WallLightShortRangeRandom01 rows (H4) at the old lens (y, z) on the column face
                       (lodge.aframe_parts skips them through PORCH_LAMPS_VANILLA in the params)
     B.1 kit geometry  the deck flag mast 12-seg + ball finial (flag_mast fine=True)
-    kept modeled     the 4 rail-F post lanterns lamp_railF0-3 (no vanilla post lantern: GardenLight is a
+    kept modeled      the 4 rail-F post lanterns lamp_railF0-3 (no vanilla post lantern: GardenLight is a
                       0.62 m bollard, a wall light needs a wall face), the 4 festoon strings (no vanilla
-                      string light), the menu board (no sheet slot: a 0.75 x 0.95 m kind needs 225 x 285 px;
-                      the only free run that tall leaves the sheet < 200 free rows, the SS1 append reserve;
-                      kept in the host atlas at 110 px/m, as built), the two resort-glyph boards (C.1)
-    no sign set       (above); the porch bench + bin and the 10 parasols / table sets are vanilla already
-Row frame: L1's existing convention, game (gx, gy, gz) = (-y, z, -x) of the PRE-yaw authoring point
-(yaw 180), i.e. (y, z, x) of the post-yaw point: gx NOT negated (fine_detail.X_CONVENTION; probe X2
-decides, S1b mirrors on branch N).
+                      string light), the menu board, the two resort-glyph boards (C.1)
+                      The menu board has no sheet slot: a 0.75 x 0.95 m kind needs 225 x 285 px.
+                      The only free run that tall leaves the sheet < 200 free rows, the SS1 append reserve.
+                      So the board stays in the host atlas at 110 px/m, as built.
+    no sign set       (above). The porch bench + bin and the 10 parasols / table sets are vanilla already.
+Row frame: the existing convention of L1. Game (gx, gy, gz) = (-y, z, -x) of the PRE-yaw authoring point (yaw
+180), that is (y, z, x) of the post-yaw point: gx is NOT negated (fine_detail.X_CONVENTION). Probe X2 decides
+this. S1b mirrors it on branch N.
 """
 
 import os
@@ -69,8 +70,9 @@ FINE_SUB_OBJECTS = tuple(
     ("WallLightShortRangeRandom01", _WALL_SHORT, (round(-py, 4), round(PORCH_LAMP_Z, 4), round(-PORCH_LAMP_X, 4)),
      (0.0, 0.0, 0.0, 1.0), 0)
     for py, _tag in PORCH_LAMPS)
-#: kit color variants (2026-10-12 ~18:50: "a colour that makes sense for that building";
-#: build/kit-colour-variants.md): the A-frame's own slot-2 orange accent (PAD_RGB: the umbrellas / flag of L1)
+#: Kit color variants (2026-10-12 ~18:50, "a colour that makes sense for that building",
+#: build/kit-colour-variants.md). The A-frame uses its own slot-2 orange accent here (PAD_RGB: the umbrellas
+#: / flag of L1).
 KIT_COLOUR_SET = "orange"
 #: the 6 racks as kit rows at the old centers (pre-yaw (x, y) -> game (-y, 0, -x)), on the lot, identity,
 #: alternating SkiDressSkiRack / V2 / V3

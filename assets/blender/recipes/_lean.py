@@ -1,31 +1,27 @@
 """
-recipes/_lean.py - generator CONTRACT "LEAN" (2026-10-11, fifteenth look: "on the ski
-patrol shacks, a few of the toboggans lean against nothing"). NOT a recipe: load_recipes()
-skips files whose name starts with "_". It imports bpy at module level, so recipe modules
-load it lazily inside their builders (as recipes/_civic.py).
+recipes/_lean.py - generator CONTRACT "LEAN" (2026-10-11, fifteenth look: "on the ski patrol shacks, a few
+of the toboggans lean against nothing"). NOT a recipe: load_recipes() skips files whose name starts with
+"_". It imports bpy at module level, so recipe modules load it lazily inside their builders (as
+recipes/_civic.py).
 
-Every LEANING part (rescue akja, spine board, bamboo pole ...: the recipe names them by
-prefix) must REST on a solid face of the building and STAND on a surface:
-    lean direction  n = the horizontal direction from the part's top end to its foot
-                    (centroids of the top / bottom 10 % of its height); the support is
-                    BEHIND the part, along -n
-    contact line    the TOP of the part's BACK face: the vertices nearest the support
-                    (largest projection on -n, within 3 mm), sampled at SAMPLES points
-                    across the part's width, 5 mm down the part's axis (on the face, off
-                    the edge). From each sample a ray starts 0.03 m in front (+n) and runs
-                    along -n: it must hit a SOLID part (not a leaning part, not NOT_SOLID:
-                    glass, door leaves, lamps, painted decals, soffits, flags) on a face
-                    that looks at the part (normal . n >= 0.5) with a gap of
-                    -GAP_PEN .. GAP_MAX m behind the line
-    foot            the part's lowest vertices, sampled the same way; rays go straight
-                    down: grade (z 0) or a solid face 0 .. GAP_MAX m below the foot
-                    (the vertices within 1 mm of the lowest)
-    pass            both on >= COVER of the samples
-check() prints one line per part (name, support part, gap, coverage, foot) and raises
-RuntimeError naming every violation, so a recipe builder that calls it fails the build.
-measure() returns the same numbers without raising (probes, tests).
-Deterministic: sorted parts, fixed sample counts, no randomness.
-check_rows() (fine-detail step 3d, end of the file) applies the same measurement to dressing-kit
+Every LEANING part (rescue akja, spine board, bamboo pole ...: the recipe names them by prefix) must REST on
+a solid face of the building and STAND on a surface:
+- lean direction: n = the horizontal direction from the part's top end to its foot (centroids of the top /
+  bottom 10 % of its height). The support is BEHIND the part, along -n.
+- contact line: the TOP of the part's BACK face. These are the vertices nearest the support (largest
+  projection on -n, within 3 mm). The check samples them at SAMPLES points across the part's width, 5 mm
+  down the part's axis (on the face, off the edge). From each sample a ray starts 0.03 m in front (+n) and
+  runs along -n. The ray must hit a SOLID part on a face that looks at the part (normal . n >= 0.5), with a
+  gap of -GAP_PEN .. GAP_MAX m behind the line. A SOLID part is not a leaning part and not NOT_SOLID (glass,
+  door leaves, lamps, painted decals, soffits, flags).
+- foot: the part's lowest vertices (the vertices within 1 mm of the lowest), sampled the same way. Rays go
+  straight down. They must hit grade (z 0) or a solid face 0 .. GAP_MAX m below the foot.
+- pass: both on >= COVER of the samples.
+
+check() prints one line per part (name, support part, gap, coverage, foot). It raises RuntimeError naming
+every violation, so a recipe builder that calls it fails the build. measure() returns the same numbers
+without raising (probes, tests). The module is deterministic: sorted parts, fixed sample counts, no
+randomness. check_rows() (fine-detail step 3d, end of the file) applies the same measurement to dressing-kit
 LEAN rows: the real kit mesh placed by the row, on the support the row declares.
 """
 
@@ -201,16 +197,17 @@ def check(parts, lean_prefixes, label, expect=None):
 # Fine-detail step 3d: the same contract on dressing-kit ROWS (build/fine-detail-step3d-patrol-sign.md)
 # ======================================================================================
 # A host that replaces a modeled leaning part with a dressing-kit "mod" row (SkiDressAkja,
-# SkiDressSpineBoard, SkiDressTools: fine_detail.KIT mount "lean") keeps the contract's semantics: the
-# REAL kit mesh (the shipped props/B FBX, prefab frame) placed by the row is measured exactly like a
-# modeled leaning part (measure_part: the top of its back face on a SOLID face <= GAP_MAX behind it over
-# >= COVER of its width, its foot on grade / a solid face), against the host's own parts, and it must rest
-# on the SAME support part the row declares (row["lean"]["support"], the part the modeled one leaned
-# on). On top (the step-3b F1 idea): the placed kit mesh may overlap no host triangle except its support
-# and the surface its foot stands on.
-# Frames: rows are game local (gx, gy, gz) = authoring (y, z, x), gx NOT negated (fine_detail.X_CONVENTION);
-# the host parts are in the authoring frame (pre-yaw, z up), so a kit vertex v goes to
-# authoring (gz, gx, gy) of R(q) v + position.
+# SkiDressSpineBoard, SkiDressTools: fine_detail.KIT mount "lean") keeps the contract's semantics. The
+# contract measures the REAL kit mesh (the shipped props/B FBX, prefab frame) placed by the row. It measures
+# the mesh exactly like a modeled leaning part, against the host's own parts (measure_part: the top of its
+# back face on a SOLID face <= GAP_MAX behind it over >= COVER of its width, its foot on grade / a solid
+# face). The mesh must rest on the SAME support part the row declares (row["lean"]["support"], the part the
+# modeled one leaned on). On top (the step-3b F1 idea): the placed kit mesh may overlap no host triangle
+# except its support and the surface its foot stands on.
+#
+# Frames: rows are game local (gx, gy, gz) = authoring (y, z, x), gx NOT negated (fine_detail.X_CONVENTION).
+# The host parts are in the authoring frame (pre-yaw, z up), so a kit vertex v goes to authoring (gz, gx,
+# gy) of R(q) v + position.
 
 KIT_ROOT = None          # assets/import/props/B (resolved lazily from cs2_validate's location)
 ROW_PREFIX = "kitrow_"
@@ -227,10 +224,10 @@ def _kit_root():
 
 
 def load_kit_mesh(mesh):
-    """The shipped kit FBX <KIT_ROOT>/<mesh>/<mesh>.fbx as {"V" (N, 3) prefab frame (x, y up, z) m,
-    "tris"}: raw FBX cm / 100 (the hosted-tower / step-3b F1 reading), checked against the kit manifest's
-    bounds_m (1 mm; guards the axis convention). Cached by the FBX sha1; the import's objects, materials
-    and images are removed again."""
+    """Return the shipped kit FBX <KIT_ROOT>/<mesh>/<mesh>.fbx as {"V" (N, 3) prefab frame (x, y up, z) m,
+    "tris"}. The values are raw FBX cm / 100 (the hosted-tower / step-3b F1 reading). The function checks
+    them against the bounds_m of the kit manifest (1 mm), which guards the axis convention. It caches by the
+    FBX sha1. It removes the objects, materials and images of the import again."""
     import hashlib
     import json
     import cs2_validate
@@ -328,9 +325,9 @@ def measure_rows(parts, rows, lean_prefixes):
 
 
 def check_rows(parts, rows, label, lean_prefixes, expect=None):
-    """CONTRACT LEAN on the kit rows: one [lean] line per row; raise on a row that rests on nothing / on
-    another part than it declares, floats, or overlaps a host face other than its support / foot surface.
-    `expect` = the sorted names the rows replace (guards a dropped row)."""
+    """CONTRACT LEAN on the kit rows: one [lean] line per row. It raises on a row that rests on nothing, rests
+    on another part than the row declares, floats, or overlaps a host face other than its support / foot
+    surface. `expect` = the sorted names the rows replace (guards a dropped row)."""
     rows = list(rows)
     res = measure_rows(parts, rows, lean_prefixes)
     for m in res:
