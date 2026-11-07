@@ -1,13 +1,17 @@
 # Modular Ski Resort — a Cities: Skylines II mod
 
-Build a real ski resort in CS2: draw fixed-grip and detachable chairlifts, gondolas and an
-aerial tram with one lift tool (auto-height numbered towers, a cable the chairs and cabins ride),
-start a ski area with a Welcome Sign, place standalone lodges, a Ski School and patrol buildings,
-and paint runs that the game's own snow simulation keeps open at 3 ft of snow (snow guns from two
-months before winter to one month after) — and that melt when the snow goes. Attractiveness, tourism and a resort economy
-(tickets, passes, lessons, lodge spend) react to runs, lifts and season. Base game only.
+Build a ski resort in CS2:
 
-Started 2026-08-03. Working chairlift beta in 5 days; the docs site's Timeline page tells the rest.
+- Draw fixed-grip and detachable chairlifts, gondolas and an aerial tram with one lift tool. The tool gives numbered
+  towers with automatic height and a cable that the chairs and cabins ride.
+- Start a ski area with a Welcome Sign. Place standalone lodges, a Ski School and patrol buildings.
+- Paint runs. The game's own snow simulation keeps a run open at 3 ft of snow. Snow guns are active from two
+  months before winter to one month after. A run melts when the snow goes.
+
+Attractiveness, tourism and a resort economy (tickets, passes, lessons, lodge spend) react to runs, lifts and season.
+The mod needs the base game only.
+
+Started 2026-08-03. A working chairlift beta took 5 days. The docs site's Timeline page tells the rest.
 
 ## Layout
 
@@ -26,11 +30,11 @@ Started 2026-08-03. Working chairlift beta in 5 days; the docs site's Timeline p
 ## License
 
 Code (the C# mod, the Blender generators, the tools) is MIT — see `LICENSE`. Art assets and
-everything generated from them are CC BY-NC-SA 4.0 — see `assets/LICENSE`. Design references are
-credited in `release/CREDITS.md`; no third-party code is included, and the GPL-licensed mods we
-studied (ParkManager, ParkingLotTool) were re-derived from the game's own systems, never copied.
+everything generated from them are CC BY-NC-SA 4.0 — see `assets/LICENSE`. `release/CREDITS.md`
+credits the design references. The mod includes no third-party code. We studied two GPL-licensed mods
+(ParkManager, ParkingLotTool). We re-derived them from the game's own systems and never copied them.
 Two CC BY 4.0 Sketchfab models (Kagelok's "Chair Lift", Wilin_Amaurea's gondola drafts) were
-visual references for the lifts only; no geometry or texture from them ships.
+visual references for the lifts only. No geometry or texture from them ships.
 
 ## Contributing
 

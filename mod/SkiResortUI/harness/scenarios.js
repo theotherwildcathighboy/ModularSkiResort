@@ -1,7 +1,7 @@
 /*
  * harness/scenarios.js - sample binding values for the browser harness. Shapes follow src/bindings.ts (enum tables:
- * *_KIND / BAND / LIFT_STATE / PROBLEM / RESORT_STATUS / HISTORY_FLAG). Numbers are plausible, not measured: for wording
- * and layout, not for sim checks.
+ * *_KIND / BAND / LIFT_STATE / PROBLEM / RESORT_STATUS / HISTORY_FLAG). Numbers are plausible, not measured. They serve wording
+ * and layout checks, not sim checks.
  */
 (function () {
   "use strict";
@@ -11,13 +11,13 @@
   const IDS = ["sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand", "busDepot", "school", "patrolHut", "patrolHQ",
     "baseStation", "topStation", "lift", "baseStationDetachable", "topStationDetachable", "liftDetachable",
     "baseStationGondola", "topStationGondola", "liftGondola", "baseStationTram", "topStationTram", "liftTram",
-    "runGroomed", "runCatTrack"];   // run types R3: the Run tile draws every piste; runNatural / runSnowmaking / runNight are not sent
+    "runGroomed", "runCatTrack"];   // run types R3: the Run tile draws every piste. runNatural / runSnowmaking / runNight are not sent
   function buildItems(opts) {
     const o = opts || {};
     return IDS.map((id) => {
       const it = { id, locked: !!(o.locked && o.locked.includes(id)), active: o.active === id, reason: "" };
       if (it.locked) it.reason = o.lockReason || "Unlock the Ski Resort milestone first.";
-      // C# locks a ForbidMultiple upgrade already on the shown sign with REASON[AlreadyBuilt] (the school; hubRules.schoolBuiltOf)
+      // C# locks a ForbidMultiple upgrade already on the shown sign with REASON[AlreadyBuilt] (the school: hubRules.schoolBuiltOf)
       if (o.built && o.built.includes(id)) { it.locked = true; it.reason = "SkiResort.Hub.REASON[AlreadyBuilt]"; }
       if (id.startsWith("run")) {
         it.price = { runGroomed: 2000, runCatTrack: 2000 }[id];
@@ -71,7 +71,7 @@
   const resorts = [
     { sign: SIGN, kind: 0, name: "Ash Flat", customName: true, runs: 5, rated: 4, flat: 1, green: 2, blue: 1, black: 1, doubleBlack: 0, areaM2: 333000, verticalM: 610, verticalApprox: false, lodges: 3, freeLodges: 1, liftRows: 3, liftLengthM: 3140, capacityPerHour: 3600 },
     { sign: SIGN2, kind: 0, name: "Resort 2", customName: false, runs: 0, rated: 0, flat: 0, green: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 0, verticalM: 0, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
-    // C# always sends the Not linked row last (bindings.ts ResortRow.kind); Run 6 is bound to no sign, so that row counts 1 run
+    // C# always sends the Not linked row last (bindings.ts ResortRow.kind). Run 6 is bound to no sign, so that row counts 1 run
     // and the header selector lists it.
     { sign: NULL, kind: 1, name: "", customName: false, runs: 1, rated: 0, flat: 0, green: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 19000, verticalM: 95, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
   ];
@@ -102,9 +102,9 @@
     { sign: SIGN, code: 21, severity: 1, subject: E(401), subjectTop: NULL, name: "Day Lodge", count: 1, pct: 0, factor: "", more: 0, detail: 300, ifFixed: 0, buildItem: "" },
     { sign: SIGN2, code: 9, severity: 2, subject: NULL, subjectTop: NULL, name: "", count: 0, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "runGroomed" },
   ];
-  // `history`: 30 months for Ash Flat (Sep 2024 .. Feb 2027, month in progress last) with a winter peak, +15 % a year, a
-  // two-month gap (Mar-Apr 2026), one partial month (Oct 2025), the July season boundaries; and 10 months for "Resort 2",
-  // which started in May 2026 (First). Flags: HISTORY_FLAG in bindings.ts.
+  // `history`: 30 months for Ash Flat (Sep 2024 .. Feb 2027, month in progress last). Those months have a winter peak, +15 % a year,
+  // a two-month gap (Mar-Apr 2026), one partial month (Oct 2025) and the July season boundaries. It also has 10 months for
+  // "Resort 2", which started in May 2026 (First). Flags: HISTORY_FLAG in bindings.ts.
   const WINTER = [1.0, 1.0, 0.8, 0.45, 0.15, 0.1, 0.12, 0.12, 0.15, 0.25, 0.55, 0.9];   // Jan .. Dec
   function historyOf(sign, firstKey, n, scale, opts) {
     const o = opts || {};
@@ -129,7 +129,7 @@
         lessonIncome: Math.round(t * 0.04) * 80, liftCost: Math.round((i < 6 ? 3900 : 5500) * share), runCost: Math.round((f > 0.3 ? 29400 : 4400) * scale * share),
         buildingsCost: Math.round(9800 * share), wagesCost: Math.round(31200 * share), attraction: Math.round((30 + 14 * f + i * 0.3) * (scale < 1 ? 0.4 : 1)),
         snowPct: Math.round(f > 0.3 ? 70 + 25 * f : 5 + 40 * f),
-        // contract 15: the depth with the coverage (deep in midwinter, a few cm in summer); one early month unknown (an element stored before contract 15)
+        // contract 15: the depth with the coverage (deep in midwinter, a few cm in summer). One early month is unknown (an element stored before contract 15)
         snowDepthCm: key === firstKey + 3 ? -1 : Math.round(f > 0.3 ? 30 + 90 * f : 4 * f),
       });
     }
@@ -141,13 +141,13 @@
     historyOf(SIGN2, 2026 * 12 + 4, 10, 0.2),
   ];
   // Each live row's Net rows ARE its area's month in progress in `history` (C# HistoryAddProgress takes them from the
-  // ResortLive row), so the Finances tile = the Finances view's Net = History's last bar. Rates stay (buildingsMonth 9800,
+  // ResortLive row). So the Finances tile = the Finances view's Net = History's last bar. Rates stay (buildingsMonth 9800,
   // wagesMonth 31200 x monthShare 0.45 = 4410 / 14040, historyOf's rounding). netMonth = sum of income rows - sum of cost rows.
   function moneyFrom(l, h) {
     const i = h.flags.length - 1;
     const rows = { ticketsThisMonth: h.ticketIncome[i], lodgeIncomeMonth: h.lodgeIncome[i], lessonIncomeMonth: h.lessonIncome[i],
       passIncomeMonth: h.passIncome[i], passIncomePreMonth: 0, liftChargedMonth: h.liftCost[i], runCostMonth: h.runCost[i],
-      // One depot on the live area; the bill reads 0 booked so its rows still add up to the month in History (no bus column there).
+      // One depot on the live area. The bill reads 0 booked, so its rows still add up to the month in History (no bus column there).
       busChargedMonth: 0, depots: 1, busGuestsMonth: 86, busBillMonth: 3600,
       buildingsSoFar: h.buildingsCost[i], wagesSoFar: h.wagesCost[i], monthShare: 0.45 };
     // contract 38: the two sides C# sends with it (HubRules.IncomeMonth / CostsMonth)
@@ -162,7 +162,7 @@
 
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
-  // The Quick runs tool (contract 17; treesCost since 18): closed by default; the "Quick runs open" case below has a preview with trees on (every row drawn).
+  // The Quick runs tool (contract 17, treesCost since 18) is closed by default. The "Quick runs open" case below has a preview with trees on (every row drawn).
   const quickRuns = { available: true, active: false, reason: "", phase: "Region", corners: 0, areaM2: 0, maxAreaM2: 1000000, verticalM: 0,
     regionState: "Open", progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0,
     skiers: 0, variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: 4, treeLine: -1, groundMin: 0,
@@ -178,7 +178,7 @@
       { label: "SkiResort.Tooltip.QUICK_POD[MidStation]", runs: 2 }], trees: true, treeLine: 1820, groundMin: 1210, groundMax: 1850,
     speciesNames: ["AlderTree01", "BirchTree01", "PineTree01", "SpruceTree01"], speciesGroups: [1, 1, 0, 0], plant: 3120, remove: 140, treesCost: 131040, rejects: [18, 15, 9, 3, 0, 0, 1, 0], sitePercent: 62, siteTier: 4 });   // the longest verdict (Beyond): the layout test's worst case
 
-  // A Resort Planner plan (v2): four pods (one without a lift), two proposals and one pinned lift; the longest class / verdict texts, every
+  // A Resort Planner plan (v2): four pods (one without a lift), two proposals and one pinned lift. It uses the longest class / verdict texts, every
   // pod's runs and bands, one lift switched off, the Lifts knob at Auto and Way home on Green.
   const podRow = (id, letter, cls, runs, kept, count, liftId, homeKey, on) => ({ id, key: -1000 - id, letter, classKey: "SkiResort.Tooltip.QUICK_CLASS[" + cls + "]",
     runs, enabledRuns: kept, count, skiers: kept * 210, fee: kept * 160000, on, liftId, homeKey });
@@ -195,9 +195,9 @@
     plan: { pods: 4, liftsProposed: 2, liftsPinned: 1, runKm: 14.6, runKmPerKm2: 18.2, deadEnds: 0, mountainMix: [0, 22, 38, 40, 0], sitePods: 4, siteGreenHome: 1, siteBenchHa: 8 } });
 
   // contract 29: the car spaces per road lodge (Guests view, under the folds): Ash Flat two lodges, the big resort four (one not counted
-  // yet reads "–"); the Hut, the Summit and off-road lodges have no row. Contract 30: the big resort's two Chalets are numbered.
-  // Contract 31: a custom name shows instead of the tier word: Ash Flat's A-frame a short one, the big resort's Chalet 2 one of 64 characters
-  // (the game's rename field takes 64; this name was typed there in the 2026-11-02 round), so the layout test sees the longest name a
+  // yet reads "–"). The Hut, the Summit and off-road lodges have no row. Contract 30: the big resort's two Chalets are numbered.
+  // Contract 31: a custom name shows instead of the tier word. Ash Flat's A-frame has a short one, the big resort's Chalet 2 has one of 64 characters
+  // (the game's rename field takes 64, and this name was typed there in the 2026-11-02 round), so the layout test sees the longest name a
   // player can type.
   const lodgeParking = [
     { sign: SIGN, lodge: E(401), item: "lodgeMid", carSpaces: 124, number: 0, name: "" },
@@ -259,7 +259,7 @@
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
     "Ash Flat, thawing": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { seasonHint: 3, snowDepthCm: 22, snowPct: 54, topTempC: 3 }), live2],
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
-    // Contract 36: the merge overlay armed from the Merged buildings fold (the chip on; its tooltip counts 14 green, 3 gray outlines).
+    // Contract 36: the merge overlay armed from the Merged buildings fold (the chip on, and its tooltip counts 14 green, 3 gray outlines).
     "Ash Flat, merge overlay armed": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
       problems, history, build: buildItems({ built: ["school"] }), mergeOverlay: { armed: true, allowed: 14, tooSmall: 3 } }),
     // Contract 37: the merge card for a building out of reach of every run and station (its status line says it would not count).
@@ -272,7 +272,7 @@
   };
 
   // Stress case for "never a scrollbar": a long area name, 30 runs, 12 lift rows of which 5 are unfinished lines (liftsComplete
-  // 7, 5 of them powered), and nine band rows that fold to seven (three LiftUnfinished -> one, two LiftNoPower -> one).
+  // 7, 5 of them powered). It also has nine band rows that fold to seven (three LiftUnfinished -> one, two LiftNoPower -> one).
   const BIG = E(105);
   const bigRuns = [], bigRunLive = [];
   for (let i = 0; i < 30; i++) {
@@ -329,7 +329,7 @@
     problems: [2, 3, 4, 5].map((n) => ({ sign: SIGN, code: 7, severity: 2, subject: E(800 + n), subjectTop: E(820 + n), name: "Lift " + n, count: 1, pct: 0,
       factor: "", more: 0, detail: 0, ifFixed: -1, buildItem: "" })).concat([problems[2], problems[3], problems[4]]), history, build: buildItems({ built: ["school"] }) });
 // 2026-11-02 field screen (hub intuitiveness pass): November, one closed run, no lift yet, three road lodges, tickets not sold because
-  // no run is open; the band shows the parking warning, No lift yet and the summit lodges.
+  // no run is open. The band shows the parking warning, No lift yet and the summit lodges.
   window.SkiScenarios["Field 2026-11-02: closed, no lift"] = Object.assign({}, base, { hubOpen: true,
     city: Object.assign({}, city, { month: 10 }),
     resorts: [Object.assign({}, resorts[0], { name: "Ski area 1", customName: false, runs: 1, rated: 1, flat: 0, green: 1, blue: 0, black: 0, lodges: 5, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 }), resorts[1]],
@@ -348,8 +348,8 @@
       { sign: SIGN, code: 8, severity: 1, subject: NULL, subjectTop: NULL, name: "", count: 1, pct: 50, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "lift" },
       { sign: SIGN, code: 24, severity: 1, subject: E(405), subjectTop: NULL, name: "", count: 2, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "" },
     ], history, build: buildItems({ built: ["school"] }) });
-  // Code 30 LiftBend (owner verdict 2026-11-02: warn, never refuse): Meadow Quad's tower 12 turns the rope 12.4 deg in plan; a dim
-  // row in the band's second slot, under a severity-2 lift row. subject = the tower's net node, no top (focusLift flies to the tower).
+  // Code 30 LiftBend (owner verdict 2026-11-02: warn, never refuse): Meadow Quad's tower 12 turns the rope 12.4 deg in plan. A dim
+  // row appears in the band's second slot, under a severity-2 lift row. subject = the tower's net node, no top (focusLift flies to the tower).
   window.SkiScenarios["Ash Flat (runs, lifts, problems), a lift bend"] = Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2],
     selectedResort: SIGN, runs, runLive, lifts, history, build: buildItems({ built: ["school"] }),
     problems: [
@@ -357,8 +357,8 @@
       { sign: SIGN, code: 30, severity: 1, subject: E(951), subjectTop: NULL, name: "Meadow Quad", count: 12, pct: -1, factor: "", more: 0, detail: 124, ifFixed: -1, buildItem: "" },
       problems[2],
     ] });
-  // Code 32 LiftLowSpan: Meadow Quad's chairs pass 1.2 m above the ground between towers 12 and 13 (the longest WHERE); a dim row
-  // in the band's second slot. subject = the span's net edge, no top (focusLift flies to the low point).
+  // Code 32 LiftLowSpan: Meadow Quad's chairs pass 1.2 m above the ground between towers 12 and 13 (the longest WHERE). A dim row
+  // appears in the band's second slot. subject = the span's net edge, no top (focusLift flies to the low point).
   window.SkiScenarios["Ash Flat (runs, lifts, problems), a low span"] = Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2],
     selectedResort: SIGN, runs, runLive, lifts, history, build: buildItems({ built: ["school"] }),
     problems: [

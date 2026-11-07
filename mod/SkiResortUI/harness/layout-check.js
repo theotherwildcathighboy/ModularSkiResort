@@ -1,29 +1,29 @@
 /*
- * harness/layout-check.js - "never a scrollbar" measured in the harness. Loaded by harness/index.html; nothing here ships.
+ * harness/layout-check.js - "never a scrollbar" measured in the harness. harness/index.html loads it. Nothing here ships.
  *
  * URL parameters (read once the bundle is mounted):
  *   ?layout=1   run the whole check and write its JSON into <pre id="layout-result"> (tools/test-hub-layout.js reads it
- *               with a headless browser's --dump-dom); also window.SkiLayout.run() from the console.
+ *               with a headless browser's --dump-dom). You can also call window.SkiLayout.run() from the console.
  *   ?scenario=<name>&view=<0-5>&fs=<text scale>&tab=<lifts|runs|buildings>&fold=<n>&areas=1&problems=1&page=<n>
  *               set up one state for a screenshot (tools/test-hub-layout.js --shots).
- * Scale: the game's rem rule (html font-size from the window height) and its text scale (index.js applyTextScale:
- * --fontScale = s and --fontScaleChange = s - 1; the font sizes use both).
+ * Scale: the game's rem rule (html font-size from the window height) and its text scale (index.js applyTextScale sets
+ * --fontScale = s and --fontScaleChange = s - 1). The font sizes use both.
  *
  * Asserted per scenario x text scale x view x fold state (each fold opened in turn) x build tab:
  *   - over = content scrollHeight - clientHeight <= 1 px (the vanilla Scrollable shows its bar at scrollHeight - 1 >
- *     offsetHeight, index.js@638418), also with the ski-area list and the +N popover open;
- *   - the header is one row and the name never pushes the buttons out;
- *   - Runs / Lifts views are the one exception: their list (class listAll) draws every row with no pager and may
- *     scroll; the check asserts no pager row is drawn and records their overflow as "scrolls";
- *   - the tab row and the first tile row keep their place on every build tab (2026-11-07);
- *   - Buildings tab: one tile row (family chips Lodges | Services, the Mergeable buildings chip), no tile label cut at text scale 1;
- *     Lifts tile "built / drawn". The footer opens like the game's toolbar (openTab).
- * The harness panel frame is a stand-in for the game's, so the report also gives each case's slack (rem left);
+ *     offsetHeight, index.js@638418). The check also runs with the ski-area list and the +N popover open.
+ *   - The header is one row, and the name never pushes the buttons out.
+ *   - Runs / Lifts views are the one exception. Their list (class listAll) draws every row with no pager and may
+ *     scroll. The check asserts that no pager row is drawn and records their overflow as "scrolls".
+ *   - The tab row and the first tile row keep their place on every build tab (2026-11-07).
+ *   - Buildings tab: one tile row (family chips Lodges | Services, the Mergeable buildings chip) and no tile label cut at
+ *     text scale 1. Lifts tile "built / drawn". The footer opens like the game's toolbar (openTab).
+ * The harness panel frame is a stand-in for the game's, so the report also gives each case's slack (rem left).
  * MIN_SLACK_REM is a margin rule for the title bar / padding difference.
  */
 (function () {
   "use strict";
-  const MIN_SLACK_REM = 0;   // over must be <= 0; the slack table in the report shows how much room is left
+  const MIN_SLACK_REM = 0;   // over must be <= 0. The slack table in the report shows how much room is left
   const SCALES = [1, 1.25];
   const H = () => window.SkiHarness;
   const q = (sel, root) => (root || document).querySelector(sel);
@@ -73,7 +73,7 @@
       const cut = getComputedStyle(e).overflowX !== "visible" && e.scrollWidth > e.clientWidth + 1;
       const past = e.getBoundingClientRect().right > right + 1;
       if (!cut && !past) continue;
-      // An unclassed leaf (the <span> a LocalizedString renders) is clipped by its nearest classed ancestor, so that class decides
+      // The nearest classed ancestor clips an unclassed leaf (the <span> that a LocalizedString renders). So that class decides
       // whether the cut is allowed (a player name in a placeholder sentence, 2026-11-02).
       let name = (String(e.className).match(/sr-([A-Za-z0-9]+)_/) || [])[1];
       for (let a = e.parentElement; !name && a && a !== p; a = a.parentElement) name = (String(a.className).match(/sr-([A-Za-z0-9]+)_/) || [])[1];
@@ -84,7 +84,7 @@
   }
   function tiles() { const r = q(cls("tileRow")); return r ? qa("button", r) : []; }
   function buildTabs() { const r = q(cls("tabRow")); return r ? qa("button", r) : []; }
-  // The footer opens like the game's toolbar (2026-11-07): a click on a closed footer opens that tab, a click on the open tab closes it.
+  // The footer opens like the game's toolbar (2026-11-07). A click on a closed footer opens that tab. A click on the open tab closes it.
   function footerOpen() { return !!q(cls("buildRow"), q(cls("buildFooter"))); }
   async function openTab(b) {
     if (!footerOpen() || !/tabButtonOn/.test(b.className)) { b.click(); await settle(); }
@@ -112,7 +112,7 @@
     const nViews = tiles().length;
     const fail = (what, m) => out.fails.push(Object.assign({ scenario: name, fs, what }, m || {}));
     const rec = (view, state, m) => {
-      // A Runs / Lifts view (its full list carries listAll) may scroll; it must list every row (no pager row).
+      // A Runs / Lifts view (its full list carries listAll) may scroll. It must list every row (no pager row).
       const scrolls = !!q(cls("listAll"), panel());
       out.cases.push(Object.assign({ scenario: name, fs, view, state, scrolls }, m));
       clippedText(`${name} x${fs} view ${view} ${state}`, out);
@@ -123,7 +123,7 @@
       const plan = q(cls("planList"), panel());
       if (plan && (getComputedStyle(plan).overflowY !== "scroll" || plan.getBoundingClientRect().height > 201 * rem())) fail(`plan list is not its own short scroller: view ${view} ${state}`, m);
     };
-    // Every page of the shown state must fit; returns the pager text of page 1.
+    // Every page of the shown state must fit. The function returns the pager text of page 1.
     const allPages = async (v, state) => {
       rec(v, state, measure());
       const pt = pagerText();
@@ -162,7 +162,7 @@
     const more = q(cls("problemMoreButton"));
     if (more) { more.click(); await settle(); rec(0, "problems popover open", measure()); more.click(); await settle(); }
     // Build tabs: the footer must not change the content's fit, and the Buildings tab draws every building tile.
-    // 2026-11-07: the tab row and the first tile row stay put across tabs (the Buildings tab's two rows moved them 118 rem at 1080).
+    // 2026-11-07: the tab row and the first tile row stay in place across tabs (the Buildings tab's two rows moved them 118 rem at 1080).
     const tabTops = [];
     for (const b of buildTabs()) {
       await openTab(b);
@@ -171,7 +171,7 @@
       const tr = q(cls("tabRow"));
       const firstRow = q(cls("buildRow"), q(cls("buildFooter")));
       if (tr) tabTops.push({ tab: tabName, y: tr.getBoundingClientRect().top, row: firstRow ? firstRow.getBoundingClientRect().top : -1 });
-      // Every tile hovered in turn (its tooltip and the one status line must not cut).
+      // The check hovers every tile in turn. Its tooltip and the one status line must not cut.
       for (const cell of qa(cls("buildCell"))) {
         cell.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
         await frames(2);
@@ -199,11 +199,11 @@
       const tilesN = qa(cls("buildRow")).reduce((n, r) => n + qa("button", r).length, 0);
       const chipEls = qa(cls("pickerChip"), q(cls("pickerRow")));
       const chips = chipEls.length;
-      // 2026-11-06: every Buildings tile shows its whole label at text scale 1 (two rows; the game cut a row of 12 to "A-f...").
+      // 2026-11-06: every Buildings tile shows its whole label at text scale 1 (two rows). The game cut a row of 12 to "A-f...".
       const cut = qa(cls("buildTileLabel"), q(cls("buildFooter"))).filter((l) => l.scrollWidth > l.clientWidth + 1).map((l) => l.textContent.trim());
       out.buildings.push({ scenario: name, fs, tiles: tilesN, rows: qa(cls("buildRow")).length, lodgeChips: chips, cut: cut.join(", "),
         caption: chipEls.map((e) => e.textContent.trim()).filter(Boolean).join(" | ") });
-      // 2026-11-07: one tile row; the family chips (Lodges | Services, when both exist) and the Mergeable buildings chip.
+      // 2026-11-07: one tile row, the family chips (Lodges | Services, when both exist) and the Mergeable buildings chip.
       if (qa(cls("buildRow")).length !== 1) fail("Buildings tab draws more than one tile row", { rows: qa(cls("buildRow")).length });
       if (fs === 1 && cut.length > 0) fail("Buildings tab tile labels cut at text scale 1", { cut });
     }

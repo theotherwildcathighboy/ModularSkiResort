@@ -2,19 +2,19 @@
 * harness/cs2-mock.js - browser stand-ins for the game's window modules, so build/SkiResortMod.mjs can mount in a plain
 * browser (no game).
 *
-* The bundle is an ES module with window externals (webpack.config.js): it reads window.React, window["cs2/api"],
+* The bundle is an ES module with window externals (webpack.config.js). It reads window.React, window["cs2/api"],
 * window["cs2/ui"], window["cs2/l10n"], window["cs2/input"]. This file defines those names before the bundle is imported
 * (index.html loads it after the React UMD scripts).
 *
 * Faithful: bindValue / useValue / bindLocalValue / trigger semantics (cs2/api typings in types/api.d.ts), LocalizedString
 * placeholder substitution, LocalizedNumber unit formats as the hub expects them (src/hub/parts.tsx header), and the props of
-* Panel / PanelFoldout / Button / FloatingButton / Tooltip the hub uses. Not faithful: the game's own component styling
-* (vanilla panel chrome, fonts, sounds, focus / gamepad), its full number localization, and anything C# computes. The harness
-* only answers the triggers a C# HubSystem would answer trivially (toggleHub, setHubOpen, selectResort, setPisteMap, glade*,
-* rename); everything else is logged.
+* Panel / PanelFoldout / Button / FloatingButton / Tooltip that the hub uses.
+* Not faithful: the game's own component styling (vanilla panel chrome, fonts, sounds, focus / gamepad), its full number
+* localization, and anything C# computes. The harness only answers the triggers that a C# HubSystem would answer trivially
+* (toggleHub, setHubOpen, selectResort, setPisteMap, glade*, rename). It logs everything else.
 *
 * Harness API (window.SkiHarness): bindings (name -> LocalValueBinding), set(name, value), get(name), log (trigger log array),
-* onLog(fn), dict (locale id -> text; empty = fallbacks).
+* onLog(fn), dict (locale id -> text, empty = fallbacks).
 */
 (function () {
   "use strict";
@@ -107,7 +107,7 @@
     setCatTrackDeleteMode: (on) => set("catTrackDeleteMode", !!on),
     setRunGunSpacing: (run, m) => set("runs", (get("runs") || []).map((r) => (r.entity && run && r.entity.index === run.index ? Object.assign({}, r, { gunSpacingM: m }) : r))),
     setRunLightSpacing: (run, m) => set("runs", (get("runs") || []).map((r) => (r.entity && run && r.entity.index === run.index ? Object.assign({}, r, { lightSpacingM: m }) : r))),
-    // run types R3: a natural run carries no sliders (-1); a groomed one gets them back at Off, and the Groomed step is paid once
+    // run types R3: a natural run carries no sliders (-1). A groomed one gets them back at Off, and the Groomed step is paid once
     setRunGroomed: (run, on) => set("runs", (get("runs") || []).map((r) => (r.entity && run && r.entity.index === run.index && r.kind !== 4
       ? Object.assign({}, r, { kind: on ? 0 : 3, gunSpacingM: on ? 0 : -1, lightSpacingM: on ? 0 : -1, paidSteps: on ? (r.paidSteps | 4) : r.paidSteps }) : r))),
     // contract 33: the Run tile's option row
@@ -274,8 +274,8 @@
       onClick: () => { if (props.onSelect) props.onSelect(); },
     }), props.src ? h("img", { src: imgSrc(props.src), alt: "", className: "h-floating-img" }) : props.children);
   }
-  // Like the game's Tooltip (it attaches its listeners to its one child, no wrapper element), the listeners go on the child
-  // itself and the tip renders in a portal on <body>, fixed under the child, wrapping at 420 rem. An inline wrapper span would
+  // Like the game's Tooltip (it attaches its listeners to its one child, with no wrapper element), this stand-in puts the listeners
+  // on the child itself. The tip renders in a portal on <body>, fixed under the child, wrapping at 420 rem. An inline wrapper span would
   // shrink-wrap every row with a tooltip (ragged value columns) and collapse tipped flex bars.
   function Tooltip(props) {
     const [at, setAt] = React.useState(null);
@@ -310,9 +310,9 @@
   }
   const simple = (tag, cls) => (props) => h(tag, Object.assign(rest(props), { className: cx(cls, props.className) }), props.children);
   // Dropdown / DropdownToggle / DropdownItem follow the game's dropdown.tsx (installed 1.6.2f1 index.js@716237, @717950,
-  // @719062): a context with visible / toggle / hide; the children (the toggle) render in place; while open the list renders in
-  // a portal on <body> under the toggle (at least its width, AnchoredPopup minWidth: true, @713812) above a full-screen barrier
-  // whose click closes it (PointerBarrier, @621027). Portals bubble React events along the React tree, as in game, so the hub's
+  // @719062). They use a context with visible / toggle / hide. The children (the toggle) render in place. While open, the list
+  // renders in a portal on <body> under the toggle (at least its width, AnchoredPopup minWidth: true, @713812) above a full-screen
+  // barrier whose click closes it (PointerBarrier, @621027). Portals bubble React events along the React tree, as in game, so the hub's
   // mousedown guard around the Dropdown is exercised too. An item fires onChange only when it is not selected, then closes the
   // list. Not faithful: the vanilla chrome, flipping up, focus / gamepad navigation, sounds.
   const DropdownContext = React.createContext({ visible: false, toggle: () => {}, hide: () => {} });
