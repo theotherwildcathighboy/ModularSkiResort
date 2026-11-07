@@ -2,14 +2,15 @@
 // `fallback/FB-n`.
 // Field case (bridge run 2026-11-04, B2 import): a plan-only FG line at x 1250 (z 2100-2550, ground ends) planned 16 towers, 13 of them
 // 10 m apart, VIOLATED. Cause: ground inside a ground end's tower-free zone (NearStation: StationClearM at both ends, also at a ground
-// end) that the end's fixed rope cannot clear; the exact search and Anchors find nothing, and the legacy greedy Split scattered towers
-// along the whole segment. Fix: when the legacy segment is not clear either, the exact search runs once more with the shortfall as its
-// first cost (SoftInsteadOfLegacy): the fewest towers with the least shortfall, every edge-slope / max-height / spacing rule kept.
+// end). The end's fixed rope cannot clear that ground. The exact search and Anchors find nothing, and the legacy greedy Split scattered
+// towers along the whole segment. Fix: when the legacy segment is not clear either, the exact search runs once more with the shortfall
+// as its first cost (SoftInsteadOfLegacy). The result has the fewest towers with the least shortfall, with every edge-slope / max-height
+// / spacing rule kept.
 // FB-1 the field line reconstructed from the two logged plans (approximate: the terrain is not logged) plus a 6 m bump 5 m from end B:
-//      the fewest towers, only the end span short, with and without twins; the clean line: 5 towers clear, as B1 planned it.
+//      the fewest towers, only the end span short, with and without twins. The clean line: 5 towers clear, as B1 planned it.
 // FB-2 the twins change only the angle pass and the heads: Pairs off, the plan with twins is the plan without on every sweep line
-//      (nodes; member and rope of every line-head tower; a twin head may take the nearest member with that twin, HD-3).
-// FB-3 the sweep gate, twins vs WithoutTwins on the same line: never VIOLATED where the line without twins is clear, and the tower
+//      (nodes, and member and rope of every line-head tower). A twin head may take the nearest member with that twin (HD-3).
+// FB-3 the sweep gate, twins vs WithoutTwins on the same line: never VIOLATED where the line without twins is clear. The tower
 //      count rises at most by the extra pairs the Break cap makes (one partner per pair). Lines: the DR-1 shapes, the 192-line
 //      direction sweep (four types, on / off the grid, grades 0.15 / 0.35, a hump or none, stations or ground ends), the FG / DQ / GD
 //      crests and dips, and the field line with bumps near either end.
@@ -66,7 +67,7 @@ namespace LiftBatch
             (s, z) => Field(s) + h * math.max(0f, 1f - math.abs(s - x) / 5f);
 
         /// <summary>A straight world line along +x from 0 to <paramref name="len"/> over <paramref name="h"/>(x, z), planned the way the
-        /// lift tool plans it (LiftLineEdit.Replan with the ground from A and from B); ground ends rope = ground + RopeAboveBase(0).</summary>
+        /// lift tool plans it (LiftLineEdit.Replan with the ground from A and from B). Ground ends rope = ground + RopeAboveBase(0).</summary>
         private static LiftTowerPlan Tool(LiftTowerPlanConstants c, Func<float, float, float> h, float len, bool stations, float aboveA = 0f, float aboveB = 0f)
         {
             float ya = h(0f, 0f), yb = h(len, 0f);
@@ -139,7 +140,7 @@ namespace LiftBatch
             s_Report.Add("FB-1 clean   no twins " + Describe(c0));
             s_Report.Add("FB-1 clean   twins    " + Describe(c1));
 
-            // A 6 m bump 5 m from end B, inside B's tower-free zone (12.2 m): no rope from B's fixed height clears it, so no clear plan
+            // A 6 m bump 5 m from end B, inside B's tower-free zone (12.2 m). No rope from B's fixed height clears it, so no clear plan
             // exists. HEAD before the fix: 16 / 17 towers 10 m apart (the legacy Split), margin -0.39 all the same.
             Func<float, float, float> bump = FieldWithBump(445f, 6f);
             foreach (bool twins in new[] { false, true })

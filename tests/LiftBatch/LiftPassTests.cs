@@ -1,11 +1,11 @@
-// LP-26..LP-29: the 2026-10-26 lift pass (field test 2, build 8c1d406; report docs/research/lifts/lift-pass-2026-10-26.md).
+// LP-26..LP-29: the 2026-10-26 lift pass (field test 2, build 8c1d406). Report: docs/research/lifts/lift-pass-2026-10-26.md.
 // LP-26: the refused DQ line replayed on a uniform slope (the log has no Towers dump for it: ground from the two stub nodes, ropes as logged).
 // LP-27: ordinary lines of every type: the tower next to each station is the shortest member the ground allows.
-// LP-28: the engine's edge slope rule (ValidationHelpers.cs:1435-1490, SteepSlope) holds on every tool span; a too-steep span is flagged.
+// LP-28: the engine's edge slope rule (ValidationHelpers.cs:1435-1490, SteepSlope) holds on every tool span. A too-steep span gets a flag.
 // LP-29: the tool's pin end margin (per end: a station end vs a loose end).
-// LP-30: the review of the pass (docs/research/review-153b64e-2026-10-26.md): F9 the slope gate on a span with no tower, F3 phase (c)
-// keeps the station-side members, F4 the station rule buys at most one tower. Each sweep must bind at least once; LP-26..30 were each
-// shown able to fail by breaking their rule once (lift-pass-2026-10-26.md, "Review fixes").
+// LP-30: the review of the pass (docs/research/review-153b64e-2026-10-26.md). F9: the slope gate on a span with no tower. F3: phase (c)
+// keeps the station-side members. F4: the station rule buys at most one tower. Each sweep must bind at least once. Breaking its rule once
+// showed that each of LP-26..30 can fail (lift-pass-2026-10-26.md, "Review fixes").
 // LP-32: removing a tower adds at most one (field test 2026-10-31, FIX-LIST item 24), see the profile below.
 
 using System;
@@ -43,8 +43,8 @@ namespace LiftBatch
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);
 
-        // Field DQ (log :1828): first end = the TOP station 73311:283, stub node y 1240.43 - 3.10 = 1237.33; other end = the base
-        // 73380:5, stub node y 1018.15 + 0.58 = 1018.73; 1024 m xz.
+        // Field DQ (log :1828): first end = the TOP station 73311:283, stub node y 1240.43 - 3.10 = 1237.33. Other end = the base
+        // 73380:5, stub node y 1018.15 + 0.58 = 1018.73. 1024 m xz.
         private const float DqLength = 1024f, DqTopNode = 1237.33f, DqBaseNode = 1018.73f, DqRopeTop = 1240.43f, DqRopeBase = 1018.15f;
 
         private static float DqGround(float s) => math.lerp(DqTopNode, DqBaseNode, math.saturate(s / DqLength));
@@ -69,8 +69,8 @@ namespace LiftBatch
             // The planner before the pass (the full floor at the stations, no slope gate) reproduces the refused field plan: a DQ18
             // 9 m from the base station, slope 1.10. Each rule alone removes the refused edge: the approach floor (p1 above) and the gate.
             // That planner worked from end A as given (the top here): AsGiven replays it. The 9 m tower needs the grid's 4 m remainder at
-            // the base, which only the top-first plan has; since planner-direction-2026-11-04 the planner works from the base (the lower
-            // rope), the remainder lies at the top, and the pre-pass rules alone stand a tower 9 m from the TOP instead (reported below).
+            // the base, and only the top-first plan has it. Since planner-direction-2026-11-04 the planner works from the base (the lower
+            // rope). Now the remainder lies at the top, and the pre-pass rules alone stand a tower 9 m from the TOP instead (reported below).
             var before = new LiftTowerPlanner { CheckEdgeSlope = false, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode, AsGiven = true };
             LiftTowerPlan p0 = before.Plan(t, DqLength, DqRopeTop, DqRopeBase, c);
             var gateOnly = new LiftTowerPlanner { CheckEdgeSlope = true, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode, AsGiven = true };
@@ -151,7 +151,7 @@ namespace LiftBatch
             s_Report.Add("LP-27 summary | every line clear, no station tower taller than the middle | " + lines + " line(s), " + shortest +
                          " with the shortest member at both station ends");
             // A knoll just past the station clearance: the floor wants a tall tower 10-40 m from the station, an edge the engine
-            // refuses (SteepSlope). With the gate the plan is clear and every edge passes; the sweep must bind (the gate changes the plan).
+            // refuses (SteepSlope). With the gate the plan is clear and every edge passes. The sweep must bind (the gate changes the plan).
             int binds = 0, knolls = 0;
             foreach (string id in new[] { "fixedGrip", "detachable", "gondola" })
             {
@@ -201,7 +201,7 @@ namespace LiftBatch
             s_Report.Add("LP-28 the tool's nodes, members assigned | clear, no edge over the limit | " + LiftPlannerTests.Describe(fixedNodes) +
                          "; max edge slope " + fixedNodes.MaxEdgeSlope.ToString("F2"));
             Check(fixedNodes.Clear && fixedNodes.MaxEdgeSlope < c.MaxEdgeSlope, W, "assigned members at the tool's nodes: " + LiftPlannerTests.Describe(fixedNodes));
-            // Off (the fit, the diagnostic): no span is flagged and Clear ignores the slope.
+            // Off (the fit, the diagnostic): the planner flags no span and Clear ignores the slope.
             var off = new LiftTowerPlanner();
             LiftTowerPlan offPlan = off.PlanFixed(t, DqLength, DqRopeTop, DqRopeBase, c, new[] { 500f, 1015f }, new[] { 0, tallest }, null, assign: false);
             Check(!offPlan.Spans[offPlan.Spans.Length - 1].SlopeViolated, W, "the slope rule flagged a span with CheckEdgeSlope off");
@@ -253,7 +253,7 @@ namespace LiftBatch
         private static LiftTowerPlanner ToolPlanner(float yA, float yB, bool checkSlope = true, bool stationRule = true) =>
             new LiftTowerPlanner { CheckEdgeSlope = checkSlope, StationRule = stationRule, EndNodeYA = yA, EndNodeYB = yB };
 
-        /// <summary>Station-side rise of a plan (Rise of the towers next to each station; one tower counts twice).</summary>
+        /// <summary>Station-side rise of a plan (Rise of the towers next to each station. One tower counts twice).</summary>
         private static float EndRise(LiftTowerPlan p) =>
             p.LineTowers == 0 ? 0f : Rise(p.Constants, p.Nodes[1].Member) + Rise(p.Constants, p.Nodes[p.Nodes.Length - 2].Member);
 
@@ -272,7 +272,7 @@ namespace LiftBatch
         private static void Lp30ReviewFixes()
         {
             const string W = "pass/LP-30";
-            // F9: a short station-to-station span, clear for the floor but steeper than the line prefab allows: never a clear plan with
+            // F9: a short station-to-station span, clear for the floor but steeper than the line prefab allows. Never a clear plan with
             // that span (the engine refuses it, SteepSlope).
             int steep = 0, avoided = 0;
             foreach (string id in new[] { "fixedGrip", "detachable", "gondola" })
@@ -301,8 +301,8 @@ namespace LiftBatch
                          "useless towers | " + steep + " tower-free plan(s) clear for the floor without the gate, " + avoided + " flagged with it");
             Check(steep > 0, W, "F9: the sweep never binds (no tower-free span clear for the floor)");
 
-            // F3 + F4 on hump terrains: the plan's station-side rise is the least any clear member assignment at its nodes allows (F3),
-            // and it uses at most one tower more than the fewest (F4).
+            // F3 + F4 on hump terrains. The plan's station-side rise is the least any clear member assignment at its nodes allows (F3).
+            // The plan uses at most one tower more than the fewest (F4).
             int cases = 0, extra = 0, f3binds = 0;
             foreach (string id in new[] { "fixedGrip", "detachable" })
             {
@@ -358,7 +358,7 @@ namespace LiftBatch
             Check(f3binds > 0, W, "F3: the sweep never binds (phase (c) never lands above the least rise)");
 
             // F4 where it binds: FG lines over three narrow 12-16 m humps (a quarter, half, three quarters). Without the cap the
-            // trade takes two towers more than the fewest (FG2 beside both stations: 4 -> 6 and 5 -> 7 towers; probe, 2026-10-26).
+            // trade takes two towers more than the fewest (FG2 beside both stations: 4 -> 6 and 5 -> 7 towers, probe, 2026-10-26).
             LiftTowerPlanConstants fg = LiftTowerPlanConstants.For("fixedGrip");
             foreach (float2 lh in new[] { new float2(400f, 12f), new float2(490f, 16f) })
             {
@@ -381,8 +381,8 @@ namespace LiftBatch
                                    math.exp(-math.pow((s - 0.75f * len) / w, 2f)));
 
         /// <summary>LP-31: the lift tool's player text (LocaleEN SkiResort.LiftTool.*): every key the tool and its tooltip can show
-        /// exists, reads as plain sentences (at most 25 words, no em dash, no log syntax), names only the {ARG}s the code passes; the
-        /// plan and tower keys follow the plan.</summary>
+        /// exists, reads as plain sentences (at most 25 words, no em dash, no log syntax), and names only the {ARG}s the code passes.
+        /// The plan and tower keys follow the plan.</summary>
         private static void Lp31ToolText()
         {
             const string W = "pass/LP-31";
@@ -410,9 +410,10 @@ namespace LiftBatch
                             used.Add(LiftLineInput.PromptKey(step, type, drag, off && drag));
             foreach (string t in new[] { "fixedGrip", "detachable", "gondola", "tram", "any" })
                 used.Add("TYPE[" + t + "]");
-            // PLAN_TRAIN / TOWER_TRAIN (a tower over its cap) and SUNK / SUNK_END (LiftLineInput.SunkKey): FIX-LIST 55; PLAN_PITCH /
-            // TOWER_PITCH (a tower past the pitch cap): DECISIONS 600; PLAN_SADDLE / TOWER_SADDLE (a tram saddle past its cap): 600 a; PLAN_CLEARANCE / TOWER_CLEARANCE
-            // (a rope half past its carrier clearance): 600 c.
+            // PLAN_TRAIN / TOWER_TRAIN (a tower over its cap) and SUNK / SUNK_END (LiftLineInput.SunkKey): FIX-LIST 55.
+            // PLAN_PITCH / TOWER_PITCH (a tower past the pitch cap): DECISIONS 600.
+            // PLAN_SADDLE / TOWER_SADDLE (a tram saddle past its cap): 600 a.
+            // PLAN_CLEARANCE / TOWER_CLEARANCE (a rope half past its carrier clearance): 600 c.
             foreach (string k in new[] { "PLAN_CLEAR", "PLAN_LOW", "PLAN_STEEP", "PLAN_HIGH", "PLAN_TRAIN", "TOWER", "TOWER_PINNED", "TOWER_LOW",
                                          "TOWER_TRAIN", "PLAN_PITCH", "TOWER_PITCH", "PLAN_SADDLE", "TOWER_SADDLE", "PLAN_CLEARANCE", "TOWER_CLEARANCE", "SUNK", "SUNK_END" })
                 used.Add(k);
@@ -421,7 +422,7 @@ namespace LiftBatch
                     used.Add(m.Groups[1].Value);
             foreach (string e in new[] { "SteepSlope", "OverlapExisting", "LongDistance", "ShortDistance", "InWater", "ExceedsCityLimits", "Other" })
                 used.Add("REFUSED[" + e + "]");
-            // DEG: the BEND notice's plan bend and TOWER_TRAIN's rope bend (LiftLineToolSystem.Deg); CAP: TOWER_TRAIN's cap. LIMIT: TOWER_CLEARANCE's
+            // DEG: the BEND notice's plan bend and TOWER_TRAIN's rope bend (LiftLineToolSystem.Deg). CAP: TOWER_TRAIN's cap. LIMIT: TOWER_CLEARANCE's
             // carrier-clearance limit (one decimal, LiftLineToolSystem.Deg).
             var args = new HashSet<string> { "TYPE", "TOWERS", "LENGTH", "N", "COUNT", "HEIGHT", "CLEAR", "MIN", "M", "DEG", "CAP", "LIMIT" };
             int worst = 0;
@@ -442,7 +443,7 @@ namespace LiftBatch
             s_Report.Add("LP-31 lift tool player text | every shown key in LocaleEN, at most 25 words, no em dash or log syntax | " + used.Count +
                          " key(s), longest " + worst + " words");
 
-            // The plan and tower keys follow the plan: the field DQ as logged is clear; the pre-pass DQ18 next to the base is too steep.
+            // The plan and tower keys follow the plan: the field DQ as logged is clear. The pre-pass DQ18 next to the base is too steep.
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
             LiftTerrainSampler t0 = (s, l) => DqGround(s);
             var edit = new LiftLineEdit(c, new float3(0f, DqTopNode, 0f), new float3(DqLength, DqBaseNode, 0f), DqRopeTop, DqRopeBase);
@@ -461,7 +462,7 @@ namespace LiftBatch
         }
 
         // LP-32: removing a tower never adds more than the line needs (field test 2026-10-31, FIX-LIST item 24). Gondola, both ends open
-        // ground, ground measured in game every 3.5 m from the TOP end (z -4800) toward the base: the base end node stands 1.5 m past the
+        // ground, ground measured in game every 3.5 m from the TOP end (z -4800) toward the base. The base end node stands 1.5 m past the
         // last sample and the top end node 0.5 m short of the first (they match the end ropes, node + 10, to 0.03 m).
         private static readonly float[] L8Ground =
         {
@@ -487,9 +488,9 @@ namespace LiftBatch
             return L8Ground[i] + (L8Ground[i + 1] - L8Ground[i]) * (k - i);
         }
 
-        // The profile has no side samples and the planner's floor runs over the high side (half width 4.1 m). This high side above the
-        // center, a knot every 50 m, is FITTED, not measured: on the planner before the fix it gave the field's first plan exactly
-        // (GD20 @70 / @195 / @300) and a second plan of 9 towers, GD16 x7 + GD20 x2, 8 of the 9 positions the field's (60 m for 230 m).
+        // The profile has no side samples, and the planner's floor runs over the high side (half width 4.1 m). This high side above the
+        // center, a knot every 50 m, is FITTED, not measured. On the planner before the fix it gave the field's first plan exactly
+        // (GD20 @70 / @195 / @300). It also gave a second plan of 9 towers, GD16 x7 + GD20 x2, 8 of the 9 positions the field's (60 m for 230 m).
         private static readonly float[] L8Side = { 0.71f, 3.76f, 3.56f, 0.87f, 2.02f, 1.81f, 5.15f, 3.73f, 3.80f, 4.03f, 3.01f };
 
         private static float L8High(float along)
@@ -554,7 +555,7 @@ namespace LiftBatch
                 }
             }
 
-            // The same removals at today's gondola sag (0.025), reported: the fitted sides were fitted at 0.004, so they pin nothing here.
+            // The same removals at today's gondola sag (0.025), reported. The fitted sides were fitted at 0.004, so they pin nothing here.
             {
                 LiftLineEdit e = L8Edit(true);
                 LiftTowerPlan first = e.Replan(grounds[0].T);
@@ -586,7 +587,7 @@ namespace LiftBatch
             Check(d.Clear && d.LineTowers <= 4, W, "pins 70 / 300, 195 forbidden: " + Towers(d));
 
             // One spot only: the same line with a 25 m knife ridge (flanks 1.1 m per m) at 290 m. A tower must stand within 9 m of the crest for the
-            // rope to pass it, so removing the crest tower leaves the line no other way: it comes back there, and no more towers than before.
+            // rope to pass it. So removing the crest tower leaves the line no other way: it comes back there, and no more towers than before.
             // (The other towers are tall pins here: with no plan under the Forbidden rule they would drop to the shortest member and buy rescue towers.)
             LiftTerrainSampler knife = (s, l) => (l == 0f ? L8At(s) : L8High(s)) + math.max(0f, 25f - 1.1f * math.abs(s - 290f));
             LiftLineEdit ridge = L8Edit();
@@ -643,7 +644,7 @@ namespace LiftBatch
             Check(removals > 0, W, "the sweep removed nothing");
         }
 
-        // LP-33: a line crossing another lift is found in plan view (field test 2026-10-31, FIX-LIST item 26); a joint at the line's own end is
+        // LP-33: a line crossing another lift is found in plan view (field test 2026-10-31, FIX-LIST item 26). A joint at the line's own end is
         // not a crossing. The line runs from (0,0) to (500,0) in x and z.
         private static void Lp33Crossing()
         {
@@ -664,7 +665,7 @@ namespace LiftBatch
         private static float Rise(LiftTowerPlanConstants c, int member) => c.Ladder[member].TopM - c.Ladder[0].TopM;
 
         /// <summary>The planner's objective for a plan: towers x TowerWorthM + the rise of the towers next to the stations (a single
-        /// tower counts for both ends, as in MinCost); the tram (TowerWorthM 0): the tower count.</summary>
+        /// tower counts for both ends, as in MinCost). For the tram (TowerWorthM 0), the objective is the tower count.</summary>
         internal static float Score(LiftTowerPlan p)
         {
             LiftTowerPlanConstants c = p.Constants;

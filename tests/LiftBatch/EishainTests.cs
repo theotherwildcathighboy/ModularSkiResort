@@ -2,14 +2,15 @@
 // EI-52 a built line is never fitted into a worse plan (the after-load FG line of the pass, reconstructed from the dump's ground).
 // EI-49 planner cost on the steep DQ sites (a report: the cost lines before / after FIX-LIST 49).
 // EI-48 a ground end plans with the rope of the station that finishes it. (a) The gate: every catalog station's RopeAnchorLocalY is
-//       the lowest HV rope sub-lane anchor of its mirror prefab, FrontLocalZ its lot depth x 4, its stub tip at y 0 / StubTipLocalZ, and
-//       the anchor is below the shortest tower's rope (so no type plans a station end too high again). (b) Tram 2 of the pass: planned
-//       clear (+0.4) with node + 26.25 at its ground ends and read -6.58 once the stations stood; planned with the stations' anchors it
-//       stays clear with them. (c) The lot-front rule: ground falling away beyond the end lowers the rope.
-// EI-55 a top ground end past a crest (FIX-LIST 55): a tower over its cap never reads clear (plan key, Describe, tower key), the
-//       sunk ground end says SUNK_END; a sweep over the FB-3 lines and crest-end tops.
+//       the lowest HV rope sub-lane anchor of its mirror prefab, FrontLocalZ is its lot depth x 4, and its stub tip is at y 0 /
+//       StubTipLocalZ. The anchor is below the shortest tower's rope (so no type plans a station end too high again). (b) Tram 2 of
+//       the pass: the planner planned it clear (+0.4) with node + 26.25 at its ground ends. It read -6.58 once the stations stood.
+//       Planned with the stations' anchors, it stays clear with them. (c) The lot-front rule: ground falling away beyond the end
+//       lowers the rope.
+// EI-55 a top ground end past a crest (FIX-LIST 55): a tower over its cap never reads clear (plan key, Describe, tower key). The
+//       sunk ground end says SUNK_END. The test includes a sweep over the FB-3 lines and crest-end tops.
 // EI-54b a station snapped onto a built line's END node facing away from it is refused, with its stub tip or its stub's inner node on
-//       the node (StationAlign.AttachesBackward / LineEnds, FIX-LIST 54(b)); an interior tower node is not an end.
+//       the node (StationAlign.AttachesBackward / LineEnds, FIX-LIST 54(b)). An interior tower node is not an end.
 
 using System;
 using System.Collections.Generic;
@@ -70,9 +71,9 @@ namespace LiftBatch
             (s, l) => Lerp(center, s) + Lerp(side, s) * l / half;
 
         // EI-52: the FG line of the pass (Mod.log 1309-1427, 2434-2468, 2642-2658). In session the tool built it with ground ends
-        // (ropes node + 7.27 = 1385.84 / 1548.26) and the fit kept it (+0.1); both stations were then attached line-first with no
+        // (ropes node + 7.27 = 1385.84 / 1548.26) and the fit kept it (+0.1). Then both stations were attached line-first with no
         // re-fit, and their lane anchors sit lower (1379.28 / 1545.95). After the load the fit read the ends as stations and the line
-        // as it stands (elevations 0.35 / 4 / 4 / 4.5 / 4.5: FG8ComboA, FG12 x 2, FG12BreakA x 2) at -1.7 m, and wrote a Short plan
+        // as it stands (elevations 0.35 / 4 / 4 / 4.5 / 4.5: FG8ComboA, FG12 x 2, FG12BreakA x 2) at -1.7 m. It wrote a Short plan
         // with a head over its cap (FG20BreakA d +47.2) and changed heads.
         private static readonly float[] FgInner = { 75f, 150f, 235f, 290f, 325f };
         private static readonly int[] FgMembers = { 0, 1, 1, 1, 1 };
@@ -86,7 +87,7 @@ namespace LiftBatch
             LiftTerrainSampler t = Sampler(FgCenter, FgSide, c.HalfWidthM);
             var kinds = new LiftTrainKind[FgInner.Length];
 
-            // (a) in session: ground ends, the tool's fresh nodes (not built): the fit's plan is written; the field's Kept +0.1
+            // (a) in session: ground ends, the tool's fresh nodes (not built). The fit writes its plan. The field's Kept +0.1
             var pl = new LiftTowerPlanner { PreviousKinds = kinds, PreviousHeads = new LiftTowerHead[FgInner.Length] };
             LiftTowerFit f0 = pl.Fit(t, 414f, 1385.84f, 1548.26f, c, FgInner, false, 90f, FgMembers);
             Check(f0.Mode == LiftFitMode.Kept && f0.Plan.Sound, w, "in session the tool line is Kept and sound (field: Kept +0.1); got " +
@@ -116,7 +117,7 @@ namespace LiftBatch
                   (written == null ? "kept (" + worse + ")" : "written " + Desc(written)));
             s_Report.Add("EI-52 kept as built: " + (worse ?? "-"));
 
-            // (c) the rule's other sides: a sound plan is always written over a built line; the line as built is no worse than itself
+            // (c) the rule's other sides: a sound plan is always written over a built line. The line as built is no worse than itself
             Check(LiftTowerPlanner.ToWrite(before, f0, true, out _) == f0.Plan, w, "a sound plan is written over a built line");
             var same = new LiftTowerFit { Mode = LiftFitMode.Kept, Plan = before };
             Check(LiftTowerPlanner.ToWrite(before, same, true, out string none) == before && none == null, w,
@@ -167,7 +168,7 @@ namespace LiftBatch
             return new float3(e.GetProperty("x").GetSingle(), e.GetProperty("y").GetSingle(), e.GetProperty("z").GetSingle());
         }
 
-        /// <summary>The lowest HV rope anchor of a station prefab (the lane's start; also its end when the lane joins two nodes, as
+        /// <summary>The lowest HV rope anchor of a station prefab (the lane's start, and also its end when the lane joins two nodes, as
         /// LiftLineToolSystem.AddAnchors / LaneSystem.FindAnchors), the SkiLiftMarker stub's outer point and the lot depth.</summary>
         private static bool StationMirror(string prefab, string w, out float anchorY, out float3 stubTip, out float3 stubInner,
                                           out int lotDepth)
@@ -253,8 +254,8 @@ namespace LiftBatch
         }
 
         // Tram 2 (Mod.log 1790-1846): ground (5448, -5687) -> ground (4835, -6201), 800 m, nodes y 1470.12 / 1608.99 (terrain 1469.99 /
-        // 1608.86), ropes node + 26.25; plan 0 towers, lowest carrier +5.4 at 760 m (margin +0.4); the node chord clears the ground by
-        // +52.5 / +70.2 / +64.1 / +17.2 m at 20 / 40 / 60 / 80 %; high side +2.2 / +1.7 at the ends. Once both stations stood the
+        // 1608.86), ropes node + 26.25. Plan 0 towers, lowest carrier +5.4 at 760 m (margin +0.4). The node chord clears the ground by
+        // +52.5 / +70.2 / +64.1 / +17.2 m at 20 / 40 / 60 / 80 %. High side +2.2 / +1.7 at the ends. Once both stations stood, the
         // clearance pass read -6.58 m at (4863, -6169), 42 m from the top end.
         internal static readonly float[] Tram2Center = {
             0f, 1469.99f, 160f, 1445.37f, 320f, 1455.47f, 480f, 1489.34f, 640f, 1564.02f, 700f, 1584.3f, 760f, 1604.6f, 800f, 1608.86f };
@@ -270,7 +271,7 @@ namespace LiftBatch
             StationDef sa = SkiCatalog.StationOf(tram, StationRole.Base), sb = SkiCatalog.StationOf(tram, StationRole.Top);
             float standA = yA + sa.RopeAnchorLocalY, standB = yB + sb.RopeAnchorLocalY;   // the stations as they stand (level)
 
-            // the field: ground ends planned at the tower rope, full floor -> 0 towers, clear; violated once the stations stand
+            // the field: ground ends planned at the tower rope, full floor -> 0 towers, clear. Violated once the stations stand
             var old = new LiftTowerPlanner { StationA = false, StationB = false };
             LiftTowerPlan field = old.Plan(t, 800f, yA + c.RopeAboveBase(0), yB + c.RopeAboveBase(0), c);
             LiftTowerPlan fieldStood = Stood(field, t, c, standA, standB);
@@ -279,7 +280,7 @@ namespace LiftBatch
                   "the reconstruction: the field plan (node + 26.25) is clear with no tower and violated once the stations stand; got " +
                   Desc(field) + " -> " + Desc(fieldStood));
 
-            // the fix: the tool's ground-end rope and station ends; the plan holds with the stations standing
+            // the fix: the tool's ground-end rope and station ends. The plan holds with the stations standing
             float ropeA = LiftLineInput.GroundEndRope(c, sa, yA, float.NaN, out string srcA);
             float ropeB = LiftLineInput.GroundEndRope(c, sb, yB, float.NaN, out string srcB);
             var edit = new LiftLineEdit(c, new float3(0f, yA, 0f), new float3(0f, yB, 800f), ropeA, ropeB, true, true);
@@ -321,7 +322,7 @@ namespace LiftBatch
         // ------------------------------------------------------------------ EI-49
 
         // The 760 m DQ line of the pass (Mod.log 854-940): node terrain + the chord clearance samples at 20 / 40 / 60 / 80 % of each built
-        // span (chord = node y line); the 801 m site shares its base and runs on 41 m down to its end at 1412.03 (plan 1420.29 - 8.26).
+        // span (chord = node y line). The 801 m site shares its base. It runs on 41 m down to its end at 1412.03 (plan 1420.29 - 8.26).
         internal static readonly float[] Dq760Center = {
             0f, 1321.47f, 45f, 1306.50f, 90f, 1291.48f, 135f, 1295.95f, 180f, 1301.13f, 225f, 1310.89f,
             271f, 1325.79f, 317f, 1342.28f, 363f, 1361.38f, 409f, 1383.47f, 455f, 1407.86f,
@@ -345,11 +346,11 @@ namespace LiftBatch
             return best;
         }
 
-        // EI-49 (cost report, no pass / fail: the planner cost lines before / after FIX-LIST 49; plan identity is gated by the whole
-        // host): the 760 / 801 m sites with ground ends (the tool before FIX-LIST 48) and station ends; then the site stacked 1, 2 and 3
+        // EI-49 (cost report, no pass / fail: the planner cost lines before / after FIX-LIST 49). The whole host gates plan identity.
+        // Cases: the 760 / 801 m sites with ground ends (the tool before FIX-LIST 48) and station ends. Then the site stacked 1, 2 and 3
         // times up the mountain (760 / 1,520 / 2,280 m, +115 m each) with and without a 6 / 12 m bump 5 / 15 m from the top end (no
-        // tower may stand there: the plan stays VIOLATED and runs the fallback), both end kinds; the slowest clear and VIOLATED plan per
-        // length, best of 2. In game the cost is about 10x (the 760 m site: 40.9 ms logged, about 4 ms here).
+        // tower may stand there: the plan stays VIOLATED and runs the fallback), both end kinds. The report shows the slowest clear and
+        // VIOLATED plan per length, best of 2. In game the cost is about 10x (the 760 m site: 40.9 ms logged, about 4 ms here).
         private static void Ei49()
         {
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
@@ -405,11 +406,11 @@ namespace LiftBatch
         }
 
         // EI-55: a top ground end just past a crest (the 2 km DQ of the eishain-fixes check, Mod.log 1693: top end rope 1801.33 =
-        // node + -8.68, the station's anchor over its lot front 32 m out; DQ12 @1965, 8 m from the end, d +103.0 OVER CAP 32, NO
-        // REPAIR; the plan line said "clear"). Here: a 1000 m DQ climbing 0.25, the crest 4 m before the top end node, the ground
-        // falling 2 m to the node and on beyond it, the lot front 12.38 m below the node (so the rope is node + -8.68 as logged). The
-        // numbers are honest (vanilla stands the station on the lower front: FIX-LIST 48); what failed is that nothing said so: on
-        // 4e0e401 this plan read PLAN_CLEAR, Describe "...; clear", and no SUNK notice (ground ends were never checked).
+        // node + -8.68, the station's anchor over its lot front 32 m out. DQ12 @1965, 8 m from the end, d +103.0 OVER CAP 32, NO
+        // REPAIR. The plan line said "clear"). Here: a 1000 m DQ climbing 0.25, the crest 4 m before the top end node, the ground
+        // falling 2 m to the node and on beyond it, and the lot front 12.38 m below the node (so the rope is node + -8.68 as logged). The
+        // numbers are honest (vanilla stands the station on the lower front: FIX-LIST 48). What failed is that nothing said so. On
+        // 4e0e401 this plan read PLAN_CLEAR, Describe "...; clear", and no SUNK notice (nothing ever checked ground ends).
         private const float Ei55Len = 1000f, Ei55Grade = 0.25f, Ei55CrestBack = 4f, Ei55Drop = 2f, Ei55FrontBelowNode = 12.38f;
 
         private static float Ei55Ground(float x)
@@ -462,10 +463,10 @@ namespace LiftBatch
             return Ei55Ground(q.x) + 0.3f * l / c.HalfWidthM;
         };
 
-        // EI-55 sweep: no plan anywhere reads clear with a tower over its cap. The FB-3 lines (DR-1, D192, crests and dips, field
-        // tents) with and without the twins (without: more towers stay over a cap), and crest-end DQ / FG / GD tops like the field
+        // EI-55 sweep: no plan anywhere reads clear with a tower over its cap. The sweep covers the FB-3 lines (DR-1, D192, crests and dips,
+        // field tents) with and without the twins (without: more towers stay over a cap), and crest-end DQ / FG / GD tops like the field
         // case. For each plan: PlanKey is not PLAN_CLEAR, Describe and Verdict do not say "clear", and every over-cap tower reads
-        // TOWER_TRAIN or TOWER_LOW. Counts the over-cap plans so the sweep is known to bind.
+        // TOWER_TRAIN or TOWER_LOW. The test counts the over-cap plans, to show that the sweep binds.
         private static void Ei55Sweep()
         {
             const string w = "eishain/EI-55 sweep";
@@ -525,16 +526,16 @@ namespace LiftBatch
                          " with a tower over its cap, none reads clear; PLAN_CLEAR on " + clearKeys + ", all sound");
         }
 
-        // EI-54b: a station snapped onto a built line's END node facing away from it is refused (StationFacingRefusalSystem's pure rule,
+        // EI-54b: the rule refuses a station snapped onto a built line's END node facing away from it (StationFacingRefusalSystem's pure rule,
         // StationAlign.AttachesBackward over StationAlign.LineEnds). Field (in-game check 2026-11-04, plan-fixes-2 RESULTS): the steep tram
         // base end node 842295:1 at (5725.6, -5375.9), the line leaving it at bearing 128.7 toward the top. Vanilla offers two reversed
-        // snaps there: the stub's INNER node on the end node (station (5735.1, -5378.4) yaw 128.7; it PLACED and attached on 7e52477,
-        // whose rule tested the tip only) and the tip on the node ((5737.5, -5380.2) yaw 128.7; vanilla's own "Invalid shape"). Aligned:
-        // (5713.8, -5371.5) yaw -51.3, the tip on the node, must pass. The FG top preview on line 1's top end 239190:9 (3550, -4000), the
-        // line's previous node 85 m back toward the base: (3541.6, -4003.2) yaw -111.6, inner node merged, "Place" on 7e52477. Then every
-        // catalog station at every 10 deg of yaw, each stub node on the end: a line leaving within 80 deg of the stub axis is allowed,
-        // one leaving 100 deg or more off it is refused; a stub node 5 m from the end is never refused; and LineEnds: an interior tower
-        // node (two line edges) is not an end, so a reversed station on it is not judged.
+        // snaps there. One puts the stub's INNER node on the end node (station (5735.1, -5378.4) yaw 128.7). It PLACED and attached on
+        // 7e52477, whose rule tested the tip only. The other puts the tip on the node ((5737.5, -5380.2) yaw 128.7). It gets vanilla's own
+        // "Invalid shape". Aligned: (5713.8, -5371.5) yaw -51.3, the tip on the node, must pass. The FG top preview on line 1's top end
+        // 239190:9 (3550, -4000), the line's previous node 85 m back toward the base: (3541.6, -4003.2) yaw -111.6, inner node merged,
+        // "Place" on 7e52477. Then every catalog station at every 10 deg of yaw, each stub node on the end. The rule allows a line leaving
+        // within 80 deg of the stub axis and refuses one leaving 100 deg or more off it. The rule never refuses a stub node 5 m from the
+        // end. And LineEnds: an interior tower node (two line edges) is not an end, so the rule does not judge a reversed station on it.
         private static void Ei54b()
         {
             const string w = "eishain/EI-54b";
@@ -576,7 +577,7 @@ namespace LiftBatch
                           !ends.ContainsKey(1) && !ends.ContainsKey(2) && !ends.ContainsKey(5) && ends.ContainsKey(10) && ends.ContainsKey(11);
             Check(endsOk, w + " ends", "LineEnds of 0-1-2-3 + 10-11 + a degenerate 5-5: got {" + string.Join(", ", ends) + "}");
             // The RESULTS DQ top case (7e52477 refused it as a "line end"): the tip on an interior tower node with the next span behind.
-            // Judged alone the geometry refuses; it is not an end, so the system never passes it to AttachesBackward.
+            // Judged alone, the geometry refuses it. It is not an end, so the system never passes it to AttachesBackward.
             Check(!ends.ContainsKey(1) && !ends.ContainsKey(2), w + " ends", "an interior tower node counts as a line end");
 
             int stations = 0, allowed = 0, refused = 0, wrong = 0;

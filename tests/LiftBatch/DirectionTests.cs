@@ -1,18 +1,18 @@
 // The tower planner gives the same plan, mirrored, whichever end is A (planner-direction-2026-11-04). Where-tags `direction/DR-n`.
-// Every case draws one straight line along +x from x 0 to x L over a world ground H(x, z) and plans it from x 0 ("forward") and from
-// x L ("backward") the way the lift tool does (LiftLineEdit: pairs, the edge slope rule, the end node heights, the ground sampled from
-// either end with PointAt / PointFromB), then compares the backward plan mirrored with the forward one.
-// DR-0 PlansFromB: the lower rope first, exact and antisymmetric; equal ropes: the world key; no key: A.
+// Every case draws one straight line along +x from x 0 to x L over a world ground H(x, z). It plans the line from x 0 ("forward") and
+// from x L ("backward") the way the lift tool does. The tool uses LiftLineEdit: pairs, the edge slope rule, the end node heights, and
+// the ground sampled from either end with PointAt / PointFromB. Then the case compares the backward plan, mirrored, with the forward one.
+// DR-0 PlansFromB: the lower rope first, exact and antisymmetric. Equal ropes: the world key. No key: A.
 // DR-1 every lift type, station to station, asymmetric profiles on and off the 5 / 10 m grid: the tool's path mirrors EXACTLY (nodes,
-//      members, flags, ropes, deflections, kinds, spans); the planner alone (the fit / diag path, no B sampler: the planner mirrors the
-//      ground itself) within the snap step with the same members and pairs; and the sweep binds: AsGiven (the planner before the rule,
-//      working from A as given) differs on part of it.
-// DR-2 a station end and a loose end with its outer junction point (the junction judged; DQ / GD give it a partner), from either end.
+//      members, flags, ropes, deflections, kinds, spans). The planner alone mirrors within the snap step, with the same members and
+//      pairs (the fit / diag path, no B sampler: the planner mirrors the ground itself). The sweep binds: AsGiven (the planner before
+//      the rule, working from A as given) differs on part of it.
+// DR-2 a station end and a loose end with its outer junction point (the junction judged, and DQ / GD give it a partner), from either end.
 // DR-3 pins and a removed tower, set at the same world spots from either end: the pins, the removed spot and the plan mirror.
-// DR-4 crests that need a breakover pair (FG / DQ / GD, on and off the grid): the same pair from either end; the PAIR note names it.
+// DR-4 crests that need a breakover pair (FG / DQ / GD, on and off the grid): the same pair from either end. The PAIR note names it.
 // DR-5 the FG station pair at x -1200 (bridge run 2026-11-03), reconstructed from the two logged plans (approximate: the terrain is not
-//      logged): the same plan from either end, the old base-first one; AsGiven differs.
-// DR-6 equal ropes (the world key orders the ends); Plan(Plan) from B is a fixed point; Fit's free plan and Needed either way.
+//      logged): the same plan from either end, the old base-first one. AsGiven differs.
+// DR-6 equal ropes (the world key orders the ends). Plan(Plan) from B is a fixed point. Fit's free plan and Needed either way.
 
 using System;
 using System.Collections.Generic;
@@ -85,8 +85,8 @@ namespace LiftBatch
 
         private static LiftTowerPlan Replan(LiftLineEdit e, LiftTerrainSampler fromA, LiftTerrainSampler fromB) => e.Replan(fromA, fromB);
 
-        /// <summary>The planner alone with the tool's rules, from x 0 or x L; no B sampler (the planner mirrors the ground itself, as for
-        /// the fit, the diag and the quick-runs planner), no world keys; <paramref name="asGiven"/> = the planner before the rule.</summary>
+        /// <summary>The planner alone with the tool's rules, from x 0 or x L. It has no B sampler (the planner mirrors the ground itself, as for
+        /// the fit, the diag and the quick-runs planner) and no world keys. <paramref name="asGiven"/> = the planner before the rule.</summary>
         private static LiftTowerPlan Direct(World w, bool backward, bool asGiven)
         {
             float len = w.L;
@@ -273,8 +273,8 @@ namespace LiftBatch
             foreach (string id in new[] { "fixedGrip", "detachable", "gondola" })
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
-                // Level ground 402.6 m from a station at x 0 to a loose end at x L on a crest: the built line beyond it arrived climbing at
-                // g (its far node 80 m beyond, a tower of the shortest member). The station's rope sits above or below the loose end's.
+                // The level ground is 402.6 m long, from a station at x 0 to a loose end at x L on a crest. The built line beyond it arrived climbing at
+                // g. Its far node, 80 m beyond, is a tower of the shortest member. The station's rope sits above or below the loose end's.
                 float g = id == "fixedGrip" ? 0.15f : id == "detachable" ? 0.6f : 0.9f;
                 foreach (float stationAbove in new[] { -0.6f, 0.6f })
                 {
@@ -309,7 +309,7 @@ namespace LiftBatch
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
                 float len = id == "detachable" ? 1003.7f : 402.6f;
-                // x 0 is the TOP here (the ground falls toward x L), so the forward edit works from B and snaps its pins from x L.
+                // x 0 is the TOP here (the ground falls toward x L). So the forward edit works from B and snaps its pins from x L.
                 var w = new World { Label = id + " " + F(len, "F1") + " m, top at x 0", C = c, L = len, H = Hump(-0.28f, 0.02f * len, 0.45f * len, 0.08f * len, 0f, len, 0f) };
                 LiftLineEdit ef = Edit(w, false, out LiftTerrainSampler fa, out LiftTerrainSampler fb);
                 LiftLineEdit eb = Edit(w, true, out LiftTerrainSampler ba, out LiftTerrainSampler bb);
@@ -383,7 +383,7 @@ namespace LiftBatch
                     string before = " | before the rule, from x L: " + Towers(given, true);
                     if (pair.Count != 2)
                     {
-                        // off the grid a pair may not fit; then the crest must stay single, flagged, with a note (BO-6), the same both ways
+                        // off the grid a pair may not fit. Then the crest must stay single, flagged, with a note (BO-6), the same both ways
                         Check(extra > 0f && pair.Count == 0 && flagged && pf.AngleNotes.Count > 0, W, w.Label + ": not one pair: " + Towers(pf) + before);
                         s_Report.Add("DR-4 " + w.Label + " | no pair fits: the crest single and flagged, the same both ways | works from " +
                                      (ef.FromB ? "x L" : "x 0") + "; " + Towers(pf) + " | " + string.Join(" | ", pf.AngleNotes) + before);
@@ -412,11 +412,11 @@ namespace LiftBatch
 
         // ── DR-5: the FG station pair at x -1200 ────────────────────────────────────────────────────────────────────────────
         // Log field/2026-11-03/breakover-b1/SkiResortMod.Mod.log :554 (base -> top) and :632 (top -> base): 426 m, base station rope 1225.44
-        // (stub node + -2.51), top 1281.57 (node + 3.21), carriers 8.9 m / 0.4 m below the highest ground at the stub tips (SUNK STATION).
-        // The terrain is not logged: the profile runs through the tower grounds the two logged plans imply (each plan's rope points solved
-        // tower by tower from its logged deflections, FG sag 0.02; the base plan's first tower from its logged 0.89 edge slope, the top
-        // plan's FG2 10 m from the top from its logged y 1276.8), straight between them, no cross slope. Approximate: it does not give the
-        // logged plans (6 / 7 towers); it does differ by direction on the planner before the rule.
+        // (stub node + -2.51), top 1281.57 (node + 3.21). Carriers 8.9 m / 0.4 m below the highest ground at the stub tips (SUNK STATION).
+        // The terrain is not logged. The profile runs through the tower grounds the two logged plans imply, straight between them, with no
+        // cross slope. The tower grounds come from each plan's rope points, solved tower by tower from its logged deflections (FG sag 0.02).
+        // The base plan's first tower comes from its logged 0.89 edge slope. The top plan's FG2 10 m from the top comes from its logged y 1276.8.
+        // Approximate: it does not give the logged plans (6 / 7 towers). It does differ by direction on the planner before the rule.
         private static readonly float[] FieldPairProfile =
         {
             0f, 1231.94f, 6f, 1229.94f, 15f, 1233.30f, 16f, 1232.48f, 90f, 1247.36f, 101f, 1249.63f, 176f, 1264.73f, 180f, 1267.42f,
@@ -485,7 +485,7 @@ namespace LiftBatch
         private static void Dr6EqualRopesFixedPointFit()
         {
             const string W = "direction/DR-6";
-            // Equal ropes: a symmetric valley between two ground ends at the same height; the world key (x) orders the ends.
+            // Equal ropes: a symmetric valley between two ground ends at the same height. The world key (x) orders the ends.
             LiftTowerPlanConstants dq = LiftTowerPlanConstants.For("detachable");
             var w = new World { Label = "DQ 803.3 m valley, equal ropes", C = dq, L = 803.3f, Station0 = false, StationL = false,
                                 H = (x, z) => 1000f - 60f * math.sin(math.PI * x / 803.3f) + 0.004f * x * (803.3f - x) / 803.3f * (x > 300f ? 1f : 0.5f) };
@@ -498,7 +498,7 @@ namespace LiftBatch
             Check(diff == null, W, w.Label + ": " + diff + " | forward " + Towers(pf) + " | backward " + Towers(pb, true));
             s_Report.Add("DR-6 " + w.Label + " | ordered by the world key, the same plan both ways | " + Towers(pf));
 
-            // Plan(Plan) from B: a line whose A is the top is planned from B; re-planning with its own nodes as seeds keeps it.
+            // Plan(Plan) from B: the planner plans a line whose A is the top from B. Re-planning with its own nodes as seeds keeps the plan.
             foreach (string id in new[] { "fixedGrip", "detachable", "tram" })
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);

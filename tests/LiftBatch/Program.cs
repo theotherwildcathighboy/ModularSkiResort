@@ -1,11 +1,11 @@
-// LiftBatch - headless tests for the pure lift files (LiftCensus, StationAlign, StationMoveEpisodes, LiftReconnectEpisodes,
-// LiftServedRule, the prefab catalog, the loop-cache topology, the loop hold, the power gate, the tower planner).
+// LiftBatch - headless tests for the pure lift files. The files are LiftCensus, StationAlign, StationMoveEpisodes,
+// LiftReconnectEpisodes, LiftServedRule, the prefab catalog, the loop-cache topology, the loop hold, the power gate, the tower planner.
 // Run (from the ModularSkiResort root): dotnet run --project tests/LiftBatch/LiftBatch.csproj -c Release
-// Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures.
-// Only the pure logic is proven: the ECS harvest (which entities become Edge / Node / Station, the Deleted-tag snapshot, park events,
-// the overlay) and the loop cache's Game-side geometry are not exercised. The synthetic World models a drawn lift the way the census
-// sees it (station connection nodes carry their station index, interior nodes a tower); it is internal with a BeforeBuild hook so
-// LiftTypeTests can stamp Edge / Station types onto the census input before Build.
+// Prints `FAIL  where: msg` lines and one SUMMARY line. Environment.ExitCode = failures.
+// The tests prove only the pure logic. They do not exercise the ECS harvest (which entities become Edge / Node / Station, the
+// Deleted-tag snapshot, park events, the overlay) or the loop cache's Game-side geometry. The synthetic World models a drawn lift the
+// way the census sees it (station connection nodes carry their station index, interior nodes a tower). It is internal with a
+// BeforeBuild hook, so LiftTypeTests can stamp Edge / Station types onto the census input before Build.
 
 using System;
 using System.Collections.Generic;
@@ -25,7 +25,7 @@ namespace LiftBatch
         private static int Main()
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
-            // Dev shortcut: LIFTBATCH_ONLY=eishain runs the EI tests alone (seconds instead of the whole host); CI runs everything.
+            // Dev shortcut: LIFTBATCH_ONLY=eishain runs the EI tests alone (seconds instead of the whole host). CI runs everything.
             if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "eishain")
             {
                 EishainTests.Run(Check);
@@ -270,7 +270,7 @@ namespace LiftBatch
             }
 
             /// <summary>Edge <paramref name="id"/>'s carriers pass <paramref name="clearM"/> above the ground, under the floor (LiftClearanceSystem's
-            /// figure, LiftCensus.Edge.Low*); the low point is the edge's midpoint.</summary>
+            /// figure, LiftCensus.Edge.Low*). The low point is the edge's midpoint.</summary>
             public void SetLow(int id, float clearM)
             {
                 Ed e = m_Edges[id];
@@ -383,7 +383,7 @@ namespace LiftBatch
         internal static EntityRef R(int index) => new EntityRef(index, 1);
 
         /// <summary>The reference lift: base 1 at the origin facing north (+z), top 2 at
-        /// (0, 100, 600) facing south; tip nodes 200 (base) and 205 (top), towers 201-204,
+        /// (0, 100, 600) facing south. Tip nodes 200 (base) and 205 (top), towers 201-204,
         /// sections 101-105 (101 = base approach, 105 = top approach). Tips at z = 12 and 588.</summary>
         internal static World StraightLift()
         {
@@ -574,7 +574,7 @@ namespace LiftBatch
             var list = new List<int>();
             Check(w.Census.TryGetRowsOfStation(R(1), list) && list.Count == 2, W, "the base touches both rows");
 
-            // Delete lift 1's approach at the shared base: lift 1 opens, lift 2 is untouched.
+            // Delete lift 1's approach at the shared base: lift 1 opens and lift 2 does not change.
             w.RemoveEdge(101);
             w.Build();
             rows = w.Census.Rows;
@@ -763,7 +763,7 @@ namespace LiftBatch
             var rows = w.Census.Rows;
             Eq(2, rows.Count, W, "rows");
             if (rows.Count != 2) return;
-            // Sort order is Id, then Top: both rows have Id = base 1; the new row's Top is Null (0:0)
+            // Sort order is Id, then Top. Both rows have Id = base 1. The new row's Top is Null (0:0)
             Eq(LiftCensus.State.Unfinished, rows[0].State, W, "the new line is its own row (sorted first)");
             Check(rows[0].Top.IsNull, W, "the new row has no top");
             Eq(R(1), rows[0].Base, W, "new row from the shared base");
@@ -800,15 +800,15 @@ namespace LiftBatch
         }
 
 
-        // A complete lift that loses a station keeps its key (no liveness condition), becomes Open and raises exactly one
-        // Opened (the event that parks the chairs), not NewLine. The removed station stays in the key; the row id is the live one.
+        // A complete lift that loses a station keeps its key (no liveness condition). It becomes Open and raises exactly one
+        // Opened (the event that parks the chairs), not NewLine. The removed station stays in the key. The row id is the live one.
 
         private static void CensusTopStationRemovedApproachSurvives()
         {
             const string W = "census/top-removed (approach survives)";
             var w = StraightLift();
             w.Build();
-            w.RemoveStation(2);   // GenerateNodesSystem keeps node 205 (edge 105 still uses it); it is a plain dead end now
+            w.RemoveStation(2);   // GenerateNodesSystem keeps node 205 (edge 105 still uses it). It is a plain dead end now
             w.Build();
             var rows = w.Census.Rows;
             Eq(1, rows.Count, W, "rows");
@@ -1075,7 +1075,7 @@ namespace LiftBatch
         private static void AlignClassifyFieldCases()
         {
             const string W = "align/classify-field";
-            // Base at the origin facing north (+z) toward the top; top 600 m north
+            // Base at the origin facing north (+z) toward the top. Top 600 m north
             float2 baseAxis = new float2(0f, 1f);
             float3 baseTip = new float3(0f, 0f, 12f);
             float3 topTip = new float3(0f, 100f, 588f);
@@ -1086,7 +1086,7 @@ namespace LiftBatch
             Check(topAway.AlongM > 0f, W, "top facing away: it is in front of the base");
             Eq(StationAlign.Readout.FacingAway, StationAlign.Classify(topAway), W, "top facing away → 'turn it around'");
             // (b) The same lift seen from the base (selected): the partner (top) faces away, so the base sits behind the top's
-            //     stub; yaw is 180 too, but turning the base would be wrong advice.
+            //     stub. Yaw is 180 too, but turning the base would be wrong advice.
             var baseSeen = StationAlign.Measure(topTip, new float2(0f, 1f), baseTip, baseAxis);
             Check(baseSeen.AlongM < 0f, W, "base behind the back-facing top");
             Near(180f, math.abs(baseSeen.YawDeg), 1e-3f, W, "base: |yaw| 180 as well");
@@ -1119,7 +1119,7 @@ namespace LiftBatch
             // The default tool: the world group at the stub tip, selected or just moved
             Eq(world, StationAlign.PlaceOf(false, false, true), W, "selected station, default tool → world");
             Eq(world, StationAlign.PlaceOf(false, true, true), W, "just-moved station, default tool → world");
-            // Any other tool: a Move It nudge reaches the mouse; a station only left selected shows nothing (no rows under the
+            // Any other tool: a Move It nudge reaches the mouse. A station only left selected shows nothing (no rows under the
             // run brush, the Net Tool, the bulldozer, the tree tool)
             Eq(mouse, StationAlign.PlaceOf(false, true, false), W, "just-moved station, other tool (Move It) → mouse");
             Eq(none, StationAlign.PlaceOf(false, false, false), W, "selected station, other tool (run brush) → nothing");
@@ -1133,7 +1133,7 @@ namespace LiftBatch
         {
             const string W = "move-episode/top-settle";
             // 18 settle lines for one top station ~0.17-0.2 s apart. Model: 18 single-frame moves 20 frames apart at 100 fps
-            // (frames 0, 20, ... 340; t = frame / 100).
+            // (frames 0, 20, ... 340, with t = frame / 100).
             var eps = new StationMoveEpisodes();
             EntityRef st = R(82656);
             int lines = 0;
@@ -1380,7 +1380,7 @@ namespace LiftBatch
         // hand value. Fixture:
         //   L1: Id (101,1), Complete, Powered, TopY 300, chords (0,0)-(0,500), (0,500)-(0,1000)
         //   L2: Id (55,1),  Complete, Powered, TopY 400, chord  (200,0)-(200,1000)
-        // Points are (x, y, z); chords are xz.
+        // Points are (x, y, z). Chords are xz.
 
         private static List<LiftServedRule.Chord> ServedChords()
         {
@@ -1410,8 +1410,8 @@ namespace LiftBatch
             };
         }
 
-        /// <summary>Reaches(top, lift) with its expected result; when it should reach, the distance is checked against
-        /// <paramref name="d"/> (+-1e-3), else it must be +infinity</summary>
+        /// <summary>Reaches(top, lift) with its expected result. When it should reach, the case checks the distance against
+        /// <paramref name="d"/> (+-1e-3). Otherwise it must be +infinity</summary>
         private static void ReachesCase(float3 top, LiftServedRule.Lift lift, List<LiftServedRule.Chord> chords,
             bool expect, float d, string where)
         {

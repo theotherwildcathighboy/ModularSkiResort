@@ -1,9 +1,12 @@
-// Pure arithmetic of LiftMoverMath.cs (far-loop pace, bounds cadence, cost percentiles) and LiftLaneScope (the scoped lane harvest's
-// owners and the load-time watchdog compare). Where-tags `loop-pace/...`, MP-1..MP-10.
-// Pinned: LoopPosition equals the mover's managed expression and the Burst job's, bit for bit; StrideFor never lets k x v x dt exceed the
-// allowed step (unless k is the cap); a chair is never shown more than MaxStride - 1 passes stale and a near pass writes the exact pose;
-// bounds are tagged at >= 2 m of travel and never stale by >= 2 m + one pass (a fixed-grip loop near the camera tags 1.20-1.25 times a
-// second per chair); the scoped lane harvest equals the full scan, and CompareHarvests reports MISSED and EXTRA lanes.
+// The tests cover the pure arithmetic of LiftMoverMath.cs (far-loop pace, bounds cadence, cost percentiles). They also cover
+// LiftLaneScope (the owners of the scoped lane harvest and the load-time watchdog compare). Where-tags `loop-pace/...`, MP-1..MP-10.
+// The tests pin these facts:
+// - LoopPosition equals the mover's managed expression and the Burst job's expression, bit for bit.
+// - StrideFor never lets k x v x dt exceed the allowed step (unless k is the cap).
+// - No chair appears more than MaxStride - 1 passes stale. A near pass writes the exact pose.
+// - Bounds are tagged at >= 2 m of travel and are never stale by >= 2 m + one pass. A fixed-grip loop near the camera tags
+//   1.20-1.25 times a second per chair.
+// - The scoped lane harvest equals the full scan. CompareHarvests reports MISSED and EXTRA lanes.
 
 using System;
 using System.Collections.Generic;
@@ -206,8 +209,8 @@ namespace LiftBatch
                     }
                     else if (lastWritePass >= spellStartPass)
                     {
-                        // Inside a spell of constant dt and distance (the bound is per stride decision; the first pass of a
-                        // spell can still show a pose written under the previous spell's stride).
+                        // Inside a spell of constant dt and distance. The bound is per stride decision. The first pass of a
+                        // spell can still show a pose written under the previous spell's stride.
                         farPasses++;
                         double exact = LiftMoverMath.LoopPosition(offsets[0], speed, timeS, length);
                         double diff = math.abs(exact - shown[0]);
@@ -236,7 +239,7 @@ namespace LiftBatch
             const double dt = 1.0 / 60.0;
             foreach (double speed in s_Speeds)
             {
-                // Near: tags at ≥ 2 m; staleness < 2 m + one pass of travel.
+                // Near: tags at ≥ 2 m. Staleness < 2 m + one pass of travel.
                 LiftMoverMath.LoopPace pace = LiftMoverMath.Seed(0, 8, 0.0);
                 double t = 0.0, lastTag = 0.0;
                 int badGap = 0, stale = 0, tags = 0;
@@ -317,7 +320,7 @@ namespace LiftBatch
                 if (b) farTags++;
             }
             double nearRate = nearTags / 60.0, farRate = farTags / 60.0;
-            // 2 m of travel is 48 passes of 2.5 / 60 m on paper; float accumulation makes it 48-49: 1.22-1.25 per second.
+            // 2 m of travel is 48 passes of 2.5 / 60 m on paper. Float accumulation makes it 48-49: 1.22-1.25 per second.
             Check(nearRate >= 60.0 / 50.0 && nearRate <= 1.25 + 1e-9, W, $"near fixed-grip: {nearRate:F3} tags/s per chair (want 1.20-1.25)");
             Check(farRate <= nearRate / 8.0 + 0.02, W, $"far stride 8: {farRate:F3} tags/s per chair (want ≤ {nearRate / 8.0:F3})");
             Console.WriteLine($"INFO  {W}: near {nearRate:F3} / far {farRate:F3} bounds tags per second per chair (fixed-grip, 60 fps, 1x)");
@@ -367,7 +370,7 @@ namespace LiftBatch
         private static void Mp10Harvest()
         {
             const string W = "loop-pace/MP-10";
-            // Owners: lift line edges 100-104 and nodes 1-6 (prefab "lift"); a vanilla HV line edge 200 / node 20; a water edge 300.
+            // Owners: lift line edges 100-104 and nodes 1-6 (prefab "lift"), a vanilla HV line edge 200 / node 20, and a water edge 300.
             var liftOwners = new HashSet<int> { 100, 101, 102, 103, 104, 1, 2, 3, 4, 5, 6 };
             var lanes = new List<FakeLane>();
             var subLanes = new Dictionary<int, List<int>>();

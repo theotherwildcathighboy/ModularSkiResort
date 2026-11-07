@@ -1,11 +1,13 @@
 // Tests for LiftServedRule.Carries (the run predicate) and LiftServedRule.GuardPower (the flicker guard), alone and composed with the
 // power rule PowerOf (4 arguments). Where-tags `power-gate/...`, PG-1..PG-4.
-// Pinned: Carries = complete && power != NoPower && !closed over all 12 rows; GuardPower, frame-stepped through a model of
-// LiftCensusSystem.ReadLiftPower, holds the last effective value over a short NoPower streak (inclusive 512-frame boundary), rides out
-// a brownout, is uint-wrap safe and fails open on the first read of a load; ExpireStreak drops a streak after a gap of more than
-// PowerStreakStaleFrames (1,024). PG-5 (DECISIONS 601 i): a frame model of the game's dispatch (wanted set at offset 0, the dispatch at
-// offset 126, the warning on the second short dispatch) through the census reader with the cooldown counter and the pending window: a
-// fresh unpowered station never reads powered, a fresh powered one runs from its first judged dispatch, a locked city fails open.
+// Pinned:
+// - Carries = complete && power != NoPower && !closed over all 12 rows.
+// - GuardPower, frame-stepped through a model of LiftCensusSystem.ReadLiftPower, holds the last effective value over a short NoPower
+//   streak (inclusive 512-frame boundary). It rides out a brownout, is uint-wrap safe and fails open on the first read of a load.
+// - ExpireStreak drops a streak after a gap of more than PowerStreakStaleFrames (1,024).
+// PG-5 (DECISIONS 601 i): a frame model of the game's dispatch (wanted set at offset 0, the dispatch at offset 126, the warning on the
+// second short dispatch). The model runs through the census reader with the cooldown counter and the pending window. Pinned: a fresh
+// unpowered station never reads powered. A fresh powered one runs from its first judged dispatch. A locked city fails open.
 
 using System;
 using System.Collections.Generic;
@@ -59,7 +61,7 @@ namespace LiftBatch
         }
 
         /// <summary>A model of the census's one reader (LiftCensusSystem.ReadLiftPower): raw = PowerOf(flags, wanted, fulfilled,
-        /// known ? last : Unknown); power = known ? GuardPower(raw, last, ...) : raw; last = power.</summary>
+        /// known ? last : Unknown). Then power = known ? GuardPower(raw, last, ...) : raw. Then last = power.</summary>
         private sealed class Reader
         {
             public bool Known;
@@ -330,7 +332,7 @@ namespace LiftBatch
             Eq(0, not60, W, "60 % with the warning, last NoPower: reads that were not NoPower over 5,000 frames");
             Eq(0, r60.Recuts, W, "60 %: no streak ever starts, so no recut");
 
-            // 80 % with the warning: raw Powered (4 x 1,200 = 4,800 >= 4,500), so NoPower for 512 frames, then Powered; the half rule
+            // 80 % with the warning: raw Powered (4 x 1,200 = 4,800 >= 4,500), so NoPower for 512 frames, then Powered. The half rule
             // (2 x 1,200 >= 1,500) keeps it Powered.
             var r80 = new Reader();
             r80.Read(Consumer.Cut, 0);
@@ -360,9 +362,9 @@ namespace LiftBatch
             Eq(none, LiftServedRule.ExpireStreak(0xFFFFFF80u, 0xFFFFFFC0u, 0x00000500u), W, "gap 1,344 across the wrap drops");
         }
         /// <summary>The game's consumer over sim frames, the model of AdjustElectricityConsumptionSystem (wanted at offset 0, :385-392)
-        /// and DispatchElectricitySystem (offset 126, :222-230; fulfilled = min(supply, wanted) :106, Connected when fulfilled &gt;= wanted
-        /// with wanted &gt; 0 else when connected to a graph :115-122; HandleCooldown only when electricity is unlocked, the warning on
-        /// cooldown &gt;= kAlertCooldown 2, :128-143).</summary>
+        /// and DispatchElectricitySystem. The dispatch is at offset 126, :222-230. fulfilled = min(supply, wanted) :106. Connected when
+        /// fulfilled &gt;= wanted with wanted &gt; 0, else when connected to a graph :115-122. HandleCooldown runs only when electricity is
+        /// unlocked. The warning is raised on cooldown &gt;= kAlertCooldown 2 (:128-143).</summary>
         private sealed class GameConsumer
         {
             public int WantedNow, Fulfilled;
@@ -474,7 +476,7 @@ namespace LiftBatch
             }
             Console.WriteLine("INFO  " + W + ": a fresh powered lift reads powered at most " + worstPowered + " sim frames after its build " +
                               "(read every 16 frames)");
-            // electricity locked: no warning and no cooldown ever; Pending fails open after PendingMaxFrames and stays powered
+            // electricity locked: no warning and no cooldown ever. Pending fails open after PendingMaxFrames and stays powered
             var locked = new GameConsumer { Built = 2048u, Unlocked = false, OnGrid = false };
             var rl = new Reader5();
             uint lockedAt = FirstPowered(locked, rl, 2048u, out _);

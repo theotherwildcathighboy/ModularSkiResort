@@ -1,8 +1,12 @@
 // Tests for the lift's notification icon rules (LiftLineIconRule) and the icon texture codec (IconTextureCodec). Where-tags
-// `lift-icon/...`, LI-1..LI-8. Pinned: a station needs a line exactly while it has stub nodes and no outside lift edge at them; a loose
-// lift end exactly at one lift edge; the show / clear command table; which vanilla electricity icon is stripped from which owner (the
-// base station keeps its low-voltage icon and its own power warnings, nothing else survives); every encoder round-trips through its
-// decoder within a quality floor and keeps fully clear pixels clear; mip chain sizes; the icon files and their locale keys.
+// `lift-icon/...`, LI-1..LI-8. Pinned:
+// - a station needs a line exactly while it has stub nodes and no outside lift edge at them, and a loose lift end exactly at one lift edge
+// - the show / clear command table
+// - which vanilla electricity icon the rule strips from which owner (the base station keeps its low-voltage icon and its own power
+//   warnings, and nothing else survives)
+// - every encoder round-trips through its decoder within a quality floor and keeps fully clear pixels clear
+// - mip chain sizes
+// - the icon files and their locale keys
 
 using System;
 using System.Collections.Generic;
@@ -66,9 +70,9 @@ namespace LiftBatch
             Eq("none", LiftLineIconRule.Describe(LineIconAction.None), w, "Describe none");
         }
 
-        /// <summary>The whole table: the only kept cue is the base station's low-voltage icon; Other is never touched; the station-only
-        /// cues (transformer, not enough production, no electricity, building bottleneck) go from both stations and are left alone on lift
-        /// nodes and edges (vanilla never puts them there).</summary>
+        /// <summary>The whole table. The only kept cue is the base station's low-voltage icon. The rule never touches Other. The station-only
+        /// cues (transformer, not enough production, no electricity, building bottleneck) go from both stations. The rule leaves them alone on
+        /// lift nodes and edges (vanilla never puts them there).</summary>
         private static void Li4Strips()
         {
             const string w = "lift-icon/LI-4";
@@ -94,7 +98,7 @@ namespace LiftBatch
                     }
                     Eq(expected, LiftLineIconRule.Strips(owner, icon), w, $"{owner} / {icon}");
                 }
-            // The rule the system is built on, stated directly.
+            // The rule behind the system, stated directly.
             Check(!LiftLineIconRule.Strips(LiftIconOwner.BaseStation, VanillaPowerIcon.LowVoltageNotConnected), w,
                   "the base station keeps its low-voltage icon");
             Check(LiftLineIconRule.Strips(LiftIconOwner.BaseStation, VanillaPowerIcon.NoElectricity) &&
@@ -140,7 +144,7 @@ namespace LiftBatch
 
         /// <summary>Every block encoder against its decoder: color PSNR over opaque pixels, alpha error, clear stays clear, sizes
         /// not a multiple of 4. The tiny images (6 and 2 px: whole 2-D color ramps inside one block, which one color line cannot hold)
-        /// get a lower color floor; a real icon mip that small is one blended color.</summary>
+        /// get a lower color floor. A real icon mip that small is one blended color.</summary>
         private static void Li6EncodersRoundTrip()
         {
             const string w = "lift-icon/LI-6";
