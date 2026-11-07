@@ -159,8 +159,8 @@ function LowSpanTip({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
   return <LocText entry={HUB_FMT.problemTipLiftLowSpan} args={{ WHERE }} />;
 }
 
-/** The parking row names its lodge (C#'s subject, found in the lodgeParking rows): "No parking: Chalet 2", "+{N}" for the
- *  other lodges without parking; the plain text until the rows arrive. */
+/** The parking row names its lodge (C#'s subject, found in the lodgeParking rows): "No parking: Chalet 2", "and {N} more"
+ *  for the other lodges without parking; the plain text until the rows arrive. */
 function ParkingProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
   const rows = useValue(lodgeParking$);
   const r = rows.find((x) => sameEntity(x.lodge, p.subject));

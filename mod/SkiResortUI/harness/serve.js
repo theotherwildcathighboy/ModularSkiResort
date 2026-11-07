@@ -1,7 +1,8 @@
 /*
 * harness/serve.js - tiny static server for the browser harness.
 * Root = mod/SkiResortUI, so /harness/ and /build/ are both reachable. /game/index.css streams the installed game's UI
-* stylesheet (theme variables) from the Steam folder; nothing is copied.
+* stylesheet (theme variables) from the Steam folder; nothing is copied. /assetdb/<id> streams the prefab icon whose
+* a gamedata-mirror/ImportedData/.../<name>.png.cid holds <id> (the game resolves assetdb://global/<id>; cs2-mock.js rewrites it).
 * Run: node mod/SkiResortUI/harness/serve.js [port]   (default 5173)  ->  http://localhost:5173/harness/
 */
 "use strict";
@@ -40,6 +41,16 @@ function stream(res, file) {
   });
 }
 const GAME_DIRS = ["Media", "Fonts", "Static"];
+// The mod's own prefab icons (vanilla assetdb ids are not mirrored: those keep the fallback square).
+const ASSETDB = new Map();
+(function indexIcons(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) indexIcons(p);
+    else if (/\.png\.cid$/i.test(e.name)) ASSETDB.set(fs.readFileSync(p, "utf8").trim(), p.slice(0, -4));
+  }
+})(path.resolve(ROOT, "..", "..", "gamedata-mirror", "ImportedData"));
 function gameFile(rel) {
   const f = path.normalize(path.join(GAME_UI, rel));
   return f.startsWith(path.normalize(GAME_UI)) ? f : null;
@@ -48,6 +59,8 @@ http.createServer((req, res) => {
   const url = decodeURIComponent((req.url || "/").split("?")[0]);
   if (url === "/" ) { res.writeHead(302, { Location: "/harness/" }); return res.end(); }
   if (url === "/game/index.css") return stream(res, path.join(GAME_UI, "index.css"));
+  const a = /^\/assetdb\/([0-9a-f]{32})$/.exec(url);
+  if (a) { const f = ASSETDB.get(a[1]); return f ? stream(res, f) : send(res, 404, "not a mirrored icon"); }
   const m = /^\/(?:game\/|harness\/)?(Media|Fonts|Static)\/(.+)$/.exec(url);
   if (m && GAME_DIRS.includes(m[1])) { const f = gameFile(path.join(m[1], m[2])); return f ? stream(res, f) : send(res, 403, "forbidden"); }
   if (url.startsWith("/game/")) return send(res, 404, "only index.css, Media/, Fonts/ and Static/ are served from the game folder");

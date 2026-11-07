@@ -240,7 +240,21 @@
 
   // ---- cs2/ui ---------------------------------------------------------------------------------
   const cx = (...xs) => xs.filter(Boolean).join(" ");
-  const imgSrc = (src) => typeof src === "string" ? src.replace(/^coui:\/\/ui-mods\/SkiResortMod-img\//, "../build/SkiResortMod-img/") : src;
+  const imgSrc = (src) => typeof src === "string" ? src.replace(/^coui:\/\/ui-mods\/SkiResortMod-img\//, "../build/SkiResortMod-img/")
+    .replace(/^assetdb:\/\/global\//, "/assetdb/") : src;
+  // Our own <img> tags (AssetIcon) carry assetdb://global/<id> too: serve.js streams the mirrored PNG. React does not set
+  // src through Element.prototype.setAttribute, so a MutationObserver rewrites it (in a microtask, before the load error fires).
+  const fixImg = (i) => { const s = i.getAttribute("src"); if (s && s.startsWith("assetdb:")) i.setAttribute("src", imgSrc(s)); };
+  new MutationObserver((ms) => {
+    for (const m of ms) {
+      if (m.type === "attributes") { if (m.target.tagName === "IMG") fixImg(m.target); continue; }
+      for (const n of m.addedNodes) if (n.nodeType === 1) { if (n.tagName === "IMG") fixImg(n); n.querySelectorAll("img").forEach(fixImg); }
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
+  // variant="icon" buttons draw their src like the game: a mask in the text color when tinted, else the image.
+  const iconOf = (props) => props.tinted
+    ? h("span", { className: "h-btn-icon", style: { maskImage: `url(${imgSrc(props.src)})`, WebkitMaskImage: `url(${imgSrc(props.src)})` } })
+    : h("img", { src: imgSrc(props.src), alt: "", className: "h-btn-icon" });
   const DROP = new Set(["focusKey", "debugName", "sounds", "selectAction", "selectSound", "disableHint", "hintAction", "actionContext", "theme", "selected", "onSelect", "as", "tooltipLabel", "tinted", "draggable", "initialPosition", "transition", "transitionSounds", "allowFocusExit", "hintClassName", "showCloseHint", "unfocusedHintAction", "footerHintAsTooltip", "backActionOverride", "contentClassName", "header", "footer", "onClose", "initialExpanded", "onToggleExpanded", "disableFocus", "expandFromContent", "tooltip", "delayTime", "forceVisible", "hideOnInteraction", "direction", "alignment", "balloonUiTarget", "anchorElRef"]);
   const rest = (props) => { const o = {}; for (const k in props) if (!DROP.has(k) && k !== "children" && k !== "className") o[k] = props[k]; return o; };
 
@@ -249,10 +263,10 @@
     const theme = props.theme || {};
     return h(Tag, Object.assign(rest(props), {
       // the game REPLACES the button theme when theme.button is set: no stand-in padding on themed buttons (tiles, chips)
-      className: cx(theme.button ? null : "h-btn", theme.button, props.selected && "h-selected", props.className),
+      className: cx(theme.button ? null : "h-btn", props.variant === "icon" && "h-iconbtn", theme.button, props.selected && "h-selected", props.className),
       onClick: (e) => { if (props.onSelect) props.onSelect(); if (props.onClick) props.onClick(e); },
       title: typeof props.tooltipLabel === "string" ? props.tooltipLabel : undefined,
-    }), props.children);
+    }), props.src && props.variant === "icon" ? iconOf(props) : props.children);
   }
   function FloatingButton(props) {
     return h("button", Object.assign(rest(props), {
@@ -341,7 +355,9 @@
       ".h-ddlabel{flex:1 1 0;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left}.h-ddindicator{margin-left:6rem;opacity:0.7}" +
       ".h-ddbarrier{position:fixed;left:0;top:0;right:0;bottom:0;z-index:9998}" +
       ".h-ddpopup{position:fixed;z-index:9999;background:rgba(20,26,38,0.98);border:1px solid rgba(255,255,255,0.15);border-radius:4rem;padding:4rem 0;color:var(--normalTextColor);box-shadow:0 6rem 18rem rgba(0,0,0,0.5)}" +
-      ".h-ddpopup .h-dditem{display:flex;padding:6rem 12rem}.h-ddpopup .h-dditem:hover{background:var(--hoverColorNormal)}";
+      ".h-ddpopup .h-dditem{display:flex;padding:6rem 12rem}.h-ddpopup .h-dditem:hover{background:var(--hoverColorNormal)}" +
+      ".h-btn.h-iconbtn{padding:4rem}" +
+      ".h-btn-icon{display:block;width:100%;height:100%;object-fit:contain;mask-size:contain;mask-position:center;mask-repeat:no-repeat;background-color:currentColor}";
     const el = document.createElement("style"); el.textContent = css; document.head.appendChild(el);
   })();
   window["cs2/ui"] = {

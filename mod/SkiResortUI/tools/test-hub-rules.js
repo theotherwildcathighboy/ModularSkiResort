@@ -863,6 +863,23 @@ function run(srcDir) {
     eq("T40.1 color literals and legacy variables below the token block", [end > 0, scss.includes(":global(.legacy-interface) .tipLines {"), literals, legacy], [true, true, [], []]);
   }
 
+  // T41 a count names what it counts (hub redesign 2026-11-07, DECISIONS 613): the band's "+3" read as an attraction delta and
+  // "3 more" still left "3 more what?". No player string may show a count placeholder (N, COUNT, MORE, NUM) signed ("+{N}")
+  // or end on "{N} more" without its noun; "Runs without a lift: {N}", "{N} more problems" and "{NAME} and {N} more" (the named
+  // item is the noun) are fine.
+  {
+    const COUNT = "\\{(?:N|COUNT|MORE|NUM)\\}";
+    const bare = (s) => new RegExp(`\\+${COUNT}|(?<!and )${COUNT} more$|^${COUNT}$`).test(s);
+    eq("T41.0 the bare-count rule catches the old forms and passes the new ones",
+      ["+{N}", "{N} more", "No parking: {NAME} +{N}", "{N}", "{N} more problems", "No parking: {NAME} and {N} more", "Runs without a lift: {N}", "+{FEE} per ha"].map(bare),
+      [true, true, true, true, false, false, false, false]);
+    const settings = fs.readFileSync(path.join(csDir, "Settings", "LocaleEN.cs"), "utf8");
+    const all = new Map(csTuples);
+    for (const m of settings.matchAll(/\{\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)"\s*\}/g)) all.set(m[1], m[2]);
+    eq("T41.1 no player string shows a bare count (LocaleEN.cs, Settings/LocaleEN.cs, hubText.ts)",
+      [...all, ...tuples].filter(([, v]) => bare(v)).map(([k, v]) => `${k} = ${v}`), []);
+  }
+
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;
   for (const f of hr.failures) failures.push(`test-history-rules ${f}`);
