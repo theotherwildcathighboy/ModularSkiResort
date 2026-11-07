@@ -1,9 +1,9 @@
 /*
  * src/hub/ViewTiles.tsx - the tiles: they are the navigation.
- * `div.tileRow` with one cs2/ui Button per HUB_VIEWS entry (selected = on); a click sets the local view$. A value change never changes a tile's size;
- * the Money tile's "≈" sits in a fixed trailing slot (a corner mark overlapped the last digit at 130-150 % text). The History tile shows a glyph,
+ * `div.tileRow` with one cs2/ui Button per HUB_VIEWS entry (selected = on). A click sets the local view$. A value change never changes a tile's size.
+ * The Money tile's "≈" sits in a fixed trailing slot (a corner mark overlapped the last digit at 130-150 % text). The History tile shows a glyph,
  * never a number: it must not subscribe `history`, which only the History view observes. Not linked: Runs and Lifts show totals.
- * Panel file (hub gate): subscribes resorts$, selectedResort$, resortLive$, city$ (the month's name in the Guests tooltip); local view$.
+ * Panel file (hub gate). It subscribes resorts$, selectedResort$, resortLive$ and city$ (the month's name in the Guests tooltip), and the local view$.
  */
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
@@ -34,7 +34,7 @@ const CAPTION: Readonly<Record<HubView, LocEntry>> = {
 };
 
 /** The History tile's value: our own flat glyph (the game's CityStatistics.svg is isometric and reads as a blob when masked flat
- *  at tile size), drawn as a mask in the tile's text color; webpack asset/resource, like SkiLauncherGlyph.svg. */
+ *  at tile size). It is drawn as a mask in the tile's text color. It is a webpack asset/resource, like SkiLauncherGlyph.svg. */
 const HISTORY_GLYPH: string = historyGlyph;
 
 const DASH = <span>{"–"}</span>;
@@ -92,7 +92,7 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
         l && l.efficiencyPct >= 0 && <LocText key="s" entry={HUB_FMT.tileTipStaffing} args={{ PCT: numArg(l.efficiencyPct, Unit.Percentage) }} />,
         l && l.attractionFull >= 0 && <LocText key="f" entry={HUB_FMT.tileTipFull} args={{ N: numArg(l.attractionFull, Unit.Integer) }} />,
         l && l.attractionHeld && t(HUB_LOC.tileTipHeld)]} />;
-    // The Not linked tiles show totals (row.runs, row.liftRows), so their second line is UNLINKED_NOTE, not the
+    // The Not linked tiles show totals (row.runs, row.liftRows). So their second line is UNLINKED_NOTE, not the
     // "fully open" / "counted of complete" meaning of a sign's tile.
     case "runs":
       return <TipLines lines={[unlinked ? t(HUB_LOC.unlinkedNote) : t(HUB_LOC.tileTipRuns),
@@ -114,7 +114,7 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
     case "history":
       return <TipLines lines={[t(HUB_LOC.tileTipHistory)]} />;
     default:
-      // The tile is the Finances view's Net, this month so far; "≈" only while a term is unknown (netEstimated).
+      // The tile is the Finances view's Net, this month so far. It shows "≈" only while a term is unknown (netEstimated).
       return <TipLines lines={[t(HUB_LOC.tileTipMoney), l && l.thisMonthSinceLoad && t(HUB_LOC.tileTipSinceLoad),
         l && l.netEstimated && buildingsAndWages(l) >= 0 && t(HUB_LOC.tileTipEst),
         l && buildingsAndWages(l) < 0 && t(HUB_LOC.tileTipEstBuildings)]} />;
@@ -148,8 +148,9 @@ export function ViewTiles({ tilesRef }: { tilesRef: RefObject<HTMLDivElement> })
               <div className={styles.tileValue}>{row ? tileValue(v, row, l, unlinked) : DASH}</div>
               {v === "money" ? (
                 // The Money tile's "≈" sits in a fixed trailing slot of the caption (always reserved), because the absolute corner
-                // mark overlapped the last digit at 130-150 % text. A fixed-width flex item in a flex row, not an inline-block
-                // span: that is unproven in Gameface and would collapse when empty, shifting the caption when "≈" toggles.
+                // mark overlapped the last digit at 130-150 % text. The slot is a fixed-width flex item in a flex row. It is not an
+                // inline-block span, which is unproven in Gameface and would collapse when empty. That would shift the caption when
+                // "≈" toggles.
                 <div className={styles.tileCaptionRow}>
                   <div className={styles.tileCaption}>{t(captionOf(v, unlinked))}</div>
                   <div className={styles.tileCaptionMark}>{mark}</div>

@@ -1,9 +1,9 @@
 /*
  * Display helpers for the `build` binding and the run kinds.
- * BUILD_ITEMS mirrors the C# table (mod/SkiResortMod/Systems/SkiCatalog.cs, BUILD-ITEMS block) row by row; gate rule R16 fails
- * any difference, a missing icon, or a group that does not hold every id once: keep BUILD_ITEMS, BUILD_GROUPS and BUILD_ITEM_ICON
- * literal. C# owns what each id launches and which ids it sends; this file only maps an id to icon, group, strip position and
- * badge. An id this bundle does not know is ignored; a known id C# did not send is not drawn.
+ * BUILD_ITEMS mirrors the C# table (mod/SkiResortMod/Systems/SkiCatalog.cs, BUILD-ITEMS block) row by row. Gate rule R16 fails
+ * any difference, a missing icon, or a group that does not hold every id once. So keep BUILD_ITEMS, BUILD_GROUPS and
+ * BUILD_ITEM_ICON literal. C# owns what each id launches and which ids it sends. This file only maps an id to icon, group,
+ * strip position and badge. This bundle ignores an id it does not know. It does not draw a known id that C# did not send.
  * Icons are the prefabs' own UIObject icons (assetdb://global/<id>, gamedata-mirror/ImportedData/<Prefab>/<Prefab>.Prefab "m_Icon").
  */
 import { BUILD_ITEM_IDS, RUN_KIND } from "../bindings";
@@ -56,14 +56,14 @@ export const BUILD_ITEMS: readonly BuildItemMeta[] = [
 
 const ICON_SIGN = "assetdb://global/b0f0f5932ab14cacca5ab8afef91f6dc"; // SkiResortGate.Prefab:48
 const ICON_LODGE = "assetdb://global/68de897b1138f9c779cff55258956cde"; // SkiAFrameDayLodge.Prefab:86
-const ICON_LINE = "assetdb://global/890dda430068b39807412dc4ce0e9af8"; // SkiChairliftHV.Prefab:202 (SkiChairliftLine.png; style E)
+const ICON_LINE = "assetdb://global/890dda430068b39807412dc4ce0e9af8"; // SkiChairliftHV.Prefab:202 (SkiChairliftLine.png, style E)
 const ICON_BASE = "assetdb://global/c019a1e22083fd0285b4b6cf21f98f3c"; // SkiBaseStationBuilding.Prefab:50
 const ICON_TOP = "assetdb://global/3eb0d7b98fc9ee162816d9bb77056956"; // SkiTopStationBuilding.Prefab:44
 
 export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   sign: ICON_SIGN,
   lodge: ICON_LODGE,
-  // SkiResortIcons/<file>.png.cid (gamedata-mirror/ImportedData/SkiResortIcons/); each prefab's m_Icon carries the same id
+  // SkiResortIcons/<file>.png.cid (gamedata-mirror/ImportedData/SkiResortIcons/). Each prefab's m_Icon carries the same id
   lodgeHut: "assetdb://global/a5cbeffe37ecc4a08dba75e5f41721a8", // SkiLodgeHut.png
   lodgeMid: "assetdb://global/d3df64753c68a935d57aff51fc52815b", // SkiLodgeMid.png
   lodgeSummit: "assetdb://global/1d6966e5716f604d124d7da9130493cd", // SkiLodgeSummit.png
@@ -93,7 +93,7 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
 };
 
 /** Four groups in build order (gate R16 checks every id appears exactly once). Group 1's lodge tiers and group 3's
- *  lift types are alternatives (hubRules.pickerSets): only the selected one is drawn. */
+ *  lift types are alternatives (hubRules.pickerSets): the hub draws only the selected one. */
 export const BUILD_GROUPS: ReadonlyArray<readonly BuildItemId[]> = [
   ["sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand", "busDepot"],
   ["school", "patrolHut", "patrolHQ"],
@@ -124,7 +124,7 @@ export const BUILD_STEP: Readonly<Partial<Record<BuildItemId, string>>> = {
 };
 
 /** The luxury lodge tiers: C# SkiCatalog.Lodges rows with Luxury true (summit, grand). Display only (the tile tooltip's
- *  BUILD_TIP_LUXURY line, the price tolerance): no rule hangs on it, and there is no limit on lodges of any tier.
+ *  BUILD_TIP_LUXURY line, the price tolerance). No rule hangs on it, and there is no limit on lodges of any tier.
  *  Keep in step with SkiCatalog.cs by hand. */
 export const LUXURY_LODGES: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["lodgeSummit", "lodgeGrand"]);
 
@@ -136,24 +136,24 @@ export const ROAD_OPTIONAL_LODGES: ReadonlySet<BuildItemId> = new Set<BuildItemI
 export interface BuildingDraw {
   /** The prefab (gamedata-mirror/ImportedData/<prefab>/<prefab>.Prefab), for the gate. */
   prefab: string;
-  /** ServiceConsumption.m_Upkeep, money per month at a 100 % budget; 0 = not billed (a station has no CityServiceBuilding, so the game
-   *  never bills it: CityServiceBuilding.cs:23 adds ServiceUpkeepData only there, BuildingInitializeSystem.cs:1166-1191; the lift's
-   *  running cost covers it). */
+  /** ServiceConsumption.m_Upkeep, money per month at a 100 % budget. 0 = not billed. A station has no CityServiceBuilding, so the
+   *  game never bills it (CityServiceBuilding.cs:23 adds ServiceUpkeepData only there, BuildingInitializeSystem.cs:1166-1191).
+   *  The lift's running cost covers it. */
   upkeep: number;
   /** ServiceConsumption.m_ElectricityConsumption / m_WaterConsumption / m_GarbageAccumulation, the asset panel's units (Power,
-   *  VolumePerMonth, WeightPerMonth; PrefabUISystem.cs:552-559 writes them CeilToInt). */
+   *  VolumePerMonth, WeightPerMonth). PrefabUISystem.cs:552-559 writes them CeilToInt. */
   power: number;
   water: number;
   garbage: number;
   /** Jobs: Workplace.m_Workplaces, or for a roadless building SkiCatalog's SignJobs, which the area's carrier holds (a road lodge, else the sign). */
   workers: number;
   /** BuildingTerraformOverride m_DontRaise AND m_DontLower: the lot keeps the terrain (LotHeightSystem.cs:253 levels it unless both
-   *  are set); false = the lot is leveled (no override block, or not both flags). */
+   *  are set). false = the lot is leveled (no override block, or not both flags). */
   keepsSlope: boolean;
 }
 
 /** One row per building tile, from the prefabs (gate: tools/test-hub-rules.js T22 reads every prefab and SkiCatalog's SignJobs
- *  and fails on a difference). A value 0 draws no row (as vanilla's asset panel). Lines and runs are not buildings: no row. */
+ *  and fails on a difference). A value 0 draws no row (as vanilla's asset panel). Lines and runs are not buildings and have no row. */
 export const BUILDING_DRAW: Readonly<Partial<Record<BuildItemId, BuildingDraw>>> = {
   sign: { prefab: "SkiResortGate", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: false },
   lodge: { prefab: "SkiAFrameDayLodge", upkeep: 3000, power: 1500, water: 1000, garbage: 80, workers: 4, keepsSlope: false },
@@ -218,8 +218,8 @@ export interface OrderedBuildItem {
   item: BuildItem;
 }
 
-/** The groups with the items C# sent, in build order; unknown ids dropped, duplicates keep the
- *  first; a group with no item is dropped. The picker filter (hubRules.visibleIds) applies after this. */
+/** The groups with the items C# sent, in build order. The function drops unknown ids, keeps the first of duplicate ids, and
+ *  drops a group with no item. The picker filter (hubRules.visibleIds) applies after this. */
 export function groupBuildItems(items: readonly BuildItem[] | null | undefined): OrderedBuildItem[][] {
   const out: OrderedBuildItem[][] = [];
   for (const group of BUILD_GROUPS) {

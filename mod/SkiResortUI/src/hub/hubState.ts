@@ -1,10 +1,11 @@
 /*
  * src/hub/hubState.ts - hub open state and the C# connection state, shared by the launchers, HubRoot and the panel.
- * C# owns "is the hub open" (binding hubOpen). While its bindings are absent (contract$ == CONTRACT_ABSENT) a click must still visibly do
- * something (silence must be impossible): launchers toggle a LOCAL open flag and the panel shows "not connected"; HubRoot relays "connected"
- * through a local value (linkLocal$) because the launchers live in other React trees. Panel view state is module-level bindLocalValue
- * values that outlive the panel; cs2/ui PanelFoldout is uncontrolled (index.js@726855, @730976), so foldouts read them once as initialExpanded.
- * sendHoverRun sends only on a change; resetHoverRun (panel mount) forgets without sending, since C# resets its hover at every load.
+ * C# owns "is the hub open" (binding hubOpen). While its bindings are absent (contract$ == CONTRACT_ABSENT), a click must still visibly do
+ * something (silence must be impossible). So the launchers toggle a LOCAL open flag, and the panel shows "not connected".
+ * HubRoot relays "connected" through a local value (linkLocal$), because the launchers live in other React trees.
+ * Panel view state is module-level bindLocalValue values that outlive the panel. cs2/ui PanelFoldout is uncontrolled
+ * (index.js@726855, @730976), so foldouts read these values once, as initialExpanded.
+ * sendHoverRun sends only on a change. resetHoverRun (panel mount) forgets the last value without sending, because C# resets its hover at every load.
  */
 import { useEffect } from "react";
 import { reportUiError } from "./report";
@@ -21,40 +22,40 @@ export type HubView = "overview" | "runs" | "lifts" | "guests" | "money" | "hist
 
 export const HUB_VIEWS: readonly HubView[] = ["overview", "runs", "lifts", "guests", "money", "history"];
 
-/** The selected view: "overview" at UI load; survives closing the hub; a UI reload resets it */
+/** The selected view. It is "overview" at UI load. It survives closing the hub. A UI reload resets it */
 export const view$ = bindLocalValue<HubView>("overview");
 
-/** The Trees foldout of the contract-mismatch panel only: expanded by default, remembered */
+/** The Trees foldout of the contract-mismatch panel only. It is expanded by default and remembered */
 export const treesOpen$ = bindLocalValue<boolean>(true);
 
-/** The active tool key (hubRules.activeToolKey) the tab follow last saw. Reset when the panel unmounts, so the next open with a tool
+/** The active tool key (hubRules.activeToolKey) the tab follow last saw. It resets when the panel unmounts. Then the next open with a tool
  *  active (started while the hub was closed, or kept open meanwhile) selects its view once. */
 export const runToolSeen = { value: "" };
 
 /** The Build strip's tab ("lifts" | "runs" | "buildings", hubRules.BuildTab) the player last used. "" = none yet: the strip
- *  then opens on the tab the idle NEXT line points at. Survives closing the hub, a UI reload resets it. */
+ *  then opens on the tab that the idle NEXT line points at. It survives closing the hub. A UI reload resets it. */
 export const buildTab$ = bindLocalValue<string>("");
 
-/** The Build strip is open (the player clicked a tab; hubRules.footerOpen). Closed by default and again when a tool the strip started
- *  ends, like the game's toolbar (DECISIONS 613). Survives closing the hub, a UI reload resets it. */
+/** The Build strip is open (the player clicked a tab, hubRules.footerOpen). It is closed by default, and closes again when a tool that the
+ *  strip started ends, like the game's toolbar (DECISIONS 613). It survives closing the hub. A UI reload resets it. */
 export const buildOpen$ = bindLocalValue<boolean>(false);
 
 /** The Buildings tab's family (hubRules.BuildingFamily): the sign and lodges, or the services. */
 export const buildFamily$ = bindLocalValue<string>("lodges");
 
-/** The footer's shape ("open|tab|family", set by BuildStrip): the view pager re-fits at once when it changes (a tab, a family, the strip
- *  opening or closing), not on its next poll. */
+/** The footer's shape ("open|tab|family", set by BuildStrip). When it changes (a tab, a family, the strip opening or closing),
+ *  the view pager re-fits at once, not on its next poll. */
 export const footerShape$ = bindLocalValue<string>("");
 
-/** The History view's controls (local values, nothing sent; they survive closing the hub, a UI reload resets them). Scope
- *  "area" = the shown ski area, "city" = every live area summed; range: historyRules.HistoryRange. Both charts and the
+/** The History view's controls (local values, nothing sent). They survive closing the hub. A UI reload resets them. Scope
+ *  "area" = the shown ski area, "city" = every live area summed. Range: historyRules.HistoryRange. Both charts and the
  *  attraction strip always draw (hub redesign 2026-11-07). */
 export const historyScope$ = bindLocalValue<"area" | "city">("area");
 export const historyRange$ = bindLocalValue<string>("months12");
 
 /** "Never a scrollbar" local values (nothing sent to C#):
- *  - folds$: per view, the one open fold (parts.tsx Fold; accordion: opening one closes the other). A view absent from the
- *    map shows FOLD_DEFAULT (all closed); "" = closed by the player. Survives closing the hub; a UI reload resets it.
+ *  - folds$: per view, the one open fold (parts.tsx Fold). It works as an accordion: opening one fold closes the other. A view
+ *    absent from the map shows FOLD_DEFAULT (all closed). "" = closed by the player. It survives closing the hub. A UI reload resets it.
  *  - areaListOpen$: the header's ski-area list (HubHeader AreaList, drawn over the top of the content, not in a portal).
  *  - problemsOpen$: the problems band's +N popover (StatusBlock). Both close when the panel mounts and on an area switch. */
 export const folds$ = bindLocalValue<Readonly<Record<string, string>>>({});
@@ -105,11 +106,11 @@ const localOpen$ = bindLocalValue<boolean>(false);
 const linkLocal$ = bindLocalValue<boolean>(false);
 
 /**
- * HubRoot only: true once C# has registered the hub bindings (any contract number, matching or not). Subscribes
- * contract$ and relays the result to useHubConnected(); resets it on unmount. C# pushes CONTRACT_ABSENT after its one-shot
- * exception and the contract again at the next load, so "connected" can go true -> false -> true within one mount: on
- * reconnecting, the local open flag (used only while absent) is cleared, so a "not connected" notice left open does not
- * pop up again at the next disconnect.
+ * HubRoot only. It returns true once C# registers the hub bindings (any contract number, matching or not). It subscribes
+ * contract$ and relays the result to useHubConnected(). It resets the relayed value on unmount. C# pushes CONTRACT_ABSENT after its
+ * one-shot exception, and pushes the contract again at the next load. So "connected" can go true -> false -> true within one mount.
+ * On reconnecting, the hook clears the local open flag (used only while absent). Then a "not connected" notice that stayed open
+ * does not pop up again at the next disconnect.
  */
 export function useHubConnectedRoot(): boolean {
   const connected = useValue(contract$) !== CONTRACT_ABSENT;
@@ -140,7 +141,7 @@ export function setRootMounted(mounted: boolean): void {
   rootMounted = mounted;
 }
 
-/** Launcher click. Without a mounted HubRoot nothing can open, so the click is reported; toggleHub still fires. */
+/** Launcher click. Without a mounted HubRoot nothing can open, so the click is reported. toggleHub still fires. */
 export function toggleHub(connected: boolean): void {
   if (!rootMounted) {
     reportUiError("launcher", "the hub root (the Game hook's HubRoot) is not mounted, so the panel cannot open",

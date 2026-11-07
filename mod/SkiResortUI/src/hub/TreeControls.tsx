@@ -1,10 +1,12 @@
 /*
- * src/hub/TreeControls.tsx - the glade (tree) tool's controls: rows at the top of the Runs view while the tool is on (TreeRows toggle={false}:
- * the footer's Tree chip is the on/off there, hub redesign 2026-11-07), and the same rows with their own on/off in a foldout on the
- * contract-mismatch panel (TreesFoldout). Row A: on/off Button (disabled unless available or active, so an active tool can always
- * be stopped) and the density stepper (clamps 1..8, no wrap; the Shift+G hotkey wraps 8 -> 1). Row B [Run interior | Tree line]: each Button in its
- * own Tip, because one Tip around two focusable Buttons puts two children under one vanilla Tooltip FocusBoundary (a PassThroughFocusController hosts
- * one child: "can only host a single child" on every toggle). Reads only the core `glade` binding. Content area: default focus for every Button.
+ * src/hub/TreeControls.tsx - the glade (tree) tool's controls. The rows sit at the top of the Runs view while the tool is on.
+ * There, the footer's Tree chip is the on/off (TreeRows toggle={false}, hub redesign 2026-11-07).
+ * The same rows, with their own on/off, sit in a foldout on the contract-mismatch panel (TreesFoldout).
+ * Row A: an on/off Button and the density stepper. The Button is disabled unless available or active, so an active tool can always
+ * be stopped. The stepper clamps 1..8 with no wrap. The Shift+G hotkey wraps 8 -> 1.
+ * Row B [Run interior | Tree line]: each Button sits in its own Tip. One Tip around two focusable Buttons puts two children under
+ * one vanilla Tooltip FocusBoundary. A PassThroughFocusController hosts one child ("can only host a single child" on every toggle).
+ * It reads only the core `glade` binding. Content area: default focus for every Button.
  */
 import { useState } from "react";
 import { useValue } from "cs2/api";

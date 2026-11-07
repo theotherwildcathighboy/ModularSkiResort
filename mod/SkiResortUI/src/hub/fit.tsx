@@ -1,10 +1,12 @@
 /*
  * src/hub/fit.tsx - "never a scrollbar": the fold rows and the view pager.
- * The panel keeps a fixed height (HubPanel .panelFixed); its content must fit at UI text scale 1.0 and 1.25 (harness/layout-check.js,
- * tools/test-hub-layout.js). Fold: a section header row with a chevron; one fold per view is open at a time (accordion), so a view's
- * height is its closed height plus its tallest fold; rows render flat so useViewPager can page them when a view is still taller than
- * the box. FitContext carries the panel body's ref (without it nothing is measured). The fold and pager buttons pass
- * focusKey={FOCUS_DISABLED} like every hub control (rule R15): the hub is mouse-only and never takes the game's key focus.
+ * The panel keeps a fixed height (HubPanel .panelFixed). Its content must fit at UI text scale 1.0 and 1.25 (harness/layout-check.js,
+ * tools/test-hub-layout.js).
+ * Fold: a section header row with a chevron. One fold per view is open at a time (accordion), so a view's height is its closed
+ * height plus its tallest fold. Rows render flat, so useViewPager can page them when a view is still taller than the box.
+ * FitContext carries the panel body's ref. Without it nothing is measured.
+ * The fold and pager buttons pass focusKey={FOCUS_DISABLED} like every hub control (rule R15). The hub is mouse-only and never
+ * takes the game's key focus.
  */
 import { createContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
@@ -24,7 +26,7 @@ export const GLYPH_FOLD_OPEN = "Media/Glyphs/ThickStrokeArrowDown.svg";
 /** The panel body (HubPanel's `.body`): what the pager measures against */
 export const FitContext = createContext<RefObject<HTMLDivElement> | null>(null);
 
-/** A fold: a header row (label, optional value) with a chevron; its children only while it is the view's open fold */
+/** A fold: a header row (label, optional value) with a chevron. Its children render only while it is the view's open fold */
 export function Fold({ view, id, label, value, mark, tip, header, children }: {
   view: string;
   id: string;
@@ -107,24 +109,28 @@ const VIEW_PAGER_POLL_MS = 400;
 const FOLD_FOCUS_MS = 1000;
 
 /**
- * Pages the view slot's top-level rows (its DOM children: our views render fragments, so every InfoLine, fold header, fold
- * row, bar and chart block is one child) when the body is taller than the content box. Rows of other pages are hidden with
- * style.display = "none" (React never writes `style` on these row roots, so it stays); a pass writes a row's display only when
- * it changes, so a steady page writes nothing. A fold header is never the last row of a page (it moves to the next). `enabled`
- * false (the Runs / Lifts views) unhides everything. `resetKey` (view + open fold) returns to page 1, except that a fold toggle
- * (`foldSeq` changed) shows the page holding that fold's header (`openRowClass`) for FOLD_FOCUS_MS or until the player pages:
- * opening a fold whose rows push it past page 1 must not hide the header the player just clicked. `geometryKey` (what changes
- * the box, the Buildings tab's taller footer) drops the measured room and also keeps an open fold's page in view.
+ * Pages the view slot's top-level rows when the body is taller than the content box. The rows are the slot's DOM children: our
+ * views render fragments, so every InfoLine, fold header, fold row, bar and chart block is one child.
+ * The pager hides rows of other pages with style.display = "none". React never writes `style` on these row roots, so the value
+ * stays. A pass writes a row's display only when it changes, so a steady page writes nothing.
+ * A fold header is never the last row of a page. It moves to the next page.
+ * When `enabled` is false (the Runs / Lifts views), the pager unhides everything.
+ * A change of `resetKey` (view + open fold) returns to page 1. One exception: a fold toggle (`foldSeq` changed) shows the page
+ * that holds that fold's header (`openRowClass`) for FOLD_FOCUS_MS or until the player pages. Reason: opening a fold whose rows
+ * push it past page 1 must not hide the header the player just clicked.
+ * A change of `geometryKey` (what changes the box, the Buildings tab's taller footer) drops the measured room. It also keeps an
+ * open fold's page in view.
  *
  * Gameface does not reflow on a read: getBoundingClientRect / clientHeight return the last DRAWN frame. Measured in game
- * 2026-11-07: a div inserted from a plain task reads 0 in the next animation frame callback and its real height only in the one
- * after; a display write made inside a frame callback shows in the next one. So any DOM change (our display writes, a render, a
- * leaf adding or removing rows) marks the geometry stale until two animation frames have passed, and only a pass on fresh
- * geometry measures: row heights (kept per row, so hidden rows keep the height they had when drawn) and the room. A stale pass
- * still pages with the cached heights and room, so a page switch hides the old page at once. Measuring stale frames was field
- * bug r611 (the Attraction view with the Merged buildings fold open on the Buildings tab, about 21 px over): polls read
- * "fits", dropped the pager, showed all rows, read "overflows" and paged again (the view and the pager flickered), and a
- * fold opened onto a page that was not shown (the fold vanished until a view switch).
+ * 2026-11-07: a div inserted from a plain task reads 0 in the next animation frame callback. Its real height shows only in the
+ * callback after that. A display write made inside a frame callback shows in the next one.
+ * So any DOM change (our display writes, a render, a leaf that adds or removes rows) marks the geometry stale until two animation
+ * frames pass. Only a pass on fresh geometry measures the row heights and the room. The pager keeps the heights per row, so hidden
+ * rows keep the height they had when drawn.
+ * A stale pass still pages with the cached heights and room, so a page switch hides the old page at once.
+ * Measuring stale frames was field bug r611 (the Attraction view with the Merged buildings fold open on the Buildings tab, about
+ * 21 px over). Polls read "fits", dropped the pager and showed all rows. Then they read "overflows" and paged again, so the view
+ * and the pager flickered. Also, a fold opened onto a page that was not shown, and the fold vanished until a view switch.
  */
 export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject<HTMLElement>, enabled: boolean, resetKey: string,
   foldRowClass: string, geometryKey = "", openRowClass = "", foldSeq = 0): FitPage {
@@ -135,7 +141,7 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
     keyRef.current = resetKey;
     if (page !== 0) setPage(0);
   }
-  // A fold toggle within the view: show the toggled fold's page until FOLD_FOCUS_MS passed or the player pages
+  // A fold toggle within the view: show the toggled fold's page until FOLD_FOCUS_MS passes or the player pages
   const focusUntil = useRef(0);
   const lastOpenRow = useRef<HTMLElement | null>(null);
   const foldSeqRef = useRef(foldSeq);
@@ -155,7 +161,7 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
     roomRef.current = null;
     focusUntil.current = Date.now() + FOLD_FOCUS_MS;
   }
-  // Fresh = no DOM change since two animation frames ago (see the note above); every change re-arms the wait
+  // Fresh = no DOM change since two animation frames ago (see the note above). Every change re-arms the wait
   const fresh = useRef(false);
   const staleSeq = useRef(0);
   const layoutRef = useRef<() => void>(() => undefined);
@@ -213,13 +219,13 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
         roomRef.current = room;
       }
       if (room === null) {
-        // No room measured yet (or the footer changed): show every row; the fresh pass after it is drawn measures
+        // No room measured yet (or the footer changed): show every row. The fresh pass after it is drawn measures
         for (const r of rows) setDisplay(r, "");
         if (state.current.pages !== 1) setPages(1);
         finish();
         return;
       }
-      // Rows never drawn on a fresh frame (just added) count 0 until one is; the fresh pass two frames on corrects the split
+      // Rows never drawn on a fresh frame (just added) count 0 until one is. The fresh pass two frames on corrects the split
       const heights = rows.map((r) => heightOf.current.get(r) ?? 0);
       const pageOf: number[] = [];
       let p = 0, acc = 0, start = 0;
@@ -254,7 +260,7 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
     markStale();
     layout();
   });
-  // Rows a leaf adds or removes without re-rendering the panel (a data push): the same; the poll is the safety net
+  // Rows a leaf adds or removes without re-rendering the panel (a data push) get the same treatment. The poll is the safety net
   useEffect(() => {
     let ob: MutationObserver | null = null;
     let id = 0;

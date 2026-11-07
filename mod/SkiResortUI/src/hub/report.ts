@@ -1,7 +1,7 @@
 /*
- * Reports UI failures to the browser console and to C# (uiError trigger), once per distinct message per page load,
- * capped at MAX_REPORTED so an error loop cannot flood the mod log. Never throws.
- * Registrar failures can happen at boot before any C# listener exists: they are queued and flushed by HubRoot on mount.
+ * Reports UI failures to the browser console and to C# (uiError trigger). It reports each distinct message once per page load.
+ * It stops at MAX_REPORTED reports, so an error loop cannot flood the mod log. It never throws.
+ * Registrar failures can happen at boot, before any C# listener exists. The code queues them, and HubRoot flushes the queue on mount.
  */
 import { hubTriggers } from "../bindings";
 

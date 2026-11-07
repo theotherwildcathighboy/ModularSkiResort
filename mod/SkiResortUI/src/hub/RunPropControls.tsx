@@ -1,11 +1,15 @@
 /*
- * src/hub/RunPropControls.tsx - the Runs view's feature rows for the focused run (run types R3, DECISIONS 578): Groomed (on / off, a re-emit),
- * then how far apart its snow guns and floodlights stand. Each spacing row is caption, Fewer, value, More (DECISIONS 601: the old -50 / -10 /
- * +10 / +50 read backwards, since a smaller spacing means more guns and the low end was Off). The run is the focused row of the list; the rows draw only while a run is picked (hub redesign 2026-11-07: one context area, nothing when idle), and a cat track's trash sits on its name line. The values
- * are C#'s (RunRow.gunSpacingM / lightSpacingM: 0 = off, -1 = it carries none, a natural run): a click sends the next value and C# answers by
- * pushing the row. The sliders are the Snowmaking and Lights features (DECISIONS 577): Off = no guns, no made snow, no bill. Each tip says
+ * src/hub/RunPropControls.tsx - the Runs view's feature rows for the focused run (run types R3, DECISIONS 578).
+ * The rows are Groomed (on / off, a re-emit), then how far apart its snow guns and floodlights stand.
+ * Each spacing row is caption, Fewer, value, More (DECISIONS 601: the old -50 / -10 / +10 / +50 read backwards. A smaller
+ * spacing means more guns, and the low end was Off).
+ * The run is the focused row of the list. The rows draw only while a run is picked (hub redesign 2026-11-07: one context area,
+ * nothing when idle). A cat track's trash sits on its name line.
+ * The values are C#'s (RunRow.gunSpacingM / lightSpacingM: 0 = off, -1 = it carries none, a natural run).
+ * A click sends the next value, and C# answers by pushing the row.
+ * The sliders are the Snowmaking and Lights features (DECISIONS 577): Off = no guns, no made snow, no bill. Each tip says
  * whether turning the feature on pays its one-time step or is free again (RunRow.paidSteps). A cat track has no Groomed row.
- * Panel file: no subscription of its own; RunsView passes the row.
+ * Panel file: no subscription of its own. RunsView passes the row.
  */
 import { useState } from "react";
 import { Unit } from "cs2/l10n";
@@ -81,8 +85,8 @@ function GroomedRow({ row }: { row: RunRow | undefined }): JSX.Element {
   );
 }
 
-/* The paid-once note of a feature: free again once its step is paid, else its first time on pays a step. A cat track pays its fee once at bind
- * and nothing per feature (SkiRunFees), so its sliders say nothing about fees. */
+/* The paid-once note of a feature. The feature is free again once its step is paid. Otherwise its first time on pays a step.
+ * A cat track pays its fee once at bind and nothing per feature (SkiRunFees), so its sliders say nothing about fees. */
 function paidNote(t: ReturnType<typeof useT>, row: RunRow, bit: number): string {
   return (row.paidSteps & bit) !== 0 ? t(HUB_LOC.runPropsPaid) : t(HUB_LOC.runPropsUnpaid);
 }

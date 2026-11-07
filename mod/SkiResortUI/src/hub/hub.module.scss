@@ -1,21 +1,27 @@
 // src/hub/hub.module.scss - styles of the hub panel and its parts. Written for this repo (MIT).
 //
-// Gameface 2.2.1 rules (tools/check-bundle.js enforces most on the compiled CSS): flex only (no grid), no :not(), no space-evenly, no auto
-// margins, no flex gap; LONGHAND properties whenever a value uses var(); a class named "blind" declares height: 0 and visibility: hidden.
-// A VALUE CHANGE NEVER CHANGES LAYOUT: fixed heights in em / rem, every number in a fixed slot, every sentence ONE text node with nowrap +
-// ellipsis and its full text in a tooltip. Colors come from the token block below (one place for every literal).
+// Gameface 2.2.1 rules (tools/check-bundle.js enforces most on the compiled CSS):
+// - flex only (no grid), no :not(), no space-evenly, no auto margins, no flex gap.
+// - LONGHAND properties whenever a value uses var().
+// - A class named "blind" declares height: 0 and visibility: hidden.
+// A VALUE CHANGE NEVER CHANGES LAYOUT:
+// - fixed heights in em / rem
+// - every number in a fixed slot
+// - every sentence ONE text node with nowrap + ellipsis and its full text in a tooltip
+// Colors come from the token block below (one place for every literal).
 // Engine notes: EngineNotes/hub.module.scss.md
 
-// ---- design language: the hub's tokens (hub redesign 2026-11-07; docs: vanilla-design-language.md section 5) ----------------
-// Vanilla variables first (--normalTextColor, --textColorDisabled, --dividerColor, --selectedColor, --hoverColorNormal, ...). The own
-// tokens below are the ONLY place a color literal may stand (gate T41 in tools/test-hub-rules.js; rgba(0, 0, 0, 0) excepted):
+// ---- design language: the hub's tokens (hub redesign 2026-11-07, docs: vanilla-design-language.md section 5) ----------------
+// Vanilla variables first (--normalTextColor, --textColorDisabled, --dividerColor, --selectedColor, --hoverColorNormal, ...).
+// The own tokens below are the ONLY place a color literal may stand (gate T41 in tools/test-hub-rules.js). rgba(0, 0, 0, 0) is the
+// exception.
 // - --hubTextDim: the one secondary text level (vanilla's --textColorDim* are white in :root, so they cannot be used).
-// - --hubGood / --hubBad / --hubCaution: the game's modern highlight colors, its legacy ones under .legacy-interface (the game's own
-//   per-component pattern, index.css ".legacy-interface .normal_..."). Never --warningColor & co. directly.
-// - data palettes: trail rating (--hubDiff*), run kinds (--hubKind*), the merge overlay's legend; one definition each.
+// - --hubGood / --hubBad / --hubCaution: the game's modern highlight colors. Under .legacy-interface they take the legacy colors
+//   (the game's own per-component pattern, index.css ".legacy-interface .normal_..."). Never use --warningColor & co. directly.
+// - data palettes: trail rating (--hubDiff*), run kinds (--hubKind*), the merge overlay's legend. Each has one definition.
 // - surfaces: track, edge, shade, backdrop, shadow, card, focus hover, open-fold tint.
-// Declared on the hub's three roots (the panel, the Ski Bus / merge cards, the tooltip body): our CSS shares one document with
-// the game and every mod, so nothing of ours may sit on :root (check-bundle scoping rule).
+// The hub declares them on its three roots (the panel, the Ski Bus / merge cards, the tooltip body). Our CSS shares one document
+// with the game and every mod, so nothing of ours may sit on :root (check-bundle scoping rule).
 .panel,
 .busCard,
 .tipLines {
@@ -63,18 +69,18 @@
 // ---- panel frame ---------------------------------------------------------------------------
 
 // Width: vanilla selected-info formula with 440 instead of 400, + 300rem * --fontScaleChange
-// (U1 fixer round, tsx-ux-1; unchanged in U2, spec 4.1).
+// (U1 fixer round, tsx-ux-1, unchanged in U2, spec 4.1).
 .panel {
   width: calc(440rem * (0.33333 + var(--fontScale) / 1.5) + 300rem * var(--fontScaleChange));
   max-width: 800rem;
   max-height: 78vh;
 }
 
-// J6 (spec 4.1): a FIXED height while there is something to list, so DraggablePanel's
+// J6 (spec 4.1): a FIXED height while there is something to list. This way DraggablePanel's
 // top = y * (viewport - height) (index.js@720659) does not move the header, X and footer whenever
 // the content changes. Declared after .panel: its max-height wins.
-// T114 (2026-10-20): 72vh / 780 rem -> 78vh / 845 rem, so an open fold of the Attraction / Finances views fits one page at text
-// scale 1.0 (it was 48 rem short); taller content pages (fit.tsx), never scrolls.
+// T114 (2026-10-20): 72vh / 780 rem -> 78vh / 845 rem. This way an open fold of the Attraction / Finances views fits one page at
+// text scale 1.0 (it was 48 rem short). Taller content pages (fit.tsx) and never scrolls.
 .panelFixed {
   height: 78vh;
   max-height: 845rem;
@@ -89,7 +95,7 @@
   min-height: 0rem;
 }
 
-// J8: no 16rem scrollbar gutter that appears with overflow (index.css@29300); the Scrollable is the
+// J8: no 16rem scrollbar gutter that appears with overflow (index.css@29300). The Scrollable is the
 // content div's child [likely]. The body keeps its own constant right padding instead.
 .panelContent > * {
   --scrollbarPadding: 0rem;
@@ -127,7 +133,7 @@
   opacity: 0.7;
 }
 
-// ---- header (inside the title bar's .title flex div; spec 4.3) -----------------------------
+// ---- header (inside the title bar's .title flex div, spec 4.3) -----------------------------
 
 .headerSlot {
   display: flex;
@@ -141,7 +147,7 @@
 }
 
 // uiLayout's rem probe (src/hub/layoutReport.ts, Round F6 C2): REM_PROBE_REM (100) rem wide, out of
-// flow, never drawn; its measured width / 100 is the px of 1rem. In the header slot, which is not a
+// flow, never drawn. Its measured width / 100 is the px of 1rem. It sits in the header slot, which is not a
 // scroll container, so it cannot add scroll overflow (100rem is also narrower than the panel).
 .remProbe {
   position: absolute;
@@ -176,7 +182,7 @@
 }
 
 // cs2/ui Button variant="icon" (vanilla IconButton: .button_M6C 24rem square, icon sized by
-// --iconWidth / --iconHeight, tinted by --iconColor; index.css@28216).
+// --iconWidth / --iconHeight, tinted by --iconColor, index.css@28216).
 .headerButton {
   flex-grow: 0;
   flex-shrink: 0;
@@ -260,8 +266,8 @@
   color: var(--hubCaution);
 }
 
-// A locked item's reason, shown as text (the start card's sign button; contract 3: own side
-// padding, the start card has none).
+// A locked item's reason, shown as text (the start card's sign button). Contract 3: own side
+// padding, the start card has none.
 .reasonLine {
   margin-top: 4rem;
   padding-left: 10rem;
@@ -306,7 +312,7 @@
   opacity: 0.45;
 }
 
-// A game glyph as a mask (Glyph, src/hub/parts.tsx); the color class sets background-color.
+// A game glyph as a mask (Glyph, src/hub/parts.tsx). The color class sets background-color.
 .glyph {
   flex-grow: 0;
   flex-shrink: 0;
@@ -318,7 +324,7 @@
   background-color: var(--normalTextColor);
 }
 
-// Tooltip body (TipLines): first line = title; label / value pairs.
+// Tooltip body (TipLines): first line = title. Then label / value pairs.
 .tipLines {
   display: flex;
   flex-direction: column;
@@ -356,7 +362,7 @@
   white-space: nowrap;
 }
 
-// ---- StableWidth / NumCell (J1, J7; vanilla FullWidthDigits, index.js@1007800) --------------
+// ---- StableWidth / NumCell (J1, J7, vanilla FullWidthDigits, index.js@1007800) --------------
 
 .stable {
   display: flex;
@@ -383,8 +389,8 @@
   white-space: nowrap;
 }
 
-// The width samples: as wide as their text, no height (min-height and flex-basis too: a flex
-// item's min-height auto would otherwise resolve to its content), invisible, inert.
+// The width samples are as wide as their text, with no height (min-height and flex-basis too: a flex
+// item's min-height auto would otherwise resolve to its content). They are invisible and inert.
 // Vanilla: index.css@127211 .blind_u0R{height:0;visibility:hidden}.
 .blind {
   height: 0;
@@ -424,7 +430,7 @@
   opacity: 0.6;
 }
 
-// ---- difficulty bar and legend (the Overview's MOUNTAIN block; ch6 8.3) ---------------------
+// ---- difficulty bar and legend (the Overview's MOUNTAIN block, ch6 8.3) ---------------------
 
 // Difficulty bar: one segment per non-zero band, flex-grow = count (inline style). Contract 3
 // (ch6 8.3, design 5.2): height 0.55 em of S and margin longhands (was 8 rem and a shorthand).
@@ -541,7 +547,7 @@
   white-space: nowrap;
 }
 
-// ---- difficulty markers (CSS shapes in em; spec 4.4 last paragraph) -------------------------
+// ---- difficulty markers (CSS shapes in em, spec 4.4 last paragraph) -------------------------
 
 .bandMarker {
   display: flex;
@@ -626,8 +632,8 @@
   opacity: 0.4;
 }
 
-// Fixer round (findings u2-data-05 / u2-panel-5): band -2, "cannot be rated" - a hollow circle in
-// the warning color (final, unlike the dim "being rated" circle). Border longhands only.
+// Fixer round (findings u2-data-05 / u2-panel-5): band -2, "cannot be rated" - a hollow circle in the warning color
+// (final, unlike the dim "being rated" circle). Border longhands only.
 .bandUnrateable {
   border-radius: 50%;
   background-color: rgba(0, 0, 0, 0);
@@ -642,7 +648,7 @@
   border-left-color: var(--hubCaution);
 }
 
-// ---- tree tool stepper and segment (TreeRows; J1) -------------------------------------------
+// ---- tree tool stepper and segment (TreeRows, J1) -------------------------------------------
 
 .stepper {
   display: flex;
@@ -694,7 +700,7 @@
   white-space: nowrap;
 }
 
-// Round F7 (D6): a class, not `.segButton + .segButton` - each button has its own Tooltip now (one
+// Round F7 (D6): a class, not `.segButton + .segButton`. Each button has its own Tooltip now (one
 // focusable child per Tooltip FocusBoundary, log-audit §5.2), so the two need not be DOM siblings.
 .segButtonNext {
   margin-left: 4rem;
@@ -709,16 +715,16 @@
   font-size: var(--fontSizeS);
 }
 
-// T131 (2026-10-20, DECISIONS 350): the Runs and Lifts views' full list (every row, no pager). Those two views may scroll; the
-// vanilla bar draws over the content (J8: no gutter), so the list keeps its own room for it on the right. harness/layout-check.js
-// reads this class: a view that holds it may overflow, every other view must fit.
+// T131 (2026-10-20, DECISIONS 350): the Runs and Lifts views' full list (every row, no pager). Those two views may scroll.
+// The vanilla bar draws over the content (J8: no gutter), so the list keeps its own room for it on the right.
+// harness/layout-check.js reads this class: a view that holds it may overflow, every other view must fit.
 .listAll {
   padding-right: 8rem;
 }
 
 // Contract 3 (ch6 8.3): the Runs view's header row - piste-map toggle, then the Lift / Length / Drop
-// labels - in XS, 1.6 em high, with the run row's paddings so its cells line up with RunLine's. The
-// labels are dim by the literal color (U1; the old opacity 0.75 would also dim the toggle).
+// labels. It is in XS, 1.6 em high, with the run row's paddings so its cells line up with RunLine's. The
+// labels are dim by the literal color (U1, because the old opacity 0.75 would also dim the toggle).
 .listHeader {
   display: flex;
   flex-direction: row;
@@ -732,9 +738,9 @@
   color: var(--hubTextDim);
 }
 
-// E1 fixer (e1-spec 8.9 F14): the header's number cells are MEASURED in the row font (S) - .num's
-// 0.6 em padding and the NumCell sample blinds are em / text sized - so they line up with RunLine's
-// cells; the label itself stays small (.colLabel sets XS).
+// E1 fixer (e1-spec 8.9 F14): the header's number cells are MEASURED in the row font (S).
+// .num's 0.6 em padding and the NumCell sample blinds are em / text sized, so they line up with RunLine's
+// cells. The label itself stays small (.colLabel sets XS).
 .headerCell {
   display: flex;
   flex-direction: row;
@@ -754,7 +760,7 @@
 }
 
 // Run type marker: a vertical bar. Groomed = solid snow white, Snowmaking = cyan outline,
-// Night = solid floodlight amber (the Build strip's run stripes use the same colors); natural =
+// Night = solid floodlight amber (the Build strip's run stripes use the same colors). Natural =
 // two short bars (.kindNatural, hub-v3 block below).
 .runMarker {
   flex-grow: 0;
@@ -807,7 +813,7 @@
   text-overflow: ellipsis;
 }
 
-// ---- Build strip (the panel footer; spec 4.2, J2, J4) ---------------------------------------
+// ---- Build strip (the panel footer, spec 4.2, J2, J4) ---------------------------------------
 
 .footerSlot {
   display: flex;
@@ -823,7 +829,7 @@
   color: var(--normalTextColor);
 }
 
-// ONE nowrap row; each group's flex-grow = its tile count (inline style), so tiles are equal.
+// ONE nowrap row. Each group's flex-grow = its tile count (inline style), so tiles are equal.
 .buildRow {
   display: flex;
   flex-direction: row;
@@ -865,11 +871,12 @@
   display: flex;
   // T31: icon over its short label (was icon only, 44 tall).
   // T96 (field 2026-10-19 item 1, shot 22.08.59): the run stripe sat ON the icon. Cause: content was centered in a 50 x fontScale
-  // box, leaving (8 x fontScale - 4) / 2 = 2 rem above the icon at 100 %, while the stripe is absolute at top 2, height 4 (and
-  // Gameface may size the box content-box: the same overlap, 2 rem). Now the stripe has its OWN band: border-box, content from
-  // the top under an 8 rem band (2 air + 4 stripe + 2 air, fixed rem like the stripe itself), then 28 icon + 14 label + 2 air
-  // that scale with the text size: 4 border + 8 band + 44 x fontScale = 56 at 100 %, 78 at 150 %. Tiles without a stripe (lifts,
-  // buildings) keep the same band: their step number and lock / hint dot sit in it.
+  // box. That left (8 x fontScale - 4) / 2 = 2 rem above the icon at 100 %, while the stripe is absolute at top 2, height 4.
+  // Gameface may also size the box content-box, and the overlap is then the same, 2 rem.
+  // Now the stripe has its OWN band: border-box, content from the top under an 8 rem band (2 air + 4 stripe + 2 air, fixed rem
+  // like the stripe itself). Then 28 icon + 14 label + 2 air scale with the text size:
+  // 4 border + 8 band + 44 x fontScale = 56 at 100 %, 78 at 150 %.
+  // Tiles without a stripe (lifts, buildings) keep the same band: their step number and lock / hint dot sit in it.
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
@@ -899,7 +906,7 @@
 }
 
 // (Round F6, C1: the tiles take no keyboard / gamepad focus - focusKey FOCUS_DISABLED, BuildStrip
-// header - so the Button never adds its global "focused" class and the old .focused rule is gone.)
+// header. The Button therefore never adds its global "focused" class, and the old .focused rule is gone.)
 
 // This item's tool is active: click again to stop.
 .buildTileActive,
@@ -911,7 +918,7 @@
   border-left-color: var(--accentColorNormal);
 }
 
-// Locked: dimmed + lock glyph; NOT disabled (spec 4.2).
+// Locked: dimmed + lock glyph, NOT disabled (spec 4.2).
 .buildTileLocked .buildIcon {
   opacity: 0.35;
 }
@@ -952,7 +959,7 @@
   position: absolute;
   left: 6rem;
   right: 6rem;
-  top: 2rem; // T31: along the TOP edge now; the bottom holds the label. T96: band = .buildTile padding-top 8rem
+  top: 2rem; // T31: along the TOP edge now. The bottom holds the label. T96: band = .buildTile padding-top 8rem
   height: 4rem;
   box-sizing: border-box;
   border-radius: 2rem;
@@ -1013,11 +1020,12 @@
   background-color: var(--lockedColor);
 }
 
-// Contract 6 (Catalog Phase B, code round 2; round-2-contract section 8.5): the PICKER ROW above the tiles, drawn only
+// Contract 6 (Catalog Phase B, code round 2, round-2-contract section 8.5): the PICKER ROW above the tiles, drawn only
 // while the lodge tiers or the lift types offer >= 2 options (BuildStrip.tsx). ONE fixed-height line (never
-// min-height: the tiles below must not move under the mouse while it shows); one segmented control per set, each as
-// wide as its option count (flex-grow inline), lodge first; every chip flex 1 1 0 / min-width 0, its label one nowrap
-// text node that shrinks, then ellipsis (the tile row's own rules). The ONE dot (.buildHintDot) can sit on a chip.
+// min-height: the tiles below must not move under the mouse while it shows).
+// - One segmented control per set, each as wide as its option count (flex-grow inline), lodge first.
+// - Every chip is flex 1 1 0 / min-width 0. Its label is one nowrap text node that shrinks, then ellipsis (the tile row's own rules).
+// The ONE dot (.buildHintDot) can sit on a chip.
 .pickerRow {
   display: flex;
   flex-direction: row;
@@ -1028,8 +1036,8 @@
 }
 
 // T31 (2026-10-16): the TAB ROW above the family row (.pickerRow): three top-level tabs, one fixed-height line like the family row
-// (24 tall + 4 margin = the row's whole cost; the family row below is now always drawn so the footer never changes height
-// with the tab). Tabs reuse .pickerCell / .pickerCellNext; the chosen tab has a heavier accent underline than a family chip.
+// (24 tall + 4 margin = the row's whole cost). The family row below is now always drawn, so the footer never changes height
+// with the tab. Tabs reuse .pickerCell / .pickerCellNext. The chosen tab has a heavier accent underline than a family chip.
 .tabRow {
   display: flex;
   flex-direction: row;
@@ -1147,7 +1155,7 @@
   background-color: var(--activeColorNormal);
 }
 
-// The chosen option (listed with :hover so the hover color does not hide it; the .buttonOn idiom).
+// The chosen option (listed with :hover so the hover color does not hide it, the .buttonOn idiom).
 .pickerChipOn,
 .pickerChipOn:hover {
   color: var(--normalTextColor);
@@ -1171,15 +1179,15 @@
 }
 
 // ---- hub v3: dim text colors ----------------------------------------------------------------------
-// Dim text: literal colors, NOT --textColorDim / --textColorDimmer (both resolve to white in the
-// game's :root, and Dimmer is white in the dark-gray-orange style: installed index.css @2587, @3184,
+// Dim text: literal colors, NOT --textColorDim / --textColorDimmer. Both resolve to white in the
+// game's :root, and Dimmer is white in the dark-gray-orange style (installed index.css @2587, @3184,
 // @11454, @12464). Precedent for a literal text color: .listRowUnbound.
 
-// The .blind width samples are height 0 but overflow visible, so their text hangs ~13 rem below the LAST row of the Runs and
-// Money views, past the body's 6 rem bottom padding [likely]; the vanilla Scrollable shows its track when scrollHeight - 1 >
-// offsetHeight (index.js@638418). Fix: the view slot clips what hangs below it (overflow hidden; flex-shrink 0 so it cannot shrink
-// below its content). The .blind rule itself is NOT changed (a clip there could change measured widths in Gameface, unproven).
-// Measure: layoutReport.ts ` over=<n>`. Tooltips are portalled (index.js@540726): no clip. Details: EngineNotes/hub.module.scss.md
+// The .blind width samples are height 0 but overflow visible. So their text hangs ~13 rem below the LAST row of the Runs and
+// Money views, past the body's 6 rem bottom padding [likely]. The vanilla Scrollable shows its track when scrollHeight - 1 >
+// offsetHeight (index.js@638418). Fix: the view slot clips what hangs below it (overflow hidden, and flex-shrink 0 so it cannot
+// shrink below its content). The .blind rule itself is NOT changed (a clip there could change measured widths in Gameface, unproven).
+// Measure: layoutReport.ts ` over=<n>`. Tooltips are portaled (index.js@540726), so no clip. Details: EngineNotes/hub.module.scss.md
 .viewSlot {
   display: flex;
   flex-direction: column;
@@ -1251,7 +1259,7 @@
   color: var(--normalTextColor);
 }
 
-// T82 B5a: a warning season hint (Thawing, Waiting for snow, Too warm) keeps the slot in the warning color; declared after .statusHintOn.
+// T82 B5a: a warning season hint (Thawing, Waiting for snow, Too warm) keeps the slot in the warning color. Declared after .statusHintOn.
 .statusHintWarn {
   color: var(--hubCaution);
 }
@@ -1265,7 +1273,7 @@
   color: var(--hubTextDim);
 }
 
-// -- open marks (design 5.3): 0.6 em shapes (the status line's mark; Round F7: the run rows say a word) --
+// -- open marks (design 5.3): 0.6 em shapes (the status line's mark, Round F7: the run rows say a word) --
 .openMark {
   flex-grow: 0;
   flex-shrink: 0;
@@ -1316,7 +1324,7 @@
 
 // -- problems band (design 5.2): 3 fixed slots ------------------------------------------------------
 // border-radius 3rem (deviation U2): the token --panelRadiusInner inside a shorthand fails the gate.
-// Round F7 (D6): no background of its own; the side padding moved into .problemSlotRow (same text room).
+// Round F7 (D6): no background of its own. The side padding moved into .problemSlotRow (same text room).
 .problems {
   display: flex;
   flex-direction: column;
@@ -1342,8 +1350,8 @@
   padding-right: 6rem;
 }
 
-// Round F7 (D6, findings/hub-ux.md §5 item 3): the dark background on each slot that holds a problem;
-// empty slots read as spacing (the band keeps its three-slot height, D33).
+// Round F7 (D6, findings/hub-ux.md §5 item 3): the dark background on each slot that holds a problem.
+// Empty slots read as spacing (the band keeps its three-slot height, D33).
 .problemRowOn {
   background-color: var(--sectionBackgroundColor);
   border-radius: 3rem;
@@ -1401,7 +1409,7 @@
   align-items: center;
   flex-grow: 0;
   flex-shrink: 0;
-  // sized by its label ("3 more problems", 2026-11-07); the row text before it ellipsizes
+  // sized by its label ("3 more problems", 2026-11-07). The row text before it ellipsizes
   min-width: 2.4em;
   margin-left: 6rem;
   color: var(--hubTextDim);
@@ -1411,8 +1419,8 @@
 
 // -- tiles = navigation (design 5.2) ------------------------------------------------------------------
 // padding-right keeps the fifth tile clear of a real scrollbar (a long Runs list), like every
-// other row's >= 12 rem right room; each tile is 2 rem narrower ("Runs open" 56.6 / 93.1 / 117.5 rem still fits
-// 73 / 109 / 133 at 100 / 130 / 150 %).
+// other row's >= 12 rem right room. Each tile is 2 rem narrower.
+// "Runs open" 56.6 / 93.1 / 117.5 rem still fits 73 / 109 / 133 at 100 / 130 / 150 %.
 .tileRow {
   display: flex;
   flex-direction: row;
@@ -1501,9 +1509,9 @@
 }
 
 /* Second pass: the Money tile's mark lives in a fixed trailing slot of its caption (always reserved,
-   so nothing moves when it appears); the absolute .tileMark overlapped the last digit at 130-150 %.
+   so nothing moves when it appears). The absolute .tileMark overlapped the last digit at 130-150 %.
    E1 fixer (e1-spec 8.9 F13): a flex row of [caption | fixed-width mark] instead of an inline-block
-   span - inline-block is unproven in Gameface (our bundle and the game's index.css use none), and a
+   span - inline-block is unproven in Gameface (our bundle and the game's index.css use none). A
    collapsed empty span would let the centered caption shift when the mark toggles. */
 .tileCaptionRow {
   display: flex;
@@ -1686,8 +1694,8 @@
   text-overflow: ellipsis;
 }
 
-// A lodge name the player chose (Guests view car space rows): the infoLabel rules under its own class, so the layout test (test-hub-layout.js
-// PLAYER_NAMES) allows the ellipsis on it; the full row text leads the row's tooltip.
+// A lodge name the player chose (Guests view car space rows): the infoLabel rules under its own class.
+// So the layout test (test-hub-layout.js PLAYER_NAMES) allows the ellipsis on it. The full row text leads the row's tooltip.
 .lodgeNameLabel {
   flex-grow: 1;
   flex-shrink: 1;
@@ -1704,8 +1712,8 @@
   text-transform: uppercase;
 }
 
-// Round F7 (D2): InfoLine `info` - [label text | Info glyph | rest] in the label's flex slot, so the glyph
-// sits right after the text and the value column does not move (hub-ux Verification correction 3).
+// Round F7 (D2): InfoLine `info` - [label text | Info glyph | rest] in the label's flex slot.
+// The glyph sits right after the text, and the value column does not move (hub-ux Verification correction 3).
 .infoLabelBox {
   display: flex;
   flex-direction: row;
@@ -1781,8 +1789,8 @@
   white-space: nowrap;
 }
 
-// A note under a row wraps, never cuts (2026-11-02 round 2; test-hub-layout NOTE_CLASSES): one line keeps the old height
-// (1.3em + 2rem, either box model), a longer sentence takes the lines it needs.
+// A note under a row wraps, never cuts (2026-11-02 round 2, test-hub-layout NOTE_CLASSES): one line keeps the old height
+// (1.3em + 2rem, either box model). A longer sentence takes the lines it needs.
 .subLine {
   flex-shrink: 0;
   min-height: 1.3em;
@@ -1904,7 +1912,7 @@
   min-width: 8rem;
 }
 
-// The Quick runs tool's rows (QuickRunsControls.tsx): the tree row's look, but a row of chips may wrap at a narrow panel or a large
+// The Quick runs tool's rows (QuickRunsControls.tsx): the tree row's look. But a row of chips may wrap at a narrow panel or a large
 // text scale instead of clipping.
 .quickRow {
   display: flex;
@@ -2066,7 +2074,7 @@
   background-color: var(--hubFocusHover);
 }
 
-// A closed run: its fly part (word, markers, name, numbers) at 55 %; the pen and the hover stay.
+// A closed run: its fly part (word, markers, name, numbers) at 55 %. The pen and the hover stay.
 .runRowClosed .runFly {
   opacity: 0.55;
 }
@@ -2248,7 +2256,7 @@
   color: var(--hubTextDim);
 }
 
-// Contract 6: the lift-type word in line 1 (only while the shown area mixes types; LiftsView), dimmer than the name.
+// Contract 6: the lift-type word in line 1 (only while the shown area mixes types, LiftsView), dimmer than the name.
 .liftTypeWord {
   margin-left: 8rem;
   font-size: var(--fontSizeXS);
@@ -2316,14 +2324,14 @@
 }
 
 // E1 fixer (e1-spec 8.9 F14): a Guests column head is measured in the row font (S), like GuestRow's
-// cells (.infoLine is S), so the StableWidth money blinds give both the same width; its text sits in
+// cells (.infoLine is S). So the StableWidth money blinds give both the same width. Its text sits in
 // a .colLabel span (XS).
 .colHeadCell {
   font-size: var(--fontSizeS);
 }
 
-// -- notes: they wrap, never cut (design 5.2; 2026-11-02 round 2) -------------------------------------
-// A note keeps its slot's least height (note1 one line, note2 two) and grows for a longer sentence: a cut note hid half the ticket note
+// -- notes: they wrap, never cut (design 5.2, 2026-11-02 round 2) -------------------------------------
+// A note keeps its slot's least height (note1 one line, note2 two) and grows for a longer sentence. A cut note hid half the ticket note
 // in game. test-hub-layout NOTE_CLASSES fails a note class with nowrap, an ellipsis or a fixed height with overflow hidden.
 .noteArea {
   display: flex;
@@ -2390,7 +2398,7 @@
   text-overflow: ellipsis;
 }
 
-// E1 fixer (e1-spec 8.9 F16): the step-1 button fits its .startStep row (1.3 em of S + 10 rem): 1.6 em of
+// E1 fixer (e1-spec 8.9 F16): the step-1 button fits its .startStep row (1.3 em of S + 10 rem). It uses 1.6 em of
 // S like .treeToolButton (U15), not .actionButton's 30 rem x fontScale (0.9 rem over the row at 100 %).
 // Declared after .actionButton, so it wins at equal specificity.
 .startButton {
@@ -2459,8 +2467,8 @@
   color: var(--hubTextDim);
 }
 
-// The tree tool's on/off button inside a 1.9em row: its own em height (the .actionButton's
-// 30rem x fontScale is taller than 1.9em of S at 100 %: 30 > 26.6).
+// The tree tool's on/off button inside a 1.9em row: its own em height. The .actionButton's
+// 30rem x fontScale is taller than 1.9em of S at 100 %: 30 > 26.6.
 .treeToolButton {
   display: flex;
   flex-direction: row;
@@ -2477,8 +2485,8 @@
   white-space: nowrap;
 }
 
-// -- History view (T78 build 2, contract 10; src/hub/HistoryView.tsx, HistoryChart.tsx) ----------------------------------------
-// The tile's value: our HistoryGlyph.svg (T82 B8, three bars on a baseline; a mask in the tile's text color), about a tile number's height.
+// -- History view (T78 build 2, contract 10, src/hub/HistoryView.tsx, HistoryChart.tsx) ----------------------------------------
+// The tile's value: our HistoryGlyph.svg (T82 B8, three bars on a baseline, a mask in the tile's text color), about a tile number's height.
 .tileGlyph {
   width: 1.2em;
   height: 1.2em;
@@ -2540,7 +2548,7 @@
   white-space: nowrap;
 }
 
-// T82 B3 (F7): a chart is a row [scale gutter | plot + axis]; the scale never sits over a mark (HTML, never SVG text).
+// T82 B3 (F7): a chart is a row [scale gutter | plot + axis]. The scale never sits over a mark (HTML, never SVG text).
 .histChart {
   display: flex;
   flex-direction: row;
@@ -2630,7 +2638,7 @@
   color: var(--hubTextDim);
 }
 
-// One equal cell per bucket; the label may overflow its cell (centered, labels are spaced by labelStep).
+// One equal cell per bucket. The label may overflow its cell (centered, and labelStep spaces the labels).
 .histAxisCell {
   display: flex;
   flex-direction: row;
@@ -2699,7 +2707,7 @@
 }
 
 // ---- "never a scrollbar": folds and the view pager (src/hub/fit.tsx) ---------------------------------------
-// Folds (src/hub/fit.tsx Fold): an InfoLine-sized button row with a chevron; one open per view (accordion).
+// Folds (src/hub/fit.tsx Fold): an InfoLine-sized button row with a chevron. Only one fold is open per view (accordion).
 .foldRow {
   width: 100%;
   box-sizing: border-box;
@@ -2780,14 +2788,14 @@
   color: var(--hubTextDim);
 }
 
-// The body is the anchor of the two overlays below (area list, problems popover): they are drawn over the content, inside our own
+// The body is the anchor of the two overlays below (area list, problems popover). The hub draws them over the content, inside our own
 // subtree (no Portal, so no clipping or coordinate question in Gameface).
 .bodyAnchor {
   position: relative;
 }
 
-// Header (HubHeader.tsx): "‹ [name ▾] › N / COUNT" - the name is a plain text button in the panel's own text color (the vanilla
-// Dropdown toggle drew a light box with faded text in the title bar: field 2026-10-20, crop 23.10.43).
+// Header (HubHeader.tsx): "‹ [name ▾] › N / COUNT" - the name is a plain text button in the panel's own text color. The vanilla
+// Dropdown toggle drew a light box with faded text in the title bar (field 2026-10-20, crop 23.10.43).
 .areaName {
   display: flex;
   flex-direction: row;
@@ -2992,7 +3000,7 @@
   margin-left: 8rem;
 }
 
-// The plan under the planner's knobs: a long plan scrolls here with the wheel, so it never pushes the knobs or the run list out of the panel.
+// The plan under the planner's knobs. A long plan scrolls here with the wheel, so it never pushes the knobs or the run list out of the panel.
 .planList {
   display: flex;
   flex-direction: column;
@@ -3002,8 +3010,8 @@
   overflow-y: scroll;
 }
 
-// Resort Planner v2 plan rows (QuickRunsControls.tsx PlanRows): one toggle row per lift and per pod without a lift, two small lines each
-// (the lift or pod line, then its way home and band counts); the whole row is the button, a left-out row dims.
+// Resort Planner v2 plan rows (QuickRunsControls.tsx PlanRows): one toggle row per lift and per pod without a lift.
+// Each row has two small lines (the lift or pod line, then its way home and band counts). The whole row is the button. A left-out row dims.
 .planRow {
   display: flex;
   flex-direction: row;
