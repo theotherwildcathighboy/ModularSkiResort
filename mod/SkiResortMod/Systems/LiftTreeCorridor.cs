@@ -1,10 +1,10 @@
 // The lift tree corridor (DECISIONS 601 e, owner hand-test note 8): a built lift line section fells the trees in its corridor, as real
-// lifts cut one. Before, the lines felled nothing; vanilla only hides an Overridable tree under the net itself
-// (ValidationHelpers.cs:691-715) and the moving carriers re-ran that every 2 m (ChairPinSystem Updated), so trees beside the rope
-// popped in and out as chairs passed. The rule, in plan (xz): a tree falls when its trunk stands within HalfWidthM of the rope line
-// (GaugeHalfM, the haul-rope lanes at +-x, + CarrierHalfWidthM + MarginM), or when its crown reaches into the carrier envelope
-// (trunk distance - crown radius <= GaugeHalfM + CarrierHalfWidthM + CrownClearM). The line = the planned nodes (ground ends,
-// towers, station stub nodes) plus the station's own stub edges; the distance is to the nearest segment, so the ends are round.
+// lifts cut one. Before, the lines felled nothing. Vanilla only hides an Overridable tree under the net itself
+// (ValidationHelpers.cs:691-715), and the moving carriers re-ran that every 2 m (ChairPinSystem Updated), so trees beside the rope popped
+// in and out as chairs passed. The rule, in plan (xz): a tree falls when its trunk stands within HalfWidthM of the rope line (GaugeHalfM,
+// the haul-rope lanes at +-x, + CarrierHalfWidthM + MarginM), or when its crown reaches into the carrier envelope (trunk distance - crown
+// radius <= GaugeHalfM + CarrierHalfWidthM + CrownClearM). The line = the planned nodes (ground ends, towers, station stub nodes) plus the
+// station's own stub edges. The distance is to the nearest segment, so the ends are round.
 // Pure file: System.Collections.Generic, Unity.Mathematics, SkiCatalog (LiftTypeDef). Linked into tests/LiftBatch (TreeCorridorTests).
 // The tool side (query, filter, the vanilla delete definition): LiftLineToolSystem.Trees.cs. Engine notes: EngineNotes/LiftTreeCorridor.md
 
@@ -25,7 +25,7 @@ namespace SkiResortMod.Systems
         /// <summary>The crown radius the rule believes at most (m): a prefab with wider bounds is read as this.</summary>
         public const float MaxCrownM = 8f;
 
-        /// <summary>Delete definitions per build at most (the glade tool's apply is sized for 4,000-8,000 Temps); more are logged as
+        /// <summary>Delete definitions per build at most (the glade tool's apply is sized for 4,000-8,000 Temps). More are logged as
         /// left standing.</summary>
         public const int MaxFellPerBuild = 5000;
 
@@ -53,7 +53,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The xz distance from p to the nearest segment; +inf when there is none (a degenerate segment is its point).</summary>
+        /// <summary>The xz distance from p to the nearest segment. It is +inf when there is none (a degenerate segment is its point).</summary>
         public static float DistanceM(float2 p, IReadOnlyList<Segment> line)
         {
             float best = float.PositiveInfinity;

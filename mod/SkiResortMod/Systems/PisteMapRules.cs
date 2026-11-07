@@ -1,8 +1,8 @@
 // Pure rules of the piste-map overlay: outline style by band, the dashed test for natural runs, the zoom width scale, and
 // cutting a run's closed node ring into the straight pieces SkiPisteMapSystem caches and draws.
 // Natural runs draw nothing on the ground, so their outline is dashed to read as "a surface, not a groomed piste".
-// Dashes are cut on the CPU: OverlayRenderSystem.Buffer.DrawDashedLine (OverlayRenderSystem.cs:218-221) restarts its pattern on
-// every edge, so an outline of short edges would read solid. A bad dash or gap falls back to SolidRing.
+// Dashes are cut on the CPU: OverlayRenderSystem.Buffer.DrawDashedLine (OverlayRenderSystem.cs:218-221) restarts its pattern on every edge,
+// so an outline of short edges would read solid. A bad dash or gap uses SolidRing instead.
 // WidthScale: a projected line keeps its width in meters, so a far camera needs wider lines to see them.
 // Both ring cutters append to the caller's lists and stop at maxPieces (return value == maxPieces means the cap was reached).
 // Pure file: only System, System.Collections.Generic and Unity.Mathematics (ResortBatch links it with UnityMathematics.NoDeps).
@@ -44,7 +44,7 @@ namespace SkiResortMod.Systems
 
         public static bool IsDashed(int kind) => IsDashed(RunFeatures.FromKind(kind));
 
-        /// <summary>!(zoom &gt; 0) gives 1; else clamp(zoom / RefZoomM, 1, MaxWidthScale).</summary>
+        /// <summary>!(zoom &gt; 0) gives 1. Otherwise clamp(zoom / RefZoomM, 1, MaxWidthScale).</summary>
         public static float WidthScale(float zoom)
         {
             if (!(zoom > 0f))
@@ -76,9 +76,9 @@ namespace SkiResortMod.Systems
             return added;
         }
 
-        /// <summary>Walks the closed ring's xz perimeter from node 0, alternating dashM on and gapM off with the phase carried across
-        /// nodes (double), and appends each "on" piece clipped to its edge. Edges with a non-finite end are skipped and add no length.
-        /// A non-positive dash, negative gap or non-finite value falls back to SolidRing. Stops at maxPieces.</summary>
+        /// <summary>Walks the closed ring's xz perimeter from node 0, alternating dashM on and gapM off with the phase carried across nodes
+        /// (double). It appends each "on" piece clipped to its edge. Edges with a non-finite end are skipped and add no length. A
+        /// non-positive dash, negative gap or non-finite value uses SolidRing instead. Stops at maxPieces.</summary>
         public static int DashRing(List<float3> ring, float dashM, float gapM, int maxPieces, List<float3> outA, List<float3> outB)
         {
             if (!(dashM > 0f) || !(gapM >= 0f) || float.IsInfinity(dashM) || float.IsInfinity(gapM))

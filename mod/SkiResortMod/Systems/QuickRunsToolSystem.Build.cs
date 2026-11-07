@@ -1,14 +1,14 @@
-// Quick runs tool: the build. Enter refuses a stale plan (re-scan) and a batch the city cannot pay; else the enabled candidates are
-// built in chunks of BuildChunkRuns (smoothness over speed: no long single-frame hitch; "Building runs 4 / 11"), each chunk emitted in
-// one frame (RunAreaEmit.Emit, the cat track tool's definition), validated and applied before the next. The game's Temp areas are
-// mapped back to candidates by geometry (QuickRunsRules.MatchRing: the engine recycles Temps, an entity never identifies a candidate).
-// Apply is all-or-nothing per emission (ToolBaseSystem.cs:533-540), so a refused run is dropped and the chunk's survivors re-emitted
-// once (QuickRunsRules.AfterValidation). Right click (or the hub's Stop) stops at the next chunk boundary: what is built stays one
-// undoable batch; closing the tool keeps what is built. The runs bind and pay like drawn runs (SkiRunOwnershipSystem charges
-// once at bind: SkiRunBinding FlagPaid + m_PaidAmount). Undo deletes the batch the bulldozer's way and pays back exactly what each
-// binding recorded (QuickRunsRules.RefundOf -> PlayerMoney.Add).
-// Probes ([probe], Measurement diagnostics only): snapshot parity, stage costs, the emission, the Temp mapping, binds and charges,
-// game checks off (Anarchy).
+// Quick runs tool: the build. Enter refuses a stale plan (re-scan) and a batch the city cannot pay. Otherwise the enabled candidates are
+// built in chunks of BuildChunkRuns (smoothness over speed: no long single-frame hitch, "Building runs 4 / 11"). The tool emits each chunk
+// in one frame (RunAreaEmit.Emit, the cat track tool's definition). It validates and applies each chunk before the next. The game's Temp
+// areas are mapped back to candidates by geometry (QuickRunsRules.MatchRing: the engine recycles Temps, an entity never identifies a
+// candidate). Apply is all-or-nothing per emission (ToolBaseSystem.cs:533-540), so a refused run is dropped and the chunk's survivors
+// re-emitted once (QuickRunsRules.AfterValidation). Right click (or the hub's Stop) stops at the next chunk boundary. What is built stays
+// one undoable batch. Closing the tool keeps what is built. The runs bind and pay like drawn runs (SkiRunOwnershipSystem charges once at
+// bind: SkiRunBinding FlagPaid + m_PaidAmount). Undo deletes the batch the bulldozer's way and pays back exactly what each binding recorded
+// (QuickRunsRules.RefundOf, then PlayerMoney.Add).
+// Probes ([probe], Measurement diagnostics only): snapshot parity, stage costs, the emission, the Temp mapping, binds and charges, game
+// checks off (Anarchy).
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Build, Undo and refund, Probes)
 
 using System;
@@ -229,7 +229,7 @@ namespace SkiResortMod.Systems
             switch (step)
             {
                 case QuickBuildStep.Apply:
-                    applyMode = ApplyMode.Apply;   // ToolOutputSystem.cs:22-28 -> ApplyAreasSystem keeps each Temp as the run (:204-208)
+                    applyMode = ApplyMode.Apply;   // ToolOutputSystem.cs:22-28, then ApplyAreasSystem keeps each Temp as the run (:204-208)
                     m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
                     m_AppliedTemps.Clear();
                     m_AppliedIdx.Clear();
@@ -312,8 +312,9 @@ namespace SkiResortMod.Systems
             return sb.Length > 0 ? sb.ToString() : "none";
         }
 
-        /// <summary>The planned kind's sliders on its new groomed run (run types R3): the placer's defaults for that kind (snowmaking: guns;
-        /// night: guns and lights; groomed and natural: none), and the steps settled, so the run pays what the kind's fee always was.</summary>
+        /// <summary>The planned kind's sliders on its new groomed run (run types R3): the placer's defaults for that kind (snowmaking:
+        /// guns, night: guns and lights, groomed and natural: none), and the steps settled, so the run pays what the kind's fee always
+        /// was.</summary>
         private void SeedFeatures(Entity run, RunKind kind)
         {
             int gun = RunPropPlacerRules.DefaultGunSpacing((int)kind), light = RunPropPlacerRules.DefaultLightSpacing((int)kind);
@@ -323,7 +324,7 @@ namespace SkiResortMod.Systems
                 m_Ownership.SettleFeatureSteps(run, "quick runs");
         }
 
-        /// <summary>Applying (the frame after Apply): add the chunk's permanent runs to the batch; the next chunk emits on the next frame
+        /// <summary>Applying (the frame after Apply): add the chunk's permanent runs to the batch. The next chunk emits on the next frame
         /// (phase Retry), or the build finishes (queue empty, or a stop was requested).</summary>
         private void FinishApplied()
         {
@@ -593,8 +594,8 @@ namespace SkiResortMod.Systems
                     sb.Append(' ');
                 sb.Append(k).Append("->").Append(tempOf[k] == Entity.Null ? "none" : Describe(tempOf[k]));
             }
-            // The planner refused these for what the game also checks (an obstacle: any Surface area or an unowned tile; the region / map
-            // edge; a self-crossing outline). With the game's checks off the game would have accepted them: only the pre-check stood.
+            // The planner refused these for what the game also checks (an obstacle: any Surface area or an unowned tile, the region / map
+            // edge, a self-crossing outline). With the game's checks off, the game would have accepted them. Only the pre-check stood.
             AutoPlanResult r = m_Published;
             int preRefused = r.Rejects[(int)AutoReject.Obstacle] + r.Rejects[(int)AutoReject.Region] + r.Rejects[(int)AutoReject.Crosses];
             QuickGameChecks checks = GameChecks();

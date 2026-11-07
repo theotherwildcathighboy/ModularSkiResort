@@ -1,10 +1,10 @@
-// Wall-clock folding for flood-prone log lines: at most one line per WindowS of wall clock, and the first event of a burst is
-// never delayed. Pure (no Unity or Entities types); the caller passes UnityEngine.Time.realtimeSinceStartup.
-//   * Offer(event): Plain verdict (the caller writes its usual line) when nothing is folded and no line was written for WindowS
-//     or the caller forces it; otherwise the event is folded (count, min / max / sum / last of up to Slots numbers, its text)
-//     until the window passes, then the verdict is Summary: the caller writes one line and calls Wrote.
+// Wall-clock folding for flood-prone log lines: at most one line per WindowS of wall clock, and the first event of a burst is never
+// delayed. Pure (no Unity or Entities types). The caller passes UnityEngine.Time.realtimeSinceStartup.
+//   * Offer(event): the verdict is Plain (the caller writes its usual line) when nothing is folded and no line was written for
+//     WindowS or the caller forces it. Otherwise the event is folded (count, min / max / sum / last of up to Slots numbers, its text)
+//     until the window passes. Then the verdict is Summary: the caller writes one line and calls Wrote.
 //   * TrailingDue: callers ask on every pass that offered nothing, so a burst's end is written within WindowS. A paused sim holds
-//     the fold until the next pass; callers also flush in OnGamePreload and OnDestroy (quit to desktop raises no onGamePreload:
+//     the fold until the next pass. Callers also flush in OnGamePreload and OnDestroy (quit to desktop raises no onGamePreload:
 //     the world's OnDestroy runs while the logger is alive, GameManager.cs:792-793 vs LogManager.ReleaseResources :805; 1.6.2 :802-815).
 
 using System;

@@ -1,13 +1,15 @@
-// Quick runs tool: the overlay. The region (white; amber near the area cap, red over it) with its corners; the candidates in the piste
-// map's band colors (SkiPisteMapSystem's palette and PisteMapRules' ring pieces, so a preview looks like the runs it builds): natural
-// runs dashed, left-out runs thin gray, refused runs red; a ring on each top cluster (hover: "beginner lift" / "mid-station" / "one
-// lift here serves N runs"); the tree line's contour while trees are on. Segments are cached when the preview changes.
-// Resort mode (A4) adds the plan from m_Published.Resort, never the live planner: a dashed chord per proposed lift (colored by its
-// Home verdict, white until A6 fills it), 6 m tower discs, hatched station lots; white station rings for pinned lifts (the game draws
-// the lift itself); hatched pads under the lifts' stations plus the three largest unused (benches with a dashed edge); a ring per
-// pod in its class color in place of the v1 cluster rings. Everything shares the MaxPieces budget. Black / Double Black marks carry the
-// piste map's white edge (a black line on dark ground is invisible). The marks are cached per published plan (rebuilt on a new plan
-// reference only); a pod or lift switched off dims its marks at draw time from the off sets, so a toggle rebuilds the run pieces only.
+// Quick runs tool: the overlay. It draws the region (white, amber near the area cap, red over it) with its corners. It draws the candidates
+// in the piste map's band colors (SkiPisteMapSystem's palette and PisteMapRules' ring pieces, so a preview looks like the runs it builds):
+// natural runs dashed, left-out runs thin gray, refused runs red. It draws a ring on each top cluster (hover: "beginner lift" /
+// "mid-station" / "one lift here serves N runs"). It draws the tree line's contour while trees are on. Segments are cached when the preview
+// changes.
+// Resort mode (A4) adds the plan from m_Published.Resort, never the live planner. It draws a dashed chord per proposed lift (colored by its
+// Home verdict, white until A6 fills it), 6 m tower discs and hatched station lots. It draws white station rings for pinned lifts (the game
+// draws the lift itself). It draws hatched pads under the lifts' stations plus the three largest unused (benches with a dashed edge). It
+// draws a ring per pod in its class color in place of the v1 cluster rings. Everything shares the MaxPieces budget. Black / Double Black
+// marks carry the piste map's white edge (a black line on dark ground is invisible). The marks are cached per published plan (rebuilt on a
+// new plan reference only). A pod or lift switched off dims its marks at draw time from the off sets, so a toggle rebuilds the run pieces
+// only.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Overlay)
 
 using System;
@@ -133,7 +135,7 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < n; i++)
             {
                 float2 xz = i == m_DragIndex ? m_DragTo : pts[i];
-                // The first corner stands out while clicking it would close the region; the closing edge is solid only once it is closed
+                // The first corner stands out while clicking it would close the region. The closing edge is solid only once it is closed
                 bool hot = i == m_HoverPoint || i == m_DragIndex || (i == 0 && n >= 3 && !RegionClosed && m_Phase == ToolPhase.Region);
                 UnityEngine.Color c = hot ? HoverColor : CornerColor;
                 buffer.DrawCircle(c, c, 0f, projected, ring, Ground(ref hd, xz), (hot ? 10f : 7f) * math.min(k, 3f));
@@ -210,7 +212,7 @@ namespace SkiResortMod.Systems
                 DropMarks();
                 return;
             }
-            if (!ReferenceEquals(m_MarksFor, r.Resort))   // a new plan: rebuild the marks and open a cost window; a toggle keeps them
+            if (!ReferenceEquals(m_MarksFor, r.Resort))   // a new plan: rebuild the marks and open a cost window. A toggle keeps them
             {
                 m_Marks.Clear();
                 m_MarksFor = r.Resort;

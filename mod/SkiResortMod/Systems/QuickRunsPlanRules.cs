@@ -1,8 +1,11 @@
-// Resort Planner (v2) hub side, pure rules (stage A, task A7; stage-a-spec.md 6.1-6.3). No Entities, no Unity API beyond Unity.Mathematics,
-// so the test host links it (tests/AutoGenBatch/QuickRunsTests.cs): which runs a pod or lift toggle leaves out, the per-pod rows the
-// hub shows (runs, enabled, band mix, skiers, fee), the pod letter and lift id, the click / hover picks of a pod ring or a lift chord,
-// and the "plan around this lift" region (the lift's 150 m corridor plus 400 m beyond the bottom station along the fall line,
-// shrunk until it fits the area cap).
+// Resort Planner (v2) hub side, pure rules (stage A, task A7, stage-a-spec.md 6.1-6.3). It uses no Entities and no Unity API beyond
+// Unity.Mathematics, so the test host links it (tests/AutoGenBatch/QuickRunsTests.cs). It covers:
+// - which runs a pod or lift toggle leaves out
+// - the per-pod rows the hub shows (runs, enabled, band mix, skiers, fee)
+// - the pod letter and lift id
+// - the click / hover picks of a pod ring or a lift chord
+// - the "plan around this lift" region (the lift's 150 m corridor plus 400 m beyond the bottom station along the fall line, shrunk until it
+//   fits the area cap)
 // Engine notes: EngineNotes/QuickRunsControls.tsx.md, EngineNotes/SkiResortHubUISystem.md (Resort Planner v2)
 
 using System;
@@ -39,7 +42,7 @@ namespace SkiResortMod.Systems
         public enum PlanPickKind { None, Lift, Run, Pod }
 
         /// <summary>The one pick hover and click share (AR-12): a proposed lift's chord (or a pinned lift's drawn station ring), else a
-        /// run, else a pod ring. index = the lift / run / pod index; -1 with None.</summary>
+        /// run, else a pod ring. index = the lift / run / pod index. -1 with None.</summary>
         public static PlanPickKind PickAt(ResortPlan plan, IReadOnlyList<AutoRun> runs, float2 p, out int index)
         {
             index = NearestLift(plan, p, LiftPickM);
@@ -61,8 +64,8 @@ namespace SkiResortMod.Systems
             return !(pod >= 0 && pod < plan.Pods.Length && offPods.Contains(plan.Pods[pod].Key));
         }
 
-        /// <summary>The honest mix as three whole percents shared by the hub and the tooltip: green and blue rounded on their own,
-        /// black (with double black) = the rated total (rounded once) minus those two, so the three always add up to the total.</summary>
+        /// <summary>The honest mix as three whole percents shared by the hub and the tooltip. Green and blue are rounded on their own.
+        /// Black (with double black) = the rated total (rounded once) minus those two, so the three always add up to the total.</summary>
         public static void MixPercents(float[] mix, out int green, out int blue, out int black)
         {
             green = blue = black = 0;
@@ -74,17 +77,18 @@ namespace SkiResortMod.Systems
             black = Math.Max(0, rated - green - blue);
         }
 
-        /// <summary>The Lifts knob: 0 = Auto, 1..MaxLifts a cap (the hub sends ints; anything else clamps).</summary>
+        /// <summary>The Lifts knob: 0 = Auto, 1..MaxLifts a cap (the hub sends ints, anything else clamps).</summary>
         public static int ClampLifts(int v) => v < 0 ? 0 : v > MaxLifts ? MaxLifts : v;
 
         /// <summary>The Home knob: 0 Auto, 1 Green, 2 Blue (anything else is Auto).</summary>
         public static HomeLevel ClampHome(int v) => v >= 0 && v <= (int)HomeLevel.Blue ? (HomeLevel)v : HomeLevel.Auto;
 
-        /// <summary>"A", "B", ... by pod id (MaxPods is 12; it wraps after Z). The one pod letter for the hub, tooltip and world labels.</summary>
+        /// <summary>"A", "B", ... by pod id (MaxPods is 12, and it wraps after Z). The one pod letter for the hub, tooltip and world
+        /// labels.</summary>
         public static string Letter(int podId) => ((char)('A' + (podId < 0 ? 0 : podId % 26))).ToString();
 
-        /// <summary>1-based place of the lift among the lifts of its origin, in lift order: "P1", "P2" ... for proposals, "Existing lift" (a
-        /// locale key, no number) for pinned lifts; 0 for an index outside the plan.</summary>
+        /// <summary>1-based place of the lift among the lifts of its origin, in lift order: "P1", "P2" ... for proposals, "Existing lift"
+        /// (a locale key, no number) for pinned lifts. 0 for an index outside the plan.</summary>
         public static int Ordinal(ResortPlan plan, int lift)
         {
             if (plan == null || lift < 0 || lift >= plan.Lifts.Length)
@@ -115,7 +119,8 @@ namespace SkiResortMod.Systems
             return seeded >= 0 && seeded < plan.Lifts.Length && offLifts.Contains(plan.Lifts[seeded].Key);
         }
 
-        /// <summary>One row per pod: totals over the pod's runs (enabled[i] for result.Runs[i]; a null or short array counts a run as enabled).</summary>
+        /// <summary>One row per pod: totals over the pod's runs (enabled[i] for result.Runs[i]. A null or short array counts a run as
+        /// enabled).</summary>
         public static QuickPodRow[] PodRows(AutoPlanResult result, bool[] enabled, HashSet<uint> offPods, HashSet<uint> offLifts)
         {
             ResortPlan plan = result?.Resort;
@@ -168,9 +173,9 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>The lift under the point, or -1: a proposed lift whose chord (Bottom -> Top, xz) passes within radiusM (nearest), or a
-        /// pinned lift whose drawn station ring (the overlay draws only the rings for an existing lift, not its rope) contains the point.
-        /// Lifts without finite stations (a pinned lift outside the last census build) have nothing to hit.</summary>
+        /// <summary>The lift under the point, or -1. This is a proposed lift whose chord (Bottom -> Top, xz) passes within radiusM
+        /// (nearest), or a pinned lift whose drawn station ring contains the point. The overlay draws only the rings for an existing lift,
+        /// not its rope. Lifts without finite stations (a pinned lift outside the last census build) have nothing to hit.</summary>
         public static int NearestLift(ResortPlan plan, float2 p, float radiusM)
         {
             int best = -1;
@@ -214,7 +219,7 @@ namespace SkiResortMod.Systems
         // ---------------------------------------------------------------- plan around this lift
 
         /// <summary>The "plan around this lift" region: a polygon around <paramref name="line"/> (the lift's chord ends from the bottom to
-        /// the top), AroundHalfWidthM to each side, with AroundBeyondM added past the bottom along <paramref name="down"/> (the fall line;
+        /// the top), AroundHalfWidthM to each side. AroundBeyondM is added past the bottom along <paramref name="down"/> (the fall line, or
         /// the lift's own direction when zero). The half width shrinks until the area fits <paramref name="maxAreaM2"/>. Null for fewer
         /// than two distinct points.</summary>
         public static float2[] AroundRegion(IList<float2> line, float2 down, float maxAreaM2)

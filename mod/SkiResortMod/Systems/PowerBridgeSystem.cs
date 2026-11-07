@@ -1,10 +1,10 @@
 // Makes the vanilla electricity graph accept our stations' owned stub: a real 3 m marker-net edge whose Owner makes
 // ElectricityBuildingGraphSystem (EBGS) reject its nodes. This system bootstraps an ElectricityValveConnection onto the station's
-// qualifying stub nodes; from then on vanilla wires, maintains and deletes everything (we need no delete path).
-// Scheduling (load-bearing): UpdateBefore<PowerBridgeSystem, EBGS> at Modification4B. Our EntityManager writes are immediate, so
-// EBGS's job (same frame, scheduled after us) sees the valve and takes its maintain path instead of its delete path. Idempotent.
-// Touches only nodes owned by our station prefabs (SkiPrefabCatalogSystem.StationPrefabSet); defensive try/catch with one-shot
-// disable; missing prefabs tolerated (per load: a WARN per prefab not found, a WARN when none resolved, else one Info line).
+// qualifying stub nodes. From then on vanilla wires, maintains and deletes everything (we need no delete path).
+// Scheduling (load-bearing): UpdateBefore<PowerBridgeSystem, EBGS> at Modification4B. Our EntityManager writes are immediate, so EBGS's job
+// (same frame, scheduled after us) sees the valve and takes its maintain path instead of its delete path. Idempotent.
+// Touches only nodes owned by our station prefabs (SkiPrefabCatalogSystem.StationPrefabSet). Defensive try/catch with one-shot disable.
+// Missing prefabs are tolerated (per load: a WARN per prefab not found, a WARN when none resolved, else one Info line).
 // Engine notes: EngineNotes/PowerBridgeSystem.md
 
 using System;
@@ -26,7 +26,7 @@ namespace SkiResortMod.Systems
     public sealed partial class PowerBridgeSystem : GameSystemBase
     {
         // The station prefabs whose stub nodes we bridge are SkiCatalog.Stations (a new station generation adds a row there), resolved per
-        // load by the prefab catalog; missing names tolerated (WARN per load).
+        // load by the prefab catalog. Missing names are tolerated (WARN per load).
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private ElectricityFlowSystem m_ElectricityFlowSystem;
 
@@ -34,7 +34,7 @@ namespace SkiResortMod.Systems
         private EntityQuery m_AllStationQuery;     // every live station (load pass)
 
         private bool m_FullPassPending;
-        private bool m_Disabled; // tripped by the catch; re-armed per load
+        private bool m_Disabled; // tripped by the catch. Re-armed per load
         private bool m_ErrorLogged; // one error with stack per load
 
         protected override void OnCreate()
@@ -91,8 +91,8 @@ namespace SkiResortMod.Systems
             if (mode != GameMode.Game && mode != GameMode.Editor)
                 return;
 
-            // Saves written before this system shipped have unregistered stations; also covers valve loss from any earlier session.
-            // Idempotent when already bridged.
+            // Saves written before this system shipped have unregistered stations. This pass also covers valve loss from any earlier
+            // session. Idempotent when already bridged.
             m_FullPassPending = true;
 
             m_Disabled = false;
@@ -109,7 +109,7 @@ namespace SkiResortMod.Systems
                 // so the startup main menu returns here.
                 HashSet<Entity> stationPrefabs = m_PrefabCatalog.StationPrefabSet;
                 if (m_Disabled || stationPrefabs.Count == 0)
-                    return; // error-tripped this load, or station prefabs missing — logged already
+                    return; // error-tripped this load, or station prefabs missing. Already logged
 
                 if (m_FullPassPending)
                 {
@@ -124,7 +124,7 @@ namespace SkiResortMod.Systems
             }
             catch (Exception e)
             {
-                // Unmissable, with the full stack, once per load; the next load re-arms automatically.
+                // Unmissable, with the full stack, once per load. The next load re-arms automatically.
                 m_Disabled = true;
                 if (!m_ErrorLogged)
                 {
@@ -170,9 +170,9 @@ namespace SkiResortMod.Systems
                     if (EntityManager.HasComponent<Destroyed>(station))
                         continue;
 
-                    // Only transformer stations get bridged: the top station sheds its prefab Transformer + LV stub so it stops demanding a
-                    // PowerlineLow feed (the resort's power enters at the base drive terminal only). A transformer-less building matches no EBGS
-                    // building arm, so a valve bootstrapped here would be a stranded flow node nothing ever wires.
+                    // Only transformer stations get bridged. The top station sheds its prefab Transformer + LV stub so it stops demanding a
+                    // PowerlineLow feed (the resort's power enters at the base drive terminal only). A transformer-less building matches no
+                    // EBGS building arm, so a valve bootstrapped here would be a stranded flow node nothing ever wires.
                     if (!EntityManager.HasComponent<Game.Buildings.Transformer>(station))
                         continue;
 
@@ -246,9 +246,9 @@ namespace SkiResortMod.Systems
                     !EntityManager.HasComponent<Deleted>(existing.m_ValveNode))
                     continue;
 
-                // The bootstrap: a valve flow node (vanilla's own archetype: ElectricityFlowNode + ConnectedFlowEdge) plus the valve component on
-                // the net node; EBGS's CreateOrUpdateMarkerNode does everything else. NativeArray overload: the single-entity CreateEntity
-                // overload set pulls in ReadOnlySpan, which net48 lacks.
+                // The bootstrap: a valve flow node (vanilla's own archetype: ElectricityFlowNode + ConnectedFlowEdge) plus the valve
+                // component on the net node. EBGS's CreateOrUpdateMarkerNode does everything else. NativeArray overload: the single-entity
+                // CreateEntity overload set pulls in ReadOnlySpan, which net48 lacks.
                 Entity valveNode;
                 using (var createdEntities = new NativeArray<Entity>(1, Allocator.Temp))
                 {
@@ -271,8 +271,8 @@ namespace SkiResortMod.Systems
 
         // Per-load lines of this system. SkiPrefabCatalogSystem resolves the names (its "PrefabCatalog [arm]" line lists every prefab FOUND
         // or MISSING). The station set is the catalog's (every lift type's terminals; a transformer-less station is skipped in
-        // BridgeStations). The per-station "not found" WARN fires for expected rows only (StationDef.Expected); pending stations
-        // (designed, not imported yet) get one Info line per load.
+        // BridgeStations). The per-station "not found" WARN fires for expected rows only (StationDef.Expected). Pending stations (designed,
+        // not imported yet) get one Info line per load.
         private void LogStationPrefabs()
         {
             HashSet<Entity> stationPrefabs = m_PrefabCatalog.StationPrefabSet;

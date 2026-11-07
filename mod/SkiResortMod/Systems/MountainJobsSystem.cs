@@ -1,13 +1,13 @@
 // The roadless mountain buildings' jobs live on their linked Welcome Sign (rows: hut 4, summit 8, patrol HQ 2, patrol hut 2).
-// Pure arithmetic: MountainJobsRules.cs (tests/BuildingBatch). Why the sign: the four are top-level buildings that demand nothing,
-// and a Workplace on a top-level building sets RequireRoad (BuildingInitializeSystem.cs:229-283); the sign has the road. This system
-// gives a sign with a target > 0 a WorkProvider + Employee buffer and sets m_MaxWorkers to its target (what vanilla's ServiceUpgrade
-// combine did for the owner). WorkProviderSystem's tick needs WorkplaceData on the sign PREFAB (:133, else it liquidates the staff):
-// SkiResortGate.Prefab keeps its Workplace block with m_Workplaces 0, hence the WorkProvider add here (Workplace.cs:36-43).
-// The carrier rule (MountainJobsRules header): while the area has an active road lodge, the nearest one to the sign carries these jobs
-// and the own jobs of an off-road lodge on a cat track chain (SkiResortAttractivenessSystem.CarrierOf); the sign's target is then 0.
-// This system writes the SIGN only; a carrier lodge's sum is read by OffSeasonStaffSystem (CarriedBy), the one writer for lodges.
-// Sync: every PollFrames simulation frames, Game mode only; no component is ever removed. Phase GameSimulation (not load-bearing).
+// Pure arithmetic: MountainJobsRules.cs (tests/BuildingBatch). Why the sign: the four are top-level buildings that demand nothing, and a
+// Workplace on a top-level building sets RequireRoad (BuildingInitializeSystem.cs:229-283). The sign has the road. This system gives a sign
+// with a target > 0 a WorkProvider + Employee buffer and sets m_MaxWorkers to its target (what vanilla's ServiceUpgrade combine did for the
+// owner). WorkProviderSystem's tick needs WorkplaceData on the sign PREFAB (:133, else it liquidates the staff). SkiResortGate.Prefab keeps
+// its Workplace block with m_Workplaces 0, hence the WorkProvider add here (Workplace.cs:36-43).
+// The carrier rule (MountainJobsRules header): while the area has an active road lodge, the nearest one to the sign carries these jobs and
+// the own jobs of an off-road lodge on a cat track chain (SkiResortAttractivenessSystem.CarrierOf). The sign's target is then 0.
+// This system writes the SIGN only. A carrier lodge's sum is read by OffSeasonStaffSystem (CarriedBy), the one writer for lodges.
+// Sync: every PollFrames simulation frames, Game mode only. No component is ever removed. Phase GameSimulation (not load-bearing).
 // Engine notes: EngineNotes/MountainJobsSystem.md
 
 using System;
@@ -48,7 +48,7 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<EntityRef, int> m_Targets = new Dictionary<EntityRef, int>();
         private readonly HashSet<Entity> m_Carriers = new HashSet<Entity>();
         private readonly List<Entity> m_Gone = new List<Entity>(4);
-        // Per building: the lodge that carries its jobs (EntityRef.Null = its sign) and those jobs; summed per carrier lodge.
+        // Per building: the lodge that carries its jobs (EntityRef.Null = its sign) and those jobs. The jobs are summed per carrier lodge.
         private readonly List<EntityRef> m_CarrierRefs = new List<EntityRef>(16);
         private readonly List<int> m_CarrierJobs = new List<int>(16);
         private readonly Dictionary<EntityRef, int> m_LodgeTargets = new Dictionary<EntityRef, int>();
@@ -59,8 +59,8 @@ namespace SkiResortMod.Systems
             return m_LodgeTargets.TryGetValue(LiftCensusSystem.Ref(lodge), out int jobs) ? jobs : 0;
         }
 
-        /// <summary>CarriedBy has read this load's links at least once (or this system stopped on a throw and keeps its last sums): before
-        /// that, OffSeasonStaffSystem writes no lodge, so a load does not lay off a carrier's staff.</summary>
+        /// <summary>CarriedBy has read this load's links at least once (or this system stopped on a throw and keeps its last sums). Before
+        /// that, OffSeasonStaffSystem writes no lodge, so a load does not dismiss a carrier's staff.</summary>
         internal bool TargetsReady => m_TargetsReady || m_Disabled;
 
         /// <summary>The sign carries jobs (MountainJobsRules.SignCarriesJobs): its target once TargetsReady, before that the workplaces the
@@ -195,8 +195,9 @@ namespace SkiResortMod.Systems
                 m_Carriers.Remove(m_Gone[i]);
         }
 
-        /// <summary>The published top-level links → per-sign targets and per-carrier-lodge sums (MountainJobsRules.SumBySign). A building
-        /// whose area has a carrier lodge adds 0 to its sign, so the sign's target drops and the game's tick lays its staff off.</summary>
+        /// <summary>The published top-level links become per-sign targets and per-carrier-lodge sums (MountainJobsRules.SumBySign). A
+        /// building whose area has a carrier lodge adds 0 to its sign, so the sign's target drops and the game's tick dismisses its
+        /// staff.</summary>
         private void CollectTargets()
         {
             m_Attractiveness.CopyTopLevelLinks(m_Buildings, m_Signs);
@@ -224,9 +225,9 @@ namespace SkiResortMod.Systems
             m_TargetsReady = true;
         }
 
-        /// <summary>The jobs a top-level building hands to its area's carrier: the catalog's SignJobs (0 for every row with its own Workplace),
-        /// or an off-road lodge's own workplaces while its cat track chain holds (LodgeSupplyRule.JobsLeave; the prefab's WorkplaceData
-        /// is the truth, the catalog's Jobs the fallback).</summary>
+        /// <summary>The jobs a top-level building gives to its area's carrier: the catalog's SignJobs (0 for every row with its own
+        /// Workplace), or an off-road lodge's own workplaces while its cat track chain holds (LodgeSupplyRule.JobsLeave). The prefab's
+        /// WorkplaceData is the truth, the catalog's Jobs the fallback.</summary>
         private int SignJobsOf(Entity building, out string name)
         {
             name = null;
@@ -257,8 +258,8 @@ namespace SkiResortMod.Systems
             return 0;
         }
 
-        /// <summary>SignJobsOf through MountainJobsRules.SignJobsFor: 0 for an Inactive building, halved for a LODGE row while its
-        /// sign's area is off-season and the setting is on (OffSeasonStaffSystem.IsHalf); patrol rows stay full.</summary>
+        /// <summary>SignJobsOf through MountainJobsRules.SignJobsFor: 0 for an Inactive building, halved for a LODGE row while its sign's
+        /// area is off-season and the setting is on (OffSeasonStaffSystem.IsHalf). Patrol rows stay full.</summary>
         private int SeasonalSignJobsOf(Entity building, Entity sign, out string name)
         {
             int full = SignJobsOf(building, out name);

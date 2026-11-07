@@ -1,10 +1,10 @@
 // Pure rule behind PowerJoinRefusalSystem: may a vanilla power line Temp edge be built, or does it join one of our lift lines?
-// Our four lift lines are PowerLinePrefab nets with ElectricityConnection Voltage High, so a vanilla HV line gets the same net layers
-// (PowerlineHigh required + connect, NetInitializeSystem.cs:2420-2425) and NetUtils.CanConnect (NetUtils.cs:499-506) lets it snap
-// onto a lift node or split a lift edge. A vanilla LV line cannot: its required layer is PowerlineLow (:2416-2419), which our
-// PowerlineHigh connect layers do not contain, so CanConnect fails both ways; LV only reaches a station's LV stub (station power).
+// Our four lift lines are PowerLinePrefab nets with ElectricityConnection Voltage High. Therefore a vanilla HV line gets the same net
+// layers (PowerlineHigh required + connect, NetInitializeSystem.cs:2420-2425). NetUtils.CanConnect (NetUtils.cs:499-506) lets it snap onto
+// a lift node or split a lift edge. A vanilla LV line cannot: its required layer is PowerlineLow (:2416-2419), which our PowerlineHigh
+// connect layers do not contain. So CanConnect fails both ways. LV only reaches a station's LV stub (station power).
 // "Lift side" = a catalog lift line prefab or the station HV stub marker (SkiLiftMarker): city HV on either bridges into a lift.
-// The system gathers the facts per Temp edge; this file decides. System only reads the verdict.
+// The system gathers the facts per Temp edge. This file decides. The system only reads the verdict.
 
 namespace SkiResortMod.Systems
 {
