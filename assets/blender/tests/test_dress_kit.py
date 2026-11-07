@@ -1,38 +1,36 @@
 """
-test_dress_kit - gates for assets/blender/dress_kit.py (the dressing kit, props letter B;
-build/dress-kit.md). Contracts DK1-DK6 of design/fine-detail-pass.md G.2 as corrected by its
-skeptic (FS3: one 1024^2 set, DK6 >= 250 px/m), each with a NEGATIVE that must fail.
+test_dress_kit - gates for assets/blender/dress_kit.py (the dressing kit, props letter B, build/dress-kit.md).
+Contracts DK1-DK6 of design/fine-detail-pass.md G.2 as corrected by its skeptic (FS3: one 1024^2 set, DK6 >= 250
+px/m), each with a NEGATIVE that must fail.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_dress_kit.py [-- --quick]
 
-  DK1  LOD0 tris <= the design D.1 cap of the part (re-imported FBX)       neg: cap = tris - 1
-  DK2  one set: only the owner folder has PNGs; every other folder's settings.json maps the
-       four maps to the owner's existing files                              neg: a key removed /
-                                                                                 a missing target
-  DK3  hi -> low normal is not flat: fine-detail rms >= 5 deg on each prop's islands (the
-       benchmark metric, vanilla GardenBench01 10.7 deg); the metric equals the benchmark's
-       nmstats.normal_stats_xy                                              neg: a flat map
-  DK4  pivots: every prop stands on y 0, wall props have their back on z 0 (prefab frame),
-       re-imported FBX                                                      neg: shifted 5 cm
-  DK5  no mirrored / zero-area UV face (winding vs the face normal)         neg: one face flipped
-  DK6  area-weighted median px/m of the full-weight texel-owning faces >= 250, kit and every
-       prop                                                                 neg: same UVs at 512^2
-  determinism  two child processes (--export --no-staging --no-subobj): the four PNGs and all
-       eleven settings.json byte-identical, the FBX geometry + UVs equal (--quick skips it)
-  parity  every A-frame gear item = cs2_bldg.ski_rack_frame's own (vertex sets), the wall-rack
-       slot math = cs2_liftdress.ski_rack's, every rigid copy = its library item (<= 1e-5 m)
-  DK8  no bindings: ski pair 32 tris, board 28, pole pair 44 (cs2_bldg.ski_gear default)
-  validator  owner folder 0 errors; every sharer 0 errors as the importer resolves it
-  FS12 cs2_asset.write_settings untouched: regenerated shipped settings.json byte-identical
-  staging  the five UNCOLORED object prefab templates parse as JSON; no colored base prefab is staged
-  DK9  kit color variants (2026-10-12, build/kit-colour-variants.md): seeded CIDs; kit_row refuses a
-       colored prop without a set / an unknown set / an uncolored prop with a set; every shipped host
-       = ONE set = the palette; staging = exactly the used variants, each complete (object prefab naming
-       its mesh CID, .cid files, a FIXED ColorProperties: 1 set, no external channel, ranges 0); the six
-       Parent base prefabs archived; kit-variants.json; the kit manifests say no Parent; the mesh-prefab
-       clone (importer-shaped base -> types 0-12, every CID / bound / count kept) and variant_surgery on a
-       fake ImportedData (idempotent); negatives: a re-mint, three malformed bases, an overwrite
-       (`-- --variants-only` runs DK9 alone)
+- DK1: LOD0 tris <= the design D.1 cap of the part (re-imported FBX). Negative: cap = tris - 1.
+- DK2: one set: only the owner folder has PNGs, and every other folder's settings.json maps the four maps to the
+  owner's existing files. Negatives: a key removed, a missing target.
+- DK3: hi -> low normal is not flat: fine-detail rms >= 5 deg on each prop's islands (the benchmark metric,
+  vanilla GardenBench01 10.7 deg). The metric equals the benchmark's nmstats.normal_stats_xy. Negative: a flat
+  map.
+- DK4: pivots: every prop stands on y 0, wall props have their back on z 0 (prefab frame), re-imported FBX.
+  Negative: shifted 5 cm.
+- DK5: no mirrored / zero-area UV face (winding vs the face normal). Negative: one face flipped.
+- DK6: area-weighted median px/m of the full-weight texel-owning faces >= 250, kit and every prop. Negative: same
+  UVs at 512^2.
+- determinism: two child processes (--export --no-staging --no-subobj): the four PNGs and all eleven
+  settings.json byte-identical, the FBX geometry + UVs equal (--quick skips it).
+- parity: every A-frame gear item = cs2_bldg.ski_rack_frame's own (vertex sets), the wall-rack slot math =
+  cs2_liftdress.ski_rack's, every rigid copy = its library item (<= 1e-5 m).
+- DK8: no bindings: ski pair 32 tris, board 28, pole pair 44 (cs2_bldg.ski_gear default).
+- validator: owner folder 0 errors. Every sharer 0 errors as the importer resolves it.
+- FS12: cs2_asset.write_settings untouched: regenerated shipped settings.json byte-identical.
+- staging: the five UNCOLORED object prefab templates parse as JSON. No colored base prefab is staged.
+- DK9: kit color variants (2026-10-12, build/kit-colour-variants.md): seeded CIDs. kit_row refuses a colored prop
+  without a set / an unknown set / an uncolored prop with a set. Every shipped host = ONE set = the palette.
+  Staging = exactly the used variants, each complete (object prefab naming its mesh CID, .cid files, a FIXED
+  ColorProperties: 1 set, no external channel, ranges 0). The six Parent base prefabs archived.
+  kit-variants.json. The kit manifests say no Parent. The mesh-prefab clone (importer-shaped base -> types 0-12,
+  every CID / bound / count kept) and variant_surgery on a fake ImportedData (idempotent). Negatives: a re-mint,
+  three malformed bases, an overwrite (`-- --variants-only` runs DK9 alone).
 """
 
 import hashlib
@@ -89,8 +87,8 @@ def dk1(tris, cap):
 
 
 def dk4(raw, kind):
-    """raw = FBX vertices in cm, (x, y up, z = prefab z); prefab min y == 0; wall props: min z
-    == 0 (the back on the wall plane, the prop toward +z)."""
+    """raw = FBX vertices in cm, (x, y up, z = prefab z). Prefab min y == 0. Wall props: min z == 0 (the back on the
+    wall plane, the prop toward +z)."""
     lo = raw.min(axis=0)
     good = abs(lo[1]) <= 0.01
     if kind == "wall":
@@ -218,7 +216,7 @@ def variants(tmp):
     want = {h: {fam[_family(h)]} for h in per_host if _family(h) in fam}
     ok(per_host == want and set(map(_family, PALETTE)) <= set(map(_family, per_host)),
        f"DK9 hosts' color sets = the palette ({len(per_host)} hosts, {len(fam)} families): {per_host}")
-    # V3 staging: exactly the used variants, complete and fixed; the six base prefabs retired
+    # V3 staging: exactly the used variants, complete and fixed. The six base prefabs retired
     staged = D.staged_variant_names()
     ok(staged == sorted(used), f"DK9 staged variants = the used ones ({len(staged)} / {len(used)}): "
                               f"{sorted(set(staged) ^ set(used))}")
@@ -291,8 +289,8 @@ def variants(tmp):
             ok(False, f"DK9 negative: clone with {why} did not raise")
         except ValueError:
             ok(True, f"DK9 negative: clone with {why} raises")
-    # V7 surgery on a fake ImportedData (one synthetic base mesh prefab per used base mesh); a SHORT base folder:
-    # Blender's Python has no long-path support and variant paths reach ~90 characters under ImportedData
+    # V7 surgery on a fake ImportedData (one synthetic base mesh prefab per used base mesh), with a SHORT base
+    # folder: Blender's Python has no long-path support and variant paths reach ~90 characters under ImportedData
     base_tmp = tempfile.gettempdir()
     if len(base_tmp) > 60 and os.environ.get("LOCALAPPDATA"):
         base_tmp = os.path.join(os.environ["LOCALAPPDATA"], "Temp")

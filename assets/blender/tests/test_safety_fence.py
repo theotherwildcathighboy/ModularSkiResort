@@ -1,42 +1,42 @@
 """
 test_safety_fence - gates for assets/blender/safety_fence.py + safety_fence_stage.py (the orange
-safety-net fence; design docs/research/art/assets-2026-10/design/safety-fence.md section 7,
-build report docs/research/art/assets-2026-10/build/safety-fence.md).
+safety-net fence, design docs/research/art/assets-2026-10/design/safety-fence.md section 7, build
+report docs/research/art/assets-2026-10/build/safety-fence.md).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_safety_fence.py [-- --quick]
 
-Exit 1 on any failure; --quick skips the two child processes (C12 fresh-process determinism).
+Exit 1 on any failure. --quick skips the two child processes (C12 fresh-process determinism).
 
-  C1   names: SkiSafetyNetA / SkiNetPostA pass validate_asset_name; no "Fence" in any
-       StaticObjectPrefab name (the two Editor wrappers + SkiNetPost); an underscore name raises.
-  C2   raw FBX: z -200..+200 cm (+-0.1), y -15..158, x within -2.5..+4.5 (LOD1 same z, y to 155);
-       SkiNetPostA y 0..158.
-  C3   every re-imported net vertex (x >= 1.9 cm, y <= 126 cm) sits on a 50 cm column, LOD0 + LOD1.
-  C4   post / cap vertices z - s in [0, 4.0] cm, s in {-200, 0} (tile_contracts + raw FBX).
-  C5   tris LOD0 96 <= 128, LOD1 44 <= 60 and < 50 % of LOD0, post 32 <= 40 (contracts + FBX).
-  C6   every net triangle has a coincident opposite-normal twin (tile_contracts).
-  C7   UVs in [0, 1]; net faces in the net region; post / cap faces on alpha-255 texels.
-  C8   written BaseColor: RGBA, alpha < 255 only in the net region, mean 0.40-0.50, selvedges
-       >= 10 rows, alpha-0 RGB within 0.02 of the strand RGB, recolor texels 0.80 +- 0.05.
-  C9   ControlMask net G = 1, post band B = 1, caps 0, A = 0, R+G+B <= 1; MaskMap B = 0.
-  C10  settings.json exactly the design's (key order too); SkiNetPostA settings {} (no Surface).
-  C11  cs2_validate (kind hanging, NO cutout flag) reads Surface.alphaCutoff and passes 0 / 0;
-       the post (kind prop) 0 / 0; negative: the same folder without the Surface block ERRORs.
-  C12  two in-process builds hash identically, maps paint identically; two fresh Blender processes
-       write byte-identical PNGs + settings.json and FBX geometry (re-imported) identical.
-  C13  write_settings(surface=None) is byte-identical on three committed settings.json shapes
-       (shared_from sharer, supplied LOD1/LOD2, LOD0-only {}); surface={} raises.
-  C14  the manifest records template, TilingCount, tile length, alpha mean, tris per LOD.
-  STG  staged prefab JSON: design section 5 type tables in order, check_prefab_text clean except
-       the two REPLACE_ placeholders, UTF-8 no BOM, CRLF, .cid 32 hex no newline; the staged files
-       equal what stage() emits for their CIDs; prove_loc (SkiRunGroomedA .loc rewritten byte
-       for byte); renumber_types rejects a forward reference.
-  SRG  surgery rehearsal in a temp ImportedData (simulate_import from the temp export): template
-       gate passes at 34 and STOPs at 0 / 1; LOD gate; fragments appended once (a second run
-       skips); every written prefab passes check_prefab_text; lane -> mesh CID; end posts wire
-       m_NodeObject; the probe installs three prefabs.
-  NEG  contracts reject: a net vertex off its column (C3), a post moved 5 cm (C4), a missing twin
-       (C6), an opaque net (C8 mean), zeroed hole RGB (C8 fringe).
+- C1: names: SkiSafetyNetA / SkiNetPostA pass validate_asset_name. No "Fence" in any
+  StaticObjectPrefab name (the two Editor wrappers + SkiNetPost). An underscore name raises.
+- C2: raw FBX: z -200..+200 cm (+-0.1), y -15..158, x within -2.5..+4.5 (LOD1 same z, y to 155).
+  SkiNetPostA y 0..158.
+- C3: every re-imported net vertex (x >= 1.9 cm, y <= 126 cm) sits on a 50 cm column, LOD0 + LOD1.
+- C4: post / cap vertices z - s in [0, 4.0] cm, s in {-200, 0} (tile_contracts + raw FBX).
+- C5: tris LOD0 96 <= 128, LOD1 44 <= 60 and < 50 % of LOD0, post 32 <= 40 (contracts + FBX).
+- C6: every net triangle has a coincident opposite-normal twin (tile_contracts).
+- C7: UVs in [0, 1]. Net faces in the net region. Post / cap faces on alpha-255 texels.
+- C8: written BaseColor: RGBA, alpha < 255 only in the net region, mean 0.40-0.50, selvedges >= 10
+  rows, alpha-0 RGB within 0.02 of the strand RGB, recolor texels 0.80 +- 0.05.
+- C9: ControlMask net G = 1, post band B = 1, caps 0, A = 0, R+G+B <= 1. MaskMap B = 0.
+- C10: settings.json exactly the design's (key order too). SkiNetPostA settings {} (no Surface).
+- C11: cs2_validate (kind hanging, NO cutout flag) reads Surface.alphaCutoff and passes 0 / 0. The
+  post (kind prop) passes 0 / 0. Negative: the same folder without the Surface block ERRORs.
+- C12: two in-process builds hash identically, maps paint identically. Two fresh Blender processes
+  write byte-identical PNGs + settings.json and FBX geometry (re-imported) identical.
+- C13: write_settings(surface=None) is byte-identical on three committed settings.json shapes
+  (shared_from sharer, supplied LOD1/LOD2, LOD0-only {}). surface={} raises.
+- C14: the manifest records template, TilingCount, tile length, alpha mean, tris per LOD.
+- STG: staged prefab JSON: design section 5 type tables in order, check_prefab_text clean except the
+  two REPLACE_ placeholders, UTF-8 no BOM, CRLF, .cid 32 hex no newline. The staged files equal what
+  stage() emits for their CIDs. prove_loc (SkiRunGroomedA .loc rewritten byte for byte).
+  renumber_types rejects a forward reference.
+- SRG: surgery rehearsal in a temp ImportedData (simulate_import from the temp export): template
+  gate passes at 34 and STOPs at 0 / 1. LOD gate. Fragments appended once (a second run skips).
+  Every written prefab passes check_prefab_text. lane -> mesh CID. End posts wire m_NodeObject. The
+  probe installs three prefabs.
+- NEG: contracts reject: a net vertex off its column (C3), a post moved 5 cm (C4), a missing twin
+  (C6), an opaque net (C8 mean), zeroed hole RGB (C8 fringe).
 """
 
 import hashlib

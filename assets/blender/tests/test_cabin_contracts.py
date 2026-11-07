@@ -1,76 +1,69 @@
 """
-Contract gate for lift_cabin.py (gondola SkiGondolaCabin8A, tram SkiTramCabinA; cabins/A).
+Contract gate for lift_cabin.py (gondola SkiGondolaCabin8A, tram SkiTramCabinA, cabins/A).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_cabin_contracts.py \
         [-- [--full] [--source <path to gondola.fbx>]]
 
---source points the gondola ingest at another copy of the Wilin gondola.fbx (assets/external is not
-tracked, so a fresh worktree has none).
+--source points the gondola ingest at another copy of the Wilin gondola.fbx (assets/external is not tracked,
+so a fresh worktree has none).
 
 What it proves (one PASS line, exit 1 on any failure):
-  1. Every geometry contract holds on LOD0 / LOD1 / LOD2 of each build: gondola G1-G10
-     (hang 4.50 floor underside -> grip top, rope point under the grip, plumb, stalk
-     continuity, outboard stalk + door CENTROID (skeptic MC2), extents, nothing below 0,
-     single-quad stamps, carriage inside the Wilin mount 1.217 x 1.267); tram T1-T11
-     (R27 hang 10.50 / rope 10.00, R28 wheels on the ONE HV track rope + haul grips at
-     +-0.50 / -0.40, R29 mirror symmetry, R30 half-width 1.10 + tower keep-outs, clear zone,
-     plumb, z coverage) - for the default, --hang 7.00 and --split builds, and the gondola's
-     --outboard=+Y variant (the approved revision 1b side; nitpick A3 made -Y the default,
-     lift_cabin.GD_OUTBOARD); the gondola --lod2 decimate A/B must RAISE (C6: the protected
-     contract parts alone exceed the LOD2 budget, the shell collapses, G3/G6 break).
- 11. Nitpick A3 (2026-10-13, the gondola's outboard side mirrored to -Y = the carrier's right on
-     the stations' spin): the default build's stalk + doors sit on authoring -Y (G5 in the
-     outboard-positive frame), and the -Y and +Y builds are EXACT mirrors: LOD0 / LOD2 vertex
-     multisets equal under y -> -y (0.1 mm), the same tris on every LOD, the hang, the lateral
-     bounds mirrored; the -Y build checked as +Y raises G5 (and the reverse).
-  2. The asserts BITE: deliberately broken copies of the shipped LOD0 raise (lifted mesh,
-     no grip, mirrored stalk, no hanger; plates in the saddle zone, wheels off the rope,
-     one-sided haul grip, wide fork, sunk carriage top).
-  3. Budgets: gondola LOD0 in G lod0_band (cap 2,500), LOD1 <= 0.48 x LOD0, LOD2 ~200 (<= 250);
-     tram LOD0 within +-10 % of the projection (cap 8,000), LOD1 <= 0.48 x LOD0, LOD2 <= 500.
-  4. UV layers (skeptic MC3): the ingested parts arrive with the Maya "map1" layer, leave
-     the ingest with exactly ["UVMap"], every part (ingested + kit) carries exactly
-     ["UVMap"] before material_sources, and the shipped mesh carries only "UVUnique", no
-     material, no color attribute.
-  5. Ingest facts: shell 739 -> 571 tris after clean, doors 114 + 114, the plug closes 3
-     loops with 17 tris (0 boundary / non-manifold edges), the material split counts.
-  6. Determinism per kind: two builds in one process hash identically (vertices, faces,
-     UVUnique on every LOD) and write byte-identical PNGs. Draft bakes by default; --full
-     repeats it with the shipped --finish bake (1024 / 2048, AO 32 / 48, relief). Both bakes
-     also prove the recolor level: BaseColor p95 0.78-0.82 under every present ControlMask
-     channel, ControlMask R + G + B <= 1, A 0 (review minor 6).
-  7. Nothing is written into the repo: without --export every asset folder lives under
-     <tempdir>/lift_cabin.
-  8. Revision 1 (verdicts 2026-10-11 items 6 / 9): every logo quad shares ONE pinned
-     square (identical, non-mirrored UVUnique) of >= 4x the shipped logo edge; the stamp rects
-     are restored 1:1 by the bake; the shipped texels are not anisotropic (area-weighted
-     median <= 1.05, p95 <= 1.35 - the stamp stripe's band squeeze is pre-compensated and the
-     kit cylinders / wheels / body runs unwrap metric); with --full every hero face ships at
-     >= 120 px/m; the rebuilt rollers are 10-segment, the door plug keeps its 17-tri ingest
-     fact and ships softened.
-  9. Revision 1b (build/revision1-check-cabins.md C1-C4): LOD0 holds G11 (the shell + door
-     plug island has 0 open / 0 non-manifold edges) and G12 / T12 (no same-facing coplanar
-     overlap > 1 cm2 between two parts or inside one); every builder cap passes cap_check (the
-     signed-area test). Negatives: the grip cap triangulated the shipped way (before its
-     normal) raises CAP; lifting the frame-lip angle cap re-creates the C3 head fold and
-     raises G11 in soften_shell; a shell face deleted raises G11; the grip stem pushed back
-     flush raises G12; the crossbar ends pushed back flush with the uprights raise T12.
- 10. Revision 2 (tram, 2026-10-11: centered outward-opening sliding double doors + gondola detail
-     parity): T13 on LOD0 / LOD1 (4 leaves meeting at the center, 0.75-0.90 wide, faces proud of
-     the wall, sill at the boarding floor, hardware present, bounds still +-1.880 / +-4.030);
-     the door kit's rollers / grab bars keep their segment counts. Negatives: a leaf pushed back
-     flush with the wall raises T12 + T13, a leaf slid off the center raises T5 + T13, the grab
-     bars deleted raise T13. Determinism covers the new parts (same two-build hash).
- 12. Carrier split (2026-11-03, docs/research/carrier-pivot-swing-plan-2026-11-03.md): the tram
-     --split pair (SkiTramCabinB + SkiTramCarriageB) and the gondola --split pair
-     (SkiGondolaCabin8B + SkiGondolaCabin8GripB) each build 3 LODs with a base pivot (lowest
-     vertex z 0), 0 validator errors, S1 rejoin <= 2 mm, S2 pin gap in (0, 5] mm and S3 0 clashes
-     over the sweep, every one-piece contract on the joined pair at every LOD, the role contracts
-     on each mesh, and the pair budget (one-piece cap + the measured pin detail + the noted <= 5 %
-     raise for the 16-segment rollers). The tram's K sits one design gap + one lug radius under the
-     carriage head (10.50 - 0.12 - c - r). Swing convention (critique 2026-11-03): every pin sweeps
-     pitch +-45 x fore-aft +-3 deg only, roll 0 (the cross-wind sway rolls the whole assembly about
-     the rope point).
+1. Every geometry contract holds on LOD0 / LOD1 / LOD2 of each build. Gondola G1-G10: hang 4.50 floor
+   underside -> grip top, rope point under the grip, plumb, stalk continuity, outboard stalk + door CENTROID
+   (skeptic MC2), extents, nothing below 0, single-quad stamps, carriage inside the Wilin mount 1.217 x
+   1.267. Tram T1-T11: R27 hang 10.50 / rope 10.00, R28 wheels on the ONE HV track rope + haul grips at
+   +-0.50 / -0.40, R29 mirror symmetry, R30 half-width 1.10 + tower keep-outs, clear zone, plumb, z coverage.
+   This holds for the default, --hang 7.00 and --split builds, and for the --outboard=+Y variant of the
+   gondola (the approved revision 1b side, and nitpick A3 made -Y the default: lift_cabin.GD_OUTBOARD). The
+   gondola --lod2 decimate A/B must RAISE (C6: the protected contract parts alone exceed the LOD2 budget, the
+   shell collapses, G3/G6 break).
+11. Nitpick A3 (2026-10-13, the gondola's outboard side mirrored to -Y = the carrier's right on the stations'
+    spin): the stalk + doors of the default build sit on authoring -Y (G5 in the outboard-positive frame).
+    The -Y and +Y builds are EXACT mirrors: LOD0 / LOD2 vertex multisets equal under y -> -y (0.1 mm), the
+    same tris on every LOD, the hang, the lateral bounds mirrored. The -Y build checked as +Y raises G5 (and
+    the reverse).
+2. The asserts BITE: deliberately broken copies of the shipped LOD0 raise (lifted mesh, no grip, mirrored
+   stalk, no hanger, plates in the saddle zone, wheels off the rope, one-sided haul grip, wide fork, sunk
+   carriage top).
+3. Budgets. Gondola: LOD0 in G lod0_band (cap 2,500), LOD1 <= 0.48 x LOD0, LOD2 ~200 (<= 250). Tram: LOD0
+   within +-10 % of the projection (cap 8,000), LOD1 <= 0.48 x LOD0, LOD2 <= 500.
+4. UV layers (skeptic MC3): the ingested parts arrive with the Maya "map1" layer, leave the ingest with
+   exactly ["UVMap"], every part (ingested + kit) carries exactly ["UVMap"] before material_sources, and the
+   shipped mesh carries only "UVUnique", no material, no color attribute.
+5. Ingest facts: shell 739 -> 571 tris after clean, doors 114 + 114, the plug closes 3 loops with 17 tris (0
+   boundary / non-manifold edges), the material split counts.
+6. Determinism per kind: two builds in one process hash identically (vertices, faces, UVUnique on every LOD)
+   and write byte-identical PNGs. Draft bakes by default. --full repeats it with the shipped --finish bake
+   (1024 / 2048, AO 32 / 48, relief). Both bakes also prove the recolor level: BaseColor p95 0.78-0.82 under
+   every present ControlMask channel, ControlMask R + G + B <= 1, A 0 (review minor 6).
+7. Nothing is written into the repo: without --export every asset folder lives under <tempdir>/lift_cabin.
+8. Revision 1 (verdicts 2026-10-11 items 6 / 9): every logo quad shares ONE pinned square (identical,
+   non-mirrored UVUnique) of >= 4x the shipped logo edge. The bake restores the stamp rects 1:1. The shipped
+   texels are not anisotropic (area-weighted median <= 1.05, p95 <= 1.35 - the band squeeze of the stamp
+   stripe is pre-compensated and the kit cylinders / wheels / body runs unwrap metric). With --full every
+   hero face ships at >= 120 px/m. The rebuilt rollers are 10-segment. The door plug keeps its 17-tri ingest
+   fact and ships softened.
+9. Revision 1b (build/revision1-check-cabins.md C1-C4): LOD0 holds G11 (the shell + door plug island has 0
+   open / 0 non-manifold edges) and G12 / T12 (no same-facing coplanar overlap > 1 cm2 between two parts or
+   inside one). Every builder cap passes cap_check (the signed-area test). Negatives: the grip cap
+   triangulated the shipped way (before its normal) raises CAP. Lifting the frame-lip angle cap re-creates
+   the C3 head fold and raises G11 in soften_shell. A shell face deleted raises G11. The grip stem pushed
+   back flush raises G12. The crossbar ends pushed back flush with the uprights raise T12.
+10. Revision 2 (tram, 2026-10-11: centered outward-opening sliding double doors + gondola detail parity): T13
+    on LOD0 / LOD1 (4 leaves meeting at the center, 0.75-0.90 wide, faces proud of the wall, sill at the
+    boarding floor, hardware present, bounds still +-1.880 / +-4.030). The rollers / grab bars of the door
+    kit keep their segment counts. Negatives: a leaf pushed back flush with the wall raises T12 + T13. A leaf
+    slid off the center raises T5 + T13. The grab bars deleted raise T13. Determinism covers the new parts
+    (same two-build hash).
+12. Carrier split (2026-11-03, docs/research/carrier-pivot-swing-plan-2026-11-03.md): the tram --split pair
+    (SkiTramCabinB + SkiTramCarriageB) and the gondola --split pair (SkiGondolaCabin8B +
+    SkiGondolaCabin8GripB) each build 3 LODs with a base pivot (lowest vertex z 0) and 0 validator errors. S1
+    rejoin <= 2 mm. S2 pin gap in (0, 5] mm. S3 0 clashes over the sweep. Every one-piece contract holds on
+    the joined pair at every LOD. The role contracts hold on each mesh. The pair budget holds (one-piece cap
+    + the measured pin detail + the noted <= 5 % raise for the 16-segment rollers). The tram's K sits one
+    design gap + one lug radius under the carriage head (10.50 - 0.12 - c - r). Swing convention (critique
+    2026-11-03): every pin sweeps pitch +-45 x fore-aft +-3 deg only, roll 0 (the cross-wind sway rolls the
+    whole assembly about the rope point).
 """
 
 import json
@@ -225,7 +218,7 @@ def negatives_gondola(name):
     for v in o.data.vertices:
         v.co.x = -v.co.x
     o.data.flip_normals()
-    # nitpick A3: the shipped build is -Y (GD_OUTBOARD); its mirror (= the approved +Y cabin) checked against
+    # nitpick A3: the shipped build is -Y (GD_OUTBOARD). Its mirror (= the approved +Y cabin) checked against
     # the shipped side puts the stalk + doors inboard
     expect_raise("gondola mirrored (stalk + doors inboard)", ["G5"],
                  lambda: L.gondola_contracts(o, 0))
@@ -271,9 +264,9 @@ GRIP_PROFILE = [(-0.04, 4.455), (-0.04, 4.50), (0.30, 4.50), (0.30, 4.30), (0.11
 
 
 def negative_caps():
-    """Revision 1b C1: the grip caps built and triangulated the SHIPPED way (bmesh.ops.triangulate
-    on faces fresh from bm.faces.new, before any normal exists) must fail cap_check; the fixed
-    builder must pass on the same outline."""
+    """Revision 1b C1: the grip caps built and triangulated the SHIPPED way (bmesh.ops.triangulate on faces
+    fresh from bm.faces.new, before any normal exists) must fail cap_check. The fixed builder must pass on
+    the same outline."""
     import bmesh
     prof = list(GRIP_PROFILE)
     n = len(prof)
@@ -322,7 +315,7 @@ def negative_c3():
 
 def negatives_tram(name, dims):
     o = _dup(name)
-    # Revision 1: the lighter plates' foot sits 0.02 above the rope; drag it 0.10 down
+    # Revision 1: the lighter plates' foot sits 0.02 above the rope. Drag it 0.10 down
     idx = [i for i in _vidx(o, ("bogie_",)) if o.data.vertices[i].co.z < dims["rope"] + 0.05]
     _move(o, idx, (0.0, 0.0, -0.10))
     expect_raise("tram plates in the saddle zone", ["T3", "T11a"],
@@ -545,9 +538,8 @@ def stamp_checks(res, label, kind):
 
 
 def mask_levels(res, label):
-    """Light albedo ships under the recolor masks (review minor 6): BaseColor p95 0.78-0.82
-    (sRGB of the 0.604 linear slot albedo) under every present ControlMask channel; R + G + B
-    <= 1 and A 0 on the ControlMask."""
+    """Light albedo ships under the recolor masks (review minor 6): BaseColor p95 0.78-0.82 (sRGB of the 0.604
+    linear slot albedo) under every present ControlMask channel. R + G + B <= 1 and A 0 on the ControlMask."""
     d, n = res["asset_dir"], res["name"]
     base = L.cs2_validate.load_png_pixels(os.path.join(d, f"{n}_BaseColor.png"))
     ctl = L.cs2_validate.load_png_pixels(os.path.join(d, f"{n}_ControlMask.png"))
@@ -622,9 +614,9 @@ def main():
     gondola_checks(g, "gondola")
     mask_levels(g, "gondola")
     stamp_checks(g, "gondola", "gondola")
-    # skeptic MC6 numbers, Revision 1: rollers are 10-segment cylinders with the outer cap only
-    # (the inner cap sits inside the frame): 20 side + 10 cap tris; the door plug keeps its
-    # 17-tri ingest fact (asserted above) and ships softened with the shell
+    # skeptic MC6 numbers, Revision 1: rollers are 10-segment cylinders with the outer cap only (the inner
+    # cap sits inside the frame): 20 side + 10 cap tris. The door plug keeps its 17-tri ingest fact (asserted
+    # above) and ships softened with the shell
     seg = L.G["roller_segs"]
     rollers = [part_tris(g["name"], f"roller_{k}") for k in range(8)]
     check(rollers == [3 * seg] * 8,

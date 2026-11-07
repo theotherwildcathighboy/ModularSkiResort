@@ -1,40 +1,38 @@
 """
-test_civic_sign - contracts of the civic-sign build (design/civic-sign.md section 7 with
-civic-sign-skeptic.md applied): the Welcome Sign generator, the school / patrol recipes and
-the draft Write Everywhere layout.
+test_civic_sign - contracts of the civic-sign build (design/civic-sign.md section 7 with civic-sign-skeptic.md
+applied): the Welcome Sign generator, the school / patrol recipes and the draft Write Everywhere layout.
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_civic_sign.py [-- --quick]
 
-Checks (exit 1 on any failure; --quick skips the two reduced bakes):
-  WE layout   root WELayout, one textMesh, text@formulae GetEntityName, default "SKI AREA",
-              MaxWidthMeters = welcome_sign.WE_MAX_WIDTH, offsetPosition = WE_OFFSET +- 0.001,
-              fontName "", rescaleHeightOnTextOverflow "true", no hideMesh / imageMesh.
-  band math   rects integral at A 128..4096, square emblem, header texel aspect +- 1 px,
-              band top v <= 0.125.
-  label frame _civic.display_map / texel_to_display on the 8 axis-aligned frames: the
-              display's top-right lands at the viewer's top-right in the world.
-  sign        two --blockout builds in one process: mesh hash + band PNG sha1 equal (G8);
-              S1-S7 / G3 / G4 / S6 / G1 run inside every build (a failure raises); --masts 0
-              and 3 build; a reduced finish (A 512, AO 4, LODs): engine base OK on LOD0-2,
-              caps, the shipped BaseColor / ControlMask equal the band PNGs inside the
-              reserved rects (N3: the band is not AO-darkened), _Emissive present.
-  P1 / P2     --blockout: room cells (hut 12 / hq 18), `_Win` one UV layer and one cell,
-              M1 (|x| <= 3.75 on P1), P2 lot 2 x 2 (R22), budgets 650 / 200 (M7), the
-              front-only label faces (M3) are ONE UV island each, interior keyword in the name.
-  G8 recipes  school / P1 / P2 --blockout twice: hashes, cells, cull counts equal.
-  school      --blockout: 4 cells {store 6, upper 8, tower 12, back 19}, G10 (in the
-              builder); reduced finish (A 1024, AO 2, no LODs): pictogram texels white with
-              ControlMask R 0, the skier's head at the viewer's upper RIGHT (not mirrored).
-Fine-detail step 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md): the sign's DEFAULT build is
-the fine one (the SKI AREA header in the sign set SkiSignSetGateB, the lanterns as WallLightShortRange
-rows, 12-seg masts); `--no-fine` is the pre-pass sign. Added:
-  sign fine   the three header faces left the host (SG3) and form the sign set: SG1 UV = the painted
-              rect, SG4 one identity row in the manifest's sub_objects (+ 2 short-range wall lights ON the
-              post fronts, facing the road), SG5 inside the 2 x 1 lot, SG6 6 tris; the band keeps the emblem
-              only; the finish ships NO _Emissive (no lamp_ part) and the emblem rect is restored 1:1 (N3)
-  sign legacy `--no-fine` blockout = the shipped pre-pass sign (LOD0_prebake 3d778a71a9ab), header band
-              painted; its finish keeps the _Emissive
-  P1 / P2     the info / name board faces are in the sign sets, not in the host
+Checks (exit 1 on any failure, --quick skips the two reduced bakes):
+- WE layout: root WELayout, one textMesh, text@formulae GetEntityName, default "SKI AREA", MaxWidthMeters =
+  welcome_sign.WE_MAX_WIDTH, offsetPosition = WE_OFFSET +- 0.001, fontName "", rescaleHeightOnTextOverflow "true",
+  no hideMesh / imageMesh.
+- band math: rects integral at A 128..4096, square emblem, header texel aspect +- 1 px, band top v <= 0.125.
+- label frame: _civic.display_map / texel_to_display on the 8 axis-aligned frames: the display's top-right lands
+  at the viewer's top-right in the world.
+- sign: two --blockout builds in one process: mesh hash + band PNG sha1 equal (G8). S1-S7 / G3 / G4 / S6 / G1 run
+  inside every build (a failure raises). --masts 0 and 3 build. A reduced finish (A 512, AO 4, LODs): engine base
+  OK on LOD0-2, caps, the shipped BaseColor / ControlMask equal the band PNGs inside the reserved rects (N3: the
+  band is not AO-darkened), _Emissive present.
+- P1 / P2: --blockout: room cells (hut 12 / hq 18), `_Win` one UV layer and one cell, M1 (|x| <= 3.75 on P1), P2
+  lot 2 x 2 (R22), budgets 650 / 200 (M7), the front-only label faces (M3) are ONE UV island each, interior
+  keyword in the name.
+- G8 recipes: school / P1 / P2 --blockout twice: hashes, cells, cull counts equal.
+- school: --blockout: 4 cells {store 6, upper 8, tower 12, back 19}, G10 (in the builder). A reduced finish (A
+  1024, AO 2, no LODs): pictogram texels white with ControlMask R 0, the skier's head at the viewer's upper RIGHT
+  (not mirrored).
+
+Fine-detail step 3d (2026-10-12, build/fine-detail-step3d-patrol-sign.md): the sign's DEFAULT build is the fine
+one (the SKI AREA header in the sign set SkiSignSetGateB, the lanterns as WallLightShortRange rows, 12-seg masts).
+`--no-fine` is the pre-pass sign. Added:
+- sign fine: the three header faces left the host (SG3) and form the sign set. SG1: UV = the painted rect. SG4:
+  one identity row in the sub_objects of the manifest (+ 2 short-range wall lights ON the post fronts, facing the
+  road). SG5: inside the 2 x 1 lot. SG6: 6 tris. The band keeps the emblem only. The finish ships NO _Emissive (no
+  lamp_ part), and the emblem rect is restored 1:1 (N3).
+- sign legacy: `--no-fine` blockout = the shipped pre-pass sign (LOD0_prebake 3d778a71a9ab), header band painted.
+  Its finish keeps the _Emissive.
+- P1 / P2: the info / name board faces are in the sign sets, not in the host.
 """
 
 import glob
@@ -65,7 +63,7 @@ import cs2_asset              # noqa: E402
 import cs2_signset as SS      # noqa: E402  (fine-detail step 3d)
 import fine_detail as FD      # noqa: E402
 
-LEGACY_SIGN_HASH = "6095853f501a"        # the shipped pre-pass sign (signs/A, 2026-10-11 10:03; K4 before 3d)
+LEGACY_SIGN_HASH = "6095853f501a"        # the shipped pre-pass sign (signs/A, 2026-10-11 10:03, K4 before 3d)
 
 CIV = WS.C
 QUICK = "--quick" in sys.argv
@@ -130,7 +128,8 @@ def check_band_math():
 
 
 def check_tex_flag():
-    """T72: the sign bakes at --tex 2048 (about 2x the stone / roof px/m); the DEFAULT stays 1024 (the shipped export)."""
+    """T72: the sign bakes at --tex 2048 (about 2x the stone / roof px/m). The DEFAULT stays 1024 (the shipped
+    export)."""
     ok(WS.TEX == 1024 and WS.parse_args([]).tex == 1024, f"sign default --tex {WS.parse_args([]).tex} != 1024")
     ok(WS.parse_args(["--finish", "--tex", "2048"]).tex == 2048 and WS.parse_args(["--closeups"]).closeups == "",
        "sign --tex 2048 / --closeups parse")
@@ -203,7 +202,7 @@ def check_sign(tmp):
         r, _o = sign_run(["--blockout", "--masts", str(m), "--out", os.path.join(tmp, f"sm{m}", "A")])
         ok(r["base"][0]["verdict"] == "OK", f"sign masts {m} base")
         print(f"ok sign --masts {m}: LOD0 {r['tris'][0]}, G3 {r['contracts']['G3']}")
-    # fine-detail step 3d: --no-fine = the shipped pre-pass sign; the fine blockout routes the header out
+    # fine-detail step 3d: --no-fine = the shipped pre-pass sign. The fine blockout routes the header out
     rl, _o = sign_run(["--blockout", "--no-fine", "--out", os.path.join(tmp, "slegacy", "A")])
     ok(rl["hashes"]["LOD0_prebake"] == LEGACY_SIGN_HASH and sorted(rl["band"]["rects"]) == ["emblem", "header"],
        f"sign --no-fine blockout {rl['hashes']['LOD0_prebake']} != the shipped {LEGACY_SIGN_HASH}")
@@ -340,9 +339,9 @@ def check_patrol(tmp):
 
 
 def check_recipe_determinism(tmp):
-    """G8 for the three recipes: two --blockout builds in one process give the same
-    joined-mesh / `_Win` hashes, room cells and cull counts (the lodge determinism
-    pattern; the finish-pass determinism of the shared engine is test_lodge_determinism)."""
+    """G8 for the three recipes: two --blockout builds in one process give the same joined-mesh / `_Win` hashes, room
+    cells and cull counts (the lodge determinism pattern. The finish-pass determinism of the shared engine is
+    test_lodge_determinism)."""
     for key in ("school", "P1", "P2"):
         runs = []
         for i in range(2):
@@ -359,8 +358,8 @@ def check_school(tmp):
     r = recipe_run(key, ["--blockout"], os.path.join(tmp, "schoolblk", "A"))
     ok(r["cells"] == {"back": 19, "store": 6, "tower": 12, "upper": 8}, f"school cells {r['cells']}")
     ok(r["base"][0]["verdict"] == "OK", "school base")
-    # F4 (buildings-review-geometry): the lantern columns survive to LOD2 (kit LOD2_DELETE
-    # drops "lanterncol_"; the recipe's lod2_keep names the exact part), so the cap never floats
+    # F4 (buildings-review-geometry): the lantern columns survive to LOD2 (kit LOD2_DELETE drops "lanterncol_".
+    # The recipe's lod2_keep names the exact part), so the cap never floats
     tbl = json.loads(bpy.data.objects[r["name"]].data[cs2_asset.PART_TABLE_PROP])
     _d1, d2 = lodge.delete_lists(R.get_recipe(key), tbl)
     ok("lanterncol_school" in tbl and not "lanterncol_school".startswith(d2),
@@ -385,14 +384,14 @@ def check_school(tmp):
     glyph = sub_c[..., 0] < 0.5
     frac = float(glyph.mean())
     ok(0.05 < frac < 0.6, f"pictogram coverage {frac:.3f}")
-    # glyph texels (ControlMask R zeroed by stamp_on_face) are white; the antialiased rim
-    # blends with the siding, so judge the median and the core
+    # glyph texels (ControlMask R zeroed by stamp_on_face) are white. The antialiased rim blends with the siding,
+    # so judge the median and the core
     lum = sub_b[glyph][:, 0:3].mean(-1)
     ok(float(np.median(lum)) >= 0.85 and float((lum >= 0.88).mean()) >= 0.5,
        f"pictogram texels not white: median {float(np.median(lum)):.3f}, "
        f"core share {float((lum >= 0.88).mean()):.2f}")
-    # orientation: the skier's head (cand_d disk at canvas (172, 44) of 256) must sit at the
-    # viewer's upper RIGHT of the field; its mirror image must be field (slot 1)
+    # orientation: the skier's head (cand_d disk at canvas (172, 44) of 256) must sit at the viewer's upper RIGHT
+    # of the field. Its mirror image must be field (slot 1)
     Wu, Wv, n = CIV.uv_frame(me, face, A=A)
     fpoly = me.polygons[_part_faces(obj, face)[0]]
     P = np.array([tuple(obj.matrix_world @ me.vertices[v].co) for v in fpoly.vertices])
@@ -450,9 +449,9 @@ def check_school_manifest():
     objs, want = objs[:n], {**want, "objects": want["objects"][:n]}      # the recipe's own rows
     ok(sub.get("target_prefab") == man.get("prefab") == "SkiSchool",
        f"school sub_objects target {sub.get('target_prefab')} / prefab {man.get('prefab')}")
-    # DECISIONS 245 (T14 x-sign N, 2026-10-16; T53): the shipped manifest holds the PRE-T14 rows until the next
-    # export regenerates it. Stale = every row's position is the build's with x negated (rule T) and nothing
-    # else differs: SKIP (loud). Anything else, or a match, is asserted as before - never silently passes.
+    # DECISIONS 245 (T14 x-sign N, 2026-10-16, T53): the shipped manifest holds the PRE-T14 rows until the next
+    # export regenerates it. Stale = every row's position is the build's with x negated (rule T) and nothing else
+    # differs: SKIP (loud). Anything else, or a match, is asserted as before - never silently passes.
     def _pre_t14(o):
         return {**o, "position": [-float(o["position"][0]) + 0.0, *map(float, o["position"][1:])]}
     stale = (objs != want["objects"] and len(objs) == len(want["objects"])

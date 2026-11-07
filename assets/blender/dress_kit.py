@@ -1,10 +1,17 @@
 """
-dress_kit.py - the shared DRESSING KIT prop set, letter B (fine-detail pass, design section D as
-corrected by its skeptic FS1-FS16). Design: docs/research/art/assets-2026-10/design/fine-detail-pass.md
-section D + design/fine-detail-pass-skeptic.md (FS1 weather mast stays in the stations: 8 parts;
-FS3 one shared 1024^2 set >= 250 px/m; FS6 loadout variants; FS7 Parent color on the racks;
-FS10 installed cull formula; FS12 nothing existing changes). Build report:
-docs/research/art/assets-2026-10/build/dress-kit.md.
+dress_kit.py - the shared DRESSING KIT prop set, letter B (fine-detail pass, design section D as corrected by its
+skeptic FS1-FS16). Design: docs/research/art/assets-2026-10/design/fine-detail-pass.md section D +
+design/fine-detail-pass-skeptic.md.
+
+The skeptic corrections used here:
+- FS1: the weather mast stays in the stations (8 parts).
+- FS3: one shared 1024^2 set >= 250 px/m.
+- FS6: loadout variants.
+- FS7: Parent color on the racks.
+- FS10: installed cull formula.
+- FS12: nothing existing changes.
+
+Build report: docs/research/art/assets-2026-10/build/dress-kit.md.
 
     cd assets/blender
     blender --background --factory-startup --python-exit-code 1 --python dress_kit.py -- \
@@ -14,7 +21,7 @@ docs/research/art/assets-2026-10/build/dress-kit.md.
     blender ... --python dress_kit.py -- --variants           (kit color variants: stage / table / kit manifests)
     blender ... --python dress_kit.py -- --variant-surgery <ImportedData>   (S1, game closed)
 
-THE KIT (8 parts, 11 meshes; prefab-local meters x lateral, y up, z out / front)
+THE KIT (8 parts, 11 meshes). Prefab-local meters: x lateral, y up, z out / front.
     SkiDressSkiRackB / V2B / V3B   A-frame rack, 3 loadouts     cs2_bldg.ski_rack_frame + ski_gear
     SkiDressSkiRackWallB / V2B     station wall rack, 2 loadouts cs2_liftdress.ski_rack + ski_gear
     SkiDressHoseReelB              wall hose reel                 dims of cs2_liftdress.hose_reel
@@ -23,56 +30,73 @@ THE KIT (8 parts, 11 meshes; prefab-local meters x lateral, y up, z out / front)
     SkiDressEStopB                 emergency-stop post            dims of cs2_liftdress.estop_post
     SkiDressAkjaB                  rescue toboggan, leaning       dims of cs2_bldg.akja
     SkiDressSpineBoardB            spine board, leaning           dims of cs2_bldg.backboard
-    The existing builders are imported and CALLED, never edited. The racks and the tools are the
-    builders' own geometry; for the five round / hero parts the builders' 8-sided output is what
-    the fine-detail pass replaces, so the kit builds a 12-16-sided low mesh to the builders'
-    dimensions and `parity()` proves the footprint against the builder's own output.
+
+The kit imports and CALLS the existing builders. It never edits them. The racks and the tools are the builders' own
+geometry. For the five round / hero parts, the fine-detail pass replaces the builders' 8-sided output. So the kit
+builds a 12-16-sided low mesh to the builders' dimensions. `parity()` proves the footprint against the builder's own
+output.
 
 ONE SHARED SET
-    All 11 low meshes are laid out on one line (2 m gaps, AO distance 0.5 m: no cross-talk) and
-    joined. layout_unique() builds "UVUnique" itself: every island of every texel-owning part at
-    D x w px/m (w = the part's density weight: 1 on every visible face, lower only on hidden /
-    plain faces, listed in the report), skyline-packed with 90 deg rotation and 8 px gutters, D the
-    densest scale that fits 1024^2. cs2_bake.bake_high_to_low then bakes the joined hi-poly twin's
-    tangent normal + AO straight into that layer (bevels, bolt heads, ribs, hose turns, handholds),
-    and compose_kit() writes the four maps from the kit's constant materials + cs2_compose
-    .compose_maps. Why not bake_unique: its cs2_uv.pack_unique packs AABBs without rotation and
-    reached ~50 % fill on these thin parts (158-175 px/m measured); rotation is safe here because
-    no source normal map is re-projected. The first prop (SkiDressSkiRackB) owns the four PNGs;
-    the ten others ship an FBX and a settings.json whose sharedAssets name the owner's maps
-    (`../SkiDressSkiRackB/..._<Map>.png`).
-    Rigid copies share texels (their loops take the canonical part's): every ski / board / pole
-    item of every rack is a rigid copy of one library item (built by cs2_bldg.ski_gear at its real placement, then proven
-    equal to the library item in its own frame), repeated A-frame bars are translation copies, the
-    three A-frame frames and the two wall frames are copies. The hi-poly of a shared part is
-    invariant under its copy transform (bolts on both faces of a shared rail), so a stacked texel
-    is right for every copy.
-    Bake rule: every hi part lies inside its low part's envelope or <= 2.5 mm outside it
-    (round lows are circumscribed: vertex radius r / cos(pi / n)), cage extrusion 3 mm, max ray
-    40 mm; a ray never starts inside hi geometry.
+All 11 low meshes are laid out on one line (2 m gaps, AO distance 0.5 m: no cross-talk) and joined. layout_unique()
+builds "UVUnique" itself. It places every island of every texel-owning part at D x w px/m. Here w is the density
+weight of the part: 1 on every visible face, lower only on hidden / plain faces (the report lists them). D is the
+densest scale that fits 1024^2. The packer is skyline-based, with 90 deg rotation and 8 px gutters.
 
-COLOR (kit color variants, 2026-10-12, build/kit-colour-variants.md; FS7 Parent DROPPED ~18:50:
-    "I think they should stay a color that makes sense for that building")
-    Ski-rack gear `accent` texels and the akja shell are ControlMask G (slot 2, channel 1), albedo 0.80
-    under the mask. ColorProperties lives on the MESH prefab (RenderPrefab; decompile: ColorProperties.cs
-    ComponentMenu, MeshColorSystem reads the SubMesh's mesh prefab), so each color SET of a colored prop
-    is a VARIANT = its own object prefab + its own mesh prefab (a RenderPrefab clone of the imported base
-    mesh prefab: same geometry + surface assets, a fixed ColorProperties with ONE VariationSet, no external
-    channel, ranges 0). The registry below (stage_variant / sync_variants / variant_surgery) mints them
-    ON DEMAND (only the (prop, set) pairs a shipped host manifest names), CIDs seeded from the name
-    (fine_detail.variant_cids). The six colored base object prefabs and their Parent blocks do not ship.
-    Every other prop has no ControlMask texel and no ColorProperties (beacon rule).
+Then cs2_bake.bake_high_to_low bakes the tangent normal + AO of the joined hi-poly twin straight into that layer
+(bevels, bolt heads, ribs, hose turns, handholds). compose_kit() writes the four maps from the constant materials of
+the kit + cs2_compose.compose_maps.
+
+The kit does not use bake_unique for this reason: its cs2_uv.pack_unique packs AABBs without rotation. It reached ~50
+% fill on these thin parts (158-175 px/m measured). Rotation is safe here, because the bake re-projects no source
+normal map.
+
+The first prop (SkiDressSkiRackB) owns the four PNGs. The ten other props ship an FBX and a settings.json. The
+sharedAssets of that settings.json name the maps of the owning prop (`../SkiDressSkiRackB/..._<Map>.png`).
+
+Rigid copies share texels: their loops take those of the canonical part. These parts are copies:
+- Every ski / board / pole item of every rack is a rigid copy of one library item. cs2_bldg.ski_gear
+  builds it at its real placement. The kit then proves it equal to the library item in its own frame.
+- Repeated A-frame bars are translation copies.
+- The three A-frame frames and the two wall frames are copies.
+
+The hi-poly of a shared part is invariant under its copy transform (bolts on both faces of a shared rail). So a
+stacked texel is right for every copy.
+
+Bake rule:
+- Every hi part lies inside the envelope of its low part, or <= 2.5 mm outside it. Round lows are
+  circumscribed: vertex radius r / cos(pi / n).
+- Cage extrusion: 3 mm.
+- Max ray: 40 mm.
+- A ray never starts inside hi geometry.
+
+COLOR (kit color variants, 2026-10-12, build/kit-colour-variants.md)
+FS7 Parent DROPPED ~18:50. The verdict: "I think they should stay a color that makes sense for that building".
+
+The `accent` texels of the ski-rack gear and the akja shell are ControlMask G (slot 2, channel 1), with albedo 0.80
+under the mask.
+
+ColorProperties lives on the MESH prefab (RenderPrefab). Decompile: ColorProperties.cs ComponentMenu. MeshColorSystem
+reads the mesh prefab of the SubMesh. So each color SET of a colored prop is a VARIANT: its own object prefab + its
+own mesh prefab. The mesh prefab is a RenderPrefab clone of the imported base mesh prefab. It has the same geometry +
+surface assets, a fixed ColorProperties with ONE VariationSet, no external channel, and ranges 0.
+
+The registry below (stage_variant / sync_variants / variant_surgery) mints them ON DEMAND. It mints only the (prop,
+set) pairs that a shipped host manifest names. The CIDs are seeded from the name (fine_detail.variant_cids). The six
+colored base object prefabs and their Parent blocks do not ship. Every other prop has no ControlMask texel and no
+ColorProperties (beacon rule).
 
 PREFABS (surgery, beacon pattern)
-    assets/staging/prefabs/props/B/<Object>/<Object>.Prefab + .Prefab.cid (hand-minted ONCE, never
-    re-minted: an existing .cid is kept) for the five UNCOLORED props; for every used color variant
-    <Variant>/<Variant>.Prefab (complete: names the variant mesh CID) + .Prefab.cid + "<Variant> Mesh.Prefab.cid"
-    + "<Variant> Mesh.components.json", and the table kit-variants.json.
+The kit stages these files:
+- For the five UNCOLORED props: assets/staging/prefabs/props/B/<Object>/<Object>.Prefab + .Prefab.cid.
+  Mint them by hand ONCE. Never re-mint them: the kit keeps an existing .cid.
+- For every used color variant: <Variant>/<Variant>.Prefab (complete: it names the variant mesh CID)
+  + .Prefab.cid + "<Variant> Mesh.Prefab.cid" + "<Variant> Mesh.components.json".
+- The table kit-variants.json.
 
-No LOD chain (41 / 50 vanilla props ship none); the cull estimate uses the installed 1.6.2 formula
-(MeshSystem.cs:497-503: LOD-less, max dim s <= 5 m -> m_LodBias = 1.2 (s / 5)^3) [U until SkiProbeLodA].
-Determinism: no RNG, no clock in any output but the FBX header / manifest stamp; tag_parts canonical
-order; Cycles CPU seed 0. No top-level side effects; the __main__ block runs only as a Blender script.
+No LOD chain (41 / 50 vanilla props ship none). The cull estimate uses the installed 1.6.2 formula
+(MeshSystem.cs:497-503: LOD-less, max dim s <= 5 m -> m_LodBias = 1.2 (s / 5)^3) [U until SkiProbeLodA]. Determinism:
+no RNG. No clock in any output but the FBX header / manifest stamp. The order of tag_parts is canonical. Cycles CPU
+seed 0. No top-level side effects. The __main__ block runs only as a Blender script.
 """
 
 import argparse
@@ -110,11 +134,11 @@ GENERATOR = "assets/blender/dress_kit.py"
 
 LETTER = "B"
 A = 1024                    # FS3: one 1024^2 four-map set
-MARGIN_PX = 8               # island gutter (cs2_uv default 16 @ 1024): mip-3 safe; 6 gained 1 px/m
+MARGIN_PX = 8               # island gutter (cs2_uv default 16 @ 1024), mip-3 safe. 6 gained 1 px/m
 CAGE = 0.003                # cage extrusion (m): hi details stay <= 2.5 mm proud of the low
 MAX_RAY = 0.04              # deepest hi recess / sagitta below a low face (m)
 AO_SAMPLES = 48
-AO_DISTANCE = 0.5           # world AO distance during the bake (m); props stand >= 2 m apart
+AO_DISTANCE = 0.5           # world AO distance during the bake (m). Props stand >= 2 m apart
 LAYOUT_GAP = 2.0
 DK6_MIN_PPM = 250.0         # FS3 (design DK6 >= 400 at 2048^2 -> >= 250 at 1024^2)
 DK3_MIN_HF_DEG = 5.0        # design DK3: fine-detail rms >= 5 deg on each part's islands
@@ -125,10 +149,12 @@ MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal")
 STAGING = os.path.join(REPO, "assets", "staging", "prefabs", "props", LETTER)
 SUBOBJ_JSON = os.path.join(HERE, "subobj_bounds.json")
 
-#: the 11 meshes. cap = design D.1 / DK1 cap of the PART; kind: ground | wall | lean;
-#: color "variants" = colored (ControlMask G accent texels): ships ONLY as fixed color-set VARIANTS (kit
-#: color variants, 2026-10-12; the FS7 Parent block and the base object prefab are retired); rows = design D.1
-#: approved / pending instances.
+# The 11 meshes.
+# - cap: the design D.1 / DK1 cap of the PART.
+# - kind: ground | wall | lean.
+# - color "variants": colored (ControlMask G accent texels). Ships ONLY as fixed color-set VARIANTS
+#   (kit color variants, 2026-10-12). The FS7 Parent block and the base object prefab are retired.
+# - rows: design D.1 approved / pending instances.
 PROPS = (
     dict(code="R1", name="SkiDressSkiRackB", obj="SkiDressSkiRack", part="SkiDressSkiRack",
          cap=900, kind="ground", colour="variants", variant=1,
@@ -175,8 +201,8 @@ PROPS = (
 BY_CODE = {p["code"]: p for p in PROPS}
 
 # --------------------------------------------------------------------------------------
-# Gear library + loadouts (FS6). Color pairs are cs2_liftdress.GEAR_SKI_COLOURS /
-# GEAR_BOARD_COLOURS entries; one length per colorway so the tips of a row do not line up.
+# Gear library + loadouts (FS6). Color pairs are cs2_liftdress.GEAR_SKI_COLOURS / GEAR_BOARD_COLOURS entries. Each
+# colorway has one length, so the tips of a row do not line up.
 # --------------------------------------------------------------------------------------
 
 GEAR = {
@@ -189,9 +215,9 @@ GEAR = {
     "P1": ("poles", "accent", 1.38),
 }
 GEAR_BACK_W = 0.5           # density weight of gear faces that face the rack (back ski, board base)
-FRAME_W = 1.0               # galvanised rack bars: visible, full weight
-#: A-frame (8 slots per side; side +1 = front = prefab +Z). None = empty slot. Boards never sit
-#: next to a board on one side (cs2_bldg.ski_rack_frame occupancy rule, GEAR_W).
+FRAME_W = 1.0               # galvanized rack bars: visible, full weight
+# A-frame: 8 slots per side. Side +1 = front = prefab +Z. None = empty slot. Boards never sit next to a board on one
+# side (cs2_bldg.ski_rack_frame occupancy rule, GEAR_W).
 AFRAME_LOADOUTS = {
     "R1": {+1: ("S1", "S2", "B1", "S3", "P1", "S4", "B2", "S1"),          # design: 10 + 3 + 2
            -1: ("S3", "B2", "S1", "S2", "S4", "P1", "S3", None)},
@@ -206,13 +232,13 @@ WALL_LOADOUTS = {
     "W2": ("S1", "S3", "P1", "S2", "B1", "S4", "S2", "S3"),             # 6 + 1 board + 1 poles
 }
 
-# A-frame numbers = cs2_bldg.ski_rack_frame defaults (slots 8, h 1.20, spread 0.40, bar 0.035,
-# pitch 0.20, along "X"); parity() rebuilds every item with the builder itself.
+# A-frame numbers = cs2_bldg.ski_rack_frame defaults (slots 8, h 1.20, spread 0.40, bar 0.035, pitch 0.20, along "X").
+# parity() rebuilds every item with the builder itself.
 AF = dict(slots=8, h=1.20, spread=0.40, bar=0.035, pitch=0.20, zb=0.35)
 # wall rack = cs2_liftdress.ski_rack defaults on a 3.0 m run (x0 -1.5, x1 1.5, y 0, z0 0)
 WR = dict(x0=-1.5, x1=1.5, y=0.0, z0=0.0, h=1.30, stand_off=0.40, side=-1.0)
 
-# hero parts (prop-local Blender meters; wall plane y = 0, prop toward -y = prefab +Z)
+# hero parts (prop-local Blender meters, wall plane y = 0, prop toward -y = prefab +Z)
 HOSE = dict(r=0.30, w=0.18, plate=0.70, plate_t=0.02, coil_r=0.25, hose_r=0.022, cz=0.35)
 EXT = dict(r=0.08, h=0.45, off=0.02)
 ESTOP = dict(r=0.04, h=1.00, box=(0.16, 0.12, 0.14), lid=(0.17, 0.13, 0.02), btn_r=0.035)
@@ -221,8 +247,8 @@ SPINE = dict(length=1.85, width=0.45, t=0.05, lean=85.0, chamfer=0.06)
 TOOLS = dict(lean=75.0, gap=0.35, wall=0.32)
 
 # --------------------------------------------------------------------------------------
-# Materials (linear albedo, cs2_bake.MaterialSpec fields). The gear / safety keys are
-# cs2_liftdress.DRESS_MATERIALS' (read at build time); three kit keys are new.
+# Materials (linear albedo, cs2_bake.MaterialSpec fields). The gear / safety keys are those of
+# cs2_liftdress.DRESS_MATERIALS (read at build time). Three kit keys are new.
 # --------------------------------------------------------------------------------------
 
 
@@ -307,7 +333,7 @@ def _local_co(me):
 
 
 def _bake_world(obj):
-    """Apply obj.matrix_world into the mesh (no operator); identity afterwards."""
+    """Apply obj.matrix_world into the mesh (no operator). The matrix is identity afterwards."""
     M = obj.matrix_world.copy()
     if M == Matrix.Identity(4):
         return obj
@@ -328,9 +354,9 @@ def _move(obj, offset):
 # ======================================================================================
 
 class LowMesh:
-    """Vertices, faces and per-face-loop UVs (meters). Faces are given in the order whose
-    right-hand normal is the outward normal; every helper below assigns UVs whose winding is
-    positive with respect to that normal (no mirrored islands, DK5)."""
+    """Vertices, faces and per-face-loop UVs (meters). The caller gives faces in the order whose right-hand normal is the
+    outward normal. Every helper below assigns UVs whose winding is positive with respect to that normal (no mirrored
+    islands, DK5)."""
 
     def __init__(self):
         self.V, self.F, self.UV = [], [], []
@@ -347,11 +373,10 @@ class LowMesh:
 
     # -- primitives --------------------------------------------------------------------
     def loft(self, rings, closed=True, u0=0.0, v0=0.0):
-        """Quads between consecutive rings (lists of points, equal counts). Face k,i =
-        (r_k[i], r_k[i+1], r_k+1[i+1], r_k+1[i]); normal = t_u x t_v with u along the ring
-        order and v along the ring sequence: order the rings / ring points for the side you
-        want. UV u = arc length along each ring, v = cumulative mean ring spacing (meters).
-        Returns the vertex index rings."""
+        """Quads between consecutive rings (lists of points, equal counts). Face k,i = (r_k[i], r_k[i+1], r_k+1[i+1],
+        r_k+1[i]). Normal = t_u x t_v, with u along the ring order and v along the ring sequence. Order the rings /
+        ring points for the side you want. UV u = arc length along each ring, v = cumulative mean ring spacing
+        (meters). Returns the vertex index rings."""
         idx = [[self.v(p) for p in ring] for ring in rings]
         n = len(rings[0])
         arcs = []
@@ -376,9 +401,9 @@ class LowMesh:
         return idx
 
     def planar(self, idx, normal, fan=False):
-        """A planar polygon (vertex indices) facing `normal`: reordered so its winding normal is
-        `normal`, UV = projection on (e1, e2) with e1 x e2 = normal. fan=True triangulates
-        from the first vertex (no n-gons in the shipped mesh)."""
+        """A planar polygon (vertex indices) facing `normal`. The method reorders it so its winding normal is `normal`.
+        UV = projection on (e1, e2) with e1 x e2 = normal. fan=True triangulates from the first vertex (no n-gons in
+        the shipped mesh)."""
         N = Vector(normal).normalized()
         P = [Vector(self.V[i]) for i in idx]
         c = sum(P, Vector()) / len(P)
@@ -401,10 +426,10 @@ class LowMesh:
         self.planar([self.v(p) for p in pts], normal)
 
     def box(self, c, axes, half, drop=()):
-        """Oriented box as ONE UV island (a net): the four faces around the strip axis (the axis
-        of a dropped face, else the longest) unrolled as a strip, the two caps folded out of the
-        +c face's ends; every face keeps a positive winding. drop = local keys "+X" .. "-Z".
-        One island keeps the edges inside it, where the baked bevels are (and fewer margins)."""
+        """Oriented box as ONE UV island (a net). The four faces around the strip axis (the axis of a dropped face, else
+        the longest) unroll as a strip. The two caps fold out of the ends of the +c face. Every face keeps a positive
+        winding. drop = local keys "+X" .. "-Z". One island keeps the edges inside it, where the baked bevels are (and
+        gives fewer margins)."""
         C = Vector(c)
         Ax = [Vector(a).normalized() for a in axes]
         h = [float(x) for x in half]
@@ -474,8 +499,8 @@ class LowMesh:
 
 
 def ring_pts(c, axis, r, n, phase=0.0, ref=None, ccw=True):
-    """n points on a circle of radius r around `axis` through c; CCW seen from +axis when
-    ccw (a loft along +axis then faces OUTWARD)."""
+    """n points on a circle of radius r around `axis` through c. CCW seen from +axis when ccw (a loft along +axis then
+    faces OUTWARD)."""
     ax = Vector(axis).normalized()
     ref = Vector(ref) if ref is not None else (Vector((0, 0, 1)) if abs(ax.z) < 0.9
                                                 else Vector((1, 0, 0)))
@@ -494,7 +519,7 @@ def circ(r, n):
 
 
 # ======================================================================================
-# Hi-poly builder (bmesh; no UVs needed)
+# Hi-poly builder (bmesh, no UVs needed)
 # ======================================================================================
 
 class HiGeo:
@@ -555,8 +580,8 @@ class HiGeo:
             self.loft(rings, True, cap0, cap1)
 
     def box(self, c, axes, half, bevel=0.0, segs=2, drop=(), bevel_open=False):
-        """Oriented box; bevel = rounded edges (inside the box); drop removes faces (open bars:
-        only the non-boundary edges are bevelled)."""
+        """Oriented box. bevel = rounded edges (inside the box). drop removes faces (open bars: only the non-boundary
+        edges are beveled)."""
         bm = bmesh.new()
         C = Vector(c)
         Ax = [Vector(a).normalized() for a in axes]
@@ -590,8 +615,8 @@ class HiGeo:
         self.merge(bm)
 
     def band(self, c, axis, z0, z1, r0, r1, ch=0.0015, segs=32):
-        """A raised band around an axis: radius r0 (the surface) -> r1 over a chamfer `ch` at both
-        ends, open at r0 (it sits on the surface): the step edges carry the baked detail."""
+        """A raised band around an axis: radius r0 (the surface) -> r1 over a chamfer `ch` at both ends, open at r0 (it
+        sits on the surface). The step edges carry the baked detail."""
         A_ = Vector(axis).normalized()
         C_ = Vector(c)
         rings = [ring_pts(C_ + A_ * z, A_, r, segs) for z, r in
@@ -599,9 +624,9 @@ class HiGeo:
         self.loft(rings, True)
 
     def bolt(self, c, n, r=0.008, h=0.002, segs=6):
-        """Bolt head on a surface, from 1 mm under it to h above (h <= 2.5 mm): a short collar,
-        then a chamfered / domed crown to a 0.45 r flat, so the whole head tilts in the normal
-        map (a flat-topped cylinder bakes as one flat texel disc with a 1-texel rim)."""
+        """Bolt head on a surface, from 1 mm under it to h above (h <= 2.5 mm). It has a short collar, then a chamfered /
+        domed crown to a 0.45 r flat. So the whole head tilts in the normal map (a flat-topped cylinder bakes as one
+        flat texel disc with a 1-texel rim)."""
         N = Vector(n).normalized()
         C_ = Vector(c)
         n_ = max(8, int(segs))
@@ -640,8 +665,8 @@ def _rename(obj, name):
 
 
 def _smart_uv(obj):
-    """Deterministic smart projection into a fresh "UVMap" (66 deg: a 16-seg ring is one
-    island, box faces are islands of their own); every other UV / float loop layer removed."""
+    """Deterministic smart projection into a fresh "UVMap" (66 deg: a 16-seg ring is one island, box faces are islands of
+    their own). The function removes every other UV / float loop layer."""
     me = obj.data
     for lay in [l.name for l in me.uv_layers]:
         me.uv_layers.remove(me.uv_layers[lay])
@@ -683,10 +708,9 @@ def _hull(pts):
 
 
 def _orient_islands(obj, layer="UVMap"):
-    """Rotate every island of the SOURCE layer to its minimum-area rectangle, long side along v
-    (cs2_uv.pack_unique packs AABBs without rotation: a diagonal strip wastes its whole box).
-    Rotations keep the winding; the source layer only feeds the pack (sources sample UVTile or
-    constants), so this changes the layout, never a texel's meaning."""
+    """Rotate every island of the SOURCE layer to its minimum-area rectangle, long side along v (cs2_uv.pack_unique packs
+    AABBs without rotation: a diagonal strip wastes its whole box). Rotations keep the winding. The source layer only
+    feeds the pack (sources sample UVTile or constants). So this changes the layout, never the meaning of a texel."""
     me = obj.data
     lay = me.uv_layers[layer]
     uv = cs2_uv.loop_uvs(lay)
@@ -719,9 +743,9 @@ def _orient_islands(obj, layer="UVMap"):
 
 
 def _bar_net_uv(obj):
-    """One-island net for a box bar along LOCAL x (cs2_kit._box_bm via cs2_liftdress._beam): the four
-    long faces unrolled around x (u = x, v = perimeter), end caps as their own planar islands;
-    every face keeps a positive winding (e1 x e2 = its normal)."""
+    """One-island net for a box bar along LOCAL x (cs2_kit._box_bm via cs2_liftdress._beam): the four long faces unroll
+    around x (u = x, v = perimeter). The end caps are their own planar islands. Every face keeps a positive winding
+    (e1 x e2 = its normal)."""
     me = obj.data
     co = _local_co(me)
     lo, hi = co.min(axis=0), co.max(axis=0)
@@ -801,8 +825,8 @@ def _same_local(a, b, tol=1e-5):
 
 
 class Library:
-    """Rigid-copy library: the first part under a key is canonical; later parts must equal it
-    in their own frame (<= 1e-5 m) and take an exact copy of its (UV-unwrapped) mesh."""
+    """Rigid-copy library: the first part under a key is canonical. Later parts must equal it in their own frame (<= 1e-5
+    m) and take an exact copy of its (UV-unwrapped) mesh."""
 
     def __init__(self):
         self.canon = {}
@@ -831,10 +855,10 @@ class Library:
 # ======================================================================================
 
 def item_frame(kind, F, T):
-    """(M, O, d, a, n) of a ski_gear item standing at foot F leaning on T: the builder's own
-    vectors (cs2_bldg.ski_gear: d foot->lean, a = z x horizontal, n = d x a flipped toward the
-    foot side, O = F + n * GEAR_BACK). M is the PROPER frame (d, a, d x a, O): ski_gear's
-    (d, a, n) is left-handed (n = -(d x a) always), a mirror would flip the UV winding."""
+    """(M, O, d, a, n) of a ski_gear item standing at foot F leaning on T: the builder's own vectors (cs2_bldg.ski_gear:
+    d foot->lean, a = z x horizontal, n = d x a flipped toward the foot side, O = F + n * GEAR_BACK). M is the PROPER
+    frame (d, a, d x a, O): ski_gear's (d, a, n) is left-handed (n = -(d x a) always). A mirror would flip the UV
+    winding."""
     import cs2_bldg as K
     F, T = Vector(F), Vector(T)
     d = (T - F).normalized()
@@ -870,9 +894,9 @@ def _fine_stations(stations, step):
 
 
 def hi_ski_pair(g, O, d, a, n, L):
-    """Hi twin of cs2_bldg._ski_pair_into (no bindings): per ski a closed solid between the base
-    plane (0.003 off the pair plane) and the top sheet (SKI_TH), crowned 1.5 mm, 3 mm edge
-    chamfers, the tip curl of SKI_STATIONS; dense stations along the ski."""
+    """Hi twin of cs2_bldg._ski_pair_into (no bindings). Per ski it builds a closed solid between the base plane (0.003
+    off the pair plane) and the top sheet (SKI_TH). The solid has a 1.5 mm crown, 3 mm edge chamfers and the tip curl
+    of SKI_STATIONS. Stations are dense along the ski."""
     import cs2_bldg as K
     st = K.SKI_STATIONS
     for sg in (1.0, -1.0):
@@ -959,8 +983,8 @@ HI_GEAR = {"ski": hi_ski_pair, "board": hi_board, "poles": hi_poles}
 
 
 class GearBuilder:
-    """Places library items: low parts via cs2_bldg.ski_gear at the real placement (then moved into
-    their proper frame and checked against the library item), hi via the hi twin once per item."""
+    """Places library items. Low parts come from cs2_bldg.ski_gear at the real placement (the class then moves them into
+    their proper frame and checks them against the library item). Hi parts come from the hi twin, once per item."""
 
     def __init__(self, lib):
         self.lib = lib
@@ -986,9 +1010,9 @@ class GearBuilder:
                     nsum += p.normal * p.area
                 back = kind != "poles" and nsum.dot(n) < -0.3 * max(nsum.length, 1e-12)
                 _to_local(sub, M)
-                # the local-geometry hash is part of the key: cs2_bldg._Geo.cyl phases its rings
-                # from WORLD x when the axis is steep, so the A-frame's back-side pole shafts are
-                # not rotation copies of the front ones (they get their own island)
+                # The local-geometry hash is part of the key. cs2_bldg._Geo.cyl phases its rings from WORLD x when the
+                # axis is steep. So the back-side pole shafts of the A-frame are not rotation copies of the front ones
+                # (they get their own island)
                 key = ("gear", gkey, mat, ci, _geom_key(sub.data, "g")[1])
                 self.lib.adopt(key, sub, _smart_uv)
                 tris += cs2_asset.tri_count(sub)
@@ -1096,8 +1120,8 @@ def _geom_key(me, tag, nd=4):
 
 
 def hi_bar(low_me, bolts=()):
-    """Hi twin of a frame bar: the low box (local) with every non-boundary edge bevelled 4 mm,
-    2 segments (inside the low), plus bolt heads (local point, normal)."""
+    """Hi twin of a frame bar: the low box (local) with every non-boundary edge beveled 4 mm, 2 segments (inside the
+    low), plus bolt heads (local point, normal)."""
     g = HiGeo()
     bm = bmesh.new()
     bm.from_mesh(low_me)
@@ -1113,8 +1137,8 @@ def hi_bar(low_me, bolts=()):
 
 
 def build_aframe(code, lib, gear):
-    """A-frame rack variant `code`: the builder's frame split into bars (translation copies share)
-    + the loadout's gear; the whole rack drops by GROUND_LIFT so its feet stand on z 0."""
+    """A-frame rack variant `code`: the builder's frame split into bars (translation copies share) + the loadout's gear.
+    The whole rack drops by GROUND_LIFT so its feet stand on z 0."""
     import cs2_bldg as K
     parts = []
     built = K.ski_rack_frame(f"dk{code}fr", 0.0, 0.0, slots=AF["slots"], along="X", skis=(),
@@ -1170,8 +1194,8 @@ def build_aframe(code, lib, gear):
 
 
 def build_wall_rack(code, lib, gear):
-    """Wall rack variant `code`: cs2_liftdress.ski_rack's legs + rails (pairs 0: frame only) and
-    the loadout placed with the builder's slot math; feet on z 0."""
+    """Wall rack variant `code`: cs2_liftdress.ski_rack's legs + rails (pairs 0: frame only) and the loadout placed with
+    the builder's slot math. Feet on z 0."""
     import cs2_liftdress as LD
     parts = []
     built = LD.ski_rack(f"dk{code}w", WR["x0"], WR["x1"], WR["y"], WR["z0"], pairs=0, boards=0,
@@ -1245,9 +1269,9 @@ def _unique(parts, lm, name, mat, code, role, w=1.0, hi=()):
 
 
 def build_hose_reel(code):
-    """Wall hose reel (cs2_liftdress.hose_reel: r 0.30, drum 0.6 r, w 0.18, plate 0.70 x 0.02):
-    plate bottom on z 0, back on the wall plane y 0, reel axis out of the wall (-y) at z 0.35;
-    a wound-hose coil band, a hose tail with a brass nozzle, a brass inlet valve wheel."""
+    """Wall hose reel (cs2_liftdress.hose_reel: r 0.30, drum 0.6 r, w 0.18, plate 0.70 x 0.02): plate bottom on z 0, back
+    on the wall plane y 0, reel axis out of the wall (-y) at z 0.35. It has a wound-hose coil band, a hose tail with a
+    brass nozzle and a brass inlet valve wheel."""
     H = HOSE
     parts = []
     cz = H["cz"]
@@ -1364,9 +1388,9 @@ def build_hose_reel(code):
 
 
 def build_extinguisher(code):
-    """Wall extinguisher (cs2_liftdress.extinguisher: r 0.08, h 0.45, 0.02 off the wall, bracket,
-    valve head): bottom on z 0, back of the bracket on the wall plane y 0; 16-sided body
-    circumscribed on the 32-sided hi, two dome bands, valve, lever, hose, bracket."""
+    """Wall extinguisher (cs2_liftdress.extinguisher: r 0.08, h 0.45, 0.02 off the wall, bracket, valve head): bottom on
+    z 0, back of the bracket on the wall plane y 0. It has a 16-sided body circumscribed on the 32-sided hi, two dome
+    bands, valve, lever, hose and bracket."""
     E = EXT
     parts = []
     cy = -(E["off"] + E["r"])
@@ -1506,9 +1530,9 @@ def build_estop(code):
 
 
 def build_tools(code):
-    """Ice scraper + snow shovel leaning on a wall: cs2_liftdress.tools(foot, facing -Y, lean 75,
-    gap 0.35) as built, plus a T-grip on the scraper and a D-grip on the shovel; foot line on the
-    prefab origin (y 0, z 0), the tops touch the wall plane y = TOOLS["wall"] (prefab z -0.32)."""
+    """Ice scraper + snow shovel leaning on a wall: cs2_liftdress.tools(foot, facing -Y, lean 75, gap 0.35) as built,
+    plus a T-grip on the scraper and a D-grip on the shovel. The foot line is on the prefab origin (y 0, z 0). The
+    tops touch the wall plane y = TOOLS["wall"] (prefab z -0.32)."""
     import cs2_liftdress as LD
     T_ = TOOLS
     parts = []
@@ -1627,8 +1651,8 @@ def build_akja(code):
     parts = []
     side, up, out = _lean_frame(K_["lean"])
     P = lambda u, s, w: side * u + up * s + out * w   # noqa: E731
-    # the curl is quadratic: low stations every 0.1 m along it keep the chord error <= 2 mm
-    # (0.2 x 0.2^2 / 4), inside the 3 mm cage both ways (outer bottom and rim face opposite ways)
+    # The curl is quadratic. Low stations every 0.1 m along it keep the chord error <= 2 mm (0.2 x 0.2^2 / 4), inside
+    # the 3 mm cage both ways (outer bottom and rim face opposite ways)
     S = (0.0, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0)
     f = 1.0 / math.cos(math.pi / 12.0)
     t = K_["shell"]
@@ -1653,12 +1677,12 @@ def build_akja(code):
         for i in range(len(ro) - 1):
             lm.planar([lm.v(ro[i]), lm.v(ro[i + 1]), lm.v(ri[i + 1]), lm.v(ri[i])], nrm)
     _unique(parts, lm, "", "accent", code, "rim", hi=[])
-    # hi shell (every surface built in its outward winding; open surfaces, no recalc):
-    # dense outer with three bottom ribs, inner, a rounded rim bead that covers the low rim out
-    # to the circumscribed outer edge, end lips from the circumscribed outer section
+    # hi shell. Every surface is built in its outward winding (open surfaces, no recalc). The parts: dense outer with
+    # three bottom ribs, inner, a rounded rim bead that covers the low rim out to the circumscribed outer edge, end
+    # lips from the circumscribed outer section
     g = HiGeo()
-    # hi stations every 5 mm through rib / strake flanks would be heavy: 2.5 mm along the
-    # strakes, 2.5 cm elsewhere; the hull and the inner run 1 cm past both ends (edge rays)
+    # Hi stations every 5 mm through rib / strake flanks would be heavy. Stations are 2.5 mm apart along the strakes
+    # and 2.5 cm apart elsewhere. The hull and the inner run 1 cm past both ends (edge rays)
     Sh = sorted({round(i * 0.025, 4) for i in range(81)} | {-0.004, 2.004}
                 | {round(sc + k * 0.0025, 4) for sc in (0.25, 0.55, 0.85, 1.15, 1.45)
                    for k in range(-10, 11)})
@@ -1718,9 +1742,9 @@ def build_akja(code):
 
 
 def build_spine_board(code):
-    """Rescue spine board (cs2_bldg.backboard: 1.85 x 0.45 x 0.05, safety yellow) leaning back at
-    85 deg, foot line on the origin: chamfered-octagon slab (one side band island); straps and the
-    handhold slots are paint + normal (hi: 1.5 mm straps, slot rims)."""
+    """Rescue spine board (cs2_bldg.backboard: 1.85 x 0.45 x 0.05, safety yellow) leaning back at 85 deg, foot line on
+    the origin: chamfered-octagon slab (one side band island). Straps and the handhold slots are paint + normal (hi:
+    1.5 mm straps, slot rims)."""
     B = SPINE
     parts = []
     side, up, out = _lean_frame(B["lean"])
@@ -1816,7 +1840,7 @@ def build_prop(spec, lib, gear):
 
 
 # ======================================================================================
-# Parity with the builders (read-only calls; recorded in the manifest, asserted by the test)
+# Parity with the builders (read-only calls, recorded in the manifest, asserted by the test)
 # ======================================================================================
 
 def _sorted_rows(co, nd=6):
@@ -1825,10 +1849,9 @@ def _sorted_rows(co, nd=6):
 
 
 def parity_aframe(code):
-    """Every gear item of an A-frame loadout: cs2_bldg.ski_rack_frame(skis=[that item],
-    gear=True) vs cs2_bldg.ski_gear at aframe_pose (what the kit places). The builder mirrors
-    side -1 (a = A); ski_gear rotates it (a = -A); the items are symmetric across a, so the
-    VERTEX SETS must agree. Returns {"items", "max_dev_m"}."""
+    """Every gear item of an A-frame loadout: cs2_bldg.ski_rack_frame(skis=[that item], gear=True) vs cs2_bldg.ski_gear
+    at aframe_pose (what the kit places). The builder mirrors side -1 (a = A). ski_gear rotates it (a = -A). The items
+    are symmetric across a, so the VERTEX SETS must agree. Returns {"items", "max_dev_m"}."""
     import cs2_bldg as K
     worst, n = 0.0, 0
     for sg in (+1, -1):
@@ -2115,11 +2138,10 @@ def _part_polys(me, n_parts):
 
 
 def layout_unique(bake, table, allparts, size=A, margin=MARGIN_PX):
-    """Build "UVUnique" from "UVMap": every island of every canonical / unique part, in meters
-    (island scale = sqrt(3D area / UV area)), at D x w texels per meter (w = the part's density
-    weight), skyline-packed with `margin` texels between islands; D = the largest density that
-    fits (binary search). Rigid copies take their canonical part's loops (share keys). The
-    rotation is free here: no source normal map is re-projected (bake_high_to_low bakes the
+    """Build "UVUnique" from "UVMap": every island of every canonical / unique part, in meters (island scale = sqrt(3D
+    area / UV area)), at D x w texels per meter (w = the part's density weight), skyline-packed with `margin` texels
+    between islands. D = the largest density that fits (binary search). Rigid copies take the loops of their canonical
+    part (share keys). The rotation is free here: no source normal map is re-projected (bake_high_to_low bakes the
     tangent normal straight into this layer). Returns the report."""
     me = bake.data
     src = me.uv_layers["UVMap"]
@@ -2192,8 +2214,8 @@ def layout_unique(bake, table, allparts, size=A, margin=MARGIN_PX):
     if uv.min() < -1e-9 or uv.max() > 1.0 + 1e-9:
         raise RuntimeError(f"layout: UVs outside [0, 1] ({uv.min()}, {uv.max()})")
     used = sum((r[0]) * (r[1]) for r in rects_at(D))
-    # DK6 is a property of the atlas: area-weighted px/m over the faces that OWN texels (every
-    # canonical / unique face once; rigid copies would count the racks' gear 60 times)
+    # DK6 is a property of the atlas: area-weighted px/m over the faces that OWN texels (every canonical / unique face
+    # once. Rigid copies would count the racks' gear 60 times)
     own = np.ones(len(me.polygons), dtype=bool)
     for i in canon_of:
         own[polys[i]] = False
@@ -2216,10 +2238,10 @@ UNIQUE_NAME = cs2_uv.UNIQUE_LAYER
 
 
 def compose_kit(bake, table, matkey_of, size, n_path, a_path, owner_dir, offsets, margin):
-    """The four maps from the kit's constant materials (linear albedo, metal, rough, slot) on
-    "UVUnique", the painters, the hi normal / AO of bake_high_to_low, cs2_compose.compose_maps
-    (per-part +-3 % value noise, AO with the 0.08 floor, MaskMap B 0, ControlMask A 0), a
-    `margin`-texel gutter dilation, sRGB encode; writes <OWNER>_<map>.png. Returns the report."""
+    """The four maps from the constant materials of the kit (linear albedo, metal, rough, slot) on "UVUnique", the
+    painters, the hi normal / AO of bake_high_to_low, cs2_compose.compose_maps (per-part +-3 % value noise, AO with
+    the 0.08 floor, MaskMap B 0, ControlMask A 0), a `margin`-texel gutter dilation and sRGB encode. Writes
+    <OWNER>_<map>.png. Returns the report."""
     mats = compose_materials()
     me = bake.data
     pmap, ppm = cs2_compose.rasterise_face_fields(me, size, UNIQUE_NAME)
@@ -2253,8 +2275,8 @@ def compose_kit(bake, table, matkey_of, size, n_path, a_path, owner_dir, offsets
     base, nrm, msk, ctl = cs2_compose.compose_maps(
         base, nrm, msk, ctl, ao, None, 0.0,
         {"reserved": [], "part_map": pmap, "noise_amp": 0.03, "seed": 0, "gloss_var": 0.02})
-    # gutter: every map extends its covered texels `margin` texels out (deterministic 4-neighbor
-    # propagation, left / right / down / up priority); the rest is neutral
+    # gutter: every map extends its covered texels `margin` texels out (deterministic 4-neighbor propagation, left /
+    # right / down / up priority). The rest is neutral
     filled = cov.copy()
     for _k in range(int(margin)):
         grow = np.zeros_like(filled)
@@ -2301,9 +2323,9 @@ def compose_kit(bake, table, matkey_of, size, n_path, a_path, owner_dir, offsets
 
 
 def compose_materials():
-    """{key: albedo (linear rgb), metal, rough, slot} for compose_kit: DRESS_MATERIALS' flat paints
-    (read-only), the kit keys, and a FLAT galvanised steel (Metal032's mean color, the beacon's
-    values) instead of the CC0 tiling set (no source texture is sampled on this route)."""
+    """{key: albedo (linear rgb), metal, rough, slot} for compose_kit: DRESS_MATERIALS' flat paints (read-only), the kit
+    keys, and a FLAT galvanized steel (Metal032's mean color, the beacon's values) instead of the CC0 tiling set (no
+    source texture is sampled on this route)."""
     tab = material_table()
     out = {}
     for k, v in tab.items():
@@ -2456,9 +2478,9 @@ def box_blur(a, r):
 
 
 def normal_detail(nx, ny, mask, r=3):
-    """Fine-detail (hf) rms of a tangent normal map on `mask`: deviation of (nx, ny) from its
-    (2r+1)^2 box blur, arcsin, rms over texels whose whole window is inside the mask - the
-    benchmark's metric (nmstats.normal_stats_xy; GardenBench01 10.7 deg)."""
+    """Fine-detail (hf) rms of a tangent normal map on `mask`: deviation of (nx, ny) from its (2r+1)^2 box blur, arcsin,
+    rms over texels whose whole window is inside the mask - the benchmark's metric (nmstats.normal_stats_xy,
+    GardenBench01 10.7 deg)."""
     n = np.stack([nx, ny], -1)
     bl = box_blur(n, r)
     dev = np.hypot(*(n - bl).transpose(2, 0, 1))
@@ -2505,9 +2527,9 @@ def read_normal(path):
 
 
 def cull_estimate(obj, tris):
-    """FS10: cs2_preview.lod_switch_table cull (lodFactor 652, thin-mesh term) x 2^-m_LodBias with
-    the installed small-mesh bias m_LodBias = 1.2 (s / 5)^3 (s = max dim <= 5 m; MeshSystem.cs:
-    497-503, 1.6.2f1 only). [U] until SkiProbeLodA."""
+    """FS10: cs2_preview.lod_switch_table cull (lodFactor 652, thin-mesh term) x 2^-m_LodBias with the installed
+    small-mesh bias m_LodBias = 1.2 (s / 5)^3 (s = max dim <= 5 m. MeshSystem.cs:497-503, 1.6.2f1 only). [U] until
+    SkiProbeLodA."""
     import cs2_preview
     co = _local_co(obj.data)
     size = (co.max(axis=0) - co.min(axis=0)).tolist()
@@ -2522,8 +2544,11 @@ def cull_estimate(obj, tris):
 
 
 def pivot_check(obj, spec):
-    """DK4: ground z 0 everywhere; wall props: back on the wall plane (Blender y max 0); ground
-    props centered on the origin; leaning props: foot line on the origin."""
+    """DK4:
+    - Ground z 0 everywhere.
+    - Wall props: back on the wall plane (Blender y max 0).
+    - Ground props: centered on the origin.
+    - Leaning props: foot line on the origin."""
     co = _local_co(obj.data)
     lo, hi = co.min(axis=0), co.max(axis=0)
     fails = []
@@ -2554,8 +2579,8 @@ def rest_plane(obj, spec):
 
 
 def check_sharers(out_root):
-    """DK2: exactly one folder owns PNGs; every other folder's settings.json maps all four maps
-    to the owner's existing files by a relative path. Returns failures."""
+    """DK2: exactly one folder owns PNGs. Every other folder's settings.json maps all four maps to the owner's existing
+    files by a relative path. Returns failures."""
     fails = []
     for spec in PROPS:
         d = os.path.join(out_root, spec["name"])
@@ -2666,12 +2691,13 @@ def _num(v):
 
 
 def colour_components_json():
-    """RETIRED 2026-10-12 (FS7 Parent dropped; kit color variants): never written any more, kept so
-    the archived staging (assets/staging/archive/superseded-parent-2026-10-12) stays reproducible.
-    The mesh prefab's `components` block (FS7): ColorProperties, ExternalColorSource Parent (1),
-    channel 1 external, 0 / 2 not; 4 fallback VariationSets (slot-2 color / RECOLOR_ALBEDO,
-    clamped; channels 0 / 2 white: no R / B texels). Type ids 1-9; the importer tail renumbers to
-    10 (AssetReference[]), 11 (Bounds3), 12 (float3) exactly as SkiHydrantBoxA Mesh."""
+    """RETIRED 2026-10-12 (FS7 Parent dropped, kit color variants): the kit never writes it any more. The function stays
+    so the archived staging (assets/staging/archive/superseded-parent-2026-10-12) stays reproducible.
+
+    The mesh prefab's `components` block (FS7): ColorProperties, ExternalColorSource Parent (1), channel 1 external,
+    channels 0 / 2 not. It has 4 fallback VariationSets (slot-2 color / RECOLOR_ALBEDO, clamped), with channels 0 / 2
+    white (no R / B texels). Type ids 1-9. The importer tail renumbers to 10 (AssetReference[]), 11 (Bounds3), 12
+    (float3) exactly as SkiHydrantBoxA Mesh."""
     sets = []
     rid = 102
     for k, rgb in enumerate(FALLBACK_SLOT2):
@@ -2734,9 +2760,9 @@ def colour_components_json():
 
 
 def write_staging(spec, bounds):
-    """assets/staging/prefabs/props/B/<Object>/: <Object>.Prefab (template), <Object>.Prefab.cid
-    (minted once) - UNCOLORED props only. A colored prop ships as color-set variants (stage_variant), its
-    base object prefab is retired: the record says so and nothing is written. Returns the record."""
+    """assets/staging/prefabs/props/B/<Object>/: <Object>.Prefab (template), <Object>.Prefab.cid (minted once) -
+    UNCOLORED props only. A colored prop ships as color-set variants (stage_variant). Its base object prefab is
+    retired: the record says so and nothing is written. Returns the record."""
     if spec["colour"] == "variants":
         return retired_base_record(spec)
     d = os.path.join(STAGING, spec["obj"])
@@ -2752,9 +2778,9 @@ def write_staging(spec, bounds):
 
 
 def update_subobj_bounds(records):
-    """ADDITIVE: one entry per kit object prefab (keyed by its name, guid null) so cs2_subobj
-    draws real bounds for CID rows by prefab name; every existing entry is left byte-for-byte
-    (same json.dump shape as cs2_subobj.build_bounds_cache; build_bounds_cache keeps them)."""
+    """ADDITIVE: one entry per kit object prefab (keyed by its name, guid null), so cs2_subobj draws real bounds for CID
+    rows by prefab name. Every existing entry stays byte-for-byte (same json.dump shape as
+    cs2_subobj.build_bounds_cache). build_bounds_cache keeps them."""
     with open(SUBOBJ_JSON, "r", encoding="utf-8") as fh:
         before = fh.read()
     data = json.loads(before)
@@ -2781,8 +2807,8 @@ def update_subobj_bounds(records):
 
 
 def settings_proof():
-    """FS12: cs2_asset.write_settings is not edited; prove its default output is byte-identical
-    on shipped settings.json files by regenerating them into a temp folder."""
+    """FS12: cs2_asset.write_settings is not edited. The function proves its default output is byte-identical on shipped
+    settings.json files by regenerating them into a temp folder."""
     cases = [("props/A/SkiBeaconRedA", "SkiBeaconRedA", ()),
              ("towers/O/SkiLiftTowerGD16O", "SkiLiftTowerGD16O", (1, 2))]
     out = []
@@ -2812,24 +2838,27 @@ def settings_proof():
 # ======================================================================================
 # Kit color variants: the registry (2026-10-12, build/kit-colour-variants.md)
 # ======================================================================================
+# Verdicts 2026-10-11, ~18:50: "Sorry, I don't think we want the accents to follow the parent color. I think they
+# should stay a color that makes sense for that building." -> FS7 Parent DROPPED.
 #
-# Verdicts 2026-10-11, ~18:50: "Sorry, I don't think we want the accents to follow the parent
-# color. I think they should stay a color that makes sense for that building." -> FS7 Parent DROPPED.
-# ENGINE (decompile 1.6.0f1, unchanged in 1.6.2f1): ColorProperties is a RenderPrefab component
-# (ColorProperties.cs:12-16 ComponentMenu RenderPrefab / CharacterOverlay; :137-140 puts the ColorVariation
-# buffer on the MESH prefab entity); MeshColorSystem.cs:410-471 walks the object prefab's SubMesh buffer and
-# SetColor(.., subMesh.m_SubMesh, ..) reads m_ColorVariations of that MESH prefab (:541). An object prefab
-# cannot carry its own color: a color variant needs its own mesh prefab. Hence per (prop, set):
+# ENGINE (decompile 1.6.0f1, unchanged in 1.6.2f1):
+# - ColorProperties is a RenderPrefab component (ColorProperties.cs:12-16 ComponentMenu RenderPrefab /
+#   CharacterOverlay). At :137-140 the code puts the ColorVariation buffer on the MESH prefab entity.
+# - MeshColorSystem.cs:410-471 walks the SubMesh buffer of the object prefab. SetColor(.., subMesh.m_SubMesh, ..)
+#   reads m_ColorVariations of that MESH prefab (:541).
+#
+# An object prefab cannot carry its own color. A color variant needs its own mesh prefab. Hence per (prop, set):
 #   <Variant>.Prefab              StaticObjectPrefab, one ObjectMeshInfo -> CID of the variant mesh (staged, complete)
 #   <Variant> Mesh.Prefab         RenderPrefab built AT SURGERY from the imported base mesh prefab
 #                                 (<SEED>\<Mesh>\<Mesh> Mesh_<hash>.Prefab): same m_GeometryAsset, m_SurfaceAssets,
-#                                 bounds and counts; name "<Variant> Mesh"; components = the fixed ColorProperties
-#                                 (clone_mesh_prefab; variant_surgery writes both into <ID>\<Variant>\)
+#                                 bounds and counts. Name "<Variant> Mesh". Components = the fixed ColorProperties
+#                                 (clone_mesh_prefab, and variant_surgery writes both into <ID>\<Variant>\)
 #   .Prefab.cid of both           seeded md5 of the names (fine_detail.variant_cids): stable across runs
+#
 # ONE VariationSet at probability 100 with ranges 0 and no external channel = one deterministic color
-# (MeshColorSystem.cs:560-702, 742-857). [U] a hand-made RenderPrefab sharing an imported geometry asset: no
-# precedent of ours; the funicular pack ships two NetPiecePrefabs (RenderPrefab subclasses) on ONE geometry +
-# surface (docs/research/funicular-network-vehicle.md 3.4); S1 is the first proof.
+# (MeshColorSystem.cs:560-702, 742-857). [U] No precedent of ours exists for a hand-made RenderPrefab that shares an
+# imported geometry asset. The funicular pack ships two NetPiecePrefabs (RenderPrefab subclasses) on ONE geometry +
+# surface (docs/research/funicular-network-vehicle.md 3.4). S1 is the first proof.
 
 VARIANT_TABLE = os.path.join(STAGING, "kit-variants.json")
 STAGING_ARCHIVE = os.path.join(REPO, "assets", "staging", "archive")
@@ -2869,12 +2898,15 @@ def retired_base_record(spec):
 
 
 def variant_components_json(rgb):
-    """The variant MESH prefab's `components` block: ColorProperties with ONE VariationSet (channel 0 white,
-    channel 1 = the set's slot-2 color, channel 2 white: the kit has no R / B ControlMask texel), every
-    m_CanBeModifiedByExternal false (ColorVariation.hasExternalChannels false: FindExternalSource never runs),
-    m_VariationRanges / m_AlphaRanges 0 (no RandomizeColor), m_ExternalColorSource 0 (= Brand; ColorSourceType
-    has no None - with no external channel the field is never read; the deployed SkiHydrantBoxA Mesh shape).
-    Type ids 1-9 and $ids 1 / 100-107; clone_mesh_prefab renumbers the importer tail after them (10-12)."""
+    """The variant MESH prefab's `components` block: ColorProperties with ONE VariationSet (channel 0 white, channel 1 =
+    the set's slot-2 color, channel 2 white: the kit has no R / B ControlMask texel). Other fields:
+    - Every m_CanBeModifiedByExternal is false (ColorVariation.hasExternalChannels false: FindExternalSource never
+      runs).
+    - m_VariationRanges / m_AlphaRanges 0 (no RandomizeColor).
+    - m_ExternalColorSource 0 (= Brand). ColorSourceType has no None. With no external channel the field is
+      never read. This matches the deployed shape of SkiHydrantBoxA Mesh.
+
+    Type ids 1-9 and $ids 1 / 100-107. clone_mesh_prefab renumbers the importer tail after them (10-12)."""
     r, g, b = (_num(v) for v in rgb)
     return (
         '    "components": {\n'
@@ -2949,9 +2981,9 @@ def variant_record(prop, colour_set):
 
 
 def stage_variant(prop, colour_set, staging=STAGING):
-    """Mint ONE variant into staging (idempotent): <Variant>/<Variant>.Prefab (+ .cid), "<Variant> Mesh.Prefab.cid"
-    and "<Variant> Mesh.components.json". UTF-8 without BOM, LF; a .cid is 32 lowercase hex without newline and
-    is never re-minted (an existing different .cid raises). Returns the variant record + "written" files."""
+    """Mint ONE variant into staging (idempotent): <Variant>/<Variant>.Prefab (+ .cid), "<Variant> Mesh.Prefab.cid" and
+    "<Variant> Mesh.components.json". UTF-8 without BOM, LF. A .cid is 32 lowercase hex without newline. It is never
+    re-minted (an existing different .cid raises). Returns the variant record + "written" files."""
     FD = _fd()
     rec = variant_record(prop, colour_set)
     name, mesh = rec["name"], rec["mesh_prefab"]
@@ -3033,8 +3065,8 @@ def stage_variants_for_rows(rows):
 
 
 def stage_from_manifest(asset_dir, name):
-    """The host generators' hook after their manifest write: a SHIPPING export (inside assets/import) stages the
-    variants its kit rows name and refreshes kit-variants.json; scratch / test exports touch nothing."""
+    """The host generators' hook after their manifest write: a SHIPPING export (inside assets/import) stages the variants
+    its kit rows name and refreshes kit-variants.json. Scratch / test exports touch nothing."""
     ad = os.path.normcase(os.path.abspath(asset_dir))
     if not ad.startswith(os.path.normcase(os.path.abspath(IMPORT_ROOT)) + os.sep):
         return None
@@ -3051,7 +3083,7 @@ def stage_from_manifest(asset_dir, name):
 
 
 def _move_keep(src, dst):
-    """Move a staging folder into the archive; never delete: an existing different destination gets a suffix."""
+    """Move a staging folder into the archive. Never delete: an existing different destination gets a suffix."""
     if not os.path.isdir(src):
         return None
     if os.path.exists(dst):
@@ -3209,14 +3241,17 @@ def _decls(text):
 
 
 def clone_mesh_prefab(base_text, variant, components_text):
-    """The variant MESH prefab from the imported base mesh prefab's text: root "name" -> "<variant> Mesh", the
-    whole `components` block (from '    "components": {' to the line before '    "m_GeometryAsset"') ->
-    `components_text` (types 1-9), and the importer tail's type table renumbered after the block: a tail
-    declaration takes the next free id (10, 11, 12 for the importer's AssetReference[] / Bounds3 / float3 - the
-    deployed SkiHydrantBoxA Mesh shape), a bare reference follows its declaration, a reference to a type the old
-    components block declared is re-declared at its first use (or points at the same name in the new block).
-    m_GeometryAsset, m_SurfaceAssets, m_Bounds and the counts are kept byte for byte. Raises on any shape it
-    does not know (validate_prefab rules are re-checked on the result)."""
+    """The variant MESH prefab from the text of the imported base mesh prefab. Changes:
+    - Root "name" -> "<variant> Mesh".
+    - The whole `components` block (from '    "components": {' to the line before '    "m_GeometryAsset"') ->
+      `components_text` (types 1-9).
+    - The type table of the importer tail renumbers after the block. A tail declaration takes the next free id
+      (10, 11, 12 for the importer's AssetReference[] / Bounds3 / float3 - the deployed SkiHydrantBoxA Mesh shape).
+      A bare reference follows its declaration. A reference to a type that the old components block declared is
+      re-declared at its first use (or points at the same name in the new block).
+
+    m_GeometryAsset, m_SurfaceAssets, m_Bounds and the counts stay byte for byte. It raises on any shape it does not
+    know (validate_prefab rules are re-checked on the result)."""
     if '"$type": "0|Game.Prefabs.RenderPrefab, Game"' not in base_text:
         raise ValueError("clone_mesh_prefab: the base is not a RenderPrefab")
     names = re.findall(r'(?m)^    "name": "([^"]+)",$', base_text)
@@ -3387,8 +3422,8 @@ def _twotone_material(rig, owner_dir):
 
 
 def render_previews(objs, owner_dir, out_dir, samples=None):
-    """Per prop: <Name>_pbr_2m, <Name>_pbr_10m (the 4K / 45 deg angular density: 261 px/m at 10 m,
-    a 1000 px crop), <Name>_normal2tone_2m; plus SkiDressKitB_lineup_pbr. Returns paths."""
+    """Per prop: <Name>_pbr_2m, <Name>_pbr_10m (the 4K / 45 deg angular density: 261 px/m at 10 m, a 1000 px crop),
+    <Name>_normal2tone_2m. It also renders SkiDressKitB_lineup_pbr. Returns paths."""
     import cs2_preview as P
     os.makedirs(out_dir, exist_ok=True)
     written = []

@@ -1,9 +1,9 @@
 """
 carrier_split.py - shared pieces of the carrier split (grip + body, 2026-11-03).
 
-Plan: docs/research/carrier-pivot-swing-plan-2026-11-03.md sections 2, 5, 6, 8; brief:
+Plan: docs/research/carrier-pivot-swing-plan-2026-11-03.md sections 2, 5, 6, 8. Brief:
 docs/research/art/carrier-split-2026-11/BRIEF.md. Every carrier (FG triple, DQ, gondola 8, tram)
-becomes two meshes so the code can pitch the GRIP with the rope and keep the BODY plumb (later:
+becomes two meshes, so the code can pitch the GRIP with the rope and keep the BODY plumb (later:
 swing it in the wind):
 
     grip  = the rope side (jaws / carriage / springs / wheels / trolley) + the hanger HEAD:
@@ -11,28 +11,28 @@ swing it in the wind):
     body  = everything below the pin: the hanger, ending in a KNUCKLE (eye) between the cheeks,
             + the seat / cabin
 
-The pin is a LATERAL axis (authoring y) and turns about that axis ONLY: the body may turn relative to
-the grip by the pitch (+-PITCH_DEG, the rope slope) plus the fore-aft swing (+-FORE_AFT_DEG), both
-about the pin. Swing convention (critique 2026-11-03, real carriers): the cross-wind sway is the
-WHOLE assembly (grip + body) rolling about the rope point (chairs / gondola up to
-ASSEMBLY_ROLL_DEG; tram about the track rope, up to TRAM_ROLL_DEG); it moves nothing at the pin, so
+The pin is a LATERAL axis (authoring y) and turns about that axis ONLY: the body may turn relative
+to the grip by the pitch (+-PITCH_DEG, the rope slope) plus the fore-aft swing (+-FORE_AFT_DEG),
+both about the pin. Swing convention (critique 2026-11-03, real carriers): the cross-wind sway is
+the WHOLE assembly (grip + body) rolling about the rope point (chairs / gondola up to
+ASSEMBLY_ROLL_DEG. Tram about the track rope, up to TRAM_ROLL_DEG). It moves nothing at the pin, so
 it needs no joint check. The joint is built so the pin sweep reads right:
 
-  * the knuckle is a low-poly sphere centered on the pin center, its poles on the pin axis: a sphere
-    turned about its own center is the same sphere, so the cheek gap stays the design gap c at every
-    pose and nothing clips;
-  * the cheeks stand c off the knuckle's poles; their footprint radius is kept small enough that the
-    hanger leaving the knuckle never reaches them over the sweep (sweep_joint proves it).
+- The knuckle is a low-poly sphere centered on the pin center, its poles on the pin axis. A sphere
+  turned about its own center is the same sphere. So the cheek gap stays the design gap c at every
+  pose and nothing clips.
+- The cheeks stand c off the poles of the knuckle. Their footprint radius is kept small enough that
+  the hanger leaving the knuckle never reaches them over the sweep (sweep_joint proves it).
 
-Contracts (asserted by the generators through these helpers; every one raises):
-  S1 rejoin: at zero pitch, body + grip = the old one-piece carrier within REJOIN_TOL_M,
-     both ways (old vertex -> new surface, new vertex -> old surface), outside the joint zone (a
-     sphere of radius r_x round each pin center, plus the replaced / new joint parts by name).
-  S2 pin gap: at every pose of the pin sweep (pitch +-PITCH_DEG in PITCH_STEP_DEG steps, each plus
-     the fore-aft steps FORE_AFT_STEPS x FORE_AFT_DEG, all about the pin) the gap between each
-     knuckle and each of its cheeks is > 0 and <= GAP_MAX_M (one connected joint, no visible slot).
-  S3 no clash: at every pose of that sweep no body triangle intersects a grip triangle (BVH
-     overlap, the C13 method of lift_chair.py).
+Contracts (asserted by the generators through these helpers, every one raises):
+- S1 rejoin: at zero pitch, body + grip = the old one-piece carrier within REJOIN_TOL_M, both ways
+  (old vertex -> new surface, new vertex -> old surface), outside the joint zone (a sphere of radius
+  r_x around each pin center, plus the replaced / new joint parts by name).
+- S2 pin gap: at every pose of the pin sweep (pitch +-PITCH_DEG in PITCH_STEP_DEG steps, each plus
+  the fore-aft steps FORE_AFT_STEPS x FORE_AFT_DEG, all about the pin) the gap between each
+  knuckle and each of its cheeks is > 0 and <= GAP_MAX_M (one connected joint, no visible slot).
+- S3 no clash: at every pose of that sweep no body triangle intersects a grip triangle (BVH
+  overlap, the C13 method of lift_chair.py).
 
 Frames: everything here works in the AUTHORING frame (x travel, y lateral, z up), on world vertex
 arrays of the parts before the join (pitch and fore-aft = rotation about +y).
@@ -91,9 +91,9 @@ def bake_transform(obj):
 
 def knuckle(name, center, radius, segs=KNUCKLE_SEGS, relief="geo", meridian_xz=(1.0, 0.0)):
     """The body's eye: a UV sphere with its poles on the pin axis (authoring y), centered on the pin.
-    segs = (around the pin axis, pole to pole); tris = 2 * u + 2 * u * (v - 2).
-    meridian_xz = an (x, z) direction a meridian is turned onto: pass the direction of the plane
-    the hanger tube is cut in (it contains the pin axis), so the buried cut ring meets the sphere's
+    segs = (around the pin axis, pole to pole). tris = 2 * u + 2 * u * (v - 2).
+    meridian_xz = an (x, z) direction a meridian is turned onto: pass the direction of the plane the
+    hanger tube is cut in (it contains the pin axis), so the buried cut ring meets the sphere's
     meridian polygon (inradius R cos(90 / v deg)), not a face between two meridians (lower)."""
     u, v = segs
     bm = bmesh.new()
@@ -124,12 +124,12 @@ def plate_profile(x0, x1, z_top, pin_xz, r_bottom, arc_segs=4):
     about the pin. x0 / x1 = the side lines (|x - pin x| <= r_bottom keeps it convex)."""
     px, pz = pin_xz
     pts = [(x1, z_top), (x0, z_top)]
-    # down the -x side, round the bottom, up the +x side (counter-clockwise seen from -y means
-    # x -> -x along the top, then down: the slab helper checks convexity and orientation)
+    # down the -x side, around the bottom, up the +x side (counter-clockwise seen from -y means x ->
+    # -x along the top, then down: the slab helper checks convexity and orientation)
     for k in range(arc_segs + 1):
         a = math.pi + math.pi * k / arc_segs              # 180 -> 360 deg
         pts.append((px + r_bottom * math.cos(a), pz + r_bottom * math.sin(a)))
-    # the arc starts at (px - r, pz) and ends at (px + r, pz); x0 / x1 must equal px -+ r
+    # the arc starts at (px - r, pz) and ends at (px + r, pz). x0 / x1 must equal px -+ r
     out = []
     for p in pts:
         if not out or (abs(p[0] - out[-1][0]) > 1e-9 or abs(p[1] - out[-1][1]) > 1e-9):
@@ -191,7 +191,7 @@ def pin_end(name, centre_y_face, pin_xz, radius, length, outward, segs=6, relief
     y_in, y_out = y_face - outward * 0.002, y_face + outward * length
     yc = 0.5 * (y_in + y_out)
     depth = abs(y_out - y_in)
-    # cs2_kit cylinders run along local z; axis "Y" maps local +z onto +y: the +z cap = "top"
+    # cs2_kit cylinders run along local z. Axis "Y" maps local +z onto +y: the +z cap = "top"
     cap = "top" if outward > 0 else "bottom"
     o = cs2_kit.add_cyl(name, radius, depth, (pin_xz[0], yc, pin_xz[1]), cs2_kit._axis_rot("Y"),
                         segs, cap)
@@ -201,7 +201,7 @@ def pin_end(name, centre_y_face, pin_xz, radius, length, outward, segs=6, relief
 
 def ring_loft(name, rings, segs, axis_pts, angle0=0.0, relief="geo"):
     """An uncapped loft of circular rings about a straight axis: rings = ((t, r), ...) with t the
-    position along the axis from axis_pts[0] to axis_pts[1] (meters); angle0 = the angle of ring
+    position along the axis from axis_pts[0] to axis_pts[1] (meters). angle0 = the angle of ring
     vertex 0 (to match a host tube's ring orientation). Quads only."""
     a = mathutils.Vector(axis_pts[0])
     b = mathutils.Vector(axis_pts[1])
@@ -317,8 +317,8 @@ def rotate_about(V, pivot, pitch_deg, roll_deg):
 
 def rejoin(old_parts, new_parts, pins, r_x, old_skip=(), new_skip=(), tol=REJOIN_TOL_M, label=""):
     """S1: body + grip at zero = the old carrier within `tol`, both ways, outside the joint zone
-    (spheres of radius r_x round each pin center in `pins`; parts named with a prefix in
-    old_skip / new_skip are joint parts and left out). Returns a report dict; raises over tol."""
+    (spheres of radius r_x around each pin center in `pins`). Parts named with a prefix in old_skip
+    / new_skip are joint parts and left out. Returns a report dict. Raises over tol."""
     Vo, Po, owno, nameo = part_arrays(old_parts)
     Vn, Pn, ownn, namen = part_arrays(new_parts)
     to = BVHTree.FromPolygons([tuple(v) for v in Vo], Po)
@@ -489,7 +489,7 @@ def to_prefab(a):
 
 def pivot_numbers(rope_pt, pin, grip_z0, body_z0, hang, grip_top_above_rope, outboard_note=""):
     """The constants the code reads (BRIEF 'Pivots'): grip rope point and pin center relative to the
-    grip origin, body pin center relative to the body origin; authoring and prefab frames.
+    grip origin, body pin center relative to the body origin, in the authoring and prefab frames.
     grip_z0 / body_z0 = the assembled-frame z of each mesh's origin (its lowest vertex)."""
     rp_g = (rope_pt[0], rope_pt[1], rope_pt[2] - grip_z0)
     pin_g = (pin[0], pin[1], pin[2] - grip_z0)

@@ -35,7 +35,7 @@ def inspect(path, tag):
     for lp in m.loops:
         per_vert[lp.vertex_index].add(tuple(round(c, 3) for c in lp.normal))
     multi = sum(1 for v in per_vert.values() if len(v) > 1)
-    # side-face check: a side vertex on a smooth cylinder has exactly 2 normals (side + cap); flat has 3+
+    # side-face check: a side vertex on a smooth cylinder has exactly 2 normals (side + cap). Flat has 3+
     hist = collections.Counter(len(v) for v in per_vert.values())
     print(f"[{tag}] reimport: verts={len(m.vertices)} loops={len(m.loops)} custom_normals={m.has_custom_normals} "
           f"normals-per-vertex histogram={dict(sorted(hist.items()))} smooth_faces={sum(p.use_smooth for p in m.polygons)}/{len(m.polygons)}")

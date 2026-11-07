@@ -1,21 +1,23 @@
 """
-test_t87_t91_fixtures - the 2026-10-19 field-test fixes (docs/research/field/2026-10-19/fix-T87-T90-T91-T94.md).
+test_t87_t91_fixtures - the 2026-10-19 field-test fixes
+(docs/research/field/2026-10-19/fix-T87-T90-T91-T94.md).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_t87_t91_fixtures.py
 
-Asserts (all under cs2_bldg.fittings(version=1), the shipping flag set; the flag-off paths are untouched and must stay
-vertex-identical):
-  1. stovepipe(): off = the old 2 galv parts, vertex-identical before / after a fittings() block; on = 2 parts in the
-     flat black paint `ski_black` (never `galv`, the metal 1.0 swatch that read white in game), the patrol huts' 16 cm
-     pipe (r 0.08) stays within +8 tris of the HEAD fittings-on pipe (60) (P2's tiled LOD0 sits 11 tris under its 2,500 cap), the hut's
-     30 cm pipe (r 0.15) carries the lap seam rib + crimp bands, the cap's collar still runs into the pipe top (the
-     close-look rule: the cap never floats), the top is the old top + 0.05 m rain hat;
-  2. vent_stack() and chimney_pot(): `ski_black`, the pot's top stays at z1 (the L5 extent contract), a rim band
-     round the pot top and a hat on it;
-  3. rooftop_unit() (the school's HVAC): parts hvac_<n>* only, materials in (ski_black, trim_paint_w, trim_paint), no
-     galv, the housing is level on a curb that reaches down through the roof band, 12 angled louvre blades, no
-     same-facing coplanar overlap between parts (the G10 gate that caught the first draft), <= 300 tris a unit.
-Exit 1 on the first failure; one PASS line otherwise.
+Asserts (all under cs2_bldg.fittings(version=1), the shipping flag set). The flag-off paths are untouched
+and must stay vertex-identical:
+1. stovepipe(): off = the old 2 galv parts, vertex-identical before / after a fittings() block. On = 2
+   parts in the flat black paint `ski_black` (never `galv`, the metal 1.0 swatch that read white in
+   game). The patrol huts' 16 cm pipe (r 0.08) stays within +8 tris of the HEAD fittings-on pipe (60)
+   (P2's tiled LOD0 sits 11 tris under its 2,500 cap). The hut's 30 cm pipe (r 0.15) carries the lap seam
+   rib + crimp bands. The cap's collar still runs into the pipe top (the close-look rule: the cap never
+   floats). The top is the old top + 0.05 m rain hat.
+2. vent_stack() and chimney_pot(): `ski_black`, the pot's top stays at z1 (the L5 extent contract), a rim
+   band around the pot top and a hat on it.
+3. rooftop_unit() (the school's HVAC): parts hvac_<n>* only, materials in (ski_black, trim_paint_w,
+   trim_paint), no galv, the housing is level on a curb that reaches down through the roof band, 12
+   angled louver blades, no same-facing coplanar overlap between parts (the G10 gate that caught the
+   first draft), <= 300 tris a unit. Exit 1 on the first failure. One PASS line otherwise.
 """
 
 import os
@@ -142,7 +144,7 @@ def check_rooftop_unit():
     assert abs(min(v.co.z for v in house.data.vertices) - 8.46) < 1e-6
     curb = [o for o, _k in a if o.name == "hvac_acurb"][0]
     assert min(v.co.z for v in curb.data.vertices) <= 8.0 - 0.05 + 1e-6
-    # 12 louvre blades (6 a face), each a closed box
+    # 12 louver blades (6 a face), each a closed box
     slat = [o for o, _k in a if o.name == "hvac_aslat"][0]
     assert len(slat.data.polygons) == 12 * 6, len(slat.data.polygons)
     # blades shed rain: the lower edge stands further out than the upper one (y of the +y face blades)

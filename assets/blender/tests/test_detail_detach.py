@@ -1,69 +1,104 @@
 """
-test_detail_detach.py - detail pass 1, DETACH group (design/detail-pass-1-lifts.md section 9.2 "detach" as
-amended by design/detail-pass-1-lifts-skeptic.md MC1-MC11; build report build/detail-pass-1-lifts-detach.md).
+test_detail_detach.py - detail pass 1, DETACH group (design/detail-pass-1-lifts.md section 9.2 "detach" as amended by
+design/detail-pass-1-lifts-skeptic.md MC1-MC11). Build report: build/detail-pass-1-lifts-detach.md.
 
-  D1  counts per dressing family on a blockout build (base / top), the dressing's LOD policy (every new family
-      leaves at LOD1; nothing new at LOD2). DQ follow-up (2026-10-11, build/dq-stations-followup.md): no flood mast
-      (vanilla LightpoleParkRandom01 rows instead), the SLOW boards on two posts each, the shared rack gear = one
-      part per matkey (ski_b_ x 5).
-  D11 the board order along the chair's travel (assert_board_order, measured on the build): base WAIT HERE ->
-      carpet -> load line -> LOWER BAR -> SKI TIPS UP; top RAISE BAR -> UNLOAD at the unload line, nothing past it.
-      2026-10-12 (nineteenth look: "We don't need the STAY SEATED at the top DQ station"): the top has NO
-      STAY SEATED board (post / rods / panel / label / atlas rect), in both FINE_DETAIL modes; the base is unchanged.
-      Negatives raise D11 - a STAY SEATED on the top at its old slot (x -2.50), at the detail pass's x 2.20, and as a
-      free-standing post board (any mount), the top's RAISE BAR / UNLOAD swapped, and a swapped base; the shipped
-      top manifest records `forbidden` STAY SEATED and its label table has no `stay`; two badly placed lamp posts
-      raise D8. Follow-up resume (2026-10-12): the first attempt's two apron lamps
-      (y -5.40 facing +Y, heads 0.09 m off band_n) raise D8 (lamp-head standoff D1_LAMP_HEAD_CLEAR 0.30 m), a post
-      off the -Y deck edge raises D9 (no deck face under its origin, C16-style).
-  D6  the frozen prefab numbers (design 9.1, read from the pre-pass manifests and hard-coded here) out of
-      prefab_numbers + the authoring bounds; the LOD0 targets of this pass (11,000 / 8,000).
-  D7  access, ONE rule (MC3): R2e (roof route), R2f (pf ladder off the spine, MC5), R2g (ground flight corridor)
-      pass inside assert_contracts; negatives - the 1c front ladder (ROOF_ROUTE_D1 off: y -0.70, the closed outer
-      rail) raises R2e, a box in the base front ladder's zone raises R2e, the pf ladder pushed into the spine
-      (PF_Y 0.45) raises R2f, the top's draft ladder-way 0.60 raises R2c (gate 0.61); and the REAL hosted ETDQ
-      (lift_tower rebuild, at its hosted pose) puts no face in the base front ladder's zone above its deck top -
-      its -Y deck strip (top 3.404) is the bottom stop's standing surface.
-  D8  MC10: assert_detail1 passes (every dressing part on its real faces, every vanilla footprint with the
-      variant-union bounds); negatives - the design's DB6 slot (x -6.50) raises D8 (commcable_nose), DT4 at the
-      design's x 2.60 raises D8 (crosshead_r), the design's ParkInfosign spot (13.45, 2.70) raises D8 (C8 bench).
-  D9  sub-object rows: verified GUIDs (cs2_liftdress.SUBOBJ), game-local positions, yaw-only quaternions, parent 0.
-  D4  weathering on vs off (DQ base, two 512 bakes through main()): ControlMask byte-identical, every reserved rect
-      (sign + labels) identical in BaseColor / Normal / MaskMap / ControlMask, BaseColor differs elsewhere (and no
-      Emissive map in either: 2026-10-12, the DQ ships four maps).
-  SHIPPED (assets/import/stations/detachable/A at 2048, the export of this pass):
-      budgets - LOD0 <= 11,000 / 8,000, LOD1 <= 5,000 / 3,600 and <= 50 % of LOD0, LOD2 < 500, batches 9;
-      D10 (MC11 floors from the 1c baselines measured on the shipped 1c packs, 2026-10-11): w1 >= 0.95 x baseline, no
-      visible class under 14 px/m, deck >= 1.10 x baseline, ped / crosshead / spine >= 40 px/m (a 0.025 m bolt head
-      is 2 texels), roof >= 0.95 x baseline, the compose log drew bolts and gratings, bay sharing on;
-      D3 labels 400 px/m (>= 380 per axis), T2 everywhere, T1 where claimed, ControlMask 0 under each label;
-      D2 emissive lit texels >= the 1c baseline and <= 1.5 % of the atlas, no cool flood-head texels (follow-up);
-      D9 10 + 2 / 7 + 2 rows legacy, 14 + 7 / 11 + 6 fine (T17-DQ 2026-10-16: no lamp posts, 2 SkiPisteFloodlightLow each); D11 recorded;
-      weathering at the highest budget-clean step (vanilla ok, snow 0, ControlMask untouched, protected rects kept).
+D1: counts per dressing family on a blockout build (base / top), the LOD policy of the dressing (every new family leaves at
+LOD1, nothing new at LOD2). DQ follow-up (2026-10-11, build/dq-stations-followup.md): no flood mast (vanilla
+LightpoleParkRandom01 rows instead), the SLOW boards on two posts each, the shared rack gear = one part per matkey (ski_b_ x
+5).
 
-  FINE-DETAIL step 3b (2026-10-12, build/fine-detail-step3b-stations.md; lift_terminal_detach.FINE_DETAIL, default on;
-  every group runs on the DQ base / top AND the gondola base / top where it applies):
-  F0  the switch: D1 counts with FINE_DETAIL off = the pre-pass table (D1_COUNTS_LEGACY: the approved build), on = D1_COUNTS
-      (the kit's families leave the host, the DQ box lamps go); D6 frozen numbers identical both ways; the weather mast wx*
-      vertex-identical both ways (FS1) and the LIFT boards / labels untouched (FS5: same label table, D11 order).
-  F1  assert_kit_rows passes on all four; negatives raise F1: a kit hose reel pushed 5 cm into the DQ top cabin wall, the DQ
-      base reel at its OLD spot beside the engine-room door (its 0.70 m plate over the door / past the corner), the DQ base
-      reel on the engine room's -Y face behind the cabinets (no access, FD_ACCESS), the DQ base
-      tools 3 cm off the wall (touch nothing), a kit e-stop in the C8 bench envelope, the gondola tools on the stone face
-      without the ledge offset (they cut the coping), the DQ base rack pushed into the ParkInfosign's box, a kit CID drift.
-  F2  H1 placement against the removed parts (a FINE_DETAIL-off build): the kit wall rack's frame = the removed one-sided
-      frame vertex for vertex (<= 1 mm after the measured foot drop), the e-stop post axis and foot, the extinguisher body
-      axis and bottom, the hose-reel plate (same size: corners <= 1 mm; DQ base moved / gondola resized: center reported),
-      the tools = the removed pair + the foot-line move (n x 0.0725 m on a plain wall; the gondola ledge case reported)
-      vertex for vertex.
-  F3  fine geometry: maze posts 24 tris (8-seg, fan cap; was 12), ropes 12 (6-sided, was 8), gate stiles 24, the SLOW posts 36
-      (12-seg; was 18), the hang rods 6-seg; the control cabinets without finish bevel strips (bevel_prefixes) + a 12-tri lid; no
-      lamp_ part on the DQ (lamp_s0-3 / cab / eng are RoofLight / WallLight rows: 4 new soffit rows, the 2 / 1 wall-light
-      rows moved onto the old lenses).
-  SHIPPED (fine): the rows 14 + 7 / 11 + 6 (vanilla + mod, T17-DQ 2026-10-16: kit 5 / 4 + 2 floodlights) with the manifest's fine_detail block, D2 emissive: NO
-      _Emissive map on the DQ (no lamp_ part; 2026-10-12: not on disk, not in the manifest's files, 0 lit texels and the
-      reason in detail1.emissive, contract.emissive map / purpose / intensity null, settings.json lists no Emissive),
-      the gondola rows 16 + 9 / 15 + 9 (the gondola keeps its map: lamp_eave*).
+D11: the board order along the chair's travel (assert_board_order, measured on the build): base WAIT HERE -> carpet -> load
+line -> LOWER BAR -> SKI TIPS UP. Top RAISE BAR -> UNLOAD at the unload line, nothing past it. 2026-10-12 (nineteenth look:
+"We don't need the STAY SEATED at the top DQ station"): the top has NO STAY SEATED board (post / rods / panel / label / atlas
+rect) in both FINE_DETAIL modes. The base is unchanged. Negatives raise D11: a STAY SEATED on the top at its old slot (x
+-2.50), at the x 2.20 of the detail pass, and as a free-standing post board (any mount), the top's RAISE BAR / UNLOAD
+swapped, and a swapped base. The shipped top manifest records `forbidden` STAY SEATED, and its label table has no `stay`. Two
+badly placed lamp posts raise D8. Follow-up resume (2026-10-12): the two apron lamps of the first attempt (y -5.40 facing +Y,
+heads 0.09 m off band_n) raise D8 (lamp-head standoff D1_LAMP_HEAD_CLEAR 0.30 m). A post off the -Y deck edge raises D9 (no
+deck face under its origin, C16-style).
+
+D6: the frozen prefab numbers (design 9.1, read from the pre-pass manifests and hard-coded here) out of prefab_numbers + the
+authoring bounds. The LOD0 targets of this pass: 11,000 / 8,000.
+
+D7: access, ONE rule (MC3). R2e (roof route), R2f (pf ladder off the spine, MC5) and R2g (ground flight corridor) pass inside
+assert_contracts. Negatives:
+- The 1c front ladder (ROOF_ROUTE_D1 off: y -0.70, the closed outer rail) raises R2e.
+- A box in the base front ladder's zone raises R2e.
+- The pf ladder pushed into the spine (PF_Y 0.45) raises R2f.
+- The top's draft ladder-way 0.60 raises R2c (gate 0.61). The REAL hosted ETDQ (lift_tower rebuild, at its hosted pose) puts
+  no face in the base front ladder's zone above its deck top. Its -Y deck strip (top 3.404) is the standing surface of the
+  bottom stop.
+
+D8: MC10: assert_detail1 passes (every dressing part on its real faces, every vanilla footprint with the variant-union
+bounds). Negatives:
+- The DB6 slot of the design (x -6.50) raises D8 (commcable_nose).
+- DT4 at the x 2.60 of the design raises D8 (crosshead_r).
+- The ParkInfosign spot of the design (13.45, 2.70) raises D8 (C8 bench).
+
+D9: sub-object rows: verified GUIDs (cs2_liftdress.SUBOBJ), game-local positions, yaw-only quaternions, parent 0.
+
+D4: weathering on vs off (DQ base, two 512 bakes through main()): ControlMask byte-identical, every reserved rect (sign +
+labels) identical in BaseColor / Normal / MaskMap / ControlMask, BaseColor differs elsewhere (and no Emissive map in either:
+2026-10-12, the DQ ships four maps).
+
+SHIPPED (assets/import/stations/detachable/A at 2048, the export of this pass):
+- budgets: LOD0 <= 11,000 / 8,000, LOD1 <= 5,000 / 3,600 and <= 50 % of LOD0, LOD2 < 500, batches 9.
+- D10 (MC11 floors from the 1c baselines measured on the shipped 1c packs, 2026-10-11): w1 >= 0.95 x baseline, no
+  visible class under 14 px/m, deck >= 1.10 x baseline, ped / crosshead / spine >= 40 px/m (a 0.025 m bolt head
+  is 2 texels), roof >= 0.95 x baseline, the compose log drew bolts and gratings, bay sharing on.
+- D3: labels 400 px/m (>= 380 per axis), T2 everywhere, T1 where claimed, ControlMask 0 under each label.
+- D2: emissive lit texels >= the 1c baseline and <= 1.5 % of the atlas, no cool flood-head texels (follow-up).
+- D9: 10 + 2 / 7 + 2 rows legacy, 14 + 7 / 11 + 6 fine (T17-DQ 2026-10-16: no lamp posts, 2 SkiPisteFloodlightLow each).
+- D11: recorded.
+- Weathering at the highest budget-clean step (vanilla ok, snow 0, ControlMask untouched, protected rects kept).
+
+FINE-DETAIL step 3b (2026-10-12, build/fine-detail-step3b-stations.md).
+lift_terminal_detach.FINE_DETAIL is on by default. Every group runs on the DQ base / top AND the gondola base / top where it
+applies:
+
+F0: the switch.
+- D1 counts with FINE_DETAIL off = the pre-pass table (D1_COUNTS_LEGACY: the approved build). With FINE_DETAIL on
+  = D1_COUNTS (the families of the kit leave the host, the DQ box lamps go).
+- D6 frozen numbers identical both ways.
+- The weather mast wx* vertex-identical both ways (FS1), and the LIFT boards / labels untouched (FS5: same label
+  table, D11 order).
+
+F1: assert_kit_rows passes on all four. These negatives raise F1:
+- a kit hose reel pushed 5 cm into the DQ top cabin wall
+- the DQ base reel at its OLD spot beside the engine-room door (its 0.70 m plate over the door / past the corner)
+- the DQ base reel on the engine room's -Y face behind the cabinets (no access, FD_ACCESS)
+- the DQ base tools 3 cm off the wall (touch nothing)
+- a kit e-stop in the C8 bench envelope
+- the gondola tools on the stone face without the ledge offset (they cut the coping)
+- the DQ base rack pushed into the ParkInfosign's box
+- a kit CID drift
+
+F2: H1 placement against the removed parts (a FINE_DETAIL-off build). Each of these matches the removed parts:
+- The frame of the kit wall rack = the removed one-sided frame, vertex for vertex (<= 1 mm after the measured
+  foot drop).
+- The e-stop post axis and foot.
+- The extinguisher body axis and bottom.
+- The hose-reel plate (same size: corners <= 1 mm. DQ base moved / gondola resized: center reported).
+- The tools = the removed pair + the foot-line move (n x 0.0725 m on a plain wall, the gondola ledge case
+  reported), vertex for vertex.
+
+F3: fine geometry.
+- Maze posts 24 tris (8-seg, fan cap, was 12).
+- Ropes 12 (6-sided, was 8).
+- Gate stiles 24.
+- The SLOW posts 36 (12-seg, was 18).
+- The hang rods 6-seg.
+- The control cabinets without finish bevel strips (bevel_prefixes) + a 12-tri lid.
+- No lamp_ part on the DQ (lamp_s0-3 / cab / eng are RoofLight / WallLight rows: 4 new soffit rows, and the
+  2 / 1 wall-light rows moved onto the old lenses).
+
+SHIPPED (fine):
+- The rows 14 + 7 / 11 + 6 (vanilla + mod, T17-DQ 2026-10-16: kit 5 / 4 + 2 floodlights) with the fine_detail
+  block of the manifest.
+- D2 emissive: NO _Emissive map on the DQ (no lamp_ part). 2026-10-12: the map is not on disk and not in the files
+  of the manifest. 0 lit texels, and the reason in detail1.emissive. contract.emissive map / purpose / intensity
+  null. settings.json lists no Emissive.
+- The gondola rows 16 + 9 / 15 + 9 (the gondola keeps its map: lamp_eave*).
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_detail_detach.py
 """
@@ -94,7 +129,7 @@ FAILS = []
 BASELINE = {"base": {"w1": 32.51, "deck": 16.2, "roof": 48.7, "lit": 4418},
             "top": {"w1": 33.61, "deck": 16.8, "roof": 50.4, "lit": 4054}}
 LOD1_CAP = {"base": 5000, "top": 3600}
-# design 9.1 frozen numbers (authoring bounds via prefab_numbers; the pre-pass manifests)
+# design 9.1 frozen numbers (authoring bounds via prefab_numbers, the pre-pass manifests)
 FROZEN = {
     "base": {"wheel_local_prefab": [0.0, 3.7, 9.6], "lane_rope_y": 3.7, "deck_top_y": 0.3, "soffit_y": 3.35,
              "band_top_or_eave_y": 6.15, "crown_y": 8.4422, "stub_tip_local_z": -16.0,
@@ -105,16 +140,16 @@ FROZEN = {
     "top": {"wheel_local_prefab": [0.0, 3.7, 5.6], "lane_rope_y": 3.7, "deck_top_y": 0.3, "soffit_y": 3.35,
             "band_top_or_eave_y": 5.75, "crown_y": 8.0422, "stub_tip_local_z": -16.0,
             "stub_hv": [[0.0, 0.0, -13.0], [0.0, 0.0, -16.0]], "stub_lv": None, "lv_pole": None, "lot": [2, 4],
-            # nitpick A (2026-10-13, S-1): the top's operator cabin moved from the +Y side (its roof + drips
-            # reached 7.97) onto the -Y apron beside the unload lane: prefab x max = the deck's +Y edge 5.50 (the
-            # bounds are the mesh's; recorded deviation, build/nitpick-a-stations.md)
+            # nitpick A (2026-10-13, S-1): the operator cabin of the top moved from the +Y side (its roof + drips reached
+            # 7.97) onto the -Y apron beside the unload lane. Prefab x max = the deck's +Y edge 5.50 (the bounds are those of
+            # the mesh, a recorded deviation: build/nitpick-a-stations.md)
             "bounds_prefab": {"min": [-7.5, 0.0, -12.1], "max": [5.5, 9.2422, 12.0]},
             "anchor_comm_a": [0.0, 5.45, -10.275], "hosted": None, "nso_y": 8.25},
 }
 D1_COUNTS_LEGACY = {   # FINE_DETAIL off (the approved pre-pass): family prefix -> (base, top) part counts
-    # DQ follow-up: the flood masts are gone (flood_ / lamp_flood 0; vanilla LightpoleParkRandom01 rows
-    # instead), the SLOW boards stand on two posts each (board_ +2), the shared rack gear (cs2_bldg.ski_gear,
-    # bindings off) makes ONE part per matkey: ski_b_K / W / A / B / R (5, was one per ski: 9)
+    # DQ follow-up: the flood masts are gone (flood_ / lamp_flood 0, vanilla LightpoleParkRandom01 rows instead), the SLOW
+    # boards stand on two posts each (board_ +2), the shared rack gear (cs2_bldg.ski_gear, bindings off) makes ONE part per
+    # matkey: ski_b_K / W / A / B / R (5, was one per ski: 9)
     "maze_post_": (9, 0), "maze_rope_": (14, 0), "maze_flag_": (11, 0), "gate_ld_": (5, 0), "carpet_": (3, 0),
     # 2026-10-12 STAY SEATED removed at the top (board_stay + 2 rods + label_stay): label_ 6 -> 5, board_ 13 -> 10 (both modes)
     "label_": (9, 5), "board_": (11, 10), "label_stay": (0, 0), "board_stay": (0, 0),
@@ -123,17 +158,17 @@ D1_COUNTS_LEGACY = {   # FINE_DETAIL off (the approved pre-pass): family prefix 
     "hatch_sofpf": (2, 2), "gauge_": (0, 2), "doorlite_": (1, 1), "sill_": (1, 1), "lamp_": (6, 5),
     "cabinet_": (3, 3), "wx": (3, 3),
 }
-# fine-detail step 3b (FINE_DETAIL on): the e-stop, extinguisher, hose reel, tools and the one-sided rack (frame +
-# gear) are kit rows; the box lamps are vanilla rows; every cabinet gets a lid part; the weather mast stays (FS1)
+# fine-detail step 3b (FINE_DETAIL on): the e-stop, extinguisher, hose reel, tools and the one-sided rack (frame + gear) are
+# kit rows. The box lamps are vanilla rows. Every cabinet gets a lid part. The weather mast stays (FS1)
 D1_COUNTS = dict(D1_COUNTS_LEGACY, **{"estop_": (0, 0), "ext_": (0, 0), "hosereel_": (0, 0), "tool_": (0, 0),
                                       "skirack_": (0, 0), "ski_b_": (0, 0), "lamp_": (0, 0), "cabinet_": (6, 6)})
 # D11 the board order along the chair's travel, as the shipped contract (2026-10-12: the top lost STAY SEATED)
 D11_SEQ = {"base": ("waithere", "carpet", "load", "lowerbar", "tipsup"), "top": ("raisebar", "unload")}
-# T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow: the 4 vanilla LightpoleParkRandom01 rows per DQ /
-# gondola station are gone; 2 SkiPisteFloodlightLow "mod" rows stand per station (so vanilla -4, "kit" (mod) +2)
+# T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow: the 4 vanilla LightpoleParkRandom01 rows per DQ / gondola station
+# are gone. 2 SkiPisteFloodlightLow "mod" rows stand per station (so vanilla -4, "kit" (mod) +2)
 D9_ROWS_LEGACY = {"base": (10, 2), "top": (7, 2)}   # (vanilla, mod) - detail pass 10 / 7 vanilla rows + 2 floodlights
-# fine-detail: (vanilla, mod) - + 4 RoofLightRandom01 on the soffit lenses each; the wall lights moved, not added;
-# the mod count = the dressing kit rows (base 5, top 4) + the 2 floodlights
+# fine-detail: (vanilla, mod) - + 4 RoofLightRandom01 on the soffit lenses each. The wall lights moved, not added. The mod
+# count = the dressing kit rows (base 5, top 4) + the 2 floodlights
 D9_ROWS = {"base": (14, 7), "top": (11, 6)}
 GD_ROWS = {"base": (16, 9), "top": (15, 9)}   # gondola: vanilla 20 / 19 - 4 lamp posts, kit 7 + 2 floodlights
 D9_LAMPS = 0
@@ -146,7 +181,7 @@ D9_FLOODS = {"base": [((-5.1, 0.3, 2.4), (0.0, 0.9914449, 0.0, 0.1305262)),
                       ((7.1, 0.3, 5.2), (0.0, 0.976296, 0.0, -0.2164396))],
              "top": [((5.3, 0.3, -9.6), (0.0, 0.9914449, 0.0, -0.1305262)),
                      ((7.1, 0.3, 0.0), (0.0, 0.976296, 0.0, -0.2164396))]}
-# gondola: the portal-face corner pair (x_nose - 1.0 = -9 / -11), on grade; authoring y -7.2 / +7.2 = game x +7.2 / -7.2
+# gondola: the portal-face corner pair (x_nose - 1.0 = -9 / -11) on grade. Authoring y -7.2 / +7.2 = game x +7.2 / -7.2
 GD_FLOODS = {"base": [((7.2, 0.0, -9.0), (0.0, 0.976296, 0.0, -0.2164396)),
                       ((-7.2, 0.0, -9.0), (0.0, 0.976296, 0.0, 0.2164396))],
              "top": [((7.2, 0.0, -11.0), (0.0, 0.976296, 0.0, -0.2164396)),
@@ -275,8 +310,8 @@ def _counts_and_frozen_one(kind, fine):
               f"{rows['target_prefab']}; kinds {rows.get('kinds')}")
         if fine:
             import fine_detail as FD
-            # kit color variants (2026-10-12): a colored prop's row names its color-set variant's CID
-            # (T17-DQ 2026-10-16: the SkiPisteFloodlightLow "mod" rows are not kit props; asserted literally above)
+            # kit color variants (2026-10-12): a colored prop's row names its color-set variant's CID (T17-DQ 2026-10-16: the
+            # SkiPisteFloodlightLow "mod" rows are not kit props, asserted literally above)
             kit_mods = [o for o in mods if o["prefab"] != FLOOD_PREFAB]
             check(all(o["guid"] == "CID:" + FD.kit_cid(o["prefab"], o.get("colour_set"))
                       == "CID:" + str(FD.staged_kit_cid(o["prefab"], o.get("colour_set")))
@@ -290,7 +325,7 @@ def _counts_and_frozen_one(kind, fine):
                   # nitpick A (2026-10-13): the top's cabin (and its door lamp row) moved onto the -Y apron's deck:
                   # the lens over the moved door (cab_layout door_y), 2.23 over the cabin floor (deck 0.30)
                   and all(abs(o["pos"][1] - (2.38 + D.cab_layout(p)["zf"] - 0.15)) < 1e-6 for o in wl)
-                  # T14 x-sign N (2026-10-16): the rows are in the game frame, x -> -x (rule T); design door_y -> -door_y
+                  # T14 x-sign N (2026-10-16): the rows are in the game frame, x -> -x (rule T). Design door_y -> -door_y
                   and sorted(round(o["pos"][0], 3) for o in wl) == ([-6.7, -6.35] if kind_ == "base"
                                                                      else [round(-D.cab_layout(p)["door_y"], 3)]),
                   f"{kind} F3 lamps: 4 RoofLight rows on the old soffit lenses (game x +-3.6, y {p.z_soffit}, z "
@@ -414,10 +449,11 @@ def access_negatives():
             raises(f"{want} {kind}: {label}", lambda kind=kind: _contract_on(kind, fn="detail"), want)
         finally:
             D.dq_subobjects = saved
-    # D11 negatives. 2026-10-12 (nineteenth look): the DQ top has NO STAY SEATED, so a STAY SEATED on the top fails -
-    # put back through the generator's own tables (D1_HANG_BOARDS + D1_LABELS, the regression an editor would make) at
-    # the old slot x -2.50 and at the detail pass's x 2.20 (past the unload line), and as a free-standing post board
-    # (any mount: the `forbid`); the top's RAISE BAR / UNLOAD swapped; a base with SKI TIPS UP before LOWER BAR
+    # D11 negatives. 2026-10-12 (nineteenth look): the DQ top has NO STAY SEATED, so a STAY SEATED on the top fails. The
+    # negatives put it back through the generator's own tables (D1_HANG_BOARDS + D1_LABELS, the regression an editor would
+    # make): at the old slot x -2.50, at the x 2.20 of the detail pass (past the unload line), and as a free-standing post
+    # board (any mount: the `forbid`). More negatives: the top's RAISE BAR / UNLOAD swapped, and a base with SKI TIPS UP
+    # before LOWER BAR
     hb, lb = D.D1_HANG_BOARDS, D.D1_LABELS
     lb_stay = {**lb, "top": {**lb["top"], "label_stay": "stay"}}
     for kind, table_, label, needle in (
@@ -457,8 +493,8 @@ def access_negatives():
 
 
 def hosted_etdq_zone():
-    """The base front ladder's climbing zone (corridor 0.61 x 0.61, from the ETDQ deck top + 0.01 to the crown
-    + 1.80) against the REAL hosted ETDQ (lift_tower rebuild at (0, 0, -11), 180 deg; S8's transform)."""
+    """The base front ladder's climbing zone (corridor 0.61 x 0.61, from the ETDQ deck top + 0.01 to the crown + 1.80) against
+    the REAL hosted ETDQ (lift_tower rebuild at (0, 0, -11), 180 deg, S8's transform)."""
     import lift_tower as LT
     p = D.params_for("base", False, D.load_carrier("dq"))
     lx, ly = D.nose_access(p)[2]
@@ -566,9 +602,9 @@ def shipped():
         labs = d.get("labels") or {}
         lab_ok = all(min(v["px_per_m"]) >= 380.0 and math.sqrt(v["px_per_m"][0] * v["px_per_m"][1]) >= 400.0 - 1e-6
                      and v.get("t2_ok") in (True, None) for v in labs.values())
-        # 2026-10-12 lift-board redraw (build/lift-boards-redraw.md): the instruction boards are real-size portrait
-        # placards on the backer plate - T1's 0.40 m pictogram is no longer claimed for them (read_m, design L3's
-        # basis, >= 25 m, and >= 4-texel pictogram strokes instead); SLOW keeps T1 (0.28 m cap)
+        # 2026-10-12 lift-board redraw (build/lift-boards-redraw.md): the instruction boards are real-size portrait placards
+        # on the backer plate. T1's 0.40 m pictogram is no longer claimed for them (read_m, design L3's basis, >= 25 m, and
+        # >= 4-texel pictogram strokes instead). SLOW keeps T1 (0.28 m cap)
         t1 = {k: v.get("t1_ok") for k, v in labs.items() if v["kind"] in ("slow",)}
         plac = {k: (v.get("read_m"), v.get("picto_stroke_px")) for k, v in labs.items()
                 if v["kind"] in ("lowerbar", "tipsup", "raisebar", "unload", "stay")}
@@ -636,8 +672,8 @@ def shipped():
               f"2 SkiPisteFloodlightLow)")
         c_ = m.get("contracts") or {}
         check("D11" in c_, f"{kind} D11 shipped board order recorded: {c_.get('D11')}")
-        # 2026-10-12: the shipped top reads RAISE BAR -> UNLOAD and carries no STAY SEATED anywhere (label table,
-        # atlas rects, board order record); the base keeps WAIT HERE -> carpet -> load line -> LOWER BAR -> SKI TIPS UP
+        # 2026-10-12: the shipped top reads RAISE BAR -> UNLOAD and carries no STAY SEATED anywhere (label table, atlas
+        # rects, board order record). The base keeps WAIT HERE -> carpet -> load line -> LOWER BAR -> SKI TIPS UP
         bo = ((m.get("front_ladder") or {}).get("detail1_board_order") or {}).get("sequence") or []
         sw = [s_["words"] for s_ in bo]
         # (the recorded text ends "| no STAY SEATED board (any mount)" on the top: only its sequence part is read)
@@ -665,8 +701,8 @@ def shipped():
         nv = sum(1 for o in sub if o.get("kind") != "mod")
         nm = sum(1 for o in sub if o.get("kind") == "mod")
         tr = {int(k): v for k, v in m["tris"].items()}
-        # DECISIONS 251 (T17-DQ) / T53: stale shipped manifest (4 lamp posts, no floodlights: vanilla +4, mod -2) is
-        # SKIPPED (loud) until the next export; any other count still fails.
+        # DECISIONS 251 (T17-DQ) / T53: stale shipped manifest (4 lamp posts, no floodlights: vanilla +4, mod -2) is SKIPPED
+        # (loud) until the next export. Any other count still fails.
         t17_stale = (nv, nm) == (GD_ROWS[kind][0] + 4, GD_ROWS[kind][1] - 2) and not any(o["prefab"] == FLOOD_PREFAB for o in sub)
         if t17_stale:
             print(f"SKIP gondola {kind} shipped fine row counts: stale until the next export (pre-T17-DQ lamp posts, "
@@ -700,7 +736,7 @@ def shipped_fine(tag, m, fd, sub):
 # --------------------------------------------------------------------------------------
 
 def _kit_contract(kind, gondola=False, patch=None):
-    """assert_kit_rows on a fine blockout of one station; `patch(p, specs) -> specs` edits the kit specs."""
+    """assert_kit_rows on a fine blockout of one station. `patch(p, specs) -> specs` edits the kit specs."""
     saved = D.fd_kit_specs
     if patch is not None:
         D.fd_kit_specs = lambda p, _s=saved: patch(p, [dict(x) for x in _s(p)])
@@ -877,7 +913,7 @@ def kit_h1():
                 elif s["prop"] == "SkiDressTools":
                     # T14 x-sign N (2026-10-16), DECISIONS 245 / T53: the row is rule-T mirrored (game x negated) but the
                     # prop keeps its own mesh handedness, so the asymmetric tool pair stands left-right swapped about the
-                    # row's lateral axis; the expectation is the removed pair mirrored in that axis (measured 0.001 mm;
+                    # row's lateral axis. The expectation is the removed pair mirrored in that axis (measured 0.001 mm,
                     # un-mirrored it is 201.6 mm off). The foot-line shift and the z offset are unchanged.
                     lat = np.array([-nv[1], nv[0], 0.0])
                     c_row = np.array([r["position"][2], -r["position"][0], 0.0])    # the row in authoring xy
@@ -944,7 +980,7 @@ def fine_geometry():
         D.FINE_DETAIL = saved
     check("cabinet_" not in fine_bev and old_bev == D.BEVEL_PREFIXES and set(old_bev) - set(fine_bev) == {"cabinet_"},
           "F3 the control cabinets carry no finish bevel strips (bevel_prefixes drops cabinet_ only)")
-    # the finish bevel on a real assemble (no bake): a bevelled box vs the plain box + its lid
+    # the finish bevel on a real assemble (no bake): a beveled box vs the plain box + its lid
     p, _parts, t, table = build("top", finish=True, fine=True)
     me = t.data
     fp = D._face_parts(me)
@@ -959,12 +995,12 @@ def fine_geometry():
 
 
 # --------------------------------------------------------------------------------------
-# Nitpick A (2026-10-13; twenty-fifth look S-1 / S-2; build/nitpick-a-stations.md)
+# Nitpick A (2026-10-13, twenty-fifth look S-1 / S-2, build/nitpick-a-stations.md)
 # --------------------------------------------------------------------------------------
 
 def _nk_contract(kind, gondola=False, fn="orient", layout=None):
-    """Build a blockout (fine on) and run O1 ("orient") or ST1 ("train"); `layout` patches nose_train_layout's
-    result for the BUILD only (the contract re-reads the unpatched one)."""
+    """Build a blockout (fine on) and run O1 ("orient") or ST1 ("train"). `layout` patches nose_train_layout's result for the
+    BUILD only (the contract re-reads the unpatched one)."""
     lift_terminal.clear_scene()
     p = D.params_for(kind, gondola, D.load_carrier("gd8" if gondola else "dq"))
     saved = D.nose_train_layout
@@ -991,12 +1027,14 @@ def _bbox_dims(o):
 
 
 def nitpick_a():
-    """O1: both DQ stations laid out round the one up lane (cabin, hang boards, load carpet + line / unload stripe);
-    negatives - the pre-2026-10-13 top cabin on +Y (TOP_CAB_LEGACY) and OP_SIDE_Y flipped. ST1: the top's nose
-    trains (DQ + gondola) are the towers' gantry train, the DQ one with its axle ON the lane (nitpick A3 D1, the towers'
-    convention), the gondola one with the rope tangent on the rims; negatives - the sheaves 1 cm low, the
-    carriers' gate tightened past the towers' pins, the train's outer tip past the frozen z min. The station train's
-    parts have the TOWER's shapes (cs2_sheaves on both: rocker / yoke / hanger / pin boxes of a DQ12 rebuild tower)."""
+    """O1: both DQ stations laid out around the one up lane (cabin, hang boards, load carpet + line / unload stripe). Negatives:
+    the pre-2026-10-13 top cabin on +Y (TOP_CAB_LEGACY) and OP_SIDE_Y flipped.
+
+    ST1: the nose trains of the top (DQ + gondola) are the gantry train of the towers. The DQ one has its axle ON the lane
+    (nitpick A3 D1, the convention of the towers). The gondola one has the rope tangent on the rims. Negatives: the sheaves 1
+    cm low, the gate of the carriers tightened past the pins of the towers, the outer tip of the train past the frozen z min.
+    The parts of the station train have the shapes of the TOWER (cs2_sheaves on both: rocker / yoke / hanger / pin boxes of a
+    DQ12 rebuild tower)."""
     print("[d1-test] nitpick A: O1 orientation, ST1 the towers' sheave train at the nose")
     for kind in ("base", "top"):
         r, nums = _nk_contract(kind)
@@ -1075,13 +1113,17 @@ def _obj_pairs(objs):
 
 
 def nitpick_a4():
-    """Nitpick A4 (2026-10-13; build/nitpick-a3-check.md 1d / N3): C14 - the DQ top's nose zone has no undeclared
-    part clash. Shipped layout: ST1 + C14 pass, the hangers stand at their yokes, the beams clear the comm clamps and the
-    cable. Negatives - the hangers back at the tower's x 0 (ST1 'not at its yoke'; C14 on the letter-B rail: the detach
-    rails cross them; the letter-C rail, DQ_RAIL, crosses no hanger), the beams back at lane - 0.60 (C14: clamp_comm0 /
-    the cable inside the beam), a part wholly inside another's volume, the nitpick-A3 flag (NOSE_A4_LEGACY, letter-B
-    rail) finds exactly the five pairs. The rope rule is lift_chair's F10 set; the train's
-    internal joints that C14 declares are the DQ12 tower's own (same builder: the pair sets are equal)."""
+    """Nitpick A4 (2026-10-13, build/nitpick-a3-check.md 1d / N3): C14 - the DQ top's nose zone has no undeclared part clash.
+    Shipped layout: ST1 + C14 pass, the hangers stand at their yokes, the beams clear the comm clamps and the cable.
+    Negatives:
+    - The hangers back at the tower's x 0. ST1: 'not at its yoke'. C14 on the letter-B rail: the detach rails cross
+      them. The letter-C rail, DQ_RAIL, crosses no hanger.
+    - The beams back at lane - 0.60 (C14: clamp_comm0 / the cable inside the beam).
+    - A part wholly inside the volume of another part.
+    - The nitpick-A3 flag (NOSE_A4_LEGACY, letter-B rail) finds exactly the five pairs.
+
+    The rope rule is lift_chair's F10 set. The internal joints of the train that C14 declares are the DQ12 tower's own (same
+    builder: the pair sets are equal)."""
     print("[d1-test] nitpick A4: C14 nose clashes, the hanger at its yoke, the beams clear of the comm clamps")
     r, nums = _nk_contract("top", fn="clash")
     check("C14" in r and nums["undeclared"] == 0 and nums["contained"] == 0 and nums["nose_parts"] >= 40
@@ -1101,9 +1143,9 @@ def nitpick_a4():
           "ST1 gondola top: untouched by A4 (no hanger / beam keys in its numbers, its beam line unchanged)")
     raises_has("ST1 DQ top: the hangers back at the tower's x 0",
                lambda: _nk_contract("top", fn="train", layout=lambda L: dict(L, hanger_x=0.0)), "ST1", "not at its yoke")
-    # B2 v2 import prep (2026-11-03, lift_terminal_detach.DQ_RAIL, letter C): the detach rail left the hangers' line
-    # (lane - 0.20 -> lane + 0.123, on the O grip's running wheels), so the floating hangers at x 0 meet no rail any
-    # more (ST1 above still catches them); the A4 rail-crossing negatives run on the letter-B rail (DQ_RAIL_LEGACY)
+    # B2 v2 import prep (2026-11-03, lift_terminal_detach.DQ_RAIL, letter C): the detach rail left the hangers' line (lane -
+    # 0.20 -> lane + 0.123, on the O grip's running wheels), so the floating hangers at x 0 meet no rail any more (ST1 above
+    # still catches them). The A4 rail-crossing negatives run on the letter-B rail (DQ_RAIL_LEGACY)
     saved_rail = D.DQ_RAIL_LEGACY
     D.DQ_RAIL_LEGACY = True
     try:
@@ -1156,8 +1198,8 @@ def nitpick_a4():
     import lift_chair as LC
     check(tuple(D.NOSE_ROPE_PASS) == tuple(LC.CARRIER_PASS["gantry"]),
           f"C14 the rope may cross exactly lift_chair.CARRIER_PASS['gantry'] {D.NOSE_ROPE_PASS}")
-    # the declared train-internal joints are the TOWER's own: lift_tower._dq_train (DQ12's spec cut to the station's
-    # 4 sheaves a lane, sag 0, so one main as at the nose; finished as build_tower_v2 finishes it) has the same
+    # the declared train-internal joints are the TOWER's own: lift_tower._dq_train (DQ12's spec cut to the station's 4
+    # sheaves a lane, sag 0, so one main as at the nose, and finished as build_tower_v2 finishes it) has the same
     # intersecting pair set, by core name, as the station's train parts (the girder stub and the rope excluded)
     import dataclasses
     import lift_tower as LTW
@@ -1175,7 +1217,7 @@ def nitpick_a4():
     import re
     # T62 round 2: a liner touches its own wheel's chamfer only along the crest ring (a ~90 deg edge, no overlap): whether
     # the BVH reports that edge contact is float noise (it differed between the tower and the station), so the liner /
-    # own-rim pairs (declared in NOSE_CONTACTS) are left out; the inboard hub boss in its sub rocker plate is a real joint
+    # own-rim pairs (declared in NOSE_CONTACTS) are left out. The inboard hub boss in its sub rocker plate is a real joint
     # (more pairs a lane than round 1's 8)
     own = lambda pr: pr[0].startswith("liner_") and pr[1] == "sheave_" + pr[0][len("liner_"):] + "_rim"   # noqa: E731
     lanes = lambda pairs: {pr for pr in pairs if all(re.search(r"_n(?:_|$)", x) for x in pr) and not own(pr)}   # noqa: E731
