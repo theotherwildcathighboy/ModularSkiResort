@@ -216,8 +216,8 @@
     { sign: NULL, building: E(434), name: "Botanical Garden", tier: 1, state: 1, monthly: 0 },
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
-    outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0] };
-  const base = { hubOpen: false, contract: 36, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+    outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true };
+  const base = { hubOpen: false, contract: 37, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
@@ -260,6 +260,9 @@
     // Contract 36: the merge overlay armed from the Merged buildings fold (the chip on; its tooltip counts 14 green, 3 gray outlines).
     "Ash Flat, merge overlay armed": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
       problems, history, build: buildItems({ built: ["school"] }), mergeOverlay: { armed: true, allowed: 14, tooSmall: 3 } }),
+    // Contract 37: the merge card for a building out of reach of every run and station (its status line says it would not count).
+    "Ash Flat, merge card too far": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
+      problems, history, build: buildItems({ built: ["school"] }), mergeCard: Object.assign({}, mergeCard, { name: "City Park", near: false }) }),
     // A ski school on a sign with no counted run (summer: schoolValue 0, no row 25): the School row must read "No run counts
     // yet" (dim), never "No ski school".
     "Ash Flat, school built, no run counts": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { summer: true, schoolValue: 0 }), live2],

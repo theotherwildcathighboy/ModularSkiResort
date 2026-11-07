@@ -4,6 +4,9 @@
 // Overview's "Merged buildings" fold reads `mergedLodges`: one row per merged building of the selected area, any state.
 // Contract 36: the fold's overlay chip fires armMergeOverlay (bool); `mergeOverlay` says whether SkiMergeOverlaySystem is armed and how many
 // buildings it tints (green: a tier fits, gray: lot too small).
+// Contract 37: the card says, before a merge, whether the building is within SlopesideMaxM of any area's runs or lift stations (Near, the
+// overlay's test SkiResortAttractivenessSystem.NearAnySlopeside), so a player sees it would not count before paying; the Buildings tab's
+// Merge tile and the fold's chip both fire armMergeOverlay.
 // Engine notes: EngineNotes/SkiMergeSystem.md
 
 using System;
@@ -22,7 +25,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>bindings.ts MergeCardState. Tier -1 = not merged. AllowedMask: bit t = tier t fits the lot (MergeRules.AllowedMask).
         /// Refusal / State / Outcome: MergeRules.Refusal, MergeRules.State, SkiMergeSystem.Outcome numbers. Charge[t]: what merging (or
-        /// changing) to tier t costs now; Monthly[t]: its monthly fee.</summary>
+        /// changing) to tier t costs now; Monthly[t]: its monthly fee. Near (contract 37): within SkiDayRules.SlopesideMaxM of any area's run
+        /// outline or lift station now (NearAnySlopeside, the last recompute's geometry); for a merged building the State says it.</summary>
         public struct HubMergeCardState : IJsonWritable, IEquatable<HubMergeCardState>
         {
             public bool Shown;
@@ -36,6 +40,7 @@ namespace SkiResortMod.Systems
             public int Outcome;
             public int[] Charge;
             public int[] Monthly;
+            public bool Near;
 
             public void Write(IJsonWriter writer)
             {
@@ -62,6 +67,8 @@ namespace SkiResortMod.Systems
                 WriteInts(writer, Charge);
                 writer.PropertyName("monthly");
                 WriteInts(writer, Monthly);
+                writer.PropertyName("near");
+                writer.Write(Near);
                 writer.TypeEnd();
             }
 
@@ -77,7 +84,7 @@ namespace SkiResortMod.Systems
             public bool Equals(HubMergeCardState other)
             {
                 return Shown == other.Shown && Building == other.Building && Tier == other.Tier && AllowedMask == other.AllowedMask &&
-                       Refusal == other.Refusal && State == other.State && Outcome == other.Outcome &&
+                       Refusal == other.Refusal && State == other.State && Outcome == other.Outcome && Near == other.Near &&
                        string.Equals(Name ?? "", other.Name ?? "", StringComparison.Ordinal) &&
                        string.Equals(Area ?? "", other.Area ?? "", StringComparison.Ordinal) &&
                        SameInts(Charge, other.Charge) && SameInts(Monthly, other.Monthly);
@@ -271,6 +278,8 @@ namespace SkiResortMod.Systems
                 Monthly = new int[tiers],
             };
             bool merged = EntityManager.TryGetComponent(b, out SkiMergedLodge tag);
+            card.Near = EntityManager.TryGetComponent(b, out Game.Objects.Transform transform) &&
+                        m_Attractiveness.NearAnySlopeside(transform.m_Position.xz);
             MergeRules.Facts facts = SkiMergeSystem.ReadFacts(EntityManager, m_PrefabCatalog, b, forTag: merged);
             MergeRules.Classify(facts, out MergeRules.Refusal refusal);
             card.Refusal = (int)refusal;

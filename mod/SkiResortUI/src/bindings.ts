@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 36;
+export const HUB_CONTRACT = 37;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -288,6 +288,8 @@ export interface MergeCardState {
   charge: readonly number[];
   /** Per tier: its monthly fee. */
   monthly: readonly number[];
+  /** Contract 37: within reach of any ski area's runs or lift stations now (C# NearAnySlopeside; a merged building's state says it). */
+  near: boolean;
 }
 
 /** Contract 36: the merge overlay (C# SkiMergeOverlaySystem). While armed, the buildings near a ski area that could be merged are outlined:
@@ -1118,7 +1120,7 @@ export const FALLBACK = {
   lodgeParking: EMPTY_LODGE_PARKING,
   runReplaced: { seq: 0, from: NULL_ENTITY, to: NULL_ENTITY } as RunReplaced,
   drawRun: { active: false, groomed: true, gunSpacingM: 0, lightSpacingM: 0 } as DrawRun,
-  mergeCard: { shown: false, building: { index: 0, version: 0 }, name: "", area: "", tier: -1, allowedMask: 0, refusal: 0, state: 6, outcome: 0, charge: [], monthly: [] } as MergeCardState,
+  mergeCard: { shown: false, building: { index: 0, version: 0 }, name: "", area: "", tier: -1, allowedMask: 0, refusal: 0, state: 6, outcome: 0, charge: [], monthly: [], near: false } as MergeCardState,
   mergedLodges: EMPTY_MERGED,
   mergeOverlay: { armed: false, allowed: 0, tooSmall: 0 } as MergeOverlayState,
 } as const;

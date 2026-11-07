@@ -27,7 +27,10 @@ export const HUB_LOC = {
 
   /* the merge card (contract 35) and the Overview's merged buildings fold */
   mergeCardTitle: ["SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area"],
-  mergeCardTip: ["SkiResort.Hub.MERGE_CARD[Tip]", "Keeps its own use and adds a lodge tier's score, skier room, staff and attraction. Not a guest destination."],
+  mergeCardTip: ["SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, while it counts."],
+  mergeCardNote: ["SkiResort.Hub.MERGE_CARD[Note]", "Joins the ski area as a lodge and keeps its own use. The tier adds score, skier room, staff and tourism; guests do not arrive through it."],
+  mergeCardNear: ["SkiResort.Hub.MERGE_CARD[Near]", "Near the runs and lifts"],
+  mergeCardFar: ["SkiResort.Hub.MERGE_CARD[Far]", "Too far from the runs, would not count"],
   mergeCardTier: ["SkiResort.Hub.MERGE_CARD[Tier]", "Lodge tier"],
   mergeCardOnce: ["SkiResort.Hub.MERGE_CARD[Once]", "Merge fee"],
   mergeCardMonthly: ["SkiResort.Hub.MERGE_CARD[Monthly]", "Monthly fee"],
@@ -46,12 +49,17 @@ export const HUB_LOC = {
   mergeStateDestroyed: ["SkiResort.Hub.MERGE_STATE[Destroyed]", "Destroyed"],
   mergeStateUnknown: ["SkiResort.Hub.MERGE_STATE[Unknown]", "Checking"],
   mergedFold: ["SkiResort.Hub.MERGED_FOLD", "Merged buildings"],
-  mergedFoldTip: ["SkiResort.Hub.MERGED_FOLD_TIP", "Buildings merged into this ski area as lodges. Each keeps its own use."],
+  mergedFoldTip: ["SkiResort.Hub.MERGED_FOLD_TIP", "Buildings merged into this ski area as lodges. Each keeps its own use and adds its tier's score, skier room and staff."],
   /* the merge overlay chip in the merged buildings fold (contract 36) */
   mergeOverlay: ["SkiResort.Hub.MERGE_OVERLAY", "Mergeable buildings"],
-  mergeOverlayTip: ["SkiResort.Hub.MERGE_OVERLAY_TIP", "Outlines buildings near the runs and lifts that can be merged: green when a lodge tier fits the lot, gray when it is too small."],
-  mergeOverlayAllowed: ["SkiResort.Hub.MERGE_OVERLAY[Allowed]", "Outlined green"],
-  mergeOverlayTooSmall: ["SkiResort.Hub.MERGE_OVERLAY[TooSmall]", "Outlined gray"],
+  mergeOverlayTip: ["SkiResort.Hub.MERGE_OVERLAY_TIP", "Outlines the buildings near the runs and lifts that can be merged into a ski area as a lodge."],
+  /* the Buildings tab's Merge tile (contract 37) and the green / gray legend */
+  mergeTile: ["SkiResort.Hub.MERGE_TILE", "Merge"],
+  mergeTileName: ["SkiResort.Hub.MERGE_TILE[Name]", "Merge a city building"],
+  mergeTileFact: ["SkiResort.Hub.MERGE_TILE[Fact]", "A park, landmark or signature near the runs can be a lodge"],
+  mergeTileArmed: ["SkiResort.Hub.MERGE_TILE[Armed]", "Outlined buildings near the runs and lifts can be merged"],
+  mergeLegendFits: ["SkiResort.Hub.MERGE_LEGEND[Fits]", "Tier fits"],
+  mergeLegendTooSmall: ["SkiResort.Hub.MERGE_LEGEND[TooSmall]", "Too small"],
 
   resortPrev: ["SkiResort.Hub.RESORT_PREV", "Previous ski area"],
   resortNext: ["SkiResort.Hub.RESORT_NEXT", "Next ski area"],

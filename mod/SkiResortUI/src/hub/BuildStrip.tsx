@@ -4,6 +4,9 @@
  * Locked tiles are dimmed with a Lock glyph, not `disabled`; a click shows the reason and still sends launch(id), C# refuses and logs it.
  * Reads only the core `build` binding (plus local pick$), so it is also the contract-mismatch panel's footer; the rest arrives as FooterInfo.
  * Every tile and picker chip is a Button with focusKey={FOCUS_DISABLED} (rule R15).
+ * Contract 37: on the ok panel with a Welcome Sign, the Lodges group ends in a Merge tile (not a C# build item: it arms the merge overlay,
+ * armMergeOverlay, and shows on while it is armed). Hovered, the status lines name it and say what can be merged; while the overlay is on
+ * they carry the green / gray legend with the outlined counts (MergeLegend) until another tile is hovered.
  * Engine notes: EngineNotes/BuildStrip.tsx.md
  */
 import { useEffect, useRef, useState } from "react";
@@ -11,8 +14,8 @@ import { bindLocalValue, useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { build$, follow$, glade$, hubTriggers, liftLine$, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
-import type { BuildItem, BuildItemId, RunKind } from "../bindings";
+import { build$, follow$, glade$, hubTriggers, liftLine$, mergeOverlay$, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
+import type { BuildItem, BuildItemId, MergeOverlayState, RunKind } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import {
@@ -32,6 +35,7 @@ import {
 import { AssetIcon, Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
 import { CatTrackDeleteChip } from "./CatTrackControls";
 import { QuickRunsChip } from "./QuickRunsControls";
+import { MergeLegend } from "./MergedFold";
 import type { TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
@@ -50,7 +54,13 @@ export interface FooterInfo {
   liftTool?: boolean;
   /* Draw the Quick runs chip on the Runs tab (ok panel only; it reads the non-CORE quickRuns binding). */
   quickRuns?: boolean;
+  /* Contract 37: draw the Merge tile after the lodge tiles (ok panel with a Welcome Sign), and the overlay's state for it. */
+  mergeTile?: boolean;
+  mergeOverlay?: MergeOverlayState | null;
 }
+
+/* The Merge tile's icon: the game's building-upgrade icon (a merged building gains a lodge tier). */
+const MERGE_TILE_ICON = "Media/Game/Icons/BuildingUpgrade.svg";
 
 export const MISMATCH_FOOTER: FooterInfo = { dot: null, next: "done", followName: null };
 
@@ -280,7 +290,7 @@ function TabBarView({ tabs, tab, dotTab, t, onTab }: {
  * groups below), empty over the sign and the school, so the five lodge tiles read as one choice and the row keeps its fixed
  * height.
  */
-function GroupCaptions({ groups, t }: { groups: readonly OrderedBuildItem[][]; t: Translate }): JSX.Element {
+function GroupCaptions({ groups, t, mergeTile }: { groups: readonly OrderedBuildItem[][]; t: Translate; mergeTile: boolean }): JSX.Element {
   return (
     <>
       {groups.map((g, gi) => {
@@ -288,7 +298,7 @@ function GroupCaptions({ groups, t }: { groups: readonly OrderedBuildItem[][]; t
         const caption = k === "lodge" ? t(HUB_LOC.lodgeGroup) : k === "patrol" && g.length > 1 ? t(HUB_LOC.patrolGroup) : "";
         return (
           <div key={gi} className={cx(styles.groupCaption, !caption && styles.groupCaptionNone, gi > 0 && styles.buildGroupNext)}
-            style={{ flexGrow: g.length }}>
+            style={{ flexGrow: g.length + (mergeTile && k === "lodge" ? 1 : 0) }}>
             {caption}
           </div>
         );
@@ -366,6 +376,9 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   const storedTab = useValue(buildTab$);
   const [hovered, setHovered] = useState<BuildItemId | null>(null);
   const [lockedClick, setLockedClick] = useState<BuildItemId | null>(null);
+  const [mergeHover, setMergeHover] = useState(false);
+  const mergeTile = !!info.mergeTile;
+  const mergeOn = mergeTile && !!info.mergeOverlay?.armed;
 
   const sets = pickerSets(items, BUILD_ITEMS);
   const eff = effectiveSelection(sets, sel);
@@ -447,10 +460,20 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   } else if (state === "locked" && lockedEntry) {
     line1 = <Line1 id={lockedEntry.id} item={lockedEntry.item} t={t} />;
     line2 = t(sentKeyEntry(lockedEntry.item.reason, HUB_LOC.locked)); line2Cls = styles.buildLineLocked;
+  } else if (mergeOn) {
+    // The overlay is on: the legend and what the outlines mean, until a tile is hovered (below for the Merge tile itself).
+    line1 = <MergeLegend overlay={info.mergeOverlay} t={t} />; line2 = t(HUB_LOC.mergeTileArmed); line1Cls = styles.buildLineNormal;
   } else {
     const next1 = NEXT_LINE1[info.next];
     const next2 = NEXT_LINE2[info.next];
     line1 = <>{next1 ? t(next1) : ""}</>; line2 = next2 ? t(next2) : ""; line1Cls = styles.buildLineNormal;
+  }
+
+  if (mergeTile && mergeHover && tab === "buildings") {
+    line1 = mergeOn ? <MergeLegend overlay={info.mergeOverlay} t={t} /> : <>{t(HUB_LOC.mergeTileName)}</>;
+    line2 = t(mergeOn ? HUB_LOC.mergeTileArmed : HUB_LOC.mergeTileFact);
+    line1Cls = mergeOn ? styles.buildLineNormal : styles.buildLineName;
+    line2Cls = styles.buildLineDim;
   }
 
   const click = (e: OrderedBuildItem): void => {
@@ -465,6 +488,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   const onTab = (id: BuildTab): void => {
     setHovered(null);
     setLockedClick(null);
+    setMergeHover(false);
     buildTab$.update(id);
   };
 
@@ -475,13 +499,15 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
         <div className={styles.pickerRow}>
           {tab === "lifts" && sets.lift.length > 0 && <PickerSetView set="lift" options={sets.lift} chosen={eff.lift} dot={dot} t={t} onPick={onPick} />}
           {tab === "lifts" && info.liftTool && <LiftToolSet t={t} />}
-          {tab === "buildings" && <GroupCaptions groups={groups} t={t} />}
+          {tab === "buildings" && <GroupCaptions groups={groups} t={t} mergeTile={mergeTile} />}
           {tab === "runs" && <TreeToolSet t={t} quick={!!info.quickRuns} />}
         </div>
       )}
       <div className={styles.buildRow}>
-        {groups.map((g, gi) => (
-          <div key={gi} className={cx(styles.buildGroup, gi > 0 && styles.buildGroupNext)} style={{ flexGrow: g.length }}>
+        {groups.map((g, gi) => {
+          const withMerge = mergeTile && tab === "buildings" && g.length > 0 && kindOf(g[0].id) === "lodge";
+          return (
+          <div key={gi} className={cx(styles.buildGroup, gi > 0 && styles.buildGroupNext)} style={{ flexGrow: g.length + (withMerge ? 1 : 0) }}>
             {g.map((e) => {
               const kind = BUILD_RUN_KIND[e.id];
               const step = BUILD_STEP[e.id];
@@ -513,8 +539,24 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
                 </div>
               );
             })}
+            {withMerge && (
+              <div key="merge" className={styles.buildCell} onMouseEnter={() => setMergeHover(true)} onMouseLeave={() => setMergeHover(false)}>
+                <Tip tip={<TipLines lines={[t(HUB_LOC.mergeTileName), t(HUB_LOC.mergeOverlayTip)]} />}>
+                  <Button
+                    focusKey={FOCUS_DISABLED}
+                    theme={{ button: cx(styles.buildTile, mergeOn && styles.buildTileActive) }}
+                    selected={mergeOn}
+                    onSelect={() => hubTriggers.armMergeOverlay(!mergeOn)}
+                  >
+                    <AssetIcon src={MERGE_TILE_ICON} className={styles.buildIcon} />
+                    <div className={styles.buildTileLabel}>{t(HUB_LOC.mergeTile)}</div>
+                  </Button>
+                </Tip>
+              </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
       <div className={cx(styles.buildStatusLine, line1Cls)}>{line1}</div>
       <div className={cx(styles.buildStatusLine, line2Cls)}>{line2}</div>
@@ -530,6 +572,7 @@ export function OkFooter(): JSX.Element {
   const live = useValue(resortLive$);
   const problems = useValue(problems$);
   const follow = useValue(follow$);
+  const mergeOverlay = useValue(mergeOverlay$);   // contract 37: the Merge tile's on state and the legend's counts
   const [noticeOn, setNoticeOn] = useState(false);
   const baseline = useRef(follow);
 
@@ -554,6 +597,8 @@ export function OkFooter(): JSX.Element {
     followName: noticeOn && shown ? (unlinked ? t(HUB_LOC.unlinkedEntry) : shown.name) : null,
     liftTool: true, // the ok panel draws the lift generator toggle
     quickRuns: true, // and the Quick runs chip
+    mergeTile: hasSign, // and, with a Welcome Sign, the Merge tile (C# refuses to arm without one)
+    mergeOverlay,
   };
   return <BuildStrip info={info} />;
 }

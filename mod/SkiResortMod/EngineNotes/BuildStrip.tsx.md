@@ -46,3 +46,12 @@ The Panel wraps its footer in a `FocusKeyOverride` whose `KeyFocusController` ho
 `@578500` logs "Cannot register second focus key ... KeyFocusControllers can only host a single child"), and a Button registers itself
 by default (`FOCUS_AUTO`, button.tsx `@629600`). `FOCUS_DISABLED` is what the vanilla close button passes (`focusKey:Ug`,
 `index.js@686490`). `tools/check-bundle.js` rule R15 fails a focusable `cs2/ui` Button rendered into a Panel header or footer without it.
+
+## Merge tile (contract 37, 2026-11-06)
+
+The Buildings tab's Lodges group ends in a Merge tile on the ok panel while the city has a Welcome Sign (`FooterInfo.mergeTile`). It is
+not a C# build item (gate R16 compares only `BUILD_ITEMS`): it fires `armMergeOverlay(!armed)` and shows `buildTileActive` while
+`mergeOverlay.armed`. The Lodges caption grows by one cell to span it. Its icon is the game's `Media/Game/Icons/BuildingUpgrade.svg`
+(rule R10 checks it exists). Status lines: hovered, its name and what can be merged; while armed and nothing else is hovered or active,
+the green / gray legend with the outlined counts (`MergedFold.MergeLegend`) and what the outlines mean, on every tab. The layout test
+hovers it with the other `buildCell`s, so its lines are measured for cut text.
