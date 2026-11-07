@@ -1,10 +1,10 @@
-// Quick runs: the height snapshot the planner and its rater read. A plain copy of one texel rectangle of the game's CPU heights
-// (TerrainHeightData.heights, R16) plus the heightmap's scale / offset / resolution, so a scan reads the terrain once instead of calling
+// Quick runs: the height snapshot that the planner and its rater read. A plain copy of one texel rectangle of the game's CPU heights
+// (TerrainHeightData.heights, R16) plus the heightmap's scale / offset / resolution. So a scan reads the terrain once, instead of calling
 // TerrainUtils.SampleHeight per texel from the main thread (128 ms per 28,710 texels measured, cattrack-merge-2026-10-24.md 1.4).
 // Sample reproduces TerrainUtils.SampleHeightInternal (Game.Simulation/TerrainUtils.cs:121-137) operation for operation: heightmap
 // space (world + offset) * scale, floor, clamp to the full resolution, saturate, lerp along x then z, height / scale.y - offset.y.
 // So SkiRunRater.Rate over a SnapshotSampler gives the numbers the catalog computes after build with TerrainHeightSampler (same float
-// ops; CoreCLR vs Mono bit equality and the in-game parity are phase-2 probe items, UNVERIFIED). The backdrop branch of SampleHeight
+// ops). CoreCLR vs Mono bit equality and the in-game parity are phase-2 probe items, UNVERIFIED. The backdrop branch of SampleHeight
 // is never reached: the planner masks every cell within OffMapMarginTexels of the heightmap edge.
 // Pure file: System and Unity.Mathematics only (the tests/AutoGenBatch rule). Engine notes: EngineNotes/SkiRunAutoPlanner.md
 
@@ -60,7 +60,7 @@ namespace SkiResortMod.Systems
             return ck0 >= X0 && ck1 < X0 + Width && cl0 >= Z0 && cl1 < Z0 + Depth;
         }
 
-        /// <summary>Raw R16 value of full-map texel (k, l), clamped to the map like SampleHeightInternal; 0 and false outside the
+        /// <summary>Raw R16 value of full-map texel (k, l), clamped to the map like SampleHeightInternal. Returns 0 and false outside the
         /// rectangle.</summary>
         public bool TryRaw(long k, long l, out ushort raw)
         {
@@ -79,7 +79,7 @@ namespace SkiResortMod.Systems
         /// <summary>World height of a raw value (TerrainUtils.ToWorldSpace).</summary>
         public float ToWorld(float raw) => raw / Scale.y - Offset.y;
 
-        /// <summary>Wet flag of full-map texel (k, l) (clamped); false without a Wet layer or outside the rectangle.</summary>
+        /// <summary>Wet flag of full-map texel (k, l) (clamped). It is false without a Wet layer or outside the rectangle.</summary>
         public bool IsWet(long k, long l)
         {
             if (Wet == null)
@@ -90,7 +90,7 @@ namespace SkiResortMod.Systems
             return x >= 0 && z >= 0 && x < Width && z < Depth && Wet[z * Width + x] != 0;
         }
 
-        /// <summary>TerrainUtils.SampleHeightInternal on the snapshot; NaN when a needed texel is outside the rectangle.</summary>
+        /// <summary>TerrainUtils.SampleHeightInternal on the snapshot. It gives NaN when a needed texel is outside the rectangle.</summary>
         public float Sample(float3 world)
         {
             // ToHeightmapSpace: (worldPosition + data.offset) * data.scale, x and z lanes
@@ -120,7 +120,7 @@ namespace SkiResortMod.Systems
         private static int ClampI(int v, int lo, int hi) => v < lo ? lo : v > hi ? hi : v;
     }
 
-    /// <summary>IHeightSampler over a HeightSnapshot for SkiRunRater.Rate; counts reads that fell outside the rectangle (NaN).</summary>
+    /// <summary>IHeightSampler over a HeightSnapshot for SkiRunRater.Rate. It counts reads that fell outside the rectangle (NaN).</summary>
     public struct SnapshotSampler : IHeightSampler
     {
         public HeightSnapshot Snap;

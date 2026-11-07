@@ -1,10 +1,10 @@
 // THE "which resort is this point in" rule for lifts and stations: the nearest live Ski Area Welcome Sign whose distance is
-// <= the tether (SkiRunOwnershipSystem.TetherMeters, 5000 m); none → not linked.
-// Count / SignAt / PositionAt are sorted by Index, then Version (EntityRef.CompareTo): the stable order the hub numbers
-// "Ski area N" by when a sign has no name. The scan replaces the best only on a STRICTLY smaller distance, so an exact tie keeps
+// <= the tether (SkiRunOwnershipSystem.TetherMeters, 5000 m). If none exists, the point is not linked.
+// Count / SignAt / PositionAt are sorted by Index, then Version (EntityRef.CompareTo). This is the stable order the hub uses to number
+// "Ski area N" when a sign has no name. The scan replaces the best only on a STRICTLY smaller distance, so an exact tie keeps
 // the lower Index / Version.
 // Distances are float math.distance on xz, the same arithmetic as the run bind test (SkiRunOwnershipSystem.TryNearestGateEntity,
-// `d <= TetherM`); runs never go through this index, so the bind test's tie order (chunk order) never disagrees.
+// `d <= TetherM`). Runs never go through this index, so the bind test's tie order (chunk order) never disagrees.
 // Pure file: System, System.Collections.Generic, Unity.Mathematics only (tests/ResortBatch links it).
 
 using System;

@@ -1,10 +1,11 @@
-// Sets the cat track prefab's AreaGeometryData.m_Type to Space at every Game load, so a drawn cat track may cross other runs
-// (decompile 1.6.0f1). All our runs are Surface areas, and drawing a Surface across a Surface fails validation
-// (ValidationHelpers.cs:551-582); a different type is exempt.
-// Re-applied at every load: AreaInitializeSystem fills AreaGeometryData on the Created tag only and a save carries no prefab data.
-// Editor: the game's value is written back, only when the prefab still holds exactly what we wrote.
-// Logs: ONE "RunAreaType: prefab ..." line per load (or the "already Space" line, or a WARN); a missing prefab logs ERROR.
-// Only SetComponentData of vanilla AreaGeometryData on the one prefab entity: no Harmony, no reflection.
+// Sets the cat track prefab's AreaGeometryData.m_Type to Space at every Game load. So a drawn cat track may cross other runs
+// (decompile 1.6.0f1). All our runs are Surface areas. Drawing a Surface across a Surface fails validation
+// (ValidationHelpers.cs:551-582). A different type is exempt.
+// The system applies it again at every load: AreaInitializeSystem fills AreaGeometryData on the Created tag only, and a save carries
+// no prefab data.
+// Editor: the system writes the game's value back, only when the prefab still holds exactly what we wrote.
+// Logs: ONE "RunAreaType: prefab ..." line per load (or the "already Space" line, or a WARN). A missing prefab logs ERROR.
+// The system only calls SetComponentData on vanilla AreaGeometryData of the one prefab entity. It uses no Harmony and no reflection.
 // Engine notes: EngineNotes/SkiRunAreaTypeSystem.md
 
 using System;
@@ -32,14 +33,14 @@ namespace SkiResortMod.Systems
         private readonly System.Collections.Generic.Dictionary<Entity, Written> m_Written =
             new System.Collections.Generic.Dictionary<Entity, Written>();
 
-        // Per-load state, reset at OnGameLoadingComplete; for logs and tests
+        // Per-load state, reset at OnGameLoadingComplete. It is for logs and tests
         private string m_State = "not loaded";
 
         protected override void OnCreate()
         {
             base.OnCreate();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
-            Enabled = false;   // nothing per frame; OnGameLoadingComplete still fires
+            Enabled = false;   // nothing per frame. OnGameLoadingComplete still fires
             Mod.Log.Info("RunAreaType: system created (the cat track's AreaType is forged to Space at every game load " +
                          "so it can cross other runs; no sweep, no poll)");
         }

@@ -1,5 +1,5 @@
 // SkiResortLedger - the pure monthly guest and money ledger: one Entry per ski area keyed by its sign (EntityRef.Null = Not linked,
-// lift charges only). In memory only, reset on every load; the month in progress is restored from SkiResortMonthInProgress.
+// lift charges only). In memory only, reset on every load. The month in progress is restored from SkiResortMonthInProgress.
 // SkiGuestCounterSystem owns the one instance (Advance / AddArrival / Prune). The ledger never subtracts: inputs below 0 are ignored.
 // Closed months go to the per-sign history buffer (SkiResortHistory.cs), not here.
 // Pure file: System, System.Collections.Generic plus EntityRef only (tests/ResortBatch links it).
@@ -26,22 +26,22 @@ namespace SkiResortMod.Systems
             public int PassesSold;
             public long PassIncome;
             public int PassHolderGuests;
-            // PassesPre / PassIncomePre = the part of PassesSold / PassIncome sold in the pre-season sale;
+            // PassesPre / PassIncomePre = the part of PassesSold / PassIncome sold in the pre-season sale.
             // Lessons / LessonIncome = lessons taken (one per person) and what they paid.
             public int PassesPre;
             public long PassIncomePre;
             public int Lessons;
             public long LessonIncome;
-            // The run upkeep debited from the city for this ski area's runs (whole credits; EntityRef.Null = unbound runs and runs
-            // the catalog does not list yet). Booked by SkiRunUpkeepSystem.
+            // The run upkeep debited from the city for this ski area's runs (whole credits). EntityRef.Null = unbound runs and runs
+            // the catalog does not list yet. SkiRunUpkeepSystem books it.
             public long RunUpkeep;
             // The coach bill of this ski area's bus depots (SkiBusChargeSystem), accrued like LiftCharged.
             public double BusCharged;
             public int Guests => TouristGuests + LocalGuests;
         }
 
-        // Hub: the pass sales of the ski season in PassSeasonKey (SkiMoneyRules.SeasonKeyOf), kept across month rolls (Advance
-        // never touches them); a reader asks PassSeasonSold / PassSeasonIncome for the season it wants and gets 0 for another.
+        // Hub: the pass sales of the ski season in PassSeasonKey (SkiMoneyRules.SeasonKeyOf). They are kept across month rolls (Advance
+        // never touches them). A reader asks PassSeasonSold / PassSeasonIncome for the season it wants and gets 0 for another.
         // PassSeasonPre / PassSeasonPreIncome = the pre-season sale's part of those totals (a subset, never added twice).
         public struct Entry
         {
@@ -52,7 +52,7 @@ namespace SkiResortMod.Systems
         public enum AdvanceResult : byte { None = 0, Started = 1, Rolled = 2, Jumped = 3 }
 
         public const int NoMonth = int.MinValue;
-        public const int NoSeason = int.MinValue;   // AddPasses without a season: the season totals are left alone
+        public const int NoSeason = int.MinValue;   // AddPasses without a season: the season totals stay as they are
 
         /// <summary>Passes sold at this ski area in <paramref name="seasonKey"/> (0 for any other season)</summary>
         public static int PassSeasonSoldOf(in Entry e, int seasonKey) => e.PassSeasonKey == seasonKey ? e.PassSeasonSold : 0;
@@ -105,7 +105,7 @@ namespace SkiResortMod.Systems
             Revision++;
         }
 
-        /// <summary>Start, roll or jump the month (see the engine notes); = Advance(monthKey, false)</summary>
+        /// <summary>Start, roll or jump the month (see the engine notes). Same as Advance(monthKey, false)</summary>
         public AdvanceResult Advance(int monthKey)
         {
             return Advance(monthKey, false);
@@ -126,7 +126,7 @@ namespace SkiResortMod.Systems
             if (monthKey == MonthKey)
                 return AdvanceResult.None;
 
-            // MonthKey != NoMonth here, so MonthKey + 1 cannot overflow below; a key at int.MaxValue simply never rolls
+            // MonthKey != NoMonth here, so MonthKey + 1 cannot overflow below. A key at int.MaxValue simply never rolls
             bool rolled = MonthKey != int.MaxValue && monthKey == MonthKey + 1;
             for (int i = 0; i < m_Entries.Count; i++)
             {
@@ -145,8 +145,8 @@ namespace SkiResortMod.Systems
             {
                 LastMonthKnown = false;
                 LastMonthSinceLoad = false;
-                // A jump lands partway through a month, so counting restarts there exactly as after a load; the month it starts is
-                // never called a full month.
+                // A jump lands partway through a month, so counting restarts there exactly as after a load.
+                // The month it starts is never called a full month.
                 ThisMonthSinceLoad = true;
             }
             MonthKey = monthKey;
@@ -155,7 +155,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>tourist: TouristGuests += people, TouristParties++ when <paramref name="newGroup"/>, TouristOnLeisure +=
-        /// people when <paramref name="onLeisure"/>; else LocalGuests += people (both flags ignored). people &lt;= 0 changes nothing.</summary>
+        /// people when <paramref name="onLeisure"/>. Else LocalGuests += people (both flags ignored). people &lt;= 0 changes nothing.</summary>
         public void AddArrival(EntityRef sign, bool tourist, int people, bool newGroup = true, bool onLeisure = false)
         {
             if (people <= 0)
@@ -201,7 +201,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>One batch of lodge spends (guests who spent, credits moved) under the AddTickets rules: each input below 0
-        /// reads 0; all 0 changes nothing (no entry is created)</summary>
+        /// reads 0. All 0 changes nothing (no entry is created)</summary>
         public void AddLodgeSpend(EntityRef sign, int spends, long income)
         {
             if (spends < 0)
@@ -280,7 +280,7 @@ namespace SkiResortMod.Systems
             Revision++;
         }
 
-        /// <summary>Adds what the lift charge accrued for this ski area (EntityRef.Null = Not linked); an amount that is not > 0
+        /// <summary>Adds what the lift charge accrued for this ski area (EntityRef.Null = Not linked). An amount that is not > 0
         /// (NaN included) changes nothing.</summary>
         public void AddLiftCharge(EntityRef sign, double amount)
         {
@@ -293,7 +293,7 @@ namespace SkiResortMod.Systems
             Revision++;
         }
 
-        /// <summary>Adds what the coach bill accrued for this ski area's depots; an amount that is not > 0 (NaN included) changes nothing.</summary>
+        /// <summary>Adds what the coach bill accrued for this ski area's depots. An amount that is not > 0 (NaN included) changes nothing.</summary>
         public void AddBusCharge(EntityRef sign, double amount)
         {
             if (!(amount > 0.0) || double.IsInfinity(amount))
@@ -305,7 +305,7 @@ namespace SkiResortMod.Systems
             Revision++;
         }
 
-        /// <summary>Adds the run upkeep debited for this ski area's runs (EntityRef.Null = Not linked); an amount &lt;= 0 changes
+        /// <summary>Adds the run upkeep debited for this ski area's runs (EntityRef.Null = Not linked). An amount &lt;= 0 changes
         /// nothing (no entry is created)</summary>
         public void AddRunUpkeep(EntityRef sign, long amount)
         {
@@ -331,10 +331,10 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Adds a saved month in progress into this ski area's This (whatever was booked since the load stays: the
-        /// first scans after a load are baselines, so nothing is counted twice), and its pass season totals: added when the entry
-        /// holds the same season, taken when it holds none, ignored when it already holds another season. Inputs below 0 read 0.
-        /// Call only after SeedMonth returned true. An all-zero month changes nothing.</summary>
+        /// <summary>Adds a saved month in progress into this ski area's This. Whatever was booked since the load stays: the
+        /// first scans after a load are baselines, so nothing is counted twice. It adds the pass season totals when the entry
+        /// holds the same season. It takes them when the entry holds none. It ignores them when the entry already holds another
+        /// season. Inputs below 0 read 0. Call only after SeedMonth returned true. An all-zero month changes nothing.</summary>
         public void SeedThis(EntityRef sign, in Month saved, int passSeasonKey, int passSeasonSold, long passSeasonIncome,
                              int passSeasonPre, long passSeasonPreIncome)
         {
@@ -397,7 +397,7 @@ namespace SkiResortMod.Systems
                    m.Lessons <= 0 && m.LessonIncome <= 0 && m.RunUpkeep <= 0 && !(m.BusCharged > 0.0);
         }
 
-        /// <summary>Drops entries whose sign is not live; keeps EntityRef.Null; returns how many. Order of the kept entries is unchanged.</summary>
+        /// <summary>Drops entries whose sign is not live. Keeps EntityRef.Null. Returns how many. The order of the kept entries is unchanged.</summary>
         public int Prune(HashSet<EntityRef> liveSigns)
         {
             int kept = 0;

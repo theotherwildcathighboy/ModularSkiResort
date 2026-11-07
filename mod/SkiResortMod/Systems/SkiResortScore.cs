@@ -1,5 +1,6 @@
-// Attraction model: ONE attraction score per ski area (one Welcome Sign), from its member runs (band, size with the 1 ha knee,
-// type, lift service, open factor; a cat track counts a quarter and only there: CatTrackFactor), its complete and powered lifts, its active lodges and the sign's efficiency. Consumers:
+// Attraction model: ONE attraction score per ski area (one Welcome Sign). Inputs: its member runs, its complete and powered lifts,
+// its active lodges and the sign's efficiency. A run counts by band, size with the 1 ha knee, type, lift service and open factor.
+// A cat track counts a quarter and only there: CatTrackFactor. Consumers:
 // SkiResortAttractivenessSystem (Compute on every recompute), SkiResortStatsSystem / HubRules (the hub reads this Result, never
 // recomputes), tests/ResortBatch ScoreTests.
 // Pure file: System and System.Collections.Generic only, plus SkiCatalog, SchoolRule and PatrolRule (linked wherever this file is).
@@ -23,15 +24,15 @@ namespace SkiResortMod.Systems
         public const double UnrateableValue = 3.0;
         public const double NightFactor = 1.25;
         public const double NaturalUnrateableFactor = 0.5;
-        public const double LiftValue = SkiCatalog.FixedGrip.ScoreValue; // const alias of SkiCatalog.FixedGrip.ScoreValue; ScoreTests guards 6
+        public const double LiftValue = SkiCatalog.FixedGrip.ScoreValue; // const alias of SkiCatalog.FixedGrip.ScoreValue. ScoreTests guards 6
         public const double VarietyFactor = 1.15;
         public const double VerticalRefM = 600.0;
-        public const double FirstLodgeBase = 20.0; // = SkiCatalog.Lodges[0].B (the A-frame; LadderTests guard)
+        public const double FirstLodgeBase = 20.0; // = SkiCatalog.Lodges[0].B (the A-frame, LadderTests guard)
         public const double LodgeExtra = 4.0; // = SkiCatalog.Lodges[0].E
-        // const alias; ScoreTests guards 24
+        // const alias. ScoreTests guards 24
         public const double LodgeExtraCap = SkiCatalog.Ladder.ExtraCap;
-        public const double SummerLodgeShare = 0.5; // mu of the A-frame (= SkiCatalog.Lodges[0].Mu); the no-lodge summer share
-        public const double SummerLiftShare = 0.25; // lambda of the fixed-grip (= SkiCatalog.FixedGrip.SummerShare); the no-lift summer share
+        public const double SummerLodgeShare = 0.5; // mu of the A-frame (= SkiCatalog.Lodges[0].Mu). The no-lodge summer share
+        public const double SummerLiftShare = 0.25; // lambda of the fixed-grip (= SkiCatalog.FixedGrip.SummerShare). The no-lift summer share
         public const int MaxAttraction = 200;
         public const int MinK = 1, MaxK = 10;
 
@@ -40,11 +41,12 @@ namespace SkiResortMod.Systems
                             SkiersPerHaDoubleBlack = 7.5, SkiersPerHaUnrateable = 15.0;
         public const double NaturalSkiersFactor = 0.5;
 
-        // The cat track (2026-10-24: "counts minimally as a run"): rated green by construction (SkiRunRatingRules.CatTrackBand),
-        // a quarter of a groomed green of the same plan area in the score (type factor) and in the capacity (skiers). A quarter keeps
-        // the order groomed 1 > natural green 0.5 > cat track: a ribbon guests ride through, not a run they come for. It counts in
-        // Runs / RunsOpen / RunsCounted, never in the variety or school green, the vertical / top, or the end of the summer mode, so a
-        // summit-to-base track cannot double the score through the vertical multiplier or flip the lodges and lifts to winter alone.
+        // The cat track (2026-10-24: "counts minimally as a run") is rated green by construction (SkiRunRatingRules.CatTrackBand).
+        // It counts a quarter of a groomed green of the same plan area in the score (type factor) and in the capacity (skiers).
+        // A quarter keeps the order groomed 1 > natural green 0.5 > cat track: a ribbon guests ride through, not a run they come for.
+        // It counts in Runs / RunsOpen / RunsCounted. It never counts in the variety or school green, the vertical / top, or the end of the
+        // summer mode. So a summit-to-base track cannot double the score through the vertical multiplier. It cannot flip the lodges and
+        // lifts to winter alone.
         public const double CatTrackFactor = 0.25, CatTrackSkiersFactor = 0.25;
         public const double MaxCapacityAreaM2 = 20000000.0; // 2,000 ha = SkiRunFees.MaxAreaHa
 
@@ -71,14 +73,14 @@ namespace SkiResortMod.Systems
 
         public struct RunInput
         {
-            public byte Kind; // KindGroomed .. KindCatTrack; other values are treated as groomed
+            public byte Kind; // KindGroomed .. KindCatTrack. Other values are treated as groomed
             public BandState State; // Rated: Band holds the SlopeBand
             public byte Band; // 0..4, read only when State == Rated
-            public double AreaM2; // plan area (Geometry.m_SurfaceArea); <= 0 or NaN gives size 0 (the run counts 0)
+            public double AreaM2; // plan area (Geometry.m_SurfaceArea). <= 0 or NaN gives size 0 (the run counts 0)
             public bool Served; // the lift chapter's served rule over complete, powered lifts (LiftServedRule.Assign)
-            public double OpenFactor; // 0..1 = GetRunSnow(...).Multiplier; ignored when SnowGating is off
+            public double OpenFactor; // 0..1 = GetRunSnow(...).Multiplier. Ignored when SnowGating is off
             public bool OpenEstimated; // GetRunSnow(...).Source == RunSnowSource.Estimated
-            public double TopM, BottomM; // heights for the vertical; non-finite values are skipped
+            public double TopM, BottomM; // heights for the vertical. Non-finite values are skipped
             public bool Patrolled; // PatrolRule.Patrolled(run top xz, the area's active patrol huts)
         }
 
@@ -86,12 +88,12 @@ namespace SkiResortMod.Systems
         {
             public bool Complete; // census State.Complete
             public bool Powered; // LiftServedRule.IsPowered(lift.Power) from CopyServeLifts
-            public int TypeIndex; // SkiCatalog.Lifts index of the census row; 0 = fixedGrip (default)
+            public int TypeIndex; // SkiCatalog.Lifts index of the census row. 0 = fixedGrip (default)
         }
 
-        /// <summary>One active lodge of the area. LodgeIndex = SkiCatalog.Lodges index (out of range reads the A-frame row 0);
+        /// <summary>One active lodge of the area. LodgeIndex = SkiCatalog.Lodges index (out of range reads the A-frame row 0).
         /// SummitServed = within Ladder.SummitServedRadiusM of a complete, powered lift's top stub tip of the same area
-        /// (LiftServedRule.SummitServed; only rows with mu summit &gt; mu read it).</summary>
+        /// (LiftServedRule.SummitServed, only rows with mu summit &gt; mu read it).</summary>
         public struct LodgeInput
         {
             public int LodgeIndex;
@@ -100,7 +102,7 @@ namespace SkiResortMod.Systems
 
         public struct ScoreSettings // not "Settings": the namespace SkiResortMod.Settings is in scope in Systems/
         {
-            public int K; // AttractivenessScaleK; clamped to MinK..MaxK
+            public int K; // AttractivenessScaleK. Clamped to MinK..MaxK
             public int BackcountryPercent; // clamped to 0..100
             public bool SnowGating;
         }
@@ -111,7 +113,7 @@ namespace SkiResortMod.Systems
             public int InactiveLodges; // echoed for the hub
             public double Efficiency; // SignEfficiency(...) of the sign
             public ScoreSettings Settings;
-            // The active lodges by tier. null = ActiveLodges A-frame rows; non-null = N is Lodges.Count (the system passes both, equal).
+            // The active lodges by tier. null = ActiveLodges A-frame rows. Non-null = N is Lodges.Count (the system passes both, equal).
             public List<LodgeInput> Lodges;
             public bool SchoolActive; // the area's ski school is installed and not Inactive
         }
@@ -148,30 +150,30 @@ namespace SkiResortMod.Systems
             public double S, AOpen, Efficiency;
             public int K, BackcountryPercent; // the clamped settings used
             public int Runs, RunsOpen, RunsCounted, RunsPending, RunsUnrateable, RunsFlat,
-                       RunsUnserved, RunsEstimated; // RunsUnserved: !Served over ALL member runs;
+                       RunsUnserved, RunsEstimated; // RunsUnserved: !Served over ALL member runs.
                                                      // RunsEstimated: open runs whose factor is estimated
             public int Lifts, LiftsComplete, LiftsOpenSection, LiftsUnpowered;
             public ScoreFlags Flags;
-            // The ski-day inputs of the same recompute; in Equals.
+            // The ski-day inputs of the same recompute. In Equals.
             public double RunsValueFull; // sum BandValue x SizeFactor x TypeFactor x ServedFactor over ALL member runs (open ignored), terms > 0, ascending
             public double RunsCapacity; // sum RunSkiersPerDay over counted runs, terms > 0, ascending
             public int NightRunsCounted; // counted runs of KindNight
             public bool TopKnown; // >= 1 counted run with finite heights (= the existing `heights`)
-            public double TopM; // highest counted-run top (the existing `top`); 0 when !TopKnown
+            public double TopM; // highest counted-run top (the existing `top`). 0 when !TopKnown
             // Appended, all in Equals.
-            public double LodgeApplied; // the season's lodge term of AOpen (winter = LodgeBase); LodgeBase = the winter value
+            public double LodgeApplied; // the season's lodge term of AOpen (winter = LodgeBase). LodgeBase = the winter value
             public double LodgeExtraApplied; // the season's extras after the cap (LodgeApplied - best B*mu)
             public double LiftsApplied; // sum per counted lift (summer ? lambda x value : value), ascending: the lift term of S
             public double SchoolValue; // SchoolRule.ScoreValueOf(SchoolActive, GreenCounted), added to S
-            public int LodgeBestIndex; // SkiCatalog.Lodges index of the season's best lodge; -1 without a lodge
+            public int LodgeBestIndex; // SkiCatalog.Lodges index of the season's best lodge. -1 without a lodge
             public int PriceTolerance; // max PriceTolerance over the active lodges (0 without)
             public int RunsPatrolled; // member runs with RunInput.Patrolled (all member runs, counted or not)
             public bool SchoolActive;
             public bool GreenCounted; // a counted run Rated Green (the variety flag `green`)
 
-            /// <summary>Exact field compare (for the Generation): bit-exact in any run order because RunsValue (and RunsValueFull and
+            /// <summary>Exact field compare (for the Generation). It is bit-exact in any run order, because RunsValue (and RunsValueFull and
             /// RunsCapacity) is summed in ascending order. Every field, doubles bit for bit (Same). The lift sums are ascending too and the
-            /// ladder's selection is order-free, so the Result is bit-exact in any lift or lodge order.</summary>
+            /// ladder's selection is order-free. So the Result is bit-exact in any lift or lodge order.</summary>
             public bool Equals(Result o)
             {
                 return Attraction == o.Attraction && AttractionFullEfficiency == o.AttractionFullEfficiency &&
@@ -197,7 +199,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Bit-for-bit double equality (BitConverter: net48 and net8; no allocation).</summary>
+        /// <summary>Bit-for-bit double equality (BitConverter: net48 and net8, no allocation).</summary>
         private static bool Same(double a, double b)
         {
             return BitConverter.DoubleToInt64Bits(a) == BitConverter.DoubleToInt64Bits(b);
@@ -243,8 +245,8 @@ namespace SkiResortMod.Systems
         private static readonly List<double> s_LadderSumA = new List<double>(8); // sort scratch (sum E)
         private static readonly List<double> s_LadderSumB = new List<double>(8); // sort scratch (sum E*mu)
 
-        /// <summary>The model. <paramref name="parts"/> is cleared, then gets one RunPart per run, in the order of
-        /// <paramref name="runs"/>. Never throws for any finite or non-finite input; never allocates beyond growing
+        /// <summary>The model. It clears <paramref name="parts"/>, then gives it one RunPart per run, in the order of
+        /// <paramref name="runs"/>. Never throws for any finite or non-finite input. Never allocates beyond growing
         /// <paramref name="parts"/> and the static scratch lists. The Result is bit-identical for any permutation of
         /// <paramref name="runs"/> (and <paramref name="lifts"/>).</summary>
         public static Result Compute(in AreaInput area, List<RunInput> runs, List<LiftInput> lifts,
@@ -265,7 +267,7 @@ namespace SkiResortMod.Systems
             double bc = r.BackcountryPercent / 100.0;
             bool gating = area.Settings.SnowGating;
 
-            // Step 2: per run, in list order: counts, the five factors, the part; counted runs feed the value list, the height range and
+            // Step 2: per run, in list order: counts, the five factors, the part. Counted runs feed the value list, the height range and
             // the band flags.
             bool green = false, blue = false, black = false, heights = false;
             int catCounted = 0;   // counted cat tracks: not a reason to leave the summer mode
@@ -306,7 +308,7 @@ namespace SkiResortMod.Systems
                 if (run.Patrolled)
                     r.RunsPatrolled++;
 
-                // The patrol rule wraps both; an unpatrolled run's factors are the plain ones bit for bit.
+                // The patrol rule wraps both. An unpatrolled run's factors are the plain ones bit for bit.
                 var part = new RunPart
                 {
                     BandValue = BandValueOf(run.State, run.Band),
@@ -359,7 +361,7 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // Step 2b: the order-independent sums (ascending; every value is finite and > 0).
+            // Step 2b: the order-independent sums (ascending, every value is finite and > 0).
             r.RunsValue = AscendingSum(s_CountedValues);
             r.RunsValueFull = AscendingSum(s_FullValues);
             r.RunsCapacity = AscendingSum(s_CapacityValues);
@@ -369,8 +371,8 @@ namespace SkiResortMod.Systems
             bool summer = r.RunsCounted - catCounted == 0;
 
             // Step 4: lifts (the caller passes only lifts whose two stations exist). A counted lift's value and summer share are its type's
-            // row (SkiCatalog.LiftByIndex(TypeIndex); an unknown index reads the fixed-grip row 0, as the census's NoType rows never reach
-            // here: they are Unfinished).
+            // row (SkiCatalog.LiftByIndex(TypeIndex)). An unknown index reads the fixed-grip row 0. The census's NoType rows never reach
+            // here: they are Unfinished.
             int liftCount = lifts?.Count ?? 0;
             for (int i = 0; i < liftCount; i++)
             {
@@ -400,8 +402,8 @@ namespace SkiResortMod.Systems
             }
 
             // Step 5: lift value, variety, vertical (0 when no counted run had finite heights). Both lift sums are ascending (bit-exact in
-            // any lift order); for fixed-grip lifts sum 6 = 6n and sum 1.5 = 1.5n = 0.25 x 6n exactly. LiftShare = the applied share of
-            // the value (display; the season's lambda without a counted lift).
+            // any lift order). For fixed-grip lifts sum 6 = 6n and sum 1.5 = 1.5n = 0.25 x 6n exactly. LiftShare = the applied share of
+            // the value (display, the season's lambda without a counted lift).
             r.LiftsValue = AscendingSum(s_LiftValues);
             r.LiftsApplied = AscendingSum(s_LiftApplied);
             r.LiftShare = r.LiftsValue > 0.0 ? r.LiftsApplied / r.LiftsValue : (summer ? SummerLiftShare : 1.0);
@@ -413,7 +415,7 @@ namespace SkiResortMod.Systems
             r.TopM = heights ? top : 0.0;
 
             // Step 6: S, lodge base, A_open, efficiency (NaN and <= 0 give 0). The school joins S before variety and vertical (+ 0.0
-            // without one: bit for bit); the lodge term is the ladder's season value.
+            // without one: bit for bit). The lodge term is the ladder's season value.
             r.GreenCounted = green;
             r.SchoolActive = area.SchoolActive;
             r.SchoolValue = SchoolRule.ScoreValueOf(area.SchoolActive, green);
@@ -431,8 +433,8 @@ namespace SkiResortMod.Systems
             }
             else
             {
-                // n A-frame rows (LodgeIndex 0, not served): the ladder's closed form: winter B + min(4(n-1), 24), summer exactly half (mu 0.5
-                // on the best and on every extra; the cap scales the half sum to exactly 12).
+                // n A-frame rows (LodgeIndex 0, not served): the ladder's closed form. Winter: B + min(4(n-1), 24). Summer: exactly half (mu 0.5
+                // on the best and on every extra). The cap scales the half sum to exactly 12.
                 n = area.ActiveLodges > 0 ? area.ActiveLodges : 0;
                 r.LodgeBase = LodgeBaseOf(n);
                 r.LodgeApplied = summer ? r.LodgeBase * SummerLodgeShare : r.LodgeBase;
@@ -492,7 +494,7 @@ namespace SkiResortMod.Systems
             return r;
         }
 
-        /// <summary>size_i (knee at SizeKneeM2): <= 0 or NaN gives 0; below the knee proportional (SizeLog(knee) x a / knee); from the
+        /// <summary>size_i (knee at SizeKneeM2): <= 0 or NaN gives 0. Below the knee it is proportional (SizeLog(knee) x a / knee). From the
         /// knee up SizeLog(a) = clamp(1 + 0.3 ln(a / 2 ha), 0.25, 2) (+inf gives SizeCap).</summary>
         public static double SizeFactor(double areaM2)
         {
@@ -532,7 +534,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Night 1.25, natural by band (0.5 / 0.75 / 1.0; unrateable or pending 0.5), cat track CatTrackFactor when rated green
+        /// <summary>Night 1.25, natural by band (0.5 / 0.75 / 1.0, unrateable or pending 0.5), cat track CatTrackFactor when rated green
         /// else 0, else 1 (groomed, snowmaking and any unknown kind).</summary>
         public static double TypeFactorOf(RunFeatures f, BandState state, byte band)
         {
@@ -557,13 +559,13 @@ namespace SkiResortMod.Systems
 
         public static double TypeFactorOf(byte kind, BandState state, byte band) => TypeFactorOf(RunFeatures.FromKind(kind), state, band);
 
-        /// <summary>A lit piste (the Night kind) counts toward NightRunsCounted; a lit cat track does not.</summary>
+        /// <summary>A lit piste (the Night kind) counts toward NightRunsCounted. A lit cat track does not.</summary>
         public static bool CountsAsNight(RunFeatures f) => f.IsPiste && f.Lights;
 
         /// <summary>The skiers factor of RunSkiersPerDay: natural NaturalSkiersFactor, cat track CatTrackSkiersFactor, else 1.</summary>
         public static double SkiersFactorOf(RunFeatures f) => f.IsNatural ? NaturalSkiersFactor : f.IsCatTrack ? CatTrackSkiersFactor : 1.0;
 
-        /// <summary>Skiers per hectare at once: Rated green / blue / black / double black 45 / 25 / 15 / 7.5; Unrateable 15; Flat, out
+        /// <summary>Skiers per hectare at once: Rated green / blue / black / double black 45 / 25 / 15 / 7.5. Unrateable 15. Flat, out
         /// of range and Pending 0 (worth 0 in the score, so never a counted run).</summary>
         public static double SkiersPerHa(BandState state, byte band)
         {
@@ -585,8 +587,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>One run's share of RunsCapacity: 0 unless the part is counted and the area &gt; 0; area capped at MaxCapacityAreaM2
-        /// (+inf too); then, left to right, ha x SkiersPerHa x (natural 0.5, cat track 0.25, else 1) x the part's served and open factors (an open run
+        /// <summary>One run's share of RunsCapacity: 0 unless the part is counted and the area &gt; 0. The area is capped at MaxCapacityAreaM2
+        /// (+inf too). Then, left to right: ha x SkiersPerHa x (natural 0.5, cat track 0.25, else 1) x the part's served and open factors (an open run
         /// weighted by its open factor, as the score is). Night runs hold no extra skiers (no type factor).</summary>
         public static double RunSkiersPerDay(in RunInput run, in RunPart part)
         {
@@ -598,8 +600,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>n A-frame rows: 0, 20, 24, 28, 32, 36, 40, 44, 44 ... by active lodge count (the cap is 24, so 5 gives 36 and 7+
-        /// gives 44); negative gives 0. Double arithmetic, so no int overflow for any count. = the winter LodgeBase of the ladder over n
-        /// A-frames (LadderTests).</summary>
+        /// gives 44). A negative count gives 0. Double arithmetic, so no int overflow for any count. It equals the winter LodgeBase of the
+        /// ladder over n A-frames (LadderTests).</summary>
         public static double LodgeBaseOf(int activeLodges)
         {
             if (activeLodges < 1)
@@ -614,7 +616,7 @@ namespace SkiResortMod.Systems
             public int BestIndex, PriceTolerance;
         }
 
-        /// <summary>The ladder, pure: returns the winter LodgeBase (B(best) + min(sum E(others), 24), mu = 1 for every lodge);
+        /// <summary>The ladder, pure. It returns the winter LodgeBase (B(best) + min(sum E(others), 24), mu = 1 for every lodge).
         /// <paramref name="applied"/> / <paramref name="bestIndex"/> / <paramref name="extraApplied"/> are the season's selection
         /// (summer: mu, or mu summit when summit-served). Every lodge in the list counts (the extras cap is the only limiter). Null or
         /// empty list gives 0, applied 0, best -1. Order-free: every permutation of <paramref name="lodges"/> gives the same numbers bit
@@ -629,7 +631,7 @@ namespace SkiResortMod.Systems
             return o.Base;
         }
 
-        /// <summary>The catalog row of a lodge input; an out-of-range index reads the A-frame row 0 (callers fill it from
+        /// <summary>The catalog row of a lodge input. An out-of-range index reads the A-frame row 0 (callers fill it from
         /// SkiCatalog.LodgeByPrefab, so it never is). Null only when the catalog has no lodge row (its Problems say why).</summary>
         private static LodgeDef RowOf(int lodgeIndex)
         {
@@ -639,7 +641,7 @@ namespace SkiResortMod.Systems
             return lodgeIndex >= 0 && lodgeIndex < count ? SkiCatalog.Lodges[lodgeIndex] : SkiCatalog.Lodges[0];
         }
 
-        /// <summary>mu of one lodge in the season: winter 1; summer mu, or mu summit when summit-served and higher.</summary>
+        /// <summary>mu of one lodge in the season: winter 1. Summer mu, or mu summit when summit-served and higher.</summary>
         private static double MuOf(LodgeDef d, bool summerMu, bool summitServed)
         {
             if (!summerMu)
@@ -661,7 +663,7 @@ namespace SkiResortMod.Systems
             return da.Index < db.Index;
         }
 
-        /// <summary>One selection (winter mu or summer mu): fills s_LadderV per lodge; returns the best lodge's list position (-1 for an
+        /// <summary>One selection (winter mu or summer mu). Fills s_LadderV per lodge. Returns the best lodge's list position (-1 for an
         /// empty list). No lodge is ignored: every tier counts, in any number.</summary>
         private static int Select(List<LodgeInput> lodges, bool summerMu)
         {
@@ -687,7 +689,7 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>The ladder over <paramref name="lodges"/>. Allocation-free once the scratch lists have grown; never throws for any
+        /// <summary>The ladder over <paramref name="lodges"/>. Allocation-free after the scratch lists grow. Never throws for any
         /// list.</summary>
         private static LadderOut LodgeLadder(List<LodgeInput> lodges, bool summer)
         {
@@ -717,7 +719,7 @@ namespace SkiResortMod.Systems
                 return o;
             }
 
-            // The summer selection: mu (or mu summit when summit-served) on the best and on every extra; the cap scales the extras' sum in
+            // The summer selection: mu (or mu summit when summit-served) on the best and on every extra. The cap scales the extras' sum in
             // proportion (sum first, then scale).
             int sb = Select(lodges, true);
             s_LadderSumA.Clear();
@@ -754,7 +756,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>(int)Math.Round(x, MidpointRounding.ToEven), vanilla's Mathf.RoundToInt rounding. NaN gives 0 and values beyond the
-        /// int range saturate (never an unspecified cast); Compute only passes clamped values.</summary>
+        /// int range saturate (never an unspecified cast). Compute only passes clamped values.</summary>
         public static int RoundToEven(double x)
         {
             if (double.IsNaN(x))
@@ -768,11 +770,11 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>BuildingUtils.GetEfficiency(DynamicBuffer&lt;Efficiency&gt;) re-done in float, bit for bit
-        /// (Game.Buildings/BuildingUtils.cs:121-133): product of max(0, f); 0 when the product is not &gt; 0; else max(0.01f,
+        /// (Game.Buildings/BuildingUtils.cs:121-133): product of max(0, f). 0 when the product is not &gt; 0. Else max(0.01f,
         /// (float)Math.Round((double)(100f x p)) / 100f). count = 0 gives 1f. One formula for the score and the hub.</summary>
         public static float SignEfficiency(float[] factors, int count)
         {
-            // No buffer (or an empty one) gives 1, vanilla's GetEfficiency(BufferAccessor, i) rule (BuildingUtils.cs:94-101); an empty
+            // No buffer (or an empty one) gives 1, vanilla's GetEfficiency(BufferAccessor, i) rule (BuildingUtils.cs:94-101). An empty
             // buffer gives 1 through the formula too.
             if (factors == null || count <= 0)
                 return 1f;
@@ -782,7 +784,7 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < count; i++)
             {
                 float f = factors[i];
-                product *= f > 0f ? f : 0f; // math.max(0f, f); NaN -> 0 as Unity's max(0, NaN)
+                product *= f > 0f ? f : 0f; // math.max(0f, f). NaN -> 0 as Unity's max(0, NaN)
             }
             if (!(product > 0f))
                 return 0f;

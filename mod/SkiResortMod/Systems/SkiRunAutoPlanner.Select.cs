@@ -1,7 +1,10 @@
-// Quick runs planner, stages 5-9: top clusters and seeds, candidate centerlines with a cheap corridor score (pruning before any
-// rating, skeptic finding 8), greedy selection that builds each corridor against the runs already accepted (gap or trail merge),
-// rates it with SkiRunRater (the label the game will show), then junction node pairs (skeptic finding 1), kinds, clusters and
-// warnings. Pure; see SkiRunAutoPlanner.cs for the contract.
+// Quick runs planner, stages 5-9:
+// top clusters and seeds.
+// candidate centerlines with a cheap corridor score (pruning before any rating, skeptic finding 8).
+// greedy selection that builds each corridor against the runs already accepted (gap or trail merge), then rates it with SkiRunRater
+// (the label the game will show).
+// junction node pairs (skeptic finding 1), kinds, clusters and warnings.
+// Pure. See SkiRunAutoPlanner.cs for the contract.
 
 using System;
 using System.Collections.Generic;
@@ -112,8 +115,13 @@ namespace SkiResortMod.Systems
         }
 
         // ---------------------------------------------------------------- stage 5a: clusters and seeds (sliced)
-        // m_Cursor2 phases: 0 setup, 1 top-cell rows, 2 one summit pick per unit, 3 pod rows (one pod after another), 4 seed-cell rows
-        // (every cluster at once), 5 one (cluster, pass) seed list per unit (sort and space).
+        // m_Cursor2 phases:
+        // 0 setup.
+        // 1 top-cell rows.
+        // 2 one summit pick per unit.
+        // 3 pod rows (one pod after another).
+        // 4 seed-cell rows (every cluster at once).
+        // 5 one (cluster, pass) seed list per unit (sort and space).
 
         private int m_NTop, m_SummitCap, m_PodIdx, m_PodBest;
         private readonly bool[] m_TopReach = new bool[Passes];
@@ -124,7 +132,7 @@ namespace SkiResortMod.Systems
         private void UnitSeeds()
         {
             // Resort hook (A5, Fans.cs): true = the fan seeding handled this unit (it owns m_Cursor2 / Next(Stage.Candidates) and does the
-            // case 0 bookkeeping below: m_FieldWarnings, ClearCandidates); false = run the v1 seeding
+            // case 0 bookkeeping below: m_FieldWarnings, ClearCandidates). False = run the v1 seeding
             if (m_Mode == AutoPlanMode.Resort && FanSeeds())
                 return;
             switch (m_Cursor2)
@@ -169,7 +177,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Top cells (usable, in the upper TopShare of the skiable vertical, at least TopBandM, reaching the base below the
-        /// double black ceiling) into m_Order, plus per pass whether a top cell keeps that pass's band to the base. The top line hangs
+        /// double black ceiling) into m_Order. Also, per pass, whether a top cell keeps that pass's band to the base. The top line hangs
         /// from m_HReach, the highest ground that reaches the base (A: a steep summit cap above it is advisory, never a refusal). Row
         /// chunks over the region bbox.</summary>
         private void TopRows()
@@ -193,7 +201,7 @@ namespace SkiResortMod.Systems
             if (m_Cursor <= m_RegionJ1)
                 return;
             // E, pods (real-world-layout.md 5): green and blue always get up to MaxPodsPerPass pods each at the highest ground that pass
-            // keeps its band to the base (the beginner pods on the gentle lower slope, blue mid-stations), black only when no top cell
+            // keeps its band to the base (the beginner pods on the gentle lower slope, blue mid-stations). Black gets pods only when no top cell
             // keeps the black band. They come on top of the summits.
             m_PodPasses.Clear();
             int perPass = MaxPodsPerPass(m_Result.RegionAreaM2);
@@ -239,10 +247,13 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>The current pod's cell: the highest cell its pass keeps the band from to the base, MinDropM above the base,
-        /// EdgeSeedMarginM inside the region and ClusterRadiusM (half the summit spacing) from every cluster, summits and pods (row
-        /// chunks; the pods are placed one after another, each away from the ones before). A pass that finds no cell skips its
-        /// remaining pods.</summary>
+        /// <summary>The current pod's cell. It is the highest cell that meets all of these:
+        /// its pass keeps the band from there to the base.
+        /// MinDropM above the base.
+        /// EdgeSeedMarginM inside the region.
+        /// ClusterRadiusM (half the summit spacing) from every cluster, summits and pods.
+        /// The scan runs in row chunks. The system places the pods one after another, each away from the ones before. A pass that finds no cell
+        /// skips its remaining pods.</summary>
         private void PodRows()
         {
             int p = m_PodPasses[m_PodIdx];
@@ -275,10 +286,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // D: seeds across each cluster's top band, not a disc. Seed-cell rows (m_Cursor2 4) walk the region once for every cluster:
-        // a usable cell on the 2-cell seed lattice, EdgeSeedMarginM inside the region, joins the list of the nearest cluster k whose
-        // band [TopY_k - m_SeedBand, TopY_k] holds its height (BandOwner, review F6) for every pass that keeps its band
-        // from there. Then one (cluster, pass) list per unit is sorted by height plus a seeded jitter and spaced (ClusterSeeds).
+        // D: seeds across each cluster's top band, not a disc. Seed-cell rows (m_Cursor2 4) walk the region once for every cluster.
+        // A usable cell on the 2-cell seed lattice, EdgeSeedMarginM inside the region, joins the list of the nearest cluster k. That cluster's
+        // band [TopY_k - m_SeedBand, TopY_k] holds the cell's height (BandOwner, review F6). The cell joins for every pass that keeps its band
+        // from there. Then the system sorts one (cluster, pass) list per unit by height plus a seeded jitter and spaces it (ClusterSeeds).
         private void BeginSeedRows()
         {
             m_SeedBand = Math.Max(TopBandM, 0.5f * TopShare * (m_HReach - m_HMinU));
@@ -377,8 +388,8 @@ namespace SkiResortMod.Systems
         public static float AreaScale(float areaM2) => math.clamp(math.sqrt(Math.Max(0f, areaM2) / 1.0e6f), 1f, 3f);
 
         /// <summary>The run cap: the knob's cap, else the density's per km2 (8 / 12 / 16) times the area in km2 (AreaScale squared:
-        /// at least 1 km2; the cap used to grow with the side only, which held a 4 km2 mountain to 6 runs per km2 on Normal), at most
-        /// HardRunCap.</summary>
+        /// at least 1 km2), at most HardRunCap. The cap used to grow with the side only, which held a 4 km2 mountain to 6 runs per km2 on
+        /// Normal.</summary>
         public static int RunCapOf(AutoPlanKnobs knobs, float areaM2)
         {
             float km2 = AreaScale(areaM2) * AreaScale(areaM2);
@@ -508,9 +519,13 @@ namespace SkiResortMod.Systems
         }
 
         // ---------------------------------------------------------------- stage 7: greedy selection
-        // Per candidate (H: no unit over ~1 ms CoreCLR): a pick unit, reroute units (RerouteUnitPops each), one unit per build attempt
-        // (BuildAttempts: area shrink or narrower corridor), rating units (Plan, Need-height row chunks, Classify + accept), chamfer
-        // units for an accepted run. m_SelPhase: 0 pick, 1 reroute, 2 build, 3 rate, 4 / 5 chamfer.
+        // Per candidate (H: no unit over ~1 ms CoreCLR):
+        // a pick unit.
+        // reroute units (RerouteUnitPops each).
+        // one unit per build attempt (BuildAttempts: area shrink or narrower corridor).
+        // rating units (Plan, Need-height row chunks, Classify + accept).
+        // chamfer units for an accepted run.
+        // m_SelPhase: 0 pick, 1 reroute, 2 build, 3 rate, 4 / 5 chamfer.
 
         private Cand m_SelCand;
         private float2[] m_PendRing;
@@ -618,8 +633,8 @@ namespace SkiResortMod.Systems
                 FanCaps();   // per-lift caps and the developable cap (A5, Fans.cs)
         }
 
-        /// <summary>Run-count targets per band (largest remainder; green, blue and black get at least one when their share is
-        /// positive and the cap allows, the variety bonus). Terrain = all zero.</summary>
+        /// <summary>Run-count targets per band (largest remainder). Green, blue and black get at least one when their share is
+        /// positive and the cap allows (the variety bonus). Terrain = all zero.</summary>
         public static void Targets(AutoMix mix, int cap, int[] target)
         {
             Array.Clear(target, 0, 5);
@@ -664,8 +679,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Greedy order: with a mix, the mix picks the band and the score the line. The band under target with the lowest
-        /// fill share goes first (tiers of 1/1000 of the share, each worth 1000), then the line score Score0 / BandValue (the band's
-        /// own value, a black is worth three greens, leaves the score; the rest is SizeFactor x at most 2, far under one tier).
+        /// fill share goes first (tiers of 1/1000 of the share, each worth 1000). Then comes the line score Score0 / BandValue (the band's
+        /// own value, a black is worth three greens, leaves the score. The rest is SizeFactor x at most 2, far under one tier).
         /// Bands at target come last, by line score. The old 1 + deficit weight let the summit blacks fill the cap once review F6
         /// gave summits their own seeds (alpine 2 bowl: 5 greens of 14). Terrain: the score alone.</summary>
         private double SelectWeight(Cand c)
@@ -691,7 +706,7 @@ namespace SkiResortMod.Systems
                 m_Result.Rejects[(int)AutoReject.TopTaken]++;
                 return;
             }
-            // Trail merge: stop where the centerline reaches an accepted run's gap; the end then tapers to MergeGapM
+            // Trail merge: stop where the centerline reaches an accepted run's gap. The end then tapers to MergeGapM
             int start = cand.PathStart, len = 1;
             if (cand.BranchOf >= 0)
                 while (len < cand.PathLen - 1 && m_DAcc[m_Paths[start + len]] < stopD)
@@ -705,7 +720,7 @@ namespace SkiResortMod.Systems
                 }
             m_SelApproach = 0f;
             if (merge && FansOn)
-                len = FanApproach(start, len, cand.PathLen, k, out m_SelApproach);   // A5: a converging fan line runs on to the v1 gap
+                len = FanApproach(start, len, cand.PathLen, k, out m_SelApproach);   // A5: a converging fan line continues to the v1 gap
             m_SelCand = cand;
             m_SelGap = gap;
             m_SelStopD = stopD;
@@ -757,8 +772,8 @@ namespace SkiResortMod.Systems
                 EndBuild(fate);
         }
 
-        /// <summary>Phase 2: one build attempt (area shrink or narrower corridor between attempts); a kept ring waits for its rating
-        /// units (phase 3); the rerouted cells are dropped when the build ends.</summary>
+        /// <summary>Phase 2: one build attempt (area shrink or narrower corridor between attempts). A kept ring waits for its rating
+        /// units (phase 3). The system drops the rerouted cells when the build ends.</summary>
         private void EndAttempt()
         {
             AutoReject fate = AttemptStep(m_SelCand, m_SelStart, m_SelLen, m_SelMerge, m_SelGap, out bool done);
@@ -780,7 +795,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Phase 3: rate the built ring in units (H): m_RStep 0 = node heights and the classifier's Plan, 1 = the Need
-        /// heights in row chunks, 2 = Classify and the accept; back to phase 0 (or the chamfer).</summary>
+        /// heights in row chunks, 2 = Classify and the accept. Then back to phase 0 (or the chamfer).</summary>
         private void RatePending()
         {
             AutoReject fate;
@@ -814,7 +829,7 @@ namespace SkiResortMod.Systems
 
         // The rating, split (H): exactly SkiRunRater.Rate's steps on the public classifier entries (StepMultiple of ShoelaceArea, the
         // DiagonalRule for that multiple, SkiSlopeClassifier.Plan, SkiRunRater.FillHeights' sampling without a reuse source,
-        // SkiSlopeClassifier.Classify, SkiRunRater.ToRateStatus), so the band is bit for bit the catalog's (AutoGenBatch re-rates
+        // SkiSlopeClassifier.Classify, SkiRunRater.ToRateStatus). So the band is bit for bit the catalog's (AutoGenBatch re-rates
         // every run with SkiRunRater.Rate and compares).
         private int m_RStep, m_RRow, m_RNodes;
         private SlopeStatus m_RPlanStatus;
@@ -846,7 +861,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>FillHeights' sampling (no reuse source) over a row chunk of the rating grid; true when every row is filled.</summary>
+        /// <summary>FillHeights' sampling (no reuse source) over a row chunk of the rating grid. Returns true when every row is filled.</summary>
         private bool RateFill()
         {
             SlopeGrid g = m_RateGrid;
@@ -874,7 +889,7 @@ namespace SkiResortMod.Systems
         private const int RateFillCells = 65536;
 
         /// <summary>Phases 4 and 5: the accepted run's local chamfer, forward then backward, in row chunks of the box (one pass over
-        /// consecutive rows is the same as the whole box in one call); back to phase 0.</summary>
+        /// consecutive rows is the same as the whole box in one call). Then back to phase 0.</summary>
         private void ChamferStep()
         {
             int rows = Math.Max(1, 65536 / (m_ChI1 - m_ChI0 + 1));
@@ -905,7 +920,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The line's own checks before any build: MinLengthM and MinDropM, and (F) a merged line must keep MergeKeepShare of
-        /// its free line or MergeKeepM, else it is a stub (MergeStub, its own code since review F12 so a test can see it fire).</summary>
+        /// its free line or MergeKeepM. Else it is a stub (MergeStub, its own code since review F12 so a test can see it fire).</summary>
         private AutoReject LineChecks(Cand cand, int start, int len, bool merge)
         {
             int seed = m_Paths[start], last = m_Paths[start + len - 1];
@@ -935,7 +950,7 @@ namespace SkiResortMod.Systems
                 if (area > MaxRunAreaM2 || SkiSlopeClassifier.StepMultiple(area, m_Texel, 0) > 1)
                 {
                     m_BKeep = Math.Max(2, (int)(keep * Math.Min(0.95, MaxRunAreaM2 / area * 0.95)));
-                    fate = AutoReject.Crosses;   // reported only when the attempts run out still over the cap
+                    fate = AutoReject.Crosses;   // reported only when the attempts are used up and the ring is still over the cap
                     retry = true;
                     if (PathLength(start, m_BKeep) < MinLengthM)
                         return AutoReject.TooShort;   // F: a cut-back line is still at least MinLengthM
@@ -951,7 +966,7 @@ namespace SkiResortMod.Systems
                     m_PendMerge = merge && keep == len && mergeInto >= 0;
                     m_PendInto = mergeInto;
                     m_PendEnd = keep == len;
-                    return AutoReject.Kept;   // built; the rating units decide
+                    return AutoReject.Kept;   // built. The rating units decide
                 }
             }
             else if (fate == AutoReject.Obstacle || fate == AutoReject.Overlap || fate == AutoReject.Region || fate == AutoReject.Crosses)
@@ -965,10 +980,10 @@ namespace SkiResortMod.Systems
         }
 
         // Reroute: A* on pass k's graph from the seed down to the base. The heuristic is the pass's own route cost to the base (exact on
-        // the free graph; StepCost is shared, so it is consistent). A cell within stopD of an accepted run ends the line (a merge there)
+        // the free graph). StepCost is shared, so it is consistent. A cell within stopD of an accepted run ends the line (a merge there)
         // at an extra MergePenalty times the free route it leaves unskied. The search runs RerouteUnitPops pops per unit (its state lives
-        // in these fields) up to RerouteMaxPops in all; the free line's own merge cost bounds it. Cost scratch: m_AG (reset to infinity by
-        // Select's first units; every touched cell is reset again in RerouteEnd). m_DHard is no scratch any more: seeds and StepCost read it.
+        // in these fields) up to RerouteMaxPops in all. The free line's own merge cost bounds it. Cost scratch: m_AG. Select's first units
+        // reset it to infinity, and RerouteEnd resets every touched cell again. m_DHard is no scratch any more: seeds and StepCost read it.
         private int m_ASeed, m_AK, m_APops, m_AGoal;
         private float m_AStopD, m_ALimit;
 
@@ -988,7 +1003,7 @@ namespace SkiResortMod.Systems
             m_AHeap.Push(dist[seed], seed);
         }
 
-        /// <summary>Up to RerouteUnitPops pops; true when the search ended (goal found, heap empty, bound or pop budget hit).</summary>
+        /// <summary>Up to RerouteUnitPops pops. Returns true when the search ended (goal found, heap empty, bound or pop budget hit).</summary>
         private bool RerouteStep()
         {
             int k = m_AK;
@@ -1032,7 +1047,7 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>Appends the found line (seed first) to m_Paths and returns its start; -1 when none was found or it is a traverse
+        /// <summary>Appends the found line (seed first) to m_Paths and returns its start. Returns -1 when none was found or it is a traverse
         /// (skis over DetourFactor times the free route between the same two heights). Resets the touched cost cells.</summary>
         private int RerouteEnd()
         {
@@ -1080,7 +1095,7 @@ namespace SkiResortMod.Systems
             mergeInto = -1;
             int k = cand.Pass;
             float ceil = PassHardCeiling[k];   // C: the corridor and the smoothed centerline stop at the hard ceiling
-            // Centerline: decimated cells (DecimateM) through GradePath's Catmull-Rom chain; the raw cells when smoothing leaves the corridor
+            // Centerline: decimated cells (DecimateM) through GradePath's Catmull-Rom chain, or the raw cells when smoothing leaves the corridor
             for (int pass = 0; pass < 2 && path == null; pass++)
             {
                 int every = pass == 0 ? Math.Max(1, (int)Math.Round(DecimateM / m_Texel)) : 1;
@@ -1195,9 +1210,12 @@ namespace SkiResortMod.Systems
             return CheckRing(ring, gap, mergeInto, cand.BranchOf);
         }
 
-        /// <summary>Free half width along dir: steps of MarchStepM until a cell is not open, is cliff, is at or over the pass's hard
-        /// ceiling, lies within gapM of an accepted run or within EdgeSeedMarginM / 2 of the region edge (G); minus WidthMarginM, at
-        /// least 1 m.</summary>
+        /// <summary>Free half width along dir: steps of MarchStepM until a cell:
+        /// is not open.
+        /// is cliff.
+        /// is at or over the pass's hard ceiling.
+        /// lies within gapM of an accepted run or within EdgeSeedMarginM / 2 of the region edge (G).
+        /// The result is that distance minus WidthMarginM, at least 1 m.</summary>
         private float March(float2 p, float2 dir, float maxHw, float ceil, float gapM)
         {
             float free = 0f;
@@ -1212,7 +1230,7 @@ namespace SkiResortMod.Systems
             return Math.Max(1f, Math.Min(maxHw, free - WidthMarginM));
         }
 
-        /// <summary>The authoritative pre-check (skeptic: the engine is not a safety net with Anarchy on): the ring lies inside the
+        /// <summary>The authoritative pre-check (skeptic: the engine is not a safety net with Anarchy on). The ring lies inside the
         /// region and the map, keeps every hard obstacle's clearance, and keeps ExactGapShare of the gap from every accepted run
         /// (MergeGapM from the run it merges into).</summary>
         private AutoReject CheckRing(float2[] ring, float gap, int mergeInto, int branchOf = -1)
@@ -1361,8 +1379,11 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- stages 7b-9: junctions, kinds, clusters, warnings
 
-        // Sliced (P2: junction pairs grow with the square of the run count): m_Cursor2 0 setup, 1 one run's pairs per unit, 2 runs and
-        // junctions, 3 kinds, clusters, warnings, fingerprint.
+        // Sliced (P2: junction pairs grow with the square of the run count). m_Cursor2:
+        // 0 setup.
+        // 1 one run's pairs per unit.
+        // 2 runs and junctions.
+        // 3 kinds, clusters, warnings, fingerprint.
         private readonly List<JunctionDraft> m_Pairs = new List<JunctionDraft>(), m_ExistingPairs = new List<JunctionDraft>();
         private int m_FinB = -1;
         private const int FinishPairWork = 40000;   // ring edge pairs per unit (TopmostPair is |a| x |b|)
@@ -1472,10 +1493,10 @@ namespace SkiResortMod.Systems
             m_Cursor2 = 3;
         }
 
-        /// <summary>Junction drafts of run a: with every later run within reach, the topmost close point pair (service flows down from
-        /// there) plus the merge point; with existing runs, our node at the closest point to their topmost node within reach. Ring
-        /// bounding boxes farther apart than JunctionReachM are skipped (no pair can be within reach). Resumable: stops after
-        /// FinishPairWork edge pairs (m_FinB = the next b) and returns false; true when run a is done.</summary>
+        /// <summary>Junction drafts of run a. With every later run within reach: the topmost close point pair (service flows down from
+        /// there) plus the merge point. With existing runs: our node at the closest point to their topmost node within reach. The function
+        /// skips ring bounding boxes farther apart than JunctionReachM (no pair can be within reach). Resumable: it stops after
+        /// FinishPairWork edge pairs (m_FinB = the next b) and returns false. It returns true when run a is done.</summary>
         private bool FinishPairs(int a, ref SnapshotSampler sampler)
         {
             Accepted accA = m_Accepted[a];
@@ -1661,7 +1682,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Resort end of Finish: FinishResort (Flow.cs, A6) builds RunPod / RunLift, the graph, verdicts, mix, site verdict, pod
-        /// clusters and the three warnings; the probe slots are copied in here so the plan always carries them.</summary>
+        /// clusters and the three warnings. The probe slots are copied here, so the plan always carries them.</summary>
         private void FinishResortUnit(AutoPlanResult res)
         {
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -1729,7 +1750,7 @@ namespace SkiResortMod.Systems
             for (int b = 1; b <= 4; b++)
                 if (res.BandCount[b] < m_Target[b])
                     res.Warnings |= AutoPlanWarning.MixShort;
-            // Resort mode: the way home is the v2 verdict per lift (Flow.cs WaysHome, the Download warning); the v1 cluster test would
+            // Resort mode: the way home is the v2 verdict per lift (Flow.cs WaysHome, the Download warning). The v1 cluster test would
             // fire next to it with another condition (AR-4). NoGreen stays: it reports the mix, not the way home.
             for (int c = 0; c < res.Clusters.Count && m_Mode != AutoPlanMode.Resort; c++)
                 if (res.Clusters[c].Runs > 0 && !res.Clusters[c].HasGreen)
@@ -1769,7 +1790,7 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)jn.RunB);
                 h = Mix(h, (uint)jn.NodeB);
             }
-            // Resort: the plan folds in once it has content (the A0 stubs leave 0, so the stubbed Resort fingerprint equals the v1 one)
+            // Resort: the fingerprint includes the plan once the plan has content (the A0 stubs leave 0, so the stubbed Resort fingerprint equals the v1 one)
             if (res.Resort != null && res.Resort.Fingerprint != 0UL)
             {
                 h = Mix(h, (uint)res.Resort.Fingerprint);

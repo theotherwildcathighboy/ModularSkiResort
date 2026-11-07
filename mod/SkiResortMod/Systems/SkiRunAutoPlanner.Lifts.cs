@@ -1,18 +1,22 @@
 // Resort Planner (v2) stage A: the lift skeleton (spec 4.4). Stage Lifts, Resort mode only, between Pods and the band passes (Route).
 // Pinned lifts first: each existing lift (AutoPlanInput.Pinned) becomes a PlanLift with its own chords and the pod that holds most of its
-// 150 m corridor; that pod gets no proposal. Then per unserved pod the chord candidates (bottom = a station spot on the pod's lower pad,
-// top = its upper pad, its top cell, or a lower top on the same line when the full chord breaks the type's rise / length norms) for the
-// four lift types, filtered by the cheap rules (length and rise norms of [A], finite heights), ordered per pod by (ends that must sink,
-// the type preference: cheapest first, detachable / gondola first for the top third of pod values, then the top kind). Selection is a lazy
-// greedy over the pods' front candidates by score (pod value + stacking bonus - cost - fall-line crossings); a pick runs its tower plan
-// (LiftTowerPlanner.Plan, the lift tool's own planner and constants, edge slope checked) in its own unit and is selected when every span
-// clears the floor and the edge slopes stay under EdgeSlopeShare x the type cap; a failed pick moves its pod to its next candidate (at most
-// PlansPerPod plans per pod, MaxTowerPlansOf per scan). On the main thread (AutoPlanInput.MainThread, the fallback setting) no tower
-// plan runs: one plan is 10-60 ms CoreCLR for a detachable, several frames on Mono, so a pick is selected with its towers unchecked
-// (PlanLift.TowersUnchecked; the lift tool plans the line when it is built). A station spot is a pad (DECISIONS 447: a graded site,
-// never "needs flat ground"): a disc of the lot's half diagonal walked from the pad's Center toward the other end while it stays on the pad; an end with no
-// pad that holds the lot is flagged Sunk (the station is graded / sunk into the slope: the C1 3b rule) and still proposed.
-// Output: m_LiftList (pinned first, then proposals in selection order) and m_PodLift; FinishResort copies them into the plan (LiftPlan)
+// 150 m corridor. That pod gets no proposal.
+// Then per unserved pod the system builds the chord candidates for the four lift types:
+// bottom = a station spot on the pod's lower pad.
+// top = its upper pad, its top cell, or a lower top on the same line when the full chord breaks the type's rise / length norms.
+// It filters them by the cheap rules (length and rise norms of [A], finite heights). It orders them per pod by (ends that must sink,
+// the type preference: cheapest first, detachable / gondola first for the top third of pod values, then the top kind).
+// Selection is a lazy greedy over the pods' front candidates by score (pod value + stacking bonus - cost - fall-line crossings).
+// A pick runs its tower plan (LiftTowerPlanner.Plan, the lift tool's own planner and constants, edge slope checked) in its own unit.
+// The system selects the pick when every span clears the floor and the edge slopes stay under EdgeSlopeShare x the type cap.
+// A failed pick moves its pod to its next candidate (at most PlansPerPod plans per pod, MaxTowerPlansOf per scan).
+// On the main thread (AutoPlanInput.MainThread, the fallback setting) no tower plan runs: one plan is 10-60 ms CoreCLR for a detachable,
+// several frames on Mono. So the system selects a pick with its towers unchecked (PlanLift.TowersUnchecked, the lift tool plans the line
+// when it is built).
+// A station spot is a pad (DECISIONS 447: a graded site, never "needs flat ground"): a disc of the lot's half diagonal walked from the
+// pad's Center toward the other end while it stays on the pad. An end with no pad that holds the lot is flagged Sunk (the station is
+// graded / sunk into the slope: the C1 3b rule) and still proposed.
+// Output: m_LiftList (pinned first, then proposals in selection order) and m_PodLift. FinishResort copies them into the plan (LiftPlan)
 // and counts Serves / StartsNearTop / EndsAtBottom against the final runs. Selected lifts' BottomPad cells are the band passes' sources
 // (A5, Fans.cs IsResortSource). Reads m_PadList / m_PodList / m_PadOf / m_PodOf / m_H (final after Pods), never the scratch layers.
 // Pure and Entities-free (usings System, System.Collections.Generic, Unity.Mathematics only). Spec: docs/research/quickruns-v2/spec/stage-a-spec.md.
@@ -30,10 +34,10 @@ namespace SkiResortMod.Systems
         public static readonly float[] LiftLengthMin = { 300f, 600f, 800f, 800f }, LiftLengthMax = { 1500f, 2200f, 2700f, 3000f };
         public static readonly float[] LiftRiseMin = { 95f, 95f, 96f, 220f }, LiftRiseMax = { 512f, 512f, 781f, 888f };
         /// <summary>A proposal's edge slopes stay under this share of the line prefab's cap (FG 0.8, DQ 0.9, GD 1.2, tram 2.5:
-        /// DC/Game.Net/ValidationHelpers.cs:1456-1490; LiftTowerPlanConstants.MaxEdgeSlope).</summary>
+        /// DC/Game.Net/ValidationHelpers.cs:1456-1490, LiftTowerPlanConstants.MaxEdgeSlope).</summary>
         public const float LiftEdgeSlopeShare = 0.97f;
         public const float StackBonus = 0.2f, StackNearM = 300f, StackVerticalM = 80f, CrossingPenalty = 0.5f;
-        /// <summary>Score units: skiers at once (ha x DevelopableShare x SkiersPerHa); one skier is worth this much build cost.</summary>
+        /// <summary>Score units: skiers at once (ha x DevelopableShare x SkiersPerHa). One skier is worth this much build cost.</summary>
         public const double LiftCostWeight = 1.0e-3;
         public const int MaxLiftsKnob = 9, PlansPerPod = 3;
         public const float AutoKm2PerLift = 2f, AutoVerticalPerLiftM = 400f;
@@ -146,8 +150,12 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- stage Lifts
 
-        /// <summary>Stage Lifts (Resort only). m_Cursor2: 0 setup and pinned ends; 1 rows: the pinned corridors' pod counts; 2 one pod per
-        /// unit: its candidates; 3 one selection pick per unit (at most one tower plan); then EnterRoute.</summary>
+        /// <summary>Stage Lifts (Resort only). m_Cursor2:
+        /// 0 setup and pinned ends.
+        /// 1 rows: the pinned corridors' pod counts.
+        /// 2 one pod per unit: its candidates.
+        /// 3 one selection pick per unit (at most one tower plan).
+        /// Then EnterRoute.</summary>
         private void UnitLifts()
         {
             switch (m_Cursor2)
@@ -194,7 +202,7 @@ namespace SkiResortMod.Systems
                 if (m_TowerConsts[t] == null && t < SkiCatalog.Lifts.Count)
                     m_TowerConsts[t] = LiftTowerPlanConstants.For(SkiCatalog.Lifts[t]);
 
-            // Pinned lifts: the input order (sorted by the tool: key, then xz); ends from the census, NaN ends from the chord ends
+            // Pinned lifts: the input order (sorted by the tool: key, then xz). Ends from the census, NaN ends from the chord ends
             List<PinnedLift> pinned = m_In.Pinned;
             int np = pinned?.Count ?? 0;
             m_LiftPinned = np;
@@ -255,9 +263,9 @@ namespace SkiResortMod.Systems
             });
         }
 
-        /// <summary>A pinned lift's missing station (NaN: not in the census's last build) from its chord ends: the polyline's free ends
-        /// (an end used by one chord only; else the first and last chord ends); a known station keeps its end and the missing one takes the
-        /// farther free end; with both missing the lower free end is the bottom. Heights from the snapshot (NaN outside it).</summary>
+        /// <summary>A pinned lift's missing station (NaN: not in the census's last build), found from its chord ends. The polyline's free ends
+        /// are the ends used by one chord only (else the first and last chord ends). A known station keeps its end, and the missing one takes
+        /// the farther free end. With both missing, the lower free end is the bottom. Heights from the snapshot (NaN outside it).</summary>
         private void PinnedEnds(int first, ref float3 bottom, ref float3 top)
         {
             bool okB = Finite3(bottom), okT = Finite3(top);
@@ -345,7 +353,7 @@ namespace SkiResortMod.Systems
                 l.Pod = best;
                 m_LiftList[p] = l;
                 if (best >= 0 && m_PodLift[best] < 0)
-                    m_PodLift[best] = p;   // the first pinned lift (input order) is the pod's lift; no proposal there either way
+                    m_PodLift[best] = p;   // the first pinned lift (input order) is the pod's lift. No proposal there either way
             }
             m_Cursor = 0;
         }
@@ -384,7 +392,7 @@ namespace SkiResortMod.Systems
                 if (m_LiftCands.Count == before && over)
                     LoweredTop(k, (byte)t);
             }
-            // Preference: fewest sunk ends, then the type order (cheapest first; detachable, gondola first for the top third), then the top kind
+            // Preference: fewest sunk ends, then the type order (cheapest first, detachable and gondola first for the top third), then the top kind
             m_LiftCands.Sort(start, m_LiftCands.Count - start, Comparer<LiftCand>.Create((a, b) =>
             {
                 int s = Sunk(a).CompareTo(Sunk(b));
@@ -400,8 +408,8 @@ namespace SkiResortMod.Systems
 
         private static int TypeRank(byte t, bool upgrade) => !upgrade ? t : t == 1 ? 0 : t == 2 ? 1 : t == 0 ? 2 : 3;
 
-        /// <summary>One candidate (pod k, type t, a top at topXz on topPad or -1): station spots, heights, the norms. Adds it when it passes;
-        /// returns true when it broke the max rise or length only (a lowered top on the same line may fit).</summary>
+        /// <summary>One candidate (pod k, type t, a top at topXz on topPad or -1): station spots, heights, the norms. Adds it when it passes.
+        /// Returns true when it broke the max rise or length only (a lowered top on the same line may fit).</summary>
         private bool TryCand(int k, byte t, float2 topXz, int topPad, byte topKind)
         {
             PlanPod pod = m_PodList[k];
@@ -429,7 +437,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The full chord broke the type's max rise or length: walk the top down the line toward the bottom until the rise is
-        /// under LowerTopRiseShare x the max and the length under the max (a mid-mountain top; the station is Sunk unless a pad holds it).</summary>
+        /// under LowerTopRiseShare x the max and the length under the max. This gives a mid-mountain top. The station is Sunk unless a pad
+        /// holds it.</summary>
         private void LoweredTop(int k, byte t)
         {
             PlanPod pod = m_PodList[k];
@@ -485,7 +494,8 @@ namespace SkiResortMod.Systems
         }
 
         // Phase 3, one pick per unit: the best front candidate over the unserved pods (score with the stacking bonus against the lifts
-        // selected so far; ties by pod key, then type); a conflict moves its pod on without a plan; a pick runs its tower plan here
+        // selected so far, ties by pod key, then type). A conflict moves its pod to its next candidate without a plan. A pick runs its tower
+        // plan here
         private void LiftPick()
         {
             int proposed = m_LiftList.Count - m_LiftPinned;
@@ -550,9 +560,9 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>A pick conflicts with a lift already in the list when a station lot of one overlaps a station lot of the other, or one's
-        /// chord passes over the other's station lot (the spec's "crosses another selected chord's pads", measured on the station lots:
-        /// a base pad of 100 ha may carry several lifts).</summary>
+        /// <summary>A pick conflicts with a lift already in the list in two cases: a station lot of one overlaps a station lot of the other,
+        /// or one's chord passes over the other's station lot. The spec says "crosses another selected chord's pads". The code measures this
+        /// on the station lots, because a base pad of 100 ha may carry several lifts.</summary>
         private bool Conflicts(in LiftCand c)
         {
             float hd = StationHalfDiagonalOf(c.Type);
@@ -579,11 +589,13 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>The lift tool's planner on the candidate chord (bottom = station A): stations at both ends, the engine's edge slope rule
-        /// with the end nodes at the snapshot heights (the station stub tip sits at the station's ground), ropes at node + the station's
-        /// own rope anchor (StationDef.RopeAnchorLocalY via LiftTowerPlanConstants.StationEndRope, level ground; FIX-LIST 48: the shortest member's
-        /// rope stood 1.4-10.3 m above it). Clear = every span clears the floor and
-        /// the height cap, and the edge slopes stay under LiftEdgeSlopeShare x the type cap. Inputs are validated: Plan never throws.</summary>
+        /// <summary>The lift tool's planner on the candidate chord (bottom = station A). It uses:
+        /// stations at both ends.
+        /// the engine's edge slope rule with the end nodes at the snapshot heights (the station stub tip sits at the station's ground).
+        /// ropes at node + the station's own rope anchor (StationDef.RopeAnchorLocalY via LiftTowerPlanConstants.StationEndRope, level ground.
+        /// FIX-LIST 48: the shortest member's rope stood 1.4-10.3 m above it).
+        /// Clear = every span clears the floor and the height cap, and the edge slopes stay under LiftEdgeSlopeShare x the type cap.
+        /// Inputs are validated: Plan never throws.</summary>
         private LiftTowerPlan TowerPlan(in LiftCand c, out bool clear)
         {
             LiftTowerPlanConstants k = m_TowerConsts[c.Type];
@@ -647,9 +659,9 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- helpers
 
-        /// <summary>A station spot on a pad for a lot of half diagonal hd: from the pad's Center (its largest inscribed distance) toward
-        /// <paramref name="toward"/> in SpotWalkStepM steps while a disc of radius hd stays on the pad (at most SpotWalkMaxM and half the
-        /// way): the station sits at the pad's edge facing its line, so two lifts sharing a pad get different spots.</summary>
+        /// <summary>A station spot on a pad for a lot of half diagonal hd. The walk starts at the pad's Center (its largest inscribed distance)
+        /// and goes toward <paramref name="toward"/> in SpotWalkStepM steps while a disc of radius hd stays on the pad (at most SpotWalkMaxM and
+        /// half the way). So the station sits at the pad's edge facing its line, and two lifts sharing a pad get different spots.</summary>
         private float2 StationSpot(int pad, float hd, float2 toward)
         {
             float2 c = m_PadList[pad].Center;
@@ -703,10 +715,12 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- the plan
 
-        /// <summary>Copies the lift skeleton into the plan (fresh arrays; pinned first, then proposals in selection order), sets each pod's
-        /// Lift, counts per lift the runs whose top LiftServedRule.Reaches accepts (the lift's own type rule, as if complete and powered),
-        /// the run tops within LiftNearM of its Top and the run ends within LiftNearM of its Bottom, and flags NoLiftSite when proposals
-        /// were wanted and none was feasible. Called by FinishResort after TerrainPlan.</summary>
+        /// <summary>Copies the lift skeleton into the plan (fresh arrays, pinned first, then proposals in selection order). It also:
+        /// - sets each pod's Lift.
+        /// - counts per lift the runs whose top LiftServedRule.Reaches accepts (the lift's own type rule, as if complete and powered), the run
+        /// tops within LiftNearM of its Top and the run ends within LiftNearM of its Bottom.
+        /// - flags NoLiftSite when proposals were wanted and none was feasible.
+        /// FinishResort calls it after TerrainPlan.</summary>
         private void LiftPlan(ResortPlan plan, AutoPlanResult res)
         {
             plan.Lifts = m_LiftList.ToArray();

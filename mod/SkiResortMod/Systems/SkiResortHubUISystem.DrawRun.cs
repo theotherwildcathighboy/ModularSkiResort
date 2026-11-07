@@ -1,5 +1,5 @@
-// SkiResortHubUISystem.DrawRun.cs - the Run tile's option row (run types R3, DECISIONS 578; contract 33).
-// One Run tile draws every piste: Groomed picks the prefab the area tool draws (SkiRunGroomedA or SkiRunNaturalA, the two looks of 577),
+// SkiResortHubUISystem.DrawRun.cs - the Run tile's option row (run types R3, DECISIONS 578, contract 33).
+// One Run tile draws every piste. Groomed picks the prefab the area tool draws (SkiRunGroomedA or SkiRunNaturalA, the two looks of 577).
 // Snow guns and Lights are the sliders a new groomed run starts with. SkiRunBindTriggerSystem seeds them onto the run the frame it is drawn
 // (ModificationEnd, before its bind charge), so the fee includes their steps. The retired tiles (runNatural, runSnowmaking, runNight)
 // stay in the catalog table (gate R16) but are not sent.
@@ -11,7 +11,7 @@ namespace SkiResortMod.Systems
 {
     public partial class SkiResortHubUISystem
     {
-        /// <summary>`drawRun` (bindings.ts DrawRun): the option row's state; active while the area tool draws one of our pistes.</summary>
+        /// <summary>`drawRun` (bindings.ts DrawRun): the option row's state. Active while the area tool draws one of our pistes.</summary>
         public struct HubDrawRun : IJsonWritable, IEquatable<HubDrawRun>
         {
             public bool Active, Groomed;
@@ -71,8 +71,8 @@ namespace SkiResortMod.Systems
             });
         }
 
-        /// <summary>setDrawRun(key, value): "groomed" 0 / 1 (redraws with the other prefab while the tool is open), "guns" and "lights"
-        /// meters (RunPropPlacerRules.ClampSpacing; Off = 0).</summary>
+        /// <summary>setDrawRun(key, value): "groomed" 0 / 1 (redraws with the other prefab while the tool is open). "guns" and "lights"
+        /// are meters (RunPropPlacerRules.ClampSpacing, Off = 0).</summary>
         private void ApplyDrawRun(string key, int value, string source)
         {
             switch (key)
@@ -102,7 +102,7 @@ namespace SkiResortMod.Systems
             PushDrawRun();
         }
 
-        /// <summary>The sliders a run drawn this frame starts with (SkiRunBindTriggerSystem, ModificationEnd): true while the row is
+        /// <summary>The sliders a run drawn this frame starts with (SkiRunBindTriggerSystem, ModificationEnd). True while the row is
         /// active, Groomed is on and a slider is above Off. A natural run carries none.</summary>
         internal bool TryGetDrawSeed(out int gunM, out int lightM)
         {

@@ -1,11 +1,17 @@
 // Resort Planner (v2) stage A: terrain: bands, pads, benches, ridges (spec 4.1). Stage Terrain, Resort mode only, between Minimax and
-// PodRoute. Reads the v1 field m_O (the 20 m window grade, never re-sampled), m_H, m_Flow, m_Flags (Usable / Zones) and writes the
-// Resort layers m_OS (3-texel box-smoothed grade, segmentation only: the rater never reads it), m_Band, m_PadOf, m_Ridge, plus the pad
-// list m_PadList. A pad is a SITE the planner would later grade (stage B, the cat track grading kernel), not a leveled lot: under 25 %
-// smoothed grade, at least PadMinAreaM2, an inscribed distance of PadMinInscribedM, and a cut / fill estimate for the cheapest
-// station's lot at its station spot (PlanPad.GradeM3).
-// Scratch (all rewritten before they are read again): m_Order = the union-find parents, then the component labels (TopRows refills it
-// in Seeds); m_Dist[1] = the smoothed height (ridges), m_Dist[2] = the inscribed-distance chamfer (StartPassRows resets every m_Dist).
+// PodRoute.
+// Reads the v1 field m_O (the 20 m window grade, never re-sampled), m_H, m_Flow, m_Flags (Usable / Zones).
+// Writes the Resort layers m_OS (3-texel box-smoothed grade, segmentation only: the rater never reads it), m_Band, m_PadOf, m_Ridge,
+// plus the pad list m_PadList.
+// A pad is a SITE the planner would later grade (stage B, the cat track grading kernel), not a leveled lot. A pad has:
+// under 25 % smoothed grade.
+// at least PadMinAreaM2.
+// an inscribed distance of PadMinInscribedM.
+// a cut / fill estimate for the cheapest station's lot at its station spot (PlanPad.GradeM3).
+// Scratch (all rewritten before they are read again):
+// m_Order = the union-find parents, then the component labels (TopRows refills it in Seeds).
+// m_Dist[1] = the smoothed height (ridges).
+// m_Dist[2] = the inscribed-distance chamfer (StartPassRows resets every m_Dist).
 // Pure and Entities-free (usings System, System.Collections.Generic, Unity.Mathematics only). Spec: docs/research/quickruns-v2/spec/stage-a-spec.md.
 
 using System;
@@ -18,27 +24,27 @@ namespace SkiResortMod.Systems
     {
         // ---------------------------------------------------------------- constants (spec 4.1; [B] 2.2, [C1] 3b)
         // TerrainBand floors: Marginal 6 %, Beginner 8, Intermediate 25, Advanced 45, Expert 70, Cliff 100 % (Ecosign bands). Private
-        // (spec 4.7: no static mutable state); read through TerrainBandFloorOf.
+        // (spec 4.7: no static mutable state). Read through TerrainBandFloorOf.
         private static readonly float[] s_TerrainBandFloor = { 0.06f, 0.08f, 0.25f, 0.45f, 0.70f, 1.00f };
-        public const float PadMaxGrade = 0.25f, PadMinAreaM2 = 2000f, PadMinInscribedM = 9f;   // 0.2 ha; half the 16 m lot side + 1 m
+        public const float PadMaxGrade = 0.25f, PadMinAreaM2 = 2000f, PadMinInscribedM = 9f;   // 0.2 ha. Half the 16 m lot side + 1 m
         public const float PadLearningGrade = 0.08f, PadNoviceGrade = 0.15f;                    // PadKind: Flat / Learning / Novice
         public const int MaxPads = 255;                                                         // ids fit the byte layer (255 = none)
         public const byte PadNone = 255;
         // Station lot half-diagonals by lift type (fixed grip, detachable, gondola, tram): lots 16x24, 16x32, 24x32, 48x24 m ([C1] table
-        // 3b; lot cell 8 m, DC/Game.Prefabs/BuildingInitializeSystem.cs:1266-1272). Private: read through StationHalfDiagonalOf.
+        // 3b, lot cell 8 m, DC/Game.Prefabs/BuildingInitializeSystem.cs:1266-1272). Private: read through StationHalfDiagonalOf.
         private static readonly float[] s_StationHalfDiagonal = { 14.4f, 17.9f, 20.0f, 26.8f };
         public const int StationTypes = 4;
         /// <summary>A pad holds a pod bottom (the lift's bottom terminal with its maze and queue) only with this area and the fixed grip's
-        /// half diagonal (calibration d of the A-R critique: 1 ha); smaller pads stay pads (benches, top stations) and merge into Down(P).</summary>
+        /// half diagonal (calibration d of the A-R critique: 1 ha). Smaller pads stay pads (benches, top stations) and merge into Down(P).</summary>
         public const float PodBottomMinAreaM2 = 10000f;
 
-        /// <summary>The TerrainBand floor b (0 Marginal .. 5 Cliff); +inf past the last.</summary>
+        /// <summary>The TerrainBand floor b (0 Marginal .. 5 Cliff). +inf past the last.</summary>
         public static float TerrainBandFloorOf(int b) => b >= 0 && b < s_TerrainBandFloor.Length ? s_TerrainBandFloor[b] : float.PositiveInfinity;
 
         /// <summary>The station lot half diagonal of a lift type (SkiCatalog index, clamped to 0..StationTypes - 1).</summary>
         public static float StationHalfDiagonalOf(int type) => s_StationHalfDiagonal[Math.Max(0, Math.Min(StationTypes - 1, type))];
 
-        /// <summary>A fresh copy of the half diagonals by type for callers that index an array (the overlay); the planner reads
+        /// <summary>A fresh copy of the half diagonals by type for callers that index an array (the overlay). The planner reads
         /// StationHalfDiagonalOf.</summary>
         public static float[] StationHalfDiagonalM => (float[])s_StationHalfDiagonal.Clone();
         /// <summary>The cheapest station's lot (fixed grip, 16 x 24 m): the lot the pad's cut / fill estimate levels.</summary>
@@ -68,7 +74,7 @@ namespace SkiResortMod.Systems
         private readonly List<PlanPad> m_PadList = new List<PlanPad>();
         private readonly List<int> m_PadOrder = new List<int>();
 
-        /// <summary>Pads of the last Resort scan (Terrain stage), in id order; empty in Runs mode. The plan copies them (TerrainPlan).</summary>
+        /// <summary>Pads of the last Resort scan (Terrain stage), in id order. Empty in Runs mode. The plan copies them (TerrainPlan).</summary>
         public int PadCount => m_PadList.Count;
 
         /// <summary>Bytes of every per-cell buffer the planner holds (v1 lattice arrays, the four pass routes, the Resort layers, the
@@ -90,11 +96,18 @@ namespace SkiResortMod.Systems
         private bool PadCandidate(int c) =>
             (m_Flags[c] & (FOpen | FCliff)) == FOpen && m_OS[c] < PadMaxGrade;
 
-        /// <summary>Stage Terrain (Resort only). m_Cursor2 phases: 0 setup; 1 rows: m_OS, m_Band, the smoothed height, layer reset;
-        /// 2 rows: ridges and the pad-candidate union (W, NW, N, NE: every parent is an earlier cell); 3 rows: labels (one ascending
-        /// flatten) and component sums; 4 chamfer seeds over the region bbox; 5 / 6 forward / backward chamfer; 7 rows: the inscribed
-        /// maximum per component; 8 one unit: the pad order; 9 PadsPerUnit pads per unit: the pad list (lot grade, access distance);
-        /// 10 rows: m_PadOf. Then PodRoute.</summary>
+        /// <summary>Stage Terrain (Resort only). m_Cursor2 phases:
+        /// 0 setup.
+        /// 1 rows: m_OS, m_Band, the smoothed height, layer reset.
+        /// 2 rows: ridges and the pad-candidate union (W, NW, N, NE: every parent is an earlier cell).
+        /// 3 rows: labels (one ascending flatten) and component sums.
+        /// 4 chamfer seeds over the region bbox.
+        /// 5 / 6 forward / backward chamfer.
+        /// 7 rows: the inscribed maximum per component.
+        /// 8 one unit: the pad order.
+        /// 9 PadsPerUnit pads per unit: the pad list (lot grade, access distance).
+        /// 10 rows: m_PadOf.
+        /// Then PodRoute.</summary>
         private void UnitTerrain()
         {
             switch (m_Cursor2)
@@ -184,9 +197,9 @@ namespace SkiResortMod.Systems
             m_Cursor2 = 2;
         }
 
-        // Phase 2, rows over the region bbox. Ridge = a usable cell with no D8 inflow (m_Flow is still its own area) that is a strict
-        // local maximum of the smoothed height across at least one of the four axes. Pad candidates are unioned with their earlier
-        // 8-neighbors (Root, Select.cs: the smaller root wins, so every parent is an earlier cell and a component's root is its smallest cell).
+        // Phase 2, rows over the region bbox. Ridge = a usable cell with no D8 inflow (m_Flow is still its own area). A ridge is a strict
+        // local maximum of the smoothed height across at least one of the four axes. The system unions pad candidates with their earlier
+        // 8-neighbors (Root, Select.cs). The smaller root wins, so every parent is an earlier cell and a component's root is its smallest cell.
         private void TerrainUnionRows()
         {
             float[] hs = m_Dist[1];
@@ -237,8 +250,8 @@ namespace SkiResortMod.Systems
                 p[Math.Max(a, b)] = Math.Min(a, b);
         }
 
-        // Phase 3, rows ascending: a root becomes the next compact label -(k + 1); any other cell copies its parent's label (its parent
-        // is an earlier cell, already flattened). Component sums ride along.
+        // Phase 3, rows ascending: a root becomes the next compact label -(k + 1). Any other cell copies its parent's label (its parent
+        // is an earlier cell, already flattened). Component sums accumulate in the same pass.
         private void TerrainLabelRows()
         {
             int[] p = m_Order;
@@ -287,7 +300,7 @@ namespace SkiResortMod.Systems
         /// <summary>The compact component label of a pad-candidate cell after phase 3 (-1 for any other cell).</summary>
         private int CompOf(int c) => PadCandidate(c) ? -m_Order[c] - 1 : -1;
 
-        // Phase 4: chamfer seeds over the region bbox: a cell of a kept component starts at +inf, every other cell at -half a texel
+        // Phase 4: chamfer seeds over the region bbox. A cell of a kept component starts at +inf. Every other cell starts at -half a texel
         // (the distance is measured to the pad's edge, the v1 DHard convention)
         private void TerrainSeedRows()
         {
@@ -356,8 +369,8 @@ namespace SkiResortMod.Systems
             m_Cursor2 = 8;
         }
 
-        // Phase 8, one unit: kept components with InscribedM >= PadMinInscribedM become pads; over MaxPads the largest by area stay
-        // (ties: the smaller first cell); ids follow the smallest cell (the component order)
+        // Phase 8, one unit: kept components with InscribedM >= PadMinInscribedM become pads. Over MaxPads the largest by area stay
+        // (ties: the smaller first cell). Ids follow the smallest cell (the component order)
         private void PadOrder()
         {
             m_PadOrder.Clear();
@@ -387,7 +400,7 @@ namespace SkiResortMod.Systems
         /// <summary>Pads built per unit in phase 9 (each: the lot grade's two box sums and a binary-searched access window).</summary>
         private const int PadsPerUnit = 16;
 
-        // Phase 9, PadsPerUnit pads per unit: the pad list. After the last pad: IsBase = touches the v1 base band or is the lowest pad;
+        // Phase 9, PadsPerUnit pads per unit: the pad list. After the last pad: IsBase = touches the v1 base band or is the lowest pad.
         // IsBench = not base and its lowest cell above the base band top.
         private void BuildPads()
         {
@@ -450,9 +463,9 @@ namespace SkiResortMod.Systems
             Next(Stage.PodRoute);
         }
 
-        /// <summary>Distance in meters from a pad's station spot to the nearest access point (road samples, Welcome Signs); +inf when none.
+        /// <summary>Distance in meters from a pad's station spot to the nearest access point (road samples, Welcome Signs), +inf when none.
         /// AutoPlanInput.Access is sorted by x (then z): a binary search finds the first point at or right of p.x, then the scan walks
-        /// outward both ways and stops once the x gap alone reaches the best distance (the full scan's result).</summary>
+        /// outward both ways. It stops once the x gap alone reaches the best distance (the full scan's result).</summary>
         private float AccessDistance(float2 p)
         {
             float2[] acc = m_In.Access;
@@ -475,8 +488,8 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>Cut / fill estimate of grading the cheapest station's lot (PadLotShortM x PadLotLongM) level at the station spot: the
-        /// level is the mean ground height under the lot (balanced, so cut = fill = volume), the lot's long side along x or z, whichever
+        /// <summary>Cut / fill estimate of grading the cheapest station's lot (PadLotShortM x PadLotLongM) level at the station spot. The
+        /// level is the mean ground height under the lot (balanced, so cut = fill = volume). The lot's long side runs along x or z, whichever
         /// moves less earth. Volume in m3 and the deepest cut or fill in m. A screening number for stage B's grading kernel, not a plan.</summary>
         private void PadLotGrade(int c, out float volumeM3, out float maxM)
         {
