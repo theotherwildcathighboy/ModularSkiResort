@@ -100,6 +100,8 @@ export function Pager({ fit }: { fit: FitPage }): JSX.Element {
 
 /** How often the view pager re-checks while the panel is open (a leaf's data push can add a row without re-rendering the panel) */
 const VIEW_PAGER_POLL_MS = 400;
+/** How long after a fold toggle the pager keeps that fold's header on the shown page (until the player pages) */
+const FOLD_FOCUS_MS = 1000;
 
 /**
  * Pages the view slot's top-level rows (its DOM children: our views render fragments, so every InfoLine, fold header, fold
@@ -107,16 +109,19 @@ const VIEW_PAGER_POLL_MS = 400;
  * style.display = "none" (React never writes `style` on these row roots, so it stays); a pass writes a row's display only when
  * it changes, so a steady page writes nothing. A fold header is never the last row of a page (it moves to the next). `enabled`
  * false (the Runs / Lifts views) unhides everything. `resetKey` (view + open fold) returns to page 1, except that a fold toggle
- * (`foldSeq` changed) shows the page holding that fold's header (`openRowClass`): opening a fold whose rows push it past page 1
- * must not hide the header the player just clicked. `geometryKey` (what changes the box, the Buildings tab's taller footer)
- * drops the measured room.
+ * (`foldSeq` changed) shows the page holding that fold's header (`openRowClass`) for FOLD_FOCUS_MS or until the player pages:
+ * opening a fold whose rows push it past page 1 must not hide the header the player just clicked. `geometryKey` (what changes
+ * the box, the Buildings tab's taller footer) drops the measured room and also keeps an open fold's page in view.
  *
- * Gameface does not reflow on a read: getBoundingClientRect / clientHeight after a style write return the last drawn frame (measured
- * in game 2026-11-06: a row set to display none still reads its old height in the same task). So a pass only trusts geometry when no
- * row was hidden in that frame. While the pager is on, rows hidden in the last frame read 0 and the box has shrunk to the shown
- * page; measuring them anyway made every 400 ms poll read "fits", drop the pager, show all rows, read "overflows", page again: the
- * view and the pager row flickered (field bug r611, the Attraction view with the Merged buildings fold open on the Buildings tab,
- * 21 px over). Paging now uses each row's height from the last frame it was drawn and the room from the last trusted pass.
+ * Gameface does not reflow on a read: getBoundingClientRect / clientHeight return the last DRAWN frame. Measured in game
+ * 2026-11-07: a div inserted from a plain task reads 0 in the next animation frame callback and its real height only in the one
+ * after; a display write made inside a frame callback shows in the next one. So any DOM change (our display writes, a render, a
+ * leaf adding or removing rows) marks the geometry stale until two animation frames have passed, and only a pass on fresh
+ * geometry measures: row heights (kept per row, so hidden rows keep the height they had when drawn) and the room. A stale pass
+ * still pages with the cached heights and room, so a page switch hides the old page at once. Measuring stale frames was field
+ * bug r611 (the Attraction view with the Merged buildings fold open on the Buildings tab, about 21 px over): polls read
+ * "fits", dropped the pager, showed all rows, read "overflows" and paged again (the view and the pager flickered), and a
+ * fold opened onto a page that was not shown (the fold vanished until a view switch).
  */
 export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject<HTMLElement>, enabled: boolean, resetKey: string,
   foldRowClass: string, geometryKey = "", openRowClass = "", foldSeq = 0): FitPage {
@@ -127,24 +132,36 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
     keyRef.current = resetKey;
     if (page !== 0) setPage(0);
   }
-  // foldSeq counts fold toggles within one view: the next passes (this render's two) show the toggled fold's page
-  const focusOpen = useRef(0);
+  // A fold toggle within the view: show the toggled fold's page until FOLD_FOCUS_MS passed or the player pages
+  const focusUntil = useRef(0);
   const lastOpenRow = useRef<HTMLElement | null>(null);
   const foldSeqRef = useRef(foldSeq);
   if (foldSeqRef.current !== foldSeq) {
     foldSeqRef.current = foldSeq;
-    focusOpen.current = 2;
+    focusUntil.current = Date.now() + FOLD_FOCUS_MS;
   }
   const state = useRef({ page, pages, enabled });
   state.current = { page, pages, enabled };
-  // Row heights from frames where the row was drawn, and the room for the view rows from the last pass with trusted geometry
+  // Row heights from fresh frames where the row was drawn, and the room for the view rows from the last fresh measurement
   const heightOf = useRef(new WeakMap<HTMLElement, number>());
   const roomRef = useRef<number | null>(null);
   const geometryRef = useRef(geometryKey);
   if (geometryRef.current !== geometryKey) {
+    // Another footer: re-measure, and keep an open fold in view (it was on screen before the switch)
     geometryRef.current = geometryKey;
     roomRef.current = null;
+    focusUntil.current = Date.now() + FOLD_FOCUS_MS;
   }
+  // Fresh = no DOM change since two animation frames ago (see the note above); every change re-arms the wait
+  const fresh = useRef(false);
+  const staleSeq = useRef(0);
+  const layoutRef = useRef<() => void>(() => undefined);
+  const markStale = (): void => {
+    fresh.current = false;
+    const my = ++staleSeq.current;
+    const done = (): void => { if (staleSeq.current === my) { fresh.current = true; layoutRef.current(); } };
+    try { window.requestAnimationFrame(() => { try { window.requestAnimationFrame(done); } catch { done(); } }); } catch { window.setTimeout(done, 50); }
+  };
 
   const layout = (): void => {
     try {
@@ -152,49 +169,55 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       const box = body ? body.parentElement : null;
       if (!slot || !body || !box) return;
       const rows = Array.prototype.slice.call(slot.children) as HTMLElement[];
-      const wasHidden = rows.map((r) => r.style.display === "none");
-      // Write a row's style only when it changes (a pass that keeps the page writes nothing)
-      const showAll = (): void => { for (const r of rows) if (r.style.display === "none") r.style.display = ""; };
-      if (!state.current.enabled) { showAll(); roomRef.current = null; if (state.current.pages !== 1) setPages(1); return; }
-      // Everything below reads the last drawn frame (no reflow on a read)
-      const inner = innerHeight(box);
-      const bodyH = body.getBoundingClientRect().height;
-      const slotRect = slot.getBoundingClientRect();
-      const pagerOn = state.current.pages > 1;
-      const tops = rows.map((r) => r.getBoundingClientRect().top);
-      const drawn: number[] = [];
-      for (let i = 0; i < rows.length; i++) if (!wasHidden[i]) drawn.push(i);
-      // A drawn row's height: down to the next drawn row when that is the next row, else to the slot's end (last drawn), else its box
-      drawn.forEach((i, k) => {
-        const next = k + 1 < drawn.length ? drawn[k + 1] : -1;
-        const h = next === i + 1 ? tops[next] - tops[i] : next < 0 ? slotRect.bottom - tops[i] : rows[i].getBoundingClientRect().height;
-        if (h > 0) heightOf.current.set(rows[i], h);
-      });
-      const heights = rows.map((r) => heightOf.current.get(r) ?? r.getBoundingClientRect().height);
-      const first = rows.length > 0 ? heights[0] : 20;
-      let room: number;
-      if (drawn.length === rows.length) {
-        // Every row was drawn in the last frame: the geometry is the view's own
-        if (!pagerOn && bodyH <= inner + 0.5) { showAll(); roomRef.current = null; if (state.current.pages !== 1) setPages(1); return; }
-        // Room for the view = the box minus everything in the body that is not the view (the pager row included once it is drawn)
-        room = inner - (bodyH - slotRect.height) - (pagerOn ? 0 : first);
-        roomRef.current = room;
-      } else if (roomRef.current !== null) {
-        room = roomRef.current;
-        // The box at its full height (still scrolling) with the pager row drawn: its room is current, take it
-        const pagerRow = body.lastElementChild as HTMLElement | null;
-        const pagerDrawn = pagerOn && pagerRow !== null && pagerRow !== slot && pagerRow.getBoundingClientRect().height > 0;
-        if (pagerDrawn && box.scrollHeight > box.clientHeight + 0.5) {
-          room = inner - (bodyH - slotRect.height);
-          roomRef.current = room;
-        }
-      } else {
-        // No trusted room (geometry changed while paged): show every row; the next frame measures them
-        showAll();
+      let wrote = false;
+      const setDisplay = (r: HTMLElement, want: string): void => { if (r.style.display !== want) { r.style.display = want; wrote = true; } };
+      const finish = (): void => { if (wrote) markStale(); };
+      if (!state.current.enabled) {
+        for (const r of rows) setDisplay(r, "");
+        roomRef.current = null;
         if (state.current.pages !== 1) setPages(1);
-        try { window.requestAnimationFrame(() => layout()); } catch { /* the poll measures */ }
+        finish();
         return;
       }
+      const isFresh = fresh.current;
+      const pagerOn = state.current.pages > 1;
+      let room: number | null = roomRef.current;
+      if (isFresh) {
+        // The last drawn frame shows exactly the rows whose style is not "none"
+        const inner = innerHeight(box);
+        const bodyH = body.getBoundingClientRect().height;
+        const slotRect = slot.getBoundingClientRect();
+        const tops = rows.map((r) => r.getBoundingClientRect().top);
+        const drawn: number[] = [];
+        for (let i = 0; i < rows.length; i++) if (rows[i].style.display !== "none") drawn.push(i);
+        // A drawn row's height: down to the next drawn row when that is the next row, else to the slot's end (last drawn), else its box
+        drawn.forEach((i, k) => {
+          const next = k + 1 < drawn.length ? drawn[k + 1] : -1;
+          const h = next === i + 1 ? tops[next] - tops[i] : next < 0 ? slotRect.bottom - tops[i] : rows[i].getBoundingClientRect().height;
+          heightOf.current.set(rows[i], Math.max(0, h));
+        });
+        if (drawn.length === rows.length) {
+          // Every row drawn: the geometry is the view's own
+          if (!pagerOn && bodyH <= inner + 0.5) { roomRef.current = null; if (state.current.pages !== 1) setPages(1); return; }
+          // Room for the view = the box minus everything in the body that is not the view (the pager row included once it is drawn)
+          room = inner - (bodyH - slotRect.height) - (pagerOn ? 0 : (heightOf.current.get(rows[0]) ?? 20));
+        } else {
+          // Paged: the box shrinks to the shown page, so its height is the room only while it still scrolls with the pager drawn
+          const pagerRow = body.lastElementChild as HTMLElement | null;
+          const pagerDrawn = pagerOn && pagerRow !== null && pagerRow !== slot && pagerRow.getBoundingClientRect().height > 0;
+          if (pagerDrawn && box.scrollHeight > box.clientHeight + 0.5) room = inner - (bodyH - slotRect.height);
+        }
+        roomRef.current = room;
+      }
+      if (room === null) {
+        // No room measured yet (or the footer changed): show every row; the fresh pass after it is drawn measures
+        for (const r of rows) setDisplay(r, "");
+        if (state.current.pages !== 1) setPages(1);
+        finish();
+        return;
+      }
+      // Rows never drawn on a fresh frame (just added) count 0 until one is; the fresh pass two frames on corrects the split
+      const heights = rows.map((r) => heightOf.current.get(r) ?? 0);
       const pageOf: number[] = [];
       let p = 0, acc = 0, start = 0;
       for (let i = 0; i < rows.length; i++) {
@@ -208,36 +231,46 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       }
       const n = p + 1;
       let shown = Math.min(state.current.page, n - 1);
-      // A fold was just toggled: show the page that holds its header (the open one, or after a close the header that was open),
-      // so the fold the player clicked never lands on a page that is not shown
+      // A fold was just toggled: show the page that holds its header (the open one, or after a close the header that was open)
       const openIdx = openRowClass ? rows.findIndex((r) => r.className.indexOf(openRowClass) >= 0) : -1;
       if (openIdx >= 0) lastOpenRow.current = rows[openIdx];
-      if (focusOpen.current > 0) {
-        focusOpen.current--;
+      if (Date.now() < focusUntil.current) {
         const target = openIdx >= 0 ? openIdx : lastOpenRow.current ? rows.indexOf(lastOpenRow.current) : -1;
-        if (target >= 0 && pageOf[target] !== shown) { shown = pageOf[target]; setPage(shown); }
+        if (target >= 0 && pageOf[target] !== shown) shown = pageOf[target];
       }
-      rows.forEach((r, i) => {
-        const want = pageOf[i] === shown ? "" : "none";
-        if (r.style.display !== want) r.style.display = want;
-      });
+      rows.forEach((r, i) => setDisplay(r, pageOf[i] === shown ? "" : "none"));
       if (n !== state.current.pages) setPages(n);
+      if (shown !== state.current.page) setPage(shown);
+      finish();
     } catch { /* paging is best effort */ }
   };
+  layoutRef.current = layout;
 
-  // The layout effect sees the frame before this render; one pass on the next frame measures the rows it drew
+  // Every render may have changed the rows: page now with what is known, measure once the change is drawn
   useLayoutEffect(() => {
+    markStale();
     layout();
-    let id = 0;
-    try { id = window.requestAnimationFrame(() => layout()); } catch { return undefined; }
-    return () => { try { window.cancelAnimationFrame(id); } catch { /* ignore */ } };
   });
+  // Rows a leaf adds or removes without re-rendering the panel (a data push): the same; the poll is the safety net
   useEffect(() => {
+    let ob: MutationObserver | null = null;
     let id = 0;
-    try { id = window.setInterval(layout, VIEW_PAGER_POLL_MS); } catch { return undefined; }
-    return () => { try { window.clearInterval(id); } catch { /* ignore */ } };
+    try {
+      const slot = viewRef.current;
+      if (slot) {
+        ob = new MutationObserver(() => markStale());
+        ob.observe(slot, { childList: true, subtree: true });
+      }
+    } catch { ob = null; }
+    try { id = window.setInterval(() => layoutRef.current(), VIEW_PAGER_POLL_MS); } catch { /* the observer and renders page */ }
+    return () => {
+      try { if (ob) ob.disconnect(); } catch { /* ignore */ }
+      try { window.clearInterval(id); } catch { /* ignore */ }
+      staleSeq.current++;
+    };
   }, []);
 
   const shown = Math.min(page, pages - 1);
-  return { start: 0, end: 0, page: shown, pages, setPage };
+  const pageTo = (p: number): void => { focusUntil.current = 0; setPage(p); };
+  return { start: 0, end: 0, page: shown, pages, setPage: pageTo };
 }
