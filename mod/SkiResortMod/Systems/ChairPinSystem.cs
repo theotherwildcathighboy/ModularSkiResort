@@ -1,10 +1,11 @@
 // Pins every lift-chair sub-object on its edge's cable-lane curve and moves the chairs along their loop.
-// The visible cable lane is the anchored, sagging one (LaneSystem moves its endpoints onto anchor stubs and droops it by
-// UtilityLaneData.m_Hanging), not the edge bezier SubObjectSystem spawns chairs on; each chair is re-seated so its rope point (LiftMoverMath.CarrierDrop below the grip top) lies on it.
+// The visible cable lane is the anchored, sagging one. LaneSystem moves its endpoints onto anchor stubs and droops it by
+// UtilityLaneData.m_Hanging. It is not the edge bezier that SubObjectSystem spawns chairs on. The system re-seats each chair so that its
+// rope point (LiftMoverMath.CarrierDrop below the grip top) lies on the cable lane.
 // Runs at Modification4B: after SubObjectSystem (2B) and LaneSystem (4), before Game.Objects.SearchSystem and PreCulling (5).
-// Never throws into the game loop; a chair with no matching cable sublane is left untouched.
-// LOG DISCIPLINE: silence must be impossible. Every way this system can fail or idle has a distinct log
-// signature, once per load or per change; no per-frame lines (see "Observability" below).
+// It never throws into the game loop. The system leaves a chair with no matching cable sublane untouched.
+// LOG DISCIPLINE: silence must be impossible. Every way this system can fail or idle has a distinct log signature, once per load or per
+// change. There are no per-frame lines (see "Observability" below).
 // Engine notes: EngineNotes/ChairPinSystem.md
 
 using System;
@@ -28,31 +29,30 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class ChairPinSystem : GameSystemBase
     {
-        // The carrier names live in SkiCatalog (Lifts[*].CarrierPrefabs; a new chair generation gets a new name, PIPELINE section 0) and
-        // SkiPrefabCatalogSystem resolves them per load into CarrierGripTops. A missing name is tolerated: the catalog's ARM line lists it
-        // MISSING and LogPrefabState WARNs per load.
+        // The carrier names live in SkiCatalog (Lifts[*].CarrierPrefabs). A new chair generation gets a new name (PIPELINE section 0).
+        // SkiPrefabCatalogSystem resolves the names per load into CarrierGripTops. The system tolerates a missing name. The catalog's ARM
+        // line lists it MISSING and LogPrefabState WARNs per load.
 
-        // true = chairs ride the cable loop (see EngineNotes/ChairPinSystem.md). false = the static flow, wholesale. Not readonly: the Ski Resort
-        // developer-menu tab flips it at runtime for A/B checks (a flip requests a full pass).
+        // true = chairs ride the cable loop (see EngineNotes/ChairPinSystem.md). false = the static flow, wholesale. The field is not
+        // readonly. The Ski Resort developer-menu tab flips it at runtime for A/B checks. A flip requests a full pass.
         private static bool MovingChairs = true;
         // Catalog constant (HubRules aliases the same const).
         private const float ChairSpeedMetersPerSecond = SkiCatalog.FixedGrip.SpeedMps;
 
-        /// <summary>The moving-chairs kill switch (MovingChairs above; the developer tab flips it).</summary>
+        /// <summary>The moving-chairs kill switch (MovingChairs above). The developer tab flips it.</summary>
         internal static bool MovingChairsOn => MovingChairs;
         /// <summary>Chair speed along the loop, meters per second of the render clock.</summary>
         internal const float ChairSpeedMps = ChairSpeedMetersPerSecond;
-        /// <summary>++ on EVERY BuildLoopCache (not tied to the count signature, which contains no
-        /// station identities).</summary>
+        /// <summary>The system increments this on EVERY BuildLoopCache. It is not tied to the count signature, which contains no station
+        /// identities.</summary>
         internal int LoopGeneration { get; private set; }
 
-        /// <summary>ADDITIVE: the fixed-grip line (SkiChairliftHV) prefab entity; Entity.Null when MISSING or before the first game / editor
-        /// load.</summary>
+        /// <summary>ADDITIVE: the fixed-grip line (SkiChairliftHV) prefab entity. It is Entity.Null when MISSING or before the first game /
+        /// editor load.</summary>
         internal Entity ChairliftPrefab => m_PrefabCatalog.LineEntity(SkiCatalog.Lifts[0]);
 
-        /// <summary>The closed loop between two stations, in either order: chairs riding and the
-        /// CIRCUIT length (chain A + top turn + chain B + base turn). False in static mode, for an
-        /// open lift, or before the first rebuild.</summary>
+        /// <summary>The closed loop between two stations, in either order: the chairs riding and the CIRCUIT length (chain A + top turn +
+        /// chain B + base turn). Returns false in static mode, for an open lift, or before the first rebuild.</summary>
         internal bool TryGetLoop(Entity stationA, Entity stationB, out int chairsRiding, out double loopM)
         {
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
@@ -71,10 +71,9 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>Dirty the loop cache and bypass RebuildCooldownFrames once (LiftCensusSystem:
-        /// lift topology changed / a park was just re-seated). Same frame when called before
-        /// Modification4B's ChairPinSystem update (the census is anchored before it). Static mode
-        /// keeps no loop cache: the flag is harmless there.</summary>
+        /// <summary>Marks the loop cache dirty and bypasses RebuildCooldownFrames once. LiftCensusSystem calls it when the lift topology
+        /// changed or a park was just re-seated. It takes effect in the same frame when called before Modification4B's ChairPinSystem
+        /// update (the census is anchored before it). Static mode keeps no loop cache. The flag is harmless there.</summary>
         internal void RequestImmediateRebuild(string why)
         {
             m_LoopCacheDirty = true;
@@ -91,36 +90,37 @@ namespace SkiResortMod.Systems
         private int m_DiagSeededChairs;
         private int m_DiagGridLoops;               // non-identity loops given the entity-index grid
 
-        // Moving-mode tuning. Bounds refresh: chairs' CullingInfo/search-tree entries are refreshed (one Updated tag per riding chair) every
-        // this-many meters of loop travel; 2 m keeps stale bounds inside a chair's own extents at any sim speed (distance per sim frame is
-        // speed-independent). Rebuild cooldown: cache rebuild requests (lift edits, reconnect poke storms) are debounced to at most one
-        // rebuild per window.
+        // Moving-mode tuning. Bounds refresh: the system refreshes the chairs' CullingInfo/search-tree entries (one Updated tag per riding
+        // chair) every this-many meters of loop travel. 2 m keeps stale bounds inside a chair's own extents at any sim speed, because the distance
+        // per sim frame is speed-independent. Rebuild cooldown: the system debounces cache rebuild requests (lift edits, reconnect poke
+        // storms) to at most one rebuild per window.
         private const double BoundsRefreshMeters = 2.0;
         private const int RebuildCooldownFrames = 30;
         private const int EmptyRosterRetryLimit = 10;
 
-        // On the final edge (last tower -> station) the cable lane is not the edge curve: LaneSystem moves its endpoints onto the anchor
-        // stubs (several meters past the edge node, inside the station) and rebuilds the bezier as straight-line-plus-droop, so it can
-        // diverge from the chair row's spawn line near the station. Two guards, both inert on normal spans:
-        //   * MaxPinDistanceMargin: best lane farther than drop + margin = degenerate geometry or a wrong-side match (far lane is
-        //     >= ~4.3 m away): leave the chair at its vanilla spawn placement.
+        // On the final edge (last tower -> station) the cable lane is not the edge curve. LaneSystem moves its endpoints onto the anchor
+        // stubs (several meters past the edge node, inside the station). It rebuilds the bezier as straight-line-plus-droop, so the lane
+        // can diverge from the chair row's spawn line near the station. Two guards, both inert on normal spans:
+        //   * MaxPinDistanceMargin: a best lane farther than drop + margin means degenerate geometry or a wrong-side match (the far lane
+        //     is >= ~4.3 m away). The guard then leaves the chair at its vanilla spawn placement.
         //   * EndClampMeters: keep the pin parameter this far from the lane's extreme ends (no chair on an anchor stub / bullwheel point).
         // Details: EngineNotes/ChairPinSystem.md, "Near MaxPinDistanceMargin".
         private const float MaxPinDistanceMargin = 1.5f;
         private const float EndClampMeters = 1.0f;
 
         // Chairs ride the rope on every span (position and yaw from the lane curve, even near stations). Approach differences:
-        //   * ApproachPinDistanceCeiling: on approach edges large divergence from the row line is expected, so the plausibility ceiling is
-        //     the wrong-side floor (~4.3 m), not drop+margin; the mid-span guard never fires there.
-        //   * StationEndClampMeters: the anchored lane continues past the edge node onto the station's bullwheel stub inside the building;
-        //     the station-side end clamp is raised so the last chair holds just outside the station face. The station side is found
-        //     geometrically (nearest curve end to the station node): lane t-direction vs edge node order is not assumed.
+        //   * ApproachPinDistanceCeiling: on approach edges a large divergence from the row line is expected, so the plausibility
+        //     ceiling is the wrong-side floor (~4.3 m), not drop+margin. The mid-span guard never fires there.
+        //   * StationEndClampMeters: the anchored lane continues past the edge node onto the station's bullwheel stub inside the
+        //     building. The station-side end clamp is raised so that the last chair holds just outside the station face. The system finds
+        //     the station side geometrically (nearest curve end to the station node). It assumes nothing about the lane t-direction versus
+        //     the edge node order.
         private const float StationEndClampMeters = 4.0f;
         // The lift type's absolute ceiling (the static pin derives it per carrier). Uses: TryPinChair, TrySeedFromPositions, NoteSeedRefusal.
         private const float ApproachPinDistanceCeiling = SkiCatalog.FixedGrip.ApproachPinCeilingM;
 
-        // Reconnect full passes can fire into the frame gap where vanilla has deleted the old chairs but not yet respawned replacements (zero
-        // chairs matched, silent pass). Keep the pass armed until chairs appear or the retry window closes.
+        // Reconnect full passes can run in the frame gap where vanilla has deleted the old chairs but has not yet respawned replacements
+        // (zero chairs matched, silent pass). Keep the pass armed until chairs appear or the retry window closes.
         private const int FullPassRetryFrames = 30;
 
         // The prefab catalog resolves carriers (CarrierGripTops, carrier -> bounds.max.y) and the lift lines.
@@ -144,7 +144,7 @@ namespace SkiResortMod.Systems
         private int m_RebuildCooldown;
         private int m_EmptyRosterRetries;
         // The render clock in seconds: each loop's phase is its speed x this clock.
-        private double m_LastMoveTimeS = -1.0;     // seconds; -1 forces the first mover pass
+        private double m_LastMoveTimeS = -1.0;     // seconds. -1 forces the first mover pass
         private double m_LastBoundsTimeS;          // seconds at the last bounds-refresh burst
         // Per load: lift types whose spacing WARN fired (once per type), station pairs whose up lane was logged (once per loop), the last
         // mixed-loop WARN signature, the carriers riding a loop of another type (dump), the fastest moving loop's speed.
@@ -159,15 +159,15 @@ namespace SkiResortMod.Systems
         private bool m_LoopWarnLogged;             // one-time unclosed-chain warning per load
         private int m_StaticFallbackChairs;        // chairs static-pinned by the last rebuild
         private bool m_LastBuildHadLanes;          // last rebuild found chairlift cable lanes
-        private string m_LastBuildSignature;       // count fingerprint — gates the rebuild log
+        private string m_LastBuildSignature;       // count fingerprint, which gates the rebuild log
 
-        // Developer-tab diagnostics: plain fields the dev tab reads at 10 Hz (ChairPinSystem.Debug.cs). Written only where the work already
-        // happens; never consulted by the mover itself. All transient, reset per load.
+        // Developer-tab diagnostics: plain fields that the dev tab reads at 10 Hz (ChairPinSystem.Debug.cs). The code writes them only
+        // where the work already happens. The mover itself never reads them. All are transient and reset per load.
         private int m_DiagUpdateCalls;             // OnUpdate entries this load
         private long m_DiagLastUpdateFrame = -1;   // RenderingSystem.frameIndex at the last entry
-        private string m_DiagLastExit = "never ran"; // which branch the last OnUpdate took; null = the moving pass ran
+        private string m_DiagLastExit = "never ran"; // which branch the last OnUpdate took. null = the moving pass ran
         /// <summary>The last-exit text for the dev tab / dump. The per-frame moving pass stores null and leaves the numbers in the
-        /// m_DiagLast* counters; the string is formatted only here, when read.</summary>
+        /// m_DiagLast* counters. The code formats the string only here, when read.</summary>
         private string LastExitText()
         {
             if (m_DiagLastExit != null)
@@ -191,21 +191,22 @@ namespace SkiResortMod.Systems
         private int m_DiagEnrolled;                // InterpolatedTransform enrollments, last rebuild
         private readonly List<string> m_DiagStationLines = new List<string>(); // per-station census, last rebuild
 
-        // The bullwheel centers are SkiCatalog.Stations[*].WheelLocal (base (0, 3.55, 0.2), top (0, 3.75, 0)), read through the catalog's
-        // StationDefs view in BuildLoopCache. Provenance: assets/blender/lift_terminal.py: build_terminal_pali (drive) wheel_x, wheel_z =
-        // 0.2, 3.5 "bullwheel centre - loading height (INVARIANT)"; build_return_simple (return) wheel_z = 3.7 at the origin; rope over the
-        // wheel is wheel_z + 0.05; wheel radius 1.8 = half the 3.6 m rope gauge. Authoring frame (+X travel, Y lateral, Z up) ->
-        // prefab-local (X lateral, Y up, Z travel) (cs2_asset.py rotate-then-bake), so authoring (x, y, z) lands at (-y, z, x) in the game
-        // frame (the game negates FBX x on import; the wheel centers here have y = 0, so they do not move). A new terminal generation adds
-        // a StationDef; a non-finite WheelLocal falls back to the plain terminal semicircle (LiftLoopCache.AppendTerminalTurn).
+        // The bullwheel centers are SkiCatalog.Stations[*].WheelLocal (base (0, 3.55, 0.2), top (0, 3.75, 0)). BuildLoopCache reads them
+        // through the catalog's StationDefs view. Provenance: assets/blender/lift_terminal.py: build_terminal_pali (drive): wheel_x,
+        // wheel_z = 0.2, 3.5 "bullwheel centre - loading height (INVARIANT)". build_return_simple (return): wheel_z = 3.7 at the origin.
+        // The rope over the wheel is wheel_z + 0.05. The wheel radius 1.8 = half the 3.6 m rope gauge. Authoring frame (+X travel, Y
+        // lateral, Z up) -> prefab-local (X lateral, Y up, Z travel) (cs2_asset.py rotate-then-bake). So authoring (x, y, z) lands at (-y,
+        // z, x) in the game frame. The game negates FBX x on import. The wheel centers here have y = 0, so they do not move. A new terminal
+        // generation adds a StationDef. A non-finite WheelLocal falls back to the plain terminal semicircle
+        // (LiftLoopCache.AppendTerminalTurn).
 
         // Observability: silence must be impossible. Every way this system can fail or idle has a distinct, unmissable log signature:
-        //   * first update pass that matches chairs: one-time "[update] pass alive" line;
-        //   * update event with zero prefab matches: one-time diagnostic line;
-        //   * exception: "!!!" error with stack, once per load, and the system disables for the current load only (prefab table kept;
-        //     OnGameLoadingComplete re-arms);
-        //   * watchdog: every WatchdogIntervalFrames frames, a full idempotent pass; if it pins anything the event path missed, that is a
-        //     WARNING with counts.
+        //   * first update pass that matches chairs: one-time "[update] pass alive" line
+        //   * update event with zero prefab matches: one-time diagnostic line
+        //   * exception: "!!!" error with stack, once per load. The system disables for the current load only. It keeps the prefab
+        //     table. OnGameLoadingComplete re-arms.
+        //   * watchdog: every WatchdogIntervalFrames frames, a full idempotent pass. If it pins anything the event path missed, that is
+        //     a WARNING with counts.
         private bool m_FullPassPending;    // set on load or by RequestFullPass, consumed next update
         private int m_FullPassRetries;     // frames a non-load pass stays armed while zero chairs match
         private string m_PendingPassLabel = "load pass"; // log label of the pending full pass
@@ -217,7 +218,7 @@ namespace SkiResortMod.Systems
         private const int WatchdogIntervalFrames = 4096; // ~68 s of frames at 60 fps
 
         // All transient (cleared per load, never saved). The pair key is the two stations ordered by (Index, Version), the tram's idiom
-        // (TramShuttleSystem m_RunsByPair); a loop's own order is geometry and kept for the logs.
+        // (TramShuttleSystem m_RunsByPair). A loop's own order is geometry and is kept for the logs.
         /// <summary>Render frames between two hold polls (= TramShuttleSystem.PowerPollFrames).</summary>
         internal const int HoldPollFrames = 64;
         /// <summary>The census window before the "not armed" WARN (= TramShuttleSystem.CensusGateFrames).</summary>
@@ -250,7 +251,7 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<(Entity, Entity), HoldRow> m_HoldRows = new Dictionary<(Entity, Entity), HoldRow>();
         private readonly List<LiftCensus.Row> m_HoldRowScratch = new List<LiftCensus.Row>();
         private readonly List<(Entity, Entity)> m_HoldDropScratch = new List<(Entity, Entity)>();
-        // BuildLoopCache's record (record only): pairs whose offsets the last rebuild did not carry; true = seeded from where the chairs
+        // BuildLoopCache's record (record only): pairs whose offsets the last rebuild did not carry. true = seeded from where the chairs
         // stood, false = the entity-index grid.
         private readonly Dictionary<(Entity, Entity), bool> m_RebuildUncarried = new Dictionary<(Entity, Entity), bool>();
         private readonly HashSet<(Entity, Entity)> m_HoldFailOpenLogged = new HashSet<(Entity, Entity)>();   // per load
@@ -263,7 +264,7 @@ namespace SkiResortMod.Systems
         private bool m_HoldArmLogged, m_HoldCensusWarned, m_HoldEditorLogged;
         private int m_HeldLoopCount, m_HeldChairCount;               // as of the last poll
         private int m_HeldChairsForPower;                            // of m_HeldChairCount, held for no power (rest: closed)
-        private string m_HeldExitSuffix = string.Empty;              // "; n held (no power)" for m_DiagLastExit; "" at 0 held
+        private string m_HeldExitSuffix = string.Empty;              // "; n held (no power)" for m_DiagLastExit. "" at 0 held
         private int m_DiagHoldPolls, m_DiagHoldPowerReads, m_DiagHoldChanges, m_DiagHeldWrites, m_DiagHoldDropped;
         private double m_DiagHoldPollMs;
         private string m_HoldLastChange = "-";
@@ -271,15 +272,15 @@ namespace SkiResortMod.Systems
         protected override void OnCreate()
         {
             base.OnCreate();
-            // The prefab catalog (disabled system, load hooks only: creating it here is safe whatever Mod.cs's order, UpdateSystem.cs:158-160
-            // uses GetOrCreateSystemManaged too).
+            // The prefab catalog (disabled system, load hooks only). Creating it here is safe whatever Mod.cs's order.
+            // UpdateSystem.cs:158-160 uses GetOrCreateSystemManaged too.
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
 
-            // Any{Created, Updated} (the vanilla EBGS idiom) instead of All{Updated}: chairs spawned from the prefab archetype carry both tags,
-            // but Any{} also catches any hypothetical Created-without-Updated path at no cost. No Secondary term (chairs never carry it, see the
-            // EngineNotes/ChairPinSystem.md); Game.Objects.Static is the chunk-level narrowing instead (chairs keep Static: SubObjectSystem strips it only from Relative
-            // sub-objects, decompile :2898; without it these queries would also match every vehicle and cim on the map). The chair-prefab filter
-            // inside the pass loop is the real selector.
+            // Any{Created, Updated} (the vanilla EBGS idiom) instead of All{Updated}: chairs spawned from the prefab archetype carry both
+            // tags. Any{} also catches any hypothetical Created-without-Updated path at no cost. No Secondary term (chairs never carry it,
+            // see the EngineNotes/ChairPinSystem.md). Game.Objects.Static is the chunk-level narrowing instead. Chairs keep Static:
+            // SubObjectSystem strips it only from Relative sub-objects, decompile :2898. Without it, these queries would also match every
+            // vehicle and cim on the map. The chair-prefab filter inside the pass loop is the real selector.
             m_UpdatedChairQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -309,10 +310,10 @@ namespace SkiResortMod.Systems
                 ComponentType.Exclude<Deleted>(),
                 ComponentType.Exclude<Temp>());
 
-            // Tool-preview chairs. Pinned every frame they appear (the tool rebuilds them with fresh Updated tags), silently, so the drag
-            // preview shows the same pinned chairs the applied lift will have. Safe: Temp sub-objects are regenerated from scratch every tool
-            // tick and their original-matching (SubObjectSystem's FindOriginalSubObject) runs at 2B before we touch them; applied lifts spawn
-            // real chairs that the normal pass pins.
+            // Tool-preview chairs. The system pins them silently every frame they appear (the tool rebuilds them with fresh Updated tags),
+            // so the drag preview shows the same pinned chairs the applied lift will have. This is safe. The tool regenerates Temp
+            // sub-objects from scratch every tool tick. Their original-matching (SubObjectSystem's FindOriginalSubObject) runs at 2B before
+            // we touch them. Applied lifts spawn real chairs that the normal pass pins.
             m_TempChairQuery = GetEntityQuery(
                 ComponentType.ReadOnly<Game.Objects.Static>(),
                 ComponentType.ReadOnly<Owner>(),
@@ -323,10 +324,10 @@ namespace SkiResortMod.Systems
                 ComponentType.Exclude<Deleted>());
 
 
-            // Moving mode: cable-lane harvest (the Owner filter to the chairlift net happens in the build pass: lanes hang off both edges and
-            // nodes of the drawn line) and station scan (prefab filter in the pass: the prefab catalog's StationDefs, the same station set
-            // PowerBridge serves). UtilityLane narrows the query to power/pipe/comm lanes; without it it matches every road/path/parking lane
-            // on the map.
+            // Moving mode: cable-lane harvest and station scan. For the harvest, the Owner filter to the chairlift net happens in the build
+            // pass (lanes hang off both edges and nodes of the drawn line). For the station scan, the prefab filter happens in the pass
+            // (the prefab catalog's StationDefs, the same station set PowerBridge serves). UtilityLane narrows the query to power/pipe/comm
+            // lanes. Without it, the query matches every road/path/parking lane on the map.
             m_LaneQuery = GetEntityQuery(
                 ComponentType.ReadOnly<Game.Net.Lane>(),
                 ComponentType.ReadOnly<Game.Net.UtilityLane>(),
@@ -355,23 +356,23 @@ namespace SkiResortMod.Systems
             if (mode != GameMode.Game && mode != GameMode.Editor)
                 return;
 
-            // Saved chairs carry no Updated tag, and prefab-side constants may have changed since the save was written: re-pin everything once
-            // per load. (This system's per-load prefab lines are written by LogPrefabState() at the end of this method, after the re-arm, so a
-            // throw there cannot skip it.)
+            // Saved chairs carry no Updated tag, and prefab-side constants may have changed since the save was written. Re-pin everything
+            // once per load. LogPrefabState() writes this system's per-load prefab lines at the end of this method, after the re-arm, so a
+            // throw there cannot skip it.
             m_FullPassPending = true;
             m_PendingPassLabel = "load pass";
 
-            // Re-arm per load: a tripped error does not kill the whole app run, and the one-time diagnostics fire freshly for each load.
+            // Re-arm per load. A tripped error does not kill the whole app run, and the one-time diagnostics fire again for each load.
             m_Disabled = false;
             m_ErrorLogged = false;
             m_UpdateAliveLogged = false;
             m_ZeroMatchLogged = false;
             m_WatchdogCountdown = WatchdogIntervalFrames;
 
-            // Moving mode: the loop cache is world-state, rebuilt per load. The phase itself needs no reseeding (RenderingSystem resnaps its
-            // clock to the serialized SimulationSystem.frameIndex). The loops of the previous session carry that session's chair entities and
-            // offsets; clear them so no reader sees them between this load and the first rebuild. LoopGeneration moves so generation-keyed
-            // readers (hub stats) drop what they derived from them. The HV-lane prefab cache is hygiene.
+            // Moving mode: the loop cache is world-state, rebuilt per load. The phase itself needs no reseeding (RenderingSystem resnaps
+            // its clock to the serialized SimulationSystem.frameIndex). The loops of the previous session carry that session's chair
+            // entities and offsets. Clear them so no reader sees them between this load and the first rebuild. LoopGeneration moves so that
+            // generation-keyed readers (hub stats) drop what they derived from them. The HV-lane prefab cache is hygiene.
             MoverReset();      // the last job completed, flat arrays dirty, cost window and harvest watchdog re-armed
             m_LoopCache.Clear();
             LoopGeneration++;
@@ -441,7 +442,7 @@ namespace SkiResortMod.Systems
             LogPrefabState();
         }
 
-        /// <summary>A load (or leaving to the menu) writes the folded "[state]" lines of the city being left. Never throws:
+        /// <summary>A load (or leaving to the menu) writes the folded "[state]" lines of the city being left. It never throws.
         /// GameSystemBase.GamePreload DISABLES a system whose OnGamePreload throws (Game/GameSystemBase.cs:85-96), the census's precedent
         /// (LiftCensusSystem.OnGamePreload).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
@@ -458,9 +459,9 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"{nameof(ChairPinSystem)}: folded [state] lines could not be written before the load " +
                              $"({e.GetType().Name}: {e.Message}) — non-fatal");
             }
-            // The city is being left: nothing is held any more. OnGameLoadingComplete sets the mode again for a Game /
-            // Editor load; a MainMenu load leaves both false (no gate, no hold line, no census WARN in the menu, where the
-            // census is not armed: LiftCensusSystem.OnGameLoadingComplete).
+            // The city is being left: nothing is held any more. OnGameLoadingComplete sets the mode again for a Game / Editor load. A
+            // MainMenu load leaves both false (no gate, no hold line, no census WARN in the menu, where the census is not armed:
+            // LiftCensusSystem.OnGameLoadingComplete).
             m_HoldInGame = m_HoldInEditor = false;
             m_Holds.Clear();
             m_HoldByLoop.Clear();
@@ -468,8 +469,8 @@ namespace SkiResortMod.Systems
             m_HeldExitSuffix = string.Empty;
         }
 
-        /// <summary>Quit to desktop raises no OnGamePreload, but the world's systems are destroyed while the logger still lives (LogWindow.cs
-        /// engine notes): the folded "[state]" lines are written here. Teardown never throws.</summary>
+        /// <summary>Quit to desktop raises no OnGamePreload, but the world's systems are destroyed while the logger still lives
+        /// (LogWindow.cs engine notes). The folded "[state]" lines are written here. Teardown never throws.</summary>
         protected override void OnDestroy()
         {
             try
@@ -491,8 +492,8 @@ namespace SkiResortMod.Systems
             m_DiagLastUpdateFrame = m_RenderingSystem.frameIndex;
             try
             {
-                // Last frame's mover job is complete before anything below reads or writes the flat arrays or a chair's Transform on the main thread
-                // (ChairPinSystem.Mover.cs); its result counts become the "last pass" numbers.
+                // The code completes last frame's mover job before anything below reads or writes the flat arrays or a chair's Transform on
+                // the main thread (ChairPinSystem.Mover.cs). Its result counts become the "last pass" numbers.
                 MoverCompleteJob();
 
                 // The end of a "[state]" burst is written at most 10 s after the last line, whatever path this update takes (the census's
@@ -508,7 +509,7 @@ namespace SkiResortMod.Systems
                 // startup main menu exits here.
                 if (m_Disabled || m_PrefabCatalog.CarrierGripTops.Count == 0)
                 {
-                    // error-tripped this load, or chair prefab missing — logged already
+                    // Either an error tripped the system this load, or the chair prefab is missing. Both were logged already.
                     m_DiagLastExit = m_Disabled ? "disabled by exception" : "no chair prefab resolved";
                     return;
                 }
@@ -518,17 +519,17 @@ namespace SkiResortMod.Systems
                     UpdateMovingChairs();
                     return;
                 }
-                // (chairlift net prefab unresolved → the static flow below still pins)
+                // (The chairlift net prefab is unresolved. The static flow below still pins.)
                 m_DiagLastExit = MovingChairs
                     ? "static flow (chairlift net prefab unresolved)"
                     : "static flow (moving mode off)";
 
                 if (m_FullPassPending)
                 {
-                    // A reconnect-requested pass can land in the deletion gap (old chairs gone, replacements not yet spawned): stay armed until chairs
-                    // appear or the retry window closes. The retry does not re-scan the map every armed frame: it waits for the cheap change probe to see
-                    // a chair spawn, then runs; the final window frame scans regardless as a belt. The load pass keeps consume-immediately semantics (it
-                    // must log its summary exactly once, even on lift-free maps).
+                    // A reconnect-requested pass can land in the deletion gap (old chairs gone, replacements not yet spawned). Stay armed
+                    // until chairs appear or the retry window closes. The retry does not re-scan the map every armed frame. It waits for
+                    // the cheap change probe to see a chair spawn, then runs. The final window frame scans regardless as a belt. The load
+                    // pass keeps consume-immediately semantics (it must log its summary exactly once, even on lift-free maps).
                     bool isLoadPass = m_PendingPassLabel == "load pass";
                     bool lastAttempt = --m_FullPassRetries <= 0;
                     bool chairsAppeared = !m_UpdatedChairQuery.IsEmptyIgnoreFilter &&
@@ -548,8 +549,8 @@ namespace SkiResortMod.Systems
                 }
                 else if (!m_UpdatedChairQuery.IsEmptyIgnoreFilter)
                 {
-                    // Chairs created/re-seated this frame already carry Updated; culling and the
-                    // search tree will pick the write up downstream of this phase without help.
+                    // Chairs created/re-seated this frame already carry Updated. Culling and the search tree handle the write downstream of
+                    // this phase without help.
                     int processed = PinChairs(m_UpdatedChairQuery, 0f, tagUpdated: false,
                         logLabel: "update", out _);
 
@@ -573,8 +574,8 @@ namespace SkiResortMod.Systems
                 if (!m_TempChairQuery.IsEmptyIgnoreFilter)
                     PinChairs(m_TempChairQuery, 0f, tagUpdated: false, logLabel: null, out _);
 
-                // Watchdog, silence-proofing of last resort: a full idempotent pass on a slow cadence; anything it pins was missed by the event
-                // path, so self-heal and say so loudly. In steady state it pins nothing and logs nothing.
+                // Watchdog, silence-proofing of last resort: a full idempotent pass on a slow cadence. The event path missed anything it
+                // pins, so self-heal and say so loudly. In steady state it pins nothing and logs nothing.
                 if (--m_WatchdogCountdown <= 0)
                 {
                     m_WatchdogCountdown = WatchdogIntervalFrames;
@@ -590,8 +591,8 @@ namespace SkiResortMod.Systems
             }
             catch (Exception e)
             {
-                // Never throw into the game loop. Unmissable, with the full stack, once per load; the prefab table is kept so the next load re-arms
-                // automatically.
+                // Never throw into the game loop. Log the error unmissably, with the full stack, once per load. The prefab table is kept so
+                // the next load re-arms automatically.
                 m_Disabled = true;
                 m_LastError = e.ToString();
                 m_DiagLastExit = "exception (see Last error)";
@@ -604,20 +605,20 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // Core pass: collect matching chairs from the query, pin each onto its cable lane. Runs on the main thread with EntityManager: chair
-        // counts are tiny (a 1 km lift is ~250 chairs) and passes are event-driven, so a Burst job would be complexity without a measurable
-        // win. Chunk iteration keeps the prefab filter cheap on the full pass, where the query also matches every other Static object on the
-        // map.
-        /// <summary>Runs one pinning pass. Returns the number of prefab-matched chairs
-        /// processed; <paramref name="pinnedCount"/> reports how many were actually moved.</summary>
+        // Core pass: collect matching chairs from the query and pin each onto its cable lane. It runs on the main thread with
+        // EntityManager. Chair counts are tiny (a 1 km lift is ~250 chairs) and passes are event-driven, so a Burst job would be complexity
+        // without a measurable win. Chunk iteration keeps the prefab filter cheap on the full pass, where the query also matches every
+        // other Static object on the map.
+        /// <summary>Runs one pinning pass. Returns the number of prefab-matched chairs processed. <paramref name="pinnedCount"/> reports
+        /// how many were actually moved.</summary>
         private int PinChairs(EntityQuery query, float advanceDistance, bool tagUpdated,
             string logLabel, out int pinnedCount)
         {
             int pinned = 0, alreadyPinned = 0, skippedNoLane = 0, skippedFar = 0;
             int processed;
 
-            // The carrier view, fetched once before the chunk loop; with the carrier -> type view (also once): Shuttle carriers (the tram's) are
-            // never pinned, and each carrier's approach ceiling is its type's.
+            // The carrier view is fetched once before the chunk loop, with the carrier -> type view (also once). Shuttle carriers (the
+            // tram's) are never pinned, and each carrier's approach ceiling is its type's.
             IReadOnlyDictionary<Entity, float> drops = m_PrefabCatalog.CarrierDrops;
             IReadOnlyDictionary<Entity, LiftTypeDef> carrierTypes = m_PrefabCatalog.CarrierTypes;
             GripIndexClear();   // the grip pairing index is per pass (ChairPinSystem.Grips.cs)
@@ -642,7 +643,7 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < chairs.Length; i++)
                 {
                     var chair = chairs[i];
-                    // TryGetValue, never the indexer; always true here: the same view filtered above.
+                    // Use TryGetValue, never the indexer. It is always true here: the same view filtered above.
                     Entity prefab = EntityManager.GetComponentData<PrefabRef>(chair).m_Prefab;
                     if (!drops.TryGetValue(prefab, out float drop))
                         continue;
@@ -662,8 +663,8 @@ namespace SkiResortMod.Systems
                 chairs.Dispose();
             }
 
-            // One-line verifiable summary (mod log): emitted on load always, on changes only
-            // when chairs were actually touched. Moving mode stays silent.
+            // One-line verifiable summary (mod log). The system always emits it on load. On changes, it emits it only when chairs were
+            // actually touched. Moving mode stays silent.
             if (logLabel != null && (pinned + alreadyPinned + skippedNoLane + skippedFar > 0 || logLabel == "load pass"))
             {
                 Mod.Log.Info(
@@ -684,8 +685,8 @@ namespace SkiResortMod.Systems
             LaneTooFar
         }
 
-        /// <summary>A carrier prefab this system pins or moves: in the CarrierGripTops view (usable bounds) and not of a Shuttle lift type (a
-        /// tram cabin keeps its hosted pose).</summary>
+        /// <summary>A carrier prefab this system pins or moves. It is in the CarrierGripTops view (usable bounds) and not of a Shuttle lift
+        /// type (a tram cabin keeps its hosted pose).</summary>
         private static bool IsPinnable(IReadOnlyDictionary<Entity, float> grips, IReadOnlyDictionary<Entity, LiftTypeDef> types,
             Entity prefab)
         {
@@ -694,8 +695,8 @@ namespace SkiResortMod.Systems
             return !(types.TryGetValue(prefab, out LiftTypeDef def) && def != null && def.Mover == MoverKind.Shuttle);
         }
 
-        /// <summary>The carrier's approach-pin ceiling, its type's ApproachPinCeilingM = max(4.0, HangM + 1.5); the fixed-grip 4.0 when the
-        /// type is unknown.</summary>
+        /// <summary>The carrier's approach-pin ceiling, its type's ApproachPinCeilingM = max(4.0, HangM + 1.5). It is the fixed-grip 4.0
+        /// when the type is unknown.</summary>
         private static float CeilingOf(IReadOnlyDictionary<Entity, LiftTypeDef> types, Entity prefab)
         {
             return types.TryGetValue(prefab, out LiftTypeDef def) && def != null && def.ApproachPinCeilingM > 0f
@@ -703,7 +704,7 @@ namespace SkiResortMod.Systems
                 : ApproachPinDistanceCeiling;
         }
 
-        /// <summary>A loop's approach-pin ceiling (its type's; fixed-grip 4.0 when the loop has no single type).</summary>
+        /// <summary>A loop's approach-pin ceiling (its type's, or fixed-grip 4.0 when the loop has no single type).</summary>
         private static float CeilingOf(LiftLoopCache.Loop loop)
         {
             LiftTypeDef def = SkiCatalog.LiftByIndex(loop.m_TypeIndex);
@@ -713,13 +714,13 @@ namespace SkiResortMod.Systems
         /// <summary><paramref name="def"/> = the carrier's lift type (null = unknown): a split type also pins the chair's grip (PinGripOf).</summary>
         private PinResult TryPinChair(Entity chair, float drop, float approachCeiling, float advanceDistance, bool tagUpdated, LiftTypeDef def)
         {
-            // Owner must be a live edge carrying sublanes; anything else (mid-demolition,
-            // station oddities) → leave the chair exactly as vanilla placed it.
+            // Owner must be a live edge carrying sublanes. For anything else (mid-demolition, station oddities), leave the chair exactly as
+            // vanilla placed it.
             Entity owner = EntityManager.GetComponentData<Owner>(chair).m_Owner;
             if (owner == Entity.Null || !EntityManager.Exists(owner))
                 return PinResult.NoCableLane;
             // The carrier grip round: a carrier left where vanilla placed it (the returns below) gets its grip assembled on it
-            // (ParkGripOnBody), never a grip at its own spawn under a body that stands elsewhere.
+            // (ParkGripOnBody). It never gets a grip at its own spawn under a body that stands elsewhere.
             if (!EntityManager.TryGetBuffer(owner, isReadOnly: true, out DynamicBuffer<Game.Net.SubLane> subLanes))
             {
                 ParkGripOnBody(chair, def, tagUpdated);
@@ -728,10 +729,11 @@ namespace SkiResortMod.Systems
 
             var transform = EntityManager.GetComponentData<Transform>(chair);
 
-            // Side guard: hanging cable lanes are straight XZ chords (LaneSystem rebuilds b/c as lerp(a,d) for hanging lanes), so on a curved span
-            // whose sagitta exceeds half the cable gauge (1.8 m) the 3D-nearest lane can be the opposite side's chord: nearest-distance alone
-            // would merge both rows onto one rope. Resolve side by sign against the owner edge curve: a candidate whose lateral sign disagrees
-            // with the chair's is never a valid pin target. Degenerate signs (point ~on the edge curve) fall back to distance.
+            // Side guard: hanging cable lanes are straight XZ chords (LaneSystem rebuilds b/c as lerp(a,d) for hanging lanes). So on a
+            // curved span whose sagitta exceeds half the cable gauge (1.8 m), the 3D-nearest lane can be the opposite side's chord.
+            // Nearest-distance alone would merge both rows onto one rope. Resolve side by sign against the owner edge curve. A candidate
+            // whose lateral sign disagrees with the chair's is never a valid pin target. For degenerate signs (point ~on the edge curve),
+            // use distance instead.
             float chairSide = 0f;
             bool hasEdgeCurve = EntityManager.TryGetComponent<Curve>(owner, out var edgeCurve);
             if (hasEdgeCurve)
@@ -785,9 +787,10 @@ namespace SkiResortMod.Systems
             }
             bool isApproach = stationAtStart || stationAtEnd;
 
-            // Plausibility guard: on normal spans, farther than drop+margin means a wrong-side match or degenerate geometry: leave the chair
-            // at spawn placement. On approach edges divergence from the row line is expected (the anchored lane dives into the station), so the
-            // ceiling is the wrong-side floor instead (the carrier type's). No mid-span guard firing, no pinned/spawn zigzag.
+            // Plausibility guard: on normal spans, farther than drop+margin means a wrong-side match or degenerate geometry. In that case,
+            // leave the chair at spawn placement. On approach edges divergence from the row line is expected (the anchored lane dives into
+            // the station), so the ceiling is the wrong-side floor instead (the carrier type's). The mid-span guard does not fire, and
+            // there is no pinned/spawn zigzag.
             float distanceCeiling = isApproach ? approachCeiling
                                                : drop + MaxPinDistanceMargin;
             if (bestDistance > distanceCeiling)
@@ -796,17 +799,17 @@ namespace SkiResortMod.Systems
                 return PinResult.LaneTooFar;
             }
 
-            // Advance along the lane by arc length: t-space advance scaled by the lane's total length is a uniform-speed approximation. The end
-            // clamp below also bounds the advance; cross-edge looping is not done here.
+            // Advance along the lane by arc length: t-space advance scaled by the lane's total length is a uniform-speed approximation. The
+            // end clamp below also bounds the advance. This code does not loop across edges.
             float pinT = bestT;
             if (advanceDistance > 0f)
                 pinT += advanceDistance / math.max(bestCurve.m_Length, 0.01f);
 
-            // End clamps, per side: the station side of the lane curve gets the big clamp so the last chair holds just outside the station face
-            // (the anchored lane continues onto the bullwheel stub inside the building). Which lane end is the station side is decided
-            // geometrically (nearest curve end to the station node) because lane t-direction vs edge node order is not guaranteed. Tower/normal
-            // ends keep the 1 m anchor-stub clamp. Inert for interior chairs: EvenSpacing never places a chair within a spacing-length of an edge
-            // end.
+            // End clamps, per side: the station side of the lane curve gets the big clamp so the last chair holds just outside the station
+            // face (the anchored lane continues onto the bullwheel stub inside the building). The code decides geometrically which lane end
+            // is the station side (nearest curve end to the station node), because lane t-direction versus edge node order is not
+            // guaranteed. Tower/normal ends keep the 1 m anchor-stub clamp. The clamps are inert for interior chairs: EvenSpacing never
+            // places a chair within a spacing-length of an edge end.
             float clampT0 = EndClampMeters, clampT1 = EndClampMeters;
             if (isApproach)
             {
@@ -839,8 +842,8 @@ namespace SkiResortMod.Systems
             float3 lanePoint = MathUtils.Position(bestCurve.m_Bezier, pinT);
             float3 tangent = MathUtils.Tangent(bestCurve.m_Bezier, pinT);
 
-            // Plumb hang: yaw-only rotation from the tangent (GetNodeRotation zeroes tangent.y);
-            // sign chosen to preserve the authored facing of this row (up-side vs down-side).
+            // Plumb hang: yaw-only rotation from the tangent (GetNodeRotation zeroes tangent.y). The code chooses the sign to preserve the
+            // authored facing of this row (up-side vs down-side).
             quaternion newRotation = NetUtils.GetNodeRotation(tangent, transform.m_Rotation);
             float3 newForward = math.mul(newRotation, new float3(0f, 0f, 1f));
             float3 oldForward = math.mul(transform.m_Rotation, new float3(0f, 0f, 1f));
@@ -852,19 +855,20 @@ namespace SkiResortMod.Systems
             float3 newPosition = lanePoint;
             newPosition.y -= drop;
 
-            // The carrier grip round: a split carrier's grip pitches with the lane at the same rope point and yaw (its own idempotence, so a
-            // grip spawned after its chair is pinned even when the chair is already in place), and its body takes the pose of the SAME
-            // CarrierPose.Pose call at zero swing: plumb and still, hung from the pitched grip's pin. The rigid pose above would leave the
-            // body's pin off the grip's by |GripPin - GripRope| x sin(pitch) (CP-15: 10 cm on a 30 deg span; the tram's 0.38 m arm more).
-            // Toggle off or no grip: the rigid pose, unchanged (CP-1). The idempotence below compares this pose as before.
+            // The carrier grip round: a split carrier's grip pitches with the lane at the same rope point and yaw. It has its own
+            // idempotence, so a grip spawned after its chair is pinned even when the chair is already in place. The body takes the pose of
+            // the SAME CarrierPose.Pose call at zero swing: plumb and still, hung from the pitched grip's pin. The rigid pose above would
+            // leave the body's pin off the grip's by |GripPin - GripRope| x sin(pitch) (CP-15: 10 cm on a 30 deg span, and more with the
+            // tram's 0.38 m arm). Toggle off or no grip: the rigid pose, unchanged (CP-1). The idempotence below compares this pose as
+            // before.
             if (PinGripOf(chair, def, lanePoint, tangent, newRotation, tagUpdated, out float3 splitPosition, out quaternion splitRotation))
             {
                 newPosition = splitPosition;
                 newRotation = splitRotation;
             }
 
-            // Idempotence short-circuit — a chair already on target (repeat load pass, second
-            // event in one frame) is not rewritten and not re-tagged.
+            // Idempotence short-circuit: the code does not rewrite or re-tag a chair that is already on target (repeat load pass, second
+            // event in one frame).
             if (math.distancesq(newPosition, transform.m_Position) < 1e-6f &&
                 math.abs(math.dot(newRotation, transform.m_Rotation)) > 0.99999f)
                 return PinResult.AlreadyPinned;
@@ -881,7 +885,7 @@ namespace SkiResortMod.Systems
                 EntityManager.SetComponentData(chair, elevation);
             }
 
-            // Static chairs have no InterpolatedTransform; handled anyway for chairs enrolled as movers.
+            // Static chairs have no InterpolatedTransform. The code handles it anyway for chairs enrolled as movers.
             if (EntityManager.TryGetComponent<InterpolatedTransform>(chair, out var interpolated))
             {
                 interpolated.m_Position = transform.m_Position;
@@ -889,20 +893,21 @@ namespace SkiResortMod.Systems
                 EntityManager.SetComponentData(chair, interpolated);
             }
 
-            // Load-pass (and moving-mode) chairs carry no Updated tag — add it so PreCulling
-            // and SearchSystem refresh this entity; CleanUpSystem removes it at end of frame.
+            // Load-pass (and moving-mode) chairs carry no Updated tag. Add it so PreCulling and SearchSystem refresh this entity.
+            // CleanUpSystem removes it at end of frame.
             if (tagUpdated && !EntityManager.HasComponent<Updated>(chair))
                 EntityManager.AddComponent<Updated>(chair);
 
             return PinResult.Pinned;
         }
 
-        // The moving-chairs pass (every Unity frame; design: EngineNotes/ChairPinSystem.md). Runs only when the chairlift net prefab resolved.
+        // The moving-chairs pass (every Unity frame). Design: EngineNotes/ChairPinSystem.md. Runs only when the chairlift net prefab
+        // resolved.
         private void UpdateMovingChairs()
         {
-            // Change detection: any created/updated real chair this frame means vanilla touched the fleet (lift edit, respawn after reconnect):
-            // rebuild the cache. Our own bounds-refresh Updated tags can never re-enter here: tags added at Modification4B are stripped by
-            // CleanUpSystem at the end of the same frame.
+            // Change detection: any created/updated real chair this frame means vanilla touched the fleet (lift edit, respawn after
+            // reconnect). In that case, rebuild the cache. Our own bounds-refresh Updated tags can never re-enter here: CleanUpSystem
+            // strips tags added at Modification4B at the end of the same frame.
             m_DiagProbeUpdatedChairs = m_UpdatedChairQuery.IsEmptyIgnoreFilter
                 ? 0
                 : CountMatchingChairs(m_UpdatedChairQuery);
@@ -912,9 +917,9 @@ namespace SkiResortMod.Systems
                 m_EmptyRosterRetries = 0; // real chair activity re-arms the roster retry
             }
 
-            // Watchdog (silence-proofing of last resort): a slow-cadence forced rebuild that self-heals missed invalidation (e.g. a lane-curve
-            // rebuild that never reseated chairs). It only fires when the last rebuild actually saw lift infrastructure: on lift-free maps the mod
-            // does zero steady-state work, and the rebuild log is drift-gated besides.
+            // Watchdog (silence-proofing of last resort): a slow-cadence forced rebuild that self-heals missed invalidation (e.g. a
+            // lane-curve rebuild that never reseated chairs). It fires only when the last rebuild actually saw lift infrastructure. On
+            // lift-free maps the mod does zero steady-state work, and the rebuild log is drift-gated besides.
             if (--m_WatchdogCountdown <= 0)
             {
                 m_WatchdogCountdown = WatchdogIntervalFrames;
@@ -927,9 +932,9 @@ namespace SkiResortMod.Systems
             bool rebuilt = false;
             if (m_LoopCacheDirty && (m_RebuildCooldown <= 0 || m_ImmediateRebuild))
             {
-                // Debounce guards the reconnect poke storms: at most one rebuild per window, dirty flag re-set by the triggers if needed.
-                // RequestImmediateRebuild bypasses the window once (lift topology changed / parked chairs re-seated) and then the window restarts as
-                // usual.
+                // Debounce guards the reconnect poke storms: at most one rebuild per window. The triggers set the dirty flag again if
+                // needed. RequestImmediateRebuild bypasses the window once (lift topology changed / parked chairs re-seated). Then the
+                // window restarts as usual.
                 if (m_ImmediateRebuild && m_RebuildCooldown > 0)
                     m_DiagImmediateRebuilds++;
                 m_ImmediateRebuild = false;
@@ -942,26 +947,27 @@ namespace SkiResortMod.Systems
             if (!m_TempChairQuery.IsEmptyIgnoreFilter)
                 PinChairs(m_TempChairQuery, 0f, tagUpdated: false, logLabel: null, out _);
 
-            // The derived clock: frozen on pause (RenderingSystem holds frameIndex/frameTime when selectedSpeed ~ 0), smooth at any sim speed,
-            // save-continuous. Double is mandatory: frameIndex reaches 1e7+ in mature saves and float32 would quantize speed * time at meter
-            // scale. The clock is in seconds and each loop's phase is its own speed x this clock (PhaseOf); the pause test compares the clock.
+            // The derived clock: frozen on pause (RenderingSystem holds frameIndex/frameTime when selectedSpeed ~ 0), smooth at any sim
+            // speed, save-continuous. Double is mandatory: frameIndex reaches 1e7+ in mature saves and float32 would quantize speed * time
+            // at meter scale. The clock is in seconds and each loop's phase is its own speed x this clock (PhaseOf). The pause test
+            // compares the clock.
             double timeS = TimeS();
 
-            // The power hold per station pair, polled every HoldPollFrames render frames and at each rebuild. A census read, not a pure one:
-            // ReadLiftPower updates the flicker-guard state, may write a Lift [power] line and completes the electricity dispatch job (a sync
-            // point); a transition re-bases or freezes the loop's offsets.
+            // The power hold per station pair, polled every HoldPollFrames render frames and at each rebuild. A census read, not a pure
+            // one: ReadLiftPower updates the flicker-guard state, may write a Lift [power] line and completes the electricity dispatch job
+            // (a sync point). A transition re-bases or freezes the loop's offsets.
             bool holdChanged = PollHolds(timeS, rebuilt);
 
             // A hold change is never skipped (it can only happen while paused through a rebuild, which passes anyway).
             if (timeS == m_LastMoveTimeS && !rebuilt && !holdChanged)
             {
-                // paused — the derived positions are identical, write nothing
+                // paused. The derived positions are identical. Write nothing.
                 m_DiagPausedSkips++;
                 m_DiagLastExit = "moving: phase unchanged (paused)";
                 return;
             }
-            // The render-clock advance of this pass (sim speed and fps both in it) sizes a far loop's stride; <= 0 (the first pass of a load, a
-            // clock step back) means stride 1 for every loop.
+            // The render-clock advance of this pass (sim speed and fps both in it) sizes a far loop's stride. A value <= 0 (the first pass
+            // of a load, a clock step back) means stride 1 for every loop.
             double passDtS = m_LastMoveTimeS >= 0.0 ? timeS - m_LastMoveTimeS : 0.0;
             m_LastMoveTimeS = timeS;
             m_DiagLastTimeS = timeS;
@@ -1018,9 +1024,8 @@ namespace SkiResortMod.Systems
             LiftLoopCache.Sample(loop, s, out float3 position, out float3 travelTangent);
             position.y -= drop; // the rope point rides on the cable (LiftMoverMath.CarrierDrop)
 
-            // Travel-facing yaw: GetNodeRotation zeroes tangent.y (plumb hang); its second
-            // argument is only the degenerate-tangent fallback. Facing the travel direction
-            // naturally reverses heading on the return side and through the bullwheel arcs —
+            // Travel-facing yaw: GetNodeRotation zeroes tangent.y (plumb hang). Its second argument is only the degenerate-tangent
+            // fallback. Facing the travel direction naturally reverses heading on the return side and through the bullwheel arcs. There is
             // no per-side sign logic.
             quaternion rotation = NetUtils.GetNodeRotation(travelTangent, transform.m_Rotation);
 
@@ -1033,18 +1038,17 @@ namespace SkiResortMod.Systems
             transform.m_Rotation = rotation;
             EntityManager.SetComponentData(chair, transform);
 
-            // Elevation is deliberately not touched: per-frame delta-accumulation makes m_Elevation wrong by exactly the terrain rise along the
-            // lift (it is height-above-ground, serialized into saves), while the enrollment-time value stays approximately right, and nothing
+            // Elevation is deliberately not touched. Per-frame delta-accumulation makes m_Elevation wrong by exactly the terrain rise along
+            // the lift (it is height-above-ground, serialized into saves). The enrollment-time value stays approximately right. Nothing
             // consumes it for non-OnGround objects (GroundHeightSystem skips them).
 
-            // InterpolatedTransform is deliberately NOT written: vanilla's
-            // UpdateStaticAnimations copies Transform into it every rendered frame for
-            // NearCamera chairs — that copy IS the render path (see EngineNotes/ChairPinSystem.md).
+            // InterpolatedTransform is deliberately NOT written: vanilla's UpdateStaticAnimations copies Transform into it every rendered
+            // frame for NearCamera chairs. That copy IS the render path (see EngineNotes/ChairPinSystem.md).
             return MoveResult.Moved;
         }
 
-        /// <summary>Counts entities in the query whose prefab is a known chair prefab —
-        /// the cheap change-detection probe for moving mode.</summary>
+        /// <summary>Counts entities in the query whose prefab is a known chair prefab. This is the cheap change-detection probe for moving
+        /// mode.</summary>
         private int CountMatchingChairs(EntityQuery query)
         {
             int count = 0;
@@ -1071,9 +1075,8 @@ namespace SkiResortMod.Systems
             return count;
         }
 
-        // Loop-cache rebuild: harvest stations + cable lanes, chain into loops, roster the
-        // chairs, enroll them for per-frame rendering, assign even loop offsets. Main-thread
-        // EntityManager on small counts; runs only on load / lift edits / watchdog cadence.
+        // Loop-cache rebuild: harvest stations + cable lanes, chain into loops, roster the chairs, enroll them for per-frame rendering,
+        // assign even loop offsets. Main-thread EntityManager on small counts. It runs only on load / lift edits / watchdog cadence.
         private struct PrevSlot
         {
             public double m_Offset;
@@ -1085,8 +1088,8 @@ namespace SkiResortMod.Systems
             m_LoopCacheDirty = false;
             LoopGeneration++;   // every rebuild, whatever it finds
 
-            // Carry-forward snapshot: identity rebuilds (watchdog self-heal, reconnect no-ops) keep every surviving chair's offset when its loop
-            // length is unchanged: zero jump by construction. Keyed by entity.
+            // Carry-forward snapshot: identity rebuilds (watchdog self-heal, reconnect no-ops) keep every surviving chair's offset when its
+            // loop length is unchanged. Zero jump by construction. Keyed by entity.
             var previousSlots = new Dictionary<Entity, PrevSlot>();
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
             {
@@ -1101,8 +1104,8 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // 1. Station entities: the catalog's StationDefs view, fetched once before the chunk loop, is the same station set PowerBridge serves
-            // (one source of truth for what counts as a station) and carries each station's wheel center.
+            // 1. Station entities: the catalog's StationDefs view is the same station set PowerBridge serves (one source of truth for
+            //    what counts as a station). It carries each station's wheel center. The code fetches it once before the chunk loop.
             IReadOnlyDictionary<Entity, StationDef> stationDefs = m_PrefabCatalog.StationDefs;
             var stations = new List<Entity>();
             var stationPositions = new List<float3>();
@@ -1128,9 +1131,10 @@ namespace SkiResortMod.Systems
                         stationPositions.Add(transforms[i].m_Position);
                         stationRoles.Add((sbyte)stationDef.Role);
 
-                        // Bullwheel center: rope height over the wheel, in station-local space, from the terminal generator's invariant wheel placement
-                        // (lift_terminal.py: drive wheel_x/z 0.2/3.5, return 0/3.7, rope = wheel + 0.05; authoring +X = travel maps to prefab +Z) - the
-                        // catalog row's WheelLocal; non-finite = unknown -> plain semicircle.
+                        // Bullwheel center: rope height over the wheel, in station-local space, from the terminal generator's invariant
+                        // wheel placement (lift_terminal.py: drive wheel_x/z 0.2/3.5, return 0/3.7, rope = wheel + 0.05. Authoring +X =
+                        // travel maps to prefab +Z). This is the catalog row's WheelLocal. Non-finite = unknown, which gives a plain
+                        // semicircle.
                         float3 wheel = math.all(math.isfinite(stationDef.WheelLocal))
                             ? ObjectUtils.LocalToWorld(transforms[i], stationDef.WheelLocal)
                             : new float3(float.NaN);
@@ -1147,19 +1151,20 @@ namespace SkiResortMod.Systems
                 chunks.Dispose();
             }
 
-            // 2. HV cable lanes owned by the chairlift net: edges and nodes both carry PrefabRef to the net prefab, so one owner-prefab check
-            //    covers both. The UtilityLaneData HV flag skips the LV comm lane (same structural test as the static pin). Station/tower stub
-            //    lanes are excluded automatically: their owners are building/object entities with different prefabs. The catalog's lift-line set
-            //    is an explicit whitelist, fetched once before the chunk loop; the line -> type view makes a lane count when its owner's line
-            //    type moves as a Loop (Shuttle lines, the tram, are not harvested). The lanes come from the census's line edges and their end
-            //    nodes (HarvestCableLanes, ChairPinSystem.Harvest.cs), not from every utility lane of the city; the city-wide scan is kept as the
-            //    once-per-load watchdog and as the fallback while the census is not armed (the Editor).
+            // 2. HV cable lanes owned by the chairlift net: edges and nodes both carry PrefabRef to the net prefab, so one owner-prefab
+            //    check covers both. The UtilityLaneData HV flag skips the LV comm lane (same structural test as the static pin).
+            //    Station/tower stub lanes are excluded automatically: their owners are building/object entities with different prefabs. The
+            //    catalog's lift-line set is an explicit whitelist, fetched once before the chunk loop. The line -> type view makes a lane
+            //    count when its owner's line type moves as a Loop (Shuttle lines, the tram, are not harvested). The lanes come from the
+            //    census's line edges and their end nodes (HarvestCableLanes, ChairPinSystem.Harvest.cs), not from every utility lane of the
+            //    city. The city-wide scan stays as the once-per-load watchdog and as the fallback while the census is not armed (the
+            //    Editor).
             List<LiftLoopCache.CableLane> lanes = HarvestCableLanes();
             m_LastBuildHadLanes = lanes.Count > 0;
 
-            // Station ownership map for the loop walk: PathNode owners are entity indices, and a station's anchors may be stamped with the station
-            // itself or one of its children (sub-objects, sub-net nodes/edges): collect them all so terminals classify and the walk still stops
-            // at shared stations.
+            // Station ownership map for the loop walk. PathNode owners are entity indices. A station's anchors may be stamped with the
+            // station itself or one of its children (sub-objects, sub-net nodes/edges). Collect them all so terminals classify and the walk
+            // still stops at shared stations.
             var stationByOwnerIndex = new Dictionary<int, int>();
             for (int i = 0; i < stations.Count; i++)
             {
@@ -1174,8 +1179,9 @@ namespace SkiResortMod.Systems
             }
             m_LoopCache.Build(lanes, stations, stationPositions, stationByOwnerIndex, stationWheels, stationRoles);
 
-            // Each loop's speed from its lift type; a loop whose lanes span several types moves nothing (no roster below; its chairs static-pin),
-            // one WARN per rebuild signature. The fastest speed drives the bounds refresh. The up-lane line is written once per loop per load.
+            // Each loop's speed comes from its lift type. A loop whose lanes span several types moves nothing (no roster below, its chairs
+            // static-pin), with one WARN per rebuild signature. The fastest speed drives the bounds refresh. The up-lane line is written
+            // once per loop per load.
             m_MaxLoopSpeedMps = 0.0;
             int mixedLoops = 0;
             System.Text.StringBuilder mixedText = null;
@@ -1220,13 +1226,13 @@ namespace SkiResortMod.Systems
             m_DiagLanesMatched = lanes.Count;
             // m_DiagLaneTotal: set by HarvestCableLanes (the city-wide count when the full scan ran).
 
-            // 3. Roster: every live chair joins its loop (by owner edge) or falls back to static pinning. Riding chairs are enrolled once with
-            //    vanilla InterpolatedTransform (+ one Updated so batches/culling re-evaluate).
+            // 3. Roster: every live chair joins its loop (by owner edge) or is static-pinned instead. Riding chairs are enrolled once
+            //    with vanilla InterpolatedTransform (+ one Updated so batches/culling re-evaluate).
             m_StaticFallbackChairs = 0;
             int riding = 0, enrolled = 0;
 
-            // The carrier view, fetched once before the chunk loop; with the carrier -> type view (also once): Shuttle carriers (the tram's
-            // cabins, hosted on the base station) are neither rostered nor static-pinned (counted for the dump).
+            // The carrier view is fetched once before the chunk loop, with the carrier -> type view (also once). Shuttle carriers (the
+            // tram's cabins, hosted on the base station) are neither rostered nor static-pinned (counted for the dump).
             IReadOnlyDictionary<Entity, float> drops = m_PrefabCatalog.CarrierDrops;
             IReadOnlyDictionary<Entity, LiftTypeDef> carrierTypes = m_PrefabCatalog.CarrierTypes;
             int shuttleCarriers = 0, typeMismatch = 0;
@@ -1257,7 +1263,7 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < chairs.Length; i++)
                 {
                     Entity chair = chairs[i];
-                    // TryGetValue, never the indexer; always true here: the same view filtered above.
+                    // Use TryGetValue, never the indexer. It is always true here: the same view filtered above.
                     Entity chairPrefab = EntityManager.GetComponentData<PrefabRef>(chair).m_Prefab;
                     if (!drops.TryGetValue(chairPrefab, out float drop))
                         continue;
@@ -1286,7 +1292,7 @@ namespace SkiResortMod.Systems
                         continue;
                     }
 
-                    // A carrier of another type than its loop rides anyway (it needs a mixed net to happen; counted for the dump).
+                    // A carrier of another type than its loop rides anyway (this needs a mixed net to happen, and the dump counts it).
                     if (carrierTypes.TryGetValue(chairPrefab, out LiftTypeDef chairDef) && chairDef != null &&
                         chairDef.Index != home.m_TypeIndex)
                         typeMismatch++;
@@ -1317,8 +1323,9 @@ namespace SkiResortMod.Systems
             }
             m_DiagEnrolled = enrolled;
             m_DiagShuttleCarriers = shuttleCarriers;
-            // The carrier grip round: each loop with paired grips takes its base station's wind state (kept across rebuilds); one INFO line
-            // when the pairing counts change (silence must be impossible: an unpaired split carrier rides rigid, and that shows here).
+            // The carrier grip round: each loop with paired grips takes its base station's wind state (kept across rebuilds). One INFO line
+            // is written when the pairing counts change (silence must be impossible: an unpaired split carrier rides rigid, and that shows
+            // here).
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
             {
                 LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
@@ -1334,10 +1341,10 @@ namespace SkiResortMod.Systems
             }
             m_DiagTypeMismatch = typeMismatch;
 
-            // With the line prefab's m_Spacing = SkiCatalog SpacingM a loop can never carry more than floor(loop / SpacingM) - 1 carriers
-            // (EvenSpacing n = (int)(L / s - 0.5) per edge and row, SubObjectSystem.cs:1743; the loop adds the bullwheel arcs and terminal runs).
-            // More means the prefab drifted below the catalog: all of them ride, evenly and denser than designed; one WARN per type per load.
-            // Fewer is the normal case and logs nothing.
+            // With the line prefab's m_Spacing = SkiCatalog SpacingM, a loop can never carry more than floor(loop / SpacingM) - 1 carriers
+            // (EvenSpacing n = (int)(L / s - 0.5) per edge and row, SubObjectSystem.cs:1743). The loop adds the bullwheel arcs and terminal
+            // runs. More means the prefab drifted below the catalog. All of them ride, evenly and denser than designed, with one WARN per
+            // type per load. Fewer is the normal case and logs nothing.
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
             {
                 LiftLoopCache.Loop loop = m_LoopCache.m_Loops[l];
@@ -1355,12 +1362,13 @@ namespace SkiResortMod.Systems
                              "designed (logged once per lift type per load)");
             }
 
-            // 4. Slot assignment: even spacing. An identity rebuild carries every offset forward by entity (same chairs, unchanged loop length ->
-            //    same slots, zero jump; a chair deleted mid-session even leaves an honest gap). Anything else redistributes on a deterministic
-            //    entity-index grid: a one-time visual redistribution, accepted (a rank-by-projection scheme keyed off spawn-edge geometry stops
-            //    meaning anything once a chair has traveled). A loop where no chair rode before (the lift has just closed, first time or again
-            //    after a redrawn section) starts every chair from where it stands: parked chairs keep their place (EngineNotes/ChairPinSystem.md, restart seeding).
-            //    Mixed and length-changed loops keep the grid.
+            // 4. Slot assignment: even spacing. An identity rebuild carries every offset, keyed by entity. With the same chairs and an
+            //    unchanged loop length, the slots stay the same and there is zero jump. A chair deleted mid-session even leaves an honest
+            //    gap. Anything else redistributes on a deterministic entity-index grid. This is a one-time visual redistribution, accepted
+            //    (a rank-by-projection scheme keyed off spawn-edge geometry stops meaning anything once a chair has traveled). A loop where
+            //    no chair rode before (the lift has just closed, first time or again after a redrawn section) starts every chair from where
+            //    it stands. Parked chairs keep their place (EngineNotes/ChairPinSystem.md, restart seeding). Mixed and length-changed loops
+            //    keep the grid.
             double seedTimeS = TimeS();   // each loop seeds with its own phase
             int seededChairs = 0;
             int seedRefusals = 0;                       // loops refused this rebuild (log only)
@@ -1402,14 +1410,14 @@ namespace SkiResortMod.Systems
                         m_DiagSeededLoops++;
                         m_DiagSeededChairs += n;
                         seededChairs += n;
-                        // Record only: seeded at seedTimeS; a held pair re-freezes here.
+                        // Record only: seeded at seedTimeS. A held pair re-freezes here.
                         m_RebuildUncarried[HoldKey(loop.m_BaseStation, loop.m_TopStation)] = true;
                         continue;
                     }
                     NoteSeedRefusal(loop, refusal, seedRefusals++);   // log only
                 }
                 m_DiagGridLoops++;
-                // Record only: gridded at seedTimeS; a held pair re-freezes here.
+                // Record only: gridded at seedTimeS. A held pair re-freezes here.
                 m_RebuildUncarried[HoldKey(loop.m_BaseStation, loop.m_TopStation)] = false;
 
                 double spacing = loop.m_Length / n;
@@ -1423,15 +1431,15 @@ namespace SkiResortMod.Systems
                     loop.m_Offsets[order[rank]] = rank * spacing;
             }
 
-            // Every loop's far-loop pace starts fresh (staggered, bounds clock = now: the roster pass above tagged every rider Updated), and the
-            // Burst job's flat arrays are rebuilt before the next move pass (ChairPinSystem.Mover.cs).
+            // Every loop's far-loop pace starts fresh (staggered, bounds clock = now: the roster pass above tagged every rider Updated).
+            // The Burst job's flat arrays are rebuilt before the next move pass (ChairPinSystem.Mover.cs).
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
                 m_LoopCache.m_Loops[l].m_Pace = LiftMoverMath.Seed(l, s_Pace.MaxStride, seedTimeS);
             m_MoverArraysDirty = true;
 
-            // 5. Deletion-gap retry (reconnect rebuilds can land between vanilla deleting old chairs and spawning replacements): loops without
-            //    riders stay dirty for a bounded number of windows. Latched: once the limit is hit the burst ends for good; only real chair
-            //    activity (the probe in UpdateMovingChairs) or a successful roster re-arms the counter.
+            // 5. Deletion-gap retry (reconnect rebuilds can land between vanilla deleting old chairs and spawning replacements): loops
+            //    without riders stay dirty for a bounded number of windows. Latched: once the limit is hit, the burst ends for good. Only
+            //    real chair activity (the probe in UpdateMovingChairs) or a successful roster re-arms the counter.
             if (riding == 0 && m_LoopCache.m_Loops.Count > 0 && m_EmptyRosterRetries < EmptyRosterRetryLimit)
             {
                 m_EmptyRosterRetries++;
@@ -1442,15 +1450,15 @@ namespace SkiResortMod.Systems
                 m_EmptyRosterRetries = 0;
             }
 
-            // The moving-mode load/observability signature: log on the first rebuild per load and whenever the counts drift; silent when a
-            // rebuild changes nothing (watchdog self-heals, Move It drag storms), per the log-discipline contract.
+            // The moving-mode load/observability signature: log on the first rebuild per load and whenever the counts drift. Stay silent
+            // when a rebuild changes nothing (watchdog self-heals, Move It drag storms), per the log-discipline contract.
             m_FullPassPending = false; // moving mode's load signature is the line below
             double totalLength = 0.0;
             for (int l = 0; l < m_LoopCache.m_Loops.Count; l++)
                 totalLength += m_LoopCache.m_Loops[l].m_Length;
-            // ", h held (why)" is appended only when h > 0 (h = the loops of this rebuild whose pair is held as of the last poll; this frame's
-            // poll, right after the rebuild, writes its own [state] lines), so a powered city's signature is unchanged. The held part names its
-            // reason (LiftLoopHold.HeldSuffix).
+            // ", h held (why)" is appended only when h > 0. Here h = the loops of this rebuild whose pair is held as of the last poll (this
+            // frame's poll, right after the rebuild, writes its own [state] lines). So a powered city's signature is unchanged. The held
+            // part names its reason (LiftLoopHold.HeldSuffix).
             int heldAtRebuild = CountHeldLoops(out int heldForPowerAtRebuild);
             string signature =
                 $"{m_LoopCache.m_Loops.Count} loop(s) ({totalLength:F0} m total), {riding} chair(s) riding, " +
@@ -1479,9 +1487,9 @@ namespace SkiResortMod.Systems
 
             if (m_LoopCache.m_UnclosedChainCount > 0 && !m_LoopWarnLogged)
             {
-                // An open or unfinished lift is explained by the census's own lines (`Lift [line opened]` / `Lift [new line]`), so this warning is
-                // kept only for loops that fail geometrically: a census-Complete lift with no closed loop. The census builds before this system at
-                // Modification4B, so its rows are this frame's. Without a running census the warning stays as it was.
+                // The census's own lines (`Lift [line opened]` / `Lift [new line]`) explain an open or unfinished lift. So this warning is
+                // kept only for loops that fail geometrically: a census-Complete lift with no closed loop. The census builds before this
+                // system at Modification4B, so its rows are this frame's. Without a running census, the warning stays as it was.
                 var census = World.GetExistingSystemManaged<LiftCensusSystem>();
                 if (census == null || !census.IsArmed)
                 {
@@ -1507,8 +1515,8 @@ namespace SkiResortMod.Systems
 
         private readonly List<LiftCensus.Row> m_CensusScratch = new List<LiftCensus.Row>();
 
-        /// <summary>Census-Complete lifts with no closed loop in the cache just built ("base:v → top:v"
-        /// list, log only — called at most until the once-per-load warning fires).</summary>
+        /// <summary>Census-Complete lifts with no closed loop in the cache just built ("base:v → top:v" list, log only). It is called at
+        /// most until the once-per-load warning fires.</summary>
         private string CompleteLiftsWithoutLoop(LiftCensusSystem census, out int count)
         {
             count = 0;
@@ -1534,13 +1542,14 @@ namespace SkiResortMod.Systems
             return sb.ToString();
         }
 
-        /// <summary>Offsets so each chair of a freshly closed loop rides on from where it stands: s = ProjectOnOwner(its owner's lane
-        /// segments, its grip point), offset = (s - phase) mod L. False (the caller falls back to the grid, nothing written) if a chair is
-        /// gone, its owner has no lane segment in the loop, or its grip point is farther than ApproachPinDistanceCeiling from its own lane.
-        /// That gate is load-bearing: after a game load saved chairs stand wherever the mover left them on the loop, mostly far from their
-        /// own section; projecting those onto their owner would pile them onto its lane ends. Parked and freshly spawned chairs pass it.
-        /// <paramref name="why"/> names the first failing chair and its cause; after a too-far chair the scan goes on for the count over
-        /// the limit and the farthest one (offsets are added only on success), and stops at once on the other causes.</summary>
+        /// <summary>Offsets so that each chair of a freshly closed loop continues to ride from where it stands: s = ProjectOnOwner(its
+        /// owner's lane segments, its grip point), offset = (s - phase) mod L. Returns false (the caller uses the grid instead, nothing
+        /// written) if a chair is gone, its owner has no lane segment in the loop, or its grip point is farther than
+        /// ApproachPinDistanceCeiling from its own lane. That gate is load-bearing. After a game load, saved chairs stand wherever the
+        /// mover left them on the loop, mostly far from their own section. Projecting those onto their owner would pile them onto its lane
+        /// ends. Parked and freshly spawned chairs pass the gate. <paramref name="why"/> names the first failing chair and its cause. After
+        /// a too-far chair, the scan continues for the count over the limit and the farthest one (offsets are added only on success). On
+        /// the other causes, the scan stops at once.</summary>
         private bool TrySeedFromPositions(LiftLoopCache.Loop loop, double phase, out SeedRefusal why)
         {
             why = default;
@@ -1589,8 +1598,7 @@ namespace SkiResortMod.Systems
                 }
                 if (distance > ceiling)
                 {
-                    // Not standing on its own section: a rider (e.g. a loaded save). Refused; scan on
-                    // for the count only.
+                    // Not standing on its own section: a rider (e.g. a loaded save). Refused. Continue the scan for the count only.
                     if (why.Cause == SeedRefusalCause.None)
                     {
                         why.Cause = SeedRefusalCause.TooFar;
@@ -1630,13 +1638,13 @@ namespace SkiResortMod.Systems
             public int Scanned;           // chairs looked at (all of them unless a non-distance cause stopped the scan)
         }
 
-        /// <summary>At most this many loops are described in one refusal line; the rest are counted.</summary>
+        /// <summary>At most this many loops are described in one refusal line. The rest are counted.</summary>
         private const int SeedRefusalLoopsLogged = 4;
-        private System.Text.StringBuilder m_SeedRefusalText;   // reused; built only when a loop is refused
+        private System.Text.StringBuilder m_SeedRefusalText;   // reused. Built only when a loop is refused
         private bool m_SeedLoadPass;                            // the next rebuild is the first of this load
 
-        /// <summary>Appends one refused loop to this rebuild's refusal line (log only; allocates
-        /// strings, called only on a refusal).</summary>
+        /// <summary>Appends one refused loop to this rebuild's refusal line. This is log only. It allocates strings and is called only on a
+        /// refusal.</summary>
         private void NoteSeedRefusal(LiftLoopCache.Loop loop, in SeedRefusal why, int index)
         {
             if (index >= SeedRefusalLoopsLogged)
@@ -1671,12 +1679,12 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Cross-system request (used by LiftReconnectSystem after it rebuilds lanes): re-pin every chair, and in moving mode rebuild
-        /// the loop cache, on the next update. Chairs never carry Secondary (SubObjectSystem.cs:2824-2827 adds only Owner + PrefabRef +
-        /// Transform) and they are in their owner edge's SubObject buffer (SubObjectReferencesSystem.cs:122-138 queries Object + Owner, None
-        /// Secondary). The full idempotent pass is used because the poked lanes are rebuilt by LaneSystem later in Modification4 and a pass
-        /// over every chair is the simplest way to re-pin onto the new curves, not because chairs are unreachable. Same-frame when requested
-        /// before Modification4B (our phase).</summary>
+        /// <summary>Cross-system request (LiftReconnectSystem uses it after it rebuilds lanes): re-pin every chair, and
+        /// in moving mode rebuild the loop cache, on the next update. Chairs never carry Secondary (SubObjectSystem.cs:2824-2827 adds only Owner + PrefabRef +
+        /// Transform). They are in their owner edge's SubObject buffer (SubObjectReferencesSystem.cs:122-138 queries Object + Owner, None
+        /// Secondary). This system uses the full idempotent pass because LaneSystem rebuilds the poked lanes later in Modification4 and a
+        /// pass over every chair is the simplest way to re-pin onto the new curves. The reason is not that chairs are unreachable. The
+        /// pass runs in the same frame when requested before Modification4B (our phase).</summary>
         internal void RequestFullPass(string label)
         {
             m_FullPassPending = true;
@@ -1699,8 +1707,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Is this edge end node a station connection? Stations-first: the line reuses the owned stub node (Owner present).
-        /// Line-first: the stub course reuses the line's unowned node (GenerateEdgesSystem.TryGetNode), so ownership never appears on the
-        /// node itself, but the station's connection stub edge (which is building-owned) sits in the node's ConnectedEdge buffer. Both shapes
+        /// Line-first: the stub course reuses the line's unowned node (GenerateEdgesSystem.TryGetNode). So ownership never appears on the node
+        /// itself, but the station's connection stub edge (which is building-owned) sits in the node's ConnectedEdge buffer. Both shapes
         /// count.</summary>
         private bool IsStationConnectionNode(Entity node)
         {
@@ -1720,12 +1728,12 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        // Prefab state, per load. SkiPrefabCatalogSystem resolves the names with one typed resolver per load (its "PrefabCatalog [arm]" line
-        // names every prefab found or missing) and reads the carrier's grip-top from its geometry bounds (the WARN for a carrier without
-        // usable bounds lives there). This method keeps this system's own lines: a WARN per chair prefab not found, the two "inactive this
-        // load" WARNs behind OnUpdate's exits, and one Info line. Per lift type; the per-carrier and per-line WARNs fire for expected names
-        // only (CarrierDef.Expected / LiftTypeDef.LineExpected); a pending missing name is listed in the Info line ("pending (not imported
-        // yet): ..."); a Shuttle type (the tram) writes one Info.
+        // Prefab state, per load. SkiPrefabCatalogSystem resolves the names with one typed resolver per load. Its "PrefabCatalog [arm]"
+        // line names every prefab found or missing. It also reads the carrier's grip-top from its geometry bounds. The WARN for a carrier
+        // without usable bounds lives there. This method keeps this system's own lines: a WARN per chair prefab not found, the two
+        // "inactive this load" WARNs behind OnUpdate's exits, and one Info line. This is per lift type. The per-carrier and per-line WARNs
+        // fire for expected names only (CarrierDef.Expected / LiftTypeDef.LineExpected). The Info line lists a pending missing name
+        // ("pending (not imported yet): ..."). A Shuttle type (the tram) writes one Info.
         private void LogPrefabState()
         {
             IReadOnlyDictionary<Entity, float> grips = m_PrefabCatalog.CarrierGripTops;
@@ -1754,8 +1762,8 @@ namespace SkiResortMod.Systems
                             Append(pending, $"'{name}' ({def.Id} carrier)");
                         continue;
                     }
-                    // FOUND without usable bounds: not in the view; the catalog WARNed ("PrefabCatalog: carrier
-                    // prefab '…' has no usable ObjectGeometryData bounds — skipped …").
+                    // FOUND without usable bounds: not in the view. The catalog WARNed ("PrefabCatalog: carrier prefab '…' has no usable
+                    // ObjectGeometryData bounds — skipped …").
                     if (!grips.TryGetValue(carrier, out float gripTop))
                         continue;
                     if (shuttle)
@@ -1809,15 +1817,16 @@ namespace SkiResortMod.Systems
             return ((long)a.Index << 32) ^ (uint)b.Index ^ ((long)b.Version << 20) ^ a.Version;
         }
 
-        // The power hold. Main thread; every frame only a frame compare and (while a loop is held) a list index per loop; the work runs every
-        // HoldPollFrames and at rebuilds.
+        // The power hold. Main thread. Every frame does only a frame compare and (while a loop is held) a list index per loop. The work
+        // runs every HoldPollFrames and at rebuilds.
 
-        /// <summary>The poll. Every HoldPollFrames render frames (none while paused: the render clock is frozen, RenderingSystem.cs:187-190)
-        /// and at each rebuild: per loop, its census row (either order) and, for a Complete row with chairs, the guarded power of the row's
-        /// Base (LiftCensusSystem.ReadLiftPower, never a top station); gate = LiftLoopHold.GateOf(rowKnown, complete, power, IsLoopClosed).
-        /// Run -> Hold freezes the loop at this frame's clock; Hold -> Run re-bases every offset (LiftLoopHold.Rebase: no jump); a held loop
-        /// whose offsets this rebuild did not carry re-freezes at this clock first. Aligns m_HoldByLoop with the cache. Returns true when a
-        /// hold began, ended or re-froze. Allocation: one LoopHold per pair first seen; strings only when a line is written.</summary>
+        /// <summary>The poll. It runs every HoldPollFrames render frames (none while paused: the render clock is frozen,
+        /// RenderingSystem.cs:187-190) and at each rebuild. Per loop, it reads the census row (either order). For a Complete row with
+        /// chairs, it also reads the guarded power of the row's Base (LiftCensusSystem.ReadLiftPower, never a top station). The gate is
+        /// LiftLoopHold.GateOf(rowKnown, complete, power, IsLoopClosed). Run -> Hold freezes the loop at this frame's clock. Hold -> Run
+        /// re-bases every offset (LiftLoopHold.Rebase: no jump). A held loop whose offsets this rebuild did not carry re-freezes at this
+        /// clock first. Aligns m_HoldByLoop with the cache. Returns true when a hold began, ended or re-froze. Allocation: one LoopHold per
+        /// pair first seen, and strings only when a line is written.</summary>
         private bool PollHolds(double timeS, bool rebuilt)
         {
             if (m_HoldCensus == null)
@@ -1867,7 +1876,7 @@ namespace SkiResortMod.Systems
             }
 
             // The census rows by station pair (either order), rebuilt on a census Revision change. A row's Base is the Base-role station
-            // (LiftCensus.cs:639-647), the one that carries the ElectricityConsumer; a pair named twice keeps its Complete row.
+            // (LiftCensus.cs:639-647), the one that carries the ElectricityConsumer. A pair named twice keeps its Complete row.
             if (ready && census.Revision != m_HoldRowsRevision)
             {
                 m_HoldRowsRevision = census.Revision;
@@ -1907,9 +1916,9 @@ namespace SkiResortMod.Systems
                 hold.Seen = true;
                 m_HoldByLoop.Add(hold);
 
-                // A held loop whose offsets this rebuild did not carry (restart seed or grid, BuildLoopCache's record) re-freezes at this frame's
-                // clock = the rebuild's seedTimeS (both TimeS() of this update): a seeded loop stays exactly where its chairs stood, a gridded one
-                // stands on its grid places.
+                // A held loop whose offsets this rebuild did not carry (restart seed or grid, BuildLoopCache's record) re-freezes at this
+                // frame's clock. This clock = the rebuild's seedTimeS (both TimeS() of this update). A seeded loop stays exactly where its
+                // chairs stood. A gridded one stands on its grid places.
                 if (rebuilt && hold.Held && m_RebuildUncarried.TryGetValue(key, out bool seeded))
                 {
                     loop.m_Wind?.Resume(hold.FrozenTimeS, timeS);   // the gusts and a wind blend continue from the frozen pose (CP-20)
@@ -1932,9 +1941,10 @@ namespace SkiResortMod.Systems
                     complete = row.State == LiftCensus.State.Complete;
                     hold.RowState = row.State;
                     hold.RowBase = row.Base;
-                    // A held loop is read whatever its chair count. BuildLoopCache keeps a loop with 0 chairs (a deletion gap after a Move It or tower
-                    // edit, or a re-seat); reading Unknown there let GateOf return Run and log "Held -> Running (power back)" with no power back. A
-                    // running loop with no chairs is still not read (nothing to stop), so a powered city makes the minimum of reads.
+                    // A held loop is read whatever its chair count. BuildLoopCache keeps a loop with 0 chairs (a deletion gap after a Move
+                    // It or tower edit, or a re-seat). Reading Unknown there let GateOf return Run and log "Held -> Running (power back)"
+                    // with no power back. A running loop with no chairs is still not read (nothing to stop), so a powered city makes the
+                    // minimum of reads.
                     if (complete && (loop.m_Chairs.Count > 0 || hold.Held))
                     {
                         power = census.ReadLiftPower(row.Base);
@@ -1950,8 +1960,8 @@ namespace SkiResortMod.Systems
                 bool closed = IsLoopClosed(hold);
                 LoopGate gate = ready ? LiftLoopHold.GateOf(rowKnown, complete, power, closed) : LoopGate.Run;
 
-                // A loop with chairs that the gate cannot judge (no census row of its pair, or a row that is not Complete) runs (fail open); said once
-                // per lift per load.
+                // A loop with chairs that the gate cannot judge (no census row of its pair, or a row that is not Complete) runs (fail
+                // open). The code says this once per lift per load.
                 if (ready && !complete && loop.m_Chairs.Count > 0 && m_HoldFailOpenLogged.Add(key))
                 {
                     Mod.Log.Info($"{nameof(ChairPinSystem)} [hold] {DescribeHoldLoop(loop)}: " +
@@ -1961,8 +1971,8 @@ namespace SkiResortMod.Systems
 
                 if (gate == LoopGate.Hold && !hold.Held)
                 {
-                    // Run → Hold: this frame's move pass writes the pose of THIS clock (what a running pass would write)
-                    // and tags the chairs once; later frames write nothing.
+                    // Run → Hold: this frame's move pass writes the pose of THIS clock (what a running pass would write) and tags the
+                    // chairs once. Later frames write nothing.
                     hold.Held = true;
                     hold.ForPower = !LiftServedRule.IsPowered(power);
                     hold.FrozenTimeS = timeS;
@@ -1978,8 +1988,8 @@ namespace SkiResortMod.Systems
                 }
                 else if (gate == LoopGate.Run && hold.Held)
                 {
-                    // Hold -> Run: re-base every offset so (offset' + speed x now) % L = the frozen place (~1e-9 m); the move pass below then finds every
-                    // chair in place and the next frame advances by speed x dt.
+                    // Hold -> Run: re-base every offset so (offset' + speed x now) % L = the frozen place (~1e-9 m). The move pass below
+                    // then finds every chair in place, and the next frame advances by speed x dt.
                     for (int i = 0; i < loop.m_Offsets.Count; i++)
                         loop.m_Offsets[i] = LiftLoopHold.Rebase(loop.m_Offsets[i], loop.m_SpeedMps, hold.FrozenTimeS, timeS,
                                                                 loop.m_Length);
@@ -2000,8 +2010,8 @@ namespace SkiResortMod.Systems
                 }
                 if (hold.Held)
                 {
-                    // the reason follows the gate while the loop stays held (power back on a still-closed lift
-                    // reads "closed"; the resume line then says "open again"); only a read value moves it.
+                    // the reason follows the gate while the loop stays held (power back on a still-closed lift reads "closed", and the
+                    // resume line then says "open again"). Only a read value moves it.
                     if (gate == LoopGate.Hold && power != LiftPower.Unknown)
                         hold.ForPower = !LiftServedRule.IsPowered(power);
                     heldLoops++;
@@ -2044,9 +2054,9 @@ namespace SkiResortMod.Systems
             return changed;
         }
 
-        /// <summary>The loop's lift is closed when its ski area has no open run: SkiLiftChargeSystem.IsLiftClosed (LiftClosedRule: the state
-        /// the 25 % billing reads, held one game hour before it flips). A loop with no census row is never closed (fail open, like GateOf);
-        /// neither is a lift with no ski area. LiftLoopHold.GateOf and the [state] lines take it from here.</summary>
+        /// <summary>The loop's lift is closed when its ski area has no open run: SkiLiftChargeSystem.IsLiftClosed (LiftClosedRule: the
+        /// state the 25 % billing reads, held one game hour before it flips). A loop with no census row is never closed (fail open, like
+        /// GateOf). Neither is a lift with no ski area. LiftLoopHold.GateOf and the [state] lines take it from here.</summary>
         private bool IsLoopClosed(LoopHold hold)
         {
             if (!hold.RowKnown)
@@ -2059,7 +2069,7 @@ namespace SkiResortMod.Systems
         private SkiLiftChargeSystem m_HoldCharge;   // resolved lazily (GetExistingSystemManaged, never created here)
 
         /// <summary>A station pair's key, the two stations ordered by (Index, Version): the same key either way round (a loop's order is
-        /// geometry, a census row's is role).</summary>
+        /// geometry and a census row's order is role).</summary>
         private static (Entity, Entity) HoldKey(Entity a, Entity b)
         {
             bool aFirst = a.Index < b.Index || (a.Index == b.Index && a.Version <= b.Version);
@@ -2086,8 +2096,8 @@ namespace SkiResortMod.Systems
             return held;
         }
 
-        /// <summary>Where a frozen loop's offset 0 stands, in [0, L): FrozenPhase(speed, frozen) mod L (the [state] lines' "phase"; equal in
-        /// the hold and the resume line of one episode).</summary>
+        /// <summary>Where a frozen loop's offset 0 stands, in [0, L): FrozenPhase(speed, frozen) mod L (the [state] lines' "phase", equal
+        /// in the hold and the resume line of one episode).</summary>
         private static double FrozenPlace(LiftLoopCache.Loop loop, double frozenTimeS)
         {
             if (!(loop.m_Length > 0.0))
@@ -2104,7 +2114,7 @@ namespace SkiResortMod.Systems
                    HoldInv($"{loop.m_Length:F0} m loop, {loop.m_Chairs.Count} chair(s))");
         }
 
-        /// <summary>One "[state]" transition through m_HoldLog (LogWindow 10 s): Plain -> the line now; Summary -> the fold line; Fold ->
+        /// <summary>One "[state]" transition through m_HoldLog (LogWindow 10 s): Plain -> the line now. Summary -> the fold line. Fold ->
         /// counted (slot 0 = to held, 1 = to running, 2 = re-frozen).</summary>
         private void OfferHoldLine(LiftLoopCache.Loop loop, double timeS, string change, int slot)
         {
@@ -2122,7 +2132,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The fold line of m_HoldLog; restarts its window.</summary>
+        /// <summary>The fold line of m_HoldLog. It restarts its window.</summary>
         private void WriteHoldSummary(float now)
         {
             Mod.Log.Info(HoldInv($"{nameof(ChairPinSystem)} [state] {m_HoldLog.Count} more change(s) in {m_HoldLog.SpanS(now):F0} s, ") +

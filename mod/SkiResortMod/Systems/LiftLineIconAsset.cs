@@ -1,14 +1,14 @@
-// The "needs a lift line" notification icon prefab (SkiLiftLineNeeded), made in code: a NotificationIconPrefab whose m_Icon texture
-// matches the vanilla icons exactly, plus a UIObject naming the SVG the info panel's Notifications section shows. Used by
-// LiftLineIconSystem, which registers it in OnGamePreload (before the save's prefab list is resolved, GameManager.cs:1021-1028), so a
-// saved icon finds its prefab on load.
-// Why the texture must match: NotificationIconRenderSystem builds ONE Texture2DArray at the largest icon size, in the format of the
-// last icon it reads, and Graphics.CopyTexture's every icon into it (NotificationIconRenderSystem.cs:207-245). So the size, mip count
-// and format are read from the vanilla icons at runtime and the PNG is resampled and block-encoded to them (IconTextureCodec). When the
-// vanilla icons do not share one size and format, or the format is one we cannot write, nothing is registered (Register returns false
-// and says why): the caller then leaves the vanilla icons alone.
+// The "needs a lift line" notification icon prefab (SkiLiftLineNeeded), made in code. It is a NotificationIconPrefab whose m_Icon texture
+// matches the vanilla icons exactly, plus a UIObject naming the SVG that the info panel's Notifications section shows. LiftLineIconSystem
+// uses it and registers it in OnGamePreload (before the save's prefab list is resolved, GameManager.cs:1021-1028), so a saved icon finds
+// its prefab on load.
+// Why the texture must match: NotificationIconRenderSystem builds ONE Texture2DArray at the largest icon size, in the format of the last
+// icon it reads. It then copies every icon into it with Graphics.CopyTexture (NotificationIconRenderSystem.cs:207-245). So the code reads
+// the size, mip count and format from the vanilla icons at runtime. It resamples the PNG and block-encodes it to them (IconTextureCodec).
+// When the vanilla icons do not share one size and format, or the format is one we cannot write, nothing is registered (Register returns
+// false and says why). The caller then leaves the vanilla icons alone.
 // Files: Icons/SkiLiftLineNeeded.png (the world icon's pixels, rendered from the SVG) and Icons/SkiLiftLineNeeded.svg, deployed to
-// <mod>/SkiResortMod-icons/ (SkiResortMod.csproj); "coui://ui-mods/" serves every UI mod's folder (ModManager.cs:468-479).
+// <mod>/SkiResortMod-icons/ (SkiResortMod.csproj). "coui://ui-mods/" serves every UI mod's folder (ModManager.cs:468-479).
 // Engine notes: EngineNotes/LiftLineIconSystem.md
 
 using System;
@@ -95,7 +95,7 @@ namespace SkiResortMod.Systems
             public string Describe() => $"{Width} x {Height}, {Format}, {Mips} mips, {Count} icon prefabs";
         }
 
-        /// <summary>The shape every vanilla icon shares; false (with the spread) when they differ or none is readable.</summary>
+        /// <summary>The shape every vanilla icon shares. Returns false (with the spread) when they differ or none is readable.</summary>
         private static bool TryReadVanillaShape(PrefabSystem prefabs, EntityManager em, Entity referenceIcon, out IconShape shape,
                                                 out NotificationIconPrefab reference, out string report)
         {

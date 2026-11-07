@@ -1,9 +1,11 @@
 // The "Ski Resort" tab of the game's developer menu, a partial of ChairPinSystem so it reads the mover's private state.
-// DebugSystem.RegisterDebug sweeps all loaded non-Unity assemblies on every menu open for [DebugContainer] classes and invokes each
+// DebugSystem.RegisterDebug sweeps all loaded non-Unity assemblies on every menu open for [DebugContainer] classes. It invokes each
 // [DebugTab] method (decompile 1.6.2:1025-1044) on the live system instance (:1005-1009), so nothing is registered in Mod.cs.
-// The widget tree is the `debug.children` binding and every Button a `debug.invoke`: the gameface MCP (localhost:9444, --uiDeveloperMode) drives it.
-// Cost: DebugUI.Value getters run at 10 Hz while the tab is open, so rows read plain counters only (no allocation, jobs or EntityQueries; anything heavier is a Button that writes to the mod log).
-// Other partials add foldouts through AddDebugWidgets: DebugSystem.AddPanel replaces the widget list stored under a tab name
+// The widget tree is the `debug.children` binding, and every Button is a `debug.invoke`. The gameface MCP (localhost:9444,
+// --uiDeveloperMode) drives it.
+// Cost: DebugUI.Value getters run at 10 Hz while the tab is open, so rows read plain counters only (no allocation, jobs or EntityQueries).
+// Anything heavier is a Button that writes to the mod log.
+// Other partials add foldouts through AddDebugWidgets. DebugSystem.AddPanel replaces the widget list stored under a tab name
 // (Game.Debug/DebugSystem.cs:1085-1095), so a second "Ski Resort" tab would replace these rows.
 // Systems are fetched with GetExistingSystemManaged, so an unregistered one shows "not registered" instead of being created.
 
@@ -91,8 +93,8 @@ namespace SkiResortMod.Systems
             moving.children.Add(Val("Last hold change", () => m_HoldLastChange));
             list.Add(moving);
 
-            // Mover at scale (EngineNotes/ChairPinSystem.Mover.md). Plain fields only
-            // (the 10 Hz cost contract); the percentile row sorts <= 600 floats into a reused list.
+            // Mover at scale (EngineNotes/ChairPinSystem.Mover.md). Plain fields only (the 10 Hz cost contract). The percentile row sorts
+            // <= 600 floats into a reused list.
             var scale = new DebugUI.Foldout { displayName = "Mover scale (R-3 / R-4)", opened = false };
             scale.children.Add(Val("Path / Burst-compiled / stress / sync-measure", () =>
                 $"{m_DiagMoverPath} / {m_DiagBurst} / x{s_StressFactor} / {(s_SyncMeasure ? "on" : "off")}"));
@@ -312,8 +314,8 @@ namespace SkiResortMod.Systems
             public float m_Drop;
         }
 
-        /// <summary>First <paramref name="count"/> roster chairs across loops (loop order,
-        /// roster order). Snapshot at tab-build time; the rows read live state per tick.</summary>
+        /// <summary>First <paramref name="count"/> roster chairs across loops (loop order, roster order). Snapshot at tab-build time. The
+        /// rows read live state per tick.</summary>
         private List<ChairSlot> CollectSampleChairs(int count)
         {
             var result = new List<ChairSlot>(count);
@@ -357,7 +359,7 @@ namespace SkiResortMod.Systems
                     LiftLoopCache.Loop loop = m_LoopCache.m_Loops[slot.m_LoopIndex];
                     if (loop.m_Length > 0.0)
                     {
-                        // The loop's own phase (speed × the last mover clock); a held loop stands at its frozen clock
+                        // The loop's own phase (speed × the last mover clock). A held loop stands at its frozen clock
                         LoopHold hold = slot.m_LoopIndex < m_HoldByLoop.Count ? m_HoldByLoop[slot.m_LoopIndex] : null;
                         double phase = hold != null && hold.Held
                             ? LiftLoopHold.FrozenPhase(loop.m_SpeedMps, hold.FrozenTimeS)
@@ -394,7 +396,7 @@ namespace SkiResortMod.Systems
             try
             {
                 sb.AppendLine($"{nameof(ChairPinSystem)} [dump: {reason}] ────────────────────────────");
-                // The catalog's views; catalogLoad / catalogGeneration say which load's resolution these are
+                // The catalog's views. catalogLoad / catalogGeneration say which load's resolution these are
                 Entity chairlift = ChairliftPrefab;
                 sb.AppendLine($"  mode={(MovingChairs ? "moving" : "static")} enabled={Enabled} disabled={m_Disabled} " +
                               $"chairPrefabs={m_PrefabCatalog.CarrierGripTops.Count} chairliftPrefab={(chairlift == Entity.Null ? "NULL" : Ent(chairlift))} " +
@@ -403,7 +405,7 @@ namespace SkiResortMod.Systems
                 sb.AppendLine($"  onUpdateCalls={m_DiagUpdateCalls} lastUpdateFrame={m_DiagLastUpdateFrame} " +
                               $"renderFrame={m_RenderingSystem.frameIndex} frameTime={m_RenderingSystem.frameTime:F3} " +
                               $"lastExit=\"{LastExitText()}\"");
-                // Clock in seconds (phases are per loop, below); fgPhase is the fixed-grip phase
+                // Clock in seconds (phases are per loop, below). fgPhase is the fixed-grip phase
                 sb.AppendLine($"  timeS={m_DiagLastTimeS:F2} fgPhase={m_DiagLastTimeS * SkiCatalog.FixedGrip.SpeedMps:F2} " +
                               $"lastMoveTimeS={m_LastMoveTimeS:F2} boundsTimeS={m_LastBoundsTimeS:F2} maxLoopSpeed={m_MaxLoopSpeedMps:F2} " +
                               $"mixedLoops={m_DiagMixedLoops} shuttleCarriers={m_DiagShuttleCarriers} typeMismatch={m_DiagTypeMismatch} " +

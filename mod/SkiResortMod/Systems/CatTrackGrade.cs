@@ -1,10 +1,10 @@
-// Pure half of the Cat Track Grading tool: Unity.Mathematics only, so tests/GradeBatch links this file and proves every rule
-// headless. The engine half is CatTrackGradeToolSystem (input, overlay, guards' data, apply) and HeightmapWriter (the base
-// heightmap read / write).
-// One solve per change, never per frame: GradePath.Build -> GradeProfile.Solve -> GradeRaster.Build -> GradeGuards.Check, plus
-// GradeRibbon.Build (the flat top's outline = the cat-track run the same action creates), with GradeUndo holding the pre-images.
+// Pure half of the Cat Track Grading tool: Unity.Mathematics only, so tests/GradeBatch links this file and proves every rule headless.
+// The engine half is CatTrackGradeToolSystem (input, overlay, guards' data, apply) and HeightmapWriter (the base heightmap read / write).
+// One solve per change, never per frame. The order is: GradePath.Build, then GradeProfile.Solve, then GradeRaster.Build, then
+// GradeGuards.Check. GradeRibbon.Build adds the flat top's outline (= the cat-track run the same action creates). GradeUndo holds the
+// pre-images.
 // Every profile step stays G-limited (|dy/ds| <= G).
-// Height encoding: the base heightmap is R16_UNorm; GradeMap holds the world <-> texel mapping.
+// Height encoding: the base heightmap is R16_UNorm. GradeMap holds the mapping between world and texel.
 // Engine notes: EngineNotes/CatTrackGrade.md
 
 using System;
@@ -24,15 +24,16 @@ namespace SkiResortMod.Systems
     public sealed class GradeParams
     {
         public const float DefaultMaxGrade = 0.25f;
-        /// <summary>20 m = 2.5x the first build's 8 m, which graded visibly but too narrow in the field (2026-10-24). The flat top is
-        /// also the cat-track run's outline (GradeRibbon), so this is the run's width.</summary>
+        /// <summary>20 m = 2.5x the 8 m of the first build. The 8 m graded visibly but was too narrow in the field (2026-10-24). The flat
+        /// top is also the cat-track run's outline (GradeRibbon), so this is the run's width.</summary>
         public const float DefaultTopWidthM = 20f;
         public const float MinTopWidthM = 8f, MaxTopWidthM = 32f;
         public const float DefaultCutRun = 1.5f;
         public const float DefaultFillRun = 2f;
 
-        /// <summary>The narrow full-cut profile (<see cref="NarrowFullCut"/>, DECISIONS 443): a ski-way bench cut into a steep face. Top
-        /// width 10 m by default (NarrowMinTopWidthM..NarrowMaxTopWidthM is what a caller may ask for), cut bank 1:1, no fill.</summary>
+        /// <summary>The narrow full-cut profile (<see cref="NarrowFullCut"/>, DECISIONS 443): a ski-way bench cut into a steep face. The
+        /// default top width is 10 m (a caller may ask for NarrowMinTopWidthM..NarrowMaxTopWidthM). The cut bank is 1:1 and there is no
+        /// fill.</summary>
         public const float NarrowTopWidthM = 10f;
         public const float NarrowMinTopWidthM = 8f, NarrowMaxTopWidthM = 12f;
         public const float NarrowCutRun = 1f;
@@ -43,35 +44,36 @@ namespace SkiResortMod.Systems
         public float FillRun = DefaultFillRun;
         public GradeProfileMode Mode = GradeProfileMode.FollowGround;
         /// <summary>Full cut, no fill (the narrow profile). The profile is the highest G-limited line at or below the ground (a cut-only
-        /// bench), the flat top is cut where the ground is above it and left at the ground where the ground falls away (the tread then ends
-        /// at the natural edge; GradeRaster.UnfilledTopTexels says how much of the top is missing), the downhill side slope is the
-        /// ground itself, nothing is ever raised. A caller solves a full-cut bench against GradeProfile.LowEdgeGround (the lowest ground
-        /// across the top), which keeps the whole top in cut: the bench sinks into the hill instead of being filled. Default false:
-        /// every other profile is exactly as before. Meaningful with FollowGround; a ConstantGrade ramp stays one straight line but
+        /// bench). The flat top is cut where the ground is above it. The flat top is left at the ground where the ground falls away (the
+        /// tread then ends at the natural edge, and GradeRaster.UnfilledTopTexels says how much of the top is missing). The downhill side
+        /// slope is the ground itself. Nothing is ever raised. A caller solves a full-cut bench against GradeProfile.LowEdgeGround (the
+        /// lowest ground across the top). This keeps the whole top in cut: the bench sinks into the hill instead of being filled. Default
+        /// false: every other profile is exactly as before. Meaningful with FollowGround. A ConstantGrade ramp stays one straight line but
         /// still raises nothing.</summary>
         public bool NoFill;
         public float SampleStepM = 2f;
         public float SmoothM = 6f;
-        /// <summary>The side slopes reach at most this far beyond the flat top. Where a slope has not met the ground by then (a
-        /// hillside steeper than the slope, or a very deep cut / fill) the last BlendTexels of the reach blend into the ground: a steep
-        /// bank, counted and logged, never a vertical step.</summary>
+        /// <summary>The side slopes reach at most this far beyond the flat top. Where a slope has not met the ground by then, the last
+        /// BlendTexels of the reach blend into the ground. This happens on a hillside steeper than the slope, or in a very deep cut / fill.
+        /// The result is a steep bank, counted and logged, never a vertical step.</summary>
         public float MaxSideM = 40f;
-        /// <summary>Crossings: outside another run's outline (GradeObstacles.Runs) the bench fades into the ground over this distance
-        /// before the outline, so a crossed run is met at its own ground. 15 m: a bench step of up to ~5 m (a 20 m top across a 45 %
+        /// <summary>Crossings: outside another run's outline (GradeObstacles.Runs), the bench fades into the ground over this distance
+        /// before the outline. So a crossed run is met at its own ground. 15 m. A bench step of up to ~5 m (a 20 m top across a 45 %
         /// hillside) eases in at about 1:3.</summary>
         public float CrossBlendM = 15f;
-        /// <summary>Inside a crossed run (DECISIONS 420, 2026-10-26): no bench. The ground keeps its own cross slope and only the
-        /// along-track correction (profile minus the ground under the centerline) is applied, clamped to InsideMaxM, faded in from the
-        /// run's outline over InsideFadeM and out sideways beyond the flat top over InsideSideFadeM. The tool lowers InsideMaxM along
-        /// InsideAllowanceSteps until every crossed run keeps its rated band.</summary>
+        /// <summary>Inside a crossed run (DECISIONS 420, 2026-10-26): no bench. The ground keeps its own cross slope. The tool applies only
+        /// the along-track correction (profile minus the ground under the centerline). The correction is clamped to InsideMaxM. It fades in
+        /// from the run's outline over InsideFadeM, and it fades out sideways beyond the flat top over InsideSideFadeM. The tool lowers
+        /// InsideMaxM along InsideAllowanceSteps until every crossed run keeps its rated band.</summary>
         public float InsideMaxM = 2f;
         public float InsideFadeM = 10f;
         public float InsideSideFadeM = 10f;
         public static readonly float[] InsideAllowanceSteps = { 2f, 1f, 0.5f, 0f };
         public const int BlendTexels = 3;
 
-        /// <summary>The narrow full-cut profile for the planner's ski-ways (DECISIONS 443): top width <paramref name="topWidthM"/> (clamped to
-        /// NarrowMinTopWidthM..NarrowMaxTopWidthM), cut bank 1:1, no fill, the same max grade rule. Every other knob keeps its default.</summary>
+        /// <summary>The narrow full-cut profile for the planner's ski-ways (DECISIONS 443). The top width is <paramref name="topWidthM"/>
+        /// (clamped to NarrowMinTopWidthM..NarrowMaxTopWidthM). The cut bank is 1:1, there is no fill, and the same max grade rule applies.
+        /// Every other knob keeps its default.</summary>
         public static GradeParams NarrowFullCut(float maxGrade = DefaultMaxGrade, float topWidthM = NarrowTopWidthM) => new GradeParams
         {
             MaxGrade = maxGrade,
@@ -125,8 +127,8 @@ namespace SkiResortMod.Systems
 
         public int Count => Xz.Length;
 
-        /// <summary>Builds the chain through <paramref name="points"/> (>= 2, consecutive duplicates dropped); null when fewer than
-        /// two distinct points or a zero-length path.</summary>
+        /// <summary>Builds the chain through <paramref name="points"/> (>= 2 points, consecutive duplicates dropped). Returns null when
+        /// there are fewer than two distinct points or a zero-length path.</summary>
         public static GradePath Build(IList<float2> points, float step)
         {
             var pts = new List<float2>();
@@ -210,7 +212,7 @@ namespace SkiResortMod.Systems
     {
         public float[] Ground;
         public float[] Y;
-        /// <summary>Grade of each sample step (Y[i+1] - Y[i]) / ds; Length = samples - 1.</summary>
+        /// <summary>Grade of each sample step (Y[i+1] - Y[i]) / ds. Length = samples - 1.</summary>
         public float[] SegGrade;
         public float MaxGradeAbs;
         public float AvgGradeAbs;
@@ -219,10 +221,10 @@ namespace SkiResortMod.Systems
         /// <summary>Extra path length the grade limit needs between the two ends (0 when feasible).</summary>
         public float ShortfallM;
 
-        /// <summary><paramref name="pinTol"/> (null = none): per sample NaN = free, else the profile stays within that many meters of the
-        /// ground there (0 = held to the ground like the two ends: a crossing's fade band; up to InsideMaxM inside a crossed run,
-        /// GradeRaster.PinTolerance). FollowGround only: a constant grade is one straight ramp by definition, the final-surface guard
-        /// (GradeRaster.AlongTrackSteepSample) is its only protection.</summary>
+        /// <summary><paramref name="pinTol"/> (null = none): per sample, NaN = free. Otherwise the profile stays within that many meters of
+        /// the ground there. 0 = held to the ground like the two ends: a crossing's fade band. The tolerance goes up to InsideMaxM inside a
+        /// crossed run (GradeRaster.PinTolerance). FollowGround only: a constant grade is one straight ramp by definition. The
+        /// final-surface guard (GradeRaster.AlongTrackSteepSample) is its only protection.</summary>
         public static GradeProfile Solve(GradePath path, float[] ground, GradeParams p, float[] pinTol = null)
         {
             int n = path.Count;
@@ -272,14 +274,15 @@ namespace SkiResortMod.Systems
                         sm[i] = acc / (2 * k + 1);
                     }
                     y = sm;
-                    // NoFill: the average of lo can poke above the ground; min with lo (G-limited, at or below the ground) stays G-limited.
+                    // NoFill: the average of lo can rise above the ground. The min with lo (G-limited, at or below the ground) stays
+                    // G-limited.
                     if (p.NoFill)
                         for (int i = 0; i < n; i++)
                             y[i] = math.min(y[i], lo[i]);
                 }
 
-                // Pin both ends to the ground with slope cones: slope G, or the slope the two ends force when that is steeper (infeasible:
-                // both ends still meet the ground and the steep part shows red).
+                // Pin both ends to the ground with slope cones: slope G, or the slope the two ends force when that is steeper. The steeper
+                // case is infeasible: both ends still meet the ground and the steep part shows red.
                 float gc = math.max(g, L > 0f ? math.abs(gn - g0) / L * 1.0001f : g);
                 for (int i = 0; i < n; i++)
                 {
@@ -289,8 +292,8 @@ namespace SkiResortMod.Systems
                 }
 
                 // Held samples (crossings): cones of slope G from each band [ground - tol, ground + tol]. hi / lo are min / max of
-                // G-Lipschitz cones (two sweeps, O(n)), so clamping a G-limited profile between them keeps it G-limited; where two bands
-                // disagree by more than the grade allows (lo > hi) the midpoint is taken and the surface guard refuses.
+                // G-Lipschitz cones (two sweeps, O(n)), so clamping a G-limited profile between them keeps it G-limited. Where two bands
+                // disagree by more than the grade allows (lo > hi), the midpoint is taken and the surface guard refuses.
                 if (pinTol != null && pinTol.Length == n)
                 {
                     var pinHi = new float[n];
@@ -346,9 +349,9 @@ namespace SkiResortMod.Systems
             return prof;
         }
 
-        /// <summary>The ground a NoFill (full-cut) bench is solved against: per path sample the LOWEST ground across the flat top (the
-        /// centerline and the offsets at +-0.5 and +-1 half widths). A bench at or below it is in cut across its whole width, so on a
-        /// cross slope it sinks into the hill by up to slope x width instead of being filled on the downhill side; pass the result as
+        /// <summary>The ground a NoFill (full-cut) bench is solved against: per path sample, the LOWEST ground across the flat top (the
+        /// centerline and the offsets at +-0.5 and +-1 half widths). A bench at or below it is in cut across its whole width. So on a cross
+        /// slope it sinks into the hill by up to slope x width instead of being filled on the downhill side. Pass the result as
         /// <c>ground</c> to <see cref="Solve"/> together with <see cref="GradeParams.NarrowFullCut"/>. The profile is then the highest
         /// G-limited line under that envelope, so the max grade rule holds on the bench itself.</summary>
         public static float[] LowEdgeGround(GradePath path, Func<float2, float> groundAt, float halfWidth)
@@ -384,16 +387,17 @@ namespace SkiResortMod.Systems
             gradeAbs <= maxGrade + 0.005f ? 0 : gradeAbs <= maxGrade + 0.05f ? 1 : 2;
     }
 
-    /// <summary>The rasterized corridor over one heightmap rect (pipeline 3). Heights are world meters (floats); the engine half
-    /// encodes them (GradeMap.ToU16) and only texels whose code changes are counted / written.</summary>
+    /// <summary>The rasterized corridor over one heightmap rect (pipeline 3). Heights are world meters (floats). The engine half encodes
+    /// them (GradeMap.ToU16), and only texels whose code changes are counted / written.</summary>
     public sealed class GradeRaster
     {
-        /// <summary>Largest rect (texels) the tool will rasterize. Build holds 17 bytes per texel (four float arrays and the zone
-        /// byte) and the main thread samples the terrain once per texel on every edit; 2^20 texels (a 3.6 km square at the vanilla
-        /// 3.5 m texel) is about 18 MB and a fraction of a second, where 2048 x 2048 would be 71 MB before the apply's readbacks.</summary>
+        /// <summary>Largest rect (texels) the tool will rasterize. Build holds 17 bytes per texel (four float arrays and the zone byte).
+        /// The main thread samples the terrain once per texel on every edit. 2^20 texels (a 3.6 km square at the vanilla 3.5 m texel) is
+        /// about 18 MB and a fraction of a second. 2048 x 2048 would be 71 MB before the apply's readbacks.</summary>
         public const int MaxTexels = 1 << 20;
 
-        /// <summary>True when the rect is over <see cref="MaxTexels"/>; the long product avoids int overflow on a degenerate rect.</summary>
+        /// <summary>True when the rect is over <see cref="MaxTexels"/>. The long product avoids int overflow on a degenerate
+        /// rect.</summary>
         public static bool TooLarge(int4 rect) => (long)rect.z * rect.w > MaxTexels;
 
         public int X0, Z0, W, H;
@@ -412,16 +416,16 @@ namespace SkiResortMod.Systems
         public int KeptTexels, InsideTexels;
         public float MaxInsideM;
         public float MaxBankStepM;
-        /// <summary>Texels within the flat top's half width of the centerline, and (NoFill only) those of them left at the ground because it
-        /// lies more than half a height step below the bench, with the largest such drop. UnfilledTopTexels / TopTexels is the part of the
-        /// top that is not tread; the planner offsets the centerline into the hill until it is near 0.</summary>
+        /// <summary>Texels within the flat top's half width of the centerline, and (NoFill only) those of them left at the ground because
+        /// it lies more than half a height step below the bench, with the largest such drop. UnfilledTopTexels / TopTexels is the part of
+        /// the top that is not tread. The planner offsets the centerline into the hill until it is near 0.</summary>
         public int TopTexels, UnfilledTopTexels;
         public float MaxUnfilledM;
 
         public int Index(int i, int j) => (j - Z0) * W + (i - X0);
 
-        /// <summary>The rect the corridor can touch: the samples' box grown by the flat top and MaxSideM (the side slopes' reach; a
-        /// sidehill needs the full reach even where the centerline sits on the ground); clamped to the map. False when it misses the
+        /// <summary>The rect the corridor can touch: the samples' box grown by the flat top and MaxSideM (the side slopes' reach), clamped
+        /// to the map. A sidehill needs the full reach even where the centerline sits on the ground. False when it misses the
         /// map.</summary>
         public static bool Bounds(GradeMap map, GradePath path, GradeProfile prof, GradeParams p, out int4 rect, out float reach)
         {
@@ -440,9 +444,9 @@ namespace SkiResortMod.Systems
             return x1 >= x0 && z1 >= z0;
         }
 
-        /// <summary>Rasterize. <paramref name="baseHeight"/> = the base height of texel (i, j) in world meters (the engine half reads
-        /// the base rect; tests pass a function). <paramref name="keep"/> = the outlines of other runs the track may cross (null = none):
-        /// inside one the ground is kept, within CrossBlendM outside it the template fades into the ground (KeepWeight).</summary>
+        /// <summary>Rasterize. <paramref name="baseHeight"/> = the base height of texel (i, j) in world meters (the engine half reads the
+        /// base rect, and tests pass a function). <paramref name="keep"/> = the outlines of other runs the track may cross (null = none).
+        /// Inside one, the ground is kept. Within CrossBlendM outside it, the template fades into the ground (KeepWeight).</summary>
         public static GradeRaster Build(GradeMap map, int4 rect, GradePath path, GradeProfile prof, GradeParams p, float reach,
                                         Func<int, int, float> baseHeight, IList<float2[]> keep = null)
         {
@@ -588,7 +592,7 @@ namespace SkiResortMod.Systems
             return r;
         }
 
-        /// <summary>Per keep outline its box grown by <paramref name="blendM"/> (x0, z0, x1, z1); null when there is none.</summary>
+        /// <summary>Per keep outline its box grown by <paramref name="blendM"/> (x0, z0, x1, z1). Null when there is none.</summary>
         public static float4[] KeepBoxes(IList<float2[]> keep, float blendM)
         {
             if (keep == null || keep.Count == 0)
@@ -609,8 +613,9 @@ namespace SkiResortMod.Systems
             return boxes;
         }
 
-        /// <summary>Per keep outline: does the path enter it (any sample inside)? Only those outlines fade the bench into the ground; a run
-        /// the track merely runs beside keeps its own ground but never tilts the flat top (review fix, 2026-10-25). Null for no keep.</summary>
+        /// <summary>Per keep outline: does the path enter it (any sample inside)? Only those outlines fade the bench into the ground. A run
+        /// the track merely runs beside keeps its own ground but never tilts the flat top (review fix, 2026-10-25). Null for no
+        /// keep.</summary>
         public static bool[] EnteredOutlines(GradePath path, IList<float2[]> keep)
         {
             if (keep == null || keep.Count == 0 || path == null)
@@ -625,9 +630,10 @@ namespace SkiResortMod.Systems
             return entered;
         }
 
-        /// <summary>The profile's tolerance per path sample (null = no crossing): NaN = free; 0 in the fade band before an entered outline
-        /// (the template equals the ground wherever the fade acts, so the surface there is the ground's own and the G-limited solver carries
-        /// the approach); inside an outline InsideMaxM x the inward fade (InsideDepth / InsideFadeM), matching the raster's correction.</summary>
+        /// <summary>The profile's tolerance per path sample (null = no crossing). NaN = free. 0 in the fade band before an entered outline
+        /// (the template equals the ground wherever the fade acts, so the surface there is the ground's own and the G-limited solver
+        /// carries the approach). Inside an outline: InsideMaxM x the inward fade (InsideDepth / InsideFadeM), matching the raster's
+        /// correction.</summary>
         public static float[] PinTolerance(GradePath path, IList<float2[]> keep, GradeParams p)
         {
             if (keep == null || keep.Count == 0 || path == null)
@@ -673,8 +679,8 @@ namespace SkiResortMod.Systems
             return depth;
         }
 
-        /// <summary>The largest inside allowance (GradeParams.InsideAllowanceSteps, 2 m down to 0) whose plan keeps every crossed run's band
-        /// (<paramref name="keepsBands"/> builds and rates the plan at that allowance), or -1 when none does.</summary>
+        /// <summary>The largest inside allowance (GradeParams.InsideAllowanceSteps, 2 m down to 0) whose plan keeps every crossed run's
+        /// band, or -1 when none does. <paramref name="keepsBands"/> builds and rates the plan at that allowance.</summary>
         public static float ChooseInsideAllowance(Func<float, bool> keepsBands)
         {
             foreach (float a in GradeParams.InsideAllowanceSteps)
@@ -683,8 +689,9 @@ namespace SkiResortMod.Systems
             return -1f;
         }
 
-        /// <summary>How much of the ground a texel at <paramref name="c"/> keeps: 1 inside any keep outline, else 1 - d / blendM for the
-        /// nearest outline edge within blendM (a linear fade) of an outline flagged in <paramref name="fade"/> (null = all fade), else 0.</summary>
+        /// <summary>How much of the ground a texel at <paramref name="c"/> keeps. It is 1 inside any keep outline. Else it is 1 - d /
+        /// blendM for the nearest outline edge within blendM (a linear fade) of an outline flagged in <paramref name="fade"/> (null = all
+        /// fade). Else it is 0.</summary>
         public static float KeepWeight(float2 c, IList<float2[]> keep, float4[] boxes, float blendM, bool[] fade = null)
         {
             float w = 0f;
@@ -724,9 +731,10 @@ namespace SkiResortMod.Systems
         /// shows up to 0.7 pp of noise, GradeBatch GR-21).</summary>
         public const float AlongTrackSlack = 0.01f;
 
-        /// <summary>The terrain a crossed run is rated on (SkiRunRater.IHeightSampler): the raster's Before or After, bilinear, where
-        /// the raster covers the point (all four texels), <see cref="Outside"/> elsewhere (the engine half: the CPU heights; GradeBatch: the
-        /// test ground). R null = Outside everywhere. The tool's crossed-run band check and the GradeBatch rating cases share it.</summary>
+        /// <summary>The terrain a crossed run is rated on (SkiRunRater.IHeightSampler). It is the raster's Before or After, bilinear, where
+        /// the raster covers the point (all four texels), and <see cref="Outside"/> elsewhere. The engine half uses the CPU heights.
+        /// GradeBatch uses the test ground. R null = Outside everywhere. The tool's crossed-run band check and the GradeBatch rating cases
+        /// share it.</summary>
         public struct Sampler : IHeightSampler
         {
             public GradeMap Map;
@@ -759,11 +767,11 @@ namespace SkiResortMod.Systems
             return math.lerp(math.lerp(a[Index(i, j)], a[Index(i1, j)], fx), math.lerp(a[Index(i, j1)], a[Index(i1, j1)], fx), fz);
         }
 
-        /// <summary>The safety net behind the pins (review fix, 2026-10-25): the FIRST path sample whose step to the next, on the FINAL
-        /// surface (After, read at the path samples), is steeper than <paramref name="maxGrade"/> + AlongTrackSlack, over the steps where
-        /// either end lies inside a kept outline or its fade band; else -1. The solver and the ground check know nothing of the fade, so
-        /// this is the only test of the surface the crossing really builds (a ConstantGrade ramp, two crossings too far apart in height,
-        /// a steep hillside right outside a run).</summary>
+        /// <summary>The safety net behind the pins (review fix, 2026-10-25). It returns the FIRST path sample whose step to the next is
+        /// steeper than <paramref name="maxGrade"/> + AlongTrackSlack. The step is measured on the FINAL surface (After, read at the path
+        /// samples). Only steps where either end lies inside a kept outline or its fade band count. It returns -1 when there is none. The
+        /// solver and the ground check know nothing of the fade, so this is the only test of the surface the crossing really builds (a
+        /// ConstantGrade ramp, two crossings too far apart in height, a steep hillside right outside a run).</summary>
         public int AlongTrackSteepSample(GradeMap map, GradePath path, IList<float2[]> keep, float blendM, float maxGrade)
         {
             if (keep == null || keep.Count == 0 || path == null)
@@ -821,7 +829,7 @@ namespace SkiResortMod.Systems
     {
         public struct Lot
         {
-            public float2 Center, Right, Forward, Half; // Right / Forward unit; Half = lot half extents (x, z)
+            public float2 Center, Right, Forward, Half; // Right / Forward unit. Half = lot half extents (x, z)
         }
 
         public struct Line
@@ -832,7 +840,7 @@ namespace SkiResortMod.Systems
 
         public readonly List<Lot> Lots = new List<Lot>();
         public readonly List<Line> Lines = new List<Line>();
-        /// <summary>Texels (global i, j) the water surface covers; empty when none.</summary>
+        /// <summary>Texels (global i, j) the water surface covers. Empty when none.</summary>
         public readonly HashSet<int2> WetTexels = new HashSet<int2>();
         /// <summary>The outlines (xz) of the other runs in the rect: crossings keep their ground (GradeRaster.Build keep).</summary>
         public readonly List<float2[]> Runs = new List<float2[]>();
@@ -917,12 +925,12 @@ namespace SkiResortMod.Systems
         Crosses, // two non-adjacent outline edges cross or come closer than MinClearanceM (switchback legs too close for the width)
     }
 
-    /// <summary>The cat-track run's outline (pipeline 6): the flat top's two edges as one closed ring, left edge forward, right edge
-    /// back, so the run covers exactly the graded flat top. Each edge is the centerline offset by half the top width; the loops an
-    /// offset makes on the inside of a bend tighter than the half width are cut at their crossing, then each edge is simplified
-    /// (Douglas-Peucker) and thinned to MinSpacingM. The ring must be simple with MinClearanceM between non-adjacent edges: the
-    /// engine refuses a touching outline as InvalidShape (Game.Areas/ValidationHelpers.cs:887-943, min distance = snap / 2 = 0.5 m for
-    /// Space, AreaUtils.cs:55-58). The ring has no closing duplicate; the engine half adds it (GenerateAreasSystem.cs:282-291).</summary>
+    /// <summary>The cat-track run's outline (pipeline 6): the flat top's two edges as one closed ring, left edge forward, right edge back.
+    /// So the run covers exactly the graded flat top. Each edge is the centerline offset by half the top width. An offset makes loops on
+    /// the inside of a bend tighter than the half width. These loops are cut at their crossing. Then each edge is simplified
+    /// (Douglas-Peucker) and thinned to MinSpacingM. The ring must be simple, with MinClearanceM between non-adjacent edges. The engine
+    /// refuses a touching outline as InvalidShape (Game.Areas/ValidationHelpers.cs:887-943, min distance = snap / 2 = 0.5 m for Space,
+    /// AreaUtils.cs:55-58). The ring has no closing duplicate. The engine half adds it (GenerateAreasSystem.cs:282-291).</summary>
     public static class GradeRibbon
     {
         public const float SimplifyM = 0.5f;
@@ -963,8 +971,8 @@ namespace SkiResortMod.Systems
             return ring;
         }
 
-        /// <summary>Walks the polyline and, where the current segment crosses a later one within <paramref name="window"/> samples,
-        /// jumps to the crossing (the farthest crossing first, so nested loops go in one cut).</summary>
+        /// <summary>Walks the polyline and, where the current segment crosses a later one within <paramref name="window"/> samples, moves
+        /// to the crossing (the farthest crossing first, so nested loops go in one cut).</summary>
         public static List<float2> CutLoops(List<float2> p, int window)
         {
             var o = new List<float2>(p.Count) { p[0] };
@@ -1136,9 +1144,9 @@ namespace SkiResortMod.Systems
 
         public void Clear() => m_Entries.Clear();
 
-        /// <summary>Push; the oldest entries go when over MaxEntries or MaxBytes (the newest always stays). Returns how many were
-        /// dropped, or -1 (nothing stored) for an entry over GradeRaster.MaxTexels: the newest-always-stays rule would otherwise
-        /// hold it past MaxBytes. The tool refuses such a rect before it writes, so this is a backstop.</summary>
+        /// <summary>Push. The oldest entries go when over MaxEntries or MaxBytes (the newest always stays). Returns how many were dropped,
+        /// or -1 (nothing stored) for an entry over GradeRaster.MaxTexels. Otherwise the newest-always-stays rule would hold it past
+        /// MaxBytes. The tool refuses such a rect before it writes, so this is a backstop.</summary>
         public int Push(GradeUndoEntry e)
         {
             if (e.Before.Length > GradeRaster.MaxTexels || e.After.Length > GradeRaster.MaxTexels)
@@ -1187,8 +1195,8 @@ namespace SkiResortMod.Systems
 
     /// <summary>The tool's step (CatTrackGradeToolSystem).</summary>
     /// <summary>A player text of the cat track tool: a LocaleEN key SkiResort.CatTrack.<c>Key</c> with its whole-number {ARG} values
-    /// (meters, percents, cubic meters). Pure so GradeBatch can see which keys the tool can show; the tooltip turns it into a
-    /// LocalizedString. The log keeps the detail; a message never carries ids or log syntax.</summary>
+    /// (meters, percents, cubic meters). It is pure so GradeBatch can see which keys the tool can show. The tooltip turns it into a
+    /// LocalizedString. The log keeps the detail. A message never carries ids or log syntax.</summary>
     public readonly struct GradeMsg
     {
         public const string Prefix = "SkiResort.CatTrack.";
@@ -1240,7 +1248,7 @@ namespace SkiResortMod.Systems
         LeaveDeleteMode, // in Delete mode: the mode goes off (nothing is deleted, the points stay)
     }
 
-    /// <summary>The edit model: the clicked points and an undo stack of point snapshots (pure; the LiftLineEdit pattern).</summary>
+    /// <summary>The edit model: the clicked points and an undo stack of point snapshots (pure, the LiftLineEdit pattern).</summary>
     public sealed class GradeEdit
     {
         private readonly List<float2> m_Points = new List<float2>();
@@ -1276,7 +1284,7 @@ namespace SkiResortMod.Systems
             m_Points.Insert(math.clamp(index, 0, m_Points.Count), p);
         }
 
-        /// <summary>Move point <paramref name="i"/>; false (nothing pushed) when it is not there or did not move.</summary>
+        /// <summary>Move point <paramref name="i"/>. False (nothing pushed) when it is not there or did not move.</summary>
         public bool Move(int i, float2 p)
         {
             if (i < 0 || i >= m_Points.Count || math.distancesq(m_Points[i], p) < 0.01f)
@@ -1315,9 +1323,9 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>Where a left click away from every point goes: between the two clicked points of the path span it is within
-        /// <paramref name="radius"/> of (insert index), else after the last point (append). The path is the chain through the points;
-        /// the span test uses the straight chords, good enough at pick distance.</summary>
+        /// <summary>Where a left click away from every point goes: between the two clicked points of the path span it is
+        /// within <paramref name="radius"/> of (insert index), else after the last point (append). The path is the chain through the points.
+        /// The span test uses the straight chords, which are good enough at pick distance.</summary>
         public int InsertIndex(float2 p, float radius)
         {
             float best = radius;
@@ -1335,17 +1343,17 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>The input rules (pure; LiftBatch's LiftLineInput pattern): left click adds a point (on the path: inserts it),
-    /// press-drag moves one, right click steps back one action and closes the tool only when nothing is left, the Build key (Enter)
-    /// applies, Esc closes.</summary>
+    /// <summary>The input rules (pure, LiftBatch's LiftLineInput pattern). A left click adds a point (on the path, it inserts the point). A
+    /// press-drag moves one. A right click steps back one action and closes the tool only when nothing is left. The Build key (Enter)
+    /// applies. Esc closes.</summary>
     public static class GradeInput
     {
         public static GradeStep StepOf(int points, bool applying) =>
             applying ? GradeStep.Applying : points == 0 ? GradeStep.Empty : points == 1 ? GradeStep.OnePoint : GradeStep.Path;
 
-        /// <summary>Right click or Esc (both reach the tool's Cancel action while it is live; the field log of 2026-10-26b shows Esc
-        /// presses logged as right clicks): leave Delete mode, else cancel a drag, else undo the last point edit, else close. It never
-        /// touches a built cat track (field test 2026-10-26b; the Quick runs rule, DECISIONS 417).</summary>
+        /// <summary>Right click or Esc (both reach the tool's Cancel action while it is live, and the field log of 2026-10-26b shows Esc
+        /// presses logged as right clicks). It does the first of these that applies: leave Delete mode, cancel a drag, undo the last point
+        /// edit, or close. It never touches a built cat track (field test 2026-10-26b, the Quick runs rule, DECISIONS 417).</summary>
         public static GradeBack RightClick(GradeStep step, bool dragging, int undoDepth, bool deleteMode = false)
         {
             if (step == GradeStep.Applying)
@@ -1375,7 +1383,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The plan line: length, steepest part against the limit, earthwork; or what is wrong in words. Whole numbers only.</summary>
+        /// <summary>The plan line: length, steepest part against the limit, earthwork, or what is wrong in words. Whole numbers only.</summary>
         public static GradeMsg PlanMsg(GradePath path, GradeProfile prof, GradeRaster raster, GradeParams p)
         {
             if (path == null || prof == null)
@@ -1412,8 +1420,8 @@ namespace SkiResortMod.Systems
         Disarm, // off every cat track while one is armed
     }
 
-    /// <summary>The Delete mode rules (pure; field test 2026-10-26b): a two-click confirm on the hovered cat track; right click / Esc
-    /// only leave the mode (GradeBack.LeaveDeleteMode via RightClick) and never delete. Tracks are indexes into the picked ring list.</summary>
+    /// <summary>The Delete mode rules (pure, field test 2026-10-26b): a two-click confirm on the hovered cat track. Right click / Esc only
+    /// leave the mode (GradeBack.LeaveDeleteMode via RightClick) and never delete. Tracks are indexes into the picked ring list.</summary>
     public static class GradeDeleteInput
     {
         public static GradeDeleteClick Click(int hovered, int armed)

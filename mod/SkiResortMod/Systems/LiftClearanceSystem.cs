@@ -1,16 +1,17 @@
-// The hub's low-span warning (LiftLowSpan, 2026-11-03): how high the carriers pass over the ground between two towers, measured on the
-// line as it stands. The planner keeps carriers FloorM above the ground (LiftTowerPlanConstants: 3 m, the tram 5 m), but a line can
-// stand lower than that later: a line fitted at a deeper rope sag than it was planned for (LiftTowerFitSystem raises and slides towers,
-// never adds one, DECISIONS 587 d2), or terrain raised under a finished line. This pass measures the real rope: every HV cable lane of
-// a lift edge (the lanes the carriers ride, ChairPinSystem.TryPinChair), whose Curve already carries the lane's sag, sampled every
-// StepM; the carrier's lowest point is the rope point minus the type's CarrierDropM (catalog HangM), the ground is the terrain under it.
-// Samples within StationClearM of a station end are skipped (the carriers come down to loading height there; the planner's floor ramps
-// to 0 the same way, LiftTowerPlanConstants.ApproachFloor). An edge whose lowest carrier passes more than TolM under the floor enters
-// Low; when that set changes the pass asks LiftCensusSystem for a coalesced build, which reads it into LiftCensus.Edge.Low*.
-// When: after each census build (its edge list), when a lift edge is Updated (a tower moved: its lanes are rebuilt this frame), and
-// every RemeasureFrames (terrain raised under a line updates no lift entity). A pass measures whole edges until SliceSamples terrain samples
-// per frame (field test 2026-11-03: about 0.9 us a sample, 62 rope lanes / 1,682 samples took 1.2 ms in one frame, 16 edges a frame
-// still 1.34 ms), so a big resort never stalls one frame; a new trigger mid-pass starts it over.
+// The hub's low-span warning (LiftLowSpan, 2026-11-03). It measures how high the carriers pass over the ground between two towers, on the
+// line as it stands. The planner keeps carriers FloorM above the ground (LiftTowerPlanConstants: 3 m, the tram 5 m). A line can stand lower
+// than that later. Two cases: a line fitted at a deeper rope sag than it was planned for (LiftTowerFitSystem raises and slides towers,
+// never adds one, DECISIONS 587 d2), or terrain raised under a finished line.
+// This pass measures the real rope. It samples every HV cable lane of a lift edge (the lanes the carriers ride, ChairPinSystem.TryPinChair)
+// every StepM. The Curve of a lane already carries its sag. The carrier's lowest point is the rope point minus the type's CarrierDropM
+// (catalog HangM). The ground is the terrain under it. Samples within StationClearM of a station end are skipped (the carriers come down to
+// loading height there, and the planner's floor ramps to 0 the same way, LiftTowerPlanConstants.ApproachFloor). An edge whose lowest
+// carrier passes more than TolM under the floor enters Low. When that set changes, the pass asks LiftCensusSystem for a coalesced build.
+// The build reads the set into LiftCensus.Edge.Low*.
+// When: after each census build (its edge list), when a lift edge is Updated (a tower moved: its lanes are rebuilt this frame), and every
+// RemeasureFrames (terrain raised under a line updates no lift entity). A pass measures whole edges until SliceSamples terrain samples per
+// frame. Field test 2026-11-03: about 0.9 us a sample, 62 rope lanes / 1,682 samples took 1.2 ms in one frame, 16 edges a frame still 1.34
+// ms. So a big resort never stalls one frame. A new trigger mid-pass starts it over.
 // Never: Temp or Deleted edges and lanes, the Editor. Warn only: the line, its towers and the lift state are unchanged.
 // Log discipline: one line when the set changes (with the worst span), a one-shot "!!!" catch.
 // Mod.cs: UpdateAfter<LiftClearanceSystem, LiftCensusSystem>(Modification4B).
@@ -36,15 +37,15 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class LiftClearanceSystem : GameSystemBase
     {
-        /// <summary>A span warns when its lowest carrier passes more than this under the floor (the planner's own tolerance is 0.05 m;
-        /// the live rope and the terrain under it are read, not planned).</summary>
+        /// <summary>A span warns when its lowest carrier passes more than this under the floor (the planner's own tolerance is 0.05 m.
+        /// The live rope and the terrain under it are read, not planned).</summary>
         internal const float TolM = 0.1f;
 
         /// <summary>Re-measure period, frames (about 10 s at 60 fps): terrain raised under a line updates no lift entity.</summary>
         internal const int RemeasureFrames = 600;
 
-        /// <summary>Terrain samples per frame, about 0.25 ms: whole edges are measured until a frame reaches it (a chair edge is 40 to 80
-        /// samples over its two rope lanes, a long tram span up to 2 x 300, which then has a frame of its own).</summary>
+        /// <summary>Terrain samples per frame, about 0.25 ms. Whole edges are measured until a frame reaches it. A chair edge is 40 to 80
+        /// samples over its two rope lanes. A long tram span is up to 2 x 300, and it then has a frame of its own.</summary>
         internal const int SliceSamples = 256;
 
         /// <summary>At most this many samples per lane (a 3 km tram span at the tram's 10 m step is 300).</summary>
@@ -135,7 +136,7 @@ namespace SkiResortMod.Systems
                     return;
                 TerrainHeightData hd = m_TerrainSystem.GetHeightData();
                 if (!hd.isCreated)
-                    return;   // stay armed; the heightmap comes with the first frames of a load
+                    return;   // stay armed. The heightmap comes with the first frames of a load
                 if (m_Dirty)
                 {
                     // A new trigger (re)starts the pass on the current edge list.
@@ -242,8 +243,8 @@ namespace SkiResortMod.Systems
 
         private void Finish()
         {
-            // The low spans: when the set or a span's figure changed, log it and have the census re-measure, so the hub's LiftLowSpan
-            // row follows the line within one coalesce window (the census reads m_Low at its harvest).
+            // The low spans: when the set or a span's figure changed, log it and have the census re-measure. So the hub's LiftLowSpan row
+            // follows the line within one coalesce window (the census reads m_Low at its harvest).
             if (!SameLow(m_Low, m_LowNext))
             {
                 (m_Low, m_LowNext) = (m_LowNext, m_Low);

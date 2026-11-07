@@ -1,10 +1,10 @@
 // Quick runs tool mouse tooltip, the cat track tooltip's pattern. Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip. Fixed lines go by
-// LocalizedString.Id (locale keys, root LocaleEN.cs "SkiResort.Tooltip.QUICK_*"); numbers go in number widgets with a localized label
-// (the glade tooltip's IntTooltip idiom), and the two lines that mix several numbers into a sentence (mix, cluster) fill the active
-// dictionary's template (the SkiDaySystem.ReachRowText precedent) and go by Value. The step prompt is always shown while the tool is
-// open, then the build's or the planting's progress line; refusals, notices and warnings follow under it. Resort Planner v2 (stage A,
-// task A7): with a plan showing, the plan line, the terrain's honest mix, the lifts-are-proposals note and the site verdict's detail line
-// (the v1 site line itself is unchanged); the pod or lift under the cursor gets its own line (and the lift its way-home verdict); the
+// LocalizedString.Id (locale keys, root LocaleEN.cs "SkiResort.Tooltip.QUICK_*"). Numbers go in number widgets with a localized label (the
+// glade tooltip's IntTooltip idiom). The two lines that mix several numbers into a sentence (mix, cluster) fill the active dictionary's
+// template (the SkiDaySystem.ReachRowText precedent) and go by Value. The step prompt is always shown while the tool is open, then the
+// build's or the planting's progress line. Refusals, notices and warnings follow under it. Resort Planner v2 (stage A, task A7): with a
+// plan showing, the tooltip also shows the plan line, the terrain's honest mix, the lifts-are-proposals note and the site verdict's detail
+// line (the v1 site line itself is unchanged). The pod or lift under the cursor gets its own line (and the lift its way-home verdict). The
 // empty region says a click on a lift station plans around it. Zero allocation per frame except when a value changes. A "!!!" ERROR
 // disables the system until the next load.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Tooltip)
@@ -105,7 +105,7 @@ namespace SkiResortMod.Systems
                     m_Vertical.value = (int)Math.Round(ro.VerticalM);
                     AddMouseTooltip(m_Vertical);
                 }
-                // The hub's planner panel shows these lines; the cursor repeats them only with the hub closed
+                // The hub's planner panel shows these lines. The cursor repeats them only with the hub closed
                 bool detail = !m_Hub.IsOpen;
                 // The site verdict: the corner estimate in the Region step, the scan's figure after it
                 if (detail && ((phase == QuickRunsToolSystem.ToolPhase.Region && ro.State != QuickRegionState.Open) || m_Tool.HasPreview))
@@ -290,8 +290,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The active dictionary's text for a template key (the SkiDaySystem.ReachRowText precedent); the key itself when absent.</summary>
-        /// <summary>One line: "Steep slope (average 33 %): ..." (QUICK_SITE[*] with the whole percent); nothing while the grade is unknown.</summary>
+        /// <summary>The active dictionary's text for a template key (the SkiDaySystem.ReachRowText precedent). The key itself when
+        /// absent.</summary>
+        /// <summary>One line: "Steep slope (average 33 %): ..." (QUICK_SITE[*] with the whole percent). Nothing while the grade is
+        /// unknown.</summary>
         private void ShowSite(float meanGrade)
         {
             int pct = QuickRunsRules.SitePercent(meanGrade);

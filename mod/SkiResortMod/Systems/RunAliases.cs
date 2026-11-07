@@ -1,6 +1,8 @@
-// A re-emitted run's old entity -> its new one (SkiRunReemitSystem, DECISIONS 577), kept by each system with run-keyed runtime maps.
-// A pass that started before the swap can still write the old key after it, so the owner re-applies its aliases at the top of every
-// update until they age out; Move never overwrites a value already written for the new run. Main thread; no allocation while empty.
+// A re-emitted run's old entity maps to its new one (SkiRunReemitSystem, DECISIONS 577). Each system that has run-keyed
+// runtime maps keeps these aliases.
+// A pass that started before the swap can still write the old key after the swap. So the owner re-applies its aliases at the top of every
+// update until they age out. Move never overwrites a value already written for the new run. This code runs on the main thread and allocates
+// nothing while empty.
 // Engine notes: EngineNotes/SkiRunReemitSystem.md
 
 using System;
@@ -11,8 +13,8 @@ namespace SkiResortMod.Systems
 {
     internal sealed class RunAliases
     {
-        /// <summary>Updates an alias lives: longer than the slowest pass that reads a run list (the score's recompute, the injection's
-        /// mask and snow passes), short enough that the list is empty again within a minute at 60 fps.</summary>
+        /// <summary>The number of updates an alias lives. It is longer than the slowest pass that reads a run list (the score's recompute,
+        /// the injection's mask and snow passes). It is short enough that the list is empty again within a minute at 60 fps.</summary>
         public const int TtlUpdates = 2048;
 
         private struct Alias
@@ -49,7 +51,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The old key's value moves to the new key unless the new key already has one; the old key is removed either way.</summary>
+        /// <summary>The old key's value moves to the new key unless the new key already has one. Either way, the method removes the old
+        /// key.</summary>
         public static void Move<T>(Dictionary<Entity, T> map, Entity from, Entity to)
         {
             if (map == null || !map.TryGetValue(from, out T value))

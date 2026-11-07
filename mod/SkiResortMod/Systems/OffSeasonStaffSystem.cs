@@ -1,13 +1,14 @@
-// Lodges and the ski school run at half staff while their ski area is off-season. Pure rules and engine citations:
-// OffSeasonRules.cs. Phase GameSimulation, not load-bearing (WorkProviderSystem's tick reads the value whenever it runs).
-// Every PollFrames sim frames (Game mode, setting SkiResortSettings.OffSeasonHalfStaff): per Welcome Sign, OffSeasonRules.Step on
-// its released score (no released score: not stepped, reads in season); per top-level lodge / school with its own WorkProvider,
-// m_MaxWorkers = OffSeasonRules.Target. The hut's and summit lodge's jobs ride on the carrier (MountainJobsSystem asks IsHalf).
-// Nothing vanilla rewrites m_MaxWorkers after the Created frame, so this re-asserts on every poll; the setting off restores all.
+// Lodges and the ski school run at half staff while their ski area is off-season. Pure rules and engine citations: OffSeasonRules.cs. Phase
+// GameSimulation, not load-bearing (WorkProviderSystem's tick reads the value whenever it runs).
+// Every PollFrames sim frames (Game mode, setting SkiResortSettings.OffSeasonHalfStaff), this system does two things. Per Welcome Sign, it
+// runs OffSeasonRules.Step on its released score (no released score: not stepped, reads in season). Per top-level lodge / school with its
+// own WorkProvider, it sets m_MaxWorkers = OffSeasonRules.Target. The hut's and summit lodge's jobs ride on the carrier (MountainJobsSystem
+// asks IsHalf).
+// Nothing vanilla rewrites m_MaxWorkers after the Created frame, so this re-asserts on every poll. With the setting off, it restores all.
 // The one writer of a lodge's m_MaxWorkers: its own target plus what it carries as its area's job carrier (MountainJobsSystem.CarriedBy,
-// MountainJobsRules.CarrierTarget). An off-road lodge on a cat track chain hands its own jobs to the carrier: its target goes to 0, the
-// game's tick lays the staff off, and once no staff is listed its WorkProvider and FreeWorkplaces go (the shape the utility-switch
-// prototype measured: no worker icons, no staffing factor). Back at a road, or off the chain, the WorkProvider comes back.
+// MountainJobsRules.CarrierTarget). An off-road lodge on a cat track chain hands its own jobs to the carrier. Its target goes to 0, and the
+// game's tick lays the staff off. Once no staff is listed, its WorkProvider and FreeWorkplaces are removed (the shape the utility-switch
+// prototype measured: no worker icons, no staffing factor). Back at a road, or off the chain, the WorkProvider returns.
 // Logs: "created", ARMED once per load, one "OffSeason [area]" per transition, one "OffSeason [staff]" per write, "!!!" once on a throw.
 // Engine notes: EngineNotes/OffSeasonStaffSystem.md
 
@@ -230,8 +231,8 @@ namespace SkiResortMod.Systems
                          (carried > 0 ? $", carries {carried}" : string.Empty) + $"; at a road or off the cat track chain; vanilla grace {grace})");
         }
 
-        /// <summary>0 workplaces and no staff listed: WorkProvider and FreeWorkplaces go, the staffing factors read 1 and the two worker icons
-        /// are removed (WorkProviderSystem's writers of all four skip a building without WorkProvider, :232-312).</summary>
+        /// <summary>0 workplaces and no staff listed: WorkProvider and FreeWorkplaces are removed. The staffing factors read 1, and the two
+        /// worker icons are removed (WorkProviderSystem's writers of all four skip a building without WorkProvider, :232-312).</summary>
         private void DropProvider(Entity b, string name)
         {
             if (!m_WorkProviderParamQuery.IsEmptyIgnoreFilter)

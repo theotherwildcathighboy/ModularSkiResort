@@ -1,17 +1,17 @@
-// Pure rules of merging an existing building into a ski area as a lodge (docs/research/merge-asset-into-resort-2026-11-02.md). The
-// building keeps its own prefab and vanilla behavior; a saved tag (SkiMergedLodge) names a lodge tier, and that tier's catalog row then
-// supplies score, skier room, jobs and attraction share as if the player had built the tier there. ADD ALONGSIDE, NEVER STRIP what
-// vanilla cannot give back: the building's own WorkProvider, an AttractivenessProvider that came with its prefab, renters, prefab flags.
+// Pure rules of merging an existing building into a ski area as a lodge (docs/research/merge-asset-into-resort-2026-11-02.md). The building
+// keeps its own prefab and vanilla behavior. A saved tag (SkiMergedLodge) names a lodge tier. That tier's catalog row then supplies score,
+// skier room, jobs and attraction share as if the player had built the tier there. ADD ALONGSIDE, NEVER STRIP what vanilla cannot give
+// back: the building's own WorkProvider, an AttractivenessProvider that came with its prefab, renters, prefab flags.
 // - Kinds: Parks & Recreation buildings with a Park component (parks, landmarks), residential / commercial / mixed / office signatures,
 //   and plain decor buildings (no service, no company). Refused: growables (they level up, empty out, get condemned:
 //   ZoneCheckSystem.cs:297-313, BuildingUpkeepSystem.cs:721-730), industrial signatures, other city services, sub-buildings and upgrades
 //   (Owner), company and extractor buildings, our own prefabs, and transient states.
 // - Size: a tier needs a lot of at least MinCells (first values, not tuned).
-// - Cost parity: once max(0, tier build cost - own construction cost); monthly max(0, tier upkeep - own city-billed upkeep). A
+// - Cost parity: once max(0, tier build cost - own construction cost), and monthly max(0, tier upkeep - own city-billed upkeep). A
 //   signature's upkeep is paid by its renters (BuildingUpkeepSystem.cs:175-226), so its city-billed upkeep is 0. No refund.
 // - Jobs: the tier's jobs (Workplace + sign-carried) less the building's own WorkplaceData jobs ride on the area's job carrier.
 // - Attraction: round(sqrt(V^2 + P^2)), V = vanilla's own value read on its update slice, P = the lodge share (PerLodge): the building
-//   keeps its own tourism (TourismSystem.cs:95-107 sums a^2) and the area's lodge total does not grow with more lodges.
+//   keeps its own tourism (TourismSystem.cs:95-107 sums a^2). The area's lodge total does not grow with more lodges.
 // - Counted: linked to a live Welcome Sign (nearest within the tether) AND within SkiDayRules.SlopesideMaxM of a run or lift station of
 //   that area, re-checked every recompute, never sticky. Not a guest destination in v1.
 // Pure file: System and System.Collections.Generic only (+ SkiCatalog's LodgeDef). Linked into tests/BuildingBatch.
@@ -72,7 +72,7 @@ namespace SkiResortMod.Systems
         // First values by tier index (SkiCatalog.Lodges: 0 aFrame, 1 hut, 2 mid, 3 summit, 4 grand). Our own lots are 30, 9, 20, 30, 90.
         private static readonly int[] s_MinCells = { 9, 4, 16, 16, 48 };
 
-        /// <summary>The smallest lot (cells) a tier needs; int.MaxValue for an unknown tier.</summary>
+        /// <summary>The smallest lot (cells) a tier needs. int.MaxValue for an unknown tier.</summary>
         public static int MinCells(int tier)
         {
             return tier >= 0 && tier < s_MinCells.Length ? s_MinCells[tier] : int.MaxValue;
@@ -90,8 +90,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The kind, or None with the refusal. Order: not a building, ours, sub-building, transient, signature (industrial refused),
-        /// growable, company, park, other service, then plain decor; last the size against the smallest tier.</summary>
+        /// <summary>The kind, or None with the refusal. Order: not a building, ours, sub-building, transient, signature (industrial
+        /// refused), growable, company, park, other service, then plain decor. Last, the size against the smallest tier.</summary>
         public static Kind Classify(in Facts f, out Refusal refusal)
         {
             refusal = Refusal.None;
@@ -160,8 +160,8 @@ namespace SkiResortMod.Systems
             return mask;
         }
 
-        /// <summary>The tier kept after the lot changed (a prefab swap): the same tier if it still fits, else the allowed tier with the highest
-        /// base B below it (ties to the lower index), else -1 (nothing fits).</summary>
+        /// <summary>The tier kept after the lot changed (a prefab swap). It is the same tier if it still fits. Otherwise it is the allowed
+        /// tier with the highest base B below it (ties to the lower index). Otherwise it is -1 (nothing fits).</summary>
         public static int BestAllowed(int tier, int lotCells, IReadOnlyList<LodgeDef> lodges)
         {
             if (tier >= 0 && tier < lodges.Count && TierAllowed(tier, lotCells))
@@ -190,13 +190,14 @@ namespace SkiResortMod.Systems
             return Math.Max(0, tierUpkeep - Math.Max(0, ownCityUpkeep));
         }
 
-        /// <summary>What the city pays for the building itself: a park's own upkeep; a signature's renters pay theirs, decor has none.</summary>
+        /// <summary>What the city pays for the building itself: a park's own upkeep. A signature's renters pay theirs, and decor has
+        /// none.</summary>
         public static int OwnCityUpkeep(Kind kind, int prefabUpkeep)
         {
             return kind == Kind.Park ? Math.Max(0, prefabUpkeep) : 0;
         }
 
-        /// <summary>A tier change charges the new fee less what was paid so far; never a refund.</summary>
+        /// <summary>A tier change charges the new fee less what was paid so far. Never a refund.</summary>
         public static int TierChangeCharge(int newFee, int feePaid)
         {
             return Math.Max(0, newFee - Math.Max(0, feePaid));
@@ -253,7 +254,8 @@ namespace SkiResortMod.Systems
             return inactive ? State.Inactive : State.Counted;
         }
 
-        /// <summary>Counted = in the area's lodge set (score, capacity, jobs, attraction, fee); an Inactive one is listed but not active.</summary>
+        /// <summary>Counted = in the area's lodge set (score, capacity, jobs, attraction, fee). An Inactive one is listed but not
+        /// active.</summary>
         public static bool InArea(State s)
         {
             return s == State.Counted || s == State.Inactive;
@@ -265,8 +267,8 @@ namespace SkiResortMod.Systems
             return s == State.Counted;
         }
 
-        /// <summary>Two buildings carrying one serial (a copy that kept our component): the one to untag is the later (Index, Version), so the
-        /// older one stays merged.</summary>
+        /// <summary>Two buildings carrying one serial (a copy that kept our component): the one to untag is the later (Index, Version). The
+        /// older one therefore stays merged.</summary>
         public static bool IsDuplicateLoser(EntityRef candidate, EntityRef keeper)
         {
             return candidate.CompareTo(keeper) > 0;
@@ -289,7 +291,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The tint of one building from its Classify result and lot. Already merged buildings are not tinted (the Overview's
-        /// Merged buildings fold lists them). A kind that qualifies only fails Classify on the lot (TooSmall), so the gray case is
+        /// Merged buildings fold lists them). A kind that qualifies only fails Classify on the lot (TooSmall). Therefore the gray case is
         /// "allowed kind, AllowedMask 0", whichever of the two says it.</summary>
         public static OverlayTint TintOf(Kind kind, Refusal refusal, int allowedMask, bool merged)
         {
@@ -301,8 +303,8 @@ namespace SkiResortMod.Systems
             return allowedMask != 0 && kind != Kind.None ? OverlayTint.Allowed : OverlayTint.TooSmall;
         }
 
-        /// <summary>The overlay's armed state after one frame's events. The hub button sets <paramref name="request"/> (1 arm, 0 disarm,
-        /// -1 none); Escape, a merge (or tier change) and a load always disarm, whatever the button said in the same frame. Arming needs a
+        /// <summary>The overlay's armed state after one frame's events. The hub button sets <paramref name="request"/> (1 arm, 0 disarm, -1
+        /// none). Escape, a merge (or tier change) and a load always disarm, whatever the button said in the same frame. Arming needs a
         /// Welcome Sign in the city.</summary>
         public static bool NextArmed(bool armed, int request, bool escape, bool merged, bool loaded, bool hasSign)
         {
@@ -315,9 +317,12 @@ namespace SkiResortMod.Systems
             return armed;
         }
 
-        /// <summary>The candidate list is rebuilt when the mode arms, when the areas' runs and lift stations moved (the slopeside
-        /// geometry's revision), when the city's building count changed, or on request (an unmerge makes a new candidate). Never while
-        /// disarmed.</summary>
+        /// <summary>The candidate list is rebuilt:
+        ///   * when the mode arms
+        ///   * when the areas' runs and lift stations moved (the slopeside geometry's revision)
+        ///   * when the city's building count changed
+        ///   * on request (an unmerge makes a new candidate)
+        /// Never while disarmed.</summary>
         public static bool OverlayRebuild(bool armed, bool justArmed, int geometryRevision, int builtGeometryRevision,
                                           int buildingCount, int builtBuildingCount, bool requested)
         {
@@ -331,7 +336,8 @@ namespace SkiResortMod.Systems
     /// names. Our prefabs always resolve to their own row, tag or not, so our lodges behave exactly as before the merge feature.</summary>
     public static class LodgeIdentity
     {
-        /// <summary><paramref name="catalogRow"/> when non-null; else lodges[tier] for a tagged building with a valid tier; else null.</summary>
+        /// <summary><paramref name="catalogRow"/> when non-null. Else lodges[tier] for a tagged building with a valid tier. Else
+        /// null.</summary>
         public static LodgeDef Resolve(LodgeDef catalogRow, bool tagged, int tier, IReadOnlyList<LodgeDef> lodges)
         {
             if (catalogRow != null)

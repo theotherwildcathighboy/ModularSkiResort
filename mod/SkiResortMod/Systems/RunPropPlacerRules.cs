@@ -1,8 +1,8 @@
 // The pure part of the run prop placer: where guns, hydrants and masts stand along a run's border, from the ring and the run's two
-// spacings. SkiRunPropSystem.Placer.cs does the entities; tests/ResortBatch PlacerTests checks this file with literal values.
-// Why a walk: vanilla area props stand only on outline nodes, one roll per node (SecondaryObjectSystem.cs:2972-3007, :3279), so a 4-corner
-// run shows 0 or 1 floodlight and a generated cat track (nodes down to 2 m apart, GradeRibbon.MinSpacingM) clumps on bends.
-// Canonical ring: counter-clockwise (shoelace in x,z), starting at the lexicographically smallest (x, z) vertex, so the result does not
+// spacings. SkiRunPropSystem.Placer.cs does the entities. The test tests/ResortBatch PlacerTests checks this file with literal values.
+// Why a walk: vanilla area props stand only on outline nodes, one roll per node (SecondaryObjectSystem.cs:2972-3007, :3279). So a 4-corner
+// run shows 0 or 1 floodlight. A generated cat track (nodes down to 2 m apart, GradeRibbon.MinSpacingM) clumps on bends.
+// Canonical ring: counter-clockwise (shoelace in x,z), starting at the lexicographically smallest (x, z) vertex. So the result does not
 // depend on the start node, the winding or extra nodes on a straight side. A closed ring takes N = round(perimeter / spacing) slots at
 // perimeter / N, so the seam shows no gap. A cat track walks one side of its ribbon only (SideChain).
 // Snow and upkeep read the spacings only as features (SkiRunPropSystem.FeaturesOf, DECISIONS 577). Pure file: System only (no Game.dll, no Unity types). C# 9 / net48.
@@ -58,7 +58,7 @@ namespace SkiResortMod.Systems
         public readonly int N;
         public readonly float[] X, Y, Z;
         public readonly double Perimeter;
-        private readonly double[] m_Cum;   // length from vertex 0 to vertex i; m_Cum[N] = Perimeter
+        private readonly double[] m_Cum;   // length from vertex 0 to vertex i. m_Cum[N] = Perimeter
 
         public PlacerRing(float[] x, float[] y, float[] z, int n)
         {
@@ -177,10 +177,10 @@ namespace SkiResortMod.Systems
         public const int SpacingMaxM = 200;
         public const int SpacingStepM = 10;
 
-        // Defaults. Reference: a hand-drawn or Quick run with many nodes has a node about every 40 m, and vanilla's corner roll put a gun
-        // or hydrant on 75 % of the snowmaking nodes (110 + 40 of 200 weight) and on 43 % of the night nodes, a mast on another 43 % (150 of
-        // 350). So 40 / 0.75 = about 50 m on snowmaking, 40 / 0.43 = about 90 m on night. A cat track has no such reference; it starts between
-        // the two with its lights off.
+        // Defaults. Reference: a hand-drawn or Quick run with many nodes has a node about every 40 m. Vanilla's corner roll put a gun or
+        // hydrant on 75 % of the snowmaking nodes (110 + 40 of 200 weight). It did so on 43 % of the night nodes too. It put a mast on
+        // another 43 % (150 of 350). So 40 / 0.75 = about 50 m on snowmaking, 40 / 0.43 = about 90 m on night. A cat track has no such
+        // reference. It starts between the two with its lights off.
         public const int GunSpacingSnowmakingM = 50;
         public const int GunSpacingNightM = 90;
         public const int LightSpacingNightM = 90;
@@ -193,12 +193,13 @@ namespace SkiResortMod.Systems
         /// <summary>A gun or hydrant closer than this along the ring (m) to a mast moves on to this distance past it.</summary>
         public const float MastClearM = 4f;
 
-        /// <summary>A standing prop within these of a planned one (same prefab) stays; so a rebuild leaves unchanged stretches alone.</summary>
+        /// <summary>A standing prop within these of a planned one (same prefab) stays. So a rebuild leaves unchanged stretches
+        /// alone.</summary>
         public const float KeepPositionM = 0.25f;
         public const float KeepYawDeg = 3f;
 
-        // Cat track ribbon: a vertex turning less than this is a node on a straight side; a cap edge turns the ring by about 180 deg in total
-        // (GradeRibbon.Build: left edge forward, right edge back, two straight ends).
+        // Cat track ribbon: a vertex turning less than this is a node on a straight side. A cap edge turns the ring by about 180 deg in
+        // total (GradeRibbon.Build: left edge forward, right edge back, two straight ends).
         private const double CollinearDeg = 1.0;
         private const double CapMinTurnDeg = 110.0;
         private const double MinChainM = 1.0;
@@ -242,7 +243,7 @@ namespace SkiResortMod.Systems
         /// slider is the Snowmaking feature). Natural runs cannot (snowmaking needs Groomed).</summary>
         public static bool CarriesGuns(int runKind) => RunFeatures.FromSpacings(runKind, 1, SpacingOff).Snowmaking;
 
-        /// <summary>Whether a run of this prefab kind can be lit: every groomed run and the cat track; natural runs cannot (lights need
+        /// <summary>Whether a run of this prefab kind can be lit: every groomed run and the cat track. Natural runs cannot (lights need
         /// Groomed). The light slider is the Lights feature.</summary>
         public static bool CarriesLights(int runKind) => RunFeatures.FromSpacings(runKind, SpacingOff, 1).Lights;
 
@@ -271,7 +272,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A closed ring's slot count: round(perimeter / spacing), at least 1; 0 for an off spacing or an invalid ring.</summary>
+        /// <summary>A closed ring's slot count: round(perimeter / spacing), at least 1. It is 0 for an off spacing or an invalid
+        /// ring.</summary>
         public static int ClosedSlots(double perimeter, int spacingM)
         {
             if (spacingM <= 0 || !(perimeter > 0.0))
@@ -280,8 +282,8 @@ namespace SkiResortMod.Systems
             return n < 1 ? 1 : n;
         }
 
-        /// <summary>The cat track's side: the arc [start, end] of the ring (lengths; end may pass the perimeter) that holds the
-        /// canonical start vertex, between the ribbon's two caps. A ring without two clear caps splits at its two farthest corners.</summary>
+        /// <summary>The cat track's side: the arc [start, end] of the ring (lengths: end may pass the perimeter) that holds the canonical
+        /// start vertex, between the ribbon's two caps. A ring without two clear caps splits at its two farthest corners.</summary>
         public static bool SideChain(PlacerRing ring, out double start, out double end)
         {
             start = end = 0.0;
@@ -304,7 +306,7 @@ namespace SkiResortMod.Systems
                 return false;
 
             // A cap: an edge whose two ends turn the same way as the ring by CapMinTurnDeg or more together. A rectangle has four of those,
-            // so the two shortest that are not neighbors win; ties go to ring order, which is canonical.
+            // so the two shortest that are not neighbors win. Ties go to ring order, which is canonical.
             int capA = -1, capB = -1;
             double lenA = double.MaxValue;
             for (int k = 0; k < m; k++)
@@ -394,9 +396,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A hash of what the plan depends on, independent of start node and winding (not of extra nodes: those replan to the
-        /// same props, so nothing changes). Heights are left out: the game re-snaps these props to the terrain itself
-        /// (GroundHeightSystem.cs:229, :604; EngineNotes/SkiRunPropMember.md).</summary>
+        /// <summary>A hash of what the plan depends on, independent of start node and winding (not of extra nodes: those replan to the same
+        /// props, so nothing changes). Heights are left out: the game re-snaps these props to the terrain itself
+        /// (GroundHeightSystem.cs:229, :604, and EngineNotes/SkiRunPropMember.md).</summary>
         public static uint RingKey(PlacerRing ring, int runKind, int gunSpacingM, int lightSpacingM)
         {
             unchecked

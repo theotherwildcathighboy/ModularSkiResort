@@ -1,8 +1,8 @@
-// Quick runs: the tool's pure rules (QuickRunsToolSystem). Region readout against the area cap, preview totals (count, mix against the
-// planner's target, the fee the binds will charge, skiers), the money check, the refund an undo pays back, the Temp -> candidate match
-// by geometry, the click pick, the warning / refusal locale keys and the knob clamps. Pure file: System, Collections and
-// Unity.Mathematics only, plus the pure rules it reads (SkiRunFees, SkiResortScore, the planner's geometry; the caller decodes the
-// SkiRunBinding flags, an ECS type), so tests/AutoGenBatch links it and proves every rule headless.
+// Quick runs: the tool's pure rules (QuickRunsToolSystem). The file holds: region readout against the area cap, preview totals (count, mix
+// against the planner's target, the fee the binds will charge, skiers), the money check, the refund an undo pays back, the Temp ->
+// candidate match by geometry, the click pick, the warning / refusal locale keys and the knob clamps. Pure file: it uses System,
+// Collections and Unity.Mathematics only, plus the pure rules it reads (SkiRunFees, SkiResortScore, the planner's geometry). The caller
+// decodes the SkiRunBinding flags, an ECS type. So tests/AutoGenBatch links it and proves every rule headless.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md
 
 using System;
@@ -11,8 +11,8 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>The live size line's state (tooltip color): Open = fewer than 3 corners; TooSmall under the planner's minimum area;
-    /// Near from NearCapShare of the cap; Over above the cap (Enter refuses).</summary>
+    /// <summary>The live size line's state (tooltip color): Open = fewer than 3 corners. TooSmall = under the planner's minimum area. Near
+    /// = from NearCapShare of the cap. Over = above the cap (Enter refuses).</summary>
     public enum QuickRegionState : byte { Open, TooSmall, Ok, Near, Over }
 
     /// <summary>What a click does while the region is on the map (no preview): RegionClick.</summary>
@@ -57,16 +57,17 @@ namespace SkiResortMod.Systems
         Renumber = 2,         // default-named runs exist: the new runs renumber them (SkiRunCatalogSystem ordinals)
         OtherResort = 4,      // the enabled runs bind to more than one Welcome Sign
         NoSign = 8,           // no Welcome Sign within the tether: the runs build and wait unbound, as drawn runs do
-        ChecksOff = 16,       // the game's own checks are off (QuickRunsRules.ChecksState); only the planner's checks protect the build
+        ChecksOff = 16,       // the game's own checks are off (QuickRunsRules.ChecksState). Only the planner's checks protect the build
     }
 
-    /// <summary>Whether the game would flag an overlapping preview run (QuickRunsRules.ChecksState). Read from the vanilla error prefab
-    /// for OverlapExisting, as ValidationSystem.FillErrorPrefabsJob does (ValidationSystem.cs:1318-1325: a prefab whose ToolErrorData
-    /// carries DisableInGame is skipped, and with none left no Error is spawned), with ToolSystem.ignoreErrors as a second source.</summary>
+    /// <summary>Whether the game would flag an overlapping preview run (QuickRunsRules.ChecksState). The state is read from the vanilla
+    /// error prefab for OverlapExisting, as ValidationSystem.FillErrorPrefabsJob does (ValidationSystem.cs:1318-1325: a prefab whose
+    /// ToolErrorData carries DisableInGame is skipped, and with none left no Error is spawned). ToolSystem.ignoreErrors is a second
+    /// source.</summary>
     public enum QuickGameChecks : byte
     {
         On,
-        OverlapDisabled,   // every OverlapExisting error prefab carries DisableInGame (a mod disabled it for the whole frame; Anarchy only does so between Modification5 and ModificationEnd: SkiOtherMods.AnarchyDetected)
+        OverlapDisabled,   // every OverlapExisting error prefab carries DisableInGame (a mod disabled it for the whole frame). Anarchy only does so between Modification5 and ModificationEnd: SkiOtherMods.AnarchyDetected
         NoOverlapPrefab,   // no OverlapExisting error prefab at all: the game cannot flag an overlap
         IgnoreErrors,      // ToolSystem.ignoreErrors: errors are flagged but Apply ignores them (ToolBaseSystem.cs:533-540)
     }
@@ -97,9 +98,10 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- region
 
-        /// <summary>A click on the map with no preview. Open: the first corner closes a region of 3 or more, other corners drag, a click on an
-        /// edge inserts, anywhere else adds. Closed: corners drag and edges insert, anywhere else does nothing, so a stray click cannot make
-        /// the outline cross itself (field test 2026-10-31). insertIndex == corners means no edge is near (GradeEdit.InsertIndex).</summary>
+        /// <summary>A click on the map with no preview. Open: the first corner closes a region of 3 or more. Other corners drag. A click on
+        /// an edge inserts. Anywhere else adds. Closed: corners drag and edges insert. Anywhere else does nothing, so a stray click cannot
+        /// make the outline cross itself (field test 2026-10-31). insertIndex == corners means no edge is near
+        /// (GradeEdit.InsertIndex).</summary>
         public static QuickRegionClick RegionClick(bool closed, int corners, int hoverCorner, int insertIndex)
         {
             if (hoverCorner >= 0)
@@ -110,7 +112,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Area and vertical of the outline drawn so far. minY / maxY = the ground range under the corners (the tool samples
-        /// them); the planner measures the real vertical over open ground on Enter.</summary>
+        /// them). The planner measures the real vertical over open ground on Enter.</summary>
         public static QuickRegionReadout Readout(float2[] corners, float minY, float maxY, float maxAreaM2, float minAreaM2)
         {
             var r = new QuickRegionReadout { State = QuickRegionState.Open };
@@ -139,23 +141,23 @@ namespace SkiResortMod.Systems
         /// <summary>Lowest whole percent of each tier: Steep from 25, Very steep from 45, Beyond from 58 (57 % is the steepest real area).</summary>
         public const int SiteSteepPct = 25, SiteVerySteepPct = 45, SiteBeyondPct = 58;
 
-        /// <summary>Mean grade (0.25 = 25 %) as the whole percent the player reads; -1 for NaN, infinity or a negative value.</summary>
+        /// <summary>Mean grade (0.25 = 25 %) as the whole percent the player reads. -1 for NaN, infinity or a negative value.</summary>
         public static int SitePercent(float meanGrade) =>
             float.IsNaN(meanGrade) || float.IsInfinity(meanGrade) || meanGrade < 0f ? -1 : (int)Math.Round(meanGrade * 100f, MidpointRounding.AwayFromZero);
 
-        /// <summary>The tier of a whole percent (the number shown, so the label and the figure never disagree): under 25 Gentle, 25-44 Steep,
-        /// 45-57 Very steep, 58 and over Beyond; negative = Unknown.</summary>
+        /// <summary>The tier of a whole percent (the number shown, so the label and the figure never disagree): under 25 Gentle, 25-44
+        /// Steep, 45-57 Very steep, 58 and over Beyond. A negative value = Unknown.</summary>
         public static SiteTier SiteTierOf(int pct) =>
             pct < 0 ? SiteTier.Unknown : pct < SiteSteepPct ? SiteTier.Gentle : pct < SiteVerySteepPct ? SiteTier.Steep
             : pct < SiteBeyondPct ? SiteTier.VerySteep : SiteTier.Beyond;
 
-        /// <summary>The locale key of a tier (tooltip prefix; the hub mirrors it in hubText.ts); null for Unknown.</summary>
+        /// <summary>The locale key of a tier (tooltip prefix, which the hub mirrors in hubText.ts). null for Unknown.</summary>
         public static string SiteKey(SiteTier tier) => tier == SiteTier.Unknown ? null : TipPrefix + "SITE[" + tier + "]";
 
-        /// <summary>Estimated mean grade of the ring before any scan: a grid of at most maxSamples points inside it (at least 10 m apart),
-        /// each the gradient magnitude of the height over a baselineM window (central differences, the same 20 m window the planner
-        /// rates with), each capped at SkiRunAutoPlanner.MeanGradeCap. NaN when no sample falls inside (a sliver) or the ring has
-        /// fewer than 3 corners.</summary>
+        /// <summary>Estimated mean grade of the ring before any scan. It samples a grid of at most maxSamples points inside the ring (at
+        /// least 10 m apart). Each sample is the gradient magnitude of the height over a baselineM window (central differences, the same 20
+        /// m window the planner rates with), capped at SkiRunAutoPlanner.MeanGradeCap. The result is NaN when no sample falls inside (a
+        /// sliver) or the ring has fewer than 3 corners.</summary>
         public static float EstimateMeanGrade(float2[] ring, Func<float2, float> height, int maxSamples = 300, float baselineM = 20f)
         {
             if (ring == null || ring.Length < 3 || height == null)
@@ -196,9 +198,9 @@ namespace SkiResortMod.Systems
             return inside;
         }
 
-        /// <summary>The area-weighted centroid of a ring (xz; either winding, no closing duplicate needed): the sign check's point, nearer
-        /// the bind's Geometry.m_CenterPosition than a vertex average when one end of a run is a narrow tongue (CRITIQUE F3). A ring of
-        /// (nearly) zero area gives the vertex average; null or empty gives 0.</summary>
+        /// <summary>The area-weighted centroid of a ring (xz, either winding, no closing duplicate needed). It is the sign check's point.
+        /// It is nearer the bind's Geometry.m_CenterPosition than a vertex average when one end of a run is a narrow tongue (CRITIQUE F3).
+        /// A ring of (nearly) zero area gives the vertex average. A null or empty ring gives 0.</summary>
         public static float2 Centroid(float2[] ring)
         {
             if (ring == null || ring.Length == 0)
@@ -224,7 +226,7 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- game checks
 
-        /// <summary>The game-checks state. overlapPrefabs = the OverlapExisting error prefabs found (ToolErrorData.m_Error);
+        /// <summary>The game-checks state. overlapPrefabs = the OverlapExisting error prefabs found (ToolErrorData.m_Error).
         /// overlapEnabledInGame = those without ToolErrorFlags.DisableInGame. The prefab reason wins over ignoreErrors (it is the one that
         /// hides the errors themselves).</summary>
         public static QuickGameChecks ChecksState(bool ignoreErrors, int overlapPrefabs, int overlapEnabledInGame)
@@ -254,8 +256,8 @@ namespace SkiResortMod.Systems
             return SkiResortScore.RunSkiersPerDay(run, part);
         }
 
-        /// <summary>Totals over the enabled candidates (enabled[i] for result.Runs[i]; a null or short array counts a run as enabled).
-        /// Variety = the score's rule (green, blue and black or double black; SkiResortScore.cs:407).</summary>
+        /// <summary>Totals over the enabled candidates (enabled[i] for result.Runs[i]). A null or short array counts a run as enabled.
+        /// Variety = the score's rule (green, blue and black or double black, SkiResortScore.cs:407).</summary>
         public static void Sum(AutoPlanResult result, bool[] enabled, QuickTotals t)
         {
             t.Clear();
@@ -288,8 +290,8 @@ namespace SkiResortMod.Systems
         /// Game.City/PlayerMoney.cs:15-24).</summary>
         public static bool CanPay(long money, long fee) => fee <= 0 || money >= fee;
 
-        /// <summary>What an undo pays back for one run: exactly what its binding recorded as paid; nothing for a restored (free)
-        /// link, an unpaid run or a run that has no binding yet (it was never charged). paid / restored = SkiRunBinding FlagPaid /
+        /// <summary>What an undo pays back for one run: exactly what its binding recorded as paid. It pays back nothing for a restored
+        /// (free) link, an unpaid run or a run that has no binding yet (it was never charged). paid / restored = SkiRunBinding FlagPaid /
         /// FlagRestored (the caller decodes them: SkiRunBinding is an ECS type, this file is pure).</summary>
         public static long RefundOf(bool hasBinding, bool paid, bool restored, int paidAmount)
         {
@@ -300,8 +302,8 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- emission
 
-        /// <summary>After validation: no refusal -> Apply; refusals with survivors and no retry yet -> Retry (drop the refused, emit the
-        /// rest once more); else GiveUp (build nothing, say which).</summary>
+        /// <summary>After validation: no refusal -> Apply. Refusals with survivors and no retry yet -> Retry (drop the refused, emit the
+        /// rest once more). Otherwise GiveUp (build nothing, say which).</summary>
         public static QuickBuildStep AfterValidation(int emitted, int refused, bool retried)
         {
             if (emitted <= 0)
@@ -315,7 +317,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Index of the emitted ring a Temp area's node ring belongs to, or -1. Geometry only (skeptic finding 6: the engine
         /// recycles Temps by key, so an entity never identifies a candidate across emissions). A match needs the same node count (a
-        /// trailing closing duplicate on either side is ignored) and every node within MatchToleranceM of the emitted node at the same
+        /// trailing closing duplicate on either side is ignored). Every node must be within MatchToleranceM of the emitted node at the same
         /// position, for some rotation of the start node and either direction. Ties go to the lowest index.</summary>
         public static int MatchRing(float2[] temp, IReadOnlyList<float2[]> emitted)
         {
@@ -364,7 +366,8 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- preview input
 
-        /// <summary>The candidate a click at p picks: the smallest ring containing p, else the nearest outline within PickM; -1 none.</summary>
+        /// <summary>The candidate a click at p picks: the smallest ring containing p, otherwise the nearest outline within PickM. -1 =
+        /// none.</summary>
         public static int Pick(float2 p, IReadOnlyList<AutoRun> runs)
         {
             if (runs == null)
@@ -415,8 +418,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A scan that found nothing with unowned tiles in the region: those tiles count as obstacles, so the plain reason
-        /// ("too little vertical") would blame a hill the city just does not own yet.</summary>
+        /// <summary>A scan that found nothing with unowned tiles in the region. Those tiles count as obstacles, so the plain reason ("too
+        /// little vertical") would blame a hill the city just does not own yet.</summary>
         public static string StatusKey(AutoPlanStatus s, bool regionHasUnownedTiles)
         {
             bool sayTiles = regionHasUnownedTiles &&
@@ -424,7 +427,7 @@ namespace SkiResortMod.Systems
             return sayTiles ? TipPrefix + "STATUS[OutsideTiles]" : StatusKey(s);
         }
 
-        /// <summary>Warning keys in display order (planner warnings first, by bit; then the tool's). Clears and fills keys.</summary>
+        /// <summary>Warning keys in display order (planner warnings first, by bit, then the tool's). Clears and fills keys.</summary>
         public static void WarningKeys(AutoPlanWarning planner, QuickToolWarning tool, List<string> keys)
         {
             keys.Clear();
@@ -448,11 +451,11 @@ namespace SkiResortMod.Systems
 
         public static AutoDensity ClampDensity(int v) => v >= 0 && v <= (int)AutoDensity.Dense ? (AutoDensity)v : AutoDensity.Normal;
 
-        /// <summary>Kinds bit set. Since run types R3 (DECISIONS 578) Groomed is always on: the hub's three feature chips are the other
+        /// <summary>Kinds bit set. Since run types R3 (DECISIONS 578) Groomed is always on. The hub's three feature chips are the other
         /// bits (Natural = leave black runs natural, Snowmaking = snowmaking near the base, Night = light the two lowest).</summary>
         public static AutoKinds ClampKinds(int v) => (AutoKinds)(v & (int)AllKinds) | AutoKinds.Groomed;
 
-        /// <summary>Flip one feature chip; Groomed cannot be turned off.</summary>
+        /// <summary>Flip one feature chip. Groomed cannot be turned off.</summary>
         public static AutoKinds ToggleKind(AutoKinds kinds, AutoKinds kind) => ClampKinds((int)(ClampKinds((int)kinds) ^ (kind & AllKinds & ~AutoKinds.Groomed)));
 
         public const AutoKinds AllKinds = AutoKinds.Groomed | AutoKinds.Natural | AutoKinds.Snowmaking | AutoKinds.Night;

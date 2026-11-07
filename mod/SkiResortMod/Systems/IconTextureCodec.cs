@@ -1,9 +1,9 @@
 // Pure pixel work for a notification icon texture built at runtime (LiftLineIconAsset): resize, mip chain, and the block encoders the
-// vanilla icon formats need. No Unity types; tests/LiftBatch LI-4..LI-6 round-trip every encoder through its decoder.
+// vanilla icon formats need. No Unity types. tests/LiftBatch LI-4..LI-6 round-trip every encoder through its decoder.
 // Why: NotificationIconRenderSystem copies every icon prefab's m_Icon into ONE Texture2DArray with Graphics.CopyTexture (all mips, raw
-// blocks), sized to the largest icon and in the format of the last one it reads (NotificationIconRenderSystem.cs:207-245). An icon of
-// another size or format would break that copy for every icon, so ours must match the vanilla icon texture exactly: size, mip count
-// and format. Pixels are RGBA bytes, row 0 first, in the texture's own row order (Unity: bottom row first); the encoders keep it.
+// blocks). The array is sized to the largest icon and in the format of the last one it reads (NotificationIconRenderSystem.cs:207-245). An
+// icon of another size or format would break that copy for every icon. So ours must match the vanilla icon texture exactly: size, mip count
+// and format. Pixels are RGBA bytes, row 0 first, in the texture's own row order (Unity: bottom row first). The encoders keep it.
 
 using System;
 using System.Collections.Generic;
@@ -47,8 +47,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Resamples RGBA to nw x nh with an alpha-weighted box filter over each target pixel's footprint (any ratio; a pure
-        /// downscale by an integer factor is an exact box). Transparent pixels add no color, so edges keep no dark fringe.</summary>
+        /// <summary>Resamples RGBA to nw x nh with an alpha-weighted box filter over each target pixel's footprint. Any ratio works, and a
+        /// pure downscale by an integer factor is an exact box. Transparent pixels add no color, so edges keep no dark fringe.</summary>
         public static byte[] Resize(byte[] rgba, int w, int h, int nw, int nh)
         {
             if (rgba == null || rgba.Length < w * h * 4)
@@ -112,7 +112,7 @@ namespace SkiResortMod.Systems
             return levels;
         }
 
-        /// <summary>One mip level in the target format; null for Unsupported.</summary>
+        /// <summary>One mip level in the target format. Null for Unsupported.</summary>
         public static byte[] EncodeLevel(IconTexFormat f, byte[] rgba, int w, int h)
         {
             switch (f)
@@ -214,7 +214,7 @@ namespace SkiResortMod.Systems
         /// at the cost of one step of color.</summary>
         private const long AlphaWeight = 8;
 
-        /// <summary>Quantizes the endpoints under each of the four p-bit pairs, picks the indices, writes the best block; returns its
+        /// <summary>Quantizes the endpoints under each of the four p-bit pairs, picks the indices, and writes the best block. Returns its
         /// (alpha-weighted) error.</summary>
         private static long TryBc7(int[] px, double[] e0, double[] e1, byte[] block)
         {
@@ -402,7 +402,7 @@ namespace SkiResortMod.Systems
                 amin = Math.Min(amin, px[i * 4 + 3]);
                 amax = Math.Max(amax, px[i * 4 + 3]);
             }
-            // a0 > a1 selects the 8-level palette; equal values need no indices (all 0 = a0).
+            // a0 > a1 selects the 8-level palette. Equal values need no indices (all 0 = a0).
             int a0 = amax, a1 = amin;
             if (a0 == a1)
             {
@@ -652,7 +652,7 @@ namespace SkiResortMod.Systems
             return v;
         }
 
-        /// <summary>Least-squares endpoints for fixed indices (weights w / scale); false when the system is singular.</summary>
+        /// <summary>Least-squares endpoints for fixed indices (weights w / scale). False when the system is singular.</summary>
         private static bool RefitEndpoints(int[] px, int n, int[] idx, int[] weights, int scale, double[] e0, double[] e1)
         {
             double aa = 0, ab = 0, bb = 0;

@@ -2,7 +2,7 @@
 // run-name labels.
 //   FadeAlpha  0 below ZoomHideBelowM and above ZoomHideAboveM (and for a zoom that is not a positive finite number), linear ramps
 //              between. Reads the same camera zoom as the piste map (IGameCameraController.zoom, PisteMapRules.WidthScale).
-//   AlphaStep  the fade quantized to AlphaSteps (0 = hidden); vertex alpha is rewritten only when the step moves.
+//   AlphaStep  the fade quantized to AlphaSteps (0 = hidden). Vertex alpha is rewritten only when the step moves.
 //   BandRgb    the piste-map fill colors of SkiPisteMapSystem.s_Fill by catalog RunRow.Band (-2 cannot be rated .. 4 double black).
 //   CleanText  removes TextMeshPro mark-up characters ('<', '>') and control characters, so a run named "<b>x" cannot become mark-up.
 // Pure file: `using System;` and Unity.Mathematics only (the ResortBatch host links it).

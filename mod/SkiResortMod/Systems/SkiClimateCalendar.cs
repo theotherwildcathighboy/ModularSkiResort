@@ -1,5 +1,6 @@
-// The running climate's winter, read from its prefab, for the rules that follow the map's own calendar: the gun season, the spring
-// fallback, the snow ledger's rollover and the ski season of passes and history. A map may have its winter in June (DECISIONS 472, 475).
+// The running climate's winter, read from its prefab, for the rules that follow the map's own calendar. Those rules are the gun season, the
+// spring fallback, the snow ledger's rollover and the ski season of passes and history. A map may have its winter in June (DECISIONS 472,
+// 475).
 // The rules themselves stay in pure files (SnowLineRules, SkiMoneyRules, RunSnowRules, SnowGunPlumeRules).
 
 using Game.Prefabs;
@@ -13,12 +14,13 @@ namespace SkiResortMod.Systems
     {
         private const string WinterSeasonName = "SeasonWinter";
 
-        // A climate prefab's seasons do not change while the game runs: the last read stands until the climate entity changes. Main thread.
+        // A climate prefab's seasons do not change while the game runs. The last read stands until the climate entity changes. This code
+        // runs on the main thread.
         private static Entity s_Climate = Entity.Null;
         private static float s_Start = SnowLineRules.CalendarWinterStart, s_End = SnowLineRules.CalendarWinterEnd;
 
-        /// <summary>The climate's winter in normalized year time (SnowLineRules.WinterWindow); no climate or no winter season reads the
-        /// calendar winter, December to February.</summary>
+        /// <summary>The climate's winter in normalized year time (SnowLineRules.WinterWindow). With no climate or no winter season, it
+        /// reads the calendar winter, December to February.</summary>
         public static void WinterWindow(ClimateSystem climates, PrefabSystem prefabs, out float start, out float end)
         {
             Entity climate = climates.currentClimate;

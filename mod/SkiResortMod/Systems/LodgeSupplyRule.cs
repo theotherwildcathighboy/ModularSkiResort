@@ -1,4 +1,4 @@
-// LodgeSupplyRule - the pure rules of the road-optional lodges (A-frame, Chalet, Grand; LodgeRoadRule.RoadOptional).
+// LodgeSupplyRule - the pure rules of the road-optional lodges (A-frame, Chalet, Grand: LodgeRoadRule.RoadOptional).
 // At a road a lodge takes vanilla's services. Off-road, a cat track within LinkMeters whose chain reaches a road lodge or a bus depot
 // supplies it: city utilities off, no warnings, no fee (LodgeSupplySystem). With neither, vanilla's warnings stand. The chain walks
 // LiftServedRule.RunLinks over tracks only, inside one ski area. A lost link is held for HoldFrames so a section redo does not flip it.
@@ -10,7 +10,7 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>One lodge's published supply with its hold; a plain value the caller keeps per lodge.</summary>
+    /// <summary>One lodge's published supply with its hold. A plain value the caller keeps per lodge.</summary>
     public struct LodgeSupplyState
     {
         public bool Known;        // seen at least once since the load
@@ -36,8 +36,8 @@ namespace SkiResortMod.Systems
         /// costs nothing, and it has to outlast deleting and redrawing a track section at any game speed.</summary>
         public const uint HoldFrames = 10923u;
 
-        /// <summary>A consumer the switch tagged Updated for and that is still missing is tagged again after this many updates of the switch
-        /// (so a prefab whose archetype lacks one, InitializeSystem.cs:178-208, is not tagged every frame).</summary>
+        /// <summary>A consumer the switch tagged Updated for and that is still missing is tagged again after this many updates of the
+        /// switch. So a prefab whose archetype lacks one (InitializeSystem.cs:178-208) is not tagged every frame.</summary>
         public const int RetagUpdates = 256;
 
         /// <summary>Rows LodgeRoadSystem W4 writes: every row but Base (which keeps the game's own road rule).</summary>
@@ -66,8 +66,8 @@ namespace SkiResortMod.Systems
             return hasRoad && (rule == LodgeRoadRule.Base || rule == LodgeRoadRule.RoadOptional);
         }
 
-        /// <summary>Passes the ski-day road check without a road, and is never a claim target (SkiDayRules.LodgeFacts.NoRoadNeeded).
-        /// At a road a road-optional lodge is a target; off-road and unsupplied it is rejected as before.</summary>
+        /// <summary>Passes the ski-day road check without a road, and is never a claim target (SkiDayRules.LodgeFacts.NoRoadNeeded). At a
+        /// road a road-optional lodge is a target. Off-road and unsupplied, it is rejected as before.</summary>
         public static bool NoRoadNeeded(LodgeRoadRule rule, bool hasRoad, bool supplied)
         {
             switch (rule)
@@ -110,9 +110,10 @@ namespace SkiResortMod.Systems
             return mode == LodgeSupplyMode.Road;
         }
 
-        /// <summary>One read of the raw answer. A true read publishes at once; a false read keeps Supplied until it has read false for
-        /// HoldFrames (unchecked subtraction: the frame counter may wrap; frames stop while paused, so a pause never runs the hold out).
-        /// The first read starts from <paramref name="savedSupplied"/>, the shape the save holds, so a load flips nothing by itself.</summary>
+        /// <summary>One read of the raw answer. A true read publishes at once. A false read keeps Supplied until it has read false for
+        /// HoldFrames (unchecked subtraction: the frame counter may wrap). Frames stop while paused, so a pause never runs the hold out.
+        /// The first read starts from <paramref name="savedSupplied"/>, the shape the save holds, so a load flips nothing by
+        /// itself.</summary>
         public static bool Step(ref LodgeSupplyState s, bool raw, uint nowFrame, bool savedSupplied)
         {
             if (!s.Known)

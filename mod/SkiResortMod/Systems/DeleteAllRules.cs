@@ -1,6 +1,6 @@
-// The pure rules of the Options button "Delete all ski resort content" (SkiDeleteAllSystem): which prefabs are ours to delete, the
-// node verdict that never cuts a vanilla line, the button gate and the one summary line. Pure file (System + SkiCatalog only);
-// tests/ResortBatch DeleteAllTests (DA-*) links it. Plan and decompile citations: docs/research/delete-all-2026-10-29.md.
+// The pure rules of the Options button "Delete all ski resort content" (SkiDeleteAllSystem): which prefabs are ours to delete, the node
+// verdict that never cuts a vanilla line, the button gate and the one summary line. Pure file (System + SkiCatalog only). tests/ResortBatch
+// DeleteAllTests (DA-*) links it. Plan and decompile citations: docs/research/delete-all-2026-10-29.md.
 
 using System.Collections.Generic;
 using System.Text;
@@ -28,7 +28,7 @@ namespace SkiResortMod.Systems
     public static class DeleteAllRules
     {
         /// <summary>The base station's low-voltage feed stub (a PowerLinePrefab). Not a NAMES row: it only ever exists as a station
-        /// sub-net, but a stub node detached by vanilla (a player's wire on it) keeps this prefab.</summary>
+        /// sub-net. However, a stub node detached by vanilla (a player's wire on it) keeps this prefab.</summary>
         public const string ExtraMarkerLV = "SkiLiftMarkerLV";
 
         public const int KindCount = 15;
@@ -69,7 +69,7 @@ namespace SkiResortMod.Systems
             return list;
         }
 
-        /// <summary>The counter a top-level building of this kind goes to; false for a non-building kind.</summary>
+        /// <summary>The counter a top-level building of this kind goes to. Returns false for a non-building kind.</summary>
         public static bool BuildingKindOf(CatalogKind kind, out DeleteKind counter)
         {
             switch (kind)
@@ -90,8 +90,8 @@ namespace SkiResortMod.Systems
             return kind == CatalogKind.Line || kind == CatalogKind.Marker || kind == CatalogKind.Fence;
         }
 
-        /// <summary>A net node's verdict. ourPrefab: its PrefabRef is a target net; owned: it has an Owner (a station's stub, left to
-        /// vanilla); edges: its ConnectedEdge count; deletedEdges: how many of those the button deletes.</summary>
+        /// <summary>A net node's verdict. ourPrefab: its PrefabRef is a target net. owned: it has an Owner (a station's stub, left to
+        /// vanilla). edges: its ConnectedEdge count. deletedEdges: how many of those the button deletes.</summary>
         public static DeleteNodeVerdict NodeVerdict(bool ourPrefab, bool owned, int edges, int deletedEdges)
         {
             if (!ourPrefab || owned)

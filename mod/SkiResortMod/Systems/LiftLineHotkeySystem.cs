@@ -1,10 +1,12 @@
 // LiftLineHotkeySystem - the lift-line tool's two keys:
-//   ToggleLiftLineTool (default Ctrl+Shift+L) -> LiftLineToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city;
-//   BuildLiftLine (default Enter) -> LiftLineToolSystem.RequestBuild(), live only while the tool is active.
-// This system is the one writer of shouldBeEnabled for the Build key (live while the lift tool, the grading tool or the Quick runs
-// tool is open; two writers would fight every frame). CatTrackGradeHotkeySystem and QuickRunsHotkeySystem read the press for theirs.
-// The hotkey opens the tool with no lift type (the first station or loose end sets it); the hub's line tiles open it with
-// their type (SkiResortHubUISystem.ApplyLaunch). Also tells the tool when a lift station is on the object tool (it never ticks then).
+//   ToggleLiftLineTool (default Ctrl+Shift+L) calls LiftLineToolSystem.TryActivate("hotkey") or Deactivate, in a loaded city.
+//   BuildLiftLine (default Enter) calls LiftLineToolSystem.RequestBuild(). It is live only while the tool is active.
+// This system is the one writer of shouldBeEnabled for the Build key. The key is live while the lift tool, the grading tool or the Quick
+// runs tool is open. Two writers would fight every frame. CatTrackGradeHotkeySystem and QuickRunsHotkeySystem read the press for their own
+// tools.
+// The hotkey opens the tool with no lift type. The first station or loose end sets the type. The hub's line tiles open the tool with their
+// type (SkiResortHubUISystem.ApplyLaunch). The system also tells the tool when a lift station is on the object tool. The tool never ticks
+// then.
 // Engine notes: EngineNotes/LiftLineHotkeySystem.md
 
 using System;

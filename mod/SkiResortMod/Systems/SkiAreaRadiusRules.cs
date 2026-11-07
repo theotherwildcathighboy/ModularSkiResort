@@ -1,12 +1,12 @@
 // Pure rules of the ski area radius (the tether: the nearest Welcome Sign within this distance owns a run, lift, lodge or school) and of
 // the site survey the snow-line tooltip shows while a sign is being placed.
-//   ClampKm       the option's value (km) -> a legal radius: [MinKm, MaxKm] on StepKm, NaN / infinity -> DefaultKm.
-//   RingPoint     point i of n on the circle (the ring overlay draws n chords; RingSegments keeps a 10 km ring's chord sag under 2 m).
-//   Survey        min / max dry ground, vertical, the skiable vertical (from the snow line, or the lowest ground when that is higher, up
-//                 to the highest ground), and the share of the disc above the snow line and the guns line: a square grid of
-//                 SurveySide x SurveySide cell centers over the disc's bounding box, kept when inside the disc AND inside the playable
-//                 bounds AND dry (height sampler returns NaN for water or no data). Cell = 2R / SurveySide, so the cost is the same at
-//                 every radius (~4,070 samples in a full disc).
+//   ClampKm       the option's value (km) gives a legal radius: [MinKm, MaxKm] on StepKm. NaN / infinity gives DefaultKm.
+//   RingPoint     point i of n on the circle (the ring overlay draws n chords, and RingSegments keeps a 10 km ring's chord sag under 2 m).
+//   Survey        min / max dry ground, vertical, the skiable vertical (from the snow line, or the lowest ground when that is higher, up to
+//                 the highest ground), and the share of the disc above the snow line and the guns line. The method is a square grid of
+//                 SurveySide x SurveySide cell centers over the disc's bounding box. A cell center is kept when inside the disc AND inside
+//                 the playable bounds AND dry (height sampler returns NaN for water or no data). Cell = 2R / SurveySide, so the cost is the
+//                 same at every radius (~4,070 samples in a full disc).
 // Pure file: System only (tests/ResortBatch links it).
 // Engine notes: EngineNotes/SkiAreaRadius.md
 
@@ -25,8 +25,8 @@ namespace SkiResortMod.Systems
         public const int SurveySide = 72;          // cells across the diameter
         public const float SurveyRebuildMoveM = 50f; // re-survey when the center moved farther than this
 
-        /// <summary>The legal radius in km for an option value: clamped to [MinKm, MaxKm] and rounded to the nearest StepKm; not finite
-        /// -> DefaultKm.</summary>
+        /// <summary>The legal radius in km for an option value: clamped to [MinKm, MaxKm] and rounded to the nearest StepKm. A value that
+        /// is not finite gives DefaultKm.</summary>
         public static float ClampKm(float km)
         {
             if (float.IsNaN(km) || float.IsInfinity(km))
@@ -41,7 +41,7 @@ namespace SkiResortMod.Systems
         /// <summary>The radius in meters for an option value (ClampKm x 1000).</summary>
         public static float MetersOf(float km) => ClampKm(km) * 1000f;
 
-        /// <summary>Point <paramref name="i"/> of <paramref name="n"/> on the circle around (cx, cz); i = n closes the ring at i = 0.</summary>
+        /// <summary>Point <paramref name="i"/> of <paramref name="n"/> on the circle around (cx, cz). i = n closes the ring at i = 0.</summary>
         public static void RingPoint(float cx, float cz, float radiusM, int i, int n, out float x, out float z)
         {
             double a = 2.0 * Math.PI * (i % n) / n;
@@ -58,7 +58,8 @@ namespace SkiResortMod.Systems
             public float MinM, MaxM;
             public int AboveSnow, AboveGuns;
 
-            /// <summary>The vertical above the snow line: MaxM - max(MinM, snow line), at least 0; 0 with no samples or a NaN snow line.</summary>
+            /// <summary>The vertical above the snow line: MaxM - max(MinM, snow line), at least 0. It is 0 with no samples or a NaN snow
+            /// line.</summary>
             public float SkiableVerticalM;
 
             public float VerticalM => Samples > 0 ? MaxM - MinM : 0f;

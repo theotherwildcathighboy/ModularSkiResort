@@ -1,9 +1,10 @@
 // The hub row's cat track delete, applied where vanilla sees it. The hub runs in UIUpdate, after ModificationSystem in MainLoop
-// (Game.Common/SystemOrder.cs:58-67), and CleanUpSystem destroys Deleted entities right after MainLoop (Game.SceneFlow/GameManager.cs:
-// 2391-2399). A Deleted tag added from the hub would be gone before Game.Areas.SearchSystem (Modification5, SystemOrder.cs:200) reads it:
-// the destroyed area stays in the search tree and a later Burst job crashes on it (field test 2026-10-31, FIX-LIST 0).
-// Scheduling (load-bearing): UpdateBefore<SkiCatTrackDeleteSystem, SubElementDeleteSystem>(PostTool), the Delete all anchor; PostTool runs
-// every frame, paused included (Game.Tools/ToolSystem.cs:251-257). Gate: tools/check-ui-phase-deletes.js.
+// (Game.Common/SystemOrder.cs:58-67). CleanUpSystem destroys Deleted entities right after MainLoop
+// (Game.SceneFlow/GameManager.cs:2391-2399). A Deleted tag added from the hub would be gone before Game.Areas.SearchSystem (Modification5,
+// SystemOrder.cs:200) reads it. The destroyed area stays in the search tree, and a later Burst job crashes on it (field test 2026-10-31,
+// FIX-LIST 0).
+// Scheduling (load-bearing): UpdateBefore<SkiCatTrackDeleteSystem, SubElementDeleteSystem>(PostTool). This is the Delete all anchor.
+// PostTool runs every frame, paused included (Game.Tools/ToolSystem.cs:251-257). Gate: tools/check-ui-phase-deletes.js.
 
 using System.Collections.Generic;
 using Colossal.Serialization.Entities;

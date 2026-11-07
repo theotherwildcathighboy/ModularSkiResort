@@ -1,11 +1,12 @@
-// Fits every new or changed lift line so its carriers keep the floor over the ground. The planner is the pure LiftTowerPlanner
-// (Fit); this system reads the line, asks, writes the answer back and logs. Per inner node it sets a position along the line (slid
-// only when heights cannot clear a straight line), a height (node y = center ground + E, Elevation = (E, E), E = TopM[member] -
-// TopM[0]) and a straight Curve on each touched edge. Station stub, branch and owned nodes are never touched.
+// Fits every new or changed lift line so its carriers keep the floor over the ground. The planner is the pure LiftTowerPlanner (Fit). This
+// system reads the line, asks, writes the answer back and logs.
+// Per inner node it sets a position along the line (slid only when heights cannot clear a straight line). It sets a height (node y = center
+// ground + E, Elevation = (E, E), E = TopM[member] - TopM[0]). It sets a straight Curve on each touched edge. Station stub, branch and
+// owned nodes are never touched.
 // Phase (Mod.cs): UpdateAt Modification1: every consumer of the Updated tag runs later in the frame, CleanUp wipes it at frame end.
-// Triggered by LiftCensusSystem.OnCensusBuilt after a quiet period; a fixed point, with a write guard. Tool lines (LiftToolLines)
-// are fitted heights-only. A BUILT line is judged at its towers' feet (node y - E), never on the ground our own cut sank under them
-// (FIX-LIST 57: a reload wrote a tram tower 1.05 m lower). Logs: silence is impossible; an exception disables the system until the next load.
+// Triggered by LiftCensusSystem.OnCensusBuilt after a quiet period. It is a fixed point, with a write guard. Tool lines (LiftToolLines) are
+// fitted heights-only. A BUILT line is judged at its towers' feet (node y - E), never on the ground our own cut sank under them (FIX-LIST
+// 57: a reload wrote a tram tower 1.05 m lower). Logs: silence is impossible. An exception disables the system until the next load.
 // Engine notes: EngineNotes/LiftTowerFitSystem.md
 
 using System;
@@ -46,9 +47,9 @@ namespace SkiResortMod.Systems
         private readonly HashSet<EntityRef> m_StationNodes = new HashSet<EntityRef>();   // the last census build's station connection nodes
         private readonly List<List<LiftCensus.Edge>> m_Pending = new List<List<LiftCensus.Edge>>();
         private readonly Dictionary<Entity, int2> m_Writes = new Dictionary<Entity, int2>();   // first inner node -> (count, first frame)
-        // Each line tower's train kind as last classified (breakover-holddown-plan-2026-11-03, phase B1: computed and logged only, no
-        // head change): the hysteresis input (LiftAlignMath.KindHystDeg) and the "Towers [angles]" change detector. In session only,
-        // never saved; cleared per load.
+        // Each line tower's train kind as last classified (breakover-holddown-plan-2026-11-03, phase B1: computed and logged only, no head
+        // change): the hysteresis input (LiftAlignMath.KindHystDeg) and the "Towers [angles]" change detector. In session only. Never
+        // saved. Cleared per load.
         private readonly Dictionary<Entity, LiftTrainKind> m_Kinds = new Dictionary<Entity, LiftTrainKind>();
         private int m_Fitted, m_Written, m_Short;
 
@@ -84,8 +85,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The twin heads the planner may place this load (LiftTowerPlanConstants.TwinFilter): the twin prefabs the game has
-        /// loaded. A build without them plans support heads only, so no node is raised by a twin's E with the support member spawned
-        /// above the ground. One log line per load.</summary>
+        /// loaded. A build without them plans support heads only. So no node is raised by a twin's E with the support member spawned above
+        /// the ground. One log line per load.</summary>
         private void LoadTwins()
         {
             var found = new HashSet<string>();
@@ -107,10 +108,10 @@ namespace SkiResortMod.Systems
                              "their support head");
         }
 
-        /// <summary>Called by LiftCensusSystem after each build with its line edges and nodes (main thread, no ECS read here). The key
-        /// of a line is its edges and node positions plus which of its nodes are station connections (LiftCensus.Node.Station): a
-        /// station attached line-first to a built line changes no edge or node, but changes the line's ends, so it is re-fitted in
-        /// session as after a load (FIX-LIST 52).</summary>
+        /// <summary>Called by LiftCensusSystem after each build with its line edges and nodes (main thread, no ECS read here). The key of a
+        /// line is its edges and node positions plus which of its nodes are station connections (LiftCensus.Node.Station). A station
+        /// attached line-first to a built line changes no edge or node, but changes the line's ends. So the line is re-fitted in session as
+        /// after a load (FIX-LIST 52).</summary>
         internal void OnCensusBuilt(List<LiftCensus.Edge> edges, List<LiftCensus.Node> nodes)
         {
             if (!m_Armed || m_Disabled)
@@ -275,7 +276,7 @@ namespace SkiResortMod.Systems
             LiftTerrainSampler raw = (along, lateral) =>
                 TerrainUtils.SampleHeight(ref terrain, LiftTowerDiagSystem.PolylineAt(pts, cum, along, lateral, out _));
             // The ground the player made: a sample at this line's own cut ceiling (edge y + height range min + terrain offset,
-            // LiftTowerEdit) is our trench, not the ground; the plane through the uncut ground beside it stands in.
+            // LiftTowerEdit) is our trench, not the ground. The plane through the uncut ground beside it replaces it.
             var cutAt = new HashSet<int>();
             LiftTerrainSampler sampler = LiftTowerEdit.UncutSampler(raw, pts, cum, netGeo.m_Hanging, CutOffsets(path, netGeo),
                 c.HalfWidthM + LiftTowerEdit.CutFarMarginM, along => cutAt.Add((int)math.round(along)));
@@ -297,12 +298,12 @@ namespace SkiResortMod.Systems
                 // the hysteresis input: the kind last classified this session, else the one the node's head implies (planner Previous)
                 oldKinds[i - 1] = m_Kinds.TryGetValue(path[i].Node, out LiftTrainKind k) ? k : LiftTrainKind.None;
             }
-            // Never a worse plan over a built line (FIX-LIST 52): a line whose every inner node carries a fit's exact elevation is the
-            // line as built (before = its own members and heads, read back by MemberOf); an unsound fit worse on any axis is not written.
+            // Never a worse plan over a built line (FIX-LIST 52): a line whose every inner node carries a fit's exact elevation is the line
+            // as built (before = its own members and heads, read back by MemberOf). An unsound fit worse on any axis is not written.
             bool built = Built(path, c, oldMembers, oldHeads);
             // A built tower's ground is its foot (node y - E: the ground the fit stood it on, plus a tram tower's pedestal float), unless
-            // the ground now under it is higher (FIX-LIST 57): the line's own cut sinks the ground under its towers after the fit that
-            // placed them, so the load re-fit read the T60 of a tram 1.05 m lower than its build, judged its rope that much low and
+            // the ground now under it is higher (FIX-LIST 57). The line's own cut sinks the ground under its towers after the fit that
+            // placed them. So the load re-fit read the T60 of a tram 1.05 m lower than its build, judged its rope that much low and
             // re-grounded it. The fit now judges and writes a built line at the heights it really stands at.
             int sunk = 0;
             float sunkMax = 0f;
@@ -360,10 +361,11 @@ namespace SkiResortMod.Systems
             int partialFound = 0, partialPins = 0;
             if (toolLine == null)
                 partial = m_LineTool.ToolLines.BestPartial(pts, out partialFound, out partialPins);
-            // A station end gets the approach floor; a loose end or plain node is a tower: the full floor. Every line edge has HV rope
+            // A station end gets the approach floor. A loose end or plain node is a tower: the full floor. Every line edge has HV rope
             // lanes ending at both its nodes, so a rope lane (laneA / laneB) says only where the rope height came from.
-            // The census rule (LiftCensusSystem.StationOfNode), so a line-first station (its stub course reuses the line's UNOWNED end
-            // node) is a station end in session as after a load (FIX-LIST 52: Owner alone read a ground end in session, a station after it).
+            // The test is the census rule (LiftCensusSystem.StationOfNode). So a line-first station (its stub course reuses the line's
+            // UNOWNED end node) is a station end in session as after a load (FIX-LIST 52: Owner alone read a ground end in session, a
+            // station after it).
             m_Planner.StationA = IsStationEnd(path[0].Node);
             m_Planner.StationB = IsStationEnd(path[n - 1].Node);
             // Kinds and heads with hysteresis: every plan at the line's own node positions starts from the kinds and heads it carries.
@@ -432,8 +434,8 @@ namespace SkiResortMod.Systems
                 bool moved = math.distance(np.xz, pts[i].xz) > MoveEpsM;
                 bool reMembered = pn.Member != oldMembers[i - 1] || pn.Head != oldHeads[i - 1];
                 bool drift = LiftTowerEdit.HeightWrite(pts[i].y, np.y, built);   // built: never lowered onto our own cut (FIX-LIST 57)
-                // The node's Elevation must be exactly (E, E) (the ladder rule, LiftTowerEdit): an engine-derived value (the tool's
-                // fresh nodes, CourseSplitSystem.CalculateElevation; a one-sided (7.93, 0)) is rewritten once.
+                // The node's Elevation must be exactly (E, E) (the ladder rule, LiftTowerEdit): an engine-derived value (the tool's fresh
+                // nodes, CourseSplitSystem.CalculateElevation, a one-sided (7.93, 0)) is rewritten once.
                 bool elevOff = ElevationOff(path[i].Node, elevation);
                 if (elevOff && !moved && !reMembered && !drift)
                     np.y = pts[i].y;   // only the component is off: keep the node where it stands (no carve chase)
@@ -532,9 +534,10 @@ namespace SkiResortMod.Systems
 
 
         /// <summary>The line towers' train kinds and heads (support / hold-down / push-pull from the two load cases with the kind each had
-        /// before as the hysteresis input, LiftTowerPlanner.PreviousKinds; the head the planner placed for it, LiftTowerPlanner.AssignHeads):
-        /// one "Towers [angles]" line when any kind or head is new or changed. The heads are written with the node heights (E of the twin).
-        /// The tram's saddles get their deflections and the bare-rope breakover check (14.4.4), logged only.</summary>
+        /// before as the hysteresis input, LiftTowerPlanner.PreviousKinds, and the head the planner placed for it,
+        /// LiftTowerPlanner.AssignHeads): one "Towers [angles]" line when any kind or head is new or changed. The heads are written with
+        /// the node heights (E of the twin). The tram's saddles get their deflections and the bare-rope breakover check (14.4.4), logged
+        /// only.</summary>
         private void LogKinds(string head, List<LiftTowerDiagSystem.Hop> path, LiftTowerPlan plan, LiftTowerPlanConstants c,
                               LiftTowerHead[] oldHeads)
         {
@@ -647,10 +650,10 @@ namespace SkiResortMod.Systems
             return worst <= StraightTolM;
         }
 
-        /// <summary>The rope height at a station end: the lowest end point (at the station) of the HV rope lanes of the end edge — the
-        /// lane LaneSystem anchored to the station (FindAnchor, LaneSystem.cs:4116-4121); <paramref name="fallback"/> (node y + the
-        /// shortest tower's rope) when the edge has none. The HV test is CableLanePrefabs' (UtilityTypes.HighVoltageLine = 0x40: every
-        /// carrier rope of the four lines; the tram's LV haul rope carries no cabin).</summary>
+        /// <summary>The rope height at a station end: the lowest end point (at the station) of the HV rope lanes of the end edge. This is
+        /// the lane LaneSystem anchored to the station (FindAnchor, LaneSystem.cs:4116-4121). The result is <paramref name="fallback"/>
+        /// (node y + the shortest tower's rope) when the edge has none. The HV test is CableLanePrefabs' (UtilityTypes.HighVoltageLine =
+        /// 0x40: every carrier rope of the four lines). The tram's LV haul rope carries no cabin.</summary>
         private float StationRope(Entity endNode, Entity edge, float3 nodePos, float fallback, out bool fromLane)
         {
             fromLane = false;
@@ -675,9 +678,10 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>Per path span, the offset of this line's own cut ceiling above the edge curve: the edge composition's
-        /// m_HeightRange.min (NetCompositionData) + its TerrainComposition m_MinHeightOffset (middle), the sum TerrainSystem.AddSegment
-        /// uses (TerrainSystem.cs:1397-1516); the prefab's default range and the pieces' 0 when the edge has no composition yet.</summary>
+        /// <summary>Per path span, the offset of this line's own cut ceiling above the edge curve: the edge composition's m_HeightRange.min
+        /// (NetCompositionData) + its TerrainComposition m_MinHeightOffset (middle), the sum TerrainSystem.AddSegment uses
+        /// (TerrainSystem.cs:1397-1516). The offset uses the prefab's default range and the pieces' 0 when the edge has no composition
+        /// yet.</summary>
         private float[] CutOffsets(List<LiftTowerDiagSystem.Hop> path, NetGeometryData netGeo)
         {
             var off = new float[math.max(1, path.Count - 1)];
@@ -699,9 +703,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The line as a fit built it (FIX-LIST 52): every inner node's Game.Net.Elevation is exactly (E, E) of the member and
-        /// head MemberOf reads from it, and the evidence is not all zero (a node raised to a member or twin, or every node classified
-        /// this session): an engine-drawn line on the ground (no Elevation) or the tool's fresh nodes (engine elevations such as
-        /// (7.93, 0)) are not built and always take the fit.</summary>
+        /// head MemberOf reads from it, and the evidence is not all zero (a node raised to a member or twin, or every node classified this
+        /// session). An engine-drawn line on the ground (no Elevation) or the tool's fresh nodes (engine elevations such as (7.93, 0)) are
+        /// not built and always take the fit.</summary>
         private bool Built(List<LiftTowerDiagSystem.Hop> path, LiftTowerPlanConstants c, int[] members, LiftTowerHead[] heads)
         {
             bool raised = false, known = true;

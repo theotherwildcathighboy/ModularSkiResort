@@ -1,10 +1,10 @@
-// Puts the net tool's aim plane at the tower head for our lift lines (prefab data alone cannot provide this): after prefab init it
-// rewrites NetGeometryData.m_DefaultSurfaceHeight on the line prefabs to the lift's AimHeightM (NetToolSystem line 5893 reads it).
+// Puts the net tool's aim plane at the tower head for our lift lines (prefab data alone cannot provide this). After prefab init it rewrites
+// NetGeometryData.m_DefaultSurfaceHeight on the line prefabs to the lift's AimHeightM (NetToolSystem line 5893 reads it).
 // Also clears GeometryFlags.FlattenTerrain on the safety net fence's NetGeometryData (PatchFenceTerrain: the fence must not grade the terrain).
-// Idempotent, once per load; pure data write on the prefab entity; no per-frame work (Enabled = false, empty OnUpdate).
+// Idempotent, once per load. Pure data write on the prefab entity. No per-frame work (Enabled = false, empty OnUpdate).
 // Line names and aim heights come from SkiCatalog.Lifts (LiftTypeDef.AimHeightM per row), the prefab entity from SkiPrefabCatalogSystem.
 // A mid-session prefab replacement loses the patch until the next load (the catalog's [re-resolve] WARN shows it).
-// A pending line (LiftTypeDef.LineExpected false) that is MISSING writes nothing and no WARN; one Info line lists the pending lines.
+// A pending line (LiftTypeDef.LineExpected false) that is MISSING writes nothing and no WARN. One Info line lists the pending lines.
 // An expected line missing keeps the WARN.
 // Engine notes: EngineNotes/CursorAimSystem.md
 
@@ -20,9 +20,9 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class CursorAimSystem : GameSystemBase
     {
-        // The aim height is LiftTypeDef.AimHeightM (FixedGrip: tower head, axle 7.04, comm 8.15; 8.0 sits at the sheave assembly, the
-        // vanilla-pole "top of the pole at the cursor" feel), the drawn line is LiftTypeDef.LinePrefab. Only drawn prefabs matter (the
-        // tool reads the field from the prefab being drawn), so every SkiCatalog.Lifts row is a drawn line.
+        // The aim height is LiftTypeDef.AimHeightM (FixedGrip: tower head, axle 7.04, comm 8.15. 8.0 sits at the sheave assembly, the
+        // vanilla-pole "top of the pole at the cursor" feel). The drawn line is LiftTypeDef.LinePrefab. Only drawn prefabs matter (the tool
+        // reads the field from the prefab being drawn), so every SkiCatalog.Lifts row is a drawn line.
 
         private SkiPrefabCatalogSystem m_PrefabCatalog;
 
@@ -55,11 +55,12 @@ namespace SkiResortMod.Systems
         {
         }
 
-        /// <summary>The safety net fence must not grade the terrain: NetInitializeSystem sets GeometryFlags.FlattenTerrain on EVERY
-        /// NetFencePrefab (NetInitializeSystem.cs:2244; vanilla fences stand on flat lots), so a fence drawn up a slope cut a bench into it
-        /// (field test 3). Cleared on SkiSafetyFence's NetGeometryData at every load; idempotent, one log line. With no grading a long
-        /// span cuts through the hill, so m_EdgeLengthRange.max (200 m, NetInitializeSystem.cs:871) comes down to FenceMaxEdgeM: the tool
-        /// then splits the drawn course and samples the terrain for each piece (CourseSplitSystem.cs:3487-3512).</summary>
+        /// <summary>The safety net fence must not grade the terrain. NetInitializeSystem sets GeometryFlags.FlattenTerrain on EVERY
+        /// NetFencePrefab (NetInitializeSystem.cs:2244, vanilla fences stand on flat lots), so a fence drawn up a slope cut a bench into it
+        /// (field test 3). The flag is cleared on SkiSafetyFence's NetGeometryData at every load. It is idempotent and writes one log line.
+        /// With no grading a long span cuts through the hill, so m_EdgeLengthRange.max (200 m, NetInitializeSystem.cs:871) is lowered to
+        /// FenceMaxEdgeM. The tool then splits the drawn course and samples the terrain for each piece
+        /// (CourseSplitSystem.cs:3487-3512).</summary>
         private void PatchFenceTerrain()
         {
             Entity fence = m_PrefabCatalog.EntityOf(SkiCatalog.Names.SafetyFence);
@@ -94,13 +95,13 @@ namespace SkiResortMod.Systems
             var pending = new System.Text.StringBuilder(); // pending lines MISSING (no WARN, listed)
             for (int l = 0; l < SkiCatalog.Lifts.Count; l++)
             {
-                // The catalog's line entity (Entity.Null when MISSING → the WARN below).
+                // The catalog's line entity (Entity.Null when MISSING, then the WARN below).
                 LiftTypeDef def = SkiCatalog.Lifts[l];
                 string name = def.LinePrefab;
                 float aim = def.AimHeightM;
                 Entity prefabEntity = m_PrefabCatalog.LineEntity(def);
 
-                // A pending line (not imported yet; LiftTypeDef.LineExpected false) that is MISSING writes nothing and no WARN; the Info
+                // A pending line (not imported yet, LiftTypeDef.LineExpected false) that is MISSING writes nothing and no WARN. The Info
                 // line below lists it.
                 if (prefabEntity == Entity.Null && !def.LineExpected)
                 {

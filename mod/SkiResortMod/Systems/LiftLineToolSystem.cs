@@ -1,12 +1,12 @@
-// Our own lift-line tool: click the base and top station, drag / add / remove towers in an overlay preview (the planner re-plans
-// around the user's pins), then Build: one CreationDefinition + NetCourse per planned span goes through the game's own apply path.
-// While editing, the same definitions stand as the game's own Temp preview (ghost towers and cables, error icons included),
-// re-emitted only when the plan changes (the vanilla net tool's pattern), hidden while a tower is dragged.
-// The vanilla net tool stays the fallback (LiftTowerFitSystem fits whatever it builds). The hub's lift-line tiles open THIS tool
-// with their lift type (TryActivate(why, type)); the line prefabs have UIObject m_Group null, so the hub is the only way in.
-// While open it raises the line prefabs' span limits and sets PlacementFlags.ShoreLine (restored on close). Right click is the
-// Cancel action only; Secondary Apply stays off. LiftLineEdit holds the model, LiftLineInput the input rules. Logs: silence is
-// impossible; an exception disables the tool until the next load.
+// Our own lift-line tool. The user clicks the base and top station, then drags, adds or removes towers in an overlay preview (the planner
+// re-plans around the user's pins). Then Build sends one CreationDefinition + NetCourse per planned span through the game's own apply path.
+// While editing, the same definitions stand as the game's own Temp preview (ghost towers and cables, error icons included). The tool
+// re-emits them only when the plan changes (the vanilla net tool's pattern), and hides them while a tower is dragged.
+// The vanilla net tool stays the fallback (LiftTowerFitSystem fits whatever it builds). The hub's lift-line tiles open THIS tool with their
+// lift type (TryActivate(why, type)). The line prefabs have UIObject m_Group null, so the hub is the only way in.
+// While open, the tool raises the line prefabs' span limits and sets PlacementFlags.ShoreLine (restored on close). Right click is the
+// Cancel action only. Secondary Apply stays off. LiftLineEdit holds the model, LiftLineInput the input rules. Logs: silence is impossible.
+// An exception disables the tool until the next load.
 // Engine notes: EngineNotes/LiftLineToolSystem.md
 
 using System;
@@ -37,8 +37,8 @@ namespace SkiResortMod.Systems
             PickBase,
             PickTop,
             Edit,
-            Emitted,    // definitions emitted; waiting for the Temps
-            Applying,   // Apply set this frame; reset next frame
+            Emitted,    // definitions emitted. Waiting for the Temps
+            Applying,   // Apply set this frame. Reset next frame
         }
 
         private const float StationPickM = 40f;        // a click within this (xz) of a station's stub tip picks the station
@@ -79,12 +79,12 @@ namespace SkiResortMod.Systems
         internal string LastMessage { get; private set; } = string.Empty;
         internal string PendingTypeName => m_Type != null ? m_Type.Id : m_Preset != null ? m_Preset.Id : string.Empty;
         internal LiftTypeDef PresetType => m_Preset;
-        /// <summary>The notice line of the tooltip (a LocaleEN SkiResort.LiftTool.* key), else null. A refusal shows for NoticeSeconds and wins
-        /// while live; under it the STANDING notices show for as long as the plan has the condition: the line runs along another lift, a
-        /// crossing that cannot be built (CROSS_*), a station faces away, the line crosses another lift (CROSSES_OVER / CROSSES_UNDER /
-        /// CROSSES, LiftLineInput.CrossKey), SUNK / SUNK_END (a station end, or a ground end's coming station, sinks the carriers), BEND (the line turns the rope by more than
-        /// LiftAlignMath.BendWarnDeg where it joins a built line at a loose end; a warning, never a refusal), then the open-ground end hint
-        /// (the second end is open ground).</summary>
+        /// <summary>The notice line of the tooltip (a LocaleEN SkiResort.LiftTool.* key), else null. A refusal shows for NoticeSeconds and
+        /// wins while live. Under it, the STANDING notices show for as long as the plan has the condition. The notices are: the line runs
+        /// along another lift, a crossing that cannot be built (CROSS_*), a station faces away, the line crosses another lift (CROSSES_OVER
+        /// / CROSSES_UNDER / CROSSES, LiftLineInput.CrossKey), SUNK / SUNK_END (a station end, or a ground end's coming station, sinks the
+        /// carriers), and BEND. BEND means the line turns the rope by more than LiftAlignMath.BendWarnDeg where it joins a built line at a
+        /// loose end. It is a warning, never a refusal. Then comes the open-ground end hint (the second end is open ground).</summary>
         internal LocalizedString? Notice =>
             m_Notice.HasValue && UnityEngine.Time.unscaledTime - m_NoticeTime < NoticeSeconds ? m_Notice
             : m_AlongStanding ? T("ALONG")
@@ -121,7 +121,7 @@ namespace SkiResortMod.Systems
         private JobHandle m_Deps;
 
         /// <summary>One end of the line being drawn. Station / LooseEnd: Node is the existing net node the course snaps to
-        /// (CoursePos.m_Entity); Ground: Pos is the clicked ground point and the course makes a fresh node.</summary>
+        /// (CoursePos.m_Entity). Ground: Pos is the clicked ground point and the course makes a fresh node.</summary>
         private struct LineEnd
         {
             public LiftLineEndKind Kind;
@@ -158,20 +158,21 @@ namespace SkiResortMod.Systems
         private List<LiftLineNode> m_Emitted;
         private string m_SunkStanding;   // SUNK / SUNK_END: the current plan has a sunk station end, else null (WarnSunk sets it per plan, Reset clears it)
         private bool m_BackwardStanding;   // a station end faces away from the line (WarnBackward sets it per plan, Reset clears it)
-        // Crossings (FIX-LIST 60 a): CollectCrossings fills them before each plan, WarnCrossing reads the plan's verdict; Reset clears.
+        // Crossings (FIX-LIST 60 a): CollectCrossings fills them before each plan. WarnCrossing reads the plan's verdict. Reset clears
+        // them.
         private bool m_SameTypeCrossing;   // the line crosses a lift of its own type (the game joins the two there)
         private string m_CrossKey;         // LiftLineInput.CrossKey of the current plan, else null
         private bool m_CrossRefused;       // a crossing with another type cannot be built: Build is refused
         private float m_CrossNeedM;        // the separation that crossing needs (CROSS_CLEARANCE's {M})
         private readonly List<LiftPlanCrossing> m_Crossings = new List<LiftPlanCrossing>();
-        // Road keep-outs (FIX-LIST 62): CollectKeepouts fills them before each plan; WarnKeepouts logs a tower the planner still put there.
+        // Road keep-outs (FIX-LIST 62): CollectKeepouts fills them before each plan. WarnKeepouts logs a tower the planner still put there.
         private readonly List<float2> m_Keepouts = new List<float2>();
         private readonly HashSet<string> m_CompositionChecked = new HashSet<string>();
         private bool m_AlongStanding;   // the current line runs along another lift: Build is refused (WarnAlong sets it per plan, Reset clears it)
         private float m_BendStandingDeg;   // the plan bend over the warning angle at a loose-end joint, else 0 (WarnBend per plan, Reset clears it)
-        // Ghost preview: the definitions of m_GhostEdit at m_GhostRevision stand (no Updated after their frame, so they generate
-        // nothing more; GenerateNodesSystem.cs:2030-2041) and their Temps render as the translucent preview (BatchInstanceSystem.cs:
-        // 446-459, 589-609; tower sub-objects copy the Temp flags, SubObjectSystem.cs:2832-2841).
+        // Ghost preview: the definitions of m_GhostEdit at m_GhostRevision stand (no Updated after their frame), so they generate nothing
+        // more (GenerateNodesSystem.cs:2030-2041). Their Temps render as the translucent preview (BatchInstanceSystem.cs:446-459, 589-609).
+        // Tower sub-objects copy the Temp flags (SubObjectSystem.cs:2832-2841).
         private bool m_Ghost;
         private LiftLineEdit m_GhostEdit;
         private int m_GhostRevision = -1;
@@ -211,8 +212,8 @@ namespace SkiResortMod.Systems
             m_CompositionChecked.Clear();
             Reset("load");
             ResetSections(true);
-            // A load drops the old world's Temps with it; PreDeserialize resets activeTool (ToolSystem.cs:611-614), so an open tool
-            // also gets OnStopRunning, whose clear finds no Temp (RequireForUpdate, ToolClearSystem.cs:219) and does nothing.
+            // A load drops the old world's Temps with it. PreDeserialize resets activeTool (ToolSystem.cs:611-614), so an open tool also
+            // gets OnStopRunning. Its clear finds no Temp (RequireForUpdate, ToolClearSystem.cs:219) and does nothing.
             m_Ghost = false;
             m_GhostEdit = null;
             m_GhostRevision = -1;
@@ -242,8 +243,9 @@ namespace SkiResortMod.Systems
         private bool m_SpansRaised;
         private bool m_StationPlacing;
 
-        /// <summary>A station on the object tool: placing or relocating it makes a Temp copy of the line's end span, which vanilla's
-        /// 1.1 x max check refuses ("Distance too long") on any tool-built span over it, so the raise holds for that tool too.</summary>
+        /// <summary>A station on the object tool: placing or relocating it makes a Temp copy of the line's end span. Vanilla's 1.1 x max
+        /// check refuses the copy ("Distance too long") on any tool-built span over that max, so the raise holds for that tool
+        /// too.</summary>
         internal void SetStationPlacing(bool placing)
         {
             if (m_StationPlacing == placing)
@@ -258,17 +260,19 @@ namespace SkiResortMod.Systems
 
         private readonly HashSet<Entity> m_CarriersMarked = new HashSet<Entity>();
 
-        /// <summary>A station on a line's open end: the chairs SubObjectSystem hung on that span overlap its footprint, and vanilla refuses it
-        /// ("Overlapping items"), though chairs are ours to move. The lift-line tool too: a section drawn to an existing tower (a redo of a
-        /// bulldozed middle section, an extension from a loose end) gives the touched edges, their end nodes and those towers Temp copies,
-        /// which ValidationHelpers checks against the permanent chairs; moving chairs ride through every tower and a broken line parks
-        /// them where they stand, so a chair inside a tower's bounds is a non-overridable object of another top-level owner (its edge)
-        /// and OverlapExisting refuses the build (field/2026-11-02/lifticon, DECISIONS 582). GeometryFlags.Marker gives
-        /// a carrier an empty collision mask in game (ObjectUtils.GetCollisionMask, ValidationHelpers.CheckOverlap and ValidateObject both
-        /// read it). Only while one of those tools is open, since the flag also lets GroundHeightSystem and the raycast treat the object
-        /// as a marker. The grips of a split carrier (the carrier grip round: SkiLiftChair4Grip, SkiTramCarriage, ...) are separate
-        /// objects on the same rope and not carriers (CarrierGripTops leaves them out), so they are marked too: without them a section
-        /// delete or redo next to a riding chair was refused, OverlapExisting on the grip (bridge, 2026-11-03, F1).</summary>
+        /// <summary>A station on a line's open end: the chairs SubObjectSystem hung on that span overlap its footprint, and vanilla refuses
+        /// the station ("Overlapping items"), though chairs are ours to move.
+        /// The lift-line tool has the same problem. A section drawn to an existing tower (a redo of a bulldozed middle section, an
+        /// extension from a loose end) gives the touched edges, their end nodes and those towers Temp copies. ValidationHelpers checks
+        /// these against the permanent chairs. Moving chairs ride through every tower, and a broken line parks them where they stand. So a
+        /// chair inside a tower's bounds is a non-overridable object of another top-level owner (its edge), and OverlapExisting refuses the
+        /// build (field/2026-11-02/lifticon, DECISIONS 582).
+        /// GeometryFlags.Marker gives a carrier an empty collision mask in game (ObjectUtils.GetCollisionMask,
+        /// ValidationHelpers.CheckOverlap and ValidateObject both read it). The flag is set only while one of those tools is open, since it
+        /// also lets GroundHeightSystem and the raycast treat the object as a marker.
+        /// The grips of a split carrier (the carrier grip round: SkiLiftChair4Grip, SkiTramCarriage, ...) are separate objects on the same
+        /// rope and are not carriers (CarrierGripTops leaves them out). So they are marked too. Without that mark, a section delete or redo
+        /// next to a riding chair was refused: OverlapExisting on the grip (bridge, 2026-11-03, F1).</summary>
         private void SetCarriersPassable(bool passable)
         {
             if (passable)
@@ -303,13 +307,14 @@ namespace SkiResortMod.Systems
         /// <summary>First unused Game.Net.Layer bit for the per-type lift layers (the enum ends at NetFence 0x40000).</summary>
         private const int TypeLayerFirstBit = 24;
 
-        /// <summary>Lifts of different types cross without joining (FIX-LIST 60 a). CourseSplitSystem.MergePositions joins a course to a net
-        /// it crosses only when NetUtils.CanConnect (CourseSplitSystem.cs:2310-2312, NetUtils.cs:499-506: one side's RequiredLayers inside
-        /// the other's ConnectLayers). Every lift line is high voltage (PowerlineHigh in both masks), so every crossing joined. Each type
-        /// gets its own bit in both masks, PowerlineHigh kept: two types no longer connect, the same type, the station stub marker and city
-        /// power lines still do (their RequiredLayers is PowerlineHigh alone). Permanent while the game runs: the vanilla tool and the
-        /// fit's edits must not join either. Readers of the masks that test only PowerlineHigh (connection warnings, the voltage UI,
-        /// raycasts) are unaffected (EngineNotes/LiftLineToolSystem.md, Type layers).</summary>
+        /// <summary>Lifts of different types cross without joining (FIX-LIST 60 a). CourseSplitSystem.MergePositions joins a course to a
+        /// net it crosses only when NetUtils.CanConnect returns true (CourseSplitSystem.cs:2310-2312, NetUtils.cs:499-506: one side's
+        /// RequiredLayers inside the other's ConnectLayers). Every lift line is high voltage (PowerlineHigh in both masks), so every
+        /// crossing joined.
+        /// Each type gets its own bit in both masks, PowerlineHigh kept. Two types no longer connect. The same type, the station stub
+        /// marker and city power lines still connect (their RequiredLayers is PowerlineHigh alone). The change is permanent while the game
+        /// runs: the vanilla tool and the fit's edits must not join either. Readers of the masks that test only PowerlineHigh (connection
+        /// warnings, the voltage UI, raycasts) are unaffected (EngineNotes/LiftLineToolSystem.md, Type layers).</summary>
         private void SetTypeLayers()
         {
             var sb = new StringBuilder();
@@ -366,10 +371,10 @@ namespace SkiResortMod.Systems
                          "raised to the planner's max span only while the lift-line tool is open (the vanilla net tool keeps its split)");
         }
 
-        /// <summary>Tool open: each line prefab's max edge length = max(vanilla, planner MaxSpanM), so CourseSplitSystem does not cut a
-        /// planned span and ValidationHelpers does not flag it. Tool closed: the vanilla values back. Permanent edges are not validated
-        /// (ValidationHelpers.ValidateEdge runs on Temp entities only), so a built tool line stays valid; a later vanilla edit that makes a
-        /// Temp copy of a tool span longer than the vanilla max would see it flagged (risk).</summary>
+        /// <summary>Tool open: each line prefab's max edge length = max(vanilla, planner MaxSpanM). So CourseSplitSystem does not cut a
+        /// planned span and ValidationHelpers does not flag it. Tool closed: the vanilla values return. Permanent edges are not validated
+        /// (ValidationHelpers.ValidateEdge runs on Temp entities only), so a built tool line stays valid. Risk: a later vanilla edit that
+        /// makes a Temp copy of a tool span longer than the vanilla max would see the span flagged.</summary>
         private void SetSpansRaised(bool raised)
         {
             if (m_SpansRaised == raised)
@@ -399,8 +404,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>While the tool is open the four line prefabs carry PlacementFlags.ShoreLine, the one prefab-side gate of
         /// CourseSplitSystem.CheckHeightRange's elevation segmentation (CourseSplitSystem.cs:2884: sampleTerrain && !RequireElevated &&
-        /// !ShoreLine); without it the engine cuts a tool course where its height profile changes elevation class. Same window and
-        /// restore discipline as the span raise. Readers of the bit and the full reason: EngineNotes/LiftLineToolSystem.md.</summary>
+        /// !ShoreLine). Without it, the engine cuts a tool course where its height profile changes elevation class. The window and the
+        /// restore rule are the same as for the span raise. Readers of the bit and the full reason:
+        /// EngineNotes/LiftLineToolSystem.md.</summary>
         private void SetSplitGate(bool on)
         {
             var sb = new StringBuilder();
@@ -474,13 +480,13 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Our ghost / build Temps go when the tool stops (Esc, another tool, the hub, a load), not on the next tool's first
-        /// update. Vanilla tools never clear on stop: ToolSystem.ToolUpdate disables the last tool and updates it once
-        /// (ToolSystem.cs:312-318), then the NEW tool's applyMode drives ToolOutputSystem (ToolSystem.applyMode = m_LastTool.applyMode,
-        /// ToolSystem.cs:147-155; ToolOutputSystem.cs:22-30), and a tool clears only when its own first update sets Clear
-        /// (DefaultToolSystem.cs:973-980). So we run the game's own clear here, ToolClearSystem (the ClearTool phase,
-        /// SystemOrder.cs:711): Deleted on every Temp, the hidden originals shown again (ToolClearSystem.cs:63-113). Every Temp at
-        /// this point is ours: the stop update runs before the new tool's ToolUpdate (ToolSystem.cs:312-327). Its commands play back
-        /// at the ToolOutputBarrier (SystemOrder.cs:695); a second clear by the next tool in the same frame is harmless.</summary>
+        /// update. Vanilla tools never clear on stop. ToolSystem.ToolUpdate disables the last tool and updates it once
+        /// (ToolSystem.cs:312-318). Then the NEW tool's applyMode drives ToolOutputSystem (ToolSystem.applyMode = m_LastTool.applyMode,
+        /// ToolSystem.cs:147-155, ToolOutputSystem.cs:22-30). A tool clears only when its own first update sets Clear
+        /// (DefaultToolSystem.cs:973-980). So we run the game's own clear here, ToolClearSystem (the ClearTool phase, SystemOrder.cs:711).
+        /// It puts Deleted on every Temp and shows the hidden originals again (ToolClearSystem.cs:63-113). Every Temp at this point is
+        /// ours: the stop update runs before the new tool's ToolUpdate (ToolSystem.cs:312-327). Its commands play back at the
+        /// ToolOutputBarrier (SystemOrder.cs:695). A second clear by the next tool in the same frame is harmless.</summary>
         private void ClearOwnTemps(string why)
         {
             ToolClearSystem clear = World.GetExistingSystemManaged<ToolClearSystem>();
@@ -490,8 +496,8 @@ namespace SkiResortMod.Systems
                 return;
             }
             // The stopping tool updates BEFORE the ToolUpdate phase has allowed the barrier (ToolSystem.cs:312-317), and ToolClearSystem
-            // creates its command buffer from it: it threw "not allowed" on every stop with a ghost standing (field test 3, 2026-10-26).
-            // AllowUsage is public (SafeCommandBufferSystem.cs:11); the barrier shuts itself again at its next update.
+            // creates its command buffer from it. It threw "not allowed" on every stop with a ghost standing (field test 3, 2026-10-26).
+            // AllowUsage is public (SafeCommandBufferSystem.cs:11). The barrier shuts itself again at its next update.
             World.GetExistingSystemManaged<ToolOutputBarrier>()?.AllowUsage();
             clear.Update();
             Mod.Log.Info($"LiftLine [ghost]: preview cleared on {why} (ToolClearSystem run by the tool itself)");
@@ -528,9 +534,9 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Opens the tool. <paramref name="type"/> = the lift type of the hub tile that opened it (picks are limited to it and
-        /// open ground is allowed from the first click); null = any type, set by the first station or loose end. Already open with
-        /// another type: the line in progress is dropped (logged) and the tool restarts for the new type.</summary>
+        /// <summary>Opens the tool. <paramref name="type"/> is the lift type of the hub tile that opened it (picks are limited to it, and
+        /// open ground is allowed from the first click). null means any type, set by the first station or loose end. If the tool is already
+        /// open with another type, it drops the line in progress (logged) and restarts for the new type.</summary>
         public bool TryActivate(string why, LiftTypeDef type = null)
         {
             if (m_Disabled || !m_Armed)
@@ -555,7 +561,8 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>False after an exception (until the next load) or outside a game: the hub then falls back to the vanilla net tool.</summary>
+        /// <summary>False after an exception (until the next load) or outside a game. The hub then uses the vanilla net tool
+        /// instead.</summary>
         public bool Usable => m_Armed && !m_Disabled;
 
         public void Deactivate()
@@ -613,7 +620,7 @@ namespace SkiResortMod.Systems
             }
 
             applyMode = ApplyMode.None;
-            // Right click is the tool's Cancel action only (step back); Secondary Apply stays off
+            // Right click is the tool's Cancel action only (step back). Secondary Apply stays off
             SetActions(live, false, live);
 
             if (cancelAction.WasPressedThisFrame())
@@ -645,9 +652,10 @@ namespace SkiResortMod.Systems
             DrawPlan();
         }
 
-        /// <summary>Edit: keep the ghost on the current plan. Clear + re-emit in the same frame when the plan changed (the Temps are
-        /// recycled, GenerateNodesSystem.cs:1397-1404 / GenerateEdgesSystem.cs:675-680); nothing on an unchanged frame (NetToolSystem.cs:
-        /// 6885-6902 keeps its Temps the same way); hidden while a tower is dragged (the overlay shows the move).</summary>
+        /// <summary>Edit: keep the ghost on the current plan. When the plan changed, clear and re-emit in the same frame (the Temps are
+        /// recycled, GenerateNodesSystem.cs:1397-1404 / GenerateEdgesSystem.cs:675-680). On an unchanged frame, do nothing
+        /// (NetToolSystem.cs:6885-6902 keeps its Temps the same way). While a tower is dragged, hide the ghost (the overlay shows the
+        /// move).</summary>
         private void UpdateGhost()
         {
             if (m_State != ToolState.Edit || m_Edit?.Plan == null)
@@ -745,7 +753,7 @@ namespace SkiResortMod.Systems
             HoverEnd(want);
             if (m_State == ToolState.PickBase)
             {
-                // First step: a rope under the cursor names a built section; a click removes it (LiftLineToolSystem.Sections.cs).
+                // First step: a rope under the cursor names a built section. A click removes it (LiftLineToolSystem.Sections.cs).
                 UpdateSection(want, live);
                 if (SectionHovered && applyAction.WasPressedThisFrame())
                     ClickSection();
@@ -840,10 +848,11 @@ namespace SkiResortMod.Systems
                     "station should finish it");
             // End ropes. A station end: the height the built line's rope lane will have there, read as the fit reads it
             // (LiftLineInput.StationRope: the lowest HV sub-lane anchor of the stub node's sub-objects / its station within 30 m). A loose
-            // end is a tower node at ground + E(member, head), whose rope is ground + TopM[member] - RopeBelowTopM = node y +
+            // end is a tower node at ground + E(member, head). Its rope is ground + TopM[member] - RopeBelowTopM = node y +
             // LiftTowerEdit.RopeAboveNodeM (RopeAboveBase(0) for a Line head, the twin gap lower for Hold / Combo / Break). A ground end is
-            // where a station goes (line-first): it plans as a station end with that station's own, lower anchor (LiftLineInput.GroundEndRope,
-            // FIX-LIST 48: tram 2 of the Eishain pass planned +0.4 with node + 26.25 and read -6.58 once its stations stood).
+            // where a station goes (line-first). It plans as a station end with that station's own, lower anchor
+            // (LiftLineInput.GroundEndRope, FIX-LIST 48: tram 2 of the Eishain pass planned +0.4 with node + 26.25 and read -6.58 once its
+            // stations stood).
             float ropeA = EndRope(m_Base, a, b, out string srcA), ropeB = EndRope(end, b, a, out string srcB);
             m_Edit = new LiftLineEdit(m_C, a, b, ropeA, ropeB, m_Base.Kind != LiftLineEndKind.LooseEnd, end.Kind != LiftLineEndKind.LooseEnd);
             // A loose end is a tower of the built line: its rope deflection is judged with the built neighbor's rope point beyond it.
@@ -854,9 +863,9 @@ namespace SkiResortMod.Systems
                    $"{ropeB:F2} ({srcB}){outerA}{outerB}");
         }
 
-        /// <summary>The built neighbor's rope point beyond a loose end (the far node of its one built lift-line edge): xz distance from
-        /// the end and rope y (a station stub: its rope lane anchor, as EndRope; a tower node: node y + the rope above the head it carries,
-        /// the node formula). NaN for a station or ground end, or when no built edge is found. Returns a log fragment.</summary>
+        /// <summary>The built neighbor's rope point beyond a loose end (the far node of its one built lift-line edge): xz distance from the
+        /// end and rope y (for a station stub, its rope lane anchor, as EndRope. For a tower node, node y + the rope above the head it
+        /// carries, the node formula). NaN for a station or ground end, or when no built edge is found. Returns a log fragment.</summary>
         private string OuterPoint(LineEnd end, float3 endPos, out float dist, out float rope)
         {
             dist = rope = float.NaN;
@@ -1178,7 +1187,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The player notice for a refused add / move / remove (LocaleEN SkiResort.LiftTool.*); null when nothing needs saying.</summary>
+        /// <summary>The player notice for a refused add / move / remove (LocaleEN SkiResort.LiftTool.*). It is null when nothing needs
+        /// saying.</summary>
         private LocalizedString? RefusedNotice(LiftLineEditResult r)
         {
             switch (r)
@@ -1242,8 +1252,8 @@ namespace SkiResortMod.Systems
             }
             LiftLineEdit edit = m_Edit;
             LiftTerrainSampler sampler = (s, l) => TerrainUtils.SampleHeight(ref hd, edit.PointAt(s, l));
-            // The planner works from the end with the lower rope (LiftLineEdit.FromB); from B it reads this sampler, the exact ground
-            // points a line drawn from that end first reads, so the plan does not depend on which end was clicked first.
+            // The planner works from the end with the lower rope (LiftLineEdit.FromB). From B it reads this sampler, the exact ground
+            // points a line drawn from that end first reads. So the plan does not depend on which end was clicked first.
             LiftTerrainSampler fromB = (s, l) => TerrainUtils.SampleHeight(ref hd, edit.PointFromB(s, l));
             CollectCrossings(edit);   // the planner keeps the box clearance at each crossing with another lift type (FIX-LIST 60 a)
             CollectKeepouts(edit);    // and new towers off the roads, tracks and paths under the line (FIX-LIST 62)
@@ -1285,10 +1295,11 @@ namespace SkiResortMod.Systems
             WarnBend();
         }
 
-        /// <summary>The line is straight, so the only plan bend the tool makes is where it joins a built line at a loose end: the built edge's
-        /// far node, the loose end and this line's other end (LiftLineInput.JoinBendWarnDeg). Over LiftAlignMath.BendWarnDeg the tooltip keeps
-        /// the BEND notice standing; building stays allowed (owner verdict 2026-11-02: warn, never refuse). The hub's LiftBend row reports
-        /// bends on built lines (LiftCensus.MeasureBends). Logged on every plan that has one.</summary>
+        /// <summary>The line is straight, so the only plan bend the tool makes is where it joins a built line at a loose end. The bend runs
+        /// over these points: the built edge's far node, the loose end and this line's other end (LiftLineInput.JoinBendWarnDeg). Over
+        /// LiftAlignMath.BendWarnDeg the tooltip keeps the BEND notice standing. Building stays allowed (owner verdict 2026-11-02: warn,
+        /// never refuse). The hub's LiftBend row reports bends on built lines (LiftCensus.MeasureBends). Logged on every plan that has
+        /// one.</summary>
         private void WarnBend()
         {
             float a = JoinBend(m_Base, m_Top), b = JoinBend(m_Top, m_Base);
@@ -1320,7 +1331,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A station whose stub points away from the other end: the line runs back through the building and the game builds it
-        /// (field test 2026-10-31). Logged on every plan; the tooltip keeps the notice standing while the plan has it.</summary>
+        /// (field test 2026-10-31). Logged on every plan. The tooltip keeps the notice standing while the plan has it.</summary>
         private void WarnBackward()
         {
             bool a = EndFacesAway(m_Base, m_Top), b = EndFacesAway(m_Top, m_Base);
@@ -1338,7 +1349,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>A line drawn along a built lift (FIX-LIST 60 b, field 2026-11-05): the game merges the two, so the build replaced the
         /// other lift's edges with this line's (a gondola over an FG line took the FG's upper span). Every lift type on both sides, the
-        /// tram included. Logged on every plan; the tooltip keeps the notice standing and RequestBuild refuses while the plan has it.</summary>
+        /// tram included. Logged on every plan. While the plan has it, the tooltip keeps the notice standing and RequestBuild
+        /// refuses.</summary>
         private void WarnAlong(LiftLineEdit edit)
         {
             m_AlongStanding = false;
@@ -1362,13 +1374,13 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The line's crossings with built lift lines, before each plan (they depend on the two ends only). Every crossing, of
-        /// any type, goes to the planner (since the 2026-11-05 collision box round; m_SameTypeCrossing stays false and the CROSSES join
-        /// notice is no longer shown). The same type is refused before planning (LiftCrossRefusal.SameType); another type never joins
-        /// (12d5ff6, one layer bit per type) and is planned so the two edge boxes clear each other: the game
-        /// validates the two edge boxes against each other (LiftPlanCrossing), so each crossing goes to the planner with the crossed edge as
-        /// built: its curve height and slope at the crossing (the curve is straight in plan view, so the crossing's fraction of the edge
-        /// is the curve's t), its composition's height range and width (NetCompositionData of Composition.m_Edge, checked against
+        /// <summary>The line's crossings with built lift lines, before each plan (they depend on the two ends only). Every crossing, of any
+        /// type, goes to the planner (since the 2026-11-05 collision box round). m_SameTypeCrossing stays false, and the CROSSES join
+        /// notice is no longer shown. The same type is refused before planning (LiftCrossRefusal.SameType). Another type never joins
+        /// (12d5ff6, one layer bit per type) and is planned so the two edge boxes clear each other. The game validates the two edge boxes
+        /// against each other (LiftPlanCrossing), so each crossing goes to the planner with the crossed edge as built. The values are: its
+        /// curve height and slope at the crossing (the curve is straight in plan view, so the crossing's fraction of the edge is the
+        /// curve's t), its composition's height range and width (NetCompositionData of Composition.m_Edge, checked against
         /// LiftTowerPlanConstants.NetHeightRange once per type and session), the plan angle and the distances to its nearest tower and
         /// station node (a station node: the census rule, LiftTowerFitSystem.IsStationEnd's).</summary>
         private void CollectCrossings(LiftLineEdit edit)
@@ -1385,11 +1397,11 @@ namespace SkiResortMod.Systems
                     Game.Net.Curve curve = EntityManager.GetComponentData<Game.Net.Curve>(edges[i]);
                     if (!edit.CrossAt(curve.m_Bezier.a.xz, curve.m_Bezier.d.xz, CrossEndMarginM, out float along, out float t))
                         continue;
-                    // The same type goes to the planner too (collision box round, 2026-11-05): CourseSplitSystem joins a crossing only
+                    // The same type goes to the planner too (collision box round, 2026-11-05). CourseSplitSystem joins a crossing only
                     // while neither box is wholly over the other at the intersection (IsOver / IsUnder, CourseSplitSystem.cs:2119-2185,
-                    // 2301-2312). With the tight box a same-type line a few meters higher was "over" there (no join) while the game's
-                    // validation over the whole overlap still found the boxes touching: "Clearance too low" and no join. Planned over
-                    // with the box rule, the game still split the drawn course beside the crossing (unjoined), so the planner refuses a
+                    // 2301-2312). With the tight box, a same-type line a few meters higher was "over" there (no join). The game's
+                    // validation over the whole overlap still found the boxes touching: "Clearance too low" and no join. When planned over
+                    // with the box rule, the game still split the drawn course beside the crossing (unjoined). So the planner refuses a
                     // same-type crossing before planning (LiftCrossRefusal.SameType, CROSS_SAME_TYPE).
                     m_Crossings.Add(Crossing(edit, edges[i], def, curve.m_Bezier, along, t));
                 }
@@ -1398,10 +1410,11 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The stretches of the line where a road, track, taxiway or path (prefab RoadData / TrackData / TaxiwayData /
-        /// PathwayData; not in a tunnel) comes within its half width (NetCompositionData.m_Width / 2) + the tower head's half width +
-        /// LiftLineEdit.KeepoutClearM of the line in plan view: each edge curve as four chords. A tower standing there reads Overlapping
-        /// items (vanilla object-vs-net validation; seen in the 2026-11-05 collision box pass), so the planner keeps new towers out of
-        /// them where the line has a clear plan without (soft, LiftTowerPlanner.Keepouts).</summary>
+        /// PathwayData, not in a tunnel) comes close to the line in plan view. Close means within its half width
+        /// (NetCompositionData.m_Width / 2) + the tower head's half width + LiftLineEdit.KeepoutClearM. The tool treats each edge curve as
+        /// four chords. A tower standing there reads Overlapping items (vanilla object-vs-net validation, seen in the 2026-11-05 collision
+        /// box pass). So the planner keeps new towers out of them where the line has a clear plan without them (soft,
+        /// LiftTowerPlanner.Keepouts).</summary>
         private void CollectKeepouts(LiftLineEdit edit)
         {
             m_Keepouts.Clear();
@@ -1440,7 +1453,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>One line per plan with road stretches: the stretches, and a WARN for a new tower the planner still stood in one (no
-        /// clear plan without it; vanilla shows Overlapping items: move the road or the tower). Pins are the player's and not flagged.</summary>
+        /// clear plan without it. Vanilla shows Overlapping items: move the road or the tower). Pins are the player's and not
+        /// flagged.</summary>
         private void WarnKeepouts(LiftTowerPlan plan, LiftLineEdit edit)
         {
             if (m_Keepouts.Count == 0)
@@ -1569,8 +1583,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>LiftPlanDraw colors a span by floor and height only: a span the engine will refuse as too steep (SteepSlope) is
-        /// red too, also between two stations with no tower to mark (a green preview must not end in a refused Build).</summary>
+        /// <summary>LiftPlanDraw colors a span by floor and height only. MarkSteepSpans colors red a span the engine will refuse as too
+        /// steep (SteepSlope), also between two stations with no tower to mark (a green preview must not end in a refused Build).</summary>
         private void MarkSteepSpans(LiftTowerPlan plan, LiftLineEdit edit)
         {
             float3 start = edit.PointAt(0f);
@@ -1583,12 +1597,13 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A station end (or a ground end: the station that will stand there) whose carriers leave below the ground (the station sits in the slope: the no-level terraform keeps
-        /// the terrain; no prefab fix, DECISIONS 426: Move It recommended). Logged on every plan; the tooltip keeps the notice standing while the plan has it (m_SunkStanding).</summary>
+        /// <summary>A station end (or a ground end: the station that will stand there) whose carriers leave below the ground (the station
+        /// sits in the slope. The no-level terraform keeps the terrain. No prefab fix, DECISIONS 426: Move It recommended). Logged on every
+        /// plan. The tooltip keeps the notice standing while the plan has it (m_SunkStanding).</summary>
         private void WarnSunk(LiftTowerPlan plan)
         {
-            // FIX-LIST 55: a ground end counts too. It plans with the station that will stand there (GroundEndRope); past a crest
-            // vanilla stands it on the lower lot front, so its carriers start below the ground ahead (SUNK_END).
+            // FIX-LIST 55: a ground end counts too. It plans with the station that will stand there (GroundEndRope). Past a crest vanilla
+            // stands it on the lower lot front, so its carriers start below the ground ahead (SUNK_END).
             string sunk = null;
             if (LiftLineInput.SunkEnd(plan.StationA, m_Base.Kind, plan.EndCarrierA))
                 sunk = $"{Describe(m_Base)} {-plan.EndCarrierA:F1} m";
@@ -1603,8 +1618,8 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>One CreationDefinition + NetCourse per planned span. <paramref name="ghost"/>: the edit preview (the state stays Edit,
-        /// nothing is applied); else the Build emission (state Emitted, UpdateEmitted applies or refuses).</summary>
+        /// <summary>One CreationDefinition + NetCourse per planned span. <paramref name="ghost"/> true is the edit preview (the state stays
+        /// Edit and nothing is applied). False is the Build emission (state Emitted, UpdateEmitted applies or refuses).</summary>
         private void EmitCourses(bool ghost)
         {
             List<LiftLineNode> nodes = m_Edit.Emit();
@@ -1615,7 +1630,7 @@ namespace SkiResortMod.Systems
                 Reset("end gone");
                 return;
             }
-            // Station and loose ends are the live nodes (CoursePos.m_Entity snaps the course to them); a ground end is a fresh node
+            // Station and loose ends are the live nodes (CoursePos.m_Entity snaps the course to them). A ground end is a fresh node
             // at the clicked ground point. A loose end keeps its tower's Elevation.
             Entity baseNode = m_Base.Kind == LiftLineEndKind.Ground ? Entity.Null : m_Base.Node;
             Entity topNode = m_Top.Kind == LiftLineEndKind.Ground ? Entity.Null : m_Top.Node;
@@ -1740,7 +1755,7 @@ namespace SkiResortMod.Systems
                 m_State = ToolState.Edit;   // the ghost comes back next frame, the game's error icons on it
                 return;
             }
-            applyMode = ApplyMode.Apply;   // ToolOutputSystem.cs:22-29 -> ApplyNetSystem
+            applyMode = ApplyMode.Apply;   // ToolOutputSystem.cs:22-29 leads to ApplyNetSystem
             m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
             LiftToolLines.Line reg = ToolLines.Register(m_Type.Id, m_Emitted);
             m_State = ToolState.Applying;
@@ -1753,10 +1768,10 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Every entity the game flagged (the Error query of ToolBaseSystem.GetAllowApply, ToolBaseSystem.cs:313, 533-540), one
-        /// line each: kind, prefab, Temp flags, along / lateral on the line, and the error types of its icons (IconElement → icon
-        /// PrefabRef → ToolErrorData.m_Error; ValidationSystem.AddIcon, ValidationSystem.cs:1747-1752) with the Target the icon names.
-        /// <paramref name="summary"/> counts per type; <paramref name="player"/> is the same in plain words. Always logged on a refusal
-        /// (the 2026-10-26 field test had five errors and no type).</summary>
+        /// line each: kind, prefab, Temp flags, along / lateral on the line, and the error types of its icons, with the Target the icon
+        /// names. The error type comes from the chain IconElement → icon PrefabRef → ToolErrorData.m_Error
+        /// (ValidationSystem.AddIcon, ValidationSystem.cs:1747-1752). <paramref name="summary"/> counts per type. <paramref name="player"/>
+        /// is the same in plain words. Always logged on a refusal (the 2026-10-26 field test had five errors and no type).</summary>
         private string DescribeErrors(out string summary, out string top)
         {
             var counts = new SortedDictionary<string, int>();
@@ -2006,7 +2021,7 @@ namespace SkiResortMod.Systems
             }
             if (Dragging && !float.IsNaN(m_DragTo))
             {
-                // Off the line (release removes the tower): a red ring at the cursor; else white at the snapped spot.
+                // Off the line (release removes the tower): a red ring at the cursor. Otherwise: white at the snapped spot.
                 float3 p = m_DragOff && m_HasHit ? m_Hit : m_Edit.PointAt(m_DragTo);
                 p.y = m_HasHit ? m_Hit.y : p.y;
                 UnityEngine.Color dc = m_DragOff ? TowerColors[1] : HoverColor;
@@ -2040,7 +2055,7 @@ namespace SkiResortMod.Systems
             m_AlongStanding = false;
             m_BendStandingDeg = 0f;
             m_LooseFrame = int.MinValue / 2;
-            // A standing ghost is cleared on the next update (UpdateCore's pick branch); a built line consumed its Temps.
+            // A standing ghost is cleared on the next update (UpdateCore's pick branch). A built line consumed its Temps.
             if (why == "built")
             {
                 m_Ghost = false;
@@ -2049,7 +2064,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Log a line; <paramref name="notice"/> = the short player text the tooltip shows for a few seconds (refusals).</summary>
+        /// <summary>Log a line. <paramref name="notice"/> is the short player text the tooltip shows for a few seconds
+        /// (refusals).</summary>
         private void Say(string line, LocalizedString? notice = null)
         {
             LastMessage = line.Length > 160 ? line.Substring(0, 160) : line;

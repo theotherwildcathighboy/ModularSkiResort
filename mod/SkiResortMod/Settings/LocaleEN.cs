@@ -306,7 +306,7 @@ namespace SkiResortMod.Settings
                     "How thick the outline and corner dots are while you draw, edit or bulldoze a ski run. " +
                     "Each step adds 0.3 m (1 ft). 0 keeps the game's thin outline. Default 8: 2.4 m (8 ft)."
                 },
-                // Look only; the guns' start / stop rule is not a setting
+                // Look only. The guns' start / stop rule is not a setting
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SnowGunPlumes)),
                     "Snow-gun plumes"
@@ -317,7 +317,7 @@ namespace SkiResortMod.Settings
                     "the gun and the run's snow below the depth where the guns stop. Look only: snow and upkeep do not " +
                     "change. Default on."
                 },
-                // Look only; the machine never changes snow, rating or upkeep
+                // Look only. The machine never changes snow, rating or upkeep
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.Groomers)),
                     "Snow groomers"
@@ -555,7 +555,7 @@ namespace SkiResortMod.Settings
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleQuickRuns), "Resort Planner" },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleGlade), "Toggle glade tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleGlade), "Glade tool" },
-                // The two persisted actions keep their names; only the labels and descriptions change.
+                // The two persisted actions keep their names. Only the labels and descriptions change.
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.GladeNextVariantBinding)),
                     "Glade tool: next tree density (1-8)"

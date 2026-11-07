@@ -1,7 +1,10 @@
-// Quick runs tool: the Resort Planner's hub-side state (stage A, task A7; stage-a-spec.md 6.1-6.3). The per-pod and per-lift toggles
-// (keyed by the plan's stable pod / lift keys, so they survive a Reselect), the pod rows the hub shows, the hover pick of a pod ring or
-// a lift chord (tooltip lines), the click pick that toggles them, and "plan around this lift" (a click on an existing lift's station
-// while the region is empty starts a region around that lift). The rules are pure (QuickRunsPlanRules.cs, linked into the test host).
+// Quick runs tool: the Resort Planner's hub-side state (stage A, task A7, stage-a-spec.md 6.1-6.3). It has these parts:
+//   * The per-pod and per-lift toggles (keyed by the plan's stable pod / lift keys, so they survive a Reselect).
+//   * The pod rows the hub shows.
+//   * The hover pick of a pod ring or a lift chord (tooltip lines).
+//   * The click pick that toggles them.
+//   * "Plan around this lift": a click on an existing lift's station while the region is empty starts a region around that lift.
+// The rules are pure (QuickRunsPlanRules.cs, linked into the test host).
 // A toggle only changes which runs are enabled (QuickRunsToolSystem.Scan.cs RefreshEnabled asks PlanLeftOut): nothing is re-planned.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Resort Planner hub)
 
@@ -23,7 +26,7 @@ namespace SkiResortMod.Systems
         internal int HoverPod { get; private set; } = -1;
         internal int HoverLift { get; private set; } = -1;
 
-        /// <summary>The published plan while a Resort preview shows; else null.</summary>
+        /// <summary>The published plan while a Resort preview shows. Otherwise null.</summary>
         internal ResortPlan Plan => HasPreview ? m_Published.Resort : null;
 
         /// <summary>The region is empty and the census knows a station: the tooltip says a click on a lift station plans around it.</summary>
@@ -99,7 +102,8 @@ namespace SkiResortMod.Systems
             }
             if (name == null)
                 return $"no {what} with key {key:X8} in this plan";
-            // A row that reads off (the lift or its pod is off) switches back on whole: lift and pod both. Else the click switches the item off.
+            // A row that reads off (the lift or its pod is off) is switched on again as a whole: lift and pod both. Otherwise the click
+            // switches the item off.
             bool nowOn;
             if (pod)
             {
@@ -135,7 +139,7 @@ namespace SkiResortMod.Systems
             return $"{what} {name} {(nowOn ? "on" : "off")}";
         }
 
-        /// <summary>"P1" for a proposal; "Existing 1" is a locale key in the hub / tooltip, "E1" in logs.</summary>
+        /// <summary>"P1" for a proposal. "Existing 1" is a locale key in the hub / tooltip, "E1" in logs.</summary>
         internal static string LiftName(ResortPlan plan, int lift) =>
             (plan.Lifts[lift].Origin == LiftOrigin.Pinned ? "E" : "P") + QuickRunsPlanRules.Ordinal(plan, lift).ToString(CultureInfo.InvariantCulture);
 
@@ -155,8 +159,8 @@ namespace SkiResortMod.Systems
             return -1;
         }
 
-        /// <summary>A click in the Preview toggles what the hover names (QuickRunsPlanRules.PickAt, the one shared pick): a lift (a proposed
-        /// chord, or an existing lift's station ring), else a run, else a pod ring.</summary>
+        /// <summary>A click in the Preview toggles what the hover names (QuickRunsPlanRules.PickAt, the one shared pick). The order is: a
+        /// lift (a proposed chord, or an existing lift's station ring), then a run, then a pod ring.</summary>
         private void PreviewPick(float2 hit)
         {
             ResortPlan plan = Plan;
@@ -198,7 +202,7 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- plan around this lift
 
-        /// <summary>The region is empty and the press landed on a census station: the region becomes the lift's corridor plus the
+        /// <summary>The region is empty and the press landed on a census station. Then the region becomes the lift's corridor plus the
         /// stretch below its bottom station (QuickRunsPlanRules.AroundRegion). True when the click was used. The lift itself is pinned by
         /// the next scan (CollectPinned takes every census lift with a chord near the region).</summary>
         private bool TryPlanAround(float2 hit)
@@ -239,7 +243,7 @@ namespace SkiResortMod.Systems
                     line.Add(ch.A);
                 line.Add(ch.B);
             }
-            // Bottom first: the base station's side (the chord list normally runs base -> top; a reversed list is flipped)
+            // Bottom first: the base station's side (the chord list normally runs base -> top. A reversed list is flipped)
             float2 baseXz = st.IsBase ? st.Position.xz : float2.zero;
             if (!st.IsBase)
                 for (int i = 0; i < census.StationCount; i++)
@@ -266,7 +270,8 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Downhill direction at a point (central differences over 40 m); zero on flat ground (the caller falls back to the lift's own axis).</summary>
+        /// <summary>Downhill direction at a point (central differences over 40 m). Zero on flat ground (the caller uses the lift's own axis
+        /// instead).</summary>
         private float2 FallLine(float2 p)
         {
             Game.Simulation.TerrainHeightData hd = m_TerrainSystem.GetHeightData();

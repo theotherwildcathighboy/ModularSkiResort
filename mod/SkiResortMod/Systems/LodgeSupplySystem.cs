@@ -1,11 +1,12 @@
-// The road-optional lodges' city utilities (A-frame, Chalet, Grand; LodgeSupplyRule). Every frame, Game mode only, for each lodge of the
-// attractiveness system's watch list: at a road, vanilla's consumers plus mail and crime; off-road with a cat track chain (the cached
-// answer, SkiResortAttractivenessSystem.IsSupplied), the five road-only consumers off with their icons and efficiency factors cleaned;
-// off-road with no chain, vanilla's consumers and warnings. A missing consumer comes back through vanilla's own path: an Updated tag that
-// Game.Buildings.InitializeSystem reads in Modification2 (InitializeSystem.cs:178-208 re-adds power, water and garbage when the prefab's
-// archetype has them; mail and crime only with RequireRoad, :143-153, which W4 clears, so the road branch adds those two itself).
-// Phase Modification1 is load-bearing (see Mod.cs). The component check runs every frame because vanilla re-adds a consumer on any
-// Updated of the lodge (a Move It drag); the supply answer is cached and walked only when its inputs change.
+// The road-optional lodges' city utilities (A-frame, Chalet, Grand: LodgeSupplyRule). Every frame, Game mode only, the system handles each
+// lodge of the attractiveness system's watch list. At a road: vanilla's consumers plus mail and crime. Off-road with a cat track chain (the
+// cached answer, SkiResortAttractivenessSystem.IsSupplied): the five road-only consumers off, with their icons and efficiency factors
+// cleaned. Off-road with no chain: vanilla's consumers and warnings. A missing consumer comes back through vanilla's own path: an Updated
+// tag that Game.Buildings.InitializeSystem reads in Modification2. InitializeSystem.cs:178-208 re-adds power, water and garbage when the
+// prefab's archetype has them. It re-adds mail and crime only with RequireRoad (:143-153), which W4 clears, so the road branch adds those
+// two itself.
+// Phase Modification1 is load-bearing (see Mod.cs). The component check runs every frame because vanilla re-adds a consumer on any Updated
+// of the lodge (a Move It drag). The supply answer is cached and walked only when its inputs change.
 // Skips Temp, Deleted, Destroyed and Abandoned lodges (InitializeSystem.cs:132-135, :173: vanilla owns those).
 // Logs: "created", ARMED once per load, one "LodgeSupply [switch]" per mode change, "!!!" once on a throw. DUMP: per lodge.
 // Engine notes: EngineNotes/LodgeSupplySystem.md

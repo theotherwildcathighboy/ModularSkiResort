@@ -1,9 +1,9 @@
 // Pure numbering of same-tier lodges in one ski area: the hub names a lodge "Chalet 2" while its area has more than one Chalet. The number
-// is held in SkiLodgeNumber (persisted, with the sign it was given for), so it survives frames, saves and loads: a lodge keeps it while it
-// exists and stays in that area. A lodge without one, or one that joined another area, takes the lowest free number of its tier there;
-// lodges seen together take numbers in entity order (in play they arrive one at a time, so this is build order). A clash (two lodges
+// is held in SkiLodgeNumber (persisted, with the sign it was given for), so it survives frames, saves and loads. A lodge keeps it while it
+// exists and stays in that area. A lodge without one, or one that joined another area, takes the lowest free number of its tier there.
+// Lodges seen together take numbers in entity order (in play they arrive one at a time, so this is build order). A clash (two lodges
 // holding one number in one area) keeps it on the lower entity. Unlinked lodges get none and keep a held one untouched.
-// A lodge the player renamed (the game's NameSystem) shows that name instead (DisplayName); the number stays the fallback.
+// A lodge the player renamed (the game's NameSystem) shows that name instead (DisplayName). The number stays the fallback.
 // Pure file: System, System.Text and System.Collections.Generic only (+ EntityRef). Linked into tests/BuildingBatch.
 
 using System.Collections.Generic;
@@ -16,7 +16,7 @@ namespace SkiResortMod.Systems
         public struct Entry
         {
             public EntityRef Lodge;
-            public EntityRef Sign;       // its published link; Null = not linked (no number given, a held one is kept)
+            public EntityRef Sign;       // its published link. Null = not linked (no number given, a held one is kept)
             public int Tier;             // SkiCatalog.Lodges index
             public bool Has;             // holds a SkiLodgeNumber
             public EntityRef HeldSign;   // the sign that number was given for
@@ -31,9 +31,9 @@ namespace SkiResortMod.Systems
             public int Number;
         }
 
-        /// <summary>Numbers every linked lodge per (sign, tier). <paramref name="writes"/>: the lodges whose SkiLodgeNumber must be added or
-        /// replaced; <paramref name="shown"/>, aligned with <paramref name="entries"/>: the number the hub shows (Shown), 0 for an unlinked
-        /// lodge. Both lists are cleared first.</summary>
+        /// <summary>Numbers every linked lodge per (sign, tier). <paramref name="writes"/>: the lodges whose SkiLodgeNumber must be added
+        /// or replaced. <paramref name="shown"/>, aligned with <paramref name="entries"/>: the number the hub shows (Shown), 0 for an
+        /// unlinked lodge. Both lists are cleared first.</summary>
         public static void Assign(IReadOnlyList<Entry> entries, List<Write> writes, List<int> shown)
         {
             writes.Clear();
@@ -98,16 +98,17 @@ namespace SkiResortMod.Systems
             return sameTierInArea > 1 && number >= 1 ? number : 0;
         }
 
-        /// <summary>Longest custom name the hub shows (UTF-16 units): the game's own rename field in the info panel title takes 64 (the
-        /// EllipsisTextInput default `maxLength:t=64` in the installed index.js; the field reads maxlength="64" in game, 2026-11-02), the same
-        /// limit as the hub's own rename (SkiResortHubUISystem RenameMaxChars). A longer name can only come from code. A cut name ends in an
-        /// ellipsis.</summary>
+        /// <summary>Longest custom name the hub shows (UTF-16 units). The game's own rename field in the info panel title takes 64 (the
+        /// EllipsisTextInput default `maxLength:t=64` in the installed index.js. The field reads maxlength="64" in game, 2026-11-02). It is
+        /// the same limit as the hub's own rename (SkiResortHubUISystem RenameMaxChars). A longer name can only come from code. A cut name
+        /// ends in an ellipsis.</summary>
         public const int NameMaxChars = 64;
 
-        /// <summary>A lodge's custom name (NameSystem) as the hub shows it, or null for none: control characters and line or paragraph
-        /// separators become spaces, runs of white space become one, the ends are trimmed, and a name longer than NameMaxChars is cut
-        /// (never inside a surrogate pair) and ends in an ellipsis. No other escaping: the game inserts a placeholder argument as text in one
-        /// pass, so braces in a name stay literal (index.js `substitute`). Returns <paramref name="raw"/> itself when nothing changed.</summary>
+        /// <summary>A lodge's custom name (NameSystem) as the hub shows it, or null for none. Control characters and line or paragraph
+        /// separators become spaces. Runs of white space become one. The ends are trimmed. A name longer than NameMaxChars is cut (never
+        /// inside a surrogate pair) and ends in an ellipsis. No other escaping: the game inserts a placeholder argument as text in one
+        /// pass, so braces in a name stay literal (index.js `substitute`). Returns <paramref name="raw"/> itself when nothing
+        /// changed.</summary>
         public static string DisplayName(string raw)
         {
             if (raw == null)

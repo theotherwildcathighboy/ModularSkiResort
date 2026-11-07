@@ -1,9 +1,10 @@
-// The pure prefab catalog: every prefab name the lift / station / lodge / sign / hub-build code resolves has ONE home here, with
-// its numbers (4 lift types, 8 stations, the lodge ladder, school, patrol huts, sign, runs) plus the ONE build-item table the hub mirrors.
-// Pure file (System, System.Collections.Generic, Unity.Mathematics, RunKind) linked into tests/LiftBatch and tests/ResortBatch; the
-// pure rule files ALIAS its consts (compile-time only: Burst). The static constructor never throws: findings go to Problems.
-// Names are save identity (PrefabID = type + name): never rename an entry; a new generation is a new name. Each NAME has an Expected
-// flag ("pending" = designed, not imported yet). tools/preflight.ps1 and CatalogTests parse the NAMES and BUILD-ITEMS blocks as text.
+// The pure prefab catalog: every prefab name that the lift, station, lodge, sign and hub-build code resolves has ONE home here, with its
+// numbers (4 lift types, 8 stations, the lodge ladder, school, patrol huts, sign, runs). The catalog also holds the ONE build-item table
+// the hub mirrors.
+// Pure file (System, System.Collections.Generic, Unity.Mathematics, RunKind). It is linked into tests/LiftBatch and tests/ResortBatch. The
+// pure rule files ALIAS its consts (compile-time only: Burst). The static constructor never throws. Findings go to Problems.
+// Names are save identity (PrefabID = type + name). Never rename an entry. A new generation is a new name. Each NAME has an Expected flag
+// ("pending" = designed, not imported yet). tools/preflight.ps1 and CatalogTests parse the NAMES and BUILD-ITEMS blocks as text.
 // Engine notes: EngineNotes/SkiCatalog.md
 
 using System;
@@ -22,16 +23,16 @@ namespace SkiResortMod.Systems
     /// <summary>SkiPrefabCatalogSystem's next step for a query (NextAction; LiftBatch CT-10).</summary>
     public enum CatalogAction : byte { Serve = 0, Validate = 1, Resolve = 2 }
 
-    /// <summary>How a lift type's carriers move: Loop = ChairPinSystem's endless loop; Shuttle = the tram.</summary>
+    /// <summary>How a lift type's carriers move. Loop = ChairPinSystem's endless loop. Shuttle = the tram.</summary>
     public enum MoverKind : byte { Loop = 0, Shuttle = 1 }
 
-    /// <summary>LiftServedRule.Lift.Rule carries the byte. AlongLine = within the radius of the line's chords;
-    /// TerminalsOnly = within the radius of the top station's stub tip (the tram).</summary>
+    /// <summary>LiftServedRule.Lift.Rule carries the byte. AlongLine = within the radius of the line's chords. TerminalsOnly = within the
+    /// radius of the top station's stub tip (the tram).</summary>
     public enum ServeRuleKind : byte { AlongLine = 0, TerminalsOnly = 1 }
 
-    /// <summary>LodgeRoadSystem's rule per building row: Base = needs a road (the school, the depot); Mountain = no road
-    /// needed, never warned (NoRoadConnection cleared, RequireRoad off); None = not written at all (patrol huts);
-    /// RoadOptional = a road, or off-road a cat track chain to a road lodge or depot, per building (LodgeSupplyRule: A-frame, Chalet, Grand).</summary>
+    /// <summary>LodgeRoadSystem's rule per building row. Base = needs a road (the school, the depot). Mountain = no road needed, never
+    /// warned (NoRoadConnection cleared, RequireRoad off). None = not written at all (patrol huts). RoadOptional = a road, or off-road a
+    /// cat track chain to a road lodge or depot, per building (LodgeSupplyRule: A-frame, Chalet, Grand).</summary>
     public enum LodgeRoadRule : byte { Base = 0, Mountain = 1, None = 2, RoadOptional = 3 }
 
     /// <summary>The build strip's item kinds (bindings.ts BuildItemMeta.kind, lower camel). APPEND ONLY.</summary>
@@ -61,8 +62,8 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>A lift type's net envelope. INFORMATIONAL: the prefabs carry the real values;
-    /// LiftBatch CT-12 compares an Expected row with gamedata-mirror, CT-15 the HeightRange bound.</summary>
+    /// <summary>A lift type's net envelope. INFORMATIONAL: the prefabs carry the real values. LiftBatch CT-12 compares an Expected row with
+    /// gamedata-mirror. CT-15 compares the HeightRange bound.</summary>
     public readonly struct LiftEnvelope
     {
         public readonly float MaxPylonM;        // PowerLinePrefab m_MaxPylonDistance (= CourseSplit's max edge length)
@@ -84,9 +85,10 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>One carrier type's pivot offsets for the two-object carrier (grip + body; CarrierPose.cs), meters, each from its
-    /// mesh's base-pivot origin (the lowest vertex). GripRope = the rope point in the grip mesh (haul-rope center in the jaw; tram:
-    /// the track-rope contact), GripPin = the pivot pin center in the grip mesh, BodyPin = the pin center in the body mesh.</summary>
+    /// <summary>One carrier type's pivot offsets for the two-object carrier (grip + body: CarrierPose.cs), in meters. Each offset is from
+    /// the base-pivot origin of its mesh (the lowest vertex). GripRope = the rope point in the grip mesh (the haul-rope center in the jaw,
+    /// or for the tram the track-rope contact). GripPin = the pivot pin center in the grip mesh. BodyPin = the pin center in the body
+    /// mesh.</summary>
     public readonly struct CarrierPivots
     {
         public readonly float3 GripRope;
@@ -100,36 +102,38 @@ namespace SkiResortMod.Systems
             BodyPin = bodyPin;
         }
 
-        /// <summary>The rope-point-to-body-origin offset at zero pitch and swing: (0, HangM - GripTopAboveRopeM, 0) for a valid
-        /// set (LiftBatch CT-17), so the split carrier stands where the one-piece carrier stood.</summary>
+        /// <summary>The rope-point-to-body-origin offset at zero pitch and swing. It is (0, HangM - GripTopAboveRopeM, 0) for a valid set
+        /// (LiftBatch CT-17). So the split carrier stands where the one-piece carrier stood.</summary>
         public float3 RigidOffset => BodyPin + GripRope - GripPin;
 
-        /// <summary>The rigid drop (rope point to body origin) of a split carrier: the mover's drop once the grip prefab exists
-        /// (the body's mesh bounds no longer reach the grip top, so LiftMoverMath.CarrierDrop of its bounds would be wrong).</summary>
+        /// <summary>The rigid drop (rope point to body origin) of a split carrier. It is the mover's drop once the grip prefab exists. The
+        /// mesh bounds of the body no longer reach the grip top, so LiftMoverMath.CarrierDrop of its bounds would be wrong.</summary>
         public float RigidDrop => BodyPin.y + GripRope.y - GripPin.y;
     }
 
-    /// <summary>Mutable builder for one lift row (public fields; object-initializer syntax in the static ctor and the
-    /// tests). LiftTypeDef copies it; nothing keeps a reference.</summary>
+    /// <summary>Mutable builder for one lift row (public fields, with object-initializer syntax in the static ctor and the tests).
+    /// LiftTypeDef copies it. Nothing keeps a reference.</summary>
     public sealed class LiftTypeSpec
     {
         public string Id, LinePrefab, PiecePrefab, LineItemId;
         public string[] CarrierPrefabs;
-        /// <summary>The grip prefab (the carrier grip round: one grip per carrier, a second NetSubObjects row per carrier row on
-        /// the line; the tram's carriage is hosted by the base station like its cabin). Null = the type has no split carrier.</summary>
+        /// <summary>The grip prefab (the carrier grip round). There is one grip per carrier, and a second NetSubObjects row per carrier row
+        /// on the line. The base station hosts the tram's carriage, like its cabin. Null = the type has no split carrier.</summary>
         public string GripPrefab;
-        /// <summary>The GRIP name's flag (false = ", pending": designed, made by prefab surgery after the art import).</summary>
+        /// <summary>The GRIP name's flag. False = ", pending": such a grip is designed, and prefab surgery makes it after the art
+        /// import.</summary>
         public bool GripExpected;
         public CarrierPivots Pivots;
         public MoverKind Mover;
         public int SeatsPerCarrier;
-        /// <summary>Half the carrier's width across the line, from its rope point (carriers.json: tr / dq bench_m / 2, gd8 max |bounds_lat_m|,
-        /// tram bounds_lat_half_m; LiftBatch carriers-json drift). The lift tree corridor (LiftTreeCorridor) adds it to GaugeHalfM.</summary>
+        /// <summary>Half the carrier's width across the line, from its rope point (carriers.json: tr / dq bench_m / 2, gd8 max
+        /// |bounds_lat_m|, tram bounds_lat_half_m. Test: LiftBatch carriers-json drift). The lift tree corridor (LiftTreeCorridor) adds it
+        /// to GaugeHalfM.</summary>
         public float CarrierHalfWidthM;
         public float SpeedMps, GaugeHalfM, HangM, GripTopAboveRopeM, AxleM, RopeSeatM, AimHeightM, SpacingM, DesignSpacingM,
                      ServeRadiusM, TopMarginM, FixedPerMonth, PerKmPerMonth;
         public int LineBuildPer8m, ElevationCostPer10m, StationCostBase, StationCostTop;
-        /// <summary>The shuttle profile's acceleration (m/s²) and station dwell (s); 0 / 0 on Loop types (Sanity).</summary>
+        /// <summary>The shuttle profile's acceleration (m/s²) and station dwell (s). Both are 0 on Loop types (Sanity).</summary>
         public float AccelMps2, DwellS;
         public double ScoreValue, SummerShare;
         public ServeRuleKind ServeRule;
@@ -137,7 +141,7 @@ namespace SkiResortMod.Systems
         public bool CloseElectricityView;
         /// <summary>The LINE name's flag (its NAMES line has no ", pending").</summary>
         public bool LineExpected;
-        /// <summary>Per CarrierPrefabs entry; null (or a shorter array) = that carrier takes LineExpected.</summary>
+        /// <summary>Per CarrierPrefabs entry. Null (or a shorter array) = that carrier takes LineExpected.</summary>
         public bool[] CarrierExpected;
     }
 
@@ -148,7 +152,7 @@ namespace SkiResortMod.Systems
         public readonly string LiftTypeId;
         public readonly int LiftTypeIndex;
         public readonly int Seats;
-        public readonly float HangM;            // grip top → lowest point (carriers.json hang_m)
+        public readonly float HangM;            // from the grip top to the lowest point (carriers.json hang_m)
         public readonly float GripTopAboveRopeM;
         public readonly bool Expected;          // this NAME's flag
 
@@ -168,12 +172,12 @@ namespace SkiResortMod.Systems
     /// <summary>One lift type: its line, its carriers and its numbers. Built from a LiftTypeSpec.</summary>
     public sealed class LiftTypeDef
     {
-        public readonly int Index;                             // position in SkiCatalog.Lifts — APPEND ONLY, Lifts[0] = fixedGrip forever
+        public readonly int Index;                             // position in SkiCatalog.Lifts. APPEND ONLY, Lifts[0] = fixedGrip forever
         public readonly string Id;                             // "fixedGrip", "detachable", "gondola", "tram": stable (logs, hub ids)
         public readonly string LinePrefab;                     // PowerLinePrefab name
-        public readonly string PiecePrefab;                    // NetPiecePrefab name: informational (not resolved; CT-12 reads its mirror)
+        public readonly string PiecePrefab;                    // NetPiecePrefab name: informational (not resolved, CT-12 reads its mirror)
         public readonly string BuildItemId;                    // the LINE item ("lift", "liftDetachable", …)
-        public readonly IReadOnlyList<string> CarrierPrefabs;  // StaticObjectPrefab names; grip height from mesh bounds
+        public readonly IReadOnlyList<string> CarrierPrefabs;  // StaticObjectPrefab names. Grip height from mesh bounds
         public readonly IReadOnlyList<CarrierDef> Carriers;    // the same carriers with their numbers and flags
         public readonly MoverKind Mover;
         public readonly int SeatsPerCarrier;
@@ -181,14 +185,14 @@ namespace SkiResortMod.Systems
         public readonly float GaugeHalfM;                      // rope lane |x|
         public readonly float CarrierHalfWidthM;               // half the carrier's width across the line (LiftTypeSpec)
         public readonly float HangM;                           // carrier contract (carriers.json hang_m)
-        public readonly float GripTopAboveRopeM;               // grip top to the jaw's rope point: the pose drops by LiftMoverMath.CarrierDrop
+        public readonly float GripTopAboveRopeM;               // from the grip top to the jaw's rope point. The pose drops by LiftMoverMath.CarrierDrop
         public readonly float AxleM;                           // sheave axle y on the shortest tower (carriers.json axle_m)
-        /// <summary>Rope lane above the axle: the rope rests on the sheave crowns (T27, lift alignment F2). Since the family round
-        /// (Q / R, 2026-11-03; vanilla LV cable on the v2 wheels): FG 0.2326, DQ 0.2589, GD 0.284; the tram rides its stubs (0). The rope
-        /// lane y on the shortest tower = AxleM + RopeSeatM (the tower planner's rope height).</summary>
+        /// <summary>Rope lane above the axle. The rope rests on the sheave crowns (T27, lift alignment F2). Since the family round (Q / R,
+        /// 2026-11-03, vanilla LV cable on the v2 wheels) the values are: FG 0.2326, DQ 0.2589, GD 0.284. The tram rides its stubs (0). The
+        /// rope lane y on the shortest tower = AxleM + RopeSeatM (the tower planner's rope height).</summary>
         public readonly float RopeSeatM;
         public readonly float AimHeightM;                      // CursorAim's line aim plane
-        public readonly float SpacingM;                        // the line prefab's NetSubObjects m_Spacing; 0 = Shuttle
+        public readonly float SpacingM;                        // the line prefab's NetSubObjects m_Spacing. 0 = Shuttle
         public readonly float DesignSpacingM;                  // the ride spacing the design wants (carriers.json spacing_m)
         public readonly float ServeRadiusM;
         public readonly float TopMarginM;
@@ -211,7 +215,7 @@ namespace SkiResortMod.Systems
         public readonly bool Expected;                         // derived: the line and every carrier expected (the grip is not part of it)
         public readonly string GripPrefab;                     // StaticObjectPrefab name of the grip (null = no split carrier)
         public readonly bool GripExpected;                     // the grip NAME's flag
-        public readonly CarrierPivots Pivots;                  // the grip / body pivot offsets (CarrierPose; CT-17)
+        public readonly CarrierPivots Pivots;                  // the grip / body pivot offsets (CarrierPose, CT-17)
 
         internal LiftTypeDef(int index, LiftTypeSpec s)
         {
@@ -276,35 +280,37 @@ namespace SkiResortMod.Systems
         public readonly string Prefab;         // BuildingPrefab name
         public readonly StationRole Role;
         public readonly string LiftTypeId;     // the LiftTypeDef.Id this terminal belongs to
-        public readonly int LiftTypeIndex;     // SkiCatalog.Lifts index; −1 = unknown (a Problems entry)
-        public readonly float3 WheelLocal;     // bullwheel center at rope height, prefab-local; NaN = no bullwheel arc (Shuttle)
-        public readonly float StubTipLocalZ;   // HV stub's outer node, prefab-local z; per row (−16 DQ / gondola)
+        public readonly int LiftTypeIndex;     // SkiCatalog.Lifts index. −1 = unknown (a Problems entry)
+        public readonly float3 WheelLocal;     // bullwheel center at rope height, prefab-local. NaN = no bullwheel arc (Shuttle)
+        public readonly float StubTipLocalZ;   // HV stub's outer node, prefab-local z, per row (−16 DQ / gondola)
         public readonly int BuildCost;         // informational mirror of PlaceableObject.m_ConstructionCost (the hub reads the prefab)
         public readonly string BuildItemId;    // "baseStation", "topStationDetachable", …
         public readonly bool Expected;         // this NAME's flag
-        /// <summary>The track-rope point at the hosted-entry-0 bay, prefab-local (game frame: the tram base's A is the +X bay (9.50,
-        /// 16.00, −5.50), the tram top's A the −X bay (−5.50, 16.00, −5.50)); NaN = no dock (Loop stations).</summary>
+        /// <summary>The track-rope point at the hosted-entry-0 bay, prefab-local. In the game frame, the tram base's A is the +X bay (9.50,
+        /// 16.00, −5.50) and the tram top's A is the −X bay (−5.50, 16.00, −5.50). NaN = no dock (Loop stations).</summary>
         public readonly float3 DockLocalA;
-        /// <summary>The other bay's track-rope point (the tram base's B is the −X bay (−1.50, 16.00, −5.50), the top's the +X bay); NaN = no dock.</summary>
+        /// <summary>The other bay's track-rope point. The tram base's B is the −X bay (−1.50, 16.00, −5.50) and the top's B is the +X bay.
+        /// NaN = no dock.</summary>
         public readonly float3 DockLocalB;
         /// <summary>The prefab's ObjectSubObjects host this type's carriers (the tram base).</summary>
         public readonly bool HostsCarriers;
-        /// <summary>The lift LINE AXIS, prefab-local x: the HV stub tip is (StubTipLocalX, 0, StubTipLocalZ) and the docks sit about it.
-        /// 0 on every station but the tram base, whose lot is 6 x 3: a CS2 lot is centered on the prefab origin, so the building sits 4 m
-        /// off the origin (+4.00 in the game frame).</summary>
+        /// <summary>The lift LINE AXIS, prefab-local x. The HV stub tip is (StubTipLocalX, 0, StubTipLocalZ) and the docks sit around it.
+        /// It is 0 on every station but the tram base. The lot of the tram base is 6 x 3. A CS2 lot is centered on the prefab origin, so
+        /// the building sits 4 m off the origin (+4.00 in the game frame).</summary>
         public readonly float StubTipLocalX;
-        /// <summary>The line rope's anchor, prefab-local y: the lowest end point of the station's HV rope sub-lanes (the point
-        /// LaneSystem.FindAnchor joins the line's rope lane to). The stub tip is at y 0, so on level ground the built line's rope sits
-        /// this high above the stub node. FG base 5.84 / top 5.24, DQ 3.70, gondola 4.85, tram 16.00 (track rope); NaN = unknown. LiftBatch
-        /// EI-48 compares it with the mirror (FIX-LIST 48).</summary>
+        /// <summary>The line rope's anchor, prefab-local y. It is the lowest end point of the station's HV rope sub-lanes (the point that
+        /// LaneSystem.FindAnchor joins the line's rope lane to). The stub tip is at y 0, so on level ground the rope of the built line sits
+        /// this high above the stub node. Values: FG base 5.84 / top 5.24, DQ 3.70, gondola 4.85, tram 16.00 (track rope). NaN = unknown.
+        /// LiftBatch EI-48 compares it with the mirror (FIX-LIST 48).</summary>
         public readonly float RopeAnchorLocalY;
-        /// <summary>The lot's front edge, prefab-local z (lot depth cells x 4): vanilla stands every building on the terrain THERE
-        /// (PlacementFlags.RoadSide on every BuildingData building, BuildingInitializeSystem.cs:1131-1133; ObjectToolSystem.CalculateHeight
-        /// :1621-1625 at BuildingUtils.CalculateFrontPosition :88-92), FrontLocalZ - StubTipLocalZ from the stub tip (FG / tram 24 m, DQ /
-        /// gondola 32 m). NaN = unknown.</summary>
+        /// <summary>The lot's front edge, prefab-local z (lot depth cells x 4). Vanilla stands every building on the terrain at the front
+        /// edge (PlacementFlags.RoadSide on every BuildingData building, BuildingInitializeSystem.cs:1131-1133, and
+        /// ObjectToolSystem.CalculateHeight :1621-1625 at BuildingUtils.CalculateFrontPosition :88-92). The front edge is FrontLocalZ -
+        /// StubTipLocalZ from the stub tip (FG / tram 24 m, DQ / gondola 32 m). NaN = unknown.</summary>
         public readonly float FrontLocalZ;
 
-        /// <summary>LiftTypeIndex −1 (unknown). The catalog's own rows use the overload below; this one exists for hand-made rows (tests).</summary>
+        /// <summary>LiftTypeIndex −1 (unknown). The catalog's own rows use the overload below. This one exists for hand-made rows
+        /// (tests).</summary>
         public StationDef(string prefab, StationRole role, string liftTypeId, float3 wheelLocal, float stubTipLocalZ,
                           int buildCost, string buildItemId, bool expected)
             : this(prefab, role, liftTypeId, wheelLocal, stubTipLocalZ, buildCost, buildItemId, expected, -1)
@@ -328,7 +334,7 @@ namespace SkiResortMod.Systems
         {
         }
 
-        /// <summary>The full row with the line axis off the prefab origin (StubTipLocalX; the tram base).</summary>
+        /// <summary>The full row with the line axis off the prefab origin (StubTipLocalX, the tram base).</summary>
         public StationDef(string prefab, StationRole role, string liftTypeId, float3 wheelLocal, float stubTipLocalZ,
                           int buildCost, string buildItemId, bool expected, int liftTypeIndex,
                           float3 dockLocalA, float3 dockLocalB, bool hostsCarriers, float stubTipLocalX,
@@ -355,7 +361,7 @@ namespace SkiResortMod.Systems
     /// <summary>One lodge tier.</summary>
     public sealed class LodgeDef
     {
-        public readonly int Index;               // position in SkiCatalog.Lodges — APPEND ONLY, Lodges[0] = the A-frame
+        public readonly int Index;               // position in SkiCatalog.Lodges. APPEND ONLY, Lodges[0] = the A-frame
         public readonly string Id;               // "aFrame", "hut", "mid", "summit", "grand"
         public readonly string Prefab;
         public readonly string BuildItemId;      // "lodge", "lodgeHut", …
@@ -369,9 +375,9 @@ namespace SkiResortMod.Systems
         public readonly int SignJobs;            // jobs the linked Welcome Sign carries for a roadless row (MountainJobsSystem)
         public readonly int BuildCost;           // informational: PlaceableObject.m_ConstructionCost
         public readonly int Upkeep;              // informational: ServiceConsumption.m_Upkeep
-        public readonly bool ForbidMultiple;     // ServiceUpgrade.m_ForbidMultiple (engine-validated per prefab per owner); false on every lodge tier
+        public readonly bool ForbidMultiple;     // ServiceUpgrade.m_ForbidMultiple (engine-validated per prefab per owner). False on every lodge tier
         public readonly bool Luxury;             // the luxury tiers (summit, grand): a LABEL for the tip's price-tolerance line and the logs. NO count limit
-                                                 // (any number per ski area; the ladder's 24-point extras cap is the only limiter)
+                                                 // (any number per ski area. The 24-point extras cap of the ladder is the only limiter)
         public readonly float SpendMultiplier;   // lodge spend per guest × this
         public readonly LodgeRoadRule RoadRule;
         public readonly bool Expected;           // this NAME's flag
@@ -433,7 +439,7 @@ namespace SkiResortMod.Systems
 
     /// <summary>The Ski Bus Depot: a road-side claim target in town that adds no capacity, no score and no spend. Deliberately not a row of
     /// Lodges: every lodge count, score weight, capacity and problem line reads that list. Jobs 0 = no Workplace (the coach bill pays the
-    /// drivers, SkiBusRules); its road comes from power / water / garbage (BuildingInitializeSystem.cs:209-300).</summary>
+    /// drivers, SkiBusRules). Its road comes from power / water / garbage (BuildingInitializeSystem.cs:209-300).</summary>
     public sealed class DepotDef
     {
         public readonly string Prefab, BuildItemId;
@@ -452,7 +458,7 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>A ski patrol hut (both huts share one row's numbers; the HQ differs in look only).</summary>
+    /// <summary>A ski patrol hut (both huts share one row's numbers, and the HQ differs in look only).</summary>
     public sealed class PatrolDef
     {
         public readonly string Prefab, BuildItemId;
@@ -544,7 +550,7 @@ namespace SkiResortMod.Systems
 
     public static class SkiCatalog
     {
-        // PrefabID type names. Pure file: no Game reference — SkiPrefabCatalogSystem.OnCreate asserts each equals
+        // PrefabID type names. Pure file: no Game reference. SkiPrefabCatalogSystem.OnCreate asserts that each equals
         // nameof(PowerLinePrefab) / nameof(StaticObjectPrefab) / nameof(BuildingPrefab) / nameof(SurfacePrefab).
         public const string TypeLine = "PowerLinePrefab";
         public const string TypeCarrier = "StaticObjectPrefab";
@@ -598,7 +604,7 @@ namespace SkiResortMod.Systems
             // NAMES-END
         }
 
-        /// <summary>The fixed-grip triple's numbers as consts: the Burst-callable rule files alias these, Lifts[0] is built from them
+        /// <summary>The fixed-grip triple's numbers as consts. The Burst-callable rule files alias these, and Lifts[0] is built from them
         /// (ResortBatch CG-1: alias == row == const). Per-row numbers of the other types reach Burst jobs as struct fields filled on the
         /// main thread.</summary>
         public static class FixedGrip
@@ -614,8 +620,9 @@ namespace SkiResortMod.Systems
             public const double ScoreValue = 6.0;
             public const string BuildItemId = "lift";
             public const bool CloseElectricityView = true;
-            // HAND COPY: SkiChairliftPiece.Prefab:65 m_ConstructionCost 60 per 8 m piece × 125 pieces per km. The hub sends it as is; a piece
-            // price change must change this line. Must equal LineBuildPer8m × PiecesPerKm (LiftBatch CT-5) and the piece's mirror (CT-12).
+            // HAND COPY: SkiChairliftPiece.Prefab:65 m_ConstructionCost 60 per 8 m piece × 125 pieces per km. The hub sends it as is. A
+            // piece price change must change this line. It must equal LineBuildPer8m × PiecesPerKm (LiftBatch CT-5) and the piece's mirror
+            // (CT-12).
             public const int LinePerKm = 7500;
             public const float ApproachPinCeilingM = 4.0f; // = max(4.0, HangM + 1.5) per row (CT-15)
 
@@ -635,7 +642,8 @@ namespace SkiResortMod.Systems
             public const double SkiersPerDay = 360.0;      // == Lodges[0].Capacity (ResortBatch CG-1)
         }
 
-        /// <summary>The lodge ladder's area rules. There is NO per-area lodge count limit of any tier; ExtraCap is the only limiter.</summary>
+        /// <summary>The lodge ladder's area rules. There is NO per-area lodge count limit of any tier. ExtraCap is the only
+        /// limiter.</summary>
         public static class Ladder
         {
             public const double ExtraCap = 24.0;           // LodgeBase = B(best) + min(Σ E(others), 24)
@@ -672,17 +680,18 @@ namespace SkiResortMod.Systems
         /// <summary>8 m pieces per km: LinePerKm = LineBuildPer8m × 125.</summary>
         public const int PiecesPerKm = 125;
 
-        /// <summary>The fixed-grip stations' HV stub tip z (SkiBaseStationBuilding.Prefab:92, SkiTopStationBuilding.Prefab:86;
-        /// StationAlign aliases it). Every reader that has a station uses StationDef.StubTipLocalZ (−16 on the DQ and gondola stations).</summary>
+        /// <summary>The fixed-grip stations' HV stub tip z (SkiBaseStationBuilding.Prefab:92, SkiTopStationBuilding.Prefab:86).
+        /// StationAlign aliases it. Every reader that has a station uses StationDef.StubTipLocalZ (−16 on the DQ and gondola
+        /// stations).</summary>
         public const float StubTipLocalZ = -12f;
 
         public const string MarkerPrefab = Names.Marker;
 
-        /// <summary>4 rows, APPEND ONLY; Lifts[0] = fixedGrip forever.</summary>
+        /// <summary>4 rows, APPEND ONLY. Lifts[0] = fixedGrip forever.</summary>
         public static readonly IReadOnlyList<LiftTypeDef> Lifts;
         /// <summary>8 rows: one Base and one Top per lift type.</summary>
         public static readonly IReadOnlyList<StationDef> Stations;
-        /// <summary>5 rows, APPEND ONLY; Lodges[0] = the A-frame forever.</summary>
+        /// <summary>5 rows, APPEND ONLY. Lodges[0] = the A-frame forever.</summary>
         public static readonly IReadOnlyList<LodgeDef> Lodges;
         public static readonly IReadOnlyList<DepotDef> Depots;     // 1 row
         public static readonly IReadOnlyList<SchoolDef> Schools;   // 1 row
@@ -690,14 +699,14 @@ namespace SkiResortMod.Systems
         public static readonly IReadOnlyList<SignDef> Signs;       // 2 rows: the straight sign and the angled one (both are the gate)
         /// <summary>Natural 3 "runNatural", Groomed 0, Snowmaking 1, Night 2 (the NAMES-block order).</summary>
         public static readonly IReadOnlyList<RunDef> Runs;
-        /// <summary>The ONE build-item table (28 rows, strip order; the BUILD-ITEMS block below).</summary>
+        /// <summary>The ONE build-item table (28 rows in strip order, in the BUILD-ITEMS block below).</summary>
         public static readonly IReadOnlyList<BuildItemDef> BuildItems;
         /// <summary>The static initializer's sanity findings. EMPTY when sane. The initializer NEVER throws.</summary>
         public static readonly IReadOnlyList<string> Problems;
         /// <summary>Names whose flag is Expected / pending (computed).</summary>
         public static readonly int ExpectedNameCount, PendingNameCount;
 
-        // The ONE build-item table. The markers sit INSIDE the braces, so every line between them is a row; LiftBatch CT-9 / CT-14 and
+        // The ONE build-item table. The markers sit INSIDE the braces, so every line between them is a row. LiftBatch CT-9 / CT-14 and
         // check-bundle R16 parse it as text with
         // ^\s*new BuildItemDef\("(\w+)",\s*Names\.(\w+),\s*BuildItemKind\.(\w+),\s*"(\w*)",\s*(-?\d+)\),\s*$
         // Order = the strip order (the TS table mirrors it row by row). Run kinds = RunKind (EntityRef.cs:91-97: Groomed 0, Snowmaking 1,
@@ -736,7 +745,7 @@ namespace SkiResortMod.Systems
             // BUILD-ITEMS-END
         };
 
-        // Lookups (Ordinal; filled once by the static constructor; the first entry wins on a clash, Sanity reports it)
+        // Lookups (Ordinal). The static constructor fills them once. The first entry wins on a clash, and Sanity reports it.
         private static readonly Dictionary<string, LiftTypeDef> s_ByLine = new Dictionary<string, LiftTypeDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, LiftTypeDef> s_ByCarrier = new Dictionary<string, LiftTypeDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, LiftTypeDef> s_ByGrip = new Dictionary<string, LiftTypeDef>(StringComparer.Ordinal);
@@ -771,9 +780,9 @@ namespace SkiResortMod.Systems
             int expectedNames = 0, pendingNames = 0;
             try
             {
-                // Lift rows. Sources: rates, line cost, station costs, weights and summer share = the design numbers; the triple = FixedGrip consts;
-                // MaxPylon / slope / hanging from the line prefabs; HeightRange.min = the clearance formula; elevation max: FG
-                // SkiChairliftHV.Prefab:19 (16), DQ 10, gondola lattice-towers 40 − 12, tram lattice-towers 30.
+                // Lift rows. Sources: rates, line cost, station costs, weights and summer share = the design numbers. The triple =
+                // FixedGrip consts. MaxPylon / slope / hanging come from the line prefabs. HeightRange.min = the clearance formula.
+                // Elevation max: FG SkiChairliftHV.Prefab:19 (16), DQ 10, gondola lattice-towers 40 − 12, tram lattice-towers 30.
                 var specs = new[]
                 {
                     new LiftTypeSpec
@@ -791,15 +800,15 @@ namespace SkiResortMod.Systems
                         ElevationCostPer10m = 5,                       // SkiChairliftPiece.Prefab:66 m_ElevationCost
                         StationCostBase = 60000, StationCostTop = 30000,   // SkiBase/TopStationBuilding.Prefab PlaceableObject (CT-12)
                         ScoreValue = FixedGrip.ScoreValue, SummerShare = FixedGrip.SummerShare,
-                        // SkiChairliftHV.Prefab:292 / :288 / :293, PlaceableNet :19; SkiLiftHaulRopeB 0.03; SkiChairliftPiece.Prefab:133. Elevation max 16
-                        // equals SkiChairliftHV.Prefab:19 m_ElevationRange.max (CT-12): the FG ladder grounds exactly to 16, so 0 m of margin, and FG24
-                        // stays unneeded only while ≤ 16.
+                        // SkiChairliftHV.Prefab:292 / :288 / :293, PlaceableNet :19. SkiLiftHaulRopeB 0.03. SkiChairliftPiece.Prefab:133.
+                        // Elevation max 16 equals SkiChairliftHV.Prefab:19 m_ElevationRange.max (CT-12). The FG ladder grounds exactly to
+                        // 16, so there are 0 m of margin. FG24 stays unneeded only while ≤ 16.
                         Envelope = new LiftEnvelope(60f, 0.8f, 0.02f, 0.02f, 4f, 16f),   // net + own rope lane 0.02 (rope sag round, docs research rope-sag)
                         CloseElectricityView = FixedGrip.CloseElectricityView, LineExpected = true,
-                        // Pivots of the split meshes (lift_chair.py --split --envelope, SkiLiftChair6O + SkiLiftChair6GripO; prefab frame x
-                        // lateral, y up, z travel; B2 v2 grip passage envelope: the clamp block, clevis and pins 0.20 m outboard, the jaw plate
-                        // on the rope): the pin 0.1405 below the rope and 0.20 outboard. Rigid offset (-0.2, 2.1795) + (0, 0.1955) - (-0.2, 0.055)
-                        // = (0, 2.32) = hang - grip top (CT-17).
+                        // Pivots of the split meshes (lift_chair.py --split --envelope, SkiLiftChair6O + SkiLiftChair6GripO). Prefab frame:
+                        // x lateral, y up, z travel. B2 v2 grip passage envelope: the clamp block, clevis and pins 0.20 m outboard, the jaw
+                        // plate on the rope. The pin is 0.1405 below the rope and 0.20 outboard. Rigid offset (-0.2, 2.1795) + (0, 0.1955)
+                        // - (-0.2, 0.055) = (0, 2.32) = hang - grip top (CT-17).
                         GripPrefab = Names.GripFixedGrip, GripExpected = true,
                         Pivots = new CarrierPivots(new float3(0f, 0.1955f, 0f), new float3(-0.2f, 0.055f, 0f), new float3(-0.2f, 2.1795f, 0f)),
                     },
@@ -813,7 +822,7 @@ namespace SkiResortMod.Systems
                         AxleM = 8.0f,                                                   // SkiLiftTowerDQ10O.manifest.json axle
                         RopeSeatM = 0.2589f,                                            // SkiLiftTowerDQ*Q manifests rope_on_crown.seat (T27)
                         AimHeightM = 9.0f,                                              // SkiLiftTowerDQ10O.manifest.json catalog_handoff.AimHeightM
-                        SpacingM = 22.5f, DesignSpacingM = 30f,                         // rides ≈ 31 m; design 30 m
+                        SpacingM = 22.5f, DesignSpacingM = 30f,                         // rides ≈ 31 m. Design 30 m
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 5000f, PerKmPerMonth = 2000f, LineBuildPer8m = 120, ElevationCostPer10m = 10,
                         StationCostBase = 125000, StationCostTop = 65000, ScoreValue = 15.0, SummerShare = 0.25,
@@ -822,8 +831,8 @@ namespace SkiResortMod.Systems
                         // SkiDetachableHV and SkiLiftChairDQ4 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
                         // Pivots of the split meshes (SkiLiftChairDQ4N + SkiLiftChairDQ4GripO, B2 v2: the O grip moved its carriage 0.25 m
-                        // outboard, pins unchanged): the pin 0.258 below the rope on the
-                        // outboard C-hanger (x -0.2459, authoring -Y). Rigid offset 2.8225 + 0.3155 - 0.058 = 3.08 (CT-17).
+                        // outboard, pins unchanged). The pin is 0.258 below the rope on the outboard C-hanger (x -0.2459, authoring -Y).
+                        // Rigid offset 2.8225 + 0.3155 - 0.058 = 3.08 (CT-17).
                         GripPrefab = Names.GripDetachable, GripExpected = true,
                         Pivots = new CarrierPivots(new float3(0f, 0.3155f, 0f), new float3(-0.2459f, 0.058f, 0f), new float3(-0.2459f, 2.8225f, 0f)),
                     },
@@ -837,7 +846,7 @@ namespace SkiResortMod.Systems
                         AxleM = 10.0f,
                         RopeSeatM = 0.284f,                                             // SkiLiftTowerGD*Q manifests rope_on_crown.seat (T27)
                         AimHeightM = 11.0f,                                            // axle 10 / comm 11.2
-                        SpacingM = 40f, DesignSpacingM = 60f,                           // rides ≈ 60 m; design 60 m. SpacingM mirrors SkiGondolaHV m_Spacing (140 m edges spawn 3 cabins, not 2)
+                        SpacingM = 40f, DesignSpacingM = 60f,                           // rides ≈ 60 m. Design 60 m. SpacingM mirrors SkiGondolaHV m_Spacing (140 m edges spawn 3 cabins, not 2)
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 8000f, PerKmPerMonth = 3000f, LineBuildPer8m = 175, ElevationCostPer10m = 15,
                         StationCostBase = 190000, StationCostTop = 110000, ScoreValue = 25.0, SummerShare = 0.25,
@@ -846,8 +855,8 @@ namespace SkiResortMod.Systems
                         // SkiGondolaHV and SkiGondolaCabin8 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
                         // Pivots of the split meshes (lift_cabin.py --split, SkiGondolaCabin8B + SkiGondolaCabin8GripC, B2 v2: the C grip
-                        // lowered its jaw bar inboard, pins unchanged): the pin 0.504 below
-                        // the rope on the outboard hanger (x -0.655). Rigid offset 3.9165 + 0.5735 - 0.07 = 4.42 (CT-17).
+                        // lowered its jaw bar inboard, pins unchanged). The pin is 0.504 below the rope on the outboard hanger (x -0.655).
+                        // Rigid offset 3.9165 + 0.5735 - 0.07 = 4.42 (CT-17).
                         GripPrefab = Names.GripGondola, GripExpected = true,
                         Pivots = new CarrierPivots(new float3(0f, 0.5735f, 0f), new float3(-0.655f, 0.07f, 0f), new float3(-0.655f, 3.9165f, 0f)),
                     },
@@ -869,12 +878,13 @@ namespace SkiResortMod.Systems
                         CloseElectricityView = true, LineExpected = true,
                         // SkiTramCabin and SkiTramHV exist game-side: both names Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
-                        // The shuttle profile. Accel 0.8 m/s² (real jig-back trams ≈ 0.5-1.0, unverified); dwell 60 s (carriers.json tram dwell_s 60, CT-11).
+                        // The shuttle profile. Accel 0.8 m/s² (real jig-back trams ≈ 0.5-1.0, unverified). Dwell 60 s (carriers.json tram
+                        // dwell_s 60, CT-11).
                         AccelMps2 = 0.8f, DwellS = 60f,
-                        // Pivots of the split meshes (lift_cabin.py --split, SkiTramCabinB + SkiTramCarriageB): the pin at the lug center
-                        // under the carriage head, K = 10.2565 above the cabin's lowest vertex (was hang - 0.12 = 10.38; carriers.json
-                        // pivot_k_m follows), 0.2565 ABOVE the track-rope contact. Rigid offset 10.2565 + 0.478 - 0.7345 = 10.0 (CT-17).
-                        // The carriage is the grip: hosted by the base station like the cabin.
+                        // Pivots of the split meshes (lift_cabin.py --split, SkiTramCabinB + SkiTramCarriageB). The pin is at the lug
+                        // center under the carriage head, K = 10.2565 above the cabin's lowest vertex (was hang - 0.12 = 10.38, and
+                        // carriers.json pivot_k_m follows). The pin is 0.2565 ABOVE the track-rope contact. Rigid offset 10.2565 + 0.478 -
+                        // 0.7345 = 10.0 (CT-17). The carriage is the grip. The base station hosts it, like the cabin.
                         GripPrefab = Names.GripTram, GripExpected = true,
                         Pivots = new CarrierPivots(new float3(0f, 0.478f, 0f), new float3(0f, 0.7345f, 0f), new float3(0f, 10.2565f, 0f)),
                     },
@@ -883,34 +893,34 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < specs.Length; i++)
                     lifts[i] = new LiftTypeDef(i, specs[i]);
 
-                // Station rows. Wheel = bullwheel center at rope height, prefab-local (x, y = rope, z); NaN = no loop (Shuttle). Per-type sources
-                // (station manifests, lift_terminal.py) and the tram base's game-frame mirror (axis +4.00, docks 9.50 / −1.50): EngineNotes/SkiCatalog.md.
-                // BuildCost = the type's StationCost{Base,Top} (Sanity checks it).
+                // Station rows. Wheel = bullwheel center at rope height, prefab-local (x, y = rope, z). NaN = no loop (Shuttle). Per-type
+                // sources (station manifests, lift_terminal.py) and the tram base's game-frame mirror (axis +4.00, docks 9.50 / −1.50):
+                // EngineNotes/SkiCatalog.md. BuildCost = the type's StationCost{Base,Top} (Sanity checks it).
                 float nan = float.NaN;
                 stations = new[]
                 {
-                    // Per-row stub tip. The DQ / gondola / tram rows are Expected (prefabs game-side and mirrored; CT-12 costs 125,000 / 65,000 /
-                    // 190,000 / 110,000 / 300,000 / 190,000 equal the mirror).
+                    // Per-row stub tip. The DQ / gondola / tram rows are Expected (the prefabs are game-side and mirrored. CT-12 costs
+                    // 125,000 / 65,000 / 190,000 / 110,000 / 300,000 / 190,000 equal the mirror).
                     Station(lifts, Names.StationFixedGripBase, StationRole.Base, FixedGrip.Id, new float3(0f, 3.55f, 0.2f), StubTipLocalZ, 60000, "baseStation", true, 5.84f, 12f),
                     Station(lifts, Names.StationFixedGripTop, StationRole.Top, FixedGrip.Id, new float3(0f, 3.75f, 0f), StubTipLocalZ, 30000, "topStation", true, 5.24f, 12f),
                     Station(lifts, Names.StationDetachableBase, StationRole.Base, "detachable", new float3(0f, 3.70f, 9.60f), -16f, 125000, "baseStationDetachable", true, 3.70f, 16f),
                     Station(lifts, Names.StationDetachableTop, StationRole.Top, "detachable", new float3(0f, 3.70f, 5.60f), -16f, 65000, "topStationDetachable", true, 3.70f, 16f),
                     Station(lifts, Names.StationGondolaBase, StationRole.Base, "gondola", new float3(0f, 4.85f, 9.40f), -16f, 190000, "baseStationGondola", true, 4.85f, 16f),
                     Station(lifts, Names.StationGondolaTop, StationRole.Top, "gondola", new float3(0f, 4.85f, 5.40f), -16f, 110000, "topStationGondola", true, 4.85f, 16f),
-                    // The tram's two docks at the track rope (SkiTram{Base,Top}StationA.manifest.json prefab_contract.docks[0..1].rope; levels
-                    // identical on base and top); the base hosts the cabins. The base's lot is 6 x 3 (the new cell on the clock-tower side), so its
-                    // building sits 4 m off the origin: in the game frame the line axis is at prefab x +4.00 and the docks A / B are (9.50 / -1.50) =
-                    // hosted cabin entries 0 / 1 (A = the +X bay, B = the -X bay); the top is unchanged.
+                    // The tram's two docks at the track rope (SkiTram{Base,Top}StationA.manifest.json prefab_contract.docks[0..1].rope,
+                    // levels identical on base and top). The base hosts the cabins. The lot of the base is 6 x 3 (the new cell on the
+                    // clock-tower side), so its building sits 4 m off the origin. In the game frame the line axis is at prefab x +4.00. The
+                    // docks A / B are (9.50 / -1.50) = hosted cabin entries 0 / 1 (A = the +X bay, B = the -X bay). The top is unchanged.
                     Station(lifts, Names.StationTramBase, StationRole.Base, "tram", new float3(nan, nan, nan), -12f, 300000, "baseStationTram", true,
                             new float3(9.50f, 16.00f, -5.50f), new float3(-1.50f, 16.00f, -5.50f), true, 4.00f, 16.00f, 12f),
                     Station(lifts, Names.StationTramTop, StationRole.Top, "tram", new float3(nan, nan, nan), -12f, 190000, "topStationTram", true,
                             new float3(-5.50f, 16.00f, -5.50f), new float3(5.50f, 16.00f, -5.50f), false, 0f, 16.00f, 12f),
                 };
 
-                // Lodge ladder. Jobs / BuildCost / Upkeep are informational (the prefab is the truth; CT-12 compares an expected row). Every row is
-                // top-level (BuildCost = PlaceableObject.m_ConstructionCost); the hut, the summit lodge and both patrol huts demand nothing:
-                // jobs 0 = no Workplace. Their jobs (hut 4, summit 8, patrol 2 + 2) are signJobs, carried by the linked Welcome Sign's
-                // WorkProvider (MountainJobsSystem; staff ride up).
+                // Lodge ladder. Jobs / BuildCost / Upkeep are informational (the prefab is the truth, and CT-12 compares an expected row).
+                // Every row is top-level (BuildCost = PlaceableObject.m_ConstructionCost). The hut, the summit lodge and both patrol huts
+                // demand nothing: jobs 0 = no Workplace. Their jobs (hut 4, summit 8, patrol 2 + 2) are signJobs. The WorkProvider of the
+                // linked Welcome Sign carries them (MountainJobsSystem, staff ride up).
                 lodges = new[]
                 {
                     // The A-frame = SkiAFrameDayLodge.Prefab (m_UpgradeCost 40000, m_Upkeep 3000, m_Workplaces 4, ForbidMultiple false). Jobs 4
@@ -955,8 +965,8 @@ namespace SkiResortMod.Systems
                                   expected: true, signJobs: 2),
                 };
 
-                // Sign: SkiResortGate.Prefab:25 PlaceableObject m_ConstructionCost must equal this 12000 (LiftBatch CT-12 fails on any difference,
-                // and the hub writes one "[items] drift" WARN per load while the two disagree).
+                // Sign: SkiResortGate.Prefab:25 PlaceableObject m_ConstructionCost must equal this 12000. LiftBatch CT-12 fails on any
+                // difference. The hub writes one "[items] drift" WARN per load while the two disagree.
                 signs = new[]
                 {
                     new SignDef(Names.Sign, "sign", 12000, true),
@@ -1083,9 +1093,9 @@ namespace SkiResortMod.Systems
                 map.Add(key, value);
         }
 
-        /// <summary>The name list in NAMES-block order: each lift type's line then its carriers and its grip, the marker, the stations,
-        /// the lodges, the bus depot, the school, the patrol huts (School and Patrol rows sit between the lodges and the sign), the sign,
-        /// the runs. Internal: LiftBatch CT-16 builds its twin's names with it.</summary>
+        /// <summary>The name list in NAMES-block order. The order is: each lift type's line, then its carriers and its grip, the marker,
+        /// the stations, the lodges, the bus depot, the school, the patrol huts (School and Patrol rows sit between the lodges and the
+        /// sign), the sign, the runs. Internal: LiftBatch CT-16 builds its twin's names with it.</summary>
         internal static List<CatalogName> NameList(IReadOnlyList<LiftTypeDef> lifts, string marker, IReadOnlyList<StationDef> stations,
                                                    IReadOnlyList<LodgeDef> lodges, IReadOnlyList<SchoolDef> schools,
                                                    IReadOnlyList<PatrolDef> patrols, IReadOnlyList<SignDef> signs,
@@ -1118,20 +1128,20 @@ namespace SkiResortMod.Systems
                 all.Add(new CatalogName(signs[i].Prefab, TypeBuilding, CatalogKind.Sign, signs[i].BuildItemId, signs[i].Expected));
             for (int i = 0; i < runs.Count; i++)
                 all.Add(new CatalogName(runs[i].Prefab, TypeSurface, CatalogKind.Run, runs[i].BuildItemId, true));
-            // Decor: the safety net fence is a net prefab (drawn like a path) with a hub tile of its own; the item id is "safetyFence"
+            // Decor: the safety net fence is a net prefab (drawn like a path) with a hub tile of its own. The item id is "safetyFence"
             for (int i = 0; fences != null && i < fences.Count; i++)
                 all.Add(new CatalogName(fences[i], TypeFence, CatalogKind.Fence, "safetyFence", true));
             return all;
         }
 
-        /// <summary>The generic sanity rules over any row set (the static constructor's, or LiftBatch CT-16's hand-made twin). Appends
-        /// one finding per broken rule instance; never throws on null entries it can skip.</summary>
+        /// <summary>The generic sanity rules over any row set (the static constructor's, or LiftBatch CT-16's hand-made twin). Appends one
+        /// finding per broken rule instance. It never throws on null entries it can skip.</summary>
         internal static void CheckRows(List<string> problems, IReadOnlyList<LiftTypeDef> lifts, IReadOnlyList<StationDef> stations,
                                        IReadOnlyList<LodgeDef> lodges, IReadOnlyList<SchoolDef> schools,
                                        IReadOnlyList<PatrolDef> patrols, IReadOnlyList<SignDef> signs, IReadOnlyList<RunDef> runs,
                                        IReadOnlyList<BuildItemDef> items, IReadOnlyList<CatalogName> names)
         {
-            // Names: non-empty, unique; name item ids unique
+            // Names: non-empty, unique. Name item ids: unique
             var byName = new Dictionary<string, CatalogName>(StringComparer.Ordinal);
             var nameItems = new Dictionary<string, string>(StringComparer.Ordinal);
             for (int i = 0; i < names.Count; i++)
@@ -1275,7 +1285,7 @@ namespace SkiResortMod.Systems
                         problems.Add("station '" + s.Prefab + "' of Shuttle type '" + l.Id + "' has DockLocalA " + s.DockLocalA +
                                      " / DockLocalB " + s.DockLocalB + " (want both finite: the track-rope point at each bay)");
                     else if (!(math.abs((s.DockLocalA.x + s.DockLocalB.x) * 0.5f - s.StubTipLocalX) <= 1e-3f))
-                        // the two bays sit either side of the line axis (the tram base: 9.50 / -1.50 about +4.00)
+                        // the two bays sit on either side of the line axis (the tram base: 9.50 / -1.50 around +4.00)
                         problems.Add("station '" + s.Prefab + "' of Shuttle type '" + l.Id + "' has its docks centered on x " +
                                      ((s.DockLocalA.x + s.DockLocalB.x) * 0.5f) + ", not on its line axis StubTipLocalX " +
                                      s.StubTipLocalX);
@@ -1442,7 +1452,7 @@ namespace SkiResortMod.Systems
 
         // Lookups (Ordinal; null / "" never match)
 
-        /// <summary>The lift type whose LINE this is; null when not a lift line (the marker is NOT a line).</summary>
+        /// <summary>The lift type whose LINE this is. Null when not a lift line (the marker is NOT a line).</summary>
         public static LiftTypeDef ByLinePrefab(string name)
         {
             return !string.IsNullOrEmpty(name) && s_ByLine.TryGetValue(name, out LiftTypeDef def) ? def : null;
@@ -1465,7 +1475,7 @@ namespace SkiResortMod.Systems
             return !string.IsNullOrEmpty(id) && s_ById.TryGetValue(id, out LiftTypeDef def) ? def : null;
         }
 
-        /// <summary>Lifts[index]; null when out of range (LiftCensus.NoType 255 included).</summary>
+        /// <summary>Lifts[index]. Null when out of range (LiftCensus.NoType 255 included).</summary>
         public static LiftTypeDef LiftByIndex(int index)
         {
             return index >= 0 && index < Lifts.Count ? Lifts[index] : null;
@@ -1476,7 +1486,7 @@ namespace SkiResortMod.Systems
             return !string.IsNullOrEmpty(name) && s_Stations.TryGetValue(name, out StationDef def) ? def : null;
         }
 
-        /// <summary>The lift type's Base or Top station row; null when out of range.</summary>
+        /// <summary>The lift type's Base or Top station row. Null when out of range.</summary>
         public static StationDef StationOf(int liftTypeIndex, StationRole role)
         {
             int slot = liftTypeIndex * 2 + (int)role;
@@ -1569,21 +1579,22 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>"lift", "liftDetachable", …; null when out of range.</summary>
+        /// <summary>"lift", "liftDetachable", … Null when out of range.</summary>
         public static string LineItemOf(int liftTypeIndex)
         {
             LiftTypeDef def = LiftByIndex(liftTypeIndex);
             return def != null ? def.BuildItemId : null;
         }
 
-        /// <summary>"baseStation", "topStationGondola", …; null when out of range.</summary>
+        /// <summary>"baseStation", "topStationGondola", … Null when out of range.</summary>
         public static string StationItemOf(int liftTypeIndex, StationRole role)
         {
             StationDef def = StationOf(liftTypeIndex, role);
             return def != null ? def.BuildItemId : null;
         }
 
-        /// <summary>The PrefabID type of an item kind: Line → TypeLine, Run → TypeSurface, Fence → TypeFence, else TypeBuilding.</summary>
+        /// <summary>The PrefabID type of an item kind. Line gives TypeLine, Run gives TypeSurface, Fence gives TypeFence, and every other
+        /// kind gives TypeBuilding.</summary>
         public static string TypeNameOf(BuildItemKind kind)
         {
             switch (kind)
@@ -1595,9 +1606,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>= SubObjectSystem.cs:1739-1748 (1.6.0f1; 1.6.2 :1746): an EvenSpacing NetSubObjects row spawns
-        /// n = (int)(L_xz / max(1, m_Spacing) − 0.5f) objects per edge (:1743), in float, as the engine computes it, at
-        /// (m+1)·L/(n+1) (:1748). 0 when either input is not finite and &gt; 0 (m_Spacing 0 = EvenSpacing off,
+        /// <summary>= SubObjectSystem.cs:1739-1748 (1.6.0f1; 1.6.2 :1746). An EvenSpacing NetSubObjects row spawns n = (int)(L_xz / max(1,
+        /// m_Spacing) − 0.5f) objects per edge (:1743), in float, as the engine computes it. The objects sit at (m+1)·L/(n+1) (:1748). The
+        /// result is 0 when either input is not finite and &gt; 0 (m_Spacing 0 = EvenSpacing off,
         /// NetInitializeSystem.cs:1048-1051).</summary>
         public static int EvenSpacingCount(float planLengthM, float spacingM)
         {
@@ -1609,8 +1620,8 @@ namespace SkiResortMod.Systems
             return q > 0f ? (int)q : 0;
         }
 
-        /// <summary>dirty → Resolve; else failedThisLoad → Serve (no retry storm after an exception); else
-        /// validatedFrame == frame → Serve; else Validate.</summary>
+        /// <summary>If dirty, the action is Resolve. Otherwise, if failedThisLoad, the action is Serve (no retry storm after an exception).
+        /// Otherwise, if validatedFrame == frame, the action is Serve. Otherwise the action is Validate.</summary>
         public static CatalogAction NextAction(bool dirty, bool failedThisLoad, int validatedFrame, int frame)
         {
             if (dirty)

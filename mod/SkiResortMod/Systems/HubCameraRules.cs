@@ -1,9 +1,9 @@
 // Pure "is the camera already on this sign?" test behind the hub's camera moves (resort switch, lodge launch).
-// Already on  <=>  zoom <= KeepMaxZoomM  and  d <= KeepZoomFraction x zoom  (both inclusive), d = horizontal (x, z) distance from the
-// camera pivot to the sign. Zoom-relative; screen center rather than "on screen" (the hub panel covers the right quarter and can be
-// dragged, so a viewport test would call a sign hidden under it "in view"). Above KeepMaxZoomM the move zooms in.
-// Unknown camera state flies: a non-finite pivot, sign or zoom, or zoom <= 0, gives false.
-// KeepZoomFraction and KeepMaxZoomM are unmeasured estimates. Pure file: Unity.Mathematics only; linked into the net8 test host.
+// Already on when zoom <= KeepMaxZoomM and d <= KeepZoomFraction x zoom (both inclusive), with d = horizontal (x, z) distance from the
+// camera pivot to the sign. The test is zoom-relative. It uses the screen center rather than "on screen" (the hub panel covers the right
+// quarter and can be dragged, so a viewport test would call a sign hidden under it "in view"). Above KeepMaxZoomM the move zooms in.
+// Unknown camera state flies. A non-finite pivot, sign or zoom, or zoom <= 0, gives false.
+// KeepZoomFraction and KeepMaxZoomM are unmeasured estimates. Pure file: Unity.Mathematics only. Linked into the net8 test host.
 // Engine notes: EngineNotes/HubCameraRules.md
 
 using Unity.Mathematics;
@@ -35,7 +35,7 @@ namespace SkiResortMod.Systems
             return AlreadyOn(pivotXZ, zoom, signXZ, out float _);
         }
 
-        /// <summary>As <see cref="AlreadyOn(float2, float, float2)"/>; <paramref name="distanceM"/> is the horizontal pivot-to-sign
+        /// <summary>As <see cref="AlreadyOn(float2, float, float2)"/>. <paramref name="distanceM"/> is the horizontal pivot-to-sign
         /// distance whatever the verdict (NaN when a position is not finite).</summary>
         public static bool AlreadyOn(float2 pivotXZ, float zoom, float2 signXZ, out float distanceM)
         {

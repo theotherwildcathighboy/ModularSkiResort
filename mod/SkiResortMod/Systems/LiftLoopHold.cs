@@ -1,6 +1,6 @@
 // Pure math of a chairlift loop that stops and resumes. An unpowered lift's carriers stop: ChairPinSystem holds a loop per
 // station pair (transient, no save data) and uses this arithmetic. Linked into tests/LiftBatch (LoopHoldTests).
-// Chair i stands at s_i = (offset_i + PhaseOf) % L; Rebase at the resume keeps spacing (every offset shifts by the same amount).
+// Chair i stands at s_i = (offset_i + PhaseOf) % L. Rebase at the resume keeps spacing (every offset shifts by the same amount).
 // GateOf fails open: a loop the census cannot explain keeps running. ExpectsLoop: a Shuttle (the tram) never owes a loop.
 // Pure file: System and Unity.Mathematics only, plus the pure siblings LiftServedRule.cs and SkiCatalog.cs. Static and
 // Burst-safe except HeldSuffix (a log string, managed callers only). net48: no double.IsFinite (use math.isfinite), no Math.Clamp.
@@ -17,7 +17,7 @@ namespace SkiResortMod.Systems
     public static class LiftLoopHold
     {
         /// <summary>Run when no census row is known for the loop's station pair, the row is not Complete, or the lift carries
-        /// (LiftServedRule.Carries); Hold otherwise, i.e. exactly for a known Complete row that is unpowered (with PowerGatesService) or
+        /// (LiftServedRule.Carries). Hold otherwise, i.e. exactly for a known Complete row that is unpowered (with PowerGatesService) or
         /// closed.</summary>
         public static LoopGate GateOf(bool rowKnown, bool complete, LiftPower power, bool closed)
         {
@@ -31,9 +31,9 @@ namespace SkiResortMod.Systems
             return speedMps * frozenTimeS;
         }
 
-        /// <summary>Re-base one offset at the resume so that (offset' + speed x nowTimeS) mod L == (offset + speed x frozenTimeS) mod L
-        /// (to double rounding); offset' in [0, L). nowTimeS == frozenTimeS and offset in [0, L) return offset bit for bit. L not
-        /// &gt; 0 or a non-finite input returns offset unchanged.</summary>
+        /// <summary>Re-base one offset at the resume so that (offset' + speed x nowTimeS) mod L == (offset + speed x frozenTimeS) mod L (to
+        /// double rounding). offset' in [0, L). nowTimeS == frozenTimeS and offset in [0, L) return offset bit for bit. L not &gt; 0 or a
+        /// non-finite input returns offset unchanged.</summary>
         public static double Rebase(double offset, double speedMps, double frozenTimeS, double nowTimeS, double lengthM)
         {
             if (!(lengthM > 0.0) || !math.isfinite(offset) || !math.isfinite(speedMps) || !math.isfinite(frozenTimeS) ||
@@ -47,13 +47,14 @@ namespace SkiResortMod.Systems
             return r;
         }
 
-        /// <summary>True when a complete lift of this type should have a ChairPin loop (Loop mover, or untyped); false for a Shuttle.</summary>
+        /// <summary>True when a complete lift of this type should have a ChairPin loop (Loop mover, or untyped). False for a
+        /// Shuttle.</summary>
         public static bool ExpectsLoop(LiftTypeDef type)
         {
             return type == null || type.Mover != MoverKind.Shuttle;
         }
 
-        /// <summary>The rebuild signature's held part: "" when nothing is held; else ", N held (why)" where why names the non-zero
+        /// <summary>The rebuild signature's held part: "" when nothing is held. Otherwise ", N held (why)", where why names the non-zero
         /// reasons: "no power", "closed", or "p no power, c closed". Negative counts read as 0.</summary>
         public static string HeldSuffix(int heldForPower, int heldClosed)
         {

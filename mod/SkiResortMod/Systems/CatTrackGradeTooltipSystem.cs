@@ -1,7 +1,8 @@
-// Cat track tool mouse tooltip, same pattern as LiftLineTooltipSystem. Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip.
-// Every line is a LocaleEN key SkiResort.CatTrack.* (GradeMsg) with its whole-number {ARG} values, plain sentences for a player:
-// no ids, decimals or log syntax (the log keeps the detail; GradeBatch GR-23 gates the texts).
-// The step hint is always shown while the tool is open; a refusal (CatTrackGradeToolSystem.Notice) shows as a warning under it.
+// Cat track tool mouse tooltip. The pattern is the same as LiftLineTooltipSystem. In Mod.cs, the system runs UpdateAfter
+// TempCostTooltipSystem at UITooltip.
+// Every line is a LocaleEN key SkiResort.CatTrack.* (GradeMsg) with its whole-number {ARG} values. The lines are plain sentences for a
+// player, with no ids, decimals or log syntax. The log keeps the detail. GradeBatch GR-23 gates the texts.
+// The step hint always shows while the tool is open. A refusal (CatTrackGradeToolSystem.Notice) shows as a warning under it.
 // A "!!!" ERROR disables the system until the next load.
 
 using System;

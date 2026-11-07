@@ -1,9 +1,9 @@
-// Road and access flags on our building prefab entities, written at every Game-mode load (decompile 1.6.0f1; every
-// file cited here is byte-identical in 1.6.2f1). Write sites: EntityManager.SetComponentData of BuildingData
-// only; no component added or removed, no prefab JSON change, no Harmony, no reflection.
+// Road and access flags on our building prefab entities, written at every Game-mode load (decompile 1.6.0f1, every file cited here is
+// byte-identical in 1.6.2f1). Write sites: EntityManager.SetComponentData of BuildingData only. No component is added or removed, there is
+// no prefab JSON change, no Harmony, no reflection.
 // W4: Mountain and None rows (hut, summit lodge, patrol huts) demand nothing, but their Park component sets RequireAccess
-// (BuildingInitializeSystem.cs:284-287), arming the pathfind-island warning on a lot with no road; W4 clears it. Park stays.
-// RoadOptional rows (A-frame, Chalet, Grand) do demand utilities and workers, so the game sets RequireRoad too; W4 clears both and
+// (BuildingInitializeSystem.cs:284-287). This arms the pathfind-island warning on a lot with no road. W4 clears it. Park stays.
+// RoadOptional rows (A-frame, Chalet, Grand) do demand utilities and workers, so the game sets RequireRoad too. W4 clears both.
 // LodgeSupplySystem decides per building what each lodge consumes (at a road it puts back the mail and crime that flag would have given).
 // The write lasts for the app run (prefab entities live that long), so an Editor load writes the game's own values back.
 // (W3, the terrain-clip write on the SkiCatTrack probe net, went with that prefab: retired 2026-10-26.)
@@ -47,7 +47,7 @@ namespace SkiResortMod.Systems
         private const float AccessLimitM = 8.4f;   // RoadConnectionSystem.cs:88
 
         // Per-load state, reset at OnGameLoadingComplete. m_LodgePrefab = the first found catalog lodge, m_SignPrefab = the first found
-        // catalog sign; both only gate the DUMP's "prefabs not resolved this load" line.
+        // catalog sign. Both only gate the DUMP's "prefabs not resolved this load" line.
         private Entity m_LodgePrefab = Entity.Null;
         private Entity m_SignPrefab = Entity.Null;
         private string m_State = "not loaded";
@@ -70,7 +70,7 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Deleted>(),
                 },
             });
-            Enabled = false;   // nothing per frame; OnGameLoadingComplete still fires (CursorAimSystem precedent)
+            Enabled = false;   // nothing per frame. OnGameLoadingComplete still fires (CursorAimSystem precedent)
             Mod.Log.Info("LodgeRoad: system created (the lodge prefab may connect to the road at its front: " +
                          "written at every game load; no sweep, no poll)");
         }
@@ -158,7 +158,7 @@ namespace SkiResortMod.Systems
             for (int r = 0; r < rows.Count; r++)
             {
                 RoadRow row = rows[r];
-                // The catalog's entity; Entity.Null when missing: this system's own WARN below, for an expected row only.
+                // The catalog's entity. It is Entity.Null when missing: this system's own WARN below, for an expected row only.
                 Entity prefab = m_PrefabCatalog.EntityOf(row.Prefab);
                 if (prefab == Entity.Null && !SkiCatalog.IsExpected(row.Prefab))
                 {
@@ -168,8 +168,9 @@ namespace SkiResortMod.Systems
                 }
                 if (row.What == "lodge" && m_LodgePrefab == Entity.Null)
                     m_LodgePrefab = prefab;
-                // A top-level row (no ServiceUpgradeData) is never marked NoRoadConnection: the game's own top-level branch sets RequireRoad
-                // from its uncovered demands (BuildingInitializeSystem.cs:209-300). Base rows: nothing written; one Info line below.
+                // A top-level row (no ServiceUpgradeData) is never marked NoRoadConnection: the game's own top-level branch sets
+                // RequireRoad from its uncovered demands (BuildingInitializeSystem.cs:209-300). Base rows: nothing written. One Info line
+                // below.
                 if (prefab != Entity.Null && !EntityManager.HasComponent<ServiceUpgradeData>(prefab))
                 {
                     if (LodgeSupplyRule.WritesRoadFlags(row.Rule))
@@ -193,7 +194,7 @@ namespace SkiResortMod.Systems
                     states.Add(rows.Count > 1 ? row.Prefab + ": lodge prefab missing" : "lodge prefab missing");
                     continue;
                 }
-                // The mod ships no ServiceUpgrade building (tests/BuildingBatch P1); such a row would need the game's upgrade road rule.
+                // The mod ships no ServiceUpgrade building (tests/BuildingBatch P1). Such a row would need the game's upgrade road rule.
                 Mod.Log.Warn($"LodgeRoad: prefab {row.Prefab} ({row.What}) carries ServiceUpgradeData — not supported, nothing written");
                 states.Add(row.Prefab + ": not written (ServiceUpgradeData: not supported)");
             }
@@ -206,10 +207,11 @@ namespace SkiResortMod.Systems
             m_State = string.Join("; ", states.ToArray());
         }
 
-        /// <summary>W4 (engine notes): on a top-level Mountain / None / RoadOptional row's prefab clear RequireAccess and RequireRoad from
+        /// <summary>W4 (engine notes): on a top-level Mountain / None / RoadOptional row's prefab, clear RequireAccess and RequireRoad from
         /// BuildingData.m_Flags (the warnings' only inputs: ConnectionWarningSystem.cs:612-631, the placement warning and road icon read
-        /// RequireRoad). Recorded in m_Written (no placement write) so the Editor gets the game's value back. One line per row per load; a
-        /// WARN when the game set RequireRoad on a row that should demand nothing (a RoadOptional row demands utilities and workers by design).</summary>
+        /// RequireRoad). The change is recorded in m_Written (no placement write) so the Editor can restore the game's value. One line per
+        /// row per load. A WARN when the game set RequireRoad on a row that should demand nothing (a RoadOptional row demands utilities and
+        /// workers by design).</summary>
         private string ApplyRoadless(RoadRow row, Entity prefab)
         {
             if (!EntityManager.TryGetComponent(prefab, out BuildingData building))
@@ -238,20 +240,20 @@ namespace SkiResortMod.Systems
             return state;
         }
 
-        /// <summary>An Editor load after a game in the same app run gets the W4 prefabs' vanilla flags back, but only when the prefab
-        /// still holds exactly what Apply wrote (else one line, nothing written). No entry in m_Written (no game this session, or already
-        /// restored): nothing, no line (engine notes "Editor").</summary>
+        /// <summary>An Editor load after a game in the same app run restores the W4 prefabs' vanilla flags, but only when the prefab still
+        /// holds exactly what Apply wrote. Otherwise it logs one line and writes nothing. With no entry in m_Written (no game this session,
+        /// or already restored), it does nothing and logs no line (engine notes "Editor").</summary>
         private void RestoreForEditor(GameMode mode)
         {
             if (m_Written.Count == 0)
                 return;
-            // Every road row; a pending row that is not imported was never written and is skipped without a line.
+            // Every road row. A pending row that is not imported was never written and is skipped without a line.
             List<RoadRow> rows = Rows();
             for (int r = 0; r < rows.Count; r++)
             {
                 RoadRow row = rows[r];
                 Entity prefab = m_PrefabCatalog.EntityOf(row.Prefab);
-                // a None row is restored only when W4 wrote it (a top-level patrol hut); never written otherwise.
+                // a None row is restored only when W4 wrote it (a top-level patrol hut). It is never written otherwise.
                 if (row.Rule == LodgeRoadRule.None && (prefab == Entity.Null || !m_Written.ContainsKey(prefab)))
                     continue;
                 if (prefab == Entity.Null && !SkiCatalog.IsExpected(row.Prefab))
@@ -287,7 +289,7 @@ namespace SkiResortMod.Systems
 
 
         /// <summary>The hub DUMP's lodge-road lines: "Lodge roads: n lodge(s), c with a road", then per lodge and per Welcome Sign its road
-        /// edge (entity and prefab name) or "none". Main thread, event time only. Appends only; never throws.</summary>
+        /// edge (entity and prefab name) or "none". Main thread, event time only. Appends only. It never throws.</summary>
         public void AppendDump(StringBuilder sb)
         {
             try
@@ -368,8 +370,8 @@ namespace SkiResortMod.Systems
 
 
         /// <summary>One "Lodge [road]" engine notes (counts) and one line per lodge / school / patrol hut: the road edge
-        /// Building.m_RoadEdge holds (entity, prefab name) and the distance of the building's front point to that edge's boundary
-        /// and center curves. Reads only; main thread, event time.</summary>
+        /// Building.m_RoadEdge holds (entity, prefab name) and the distance of the building's front point to that edge's boundary and
+        /// center curves. Reads only. Main thread, event time.</summary>
         private void AppendRoadDetail(StringBuilder sb, List<Entity> lodges, List<Entity> others)
         {
             int viaRoad = 0, none = 0;

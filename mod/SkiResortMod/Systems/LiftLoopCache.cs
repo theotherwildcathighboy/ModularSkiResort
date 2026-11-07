@@ -1,8 +1,8 @@
-// Orders a drawn chairlift's cable lanes into closed travel loops (Loop mode) and builds open two-chain paths for shuttles
-// (Shuttle mode). The Game-side adapter of the pure LiftLoopTopology.cs: interns PathNodes to int ids, pre-samples lane ends,
-// runs the topology and writes the pair notes and loops in pair order.
-// Lanes chain by exact PathNode equality and the walk STOPS at station anchors: two lifts sharing a station share its stub
-// PathNodes, so a walk that only classified terminals would merge them into one loop.
+// Orders a drawn chairlift's cable lanes into closed travel loops (Loop mode) and builds open two-chain paths for shuttles (Shuttle mode).
+// The Game-side adapter of the pure LiftLoopTopology.cs. It interns PathNodes to int ids, pre-samples lane ends, runs the topology and
+// writes the pair notes and loops in pair order.
+// Lanes chain by exact PathNode equality, and the walk STOPS at station anchors. Two lifts sharing a station share its stub PathNodes, so a
+// walk that only classified terminals would merge them into one loop.
 // Chairs on edges outside any complete loop are reported back for static pinning, never an exception. Lengths run in double
 // (loop phase accumulates speed * frameIndex). Loop.m_BaseStation is the height tie-break, not the hub's by-prefab base.
 // Engine notes: EngineNotes/LiftLoopCache.md
@@ -31,7 +31,7 @@ namespace SkiResortMod.Systems
         internal struct Segment
         {
             public bool m_IsArc;
-            public Entity m_Owner;      // lane segments: the lane's owner (edge/node); arcs: Entity.Null
+            public Entity m_Owner;      // lane segments: the lane's owner (edge/node). Arcs: Entity.Null
             public Bezier4x3 m_Bezier;  // lane segments only
             public bool m_Reversed;     // travel runs t 1 -> 0
             public float3 m_ArcCenter;  // arc segments only
@@ -46,29 +46,30 @@ namespace SkiResortMod.Systems
         {
             public readonly List<Segment> m_Segments = new List<Segment>();
             public double m_Length;
-            /// <summary>The station entities this loop runs between (the pairing's lower terminal = "base" by height, the other = "top");
-            /// unordered for consumers.</summary>
+            /// <summary>The station entities this loop runs between (the pairing's lower terminal = "base" by height, the other = "top").
+            /// Unordered for consumers.</summary>
             public Entity m_BaseStation, m_TopStation;
-            /// <summary>Owner entities (edges/nodes) of the member lanes — chairs belong to
-            /// this loop when their Owner is in this set.</summary>
+            /// <summary>Owner entities (edges/nodes) of the member lanes. Chairs belong to this loop when their Owner is in this
+            /// set.</summary>
             public readonly HashSet<Entity> m_MemberOwners = new HashSet<Entity>();
             public readonly List<Entity> m_Chairs = new List<Entity>();
             public readonly List<float> m_Drops = new List<float>();
             public readonly List<double> m_Offsets = new List<double>();
-            /// <summary>The common SkiCatalog.Lifts index of the member lanes; −1 = they span several lift types (no roster).</summary>
+            /// <summary>The common SkiCatalog.Lifts index of the member lanes. −1 = they span several lift types (no roster).</summary>
             public int m_TypeIndex = -1;
-            /// <summary>Carrier speed along this loop, m/s (ChairPinSystem sets it from the row; 0 = not moving).</summary>
+            /// <summary>Carrier speed along this loop, m/s (ChairPinSystem sets it from the row). 0 = not moving.</summary>
             public double m_SpeedMps;
-            /// <summary>The up-lane rule decided this loop (false = the two chains could not be told apart: kept as found) and whether it
-            /// swapped the chain order found.</summary>
+            /// <summary>The up-lane rule decided this loop (false = the two chains could not be told apart: kept as found). The second
+            /// field says whether it swapped the chain order found.</summary>
             public bool m_UpLaneDecided, m_UpLaneSwapped;
-            /// <summary>ChairPinSystem's far-loop pace state (LiftMoverMath.LoopPace, seeded at each rebuild) and the box its chairs can occupy
-            /// (segments + hang; set when the mover's flat arrays are built). Mover data only: nothing in this file reads them.</summary>
+            /// <summary>ChairPinSystem's far-loop pace state (LiftMoverMath.LoopPace, seeded at each rebuild) and the box its chairs can
+            /// occupy (segments + hang). The box is set when the mover's flat arrays are built. Mover data only: nothing in this file reads
+            /// them.</summary>
             public LiftMoverMath.LoopPace m_Pace;
             public float3 m_BoxMin, m_BoxMax;
             public bool m_BoxKnown;
             /// <summary>The carrier grip round (ChairPinSystem.Grips.cs): per rostered chair (parallel to m_Chairs) its paired grip
-            /// (Entity.Null = none: the body takes the rigid pose) and its sway phase; the count of paired grips; the wind state
+            /// (Entity.Null = none: the body takes the rigid pose) and its sway phase. Also the count of paired grips and the wind state
             /// (kept per base station across rebuilds). Mover data only: nothing in this file reads them.</summary>
             public readonly List<Entity> m_Grips = new List<Entity>();
             public readonly List<float> m_SwayPhases = new List<float>();
@@ -88,8 +89,8 @@ namespace SkiResortMod.Systems
             public double m_Length;                      // Σ segment lengths
             public float3 m_BaseEnd, m_TopEnd;           // track-rope points where the path starts / ends (docks, else rope ends)
             public float m_BaseRunM, m_TopRunM;          // synthesized dock runs (0 = none)
-            /// <summary>The station dock each end uses (0 = DockA = hosted entry 0, 1 = DockB; the tram base's A is the +X bay, the top's A the
-            /// −X bay; −1 = none: the path ends at the rope end).</summary>
+            /// <summary>The station dock each end uses. 0 = DockA = hosted entry 0, 1 = DockB. The tram base's A is the +X bay, the top's A
+            /// the −X bay. −1 = none: the path ends at the rope end.</summary>
             public sbyte m_BaseDock = -1, m_TopDock = -1;
         }
 
@@ -104,7 +105,8 @@ namespace SkiResortMod.Systems
             public bool m_BaseByRole, m_UpLaneDecided, m_UpLaneSwapped;
             public int m_BaseStationIndex = -1, m_TopStationIndex = -1;
             public double MeanLengthM => 0.5 * (m_A.m_Length + m_B.m_Length);
-            /// <summary>MeanLengthM rounded to 1 cm: the length to hand to ShuttleProfile, so a float-noise rebuild cannot shift the cycle.</summary>
+            /// <summary>MeanLengthM rounded to 1 cm: the length to pass to ShuttleProfile, so a float-noise rebuild cannot shift the
+            /// cycle.</summary>
             public double ProfileLengthM => ShuttleProfile.QuantizeLengthM(MeanLengthM);
         }
 
@@ -140,10 +142,10 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Builds loops from harvested lanes + station entities (with world positions, for base-first orientation).
-        /// <paramref name="stationByOwnerIndex"/> maps entity INDEX → station list index for each station AND its children (sub-objects,
-        /// sub-net nodes/edges): PathNode owners are stored as indices. Never throws on bad topology: lifts that do not close produce no
-        /// loop and count as unclosed chains; the reasons land in m_BuildNotes/m_ChainDiags. <paramref name="stationRoles"/>[i] is the
-        /// catalog role of stations[i] (0 Base, 1 Top); null or short = unknown, which keeps the lower-terminal rule.</summary>
+        /// <paramref name="stationByOwnerIndex"/> maps entity INDEX to station list index for each station AND its children (sub-objects,
+        /// sub-net nodes/edges). PathNode owners are stored as indices. Never throws on bad topology. Lifts that do not close produce no
+        /// loop and count as unclosed chains. The reasons land in m_BuildNotes/m_ChainDiags. <paramref name="stationRoles"/>[i] is the
+        /// catalog role of stations[i] (0 Base, 1 Top). Null or short = unknown, which keeps the lower-terminal rule.</summary>
         public void Build(List<CableLane> lanes, List<Entity> stations, List<float3> stationPositions,
             Dictionary<int, int> stationByOwnerIndex, List<float3> stationWheelCenters, List<sbyte> stationRoles = null)
         {
@@ -176,15 +178,15 @@ namespace SkiResortMod.Systems
                 }
                 if (pair.Status == LiftLoopTopology.PairStatus.GapOutOfRange)
                 {
-                    // Sanity (LiftLoopTopology.ArcSane on the same endpoints): the turn diameter is the cable gauge (expect ~3.6 m). Wildly off
-                    // means the anchors are not where this model thinks — degrade to static pinning.
+                    // Sanity (LiftLoopTopology.ArcSane on the same endpoints): the turn diameter is the cable gauge (expect ~3.6 m). Wildly
+                    // off means the anchors are not where this model thinks. Degrade to static pinning.
                     string gapWhy = $"terminal gap out of range (top {pair.TopGapM:F2} m, base {pair.BaseGapM:F2} m; want 1–10)";
                     m_UnclosedChainCount += 2;
                     m_BuildNotes.Add($"stations ({stationA},{stationB}): closure failed — {gapWhy}");
                     continue;
                 }
-                // Base station = the Base-role station, else the lower of the two terminals (LiftLoopTopology); chain A = the up lane,
-                // oriented base → top, chain B top → base.
+                // Base station = the Base-role station, else the lower of the two terminals (LiftLoopTopology). Chain A = the up lane,
+                // oriented base → top. Chain B is oriented top → base.
                 int baseStation = pair.Base;
                 int topStation = pair.Top;
 
@@ -218,10 +220,11 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The Shuttle-mode build (TramShuttleSystem). One Shuttle per station pair whose two chains pass the shuttle gap check and
-        /// share one lift type: both chains oriented base → top (base = the Base-ROLE station), each extended by a straight run from / to
-        /// its dock (StationDef.DockLocalA / B → world, ObjectUtils.cs:208-211). <paramref name="stationDefs"/>[i] is the catalog row of
-        /// stations[i] (null = unknown: no role, no docks). Never throws on bad topology: refusals land in m_BuildNotes (one per pair).</summary>
+        /// <summary>The Shuttle-mode build (TramShuttleSystem). One Shuttle per station pair whose two chains pass the shuttle gap check
+        /// and share one lift type. Both chains are oriented base → top (base = the Base-ROLE station). Each is extended by a straight run
+        /// from / to its dock (StationDef.DockLocalA / B → world, ObjectUtils.cs:208-211). <paramref name="stationDefs"/>[i] is the catalog
+        /// row of stations[i] (null = unknown: no role, no docks). Never throws on bad topology: refusals land in m_BuildNotes (one per
+        /// pair).</summary>
         public void BuildShuttles(List<CableLane> lanes, List<Entity> stations, List<Game.Objects.Transform> stationTransforms,
                                   List<StationDef> stationDefs, Dictionary<int, int> stationByOwnerIndex)
         {
@@ -241,7 +244,7 @@ namespace SkiResortMod.Systems
                     DockB = DockWorld(transform, def != null ? def.DockLocalB : new float3(float.NaN)),
                 });
             }
-            // The tram's terminal is its stub-tip track rope, 29-30 m from the station origin but ~12 m from its dock; Shuttle mode owns
+            // The tram's terminal is its stub-tip track rope, 29-30 m from the station origin but ~12 m from its dock. Shuttle mode owns
             // terminals by dock reach too (LiftLoopTopology.ClassifyShuttleTerminal). Loop mode is untouched.
             m_Topology.ShuttleDockReach = true;
             m_Topology.Build(m_TopoLanes, m_TopoStations, stationByOwnerIndex, LiftLoopTopology.Mode.Shuttle);
@@ -310,7 +313,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The topology's stand-in lanes. Node ids are interned in first-seen lane order (start, then end); the ends are
+        /// <summary>The topology's stand-in lanes. Node ids are interned in first-seen lane order (start, then end). The ends are
         /// pre-sampled with MathUtils.Position / Tangent.</summary>
         private void FillTopologyLanes(List<CableLane> lanes)
         {
@@ -376,9 +379,9 @@ namespace SkiResortMod.Systems
                 : new float3(float.NaN);
         }
 
-        /// <summary>One path = [base dock → rope start] + the chain's lanes + [rope end → top dock]. A dock
-        /// run is synthesized when the dock is assigned (≥ 0) and the run exceeds 0.05 m (the bullwheel turn's threshold,
-        /// AppendTerminalTurn); otherwise the path starts / ends at the rope end.</summary>
+        /// <summary>One path = [base dock → rope start] + the chain's lanes + [rope end → top dock]. A dock run is synthesized when the
+        /// dock is assigned (≥ 0) and the run exceeds 0.05 m (the bullwheel turn's threshold, AppendTerminalTurn). Otherwise the path
+        /// starts / ends at the rope end.</summary>
         private void BuildPath(List<CableLane> lanes, LiftLoopTopology.Chain chain, LiftLoopTopology.Station baseStation,
             sbyte baseDock, float baseRunM, LiftLoopTopology.Station topStation, sbyte topDock, float topRunM, Path path)
         {
@@ -423,8 +426,8 @@ namespace SkiResortMod.Systems
                                  Inv($"{LiftLoopTopology.MaxDockRunM:F0} m — cabin {chain} dwells at its rope end"));
         }
 
-        /// <summary>LiftLoopTopology already oriented the chains (A base → top, B top → base) and passed the gap check (ArcSane); from
-        /// "double cum" on this is the geometry.</summary>
+        /// <summary>LiftLoopTopology already oriented the chains (A base → top, B top → base) and passed the gap check (ArcSane). From
+        /// "double cum" on, this is the geometry.</summary>
         private bool TryCloseLoop(List<CableLane> lanes, LiftLoopTopology.Chain chainA, LiftLoopTopology.Chain chainB,
             float3 baseWheel, float3 topWheel, out Loop loop, out string why)
         {
@@ -460,19 +463,15 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Longest plausible straight run from a chain terminal to the station's
-        /// bullwheel tangent point (the base terminal sits ~7 m out, a line-first top
-        /// terminal ~10 m; anything beyond is a mis-located wheel — fall back).</summary>
+        /// <summary>Longest plausible straight run from a chain terminal to the station's bullwheel tangent point (the base terminal sits
+        /// ~7 m out, a line-first top terminal ~10 m). Anything beyond is a mis-located wheel: treat it as no wheel.</summary>
         private const float MaxWheelRunMeters = 30f;
 
-        /// <summary>The turnaround at a station. With a known bullwheel center W
-        /// (rope height, station-local from the terminal generator, mapped to world): a
-        /// straight run from the terminal to the wheel's tangent point, a half-circle of
-        /// the rope gauge around W bulging into the station, and a straight run back out to
-        /// the other terminal — the rope's actual path (entry tower → dive → wheel → dive
-        /// → entry tower), so chairs visibly round the bullwheel. Without a wheel (unknown
-        /// station prefab, or implausible geometry): the semicircle between
-        /// the two terminals.</summary>
+        /// <summary>The turnaround at a station. With a known bullwheel center W (rope height, station-local from the terminal generator,
+        /// mapped to world), it has three parts. First, a straight run from the terminal to the wheel's tangent point. Second, a
+        /// half-circle of the rope gauge around W bulging into the station. Third, a straight run back out to the other terminal. These
+        /// parts are the rope's actual path (entry tower → dive → wheel → dive → entry tower), so chairs visibly round the bullwheel.
+        /// Without a wheel (unknown station prefab, or implausible geometry), it is the semicircle between the two terminals.</summary>
         private static bool AppendTerminalTurn(float3 from, float3 to, float3 inTangent, float3 wheel,
             Loop loop, ref double cum, out string note)
         {
@@ -603,8 +602,8 @@ namespace SkiResortMod.Systems
             float3 center = (from + to) * 0.5f;
             float radius = math.distance(from, to) * 0.5f;
             float3 u = (from - center) / math.max(radius, 1e-3f);
-            // Bulge = incoming travel direction, made perpendicular to u (they are ~90 deg
-            // apart by construction; guard the degenerate case anyway).
+            // Bulge = incoming travel direction, made perpendicular to u (they are ~90 deg apart by construction). Guard the degenerate
+            // case anyway.
             float3 b = inTangent - u * math.dot(inTangent, u);
             if (!math.all(math.isfinite(b)) || math.lengthsq(b) < 1e-6f)
                 return false;
@@ -634,10 +633,12 @@ namespace SkiResortMod.Systems
             SampleSegments(loop.m_Segments, s, out position, out travelTangent);
         }
 
-        /// <summary>Sample plus the swing ramp's inputs (the carrier grip round, ChairPinSystem's managed paths): whether s lies on a
-        /// guided segment (an arc or a synthesized terminal run, Owner == Entity.Null: LiftLoopSampler.Flatten's rule) and otherwise the
-        /// distance to the nearest guided segment along the loop, both ways around the wrap (CarrierPose.NoGuidedM when there is none).
-        /// O(segments): for the managed paths only; the job reads FlatSegment.RunBefore / RunAfter.</summary>
+        /// <summary>Sample plus the swing ramp's inputs (the carrier grip round, ChairPinSystem's managed paths). The inputs are:
+        ///   * Whether s lies on a guided segment (an arc or a synthesized terminal run, Owner == Entity.Null: LiftLoopSampler.Flatten's
+        ///     rule).
+        ///   * Otherwise, the distance to the nearest guided segment along the loop, both ways around the wrap (CarrierPose.NoGuidedM when
+        ///     there is none).
+        /// O(segments): for the managed paths only. The job reads FlatSegment.RunBefore / RunAfter.</summary>
         public static void Sample(Loop loop, double s, out float3 position, out float3 travelTangent, out bool guided, out float distance)
         {
             SampleSegments(loop.m_Segments, s, out position, out travelTangent);
@@ -729,18 +730,18 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Restart seeding: the loop arc parameter s ∈ [0, m_Length) of <paramref name="position"/> projected onto the LANE
-        /// segments whose owner is <paramref name="owner"/> (a chair's own section; both of its cable lanes are in the loop, one per side,
-        /// so the nearest one is the chair's own side). The inverse of Sample on that segment (forward travel measures
+        /// segments whose owner is <paramref name="owner"/> (a chair's own section). Both of its cable lanes are in the loop, one per side,
+        /// so the nearest one is the chair's own side. The inverse of Sample on that segment (forward travel measures
         /// MathUtils.Length(bezier, [0, t]), reversed travel [t, 1]). Arcs are never owned. Returns −1 when the owner has no lane segment
-        /// in the loop (the caller keeps the entity-index grid as the fallback). The caller passes the chair's GRIP point (pivot +
-        /// grip-top offset), which lies on the cable, not the pivot 2.4 m below it.</summary>
+        /// in the loop (the caller keeps the entity-index grid as the fallback). The caller passes the chair's GRIP point (pivot + grip-top
+        /// offset), which lies on the cable, not the pivot 2.4 m below it.</summary>
         internal static double ProjectOnOwner(Loop loop, Entity owner, float3 position)
         {
             return ProjectOnOwner(loop, owner, position, out _);
         }
 
         /// <summary>ProjectOnOwner with the distance from <paramref name="position"/> to the chosen lane point (float.MaxValue when the
-        /// owner has no segment): tells a chair standing on its own section (parked or just spawned) from one riding elsewhere on the
+        /// owner has no segment). It tells a chair standing on its own section (parked or just spawned) from one riding elsewhere on the
         /// loop (a loaded save).</summary>
         internal static double ProjectOnOwner(Loop loop, Entity owner, float3 position, out float distance)
         {

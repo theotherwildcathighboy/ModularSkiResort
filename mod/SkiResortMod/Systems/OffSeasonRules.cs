@@ -1,17 +1,17 @@
 // OffSeasonRules - the pure rules of the off-season half staffing. Linked into tests/BuildingBatch.
 //
-// A ski area is off-season once its released score has counted no open run for HoldToOffFrames (12 game hours); it is in season
-// again once a run has counted for HoldToOnFrames (one game hour, LiftClosedRule.HoldFrames). While off-season and the setting is
-// on, each lodge and the ski school of that area keeps HalfJobs(full) workplaces (A-frame 4 -> 2, chalet 12 -> 6, grand lodge
-// 18 -> 9, school 4 -> 2, plus the hut's 4 -> 2 and the summit lodge's 8 -> 4 on the Welcome Sign). Patrol stays full (rescue is a
-// year-round job). Not linked / no score yet / score held: in season. Staff is halved, upkeep is not.
+// A ski area is off-season once its released score has counted no open run for HoldToOffFrames (12 game hours). It is in season again once
+// a run has counted for HoldToOnFrames (one game hour, LiftClosedRule.HoldFrames). While off-season and the setting is on, each lodge and
+// the ski school of that area keeps HalfJobs(full) workplaces (A-frame 4 to 2, chalet 12 to 6, grand lodge 18 to 9, school 4 to 2, plus the
+// hut's 4 to 2 and the summit lodge's 8 to 4 on the Welcome Sign). Patrol stays full (rescue is a year-round job). Not linked / no score
+// yet / score held: in season. Staff is halved, upkeep is not.
 // Engine notes: EngineNotes/OffSeasonRules.md
 
 using System;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>One ski area's off-season state with its hysteresis; a plain value the caller keeps per area</summary>
+    /// <summary>One ski area's off-season state with its hysteresis. It is a plain value the caller keeps per area</summary>
     public struct OffSeasonState
     {
         public bool Known;          // observed (released score) at least once since the load
@@ -58,7 +58,7 @@ namespace SkiResortMod.Systems
             return s.Off;
         }
 
-        /// <summary>Half the workplaces, rounded up (a staffed building never drops to 0); 0 stays 0, a negative reads 0</summary>
+        /// <summary>Half the workplaces, rounded up (a staffed building never drops to 0). 0 stays 0, a negative reads 0</summary>
         public static int HalfJobs(int full)
         {
             return full <= 0 ? 0 : (full + 1) / 2;
@@ -69,24 +69,25 @@ namespace SkiResortMod.Systems
             return enabled && areaOff ? HalfJobs(full) : Math.Max(0, full);
         }
 
-        /// <summary>Leave the workplaces of a building linked to this area alone for now: the area is in the attractiveness snapshot but this
-        /// load has not observed it yet (its first score waits for ratings and snow). An unobserved area reads in season, so a write would
-        /// raise the saved half staff and lay them off again seconds later; Step takes the first observation at once because the saved
-        /// staff already match it.</summary>
+        /// <summary>Do not change the workplaces of a building linked to this area for now: the area is in the attractiveness snapshot but
+        /// this load has not observed it yet (its first score waits for ratings and snow). An unobserved area reads in season, so a write
+        /// would raise the saved half staff and lay them off again seconds later. Step takes the first observation at once because the
+        /// saved staff already match it.</summary>
         public static bool AwaitsFirstObservation(bool linked, bool areaInSnapshot, bool observed)
         {
             return linked && areaInSnapshot && !observed;
         }
 
-        /// <summary>Leave a lodge of this area alone on this poll: it still awaits the first observation, or this poll took it. A carrier's
-        /// carried sum is MountainJobsSystem's last poll, taken while the area still read in season (hut, summit and chained off-road
-        /// lodges at full jobs), so a write on the observing poll would raise the saved staff and lay them off again one poll later.</summary>
+        /// <summary>Do not change a lodge of this area on this poll: it still awaits the first observation, or this poll took it. A
+        /// carrier's carried sum is MountainJobsSystem's last poll, taken while the area still read in season (hut, summit and chained
+        /// off-road lodges at full jobs). So a write on the observing poll would raise the saved staff and lay them off again one poll
+        /// later.</summary>
         public static bool HoldsLodgeWrite(bool awaitsFirstObservation, bool observedThisPoll)
         {
             return awaitsFirstObservation || observedThisPoll;
         }
 
-        /// <summary>Lodges and the ski school are seasonal; patrol and everything else keep their staff all year</summary>
+        /// <summary>Lodges and the ski school are seasonal. Patrol and everything else keep their staff all year</summary>
         public static bool IsSeasonal(bool lodge, bool school)
         {
             return lodge || school;

@@ -1,16 +1,16 @@
-// Quick runs tool: the scan job (Resort Planner v2 stage A, task A2; stage-a-spec.md section 5). The tree filler's compose job is the
-// pattern (QuickRunsToolSystem.Trees.cs: state, launch bookkeeping with a GC count, stale test, per-frame poll and cancel, private
-// copies and Task.Run, collect with IsFaulted and the stale drop, the summary fields). States: Idle -> Running (a worker thread, or
-// main-thread slices with the Diagnostics fallback "Resort Planner on the main thread") -> collected on the main thread -> Idle.
-// The worker touches ONLY the planner instance and the input it was given: a fresh AutoPlanInput per scan, a fresh obstacle list,
-// and a snapshot buffer that is never rewritten while the planner holds it (TakeSnapshot writes the other one). No Entities, no Unity
-// API and no log on the worker. The result reaches every reader as an immutable copy (m_Published = Result.Snapshot()), so a Reselect
-// or a new scan on the worker never changes what the overlay, the hub, the tree filler or a build reads. One job at a time: a scan
-// requested while a canceled job is still stopping is queued and launched when that job returns (cancel latency = one planner unit).
-// Build, Undo and Plant never overlap a running job: Build needs the Preview phase, and the hub refuses build / undo / plant / trees
-// while Scanning (ScanBlocks). Pinned lifts and access points are collected here on the main thread before the launch.
-// Logs (silence impossible): START / DONE (Scan.cs), CANCELED (here, every cancel of a running or queued scan), `!!!` on a faulted
-// job (Fail: the tool is disabled until the next load, the v1 policy); the drop of a stale result only with Measurement diagnostics.
+// Quick runs tool: the scan job (Resort Planner v2 stage A, task A2, stage-a-spec.md section 5). The tree filler's compose job is the
+// pattern (QuickRunsToolSystem.Trees.cs: state, launch bookkeeping with a GC count, stale test, per-frame poll and cancel, private copies
+// and Task.Run, collect with IsFaulted and the stale drop, the summary fields). States, in order: Idle, Running (a worker thread, or
+// main-thread slices with the Diagnostics fallback "Resort Planner on the main thread"), collected on the main thread, then Idle again.
+// The worker touches ONLY the planner instance and the input it was given. The input is a fresh AutoPlanInput per scan, a fresh obstacle
+// list, and a snapshot buffer. The buffer is never rewritten while the planner holds it (TakeSnapshot writes the other one). No Entities,
+// no Unity API and no log on the worker. The result reaches every reader as an immutable copy (m_Published = Result.Snapshot()). So a
+// Reselect or a new scan on the worker never changes what the overlay, the hub, the tree filler or a build reads. One job at a time. A scan
+// requested while a canceled job is still stopping is queued. It is launched when that job returns (cancel latency = one planner unit).
+// Build, Undo and Plant never overlap a running job. Build needs the Preview phase. The hub refuses build / undo / plant / trees while
+// Scanning (ScanBlocks). Pinned lifts and access points are collected here on the main thread before the launch.
+// Logs (silence impossible): START / DONE (Scan.cs), CANCELED (here, every cancel of a running or queued scan), `!!!` on a faulted job
+// (Fail: the tool is disabled until the next load, the v1 policy). The drop of a stale result logs only with Measurement diagnostics.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Scan, Worker)
 
 using System;
@@ -89,9 +89,9 @@ namespace SkiResortMod.Systems
             else
             {
                 m_PendingInput = null;
-                // BeginScan polled the job before its snapshot and obstacles, which take tens of ms on a large region: a worker that
-                // finished since is collected here, so a fault is reported (Fail) instead of overwritten unseen. Its generation is
-                // already old (m_ScanGen++ above), so a clean finish is dropped as out of date and nothing pending is launched.
+                // BeginScan polled the job before its snapshot and obstacles, which take tens of ms on a large region. A worker that
+                // finished since is collected here, so a fault is reported (Fail) instead of overwritten unseen. Its generation is already
+                // old (m_ScanGen++ above), so a clean finish is dropped as out of date and nothing pending is launched.
                 if (!PollScanJob(true))
                     return;
                 LaunchScan(input, onMain, false);
@@ -99,7 +99,8 @@ namespace SkiResortMod.Systems
             AddScanMainMs(QuickRunsRules.MsSince(t0));
         }
 
-        /// <summary>The job itself. resume = the planner was Reselected on its cached field: step it to the end instead of Run(input).</summary>
+        /// <summary>The job itself. resume = the planner was Reselected on its cached field. Then the job steps it to the end instead of
+        /// Run(input).</summary>
         private void LaunchScan(AutoPlanInput input, bool onMain, bool resume)
         {
             m_ScanSlicing = false;
@@ -150,9 +151,10 @@ namespace SkiResortMod.Systems
             LaunchScan(input, m_PendingOnMain, false);
         }
 
-        /// <summary>A knob changed in Preview or Scanning (SetKnobs). No job running (a worker job in flight or a main-thread scan being stepped both count) and the planner's field intact: Reselect and resume
-        /// on the worker (Reselect only sets the restart stage). Else a running job is canceled first and the region scans again with the
-        /// new knobs (a canceled planner drops its field: Reselect refuses, SkiRunAutoPlanner.CancelScan).</summary>
+        /// <summary>A knob changed in Preview or Scanning (SetKnobs). When no job is running (a worker job in flight or a main-thread scan
+        /// being stepped both count) and the planner's field is intact, the code does Reselect and resume on the worker (Reselect only sets
+        /// the restart stage). Otherwise a running job is canceled first, and the region scans again with the new knobs (a canceled planner
+        /// drops its field: Reselect refuses, SkiRunAutoPlanner.CancelScan).</summary>
         private void RescanForKnobs(string name)
         {
             if (m_Disabled || !PollScanJob(true))
@@ -229,7 +231,7 @@ namespace SkiResortMod.Systems
             return CollectScanJob(canClose);
         }
 
-        /// <summary>Stops the running or queued scan: the worker stops at its next unit and its result is dropped when it returns; a
+        /// <summary>Stops the running or queued scan. The worker stops at its next unit and its result is dropped when it returns. A
         /// main-thread scan stops now. Every cancel of something running writes one CANCELED line.</summary>
         private void CancelScanJob(string reason)
         {
@@ -254,8 +256,9 @@ namespace SkiResortMod.Systems
                 m_Planner.ProgressVolatile, worker ? "; the worker stops at its next unit, its result is dropped" : string.Empty));
         }
 
-        /// <summary>Main thread, the job is done: a fault disables the tool (the v1 Fail policy); a stale or canceled result is dropped
-        /// (and a queued scan launches); else the result is published and the v1 epilogue runs (FinishScan). False after a fault.</summary>
+        /// <summary>Main thread, the job is done. A fault disables the tool (the v1 Fail policy). A stale or canceled result is dropped
+        /// (and a queued scan launches). Otherwise the result is published and the v1 epilogue runs (FinishScan). False after a
+        /// fault.</summary>
         private bool CollectScanJob(bool canClose)
         {
             m_CollectTicks = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -329,7 +332,7 @@ namespace SkiResortMod.Systems
                 m_ScanMainMs + collect, m_ScanFrames, Math.Max(m_ScanFrameMaxMs, worst), GC.CollectionCount(0) - m_ScanGc0);
         }
 
-        /// <summary>The Resort plan in one clause (spec 7 DONE line); "plan none" in Runs mode.</summary>
+        /// <summary>The Resort plan in one clause (spec 7 DONE line). "plan none" in Runs mode.</summary>
         private static string PlanText(ResortPlan p)
         {
             if (p == null)
@@ -371,7 +374,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Census lifts with a chord within PinnedReachM of the region (LiftCensusSystem.CopyServeLifts, row order = CopyRows).
-        /// Bottom / Top = the stations' stub tips (NaN when that station is not in the census's last build); Key = FNV of the row's
+        /// Bottom / Top = the stations' stub tips (NaN when that station is not in the census's last build). Key = FNV of the row's
         /// EntityRef. Null when none.</summary>
         private List<PinnedLift> CollectPinned(float2[] region)
         {
@@ -455,9 +458,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Road edge samples (both ends of each live road edge plus every AccessStepM along its curve, the step widened so the
-        /// interior samples stay within AccessMaxSamples over all edges) and the nearest Welcome Sign, within the region's bounds plus
-        /// AccessReachM, sorted by x then z, duplicates (shared nodes) removed. Null when none. The sign: the nearest one to the bounds
-        /// center only (SkiRunOwnershipSystem.TryNearestGateEntity), when it lies within the reach.</summary>
+        /// interior samples stay within AccessMaxSamples over all edges) and the nearest Welcome Sign. They lie within the region's bounds
+        /// plus AccessReachM. The list is sorted by x then z, with duplicates (shared nodes) removed. Null when none. The sign: the nearest
+        /// one to the bounds center only (SkiRunOwnershipSystem.TryNearestGateEntity), when it lies within the reach.</summary>
         private float2[] CollectAccess(float2[] region)
         {
             const int AccessMaxSamples = 2048;   // a dense road grid by a 9 km2 region gave 6-12 k samples at 25 m (A-R AR-8)

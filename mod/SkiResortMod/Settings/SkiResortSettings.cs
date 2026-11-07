@@ -1,7 +1,7 @@
-// Mod options (Options > Mods > Modular Ski Resort). A setting for every balance constant, so players can fix tuning mistakes
-// without waiting for a patch. Property names are persisted: never rename them (labels may change). The Default* constants are
-// the one copy of each default (SetDefaults and every null-settings fallback use them); systems read Mod.Settings?.X ?? DefaultX
-// because Mod.Settings is null before OnLoad and after OnDispose.
+// Mod options (Options > Mods > Modular Ski Resort). A setting for every balance constant, so players can fix tuning mistakes without
+// waiting for a patch. Property names are persisted: never rename them (labels may change). The Default* constants are the one copy of each
+// default. SetDefaults and every null-settings fallback use them. Systems read Mod.Settings?.X ?? DefaultX because Mod.Settings is null
+// before OnLoad and after OnDispose.
 // Key bindings are plain ProxyBinding members: SetDefaults must not assign them (it would replace the generated default binding
 // with an empty one).
 // Engine notes: EngineNotes/SkiResortSettings.md
@@ -17,7 +17,7 @@ namespace SkiResortMod.Settings
     [FileLocation("ModsSettings/SkiResortMod/SkiResortMod")]
     [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
     [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
-    // One keyboard action declaration per binding (conflict warnings; see engine notes)
+    // One keyboard action declaration per binding (conflict warnings, see engine notes)
     [SettingsUIKeyboardAction(ActToggleGlade)]
     [SettingsUIKeyboardAction(ActGladeNextVariant)]
     [SettingsUIKeyboardAction(ActGladeNextMode)]
@@ -42,8 +42,8 @@ namespace SkiResortMod.Settings
         public const string GroupReset = "Reset";
 
         // Action names inside our input map (map name = ModSetting.id, "SkiResortMod.SkiResortMod.Mod", ModSetting.cs:39, 245).
-        // Persisted in the settings file and the player's rebinds: never rename. GladeNextVariant steps the tree density (1-8),
-        // GladeNextMode toggles run interior / tree line; the names stay although the meaning changed.
+        // Persisted in the settings file and the player's rebinds: never rename. GladeNextVariant steps the tree density (1-8).
+        // GladeNextMode toggles run interior / tree line. The names stay although the meaning changed.
         public const string ActToggleGlade = "ToggleGladeTool";
         public const string ActGladeNextVariant = "GladeNextVariant";
         public const string ActGladeNextMode = "GladeNextMode";
@@ -95,20 +95,20 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupHub)]
         public bool ShowHubButton { get; set; }
 
-        /// <summary>Selecting a Ski Area Welcome Sign opens the Ski Resort hub (once per selection change; never forces it closed).
+        /// <summary>Selecting a Ski Area Welcome Sign opens the Ski Resort hub (once per selection change). It never forces the hub closed.
         /// SkiResortHubUISystem.</summary>
         [SettingsUISection(SectionMain, GroupHub)]
         public bool OpenHubOnSignSelect { get; set; }
 
 
-        /// <summary>The ski area radius in km (the tether): a run binds to the nearest Welcome Sign within it when drawn (and keeps it), and
-        /// lifts, lodges, schools and patrol huts link to the nearest sign within it, live, at every recompute. Float slider 2-10, step 0.5,
-        /// default 5 (SkiAreaRadiusRules). Read through SkiRunOwnershipSystem.TetherMeters (SkiAreaRadiusMOf).</summary>
+        /// <summary>The ski area radius in km (the tether). A run binds to the nearest Welcome Sign within it when drawn (and keeps it).
+        /// Lifts, lodges, schools and patrol huts link to the nearest sign within it, live, at every recompute. Float slider 2-10, step
+        /// 0.5, default 5 (SkiAreaRadiusRules). Read through SkiRunOwnershipSystem.TetherMeters (SkiAreaRadiusMOf).</summary>
         [SettingsUISlider(min = SkiAreaRadiusRules.MinKm, max = SkiAreaRadiusRules.MaxKm, step = SkiAreaRadiusRules.StepKm, unit = "floatSingleFraction")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public float SkiAreaRadiusKm { get; set; }
 
-        /// <summary>The radius in meters, clamped; null settings -> the default. Main thread only.</summary>
+        /// <summary>The radius in meters, clamped. Null settings give the default. Main thread only.</summary>
         public static float SkiAreaRadiusMOf(SkiResortSettings s)
             => SkiAreaRadiusRules.MetersOf(s == null ? SkiAreaRadiusRules.DefaultKm : s.SkiAreaRadiusKm);
 
@@ -125,23 +125,23 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupBalance)]
         public int BackcountryValuePercent { get; set; }
 
-        /// <summary>Read live by SkiLiftTicketSystem (and by SkiResortStatsSystem for the hub). 0 = tickets off; 0-200 step 5
-        /// (SkiMoneyRules.TicketPriceMax / TicketPriceStep); default SkiMoneyRules.TicketPriceDefault. unit "money" =
-        /// Game.UI.Unit.kMoney (Game.UI/Unit.cs:49, 1.6.0f1 and 1.6.2f1); fall back to "integer" if the Options row renders it badly
+        /// <summary>Read live by SkiLiftTicketSystem (and by SkiResortStatsSystem for the hub). 0 = tickets off. The range is 0-200, step 5
+        /// (SkiMoneyRules.TicketPriceMax / TicketPriceStep). The default is SkiMoneyRules.TicketPriceDefault. unit "money" =
+        /// Game.UI.Unit.kMoney (Game.UI/Unit.cs:49, 1.6.0f1 and 1.6.2f1). Use "integer" instead if the Options row renders it badly
         /// (unverified).</summary>
         [SettingsUISlider(min = 0f, max = 200f, step = 5f, unit = "money")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public int LiftTicketPrice { get; set; }
 
-        /// <summary>What each paying ski guest also spends at the lodge they arrive at (x the tier's SpendMultiplier), charged with
-        /// the ticket. Read live by SkiLiftTicketSystem through SkiMoneyRules.ClampLodgeSpend. 0 = off; default 15
+        /// <summary>What each paying ski guest also spends at the lodge they arrive at (x the tier's SpendMultiplier), charged with the
+        /// ticket. Read live by SkiLiftTicketSystem through SkiMoneyRules.ClampLodgeSpend. 0 = off. The default is 15
         /// (DefaultLodgeSpendPerGuest). unit "money" as LiftTicketPrice.</summary>
         [SettingsUISlider(min = 0f, max = LodgeSpendPerGuestMax, step = LodgeSpendPerGuestStep, unit = "money")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public int LodgeSpendPerGuest { get; set; }
 
         /// <summary>The share, in percent, of resident households that buy a season pass (rolled in the pre-season sale, or at the first
-        /// ski of the season for households outside it); 0 = passes off. Read live by SkiLiftTicketSystem through
+        /// ski of the season for households outside it). 0 = passes off. Read live by SkiLiftTicketSystem through
         /// SkiMoneyRules.ClampPassShare(Mod.Settings?.SeasonPassShare ?? DefaultSeasonPassShare).</summary>
         [SettingsUISlider(min = 0f, max = SkiMoneyRules.PassShareMax, step = SkiMoneyRules.PassShareStep, unit = "percentage")]
         [SettingsUISection(SectionMain, GroupBalance)]
@@ -153,7 +153,7 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupBalance)]
         public int SeasonPassMultiplier { get; set; }
 
-        /// <summary>The percentage of the people counted at a ski area with an active ski school who take a lesson that day; 0 = lessons
+        /// <summary>The percentage of the people counted at a ski area with an active ski school who take a lesson that day. 0 = lessons
         /// off. Read live by SkiLiftTicketSystem through SkiMoneyRules.ClampLessonShare.</summary>
         [SettingsUISlider(min = 0f, max = SkiMoneyRules.LessonShareMax, step = SkiMoneyRules.LessonShareStep, unit = "percentage")]
         [SettingsUISection(SectionMain, GroupBalance)]
@@ -166,8 +166,8 @@ namespace SkiResortMod.Settings
         public float LessonMultiplier { get; set; }
 
         /// <summary>On = lodges and the ski school keep half their workplaces while their ski area has had no open run for 12 game hours
-        /// (OffSeasonStaffSystem, OffSeasonRules). Read live (on when settings are not loaded); turning it off restores full staff on
-        /// the next poll. Default on.</summary>
+        /// (OffSeasonStaffSystem, OffSeasonRules). Read live (on when settings are not loaded). Turning it off restores full staff on the
+        /// next poll. Default on.</summary>
         [SettingsUISection(SectionMain, GroupBalance)]
         public bool OffSeasonHalfStaff { get; set; }
 
@@ -184,8 +184,8 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupSkiDays)]
         public int SkiDayTouristsPct { get; set; }
 
-        /// <summary>The longest ski-day trip in km, straight line to the lodge. Unit "integer" with "(km)" in the label (Game.UI/Unit.cs:5;
-        /// "length" would read meters). Read by SkiDaySystem through SkiDayReachKmOf.</summary>
+        /// <summary>The longest ski-day trip in km, straight line to the lodge. Unit "integer" with "(km)" in the label
+        /// (Game.UI/Unit.cs:5). Unit "length" would read meters. Read by SkiDaySystem through SkiDayReachKmOf.</summary>
         [SettingsUISlider(min = SkiDayReachKmMin, max = SkiDayReachKmMax, step = 1f, unit = "integer")]
         [SettingsUISection(SectionMain, GroupSkiDays)]
         public int SkiDayReachKm { get; set; }
@@ -196,19 +196,19 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupSkiDays)]
         public int SkiDayPowderPct { get; set; }
 
-        /// <summary>Clamped read; null settings -> the default. Main thread only.</summary>
+        /// <summary>Clamped read. Null settings give the default. Main thread only.</summary>
         public static int SkiDayLocalsPctOf(SkiResortSettings s)
             => s == null ? DefaultSkiDayLocalsPct : Clamp(s.SkiDayLocalsPct, SkiDayRules.LocalsPctMin, SkiDayRules.LocalsPctMax);
 
-        /// <summary>Clamped read; null settings -> the default. Main thread only.</summary>
+        /// <summary>Clamped read. Null settings give the default. Main thread only.</summary>
         public static int SkiDayTouristsPctOf(SkiResortSettings s)
             => s == null ? DefaultSkiDayTouristsPct : Clamp(s.SkiDayTouristsPct, SkiDayRules.TouristsPctMin, SkiDayRules.TouristsPctMax);
 
-        /// <summary>Clamped read; null settings -> the default. Main thread only.</summary>
+        /// <summary>Clamped read. Null settings give the default. Main thread only.</summary>
         public static int SkiDayReachKmOf(SkiResortSettings s)
             => s == null ? DefaultSkiDayReachKm : Clamp(s.SkiDayReachKm, SkiDayRules.ReachKmMin, SkiDayRules.ReachKmMax);
 
-        /// <summary>Clamped read; null settings -> the default. Main thread only.</summary>
+        /// <summary>Clamped read. Null settings give the default. Main thread only.</summary>
         public static int SkiDayPowderPctOf(SkiResortSettings s)
             => s == null ? DefaultSkiDayPowderPct : Clamp(s.SkiDayPowderPct, SkiDayRules.PowderPctMin, SkiDayRules.PowderPctMax);
 
@@ -217,15 +217,15 @@ namespace SkiResortMod.Settings
 
 
         /// <summary>On = a run counts toward attraction by its measured snow (open at 60 %, closed below 40 %). Off = every run counts as
-        /// open all year. Read by SkiSnowInjectionSystem.GetRunSnow, through SnowLineSystem.IsSnowGatingEnabled() (the one read; true
-        /// when settings are not loaded).</summary>
+        /// open all year. Read by SkiSnowInjectionSystem.GetRunSnow, through SnowLineSystem.IsSnowGatingEnabled() (the one read). It
+        /// returns true when settings are not loaded.</summary>
         [SettingsUISection(SectionMain, GroupSnow)]
         public bool EnableSnowGating { get; set; }
 
-        /// <summary>The snowmaking margin: snow guns (snowmaking and night runs) work where the air on the run is at most this many
-        /// degrees C above freezing. Read by SnowLineSystem.GetSnowmakingMarginC (injection, estimate, and through the mask the bill).
-        /// Default 3.3 (38 F; a float slider, step 0.1; an options file saved with the old int slider keeps its stored value, no
-        /// migration). The property keeps its old name (persisted).</summary>
+        /// <summary>The snowmaking margin: snow guns (snowmaking and night runs) work where the air on the run is at most this many degrees
+        /// C above freezing. Read by SnowLineSystem.GetSnowmakingMarginC (injection, estimate, and through the mask the bill). Default 3.3
+        /// (38 F). It is a float slider, step 0.1. An options file saved with the old int slider keeps its stored value, with no migration.
+        /// The property keeps its old name (persisted).</summary>
         [SettingsUISlider(min = 0f, max = 6f, step = 0.1f, unit = "floatSingleFraction")]
         [SettingsUISection(SectionMain, GroupSnow)]
         public float SnowmakingBonusCelsius { get; set; }
@@ -238,19 +238,20 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool EnableBindOnDraw { get; set; }
 
-        /// <summary>Slope heat-map overlay and grade tooltip while drawing or editing a run
-        /// with the area tool — SkiRunDrawFeedbackSystem + SkiRunTooltipSystem.</summary>
+        /// <summary>Slope heat-map overlay and grade tooltip while drawing or editing a run with the area tool (SkiRunDrawFeedbackSystem +
+        /// SkiRunTooltipSystem).</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ShowRunGradeWhileDrawing { get; set; }
 
-        /// <summary>Terrain contour lines on while a run prefab is selected in the area tool,
-        /// restored afterwards — SkiRunContourSystem.</summary>
+        /// <summary>Terrain contour lines on while a run prefab is selected in the area tool, restored afterwards
+        /// (SkiRunContourSystem).</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ContourLinesWhileDrawingRuns { get; set; }
 
         /// <summary>While the area tool holds one of our run prefabs or the object tool places the Ski Area Welcome Sign, draw the winter
-        /// snow line (mean December-February climate temperature, lapsed with elevation, crosses 0 C) and a fainter snowmaking line on
-        /// the terrain, with one tooltip line (SkiSnowLineOverlaySystem + SkiSnowLineTooltipSystem). Read live every frame. Default on.</summary>
+        /// snow line and a fainter snowmaking line on the terrain, with one tooltip line (SkiSnowLineOverlaySystem +
+        /// SkiSnowLineTooltipSystem). The winter snow line is where the mean December-February climate temperature, lapsed with elevation,
+        /// crosses 0 C. Read live every frame. Default on.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ShowSnowLineWhilePlacing { get; set; }
 
@@ -265,16 +266,17 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool ShowRunNamesOnTheHill { get; set; }
 
-        /// <summary>The thickness of SkiRunOutlineSystem's overlay (line width and corner-dot diameter 0.3 x this many meters) on the run
-        /// areas the game outlines while the area tool or the bulldozer works on them; 0 = none (the game's thin outline only). Read every
-        /// frame. Snapping and the corner rule stay the game's (0.75 m / 0.375 m for a Surface area, AreaUtils.cs:55-58, :410-421).</summary>
+        /// <summary>The thickness of SkiRunOutlineSystem's overlay (line width and corner-dot diameter 0.3 x this many meters). The overlay
+        /// is on the run areas the game outlines while the area tool or the bulldozer works on them. 0 = none (the game's thin outline
+        /// only). Read every frame. Snapping and the corner rule stay the game's (0.75 m / 0.375 m for a Surface area, AreaUtils.cs:55-58,
+        /// :410-421).</summary>
         [SettingsUISlider(min = 0f, max = 16f, step = 1f, unit = "integer")]
         [SettingsUISection(SectionMain, GroupRuns)]
         public int RunOutlineSize { get; set; }
 
-        /// <summary>Look only: snow guns show a vapor plume while their run's guns are running (SnowGunPlumeRules). Read every pass (64
-        /// sim frames) by SkiSnowGunPlumeSystem only; off cuts every plume within one pass. Snow, upkeep and the guns' own start / stop
-        /// never read it.</summary>
+        /// <summary>Look only: snow guns show a vapor plume while their run's guns are running (SnowGunPlumeRules). Read every pass (64 sim
+        /// frames) by SkiSnowGunPlumeSystem only. Off cuts every plume within one pass. Snow, upkeep and the guns' own start / stop never
+        /// read it.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool SnowGunPlumes { get; set; }
 
@@ -283,8 +285,8 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool Groomers { get; set; }
 
-        // Cat track tool (grades the corridor and builds the run in one action): read live by CatTrackGradeToolSystem.ReadParams
-        // (clamped there; a change re-solves the open plan)
+        // Cat track tool (grades the corridor and builds the run in one action). Read live by CatTrackGradeToolSystem.ReadParams. Values
+        // are clamped there. A change re-solves the open plan.
 
         /// <summary>The steepest grade the cat track tool lets a track climb, percent (5-25, default 25 = the blue-run crux)</summary>
         [SettingsUISlider(min = 5f, max = 25f, step = 1f, unit = "percentage")]
@@ -307,14 +309,14 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public float CatTrackGradeFillRun { get; set; }
 
-        /// <summary>Off (default) = Follow ground, the least earthwork under the grade limit; on = Constant grade, one straight ramp
+        /// <summary>Off (default) = Follow ground, the least earthwork under the grade limit. On = Constant grade, one straight ramp
         /// between the two ends.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool CatTrackGradeConstant { get; set; }
 
-        /// <summary>The Resort Planner tool (code name Quick runs; experimental, DECISIONS 404, 443): outline a region, the planner proposes
-        /// runs, Enter builds them. Off (default) = the tool cannot open, its key is inert and the hub button is grayed with the reason.
-        /// Read live by QuickRunsToolSystem.OptionOn.</summary>
+        /// <summary>The Resort Planner tool (code name Quick runs, experimental, DECISIONS 404, 443). Outline a region. The planner
+        /// proposes runs. Enter builds them. Off (default) = the tool cannot open, its key is inert and the hub button is grayed with the
+        /// reason. Read live by QuickRunsToolSystem.OptionOn.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool QuickRunsEnabled { get; set; }
 
@@ -330,9 +332,10 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupLifts)]
         public bool LiftTowerPlanner { get; set; }
 
-        /// <summary>The carrier grip round: on, each split carrier's grip pitches with the rope and its body (chair or cabin) swings in the
-        /// wind (CarrierPose); off, the grip keeps the level yaw-only pose and the body hangs rigid (nothing else changes). Lift types whose
-        /// grip prefab is not in the game are rigid either way. Read live by ChairPinSystem and TramShuttleSystem (one read per pass).</summary>
+        /// <summary>The carrier grip round. On: each split carrier's grip pitches with the rope and its body (chair or cabin) swings in the
+        /// wind (CarrierPose). Off: the grip keeps the level yaw-only pose and the body hangs rigid (nothing else changes). Lift types
+        /// whose grip prefab is not in the game are rigid either way. Read live by ChairPinSystem and TramShuttleSystem (one read per
+        /// pass).</summary>
         [SettingsUISection(SectionMain, GroupLifts)]
         public bool AnimatedLiftCarriers { get; set; }
 
@@ -340,10 +343,10 @@ namespace SkiResortMod.Settings
         public static bool AnimatedLiftCarriersOn => Mod.Settings?.AnimatedLiftCarriers ?? DefaultAnimatedLiftCarriers;
 
 
-        /// <summary>Measurement scaffolding for field tests, off by default and for every player: the midday measurement re-arm and the
-        /// measure-only ResidentAI pass in SkiDaySystem / SkiGuestCounterSystem / SkiLodgeParkingSystem (they force main-thread syncs
-        /// on vanilla jobs), and the .skislope capture file of the Ctrl+Alt+G dump (the only file the mod writes outside the log and its
-        /// settings; the log dump stays for every player). Read live by those systems.</summary>
+        /// <summary>Measurement scaffolding for field tests, off by default and for every player. It covers the midday measurement re-arm
+        /// and the measure-only ResidentAI pass in SkiDaySystem / SkiGuestCounterSystem / SkiLodgeParkingSystem (they force main-thread
+        /// syncs on vanilla jobs). It also covers the .skislope capture file of the Ctrl+Alt+G dump (the only file the mod writes outside
+        /// the log and its settings). The log dump stays for every player. Read live by those systems.</summary>
         [SettingsUISection(SectionMain, GroupDiagnostics)]
         public bool DiagnosticMeasurements { get; set; }
 
@@ -376,8 +379,8 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding ToggleGladeToolBinding { get; set; }
 
-        /// <summary>Steps the glade tool's tree density 1 -> 8 -> 1 (default Shift+G). The property and action name keep their older
-        /// names (persisted). Forwarded only while the glade tool is active.</summary>
+        /// <summary>Steps the glade tool's tree density from 1 to 8, then back to 1 (default Shift+G). The property and action name keep
+        /// their older names (persisted). Forwarded only while the glade tool is active.</summary>
         [SettingsUIKeyboardBinding(BindingKeyboard.G, ActGladeNextVariant, shift: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding GladeNextVariantBinding { get; set; }
@@ -389,7 +392,7 @@ namespace SkiResortMod.Settings
         public ProxyBinding GladeNextModeBinding { get; set; }
 
         /// <summary>Dumps diagnostics to the mod log (default Ctrl+Alt+G): the run drawing feedback while the area tool is active, the
-        /// glade tool while it is active, otherwise both; works with a run on the cursor. Polled by SkiGladeHotkeySystem independently
+        /// glade tool while it is active, otherwise both. It works with a run on the cursor. Polled by SkiGladeHotkeySystem independently
         /// of the glade keys, in a loaded city only.</summary>
         [SettingsUIKeyboardBinding(BindingKeyboard.G, ActDumpDiagnostics, ctrl: true, alt: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
@@ -407,8 +410,8 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding BuildLiftLineBinding { get; set; }
 
-        /// <summary>Toggles the cat track tool (default Ctrl+Shift+K). Polled by CatTrackGradeHotkeySystem in a loaded city; the
-        /// tool grades with the BuildLiftLine key (Enter).</summary>
+        /// <summary>Toggles the cat track tool (default Ctrl+Shift+K). Polled by CatTrackGradeHotkeySystem in a loaded city. The tool
+        /// grades with the BuildLiftLine key (Enter).</summary>
         [SettingsUIKeyboardBinding(BindingKeyboard.K, ActToggleCatTrackGrade, ctrl: true, shift: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding ToggleCatTrackGradeToolBinding { get; set; }
@@ -419,15 +422,15 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding CatTrackDeleteModeBinding { get; set; }
 
-        /// <summary>Toggles the Resort Planner tool (default Ctrl+Shift+Q). Polled by QuickRunsHotkeySystem in a loaded city; inert while the
-        /// QuickRunsEnabled option is off. The tool scans and builds with the BuildLiftLine key (Enter).</summary>
+        /// <summary>Toggles the Resort Planner tool (default Ctrl+Shift+Q). Polled by QuickRunsHotkeySystem in a loaded city. It is inert
+        /// while the QuickRunsEnabled option is off. The tool scans and builds with the BuildLiftLine key (Enter).</summary>
         [SettingsUIKeyboardBinding(BindingKeyboard.Q, ActToggleQuickRuns, ctrl: true, shift: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding ToggleQuickRunsToolBinding { get; set; }
 
-        /// <summary>Write-only button with the game's confirmation dialog (message: GetOptionWarningLocaleID, AutomaticSettings.cs:1146-1166;
-        /// same pattern as GeneralSettings.resetSettings, GeneralSettings.cs:138-146). Restores every option and the key bindings to
-        /// their defaults, then saves.</summary>
+        /// <summary>Write-only button with the game's confirmation dialog (message: GetOptionWarningLocaleID,
+        /// AutomaticSettings.cs:1146-1166). Same pattern as GeneralSettings.resetSettings (GeneralSettings.cs:138-146). Restores every
+        /// option and the key bindings to their defaults, then saves.</summary>
         [SettingsUIButton]
         [SettingsUIConfirmation]
         [SettingsUISection(SectionMain, GroupReset)]
@@ -436,15 +439,16 @@ namespace SkiResortMod.Settings
             set
             {
                 SetDefaults();
-                // ResetKeyBindings regenerates the attribute defaults (SetDefaults must not) and saves; without registered bindings save here
+                // ResetKeyBindings regenerates the attribute defaults (SetDefaults must not) and saves. Without registered bindings, save
+                // here
                 if (keyBindingRegistered) ResetKeyBindings();
                 else ApplyAndSave();
             }
         }
 
-        /// <summary>Write-only button with the game's confirmation dialog: deletes every lift, station, building, run, cat track, fence
-        /// and planted tree of this mod in the loaded city (SkiDeleteAllSystem). Disabled outside a loaded Game-mode city (main menu,
-        /// Editor, loading); the request refuses there too. Not an option: nothing is saved.</summary>
+        /// <summary>Write-only button with the game's confirmation dialog: deletes every lift, station, building, run, cat track, fence and
+        /// planted tree of this mod in the loaded city (SkiDeleteAllSystem). Disabled outside a loaded Game-mode city (main menu, Editor,
+        /// loading). The request refuses there too. Not an option: nothing is saved.</summary>
         [SettingsUIButton]
         [SettingsUIConfirmation]
         [SettingsUIDisableByCondition(typeof(SkiResortSettings), nameof(DeleteAllUnavailable))]

@@ -1,9 +1,9 @@
-// The lift-line tool's tree corridor (DECISIONS 601 e, owner hand-test note 8). With every emission of the line's courses (the Edit
-// ghost and the Build) the tool also emits the vanilla bulldoze definition for each tree in the corridor (LiftTreeCorridor, the pure
-// rule): SkiGladeToolSystem.EmitThinDefinition, the glade tool's fell (BulldozeToolSystem.AddEntity's shape for an unowned static
-// object). The ghost shows the cut (GenerateObjectsSystem hides the original under its Delete Temp); Build applies it together with the
-// line (ApplyObjectsSystem adds Deleted to the original), so the trees save, refund and validate like a vanilla bulldoze, and a refused
-// or dropped line keeps every tree (ToolClearSystem shows the originals again). The frame after the apply reports what fell:
+// The lift-line tool's tree corridor (DECISIONS 601 e, owner hand-test note 8). With every emission of the line's courses (the Edit ghost
+// and the Build) the tool also emits the vanilla bulldoze definition for each tree in the corridor (LiftTreeCorridor, the pure rule). The
+// emit call is SkiGladeToolSystem.EmitThinDefinition, the glade tool's fell (BulldozeToolSystem.AddEntity's shape for an unowned static
+// object). The ghost shows the cut (GenerateObjectsSystem hides the original under its Delete Temp). Build applies it together with the
+// line (ApplyObjectsSystem adds Deleted to the original). So the trees save, refund and validate like a vanilla bulldoze, and a refused or
+// dropped line keeps every tree (ToolClearSystem shows the originals again). The frame after the apply reports what fell:
 // "LiftLine [trees]: felled N tree(s) in a W m corridor".
 // Engine notes: EngineNotes/LiftTreeCorridor.md
 
@@ -94,9 +94,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A tree the corridor may fell: the glade tool's IsThinnable minus its run-member rule (a lift corridor fells planted
-        /// glade trees too). Not Deleted (it lingers in the static tree until Modification5, SearchSystem.cs:91-99), no Owner (a
-        /// building's or net's own tree; its delete could block the whole apply, ValidationSystem.cs:920-929), not burning, a TreeData
-        /// prefab. Crown = the prefab bounds' widest xz reach from the pivot.</summary>
+        /// glade trees too). Not Deleted (it lingers in the static tree until Modification5, SearchSystem.cs:91-99), no Owner (a building's
+        /// or net's own tree: its delete could block the whole apply, ValidationSystem.cs:920-929), not burning, a TreeData prefab. Crown =
+        /// the prefab bounds' widest xz reach from the pivot.</summary>
         private bool Fellable(Entity e, out float2 trunk, out float crown)
         {
             trunk = default;

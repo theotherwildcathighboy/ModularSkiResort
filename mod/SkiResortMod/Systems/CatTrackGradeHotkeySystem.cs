@@ -1,16 +1,16 @@
-// Cat track tool keys and the every-frame watch. Pattern of LiftLineHotkeySystem, whose engine notes (EngineNotes/LiftLineHotkeySystem.md) cover the action plumbing
-// (an inactive tool never ticks, ToolSystem.cs:312-327; GetAction is null before RegisterKeyBindings, ModSetting.cs:289-292;
-// mod actions start disabled, ProxyAction.cs:322-349).
-// ToggleCatTrackGradeTool (default Ctrl+Shift+K) → CatTrackGradeToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city.
-// The Build key (BuildLiftLine, default Enter) is shared with the lift tool: LiftLineHotkeySystem keeps it live while either tool
-// is open (one writer of shouldBeEnabled); this system reads the press while the grading tool is active and calls RequestApply.
-// CatTrackDeleteMode (default Ctrl+Shift+D) is live only while the tool is open (this system is its one writer) and toggles its
+// Cat track tool keys and the every-frame watch. Pattern of LiftLineHotkeySystem. Its engine notes (EngineNotes/LiftLineHotkeySystem.md)
+// cover the action plumbing: an inactive tool never ticks (ToolSystem.cs:312-327). GetAction is null before RegisterKeyBindings
+// (ModSetting.cs:289-292). Mod actions start disabled (ProxyAction.cs:322-349).
+// ToggleCatTrackGradeTool (default Ctrl+Shift+K) calls CatTrackGradeToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city.
+// The Build key (BuildLiftLine, default Enter) is shared with the lift tool. LiftLineHotkeySystem keeps it live while either tool is open
+// (one writer of shouldBeEnabled). This system reads the press while the grading tool is active and calls RequestApply.
+// CatTrackDeleteMode (default Ctrl+Shift+D) is live only while the tool is open (this system is its one writer). It toggles the tool's
 // Delete mode (field test 2026-10-26b). It is enabled only while the tool is open, so its liveness probe runs then: once per load,
-// ProbeDelayFrames after the first opening, a warning if the conflict resolver disabled it (InputConflictResolution.cs:138-198). A
-// modifier binding conflicts with a plain vanilla key only when one side's composite disallows modifiers (ProxyBinding.cs:822-825);
-// the field logs of 2026-10-26 / 26b show Ctrl+Shift+Q live beside the vanilla camera's Q.
-// Every frame it also calls the tool's TickWatch (dev-tab probe follow-ups also run while closed). UIUpdate, SystemOrder.cs:67:
-// every frame, paused or not. Logs: one ARMED / INERT line per load; one line if the toggle is not live 120 frames after the load.
+// ProbeDelayFrames after the first opening, with a warning if the conflict resolver disabled it (InputConflictResolution.cs:138-198). A
+// modifier binding conflicts with a plain vanilla key only when one side's composite disallows modifiers (ProxyBinding.cs:822-825). The
+// field logs of 2026-10-26 / 26b show Ctrl+Shift+Q live beside the vanilla camera's Q.
+// Every frame it also calls the tool's TickWatch (dev-tab probe follow-ups also run while closed). UIUpdate, SystemOrder.cs:67: every
+// frame, paused or not. Logs: one ARMED / INERT line per load. One line if the toggle is not live 120 frames after the load.
 
 using System;
 using Colossal.Serialization.Entities;

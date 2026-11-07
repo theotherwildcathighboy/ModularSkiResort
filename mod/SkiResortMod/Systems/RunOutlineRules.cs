@@ -1,10 +1,10 @@
-// Pure part of the run outline overlay; SkiRunOutlineSystem's Burst job calls these. Mirrors the game's area outline
-// (Game.Rendering/AreaBorderRenderSystem.cs 1.6.0f1, non-infoview pass :129-136); each rule names its lines.
-// The flag constants are the literal values of Game.Tools.TempFlags and Game.Areas.AreaFlags. This file cannot reference Game.dll
-// (the test host links it alone), so SkiRunOutlineSystem.OnCreate compares each with the game's enum and refuses to arm (one WARN)
-// if a patch changed one. The glade outline color + dash and the run node dot colors / rim live in the "run visuals" block below.
-// Pure file: `using Unity.Mathematics;` only. The walks are generic over two small interfaces so the Burst job passes its
-// DynamicBuffer and native hash sets and the tests pass managed ones; no allocation here.
+// Pure part of the run outline overlay. SkiRunOutlineSystem's Burst job calls these. It mirrors the game's area outline
+// (Game.Rendering/AreaBorderRenderSystem.cs 1.6.0f1, non-infoview pass :129-136). Each rule names its lines.
+// The flag constants are the literal values of Game.Tools.TempFlags and Game.Areas.AreaFlags. This file cannot reference Game.dll (the test
+// host links it alone). So SkiRunOutlineSystem.OnCreate compares each with the game's enum and refuses to arm (one WARN) if a patch changed
+// one. The glade outline color + dash and the run node dot colors / rim live in the "run visuals" block below.
+// Pure file: `using Unity.Mathematics;` only. The walks are generic over two small interfaces, so the Burst job passes its DynamicBuffer
+// and native hash sets and the tests pass managed ones. No allocation here.
 // Engine notes: EngineNotes/RunOutlineRules.md
 
 using Unity.Mathematics;
@@ -57,9 +57,9 @@ namespace SkiResortMod.Systems
         public const byte AreaSlave = 8;
 
         // ── Run visuals: the colors and sizes live here and nowhere else ──
-        // Tree (glade) tool outlines: a violet-magenta that no band color, game outline color (hovered blue, owner green, warning
-        // yellow, error red) or glade ring color (red / orange) uses; opaque enough to read on snow, grass and forest floor.
-        // Candidate runs (every bound run, while nothing is hovered) are dashed, the hovered / pending run is solid.
+        // Tree (glade) tool outlines: a violet-magenta that no band color, game outline color (hovered blue, owner green, warning yellow,
+        // error red) or glade ring color (red / orange) uses. It is opaque enough to read on snow, grass and forest floor. Candidate runs
+        // (every bound run, while nothing is hovered) are dashed. The hovered / pending run is solid.
         public static readonly float4 GladeOutlineColour = new float4(0.86f, 0.30f, 1.00f, 0.95f);   // sRGB, as Overlay takes it
         public const float GladeCandidateAlphaFactor = 0.8f;   // dashed candidates: GladeOutlineColour.w × this
         public const float GladeLineWidthM = 2.2f;

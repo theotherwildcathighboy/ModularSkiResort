@@ -1,19 +1,18 @@
-// Refuses a vanilla high-voltage power line that would join one of our lift lines (a tower or stub node, a split of a lift section,
-// a local connection on its middle) or replace a lift section: the vanilla Temp edge gets the game's Error, so the preview turns red
-// and the tool cannot apply (ToolBaseSystem.GetAllowApply: any Error entity => false unless ToolSystem.ignoreErrors,
-// ToolBaseSystem.cs:533-540, query :313). The why and what is not refused: PowerJoinRule.cs header and
-// docs/research/lifts/power-join-refusal-2026-10-27.md.
-// Mechanism: ValidationSystem fills ValidationSystem.Components.m_ErrorMap (a public NativeHashMap, created only on frames with
-// Updated Temps, ValidationSystem.cs:1926-1931, 1977) and Components then makes the Error components match the map: an Error on an
-// entity missing from the map is REMOVED (ValidationSystem.cs:450-466, 527-531, 552-567). A plain AddComponent<Error> would be
-// stripped on the next validation, so this system writes into the map instead, between the two (Mod.cs: UpdateBefore Components at
-// ModificationEnd; Components itself is UpdateAfter ValidationSystem, SystemOrder.cs:264-265; UpdateSystem.AddSystemUpdate emits a
-// "before" ref right before its anchor, UpdateSystem.cs:382-425). It evaluates EVERY live Temp edge, not only Updated ones, since the
-// map must name every refused edge on each frame it exists. Frames without the map change no Error, so the last verdict stands.
-// Cost: nothing unless the map exists AND Temp edges exist; then one Complete on the validation job and a main-thread pass over the
-// Temp edges (a drag preview: tens). Never runs while our lift tool is active (its Temps and the copies it makes are its own).
-// Logs: "created", ARMED per load, one INFO line per refusal episode (start and end, PowerJoinEpisode), "!!!" once on a throw (then
-// disabled until the next load; the game then builds the join as vanilla does).
+// Refuses a vanilla high-voltage power line that would join one of our lift lines (a tower or stub node, a split of a lift section, a local
+// connection on its middle) or replace a lift section. The vanilla Temp edge gets the game's Error, so the preview turns red and the tool
+// cannot apply (ToolBaseSystem.GetAllowApply: any Error entity gives false unless ToolSystem.ignoreErrors, ToolBaseSystem.cs:533-540, query
+// :313). The why and what is not refused are in the PowerJoinRule.cs header and docs/research/lifts/power-join-refusal-2026-10-27.md.
+// Mechanism: ValidationSystem fills ValidationSystem.Components.m_ErrorMap (a public NativeHashMap, created only on frames with Updated
+// Temps, ValidationSystem.cs:1926-1931, 1977). Components then makes the Error components match the map: an Error on an entity missing from
+// the map is REMOVED (ValidationSystem.cs:450-466, 527-531, 552-567). A plain AddComponent<Error> would be stripped on the next validation,
+// so this system writes into the map instead, between the two (Mod.cs: UpdateBefore Components at ModificationEnd. Components itself is
+// UpdateAfter ValidationSystem, SystemOrder.cs:264-265. UpdateSystem.AddSystemUpdate emits a "before" ref right before its anchor,
+// UpdateSystem.cs:382-425). It evaluates EVERY live Temp edge, not only Updated ones, since the map must name every refused edge on each
+// frame it exists. Frames without the map change no Error, so the last verdict stands.
+// Cost: nothing unless the map exists AND Temp edges exist. Then it costs one Complete on the validation job and a main-thread pass over
+// the Temp edges (a drag preview: tens). It never runs while our lift tool is active (its Temps and the copies it makes are its own).
+// Logs: "created", ARMED per load, one INFO line per refusal episode (start and end, PowerJoinEpisode), "!!!" once on a throw (then the
+// system is disabled until the next load, and the game builds the join as vanilla does).
 
 using System;
 using System.Collections.Generic;
@@ -178,7 +177,7 @@ namespace SkiResortMod.Systems
 
             if (m_Refused.Count > 0)
             {
-                // ProcessValidationResultsJob writes the map; it must be done before the main thread touches it.
+                // ProcessValidationResultsJob writes the map. It must be done before the main thread touches it.
                 m_ValidationComponents.m_ErrorMapDeps.Complete();
                 NativeHashMap<Entity, ErrorSeverity> map = m_ValidationComponents.m_ErrorMap;
                 for (int i = 0; i < m_Refused.Count; i++)

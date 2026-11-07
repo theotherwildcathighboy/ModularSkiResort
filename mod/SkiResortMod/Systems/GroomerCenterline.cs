@@ -1,7 +1,8 @@
-// Pure: a groomer's drive path from a run's ribbon outline. The chordal axis of the outline's constrained Delaunay triangulation, the
-// longest route through it, trimmed at both ends, smoothed, resampled at a uniform step and checked inside the outline. Hand-drawn and
-// generated tracks take the same route; a ring that is not a corridor returns null and a reason, never a wild path.
-// Linked into tests/ResortBatch and tests/GradeBatch; `using System; System.Collections.Generic; Unity.Mathematics;` only.
+// Pure: a groomer's drive path from a run's ribbon outline. The method uses the chordal axis of the outline's constrained Delaunay
+// triangulation. It takes the longest route through it, trims both ends, smooths it, resamples it at a uniform step and checks it inside
+// the outline. Hand-drawn and generated tracks take the same route. A ring that is not a corridor returns null and a reason, never a wild
+// path.
+// Linked into tests/ResortBatch and tests/GradeBatch. It has `using System; System.Collections.Generic; Unity.Mathematics;` only.
 // Engine notes: EngineNotes/GroomerCenterline.md
 
 using System;
@@ -22,7 +23,7 @@ namespace SkiResortMod.Systems
         NoTriangulation,  // ear clipping found no ear, or the triangles do not connect
         NotACorridor,     // a blob, not a track (MinAspect), or a route longer than the outline itself
         TooShort,         // under MinPathLengthM after the end trim
-        LeftOutline,      // a path point fell outside the outline (should not happen; guards every rule above)
+        LeftOutline,      // a path point fell outside the outline (should not happen, guards every rule above)
     }
 
     /// <summary>A drive path: points at one uniform step, so a position lookup is O(1).</summary>
@@ -84,8 +85,8 @@ namespace SkiResortMod.Systems
         /// nose inside the end of a narrow track.</summary>
         public const float EndTrimMinM = 4f;
         public const float EndTrimMaxM = 24f;
-        /// <summary>Long edges are subdivided to this share of the mean width, within the two limits, or a long straight edge gives a chord
-        /// across the whole track instead of a ladder.</summary>
+        /// <summary>Long edges are subdivided to this share of the mean width, within the two limits. Otherwise a long straight edge gives
+        /// a chord across the whole track instead of a ladder.</summary>
         public const float SubdivideWidthShare = 0.75f;
         public const float SubdivideMinM = 3f;
         public const float SubdivideMaxM = 40f;
@@ -327,8 +328,9 @@ namespace SkiResortMod.Systems
 
         // ---- the triangles --------------------------------------------------------------------------------------------------------
 
-        /// <summary>Ear clipping over a counterclockwise ring. A node that lies on a would-be diagonal blocks it, so collinear nodes stay in the
-        /// triangulation. Stuck (rounding on near-collinear runs): drop one collinear node, which only removes a subdivision.</summary>
+        /// <summary>Ear clipping over a counterclockwise ring. A node that lies on a would-be diagonal blocks it, so collinear nodes stay
+        /// in the triangulation. When stuck (rounding on near-collinear runs), the code drops one collinear node. This only removes a
+        /// subdivision.</summary>
         private static bool EarClip(double2[] p, List<int> tris)
         {
             int n = p.Length;

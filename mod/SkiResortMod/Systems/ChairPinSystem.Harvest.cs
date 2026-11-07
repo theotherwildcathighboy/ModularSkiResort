@@ -1,11 +1,11 @@
-// The loop cache's cable-lane harvest; BuildLoopCache step 2 calls HarvestCableLanes. Both paths sort by lane entity (LiftLaneHarvest ORDER).
+// The loop cache's cable-lane harvest. BuildLoopCache step 2 calls HarvestCableLanes. Both paths sort by lane entity (LiftLaneHarvest ORDER).
 //   SCOPED (normal): the census's line edges + end nodes (LiftCensusSystem.CopyLineOwners), their SubLane buffers, the full scan's filter
-//     lane by lane (LiftLaneHarvest.Scoped, Loop movers); O(lift edges). The census builds at Modification4B before this system (Mod.cs
-//     anchor) and rebuilds the same frame on a lift edge Created / Deleted; Updated-only edits do not change the edge set (curves are read live).
+//     lane by lane (LiftLaneHarvest.Scoped, Loop movers). O(lift edges). The census builds at Modification4B before this system (Mod.cs
+//     anchor) and rebuilds the same frame on a lift edge Created / Deleted. Updated-only edits do not change the edge set (curves are read live).
 //   FULL (fallback): the city-wide utility-lane scan (m_LaneQuery): census not registered, not armed (Editor) or not built yet, or after a miss.
 //   WATCHDOG: the first scoped harvest of each load also runs the full scan and compares (one "[cost] lane harvest" line per load). A lane
-//     only the full scan kept → WARN naming up to 5 lanes and owners; this rebuild uses the full result and the load stays on the full
-//     scan. A lane only the scoped harvest kept (filters drifted) → WARN, full result.
+//     only the full scan kept gives a WARN naming up to 5 lanes and owners. This rebuild uses the full result, and the load stays on the full
+//     scan. A lane only the scoped harvest kept (filters drifted) gives a WARN and the full result.
 
 using System.Collections.Generic;
 using Colossal.Entities;

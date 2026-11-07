@@ -1,10 +1,10 @@
 // Which ski area a top-level resort building (school, lodges, patrol huts, bus depots) belongs to. Nothing is stored or serialized.
 // Rule (same as lifts): a building with no Owner belongs to the nearest live Welcome Sign within the tether
-// (SkiRunOwnershipSystem.TetherMeters, 5000 m; SkiResortIndex.TryResolve breaks ties by distance, Index, Version; 5000.00 m
-// in, 5000.01 m out; a non-finite position never links). None = not linked, counts for no area. Not sticky: a nearer new sign
-// takes the building. A bus depot stands in town, so it alone has no tether: the nearest live Welcome Sign at any distance (DepotMaxDistance).
-// Count: every school counted for an area adds 1 to Schools; SchoolActive is true when any is live and not Inactive (the
-// building's own Building.m_OptionMask). Diff logs ONE line per change (Linked, Relinked, Unlinked, Removed), stable order (Index, Version).
+// (SkiRunOwnershipSystem.TetherMeters, 5000 m). SkiResortIndex.TryResolve breaks ties by distance, Index, Version. 5000.00 m is in, 5000.01
+// m is out. A non-finite position never links. None = not linked, counts for no area. Not sticky: a nearer new sign takes the building. A
+// bus depot stands in town, so it alone has no tether: the nearest live Welcome Sign at any distance (DepotMaxDistance).
+// Count: every school counted for an area adds 1 to Schools. SchoolActive is true when any is live and not Inactive (the building's own
+// Building.m_OptionMask). Diff logs ONE line per change (Linked, Relinked, Unlinked, Removed), in stable order (Index, Version).
 // Pure file: System, System.Collections.Generic and Unity.Mathematics only (tests/BuildingBatch links it).
 
 using System;
@@ -15,8 +15,8 @@ namespace SkiResortMod.Systems
 {
     public static class SchoolLinkRules
     {
-        /// <summary>One top-level building's link: its sign (EntityRef.Null = not linked) and the nearest sign's distance (+inf
-        /// without a sign or with a non-finite position; set even beyond the tether, for the log).</summary>
+        /// <summary>One top-level building's link: its sign (EntityRef.Null = not linked) and the nearest sign's distance (+inf without a
+        /// sign or with a non-finite position. It is set even beyond the tether, for the log).</summary>
         public struct Link : IEquatable<Link>
         {
             public EntityRef Sign;
@@ -24,7 +24,7 @@ namespace SkiResortMod.Systems
 
             public bool Linked => !Sign.IsNull;
 
-            /// <summary>Same sign; the distance is log text only.</summary>
+            /// <summary>Same sign. The distance is log text only.</summary>
             public bool Equals(Link other) => Sign == other.Sign;
             public override bool Equals(object obj) => obj is Link other && Equals(other);
             public override int GetHashCode() => Sign.GetHashCode();
@@ -58,8 +58,8 @@ namespace SkiResortMod.Systems
             return link;
         }
 
-        /// <summary>The count rule for a child entry or a linked top-level school: Schools + 1; SchoolActive when live (exists, not
-        /// Deleted / Temp) and not Inactive.</summary>
+        /// <summary>The count rule for a child entry or a linked top-level school: Schools + 1. SchoolActive when live (exists, not Deleted
+        /// / Temp) and not Inactive.</summary>
         public static void Count(ref int schools, ref bool schoolActive, bool active, bool live)
         {
             schools++;
@@ -67,9 +67,9 @@ namespace SkiResortMod.Systems
                 schoolActive = true;
         }
 
-        /// <summary>Log diff of the last published links against this recompute's (every live top-level school, linked or not): one
-        /// Change per school whose sign differs, appears linked, or disappears; a new unlinked school is logged once as Unlinked.
-        /// <paramref name="output"/> is cleared and filled in (Index, Version) order.</summary>
+        /// <summary>Log diff of the last published links against this recompute's (every live top-level school, linked or not). The result
+        /// is one Change per school whose sign differs, appears linked, or disappears. A new unlinked school is logged once as Unlinked.
+        /// <paramref name="output"/> is cleared and filled, in (Index, Version) order.</summary>
         public static void Diff(IReadOnlyDictionary<EntityRef, Link> before, IReadOnlyDictionary<EntityRef, Link> after,
                                 List<Change> output)
         {
@@ -97,9 +97,10 @@ namespace SkiResortMod.Systems
             output.Sort((a, b) => a.School.CompareTo(b.School));
         }
 
-        /// <summary>The area efficiency the score's staffing factor reads. With <paramref name="weightSum"/> &lt;= 0 (no active
-        /// top-level lodge) returns <paramref name="signEfficiency"/> unchanged (the child path: lodge shortfalls already sit on the
-        /// sign). Else sign x (weightedSum / weightSum), rounded to 0.01 as vanilla's GetEfficiency, floored at 0.01 unless 0. Non-finite -> 0.</summary>
+        /// <summary>The area efficiency the score's staffing factor reads. With <paramref name="weightSum"/> &lt;= 0 (no active top-level
+        /// lodge) it returns <paramref name="signEfficiency"/> unchanged (the child path: lodge shortfalls already sit on the sign).
+        /// Otherwise it returns sign x (weightedSum / weightSum), rounded to 0.01 as vanilla's GetEfficiency, floored at 0.01 unless 0.
+        /// Non-finite -> 0.</summary>
         public static float AreaEfficiency(float signEfficiency, double weightedSum, double weightSum)
         {
             if (!(weightSum > 0.0))
