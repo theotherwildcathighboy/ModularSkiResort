@@ -94,5 +94,5 @@ vanilla back to 185 within 256 frames after the writes stopped.
 `mergeCard` (always observed, like `busCard`) and the triggers `mergeBuilding (entity, tier)` / `unmergeBuilding (entity)`;
 `mergedLodges` for the Overview's "Merged buildings" fold. The card shows for a merged building, or one that could be merged (a lot too
 small included, to say why), while the city has a sign. Contract 37: `near` (NearAnySlopeside on the building's position) gives an
-unmerged building's status line, "Near the runs and lifts" or "Too far from the runs, would not count"; merging a far building is still
+unmerged building's status line, "Near the runs and lifts" or "Too far from the runs and lifts to count"; merging a far building is still
 allowed (it counts once a run or station comes within reach). A visible note says what merging does; the title's tooltip gives the fee rule.
