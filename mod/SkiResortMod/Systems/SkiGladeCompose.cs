@@ -109,7 +109,7 @@ namespace SkiResortMod.Systems
         /// <summary>Members of the target layer with another variant or generation, in Other.</summary>
         public int OtherTagged;
         /// <summary>This run's members of either layer standing outside their own layer's region (engine notes: misplaced), in Other.
-        /// The system removes them first of all.</summary>
+        /// They are removed first of all.</summary>
         public int Misplaced;
         /// <summary>In-region current members not on any slot of P (off the stream).</summary>
         public int OwnUnmatched;

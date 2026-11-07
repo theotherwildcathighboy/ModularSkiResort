@@ -15,8 +15,8 @@ using Unity.Entities;
 namespace SkiResortMod.Systems
 {
     // Self-alias: a load first tries Type.GetType(saved AQN). Only when that fails does it strip ", ..." segments from the right until
-    // a key of the [FormerlySerializedAs] table hits (Colossal.Core 1.6.2f1 ComponentSerializer.cs:51-65). ComponentSerializerLibrary.UpdateTypeTable
-    // :113-121 fills the table. The stripped AQN below therefore still finds this type if the version /
+    // a key of the [FormerlySerializedAs] table hits (Colossal.Core 1.6.2f1 ComponentSerializer.cs:51-65).
+    // ComponentSerializerLibrary.UpdateTypeTable :113-121 fills the table. The stripped AQN below therefore still finds this type if the version /
     // load-context part of the saved name stops resolving. A literal on purpose: an alias is an old name and must not follow a rename.
     // It must equal SaveLayouts.Alias (tests/SaveBatch SL-A reads the built DLL). Keys must be unique across the mod (UpdateTypeTable
     // uses Dictionary.Add, a duplicate throws).

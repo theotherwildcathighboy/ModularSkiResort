@@ -359,8 +359,8 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Consider a claim that Resolve calls Gone (on the way, before the deadline, no Leisure). Its citizen still exists and
-        /// stands in the claim's lodge, so the guest arrived and lost Leisure within one pass. Booked as an arrival whose visit ended
+        /// <summary>Consider a claim that Resolve calls Gone (on the way, before the deadline, no Leisure). If its citizen still exists and
+        /// stands in the claim's lodge, the guest arrived and lost Leisure within one pass. Booked as an arrival whose visit ended
         /// RemovedOnArrival. CurrentBuilding is the game's own venue test (LeisureSystem.cs:342-345, 1.6.2 :336-339) and PlaceOf's
         /// "lodge". Expired is tested first by Resolve, so a guest found there past the deadline stays an expiry (late watch). A
         /// deleted citizen stays a failure (place "deleted").</summary>

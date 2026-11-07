@@ -1,7 +1,7 @@
 // Serializable member tag that binds a glade-tool tree to its ski run. A persisted component: its type name and Serialize layout are a
 // save-format contract (see SaveLayouts). Planted trees are free-standing and carry this tag instead of Owner(run): SubObjectSystem
 // moves or deletes owned objects on every Updated of the area. Added by SkiGladeTagSystem just before ApplyObjectsSystem.
-// m_Variant (0..7) and m_PlanGen tell a run's members apart by the plan that placed them. The system replaces another (variant, generation).
+// m_Variant (0..7) and m_PlanGen tell a run's members apart by the plan that placed them. A member of another (variant, generation) is replaced.
 // Layout v2 (8 bytes) is current. After the 1.0 freeze it never changes (no payload length is written). New fields go in a new type.
 // Legacy test: m_PlanGen == 0 (or VariantUnknown), NOT m_Version < 2. Never rename the type or move its namespace without [FormerlySerializedAs].
 // Engine notes: EngineNotes/SkiRunTreeMember.md

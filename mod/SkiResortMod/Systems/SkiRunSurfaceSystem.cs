@@ -31,7 +31,7 @@ namespace SkiResortMod.Systems
         {
             /// <summary>Run snow depth (m) at which props read fully white. The snow shader
             /// saturates at cm scale. The WeatherObject RequireSnow gate trips at
-            /// m_AccumulatedSnow >= 15/255. So 5 cm gives a margin over both,
+            /// m_AccumulatedSnow >= 15/255. So 5 cm gives a comfortable margin over both,
             /// and a thin early-season base still reads as "dusted".</summary>
             public const float FullWhiteDepthM = 0.05f;
             // RunSnowRules.PackedSkipMinRunDepthM (0.10 = 2 x this) depends on this value: change both.

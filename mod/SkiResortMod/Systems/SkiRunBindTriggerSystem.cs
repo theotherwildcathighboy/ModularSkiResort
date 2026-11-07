@@ -376,7 +376,7 @@ namespace SkiResortMod.Systems
         /// <summary>The fresh auto-name a hub rename to "" writes on <paramref name="sign"/>: the smallest "Ski area N" that no other
         /// live sign's custom name uses. This is the auto-name's own rule, so the vanilla panel and the hub keep showing one name instead of
         /// the vanilla default vs. a hub fallback label. Null when none is free or on an exception (then the caller removes the name, the
-        /// vanilla behavior). One "!!!" line per load. Event time only, main thread (the hub's UIUpdate).</summary>
+        /// vanilla behavior). An exception gives one "!!!" line per load. Event time only, main thread (the hub's UIUpdate).</summary>
         internal string PickSignName(Entity sign)
         {
             try

@@ -2,7 +2,7 @@
 // SkiResortMonthInProgress, the ring / season / bucket ops of SkiResortHistory and the seams IHistoryWriter / IHistoryReader /
 // IHistoryStore. The ECS halves are the other `partial` in SkiResortHistorySystem.cs. This file writes the bytes, so the
 // round-trip test checks what the save gets.
-// Save layouts are frozen once shipped: no payload length is written. Never reorder, retype or rename these types,
+// Save layouts are frozen once shipped: no payload length is written. So never reorder, retype or rename these types,
 // move their namespace or turn the buffer into a component.
 // A new field is appended under a version bump (EngineNotes/SaveLayouts.md). The element is v2 since T142 (m_SnowDepthCm, B7b).
 // A v1 element reads it as unknown.
@@ -453,7 +453,7 @@ namespace SkiResortMod.Systems
         /// <paramref name="debit"/> and no slot drifts over time. Target t = carry + debit x w / sum(w). Part = floor(t) (never below 0).
         /// The units left over (or over-given) go to (come from) the slots with the largest (smallest) fractions. Carry = t - part. The
         /// sum of carries is conserved pass to pass. Weights that are not finite or &lt;= 0 count 0. If sum(w) &lt;= 0 (or count is 0),
-        /// the method puts the whole debit in slot <paramref name="fallback"/> (the caller's Not linked slot). It leaves the carries
+        /// the method puts the whole debit in slot <paramref name="fallback"/> (the caller's Not linked slot). In that case it leaves the carries
         /// unchanged. debit &lt;= 0 books nothing. Allocation-free. Worst case O(count^2) (count = ski areas + 1).</summary>
         public static void SplitDebit(long debit, double[] weights, double[] carry, long[] parts, int count, int fallback)
         {
@@ -514,7 +514,7 @@ namespace SkiResortMod.Systems
         private static double W(double w) => double.IsNaN(w) || double.IsInfinity(w) || w <= 0.0 ? 0.0 : w;
 
         /// <summary>A saved month in progress seeds the ledger only when it is the ledger's month (same key) and was mirrored at all.
-        /// The ledger ignores any other key (stale mirror, a save from another month), and counting stays "since load".</summary>
+        /// Any other key (stale mirror, a save from another month) is ignored, and counting stays "since load".</summary>
         public static bool ShouldSeed(int ledgerMonthKey, in SkiResortMonthInProgress saved)
             => ledgerMonthKey != SkiResortLedger.NoMonth && saved.m_MonthKey != SkiResortLedger.NoMonth && saved.m_MonthKey == ledgerMonthKey;
     }

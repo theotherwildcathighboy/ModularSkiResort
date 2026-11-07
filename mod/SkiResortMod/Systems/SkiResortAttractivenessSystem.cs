@@ -72,8 +72,8 @@ namespace SkiResortMod.Systems
 
         // Prefab set — tolerant resolution (not yet imported ⇒ system stays inert). The run prefab sets are
         // the ownership system's (one registry, natural included). The lodges are SkiCatalog.Lodges, the stations
-        // SkiCatalog.Stations. SkiPrefabCatalogSystem resolves both per load (the system follows a lodge imported mid-session or a prefab
-        // replaced at the next load / frame).
+        // SkiCatalog.Stations. SkiPrefabCatalogSystem resolves both per load (a lodge imported mid-session or a prefab
+        // replaced is followed at the next load / frame).
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private SkiRunOwnershipSystem m_Ownership;       // sign set, run kinds, BindGeneration
         private SkiRunPropSystem m_RunProps;             // FeaturesOf: a run's score kind (R2)

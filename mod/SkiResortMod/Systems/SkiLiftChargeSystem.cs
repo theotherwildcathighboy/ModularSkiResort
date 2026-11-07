@@ -567,7 +567,7 @@ namespace SkiResortMod.Systems
             {
                 case SkiMoneyRules.LiftBilling.Full: billed = "full"; break;
                 case SkiMoneyRules.LiftBilling.NoPower: billed = "at 25 %: no power"; break; // unreachable (LiftUpkeepBillingOf), kept for the enum
-                // Without this case the default would print "unfinished". The type's share (the tram 50 %, sightseeing, the others 25 %).
+                // Without this case the default would print "unfinished". The type's share (the tram 50 %, sightseeing. The others 25 %).
                 case SkiMoneyRules.LiftBilling.NoOpenRun:
                     billed = $"at {LiftClosedRule.NoOpenRunShare(SkiCatalog.LiftByIndex(c.Type)) * 100f:F0} %: no open run in its ski area";
                     break;

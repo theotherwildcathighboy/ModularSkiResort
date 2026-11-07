@@ -14,7 +14,7 @@
 // seeds first, until the lift has FanTopRunsMin runs from its top. Then it uses the v1 band-deficit order on the lift's own targets
 // (v1 Targets on the lift's cap).
 // Before a seed is proposed, the system walks it again against the accepted runs (m_DAcc). Inside an accepted gap it drops the seed
-// (it would be TopTaken). In tiers 0-1 next to a run, the seed becomes a branch of that run instead. It also drops a line whose
+// (it would be TopTaken). But a tier 0-1 seed in the gap next to a run becomes a branch of that run instead. It also drops a line whose
 // merge would leave a TooShort / MergeStub line (FanDropped counts both).
 // A top run adds branch seeds BranchTopFromM-BranchFromM below its top at once. After a lift's second run, every run of that lift
 // adds them BranchFromM-BranchToM below its top.
@@ -531,7 +531,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The pick unit in Resort mode (UnitSelect phase 0). It books the newest accepted run and adds the branch seeds of runs
         /// whose lift has two runs (BranchRunsPerUnit runs per unit). Then it materializes the best usable seed as a v1 candidate
-        /// (MakeCandidate) and starts its attempt (BeginAttempt). It finishes when the cap, the rating cap or the reserve is empty.</summary>
+        /// (MakeCandidate) and starts its attempt (BeginAttempt). It finishes when the cap, the rating cap or the reserve runs out.</summary>
         private void FanPick()
         {
             FanSync();

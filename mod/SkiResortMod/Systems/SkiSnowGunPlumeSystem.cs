@@ -1,7 +1,7 @@
 // Snow guns show a vapor plume while their run's guns are running (EffectSource entry on the gun prefabs, driven by a lease).
 // Rule (one predicate with the injection, EngineNotes/SnowGunPlumeRules.md). A gun shows a plume when all of these hold:
 // - The Options toggle is on.
-// - The run's guns ran in the injection's last pass. On a cat track there is no injection: its guns can run.
+// - The run's guns ran in the injection's last pass. A cat track has no injection, so there the test is that its guns can run.
 // - The gun's own elevation is cold.
 // FanIdle, hydrants and the folded lance carry no plume entry. The system never touches them.
 // Scope: Game mode only. The system handles the guns the placer tagged with SkiRunPropMember (groomed runs with their guns

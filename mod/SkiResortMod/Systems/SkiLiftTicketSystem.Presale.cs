@@ -2,8 +2,8 @@
 // area's gate is Open in a new season (SkiMoneyRules.SeasonKeyOf). One Burst job rates every resident household of the area's pool
 // and sells passes in bulk. The first-arrival sale in SkiLiftTicketSystem.cs then covers only households not in the pool.
 // Ordering: the main thread applies the standings as components at the next tick's step 1. So a tick that starts a sale does not
-// drain arrivals. They stay in the counter's pending list, and nothing is lost or repeated. A ticket job in the same window could not
-// see the standings and would sell the same household a pass again. The system schedules a sale only with no ticket job in flight.
+// drain arrivals. They stay in the counter's pending list, and nothing is lost or repeated. The reason: a ticket job in the same window
+// could not see the standings and would sell the same household a pass again. The system schedules a sale only with no ticket job in flight.
 // Engine notes: EngineNotes/SkiLiftTicketSystem.Presale.md
 
 using System;

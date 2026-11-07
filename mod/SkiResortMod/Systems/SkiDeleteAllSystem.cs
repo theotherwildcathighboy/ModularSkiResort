@@ -3,7 +3,7 @@
 // The button's setter only queues the request. An Options UI callback cannot use ToolOutputBarrier / EndFrameBarrier
 // (Game/SafeCommandBufferSystem.cs:14-21). This system does the work on the main thread.
 // Frame 1: the active tool goes back to the default tool, so no Temp preview of ours outlives the delete. Frame 2: the delete.
-// Scheduling (load-bearing): UpdateBefore<SkiDeleteAllSystem, SubElementDeleteSystem>(PostTool). There a bulldoze's Deleted stands
+// Scheduling (load-bearing): UpdateBefore<SkiDeleteAllSystem, SubElementDeleteSystem>(PostTool). In PostTool a bulldoze's Deleted stands
 // after ApplyTool (Game.Common/SystemOrder.cs:712-724). PostTool runs every frame, paused included (Game.Tools/ToolSystem.cs:251-257).
 // Vanilla then cascades these:
 // - station sub-nets and sub-areas (SubElementDeleteSystem, PostTool)

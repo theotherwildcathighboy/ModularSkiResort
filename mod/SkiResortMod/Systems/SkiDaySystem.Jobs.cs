@@ -1160,7 +1160,7 @@ namespace SkiResortMod.Systems
             /// record. Returns a byte: 0 keep watching (state 2), 1 recorded and dropped, 2 now followed (state 4, keep). A no-purpose exit
             /// books where the guest stands (NoPurposeAtOf, "placed" = m_PenaltyCounter ≥ PlacedMarkMin) into c.ExitAt and RM.NoPurposeAt. An exit
             /// for home, with no trip purpose or moving away is followed while FollowingLast + started &lt; FollowCap (the first sample in this
-            /// pass. The system writes the ring record when the follow ends). At the cap it is recorded at once as "not followed"
+            /// pass. The ring record is written when the follow ends). At the cap it is recorded at once as "not followed"
             /// (RM.FollowSkipped, ro.FollowSkipped). Other exits are recorded at once.</summary>
             private byte Exit(ref SkiDayClaim c, ref ResolveOut ro, ref int started, int mb, int hb, int cls, bool gone, bool at,
                               bool inBuilding, Entity building, bool atOrigin, bool hasTp, byte purpose)
@@ -1549,7 +1549,7 @@ namespace SkiResortMod.Systems
             {
                 int lodges = math.min(Lodges.Length, LodgeReject.Length);
                 // A lodge whose only failing check is NoLeisureTag (Tourism Overhaul removed its LeisureProvider: the park gate at max(6,
-                // cells) people) stays in TargetLodges and Capacity. The system skips it only as a claim target (LodgeReject keeps NoLeisureTag, so
+                // cells) people) stays in TargetLodges and Capacity. It is skipped only as a claim target (LodgeReject keeps NoLeisureTag, so
                 // NearestTarget and the presale copy still skip it). Without this a busy gated lodge would flap the area to NoLodge every 512
                 // frames.
                 var gated = new NativeArray<byte>(lodges, Allocator.Temp);

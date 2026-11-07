@@ -1,5 +1,5 @@
 // SkiResortHubUISystem, merged buildings (contract 35, MergeRules header). The merge card beside the game's selected-info panel follows the
-// selection like the Ski Bus card. It shows for a merged building. It also shows for a building that could be merged (or is too small)
+// selection like the Ski Bus card. It shows for a merged building, or for a building that could be merged (or is too small),
 // while the city has a ski area. The card's buttons are the triggers mergeBuilding (entity, tier) and unmergeBuilding (entity).
 // SkiMergeSystem does the work. The Overview's "Merged buildings" fold reads `mergedLodges`: one row per merged building of the selected
 // area, any state.

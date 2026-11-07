@@ -460,7 +460,7 @@ namespace SkiResortMod.Systems
             m_SigCharge = int.MinValue, m_SigSkiDays = int.MinValue;
         // Both ski-day settings 0 (set once per rebuild in BuildResortRows, read by BuildProblems). The Efficiency row's hysteresis
         // state: the signs whose band showed the row on the last build (m_EffRowOn) and the ones of this build (m_EffRowOnNext, copied
-        // after the loop, readonly, no swap).
+        // after the loop: readonly, no swap).
         private bool m_SkiDaysOff;
         private readonly HashSet<Entity> m_EffRowOn = new HashSet<Entity>();
         private readonly HashSet<Entity> m_EffRowOnNext = new HashSet<Entity>();

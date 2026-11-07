@@ -2,7 +2,7 @@
 // is the single source of truth for names and shapes. tools/check-bundle.js matches this file's literals and TypeBegin blocks (R1, R2, R16).
 // Per-area numbers come from SkiResortStatsSystem. This system only writes its rows to the UI. Bindings use AddBinding, never
 // AddUpdateBinding (it re-sends a raw binding every frame, UISystemBase.cs:48-58). Every trigger body has its own try/catch (the
-// binding logs a trigger exception to the vanilla UI log, not ours). It QUEUES the request for OnUpdate (main thread).
+// binding logs a trigger exception to the vanilla UI log, not ours). Each trigger body QUEUES the request for OnUpdate (main thread).
 // Phase (Mod.cs): UpdateAt UIUpdate after SkiRunCatalogSystem and SkiResortStatsSystem (add order, UpdateSystem.cs:158-161), paused
 // included. A one-shot "!!!" catch pushes contract = ContractAbsent (0) and refuses every trigger until the next load.
 // Engine notes: EngineNotes/SkiResortHubUISystem.md
@@ -4357,7 +4357,7 @@ namespace SkiResortMod.Systems
             var pendingMissing = new StringBuilder(256);
             int expectedCount = 0, expectedFound = 0, pendingFoundCount = 0, pendingMissingCount = 0, sent = 0;
             // A Shuttle type's items are offered when TramShuttleSystem is
-            // registered (Mod.cs, mover group). It moves the tram's cabins. The system resolves them here, at event time (arm and catalog
+            // registered (Mod.cs, mover group). It moves the tram's cabins. The code resolves the registration here, at event time (arm and catalog
             // re-resolution), never per frame.
             bool tramMoverRegistered = World.GetExistingSystemManaged<TramShuttleSystem>() != null;
             for (int i = 0; i < ItemCount; i++)
