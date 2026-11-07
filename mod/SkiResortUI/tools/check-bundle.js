@@ -2,113 +2,129 @@
  * tools/check-bundle.js - the build gate of the Ski Resort UI module.
  *
  * Why a gate: every mod's UI module shares one document and one registrar loop with no try/catch (index.js@800454 in the
- * installed 1.6.2f1 Cities2_Data/Content/Game/UI/index.js), and the loader waits forever for a missing .css
- * (index.js@2306554). A broken bundle of ours can therefore blank or truncate every mod's UI. Nothing leaves build/ for the
- * game's Mods folder unless this passes:
- *   - `npm run build` runs it as `postbuild` (so the C# build's SkiUiBuild target fails with it);
+ * installed 1.6.2f1 Cities2_Data/Content/Game/UI/index.js). The loader waits forever for a missing .css (index.js@2306554).
+ * A broken bundle of ours can therefore blank or truncate the UI of every mod. Nothing leaves build/ for the game's Mods
+ * folder unless this gate passes:
+ *   - `npm run build` runs it as `postbuild` (so the C# build's SkiUiBuild target fails with it).
  *   - `npm run dev` (webpack --watch --env deploy) runs it in-process before every copy.
  *
- * The gate marker: a failed run must not let the next `dotnet build` skip SkiUiBuild as up to date and deploy the rejected
- * bundle (webpack has already written it and build/.ui-stamp, both newer than every input). So the result is recorded where
- * MSBuild can see it:
- *   - every run first deletes build/.gate-pass, and writes it (content = the stamp in build/.ui-stamp) only on PASS, so a FAIL,
- *     a CRASH or a killed run all leave no marker;
- *   - webpack deletes it whenever it emits a new bundle (webpack.config.js SkiStampPlugin);
- *   - SkiResortMod.csproj lists it as an Output of SkiUiBuild (a missing marker reruns the gate) and its targets SkiBuildStamp
- *     and SkiUiDeploy refuse a bundle whose marker is missing or names another stamp; SkiDeployPlugin (npm run dev) checks it
+ * The gate marker: after a failed run, the next `dotnet build` must not skip SkiUiBuild as up to date and deploy the
+ * rejected bundle. Webpack has already written the bundle and build/.ui-stamp, and both are newer than every input. So the
+ * gate records its result where MSBuild can see it:
+ *   - Every run first deletes build/.gate-pass. It writes the file (content = the stamp in build/.ui-stamp) only on PASS.
+ *     So a FAIL, a CRASH or a killed run all leave no marker.
+ *   - webpack deletes it whenever it emits a new bundle (webpack.config.js SkiStampPlugin).
+ *   - SkiResortMod.csproj lists it as an Output of SkiUiBuild (a missing marker reruns the gate). Its targets SkiBuildStamp
+ *     and SkiUiDeploy refuse a bundle whose marker is missing or names another stamp. SkiDeployPlugin (npm run dev) checks it
  *     before every copy.
  *
  * What it checks (each failure is one line naming the file and the rule):
  *   1. build/ holds exactly SkiResortMod.mjs + SkiResortMod.css (+ the extracted-license .txt, SkiResortMod-img/*.png|svg, the
- *      .ui-stamp file and the .gate-pass marker); a second .mjs, a .js chunk, a .map or a .json (the asset database turns
- *      *.json in a mod folder into Metadata assets, DefaultAssetFactory.cs:242 [1.6.2f1 Colossal.IO.AssetDatabase, ilspycmd])
- *      fails.
- *   2. the banner parses exactly like the game's UIModuleAsset.ParseModuleInfo (ported below): identifier line, Id = mod.json
- *      id, a Dependencies line (absent = AddTags(null) NRE in PostCreate), a System.Version-parseable Version, and Build = the
- *      stamp in build/.ui-stamp.
- *   3. the bundle contains the stamp, no dynamic import(), no internal "game-ui/" path, no .extend( / .override(, no
- *      <select>/<option>/<table> element and no inline grid / space-evenly / auto-margin style.
- *   4. the compiled CSS has no display:grid, grid-template, margin-left/right:auto (or an auto margin shorthand), :not(,
- *      space-evenly, and no var() inside a shorthand property (the UI.log warns "Custom CSS expressions are not supported in
- *      shorthand declaration"). Scoping: our CSS shares one document with the game and every mod, and it is the one failure no
- *      error boundary or try/catch can contain (`:global(div){pointer-events:none}` would freeze the whole UI). Every selector
- *      must be able to match only inside our own subtree: its subject (rightmost compound) carries one of our `.sr-` classes,
- *      or a compound carrying one is followed by a descendant or child combinator (a sibling combinator right after it,
- *      `.sr-x ~ div`, leaks beside our root). @media / @supports are checked inside; @keyframes and @font-face names must
- *      start with `sr-` (both names are global too); @charset is allowed; any other at-rule fails.
- *   5. src/ (TypeScript AST): every value import from cs2/* names a runtime export of the game (the typings declare more than
- *      exists; a missing name is `undefined` at runtime), no namespace/default import of cs2/* (except src/cs2shim.ts, whose
- *      every `<ns>.<Name>` access is checked the same way), no npm package other than react, no dynamic import(), no
- *      moduleRegistry call other than append, no .extend(/.override(, no select/option/table elements, no inline grid styles,
- *      no style import other than *.module.scss (a plain .scss compiles with global selectors), and every string / JSX text
- *      passes the glyph allowlist.
+ *      .ui-stamp file and the .gate-pass marker). A second .mjs, a .js chunk, a .map or a .json fails. The asset database
+ *      turns *.json in a mod folder into Metadata assets (DefaultAssetFactory.cs:242 [1.6.2f1 Colossal.IO.AssetDatabase,
+ *      ilspycmd]).
+ *   2. The banner parses exactly like the game's UIModuleAsset.ParseModuleInfo (ported below). It has an identifier line and
+ *      Id = mod.json id. It also has a Dependencies line (if the line is absent, AddTags(null) throws an NRE in PostCreate),
+ *      a System.Version-parseable Version, and Build = the stamp in build/.ui-stamp.
+ *   3. The bundle contains the stamp. It contains none of these: a dynamic import(), an internal "game-ui/" path,
+ *      .extend( / .override(, a <select>/<option>/<table> element, an inline grid / space-evenly / auto-margin style.
+ *   4. The compiled CSS has none of these: display:grid, grid-template, margin-left/right:auto (or an auto margin shorthand),
+ *      :not(, space-evenly, and a var() inside a shorthand property. The UI.log warns "Custom CSS expressions are not
+ *      supported in shorthand declaration".
+ *      Scoping: our CSS shares one document with the game and every mod. This is the one failure that no error boundary or
+ *      try/catch can contain (`:global(div){pointer-events:none}` would freeze the whole UI). Every selector must be able to
+ *      match only inside our own subtree. That holds when the subject (rightmost compound) carries one of our `.sr-` classes,
+ *      or when a compound that carries one is followed by a descendant or child combinator. A sibling combinator right after
+ *      such a compound (`.sr-x ~ div`) leaks beside our root.
+ *      The gate checks inside @media / @supports. @keyframes and @font-face names must start with `sr-` (both names are
+ *      global too). @charset is allowed. Any other at-rule fails.
+ *   5. src/ (TypeScript AST) must meet all of these rules:
+ *      - Every value import from cs2/* names a runtime export of the game (the typings declare more than exists, and a
+ *        missing name is `undefined` at runtime).
+ *      - No namespace or default import of cs2/*. The exception is src/cs2shim.ts, whose every `<ns>.<Name>` access the
+ *        gate checks the same way.
+ *      - No npm package other than react.
+ *      - No dynamic import().
+ *      - No moduleRegistry call other than append.
+ *      - No .extend( / .override(.
+ *      - No select, option or table elements.
+ *      - No inline grid styles.
+ *      - No style import other than *.module.scss (a plain .scss compiles with global selectors).
+ *      - Every string and JSX text passes the glyph allowlist.
  *   6. mod/SkiResortMod/LocaleEN.cs: every SkiResort.Hub.* value passes the glyph allowlist.
- *   7. smoke test: the bundle is import()ed in Node against stub window modules (real React from node_modules); `default` must
- *      be a function, `hasCSS` must be true, the registrar must not throw, must call only moduleRegistry.append, only on the
- *      hooks we own, each time with a plain function component (append() treats a non-function second argument as a module
- *      PATH: index.js@213139), and every bindValue() must pass a fallback that is not undefined (a binding without one throws
- *      when C# lacks it: index.js@421257). Containment: the registrar is run a second time with a registry whose append()
- *      throws, as the game's does when a patch moves the ModdingHook path (append -> extend("game-ui/modding/modding-hook.tsx")
- *      throws "Module ... was not found.", installed index.js@~212540-213139); nothing may escape, because the game's registrar
- *      loop has no try/catch (index.js@800454). Each appended component is then called once as a plain function (it must stay
- *      hook-free) and must return an element whose type is an error boundary (static getDerivedStateFromError or
- *      prototype.componentDidCatch).
- *   8. contract and source rules (function checkContract below):
- *      R1 C#/TS name parity: SkiResortHubUISystem.cs `HubContract` == bindings.ts HUB_CONTRACT and `Group` == GROUP; every
- *         BINDING / TRIGGER name is registered in C# with a string literal (`new ValueBinding<T>(Group, "name", ...)`,
- *         `new RawValueBinding(Group, "name", ...)`, `new TriggerBinding<...>(Group, "name", ...)`) as the same kind, and C#
- *         registers nothing else; a value binding's C# type matches the TS type's kind; a trigger's C# generic arity equals its
- *         TS argument count. A constructed binding that is never passed to AddBinding( is never registered with the game, so
- *         the UI shows its fallback forever and C# logs nothing.
+ *   7. Smoke test: the gate import()s the bundle in Node against stub window modules (real React from node_modules). These
+ *      conditions must hold:
+ *      - `default` is a function and `hasCSS` is true.
+ *      - The registrar does not throw. It calls only moduleRegistry.append, only on the hooks we own, and each time with a
+ *        plain function component (append() treats a non-function second argument as a module PATH: index.js@213139).
+ *      - Every bindValue() passes a fallback that is not undefined (a binding without one throws when C# lacks it:
+ *        index.js@421257).
+ *      Containment: the gate runs the registrar a second time with a registry whose append() throws. The game's append()
+ *      throws when a patch moves the ModdingHook path (append -> extend("game-ui/modding/modding-hook.tsx") throws
+ *      "Module ... was not found.", installed index.js@~212540-213139). Nothing may escape, because the game's registrar loop
+ *      has no try/catch (index.js@800454). The gate then calls each appended component once as a plain function (it must
+ *      stay hook-free). The component must return an element whose type is an error boundary (static getDerivedStateFromError
+ *      or prototype.componentDidCatch).
+ *   8. Contract and source rules (function checkContract below):
+ *      R1 C#/TS name parity: SkiResortHubUISystem.cs `HubContract` == bindings.ts HUB_CONTRACT and `Group` == GROUP. C#
+ *         registers every BINDING / TRIGGER name with a string literal (`new ValueBinding<T>(Group, "name", ...)`,
+ *         `new RawValueBinding(Group, "name", ...)`, `new TriggerBinding<...>(Group, "name", ...)`) as the same kind, and
+ *         registers nothing else. A value binding's C# type matches the TS type's kind. A trigger's C# generic arity equals its
+ *         TS argument count. The game never registers a constructed binding that is not passed to AddBinding(. The UI then
+ *         shows its fallback forever, and C# logs nothing.
  *      R2 shape parity: for every `writer.TypeBegin("SkiResortMod.<X>")` block in mod/SkiResortMod (**\/*.cs, bin/obj
- *         excluded) the `PropertyName("...")` literals equal the fields of TS interface <X> (a typo would otherwise render
- *         `undefined` -> "–" silently); every interface a binding carries must have at least one writer.
- *      R3 contract lock (tools/contract.lock): names, types and fields per shape. A change without a HUB_CONTRACT bump FAILS; a
- *         core name (bindings.ts CORE_NAMES) renamed, retyped or removed, a core shape field removed or retyped, or a new
- *         non-optional core field FAILS. `npm run contract:lock` rewrites the lock after a deliberate bump (it refuses a core
- *         break and a change without a bump; the diff is reviewed).
+ *         excluded), the `PropertyName("...")` literals equal the fields of TS interface <X>. Without this rule, a typo would
+ *         render `undefined` -> "–" silently. Every interface that a binding carries must have at least one writer.
+ *      R3 contract lock (tools/contract.lock): names, types and fields per shape. These changes FAIL: a change without a
+ *         HUB_CONTRACT bump, a core name (bindings.ts CORE_NAMES) that is renamed, retyped or removed, a core shape field that
+ *         is removed or retyped, and a new non-optional core field. `npm run contract:lock` rewrites the lock after a
+ *         deliberate bump. It refuses a core break and a change without a bump. Review the diff.
  *      R4 locale parity: every `[key, english]` tuple of string literals in src/ whose key starts with SkiResort. / Assets. /
- *         SubServices. exists in root LocaleEN.cs with identical text; a SkiResort.Hub.* key used by neither src/ nor another
- *         .cs file -> WARNING.
- *      R5 placeholders: t(...) / translate(...) on an entry whose English contains "{" FAILS ("use LocalizedString": translate()
- *         never substitutes, index.js@435324).
+ *         SubServices. must exist in root LocaleEN.cs with identical text. A SkiResort.Hub.* key that neither src/ nor another
+ *         .cs file uses gives a WARNING.
+ *      R5 placeholders: t(...) / translate(...) on an entry whose English contains "{" FAILS ("use LocalizedString").
+ *         translate() never substitutes (index.js@435324).
  *      R6 inputs: <input> / <textarea> only in src/hub/RenameField.tsx, which must contain `stopPropagation` and a
  *         useLayoutEffect cleanup that calls `.blur()`.
- *      R7 no JSX `title=` attribute (it shows nothing in Gameface; use Tip).
+ *      R7 no JSX `title=` attribute (it shows nothing in Gameface. Use Tip).
  *      R8 CSS `gap`, `row-gap`, `column-gap`, `grid-gap` FAIL (compiled CSS and inline styles).
  *      R9 every CSS class whose name contains "blind" declares height: 0 and visibility: hidden.
  *      R10 every "Media/..." string literal in src/ exists under the installed Cities2_Data/Content/Game/UI (WARNING when no
  *         install path is set).
- *      R11 panel bindings only in panel-mounted files (PANEL_FILES); an always-mounted file may import only HubPanel from the
+ *      R11 panel bindings only in panel-mounted files (PANEL_FILES). An always-mounted file may import only HubPanel from the
  *         panel files.
  *      R12 hooks never after an early return or inside a condition / loop.
  *      R13 placeholder entries only as <LocText entry={...}> (an alias of t or of the map would pass R5).
- *      R14 no untranslated JSX text / child string / visible prop string; R6 / R7 also cover createElement / jsx calls and
+ *      R14 no untranslated JSX text / child string / visible prop string. R6 / R7 also cover createElement / jsx calls and
  *         `title` in spread or props object literals.
- *      R15 (function lintPanelEdgeFocus) a focusable cs2/ui button rendered (directly or through our components) in a cs2/ui
- *         Panel's header or footer must pass focusKey={FOCUS_DISABLED}: those slots host one focus child. Hub-wide: every other
- *         focusable cs2/ui element in src/ must pass it too (sections: a literal disableFocus): the hub is mouse-only and its
- *         controls never take the game's key focus (consistency; FIX-LIST 58 was a test-helper false positive).
- *      R16 build-item parity C# <-> TS: reads mod/SkiResortMod/Systems/SkiCatalog.cs (`--catalog-cs=` overrides it), the NAMES
- *         block (`public const string X = "Name"; // Type[, item id][, pending]`) and the BUILD-ITEMS block (`new
- *         BuildItemDef("id", Names.X, BuildItemKind.K, "type", n),`, the markers inside the braces: every line between them
- *         is a row) as raw text (the NAMES grammar lives in end-of-line comments and the markers are comments, so this rule
- *         does not strip comments), and compares them with bindings.ts BuildItemId / BUILD_ITEM_IDS / BUILD_ITEM_PREFAB /
- *         LIFT_TYPE_IDS and src/hub/buildItems.ts BUILD_ITEMS / BUILD_GROUPS / BUILD_ITEM_ICON (checkBuildItems).
+ *      R15 (function lintPanelEdgeFocus) a focusable cs2/ui button rendered (directly or through our components) in the header
+ *         or footer of a cs2/ui Panel must pass focusKey={FOCUS_DISABLED}. Those slots host one focus child. Hub-wide: every
+ *         other focusable cs2/ui element in src/ must pass it too (sections: a literal disableFocus). The hub is mouse-only,
+ *         and its controls never take the game's key focus (consistency). FIX-LIST 58 was a test-helper false
+ *         positive.
+ *      R16 build-item parity C# <-> TS. The rule reads two blocks of mod/SkiResortMod/Systems/SkiCatalog.cs (`--catalog-cs=`
+ *         overrides the path):
+ *         - the NAMES block (`public const string X = "Name"; // Type[, item id][, pending]`)
+ *         - the BUILD-ITEMS block (`new BuildItemDef("id", Names.X, BuildItemKind.K, "type", n),`). The markers sit inside
+ *           the braces, and every line between them is a row.
+ *         It reads both blocks as raw text. The NAMES grammar lives in end-of-line comments and the markers are comments, so
+ *         this rule does not strip comments. It compares the blocks with bindings.ts BuildItemId / BUILD_ITEM_IDS /
+ *         BUILD_ITEM_PREFAB / LIFT_TYPE_IDS and src/hub/buildItems.ts BUILD_ITEMS / BUILD_GROUPS / BUILD_ITEM_ICON
+ *         (checkBuildItems).
  *      R17 enum parity: eight TS const objects against their C# enums.
  *      R18 the UI rules self-test (tools/test-hub-rules.js).
  *      R19 an element argument of <LocText> / <LocalizedString> (directly, through ?: && || ??, or one same-file variable) is a
- *         loc component (LOC_ARG_COMPONENTS): the game renders it through its type's renderString and prints "[name/]" for any
+ *         loc component (LOC_ARG_COMPONENTS). The game renders it through its type's renderString and prints "[name/]" for any
  *         other component (2026-11-02: "Car spaces at [_i/]" while LocText had no renderString).
- *      `node tools/check-bundle.js --contract-only` runs R1-R7, R10 and R11-R19 plus the source lint without a bundle;
+ *      `node tools/check-bundle.js --contract-only` runs R1-R7, R10 and R11-R19 plus the source lint without a bundle.
  *      `--hub-cs=`, `--catalog-cs=`, `--locale=`, `--lock=`, `--src=` and `--cs-dir=` point the checks at other files (fault
- *      tests; any override is reported as a WARNING).
+ *      tests). The gate reports any override as a WARNING.
  *
- * Runtime export lists: parsed at check time from the installed game's index.js (so a patch that removes an export fails the
- * build on patch day). When CSII_INSTALLATIONPATH is set but that index.js cannot be read or its export table cannot be parsed,
- * the gate FAILS and names the reason (falling back silently to the 1.6.2f1 lists below would disable the patch-day check
- * exactly when a patch changed the file). The built-in lists are used only when no install path is set at all, and the report
- * says so.
+ * Runtime export lists: the gate parses them at check time from the installed game's index.js, so a patch that removes an
+ * export fails the build on patch day. When CSII_INSTALLATIONPATH is set but the gate cannot read that index.js or cannot
+ * parse its export table, the gate FAILS and names the reason. A silent fallback to the 1.6.2f1 lists below would disable the
+ * patch-day check exactly when a patch changed the file. The gate uses the built-in lists only when no install path is set
+ * at all, and the report says so.
  */
 "use strict";
 
@@ -120,7 +136,7 @@ const { readCsiiVar } = require("./user-env");
 const ROOT = path.resolve(__dirname, "..");
 const BUILD = path.join(ROOT, "build");
 
-/** Path overrides for fault tests: `--src=`, `--locale=`, `--hub-cs=`, `--cs-dir=`, `--lock=`. Every override in use is reported as a WARNING, so a gate run on the wrong files can never pass silently. */
+/** Path overrides for fault tests: `--src=`, `--locale=`, `--hub-cs=`, `--cs-dir=`, `--lock=`. The gate reports every override in use as a WARNING, so a gate run on the wrong files can never pass silently. */
 const ARGS = process.argv.slice(2);
 function argValue(name) {
   const hit = ARGS.find((a) => a.startsWith(`--${name}=`));
@@ -140,17 +156,17 @@ const LOCALE_EN = pathArg("locale", path.join(CS_DIR, "LocaleEN.cs"));
 const HUB_CS = pathArg("hub-cs", path.join(CS_DIR, "Systems", "SkiResortHubUISystem.cs"));
 /** Rule R16: the one build-item table and the NAMES block */
 const CATALOG_CS = pathArg("catalog-cs", path.join(CS_DIR, "Systems", "SkiCatalog.cs"));
-/** Rule R3. Written by `npm run contract:lock` (= node tools/check-bundle.js --write-lock). */
+/** Rule R3. `npm run contract:lock` (= node tools/check-bundle.js --write-lock) writes it. */
 const CONTRACT_LOCK = pathArg("lock", path.join(ROOT, "tools", "contract.lock"));
 /** The one file allowed an <input> (rule R6) */
 const RENAME_FIELD = "hub/RenameField.tsx";
 /** The contract's source of truth */
 const BINDINGS_TS = "bindings.ts";
 /**
- * Rule R11: the bindings whose observers make C# compute for the panel may be referenced only in files that mount while the
- * panel is open. An always-mounted subscriber (index.tsx, HubRoot, HubLauncher, hubState) would keep the catalog / stats running
- * with the panel closed. A new panel file must be added here on purpose. SkiResortHubUISystem's Demand = build, resorts,
- * resortLive, runs, runLive, lifts, problems, city observed; selectedResort and glade are panel bindings too; pisteMap, follow,
+ * Rule R11: only files that mount while the panel is open may reference the bindings whose observers make C# compute for the
+ * panel. An always-mounted subscriber (index.tsx, HubRoot, HubLauncher, hubState) would keep the catalog / stats running
+ * with the panel closed. Add a new panel file here on purpose. SkiResortHubUISystem's Demand = build, resorts,
+ * resortLive, runs, runLive, lifts, problems, city observed. selectedResort and glade are panel bindings too. pisteMap, follow,
  * history and liftLine are panel bindings without Demand.
  */
 const PANEL_BINDINGS = new Set([
@@ -160,10 +176,10 @@ const PANEL_BINDINGS = new Set([
   "liftLine$",
 ]);
 /**
- * Rule R11: the always-mounted files (they render while the hub is closed) may import only HubPanel from the panel files (a
- * value import; type-only imports are erased). An always-mounted file that imports and renders <StatusBlock/> or any other panel
- * component passes the per-binding check (it references no panel binding itself) but mounts that component's subscriptions
- * with the panel closed.
+ * Rule R11: the always-mounted files (they render while the hub is closed) may import only HubPanel from the panel files. The rule
+ * covers value imports (type-only imports are erased). An always-mounted file that imports and renders <StatusBlock/> or any
+ * other panel component passes the per-binding check, because it references no panel binding itself. But it mounts that
+ * component's subscriptions with the panel closed.
  */
 const ALWAYS_MOUNTED_FILES = new Set([
   "index.tsx", "hub/HubRoot.tsx", "hub/HubLauncher.tsx", "hub/hubState.ts", "hub/ErrorBoundary.tsx", "hub/BusCard.tsx",
@@ -178,9 +194,9 @@ const PANEL_FILES = new Set([
 /** Rule R16: the TS file that holds BUILD_GROUPS */
 const BUILD_ITEMS_TS = path.join("hub", "buildItems.ts");
 /**
- * Rule R17: the TS const objects of bindings.ts and the C# enums (file under CS_DIR) that must hold the same names with the same
- * values, both directions. BAND and LIFT_STATE have no C# enum (literal ints in C#) and are not compared. Systems/SkiDayRules.cs
- * is in the csproj's SkiUiInput list, so an edit there re-runs this gate.
+ * Rule R17: the TS const objects of bindings.ts and the C# enums (file under CS_DIR) must hold the same names with the same
+ * values, in both directions. The gate does not compare BAND and LIFT_STATE: they have no C# enum (literal ints in C#).
+ * Systems/SkiDayRules.cs is in the csproj's SkiUiInput list, so an edit there re-runs this gate.
  */
 const ENUM_PAIRS = [
   ["RUN_KIND", "Systems/EntityRef.cs", "RunKind"],
@@ -195,7 +211,7 @@ const ENUM_PAIRS = [
   ["SKI_DAY_STATE", "Systems/HubRules.cs", "HubSkiDayState"],
   ["SKI_DAY_LIMIT", "Systems/SkiDayRules.cs", "SkiDayLimit"],
 ];
-/** Rule R19: components the game can render as a placeholder argument (a renderString and a propsAreEqual; LocText carries
+/** Rule R19: components the game can render as a placeholder argument (a renderString and a propsAreEqual: LocText carries
  * LocalizedString's, src/hub/parts.tsx) */
 const LOC_ARG_COMPONENTS = new Set(["LocText", "LocalizedString", "LocalizedNumber", "LocalizedBounds", "LocalizedFraction"]);
 /** Rule R14: JSX props whose string-literal value the player reads */
@@ -204,7 +220,7 @@ const VISIBLE_PROPS = new Set(["label", "tip", "tooltip", "tooltipLabel", "place
 const LETTER_RE = /\p{L}/u;
 const MOD = JSON.parse(fs.readFileSync(path.join(ROOT, "mod.json"), "utf8"));
 const STAMP_FILE = ".ui-stamp";
-/** Written (content = the stamp) only by a passing run; see "The gate marker" in the header */
+/** Written (content = the stamp) only by a passing run. See "The gate marker" in the header */
 const GATE_FILE = ".gate-pass";
 const STAMP_RE = /^[A-Za-z0-9._-]{1,64}$/;
 /** Text of the "/*!" comment in src/index.tsx that guarantees terser extracts >= 1 comment */
@@ -217,10 +233,10 @@ const SHIM_FILE = "cs2shim.ts";
 const ALLOWED_HOOKS = ["UniversalModMenu", "GameTopLeft", "Game"];
 
 /**
- * Runtime exports of the game's window modules on 1.6.2f1, read from the installed Cities2_Data/Content/Game/UI/index.js: window
- * names at @799710 (`Object.defineProperties(window, {...})`), each module object built by `n.r(X),n.d(X,{name:()=>...})` -
- * cs2/api @191690, cs2/l10n @192007, cs2/ui @197852, cs2/bindings @209234, cs2/utils @209823, cs2/input @210083, cs2/modding
- * @212063. Fallback only: the live parse below wins when it succeeds.
+ * Runtime exports of the game's window modules on 1.6.2f1. They come from the installed Cities2_Data/Content/Game/UI/index.js.
+ * Window names are at @799710 (`Object.defineProperties(window, {...})`). Each module object is built by
+ * `n.r(X),n.d(X,{name:()=>...})`: cs2/api @191690, cs2/l10n @192007, cs2/ui @197852, cs2/bindings @209234, cs2/utils @209823,
+ * cs2/input @210083, cs2/modding @212063. Fallback only: the live parse below wins when it succeeds.
  */
 const RUNTIME_EXPORTS_1_6_2 = {
   "cs2/api": "bindEvent bindLocalValue bindMap bindTrigger bindTriggerWithArgs bindValue call trigger useMapValue useMapValueOnChange useMapValues useReducedValue useValue useValueOnChange useValueRef",
@@ -235,12 +251,12 @@ const RUNTIME_EXPORTS_1_6_2 = {
 const ANCHOR = { "cs2/api": "bindValue", "cs2/bindings": "tool", "cs2/l10n": "useLocalization", "cs2/ui": "Panel", "cs2/utils": "entityKey", "cs2/input": "FOCUS_AUTO", "cs2/modding": "getModule" };
 
 /**
- * Glyphs that render in every in-game font chain (Overpass, Noto Sans, CJK, Thai), read from the fonts' character maps, beside
- * printable ASCII: arrows, ellipsis, middle dot, en dash, multiplication sign, degree, superscript two, no-break space, and
- * "≈" (U+2248: in the cmap of Overpass-Regular/-Bold.ttf and NotoSans-Regular/-Bold.ttf of the installed
- * Cities2_Data/Content/Game/UI/Fonts, and every --fontFamily chain of index.css contains "Noto Sans", index.css@1349). Not
- * safe: the em dash was not on the checked list, and triangles / circles / diamonds / check marks exist only in fallback
- * fonts. Extend this list only with evidence.
+ * Glyphs that render in every in-game font chain (Overpass, Noto Sans, CJK, Thai). The list comes from the fonts' character
+ * maps. It holds these glyphs beside printable ASCII: arrows, ellipsis, middle dot, en dash, multiplication sign, degree,
+ * superscript two, no-break space, and "≈". Evidence for "≈" (U+2248): it is in the cmap of Overpass-Regular/-Bold.ttf and
+ * NotoSans-Regular/-Bold.ttf of the installed Cities2_Data/Content/Game/UI/Fonts, and every --fontFamily chain of index.css
+ * contains "Noto Sans" (index.css@1349). Not safe: the em dash was not on the checked list. Triangles, circles, diamonds and
+ * check marks exist only in fallback fonts. Extend this list only with evidence.
  */
 const SAFE_GLYPHS = new Set(["←", "→", "↑", "↓", "…", "·", "–", "×", "°", "²", "≈"," "]);
 const CSS_SHORTHANDS = ["margin", "padding", "border", "border-top", "border-right", "border-bottom", "border-left",
@@ -259,7 +275,7 @@ function listFiles(dir, base = dir) {
   return out;
 }
 
-/** The files that go next to the DLL (relative to build/). Used by the deploy plugin; the csproj mirrors it. */
+/** The files that go next to the DLL (relative to build/). The deploy plugin uses it, and the csproj mirrors it. */
 function bundleFiles(buildDir = BUILD) {
   if (!fs.existsSync(buildDir)) return [];
   return listFiles(buildDir).filter((f) => f !== STAMP_FILE && f !== GATE_FILE).sort();
@@ -270,7 +286,7 @@ function isAllowedBuildFile(rel) {
     rel === STAMP_FILE || rel === GATE_FILE || new RegExp(`^${MOD.id}-img/[^/]+\\.(png|svg)$`, "i").test(rel);
 }
 
-/** Deletes build/.gate-pass. Never throws (a marker that cannot be deleted is reported by the caller's re-read). */
+/** Deletes build/.gate-pass. Never throws. The caller's re-read reports a marker that cannot be deleted. */
 function removeGateMarker(buildDir = BUILD) {
   try { fs.rmSync(path.join(buildDir, GATE_FILE), { force: true }); } catch { /* reported by readGateMarker */ }
 }
@@ -390,7 +406,7 @@ function lintSources(runtime, errors) {
     const sf = ts.createSourceFile(file, text, ts.ScriptTarget.ES2020, true,
       rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     const at = (node) => `src/${rel}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`;
-    /** src/cs2shim.ts only: namespace identifier -> cs2 module; every `<ns>.<Name>` is checked */
+    /** src/cs2shim.ts only: namespace identifier -> cs2 module. The gate checks every `<ns>.<Name>` */
     const shimNamespaces = new Map();
     const unwrap = (e) => {
       while (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isNonNullExpression(e) ||
@@ -577,8 +593,8 @@ function cssRules(text, out = []) {
 
 /**
  * Rule R9: a class whose name contains "blind" is a width sample (vanilla FullWidthDigits, index.css@127211
- * `.blind_u0R{height:0;visibility:hidden}`); one that shows or takes height would put a second copy of a number on screen. Its
- * own rule(s) - selector exactly `.<class>` - must declare height: 0 and visibility: hidden.
+ * `.blind_u0R{height:0;visibility:hidden}`). A class that shows or takes height would put a second copy of a number on screen.
+ * Its own rule(s) - selector exactly `.<class>` - must declare height: 0 and visibility: hidden.
  */
 function lintBlindClasses(text, errors) {
   const rules = cssRules(text);
@@ -705,8 +721,9 @@ function compoundHasOurClass(compound) {
 
 /**
  * Why a complex selector could match an element outside our own subtree, or null when it cannot. Safe: the subject (rightmost
- * compound) carries an .sr- class, or some compound carrying one is followed by a descendant (" ") or child (">") combinator -
- * every later compound then lies strictly inside that element's subtree (a sibling of a strict descendant is still inside it).
+ * compound) carries an .sr- class, or some compound that carries one is followed by a descendant (" ") or child (">")
+ * combinator. Every later compound then lies strictly inside that element's subtree (a sibling of a strict descendant is
+ * still inside it).
  */
 function selectorLeak(sel) {
   const { compounds, combinators } = parseComplexSelector(sel);
@@ -721,7 +738,7 @@ function selectorLeak(sel) {
     : "it carries no .sr- class of ours, so it can match the game's or another mod's elements";
 }
 
-/** Checks every selector of a CSS rule list; recurses into @media / @supports. Returns the selector count. */
+/** Checks every selector of a CSS rule list. Recurses into @media / @supports. Returns the selector count. */
 function lintCssScoping(text, errors, where) {
   let count = 0;
   for (const it of cssItems(text)) {
@@ -849,9 +866,9 @@ function readHubCs(file, errors) {
     const literal = m[6] !== undefined ? m[6] : null;
     const kind = /^(TriggerBinding|CallBinding)$/.test(cls) ? "trigger" : /^(ValueBinding|RawValueBinding|GetterValueBinding|RawMapBinding|ValueBindingWithCustomEquality)$/.test(cls) ? "binding" : null;
     if (!kind) continue;
-    // R1: a constructed binding that is never passed to AddBinding( is never registered with the game. Registered = the `new` sits
-    // directly in an AddBinding( argument (through any `x = y =` assignment chain), or it is assigned to a name that appears as
-    // AddBinding(name).
+    // R1: the game never registers a constructed binding that is not passed to AddBinding(. The checker counts a binding as
+    // registered when the `new` sits directly in an AddBinding( argument (through any `x = y =` assignment chain), or when the
+    // binding is assigned to a name that appears as AddBinding(name).
     const before = src.slice(0, m.index);
     let added = /\bAddBinding\s*\(\s*(?:[A-Za-z_][\w.]*\s*=\s*)*$/.test(before);
     if (!added) {
@@ -912,10 +929,11 @@ function readCsWriters(dir, errors) {
 }
 
 /**
- * R2: value-kind inference for `writer.PropertyName("x"); writer.Write(<expr>);`. The checker has no C# type information, so it
- * uses the declared type of the last identifier of the argument (field, property, local, parameter or method return type
- * declared anywhere under CS_DIR; a name declared with more than one kind is "unknown" and skipped), plus the cast / Fin(...) /
- * "?? \"\"" / comparison / literal forms. "unknown" never fails: only a certain mismatch does.
+ * R2: value-kind inference for `writer.PropertyName("x"); writer.Write(<expr>);`. The checker has no C# type information. It
+ * uses the declared type of the last identifier of the argument. That type can be a field, property, local, parameter or
+ * method return type declared anywhere under CS_DIR. A name declared with more than one kind is "unknown" and skipped. The
+ * checker also reads the cast / Fin(...) / "?? \"\"" / comparison / literal forms. "unknown" never fails: only a certain
+ * mismatch does.
  */
 function collectCsMemberKinds(src, map) {
   const re = /(?:^|[\s(,;{])(bool|byte|sbyte|short|ushort|int|uint|long|ulong|float|double|string|Entity)(\[\])?\s+([A-Za-z_]\w*)\s*(?=[=;,)(\[{]|=>)/g;
@@ -941,7 +959,7 @@ function writeArgAfter(src, pos) {
   return depth === 0 ? src.slice(start, i - 1).trim() : null;
 }
 
-/** Splits at the first top-level `?` (not `??`) and its `:`; null when there is none */
+/** Splits at the first top-level `?` (not `??`) and its `:`. Returns null when there is none */
 function splitTernary(e) {
   let depth = 0, q = -1;
   for (let i = 0; i < e.length; i++) {
@@ -1453,7 +1471,7 @@ function checkContract(errors, warnings, report, opts = {}) {
     `${edge.helpers} helper function(s) followed: ${edge.names.join(", ") || "none"}); hub-wide ${edge.hubButtons} further ` +
     "focusable cs2/ui JSX element(s), each checked the same way");
 
-  // Each of R16-R18 runs on its own; a crash of one is an error, never a silent pass
+  // Each of R16-R18 runs on its own. A crash of one is an error, never a silent pass.
   const tsLiterals = readTsLiterals(ts, errors);
   try { checkBuildItems(tsLiterals, errors, report); }
   catch (e) { errors.push(`contract: rule R16 crashed (${e && e.message ? e.message : e}) (rule R16)`); }
@@ -1480,20 +1498,20 @@ function checkContract(errors, warnings, report, opts = {}) {
 }
 
 /**
- * R11-R14 and the R5 / R6 / R7 hardening; each rule here FAILS:
+ * R11-R14 and the R5 / R6 / R7 hardening. Each rule here FAILS:
  *   R11 a panel binding (PANEL_BINDINGS) referenced outside PANEL_FILES and bindings.ts - an always-mounted subscriber keeps C#
- *       computing with the panel closed;
+ *       computing with the panel closed.
  *   R12 a hook call (use[A-Z]...) after an early return in the same function, or inside an if / loop / switch / ?: branch / the
- *       right side of && || ?? - React's hook order;
+ *       right side of && || ?? - React's hook order.
  *   R13 a reference to a placeholder entry (a [key, english] map entry whose English contains "{") that is not the `entry` prop
- *       of <LocText>, or the placeholder map itself used other than as `MAP.entry` - `const say = t; say(HUB_FMT.x)` rendered
- *       "{N} ..." literally;
+ *       of <LocText>, or the placeholder map itself used other than as `MAP.entry`. Example: `const say = t; say(HUB_FMT.x)`
+ *       rendered "{N} ..." literally.
  *   R14 untranslated text: JSX text with a letter, a string-literal JSX child with a letter, or a letter in the string-literal
- *       value of a player-visible prop (VISIBLE_PROPS) - structural props (variant, src, type, className, key, theme) and Media/
- *       paths are not checked;
+ *       value of a player-visible prop (VISIBLE_PROPS). The gate does not check structural props (variant, src, type, className,
+ *       key, theme) or Media/ paths.
  *   R6 / R7 hardening: createElement / jsx / jsxs calls with "input" / "textarea" (outside RenameField) or "select" / "option" /
- *       "table", and a `title` prop passed through a spread object literal or a createElement props literal. A spread of a
- *       non-literal object is not checkable here (stated, not hidden).
+ *       "table", and a `title` prop passed through a spread object literal or a createElement props literal. The gate cannot
+ *       check a spread of a non-literal object here (stated, not hidden).
  * Returns counters for the report line.
  */
 function lintFixerRules(ts, parsed, entryMaps, errors) {
@@ -1525,7 +1543,7 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
     const isRename = relN === RENAME_FIELD;
 
     // R19: the JSX elements an argument value can evaluate to: through ?: && || ?? and parentheses, and one step through a
-    // same-file variable of that name (every declaration of the name: conservative). A call result (numArg) is not followed.
+    // same-file variable of that name (every declaration of the name: conservative). The walk does not follow a call result (numArg).
     const declsOf = (name) => {
       const found = [];
       const visit = (n) => {
@@ -1722,30 +1740,33 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
 const EDGE_FOCUSABLE = new Set(["Button", "FloatingButton", "MenuButton", "DropdownToggle", "Dropdown"]);
 /**
  * Rule R15: cs2/ui sections that register a focus key unless given a literal `disableFocus` (installed index.js@198225 exports
- * PanelSection = InfoSection @721944, PanelFoldout = InfoSectionFoldout @730261, PanelSectionRow = InfoRow @731753). Without it
- * each renders an ActiveFocusDiv (`Gp` @586265: focusKey FOCUS_AUTO, activation Always); with it a pass-through div (`Bp`) whose
- * inner NavigationScope registers only when a focusable child does (activation AnyChildren, @570953), and those children are
- * checked on their own. A PanelSectionRow with `link` renders the ActiveFocusDiv whatever disableFocus says.
+ * PanelSection = InfoSection @721944, PanelFoldout = InfoSectionFoldout @730261, PanelSectionRow = InfoRow @731753). Without it,
+ * each renders an ActiveFocusDiv (`Gp` @586265: focusKey FOCUS_AUTO, activation Always). With it, each renders a pass-through
+ * div (`Bp`). Its inner NavigationScope registers only when a focusable child does (activation AnyChildren, @570953). The gate
+ * checks those children on their own. A PanelSectionRow with `link` renders the ActiveFocusDiv whatever disableFocus says.
  */
 const EDGE_SECTIONS = new Set(["PanelSection", "PanelFoldout", "PanelSectionRow"]);
 /** Rule R15: the cs2/ui Panel props whose content sits under a single-child focus controller */
 const EDGE_SLOTS = new Set(["header", "footer"]);
 
 /**
- * Rule R15. cs2/ui Panel wraps its header and its footer each in a FocusKeyOverride (installed 1.6.2f1 index.js@684800 `Tp`)
- * whose KeyFocusController hosts ONE child (`bp.registerChild` @578500: "Cannot register second focus key ... KeyFocusControllers
- * can only host a single child"), and a cs2/ui Button registers itself unless its focusKey is FOCUS_DISABLED (button.tsx @629600:
+ * Rule R15. cs2/ui Panel wraps its header and its footer each in a FocusKeyOverride (installed 1.6.2f1 index.js@684800 `Tp`).
+ * Its KeyFocusController hosts ONE child (`bp.registerChild` @578500: "Cannot register second focus key ... KeyFocusControllers
+ * can only host a single child"). A cs2/ui Button registers itself unless its focusKey is FOCUS_DISABLED (button.tsx @629600:
  * `Gg(e??(s?Ug:Bg))`, FOCUS_AUTO by default). The vanilla title bar's close button passes focusKey:Ug (FOCUS_DISABLED, @686490).
- * FAILS: a focusable cs2/ui component (EDGE_FOCUSABLE) rendered, directly or through our own components, inside the `header` /
- * `footer` prop of a cs2/ui <Panel> without `focusKey={FOCUS_DISABLED}` (the identifier imported from cs2/input), with a spread
- * and no explicit focusKey, or with a spread after the explicit focusKey (it can override it). Also FAILS: a cs2/ui PanelSection /
- * PanelFoldout / PanelSectionRow (EDGE_SECTIONS) there without a literal `disableFocus` (bare, or ={true}), with a spread after
- * it, or - PanelSectionRow - with `link` or any spread (a spread could carry link). Also FAILS when src/ has no Panel header /
- * footer at all (the rule would check nothing). Followed: JSX tags (capitalized), and helper functions - the callee of a call in
- * the slot (`{tile(...)}`) and a function passed by name as a call argument (`.map(tile)`) - each when it is a local declaration
- * of the same file or a relative import (its exported declaration; a default import = the whole file); cs2/*, react and npm names
- * are not followed. Not followed: JSX kept in a variable outside the slot (HubPanel's `failed` fallback), a component passed as a
- * prop value, createElement calls, a function reached through a property (`parts.tile()`, `{...}.map(o.render)`) or declared
+ * FAILS:
+ *   - A focusable cs2/ui component (EDGE_FOCUSABLE) rendered, directly or through our own components, inside the `header` /
+ *     `footer` prop of a cs2/ui <Panel>. It FAILS without `focusKey={FOCUS_DISABLED}` (the identifier imported from cs2/input),
+ *     with a spread and no explicit focusKey, or with a spread after the explicit focusKey (it can override it).
+ *   - A cs2/ui PanelSection / PanelFoldout / PanelSectionRow (EDGE_SECTIONS) there. It FAILS without a literal `disableFocus`
+ *     (bare, or ={true}), or with a spread after it. A PanelSectionRow also FAILS with `link` or any spread (a spread could
+ *     carry link).
+ *   - src/ has no Panel header / footer at all (the rule would check nothing).
+ * Followed: JSX tags (capitalized), and helper functions - the callee of a call in the slot (`{tile(...)}`) and a function
+ * passed by name as a call argument (`.map(tile)`). Each is followed when it is a local declaration of the same file or a
+ * relative import (its exported declaration, where a default import = the whole file). cs2/*, react and npm names are not followed.
+ * Not followed: JSX kept in a variable outside the slot (HubPanel's `failed` fallback), a component passed as a prop value,
+ * createElement calls, a function reached through a property (`parts.tile()`, `{...}.map(o.render)`), and a function declared
  * inside another function's body outside the slot.
  */
 function lintPanelEdgeFocus(ts, parsed, errors) {
@@ -1803,7 +1824,7 @@ function lintPanelEdgeFocus(ts, parsed, errors) {
       : "without focusKey={FOCUS_DISABLED} (imported from cs2/input)" +
         (spreadAt >= 0 ? "; a spread is not checkable, pass focusKey explicitly after it" : "");
   };
-  /** Elements the Panel header / footer walk checked; the hub-wide pass skips them (one message per element) */
+  /** Elements the Panel header / footer walk checked. The hub-wide pass skips them (one message per element) */
   const slotChecked = new Set();
   const checkFocusKey = (f, el, kind, via) => {
     slotChecked.add(el);
@@ -1963,7 +1984,7 @@ function csEnum(src, name) {
   return out;
 }
 
-/** The TS literals R16 / R17 read (TypeScript AST): bindings.ts BUILD_ITEM_IDS, the BuildItemId union, BUILD_ITEM_PREFAB, LIFT_TYPE_IDS and every UPPER_CASE const object of literal numbers; buildItems.ts BUILD_GROUPS, BUILD_ITEMS (rows of literals) and BUILD_ITEM_ICON (its keys). A missing or non-literal value stays null (the rule reports it). */
+/** The TS literals that R16 / R17 read (TypeScript AST). From bindings.ts: BUILD_ITEM_IDS, the BuildItemId union, BUILD_ITEM_PREFAB, LIFT_TYPE_IDS and every UPPER_CASE const object of literal numbers. From buildItems.ts: BUILD_GROUPS, BUILD_ITEMS (rows of literals) and BUILD_ITEM_ICON (its keys). A missing or non-literal value stays null (the rule reports it). */
 function readTsLiterals(ts, errors) {
   const out = { ids: null, union: null, prefab: null, groups: null, liftTypes: null, items: null, iconKeys: null, consts: new Map() };
   const unwrap = (e) => { while (e && (ts.isAsExpression(e) || ts.isParenthesizedExpression(e))) e = e.expression; return e; };
@@ -2053,9 +2074,9 @@ function readTsLiterals(ts, errors) {
   return out;
 }
 
-/** One NAMES line; groups 1 const, 2 prefab name, 3 PrefabID type, 4 item, 5 pending */
+/** One NAMES line. Groups: 1 const, 2 prefab name, 3 PrefabID type, 4 item, 5 pending */
 const NAMES_LINE_RE = /^\s*public const string (\w+)\s*=\s*"([^"]+)";\s*\/\/\s*(\w+Prefab)(?:,\s*item\s+(\w+))?(?:,\s*(pending))?\s*$/;
-/** One BUILD-ITEMS row; groups 1 id, 2 Names const, 3 kind, 4 lift type, 5 run kind */
+/** One BUILD-ITEMS row. Groups: 1 id, 2 Names const, 3 kind, 4 lift type, 5 run kind */
 const BUILD_ITEM_LINE_RE = /^\s*new BuildItemDef\("(\w+)",\s*Names\.(\w+),\s*BuildItemKind\.(\w+),\s*"(\w*)",\s*(-?\d+)\),\s*$/;
 /** C# BuildItemKind -> its PrefabID type (SkiCatalog.TypeNameOf): Line -> PowerLinePrefab, Run -> SurfacePrefab, Fence -> NetFencePrefab, else BuildingPrefab */
 function typeNameOfKind(kind) {
@@ -2081,18 +2102,30 @@ function markerBlock(lines, name) {
 
 /**
  * Rule R16: build items, C# <-> TS. Reads CATALOG_CS raw (its NAMES grammar sits in end-of-line comments and the markers are
- * comments) and the TS literals. FAILS, one line each ending "(rule R16)": the file unreadable; a block's markers missing /
- * repeated / out of order; a BUILD-ITEMS block not directly inside its array braces (`{` before BEGIN, `};` after END); a line
- * inside a block that does not match its grammar (a comment line included: every line between the markers is an entry); an
- * empty NAMES block or table; a duplicate NAMES const or prefab name; a duplicate table id; an unknown BuildItemKind (the C#
- * enum, comments stripped); `Names.X` not in NAMES; the NAMES type not the kind's (TypeNameOf); a NAMES `item` token without a
- * table row, or a row whose NAMES entry has a different or no item token; a Run row whose id does not start with "run" (or
- * another row whose id does), a run kind outside RUN_KIND (TS, itself R17-checked against C# RunKind), a non-run row with run
- * kind != -1; a Station / Line row without a lift type or another row with one; a lift type without exactly one base station
- * ("baseStation..." id), one top station ("topStation..." id) and one line row; the table's lift types != bindings.ts
- * LIFT_TYPE_IDS; a TS literal missing or not literal; BUILD_ITEMS row i != C# row i (id, kind in lower camel case, liftType,
- * runKind) or a different row count; the BuildItemId union, BUILD_ITEM_IDS, BUILD_ITEM_PREFAB keys or BUILD_ITEM_ICON keys !=
- * the table's id set; BUILD_ITEM_PREFAB[id] != the C# row's prefab; BUILD_GROUPS not holding every id exactly once.
+ * comments) and the TS literals. FAILS, one line each ending "(rule R16)", on any of these:
+ *   - the file is unreadable
+ *   - a block's markers are missing / repeated / out of order
+ *   - a BUILD-ITEMS block is not directly inside its array braces (`{` before BEGIN, `};` after END)
+ *   - a line inside a block does not match its grammar (a comment line included: every line between the markers is an entry)
+ *   - an empty NAMES block or table
+ *   - a duplicate NAMES const or prefab name
+ *   - a duplicate table id
+ *   - an unknown BuildItemKind (the C# enum, comments stripped)
+ *   - `Names.X` is not in NAMES
+ *   - the NAMES type is not the kind's (TypeNameOf)
+ *   - a NAMES `item` token has no table row, or a row whose NAMES entry has a different or no item token
+ *   - a Run row whose id does not start with "run" (or another row whose id does)
+ *   - a run kind outside RUN_KIND (TS, itself R17-checked against C# RunKind)
+ *   - a non-run row with run kind != -1
+ *   - a Station / Line row without a lift type, or another row with one
+ *   - a lift type without exactly one base station ("baseStation..." id), one top station ("topStation..." id) and one line
+ *     row
+ *   - the table's lift types != bindings.ts LIFT_TYPE_IDS
+ *   - a TS literal is missing or not literal
+ *   - BUILD_ITEMS row i != C# row i (id, kind in lower camel case, liftType, runKind), or a different row count
+ *   - the BuildItemId union, BUILD_ITEM_IDS, BUILD_ITEM_PREFAB keys or BUILD_ITEM_ICON keys != the table's id set
+ *   - BUILD_ITEM_PREFAB[id] != the C# row's prefab
+ *   - BUILD_GROUPS does not hold every id exactly once
  */
 function checkBuildItems(tsSide, errors, report) {
   const at = path.basename(CATALOG_CS);
@@ -2210,9 +2243,10 @@ function checkBuildItems(tsSide, errors, report) {
 }
 
 /**
- * Rule R17: enum parity, C# <-> TS. For each ENUM_PAIRS entry the TS const object (literal numbers, a leading "-" allowed) and the
- * C# enum (literal values or the implicit +1 rule) must hold the same names with the same values, both directions; a missing file,
- * enum or const object FAILS too. A TS-only or C#-only member would make the UI misread a code silently.
+ * Rule R17: enum parity, C# <-> TS. For each ENUM_PAIRS entry, compare the TS const object (literal numbers, a leading "-" allowed)
+ * and the C# enum (literal values or the implicit +1 rule). Both must hold the same names with the same values, in both
+ * directions. A missing
+ * file, enum or const object FAILS too. A TS-only or C#-only member would make the UI misread a code silently.
  */
 function checkEnumParity(tsSide, errors, report) {
   let n = 0;
@@ -2238,7 +2272,7 @@ function checkEnumParity(tsSide, errors, report) {
 
 /**
  * Rule R18: the UI rules self-test. tools/test-hub-rules.js compiles src/bindings.ts and src/hub/hubRules.ts (of --src= when
- * given) in Node and checks its literal oracles; each failure (or a crash: an impure import, a syntax error) FAILS the gate.
+ * given) in Node and checks its literal oracles. Each failure (or a crash: an impure import, a syntax error) FAILS the gate.
  */
 function checkHubRules(errors, report) {
   let r;
@@ -2255,7 +2289,7 @@ function checkHubRules(errors, report) {
 
 /** `npm run contract:lock`: rewrite tools/contract.lock (refuses a CORE break or a change without a bump) */
 function writeLock() {
-  // The lock records the TS side only (bindings.ts); C# parity is the gate's business (R1/R2)
+  // The lock records the TS side only (bindings.ts). C# parity is the gate's business (R1/R2)
   const errors = [];
   for (const o of OVERRIDES) console.warn(`contract:lock: WARNING path override in use: ${o}`);
   let ts;
@@ -2409,9 +2443,9 @@ async function smokeTest(mjsPath, errors, warnings) {
 
 
 /**
- * Runs every check on buildDir. Never leaves a stale pass behind: it deletes build/.gate-pass first, so a FAIL, an exception
- * (CRASH) or a killed process leaves no marker, and writes it (= the stamp) only on PASS. Resolves { ok, errors, warnings,
- * report, stamp }.
+ * Runs every check on buildDir. Never leaves a stale pass behind. It deletes build/.gate-pass first, so a FAIL, an exception
+ * (CRASH) or a killed process leaves no marker. It writes the marker (= the stamp) only on PASS. Resolves { ok, errors,
+ * warnings, report, stamp }.
  */
 async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
   const errors = [], warnings = [], report = [];
@@ -2510,8 +2544,8 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
 }
 
 /**
- * `--contract-only`: the source lint, the locale glyph lint and rules R1-R7 / R10 without a bundle (no build/ needed; the gate
- * marker is not touched). For quick checks and fault tests.
+ * `--contract-only`: the source lint, the locale glyph lint and rules R1-R7 / R10 without a bundle (no build/ needed, and the
+ * gate marker is not touched). For quick checks and fault tests.
  */
 function checkContractOnly() {
   const errors = [], warnings = [], report = [];

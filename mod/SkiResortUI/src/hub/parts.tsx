@@ -1,9 +1,12 @@
 /*
  * src/hub/parts.tsx - small building blocks shared by the hub sections.
- * Relies on engine facts of the installed 1.6.2f1 UI bundle (Cities2_Data/Content/Game/UI/index.js / index.css): PanelSectionRow renders its
- * `left` / `right` slots only when truthy (never pass a bare 0: pass an element or a non-empty string); LocalizedNumber is the unit formatter;
- * LocalizedString substitutes {NAME} placeholders also in the fallback; the stable-width idiom is vanilla's FullWidthDigits; Tooltip, not a
- * Button's `tooltipLabel`, for every hint; masked glyphs.
+ * Relies on engine facts of the installed 1.6.2f1 UI bundle (Cities2_Data/Content/Game/UI/index.js / index.css):
+ * - PanelSectionRow renders its `left` / `right` slots only when truthy. Never pass a bare 0: pass an element or a non-empty string.
+ * - LocalizedNumber is the unit formatter.
+ * - LocalizedString substitutes {NAME} placeholders also in the fallback.
+ * - The stable-width idiom is vanilla's FullWidthDigits.
+ * - Use Tooltip, not a Button's `tooltipLabel`, for every hint.
+ * - Glyphs are masked.
  * Engine notes: EngineNotes/parts.tsx.md
  */
 import { isValidElement, useMemo, useState } from "react";
@@ -18,7 +21,7 @@ import { GLYPH_INFO } from "./hubRules";
 import styles from "./hub.module.scss";
 
 /** True while vanilla's unit setting is US customary (UnitSystem.Freedom = 1). Snow depth is the one unit vanilla has no
- *  format for, so the hub shows whole inches then (SNOW_DEPTH_IN / STATUS_SNOW_IN), else cm. */
+ *  format for, so the hub then shows whole inches (SNOW_DEPTH_IN / STATUS_SNOW_IN). Otherwise it shows cm. */
 export function useInches(): boolean {
   const loc = useLocalization();
   return !!loc && !!loc.unitSettings && loc.unitSettings.unitSystem === 1;
@@ -29,7 +32,7 @@ export function depthValue(cm: number, inches: boolean): number {
   return inches ? Math.round(cm / 2.54) : cm;
 }
 
-/** A number with its unit; "–" for a value that is not finite (never "NaN m"). */
+/** A number with its unit. A value that is not finite shows "–" (never "NaN m"). */
 export function Num({ value, unit, signed }: { value: number; unit: Unit; signed?: boolean }): JSX.Element {
   if (typeof value !== "number" || !Number.isFinite(value)) return <span>{"–"}</span>;
   return <LocalizedNumber value={value} unit={unit} signed={signed} />;
@@ -49,9 +52,9 @@ const renderLocText: LocStringRenderer<LocTextProps> = (loc, p) => LocalizedStri
 const locTextPropsEqual: PropsAreEqual<LocTextProps> = (a, b) => LocalizedString.propsAreEqual(stringProps(a), stringProps(b));
 
 /** A placeholder entry ("... {N} ...") rendered through LocalizedString with its arguments.
- *  The only way to render an entry of HUB_FMT (src/l10n.ts header; gate rule 5). It may also be an argument of another LocText:
- *  the game turns an element argument into text through its type's renderString (index.js renderLocElement), and any other
- *  component prints "[name/]" (the Guests view showed "Car spaces at [_i/]" for a numbered lodge), so LocText carries
+ *  The only way to render an entry of HUB_FMT (src/l10n.ts header, gate rule 5). It may also be an argument of another LocText.
+ *  The game turns an element argument into text through its type's renderString (index.js renderLocElement). Any other
+ *  component prints "[name/]" (the Guests view showed "Car spaces at [_i/]" for a numbered lodge). So LocText carries
  *  LocalizedString's renderString and propsAreEqual. */
 export const LocText = Object.assign(LocTextView, { renderString: renderLocText, propsAreEqual: locTextPropsEqual });
 
@@ -76,10 +79,10 @@ export function Glyph({ src, className }: { src: string; className?: string }): 
 
 /**
  * Wraps `child` in a cs2/ui Tooltip when `tip` is set. The child must be ONE host element (<div>) or a cs2/ui component,
- * not one of our own function components: the Tooltip attaches its mouse listeners through DOMNodeModifier (installed
- * index.js@529099 `Su`), which clones a host element with a merged ref (DOMNodeProvider `ju`) but hands a function
- * component the ref only through DOMNodeContext, which our components do not read (a memo component gets the ref by
- * cloneElement and drops it). So a component that needs a tooltip takes a `tip` prop and puts the Tip around its own
+ * not one of our own function components. Reason: the Tooltip attaches its mouse listeners through DOMNodeModifier (installed
+ * index.js@529099 `Su`). DOMNodeModifier clones a host element with a merged ref (DOMNodeProvider `ju`). It hands a function
+ * component the ref only through DOMNodeContext, which our components do not read. A memo component gets the ref by
+ * cloneElement and drops it. So a component that needs a tooltip takes a `tip` prop and puts the Tip around its own
  * root div (InfoLine, SubLine, FlexBar).
  */
 export function Tip({ tip, children }: { tip?: ReactNode; children: JSX.Element }): JSX.Element {
@@ -94,7 +97,7 @@ function isPair(l: string | JSX.Element | { label: string | JSX.Element; value: 
   return typeof l === "object" && l !== null && !isValidElement(l) && "label" in l;
 }
 
-/** Multi-line tooltip body: the first line is the title; empty entries are skipped. */
+/** Multi-line tooltip body. The first line is the title. Empty entries are skipped. */
 export function TipLines({ lines }: { lines: ReadonlyArray<TipLine> }): JSX.Element {
   const shown = lines.filter((l) => !!l) as Array<string | JSX.Element | { label: string | JSX.Element; value: ReactNode }>;
   return (
@@ -115,7 +118,7 @@ export function TipLines({ lines }: { lines: ReadonlyArray<TipLine> }): JSX.Elem
 
 /**
  * A cell as wide as the widest of `samples` (plus its own content), so nothing beside it moves when the content
- * changes. The samples are blind children (height 0, hidden, nowrap, no pointer events). `align` = where the visible
+ * changes. The samples are blind children (height 0, hidden, nowrap, no pointer events). `align` is where the visible
  * content sits.
  */
 export function StableWidth({ samples, align, className, children }: {
@@ -134,7 +137,7 @@ export function StableWidth({ samples, align, className, children }: {
   );
 }
 
-/** The width samples of the number columns. ok=false: renderString threw, and the cells fall back to em min-widths. */
+/** The width samples of the number columns. If ok=false, renderString threw, and the cells fall back to em min-widths. */
 export interface NumberSamples {
   ok: boolean;
   length: readonly string[];
@@ -151,15 +154,18 @@ export interface NumberSamples {
 
 const NO_SAMPLES: NumberSamples = { ok: false, length: [], height: [], area: [], percent: [], count2: ["00"], money: ["-000,000"], count: ["00,000"] };
 
-/** Digits -> "0" (vanilla FullWidthDigits: '0' is taken as the widest digit; unverified for Overpass / Noto Sans) */
+/** Digits -> "0" (vanilla FullWidthDigits takes '0' as the widest digit. This is unverified for Overpass / Noto Sans) */
 function zeroDigits(s: string): string {
   return s.replace(/[0-9]/g, "0");
 }
 
 /**
- * `LocalizedNumber.renderString(loc, {value, unit})` of the widest plausible values, digits zeroed, memoised on the
- * localization context. Samples: length 999 m, 1,608 m (the yard/mile switch) and 99,900 m ("99.9 km": 99,000 would
- * print "99 km"); height 999 and 2,999 m (real drops are below 3 km); area 99,999 m^2 and 9,900,000 m^2; percent 199.
+ * Calls `LocalizedNumber.renderString(loc, {value, unit})` on the widest plausible values and zeroes the digits. The result
+ * is memoized on the localization context. Samples:
+ * - length: 999 m, 1,608 m (the yard/mile switch) and 99,900 m ("99.9 km": 99,000 would print "99 km")
+ * - height: 999 and 2,999 m (real drops are below 3 km)
+ * - area: 99,999 m^2 and 9,900,000 m^2
+ * - percent: 199
  */
 export function useNumberSamples(): NumberSamples {
   const loc = useLocalization();
@@ -235,9 +241,10 @@ export function BandMarker({ band }: { band: number }): JSX.Element {
 
 /**
  * A number as a <LocText> ARGUMENT. LocalizedString renders an argument through renderLocElement (installed
- * index.js@433704 `mc`): a LocComponent (LocalizedNumber) becomes its string, a plain string stays, and any other
- * element prints "[Name/]", so never pass <Num/> as an argument. Non-finite, or negative when `minusIsUnknown` -> "–".
- * `signed` is applied only to a non-zero value: the game prints a signed 0 as "±" (index.js@509409 `ed`).
+ * index.js@433704 `mc`). A LocComponent (LocalizedNumber) becomes its string, a plain string stays, and any other
+ * element prints "[Name/]". So never pass <Num/> as an argument. A value that is not finite, or is negative when
+ * `minusIsUnknown`, gives "–". The function applies `signed` only to a non-zero value, because the game prints a signed 0
+ * as "±" (index.js@509409 `ed`).
  */
 export function numArg(value: number, unit: Unit, signed?: boolean, minusIsUnknown = true): JSX.Element | string {
   if (typeof value !== "number" || !Number.isFinite(value) || (minusIsUnknown && value < 0 && !signed)) return "–";
@@ -250,7 +257,7 @@ export function SignedNum({ value, unit }: { value: number; unit: Unit }): JSX.E
   return <LocalizedNumber value={value} unit={unit} signed={value !== 0} />;
 }
 
-/** The "≈" / "…" slot before a value (fixed width; empty keeps its width) */
+/** The "≈" / "…" slot before a value (fixed width, and an empty slot keeps its width) */
 export function MarkSlot({ mark }: { mark: "≈" | "…" | null }): JSX.Element {
   return <div className={styles.markSlot}>{mark ?? ""}</div>;
 }
@@ -260,11 +267,11 @@ export function InfoLine({ label, value, tip, mark, header, sub, info, flag, fla
   label: string | JSX.Element;
   value?: ReactNode;
   tip?: ReactNode;
-  /** Render the "≈" slot (null = an empty slot of the same width; undefined = no slot) */
+  /** Render the "≈" slot. null = an empty slot of the same width. undefined = no slot. */
   mark?: "≈" | "…" | null;
   header?: boolean;
   sub?: boolean;
-  /** A dim Info glyph right after the label text (not at the row end, where it would push the value column); the row's
+  /** A dim Info glyph right after the label text (not at the row end, where it would push the value column). The row's
    *  `tip` carries the notes. The label is then a flex row [text (shrinks, ellipsis) | glyph | rest], never inline-block
    *  (unproven in Gameface). */
   info?: boolean;
@@ -332,7 +339,7 @@ export function KindStripe({ kind }: { kind: number }): JSX.Element {
   return <div className={cx(styles.runMarker, cls)} />;
 }
 
-/** A bar of integer flex-grow parts (the proven difficulty-bar technique); 0 parts are not drawn.
+/** A bar of integer flex-grow parts (the proven difficulty-bar technique). The bar does not draw 0 parts.
  *  `tip` is the bar's tooltip, attached to its own root div (see Tip). */
 export function FlexBar({ parts, className, tip }: {
   parts: ReadonlyArray<{ grow: number; className: string }>;
@@ -356,7 +363,7 @@ export function CheckBox({ on }: { on: boolean }): JSX.Element {
   );
 }
 
-/** A game notification icon (<img>); on a load error the masked Warning glyph */
+/** A game notification icon (<img>). On a load error it shows the masked Warning glyph. */
 export function NotifIcon({ src, className }: { src: string; className: string }): JSX.Element {
   const [failed, setFailed] = useState(false);
   if (failed) return <Glyph src="Media/Glyphs/Warning.svg" className={cx(className, styles.glyphWarnTone)} />;

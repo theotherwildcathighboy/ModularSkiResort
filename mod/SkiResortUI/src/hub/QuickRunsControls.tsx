@@ -1,15 +1,17 @@
 /*
- * src/hub/QuickRunsControls.tsx - the Resort Planner's controls (code name Quick runs; experimental; C# QuickRunsToolSystem): the Build
- * strip's Runs-tab chip (QuickRunsChip, the lift generator chip's pattern: grayed with the reason while unavailable) and, while the tool is
- * open, the rows at the top of the Runs view in place of the tree tool's (QuickRunsRows): Scan / Build / Undo, the Mix / Runs / Kinds knobs
- * and Shuffle, the Lifts and Way home knobs (v2), the step's line (region size, scan progress, totals and mix, the site detail line),
- * warnings and clusters, then the plan (v2: the plan line, one toggle row per lift with its pod's band counts and way home, then the pods
- * without a lift; PlanRows, only while a plan shows), then the tree filler (on / off, density, tree line,
- * species group chips and the single-species stepper, Plant / Undo trees). A build runs a few runs per frame and Plant a slice of trees
- * per apply: the progress lines ("Building runs 4 / 11", "Planting trees 2,400 / 9,000") show while either is in flight, with Stop beside Undo
- * (building) or in place of Plant (planting).
+ * src/hub/QuickRunsControls.tsx - the Resort Planner's controls (code name Quick runs, experimental, C# QuickRunsToolSystem).
+ * The file draws two things.
+ * 1. The Build strip's Runs-tab chip (QuickRunsChip, the lift generator chip's pattern: grayed with the reason while unavailable).
+ * 2. While the tool is open, the rows at the top of the Runs view, in place of the tree tool's (QuickRunsRows). From top to bottom:
+ *    - Scan / Build / Undo, the Mix / Runs / Kinds knobs and Shuffle, the Lifts and Way home knobs (v2).
+ *    - The step's line (region size, scan progress, totals and mix, the site detail line), warnings and clusters.
+ *    - The plan (v2): the plan line, one toggle row per lift with its pod's band counts and way home, then the pods without a lift.
+ *      PlanRows draws it, only while a plan shows.
+ *    - The tree filler (on / off, density, tree line, species group chips and the single-species stepper, Plant / Undo trees).
+ * A build runs a few runs per frame, and Plant plants a slice of trees per apply. The progress lines ("Building runs 4 / 11",
+ * "Planting trees 2,400 / 9,000") show while either is in flight. Stop sits beside Undo (building) or in place of Plant (planting).
  * Every knob is a button here, so nothing needs a hotkey.
- * Reads only the non-CORE quickRuns binding (ok panel only); every action is quickRunsSet(key, value) and C# clamps it. Each Button sits
+ * It reads only the non-CORE quickRuns binding (ok panel only). Every action is quickRunsSet(key, value) and C# clamps it. Each Button sits
  * in its own Tip (one focusable child per Tooltip FocusBoundary, TreeControls.tsx).
  * Engine notes: EngineNotes/QuickRunsControls.tsx.md
  */
@@ -33,17 +35,17 @@ const TREE_LINE_STEP_COARSE = 50;
 
 const MIX: readonly LocEntry[] = [HUB_LOC.quickMix0, HUB_LOC.quickMix1, HUB_LOC.quickMix2, HUB_LOC.quickMix3];
 const DENSITY: readonly LocEntry[] = [HUB_LOC.quickDensity0, HUB_LOC.quickDensity1, HUB_LOC.quickDensity2];
-/* AutoKinds bits as feature chips (run types R3): Groomed (1) is always on; Snowmaking 4, Night 8, Natural 2. */
+/* AutoKinds bits as feature chips (run types R3): Groomed (1) is always on. Snowmaking 4, Night 8, Natural 2. */
 const KINDS: ReadonlyArray<[number, LocEntry, LocEntry]> = [
   [4, HUB_LOC.quickKindSnowmaking, HUB_LOC.quickKindSnowmakingTip], [8, HUB_LOC.quickKindNight, HUB_LOC.quickKindNightTip],
   [2, HUB_LOC.quickKindNatural, HUB_LOC.quickKindNaturalTip],
 ];
-/* HomeLevel: 0 Auto, 1 Green, 2 Blue (the Way home knob cycles through them); QuickRunsPlanRules.MaxLifts. */
+/* HomeLevel: 0 Auto, 1 Green, 2 Blue (the Way home knob cycles through them). QuickRunsPlanRules.MaxLifts. */
 const HOME: readonly LocEntry[] = [HUB_LOC.quickHomeAuto, HUB_LOC.quickHomeGreen, HUB_LOC.quickHomeBlue];
 const LIFTS_MAX = 9;
 const GROUPS: readonly LocEntry[] = [HUB_LOC.quickGroup0, HUB_LOC.quickGroup1, HUB_LOC.quickGroup2, HUB_LOC.quickGroup3];
 
-/* A vanilla tree species: the game's own name key for the prefab (vanilla ships one per tree), the raw prefab name as the fallback
+/* A vanilla tree species: the game's own name key for the prefab (vanilla ships one per tree). The raw prefab name is the fallback
    (C# sends the raw names). */
 const treeNameEntry = (prefab: string): LocEntry => ["Assets.NAME[" + prefab + "]", prefab];
 
@@ -53,7 +55,7 @@ const set = (key: QuickRunsKey, value = 0): void => hubTriggers.quickRunsSet(key
 const POD_BEGINNER = "SkiResort.Tooltip.QUICK_POD[Beginner]";
 const POD_MID = "SkiResort.Tooltip.QUICK_POD[MidStation]";
 
-/* A build in flight (QuickRunsToolSystem.Building): runs are built a chunk at a time until done or stopped. */
+/* A build in flight (QuickRunsToolSystem.Building): the tool builds runs a chunk at a time until the build is done or stopped. */
 function building(q: QuickRunsState): boolean {
   return q.phase === "Emitted" || q.phase === "Retry" || q.phase === "Applying";
 }
@@ -63,7 +65,7 @@ function treeJob(q: QuickRunsState): boolean {
   return q.planting || q.treesTotal > 0;
 }
 
-/* C# is busy (a scan, a build or a tree job in flight): every knob waits; only Stop answers. */
+/* C# is busy (a scan, a build or a tree job in flight): every knob waits. Only Stop answers. */
 function busy(q: QuickRunsState): boolean {
   return q.phase === "Scanning" || building(q) || treeJob(q);
 }
@@ -119,7 +121,7 @@ export function Caption({ text }: { text: string }): JSX.Element {
 /* The step's line: what the tool is doing and the numbers of the region or the preview. */
 function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
   const lines: JSX.Element[] = [];
-  /* The site verdict: one plain line beside the mix line (Preview) or under the region line (Region step); none while the grade is unknown. */
+  /* The site verdict: one plain line beside the mix line (Preview) or under the region line (Region step). There is none while the grade is unknown. */
   const siteEntry = q.siteTier >= 1 && q.siteTier <= QUICK_SITE_TEXT.length ? QUICK_SITE_TEXT[q.siteTier - 1] : null;
   const site = siteEntry ? <LocText key="site" entry={siteEntry} args={{ N: numArg(q.sitePercent, Unit.Integer) }} /> : null;
   if (q.phase === "Scanning") {
@@ -191,7 +193,7 @@ function BandCounts({ count }: { count: readonly number[] }): JSX.Element {
   );
 }
 
-/* A toggle row: a check box and two lines; the whole row is the button (Tip around Button, one focusable child per Tooltip). */
+/* A toggle row: a check box and two lines. The whole row is the button (Tip around Button, one focusable child per Tooltip). */
 function PlanRow({ on, tip, wait, onSelect, first, second }: {
   on: boolean; tip: string; wait: boolean; onSelect: () => void; first: JSX.Element; second: JSX.Element;
 }): JSX.Element {
@@ -239,8 +241,8 @@ function PodPlanRow({ p, t, wait }: { p: QuickRunsPod; t: Translate; wait: boole
   return <PlanRow on={p.on} tip={t(HUB_LOC.quickPodTip)} wait={wait} onSelect={() => set("pod", p.key)} first={first} second={<BandCounts count={p.count} />} />;
 }
 
-/* The plan (Resort Planner v2): the plan line, the proposal note, the honest mix, one row per lift (with its pod's band counts and way
-   home), then the pods without a lift. Nothing is drawn without a plan. */
+/* The plan (Resort Planner v2), top to bottom: the plan line, the proposal note, the honest mix. Then one row per lift (with its
+   pod's band counts and way home). Then the pods without a lift. Nothing is drawn without a plan. */
 function PlanRows({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: boolean }): JSX.Element | null {
   if (q.phase !== "Preview" || (q.pods.length === 0 && q.planLifts.length === 0)) return null;
   const p = q.plan;

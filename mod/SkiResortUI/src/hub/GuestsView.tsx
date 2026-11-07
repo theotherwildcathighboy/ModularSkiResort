@@ -1,11 +1,12 @@
 /*
- * src/hub/GuestsView.tsx - the Guests view: arrivals this month and last month, the game-formula tourist estimate, and the notes on what
- * is counted and what tickets do. Two bars on one scale (hubRules.guestBarScale, integer flex-grow via guestBarParts); the table is three
- * Folds (Lodges, Sent, Tickets) whose populations differ by design. Fixed slots only (StableWidth cells, fixed-height note slots), so a
- * state change moves nothing. Last month is never a fake 0 (hubRules.lastMonthMark): "full" = a whole month, "partial" = counted since the
- * load, "none" = -1 shown as "–". Under the folds, always shown: one car space row per active road lodge of the area (lodgeParking$;
- * none for the Hut, the Summit or an off-road lodge), numbered per tier while the area has two of a tier, or named as the player renamed
- * the lodge in the game; a click flies to the lodge.
+ * src/hub/GuestsView.tsx - the Guests view. It shows arrivals this month and last month, the game-formula tourist estimate, and the notes
+ * on what is counted and what tickets do. Two bars share one scale (hubRules.guestBarScale, integer flex-grow via guestBarParts).
+ * The table is three Folds (Lodges, Sent, Tickets). Their populations differ by design. The view uses fixed slots only (StableWidth cells,
+ * fixed-height note slots), so a state change moves nothing. Last month is never a fake 0 (hubRules.lastMonthMark):
+ * "full" = a whole month, "partial" = counted since the load, "none" = -1 shown as "–". Under the folds the view always shows
+ * one car space row per active road lodge of the area (lodgeParking$). The Hut, the Summit and an off-road lodge have no row.
+ * A row is numbered per tier while the area has two of a tier. If the player renamed the lodge in the game, the row shows that name.
+ * A click flies to the lodge.
  * Panel file: subscribes resorts$, selectedResort$, resortLive$, city$, lodgeParking$.
  */
 import { useValue } from "cs2/api";
@@ -69,8 +70,9 @@ function GuestRow({ label, thisMonth, lastMonth, tip, samples }: {
 }
 
 /*
- * Ski days are blocked (LeisureSystem or CitizenBehaviorSystem off: SystemOff, so C# sends no ski-day state) and the state
- * line would read "–": it shows the trip-planner "Off" note instead, so the block is not mistaken for "before the first pass".
+ * Ski days are blocked when LeisureSystem or CitizenBehaviorSystem is off (SystemOff, so C# sends no ski-day state).
+ * The state line would then read "–". It shows the trip-planner "Off" note instead, so the player does not mistake the block
+ * for "before the first pass".
  */
 function skiDaysBlocked(l: ResortLive | null, trip: TripPlannerNote): trip is "knownOff" | "unknownOff" {
   return (trip === "knownOff" || trip === "unknownOff") && skiDayLine(l) === "unknown";
@@ -97,7 +99,7 @@ function SkiDayLineText({ l, t, trip, tripName }: { l: ResortLive | null; t: Tra
   }
 }
 
-/* The state line's tooltip; undefined = none. Blocked: TRIP_PLANNER_TIP. */
+/* The state line's tooltip. undefined = none. Blocked: TRIP_PLANNER_TIP. */
 function skiDayLineTip(l: ResortLive | null, t: Translate, trip: TripPlannerNote): string | undefined {
   if (skiDaysBlocked(l, trip)) return t(HUB_LOC.tripPlannerTip);
   switch (skiDayTip(l)) {
@@ -125,7 +127,7 @@ function TicketNoteText({ note, t }: { note: TicketNote; t: Translate }): JSX.El
 }
 
 /*
- * The trip-planner note as ONE text node per branch; NAME = the C# label (CityStats.tripPlanner: a known mod's name, or names
+ * The trip-planner note as ONE text node per branch. NAME = the C# label (CityStats.tripPlanner: a known mod's name, or names
  * joined ", "). "none" renders nothing.
  */
 function TripPlannerNoteText({ note, name, t }: { note: TripPlannerNote; name: string; t: Translate }): JSX.Element {
@@ -139,13 +141,14 @@ function TripPlannerNoteText({ note, name, t }: { note: TripPlannerNote; name: s
 }
 
 /*
- * One row per active road lodge of the area (LodgeParkingRow, C# order): "Car spaces at {NAME}", the count or "–" before the first
- * census. {NAME} is the tier word, or "Chalet 2" (LODGE_TIER_NUMBERED) while the area has two or more of that tier: the number is
- * C#'s, persisted on the lodge, so it stays the same across saves. A lodge the player renamed in the game shows that name instead
- * (contract 31, `name`; C# cleans it to one line of at most 64 characters, the game's rename field length): a plain string argument,
- * never an element (gate R19), in the player-name label class (ellipsis, as the game cuts long names in its own lists; the layout test
- * allows it), and the whole row text leads the tooltip. A Button like a Fold row: a click flies to the lodge. It has no chevron, so
- * lodgeRow puts its text at the plain rows' indent (10rem, not the fold's 4rem). No road lodge: no row.
+ * One row per active road lodge of the area (LodgeParkingRow, C# order). The row reads "Car spaces at {NAME}", with the count or "–"
+ * before the first census. {NAME} is the tier word, or "Chalet 2" (LODGE_TIER_NUMBERED) while the area has two or more of that tier.
+ * The number is C#'s and C# persists it on the lodge, so it stays the same across saves. If the player renamed the lodge in the game,
+ * the row shows that name instead (contract 31, `name`). C# cleans the name to one line of at most 64 characters, the game's rename
+ * field length. The name is a plain string argument, never an element (gate R19). It uses the player-name label class (ellipsis, as the
+ * game cuts long names in its own lists, and the layout test allows it). The whole row text leads the tooltip. The row is a Button
+ * like a Fold row: a click flies to the lodge. It has no chevron, so lodgeRow puts its text at the plain rows' indent
+ * (10rem, not the fold's 4rem). No road lodge: no row.
  */
 function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRow[]; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
@@ -173,13 +176,13 @@ function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRo
   );
 }
 
-/* The car space total of the area's road lodges; "–" while none is counted yet (carSpaces -1). */
+/* The car space total of the area's road lodges. It shows "–" while none is counted yet (carSpaces -1). */
 function parkingTotal(rows: readonly LodgeParkingRow[]): JSX.Element | string {
   const known = rows.filter((r) => r.carSpaces >= 0);
   return known.length ? countCell(known.reduce((s, r) => s + r.carSpaces, 0)) : DASH;
 }
 
-/* The GUESTS header with its Info glyph; the notes are its tooltip. */
+/* The GUESTS header with its Info glyph. The notes are its tooltip. */
 function GuestsHeader({ l, city, note, t }: { l: ResortLive | null; city: CityStats; note: TicketNote | null; t: Translate }): JSX.Element {
   return (
     <InfoLine
@@ -198,14 +201,14 @@ function GuestsHeader({ l, city, note, t }: { l: ResortLive | null; city: CitySt
 function SignGuests({ l, city, parking, samples, t }: {
   l: ResortLive | null; city: CityStats; parking: readonly LodgeParkingRow[]; samples: NumberSamples; t: Translate;
 }): JSX.Element {
-  // The last-month numbers show whenever C# sent them (>= 0), a since-load month marked "partial".
+  // The last-month numbers show whenever C# sent them (>= 0). The view marks a since-load month "partial".
   const mark = lastMonthMark(l);
   const thisMonth = l ? l.guestsThisMonth : -1;
   const lastMonth = l && l.guestsLastMonth >= 0 ? l.guestsLastMonth : -1;
   // A fixed ladder (50, 100, 200, 500, ...) instead of the larger month.
   const scale = guestBarScale(thisMonth, lastMonth);
-  // The months by name (city.month; last month = the one before: the ledger only rolls to the next calendar month, a jump
-  // leaves last month unknown). Bars, column heads and the row tooltips all carry the bare name (the column cells are the money
+  // The months by name (city.month). Last month = the one before, because the ledger only rolls to the next calendar month.
+  // A jump leaves last month unknown. Bars, column heads and the row tooltips all carry the bare name (the column cells are the money
   // sample's width).
   const thisName = monthName(city.month, t);
   const lastName = monthName(city.month, t, 1);
@@ -230,7 +233,7 @@ function SignGuests({ l, city, parking, samples, t }: {
   // The trip-planner note ("none" in a base-game city: no line).
   const tripNote = tripPlannerNote(city);
   const tripName = typeof city.tripPlanner === "string" ? city.tripPlanner : "";
-  // The Ski days row's tooltip; skipped lines are false.
+  // The Ski days row's tooltip. Skipped lines are false.
   const skiDaysTip = (
     <TipLines lines={[
       t(HUB_LOC.guestsTipSkiDays),

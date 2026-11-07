@@ -1,7 +1,7 @@
 /*
  * src/hub/BusCard.tsx - the Ski Bus card beside the game's selected-info panel, for a selected coach or depot.
- * Always mounted at the "Game" hook, so it reads only busCard$, never a panel binding. A section inside the game's panel would need
- * moduleRegistry.extend and an internal game-ui path, which the gate bans. Reading facts only: pointer-events stay off, so it never takes a click.
+ * It is always mounted at the "Game" hook, so it reads only busCard$, never a panel binding. A section inside the game's panel would need
+ * moduleRegistry.extend and an internal game-ui path, which the gate bans. The card shows facts only: pointer-events stay off, so it never takes a click.
  * Engine notes: EngineNotes/SkiResortHubUISystem.md, Near HubContract, 26.
  */
 import { useValue } from "cs2/api";

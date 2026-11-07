@@ -24,7 +24,7 @@ declare module "*.svg" {
 /**
  * The synced DropdownToggle typings declare no focusKey, but the hub gate requires focusKey={FOCUS_DISABLED} on every
  * DropdownToggle in a Panel header. No-op at runtime: DropdownToggleBase sets focusKey after spreading props
- * (cs2/ui index.js@718643); the Dropdown's own focusKey keeps the control out of the header's focus slot.
+ * (cs2/ui index.js@718643). The Dropdown's own focusKey keeps the control out of the header's focus slot.
  * Interface merge only, no runtime value.
  */
 declare module "cs2/ui" {

@@ -1,9 +1,9 @@
 /*
  * src/hub/historyRules.ts - pure rules of the History view: the whole-city sum, the range windows, the month and season
- * buckets, the year-on-year headline and the axis scale. No React, no binding, no text; tools/test-history-rules.js holds its oracles.
- * Month keys are C# SkiMoneyRules.MonthKey (year x 12 + month 0..11); a season is 12 months keyed by the year of its first month (SeasonKeyOf).
- * Months before the area existed and GAP months are empty buckets (`none`), never zeros; unknown (-1) parts are left out of sums. The
- * month in progress and GAP months are left out of season averages, so a season with missing months is not drawn as a slump.
+ * buckets, the year-on-year headline and the axis scale. It has no React, no binding and no text. tools/test-history-rules.js holds its oracles.
+ * Month keys are C# SkiMoneyRules.MonthKey (year x 12 + month 0..11). A season is 12 months, keyed by the year of its first month (SeasonKeyOf).
+ * Months before the area existed and GAP months are empty buckets (`none`), never zeros. Sums leave out unknown (-1) parts. Season
+ * averages leave out the month in progress and GAP months, so a season with missing months is not drawn as a slump.
  */
 import { HISTORY_FLAG } from "../bindings";
 import type { HistoryArea } from "../bindings";
@@ -59,7 +59,7 @@ export function lengthOf(area: HistoryArea | null | undefined): number {
     a.attraction.length, a.snowPct.length, a.ticketsPaid.length);
 }
 
-/** One drawn bucket: a month or a season. Money in credits, costs positive; -1 = unknown where noted. */
+/** One drawn bucket: a month or a season. Money in credits. Costs are positive. -1 = unknown where noted. */
 export interface HistoryBucket {
   kind: "month" | "season";
   key: number;
@@ -72,9 +72,9 @@ export interface HistoryBucket {
   gap: boolean;
   /** Empty because it lies after the area's last month (the rest of this season, "seasonVs") */
   future: boolean;
-  /** 0 = the flows are sums; N > 0 = a season drawn as the monthly average over N whole months ("bySeason") */
+  /** 0 = the flows are sums. N > 0 = a season drawn as the monthly average over N whole months ("bySeason") */
   perMonth: number;
-  /** Guests and net over the bucket's counted months (= guests / net for a sum; average x perMonth for a season average) */
+  /** Guests and net over the bucket's counted months (= guests / net for a sum, average x perMonth for a season average) */
   totalGuests: number;
   totalNet: number;
   current: boolean;
@@ -92,13 +92,13 @@ export interface HistoryBucket {
   income: number;
   liftCost: number;
   runCost: number;
-  /** Buildings + wages (the game's bill); -1 when neither is known */
+  /** Buildings + wages (the game's bill). -1 when neither is known */
   staffCost: number;
   costs: number;
   net: number;
   attraction: number;
   snowPct: number;
-  /** Mean snow depth on the runs at the rolls, cm; -1 unknown (snow is shown only as depth and coverage together) */
+  /** Mean snow depth on the runs at the rolls, in cm. -1 = unknown (snow is shown only as depth and coverage together) */
   snowDepthCm: number;
 }
 
@@ -117,7 +117,7 @@ function acc(): Acc {
 
 const num = (v: number | undefined): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
-/** The depth of entry i, -1 when unknown. Not part of lengthOf: a short or missing snowDepthCm array reads unknown and never cuts
+/** The depth of entry i, -1 when unknown. It is not part of lengthOf. A short or missing snowDepthCm array reads unknown and never cuts
  *  the money and guest series (contract 15 appended it). */
 export function depthAt(area: HistoryArea, i: number): number {
   const d = area.snowDepthCm ? area.snowDepthCm[i] : undefined;
@@ -167,8 +167,8 @@ function finish(kind: "month" | "season", key: number, firstKey: number, lastKey
 }
 
 /** Sums the area's months [firstKey, lastKey] into one bucket (GAP and absent months count nothing). `expected` = the
- *  months a whole bucket has (fewer with data = partial: a season the area entered or left partway is not whole).
- *  `skipCurrent` leaves the month in progress out (a season average counts whole months only). */
+ *  number of months in a whole bucket. A bucket with data for fewer months is partial: a season that the area entered or left partway
+ *  is not whole. `skipCurrent` leaves the month in progress out (a season average counts whole months only). */
 export function sumRange(area: HistoryArea, kind: "month" | "season", key: number, firstKey: number, lastKey: number, skipCurrent = false): HistoryBucket {
   const a = acc();
   const n = lengthOf(area);
@@ -200,10 +200,10 @@ export function seasonBuckets(area: HistoryArea, firstSeason: number, lastSeason
   return out;
 }
 
-/** One July-June season as the monthly average of its whole months with data: the month in progress and GAP months are
- *  left out; flows, costs and the net are the season's sums over those months divided by their count (perMonth), ski
- *  days over the months that know them, attraction and snow the mean. totalGuests / totalNet keep the sums. No whole
- *  month: empty. */
+/** One July-June season as the monthly average of its whole months with data. It leaves out the month in progress and GAP
+ *  months. Flows, costs and the net are the season's sums over those months, divided by their count (perMonth). Ski
+ *  days are their sum divided by the number of months that know them. Attraction and snow are the mean. totalGuests / totalNet keep
+ *  the sums. No whole month: empty. */
 export function seasonAverage(area: HistoryArea, season: number): HistoryBucket {
   const b = sumRange(area, "season", season, seasonFirstKey(season), seasonFirstKey(season) + 11, true);
   if (b.none) return b;
@@ -225,7 +225,7 @@ export function seasonAverage(area: HistoryArea, season: number): HistoryBucket 
   };
 }
 
-/** Is the range worth offering for this area? 12 months always; the two season ranges need data in an earlier season */
+/** Is the range worth offering for this area? 12 months is always offered. The two season ranges need data in an earlier season */
 export function rangeEnabled(area: HistoryArea | null, range: HistoryRange): boolean {
   if (range === "months12") return true;
   const n = lengthOf(area);
@@ -252,15 +252,15 @@ export function windowOf(area: HistoryArea | null, range: HistoryRange): History
   }
 }
 
-/** "seasonVs": last season's same 12 months (July-June), drawn gray behind this season's; null for the other ranges */
+/** "seasonVs": last season's same 12 months (July-June), drawn gray behind this season's. null for the other ranges */
 export function compareOf(area: HistoryArea | null, range: HistoryRange): HistoryBucket[] | null {
   if (!area || lengthOf(area) === 0 || effectiveRange(area, range) !== "seasonVs") return null;
   const s = seasonOf(lastKeyOf(area)) - 1;
   return monthBuckets(area, seasonFirstKey(s), seasonFirstKey(s) + 11);
 }
 
-/** A line's points: `pick` of each bucket, null where the line has no point (an empty bucket, the month in progress so
- *  the line ends at the last whole month, or an unknown value) */
+/** A line's points: `pick` of each bucket. A point is null where the line has none. That is an empty bucket, the month in progress (so
+ *  the line ends at the last whole month), or an unknown value */
 export function linePoints(buckets: readonly HistoryBucket[], pick: (b: HistoryBucket) => number): Array<number | null> {
   return buckets.map((b) => {
     if (b.none || (b.current && b.kind === "month")) return null;
@@ -277,8 +277,8 @@ export function gapSlots(buckets: readonly HistoryBucket[]): number[] {
 }
 
 /** Whole city: the areas summed month by month over the union of their ranges (null without data). Flags: the OR of the
- *  months that have data; GAP where none has; attraction and snow (coverage, depth) the mean of the areas that know them; -1 parts stay -1
- *  only when no area knows them (then SnapshotMissing / SkiDaysPartial mark the month). */
+ *  months that have data, and GAP where none has. Attraction and snow (coverage, depth): the mean of the areas that know them.
+ *  -1 parts stay -1 only when no area knows them (then SnapshotMissing / SkiDaysPartial mark the month). */
 export function sumAreas(areas: readonly HistoryArea[]): HistoryArea | null {
   const rows = areas.filter((a) => a && lengthOf(a) > 0);
   if (rows.length === 0) return null;
@@ -313,7 +313,7 @@ export function sumAreas(areas: readonly HistoryArea[]): HistoryArea | null {
       if (d >= 0) { depth += d; depthK++; }
     }
     if (has === 0) flags = HISTORY_FLAG.Gap;
-    // First is per area: in a city sum it would mark every month an area started in; keep it only if every area starts there
+    // First is per area. In a city sum it would mark every month in which an area started. Keep it only if every area starts there
     else if ((flags & HISTORY_FLAG.First) && rows.some((a) => a.firstMonthKey < k)) flags &= ~HISTORY_FLAG.First;
     out.flags[i] = flags;
     out.skiDays[i] = skiK > 0 ? ski : -1;

@@ -1,12 +1,13 @@
 /*
  * src/hub/RunList.tsx - one run row of the Runs view (RunLine) and the list header (RunHeader).
- * Row `div.runRow` (fixed 1.9 em): [fly part | pen]; the fly part leads with the state dot (RunDot). A cat track's trash lives in the
+ * Row `div.runRow` (fixed 1.9 em): [fly part | pen]. The fly part leads with the state dot (RunDot). A cat track's trash lives in the
  * context area once the track is picked (TrashButton, exported for RunPropRows). The pen is a
- * sibling Button, never nested; while a row renames, the fly part is a plain div
+ * sibling Button, never nested. While a row renames, the fly part is a plain div
  * with RenameField (an <input> is never inside a <button>).
- * Mouse enter sends hoverRun through hubState.sendHoverRun (dedup); click -> onPick (every Button FOCUS_DISABLED, as in all of the hub: rule R15). Number columns carry the useNumberSamples widths (no jitter).
- * Memoised on the row's own RunRow / RunLive fields, lift name, focus, renaming, settings, `t`, samples, state words and the stable callbacks.
- * Width (Overpass advances): name room 167 / 201 / 224 rem at 100 / 130 / 150 % text; the ellipsis is the net, the full name is tooltip line 1.
+ * Mouse enter sends hoverRun through hubState.sendHoverRun (dedup). Click -> onPick (every Button FOCUS_DISABLED, as in all of the hub: rule R15).
+ * Number columns carry the useNumberSamples widths (no jitter).
+ * RunLine is memoized on the row's own RunRow / RunLive fields, lift name, focus, renaming, settings, `t`, samples, state words and the stable callbacks.
+ * Width (Overpass advances): name room 167 / 201 / 224 rem at 100 / 130 / 150 % text. The ellipsis is the net. The full name is tooltip line 1.
  */
 import { memo, useEffect } from "react";
 import type { MouseEvent } from "react";
@@ -25,9 +26,9 @@ import type { NumberSamples } from "./parts";
 import { RenameField } from "./RenameField";
 import styles from "./hub.module.scss";
 
-/** The header buttons' guard (HubHeader noDrag, the vanilla close button's own, index.js@686490): on the pen,
-*  preventDefault keeps the input focused, so a second click closes the field through the toggle (the unmount commits,
-*  RenameField header) instead of a blur that commits, re-renders and lets the click land elsewhere. */
+/** The header buttons' guard (HubHeader noDrag, the vanilla close button's own, index.js@686490). On the pen,
+*  preventDefault keeps the input focused. So a second click closes the field through the toggle (the unmount commits,
+*  RenameField header). The alternative is a blur that commits, re-renders and lets the click land elsewhere. */
 export function keepFocus(e: MouseEvent): void {
   e.preventDefault();
   e.stopPropagation();
@@ -105,8 +106,8 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
           L: numArg(row.servedFactor, Unit.FloatTwoFractions),
           O: numArg(live ? live.openFactor : -1, Unit.FloatTwoFractions),
         }} />,
-        // A cat track's green is the tool's (graded under 25 %), not the rater's: the rater's crux / steepest % read hairpins and crossings
-        // higher (GradeBatch GR-20), so the rows stay off.
+        // A cat track's green is the tool's (graded under 25 %), not the rater's. The rater's crux / steepest % read hairpins and
+        // crossings higher (GradeBatch GR-20), so the rows stay off.
         rated && row.kind !== RUN_KIND.CatTrack && row.gradePct >= 0 && { label: t(HUB_LOC.cruxPitch), value: <Num value={row.gradePct} unit={Unit.PercentageSingleFraction} /> },
         rated && row.kind !== RUN_KIND.CatTrack && row.steepestPct > row.gradePct && { label: t(HUB_LOC.steepestPatch), value: <Num value={row.steepestPct} unit={Unit.PercentageSingleFraction} /> },
         { label: t(HUB_LOC.colArea), value: <LocText entry={HUB_FMT.areaHa} args={{ HA: numArg(hectares(row.areaM2), Unit.FloatSingleFraction) }} /> },
@@ -119,8 +120,8 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
   );
 }
 
-/** The run's state as the lift rows' dot (hub redesign 2026-11-07, inventory #21): open = filled, partly open = filled in the caution
-*  color, closed = a ring (the row is dimmed too); not linked = an empty slot of the same width. The word is tooltip line 3. */
+/** The run's state as the lift rows' dot (hub redesign 2026-11-07, inventory #21). Open = filled. Partly open = filled in the caution
+*  color. Closed = a ring (the row dims too). Not linked = an empty slot of the same width. The word is tooltip line 3. */
 function RunDot({ state }: { state: number }): JSX.Element {
   const cls = state === OPEN_STATE.Open ? styles.liftDotNormal
     : state === OPEN_STATE.Partly ? styles.liftDotWarn
@@ -128,8 +129,8 @@ function RunDot({ state }: { state: number }): JSX.Element {
   return <div className={cx(styles.liftDot, cls)} />;
 }
 
-/** The cat track's trash (the Runs view's context area, RunPropRows): the first click arms (tinted, the tooltip asks again), the second sends deleteCatTrack; 4 s or leaving
- *  the row disarms. A plain two-click confirm: the hub has no modal confirm. */
+/** The cat track's trash (the Runs view's context area, RunPropRows). The first click arms (tinted, the tooltip asks again).
+ *  The second click sends deleteCatTrack. 4 s or leaving the row disarms. A plain two-click confirm: the hub has no modal confirm. */
 export function TrashButton({ row, t, armed, setArmed }: { row: RunRow; t: Translate; armed: boolean; setArmed: (on: boolean) => void }): JSX.Element {
   useEffect(() => {
     if (!armed) return undefined;
@@ -237,8 +238,8 @@ export const RunLine = memo(RunLineImpl, (a, b) =>
   a.onPick === b.onPick && a.onPen === b.onPen && a.onRename === b.onRename && a.onRenameClose === b.onRenameClose &&
   sameRunRow(a.row, b.row) && sameRunLive(a.live, b.live));
 
-/** The list header: the piste-map toggle (left), then the Lift / Length / Drop column labels and the pen column's spacer,
-*  aligned with RunLine's cells (same padding, same NumCell blinds). */
+/** The list header: the piste-map toggle (left), then the Lift / Length / Drop column labels and the pen column's spacer.
+*  It aligns with RunLine's cells (same padding, same NumCell blinds). */
 export function RunHeader({ t, samples, pisteMap }: {
   t: Translate; samples: NumberSamples;
   /** The piste-map toggle (RunsView owns it: it reads pisteMap$). */

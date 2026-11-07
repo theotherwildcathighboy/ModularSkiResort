@@ -1,10 +1,11 @@
 /*
  * src/hub/HubRoot.tsx - the always-mounted root of the hub (appended at the game's "Game" hook, so it exists only in Game mode).
- * Handshake: fires uiHello(HUB_CONTRACT, BUNDLE_STAMP) once per mount at the first render where C# is connected (contract$ != CONTRACT_ABSENT);
- * the panel cannot send it, it mounts only while open. Subscribes only contract$ and hubOpen$ and relays "connected" to the launchers.
+ * Handshake: HubRoot fires uiHello(HUB_CONTRACT, BUNDLE_STAMP) once per mount, at the first render where C# is connected
+ * (contract$ != CONTRACT_ABSENT). The panel cannot send it, because it mounts only while open.
+ * HubRoot subscribes only contract$ and hubOpen$ and relays "connected" to the launchers.
  * The panel sits in its own ErrorBoundary, re-created on every open. A render error above the section boundaries unmounts the panel with
- * its X button and Close/Back handler (cs2/ui Panel `ep onAction`, index.js@~684052) while hubOpen stays true in C#, so onError closes the
- * hub and shows LOC.uiError until a click, CRASH_NOTICE_MS, or the next open.
+ * its X button and Close/Back handler (cs2/ui Panel `ep onAction`, index.js@~684052). Meanwhile hubOpen stays true in C#.
+ * So onError closes the hub and shows LOC.uiError until a click, CRASH_NOTICE_MS, or the next open.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BUNDLE_STAMP, HUB_CONTRACT, hubTriggers } from "../bindings";
@@ -26,8 +27,8 @@ export function HubRoot(): JSX.Element | null {
   const [crashed, setCrashed] = useState(false);
   const [prevOpen, setPrevOpen] = useState(open);
 
-  // A fresh open clears an old crash notice. Done during render (React's "previous value in state" pattern), not in an
-  // effect: a panel that crashes in its first render calls onPanelError in the same commit, and a passive effect would
+  // A fresh open clears an old crash notice. This happens during render (React's "previous value in state" pattern), not in an
+  // effect. A panel that crashes in its first render calls onPanelError in the same commit, and a passive effect would
   // clear the new crash flag again.
   if (open !== prevOpen) {
     setPrevOpen(open);

@@ -1,14 +1,14 @@
 /*
-* tools/test-gate-fixtures.js - deliberately broken fixtures proving the check-bundle gate tightenings FAIL.
-* Each fixture copies the real C# tree (or src/) into the OS temp dir, applies ONE fault, runs
-* `node tools/check-bundle.js --contract-only` against the copy (--cs-dir= / --src=) and expects exit 1 plus the rule's message.
-* A baseline run on the unmodified copies must PASS first, so a fixture cannot fail for an unrelated reason.
+* tools/test-gate-fixtures.js - deliberately broken fixtures. They prove that the check-bundle gate tightenings FAIL.
+* Each fixture copies the real C# tree (or src/) into the OS temp dir and applies ONE fault. It runs
+* `node tools/check-bundle.js --contract-only` against the copy (--cs-dir= / --src=). It expects exit 1 plus the rule's message.
+* A baseline run on the unmodified copies must PASS first. Then a fixture cannot fail for an unrelated reason.
 *   R1   a constructed binding that is never passed to AddBinding( (drop `AddBinding(m_History);`)
 *   R2   a Write(...) of the wrong value kind (a bool written for RunRow.kind, a number)
 *   R11  an always-mounted file (hub/HubRoot.tsx) importing a panel component (StatusBlock)
 *   R15  a hub cs2/ui Button without focusKey={FOCUS_DISABLED} (the Runs view piste-map toggle)
 *   R19  a plain element (<span>) as a LocText argument through a variable (the Guests view lodge name)
-* Nothing under mod/ or src/ is edited: the faults live only in the temp copies.
+* Nothing under mod/ or src/ changes. The faults live only in the temp copies.
 * Usage: node tools/test-gate-fixtures.js      -> `test-gate-fixtures: N fixture(s), failures=0` (exit 0)
 */
 "use strict";
@@ -90,7 +90,7 @@ function main() {
     const r4 = runGate(f4.cs, f4.src);
     expect(r4.code !== 0 && /<span> is an argument of <LocText> .*rule R19/.test(r4.text), `R19 fixture did not fail with the loc-argument message (exit ${r4.code})`);
 
-    // R15 hub-wide: the baseline proves the Runs view's piste-map toggle passes WITH focusKey; this copy drops it
+    // R15 hub-wide: the baseline proves that the Runs view's piste-map toggle passes WITH focusKey. This copy drops it
     const f5 = fresh("r15");
     edit(path.join(f5.src, "hub", "RunsView.tsx"), "<Button focusKey={FOCUS_DISABLED} theme={{ button: styles.pisteToggle }}",
       "<Button theme={{ button: styles.pisteToggle }}");

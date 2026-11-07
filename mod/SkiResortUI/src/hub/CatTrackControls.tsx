@@ -1,8 +1,10 @@
 /*
- * src/hub/CatTrackControls.tsx - the Runs tab's Delete cat tracks chip (contract 19, field test 2026-10-26b), drawn by BuildStrip beside
- * the Quick runs chip on the ok panel only (it reads the non-CORE catTrackDeleteMode binding). On opens the cat track tool in its
- * Delete mode (C# answers through catTrackDeleteMode$, which follows the tool: closing it or picking another tool shows it off); off
- * leaves the mode. Always drawn, so nothing moves under the mouse. Button with focusKey={FOCUS_DISABLED} (rule R15).
+ * src/hub/CatTrackControls.tsx - the Runs tab's Delete cat tracks chip (contract 19, field test 2026-10-26b).
+ * BuildStrip draws it beside the Quick runs chip, on the ok panel only (it reads the non-CORE catTrackDeleteMode binding).
+ * Turning the chip on opens the cat track tool in its Delete mode. C# answers through catTrackDeleteMode$, which follows the tool:
+ * closing it or picking another tool shows it off. Turning the chip off leaves the mode.
+ * The chip is always drawn, so nothing moves under the mouse.
+ * It is a Button with focusKey={FOCUS_DISABLED} (rule R15).
  */
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";

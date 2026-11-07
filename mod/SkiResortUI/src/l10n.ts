@@ -1,10 +1,10 @@
 /*
  * src/l10n.ts - player-facing text: locale keys + English fallbacks, and the translate hook.
- * Every player-facing string is a `SkiResort.Hub.*` key in the mod's root LocaleEN.cs; there is no TS dictionary. translate(key, englishFallback)
+ * Every player-facing string is a `SkiResort.Hub.*` key in the mod's root LocaleEN.cs. There is no TS dictionary. translate(key, englishFallback)
  * resolves live against the active dictionary, so the fallback shows only while a key is missing. Gate (tools/check-bundle.js): every
- * `[key, english]` tuple in src/ must exist in LocaleEN.cs with identical text. An entry whose English contains "{" is a placeholder entry:
- * render it only with <LocText> (parts.tsx); translate() / useT() never substitute placeholders (index.js@435324, @510010), so the gate fails
- * a t(...) call on it. Numbers: <LocalizedNumber value unit={Unit.X} /> (parts.tsx Num) beside the text, never baked into a string.
+ * `[key, english]` tuple in src/ must exist in LocaleEN.cs with identical text. An entry whose English contains "{" is a placeholder entry.
+ * Render it only with <LocText> (parts.tsx). translate() / useT() never substitute placeholders (index.js@435324, @510010), so the gate fails
+ * a t(...) call on it. Numbers: put <LocalizedNumber value unit={Unit.X} /> (parts.tsx Num) beside the text. Never bake a number into a string.
  */
 import { useCallback } from "react";
 import { useLocalization } from "cs2/l10n";

@@ -1,9 +1,12 @@
 /*
  * src/hub/HubPanel.tsx - the Ski Resort hub panel: frame, link states, layout.
- * HubRoot mounts this only while the hub is open, so every useValue() below unsubscribes on close and C# stops computing panel data.
- * Link states (useHubConnection): absent -> "not connected" notice; mismatch -> plain title and core bindings only (C# never gates triggers
- * on the contract); ok -> switcher, status block, tiles, view, BuildStrip footer. OkPanel subscribes only the slow bindings; leaf components
- * subscribe the live ones. The panel height is FIXED (.panelFixed) and the Scrollable's gutter is zeroed: see the note.
+ * HubRoot mounts this only while the hub is open. So every useValue() below unsubscribes on close, and C# stops computing panel data.
+ * Link states (useHubConnection):
+ * - absent: a "not connected" notice.
+ * - mismatch: plain title and core bindings only (C# never gates triggers on the contract).
+ * - ok: switcher, status block, tiles, view, BuildStrip footer.
+ * OkPanel subscribes only the slow bindings. Leaf components subscribe the live ones.
+ * The panel has a FIXED height (.panelFixed), and the Scrollable's gutter is zero: see the note.
  * Engine notes: EngineNotes/HubPanel.tsx.md
  */
 import { useEffect, useRef } from "react";
@@ -51,9 +54,9 @@ function OverlayBackdrop(): JSX.Element | null {
   );
 }
 
-/** The active tool CHANGING to a run tool (run drawing, cat track, Quick runs) selects the Runs view, to a lift tool (a lift line item, the
- *  lift tool) the Lifts view, where its info shows (hubRules.toolTabFollow). The same tool staying active selects nothing. Renders nothing;
- *  subscribes only here, so the panel body does not re-render on build updates. */
+/** The active tool CHANGING to a run tool (run drawing, cat track, Quick runs) selects the Runs view. A change to a lift tool (a lift
+ *  line item, the lift tool) selects the Lifts view, where its info shows (hubRules.toolTabFollow). The same tool staying active
+ *  selects nothing. This component renders nothing. It subscribes only here, so the panel body does not re-render on build updates. */
 function RunsTabFollow(): null {
   const items = useValue(build$);
   const quick = useValue(quickRuns$);
@@ -96,7 +99,7 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
     status: statusRef, problems: problemsRef, tiles: tilesRef, view: viewRef,
   }, rows, view);
 
-  // Panel mount: forget the last hover (no send); unmount: clear it in C#
+  // Panel mount: forget the last hover (no send). Panel unmount: clear it in C#
   useEffect(() => {
     resetHoverRun();
     areaListOpen$.update(false);
@@ -128,8 +131,9 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
   // The view pager (fit.tsx): a view still taller than the box after its folds shows its rows page by page. Runs and Lifts
   // list every row and may scroll. A view switch, a fold toggle or an area switch returns to page 1.
   const folds = useValue(folds$);
-  // The footer opens and closes like the game's toolbar (BuildStrip): a new footer shape re-renders the panel so the pager re-fits at
-  // once (its layout effect), not on its next poll (a 400 ms scrollbar flash), and drops the room it measured for the other footer.
+  // The footer opens and closes like the game's toolbar (BuildStrip). A new footer shape re-renders the panel. So the pager re-fits
+  // at once (its layout effect), not on its next poll (a 400 ms scrollbar flash). The pager also drops the room it measured for
+  // the other footer.
   const footerShape = useValue(footerShape$);
   // A fold toggle within the view (not a view switch) bumps foldSeq: the pager then shows the page holding that fold's header
   const fold = openFold(folds, view);

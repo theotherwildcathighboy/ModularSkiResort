@@ -1,16 +1,18 @@
 /*
  * The hub's one text input: renaming a resort, a run or a lift. The only file allowed an <input> (tools/check-bundle.js rule 6
- * also requires `stopPropagation` here and a useLayoutEffect cleanup that calls `.blur()`). Keydown / mousedown stop propagating (the title
- * bar's cloned onMouseDown starts a drag, index.js@719900). Enter commits itself, not via blur: a scripted blur() event in Gameface is not
- * relied on. Commit = trimmed text cut to MAX_NAME, sent only if changed (as vanilla useInputName, index.js@2099223). Unmount while focused
- * commits and blurs in the cleanup: UserInterface.cs:170 sets InputManager.hasInputFieldFocus, which masks the keyboard for gameplay
- * (Game.Input/InputManager.cs:644-652, 1.6.0f1). Assumed, not verified: Gameface raises TextInputTypeChanged for a mod's <input>.
+ * also requires `stopPropagation` here and a useLayoutEffect cleanup that calls `.blur()`).
+ * Keydown / mousedown stop propagating (the title bar's cloned onMouseDown starts a drag, index.js@719900).
+ * Enter commits itself, not via blur: the code does not rely on a scripted blur() event in Gameface.
+ * Commit = trimmed text cut to MAX_NAME, sent only if changed (as vanilla useInputName, index.js@2099223).
+ * Unmount while focused commits and blurs in the cleanup. UserInterface.cs:170 sets InputManager.hasInputFieldFocus,
+ * which masks the keyboard for gameplay (Game.Input/InputManager.cs:644-652, 1.6.0f1).
+ * Assumed, not verified: Gameface raises TextInputTypeChanged for a mod's <input>.
  */
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from "react";
 import styles from "./hub.module.scss";
 
-/** Vanilla EllipsisTextInput maxLength (index.js@1008900); C# cuts to the same length. */
+/** Vanilla EllipsisTextInput maxLength (index.js@1008900). C# cuts to the same length. */
 export const MAX_NAME = 64;
 
 export interface RenameFieldProps {
@@ -61,7 +63,7 @@ export function RenameField({ initial, onCommit, onClose, className }: RenameFie
       el?.focus();
       el?.select();
     } catch {
-      // best effort; the player can click into the field
+      // best effort. The player can click into the field
     }
     return () => {
       // Unmounted (panel closed, resort switched): commit like a blur, then drop the focus
@@ -83,7 +85,7 @@ export function RenameField({ initial, onCommit, onClose, className }: RenameFie
     e.stopPropagation();
     if (e.key === "Enter") {
       e.preventDefault();
-      finish(false); // commit here, not only from onBlur: blur() raising onBlur is not relied on
+      finish(false); // commit here, not only from onBlur. The code does not rely on blur() raising onBlur
       inputRef.current?.blur();
     } else if (e.key === "Escape" || e.key === "Esc") {
       e.preventDefault();

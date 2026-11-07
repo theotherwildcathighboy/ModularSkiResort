@@ -1,48 +1,51 @@
 /*
  * webpack.config.js - builds the Ski Resort UI module (SkiResortMod.mjs + SkiResortMod.css).
  *
- * Written for this repo (MIT); nothing copied. Derived from the settings the game's module loader
+ * Written for this repo (MIT). Nothing is copied. It derives from the settings the game's module loader
  * REQUIRES, as listed with their evidence in docs/research/resort-hub-understand.md section
- * 2.A.2 (the official Colossal Order template in the game install,
- * .ModdingToolchain/npx-create-csii-ui-mod/template/webpack.config.js, was read as a reference):
+ * 2.A.2 (we read the official Colossal Order template in the game install,
+ * .ModdingToolchain/npx-create-csii-ui-mod/template/webpack.config.js, as a reference):
  *   - ES-module output (experiments.outputModule + output.library.type "module"): the game
  *     import()s every *.mjs in a mod folder and keeps `default` as the registrar
  *     (index.js@2306554 in the installed 1.6.2f1 Cities2_Data/Content/Game/UI/index.js).
- *   - externalsType "window" with one external per game module we import: the game defines 12
+ *   - externalsType "window" with one external per game module we import. The game defines 12
  *     read-only window names (React, ReactDOM, ReactDOMClient, cs2/api, cs2/bindings, cs2/l10n,
- *     cs2/ui, cs2/utils, cs2/input, cs2/modding, cohtml/cohtml, chart.js; index.js@799710).
- *   - <entry>.css beside <entry>.mjs, paired with `export const hasCSS = true` in src/index.tsx:
- *     the loader fetches mjs.replace(".mjs", ".css") and waits for it with no error path and no
- *     timeout, so a missing .css blanks every mod's UI (index.js@2306554; XHR helper @800011).
- *   - exactly ONE .mjs: no async chunks, no split chunks, no dynamic import(); a second .mjs
+ *     cs2/ui, cs2/utils, cs2/input, cs2/modding, cohtml/cohtml, chart.js, index.js@799710).
+ *   - <entry>.css beside <entry>.mjs, paired with `export const hasCSS = true` in src/index.tsx.
+ *     The loader fetches mjs.replace(".mjs", ".css") and waits for it with no error path and no
+ *     timeout, so a missing .css blanks every mod's UI (index.js@2306554, XHR helper @800011).
+ *   - exactly ONE .mjs: no async chunks, no split chunks, no dynamic import(). A second .mjs
  *     without a default export would be registered as `undefined` and break the registrar loop
  *     (`AR`, index.js@800454: `for(const t of e)t(Q)` with no try/catch).
  *   - the leading banner with Id + Dependencies lines: the only manifest the game reads
  *     (Colossal.IO.AssetDatabase UIModuleAsset.ParseModuleInfo, 1.6.2f1, decompiled with
- *     ilspycmd); an Id line without a Dependencies line makes PostCreate call AddTags(null).
- *     The parser stops at the first non-empty line without a ':' - keep every banner line
- *     "Key: value". mod.json is read ONLY here, to write the banner.
- * Our choices: entry name = mod.json id = the C# TargetName (SkiResortMod); ts-loader WITH
- * type-checking; sass; class names prefixed "sr-" with a 5-char hash (the game's default 3-char
- * hash collides more easily across the ~28 modules sharing one document); images under
- * SkiResortMod-img/ because coui://ui-mods/ is ONE host shared by every mod folder.
+ *     ilspycmd). An Id line without a Dependencies line makes PostCreate call AddTags(null).
+ *     The parser stops at the first non-empty line without a ':'. Keep every banner line
+ *     "Key: value". Only this file reads mod.json, and it does so to write the banner.
+ * Our choices:
+ *   - entry name = mod.json id = the C# TargetName (SkiResortMod).
+ *   - ts-loader WITH type-checking.
+ *   - sass.
+ *   - class names prefixed "sr-" with a 5-char hash (the game's default 3-char
+ *     hash collides more easily across the ~28 modules sharing one document).
+ *   - images under SkiResortMod-img/ because coui://ui-mods/ is ONE host shared by every mod folder.
  *
  * Build stamp: ONE string per build, compiled in as __BUILD_STAMP__ (DefinePlugin) and written to
  * build/.ui-stamp. The C# build (SkiResortMod.csproj, target SkiUiBuild) passes its own stamp in
- * SKI_BUILD_STAMP and compiles build/.ui-stamp into SkiResortMod.BuildStamp.Value, so the DLL and
+ * SKI_BUILD_STAMP and compiles build/.ui-stamp into SkiResortMod.BuildStamp.Value. So the DLL and
  * the bundle it deploys carry the same value. A standalone `npm run build` / `npm run dev`
  * generates a "ui-..." stamp (a UI-only build: the DLL will report a different stamp).
- * Gate marker (fixer round U1, pipeline-safety-1): every emit deletes build/.gate-pass; only a
+ * Gate marker (fixer round U1, pipeline-safety-1): every emit deletes build/.gate-pass. Only a
  * PASSING tools/check-bundle.js run writes it back (content = the stamp). The C# build and
  * --env deploy ship nothing from build/ without it (tools/check-bundle.js header).
  *
  * Modes:
  *   webpack                    -> build/ (cleaned), then `postbuild` runs tools/check-bundle.js.
  *   webpack --watch --env deploy  (npm run dev) -> build/, and after EVERY compile the same
- *                              check-bundle gate runs in-process; only a bundle that passes is
+ *                              check-bundle gate runs in-process. Only a bundle that passes is
  *                              copied into %CSII_LOCALMODSPATH%\SkiResortMod (refused unless
  *                              SkiResortMod.dll is already there). The research had --env deploy
- *                              write straight into the Mods folder, ungated; this is stricter.
+ *                              write straight into the Mods folder, ungated. This is stricter.
  */
 "use strict";
 
@@ -100,8 +103,8 @@ class SkiStampPlugin {
       if (this.compiles++ > 0 && !this.fromMsbuild) this.current = newStandaloneStamp();
     });
     compiler.hooks.emit.tap("SkiStampPlugin", () => {
-      // A new bundle is about to replace build/: it has passed no gate yet (fixer round U1,
-      // pipeline-safety-1). output.clean removes the marker only on the FIRST compile; watch
+      // A new bundle is about to replace build/: it is not gated yet (fixer round U1,
+      // pipeline-safety-1). output.clean removes the marker only on the FIRST compile. Watch
       // rebuilds clean only webpack's own previous assets (webpack/lib/CleanPlugin.js), so delete it here.
       removeGateMarker(BUILD);
     });
@@ -200,7 +203,7 @@ module.exports = (env = {}) => {
       "cs2/input": "cs2/input",
       "cs2/modding": "cs2/modding",
       "cohtml/cohtml": "cohtml/cohtml",
-      // chart.js is a window name too (index.js@799710); add it only when we draw charts.
+      // chart.js is a window name too (index.js@799710). Add it only when we draw charts.
     },
     module: {
       rules: [
@@ -218,7 +221,7 @@ module.exports = (env = {}) => {
               loader: "css-loader",
               options: {
                 importLoaders: 1,
-                // Leave game media and absolute coui: URLs alone; bundle everything else.
+                // Leave game media and absolute coui: URLs alone. Bundle everything else.
                 url: { filter: (url) => !/^(Media\/|coui:|assetdb:)/i.test(url) },
                 modules: {
                   auto: /\.module\.s?css$/i,
@@ -251,7 +254,7 @@ module.exports = (env = {}) => {
       asyncChunks: false,
       clean: true,
       // Always rewrite every output file: SkiResortMod.csproj (SkiUiBuild) uses the files'
-      // timestamps as its incremental Outputs, and an unchanged .css kept with an old timestamp
+      // timestamps as its incremental Outputs. An unchanged .css kept with an old timestamp
       // would make every C# build rerun npm (research 2.A.3 item 11).
       compareBeforeEmit: false,
     },
@@ -261,7 +264,7 @@ module.exports = (env = {}) => {
       runtimeChunk: false,
       minimizer: [
         new TerserPlugin({
-          // The banner is written only when at least one comment was extracted; src/index.tsx
+          // The banner is written only when at least one comment was extracted. src/index.tsx
           // starts with a "/*!" comment so this never depends on react/jsx-runtime's @license.
           extractComments: { banner: () => bannerText(stamp.current) },
         }),

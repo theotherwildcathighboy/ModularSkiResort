@@ -1,8 +1,8 @@
 /*
 * harness/serve.js - tiny static server for the browser harness.
 * Root = mod/SkiResortUI, so /harness/ and /build/ are both reachable. /game/index.css streams the installed game's UI
-* stylesheet (theme variables) from the Steam folder; nothing is copied. /assetdb/<id> streams the prefab icon whose
-* a gamedata-mirror/ImportedData/.../<name>.png.cid holds <id> (the game resolves assetdb://global/<id>; cs2-mock.js rewrites it).
+* stylesheet (theme variables) from the Steam folder. Nothing is copied. /assetdb/<id> streams the prefab icon whose
+* cid file gamedata-mirror/ImportedData/.../<name>.png.cid holds <id>. The game resolves assetdb://global/<id>, and cs2-mock.js rewrites it.
 * Run: node mod/SkiResortUI/harness/serve.js [port]   (default 5173)  ->  http://localhost:5173/harness/
 */
 "use strict";
@@ -22,7 +22,7 @@ function send(res, code, body, type) {
   res.end(body);
 }
 // In the game, CSS and the hub reference assets by coui:// URLs and paths relative to the game's index.html. The browser
-// knows neither, so served CSS is rewritten and the game's Media / Fonts / Static folders are mounted read-only under /game/.
+// knows neither. So the server rewrites the CSS it serves and mounts the game's Media / Fonts / Static folders read-only under /game/.
 function rewriteCss(text) {
   return text
     .replace(/coui:\/\/ui-mods\/SkiResortMod-img\//g, "/build/SkiResortMod-img/")

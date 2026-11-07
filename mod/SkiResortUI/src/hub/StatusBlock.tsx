@@ -1,9 +1,10 @@
 /*
  * Status line and problems band of the shown ski area.
  * Status line `div.statusRow` (fixed 1.6 em): ONE text node chosen by hubRules.statusVariant (one <LocText> per branch, gate R13), then a hint slot.
- * Problems band `div.problems`: always ONE `div.problemSlotRow` (1.45 em; hubRules.BAND_SLOTS, DECISIONS 613), the worst row C# ranks first, so a
- * change never alters its height; it carries the "+N" button that opens the popover with the others. Two or more rows of one per-lift code fold into one (hubRules.foldBandRows). A row is ONE text node;
- * clickable rows (hubRules.problemClick) are a cs2/ui Button, inert rows a plain div. The row text is the tooltip's first line, so the ellipsis is the net.
+ * Problems band `div.problems`: always ONE `div.problemSlotRow` (1.45 em, hubRules.BAND_SLOTS, DECISIONS 613). It shows the worst row C# ranks first,
+ * so its height never changes. It carries the "+N" button that opens the popover with the others. Two or more rows of one per-lift code
+ * fold into one (hubRules.foldBandRows). A row is ONE text node. Clickable rows (hubRules.problemClick) are a cs2/ui Button, and inert rows are
+ * a plain div. The row text is the tooltip's first line, so the ellipsis is the net.
  * Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, problems$, city$.
  */
 import type { RefObject } from "react";
@@ -61,7 +62,7 @@ function StatusMark({ row, live }: { row: ResortRow | null; live: ResortLive | n
 function statusTip(row: ResortRow | null, live: ResortLive | null, city: CityStats, t: Translate, inches: boolean): JSX.Element | undefined {
   if (!row || row.kind === 1 || !live || live.runsOpen < 0 || (row.runs | 0) <= 0) return undefined;
   const seasonTip = SEASON_TIP_TEXT[live.seasonHint] ?? null;
-  // The hint word one layer down when the slot shows the snow; the snow pair here when the slot shows a word instead
+  // The hint word one layer down when the slot shows the snow. The snow pair here when the slot shows a word instead
   const hint = statusHint(row, live);
   const seasonWord = hint !== "warn" && hint !== "season" && seasonTip ? SEASON_HINT_TEXT[live.seasonHint] ?? null : null;
   const snowHere = hint === "powder" || hint === "warn";
@@ -73,7 +74,7 @@ function statusTip(row: ResortRow | null, live: ResortLive | null, city: CitySta
           CLOSED: numArg(closedRuns(row, live), Unit.Integer),
         }} />,
         t(HUB_LOC.statusTipRule),
-        // Measured snow is the default and gets no line (T142); only the exceptions say how the snow is read.
+        // Measured snow is the default and gets no line (T142). Only the exceptions say how the snow is read.
         !city.snowGating ? t(HUB_LOC.statusTipGating) : live.snowEstimated && t(HUB_LOC.statusTipEstimated),
         seasonWord && t(seasonWord),
         seasonTip && t(seasonTip),
@@ -83,7 +84,7 @@ function statusTip(row: ResortRow | null, live: ResortLive | null, city: CitySta
           ? <LocText entry={HUB_FMT.snowDepthIn} args={{ DEPTH: numArg(depthValue(live.snowDepthCm, true), Unit.Integer) }} />
           : <LocText entry={HUB_FMT.snowDepth} args={{ DEPTH: numArg(live.snowDepthCm, Unit.Integer) }} /> },
         snowHere && live.snowPct >= 0 && { label: t(HUB_LOC.mountainSnowCover), value: numArg(live.snowPct, Unit.Percentage) },
-        // The powder now (0-100; -1 unknown, 0 none: no line)
+        // The powder now (0-100, -1 unknown, 0 none: no line)
         live.skiDaysPowderPct > 0 && <LocText key="p" entry={HUB_FMT.statusTipPowder} args={{ PCT: numArg(live.skiDaysPowderPct, Unit.Percentage) }} />,
         city.snowVisualsOff && t(HUB_LOC.statusTipVisuals),
       ]}
@@ -102,7 +103,7 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "noLodge": return <>{t(HUB_LOC.problemNoLodge)}</>;
     case "lodgesAllOff": return <>{t(HUB_LOC.problemLodgesAllOff)}</>;
     case "lodgesSomeOff": return <LocText entry={HUB_FMT.problemLodgesSomeOff} args={{ N }} />;
-    // The other factors live in the tooltip (problemTip lists every one); a "+N" here read like the band's own "+N" beside it
+    // The other factors live in the tooltip (problemTip lists every one). A "+N" here read like the band's own "+N" beside it
     // (in game 2026-11-07: "... Not Enough Employees +3" next to "+3").
     case "efficiency": case "efficiencyMore": return <LocText entry={HUB_FMT.problemEfficiency} args={{ PCT, REASON }} />;
     case "notRunning": case "notRunningMore": return <LocText entry={HUB_FMT.problemNotRunning} args={{ REASON }} />;
@@ -140,8 +141,8 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
   }
 }
 
-/** The LiftLowSpan row: "Lift 1: chairs pass 1.2 m above the ground"; detail is the height in tenths (0 = the carriers touch the
- *  ground), pct 1 = cabins. The tip names the span (LowSpanTip). */
+/** The LiftLowSpan row: "Lift 1: chairs pass 1.2 m above the ground". detail is the height in tenths (0 = the carriers touch the
+ *  ground). pct 1 = cabins. The tip names the span (LowSpanTip). */
 function LowSpanText({ p, t, NAME }: { p: ProblemRow; t: Translate; NAME: string }): JSX.Element {
   const CARRIERS = t(p.pct === 1 ? HUB_LOC.carriersCabins : HUB_LOC.carriersChairs);
   return p.detail > 0
@@ -159,8 +160,8 @@ function LowSpanTip({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
   return <LocText entry={HUB_FMT.problemTipLiftLowSpan} args={{ WHERE }} />;
 }
 
-/** The parking row names its lodge (C#'s subject, found in the lodgeParking rows): "No parking: Chalet 2", "and {N} more"
- *  for the other lodges without parking; the plain text until the rows arrive. */
+/** The parking row names its lodge (C#'s subject, found in the lodgeParking rows). It reads "No parking: Chalet 2", and "and {N} more"
+ *  for the other lodges without parking. Until the rows arrive, the row shows the plain text. */
 function ParkingProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
   const rows = useValue(lodgeParking$);
   const r = rows.find((x) => sameEntity(x.lodge, p.subject));
@@ -176,7 +177,7 @@ function ParkingProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Elem
     : <LocText entry={HUB_FMT.problemNoParkingAt} args={{ NAME }} />;
 }
 
-/** A folded band row's ONE text node ("3 lifts unfinished: Lift 3, 4, 5"); a plain row is ProblemText. */
+/** A folded band row's ONE text node ("3 lifts unfinished: Lift 3, 4, 5"). A plain row is ProblemText. */
 function BandText({ b, t }: { b: BandRow; t: Translate }): JSX.Element {
   if (b.group.length < 2) return <ProblemText p={b.row} t={t} />;
   const N = numArg(b.group.length, Unit.Integer);
@@ -188,7 +189,7 @@ function BandText({ b, t }: { b: BandRow; t: Translate }): JSX.Element {
   }
 }
 
-/** A folded row opens the Lifts view (it names several lifts); a plain row clicks as before. */
+/** A folded row opens the Lifts view (it names several lifts). A plain row clicks as before. */
 function bandClick(b: BandRow): ProblemClick {
   return b.group.length >= 2 ? "liftsView" : problemClick(b.row);
 }
@@ -203,7 +204,7 @@ function runClick(click: ProblemClick, p: ProblemRow): void {
 /** The single band rows whose row says it all: problemTip has no body for them, so a tooltip would only repeat the title. */
 const TITLE_ONLY_TIP: ReadonlySet<ProblemVariant> = new Set<ProblemVariant>(["lodgeNoRoad", "unlinked", "noRuns", "runsFlat"]);
 
-/** The tooltip of a band row; a folded row lists its lifts, one line each. A TITLE_ONLY_TIP row has none (null: Tip draws no
+/** The tooltip of a band row. A folded row lists its lifts, one line each. A TITLE_ONLY_TIP row has none (null: Tip draws no
  *  balloon). */
 function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element | null {
   if (b.group.length < 2) {
@@ -269,7 +270,7 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
         <ProblemText key="h" p={p} t={t} />,
         body,
         ...(isEff ? factors.map((f) => ({ label: t(factorEntry(f.factor)), value: numArg(f.pct, Unit.Percentage, true, false) })) : []),
-        // The staff numbers next to the game's reasons (ResortLive jobs / jobsFilled; -1 = unknown)
+        // The staff numbers next to the game's reasons (ResortLive jobs / jobsFilled, -1 = unknown)
         isEff && live && live.jobs >= 0 && <LocText key="s" entry={HUB_FMT.staffLine} args={{ FILLED: numArg(live.jobsFilled, Unit.Integer), JOBS: numArg(live.jobs, Unit.Integer) }} />,
         gain,
       ]}
@@ -284,7 +285,7 @@ function ProblemIconEl({ p }: { p: ProblemRow | null }): JSX.Element {
   return <Glyph src={icon.src} className={cx(styles.problemIcon, tone)} />;
 }
 
-/** A band slot: always a `.problemSlotRow` (1.45 em); the last slot carries the "+N" cell. */
+/** A band slot: always a `.problemSlotRow` (1.45 em). The last slot carries the "+N" cell. */
 function ProblemSlot({ b, slot, more, factors, live, t, noneLine, popOpen }: {
   b: BandRow | null; slot: number; more: number; factors: readonly ProblemRow[];
   live: ResortLive | null; t: Translate; noneLine: boolean; popOpen: boolean;
@@ -354,7 +355,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
   const factors = factorRowsOf(problems, sign);
   const { slots, more } = bandSlots(band);
   const popOpen = useValue(problemsOpen$) && more > 0;
-  // "Powder day" in the hint slot (normal color), else the SEASON_HINT word; same slot, same height
+  // "Powder day" in the hint slot (normal color), else the SEASON_HINT word. Same slot, same height
   const hintKind = statusHint(row, l);
   const powder = hintKind === "powder";
   const warn = hintKind === "warn";

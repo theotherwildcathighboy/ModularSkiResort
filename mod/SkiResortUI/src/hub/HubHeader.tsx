@@ -1,8 +1,10 @@
 /*
  * src/hub/HubHeader.tsx - the panel's title bar: the ski-area selector, or the plain title.
- * Row `‹ [name ▾] › [pen] [fly]` (no "N / COUNT" since DECISIONS 613: it read like the pager's page count; the list shows every area): the name button toggles hubState.areaListOpen$ and HubPanel draws AreaList as an overlay in
- * our body (no Portal). Arrows cycle the entries (resortData.ts) and send selectResort(sign | Null); C# may refuse, the UI never assumes.
- * The Not linked entry has no sign: its pen / fly keep their space (visibility hidden); so do the arrows with one area. Rename: pen -> RenameField; commit -> rename(sign, text).
+ * Row `‹ [name ▾] › [pen] [fly]`. It has no "N / COUNT" since DECISIONS 613: that read like the pager's page count, and the list shows every area.
+ * The name button toggles hubState.areaListOpen$, and HubPanel draws AreaList as an overlay in our body (no Portal).
+ * The arrows cycle the entries (resortData.ts) and send selectResort(sign | Null). C# may refuse, and the UI never assumes.
+ * The Not linked entry has no sign: its pen / fly keep their space (visibility hidden). The arrows also keep their space with one area.
+ * Rename: pen -> RenameField. Commit -> rename(sign, text).
  * Every button stops mousedown (the Panel title bar is a drag handle) and passes focusKey={FOCUS_DISABLED} (rule R15).
  * Engine notes: EngineNotes/HubHeader.tsx.md
  */
@@ -43,7 +45,7 @@ export interface HeaderButtonProps {
   hidden?: boolean;
 }
 
-/* An icon button of the title bar: never starts a drag; `hidden` keeps its space. */
+/* An icon button of the title bar: never starts a drag. `hidden` keeps its space. */
 function HeaderButton({ src, tip, onSelect, hidden }: HeaderButtonProps): JSX.Element {
   return (
     <Tip tip={hidden ? undefined : tip}>
@@ -76,7 +78,7 @@ function ResortCounts({ row, t }: { row: ResortRow; t: Translate }): JSX.Element
 }
 
 
-/* The area name as a plain text button with a chevron; a click opens / closes the AreaList overlay. */
+/* The area name as a plain text button with a chevron. A click opens or closes the AreaList overlay. */
 function AreaNameButton({ name, unlinked, t }: { name: string; unlinked: boolean; t: Translate }): JSX.Element {
   const open = useValue(areaListOpen$);
   return (
@@ -96,8 +98,8 @@ function AreaNameButton({ name, unlinked, t }: { name: string; unlinked: boolean
 
 /*
  * The ski-area list, drawn by HubPanel at the top of its content while areaListOpen$ is on (a panel file: resorts$,
- * selectedResort$). Same entries and order as the arrows; picking one sends selectResort and closes the list; the backdrop
- * closes it.
+ * selectedResort$). It has the same entries and order as the arrows. Picking one sends selectResort and closes the list.
+ * The backdrop closes the list too.
  */
 export function AreaList(): JSX.Element | null {
   const t = useT();

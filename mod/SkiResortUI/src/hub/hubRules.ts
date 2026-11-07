@@ -1,8 +1,8 @@
 /*
  * src/hub/hubRules.ts - pure display rules of the hub: joins, the problem band, the dot, the footer, and the variants that pick
  * one localized string. No React, no bindings, no cs2 value import (values only from ../bindings, types from cs2/utils), so
- * tools/test-hub-rules.js runs it in Node with literal oracles and throws on any other import; a new rule adds its rows there.
- * A function here never returns a placeholder LocEntry: it returns a variant name and the component renders that branch's <LocText>.
+ * tools/test-hub-rules.js runs it in Node with literal oracles. That tool throws on any other import. A new rule adds its rows there.
+ * A function here never returns a placeholder LocEntry. It returns a variant name, and the component renders that branch's <LocText>.
  * Total: every function answers any input without throwing.
  */
 import type { Entity } from "cs2/utils";
@@ -15,7 +15,7 @@ import type {
 } from "../bindings";
 
 
-/** The live row of an area (Entity.Null = Not linked); same index first, else a scan; null = none. */
+/** The live row of an area (Entity.Null = Not linked). The same index first, else a scan. null = none. */
 export function liveOf(live: readonly ResortLive[] | null | undefined, sign: Entity | null | undefined,
   index = -1): ResortLive | null {
   if (!live) return null;
@@ -32,8 +32,8 @@ export function runLiveMap(live: readonly RunLive[] | null | undefined): Readonl
 }
 
 
-/** Band rows of an area, in C#'s rank order: severity >= 1, not a Factor row, and a code the band knows
- *  (problemVariant != null, not a fixed code range: that would drop RunsFlat = 17). */
+/** Band rows of an area, in C#'s rank order. A band row has severity >= 1, is not a Factor row, and has a code that the band knows.
+ *  The test is problemVariant != null, not a fixed code range: a range would drop RunsFlat = 17. */
 export function bandRowsOf(problems: readonly ProblemRow[] | null | undefined, sign: Entity | null | undefined): ProblemRow[] {
   const out: ProblemRow[] = [];
   for (const p of problems ?? []) {
@@ -53,8 +53,8 @@ export function isBuildItemId(id: string | null | undefined): id is BuildItemId 
   return !!id && (BUILD_ITEM_IDS as readonly string[]).indexOf(id) >= 0;
 }
 
-/** The one Build-strip dot. No sign in the city -> "sign"; else the buildItem of the
- *  first band row of the shown area that names a known item; else null. */
+/** The one Build-strip dot. No sign in the city: "sign". Otherwise the buildItem of the
+ *  first band row of the shown area that names a known item. Otherwise null. */
 export function dotItem(problems: readonly ProblemRow[] | null | undefined, sign: Entity | null | undefined,
   hasSign: boolean): BuildItemId | null {
   if (!hasSign) return "sign";
@@ -151,13 +151,17 @@ export function problemIcon(p: ProblemRow | null): ProblemIcon {
 
 export type ProblemClick = "sign" | "lift" | "liftsView" | "runsView" | null;
 
-/** What a click on a band row does. "sign" = fly to `subject` (a building: the sign, or for
- *  LodgeNoRoad the lodge; the lodge C# names for 20-22, the sign for 20 without one;
- *  the lowest summit lodge no lift reaches for 24, the subject C# names for 25; the top-level school for 25,
- *  the first school on no sign for 26, a road-less school for 19 when no lodge is). MixedLiftTypes (23)
- *  is a lift row: its click flies to the lift (to its gap while a section is missing), like LiftUnfinished. LiftBend (30) sends the bent
- *  tower's node as its subject with a null subjectTop: focusLift flies to that tower; LiftTrainLimit (31) the same with its tower; LiftLowSpan (32)
- *  sends the low span's edge: focusLift flies to its lowest carrier point. */
+/** What a click on a band row does. "sign" = fly to `subject`. The subject is a building: the sign, or for
+ *  LodgeNoRoad the lodge. By code:
+ *  - 20-22: the lodge C# names. 20 without one: the sign.
+ *  - 24: the lowest summit lodge no lift reaches.
+ *  - 25: the subject C# names (the top-level school).
+ *  - 26: the first school on no sign.
+ *  - 19: a road-less school, when no lodge is.
+ *  MixedLiftTypes (23) is a lift row. Its click flies to the lift (to its gap while a section is missing), like LiftUnfinished.
+ *  LiftBend (30) sends the bent tower's node as its subject, with a null subjectTop. focusLift flies to that tower.
+ *  LiftTrainLimit (31) does the same with its tower.
+ *  LiftLowSpan (32) sends the low span's edge. focusLift flies to its lowest carrier point. */
 export function problemClick(p: ProblemRow): ProblemClick {
   switch (p.code) {
     case PROBLEM.NoLodge: case PROBLEM.LodgesAllOff: case PROBLEM.LodgesSomeOff: case PROBLEM.Efficiency:
@@ -178,7 +182,7 @@ export function problemClick(p: ProblemRow): ProblemClick {
   }
 }
 
-/** The band shows ONE row, the worst (C# ranks them); the rest open from "+N" (2026-11-07, DECISIONS 613: three fixed rows cost two
+/** The band shows ONE row, the worst (C# ranks them). The rest open from "+N" (2026-11-07, DECISIONS 613: three fixed rows cost two
  *  lines on every view). */
 export const BAND_SLOTS = 1;
 
@@ -191,15 +195,15 @@ export function bandSlots<T>(rows: readonly T[]): { slots: Array<T | null>; more
 
 export const FOLDED_PROBLEM_CODES: readonly number[] = [PROBLEM.LiftUnfinished, PROBLEM.LiftNoPower, PROBLEM.LiftSectionMissing];
 
-/** One band row as drawn: `row` (the first of its code, so the rank is C#'s) and `group` (every row it stands for, in C#'s
- *  order; length 1 for a plain row). */
+/** One band row as drawn. `row` is the first row of its code, so the rank is C#'s. `group` holds every row it stands for, in C#'s
+ *  order (length 1 for a plain row). */
 export interface BandRow {
   row: ProblemRow;
   group: ProblemRow[];
 }
 
-/** Band rows after the fold: rows of a FOLDED_PROBLEM_CODES code that occurs two or more times become ONE row at the place of the
- *  first; every other row stays as it is. */
+/** Band rows after the fold. Rows of a FOLDED_PROBLEM_CODES code that occurs two or more times become ONE row at the place of the
+ *  first. Every other row stays as it is. */
 export function foldBandRows(rows: readonly ProblemRow[]): BandRow[] {
   const byCode = new Map<number, ProblemRow[]>();
   for (const p of rows) {
@@ -222,8 +226,8 @@ export function foldBandRows(rows: readonly ProblemRow[]): BandRow[] {
   return out;
 }
 
-/** The names of a folded row as one list: "Lift 3, 4, 5" when every name is one shared prefix plus a number (the default
- *  names), else the names joined ("Meadow Quad, Lift 4"); an empty name reads "–". */
+/** The names of a folded row as one list. It reads "Lift 3, 4, 5" when every name is one shared prefix plus a number (the default
+ *  names). Otherwise it joins the names ("Meadow Quad, Lift 4"). An empty name reads "–". */
 export function liftNameList(names: readonly string[]): string {
   const clean = names.map((n) => (n && n.trim() !== "" ? n.trim() : "–"));
   if (clean.length === 0) return "–";
@@ -268,7 +272,7 @@ export function statusVariant(row: ResortRow | null, live: ResortLive | null): S
   if (!row || !live || live.runsOpen < 0) return "unknown";
   if ((row.runs | 0) <= 0 || live.status === RESORT_STATUS.NoRuns) return "noRuns";
   const one = (row.runs | 0) === 1;
-  // No run fully open but some partly open -> count the partly open ones, so the word
+  // No run fully open but some partly open -> count the partly open ones. That way the word
   // ("Partly open") and the number never contradict each other ("Partly open · 0 of 7 runs open").
   if ((live.runsOpen | 0) <= 0 && (live.runsPartly | 0) > 0) {
     if (live.snowEstimated) return one ? "partlyOneEst" : "partlyEst";
@@ -280,7 +284,7 @@ export function statusVariant(row: ResortRow | null, live: ResortLive | null): S
 
 export type ResultVariant = "result" | "noLodge";
 
-/** Overview receipt result label: no active lodge -> "Attraction (no lodge: 0)", so the
+/** Overview receipt result label: no active lodge -> "Attraction (no lodge: 0)". That way the
  *  receipt says why lodge base 0 + runs and lifts gives 0. lodgesActive -1 (no result) -> "result". */
 export function resultVariant(live: ResortLive | null): ResultVariant {
   return live && live.lodgesActive === 0 ? "noLodge" : "result";
@@ -296,24 +300,27 @@ export function closedRuns(row: ResortRow, live: ResortLive): number {
   return Math.max(0, (row.runs | 0) - Math.max(0, live.runsOpen | 0) - Math.max(0, live.runsPartly | 0));
 }
 
-/** Powder >= 0.5 = SkiDayRules.PowderMarkAt × 100; parity tested in HubRulesTests (H16). Powder takes
+/** Powder >= 0.5 = SkiDayRules.PowderMarkAt × 100. HubRulesTests tests the parity (H16). Powder takes
  *  sixths, so the rounded percent never straddles the mark. */
 export const POWDER_MARK_PCT = 50;
 
 export type StatusHint = "powder" | "warn" | "snow" | "season" | "none";
 
-/** The SEASON_HINT values that stay on the status line as a warning (runs closing or not opening); every other hint word
+/** The SEASON_HINT values that stay on the status line as a warning (runs closing or not opening). Every other hint word
  *  moves into the status tooltip and the slot shows the snow. */
 export const SEASON_HINT_WARN: readonly number[] = [SEASON_HINT.Thawing, SEASON_HINT.WaitingForSnow, SEASON_HINT.TooWarm];
 
-/** The status line's hint slot: powder first ("Powder day" at the mark), then a warning hint (SEASON_HINT_WARN: "warn", the
- *  word stays), else the snow ("snow": depth cm · coverage %, the hint word in the tooltip) while either is known, else the
- *  hint word ("season"). Nothing for the Not linked row, a sign without runs or a missing live row (the slot then stays empty).
+/** The status line's hint slot. The order of choice:
+ *  1. Powder ("Powder day" at the mark).
+ *  2. A warning hint (SEASON_HINT_WARN: "warn", the word stays).
+ *  3. The snow ("snow": depth cm · coverage %, the hint word in the tooltip), while either is known.
+ *  4. The hint word ("season").
+ *  Nothing for the Not linked row, a sign without runs or a missing live row (the slot then stays empty).
  *  Total also for a live row without the field (undefined >= 50 is false: "season"). */
 export function statusHint(row: ResortRow | null, live: ResortLive | null): StatusHint {
   if (!row || row.kind !== 0 || (row.runs | 0) <= 0 || !live || live.runsOpen < 0) return "none";
   if (live.skiDaysPowderPct >= POWDER_MARK_PCT) return "powder";
-  // Snow on the top level, "64 cm · 88 %"; a warning hint keeps the slot.
+  // Snow on the top level, "64 cm · 88 %". A warning hint keeps the slot.
   if (SEASON_HINT_WARN.includes(live.seasonHint)) return "warn";
   return live.snowDepthCm >= 0 || live.snowPct >= 0 ? "snow" : "season";
 }
@@ -321,7 +328,7 @@ export function statusHint(row: ResortRow | null, live: ResortLive | null): Stat
 
 export type NextVariant = "sign" | "unlinked" | "lodge" | "lift" | "run" | "done";
 
-/** Footer idle text: no sign anywhere -> sign; Not linked shown -> unlinked; else
+/** Footer idle text: no sign anywhere -> sign. Not linked shown -> unlinked. Otherwise
  *  ResortLive.nextStep (a missing live row reads "done"). */
 export function nextVariant(hasSign: boolean, unlinkedShown: boolean, live: ResortLive | null): NextVariant {
   if (!hasSign) return "sign";
@@ -344,8 +351,8 @@ export const RUN_ITEMS: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["runNat
 /** The Build items that start the lift line tool (kind "line", buildItems.ts), one per lift type. */
 const BUILD_LINE_ITEMS: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["lift", "liftDetachable", "liftGondola", "liftTram"]);
 
-/** The Quick runs "N lines dropped: A, B, C" line: the total of QuickRunsState.rejects and its top three buckets (n > 0, most first, ties by
- *  bucket order). Fewer than 2 dropped lines say nothing worth a line: top is then empty. Any input answers (junk counts are 0). */
+/** The Quick runs "N lines dropped: A, B, C" line. It holds the total of QuickRunsState.rejects and its top three buckets (n > 0, most first,
+ *  ties by bucket order). Fewer than 2 dropped lines say nothing worth a line: top is then empty. Any input answers (junk counts are 0). */
 export function rejectSummary(rejects: readonly number[] | null | undefined): { total: number; top: Array<{ bucket: number; n: number }> } {
   const rows: Array<{ bucket: number; n: number }> = [];
   let total = 0;
@@ -360,7 +367,7 @@ export function rejectSummary(rejects: readonly number[] | null | undefined): { 
   return { total, top: rows.slice(0, 3) };
 }
 
-/** A run-making tool is the active tool: the run drawing tool or the cat track tool (a Build run item with active set) or the
+/** A run-making tool is the active tool. That is the run drawing tool, the cat track tool (a Build run item with active set) or the
  *  Quick runs tool. Their info (run rows, Quick runs controls) lives on the Runs view. */
 export function runToolActive(items: readonly BuildItem[] | null | undefined, quickActive: boolean | null | undefined): boolean {
   if (quickActive === true) return true;
@@ -369,7 +376,7 @@ export function runToolActive(items: readonly BuildItem[] | null | undefined, qu
 }
 
 /** WHICH tool is active: "quick" (Quick runs), "lift" (the lift line tool), else the id of the active Build item ("" = none). Quick runs
- *  and the lift tool win over a Build item, because their own tools run while the item that started them can still read active. */
+ *  and the lift tool win over a Build item. Their own tools run while the item that started them can still read active. */
 export function activeToolKey(items: readonly BuildItem[] | null | undefined, quickActive: boolean | null | undefined,
   liftActive: boolean | null | undefined): string {
   if (quickActive === true) return "quick";
@@ -378,8 +385,8 @@ export function activeToolKey(items: readonly BuildItem[] | null | undefined, qu
   return "";
 }
 
-/** The Hub view a tool key shows its info on: run items, the cat track and Quick runs -> "runs"; lift line items and the lift tool ->
- *  "lifts"; anything else (buildings, stations, fence, none) has no view of its own (null). */
+/** The Hub view a tool key shows its info on: run items, the cat track and Quick runs -> "runs". Lift line items and the lift tool ->
+ *  "lifts". Anything else (buildings, stations, fence, none) has no view of its own (null). */
 export function toolView(key: string): "runs" | "lifts" | null {
   if (key === "quick") return "runs";
   if (key === "lift") return "lifts";
@@ -388,16 +395,16 @@ export function toolView(key: string): "runs" | "lifts" | null {
   return BUILD_LINE_ITEMS.has(key) ? "lifts" : null;
 }
 
-/** The tab follow: select the active tool's view only when the tool key CHANGES to one with a view (run tool -> other run tool, run tool
- *  -> lift tool). The same tool staying active selects nothing (the player may have left the view on purpose). `seen` = the key last
- *  seen; the caller keeps it. */
+/** The tab follow selects the active tool's view only when the tool key CHANGES to one with a view. Examples: run tool -> other run tool,
+ *  run tool -> lift tool. The same tool staying active selects nothing (the player may have left the view on purpose). `seen` = the key last
+ *  seen. The caller keeps it. */
 export function toolTabFollow(seen: string, key: string): { select: "runs" | "lifts" | null; seen: string } {
   return { select: key !== seen ? toolView(key) : null, seen: key };
 }
 
-/** Footer line 1 of a tile, by the item's KIND (buildItems.ts BuildItemMeta.kind): runs with
- *  a base fee and a per-ha fee -> run; a line of any lift type with a per-km cost -> lift; anything else with a cost
- *  (sign, lodge tiers, school, patrol huts, stations) -> cost; else the name alone (an unknown kind included). */
+/** Footer line 1 of a tile, by the item's KIND (buildItems.ts BuildItemMeta.kind). Runs with
+ *  a base fee and a per-ha fee -> run. A line of any lift type with a per-km cost -> lift. Anything else with a cost
+ *  (sign, lodge tiers, school, patrol huts, stations) -> cost. Otherwise the name alone (an unknown kind included). */
 export function line1Variant(kind: string | undefined, item: BuildItem): Line1Variant {
   if (kind === "run") return known(item.price) && known(item.pricePerHa) ? "run" : "name";
   if (kind === "line") return known(item.costPerKm) ? "lift" : "name";
@@ -419,8 +426,8 @@ export type PickerSet = "lodge" | "lift";
 export interface PickerSets {
   /** Lodge tiers: the ids of the sent lodge items ("lodge", "lodgeHut", ...). */
   lodge: string[];
-  /** Lift types (LiftTypeDef.Id) whose station AND line items are ALL sent (a half-imported family,
-    *  stations first, is not offered, so it cannot invite a fixed-grip line between detachable stations). */
+  /** Lift types (LiftTypeDef.Id) whose station AND line items are ALL sent. A half-imported family
+    *  (stations first) is not offered, so it cannot invite a fixed-grip line between detachable stations. */
   lift: string[];
 }
 
@@ -464,16 +471,16 @@ export function pickerSets(items: readonly BuildItem[] | null | undefined, meta:
   return { lodge, lift };
 }
 
-/** The choice in force: the remembered option while it is still offered, else the first option ("" = none). An
- *  option that disappears (a prefab gone after a re-resolution) therefore falls back to the first. */
+/** The choice in force: the remembered option while it is still offered, else the first option ("" = none). If an
+ *  option disappears (a prefab gone after a re-resolution), the choice therefore becomes the first option. */
 export function effectiveSelection(sets: PickerSets, sel: PickerSelection | null | undefined): PickerSelection {
   const pick = (options: string[], want: string | undefined): string =>
     want && options.indexOf(want) >= 0 ? want : options.length > 0 ? options[0] : "";
   return { lodge: pick(sets.lodge, sel ? sel.lodge : ""), lift: pick(sets.lift, sel ? sel.lift : "") };
 }
 
-/** The ids the strip draws: every SENT id of the table except the station / line items of every lift type other than
- *  the chosen one (a half-imported type is never drawn). Every sent lodge tier is drawn (one Buildings tile each),
+/** The ids the strip draws: every SENT id of the table, except the station / line items of every lift type other than
+ *  the chosen one. A half-imported type is never drawn. Every sent lodge tier is drawn (one Buildings tile each),
  *  so the lodge selection filters nothing. */
 export function visibleIds(items: readonly BuildItem[] | null | undefined, meta: readonly PickerMeta[],
   sel: PickerSelection | null | undefined): Set<string> {
@@ -488,7 +495,7 @@ export function visibleIds(items: readonly BuildItem[] | null | undefined, meta:
   return out;
 }
 
-/** The picker option an item belongs to: a lodge tier is its own option, a station or line item its lift type; null
+/** The picker option an item belongs to: a lodge tier is its own option, a station or line item its lift type. It is null
  *  for every other item (BuildStrip selects it when the item becomes the active tool). */
 export function optionOf(id: string | null | undefined, meta: readonly PickerMeta[]): { set: PickerSet; value: string } | null {
   if (!id) return null;
@@ -503,8 +510,8 @@ export function optionOf(id: string | null | undefined, meta: readonly PickerMet
 
 export type DotTarget = { kind: "tile"; id: string } | { kind: "chip"; set: PickerSet; value: string } | null;
 
-/** Where the ONE dot goes: on its tile when the tile is drawn; on the picker chip of its option
- *  when the item is an alternative that is not chosen (a chip exists only in a set with >= 2 options); else nowhere. */
+/** Where the ONE dot goes. On its tile, when the tile is drawn. On the picker chip of its option,
+ *  when the item is an alternative that is not chosen. A chip exists only in a set with >= 2 options. Otherwise nowhere. */
 export function dotTarget(dot: string | null | undefined, items: readonly BuildItem[] | null | undefined,
   meta: readonly PickerMeta[], sel: PickerSelection | null | undefined): DotTarget {
   if (!dot) return null;
@@ -520,7 +527,7 @@ export type BuildTab = "lifts" | "runs" | "buildings";
 
 export const BUILD_TABS: readonly BuildTab[] = ["lifts", "runs", "buildings"];
 
-/** The tab of an item KIND: stations and lines -> lifts; runs and the safety fence -> runs; the sign, lodge tiers, bus depot, school and patrol huts -> buildings
+/** The tab of an item KIND: stations and lines -> lifts. Runs and the safety fence -> runs. The sign, lodge tiers, bus depot, school and patrol huts -> buildings
  *  (null for a kind this bundle does not know). */
 export function tabOfKind(kind: string | undefined): BuildTab | null {
   switch (kind) {
@@ -560,7 +567,7 @@ export function drawnTabs(visible: ReadonlySet<string>, meta: readonly PickerMet
   return BUILD_TABS.filter((t) => have.has(t));
 }
 
-/** The tab in force: the remembered one while it is drawn, else the tab the idle NEXT line points at, else the first drawn
+/** The tab in force: the remembered one while it is drawn. Otherwise the tab the idle NEXT line points at. Otherwise the first drawn
  *  ("" = none drawn). */
 export function effectiveTab(drawn: readonly BuildTab[], stored: string | null | undefined, next: NextVariant): BuildTab | "" {
   if (stored && (drawn as readonly string[]).indexOf(stored) >= 0) return stored as BuildTab;
@@ -572,7 +579,7 @@ export function effectiveTab(drawn: readonly BuildTab[], stored: string | null |
 export type FooterState = "follow" | "active" | "locked" | "empty" | "idle";
 
 /** Footer status line priority: follow notice > active tool > locked click > idle. A hovered tile changes nothing: its tooltip
- *  names it, prices it and gives its hint (2026-11-07, DECISIONS 613; the line used to repeat the tooltip). */
+ *  names it, prices it and gives its hint (2026-11-07, DECISIONS 613: the line used to repeat the tooltip). */
 export function footerState(hasItems: boolean, followOn: boolean, active: boolean, lockedClick: boolean): FooterState {
   if (!hasItems) return "empty";
   if (followOn) return "follow";
@@ -581,22 +588,22 @@ export function footerState(hasItems: boolean, followOn: boolean, active: boolea
   return "idle";
 }
 
-/** The Build strip opens like the game's toolbar (2026-11-07, DECISIONS 613): only the tab row until the player clicks a tab, and
- *  always while something it started is engaged (a build tool, the tree tool, the planner, the lift generator, cat track delete,
- *  the merge overlay). A footer that cannot collapse (the contract-mismatch panel) is always open. */
+/** The Build strip opens like the game's toolbar (2026-11-07, DECISIONS 613). It shows only the tab row until the player clicks a tab.
+ *  It is always open while something it started is engaged. That is a build tool, the tree tool, the planner, the lift generator, cat track delete
+ *  or the merge overlay. A footer that cannot collapse (the contract-mismatch panel) is always open. */
 export function footerOpen(stored: boolean, engaged: boolean, collapsible: boolean): boolean {
   return !collapsible || engaged || stored;
 }
 
-/** A tab click: a closed strip opens on that tab; the open tab closes it; another tab switches (and stays open). */
+/** A tab click: a closed strip opens on that tab. A click on the open tab closes the strip. A click on another tab switches to it (and the strip stays open). */
 export function tabClick(open: boolean, current: string, clicked: BuildTab): { open: boolean; tab: BuildTab } {
   return { open: !open || current !== clicked, tab: clicked };
 }
 
 export type BuildingFamily = "lodges" | "services";
 
-/** The Buildings tab shows one family at a time (one tile row on every tab): the sign and the lodge tiers, or the services (bus depot,
- *  ski school, patrol huts). */
+/** The Buildings tab shows one family at a time (one tile row on every tab). The families are the sign and the lodge tiers, or the services
+ *  (bus depot, ski school, patrol huts). */
 export function buildingFamily(kind: string | undefined): BuildingFamily {
   return kind === "depot" || kind === "school" || kind === "patrol" ? "services" : "lodges";
 }
@@ -643,12 +650,12 @@ export function incomeNote(live: ResortLive, price: number): IncomeNote {
 
 /** The price factor (C# SkiDayRules.PriceFullAt /
  *  PriceSpan / PriceMax). Parity: tools/test-hub-rules.js T10.1 and ResortBatch HubRulesTests H17 hold the same
- *  literal table; a change of the constants fails both and points at the hub texts. */
+ *  literal table. A change of the constants fails both and points at the hub texts. */
 export const PRICE_FULL_AT = 240;
 export const PRICE_SPAN = 200;
 export const PRICE_MAX = 200;
-/** The highest price with no effect on ski days (240 − 200 = 40; the default price is 80, C#
- *  SkiMoneyRules.TicketPriceDefault, where the factor is 0.8). */
+/** The highest price with no effect on ski days (240 − 200 = 40). The default price is 80 (C#
+ *  SkiMoneyRules.TicketPriceDefault), where the factor is 0.8. */
 export const PRICE_NO_EFFECT_MAX = PRICE_FULL_AT - PRICE_SPAN;
 /** The prices whose factor the price line's tooltip shows (MONEY_PRICE_TIP[Curve] P1..P3). */
 export const PRICE_EXAMPLES: readonly number[] = [80, 120, PRICE_MAX];
@@ -667,17 +674,17 @@ function toleranceOf(tolerance: number | undefined): number {
 }
 
 /** P = min(1, (240 + tolerance − min(price, 200)) / 200): the factor on every ski-day chance (C#
- *  SkiDayRules.PriceFactor(price, tolerance); the counted lodges' price tolerance, ResortLive
- *  .priceTolerance - Luxury 40, Chalet 20, else 0; `tolerance` omitted = 0).
- *  -1 for an unknown price (negative or not finite). C# never sends one (ClampTicketPrice); C# would clamp a
- *  negative to 0 and answer 1 - deliberate, the hub shows "–" instead. */
+ *  SkiDayRules.PriceFactor(price, tolerance)). The tolerance is the counted lodges' price tolerance, ResortLive
+ *  .priceTolerance: Luxury 40, Chalet 20, else 0. `tolerance` omitted = 0.
+ *  -1 for an unknown price (negative or not finite). C# never sends one (ClampTicketPrice). C# would clamp a
+ *  negative to 0 and answer 1. The difference is deliberate: the hub shows "–" instead. */
 export function priceFactor(price: number, tolerance = 0): number {
   if (typeof price !== "number" || !Number.isFinite(price) || price < 0) return -1;
   return Math.min(1, Math.max(0, (PRICE_FULL_AT + toleranceOf(tolerance) - Math.min(PRICE_MAX, price)) / PRICE_SPAN));
 }
 
 /** The factor as a whole percent for the hub (Gameface strips trailing zeros, so a percent reads cleanly). Integer
- *  math: (240 + tolerance − min(price, 200)) × 100 / 200, rounded half up (45 → 98); −1 for an unknown price. */
+ *  math: (240 + tolerance − min(price, 200)) × 100 / 200, rounded half up (45 → 98). −1 for an unknown price. */
 export function priceFactorPct(price: number, tolerance = 0): number {
   if (typeof price !== "number" || !Number.isFinite(price) || price < 0) return -1;
   return Math.round(Math.min(100, Math.max(0,
@@ -695,20 +702,20 @@ export function receiptPartsVariant(l: ResortLive | null): "school" | "plain" {
 }
 
 /** The Money view's "Lodge spend" income row is drawn only while lodge spend earned money this month
- *  (lodgeSpendMonth > 0; -1 unknown and 0 = the setting off draw nothing). */
+ *  (lodgeSpendMonth > 0). -1 = unknown and 0 = the setting off: both draw nothing. */
 export function lodgeSpendShown(l: ResortLive | null): boolean {
   return !!l && l.lodgeSpendMonth > 0;
 }
 
 /** The Money view's pass rows and the Guests view's pass-holder row are drawn while passes are on (the
- *  Options share above 0) or one was sold / a holder skied. */
+ *  Options share above 0). They are also drawn when a pass was sold or a holder skied. */
 export function passesShown(l: ResortLive | null, city: CityStats): boolean {
   if (!l) return false;
   return city.passShare > 0 || l.passesSoldSeason > 0 || l.passHoldersThisMonth > 0 || l.passHoldersLastMonth > 0;
 }
 
 /** The Money view's lesson row and the Guests view's "took a lesson" row are drawn once a lesson was taken
- *  this month or last (a working ski school and the Options share above 0 are what make one happen). */
+ *  this month or last. A working ski school and the Options share above 0 make a lesson happen. */
 export function lessonsShown(l: ResortLive | null): boolean {
   return !!l && (l.lessonsThisMonth > 0 || l.lessonsLastMonth > 0);
 }
@@ -718,15 +725,15 @@ export function presaleShown(l: ResortLive | null): boolean {
   return !!l && l.passesPreSeason > 0;
 }
 
-/** The city-income estimate row is drawn when C# sent a figure (>= 0) and Tourism Overhaul is not detected (the views show
- *  the TO note in its place, as for the tourist estimate). */
+/** The city-income estimate row is drawn when C# sent a figure (>= 0) and Tourism Overhaul is not detected. The views show
+ *  the TO note in its place, as for the tourist estimate. */
 export function cityIncomeShown(l: ResortLive | null, city: CityStats): boolean {
   return !!l && !city.tourismOverhaul && l.cityIncomeEst >= 0;
 }
 
 /** The Net's eight rows of the month so far, in the
  *  Finances column's order, with their sign. C#'s invariant: Σ sign × max(0, value) over the eight = netMonth (an unknown row, -1, reads 0).
- *  The view draws them as sent; netRowsTotal is that sum for the tests (the UI never shows it: the Net row is netMonth as sent). */
+ *  The view draws them as sent. netRowsTotal is that sum for the tests (the UI never shows it: the Net row is netMonth as sent). */
 export type NetRowId = "tickets" | "lodge" | "lessons" | "passes" | "lifts" | "runs" | "bus" | "buildings" | "wages";
 export const NET_ROW_IDS: readonly NetRowId[] = ["tickets", "lodge", "lessons", "passes", "lifts", "runs", "bus", "buildings", "wages"];
 
@@ -750,9 +757,9 @@ export function netRowsTotal(l: ResortLive): number {
   return s;
 }
 
-/** Which of the Net's income rows the Finances view draws: tickets always; lodge spend, lessons and passes sold under their
- *  own conditions OR while the row holds money this month, so a hidden row is always 0 and the drawn rows still add up
- *  to the Net. (Lessons also show at 0 while there is no ski school; the view adds that.) */
+/** Which of the Net's income rows the Finances view draws. Tickets: always. Lodge spend, lessons and passes sold: under their
+ *  own conditions OR while the row holds money this month. So a hidden row is always 0 and the drawn rows still add up
+ *  to the Net. (Lessons also show at 0 while there is no ski school. The view adds that.) */
 export function netRowShown(id: NetRowId, l: ResortLive, city: CityStats): boolean {
   switch (id) {
     case "lodge": return lodgeSpendShown(l) || l.lodgeIncomeMonth > 0;
@@ -773,8 +780,8 @@ export function hectares(m2: number): number {
 
 export type LastMonthMark = "full" | "partial" | "none";
 
-/** A whole month counted -> "full"; a since-load month C# sent (>= 0 while !lastMonthFull)
- *  -> "partial" (the Guests view says "(partial)"); else "none" ("–", GUESTS_LAST_NA). */
+/** A whole month counted -> "full". A since-load month C# sent (>= 0 while !lastMonthFull)
+ *  -> "partial" (the Guests view says "(partial)"). Otherwise "none" ("–", GUESTS_LAST_NA). */
 export function lastMonthMark(l: ResortLive | null): LastMonthMark {
   if (l && l.lastMonthFull) return "full";
   return l && l.guestsLastMonth >= 0 ? "partial" : "none";
@@ -782,8 +789,8 @@ export function lastMonthMark(l: ResortLive | null): LastMonthMark {
 
 export type SkiDayLine = "unknown" | "off" | "signOff" | "noRun" | "noLodge" | "night" | "roomRuns" | "roomLodges" | "room" | "full";
 
-/** The Guests view's one ski-day state line. Room splits by the limit that binds;
- *  an unknown state or a missing row is "unknown" ("–"). */
+/** The Guests view's one ski-day state line. Room splits by the limit that binds.
+ *  An unknown state or a missing row is "unknown" ("–"). */
 export function skiDayLine(l: ResortLive | null): SkiDayLine {
   if (!l) return "unknown";
   switch (l.skiDaysState) {
@@ -802,7 +809,7 @@ export function skiDayLine(l: ResortLive | null): SkiDayLine {
 export type SkiDayTip = "off" | "noLodge" | "runs" | "lodges" | null;
 
 /** The state line's tooltip: why it is off, what a ski-day lodge needs, or which limit binds
- *  (Room and Full); null = no tooltip (SignOff, NoRun, Night: the band or the line says why). */
+ *  (Room and Full). null = no tooltip (SignOff, NoRun, Night: the band or the line says why). */
 export function skiDayTip(l: ResortLive | null): SkiDayTip {
   if (!l) return null;
   switch (l.skiDaysState) {
@@ -814,7 +821,7 @@ export function skiDayTip(l: ResortLive | null): SkiDayTip {
   }
 }
 
-/** Walk class = sent - car - far without a car (never below 0); -1 when sent is unknown. The three classes
+/** Walk class = sent - car - far without a car (never below 0). -1 when sent is unknown. The three classes
  *  partition Sent, so this equals the simulation's walk count. */
 export function skiDayWalk(l: ResortLive | null): number {
   if (!l || !(l.skiDaysSent >= 0)) return -1;
@@ -823,11 +830,13 @@ export function skiDayWalk(l: ResortLive | null): number {
 
 export type TripPlannerNote = "none" | "known" | "knownOff" | "unknown" | "unknownOff";
 
-/** The Guests view's trip-planner note. "" (the game's trip systems all on),
- *  null, a missing field (an older DLL) or a non-string -> "none" (no line); TRIP_PLANNER_UNKNOWN ("?": a system
- *  is off, no known mod loaded) -> "unknown"; any other label (a known mod's name) -> "known"; "Off" when
- *  tripPlannerBlocksSkiDays is exactly true (the game's LeisureSystem or CitizenBehaviorSystem is off: ski days
- *  do not arm, ArmVerdict.SystemOff). A label only: nothing else in the hub reads it. */
+/** The Guests view's trip-planner note. Rules:
+ *  - "" (the game's trip systems all on), null, a missing field (an older DLL) or a non-string -> "none" (no line).
+ *  - TRIP_PLANNER_UNKNOWN ("?": a system is off, no known mod loaded) -> "unknown".
+ *  - Any other label (a known mod's name) -> "known".
+ *  - "Off" when tripPlannerBlocksSkiDays is exactly true (the game's LeisureSystem or CitizenBehaviorSystem is off: ski days
+ *    do not arm, ArmVerdict.SystemOff).
+ *  A label only: nothing else in the hub reads it. */
 export function tripPlannerNote(city: CityStats | null | undefined): TripPlannerNote {
   const label = city ? city.tripPlanner : undefined;
   if (!city || typeof label !== "string" || label === "") return "none";
@@ -837,7 +846,7 @@ export function tripPlannerNote(city: CityStats | null | undefined): TripPlanner
 }
 
 
-/** Score bar (0-200): integer flex-grow of [fill, ghost, rest]; unknown attraction -> [0, 0, 200]. */
+/** Score bar (0-200): integer flex-grow of [fill, ghost, rest]. Unknown attraction -> [0, 0, 200]. */
 export function scoreBarParts(attraction: number, full: number): [number, number, number] {
   const clamp = (x: number): number => Math.min(200, Math.max(0, Math.round(x)));
   if (!(attraction >= 0)) return [0, 0, 200];
@@ -846,7 +855,7 @@ export function scoreBarParts(attraction: number, full: number): [number, number
   return [a, f - a, 200 - f];
 }
 
-/** A guest bar on a shared scale: integer flex-grow [fill, rest]; value < 0 -> [0, 1] (empty track). */
+/** A guest bar on a shared scale: integer flex-grow [fill, rest]. value < 0 -> [0, 1] (empty track). */
 export function guestBarParts(value: number, max: number): [number, number] {
   const m = Math.max(1, Math.round(max));
   if (!(value >= 0)) return [0, 1];
@@ -857,8 +866,8 @@ export function guestBarParts(value: number, max: number): [number, number] {
 /** The smallest full-bar scale, so 2 guests no longer fill the bar. */
 export const GUEST_BAR_MIN_SCALE = 50;
 
-/** Ladder 50, 100, 200, 500, 1000, … (× 2, × 2, × 2.5 repeating): the smallest step >= both months (an
- *  unknown, negative or non-finite month counts 0; capped near 1e9). */
+/** Ladder 50, 100, 200, 500, 1000, … (× 2, × 2, × 2.5 repeating). The result is the smallest step >= both months (an
+ *  unknown, negative or non-finite month counts 0). It is capped near 1e9. */
 export function guestBarScale(thisMonth: number, lastMonth: number): number {
   const a = Number.isFinite(thisMonth) && thisMonth > 0 ? thisMonth : 0;
   const b = Number.isFinite(lastMonth) && lastMonth > 0 ? lastMonth : 0;
@@ -873,8 +882,8 @@ export type LiftLine2 = "detail" | "detailOne" | "detailNone" | "sectionMissing"
   | "stationsPair" | "stationsBaseOnly" | "stationsTopOnly";
 
 /** Line 2 of a lift row. `partnerPlaced`: a lone station of the
- *  other kind is placed in the same area (loneStations) - the census never puts both stations on one
- *  StationsOnly row, so "both stations placed" is found across rows, as in C# HubProblems.Build. */
+ *  other kind is placed in the same area (loneStations). The census never puts both stations on one
+ *  StationsOnly row, so the code finds "both stations placed" across rows, as in C# HubProblems.Build. */
 export function liftLine2(row: LiftRow, partnerPlaced = false): LiftLine2 {
   if (row.status === LIFT_STATUS.SectionMissing) return "sectionMissing";
   if (row.status === LIFT_STATUS.Unfinished) {
@@ -918,8 +927,8 @@ export function partnerPlaced(row: LiftRow, lone: { base: boolean; top: boolean 
 
 export type LiftCostReason = "noPower" | "sectionMissing" | "unfinished" | "noOpenRun" | null;
 
-/** Why a lift is billed at 25 % (the lift tooltip's line; LiftTable.tsx maps it to LIFT_COST_REDUCED[*]); null
- *  while billed in full. Unfinished (a missing section is unfinished) is the status's own reason; any complete
+/** Why a lift is billed at 25 % (the lift tooltip's line, which LiftTable.tsx maps to LIFT_COST_REDUCED[*]). null
+ *  while billed in full. Unfinished (a missing section is unfinished) is the status's own reason. Any complete
  *  lift is billed reduced only for no counted run in its ski area (LiftBilling.NoOpenRun).
  *  Power does not lower the bill (C# SkiMoneyRules.LiftUpkeepBillingOf), so a No power row billed reduced is billed
  *  for no counted run as well. It keeps "noPower", and LIFT_COST_REDUCED[NoPower] names the no-open-run reason. */
@@ -954,7 +963,7 @@ export function liftsTile(row: ResortRow, live: ResortLive | null): { built: num
 
 /** Unfinished lines and lone stations of an area: lift rows minus complete lifts (never below 0).
  *  0 when the live row does not know the complete count (no live row, or
- *  liftsComplete -1: the Not linked entry, or a sign without a score result) - no number is shown
+ *  liftsComplete -1: the Not linked entry, or a sign without a score result). The hub shows no number
  *  unless it is real. */
 export function unfinishedLifts(row: ResortRow, live: ResortLive | null): number {
   if (!live || !(live.liftsComplete >= 0)) return 0;
@@ -962,7 +971,7 @@ export function unfinishedLifts(row: ResortRow, live: ResortLive | null): number
 }
 
 
-/** C# SkiResortHubUISystem.ReasonKeyAlreadyBuilt: build[].reason while the SHOWN sign's InstalledUpgrade buffer already holds the
+/** C# SkiResortHubUISystem.ReasonKeyAlreadyBuilt: build[].reason. C# sends it while the SHOWN sign's InstalledUpgrade buffer already holds the
  *  item's ForbidMultiple prefab (the school), switched off or not (UpgradeConflict, Deleted / Temp skipped). */
 export const REASON_ALREADY_BUILT = "SkiResort.Hub.REASON[AlreadyBuilt]";
 
@@ -972,13 +981,18 @@ export function schoolBuiltOf(build: readonly BuildItem[] | null | undefined): b
   return false;
 }
 
-/** The ski school of a sign, for the rows whose 0 has a cause: "on" = its value counts
- *  (schoolValue > 0); "noGreen" = runs count but no green one (the sign's PROBLEM.SchoolNoGreenRun row, C# HubProblemCode 25, sent
- *  only while RunsCounted > 0, SkiResortStatsSystem.cs:2700); "waiting" = built, no run counts at all (live.summer: SkiResortScore.cs
- *  :414 summer ⇔ RunsCounted == 0, so SchoolRule gives +0, SkiResortScore.cs:467); "off" = built, runs count, still 0 and no row 25:
- *  the only way is SchoolActive false, the upgrade switched off (BuildingOption.Inactive, SkiResortAttractivenessSystem.cs:1445);
- *  "none" = no school; "unknown" = no live row or schoolValue < 0. `built` = schoolBuiltOf(build) for the SAME shown sign. Reads only
- *  C#'s fields: no new contract field. A school on a sign with no runs must not read "No ski school" (no row 25 there). */
+/** The ski school of a sign, for the rows whose 0 has a cause. The states:
+ *  - "on" = its value counts (schoolValue > 0).
+ *  - "noGreen" = runs count but no green one (the sign's PROBLEM.SchoolNoGreenRun row, C# HubProblemCode 25, sent
+ *    only while RunsCounted > 0, SkiResortStatsSystem.cs:2700).
+ *  - "waiting" = built, no run counts at all (live.summer: SkiResortScore.cs
+ *    :414 summer ⇔ RunsCounted == 0, so SchoolRule gives +0, SkiResortScore.cs:467).
+ *  - "off" = built, runs count, still 0 and no row 25. The only way is SchoolActive false, the upgrade switched off
+ *    (BuildingOption.Inactive, SkiResortAttractivenessSystem.cs:1445).
+ *  - "none" = no school.
+ *  - "unknown" = no live row or schoolValue < 0.
+ *  `built` = schoolBuiltOf(build) for the SAME shown sign. It reads only C#'s fields: no new contract field.
+ *  A school on a sign with no runs must not read "No ski school" (no row 25 there). */
 export type SchoolState = "on" | "noGreen" | "waiting" | "off" | "none" | "unknown";
 export function schoolState(l: ResortLive | null, problems: readonly ProblemRow[] | null | undefined, sign: Entity | null | undefined,
   built = false): SchoolState {
@@ -989,7 +1003,7 @@ export function schoolState(l: ResortLive | null, problems: readonly ProblemRow[
   return l.summer ? "waiting" : "off";
 }
 
-/** The School row's flag (HUB_LOC key name) by state; null = no flag ("on" / "unknown"). "waiting" is a state, not a fault: the
+/** The School row's flag (HUB_LOC key name) by state. null = no flag ("on" / "unknown"). "waiting" is a state, not a fault: the
  *  row draws it dim (InfoLine flagDim). */
 export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "schoolOff" | "schoolWaiting" | null {
   switch (s) {
@@ -1009,7 +1023,7 @@ export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "sc
 export const RUN_PROP_SPACING_LADDER = [20, 30, 40, 50, 60, 80, 100, 130, 160, 200];
 export const RUN_PROP_SPACING_FIRST = 50;
 
-/** The value a Fewer (more = false) or More (more = true) click sends. The row shows C#'s value; this only picks what to send. */
+/** The value a Fewer (more = false) or More (more = true) click sends. The row shows C#'s value. This only picks what to send. */
 export function runPropSpacingStep(value: number, more: boolean): number {
   const L = RUN_PROP_SPACING_LADDER;
   if (value <= RUN_PROP_SPACING_OFF) return more ? RUN_PROP_SPACING_FIRST : RUN_PROP_SPACING_OFF;

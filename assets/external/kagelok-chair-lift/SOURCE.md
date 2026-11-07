@@ -18,15 +18,15 @@
 | `source/Sketchfab_2017_09_02_17_41_10.blend` | 1,265,512 B (Blender 2.79.1) | `71a2c6b434e749ce47528e3caee804fb013551b5` |
 | `textures/` | 117 PNG, 84,068,797 B (30 sets for 30 of the 33 materials) | - |
 
-The binaries are gitignored (`.gitignore`, "Third-party originals" block); this file is tracked.
-On a fresh clone, re-download from the source URL above and place the files at these paths.
+The binaries are gitignored (`.gitignore`, "Third-party originals" block). This file is tracked.
+On a fresh clone, download the files again from the source URL above and place them at these paths.
 
 **Status: visual reference only. No geometry or texture derived from this model ships.**
 
 ## Credit line (ref-models.md §3)
 
-Required as soon as anything derived from this model ships (release/CREDITS.md, the listing and
-in-game description, assets/LICENSE carve-out, README.md):
+The credit line is required as soon as anything derived from this model ships. It goes in release/CREDITS.md, the
+listing and in-game description, the assets/LICENSE carve-out and README.md:
 
 > "Chair Lift" by Kagelok (https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236),
 > licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Modified by
@@ -35,7 +35,7 @@ in-game description, assets/LICENSE carve-out, README.md):
 
 ## Use in this repo
 
-- Loader: `assets/blender/cs2_ingest.py` (`load_external`, `match_texture_sets`); test
+- Loader: `assets/blender/cs2_ingest.py` (`load_external`, `match_texture_sets`). Test:
   `assets/blender/tests/test_ingest.py`.
 - Facts (scale 0.30 m/u, hidden objects, constraints, texture relink): `docs/research/art/assets-2026-10/understand/ref-models.md` §1.
-- Route (ROUND-SPEC R3): IMPORT the line and entry tower head kits; TRACE chair, grip and housing; ship none of its textures.
+- Route (ROUND-SPEC R3): IMPORT the line and entry tower head kits. TRACE chair, grip and housing. Ship none of its textures.

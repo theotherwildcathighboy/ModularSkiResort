@@ -1,7 +1,8 @@
 /*
  * Start card: the panel content while the city has no live Welcome Sign, even when unlinked runs or
- * lifts exist. Four numbered steps in fixed-height rows; step 1 holds the "Place Welcome Sign" button.
- * No note under the steps (hub redesign 2026-11-07: the Welcome Sign tile's tooltip says what a sign covers). A locked sign still launches (C# refuses and logs it); its lock reason comes last.
+ * lifts exist. It has four numbered steps in fixed-height rows. Step 1 holds the "Place Welcome Sign" button.
+ * No note under the steps (hub redesign 2026-11-07: the Welcome Sign tile's tooltip says what a sign covers).
+ * A locked sign still launches (C# refuses and logs it). Its lock reason comes last.
  * Panel file: subscribes build$ (CORE).
  */
 import { useValue } from "cs2/api";

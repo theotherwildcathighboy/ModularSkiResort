@@ -1,8 +1,8 @@
 # SkiTestBridge: a dev-only helper for driving in-game tests
 
-A separate local mod, not part of Modular Ski Resort. It never goes into the publish upload (the project refuses `Publish`), and
-`SkiResortMod.dll` does not change, so a driven test runs the build that ships. Without `--uiDeveloperMode` on the game's command
-line it registers nothing.
+This is a separate local mod. It is not part of Modular Ski Resort. It never goes into the publish upload (the project refuses
+`Publish`). `SkiResortMod.dll` does not change, so a driven test runs the build that ships. Without `--uiDeveloperMode` on the
+game's command line, it registers nothing.
 
 It adds what the gameface MCP lacks: real mouse and keyboard input at world positions, camera control and ECS state as JSON.
 
@@ -14,19 +14,21 @@ With the game closed, from this folder:
 dotnet build -c Release
 ```
 
-That deploys to `<Mods>\SkiTestBridge`. Steam launch options: `--developerMode --uiDeveloperMode`. The mod log is
-`SkiTestBridge.log` in the game's Logs folder, and its first line says Active or Inert. To remove it, delete `<Mods>\SkiTestBridge`.
+That deploys to `<Mods>\SkiTestBridge`. Set the Steam launch options to `--developerMode --uiDeveloperMode`. The mod log is
+`SkiTestBridge.log` in the game's Logs folder. Its first line says Active or Inert. To remove the mod, delete `<Mods>\SkiTestBridge`.
 
 ### Starting the game without the launcher
 
-Only where the owner has allowed a restart. The Steam URL opens the Paradox Launcher. A direct start skips it, but needs the Steam
-variables: without them the game logs a NullReference in `AssetDatabase.PopulateFromDataSource` in a loop on a black screen.
+Do this only where the owner has allowed a restart. The Steam URL opens the Paradox Launcher. A direct start skips the launcher,
+but it needs the Steam variables. Without them, the game logs a NullReference in `AssetDatabase.PopulateFromDataSource` in a loop
+on a black screen.
 
 ```powershell
 $env:SteamAppId="949230"; $env:SteamGameId="949230"; $env:SteamOverlayGameId="949230"; $g="C:\Program Files (x86)\Steam\steamapps\common\Cities Skylines II"; Start-Process -FilePath "$g\Cities2.exe" -WorkingDirectory $g -ArgumentList "--developerMode","--uiDeveloperMode"
 ```
 
-Port 9444 opens after 1 to 2 minutes. The window then has no focus, so input does not reach it (WScript `AppActivate` returned False). Bring it forward:
+Port 9444 opens after 1 to 2 minutes. The window then has no focus, so input does not reach it (WScript `AppActivate` returned False).
+To bring the window to the front, run:
 
 ```powershell
 Add-Type @"
@@ -37,12 +39,12 @@ public class W{[DllImport("user32.dll")]public static extern bool SetForegroundW
 
 ## Keep tests fast
 
-Do not work screenshot, move, screenshot. One `game_eval` should run a whole test:
+Do not work in the order screenshot, move, screenshot. One `game_eval` should run a whole test:
 
 1. **Aim with world coordinates**, not by looking at pixels. A `move` takes `wx` / `wz` and projects them on the frame it runs.
 2. **Batch.** A `seq` runs camera, moves, clicks, keys and checks in one call, frame-accurately.
 3. **Wait on results.** `waitFor` watches an ECS query, so there are no guessed delays and no polling calls.
-4. **Check data.** `hover` says what the tool hit, `dump` reads components, and the hub bindings and DOM give the UI text.
+4. **Check data.** `hover` says what the tool hit. `dump` reads components. The hub bindings and DOM give the UI text.
 5. **Screenshot only for what data cannot say**, at the end of a sequence (Alt+F1).
 
 ## Calling it
@@ -59,33 +61,33 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 |---|---|---|
 | `status` | | game mode, focus, screen, cursor, tool, camera, sim speed, date, money, climate, sequence |
 | `hover` | | cursor (Windows and game), `mouseOverUI`, active tool and prefab, what the tool raycast hit |
-| `photo` | `name` (a bare file name), optional `dir` (an absolute folder, created if missing), `ui` | hides the UI and saves a natural-color 3840 x 2160 PNG with Photo Mode's call, HDR on or off, to `<dir>\<name>.png` (default dir: `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\Screenshots`); replies with `path`, written a frame later. Point `dir` at the folder the test reports from. The way to take shots |
-| `pm` | `on`, `cam`: `{x, y, z, at: [x, y, z]}` or `yaw`, `pitch`; `set`: `{id: number or null}`; `list`, `group`, `reset` | Photo Mode through the panel's own properties. `list` gives ids and ranges (`focalLength`, `lensShift`, `iso`, `Roll`, `Time of Day`, ...); null turns an override off. Leave with `on:false` before using the `camera` op |
-| `project` | `wx`, `wz`, optional `wy` | client pixel; `safe` is false when off screen or in the edge-scroll band |
-| `camera` | optional `wx` + `wz`, `zoom`, `yaw`, `tilt` | camera state; applied on the next frames, so follow with a `settle` step |
+| `photo` | `name` (a bare file name), optional `dir` (an absolute folder, created if missing), `ui` | hides the UI and saves a natural-color 3840 x 2160 PNG with Photo Mode's call, HDR on or off, to `<dir>\<name>.png` (default dir: `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\Screenshots`). It replies with `path`, written a frame later. Point `dir` at the folder the test reports from. Use this op to take shots |
+| `pm` | `on`, `cam`: `{x, y, z, at: [x, y, z]}` or `yaw`, `pitch`; `set`: `{id: number or null}`; `list`, `group`, `reset` | Photo Mode through the panel's own properties. `list` gives ids and ranges (`focalLength`, `lensShift`, `iso`, `Roll`, `Time of Day`, ...). A null disables an override. Leave Photo Mode with `on:false` before you use the `camera` op |
+| `project` | `wx`, `wz`, optional `wy` | client pixel. `safe` is false when off screen or in the edge-scroll band |
+| `camera` | optional `wx` + `wz`, `zoom`, `yaw`, `tilt` | camera state. It is applied on the next frames, so follow with a `settle` step |
 | `sim` | optional `speed` (0 pauses) | speed and frame index |
-| `time` | `minutes` | advances the game clock (the dev menu's `DebugAdvanceTime`). Citizens age across the jump with no sim frames to serve them: repeated jumps pile up deaths and hearse icons, so never judge city health after them |
+| `time` | `minutes` | advances the game clock (the dev menu's `DebugAdvanceTime`). Citizens age across the jump with no sim frames to serve them: repeated jumps accumulate deaths and hearse icons, so never judge city health after them |
 | `money` | optional `add`, `unlimited` | new balance |
-| `tool` | `prefab`, optional `mode` (`Straight`, `SimpleCurve`, `ComplexCurve`, `Continuous`, `Grid`, `Replace`, `Point`) | active tool; no `prefab` returns to the default tool. For setup: a test of the hub or toolbar clicks the real buttons |
+| `tool` | `prefab`, optional `mode` (`Straight`, `SimpleCurve`, `ComplexCurve`, `Continuous`, `Grid`, `Replace`, `Point`) | active tool. No `prefab` returns to the default tool. For setup: a test of the hub or toolbar clicks the real buttons |
 | `prefabs` | `match` (part of a name) | matching prefab names and classes |
 | `unlock`, `milestone`, `demand` | | the dev menu's Unlock all, Next MS and Unlimited demands |
 | `tiles` | | unlocks every map tile (`MapTilePurchaseSystem.UnlockMapTiles`) |
-| `heights` | `x0`, `z0`, `x1`, `z1`, `step` | terrain height grid, `min`, `max`; picks test sites by slope without a screenshot |
-| `errors` | optional `clear` | game errors and exceptions since the last clear, with `serial`; includes mods whose errors never reach a dialog |
-| `climate` | any of `date`, `temperature`, `precipitation`, `cloudiness` | a number overrides, `null` hands back to the simulation |
+| `heights` | `x0`, `z0`, `x1`, `z1`, `step` | terrain height grid, `min`, `max`. Use it to pick test sites by slope without a screenshot |
+| `errors` | optional `clear` | game errors and exceptions since the last clear, with `serial`. It includes mods whose errors never reach a dialog |
+| `climate` | any of `date`, `temperature`, `precipitation`, `cloudiness` | a number overrides the value. `null` returns it to the simulation |
 | `dump` | `all`, optional `none`, `show`, `limit` (default 50) | match count and rows with prefab name and the `show` components |
 | `entity` | `id` as `"index:version"`, optional `only` | component names, with values for `only` (all when absent) |
-| `perf` | `action`: `start` (`label`), `read`, `stop`, `memory`, `modSystems` (optional `enabled`, `match` regex), `systemCost` (`samples`), `systemCostRead` | frame times (fps, mean, p50, p95, p99, max), sim frames per second and GC counts of the window; Unity memory, entity count, vsync; switches the ski mod's systems (or those matching) for an A/B on a throwaway save; times one extra run of each mod system, also on a throwaway save |
+| `perf` | `action`: `start` (`label`), `read`, `stop`, `memory`, `modSystems` (optional `enabled`, `match` regex), `systemCost` (`samples`), `systemCostRead` | frame times (fps, mean, p50, p95, p99, max), sim frames per second and GC counts of the window. Unity memory, entity count, vsync. Switches the ski mod's systems (or those matching) for an A/B on a throwaway save. Times one extra run of each mod system, also on a throwaway save |
 | `comp` | `id`, optional `remove`, `add` (component names), `eff` (`{factor: value}`), `clearIcons`, `updated` | edits one entity in that order and replies with `util` |
 | `util` | `id` | a building's consumers, road edge, efficiency factors, icons by prefab name, jobs |
-| `offgrid` | optional `add`, `remove` (ids), `clear`, `clearEvents` | prototype of switching road-only services off and on with the road edge; lists the watched buildings and every switch with its sim frame |
+| `offgrid` | optional `add`, `remove` (ids), `clear`, `clearEvents` | prototype of switching road-only services off and on with the road edge. It lists the watched buildings and every switch with its sim frame |
 | `prefabFlags` | `prefab`, optional `clear`, `set` (`BuildingFlags` names) | edits a prefab's `BuildingData.m_Flags` for this run of the game |
 | `autosave` | optional `on` | switches the autosave system for this run of the game, so a test on a save does not prune real autosaves |
-| `saveTarget` | optional `name` (`Local`, or a name from `available`) | the target the pause menu's Save Game writes to (UserState.lastCloudTarget); replies with `previous`, `target`, `available`. The save helpers use it and put `previous` back after a save |
-| `u1probe` | `on`, `prefab` (a line prefab), `tilt` (deg), `frames` (log lines) | lift alignment risk U1: tilts the towers of that line when they update, at Modification3 and again after AlignSystem, and logs `[U1]` lines (Align reset, lane ends vs the tilted anchors, the tilt at +1 / +2 / +30 / +300 frames). Turn it off after the test: it tilts every tower of the prefab that updates |
-| `bone` | `id`, optional `mesh` (sub-mesh index), `bone`, `rotX`, `rotY` (deg) | lists a skinned object's bones (type, rest and current pose); with `bone` and a rotation it writes that bone as rest x RotateY x RotateX and flags the skeleton for upload, as our own bone writers will. Bones exist only near the camera |
-| `mprobe` | `action`: `tag` (`id`, `serial`, `provider`), `untag`, `list`, `trace` (`id`, `p`, `write`), `read`, `stop` | merge-asset P0 probe: tags a building with `tools/testbridge-mergetag`'s saved component; `trace` writes round(sqrt(V² + P²)) right after vanilla AttractionSystem and samples the value every frame |
-| `trains` | `x`, `z`, optional `r` (default 400), `maxDeg` | gate G8 of the pitched sheave trains: per line tower with a `Train` bone near (x, z), the pitch the bone shows (relative to rest, nose up along +z; null when far from the camera) against the analytic hanging-lane end slopes of the rope lanes on its anchors, and the worst difference |
+| `saveTarget` | optional `name` (`Local`, or a name from `available`) | the target the pause menu's Save Game writes to (UserState.lastCloudTarget). It replies with `previous`, `target`, `available`. The save helpers use it and restore `previous` after a save |
+| `u1probe` | `on`, `prefab` (a line prefab), `tilt` (deg), `frames` (log lines) | lift alignment risk U1: tilts the towers of that line when they update, at Modification3 and again after AlignSystem, and logs `[U1]` lines (Align reset, lane ends vs the tilted anchors, the tilt at +1 / +2 / +30 / +300 frames). Stop the probe after the test: it tilts every tower of the prefab that updates |
+| `bone` | `id`, optional `mesh` (sub-mesh index), `bone`, `rotX`, `rotY` (deg) | lists a skinned object's bones (type, rest and current pose). With `bone` and a rotation, it writes that bone as rest x RotateY x RotateX and flags the skeleton for upload, as our own bone writers will. Bones exist only near the camera |
+| `mprobe` | `action`: `tag` (`id`, `serial`, `provider`), `untag`, `list`, `trace` (`id`, `p`, `write`), `read`, `stop` | merge-asset P0 probe: tags a building with `tools/testbridge-mergetag`'s saved component. `trace` writes round(sqrt(V² + P²)) right after vanilla AttractionSystem and samples the value every frame |
+| `trains` | `x`, `z`, optional `r` (default 400), `maxDeg` | gate G8 of the pitched sheave trains: per line tower with a `Train` bone near (x, z), the pitch the bone shows (relative to rest, nose up along +z, and null when far from the camera) against the analytic hanging-lane end slopes of the rope lanes on its anchors, and the worst difference |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
@@ -95,39 +97,60 @@ candidates. `dump` leaves out `Deleted` entities unless `none` is given. Pass `n
 
 ### Save and load
 
-Use the pause menu with real clicks: Esc, Save Game, click the name field, `ctrl+a`, type the name one `key` step per letter, Save.
-Then Load Game, click the save, Load Game, Yes. `__save` / `__saveFromPanel` (helpers.js) write to the local `Saves` folder: they set the
-target to `Local` with `saveTarget` and put the player's own target back after the click. A save in Steam Cloud could not be read back
-after a direct launch (IOException in `SteamCloudStream.LoadCache`, 2026-11-06), so bridge saves stay local.
+Use the pause menu with real clicks.
 
-Do not call `engine.trigger("menu.saveGame", name)`: without the save panel open the preview texture is null, and the game throws a
-`NullReferenceException` and shows its error dialog (measured; `MenuUISystem.cs:896-902`, `GameManager.cs:947`).
+To save:
+
+1. Press Esc.
+2. Click Save Game.
+3. Click the name field.
+4. Press `ctrl+a`.
+5. Type the name, one `key` step per letter.
+6. Click Save.
+
+Then to load:
+
+1. Click Load Game.
+2. Click the save.
+3. Click Load Game.
+4. Click Yes.
+
+`__save` / `__saveFromPanel` (helpers.js) write to the local `Saves` folder. They set the target to `Local` with `saveTarget`,
+and they restore the player's own target after the click. A save in Steam Cloud could not be read back after a direct launch
+(IOException in `SteamCloudStream.LoadCache`, 2026-11-06), so bridge saves stay local.
+
+Do not call `engine.trigger("menu.saveGame", name)`. If the save panel is not open, the preview texture is null. Then the game
+throws a `NullReferenceException` and shows its error dialog (measured, see `MenuUISystem.cs:896-902` and `GameManager.cs:947`).
 
 ### Practical limits, all measured
 
-- **`game_eval` times out after 15 seconds.** Longer work keeps running in the page, but its result is lost, so start it, return, and
-  poll. Loading a small city took about 3 s.
+- **`game_eval` times out after 15 seconds.** Longer work keeps running in the page, but its result is lost. So start the work,
+  return, and poll. Loading a small city took about 3 s.
 - **DOM rects are client pixels here** (3840 x 2160 at `devicePixelRatio` 1), so `getBoundingClientRect()` gives the click point for a
-  real `move`. `innerText` is empty in this UI; read `textContent` of leaf elements.
-- **Hub rows move as its contents change.** Read the rect in the same call as the click rather than reusing an old one.
+  real `move`. `innerText` is empty in this UI. Read `textContent` of leaf elements.
+- **Hub rows move as the hub's contents change.** Read the rect in the same call as the click. Do not reuse an old rect.
 - **Esc goes one level.** It steps back in a tool, cancels a dialog, and opens the pause menu when nothing is left. Bulldozing a
   building shows a Yes / No dialog, and Esc answers No.
-- **The selection panel stays closed while a toolbar menu is open.** The `tool` op with no prefab leaves the asset menu showing, a click on a building then opens nothing and `__relBtn` finds nothing. Press Esc once first.
-- **`comp` with `updated` runs too late to matter.** Commands run in UIUpdate, after the Modification phases, and `PrepareCleanUpSystem` removes the tag at the end of that frame, so no Modification system sees it (`SystemOrder.cs:50-54`). `offgrid` runs in Modification1 for this reason.
-- **Rotate a placement by right-dragging:** `down` right, `move` 250 pixels in x (half a turn, `ObjectToolSystem.cs:3554`), `up`, `move`
-  back, `click`.
+- **The selection panel stays closed while a toolbar menu is open.** The `tool` op with no prefab leaves the asset menu showing. A click on a building then opens nothing, and `__relBtn` finds nothing. Press Esc once first.
+- **`comp` with `updated` runs too late to matter.** Commands run in UIUpdate, after the Modification phases. `PrepareCleanUpSystem` removes the tag at the end of that frame, so no Modification system sees it (`SystemOrder.cs:50-54`). For this reason, `offgrid` runs in Modification1.
+- **Rotate a placement by right-dragging.** Do these steps:
+  1. `down` right.
+  2. `move` 250 pixels in x (half a turn, `ObjectToolSystem.cs:3554`).
+  3. `up`.
+  4. `move` back.
+  5. `click`.
 - **The object tool's raycast is offset by the object's height** (`ObjectToolSystem.cs:3190`), so `hover.hit` lands up to a few meters
   short of the target with the camera tilted, and the object lands there. Read the placed `Transform` for the true position.
-- **A station buried or floating:** Move It, Toolbox, "To Terrain Height", with no terrain edit. Move it along its line first if it sits past a crest. A large Level brush cuts shelves; when terrain must change, brush 1 to 10 at 35 %, target from `engine.trigger("tool.setBrushHeight", worldY - seaLevel)`.
-- **`pm` op, lighting:** "Time of Day" changes the sky, not the lamps; those follow sim time (on by about 20:20). Snow guns and their plumes run at sim night only. Lifts stop outside open hours, and a lift with no power stops soon after it is built: pick a powered lift at sim day to sample chair motion.
-- **Close shots:** the camera keeps about 8.5 m above the terrain whatever the zoom, so a pivot near the ground needs tilt 40 to 60
-  to stay on screen; read `project` for the pivot at a few tilts and keep the one nearest the screen center. The station roofs hide
+- **A station buried or floating:** use Move It, Toolbox, "To Terrain Height", with no terrain edit. If the station sits past a crest, move it along its line first. A large Level brush cuts shelves. When terrain must change, brush 1 to 10 at 35 %, with the target from `engine.trigger("tool.setBrushHeight", worldY - seaLevel)`.
+- **`pm` op, lighting:** "Time of Day" changes the sky, not the lamps. The lamps follow sim time (on by about 20:20). Snow guns and their plumes run at sim night only. Lifts stop outside open hours. A lift with no power stops soon after it is built. To sample chair motion, pick a powered lift at sim day.
+- **Close shots:** the camera keeps about 8.5 m above the terrain at any zoom, so a pivot near the ground needs tilt 40 to 60
+  to stay on screen. Read `project` for the pivot at a few tilts. Keep the one nearest the screen center. The station roofs hide
   their loading areas from above.
-- **Summer shots:** deep snow at 1.4 km and above does not melt in hours at 24 C; ground below about 800 m goes bare in minutes at x8.
+- **Summer shots:** deep snow at 1.4 km and above does not melt in hours at 24 C. Ground below about 800 m goes bare in minutes at x8.
 - Alt+F1 reaches the NVIDIA overlay. Files appear in `%USERPROFILE%\Videos\NVIDIA\Cities  Skylines II\` (two spaces), and
   `tools\jxr2png.ps1 -Path <file> -Auto -OutDir <dir>` converts a 4K shot in about 4 s.
 
-A helper worth defining at the start of a session; it survives until the UI view reloads:
+This helper is worth defining at the start of a session. It survives until the UI view reloads:
 
 ```js
 window.__st = (seq) => engine.call("skitest.cmd", JSON.stringify(seq)).then(() => new Promise(r => {
@@ -146,18 +169,18 @@ Input steps wait `after` frames afterward (default 2).
 
 | Step | Arguments |
 |---|---|
-| `move` | `x`, `y` (client pixels, origin top left) or `wx`, `wz`, optional `wy`; `frames` spreads it over frames, for a drag |
+| `move` | `x`, `y` (client pixels, origin top left) or `wx`, `wz`, optional `wy`. `frames` spreads it over frames, for a drag |
 | `down`, `up` | `button`: `left` (default), `right`, `middle` |
 | `click` | `button`, `hold` frames (default 3) |
-| `key` | `keys` such as `"ctrl+shift+l"`, `"enter"`, `"alt+f1"`; `hold` frames (default 3) |
+| `key` | `keys` such as `"ctrl+shift+l"`, `"enter"`, `"alt+f1"`. `hold` frames (default 3) |
 | `keydown`, `keyup` | `key` |
 | `wheel` | `delta` (120 is one notch) |
 | `wait` | `frames` |
 | `camera` | same as the op |
-| `settle` | waits for the camera to hold still; `timeout` frames (default 600) |
-| `waitFor` | a `dump` query plus `min` (default 1); `timeout` frames (default 1200) fails the sequence |
+| `settle` | waits for the camera to hold still. `timeout` frames (default 600) |
+| `waitFor` | a `dump` query plus `min` (default 1). After `timeout` frames (default 1200), the sequence fails |
 | `hover`, `status`, `dump` | adds the reading to `results` |
-| `sim`, `time`, `money`, `climate`, `tool`, `unlock`, `milestone`, `demand`, `errors` | same as the ops; the reply goes to `results` |
+| `sim`, `time`, `money`, `climate`, `tool`, `unlock`, `milestone`, `demand`, `errors` | same as the ops. The reply goes to `results` |
 
 Rectangles in the area tool: the vanilla right-angle snap can pull the closing click off the first corner, so the area stays open and nothing is built (`Area.m_Flags` without `Complete`, a fifth node 0.5 m from the first). Draw test areas slightly off square.
 
@@ -169,11 +192,20 @@ Two guards fail a sequence instead of letting it click on blindly:
 
 ## Editor import
 
-Launch with `--startEditor`; the first port 9444 reply comes before the Editor is ready, so wait for "Workspace" in the UI. `helpers.js` has `__rows` and `__enter` for the file browser. Toolbar icon (1647,1968) opens the importer; Project root button (3300,134), Assets folder button (3300,220), back arrow (2947,217), `Select Directory` by `__find`, Import (3370,1992). Set Project root to the letter folder and Assets folder to the asset folder itself, so the file list shows only that asset. Never point at a letter folder that holds other assets. Result: `ImportedData\c030ee3ff256df91\<Name>\`, log `Logs\AssetPipeline.log`.
+Launch with `--startEditor`. The first port 9444 reply comes before the Editor is ready, so wait for "Workspace" in the UI. `helpers.js` has `__rows` and `__enter` for the file browser. The controls:
+
+- Toolbar icon (1647,1968): opens the importer.
+- Project root button (3300,134).
+- Assets folder button (3300,220).
+- Back arrow (2947,217).
+- `Select Directory`: find it with `__find`.
+- Import (3370,1992).
+
+Set Project root to the letter folder. Set Assets folder to the asset folder itself, so the file list shows only that asset. Never point at a letter folder that holds other assets. Result: `ImportedData\c030ee3ff256df91\<Name>\`, log `Logs\AssetPipeline.log`.
 
 ## Building a test city
 
-Setup does not need to be pretty: `unlock`, `money` with `unlimited`, `demand`, then roads with `tool` and real clicks, and zones with
+Setup does not need to be pretty. Use `unlock`, `money` with `unlimited`, and `demand`. Then build roads with `tool` and real clicks, and zones with
 `tool` and a real drag. `prefabs` finds the exact names. `status.bridgeBuild` shows when the deployed bridge was built.
 
 Example: fly to a spot, click it, wait for an entity to appear, read it back.
@@ -195,15 +227,17 @@ Then poll `seqStatus` until `done`.
 
 ## Rules of use
 
-- **Input needs focus.** Every input step checks that the game is the foreground window and fails the sequence if not, so input cannot
-  land in another app. Bring the game forward from outside first with the `SetForegroundWindow` recipe above. Never computer-use
-  `open_application`: it starts a second game. Focus is lost whenever the Claude desktop app comes forward; check `status.focused`.
-- **A dead corner can swallow clicks.** In a large playset (83 code mods, 2026-11-07) synthetic clicks in the top-right corner
-  (x >= ~3200, y < ~350 at 3840 x 2160) never reached the UI, vanilla buttons included, so it is the environment, not our panel. There,
-  dispatch `mousedown`, `mouseup` and `click` MouseEvents on the element through the UI eval instead (Gameface has no `Element.click`).
-- **Left-hand traffic needs a new city** (a loaded save keeps its own setting). The New Game toggle persists in `UserState.coc`, so set it
-  back afterward, with the game closed.
+- **Input needs focus.** Every input step checks that the game is the foreground window. If it is not, the step fails the sequence,
+  so input cannot land in another app. First bring the game to the front from outside, with the `SetForegroundWindow` recipe above.
+  Never use `open_application` from computer use: it starts a second game. The game loses focus whenever the Claude desktop app
+  comes to the front. Check `status.focused`.
+- **A dead corner can swallow clicks.** In a large playset (83 code mods, 2026-11-07), synthetic clicks in the top-right corner
+  (x >= ~3200, y < ~350 at 3840 x 2160) never reached the UI. This includes vanilla buttons, so the cause is the environment, not our
+  panel. There, dispatch `mousedown`, `mouseup` and `click` MouseEvents on the element through the UI eval instead (Gameface has no
+  `Element.click`).
+- **Left-hand traffic needs a new city** (a loaded save keeps its own setting). The New Game toggle persists in `UserState.coc`, so
+  restore it afterward, with the game closed.
 - **It takes the real mouse while a sequence runs.** Nobody else can use the PC during input steps. Reads never touch the mouse.
 - Sequences release held buttons and keys when they end, fail or abort.
-- For performance use `perf`, never `dump`: it builds a query and reflects on every call. Same camera for both halves of an A/B, nothing
-  else heavy running, and alternate the halves so city drift averages out.
+- To measure performance, use `perf`, never `dump`: `dump` builds a query and reflects on every call. For an A/B, use the same camera
+  for both halves, run nothing else heavy, and alternate the halves so city drift averages out.

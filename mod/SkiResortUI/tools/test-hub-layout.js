@@ -1,22 +1,27 @@
 /*
-* tools/test-hub-layout.js - the "never a scrollbar" layout test. No npm package: Node's own WebSocket (Node 22) talks the
-* DevTools protocol to a headless Chrome (else Edge) started here with a throw-away profile. Deploys nothing, writes nothing
-* outside --shots=<dir>.
+* tools/test-hub-layout.js - the "never a scrollbar" layout test. It uses no npm package. Node's own WebSocket (Node 22) talks the
+* DevTools protocol to a headless Chrome (else Edge). The test starts that browser here with a throw-away profile. It deploys
+* nothing and writes nothing outside --shots=<dir>.
 *
-* Starts the harness (harness/serve.js on a free port), opens it at 1920x1080, 2560x1440 and 3840x2160 with the game's rem
-* rule, and runs harness/layout-check.js (window.SkiLayout.run) there: every view x fold x page x build tab x overlay at text
-* scale 1.0 and 1.25 (both CSS variables, as the game's applyTextScale sets them). FAILS (exit 1) on any case whose content
-* overflows its box (the Scrollable would show its bar), a header that does not fit, more than one Buildings tile row, or text cut
-* short or running past the panel, with every build tile hovered in turn (shrink-to-fit classes and player-chosen names excepted).
-* Before the browser runs, the stylesheet rule: the note classes (NOTE_CLASSES) wrap, and every other class that cuts text with an
-* ellipsis is a written decision (CUT_DECIDED), so a new one-line note with an ellipsis fails at once.
-* The Runs and Lifts views are the exception: they list every row and may scroll (their list carries class listAll); for them
+* The test starts the harness (harness/serve.js on a free port). It opens the harness at 1920x1080, 2560x1440 and 3840x2160 with
+* the game's rem rule. There it runs harness/layout-check.js (window.SkiLayout.run) for every view x fold x page x build tab x overlay
+* at text scale 1.0 and 1.25. Both are CSS variables, as the game's applyTextScale sets them. The test FAILS (exit 1) on any case
+* with one of these faults:
+*   - content overflows its box (the Scrollable would show its bar)
+*   - a header does not fit
+*   - more than one Buildings tile row
+*   - text is cut short or runs past the panel, with every build tile hovered in turn (shrink-to-fit classes and player-chosen
+*     names are excepted)
+* Before the browser runs, the test checks a stylesheet rule. The note classes (NOTE_CLASSES) wrap. Every other class that cuts text with an
+* ellipsis is a written decision (CUT_DECIDED). So a new one-line note with an ellipsis fails at once.
+* The Runs and Lifts views are the exception. They list every row and may scroll (their list carries class listAll). For them
 * the check fails on a drawn pager row instead.
 *
-* Needs `npm run build` first (it mounts build/SkiResortMod.mjs) and network for the React UMD scripts the harness loads from cdnjs.
+* The test needs `npm run build` first (it mounts build/SkiResortMod.mjs). It also needs network access for the React UMD scripts
+* that the harness loads from cdnjs.
 * Usage:   node tools/test-hub-layout.js [--verbose]
 *          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2]   # the harness screenshots listed in SHOTS / BEFORE / T142
-* The harness is not the game's chrome (harness/README.md): the panel frame is a stand-in, so the report prints the smallest slack
+* The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
 "use strict";
@@ -32,10 +37,10 @@ const SIZES = [[1920, 1080], [2560, 1440], [3840, 2160]];
 const PLAYER_NAMES = new Set(["areaNameText", "rowName", "overlayItemName", "lodgeNameLabel"]);
 
 // Notes wrap, never cut (2026-11-02 round 2: the Guests view's ticket note showed half its sentence and an ellipsis in game). A note
-// class must not carry white-space: nowrap, text-overflow: ellipsis, or a fixed height with overflow hidden; it keeps a min-height.
+// class must not carry white-space: nowrap, text-overflow: ellipsis, or a fixed height with overflow hidden. It keeps a min-height.
 const NOTE_CLASSES = ["note1", "note2", "subLine"];
-// Every other class that cuts text with an ellipsis is a decision, written here with its reason, besides the shrink-to-fit classes and
-// PLAYER_NAMES. A new ellipsis class fails until it is a note (wrap) or listed here. The cut-text check still fails any of them whose
+// Besides the shrink-to-fit classes and PLAYER_NAMES, every other class that cuts text with an ellipsis is a decision. It is written
+// here with its reason. A new ellipsis class fails until it is a note (wrap) or listed here. The cut-text check still fails any of them whose
 // text is cut in a scenario.
 const CUT_DECIDED = {
   switcherName: "the ski area name in the switcher, a name the player chose",
@@ -64,7 +69,7 @@ function styleRules() {
   return rules;
 }
 
-/** Static half of the cut-text rule: notes wrap; any other ellipsis class is decided (CUT_DECIDED, shrink, player names). */
+/** Static half of the cut-text rule. Notes wrap. Any other ellipsis class is decided (CUT_DECIDED, shrink, player names). */
 function styleFailures() {
   const rules = styleRules();
   const shrinks = shrinkClasses();
@@ -84,7 +89,7 @@ function styleFailures() {
   return fails;
 }
 
-/** The hub classes whose rule carries coh-font-fit-mode: shrink, read from the stylesheet so a new one needs no list here. */
+/** The hub classes whose rule carries coh-font-fit-mode: shrink. The function reads them from the stylesheet, so a new one needs no list here. */
 function shrinkClasses() {
   const set = new Set();
   let current = "";
@@ -221,7 +226,7 @@ const BEFORE = [
 ];
 
 // T142 whole-hub text round (2026-10-24): every view top-down, its folds, and the tooltips the round reworded. `hover` = the
-// start of an element's visible text inside the panel: the smallest such element gets a real mouse move (CDP), so the stand-in
+// start of an element's visible text inside the panel. The smallest such element gets a real mouse move (CDP), so the stand-in
 // Tooltip opens and the crop grows to hold it. `--list=t142` picks this list.
 const T142 = [
   ["attraction-1080", 1080, { scenario: ASH, view: 0 }],
@@ -253,7 +258,7 @@ const T142 = [
 ];
 
 // 2026-11-02 intuitiveness pass: every view top-down at 1080 (the tightest window), the build tabs, the band popover, the start card and the
-// field screen that ran off the panel. `--list=intuitive` picks this list; the before / after sets are rendered from two builds.
+// field screen that ran off the panel. `--list=intuitive` picks this list. Two builds render the before / after sets.
 const F1102 = "Field 2026-11-02: closed, no lift";
 const INTUITIVE = [
   ["01-field-guests", 1080, { scenario: F1102, view: 3 }],
@@ -317,7 +322,7 @@ async function shots(b, base, dir, list) {
       const at = await evalAsync(b, `(() => { const ps = Array.from(document.querySelectorAll('.h-panel [class*="sr-histPlot_"]'));
         const e = ps[ps.length - 1]; if (!e) return null; const r = e.getBoundingClientRect();
         return { x: r.left + r.width * ${Number(hoverPlot)}, y: r.top + r.height / 2 }; })()`, 10000);
-      if (at) {   // two moves: the first enters the plot (the tooltip opens), the second is the mousemove that picks the bucket
+      if (at) {   // two moves. The first enters the plot (the tooltip opens). The second is the mousemove that picks the bucket
         await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x - 2, y: at.y });
         await sleep(200);
         await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x, y: at.y });
@@ -340,7 +345,7 @@ async function shots(b, base, dir, list) {
       const left = Math.min(r.left, tr ? tr.left : r.left), right = Math.max(r.right, tr ? tr.right : r.right);
       const top = Math.min(r.top, tr ? tr.top : r.top), bottom = Math.max(r.bottom, tr ? tr.bottom : r.bottom);
       return { x: Math.max(0, left - 20), y: Math.max(0, top - 20), width: Math.min(innerWidth, right + 20) - Math.max(0, left - 20), height: Math.min(innerHeight, bottom + 20) - Math.max(0, top - 20) }; })()`, 10000);
-    const shot = await b.send("Page.captureScreenshot", { format: "png", clip: Object.assign({ scale: 1 }, rect), captureBeyondViewport: !hover && hoverPlot === undefined });   // a pointer shot stays in the viewport: growing it re-lays the page under the pointer and the bucket hover drops
+    const shot = await b.send("Page.captureScreenshot", { format: "png", clip: Object.assign({ scale: 1 }, rect), captureBeyondViewport: !hover && hoverPlot === undefined });   // a pointer shot stays in the viewport. Growing it re-lays the page under the pointer, and the bucket hover drops
     const out = path.join(dir, file + ".png");
     fs.writeFileSync(out, Buffer.from(shot.data, "base64"));
     console.log(`shot ${out} (${w}x${h}) ${m}`);

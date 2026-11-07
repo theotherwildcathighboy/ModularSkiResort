@@ -1,9 +1,9 @@
 /*
- * The History view's charts as inline SVG. React only, no chart.js (the harness stubs it, a game patch can change it).
+ * The History view's charts as inline SVG. React only, no chart.js (the harness stubs it, and a game patch can change it).
  * Pure presentation of historyRules buckets: stacked bars (`up` above the zero line, `down` below) and one optional line on the SAME
- * axis. Only svg, rect, path, line are used; coordinates are viewBox units with preserveAspectRatio "none"; text is HTML around the
+ * axis. The chart uses only svg, rect, path, line. Coordinates are viewBox units with preserveAspectRatio "none". Text is HTML around the
  * SVG, never SVG <text>. Hover: the plot div tracks the pointer and reports a bucket index to onHover (the parent owns the tooltip).
- * Every chart is a row [gutter | plot + axis]; the gutter width comes from `sizers` so the view's charts line up (shared hover index).
+ * Every chart is a row [gutter | plot + axis]. The gutter width comes from `sizers` so the view's charts line up (shared hover index).
  * Engine notes: EngineNotes/HistoryChart.tsx.md
  */
 import type { ReactNode } from "react";
@@ -19,7 +19,7 @@ export const HISTORY_COLOR = {
   tourists: "#3987e5",
   residents: "#199e70",
   skiDays: "#c98500",
-  income: "rgba(65, 216, 128, 0.8)",   // the game's --city-income-color (budget charts; set from JS there, so copied here)
+  income: "rgba(65, 216, 128, 0.8)",   // the game's --city-income-color (budget charts set it from JS there, so it is copied here)
   costs: "rgba(223, 95, 127, 0.8)",    // the game's --city-expenses-color
   net: "#f0fbff",
   attraction: "#9085e9",
@@ -32,11 +32,11 @@ const LABEL_ROOM = 14;
 export interface ChartSeries {
   key: string;
   color: string;
-  /** The value of bucket i (>= 0; negative or non-finite draws nothing). */
+  /** The value of bucket i (>= 0). A negative or non-finite value draws nothing. */
   value: (i: number) => number;
 }
 
-/** A line: its color and one point per slot (null = no point; historyRules.linePoints). */
+/** A line: its color and one point per slot (null = no point, historyRules.linePoints). */
 export interface ChartLine {
   key: string;
   color: string;
@@ -114,7 +114,7 @@ function gapMarks(slots: readonly ChartSlot[], slotW: number, height: number): J
   return out;
 }
 
-/** The scale gutter: invisible sizers set its width; the labels sit at their y (rem from the plot's top), right-aligned. */
+/** The scale gutter: invisible sizers set its width. The labels sit at their y (rem from the plot's top), right-aligned. */
 function Gutter({ sizers, height, labels }: {
   sizers: readonly ReactNode[];
   height: number;
@@ -147,9 +147,9 @@ export function BarChart({ slots, up, down, line, behind, scale, height, hover, 
   slots: readonly ChartSlot[];
   up: readonly ChartSeries[];
   down: readonly ChartSeries[];
-  /** One line on the same scale (e.g. ski days, the net); null = none. Values below zero draw below the zero line. */
+  /** One line on the same scale (e.g. ski days, the net). null = none. Values below zero draw below the zero line. */
   line: ChartLine | null;
-  /** Last season, gray behind; null = none. */
+  /** Last season, gray behind. null = none. */
   behind: ChartBehind | null;
   scale: ChartScale;
   /** Plot height in rem (viewBox units). */

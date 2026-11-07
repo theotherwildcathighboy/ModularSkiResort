@@ -1,8 +1,8 @@
 /*
  * Contains a render error inside our own components. The game renders appended components inside its ModdingHook with no error
- * boundary, and in React 18 a render error unmounts the root, which here is the whole game UI: every component handed to
- * moduleRegistry.append is wrapped in one of these. Catches render errors only (not event handlers, async callbacks, the registrar).
- * The fallback must be trivial markup (no cs2/ui component, no binding) so it cannot throw itself; remount (change the key) to retry.
+ * boundary. In React 18 a render error unmounts the root, which here is the whole game UI. So we wrap every component handed to
+ * moduleRegistry.append in one of these. It catches render errors only (not event handlers, async callbacks, the registrar).
+ * The fallback must be trivial markup (no cs2/ui component, no binding), so it cannot throw itself. To retry, remount it (change the key).
  * tools/check-bundle.js's smoke test requires every appended component to return this class (static getDerivedStateFromError).
  */
 import { Component } from "react";

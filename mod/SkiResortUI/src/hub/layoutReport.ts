@@ -1,9 +1,10 @@
 /*
- * The uiLayout dev aid: measured panel heights (rem) sent to the mod log to check the estimated budget in the field. Any failure is
- * swallowed: a dev aid must never break the panel.
- * THE REM IS MEASURED with an out-of-flow probe element (hub.module.scss .remProbe), not parsed from the root font size: the game declares
- * that size in viewport units, so Gameface's computed string loses its unit. Measuring waits for the layout to settle after a view change;
- * a text is sent at most once per UI session, and C# logs `Hub [layout]` only when it differs from its last one.
+ * The uiLayout dev aid: the code sends measured panel heights (rem) to the mod log, to check the estimated budget in the field.
+ * It swallows any failure, because a dev aid must never break the panel.
+ * THE REM IS MEASURED with an out-of-flow probe element (hub.module.scss .remProbe). It is not parsed from the root font size.
+ * The game declares that size in viewport units, so Gameface's computed string loses its unit.
+ * Measuring waits for the layout to settle after a view change. The code sends a text at most once per UI session.
+ * C# logs `Hub [layout]` only when the text differs from its last one.
  * Engine notes: EngineNotes/layoutReport.ts.md
  */
 import { useEffect, useRef } from "react";
@@ -16,13 +17,13 @@ export const REM_PROBE_REM = 100;
 /** How often the text-scale key is read while the panel is open (ms). */
 const SCALE_POLL_MS = 1000;
 
-/** Animation frames skipped before the first measure after a change (the new view's layout is not ready on the
- *  first one), and the most frames a measure may take to settle. */
+/** SKIP_FRAMES: animation frames to skip before the first measure after a change (the new view's layout is not ready on the
+ *  first one). SETTLE_MAX_FRAMES: the most frames a measure may take to settle. */
 const SKIP_FRAMES = 1;
 const SETTLE_MAX_FRAMES = 8;
 
-/** Texts already sent this UI session (a view switch changes the text, so a last-only check would re-send on
- *  every switch back and forth). Cleared at SENT_MAX. */
+/** Texts already sent this UI session. A view switch changes the text, so a check against the last text only would send again on
+ *  every switch between views. Cleared at SENT_MAX. */
 const sent = new Set<string>();
 const SENT_MAX = 64;
 
@@ -78,7 +79,7 @@ export interface LayoutRefs {
   header: RefObject<Element>;
   content: RefObject<Element>;
   footer: RefObject<Element>;
-  /** The shown view's list (RunList / LiftList); null element = "list=-1". */
+  /** The shown view's list (RunList / LiftList). A null element gives "list=-1". */
   list: RefObject<Element>;
   probe: RefObject<Element>;
   status: RefObject<Element>;
@@ -114,9 +115,9 @@ function measure(
     `list=${heightOf(list, unit)} rows=${rows} scale=${scale}${px ? " px" : ` rem=${unit.toFixed(2)}px`}`;
 }
 
-/** Sends the layout once after the first layout, on every row-bucket change, and on a text scale / root font size /
+/** Sends the layout once after the first layout. It sends again on every row-bucket change, and on a text scale / root font size /
  * viewport change while the panel is open. */
-/** The overflow of the Scrollable's content div (the content element's parent) in `unit`s; -1 without that element.
+/** The overflow of the Scrollable's content div (the content element's parent) in `unit`s. It gives -1 without that element.
  *  A negative difference (content shorter than the box) reads 0. */
 function overflowOf(content: Element | null | undefined, unit: number): number {
   const sc = content ? content.parentElement : null;
@@ -145,8 +146,8 @@ export function useLayoutReport(r: LayoutRefs, rows: number, view: string): void
   const schedule = (): void => {
     try {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
-      // Skip SKIP_FRAMES frames, then measure once a frame until two consecutive texts agree
-      // (or SETTLE_MAX_FRAMES frames have passed) and send that text (EngineNotes/layoutReport.ts.md).
+      // Skip SKIP_FRAMES frames. Then measure once a frame until two consecutive texts agree
+      // (or until SETTLE_MAX_FRAMES frames pass). Send that text (EngineNotes/layoutReport.ts.md).
       let frame = 0;
       let last: string | null = null;
       const step = (): void => {
