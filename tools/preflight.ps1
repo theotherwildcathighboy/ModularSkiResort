@@ -862,6 +862,18 @@ if ($LASTEXITCODE -ne 0) {
     $rows.Add("OK    LOCALE $(($locOut | Select-Object -Last 1))")
 }
 
+# ---- 12d. STE: ASD-STE100 ratchet on player text and docs (DECISIONS 614) ------------------------------------------------------
+# tools/check-ste.js counts the hard structural STE findings per target (semicolon, long sentence, phrasal verb, synonym rotation...).
+# A count above tools/ste-lint/baseline.json fails. A lower count passes. Lower the baseline with --write after a cleanup.
+$steOut = @(& node (Join-Path $PSScriptRoot "check-ste.js") 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    $steFails = @($steOut | Where-Object { "$_" -match '^FAIL' })
+    foreach ($l in $steFails) { $rows.Add("FAIL  STE $($l -replace '^FAIL\s+', '')"); $failures++ }
+    if ($steFails.Count -eq 0) { $rows.Add("FAIL  STE $(($steOut | Select-Object -Last 1))"); $failures++ }
+} else {
+    $rows.Add("OK    STE $(($steOut | Select-Object -Last 1))")
+}
+
 # ---- 13. STUBNET: station stub marker nets (T121 / T126, 2026-10-20; research/art/station-stubs-2026-10-20.md) -----------
 # A shared node takes the net prefab with the highest NetData.m_NodePriority (GenerateNodesSystem.cs:1690-1765, strict >),
 # which is the composition width (NetInitializeSystem.cs:135): a stub marker no wider than a line hands its tip node to the

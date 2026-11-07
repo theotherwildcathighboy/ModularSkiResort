@@ -108,7 +108,7 @@ for (const { t, hard } of byFile.values()) {
   const n = hard.length; total += n;
   const allowed = Object.prototype.hasOwnProperty.call(baseline, t.name) ? baseline[t.name] : 0;
   next[t.name] = args.has('--write') ? n : Math.min(n, allowed);
-  if (n > allowed) {
+  if (n > allowed && !args.has('--write')) {
     fails++;
     console.log(`FAIL ${t.name}: ${n} hard STE finding(s), baseline ${allowed}`);
     for (const v of hard.slice(0, 40)) {

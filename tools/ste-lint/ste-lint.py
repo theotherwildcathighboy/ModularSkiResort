@@ -149,7 +149,7 @@ SENTENCE_END = re.compile(r"[.!?][\"'”’)\]*_]*$")
 OPENERS = "\"'“‘([*_"
 # Abbreviations whose period never ends a sentence.
 ABBREVIATIONS = {"vs.", "cf.", "approx.", "mr.", "mrs.", "ms.", "dr.", "fig.", "no."}
-# Dotted initialisms such as "e.g." and "U.S." end a sentence only when the
+# Dotted abbreviations such as "e.g." and "U.S." end a sentence only when the
 # next word starts with a capital letter.
 DOTTED_ABBREVIATION = re.compile(r"(?:[a-z]\.){2,}", re.I)
 
