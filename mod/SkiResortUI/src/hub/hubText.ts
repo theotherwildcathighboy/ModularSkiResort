@@ -53,8 +53,7 @@ export const HUB_LOC = {
   /* the merge overlay chip in the merged buildings fold (contract 36) */
   mergeOverlay: ["SkiResort.Hub.MERGE_OVERLAY", "Mergeable buildings"],
   mergeOverlayTip: ["SkiResort.Hub.MERGE_OVERLAY_TIP", "Outlines the buildings near the runs and lifts that can be merged into a ski area as a lodge."],
-  /* the Buildings tab's Merge tile (contract 37) and the green / gray legend */
-  mergeTile: ["SkiResort.Hub.MERGE_TILE", "Merge"],
+  /* the Buildings tab's Mergeable buildings toggle (contract 37; its label is MERGE_OVERLAY) and the green / gray legend */
   mergeTileName: ["SkiResort.Hub.MERGE_TILE[Name]", "Merge a city building"],
   mergeTileFact: ["SkiResort.Hub.MERGE_TILE[Fact]", "A park, landmark or signature near the runs can be a lodge"],
   mergeTileArmed: ["SkiResort.Hub.MERGE_TILE[Armed]", "Outlined buildings near the runs and lifts can be merged"],

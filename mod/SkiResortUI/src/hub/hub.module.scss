@@ -794,6 +794,82 @@
   align-items: stretch;
 }
 
+// The Buildings tab's second tile row (services) with its caption row (BuildStrip BUILDING_ROW2_KINDS).
+.buildRowBlock {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.pickerRowNext {
+  margin-top: 4rem;
+}
+
+// Contract 37: the full-width Mergeable buildings toggle under the Buildings tab's rows (a mode, not a tile). Armed: the selected look
+// of a chip plus the legend at its right end.
+.mergeToggleRow {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  margin-top: 6rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+.mergeToggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: calc(26rem * var(--fontScale));
+  padding: 0rem 8rem;
+  font-size: var(--fontSizeXS);
+  color: rgba(240, 251, 255, 0.8);
+  background-color: var(--sectionBackgroundColor);
+  border-style: solid;
+  border-top-width: 1rem;
+  border-right-width: 1rem;
+  border-bottom-width: 1rem;
+  border-left-width: 1rem;
+  border-top-color: rgba(255, 255, 255, 0.12);
+  border-right-color: rgba(255, 255, 255, 0.12);
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+  border-left-color: rgba(255, 255, 255, 0.12);
+  border-radius: 3rem;
+}
+
+.mergeToggle:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.mergeToggle:active {
+  background-color: var(--activeColorNormal);
+}
+
+.mergeToggleOn,
+.mergeToggleOn:hover {
+  color: var(--normalTextColor);
+  background-color: var(--selectedColor);
+  border-top-color: var(--accentColorNormal);
+  border-right-color: var(--accentColorNormal);
+  border-bottom-color: var(--accentColorNormal);
+  border-left-color: var(--accentColorNormal);
+}
+
+.mergeToggleIcon {
+  flex-shrink: 0;
+  width: calc(18rem * var(--fontScale));
+  height: calc(18rem * var(--fontScale));
+  margin-right: 6rem;
+}
+
+.mergeToggleLabel {
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
 .buildGroup {
   display: flex;
   flex-direction: row;

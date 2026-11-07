@@ -5,7 +5,7 @@
  * player may have typed it, 64 characters): it shrinks with an ellipsis under lodgeNameLabel like the Guests view's lodge names.
  * Contract 36: the fold opens on the merge overlay chip (armMergeOverlay; C# answers through mergeOverlay$, and Escape, a merge or a load
  * turn it off). Contract 37: the green / gray legend sits beside the chip (MergeLegend, also the Buildings tab footer's line while the
- * overlay is on), with the outlined counts while on; the Buildings tab's Merge tile fires the same trigger. In an area view the fold is always drawn (the chip needs it, the city
+ * overlay is on), with the outlined counts while on; the Buildings tab's Mergeable buildings toggle fires the same trigger and carries the same legend. In an area view the fold is always drawn (the chip needs it, the city
  * has a sign); in the Not linked view only while it has rows. Panel file: subscribes mergedLodges$ and mergeOverlay$ (no Demand of its own).
  * Engine notes: EngineNotes/SkiMergeSystem.md
  */

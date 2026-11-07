@@ -8,7 +8,7 @@
   const E = (i) => ({ index: i, version: 1 });
   const NULL = { index: 0, version: 0 };
 
-  const IDS = ["sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand", "school", "patrolHut", "patrolHQ",
+  const IDS = ["sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand", "busDepot", "school", "patrolHut", "patrolHQ",
     "baseStation", "topStation", "lift", "baseStationDetachable", "topStationDetachable", "liftDetachable",
     "baseStationGondola", "topStationGondola", "liftGondola", "baseStationTram", "topStationTram", "liftTram",
     "runGroomed", "runCatTrack"];   // run types R3: the Run tile draws every piste; runNatural / runSnowmaking / runNight are not sent
@@ -32,7 +32,7 @@
         it.monthly = { lift: 1200, liftDetachable: 2600, liftGondola: 3800, liftTram: 5200 }[id];
         it.monthlyPerKm = { lift: 400, liftDetachable: 800, liftGondola: 1100, liftTram: 1500 }[id];
       } else {
-        it.cost = { sign: 25000, lodge: 180000, lodgeHut: 60000, lodgeMid: 320000, lodgeSummit: 540000, lodgeGrand: 1400000,
+        it.cost = { sign: 25000, lodge: 180000, lodgeHut: 60000, lodgeMid: 320000, lodgeSummit: 540000, lodgeGrand: 1400000, busDepot: 60000,
           school: 260000, patrolHut: 45000, patrolHQ: 210000, baseStation: 150000, topStation: 120000,
           baseStationDetachable: 380000, topStationDetachable: 300000, baseStationGondola: 520000, topStationGondola: 440000,
           baseStationTram: 900000, topStationTram: 760000 }[id];

@@ -16,7 +16,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { GuestsView } from "./GuestsView";
 import { HistoryView } from "./HistoryView";
 import { AreaList, HubHeader } from "./HubHeader";
-import { NO_FOCUS, areaListOpen$, focused$, folds$, openFold, problemsOpen$, resetHoverRun, runToolSeen, sendHoverRun, useHubConnection, view$ } from "./hubState";
+import { NO_FOCUS, areaListOpen$, buildTab$, focused$, folds$, openFold, problemsOpen$, resetHoverRun, runToolSeen, sendHoverRun, useHubConnection, view$ } from "./hubState";
 import { FitContext, Pager, useViewPager } from "./fit";
 import type { HubConnection } from "./hubState";
 import { HUB_FMT, HUB_LOC } from "./hubText";
@@ -128,6 +128,9 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
   // The view pager (fit.tsx): a view still taller than the box after its folds shows its rows page by page. Runs and Lifts
   // list every row and may scroll. A view switch, a fold toggle or an area switch returns to page 1.
   const folds = useValue(folds$);
+  // The Buildings tab's footer is taller (two tile rows and the merge toggle): a tab switch re-renders the panel so the pager re-fits at
+  // once (its layout effect), not on its next poll (a 400 ms scrollbar flash).
+  useValue(buildTab$);
   const viewPager = useViewPager(viewRef, contentRef, hasSign && view !== "runs" && view !== "lifts",
     `${view}|${openFold(folds, view)}|${areaKey}`, styles.foldRow);
 

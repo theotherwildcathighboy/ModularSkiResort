@@ -15,7 +15,7 @@
 *
 * Needs `npm run build` first (it mounts build/SkiResortMod.mjs) and network for the React UMD scripts the harness loads from cdnjs.
 * Usage:   node tools/test-hub-layout.js [--verbose]
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md): the panel frame is a stand-in, so the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -285,6 +285,15 @@ const MERGE = [
   ["merge-07-tile-hover-1080", 1080, { scenario: ASH, view: 0, tab: "buildings", hover: "Merge" }],
   ["merge-08-card-too-far-1080", 1080, { scenario: "Ash Flat, merge card too far", view: 0, tab: "buildings", whole: 1 }],
 ];
+// 2026-11-06 follow-up: the Buildings tab in two rows with the Mergeable buildings toggle (`--list=merge2`).
+const MERGE2 = [
+  ["buildings-idle-1080", 1080, { scenario: ASH, view: 0, tab: "buildings" }],
+  ["buildings-hover-lodge-1080", 1080, { scenario: ASH, view: 0, tab: "buildings", hover: "Chalet" }],
+  ["buildings-merge-armed-1080", 1080, { scenario: "Ash Flat, merge overlay armed", view: 0, tab: "buildings" }],
+  ["buildings-merge-hover-1080", 1080, { scenario: ASH, view: 0, tab: "buildings", hover: "Mergeable buildings" }],
+  ["buildings-idle-1080-fs125", 1080, { scenario: ASH, view: 0, tab: "buildings", fs: 1.25 }],
+  ["runs-tab-merge-armed-1080", 1080, { scenario: "Ash Flat, merge overlay armed", view: 0, tab: "runs" }],
+];
 
 async function shots(b, base, dir, list) {
   fs.mkdirSync(dir, { recursive: true });
@@ -346,7 +355,7 @@ async function main() {
   try {
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)),
-        process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();
@@ -362,7 +371,7 @@ async function main() {
       console.log(`test-hub-layout: ${w}x${h} (rem ${r.remPx} px): ${r.cases.length} case(s), ${r.fails.length} failure(s); max over ${r.maxOverRem} rem, ` +
         `min slack ${r.minSlackRem} rem`);
       console.log(`  pagers (text scale 1): ${pagers}`);
-      for (const x of r.buildings.filter((x) => x.fs === 1)) console.log(`  buildings tab [${x.scenario}]: ${x.tiles} tiles, ${x.lodgeChips} lodge chip(s), caption "${x.caption.trim()}"`);
+      for (const x of r.buildings.filter((x) => x.fs === 1)) console.log(`  buildings tab [${x.scenario}]: ${x.tiles} tiles in ${x.rows} row(s), ${x.lodgeChips} lodge chip(s), cut labels: ${x.cut || "none"}, caption "${x.caption.trim()}"`);
       for (const lt of r.liftsTile.filter((x) => x.fs === 1)) console.log(`  lifts tile [${lt.scenario}]: ${lt.text}`);
       for (const x of r.liftTool) console.log(`  lift generator [${x.scenario.split(" ")[0]} fs ${x.fs}]: ${x.present ? "present" : "MISSING"}, family row ${x.rowRem} rem`);
       for (const bd of r.band.filter((x) => x.fs === 1)) console.log(`  band [${bd.scenario}]: ${bd.text.join(" | ")}`);

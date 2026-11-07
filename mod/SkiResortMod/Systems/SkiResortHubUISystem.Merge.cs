@@ -6,7 +6,7 @@
 // buildings it tints (green: a tier fits, gray: lot too small).
 // Contract 37: the card says, before a merge, whether the building is within SlopesideMaxM of any area's runs or lift stations (Near, the
 // overlay's test SkiResortAttractivenessSystem.NearAnySlopeside), so a player sees it would not count before paying; the Buildings tab's
-// Merge tile and the fold's chip both fire armMergeOverlay.
+// Mergeable buildings toggle and the fold's chip both fire armMergeOverlay.
 // Engine notes: EngineNotes/SkiMergeSystem.md
 
 using System;

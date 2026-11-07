@@ -47,11 +47,16 @@ The Panel wraps its footer in a `FocusKeyOverride` whose `KeyFocusController` ho
 by default (`FOCUS_AUTO`, button.tsx `@629600`). `FOCUS_DISABLED` is what the vanilla close button passes (`focusKey:Ug`,
 `index.js@686490`). `tools/check-bundle.js` rule R15 fails a focusable `cs2/ui` Button rendered into a Panel header or footer without it.
 
-## Merge tile (contract 37, 2026-11-06)
+## Buildings tab rows and the merge toggle (contract 37, 2026-11-06)
 
-The Buildings tab's Lodges group ends in a Merge tile on the ok panel while the city has a Welcome Sign (`FooterInfo.mergeTile`). It is
-not a C# build item (gate R16 compares only `BUILD_ITEMS`): it fires `armMergeOverlay(!armed)` and shows `buildTileActive` while
-`mergeOverlay.armed`. The Lodges caption grows by one cell to span it. Its icon is the game's `Media/Game/Icons/BuildingUpgrade.svg`
-(rule R10 checks it exists). Status lines: hovered, its name and what can be merged; while armed and nothing else is hovered or active,
-the green / gray legend with the outlined counts (`MergedFold.MergeLegend`) and what the outlines mean, on every tab. The layout test
-hovers it with the other `buildCell`s, so its lines are measured for cut text.
+The Buildings tab draws two tile rows, each with its caption row and each stretched over the strip: the sign and the five lodges, then
+the services (`BUILDING_ROW2_KINDS`: bus depot, school, patrol). One row of 12 (with the depot and a merge tile) cut the labels to
+"A-f..." in game; on a six-column grid "Bus depot" was still cut, so the services row keeps its own, wider tiles. `harness/layout-check.js`
+fails any Buildings tile label cut at text scale 1. Cost: the Buildings tab's footer is about 117 rem taller than the other tabs' at 1080,
+so the content area is that much shorter there and the tab row sits higher on that tab.
+
+Under the rows, on the ok panel while the city has a Welcome Sign (`FooterInfo.mergeTile`), a full-width "Mergeable buildings" toggle
+(not a C# build item, not a tile: a mode) fires `armMergeOverlay(!armed)`; armed, it takes the selected look and carries the green / gray
+legend with the outlined counts (`MergedFold.MergeLegend`). Its icon is the game's `Media/Game/Icons/BuildingUpgrade.svg` (rule R10).
+Hovered, the status lines name it and say what can be merged. On the Lifts and Runs tabs the status lines carry the legend while armed and
+nothing else is hovered or active.
