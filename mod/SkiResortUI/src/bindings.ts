@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 38;
+export const HUB_CONTRACT = 39;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -293,6 +293,11 @@ export interface MergeCardState {
   monthly: readonly number[];
   /** Contract 37: within reach of any ski area's runs or lift stations now (C# NearAnySlopeside). A merged building's state says it. */
   near: boolean;
+  /** Contract 39: some ski area has a run outline or a lift station (C# TryGetSlopesideBounds). False in a fresh ski area with only a sign:
+   *  nothing is near, and the card warns and turns Merge off. */
+  geometry: boolean;
+  /** Contract 39: C# SkiDayRules.SlopesideMaxM in whole meters, the {M} of the warning text. */
+  reachM: number;
 }
 
 /** Contract 36: the merge overlay (C# SkiMergeOverlaySystem). While armed, the overlay outlines the buildings near a ski area that
@@ -303,6 +308,10 @@ export interface MergeOverlayState {
   allowed: number;
   /** Outlined gray (lot too small). 0 while disarmed. */
   tooSmall: number;
+  /** Contract 39: as MergeCardState.geometry. False: the overlay has nothing to outline, and the chip says so. */
+  geometry: boolean;
+  /** Contract 39: as MergeCardState.reachM. */
+  reachM: number;
 }
 
 /** Contract 35: one merged building, any state (the Overview's Merged buildings fold). */
@@ -1128,9 +1137,9 @@ export const FALLBACK = {
   lodgeParking: EMPTY_LODGE_PARKING,
   runReplaced: { seq: 0, from: NULL_ENTITY, to: NULL_ENTITY } as RunReplaced,
   drawRun: { active: false, groomed: true, gunSpacingM: 0, lightSpacingM: 0 } as DrawRun,
-  mergeCard: { shown: false, building: { index: 0, version: 0 }, name: "", area: "", tier: -1, allowedMask: 0, refusal: 0, state: 6, outcome: 0, charge: [], monthly: [], near: false } as MergeCardState,
+  mergeCard: { shown: false, building: { index: 0, version: 0 }, name: "", area: "", tier: -1, allowedMask: 0, refusal: 0, state: 6, outcome: 0, charge: [], monthly: [], near: false, geometry: true, reachM: 0 } as MergeCardState,
   mergedLodges: EMPTY_MERGED,
-  mergeOverlay: { armed: false, allowed: 0, tooSmall: 0 } as MergeOverlayState,
+  mergeOverlay: { armed: false, allowed: 0, tooSmall: 0, geometry: true, reachM: 0 } as MergeOverlayState,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------

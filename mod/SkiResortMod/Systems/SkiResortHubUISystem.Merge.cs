@@ -8,6 +8,9 @@
 // Contract 37: the card says, before a merge, whether the building is Near: within SlopesideMaxM of any area's runs or lift stations
 // (the overlay's test SkiResortAttractivenessSystem.NearAnySlopeside). So a player sees before paying that it would not count.
 // The Buildings tab's Mergeable buildings toggle and the fold's chip both fire armMergeOverlay.
+// Contract 39: the card and the overlay state also say whether any ski area has a run outline or a lift station (Geometry, TryGetSlopesideBounds)
+// and the reach in meters (ReachM = SlopesideMaxM). With none, nothing can be Near: the card warns and its Merge button is off, and the
+// overlay chip says there is nothing to outline.
 // Engine notes: EngineNotes/SkiMergeSystem.md
 
 using System;
@@ -27,7 +30,9 @@ namespace SkiResortMod.Systems
         /// <summary>bindings.ts MergeCardState. Tier -1 = not merged. AllowedMask: bit t = tier t fits the lot (MergeRules.AllowedMask).
         /// Refusal / State / Outcome: MergeRules.Refusal, MergeRules.State, SkiMergeSystem.Outcome numbers. Charge[t]: what merging (or
         /// changing) to tier t costs now. Monthly[t]: its monthly fee. Near (contract 37): within SkiDayRules.SlopesideMaxM of any area's run
-        /// outline or lift station now (NearAnySlopeside, the last recompute's geometry). For a merged building, the State says it.</summary>
+        /// outline or lift station now (NearAnySlopeside, the last recompute's geometry). For a merged building, the State says it.
+        /// Geometry (contract 39): some ski area has a run outline or a lift station (TryGetSlopesideBounds). ReachM (contract 39):
+        /// SkiDayRules.SlopesideMaxM in whole meters, for the card's "no runs or lift stations yet" warning.</summary>
         public struct HubMergeCardState : IJsonWritable, IEquatable<HubMergeCardState>
         {
             public bool Shown;
@@ -42,6 +47,8 @@ namespace SkiResortMod.Systems
             public int[] Charge;
             public int[] Monthly;
             public bool Near;
+            public bool Geometry;
+            public int ReachM;
 
             public void Write(IJsonWriter writer)
             {
@@ -70,6 +77,10 @@ namespace SkiResortMod.Systems
                 WriteInts(writer, Monthly);
                 writer.PropertyName("near");
                 writer.Write(Near);
+                writer.PropertyName("geometry");
+                writer.Write(Geometry);
+                writer.PropertyName("reachM");
+                writer.Write(ReachM);
                 writer.TypeEnd();
             }
 
@@ -86,6 +97,7 @@ namespace SkiResortMod.Systems
             {
                 return Shown == other.Shown && Building == other.Building && Tier == other.Tier && AllowedMask == other.AllowedMask &&
                        Refusal == other.Refusal && State == other.State && Outcome == other.Outcome && Near == other.Near &&
+                       Geometry == other.Geometry && ReachM == other.ReachM &&
                        string.Equals(Name ?? "", other.Name ?? "", StringComparison.Ordinal) &&
                        string.Equals(Area ?? "", other.Area ?? "", StringComparison.Ordinal) &&
                        SameInts(Charge, other.Charge) && SameInts(Monthly, other.Monthly);
@@ -120,12 +132,15 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>bindings.ts MergeOverlayState (contract 36).</summary>
+        /// <summary>bindings.ts MergeOverlayState (contract 36). Geometry and ReachM (contract 39) are the card's: with no run outline and no lift
+        /// station the overlay scans nothing, and the hub says so.</summary>
         public struct HubMergeOverlay : IJsonWritable, IEquatable<HubMergeOverlay>
         {
             public bool Armed;
             public int Allowed;
             public int TooSmall;
+            public bool Geometry;
+            public int ReachM;
 
             public void Write(IJsonWriter writer)
             {
@@ -136,14 +151,19 @@ namespace SkiResortMod.Systems
                 writer.Write(Allowed);
                 writer.PropertyName("tooSmall");
                 writer.Write(TooSmall);
+                writer.PropertyName("geometry");
+                writer.Write(Geometry);
+                writer.PropertyName("reachM");
+                writer.Write(ReachM);
                 writer.TypeEnd();
             }
 
-            public bool Equals(HubMergeOverlay other) => Armed == other.Armed && Allowed == other.Allowed && TooSmall == other.TooSmall;
+            public bool Equals(HubMergeOverlay other) =>
+                Armed == other.Armed && Allowed == other.Allowed && TooSmall == other.TooSmall && Geometry == other.Geometry && ReachM == other.ReachM;
 
             public override bool Equals(object obj) => obj is HubMergeOverlay other && Equals(other);
 
-            public override int GetHashCode() => (Armed ? 1 : 0) ^ (Allowed * 397) ^ (TooSmall * 7919);
+            public override int GetHashCode() => (Armed ? 1 : 0) ^ (Allowed * 397) ^ (TooSmall * 7919) ^ (Geometry ? 104729 : 0);
         }
 
         private ValueBinding<HubMergeOverlay> m_MergeOverlayBinding;   // contract 36: panel binding, no Demand
@@ -204,8 +224,14 @@ namespace SkiResortMod.Systems
                 Armed = o.Armed,
                 Allowed = o.Armed ? o.AllowedCount : 0,
                 TooSmall = o.Armed ? o.TooSmallCount : 0,
+                Geometry = HasSlopeside(),
+                ReachM = (int)SkiDayRules.SlopesideMaxM,
             });
         }
+
+        /// <summary>Some ski area has a run outline or a lift station (the overlay's TryGetSlopesideBounds). False in a fresh ski area with only a sign:
+        /// nothing can be Near, so a merge there would be billed and never count.</summary>
+        private bool HasSlopeside() => m_Attractiveness.TryGetSlopesideBounds(out _, out _);
 
         private SkiMergeSystem MergeSystem => m_Merge ?? (m_Merge = World.GetOrCreateSystemManaged<SkiMergeSystem>());
 
@@ -281,6 +307,8 @@ namespace SkiResortMod.Systems
             bool merged = EntityManager.TryGetComponent(b, out SkiMergedLodge tag);
             card.Near = EntityManager.TryGetComponent(b, out Game.Objects.Transform transform) &&
                         m_Attractiveness.NearAnySlopeside(transform.m_Position.xz);
+            card.Geometry = HasSlopeside();
+            card.ReachM = (int)SkiDayRules.SlopesideMaxM;
             MergeRules.Facts facts = SkiMergeSystem.ReadFacts(EntityManager, m_PrefabCatalog, b, forTag: merged);
             MergeRules.Classify(facts, out MergeRules.Refusal refusal);
             card.Refusal = (int)refusal;

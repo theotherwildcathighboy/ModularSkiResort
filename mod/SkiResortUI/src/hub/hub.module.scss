@@ -1638,6 +1638,15 @@
   margin-left: 6rem;
 }
 
+// Contract 39: the merge card's no-geometry warning. A wrapped line in the warning color, like .reasonLine.
+.mergeWarn {
+  padding: 4rem 10rem 2rem 10rem;
+  color: var(--hubCaution);
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  white-space: normal;
+}
+
 .mergeActions {
   display: flex;
   flex-direction: row;
@@ -2426,6 +2435,11 @@
 .buildLineNormal {
   margin-top: 5rem;
   color: var(--normalTextColor);
+}
+
+.buildLineWarn {
+  margin-top: 5rem;
+  color: var(--hubCaution);
 }
 
 .buildLineLocked {

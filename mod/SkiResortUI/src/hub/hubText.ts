@@ -550,6 +550,8 @@ export const HUB_FMT = {
   resortCountsRunOne: ["SkiResort.Hub.RESORT_COUNTS[RunOne]", "1 run · {LODGES} lodges"],
   resortCountsLodgeOne: ["SkiResort.Hub.RESORT_COUNTS[LodgeOne]", "{RUNS} runs · 1 lodge"],
   contractMismatchCore: ["SkiResort.Hub.CONTRACT_MISMATCH_CORE", "This panel (version {UI}) and the mod's DLL (version {DLL}) come from different builds. Building still works. The resort statistics stay hidden until the mod is reinstalled."],
+  /* contract 39: the one warning of the merge card and the Mergeable buildings status line while no ski area has a run or a lift station ({M} = SlopesideMaxM) */
+  mergeWarnNoGeometry: ["SkiResort.Hub.MERGE_WARN[NoGeometry]", "No runs or lifts yet. A merge counts within {M} m of one."],
   statusLine: ["SkiResort.Hub.STATUS_LINE", "{STATE}"],
   statusLineOne: ["SkiResort.Hub.STATUS_LINE_ONE", "{STATE}"],
   statusLineEst: ["SkiResort.Hub.STATUS_LINE_EST", "{STATE} ≈"],

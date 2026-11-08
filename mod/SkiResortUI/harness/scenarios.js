@@ -218,13 +218,13 @@
     { sign: NULL, building: E(434), name: "Botanical Garden", tier: 1, state: 1, monthly: 0 },
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
-    outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true };
-  const base = { hubOpen: false, contract: 38, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+    outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
+  const base = { hubOpen: false, contract: 39, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
     drawRun: { active: false, groomed: true, gunSpacingM: 0, lightSpacingM: 0 }, mergedLodges, mergeCard,
-    mergeOverlay: { armed: false, allowed: 0, tooSmall: 0 } };
+    mergeOverlay: { armed: false, allowed: 0, tooSmall: 0, geometry: true, reachM: 800 } };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
@@ -261,7 +261,12 @@
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
     // Contract 36: the merge overlay armed from the Merged buildings fold (the chip on, and its tooltip counts 14 green, 3 gray outlines).
     "Ash Flat, merge overlay armed": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
-      problems, history, build: buildItems({ built: ["school"] }), mergeOverlay: { armed: true, allowed: 14, tooSmall: 3 } }),
+      problems, history, build: buildItems({ built: ["school"] }), mergeOverlay: { armed: true, allowed: 14, tooSmall: 3, geometry: true, reachM: 800 } }),
+    // Contract 39: a fresh ski area with only a sign. No run outline, no lift station: the card warns and Merge is off, the Mergeable buildings chip warns instead of 0 / 0.
+    "Ash Flat, merge card no geometry": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
+      problems, history, build: buildItems({ built: ["school"] }), mergeCard: Object.assign({}, mergeCard, { name: "Grand Hotel", near: false, geometry: false }) }),
+    "Ash Flat, merge overlay armed no geometry": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
+      problems, history, build: buildItems({ built: ["school"] }), mergeOverlay: { armed: true, allowed: 0, tooSmall: 0, geometry: false, reachM: 800 } }),
     // Contract 37: the merge card for a building out of reach of every run and station (its status line says it would not count).
     "Ash Flat, merge card too far": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
       problems, history, build: buildItems({ built: ["school"] }), mergeCard: Object.assign({}, mergeCard, { name: "City Park", near: false }) }),

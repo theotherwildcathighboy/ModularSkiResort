@@ -445,6 +445,10 @@ Appended fields and bindings by contract:
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan). `quickRunsSet` gains `lifts`,
   `home`, `pod`, `lift`. The integration branch carries this bump from the A7 merge, so its gates stay green. Re-bump if main takes
   22 first.
+- 39: merge warning (SkiMergeSystem.md, Hub section). `MergeCardState` and `MergeOverlayState` append `geometry` and `reachM`.
+  `geometry` is true when some ski area has a run outline or a lift station (`TryGetSlopesideBounds`). `reachM` is `SlopesideMaxM` in
+  meters, for the warning text. With no geometry nothing is Near. The card shows the warning and turns Merge off. The Buildings tab
+  chip shows the warning instead of 0 / 0.
 - 37: merge discoverability (SkiMergeSystem.md, Hub section): `MergeCardState` appends `near` (bool: within SlopesideMaxM of any
   area's run outline or lift station, `NearAnySlopeside`). So the card says before a merge whether the building would count. The
   Buildings tab's Mergeable buildings toggle (BuildStrip, under the building tiles) fires the same `armMergeOverlay` and reads

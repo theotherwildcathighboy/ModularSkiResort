@@ -308,11 +308,13 @@ function FamilySetView({ family, dotFamily, t, onFamily }: {
 }
 
 /* The Buildings tab's Mergeable buildings chip: it arms the merge overlay (contract 37). While it is on, the status line carries the legend. */
-function MergeChip({ on, t }: { on: boolean; t: Translate }): JSX.Element {
+function MergeChip({ on, overlay, t }: { on: boolean; overlay: MergeOverlayState | null | undefined; t: Translate }): JSX.Element {
+  const noGeometry = on && overlay?.geometry === false;
   return (
     <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 2 }}>
       <div className={styles.pickerCell}>
-        <Tip tip={<TipLines lines={[t(HUB_LOC.mergeTileFact), on && t(HUB_LOC.mergeTileArmed)]} />}>
+        <Tip tip={<TipLines lines={[t(HUB_LOC.mergeTileFact), on && !noGeometry && t(HUB_LOC.mergeTileArmed),
+          noGeometry && <LocText entry={HUB_FMT.mergeWarnNoGeometry} args={{ M: numArg(overlay?.reachM ?? 0, Unit.Integer) }} />]} />}>
           <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }} selected={on}
             onSelect={() => hubTriggers.armMergeOverlay(!on)}>
             <div className={styles.pickerLabel}>{t(HUB_LOC.mergeOverlay)}</div>
@@ -491,6 +493,8 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     line = <Line1 id={activeEntry.id} item={activeEntry.item} t={t} />; lineCls = styles.buildLineName;
   } else if (state === "locked" && lockedEntry) {
     line = <>{t(sentKeyEntry(lockedEntry.item.reason, HUB_LOC.locked))}</>; lineCls = styles.buildLineLocked;
+  } else if (mergeOn && info.mergeOverlay?.geometry === false) {
+    line = <LocText entry={HUB_FMT.mergeWarnNoGeometry} args={{ M: numArg(info.mergeOverlay.reachM, Unit.Integer) }} />; lineCls = styles.buildLineWarn;
   } else if (mergeOn) {
     line = <MergeLegend overlay={info.mergeOverlay} t={t} />;
   } else {
@@ -525,7 +529,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
           {tab === "lifts" && sets.lift.length > 0 && <PickerSetView set="lift" options={sets.lift} chosen={eff.lift} dot={dot} t={t} onPick={onPick} />}
           {tab === "lifts" && info.liftTool && <LiftToolSet t={t} />}
           {tab === "buildings" && bothFamilies && <FamilySetView family={family} dotFamily={dotFamily} t={t} onFamily={onFamily} />}
-          {tab === "buildings" && mergeTile && <MergeChip on={mergeOn} t={t} />}
+          {tab === "buildings" && mergeTile && <MergeChip on={mergeOn} overlay={info.mergeOverlay} t={t} />}
           {tab === "runs" && <TreeToolSet t={t} quick={!!info.quickRuns} />}
         </div>
       )}
