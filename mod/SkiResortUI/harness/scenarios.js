@@ -92,6 +92,8 @@
     lodgeBest: "lodgeMid", lodgeExtra: 1, luxuryIgnored: 0, schoolValue: 12, patrolledRuns: 3, priceTolerance: 78, lodgeSpendMonth: 46000,
     passesSoldSeason: 420, passIncomeSeason: 126000, passHoldersThisMonth: 390, passHoldersLastMonth: 410, lessonsThisMonth: 120, lessonsLastMonth: 160, lessonIncomeMonth: 9600,
     passesPreSeason: 85, passIncomePreSeason: 25500, cityIncomeEst: 390000,
+    // Contract 40 (icon scheme, DECISIONS 620): every VARIETY_BAND bit set, the vertical at the full bonus.
+    varietyBands: 7, verticalShortM: 0,
   };
   const live2 = Object.assign({}, live, { sign: SIGN2, status: 0, runsOpen: 0, runsPartly: 0, snowPct: 0, attraction: 0, attractionFull: 0, lodgesActive: 0, estKnown: false, estTourists: 0, nextStep: 1, netMonth: 0, skiDaysState: 3, guestsThisMonth: 0, ticketIncomeMonth: 0 });
   const problems = [
@@ -219,7 +221,7 @@
   ];
   const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
     outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0], near: true, geometry: true, reachM: 800 };
-  const base = { hubOpen: false, contract: 39, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 40, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking,
     runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
@@ -274,6 +276,14 @@
     // yet" (dim), never "No ski school".
     "Ash Flat, school built, no run counts": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { summer: true, schoolValue: 0 }), live2],
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
+    // Contract 40 (icon scheme, DECISIONS 620): no black run is open or patchy (varietyBands 3 = green + blue), so the Variety row
+    // shows its flag and the tooltip its missing line. North Face (203) is closed, Run 4 (204) patchy: 3 open, 1 patchy, 1 closed of 5.
+    // The Lodge base (8 of 24 extras) and Efficiency (held at 25 %) rows show their missing lines too.
+    "Ash Flat, no black run open": Object.assign({}, base, { hubOpen: true, resorts,
+      resortLive: [Object.assign({}, live, { varietyBands: 3, varietyMultiplier: 1, runsOpen: 3, runsPartly: 1, lodgeExtra: 8, efficiencyPct: 25 }), live2],
+      selectedResort: SIGN, runs, runLive: runLive.map((r) => r.entity.index === 203 ? Object.assign({}, r, { openState: 0, openFactor: 0, valueNow: 0 })
+        : r.entity.index === 204 ? Object.assign({}, r, { openState: 1, openFactor: 0.5, snowPct: 52, valueNow: 0.4 }) : r),
+      lifts, problems, history, build: buildItems({ built: ["school"] }) }),
   };
 
   // Stress case for "never a scrollbar": a long area name, 30 runs, 12 lift rows of which 5 are unfinished lines (liftsComplete

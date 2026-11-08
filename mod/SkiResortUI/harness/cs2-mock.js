@@ -244,7 +244,8 @@
     .replace(/^assetdb:\/\/global\//, "/assetdb/") : src;
   // Our own <img> tags (AssetIcon) carry assetdb://global/<id> too: serve.js streams the mirrored PNG. React does not set
   // src through Element.prototype.setAttribute, so a MutationObserver rewrites it (in a microtask, before the load error fires).
-  const fixImg = (i) => { const s = i.getAttribute("src"); if (s && s.startsWith("assetdb:")) i.setAttribute("src", imgSrc(s)); };
+  // The hub icons (hubIcons.ts, DECISIONS 620) are bundled SVGs at coui://ui-mods/SkiResortMod-img/<name>.svg: same rewrite.
+  const fixImg = (i) => { const s = i.getAttribute("src"); if (s && (s.startsWith("assetdb:") || s.startsWith("coui://ui-mods/"))) i.setAttribute("src", imgSrc(s)); };
   new MutationObserver((ms) => {
     for (const m of ms) {
       if (m.type === "attributes") { if (m.target.tagName === "IMG") fixImg(m.target); continue; }

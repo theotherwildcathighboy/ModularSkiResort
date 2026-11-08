@@ -20,7 +20,7 @@
 * The test needs `npm run build` first (it mounts build/SkiResortMod.mjs). It also needs network access for the React UMD scripts
 * that the harness loads from cdnjs.
 * Usage:   node tools/test-hub-layout.js [--verbose]
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -317,14 +317,35 @@ const TIPS616 = [
   ["tips-08-share-1080", 1080, { scenario: ASH, view: 0, fold: 0, hover: "Share of city tourism" }],
   ["tips-09-variety-1440-fs125", 1440, { scenario: ASH, view: 0, fold: 0, hover: "Variety", fs: 1.25 }],
 ];
+// 2026-11-08 icon scheme (hub contract 40, DECISIONS 620): the receipt with the Variety flag (no black run open or patchy), its
+// tooltip with the missing line, the symbol legend (the header's Info glyph, `hoverSel` = a CSS selector to point at; `hoverIn` limits
+// the `hover` text search to a selector, so "Runs" finds the receipt row and not the footer tab), and the
+// Runs / Lifts rows with the half-filled Patchy and No-power dots. Every shot at text scale 1 and 1.25. `--list=icons` picks this list.
+const NOBLACK = "Ash Flat, no black run open";
+const ICONS = [];
+for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
+  ICONS.push(
+    [`icons-01-receipt-variety-flag-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, fs: scale }],
+    [`icons-02-tip-variety-missing-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Variety", fs: scale }],
+    [`icons-03-tip-runs-missing-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Runs", hoverIn: '[class*="sr-infoLabel"]', fs: scale }],
+    [`icons-04-tip-status-marks-1080${tag}`, 1080, { scenario: ASH, view: 0, hover: "Open", fs: scale }],
+    [`icons-05-legend-1080${tag}`, 1080, { scenario: ASH, view: 0, hoverSel: '.h-panel [class*="legendInfoBox"]', fs: scale }],
+    [`icons-06-runs-patchy-dot-1080${tag}`, 1080, { scenario: ASH, view: 1, fs: scale }],
+    [`icons-07-lifts-half-dot-1080${tag}`, 1080, { scenario: ASH, view: 2, fs: scale }],
+    [`icons-08-tip-school-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Ski school", fs: scale }],
+    [`icons-09-tip-lifts-missing-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Lifts", hoverIn: '[class*="sr-infoLabel"]', fs: scale }],
+    [`icons-10-tip-lodge-base-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Lodge base", fs: scale }],
+    [`icons-11-tip-efficiency-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Efficiency", fs: scale }],
+  );
+}
 
 async function shots(b, base, dir, list) {
   fs.mkdirSync(dir, { recursive: true });
   for (const [file, h, p0] of list) {
     const w = Math.round(h * 16 / 9);
     const p = Object.assign({}, p0);
-    const { hover, click, clickRange, hoverPlot, whole } = p;
-    delete p.hover; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole;
+    const { hover, hoverIn, hoverSel, click, clickRange, hoverPlot, whole } = p;
+    delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole;
     await open(b, base, w, h);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
       await window.SkiLayout.shot(p); return document.body.getAttribute("data-shot-ready"); })()`, 60000);
@@ -346,9 +367,17 @@ async function shots(b, base, dir, list) {
         await sleep(400);
       } else console.log(`shot ${file}: no chart plot to point at`);
     }
+    if (hoverSel) {
+      const at = await evalAsync(b, `(() => { const e = document.querySelector(${JSON.stringify(hoverSel)}); if (!e) return null;
+        const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, 10000);
+      if (at) {
+        await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x, y: at.y });
+        await sleep(400);
+      } else console.log(`shot ${file}: hover selector "${hoverSel}" not found`);
+    }
     if (hover) {
       const at = await evalAsync(b, `(() => { const want = ${JSON.stringify(hover)};
-        const els = Array.from(document.querySelectorAll('.h-panel *')).filter((e) => (e.textContent || '').trim().startsWith(want) && e.getBoundingClientRect().width > 0);
+        const els = Array.from(document.querySelectorAll('.h-panel ' + ${JSON.stringify(hoverIn || "*")})).filter((e) => (e.textContent || '').trim().startsWith(want) && e.getBoundingClientRect().width > 0);
         els.sort((a, c) => a.textContent.length - c.textContent.length || c.querySelectorAll('*').length - a.querySelectorAll('*').length);
         const e = els[0]; if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left + Math.min(r.width / 2, 20), y: r.top + r.height / 2 }; })()`, 10000);
       if (at) {
@@ -362,7 +391,7 @@ async function shots(b, base, dir, list) {
       const left = Math.min(r.left, tr ? tr.left : r.left), right = Math.max(r.right, tr ? tr.right : r.right);
       const top = Math.min(r.top, tr ? tr.top : r.top), bottom = Math.max(r.bottom, tr ? tr.bottom : r.bottom);
       return { x: Math.max(0, left - 20), y: Math.max(0, top - 20), width: Math.min(innerWidth, right + 20) - Math.max(0, left - 20), height: Math.min(innerHeight, bottom + 20) - Math.max(0, top - 20) }; })()`, 10000);
-    const shot = await b.send("Page.captureScreenshot", { format: "png", clip: Object.assign({ scale: 1 }, rect), captureBeyondViewport: !hover && hoverPlot === undefined });   // a pointer shot stays in the viewport. Growing it re-lays the page under the pointer, and the bucket hover drops
+    const shot = await b.send("Page.captureScreenshot", { format: "png", clip: Object.assign({ scale: 1 }, rect), captureBeyondViewport: !hover && !hoverSel && hoverPlot === undefined });   // a pointer shot stays in the viewport. Growing it re-lays the page under the pointer, and the bucket hover drops
     const out = path.join(dir, file + ".png");
     fs.writeFileSync(out, Buffer.from(shot.data, "base64"));
     console.log(`shot ${out} (${w}x${h}) ${m}`);
@@ -378,7 +407,7 @@ async function main() {
   try {
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)),
-        process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();
