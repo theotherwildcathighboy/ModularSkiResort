@@ -3,7 +3,8 @@
 // Threading: each job index writes a different chair's Transform. The job handle goes into Dependency. The bounds-tag structural change
 // runs BEFORE the job is scheduled. The native arrays are written on the main thread only after MoverCompleteJob.
 // Timing: Modification4B. Vanilla 4B systems and ModificationBarrier4B run after it (SystemOrder.cs:83,:91).
-// Held loops, Temp-chair previews and the static flow stay managed. Far loops (>= 500 m from the camera) are paced (LiftMoverMath).
+// A held loop that swings (DECISIONS 619) runs in the job too: Speed 0 at its frozen phase, the live sway clock. Other held loops,
+// Temp-chair previews and the static flow stay managed. Far loops (>= 500 m from the camera) are paced (LiftMoverMath).
 // Engine notes: EngineNotes/ChairPinSystem.Mover.md
 
 using System;
@@ -32,6 +33,10 @@ namespace SkiResortMod.Systems
         private const double StressShiftS = 0.5;
         /// <summary>The loop box grows by this much around the rope (a carrier hangs ≤ ~6 m below it, plus its size).</summary>
         private const float LoopBoxMarginM = 8f;
+        /// <summary>The pace speed of a held, swinging loop (m/s): about the top speed of a carrier's base in a held sway (3.5 deg x
+        /// HeldSwayShare x omega 2.5 rad/s x a 3 to 5 m lever = 0.3 to 0.5 m/s). LiftMoverMath.StrideFor sizes a far held loop's stride
+        /// with it as it does a running loop's with its rope speed (>= 500 m: every 8th pass at 60 fps).</summary>
+        private const double HeldSwayPaceMps = 0.5;
         /// <summary>The [cost] window: moving passes sampled per load (~10 s at 60 fps).</summary>
         private const int CostRingSize = MoverCostPassesToLog;
 
@@ -47,8 +52,12 @@ namespace SkiResortMod.Systems
             public CarrierPivots Pivots;
             public SwingLimits Limits;   // the type's roll clamp and gain (CarrierPose.Limits)
             public float2 Wind;
-            public float2 GustClock;    // CarrierPose.GustClock of the loop's gust time (CarrierWind.GustTimeS)
+            public float2 GustClock;    // CarrierPose.GustClock of the mover clock (live, also on a held loop)
             public float Omega, RampM, SpeedF;
+            // The stopped lift (DECISIONS 619): CarrierPose.SwayShift of the loop's sway clock (added to each carrier's phase) and the
+            // sway amplitude envelope (1 running, settles to HeldSwayShare held). A held loop runs with Speed = 0 and Phase = its frozen
+            // phase, so s stands still while the sway clock runs.
+            public float SwayShift, SwayScale;
             public byte Split, PitchSwing, GripWrite;
         }
 
@@ -146,8 +155,8 @@ namespace SkiResortMod.Systems
                     float distance = CarrierPose.DistanceToGuided(seg.Guided != 0, d, seg.Length, seg.RunBefore, seg.RunAfter);
                     float2 ramp = CarrierPose.Ramp(distance, loop.RampM);
                     if (ramp.x > 0f || ramp.y > 0f)
-                        swing = CarrierPose.Swing(loop.Wind, yaw, CarrierPose.SwayArg(s, loop.Omega, loop.SpeedF, chair.Phase), ramp, loop.Limits,
-                                                  CarrierPose.Gust(loop.GustClock, position));
+                        swing = CarrierPose.Swing(loop.Wind, yaw, CarrierPose.SwayArg(s, loop.Omega, loop.SpeedF, chair.Phase + loop.SwayShift), ramp,
+                                                  loop.Limits, CarrierPose.Gust(loop.GustClock, position), loop.SwayScale);
                 }
                 CarrierPose.Pose(position, tangent, yaw, loop.Pivots, loop.PitchSwing != 0, swing,
                                  out float3 gripPosition, out quaternion gripRotation, out float3 bodyPosition, out quaternion bodyRotation);
@@ -237,6 +246,8 @@ namespace SkiResortMod.Systems
         private long m_WrittenTotal;                // chairs scheduled / written, summed over sampled passes
         private long m_SampledPasses;               // moving passes with riders since the load
         private int m_PassNear, m_PassFar, m_PassWritten, m_PassTags, m_PassRiding;
+        private int m_PassHeldSway, m_PassHeldSwayFar;   // held loops swinging this pass (DECISIONS 619)
+        private long m_HeldSwayWrittenTotal;              // their chairs written, summed over the sampled passes
         private string m_DiagMoverPath = "-";
 
         private void MoverOnCreate()
@@ -307,6 +318,8 @@ namespace SkiResortMod.Systems
             m_WrittenTotal = 0;
             m_SampledPasses = 0;
             m_PassNear = m_PassFar = m_PassWritten = m_PassTags = m_PassRiding = 0;
+            m_PassHeldSway = m_PassHeldSwayFar = 0;
+            m_HeldSwayWrittenTotal = 0;
             m_DiagMoverPath = "-";
             m_BurstProbeState = 0;
             m_DiagBurst = "not probed yet";
@@ -404,6 +417,7 @@ namespace SkiResortMod.Systems
 
             int moved = 0, inPlace = 0, missing = 0, riding = 0, heldWrites = 0;
             int near = 0, far = 0, written = 0, tags = 0;
+            int heldSway = 0, heldSwayFar = 0, heldSwayWritten = 0;   // held loops that keep swinging (DECISIONS 619)
             // The carrier grip round: the toggle (one read per pass), the wind poll (every WindPollFrames, and at a rebuild), fallback (3).
             bool animated = AnimatedOn;
             PollWind(timeS, rebuilt);
@@ -432,18 +446,88 @@ namespace SkiResortMod.Systems
                     JobLoop jl = l < m_JobLoops.Length ? m_JobLoops[l] : default;
                     jl.Active = 0;
 
-                    // 2a. A HELD loop is written only at a rebuild or the hold's entry, at the frozen pose (LiftLoopHold.FrozenPhase =
-                    // PhaseOf's product at FrozenTimeS, bit for bit). It is managed. Its entry tag is below.
+                    // 2a. A HELD loop stands at its frozen place (LiftLoopHold.FrozenPhase = PhaseOf's product at FrozenTimeS, bit for bit).
+                    // A split loop with "Animated lift carriers" on keeps swinging (DECISIONS 619): the job writes it like a running loop,
+                    // with Speed 0 (s stands) and the live sway clock, wind and gusts. Paced like a far running loop by the sway's own speed
+                    // (HeldSwayPaceMps). No bounds tags while it swings: the sway moves a carrier well under the 2 m a running loop travels
+                    // between its tags. Any other held loop is written only at a rebuild or the hold's entry (managed). The entry tag is below.
                     if (m_HeldLoopCount > 0 && l < m_HoldByLoop.Count && m_HoldByLoop[l].Held)
                     {
                         LoopHold hold = m_HoldByLoop[l];
-                        if (rebuilt || hold.PoseDirty)
+                        bool sway = animated && loop.m_GripCount > 0 && loop.m_Chairs.Count > 0 && loop.m_Length > 0.0;
+                        if (sway)
+                        {
+                            float heldDistance = haveCamera && loop.m_BoxKnown
+                                ? LiftMoverMath.BoxDistance(camera, loop.m_BoxMin, loop.m_BoxMax)
+                                : 0f;
+                            int heldStride = LiftMoverMath.StrideFor(heldDistance, HeldSwayPaceMps, passDtS, pace);
+                            bool heldWrite;
+                            bool forced = rebuilt || hold.PoseDirty;   // the entry / a rebuild: write all, grips included
+                            if (forced)
+                            {
+                                heldWrite = true;
+                                loop.m_Pace.Stride = heldStride;
+                            }
+                            else
+                            {
+                                // Speed 0: Decide never asks for a bounds tag here. The first running write after the release tags (its travel
+                                // since the last tag is large).
+                                LiftMoverMath.Decide(ref loop.m_Pace, heldStride, timeS, 0.0, out heldWrite, out _);
+                            }
+                            hold.PoseDirty = false;
+                            hold.Swayed = true;
+                            heldSway++;
+                            if (heldStride > 1)
+                                heldSwayFar++;
+                            if (heldWrite)
+                            {
+                                written += loop.m_Chairs.Count;
+                                heldSwayWritten += loop.m_Chairs.Count;
+                                bool heldGrips = loop.m_GripCount > 0 && (forced || (gripPass && !(GripNearOnly && heldStride > 1)));
+                                if (heldGrips)
+                                    gripsWritten += loop.m_GripCount;
+                                double frozen = LiftLoopHold.FrozenPhase(loop.m_SpeedMps, hold.FrozenTimeS);
+                                if (useJob)
+                                {
+                                    jl.Active = 1;
+                                    jl.Phase = frozen;
+                                    jl.Speed = 0.0;   // s = (offset + (frozen + 0.0 x ShiftS)) % L = the managed frozen s, bit for bit
+                                    jl.Split = 1;
+                                    jl.PitchSwing = 1;
+                                    jl.GripWrite = (byte)(heldGrips ? 1 : 0);
+                                    SwingInputs(loop, timeS, out jl.Pivots, out jl.Omega, out jl.RampM, out jl.Wind, out jl.Limits, out jl.GustClock,
+                                                out jl.SwayShift, out jl.SwayScale);
+                                    jl.SpeedF = (float)loop.m_SpeedMps;
+                                    anyActive = true;
+                                }
+                                else
+                                {
+                                    for (int i = 0; i < loop.m_Chairs.Count; i++)
+                                    {
+                                        double s = (loop.m_Offsets[i] + frozen) % loop.m_Length;
+                                        switch (MoveCarrier(loop, i, s, timeS, animated, heldGrips))
+                                        {
+                                            case MoveResult.Moved: moved++; break;
+                                            case MoveResult.InPlace: inPlace++; break;
+                                            case MoveResult.Missing: missing++; break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else if (hold.Swayed)
+                        {
+                            // The toggle went off (or the grips went away) mid-hold: write the plain frozen pose once.
+                            hold.Swayed = false;
+                            hold.PoseDirty = true;
+                        }
+                        if (!sway && (rebuilt || hold.PoseDirty))
                         {
                             double frozen = LiftLoopHold.FrozenPhase(loop.m_SpeedMps, hold.FrozenTimeS);
                             for (int i = 0; i < loop.m_Chairs.Count; i++)
                             {
                                 double s = (loop.m_Offsets[i] + frozen) % loop.m_Length;
-                                switch (MoveCarrier(loop, i, s, hold.FrozenTimeS, animated, writeGrip: true))
+                                switch (MoveCarrier(loop, i, s, timeS, animated, writeGrip: true))
                                 {
                                     case MoveResult.Moved: heldWrites++; break;
                                     case MoveResult.InPlace: break;
@@ -534,7 +618,8 @@ namespace SkiResortMod.Systems
                         jl.GripWrite = (byte)(gripWrite ? 1 : 0);
                         if (loop.m_GripCount > 0)
                         {
-                            SwingInputs(loop, timeS, out jl.Pivots, out jl.Omega, out jl.RampM, out jl.Wind, out jl.Limits, out jl.GustClock);
+                            SwingInputs(loop, timeS, out jl.Pivots, out jl.Omega, out jl.RampM, out jl.Wind, out jl.Limits, out jl.GustClock,
+                                        out jl.SwayShift, out jl.SwayScale);
                             jl.SpeedF = (float)loop.m_SpeedMps;
                         }
                         anyActive = true;
@@ -646,6 +731,8 @@ namespace SkiResortMod.Systems
             m_PassWritten = written;
             m_PassTags = tags;
             m_PassRiding = riding;
+            m_PassHeldSway = heldSway;
+            m_PassHeldSwayFar = heldSwayFar;
             m_PassGrips = gripsRiding;
             m_PassGripWritten = gripsWritten;
             m_PassGripTags = gripTags;
@@ -681,6 +768,7 @@ namespace SkiResortMod.Systems
                     m_CostCount++;
                 m_TagTotal += tags;
                 m_WrittenTotal += written;
+                m_HeldSwayWrittenTotal += heldSwayWritten;
                 m_GripWrittenTotal += gripsWritten;
                 m_GripTagTotal += gripTags;
                 m_SampledPasses++;
@@ -712,6 +800,7 @@ namespace SkiResortMod.Systems
             m_TagPasses = 0;
             m_TagWindowStart = -1f;
             m_WrittenTotal = 0;
+            m_HeldSwayWrittenTotal = 0;
             m_GripWrittenTotal = 0;
             m_GripTagTotal = 0;
             m_SampledPasses = 0;
@@ -747,7 +836,9 @@ namespace SkiResortMod.Systems
                 "{8} sample(s)) over {9} chair(s) in {10} loop(s); last pass {11} near / {12} far loop(s), {13:F0} chair(s) written " +
                 "per pass on average; bounds refresh: {14} tag pass(es), mean {15:F3} ms each (collect + one batched AddComponent), " +
                 "{16} Updated tag(s) in {17:F1} s = {18:F0} per second; far-loop pace {19}; grips (the carrier grip round, counted " +
-                "apart): {20} paired, {21:F0} written per pass on average, {22} of the Updated tags; animated {23}{24}",
+                "apart): {20} paired, {21:F0} written per pass on average, {22} of the Updated tags; animated {23}{24}; held loops " +
+                "swinging (stopped lift sway, counted in the written chairs): last pass {25} ({26} far), {27:F0} chair(s) written per pass " +
+                "on average",
                 nameof(ChairPinSystem), window, m_DiagMoverPath, s_StressFactor > 1 ? $", stress x{s_StressFactor}" : string.Empty,
                 p50, p95, max, mean, m_CostCount, m_PassRiding, m_LoopCache.m_Loops.Count, m_PassNear, m_PassFar, writtenPerPass,
                 m_BoundsCostPasses, m_BoundsCostPasses > 0 ? m_BoundsCostTicks * msPerTick / m_BoundsCostPasses : 0.0,
@@ -759,7 +850,9 @@ namespace SkiResortMod.Systems
                 m_PassGrips, gripWrittenPerPass, m_GripTagTotal, AnimatedOn ? "on" : "off",
                 GripNearOnly || GripHalfRate
                     ? " (fallback: " + (GripNearOnly ? "near only" : "") + (GripNearOnly && GripHalfRate ? ", " : "") + (GripHalfRate ? "half rate" : "") + ")"
-                    : "");
+                    : "",
+                m_PassHeldSway, m_PassHeldSwayFar,
+                m_SampledPasses > 0 ? (double)m_HeldSwayWrittenTotal / m_SampledPasses : 0.0);
         }
     }
 }

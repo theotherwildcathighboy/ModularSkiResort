@@ -293,7 +293,7 @@ namespace SkiResortMod.Systems
                     float omega = CarrierPose.Omega(pivots.BodyPin.y);
                     bool known = m_WindByBase.TryGetValue(run.Base, out CarrierWind w);
                     float2 wind = known ? w.At(timeS) : float2.zero;
-                    float gust = CarrierPose.Gust(CarrierPose.GustClock(known ? w.GustTimeS(timeS) : timeS), rope);
+                    float gust = CarrierPose.Gust(CarrierPose.GustClock(timeS), rope);
                     float phase = CarrierPose.SeedPhase((uint)cabin.Index);
                     // The tram's limits (CarrierPose.Limits): the roll about the track-rope point at most 2 deg, at half the
                     // fore-aft amplitude (the 10 m hanger damps it).

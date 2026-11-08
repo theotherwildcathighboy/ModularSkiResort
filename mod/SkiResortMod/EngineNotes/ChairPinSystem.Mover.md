@@ -13,9 +13,17 @@ cost that grows with the city. Engine citations are `File.cs:line` against the G
   clock advanced (`RunMovePass`). The steps are:
   1. The job of the last frame is complete (OnUpdate's first line, `MoverCompleteJob`). Its result counts become the "last pass moved / in
      place / missing" numbers. A missing chair dirties the cache.
-  2. Per loop, a held loop keeps the managed path. The code writes its frozen pose only at the hold's entry or at a rebuild, a handful of
-     frames per session. A running loop gets its camera distance (box), its stride (`LiftMoverMath.StrideFor`) and the pace decision
-     (`LiftMoverMath.Decide`: write this pass? tag bounds?).
+  2. Per loop, these rules apply:
+     - A held split loop with "Animated lift carriers" on keeps swinging (DECISIONS 619). It goes into the job like a running loop.
+       Its `JobLoop.Speed` is 0 and its `Phase` is `LiftLoopHold.FrozenPhase`. So s stands, bit for bit the managed frozen s.
+       The sway clock, the wind and the gusts are live.
+     - Its stride comes from `StrideFor` with `HeldSwayPaceMps` in place of the rope speed. That is 0.5 m/s, the top speed of a
+       carrier base in a held sway. A near held loop is written every pass. A held loop 500 m or more away is written every 8th pass.
+     - `Decide` with speed 0 never tags it. The sway moves a carrier much less than the 2 m between the bounds tags of a running loop.
+     - Any other held loop (toggle off, no grips) keeps the managed path. The code writes its frozen pose at the hold's entry and at a
+       rebuild. It also writes it once when the swing stops (the toggle went off during the hold, `LoopHold.Swayed`).
+     - A running loop gets its camera distance (box), its stride (`LiftMoverMath.StrideFor`) and the pace decision
+       (`LiftMoverMath.Decide`: write this pass? tag bounds?).
   3. The code adds the bounds tags of this pass in one batched `EntityManager.AddComponent<Updated>`. The tags are the loops that reached
      their refresh travel, plus the entry tags of held loops. This is a structural change, so it runs before the job is scheduled.
      A structural change completes every running job.
@@ -45,7 +53,8 @@ cost that grows with the city. Engine citations are `File.cs:line` against the G
 - The job reads our own native arrays. Only the main thread writes them, after `MoverCompleteJob`, never while the job can run.
   The dev tab and the dump read the managed loop cache, never these arrays.
 - The code refreshes the lookups (`Update(this)`) right before the schedule, after the structural change of this pass.
-- Held loops, Temp-chair previews, the static flow and the roster of `BuildLoopCache` stay managed (rare events).
+- Held loops that do not swing, Temp-chair previews, the static flow and the roster of `BuildLoopCache` stay managed (rare events).
+  A held loop that swings is a job loop (step 2).
 
 ## Far-loop pace (LiftMoverMath item 2)
 
@@ -125,10 +134,23 @@ in this section refer to the 1.6.2f1 decompile.
   - The code CLAMPS the lean BEFORE the ramp, because a saturating wind would otherwise jump at the ramp end (CP-9). It also clamps the
     lean to the room that the sway leaves. So lean + sway never reach the clamp (no flat tops). CP-14 keeps MaxSway x G at most half of
     every clamp.
-  - `SwayArg` = omega / v x s + SeedPhase(entity index). omega = sqrt(g / (0.7 x BodyPin.y)), a pendulum of 70 % of the pin height of the
-    body. Values: FG 2.48 s, DQ 2.82 s, GD 3.32 s, tram 5.38 s.
-  - The sway argument is a function of the loop distance s, not of time. So it is continuous across a pause, a hold, a Rebase and a
-    far-loop stride (the carriers of a frozen loop freeze mid-sway, never snap).
+  - `SwayArg` = omega / v x s + SeedPhase(entity index) + `SwayShift`. omega = sqrt(g / (0.7 x BodyPin.y)), a pendulum of 70 % of the
+    pin height of the body. Values: FG 2.48 s, DQ 2.82 s, GD 3.32 s, tram 5.38 s.
+  - **The stopped lift** (DECISIONS 619). Until then, a held loop froze in the middle of its sway. Now the argument is omega x (s / v +
+    the sway clock) + the phase.
+    - The sway clock (`CarrierWind.SwayTimeS`) is the mover time that the loop stood held. It runs only while the loop is held.
+    - While the loop runs, s / v runs. While the loop is held, the sway clock runs. Both run at 1 s per s. So the argument advances
+      at omega in both states, with no step at the stop or the restart. The Rebase keeps s continuous when the clock stops.
+    - `SwayShift` = omega x the sway clock, wrapped in double once per loop and pass (`SwingInputs`, `JobLoop.SwayShift`).
+    - A pause stops the mover clock. Then everything freezes, as vanilla's objects do.
+  - The held amplitude: `CarrierPose.SwayEnvelope` scales the sway (not the lean).
+    - After a stop it settles to HeldSwayShare 0.6 with a 4 s time constant. A pendulum loses the share of its swing that the motion gave.
+    - After a restart it grows back to 1 with a 3 s time constant.
+    - It is a closed form from its value at the last change (`CarrierWind.SetHeld`). It has no step, also when the power flaps.
+    - CP-20: the FG roll swings 0.6 x the running peak to peak. The stop and the restart step at most 1e-4 deg. The frozen argument
+      would step more than 0.1 deg. CP-21: the wrap, the envelope range and the scaled sway inside the clamps.
+  - `CarrierWind.SetHeld(hold.Held, now)` runs for each loop on every hold poll (`PollHolds`). Without a change it does nothing. A
+    re-freeze at a rebuild is no change, so the clocks run on.
 - **Gust** (`CarrierPose.Gust`, `GustClock`): GustMean + GustAmp1 sin(phi1 - k1 d1.x) + GustAmp2 sin(phi2 - k2 d2.x) = 0.8 +- 0.12
   +- 0.08, in [0.6, 1.0]. The gust is two waves with periods of 7.3 s and 12.7 s. They travel over the ground at 12 m/s in two FIXED world
   directions. A direction taken from the wind would flip with a reversal and snap. x = the rope point.
@@ -136,9 +158,8 @@ in this section refer to the 1.6.2f1 decompile.
     patches.
   - Each carrier needs two sin calls. The clock phases phi = 2 pi t / T wrap in double once per loop and pass (`SwingInputs`,
     `JobLoop.GustClock`).
-  - The gust's time t is `CarrierWind.GustTimeS` = the mover clock minus the held time of the loop. `CarrierWind.Resume(frozen, now)` runs
-    at a hold release and at the re-freeze of a rebuild (`PollHolds`). It adds the held time to the held time of the loop and to the change clock of the
-    wind blend. So the first running frame repeats the frozen pose (CP-20: 0 deg with Resume, 1.66 deg without).
+  - The gust's time t is the mover clock, also on a held loop. The code poses a held loop every pass now. So the 611 `CarrierWind.Resume`
+    is gone (DECISIONS 619). It shifted the gust clock and the wind blend at a release to keep the frozen pose continuous.
   - Numbers at |w| 0.31 cross (sample of step 0, CP-19, 180 s):
     - FG / DQ / GD roll: 4.4 to 5.9 deg peak to peak per period (median 5.1 / 5.1 / 5.2).
     - Mean roll: 2.8 to 2.9 deg downwind.
@@ -172,7 +193,7 @@ in this section refer to the 1.6.2f1 decompile.
     - At every rebuild.
     - At once while the wind of a samplable loop is still unknown (a new loop, the first passes of a load).
 
-    The code stamps the cadence only when it sampled something. Held loops keep their last wind.
+    The code stamps the cadence only when it sampled something. Held loops are sampled too (they swing with the live wind, 619).
   - Each loop has a `CarrierWind` (CarrierPose.cs, kept per base station across rebuilds). It blends old to new over WindBlendS = 8 s
     (smoothstep). Its first sample is the start value when no pose read the unknown (zero) wind yet. Otherwise it blends in from that zero
     (CP-17: a late first sample would otherwise snap the lean by 1.65 deg in one frame).
@@ -182,7 +203,8 @@ in this section refer to the 1.6.2f1 decompile.
   `LiftLoopSampler.Write`). A non-split loop runs today's rigid kernel unchanged (MoverBench B-1 bit-equality). The job counts the grip
   results apart (Counts[4..7]). A missing grip dirties the loop cache like a missing chair. The grip writes are safe under
   NativeDisableParallelForRestriction because each grip is paired with exactly one body (the roster refuses a second pairing).
-- **Managed paths**: held loops, the A/B managed path and the static pin flow all use CarrierPose (`MoveCarrier`, `PinGripOf`). A grip that
+- **Managed paths**: held loops that do not swing, the A/B managed path and the static pin flow all use CarrierPose (`MoveCarrier`,
+  `PinGripOf`). With the job off, a swinging held loop also takes the managed path. A grip that
   died under `MoveCarrier` dirties the loop cache like the job's grip Missing. The static flow (unclosed lifts, the load pass, Temp
   previews) poses a pitched grip. It takes the BODY from the same Pose call at zero swing (plumb, still, hung from the pin of the grip).
   The rigid rope - drop body would sit |GripPin - GripRope| x sin(pitch) off the pin. That is 10 cm on a 30 deg span (LiftBatch CP-15). A carrier

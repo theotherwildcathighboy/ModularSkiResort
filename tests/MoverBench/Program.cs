@@ -346,6 +346,9 @@ namespace MoverBench
 
         /// <summary>The step-0 wind sample (SampleWind at the field-test city, units UNVERIFIED).</summary>
         private static readonly float2 BenchWind = new float2(0.31f, 0.05f);
+        /// <summary>The stopped lift (DECISIONS 619): the timed split kernel runs with a held loop's sway shift and envelope (the scale branch
+        /// taken), the job's per-carrier work for a held or a running loop.</summary>
+        private const float BenchSwayShift = 1.3f, BenchSwayScale = 0.6f;
 
         private static void B5Grips(List<LiftLoopCache.Loop> loops, Chair[] chairs, ArraySegments segs, int[] segFirst)
         {
@@ -490,8 +493,8 @@ namespace MoverBench
             float2 ramp = CarrierPose.Ramp(CarrierPose.DistanceToGuided(f.Guided != 0, d, f.Length, f.RunBefore, f.RunAfter), ls.RampM);
             float2 swing = float2.zero;
             if (ramp.x > 0f || ramp.y > 0f)
-                swing = CarrierPose.Swing(BenchWind, yaw, CarrierPose.SwayArg(s, ls.Omega, ls.Speed, 0.37f * c), ramp, ls.Limits,
-                                          CarrierPose.Gust(gustClock, p));
+                swing = CarrierPose.Swing(BenchWind, yaw, CarrierPose.SwayArg(s, ls.Omega, ls.Speed, 0.37f * c + BenchSwayShift), ramp, ls.Limits,
+                                          CarrierPose.Gust(gustClock, p), BenchSwayScale);
             CarrierPose.Pose(p, tan, yaw, ls.Pivots, true, swing, out float3 gp, out quaternion gr, out float3 bp, out quaternion br);
             if (LiftLoopSampler.Write(bp, br, ref body) == LiftLoopSampler.Moved)
                 bodies[c] = body;

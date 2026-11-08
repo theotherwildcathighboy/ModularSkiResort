@@ -154,7 +154,8 @@ catalog entry is `SkiTramCarriage`, kind Grip. It is pending until the art impor
   The long hanger damps it (LiftBatch CP-5, CP-6, CP-18). The swing is zero on the dock runs (the station track: s < BaseRunM or s > L -
   TopRunM, "guided"). It ramps in after them over R = max(10 m, 2 s x speed) (tram: 20 m). The sway argument is the path distance s. It
   is continuous through a reversal and a hold. The gust scales the lean 0.6 to 1.0, as on the chairs (CarrierPose.Gust at the track-rope
-  point, clock = CarrierWind.GustTimeS). The swing is subtle by design (2026-11-06, LiftBatch CP-19). At |w| 0.31 the cabin rocks about
+  point, clock = the mover clock). A held tram stands latched in its stations (guided: no swing), so the stopped-lift sway of the chairs
+  (DECISIONS 619) does not apply to it. The swing is subtle by design (2026-11-06, LiftBatch CP-19). At |w| 0.31 the cabin rocks about
   0.8 to 1.0 deg peak to peak in roll and 1.6 to 2.0 deg fore-aft. The period is 5.4 s (omega 1.17).
   Wind: there is one `CarrierWind` per base station. `PollTramWind` samples it at the path's middle. It uses the same synchronous
   `GetMap` / `GetWind` read as ChairPinSystem (CellMapSystem.cs:154-158, WindSystem.cs:68-80). It samples in these cases:
