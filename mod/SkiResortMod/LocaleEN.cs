@@ -953,7 +953,7 @@ namespace SkiResortMod
                 // The Buildings tab's Mergeable buildings toggle (contract 37; label MERGE_OVERLAY) and the green / gray legend beside the tile's footer and the fold's chip.
                 { "SkiResort.Hub.MERGE_TILE[Fact]", "A landmark, signature or recreation building near the runs can serve as a lodge" },
                 { "SkiResort.Hub.MERGE_TILE[Armed]", "Outlined buildings can join this ski area as lodges" },
-                { "SkiResort.Hub.MERGE_WARN[NoGeometry]", "No runs or lifts yet. A merge counts within {M} m of one." },
+                { "SkiResort.Hub.MERGE_WARN[NoGeometry]", "No runs or lifts yet. Merges need one within {M} m." },
                 { "SkiResort.Hub.MERGE_LEGEND[Fits]", "Tier fits" },
                 { "SkiResort.Hub.MERGE_LEGEND[TooSmall]", "Too small" },
                 { "SkiResort.Hub.RESORT_COUNTS[Many]", "{RUNS} runs · {LODGES} lodges" },
