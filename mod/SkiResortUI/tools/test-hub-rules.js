@@ -483,11 +483,30 @@ function run(srcDir) {
         tile.includes("height: calc(12rem + 44rem * var(--fontScale))")],
       [true, true, true, true]);
   }
-  // The Lodge tile names its tier. No tile says it joins the sign.
+  // T23.3 tier names vs building names (DECISIONS 621). A tier is a role ("Base lodge"). A building is ours ("Chalet"). Our own
+  // lodges (build tiles, parking rows) use LODGE_BUILDING. A view that can show a MERGED building (the tier picker, the Merged
+  // buildings fold, the best tier) uses LODGE_TIER. No tier word equals a building word.
+  {
+    const rd = (f) => fs.readFileSync(path.join(srcDir, "hub", f), "utf8");
+    const uses = (src, name) => new RegExp("\\b" + name + "\\[").test(src);
+    const own = ["BuildStrip.tsx", "GuestsView.tsx", "StatusBlock.tsx"].map(rd);
+    const merged = ["MergeCard.tsx", "MergedFold.tsx", "OverviewView.tsx"].map(rd);
+    eq("T23.3 own-lodge views name buildings", own.map((s) => [uses(s, "LODGE_BUILDING"), uses(s, "LODGE_TIER")]),
+      own.map(() => [true, false]));
+    eq("T23.3 merged-capable views name tiers", merged.map((s) => [uses(s, "LODGE_TIER"), uses(s, "LODGE_BUILDING"), uses(s, "ASSET_NAME")]),
+      merged.map(() => [true, false, false]));
+    const src = rd("hubText.ts");
+    const words = (set) => [...src.matchAll(new RegExp("\"SkiResort\\.Hub\\." + set + "\\[\\w+\\]\", \"([^\"]+)\"", "g"))]
+      .map((m) => m[1].toLowerCase());
+    const tiers = words("LODGE_TIER"), buildings = words("LODGE_BUILDING");
+    eq("T23.3 five tiers, five buildings, no shared word", [tiers.length, buildings.length, tiers.filter((w) => buildings.includes(w))],
+      [5, 5, []]);
+  }
+  // The Lodge tile names its building. No tile says it joins the sign.
   {
     const strip = fs.readFileSync(path.join(srcDir, "hub", "BuildStrip.tsx"), "utf8");
     const header = fs.readFileSync(path.join(srcDir, "hub", "HubHeader.tsx"), "utf8");
-    eq("T23.2 tier label, upgrade line", [strip.includes("LODGE_TIER[id] ?? BUILD_LABEL.lodge"),
+    eq("T23.2 building label, upgrade line", [strip.includes("LODGE_BUILDING[id] ?? BUILD_LABEL.lodge"),
       (strip.match(/HUB_LOC\.buildActiveUpgrade/g) || []).length], [true, 0]);
   }
   // T24 the header selector. Its item counts (singular forms, and the Not linked row adds its free lodges) and the source facts the

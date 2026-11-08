@@ -5,7 +5,7 @@
  * fixed-height note slots), so a state change moves nothing. Last month is never a fake 0 (hubRules.lastMonthMark):
  * "full" = a whole month, "partial" = counted since the load, "none" = -1 shown as "–". Under the folds the view always shows
  * one car space row per active road lodge of the area (lodgeParking$). The Hut, the Summit and an off-road lodge have no row.
- * A row is numbered per tier while the area has two of a tier. If the player renamed the lodge in the game, the row shows that name.
+ * A row is numbered per building while the area has two of that building. If the player renamed the lodge in the game, the row shows that name.
  * A click flies to the lodge.
  * Panel file: subscribes resorts$, selectedResort$, resortLive$, city$, lodgeParking$.
  */
@@ -21,7 +21,7 @@ import {
   guestBarParts, guestBarScale, lastMonthMark, lessonsShown, liveOf, passesShown, skiDayLine, skiDayTip, skiDayWalk, ticketNote, tripPlannerNote,
 } from "./hubRules";
 import type { LastMonthMark, TicketNote, TripPlannerNote } from "./hubRules";
-import { HUB_FMT, HUB_LOC, LODGE_TIER, allMonthNames, monthName } from "./hubText";
+import { HUB_FMT, HUB_LOC, LODGE_BUILDING, allMonthNames, monthName } from "./hubText";
 import {
   Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
 } from "./parts";
@@ -142,7 +142,8 @@ function TripPlannerNoteText({ note, name, t }: { note: TripPlannerNote; name: s
 
 /*
  * One row per active road lodge of the area (LodgeParkingRow, C# order). The row reads "Car spaces at {NAME}", with the count or "–"
- * before the first census. {NAME} is the tier word, or "Chalet 2" (LODGE_TIER_NUMBERED) while the area has two or more of that tier.
+ * before the first census. {NAME} is the building word, or "Chalet 2" (LODGE_BUILDING_NUMBERED) while the area has two or more of that building.
+ * Own lodges only: a merged building has no parking row, so a tier name never shows here (DECISIONS 621).
  * The number is C#'s and C# persists it on the lodge, so it stays the same across saves. If the player renamed the lodge in the game,
  * the row shows that name instead (contract 31, `name`). C# cleans the name to one line of at most 64 characters, the game's rename
  * field length. The name is a plain string argument, never an element (gate R19). It uses the player-name label class (ellipsis, as the
@@ -154,12 +155,12 @@ function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRo
   return (
     <>
       {rows.map((r) => {
-        const tier = LODGE_TIER[r.item as BuildItemId];
+        const building = LODGE_BUILDING[r.item as BuildItemId];
         const custom = r.name !== "";
         const name = custom ? r.name
-          : !tier ? DASH
-            : r.number > 0 ? <LocText entry={HUB_FMT.lodgeTierNumbered} args={{ NAME: t(tier), N: numArg(r.number, Unit.Integer) }} />
-              : t(tier);
+          : !building ? DASH
+            : r.number > 0 ? <LocText entry={HUB_FMT.lodgeBuildingNumbered} args={{ NAME: t(building), N: numArg(r.number, Unit.Integer) }} />
+              : t(building);
         const tip = custom
           ? <TipLines lines={[<LocText key="n" entry={HUB_FMT.guestsRowCarSpaces} args={{ NAME: r.name }} />, t(HUB_LOC.guestsTipCarSpaces)]} />
           : t(HUB_LOC.guestsTipCarSpaces);

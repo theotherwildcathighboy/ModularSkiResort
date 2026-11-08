@@ -269,6 +269,11 @@
       problems, history, build: buildItems({ built: ["school"] }), mergeCard: Object.assign({}, mergeCard, { name: "Grand Hotel", near: false, geometry: false }) }),
     "Ash Flat, merge overlay armed no geometry": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
       problems, history, build: buildItems({ built: ["school"] }), mergeOverlay: { armed: true, allowed: 0, tooSmall: 0, geometry: false, reachM: 800 } }),
+    // DECISIONS 621: the merge card for a big lot that fits all five tiers. The tier picker's widest row ("Mountain restaurant",
+    // "Flagship lodge"), for the layout test and the `--list=tiers` shots at text scale 1 and 1.25.
+    "Ash Flat, merge card every tier": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
+      problems, history, build: buildItems({ built: ["school"] }), mergeCard: Object.assign({}, mergeCard, { name: "Grand Hotel", allowedMask: 31,
+        charge: [180000, 120000, 410000, 640000, 1250000], monthly: [1800, 1200, 4200, 6100, 11500] }) }),
     // Contract 37: the merge card for a building out of reach of every run and station (its status line says it would not count).
     "Ash Flat, merge card too far": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts,
       problems, history, build: buildItems({ built: ["school"] }), mergeCard: Object.assign({}, mergeCard, { name: "City Park", near: false }) }),

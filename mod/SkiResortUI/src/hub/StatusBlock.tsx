@@ -22,7 +22,7 @@ import {
 } from "./hubRules";
 import type { BandRow, ProblemClick, ProblemVariant } from "./hubRules";
 import { problemsOpen$, view$ } from "./hubState";
-import { HUB_FMT, HUB_LOC, LODGE_TIER, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
+import { HUB_FMT, HUB_LOC, LODGE_BUILDING, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
 import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, depthValue, numArg, useInches } from "./parts";
 import { IconText } from "./iconText";
 import { currentResort, resortEntries } from "./resortData";
@@ -167,12 +167,12 @@ function ParkingProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Elem
   const rows = useValue(lodgeParking$);
   const r = rows.find((x) => sameEntity(x.lodge, p.subject));
   if (!r) return <>{t(HUB_LOC.problemNoParkingNearLodge)}</>;
-  const tier = LODGE_TIER[r.item as BuildItemId];
+  const building = LODGE_BUILDING[r.item as BuildItemId];
   // GuestsView's lodge name, inline so gate R19 sees every {NAME} branch
   const NAME = r.name !== "" ? r.name
-    : !tier ? "–"
-      : r.number > 0 ? <LocText entry={HUB_FMT.lodgeTierNumbered} args={{ NAME: t(tier), N: numArg(r.number, Unit.Integer) }} />
-        : t(tier);
+    : !building ? "–"
+      : r.number > 0 ? <LocText entry={HUB_FMT.lodgeBuildingNumbered} args={{ NAME: t(building), N: numArg(r.number, Unit.Integer) }} />
+        : t(building);
   return p.count > 1
     ? <LocText entry={HUB_FMT.problemNoParkingAtMore} args={{ NAME, N: numArg(p.count - 1, Unit.Integer) }} />
     : <LocText entry={HUB_FMT.problemNoParkingAt} args={{ NAME }} />;

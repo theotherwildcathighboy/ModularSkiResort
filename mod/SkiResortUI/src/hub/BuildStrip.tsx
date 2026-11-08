@@ -34,7 +34,7 @@ import {
 import type { BuildTab, BuildingFamily, DotTarget, NextVariant, PickerSelection, PickerSet } from "./hubRules";
 import { buildFamily$, buildOpen$, buildTab$, footerShape$ } from "./hubState";
 import {
-  ASSET_NAME, BUILD_FAMILY, BUILD_LABEL, BUILD_SHORT_RUN, BUILD_TAB, DRAW_LABEL, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, NEXT_LINE1,
+  ASSET_NAME, BUILD_FAMILY, BUILD_LABEL, BUILD_SHORT_RUN, BUILD_TAB, DRAW_LABEL, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_BUILDING, NEXT_LINE1,
   RUN_TYPE, sentKeyEntry,
 } from "./hubText";
 import { AssetIcon, Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
@@ -206,7 +206,7 @@ function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
 }
 
 function chipLabel(set: PickerSet, value: string, t: Translate): string {
-  const e = set === "lift" ? LIFT_TYPE[value] : LODGE_TIER[value as BuildItemId];
+  const e = set === "lift" ? LIFT_TYPE[value] : LODGE_BUILDING[value as BuildItemId];
   return e ? t(e) : value;
 }
 
@@ -248,7 +248,7 @@ function labelEntry(id: BuildItemId): LocEntry {
     case "line": return BUILD_LABEL.line;
     case "fence": return BUILD_LABEL.fence;
     case "sign": return BUILD_LABEL.sign;
-    case "lodge": return LODGE_TIER[id] ?? BUILD_LABEL.lodge;
+    case "lodge": return LODGE_BUILDING[id] ?? BUILD_LABEL.lodge;
     case "depot": return BUILD_LABEL.depot;
     case "school": return BUILD_LABEL.school;
     case "patrol": return id === "patrolHQ" ? BUILD_LABEL.patrolHQ : BUILD_LABEL.patrolHut;

@@ -20,7 +20,7 @@
 * The test needs `npm run build` first (it mounts build/SkiResortMod.mjs). It also needs network access for the React UMD scripts
 * that the harness loads from cdnjs.
 * Usage:   node tools/test-hub-layout.js [--verbose]
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=tiers]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -338,6 +338,21 @@ for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
     [`icons-11-tip-efficiency-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Efficiency", fs: scale }],
   );
 }
+// 2026-11-08 DECISIONS 621: lodge tier names (role names) apart from building names. The merge card's tier picker with all five
+// tiers, the Merged buildings fold, the lodge-base tooltip's best tier, and the own-lodge rows that keep building names (Buildings
+// tab tiles, car spaces). Every shot at text scale 1 and 1.25. `--list=tiers` picks this list.
+const TIERS = [];
+for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
+  TIERS.push(
+    [`tiers-01-card-every-tier-1080${tag}`, 1080, { scenario: "Ash Flat, merge card every tier", view: 0, tab: "buildings", whole: 1, fs: scale }],
+    [`tiers-02-card-four-tiers-1080${tag}`, 1080, { scenario: ASH, view: 0, tab: "buildings", whole: 1, fs: scale }],
+    [`tiers-03-merged-fold-1080${tag}`, 1080, { scenario: ASH, view: 0, fold: 2, fs: scale }],
+    // Text scale 1 only: at 1.25 the harness puts the merge card over the Lodge base label, so the hover cannot reach it.
+    ...(scale === 1 ? [[`tiers-04-tip-best-tier-1080`, 1080, { scenario: ASH, view: 0, fold: 0, hover: "Lodge base", fs: 1 }]] : []),
+    [`tiers-05-tab-buildings-1080${tag}`, 1080, { scenario: ASH, view: 0, tab: "buildings", fs: scale }],
+    [`tiers-06-guests-car-spaces-1080${tag}`, 1080, { scenario: ASH, view: 3, fold: 3, fs: scale }],
+  );
+}
 
 async function shots(b, base, dir, list) {
   fs.mkdirSync(dir, { recursive: true });
@@ -407,7 +422,7 @@ async function main() {
   try {
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)),
-        process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

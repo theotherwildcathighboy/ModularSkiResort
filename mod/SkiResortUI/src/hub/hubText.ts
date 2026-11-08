@@ -621,7 +621,7 @@ export const HUB_FMT = {
   /* {N} = the span's one tower (count or more: the other end is a station) */
   lowSpanStation: ["SkiResort.Hub.LOW_SPAN[Station]", "Between tower {N} and the station"],
   /* the parking row when its lodge is one of the area's car space rows (lodgeParking$, hubRules.parkingLodgeOf). {NAME} = the
-     player's name for it, else its LODGE_TIER word or LODGE_TIER_NUMBERED. {N} = the other lodges without parking */
+     player's name for it, else its LODGE_BUILDING word or LODGE_BUILDING_NUMBERED. {N} = the other lodges without parking */
   problemNoParkingAt: ["SkiResort.Hub.PROBLEM[NoParkingAt]", "No parking: {NAME}"],
   problemNoParkingAtMore: ["SkiResort.Hub.PROBLEM[NoParkingAtMore]", "No parking: {NAME} and {N} more"],
   problemSummitLodgeNotLiftServed: ["SkiResort.Hub.PROBLEM[SummitLodgeNotLiftServed]", "Summit lodges unreached: {N}"],
@@ -658,8 +658,8 @@ export const HUB_FMT = {
    * multiplies nothing.
    */
   receiptRoot: ["SkiResort.Hub.RECEIPT_ROOT", "{K} × the square root of the line above = {TERRAIN}"],
-  /* the lodge-base tooltip's best lodge ({NAME} = its LODGE_TIER word) and the others' extras ({E}) */
-  receiptTipLodgeBest: ["SkiResort.Hub.RECEIPT_TIP_LODGE_BEST", "Best lodge: {NAME}. The others add {E}."],
+  /* the lodge-base tooltip's best tier ({NAME} = its LODGE_TIER word: an own lodge or a merged building) and the others' extras ({E}) */
+  receiptTipLodgeBest: ["SkiResort.Hub.RECEIPT_TIP_LODGE_BEST", "Best tier: {NAME}. The others add {E}."],
   receiptTipVertical: ["SkiResort.Hub.RECEIPT_TIP[Vertical]", "Vertical bonus: +1 % per 6 m, so 600 m doubles runs, lifts and school. From the lowest to the highest <icon:openpatchy> run: {M}."],
   /* the missing lines' parts with a number (contract 40) */
   runsMissingClosed: ["SkiResort.Hub.RECEIPT_MISSING[Runs.Closed]", "{N} <icon:closed>"],
@@ -699,10 +699,10 @@ export const HUB_FMT = {
   capacityValue: ["SkiResort.Hub.CAPACITY_VALUE", "{CAP} skiers/h"],
   // The Guests view names a month bare, "{MONTH}" (bars, column heads and their tooltips). {MONTH} = monthName(city.month), last month's = city.month - 1.
   guestsMonthThis: ["SkiResort.Hub.GUESTS_MONTH[This]", "{MONTH}"],
-  /* one row per active road lodge of the area, {NAME} = its LODGE_TIER word */
+  /* one row per active road lodge of the area (own lodges only: a merged building has no parking row), {NAME} = its LODGE_BUILDING word */
   guestsRowCarSpaces: ["SkiResort.Hub.GUESTS_ROW_FMT[CarSpaces]", "{NAME}"],
-  /* {NAME} = a LODGE_TIER word, {N} = the lodge's number in its area (LodgeParkingRow.number > 0: two or more of that tier there) */
-  lodgeTierNumbered: ["SkiResort.Hub.LODGE_TIER_NUMBERED", "{NAME} {N}"],
+  /* {NAME} = a LODGE_BUILDING word, {N} = the lodge's number in its area (LodgeParkingRow.number > 0: two or more of that building there) */
+  lodgeBuildingNumbered: ["SkiResort.Hub.LODGE_BUILDING_NUMBERED", "{NAME} {N}"],
   guestsMonthLast: ["SkiResort.Hub.GUESTS_MONTH[Last]", "{MONTH}"],
   /* bar 2's label while last month was counted only since the load (hubRules.lastMonthMark) */
   guestsMonthLastPartial: ["SkiResort.Hub.GUESTS_MONTH[LastPartial]", "{MONTH} (partial)"],
@@ -951,13 +951,25 @@ export const LIFT_TYPE: Readonly<Record<string, LocEntry>> = {
   tram: ["SkiResort.Hub.LIFT_TYPE[tram]", "Tram"],
 };
 
-/* The lodge-tier picker's chips (and the receipt's best lodge), by the tier's build item id. */
+/* Our own lodge BUILDINGS by short name, by build item id: the Buildings tab's lodge chips and tiles, and the rows of the area's own
+   lodges (car spaces, "No parking: Chalet 2"). A merged city building is never named this way (DECISIONS 621). */
+export const LODGE_BUILDING: Readonly<Partial<Record<BuildItemId, LocEntry>>> = {
+  lodge: ["SkiResort.Hub.LODGE_BUILDING[lodge]", "A-frame"],
+  lodgeHut: ["SkiResort.Hub.LODGE_BUILDING[lodgeHut]", "Hut"],
+  lodgeMid: ["SkiResort.Hub.LODGE_BUILDING[lodgeMid]", "Chalet"],
+  lodgeSummit: ["SkiResort.Hub.LODGE_BUILDING[lodgeSummit]", "Summit"],
+  lodgeGrand: ["SkiResort.Hub.LODGE_BUILDING[lodgeGrand]", "Grand"],
+};
+
+/* The lodge TIERS by role name (DECISIONS 621), keyed by the tier's build item id (SkiCatalog.Lodges order: day lodge, warming hut,
+   base lodge, mountain restaurant, flagship lodge). A tier is what a lodge does for the score. A merged building takes a tier, so
+   the merge card's picker, the Merged buildings fold and the receipt's best tier use these words, never a building's name. */
 export const LODGE_TIER: Readonly<Partial<Record<BuildItemId, LocEntry>>> = {
-  lodge: ["SkiResort.Hub.LODGE_TIER[lodge]", "A-frame"],
-  lodgeHut: ["SkiResort.Hub.LODGE_TIER[lodgeHut]", "Hut"],
-  lodgeMid: ["SkiResort.Hub.LODGE_TIER[lodgeMid]", "Chalet"],
-  lodgeSummit: ["SkiResort.Hub.LODGE_TIER[lodgeSummit]", "Summit"],
-  lodgeGrand: ["SkiResort.Hub.LODGE_TIER[lodgeGrand]", "Grand"],
+  lodge: ["SkiResort.Hub.LODGE_TIER[lodge]", "Day lodge"],
+  lodgeHut: ["SkiResort.Hub.LODGE_TIER[lodgeHut]", "Warming hut"],
+  lodgeMid: ["SkiResort.Hub.LODGE_TIER[lodgeMid]", "Base lodge"],
+  lodgeSummit: ["SkiResort.Hub.LODGE_TIER[lodgeSummit]", "Mountain restaurant"],
+  lodgeGrand: ["SkiResort.Hub.LODGE_TIER[lodgeGrand]", "Flagship lodge"],
 };
 
 /* The Build strip's three tabs (hubRules.BuildTab) and the tiles' visible labels. */

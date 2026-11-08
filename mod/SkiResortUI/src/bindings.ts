@@ -910,7 +910,7 @@ export interface ProblemRow {
 export interface LodgeParkingRow {
   sign: Entity;
   lodge: Entity;
-  /** The lodge's BuildItemId (its LODGE_TIER name). */
+  /** The lodge's BuildItemId (its LODGE_BUILDING name: own lodges only). */
   item: string;
   /** Street, lot and garage spaces within 600 m of this lodge (SkiLodgeParkingSystem). -1 = not counted yet. */
   carSpaces: number;

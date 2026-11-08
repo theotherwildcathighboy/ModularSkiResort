@@ -1237,7 +1237,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SECTION[Guests]", "Guests" },
                 { "SkiResort.Hub.GUESTS_MONTH[This]", "{MONTH}" },
                 { "SkiResort.Hub.GUESTS_ROW_FMT[CarSpaces]", "{NAME}" },
-                { "SkiResort.Hub.LODGE_TIER_NUMBERED", "{NAME} {N}" },
+                { "SkiResort.Hub.LODGE_BUILDING_NUMBERED", "{NAME} {N}" },
                 { "SkiResort.Hub.GUESTS_MONTH[Last]", "{MONTH}" },
                 // The partial last month (bar label) and the ski-day row with its tooltip body.
                 { "SkiResort.Hub.GUESTS_MONTH[LastPartial]", "{MONTH} (partial)" },
@@ -1352,11 +1352,18 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_TYPE[detachable]", "Detachable" },
                 { "SkiResort.Hub.LIFT_TYPE[gondola]", "Gondola" },
                 { "SkiResort.Hub.LIFT_TYPE[tram]", "Tram" },
-                { "SkiResort.Hub.LODGE_TIER[lodge]", "A-frame" },
-                { "SkiResort.Hub.LODGE_TIER[lodgeHut]", "Hut" },
-                { "SkiResort.Hub.LODGE_TIER[lodgeMid]", "Chalet" },
-                { "SkiResort.Hub.LODGE_TIER[lodgeSummit]", "Summit" },
-                { "SkiResort.Hub.LODGE_TIER[lodgeGrand]", "Grand" },
+                // Own lodge buildings by short name (Buildings tab, own lodge rows) and lodge tiers by role name (merge card, Merged
+                // buildings fold, best tier). A merged building takes a tier, never a building name (DECISIONS 621).
+                { "SkiResort.Hub.LODGE_BUILDING[lodge]", "A-frame" },
+                { "SkiResort.Hub.LODGE_BUILDING[lodgeHut]", "Hut" },
+                { "SkiResort.Hub.LODGE_BUILDING[lodgeMid]", "Chalet" },
+                { "SkiResort.Hub.LODGE_BUILDING[lodgeSummit]", "Summit" },
+                { "SkiResort.Hub.LODGE_BUILDING[lodgeGrand]", "Grand" },
+                { "SkiResort.Hub.LODGE_TIER[lodge]", "Day lodge" },
+                { "SkiResort.Hub.LODGE_TIER[lodgeHut]", "Warming hut" },
+                { "SkiResort.Hub.LODGE_TIER[lodgeMid]", "Base lodge" },
+                { "SkiResort.Hub.LODGE_TIER[lodgeSummit]", "Mountain restaurant" },
+                { "SkiResort.Hub.LODGE_TIER[lodgeGrand]", "Flagship lodge" },
                 // The Build strip's tabs, their tooltips and the tiles' visible labels.
                 { "SkiResort.Hub.BUILD_TAB[Lifts]", "Lifts" },
                 { "SkiResort.Hub.BUILD_TAB[Runs]", "Runs" },
@@ -1458,7 +1465,7 @@ namespace SkiResortMod
                 // The second line under Runs and lifts, so the receipt reads as the computed
                 // equation (HubRules.Terrain = K × sqrt(S)); {TERRAIN} = ResortLive.terrain.
                 { "SkiResort.Hub.RECEIPT_ROOT", "{K} × the square root of the line above = {TERRAIN}" },
-                { "SkiResort.Hub.RECEIPT_TIP_LODGE_BEST", "Best lodge: {NAME}. The others add {E}." },
+                { "SkiResort.Hub.RECEIPT_TIP_LODGE_BEST", "Best tier: {NAME}. The others add {E}." },
                 { "SkiResort.Hub.RECEIPT_TIP[Vertical]", "Vertical bonus: +1 % per 6 m, so 600 m doubles runs, lifts and school. From the lowest to the highest <icon:openpatchy> run: {M}." },
                 { "SkiResort.Hub.RECEIPT_OPEN", "Open now: {PCT}" },
                 { "SkiResort.Hub.RECEIPT_TIP[Open]", "Closed runs add nothing and patchy runs add part of their value. With every run fully open, runs would add {FULL}." },

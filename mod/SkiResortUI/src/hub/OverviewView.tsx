@@ -22,7 +22,7 @@ import {
 } from "./hubRules";
 import type { VarietyNeed } from "./hubRules";
 import { IconText, MissingLine } from "./iconText";
-import { ASSET_NAME, BAND_NAME, HUB_FMT, HUB_LOC, factorEntry } from "./hubText";
+import { BAND_NAME, HUB_FMT, HUB_LOC, LODGE_TIER, factorEntry } from "./hubText";
 import type { BuildItemId } from "../bindings";
 import {
   BandMarker, Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, depthValue, numArg, useInches,
@@ -200,8 +200,9 @@ function Receipt({ row, l, city, problems, build, areaRuns, t }: {
   const lodgeLabel = l && l.lodgesActive === 0 ? HUB_LOC.receiptLodgeBaseNone
     : l && l.summer ? HUB_LOC.receiptLodgeBaseHalf : HUB_LOC.receiptLodgeBase;
   const variant = resultVariant(l);
-  // The best lodge's name (an unknown id shows nothing) and the school variant of the parts line.
-  const bestEntry = l && typeof l.lodgeBest === "string" && l.lodgeBest !== "" ? ASSET_NAME[l.lodgeBest as BuildItemId] : undefined;
+  // The best lodge's TIER name (it can be a merged building's tier, so never a building name, DECISIONS 621; an unknown id shows
+  // nothing) and the school variant of the parts line.
+  const bestEntry = l && typeof l.lodgeBest === "string" && l.lodgeBest !== "" ? LODGE_TIER[l.lodgeBest as BuildItemId] : undefined;
   const parts = {
     RUNS: numArg(l ? l.runsValue : -1, Unit.FloatSingleFraction),
     LIFTS: numArg(l ? l.liftsValue : -1, Unit.FloatSingleFraction),

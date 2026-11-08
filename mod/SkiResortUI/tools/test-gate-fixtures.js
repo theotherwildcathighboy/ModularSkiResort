@@ -86,7 +86,7 @@ function main() {
     expect(r3.code !== 0 && /always-mounted src\/hub\/HubRoot\.tsx imports from the panel file src\/hub\/StatusBlock\.tsx/.test(r3.text), `R11 fixture did not fail with the always-mounted import message (exit ${r3.code})`);
 
     const f4 = fresh("r19");
-    edit(path.join(f4.src, "hub", "GuestsView.tsx"), "            : t(tier);", "            : <span>{t(tier)}</span>;");
+    edit(path.join(f4.src, "hub", "GuestsView.tsx"), "            : t(building);", "            : <span>{t(building)}</span>;");
     const r4 = runGate(f4.cs, f4.src);
     expect(r4.code !== 0 && /<span> is an argument of <LocText> .*rule R19/.test(r4.text), `R19 fixture did not fail with the loc-argument message (exit ${r4.code})`);
 

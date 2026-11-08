@@ -10,7 +10,7 @@ import Icon from '../../../components/Icon.astro';
 All three are standalone buildings, placed from the hub **Buildings** tab like any other building. Each belongs to the
 nearest **Welcome Sign** within the ski area radius (**5 km** by default). Costs and numbers: [Buildings](/reference/buildings/).
 
-<Shot src="buildings-tab.jpg" label="The hub's Buildings tab: lodge tier picker, Ski School and patrol tiles." />
+<Shot src="buildings-tab.jpg" label="The hub's Buildings tab: lodge picker, Ski School and patrol tiles." />
 
 ## Lodges
 
@@ -18,13 +18,16 @@ nearest **Welcome Sign** within the ski area radius (**5 km** by default). Costs
 
 Guest entry point and skier room source. No lodge: attraction score **0**.
 
-| Tier | Role |
-|---|---|
-| <Icon name="lodge-hut" alt="Mountain Hut icon" /> **Mountain Hut** | Small hut for mid-mountain or roadless sites. |
-| <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> **A-Frame Day Lodge** | Base lodge. Cheapest. Default. |
-| <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> **Chalet Lodge** | Larger day lodge. Ski days stay full at a higher ticket price. |
-| <Icon name="lodge-summit" alt="Swanky Summit Lodge icon" /> **Swanky Summit Lodge** | Luxury summit lodge. High summer appeal when a lift or a lift-served run reaches it. |
-| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> **Swanky Grand Lodge** | Most skier room. |
+| Building | Tier | Role |
+|---|---|---|
+| <Icon name="lodge-hut" alt="Mountain Hut icon" /> **Mountain Hut** | Warming hut | Small hut for mid-mountain or roadless sites. |
+| <Icon name="lodge-a-frame" alt="A-Frame Day Lodge icon" /> **A-Frame Day Lodge** | Day lodge | First lodge, where guests arrive. Cheapest. Default. |
+| <Icon name="lodge-chalet" alt="Chalet Lodge icon" /> **Chalet Lodge** | Base lodge | Bigger base lodge. Ski days stay full at a higher ticket price. |
+| <Icon name="lodge-summit" alt="Swanky Summit Lodge icon" /> **Swanky Summit Lodge** | Mountain restaurant | Luxury restaurant on the mountain. High summer appeal when a lift or a lift-served run reaches it. |
+| <Icon name="lodge-grand" alt="Swanky Grand Lodge icon" /> **Swanky Grand Lodge** | Flagship lodge | Flagship base lodge. Most skier room. |
+
+- **Tier and building:** a tier is the lodge's role for the score: Day lodge, Warming hut, Base lodge, Mountain restaurant or
+  Flagship lodge. The hub shows your own lodges by building (*A-frame*, *Chalet 2*) and merged buildings by tier.
 
 - **Build limit:** none.
 - **Stacking:** the best lodge sets the **lodge base**. Other lodges add smaller extras, capped at **24** points (diminishing returns).
@@ -49,8 +52,8 @@ switch as the Buildings tab, with the legend beside it.
 
 - **Keeps its own use.** A park stays a park, a signature building keeps its renters. The lodge tier adds its lodge score,
   skier room, staff and attraction to the ski area. It is not a ski-day destination: guests still need a lodge of your own.
-- **Lot size:** the tier must fit the lot. Smallest lots: Mountain Hut **4** cells, A-Frame **9**, Chalet and Swanky Summit
-  **16**, Swanky Grand **48**.
+- **Lot size:** the tier must fit the lot. Smallest lots: Warming hut **4** cells, Day lodge **9**, Base lodge and Mountain
+  restaurant **16**, Flagship lodge **48**.
 - **Not mergeable:** growables, city services other than parks, company and industrial buildings, and the mod's own buildings.
 - **Distance:** it counts while it is within **800 m** of the area's runs or lift stations. Before you merge, the card's status
   line says *Near the runs and lifts* or *Too far from the runs and lifts to count*. A building merged too far away is charged its
