@@ -83,8 +83,34 @@ applies the job scheduled on one tick on the next tick, so the main thread never
    - The verdict is `SkiParkingRules.ClassifyLane`.
    - Count = NetUtils.GetParkingSlotCount (NetUtils.cs:954-957, the roads info view's own count, RoadsInfoviewUISystem.cs:134-173) and
      the LaneObjects that are ParkedCars.
-   - The owner walk (<= MaxOwnerDepth) splits street from lots. Street means no building on the chain. Lots means any building: a
-     parking lot or hall, or a park's or shop's lot the game opens to outsiders. This is for the DUMP only.
+   - Limit, accepted (owner, 2026-11-08): a lane with slot interval 0 is NoSlots, so street parallel parking never counts.
+     The 2026-11-08 probe city has `Parking Lane 2` with SlotSize (2, 0), so its interval is 0 (NetInitializeSystem.cs:1587-1597).
+     The roads info view also gives such a lane no slot count (RoadsInfoviewUISystem.cs:150-158). Real ski areas rarely rely on street
+     parking. Unverified: the pure vanilla prefab value (the playset has Realistic Parking).
+   - The owner walk (<= MaxOwnerDepth) gives the root (`SkiParkingRules.RootOf`). The root sets the street / lot split and the
+     reach test (`SpaceReachable`):
+     - A Building on the chain gives ParkingBuilding (with a CarParkingFacility / CarParking) or OtherBuilding (a park's or shop's
+       lot). A car reaches it only when a building on the chain has `Building.m_RoadEdge`.
+     - No Building, and a CarParkingFacility on the chain or a lane that is not an EdgeLane, gives Lot. A car reaches it when the
+       lane is on a net edge, or when the game linked it to a road lane (`Game.Net.LaneConnection.m_StartLane`).
+     - LaneConnectionSystem.cs:440-462 searches that link for every FindConnections parking lane. Lines :620-656 keep the nearest
+       Road lane of the lane's car type.
+     - All other lanes give Street (a road's own parking lane). Such a lane is on the road.
+     - The DUMP calls a space that fails its reach test "not reachable by car".
+   - Why Lot exists (2026-11-08 probe, field/2026-11-08/r616-parking/RESULTS.md):
+     - Parking Lot Tool and Placemaker build lots from vanilla parking decal objects (`ParkingLotDecal01` and others). Each stall
+       is one perpendicular parking lane.
+     - A bare carrier entity owns the decals. It has CarParkingFacility but no Building. PLT: decal > carrier > lot area (both
+       with CarParkingFacility). Placemaker: decal > carrier.
+     - The old rule read that as a parking building with no road. So every stall went to "not for cars".
+     - Vanilla puts CarParkingFacility on buildings only. So vanilla lanes keep their root.
+     - One vanilla case changes: a free-standing decal stall with no road link. Before, it counted as street. Now it is Lot and
+       not reachable.
+   - The restriction on those lots: vanilla GetParkingStats sets m_AccessRestriction only for a Building at the top of the chain
+     (ParkingLaneDataSystem.cs:336-395 in 1.6.2f1). The Building branch is at :357. Here the top has no Building, so the
+     restriction stays Null.
+   - Placemaker's ParkingAccessSystem runs after ParkingLaneDataSystem. For a lot with its parking economy on, it can set a token
+     entity plus AllowEnter | AllowExit. IsRestricted reads that as open.
 3. Garage pass:
    - The job takes every CarParkingFacility building whose center is within RadiusM + `FacilityReachM` 250 m (`FacilityNear`). It skips
      an upgrade, because the garage lanes of an upgrade sit on its root (m_FacilityWalkQuery).

@@ -2,8 +2,10 @@
 // A Burst job over the lane search tree and the parking facilities counts them. These spaces count:
 // - street parking lanes, by their nearest point,
 // - lanes of parking lots,
+// - lanes of lots with no Building on the owner chain (parking decals on a bare owner entity: Parking Lot Tool and Placemaker
+//   lots), when the game linked the lane to a road lane (Game.Net.LaneConnection, SkiParkingRules.SpaceReachable),
 // - garages of parking halls, by their entrance lane.
-// Boarding-only, bicycle, service and private spaces do not count.
+// Boarding-only, bicycle, service and private spaces do not count, nor spaces no car reaches (DUMP "not reachable by car").
 // SkiDaySystem reads the census (TryGetParking, hub row 21). The parking ring reads the lodge positions (CopyLodgePositions).
 // The rules and the radius's derivation are in SkiParkingRules. In memory only.
 // Only lodges with a road edge whose row takes arrivals count (LodgeSupplyRule.IsRoadLodge, per building). The Hut, the Summit and
@@ -43,6 +45,7 @@ namespace SkiResortMod.Systems
         public SkiDayRules.LodgeReject State; // at the census (CheckLodge)
         public int StreetSpaces, LotSpaces, GarageSpaces, StreetParked, LotParked, GarageParked;
         public int ClosedLanes, PrivateLanes, OtherLanes;   // excluded (DUMP)
+        public int UnreachableLanes;         // of OtherLanes: a counted verdict that no car reaches (SpaceReachable false, DUMP)
         public float NearestM;               // nearest counted lane / garage entrance, −1 none
         public float2 Position;              // the lodge xz the census measured from (the parking ring)
         public uint Frame;                   // SimulationSystem.frameIndex at schedule
@@ -88,6 +91,8 @@ namespace SkiResortMod.Systems
         private ComponentLookup<Game.Net.GarageLane> m_GarageLaneLookup;
         private ComponentLookup<Game.Net.ConnectionLane> m_ConnectionLaneLookup;
         private ComponentLookup<Game.Net.Curve> m_CurveLookup;
+        private ComponentLookup<Game.Net.EdgeLane> m_EdgeLaneLookup;
+        private ComponentLookup<Game.Net.LaneConnection> m_LaneConnectionLookup;
         private ComponentLookup<Owner> m_OwnerLookup;
         private ComponentLookup<Game.Prefabs.PrefabRef> m_PrefabRefLookup;
         private ComponentLookup<Game.Prefabs.ParkingLaneData> m_ParkingLaneDataLookup;
@@ -189,7 +194,8 @@ namespace SkiResortMod.Systems
                       .Append("), nearest ")
                       .Append(p.NearestM < 0f ? "-" : p.NearestM.ToString("F0", CultureInfo.InvariantCulture))
                       .Append(" m, state ").Append(p.State).Append("; not counted: ").Append(p.ClosedLanes).Append(" closed, ")
-                      .Append(p.PrivateLanes).Append(" private, ").Append(p.OtherLanes).Append(" not for cars\n");
+                      .Append(p.PrivateLanes).Append(" private, ").Append(p.OtherLanes - p.UnreachableLanes)
+                      .Append(" not for cars, ").Append(p.UnreachableLanes).Append(" not reachable by car\n");
                 }
             }
             catch (Exception e)
@@ -244,6 +250,8 @@ namespace SkiResortMod.Systems
             m_GarageLaneLookup = GetComponentLookup<Game.Net.GarageLane>(isReadOnly: true);
             m_ConnectionLaneLookup = GetComponentLookup<Game.Net.ConnectionLane>(isReadOnly: true);
             m_CurveLookup = GetComponentLookup<Game.Net.Curve>(isReadOnly: true);
+            m_EdgeLaneLookup = GetComponentLookup<Game.Net.EdgeLane>(isReadOnly: true);
+            m_LaneConnectionLookup = GetComponentLookup<Game.Net.LaneConnection>(isReadOnly: true);
             m_OwnerLookup = GetComponentLookup<Owner>(isReadOnly: true);
             m_PrefabRefLookup = GetComponentLookup<Game.Prefabs.PrefabRef>(isReadOnly: true);
             m_ParkingLaneDataLookup = GetComponentLookup<Game.Prefabs.ParkingLaneData>(isReadOnly: true);
@@ -510,6 +518,8 @@ namespace SkiResortMod.Systems
             m_GarageLaneLookup.Update(this);
             m_ConnectionLaneLookup.Update(this);
             m_CurveLookup.Update(this);
+            m_EdgeLaneLookup.Update(this);
+            m_LaneConnectionLookup.Update(this);
             m_OwnerLookup.Update(this);
             m_PrefabRefLookup.Update(this);
             m_ParkingLaneDataLookup.Update(this);
@@ -541,6 +551,8 @@ namespace SkiResortMod.Systems
                 GarageLanes = m_GarageLaneLookup,
                 ConnectionLanes = m_ConnectionLaneLookup,
                 Curves = m_CurveLookup,
+                EdgeLanes = m_EdgeLaneLookup,
+                LaneConnections = m_LaneConnectionLookup,
                 Owners = m_OwnerLookup,
                 PrefabRefs = m_PrefabRefLookup,
                 ParkingLaneDatas = m_ParkingLaneDataLookup,
@@ -808,6 +820,8 @@ namespace SkiResortMod.Systems
             [ReadOnly] public ComponentLookup<Game.Net.GarageLane> GarageLanes;
             [ReadOnly] public ComponentLookup<Game.Net.ConnectionLane> ConnectionLanes;
             [ReadOnly] public ComponentLookup<Game.Net.Curve> Curves;
+            [ReadOnly] public ComponentLookup<Game.Net.EdgeLane> EdgeLanes;              // a road's own lane (on a net edge)
+            [ReadOnly] public ComponentLookup<Game.Net.LaneConnection> LaneConnections;  // an object lane's link to a road lane
             [ReadOnly] public ComponentLookup<Owner> Owners;
             [ReadOnly] public ComponentLookup<Game.Prefabs.PrefabRef> PrefabRefs;
             [ReadOnly] public ComponentLookup<Game.Prefabs.ParkingLaneData> ParkingLaneDatas;
@@ -902,10 +916,14 @@ namespace SkiResortMod.Systems
                                                      d, restricted))
                 {
                     case ParkingLaneVerdict.Count:
-                        ParkingRoot root = RootOf(lane);
-                        if (!SkiParkingRules.SpaceReachable(root, BuildingOnChainHasRoad(lane)))
+                        bool onNetEdge = EdgeLanes.HasComponent(lane);
+                        ParkingRoot root = RootOf(lane, onNetEdge);
+                        bool roadLaneLinked = LaneConnections.TryGetComponent(lane, out Game.Net.LaneConnection link) &&
+                                              link.m_StartLane != Entity.Null;
+                        if (!SkiParkingRules.SpaceReachable(root, BuildingOnChainHasRoad(lane), onNetEdge, roadLaneLinked))
                         {
                             r.OtherLanes++;
+                            r.UnreachableLanes++;
                             break;
                         }
                         int slots = math.max(0, Game.Net.NetUtils.GetParkingSlotCount(curve, parkingLane, laneData));   // NetUtils.cs:954-957
@@ -951,8 +969,6 @@ namespace SkiResortMod.Systems
                 return parked;
             }
 
-            /// <summary>The owner walk (≤ MaxOwnerDepth): a CarParkingFacility or CarParking on the chain → a parking
-            /// building. Else any Building → another building's lot. Else the street (DUMP split only).</summary>
             /// <summary>Any building on the lane's owner chain has a road (an attached lot takes its parent's).</summary>
             private bool BuildingOnChainHasRoad(Entity lane)
             {
@@ -968,7 +984,9 @@ namespace SkiResortMod.Systems
                 return false;
             }
 
-            private ParkingRoot RootOf(Entity lane)
+            /// <summary>The owner walk (≤ MaxOwnerDepth) for SkiParkingRules.RootOf: is there a CarParkingFacility / CarParking, a
+            /// Building on the chain? It picks the street / lot split and the reach test.</summary>
+            private ParkingRoot RootOf(Entity lane, bool onNetEdge)
             {
                 bool parkingBuilding = false, anyBuilding = false;
                 Entity e = lane;
@@ -982,7 +1000,7 @@ namespace SkiResortMod.Systems
                     if (Buildings.HasComponent(e))
                         anyBuilding = true;
                 }
-                return SkiParkingRules.RootOf(parkingBuilding, anyBuilding);
+                return SkiParkingRules.RootOf(parkingBuilding, anyBuilding, onNetEdge);
             }
 
             /// <summary>Step 3 for one parking facility: its center within RadiusM + FacilityReachM of the lodge. Its garage lanes come from
@@ -1049,9 +1067,10 @@ namespace SkiResortMod.Systems
                                                            garage.m_VehicleCapacity, d, restricted))
                     {
                         case ParkingLaneVerdict.Count:
-                            if (!SkiParkingRules.SpaceReachable(ParkingRoot.ParkingBuilding, BuildingOnChainHasRoad(lane)))
+                            if (!SkiParkingRules.SpaceReachable(ParkingRoot.ParkingBuilding, BuildingOnChainHasRoad(lane), false, false))
                             {
                                 r.OtherLanes++;
+                                r.UnreachableLanes++;
                                 break;
                             }
                             r.GarageSpaces += garage.m_VehicleCapacity;

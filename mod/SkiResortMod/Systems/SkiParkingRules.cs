@@ -1,6 +1,7 @@
 // Pure rules of the lodge parking census:
 // - which parking lanes and garages within RadiusM (600 m) of a lodge count as car spaces,
-// - the street / lot split of the dump,
+// - the street / lot split of the dump, and which reach test a space gets (a building's road edge, or for a lot with no
+//   building, its lane's link to a road lane),
 // - hub row 21 ("No parking near the lodge"),
 // - where the radius comes from (WalkCost).
 // Consumers: SkiLodgeParkingSystem's census job, SkiDaySystem (LodgeLacksParking), SkiAreaRingOverlaySystem (the parking ring), tests/ResortBatch
@@ -19,8 +20,10 @@ namespace SkiResortMod.Systems
     /// <summary>A parking lane's or garage's verdict in the census (first match wins).</summary>
     public enum ParkingLaneVerdict : byte { Count = 0, TooFar = 1, Virtual = 2, Service = 3, NotCar = 4, Private = 5, Closed = 6, NoSlots = 7 }
 
-    /// <summary>Where a counted lane hangs (DUMP street / lot split only).</summary>
-    public enum ParkingRoot : byte { Street = 0, ParkingBuilding = 1, OtherBuilding = 2 }
+    /// <summary>Where a counted lane hangs: the street / lot split and which reach test applies (SpaceReachable). Lot = no Building on
+    /// the owner chain, and a parking facility on it or the lane not on a net edge: a lot built from parking decal objects whose
+    /// owner is not a building (Parking Lot Tool and Placemaker lots, 2026-11-08 probe).</summary>
+    public enum ParkingRoot : byte { Street = 0, ParkingBuilding = 1, OtherBuilding = 2, Lot = 3 }
 
     public static class SkiParkingRules
     {
@@ -55,20 +58,34 @@ namespace SkiResortMod.Systems
         public const uint ConnFlagDisabled = 0x4000u, ConnFlagAllowEnterExit = 0x18000u;   // AllowEnter 0x8000 | AllowExit 0x10000
         public const byte RoadTypeCar = 1;
 
-        /// <summary>Any owner on the chain has CarParkingFacility or CarParking → ParkingBuilding. Else any has
-        /// Building → OtherBuilding. Else Street.</summary>
-        public static ParkingRoot RootOf(bool parkingBuildingOnChain, bool buildingOnChain)
+        /// <summary>A Building on the owner chain: ParkingBuilding when an owner also has CarParkingFacility or CarParking, else
+        /// OtherBuilding. No Building: Lot when an owner has CarParkingFacility / CarParking or the lane is not an EdgeLane (an
+        /// object's lane), else Street (a road's own parking lane). Vanilla puts CarParkingFacility on buildings only; Parking Lot
+        /// Tool and Placemaker also put it on the bare entity that owns their stall objects (no Building, 2026-11-08 probe).</summary>
+        public static ParkingRoot RootOf(bool parkingFacilityOnChain, bool buildingOnChain, bool onNetEdge)
         {
-            return parkingBuildingOnChain ? ParkingRoot.ParkingBuilding
-                 : buildingOnChain ? ParkingRoot.OtherBuilding
-                 : ParkingRoot.Street;
+            if (buildingOnChain)
+                return parkingFacilityOnChain ? ParkingRoot.ParkingBuilding : ParkingRoot.OtherBuilding;
+            return parkingFacilityOnChain || !onNetEdge ? ParkingRoot.Lot : ParkingRoot.Street;
         }
 
-        /// <summary>A street space is on the road by definition. A space in a lot, a garage or another building needs that building
-        /// connected to a road, or no car reaches it.</summary>
-        public static bool SpaceReachable(ParkingRoot root, bool buildingOnChainHasRoad)
+        /// <summary>Can a car reach the space?
+        /// - Street: yes, it is on the road.
+        /// - ParkingBuilding / OtherBuilding: only when a building on the chain has a road edge (Building.m_RoadEdge).
+        /// - Lot (no building to carry m_RoadEdge): yes when the lane is on a net edge, or when the game linked it to a road lane
+        ///   (Game.Net.LaneConnection.m_StartLane set: LaneConnectionSystem.cs:440-462 searches it for every FindConnections parking
+        ///   lane, :620-656 keeps the nearest Road lane of the lane's car type).</summary>
+        public static bool SpaceReachable(ParkingRoot root, bool buildingOnChainHasRoad, bool onNetEdge, bool roadLaneLinked)
         {
-            return root == ParkingRoot.Street || buildingOnChainHasRoad;
+            switch (root)
+            {
+                case ParkingRoot.Street:
+                    return true;
+                case ParkingRoot.Lot:
+                    return onNetEdge || roadLaneLinked;
+                default:
+                    return buildingOnChainHasRoad;
+            }
         }
 
         /// <summary>A lane closed to outsiders: it carries an access restriction that is not our sign or lodge, and the game did not
