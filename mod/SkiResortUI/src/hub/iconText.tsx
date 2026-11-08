@@ -10,19 +10,20 @@
  *   its word form, which is today's text.
  * Glue rule: a tag and the next word or punctuation sit in one nowrap span, so an icon never starts a line alone.
  * Fallback to the word: an unknown NAME (reported once), an image that fails to load, iconMode "words", and every renderString use.
- * IconText carries renderString (the word form) and propsAreEqual, so it may be a <LocText> argument (check-bundle R19).
+ * IconText carries renderString (the word form) and propsAreEqual, so it may be a <LocText> argument (check-bundle R19), and iconKeySource,
+ * so the tooltip key (iconKey.tsx, added by parts.tsx Tip) finds it in a tooltip body.
  */
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { useLocalization } from "cs2/l10n";
 import type { LocReactNode, Localization, LocStringRenderer, PropsAreEqual } from "cs2/l10n";
 import { LocalizedString } from "../cs2shim";
 import type { LocEntry, Translate } from "../l10n";
 import { iconLineItems, iconPieces, iconRows, iconTokens, iconWordForm } from "./hubRules";
 import type { IconToken } from "./hubRules";
-import { HUB_ICON, HUB_ICON_GROUPS, hubIconOf, iconMode } from "./hubIcons";
+import { HUB_ICON, HUB_ICON_GROUPS, iconMode } from "./hubIcons";
+import { IconImg, wordOf } from "./iconKey";
 import type { IconMode } from "./hubIcons";
 import { HUB_LOC } from "./hubText";
-import { reportUiError } from "./report";
 import { TipLines, cx } from "./parts";
 import styles from "./hub.module.scss";
 
@@ -42,41 +43,10 @@ function tagForm(loc: Localization, p: IconTextProps): string {
   return (loc && loc.translate(p.entry[0], p.entry[1])) ?? p.entry[1];
 }
 
-/** An icon's image source and box, or null: unknown NAME. A NAME with "/" is a vanilla Media/ path, as in vanilla text. */
-function iconSource(name: string): { src: string; wide: boolean } | null {
-  const ic = hubIconOf(name);
-  if (ic) return { src: ic.src, wide: ic.wide };
-  if (name.startsWith("Media/")) return { src: name, wide: false };
-  return null;
-}
-
-/** An icon's word: SkiResort.Hub.ICON[NAME], a vanilla path's file name, or the NAME itself (reported once). */
-function wordOf(loc: Localization, name: string): string {
-  const ic = hubIconOf(name);
-  if (ic) return (loc && loc.translate(ic.word[0], ic.word[1])) ?? ic.word[1];
-  if (name.startsWith("Media/")) return name.slice(name.lastIndexOf("/") + 1).replace(/\.svg$/i, "").toLowerCase();
-  reportUiError("IconText", `unknown icon name "${name}" (its word form shows instead)`);
-  return name;
-}
-
 function wordsOf(tokens: readonly IconToken[], word: (name: string) => string): string {
   let s = "";
   for (const tk of tokens) s += tk.kind === "text" ? tk.text : tk.kind === "icon" ? word(tk.name) : "";
   return s;
-}
-
-/** One icon as a fixed-size <img>. On a load error, or for an unknown NAME, its word. `inline` = inside the cohinline paragraph. */
-function IconImg({ name, word, gap, inline, lead }: { name: string; word: string; gap?: boolean; inline?: boolean; lead?: boolean }): JSX.Element {
-  const [failed, setFailed] = useState(false);
-  const source = iconSource(name);
-  if (failed || !source) {
-    return inline ? <>{word}</> : <div className={cx(styles.iconLineText, gap && styles.iconGap, lead && styles.iconMarkLead)}>{word}</div>;
-  }
-  return (
-    <img src={source.src}
-      className={cx(styles.iconImg, source.wide && styles.iconImgWide, gap && styles.iconGap, lead && styles.iconMarkLead)}
-      onError={() => setFailed(true)} />
-  );
 }
 
 /** A wrapping paragraph of tokens: plain text, or with icons the cohinline path ("inline" mode only, else its word form). */
@@ -140,7 +110,7 @@ const iconTextPropsEqual: PropsAreEqual<IconTextProps> = (a, b) =>
   LocalizedString.propsAreEqual({ id: a.entry[0], fallback: a.entry[1], args: a.args }, { id: b.entry[0], fallback: b.entry[1], args: b.args });
 
 /** A hub text that may hold icon tags. The ONLY way to render an entry with a tag (check-bundle R-icon): t() would print the tag. */
-export const IconText = Object.assign(IconTextView, { renderString: renderIconText, propsAreEqual: iconTextPropsEqual });
+export const IconText = Object.assign(IconTextView, { renderString: renderIconText, propsAreEqual: iconTextPropsEqual, iconKeySource: true as const });
 
 /**
  * A missing line made of parts: the head ("Missing:", "Not in full:") and its parts joined by " · ", in the caution color, on one row.
@@ -161,7 +131,7 @@ export function MissingLine({ head, parts }: { head: LocEntry; parts: ReadonlyAr
   );
 }
 
-/** The header legend (tooltip of the dim Info glyph after the area name): the symbol table, icon | word, by group. */
+/** The header legend (tooltip of the Info button after the area name): the whole symbol table, icon | word, by group. */
 export function IconLegend({ t }: { t: Translate }): JSX.Element {
   return (
     <TipLines lines={[

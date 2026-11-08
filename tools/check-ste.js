@@ -11,7 +11,7 @@
 // - "player-text": every value in locale/en-US.json. Each string is one paragraph, so the linter never joins two strings.
 // - Tracked docs: README.md, CONTRIBUTING.md, release/DESCRIPTION.md, the docs-site pages (not changelog.mdx and timeline.mdx,
 //   which are history), and mod/SkiResortMod/EngineNotes/*.md.
-// - Local-only docs (git-ignored, so CI does not have them): CLAUDE.md, docs/PIPELINE.md, docs/GLOSSARY.md and the project
+// - Local-only docs (git-ignored, so CI does not have them): CLAUDE.md, docs/PIPELINE.md, docs/GLOSSARY.md, docs/DESIGN-SYSTEM.md and the project
 //   skills. The gate checks a local-only target only when the file exists.
 // A target that is not in the baseline must have 0 hard findings. Code comments are not a target: they cite code and log text.
 //
@@ -61,7 +61,7 @@ function listTargets() {
   };
   walk('docs-site/src/content/docs');
   walk('mod/SkiResortMod/EngineNotes');
-  for (const f of ['CLAUDE.md', 'docs/PIPELINE.md', 'docs/GLOSSARY.md']) add(f, true);
+  for (const f of ['CLAUDE.md', 'docs/PIPELINE.md', 'docs/GLOSSARY.md', 'docs/DESIGN-SYSTEM.md']) add(f, true);
   const skills = path.join(repo, '.claude', 'skills');
   if (fs.existsSync(skills)) {
     for (const s of fs.readdirSync(skills)) if (s !== 'asd-ste100') add(`.claude/skills/${s}/SKILL.md`, true);

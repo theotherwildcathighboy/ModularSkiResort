@@ -5,7 +5,8 @@
  * The arrows cycle the entries (resortData.ts) and send selectResort(sign | Null). C# may refuse, and the UI never assumes.
  * The Not linked entry has no sign: its pen / fly keep their space (visibility hidden). The arrows also keep their space with one area.
  * Rename: pen -> RenameField. Commit -> rename(sign, text).
- * The row ends with the icon legend: a dim Info glyph whose tooltip is the symbol table of hub text (iconText.tsx IconLegend).
+ * The row ends with the icon legend: an Info glyph that looks and hovers like the header buttons, whose tooltip is the symbol table
+ * "Symbols" (iconText.tsx IconLegend). Every tooltip with icon images also carries its own key (iconKey.tsx).
  * Every button stops mousedown (the Panel title bar is a drag handle) and passes focusKey={FOCUS_DISABLED} (rule R15).
  * Engine notes: EngineNotes/HubHeader.tsx.md
  */
@@ -199,10 +200,10 @@ export function HubHeader(): JSX.Element {
           if (!isNullEntity(row.sign)) hubTriggers.focusBuilding(row.sign);
         }}
       />
-      {/* The icon legend (icon scheme): a dim Info glyph whose tooltip is the symbol table of hub text. Hover only, no action. */}
+      {/* The icon legend (icon scheme): an Info glyph styled as a header button, whose tooltip is the symbol table. Hover only. */}
       <Tip tip={<IconLegend t={t} />}>
         <div className={styles.legendInfoBox}>
-          <Glyph src={GLYPH_INFO} className={cx(styles.legendInfoGlyph, styles.glyphDimTone)} />
+          <Glyph src={GLYPH_INFO} className={styles.legendInfoGlyph} />
         </div>
       </Tip>
     </div>

@@ -1244,3 +1244,29 @@ export function schoolMissingOf(s: SchoolState): "receiptMissingSchoolNone" | "r
     default: return null;
   }
 }
+
+/** One IconText of a tooltip, as the tooltip key sees it: its text with tags (the English fallback: tags are the same in every locale)
+ *  and whether it is a one-line row (`line`, a missing-line part). */
+export interface IconKeySource { text: string; line: boolean }
+
+/** At most this many icon | word pairs per tooltip key row (the key never needs flex-wrap, which Gameface lacks). */
+export const ICON_KEY_PER_ROW = 3;
+
+/**
+ * The tooltip key (legend at the point of use, DECISIONS 620): the `<icon:NAME>` names a tooltip shows as images, once each, in legend
+ * order, cut into rows of ICON_KEY_PER_ROW. Marks are left out (their row text already says the word). Mode "words" shows no image, so
+ * no key. Mode "flex" shows images only in one-line rows, so only those count. A name without a legend row is left out (T42 forbids it
+ * in text anyway).
+ */
+export function iconKeyRows(sources: readonly IconKeySource[], mode: "inline" | "flex" | "words", order: readonly string[]): string[][] {
+  if (mode === "words") return [];
+  const seen = new Set<string>();
+  for (const src of sources) {
+    if (!src || (mode === "flex" && !src.line)) continue;
+    for (const tk of iconTokens(src.text)) if (tk.kind === "icon" && order.indexOf(tk.name) >= 0) seen.add(tk.name);
+  }
+  const names = order.filter((n) => seen.has(n));
+  const rows: string[][] = [];
+  for (let i = 0; i < names.length; i += ICON_KEY_PER_ROW) rows.push(names.slice(i, i + ICON_KEY_PER_ROW));
+  return rows;
+}

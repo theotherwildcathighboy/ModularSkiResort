@@ -1134,7 +1134,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.ICON[openpatchy]", "open or patchy" },
                 { "SkiResort.Hub.ICON[power]", "power" },
                 { "SkiResort.Hub.ICON[snow]", "snow" },
-                { "SkiResort.Hub.ICON_LEGEND", "Symbols in hub text" },
+                { "SkiResort.Hub.ICON_LEGEND", "Symbols" },
                 { "SkiResort.Hub.ICON_LEGEND[Ratings]", "Run ratings" },
                 { "SkiResort.Hub.ICON_LEGEND[States]", "Run states" },
                 { "SkiResort.Hub.ICON_LEGEND[City]", "City services" },

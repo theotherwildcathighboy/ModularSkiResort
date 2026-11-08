@@ -55,6 +55,19 @@
   --hubShadow: rgba(0, 0, 0, 0.5);
   --hubCardBg: rgba(24, 33, 51, 0.85);
   --hubFocusHover: rgba(75, 195, 241, 0.18);
+  // On-dark palette (icon scheme, DECISIONS 620): the colors of the hub icons (src/hub/icons/*.svg), which sit on the dark tooltip
+  // ground. An SVG cannot read a variable, so each file repeats these values, and T42 allows an icon color only from this set.
+  // The black run is a charcoal diamond with a full light edge (a trail sign on a dark board): pure black vanished into the tooltip
+  // and read as an outline. Blue is lighter than --hubDiffBlue for the same reason. Under .legacy-interface the icons keep these
+  // colors (a file cannot switch).
+  --hubOnDarkGreen: rgba(76, 175, 80, 1);
+  --hubOnDarkBlue: rgba(70, 140, 240, 1);
+  --hubOnDarkBlack: rgba(80, 86, 98, 1);
+  --hubOnDarkDoubleBlack: rgba(80, 86, 98, 1);
+  --hubOnDarkEdge: rgba(240, 251, 255, 1);
+  --hubOnDarkOpen: rgba(240, 251, 255, 1);
+  --hubOnDarkClosed: rgba(240, 251, 255, 0.7);
+  --hubOnDarkCaution: rgba(255, 203, 0, 1);
 }
 
 :global(.legacy-interface) .panel,
@@ -443,7 +456,8 @@
   white-space: nowrap;
 }
 
-// The header legend
+// The header legend: the Info glyph looks and hovers like its neighbors (.headerButton: same disc, same accent color), so it reads as
+// something to point at. Hover only: its tooltip is the symbol table, titled "Symbols".
 .legendInfoBox {
   display: flex;
   flex-direction: row;
@@ -451,13 +465,47 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 1.4em;
-  height: 1.4em;
+  width: calc(24rem * var(--fontScale));
+  height: calc(24rem * var(--fontScale));
+  border-radius: 50%;
+}
+
+.legendInfoBox:hover {
+  background-color: var(--hoverColorNormal);
 }
 
 .legendInfoGlyph {
-  width: 0.85em;
-  height: 0.85em;
+  width: calc(16rem * var(--fontScale));
+  height: calc(16rem * var(--fontScale));
+  background-color: var(--accentColorNormal);
+}
+
+// A tooltip body with its icon key under it (parts.tsx Tip)
+.tipStack {
+  display: flex;
+  flex-direction: column;
+}
+
+// The icon key (iconKey.tsx): the legend at the point of use, dim, under a thin rule
+.iconKey {
+  margin-top: 5rem;
+  padding-top: 4rem;
+  border-top-width: 1rem;
+  border-top-style: solid;
+  border-top-color: var(--hubEdge);
+  color: var(--hubTextDim);
+}
+
+.iconKeyPair {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 0;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.iconKeyGap {
+  margin-left: 0.8em;
 }
 
 .iconLegendGroup {

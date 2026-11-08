@@ -210,7 +210,7 @@ export const HUB_LOC = {
   iconOpenpatchy: ["SkiResort.Hub.ICON[openpatchy]", "open or patchy"],
   iconPower: ["SkiResort.Hub.ICON[power]", "power"],
   iconSnow: ["SkiResort.Hub.ICON[snow]", "snow"],
-  iconLegend: ["SkiResort.Hub.ICON_LEGEND", "Symbols in hub text"],
+  iconLegend: ["SkiResort.Hub.ICON_LEGEND", "Symbols"],
   iconLegendRatings: ["SkiResort.Hub.ICON_LEGEND[Ratings]", "Run ratings"],
   iconLegendStates: ["SkiResort.Hub.ICON_LEGEND[States]", "Run states"],
   iconLegendCity: ["SkiResort.Hub.ICON_LEGEND[City]", "City services"],

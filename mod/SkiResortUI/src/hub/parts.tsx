@@ -18,6 +18,7 @@ import { LocalizedNumber, LocalizedString } from "../cs2shim";
 import { BAND } from "../bindings";
 import type { LocEntry } from "../l10n";
 import { GLYPH_INFO } from "./hubRules";
+import { IconKey, iconKeyOf } from "./iconKey";
 import styles from "./hub.module.scss";
 
 /** True while vanilla's unit setting is US customary (UnitSystem.Freedom = 1). Snow depth is the one unit vanilla has no
@@ -84,10 +85,13 @@ export function Glyph({ src, className }: { src: string; className?: string }): 
  * component the ref only through DOMNodeContext, which our components do not read. A memo component gets the ref by
  * cloneElement and drops it. So a component that needs a tooltip takes a `tip` prop and puts the Tip around its own
  * root div (InfoLine, SubLine, FlexBar).
+ * A body that shows icon images gets the icon key under it (iconKey.tsx, DECISIONS 620): the legend at the point of use.
  */
 export function Tip({ tip, children }: { tip?: ReactNode; children: JSX.Element }): JSX.Element {
   if (tip === undefined || tip === null || tip === "" || tip === false) return children;
-  return <Tooltip tooltip={tip}>{children}</Tooltip>;
+  const keyRows = iconKeyOf(tip);
+  const body = keyRows.length ? <div className={styles.tipStack}>{tip}<IconKey rows={keyRows} /></div> : tip;
+  return <Tooltip tooltip={body}>{children}</Tooltip>;
 }
 
 /** One tooltip line: a plain text, ONE element (a <LocText>: one text node), or a label (a string or ONE <LocText>) with a value */

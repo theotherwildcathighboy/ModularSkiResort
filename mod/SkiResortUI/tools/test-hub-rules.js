@@ -929,6 +929,18 @@ function run(srcDir) {
       ["none", "off", "noGreen", "waiting", "on", "unknown"].map((s) => R.schoolMissingOf(s)),
       ["receiptMissingSchoolNone", "receiptMissingSchoolNone", "receiptMissingSchoolGreen", "receiptMissingSchoolWaiting", null, null]);
 
+    // T42.19 the tooltip key (legend at the point of use): icon names once, in legend order, 3 per row; marks never; "flex" counts only
+    // one-line rows, "words" gives no key; a name without a legend row is dropped.
+    const ORD = ["green", "blue", "black", "dblack", "open", "patchy", "closed", "openpatchy", "power", "snow"];
+    const variety = { text: "+15 % while at least one <icon:green>, one <icon:blue> and one <icon:black> or <icon:dblack> run is <icon:openpatchy>.", line: false };
+    eq("T42.19 iconKeyRows",
+      [R.iconKeyRows([variety, { text: "Missing: <icon:black> or <icon:dblack> run", line: true }], "inline", ORD),
+        R.iconKeyRows([{ text: "<mark:open> Open. <mark:closed> Closed.", line: false }], "inline", ORD),
+        R.iconKeyRows([variety, { text: "{N} <icon:patchy>", line: true }, { text: "{N} <icon:closed>", line: true }], "flex", ORD),
+        R.iconKeyRows([variety], "words", ORD), R.iconKeyRows([{ text: "<icon:Media/x.svg> <icon:power>", line: true }], "inline", ORD),
+        R.iconKeyRows([], "inline", ORD), R.ICON_KEY_PER_ROW],
+      [[["green", "blue", "black"], ["dblack", "openpatchy"]], [], [["patchy", "closed"]], [], [["power"]], [], 3]);
+
     // The text side of R-icon, over every hub tuple and LocaleEN.cs (+ Settings/LocaleEN.cs).
     const iconSrc = fs.readFileSync(path.join(srcDir, "hub", "hubIcons.ts"), "utf8");
     const tableBlock = (iconSrc.split("export const HUB_ICON")[1] || "").split("};")[0];
@@ -936,6 +948,11 @@ function run(srcDir) {
     const wordKeys = [...tableBlock.matchAll(/word: HUB_LOC\.(\w+)/g)].map((m) => m[1]);
     eq("T42.10 HUB_ICON is the v1 core (4 ratings, 4 states, power, snow), each with its word entry",
       [names, wordKeys.length], [["green", "blue", "black", "dblack", "open", "patchy", "closed", "openpatchy", "power", "snow"], 10]);
+    // The legend rule (owner 2026-11-08: inline icons are fine while the legend describes every one): the header legend
+    // (HUB_ICON_GROUPS) holds every HUB_ICON name exactly once, and T42.11 below allows a tag NAME in text only when it has a legend row.
+    const groupsBlock = (iconSrc.split("export const HUB_ICON_GROUPS")[1] || "").split("];")[0];
+    const legend = [...groupsBlock.matchAll(/names: \[([^\]]*)\]/g)].flatMap((m) => [...m[1].matchAll(/"([a-z]+)"/g)].map((x) => x[1]));
+    eq("T42.18 the header legend lists every HUB_ICON name exactly once", [legend.slice().sort(), legend.length], [names.slice().sort(), names.length]);
     const tagRe = new RegExp(R.ICON_TAG_SOURCE, "g");
     const settingsCs = fs.readFileSync(path.join(csDir, "Settings", "LocaleEN.cs"), "utf8");
     const allCs = new Map(csTuples);
@@ -945,7 +962,7 @@ function run(srcDir) {
       if (!/<(icon|mark):/.test(v)) continue;
       if (!k.startsWith("SkiResort.Hub.")) bad.push(`${k}: a tag outside SkiResort.Hub.* (C# tool tooltips render through vanilla and print it)`);
       for (const m of v.matchAll(tagRe)) {
-        if (!names.includes(m[2]) && !m[2].startsWith("Media/")) bad.push(`${k}: unknown icon "${m[2]}" (not in HUB_ICON)`);
+        if (!legend.includes(m[2])) bad.push(`${k}: icon "${m[2]}" has no legend row (HUB_ICON_GROUPS in hubIcons.ts; a Media/ path has none either)`);
         const before = v.slice(0, m.index);
         const sentenceStart = /^\s*$/.test(before) || /[.:!?]\s+$/.test(before);
         // A part of a missing line (RECEIPT_MISSING[X.Y]) is a list item after its head ("Missing: <icon:blue> run"), not a sentence.
@@ -956,7 +973,7 @@ function run(srcDir) {
       if (/<(icon|mark):/.test(v.replace(tagRe, ""))) bad.push(`${k}: malformed tag (grammar ${R.ICON_TAG_SOURCE})`);
     }
     for (const n of names) if (!tuples.has(`SkiResort.Hub.ICON[${n}]`) || !csTuples.has(`SkiResort.Hub.ICON[${n}]`)) bad.push(`ICON[${n}]: word key missing`);
-    eq("T42.11 R-icon text side: tags only in SkiResort.Hub.*, every NAME in HUB_ICON with its ICON[NAME] word, no icon starts a sentence, marks open one",
+    eq("T42.11 R-icon text side: tags only in SkiResort.Hub.*, every NAME with a legend row and its ICON[NAME] word, no icon starts a sentence, marks open one",
       bad, []);
     // T18.5: a missing line (RECEIPT_MISSING[X] and its parts RECEIPT_MISSING[X.*]) is at most 10 words with every part shown. A tag is one
     // word (T18.4's rule). Placeholders count as the one word they print.
@@ -967,16 +984,24 @@ function run(srcDir) {
     }
     eq("T18.5 every missing line is at most 10 words with all its parts", [fam.size >= 7, [...fam].filter(([, n]) => n > 10)], [true, []]);
 
-    // The icon SVGs: well-formed XML (no "--" in a comment, balanced tags, quoted attributes) and colors from the token block or the two
-    // vanilla variables the hub uses unchanged (normalTextColor, highlightYellow; T42.14 checks them against the installed index.css when
-    // CSII_INSTALLATIONPATH is set). Inline icons cannot be tinted, so a color drift would be invisible in review.
+    // The icon SVGs: well-formed XML (no "--" in a comment, balanced tags, quoted attributes) and every fill / stroke (with its opacity)
+    // from the on-dark palette, the --hubOnDark* tokens of the token block (the icons sit on the dark tooltip ground). Two of them repeat
+    // vanilla variables (normalTextColor, highlightYellow): T42.14 checks those against the installed index.css when CSII_INSTALLATIONPATH
+    // is set. Inline icons cannot be tinted, so a color drift would be invisible in review.
     const scss = fs.readFileSync(path.join(srcDir, "hub", "hub.module.scss"), "utf8");
     const tokenEnd = scss.indexOf("// ---- end of tokens");
     const allowed = new Set();
     const key = (r, g, b, a) => `${+r},${+g},${+b},${Math.round(+a * 100) / 100}`;
-    for (const m of scss.slice(0, tokenEnd).matchAll(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\s*\)/g)) allowed.add(key(m[1], m[2], m[3], m[4] ?? 1));
+    const onDark = {};
+    for (const m of scss.slice(0, tokenEnd).matchAll(/--(hubOnDark\w+):\s*rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\s*\);/g)) {
+      onDark[m[1]] = key(m[2], m[3], m[4], m[5] ?? 1);
+      allowed.add(onDark[m[1]]);
+    }
+    eq("T42.16 the on-dark palette: one token per icon color (ratings, edge, open, closed, caution)", Object.keys(onDark).sort(),
+      ["hubOnDarkBlack", "hubOnDarkBlue", "hubOnDarkCaution", "hubOnDarkClosed", "hubOnDarkDoubleBlack", "hubOnDarkEdge", "hubOnDarkGreen", "hubOnDarkOpen"]);
     const VANILLA = { normalTextColor: [240, 251, 255], highlightYellow: [255, 203, 0] };
-    for (const c of Object.values(VANILLA)) allowed.add(key(c[0], c[1], c[2], 1));
+    eq("T42.17 hubOnDarkOpen / hubOnDarkCaution repeat normalTextColor / highlightYellow", [onDark.hubOnDarkOpen, onDark.hubOnDarkCaution],
+      Object.values(VANILLA).map((c) => key(c[0], c[1], c[2], 1)));
     {
       const install = require("./user-env").readCsiiVar("CSII_INSTALLATIONPATH").value;
       const css = install && path.join(install, "Cities2_Data", "Content", "Game", "UI", "index.css");
@@ -1013,12 +1038,12 @@ function run(srcDir) {
           const c = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(v[1]);
           const op = new RegExp(`\\s${prop}-opacity="([\\d.]+)"`).exec(el[1]);
           if (!c) svgBad.push(`${f}: ${prop}="${v[1]}" is not rgb(r,g,b)`);
-          else if (!allowed.has(key(c[1], c[2], c[3], op ? op[1] : 1))) svgBad.push(`${f}: ${prop} ${v[1]}${op ? " opacity " + op[1] : ""} is no hub token`);
+          else if (!allowed.has(key(c[1], c[2], c[3], op ? op[1] : 1))) svgBad.push(`${f}: ${prop} ${v[1]}${op ? " opacity " + op[1] : ""} is not an on-dark token (--hubOnDark*)`);
         }
       }
     }
     const imported = [...iconSrc.matchAll(/from "\.\/icons\/([\w-]+\.svg)"/g)].map((m) => m[1]).sort();
-    eq("T42.12 icon SVGs: 8 files, every one imported by hubIcons.ts, well-formed, colors from the token block", [svgs, imported, svgBad],
+    eq("T42.12 icon SVGs: 8 files, every one imported by hubIcons.ts, well-formed, colors only from the on-dark tokens", [svgs, imported, svgBad],
       [["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "open.svg", "openpatchy.svg", "patchy.svg"],
         ["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "open.svg", "openpatchy.svg", "patchy.svg"], []]);
     // The harness base scenario sends the contract number. A stale one shows the mismatch card in every harness scenario, and the
