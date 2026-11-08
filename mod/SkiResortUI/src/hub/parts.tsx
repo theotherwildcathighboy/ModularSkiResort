@@ -263,7 +263,7 @@ export function MarkSlot({ mark }: { mark: "≈" | "…" | null }): JSX.Element 
 }
 
 /** One label / value row with the vanilla InfoRow metrics (28.2 / 39.7 / 47.3 rem at 100 / 130 / 150 %) */
-export function InfoLine({ label, value, tip, mark, header, sub, info, flag, flagDim, op }: {
+export function InfoLine({ label, value, tip, mark, header, sub, info, flag, flagDim, flagShapes, op }: {
   label: string | JSX.Element;
   value?: ReactNode;
   tip?: ReactNode;
@@ -280,6 +280,9 @@ export function InfoLine({ label, value, tip, mark, header, sub, info, flag, fla
   flag?: string;
   /** The flag is a state, not a fault ("No run counts yet"): the dim Info glyph and dim text */
   flagDim?: boolean;
+  /** A flag drawn as shapes instead of a word (icon scheme: the Variety row's missing ratings, BandMarker elements). Same flex box as
+   *  `flag`: the Warning glyph, then the shapes. The row stays one text node (the label). */
+  flagShapes?: ReactNode;
   /** The receipt term's operator ("+", "×") in a fixed-width cell before the label, so the terms read as the equation they
    *  are. Symbols only (nothing to translate). */
   op?: string;
@@ -288,13 +291,15 @@ export function InfoLine({ label, value, tip, mark, header, sub, info, flag, fla
     <Tip tip={tip}>
       <div className={cx(styles.infoLine, header && styles.infoHeader, sub && styles.infoSub)}>
         {op !== undefined && <div className={styles.infoOp}>{op}</div>}
-        {flag ? (
+        {flag || flagShapes ? (
           <div className={styles.infoLabelBox}>
             <div className={styles.infoLabelText}>{label}</div>
             {flagDim
               ? <Glyph src={GLYPH_INFO} className={cx(styles.infoMark, styles.glyphDimTone)} />
               : <Glyph src="Media/Glyphs/Warning.svg" className={cx(styles.infoMark, styles.glyphWarnTone)} />}
-            <div className={cx(styles.flagText, flagDim && styles.flagTextDim)}>{flag}</div>
+            {flagShapes
+              ? <div className={styles.flagShapes}>{flagShapes}</div>
+              : <div className={cx(styles.flagText, flagDim && styles.flagTextDim)}>{flag}</div>}
           </div>
         ) : info ? (
           <div className={styles.infoLabelBox}>
@@ -322,6 +327,18 @@ export function SubLine({ children, tip }: { children: string | JSX.Element; tip
 
 export function Divider(): JSX.Element {
   return <div className={styles.divider} />;
+}
+
+/** The half-filled caution dot of the run and lift rows (icon scheme): a patchy run, a lift without power. It matches the patchy icon of
+ *  hub text, and it differs from the filled dot by shape, not by color alone. CSS only (hub.module.scss .liftDotHalf*). */
+export function HalfDot(): JSX.Element {
+  return (
+    <div className={cx(styles.liftDot, styles.liftDotRing, styles.liftRingWarn, styles.liftDotHalf)}>
+      <div className={styles.liftDotHalfClip}>
+        <div className={styles.liftDotHalfDisc} />
+      </div>
+    </div>
+  );
 }
 
 /** Run-type stripe (natural = two stacked bars, the dashed outline's echo) */

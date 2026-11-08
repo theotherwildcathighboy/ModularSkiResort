@@ -24,6 +24,7 @@ import type { BandRow, ProblemClick, ProblemVariant } from "./hubRules";
 import { problemsOpen$, view$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, LODGE_TIER, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
 import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, depthValue, numArg, useInches } from "./parts";
+import { IconText } from "./iconText";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
 
@@ -73,7 +74,7 @@ function statusTip(row: ResortRow | null, live: ResortLive | null, city: CitySta
           OPEN: numArg(live.runsOpen, Unit.Integer), PARTLY: numArg(live.runsPartly, Unit.Integer),
           CLOSED: numArg(closedRuns(row, live), Unit.Integer),
         }} />,
-        t(HUB_LOC.statusTipRule),
+        <IconText key="r" entry={HUB_LOC.statusTipRule} />,
         // Measured snow is the default and gets no line (T142). Only the exceptions say how the snow is read.
         !city.snowGating ? t(HUB_LOC.statusTipGating) : live.snowEstimated && t(HUB_LOC.statusTipEstimated),
         seasonWord && t(seasonWord),
@@ -253,7 +254,7 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "liftTrainLimit": body = t(HUB_LOC.problemTipLiftTrainLimit); break;
     case "liftLowSpan": body = <LowSpanTip p={p} t={t} />; break;
     case "summitLodgeNotLiftServed": body = t(HUB_LOC.problemTipSummitLodgeNotLiftServed); break;
-    case "schoolNoGreenRun": body = t(HUB_LOC.problemTipSchoolNoGreenRun); break;
+    case "schoolNoGreenRun": body = <IconText entry={HUB_LOC.problemTipSchoolNoGreenRun} />; break;
     case "schoolsNotLinked": body = t(HUB_LOC.problemTipSchoolsNotLinked); break;
     default: body = null;
   }

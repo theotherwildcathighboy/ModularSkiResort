@@ -883,6 +883,156 @@ function run(srcDir) {
       [...all, ...tuples].filter(([, v]) => bare(v)).map(([k, v]) => `${k} = ${v}`), []);
   }
 
+  // T42 icon scheme (hub contract 40, DECISIONS 620). The pure rules of hubRules.ts (literal oracles), the text side of the R-icon gate,
+  // T18.5 (a missing line has at most 10 words with all its parts) and the icon SVG gate (well-formed XML, colors from the token block).
+  {
+    const W = (n) => ({ green: "green", openpatchy: "open or patchy", black: "black", dblack: "double-black" }[n] || `?${n}`);
+    eq("T42.1 iconTokens splits text and tags; an untagged text is one run; junk gives []",
+      [R.iconTokens("a <icon:green> run is <icon:openpatchy>."), R.iconTokens("plain"), R.iconTokens(null), R.iconTokens("<mark:open> Open")],
+      [[{ kind: "text", text: "a " }, { kind: "icon", name: "green" }, { kind: "text", text: " run is " }, { kind: "icon", name: "openpatchy" }, { kind: "text", text: "." }],
+        [{ kind: "text", text: "plain" }], [], [{ kind: "mark", name: "open" }, { kind: "text", text: " Open" }]]);
+    eq("T42.2 iconWordForm: an icon becomes its word, a mark goes with the spaces after it",
+      [R.iconWordForm("at least one <icon:green>, one <icon:black> or <icon:dblack> run is <icon:openpatchy>.", W),
+        R.iconWordForm("<mark:open> Open: 60 %. <mark:closed> Closed: under 40 %.", W), R.iconWordForm("no tag", W)],
+      ["at least one green, one black or double-black run is open or patchy.", "Open: 60 %. Closed: under 40 %.", "no tag"]);
+    eq("T42.3 iconRows: one row per mark, trimmed; text before the first mark is its own row; no mark = one row",
+      [R.iconRows(R.iconTokens("<mark:open> Open: a. <mark:closed> Closed: b.")).map((r) => [r.mark, r.tokens.map((t) => t.text || t.name).join("|")]),
+        R.iconRows(R.iconTokens("Lead. <mark:open> Open")).map((r) => [r.mark, r.tokens.length]), R.iconRows(R.iconTokens("x <icon:green> y")).length],
+      [[["open", "Open: a."], ["closed", "Closed: b."]], [[null, 1], ["open", 1]], 1]);
+    eq("T42.4 iconPieces glue: an icon takes its neighbor icons and the next word or punctuation (never starts a line alone)",
+      R.iconPieces(R.iconTokens("one <icon:green>, one <icon:black> or <icon:dblack> run is <icon:open><icon:patchy>.")).map((p) =>
+        p.kind === "text" ? p.text : "[" + p.items.map((t) => t.kind === "text" ? t.text : "@" + t.name).join("") + "]"),
+      ["one ", "[@green,]", " one ", "[@black or]", " ", "[@dblack run]", " is ", "[@open@patchy.]"]);
+    eq("T42.5 iconLineItems: trimmed text items, a gap where a space stood, none before punctuation",
+      R.iconLineItems(R.iconTokens("Missing: <icon:blue> run, <icon:green>.")).map((i) => `${i.kind === "text" ? i.text : "@" + i.name}${i.gap ? "+" : ""}`),
+      ["Missing:", "@blue+", "run,+", "@green+", "."]);
+    const L = (o) => Object.assign({ varietyBands: 7, summer: false, verticalShortM: 0, liftsComplete: 2, liftsCounted: 2, runsOpen: 3, runsPartly: 0,
+      lodgesActive: 2, lodgeExtra: 24, efficiencyPct: 90 }, o);
+    eq("T42.6 varietyMissing names the cleared VARIETY_BAND bits; nothing while full, unknown (-1, older contract) or summer",
+      [R.varietyMissing(L({ varietyBands: 3 })), R.varietyMissing(L({ varietyBands: 4 })), R.varietyMissing(L({ varietyBands: 0 })),
+        R.varietyMissing(L({})), R.varietyMissing(L({ varietyBands: -1 })), R.varietyMissing(L({ varietyBands: undefined })),
+        R.varietyMissing(L({ varietyBands: 1, summer: true })), R.varietyMissing(null)],
+      [["black"], ["green", "blue"], ["green", "blue", "black"], [], [], [], [], []]);
+    eq("T42.7 VARIETY_BAND bits equal C# SkiResortScore.VarietyGreen / Blue / Black / All (ResortBatch VB guards the C# side)",
+      BIND.VARIETY_BAND, { Green: 1, Blue: 2, Black: 4, All: 7 });
+    const ROW = { runs: 6, liftRows: 4 };
+    eq("T42.8 verticalShort / liftsMissing / runsMissing / lodgeExtraShort / efficiencyAtFloor",
+      [R.verticalShort(L({ verticalShortM: 140 })), R.verticalShort(L({ verticalShortM: 0.2 })), R.verticalShort(L({ verticalShortM: -1 })),
+        R.liftsMissing(ROW, L({ liftsComplete: 3, liftsCounted: 1 })), R.liftsMissing({ runs: 6, liftRows: 2 }, L({})), R.liftsMissing(ROW, L({ liftsComplete: -1 })),
+        R.runsMissing(ROW, L({ runsOpen: 2, runsPartly: 1 }), [{ member: true, served: false }, { member: false, served: false }, { member: true, served: true }]),
+        R.runsMissing({ runs: 3, liftRows: 0 }, L({}), []), R.runsMissing(ROW, L({ runsOpen: -1 }), []),
+        R.lodgeExtraShort(L({ lodgeExtra: 8 })), R.lodgeExtraShort(L({ lodgeExtra: 24 })), R.lodgeExtraShort(L({ lodgeExtra: 8, summer: true })),
+        R.lodgeExtraShort(L({ lodgeExtra: 8, lodgesActive: 0 })), R.efficiencyAtFloor(L({ efficiencyPct: 25 })), R.efficiencyAtFloor(L({ efficiencyPct: 26 })),
+        R.efficiencyAtFloor(L({ efficiencyPct: -1 }))],
+      [140, -1, -1, { noPower: 2, unfinished: 1 }, null, null, { closed: 3, patchy: 1, noLift: 1 }, null, null, 8, -1, -1, -1, true, false, false]);
+    eq("T42.9 schoolMissingOf: none / off -> the active-school line, noGreen -> the green line, waiting -> no run counts, else none",
+      ["none", "off", "noGreen", "waiting", "on", "unknown"].map((s) => R.schoolMissingOf(s)),
+      ["receiptMissingSchoolNone", "receiptMissingSchoolNone", "receiptMissingSchoolGreen", "receiptMissingSchoolWaiting", null, null]);
+
+    // The text side of R-icon, over every hub tuple and LocaleEN.cs (+ Settings/LocaleEN.cs).
+    const iconSrc = fs.readFileSync(path.join(srcDir, "hub", "hubIcons.ts"), "utf8");
+    const tableBlock = (iconSrc.split("export const HUB_ICON")[1] || "").split("};")[0];
+    const names = [...tableBlock.matchAll(/^\s*([a-z]+): \{ src:/gm)].map((m) => m[1]);
+    const wordKeys = [...tableBlock.matchAll(/word: HUB_LOC\.(\w+)/g)].map((m) => m[1]);
+    eq("T42.10 HUB_ICON is the v1 core (4 ratings, 4 states, power, snow), each with its word entry",
+      [names, wordKeys.length], [["green", "blue", "black", "dblack", "open", "patchy", "closed", "openpatchy", "power", "snow"], 10]);
+    const tagRe = new RegExp(R.ICON_TAG_SOURCE, "g");
+    const settingsCs = fs.readFileSync(path.join(csDir, "Settings", "LocaleEN.cs"), "utf8");
+    const allCs = new Map(csTuples);
+    for (const m of settingsCs.matchAll(/\{\s*"([^"]+)",\s*"((?:[^"\\]|\\.)*)"\s*\}/g)) allCs.set(m[1], m[2]);
+    const bad = [];
+    for (const [k, v] of [...allCs, ...tuples]) {
+      if (!/<(icon|mark):/.test(v)) continue;
+      if (!k.startsWith("SkiResort.Hub.")) bad.push(`${k}: a tag outside SkiResort.Hub.* (C# tool tooltips render through vanilla and print it)`);
+      for (const m of v.matchAll(tagRe)) {
+        if (!names.includes(m[2]) && !m[2].startsWith("Media/")) bad.push(`${k}: unknown icon "${m[2]}" (not in HUB_ICON)`);
+        const before = v.slice(0, m.index);
+        const sentenceStart = /^\s*$/.test(before) || /[.:!?]\s+$/.test(before);
+        // A part of a missing line (RECEIPT_MISSING[X.Y]) is a list item after its head ("Missing: <icon:blue> run"), not a sentence.
+        const listPart = /^SkiResort\.Hub\.RECEIPT_MISSING\[\w+\.\w+\]$/.test(k);
+        if (m[1] === "icon" && !listPart && /^\s*$|[.!?]\s+$/.test(before)) bad.push(`${k}: <icon:${m[2]}> starts a sentence (an icon stands for a word inside a line)`);
+        if (m[1] === "mark" && !sentenceStart) bad.push(`${k}: <mark:${m[2]}> must open the text or a sentence (a hanging row)`);
+      }
+      if (/<(icon|mark):/.test(v.replace(tagRe, ""))) bad.push(`${k}: malformed tag (grammar ${R.ICON_TAG_SOURCE})`);
+    }
+    for (const n of names) if (!tuples.has(`SkiResort.Hub.ICON[${n}]`) || !csTuples.has(`SkiResort.Hub.ICON[${n}]`)) bad.push(`ICON[${n}]: word key missing`);
+    eq("T42.11 R-icon text side: tags only in SkiResort.Hub.*, every NAME in HUB_ICON with its ICON[NAME] word, no icon starts a sentence, marks open one",
+      bad, []);
+    // T18.5: a missing line (RECEIPT_MISSING[X] and its parts RECEIPT_MISSING[X.*]) is at most 10 words with every part shown. A tag is one
+    // word (T18.4's rule). Placeholders count as the one word they print.
+    const fam = new Map();
+    for (const [k, v] of tuples) {
+      const m = /^SkiResort\.Hub\.RECEIPT_MISSING\[([A-Za-z]+)(?:\.[A-Za-z]+)?\]$/.exec(k);
+      if (m) fam.set(m[1], (fam.get(m[1]) || 0) + words(v));
+    }
+    eq("T18.5 every missing line is at most 10 words with all its parts", [fam.size >= 7, [...fam].filter(([, n]) => n > 10)], [true, []]);
+
+    // The icon SVGs: well-formed XML (no "--" in a comment, balanced tags, quoted attributes) and colors from the token block or the two
+    // vanilla variables the hub uses unchanged (normalTextColor, highlightYellow; T42.14 checks them against the installed index.css when
+    // CSII_INSTALLATIONPATH is set). Inline icons cannot be tinted, so a color drift would be invisible in review.
+    const scss = fs.readFileSync(path.join(srcDir, "hub", "hub.module.scss"), "utf8");
+    const tokenEnd = scss.indexOf("// ---- end of tokens");
+    const allowed = new Set();
+    const key = (r, g, b, a) => `${+r},${+g},${+b},${Math.round(+a * 100) / 100}`;
+    for (const m of scss.slice(0, tokenEnd).matchAll(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\s*\)/g)) allowed.add(key(m[1], m[2], m[3], m[4] ?? 1));
+    const VANILLA = { normalTextColor: [240, 251, 255], highlightYellow: [255, 203, 0] };
+    for (const c of Object.values(VANILLA)) allowed.add(key(c[0], c[1], c[2], 1));
+    {
+      const install = require("./user-env").readCsiiVar("CSII_INSTALLATIONPATH").value;
+      const css = install && path.join(install, "Cities2_Data", "Content", "Game", "UI", "index.css");
+      if (css && fs.existsSync(css)) {
+        const text = fs.readFileSync(css, "utf8");
+        const hex = (n) => { const m = new RegExp(`--${n}:\\s*#([0-9a-fA-F]{6})\\s*;`).exec(text); return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : null; };
+        eq("T42.14 the vanilla icon colors equal the installed index.css", Object.keys(VANILLA).map(hex), Object.values(VANILLA));
+      }
+    }
+    const iconDir = path.join(srcDir, "hub", "icons");
+    const svgs = fs.existsSync(iconDir) ? fs.readdirSync(iconDir).filter((f) => f.endsWith(".svg")).sort() : [];
+    const svgBad = [];
+    const wellFormed = (text) => {
+      const stack = [];
+      const re = /<!--([\s\S]*?)-->|<(\/?)([A-Za-z][\w:-]*)((?:\s+[\w:-]+="[^"<]*")*)\s*(\/?)>|<|>/g;
+      let m, last = 0;
+      while ((m = re.exec(text)) !== null) {
+        if (text.slice(last, m.index).trim()) return `text outside a tag near ${m.index}`;
+        last = re.lastIndex;
+        if (m[1] !== undefined) { if (m[1].includes("--")) return `"--" inside a comment`; continue; }
+        if (!m[3]) return `stray "${m[0]}" at ${m.index}`;
+        if (m[2]) { if (stack.pop() !== m[3]) return `unbalanced </${m[3]}>`; } else if (!m[5]) stack.push(m[3]);
+      }
+      return stack.length ? `unclosed <${stack[stack.length - 1]}>` : null;
+    };
+    for (const f of svgs) {
+      const text = fs.readFileSync(path.join(iconDir, f), "utf8");
+      const err = wellFormed(text);
+      if (err) svgBad.push(`${f}: not well-formed XML (${err})`);
+      for (const el of text.matchAll(/<(?:circle|rect|path|polygon|ellipse|line)\b([^>]*)>/g)) {
+        for (const prop of ["fill", "stroke"]) {
+          const v = new RegExp(`\\s${prop}="([^"]*)"`).exec(el[1]);
+          if (!v || v[1] === "none") continue;
+          const c = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(v[1]);
+          const op = new RegExp(`\\s${prop}-opacity="([\\d.]+)"`).exec(el[1]);
+          if (!c) svgBad.push(`${f}: ${prop}="${v[1]}" is not rgb(r,g,b)`);
+          else if (!allowed.has(key(c[1], c[2], c[3], op ? op[1] : 1))) svgBad.push(`${f}: ${prop} ${v[1]}${op ? " opacity " + op[1] : ""} is no hub token`);
+        }
+      }
+    }
+    const imported = [...iconSrc.matchAll(/from "\.\/icons\/([\w-]+\.svg)"/g)].map((m) => m[1]).sort();
+    eq("T42.12 icon SVGs: 8 files, every one imported by hubIcons.ts, well-formed, colors from the token block", [svgs, imported, svgBad],
+      [["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "open.svg", "openpatchy.svg", "patchy.svg"],
+        ["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "open.svg", "openpatchy.svg", "patchy.svg"], []]);
+    // The harness base scenario sends the contract number. A stale one shows the mismatch card in every harness scenario, and the
+    // layout test then fails with "reading 'click'" instead of a clear message (round 620 hit this). The harness sits next to src/;
+    // a --src= copy without it (tools/test-gate-fixtures.js) skips the check.
+    const scenariosJs = path.join(srcDir, "..", "harness", "scenarios.js");
+    if (fs.existsSync(scenariosJs)) {
+      const harnessBase = /const base = \{[^\n]*\bcontract: (\d+),/.exec(fs.readFileSync(scenariosJs, "utf8"));
+      eq("T42.15 harness/scenarios.js base contract equals HUB_CONTRACT", harnessBase ? +harnessBase[1] : null, BIND.HUB_CONTRACT);
+    }
+    eq("T42.13 the gate catches a bad SVG (fixtures)", [wellFormed("<svg><!-- a -- b --></svg>"), wellFormed("<svg><g></svg>"), wellFormed("<svg/>")],
+      ['"--" inside a comment', "unbalanced </svg>", null]);
+  }
+
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;
   for (const f of hr.failures) failures.push(`test-history-rules ${f}`);

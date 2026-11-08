@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+<!-- Modular Ski Resort hub icon (icon scheme, 2026-11-08). Open run: the filled state dot of the run and lift rows, in the vanilla normalTextColor. Fixed colors: inline icons cannot be tinted (gate T42 checks them against the token block). -->
+<circle cx="8" cy="8" r="4.6" fill="rgb(240,251,255)"/>
+</svg>

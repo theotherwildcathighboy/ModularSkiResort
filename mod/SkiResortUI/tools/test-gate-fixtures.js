@@ -97,6 +97,14 @@ function main() {
     const r5 = runGate(f5.cs, f5.src);
     expect(r5.code !== 0 && /src\/hub\/RunsView\.tsx:\d+: <Button> \(cs2\/ui Button\) without focusKey=\{FOCUS_DISABLED\}.*mouse-only.*rule R15/.test(r5.text),
       `R15 fixture did not fail with the hub-wide focusKey message (exit ${r5.code})`);
+
+    // R-icon (hub contract 40): an entry with an icon tag rendered by anything but <IconText> would print the tag. This copy
+    // renders the status rule through <LocText>.
+    const f6 = fresh("ricon");
+    edit(path.join(f6.src, "hub", "StatusBlock.tsx"), '<IconText key="r" entry={HUB_LOC.statusTipRule} />', '<LocText key="r" entry={HUB_LOC.statusTipRule} />');
+    const r6 = runGate(f6.cs, f6.src);
+    expect(r6.code !== 0 && /HUB_LOC\.statusTipRule holds an icon tag and is used outside <IconText entry=\{\.\.\.\}>.*rule R-icon/.test(r6.text),
+      `R-icon fixture did not fail with the icon-tag message (exit ${r6.code})`);
   } finally {
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* temp dir: leave it */ }
   }

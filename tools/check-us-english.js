@@ -10,7 +10,8 @@
  *   - docs-site/src/content/**.md(x): the prose. Code fences are skipped. LOCK regions are scanned too. A hit there is reported for
  *     the owner and never edited by an agent (CLAUDE.md docs-site rule).
  * T130 part 2 (2026-10-20) adds the text a developer reads:
- *   - the comments and docstrings of every .cs .ts .tsx .js .scss .py .ps1 .sh file under mod/, tests/, tools/, assets/blender, docs/.
+ *   - the comments and docstrings of every .cs .ts .tsx .js .scss .py .ps1 .sh file under mod/, tests/, tools/, assets/blender, docs/,
+ *     and the <!-- comments --> of every .svg there (the hub icons, DECISIONS 620).
  *   - the prose of every .md under docs/ (not docs/archive/), README / release / .claude / assets notes, code fences included.
  *   In comments and prose a token is NOT checked in these cases:
  *   - It is an identifier or a path. It holds _ or a digit or an inner capital (colour_set, GladeOutlineColour),
@@ -301,6 +302,12 @@ function lexSh(text) {
   }
   return R;
 }
+/** Offsets {s, e} of every <!-- comment --> of an XML file (the hub icon SVGs carry a design note each). */
+function lexXml(text) {
+  const R = []; let i = 0;
+  for (;;) { const a = text.indexOf("<!--", i); if (a < 0) break; let b = text.indexOf("-->", a + 4); if (b < 0) b = text.length; R.push({ s: a + 4, e: b }); i = b + 3; }
+  return R;
+}
 /** A whitespace-delimited chunk that is a parameter (a=b), a path or a file name: its spelling is data. */
 function pathLike(chunk) {
   return /[=\\]/.test(chunk) || /^[./~]/.test(chunk) || /\w\/\w+\/\w/.test(chunk) || (/\.[A-Za-z]{1,5}$/.test(chunk) && chunk.includes("/")) ||
@@ -475,7 +482,7 @@ if (fs.existsSync(docsDir)) {
 const pending = new Set(PENDING);
 let pendingSeen = 0;
 const rel = (f) => path.relative(ROOT, f).split(path.sep).join("/");
-const SRC_EXT = /\.(cs|tsx?|jsx?|mjs|cjs|scss|css|py|ps1|sh)$/i;
+const SRC_EXT = /\.(cs|tsx?|jsx?|mjs|cjs|scss|css|py|ps1|sh|svg)$/i;
 const srcFiles = [];
 for (const d of ["mod", "tests", "tools", "assets/blender", "docs", "docs-site/src", "docs-site/tools"]) walkSrc(path.join(ROOT, d), (p) => SRC_EXT.test(p), srcFiles);
 for (const f of srcFiles) {
@@ -489,6 +496,7 @@ for (const f of srcFiles) {
   else if (/\.(scss|css)$/i.test(f)) ranges = lexC(text, false, false);
   else if (/\.py$/i.test(f)) ranges = lexPy(text);
   else if (/\.ps1$/i.test(f)) ranges = lexPs(text);
+  else if (/\.svg$/i.test(f)) ranges = lexXml(text);
   else ranges = lexSh(text);
   for (const rg of ranges) {
     const seg = text.slice(rg.s, rg.e);

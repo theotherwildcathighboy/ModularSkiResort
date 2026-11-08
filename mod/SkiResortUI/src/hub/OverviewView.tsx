@@ -16,7 +16,12 @@ import { BAND, PROBLEM, build$, city$, problems$, resortLive$, resorts$, runs$, 
 import type { BuildItem, CityStats, ProblemRow, ResortLive, ResortRow, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
-import { factorRowsOf, hectares, liveOf, receiptPartsVariant, resultVariant, schoolBuiltOf, schoolFlagOf, schoolState, scoreBarParts } from "./hubRules";
+import {
+  efficiencyAtFloor, factorRowsOf, hectares, liftsMissing, liveOf, lodgeExtraShort, receiptPartsVariant, resultVariant, runsMissing, schoolBuiltOf,
+  schoolFlagOf, schoolMissingOf, schoolState, scoreBarParts, varietyMissing, verticalShort,
+} from "./hubRules";
+import type { VarietyNeed } from "./hubRules";
+import { IconText, MissingLine } from "./iconText";
 import { ASSET_NAME, BAND_NAME, HUB_FMT, HUB_LOC, factorEntry } from "./hubText";
 import type { BuildItemId } from "../bindings";
 import {
@@ -166,8 +171,23 @@ function problemOf(problems: readonly ProblemRow[] | null | undefined, sign: Res
   return null;
 }
 
-function Receipt({ row, l, city, problems, build, t }: {
-  row: ResortRow; l: ResortLive | null; city: CityStats; problems: readonly ProblemRow[]; build: readonly BuildItem[]; t: Translate;
+/** The Variety row's flag shapes: the missing ratings as the Mountain legend draws them (black or harder: both diamonds). */
+const NEED_BANDS: Record<VarietyNeed, readonly number[]> = { green: [BAND.Green], blue: [BAND.Blue], black: [BAND.Black, BAND.DoubleBlack] };
+
+/** The Variety row's missing line: "Missing:" and one part per need. */
+function varietyMissingLine(needs: readonly VarietyNeed[]): JSX.Element {
+  return (
+    <MissingLine key="m" head={HUB_LOC.receiptMissingVariety} parts={[
+      needs.includes("green") && <IconText key="g" entry={HUB_LOC.varietyNeedGreen} line />,
+      needs.includes("blue") && <IconText key="b" entry={HUB_LOC.varietyNeedBlue} line />,
+      needs.includes("black") && <IconText key="k" entry={HUB_LOC.varietyNeedBlack} line />,
+    ]} />
+  );
+}
+
+function Receipt({ row, l, city, problems, build, areaRuns, t }: {
+  row: ResortRow; l: ResortLive | null; city: CityStats; problems: readonly ProblemRow[]; build: readonly BuildItem[];
+  areaRuns: readonly RunRow[]; t: Translate;
 }): JSX.Element {
   const held = !!l && l.attractionHeld;
   const attraction = l ? l.attraction : -1;
@@ -192,6 +212,13 @@ function Receipt({ row, l, city, problems, build, t }: {
   // The School row's flag. Built-but-0 has its own cause (the build strip's AlreadyBuilt lock = this shown sign has one).
   const schoolNow = schoolState(l, problems, row.sign, schoolBuiltOf(build));
   const schoolFlag = schoolFlagOf(schoolNow);
+  // The missing lines (icon scheme, contract 40): one caution line under a row's rule, only while something is missing. Every number is C#'s.
+  const schoolMiss = schoolMissingOf(schoolNow);
+  const needs = varietyMissing(l);
+  const vShort = verticalShort(l);
+  const liftsMiss = liftsMissing(row, l);
+  const runsMiss = runsMissing(row, l, areaRuns);
+  const lodgeShort = lodgeExtraShort(l);
   const K = numArg(city.scaleK, Unit.Integer);
   const noLodgeRow = variant === "noLodge" ? problemOf(problems, row.sign, PROBLEM.NoLodge) : null;
   const allOffRow = variant === "noLodge" && !noLodgeRow ? problemOf(problems, row.sign, PROBLEM.LodgesAllOff) : null;
@@ -232,6 +259,7 @@ function Receipt({ row, l, city, problems, build, t }: {
           t(HUB_LOC.receiptTipLodgeBase),
           l && l.lodgesActive >= 0 && <LocText key="n" entry={HUB_FMT.receiptTipLodges} args={{ N: numArg(l.lodgesActive, Unit.Integer) }} />,
           l && bestEntry && <LocText key="b" entry={HUB_FMT.receiptTipLodgeBest} args={{ NAME: t(bestEntry), E: numArg(l.lodgeExtra, Unit.FloatSingleFraction) }} />,
+          lodgeShort >= 0 && <IconText key="m" entry={HUB_FMT.receiptMissingLodges} args={{ E: numArg(lodgeShort, Unit.FloatSingleFraction) }} line missing />,
         ]} />}
       />
       {/* T80 (item 4): the section total. Its full equation is one layer down (the header's tooltip: RECEIPT_PARTS[_SCHOOL] +
@@ -257,21 +285,39 @@ function Receipt({ row, l, city, problems, build, t }: {
             ? <LocText key="o" entry={HUB_FMT.receiptOpen} args={{ PCT: numArg(l.openSharePct, Unit.Percentage) }} />
             : t(HUB_LOC.receiptOpenNone),
           <LocText key="f" entry={HUB_FMT.receiptTipOpen} args={{ FULL: numArg(l ? l.runsValueFull : -1, Unit.FloatSingleFraction) }} />,
+          runsMiss && <MissingLine key="m" head={HUB_LOC.receiptMissingRuns} parts={[
+            runsMiss.closed > 0 && <IconText key="c" entry={HUB_FMT.runsMissingClosed} args={{ N: numArg(runsMiss.closed, Unit.Integer) }} line />,
+            runsMiss.patchy > 0 && <IconText key="p" entry={HUB_FMT.runsMissingPatchy} args={{ N: numArg(runsMiss.patchy, Unit.Integer) }} line />,
+            runsMiss.noLift > 0 && <IconText key="u" entry={HUB_FMT.runsMissingNoLift} args={{ N: numArg(runsMiss.noLift, Unit.Integer) }} line />,
+          ]} />,
         ]} />} />
       <InfoLine sub op="+" label={t(HUB_LOC.receiptRowLifts)} value={parts.LIFTS}
-        tip={t(HUB_LOC.receiptTipLifts)} />
+        tip={<TipLines lines={[
+          t(HUB_LOC.receiptTipLifts),
+          liftsMiss && <MissingLine key="m" head={HUB_LOC.receiptMissingLifts} parts={[
+            liftsMiss.noPower > 0 && <IconText key="p" entry={HUB_FMT.liftsMissingNoPower} args={{ N: numArg(liftsMiss.noPower, Unit.Integer) }} line />,
+            liftsMiss.unfinished > 0 && <IconText key="u" entry={HUB_FMT.liftsMissingUnfinished} args={{ N: numArg(liftsMiss.unfinished, Unit.Integer) }} line />,
+          ]} />,
+        ]} />} />
       {/* Item 3: no school / no green run is a 0 with the warning glyph and the cause, not a tooltip sentence. */}
       <InfoLine sub op="+" label={t(HUB_LOC.receiptRowSchool)}
         flag={schoolFlag ? t(HUB_LOC[schoolFlag]) : undefined} flagDim={schoolNow === "waiting"}
         value={l && l.schoolValue >= 0 ? numArg(l.schoolValue, Unit.FloatSingleFraction, false, false) : DASH}
-        tip={t(HUB_LOC.receiptTipSchool)} />
+        tip={<TipLines lines={[
+          <IconText key="r" entry={HUB_LOC.receiptTipSchool} />,
+          schoolMiss && <IconText key="m" entry={HUB_LOC[schoolMiss]} line missing />,
+        ]} />} />
+      {/* The Variety row's flag at a glance (like the School row's "No green run"): the Warning glyph and the missing ratings' shapes. */}
       <InfoLine sub op="×" label={t(HUB_LOC.receiptRowVariety)}
+        flagShapes={needs.length > 0 ? needs.flatMap((n) => NEED_BANDS[n].map((b) => <BandMarker key={`${n}-${b}`} band={b} />)) : undefined}
         value={parts.VARIETY}
-        tip={t(HUB_LOC.receiptTipVariety)} />
+        tip={<TipLines lines={[<IconText key="r" entry={HUB_LOC.receiptTipVariety} />, needs.length > 0 && varietyMissingLine(needs)]} />} />
       <InfoLine sub op="×" label={t(HUB_LOC.receiptRowVertical)}
         value={parts.VERTICAL}
         tip={<TipLines lines={[
-          <LocText key="v" entry={HUB_FMT.receiptTipVertical} args={{ M: numArg(l ? l.scoreVerticalM : -1, Unit.Height) }} />]} />} />
+          <IconText key="v" entry={HUB_FMT.receiptTipVertical} args={{ M: numArg(l ? l.scoreVerticalM : -1, Unit.Height) }} />,
+          vShort >= 0 && <IconText key="m" entry={HUB_FMT.receiptMissingVertical} args={{ M: numArg(vShort, Unit.Height) }} line missing />,
+        ]} />} />
       </Fold>
       <InfoLine
         label={t(HUB_LOC.receiptEfficiency)}
@@ -280,6 +326,7 @@ function Receipt({ row, l, city, problems, build, t }: {
           t(HUB_LOC.receiptTipEfficiency),
           ...factors.map((f) => ({ label: t(factorEntry(f.factor)), value: numArg(f.pct, Unit.Percentage, true, false) })),
           l && l.jobs >= 0 && <LocText key="s" entry={HUB_FMT.staffLine} args={{ FILLED: numArg(l.jobsFilled, Unit.Integer), JOBS: numArg(l.jobs, Unit.Integer) }} />,
+          efficiencyAtFloor(l) && <IconText key="m" entry={HUB_LOC.receiptMissingEfficiency} line missing />,
         ]} />}
       />
       <Divider />
@@ -336,7 +383,7 @@ export function OverviewView(): JSX.Element {
   }
   return (
     <>
-      <Receipt row={row} l={l} city={city} problems={problems} build={build} t={t} />
+      <Receipt row={row} l={l} city={city} problems={problems} build={build} areaRuns={runsOf(runs, sign)} t={t} />
       <Divider />
       <MountainSection row={row} live={l} city={city} unrateable={unrateable} t={t} folded />
       <MergedFold sign={row.sign} />

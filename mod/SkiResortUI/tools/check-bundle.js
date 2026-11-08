@@ -116,6 +116,10 @@
  *      R19 an element argument of <LocText> / <LocalizedString> (directly, through ?: && || ??, or one same-file variable) is a
  *         loc component (LOC_ARG_COMPONENTS). The game renders it through its type's renderString and prints "[name/]" for any
  *         other component (2026-11-02: "Car spaces at [_i/]" while LocText had no renderString).
+ *      R-icon (icon scheme, hub contract 40) an entry whose English holds an icon tag (`<icon:NAME>` / `<mark:NAME>`) is referenced only
+ *         as the `entry` prop of <IconText> (src/hub/iconText.tsx), and t() / translate() on it FAILS: anything else prints the tag. R13
+ *         accepts <IconText entry={...}> for a placeholder entry as it accepts <LocText>, and R19 checks its `args`. The text side of the
+ *         rule (NAME in HUB_ICON, the word keys, tag positions, the 10-word missing lines, the SVG colors) is tools/test-hub-rules.js T42.
  *      `node tools/check-bundle.js --contract-only` runs R1-R7, R10 and R11-R19 plus the source lint without a bundle.
  *      `--hub-cs=`, `--catalog-cs=`, `--locale=`, `--lock=`, `--src=` and `--cs-dir=` point the checks at other files (fault
  *      tests). The gate reports any override as a WARNING.
@@ -213,7 +217,13 @@ const ENUM_PAIRS = [
 ];
 /** Rule R19: components the game can render as a placeholder argument (a renderString and a propsAreEqual: LocText carries
  * LocalizedString's, src/hub/parts.tsx) */
-const LOC_ARG_COMPONENTS = new Set(["LocText", "LocalizedString", "LocalizedNumber", "LocalizedBounds", "LocalizedFraction"]);
+const LOC_ARG_COMPONENTS = new Set(["LocText", "LocalizedString", "LocalizedNumber", "LocalizedBounds", "LocalizedFraction", "IconText"]);
+/** Rule R13: the components whose `entry` prop may take a placeholder entry (both fill "{...}" through LocalizedString). */
+const ENTRY_OWNERS = new Set(["LocText", "IconText"]);
+/** Rule R-icon (icon scheme, hub contract 40): an entry whose English holds an icon tag renders only through IconText
+ *  (src/hub/iconText.tsx). The tag grammar equals hubRules.ts ICON_TAG_SOURCE. */
+const ICON_ENTRY_OWNERS = new Set(["IconText"]);
+const ICON_TAG_RE = /<(icon|mark):[A-Za-z0-9_./-]+>/;
 /** Rule R14: JSX props whose string-literal value the player reads */
 const VISIBLE_PROPS = new Set(["label", "tip", "tooltip", "tooltipLabel", "placeholder", "aria-label", "alt", "title", "text", "header"]);
 /** Rule R14: a letter in any script (an untranslated word) */
@@ -1416,6 +1426,10 @@ function checkContract(errors, warnings, report, opts = {}) {
             placeholders++;
             errors.push(`${at(node)}: ${callee.getText(sf)}(...) on an entry with a placeholder ("${en.slice(0, 60)}") - translate() never substitutes {...}: use LocalizedString (<LocText>) (rule R5)`);
           }
+          if (en && ICON_TAG_RE.test(en)) {
+            placeholders++;
+            errors.push(`${at(node)}: ${callee.getText(sf)}(...) on an entry with an icon tag ("${en.slice(0, 60)}") - translate() prints the tag: render it with <IconText entry={...}> (rule R-icon)`);
+          }
         }
         // RenameField: the useLayoutEffect cleanup must call .blur()
         if (isRename && ts.isIdentifier(callee) && callee.text === "useLayoutEffect" && node.arguments[0]) {
@@ -1463,7 +1477,7 @@ function checkContract(errors, warnings, report, opts = {}) {
   const fixer = lintFixerRules(ts, parsed, entryMaps, errors);
   report.push(`contract R11-R14: ${fixer.panelRefs} panel-binding reference(s) in ${PANEL_FILES.size} panel file(s); ` +
     `${fixer.hookFns} function(s) hook-order checked; ${fixer.fmtRefs} placeholder-entry reference(s); ` +
-    `${fixer.createCalls} createElement/jsx call(s); ${fixer.visible} visible JSX string(s) checked; ${fixer.locArgs} placeholder element argument(s) (R19)`);
+    `${fixer.createCalls} createElement/jsx call(s); ${fixer.visible} visible JSX string(s) checked; ${fixer.locArgs} placeholder element argument(s) (R19); ${fixer.iconRefs} icon-tag entry reference(s) (R-icon)`);
 
   const edge = lintPanelEdgeFocus(ts, parsed, errors);
   report.push(`contract R15: ${edge.edges} Panel header/footer slot(s); ${edge.buttons} focusable cs2/ui JSX element(s) ` +
@@ -1515,7 +1529,7 @@ function checkContract(errors, warnings, report, opts = {}) {
  * Returns counters for the report line.
  */
 function lintFixerRules(ts, parsed, entryMaps, errors) {
-  const out = { panelRefs: 0, hookFns: 0, fmtRefs: 0, createCalls: 0, visible: 0, alwaysMountedImports: 0, locArgs: 0 };
+  const out = { panelRefs: 0, hookFns: 0, fmtRefs: 0, createCalls: 0, visible: 0, alwaysMountedImports: 0, locArgs: 0, iconRefs: 0 };
   const isHookName = (n) => /^use[A-Z0-9]/.test(n);
   const isFn = (n) => ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n) || ts.isArrowFunction(n) ||
     ts.isMethodDeclaration(n) || ts.isGetAccessorDeclaration(n) || ts.isSetAccessorDeclaration(n) || ts.isConstructorDeclaration(n);
@@ -1661,7 +1675,7 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
         const ok = p && ts.isJsxExpression(p) && p.parent && ts.isJsxAttribute(p.parent) &&
           p.parent.name.getText(sf) === "entry" && p.parent.parent && p.parent.parent.parent &&
           (ts.isJsxOpeningElement(p.parent.parent.parent) || ts.isJsxSelfClosingElement(p.parent.parent.parent)) &&
-          p.parent.parent.parent.tagName.getText(sf) === "LocText";
+          ENTRY_OWNERS.has(p.parent.parent.parent.tagName.getText(sf));
         if (!ok) errors.push(`${at(node)}: placeholder entry ${node.getText(sf)} used outside <LocText entry={...}> - only LocalizedString fills "{...}" (rule R13, R5 hardening)`);
       }
       if (ts.isIdentifier(node) && fmtMaps.has(node.text)) {
@@ -1671,12 +1685,24 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
         if (!ok) errors.push(`${at(node)}: the placeholder map ${node.text} is used as a value (aliased or spread) - reference its entries as ${node.text}.x inside <LocText entry={...}> only (rule R13, R5 hardening)`);
       }
 
+      // R-icon: an entry with an icon tag only as <IconText entry={...}> (t(), a title, a row label or a LocText would print the tag)
+      if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) &&
+          ICON_TAG_RE.test(entryMaps.get(`${node.expression.text}.${node.name.text}`) ?? "")) {
+        out.iconRefs++;
+        const p = node.parent;
+        const owner = p && ts.isJsxExpression(p) && p.parent && ts.isJsxAttribute(p.parent) && p.parent.name.getText(sf) === "entry" &&
+          p.parent.parent && p.parent.parent.parent ? p.parent.parent.parent : null;
+        const ok = !!owner && (ts.isJsxOpeningElement(owner) || ts.isJsxSelfClosingElement(owner)) &&
+          ICON_ENTRY_OWNERS.has(owner.tagName.getText(sf));
+        if (!ok) errors.push(`${at(node)}: entry ${node.getText(sf)} holds an icon tag and is used outside <IconText entry={...}> - anything else prints the tag (rule R-icon)`);
+      }
+
       // R19: an element argument of a placeholder is a loc component
       if (ts.isJsxAttribute(node) && node.name.getText(sf) === "args" && node.initializer && ts.isJsxExpression(node.initializer)) {
         const owner = node.parent && node.parent.parent;
         const tag = owner && (ts.isJsxOpeningElement(owner) || ts.isJsxSelfClosingElement(owner)) ? owner.tagName.getText(sf) : "";
         const obj = node.initializer.expression;
-        if ((tag === "LocText" || tag === "LocalizedString") && obj && ts.isObjectLiteralExpression(obj)) {
+        if ((tag === "LocText" || tag === "LocalizedString" || tag === "IconText") && obj && ts.isObjectLiteralExpression(obj)) {
           for (const prop of obj.properties) {
             const v = ts.isPropertyAssignment(prop) ? prop.initializer : ts.isShorthandPropertyAssignment(prop) ? prop.name : null;
             for (const el of argElements(v, 0)) {

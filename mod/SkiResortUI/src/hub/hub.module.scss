@@ -362,6 +362,124 @@
   white-space: nowrap;
 }
 
+// ---- icon scheme (hubIcons.ts, iconText.tsx, hub contract 40) -------------------------------
+// Inline icons are pre-colored <img> files (no mask, no CSS shape: neither draws inside cohinline). Size as vanilla's inline icon
+// (index.css .icon_B1q): 1.3 em, damped by the text scale. Fixed boxes, so a tooltip never resizes when an image arrives a frame late.
+
+.iconImg {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: calc(1.3em * (1 - var(--fontScaleChange) / 2));
+  height: calc(1.3em * (1 - var(--fontScaleChange) / 2));
+  vertical-align: middle; // works only inside cohinline (gameface layout-styling-text.md)
+}
+
+// A 24 x 16 icon (two shapes side by side)
+.iconImgWide {
+  width: calc(1.95em * (1 - var(--fontScaleChange) / 2));
+}
+
+// One space before an item of a structured row (a flex text box drops its edge spaces)
+.iconGap {
+  margin-left: 0.3em;
+}
+
+// A structured row: one line, never wraps (missing lines, counts, legend rows)
+.iconLine {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.iconLineText {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+// A missing line: the caution color (the icons keep their own colors)
+.iconMissing {
+  color: var(--hubCaution);
+}
+
+// Hanging marks: [mark | text that wraps]
+.iconRows {
+  display: flex;
+  flex-direction: column;
+}
+
+.iconMarkRow {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin-top: 2rem;
+}
+
+.iconMarkLead {
+  margin-right: 0.35em;
+}
+
+.iconMarkText {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0rem;
+}
+
+// The inline paragraph (Gameface cohinline: the S0 path, hubIcons.ts iconMode)
+.iconPara {
+  margin-top: 0rem;
+  margin-right: 0rem;
+  margin-bottom: 0rem;
+  margin-left: 0rem;
+}
+
+// A tag glued to its next word or punctuation
+.iconGlue {
+  white-space: nowrap;
+}
+
+// The header legend
+.legendInfoBox {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 0;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.4em;
+  height: 1.4em;
+}
+
+.legendInfoGlyph {
+  width: 0.85em;
+  height: 0.85em;
+}
+
+.iconLegendGroup {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4rem;
+}
+
+.iconLegendTitle {
+  color: var(--hubTextDim);
+}
+
+.iconLegendCell {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 0;
+  flex-shrink: 0;
+  justify-content: center;
+  width: calc(1.95em * (1 - var(--fontScaleChange) / 2));
+  margin-right: 0.4em;
+}
+
 // ---- StableWidth / NumCell (J1, J7, vanilla FullWidthDigits, index.js@1007800) --------------
 
 .stable {
@@ -1757,6 +1875,17 @@
   margin-left: 6rem;
 }
 
+// Icon scheme: InfoLine `flagShapes` - the missing run ratings after the Warning glyph (the Variety row), drawn with BandMarker (CSS
+// shapes in a flex row: no tags, no inline layout). Each marker keeps its own 1.4 em box.
+.flagShapes {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-left: 4rem;
+}
+
 // T80 (2026-10-18, item 3): InfoLine `flag` - the word after the Warning glyph ("No ski school"), warning color.
 .flagText {
   flex-grow: 0;
@@ -2222,10 +2351,6 @@
   background-color: rgba(0, 0, 0, 0);
 }
 
-.liftDotWarn {
-  background-color: var(--hubCaution);
-}
-
 .liftDotDim {
   background-color: var(--textColorDisabled);
 }
@@ -2251,6 +2376,34 @@
   border-right-color: var(--textColorDisabled);
   border-bottom-color: var(--textColorDisabled);
   border-left-color: var(--textColorDisabled);
+}
+
+// The half-filled caution dot (icon scheme, parts.tsx HalfDot): a patchy run, a lift without power. A caution ring (liftDotRing +
+// liftRingWarn) holds a clip box over its left half and, inside it, a disc as wide as the ring's inside. Only a rectangular overflow
+// clip and a round border-radius: no gradient, no per-corner radius. Shape AND color differ from the filled dot (the icons' patchy.svg).
+.liftDotHalf {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.liftDotHalfClip {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 50%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.liftDotHalfDisc {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 200%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: var(--hubCaution);
 }
 
 .liftWord {

@@ -7,11 +7,11 @@
  */
 import type { Entity } from "cs2/utils";
 import {
-  BUILD_ITEM_IDS, LIFT_STATE, QUICK_REJECT_BUCKETS, RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_MIN, RUN_PROP_SPACING_OFF, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
+  BUILD_ITEM_IDS, LIFT_STATE, QUICK_REJECT_BUCKETS, VARIETY_BAND, RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_MIN, RUN_PROP_SPACING_OFF, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
   TICKET_GATE, TRIP_PLANNER_UNKNOWN, entityId, sameEntity,
 } from "../bindings";
 import type {
-  BuildItem, BuildItemId, CityStats, LiftRow, ProblemRow, ResortLive, ResortRow, RunKind, RunLive,
+  BuildItem, BuildItemId, CityStats, LiftRow, ProblemRow, ResortLive, ResortRow, RunKind, RunLive, RunRow,
 } from "../bindings";
 
 
@@ -1043,4 +1043,204 @@ export function runPropSpacingStep(value: number, more: boolean): number {
   }
   for (let i = 0; i < L.length; i++) if (L[i] > value) return Math.min(RUN_PROP_SPACING_MAX, L[i]);
   return RUN_PROP_SPACING_OFF;
+}
+
+/* ---- icon tags in hub text (icon scheme, hub contract 40) ----------------------------------------------------------------------
+ * `<icon:NAME>` stands for a word: its word form is SkiResort.Hub.ICON[NAME] ("green", "open or patchy").
+ * `<mark:NAME>` sits beside a word that stays, at the start of the text or of a sentence. It opens a hanging row (icon | text), so it
+ * needs no inline layout. Its word form is nothing.
+ * NAME is a HUB_ICON key (hubIcons.ts) or, as in vanilla text, a Media/ path. The rules below are pure: iconText.tsx renders them,
+ * tools/test-hub-rules.js T42 holds the literal oracles. */
+export type IconToken = { kind: "text"; text: string } | { kind: "icon" | "mark"; name: string };
+
+/** The tag grammar (vanilla's own `<icon:Media/...>` form). check-bundle R-icon and check-ste read the same pattern. */
+export const ICON_TAG_SOURCE = "<(icon|mark):([A-Za-z0-9_./-]+)>";
+
+/** True when the text holds at least one icon or mark tag. */
+export function hasIconTag(s: string): boolean {
+  return typeof s === "string" && new RegExp(ICON_TAG_SOURCE).test(s);
+}
+
+/** The text split into text runs and tags, in order. Empty runs are dropped. Not a string gives []. */
+export function iconTokens(s: string): IconToken[] {
+  const out: IconToken[] = [];
+  if (typeof s !== "string") return out;
+  const re = new RegExp(ICON_TAG_SOURCE, "g");
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s)) !== null) {
+    if (m.index > last) out.push({ kind: "text", text: s.slice(last, m.index) });
+    out.push({ kind: m[1] === "mark" ? "mark" : "icon", name: m[2] });
+    last = re.lastIndex;
+  }
+  if (last < s.length) out.push({ kind: "text", text: s.slice(last) });
+  return out;
+}
+
+/** The word form: every icon tag becomes its word, every mark tag goes (with the spaces after it). What renderString, the logs and
+ *  check-ste see, and what a tooltip shows while the icons are off. */
+export function iconWordForm(s: string, word: (name: string) => string): string {
+  let out = "";
+  let dropSpace = false;
+  for (const tk of iconTokens(s)) {
+    if (tk.kind === "text") {
+      out += dropSpace ? tk.text.replace(/^\s+/, "") : tk.text;
+      dropSpace = false;
+    } else if (tk.kind === "icon") {
+      out += word(tk.name);
+      dropSpace = false;
+    } else {
+      dropSpace = true;
+    }
+  }
+  return out;
+}
+
+/** One hanging row: the mark that opens it (null = the text before the first mark) and its tokens, trimmed at both ends. */
+export interface IconRow { mark: string | null; tokens: IconToken[] }
+
+function textOf(tk: IconToken): string {
+  return tk.kind === "text" ? tk.text : "";
+}
+
+function trimTokens(tokens: readonly IconToken[]): IconToken[] {
+  const out = tokens.slice();
+  while (out.length && out[0].kind === "text" && !textOf(out[0]).trim()) out.shift();
+  while (out.length && out[out.length - 1].kind === "text" && !textOf(out[out.length - 1]).trim()) out.pop();
+  if (out.length && out[0].kind === "text") out[0] = { kind: "text", text: textOf(out[0]).replace(/^\s+/, "") };
+  const n = out.length - 1;
+  if (n >= 0 && out[n].kind === "text") out[n] = { kind: "text", text: textOf(out[n]).replace(/\s+$/, "") };
+  return out;
+}
+
+/** The text cut at every mark. Without a mark: one row with mark null. A blank lead before the first mark is dropped. */
+export function iconRows(tokens: readonly IconToken[]): IconRow[] {
+  const rows: IconRow[] = [];
+  let cur: IconRow = { mark: null, tokens: [] };
+  for (const tk of tokens) {
+    if (tk.kind === "mark") {
+      const lead = trimTokens(cur.tokens);
+      if (cur.mark !== null || lead.length) rows.push({ mark: cur.mark, tokens: lead });
+      cur = { mark: tk.name, tokens: [] };
+    } else cur.tokens.push(tk);
+  }
+  const rest = trimTokens(cur.tokens);
+  if (cur.mark !== null || rest.length) rows.push({ mark: cur.mark, tokens: rest });
+  return rows;
+}
+
+/** A piece of a wrapping paragraph: free text, or a glued run that must not break (an icon, its neighbor icons, and the next word or
+ *  punctuation), so an icon never starts a line alone and "●." never splits. */
+export type IconPiece = { kind: "text"; text: string } | { kind: "glue"; items: IconToken[] };
+
+export function iconPieces(tokens: readonly IconToken[]): IconPiece[] {
+  const out: IconPiece[] = [];
+  let i = 0;
+  while (i < tokens.length) {
+    const tk = tokens[i];
+    if (tk.kind === "text") {
+      out.push({ kind: "text", text: tk.text });
+      i++;
+      continue;
+    }
+    const items: IconToken[] = [];
+    while (i < tokens.length && tokens[i].kind !== "text") items.push(tokens[i++]);
+    const m = i < tokens.length ? /^\s*\S+/.exec(textOf(tokens[i])) : null;
+    if (m) {
+      const text = textOf(tokens[i]);
+      items.push({ kind: "text", text: m[0] });
+      out.push({ kind: "glue", items });
+      if (text.length > m[0].length) out.push({ kind: "text", text: text.slice(m[0].length) });
+      i++;
+    } else out.push({ kind: "glue", items });
+  }
+  return out;
+}
+
+/** An item of a one-line structured row (flex, never wraps). `gap` = a space stood before it in the text (a left margin of one
+ *  space: a flex text box drops its edge spaces). */
+export type IconLineItem = { kind: "text"; text: string; gap: boolean } | { kind: "icon"; name: string; gap: boolean };
+
+export function iconLineItems(tokens: readonly IconToken[]): IconLineItem[] {
+  const out: IconLineItem[] = [];
+  let space = false;
+  for (const tk of tokens) {
+    if (tk.kind === "text") {
+      const text = tk.text.trim();
+      if (text) {
+        out.push({ kind: "text", text, gap: out.length > 0 && (space || /^\s/.test(tk.text)) });
+        space = /\s$/.test(tk.text);
+      } else space = space || tk.text.length > 0;
+    } else {
+      out.push({ kind: "icon", name: tk.name, gap: out.length > 0 && space });
+      space = false;
+    }
+  }
+  return out;
+}
+
+/* ---- the receipt's missing lines (hub contract 40). Every number is C#'s (D10): the rules only pick what to show. ------------- */
+
+/** The variety needs not met (VARIETY_BAND bits cleared), in the order green, blue, black. [] = nothing to say: the bonus applies,
+ *  the bits are unknown (-1 or an older contract), or no run counts at all (summer: the Runs row already says why). */
+export type VarietyNeed = "green" | "blue" | "black";
+export function varietyMissing(l: ResortLive | null | undefined): VarietyNeed[] {
+  if (!l || !(l.varietyBands >= 0) || l.summer) return [];
+  const b = l.varietyBands | 0;
+  if ((b & VARIETY_BAND.All) === VARIETY_BAND.All) return [];
+  const out: VarietyNeed[] = [];
+  if (!(b & VARIETY_BAND.Green)) out.push("green");
+  if (!(b & VARIETY_BAND.Blue)) out.push("blue");
+  if (!(b & VARIETY_BAND.Black)) out.push("black");
+  return out;
+}
+
+/** Meters to the full vertical bonus, or -1 = no line (unknown, or under half a meter: the bonus is full). */
+export function verticalShort(l: ResortLive | null | undefined): number {
+  if (!l || !(l.verticalShortM >= 0.5)) return -1;
+  return l.verticalShortM;
+}
+
+/** The Lifts row's missing counts: complete lifts without power and unfinished lines. null = nothing missing or unknown. */
+export function liftsMissing(row: ResortRow, l: ResortLive | null | undefined): { noPower: number; unfinished: number } | null {
+  if (!l || !(l.liftsComplete >= 0) || !(l.liftsCounted >= 0)) return null;
+  const noPower = Math.max(0, (l.liftsComplete | 0) - (l.liftsCounted | 0));
+  const unfinished = unfinishedLifts(row, l);
+  return noPower + unfinished > 0 ? { noPower, unfinished } : null;
+}
+
+/** The Runs row's missing counts: closed, patchy, and member runs no lift serves. null = every run open and served, or unknown. */
+export function runsMissing(row: ResortRow, l: ResortLive | null | undefined, areaRuns: readonly RunRow[] | null | undefined):
+  { closed: number; patchy: number; noLift: number } | null {
+  if (!l || !(l.runsOpen >= 0) || !(l.runsPartly >= 0)) return null;
+  let noLift = 0;
+  for (const r of areaRuns ?? []) if (r && r.member && !r.served) noLift++;
+  const closed = closedRuns(row, l);
+  const patchy = Math.max(0, l.runsPartly | 0);
+  return closed + patchy + noLift > 0 ? { closed, patchy, noLift } : null;
+}
+
+/** The cap of the other lodges' extras in winter (C# SkiResortScore extra cap, pinned in RECEIPT_TIP[LodgeBase] by CG-T5). */
+export const LODGE_EXTRA_CAP = 24;
+
+/** The Lodge base row's extras below the cap: the extras, or -1 = no line (no lodge, summer, unknown, or at the cap). */
+export function lodgeExtraShort(l: ResortLive | null | undefined): number {
+  if (!l || l.summer || !(l.lodgesActive >= 1) || !(l.lodgeExtra >= 0) || l.lodgeExtra >= LODGE_EXTRA_CAP - 0.05) return -1;
+  return l.lodgeExtra;
+}
+
+/** The Efficiency row sits on its floor (C# holds the score's efficiency between 25 % and 100 %). */
+export const EFFICIENCY_FLOOR_PCT = 25;
+export function efficiencyAtFloor(l: ResortLive | null | undefined): boolean {
+  return !!l && l.efficiencyPct >= 0 && l.efficiencyPct <= EFFICIENCY_FLOOR_PCT;
+}
+
+/** The School row's missing line (HUB_LOC key name) by state. null = no line. */
+export function schoolMissingOf(s: SchoolState): "receiptMissingSchoolNone" | "receiptMissingSchoolGreen" | "receiptMissingSchoolWaiting" | null {
+  switch (s) {
+    case "none": case "off": return "receiptMissingSchoolNone";
+    case "noGreen": return "receiptMissingSchoolGreen";
+    case "waiting": return "receiptMissingSchoolWaiting";
+    default: return null;
+  }
 }

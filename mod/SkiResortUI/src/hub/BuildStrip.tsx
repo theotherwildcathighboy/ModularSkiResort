@@ -38,6 +38,7 @@ import {
   RUN_TYPE, sentKeyEntry,
 } from "./hubText";
 import { AssetIcon, Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
+import { IconText } from "./iconText";
 import { CatTrackDeleteChip } from "./CatTrackControls";
 import { QuickRunsChip } from "./QuickRunsControls";
 import { MergeLegend } from "./MergedFold";
@@ -196,8 +197,8 @@ function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
         ROAD_OPTIONAL_LODGES.has(e.id) && t(HUB_LOC.buildTipRoadOptional), // the cat track chain instead of city utilities
         LUXURY_LODGES.has(e.id) && t(HUB_LOC.buildTipLuxury), // the luxury label and its price tolerance
         k === "depot" && t(HUB_LOC.buildTipDepot),
-        k === "school" && t(HUB_LOC.buildTipSchool),
-        k === "patrol" && t(HUB_LOC.buildTipPatrol),
+        k === "school" && <IconText key="school" entry={HUB_LOC.buildTipSchool} />,
+        k === "patrol" && <IconText key="patrol" entry={HUB_LOC.buildTipPatrol} />,
         e.item.locked && t(sentKeyEntry(e.item.reason, HUB_LOC.locked)),
       ]}
     />

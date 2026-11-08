@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+<!-- Modular Ski Resort hub icon (icon scheme, 2026-11-08). Patchy run: a half-filled dot in the caution color (vanilla highlightYellow, the modern hubCaution). Shape and color differ from open. Fixed colors: inline icons cannot be tinted (gate T42 checks them against the token block). -->
+<circle cx="8" cy="8" r="4.1" fill="none" stroke="rgb(255,203,0)" stroke-width="1.1"/><path d="M8 3.4 A4.6 4.6 0 0 0 8 12.6 Z" fill="rgb(255,203,0)"/>
+</svg>

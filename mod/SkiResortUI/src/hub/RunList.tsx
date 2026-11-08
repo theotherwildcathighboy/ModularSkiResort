@@ -21,7 +21,7 @@ import { isRunKind } from "./buildItems";
 import { hectares } from "./hubRules";
 import { sendHoverRun } from "./hubState";
 import { HUB_FMT, HUB_LOC, bandEntry, runFeaturesEntry } from "./hubText";
-import { BandMarker, KindStripe, LocText, Num, NumCell, Tip, TipLines, cx, numArg } from "./parts";
+import { BandMarker, HalfDot, KindStripe, LocText, Num, NumCell, Tip, TipLines, cx, numArg } from "./parts";
 import type { NumberSamples } from "./parts";
 import { RenameField } from "./RenameField";
 import styles from "./hub.module.scss";
@@ -120,12 +120,13 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
   );
 }
 
-/** The run's state as the lift rows' dot (hub redesign 2026-11-07, inventory #21). Open = filled. Partly open = filled in the caution
-*  color. Closed = a ring (the row dims too). Not linked = an empty slot of the same width. The word is tooltip line 3. */
+/** The run's state as the lift rows' dot (hub redesign 2026-11-07, inventory #21). Open = filled. Partly open (patchy) = half-filled in the
+*  caution color (icon scheme: the patchy icon of hub text, shape and color). Closed = a ring (the row dims too). Not linked = an empty slot
+*  of the same width. The word is tooltip line 3. */
 function RunDot({ state }: { state: number }): JSX.Element {
+  if (state === OPEN_STATE.Partly) return <HalfDot />;
   const cls = state === OPEN_STATE.Open ? styles.liftDotNormal
-    : state === OPEN_STATE.Partly ? styles.liftDotWarn
-      : state === OPEN_STATE.Closed ? cx(styles.liftDotRing, styles.liftRingDim) : styles.liftDotNone;
+    : state === OPEN_STATE.Closed ? cx(styles.liftDotRing, styles.liftRingDim) : styles.liftDotNone;
   return <div className={cx(styles.liftDot, cls)} />;
 }
 

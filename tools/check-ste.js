@@ -71,12 +71,18 @@ function listTargets() {
 
 function playerTextFile(tmpDir) {
   const j = JSON.parse(fs.readFileSync(path.join(repo, 'locale', 'en-US.json'), 'utf8'));
-  const entries = Object.entries(j.entries || j).filter(([, v]) => typeof v === 'string' && /[A-Za-z]/.test(v));
+  const all = j.entries || j;
+  const entries = Object.entries(all).filter(([, v]) => typeof v === 'string' && /[A-Za-z]/.test(v));
+  // Hub icon tags (DECISIONS 620) are linted in their word form, the text a player reads in "words" mode: <icon:NAME> becomes the
+  // SkiResort.Hub.ICON[NAME] word, and <mark:NAME> goes away with the spaces after it (the row label repeats the state in words).
+  const wordForm = (s) => s
+    .replace(/<mark:[A-Za-z0-9_./-]+>\s*/g, '')
+    .replace(/<icon:([A-Za-z0-9_./-]+)>/g, (_, n) => (typeof all[`SkiResort.Hub.ICON[${n}]`] === 'string' ? all[`SkiResort.Hub.ICON[${n}]`] : n));
   const lines = [];
   const keyAt = new Map();
   for (const [k, v] of entries) {
     keyAt.set(lines.length + 1, k);
-    lines.push(v.replace(/\s*\n\s*/g, ' '), '');
+    lines.push(wordForm(v).replace(/\s*\n\s*/g, ' '), '');
   }
   const f = path.join(tmpDir, 'player-text.md');
   fs.writeFileSync(f, lines.join('\n'));

@@ -8,6 +8,8 @@ does not load other languages from this folder yet. That comes in a later patch,
 1. Copy `en-US.json` to `<locale-id>.json`, using the game's locale id (`de-DE`, `fr-FR`, `es-ES`, `ja-JP`, ...).
 2. Keep every key exactly as it is. Translate only the value on the right of each key.
 3. Keep placeholders such as `{N}`, `{NAME}` or `{PCT}` unchanged. You may move them to fit your grammar.
+   Keep icon tags such as `<icon:green>` or `<mark:open>` unchanged too. You may move an `<icon:...>` tag, but keep a `<mark:...>`
+   tag at the start of its sentence.
 4. Keep numbers and units (`km`, `m`, `%`) as they are, unless your language writes them differently. Keep key names such as
    `Ctrl+Shift+G`.
 5. Translate every value. Do not delete keys.

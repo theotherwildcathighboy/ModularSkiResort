@@ -22,7 +22,7 @@ import type { LocEntry, Translate } from "../l10n";
 import { liftCostReason, liftLine2, liftMark } from "./hubRules";
 import type { LiftCostReason } from "./hubRules";
 import { HUB_FMT, HUB_LOC, LIFT_TYPE, liftStatusEntry } from "./hubText";
-import { LocText, Num, StableWidth, Tip, TipLines, cx, numArg } from "./parts";
+import { HalfDot, LocText, Num, StableWidth, Tip, TipLines, cx, numArg } from "./parts";
 import { RenameField } from "./RenameField";
 import { keepFocus } from "./RunList";
 import styles from "./hub.module.scss";
@@ -142,12 +142,14 @@ function LiftLine2Impl({ row, partner, t, words, typeWords, focused, renaming, o
   const mark = liftMark(row.status);
   const markCls = mark.ring
     ? cx(styles.liftDot, styles.liftDotRing, mark.tone === "warn" ? styles.liftRingWarn : styles.liftRingDim)
-    : cx(styles.liftDot, mark.tone === "warn" ? styles.liftDotWarn : mark.tone === "dim" ? styles.liftDotDim : styles.liftDotNormal);
+    : cx(styles.liftDot, mark.tone === "dim" ? styles.liftDotDim : styles.liftDotNormal);
+  // A filled caution dot (no power) is the half-filled dot (icon scheme): shape and color, never color alone.
+  const halfDot = !mark.ring && mark.tone === "warn";
   const wordTone = row.status === LIFT_STATUS.NoPower || row.status === LIFT_STATUS.SectionMissing ? styles.liftWordWarn
     : row.status === LIFT_STATUS.ChairsStopped || row.status === LIFT_STATUS.Unfinished || row.status === LIFT_STATUS.Closed ? styles.liftWordDim : null;
   const inner = (
     <>
-      <div className={markCls} />
+      {halfDot ? <HalfDot /> : <div className={markCls} />}
       <div className={styles.rowName}>
         {renaming ? (
           <RenameField key="rename" initial={row.name} onCommit={(text) => onRename(row, text)} onClose={onRenameClose} />
