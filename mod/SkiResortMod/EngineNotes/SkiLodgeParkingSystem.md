@@ -83,6 +83,10 @@ applies the job scheduled on one tick on the next tick, so the main thread never
    - The verdict is `SkiParkingRules.ClassifyLane`.
    - Count = NetUtils.GetParkingSlotCount (NetUtils.cs:954-957, the roads info view's own count, RoadsInfoviewUISystem.cs:134-173) and
      the LaneObjects that are ParkedCars.
+   - Limit, accepted (owner, 2026-11-08): a lane with slot interval 0 is NoSlots, so street parallel parking never counts.
+     The 2026-11-08 probe city has `Parking Lane 2` with SlotSize (2, 0), so its interval is 0 (NetInitializeSystem.cs:1587-1597).
+     The roads info view also gives such a lane no slot count (RoadsInfoviewUISystem.cs:150-158). Real ski areas rarely rely on street
+     parking. Unverified: the pure vanilla prefab value (the playset has Realistic Parking).
    - The owner walk (<= MaxOwnerDepth) gives the root (`SkiParkingRules.RootOf`). The root sets the street / lot split and the
      reach test (`SpaceReachable`):
      - A Building on the chain gives ParkingBuilding (with a CarParkingFacility / CarParking) or OtherBuilding (a park's or shop's
