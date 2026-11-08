@@ -20,7 +20,7 @@
 * The test needs `npm run build` first (it mounts build/SkiResortMod.mjs). It also needs network access for the React UMD scripts
 * that the harness loads from cdnjs.
 * Usage:   node tools/test-hub-layout.js [--verbose]
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -300,6 +300,19 @@ const MERGE2 = [
   ["buildings-idle-1080-fs125", 1080, { scenario: ASH, view: 0, tab: "buildings", fs: 1.25 }],
   ["runs-tab-merge-armed-1080", 1080, { scenario: "Ash Flat, merge overlay armed", view: 0, tab: "runs" }],
 ];
+// 2026-11-08 round 616: the Attraction receipt's row tooltips, reworded (no "counts", no bare "×"). The Runs, lifts and school fold
+// is open (fold 0), so its rows can be hovered. `--list=tips` picks this list.
+const TIPS616 = [
+  ["tips-01-attraction-tile-1080", 1080, { scenario: ASH, view: 0, hover: "Attraction" }],
+  ["tips-02-lodge-base-1080", 1080, { scenario: ASH, view: 0, fold: 0, hover: "Lodge base" }],
+  ["tips-03-terrain-1080", 1080, { scenario: ASH, view: 0, fold: 0, hover: "Runs, lifts and school" }],
+  ["tips-04-school-1080", 1080, { scenario: ASH, view: 0, fold: 0, hover: "Ski school" }],
+  ["tips-05-variety-1080", 1080, { scenario: ASH, view: 0, fold: 0, hover: "Variety" }],
+  ["tips-06-vertical-1080", 1080, { scenario: ASH, view: 0, fold: 0, hover: "Vertical" }],
+  ["tips-07-efficiency-1080", 1080, { scenario: ASH, view: 0, fold: 0, hover: "Efficiency" }],
+  ["tips-08-share-1080", 1080, { scenario: ASH, view: 0, fold: 0, hover: "Share of city tourism" }],
+  ["tips-09-variety-1440-fs125", 1440, { scenario: ASH, view: 0, fold: 0, hover: "Variety", fs: 1.25 }],
+];
 
 async function shots(b, base, dir, list) {
   fs.mkdirSync(dir, { recursive: true });
@@ -361,7 +374,7 @@ async function main() {
   try {
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)),
-        process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();
