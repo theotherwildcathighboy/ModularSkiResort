@@ -1,4 +1,4 @@
-// Tests for the pure SkiParkingRules (P1, P3-P9). Oracles are literal hand values (the comments show the arithmetic).
+// Tests for the pure SkiParkingRules (P1, P3-P10). Oracles are literal hand values (the comments show the arithmetic).
 //
 // Not testable headless (ECS): the census job, the lane walk, the garage walk.
 
@@ -63,10 +63,32 @@ namespace ResortBatch
         private static void Reachable(Func<bool, string, string, bool> check)
         {
             const string w = "parking P7 (a lot with no road)";
-            check(SkiParkingRules.SpaceReachable(ParkingRoot.Street, false), w, "street, no building");
-            check(SkiParkingRules.SpaceReachable(ParkingRoot.ParkingBuilding, true), w, "lot on a road");
-            check(!SkiParkingRules.SpaceReachable(ParkingRoot.ParkingBuilding, false), w, "lot with no road");
-            check(!SkiParkingRules.SpaceReachable(ParkingRoot.OtherBuilding, false), w, "other building with no road");
+            // (root, building on the chain has a road, lane on a net edge, LaneConnection.m_StartLane set)
+            check(SkiParkingRules.SpaceReachable(ParkingRoot.Street, false, true, false), w, "street, no building");
+            check(SkiParkingRules.SpaceReachable(ParkingRoot.ParkingBuilding, true, false, true), w, "lot on a road");
+            check(!SkiParkingRules.SpaceReachable(ParkingRoot.ParkingBuilding, false, false, true), w,
+                  "lot building with no road: a lane link alone does not open it");
+            check(!SkiParkingRules.SpaceReachable(ParkingRoot.OtherBuilding, false, false, true), w, "other building with no road");
+            check(SkiParkingRules.SpaceReachable(ParkingRoot.OtherBuilding, true, false, false), w, "a shop's lot on a road");
+
+            // P10 (2026-11-08 probe): lots with no Building on the chain. Parking Lot Tool: stall decal > carrier with
+            // CarParkingFacility > lot area with CarParkingFacility. Placemaker: stall decal > carrier with CarParkingFacility.
+            // Both stall lanes carry LaneConnection.m_StartLane (the road lane the game linked).
+            const string w10 = "parking P10 (a lot with no building)";
+            check(SkiParkingRules.SpaceReachable(SkiParkingRules.RootOf(true, false, false), false, false, true), w10,
+                  "Parking Lot Tool / Placemaker stall linked to a road lane counts");
+            check(!SkiParkingRules.SpaceReachable(SkiParkingRules.RootOf(true, false, false), false, false, false), w10,
+                  "a stall the game linked to no road lane does not count");
+            check(SkiParkingRules.SpaceReachable(SkiParkingRules.RootOf(false, false, false), false, false, true), w10,
+                  "a decal stall on a bare owner (no facility) linked to a road lane counts");
+            check(!SkiParkingRules.SpaceReachable(SkiParkingRules.RootOf(false, false, false), false, false, false), w10,
+                  "a free-standing decal stall with no road link does not count (was counted as street before)");
+            check(SkiParkingRules.SpaceReachable(SkiParkingRules.RootOf(true, false, true), false, true, false), w10,
+                  "a parking lane on a lot's own net edge is on the road");
+            check(!SkiParkingRules.SpaceReachable(SkiParkingRules.RootOf(true, true, false), false, false, true), w10,
+                  "a vanilla lot building with no road stays unreachable, whatever its lanes link to");
+            check(!SkiParkingRules.SpaceReachable(SkiParkingRules.RootOf(false, true, false), false, false, true), w10,
+                  "a house's private drive with no road stays unreachable");
         }
 
         private static void Constants(Func<bool, string, string, bool> check)
@@ -99,15 +121,21 @@ namespace ResortBatch
             check((int)ParkingRoot.Street == 0, w, "ParkingRoot.Street 0");
             check((int)ParkingRoot.ParkingBuilding == 1, w, "ParkingRoot.ParkingBuilding 1");
             check((int)ParkingRoot.OtherBuilding == 2, w, "ParkingRoot.OtherBuilding 2");
+            check((int)ParkingRoot.Lot == 3, w, "ParkingRoot.Lot 3");
         }
 
         private static void RootAndRestriction(Func<bool, string, string, bool> check)
         {
             const string w = "parking P3";
-            RootCase(check, w, false, false, ParkingRoot.Street);
-            RootCase(check, w, true, true, ParkingRoot.ParkingBuilding);
-            RootCase(check, w, true, false, ParkingRoot.ParkingBuilding);
-            RootCase(check, w, false, true, ParkingRoot.OtherBuilding);
+            // (parking facility on the chain, building on the chain, lane on a net edge)
+            RootCase(check, w, false, false, true, ParkingRoot.Street);
+            RootCase(check, w, true, true, false, ParkingRoot.ParkingBuilding);
+            RootCase(check, w, true, true, true, ParkingRoot.ParkingBuilding);
+            RootCase(check, w, false, true, false, ParkingRoot.OtherBuilding);
+            RootCase(check, w, false, true, true, ParkingRoot.OtherBuilding);
+            RootCase(check, w, true, false, false, ParkingRoot.Lot);   // Parking Lot Tool / Placemaker stall (was ParkingBuilding)
+            RootCase(check, w, true, false, true, ParkingRoot.Lot);
+            RootCase(check, w, false, false, false, ParkingRoot.Lot);  // a decal stall on a bare owner (was Street)
 
             RestrictedCase(check, w, false, false, 0x0u, 0xC000u, false, "street");
             RestrictedCase(check, w, true, true, 0x0u, 0xC000u, false, "our sign or lodge");
@@ -120,10 +148,11 @@ namespace ResortBatch
             RestrictedCase(check, w, true, false, 0x8000u, 0x18000u, true, "garage, enter only");
         }
 
-        private static void RootCase(Func<bool, string, string, bool> check, string w, bool parking, bool building, ParkingRoot expected)
+        private static void RootCase(Func<bool, string, string, bool> check, string w, bool parking, bool building, bool onNetEdge,
+                                     ParkingRoot expected)
         {
-            ParkingRoot r = SkiParkingRules.RootOf(parking, building);
-            check(r == expected, w, $"RootOf({parking}, {building}) = {r}, expected {expected}");
+            ParkingRoot r = SkiParkingRules.RootOf(parking, building, onNetEdge);
+            check(r == expected, w, $"RootOf({parking}, {building}, {onNetEdge}) = {r}, expected {expected}");
         }
 
         private static void RestrictedCase(Func<bool, string, string, bool> check, string w, bool has, bool ours, uint flags,

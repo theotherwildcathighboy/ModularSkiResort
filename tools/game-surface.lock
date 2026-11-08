@@ -201,6 +201,7 @@ type Game.Net.CostSystem class 3e2210a645
 type Game.Net.Curve struct b1603e2672 burst:r:SkiLodgeParkingSystem m_Bezier:Bezier4x3 m_Length:float
 type Game.Net.Edge struct 53f3d73e35 m_Start:Entity m_End:Entity
 type Game.Net.EdgeGeometry struct 0897d7e493 m_Start:Segment m_End:Segment m_Bounds:Bounds3
+type Game.Net.EdgeLane struct 958fcac839 burst:r:SkiLodgeParkingSystem m_EdgeDelta:float2 m_ConnectedStartCount:byte m_ConnectedEndCount:byte
 type Game.Net.Elevation struct e5f51fdf85 m_Elevation:float2
 type Game.Net.FlowDirection enum decbe3155e None=0 Forward=1 Backward=2 Both=3
 type Game.Net.GarageLane struct 92233f9032 burst:r:SkiLodgeParkingSystem m_ParkingFee:ushort m_ComfortFactor:ushort m_VehicleCount:ushort m_VehicleCapacity:ushort
@@ -209,6 +210,8 @@ type Game.Net.GeometryFlags enum 02262cf8ae StraightEdges=1 StrictNodes=2 SnapCe
 type Game.Net.GeometrySystem class 24eff075cd
 type Game.Net.InitializeSystem class 61b5ed0648
 type Game.Net.Lane struct 7bd6891e4e m_StartNode:PathNode m_MiddleNode:PathNode m_EndNode:PathNode
+type Game.Net.LaneConnection struct 57a8e08db4 burst:r:SkiLodgeParkingSystem m_StartLane:Entity m_EndLane:Entity m_StartPosition:float m_EndPosition:float
+type Game.Net.LaneConnectionSystem class f9cbb1555f
 type Game.Net.LaneObject struct a939e531c6 burst:r:SkiLodgeParkingSystem m_LaneObject:Entity m_CurvePosition:float2
 type Game.Net.LaneSystem class 2ac0654e27
 type Game.Net.Layer enum c1b20ca837 Road=1 PowerlineLow=2 PowerlineHigh=4 WaterPipe=8 SewagePipe=16 StormwaterPipe=32 TrainTrack=64 Pathway=128 Waterway=256 Taxiway=512 TramTrack=1024 SubwayTrack=2048 Fence=4096 MarkerPathway=8192 MarkerTaxiway=16384 PublicTransportRoad=32768 LaneEditor=65536 ResourceLine=131072 NetFence=262144 None=0 All=uint.MaxValue
