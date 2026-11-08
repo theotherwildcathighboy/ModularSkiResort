@@ -234,6 +234,7 @@ namespace SkiResortMod.Systems
             public LiftPower Power = LiftPower.Unknown;    // the last power read for this pair (Unknown = not read)
             public bool PoseDirty;                         // write the frozen pose on the next move pass
             public bool TagBounds;                         // one Updated per chair after that write (bounds refresh)
+            public bool Swayed;                            // the job wrote a swinging held pose (DECISIONS 619): a stop of the swing rewrites the plain pose
             public bool RowKnown;                          // a census row of this pair at the last poll
             public LiftCensus.State RowState;
             public Entity RowBase;                         // that row's Base (the Base-ROLE station: the one read)
@@ -1921,8 +1922,7 @@ namespace SkiResortMod.Systems
                 // chairs stood. A gridded one stands on its grid places.
                 if (rebuilt && hold.Held && m_RebuildUncarried.TryGetValue(key, out bool seeded))
                 {
-                    loop.m_Wind?.Resume(hold.FrozenTimeS, timeS);   // the gusts and a wind blend continue from the frozen pose (CP-20)
-                    hold.FrozenTimeS = timeS;
+                    hold.FrozenTimeS = timeS;   // the swing clocks run on through a re-freeze (CarrierWind.SetHeld below: no change)
                     hold.PoseDirty = true;
                     hold.TagBounds = true;
                     changed = true;
@@ -1994,11 +1994,11 @@ namespace SkiResortMod.Systems
                         loop.m_Offsets[i] = LiftLoopHold.Rebase(loop.m_Offsets[i], loop.m_SpeedMps, hold.FrozenTimeS, timeS,
                                                                 loop.m_Length);
                     m_MoverArraysDirty = true;   // the Burst job reads the offsets from its own flat copy
-                    loop.m_Wind?.Resume(hold.FrozenTimeS, timeS);   // the gust clock and a wind blend resume where they froze (CP-20)
                     double place = FrozenPlace(loop, hold.FrozenTimeS);
                     hold.Held = false;
                     hold.PoseDirty = false;
                     hold.TagBounds = false;
+                    hold.Swayed = false;
                     changed = true;
                     string why = !ready ? "lift census not armed: fail open"
                         : !rowKnown ? "no census row: fail open"
@@ -2019,6 +2019,10 @@ namespace SkiResortMod.Systems
                     if (hold.ForPower)
                         heldChairsForPower += loop.m_Chairs.Count;
                 }
+                // The swing state follows the gate at this clock (a no-op without a change; it also heals a swing state left held by a
+                // dropped pair whose base station now runs a new loop). Entry starts the sway clock and the settle, release keeps the held
+                // time and grows the sway back: no step either way (CarrierWind.SetHeld, CP-20). A re-freeze at a rebuild is no change.
+                loop.m_Wind?.SetHeld(hold.Held, timeS);
             }
 
             // Pairs with no loop in the cache any more: dropped (the census lines and the static pin explain the lift).

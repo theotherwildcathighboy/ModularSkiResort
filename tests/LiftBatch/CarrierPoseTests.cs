@@ -1,5 +1,5 @@
 // The two-object carrier pose (CarrierPose.cs, the carrier grip round, docs plan carrier-pivot-swing-plan-2026-11-03 section 6).
-// Where-tags `carrier-pose/...`, CP-1..CP-20.
+// Where-tags `carrier-pose/...`, CP-1..CP-21.
 // Pinned:
 // - Zero swing on a level rope is today's rigid pose (body = rope - drop, yaw = NetUtils.GetNodeRotation's).
 // - The grip's axis follows the rope tangent within 0.1 deg, and the rope point stays in its jaw within 1 cm.
@@ -18,7 +18,9 @@
 // The fore-aft turns the body about the pin. The roll's per-type limits keep a chair's base excursion at the old 8 deg pin roll's.
 // They hold the tram to 2 deg at half its fore-aft amplitude (CP-18).
 // The visible-sway round (2026-11-06): chairs and cabins rock 4 to 6 deg peak to peak at |w| 0.31 under gusts while the lean keeps
-// its direction (CP-19). A hold release resumes the gusts (CP-20).
+// its direction (CP-19).
+// The stopped lift round (DECISIONS 619): a held carrier keeps swinging at HeldSwayShare of the running sway, with no step at the stop
+// or the restart (CP-20). The sway clock wraps cleanly and the scaled sway stays inside the clamps (CP-21).
 
 using System;
 using System.Globalization;
@@ -60,6 +62,7 @@ namespace LiftBatch
             Cp18RollAboutRope();
             Cp19Visible();
             Cp20HoldResume();
+            Cp21SwayClock();
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);
@@ -564,55 +567,269 @@ namespace LiftBatch
             }
         }
 
-        // ── CP-20: a hold release (or a re-freeze at a rebuild) resumes the gusts and a wind blend where they froze
-        // (CarrierWind.Resume). The swing of the first running frame equals the frozen pose's (<= 0.01 deg). Rebase keeps s continuous.
-        // Without the shift it would jump (> 0.1 deg, the test can catch it). Gust: [0.6, 1.0] over the world and the clock, and two
-        // carriers 20 m apart nearly together. ──
+        // ── CP-20: a stopped lift keeps swinging, with no step at the stop or the restart (the stopped lift round, DECISIONS 619). One FG
+        // carrier mid-span, |w| 0.31 cross wind, runs 30 s, stands held 37.3 s, runs 40 s. Sampled every 1/480 s (FineS) with the
+        // system's order: at a hold change CarrierWind.SetHeld runs first, then the pose. s stands while held, and the Rebase keeps s
+        // continuous at the release. Checks:
+        //  (a) the pose at the change clock is the same before and after SetHeld (<= 1e-4 deg), at the stop and at the restart.
+        //  (b) every 1/480 s step <= the analytic bound (RateBound + the envelope's rate) x FineS + 0.01 deg, every 1x frame <= 0.5 deg.
+        //  (c) the held carrier swings: its roll peak to peak after the settle is 0.45 to 0.75 of the running one (HeldSwayShare 0.6).
+        //  (d) the envelope settles to HeldSwayShare and grows back to 1.
+        //  (e) the self-test: the old frozen argument (no sway clock) would step > 0.1 deg at the restart.
+        // Also: the gust spans [0.6, 1.0] over the world and the clock, and two carriers 20 m apart gust nearly together. ──
         private static void Cp20HoldResume()
         {
             const string W = "carrier-pose/resume";
-            SwingLimits limits = LimitsOf(SkiCatalog.Lifts[0]);
-            quaternion yaw = Yaw(Tangent(0.3f, 0f), quaternion.identity);
-            float3 pos = new float3(1520.25f, 880f, -410.5f);
-            const float arg = 1.2f;
+            LiftTypeDef d = SkiCatalog.Lifts[0];
+            SwingLimits limits = LimitsOf(d);
+            float v = d.SpeedMps;
+            float omega = CarrierPose.Omega(d.Pivots.BodyPin.y);
+            float3 dir = Tangent(0.3f, 0f);
+            quaternion yaw = Yaw(dir, quaternion.identity);
+            float3 right = math.rotate(yaw, new float3(1f, 0f, 0f));
+            float2 windVec = 0.31f * math.normalize(new float2(right.x, right.z));
+            float3 start = new float3(1520.25f, 880f, -410.5f);
+            const float phase = 1.2f;
             var full = new float2(1f, 1f);
             var w = new CarrierWind();
-            w.Set(new float2(0.2f, 0.1f), 100.0);
-            w.Set(new float2(-0.25f, 0.2f), 103.0);   // a blend in progress at the freeze
-            const double frozen = 105.0, now = 105.0 + 37.3;
-            float2 Pose(double clockS) => CarrierPose.Swing(w.At(clockS), yaw, arg, full, limits, CarrierPose.Gust(CarrierPose.GustClock(w.GustTimeS(clockS)), pos));
-            quaternion before = CarrierPose.SwingRotation(Pose(frozen));
-            quaternion noShift = CarrierPose.SwingRotation(Pose(now));
-            w.Resume(frozen, now);
-            quaternion after = CarrierPose.SwingRotation(Pose(now));
-            double step = StepDeg(before, after), jump = StepDeg(before, noShift);
-            Check(step <= 0.01, W, "the first running frame after a hold steps " + F(step) + " deg (<= 0.01)");
-            Check(jump > 0.1, W, "without Resume the release would step only " + F(jump) + " deg: the test cannot catch a regression");
-            // The blend continues from the frozen point: one 3x frame later the swing moves by a smooth step only.
-            double next = StepDeg(after, CarrierPose.SwingRotation(Pose(now + FrameS)));
-            Check(next <= 0.5, W, "the frame after the release steps " + F(next) + " deg");
-            // A zero or negative hold changes nothing.
-            double heldBefore = w.m_HeldS;
-            w.Resume(now, now);
-            w.Resume(now, now - 5.0);
-            Check(w.m_HeldS == heldBefore, W, "a zero or negative hold shifts the gust clock");
-            Console.WriteLine("INFO  " + W + ": a release after 37.3 s steps " + F(step) + " deg with Resume, " + F(jump) + " deg without");
+            w.Set(windVec, 0.0);
+            const double t0 = 30.0 + 0.123, t1 = t0 + 37.3, end = t1 + 40.0;
+            const double s0 = 3000.0;
+
+            // The pose of the system at clock t with the loop distance s (the swing state as it stands).
+            float2 Pose(double t, double s, bool frozenArg)
+            {
+                float shift = frozenArg ? 0f : CarrierPose.SwayShift(omega, w.SwayTimeS(t));
+                float arg = CarrierPose.SwayArg(s, omega, v, phase + shift);
+                float3 pos = start + dir * (float)(s - s0);
+                return CarrierPose.Swing(w.At(t), yaw, arg, full, limits, CarrierPose.Gust(CarrierPose.GustClock(t), pos), w.SwayScale(t));
+            }
+
+            int n = (int)(end / FineS);
+            var q = new quaternion[n + 1];
+            var lat = new double[n + 1];
+            bool heldNow = false;
+            double entryJump = 0.0, releaseJump = 0.0, oldReleaseJump = 0.0;
+            for (int i = 0; i <= n; i++)
+            {
+                double t = i * FineS;
+                bool held = t >= t0 && t < t1;
+                // s: runs before the hold, stands at s(t0) while held, runs on from there after the release (the Rebase).
+                double s = t < t0 ? s0 + v * t : t < t1 ? s0 + v * t0 : s0 + v * (t - (t1 - t0));
+                if (held != heldNow)
+                {
+                    quaternion before = CarrierPose.SwingRotation(Pose(t, s, false));
+                    w.SetHeld(held, t);
+                    quaternion after = CarrierPose.SwingRotation(Pose(t, s, false));
+                    if (held)
+                        entryJump = StepDeg(before, after);
+                    else
+                    {
+                        releaseJump = StepDeg(before, after);
+                        // The old design: the argument froze with s (no sway clock), so a carrier that swung while held lands at its
+                        // frozen argument at the restart.
+                        oldReleaseJump = StepDeg(before, CarrierPose.SwingRotation(Pose(t, s, true)));
+                    }
+                    heldNow = held;
+                }
+                float2 sw = Pose(t, s, false);
+                q[i] = CarrierPose.SwingRotation(sw);
+                lat[i] = math.degrees(sw.x);
+            }
+            Check(entryJump <= 1e-4, W, "the stop steps the pose " + F(entryJump) + " deg (<= 1e-4)");
+            Check(releaseJump <= 1e-4, W, "the restart steps the pose " + F(releaseJump) + " deg (<= 1e-4)");
+            Check(oldReleaseJump > 0.1, W, "the frozen argument would step only " + F(oldReleaseJump) + " deg at the restart: the test cannot catch a pop");
+
+            // (b) smoothness through both changes.
+            double envRate = (1.0 - CarrierPose.HeldSwayShare) / Math.Min(CarrierPose.HeldSettleS, CarrierPose.RestartSpinUpS) *
+                             Math.Min(CarrierPose.SwayPerWind * 0.31, CarrierPose.MaxSway) * (limits.RollGain + CarrierPose.ForeAftShare);
+            double rate = RateBound(limits, omega, v, CarrierPose.RampM(v), 0.31f, 0f) + envRate;
+            double capF = rate * FineS * 180.0 / Math.PI + StepEpsDeg;
+            double worstF = 0.0, worst1 = 0.0;
+            for (int i = 1; i <= n; i++)
+            {
+                worstF = Math.Max(worstF, StepDeg(q[i - 1], q[i]));
+                if (i >= FinePer1x)
+                    worst1 = Math.Max(worst1, StepDeg(q[i - FinePer1x], q[i]));
+            }
+            Check(worstF <= capF, W, "a 1/480 s step of " + F(worstF) + " deg is over the analytic bound " + F(capF) + " (a pop)");
+            Check(worst1 <= MaxStepDeg, W, "a 1x frame steps " + F(worst1) + " deg (hard cap " + F(MaxStepDeg) + ")");
+
+            // (c) the held carrier swings: peak to peak per pendulum period, running (10 to 30 s) vs held after the settle (t0 + 20 s to t1).
+            int per = (int)Math.Round(2.0 * Math.PI / omega / FineS);
+            double MedianPp(double from, double to)
+            {
+                var pp = new System.Collections.Generic.List<double>();
+                for (int a = (int)(from / FineS); a + per <= (int)(to / FineS); a += per)
+                {
+                    double lo = double.MaxValue, hi = double.MinValue;
+                    for (int i = a; i < a + per; i++)
+                    {
+                        lo = Math.Min(lo, lat[i]);
+                        hi = Math.Max(hi, lat[i]);
+                    }
+                    pp.Add(hi - lo);
+                }
+                pp.Sort();
+                return pp.Count > 0 ? pp[pp.Count / 2] : 0.0;
+            }
+            double ppRun = MedianPp(10.0, t0), ppHeld = MedianPp(t0 + 20.0, t1), ppAfter = MedianPp(t1 + 20.0, end);
+            double ratio = ppRun > 0.0 ? ppHeld / ppRun : 0.0;
+            Check(ppHeld >= 1.5, W, "a held carrier swings only " + F(ppHeld) + " deg peak to peak (want >= 1.5: visible)");
+            Check(ratio >= 0.45 && ratio <= 0.75, W, "held / running roll peak to peak " + F(ratio) + " (want 0.45 to 0.75 at HeldSwayShare " +
+                  F(CarrierPose.HeldSwayShare) + ")");
+            Check(ppAfter >= 0.9 * ppRun, W, "after the restart the sway is " + F(ppAfter) + " deg peak to peak, under 0.9 x the running " + F(ppRun));
+
+            // (d) the envelope.
+            float settled = CarrierPose.SwayEnvelope(true, 1f, 5.0 * CarrierPose.HeldSettleS);
+            float grown = CarrierPose.SwayEnvelope(false, CarrierPose.HeldSwayShare, 5.0 * CarrierPose.RestartSpinUpS);
+            Check(math.abs(settled - CarrierPose.HeldSwayShare) <= 0.01f && math.abs(grown - 1f) <= 0.01f, W,
+                  "the envelope settles to " + F(settled) + " / grows back to " + F(grown));
+            Console.WriteLine("INFO  " + W + ": FG stop / restart step " + F(entryJump) + " / " + F(releaseJump) + " deg (the frozen argument: " +
+                              F(oldReleaseJump) + "), roll peak to peak running " + F(ppRun) + ", held " + F(ppHeld) + " (x" + F(ratio) +
+                              "), after " + F(ppAfter) + " deg; worst 1/480 s step " + F(worstF) + " (bound " + F(capF) + "), worst 1x frame " +
+                              F(worst1) + " deg");
 
             // The gust range and its spatial coherence.
-            float lo = float.MaxValue, hi = float.MinValue, worstNear = 0f;
+            float glo = float.MaxValue, ghi = float.MinValue, worstNear = 0f;
             for (int i = 0; i < 4000; i++)
             {
                 double t = i * 0.37;
                 float3 p = new float3(-5000f + 2.5f * i, 0f, 3000f - 1.7f * i);
                 float g = CarrierPose.Gust(CarrierPose.GustClock(t), p);
-                lo = math.min(lo, g);
-                hi = math.max(hi, g);
+                glo = math.min(glo, g);
+                ghi = math.max(ghi, g);
                 float3 near = p + new float3(20f * 0.6f, 0f, 20f * 0.8f);
                 worstNear = math.max(worstNear, math.abs(g - CarrierPose.Gust(CarrierPose.GustClock(t), near)));
             }
-            Check(lo >= 0.6f - 1e-5f && hi <= 1f + 1e-5f && lo < 0.65f && hi > 0.95f, W, "the gust spans " + F(lo) + " to " + F(hi) + " (want [0.6, 1.0], reached)");
+            Check(glo >= 0.6f - 1e-5f && ghi <= 1f + 1e-5f && glo < 0.65f && ghi > 0.95f, W, "the gust spans " + F(glo) + " to " + F(ghi) + " (want [0.6, 1.0], reached)");
             Check(worstNear <= 0.2f, W, "two carriers 20 m apart differ by " + F(worstNear) + " in gust (<= 0.2: patches, not noise)");
-            Console.WriteLine("INFO  " + W + ": gust " + F(lo) + " to " + F(hi) + ", 20 m apart at most " + F(worstNear) + " apart");
+            Console.WriteLine("INFO  " + W + ": gust " + F(glo) + " to " + F(ghi) + ", 20 m apart at most " + F(worstNear) + " apart");
+        }
+
+        // ── CP-21: the sway clock's phase wrap and the amplitude bounds (DECISIONS 619).
+        //  (a) SwayShift stays in [0, 2 pi) out to 1e7 s of clock and moves sin(shift) by at most omega x dt per frame (no step at a wrap).
+        //      SwayArg wraps a phase + shift up to 4 pi into [0, 2 pi).
+        //  (b) SwayEnvelope starts at its from value, is monotone and stays between from and its target.
+        //  (c) power that flaps (a hold change every 0.53 s for 60 s): the envelope stays in [HeldSwayShare, 1] and moves at most its rate,
+        //      the sway clock never steps or runs back.
+        //  (d) Swing with a scale: 1 is the 6-argument Swing bit for bit, the sway part scales linearly, every scale in [0, 1] stays inside
+        //      the clamps (also a saturating wind). ──
+        private static void Cp21SwayClock()
+        {
+            const string W = "carrier-pose/sway-clock";
+            const double twoPi = 2.0 * Math.PI;
+            // (a)
+            float omega = CarrierPose.Omega(SkiCatalog.Lifts[2].Pivots.BodyPin.y);
+            bool inRange = true;
+            float worst = 0f;
+            float prev = CarrierPose.SwayShift(omega, 1e7);
+            for (int i = 1; i < 20000; i++)
+            {
+                double t = 1e7 + i * FrameS;
+                float a = CarrierPose.SwayShift(omega, t);
+                inRange &= a >= 0f && a < (float)twoPi;
+                worst = math.max(worst, math.abs(math.sin(a) - math.sin(prev)));
+                prev = a;
+            }
+            Check(inRange, W, "a sway shift outside [0, 2 pi)");
+            Check(worst <= omega * (float)FrameS * 1.001f + 1e-5f, W, "sin(shift) steps " + F(worst) + " per frame (bound omega x dt " + F(omega * FrameS) + ")");
+            Check(CarrierPose.SwayShift(omega, 0.0) == 0f, W, "a loop that never stood held has a sway shift");
+            float wrapped = CarrierPose.SwayArg(0.0, omega, 5f, 2f * math.PI - 1e-4f + 2f * math.PI - 1e-4f);
+            Check(wrapped >= 0f && wrapped < 2f * math.PI, W, "SwayArg left a phase + shift of 4 pi unwrapped: " + F(wrapped));
+
+            // (b)
+            foreach (bool held in new[] { true, false })
+            {
+                foreach (float from in new[] { 0f, 0.3f, CarrierPose.HeldSwayShare, 0.8f, 1f })
+                {
+                    float target = held ? CarrierPose.HeldSwayShare : 1f;
+                    float lo = math.min(from, target) - 1e-6f, hi = math.max(from, target) + 1e-6f;
+                    bool ok = CarrierPose.SwayEnvelope(held, from, 0.0) == from && CarrierPose.SwayEnvelope(held, from, -3.0) == from;
+                    float last = from;
+                    for (int i = 1; i <= 600; i++)
+                    {
+                        float e = CarrierPose.SwayEnvelope(held, from, i * 0.1);
+                        ok &= e >= lo && e <= hi && (target >= from ? e >= last - 1e-6f : e <= last + 1e-6f);
+                        last = e;
+                    }
+                    Check(ok, W, "the envelope (held " + held + ", from " + F(from) + ") leaves its range, steps at 0 or turns back");
+                }
+            }
+
+            // (c)
+            var w = new CarrierWind();
+            double prevClock = w.SwayTimeS(0.0);
+            float prevScale = w.SwayScale(0.0);
+            double scaleRate = (1.0 - CarrierPose.HeldSwayShare) / Math.Min(CarrierPose.HeldSettleS, CarrierPose.RestartSpinUpS);
+            bool flapOk = true;
+            string flapWhy = "";
+            float minScale = 1f;
+            int steps = (int)(60.0 / FineS);
+            for (int i = 1; i <= steps; i++)
+            {
+                double t = i * FineS;
+                w.SetHeld(((int)(t / 0.53) & 1) == 1, t);
+                double clock = w.SwayTimeS(t);
+                float scale = w.SwayScale(t);
+                minScale = math.min(minScale, scale);
+                if (clock < prevClock || clock - prevClock > FineS + 1e-9)
+                {
+                    flapOk = false;
+                    flapWhy = "the sway clock steps " + F(clock - prevClock) + " s in " + F(FineS) + " s at " + F(t);
+                }
+                if (scale < CarrierPose.HeldSwayShare - 1e-6f || scale > 1f + 1e-6f || math.abs(scale - prevScale) > scaleRate * FineS + 1e-6)
+                {
+                    flapOk = false;
+                    flapWhy = "the envelope is " + F(scale) + " after " + F(prevScale) + " at " + F(t);
+                }
+                prevClock = clock;
+                prevScale = scale;
+            }
+            Check(flapOk, W, "flapping power: " + flapWhy);
+
+            // (d)
+            bool bitOk = true, clampOk = true, linOk = true;
+            float worstLin = 0f;
+            foreach (LiftTypeDef d in SkiCatalog.Lifts)
+            {
+                SwingLimits lim = LimitsOf(d);
+                foreach (float yawRad in new[] { 0f, 1.1f, -2.4f })
+                {
+                    quaternion yaw = Yaw(Tangent(yawRad, 0f), quaternion.identity);
+                    foreach (float2 wind in new[] { new float2(0.31f, 0f), new float2(-0.2f, 0.25f), new float2(3f, 1f) })
+                    {
+                        for (int a = 0; a < 16; a++)
+                        {
+                            float arg = a * (2f * math.PI / 16f);
+                            float2 six = CarrierPose.Swing(wind, yaw, arg, new float2(1f, 1f), lim, 0.85f);
+                            bitOk &= six.Equals(CarrierPose.Swing(wind, yaw, arg, new float2(1f, 1f), lim, 0.85f, 1f));
+                            foreach (float sc in new[] { 0f, 0.25f, CarrierPose.HeldSwayShare, 1f })
+                            {
+                                float2 sw = CarrierPose.Swing(wind, yaw, arg, new float2(1f, 1f), lim, 0.85f, sc);
+                                clampOk &= math.abs(sw.x) <= lim.MaxRoll + 1e-6f && math.abs(sw.y) <= CarrierPose.MaxForeAft + 1e-6f;
+                            }
+                        }
+                        if (math.length(wind) > 1f)
+                            continue;   // the saturating wind clamps the lean against the room: linearity holds below the clamps
+                        // The roll's sway half range at arg pi/2 vs 3 pi/2 (the lean is the same at both): it scales with the envelope.
+                        float Half(float sc) => 0.5f * (CarrierPose.Swing(wind, yaw, 0.5f * math.PI, new float2(1f, 1f), lim, 0.85f, sc).x -
+                                                         CarrierPose.Swing(wind, yaw, 1.5f * math.PI, new float2(1f, 1f), lim, 0.85f, sc).x);
+                        float full = Half(1f);
+                        if (math.abs(full) > 1e-5f)
+                        {
+                            float r = Half(CarrierPose.HeldSwayShare) / full;
+                            worstLin = math.max(worstLin, math.abs(r - CarrierPose.HeldSwayShare));
+                            linOk &= math.abs(r - CarrierPose.HeldSwayShare) <= 1e-3f;
+                        }
+                    }
+                }
+            }
+            Check(bitOk, W, "Swing with scale 1 differs from the 6-argument Swing");
+            Check(clampOk, W, "a scaled swing leaves the clamps");
+            Check(linOk, W, "the held sway is not HeldSwayShare x the running sway (worst off by " + F(worstLin) + ")");
+            Console.WriteLine("INFO  " + W + ": shift wrap step " + F(worst) + " per frame at 1e7 s, flapping power envelope min " + F(minScale) +
+                              ", held sway / running sway off by at most " + F(worstLin));
         }
 
         // ── CP-15: the static pin (TryPinChair + PinGripOf): the body comes from the same Pose call as the pitched grip (zero swing), so the

@@ -11,7 +11,7 @@
 // The roll's lever is the rope point to the body's base, longer than the old pin roll's. So a chair / gondola scales its roll gain and
 // clamp by the lever ratio (Limits). The tram's long hanger damps it to half the fore-aft amplitude and 2 deg.
 // This file is pure (Unity.Mathematics only). These share it: MoveChairsJob (Burst), ChairPinSystem's managed paths, TramShuttleSystem,
-// tests/LiftBatch (CarrierPoseTests, CP-1 to CP-20) and tests/MoverBench (B-5). CarrierWind (the per-loop wind snapshots) lives here too.
+// tests/LiftBatch (CarrierPoseTests, CP-1 to CP-21) and tests/MoverBench (B-5). CarrierWind (the per-loop wind snapshots) lives here too.
 // Frames: Unity's left-handed world, y up. A carrier's local frame is X right, Y up, Z forward. The YAW is the caller's: the rigid pose's
 // NetUtils.GetNodeRotation(travel tangent, fallback) (Game.Net/NetUtils.cs:316-324 in 1.6.2f1), unchanged. So the facing conventions (the
 // loop's travel yaw, the static pin's flip, the tram's -t_up) stay where they are.
@@ -21,13 +21,18 @@
 // one-piece carrier stands (rope point - drop). They put the grip where the old mesh's grip was (CP-1).
 // Swing (closed form, no integrated state, plan section 3, the visible-sway round 2026-11-06). Lean = the wind's cross / along components
 // in the carrier frame (fore-aft at ForeAftShare) times a GUST factor, clamped so the sway always has room. Sway = an amplitude that grows
-// with |w| (and a little with the gust) times sin / cos of an argument. The argument is a pure function of the loop distance s (SwayArg:
-// omega / v x s + a per-entity phase). So a paused game freezes it, and a hold freezes it. The hold's Rebase resumes it without a jump (s
-// is continuous there). Neighbors differ by omega x spacing / v.
+// with |w| (and a little with the gust) times sin / cos of an argument. The argument is omega x (s / v + the loop's sway clock) + a
+// per-entity phase (SwayArg + SwayShift). s = the loop distance. The sway clock (CarrierWind.SwayTimeS) is the mover time the loop
+// stood held: it runs only while the loop is held. So a running carrier swings at omega (s / v runs), a held carrier at the same omega
+// (the sway clock runs), and the argument is continuous at a hold's entry and at its release (s is frozen while the clock runs, then
+// the Rebase keeps s continuous while the clock stops). A paused game freezes both (the mover clock stops). Neighbors differ by omega x
+// spacing / v. A held loop's sway amplitude settles to HeldSwayShare (the motion's share of the sway is gone) and grows back at the
+// restart (SwayEnvelope, closed form, continuous: the stopped lift round, DECISIONS 619).
 // The gust (Gust) is two traveling sine waves over the world (periods GustPeriod1S / 2S, GustSpeedMps). It is a pure function of the mover
-// clock and the rope point, so a gust front crosses a line patch by patch instead of the whole lift breathing at once. CarrierWind.Resume
-// shifts its clock at a hold release, so a held loop's gusts resume where they froze. Lean and sway are zero on guided segments (bull wheel
-// arcs, the synthesized station runs). They ramp in linearly: the lean over the first RampM of a free run, the sway over the next RampM.
+// clock and the rope point, so a gust front crosses a line patch by patch instead of the whole lift breathing at once. Held loops are
+// posed with the live clock too, so the gusts and the wind blend never freeze (no clock shift at a release). Lean and sway are zero on
+// guided segments (bull wheel arcs, the synthesized station runs). They ramp in linearly: the lean over the first RampM of a free run,
+// the sway over the next RampM.
 // CP-9 (no visible step or pop): every frame's change stays within the analytic rate bound, at 30 fps 3x and 16x finer, and under
 // 0.5 deg per 30 fps frame at 1x.
 // The wind per loop: two snapshots and the clock of the change, smoothstep over WindBlendS (BlendWind). The caller samples WindSystem on
@@ -91,6 +96,15 @@ namespace SkiResortMod.Systems
         public const float RampSeconds = 2f;
         /// <summary>A free run with no guided segment anywhere (cannot happen on a built loop): no ramp.</summary>
         public const float NoGuidedM = 1e9f;
+        // ---- the stopped lift (DECISIONS 619, PLACEHOLDERS like the rest: in-game photos tune them) ----
+        /// <summary>A held carrier's sway amplitude as a share of a running one's: the wind still swings it, the motion over the towers
+        /// no longer does (0.6: FG / DQ / GD about 2.6 to 3.5 deg peak to peak at |w| 0.31, CP-21).</summary>
+        public const float HeldSwayShare = 0.6f;
+        /// <summary>After a stop the amplitude settles from where it was to HeldSwayShare with this time constant (s of mover clock):
+        /// about 1.5 pendulum periods, a pendulum that loses its extra swing over a few periods.</summary>
+        public const double HeldSettleS = 4.0;
+        /// <summary>After a restart the amplitude grows back to 1 with this time constant (s of mover clock).</summary>
+        public const double RestartSpinUpS = 3.0;
 
         /// <summary>The pin's pendulum frequency (rad/s) for a body whose pin is <paramref name="bodyPinY"/> above its bottom.</summary>
         public static float Omega(float bodyPinY)
@@ -221,15 +235,39 @@ namespace SkiResortMod.Systems
             return math.max(0f, math.min(runBefore + d, runAfter + (length - d)));
         }
 
-        /// <summary>The sway argument (rad, wrapped to [0, 2 pi)): omega / v x s + the per-entity phase. A pure function of the loop
-        /// distance s (double: s reaches kilometers), so it inherits the mover's continuity (pause, hold, Rebase). The loop's wrap
-        /// (s = 0) lies on the base turn, a guided segment where the sway is zero.</summary>
+        /// <summary>The sway argument (rad, wrapped to [0, 2 pi)): omega / v x s + <paramref name="phase"/>. The callers pass the
+        /// per-entity phase + the loop's SwayShift as the phase. A function of the loop distance s (double: s reaches kilometers) and of
+        /// the sway clock, so it inherits the mover's continuity (pause, hold, Rebase). The loop's wrap (s = 0) lies on the base turn, a
+        /// guided segment where the sway is zero.</summary>
         public static float SwayArg(double s, float omega, float speedMps, float phase)
         {
             const double twoPi = 6.283185307179586;
             double arg = s * omega / math.max(speedMps, 0.1f) + phase;
             arg -= math.floor(arg / twoPi) * twoPi;
             return (float)arg;
+        }
+
+        /// <summary>The sway clock's share of the argument: omega x <paramref name="swayTimeS"/> (CarrierWind.SwayTimeS: the time the
+        /// loop stood held), wrapped to [0, 2 pi) in double (the clock reaches days). One per loop and pass (the job gets it in JobLoop).
+        /// 0 for a loop that never stood held.</summary>
+        public static float SwayShift(float omega, double swayTimeS)
+        {
+            const double twoPi = 6.283185307179586;
+            double a = (double)omega * swayTimeS;
+            a -= math.floor(a / twoPi) * twoPi;
+            return a >= 0.0 && a < twoPi ? (float)a : 0f;   // (float) of a value just under 2 pi can round to 2 pi: SwayArg wraps it
+        }
+
+        /// <summary>The sway amplitude envelope <paramref name="sinceS"/> s of mover clock after the last hold change, from the scale
+        /// <paramref name="from"/> the carrier had then. Held: HeldSwayShare + (from - HeldSwayShare) e^(-t / HeldSettleS). Running:
+        /// 1 + (from - 1) e^(-t / RestartSpinUpS). Continuous at t = 0 (= from), monotone, inside [min(from, target), max(from,
+        /// target)].</summary>
+        public static float SwayEnvelope(bool held, float from, double sinceS)
+        {
+            double t = sinceS > 0.0 ? sinceS : 0.0;
+            double target = held ? HeldSwayShare : 1.0;
+            double k = math.exp(-t / (held ? HeldSettleS : RestartSpinUpS));
+            return (float)(target + (from - target) * k);
         }
 
         /// <summary>A per-carrier phase in [0, 2 pi) from a stable seed (the body entity's index), so neighbors never swing in step
@@ -240,8 +278,8 @@ namespace SkiResortMod.Systems
             return (h & 0xFFFFu) * (2f * math.PI / 65536f);
         }
 
-        /// <summary>The gust clock of mover time <paramref name="timeS"/> (CarrierWind.GustTimeS: the clock minus the held time): the
-        /// two waves' time phases, wrapped to [0, 2 pi) in double (the clock reaches days) and handed to Gust as floats. One per loop and
+        /// <summary>The gust clock of mover time <paramref name="timeS"/> (the live clock, also on a held loop): the two waves' time
+        /// phases, wrapped to [0, 2 pi) in double (the clock reaches days) and handed to Gust as floats. One per loop and
         /// pass (the job gets it in JobLoop).</summary>
         public static float2 GustClock(double timeS)
         {
@@ -271,6 +309,13 @@ namespace SkiResortMod.Systems
         /// clamped to the room the sway leaves (clamp - sway amplitude), so lean + sway stay inside the clamps without a flat top.</summary>
         public static float2 Swing(float2 wind, quaternion yaw, float swayArg, float2 ramp, in SwingLimits limits, float gust)
         {
+            return Swing(wind, yaw, swayArg, ramp, limits, gust, 1f);
+        }
+
+        /// <summary>Swing with the sway amplitude scaled by <paramref name="swayScale"/> (SwayEnvelope: 1 running, HeldSwayShare held,
+        /// in [0, 1]). The lean's room grows by what the smaller sway leaves. At 1 it is the 6-argument Swing bit for bit.</summary>
+        public static float2 Swing(float2 wind, quaternion yaw, float swayArg, float2 ramp, in SwingLimits limits, float gust, float swayScale)
+        {
             if (ramp.x <= 0f && ramp.y <= 0f)
                 return float2.zero;
             float3 f3 = math.rotate(yaw, new float3(0f, 0f, 1f));
@@ -281,6 +326,8 @@ namespace SkiResortMod.Systems
             float along = math.dot(wind, f);
             float maxRoll = limits.MaxRoll;
             float amp = math.min(SwayPerWind * mag, MaxSway) * (1f - SwayGustShare + SwayGustShare * gust);
+            if (swayScale != 1f)
+                amp *= math.saturate(swayScale);
             float ampLat = amp * limits.RollGain;
             float ampFa = amp * ForeAftShare;
             // The lean is clamped BEFORE the ramp scales it: a strong wind's unclamped lean would saturate within the first meter of
@@ -344,9 +391,10 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>One loop's (or tram's) wind for the swing: the last two snapshots of WindSystem's map at the loop and the mover clock of
-    /// the change (CarrierPose.BlendWind). Held by ChairPinSystem / TramShuttleSystem per base station, so a rebuild keeps it. Pure
-    /// (here, not in LiftLoopCache, so LiftBatch CP-8 / CP-17 can test it).</summary>
+    /// <summary>One loop's (or tram's) swing state: the wind (the last two snapshots of WindSystem's map at the loop and the mover clock
+    /// of the change, CarrierPose.BlendWind) and the hold's sway clock and amplitude envelope (DECISIONS 619). Held by ChairPinSystem /
+    /// TramShuttleSystem per base station, so a rebuild keeps it. Pure (here, not in LiftLoopCache, so LiftBatch CP-8 / CP-17 / CP-20 /
+    /// CP-21 can test it).</summary>
     internal sealed class CarrierWind
     {
         public float2 m_From, m_To;
@@ -354,24 +402,41 @@ namespace SkiResortMod.Systems
         public bool m_Known;
         /// <summary>At was read while the wind was unknown: carriers were posed with zero wind, so the first sample must blend in.</summary>
         public bool m_ServedUnknown;
-        /// <summary>The mover time this loop stood held (Resume): the gust clock runs on timeS - m_HeldS, so a release resumes the gusts
-        /// where they froze.</summary>
-        public double m_HeldS;
+        /// <summary>The loop stands held (SetHeld). Its sway clock runs.</summary>
+        public bool m_Held;
+        /// <summary>The mover time of the earlier holds (the sway clock at the current hold's entry, or now while running).</summary>
+        public double m_SwayBaseS;
+        /// <summary>The mover clock of the last hold change (entry or release) and the envelope's value then.</summary>
+        public double m_EdgeS;
+        public float m_EdgeScale = 1f;
 
-        /// <summary>The gust clock's time at mover clock <paramref name="timeS"/> (CarrierPose.GustClock of it).</summary>
-        public double GustTimeS(double timeS) => timeS - m_HeldS;
-
-        /// <summary>A held loop runs again (or re-freezes at a later clock): its poses stood at <paramref name="frozenS"/> and continue
-        /// at <paramref name="nowS"/>. The gust clock and a wind blend in progress both shift by the held time, so At(now) = At(frozen)
-        /// and the gusts continue from the frozen pose (CP-20: no lean step at a release).</summary>
-        public void Resume(double frozenS, double nowS)
+        /// <summary>The sway clock at mover clock <paramref name="timeS"/>: the time the loop stood held (CarrierPose.SwayShift of it).
+        /// It runs only while held and never steps.</summary>
+        public double SwayTimeS(double timeS)
         {
-            double held = nowS - frozenS;
-            if (!(held > 0.0))
+            return m_Held && timeS > m_EdgeS ? m_SwayBaseS + (timeS - m_EdgeS) : m_SwayBaseS;
+        }
+
+        /// <summary>The sway amplitude scale at mover clock <paramref name="timeS"/> (CarrierPose.SwayEnvelope): 1 for a loop that
+        /// never stood held.</summary>
+        public float SwayScale(double timeS)
+        {
+            return CarrierPose.SwayEnvelope(m_Held, m_EdgeScale, timeS - m_EdgeS);
+        }
+
+        /// <summary>The hold gate of the loop at mover clock <paramref name="timeS"/> (ChairPinSystem.PollHolds, every poll and each
+        /// loop: a no-op without a change). Entry: the sway clock starts running and the envelope settles from its value now. Release:
+        /// the sway clock keeps the held time and the envelope grows back from its value now. Both are continuous: the first pose after
+        /// the change repeats the last one before it (CP-20). A re-freeze at a rebuild is no change (the clock keeps running).</summary>
+        public void SetHeld(bool held, double timeS)
+        {
+            if (held == m_Held)
                 return;
-            m_HeldS += held;
-            if (m_Known)
-                m_ChangeS += held;
+            float scale = SwayScale(timeS);
+            m_SwayBaseS = SwayTimeS(timeS);
+            m_EdgeScale = scale;
+            m_EdgeS = timeS;
+            m_Held = held;
         }
 
         /// <summary>The blended wind at mover clock <paramref name="timeS"/>; zero while unknown.</summary>
