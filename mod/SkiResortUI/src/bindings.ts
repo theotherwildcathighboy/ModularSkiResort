@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 39;
+export const HUB_CONTRACT = 40;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -75,6 +75,10 @@ export const RUN_PAID = { Groomed: 4, Snowmaking: 8, Lights: 16 } as const;
 /** RunRow.band: -2 cannot be rated (final for the current outline and terrain), -1 not
  *  rated yet, 0 Flat .. 4 DoubleBlack (C#: SkiRunRatingRules.RowBand). The values are literal ints, with no enum. */
 export const BAND = { Unrateable: -2, Pending: -1, Flat: 0, Green: 1, Blue: 2, Black: 3, DoubleBlack: 4 } as const;
+
+/** ResortLive.varietyBands bits (contract 40). C#: SkiResortScore.VarietyGreen / VarietyBlue / VarietyBlack / VarietyAll (literal ints,
+ *  ResortBatch guards the values). Black covers double-black: either one sets it. */
+export const VARIETY_BAND = { Green: 1, Blue: 2, Black: 4, All: 7 } as const;
 
 /** LiftRow.state (stats rules). The values are literal ints in C#, with no enum. */
 export const LIFT_STATE = { Running: 0, Static: 1, Open: 2, Unfinished: 3, StationsOnly: 4 } as const;
@@ -765,6 +769,11 @@ export interface ResortLive {
   /** Contract 38: the Net's two sides (C# HubRules.IncomeMonth / CostsMonth over the same terms). incomeMonth - costsMonth = netMonth. */
   incomeMonth: number;
   costsMonth: number;
+  /** Contract 40 (icon scheme): the score's variety flags as bits (VARIETY_BAND: green 1, blue 2, black or harder 4), a band set when a
+   *  counted, Rated run of it exists. 7 = the bonus applies. The receipt's Variety line names the cleared bits. -1 without a score. */
+  varietyBands: number;
+  /** Contract 40: meters to the full vertical bonus (C# HubRules.VerticalShortM, 600 m minus the score's vertical, never below 0). -1 without a score. */
+  verticalShortM: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */

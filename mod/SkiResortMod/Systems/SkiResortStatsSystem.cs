@@ -111,6 +111,10 @@ namespace SkiResortMod.Systems
         public int BusChargedMonth, Depots, BusGuestsMonth, BusBillMonth;
         // Contract 38 (DECISIONS 613): the Net's two sides from the same terms (HubRules.IncomeMonth / CostsMonth, their difference is NetMonth).
         public int IncomeMonth, CostsMonth;
+        // Contract 40 (icon scheme): the receipt's missing lines. VarietyBands = Result.VarietyBands (bits green 1, blue 2, black or harder 4),
+        // VerticalShortM = HubRules.VerticalShortM (meters to the full vertical bonus). Both -1 without a Result.
+        public int VarietyBands;
+        public float VerticalShortM;
 
         /// <summary>The terms NetMonth was computed from (-1 unknown).</summary>
         public HubMonthMoney NetTerms => new HubMonthMoney
@@ -2120,6 +2124,8 @@ namespace SkiResortMod.Systems
                     live.VarietyMultiplier = (float)r.VarietyMultiplier;
                     live.VerticalMultiplier = (float)r.VerticalMultiplier;
                     live.ScoreVerticalM = (float)r.VerticalM;
+                    live.VarietyBands = r.VarietyBands;
+                    live.VerticalShortM = (float)HubRules.VerticalShortM(in r);
                     live.EfficiencyPct = v.EfficiencyUsedPct;
                     // The ladder, school and patrol facts of the Result.
                     LodgeDef best = r.LodgeBestIndex >= 0 && r.LodgeBestIndex < SkiCatalog.Lodges.Count
@@ -2136,6 +2142,8 @@ namespace SkiResortMod.Systems
                     live.Attraction = live.AttractionFull = live.LodgesActive = -1;
                     live.LiftsComplete = live.LiftsCounted = live.EfficiencyPct = live.OpenSharePct = -1;
                     live.VarietyMultiplier = live.VerticalMultiplier = 1f;
+                    live.VarietyBands = -1;
+                    live.VerticalShortM = -1f;
                     live.LodgeBest = ""; // no result: no best lodge, the counts 0
                 }
                 live.RunsValueFull = (float)work.RunsValueFull;
@@ -2404,6 +2412,8 @@ namespace SkiResortMod.Systems
                 TicketGate = -1, TicketIncomeMonth = -1, TicketPaidMonth = -1,
                 BuildingsMonth = -1, WagesMonth = -1,
                 VarietyMultiplier = 1f, VerticalMultiplier = 1f,
+                // no ski area: no score, so the missing lines have nothing to name (contract 40).
+                VarietyBands = -1, VerticalShortM = -1f,
                 // no ski area, no ski days: State and Limit 0, the other eight -1.
                 SkiDaysState = 0, SkiDaysLimit = 0,
                 SkiDaysThisMonth = -1, SkiDaysLastMonth = -1, SkiDaysSent = -1, SkiDaysSentCar = -1, SkiDaysSentNoCar = -1,
@@ -3102,6 +3112,8 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.BusBillMonth);
                 h = Mix(h, (uint)r.IncomeMonth);
                 h = Mix(h, (uint)r.CostsMonth);
+                h = Mix(h, (uint)r.VarietyBands);
+                h = MixF(h, r.VerticalShortM);
             }
             return Mix(h, (uint)rows.Count);
         }

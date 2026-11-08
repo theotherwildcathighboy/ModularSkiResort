@@ -2,7 +2,7 @@
 # Written by `npm run contract:lock` (tools/check-bundle.js --write-lock); checked on every build
 # (rule R3, docs/research/hub-u2-spec.md section 4.7). Do not edit by hand: change src/bindings.ts,
 # bump HUB_CONTRACT (and C#'s HubContract), run `npm run contract:lock`, review this file's diff.
-contract 39
+contract 40
 core build
 core buildStamp
 core contract
@@ -417,8 +417,10 @@ shape ResortLive.touristGroupsThisMonth : number
 shape ResortLive.touristsLastMonth : number
 shape ResortLive.touristsThisMonth : number
 shape ResortLive.unpaidThisMonth : number
+shape ResortLive.varietyBands : number
 shape ResortLive.varietyMultiplier : number
 shape ResortLive.verticalMultiplier : number
+shape ResortLive.verticalShortM : number
 shape ResortLive.wagesMonth : number
 shape ResortLive.wagesSoFar : number
 shape ResortRow.areaM2 : number

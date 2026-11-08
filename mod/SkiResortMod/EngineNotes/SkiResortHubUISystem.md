@@ -445,6 +445,10 @@ Appended fields and bindings by contract:
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan). `quickRunsSet` gains `lifts`,
   `home`, `pod`, `lift`. The integration branch carries this bump from the A7 merge, so its gates stay green. Re-bump if main takes
   22 first.
+- 40: the receipt's missing lines (icon scheme). `ResortLive` appends `varietyBands` (int: bits 1 green, 2 blue, 4 black or harder of
+  `SkiResortScore.Result.VarietyBands`, the counted Rated runs) and `verticalShortM` (float: `HubRules.VerticalShortM`, meters to the full
+  vertical bonus). Both are -1 without a score (no Result, Not linked). The Variety row's "Missing:" line and flag name the cleared bits.
+  The UI never recomputes the variety rule (D10).
 - 39: merge warning (SkiMergeSystem.md, Hub section). `MergeCardState` and `MergeOverlayState` append `geometry` and `reachM`.
   `geometry` is true when some ski area has a run outline or a lift station (`TryGetSlopesideBounds`). `reachM` is `SlopesideMaxM` in
   meters, for the warning text. With no geometry nothing is Near. The card shows the warning and turns Merge off. The Buildings tab

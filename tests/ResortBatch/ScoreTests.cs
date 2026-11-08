@@ -312,6 +312,8 @@ namespace ResortBatch
             Check(Near(r.VerticalMultiplier, verticalX, 1e-6), w, $"VerticalMultiplier {r.VerticalMultiplier:R}, expected {verticalX}");
             Check(r.Variety == variety && r.VarietyMultiplier == (variety ? 1.15 : 1.0), w,
                   $"Variety {r.Variety} ×{r.VarietyMultiplier}, expected {variety}");
+            Check(r.Variety == (r.VarietyBands == Score.VarietyAll) && r.VarietyBands >= 0 && r.VarietyBands <= Score.VarietyAll, w,
+                  $"VarietyBands {r.VarietyBands} disagrees with Variety {r.Variety} (hub contract 40)");
             Check(r.LiftsCounted == liftsCounted && r.LiftsValue == 6.0 * liftsCounted, w,
                   $"LiftsCounted {r.LiftsCounted} (value {r.LiftsValue}), expected {liftsCounted}");
             Check(r.LodgeBase == lodgeBase, w, $"LodgeBase {r.LodgeBase}, expected {lodgeBase}");
@@ -528,6 +530,18 @@ namespace ResortBatch
             Score.Result z2 = Row("Z2", Area(1), new List<Score.RunInput>(), Lifts(1), parts, 20, true, 0, 1, false,
                                   0, 1.0, 1.5, 14.898979486, 15, 15, 15);
             Flags("Z2", z2, Score.ScoreFlags.SummerMode | Score.ScoreFlags.NoRuns);
+
+            // Hub contract 40: the receipt's missing lines read VarietyBands (bits) and HubRules.VerticalShortM (literal oracles).
+            Check(t1.VarietyBands == (Score.VarietyGreen | Score.VarietyBlue) && v1.VarietyBands == Score.VarietyAll &&
+                  blob.VarietyBands == Score.VarietyBlack && z1.VarietyBands == 0 && w1.VarietyBands == 0,
+                  w + " VB", $"VarietyBands T1 {t1.VarietyBands} (3), V1 {v1.VarietyBands} (7), BLOB {blob.VarietyBands} (4, double-black is black), Z1 {z1.VarietyBands} (0), W1 {w1.VarietyBands} (0, summer)");
+            Check(Score.VarietyGreen == 1 && Score.VarietyBlue == 2 && Score.VarietyBlack == 4 && Score.VarietyAll == 7,
+                  w + " VB", "bit values 1 / 2 / 4 / 7 (bindings.ts VARIETY_BAND)");
+            Check(HubRules.VerticalShortM(in t1) == 350 && HubRules.VerticalShortM(in blob) == 0 && HubRules.VerticalShortM(in z1) == 600,
+                  w + " VS", $"VerticalShortM T1 {HubRules.VerticalShortM(in t1)} (350), BLOB {HubRules.VerticalShortM(in blob)} (0), Z1 {HubRules.VerticalShortM(in z1)} (600)");
+            Score.Result nanV = z1;
+            nanV.VerticalM = double.NaN;
+            Check(HubRules.VerticalShortM(in nanV) == 600, w + " VS", "VerticalShortM of a NaN vertical is the whole 600 m");
 
             // PEND: T1, third run not yet rated.
             Score.RunInput pending = Small()[2];

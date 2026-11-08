@@ -26,6 +26,8 @@ namespace SkiResortMod.Systems
         public const double NaturalUnrateableFactor = 0.5;
         public const double LiftValue = SkiCatalog.FixedGrip.ScoreValue; // const alias of SkiCatalog.FixedGrip.ScoreValue. ScoreTests guards 6
         public const double VarietyFactor = 1.15;
+        // Result.VarietyBands bits (bindings.ts VARIETY_BAND): a counted, Rated run of that band. Black covers double-black too.
+        public const int VarietyGreen = 1, VarietyBlue = 2, VarietyBlack = 4, VarietyAll = 7;
         public const double VerticalRefM = 600.0;
         public const double FirstLodgeBase = 20.0; // = SkiCatalog.Lodges[0].B (the A-frame, LadderTests guard)
         public const double LodgeExtra = 4.0; // = SkiCatalog.Lodges[0].E
@@ -170,6 +172,9 @@ namespace SkiResortMod.Systems
             public int RunsPatrolled; // member runs with RunInput.Patrolled (all member runs, counted or not)
             public bool SchoolActive;
             public bool GreenCounted; // a counted run Rated Green (the variety flag `green`)
+            // Hub contract 40: the three variety flags as bits (VarietyGreen | VarietyBlue | VarietyBlack). Variety == (VarietyBands == VarietyAll).
+            // The hub's "Missing:" line names the cleared bits, so the UI never recomputes the rule (D10).
+            public int VarietyBands;
 
             /// <summary>Exact field compare (for the Generation). It is bit-exact in any run order, because RunsValue (and RunsValueFull and
             /// RunsCapacity) is summed in ascending order. Every field, doubles bit for bit (Same). The lift sums are ascending too and the
@@ -195,7 +200,7 @@ namespace SkiResortMod.Systems
                        Same(LiftsApplied, o.LiftsApplied) && Same(SchoolValue, o.SchoolValue) &&
                        LodgeBestIndex == o.LodgeBestIndex &&
                        PriceTolerance == o.PriceTolerance && RunsPatrolled == o.RunsPatrolled &&
-                       SchoolActive == o.SchoolActive && GreenCounted == o.GreenCounted;
+                       SchoolActive == o.SchoolActive && GreenCounted == o.GreenCounted && VarietyBands == o.VarietyBands;
             }
         }
 
@@ -408,6 +413,7 @@ namespace SkiResortMod.Systems
             r.LiftsApplied = AscendingSum(s_LiftApplied);
             r.LiftShare = r.LiftsValue > 0.0 ? r.LiftsApplied / r.LiftsValue : (summer ? SummerLiftShare : 1.0);
             r.Variety = green && blue && black;
+            r.VarietyBands = (green ? VarietyGreen : 0) | (blue ? VarietyBlue : 0) | (black ? VarietyBlack : 0);
             r.VarietyMultiplier = r.Variety ? VarietyFactor : 1.0;
             r.VerticalM = heights ? Math.Max(0.0, top - bottom) : 0.0;
             r.VerticalMultiplier = 1.0 + Clamp(r.VerticalM / VerticalRefM, 0.0, 1.0);

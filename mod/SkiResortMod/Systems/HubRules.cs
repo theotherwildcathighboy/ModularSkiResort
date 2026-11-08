@@ -625,6 +625,14 @@ namespace SkiResortMod.Systems
             return FiniteOr0(r.K * Math.Sqrt(r.S));
         }
 
+        /// <summary>The receipt's Vertical "To the full bonus" meters (hub contract 40): max(0, VerticalRefM − r.VerticalM), so 0 once the
+        /// multiplier is 2.00. Non-finite VerticalM gives the whole VerticalRefM (no vertical counts).</summary>
+        public static double VerticalShortM(in SkiResortScore.Result r)
+        {
+            double v = IsFiniteD(r.VerticalM) ? r.VerticalM : 0.0;
+            return Math.Max(0.0, SkiResortScore.VerticalRefM - v);
+        }
+
         /// <summary>A run's value fully open: BandValue × SizeFactor × TypeFactor × ServedFactor (non-finite → 0).</summary>
         public static double RunValueFull(in SkiResortScore.RunPart p)
         {
