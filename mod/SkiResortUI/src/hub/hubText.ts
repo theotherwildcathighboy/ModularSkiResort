@@ -27,7 +27,7 @@ export const HUB_LOC = {
 
   /* the merge card (contract 35) and the Overview's merged buildings fold */
   mergeCardTitle: ["SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area"],
-  mergeCardTip: ["SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, while it counts."],
+  mergeCardTip: ["SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, billed only near the runs and lifts."],
   mergeCardNote: ["SkiResort.Hub.MERGE_CARD[Note]", "Becomes one of this ski area's lodges and keeps working as before. Its tier adds score, skier room, staff and tourism. Guests still arrive through the road lodges."],
   mergeCardNear: ["SkiResort.Hub.MERGE_CARD[Near]", "Near the runs and lifts"],
   mergeCardFar: ["SkiResort.Hub.MERGE_CARD[Far]", "Too far from the runs and lifts to count"],
@@ -550,6 +550,8 @@ export const HUB_FMT = {
   resortCountsRunOne: ["SkiResort.Hub.RESORT_COUNTS[RunOne]", "1 run · {LODGES} lodges"],
   resortCountsLodgeOne: ["SkiResort.Hub.RESORT_COUNTS[LodgeOne]", "{RUNS} runs · 1 lodge"],
   contractMismatchCore: ["SkiResort.Hub.CONTRACT_MISMATCH_CORE", "This panel (version {UI}) and the mod's DLL (version {DLL}) come from different builds. Building still works. The resort statistics stay hidden until the mod is reinstalled."],
+  /* contract 39: the one warning of the merge card and the Mergeable buildings status line while no ski area has a run or a lift station ({M} = SlopesideMaxM) */
+  mergeWarnNoGeometry: ["SkiResort.Hub.MERGE_WARN[NoGeometry]", "No runs or lifts yet. Merges need one within {M} m."],
   statusLine: ["SkiResort.Hub.STATUS_LINE", "{STATE}"],
   statusLineOne: ["SkiResort.Hub.STATUS_LINE_ONE", "{STATE}"],
   statusLineEst: ["SkiResort.Hub.STATUS_LINE_EST", "{STATE} ≈"],

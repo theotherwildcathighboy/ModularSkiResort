@@ -576,6 +576,16 @@ export function effectiveTab(drawn: readonly BuildTab[], stored: string | null |
   return drawn.length > 0 ? drawn[0] : "";
 }
 
+/** The merge card's gate for a building that is not merged yet (contract 39). A merged building changes tier freely ("open"). With no run
+ *  outline and no lift station anywhere nothing is near ("noGeometry": the card warns, Merge is off). Out of reach of existing geometry
+ *  ("far": Merge is off, the status line says it). Otherwise "open". A merge past this gate would be billed and never count. */
+export type MergeGate = "open" | "noGeometry" | "far";
+export function mergeGate(merged: boolean, geometry: boolean, near: boolean): MergeGate {
+  if (merged) return "open";
+  if (!geometry) return "noGeometry";
+  return near ? "open" : "far";
+}
+
 export type FooterState = "follow" | "active" | "locked" | "empty" | "idle";
 
 /** Footer status line priority: follow notice > active tool > locked click > idle. A hovered tile changes nothing: its tooltip

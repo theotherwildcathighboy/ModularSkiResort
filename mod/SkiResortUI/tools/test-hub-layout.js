@@ -290,6 +290,10 @@ const MERGE = [
   ["merge-06-card-viewport-1080", 1080, { scenario: ASH, view: 0, tab: "buildings", whole: 1 }],
   ["merge-07-tile-hover-1080", 1080, { scenario: ASH, view: 0, tab: "buildings", hover: "Merge" }],
   ["merge-08-card-too-far-1080", 1080, { scenario: "Ash Flat, merge card too far", view: 0, tab: "buildings", whole: 1 }],
+  ["merge-09-card-no-geometry-1080", 1080, { scenario: "Ash Flat, merge card no geometry", view: 0, tab: "buildings", whole: 1 }],
+  ["merge-10-tab-buildings-armed-no-geometry-1080", 1080, { scenario: "Ash Flat, merge overlay armed no geometry", view: 0, tab: "buildings" }],
+  ["merge-12-tab-buildings-armed-no-geometry-1080-fs125", 1080, { scenario: "Ash Flat, merge overlay armed no geometry", view: 0, tab: "buildings", fs: 1.25 }],
+  ["merge-11-chip-hover-no-geometry-1080", 1080, { scenario: "Ash Flat, merge overlay armed no geometry", view: 0, tab: "buildings", hover: "Mergeable buildings" }],
 ];
 // 2026-11-06 follow-up: the Buildings tab in two rows with the Mergeable buildings toggle (`--list=merge2`).
 const MERGE2 = [

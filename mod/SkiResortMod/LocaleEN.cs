@@ -926,7 +926,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUS_CARD[Off]", "Not running" },
                 // The merge card (contract 35) and the Overview's merged buildings fold.
                 { "SkiResort.Hub.MERGE_CARD[Title]", "Merge into a ski area" },
-                { "SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, while it counts." },
+                { "SkiResort.Hub.MERGE_CARD[Tip]", "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, billed only near the runs and lifts." },
                 { "SkiResort.Hub.MERGE_CARD[Note]", "Becomes one of this ski area's lodges and keeps working as before. Its tier adds score, skier room, staff and tourism. Guests still arrive through the road lodges." },
                 { "SkiResort.Hub.MERGE_CARD[Near]", "Near the runs and lifts" },
                 { "SkiResort.Hub.MERGE_CARD[Far]", "Too far from the runs and lifts to count" },
@@ -953,6 +953,7 @@ namespace SkiResortMod
                 // The Buildings tab's Mergeable buildings toggle (contract 37; label MERGE_OVERLAY) and the green / gray legend beside the tile's footer and the fold's chip.
                 { "SkiResort.Hub.MERGE_TILE[Fact]", "A landmark, signature or recreation building near the runs can serve as a lodge" },
                 { "SkiResort.Hub.MERGE_TILE[Armed]", "Outlined buildings can join this ski area as lodges" },
+                { "SkiResort.Hub.MERGE_WARN[NoGeometry]", "No runs or lifts yet. Merges need one within {M} m." },
                 { "SkiResort.Hub.MERGE_LEGEND[Fits]", "Tier fits" },
                 { "SkiResort.Hub.MERGE_LEGEND[TooSmall]", "Too small" },
                 { "SkiResort.Hub.RESORT_COUNTS[Many]", "{RUNS} runs · {LODGES} lodges" },

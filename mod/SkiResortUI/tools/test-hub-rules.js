@@ -179,6 +179,8 @@ function run(srcDir) {
     R.footerState(false, true, true, true), R.footerState(true, true, true, true),
     R.footerState(true, false, true, true), R.footerState(true, false, false, true), R.footerState(true, false, false, false)],
     ["empty", "follow", "active", "locked", "idle"]);
+  eq("T5.12b merge gate (contract 39): merged / geometry / near", [[true, false, false], [true, true, false], [false, false, false], [false, false, true], [false, true, false], [false, true, true]].map(([m, g, n]) => R.mergeGate(m, g, n)),
+    ["open", "open", "noGeometry", "noGeometry", "far", "open"]);
   eq("T5.13 run kinds", ["runNatural", "runGroomed", "runSnowmaking", "runNight", "lift"].map(R.runKindOfItem), [3, 0, 1, 2, undefined]);
   // Every kind (a line of any lift type reads "about per km", and an unknown kind reads its cost).
   const full = item({ cost: 125000, costPerKm: 15000, price: 500, pricePerHa: 250 });

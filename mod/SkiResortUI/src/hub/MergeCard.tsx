@@ -6,7 +6,8 @@
  * Contract 37: the title's tooltip holds what merging does and the fee rule (hub redesign 2026-11-07: the note under the title went).
  * Merge / unmerge are the hub's action buttons.
  * An unmerged building's status line says whether it is near enough to the runs and lifts to count (MergeCardState.near),
- * before the player pays.
+ * before the player pays. With no run outline and no lift station anywhere (MergeCardState.geometry false) nothing can be near: the card says
+ * so in one warning line and the Merge button is off. A building out of reach gets the same disabled button (a merge there is billed and never counts).
  * Engine notes: EngineNotes/SkiMergeSystem.md
  */
 import { useEffect, useState } from "react";
@@ -17,10 +18,11 @@ import { Unit } from "cs2/l10n";
 import { hubTriggers, mergeCard$ } from "../bindings";
 import type { BuildItemId, MergeCardState } from "../bindings";
 import { useT } from "../l10n";
+import { mergeGate } from "./hubRules";
 import type { LocEntry } from "../l10n";
 import styles from "./hub.module.scss";
-import { HUB_LOC, LODGE_TIER } from "./hubText";
-import { InfoLine, Num, Tip, TipLines, cx } from "./parts";
+import { HUB_FMT, HUB_LOC, LODGE_TIER } from "./hubText";
+import { InfoLine, LocText, Num, Tip, TipLines, cx, numArg } from "./parts";
 
 /** SkiCatalog.Lodges order: tier index -> its build item id (the LODGE_TIER word). */
 export const MERGE_TIER_ITEM: readonly BuildItemId[] = ["lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand"];
@@ -55,6 +57,8 @@ export function MergeCard(): JSX.Element | null {
   const charge = chosen >= 0 ? card.charge[chosen] ?? 0 : 0;
   const monthly = chosen >= 0 ? card.monthly[chosen] ?? 0 : 0;
   const canApply = chosen >= 0 && chosen !== card.tier && !tooSmall;
+  const gate = mergeGate(merged, card.geometry, card.near);   // a first merge that would be billed and never count is off
+  const blocked = gate !== "open";
   return (
     <div className={cx(styles.busCard, styles.mergeCard)}>
       <Tip tip={<TipLines lines={[merged ? null : t(HUB_LOC.mergeCardNote), t(HUB_LOC.mergeCardTip)]} />}>
@@ -63,7 +67,10 @@ export function MergeCard(): JSX.Element | null {
       {card.area !== "" && <InfoLine label={t(HUB_LOC.resortCaption)} value={card.area} />}
       {state && <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(state)} />}
       {tooSmall && !merged && <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(HUB_LOC.mergeCardTooSmall)} />}
-      {!tooSmall && !merged && (
+      {!tooSmall && gate === "noGeometry" && (
+        <div className={styles.mergeWarn}><LocText entry={HUB_FMT.mergeWarnNoGeometry} args={{ M: numArg(card.reachM, Unit.Integer) }} /></div>
+      )}
+      {!tooSmall && !merged && gate !== "noGeometry" && (
         <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(card.near ? HUB_LOC.mergeCardNear : HUB_LOC.mergeCardFar)} />
       )}
       {tiers.length > 0 && (
@@ -90,7 +97,8 @@ export function MergeCard(): JSX.Element | null {
       {card.outcome === OUTCOME_NO_MONEY && <InfoLine label={t(HUB_LOC.mergeCardStatus)} value={t(HUB_LOC.mergeCardNoMoney)} />}
       <div className={styles.mergeActions}>
         {canApply && (
-          <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.actionButton, styles.mergeAction, styles.fitText)} onSelect={() => hubTriggers.mergeBuilding(card.building, chosen)}>
+          <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.actionButton, styles.mergeAction, styles.fitText)} disabled={blocked}
+            onSelect={() => hubTriggers.mergeBuilding(card.building, chosen)}>
             {t(merged ? HUB_LOC.mergeCardChange : HUB_LOC.mergeCardMerge)}
           </Button>
         )}
