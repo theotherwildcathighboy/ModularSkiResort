@@ -895,7 +895,7 @@
   "SkiResort.Hub.BUS_CARD[NoHillLodge]": "No hill lodge",
   "SkiResort.Hub.BUS_CARD[Off]": "Not running",
   "SkiResort.Hub.MERGE_CARD[Title]": "Merge into a ski area",
-  "SkiResort.Hub.MERGE_CARD[Tip]": "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, while it counts.",
+  "SkiResort.Hub.MERGE_CARD[Tip]": "Merge fee: the tier's price less the building's own cost. Monthly fee: the tier's upkeep less its own, billed only near the runs and lifts.",
   "SkiResort.Hub.MERGE_CARD[Note]": "Becomes one of this ski area's lodges and keeps working as before. Its tier adds score, skier room, staff and tourism. Guests still arrive through the road lodges.",
   "SkiResort.Hub.MERGE_CARD[Near]": "Near the runs and lifts",
   "SkiResort.Hub.MERGE_CARD[Far]": "Too far from the runs and lifts to count",
