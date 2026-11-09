@@ -309,7 +309,7 @@
                 "m_LevelMinOffset": {
                     "$type": "18|Unity.Mathematics.float2, Unity.Mathematics",
                     "x": 0,
-                    "y": 0
+                    "y": -17.22
                 },
                 "m_LevelMaxOffset": {
                     "$type": 18,
@@ -339,7 +339,7 @@
                 "m_SmoothMinOffset": {
                     "$type": 18,
                     "x": 0,
-                    "y": 0
+                    "y": -12
                 },
                 "m_SmoothMaxOffset": {
                     "$type": 18,
