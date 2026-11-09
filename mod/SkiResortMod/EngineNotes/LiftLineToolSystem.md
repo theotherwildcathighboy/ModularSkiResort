@@ -176,6 +176,11 @@ tower reads TOWER_TRAIN (bend and cap). The plan line is green only for a sound 
 - A loose end uses the node formula.
 - A ground end uses the anchor of the station that will finish it. The anchor is over the terrain at that station's lot front (`LiftLineInput.GroundEndRope`,
   LiftLineEdit.md "Ground ends", FIX-LIST 48).
+- A ground end also samples the ground that station will leave (`LiftLineInput.PadSampler`, banks-pass 2026-11-09). A pad-cutting station
+  holds the ground at its plane out to `PadReachM` past the stub tip. Bases: 12 m. Tops and the tram base: 0. The value comes from
+  `StationDef.PadBackLocalZ`. An 8 m linear apron then blends back to the raw ground (the shader blend is [I]). The pad never fills.
+  The FG top and the tram top keep the slope and read raw ground. Before, every pad-cutting base ground end on a slope read a false
+  SUNK_END (EI-55 pad).
 
 ## Carriers passable while the tool runs (2026-11-03, DECISIONS 582)
 Two cases draw a line to an existing tower: the redo of a bulldozed middle section, and an extension from a loose end. In both cases the

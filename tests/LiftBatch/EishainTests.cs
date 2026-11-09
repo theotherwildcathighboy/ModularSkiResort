@@ -8,7 +8,9 @@
 //       Planned with the stations' anchors, it stays clear with them. (c) The lot-front rule: ground falling away beyond the end
 //       lowers the rope.
 // EI-55 a top ground end past a crest (FIX-LIST 55): a tower over its cap never reads clear (plan key, Describe, tower key). The
-//       sunk ground end says SUNK_END. The test includes a sweep over the FB-3 lines and crest-end tops.
+//       sunk ground end says SUNK_END. The test includes a sweep over the FB-3 lines and crest-end tops. EI-55 pad: with the ground-end
+//       pad model (banks-pass 2026-11-09) the coming DQ stations cut their pads, both ends leave at loading height (no SUNK_END), and
+//       the over-cap tower still reads PLAN_TRAIN. EI-48 also gates StationDef.PadBackLocalZ against the mirror.
 // EI-54b a station snapped onto a built line's END node facing away from it is refused, with its stub tip or its stub's inner node on
 //       the node (StationAlign.AttachesBackward / LineEnds, FIX-LIST 54(b)). An interior tower node is not an end.
 
@@ -209,6 +211,19 @@ namespace LiftBatch
             return true;
         }
 
+        /// <summary>The pad's back edge a station prefab cuts to (StationDef.PadBackLocalZ): no BuildingTerraformOverride = it levels its
+        /// lot (the lot back edge), m_DontLower = it keeps the slope (NaN), else the lot back edge + m_SmoothMinOffset.y.</summary>
+        private static float MirrorPadBack(string prefab, string w, int lotDepth)
+        {
+            JsonElement? root = MirrorJson(prefab, w);
+            if (root == null)
+                return float.NaN;
+            foreach (JsonElement comp in root.Value.GetProperty("components").GetProperty("$rcontent").EnumerateArray())
+                if (comp.TryGetProperty("m_DontLower", out JsonElement dl) && comp.TryGetProperty("m_SmoothMinOffset", out JsonElement sm))
+                    return dl.GetBoolean() ? float.NaN : -lotDepth * 4f + sm.GetProperty("y").GetSingle();
+            return -lotDepth * 4f;
+        }
+
         private static void Ei48Gate()
         {
             const string w = "eishain/EI-48";
@@ -240,6 +255,11 @@ namespace LiftBatch
                           math.abs(inner.z - (st.StubTipLocalZ + StationAlign.StubLengthM)) <= 0.005f, w, who + ": the SkiLiftMarker stub's " +
                           "inner node is (" + F(inner.x) + ", " + F(inner.y) + ", " + F(inner.z) + "), StationAlign.StubInner says (" +
                           F(st.StubTipLocalX) + ", 0, " + F(st.StubTipLocalZ + StationAlign.StubLengthM) + ")");
+                    // banks-pass 2026-11-09: the pad a ground end plans with is the prefab's cut window (LiftLineInput.PadGround).
+                    float pad = MirrorPadBack(st.Prefab, w, lotDepth);
+                    Check(math.isfinite(pad) == math.isfinite(st.PadBackLocalZ) && (!math.isfinite(pad) || math.abs(pad - st.PadBackLocalZ) <= 0.005f),
+                          w, who + ": PadBackLocalZ " + F(st.PadBackLocalZ) + " but the mirror's BuildingTerraformOverride cuts to z " + F(pad) +
+                          " (NaN = keeps the slope)");
                     float tower = c.RopeAboveBase(0);
                     Check(st.RopeAnchorLocalY < tower, w, who + ": the station anchor (" + F(st.RopeAnchorLocalY) +
                           ") is not below the shortest tower's rope (" + F(tower) + ")");
@@ -454,7 +474,46 @@ namespace LiftBatch
             Check(!LiftLineInput.SunkEnd(p.StationB, LiftLineEndKind.LooseEnd, p.EndCarrierB), w + " sunk loose", "a loose end reads sunk");
             s_Report.Add("EI-55 crest-end DQ " + F(Ei55Len, "F0") + " m | " + srcB + " | " + line + " | key " + key + ", last tower " + tower + " d " +
                          F(bend, "F1") + ", end carrier B " + F(p.EndCarrierB, "F1") + " m -> " + sunk);
+            Ei55Pad(c, bas, top, ropeA, ropeB, yA, yB);
             Ei55Sweep();
+        }
+
+        // EI-55 pad (banks-pass 2026-11-09): the same line with the ground-end pad model (LiftLineInput.PadSampler). Both ends are ground
+        // ends. The DQ base will cut its pad and 12 m runway at its lot-front plane (8 m below the node on this 0.25 slope), the DQ top
+        // its lot-sized pad 12.38 m below the node (the crest end).
+        private static void Ei55Pad(LiftTowerPlanConstants c, StationDef bas, StationDef top, float ropeA, float ropeB, float yA, float yB)
+        {
+            const string w = "eishain/EI-55 pad";
+            float planeA = LiftLineInput.GroundEndStationY(yA, yA - Ei55Grade * LiftTowerPlanConstants.FrontDistM(bas));
+            float planeB = LiftLineInput.GroundEndStationY(yB, yB - Ei55FrontBelowNode);
+            var e = new LiftLineEdit(c, new float3(0f, yA, 0f), new float3(Ei55Len, yB, 0f), ropeA, ropeB, true, true);
+            LiftTowerPlan p = e.Replan(LiftLineInput.PadSampler(Ei55Sampler(e, false, c), Ei55Len, false, bas, planeA, top, planeB),
+                                       LiftLineInput.PadSampler(Ei55Sampler(e, true, c), Ei55Len, true, bas, planeA, top, planeB));
+            string key = LiftLineInput.PlanKey(p, out _);
+            string sunk = LiftLineInput.SunkKey(p, LiftLineEndKind.Ground, LiftLineEndKind.Ground);
+            // The pads take the ground above both planes away: the carriers leave both ends at loading height (anchor - drop = +0.40), so
+            // no SUNK_END. Natural ground read -7.9 at the base end and -12.3 at the top end.
+            Check(math.abs(p.EndCarrierA - 0.4f) < 0.05f && math.abs(p.EndCarrierB - 0.4f) < 0.05f && sunk == null, w + " ends",
+                  "end carriers " + F(p.EndCarrierA) + " / " + F(p.EndCarrierB) + ", key " + (sunk ?? "none"));
+            // The crest still bends the last tower past its cap: the pad must not hide that.
+            Check(key == "PLAN_TRAIN" && p.OverCapTowers >= 1, w + " over cap kept", "key " + key + ": " + Desc(p));
+            // PadGround per catalog row: bases hold 12 m past the stub tip, tops and the tram base 0, the FG top and tram top keep the slope.
+            foreach (LiftTypeDef def in SkiCatalog.Lifts)
+                foreach (StationRole role in new[] { StationRole.Base, StationRole.Top })
+                {
+                    StationDef st = SkiCatalog.StationOf(def.Index, role);
+                    float reach = LiftLineInput.PadReachM(st);
+                    bool keeps = (def.Id == "fixedGrip" || def.Id == "tram") && role == StationRole.Top;
+                    float want = keeps ? float.NaN : role == StationRole.Base && def.Id != "tram" ? 12f : 0f;
+                    Check(keeps ? !math.isfinite(reach) : math.abs(reach - want) < 1e-3f, w + " reach", st.Prefab + ": reach " + F(reach) + ", want " + F(want));
+                }
+            Check(LiftLineInput.PadGround(110f, 0f, bas, 100f) == 100f && LiftLineInput.PadGround(110f, 12f, bas, 100f) == 100f &&
+                  math.abs(LiftLineInput.PadGround(110f, 16f, bas, 100f) - 105f) < 1e-3f && LiftLineInput.PadGround(110f, 20f, bas, 100f) == 110f &&
+                  LiftLineInput.PadGround(95f, 0f, bas, 100f) == 95f, w + " ground", "pad, runway edge, apron half, apron end, never fills");
+            Check(LiftLineInput.PadGround(110f, 0f, SkiCatalog.StationOf(SkiCatalog.LiftById("fixedGrip").Index, StationRole.Top), 100f) == 110f,
+                  w + " keeps slope", "the FG top keeps the slope: its ground end reads the raw ground");
+            s_Report.Add("EI-55 pad: plane A node " + F(planeA - yA) + ", B node " + F(planeB - yB) + " | " + e.Describe() + " | key " + key +
+                         " | end carrier A " + F(p.EndCarrierA, "F1") + " / B " + F(p.EndCarrierB, "F1") + " -> " + (sunk ?? "none"));
         }
 
         private static LiftTerrainSampler Ei55Sampler(LiftLineEdit e, bool fromB, LiftTowerPlanConstants c) => (s, l) =>

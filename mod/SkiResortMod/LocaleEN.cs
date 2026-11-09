@@ -1703,9 +1703,9 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.NO_STUB", "This station has no line stub to start from." },
                 { "SkiResort.LiftTool.CLICK_ON_LINE", "Click on the line itself to add a tower there." },
                 { "SkiResort.LiftTool.END_GONE", "One end of the line is gone. Click both ends again." },
-                { "SkiResort.LiftTool.SUNK", "The station sits low in the slope, so the chairs leave it below the ground. Flatter ground or raising it with Move It helps." },
+                { "SkiResort.LiftTool.SUNK", "The ground where the chairs leave the station is higher than the chairs, so they clip the slope until the first tower." },
                 // FIX-LIST 55: a ground end whose coming station would stand on the lower ground in front of it (past a crest).
-                { "SkiResort.LiftTool.SUNK_END", "A station on this open end would stand on the lower ground ahead, so its chairs would leave below the ground. Flatter ground helps." },
+                { "SkiResort.LiftTool.SUNK_END", "A station on this open end would stand on the lower ground ahead, so its chairs would leave below the ground." },
                 { "SkiResort.LiftTool.BACKWARD", "A station on this line faces away from it, so the line runs back through the building. Turn that station around." },
                 // CROSSES: a lift of the same type (the game joins the two). Another type passes over or under with the box clearance the
                 // game validates, or is refused with the reason (FIX-LIST 60 a; LiftLineInput.CrossKey).

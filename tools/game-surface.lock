@@ -321,6 +321,7 @@ type Game.Prefabs.BuildingEfficiencyParameterData struct c90827afa9 m_ServiceBud
 type Game.Prefabs.BuildingFlags enum d4f2be419a RequireRoad=1 NoRoadConnection=2 LeftAccess=4 RightAccess=8 BackAccess=16 RestrictedPedestrian=32 RestrictedCar=64 ColorizeLot=128 HasLowVoltageNode=256 HasWaterNode=512 HasSewageNode=1024 HasInsideRoom=2048 RestrictedParking=4096 RestrictedTrack=8192 CanBeOnRoad=16384 CanBeOnRoadArea=32768 RequireAccess=65536 CanBeRoadSide=131072 HasResourceNode=262144
 type Game.Prefabs.BuildingInitializeSystem class 2004b3279b
 type Game.Prefabs.BuildingPrefab class 3fe8512563
+type Game.Prefabs.BuildingTerraformData struct 8181fae786 m_FlatX0:float3 m_FlatZ0:float3 m_FlatX1:float3 m_FlatZ1:float3 m_Smooth:float4 m_HeightOffset:float m_DontRaise:bool m_DontLower:bool
 type Game.Prefabs.CarData struct 17e6a1fbf0 m_SizeClass:SizeClass m_EnergyType:EnergyTypes m_MaxSpeed:float m_Acceleration:float m_Braking:float m_PivotOffset:float m_Turning:float2
 type Game.Prefabs.Climate.ClimatePrefab class b32f2a4d8f
 type Game.Prefabs.CompositionFlags struct 831e987f91 m_General:General m_Left:Side m_Right:Side

@@ -696,6 +696,51 @@ namespace SkiResortMod.Systems
             return rope;
         }
 
+        /// <summary>The engine's smoothing apron past a lot's cut window: GetTerrainSmoothingWidth = max(8, |lot size| / 12)
+        /// (ObjectUtils.cs:1004-1007) = 8 m for every station lot. The blend inside it lives in the terrain shader [I]: modeled linear.</summary>
+        public const float PadApronM = 8f;
+
+        /// <summary>How far past the stub tip, along the line, a station holds the ground at its plane (StationDef.PadBackLocalZ). NaN when
+        /// the station keeps the slope or the row has no pad. Bases: 12 m (the runway). Tops and the tram base: 0 (the pad ends at the stub
+        /// tip, the lot's back edge).</summary>
+        public static float PadReachM(StationDef station) =>
+            station == null || !math.isfinite(station.PadBackLocalZ) ? float.NaN : math.max(0f, station.StubTipLocalZ - station.PadBackLocalZ);
+
+        /// <summary>The ground a GROUND end's coming station leaves under the line (banks-pass 2026-11-09). A pad-cutting station cuts
+        /// the ground above its plane <paramref name="stationY"/> and never fills: out to PadReachM from the stub tip the ground is
+        /// min(raw, plane); over the next PadApronM it blends back to raw. A station that keeps the slope leaves raw. A built station's
+        /// cut is in the terrain the samplers read already; a ground end's is not, so without this the end planned with ground the station
+        /// will cut away (a false SUNK_END on a base runway). <paramref name="distM"/> = xz distance from the end node along the line.</summary>
+        public static float PadGround(float raw, float distM, StationDef station, float stationY)
+        {
+            float reach = PadReachM(station);
+            if (!math.isfinite(reach) || !math.isfinite(stationY) || distM >= reach + PadApronM)
+                return raw;
+            float t = math.saturate((distM - reach) / PadApronM);
+            return math.min(raw, math.lerp(stationY, raw, t));
+        }
+
+        /// <summary>The plane a GROUND end's coming station stands at: vanilla stands it on the terrain at its lot front
+        /// (StationEndRope), never above the node. NaN when <paramref name="frontGroundY"/> was not sampled (then the node).</summary>
+        public static float GroundEndStationY(float nodeY, float frontGroundY) =>
+            math.isfinite(frontGroundY) ? math.min(nodeY, frontGroundY) : nodeY;
+
+        /// <summary><paramref name="raw"/> with PadGround applied at each GROUND end that has a station row: end A at along 0, end B at
+        /// <paramref name="lengthM"/> (<paramref name="fromB"/>: the sampler's along runs from B). A null station leaves that end raw.</summary>
+        public static LiftTerrainSampler PadSampler(LiftTerrainSampler raw, float lengthM, bool fromB, StationDef stationA, float stationYA,
+                                                    StationDef stationB, float stationYB)
+        {
+            if (!math.isfinite(PadReachM(stationA)) && !math.isfinite(PadReachM(stationB)))
+                return raw;
+            return (along, lateral) =>
+            {
+                float g = raw(along, lateral);
+                float fromA = fromB ? lengthM - along : along, fromBEnd = fromB ? along : lengthM - along;
+                g = PadGround(g, fromA, stationA, stationYA);
+                return PadGround(g, fromBEnd, stationB, stationYB);
+            };
+        }
+
         private static float Lowest(IList<float3> anchors, float3 node)
         {
             float best = float.PositiveInfinity;
