@@ -70,14 +70,17 @@ export function hubIconOf(name: string): HubIcon | null {
  *   Tooltip portal. Hanging marks and one-line structured rows (the missing lines, the legend) are plain flex rows.
  * - "flex": the inline path off. A sentence with icons shows its word form (today's text); marks and structured rows keep their icons.
  * - "words": every icon off, everything in word form.
- * ICON_MODE is the build default. The spike flips it live without a rebuild: in the game's UI console (gameface game_eval)
- * `window.skiResortIconMode = "flex"`, then hover again (a tooltip renders fresh on each hover).
- * S0 verdict (2026-11-08, field/2026-11-08/icons-pass/RESULTS.md): "flex". Inline layout is fine on size, baseline and wrap, but
- * Gameface drops the leading ASCII space of a text run after an inline element ("andone", "runis"). The NBSP pass (hubRules
- * iconInlinePieces, round 622) renders those spaces as U+00A0; the next in-game pass decides whether "inline" becomes the default.
+ * ICON_MODE is the build default. A test flips it live without a rebuild: in the game's UI console (gameface game_eval)
+ * `window.skiResortIconMode = "flex"`. The tooltip body is built when the hub renders, not on hover: let the hub re-render (one sim
+ * tick, or close and open it) before you hover again.
+ * S0 (2026-11-08, field/2026-11-08/icons-pass/RESULTS.md): "flex". Inline layout was fine on size, baseline and wrap, but
+ * Gameface drops the leading ASCII space of a text run after an inline element ("andone", "runis").
+ * Round 622 (field/2026-11-09/icons2-pass/RESULTS.md): "inline". The NBSP pass (hubRules iconInlinePieces) renders those spaces
+ * as U+00A0. In game, at text scale 1.0 and 1.25: no glued word, no wrapped line that starts with a space, inside the viewport,
+ * no content mutation (Variety, Ski school, Vertical, the Ski School and Ski Patrol Hut tiles).
  */
 export type IconMode = "inline" | "flex" | "words";
-export const ICON_MODE: IconMode = "flex";
+export const ICON_MODE: IconMode = "inline";
 
 export function iconMode(): IconMode {
   try {
