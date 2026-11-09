@@ -4669,6 +4669,7 @@ namespace SkiResortMod.Systems
             sb.Append('\n');
             // The station LV icon state and the mountain jobs on the signs.
             World.GetExistingSystemManaged<StationLvIconSystem>()?.AppendDump(sb);
+            World.GetExistingSystemManaged<StationLvMarkerSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<LiftLineIconSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<LiftPowerCueSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<MountainJobsSystem>()?.AppendDump(sb);

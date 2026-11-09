@@ -34,6 +34,7 @@ namespace LiftBatch
             Lh7HeldSuffix();
             Lh8TramSummer();
             LvIconRule();
+            LvMarkRule();
             s_Check = null;
         }
 
@@ -138,6 +139,36 @@ namespace LiftBatch
             // Tram base (stub inside the mesh, wire at the tip node): vanilla already cleared it. Nothing to do
             Check(!StationLvRule.ClearsVanillaIcon(false, StationLvRule.Classify(1, 0)) && StationLvRule.ClearsVanillaIcon(true, LvStubWire.AtNode),
                   W + "/LV-4", "tram base replay: no icon -> no command; a stale icon at a wired node is removed too");
+        }
+
+        /// <summary>LV-5: the LV stub marker's mode and look (StationLvMarkerSystem). Off with the aids off. Placing wins, then the power
+        /// view, then a selection. No wire is always the warning color; a wire is faint in the power view and full when selected; a ghost
+        /// is never "wired". The size holds near and grows with the zoom, capped.</summary>
+        private static void LvMarkRule()
+        {
+            const string W = "lv-mark/LV-5";
+            Eq(LvMarkMode.None, StationLvRule.Decide(false, true, true, true), W, "aids off: nothing, whatever else is on");
+            Eq(LvMarkMode.None, StationLvRule.Decide(true, false, false, false), W, "no tool, no view, no selection: nothing");
+            Eq(LvMarkMode.Placing, StationLvRule.Decide(true, true, true, true), W, "placing a base wins");
+            Eq(LvMarkMode.PowerView, StationLvRule.Decide(true, false, true, true), W, "the LV tool / power view beats a selection");
+            Eq(LvMarkMode.Selected, StationLvRule.Decide(true, false, false, true), W, "a selected base alone");
+            foreach (LvStubWire wire in new[] { LvStubWire.None, LvStubWire.AtNode, LvStubWire.MidStub })
+            {
+                Eq(LvMarkStyle.Ghost, StationLvRule.MarkStyle(LvMarkMode.Placing, wire), W, "a ghost is a ghost (" + wire + ")");
+                Eq(LvMarkStyle.None, StationLvRule.MarkStyle(LvMarkMode.None, wire), W, "mode None draws nothing (" + wire + ")");
+            }
+            Eq(LvMarkStyle.Unwired, StationLvRule.MarkStyle(LvMarkMode.PowerView, LvStubWire.None), W, "power view, no wire: loud");
+            Eq(LvMarkStyle.WiredFaint, StationLvRule.MarkStyle(LvMarkMode.PowerView, LvStubWire.AtNode), W, "power view, wire at the node: faint");
+            Eq(LvMarkStyle.WiredFaint, StationLvRule.MarkStyle(LvMarkMode.PowerView, LvStubWire.MidStub), W,
+               "power view, wire mid-stub: faint (it powers the station, StationLvRule header)");
+            Eq(LvMarkStyle.Unwired, StationLvRule.MarkStyle(LvMarkMode.Selected, LvStubWire.None), W, "selected, no wire: loud");
+            Eq(LvMarkStyle.Wired, StationLvRule.MarkStyle(LvMarkMode.Selected, LvStubWire.MidStub), W, "selected, wired: full green");
+            Check(StationLvRule.MarkScale(0f) == 1f && StationLvRule.MarkScale(float.NaN) == 1f && StationLvRule.MarkScale(-5f) == 1f, W,
+                  "no camera zoom: scale 1");
+            Check(StationLvRule.MarkScale(StationLvRule.MarkRefZoomM) == 1f, W, "scale 1 up to the reference zoom");
+            Check(Math.Abs(StationLvRule.MarkScale(StationLvRule.MarkRefZoomM * 2f) - 2f) < 1e-5f, W, "twice the reference zoom: scale 2");
+            Check(StationLvRule.MarkScale(1e6f) == StationLvRule.MarkMaxScale, W, "far out: capped at MarkMaxScale");
+            Check(StationLvRule.MarkDiameterM >= 3f + 2f, W, "the ring (" + StationLvRule.MarkDiameterM + " m) encloses the 3 m stub with 1 m each side");
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);

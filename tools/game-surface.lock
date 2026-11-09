@@ -350,6 +350,9 @@ type Game.Prefabs.NetData struct b001b7922d m_NodeArchetype:EntityArchetype m_Ed
 type Game.Prefabs.NetFencePrefab class 18c9284188
 type Game.Prefabs.NetGeometryData struct ec7f660c30 m_NodeCompositionArchetype:EntityArchetype m_EdgeCompositionArchetype:EntityArchetype m_AggregateType:Entity m_StyleType:Entity m_DefaultHeightRange:Bounds1 m_ElevatedHeightRange:Bounds1 m_DefaultSurfaceHeight:Bounds1 m_EdgeLengthRange:Bounds1 m_MergeLayers:Layer m_IntersectLayers:Layer m_Flags:GeometryFlags m_DefaultWidth:float m_ElevatedWidth:float m_ElevatedLength:float m_MinNodeOffset:float m_ElevationLimit:float m_MaxSlopeSteepness:float m_Hanging:float
 type Game.Prefabs.NetInitializeSystem class 7fd5797eb9
+type Game.Prefabs.NetPrefab class e7f1a743c4
+type Game.Prefabs.NetStatusInfomodePrefab class 9f6728e95e
+type Game.Prefabs.NetStatusType enum e74c432e2b Wear=0 TrafficFlow=1 NoisePollutionSource=2 AirPollutionSource=3 TrafficVolume=4 LowVoltageFlow=5 HighVoltageFlow=6 PipeWaterFlow=7 PipeSewageFlow=8 OilFlow=9 LeisureProvider=10 BicycleLanes=11 BicycleTrafficVolume=12
 type Game.Prefabs.NotificationIconData struct 779d9a6078 m_Archetype:EntityArchetype
 type Game.Prefabs.NotificationIconPrefab class f436893fc8
 type Game.Prefabs.NotificationIconPrefabSystem class 449bc0c7d4
@@ -733,6 +736,7 @@ anchor SkiStationAlignSystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiStubCleanupSystem before Game.Objects.SubElementDeleteSystem PostTool
 anchor StationFacingRefusalSystem before Game.Tools.ValidationSystem.Components ModificationEnd
 anchor StationFacingTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor StationLvMarkerSystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor TowerLeanSystem after Game.Objects.AlignSystem Modification4
 anchor TrainBoneSystem after Game.Rendering.InitializeBonesSystem Rendering
 guid UnityGUID:024ff26a34d89b241b55fd5ea12c5dcc m_Object

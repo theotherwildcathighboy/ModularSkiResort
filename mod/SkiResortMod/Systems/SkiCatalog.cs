@@ -315,6 +315,24 @@ namespace SkiResortMod.Systems
         /// top). LiftBatch EI-48 compares it with the mirror.</summary>
         public readonly float PadBackLocalZ;
 
+        /// <summary>The LV stub (the station's own SkiLiftMarkerLV edge, the only way it takes power, PIPELINE §6), prefab-local, curve
+        /// a and d. Base stations only: FG (6, 0, -7.5) -> (6, 0, -10.5), DQ / gondola (-6, 0, -11.5) -> (-6, 0, -14.5), tram (-12, 0, -9)
+        /// -> (-12, 0, -12). NaN on the tops (no LV stub, no Transformer). StationLvMarkerSystem marks it on a ghost. LiftBatch LV-6 compares
+        /// it with the mirror: move the stub in the prefab and this row in the same commit.</summary>
+        public float3 LvStubLocalA { get; private set; } = new float3(float.NaN);
+        public float3 LvStubLocalB { get; private set; } = new float3(float.NaN);
+
+        /// <summary>Sets the LV stub of a base row (the catalog's own rows only). Returns this.</summary>
+        internal StationDef WithLvStub(float3 a, float3 b)
+        {
+            LvStubLocalA = a;
+            LvStubLocalB = b;
+            return this;
+        }
+
+        /// <summary>True when the row has an LV stub (the base stations).</summary>
+        public bool HasLvStub => !float.IsNaN(LvStubLocalA.x) && !float.IsNaN(LvStubLocalB.x);
+
         /// <summary>LiftTypeIndex −1 (unknown). The catalog's own rows use the overload below. This one exists for hand-made rows
         /// (tests).</summary>
         public StationDef(string prefab, StationRole role, string liftTypeId, float3 wheelLocal, float stubTipLocalZ,
@@ -909,18 +927,18 @@ namespace SkiResortMod.Systems
                     // Per-row stub tip. The DQ / gondola / tram rows are Expected (the prefabs are game-side and mirrored. CT-12 costs
                     // 125,000 / 65,000 / 190,000 / 110,000 / 300,000 / 190,000 equal the mirror).
                     // The last number: StationDef.PadBackLocalZ (the pad's back edge; NaN = keeps the slope).
-                    Station(lifts, Names.StationFixedGripBase, StationRole.Base, FixedGrip.Id, new float3(0f, 3.55f, 0.2f), StubTipLocalZ, 60000, "baseStation", true, 5.84f, 12f, -24f),
+                    Station(lifts, Names.StationFixedGripBase, StationRole.Base, FixedGrip.Id, new float3(0f, 3.55f, 0.2f), StubTipLocalZ, 60000, "baseStation", true, 5.84f, 12f, -24f).WithLvStub(new float3(6f, 0f, -7.5f), new float3(6f, 0f, -10.5f)),
                     Station(lifts, Names.StationFixedGripTop, StationRole.Top, FixedGrip.Id, new float3(0f, 3.75f, 0f), StubTipLocalZ, 30000, "topStation", true, 5.24f, 12f, nan),
-                    Station(lifts, Names.StationDetachableBase, StationRole.Base, "detachable", new float3(0f, 3.70f, 9.60f), -16f, 125000, "baseStationDetachable", true, 3.70f, 16f, -28f),
+                    Station(lifts, Names.StationDetachableBase, StationRole.Base, "detachable", new float3(0f, 3.70f, 9.60f), -16f, 125000, "baseStationDetachable", true, 3.70f, 16f, -28f).WithLvStub(new float3(-6f, 0f, -11.5f), new float3(-6f, 0f, -14.5f)),
                     Station(lifts, Names.StationDetachableTop, StationRole.Top, "detachable", new float3(0f, 3.70f, 5.60f), -16f, 65000, "topStationDetachable", true, 3.70f, 16f, -16f),
-                    Station(lifts, Names.StationGondolaBase, StationRole.Base, "gondola", new float3(0f, 4.85f, 9.40f), -16f, 190000, "baseStationGondola", true, 4.85f, 16f, -28f),
+                    Station(lifts, Names.StationGondolaBase, StationRole.Base, "gondola", new float3(0f, 4.85f, 9.40f), -16f, 190000, "baseStationGondola", true, 4.85f, 16f, -28f).WithLvStub(new float3(-6f, 0f, -11.5f), new float3(-6f, 0f, -14.5f)),
                     Station(lifts, Names.StationGondolaTop, StationRole.Top, "gondola", new float3(0f, 4.85f, 5.40f), -16f, 110000, "topStationGondola", true, 4.85f, 16f, -16f),
                     // The tram's two docks at the track rope (SkiTram{Base,Top}StationA.manifest.json prefab_contract.docks[0..1].rope,
                     // levels identical on base and top). The base hosts the cabins. The lot of the base is 6 x 3 (the new cell on the
                     // clock-tower side), so its building sits 4 m off the origin. In the game frame the line axis is at prefab x +4.00. The
                     // docks A / B are (9.50 / -1.50) = hosted cabin entries 0 / 1 (A = the +X bay, B = the -X bay). The top is unchanged.
                     Station(lifts, Names.StationTramBase, StationRole.Base, "tram", new float3(nan, nan, nan), -12f, 300000, "baseStationTram", true,
-                            new float3(9.50f, 16.00f, -5.50f), new float3(-1.50f, 16.00f, -5.50f), true, 4.00f, 16.00f, 12f, -12f),
+                            new float3(9.50f, 16.00f, -5.50f), new float3(-1.50f, 16.00f, -5.50f), true, 4.00f, 16.00f, 12f, -12f).WithLvStub(new float3(-12f, 0f, -9f), new float3(-12f, 0f, -12f)),
                     Station(lifts, Names.StationTramTop, StationRole.Top, "tram", new float3(nan, nan, nan), -12f, 190000, "topStationTram", true,
                             new float3(-5.50f, 16.00f, -5.50f), new float3(5.50f, 16.00f, -5.50f), false, 0f, 16.00f, 12f, nan),
                 };

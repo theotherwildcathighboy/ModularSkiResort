@@ -397,7 +397,9 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftBuildAids)),
                     "Shows a guide line and an offset readout while you place a station. The bulldozer " +
-                    "warns what a click on a lift removes. Default on."
+                    "warns what a click on a lift removes. A ring marks the low-voltage stub where a base station takes power, " +
+                    "orange until a wire reaches it. It shows during placement, with the power line tool or the electricity view, and " +
+                    "on a selected station. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LiftTowerPlanner)),

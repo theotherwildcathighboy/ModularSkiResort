@@ -408,6 +408,11 @@ namespace SkiResortMod
             // Gated by ShowSkiAreaRadius inside. Game mode only.
             updateSystem.UpdateBefore<SkiAreaRingOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
 
+            // LV stub marker: where a base station takes power (its own LV stub, never its road). Before OverlayRenderSystem (same reason
+            // as the snow line: the renderer uploads and clears its lists in the same frame). ONE anchor only. Gated by LiftBuildAids inside.
+            // Game mode only. Writes nothing.
+            updateSystem.UpdateBefore<StationLvMarkerSystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
+
             // Run names on the hill: NO anchor to OverlayRenderSystem (labels are Graphics.DrawMesh calls, and nothing is written to the
             // overlay buffers). It must run after the catalog's UIUpdate rebuilds (Rendering does). Gated by ShowRunNamesOnTheHill inside.
             updateSystem.UpdateAt<SkiRunLabelSystem>(SystemUpdatePhase.Rendering);

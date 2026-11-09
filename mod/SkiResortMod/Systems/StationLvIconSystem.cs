@@ -152,59 +152,11 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The LV wire state of a station's LV stub (StationLvRule.Classify): foreign LV edges at its LV stub nodes, and
-        /// foreign LV nodes local-connected onto its LV stub edge.</summary>
+        /// <summary>The LV wire state of a station's LV stub (StationLvStubProbe, shared with StationLvMarkerSystem).</summary>
         private LvStubWire ClassifyStub(Entity station, out int atNode, out int mid)
         {
-            atNode = mid = 0;
-            var subNets = new List<Entity>(8);
-            DynamicBuffer<Game.Net.SubNet> buffer = EntityManager.GetBuffer<Game.Net.SubNet>(station, isReadOnly: true);
-            for (int i = 0; i < buffer.Length; i++)
-                subNets.Add(buffer[i].m_SubNet);
-            for (int i = 0; i < subNets.Count; i++)
-            {
-                Entity sub = subNets[i];
-                if (!IsLv(sub))
-                    continue;
-                if (EntityManager.HasComponent<Edge>(sub))
-                {
-                    if (!EntityManager.TryGetBuffer(sub, isReadOnly: true, out DynamicBuffer<ConnectedNode> nodes))
-                        continue;
-                    var list = new List<Entity>(nodes.Length);
-                    for (int k = 0; k < nodes.Length; k++)
-                        list.Add(nodes[k].m_Node);
-                    for (int k = 0; k < list.Count; k++)
-                    {
-                        if (!OwnedBy(list[k], station) && IsLv(list[k]))
-                            mid++;
-                    }
-                }
-                else if (EntityManager.TryGetBuffer(sub, isReadOnly: true, out DynamicBuffer<ConnectedEdge> edges))
-                {
-                    var list = new List<Entity>(edges.Length);
-                    for (int k = 0; k < edges.Length; k++)
-                        list.Add(edges[k].m_Edge);
-                    for (int k = 0; k < list.Count; k++)
-                    {
-                        if (!OwnedBy(list[k], station) && IsLv(list[k]))
-                            atNode++;
-                    }
-                }
-            }
-            return StationLvRule.Classify(atNode, mid);
-        }
-
-        private bool IsLv(Entity net)
-        {
-            return EntityManager.TryGetComponent(net, out PrefabRef pr) &&
-                   EntityManager.TryGetComponent(pr.m_Prefab, out ElectricityConnectionData c) &&
-                   c.m_Voltage == Game.Prefabs.ElectricityConnection.Voltage.Low &&
-                   !EntityManager.HasComponent<Deleted>(net);
-        }
-
-        private bool OwnedBy(Entity net, Entity station)
-        {
-            return EntityManager.TryGetComponent(net, out Owner owner) && owner.m_Owner == station;
+            StationLvStubProbe.TryProbe(EntityManager, station, out _, out LvStubWire wire, out atNode, out mid);
+            return wire;
         }
 
         /// <summary>DUMP: per station seen with icons this load, its last LV wire state. Also the removal count.</summary>
