@@ -1705,10 +1705,13 @@
 }
 
 // -- the Ski Bus card: right of the game's selected-info panel, same top ---------------------------------
+// left = --screenPadding (10rem) + the vanilla panel's width + an 8rem gap. The vanilla width grows with the text scale
+// (index.css .selected-info-panel: calc(400rem * (.33333 + var(--fontScale) / 1.5)), max 580rem, reached only past 1.5).
+// A fixed 418rem put the vanilla panel 58rem under the merge card at text scale 1.25 (measured in game at 1080 and 2160).
 .busCard {
   position: absolute;
   top: 60rem;
-  left: 418rem;
+  left: calc(18rem + 400rem * (0.33333 + var(--fontScale) / 1.5));
   width: 340rem;
   padding-bottom: 6rem;
   background-color: var(--hubCardBg);
