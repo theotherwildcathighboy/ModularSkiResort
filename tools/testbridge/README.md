@@ -191,6 +191,10 @@ with an ASCII space), `glued` (a word touching an icon), `lines` (what starts ea
 (a number and its unit with an ASCII space), `keyRows` (scrollWidth / clientWidth of each icon key row), `inViewport`, the font sizes
 and the mutation count over `ms`. `ok` is true when all of these are clean.
 
+`game_eval` returns `{}` for a promise. So start the probe with `__probeTip().then(x => window.__p = x)`, return, and read
+`window.__p` in a later call. Wait at least 40 frames after the `move`. A probe that starts while the balloon still settles can count one
+mutation; run it again on the same open tooltip. Gameface rejects `:scope` in a selector, so the probe filters `children` instead.
+
 ### Practical limits, all measured
 
 - **No bridge or `game_eval` call before READY** (see Wait for ready).

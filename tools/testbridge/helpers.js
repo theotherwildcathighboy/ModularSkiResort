@@ -96,7 +96,7 @@ window.__probeTip=async(ms=2000)=>{
   // Number and unit: the joined text of each element's own text nodes.
   for(const el of [root,...root.querySelectorAll("*")]){ let s=""; for(const c of el.childNodes) if(c.nodeType===3) s+=c.nodeValue; if(unitRe.test(s)) out.unitSplits.push(show(s.trim().slice(0,60))); }
   const key=root.querySelector('[class*="sr-iconKey"]');
-  if(key){ for(const row of key.querySelectorAll(':scope > [class*="sr-iconLine"]')) out.keyRows.push({sw:row.scrollWidth,cw:row.clientWidth,over:row.scrollWidth-row.clientWidth,text:show(textOf(row)).trim()}); }
+  if(key){ for(const row of Array.from(key.children).filter(c=>/sr-iconLine/.test(c.className))) out.keyRows.push({sw:row.scrollWidth,cw:row.clientWidth,over:row.scrollWidth-row.clientWidth,text:show(textOf(row)).trim()}); }
   const rr=root.getBoundingClientRect();
   out.rect=[Math.round(rr.left),Math.round(rr.top),Math.round(rr.right),Math.round(rr.bottom)];
   out.inViewport=rr.left>=0&&rr.top>=0&&rr.right<=innerWidth&&rr.bottom<=innerHeight;
