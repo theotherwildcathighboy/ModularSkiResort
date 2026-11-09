@@ -4,7 +4,7 @@
  * a locale change. Each NAME has its word (SkiResort.Hub.ICON[NAME]): the word form that renderString, the fallback and check-ste use.
  * v1 holds the 10-icon core: 4 run ratings, 4 run states, power and snow. The ratings and states are our own flat SVGs (src/hub/icons/,
  * the shapes the hub already draws in CSS). Power and snow are vanilla icons (referenced in the installed game, never copied). v2 adds
- * ski school (our own mortarboard with a ski) and lift (our own cabin: vanilla has no cable car icon). Every icon is a pre-colored <img>: inside Gameface's inline
+ * ski school (our own mortarboard over a pair of skis) and lift (our own cabin: vanilla has no cable car icon). Every icon is a pre-colored <img>: inside Gameface's inline
  * layout a mask or a CSS shape does not draw (no Glyph, no BandMarker), so the color is in the file. Shape plus color, never color alone.
  * `wide` = a 24 x 16 box (two shapes side by side), else 16 x 16. The box is fixed, so a tooltip never resizes when the image loads.
  * Gates: tools/test-hub-rules.js T42 (every NAME used in text is here, every word key exists, the SVG colors equal the tokens) and
