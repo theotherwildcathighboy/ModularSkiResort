@@ -2,7 +2,8 @@
 // The hub's symbol table, generated from the hub's own icon table (src/data/hub-symbols.json, written by
 // tools/export-hub-symbols.js; its --check gate keeps it equal to mod/SkiResortUI/src/hub/hubIcons.ts).
 // The icons are drawn for the hub's dark tooltip, so each one sits on a dark chip in both themes.
-// Vanilla icons are the game's art: the table names them and does not copy them.
+// Power and snow are the game's own icons in the hub; game art is never copied, so the docs show our drawings of them
+// (src/hub-symbol-art/, required by the generator).
 import data from '../data/hub-symbols.json';
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
@@ -16,9 +17,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       {g.symbols.map((s) => (
         <tr>
           <td class="hub-symbols-icon">
-            {s.image
-              ? <span class="hub-symbols-chip"><img src={`${base}/${s.image}`} alt={s.word} width={s.wide ? 36 : 24} height="24" loading="lazy" decoding="async" /></span>
-              : <span class="hub-symbols-game">game icon: {s.gameIcon}</span>}
+            <span class="hub-symbols-chip"><img src={`${base}/${s.image}`} alt={s.word} width={s.wide ? 36 : 24} height="24" loading="lazy" decoding="async" /></span>
           </td>
           <td class="hub-symbols-word">{s.word}</td>
           <td>{s.meaning}</td>
@@ -34,5 +33,4 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   .hub-symbols-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; height: 2rem;
     padding: 0 0.375rem; border-radius: 0.25rem; background: rgb(28, 34, 47); }
   .hub-symbols-chip img { margin: 0; }
-  .hub-symbols-game { font-size: var(--sl-text-sm); color: var(--sl-color-gray-3); }
 </style>

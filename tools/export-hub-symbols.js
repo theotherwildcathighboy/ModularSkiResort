@@ -13,8 +13,11 @@
  * Outputs:
  *   - docs-site/src/data/hub-symbols.json: the groups and their symbols, in legend order. docs-site/src/components/HubSymbols.astro
  *     renders it.
- *   - docs-site/public/icons/hub/<file>.svg: byte copies of our own icon files. Vanilla icons (a `Media/` path) are NOT copied: they are
- *     the game's art. The table names them ("game icon: Electricity") and the hub shows them in game.
+ *   - docs-site/public/icons/hub/<file>.svg: byte copies of our own icon files. An icon the hub takes from the game (a `Media/` path)
+ *     is NEVER copied: game art is not ours to publish. The docs show our own drawing of it instead,
+ *     docs-site/src/hub-symbol-art/<NAME>.svg (required for every game icon, refused for any other).
+ * Every copied file must come from src/hub/icons/ or the art folder, and none may equal an installed game file
+ * (tools/check-no-vanilla-art.js checks the whole repo).
  * The check also fails when no docs page renders <HubSymbols />.
  */
 "use strict";
@@ -30,6 +33,7 @@ const MEANINGS = path.join(DOCS, "src", "data", "hub-symbol-meanings.json");
 const OUT_JSON = path.join(DOCS, "src", "data", "hub-symbols.json");
 const OUT_ICONS = path.join(DOCS, "public", "icons", "hub");
 const CONTENT = path.join(DOCS, "src", "content", "docs");
+const DOCS_ART = path.join(DOCS, "src", "hub-symbol-art");
 
 const rel = (p) => path.relative(ROOT, p).split(path.sep).join("/");
 class ExportError extends Error {}
@@ -86,6 +90,12 @@ function build() {
   if (missing.length) fail(`${rel(MEANINGS)}: no meaning for ${missing.join(", ")}`);
   if (extra.length) fail(`${rel(MEANINGS)}: meaning for unknown icon(s) ${extra.join(", ")}`);
 
+  const art = fs.existsSync(DOCS_ART) ? fs.readdirSync(DOCS_ART).filter((f) => f.endsWith(".svg")).map((f) => f.slice(0, -4)) : [];
+  for (const n of art) {
+    if (!icons.has(n)) fail(`${rel(DOCS_ART)}/${n}.svg: no hub icon "${n}"`);
+    if (!icons.get(n).game) fail(`${rel(DOCS_ART)}/${n}.svg: "${n}" is our own art already; the docs copy src/hub/icons/${icons.get(n).file}`);
+  }
+  for (const [n, ic] of icons) if (ic.game && !art.includes(n)) fail(`game icon "${n}" (${ic.game}) has no docs drawing ${rel(DOCS_ART)}/${n}.svg (game art is never copied)`);
   const svgs = new Map();
   const out = {
     _generated: "tools/export-hub-symbols.js from mod/SkiResortUI/src/hub/hubIcons.ts and hubText.ts. Do not edit: run the script.",
@@ -94,9 +104,11 @@ function build() {
       titleKey: g.titleKey,
       symbols: g.names.map((n) => {
         const ic = icons.get(n);
-        if (ic.file) svgs.set(ic.file, fs.readFileSync(path.join(HUB, "icons", ic.file)));
+        const out = ic.file || `${n}.svg`;
+        if (svgs.has(out)) fail(`two symbols write icons/hub/${out}`);
+        svgs.set(out, fs.readFileSync(ic.file ? path.join(HUB, "icons", ic.file) : path.join(DOCS_ART, `${n}.svg`)));
         return { name: n, tag: `<icon:${n}>`, word: en(ic.wordEntry).en, wordKey: en(ic.wordEntry).key, meaning: meanings[n],
-          image: ic.file ? `icons/hub/${ic.file}` : null, gameIcon: ic.game, wide: ic.wide };
+          image: `icons/hub/${out}`, inGame: ic.game ? `game icon ${ic.game}` : "this drawing", wide: ic.wide };
       }),
     })),
   };

@@ -3,8 +3,8 @@
  * A locale string names an icon by its short NAME (`<icon:green>`, `<mark:open>`), never by a path, so art and paths can change without
  * a locale change. Each NAME has its word (SkiResort.Hub.ICON[NAME]): the word form that renderString, the fallback and check-ste use.
  * v1 holds the 10-icon core: 4 run ratings, 4 run states, power and snow. The ratings and states are our own flat SVGs (src/hub/icons/,
- * the shapes the hub already draws in CSS). Power and snow are vanilla icons. v2 adds ski school (vanilla Graduation.svg, the mortarboard
- * vanilla shows for its graduation modifiers; Education.svg was too dim at 16 px) and lift (our own cabin: vanilla has no cable car icon). Every icon is a pre-colored <img>: inside Gameface's inline
+ * the shapes the hub already draws in CSS). Power and snow are vanilla icons (referenced in the installed game, never copied). v2 adds
+ * ski school (our own mortarboard with a ski) and lift (our own cabin: vanilla has no cable car icon). Every icon is a pre-colored <img>: inside Gameface's inline
  * layout a mask or a CSS shape does not draw (no Glyph, no BandMarker), so the color is in the file. Shape plus color, never color alone.
  * `wide` = a 24 x 16 box (two shapes side by side), else 16 x 16. The box is fixed, so a tooltip never resizes when the image loads.
  * Gates: tools/test-hub-rules.js T42 (every NAME used in text is here, every word key exists, the SVG colors equal the tokens) and
@@ -21,6 +21,7 @@ import iconPatchy from "./icons/patchy.svg";
 import iconClosed from "./icons/closed.svg";
 import iconOpenpatchy from "./icons/openpatchy.svg";
 import iconLift from "./icons/lift.svg";
+import iconSchool from "./icons/school.svg";
 
 export interface HubIcon {
   /** The image URL: a webpack asset (coui://ui-mods/SkiResortMod-img/...) or a vanilla Media/ path. */
@@ -42,7 +43,7 @@ export const HUB_ICON: Readonly<Record<HubIconName, HubIcon>> = {
   patchy: { src: iconPatchy, wide: false, word: HUB_LOC.iconPatchy },
   closed: { src: iconClosed, wide: false, word: HUB_LOC.iconClosed },
   openpatchy: { src: iconOpenpatchy, wide: true, word: HUB_LOC.iconOpenpatchy },
-  school: { src: "Media/Game/Icons/Graduation.svg", wide: false, word: HUB_LOC.iconSchool },
+  school: { src: iconSchool, wide: false, word: HUB_LOC.iconSchool },
   lift: { src: iconLift, wide: false, word: HUB_LOC.iconLift },
   power: { src: "Media/Game/Icons/Electricity.svg", wide: false, word: HUB_LOC.iconPower },
   snow: { src: "Media/Game/Climate/Snow.svg", wide: false, word: HUB_LOC.iconSnow },

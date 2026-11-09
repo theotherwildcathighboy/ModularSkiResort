@@ -1090,9 +1090,9 @@ function run(srcDir) {
       }
     }
     const imported = [...iconSrc.matchAll(/from "\.\/icons\/([\w-]+\.svg)"/g)].map((m) => m[1]).sort();
-    eq("T42.12 icon SVGs: 9 files, every one imported by hubIcons.ts, well-formed, colors only from the on-dark tokens", [svgs, imported, svgBad],
-      [["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "lift.svg", "open.svg", "openpatchy.svg", "patchy.svg"],
-        ["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "lift.svg", "open.svg", "openpatchy.svg", "patchy.svg"], []]);
+    eq("T42.12 icon SVGs: 10 files, every one imported by hubIcons.ts, well-formed, colors only from the on-dark tokens", [svgs, imported, svgBad],
+      [["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "lift.svg", "open.svg", "openpatchy.svg", "patchy.svg", "school.svg"],
+        ["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "lift.svg", "open.svg", "openpatchy.svg", "patchy.svg", "school.svg"], []]);
     // The harness base scenario sends the contract number. A stale one shows the mismatch card in every harness scenario, and the
     // layout test then fails with "reading 'click'" instead of a clear message (round 620 hit this). The harness sits next to src/;
     // a --src= copy without it (tools/test-gate-fixtures.js) skips the check.
