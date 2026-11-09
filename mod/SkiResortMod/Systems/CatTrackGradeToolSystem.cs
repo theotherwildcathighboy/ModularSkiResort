@@ -832,7 +832,7 @@ namespace SkiResortMod.Systems
                     corners.Add(v);
             }
             int resX = hd.resolution.x, resZ = hd.resolution.z;
-            if (!SkiRunAutoPlanner.SnapshotRect(corners.ToArray(), resX, resZ, hd.scale, hd.offset, out int x0, out int z0, out int w, out int d) ||
+            if (!PlanGeometry.SnapshotRect(corners.ToArray(), resX, resZ, hd.scale, hd.offset, out int x0, out int z0, out int w, out int d) ||
                 (long)w * d > MaxSnapshotTexels)
                 return false;
             HeightSnapshot s = HeightSnapshot.Allocate(x0, z0, w, d, resX, resZ, hd.scale, hd.offset, wet: false);

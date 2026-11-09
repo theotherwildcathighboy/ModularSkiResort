@@ -287,7 +287,7 @@ namespace SkiResortMod.Systems
             {
                 if (!Finite(pod.TopCenter))
                     continue;
-                int style = (int)PisteMapRules.StyleOf(SkiRunAutoPlanner.ScoreBandOf(pod.PrimaryClass));
+                int style = (int)PisteMapRules.StyleOf(PlanGeometry.ScoreBandOf(pod.PrimaryClass));
                 UnityEngine.Color c = SkiPisteMapSystem.PisteFill[style];
                 SetOwner(pod.Key, true, pod.Lift >= 0 && pod.Lift < plan.Lifts.Length ? plan.Lifts[pod.Lift].Key : 0u, pod.Lift >= 0 && pod.Lift < plan.Lifts.Length);
                 float3 at = Ground(ref hd, pod.TopCenter);
@@ -347,7 +347,7 @@ namespace SkiResortMod.Systems
                     continue;
                 bool podOk = l.Pod >= 0 && l.Pod < plan.Pods.Length;
                 SetOwner(podOk ? plan.Pods[l.Pod].Key : 0u, podOk, l.Key, true);
-                float[] hds = SkiRunAutoPlanner.StationHalfDiagonalM;
+                float[] hds = PlanGeometry.StationHalfDiagonalM;
                 float lot = 2f * hds[Math.Min((int)l.TypeIndex, hds.Length - 1)];
                 float3 b = Ground(ref hd, l.Bottom.xz), t = Ground(ref hd, l.Top.xz);
                 if (l.Origin == LiftOrigin.Pinned)

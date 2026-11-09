@@ -1262,38 +1262,9 @@ namespace SkiResortMod.Systems
             return AutoReject.Kept;
         }
 
-        /// <summary>True when the ring keeps every hard obstacle's clearance (ClearanceOf), containment included. Public: the host
-        /// re-checks every output with it, and the tool re-checks on Enter after re-collecting obstacles (FEASIBILITY 4 row 12).</summary>
-        public static bool ObstaclesClear(float2[] ring, List<AutoObstacle> obstacles, AutoDensity density)
-        {
-            if (obstacles == null)
-                return true;
-            BBox(ring, out float2 lo, out float2 hi);
-            for (int o = 0; o < obstacles.Count; o++)
-            {
-                AutoObstacle ob = obstacles[o];
-                if (ob == null || ob.Ring == null || ob.Ring.Length < 2 || ob.Kind == AutoObstacleKind.CatTrack)
-                    continue;
-                float clear = ClearanceOf(ob.Kind, density);
-                BBox(ob.Ring, out float2 olo, out float2 ohi);
-                if (math.any(ohi < lo - clear) || math.any(olo > hi + clear))
-                    continue;
-                if (ob.Ring.Length >= 3)
-                {
-                    if (RingDistance(ring, ob.Ring, clear, out _, out _, out _, out _) < clear)
-                        return false;
-                }
-                else
-                {
-                    if (GradeRaster.Inside(ring, ob.Ring[0]) || GradeRaster.Inside(ring, ob.Ring[1]))
-                        return false;
-                    for (int i = 0; i < ring.Length; i++)
-                        if (GradeRibbon.SegSegDistance(ring[i], ring[(i + 1) % ring.Length], ob.Ring[0], ob.Ring[1]) < clear)
-                            return false;
-                }
-            }
-            return true;
-        }
+        /// <summary>Forwarder: PlanGeometry.ObstaclesClear.</summary>
+        public static bool ObstaclesClear(float2[] ring, List<AutoObstacle> obstacles, AutoDensity density) =>
+            PlanGeometry.ObstaclesClear(ring, obstacles, density);
 
         private AutoReject Rate(Cand cand, float2[] ring, GradePath path, bool merge, int mergeInto, bool reachesEnd, float gap)
         {

@@ -254,7 +254,7 @@ namespace SkiResortMod.Systems
                 }
             if (math.lengthsq(baseXz) > 0f && math.distancesq(line[line.Count - 1], baseXz) < math.distancesq(line[0], baseXz))
                 line.Reverse();
-            float2[] region = QuickRunsPlanRules.AroundRegion(line, FallLine(line[0]), SkiRunAutoPlanner.V1MaxAreaM2);
+            float2[] region = QuickRunsPlanRules.AroundRegion(line, FallLine(line[0]), PlanGeometry.V1MaxAreaM2);
             if (region == null)
             {
                 Say("QuickRuns [around]: the lift line is degenerate — corner placed instead");

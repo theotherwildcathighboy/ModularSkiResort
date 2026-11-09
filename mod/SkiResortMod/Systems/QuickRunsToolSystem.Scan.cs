@@ -84,7 +84,7 @@ namespace SkiResortMod.Systems
                 return;
             }
             CollectObstacles(region);
-            m_Knobs.Seed = SkiRunAutoPlanner.SeedOf(region, m_Shuffle);
+            m_Knobs.Seed = PlanGeometry.SeedOf(region, m_Shuffle);
             // A fresh input per scan (the planner holds it until the next launch): the tool always plans in Resort mode (DECISIONS 444)
             var input = new AutoPlanInput
             {
@@ -172,7 +172,7 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Copies the texel rectangle of the region (SkiRunAutoPlanner.SnapshotRect) from the CPU heights, and the wet layer
+        /// <summary>Copies the texel rectangle of the region (PlanGeometry.SnapshotRect) from the CPU heights, and the wet layer
         /// (WaterUtils.SampleDepth over WetDepthM at each texel center). Main thread. The vanilla precedent for reading hd.heights outside
         /// a job is SelectionToolSystem.cs:1151 (the glade tool's note).</summary>
         private bool TakeSnapshot(float2[] region, out string failure)
@@ -186,12 +186,12 @@ namespace SkiResortMod.Systems
                 return false;
             }
             int resX = hd.resolution.x, resZ = hd.resolution.z;
-            if (!SkiRunAutoPlanner.SnapshotRect(region, resX, resZ, hd.scale, hd.offset, out int x0, out int z0, out int w, out int d))
+            if (!PlanGeometry.SnapshotRect(region, resX, resZ, hd.scale, hd.offset, out int x0, out int z0, out int w, out int d))
             {
                 failure = "the region is degenerate";
                 return false;
             }
-            if ((long)w * d > SkiRunAutoPlanner.MaxLatticeCells * 4L)
+            if ((long)w * d > PlanGeometry.MaxLatticeCells * 4L)
             {
                 failure = $"the scan rectangle is {w} x {d} texels";
                 return false;

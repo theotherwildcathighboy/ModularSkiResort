@@ -602,7 +602,7 @@ namespace SkiResortMod.Systems
             m_CensusFound.Clear();
             m_WildFound.Clear();
             m_CensusCursor = m_WildCursor = 0;
-            SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
+            PlanGeometry.BBox(region, out float2 rbMin, out float2 rbMax);
             var rb = new Bounds2(rbMin, rbMax);
             float band = SkiGladeToolSystem.Tuning.GladeMinSpacing, around = SkiGladeTreeLine.AroundM;
             SearchTrees(new Bounds2(rb.min - band, rb.max + band), m_CensusFound);
@@ -683,7 +683,7 @@ namespace SkiResortMod.Systems
                         !EntityManager.TryGetComponent(e, out Game.Objects.Transform tr))
                         continue;
                     float2 xz = tr.m_Position.xz;
-                    if (!GradeRaster.Inside(region, xz) && SkiRunAutoPlanner.PointRingDistance(region, xz) > band)
+                    if (!GradeRaster.Inside(region, xz) && PlanGeometry.PointRingDistance(region, xz) > band)
                         continue;
                     bool filler = EntityManager.TryGetComponent(e, out SkiRunTreeMember m) && m.m_Layer == SkiRunTreeMember.LayerFiller &&
                                   m.m_Run == Entity.Null;
@@ -952,7 +952,7 @@ namespace SkiResortMod.Systems
         private float3[][] Holes(float2[] region)
         {
             var holes = new List<float3[]>();
-            SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
+            PlanGeometry.BBox(region, out float2 rbMin, out float2 rbMax);
             var rb = new Bounds2(rbMin, rbMax);
             using (var areas = m_AreaQuery.ToEntityArray(Allocator.Temp))
             using (var prefabs = m_AreaQuery.ToComponentDataArray<PrefabRef>(Allocator.Temp))
@@ -1003,7 +1003,7 @@ namespace SkiResortMod.Systems
         /// <summary>Snapshot heights on a ContourSide grid over the region's bounds. The ground range over the grid points inside the region.</summary>
         private void BuildContourGrid(float2[] region)
         {
-            SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
+            PlanGeometry.BBox(region, out float2 rbMin, out float2 rbMax);
             var rb = new Bounds2(rbMin, rbMax);
             float2 size = rb.max - rb.min;
             m_ContourCell = math.max(math.max(size.x, size.y) / (ContourSide - 1), 1f);
