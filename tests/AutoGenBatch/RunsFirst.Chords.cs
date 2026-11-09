@@ -18,7 +18,7 @@ namespace AutoGenBatch
         private const float ChordClearM = 26f;                          // a moved stretch's distance off the chord
 
         /// <summary>The share of a lift chord's middle 70 % (sampled every 10 m) within 20 m of a run point, as the scorecard reads it.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float ChordShare(Lift lf, List<List<float2>> dense)
         {
             float2 b = lf.Bottom.xz, t = lf.Top.xz;
@@ -35,7 +35,7 @@ namespace AutoGenBatch
 
         /// <summary>Moves the runs' stretches under a lift line out beside it where the line's middle still runs along runs. Returns
         /// the lifts cleared.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int RepairChords(Grid g, Plan plan, List<Lift> lifts)
         {
             int cleared = 0;

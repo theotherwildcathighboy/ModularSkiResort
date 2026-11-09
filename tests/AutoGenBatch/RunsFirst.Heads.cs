@@ -20,7 +20,7 @@ namespace AutoGenBatch
         private static float HeadForwardM => O.HeadForwardM;   // how far a run's start may slide forward
 
         /// <summary>Moves runs' starts forward to where their first stretch crowds other runs least. Returns the runs changed.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int TrimHeads(Grid g, Plan plan, List<Lift> lifts)
         {
             SkiGraph sg = Ski(g, plan, lifts);

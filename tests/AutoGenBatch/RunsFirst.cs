@@ -95,17 +95,17 @@ namespace AutoGenBatch
             SlopeBand[] lb = lines.Select(l => MixMode == 2 ? GroundBand(g, l.Pts.Select(p => p.xz).ToList()) : l.Band).ToArray();
             var pool = new float[5];
             for (int i = 0; i < lines.Count; i++)
-                pool[(int)lb[i]] += lines[i].Drop * Math.Clamp(lines[i].Width / 40f, 0.3f, 1f);
+                pool[(int)lb[i]] += lines[i].Drop * Clamp(lines[i].Width / 40f, 0.3f, 1f);
             float gsum = ground.Sum(), psum = pool.Sum();
             if (gsum <= 0f || psum <= 0f)
                 return;
             var w = new float[5];
             for (int b = 1; b < 5; b++)
-                w[b] = Math.Clamp(ground[b] / gsum / Math.Max(0.01f, pool[b] / psum), 0.3f, 3f);
+                w[b] = Clamp(ground[b] / gsum / Math.Max(0.01f, pool[b] / psum), 0.3f, 3f);
             w[(int)SlopeBand.Green] = Math.Max(w[(int)SlopeBand.Green], MixGreenMin);
             w[0] = w[(int)SlopeBand.Green];
             for (int i = 0; i < lines.Count; i++)
-                lines[i].Score = lines[i].Drop * Math.Clamp(lines[i].Width / 40f, 0.3f, 1f) * w[(int)lb[i]];
+                lines[i].Score = lines[i].Drop * Clamp(lines[i].Width / 40f, 0.3f, 1f) * w[(int)lb[i]];
             if (MixMode == 1)
                 MixW = w;
             string Pc(float[] a, float s) => string.Join("/", Enumerable.Range(1, 4).Select(b => $"{100f * a[b] / s:F0}"));
@@ -301,7 +301,7 @@ namespace AutoGenBatch
                 regions.Clear();
                 foreach (string row in File.ReadAllLines(args[2]))
                 {
-                    var t = new List<string>(row.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+                    var t = new List<string>(row.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
                     // optional second token "@Fixture" (default MountainVillage)
                     string fx = t.Count > 1 && t[1].StartsWith("@") ? t[1].Substring(1) : "MountainVillage";
                     if (t.Count > 1 && t[1].StartsWith("@"))
@@ -554,7 +554,7 @@ namespace AutoGenBatch
 
         // ------------------------------------------------------------------ grid and flow
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static Grid BuildGrid(HeightSnapshot s, float2[] ring)
         {
             var g = new Grid { W = s.Width / F, D = s.Depth / F, CellM = s.TexelM * F, S = s };
@@ -582,7 +582,7 @@ namespace AutoGenBatch
             return g;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float[] Box(float[] a, int w, int d)
         {
             var o = new float[a.Length];
@@ -605,7 +605,7 @@ namespace AutoGenBatch
             return o;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool Inside(float2[] r, float2 p)
         {
             bool inside = false;
@@ -619,7 +619,7 @@ namespace AutoGenBatch
 
         /// <summary>D8 receivers on the epsilon-filled surface (priority flood from the region edge), so every cell drains to an outlet
         /// on the edge (receiver -1). acc = upstream cell count.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int[] Receivers(Grid g, float[] h, out float[] acc)
         {
             int n = g.W * g.D;
@@ -694,7 +694,7 @@ namespace AutoGenBatch
             return rec;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool OnEdge(Grid g, int c)
         {
             int x = c % g.W, z = c / g.W;
@@ -714,7 +714,7 @@ namespace AutoGenBatch
             int n = g.W * g.D;
             var first = new int[n];
             var next = new int[n];
-            Array.Fill(first, -1);
+            FillAll(first, -1);
             for (int c = 0; c < n; c++)
                 if (g.In[c] && rec[c] >= 0)
                 {
@@ -753,17 +753,17 @@ namespace AutoGenBatch
 
         // ------------------------------------------------------------------ lines
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float HeightAt(Grid g, float2 p)
         {
             float fx = (float)((p.x - g.OX) / g.CellM), fz = (float)((p.y - g.OZ) / g.CellM);
-            int x0 = Math.Clamp((int)Math.Floor(fx), 0, g.W - 2), z0 = Math.Clamp((int)Math.Floor(fz), 0, g.D - 2);
-            float tx = Math.Clamp(fx - x0, 0f, 1f), tz = Math.Clamp(fz - z0, 0f, 1f);
+            int x0 = Clamp((int)Math.Floor(fx), 0, g.W - 2), z0 = Clamp((int)Math.Floor(fz), 0, g.D - 2);
+            float tx = Clamp(fx - x0, 0f, 1f), tz = Clamp(fz - z0, 0f, 1f);
             float a = g.H[z0 * g.W + x0], b = g.H[z0 * g.W + x0 + 1], c = g.H[(z0 + 1) * g.W + x0], d = g.H[(z0 + 1) * g.W + x0 + 1];
             return math.lerp(math.lerp(a, b, tx), math.lerp(c, d, tx), tz);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float GradeAt(Grid g, float2 p)
         {
             float e = g.CellM;
@@ -773,11 +773,11 @@ namespace AutoGenBatch
         }
 
         /// <summary>Raw terrain height (the 3.5 m heightmap, as the game samples it). NaN outside the snapshot.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float RawH(Grid g, float2 p) => g.S.Sample(new float3(p.x, 0f, p.y));
 
         /// <summary>Raw grade from a 10 m central difference: what the code judges a station pad by.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float RawGrade(Grid g, float2 p)
         {
             const float d = 10f;
@@ -786,7 +786,7 @@ namespace AutoGenBatch
             return math.sqrt(gx * gx + gz * gz);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static void AddLine(List<Line> lines, Grid g, List<int> cells, string family)
         {
             if (cells.Count < 4)
@@ -857,7 +857,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>Length, drop, mean / 85th-percentile / steepest 30 m pitch, band, corridor width and score, from Pts.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static void Stats(Grid g, Line l)
         {
             int per = (int)(PitchM / StepM), n = l.Pts.Count;
@@ -872,7 +872,7 @@ namespace AutoGenBatch
             l.Steepest = ps.Count > 0 ? ps[ps.Count - 1] : l.Mean;
             l.Band = SkiSlopeClassifier.BandOf(l.Rating);
             l.Width = Width(g, l);
-            l.Score = l.Drop * Math.Clamp(l.Width / 40f, 0.3f, 1f) * BandWeight(l.Band);
+            l.Score = l.Drop * Clamp(l.Width / 40f, 0.3f, 1f) * BandWeight(l.Band);
         }
 
         /// <summary>Picked line points bucketed on a 60 m grid: Near(p, r) for r up to 60 m.</summary>
@@ -894,7 +894,7 @@ namespace AutoGenBatch
                 m_Count++;
             }
             /// <summary>Near(g.World(c), r), remembered per cell (a search asks it for the same cell from every neighbor).</summary>
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public bool NearCell(Grid g, int c, float r)
             {
                 if (m_MemoGrid != g || m_MemoCount != m_Count)
@@ -909,7 +909,7 @@ namespace AutoGenBatch
                     memo[c] = Near(g.World(c), r) ? (sbyte)1 : (sbyte)-1;
                 return memo[c] > 0;
             }
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public bool Near(float2 p, float r)
             {
                 int cx = (int)Math.Floor(p.x / Cell), cz = (int)Math.Floor(p.y / Cell);
@@ -925,7 +925,7 @@ namespace AutoGenBatch
 
         /// <summary>Median corridor width: from every third sample, step sideways until the ground turns cliff (over 0.75) or rises /
         /// falls away from the line faster than half the distance.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float Width(Grid g, Line l)
         {
             var ws = new List<float>();
@@ -953,7 +953,7 @@ namespace AutoGenBatch
             return ws[ws.Count / 2];
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static PointHash Pick(List<Line> lines, Grid g, float km2)
         {
             SortStable(lines, (a, b) => b.Score.CompareTo(a.Score));
@@ -963,7 +963,7 @@ namespace AutoGenBatch
             var best = new float[5];   // per band: the pick judges "weak" against lines of the same color
             foreach (Line l in lines)
                 best[(int)l.Band] = Math.Max(best[(int)l.Band], l.Score);
-            int cap = Math.Clamp((int)Math.Round(PicksPerKm2 * km2), 12, 80), picks = 0;
+            int cap = Clamp((int)Math.Round(PicksPerKm2 * km2), 12, 80), picks = 0;
             foreach (Line l in lines)
             {
                 if (picks >= cap)
@@ -1087,7 +1087,7 @@ namespace AutoGenBatch
         {
             int w = s.Width, d = s.Depth;
             float t = s.TexelM;
-            Func<int, int, float> hAt = (i, j) => s.ToWorld(s.Heights[Math.Clamp(j, 0, d - 1) * w + Math.Clamp(i, 0, w - 1)]);
+            Func<int, int, float> hAt = (i, j) => s.ToWorld(s.Heights[Clamp(j, 0, d - 1) * w + Clamp(i, 0, w - 1)]);
             // uphill = image top: the axis closest to lowest -> highest cell in the region
             int lo = -1, hi = -1;
             for (int c = 0; c < g.W * g.D; c++)

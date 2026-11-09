@@ -30,7 +30,7 @@ namespace AutoGenBatch
             public int BestComponent, BestSize;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static SkiGraph Ski(Grid g, Plan plan, List<Lift> lifts)
         {
             var sg = new SkiGraph { Runs = plan.Runs.Count };
@@ -115,7 +115,7 @@ namespace AutoGenBatch
                     sg.Reached[i] = true;
             // strongly connected sets of lifts (lift A links to B when a skier leaving A's top gets to B's bottom)
             sg.Component = new int[lifts.Count];
-            Array.Fill(sg.Component, -1);
+            FillAll(sg.Component, -1);
             var fwd = new HashSet<int>[lifts.Count];
             for (int L = 0; L < lifts.Count; L++)
                 fwd[L] = Closure(L, sg.Reaches);
@@ -141,7 +141,7 @@ namespace AutoGenBatch
             return sg;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static HashSet<int> Closure(int start, HashSet<int>[] adj)
         {
             var seen = new HashSet<int> { start };

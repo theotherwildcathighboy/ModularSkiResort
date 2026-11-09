@@ -64,9 +64,9 @@ namespace AutoGenBatch
             float2 t = lf.Top.xz;
             float th = RawH(g, t);
             for (float r = 160f; r <= 700f && o.Count < 400; r += 25f)
-                for (float a = 0f; a < 2f * MathF.PI; a += 25f / r)
+                for (float a = 0f; a < 2f * (float)Math.PI; a += 25f / r)
                 {
-                    float2 p = t + r * new float2(MathF.Cos(a), MathF.Sin(a));
+                    float2 p = t + r * new float2((float)Math.Cos(a), (float)Math.Sin(a));
                     int c = CellOf(g, p);
                     if (c < 0 || !g.In[c] || float.IsNaN(g.Hr[c]))
                         continue;
@@ -86,9 +86,9 @@ namespace AutoGenBatch
             float2 t = lf.Top.xz;
             float th = RawH(g, t);
             for (float r = 50f; r <= 300f && o.Count < 300; r += 20f)
-                for (float a = 0f; a < 2f * MathF.PI; a += 20f / r)
+                for (float a = 0f; a < 2f * (float)Math.PI; a += 20f / r)
                 {
-                    float2 p = t + r * new float2(MathF.Cos(a), MathF.Sin(a));
+                    float2 p = t + r * new float2((float)Math.Cos(a), (float)Math.Sin(a));
                     int c = CellOf(g, p);
                     if (c < 0 || !g.In[c] || float.IsNaN(g.Hr[c]))
                         continue;

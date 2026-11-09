@@ -81,7 +81,7 @@ namespace AutoGenBatch
         /// <summary>The green cat tracks a diagonal piece could be cut as. First, the direct bench from its head to its foot (Keeps: it passes
         /// every join the piece carried between its ends). Where that misses a join, a bench routed through the joins. Null where
         /// none fits. tally counts the legs past the search budget [0] and the legs no bench reached [1].</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static (List<float2> Direct, bool Keeps, List<float2> Routed) Benches(Grid g, List<float2> old, JoinPoints jp, int[] tally)
         {
             // uphill from the foot to the head over ground a green cat track can be graded across
@@ -230,7 +230,7 @@ namespace AutoGenBatch
             private readonly int m_Skiable;
             private float m_RunKm, m_ConnKm;
 
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public CutModel(Grid g, Plan plan)
             {
                 var els = new List<List<float2>>();
@@ -435,7 +435,7 @@ namespace AutoGenBatch
 
         /// <summary>Cuts diagonal traverse pieces as green cat tracks where a bench fits and the cut gains score (crowding, stubs and
         /// economy against coverage, as the scorecard reads them). Returns the pieces regraded.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int RegradeTraverses(Grid g, Plan plan, List<Lift> lifts)
         {
             var model = new CutModel(g, plan);
@@ -663,7 +663,7 @@ namespace AutoGenBatch
 
         /// <summary>The share of a lift chord's middle 70 % (every 10 m) within 20 m of a run as scorecard v3 reads it, and the
         /// samples each element is near.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float ChordShareV3(Lift lf, List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els, out int[] hits)
         {
             float2 b = lf.Bottom.xz, t = lf.Top.xz;

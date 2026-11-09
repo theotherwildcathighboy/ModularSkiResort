@@ -33,7 +33,7 @@ namespace AutoGenBatch
         /// a skier is on (onNear). It then goes down the steepest descent until it runs along a run for a few steps or reaches a
         /// station. The code makes one line per stretch of face (an open point near a line already traced starts none). It returns the
         /// lines as candidates that the fill judges like the picked lines.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<Cand> FaceLines(Grid g, List<Lift> lifts, List<float2> lat, bool[] covered, List<float3> onPts, List<float2> runPts)
         {
             var o = new List<Cand>();
@@ -42,7 +42,7 @@ namespace AutoGenBatch
             // The second is whether a run lies within MergeM
             int cellCount = g.W * g.D;
             var onY = new float[cellCount];
-            Array.Fill(onY, float.NegativeInfinity);
+            FillAll(onY, float.NegativeInfinity);
             var nearRun = new bool[cellCount];
             void Stamp(float2 q, float r, Action<int> f)
             {
@@ -168,7 +168,7 @@ namespace AutoGenBatch
         /// <summary>A diagonal from p across the slope to one side, holding DiagGrade down the smoothed ground (straight down where the
         /// ground is gentler, turning at most 45 degrees per 10 m). It ends when it comes within 30 m of a run 120 m or more on, or at a
         /// lift bottom. It returns null when it leaves the region, turns back on itself or runs 1.5 km.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<float2> DiagonalTrace(Grid g, float2 p, int side, PointHash runs, List<Lift> lifts)
         {
             var pts = new List<float2> { p };
@@ -198,7 +198,7 @@ namespace AutoGenBatch
             return null;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int FillCover(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands)
         {
             SkiGraph sg = Ski(g, plan, lifts);
@@ -805,7 +805,7 @@ namespace AutoGenBatch
                         sb.Append(' ');
                         continue;
                     }
-                    int k = Math.Clamp((int)((g.H[c] - lo) / 25f), 0, 35);
+                    int k = Clamp((int)((g.H[c] - lo) / 25f), 0, 35);
                     sb.Append(k < 10 ? (char)('0' + k) : (char)('a' + k - 10));
                 }
                 Console.WriteLine(sb.ToString().TrimEnd());

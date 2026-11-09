@@ -19,7 +19,7 @@ namespace AutoGenBatch
         private static float BridgeFallW => O.BridgeFallW;   // a bridge 60 degrees off the fall line costs 1 + this times as much
 
         /// <summary>Adds bridge lifts while the network is split and the lift budget allows. Returns how many.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int BridgeLifts(Grid g, Plan plan, List<Lift> lifts, float km2)
         {
             int added = 0, budget = (int)Math.Ceiling(1.5 * km2) + 2;
@@ -63,7 +63,7 @@ namespace AutoGenBatch
         /// The lift starts at a pad beside what the froms ski (no new base). It ends at a top whose run comes down to the tos (an existing
         /// run starting near the top, else a route found uphill from the tos). The lift keeps the lift norms, has no crossing, keeps its rope
         /// clear of other ropes and keeps its chord off the runs. The code keeps the lift only when the network grows.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool TryBridge(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, float lowCut)
         {
             string names = string.Join("/", froms.Select(L => "L" + lifts[L].Id)) + " -> " + string.Join("/", tos.Select(L => "L" + lifts[L].Id));

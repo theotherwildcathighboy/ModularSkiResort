@@ -214,7 +214,7 @@ namespace AutoGenBatch
                 bool[] ok = WayHomeOk(sg, lifts, root, bases);
                 var els = chords ? ChordEls(g, plan) : null;
                 var share = new float[lifts.Count];
-                int L = Enumerable.Range(0, lifts.Count).FirstOrDefault(i => !tried.Contains(lifts[i]) && (chords
+                int L = FirstOr(Enumerable.Range(0, lifts.Count), i => !tried.Contains(lifts[i]) && (chords
                     ? (share[i] = ChordShareV3(lifts[i], els, out _)) > ChordShareMax || CrossesKind(lifts, lifts[i])
                     : (V3Home && !ok[i]) || !sg.Skied[i].Any(e => sg.IsRun[e] && sg.Returns[e])), -1);
                 if (L < 0)
@@ -328,7 +328,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>Adds a way-home cat track from the top of every lift that has none. Returns the tracks added.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int AddLiftWaysHome(Grid g, Plan plan, List<Lift> lifts)
         {
             int added = 0, blue = 0;
@@ -439,7 +439,7 @@ namespace AutoGenBatch
         /// diagonal where it takes pitches past the blue line). Then it takes the shortest route under the green limits. Home is the base lift
         /// bottoms, other gondola and tram tops to ride down, and the easy skiing already leading home. Where none fits, the search moves to
         /// the next highest top. One is enough, and the lifts below it may stay experts-only. Returns the tracks added.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int AddPeakWayHome(Grid g, Plan plan, List<Lift> lifts)
         {
             var tried = new HashSet<Lift>();
@@ -453,8 +453,8 @@ namespace AutoGenBatch
                 for (int L = 0; L < lifts.Count; L++)
                     if (ok[L])
                         easyHi = Math.Max(easyHi, RawH(g, lifts[L].Top.xz));
-                int T = Enumerable.Range(0, lifts.Count).Where(L => !ok[L] && !tried.Contains(lifts[L]) && RawH(g, lifts[L].Top.xz) > easyHi + 1f)
-                    .OrderByDescending(L => RawH(g, lifts[L].Top.xz)).FirstOrDefault(-1);
+                int T = FirstOr(Enumerable.Range(0, lifts.Count).Where(L => !ok[L] && !tried.Contains(lifts[L]) && RawH(g, lifts[L].Top.xz) > easyHi + 1f)
+                    .OrderByDescending(L => RawH(g, lifts[L].Top.xz)), -1);
                 if (T < 0)
                     break;
                 tried.Add(lifts[T]);

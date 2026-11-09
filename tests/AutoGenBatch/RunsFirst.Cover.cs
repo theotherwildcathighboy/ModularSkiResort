@@ -8,7 +8,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Runtime.CompilerServices;
 using Unity.Mathematics;
 
@@ -27,11 +26,11 @@ namespace AutoGenBatch
         private static float CoverFallW => O.CoverFallW;      // the share of a coverage lift's gain lost 60 degrees off the fall line
 
         /// <summary>The skiable 20 m lattice: per cell its index (-1 = not a lattice point or not skiable).</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int[] SkiLattice(Grid g, out int count)
         {
             var idx = new int[g.W * g.D];
-            Array.Fill(idx, -1);
+            FillAll(idx, -1);
             int s = Math.Max(1, (int)Math.Round(20f / g.CellM));
             count = 0;
             for (int z = s / 2; z < g.D; z += s)
@@ -54,7 +53,7 @@ namespace AutoGenBatch
             private readonly Grid g;
             private readonly int s, pw, pd;
             private readonly int[] next, order, ski;
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public LatticeFlow(Grid grid, int[] rec, int[] latIdx)
             {
                 g = grid;
@@ -89,16 +88,16 @@ namespace AutoGenBatch
                     order[i] = i;
                 SortByKey(h, order);
             }
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             private int Pos(int c)
             {
                 int x = c % g.W, z = c / g.W;
-                int px = Math.Clamp((int)Math.Round((x - s / 2) / (double)s), 0, pw - 1), pz = Math.Clamp((int)Math.Round((z - s / 2) / (double)s), 0, pd - 1);
+                int px = Clamp((int)Math.Round((x - s / 2) / (double)s), 0, pw - 1), pz = Clamp((int)Math.Round((z - s / 2) / (double)s), 0, pd - 1);
                 return pz * pw + px;
             }
             public bool[] NewMark() => new bool[next.Length];
             /// <summary>The skiable lattice points on or below the cells, marked in the caller's buffer (one per thread).</summary>
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public ulong[] Below(List<int> cells, int latCount, bool[] mark)
             {
                 Array.Clear(mark, 0, mark.Length);
@@ -118,7 +117,7 @@ namespace AutoGenBatch
         // a coverage lift's station on a placed lift's station needs a free pad nearby (RF_COVEROWNPAD=0: off)
         private static bool OwnPads => O.CoverOwnPads;
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int AddCoverLifts(Grid g, int[] rec, List<Lift> lifts, List<int> tops, List<bool[]> reachB, List<ulong[]> reachBits,
             List<int> bottoms, int[] latIdx, int latCount, PointHash runs, float km2, float[] slope)
         {
@@ -188,7 +187,7 @@ namespace AutoGenBatch
                     continue;
                 for (int w = 0; w < wb; w++)
                     for (ulong m = passes[c * wb + w]; m != 0; m &= m - 1)
-                        catchOf[w * 64 + BitOperations.TrailingZeroCount(m)][i / 64] |= 1UL << (i % 64);
+                        catchOf[w * 64 + TrailingZeroCount(m)][i / 64] |= 1UL << (i % 64);
             }
 
             // what the placed lifts already serve: their tops' reach that drains past any placed bottom
@@ -223,8 +222,8 @@ namespace AutoGenBatch
                 int hc = 0, rc = 0;
                 for (int w = 0; w < wl; w++)
                 {
-                    hc += BitOperations.PopCount(homes[w]);
-                    rc += BitOperations.PopCount(reached[w]);
+                    hc += PopCount(homes[w]);
+                    rc += PopCount(reached[w]);
                 }
                 Console.WriteLine($"DEBUG cover lifts: {latCount} skiable lattice points, {rc} below a placed top, {hc} draining past a placed bottom; {B} bottom candidate(s), {tops.Count} top(s)");
             }
@@ -238,7 +237,7 @@ namespace AutoGenBatch
                 var cands = new List<(int Gain, int T, int B)>();
                 int maxGain = 0, pairs = 0, noInto = 0, noHome = 0, openPts = 0;
                 for (int w = 0; w < wl; w++)
-                    openPts += BitOperations.PopCount(open[w]);
+                    openPts += PopCount(open[w]);
                 for (int ti = 0; ti < tops.Count; ti++)
                 {
                     // the top must lead back to the placed lifts (its reach takes in a placed bottom) or drain past one
@@ -248,7 +247,7 @@ namespace AutoGenBatch
                     ulong[] rb = reachBits[ti];
                     int baseGain = 0;
                     for (int w = 0; w < wl; w++)
-                        baseGain += BitOperations.PopCount(rb[w] & open[w] & homes[w]);
+                        baseGain += PopCount(rb[w] & open[w] & homes[w]);
                     int tBest = 0, tInto = 0, tHome = 0, tPairs = 0;
                     for (int b = 0; b < B; b++)
                     {
@@ -277,7 +276,7 @@ namespace AutoGenBatch
                         int gain = baseGain;
                         ulong[] cb = catchOf[b];
                         for (int w = 0; w < wl; w++)
-                            gain += BitOperations.PopCount(rb[w] & open[w] & cb[w] & ~homes[w]);
+                            gain += PopCount(rb[w] & open[w] & cb[w] & ~homes[w]);
                         maxGain = Math.Max(maxGain, gain);
                         tBest = Math.Max(tBest, gain);
                         if (gain >= Math.Max(CoverLiftMinPts, CoverLiftShare * latCount))

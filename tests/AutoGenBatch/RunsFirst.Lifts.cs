@@ -75,14 +75,14 @@ namespace AutoGenBatch
             ("beginner", 150f, 1500f, 30f, 150f, 0.8f),   // scorecard v5: a learning chair, given by a pass, never by the ladder (TypeFor)
         };
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int CellOf(Grid g, float2 p)
         {
             int x = (int)Math.Round((p.x - g.OX) / g.CellM), z = (int)Math.Round((p.y - g.OZ) / g.CellM);
             return x < 0 || z < 0 || x >= g.W || z >= g.D ? -1 : z * g.W + x;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<Lift> PlaceLifts(Grid g, int[] rec, List<Line> all, float km2, PointHash runs)
         {
             int n = g.W * g.D;
@@ -199,7 +199,7 @@ namespace AutoGenBatch
             var cReachB = new List<bool[]>();
             var cReachBits = new List<ulong[]>();
             var dist = new float[n];
-            Array.Fill(dist, float.PositiveInfinity);
+            FillAll(dist, float.PositiveInfinity);
             // the lattice in levels, coarse to fine (400 m, its centers, 200 m, its centers, 100 m). On wide gentle ground every
             // top reaches most of the region. So the code scans a finer level only while the reach work stays in budget (a gentle
             // 9 km2 valley would take seconds). The tops keep the lattice order
@@ -228,7 +228,7 @@ namespace AutoGenBatch
             (float[] Dist, int[] Parent, bool[] Mark) NewBuffers()
             {
                 var d = new float[n];
-                Array.Fill(d, float.PositiveInfinity);
+                FillAll(d, float.PositiveInfinity);
                 return (d, new int[n], flow?.NewMark());
             }
             for (; levels < 5; levels++)
@@ -325,7 +325,7 @@ namespace AutoGenBatch
             var excluded = new HashSet<int>();   // bottom candidates a marginal lift may not use
             for (int b = mainB; b < B; b++)
                 excluded.Add(b);
-            int want = Math.Clamp(Math.Max((int)Math.Round(km2 * perKm2), (int)Math.Ceiling(vertical / 400f)), 1, (int)Math.Ceiling(1.5 * km2) + 2);
+            int want = Clamp(Math.Max((int)Math.Round(km2 * perKm2), (int)Math.Ceiling(vertical / 400f)), 1, (int)Math.Ceiling(1.5 * km2) + 2);
             var lifts = new List<Lift>();
             float firstGain = 0f;
             var fed = new HashSet<int>();   // lifts whose bottom another lift already delivers to
@@ -482,7 +482,7 @@ namespace AutoGenBatch
 
         /// <summary>Whether a lift from bottom cell c would start a new base: c in the low part of the relief, and no placed bottom
         /// within 400 m belongs to a cluster (400 m chains, as the scorecard's) that already holds a low station.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool OpensBase(Grid g, List<Lift> lifts, int c, float lowCut)
         {
             float2 p = g.World(c);
@@ -507,7 +507,7 @@ namespace AutoGenBatch
 
         /// <summary>The flattest cell (raw 10 m grade) within r meters of c that a station pad may sit on, nearer cells first on a
         /// tie. Returns -1 when none is at or under StationMax.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int FlatCell(Grid g, int c, float r)
         {
             int k = (int)Math.Ceiling(r / g.CellM), x0 = c % g.W, z0 = c / g.W, best = -1;
@@ -532,7 +532,7 @@ namespace AutoGenBatch
             return best;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         /// <summary>A lift line along the region edge: over half of its chord's middle within EdgeLiftM of ground outside the region (the
         /// low ground a station wants often lies on the edge of a cut-out region, and a designer keeps the line inside it).</summary>
         private static bool AlongEdge(Grid g, int b, int t)
@@ -600,7 +600,7 @@ namespace AutoGenBatch
 
         /// <summary>A station of the new lift under (within clearM of) a placed lift's rope, or a placed station under the new rope
         /// (away from the stations the two share).</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool UnderRope(Grid g, List<Lift> lifts, int t, int b, float clearM = 40f)
         {
             float2 a0 = g.World(b), a1 = g.World(t);
@@ -618,7 +618,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>A chord whose middle 70 % runs within 25 m of picked lines for over 30 % of its samples sits on a run.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool OnRuns(Grid g, PointHash runs, int b, int t)
         {
             float2 a = g.World(b), c = g.World(t);
@@ -629,7 +629,7 @@ namespace AutoGenBatch
             return n > 0 && near > 0.3f * n;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float SegDist(float2 p, float2 a, float2 b)
         {
             float2 ab = b - a;
@@ -649,7 +649,7 @@ namespace AutoGenBatch
             return i;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool Near(Grid g, List<int> cells, int c, float m)
         {
             foreach (int o in cells)
@@ -658,7 +658,7 @@ namespace AutoGenBatch
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<float2> LinePath(Line l)
         {
             var p = new List<float2>(l.Pts.Count + l.Flow.Count);
@@ -672,7 +672,7 @@ namespace AutoGenBatch
         /// without a cliff cell, out to 1.5 km. On the raw terrain the path back holds the connector rules (no 30 m pitch over
         /// AccessRawPitch, no rise over AccessRawRise within 55 m). Returns the touched cells (the caller resets dist). Parent points
         /// home.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<int> Reach(Grid g, float[] slope, int t, float[] dist, int[] parent)
         {
             var touched = new List<int> { t };
@@ -725,7 +725,7 @@ namespace AutoGenBatch
             return touched;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float Uncovered(List<(float lo, float hi)> cov, float lo, float hi)
         {
             // length of [lo, hi] not inside any covered interval (intervals are few: one per lift)

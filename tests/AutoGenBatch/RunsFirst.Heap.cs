@@ -16,7 +16,7 @@ namespace AutoGenBatch
             private float[] m_Cost = new float[64];
             private int m_Count;
 
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public void Enqueue(int cell, float cost)
             {
                 if (m_Count == m_Cell.Length)
@@ -39,7 +39,7 @@ namespace AutoGenBatch
                 m_Cost[i] = cost;
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public bool TryDequeue(out int cell, out float cost)
             {
                 if (m_Count == 0)

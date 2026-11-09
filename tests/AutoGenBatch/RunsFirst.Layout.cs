@@ -317,7 +317,7 @@ namespace AutoGenBatch
                 for (int end = 0; end < (bottomsOnly ? 1 : 2); end++)
                 {
                     float2 at = end == 0 ? lifts[L].Bottom.xz : lifts[L].Top.xz;
-                    int o = Enumerable.Range(0, L).FirstOrDefault(M => math.distance(end == 0 ? lifts[M].Bottom.xz : lifts[M].Top.xz, at) < LaySameSpotM + 2f, -1);
+                    int o = FirstOr(Enumerable.Range(0, L), M => math.distance(end == 0 ? lifts[M].Bottom.xz : lifts[M].Top.xz, at) < LaySameSpotM + 2f, -1);
                     if (o >= 0 && !TryMove(lifts[L], end))
                         TryMove(lifts[o], end);
                 }
