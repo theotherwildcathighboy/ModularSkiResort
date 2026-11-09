@@ -830,6 +830,29 @@ namespace SkiResortMod.Systems
         public struct Lot
         {
             public float2 Center, Right, Forward, Half; // Right / Forward unit. Half = lot half extents (x, z)
+            /// <summary>The ground the lot holds past its rectangle (local x along Right, y along Forward), when HasWindow: the lot's
+            /// cut / fill window (LotWindow). A base station's runway reaches 12 m past the lot on the line side.</summary>
+            public float2 WinMin, WinMax;
+            public bool HasWindow;
+        }
+
+        /// <summary>The rectangle a lot holds at its plane (local xz), from the prefab's BuildingTerraformData, as
+        /// BuildingUtils.CalculateLotInfo builds it (BuildingUtils.cs:571-617): the cut window = m_Smooth grown to the flat zone (the .y of
+        /// m_FlatX0 / Z0 / X1 / Z1), emptied by m_DontLower; the fill window = m_Smooth, emptied by m_DontRaise. The cut window holds the
+        /// fill window, so the result is the cut window when the lot cuts, else m_Smooth when it fills, else none (block A: both flags).
+        /// The engine's 8 m apron past the window is not in it: the guard never held the apron around a lot.</summary>
+        public static bool LotWindow(float4 smooth, float flatX0, float flatZ0, float flatX1, float flatZ1, bool dontRaise, bool dontLower,
+                                     out float2 min, out float2 max)
+        {
+            if (!dontLower)
+            {
+                min = math.min(new float2(flatX0, flatZ0), smooth.xy);
+                max = math.max(new float2(flatX1, flatZ1), smooth.zw);
+                return true;
+            }
+            min = smooth.xy;
+            max = smooth.zw;
+            return !dontRaise;
         }
 
         public struct Line
@@ -879,8 +902,10 @@ namespace SkiResortMod.Systems
                     {
                         GradeObstacles.Lot lot = obs.Lots[k];
                         float2 d = c - lot.Center;
-                        if (math.abs(math.dot(d, lot.Right)) <= lot.Half.x + halfTexel &&
-                            math.abs(math.dot(d, lot.Forward)) <= lot.Half.y + halfTexel)
+                        float2 local = new float2(math.dot(d, lot.Right), math.dot(d, lot.Forward));
+                        bool inLot = math.all(math.abs(local) <= lot.Half + halfTexel);
+                        bool inWindow = lot.HasWindow && math.all(local >= lot.WinMin - halfTexel) && math.all(local <= lot.WinMax + halfTexel);
+                        if (inLot || inWindow)
                         {
                             where = c;
                             return GradeGuardKind.Lot;

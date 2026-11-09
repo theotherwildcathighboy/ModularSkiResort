@@ -353,6 +353,36 @@ namespace GradeBatch
 
             foreach (GradeGuardKind g in new[] { GradeGuardKind.Lot, GradeGuardKind.LiftLine, GradeGuardKind.Water, GradeGuardKind.OffMap, GradeGuardKind.TooLarge })
                 Check(!GradeGuards.Reason(g).IsEmpty, "GR-10 reason", g.ToString());
+
+            // GR-10b: a pad-cutting base station holds its runway past the lot (2026-11-09 banks-pass). DQ base numbers: lot 2 x 4 cells
+            // (half 8 x 16), m_Smooth = lot + SmoothMin.y -12 = (-8, -28, 8, 16), flat zone z min = mesh -11.1 + LevelMin.y -16.9 = -28.
+            float4 smooth = new float4(-8f, -28f, 8f, 16f);
+            Check(GradeObstacles.LotWindow(smooth, -7.97f, -28f, 7.5f, 16f, dontRaise: true, dontLower: false, out float2 wMin, out float2 wMax)
+                  && math.all(math.abs(wMin - new float2(-8f, -28f)) < 1e-4f) && math.all(math.abs(wMax - new float2(8f, 16f)) < 1e-4f),
+                  "GR-10b window cut", $"{wMin} .. {wMax}");
+            Check(!GradeObstacles.LotWindow(smooth, -7.97f, -28f, 7.5f, 16f, dontRaise: true, dontLower: true, out _, out _),
+                  "GR-10b window block A", "both flags hold no ground past the lot");
+            Check(GradeObstacles.LotWindow(new float4(-8f, -16f, 8f, 16f), -20f, -20f, 20f, 20f, dontRaise: false, dontLower: false, out wMin, out wMax)
+                  && wMin.x == -20f && wMax.y == 20f, "GR-10b window grows to the flat zone", $"{wMin} .. {wMax}");
+            Check(GradeObstacles.LotWindow(smooth, -20f, -40f, 20f, 40f, dontRaise: false, dontLower: true, out wMin, out wMax)
+                  && wMin.y == -28f && wMax.y == 16f, "GR-10b fill-only window = m_Smooth", $"{wMin} .. {wMax}");
+
+            // A station whose lot stands clear of the graded zone while its runway (local -z, toward the track) reaches it.
+            float zoneZ = 0f;
+            for (int j = 0; j < s.Raster.H; j++)
+                for (int i = 0; i < s.Raster.W; i++)
+                    if (s.Raster.Zone[j * s.Raster.W + i] != 0)
+                        zoneZ = math.max(zoneZ, Map.TexelCenter(s.Raster.X0 + i, s.Raster.Z0 + j).y);
+            float cz = zoneZ + 16f + 6f; // the lot's near edge 6 m past the zone, the runway 12 m past the lot
+            var station = new GradeObstacles.Lot { Center = new float2(150, cz), Right = new float2(1, 0), Forward = new float2(0, 1), Half = new float2(8, 16) };
+            obs.Clear();
+            obs.Lots.Add(station);
+            Check(GradeGuards.Check(Map, s.Raster, obs, out _) == GradeGuardKind.None, "GR-10b lot alone clear", $"zone to z {zoneZ:F1}, lot from z {cz - 16f:F1}");
+            station.HasWindow = GradeObstacles.LotWindow(smooth, -7.97f, -28f, 7.5f, 16f, true, false, out station.WinMin, out station.WinMax);
+            obs.Clear();
+            obs.Lots.Add(station);
+            k = GradeGuards.Check(Map, s.Raster, obs, out at);
+            Check(k == GradeGuardKind.Lot, "GR-10b runway guarded", $"{k} at {at}");
         }
 
 

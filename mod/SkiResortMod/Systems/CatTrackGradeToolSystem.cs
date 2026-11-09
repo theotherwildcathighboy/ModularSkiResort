@@ -1032,13 +1032,19 @@ namespace SkiResortMod.Systems
                         continue;
                     float3 right = math.mul(tr.m_Rotation, new float3(1f, 0f, 0f));
                     float3 fwd = math.mul(tr.m_Rotation, new float3(0f, 0f, 1f));
-                    m_Obstacles.Lots.Add(new GradeObstacles.Lot
+                    var lot = new GradeObstacles.Lot
                     {
                         Center = tr.m_Position.xz,
                         Right = math.normalizesafe(right.xz, new float2(1f, 0f)),
                         Forward = math.normalizesafe(fwd.xz, new float2(0f, 1f)),
                         Half = (float2)bd.m_LotSize * 4f,   // BuildingUtils.CalculateCorners: lot cells of 8 m, centered
-                    });
+                    };
+                    // The ground the lot holds past its rectangle: a pad-cutting base station's runway (12 m on the line side) is the
+                    // station's terrain, so a track graded there is cut away by the lot (field 2026-11-09 banks-pass).
+                    if (EntityManager.TryGetComponent(pr.m_Prefab, out BuildingTerraformData td))
+                        lot.HasWindow = GradeObstacles.LotWindow(td.m_Smooth, td.m_FlatX0.y, td.m_FlatZ0.y, td.m_FlatX1.y, td.m_FlatZ1.y,
+                                                                 td.m_DontRaise, td.m_DontLower, out lot.WinMin, out lot.WinMax);
+                    m_Obstacles.Lots.Add(lot);
                 }
             }
             finally

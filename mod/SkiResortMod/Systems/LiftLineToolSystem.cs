@@ -157,6 +157,8 @@ namespace SkiResortMod.Systems
         private int m_EmitFrame, m_Frame, m_Seed = 1;
         private List<LiftLineNode> m_Emitted;
         private string m_SunkStanding;   // SUNK / SUNK_END: the current plan has a sunk station end, else null (WarnSunk sets it per plan, Reset clears it)
+        private StationDef m_PadStationA, m_PadStationB;   // a GROUND end's coming station (LiftLineInput.PadSampler), else null
+        private float m_PadYA = float.NaN, m_PadYB = float.NaN;   // and the plane it will stand at (GroundEndStationY)
         private bool m_BackwardStanding;   // a station end faces away from the line (WarnBackward sets it per plan, Reset clears it)
         // Crossings (FIX-LIST 60 a): CollectCrossings fills them before each plan. WarnCrossing reads the plan's verdict. Reset clears
         // them.
@@ -853,7 +855,8 @@ namespace SkiResortMod.Systems
             // where a station goes (line-first). It plans as a station end with that station's own, lower anchor
             // (LiftLineInput.GroundEndRope, FIX-LIST 48: tram 2 of the Eishain pass planned +0.4 with node + 26.25 and read -6.58 once its
             // stations stood).
-            float ropeA = EndRope(m_Base, a, b, out string srcA), ropeB = EndRope(end, b, a, out string srcB);
+            float ropeA = EndRope(m_Base, a, b, out string srcA, out m_PadStationA, out m_PadYA),
+                  ropeB = EndRope(end, b, a, out string srcB, out m_PadStationB, out m_PadYB);
             m_Edit = new LiftLineEdit(m_C, a, b, ropeA, ropeB, m_Base.Kind != LiftLineEndKind.LooseEnd, end.Kind != LiftLineEndKind.LooseEnd);
             // A loose end is a tower of the built line: its rope deflection is judged with the built neighbor's rope point beyond it.
             string outerA = OuterPoint(m_Base, a, out m_Edit.OuterDistA, out m_Edit.OuterRopeA);
@@ -1038,8 +1041,14 @@ namespace SkiResortMod.Systems
 
         private float3 NodePos(Entity node) => EntityManager.GetComponentData<Game.Net.Node>(node).m_Position;
 
-        private float EndRope(LineEnd e, float3 pos, float3 other, out string source)
+        private float EndRope(LineEnd e, float3 pos, float3 other, out string source) => EndRope(e, pos, other, out source, out _, out _);
+
+        /// <summary>The end's rope. A GROUND end also gives the station that will stand there and its plane (<paramref name="padStation"/>,
+        /// <paramref name="padY"/>: the ground-end pad model, LiftLineInput.PadSampler); any other end gives null / NaN.</summary>
+        private float EndRope(LineEnd e, float3 pos, float3 other, out string source, out StationDef padStation, out float padY)
         {
+            padStation = null;
+            padY = float.NaN;
             if (e.Kind == LiftLineEndKind.Ground)
             {
                 // The station that will finish this end: the lower end takes the base station. Its lot front lies FrontDistM beyond the
@@ -1054,6 +1063,8 @@ namespace SkiResortMod.Systems
                     float2 f = pos.xz + math.normalize(outward) * dist;
                     frontY = TerrainUtils.SampleHeight(ref hd, new float3(f.x, 0f, f.y));
                 }
+                padStation = st;
+                padY = LiftLineInput.GroundEndStationY(pos.y, frontY);
                 return LiftLineInput.GroundEndRope(m_C, st, pos.y, frontY, out source);
             }
             // The rope above the node the end carries (a twin head sits lower than the member's RopeAboveBase(0)).
@@ -1252,9 +1263,12 @@ namespace SkiResortMod.Systems
             }
             LiftLineEdit edit = m_Edit;
             LiftTerrainSampler sampler = (s, l) => TerrainUtils.SampleHeight(ref hd, edit.PointAt(s, l));
+            // A ground end plans with the pad its coming station will cut (banks-pass 2026-11-09). A built station's cut is in the terrain.
+            sampler = LiftLineInput.PadSampler(sampler, edit.LengthM, false, m_PadStationA, m_PadYA, m_PadStationB, m_PadYB);
             // The planner works from the end with the lower rope (LiftLineEdit.FromB). From B it reads this sampler, the exact ground
             // points a line drawn from that end first reads. So the plan does not depend on which end was clicked first.
             LiftTerrainSampler fromB = (s, l) => TerrainUtils.SampleHeight(ref hd, edit.PointFromB(s, l));
+            fromB = LiftLineInput.PadSampler(fromB, edit.LengthM, true, m_PadStationA, m_PadYA, m_PadStationB, m_PadYB);
             CollectCrossings(edit);   // the planner keeps the box clearance at each crossing with another lift type (FIX-LIST 60 a)
             CollectKeepouts(edit);    // and new towers off the roads, tracks and paths under the line (FIX-LIST 62)
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -1598,7 +1612,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A station end (or a ground end: the station that will stand there) whose carriers leave below the ground (the station
-        /// sits in the slope: the tram top keeps the terrain, and since 2026-11-09 the chair and gondola stations cut a level pad but
+        /// sits in the slope: the tram top and the fixed-grip top keep the terrain, and since 2026-11-09 the other chair and gondola stations cut a level pad but
         /// never fill, so the ground beyond their lot can still stand above the carriers). Logged on every
         /// plan. The tooltip keeps the notice standing while the plan has it (m_SunkStanding).</summary>
         private void WarnSunk(LiftTowerPlan plan)

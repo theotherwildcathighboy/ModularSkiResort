@@ -177,7 +177,11 @@ settled all steps in one call. The worker now tries all steps in one job. The `G
   ignoreMarkers = !editorMode.
 
 - Lots: every `Building` / `Extension` entity's lot (`BuildingData.m_LotSize` x 8 m, `BuildingUtils.CalculateCorners`,
-  BuildingUtils.cs:72-86) in the static object search tree over the rect.
+  BuildingUtils.cs:72-86) in the static object search tree over the rect. Each lot also guards the ground it holds past its rectangle.
+  That is its cut / fill window from the prefab's `BuildingTerraformData` (`GradeObstacles.LotWindow`, BuildingUtils.cs:571-617).
+  The window is m_Smooth grown to the flat zone, and the flags empty it. A pad-cutting base station's 12 m runway is in it. Block A
+  stations and lodges hold nothing past the lot. The guard does not hold the engine's 8 m apron past the window. GradeBatch GR-10b
+  (banks-pass 2026-11-09).
 - Lift lines: every lift-line net edge (`SkiPrefabCatalogSystem.LiftLineTypes`), straight a -> d, `LiftClearanceM` each side.
 - Water: surface depth (`WaterSystem.GetSurfaceData`, WaterSystem.cs:754, `WaterUtils.SampleDepth`, WaterUtils.cs:80) above
   `WetDepthM` on any texel the grade changes.
