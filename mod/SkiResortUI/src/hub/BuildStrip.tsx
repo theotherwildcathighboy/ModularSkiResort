@@ -26,7 +26,7 @@ import type { LocEntry, Translate } from "../l10n";
 import {
   BUILD_ITEMS, BUILD_ITEM_ICON, BUILD_RUN_KIND, BUILD_STEP, BUILDING_DRAW, LUXURY_LODGES, ROAD_OPTIONAL_LODGES, buildMeta, groupBuildItems, stationRole,
 } from "./buildItems";
-import type { OrderedBuildItem } from "./buildItems";
+import type { OrderedBuildItem, TerrainFit } from "./buildItems";
 import {
   NO_PICK, buildingFamily, dotItem, dotTarget, drawnTabs, effectiveSelection, effectiveTab, footerOpen, footerState, line1Variant, liveOf,
   nextVariant, optionOf, pickerSets, tabClick, tabOfDot, tabOfItem, tabOfNext, visibleIds,
@@ -149,6 +149,13 @@ function monthValue(id: BuildItemId, item: BuildItem, t: Translate): JSX.Element
   return t(HUB_LOC.buildMonthNone); // a building with upkeep draws its Upkeep row instead (drawRows)
 }
 
+/* The terrain line of each BUILDING_DRAW terrain state (buildItems.ts TerrainFit). */
+const TERRAIN_LINE: Readonly<Record<TerrainFit, LocEntry>> = {
+  level: HUB_LOC.terrainLevel,
+  cut: HUB_LOC.terrainCut,
+  slope: HUB_LOC.terrainSlope,
+};
+
 /*
  * A building's draw rows, vanilla's asset-panel rows (each only above 0) plus Workers, then its terrain line. The Upkeep row
  * replaces "Per month" on a building the game bills. A station keeps "Per month" (the lift's running cost covers it).
@@ -161,7 +168,7 @@ function drawRows(id: BuildItemId, t: Translate): TipLine[] {
     d.water > 0 && { label: t(DRAW_LABEL.water), value: numArg(d.water, Unit.VolumePerMonth) },
     d.garbage > 0 && { label: t(DRAW_LABEL.garbage), value: numArg(d.garbage, Unit.WeightPerMonth) },
     d.workers > 0 && { label: t(HUB_LOC.buildTipWorkers), value: numArg(d.workers, Unit.Integer) },
-    t(d.keepsSlope ? HUB_LOC.terrainSlope : HUB_LOC.terrainLevel),
+    t(TERRAIN_LINE[d.terrain]),
   ];
 }
 

@@ -1420,7 +1420,7 @@
   },
   "prefab_contract": {
     "source": "gamedata-mirror/ImportedData/SkiBaseStationBuilding/SkiBaseStationBuilding.Prefab",
-    "source_sha256": "f0c64c7bbdf320dbd302a29dacf3efd453f4ae4f2cd47e6e300c5daadfe99b1b",
+    "source_sha256": "9603af8ef7f8206159a935fec726f0326260e421b27fda1645c4902df3fd810a",
     "repoint": {
       "m_Meshes[0].m_Mesh_from": "$fstrref:CID:6f6c04e66e711a0bc96c79415581a81f",
       "m_Meshes[0].m_Mesh_to": "<the M mesh's CID, written by the importer>",
@@ -1716,8 +1716,8 @@
             "active": true,
             "m_LevelMinOffset": {
               "$type": "18|Unity.Mathematics.float2, Unity.Mathematics",
-              "x": 1600,
-              "y": 1600
+              "x": 0,
+              "y": -17.22
             },
             "m_LevelMaxOffset": {
               "$type": 18,
@@ -1747,7 +1747,7 @@
             "m_SmoothMinOffset": {
               "$type": 18,
               "x": 0,
-              "y": 0
+              "y": -12
             },
             "m_SmoothMaxOffset": {
               "$type": 18,
@@ -1757,7 +1757,7 @@
             "m_HeightOffset": 0,
             "m_AdditionalSmoothAreas": null,
             "m_DontRaise": true,
-            "m_DontLower": true
+            "m_DontLower": false
           },
           {
             "$type": "23|Game.Prefabs.ObjectSubObjects, Game",
@@ -2006,7 +2006,7 @@
         }
       ]
     },
-    "frozen_sha256": "61520c20216687d1d042f2e84cc1a7f9ad6755e50383f6f47800154273f2f20e",
+    "frozen_sha256": "99bacc6e8a6cc12a284ce9439cb0c0ddcc572c85bb8e650ee57bb1fb7a16994f",
     "code": {
       "WheelLocal_game": [
         0.0,
@@ -2046,17 +2046,22 @@
       ]
     ],
     "refrozen": {
-      "utc": "2026-11-05T15:53:58Z",
-      "why": "art-601: hosted ET68 row dropped from SkiBaseStationBuilding, base and top point to the O meshes",
-      "previous_source_sha256": "c706cc4c31a26e400558034ceea736763ccc82d172fc077be038bbb5179ff3e0",
+      "utc": "2026-11-09T18:45:13Z",
+      "why": "BuildingTerraformOverride: stations cut a level pad (DontLower false, LevelMinOffset inside the lot; base runway 12 m on the line side)",
+      "previous_source_sha256": "f0c64c7bbdf320dbd302a29dacf3efd453f4ae4f2cd47e6e300c5daadfe99b1b",
       "earlier": {
-        "utc": "2026-11-04T09:33:57Z",
-        "why": "baseline re-frozen from the deployed prefab after lift alignment phase 1 (2026-11-02, 7fe59ae): the two HV sub-lanes now name the FG station's own rope lane SkiFixedGripHaulRope (CID 2b960a16...) instead of the vanilla HV lane (UnityGUID 5d88ac45...); no other frozen field changed; the FBX / mesh files are unchanged",
-        "previous_source_sha256": "5ac45acfd5072375717009412207345aa800790f363b4d4e4ded61eb72d373e5",
+        "utc": "2026-11-05T15:53:58Z",
+        "why": "art-601: hosted ET68 row dropped from SkiBaseStationBuilding, base and top point to the O meshes",
+        "previous_source_sha256": "c706cc4c31a26e400558034ceea736763ccc82d172fc077be038bbb5179ff3e0",
         "earlier": {
-          "utc": "2026-10-24T18:44:57Z",
-          "why": "baseline re-frozen from the deployed prefab after the 2026-10-19/20 surgeries; the FBX / mesh files are unchanged (T144)",
-          "previous_source_sha256": "099fd9b53342c7f0994ddd76538ac01d6d3cad72867b22c9a7c0252ebe5ad584"
+          "utc": "2026-11-04T09:33:57Z",
+          "why": "baseline re-frozen from the deployed prefab after lift alignment phase 1 (2026-11-02, 7fe59ae): the two HV sub-lanes now name the FG station's own rope lane SkiFixedGripHaulRope (CID 2b960a16...) instead of the vanilla HV lane (UnityGUID 5d88ac45...); no other frozen field changed; the FBX / mesh files are unchanged",
+          "previous_source_sha256": "5ac45acfd5072375717009412207345aa800790f363b4d4e4ded61eb72d373e5",
+          "earlier": {
+            "utc": "2026-10-24T18:44:57Z",
+            "why": "baseline re-frozen from the deployed prefab after the 2026-10-19/20 surgeries; the FBX / mesh files are unchanged (T144)",
+            "previous_source_sha256": "099fd9b53342c7f0994ddd76538ac01d6d3cad72867b22c9a7c0252ebe5ad584"
+          }
         }
       }
     }
