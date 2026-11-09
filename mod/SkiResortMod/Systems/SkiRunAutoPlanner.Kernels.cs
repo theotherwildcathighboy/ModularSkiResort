@@ -229,120 +229,21 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- exact geometry
 
-        public static bool BBox(float2[] p, out float2 lo, out float2 hi)
-        {
-            lo = new float2(float.MaxValue, float.MaxValue);
-            hi = new float2(float.MinValue, float.MinValue);
-            if (p == null || p.Length == 0)
-                return false;
-            for (int i = 0; i < p.Length; i++)
-            {
-                lo = math.min(lo, p[i]);
-                hi = math.max(hi, p[i]);
-            }
-            return true;
-        }
+        // Forwarders: the bodies live in PlanGeometry.cs (the tool layer and any planner share them).
+        public static bool BBox(float2[] p, out float2 lo, out float2 hi) => PlanGeometry.BBox(p, out lo, out hi);
 
-        public static double PolygonArea(float2[] p)
-        {
-            if (p == null || p.Length < 3)
-                return 0.0;
-            double s = 0.0;
-            for (int i = 0, k = p.Length - 1; i < p.Length; k = i++)
-                s += (double)p[k].x * p[i].y - (double)p[i].x * p[k].y;
-            return Math.Abs(s) * 0.5;
-        }
+        public static double PolygonArea(float2[] p) => PlanGeometry.PolygonArea(p);
 
-        /// <summary>Closest points of segments ab and cd (GradeRibbon.SegCross for a crossing, else the best of the four endpoint
-        /// projections, GradePath.SegDistance).</summary>
-        public static float SegClosest(float2 a, float2 b, float2 c, float2 d, out float2 p, out float2 q)
-        {
-            if (GradeRibbon.SegCross(a, b, c, d, out float2 x))
-            {
-                p = q = x;
-                return 0f;
-            }
-            float best = GradePath.SegDistance(a, c, d, out float u);
-            p = a;
-            q = math.lerp(c, d, u);
-            float t = GradePath.SegDistance(b, c, d, out u);
-            if (t < best)
-            {
-                best = t;
-                p = b;
-                q = math.lerp(c, d, u);
-            }
-            t = GradePath.SegDistance(c, a, b, out u);
-            if (t < best)
-            {
-                best = t;
-                p = math.lerp(a, b, u);
-                q = c;
-            }
-            t = GradePath.SegDistance(d, a, b, out u);
-            if (t < best)
-            {
-                best = t;
-                p = math.lerp(a, b, u);
-                q = d;
-            }
-            return best;
-        }
+        public static float SegClosest(float2 a, float2 b, float2 c, float2 d, out float2 p, out float2 q) =>
+            PlanGeometry.SegClosest(a, b, c, d, out p, out q);
 
-        /// <summary>Minimum distance between two closed rings (0 when they cross or one holds a vertex of the other). It also gives the
-        /// closest points and the edges they lie on. The function skips edge pairs whose boxes are farther apart than
-        /// <paramref name="cutoff"/>. So the result is exact up to cutoff and "at least cutoff" beyond.</summary>
-        public static float RingDistance(float2[] a, float2[] b, float cutoff, out float2 pa, out float2 pb, out int ea, out int eb)
-        {
-            float best = EdgeDistance(a, b, cutoff, out pa, out pb, out ea, out eb);
-            if (best > 0f && (GradeRaster.Inside(b, a[0]) || GradeRaster.Inside(a, b[0])))
-            {
-                pa = a[0];
-                pb = b[0];
-                return 0f;
-            }
-            return best;
-        }
+        public static float RingDistance(float2[] a, float2[] b, float cutoff, out float2 pa, out float2 pb, out int ea, out int eb) =>
+            PlanGeometry.RingDistance(a, b, cutoff, out pa, out pb, out ea, out eb);
 
-        /// <summary>Minimum distance between the edges of two closed rings. Containment is NOT counted: a ring inside the region is
-        /// as far from it as from its nearest edge. The function skips segment pairs farther apart than cutoff on either axis.</summary>
-        public static float EdgeDistance(float2[] a, float2[] b, float cutoff, out float2 pa, out float2 pb, out int ea, out int eb)
-        {
-            pa = pb = default;
-            ea = eb = -1;
-            float best = float.PositiveInfinity;
-            int na = a.Length, nb = b.Length;
-            for (int i = 0; i < na; i++)
-            {
-                float2 a0 = a[i], a1 = a[(i + 1) % na];
-                float2 alo = math.min(a0, a1) - cutoff, ahi = math.max(a0, a1) + cutoff;
-                for (int k = 0; k < nb; k++)
-                {
-                    float2 b0 = b[k], b1 = b[(k + 1) % nb];
-                    if (math.any(math.max(b0, b1) < alo) || math.any(math.min(b0, b1) > ahi))
-                        continue;
-                    float dd = SegClosest(a0, a1, b0, b1, out float2 p, out float2 q);
-                    if (dd < best)
-                    {
-                        best = dd;
-                        pa = p;
-                        pb = q;
-                        ea = i;
-                        eb = k;
-                    }
-                }
-            }
-            return best;
-        }
+        public static float EdgeDistance(float2[] a, float2[] b, float cutoff, out float2 pa, out float2 pb, out int ea, out int eb) =>
+            PlanGeometry.EdgeDistance(a, b, cutoff, out pa, out pb, out ea, out eb);
 
-        /// <summary>Minimum distance from a point to a closed ring's edges.</summary>
-        public static float PointRingDistance(float2[] ring, float2 p)
-        {
-            float best = float.PositiveInfinity;
-            for (int i = 0, n = ring.Length; i < n; i++)
-                best = Math.Min(best, GradePath.SegDistance(p, ring[i], ring[(i + 1) % n], out float _));
-            return best;
-        }
+        public static float PointRingDistance(float2[] ring, float2 p) => PlanGeometry.PointRingDistance(ring, p);
 
         /// <summary>Inserts point p (on or next to edge e) into the ring as a vertex. If a vertex of that edge lies within
         /// GradeRibbon.MinSpacingM, it reuses that vertex instead (a new vertex that close to a corner would break the 1.5 m edge

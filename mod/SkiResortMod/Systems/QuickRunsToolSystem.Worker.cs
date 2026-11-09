@@ -154,7 +154,7 @@ namespace SkiResortMod.Systems
         /// <summary>A knob changed in Preview or Scanning (SetKnobs). When no job is running (a worker job in flight or a main-thread scan
         /// being stepped both count) and the planner's field is intact, the code does Reselect and resume on the worker (Reselect only sets
         /// the restart stage). Otherwise a running job is canceled first, and the region scans again with the new knobs (a canceled planner
-        /// drops its field: Reselect refuses, SkiRunAutoPlanner.CancelScan).</summary>
+        /// drops its field: Reselect refuses, the planner's CancelScan).</summary>
         private void RescanForKnobs(string name)
         {
             if (m_Disabled || !PollScanJob(true))
@@ -442,7 +442,7 @@ namespace SkiResortMod.Systems
                 for (int k = 0; k <= steps; k++)
                 {
                     float2 p = math.lerp(a, b, k / (float)steps);
-                    if (GradeRaster.Inside(region, p) || SkiRunAutoPlanner.PointRingDistance(region, p) <= PinnedReachM)
+                    if (GradeRaster.Inside(region, p) || PlanGeometry.PointRingDistance(region, p) <= PinnedReachM)
                         return true;
                 }
             }
@@ -464,7 +464,7 @@ namespace SkiResortMod.Systems
         private float2[] CollectAccess(float2[] region)
         {
             const int AccessMaxSamples = 2048;   // a dense road grid by a 9 km2 region gave 6-12 k samples at 25 m (A-R AR-8)
-            if (!SkiRunAutoPlanner.BBox(region, out float2 lo, out float2 hi))
+            if (!PlanGeometry.BBox(region, out float2 lo, out float2 hi))
                 return null;
             var box = new Bounds2(lo - AccessReachM, hi + AccessReachM);
             var points = new List<float2>();

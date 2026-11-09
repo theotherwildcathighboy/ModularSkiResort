@@ -59,11 +59,8 @@ namespace SkiResortMod.Systems
             return Math.Max(1, Math.Min(MaxLiftsKnob, Math.Max(byArea, byVertical)));
         }
 
-        /// <summary>The rated band a pod class is skied as (SkiResortScore bands): Beginner and below green, Intermediate blue, Advanced
-        /// black, Expert and Cliff double black.</summary>
-        public static byte ScoreBandOf(TerrainBand c) =>
-            c <= TerrainBand.Beginner ? SkiResortScore.BandGreen : c == TerrainBand.Intermediate ? SkiResortScore.BandBlue
-            : c == TerrainBand.Advanced ? SkiResortScore.BandBlack : SkiResortScore.BandDoubleBlack;
+        /// <summary>Forwarder: PlanGeometry.ScoreBandOf.</summary>
+        public static byte ScoreBandOf(TerrainBand c) => PlanGeometry.ScoreBandOf(c);
 
         // ---------------------------------------------------------------- state
         private struct LiftCand

@@ -30,10 +30,8 @@ namespace SkiResortMod.Systems
         public const float PadLearningGrade = 0.08f, PadNoviceGrade = 0.15f;                    // PadKind: Flat / Learning / Novice
         public const int MaxPads = 255;                                                         // ids fit the byte layer (255 = none)
         public const byte PadNone = 255;
-        // Station lot half-diagonals by lift type (fixed grip, detachable, gondola, tram): lots 16x24, 16x32, 24x32, 48x24 m ([C1] table
-        // 3b, lot cell 8 m, DC/Game.Prefabs/BuildingInitializeSystem.cs:1266-1272). Private: read through StationHalfDiagonalOf.
-        private static readonly float[] s_StationHalfDiagonal = { 14.4f, 17.9f, 20.0f, 26.8f };
-        public const int StationTypes = 4;
+        // Station lot half-diagonals by lift type: the table lives in PlanGeometry (the overlay reads it too).
+        public const int StationTypes = PlanGeometry.StationTypes;
         /// <summary>A pad holds a pod bottom (the lift's bottom terminal with its maze and queue) only with this area and the fixed grip's
         /// half diagonal (calibration d of the A-R critique: 1 ha). Smaller pads stay pads (benches, top stations) and merge into Down(P).</summary>
         public const float PodBottomMinAreaM2 = 10000f;
@@ -41,12 +39,11 @@ namespace SkiResortMod.Systems
         /// <summary>The TerrainBand floor b (0 Marginal .. 5 Cliff). +inf past the last.</summary>
         public static float TerrainBandFloorOf(int b) => b >= 0 && b < s_TerrainBandFloor.Length ? s_TerrainBandFloor[b] : float.PositiveInfinity;
 
-        /// <summary>The station lot half diagonal of a lift type (SkiCatalog index, clamped to 0..StationTypes - 1).</summary>
-        public static float StationHalfDiagonalOf(int type) => s_StationHalfDiagonal[Math.Max(0, Math.Min(StationTypes - 1, type))];
+        /// <summary>Forwarder: PlanGeometry.StationHalfDiagonalOf (the station lot half diagonal of a lift type).</summary>
+        public static float StationHalfDiagonalOf(int type) => PlanGeometry.StationHalfDiagonalOf(type);
 
-        /// <summary>A fresh copy of the half diagonals by type for callers that index an array (the overlay). The planner reads
-        /// StationHalfDiagonalOf.</summary>
-        public static float[] StationHalfDiagonalM => (float[])s_StationHalfDiagonal.Clone();
+        /// <summary>Forwarder: PlanGeometry.StationHalfDiagonalM (a fresh copy of the half diagonals by type).</summary>
+        public static float[] StationHalfDiagonalM => PlanGeometry.StationHalfDiagonalM;
         /// <summary>The cheapest station's lot (fixed grip, 16 x 24 m): the lot the pad's cut / fill estimate levels.</summary>
         public const float PadLotShortM = 16f, PadLotLongM = 24f;
 

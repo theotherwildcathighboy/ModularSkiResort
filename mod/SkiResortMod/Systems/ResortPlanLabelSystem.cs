@@ -196,7 +196,7 @@ namespace SkiResortMod.Systems
             foreach (PlanPod pod in plan.Pods)
             {
                 string text = podT.Replace("{ID}", QuickRunsPlanRules.Letter(pod.Id)).Replace("{CLASS}", Template("SkiResort.Tooltip.QUICK_CLASS[" + pod.PrimaryClass + "]"));
-                RunLabelRules.BandRgb(SkiRunAutoPlanner.ScoreBandOf(pod.PrimaryClass), out byte r, out byte g, out byte b);
+                RunLabelRules.BandRgb(PlanGeometry.ScoreBandOf(pod.PrimaryClass), out byte r, out byte g, out byte b);
                 Add(ref hd, pod.TopCenter, text, new Color32(r, g, b, 255), 2f * QuickRunsPlanRules.PodPickM);
             }
             if (SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)

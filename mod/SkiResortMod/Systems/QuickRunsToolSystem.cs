@@ -86,7 +86,7 @@ namespace SkiResortMod.Systems
         /// <summary>Mean grade of the outlined ground (0.25 = 25 %): the corner phase's sampled estimate, replaced by the scan's figure
         /// once a scan finishes. NaN with fewer than 3 corners. The site verdict (QuickRunsRules.SiteTierOf) reads it.</summary>
         internal float SiteGrade => m_SiteGrade;
-        internal float MaxAreaM2 => SkiRunAutoPlanner.V1MaxAreaM2;
+        internal float MaxAreaM2 => PlanGeometry.V1MaxAreaM2;
         /// <summary>Hover label key of the cluster under the cursor (tooltip), or null. HoverClusterRuns = its run count.</summary>
         internal string HoverClusterKey { get; private set; }
         internal int HoverClusterRuns { get; private set; }
@@ -179,7 +179,7 @@ namespace SkiResortMod.Systems
             int missing = ResolveRunPrefabs();
             Mod.Log.Info($"QuickRuns [tool]: ARMED — '{toolID}' (experimental, DECISIONS 404; setting {(OptionOn ? "ON" : "OFF: the tool cannot open")}): " +
                          "click the corners of a region (drag one to move it, right click steps back), Enter scans it " +
-                         $"(cap {SkiRunAutoPlanner.V1MaxAreaM2 / 1e6f:F0} km2), a click leaves a run out, Enter builds the enabled runs in one batch " +
+                         $"(cap {PlanGeometry.V1MaxAreaM2 / 1e6f:F0} km2), a click leaves a run out, Enter builds the enabled runs in one batch " +
                          $"(refused when the city cannot pay the total; a refused run is dropped and the rest re-emitted once), the hub's Undo (not right click) removes the " +
                          $"batch with a refund of what the binds charged; tree filler below a tree line (glade compose with a fill mask). Run prefabs: " +
                          $"{(missing == 0 ? "all found" : missing + " MISSING (those kinds are never proposed)")}; probes with Measurement diagnostics " +
@@ -560,13 +560,13 @@ namespace SkiResortMod.Systems
                 TerrainHeightData terrain = hd;   // a copy: a lambda cannot capture the struct by reference
                 m_SiteGrade = QuickRunsRules.EstimateMeanGrade(corners, p => RunAreaEmit.Ground(ref terrain, p).y);
             }
-            m_Readout = QuickRunsRules.Readout(corners, lo, hi, SkiRunAutoPlanner.V1MaxAreaM2, SkiRunAutoPlanner.DefaultMinAreaM2);
+            m_Readout = QuickRunsRules.Readout(corners, lo, hi, PlanGeometry.V1MaxAreaM2, PlanGeometry.DefaultMinAreaM2);
         }
 
         private string ReadoutText() => m_Readout.State == QuickRegionState.Open
             ? "region open (under 3 corners)"
             : string.Format(CultureInfo.InvariantCulture, "region {0:F1} ha of {1:F0} ha ({2}), vertical under the corners {3:F0} m",
-                m_Readout.AreaM2 / 10000f, SkiRunAutoPlanner.V1MaxAreaM2 / 10000f, m_Readout.State, m_Readout.VerticalM);
+                m_Readout.AreaM2 / 10000f, PlanGeometry.V1MaxAreaM2 / 10000f, m_Readout.State, m_Readout.VerticalM);
 
         private float2[] CornerArray()
         {
@@ -644,7 +644,7 @@ namespace SkiResortMod.Systems
                     return TogglePlanKey(false, value);
                 case "shuffle":
                     m_Shuffle++;
-                    m_Knobs.Seed = SkiRunAutoPlanner.SeedOf(CornerArray(), m_Shuffle);
+                    m_Knobs.Seed = PlanGeometry.SeedOf(CornerArray(), m_Shuffle);
                     return SetKnobs(m_Shuffle, "shuffle");
                 case "scan":
                     m_EnterRequested = false;

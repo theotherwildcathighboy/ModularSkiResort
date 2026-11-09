@@ -190,7 +190,7 @@ namespace SkiResortMod.Systems
                 float d;
                 if (plan.Lifts[i].Origin == LiftOrigin.Pinned)
                 {
-                    float[] hds = SkiRunAutoPlanner.StationHalfDiagonalM;
+                    float[] hds = PlanGeometry.StationHalfDiagonalM;
                     float ring = hds[Math.Min((int)plan.Lifts[i].TypeIndex, hds.Length - 1)];   // half the drawn lot
                     d = Math.Min(math.distance(p, a), math.distance(p, b));
                     if (d > ring)
