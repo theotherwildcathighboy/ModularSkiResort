@@ -1598,7 +1598,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A station end (or a ground end: the station that will stand there) whose carriers leave below the ground (the station
-        /// sits in the slope: the tram top keeps the terrain, and since 2026-11-09 the chair and gondola stations cut a level pad but
+        /// sits in the slope: the tram top and the fixed-grip top keep the terrain, and since 2026-11-09 the other chair and gondola stations cut a level pad but
         /// never fill, so the ground beyond their lot can still stand above the carriers). Logged on every
         /// plan. The tooltip keeps the notice standing while the plan has it (m_SunkStanding).</summary>
         private void WarnSunk(LiftTowerPlan plan)

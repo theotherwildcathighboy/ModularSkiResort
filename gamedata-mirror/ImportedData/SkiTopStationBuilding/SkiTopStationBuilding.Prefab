@@ -253,8 +253,8 @@
                 "active": true,
                 "m_LevelMinOffset": {
                     "$type": "18|Unity.Mathematics.float2, Unity.Mathematics",
-                    "x": 0,
-                    "y": 0
+                    "x": 1600,
+                    "y": 1600
                 },
                 "m_LevelMaxOffset": {
                     "$type": 18,
@@ -294,7 +294,7 @@
                 "m_HeightOffset": 0,
                 "m_AdditionalSmoothAreas": null,
                 "m_DontRaise": true,
-                "m_DontLower": false
+                "m_DontLower": true
             },
             {
                 "$id": 50,

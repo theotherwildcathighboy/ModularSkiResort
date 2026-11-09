@@ -153,7 +153,7 @@ export interface BuildingDraw {
 }
 
 /** "level" = no override block or neither flag: the lot cuts and fills to its plane. "cut" = m_DontRaise only: the lot cuts the
- *  ground above its plane to a level pad and fills nothing (the six chair / gondola stations, 2026-11-09). "slope" = both flags:
+ *  ground above its plane to a level pad and fills nothing (the chair / gondola stations except the fixed-grip top, 2026-11-09). "slope" = both flags:
  *  the terrain stays as it is (block A). A prefab with m_DontLower only has no state here and fails gate T29.2. */
 export type TerrainFit = "level" | "cut" | "slope";
 
@@ -171,7 +171,7 @@ export const BUILDING_DRAW: Readonly<Partial<Record<BuildItemId, BuildingDraw>>>
   patrolHut: { prefab: "SkiPatrolHut", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, terrain: "slope" },
   patrolHQ: { prefab: "SkiPatrolHQ", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, terrain: "slope" },
   baseStation: { prefab: "SkiBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, terrain: "cut" },
-  topStation: { prefab: "SkiTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, terrain: "cut" },
+  topStation: { prefab: "SkiTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, terrain: "slope" },
   baseStationDetachable: { prefab: "SkiDQBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, terrain: "cut" },
   topStationDetachable: { prefab: "SkiDQTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, terrain: "cut" },
   baseStationGondola: { prefab: "SkiGondolaBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, terrain: "cut" },

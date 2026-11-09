@@ -41,7 +41,7 @@ Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from
 
 ## Good to know
 - Skiers are counted, not simulated. Chairs and cabins move but carry no riders.
-- Chairlift and gondola stations cut a level pad into the slope and fill nothing. The aerial tram's top terminal keeps the slope as placed.
+- Most chairlift and gondola stations cut a level pad into the slope and fill nothing. The fixed-grip top station and the aerial tram's top terminal keep the slope as placed.
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
 - Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and refunds no run fee. A warning shows the run count and asks first. To move a sign, use Relocate in its info panel: its runs stay linked.
 - The Resort Planner (outline a region, get proposed lifts and a set of runs) is experimental and off by default: turn it on in Options. It builds the runs only: you build its proposed lifts yourself with the lift tool. On steep ground it plans mostly black runs with few greens. It does not avoid roads, buildings or lift stations inside the outline. Its Undo ends when the tool closes.
