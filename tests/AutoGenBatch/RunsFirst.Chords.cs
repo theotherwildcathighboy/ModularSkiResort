@@ -42,8 +42,6 @@ namespace AutoGenBatch
             List<List<float2>> dense = plan.Runs.Select(r => Densify(r.Pts)).ToList();
             foreach (Lift lf in lifts)
             {
-                if (Late)
-                    break;
                 float share = ChordShare(lf, dense);
                 if (share <= ChordShareMax)
                     continue;
@@ -242,8 +240,6 @@ namespace AutoGenBatch
             SkiRead before = null;
             foreach (Lift lf in lifts)
             {
-                if (Late)
-                    break;
                 float share = ChordShareV3(lf, els, out _);
                 bool crossing = CrossesKind(lifts, lf);
                 int par = NoParallel ? ParallelsOf(lifts, lf, lf.Bottom.xz, lf.Top.xz) : 0;

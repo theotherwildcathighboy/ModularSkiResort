@@ -4,7 +4,7 @@
 //   dotnet run --project tests/AutoGenBatch/AutoGenBatch.csproj -c Release -- rf <out-dir>
 // The planner's hot methods are marked AggressiveOptimization. A region plans in about a second once the runtime has tiered its
 // code up. But the first region of a run spent 2-3 s more in tier-0 code (tiering waits while the pipeline keeps compiling new
-// methods). The first region counts against the same 5 s as the others.
+// methods). No pass reads the clock: the plan depends on its input only, and the per-pass times are a report.
 
 using System;
 using System.Collections.Generic;
@@ -232,13 +232,14 @@ namespace AutoGenBatch
             return 0;
         }
 
+        // The clock only reports: no pass reads it, so a plan depends on its input alone (the time cutoff RF_LATEMS and the learning
+        // search's RF_ABOVEMS went in the port round R0-c). Tick records the end of each pass; the host prints the table.
         private static System.Diagnostics.Stopwatch Clock = new System.Diagnostics.Stopwatch();
         private static readonly bool Timing = Environment.GetEnvironmentVariable("RF_TIME") == "1";
-        // the passes after the way home refine a finished plan: past this point of a region's 5 s they stop where they are
-        private static readonly float LateMs = Env("RF_LATEMS", 4200f);
-        private static bool Late => Clock.ElapsedMilliseconds > LateMs;
+        private static readonly List<(string Pass, long Ms)> PassTimes = new List<(string, long)>();
         private static void Tick(string what)
         {
+            PassTimes.Add((what, Clock.ElapsedMilliseconds));
             if (Timing)
                 Console.WriteLine($"TIME {what} {Clock.ElapsedMilliseconds} ms (easy {EasyWork}, links {LinkWork})");
             // RF_WHDBG: the lifts without a way home after each stage of the plan
@@ -256,6 +257,7 @@ namespace AutoGenBatch
             HeightSnapshot snap = Heightmap.Snapshot(file, ring);
             var sw = System.Diagnostics.Stopwatch.StartNew();
             Clock = sw;
+            PassTimes.Clear();
             EasyWork = LinkWork = 0;
             Grid g = BuildGrid(snap, ring);
             int n = g.W * g.D;
@@ -320,6 +322,9 @@ namespace AutoGenBatch
             for (int i = 0; i < lifts.Count; i++)
                 lifts[i].Id = i + 1;
             long ms = sw.ElapsedMilliseconds;
+            // the per-pass time table (report only): each pass's own milliseconds, in plan order
+            long prevMs = 0;
+            Console.WriteLine($"REPORT rf time {id}: " + string.Join(", ", PassTimes.Select(t => { long d = t.Ms - prevMs; prevMs = t.Ms; return $"{t.Pass} {d}"; })) + $", total {ms} ms");
 
             // the v2 plan of the same region, as the host replays it
             AutoPlanKnobs knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(ring, 0));

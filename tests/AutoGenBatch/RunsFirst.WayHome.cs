@@ -200,7 +200,7 @@ namespace AutoGenBatch
         {
             int dropped = 0;
             var tried = new HashSet<Lift>();
-            while (!Late)
+            while (true)
             {
                 SkiGraph sg = Ski(g, plan, lifts);
                 int[] root = V3Bases(g, lifts, out HashSet<int> bases);
@@ -437,7 +437,7 @@ namespace AutoGenBatch
         {
             var tried = new HashSet<Lift>();
             int added = 0;
-            for (int round = 0; round < 6 && !Late; round++)
+            for (int round = 0; round < 6; round++)
             {
                 SkiGraph sg = Ski(g, plan, lifts);
                 int[] root = V3Bases(g, lifts, out HashSet<int> bases);

@@ -206,7 +206,7 @@ namespace AutoGenBatch
         {
             int budget = (int)Math.Ceiling(1.5 * km2) + 2, added = 0;
             var tried = new HashSet<int>();
-            while (lifts.Count < budget && !Late)
+            while (lifts.Count < budget)
             {
                 int[] rootOf = V3Bases(g, lifts, out HashSet<int> bases);
                 List<int> members = bases.OrderBy(b => b)

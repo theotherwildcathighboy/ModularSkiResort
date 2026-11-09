@@ -125,7 +125,6 @@ namespace AutoGenBatch
         // off by default (RF_LEARNABOVE=1). A learning area on a green bench just above a base lift top found no site that the other
         // modes missed on the five sets (no plan changed). It cost planning time
         private static readonly bool LearnAbove = Environment.GetEnvironmentVariable("RF_LEARNABOVE") == "1";
-        private static readonly float AboveMs = Env("RF_ABOVEMS", 3000f);   // the search above a top only while the region is early
         private static readonly EasyLimits LearnWayShort = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1600f, false, Env("RF_LGROUND", 0.235f));
 
         // off by default (RF_LEARNCONVERT=1): turning a short base lift into the beginner chair changed no plan on the five sets
@@ -262,7 +261,7 @@ namespace AutoGenBatch
                 }
                 // or above the top of the base's gondola or tram (a summit plateau). Beginners ride it up and down. The learning chair rises
                 // from beside its top station, with a flat cat track each way between the two
-                if (!LearnAbove || Clock.ElapsedMilliseconds > AboveMs)
+                if (!LearnAbove)
                     continue;
                 foreach (int L in members.Where(L => Aerial(lifts[L].Type)).ToList())
                 {
@@ -284,7 +283,7 @@ namespace AutoGenBatch
                 }
                 // or a short lift already there on green ground becomes the learning chair (at the base, or beside the top of the base's
                 // gondola or tram). It gets green runs from its top back to its bottom
-                if (LearnConvert && Clock.ElapsedMilliseconds <= AboveMs && ConvertToLearning(g, plan, lifts, members, km))
+                if (LearnConvert && ConvertToLearning(g, plan, lifts, members, km))
                     added++;
             next:;
             }
