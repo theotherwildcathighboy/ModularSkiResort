@@ -30,7 +30,10 @@ namespace AutoGenBatch
 
         /// <summary>Scorecard v3's bases: lift bottoms chained within 400 m. A base is such a cluster with two or more bottoms in the
         /// lowest 35 % of the region's relief, or the lowest lift's cluster when none has. Returns each lift's cluster root.</summary>
-        private static int[] V3Bases(Grid g, List<Lift> lifts, out HashSet<int> bases)
+        private static int[] V3Bases(Grid g, List<Lift> lifts, out HashSet<int> bases) => V3Bases(g, lifts, out bases, out _);
+
+        /// <summary>V3Bases, plus the bases in the order the method found them (by lift index): the enumerations that pick a base read it.</summary>
+        private static int[] V3Bases(Grid g, List<Lift> lifts, out HashSet<int> bases, out List<int> order)
         {
             var p = new int[lifts.Count];
             for (int i = 0; i < p.Length; i++)
@@ -55,11 +58,15 @@ namespace AutoGenBatch
                 size[root[L]] = size.TryGetValue(root[L], out int n) ? n + 1 : 1;
             }
             bases = new HashSet<int>();
+            order = new List<int>();
             for (int L = 0; L < lifts.Count; L++)
-                if (RawH(g, lifts[L].Bottom.xz) <= lowCut && size[root[L]] >= 2)
-                    bases.Add(root[L]);
+                if (RawH(g, lifts[L].Bottom.xz) <= lowCut && size[root[L]] >= 2 && bases.Add(root[L]))
+                    order.Add(root[L]);
             if (bases.Count == 0 && lifts.Count > 0)
+            {
                 bases.Add(root[Enumerable.Range(0, lifts.Count).OrderBy(L => RawH(g, lifts[L].Bottom.xz)).First()]);
+                order.AddRange(bases);
+            }
             return root;
         }
 
@@ -374,7 +381,7 @@ namespace AutoGenBatch
                 {
                     float2 top = lifts[L].Top.xz;
                     float topH = RawH(g, top);
-                    var starts = er.Cost.Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
+                    var starts = er.CostInOrder().Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
                         .OrderBy(kv => kv.Value).Take(8).Select(kv => kv.Key).ToList();
                     List<float2> track = null;
                     List<int> trackCells = null;
@@ -488,7 +495,7 @@ namespace AutoGenBatch
                 foreach (EasyLimits lim in new[] { WayBlue, WayGreen })
                 {
                     EasyReach er = EasyUp(g, origins, avoid, lim, lines);
-                    var starts = er.Cost.Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
+                    var starts = er.CostInOrder().Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
                         .OrderBy(kv => kv.Value).Take(8).Select(kv => kv.Key).ToList();
                     foreach (int s0 in starts)
                     {

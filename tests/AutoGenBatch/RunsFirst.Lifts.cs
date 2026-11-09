@@ -121,15 +121,18 @@ namespace AutoGenBatch
                         hub[a] = b;
                     }
             var low = new Dictionary<int, int>();
+            var lowOrder = new List<int>();   // the hubs in first-seen order (a defined order, not the dictionary's)
             for (int i = 0; i < ends.Count; i++)
             {
                 if (ends[i] < 0)
                     continue;
                 int r = Root(hub, i);
-                if (!low.TryGetValue(r, out int cur) || g.H[ends[i]] < g.H[cur])
+                if (!low.TryGetValue(r, out int cur))
+                    lowOrder.Add(r);
+                if (!low.TryGetValue(r, out cur) || g.H[ends[i]] < g.H[cur])
                     low[r] = ends[i];
             }
-            foreach (int c0 in low.Values)
+            foreach (int c0 in lowOrder.Select(r => low[r]))
             {
                 int c = FlatCell(g, c0, 35f);
                 if (c >= 0 && !bottoms.Contains(c))
@@ -727,7 +730,7 @@ namespace AutoGenBatch
             foreach (var (a, b) in cov)
                 if (b > lo && a < hi)
                     cuts.Add((Math.Max(a, lo), Math.Min(b, hi)));
-            cuts.Sort((p, q) => p.Item1.CompareTo(q.Item1));
+            SortStable(cuts, (p, q) => p.Item1.CompareTo(q.Item1));
             float free = 0f, at = lo;
             foreach (var (a, b) in cuts)
             {

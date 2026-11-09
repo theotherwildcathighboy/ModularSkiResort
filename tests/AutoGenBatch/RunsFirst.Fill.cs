@@ -241,10 +241,14 @@ namespace AutoGenBatch
             }
             var runs = new PointHash();                        // served run samples
             var on = new Dictionary<long, List<float3>>();    // samples of every element a skier is on (reached and returning)
+            var onLists = new List<List<float3>>();             // on's lists in creation order: the enumerations read this
             void AddOn(float3 p)
             {
                 if (!on.TryGetValue(Key(p.xz), out List<float3> l))
+                {
                     on[Key(p.xz)] = l = new List<float3>();
+                    onLists.Add(l);
+                }
                 l.Add(p);
             }
             void Open(float2 p) => Around(p, i =>
@@ -365,7 +369,7 @@ namespace AutoGenBatch
                                 if (d >= FillForkM && d <= FillFeedM && p.y >= h - 1f && p.y <= h + 0.4f * d)
                                     near.Add((d, p.xz));
                             }
-                near.Sort((a, b) => a.D.CompareTo(b.D));
+                SortStable(near, (a, b) => a.D.CompareTo(b.D));
                 for (int k = 0; k < Math.Min(4, near.Count); k++)
                 {
                     var c = new List<float2> { near[k].P, q };
@@ -484,14 +488,14 @@ namespace AutoGenBatch
             }
 
             // best new ground first (lazy: a line's new ground only shrinks as the fill adds runs)
-            var queue = new PriorityQueue<Cand, int>();
+            var queue = new StableHeap<Cand, int>();
             foreach (Cand cd in cands)
                 if (!cd.L.Picked && Eval(cd, out int f0, out _) != null)
                     queue.Enqueue(cd, -f0);
             Tick("fill setup");
             int faceLines = 0;
             if (Environment.GetEnvironmentVariable("RF_NOFACE") != "1")
-                foreach (Cand cd in FaceLines(g, lifts, lat, covered, on.Values.SelectMany(l => l).ToList(), smp.Select(x => x.P).ToList()))
+                foreach (Cand cd in FaceLines(g, lifts, lat, covered, onLists.SelectMany(l => l).ToList(), smp.Select(x => x.P).ToList()))
                 {
                     faceLines++;
                     if (Eval(cd, out int f0, out _) != null)
@@ -572,9 +576,9 @@ namespace AutoGenBatch
             var diagRuns = new List<PlanRun>();
             if (Environment.GetEnvironmentVariable("RF_NODIAG") != "1" && have < 0.62f * lat.Count)
             {
-                var dq = new PriorityQueue<List<float2>, int>();
+                var dq = new StableHeap<List<float2>, int>();
                 var seenStart = new PointHash();
-                foreach (List<float3> l in on.Values)
+                foreach (List<float3> l in onLists)
                     foreach (float3 p in l)
                     {
                         if (seenStart.Near(p.xz, 45f) || GradeAt(g, p.xz) < DiagGrade + 0.04f)

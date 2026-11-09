@@ -75,6 +75,7 @@ namespace AutoGenBatch
         {
             public readonly Dictionary<int, int> Down, Root;
             public readonly Dictionary<int, float> Len, Cost;
+            public readonly List<int> Order;   // the keys in first-reached order: every enumeration that feeds a result reads this
 
             public EasyReach(int count)
             {
@@ -82,7 +83,11 @@ namespace AutoGenBatch
                 Root = new Dictionary<int, int>(count);
                 Len = new Dictionary<int, float>(count);
                 Cost = new Dictionary<int, float>(count);
+                Order = new List<int>(count);
             }
+
+            /// <summary>The cells and their costs in first-reached order (the dictionary's own order is not defined).</summary>
+            public IEnumerable<KeyValuePair<int, float>> CostInOrder() => Order.Select(c => new KeyValuePair<int, float>(c, Cost[c]));
 
             [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public List<int> Route(int c)
@@ -112,13 +117,13 @@ namespace AutoGenBatch
             for (int pass = 0; pass < 6; pass++)
             {
                 // bases as scorecard v3 reads them: two or more lift bottoms within 400 m low on the mountain (else the lowest lift's)
-                int[] rootOf = V3Bases(g, lifts, out HashSet<int> bases);
+                int[] rootOf = V3Bases(g, lifts, out HashSet<int> bases, out List<int> baseOrder);
                 if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1" && pass == 0)
                     Console.WriteLine($"DEBUG bases: relief {hLo:F0}-{hHi:F0}, low cut {lowCut:F0}; " + string.Join("; ", bases.Select(b => string.Join(",", Enumerable.Range(0, lifts.Count).Where(L => rootOf[L] == b).Select(L => $"L{lifts[L].Id} ({RawH(g, lifts[L].Bottom.xz):F0})")))));
                 SkiGraph sg = Ski(g, plan, lifts);
                 List<int> members = null;
                 int key = -1;
-                foreach (int b in bases)
+                foreach (int b in baseOrder)
                 {
                     var m = Enumerable.Range(0, lifts.Count).Where(L => rootOf[L] == b).OrderBy(L => RawH(g, lifts[L].Bottom.xz)).ToList();
                     if (!failed.Contains(lifts[m[0]].Id) && !BaseHasGreen(sg, plan, lifts, m))
@@ -480,7 +485,7 @@ namespace AutoGenBatch
             foreach (int L in members)
             {
                 float2 top = lifts[L].Top.xz;
-                var near = er.Cost.Where(kv => math.distancesq(g.World(kv.Key), top) < 120f * 120f).OrderBy(kv => kv.Value).Take(40).ToList();
+                var near = er.CostInOrder().Where(kv => math.distancesq(g.World(kv.Key), top) < 120f * 120f).OrderBy(kv => kv.Value).Take(40).ToList();
                 foreach (var kv in near)
                 {
                     List<float2> route = GreenRoute(g, plan, lifts, members, er, kv.Key, avoid, guard, why, out float soft, out bool graded);
@@ -563,7 +568,7 @@ namespace AutoGenBatch
             {
                 float2 top = lifts[L].Top.xz;
                 float topH = RawH(g, top);
-                var starts = er.Cost.Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
+                var starts = er.CostInOrder().Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
                     .OrderBy(kv => kv.Value).Take(8).Select(kv => kv.Key).ToList();
                 foreach (int s in starts)
                 {
@@ -616,7 +621,7 @@ namespace AutoGenBatch
             PlanRun best = null;
             softest = float.MaxValue;
             int tries = 0;
-            foreach (int c in er.Cost.Keys.Where(c => er.Len[c] >= 300f && g.Hr[c] - g.Hr[er.Root[c]] >= 60f)
+            foreach (int c in er.Order.Where(c => er.Len[c] >= 300f && g.Hr[c] - g.Hr[er.Root[c]] >= 60f)
                 .OrderByDescending(c => g.Hr[c] - g.Hr[er.Root[c]]))
             {
                 if (!On(c))
@@ -641,7 +646,7 @@ namespace AutoGenBatch
         private static bool TryPod(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard lines, SkiGraph before)
         {
             var bottoms = new HashSet<int>(lifts.Select(lf => lf.BottomCell));
-            var cands = er.Cost.Where(kv => er.Len[kv.Key] <= PodRouteMaxM && g.Hr[kv.Key] - g.Hr[er.Root[kv.Key]] >= PodMinRise)
+            var cands = er.CostInOrder().Where(kv => er.Len[kv.Key] <= PodRouteMaxM && g.Hr[kv.Key] - g.Hr[er.Root[kv.Key]] >= PodMinRise)
                 .OrderBy(kv => kv.Value).Select(kv => kv.Key).ToList();
             int checkedTops = 0, netChecks = 0;
             var topsSeen = new HashSet<int>();
@@ -649,7 +654,7 @@ namespace AutoGenBatch
             var why = new int[10];
             bool dbg = Environment.GetEnvironmentVariable("RF_DEBUG") == "1";
             if (dbg)
-                foreach (int c in er.Cost.Keys)
+                foreach (int c in er.Order)
                     if (er.Len[c] <= PodRouteMaxM)
                         plan.Dots.Add((g.World(c), 120, 255, 255));
             Lift fallback = null;
@@ -980,6 +985,7 @@ namespace AutoGenBatch
                 tree.Root[c] = er.Root[c];
                 tree.Len[c] = er.Len[c];
                 tree.Cost[c] = er.Cost[c];
+                tree.Order.Add(c);
                 er.Seen[c] = er.Done[c] = false;
             }
             return tree;

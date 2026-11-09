@@ -194,11 +194,11 @@ namespace AutoGenBatch
             var tried = new HashSet<int>();
             for (int pass = 0; pass < 4; pass++)
             {
-                int[] root = V3Bases(g, lifts, out HashSet<int> bases);
+                int[] root = V3Bases(g, lifts, out HashSet<int> bases, out List<int> baseOrder);
                 SkiGraph sg = Ski(g, plan, lifts);
                 List<int> members = null;
                 float km = 0f;
-                foreach (int b in bases)
+                foreach (int b in baseOrder)
                 {
                     var m = Enumerable.Range(0, lifts.Count).Where(L => root[L] == b).OrderBy(L => RawH(g, lifts[L].Bottom.xz)).ToList();
                     if (tried.Contains(lifts[m[0]].Id) || m.Any(L => lifts[L].Type == "beginner"))
@@ -230,7 +230,7 @@ namespace AutoGenBatch
                 EasyReach er = EasyUp(g, BaseOrigins(g, plan, lifts, members, sg), avoid, LearnWay, lines);
                 float mid = 0.5f * (LearnMinRise + LearnMaxRise);
                 float Rise(EasyReach e, int c) => g.Hr[c] - g.Hr[e.Root[c]];
-                List<int> cands = er.Cost.Where(kv => er.Len[kv.Key] <= LearnRouteMax && Rise(er, kv.Key) >= LearnMinRise && Rise(er, kv.Key) <= LearnMaxRise)
+                List<int> cands = er.CostInOrder().Where(kv => er.Len[kv.Key] <= LearnRouteMax && Rise(er, kv.Key) >= LearnMinRise && Rise(er, kv.Key) <= LearnMaxRise)
                     .OrderBy(kv => kv.Value - Math.Min(er.Len[kv.Key], 900f) + 3f * Math.Abs(Rise(er, kv.Key) - mid)).Select(kv => kv.Key).ToList();
                 // on the fall line first. A learning chair across its gentle slope beats a base without one
                 if (TryLearningChair(g, plan, lifts, members, er, cands, null, avoid, guard, sg, km, LearnFallDeg)
@@ -250,7 +250,7 @@ namespace AutoGenBatch
                         continue;
                     EasyReach eh = EasyUp(g, origins, avoid, LearnWay, lines);
                     float2 top = lifts[L].Top.xz;
-                    List<int> high = eh.Len.Keys.Where(c => eh.Len[c] <= LearnRouteMax && Rise(eh, c) >= LearnMinRise && Rise(eh, c) <= LearnMaxRise
+                    List<int> high = eh.Order.Where(c => eh.Len[c] <= LearnRouteMax && Rise(eh, c) >= LearnMinRise && Rise(eh, c) <= LearnMaxRise
                         && math.distancesq(g.World(c), top) < LearnBelowTopM * LearnBelowTopM).OrderByDescending(c => eh.Len[c]).ToList();
                     if (TryLearningChair(g, plan, lifts, members, eh, high, lifts[L], avoid, guard, sg, km, LearnFallDeg)
                         || TryLearningChair(g, plan, lifts, members, eh, high, lifts[L], avoid, guard, sg, km, 180f))
@@ -269,7 +269,7 @@ namespace AutoGenBatch
                     if (origins.Count == 0)
                         continue;
                     EasyReach ea = EasyUp(g, origins, avoid, LearnWayShort, lines);
-                    List<int> up = ea.Cost.Where(kv => ea.Len[kv.Key] <= LearnRouteMax && Rise(ea, kv.Key) >= LearnMinRise && Rise(ea, kv.Key) <= LearnMaxRise)
+                    List<int> up = ea.CostInOrder().Where(kv => ea.Len[kv.Key] <= LearnRouteMax && Rise(ea, kv.Key) >= LearnMinRise && Rise(ea, kv.Key) <= LearnMaxRise)
                         .OrderBy(kv => kv.Value - Math.Min(ea.Len[kv.Key], 900f) + 3f * Math.Abs(Rise(ea, kv.Key) - mid)).Select(kv => kv.Key).ToList();
                     if (TryLearningChair(g, plan, lifts, members, ea, up, lifts[L], avoid, guard, sg, km, LearnFallDeg, true)
                         || TryLearningChair(g, plan, lifts, members, ea, up, lifts[L], avoid, guard, sg, km, 180f, true))
@@ -536,7 +536,7 @@ namespace AutoGenBatch
                 float bestLen = 0f;
                 int tries = 0;
                 var mw = new int[6];
-                foreach (int x in er.Len.Keys.Where(c => math.distancesq(g.World(c), t) < LearnTopM * LearnTopM && g.Hr[c] >= th - 12f)
+                foreach (int x in er.Order.Where(c => math.distancesq(g.World(c), t) < LearnTopM * LearnTopM && g.Hr[c] >= th - 12f)
                     .OrderByDescending(c => er.Len[c]))
                 {
                     if (++tries > 300)

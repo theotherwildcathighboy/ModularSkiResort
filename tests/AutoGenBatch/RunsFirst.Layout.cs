@@ -223,7 +223,7 @@ namespace AutoGenBatch
                         moves.Add((r + (end == 0 ? Math.Max(0f, dh - 8f) * 4f : Math.Max(0f, -dh - 15f) * 3f), c));
                     }
                 }
-                moves.Sort((x, y) => x.Cost.CompareTo(y.Cost));
+                SortStable(moves, (x, y) => x.Cost.CompareTo(y.Cost));
                 var others = lifts.Where(o => o != lf).ToList();
                 int parBefore = ParallelsOf(lifts, lf, lf.Bottom.xz, lf.Top.xz), hubBefore = HubExcess(g, lifts);
                 float shareBefore = els != null ? ChordShareV3(lf, els, out _) : 0f;

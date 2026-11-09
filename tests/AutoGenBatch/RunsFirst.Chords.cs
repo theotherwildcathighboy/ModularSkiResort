@@ -146,9 +146,9 @@ namespace AutoGenBatch
                 {
                     // one stretch may be what breaks a join (its end slid out of the skier's reach). The code keeps each run's move when the
                     // skiing stays as it was. It then judges the line again on the moves kept
-                    var moved = old.Keys.ToDictionary(ri => ri, ri => plan.Runs[ri].Pts);
-                    foreach (int ri in moved.Keys)
-                        Restore(ri);
+                    var moved = old.Keys.OrderBy(ri => ri).Select(ri => new KeyValuePair<int, List<float2>>(ri, plan.Runs[ri].Pts)).ToList();
+                    foreach (var kv in moved)
+                        Restore(kv.Key);
                     var took = new List<int>();
                     foreach (var kv in moved)
                     {
@@ -255,7 +255,7 @@ namespace AutoGenBatch
                         moves.Add((o * 0.9f, b0 + s * across, t0));
                         moves.Add((o * 0.9f, b0, t0 + s * across));
                     }
-                moves.Sort((x, y) => x.Cost.CompareTo(y.Cost));
+                SortStable(moves, (x, y) => x.Cost.CompareTo(y.Cost));
                 var (ob, ot, obc, otc, oRise, oLen) = (lf.Bottom, lf.Top, lf.BottomCell, lf.TopCell, lf.Rise, lf.Length);
                 void Restore()
                 {

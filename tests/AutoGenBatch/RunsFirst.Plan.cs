@@ -179,7 +179,7 @@ namespace AutoGenBatch
             }
 
             // 3. the serve pick: best first. A run that runs onto an earlier one ends there. It delivers where that one does.
-            cands.Sort((a, b) => b.Value.CompareTo(a.Value));
+            SortStable(cands, (a, b) => b.Value.CompareTo(a.Value));
             var taken = new PointHash();
             var takenH = new HeightHash();
             // the cap per km2, and the runs of the ground each coverage lift was placed to open
@@ -195,7 +195,7 @@ namespace AutoGenBatch
             var chords = new ChordGuard(lifts);
             // a run that would lie along a lift line waits for the runs that don't (its value is cut to ChordDefer). When it comes
             // up again, the code keeps it anyway and stops guarding that lift line. This gives one violation, not a lost trunk run.
-            var queue = new PriorityQueue<(Cand C, bool Deferred), float>();
+            var queue = new StableHeap<(Cand C, bool Deferred), float>();
             float topValue = cands.Count > 0 ? cands[0].Value : 0f;
             foreach (Cand cd in cands)
                 queue.Enqueue((cd, false), -cd.Value);

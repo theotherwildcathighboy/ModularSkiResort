@@ -87,7 +87,7 @@ namespace AutoGenBatch
                 order = new int[m];
                 for (int i = 0; i < m; i++)
                     order[i] = i;
-                Array.Sort(h, order);
+                SortByKey(h, order);
             }
             [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             private int Pos(int c)
@@ -158,7 +158,7 @@ namespace AutoGenBatch
                 order[c] = c;
                 hs[c] = g.In[c] ? g.H[c] : float.MaxValue;
             }
-            Array.Sort(hs, order);
+            SortByKey(hs, order);
             var passes = new ulong[n * wb];
             foreach (int c in order)
             {
@@ -286,7 +286,7 @@ namespace AutoGenBatch
                     if (debug && Environment.GetEnvironmentVariable("RF_TOPDBG") == "1" && baseGain >= 40)
                         Console.WriteLine($"DEBUG cover top {g.World(tops[ti]).x:F0},{g.World(tops[ti]).y:F0} h {g.Hr[tops[ti]]:F0}: base gain {baseGain}, back {back}, best {tBest}, pairs {tPairs}, into {tInto}, home {tHome}");
                 }
-                cands.Sort((a, b) => b.Gain.CompareTo(a.Gain));
+                SortStable(cands, (a, b) => b.Gain.CompareTo(a.Gain));
                 // v5: a coverage lift climbs its slope's fall line. The code ranks the best few hundred again. A sideways line is worth less
                 // (it loses CoverFallW of its gain 60 degrees off the fall line)
                 if (CoverFallW > 0f && cands.Count > 1)

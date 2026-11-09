@@ -239,7 +239,7 @@ namespace AutoGenBatch
                 }
                 LinkWork += EasyWork - work;
                 diag.Add($"{mode switch { 0 => "cat track", 1 => "blue run", 2 => "black run", 3 => "graded track", _ => "graded diagonal" }} reach {er.Cost.Count} cell(s)");
-                foreach (int c in er.Cost.Where(kv => kv.Value > 0f && On(kv.Key)).OrderBy(kv => kv.Value).Take(12).Select(kv => kv.Key))
+                foreach (int c in er.CostInOrder().Where(kv => kv.Value > 0f && On(kv.Key)).OrderBy(kv => kv.Value).Take(12).Select(kv => kv.Key))
                 {
                     List<int> cells = er.Route(c);
                     if (cells.Count < 3)

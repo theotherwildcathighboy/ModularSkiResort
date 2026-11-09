@@ -289,7 +289,7 @@ namespace AutoGenBatch
                     if (g.In[c] && gr >= GentleMinGrade && gr <= GentleMaxGrade)
                         seeds.Add(c);
                 }
-            seeds.Sort((a, b) => g.H[b].CompareTo(g.H[a]));
+            SortStable(seeds, (a, b) => g.H[b].CompareTo(g.H[a]));
             foreach (int s0 in seeds)
             {
                 var path = new List<int>();
@@ -499,7 +499,7 @@ namespace AutoGenBatch
                 order[c] = c;
                 keys[c] = -fill[c];
             }
-            Array.Sort(keys, order);
+            SortByKey(keys, order);
             acc = new float[n];
             foreach (int c in order)
             {
@@ -774,7 +774,7 @@ namespace AutoGenBatch
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static PointHash Pick(List<Line> lines, Grid g, float km2)
         {
-            lines.Sort((a, b) => b.Score.CompareTo(a.Score));
+            SortStable(lines, (a, b) => b.Score.CompareTo(a.Score));
             for (int i = 0; i < lines.Count; i++)
                 lines[i].Id = i + 1;
             var taken = new PointHash();

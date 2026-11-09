@@ -49,6 +49,7 @@
     <Compile Include="RunsFirst.Junctions.cs" />
     <Compile Include="RunsFirst.Heads.cs" />
     <Compile Include="RunsFirst.Heap.cs" />
+    <Compile Include="RunsFirst.Order.cs" />
     <Compile Include="RunsFirst.Graded.cs" />
     <Compile Include="RunsFirst.WayHome.cs" />
     <Compile Include="RunsFirst.Regrade.cs" />
