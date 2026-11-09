@@ -20,6 +20,7 @@
  *     text scale 1. Lifts tile "built / drawn". The footer opens like the game's toolbar (openTab).
  * The harness panel frame is a stand-in for the game's, so the report also gives each case's slack (rem left).
  * MIN_SLACK_REM is a margin rule for the title bar / padding difference.
+ * Every measure follows settle(): a quiet page, at least QUIET_FRAMES drawn frames after the last DOM change (see settle()).
  */
 (function () {
   "use strict";
@@ -31,7 +32,62 @@
   const cls = (name) => `[class*="sr-${name}_"]`;
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const frames = (n) => new Promise((r) => { let i = 0; const f = () => { if (++i >= n) r(); else requestAnimationFrame(f); }; requestAnimationFrame(f); });
-  async function settle() { await frames(4); await wait(60); await frames(4); await wait(60); await frames(3); }
+
+  // settle() = wait until the hub is quiet (2026-11-09; it was 11 frames + 120 ms of fixed waits, about 300 ms a call).
+  // Quiet = QUIET_FRAMES drawn frames in a row with no DOM change in the page (the harness side bar excluded). That is more than the
+  // two frames the pager (src/hub/fit.tsx markStale) waits before it measures again, so its measure chain has ended. The hub's
+  // setInterval polls (the pager's VIEW_PAGER_POLL_MS safety net: the one that re-pages after a text scale change, which no render
+  // or mutation announces) run once the change is drawn and again at the quiet point. The settle ends only when that last poll
+  // changes nothing. So the measurement waits for the converged state and not for a timer's phase. MAX_FRAMES caps a page that
+  // never goes quiet (counted in stats.capped, reported by the test).
+  // `SkiLayout.run({ fixedSettle: true })` (test --fixed-settle) restores the old fixed waits, for a cross-check.
+  const QUIET_FRAMES = 3, MAX_FRAMES = 60;
+  const stats = { settles: 0, frames: 0, capped: 0, lastCapped: "" };
+  let fixedSettle = false;
+  // The hub's setInterval callbacks, so settle() can run its polls at once. layout-check.js loads before the bundle, so this sees them all.
+  const intervals = new Map();
+  const nativeSetInterval = window.setInterval.bind(window), nativeClearInterval = window.clearInterval.bind(window);
+  window.setInterval = function (fn, ms, ...args) {
+    const id = nativeSetInterval(fn, ms, ...args);
+    if (typeof fn === "function") intervals.set(id, () => fn(...args));
+    return id;
+  };
+  window.clearInterval = function (id) { intervals.delete(id); return nativeClearInterval(id); };
+  function runPolls() { for (const f of Array.from(intervals.values())) { try { f(); } catch (e) { /* a poll's own error is the hub's */ } } }
+  // DOM changes anywhere but the harness side bar (its trigger log and status line)
+  let changes = 0, lastChange = "";
+  const describe = (r) => { const t = r.target.nodeType === 1 ? r.target : r.target.parentElement; return `${r.type}${r.attributeName ? " " + r.attributeName : ""} on ${t ? t.tagName + "." + String(t.className).slice(0, 60) : "?"}`; };
+  const outside = (recs) => { const side = document.getElementById("side"); const r = recs.find((x) => !side || !side.contains(x.target)); if (r) lastChange = describe(r); return !!r; };
+  const observer = new MutationObserver((recs) => { if (outside(recs)) changes++; });
+  let observing = false;
+  function observe() {
+    if (observing || !document.body) return;
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    observer.observe(document.documentElement, { attributes: true });   // the text scale variables
+    observing = true;
+  }
+  function pending() { const recs = observer.takeRecords(); if (outside(recs)) changes++; return changes; }
+  async function legacySettle() { await frames(4); await wait(60); await frames(4); await wait(60); await frames(3); }
+  async function settle() {
+    stats.settles++;
+    if (fixedSettle) { await legacySettle(); return; }
+    observe();
+    let seen = pending(), quiet = 0;
+    for (let n = 1; n <= MAX_FRAMES; n++) {
+      await frames(1);
+      stats.frames++;
+      if (n === 1) runPolls();
+      const now = pending();
+      if (now !== seen) { seen = now; quiet = 0; continue; }
+      if (++quiet < QUIET_FRAMES) continue;
+      runPolls();   // the last word: a poll that still changes the page means it was not settled
+      const after = pending();
+      if (after === seen) return;
+      seen = after; quiet = 0;
+    }
+    stats.capped++;
+    stats.lastCapped = lastChange;
+  }
 
   function setScale(fs) {
     const r = document.documentElement;
@@ -311,28 +367,59 @@
     await closeFolds();
   }
 
+  /** The scenarios the check runs and those the tooltip pass runs, each in report order. */
+  function checkScenarios() { return Object.keys(window.SkiScenarios).filter((n) => /Ash Flat \(runs|Big resort|Field case/.test(n)); }
+  function tipScenarios() { return Object.keys(window.SkiScenarios).filter((n) => /^Ash Flat \(runs|^Ash Flat, no black run open$|^Ash Flat, no ski school$|^Field case/.test(n)); }
+
+  /**
+   * opts: scenarios (names, default checkScenarios()), scales (default [1, 1.25]), units (hubRules UNIT_WORDS: runs the tooltip pass
+   * after the check), tipScenarios (default tipScenarios()), tipScales (default TIP_SCALES), keepScale (leave the last text scale set,
+   * as a serial run does between its units), fixedSettle (the old fixed waits). tools/test-hub-layout.js runs one scenario x text scale
+   * of the check or of the tooltip pass per call, on several pages at once, and merges the results in this order.
+   */
   async function run(opts) {
     const o = opts || {};
+    fixedSettle = !!o.fixedSettle;
     gameRem();
+    const t0 = performance.now(), s0 = Object.assign({}, stats);
     const out = { viewport: `${window.innerWidth}x${window.innerHeight}`, remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], clipped: {}, fullest: {} };
     out.remPx = Math.round(rem() * 1000) / 1000;
-    const names = o.scenarios || Object.keys(window.SkiScenarios).filter((n) => /Ash Flat \(runs|Big resort|Field case/.test(n));
+    const names = o.scenarios || checkScenarios();
     for (const name of names) for (const fs of o.scales || SCALES) {
       try { await checkOne(name, fs, out); } catch (e) { out.fails.push({ scenario: name, fs, what: "exception: " + (e && e.message || e) }); }
     }
     out.tips = { n: 0, keys: 0, keyRows: 0, scenarios: [] };
     if (o.units && o.units.length) {
-      const tipNames = o.tipScenarios || Object.keys(window.SkiScenarios).filter((n) => /^Ash Flat \(runs|^Ash Flat, no black run open$|^Ash Flat, no ski school$|^Field case/.test(n));
+      const tipNames = o.tipScenarios || tipScenarios();
       out.tips.scenarios = tipNames;
       for (const name of tipNames) for (const fs of o.tipScales || TIP_SCALES) {
         try { await tipPass(name, fs, out, o.units); } catch (e) { out.fails.push({ scenario: name, fs, what: "tooltip pass exception: " + (e && e.message || e) }); }
       }
     }
-    setScale(1);
+    if (!o.keepScale) setScale(1);
     out.ok = out.fails.length === 0;
     out.maxOverRem = out.cases.reduce((m, c) => Math.max(m, c.overRem || 0), 0);
     out.minSlackRem = out.cases.reduce((m, c) => Math.min(m, c.slackRem == null ? m : c.slackRem), 1e9);
+    out.timing = { ms: Math.round(performance.now() - t0), settles: stats.settles - s0.settles, frames: stats.frames - s0.frames, capped: stats.capped - s0.capped, lastCapped: stats.capped > s0.capped ? stats.lastCapped : "" };
     return out;
+  }
+
+  /**
+   * The state a finished checkOne leaves the hub in: the Attraction view, the footer open on the Lifts tab (else the last tab the
+   * check opened). In a serial run every scenario but the first starts from it. A sharded run's page that begins mid-list calls this
+   * first, so each scenario starts as it would in the serial run.
+   */
+  async function prime(name, fs) {
+    fixedSettle = false;
+    gameRem();
+    await applyScenario(name);
+    if (fs !== undefined) { setScale(fs); await settle(); }
+    const t = tiles();
+    if (t[0]) { t[0].click(); await settle(); }
+    const tabs = buildTabs();
+    const last = tabs.find((b) => /^Lifts/.test(b.textContent.trim())) || tabs.find((b) => /Buildings/.test(b.textContent)) || tabs[tabs.length - 1];
+    if (last) await openTab(last);
+    return true;
   }
 
   /** One state for a screenshot (see the header). */
@@ -376,5 +463,5 @@
     }
   }
 
-  window.SkiLayout = { run, boot, shot, measure, setScale };
+  window.SkiLayout = { run, prime, checkScenarios, tipScenarios, TIP_SCALES, boot, shot, measure, setScale, stats };
 })();

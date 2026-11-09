@@ -22,7 +22,16 @@
 *
 * The test needs `npm run build` first (it mounts build/SkiResortMod.mjs). It also needs network access for the React UMD scripts
 * that the harness loads from cdnjs.
-* Usage:   node tools/test-hub-layout.js [--verbose]
+*
+* Speed (2026-11-09: 1591 s serial before, about 65 s now, same report): the check and the tooltip pass run in units of one size x
+* scenario x text scale, spread over --workers headless browsers (DEFAULT_WORKERS), and the report merges them in the serial order
+* (runSharded). layout-check.js settle() waits for a quiet page instead of fixed timers. Only one run at a time on this machine (the
+* LOCK file in %TEMP%): a second run waits for it.
+* Usage:   node tools/test-hub-layout.js [--verbose]                    # the full check: 3 sizes, the gate before a release / merge
+*          node tools/test-hub-layout.js --quick [--scenario=<regex>]   # 1080 only (the tightest window), for iteration in a round
+*            --height=1080|1440|2160   one size     --scenario=<regex>   only the scenarios it matches (case-insensitive; a partial run)
+*            --workers=<n>   browsers in parallel  --no-wait   fail (exit 3) when another run holds the lock, instead of waiting
+*            --fixed-settle   the old fixed waits in settle(), to cross-check a doubt about the quiet condition
 *          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
@@ -37,6 +46,26 @@ const http = require("http");
 
 const ROOT = path.resolve(__dirname, "..");
 const SIZES = [[1920, 1080], [2560, 1440], [3840, 2160]];
+// Workers (measured 2026-11-09, 8 cores / 16 threads, full run of 141 units): 4 -> 181 s, 6 -> 124 s, 8 -> 93 s, 12 -> 63 s,
+// 16 -> 51 s, 24 -> 38 s. A page mostly waits for drawn frames, so more pages keep paying; RAM is the limit: 12 workers take about
+// 5 GB, 16 about 7 GB. The default keeps 12 and fewer when free RAM is short (WORKER_GB each, FREE_GB_KEEP left over) or a game runs
+// (the machine rule in CLAUDE.md: one light background job while a game runs). --workers=<n> overrides both.
+const DEFAULT_WORKERS = 12, WORKER_GB = 0.45, FREE_GB_KEEP = 6, GAME_WORKERS = 2;
+function gameRunning() {
+  if (process.platform !== "win32") return null;
+  try {
+    const out = require("child_process").execFileSync("tasklist", ["/FO", "CSV", "/NH"], { encoding: "utf8", timeout: 5000 });
+    const m = /^"(Cities2|bf6|battlefield)[^"]*.exe"/im.exec(out);
+    return m ? m[1] : null;
+  } catch { return null; }
+}
+function defaultWorkers() {
+  const game = gameRunning();
+  if (game) return { n: GAME_WORKERS, why: `${game} runs: ${GAME_WORKERS} workers (--workers=<n> overrides)` };
+  const freeGb = os.freemem() / 2 ** 30;
+  const n = Math.max(1, Math.min(DEFAULT_WORKERS, Math.floor((freeGb - FREE_GB_KEEP) / WORKER_GB)));
+  return { n, why: n < DEFAULT_WORKERS ? `${freeGb.toFixed(1)} GB free RAM: ${n} workers (--workers=<n> overrides)` : "" };
+}
 const PLAYER_NAMES = new Set(["areaNameText", "rowName", "overlayItemName", "lodgeNameLabel"]);
 // Decided ellipsis classes whose line may hold a name the player chose (a lift or run name in a problem line). Its cut is allowed only
 // when the cut line holds a name of the scenario: the name's length is the player's, and the tooltip has the whole text. Round 624: the
@@ -147,6 +176,31 @@ async function startServer() {
   const child = spawn(process.execPath, [path.join(ROOT, "harness", "serve.js"), String(port)], { stdio: ["ignore", "pipe", "pipe"] });
   await new Promise((res) => { child.stdout.once("data", res); setTimeout(res, 2000); });
   return { port, child };
+}
+
+// One run at a time on this machine (2026-11-09): two runs halve each other's speed. The lock is a file in %TEMP% that holds the
+// owner's pid. A run waits for it (--no-wait: fail at once, exit 3). A lock whose pid is gone is stale and taken over.
+const LOCK = path.join(os.tmpdir(), "skiresort-test-hub-layout.lock");
+const LOCK_WAIT_MS = 45 * 60 * 1000;
+function pidAlive(pid) { try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } }
+async function takeLock(noWait) {
+  const me = JSON.stringify({ pid: process.pid, since: new Date().toISOString(), cwd: ROOT });
+  const t0 = Date.now();
+  let told = false;
+  for (;;) {
+    try { fs.writeFileSync(LOCK, me, { flag: "wx" }); break; } catch (e) { if (e.code !== "EEXIST") throw e; }
+    let held = null;
+    try { held = JSON.parse(fs.readFileSync(LOCK, "utf8")); } catch { /* being written or removed: look again */ }
+    if (held && !pidAlive(held.pid)) { try { fs.unlinkSync(LOCK); } catch { /* another waiter took it over first */ } continue; }
+    const who = held ? `pid ${held.pid} since ${held.since} in ${held.cwd}` : "another run";
+    if (noWait) throw Object.assign(new Error(`test-hub-layout: another run holds the lock (${who}); ${LOCK}. Run again when it ends, or drop --no-wait to wait.`), { exitCode: 3 });
+    if (Date.now() - t0 > LOCK_WAIT_MS) throw Object.assign(new Error(`test-hub-layout: waited ${LOCK_WAIT_MS / 60000} min for the lock (${who}); ${LOCK}`), { exitCode: 3 });
+    if (!told) { console.log(`test-hub-layout: waiting for another run to end (${who}). --no-wait fails at once instead.`); told = true; }
+    await sleep(1000);
+  }
+  const release = () => { try { if (JSON.parse(fs.readFileSync(LOCK, "utf8")).pid === process.pid) fs.unlinkSync(LOCK); } catch { /* gone */ } };
+  process.on("exit", release);
+  return release;
 }
 
 /** A headless browser with one page, driven over CDP. */
@@ -456,15 +510,98 @@ async function shots(b, base, dir, list) {
   }
 }
 
+/** One unit's result appended to the size's merged result. Units arrive in report order (scenario, then text scale), as one run() makes them. */
+function mergeInto(r, u) {
+  r.remPx = u.remPx;
+  for (const k of ["cases", "fails", "pagers", "buildings", "liftsTile", "band", "liftTool"]) r[k].push(...u[k]);
+  for (const [k, v] of Object.entries(u.clipped)) if (!r.clipped[k]) r.clipped[k] = v;   // first sighting wins, as in one page
+  for (const [fs, x] of Object.entries(u.fullest)) if (!r.fullest[fs] || x.full > r.fullest[fs].full) r.fullest[fs] = x;
+  r.maxOverRem = r.cases.reduce((m, c) => Math.max(m, c.overRem || 0), 0);
+  r.minSlackRem = r.cases.reduce((m, c) => Math.min(m, c.slackRem == null ? m : c.slackRem), 1e9);
+  for (const k of ["ms", "settles", "frames", "capped"]) r.timing[k] += u.timing[k];
+  if (u.timing.capped) r.timing.cappedWhere.push(`${u.timing.where}: ${u.timing.capped} settle(s), last change ${u.timing.lastCapped}`);
+  r.tips.n += u.tips.n; r.tips.keys += u.tips.keys; r.tips.keyRows = Math.max(r.tips.keyRows, u.tips.keyRows);
+  for (const n of u.tips.scenarios) if (!r.tips.scenarios.includes(n)) r.tips.scenarios.push(n);
+}
+const emptyResult = () => ({ remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], clipped: {}, fullest: {},
+  maxOverRem: 0, minSlackRem: 1e9, timing: { ms: 0, settles: 0, frames: 0, capped: 0, cappedWhere: [] }, tips: { n: 0, keys: 0, keyRows: 0, scenarios: [] } });
+
+/**
+ * The check, sharded (2026-11-09). A unit is one size x scenario x text scale, of the check (checkOne) or of the tooltip pass (tipPass);
+ * `units` lists them in the serial run's order: every check unit, then every tooltip unit. Each worker is its own headless browser (its
+ * own renderer process, so the pages run in parallel). A worker keeps its page between units of one size, so most units start from the
+ * state the unit before left, as in the serial run. A page that starts mid-list gets that state from SkiLayout.prime first. The first
+ * unit of each size runs on a fresh page, as it did. The results merge in that order, so the report reads as the serial run's.
+ */
+async function runSharded(browsers, base, sizes, units, opts) {
+  const results = new Map(sizes.map(([, h]) => [h, emptyResult()]));
+  const unitsBySize = new Map(sizes.map(([w, h]) => [h, units.map((x, idx) => Object.assign({ w, h, idx }, x))]));
+  const done = new Map(sizes.map(([, h]) => [h, []]));
+  const queue = new Map(sizes.map(([, h]) => [h, unitsBySize.get(h).slice()]));
+  const prev = (u) => { const all = unitsBySize.get(u.h); return u.idx > 0 ? all[u.idx - 1] : null; };
+  async function worker(b, k) {
+    let size = null, last = null;
+    // Spread the workers over the sizes first, then let each one stay on its size and help where the most work is left.
+    let pick = sizes[k % sizes.length][1];
+    for (;;) {
+      if (!queue.get(pick) || queue.get(pick).length === 0) {
+        pick = null;
+        for (const [, h] of sizes) if (queue.get(h).length > 0 && (pick === null || queue.get(h).length > queue.get(pick).length)) pick = h;
+        if (pick === null) return;
+      }
+      const u = queue.get(pick).shift();
+      if (size !== u.h) { await open(b, base, u.w, u.h); size = u.h; last = null; }
+      try {
+        const p = prev(u);
+        if (p && last !== p) await evalAsync(b, `window.SkiLayout.prime(${JSON.stringify(p.name)}, ${p.fs})`, 120000);
+        else if (!p && last !== null) { await open(b, base, u.w, u.h); }   // the size's first unit: a fresh page, as in the serial run
+        const o = u.kind === "tip"
+          ? { scenarios: [], units: opts.units, tipScenarios: [u.name], tipScales: [u.fs] }
+          : { scenarios: [u.name], scales: [u.fs] };
+        const r = await evalAsync(b, `window.SkiLayout.run(${JSON.stringify(Object.assign(o, { keepScale: true, fixedSettle: opts.fixedSettle }))})`, 600000);
+        r.timing.where = `${u.kind === "tip" ? "tooltip pass" : "check"} [${u.name}] fs ${u.fs}`;
+        done.get(u.h)[u.idx] = r;
+        last = u;
+      } catch (e) {
+        const r = emptyResult();
+        r.fails.push({ scenario: u.name, fs: u.fs, what: (u.kind === "tip" ? "tooltip pass exception: " : "exception: ") + (e && e.message || e) });
+        done.get(u.h)[u.idx] = r;
+        await open(b, base, u.w, u.h); last = null;
+      }
+      if (opts.progress) opts.progress();
+    }
+  }
+  await Promise.all(browsers.map((b, k) => worker(b, k)));
+  for (const [, h] of sizes) for (const u of done.get(h)) mergeInto(results.get(h), u);
+  return results;
+}
+
+/** --name=value */
+const arg = (name) => { const a = process.argv.find((x) => x.startsWith(`--${name}=`)); return a ? a.slice(name.length + 3) : undefined; };
+
 async function main() {
-  const shotsArg = process.argv.find((a) => a.startsWith("--shots="));
+  const shotsArg = arg("shots");
   if (!fs.existsSync(path.join(ROOT, "build", "SkiResortMod.mjs"))) throw new Error("build/SkiResortMod.mjs missing: run npm run build first");
+  await takeLock(process.argv.includes("--no-wait"));
+  const t0 = Date.now();   // after the lock wait
+  const quick = process.argv.includes("--quick");
+  const height = arg("height") || (quick ? "1080" : undefined);
+  const sizes = SIZES.filter(([, hh]) => !height || String(hh) === height);
+  if (sizes.length === 0) throw new Error(`test-hub-layout: no size with height ${height} (${SIZES.map(([, hh]) => hh).join(", ")})`);
+  const filter = arg("scenario");
+  const auto = shotsArg || arg("workers") ? { n: Math.max(1, Number(arg("workers") || 1)), why: "" } : defaultWorkers();
+  const nWorkers = auto.n;
+  if (auto.why) console.log(`test-hub-layout: ${auto.why}`);
   const server = await startServer();
-  const b = await startBrowser();
+  const browsers = [];
+  const cleanup = () => { for (const b of browsers) b.close(); server.child.kill(); };
+  process.on("SIGINT", () => { cleanup(); process.exit(130); });
   const base = `http://127.0.0.1:${server.port}/harness/`;
   try {
+    browsers.push(await startBrowser());
+    const b = browsers[0];
     if (shotsArg) {
-      await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)),
+      await shots(b, base, path.resolve(shotsArg),
         process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
@@ -473,10 +610,31 @@ async function main() {
       `${styleFails.length} failure(s)`);
     for (const f of styleFails) console.log(`  FAIL stylesheet: ${f}`);
     let failures = styleFails.length;
-    const only = process.argv.find((a) => a.startsWith("--height="));
-    for (const [w, h] of SIZES.filter(([, hh]) => !only || String(hh) === only.slice(9))) {
-      await open(b, base, w, h);
-      const r = await evalAsync(b, `window.SkiLayout.run({ units: ${JSON.stringify(unitWords())} })`, 900000);
+    // The scenario lists come from the page (harness/scenarios.js)
+    await open(b, base, sizes[0][0], sizes[0][1]);
+    const lists = await evalAsync(b, "({ check: window.SkiLayout.checkScenarios(), tip: window.SkiLayout.tipScenarios(), tipScales: window.SkiLayout.TIP_SCALES })", 10000);
+    let names = lists.check, tipNames = lists.tip;
+    if (filter) {
+      const re = new RegExp(filter, "i");
+      names = names.filter((n) => re.test(n));
+      tipNames = tipNames.filter((n) => re.test(n));
+      if (names.length + tipNames.length === 0) throw new Error(`test-hub-layout: --scenario=${filter} matches no scenario`);
+    }
+    const scales = [1, 1.25];
+    const units = [...names.flatMap((name) => scales.map((fs) => ({ kind: "check", name, fs }))),
+      ...tipNames.flatMap((name) => lists.tipScales.map((fs) => ({ kind: "tip", name, fs })))];
+    const nUnits = sizes.length * units.length;
+    const workers = Math.min(nWorkers, nUnits);
+    browsers.push(...await Promise.all(Array.from({ length: workers - 1 }, () => startBrowser())));
+    console.log(`test-hub-layout: ${sizes.length} size(s) x (${names.length} scenario(s) x ${scales.length} text scale(s) + tooltip pass ${tipNames.length} x ` +
+      `${lists.tipScales.length}) = ${nUnits} unit(s) on ${workers} worker(s)` + (filter ? ` (scenario filter /${filter}/i: a partial run)` : ""));
+    let finished = 0, lastTick = Date.now();
+    const progress = () => { finished++; if (process.stdout.isTTY && Date.now() - lastTick > 5000) { lastTick = Date.now(); process.stdout.write(`  ... ${finished} / ${nUnits} unit(s), ${Math.round((Date.now() - t0) / 1000)} s\r`); } };
+    const results = await runSharded(browsers, base, sizes, units, { units: unitWords(), fixedSettle: process.argv.includes("--fixed-settle"), progress });
+    let settles = 0, capped = 0;
+    for (const [w, h] of sizes) {
+      const r = results.get(h);
+      settles += r.timing.settles; capped += r.timing.capped;
       const pagers = r.pagers.filter((p) => p.fs === 1).map((p) => `${p.scenario.split(" ")[0]} view ${p.view}: ${p.pager}`).join("; ");
       console.log(`test-hub-layout: ${w}x${h} (rem ${r.remPx} px): ${r.cases.length} case(s), ${r.fails.length} failure(s); max over ${r.maxOverRem} rem, ` +
         `min slack ${r.minSlackRem} rem`);
@@ -498,17 +656,24 @@ async function main() {
       for (const c of clipped) r.fails.push({ scenario: c.where, what: `text cut [${c.cls}] ${c.kind} +${c.over}px: "${c.text}"` });
       console.log(`  tooltips (text scale ${[1, 1.25, 1.5].join(" / ")}, ${r.tips.scenarios.length} scenario(s)): ${r.tips.n} hovered, ${r.tips.keys} with an icon key ` +
         `(at most ${r.tips.keyRows} key row(s)); key rows inside the box and every number with its unit, else FAIL below`);
-      if (r.tips.n === 0) r.fails.push({ scenario: "tooltip pass", what: "no tooltip opened: the pass checked nothing" });
+      if (r.tips.n === 0 && tipNames.length > 0) r.fails.push({ scenario: "tooltip pass", what: "no tooltip opened: the pass checked nothing" });
       for (const f of r.fails) console.log(`  FAIL ${f.scenario || ""} fs ${f.fs || ""}: ${f.what}` + (f.overRem !== undefined ? ` (over ${f.overRem} rem, slack ${f.slackRem} rem)` : ""));
       if (process.argv.includes("--verbose")) for (const c of r.cases) console.log(`    ${c.scenario.slice(0, 22)} fs ${c.fs} view ${c.view} ${c.state}: over ${c.overRem} slack ${c.slackRem} header ${c.headerRem}`);
       failures += r.fails.length;
     }
+    console.log(`test-hub-layout: ${nUnits} unit(s) on ${workers} worker(s) in ${Math.round((Date.now() - t0) / 1000)} s; ${settles} settle(s)` +
+      (capped ? `, ${capped} never went quiet (capped at 60 frames: the hub pager kept changing the page)` : ""));
+    // A settle that never went quiet is the hub's pager changing the page on and on (seen 2026-11-09: a divider row toggling every two
+    // frames in the tooltip pass, mostly at text scale 1.5). It is measured as the old fixed waits measured it (at whatever state the page
+    // was in), so it is reported, not failed. --verbose names the units.
+    const where = sizes.flatMap(([, h]) => results.get(h).timing.cappedWhere.map((x) => `${h}: ${x}`));
+    if (where.length) console.log(`  never quiet in ${where.length} unit(s)` + (process.argv.includes("--verbose") ? ":" : " (--verbose names them)"));
+    if (process.argv.includes("--verbose")) for (const x of where) console.log(`    ${x}`);
     console.log(`test-hub-layout: ${failures === 0 ? "PASS" : "FAIL"} (${failures} failure(s))`);
     return failures === 0 ? 0 : 1;
   } finally {
-    b.close();
-    server.child.kill();
+    cleanup();
   }
 }
 
-main().then((code) => setTimeout(() => process.exit(code), 600), (e) => { console.error(String(e && e.stack || e)); setTimeout(() => process.exit(2), 600); });
+main().then((code) => setTimeout(() => process.exit(code), 600), (e) => { console.error(e && e.exitCode ? e.message : String(e && e.stack || e)); setTimeout(() => process.exit(e && e.exitCode || 2), 600); });
