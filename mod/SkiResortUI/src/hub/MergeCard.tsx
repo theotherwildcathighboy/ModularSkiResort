@@ -1,7 +1,8 @@
 /*
  * src/hub/MergeCard.tsx - the merge card beside the game's selected-info panel (contract 35), for a merged building or one that could be
  * merged. It is always mounted at the "Game" hook, like the Ski Bus card. So it reads only mergeCard$, never a panel binding.
- * The tier chips pick a tier the lot allows. The button fires mergeBuilding. C# charges at once and says the outcome on the next push.
+ * The tier rows pick a tier the lot allows. Each row shows that tier's one-time fee (charge[t]), none on the current tier. A tier the lot
+ * cannot take has no row. The card does not know the city's money, so no row turns red (C# says "not enough money" after the click). The button fires mergeBuilding. C# charges at once and says the outcome on the next push.
  * Its fees, states and refusals are C#'s numbers (SkiMergeSystem, MergeRules). The card decides nothing.
  * Contract 37: the title's tooltip holds what merging does and the fee rule (hub redesign 2026-11-07: the note under the title went).
  * Merge / unmerge are the hub's action buttons.
@@ -54,7 +55,6 @@ export function MergeCard(): JSX.Element | null {
   const chosen = pick >= 0 ? pick : merged ? card.tier : tiers.length > 0 ? tiers[tiers.length - 1] : -1;
   const state = merged ? MERGE_STATE[card.state] : undefined;
   const tooSmall = card.refusal === REFUSAL_TOO_SMALL || tiers.length === 0;
-  const charge = chosen >= 0 ? card.charge[chosen] ?? 0 : 0;
   const monthly = chosen >= 0 ? card.monthly[chosen] ?? 0 : 0;
   const canApply = chosen >= 0 && chosen !== card.tier && !tooSmall;
   const gate = mergeGate(merged, card.geometry, card.near);   // a first merge that would be billed and never count is off
@@ -75,7 +75,7 @@ export function MergeCard(): JSX.Element | null {
       )}
       {tiers.length > 0 && (
         <>
-          <InfoLine label={t(HUB_LOC.mergeCardTier)} />
+          <InfoLine label={t(HUB_LOC.mergeCardTier)} value={t(HUB_LOC.mergeCardOnce)} />
           <div className={styles.mergeTiers}>
             {tiers.map((tier) => {
               const entry = LODGE_TIER[MERGE_TIER_ITEM[tier]];
@@ -85,12 +85,13 @@ export function MergeCard(): JSX.Element | null {
                   <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }} selected={on}
                     onSelect={() => setPick(tier)}>
                     <div className={styles.pickerLabel}>{entry ? t(entry) : String(tier)}</div>
+                    {/* The one-time fee of this tier, so tiers compare without a click. The current tier of a merged building costs nothing. */}
+                    {tier !== card.tier && <div className={styles.mergeTierFee}><Num value={card.charge[tier] ?? 0} unit={Unit.Money} /></div>}
                   </Button>
                 </div>
               );
             })}
           </div>
-          <InfoLine label={t(HUB_LOC.mergeCardOnce)} value={<Num value={charge} unit={Unit.Money} />} />
           <InfoLine label={t(HUB_LOC.mergeCardMonthly)} value={<Num value={monthly} unit={Unit.MoneyPerMonth} />} />
         </>
       )}
