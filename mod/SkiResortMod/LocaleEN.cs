@@ -1397,6 +1397,7 @@ namespace SkiResortMod
                 // A building tile's draw rows end with Workers; its terrain line (BuildingTerraformOverride).
                 { "SkiResort.Hub.BUILD_TIP_WORKERS", "Workers" },
                 { "SkiResort.Hub.TERRAIN[Level]", "Levels the ground" },
+                { "SkiResort.Hub.TERRAIN[Cut]", "Cuts a level pad" },
                 { "SkiResort.Hub.TERRAIN[Slope]", "Sits on the slope" },
                 { "SkiResort.Hub.STATUS_LINE", "{STATE}" },
                 { "SkiResort.Hub.STATUS_LINE_ONE", "{STATE}" },

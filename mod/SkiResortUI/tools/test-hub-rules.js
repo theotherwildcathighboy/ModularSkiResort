@@ -706,7 +706,9 @@ function run(srcDir) {
     [[true, true, true, true, true, true, true, true, true, true], true, 1]);
   // T29 a building tile shows what the building draws, from the prefab. BUILDING_DRAW must equal every building
   // prefab's ServiceConsumption (upkeep only where CityServiceBuilding bills it), its Workplace (or SkiCatalog's SignJobs for a roadless
-  // row) and its BuildingTerraformOverride's own m_DontRaise + m_DontLower (LotHeightSystem.cs:253 keeps the slope only with both).
+  // row) and its BuildingTerraformOverride's terrain state (BUILDING_DRAW.terrain): no block or neither flag = "level", m_DontRaise only =
+  // "cut" (the fill window is empty, BuildingUtils.cs:614-617, so the lot only cuts), both = "slope". A "cut" lot must keep its flat zone
+  // in the lot (|m_LevelMinOffset| < 100 m, not block A's 1600 m away), or the pad it cuts has no level plane. m_DontLower alone is no state.
   const mirror = path.resolve(__dirname, "..", "..", "..", "gamedata-mirror", "ImportedData");
   const catalogCs = fs.readFileSync(path.join(csDir, "Systems", "SkiCatalog.cs"), "utf8");
   const blocksOf = (txt) => {
@@ -715,6 +717,16 @@ function run(srcDir) {
     return at.map((b, k) => ({ name: b.name, text: txt.slice(b.i, k + 1 < at.length ? at[k + 1].i : txt.length) }));
   };
   const num = (t, fld) => { const m = new RegExp('"' + fld + '": (-?[0-9.]+)').exec(t); return m ? Number(m[1]) : 0; };
+  const terrainOf = (tf) => {
+    if (!tf) return "level";
+    const flag = (fld) => { const all = [...tf.text.matchAll(new RegExp('"' + fld + '": (true|false)', "g"))]; return all.length ? all[all.length - 1][1] === "true" : false; };
+    const dr = flag("m_DontRaise"), dl = flag("m_DontLower");
+    if (dr && dl) return "slope";
+    if (dl) return "fill only (no state)";
+    if (!dr) return "level";
+    const lm = /"m_LevelMinOffset": \{[^}]*"x": (-?[0-9.]+),\s*"y": (-?[0-9.]+)/.exec(tf.text);
+    return lm && Math.abs(Number(lm[1])) < 100 && Math.abs(Number(lm[2])) < 100 ? "cut" : "cut, flat zone out of the lot (no state)";
+  };
   const prefabDraw = (id, prefab) => {
     const txt = fs.readFileSync(path.join(mirror, prefab, prefab + ".Prefab"), "utf8");
     const bl = blocksOf(txt);
@@ -722,7 +734,6 @@ function run(srcDir) {
     const billed = bl.some((b) => b.name === "CityServiceBuilding");
     const work = bl.find((b) => b.name === "Workplace");
     const tf = bl.find((b) => b.name === "BuildingTerraformOverride");
-    const last = (t, fld) => { const all = [...t.matchAll(new RegExp('"' + fld + '": (true|false)', "g"))]; return all.length ? all[all.length - 1][1] === "true" : false; };
     // The catalog row that names this build id (rows start at "new LodgeDef(" / "new PatrolDef(" / "new SchoolDef("), with its signJobs if any.
     const rows = catalogCs.split(/new (?:LodgeDef|PatrolDef|SchoolDef)\(/).slice(1).map((r) => r.slice(0, r.indexOf(")")));
     const own = rows.find((r) => r.includes('"' + id + '"'));
@@ -731,12 +742,12 @@ function run(srcDir) {
     return { prefab, upkeep: cons && billed ? num(cons.text, "m_Upkeep") : 0, power: cons ? num(cons.text, "m_ElectricityConsumption") : 0,
       water: cons ? num(cons.text, "m_WaterConsumption") : 0, garbage: cons ? num(cons.text, "m_GarbageAccumulation") : 0,
       workers: (work ? num(work.text, "m_Workplaces") : 0) || signJobs,
-      keepsSlope: !!tf && last(tf.text, "m_DontRaise") && last(tf.text, "m_DontLower") };
+      terrain: terrainOf(tf) };
   };
   const drawIds = Object.keys(ITEMS.BUILDING_DRAW);
   const buildingIds = ITEMS.BUILD_ITEMS.filter((m) => m.kind !== "line" && m.kind !== "run" && m.kind !== "fence").map((m) => m.id);
   eq("T29.1 BUILDING_DRAW has one row per building tile (sign, lodges, school, patrol, stations), none for lines, runs or the fence", drawIds, buildingIds);
-  eq("T29.2 every BUILDING_DRAW row equals its prefab (consumption, billed upkeep, workers / SignJobs, terrain flags)",
+  eq("T29.2 every BUILDING_DRAW row equals its prefab (consumption, billed upkeep, workers / SignJobs, terrain state level / cut / slope)",
     drawIds.filter((id) => JSON.stringify(prefabDraw(id, ITEMS.BUILDING_DRAW[id].prefab)) !== JSON.stringify(ITEMS.BUILDING_DRAW[id]))
       .map((id) => id + " prefab " + JSON.stringify(prefabDraw(id, ITEMS.BUILDING_DRAW[id].prefab))), []);
   const linkText = [...tuples.entries()].filter(([, v]) => /join(s|ed)? (this ski area's |the )?Welcome Sign|(near|on) (this ski area's |the |a )?(selected )?Welcome Sign|needs staff/i.test(v)).map(([k]) => k);
@@ -748,8 +759,8 @@ function run(srcDir) {
   eq("T29.4 no hub text bakes a snow depth (the open depth is C#'s and changes, T133; depth goes through {DEPTH})", bakedDepth, []);
   const stripSrc = read(path.join("hub", "BuildStrip.tsx"));
   eq("T29.5 the tile tooltip draws the vanilla rows from BUILDING_DRAW (Power / VolumePerMonth / WeightPerMonth / MoneyPerMonth) and the terrain line",
-    ["...drawRows(e.id, t)", "Unit.Power", "Unit.VolumePerMonth", "Unit.WeightPerMonth", "Unit.MoneyPerMonth", "HUB_LOC.terrainSlope", "HUB_LOC.terrainLevel"].map((x) => stripSrc.includes(x)),
-    [true, true, true, true, true, true, true]);
+    ["...drawRows(e.id, t)", "Unit.Power", "Unit.VolumePerMonth", "Unit.WeightPerMonth", "Unit.MoneyPerMonth", "HUB_LOC.terrainSlope", "HUB_LOC.terrainLevel", "HUB_LOC.terrainCut", "t(TERRAIN_LINE[d.terrain])"].map((x) => stripSrc.includes(x)),
+    [true, true, true, true, true, true, true, true, true]);
   // T30 the Runs and Lifts views list every row (no pager) and carry listAll, the class the layout test lets scroll.
   const listViews = ["RunsView.tsx", "LiftsView.tsx"].map((v) => read(path.join("hub", v)));
   eq("T30.1 Runs / Lifts: every row in one list (styles.listAll), no useFitPage, no <Pager>",

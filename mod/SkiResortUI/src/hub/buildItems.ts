@@ -147,32 +147,37 @@ export interface BuildingDraw {
   garbage: number;
   /** Jobs: Workplace.m_Workplaces, or for a roadless building SkiCatalog's SignJobs, which the area's carrier holds (a road lodge, else the sign). */
   workers: number;
-  /** BuildingTerraformOverride m_DontRaise AND m_DontLower: the lot keeps the terrain (LotHeightSystem.cs:253 levels it unless both
-   *  are set). false = the lot is leveled (no override block, or not both flags). */
-  keepsSlope: boolean;
+  /** How the lot meets the ground, from its BuildingTerraformOverride flags. The flags empty the lot's windows
+   *  (BuildingUtils.cs:610-617): m_DontRaise empties the fill window, m_DontLower the cut window. */
+  terrain: TerrainFit;
 }
+
+/** "level" = no override block or neither flag: the lot cuts and fills to its plane. "cut" = m_DontRaise only: the lot cuts the
+ *  ground above its plane to a level pad and fills nothing (the six chair / gondola stations, 2026-11-09). "slope" = both flags:
+ *  the terrain stays as it is (block A). A prefab with m_DontLower only has no state here and fails gate T29.2. */
+export type TerrainFit = "level" | "cut" | "slope";
 
 /** One row per building tile, from the prefabs (gate: tools/test-hub-rules.js T22 reads every prefab and SkiCatalog's SignJobs
  *  and fails on a difference). A value 0 draws no row (as vanilla's asset panel). Lines and runs are not buildings and have no row. */
 export const BUILDING_DRAW: Readonly<Partial<Record<BuildItemId, BuildingDraw>>> = {
-  sign: { prefab: "SkiResortGate", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: false },
-  lodge: { prefab: "SkiAFrameDayLodge", upkeep: 3000, power: 1500, water: 1000, garbage: 80, workers: 4, keepsSlope: false },
-  lodgeHut: { prefab: "SkiLodgeHut", upkeep: 3000, power: 0, water: 0, garbage: 0, workers: 4, keepsSlope: true },
-  lodgeMid: { prefab: "SkiLodgeMid", upkeep: 8000, power: 3500, water: 2300, garbage: 190, workers: 12, keepsSlope: true },
-  lodgeSummit: { prefab: "SkiLodgeSummit", upkeep: 18000, power: 0, water: 0, garbage: 0, workers: 8, keepsSlope: true },
-  lodgeGrand: { prefab: "SkiLodgeGrand", upkeep: 20000, power: 3500, water: 5000, garbage: 430, workers: 18, keepsSlope: false },
-  busDepot: { prefab: "SkiBusDepot", upkeep: 2000, power: 1000, water: 600, garbage: 50, workers: 0, keepsSlope: false },
-  school: { prefab: "SkiSchool", upkeep: 3000, power: 2500, water: 1700, garbage: 130, workers: 4, keepsSlope: true },
-  patrolHut: { prefab: "SkiPatrolHut", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, keepsSlope: true },
-  patrolHQ: { prefab: "SkiPatrolHQ", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, keepsSlope: true },
-  baseStation: { prefab: "SkiBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, keepsSlope: true },
-  topStation: { prefab: "SkiTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
-  baseStationDetachable: { prefab: "SkiDQBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, keepsSlope: true },
-  topStationDetachable: { prefab: "SkiDQTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
-  baseStationGondola: { prefab: "SkiGondolaBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, keepsSlope: true },
-  topStationGondola: { prefab: "SkiGondolaTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
-  baseStationTram: { prefab: "SkiTramBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, keepsSlope: false },
-  topStationTram: { prefab: "SkiTramTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
+  sign: { prefab: "SkiResortGate", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, terrain: "level" },
+  lodge: { prefab: "SkiAFrameDayLodge", upkeep: 3000, power: 1500, water: 1000, garbage: 80, workers: 4, terrain: "level" },
+  lodgeHut: { prefab: "SkiLodgeHut", upkeep: 3000, power: 0, water: 0, garbage: 0, workers: 4, terrain: "slope" },
+  lodgeMid: { prefab: "SkiLodgeMid", upkeep: 8000, power: 3500, water: 2300, garbage: 190, workers: 12, terrain: "slope" },
+  lodgeSummit: { prefab: "SkiLodgeSummit", upkeep: 18000, power: 0, water: 0, garbage: 0, workers: 8, terrain: "slope" },
+  lodgeGrand: { prefab: "SkiLodgeGrand", upkeep: 20000, power: 3500, water: 5000, garbage: 430, workers: 18, terrain: "level" },
+  busDepot: { prefab: "SkiBusDepot", upkeep: 2000, power: 1000, water: 600, garbage: 50, workers: 0, terrain: "level" },
+  school: { prefab: "SkiSchool", upkeep: 3000, power: 2500, water: 1700, garbage: 130, workers: 4, terrain: "slope" },
+  patrolHut: { prefab: "SkiPatrolHut", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, terrain: "slope" },
+  patrolHQ: { prefab: "SkiPatrolHQ", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, terrain: "slope" },
+  baseStation: { prefab: "SkiBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, terrain: "cut" },
+  topStation: { prefab: "SkiTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, terrain: "cut" },
+  baseStationDetachable: { prefab: "SkiDQBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, terrain: "cut" },
+  topStationDetachable: { prefab: "SkiDQTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, terrain: "cut" },
+  baseStationGondola: { prefab: "SkiGondolaBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, terrain: "cut" },
+  topStationGondola: { prefab: "SkiGondolaTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, terrain: "cut" },
+  baseStationTram: { prefab: "SkiTramBaseStationBuilding", upkeep: 0, power: 1500, water: 0, garbage: 0, workers: 0, terrain: "level" },
+  topStationTram: { prefab: "SkiTramTopStationBuilding", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, terrain: "slope" },
 };
 
 /** The run kind of a run tile (for its stripe and its RUN_TYPE name), else undefined. */

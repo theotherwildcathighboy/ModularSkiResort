@@ -452,9 +452,10 @@ export const HUB_LOC = {
   buildTipGroomedOff: ["SkiResort.Hub.BUILD_TIP_GROOMED_OFF", "Not groomed"],
   buildTipStepsOnce: ["SkiResort.Hub.BUILD_TIP_STEPS_ONCE", "Each feature charges a one-time fee per run the first time it is turned on."],
   // a building tile's draw rows (vanilla's labels, DRAW_LABEL) end with Workers. Then comes one terrain line from the prefab's
-  // BuildingTerraformOverride (buildItems.ts BUILDING_DRAW.keepsSlope)
+  // BuildingTerraformOverride (buildItems.ts BUILDING_DRAW.terrain: level / cut / slope)
   buildTipWorkers: ["SkiResort.Hub.BUILD_TIP_WORKERS", "Workers"],
   terrainLevel: ["SkiResort.Hub.TERRAIN[Level]", "Levels the ground"],
+  terrainCut: ["SkiResort.Hub.TERRAIN[Cut]", "Cuts a level pad"],
   terrainSlope: ["SkiResort.Hub.TERRAIN[Slope]", "Sits on the slope"],
 
   tileHistory: ["SkiResort.Hub.TILE[History]", "History"],

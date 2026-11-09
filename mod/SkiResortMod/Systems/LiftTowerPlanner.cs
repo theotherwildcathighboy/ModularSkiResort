@@ -416,7 +416,8 @@ namespace SkiResortMod.Systems
         /// leave and enter a station at loading height (DQ: bullwheel rope 3.70 m above the platform, hang 3.30 m = 0.40 m). The floor
         /// therefore ramps from 0 at the station to FloorM at StationClearM (the station approach). Without the ramp the floor applied from
         /// the first sample on. It forced a tall tower right at every station (LP-26, field test 2026-10-26). <paramref name="atStationM"/>
-        /// is the carrier's height above the high side at the station end itself. A station sunk into the slope (no-level terraform,
+        /// is the carrier's height above the high side at the station end itself. A station sunk into the slope (the tram top keeps the terrain, a
+        /// pad-cutting station past a crest still has the bank beyond its lot,
         /// carriers leaving below the ground) ramps from that negative height instead of 0. The planner then does not try to dig the rope
         /// out of the station's own hole with a tall tower beside it (the engine refuses that edge as SteepSlope). The tool warns
         /// instead.</summary>
