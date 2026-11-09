@@ -1712,7 +1712,9 @@
   position: absolute;
   top: 60rem;
   left: calc(18rem + 400rem * (0.33333 + var(--fontScale) / 1.5));
-  width: 340rem;
+  // Grows with the text scale like .panel (+ N rem * --fontScaleChange): at 1.5 a fixed 340rem cut "Monthly fee" to "Monthly ..."
+  // (7.5rem short, measured in game at 2160). 340 / 370 / 400 rem at 1.0 / 1.25 / 1.5.
+  width: calc(340rem + 120rem * var(--fontScaleChange));
   padding-bottom: 6rem;
   background-color: var(--hubCardBg);
   border-top-left-radius: 8rem;
@@ -1729,7 +1731,7 @@
 }
 
 // The tier picker is a list, one tier per row (DECISIONS 621): the role names ("Mountain restaurant") do not fit five to a row of
-// the 340rem card, and a chip row would cut or shrink them. Five rows at most.
+// the 340rem card (at text scale 1.0), and a chip row would cut or shrink them. Five rows at most.
 .mergeTiers {
   display: flex;
   flex-direction: column;
