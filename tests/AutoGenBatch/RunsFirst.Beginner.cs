@@ -61,7 +61,7 @@ namespace AutoGenBatch
         // - a blue run
         // - a black run (an expert way into the next area)
         private static readonly EasyLimits GreenWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f);
-        private static readonly EasyLimits LearnWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f, false, Env("RF_LGROUND", 0.235f));
+        private static EasyLimits LearnWay => new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f, false, O.LearnGround);
         private static readonly EasyLimits GreenProbe = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1500f);   // green ground near a station
         private static readonly EasyLimits CatTrack = new EasyLimits(0.30f, ConnPitchMax, ConnPitchMax, 3.5f, 1f, 1500f);
         private static readonly EasyLimits BlueWay = new EasyLimits(0.36f, 0.38f, 0.62f, 7f, 0.08f, 3500f);
@@ -75,6 +75,7 @@ namespace AutoGenBatch
         {
             public readonly Dictionary<int, int> Down, Root;
             public readonly Dictionary<int, float> Len, Cost;
+            public readonly List<int> Order;   // the keys in first-reached order: every enumeration that feeds a result reads this
 
             public EasyReach(int count)
             {
@@ -82,9 +83,13 @@ namespace AutoGenBatch
                 Root = new Dictionary<int, int>(count);
                 Len = new Dictionary<int, float>(count);
                 Cost = new Dictionary<int, float>(count);
+                Order = new List<int>(count);
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            /// <summary>The cells and their costs in first-reached order (the dictionary's own order is not defined).</summary>
+            public IEnumerable<KeyValuePair<int, float>> CostInOrder() => Order.Select(c => new KeyValuePair<int, float>(c, Cost[c]));
+
+            [MethodImpl(Hot)]
             public List<int> Route(int c)
             {
                 var cells = new List<int>();
@@ -94,7 +99,7 @@ namespace AutoGenBatch
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static void AddBeginnerPods(Grid g, Plan plan, List<Lift> lifts)
         {
             if (lifts.Count == 0)
@@ -112,13 +117,13 @@ namespace AutoGenBatch
             for (int pass = 0; pass < 6; pass++)
             {
                 // bases as scorecard v3 reads them: two or more lift bottoms within 400 m low on the mountain (else the lowest lift's)
-                int[] rootOf = V3Bases(g, lifts, out HashSet<int> bases);
-                if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1" && pass == 0)
+                int[] rootOf = V3Bases(g, lifts, out HashSet<int> bases, out List<int> baseOrder);
+                if (O.Debug && pass == 0)
                     Console.WriteLine($"DEBUG bases: relief {hLo:F0}-{hHi:F0}, low cut {lowCut:F0}; " + string.Join("; ", bases.Select(b => string.Join(",", Enumerable.Range(0, lifts.Count).Where(L => rootOf[L] == b).Select(L => $"L{lifts[L].Id} ({RawH(g, lifts[L].Bottom.xz):F0})")))));
                 SkiGraph sg = Ski(g, plan, lifts);
                 List<int> members = null;
                 int key = -1;
-                foreach (int b in bases)
+                foreach (int b in baseOrder)
                 {
                     var m = Enumerable.Range(0, lifts.Count).Where(L => rootOf[L] == b).OrderBy(L => RawH(g, lifts[L].Bottom.xz)).ToList();
                     if (!failed.Contains(lifts[m[0]].Id) && !BaseHasGreen(sg, plan, lifts, m))
@@ -206,7 +211,7 @@ namespace AutoGenBatch
         {
             int budget = (int)Math.Ceiling(1.5 * km2) + 2, added = 0;
             var tried = new HashSet<int>();
-            while (lifts.Count < budget && !Late)
+            while (lifts.Count < budget)
             {
                 int[] rootOf = V3Bases(g, lifts, out HashSet<int> bases);
                 List<int> members = bases.OrderBy(b => b)
@@ -232,7 +237,7 @@ namespace AutoGenBatch
                 int n = lifts.Count, runsBefore = plan.Runs.Count, logBefore = plan.Log.Count;
                 if (!TryPod(g, plan, lifts, members, er, avoid, guard, sg))
                 {
-                    if (Environment.GetEnvironmentVariable("RF_DEBUG") != "1")
+                    if (!O.Debug)
                         plan.Log.RemoveRange(logBefore, plan.Log.Count - logBefore);
                     continue;
                 }
@@ -314,17 +319,17 @@ namespace AutoGenBatch
         }
 
         /// <summary>Up to count station pads (raw grade under StationMax) between rMin and rMax from c, spread around it.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<int> PadsNear(Grid g, int c, float rMin, float rMax, int count)
         {
             var o = new List<int>();
             float2 p0 = g.World(c);
             for (int dir = 0; dir < 8 && o.Count < count; dir++)
             {
-                float ang = dir * MathF.PI / 4f;
+                float ang = dir * (float)Math.PI / 4f;
                 for (float r = rMin; r <= rMax; r += g.CellM)
                 {
-                    int cc = CellOf(g, p0 + r * new float2(MathF.Cos(ang), MathF.Sin(ang)));
+                    int cc = CellOf(g, p0 + r * new float2((float)Math.Cos(ang), (float)Math.Sin(ang)));
                     if (cc >= 0 && g.In[cc] && RawGrade(g, g.World(cc)) <= StationMax)
                     {
                         o.Add(cc);
@@ -347,7 +352,7 @@ namespace AutoGenBatch
         /// why: 0 not green, 1 run rules, 2 crowds runs, 3 along a lift line.
         /// soft (0 = clean): the share of the route along other runs when over 35 % (up to 70 %), plus 1 when a run lies along a lift line.
         /// A caller may still take the softest when nothing clean exists (a base without beginner terrain costs more than either).</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<float2> GreenRoute(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, int x, PointHash avoid, ChordGuard guard, int[] why, out float soft,
             out bool graded)
         {
@@ -408,7 +413,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The share of a route's samples within 40 m of a run (the last 200 m, where it comes home, left out).</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float CrowdShare(List<float2> route, PointHash avoid)
         {
             int crowd = 0, counted = 0;
@@ -428,7 +433,7 @@ namespace AutoGenBatch
 
         /// <summary>The route (top first) cut where it first comes onto a run (25 m) whose rest is green and passes a station of the
         /// base, with that run's point as its end. The result is null when it meets none past its first 250 m or keeps under 60 m of drop.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<float2> JoinRunOut(Grid g, Plan plan, List<Lift> lifts, List<int> members, List<float2> route, PointHash avoid, bool graded)
         {
             float at = 0f;
@@ -480,7 +485,7 @@ namespace AutoGenBatch
             foreach (int L in members)
             {
                 float2 top = lifts[L].Top.xz;
-                var near = er.Cost.Where(kv => math.distancesq(g.World(kv.Key), top) < 120f * 120f).OrderBy(kv => kv.Value).Take(40).ToList();
+                var near = er.CostInOrder().Where(kv => math.distancesq(g.World(kv.Key), top) < 120f * 120f).OrderBy(kv => kv.Value).Take(40).ToList();
                 foreach (var kv in near)
                 {
                     List<float2> route = GreenRoute(g, plan, lifts, members, er, kv.Key, avoid, guard, why, out float soft, out bool graded);
@@ -563,7 +568,7 @@ namespace AutoGenBatch
             {
                 float2 top = lifts[L].Top.xz;
                 float topH = RawH(g, top);
-                var starts = er.Cost.Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
+                var starts = er.CostInOrder().Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
                     .OrderBy(kv => kv.Value).Take(8).Select(kv => kv.Key).ToList();
                 foreach (int s in starts)
                 {
@@ -616,7 +621,7 @@ namespace AutoGenBatch
             PlanRun best = null;
             softest = float.MaxValue;
             int tries = 0;
-            foreach (int c in er.Cost.Keys.Where(c => er.Len[c] >= 300f && g.Hr[c] - g.Hr[er.Root[c]] >= 60f)
+            foreach (int c in er.Order.Where(c => er.Len[c] >= 300f && g.Hr[c] - g.Hr[er.Root[c]] >= 60f)
                 .OrderByDescending(c => g.Hr[c] - g.Hr[er.Root[c]]))
             {
                 if (!On(c))
@@ -637,19 +642,19 @@ namespace AutoGenBatch
             return best;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool TryPod(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard lines, SkiGraph before)
         {
             var bottoms = new HashSet<int>(lifts.Select(lf => lf.BottomCell));
-            var cands = er.Cost.Where(kv => er.Len[kv.Key] <= PodRouteMaxM && g.Hr[kv.Key] - g.Hr[er.Root[kv.Key]] >= PodMinRise)
+            var cands = er.CostInOrder().Where(kv => er.Len[kv.Key] <= PodRouteMaxM && g.Hr[kv.Key] - g.Hr[er.Root[kv.Key]] >= PodMinRise)
                 .OrderBy(kv => kv.Value).Select(kv => kv.Key).ToList();
             int checkedTops = 0, netChecks = 0;
             var topsSeen = new HashSet<int>();
             int reroutes = 0;
             var why = new int[10];
-            bool dbg = Environment.GetEnvironmentVariable("RF_DEBUG") == "1";
+            bool dbg = O.Debug;
             if (dbg)
-                foreach (int c in er.Cost.Keys)
+                foreach (int c in er.Order)
                     if (er.Len[c] <= PodRouteMaxM)
                         plan.Dots.Add((g.World(c), 120, 255, 255));
             Lift fallback = null;
@@ -818,7 +823,7 @@ namespace AutoGenBatch
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float RunLength(List<float2> pl)
         {
             float s = 0f;
@@ -831,8 +836,9 @@ namespace AutoGenBatch
         // search floods the whole region (a link that fails tries three of them per round). The region must plan in seconds
         private static long EasyWork, LinkWork;
         // a graded track may climb a little per step (a contour step on rough ground). The route's climb rule still holds it
-        private static readonly float EasyUpTol = Env("RF_UPTOL", 0.10f);
-        private static readonly float EasyBudget = Env("RF_EBUDGET", 3.0e6f), LinkBudget = Env("RF_LBUDGET", 1.8e6f);
+        private static float EasyUpTol => O.EasyUpTol;
+        private static float EasyBudget => O.EasyBudget;
+        private static float LinkBudget => O.LinkBudget;
 
         /// <summary>The easy-ground search's working arrays per grid cell (Steep: meters steeper than green, Hi: the highest raw point
         /// along the route), clean between searches. One set serves every search (regions plan one at a time).</summary>
@@ -864,9 +870,9 @@ namespace AutoGenBatch
         /// - Pitches over a green grade stay a small share (the band reads the 85th percentile).
         /// Routes along other runs, or along the given lift lines, cost more. With a goal cell the search heads for it (A*, the straight
         /// distance left as the estimate) and stops when it settles that cell.</summary>
-        private static readonly float TrackTurnM = Env("RF_TURNM", 40f);
+        private static float TrackTurnM => O.TrackTurnM;
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f, int goal = -1)
         {
             int n = g.W * g.D;
@@ -980,6 +986,7 @@ namespace AutoGenBatch
                 tree.Root[c] = er.Root[c];
                 tree.Len[c] = er.Len[c];
                 tree.Cost[c] = er.Cost[c];
+                tree.Order.Add(c);
                 er.Seen[c] = er.Done[c] = false;
             }
             return tree;

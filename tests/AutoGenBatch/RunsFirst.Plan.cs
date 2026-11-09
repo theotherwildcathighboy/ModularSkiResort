@@ -23,10 +23,10 @@ namespace AutoGenBatch
         private const float DeliverM = 50f;        // a run delivers to a lift when it passes this close to the bottom station (scorecard 60 m)
         private const float MinRunDropM = 55f;     // shorter served runs read as stubs (the scorecard counts under 50 m)
         private const float ContactM = 39f;        // a merging run ends where it first comes this close to the run it joins (the skier's 40 m)
-        private static readonly float ServeCapPerKm2 = Env("RF_SCAP", 8f);
-        private static readonly float RunOutM = Env("RF_RUNOUT", 1600f);   // how far below its first station a run may go on to others
-        private static readonly float ChordDefer = Env("RF_CDEF", 0.35f);   // value share of a run that lies along a lift line
-        private static readonly float ChordKeep = Env("RF_CKEEP", 0.5f);    // ... kept anyway at this share of the best run's value
+        private static float ServeCapPerKm2 => O.ServeCapPerKm2;
+        private static float RunOutM => O.RunOutM;   // how far below its first station a run may go on to others
+        private static float ChordDefer => O.ChordDefer;   // value share of a run that lies along a lift line
+        private static float ChordKeep => O.ChordKeep;    // ... kept anyway at this share of the best run's value
 
         private sealed class PlanRun
         {
@@ -63,11 +63,11 @@ namespace AutoGenBatch
             public float Value;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static Plan BuildPlan(Grid g, int[] rec, List<Line> lines, List<Lift> lifts, float km2)
         {
             var plan = new Plan();
-            WayDbg = Environment.GetEnvironmentVariable("RF_WHDBG") == "1" ? (g, plan, lifts) : null;
+            WayDbg = O.DebugWayHome ? (g, plan, lifts) : null;
             plan.Dots.AddRange(DebugDots);
             DebugDots.Clear();
             plan.Log.AddRange(EarlyLog);
@@ -80,7 +80,7 @@ namespace AutoGenBatch
 
             // 1. every lift top's reach (the honest traverse model), kept as parent pointers
             var dist = new float[n];
-            Array.Fill(dist, float.PositiveInfinity);
+            FillAll(dist, float.PositiveInfinity);
             var parent = new int[n];
             var reachOf = new Dictionary<int, int>[lifts.Count];
             for (int L = 0; L < lifts.Count; L++)
@@ -179,11 +179,11 @@ namespace AutoGenBatch
             }
 
             // 3. the serve pick: best first. A run that runs onto an earlier one ends there. It delivers where that one does.
-            cands.Sort((a, b) => b.Value.CompareTo(a.Value));
+            SortStable(cands, (a, b) => b.Value.CompareTo(a.Value));
             var taken = new PointHash();
             var takenH = new HeightHash();
             // the cap per km2, and the runs of the ground each coverage lift was placed to open
-            int cap = Math.Clamp((int)Math.Round(ServeCapPerKm2 * km2), 12, 100) + (int)Math.Ceiling(ServeCapPerKm2 * lifts.Sum(lf => lf.OpensKm2)), picks = 0;
+            int cap = Clamp((int)Math.Round(ServeCapPerKm2 * km2), 12, 100) + (int)Math.Ceiling(ServeCapPerKm2 * lifts.Sum(lf => lf.OpensKm2)), picks = 0;
             foreach (Line l in lines)
             {
                 l.Picked = false;
@@ -195,7 +195,7 @@ namespace AutoGenBatch
             var chords = new ChordGuard(lifts);
             // a run that would lie along a lift line waits for the runs that don't (its value is cut to ChordDefer). When it comes
             // up again, the code keeps it anyway and stops guarding that lift line. This gives one violation, not a lost trunk run.
-            var queue = new PriorityQueue<(Cand C, bool Deferred), float>();
+            var queue = new StableHeap<(Cand C, bool Deferred), float>();
             float topValue = cands.Count > 0 ? cands[0].Value : 0f;
             foreach (Cand cd in cands)
                 queue.Enqueue((cd, false), -cd.Value);
@@ -304,9 +304,9 @@ namespace AutoGenBatch
                 links += LinkByRoutes(g, plan, lifts);
             }
             Tick("links");
-            int spurs = Environment.GetEnvironmentVariable("RF_NOSPUR") == "1" ? 0 : MergeSpurs(g, plan, lifts);
+            int spurs = !O.Spurs ? 0 : MergeSpurs(g, plan, lifts);
             Tick("spurs");
-            if (Environment.GetEnvironmentVariable("RF_NOPOD") != "1")
+            if (O.Pods)
             {
                 AddBeginnerPods(g, plan, lifts);
                 // a pod's top can open a way into an area the main lifts could not get to
@@ -314,100 +314,100 @@ namespace AutoGenBatch
             }
             Tick("pods");
             // an area over a saddle from where the other lifts' skiers collect: a bridge lift
-            if (Environment.GetEnvironmentVariable("RF_NOBRIDGE") != "1")
+            if (O.Bridges)
                 links += BridgeLifts(g, plan, lifts, km2);
             Tick("bridge");
             // a learning pod on the green ground a base's runs leave alone, in the lift slots still free. Off by default (RF_LEARNPOD=1)
             // because it cost more than it gave. Visible 97.84 -> 97.65: owner-1 gets a violation and loses cover and crowding.
             // 80 % outlines 95.75 -> 95.97, 120 % 96.88 -> 96.62, squares unchanged.
-            if (Environment.GetEnvironmentVariable("RF_LEARNPOD") == "1")
+            if (O.LearningPods)
                 AddLearningPods(g, plan, lifts, km2);
             Tick("learning pods");
             // an easy way home from every lift's top (green cat tracks to a base or a gondola top)
-            if (Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1")
+            if (O.WayHome)
                 AddWaysHome(g, plan, lifts);
             Tick("way home");
             // a lift still without a way home is a download lift: a gondola or tram
-            if (Environment.GetEnvironmentVariable("RF_NODOWNLOAD") != "1")
+            if (O.Downloads)
                 DownloadLifts(g, plan, lifts);
             // a lift with neither (no way home, no download), or with no served run, goes with the skiing only it serves
-            if (Environment.GetEnvironmentVariable("RF_NODROP") != "1")
+            if (O.DropStranded)
                 DropStrandedLifts(g, plan, lifts, cands);
             // traverses at a run's grade cut as green cat tracks where a bench fits
-            if (Environment.GetEnvironmentVariable("RF_NOREGRADE") != "1")
+            if (O.Regrade)
                 RegradeTraverses(g, plan, lifts);
             Tick("regrade");
             // a base still without green skiing to lap gets a green cat track down from one of its tops.
             // This applies when the ways home and the regrade gave it none.
-            if (Environment.GetEnvironmentVariable("RF_NOGRADEDWAY") != "1")
+            if (O.GradedWays)
                 AddGradedLearningWays(g, plan, lifts);
             Tick("learning ways");
-            int fills = Environment.GetEnvironmentVariable("RF_NOFILL") == "1" ? 0 : FillCover(g, plan, lifts, cands);
+            int fills = !O.Fill ? 0 : FillCover(g, plan, lifts, cands);
             Tick("fill");
             // runs left under a lift line move out beside it
-            if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1")
+            if (O.Chords)
                 RepairChords(g, plan, lifts);
             Tick("chords");
             // a line still on runs moves off them where its stations can (the runs stay where they are)
-            if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NONUDGE") != "1")
+            if (O.Chords && O.Nudge)
                 NudgeLines(g, plan, lifts);
             Tick("nudge");
             // and the diagonal graded tracks still under a line that lies on runs are cut as green cat tracks
-            if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDTRACK") != "1")
+            if (O.Chords && O.ChordTracks)
                 ClearChordTracks(g, plan, lifts);
             Tick("chord tracks");
             // a line still on runs after all that goes, where its runs are other lifts' runs too and the skiing loses nothing else
             int chordDropped = 0;
-            if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDDROP") != "1")
+            if (O.Chords && O.ChordDrop)
                 chordDropped = DropStrandedLifts(g, plan, lifts, cands, true);
             Tick("chord drop");
             // a lift the chord drop took out may have held the way down from the peak
-            if (Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1" && !V3Home && (chordDropped > 0 || PeakWayAgain))
+            if (O.WayHome && !V3Home && (chordDropped > 0 || PeakWayAgain))
                 AddPeakWayHome(g, plan, lifts);
             Tick("peak way");
             // the lifts the plan added or moved (pods, bridges, nudges) get terminals of their own too
-            if (Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1")
+            if (O.Spread)
                 SpreadTerminals(g, lifts, plan, null);
             Tick("spread");
             // a diagonal stub piece joins the piece it runs into
-            if (Environment.GetEnvironmentVariable("RF_NOMERGE") != "1")
+            if (O.Merge)
                 MergeStubPieces(g, plan, lifts);
             Tick("merge");
             // runs whose crowding (or stub) costs more score than the ground they open go
-            if (Environment.GetEnvironmentVariable("RF_NOPRUNE") != "1")
+            if (O.Prune)
                 PruneRuns(g, plan, lifts);
             Tick("prune");
             // and the green cat tracks run straight where the ground lets them (a route search leaves them stepping between cells)
-            if (Environment.GetEnvironmentVariable("RF_NOSTRAIGHT") != "1" && !Late)
+            if (O.Straight)
                 StraightenTracks(g, plan, lifts);
             Tick("straight tracks");
             // merging runs end where they crowd the run they join least. Off by default, because scorecard v2 stopped counting junction
             // zones as crowding. It is score-neutral there, and a painted run should touch the trunk it joins. RF_JUNCTION=1 turns it on.
-            if (Environment.GetEnvironmentVariable("RF_JUNCTION") == "1")
+            if (O.Junctions)
                 TrimJunctions(g, plan, lifts);
             Tick("junctions");
             // and runs start where they crowd the runs beside them least. Off by default for the same reason (RF_HEAD=1).
-            if (Environment.GetEnvironmentVariable("RF_HEAD") == "1")
+            if (O.Heads)
                 for (int round = 0; round < 2 && TrimHeads(g, plan, lifts) > 0; round++)
                 {
                 }
             Tick("heads");
             // scorecard v5: a learning area (a beginner chair and green runs) at each base short of green runs
-            if (Environment.GetEnvironmentVariable("RF_NOLEARN") != "1")
+            if (O.LearningAreas)
                 AddLearningAreas(g, plan, lifts);
             Tick("learning areas");
             MarkNatural(g, plan);
-            if (Environment.GetEnvironmentVariable("RF_CHORDDBG") == "1")
+            if (O.DebugChords)
                 ChordDebug(g, plan, lifts);
-            if (Environment.GetEnvironmentVariable("RF_MODELDBG") == "1")
+            if (O.DebugModel)
             {
                 var cm = new CutModel(g, plan);
                 Console.WriteLine("MODELDBG " + cm.Terms());
                 Console.WriteLine("MODELDBG crowded: " + cm.CrowdBreakdown());
             }
-            if (Environment.GetEnvironmentVariable("RF_COVDBG") == "1")
+            if (O.DebugCover)
                 CoverDebug(g, plan, lifts);
-            if (Environment.GetEnvironmentVariable("RF_COVER") == "1")
+            if (O.DebugCoverMap)
             {
                 // skiable 20 m lattice points no run covers: red where a lift top's reach gets to them, orange where none does
                 var near = new PointHash();
@@ -435,7 +435,7 @@ namespace AutoGenBatch
                 }
                 Console.WriteLine($"DEBUG cover: {skiable} skiable, {inReach} uncovered in a lift's reach, {outReach} uncovered out of every reach");
             }
-            if (Environment.GetEnvironmentVariable("RF_CROWD") == "1")
+            if (O.DebugCrowd)
             {
                 // where the crowding is: each served run sample (its last 150 m aside) near another run, by where on that other run
                 SkiGraph cs = Ski(g, plan, lifts);
@@ -516,7 +516,7 @@ namespace AutoGenBatch
                 Console.WriteLine($"DEBUG crowd ends: {ends} run(s) end within 40 m of another run's counted samples, {endCrowds} sample(s) within 40 m of those ends; nearest <10 {hist[0]}, 10-20 {hist[1]}, 20-30 {hist[2]}, 30-35 {hist[3]}, 35-40 {hist[4]}");
                 Console.WriteLine($"DEBUG crowd: {all} samples, {ownStart + nearEnd + nearStart + nearMid} crowded: own first 100 m {ownStart}, by the last 200 m of another run {nearEnd} ({nearEndStation} of them ending at a station, {nearEndHere} within 200 m of one, {atJunction} within 45 m of its end; by its kind {string.Join(", ", endBy.Select(kv => kv.Key + " " + kv.Value))}), by the first 100 m of another {nearStart}, alongside {nearMid}; by kind {string.Join(", ", byKind.Select(kv => kv.Key + " " + kv.Value))}");
             }
-            if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+            if (O.Debug)
             {
                 SkiGraph sg = Ski(g, plan, lifts);
                 for (int i = 0; i < sg.Runs; i++)
@@ -564,7 +564,7 @@ namespace AutoGenBatch
         /// <summary>Where a run that merges at index end first comes within ContactM of the runs it joins. The joined run's samples
         /// near the approach count as crowded, so the run stops at first contact (no earlier than from). (The joined run must have a
         /// point there no more than 4 m above, for the skier to flow on).</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int FirstContact(List<float2> way, float[] wh, int from, int end, HeightHash joined)
         {
             int e = end;
@@ -588,7 +588,7 @@ namespace AutoGenBatch
                 l.Add(p);
             }
             /// <summary>A point within r (up to 60 m) of p no higher than maxY.</summary>
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public bool NearBelow(float2 p, float r, float maxY)
             {
                 int cx = (int)Math.Floor(p.x / 60f), cz = (int)Math.Floor(p.y / 60f);
@@ -628,7 +628,7 @@ namespace AutoGenBatch
                 spent.Add(false);
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public bool Fits(List<float2> pts, int from, int to)
             {
                 for (int L = 0; L < mid.Count; L++)
@@ -639,7 +639,7 @@ namespace AutoGenBatch
 
             /// <summary>For a run added late, with all runs already in, only the lift lines it would itself bring onto (or further over)
             /// the share count. A line the serve pass already gave over to runs does not block a run elsewhere.</summary>
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public bool FitsAdding(List<float2> pts, int from, int to)
             {
                 for (int L = 0; L < mid.Count; L++)
@@ -667,7 +667,7 @@ namespace AutoGenBatch
                     spent[L] |= Over(L, pts, from, to);
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             private bool Over(int L, List<float2> pts, int from, int to)
             {
                 int n = 0;
@@ -684,7 +684,7 @@ namespace AutoGenBatch
                         hit[L][k] |= Near(pts, from, to, mid[L][k]);
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             private static bool Near(List<float2> pts, int from, int to, float2 q)
             {
                 for (int i = from; i <= to; i++)
@@ -698,7 +698,7 @@ namespace AutoGenBatch
         /// first stretch. The skier leaves the cat track and skis on. Only the stretch clear of other runs joins. Two runs that leave one
         /// fork side by side stay on the cat track until they part. A stretch joins only when the joined run keeps the run rules and stays
         /// off the lift lines. The rest stays a traverse. Returns the spurs merged.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int MergeSpurs(Grid g, Plan plan, List<Lift> lifts)
         {
             const float clearM = 44f, minM = 30f;
@@ -735,7 +735,7 @@ namespace AutoGenBatch
                 int ci = plan.Connectors.FindIndex(c => !links.Contains(c) && math.distancesq(c[c.Count - 1], entry) < 1f);
                 if (ci < 0)
                 {
-                    if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                    if (O.Debug)
                         Console.WriteLine($"DEBUG spur: run by L{r.By?.Id} at {r.Pts[0].x:F0},{r.Pts[0].y:F0}: no traverse ends there (nearest end " +
                             $"{plan.Connectors.Select(c => math.distance(c[c.Count - 1], r.Pts[0])).DefaultIfEmpty(-1f).Min():F0} m, top {math.distance(r.By.Top.xz, r.Pts[0]):F0} m)");
                     continue;
@@ -751,7 +751,7 @@ namespace AutoGenBatch
                 List<float2> ok = SanitizeRun(g, pts);
                 if (ok == null || ok.Count < Densify(pts).Count || !guard.FitsAdding(pts, 0, spur.Count - 1 - cut))
                 {
-                    if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                    if (O.Debug)
                         Console.WriteLine($"DEBUG spur: run by L{r.By?.Id}: {(ok == null ? "no run" : ok.Count < Densify(pts).Count ? $"cut to {ok.Count}/{Densify(pts).Count}" : "lift line")}");
                     continue;
                 }
@@ -771,7 +771,7 @@ namespace AutoGenBatch
 
         /// <summary>A run cut where it would climb (it ends at its low point before the climb) or before a pitch over the run maximum.
         /// The method checks the cut on the scorecard's 10 m sampling. Returns null when too little is left.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<float2> SanitizeRun(Grid g, List<float2> run)
         {
             if (run.Count < 2)
@@ -802,21 +802,21 @@ namespace AutoGenBatch
 
         /// <summary>Drop from the entry to end, weighted by the band (beginner and intermediate vertical is scarce) and the corridor
         /// width. A line that delivers nowhere counts half (it can still end on another run).</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float CandValue(Grid g, Cand cd, int end)
         {
             if (end <= cd.Entry + 3)
                 return 0f;
             float drop = cd.Wh[cd.Entry] - cd.Wh[end];
             SlopeBand band = RunBand(g, cd.Way.GetRange(cd.Entry, end - cd.Entry + 1));
-            return Math.Max(0f, drop) * Math.Clamp(cd.L.Width / 40f, 0.3f, 1f) * BandWeight(band) * (cd.End >= 0 ? 1f : 0.5f);
+            return Math.Max(0f, drop) * Clamp(cd.L.Width / 40f, 0.3f, 1f) * BandWeight(band) * (cd.End >= 0 ? 1f : 0.5f);
         }
 
         /// <summary>The lift network as a skier rides it. While some lifts cannot get to the main set (or it to them), a traverse closes
         /// the gap. The traverse goes from a lift top whose reach takes in the other lift's bottom station. Examples: the ridge traverse
         /// to the bowl lift, the cat track from the upper lift to the base. The method then emits the traverse trees again.
         /// Returns the traverses added.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int LinkLifts(Grid g, Plan plan, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, ref int chains, ref int bad)
         {
             int added = 0;
@@ -850,7 +850,7 @@ namespace AutoGenBatch
 
         /// <summary>The shortest traverse from a top in froms to a bottom station in tos (a reach cell within 35 m of it, the top
         /// above the station). The method adds it to that lift's traverse tree. Returns false when no top reaches any.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool AddLink(Grid g, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, List<int> froms, List<int> tos)
         {
             List<int> best = null;
@@ -882,7 +882,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>Cells from the reach cell under p up the parent pointers to the top (entry first).</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<int> PathHome(Grid g, Dictionary<int, int> reach, float2 p, int top)
         {
             var cells = new List<int>();
@@ -898,7 +898,7 @@ namespace AutoGenBatch
 
         /// <summary>One lift's traverse tree: the union of its paths (entry first, top last). The method cuts the tree at every node (top,
         /// entry, fork) into connectors skied from the top down. It checks each piece on the raw terrain.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static void EmitTree(Grid g, List<List<int>> need, int top, List<List<float2>> outConn, ref int chains, ref int bad)
         {
             var kids = new Dictionary<int, int>();
@@ -941,7 +941,7 @@ namespace AutoGenBatch
 
         /// <summary>World points of a cell chain, smoothed (D8 zigzag) with the ends kept.
         /// With reversed, the chain goes from the last cell to the first.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<float2> Polyline(Grid g, List<int> cells, bool reversed)
         {
             var raw = new List<float2>(cells.Count);
@@ -965,7 +965,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The scorecard's sampling: every 10 m (or less) along each segment, heights from the raw terrain.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<float3> Sampled(Grid g, List<float2> pl)
         {
             var pts = new List<float3>();
@@ -974,7 +974,7 @@ namespace AutoGenBatch
             return pts;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool ConnectorOk(Grid g, List<float2> pl)
         {
             if (pl.Count < 2)
@@ -990,7 +990,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>A polyline with its points at most 10 m apart (the scorecard samples every 10 m: checks see what it sees).</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<float2> Densify(List<float2> pl)
         {
             var o = new List<float2>(pl.Count);
@@ -1006,7 +1006,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The scorecard's band: the 85th percentile of the downhill 30 m pitches on the raw terrain (flat reads green).</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static SlopeBand RunBand(Grid g, List<float2> run)
         {
             List<float3> p = Sampled(g, run);

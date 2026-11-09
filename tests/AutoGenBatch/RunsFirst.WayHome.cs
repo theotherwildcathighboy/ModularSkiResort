@@ -30,7 +30,10 @@ namespace AutoGenBatch
 
         /// <summary>Scorecard v3's bases: lift bottoms chained within 400 m. A base is such a cluster with two or more bottoms in the
         /// lowest 35 % of the region's relief, or the lowest lift's cluster when none has. Returns each lift's cluster root.</summary>
-        private static int[] V3Bases(Grid g, List<Lift> lifts, out HashSet<int> bases)
+        private static int[] V3Bases(Grid g, List<Lift> lifts, out HashSet<int> bases) => V3Bases(g, lifts, out bases, out _);
+
+        /// <summary>V3Bases, plus the bases in the order the method found them (by lift index): the enumerations that pick a base read it.</summary>
+        private static int[] V3Bases(Grid g, List<Lift> lifts, out HashSet<int> bases, out List<int> order)
         {
             var p = new int[lifts.Count];
             for (int i = 0; i < p.Length; i++)
@@ -55,11 +58,15 @@ namespace AutoGenBatch
                 size[root[L]] = size.TryGetValue(root[L], out int n) ? n + 1 : 1;
             }
             bases = new HashSet<int>();
+            order = new List<int>();
             for (int L = 0; L < lifts.Count; L++)
-                if (RawH(g, lifts[L].Bottom.xz) <= lowCut && size[root[L]] >= 2)
-                    bases.Add(root[L]);
+                if (RawH(g, lifts[L].Bottom.xz) <= lowCut && size[root[L]] >= 2 && bases.Add(root[L]))
+                    order.Add(root[L]);
             if (bases.Count == 0 && lifts.Count > 0)
+            {
                 bases.Add(root[Enumerable.Range(0, lifts.Count).OrderBy(L => RawH(g, lifts[L].Bottom.xz)).First()]);
+                order.AddRange(bases);
+            }
             return root;
         }
 
@@ -152,7 +159,7 @@ namespace AutoGenBatch
 
         // round v3's rule (every lift needs an easy way home: way-home tracks from every top, download gondolas, stranded lifts taken
         // out). Scorecard v4 reads experts-only lifts as normal, so the rule is off (RF_V3HOME=1 turns it back on)
-        private static readonly bool V3Home = Environment.GetEnvironmentVariable("RF_V3HOME") == "1";
+        private static bool V3Home => O.V3Home;
 
         /// <summary>A lift still without an easy way home is a download lift: its riders ride it down, so it is a gondola, or a tram
         /// where the grade needs one, when the norms fit with a margin and its chord crosses no other gondola or tram. Returns the
@@ -200,14 +207,14 @@ namespace AutoGenBatch
         {
             int dropped = 0;
             var tried = new HashSet<Lift>();
-            while (!Late)
+            while (true)
             {
                 SkiGraph sg = Ski(g, plan, lifts);
                 int[] root = V3Bases(g, lifts, out HashSet<int> bases);
                 bool[] ok = WayHomeOk(sg, lifts, root, bases);
                 var els = chords ? ChordEls(g, plan) : null;
                 var share = new float[lifts.Count];
-                int L = Enumerable.Range(0, lifts.Count).FirstOrDefault(i => !tried.Contains(lifts[i]) && (chords
+                int L = FirstOr(Enumerable.Range(0, lifts.Count), i => !tried.Contains(lifts[i]) && (chords
                     ? (share[i] = ChordShareV3(lifts[i], els, out _)) > ChordShareMax || CrossesKind(lifts, lifts[i])
                     : (V3Home && !ok[i]) || !sg.Skied[i].Any(e => sg.IsRun[e] && sg.Returns[e])), -1);
                 if (L < 0)
@@ -305,9 +312,9 @@ namespace AutoGenBatch
         }
 
         // only the way down from the peak (RF_WAYPEAK=1): the lifts below it get no way-home track of their own
-        private static readonly bool WayPeakOnly = Environment.GetEnvironmentVariable("RF_WAYPEAK") == "1";
+        private static bool WayPeakOnly => O.WayPeakOnly;
         // the way down from the peak is sought again after the chord drop only where it took a lift out (RF_PEAKAGAIN=1: always)
-        private static readonly bool PeakWayAgain = Environment.GetEnvironmentVariable("RF_PEAKAGAIN") == "1";
+        private static bool PeakWayAgain => O.PeakWayAgain;
 
         /// <summary>The easy ways home: a track from every lift's top that has none (a gondola or tram top counts as home there, its
         /// riders ride down), then, for scorecard v4, the way down from the peak (a gondola or tram top needs one of its own).
@@ -321,13 +328,13 @@ namespace AutoGenBatch
         }
 
         /// <summary>Adds a way-home cat track from the top of every lift that has none. Returns the tracks added.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int AddLiftWaysHome(Grid g, Plan plan, List<Lift> lifts)
         {
             int added = 0, blue = 0;
             var used = new HashSet<int>();   // cells of the tracks this pass emitted (a later track ends where it meets one)
             // blue first: visible 97.00 -> 97.48, 80 % outlines 94.80 -> 95.38, 120 % 95.30 -> 95.90 (RF_WAYGREEN1=1: green first)
-            foreach (EasyLimits lim in Environment.GetEnvironmentVariable("RF_WAYGREEN1") == "1" ? new[] { WayGreen, WayBlue } : new[] { WayBlue, WayGreen })
+            foreach (EasyLimits lim in O.WayGreenFirst ? new[] { WayGreen, WayBlue } : new[] { WayBlue, WayGreen })
             {
                 SkiGraph sg = Ski(g, plan, lifts);
                 int[] root = V3Bases(g, lifts, out HashSet<int> bases);
@@ -374,7 +381,7 @@ namespace AutoGenBatch
                 {
                     float2 top = lifts[L].Top.xz;
                     float topH = RawH(g, top);
-                    var starts = er.Cost.Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
+                    var starts = er.CostInOrder().Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
                         .OrderBy(kv => kv.Value).Take(8).Select(kv => kv.Key).ToList();
                     List<float2> track = null;
                     List<int> trackCells = null;
@@ -432,12 +439,12 @@ namespace AutoGenBatch
         /// diagonal where it takes pitches past the blue line). Then it takes the shortest route under the green limits. Home is the base lift
         /// bottoms, other gondola and tram tops to ride down, and the easy skiing already leading home. Where none fits, the search moves to
         /// the next highest top. One is enough, and the lifts below it may stay experts-only. Returns the tracks added.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int AddPeakWayHome(Grid g, Plan plan, List<Lift> lifts)
         {
             var tried = new HashSet<Lift>();
             int added = 0;
-            for (int round = 0; round < 6 && !Late; round++)
+            for (int round = 0; round < 6; round++)
             {
                 SkiGraph sg = Ski(g, plan, lifts);
                 int[] root = V3Bases(g, lifts, out HashSet<int> bases);
@@ -446,8 +453,8 @@ namespace AutoGenBatch
                 for (int L = 0; L < lifts.Count; L++)
                     if (ok[L])
                         easyHi = Math.Max(easyHi, RawH(g, lifts[L].Top.xz));
-                int T = Enumerable.Range(0, lifts.Count).Where(L => !ok[L] && !tried.Contains(lifts[L]) && RawH(g, lifts[L].Top.xz) > easyHi + 1f)
-                    .OrderByDescending(L => RawH(g, lifts[L].Top.xz)).FirstOrDefault(-1);
+                int T = FirstOr(Enumerable.Range(0, lifts.Count).Where(L => !ok[L] && !tried.Contains(lifts[L]) && RawH(g, lifts[L].Top.xz) > easyHi + 1f)
+                    .OrderByDescending(L => RawH(g, lifts[L].Top.xz)), -1);
                 if (T < 0)
                     break;
                 tried.Add(lifts[T]);
@@ -488,7 +495,7 @@ namespace AutoGenBatch
                 foreach (EasyLimits lim in new[] { WayBlue, WayGreen })
                 {
                     EasyReach er = EasyUp(g, origins, avoid, lim, lines);
-                    var starts = er.Cost.Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
+                    var starts = er.CostInOrder().Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
                         .OrderBy(kv => kv.Value).Take(8).Select(kv => kv.Key).ToList();
                     foreach (int s0 in starts)
                     {

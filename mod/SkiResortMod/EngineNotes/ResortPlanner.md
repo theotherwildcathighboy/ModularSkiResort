@@ -4,10 +4,10 @@ The planner was rebuilt lift-first (code names stay `SkiRunAutoPlanner*` / `Quic
 docs (`docs/research/quickruns-v2/`). This note is the tracked index. It says where each piece lives, which hook calls which file, and what
 each task learned (one section per task). Tasks write only their own section.
 
-Where the shared pieces live (the planner files hold none of them, so a planner can be deleted without touching a reader):
+Where the shared pieces live (the planner files hold none of them, so a planner can go without a change to any reader):
 - `Systems/PlanContract.cs`: the result and input types (`AutoPlanInput`, `AutoPlanKnobs`, `AutoPlanResult`, `AutoRun`, `AutoJunction`, `AutoCluster`, `AutoObstacle`, the `Auto*` enums).
 - `Systems/PlanGeometry.cs`: the pure helpers (`PolygonArea`, `BBox`, ring and point distances, `SeedOf`, `SnapshotRect`, `ObstaclesClear`, `ClearanceOf`, `ScoreBandOf`, station lot half diagonals) and the shared constants (`V1MaxAreaM2`, `DefaultMin*`, `MaxLatticeCells`, `MeanGradeCap`, gaps and clearances, probe slot counts).
-- `SkiRunAutoPlanner` keeps one-line forwarders under the old names (v2 and the tests compile unchanged). The tool layer calls `PlanGeometry` directly; only the planner instance (`m_Planner`) names `SkiRunAutoPlanner`.
+- `SkiRunAutoPlanner` keeps one-line forwarders under the old names (v2 and the tests compile unchanged). The tool layer calls `PlanGeometry` directly. Only the planner instance (`m_Planner`) names `SkiRunAutoPlanner`.
 - The v2 result types (`ResortPlan`, `PlanLift`, ...) stay in `SkiRunAutoPlanner.Plan.cs`, `HeightSnapshot` in `SkiRunAutoPlanner.Snapshot.cs`.
 
 ## Modes

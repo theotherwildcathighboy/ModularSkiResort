@@ -16,7 +16,7 @@ namespace AutoGenBatch
     internal static partial class RunsFirst
     {
         /// <summary>The v3 band of a run: the ground under it (85th percentile of the raw 10 m grade at its 10 m samples, and flat reads green).</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static SlopeBand GroundBand(Grid g, List<float2> run)
         {
             List<float2> d = Densify(run);
@@ -30,8 +30,8 @@ namespace AutoGenBatch
 
         // v5 natural runs (RF_NATURAL). 0: none. 1: double black by the ground. 2: also a black run whose ground is mostly past the
         // double-black line (cliffs and rock: hostile ground a designer leaves ungroomed)
-        private static readonly int NaturalMode = (int)Env("RF_NATURAL", 2f);
-        private static readonly float NaturalHostile = Env("RF_NATHOSTILE", 0.4f);
+        private static int NaturalMode => O.NaturalMode;
+        private static float NaturalHostile => O.NaturalHostile;
 
         /// <summary>Scorecard v5: skiers ski steep ground ungroomed. A run (not a graded track) is natural (the mod's RunKind.Natural)
         /// when its ground rates double black, or when its ground rates black with NaturalHostile of it past the double-black line.
@@ -66,7 +66,7 @@ namespace AutoGenBatch
 
         /// <summary>A graded track's own grade along the path, as the scorecard rates a connector: the 85th percentile of the drop over
         /// 20-30 m of path from every 10 m sample.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float AlongGrade(Grid g, List<float2> pl)
         {
             List<float3> p = Sampled(g, pl);
@@ -88,7 +88,7 @@ namespace AutoGenBatch
 
         /// <summary>A connector as the scorecard reads it: a green cat track (Run false) below the blue line, else a diagonal run of
         /// its along-path band when it drops.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static (bool Run, SlopeBand Band) TrackClass(Grid g, List<float2> pl)
         {
             float along = AlongGrade(g, pl);
@@ -97,7 +97,7 @@ namespace AutoGenBatch
             return (false, SlopeBand.Green);
         }
 
-        private static readonly float StraightDevM = Env("RF_STRDEV", 30f);   // a straight piece stays this close to the track's own points
+        private static float StraightDevM => O.StraightDevM;   // a straight piece stays this close to the track's own points
 
         /// <summary>Green cat tracks pulled straight. A route search steps between cell centers, and the smoothing only softens the
         /// staircase. So a track wobbles where a cat track on the ground runs straight. Between its anchors, a track takes the longest
@@ -105,7 +105,7 @@ namespace AutoGenBatch
         /// bottom. A piece stays within StraightDevM of the track's points, inside the region, under the blue line and within the
         /// connector rules. The code keeps a straightened track only where it still reads green. It keeps the pass only where the ski
         /// graph loses nothing. Returns the tracks pulled straight.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int StraightenTracks(Grid g, Plan plan, List<Lift> lifts)
         {
             var ends = new List<float2>();
@@ -165,7 +165,7 @@ namespace AutoGenBatch
         /// - the piece lies inside the region
         /// - the piece has no 30 m pitch or 50 m climb past the connector rules
         /// - no 20-30 m of the piece lies at the blue line.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool StraightOk(Grid g, List<float2> c, int i, int k)
         {
             for (int m = i + 1; m < k; m++)
@@ -266,7 +266,7 @@ namespace AutoGenBatch
                 List<float2> c = plan.Connectors[ci];
                 rows.Add((hits, $"{(links.Contains(c) ? "link" : "tree")} {RunLength(c):F0} m, {Q[0].y - Q[Q.Length - 1].y:F0} m down, along {AlongGrade(g, c):F2}, crowd {hits}, from {c[0].x:F0},{c[0].y:F0} to {c[c.Count - 1].x:F0},{c[c.Count - 1].y:F0}"));
             }
-            foreach (var row in rows.OrderByDescending(r => r.Hits).Take(Environment.GetEnvironmentVariable("RF_V3ALL") == "1" ? 999 : 12))
+            foreach (var row in rows.OrderByDescending(r => r.Hits).Take(O.DebugV3All ? 999 : 12))
                 Console.WriteLine("V3 graded " + row.Text);
         }
 

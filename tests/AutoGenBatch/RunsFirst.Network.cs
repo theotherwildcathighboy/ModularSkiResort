@@ -20,7 +20,7 @@ namespace AutoGenBatch
         /// <summary>A bottom station no served run passes (set on a bench above where the runs collect) moves onto the nearest run-out
         /// within 350 m, no higher than it was, that the lift still fits from. Fit means a flat pad, the norms and the rope clearance,
         /// no crossing, the chord off the runs. Traverses and cat tracks that led to the old station go. Returns the stations moved.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int ReseatBottoms(Grid g, Plan plan, List<Lift> lifts, List<List<int>>[] need)
         {
             int moved = 0;
@@ -87,7 +87,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>Adds link routes while the lift network is split (at most a few). Returns how many.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int LinkByRoutes(Grid g, Plan plan, List<Lift> lifts)
         {
             int added = 0;
@@ -127,7 +127,7 @@ namespace AutoGenBatch
         }
 
         // a link may be a graded track as a last resort (RF_NOGRADEDLINK=1: off)
-        private static readonly bool GradedLinks = Environment.GetEnvironmentVariable("RF_NOGRADEDLINK") != "1";
+        private static bool GradedLinks => O.GradedLinks;
 
         /// <summary>A route from where the froms' skiers are to a bottom station of the tos. The route is the first of these that the
         /// ground allows, as the ways home are:
@@ -135,7 +135,7 @@ namespace AutoGenBatch
         /// - a run (blue at most but for short stretches)
         /// - a track the grading tool cuts across the face (green, else a blue diagonal).
         /// Returns false when no search meets the froms' terrain.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool TryLink(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, List<LinkSearch> done)
         {
             // where the skier can be: every sampled point of the elements skied from the froms' tops (in 60 m buckets)
@@ -239,7 +239,7 @@ namespace AutoGenBatch
                 }
                 LinkWork += EasyWork - work;
                 diag.Add($"{mode switch { 0 => "cat track", 1 => "blue run", 2 => "black run", 3 => "graded track", _ => "graded diagonal" }} reach {er.Cost.Count} cell(s)");
-                foreach (int c in er.Cost.Where(kv => kv.Value > 0f && On(kv.Key)).OrderBy(kv => kv.Value).Take(12).Select(kv => kv.Key))
+                foreach (int c in er.CostInOrder().Where(kv => kv.Value > 0f && On(kv.Key)).OrderBy(kv => kv.Value).Take(12).Select(kv => kv.Key))
                 {
                     List<int> cells = er.Route(c);
                     if (cells.Count < 3)

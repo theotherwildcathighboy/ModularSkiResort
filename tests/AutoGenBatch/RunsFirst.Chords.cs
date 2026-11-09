@@ -18,7 +18,7 @@ namespace AutoGenBatch
         private const float ChordClearM = 26f;                          // a moved stretch's distance off the chord
 
         /// <summary>The share of a lift chord's middle 70 % (sampled every 10 m) within 20 m of a run point, as the scorecard reads it.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float ChordShare(Lift lf, List<List<float2>> dense)
         {
             float2 b = lf.Bottom.xz, t = lf.Top.xz;
@@ -35,15 +35,13 @@ namespace AutoGenBatch
 
         /// <summary>Moves the runs' stretches under a lift line out beside it where the line's middle still runs along runs. Returns
         /// the lifts cleared.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int RepairChords(Grid g, Plan plan, List<Lift> lifts)
         {
             int cleared = 0;
             List<List<float2>> dense = plan.Runs.Select(r => Densify(r.Pts)).ToList();
             foreach (Lift lf in lifts)
             {
-                if (Late)
-                    break;
                 float share = ChordShare(lf, dense);
                 if (share <= ChordShareMax)
                     continue;
@@ -148,9 +146,9 @@ namespace AutoGenBatch
                 {
                     // one stretch may be what breaks a join (its end slid out of the skier's reach). The code keeps each run's move when the
                     // skiing stays as it was. It then judges the line again on the moves kept
-                    var moved = old.Keys.ToDictionary(ri => ri, ri => plan.Runs[ri].Pts);
-                    foreach (int ri in moved.Keys)
-                        Restore(ri);
+                    var moved = old.Keys.OrderBy(ri => ri).Select(ri => new KeyValuePair<int, List<float2>>(ri, plan.Runs[ri].Pts)).ToList();
+                    foreach (var kv in moved)
+                        Restore(kv.Key);
                     var took = new List<int>();
                     foreach (var kv in moved)
                     {
@@ -224,7 +222,7 @@ namespace AutoGenBatch
         // how far a station may move across its line. 100 m against 60 m moved three more stations 70-80 m (visible 97.64 -> 97.69,
         // 80 % outlines 95.50 -> 95.72). 150 m moved one more, 120 m (ft5-r2 L5 off the summit station it shared: visible 97.69 -> 97.80).
         // 350 m (scorecard v4) moved owner-4 L7 260 m off the valley runs it lay along (visible 97.30 -> 97.41)
-        private static readonly float NudgeMaxM = Env("RF_NUDGEM", 350f);
+        private static float NudgeMaxM => O.NudgeMaxM;
 
         /// <summary>A lift line may move instead of the runs when its middle still lies along runs, when it crosses another lift of its
         /// kind, or when it runs beside another as scorecard v4 reads a parallel. The move shifts the whole line across itself, or swings
@@ -242,8 +240,6 @@ namespace AutoGenBatch
             SkiRead before = null;
             foreach (Lift lf in lifts)
             {
-                if (Late)
-                    break;
                 float share = ChordShareV3(lf, els, out _);
                 bool crossing = CrossesKind(lifts, lf);
                 int par = NoParallel ? ParallelsOf(lifts, lf, lf.Bottom.xz, lf.Top.xz) : 0;
@@ -259,7 +255,7 @@ namespace AutoGenBatch
                         moves.Add((o * 0.9f, b0 + s * across, t0));
                         moves.Add((o * 0.9f, b0, t0 + s * across));
                     }
-                moves.Sort((x, y) => x.Cost.CompareTo(y.Cost));
+                SortStable(moves, (x, y) => x.Cost.CompareTo(y.Cost));
                 var (ob, ot, obc, otc, oRise, oLen) = (lf.Bottom, lf.Top, lf.BottomCell, lf.TopCell, lf.Rise, lf.Length);
                 void Restore()
                 {

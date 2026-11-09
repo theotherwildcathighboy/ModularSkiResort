@@ -21,19 +21,19 @@ namespace AutoGenBatch
         private const float FillCrowdShare = 0.25f, FillCrowdM = 40f;   // at most this share of it within 40 m of another run (its last 150 m aside)
         private const float FillForkM = 30f;        // a fill run leaves a run or traverse within this distance, at most 3 m above it
         private const float FillDropM = 60f;
-        private static readonly float FillMinM = Env("RF_FILLMIN", 130f);   // a short fill run still drops FillDropM (no stub). Scorecard v3 rates length nowhere else
+        private static float FillMinM => O.FillMinM;   // a short fill run still drops FillDropM (no stub). Scorecard v3 rates length nowhere else
         private const float FillFeedM = 110f, FillFeedShare = 0.3f;   // ... or from a straight cut-over this long at most (a share of the run)
         // a fill run must open ground for the crowding it brings. The scorecard weighs coverage 10 against its 60 % target and
         // crowding 5 against a 30 % share. So at par a crowded 10 m sample costs about 1.0 x (lattice points / run samples) new points.
         // The fill asks a quarter of that: 0.25 against 0.67. Result: visible 97.48 -> 97.53, 80 % outlines 95.33 -> 95.40, 120 %
         // 96.10 -> 96.22, squares 95.01 -> 95.21, no region worse (1.0: 97.41 against 97.48)
-        private static readonly float FillCrowdTrade = Env("RF_FTRADE", 0.25f);
+        private static float FillCrowdTrade => O.FillCrowdTrade;
 
         /// <summary>Fall lines through open ground. From an open lattice point, a line goes up the steepest ascent until it meets ground
         /// a skier is on (onNear). It then goes down the steepest descent until it runs along a run for a few steps or reaches a
         /// station. The code makes one line per stretch of face (an open point near a line already traced starts none). It returns the
         /// lines as candidates that the fill judges like the picked lines.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<Cand> FaceLines(Grid g, List<Lift> lifts, List<float2> lat, bool[] covered, List<float3> onPts, List<float2> runPts)
         {
             var o = new List<Cand>();
@@ -42,7 +42,7 @@ namespace AutoGenBatch
             // The second is whether a run lies within MergeM
             int cellCount = g.W * g.D;
             var onY = new float[cellCount];
-            Array.Fill(onY, float.NegativeInfinity);
+            FillAll(onY, float.NegativeInfinity);
             var nearRun = new bool[cellCount];
             void Stamp(float2 q, float r, Action<int> f)
             {
@@ -168,7 +168,7 @@ namespace AutoGenBatch
         /// <summary>A diagonal from p across the slope to one side, holding DiagGrade down the smoothed ground (straight down where the
         /// ground is gentler, turning at most 45 degrees per 10 m). It ends when it comes within 30 m of a run 120 m or more on, or at a
         /// lift bottom. It returns null when it leaves the region, turns back on itself or runs 1.5 km.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static List<float2> DiagonalTrace(Grid g, float2 p, int side, PointHash runs, List<Lift> lifts)
         {
             var pts = new List<float2> { p };
@@ -198,7 +198,7 @@ namespace AutoGenBatch
             return null;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int FillCover(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands)
         {
             SkiGraph sg = Ski(g, plan, lifts);
@@ -241,10 +241,14 @@ namespace AutoGenBatch
             }
             var runs = new PointHash();                        // served run samples
             var on = new Dictionary<long, List<float3>>();    // samples of every element a skier is on (reached and returning)
+            var onLists = new List<List<float3>>();             // on's lists in creation order: the enumerations read this
             void AddOn(float3 p)
             {
                 if (!on.TryGetValue(Key(p.xz), out List<float3> l))
+                {
                     on[Key(p.xz)] = l = new List<float3>();
+                    onLists.Add(l);
+                }
                 l.Add(p);
             }
             void Open(float2 p) => Around(p, i =>
@@ -365,7 +369,7 @@ namespace AutoGenBatch
                                 if (d >= FillForkM && d <= FillFeedM && p.y >= h - 1f && p.y <= h + 0.4f * d)
                                     near.Add((d, p.xz));
                             }
-                near.Sort((a, b) => a.D.CompareTo(b.D));
+                SortStable(near, (a, b) => a.D.CompareTo(b.D));
                 for (int k = 0; k < Math.Min(4, near.Count); k++)
                 {
                     var c = new List<float2> { near[k].P, q };
@@ -484,20 +488,20 @@ namespace AutoGenBatch
             }
 
             // best new ground first (lazy: a line's new ground only shrinks as the fill adds runs)
-            var queue = new PriorityQueue<Cand, int>();
+            var queue = new StableHeap<Cand, int>();
             foreach (Cand cd in cands)
                 if (!cd.L.Picked && Eval(cd, out int f0, out _) != null)
                     queue.Enqueue(cd, -f0);
             Tick("fill setup");
             int faceLines = 0;
-            if (Environment.GetEnvironmentVariable("RF_NOFACE") != "1")
-                foreach (Cand cd in FaceLines(g, lifts, lat, covered, on.Values.SelectMany(l => l).ToList(), smp.Select(x => x.P).ToList()))
+            if (O.FaceLines)
+                foreach (Cand cd in FaceLines(g, lifts, lat, covered, onLists.SelectMany(l => l).ToList(), smp.Select(x => x.P).ToList()))
                 {
                     faceLines++;
                     if (Eval(cd, out int f0, out _) != null)
                         queue.Enqueue(cd, -f0);
                 }
-            if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+            if (O.Debug)
                 Console.WriteLine($"DEBUG fill: {queue.Count} of {cands.Count} candidate(s) and {faceLines} face line(s); no fork {why[0]}, never leaves {why[1]}, no way home {why[2]}, short {why[3]}, crowded {why[4]}, little new ground {why[5]}, crowding costs more {why[6]}");
             Tick("face lines");
             int added = 0, opened = 0;
@@ -570,11 +574,11 @@ namespace AutoGenBatch
             float diagKm = 0f;
             var dwhy = new int[8];
             var diagRuns = new List<PlanRun>();
-            if (Environment.GetEnvironmentVariable("RF_NODIAG") != "1" && have < 0.62f * lat.Count)
+            if (O.Diagonals && have < 0.62f * lat.Count)
             {
-                var dq = new PriorityQueue<List<float2>, int>();
+                var dq = new StableHeap<List<float2>, int>();
                 var seenStart = new PointHash();
-                foreach (List<float3> l in on.Values)
+                foreach (List<float3> l in onLists)
                     foreach (float3 p in l)
                     {
                         if (seenStart.Near(p.xz, 45f) || GradeAt(g, p.xz) < DiagGrade + 0.04f)
@@ -627,13 +631,13 @@ namespace AutoGenBatch
                         Open(p.xz);
                     }
                     diagonals++;
-                    if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                    if (O.Debug)
                         Console.WriteLine($"DEBUG diagonal {RunLength(pts):F0} m from {pts[0].x:F0},{pts[0].y:F0} to {pts[pts.Count - 1].x:F0},{pts[pts.Count - 1].y:F0}, {fresh} new lattice points");
                     opened += fresh;
                     diagKm += RunLength(pts) / 1000f;
                 }
             }
-            if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+            if (O.Debug)
                 Console.WriteLine($"DEBUG diagonals: {traces} trace(s), {traced} reached a run or station; not a run {dwhy[0]}, past blue {dwhy[1]}, connector rules {dwhy[2]}, " +
                     $"short {dwhy[3]}, crowded {dwhy[4]}, little new ground {dwhy[5]}, crowding costs more {dwhy[6]}, lift chord {dwhy[7]}");
             // a diagonal's case for a trail. It is a blue diagonal run by the scorecard's reading. It is within the connector rules, not a
@@ -801,7 +805,7 @@ namespace AutoGenBatch
                         sb.Append(' ');
                         continue;
                     }
-                    int k = Math.Clamp((int)((g.H[c] - lo) / 25f), 0, 35);
+                    int k = Clamp((int)((g.H[c] - lo) / 25f), 0, 35);
                     sb.Append(k < 10 ? (char)('0' + k) : (char)('a' + k - 10));
                 }
                 Console.WriteLine(sb.ToString().TrimEnd());

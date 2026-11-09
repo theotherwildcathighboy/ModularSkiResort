@@ -4,7 +4,7 @@
 //   dotnet run --project tests/AutoGenBatch/AutoGenBatch.csproj -c Release -- rf <out-dir>
 // The planner's hot methods are marked AggressiveOptimization. A region plans in about a second once the runtime has tiered its
 // code up. But the first region of a run spent 2-3 s more in tier-0 code (tiering waits while the pipeline keeps compiling new
-// methods). The first region counts against the same 5 s as the others.
+// methods). No pass reads the clock: the plan depends on its input only, and the per-pass times are a report.
 
 using System;
 using System.Collections.Generic;
@@ -36,7 +36,7 @@ namespace AutoGenBatch
         private const float SpacingM = 60f;       // the upper 60 % of two picked lines stay this far apart
         private const float OverlapShare = 0.3f;
         private const float MergeM = 35f;         // a picked line ends where it runs onto an earlier one (3 samples in a row this close, a trail width)
-        private static readonly float PicksPerKm2 = Env("RF_PPK", 5f);     // line cap per km2 (12-80), the Normal density
+        private static float PicksPerKm2 => O.PicksPerKm2;     // line cap per km2 (12-80), the Normal density
         private const float GentleLatticeM = 50f, GentleMinGrade = 0.06f, GentleMaxGrade = 0.40f;
 
         // per family: steepest 30 m pitch the line may hold (cut there), runout grade trimmed off the bottom, min drop / length (m)
@@ -50,8 +50,8 @@ namespace AutoGenBatch
         // fixed 3 / 2 / 1. The region's own ground is the share of its 100 m cells in the band, rated as the scorecard rates them. 1: lines
         // banded by their own pitch, the weights also used for run candidates. 2: lines banded by the ground under them (the scorecard's run
         // band), the pick only. Off: both lowered the visible grade mix (see the v5 report).
-        private static readonly int MixMode = (int)Env("RF_MIXW", 0f);
-        private static readonly float MixGreenMin = Env("RF_MIXGREEN", 1.5f);   // green keeps at least this weight (the learning areas)
+        private static int MixMode => O.MixMode;
+        private static float MixGreenMin => O.MixGreenMin;   // green keeps at least this weight (the learning areas)
         private static float[] MixW;   // per band, for the region being planned (null: the fixed weights)
 
         /// <summary>The region's ground mix as scorecard v5 rates it: 100 m cells inside the ring, each the 85th percentile of the raw
@@ -95,17 +95,17 @@ namespace AutoGenBatch
             SlopeBand[] lb = lines.Select(l => MixMode == 2 ? GroundBand(g, l.Pts.Select(p => p.xz).ToList()) : l.Band).ToArray();
             var pool = new float[5];
             for (int i = 0; i < lines.Count; i++)
-                pool[(int)lb[i]] += lines[i].Drop * Math.Clamp(lines[i].Width / 40f, 0.3f, 1f);
+                pool[(int)lb[i]] += lines[i].Drop * Clamp(lines[i].Width / 40f, 0.3f, 1f);
             float gsum = ground.Sum(), psum = pool.Sum();
             if (gsum <= 0f || psum <= 0f)
                 return;
             var w = new float[5];
             for (int b = 1; b < 5; b++)
-                w[b] = Math.Clamp(ground[b] / gsum / Math.Max(0.01f, pool[b] / psum), 0.3f, 3f);
+                w[b] = Clamp(ground[b] / gsum / Math.Max(0.01f, pool[b] / psum), 0.3f, 3f);
             w[(int)SlopeBand.Green] = Math.Max(w[(int)SlopeBand.Green], MixGreenMin);
             w[0] = w[(int)SlopeBand.Green];
             for (int i = 0; i < lines.Count; i++)
-                lines[i].Score = lines[i].Drop * Math.Clamp(lines[i].Width / 40f, 0.3f, 1f) * w[(int)lb[i]];
+                lines[i].Score = lines[i].Drop * Clamp(lines[i].Width / 40f, 0.3f, 1f) * w[(int)lb[i]];
             if (MixMode == 1)
                 MixW = w;
             string Pc(float[] a, float s) => string.Join("/", Enumerable.Range(1, 4).Select(b => $"{100f * a[b] / s:F0}"));
@@ -113,6 +113,130 @@ namespace AutoGenBatch
         }
 
         private static float2 P(float x, float z) => new float2(x, z);
+
+        /// <summary>The options the planner reads (the only knobs it has). The host sets them per run; the default is today's defaults.</summary>
+        internal static RunsFirstOptions O = new RunsFirstOptions();
+
+        /// <summary>Host only: the options from the RF_* environment switches (unset or unreadable: the default). The planner never reads
+        /// the environment itself.</summary>
+        internal static RunsFirstOptions HostOptions()
+        {
+            var o = new RunsFirstOptions();
+            o.PicksPerKm2 = Env("RF_PPK", 5f);
+            o.MixMode = (int)Env("RF_MIXW", 0f);
+            o.MixGreenMin = Env("RF_MIXGREEN", 1.5f);
+            o.TopLatticeM = Env("RF_LAT", 100f);
+            o.ReturnM = Env("RF_RET", 150f);
+            o.ReachBudget = Env("RF_RBUDGET", 15e6f);
+            o.PadReachM = Env("RF_PADR", 70f);
+            o.ScanThreads = Math.Max(1, (int)Env("RF_THREADS", 4f));
+            o.TypeUse = (int)Env("RF_TYPEUSE", 2f);
+            o.ChairMaxRise = Env("RF_CHAIRRISE", 700f);
+            o.VeryLongM = Env("RF_VERYLONG", 2500f);
+            o.TramRise = Env("RF_TRAMRISE", 800f);
+            o.GondolaCap = Env("RF_GONDCAP", 0.6f);
+            o.LiftFallW = Env("RF_LIFTFALL", 0f);
+            o.LiftsPerKm2 = Env("RF_LPK", 1.1f);
+            o.StopShare = Env("RF_STOP", 0.05f);
+            o.EdgeLiftM = Env("RF_EDGELIFT", 45f);
+            o.TransferBeside = (int)Env("RF_TRANSFERBESIDE", 1f);
+            o.OwnBottomTries = (int)Env("RF_OWNBOTTOMTRIES", 8f);
+            o.MaxRiseM = Env("RF_MAXRISE", 0f);
+            o.CoverLifts = Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1";
+            o.Below = Environment.GetEnvironmentVariable("RF_NOBELOW") != "1";
+            o.Spread = Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1";
+            o.SpreadAxis = Environment.GetEnvironmentVariable("RF_NOSPREADAXIS") != "1";
+            o.SpreadEach = Environment.GetEnvironmentVariable("RF_NOSPREADEACH") != "1";
+            o.NoParallel = Environment.GetEnvironmentVariable("RF_PARALLELOK") != "1";
+            o.OwnBottom = Environment.GetEnvironmentVariable("RF_OWNBOTTOM") != "0";
+            o.Village = Environment.GetEnvironmentVariable("RF_NOVILLAGE") != "1";
+            o.CoverNewBase = Environment.GetEnvironmentVariable("RF_CNEWBASE") == "1";
+            o.CoverLiftShare = Env("RF_CLS", 0.015f);
+            o.CoverLiftMinPts = (int)Env("RF_CLM", 120f);
+            o.CoverParallelM = Env("RF_CPAR", 170f);
+            o.CoverClearM = Env("RF_CCLR", 100f);
+            o.CoverFallW = Env("RF_COVERFALL", 0.8f);
+            o.CoverOwnPads = Environment.GetEnvironmentVariable("RF_COVEROWNPAD") != "0";
+            o.PodHold = (int)Env("RF_PODHOLD", 2f);
+            o.ServeCapPerKm2 = Env("RF_SCAP", 8f);
+            o.RunOutM = Env("RF_RUNOUT", 1600f);
+            o.ChordDefer = Env("RF_CDEF", 0.35f);
+            o.ChordKeep = Env("RF_CKEEP", 0.5f);
+            o.Spurs = Environment.GetEnvironmentVariable("RF_NOSPUR") != "1";
+            o.Pods = Environment.GetEnvironmentVariable("RF_NOPOD") != "1";
+            o.Bridges = Environment.GetEnvironmentVariable("RF_NOBRIDGE") != "1";
+            o.LearningPods = Environment.GetEnvironmentVariable("RF_LEARNPOD") == "1";
+            o.WayHome = Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1";
+            o.Downloads = Environment.GetEnvironmentVariable("RF_NODOWNLOAD") != "1";
+            o.DropStranded = Environment.GetEnvironmentVariable("RF_NODROP") != "1";
+            o.Regrade = Environment.GetEnvironmentVariable("RF_NOREGRADE") != "1";
+            o.GradedWays = Environment.GetEnvironmentVariable("RF_NOGRADEDWAY") != "1";
+            o.Fill = Environment.GetEnvironmentVariable("RF_NOFILL") != "1";
+            o.Chords = Environment.GetEnvironmentVariable("RF_NOCHORD") != "1";
+            o.Nudge = Environment.GetEnvironmentVariable("RF_NONUDGE") != "1";
+            o.ChordTracks = Environment.GetEnvironmentVariable("RF_NOCHORDTRACK") != "1";
+            o.ChordDrop = Environment.GetEnvironmentVariable("RF_NOCHORDDROP") != "1";
+            o.Merge = Environment.GetEnvironmentVariable("RF_NOMERGE") != "1";
+            o.Prune = Environment.GetEnvironmentVariable("RF_NOPRUNE") != "1";
+            o.Straight = Environment.GetEnvironmentVariable("RF_NOSTRAIGHT") != "1";
+            o.Junctions = Environment.GetEnvironmentVariable("RF_JUNCTION") == "1";
+            o.Heads = Environment.GetEnvironmentVariable("RF_HEAD") == "1";
+            o.LearningAreas = Environment.GetEnvironmentVariable("RF_NOLEARN") != "1";
+            o.NudgeMaxM = Env("RF_NUDGEM", 350f);
+            o.BridgeFallW = Env("RF_BRIDGEFALL", 2f);
+            o.GradedLinks = Environment.GetEnvironmentVariable("RF_NOGRADEDLINK") != "1";
+            o.HeadForwardM = Env("RF_HFWD", 60f);
+            o.JunctionBackM = Env("RF_JBACK", 60f);
+            o.EasyUpTol = Env("RF_UPTOL", 0.10f);
+            o.EasyBudget = Env("RF_EBUDGET", 3.0e6f);
+            o.LinkBudget = Env("RF_LBUDGET", 1.8e6f);
+            o.TrackTurnM = Env("RF_TURNM", 40f);
+            o.LearnGround = Env("RF_LGROUND", 0.235f);
+            o.LearnMinRise = Env("RF_LMINRISE", 32f);
+            o.LearnMaxRise = Env("RF_LMAXRISE", 130f);
+            o.LearnMinLen = Env("RF_LMINLEN", 180f);
+            o.LearnRouteMax = Env("RF_LROUTE", 1500f);
+            o.LearnCrowd = Env("RF_LCROWD", 0.45f);
+            o.LearnFallDeg = Env("RF_LFALL", 35f);
+            o.LearnHigh = Environment.GetEnvironmentVariable("RF_NOLEARNHIGH") != "1";
+            o.LearnAbove = Environment.GetEnvironmentVariable("RF_LEARNABOVE") == "1";
+            o.LearnConvert = Environment.GetEnvironmentVariable("RF_LEARNCONVERT") == "1";
+            o.V3Home = Environment.GetEnvironmentVariable("RF_V3HOME") == "1";
+            o.WayPeakOnly = Environment.GetEnvironmentVariable("RF_WAYPEAK") == "1";
+            o.PeakWayAgain = Environment.GetEnvironmentVariable("RF_PEAKAGAIN") == "1";
+            o.WayGreenFirst = Environment.GetEnvironmentVariable("RF_WAYGREEN1") == "1";
+            o.FillMinM = Env("RF_FILLMIN", 130f);
+            o.FillCrowdTrade = Env("RF_FTRADE", 0.25f);
+            o.FaceLines = Environment.GetEnvironmentVariable("RF_NOFACE") != "1";
+            o.Diagonals = Environment.GetEnvironmentVariable("RF_NODIAG") != "1";
+            o.NaturalMode = (int)Env("RF_NATURAL", 2f);
+            o.NaturalHostile = Env("RF_NATHOSTILE", 0.4f);
+            o.StraightDevM = Env("RF_STRDEV", 30f);
+            o.NoLoneBase = Environment.GetEnvironmentVariable("RF_LONEBASE") == "1";
+            o.StackDegM = Env("RF_STACKDEG", 33f);
+            o.StackTopMm = Env("RF_STACKTOP", 330f);
+            o.StackBottomMm = Env("RF_STACKBOT", 280f);
+            o.NoStacked = Environment.GetEnvironmentVariable("RF_STACKED") != "0";
+            o.RegradeStretch = Env("RF_RGSTRETCH", 1.8f);
+            o.RegradeMinGain = Env("RF_RGMIN", 0.005f);
+            o.PruneMinGain = Env("RF_PRUNEMIN", 0.01f);
+            o.Debug = Environment.GetEnvironmentVariable("RF_DEBUG") == "1";
+            o.Timing = Environment.GetEnvironmentVariable("RF_TIME") == "1";
+            o.DebugTops = Environment.GetEnvironmentVariable("RF_TOPDBG") == "1";
+            o.DebugTwins = Environment.GetEnvironmentVariable("RF_TWINDBG") == "1";
+            o.DebugTopList = Environment.GetEnvironmentVariable("RF_TOPS") == "1";
+            o.DebugConvert = Environment.GetEnvironmentVariable("RF_CONVDBG") == "1";
+            o.DebugV3All = Environment.GetEnvironmentVariable("RF_V3ALL") == "1";
+            o.DebugWayHome = Environment.GetEnvironmentVariable("RF_WHDBG") == "1";
+            o.DebugChords = Environment.GetEnvironmentVariable("RF_CHORDDBG") == "1";
+            o.DebugModel = Environment.GetEnvironmentVariable("RF_MODELDBG") == "1";
+            o.DebugCover = Environment.GetEnvironmentVariable("RF_COVDBG") == "1";
+            o.DebugCoverMap = Environment.GetEnvironmentVariable("RF_COVER") == "1";
+            o.DebugCrowd = Environment.GetEnvironmentVariable("RF_CROWD") == "1";
+            o.DebugV3 = Environment.GetEnvironmentVariable("RF_V3DBG") == "1";
+            o.DebugTurns = Environment.GetEnvironmentVariable("RF_TURNDBG") == "1";
+            return o;
+        }
 
         /// <summary>Experiment knob: an environment variable as a float (the default when unset).</summary>
         private static float Env(string name, float dflt) =>
@@ -146,6 +270,7 @@ namespace AutoGenBatch
 
         public static int Run(string[] args)
         {
+            O = HostOptions();
             // "rf-holdout <file>": writes the real-resort regions (9 km2 around each real fixture base point) as a regions file
             if (args[0] == "rf-holdout")
             {
@@ -159,8 +284,11 @@ namespace AutoGenBatch
                 Console.WriteLine($"wrote {rows.Count} holdout region(s) to {args[1]}");
                 return 0;
             }
-            string outDir = args.Length > 1 ? args[1] : "rf-out";
-            Directory.CreateDirectory(outDir);
+            // "rf-golden <out file> [regions file]": plans only (no v2, render or score) and writes "<region> <hash> <runs> <lifts> <connectors>"
+            bool golden = args[0] == "rf-golden";
+            string outDir = args.Length > 1 ? args[1] : golden ? "rf-golden.txt" : "rf-out";
+            if (!golden)
+                Directory.CreateDirectory(outDir);
             if (!Heightmap.TryOpen("MountainVillage", out HeightmapFile file, out string why))
             {
                 Console.WriteLine("SKIP RunsFirst: " + why);
@@ -173,7 +301,7 @@ namespace AutoGenBatch
                 regions.Clear();
                 foreach (string row in File.ReadAllLines(args[2]))
                 {
-                    var t = new List<string>(row.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+                    var t = new List<string>(row.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
                     // optional second token "@Fixture" (default MountainVillage)
                     string fx = t.Count > 1 && t[1].StartsWith("@") ? t[1].Substring(1) : "MountainVillage";
                     if (t.Count > 1 && t[1].StartsWith("@"))
@@ -214,6 +342,7 @@ namespace AutoGenBatch
                 }
             }
             var files = new Dictionary<string, HeightmapFile> { ["MountainVillage"] = file };
+            var goldenRows = new List<string>();
             foreach (var (key, ring) in regions)
             {
                 int bar = key.IndexOf('|');
@@ -227,18 +356,31 @@ namespace AutoGenBatch
                     }
                     files[fx] = hf;
                 }
-                RunRegion(id, ring, hf, outDir);
+                if (!golden)
+                {
+                    RunRegion(id, ring, hf, outDir);
+                    continue;
+                }
+                HeightSnapshot snap = Heightmap.Snapshot(hf, ring);
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                RunsFirstResult res = PlanRegion(snap, ring, O, id);
+                string row = $"{id} {res.Hash():x16} {res.Runs.Count} {res.Lifts.Count} {res.Connectors.Count}";
+                goldenRows.Add(row);
+                Console.WriteLine($"GOLDEN {row} ({sw.ElapsedMilliseconds} ms)");
             }
+            if (golden)
+                File.WriteAllLines(outDir, goldenRows);
             return 0;
         }
 
+        // The clock only reports: no pass reads it, so a plan depends on its input alone (the time cutoff RF_LATEMS and the learning
+        // search's RF_ABOVEMS went in the port round R0-c). Tick records the end of each pass; the host prints the table.
         private static System.Diagnostics.Stopwatch Clock = new System.Diagnostics.Stopwatch();
-        private static readonly bool Timing = Environment.GetEnvironmentVariable("RF_TIME") == "1";
-        // the passes after the way home refine a finished plan: past this point of a region's 5 s they stop where they are
-        private static readonly float LateMs = Env("RF_LATEMS", 4200f);
-        private static bool Late => Clock.ElapsedMilliseconds > LateMs;
+        private static bool Timing => O.Timing;
+        private static readonly List<(string Pass, long Ms)> PassTimes = new List<(string, long)>();
         private static void Tick(string what)
         {
+            PassTimes.Add((what, Clock.ElapsedMilliseconds));
             if (Timing)
                 Console.WriteLine($"TIME {what} {Clock.ElapsedMilliseconds} ms (easy {EasyWork}, links {LinkWork})");
             // RF_WHDBG: the lifts without a way home after each stage of the plan
@@ -251,11 +393,39 @@ namespace AutoGenBatch
         }
         private static (Grid, Plan, List<Lift>)? WayDbg;
 
-        private static void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
+        /// <summary>A finished plan: the plain result, plus the planner's own objects the host draws, writes and scores.</summary>
+        private sealed class Planned
         {
-            HeightSnapshot snap = Heightmap.Snapshot(file, ring);
+            public Grid G;
+            public float[] Acc, AccR;
+            public List<Line> Lines;
+            public List<Lift> Lifts;
+            public Plan Built;
+            public long Ms;
+            public RunsFirstResult Result;
+        }
+
+        /// <summary>Plans one region with the given options (null: the defaults) and returns the plain plan object. The options hold
+        /// for this call only.</summary>
+        internal static RunsFirstResult PlanRegion(HeightSnapshot snap, float2[] ring, RunsFirstOptions options, string id = "region")
+        {
+            RunsFirstOptions keep = O;
+            O = options ?? new RunsFirstOptions();
+            try
+            {
+                return PlanCore(id, snap, ring).Result;
+            }
+            finally
+            {
+                O = keep;
+            }
+        }
+
+        private static Planned PlanCore(string id, HeightSnapshot snap, float2[] ring)
+        {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             Clock = sw;
+            PassTimes.Clear();
             EasyWork = LinkWork = 0;
             Grid g = BuildGrid(snap, ring);
             int n = g.W * g.D;
@@ -287,7 +457,7 @@ namespace AutoGenBatch
                     if (g.In[c] && gr >= GentleMinGrade && gr <= GentleMaxGrade)
                         seeds.Add(c);
                 }
-            seeds.Sort((a, b) => g.H[b].CompareTo(g.H[a]));
+            SortStable(seeds, (a, b) => g.H[b].CompareTo(g.H[a]));
             foreach (int s0 in seeds)
             {
                 var path = new List<int>();
@@ -312,7 +482,7 @@ namespace AutoGenBatch
                     && lifts.Exists(o => o != lf && math.distance(o.Bottom.xz, lf.Top.xz) < 300f) && (village == null || lf.Length > village.Length)
                     && !lifts.Exists(o => o != lf && Aerial(o.Type) && SegCrossScore(o.Bottom.xz, o.Top.xz, lf.Bottom.xz, lf.Top.xz)))
                     village = lf;
-            if (village != null && Environment.GetEnvironmentVariable("RF_NOVILLAGE") != "1")
+            if (village != null && O.Village)
                 village.Type = "gondola";
             if (TypeUse == 2)
                 RetypeByUse(g, built, lifts, village);
@@ -320,6 +490,23 @@ namespace AutoGenBatch
             for (int i = 0; i < lifts.Count; i++)
                 lifts[i].Id = i + 1;
             long ms = sw.ElapsedMilliseconds;
+            return new Planned { G = g, Acc = acc, AccR = accR, Lines = lines, Lifts = lifts, Built = built, Ms = ms, Result = MakeResult(built, lifts) };
+        }
+
+        private static void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
+        {
+            HeightSnapshot snap = Heightmap.Snapshot(file, ring);
+            Planned pl = PlanCore(id, snap, ring);
+            Grid g = pl.G;
+            float[] acc = pl.Acc, accR = pl.AccR;
+            List<Line> lines = pl.Lines;
+            List<Lift> lifts = pl.Lifts;
+            Plan built = pl.Built;
+            long ms = pl.Ms;
+            // the per-pass time table (report only): each pass's own milliseconds, in plan order
+            long prevMs = 0;
+            Console.WriteLine($"REPORT rf time {id}: " + string.Join(", ", PassTimes.Select(t => { long d = t.Ms - prevMs; prevMs = t.Ms; return $"{t.Pass} {d}"; })) + $", total {ms} ms");
+            Console.WriteLine($"REPORT rf hash {id}: {pl.Result.Hash():x16}, {pl.Result.Runs.Count} runs, {pl.Result.Lifts.Count} lifts, {pl.Result.Connectors.Count} connectors");
 
             // the v2 plan of the same region, as the host replays it
             AutoPlanKnobs knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(ring, 0));
@@ -356,9 +543,9 @@ namespace AutoGenBatch
                 Console.WriteLine($"REPORT rf plan {id}: {s}");
             RunsFirstScore.Result score = RunsFirstScore.Evaluate(snap, ring, plan);
             Console.WriteLine(RunsFirstScore.Line(id, score));
-            if (Environment.GetEnvironmentVariable("RF_V3DBG") == "1")
+            if (O.DebugV3)
                 V3Debug(g, built, lifts);
-            if (Environment.GetEnvironmentVariable("RF_TURNDBG") == "1")
+            if (O.DebugTurns)
                 TurnDebug(id, built);
             File.AppendAllText(Path.Combine(outDir, id + ".txt"), "\n" + RunsFirstScore.Line(id, score) + "\n" +
                 string.Concat(score.Notes.Select(s => "  " + s + "\n")));
@@ -367,7 +554,7 @@ namespace AutoGenBatch
 
         // ------------------------------------------------------------------ grid and flow
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static Grid BuildGrid(HeightSnapshot s, float2[] ring)
         {
             var g = new Grid { W = s.Width / F, D = s.Depth / F, CellM = s.TexelM * F, S = s };
@@ -395,7 +582,7 @@ namespace AutoGenBatch
             return g;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float[] Box(float[] a, int w, int d)
         {
             var o = new float[a.Length];
@@ -418,7 +605,7 @@ namespace AutoGenBatch
             return o;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool Inside(float2[] r, float2 p)
         {
             bool inside = false;
@@ -432,7 +619,7 @@ namespace AutoGenBatch
 
         /// <summary>D8 receivers on the epsilon-filled surface (priority flood from the region edge), so every cell drains to an outlet
         /// on the edge (receiver -1). acc = upstream cell count.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int[] Receivers(Grid g, float[] h, out float[] acc)
         {
             int n = g.W * g.D;
@@ -494,7 +681,7 @@ namespace AutoGenBatch
                 order[c] = c;
                 keys[c] = -fill[c];
             }
-            Array.Sort(keys, order);
+            SortByKey(keys, order);
             acc = new float[n];
             foreach (int c in order)
             {
@@ -507,7 +694,7 @@ namespace AutoGenBatch
             return rec;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool OnEdge(Grid g, int c)
         {
             int x = c % g.W, z = c / g.W;
@@ -527,7 +714,7 @@ namespace AutoGenBatch
             int n = g.W * g.D;
             var first = new int[n];
             var next = new int[n];
-            Array.Fill(first, -1);
+            FillAll(first, -1);
             for (int c = 0; c < n; c++)
                 if (g.In[c] && rec[c] >= 0)
                 {
@@ -566,17 +753,17 @@ namespace AutoGenBatch
 
         // ------------------------------------------------------------------ lines
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float HeightAt(Grid g, float2 p)
         {
             float fx = (float)((p.x - g.OX) / g.CellM), fz = (float)((p.y - g.OZ) / g.CellM);
-            int x0 = Math.Clamp((int)Math.Floor(fx), 0, g.W - 2), z0 = Math.Clamp((int)Math.Floor(fz), 0, g.D - 2);
-            float tx = Math.Clamp(fx - x0, 0f, 1f), tz = Math.Clamp(fz - z0, 0f, 1f);
+            int x0 = Clamp((int)Math.Floor(fx), 0, g.W - 2), z0 = Clamp((int)Math.Floor(fz), 0, g.D - 2);
+            float tx = Clamp(fx - x0, 0f, 1f), tz = Clamp(fz - z0, 0f, 1f);
             float a = g.H[z0 * g.W + x0], b = g.H[z0 * g.W + x0 + 1], c = g.H[(z0 + 1) * g.W + x0], d = g.H[(z0 + 1) * g.W + x0 + 1];
             return math.lerp(math.lerp(a, b, tx), math.lerp(c, d, tx), tz);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float GradeAt(Grid g, float2 p)
         {
             float e = g.CellM;
@@ -586,11 +773,11 @@ namespace AutoGenBatch
         }
 
         /// <summary>Raw terrain height (the 3.5 m heightmap, as the game samples it). NaN outside the snapshot.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float RawH(Grid g, float2 p) => g.S.Sample(new float3(p.x, 0f, p.y));
 
         /// <summary>Raw grade from a 10 m central difference: what the code judges a station pad by.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float RawGrade(Grid g, float2 p)
         {
             const float d = 10f;
@@ -599,7 +786,7 @@ namespace AutoGenBatch
             return math.sqrt(gx * gx + gz * gz);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static void AddLine(List<Line> lines, Grid g, List<int> cells, string family)
         {
             if (cells.Count < 4)
@@ -670,7 +857,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>Length, drop, mean / 85th-percentile / steepest 30 m pitch, band, corridor width and score, from Pts.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static void Stats(Grid g, Line l)
         {
             int per = (int)(PitchM / StepM), n = l.Pts.Count;
@@ -685,7 +872,7 @@ namespace AutoGenBatch
             l.Steepest = ps.Count > 0 ? ps[ps.Count - 1] : l.Mean;
             l.Band = SkiSlopeClassifier.BandOf(l.Rating);
             l.Width = Width(g, l);
-            l.Score = l.Drop * Math.Clamp(l.Width / 40f, 0.3f, 1f) * BandWeight(l.Band);
+            l.Score = l.Drop * Clamp(l.Width / 40f, 0.3f, 1f) * BandWeight(l.Band);
         }
 
         /// <summary>Picked line points bucketed on a 60 m grid: Near(p, r) for r up to 60 m.</summary>
@@ -707,7 +894,7 @@ namespace AutoGenBatch
                 m_Count++;
             }
             /// <summary>Near(g.World(c), r), remembered per cell (a search asks it for the same cell from every neighbor).</summary>
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public bool NearCell(Grid g, int c, float r)
             {
                 if (m_MemoGrid != g || m_MemoCount != m_Count)
@@ -722,7 +909,7 @@ namespace AutoGenBatch
                     memo[c] = Near(g.World(c), r) ? (sbyte)1 : (sbyte)-1;
                 return memo[c] > 0;
             }
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public bool Near(float2 p, float r)
             {
                 int cx = (int)Math.Floor(p.x / Cell), cz = (int)Math.Floor(p.y / Cell);
@@ -738,7 +925,7 @@ namespace AutoGenBatch
 
         /// <summary>Median corridor width: from every third sample, step sideways until the ground turns cliff (over 0.75) or rises /
         /// falls away from the line faster than half the distance.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float Width(Grid g, Line l)
         {
             var ws = new List<float>();
@@ -766,17 +953,17 @@ namespace AutoGenBatch
             return ws[ws.Count / 2];
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static PointHash Pick(List<Line> lines, Grid g, float km2)
         {
-            lines.Sort((a, b) => b.Score.CompareTo(a.Score));
+            SortStable(lines, (a, b) => b.Score.CompareTo(a.Score));
             for (int i = 0; i < lines.Count; i++)
                 lines[i].Id = i + 1;
             var taken = new PointHash();
             var best = new float[5];   // per band: the pick judges "weak" against lines of the same color
             foreach (Line l in lines)
                 best[(int)l.Band] = Math.Max(best[(int)l.Band], l.Score);
-            int cap = Math.Clamp((int)Math.Round(PicksPerKm2 * km2), 12, 80), picks = 0;
+            int cap = Clamp((int)Math.Round(PicksPerKm2 * km2), 12, 80), picks = 0;
             foreach (Line l in lines)
             {
                 if (picks >= cap)
@@ -900,7 +1087,7 @@ namespace AutoGenBatch
         {
             int w = s.Width, d = s.Depth;
             float t = s.TexelM;
-            Func<int, int, float> hAt = (i, j) => s.ToWorld(s.Heights[Math.Clamp(j, 0, d - 1) * w + Math.Clamp(i, 0, w - 1)]);
+            Func<int, int, float> hAt = (i, j) => s.ToWorld(s.Heights[Clamp(j, 0, d - 1) * w + Clamp(i, 0, w - 1)]);
             // uphill = image top: the axis closest to lowest -> highest cell in the region
             int lo = -1, hi = -1;
             for (int c = 0; c < g.W * g.D; c++)

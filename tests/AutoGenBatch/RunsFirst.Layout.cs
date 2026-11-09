@@ -78,10 +78,14 @@ namespace AutoGenBatch
         private const float BaseTopM2 = 160f, BaseAreaM2 = 290f;
         // off by default (RF_LONEBASE=1): rejecting lone-base cover lifts and bridges took 24 -> 15 lone bases. It cost coverage and
         // grade mix where those lifts open terrain (ft5-r3 94.7 -> 92.8). Visible 82.59 -> 82.06
-        private static readonly bool NoLoneBase = Environment.GetEnvironmentVariable("RF_LONEBASE") == "1";
+        private static bool NoLoneBase => O.NoLoneBase;
 
-        private static readonly float StackDegM = Env("RF_STACKDEG", 33f), StackTopMm = Env("RF_STACKTOP", 330f), StackBottomMm = Env("RF_STACKBOT", 280f);
-        private static readonly bool NoStacked = Environment.GetEnvironmentVariable("RF_STACKED") != "0";
+        private static float StackDegM => O.StackDegM;
+
+        private static float StackTopMm => O.StackTopMm;
+
+        private static float StackBottomMm => O.StackBottomMm;
+        private static bool NoStacked => O.NoStacked;
 
         // scorecard v5's fall line: no cost to 30 degrees off the ground's mean downhill direction, full cost at 60
         private const float FallFreeDeg = 30f, FallFullDeg = 60f;
@@ -148,8 +152,8 @@ namespace AutoGenBatch
 
         // the spread may move a station along its own line too (RF_NOSPREADAXIS=1: off). It also runs after each lift of the search
         // and of the coverage pass (RF_NOSPREADEACH=1: off)
-        private static readonly bool SpreadAxis = Environment.GetEnvironmentVariable("RF_NOSPREADAXIS") != "1";
-        private static readonly bool SpreadEach = Environment.GetEnvironmentVariable("RF_NOSPREADEACH") != "1";
+        private static bool SpreadAxis => O.SpreadAxis;
+        private static bool SpreadEach => O.SpreadEach;
 
         /// <summary>A flat pad 46-130 m from cell c (for a bottom no higher than c, for a top no lower) that no other station of that
         /// end holds. It is where a station on another lift's station can move to.</summary>
@@ -223,7 +227,7 @@ namespace AutoGenBatch
                         moves.Add((r + (end == 0 ? Math.Max(0f, dh - 8f) * 4f : Math.Max(0f, -dh - 15f) * 3f), c));
                     }
                 }
-                moves.Sort((x, y) => x.Cost.CompareTo(y.Cost));
+                SortStable(moves, (x, y) => x.Cost.CompareTo(y.Cost));
                 var others = lifts.Where(o => o != lf).ToList();
                 int parBefore = ParallelsOf(lifts, lf, lf.Bottom.xz, lf.Top.xz), hubBefore = HubExcess(g, lifts);
                 float shareBefore = els != null ? ChordShareV3(lf, els, out _) : 0f;
@@ -304,7 +308,7 @@ namespace AutoGenBatch
                         $"({RawH(g, p) - hAt:+0;-0} m)");
                     return true;
                 }
-                if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                if (O.Debug)
                     Console.WriteLine($"DEBUG spread L{lf.Id} {(end == 0 ? "bottom" : "top")}{(plan == null ? " (before the plan)" : "")}: {moves.Count} spot(s), tries {tries}; near {why[0]}, pad {why[1]}, " +
                         $"fits {why[2]}, rope/cross {why[3]}, parallel {why[4]}, runs {why[5]}, hub/chord {why[6]}, skiing {why[7]}");
                 return false;
@@ -313,7 +317,7 @@ namespace AutoGenBatch
                 for (int end = 0; end < (bottomsOnly ? 1 : 2); end++)
                 {
                     float2 at = end == 0 ? lifts[L].Bottom.xz : lifts[L].Top.xz;
-                    int o = Enumerable.Range(0, L).FirstOrDefault(M => math.distance(end == 0 ? lifts[M].Bottom.xz : lifts[M].Top.xz, at) < LaySameSpotM + 2f, -1);
+                    int o = FirstOr(Enumerable.Range(0, L), M => math.distance(end == 0 ? lifts[M].Bottom.xz : lifts[M].Top.xz, at) < LaySameSpotM + 2f, -1);
                     if (o >= 0 && !TryMove(lifts[L], end))
                         TryMove(lifts[o], end);
                 }

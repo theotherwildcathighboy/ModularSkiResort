@@ -18,12 +18,14 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private static readonly float LearnMinRise = Env("RF_LMINRISE", 32f), LearnMaxRise = Env("RF_LMAXRISE", 130f);
-        private static readonly float LearnMinLen = Env("RF_LMINLEN", 180f), LearnRouteMax = Env("RF_LROUTE", 1500f);
+        private static float LearnMinRise => O.LearnMinRise;
+        private static float LearnMaxRise => O.LearnMaxRise;
+        private static float LearnMinLen => O.LearnMinLen;
+        private static float LearnRouteMax => O.LearnRouteMax;
         private const float LearnFullKm = 0.85f, LearnChairGrade = 0.45f, LearnTopM = 90f, LearnRunMinM = 200f, LearnBelowTopM = 130f;
-        private static readonly float LearnCrowd = Env("RF_LCROWD", 0.45f);
-        private static readonly float LearnFallDeg = Env("RF_LFALL", 35f);   // a learning chair climbs its slope's fall line too
-        private static readonly bool LearnHigh = Environment.GetEnvironmentVariable("RF_NOLEARNHIGH") != "1";
+        private static float LearnCrowd => O.LearnCrowd;
+        private static float LearnFallDeg => O.LearnFallDeg;   // a learning chair climbs its slope's fall line too
+        private static bool LearnHigh => O.LearnHigh;
 
         private const float LearnChordMax = 0.25f;
 
@@ -62,9 +64,9 @@ namespace AutoGenBatch
             float2 t = lf.Top.xz;
             float th = RawH(g, t);
             for (float r = 160f; r <= 700f && o.Count < 400; r += 25f)
-                for (float a = 0f; a < 2f * MathF.PI; a += 25f / r)
+                for (float a = 0f; a < 2f * (float)Math.PI; a += 25f / r)
                 {
-                    float2 p = t + r * new float2(MathF.Cos(a), MathF.Sin(a));
+                    float2 p = t + r * new float2((float)Math.Cos(a), (float)Math.Sin(a));
                     int c = CellOf(g, p);
                     if (c < 0 || !g.In[c] || float.IsNaN(g.Hr[c]))
                         continue;
@@ -84,9 +86,9 @@ namespace AutoGenBatch
             float2 t = lf.Top.xz;
             float th = RawH(g, t);
             for (float r = 50f; r <= 300f && o.Count < 300; r += 20f)
-                for (float a = 0f; a < 2f * MathF.PI; a += 20f / r)
+                for (float a = 0f; a < 2f * (float)Math.PI; a += 20f / r)
                 {
-                    float2 p = t + r * new float2(MathF.Cos(a), MathF.Sin(a));
+                    float2 p = t + r * new float2((float)Math.Cos(a), (float)Math.Sin(a));
                     int c = CellOf(g, p);
                     if (c < 0 || !g.In[c] || float.IsNaN(g.Hr[c]))
                         continue;
@@ -124,12 +126,11 @@ namespace AutoGenBatch
 
         // off by default (RF_LEARNABOVE=1). A learning area on a green bench just above a base lift top found no site that the other
         // modes missed on the five sets (no plan changed). It cost planning time
-        private static readonly bool LearnAbove = Environment.GetEnvironmentVariable("RF_LEARNABOVE") == "1";
-        private static readonly float AboveMs = Env("RF_ABOVEMS", 3000f);   // the search above a top only while the region is early
-        private static readonly EasyLimits LearnWayShort = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1600f, false, Env("RF_LGROUND", 0.235f));
+        private static bool LearnAbove => O.LearnAbove;
+        private static EasyLimits LearnWayShort => new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1600f, false, O.LearnGround);
 
         // off by default (RF_LEARNCONVERT=1): turning a short base lift into the beginner chair changed no plan on the five sets
-        private static readonly bool LearnConvert = Environment.GetEnvironmentVariable("RF_LEARNCONVERT") == "1";
+        private static bool LearnConvert => O.LearnConvert;
 
         /// <summary>A short lift (30-150 m of rise, not aerial) becomes a beginner chair, with up to two green runs from its top back
         /// to its bottom, where that adds green km for the base. The lift qualifies when its bottom is at the base (within 390 m of a
@@ -149,7 +150,7 @@ namespace AutoGenBatch
                 if (via != null || members.Any(L => lifts[L] != lf && math.distance(lifts[L].Bottom.xz, lf.Bottom.xz) < 390f) || members.Contains(lifts.IndexOf(lf)))
                     cands.Add((lf, via));
             }
-            if (Environment.GetEnvironmentVariable("RF_CONVDBG") == "1")
+            if (O.DebugConvert)
                 foreach (Lift lf in lifts)
                     plan.Log.Add($"  convert? L{lf.Id} {lf.Type} rise {RawH(g, lf.Top.xz) - RawH(g, lf.Bottom.xz):F0} plan {math.distance(lf.Bottom.xz, lf.Top.xz):F0} aerial top {(aerials.Count > 0 ? aerials.Min(x => math.distance(x.Top.xz, lf.Bottom.xz)) : -1):F0} members {string.Join("/", members.Select(L => lifts[L].Id))}");
             plan.Log.Add($"  convert: {cands.Count} short lift(s) at the base or beside an aerial top: {string.Join(", ", cands.Select(c => $"L{c.Lf.Id}{(c.Via != null ? $" via L{c.Via.Id}" : "")}"))}");
@@ -195,11 +196,11 @@ namespace AutoGenBatch
             var tried = new HashSet<int>();
             for (int pass = 0; pass < 4; pass++)
             {
-                int[] root = V3Bases(g, lifts, out HashSet<int> bases);
+                int[] root = V3Bases(g, lifts, out HashSet<int> bases, out List<int> baseOrder);
                 SkiGraph sg = Ski(g, plan, lifts);
                 List<int> members = null;
                 float km = 0f;
-                foreach (int b in bases)
+                foreach (int b in baseOrder)
                 {
                     var m = Enumerable.Range(0, lifts.Count).Where(L => root[L] == b).OrderBy(L => RawH(g, lifts[L].Bottom.xz)).ToList();
                     if (tried.Contains(lifts[m[0]].Id) || m.Any(L => lifts[L].Type == "beginner"))
@@ -231,7 +232,7 @@ namespace AutoGenBatch
                 EasyReach er = EasyUp(g, BaseOrigins(g, plan, lifts, members, sg), avoid, LearnWay, lines);
                 float mid = 0.5f * (LearnMinRise + LearnMaxRise);
                 float Rise(EasyReach e, int c) => g.Hr[c] - g.Hr[e.Root[c]];
-                List<int> cands = er.Cost.Where(kv => er.Len[kv.Key] <= LearnRouteMax && Rise(er, kv.Key) >= LearnMinRise && Rise(er, kv.Key) <= LearnMaxRise)
+                List<int> cands = er.CostInOrder().Where(kv => er.Len[kv.Key] <= LearnRouteMax && Rise(er, kv.Key) >= LearnMinRise && Rise(er, kv.Key) <= LearnMaxRise)
                     .OrderBy(kv => kv.Value - Math.Min(er.Len[kv.Key], 900f) + 3f * Math.Abs(Rise(er, kv.Key) - mid)).Select(kv => kv.Key).ToList();
                 // on the fall line first. A learning chair across its gentle slope beats a base without one
                 if (TryLearningChair(g, plan, lifts, members, er, cands, null, avoid, guard, sg, km, LearnFallDeg)
@@ -251,7 +252,7 @@ namespace AutoGenBatch
                         continue;
                     EasyReach eh = EasyUp(g, origins, avoid, LearnWay, lines);
                     float2 top = lifts[L].Top.xz;
-                    List<int> high = eh.Len.Keys.Where(c => eh.Len[c] <= LearnRouteMax && Rise(eh, c) >= LearnMinRise && Rise(eh, c) <= LearnMaxRise
+                    List<int> high = eh.Order.Where(c => eh.Len[c] <= LearnRouteMax && Rise(eh, c) >= LearnMinRise && Rise(eh, c) <= LearnMaxRise
                         && math.distancesq(g.World(c), top) < LearnBelowTopM * LearnBelowTopM).OrderByDescending(c => eh.Len[c]).ToList();
                     if (TryLearningChair(g, plan, lifts, members, eh, high, lifts[L], avoid, guard, sg, km, LearnFallDeg)
                         || TryLearningChair(g, plan, lifts, members, eh, high, lifts[L], avoid, guard, sg, km, 180f))
@@ -262,7 +263,7 @@ namespace AutoGenBatch
                 }
                 // or above the top of the base's gondola or tram (a summit plateau). Beginners ride it up and down. The learning chair rises
                 // from beside its top station, with a flat cat track each way between the two
-                if (!LearnAbove || Clock.ElapsedMilliseconds > AboveMs)
+                if (!LearnAbove)
                     continue;
                 foreach (int L in members.Where(L => Aerial(lifts[L].Type)).ToList())
                 {
@@ -270,7 +271,7 @@ namespace AutoGenBatch
                     if (origins.Count == 0)
                         continue;
                     EasyReach ea = EasyUp(g, origins, avoid, LearnWayShort, lines);
-                    List<int> up = ea.Cost.Where(kv => ea.Len[kv.Key] <= LearnRouteMax && Rise(ea, kv.Key) >= LearnMinRise && Rise(ea, kv.Key) <= LearnMaxRise)
+                    List<int> up = ea.CostInOrder().Where(kv => ea.Len[kv.Key] <= LearnRouteMax && Rise(ea, kv.Key) >= LearnMinRise && Rise(ea, kv.Key) <= LearnMaxRise)
                         .OrderBy(kv => kv.Value - Math.Min(ea.Len[kv.Key], 900f) + 3f * Math.Abs(Rise(ea, kv.Key) - mid)).Select(kv => kv.Key).ToList();
                     if (TryLearningChair(g, plan, lifts, members, ea, up, lifts[L], avoid, guard, sg, km, LearnFallDeg, true)
                         || TryLearningChair(g, plan, lifts, members, ea, up, lifts[L], avoid, guard, sg, km, 180f, true))
@@ -284,7 +285,7 @@ namespace AutoGenBatch
                 }
                 // or a short lift already there on green ground becomes the learning chair (at the base, or beside the top of the base's
                 // gondola or tram). It gets green runs from its top back to its bottom
-                if (LearnConvert && Clock.ElapsedMilliseconds <= AboveMs && ConvertToLearning(g, plan, lifts, members, km))
+                if (LearnConvert && ConvertToLearning(g, plan, lifts, members, km))
                     added++;
             next:;
             }
@@ -537,7 +538,7 @@ namespace AutoGenBatch
                 float bestLen = 0f;
                 int tries = 0;
                 var mw = new int[6];
-                foreach (int x in er.Len.Keys.Where(c => math.distancesq(g.World(c), t) < LearnTopM * LearnTopM && g.Hr[c] >= th - 12f)
+                foreach (int x in er.Order.Where(c => math.distancesq(g.World(c), t) < LearnTopM * LearnTopM && g.Hr[c] >= th - 12f)
                     .OrderByDescending(c => er.Len[c]))
                 {
                     if (++tries > 300)
@@ -586,7 +587,7 @@ namespace AutoGenBatch
                     best = new PlanRun { Pts = route, Band = SlopeBand.Green, By = chair, Kind = "learning" };
                     bestLen = RunLength(route);
                 }
-                if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1" || true)
+                if (O.Debug || true)
                     plan.Log.Add($"  more learning runs: {er.Len.Count} reached, {tries} tried near the top; short {mw[0]}, not green {mw[1]}, shorter {mw[2]}, " +
                         $"misses the bottom {mw[3]}, lift line {mw[4]}, crowds {mw[5]}{(best != null ? $"; added {RunLength(best.Pts):F0} m" : "")}");
                 if (best == null)

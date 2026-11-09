@@ -16,10 +16,10 @@ namespace AutoGenBatch
     {
         private const float BridgeMinM = 250f, BridgeMaxM = 1500f;   // bridge chord in plan
         private const float BridgeStartM = 140f;                     // skiers ski an element that starts this close to the top from the top
-        private static readonly float BridgeFallW = Env("RF_BRIDGEFALL", 2f);   // a bridge 60 degrees off the fall line costs 1 + this times as much
+        private static float BridgeFallW => O.BridgeFallW;   // a bridge 60 degrees off the fall line costs 1 + this times as much
 
         /// <summary>Adds bridge lifts while the network is split and the lift budget allows. Returns how many.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int BridgeLifts(Grid g, Plan plan, List<Lift> lifts, float km2)
         {
             int added = 0, budget = (int)Math.Ceiling(1.5 * km2) + 2;
@@ -63,22 +63,25 @@ namespace AutoGenBatch
         /// The lift starts at a pad beside what the froms ski (no new base). It ends at a top whose run comes down to the tos (an existing
         /// run starting near the top, else a route found uphill from the tos). The lift keeps the lift norms, has no crossing, keeps its rope
         /// clear of other ropes and keeps its chord off the runs. The code keeps the lift only when the network grows.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static bool TryBridge(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, float lowCut)
         {
             string names = string.Join("/", froms.Select(L => "L" + lifts[L].Id)) + " -> " + string.Join("/", tos.Select(L => "L" + lifts[L].Id));
             // bottom pads: beside what the froms ski (one per 60 m bucket, its lowest point), the element passing the station
             var low = new Dictionary<long, float3>();
+            var lowOrder = new List<long>();   // the buckets in first-seen order (a defined order, not the dictionary's)
             static long Key(float2 p, float s) => ((long)Math.Floor(p.x / s) << 32) ^ (uint)(int)Math.Floor(p.y / s);
             foreach (int i in froms.SelectMany(L => sg.Skied[L]).Distinct())
                 foreach (float3 p in sg.P[i].Skip(1))
                 {
                     long k = Key(p.xz, 60f);
-                    if (!low.TryGetValue(k, out float3 q) || p.y < q.y)
+                    if (!low.TryGetValue(k, out float3 q))
+                        lowOrder.Add(k);
+                    if (!low.TryGetValue(k, out q) || p.y < q.y)
                         low[k] = p;
                 }
             var bots = new List<int>();
-            foreach (float3 p in low.Values)
+            foreach (float3 p in lowOrder.Select(k => low[k]))
             {
                 int c = CellOf(g, p.xz);
                 if (c < 0 || !g.In[c])
@@ -130,7 +133,7 @@ namespace AutoGenBatch
                 // top pads on a 21 m lattice of the catchment, high enough over some bottom pad
                 var tops = new List<(int T, int X)>();
                 var seenT = new HashSet<int>();
-                foreach (int x in er.Cost.Keys)
+                foreach (int x in er.Order)
                 {
                     if ((x % g.W) % 3 != 0 || (x / g.W) % 3 != 0 || g.Hr[x] < botMin + 95f)
                         continue;
@@ -158,7 +161,7 @@ namespace AutoGenBatch
                         pairs.Add((fall * (math.sqrt(d * d + rise * rise) + 0.5f * er.Len[tops[ti].X]) + (shared ? 1e6f : 0f), b, ti));
                     }
                 }
-                pairs.Sort((p, q) => p.Cost.CompareTo(q.Cost));
+                SortStable(pairs, (p, q) => p.Cost.CompareTo(q.Cost));
                 foreach (var (_, b, ti) in pairs)
                 {
                     if (checks >= 4000 || skis >= 6)

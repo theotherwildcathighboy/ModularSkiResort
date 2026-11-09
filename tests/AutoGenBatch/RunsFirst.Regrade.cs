@@ -20,7 +20,7 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private static readonly float RegradeStretch = Env("RF_RGSTRETCH", 1.8f);   // a bench at most this many times the piece's length (plus 100 m)
+        private static float RegradeStretch => O.RegradeStretch;   // a bench at most this many times the piece's length (plus 100 m)
         private const float RegradeShare = 0.33f;    // connector km kept under this share of the run km (the scorecard's 0.35, less a margin)
 
         /// <summary>The planner's read of the economy term: connector km (green cat tracks, graded greens) and run km (runs and
@@ -81,7 +81,7 @@ namespace AutoGenBatch
         /// <summary>The green cat tracks a diagonal piece could be cut as. First, the direct bench from its head to its foot (Keeps: it passes
         /// every join the piece carried between its ends). Where that misses a join, a bench routed through the joins. Null where
         /// none fits. tally counts the legs past the search budget [0] and the legs no bench reached [1].</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static (List<float2> Direct, bool Keeps, List<float2> Routed) Benches(Grid g, List<float2> old, JoinPoints jp, int[] tally)
         {
             // uphill from the foot to the head over ground a green cat track can be graded across
@@ -230,7 +230,7 @@ namespace AutoGenBatch
             private readonly int m_Skiable;
             private float m_RunKm, m_ConnKm;
 
-            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            [MethodImpl(Hot)]
             public CutModel(Grid g, Plan plan)
             {
                 var els = new List<List<float2>>();
@@ -431,11 +431,11 @@ namespace AutoGenBatch
             }
         }
 
-        private static readonly float RegradeMinGain = Env("RF_RGMIN", 0.005f);   // a cut that moves the score less than this stays a diagonal
+        private static float RegradeMinGain => O.RegradeMinGain;   // a cut that moves the score less than this stays a diagonal
 
         /// <summary>Cuts diagonal traverse pieces as green cat tracks where a bench fits and the cut gains score (crowding, stubs and
         /// economy against coverage, as the scorecard reads them). Returns the pieces regraded.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static int RegradeTraverses(Grid g, Plan plan, List<Lift> lifts)
         {
             var model = new CutModel(g, plan);
@@ -461,7 +461,7 @@ namespace AutoGenBatch
             int done = 0, checkedCuts = 0, refused = 0;
             float km = 0f, gained = 0f;
             SkiRead before = null;
-            while (open.Count > 0 && !Late)
+            while (open.Count > 0)
             {
                 int bi = -1;
                 float best = RegradeMinGain;
@@ -521,7 +521,7 @@ namespace AutoGenBatch
             return done;
         }
 
-        private static readonly float PruneMinGain = Env("RF_PRUNEMIN", 0.01f);   // a run taken out gains at least this much score
+        private static float PruneMinGain => O.PruneMinGain;   // a run taken out gains at least this much score
         private const int PruneReads = 40;                                         // ski graph reads the prune may spend
 
         /// <summary>Takes out the plan runs whose removal gains score as the scorecard reads the plan (a run crowded along most of its
@@ -534,7 +534,7 @@ namespace AutoGenBatch
             SkiRead before = SkiRead.Of(g, plan, lifts);
             int removed = 0, refused = 0, reads = 1;
             float gained = 0f, km = 0f;
-            while (open.Count > 0 && reads < PruneReads && !Late)
+            while (open.Count > 0 && reads < PruneReads)
             {
                 int bi = -1;
                 float best = PruneMinGain;
@@ -591,10 +591,10 @@ namespace AutoGenBatch
                 return lifts.Count(lf => ChordShareV3(lf, els, out _) > ChordShareMax);
             }
             int lines = Lines();
-            for (bool again = true; again && tried < MergeTries && !Late;)
+            for (bool again = true; again && tried < MergeTries;)
             {
                 again = false;
-                for (int a = 0; a < plan.Connectors.Count && !again && tried < MergeTries && !Late; a++)
+                for (int a = 0; a < plan.Connectors.Count && !again && tried < MergeTries; a++)
                 {
                     List<float2> A = plan.Connectors[a];
                     if (Drop(A) >= 50f || !TrackClass(g, A).Run)
@@ -663,7 +663,7 @@ namespace AutoGenBatch
 
         /// <summary>The share of a lift chord's middle 70 % (every 10 m) within 20 m of a run as scorecard v3 reads it, and the
         /// samples each element is near.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        [MethodImpl(Hot)]
         private static float ChordShareV3(Lift lf, List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els, out int[] hits)
         {
             float2 b = lf.Bottom.xz, t = lf.Top.xz;
@@ -718,8 +718,6 @@ namespace AutoGenBatch
             List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els = ChordEls(g, plan);
             foreach (Lift lf in lifts)
             {
-                if (Late)
-                    break;
                 float share = ChordShareV3(lf, els, out int[] hits);
                 if (share <= ChordShareMax)
                     continue;
