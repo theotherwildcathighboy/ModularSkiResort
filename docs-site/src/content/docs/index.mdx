@@ -59,8 +59,8 @@ import Shot from '../../components/Shot.astro';
 1. Subscribe to **Modular Ski Resort** on Paradox Mods. *(The link goes here at the first upload.)*
 2. **Dependencies:**
    - **Required mods:** none. Everything works on the base game.
-   - **Highly recommended:** Move It. Lift stations sit on the slope as placed and can end up partly in the hillside. Move It lifts them out.
    - **Recommended:** Write Everywhere. With it the Welcome Sign shows your ski area's name. Without it the sign keeps its plain "SKI AREA" header over a blank name board.
+   - **Useful:** Move It. It places stations and buildings more precisely than the game's own tools.
    - **Optional:** Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding and other trip-planner mods. The mod detects them for labels and adjusts nothing. Other people maintain those mods. The author does not control their updates or their compatibility.
 3. **Access:** the **Ski Resort** button at the top left. Nothing is added to the game's build menus.
 
@@ -74,7 +74,7 @@ import Shot from '../../components/Shot.astro';
 
 - **Riders:** chairs and cabins move empty. Skiers are counted, not simulated.
 - **Chair numbers:** towers are numbered. Chairs all show the same number.
-- **Stations:** no terrain flattening. A station can sit partly in the hillside on steep ground (Move It fixes it). The aerial tram's base levels its own pad.
+- **Stations:** chairlift and gondola stations cut a level pad into the slope but fill nothing, so the downhill side keeps the slope. The aerial tram's base levels its own pad. The aerial tram's top keeps the slope as placed, so on steep ground it can sit partly in the hillside.
 - **Summer:** chairlifts and gondolas stop when no run is open. The aerial tram keeps running as sightseeing.
 - **Power:** a lift needs a low-voltage line at its base station. The game refuses a city high-voltage line at a lift.
 - **Crossing lifts:** a lift crosses a lift of another type over or under it, where the towers can give the height the game needs. Two lifts of the same type cannot cross. No crossing is built near a station, beside a tower of the other lift, or at an angle under 20°. See [Lifts, Terrain](/guides/lifts/#terrain).

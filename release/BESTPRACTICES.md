@@ -27,7 +27,7 @@ If the panel shows a problem line ("No lift yet", "Lodge or school: road require
 - **Let the planner work first.** It picks tower heights to fit the ground and uses the fewest towers the lift type allows. Move towers only where you want them. The preview colors the cable by how far it clears the ground.
 - **Steep or uneven ground.** Build one section at a time. To fix one section, bulldoze it and click its two ends again. The other sections keep their towers, cable and chairs.
 - **Pick the type for the terrain.** Steepest slope: fixed-grip 80 percent, detachable 90, gondola 120, tram 250. The tram reaches farthest between towers (up to 3,000 m with the lift tool).
-- **Stations sit on the slope.** They do not flatten the ground. The tram base terminal does level a pad. Put stations on reasonably level ground, or terraform first.
+- **Stations cut a level pad.** Chairlift and gondola stations cut the slope above them level and fill nothing. A base station cuts 12 m past its lot on the line side. The tram base terminal levels a pad, cut and fill. The tram top terminal keeps the slope. Put stations on reasonably level ground, or terraform first.
 - **Push a lift across a canyon or up a cliff face and the result can look wrong**, as vanilla power lines do in the same places. Use the preview.
 - **Do not cross another lift.** The game joins two lines where they cross, and the other lift's chairs stop. The tool shows a notice before you build. Bulldozing the new section merges the other lift back.
 - The mod numbers towers up the line from the base station.
@@ -65,7 +65,7 @@ Lifts are power-line networks, so they follow power-line rules.
 
 ## Playing nice
 
-- Move It is highly recommended (not required). On steep ground a lift station can sit partly in the hillside, and Move It is the way to lift it out. It works on every building in the pack.
+- Move It is useful (not required). It places stations and buildings more precisely than the game's own tools, and it works on every building in the pack.
 - Write Everywhere is recommended (not required). It writes your ski area's name on the Welcome Sign. Without it the sign shows its "SKI AREA" header over a plain name board.
 - Recoloring: stations and buildings recolor with the game's own color tool (select the object). Towers on a lift line cannot be selected, so the optional Recolor mod's painter is the way to paint them.
 - Start from a new city. The first public release makes no promise for saves from test builds.

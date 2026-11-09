@@ -37,6 +37,8 @@ First public release. Draft notes (check against the build at upload):
 - One lift tool: click the base station and the top station, click the line to add a tower, drag to move one, Enter builds.
   The tower planner fits tower heights to the terrain with few towers, prefers short towers next to the stations, and
   draws spans that are too steep in red. Towers are numbered.
+- Chairlift and gondola stations cut a level pad into the slope and fill nothing. A base station cuts 12 m further on
+  the line side, so the chairs leave it over level ground. The aerial tram's base terminal levels its pad.
 - Ski runs you draw: natural, groomed, snowmaking, night and cat track, each rated green to double black from its slope.
 - Cat track tool: lay out a track, and one key grades the ground under 25 percent and builds the cat track on it. Where it
   crosses a run it grades up to 2 m inside the run and keeps the run's difficulty. Delete mode (Ctrl+Shift+D) and a hub trash
@@ -71,8 +73,8 @@ First public release. Draft notes (check against the build at upload):
 - Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the
   loaded city, after a confirmation, to clean a city before uninstalling. It cannot be undone.
 - Copy diagnostics, a button in the mod's Options (Diagnostics group): puts the versions, the changed options, the code mods and the latest log errors on the clipboard for a bug report.
-- Works on the base game; no other mod is required. Move It is highly recommended and Write Everywhere is recommended.
-- Known limitations: a hill far from the city's homes and hotels gets few ski-day guests (the panel shows the distance), chairs carry no riders, two lifts of the same type cannot cross, a cat track cannot pass under a lift that is already built, stations can sit partly in the hillside on steep
+- Works on the base game; no other mod is required. Write Everywhere is recommended, and Move It is useful for exact placement.
+- Known limitations: a hill far from the city's homes and hotels gets few ski-day guests (the panel shows the distance), chairs carry no riders, two lifts of the same type cannot cross, a cat track cannot pass under a lift that is already built, the aerial tram's top terminal keeps the slope and can sit partly in the hillside on steep
   ground, chairlifts and gondolas stop in summer.
 
 ## Beta notes (pre-release, not a release entry)
