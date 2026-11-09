@@ -207,6 +207,7 @@ namespace AutoGenBatch
             V2DeadEnds(c, r, p);
             V2Emit(c, V2Metrics.H5Reachability(r, p), false);
             V2Emit(c, V2Metrics.H6GreenShare(p), false);
+            V2Emit(c, V2Metrics.B1WayToBottom(r, p), true);   // REPORT: the baseline of the way to the bottom (planner round 2026-11-09)
 
             // P-1 is a v1 gate (synthetic 9 km2 fixtures, FillTests). One run is noisy at the millisecond (GC, JIT), so a miss is re-measured
             // once and the smaller figure counts. On the real heightmaps a miss stays REPORT (that is v1 unit time on terrain the v1 gate
