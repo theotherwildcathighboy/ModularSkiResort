@@ -34,6 +34,10 @@ in the console of a VISIBLE tab (a hidden tab stalls animation frames). It uses 
 the way the game does (`--fontScale` and `--fontScaleChange`).
 
 `node tools/test-hub-layout.js` runs it in headless Chrome at 1920x1080, 2560x1440 and 3840x2160. It fails on any overflow.
+It spreads the work over 12 headless browsers (one size x scenario x text scale each time) and merges the report in the serial
+order: about 1 min for the full run, 30 s for `--quick` (1080 only; `--scenario=<regex>` narrows it further). One run at a time on
+the machine: a second run waits for the first (`--no-wait` fails at once). `settle()` in layout-check.js waits for a quiet page
+(3 drawn frames with no DOM change, the hub's interval polls run), not for fixed timers.
 `--shots=<dir>` writes the screenshot list in `test-hub-layout.js` (URL parameters `scenario`, `view`, `fs`, `tab`, `fold`,
 `page`, `areas`, `problems`, `free`, `clean`: see the header of layout-check.js).
 
