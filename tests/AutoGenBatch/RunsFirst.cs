@@ -284,8 +284,11 @@ namespace AutoGenBatch
                 Console.WriteLine($"wrote {rows.Count} holdout region(s) to {args[1]}");
                 return 0;
             }
-            string outDir = args.Length > 1 ? args[1] : "rf-out";
-            Directory.CreateDirectory(outDir);
+            // "rf-golden <out file> [regions file]": plans only (no v2, render or score) and writes "<region> <hash> <runs> <lifts> <connectors>"
+            bool golden = args[0] == "rf-golden";
+            string outDir = args.Length > 1 ? args[1] : golden ? "rf-golden.txt" : "rf-out";
+            if (!golden)
+                Directory.CreateDirectory(outDir);
             if (!Heightmap.TryOpen("MountainVillage", out HeightmapFile file, out string why))
             {
                 Console.WriteLine("SKIP RunsFirst: " + why);
@@ -339,6 +342,7 @@ namespace AutoGenBatch
                 }
             }
             var files = new Dictionary<string, HeightmapFile> { ["MountainVillage"] = file };
+            var goldenRows = new List<string>();
             foreach (var (key, ring) in regions)
             {
                 int bar = key.IndexOf('|');
@@ -352,8 +356,20 @@ namespace AutoGenBatch
                     }
                     files[fx] = hf;
                 }
-                RunRegion(id, ring, hf, outDir);
+                if (!golden)
+                {
+                    RunRegion(id, ring, hf, outDir);
+                    continue;
+                }
+                HeightSnapshot snap = Heightmap.Snapshot(hf, ring);
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                RunsFirstResult res = PlanRegion(snap, ring, O, id);
+                string row = $"{id} {res.Hash():x16} {res.Runs.Count} {res.Lifts.Count} {res.Connectors.Count}";
+                goldenRows.Add(row);
+                Console.WriteLine($"GOLDEN {row} ({sw.ElapsedMilliseconds} ms)");
             }
+            if (golden)
+                File.WriteAllLines(outDir, goldenRows);
             return 0;
         }
 
@@ -377,9 +393,36 @@ namespace AutoGenBatch
         }
         private static (Grid, Plan, List<Lift>)? WayDbg;
 
-        private static void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
+        /// <summary>A finished plan: the plain result, plus the planner's own objects the host draws, writes and scores.</summary>
+        private sealed class Planned
         {
-            HeightSnapshot snap = Heightmap.Snapshot(file, ring);
+            public Grid G;
+            public float[] Acc, AccR;
+            public List<Line> Lines;
+            public List<Lift> Lifts;
+            public Plan Built;
+            public long Ms;
+            public RunsFirstResult Result;
+        }
+
+        /// <summary>Plans one region with the given options (null: the defaults) and returns the plain plan object. The options hold
+        /// for this call only.</summary>
+        internal static RunsFirstResult PlanRegion(HeightSnapshot snap, float2[] ring, RunsFirstOptions options, string id = "region")
+        {
+            RunsFirstOptions keep = O;
+            O = options ?? new RunsFirstOptions();
+            try
+            {
+                return PlanCore(id, snap, ring).Result;
+            }
+            finally
+            {
+                O = keep;
+            }
+        }
+
+        private static Planned PlanCore(string id, HeightSnapshot snap, float2[] ring)
+        {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             Clock = sw;
             PassTimes.Clear();
@@ -447,9 +490,23 @@ namespace AutoGenBatch
             for (int i = 0; i < lifts.Count; i++)
                 lifts[i].Id = i + 1;
             long ms = sw.ElapsedMilliseconds;
+            return new Planned { G = g, Acc = acc, AccR = accR, Lines = lines, Lifts = lifts, Built = built, Ms = ms, Result = MakeResult(built, lifts) };
+        }
+
+        private static void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
+        {
+            HeightSnapshot snap = Heightmap.Snapshot(file, ring);
+            Planned pl = PlanCore(id, snap, ring);
+            Grid g = pl.G;
+            float[] acc = pl.Acc, accR = pl.AccR;
+            List<Line> lines = pl.Lines;
+            List<Lift> lifts = pl.Lifts;
+            Plan built = pl.Built;
+            long ms = pl.Ms;
             // the per-pass time table (report only): each pass's own milliseconds, in plan order
             long prevMs = 0;
             Console.WriteLine($"REPORT rf time {id}: " + string.Join(", ", PassTimes.Select(t => { long d = t.Ms - prevMs; prevMs = t.Ms; return $"{t.Pass} {d}"; })) + $", total {ms} ms");
+            Console.WriteLine($"REPORT rf hash {id}: {pl.Result.Hash():x16}, {pl.Result.Runs.Count} runs, {pl.Result.Lifts.Count} lifts, {pl.Result.Connectors.Count} connectors");
 
             // the v2 plan of the same region, as the host replays it
             AutoPlanKnobs knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(ring, 0));

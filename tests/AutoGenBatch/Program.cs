@@ -39,7 +39,7 @@ namespace AutoGenBatch
         private static int Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
-            if (args.Length > 0 && (args[0] == "rf" || args[0] == "rf-holdout"))
+            if (args.Length > 0 && (args[0] == "rf" || args[0] == "rf-holdout" || args[0] == "rf-golden"))
                 return RunsFirst.Run(args);   // the runs-first prototype (field test 5): renders, no checks
             if (args.Length > 0 && args[0] == "golden")
             {
@@ -89,6 +89,7 @@ namespace AutoGenBatch
             LiftTests();
             FanTests();
             FlowTests();
+            RunsFirstGoldenTests();
             if (args.Length > 0 && args[0] == "v2")
                 V2Tests();   // the real-heightmap matrix (A1): local only, the fixtures live outside git
             Timing();

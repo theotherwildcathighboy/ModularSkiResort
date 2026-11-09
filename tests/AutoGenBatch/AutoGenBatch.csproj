@@ -51,6 +51,8 @@
     <Compile Include="RunsFirst.Heap.cs" />
     <Compile Include="RunsFirst.Order.cs" />
     <Compile Include="RunsFirst.Options.cs" />
+    <Compile Include="RunsFirst.Result.cs" />
+    <Compile Include="RunsFirstGolden.cs" />
     <Compile Include="RunsFirst.Graded.cs" />
     <Compile Include="RunsFirst.WayHome.cs" />
     <Compile Include="RunsFirst.Regrade.cs" />
