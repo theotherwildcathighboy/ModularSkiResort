@@ -1705,11 +1705,16 @@
 }
 
 // -- the Ski Bus card: right of the game's selected-info panel, same top ---------------------------------
+// left = --screenPadding (10rem) + the vanilla panel's width + an 8rem gap. The vanilla width grows with the text scale
+// (index.css .selected-info-panel: calc(400rem * (.33333 + var(--fontScale) / 1.5)), max 580rem, reached only past 1.5).
+// A fixed 418rem put the vanilla panel 58rem under the merge card at text scale 1.25 (measured in game at 1080 and 2160).
 .busCard {
   position: absolute;
   top: 60rem;
-  left: 418rem;
-  width: 340rem;
+  left: calc(18rem + 400rem * (0.33333 + var(--fontScale) / 1.5));
+  // Grows with the text scale like .panel (+ N rem * --fontScaleChange): at 1.5 a fixed 340rem cut "Monthly fee" to "Monthly ..."
+  // (7.5rem short, measured in game at 2160). 340 / 370 / 400 rem at 1.0 / 1.25 / 1.5.
+  width: calc(340rem + 120rem * var(--fontScaleChange));
   padding-bottom: 6rem;
   background-color: var(--hubCardBg);
   border-top-left-radius: 8rem;
@@ -1726,7 +1731,7 @@
 }
 
 // The tier picker is a list, one tier per row (DECISIONS 621): the role names ("Mountain restaurant") do not fit five to a row of
-// the 340rem card, and a chip row would cut or shrink them. Five rows at most.
+// the 340rem card (at text scale 1.0), and a chip row would cut or shrink them. Five rows at most.
 .mergeTiers {
   display: flex;
   flex-direction: column;

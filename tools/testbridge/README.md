@@ -59,7 +59,9 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 
 | op | Arguments | Result |
 |---|---|---|
-| `status` | | game mode, focus, screen, cursor, tool, camera, sim speed, date, money, climate, sequence |
+| `status` | | game mode, `ready` (see "Wait for ready"), focus, screen, cursor, tool, camera, sim speed, date, money, climate, sequence |
+| `ready` | | the readiness gate alone: `ready`, `quietFor`, `parts` (state, mode, mods, vt, tasks, ui), `pageLoads`, `sinceMode`, `sincePageLoad` |
+| `settings` | optional `textScale`, `width` + `height`, `displayMode` (`Fullscreen`, `FullscreenWindow`, `Window`) | sets them through the options menu's setters and Apply, without its confirmation dialog. The page applies a text scale only through its own `--fontScale` / `--fontScaleChange` (vanilla `FR(e)`: `e` and `e - 1`): set those two CSS vars on `document.documentElement` in the same test. The game saves both into `Settings.coc`: back it up and restore it with the game closed |
 | `hover` | | cursor (Windows and game), `mouseOverUI`, active tool and prefab, what the tool raycast hit |
 | `photo` | `name` (a bare file name), optional `dir` (an absolute folder, created if missing), `ui` | hides the UI and saves a natural-color 3840 x 2160 PNG with Photo Mode's call, HDR on or off, to `<dir>\<name>.png` (default dir: `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\Screenshots`). It replies with `path`, written a frame later. Point `dir` at the folder the test reports from. Use this op to take shots |
 | `pm` | `on`, `cam`: `{x, y, z, at: [x, y, z]}` or `yaw`, `pitch`; `set`: `{id: number or null}`; `list`, `group`, `reset` | Photo Mode through the panel's own properties. `list` gives ids and ranges (`focalLength`, `lensShift`, `iso`, `Roll`, `Time of Day`, ...). A null disables an override. Leave Photo Mode with `on:false` before you use the `camera` op |
@@ -122,12 +124,57 @@ and they restore the player's own target after the click. A save in Steam Cloud 
 Do not call `engine.trigger("menu.saveGame", name)`. If the save panel is not open, the preview texture is null. Then the game
 throws a `NullReferenceException` and shows its error dialog (measured, see `MenuUISystem.cs:896-902` and `GameManager.cs:947`).
 
+### Wait for ready
+
+After a launch, a save load or a "return to menu", make no bridge or `game_eval` call until the bridge logs READY:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\testbridge\wait-ready.ps1
+```
+
+After a save load, pass `-Since` with the time taken just before the load click. The script reads only `SkiTestBridge.log` and
+sends nothing to the game. Exit 0 = ready, 1 = timeout, 2 = the game is not running or exited.
+
+READY (in the log, in `status.ready` and in the `ready` op) means every part below has held for 15 s with nothing changing:
+
+- `GameManager.state` is WorldReady, and the mode is MainMenu, Game or Editor.
+- The mod manager is initialized and Paradox Mods is registered. The code-mod, loaded and enabled counts stay the same.
+- Virtual texturing has no materials left to load and no duplicates to process.
+- No TaskManager task is running and no `SaveLoadGame` job is queued (a `Ping` job comes and goes all the time and is ignored).
+- The UI view takes bindings, and no page load has finished in the last 15 s.
+- The prefab count stays the same.
+
+While the gate is closed, the log gets a WAITING line every 30 s that names what holds it.
+
+Why: with `--uiDeveloperMode`, Gameface live reload is on (`UIManager` `liveReload = developerMode`). About 6 to 10 s after every
+mode change, a "media" reload in `UILiveReload` (`Reloading media 0` in UI.log) loads `reload.html` and then `index.html` again,
+so every page helper is lost. The 2026-11-08 silent exits (access violation 0xc0000005 at `cohtml_Unity3DPlugin.dll+0xc410`, no
+crash dialog) each came within that window: two UI.logs end on the `Reloading media 0` line, and a third ends in the middle of a page
+load. The cause is UNVERIFIED. It is a correlation, not a proof, and READY does not prove that a call is safe.
+
+Measured on 2026-11-08 (83-mod playset, 4K): READY came 45.5 s after the main menu and 40.6 s after a save load. That is close
+to the old "main menu + 40 s" rule, which was too short after the menu. None of the 4 launches in that pass had an exit, but
+only the last one had the finished gate.
+
+**Turning live reload off (measured once, 2026-11-08):** with the game closed, add this section to
+`%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\FallbackSettings.coc` (CRLF, like the rest of the file):
+
+```
+UIManager Settings
+{
+    "liveReload": false
+}
+```
+
+`UIManager` reads it through `AssetDatabase.global.LoadSettings("UIManager Settings", ...)` after its defaults (UIManager.cs:191). With
+it, a launch and a save load had 0 page loads and no `Reloading media` line, and the page helpers survived the save load. READY came
+43.2 s after the main menu (virtual texturing and prefabs settling) and 20.5 s after a save load. The cost: an edited UI file no longer
+reloads the running game (deploys happen with the game closed anyway). UNVERIFIED: whether the game keeps the section when it rewrites
+the .coc files on exit, and whether this prevents the exits. Back the file up first and restore it after the session.
+
 ### Practical limits, all measured
 
-- **No bridge or `game_eval` call while the UI reloads.** Calls that landed during a main-menu or UI reload were followed by silent
-  game exits, 3 times in 2 passes (2026-11-08): access violation 0xc0000005 at `cohtml_Unity3DPlugin.dll+0xc410`, no crash dialog.
-  The cause is UNVERIFIED. After a launch or a "return to menu", wait until the main menu shows, then 40 s more, before the first call.
-  Runs with that wait had no exits.
+- **No bridge or `game_eval` call before READY** (see Wait for ready).
 - **`game_eval` times out after 15 seconds.** Longer work keeps running in the page, but its result is lost. So start the work,
   return, and poll. Loading a small city took about 3 s.
 - **DOM rects are client pixels here** (3840 x 2160 at `devicePixelRatio` 1), so `getBoundingClientRect()` gives the click point for a
