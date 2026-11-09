@@ -328,7 +328,8 @@ namespace SkiResortMod.Settings
 
 
         /// <summary>Station alignment aid (guide line and offset readout while a station is placed or nudged) and the bulldozer warning
-        /// on a lift (SkiStationAlignSystem + SkiLiftTooltipSystem). Read live every frame by those systems.</summary>
+        /// on a lift (SkiStationAlignSystem + SkiLiftTooltipSystem), and the base stations' LV stub marker (StationLvMarkerSystem). Read live
+        /// every frame by those systems.</summary>
         [SettingsUISection(SectionMain, GroupLifts)]
         public bool LiftBuildAids { get; set; }
 

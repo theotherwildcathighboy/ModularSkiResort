@@ -36,6 +36,7 @@ namespace LiftBatch
             s_Report.Clear();
             Ei52();
             Ei48Gate();
+            Lv6Gate();
             Ei48Tram2();
             Ei48Front();
             Ei49();
@@ -207,6 +208,56 @@ namespace LiftBatch
                     stubInner = P(net.GetProperty("m_BezierCurve"), "a");
                 }
             return true;
+        }
+
+        /// <summary>LV-6: the catalog's LV stub (StationDef.LvStubLocalA / B, the ghost mark of StationLvMarkerSystem) equals the mirror's
+        /// SkiLiftMarkerLV curve on every base station; tops have none in either; the stub is 3 m and its net is LOW voltage (the probe
+        /// counts only Low nets, StationLvStubProbe.IsLv; ElectricityConnection.Voltage Low = 0).</summary>
+        private static void Lv6Gate()
+        {
+            const string w = "lv-stub/LV-6";
+            int bases = 0, tops = 0;
+            foreach (StationDef st in SkiCatalog.Stations)
+            {
+                JsonElement? root = MirrorJson(st.Prefab, w);
+                if (root == null)
+                    continue;
+                int lv = 0;
+                float3 a = new float3(float.NaN), d = new float3(float.NaN);
+                foreach (JsonElement net in Rows(root.Value, "m_SubNets"))
+                    if (CidName(net.GetProperty("m_NetPrefab").GetString()) == "SkiLiftMarkerLV")
+                    {
+                        lv++;
+                        a = P(net.GetProperty("m_BezierCurve"), "a");
+                        d = P(net.GetProperty("m_BezierCurve"), "d");
+                    }
+                string who = st.Prefab + " (" + st.LiftTypeId + " " + st.Role + ")";
+                if (st.Role == StationRole.Top)
+                {
+                    tops++;
+                    Check(!st.HasLvStub, w, who + ": a top row has an LV stub (" + F(st.LvStubLocalA.x) + ", " + F(st.LvStubLocalA.z) + ")");
+                    Check(lv == 0, w, who + ": the mirror has " + lv + " SkiLiftMarkerLV sub-net(s) on a top station");
+                    continue;
+                }
+                bases++;
+                if (!Check(st.HasLvStub, w, who + ": the base row has no LV stub (WithLvStub)") ||
+                    !Check(lv == 1, w, who + ": the mirror has " + lv + " SkiLiftMarkerLV sub-nets, want 1"))
+                    continue;
+                Check(math.distance(a, st.LvStubLocalA) <= 0.005f && math.distance(d, st.LvStubLocalB) <= 0.005f, w,
+                      who + ": the mirror's LV stub is (" + F(a.x) + ", " + F(a.y) + ", " + F(a.z) + ") -> (" + F(d.x) + ", " + F(d.y) + ", " +
+                      F(d.z) + "), the row says (" + F(st.LvStubLocalA.x) + ", " + F(st.LvStubLocalA.y) + ", " + F(st.LvStubLocalA.z) + ") -> (" +
+                      F(st.LvStubLocalB.x) + ", " + F(st.LvStubLocalB.y) + ", " + F(st.LvStubLocalB.z) + ")");
+                Check(math.abs(math.distance(a, d) - 3f) <= 0.005f, w, who + ": the LV stub is " + F(math.distance(a, d)) + " m, want 3 (PIPELINE §6)");
+                s_Report.Add("LV-6 " + who + ": LV stub (" + F(a.x) + ", " + F(a.z) + ") -> (" + F(d.x) + ", " + F(d.z) + ")");
+            }
+            JsonElement? marker = MirrorJson("SkiLiftMarkerLV", w);
+            int voltage = -1;
+            if (marker != null)
+                foreach (JsonElement comp in marker.Value.GetProperty("components").GetProperty("$rcontent").EnumerateArray())
+                    if (comp.TryGetProperty("m_Voltage", out JsonElement v))
+                        voltage = v.GetInt32();
+            Check(voltage == 0, w, "SkiLiftMarkerLV's ElectricityConnection m_Voltage is " + voltage + ", want 0 (Low)");
+            Check(bases == 4 && tops == 4, w, "4 base and 4 top stations checked; got " + bases + " / " + tops);
         }
 
         private static void Ei48Gate()
