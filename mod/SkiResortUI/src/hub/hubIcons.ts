@@ -66,9 +66,11 @@ export function hubIconOf(name: string): HubIcon | null {
  * - "words": every icon off, everything in word form.
  * ICON_MODE is the build default. The spike flips it live without a rebuild: in the game's UI console (gameface game_eval)
  * `window.skiResortIconMode = "flex"`, then hover again (a tooltip renders fresh on each hover).
+ * S0 verdict (2026-11-08, field/2026-11-08/icons-pass/RESULTS.md): "flex". Inline layout is fine on size, baseline and wrap, but
+ * Gameface drops the leading ASCII space of a text run after an inline element ("andone", "runis"). A NBSP pass could rescue it.
  */
 export type IconMode = "inline" | "flex" | "words";
-export const ICON_MODE: IconMode = "inline";
+export const ICON_MODE: IconMode = "flex";
 
 export function iconMode(): IconMode {
   try {

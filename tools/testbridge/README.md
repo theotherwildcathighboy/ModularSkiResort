@@ -124,6 +124,10 @@ throws a `NullReferenceException` and shows its error dialog (measured, see `Men
 
 ### Practical limits, all measured
 
+- **No bridge or `game_eval` call while the UI reloads.** Calls that landed during a main-menu or UI reload were followed by silent
+  game exits, 3 times in 2 passes (2026-11-08): access violation 0xc0000005 at `cohtml_Unity3DPlugin.dll+0xc410`, no crash dialog.
+  The cause is UNVERIFIED. After a launch or a "return to menu", wait until the main menu shows, then 40 s more, before the first call.
+  Runs with that wait had no exits.
 - **`game_eval` times out after 15 seconds.** Longer work keeps running in the page, but its result is lost. So start the work,
   return, and poll. Loading a small city took about 3 s.
 - **DOM rects are client pixels here** (3840 x 2160 at `devicePixelRatio` 1), so `getBoundingClientRect()` gives the click point for a
