@@ -20,7 +20,7 @@
 * The test needs `npm run build` first (it mounts build/SkiResortMod.mjs). It also needs network access for the React UMD scripts
 * that the harness loads from cdnjs.
 * Usage:   node tools/test-hub-layout.js [--verbose]
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=tiers]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -338,6 +338,21 @@ for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
     [`icons-11-tip-efficiency-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Efficiency", fs: scale }],
   );
 }
+// Icons v2 + the NBSP rescue (round 622): the ski school and lift icons in their missing lines, the legend with the Ski area group,
+// and the inline (cohinline) path with its U+00A0 spaces. `iconMode` sets window.skiResortIconMode before the shot. Chrome ignores
+// cohinline, so an "inline" shot shows the content and the spacing, not the Gameface wrap (that is the in-game pass).
+// `--list=icons2` picks this list.
+const NOSCHOOL = "Ash Flat, no ski school";
+const ICONS2 = [];
+for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
+  ICONS2.push(
+    [`icons2-01-tip-school-missing-1080${tag}`, 1080, { scenario: NOSCHOOL, view: 0, fold: 0, hover: "Ski school", fs: scale }],
+    [`icons2-02-tip-runs-no-lift-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Runs", hoverIn: '[class*="sr-infoLabel"]', fs: scale }],
+    [`icons2-03-legend-1080${tag}`, 1080, { scenario: ASH, view: 0, hoverSel: '.h-panel [class*="legendInfoBox"]', fs: scale }],
+    [`icons2-04-tip-variety-inline-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Variety", iconMode: "inline", fs: scale }],
+    [`icons2-05-tip-school-inline-1080${tag}`, 1080, { scenario: NOSCHOOL, view: 0, fold: 0, hover: "Ski school", iconMode: "inline", fs: scale }],
+  );
+}
 // 2026-11-08 DECISIONS 621: lodge tier names (role names) apart from building names. The merge card's tier picker with all five
 // tiers, the Merged buildings fold, the lodge-base tooltip's best tier, and the own-lodge rows that keep building names (Buildings
 // tab tiles, car spaces). Every shot at text scale 1 and 1.25. `--list=tiers` picks this list.
@@ -359,9 +374,10 @@ async function shots(b, base, dir, list) {
   for (const [file, h, p0] of list) {
     const w = Math.round(h * 16 / 9);
     const p = Object.assign({}, p0);
-    const { hover, hoverIn, hoverSel, click, clickRange, hoverPlot, whole } = p;
-    delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole;
+    const { hover, hoverIn, hoverSel, click, clickRange, hoverPlot, whole, iconMode } = p;
+    delete p.hover; delete p.hoverIn; delete p.hoverSel; delete p.click; delete p.clickRange; delete p.hoverPlot; delete p.whole; delete p.iconMode;
     await open(b, base, w, h);
+    if (iconMode) await evalAsync(b, `(() => { window.skiResortIconMode = ${JSON.stringify(iconMode)}; return true; })()`, 10000);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
       await window.SkiLayout.shot(p); return document.body.getAttribute("data-shot-ready"); })()`, 60000);
     for (const want of [clickRange, click]) {
@@ -422,7 +438,7 @@ async function main() {
   try {
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)),
-        process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

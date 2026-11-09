@@ -289,6 +289,11 @@
       selectedResort: SIGN, runs, runLive: runLive.map((r) => r.entity.index === 203 ? Object.assign({}, r, { openState: 0, openFactor: 0, valueNow: 0 })
         : r.entity.index === 204 ? Object.assign({}, r, { openState: 1, openFactor: 0.5, snowPct: 52, valueNow: 0.4 }) : r),
       lifts, problems, history, build: buildItems({ built: ["school"] }) }),
+    // Icons v2 (round 622): the same area with no ski school built (schoolValue 0, no school problem): the School row reads
+    // "No ski school" and its tooltip the missing line "Missing: an active <icon:school>".
+    "Ash Flat, no ski school": Object.assign({}, base, { hubOpen: true, resorts,
+      resortLive: [Object.assign({}, live, { schoolValue: 0 }), live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
+      build: buildItems({}) }),
   };
 
   // Stress case for "never a scrollbar": a long area name, 30 runs, 12 lift rows of which 5 are unfinished lines (liftsComplete

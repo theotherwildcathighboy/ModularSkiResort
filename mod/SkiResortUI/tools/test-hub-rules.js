@@ -950,23 +950,51 @@ function run(srcDir) {
 
     // T42.19 the tooltip key (legend at the point of use): icon names once, in legend order, 3 per row; marks never; "flex" counts only
     // one-line rows, "words" gives no key; a name without a legend row is dropped.
-    const ORD = ["green", "blue", "black", "dblack", "open", "patchy", "closed", "openpatchy", "power", "snow"];
+    const ORD = ["green", "blue", "black", "dblack", "open", "patchy", "closed", "openpatchy", "school", "lift", "power", "snow"];
     const variety = { text: "+15 % while at least one <icon:green>, one <icon:blue> and one <icon:black> or <icon:dblack> run is <icon:openpatchy>.", line: false };
     eq("T42.19 iconKeyRows",
       [R.iconKeyRows([variety, { text: "Missing: <icon:black> or <icon:dblack> run", line: true }], "inline", ORD),
         R.iconKeyRows([{ text: "<mark:open> Open. <mark:closed> Closed.", line: false }], "inline", ORD),
         R.iconKeyRows([variety, { text: "{N} <icon:patchy>", line: true }, { text: "{N} <icon:closed>", line: true }], "flex", ORD),
         R.iconKeyRows([variety], "words", ORD), R.iconKeyRows([{ text: "<icon:Media/x.svg> <icon:power>", line: true }], "inline", ORD),
-        R.iconKeyRows([], "inline", ORD), R.ICON_KEY_PER_ROW],
-      [[["green", "blue", "black"], ["dblack", "openpatchy"]], [], [["patchy", "closed"]], [], [["power"]], [], 3]);
+        R.iconKeyRows([], "inline", ORD), R.ICON_KEY_PER_ROW,
+        R.iconKeyRows([{ text: "{N} no <icon:lift>", line: true }, { text: "Missing: an active <icon:school>", line: true }], "flex", ORD)],
+      [[["green", "blue", "black"], ["dblack", "openpatchy"]], [], [["patchy", "closed"]], [], [["power"]], [], 3, [["school", "lift"]]]);
+
+    // T42.20 the NBSP rescue of the inline layout (S0: Gameface drops the leading ASCII space of a run after an inline element). Render
+    // time only: the word form keeps ASCII spaces. A space after an icon inside a glue run becomes U+00A0; a run after a glue run hands its
+    // leading spaces to the end of that glue run (so a broken line never starts with a visible space); a run of spaces only goes; a
+    // trailing ASCII space before an icon stays (it survives in Gameface and stays a break point). No ASCII space ever leads a run that
+    // follows an inline element.
+    {
+      const show = (ps) => ps.map((p) => (p.kind === "text" ? p.text : "[" + p.items.map((t) => t.kind === "text" ? t.text : "@" + t.name).join("") + "]").split(R.NBSP).join("~"));
+      const variety = R.iconTokens("one <icon:green>, one <icon:blue> and one <icon:black> or <icon:dblack> run is <icon:openpatchy>. Otherwise no bonus.");
+      const school = R.iconTokens("An active ski school adds 12 while at least one <icon:green> run is <icon:openpatchy>.");
+      const leadAfterInline = (ps) => {
+        const bad = [];
+        ps.forEach((p, i) => {
+          if (p.kind === "text" && i > 0 && /^ /.test(p.text)) bad.push(p.text);
+          if (p.kind === "glue") p.items.forEach((it, j) => { if (it.kind === "text" && j > 0 && /^ /.test(it.text)) bad.push(it.text); });
+        });
+        return bad;
+      };
+      const tagged = [...tuples].map(([, v]) => v).filter((v) => /<icon:/.test(v));
+      eq("T42.20 iconInlinePieces: NBSP after an inline element, the space ends the glue run, word form untouched",
+        [show(R.iconInlinePieces(variety)), show(R.iconInlinePieces(school)), show(R.iconInlinePieces(R.iconTokens("<icon:open> <icon:patchy>"))),
+          show(R.iconInlinePieces(R.iconTokens("plain text"))), R.NBSP.charCodeAt(0),
+          R.iconWordForm("one <icon:green> run", W).includes(R.NBSP), tagged.filter((v) => leadAfterInline(R.iconInlinePieces(R.iconTokens(v))).length)],
+        [["one ", "[@green,~]", "one ", "[@blue~and~]", "one ", "[@black~or~]", "[@dblack~run~]", "is ", "[@openpatchy.~]", "Otherwise no bonus."],
+          ["An active ski school adds 12 while at least one ", "[@green~run~]", "is ", "[@openpatchy.]"],
+          ["[@open~]", "[@patchy]"], ["plain text"], 0xa0, false, []]);
+    }
 
     // The text side of R-icon, over every hub tuple and LocaleEN.cs (+ Settings/LocaleEN.cs).
     const iconSrc = fs.readFileSync(path.join(srcDir, "hub", "hubIcons.ts"), "utf8");
     const tableBlock = (iconSrc.split("export const HUB_ICON")[1] || "").split("};")[0];
     const names = [...tableBlock.matchAll(/^\s*([a-z]+): \{ src:/gm)].map((m) => m[1]);
     const wordKeys = [...tableBlock.matchAll(/word: HUB_LOC\.(\w+)/g)].map((m) => m[1]);
-    eq("T42.10 HUB_ICON is the v1 core (4 ratings, 4 states, power, snow), each with its word entry",
-      [names, wordKeys.length], [["green", "blue", "black", "dblack", "open", "patchy", "closed", "openpatchy", "power", "snow"], 10]);
+    eq("T42.10 HUB_ICON is the v1 core (4 ratings, 4 states, power, snow) plus v2 (ski school, lift), each with its word entry",
+      [names, wordKeys.length], [["green", "blue", "black", "dblack", "open", "patchy", "closed", "openpatchy", "school", "lift", "power", "snow"], 12]);
     // The legend rule (owner 2026-11-08: inline icons are fine while the legend describes every one): the header legend
     // (HUB_ICON_GROUPS) holds every HUB_ICON name exactly once, and T42.11 below allows a tag NAME in text only when it has a legend row.
     const groupsBlock = (iconSrc.split("export const HUB_ICON_GROUPS")[1] || "").split("];")[0];
@@ -1062,9 +1090,9 @@ function run(srcDir) {
       }
     }
     const imported = [...iconSrc.matchAll(/from "\.\/icons\/([\w-]+\.svg)"/g)].map((m) => m[1]).sort();
-    eq("T42.12 icon SVGs: 8 files, every one imported by hubIcons.ts, well-formed, colors only from the on-dark tokens", [svgs, imported, svgBad],
-      [["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "open.svg", "openpatchy.svg", "patchy.svg"],
-        ["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "open.svg", "openpatchy.svg", "patchy.svg"], []]);
+    eq("T42.12 icon SVGs: 9 files, every one imported by hubIcons.ts, well-formed, colors only from the on-dark tokens", [svgs, imported, svgBad],
+      [["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "lift.svg", "open.svg", "openpatchy.svg", "patchy.svg"],
+        ["black.svg", "blue.svg", "closed.svg", "dblack.svg", "green.svg", "lift.svg", "open.svg", "openpatchy.svg", "patchy.svg"], []]);
     // The harness base scenario sends the contract number. A stale one shows the mismatch card in every harness scenario, and the
     // layout test then fails with "reading 'click'" instead of a clear message (round 620 hit this). The harness sits next to src/;
     // a --src= copy without it (tools/test-gate-fixtures.js) skips the check.
