@@ -156,6 +156,22 @@ Measured on 2026-11-08 (83-mod playset, 4K): READY came 45.5 s after the main me
 to the old "main menu + 40 s" rule, which was too short after the menu. None of the 4 launches in that pass had an exit, but
 only the last one had the finished gate.
 
+**Turning live reload off (measured once, 2026-11-08):** with the game closed, add this section to
+`%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\FallbackSettings.coc` (CRLF, like the rest of the file):
+
+```
+UIManager Settings
+{
+    "liveReload": false
+}
+```
+
+`UIManager` reads it through `AssetDatabase.global.LoadSettings("UIManager Settings", ...)` after its defaults (UIManager.cs:191). With
+it, a launch and a save load had 0 page loads and no `Reloading media` line, and the page helpers survived the save load. READY came
+43.2 s after the main menu (virtual texturing and prefabs settling) and 20.5 s after a save load. The cost: an edited UI file no longer
+reloads the running game (deploys happen with the game closed anyway). UNVERIFIED: whether the game keeps the section when it rewrites
+the .coc files on exit, and whether this prevents the exits. Back the file up first and restore it after the session.
+
 ### Practical limits, all measured
 
 - **No bridge or `game_eval` call before READY** (see Wait for ready).
