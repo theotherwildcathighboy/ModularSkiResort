@@ -15,7 +15,7 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private static readonly float JunctionBackM = Env("RF_JBACK", 60f);   // how far a merging run's end may slide back
+        private static float JunctionBackM => O.JunctionBackM;   // how far a merging run's end may slide back
 
         /// <summary>Moves merging runs' ends back to where they crowd the run they join least. Returns the runs changed.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]

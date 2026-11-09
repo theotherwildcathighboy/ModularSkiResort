@@ -25,12 +25,13 @@ namespace AutoGenBatch
         private const float AccessRadiusM = 1500f, AccessMaxDown = 0.35f, AccessMaxUp = 0.07f, AccessCliff = 0.75f;
         private const float AccessRawPitch = 0.42f, AccessRawRise = 3.5f;   // on the raw terrain: 30 m pitch, rise within 55 m
         private const float StationMax = 0.34f;   // raw 10 m grade a station pad may sit on (the scorecard flags over 0.40)
-        private static readonly float TopLatticeM = Env("RF_LAT", 100f), ReturnM = Env("RF_RET", 150f);
-        private static readonly float ReachBudget = Env("RF_RBUDGET", 15e6f);   // cells the top lattice's reach searches may visit
+        private static float TopLatticeM => O.TopLatticeM;
+        private static float ReturnM => O.ReturnM;
+        private static float ReachBudget => O.ReachBudget;   // cells the top lattice's reach searches may visit
         // a lattice point with no pad within 30 m takes the flattest pad within this reach, as a top for the coverage lifts only.
         // The reach is about half the lattice diagonal, so every pad on a steep ridge belongs to some lattice point
-        private static readonly float PadReachM = Env("RF_PADR", 70f);
-        private static readonly int ScanThreads = Math.Max(1, (int)Env("RF_THREADS", 4f));   // threads for the top lattice's reach scan
+        private static float PadReachM => O.PadReachM;
+        private static int ScanThreads => Math.Max(1, O.ScanThreads);   // threads for the top lattice's reach scan
         private const float MarginalShare = 0.1f;   // a lift worth less than this share of the first is marginal
         private const float HubLinkM = 150f, BenchGrade = 0.25f, MinLapM = 60f;
         private const float TowerLiftM = 20f;
@@ -39,10 +40,12 @@ namespace AutoGenBatch
         // hourly capacity relative to a detachable quad (2,400 / h): a tram lap is worth a third of a chair lap to a resort
         private static float Capacity(string type) => type switch { "fixed-grip" => 0.75f, "detachable" => 1f, "gondola" => GondolaCap, _ => 0.3f };   // terrain may rise this far above the straight chord (towers carry the rope over it)
         // v5 lift type by use: 0 off, 1 in the placement (the value follows the new type), 2 a relabel of the finished plan
-        private static readonly int TypeUse = (int)Env("RF_TYPEUSE", 2f);
-        private static readonly float ChairMaxRise = Env("RF_CHAIRRISE", 700f), VeryLongM = Env("RF_VERYLONG", 2500f), TramRise = Env("RF_TRAMRISE", 800f);
-        private static readonly float GondolaCap = Env("RF_GONDCAP", 0.6f);
-        private static readonly float LiftFallW = Env("RF_LIFTFALL", 0f);   // the share of a lift's value lost 60 degrees off the fall line (off: at 0.6 it re-picked the lifts, -2.8 visible, more lone bases)
+        private static int TypeUse => O.TypeUse;
+        private static float ChairMaxRise => O.ChairMaxRise;
+        private static float VeryLongM => O.VeryLongM;
+        private static float TramRise => O.TramRise;
+        private static float GondolaCap => O.GondolaCap;
+        private static float LiftFallW => O.LiftFallW;   // the share of a lift's value lost 60 degrees off the fall line (off: at 0.6 it re-picked the lifts, -2.8 visible, more lone bases)
 
         private static readonly List<(float2 P, int R, int G, int B)> DebugDots = new List<(float2, int, int, int)>();   // RF_TOPS marks
 
@@ -152,7 +155,7 @@ namespace AutoGenBatch
 
             // stations for the coverage lifts: flat ground on a 150 m lattice away from the other candidates (not for the main search)
             int mainB = bottoms.Count;
-            if (Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1")
+            if (O.CoverLifts)
             {
                 int bs = Math.Max(1, (int)Math.Round(150f / g.CellM));
                 for (int z = bs / 2; z < g.D; z += bs)
@@ -190,7 +193,7 @@ namespace AutoGenBatch
             var entry = new List<int[]>();
             var reachB = new List<bool[]>();   // per top: which bottom candidates its reach touches
             int[] latIdx = SkiLattice(g, out int latCount);
-            var flow = Environment.GetEnvironmentVariable("RF_NOBELOW") == "1" ? null : new LatticeFlow(g, rec, latIdx);
+            var flow = !O.Below ? null : new LatticeFlow(g, rec, latIdx);
             var reachBits = new List<ulong[]>();   // per top: the skiable lattice points below its reach
             var cTops = new List<int>();           // every lattice top with a pad, picked lines in reach or not (the coverage lifts)
             var cReachB = new List<bool[]>();
@@ -232,7 +235,7 @@ namespace AutoGenBatch
             {
                 var at = lattice.FindAll(p => p.Level == levels);
                 double projected = scanned.Count > 0 ? work + (double)work / scanned.Count * at.Count : 0;
-                if (Environment.GetEnvironmentVariable("RF_TIME") == "1")
+                if (O.Timing)
                     Console.WriteLine($"TIME tops level {levels}: {at.Count} top(s), {projected / 1e6:F2} M cells projected");
                 if (projected > ReachBudget)
                     break;
@@ -288,7 +291,7 @@ namespace AutoGenBatch
             foreach (var (t, e, any, rb, bits, far) in scanned.Values)
             {
                 cTops.Add(t);
-                if (Environment.GetEnvironmentVariable("RF_TOPS") == "1")
+                if (O.DebugTopList)
                     DebugDots.Add((g.World(t), any ? 0 : 255, any ? 255 : 0, 255));
                 cReachB.Add(rb);
                 cReachBits.Add(bits);
@@ -300,7 +303,7 @@ namespace AutoGenBatch
                     reachBits.Add(bits);
                 }
             }
-            if (Environment.GetEnvironmentVariable("RF_TIME") == "1")
+            if (O.Timing)
                 Console.WriteLine($"TIME tops: {scanned.Count} of {lattice.Count} lattice tops ({levels} of 5 levels), {work} cells reached");
             Tick("tops");
             // greedy: the lift that adds the most new vertical (per line, elevation intervals already lapped don't count twice)
@@ -308,8 +311,8 @@ namespace AutoGenBatch
             for (int li = 0; li < lines.Count; li++)
                 covered[li] = new List<(float, float)>();
             float vertical = hMax - hMin;
-            float perKm2 = float.Parse(Environment.GetEnvironmentVariable("RF_LPK") ?? "1.1", System.Globalization.CultureInfo.InvariantCulture);
-            float stopShare = float.Parse(Environment.GetEnvironmentVariable("RF_STOP") ?? "0.05", System.Globalization.CultureInfo.InvariantCulture);
+            float perKm2 = O.LiftsPerKm2;
+            float stopShare = O.StopShare;
             // the scorecard's bases: lift bottoms in the lowest 35 % of the region's (raw) relief
             float rLo = float.MaxValue, rHi = float.MinValue;
             for (int c = 0; c < n; c++)
@@ -329,7 +332,7 @@ namespace AutoGenBatch
             var bans = new HashSet<long>();   // top-bottom pairs whose bottom found no pad of its own
             var spotFails = new int[B];
             int fails = 0;
-            bool spread = Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1" && SpreadEach;
+            bool spread = O.Spread && SpreadEach;
             while (lifts.Count < want)
             {
                 float best = 0f, bestOwn = 0f, bestTransfer = 0f;
@@ -383,11 +386,11 @@ namespace AutoGenBatch
                     }
                 if (bt < 0 || (firstGain > 0f && best < stopShare * firstGain))
                 {
-                    if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                    if (O.Debug)
                         Console.WriteLine($"DEBUG lifts stop at {lifts.Count} of {want}: best {best:F0} first {firstGain:F0} (bt {bt})");
                     break;
                 }
-                if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                if (O.Debug)
                     Console.WriteLine($"DEBUG lift {lifts.Count + 1}: {bestType} gain {bestOwn:F0} transfer {bestTransfer:F0} value {best:F0} top {g.World(tops[bt]).x:F0},{g.World(tops[bt]).y:F0} bottom {g.World(bottoms[bb]).x:F0},{g.World(bottoms[bb]).y:F0}{(firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut) ? " (marginal, opens a base: skipped)" : "")}");
                 // a marginal lift may not open a base of its own. A low station away from every other base needs its own beginner
                 // terrain and services. A lift worth that little does not earn them
@@ -425,7 +428,7 @@ namespace AutoGenBatch
                         if (++spotFails[bb] >= 2)
                             excluded.Add(bb);
                         fails++;
-                        if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                        if (O.Debug)
                             Console.WriteLine($"DEBUG lift {lifts.Count + 1}: no pad of its own at {lift.Bottom.x:F0},{lift.Bottom.z:F0}: not placed");
                         continue;
                     }
@@ -460,14 +463,14 @@ namespace AutoGenBatch
                         fed.Add(lf.Id);
                 lifts.Add(lift);
             }
-            if (Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1")
+            if (O.CoverLifts)
                 AddCoverLifts(g, rec, lifts, cTops, cReachB, cReachBits, bottoms, latIdx, latCount, runs, km2, slope);
             Tick("cover lifts");
             // each lift its own terminal (scorecard v4 layout): a station on another lift's spot moves to a pad of its own
-            if (Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1")
+            if (O.Spread)
                 SpreadTerminals(g, lifts, null, runs);
             Tick("spread");
-            if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+            if (O.Debug)
                 for (int L = 0; L < lifts.Count; L++)
                 {
                     var others = lifts.FindAll(o => o != lifts[L]);
@@ -554,17 +557,17 @@ namespace AutoGenBatch
             }
             return near * 2 > n;
         }
-        private static readonly float EdgeLiftM = Env("RF_EDGELIFT", 45f);
+        private static float EdgeLiftM => O.EdgeLiftM;
 
         private static bool Aerial(string type) => type == "gondola" || type == "tram";
 
         // scorecard v4's parallel lines are twins too (RF_PARALLELOK=1: allowed), past the lines a new one may run beside
-        private static readonly bool NoParallel = Environment.GetEnvironmentVariable("RF_PARALLELOK") != "1";
-        private static readonly int TransferBeside = (int)Env("RF_TRANSFERBESIDE", 1f);
+        private static bool NoParallel => O.NoParallel;
+        private static int TransferBeside => O.TransferBeside;
 
         // a lift of the search whose bottom finds no pad of its own is not placed, up to this many times a region (RF_OWNBOTTOM=0: off)
-        private static readonly bool OwnBottom = Environment.GetEnvironmentVariable("RF_OWNBOTTOM") != "0";
-        private static readonly int OwnBottomTries = (int)Env("RF_OWNBOTTOMTRIES", 8f);
+        private static bool OwnBottom => O.OwnBottom;
+        private static int OwnBottomTries => O.OwnBottomTries;
 
         private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f, string type = null, int beside = 0)
         {
@@ -743,7 +746,7 @@ namespace AutoGenBatch
 
         /// <summary>The cheapest lift type whose length / rise / mean grade norms fit and whose chord clears the ground (terrain at
         /// most TowerLiftM above the straight line). Returns null when none fits. Long chairs prefer the detachable.</summary>
-        private static readonly float MaxRiseM = Env("RF_MAXRISE", 0f);
+        private static float MaxRiseM => O.MaxRiseM;
 
         private static string TypeFor(Grid g, int b, int t)
         {

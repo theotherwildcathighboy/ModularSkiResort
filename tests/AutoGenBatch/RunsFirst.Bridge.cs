@@ -16,7 +16,7 @@ namespace AutoGenBatch
     {
         private const float BridgeMinM = 250f, BridgeMaxM = 1500f;   // bridge chord in plan
         private const float BridgeStartM = 140f;                     // skiers ski an element that starts this close to the top from the top
-        private static readonly float BridgeFallW = Env("RF_BRIDGEFALL", 2f);   // a bridge 60 degrees off the fall line costs 1 + this times as much
+        private static float BridgeFallW => O.BridgeFallW;   // a bridge 60 degrees off the fall line costs 1 + this times as much
 
         /// <summary>Adds bridge lifts while the network is split and the lift budget allows. Returns how many.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]

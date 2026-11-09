@@ -36,7 +36,7 @@ namespace AutoGenBatch
         private const float SpacingM = 60f;       // the upper 60 % of two picked lines stay this far apart
         private const float OverlapShare = 0.3f;
         private const float MergeM = 35f;         // a picked line ends where it runs onto an earlier one (3 samples in a row this close, a trail width)
-        private static readonly float PicksPerKm2 = Env("RF_PPK", 5f);     // line cap per km2 (12-80), the Normal density
+        private static float PicksPerKm2 => O.PicksPerKm2;     // line cap per km2 (12-80), the Normal density
         private const float GentleLatticeM = 50f, GentleMinGrade = 0.06f, GentleMaxGrade = 0.40f;
 
         // per family: steepest 30 m pitch the line may hold (cut there), runout grade trimmed off the bottom, min drop / length (m)
@@ -50,8 +50,8 @@ namespace AutoGenBatch
         // fixed 3 / 2 / 1. The region's own ground is the share of its 100 m cells in the band, rated as the scorecard rates them. 1: lines
         // banded by their own pitch, the weights also used for run candidates. 2: lines banded by the ground under them (the scorecard's run
         // band), the pick only. Off: both lowered the visible grade mix (see the v5 report).
-        private static readonly int MixMode = (int)Env("RF_MIXW", 0f);
-        private static readonly float MixGreenMin = Env("RF_MIXGREEN", 1.5f);   // green keeps at least this weight (the learning areas)
+        private static int MixMode => O.MixMode;
+        private static float MixGreenMin => O.MixGreenMin;   // green keeps at least this weight (the learning areas)
         private static float[] MixW;   // per band, for the region being planned (null: the fixed weights)
 
         /// <summary>The region's ground mix as scorecard v5 rates it: 100 m cells inside the ring, each the 85th percentile of the raw
@@ -114,6 +114,130 @@ namespace AutoGenBatch
 
         private static float2 P(float x, float z) => new float2(x, z);
 
+        /// <summary>The options the planner reads (the only knobs it has). The host sets them per run; the default is today's defaults.</summary>
+        internal static RunsFirstOptions O = new RunsFirstOptions();
+
+        /// <summary>Host only: the options from the RF_* environment switches (unset or unreadable: the default). The planner never reads
+        /// the environment itself.</summary>
+        internal static RunsFirstOptions HostOptions()
+        {
+            var o = new RunsFirstOptions();
+            o.PicksPerKm2 = Env("RF_PPK", 5f);
+            o.MixMode = (int)Env("RF_MIXW", 0f);
+            o.MixGreenMin = Env("RF_MIXGREEN", 1.5f);
+            o.TopLatticeM = Env("RF_LAT", 100f);
+            o.ReturnM = Env("RF_RET", 150f);
+            o.ReachBudget = Env("RF_RBUDGET", 15e6f);
+            o.PadReachM = Env("RF_PADR", 70f);
+            o.ScanThreads = Math.Max(1, (int)Env("RF_THREADS", 4f));
+            o.TypeUse = (int)Env("RF_TYPEUSE", 2f);
+            o.ChairMaxRise = Env("RF_CHAIRRISE", 700f);
+            o.VeryLongM = Env("RF_VERYLONG", 2500f);
+            o.TramRise = Env("RF_TRAMRISE", 800f);
+            o.GondolaCap = Env("RF_GONDCAP", 0.6f);
+            o.LiftFallW = Env("RF_LIFTFALL", 0f);
+            o.LiftsPerKm2 = Env("RF_LPK", 1.1f);
+            o.StopShare = Env("RF_STOP", 0.05f);
+            o.EdgeLiftM = Env("RF_EDGELIFT", 45f);
+            o.TransferBeside = (int)Env("RF_TRANSFERBESIDE", 1f);
+            o.OwnBottomTries = (int)Env("RF_OWNBOTTOMTRIES", 8f);
+            o.MaxRiseM = Env("RF_MAXRISE", 0f);
+            o.CoverLifts = Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1";
+            o.Below = Environment.GetEnvironmentVariable("RF_NOBELOW") != "1";
+            o.Spread = Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1";
+            o.SpreadAxis = Environment.GetEnvironmentVariable("RF_NOSPREADAXIS") != "1";
+            o.SpreadEach = Environment.GetEnvironmentVariable("RF_NOSPREADEACH") != "1";
+            o.NoParallel = Environment.GetEnvironmentVariable("RF_PARALLELOK") != "1";
+            o.OwnBottom = Environment.GetEnvironmentVariable("RF_OWNBOTTOM") != "0";
+            o.Village = Environment.GetEnvironmentVariable("RF_NOVILLAGE") != "1";
+            o.CoverNewBase = Environment.GetEnvironmentVariable("RF_CNEWBASE") == "1";
+            o.CoverLiftShare = Env("RF_CLS", 0.015f);
+            o.CoverLiftMinPts = (int)Env("RF_CLM", 120f);
+            o.CoverParallelM = Env("RF_CPAR", 170f);
+            o.CoverClearM = Env("RF_CCLR", 100f);
+            o.CoverFallW = Env("RF_COVERFALL", 0.8f);
+            o.CoverOwnPads = Environment.GetEnvironmentVariable("RF_COVEROWNPAD") != "0";
+            o.PodHold = (int)Env("RF_PODHOLD", 2f);
+            o.ServeCapPerKm2 = Env("RF_SCAP", 8f);
+            o.RunOutM = Env("RF_RUNOUT", 1600f);
+            o.ChordDefer = Env("RF_CDEF", 0.35f);
+            o.ChordKeep = Env("RF_CKEEP", 0.5f);
+            o.Spurs = Environment.GetEnvironmentVariable("RF_NOSPUR") != "1";
+            o.Pods = Environment.GetEnvironmentVariable("RF_NOPOD") != "1";
+            o.Bridges = Environment.GetEnvironmentVariable("RF_NOBRIDGE") != "1";
+            o.LearningPods = Environment.GetEnvironmentVariable("RF_LEARNPOD") == "1";
+            o.WayHome = Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1";
+            o.Downloads = Environment.GetEnvironmentVariable("RF_NODOWNLOAD") != "1";
+            o.DropStranded = Environment.GetEnvironmentVariable("RF_NODROP") != "1";
+            o.Regrade = Environment.GetEnvironmentVariable("RF_NOREGRADE") != "1";
+            o.GradedWays = Environment.GetEnvironmentVariable("RF_NOGRADEDWAY") != "1";
+            o.Fill = Environment.GetEnvironmentVariable("RF_NOFILL") != "1";
+            o.Chords = Environment.GetEnvironmentVariable("RF_NOCHORD") != "1";
+            o.Nudge = Environment.GetEnvironmentVariable("RF_NONUDGE") != "1";
+            o.ChordTracks = Environment.GetEnvironmentVariable("RF_NOCHORDTRACK") != "1";
+            o.ChordDrop = Environment.GetEnvironmentVariable("RF_NOCHORDDROP") != "1";
+            o.Merge = Environment.GetEnvironmentVariable("RF_NOMERGE") != "1";
+            o.Prune = Environment.GetEnvironmentVariable("RF_NOPRUNE") != "1";
+            o.Straight = Environment.GetEnvironmentVariable("RF_NOSTRAIGHT") != "1";
+            o.Junctions = Environment.GetEnvironmentVariable("RF_JUNCTION") == "1";
+            o.Heads = Environment.GetEnvironmentVariable("RF_HEAD") == "1";
+            o.LearningAreas = Environment.GetEnvironmentVariable("RF_NOLEARN") != "1";
+            o.NudgeMaxM = Env("RF_NUDGEM", 350f);
+            o.BridgeFallW = Env("RF_BRIDGEFALL", 2f);
+            o.GradedLinks = Environment.GetEnvironmentVariable("RF_NOGRADEDLINK") != "1";
+            o.HeadForwardM = Env("RF_HFWD", 60f);
+            o.JunctionBackM = Env("RF_JBACK", 60f);
+            o.EasyUpTol = Env("RF_UPTOL", 0.10f);
+            o.EasyBudget = Env("RF_EBUDGET", 3.0e6f);
+            o.LinkBudget = Env("RF_LBUDGET", 1.8e6f);
+            o.TrackTurnM = Env("RF_TURNM", 40f);
+            o.LearnGround = Env("RF_LGROUND", 0.235f);
+            o.LearnMinRise = Env("RF_LMINRISE", 32f);
+            o.LearnMaxRise = Env("RF_LMAXRISE", 130f);
+            o.LearnMinLen = Env("RF_LMINLEN", 180f);
+            o.LearnRouteMax = Env("RF_LROUTE", 1500f);
+            o.LearnCrowd = Env("RF_LCROWD", 0.45f);
+            o.LearnFallDeg = Env("RF_LFALL", 35f);
+            o.LearnHigh = Environment.GetEnvironmentVariable("RF_NOLEARNHIGH") != "1";
+            o.LearnAbove = Environment.GetEnvironmentVariable("RF_LEARNABOVE") == "1";
+            o.LearnConvert = Environment.GetEnvironmentVariable("RF_LEARNCONVERT") == "1";
+            o.V3Home = Environment.GetEnvironmentVariable("RF_V3HOME") == "1";
+            o.WayPeakOnly = Environment.GetEnvironmentVariable("RF_WAYPEAK") == "1";
+            o.PeakWayAgain = Environment.GetEnvironmentVariable("RF_PEAKAGAIN") == "1";
+            o.WayGreenFirst = Environment.GetEnvironmentVariable("RF_WAYGREEN1") == "1";
+            o.FillMinM = Env("RF_FILLMIN", 130f);
+            o.FillCrowdTrade = Env("RF_FTRADE", 0.25f);
+            o.FaceLines = Environment.GetEnvironmentVariable("RF_NOFACE") != "1";
+            o.Diagonals = Environment.GetEnvironmentVariable("RF_NODIAG") != "1";
+            o.NaturalMode = (int)Env("RF_NATURAL", 2f);
+            o.NaturalHostile = Env("RF_NATHOSTILE", 0.4f);
+            o.StraightDevM = Env("RF_STRDEV", 30f);
+            o.NoLoneBase = Environment.GetEnvironmentVariable("RF_LONEBASE") == "1";
+            o.StackDegM = Env("RF_STACKDEG", 33f);
+            o.StackTopMm = Env("RF_STACKTOP", 330f);
+            o.StackBottomMm = Env("RF_STACKBOT", 280f);
+            o.NoStacked = Environment.GetEnvironmentVariable("RF_STACKED") != "0";
+            o.RegradeStretch = Env("RF_RGSTRETCH", 1.8f);
+            o.RegradeMinGain = Env("RF_RGMIN", 0.005f);
+            o.PruneMinGain = Env("RF_PRUNEMIN", 0.01f);
+            o.Debug = Environment.GetEnvironmentVariable("RF_DEBUG") == "1";
+            o.Timing = Environment.GetEnvironmentVariable("RF_TIME") == "1";
+            o.DebugTops = Environment.GetEnvironmentVariable("RF_TOPDBG") == "1";
+            o.DebugTwins = Environment.GetEnvironmentVariable("RF_TWINDBG") == "1";
+            o.DebugTopList = Environment.GetEnvironmentVariable("RF_TOPS") == "1";
+            o.DebugConvert = Environment.GetEnvironmentVariable("RF_CONVDBG") == "1";
+            o.DebugV3All = Environment.GetEnvironmentVariable("RF_V3ALL") == "1";
+            o.DebugWayHome = Environment.GetEnvironmentVariable("RF_WHDBG") == "1";
+            o.DebugChords = Environment.GetEnvironmentVariable("RF_CHORDDBG") == "1";
+            o.DebugModel = Environment.GetEnvironmentVariable("RF_MODELDBG") == "1";
+            o.DebugCover = Environment.GetEnvironmentVariable("RF_COVDBG") == "1";
+            o.DebugCoverMap = Environment.GetEnvironmentVariable("RF_COVER") == "1";
+            o.DebugCrowd = Environment.GetEnvironmentVariable("RF_CROWD") == "1";
+            o.DebugV3 = Environment.GetEnvironmentVariable("RF_V3DBG") == "1";
+            o.DebugTurns = Environment.GetEnvironmentVariable("RF_TURNDBG") == "1";
+            return o;
+        }
+
         /// <summary>Experiment knob: an environment variable as a float (the default when unset).</summary>
         private static float Env(string name, float dflt) =>
             float.TryParse(Environment.GetEnvironmentVariable(name), NumberStyles.Float, CultureInfo.InvariantCulture, out float v) ? v : dflt;
@@ -146,6 +270,7 @@ namespace AutoGenBatch
 
         public static int Run(string[] args)
         {
+            O = HostOptions();
             // "rf-holdout <file>": writes the real-resort regions (9 km2 around each real fixture base point) as a regions file
             if (args[0] == "rf-holdout")
             {
@@ -235,7 +360,7 @@ namespace AutoGenBatch
         // The clock only reports: no pass reads it, so a plan depends on its input alone (the time cutoff RF_LATEMS and the learning
         // search's RF_ABOVEMS went in the port round R0-c). Tick records the end of each pass; the host prints the table.
         private static System.Diagnostics.Stopwatch Clock = new System.Diagnostics.Stopwatch();
-        private static readonly bool Timing = Environment.GetEnvironmentVariable("RF_TIME") == "1";
+        private static bool Timing => O.Timing;
         private static readonly List<(string Pass, long Ms)> PassTimes = new List<(string, long)>();
         private static void Tick(string what)
         {
@@ -314,7 +439,7 @@ namespace AutoGenBatch
                     && lifts.Exists(o => o != lf && math.distance(o.Bottom.xz, lf.Top.xz) < 300f) && (village == null || lf.Length > village.Length)
                     && !lifts.Exists(o => o != lf && Aerial(o.Type) && SegCrossScore(o.Bottom.xz, o.Top.xz, lf.Bottom.xz, lf.Top.xz)))
                     village = lf;
-            if (village != null && Environment.GetEnvironmentVariable("RF_NOVILLAGE") != "1")
+            if (village != null && O.Village)
                 village.Type = "gondola";
             if (TypeUse == 2)
                 RetypeByUse(g, built, lifts, village);
@@ -361,9 +486,9 @@ namespace AutoGenBatch
                 Console.WriteLine($"REPORT rf plan {id}: {s}");
             RunsFirstScore.Result score = RunsFirstScore.Evaluate(snap, ring, plan);
             Console.WriteLine(RunsFirstScore.Line(id, score));
-            if (Environment.GetEnvironmentVariable("RF_V3DBG") == "1")
+            if (O.DebugV3)
                 V3Debug(g, built, lifts);
-            if (Environment.GetEnvironmentVariable("RF_TURNDBG") == "1")
+            if (O.DebugTurns)
                 TurnDebug(id, built);
             File.AppendAllText(Path.Combine(outDir, id + ".txt"), "\n" + RunsFirstScore.Line(id, score) + "\n" +
                 string.Concat(score.Notes.Select(s => "  " + s + "\n")));

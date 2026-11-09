@@ -20,7 +20,7 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private static readonly float RegradeStretch = Env("RF_RGSTRETCH", 1.8f);   // a bench at most this many times the piece's length (plus 100 m)
+        private static float RegradeStretch => O.RegradeStretch;   // a bench at most this many times the piece's length (plus 100 m)
         private const float RegradeShare = 0.33f;    // connector km kept under this share of the run km (the scorecard's 0.35, less a margin)
 
         /// <summary>The planner's read of the economy term: connector km (green cat tracks, graded greens) and run km (runs and
@@ -431,7 +431,7 @@ namespace AutoGenBatch
             }
         }
 
-        private static readonly float RegradeMinGain = Env("RF_RGMIN", 0.005f);   // a cut that moves the score less than this stays a diagonal
+        private static float RegradeMinGain => O.RegradeMinGain;   // a cut that moves the score less than this stays a diagonal
 
         /// <summary>Cuts diagonal traverse pieces as green cat tracks where a bench fits and the cut gains score (crowding, stubs and
         /// economy against coverage, as the scorecard reads them). Returns the pieces regraded.</summary>
@@ -521,7 +521,7 @@ namespace AutoGenBatch
             return done;
         }
 
-        private static readonly float PruneMinGain = Env("RF_PRUNEMIN", 0.01f);   // a run taken out gains at least this much score
+        private static float PruneMinGain => O.PruneMinGain;   // a run taken out gains at least this much score
         private const int PruneReads = 40;                                         // ski graph reads the prune may spend
 
         /// <summary>Takes out the plan runs whose removal gains score as the scorecard reads the plan (a run crowded along most of its

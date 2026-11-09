@@ -61,7 +61,7 @@ namespace AutoGenBatch
         // - a blue run
         // - a black run (an expert way into the next area)
         private static readonly EasyLimits GreenWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f);
-        private static readonly EasyLimits LearnWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f, false, Env("RF_LGROUND", 0.235f));
+        private static EasyLimits LearnWay => new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f, false, O.LearnGround);
         private static readonly EasyLimits GreenProbe = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1500f);   // green ground near a station
         private static readonly EasyLimits CatTrack = new EasyLimits(0.30f, ConnPitchMax, ConnPitchMax, 3.5f, 1f, 1500f);
         private static readonly EasyLimits BlueWay = new EasyLimits(0.36f, 0.38f, 0.62f, 7f, 0.08f, 3500f);
@@ -118,7 +118,7 @@ namespace AutoGenBatch
             {
                 // bases as scorecard v3 reads them: two or more lift bottoms within 400 m low on the mountain (else the lowest lift's)
                 int[] rootOf = V3Bases(g, lifts, out HashSet<int> bases, out List<int> baseOrder);
-                if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1" && pass == 0)
+                if (O.Debug && pass == 0)
                     Console.WriteLine($"DEBUG bases: relief {hLo:F0}-{hHi:F0}, low cut {lowCut:F0}; " + string.Join("; ", bases.Select(b => string.Join(",", Enumerable.Range(0, lifts.Count).Where(L => rootOf[L] == b).Select(L => $"L{lifts[L].Id} ({RawH(g, lifts[L].Bottom.xz):F0})")))));
                 SkiGraph sg = Ski(g, plan, lifts);
                 List<int> members = null;
@@ -237,7 +237,7 @@ namespace AutoGenBatch
                 int n = lifts.Count, runsBefore = plan.Runs.Count, logBefore = plan.Log.Count;
                 if (!TryPod(g, plan, lifts, members, er, avoid, guard, sg))
                 {
-                    if (Environment.GetEnvironmentVariable("RF_DEBUG") != "1")
+                    if (!O.Debug)
                         plan.Log.RemoveRange(logBefore, plan.Log.Count - logBefore);
                     continue;
                 }
@@ -652,7 +652,7 @@ namespace AutoGenBatch
             var topsSeen = new HashSet<int>();
             int reroutes = 0;
             var why = new int[10];
-            bool dbg = Environment.GetEnvironmentVariable("RF_DEBUG") == "1";
+            bool dbg = O.Debug;
             if (dbg)
                 foreach (int c in er.Order)
                     if (er.Len[c] <= PodRouteMaxM)
@@ -836,8 +836,9 @@ namespace AutoGenBatch
         // search floods the whole region (a link that fails tries three of them per round). The region must plan in seconds
         private static long EasyWork, LinkWork;
         // a graded track may climb a little per step (a contour step on rough ground). The route's climb rule still holds it
-        private static readonly float EasyUpTol = Env("RF_UPTOL", 0.10f);
-        private static readonly float EasyBudget = Env("RF_EBUDGET", 3.0e6f), LinkBudget = Env("RF_LBUDGET", 1.8e6f);
+        private static float EasyUpTol => O.EasyUpTol;
+        private static float EasyBudget => O.EasyBudget;
+        private static float LinkBudget => O.LinkBudget;
 
         /// <summary>The easy-ground search's working arrays per grid cell (Steep: meters steeper than green, Hi: the highest raw point
         /// along the route), clean between searches. One set serves every search (regions plan one at a time).</summary>
@@ -869,7 +870,7 @@ namespace AutoGenBatch
         /// - Pitches over a green grade stay a small share (the band reads the 85th percentile).
         /// Routes along other runs, or along the given lift lines, cost more. With a goal cell the search heads for it (A*, the straight
         /// distance left as the estimate) and stops when it settles that cell.</summary>
-        private static readonly float TrackTurnM = Env("RF_TURNM", 40f);
+        private static float TrackTurnM => O.TrackTurnM;
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f, int goal = -1)

@@ -21,13 +21,13 @@ namespace AutoGenBatch
         private const float FillCrowdShare = 0.25f, FillCrowdM = 40f;   // at most this share of it within 40 m of another run (its last 150 m aside)
         private const float FillForkM = 30f;        // a fill run leaves a run or traverse within this distance, at most 3 m above it
         private const float FillDropM = 60f;
-        private static readonly float FillMinM = Env("RF_FILLMIN", 130f);   // a short fill run still drops FillDropM (no stub). Scorecard v3 rates length nowhere else
+        private static float FillMinM => O.FillMinM;   // a short fill run still drops FillDropM (no stub). Scorecard v3 rates length nowhere else
         private const float FillFeedM = 110f, FillFeedShare = 0.3f;   // ... or from a straight cut-over this long at most (a share of the run)
         // a fill run must open ground for the crowding it brings. The scorecard weighs coverage 10 against its 60 % target and
         // crowding 5 against a 30 % share. So at par a crowded 10 m sample costs about 1.0 x (lattice points / run samples) new points.
         // The fill asks a quarter of that: 0.25 against 0.67. Result: visible 97.48 -> 97.53, 80 % outlines 95.33 -> 95.40, 120 %
         // 96.10 -> 96.22, squares 95.01 -> 95.21, no region worse (1.0: 97.41 against 97.48)
-        private static readonly float FillCrowdTrade = Env("RF_FTRADE", 0.25f);
+        private static float FillCrowdTrade => O.FillCrowdTrade;
 
         /// <summary>Fall lines through open ground. From an open lattice point, a line goes up the steepest ascent until it meets ground
         /// a skier is on (onNear). It then goes down the steepest descent until it runs along a run for a few steps or reaches a
@@ -494,14 +494,14 @@ namespace AutoGenBatch
                     queue.Enqueue(cd, -f0);
             Tick("fill setup");
             int faceLines = 0;
-            if (Environment.GetEnvironmentVariable("RF_NOFACE") != "1")
+            if (O.FaceLines)
                 foreach (Cand cd in FaceLines(g, lifts, lat, covered, onLists.SelectMany(l => l).ToList(), smp.Select(x => x.P).ToList()))
                 {
                     faceLines++;
                     if (Eval(cd, out int f0, out _) != null)
                         queue.Enqueue(cd, -f0);
                 }
-            if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+            if (O.Debug)
                 Console.WriteLine($"DEBUG fill: {queue.Count} of {cands.Count} candidate(s) and {faceLines} face line(s); no fork {why[0]}, never leaves {why[1]}, no way home {why[2]}, short {why[3]}, crowded {why[4]}, little new ground {why[5]}, crowding costs more {why[6]}");
             Tick("face lines");
             int added = 0, opened = 0;
@@ -574,7 +574,7 @@ namespace AutoGenBatch
             float diagKm = 0f;
             var dwhy = new int[8];
             var diagRuns = new List<PlanRun>();
-            if (Environment.GetEnvironmentVariable("RF_NODIAG") != "1" && have < 0.62f * lat.Count)
+            if (O.Diagonals && have < 0.62f * lat.Count)
             {
                 var dq = new StableHeap<List<float2>, int>();
                 var seenStart = new PointHash();
@@ -631,13 +631,13 @@ namespace AutoGenBatch
                         Open(p.xz);
                     }
                     diagonals++;
-                    if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                    if (O.Debug)
                         Console.WriteLine($"DEBUG diagonal {RunLength(pts):F0} m from {pts[0].x:F0},{pts[0].y:F0} to {pts[pts.Count - 1].x:F0},{pts[pts.Count - 1].y:F0}, {fresh} new lattice points");
                     opened += fresh;
                     diagKm += RunLength(pts) / 1000f;
                 }
             }
-            if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+            if (O.Debug)
                 Console.WriteLine($"DEBUG diagonals: {traces} trace(s), {traced} reached a run or station; not a run {dwhy[0]}, past blue {dwhy[1]}, connector rules {dwhy[2]}, " +
                     $"short {dwhy[3]}, crowded {dwhy[4]}, little new ground {dwhy[5]}, crowding costs more {dwhy[6]}, lift chord {dwhy[7]}");
             // a diagonal's case for a trail. It is a blue diagonal run by the scorecard's reading. It is within the connector rules, not a

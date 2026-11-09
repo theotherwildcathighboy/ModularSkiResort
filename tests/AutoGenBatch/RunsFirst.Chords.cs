@@ -222,7 +222,7 @@ namespace AutoGenBatch
         // how far a station may move across its line. 100 m against 60 m moved three more stations 70-80 m (visible 97.64 -> 97.69,
         // 80 % outlines 95.50 -> 95.72). 150 m moved one more, 120 m (ft5-r2 L5 off the summit station it shared: visible 97.69 -> 97.80).
         // 350 m (scorecard v4) moved owner-4 L7 260 m off the valley runs it lay along (visible 97.30 -> 97.41)
-        private static readonly float NudgeMaxM = Env("RF_NUDGEM", 350f);
+        private static float NudgeMaxM => O.NudgeMaxM;
 
         /// <summary>A lift line may move instead of the runs when its middle still lies along runs, when it crosses another lift of its
         /// kind, or when it runs beside another as scorecard v4 reads a parallel. The move shifts the whole line across itself, or swings

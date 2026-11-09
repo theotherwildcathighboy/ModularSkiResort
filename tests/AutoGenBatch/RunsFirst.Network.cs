@@ -127,7 +127,7 @@ namespace AutoGenBatch
         }
 
         // a link may be a graded track as a last resort (RF_NOGRADEDLINK=1: off)
-        private static readonly bool GradedLinks = Environment.GetEnvironmentVariable("RF_NOGRADEDLINK") != "1";
+        private static bool GradedLinks => O.GradedLinks;
 
         /// <summary>A route from where the froms' skiers are to a bottom station of the tos. The route is the first of these that the
         /// ground allows, as the ways home are:

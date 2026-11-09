@@ -17,7 +17,7 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private static readonly float HeadForwardM = Env("RF_HFWD", 60f);   // how far a run's start may slide forward
+        private static float HeadForwardM => O.HeadForwardM;   // how far a run's start may slide forward
 
         /// <summary>Moves runs' starts forward to where their first stretch crowds other runs least. Returns the runs changed.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -159,7 +159,7 @@ namespace AutoGenBatch
                     (!sg.Reached[i] || after.Reached[i]) && (!sg.Returns[i] || after.Returns[i]);
             for (int L = 0; keep && L < lifts.Count; L++)
                 keep = sg.Skied[L].All(after.Skied[L].Contains) && sg.Reaches[L].All(after.Reaches[L].Contains);
-            if (!keep && Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+            if (!keep && O.Debug)
                 for (int i = 0; i < sg.P.Count; i++)
                 {
                     var lostNext = sg.Next[i].Where(j => !after.Next[i].Contains(j)).ToList();

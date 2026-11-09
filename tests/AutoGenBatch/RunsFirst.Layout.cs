@@ -78,10 +78,14 @@ namespace AutoGenBatch
         private const float BaseTopM2 = 160f, BaseAreaM2 = 290f;
         // off by default (RF_LONEBASE=1): rejecting lone-base cover lifts and bridges took 24 -> 15 lone bases. It cost coverage and
         // grade mix where those lifts open terrain (ft5-r3 94.7 -> 92.8). Visible 82.59 -> 82.06
-        private static readonly bool NoLoneBase = Environment.GetEnvironmentVariable("RF_LONEBASE") == "1";
+        private static bool NoLoneBase => O.NoLoneBase;
 
-        private static readonly float StackDegM = Env("RF_STACKDEG", 33f), StackTopMm = Env("RF_STACKTOP", 330f), StackBottomMm = Env("RF_STACKBOT", 280f);
-        private static readonly bool NoStacked = Environment.GetEnvironmentVariable("RF_STACKED") != "0";
+        private static float StackDegM => O.StackDegM;
+
+        private static float StackTopMm => O.StackTopMm;
+
+        private static float StackBottomMm => O.StackBottomMm;
+        private static bool NoStacked => O.NoStacked;
 
         // scorecard v5's fall line: no cost to 30 degrees off the ground's mean downhill direction, full cost at 60
         private const float FallFreeDeg = 30f, FallFullDeg = 60f;
@@ -148,8 +152,8 @@ namespace AutoGenBatch
 
         // the spread may move a station along its own line too (RF_NOSPREADAXIS=1: off). It also runs after each lift of the search
         // and of the coverage pass (RF_NOSPREADEACH=1: off)
-        private static readonly bool SpreadAxis = Environment.GetEnvironmentVariable("RF_NOSPREADAXIS") != "1";
-        private static readonly bool SpreadEach = Environment.GetEnvironmentVariable("RF_NOSPREADEACH") != "1";
+        private static bool SpreadAxis => O.SpreadAxis;
+        private static bool SpreadEach => O.SpreadEach;
 
         /// <summary>A flat pad 46-130 m from cell c (for a bottom no higher than c, for a top no lower) that no other station of that
         /// end holds. It is where a station on another lift's station can move to.</summary>
@@ -304,7 +308,7 @@ namespace AutoGenBatch
                         $"({RawH(g, p) - hAt:+0;-0} m)");
                     return true;
                 }
-                if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                if (O.Debug)
                     Console.WriteLine($"DEBUG spread L{lf.Id} {(end == 0 ? "bottom" : "top")}{(plan == null ? " (before the plan)" : "")}: {moves.Count} spot(s), tries {tries}; near {why[0]}, pad {why[1]}, " +
                         $"fits {why[2]}, rope/cross {why[3]}, parallel {why[4]}, runs {why[5]}, hub/chord {why[6]}, skiing {why[7]}");
                 return false;

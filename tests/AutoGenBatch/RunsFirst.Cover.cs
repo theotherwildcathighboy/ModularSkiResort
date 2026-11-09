@@ -16,15 +16,15 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private static readonly bool NoNewBase = Environment.GetEnvironmentVariable("RF_CNEWBASE") != "1";
+        private static bool NoNewBase => !O.CoverNewBase;
         // a coverage lift opens at least this share of the region's skiable ground. 0.015 against 0.02, once lifts without a way home
         // and lines left on runs could go (0fd4f15, 41163e9). Result: visible 97.62 -> 97.64, 80 % outlines 95.40 -> 95.50, 120 % 96.22 ->
         // 96.88, squares 95.21 -> 95.30 (small pod chairs in side bowls). 0.01 put lifts that join nothing on a square (network 0.69)
-        private static readonly float CoverLiftShare = Env("RF_CLS", 0.015f);
-        private static readonly int CoverLiftMinPts = (int)Env("RF_CLM", 120f);     // ... and at least this many 20 m lattice points (11 ha)
-        private static readonly float CoverParallelM = Env("RF_CPAR", 170f);       // ... and no closer than this alongside a placed lift
-        private static readonly float CoverClearM = Env("RF_CCLR", 100f);          // ... its stations no closer than this to another rope
-        private static readonly float CoverFallW = Env("RF_COVERFALL", 0.8f);      // the share of a coverage lift's gain lost 60 degrees off the fall line
+        private static float CoverLiftShare => O.CoverLiftShare;
+        private static int CoverLiftMinPts => O.CoverLiftMinPts;     // ... and at least this many 20 m lattice points (11 ha)
+        private static float CoverParallelM => O.CoverParallelM;       // ... and no closer than this alongside a placed lift
+        private static float CoverClearM => O.CoverClearM;          // ... its stations no closer than this to another rope
+        private static float CoverFallW => O.CoverFallW;      // the share of a coverage lift's gain lost 60 degrees off the fall line
 
         /// <summary>The skiable 20 m lattice: per cell its index (-1 = not a lattice point or not skiable).</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -116,7 +116,7 @@ namespace AutoGenBatch
         }
 
         // a coverage lift's station on a placed lift's station needs a free pad nearby (RF_COVEROWNPAD=0: off)
-        private static readonly bool OwnPads = Environment.GetEnvironmentVariable("RF_COVEROWNPAD") != "0";
+        private static bool OwnPads => O.CoverOwnPads;
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int AddCoverLifts(Grid g, int[] rec, List<Lift> lifts, List<int> tops, List<bool[]> reachB, List<ulong[]> reachBits,
@@ -124,7 +124,7 @@ namespace AutoGenBatch
         {
             int n = g.W * g.D, B = bottoms.Count, wb = (B + 63) / 64, wl = (latCount + 63) / 64;
             float cellKm2 = (float)Math.Pow(Math.Max(1, (int)Math.Round(20f / g.CellM)) * g.CellM, 2) / 1e6f;   // ground per lattice point
-            int budget = (int)Math.Ceiling(1.5 * km2) + 2 - (int)Env("RF_PODHOLD", 2f);   // two left for the beginner pods (RF_PODHOLD)
+            int budget = (int)Math.Ceiling(1.5 * km2) + 2 - O.PodHold;   // two left for the beginner pods (RF_PODHOLD)
             float hLo = float.MaxValue, hHi = float.MinValue;
             for (int c = 0; c < g.W * g.D; c++)
                 if (g.In[c] && !float.IsNaN(g.Hr[c]))
@@ -201,7 +201,7 @@ namespace AutoGenBatch
                     reached[w] |= reachBits[lf.TopIndex][w];
                 }
             int added = 0;
-            bool debug = Environment.GetEnvironmentVariable("RF_DEBUG") == "1";
+            bool debug = O.Debug;
             // a station skiers get to: a skiable lattice point within 30 m lies below a placed top
             bool BelowPlaced(int c)
             {
@@ -283,7 +283,7 @@ namespace AutoGenBatch
                         if (gain >= Math.Max(CoverLiftMinPts, CoverLiftShare * latCount))
                             cands.Add((gain, ti, b));
                     }
-                    if (debug && Environment.GetEnvironmentVariable("RF_TOPDBG") == "1" && baseGain >= 40)
+                    if (debug && O.DebugTops && baseGain >= 40)
                         Console.WriteLine($"DEBUG cover top {g.World(tops[ti]).x:F0},{g.World(tops[ti]).y:F0} h {g.Hr[tops[ti]]:F0}: base gain {baseGain}, back {back}, best {tBest}, pairs {tPairs}, into {tInto}, home {tHome}");
                 }
                 SortStable(cands, (a, b) => b.Gain.CompareTo(a.Gain));
@@ -298,7 +298,7 @@ namespace AutoGenBatch
                     cands.RemoveRange(0, head);
                     cands.InsertRange(0, ranked);
                 }
-                if (debug && Environment.GetEnvironmentVariable("RF_TOPDBG") == "1")
+                if (debug && O.DebugTops)
                     Console.WriteLine("DEBUG cover top lines above");
                 if (debug)
                     Console.WriteLine($"DEBUG cover lifts: {openPts} of {latCount} lattice points unserved; {pairs} pair(s), {noInto} not reachable, {noHome} not leading home; best gain {maxGain}; {cands.Count} over the bar");
@@ -316,7 +316,7 @@ namespace AutoGenBatch
                     }
                     if (Twin(g, lifts, t, bc, CoverParallelM))
                     {
-                        if (debug && Environment.GetEnvironmentVariable("RF_TWINDBG") == "1")
+                        if (debug && O.DebugTwins)
                         {
                             float2 a0 = g.World(bc), a1 = g.World(t);
                             var why = new List<string>();
@@ -394,7 +394,7 @@ namespace AutoGenBatch
                     if (debug)
                         Console.WriteLine($"DEBUG cover lift L{lift.Id}: {type} {lift.Length:F0} m / {lift.Rise:F0} m up opens {gain} of {latCount} lattice points");
                     // its bottom on a placed lift's bottom moves to a pad of its own now (as in the lift search)
-                    if (Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1" && SpreadEach)
+                    if (O.Spread && SpreadEach)
                         SpreadTerminals(g, lifts, null, runs, true);
                     added++;
                     placed = true;

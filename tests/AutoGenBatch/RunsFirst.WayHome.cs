@@ -159,7 +159,7 @@ namespace AutoGenBatch
 
         // round v3's rule (every lift needs an easy way home: way-home tracks from every top, download gondolas, stranded lifts taken
         // out). Scorecard v4 reads experts-only lifts as normal, so the rule is off (RF_V3HOME=1 turns it back on)
-        private static readonly bool V3Home = Environment.GetEnvironmentVariable("RF_V3HOME") == "1";
+        private static bool V3Home => O.V3Home;
 
         /// <summary>A lift still without an easy way home is a download lift: its riders ride it down, so it is a gondola, or a tram
         /// where the grade needs one, when the norms fit with a margin and its chord crosses no other gondola or tram. Returns the
@@ -312,9 +312,9 @@ namespace AutoGenBatch
         }
 
         // only the way down from the peak (RF_WAYPEAK=1): the lifts below it get no way-home track of their own
-        private static readonly bool WayPeakOnly = Environment.GetEnvironmentVariable("RF_WAYPEAK") == "1";
+        private static bool WayPeakOnly => O.WayPeakOnly;
         // the way down from the peak is sought again after the chord drop only where it took a lift out (RF_PEAKAGAIN=1: always)
-        private static readonly bool PeakWayAgain = Environment.GetEnvironmentVariable("RF_PEAKAGAIN") == "1";
+        private static bool PeakWayAgain => O.PeakWayAgain;
 
         /// <summary>The easy ways home: a track from every lift's top that has none (a gondola or tram top counts as home there, its
         /// riders ride down), then, for scorecard v4, the way down from the peak (a gondola or tram top needs one of its own).
@@ -334,7 +334,7 @@ namespace AutoGenBatch
             int added = 0, blue = 0;
             var used = new HashSet<int>();   // cells of the tracks this pass emitted (a later track ends where it meets one)
             // blue first: visible 97.00 -> 97.48, 80 % outlines 94.80 -> 95.38, 120 % 95.30 -> 95.90 (RF_WAYGREEN1=1: green first)
-            foreach (EasyLimits lim in Environment.GetEnvironmentVariable("RF_WAYGREEN1") == "1" ? new[] { WayGreen, WayBlue } : new[] { WayBlue, WayGreen })
+            foreach (EasyLimits lim in O.WayGreenFirst ? new[] { WayGreen, WayBlue } : new[] { WayBlue, WayGreen })
             {
                 SkiGraph sg = Ski(g, plan, lifts);
                 int[] root = V3Bases(g, lifts, out HashSet<int> bases);

@@ -30,8 +30,8 @@ namespace AutoGenBatch
 
         // v5 natural runs (RF_NATURAL). 0: none. 1: double black by the ground. 2: also a black run whose ground is mostly past the
         // double-black line (cliffs and rock: hostile ground a designer leaves ungroomed)
-        private static readonly int NaturalMode = (int)Env("RF_NATURAL", 2f);
-        private static readonly float NaturalHostile = Env("RF_NATHOSTILE", 0.4f);
+        private static int NaturalMode => O.NaturalMode;
+        private static float NaturalHostile => O.NaturalHostile;
 
         /// <summary>Scorecard v5: skiers ski steep ground ungroomed. A run (not a graded track) is natural (the mod's RunKind.Natural)
         /// when its ground rates double black, or when its ground rates black with NaturalHostile of it past the double-black line.
@@ -97,7 +97,7 @@ namespace AutoGenBatch
             return (false, SlopeBand.Green);
         }
 
-        private static readonly float StraightDevM = Env("RF_STRDEV", 30f);   // a straight piece stays this close to the track's own points
+        private static float StraightDevM => O.StraightDevM;   // a straight piece stays this close to the track's own points
 
         /// <summary>Green cat tracks pulled straight. A route search steps between cell centers, and the smoothing only softens the
         /// staircase. So a track wobbles where a cat track on the ground runs straight. Between its anchors, a track takes the longest
@@ -266,7 +266,7 @@ namespace AutoGenBatch
                 List<float2> c = plan.Connectors[ci];
                 rows.Add((hits, $"{(links.Contains(c) ? "link" : "tree")} {RunLength(c):F0} m, {Q[0].y - Q[Q.Length - 1].y:F0} m down, along {AlongGrade(g, c):F2}, crowd {hits}, from {c[0].x:F0},{c[0].y:F0} to {c[c.Count - 1].x:F0},{c[c.Count - 1].y:F0}"));
             }
-            foreach (var row in rows.OrderByDescending(r => r.Hits).Take(Environment.GetEnvironmentVariable("RF_V3ALL") == "1" ? 999 : 12))
+            foreach (var row in rows.OrderByDescending(r => r.Hits).Take(O.DebugV3All ? 999 : 12))
                 Console.WriteLine("V3 graded " + row.Text);
         }
 

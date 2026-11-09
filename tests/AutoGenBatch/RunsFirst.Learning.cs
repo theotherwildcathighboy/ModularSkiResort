@@ -18,12 +18,14 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private static readonly float LearnMinRise = Env("RF_LMINRISE", 32f), LearnMaxRise = Env("RF_LMAXRISE", 130f);
-        private static readonly float LearnMinLen = Env("RF_LMINLEN", 180f), LearnRouteMax = Env("RF_LROUTE", 1500f);
+        private static float LearnMinRise => O.LearnMinRise;
+        private static float LearnMaxRise => O.LearnMaxRise;
+        private static float LearnMinLen => O.LearnMinLen;
+        private static float LearnRouteMax => O.LearnRouteMax;
         private const float LearnFullKm = 0.85f, LearnChairGrade = 0.45f, LearnTopM = 90f, LearnRunMinM = 200f, LearnBelowTopM = 130f;
-        private static readonly float LearnCrowd = Env("RF_LCROWD", 0.45f);
-        private static readonly float LearnFallDeg = Env("RF_LFALL", 35f);   // a learning chair climbs its slope's fall line too
-        private static readonly bool LearnHigh = Environment.GetEnvironmentVariable("RF_NOLEARNHIGH") != "1";
+        private static float LearnCrowd => O.LearnCrowd;
+        private static float LearnFallDeg => O.LearnFallDeg;   // a learning chair climbs its slope's fall line too
+        private static bool LearnHigh => O.LearnHigh;
 
         private const float LearnChordMax = 0.25f;
 
@@ -124,11 +126,11 @@ namespace AutoGenBatch
 
         // off by default (RF_LEARNABOVE=1). A learning area on a green bench just above a base lift top found no site that the other
         // modes missed on the five sets (no plan changed). It cost planning time
-        private static readonly bool LearnAbove = Environment.GetEnvironmentVariable("RF_LEARNABOVE") == "1";
-        private static readonly EasyLimits LearnWayShort = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1600f, false, Env("RF_LGROUND", 0.235f));
+        private static bool LearnAbove => O.LearnAbove;
+        private static EasyLimits LearnWayShort => new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1600f, false, O.LearnGround);
 
         // off by default (RF_LEARNCONVERT=1): turning a short base lift into the beginner chair changed no plan on the five sets
-        private static readonly bool LearnConvert = Environment.GetEnvironmentVariable("RF_LEARNCONVERT") == "1";
+        private static bool LearnConvert => O.LearnConvert;
 
         /// <summary>A short lift (30-150 m of rise, not aerial) becomes a beginner chair, with up to two green runs from its top back
         /// to its bottom, where that adds green km for the base. The lift qualifies when its bottom is at the base (within 390 m of a
@@ -148,7 +150,7 @@ namespace AutoGenBatch
                 if (via != null || members.Any(L => lifts[L] != lf && math.distance(lifts[L].Bottom.xz, lf.Bottom.xz) < 390f) || members.Contains(lifts.IndexOf(lf)))
                     cands.Add((lf, via));
             }
-            if (Environment.GetEnvironmentVariable("RF_CONVDBG") == "1")
+            if (O.DebugConvert)
                 foreach (Lift lf in lifts)
                     plan.Log.Add($"  convert? L{lf.Id} {lf.Type} rise {RawH(g, lf.Top.xz) - RawH(g, lf.Bottom.xz):F0} plan {math.distance(lf.Bottom.xz, lf.Top.xz):F0} aerial top {(aerials.Count > 0 ? aerials.Min(x => math.distance(x.Top.xz, lf.Bottom.xz)) : -1):F0} members {string.Join("/", members.Select(L => lifts[L].Id))}");
             plan.Log.Add($"  convert: {cands.Count} short lift(s) at the base or beside an aerial top: {string.Join(", ", cands.Select(c => $"L{c.Lf.Id}{(c.Via != null ? $" via L{c.Via.Id}" : "")}"))}");
@@ -585,7 +587,7 @@ namespace AutoGenBatch
                     best = new PlanRun { Pts = route, Band = SlopeBand.Green, By = chair, Kind = "learning" };
                     bestLen = RunLength(route);
                 }
-                if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1" || true)
+                if (O.Debug || true)
                     plan.Log.Add($"  more learning runs: {er.Len.Count} reached, {tries} tried near the top; short {mw[0]}, not green {mw[1]}, shorter {mw[2]}, " +
                         $"misses the bottom {mw[3]}, lift line {mw[4]}, crowds {mw[5]}{(best != null ? $"; added {RunLength(best.Pts):F0} m" : "")}");
                 if (best == null)
