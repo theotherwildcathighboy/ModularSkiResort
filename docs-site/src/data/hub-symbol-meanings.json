@@ -1,0 +1,14 @@
+{
+  "green": "A green run: the easiest rating.",
+  "blue": "A blue run: the middle rating.",
+  "black": "A black run: a difficult rating.",
+  "dblack": "A double-black run: the steepest rating, for experts.",
+  "open": "Open: enough snow on 60 % of the run. The run scores in full.",
+  "patchy": "Patchy: between open and closed. The run scores part of its value.",
+  "closed": "Closed: snow on under 40 % of the run. The run scores nothing.",
+  "openpatchy": "Open or patchy: a run that adds to the score.",
+  "school": "Ski school: an active ski school adds 12 to the score while a green run is open or patchy.",
+  "lift": "Lift: any lift type. A run needs a lift to score in full.",
+  "power": "Power: the city's electricity. A lift without power stops.",
+  "snow": "Snow: the depth and the cover of snow on the runs."
+}

@@ -1157,6 +1157,44 @@ export function iconPieces(tokens: readonly IconToken[]): IconPiece[] {
   return out;
 }
 
+/** U+00A0, the no-break space of the inline rescue (iconInlinePieces). */
+export const NBSP = " ";
+
+/**
+ * iconPieces for Gameface's inline layout (`<p cohinline>`), at render time only: the locale string, check-ste and the word form keep
+ * their ASCII spaces. Gameface drops the leading ASCII space of a text run that follows an inline element (spike S0,
+ * field/2026-11-08/icons-pass/RESULTS.md: "andone", "runis", "[green]runis", "or" glued to the next diamond). A trailing space before an
+ * inline element survives (the S0 probe replaced only the leading spaces and read right), so it stays ASCII and stays a break point.
+ * - Inside a glue run, a text item after an icon starts with one U+00A0 instead of its spaces (the run is nowrap anyway).
+ * - A text piece after a glue run gives its leading spaces to the END of that run, as one U+00A0. Gameface may break a line at the element
+ *   boundary (the probe showed " Otherwise" with a visible lead space at text scale 1.25 when the NBSP led the next run), so the space now
+ *   ends the line it belongs to, where it shows nothing. A text piece of spaces only (between two glue runs) disappears.
+ */
+export function iconInlinePieces(tokens: readonly IconToken[]): IconPiece[] {
+  const out: IconPiece[] = [];
+  for (const pc of iconPieces(tokens)) {
+    if (pc.kind === "glue") {
+      const items: IconToken[] = [];
+      for (const it of pc.items) {
+        const prev = items.length ? items[items.length - 1] : null;
+        items.push(it.kind === "text" && prev !== null && prev.kind !== "text" ? { kind: "text", text: it.text.replace(/^ +/, NBSP) } : it);
+      }
+      out.push({ kind: "glue", items });
+      continue;
+    }
+    const last = out.length ? out[out.length - 1] : null;
+    if (last !== null && last.kind === "glue" && /^ /.test(pc.text)) {
+      const n = last.items.length - 1;
+      const tail = last.items[n];
+      if (tail.kind === "text") last.items[n] = { kind: "text", text: tail.text + NBSP };
+      else last.items.push({ kind: "text", text: NBSP });
+      const rest = pc.text.replace(/^ +/, "");
+      if (rest) out.push({ kind: "text", text: rest });
+    } else out.push(pc);
+  }
+  return out;
+}
+
 /** An item of a one-line structured row (flex, never wraps). `gap` = a space stood before it in the text (a left margin of one
  *  space: a flex text box drops its edge spaces). */
 export type IconLineItem = { kind: "text"; text: string; gap: boolean } | { kind: "icon"; name: string; gap: boolean };
