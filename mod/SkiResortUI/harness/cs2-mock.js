@@ -168,7 +168,9 @@
   const dict = {};
   const thousands = (n) => Math.round(n).toLocaleString("en-US");
   const dec1 = (n) => { const s = (Math.round(n * 10) / 10).toFixed(1); return s.endsWith(".0") ? s.slice(0, -2) : s; };
-  const nbsp = (s) => s.replace(/(\d) (\D)/, "$1 $2");
+  // As vanilla (installed index.js@503140): U+00A0 only between two digits. The number-unit space stays ASCII ("376 m"): the hub's
+  // own unitNbsp (hubRules.ts) must glue it, and the layout test's number-unit scan proves it does (round 624).
+  const nbsp = (s) => s.replace(/(\d) (\d)/, "$1 $2");
   function renderNumber(loc, props) {
     const v = Number(props.value);
     const sign = props.signed && v > 0 ? "+" : "";

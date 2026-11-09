@@ -11,7 +11,7 @@ import { isValidElement, useState } from "react";
 import type { ReactNode } from "react";
 import { useLocalization } from "cs2/l10n";
 import type { Localization } from "cs2/l10n";
-import { iconKeyRows } from "./hubRules";
+import { iconKeyBudgetEm, iconKeyFit, iconKeyPairEm, iconKeyRows } from "./hubRules";
 import type { IconKeySource } from "./hubRules";
 import { HUB_ICON_GROUPS, hubIconOf, iconMode } from "./hubIcons";
 import { reportUiError } from "./report";
@@ -81,12 +81,26 @@ export function iconKeyOf(tip: ReactNode): string[][] {
   return sources.length ? iconKeyRows(sources, iconMode(), KEY_ORDER) : [];
 }
 
-/** The key under a tooltip: dim icon | word pairs, at most three per row. Its root declares the hub tokens (class tipLines). */
+/** The game's text scale: the root's --fontScale (the inline value applyTextScale writes, else the computed one). A style read, not a
+ *  size read, so it does not lag a drawn frame. 1 when unset. */
+export function textScale(): number {
+  const root = document.documentElement;
+  const v = parseFloat(root.style.getPropertyValue("--fontScale").trim() || getComputedStyle(root).getPropertyValue("--fontScale").trim());
+  return Number.isFinite(v) && v > 0 ? v : 1;
+}
+
+/**
+ * The key under a tooltip: dim icon | word pairs, at most three per row. Its root declares the hub tokens (class tipLines).
+ * Width budget (round 624): it mounts with the tooltip, so it packs the rows once, at mount, for the current text scale (hubRules
+ * iconKeyFit, an estimate from the font's glyph widths): a long pair moves to the next row before the row passes the balloon edge.
+ */
 export function IconKey({ rows }: { rows: readonly string[][] }): JSX.Element {
   const loc = useLocalization();
+  const scale = textScale();
+  const fitted = iconKeyFit(rows, (n) => iconKeyPairEm(wordOf(loc, n), !!iconSource(n)?.wide, scale), iconKeyBudgetEm(scale));
   return (
     <div className={cx(styles.tipLines, styles.iconKey)}>
-      {rows.map((r, i) => (
+      {fitted.map((r, i) => (
         <div key={i} className={styles.iconLine}>
           {r.map((n, j) => (
             <div key={n} className={cx(styles.iconKeyPair, j > 0 && styles.iconKeyGap)}>

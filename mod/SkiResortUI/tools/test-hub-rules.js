@@ -1105,6 +1105,73 @@ function run(srcDir) {
       ['"--" inside a comment', "unbalanced </svg>", null]);
   }
 
+  // T43 round 624 polish (field/2026-11-09/icons2-pass "Unexpected"): (a) a number keeps its unit on one line. At render time only,
+  // the number-unit space becomes U+00A0 (vanilla's own no-break space, index.js@503140). Every hub text passes unitNbsp (useT,
+  // LocText, Num, IconText). (b) The tooltip key packs its pairs by a width budget (no flex-wrap in Gameface, no measure loop).
+  {
+    const sh = (s) => s.split(R.NBSP).join("~");
+    eq("T43.1 unitNbsp: the space between a number and its unit becomes U+00A0; words that only start like a unit stay; idempotent",
+      ["Vertical bonus: +1 % per 6 m, so 600 m doubles runs.", "From the lowest to the highest run: 376 m.", "Default 3.3 °C (6 °F): guns run",
+        "Default 7 km (4.3 mi).", "{DEPTH} cm", "30 in · 60 %", "Base to top at 5 m/s line speed", "Largest bench: 12 ha, 1.2 km²",
+        "2 months, 10 pairs, 1,500 a month, 3 miles, 4 hats, 5 mines", "+15 % (1.15)", "60  % twice", "no number m", ""]
+        .map((s) => sh(R.unitNbsp(s))).concat([sh(R.unitNbsp(R.unitNbsp("600 m"))), R.unitNbsp(null), R.unitNbsp(undefined)]),
+      ["Vertical bonus: +1~% per 6~m, so 600~m doubles runs.", "From the lowest to the highest run: 376~m.", "Default 3.3~°C (6~°F): guns run",
+        "Default 7~km (4.3~mi).", "{DEPTH} cm", "30~in · 60~%", "Base to top at 5~m/s line speed", "Largest bench: 12~ha, 1.2~km²",
+        "2 months, 10 pairs, 1,500 a month, 3 miles, 4 hats, 5 mines", "+15~% (1.15)", "60~% twice", "no number m", "", "600~m", null, undefined]);
+    const showP = (ps) => ps.map((p) => (p.kind === "text" ? p.text : "[" + p.items.map((t) => t.kind === "text" ? t.text : "@" + t.name).join("") + "]").split(R.NBSP).join("~"));
+    eq("T43.2 the inline pieces keep the U+00A0 of a number and its unit inside one run (a glued word takes \"600 m\" whole)",
+      [showP(R.iconInlinePieces(R.iconTokens(R.unitNbsp("From the lowest to the highest <icon:openpatchy> run: 376 m.")))),
+        showP(R.iconInlinePieces(R.iconTokens(R.unitNbsp("at least one <icon:green> 600 m long run"))))],
+      [["From the lowest to the highest ", "[@openpatchy~run:~]", "376~m."], ["at least one ", "[@green~600~m~]", "long run"]]);
+    // The sweep: every hub string (hubText.ts, l10n.ts) as the hub renders it, with each placeholder filled by a vanilla-style number
+    // (LocalizedNumber writes "376 m", an ASCII space). After unitNbsp, and after the inline pieces for a string with icons, no number
+    // may stand apart from its unit: not by an ASCII space, and not across a run boundary.
+    const unitRe = new RegExp(`\\d[ ]+(?:${R.UNIT_WORDS.map((u) => u.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")).join("|")})(?![A-Za-z0-9²])`);
+    const unitAnyRe = new RegExp(`\\d[ ${R.NBSP}]+(?:${R.UNIT_WORDS.map((u) => u.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")).join("|")})(?![A-Za-z0-9²])`);
+    const splitBad = [];
+    let withUnit = 0;
+    for (const [k, v0] of tuples) {
+      const v = v0.replace(/\\"/g, "\"").replace(/\{[A-Z_0-9]+(?::[A-Za-z]+)?\}/g, (ph) => /^\{(M|HEIGHT|LENGTH|DROP|VERTICAL|SPAN|DIST)\b/.test(ph) ? "376 m" : "376");
+      const shown = R.unitNbsp(v);
+      if (unitAnyRe.test(shown)) withUnit++;
+      if (unitRe.test(shown)) splitBad.push(`${k}: ASCII space left in "${shown}"`);
+      if (/<icon:/.test(v)) {
+        const runs = R.iconInlinePieces(R.iconTokens(shown)).flatMap((p) => p.kind === "text" ? [p.text] : [p.items.map((t) => t.kind === "text" ? t.text : "@").join("")]);
+        for (let i = 1; i < runs.length; i++) {
+          if (/\d$/.test(runs[i - 1]) && new RegExp(`^[ ${R.NBSP}]*(?:${R.UNIT_WORDS.join("|").replace(/[/\\^$*+?.()[\]{}]/g, "\\$&")})(?![A-Za-z])`).test(runs[i])) {
+            splitBad.push(`${k}: run boundary between "${runs[i - 1]}" and "${runs[i]}"`);
+          }
+        }
+      }
+    }
+    eq(`T43.3 sweep: no hub string splits a number from its unit (${withUnit} strings with a number and a unit; at least 40)`,
+      [splitBad, withUnit >= 40], [[], true]);
+    // Locale strings stay ASCII: U+00A0 is render time only (check-ste and export-locale read the strings as written).
+    const settingsCs2 = fs.readFileSync(path.join(csDir, "Settings", "LocaleEN.cs"), "utf8");
+    eq("T43.4 no U+00A0 in any locale string (hubText.ts, l10n.ts, LocaleEN.cs, Settings/LocaleEN.cs)",
+      [[...tuples].filter(([, v]) => v.includes(R.NBSP)).map(([k]) => k), locale.includes(R.NBSP), settingsCs2.includes(R.NBSP)], [[], false, false]);
+    // (b) the key row width budget. Literal oracles from the font table (Overpass-Regular hmtx) and vanilla --fontSizeS (index.css :root).
+    const r2 = (x) => Math.round(x * 100) / 100;
+    eq("T43.5 textEm / tipFontRem / iconKeyBudgetEm / iconKeyPairEm",
+      [r2(R.textEm("double-black")), r2(R.textEm("open or patchy")), r2(R.textEm("Ab")), [1, 1.25, 1.5].map((s) => r2(R.tipFontRem(s))),
+        [1, 1.25, 1.5].map((s) => r2(R.iconKeyBudgetEm(s))), r2(R.iconKeyPairEm("double-black", true, 1.25)), r2(R.tipFontRem(NaN))],
+      [5.82, 6.7, 1.36, [14, 21.35, 28.7], [25.2, 16.52, 12.29], 7.83, 14]);
+    const KW = { green: "green", blue: "blue", black: "black", dblack: "double-black", open: "open", patchy: "patchy", closed: "closed",
+      openpatchy: "open or patchy", school: "ski school", lift: "lift", power: "power", snow: "snow" };
+    const WIDE = new Set(["dblack", "openpatchy"]);
+    const fit = (rows, s) => R.iconKeyFit(rows, (n) => R.iconKeyPairEm(KW[n], WIDE.has(n), s), R.iconKeyBudgetEm(s));
+    const varietyKey = [["green", "blue", "black"], ["dblack", "openpatchy"]];
+    eq("T43.6 iconKeyFit: the Variety key is 2 rows at text scale 1, the long pair moves down at 1.25 (B4: 730 px in 720), 3 rows at 1.5",
+      [fit(varietyKey, 1), fit(varietyKey, 1.25), fit(varietyKey, 1.5), fit([], 1.25), R.iconKeyFit([["a", "b"]], () => 99, 10)],
+      [varietyKey, [["green", "blue", "black"], ["dblack"], ["openpatchy"]], [["green", "blue"], ["black", "dblack"], ["openpatchy"]], [],
+        [["a"], ["b"]]]);
+    // Every icon pair fits the budget alone at 1.5 (so a fitted row is always inside the balloon), checked with the words of hubText.ts.
+    const wordOfKey = (n) => { for (const [k, v] of tuples) if (k === `SkiResort.Hub.ICON[${n}]`) return v; return null; };
+    const missingWords = Object.keys(KW).filter((n) => wordOfKey(n) === null);
+    const tooWide = Object.keys(KW).filter((n) => wordOfKey(n) !== null && R.iconKeyPairEm(wordOfKey(n), WIDE.has(n), 1.5) > R.iconKeyBudgetEm(1.5));
+    eq("T43.7 every icon word is in hubText.ts and its key pair fits the budget alone at text scale 1.5", [missingWords, tooWide], [[], []]);
+  }
+
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;
   for (const f of hr.failures) failures.push(`test-history-rules ${f}`);

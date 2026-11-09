@@ -146,7 +146,8 @@ READY (in the log, in `status.ready` and in the `ready` op) means every part bel
 
 While the gate is closed, the log gets a WAITING line every 30 s that names what holds it.
 
-Why: with `--uiDeveloperMode`, Gameface live reload is on (`UIManager` `liveReload = developerMode`). About 6 to 10 s after every
+Why: with `--uiDeveloperMode`, Gameface live reload is on (`UIManager` `liveReload = developerMode`) unless the FallbackSettings section
+below turns it off (the default for bridge runs since round 624). About 6 to 10 s after every
 mode change, a "media" reload in `UILiveReload` (`Reloading media 0` in UI.log) loads `reload.html` and then `index.html` again,
 so every page helper is lost. The 2026-11-08 silent exits (access violation 0xc0000005 at `cohtml_Unity3DPlugin.dll+0xc410`, no
 crash dialog) each came within that window: two UI.logs end on the `Reloading media 0` line, and a third ends in the middle of a page
@@ -156,8 +157,17 @@ Measured on 2026-11-08 (83-mod playset, 4K): READY came 45.5 s after the main me
 to the old "main menu + 40 s" rule, which was too short after the menu. None of the 4 launches in that pass had an exit, but
 only the last one had the finished gate.
 
-**Turning live reload off (measured once, 2026-11-08):** with the game closed, add this section to
-`%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\FallbackSettings.coc` (CRLF, like the rest of the file):
+### Turning live reload off
+
+**Bridge runs keep live reload OFF. It is the default state of this machine** (round 624). With the game closed:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\testbridge\live-reload.ps1 -Status   # or -Off / -On
+```
+
+`-Off` adds this section to `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\FallbackSettings.coc`, after a
+backup beside it (`FallbackSettings.coc.live-reload-<time>.bak`). Only the section changes: every other byte stays, so `-Off` then
+`-On` gives the file back. The script refuses to edit while Cities2 runs (exit 2).
 
 ```
 UIManager Settings
@@ -168,9 +178,18 @@ UIManager Settings
 
 `UIManager` reads it through `AssetDatabase.global.LoadSettings("UIManager Settings", ...)` after its defaults (UIManager.cs:191). With
 it, a launch and a save load had 0 page loads and no `Reloading media` line, and the page helpers survived the save load. READY came
-43.2 s after the main menu (virtual texturing and prefabs settling) and 20.5 s after a save load. The cost: an edited UI file no longer
-reloads the running game (deploys happen with the game closed anyway). UNVERIFIED: whether the game keeps the section when it rewrites
-the .coc files on exit, and whether this prevents the exits. Back the file up first and restore it after the session.
+43.2 s after the main menu (virtual texturing and prefabs settling) and 20.5 s after a save load (2026-11-08). **The game keeps the
+section** when it rewrites the .coc files on exit (measured in round 622, icons2-pass), so it stays off across launches: do not restore
+the file after a session. Turn it on (`-On`) only to see a UI file edit in a running game; deploys happen with the game closed anyway.
+UNVERIFIED: whether this prevents the silent exits (0 exits in the launches since, too few to tell).
+
+### The inline-text probe
+
+`__probeTip(ms = 2000)` (helpers.js) is the round 622 tooltip probe as one call. Hover the row with a real `move`, then await it while the
+tooltip shows. It returns the body text (U+00A0 as "⍽", icons as "[file]"), `leadHits` (a run after an inline element that starts
+with an ASCII space), `glued` (a word touching an icon), `lines` (what starts each drawn line of a cohinline paragraph), `unitSplits`
+(a number and its unit with an ASCII space), `keyRows` (scrollWidth / clientWidth of each icon key row), `inViewport`, the font sizes
+and the mutation count over `ms`. `ok` is true when all of these are clean.
 
 ### Practical limits, all measured
 
