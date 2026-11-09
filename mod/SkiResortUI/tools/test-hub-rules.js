@@ -1170,6 +1170,11 @@ function run(srcDir) {
     const missingWords = Object.keys(KW).filter((n) => wordOfKey(n) === null);
     const tooWide = Object.keys(KW).filter((n) => wordOfKey(n) !== null && R.iconKeyPairEm(wordOfKey(n), WIDE.has(n), 1.5) > R.iconKeyBudgetEm(1.5));
     eq("T43.7 every icon word is in hubText.ts and its key pair fits the budget alone at text scale 1.5", [missingWords, tooWide], [[], []]);
+    // Gameface rejects ":scope" in a selector ("Invalid CSS selector", round 624 in-game pass). Scan src/ and the bridge helpers.
+    const helpersJs = path.join(srcDir, "..", "..", "..", "tools", "testbridge", "helpers.js");
+    const scoped = allSrc.concat(fs.existsSync(helpersJs) ? [[helpersJs, fs.readFileSync(helpersJs, "utf8")]] : [])
+      .filter(([, s]) => /:scope\b/.test(s)).map(([p]) => path.basename(p));
+    eq("T43.8 no :scope selector in src/ or tools/testbridge/helpers.js (Gameface rejects it)", scoped, []);
   }
 
   const hr = require("./test-history-rules").run(srcDir);
