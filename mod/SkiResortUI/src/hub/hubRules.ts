@@ -1145,7 +1145,8 @@ export function iconPieces(tokens: readonly IconToken[]): IconPiece[] {
     }
     const items: IconToken[] = [];
     while (i < tokens.length && tokens[i].kind !== "text") items.push(tokens[i++]);
-    const m = i < tokens.length ? /^\s*\S+/.exec(textOf(tokens[i])) : null;
+    // ASCII spaces only: a U+00A0 of unitNbsp ("376 m") keeps a number and its unit inside the one glued word.
+    const m = i < tokens.length ? /^[ \t\r\n]*[^ \t\r\n]+/.exec(textOf(tokens[i])) : null;
     if (m) {
       const text = textOf(tokens[i]);
       items.push({ kind: "text", text: m[0] });
@@ -1193,6 +1194,28 @@ export function iconInlinePieces(tokens: readonly IconToken[]): IconPiece[] {
     } else out.push(pc);
   }
   return out;
+}
+
+/**
+ * The units the hub writes after a number: in locale strings ("600 m", "+1 %", "{RADIUS} km", "3.3 °C (6 °F)") and in vanilla's
+ * LocalizedNumber output, which puts an ASCII space between the number and the unit ("376 m", "1.2 km", "3 ha"; installed
+ * index.js@503140 turns only a digit-space-digit into U+00A0). Longer forms first, so "km²" wins over "km" and "°C" over "°".
+ */
+export const UNIT_WORDS: readonly string[] = ["km²", "km", "cm", "m²", "m/s", "m", "ha", "%", "ft", "mi", "in", "°C", "°F", "°"];
+
+/** The number-unit space: a digit, ASCII spaces, then a UNIT_WORDS entry that no letter or digit continues ("2 months" is no unit). */
+export const UNIT_GAP_SOURCE = `(\\d)[ ]+(?=(?:${UNIT_WORDS.map((u) => u.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")).join("|")})(?![A-Za-z0-9²]))`;
+const UNIT_GAP = new RegExp(UNIT_GAP_SOURCE, "g");
+
+/**
+ * Numbers stay with their units (round 624, field/2026-11-09/icons2-pass "Unexpected": at text scale 1.25 the Vertical tooltip broke
+ * "600 / m" and "376 / m."). At render time only, the space between a number and its unit becomes U+00A0, the no-break space vanilla
+ * itself uses inside numbers (index.js@503140). Every hub text passes here: useT (l10n.ts), LocText, Num / SignedNum (parts.tsx) and
+ * IconText (iconText.tsx). Locale strings, check-ste, export-locale and the word form keep ASCII spaces: never write U+00A0 into a string.
+ * Idempotent. A value that is not a string comes back unchanged.
+ */
+export function unitNbsp(s: string): string {
+  return typeof s === "string" && s.indexOf(" ") >= 0 ? s.replace(UNIT_GAP, `$1${NBSP}`) : s;
 }
 
 /** An item of a one-line structured row (flex, never wraps). `gap` = a space stood before it in the text (a left margin of one
@@ -1307,4 +1330,78 @@ export function iconKeyRows(sources: readonly IconKeySource[], mode: "inline" | 
   const rows: string[][] = [];
   for (let i = 0; i < names.length; i += ICON_KEY_PER_ROW) rows.push(names.slice(i, i + ICON_KEY_PER_ROW));
   return rows;
+}
+
+/* ---- the key row width budget (round 624). At text scale 1.25 the Variety key row 2 (double-black, open or patchy) measured
+ * scrollWidth 730 px in a 720 px box (4K, field/2026-11-09/icons2-pass B4). Gameface has no flex-wrap, and a measure-then-repack
+ * would lag a drawn frame and change the balloon after it opened. So the key packs its pairs by an ESTIMATE, at mount, from the
+ * text scale alone: no size read, no second render. The estimate leans wide (B4 row 2 at 1.25: 740 px estimated, 730 px measured), so a row
+ * breaks a little early rather than late. ------------------------------------------------------------------------------------- */
+
+/** Overpass-Regular advance widths in em: the game's --fontFamily is Overpass, then Noto Sans (index.css :root); the files ship in
+ *  Cities2_Data/Content/Game/UI/Fonts (hmtx / unitsPerEm 1000). Lowercase and the punctuation of the icon words. */
+const GLYPH_EM: Readonly<Record<string, number>> = {
+  a: 0.53, b: 0.56, c: 0.5, d: 0.56, e: 0.54, f: 0.33, g: 0.56, h: 0.56, i: 0.25, j: 0.25, k: 0.53, l: 0.26, m: 0.85, n: 0.56, o: 0.56,
+  p: 0.56, q: 0.56, r: 0.39, s: 0.47, t: 0.37, u: 0.56, v: 0.51, w: 0.72, x: 0.52, y: 0.53, z: 0.51, " ": 0.24, "-": 0.4, ".": 0.23,
+  ",": 0.23, "(": 0.34, ")": 0.34, "%": 0.87, "/": 0.49, "'": 0.21,
+};
+/** Any other character (capitals, digits, other scripts): wider than most lowercase, so the estimate stays on the safe side. */
+const GLYPH_EM_OTHER = 0.8;
+
+/** The estimated width of a one-line text in em of its own font. */
+export function textEm(s: string): number {
+  let em = 0;
+  for (const ch of String(s ?? "")) em += GLYPH_EM[ch] ?? GLYPH_EM_OTHER;
+  return em;
+}
+
+/** .tipLines max-width (hub.module.scss): the box a tooltip key row must fit, in rem. */
+export const TIP_MAX_REM = 360;
+/** The share of TIP_MAX_REM a key row may fill by the estimate. */
+export const ICON_KEY_FILL = 0.98;
+/** .iconKeyGap (0.8em between pairs) and .iconGap (0.3em between an icon and its word). */
+export const ICON_KEY_GAP_EM = 0.8;
+const ICON_WORD_GAP_EM = 0.3;
+
+/** The tooltip font in rem: vanilla --fontSizeS of index.css :root, calc(14rem * var(--fontScale) + var(--fontScaleChange) * 1.1 * 14rem)
+ *  (.tooltip-base sets font-size: var(--fontSizeS); the 16rem form belongs to .menu-theme, the main menu). */
+export function tipFontRem(scale: number): number {
+  const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  return 14 * s + (s - 1) * 1.1 * 14;
+}
+
+/** One key pair in em: the icon (.iconImg 1.3em, .iconImgWide 1.95em, damped by the text scale) + 0.3em + its word. */
+export function iconKeyPairEm(word: string, wide: boolean, scale: number): number {
+  const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  return (wide ? 1.95 : 1.3) * (1 - (s - 1) / 2) + ICON_WORD_GAP_EM + textEm(word);
+}
+
+/** The em a key row may take at a text scale. */
+export function iconKeyBudgetEm(scale: number): number {
+  return TIP_MAX_REM * ICON_KEY_FILL / tipFontRem(scale);
+}
+
+/**
+ * The key rows re-packed to fit: the names in the same order, at most ICON_KEY_PER_ROW per row, and a new row before a pair that would
+ * take the row past `budgetEm`. A pair wider than the budget alone gets its own row (its word never wraps). `pairEm` gives a pair's
+ * width in em. Pure: the same names and scale always give the same rows, so the key never re-lays out after it opened.
+ */
+export function iconKeyFit(rows: readonly (readonly string[])[], pairEm: (name: string) => number, budgetEm: number): string[][] {
+  const out: string[][] = [];
+  let cur: string[] = [];
+  let width = 0;
+  for (const name of rows.reduce<string[]>((a, r) => a.concat(r), [])) {
+    const w = pairEm(name);
+    const next = cur.length ? width + ICON_KEY_GAP_EM + w : w;
+    if (cur.length && (cur.length >= ICON_KEY_PER_ROW || next > budgetEm)) {
+      out.push(cur);
+      cur = [name];
+      width = w;
+    } else {
+      cur.push(name);
+      width = next;
+    }
+  }
+  if (cur.length) out.push(cur);
+  return out;
 }

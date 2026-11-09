@@ -8,6 +8,7 @@
  */
 import { useCallback } from "react";
 import { useLocalization } from "cs2/l10n";
+import { unitNbsp } from "./hub/hubRules";
 
 /** [locale key, English fallback]. */
 export type LocEntry = readonly [key: string, english: string];
@@ -23,8 +24,8 @@ export const LOC = {
 
 export type Translate = (entry: LocEntry) => string;
 
-/** translate(key, fallback) bound to the active dictionary. */
+/** translate(key, fallback) bound to the active dictionary. A number keeps its unit on one line (hubRules unitNbsp, render time only). */
 export function useT(): Translate {
   const { translate } = useLocalization();
-  return useCallback((entry: LocEntry) => translate(entry[0], entry[1]) ?? entry[1], [translate]);
+  return useCallback((entry: LocEntry) => unitNbsp(translate(entry[0], entry[1]) ?? entry[1]), [translate]);
 }

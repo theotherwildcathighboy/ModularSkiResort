@@ -54,3 +54,55 @@ window.__shot=async(name,yaw,zoom=24,tilt=22)=>{const c=(await __coach())[0]; co
 // The Editor's file browser (README, Editor import).
 window.__rows=()=>__all(2900,250).split(" | ").filter(x=>{const y=+x.split(",").pop(); return y<1880}).map(x=>x.split("@")[0]);
 window.__enter=async(n)=>{const f=__find(n).filter(p=>p[0]>2920&&p[1]>250&&p[1]<1880)[0]; if(!f) return false; await __clk(f[0],f[1],[{op:"wait",frames:15}]); await new Promise(r=>setTimeout(r,350)); return true;};
+
+// Round 624: the inline-text probe of round 622 (field/2026-11-09/icons2-pass B) as one call. Hover the row first (a real `move`), then
+// `await __probeTip()` while the tooltip shows. It reads the open hub tooltip (the visible element that holds a [class*="sr-tipLines"]),
+// watches it for `ms` (MutationObserver: subtree, childList, characterData, attributes) and returns one object:
+//   text      the body text, U+00A0 shown as "⍽", an icon as "[file]"     leadHits  text runs after an inline element that start with U+0020
+//   glued     a word touching an inline element with no space ("andone", "one[green]")
+//   lines     per drawn line of each cohinline paragraph: its top (px) and what starts it at the paragraph's left edge: "[icon]", a glue
+//             run's text, or "text" (Gameface has no createRange: text-led lines are seen only as a line whose left edge no element holds)
+//   unitSplits  a number and its unit with an ASCII space between them ("600 m"; hubRules UNIT_WORDS)
+//   keyRows   each icon key row: scrollWidth / clientWidth (over > 1 px = it passes the balloon), its text
+//   inViewport, fontPx (body and key), mutations, ok (no leadHits, no glued, no unitSplits, no key row over, inside, 0 mutations)
+window.__probeTip=async(ms=2000)=>{
+  const vis=(e)=>{const r=e.getBoundingClientRect(); return r.width>0&&r.height>0;};
+  const bodies=[...document.querySelectorAll('[class*="sr-tipLines"]')].filter(vis);
+  if(!bodies.length) return {ok:false,error:"no hub tooltip open"};
+  let root=bodies[0]; while(root.parentElement&&root.parentElement!==document.body&&!/balloon|tooltip/i.test(root.getAttribute("class")||"")) root=root.parentElement;
+  const NB=String.fromCharCode(160), show=(s)=>s.split(NB).join("⍽");
+  const name=(img)=>"["+((img.getAttribute("src")||"").split("/").pop().replace(/\.svg.*$/i,""))+"]";
+  const textOf=(n)=>{let s=""; const w=(x)=>{for(const c of x.childNodes){ if(c.nodeType===3) s+=c.nodeValue; else if(c.nodeType===1){ if(c.tagName==="IMG") s+=name(c); else w(c);} }}; w(n); return s;};
+  const units=["km²","km","cm","m²","m/s","m","ha","%","ft","mi","in","°C","°F","°"];
+  const unitRe=new RegExp("\\d[ ]+(?:"+units.map(u=>u.replace(/[/\\^$*+?.()|[\]{}]/g,"\\$&")).join("|")+")(?![A-Za-z0-9²])");
+  const out={text:show(textOf(root)).replace(/\s+/g," ").trim(),leadHits:[],glued:[],lines:[],unitSplits:[],keyRows:[],mutations:0};
+  // leadHits + glued: walk every child list; a text node right after an element (img or glue span) inside a paragraph.
+  for(const para of root.querySelectorAll('[class*="sr-iconPara"]')){
+    const kids=[...para.childNodes];
+    for(let i=0;i<kids.length;i++){
+      const a=kids[i-1], b=kids[i]; if(!a) continue;
+      const at=a.nodeType===3?a.nodeValue:textOf(a), bt=b.nodeType===3?b.nodeValue:textOf(b);
+      if(a.nodeType===1&&b.nodeType===3&&/^ /.test(bt)) out.leadHits.push(show(bt.slice(0,30)));
+      if(/[A-Za-z0-9\]]$/.test(at)&&/^[A-Za-z0-9\[]/.test(bt)&&(a.nodeType===1||b.nodeType===1)) out.glued.push(show(at.slice(-12)+"|"+bt.slice(0,12)));
+    }
+    for(const g of para.querySelectorAll('[class*="sr-iconGlue"]')){
+      const ks=[...g.childNodes]; for(let i=1;i<ks.length;i++){ if(ks[i].nodeType===3&&ks[i-1].nodeType===1&&/^ /.test(ks[i].nodeValue)) out.leadHits.push(show(ks[i].nodeValue.slice(0,30))); }
+    }
+    const pr=para.getBoundingClientRect(), tops=new Map();
+    for(const el of para.querySelectorAll('img,[class*="sr-iconGlue"]')){ for(const r of el.getClientRects()){ const y=Math.round(r.top); const k=[...tops.keys()].find(t=>Math.abs(t-y)<r.height/2)??y; if(!tops.has(k)) tops.set(k,[]); tops.get(k).push({dx:Math.round(r.left-pr.left),t:el.tagName==="IMG"?name(el):show(textOf(el)).slice(0,24)}); } }
+    const lh=parseFloat(getComputedStyle(para).lineHeight)||parseFloat(getComputedStyle(para).fontSize)*1.3, n=Math.max(1,Math.round(pr.height/lh));
+    for(let i=0;i<n;i++){ const y=pr.top+i*lh; const k=[...tops.keys()].find(t=>t>=y-lh/2&&t<y+lh/2); const first=k===undefined?null:tops.get(k).filter(x=>x.dx<=1)[0]; out.lines.push({top:Math.round(y),starts:first?first.t:"text"}); }
+  }
+  // Number and unit: the joined text of each element's own text nodes.
+  for(const el of [root,...root.querySelectorAll("*")]){ let s=""; for(const c of el.childNodes) if(c.nodeType===3) s+=c.nodeValue; if(unitRe.test(s)) out.unitSplits.push(show(s.trim().slice(0,60))); }
+  const key=root.querySelector('[class*="sr-iconKey"]');
+  if(key){ for(const row of Array.from(key.children).filter(c=>/sr-iconLine/.test(c.className))) out.keyRows.push({sw:row.scrollWidth,cw:row.clientWidth,over:row.scrollWidth-row.clientWidth,text:show(textOf(row)).trim()}); }
+  const rr=root.getBoundingClientRect();
+  out.rect=[Math.round(rr.left),Math.round(rr.top),Math.round(rr.right),Math.round(rr.bottom)];
+  out.inViewport=rr.left>=0&&rr.top>=0&&rr.right<=innerWidth&&rr.bottom<=innerHeight;
+  out.fontPx={body:parseFloat(getComputedStyle(bodies[0]).fontSize),key:key?parseFloat(getComputedStyle(key).fontSize):null};
+  const mo=new MutationObserver((l)=>{out.mutations+=l.length;}); mo.observe(root,{subtree:true,childList:true,characterData:true,attributes:true});
+  await new Promise(r=>setTimeout(r,ms)); mo.disconnect();
+  out.ok=!out.leadHits.length&&!out.glued.length&&!out.unitSplits.length&&!out.keyRows.some(k=>k.over>1)&&out.inViewport&&out.mutations===0;
+  return out;
+};

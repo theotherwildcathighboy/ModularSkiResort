@@ -17,7 +17,7 @@ import type { LocStringRenderer, LocalizedStringProps, PropsAreEqual } from "cs2
 import { LocalizedNumber, LocalizedString } from "../cs2shim";
 import { BAND } from "../bindings";
 import type { LocEntry } from "../l10n";
-import { GLYPH_INFO } from "./hubRules";
+import { GLYPH_INFO, unitNbsp } from "./hubRules";
 import { IconKey, iconKeyOf } from "./iconKey";
 import styles from "./hub.module.scss";
 
@@ -33,10 +33,18 @@ export function depthValue(cm: number, inches: boolean): number {
   return inches ? Math.round(cm / 2.54) : cm;
 }
 
+/** LocalizedNumber's text with the number-unit space as U+00A0 (hubRules unitNbsp): vanilla writes "376 m" with an ASCII space. A
+ *  LocComponent renders exactly its renderString in a fragment (installed index.js@434221 createLocComponent), so this is the same
+ *  text node with one character changed. */
+function NumText({ value, unit, signed }: { value: number; unit: Unit; signed?: boolean }): JSX.Element {
+  const loc = useLocalization();
+  return <>{unitNbsp(LocalizedNumber.renderString(loc, { value, unit, signed }))}</>;
+}
+
 /** A number with its unit. A value that is not finite shows "–" (never "NaN m"). */
 export function Num({ value, unit, signed }: { value: number; unit: Unit; signed?: boolean }): JSX.Element {
   if (typeof value !== "number" || !Number.isFinite(value)) return <span>{"–"}</span>;
-  return <LocalizedNumber value={value} unit={unit} signed={signed} />;
+  return <NumText value={value} unit={unit} signed={signed} />;
 }
 
 type LocTextProps = { entry: LocEntry; args: Record<string, string | JSX.Element> };
@@ -45,11 +53,14 @@ function stringProps(p: LocTextProps): LocalizedStringProps {
   return { id: p.entry[0], fallback: p.entry[1], args: p.args };
 }
 
+/** LocalizedString's own text (its component renders exactly its renderString, index.js@434221), with every number kept on one line
+ *  with its unit (hubRules unitNbsp, render time only: the locale string stays ASCII). */
 function LocTextView(p: LocTextProps): JSX.Element {
-  return <LocalizedString {...stringProps(p)} />;
+  const loc = useLocalization();
+  return <>{renderLocText(loc, p)}</>;
 }
 
-const renderLocText: LocStringRenderer<LocTextProps> = (loc, p) => LocalizedString.renderString(loc, stringProps(p));
+const renderLocText: LocStringRenderer<LocTextProps> = (loc, p) => unitNbsp(LocalizedString.renderString(loc, stringProps(p)));
 const locTextPropsEqual: PropsAreEqual<LocTextProps> = (a, b) => LocalizedString.propsAreEqual(stringProps(a), stringProps(b));
 
 /** A placeholder entry ("... {N} ...") rendered through LocalizedString with its arguments.
@@ -258,7 +269,7 @@ export function numArg(value: number, unit: Unit, signed?: boolean, minusIsUnkno
 /** A display number (not an argument): like Num, with the signed-zero rule of numArg */
 export function SignedNum({ value, unit }: { value: number; unit: Unit }): JSX.Element {
   if (typeof value !== "number" || !Number.isFinite(value)) return <span>{"–"}</span>;
-  return <LocalizedNumber value={value} unit={unit} signed={value !== 0} />;
+  return <NumText value={value} unit={unit} signed={value !== 0} />;
 }
 
 /** The "≈" / "…" slot before a value (fixed width, and an empty slot keeps its width) */

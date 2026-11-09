@@ -79,7 +79,8 @@
       for (let a = e.parentElement; !name && a && a !== p; a = a.parentElement) name = (String(a.className).match(/sr-([A-Za-z0-9]+)_/) || [])[1];
       name = name || e.tagName;
       const key = `${name}|${text}`;
-      if (!out.clipped[key]) out.clipped[key] = { cls: name, text, where, kind: past ? "past the panel" : "cut", over: Math.round(e.scrollWidth - e.clientWidth) };
+      if (!out.clipped[key]) out.clipped[key] = { cls: name, text, where, kind: past ? "past the panel" : "cut", over: Math.round(e.scrollWidth - e.clientWidth),
+        playerName: scenarioNames.find((n) => text.includes(n)) || null };
     }
   }
   function tiles() { const r = q(cls("tileRow")); return r ? qa("button", r) : []; }
@@ -94,9 +95,21 @@
   function openFolds() { const p = panel(); return p ? qa(cls("foldRowOpen"), p) : []; }
   async function closeFolds() { for (const f of openFolds()) { f.click(); await settle(); } }
 
+  // The player-chosen names of the current scenario (every string "name" field: lifts, runs, areas, problem subjects). A cut line in a
+  // class that holds such a name (test-hub-layout.js NAME_LINES) is allowed only when the line holds one of them (round 624).
+  let scenarioNames = [];
+  function namesOf(o, out, depth) {
+    if (!o || typeof o !== "object" || depth > 4) return out;
+    for (const [k, v] of Object.entries(o)) {
+      if (k === "name" && typeof v === "string" && v.trim()) out.add(v.trim());
+      else if (v && typeof v === "object") namesOf(v, out, depth + 1);
+    }
+    return out;
+  }
   async function applyScenario(name) {
     const sel = document.getElementById("scenario");
     if (!window.SkiScenarios[name]) throw new Error("no scenario " + name);
+    scenarioNames = [...namesOf(window.SkiScenarios[name], new Set(), 0)];
     sel.value = name; sel.onchange();
     H().set("hubOpen", true);
     await settle();
@@ -223,6 +236,81 @@
     out.band.push({ scenario: name, fs, text: band ? qa(cls("problemText"), band).map((e) => e.textContent.trim()).filter(Boolean) : [] });
   }
 
+  /**
+   * Round 624 tooltip pass, at text scale 1, 1.25 and 1.5 (TIP_SCALES): in the Attraction view, every fold opened in turn, and the six
+   * tiles, every row with a tooltip is hovered. Each open tooltip must keep (a) every icon key row inside its box (scrollWidth <=
+   * clientWidth + 1 and its right edge inside the key; field/2026-11-09/icons2-pass B4 had 730 px in 720) and (b) every number with its
+   * unit (no ASCII space between a digit and a UNIT_WORDS entry; hubRules unitNbsp). (b) also runs over the panel text of each state.
+   * `units` is hubRules UNIT_WORDS, read from the source by tools/test-hub-layout.js.
+   */
+  const TIP_SCALES = [1, 1.25, 1.5];
+  function unitGapRe(units) {
+    const alt = units.map((u) => u.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")).join("|");
+    return new RegExp(`\\d[ ]+(?:${alt})(?![A-Za-z0-9²])`);
+  }
+  function unitSplits(root, re) {
+    const bad = [];
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    // Adjacent text nodes are one run of text in layout ("376" + " m" from two React children), so test their joined text too.
+    let n, joined = "", parent = null;
+    while ((n = walk.nextNode())) {
+      if (n.parentNode !== parent) { if (re.test(joined)) bad.push(joined.trim().slice(0, 80)); joined = ""; parent = n.parentNode; }
+      joined += n.nodeValue;
+    }
+    if (re.test(joined)) bad.push(joined.trim().slice(0, 80));
+    return bad;
+  }
+  async function tipPass(name, fs, out, units) {
+    await applyScenario(name);
+    setScale(fs);
+    await settle();
+    const re = unitGapRe(units);
+    const fail = (what, m) => out.fails.push(Object.assign({ scenario: name, fs, what }, m || {}));
+    const hoverAll = async (state) => {
+      for (const bad of unitSplits(panel(), re)) fail(`number split from its unit in the panel (${state}): "${bad}"`);
+      const targets = [...qa(cls("infoLine"), panel()), ...tiles()];
+      for (const el of targets) {
+        el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+        await frames(3);
+        const tip = q(".h-tip");
+        if (tip) {
+          out.tips.n++;
+          const label = (el.textContent || "").trim().slice(0, 30);
+          for (const bad of unitSplits(tip, re)) fail(`number split from its unit in the tooltip of "${label}" (${state}): "${bad}"`);
+          const key = q(cls("iconKey"), tip);
+          if (key) {
+            out.tips.keys++;
+            const kr = key.getBoundingClientRect();
+            const rows = qa(":scope > " + cls("iconLine"), key);
+            out.tips.keyRows = Math.max(out.tips.keyRows, rows.length);
+            for (const row of rows) {
+              const rr = row.getBoundingClientRect();
+              const last = row.lastElementChild ? row.lastElementChild.getBoundingClientRect().right : rr.right;
+              const over = Math.max(row.scrollWidth - row.clientWidth, last - kr.right);
+              if (over > 1) fail(`tooltip key row overflows by ${Math.round(over)} px in the tooltip of "${label}" (${state}): "${row.textContent.trim()}"`);
+            }
+          }
+        }
+        el.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+        await frames(1);
+      }
+    };
+    const t0 = tiles()[0];
+    if (t0) { t0.click(); await settle(); }
+    await closeFolds();
+    await hoverAll("view 0, folds closed");
+    const nFolds = folds().length;
+    for (let i = 0; i < nFolds; i++) {
+      await closeFolds();
+      const f = folds()[i];
+      if (!f) continue;
+      f.click();
+      await settle();
+      await hoverAll(`view 0, fold ${i}`);
+    }
+    await closeFolds();
+  }
+
   async function run(opts) {
     const o = opts || {};
     gameRem();
@@ -231,6 +319,14 @@
     const names = o.scenarios || Object.keys(window.SkiScenarios).filter((n) => /Ash Flat \(runs|Big resort|Field case/.test(n));
     for (const name of names) for (const fs of o.scales || SCALES) {
       try { await checkOne(name, fs, out); } catch (e) { out.fails.push({ scenario: name, fs, what: "exception: " + (e && e.message || e) }); }
+    }
+    out.tips = { n: 0, keys: 0, keyRows: 0, scenarios: [] };
+    if (o.units && o.units.length) {
+      const tipNames = o.tipScenarios || Object.keys(window.SkiScenarios).filter((n) => /^Ash Flat \(runs|^Ash Flat, no black run open$|^Ash Flat, no ski school$|^Field case/.test(n));
+      out.tips.scenarios = tipNames;
+      for (const name of tipNames) for (const fs of o.tipScales || TIP_SCALES) {
+        try { await tipPass(name, fs, out, o.units); } catch (e) { out.fails.push({ scenario: name, fs, what: "tooltip pass exception: " + (e && e.message || e) }); }
+      }
     }
     setScale(1);
     out.ok = out.fails.length === 0;

@@ -11,6 +11,7 @@
  * Glue rule: a tag and the next word or punctuation sit in one nowrap span, so an icon never starts a line alone.
  * NBSP rescue (inline only, hubRules iconInlinePieces): Gameface drops the leading ASCII space of a text run after an inline element, so
  * that space is rendered as U+00A0 (inside a glue run) or moved to the end of the glue run before it. Strings stay ASCII.
+ * Number and unit (round 624, hubRules unitNbsp): the shown text has U+00A0 between a number and its unit ("376 m"), in every mode.
  * Fallback to the word: an unknown NAME (reported once), an image that fails to load, iconMode "words", and every renderString use.
  * IconText carries renderString (the word form) and propsAreEqual, so it may be a <LocText> argument (check-bundle R19), and iconKeySource,
  * so the tooltip key (iconKey.tsx, added by parts.tsx Tip) finds it in a tooltip body.
@@ -20,7 +21,7 @@ import { useLocalization } from "cs2/l10n";
 import type { LocReactNode, Localization, LocStringRenderer, PropsAreEqual } from "cs2/l10n";
 import { LocalizedString } from "../cs2shim";
 import type { LocEntry, Translate } from "../l10n";
-import { iconInlinePieces, iconLineItems, iconRows, iconTokens, iconWordForm } from "./hubRules";
+import { iconInlinePieces, iconLineItems, iconRows, iconTokens, iconWordForm, unitNbsp } from "./hubRules";
 import type { IconToken } from "./hubRules";
 import { HUB_ICON, HUB_ICON_GROUPS, iconMode } from "./hubIcons";
 import { IconImg, wordOf } from "./iconKey";
@@ -72,7 +73,7 @@ function Para({ tokens, mode, word }: { tokens: readonly IconToken[]; mode: Icon
 function IconTextView(p: IconTextProps): JSX.Element {
   const loc = useLocalization();
   const mode = iconMode();
-  const s = tagForm(loc, p);
+  const s = unitNbsp(tagForm(loc, p));   // a number keeps its unit on one line (render time only; renderString keeps ASCII)
   const word = (name: string): string => wordOf(loc, name);
   const tokens = iconTokens(s);
   const tagged = tokens.some((tk) => tk.kind !== "text");

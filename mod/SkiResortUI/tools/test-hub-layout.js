@@ -12,6 +12,9 @@
 *   - more than one Buildings tile row
 *   - text is cut short or runs past the panel, with every build tile hovered in turn (shrink-to-fit classes and player-chosen
 *     names are excepted)
+*   - (round 624) a tooltip icon key row passes its box, or a number stands apart from its unit (an ASCII space before a hubRules
+*     UNIT_WORDS entry) in the panel or a tooltip: harness/layout-check.js tipPass hovers every row of the Attraction view (each fold
+*     open in turn) and the six tiles, at text scale 1, 1.25 and 1.5
 * Before the browser runs, the test checks a stylesheet rule. The note classes (NOTE_CLASSES) wrap. Every other class that cuts text with an
 * ellipsis is a written decision (CUT_DECIDED). So a new one-line note with an ellipsis fails at once.
 * The Runs and Lifts views are the exception. They list every row and may scroll (their list carries class listAll). For them
@@ -20,7 +23,7 @@
 * The test needs `npm run build` first (it mounts build/SkiResortMod.mjs). It also needs network access for the React UMD scripts
 * that the harness loads from cdnjs.
 * Usage:   node tools/test-hub-layout.js [--verbose]
-*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers]   # the harness screenshots listed in SHOTS / BEFORE / T142
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142 | --list=intuitive | --list=merge | --list=merge2 | --list=tips | --list=icons | --list=icons2 | --list=tiers | --list=polish]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md). The panel frame is a stand-in. So the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -35,6 +38,11 @@ const http = require("http");
 const ROOT = path.resolve(__dirname, "..");
 const SIZES = [[1920, 1080], [2560, 1440], [3840, 2160]];
 const PLAYER_NAMES = new Set(["areaNameText", "rowName", "overlayItemName", "lodgeNameLabel"]);
+// Decided ellipsis classes whose line may hold a name the player chose (a lift or run name in a problem line). Its cut is allowed only
+// when the cut line holds a name of the scenario: the name's length is the player's, and the tooltip has the whole text. Round 624: the
+// harness used to wrap every LocText in a <span> (the game renders a bare text node, index.js@434221), and the span hid every cut of a
+// placeholder sentence from this check. LocText now renders as in the game, so the check sees them, and this keeps the old meaning.
+const NAME_LINES = new Set(["problemText"]);
 
 // Notes wrap, never cut (2026-11-02 round 2: the Guests view's ticket note showed half its sentence and an ellipsis in game). A note
 // class must not carry white-space: nowrap, text-overflow: ellipsis, or a fixed height with overflow hidden. It keeps a min-height.
@@ -87,6 +95,15 @@ function styleFailures() {
     fails.push(`.${c} cuts text with an ellipsis and is undecided: make it wrap (a note) or add it to CUT_DECIDED with the reason`);
   }
   return fails;
+}
+
+/** hubRules UNIT_WORDS (the units unitNbsp glues to a number), read from the source for the page's number-unit scan. */
+function unitWords() {
+  const src = fs.readFileSync(path.join(ROOT, "src", "hub", "hubRules.ts"), "utf8");
+  const m = /export const UNIT_WORDS: readonly string\[\] = \[([^\]]*)\]/.exec(src);
+  const words = m ? [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]) : [];
+  if (words.length < 5) throw new Error("test-hub-layout: UNIT_WORDS not found in src/hub/hubRules.ts");
+  return words;
 }
 
 /** The hub classes whose rule carries coh-font-fit-mode: shrink. The function reads them from the stylesheet, so a new one needs no list here. */
@@ -356,6 +373,16 @@ for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
 // 2026-11-08 DECISIONS 621: lodge tier names (role names) apart from building names. The merge card's tier picker with all five
 // tiers, the Merged buildings fold, the lodge-base tooltip's best tier, and the own-lodge rows that keep building names (Buildings
 // tab tiles, car spaces). Every shot at text scale 1 and 1.25. `--list=tiers` picks this list.
+// Round 624 polish: the Vertical and Variety tooltips (inline icons) at text scale 1, 1.25 and 1.5 (number and unit on one line, the key
+// rows inside the box), and the low-span problem line in the band with the +N popover open. `--list=polish` picks this list.
+const POLISH = [];
+for (const [scale, tag] of [[1, "-fs100"], [1.25, "-fs125"], [1.5, "-fs150"]]) {
+  POLISH.push(
+    [`polish-01-tip-vertical-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Vertical", iconMode: "inline", fs: scale }],
+    [`polish-02-tip-variety-1080${tag}`, 1080, { scenario: NOBLACK, view: 0, fold: 0, hover: "Variety", iconMode: "inline", fs: scale }],
+  );
+}
+POLISH.push(["polish-03-low-span-popover-1080-fs125", 1080, { scenario: "Ash Flat (runs, lifts, problems), a low span", view: 0, problems: 1, fs: 1.25 }]);
 const TIERS = [];
 for (const [scale, tag] of [[1, ""], [1.25, "-fs125"]]) {
   TIERS.push(
@@ -438,7 +465,7 @@ async function main() {
   try {
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)),
-        process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=polish") ? POLISH : process.argv.includes("--list=icons2") ? ICONS2 : process.argv.includes("--list=tiers") ? TIERS : process.argv.includes("--list=icons") ? ICONS : process.argv.includes("--list=tips") ? TIPS616 : process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--list=merge2") ? MERGE2 : process.argv.includes("--list=merge") ? MERGE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();
@@ -449,7 +476,7 @@ async function main() {
     const only = process.argv.find((a) => a.startsWith("--height="));
     for (const [w, h] of SIZES.filter(([, hh]) => !only || String(hh) === only.slice(9))) {
       await open(b, base, w, h);
-      const r = await evalAsync(b, "window.SkiLayout.run()", 600000);
+      const r = await evalAsync(b, `window.SkiLayout.run({ units: ${JSON.stringify(unitWords())} })`, 900000);
       const pagers = r.pagers.filter((p) => p.fs === 1).map((p) => `${p.scenario.split(" ")[0]} view ${p.view}: ${p.pager}`).join("; ");
       console.log(`test-hub-layout: ${w}x${h} (rem ${r.remPx} px): ${r.cases.length} case(s), ${r.fails.length} failure(s); max over ${r.maxOverRem} rem, ` +
         `min slack ${r.minSlackRem} rem`);
@@ -462,10 +489,16 @@ async function main() {
       console.log(`  full lists that scroll (text scale 1, allowed: T131): ${sc.length ? Array.from(new Set(sc)).join("; ") : "none"}`);
       // Cut text fails unless the game shrinks that class to fit (the harness browser cannot) or it is a name the player chose (ellipsis + tooltip).
       const shrinks = shrinkClasses();
-      const clipped = Object.values(r.clipped).filter((c) => !shrinks.has(c.cls) && !PLAYER_NAMES.has(c.cls));
+      const clipped = Object.values(r.clipped).filter((c) => !shrinks.has(c.cls) && !PLAYER_NAMES.has(c.cls) && !(NAME_LINES.has(c.cls) && c.playerName));
+      for (const c of Object.values(r.clipped).filter((x) => NAME_LINES.has(x.cls) && x.playerName)) {
+        console.log(`  cut name line (allowed, the name "${c.playerName}" is the player's): [${c.cls}] +${c.over}px "${c.text}" (${c.where})`);
+      }
       console.log(`  cut text: ${clipped.length} real, ${Object.keys(r.clipped).length - clipped.length} allowed (shrink-to-fit classes, player names)`);
       for (const [fs, x] of Object.entries(r.fullest)) console.log(`  fullest footer line at text scale ${fs}: ${x.full} % "${x.text}"`);
       for (const c of clipped) r.fails.push({ scenario: c.where, what: `text cut [${c.cls}] ${c.kind} +${c.over}px: "${c.text}"` });
+      console.log(`  tooltips (text scale ${[1, 1.25, 1.5].join(" / ")}, ${r.tips.scenarios.length} scenario(s)): ${r.tips.n} hovered, ${r.tips.keys} with an icon key ` +
+        `(at most ${r.tips.keyRows} key row(s)); key rows inside the box and every number with its unit, else FAIL below`);
+      if (r.tips.n === 0) r.fails.push({ scenario: "tooltip pass", what: "no tooltip opened: the pass checked nothing" });
       for (const f of r.fails) console.log(`  FAIL ${f.scenario || ""} fs ${f.fs || ""}: ${f.what}` + (f.overRem !== undefined ? ` (over ${f.overRem} rem, slack ${f.slackRem} rem)` : ""));
       if (process.argv.includes("--verbose")) for (const c of r.cases) console.log(`    ${c.scenario.slice(0, 22)} fs ${c.fs} view ${c.view} ${c.state}: over ${c.overRem} slack ${c.slackRem} header ${c.headerRem}`);
       failures += r.fails.length;
