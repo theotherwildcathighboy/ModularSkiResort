@@ -383,6 +383,13 @@ namespace SkiResortMod
             updateSystem.UpdateAt<QuickRunsHotkeySystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.UpdateAfter<QuickRunsTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
 
+            // Station placer (P0 probe of the Resort Planner round): a scripted ObjectToolBaseSystem subclass. ToolUpdate is load-bearing:
+            // its CreationDefinitions must exist before Modification1 of the same frame (GenerateObjectsSystem), and ToolSystem enables only
+            // the active tool (ToolSystem.cs:312-327). Its dev trigger runs at UIUpdate (every frame, paused included), queues the call for
+            // its own OnUpdate and ticks the placer's follow-up line while the tool is closed.
+            updateSystem.UpdateAt<StationPlaceToolSystem>(SystemUpdatePhase.ToolUpdate);
+            updateSystem.UpdateAt<StationPlaceProbeUISystem>(SystemUpdatePhase.UIUpdate);
+
             // Lift park emitter. EndFrameBarrier.CreateCommandBuffer throws at Modification4B (Game/SafeCommandBufferSystem.cs:16-23), so
             // the {Event, SubObjectsUpdated} entities are created at UIUpdate (after SystemOrder.cs:62). Without this line nothing is parked.
             updateSystem.UpdateAt<LiftParkSystem>(SystemUpdatePhase.UIUpdate);

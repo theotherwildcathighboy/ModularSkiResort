@@ -52,6 +52,7 @@ type Game.Buildings.GarbageProducerFlags enum 258f68b2f4 None=0 GarbagePilingUpW
 type Game.Buildings.InitializeSystem class ffb44dbd08
 type Game.Buildings.InstalledUpgrade struct 5d1a6d280e m_Upgrade:Entity m_OptionMask:uint
 type Game.Buildings.LeisureProvider struct 57433bc5a2 burst:r:SkiDaySystem,SkiLodgeParkingSystem
+type Game.Buildings.Lot struct 158f58fe20 m_FrontHeights:float3 m_RightHeights:float3 m_BackHeights:float3 m_LeftHeights:float3
 type Game.Buildings.MailProducer struct 08e38ddd48 m_MailRequest:Entity m_SendingMail:ushort m_ReceivingMail:ushort m_DispatchIndex:byte m_LastUpdateTotalMail:ushort
 type Game.Buildings.Park struct 5aeb9bf4b2 m_Maintenance:short
 type Game.Buildings.ParkingFacility struct b29c555896 m_ComfortFactor:float m_Flags:ParkingFacilityFlags
@@ -104,6 +105,7 @@ type Game.Citizens.TravelPurpose struct 700f718d1f burst:r:SkiDaySystem m_Purpos
 type Game.Citizens.TripNeeded struct 4d161e7a8c burst:w:SkiDaySystem m_TargetAgent:Entity m_Purpose:Purpose m_Data:int m_Resource:Resource m_Priority:byte
 type Game.Citizens.Worker struct 9c4d868a67 burst:r:SkiDaySystem m_Workplace:Entity m_LastCommuteTime:float m_Level:byte m_Shift:Workshift
 type Game.City.City struct 23fe2e9631 burst:r:SkiLiftTicketSystem m_OptionMask:uint
+type Game.City.CityConfigurationSystem class e4637213c4
 type Game.City.CityModifier struct 34a69c9611 m_Delta:float2
 type Game.City.CityModifierType enum 03d847e00a Attractiveness=0 CrimeAccumulation=1 DisasterWarningTime=3 DisasterDamageRate=4 DiseaseProbability=5 ParkEntertainment=6 CriminalMonitorProbability=7 IndustrialAirPollution=8 IndustrialGroundPollution=9 IndustrialGarbage=10 RecoveryFailChange=11 OreResourceAmount=12 OilResourceAmount=13 UniversityInterest=14 OfficeSoftwareDemand=15 IndustrialElectronicsDemand=16 OfficeSoftwareEfficiency=17 IndustrialElectronicsEfficiency=18 TelecomCapacity=19 Entertainment=20 HighwayTrafficSafety=21 PrisonTime=22 CrimeProbability=23 CollegeGraduation=24 UniversityGraduation=25 ImportCost=26 LoanInterest=27 BuildingLevelingCost=28 ExportCost=29 TaxiStartingFee=30 IndustrialEfficiency=31 OfficeEfficiency=32 PollutionHealthAffect=33 HospitalEfficiency=34 IndustrialFishInputEfficiency=35 IndustrialFishHubEfficiency=36 CityServiceImportCost=37 CityServiceBuildingBaseUpkeepCost=38 CrimeResponseTime=39 TaxHappiness=40
 type Game.City.CityServiceUpkeep struct 7b842a4d6a
@@ -262,6 +264,7 @@ type Game.Objects.ObjectUtils class c5d0ec0461
 type Game.Objects.OutsideConnection struct 5a01b05ba8 burst:r:SkiDaySystem
 type Game.Objects.OverrideSystem class 328db584f8
 type Game.Objects.PlaceholderSystem class b3641dc634
+type Game.Objects.PlacementFlags enum 3d1d60b668 None=0 RoadSide=1 OnGround=2 OwnerSide=4 CanOverlap=8 Shoreline=16 Floating=32 Hovering=64 HasUndergroundElements=128 RoadNode=256 Unique=512 Wall=1024 Hanging=2048 NetObject=4096 RoadEdge=8192 Swaying=16384 HasProbability=32768 Underwater=65536 Waterway=131072 SubNetSnap=262144 Attached=524288 RequirePedestrian=1048576
 type Game.Objects.RaycastJobs class d12a39527a
 type Game.Objects.RotationSymmetry enum bdaac9b26c None=0 _180=2 _90=4 _45=8 Any=127
 type Game.Objects.SearchSystem class 9bff1f7a34
@@ -572,6 +575,7 @@ type Game.Simulation.WindSystem class acf1312923
 type Game.Simulation.WorkProviderSystem class a9c7ce0782
 type Game.Simulation.WorkerSystem class 4cd55b9dd1
 type Game.SystemUpdatePhase enum d19d8ab79d Invalid=-1 MainLoop=0 LateUpdate=1 Modification1=2 Modification2=3 Modification2B=4 Modification3=5 Modification4=6 Modification4B=7 Modification5=8 ModificationEnd=9 PreSimulation=10 PostSimulation=11 GameSimulation=12 EditorSimulation=13 Rendering=14 PreTool=15 PostTool=16 ToolUpdate=17 ClearTool=18 ApplyTool=19 Serialize=20 Deserialize=21 UIUpdate=22 UITooltip=23 PrefabUpdate=24 DebugGizmos=25 LoadSimulation=26 PreCulling=27 CompleteRendering=28 Raycast=29 PrefabReferences=30 Cleanup=31
+type Game.Tools.AgeMask enum 70585ba81c Sapling=1 Young=2 Mature=4 Elderly=8
 type Game.Tools.ApplyAreasSystem class 5361f23be9
 type Game.Tools.ApplyMode enum 246396531d None=0 Apply=1 Clear=2
 type Game.Tools.ApplyNetSystem class 637d5410dc
@@ -600,6 +604,7 @@ type Game.Tools.NetToolSystem class 229f09cb1a
 type Game.Tools.ObjectDefinition struct 5830b7ac8c m_Position:float3 m_LocalPosition:float3 m_Scale:float3 m_Rotation:quaternion m_LocalRotation:quaternion m_Elevation:float m_Intensity:float m_Age:float m_IsDecoration:bool m_ParentMesh:int m_GroupIndex:int m_Probability:int m_PrefabSubIndex:int
 type Game.Tools.ObjectToolBaseSystem class 09475a5588
 type Game.Tools.ObjectToolSystem class 344f3be73e
+type Game.Tools.PlacementOverrides struct 187bbb31a7 m_OverrideParentMesh:bool m_ParentMesh:int m_OverrideGroupIndex:bool m_GroupIndex:int m_OverrideProbability:bool m_Probability:int
 type Game.Tools.SelectionToolSystem class c687f2c84a
 type Game.Tools.Snap enum 896063b23f ExistingGeometry=1 CellLength=2 StraightDirection=4 NetSide=8 NetArea=16 OwnerSide=32 ObjectSide=64 NetMiddle=128 Shoreline=256 NearbyGeometry=512 GuideLines=1024 ZoneGrid=2048 NetNode=4096 ObjectSurface=8192 Upright=16384 LotGrid=32768 AutoParent=65536 PrefabType=131072 ContourLines=262144 Distance=524288 None=0 All=uint.MaxValue
 type Game.Tools.Temp struct 2a10e93f82 burst:r:SkiRunOutlineSystem m_Original:Entity m_CurvePosition:float m_Value:int m_Cost:int m_Flags:TempFlags
