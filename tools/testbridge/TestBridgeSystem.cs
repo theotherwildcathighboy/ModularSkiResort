@@ -47,11 +47,13 @@ namespace SkiTestBridge
             m_Prefabs = World.GetOrCreateSystemManaged<PrefabSystem>();
             AddBinding(new CallBinding<string, string>("skitest", "cmd", Command));
             WatchErrors();
+            CreateReady();
         }
 
         protected override void OnUpdate()
         {
             base.OnUpdate();
+            TickReady();
             TickPerf();
             TickSequence();
             TickMergeProbeUi();
@@ -60,6 +62,7 @@ namespace SkiTestBridge
         protected override void OnDestroy()
         {
             UnwatchErrors();
+            DestroyReady();
             NativeInput.ReleaseAll();
             base.OnDestroy();
         }
@@ -85,6 +88,8 @@ namespace SkiTestBridge
             switch (op)
             {
                 case "status": return Status();
+                case "ready": return ReadyState();
+                case "settings": return SettingsCommand(args);
                 case "hover": return Hover();
                 case "project": return ProjectCommand(args);
                 case "camera": SetCamera(args); return CameraState();
@@ -130,6 +135,7 @@ namespace SkiTestBridge
                 ["errorSerial"] = ErrorSerial(),
                 ["frame"] = UnityEngine.Time.frameCount,
                 ["gameMode"] = GameManager.instance.gameMode.ToString(),
+                ["ready"] = ReadyState(),
                 ["focused"] = NativeInput.FocusedGameWindow() != IntPtr.Zero,
                 ["screen"] = new JArray(Screen.width, Screen.height),
                 ["hover"] = Hover(),
