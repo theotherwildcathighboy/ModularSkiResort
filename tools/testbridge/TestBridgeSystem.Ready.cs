@@ -6,7 +6,9 @@
 //   - Virtual texturing inits its material queues over many frames (TextureStreamingSystem.OnUpdate, VTMaterialsLeftToLoadCount)
 //     and refills them when mods add surfaces (RefreshVT, GameManager.cs:1499 and :1568).
 //   - With --uiDeveloperMode, Gameface live reload is on (UIManager settings liveReload = developerMode). A .js / .css / .html
-//     change in a watched folder (local UI mods are watched) reloads the page 1 s later (Colossal.UI UILiveReload.OnChanged).
+//     change in a watched folder (local UI mods are watched) reloads the page (Colossal.UI UILiveReload.OnChanged). Any other
+//     change is a "media" reload: reload.html, then index.html again. Measured 2026-11-08: one media reload 6 to 10 s after
+//     every mode change ("Reloading media 0" in UI.log).
 // No part proves why the 2026-11-08 exits happened. The gate only says that nothing above is still moving.
 
 using System;
