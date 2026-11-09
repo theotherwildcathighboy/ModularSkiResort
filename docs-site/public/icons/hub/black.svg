@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+<!-- Modular Ski Resort hub icon (icon scheme, 2026-11-08). Black run: a charcoal diamond (hubOnDarkBlack) with a full light edge (hubOnDarkEdge), a trail sign on a dark board. Pure black vanished into the dark tooltip. Fixed colors: inline icons cannot be tinted (gate T42 allows only the on-dark tokens). -->
+<path d="M8 1.2 L14.8 8 L8 14.8 L1.2 8 Z" fill="rgb(80,86,98)" stroke="rgb(240,251,255)" stroke-width="1.4"/>
+</svg>

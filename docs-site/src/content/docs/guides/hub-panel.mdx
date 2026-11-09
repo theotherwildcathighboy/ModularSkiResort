@@ -6,6 +6,7 @@ description: "Ski Resort hub reference: header, status line, problem band, tiles
 import { Aside } from '@astrojs/starlight/components';
 import Shot from '../../../components/Shot.astro';
 import Icon from '../../../components/Icon.astro';
+import HubSymbols from '../../../components/HubSymbols.astro'
 
 The **Ski Resort hub** is the mod's single panel.
 
@@ -18,7 +19,7 @@ The **Ski Resort hub** is the mod's single panel.
 
 Persistent elements above the views.
 
-- **Header:** one ski area, keyed to its Welcome Sign. Arrows: switch ski area. Fly button: jump to the sign. Pen: rename (empty name restores the default). Runs and lifts outside every sign's radius (**5 km** by default, option **Ski area radius**) are listed as *Not linked to a ski area*. They score **0**.
+- **Header:** one ski area, keyed to its Welcome Sign. Arrows: switch ski area. Fly button: jump to the sign. Pen: rename (empty name restores the default). Info button: **Symbols**, the table of every symbol in hub text (see [Hub Symbols](#hub-symbols)). Runs and lifts outside every sign's radius (**5 km** by default, option **Ski area radius**) are listed as *Not linked to a ski area*. They score **0**.
 - **Status line:** *Open*, *Closed* or *Patchy*, with *· 1 patchy* while some runs are patchy and *≈* while the snow is estimated. On its right: snow depth and cover (*124 cm · 100 %*), *Powder day*, or a season warning. Tooltip: open, patchy and closed run counts, snow rule (open at **91 cm** on **60 %** of a run. An open run closes when **30 cm** covers under **40 %**), measured or estimated snow. The hub shows depths in your game's unit setting.
 - **Problem band:** one fact per line (*No lift yet*, *Lodge or school: road required*, *Lift X: no power*). Hover: cost. Click: fly to the cause or open the list. See [Troubleshooting](/guides/troubleshooting/).
 - **Tiles:** Attraction, Runs, Lifts, Guests, Finances, History. Click opens the view. The tooltip lists figures.
@@ -31,6 +32,7 @@ Ski area score on the game's attraction scale: large park about **10**, tourist 
 - **Receipt:** one row per term. **Lodge base**, then *Runs, lifts and school*: **Runs**, **Lifts**, **Ski school**, **Variety**, **Vertical** and **Scale** (scale × the square root of the terms above), then **Efficiency** (as in the Welcome Sign's info panel) and the result, **Attraction**.
 - **Section header tooltip:** the full equation. Derivation: [Attraction Formula](/reference/attraction/).
 - **Zero rows:** a row at 0 with a known cause shows a warning glyph (*No ski school*, *No green run*).
+- **Missing lines:** a row tooltip ends with what the row misses, in yellow (*Missing: blue run*, *Not in full: 2 closed · 1 no lift*). Its symbols have a key under a thin line.
 - **Mountain section:** run difficulty mix, **vertical** (lowest run bottom to highest run top), **skiable area**, **snow depth**, **run coverage**. **≈** = estimate.
 - **Merged buildings:** city buildings merged into this ski area as lodges, with their tier or state, and the **Mergeable buildings** switch with its green / gray legend. See [Merged Buildings](/guides/lodges-school-patrol/#merged-buildings).
 - **Share of the city's tourist draw:** this ski area's slice of the city's attraction, game method (each building's score squared). Sets how many tourists arrive. The destination is unaffected.
@@ -97,3 +99,10 @@ Three tabs along the bottom hold every tool.
 Lodges, Ski School and patrol are ordinary buildings, placed with the game's building tool like any other. A tile
 only starts the placement. A building within the ski area radius (**5 km** by default) of a Welcome Sign belongs to the nearest one.
 </Aside>
+
+## Hub Symbols
+
+Hub text uses these symbols in short lines and lists: missing lines, counts and run ratings. Each symbol stands for its word. A tooltip
+with symbols shows their key, and the header's **Symbols** button shows the whole table. Ski school, power and snow use the game's own icons.
+
+<HubSymbols />

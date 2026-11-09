@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+<!-- Modular Ski Resort hub icon (icon scheme, 2026-11-08). Blue run: a square in hubOnDarkBlue, lighter than the panel's hubDiffBlue so it reads on the dark tooltip. Fixed colors: inline icons cannot be tinted (gate T42 allows only the on-dark tokens). -->
+<rect x="2.5" y="2.5" width="11" height="11" fill="rgb(70,140,240)"/>
+</svg>

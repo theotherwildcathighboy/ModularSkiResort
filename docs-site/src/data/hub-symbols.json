@@ -1,0 +1,149 @@
+{
+  "_generated": "tools/export-hub-symbols.js from mod/SkiResortUI/src/hub/hubIcons.ts and hubText.ts. Do not edit: run the script.",
+  "groups": [
+    {
+      "title": "Run ratings",
+      "titleKey": "SkiResort.Hub.ICON_LEGEND[Ratings]",
+      "symbols": [
+        {
+          "name": "green",
+          "tag": "<icon:green>",
+          "word": "green",
+          "wordKey": "SkiResort.Hub.ICON[green]",
+          "meaning": "A green run: the easiest rating.",
+          "image": "icons/hub/green.svg",
+          "gameIcon": null,
+          "wide": false
+        },
+        {
+          "name": "blue",
+          "tag": "<icon:blue>",
+          "word": "blue",
+          "wordKey": "SkiResort.Hub.ICON[blue]",
+          "meaning": "A blue run: the middle rating.",
+          "image": "icons/hub/blue.svg",
+          "gameIcon": null,
+          "wide": false
+        },
+        {
+          "name": "black",
+          "tag": "<icon:black>",
+          "word": "black",
+          "wordKey": "SkiResort.Hub.ICON[black]",
+          "meaning": "A black run: a difficult rating.",
+          "image": "icons/hub/black.svg",
+          "gameIcon": null,
+          "wide": false
+        },
+        {
+          "name": "dblack",
+          "tag": "<icon:dblack>",
+          "word": "double-black",
+          "wordKey": "SkiResort.Hub.ICON[dblack]",
+          "meaning": "A double-black run: the steepest rating, for experts.",
+          "image": "icons/hub/dblack.svg",
+          "gameIcon": null,
+          "wide": true
+        }
+      ]
+    },
+    {
+      "title": "Run states",
+      "titleKey": "SkiResort.Hub.ICON_LEGEND[States]",
+      "symbols": [
+        {
+          "name": "open",
+          "tag": "<icon:open>",
+          "word": "open",
+          "wordKey": "SkiResort.Hub.ICON[open]",
+          "meaning": "Open: enough snow on 60 % of the run. The run scores in full.",
+          "image": "icons/hub/open.svg",
+          "gameIcon": null,
+          "wide": false
+        },
+        {
+          "name": "patchy",
+          "tag": "<icon:patchy>",
+          "word": "patchy",
+          "wordKey": "SkiResort.Hub.ICON[patchy]",
+          "meaning": "Patchy: between open and closed. The run scores part of its value.",
+          "image": "icons/hub/patchy.svg",
+          "gameIcon": null,
+          "wide": false
+        },
+        {
+          "name": "closed",
+          "tag": "<icon:closed>",
+          "word": "closed",
+          "wordKey": "SkiResort.Hub.ICON[closed]",
+          "meaning": "Closed: snow on under 40 % of the run. The run scores nothing.",
+          "image": "icons/hub/closed.svg",
+          "gameIcon": null,
+          "wide": false
+        },
+        {
+          "name": "openpatchy",
+          "tag": "<icon:openpatchy>",
+          "word": "open or patchy",
+          "wordKey": "SkiResort.Hub.ICON[openpatchy]",
+          "meaning": "Open or patchy: a run that adds to the score.",
+          "image": "icons/hub/openpatchy.svg",
+          "gameIcon": null,
+          "wide": true
+        }
+      ]
+    },
+    {
+      "title": "Ski area",
+      "titleKey": "SkiResort.Hub.ICON_LEGEND[Area]",
+      "symbols": [
+        {
+          "name": "school",
+          "tag": "<icon:school>",
+          "word": "ski school",
+          "wordKey": "SkiResort.Hub.ICON[school]",
+          "meaning": "Ski school: an active ski school adds 12 to the score while a green run is open or patchy.",
+          "image": null,
+          "gameIcon": "Graduation",
+          "wide": false
+        },
+        {
+          "name": "lift",
+          "tag": "<icon:lift>",
+          "word": "lift",
+          "wordKey": "SkiResort.Hub.ICON[lift]",
+          "meaning": "Lift: any lift type. A run needs a lift to score in full.",
+          "image": "icons/hub/lift.svg",
+          "gameIcon": null,
+          "wide": false
+        }
+      ]
+    },
+    {
+      "title": "City services",
+      "titleKey": "SkiResort.Hub.ICON_LEGEND[City]",
+      "symbols": [
+        {
+          "name": "power",
+          "tag": "<icon:power>",
+          "word": "power",
+          "wordKey": "SkiResort.Hub.ICON[power]",
+          "meaning": "Power: the city's electricity. A lift without power stops.",
+          "image": null,
+          "gameIcon": "Electricity",
+          "wide": false
+        },
+        {
+          "name": "snow",
+          "tag": "<icon:snow>",
+          "word": "snow",
+          "wordKey": "SkiResort.Hub.ICON[snow]",
+          "meaning": "Snow: the depth and the cover of snow on the runs.",
+          "image": null,
+          "gameIcon": "Snow",
+          "wide": false
+        }
+      ]
+    }
+  ]
+}
