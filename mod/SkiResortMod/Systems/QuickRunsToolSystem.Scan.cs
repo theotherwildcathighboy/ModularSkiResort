@@ -46,6 +46,7 @@ namespace SkiResortMod.Systems
         private readonly QuickTotals m_Totals = new QuickTotals();
         private readonly List<string> m_WarnKeys = new List<string>();
         private QuickToolWarning m_ToolWarn;
+        private int m_UnboundPistes;                                      // enabled pistes with no Welcome Sign in range (NoSign / NoSignSome)
         private string m_StatusKey;
         // Gates of the enabled candidates (OtherResort / NoSign), by result index
         private Entity[] m_GateOf = new Entity[0];
@@ -184,6 +185,7 @@ namespace SkiResortMod.Systems
             m_Totals.Clear();
             m_WarnKeys.Clear();
             m_ToolWarn = QuickToolWarning.None;
+            m_UnboundPistes = 0;
             m_StatusKey = null;
             m_DrawDirty = true;
             if (why != null)
@@ -464,6 +466,8 @@ namespace SkiResortMod.Systems
                     m_GateOf = new Entity[r.Runs.Count];
                 Entity first = Entity.Null;
                 bool any = false;
+                int pistesOn = 0;
+                m_UnboundPistes = 0;
                 var topByKind = new float[5];
                 for (int k = 0; k < 5; k++)
                     topByKind[k] = float.NegativeInfinity;
@@ -474,9 +478,13 @@ namespace SkiResortMod.Systems
                         continue;
                     AutoRun run = r.Runs[i];
                     float2 c = QuickRunsRules.Centroid(run.Ring);
+                    bool piste = !RunFeatures.FromKind((int)run.Kind).IsCatTrack;
+                    if (piste)
+                        pistesOn++;
                     if (!m_Ownership.TryNearestGateEntity(c, out Entity gate, out float _))
                     {
-                        m_ToolWarn |= QuickToolWarning.NoSign;
+                        if (piste)
+                            m_UnboundPistes++;   // the bind's own test (centroid within the tether): this piste waits unbound
                         continue;
                     }
                     m_GateOf[i] = gate;
@@ -493,7 +501,12 @@ namespace SkiResortMod.Systems
                 }
                 if (any && RenumbersDefaultNames(first, topByKind))
                     m_ToolWarn |= QuickToolWarning.Renumber;
+                // Field pass 2026-11-10: one flag for "any run unbound" read "the runs will not count" with 22 of 213 unbound
+                if (m_UnboundPistes > 0)
+                    m_ToolWarn |= m_UnboundPistes == pistesOn ? QuickToolWarning.NoSign : QuickToolWarning.NoSignSome;
             }
+            else
+                m_UnboundPistes = 0;
             QuickRunsRules.WarningKeys(shown ? r.Warnings : AutoPlanWarning.None, m_ToolWarn, m_WarnKeys);
         }
 

@@ -600,3 +600,7 @@ Task R2-b changed what `WriteQuickRuns` writes for the runs-first planner. Every
   They are false once the tool drops the plan. The over-limit fields come from `ResortPlanSheet.Row`. They are the count and the tower counted
   from the base (-1 with none). They also give the distance along the line, the bend and the limit of its sheave train. The row state stays Built.
 - The hub reads `PLAN_TRAINS` through the existing `ReasonGroup` path. The lift engine already groups it. Only the locale key was missing.
+
+## Unbound pistes (contract 43)
+`unbound` is `QuickRunsToolSystem.UnboundPistes` while a preview shows, else 0. It is the N of QUICK_WARN[NoSignSome] ("N of M runs",
+M = `enabled`). The warnings array holds keys only, so the number needs its own field.

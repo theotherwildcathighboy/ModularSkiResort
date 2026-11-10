@@ -56,8 +56,9 @@ namespace SkiResortMod.Systems
         MoneyShort = 1,       // the total fee is more than the city has (Enter refuses)
         Renumber = 2,         // default-named runs exist: the new runs renumber them (SkiRunCatalogSystem ordinals)
         OtherResort = 4,      // the enabled runs bind to more than one Welcome Sign
-        NoSign = 8,           // no Welcome Sign within the tether: the runs build and wait unbound, as drawn runs do
+        NoSign = 8,           // no enabled piste has a Welcome Sign within the tether: they build and wait unbound, as drawn runs do
         ChecksOff = 16,       // the game's own checks are off (QuickRunsRules.ChecksState). Only the planner's checks protect the build
+        NoSignSome = 32,      // some enabled pistes (not all) have no Welcome Sign within the tether. The hub and tooltip say how many
     }
 
     /// <summary>Whether the game would flag an overlapping preview run (QuickRunsRules.ChecksState). The state is read from the vanilla

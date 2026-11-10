@@ -242,6 +242,9 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < warn.Count; i++)
                 writer.Write(warn[i]);
             writer.ArrayEnd();
+            // Contract 43: the N of QUICK_WARN[NoSignSome] ("N of M runs", M = enabled)
+            writer.PropertyName("unbound");
+            writer.Write(preview ? t.UnboundPistes : 0);
             writer.PropertyName("clusters");
             AutoPlanResult r = t.Result;
             int clusters = preview ? r.Clusters.Count : 0;

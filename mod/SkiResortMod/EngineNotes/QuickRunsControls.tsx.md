@@ -122,3 +122,8 @@ The runs-first planner ignores four knobs. The hub hides them. It shows the new 
   waiting)" draw both. Shots: `node tools/test-hub-layout.js --shots=<dir> --list=r2b`. The shot parameters `scrollY` (panel content) and
   `scrollIn` (a named box) show the lower rows.
 - Not done: a notice that existing lifts are blocked ground. The tool logs it. The binding has no cheap way to know the count.
+
+## Partial sign range (contract 43)
+The warning QUICK_WARN[NoSignSome] is the one warning with numbers. The hub draws it with `LocText` (`HUB_FMT.quickNoSignSome`,
+N = `unbound`, M = `enabled`). It does not use `sentKeyEntry`, because rule R13 lets only LocText fill "{N}". The harness preview
+scenario shows it with 3 of 11.
