@@ -5,8 +5,8 @@ description: Hub problem lines with causes and fixes, the mod log tags for cases
 
 import { Aside } from '@astrojs/starlight/components';
 
-First source: the hub's problem line (the worst problem, with a button that opens the others, and a tooltip that says why each one matters). Second source: the mod log, for a silent hub or
-a hub line that points to the log.
+Start with the hub's problem line. It shows the worst problem, a button opens the others, and each tooltip says why the
+problem matters. If the hub shows nothing, or a hub line points to the log, read the mod log.
 
 ## Problem Lines
 
@@ -63,7 +63,7 @@ Problem reports: include the lines around any `!!!`. Where to send them: [Bug Re
 | `Lodge [road]` | Road edge that satisfied each lodge's access. |
 | `Catalog [rate]` | Run rated, with band. |
 | `Hub [items]` | Hub build tiles disagree with the prefabs (price drift warning). |
-| `QuickRuns [scan]` | Resort Planner scan started, done or canceled, with the region, the thread it ran on and the plan. |
+| `QuickRuns [scan]` | Resort Planner scan started, done or canceled, with the region and the plan. |
 
 Tickets missing from the Economy panel: check the log first, then [Economy](/guides/economy-panel/).
 
@@ -73,7 +73,7 @@ Tickets missing from the Economy panel: check the log first, then [Economy](/gui
 - **Chairs stopped.** Hub: *Lift X: chairs stopped*. The lift still counts. Log: `Lifts [state]`, `Lift [power]`.
 - **Hub button missing.** Options > Modular Ski Resort > Ski Resort hub. The hub is always in the Universal Mod Panel.
 - **DLL and UI version mismatch notice.** Reinstall the mod. Building works. Resort statistics stay hidden until both halves match.
-- **Resort Planner scan stops with an error, or the planner is grayed.** The scan runs on a background thread. A scan that fails says so (*The scan stopped on an internal error, and nothing was planned*). The planner stays usable: change the outline and scan again. An error elsewhere in the tool turns the Resort Planner off until the next game load (hub: *The Resort Planner hit an error and is off until the next load*). Reload the save. Log: `QuickRuns [scan]`.
+- **Resort Planner scan stops with an error, or the planner is grayed.** A scan that fails says so (*The scan stopped on an internal error, and nothing was planned*). The planner stays usable: change the outline and scan again. An error elsewhere in the tool turns the Resort Planner off until the next game load (hub: *The Resort Planner hit an error and is off until the next load*). Reload the save. Log: `QuickRuns [scan]`.
 - **Runs gone after a Welcome Sign was bulldozed.** Bulldozing a sign deletes every run linked to it, with the runs' glade trees, after a warning that shows the run count. Run fees are not refunded. To move a sign, use **Relocate** in its info panel: its runs stay linked.
 
 ## Bug Reports

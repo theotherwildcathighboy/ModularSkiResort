@@ -5,12 +5,10 @@ description: Ski area attraction score from lodges, runs, lifts, Ski School, var
 
 import { Aside } from '@astrojs/starlight/components';
 
-Per ski area **attraction score**, **0** to **200**, shown in the hub Attraction view. Scale: large park about **10**,
-tourist attraction **50**, landmark **120**. The game converts the score to tourists.
+Each ski area has an **attraction score** from **0** to **200**, shown in the hub's Attraction view. For scale: a large
+park is about **10**, a tourist attraction **50**, a landmark **120**. The game converts the score to tourists.
 
 ## Equation
-
-Score formula and its inputs.
 
 ```text
 score = min( 200 , efficiency × ( lodge base + K × √S ) )
@@ -84,8 +82,7 @@ Each complete, powered lift adds its type's **score value**.
 |---|---|---|---|
 | 6 | 15 | 25 | 30 |
 
-- **No run counts:** chairlifts and gondolas ×**0.25**.
-- **Summer:** fixed-grip, detachable and gondola ×**0.25**, tram ×**1**.
+- **No run counts (summer):** chairlifts and gondolas ×**0.25**, tram ×**1**.
 
 ## Ski School
 
@@ -122,6 +119,6 @@ The score is the ski area's attraction score in the game's tourist formula.
 - **Effect:** the share sets how many tourists come to the city. Their destination is unaffected.
 
 <Aside type="note" title="Ski Days">
-Ski days are a separate stream: mod-owned visitors reacting to score, fresh snow, distance and lift ticket price.
-The score draws game-sent tourists only. See [Passes and Lessons](/guides/passes-and-lessons/).
+Ski days are a separate stream: the mod's own visitors, who react to the score, fresh snow, distance and the lift ticket
+price. The score itself draws only the tourists the game sends. See [Passes and Lessons](/guides/passes-and-lessons/).
 </Aside>

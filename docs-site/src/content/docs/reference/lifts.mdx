@@ -10,7 +10,7 @@ import Icon from '../../../components/Icon.astro';
 Station and line prices are defaults. The build tile tooltip shows the actual price.
 </Aside>
 
-Four lift families. A line and its two stations share one type.
+Four lift types. A line and its two stations share one type.
 
 | | <Icon name="lift-fixed-grip" alt="Fixed-grip lift icon" /> Fixed-grip triple | <Icon name="lift-detachable" alt="Detachable lift icon" /> Detachable quad | <Icon name="lift-gondola" alt="Gondola icon" /> Gondola | <Icon name="lift-tram" alt="Aerial tram icon" /> Aerial tram |
 |---|---|---|---|---|
@@ -42,8 +42,7 @@ Four lift families. A line and its two stations share one type.
 Added by a complete, powered lift.
 
 - **Winter:** table value.
-- **No run counts:** chairlifts and gondolas ×**0.25**.
-- **Summer:** share row of the table. The tram is the best summer attraction.
+- **No run counts (summer):** the share row of the table. Chairlifts and gondolas ×**0.25**, the tram in full.
 
 ## Station Names
 
@@ -57,10 +56,6 @@ Design figure in skiers per hour, shown in the hub.
 - **Trip:** base to top at line speed, at 1× game speed.
 - **Riders:** skier models are not shown on screen.
 
-## Tram Operation
-
-Shuttle: two cabins travel back and forth and dwell at each terminal.
-
 ## Summer
 
-A ski area with no open run for one game hour stops its chairlifts and gondolas. Only the tram keeps running, as sightseeing. A running tram with no open run pays **half** its upkeep. A stopped lift pays **a quarter**.
+A ski area with no open run for one game hour stops its chairlifts and gondolas. Only the tram keeps running, as sightseeing. What each then pays: [Running Cost](#running-cost).

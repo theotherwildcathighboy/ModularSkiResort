@@ -33,11 +33,11 @@ import Shot from '../../components/Shot.astro';
     Snow guns extend the season where it is cold enough.
   </FeatureCard>
   <FeatureCard title="Lodges, Ski School, Patrol" icon="lodge-grand" alt="Swanky Grand Lodge icon">
-    **5** lodge tiers, a Ski School and two patrol buildings, all standalone buildings. The Welcome Sign starts the ski area.
-    Guests and locals ski. The city's tourism responds.
+    Five lodges, a Ski School and two patrol buildings. The Welcome Sign starts the ski area.
+    Residents and tourists ski, and a bigger resort draws more tourists to the city.
   </FeatureCard>
   <FeatureCard title="Hub" icon="glyph-history" alt="Hub History tile glyph">
-    Views for the attraction score, runs, lifts, guests, finances, historical performance, and building tools.
+    One panel with views for the attraction score, runs, lifts, guests, finances and history, plus every building tool.
   </FeatureCard>
 </CardGrid>
 
@@ -61,7 +61,7 @@ import Shot from '../../components/Shot.astro';
    - **Required mods:** none. Everything works on the base game.
    - **Recommended:** Write Everywhere. With it the Welcome Sign shows your ski area's name. Without it the sign keeps its plain "SKI AREA" header over a blank name board.
    - **Useful:** Move It. It places stations and buildings more precisely than the game's own tools.
-   - **Optional:** Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding and other trip-planner mods. The mod detects them for labels and adjusts nothing. Other people maintain those mods. The author does not control their updates or their compatibility.
+   - **Optional:** Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding and other trip-planner mods. The mod detects them to show a notice in the hub and changes nothing in them. Other people maintain those mods, and the author does not control their updates or their compatibility.
 3. **Access:** the **Ski Resort** button at the top left. Nothing is added to the game's build menus.
 
 ## Compatibility
@@ -81,11 +81,10 @@ import Shot from '../../components/Shot.astro';
 - **Cat tracks and lifts:** a cat track cannot pass under a lift that is already built. Build cat tracks first, then the lifts over them.
 - **Roads under lifts:** towers stand clear of roads, tracks and paths where the line allows it. They do not stand clear of the roads and paths inside a building's lot. Where the line does not allow it, the game reports the tower as overlapping. Move the road or the tower.
 - **Trees:** a lift fells the trees along its whole corridor, also where the rope runs high above them.
-- **Far hills:** a hill far from the city's homes and hotels gets few ski-day guests. The hub shows the distance.
+- **Far hills:** a hill far from the city's homes and hotels gets few ski-day guests. The hub shows the distance. A [Ski Bus Depot](/guides/lodges-school-patrol/#ski-bus-depot) in town helps.
 - **Language:** English only for now.
 - **Uninstall:** first bulldoze all lifts and runs, or use **Delete all ski resort content** (Options > Modular Ski Resort > Reset), then save. Without that, buildings and stations turn into checkered placeholder blocks. Runs stay as flat patches. See [Uninstall](/guides/lifts/#uninstall).
-- **Resort Planner:** experimental. It may change, and it is off until you turn it on in Options. It proposes runs, cat tracks and lifts. **Build** builds the cat tracks and runs. **Build lifts** builds the lifts one after the other. A lift line that needs a hand fit waits for you. Its Undo covers runs only and ends when the lift build starts. On steep ground expect mostly black runs and few greens. See [Runs and Snow](/guides/runs-and-snow/#resort-planner-experimental).
-- **Saves:** start from a new city. Saves from test builds are not supported.
+- **Resort Planner:** experimental. It may change, and it is off until you turn it on in Options. It proposes runs, cat tracks and lifts. **Build** makes the cat tracks and runs. **Build lifts** then adds the lifts one at a time. A lift line that needs a hand fit waits for you. Its Undo covers runs only and ends when the lift build starts. On steep ground expect mostly black runs and few greens. See [Runs and Snow](/guides/runs-and-snow/#resort-planner-experimental).
 
 ## Rough Roadmap
 
@@ -101,12 +100,11 @@ import Shot from '../../components/Shot.astro';
 **After the release:**
 
 - **First two weeks:** bug reports and player feedback come first. A crash that the mod causes gets a fix before all other work.
-- **Next two weeks:** UI passes and asset tune-ups, for example carriers that follow the rope more accurately and bullwheels that turn.
+- **Next two weeks:** UI passes and asset tune-ups, for example bullwheels that turn.
 
 **Game updates:**
 
-- **Patch 1.6.4f1 "Seasonal Shift" (November 10, 2026):** the mod was checked against this patch.
-- **Park Adventures (December 2, 2026):** the Park Adventures DLC launches on this date. The mod will be checked against Park Adventures when it launches. If the new game version breaks a part of the mod, that fix comes first. This is a compatibility check. It is not a promise of DLC integration.
+- **Park Adventures DLC (December 2, 2026):** the mod will be checked against the new game version when the DLC launches. If the update breaks a part of the mod, that fix comes first. This is a compatibility check, not a promise of DLC integration.
 
 **Later, with no dates:**
 

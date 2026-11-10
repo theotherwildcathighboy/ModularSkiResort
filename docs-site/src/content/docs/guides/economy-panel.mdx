@@ -23,14 +23,11 @@ through the game's budget, like any fare.
 
 <Shot src="budget.jpg" label="Economy > Budget with a ski resort running: the Public Transport Fees line under Service Fees." />
 
-## Closed Income List
+## Why No Ski Resort Line
 
-The Economy panel has a fixed set of income lines: **4** taxes, **7** service fees, **2** export lines and the government subsidy (14 in all).
-
-- **Constraint:** the game builds the list from a fixed set of resource types. A mod cannot add a line without rewriting the panel.
-- **Mod policy:** the game's menus are not modified.
-- **Closest vanilla label:** *Public Transport Fees* (a lift ticket is a ride fare).
-- **Parks:** no fee line exists. Parks only cost.
+The Economy panel has a fixed set of income lines. A mod cannot add one without rewriting the panel, and this mod does not
+modify the game's menus. *Public Transport Fees* is the closest label: a lift ticket is a ride fare. Parks have no fee
+line at all.
 
 ## Panel Coverage
 
@@ -49,7 +46,7 @@ The Economy panel has a fixed set of income lines: **4** taxes, **7** service fe
 ## Commercial Tax
 
 Resort-drawn tourists sleep in hotels and shop in stores. Those companies' profit is taxed on the ordinary
-**Commercial tax** line. No mod touches it.
+**Commercial tax** line. The mod does not change it.
 
 - **Resort income:** no. Excluded from the hub net.
 - **Hub row:** **City tourist income** = ski area share of the city's tourist draw × game tourist income. Labeled an estimate.
@@ -62,7 +59,7 @@ Resort-drawn tourists sleep in hotels and shop in stores. Those companies' profi
 1. Hub **Finances** view: note **Lift tickets** and the other income rows, month to date.
 2. **Economy > Budget**: find the **Public Transport Fees** income line.
 3. Both should move together. The panel shows a projected monthly rate that the game updates in steps. Expect lag behind the hub, most of all early in a month. (unverified)
-4. Treasury change over a month should equal the sum of the panel lines. If not, see [Troubleshooting](/guides/troubleshooting/).
+4. Over a month, the treasury changes by the sum of the panel lines minus the lift, run and ski bus costs, which only the hub shows. If it does not, see [Troubleshooting](/guides/troubleshooting/).
 
 </Steps>
 
@@ -74,8 +71,7 @@ Resort-drawn tourists sleep in hotels and shop in stores. Those companies' profi
 - **Hub notice:** *"Detected: Realistic Workplaces. The real bill can differ."*
 - **Fee income crediting:** vanilla behavior expected (unverified).
 
-<Aside type="note" title="Hotel Lodges">
-Hotel income comes from a *company* in a rentable building. A park building is neither. A hotel-style income share
-implemented in code would be invisible in the panel. The visible form of income sharing with the city is the
-commercial tax above, collected from any hotel the resort fills.
+<Aside type="note" title="Lodges Are Not Hotels">
+Lodges are park buildings, not hotels, so they earn no room income. The city's share of a stay comes through the
+commercial tax above, from any hotel the resort fills.
 </Aside>
