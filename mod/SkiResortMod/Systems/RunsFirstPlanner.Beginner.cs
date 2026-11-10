@@ -836,7 +836,8 @@ namespace SkiResortMod.Systems
         private long EasyWork, LinkWork;
         // a graded track may climb a little per step (a contour step on rough ground). The route's climb rule still holds it
         private float EasyUpTol => O.EasyUpTol;
-        private float EasyBudget => O.EasyBudget;
+        private float EasyBudget => m_OwnBudget > 0f ? m_OwnBudget : O.EasyBudget;
+        private float m_OwnBudget;   // a pass with a budget of its own (the way home): EasyWork counts that pass alone
         private float LinkBudget => O.LinkBudget;
 
         /// <summary>The easy-ground search's working arrays per grid cell (Steep: meters steeper than green, Hi: the highest raw point

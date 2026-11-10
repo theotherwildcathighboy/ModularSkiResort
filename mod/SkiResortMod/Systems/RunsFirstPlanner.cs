@@ -151,7 +151,7 @@ namespace SkiResortMod.Systems
 
         // Progress: the passes done out of PassCount (each Tick is one), plus an inner fraction in the three longest passes (the
         // lift-top reach scan, the serve pick, the regrade). A pass an option turns off still ticks. It never goes back.
-        private const int PassCount = 34;
+        private const int PassCount = 35;
         private volatile int m_Progress;   // per-mille, written by the planning thread (and the reach scan's workers), read by any thread
         private readonly object m_ProgressLock = new object();
         private int m_PassesDone;
@@ -356,6 +356,10 @@ namespace SkiResortMod.Systems
             // the drawn numbers follow the list, as the scorecard's notes count the lifts (passes take lifts out and add new ones)
             for (int i = 0; i < lifts.Count; i++)
                 lifts[i].Id = i + 1;
+            // lifts the lift tool can build: a lift whose tower plan is not Sound is shifted, retyped or kept flagged (Towers.cs)
+            if (O.Towers)
+                FitTowers(g, built, lifts, km2r);
+            Tick("towers");
             RunsFirstResult result = MakeResult(g, built, lifts);
             Tick("result");
             long ms = sw.ElapsedMilliseconds;

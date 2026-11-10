@@ -18,7 +18,7 @@ namespace AutoGenBatch
     internal static partial class Program
     {
         private const double CancelBoundMs = 250.0;
-        private const int PassCount = 34;   // RunsFirstPlanner.PassCount: the named passes (EngineNotes/RunsFirstPlanner.md)
+        private const int PassCount = 35;   // RunsFirstPlanner.PassCount: the named passes (EngineNotes/RunsFirstPlanner.md)
 
         private static void RunsFirstPlannerTests()
         {
