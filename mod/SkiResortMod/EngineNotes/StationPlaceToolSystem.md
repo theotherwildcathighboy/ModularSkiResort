@@ -221,3 +221,9 @@ rule (SP-7). The hub rows, the buttons and the notices
 are proven in the harness only (UI). The bridge sheet `r1c-bridge-sheet.md` (private docs) proves the rest: the queue, the
 settle rule, the scripted line, the refusals and the marks. The sheet `r1e-bridge-sheet.md` proves the base-first order in game, the tool
 hand-back, the new height (photos for the owner) and the hub rows by real clicks.
+
+## Hub: flagged rows (task R2-b)
+The hub shows a Built row with `OverLimitTowers` above 0 in the warning style: "Built. Tower 7 bends the rope 41 degrees, its limit is 32." The row
+state stays Built. A Proposed row says "Builds, with one tower over its limit" when the plan of the same key has `BuildsFlagged`. It says "Needs fitting
+by hand: the line waits in the lift tool" when the plan has `HandFit` without it. A Waiting row with `PLAN_TRAINS` has its own reason text.
+See SkiResortHubUISystem.md (contract 42).

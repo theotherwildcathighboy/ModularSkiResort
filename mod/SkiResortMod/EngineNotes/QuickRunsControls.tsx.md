@@ -7,15 +7,15 @@
   the lit chip closes it. The pattern is the lift generator chip's pattern.
 - `QuickRunsRows`: while the tool is open, the Runs view draws these rows instead of the tree tool's (`TreeRows`). In order:
   1. The tool button (closes), Scan / Build / Undo.
-  2. The step's lines: region size against the cap, scan progress, totals and the mix against its target, the hint, the last build.
+  2. The step's lines: region size against the cap, scan progress, totals (pistes and cat tracks apart) and the mix counts, the hint, the last build.
   3. The refusal status, the notice, every warning and every cluster line.
-  4. Mix, Runs (density) + Shuffle, Kinds.
+  4. Density ("How many") and Kinds. The Mix and Shuffle knobs are gone (R2-b).
   5. The tree filler: on / off, Plant, Undo trees, density (the glade levels), tree line (-50 / -10 / +10 / +50 m, "Above the slope"
      when none), the group chips and a species stepper (left past the first species = the whole group).
 - Every knob is a button, so the owner never needs a hotkey to find anything. Enter and right click only repeat Scan / Build / back.
 - Every action is `quickRunsSet(key, value)`. The UI sends ints, and C# clamps them. Knobs wait (disabled) while C# scans, builds or plants.
 - Staged build and planting:
-  - "Building runs N / M" (QUICK_BUILDING_PROGRESS) shows above the building line, with Stop after Undo.
+  - "Building cat tracks and runs N / M" (QUICK_BUILDING_PROGRESS) shows above the building line, with Stop after Undo.
   - "Planting trees N / M" (QUICK_PLANTING_PROGRESS) shows in place of the tree counts, with Stop in place of Plant (beside its progress).
   - Stop sends `stop`.
   - The Build and Plant tips and the building line say "A large region can take a few seconds to a minute."
@@ -26,22 +26,14 @@
   and `quick-runs-planting-1080` are in test-hub-layout's SHOTS list.
 
 ## Resort Planner v2 (stage A, task A7)
-- Two knob rows follow Kinds:
-  - **Lifts** (`-` value `+`). The label is "Lifts: auto (N)", with N = the proposed lifts of the showing plan, or "-" before a scan.
-    With a fixed value, the label is "Lifts: N". The value steps Auto, 1 .. 9 (`liftsKnob`).
-  - **Way home**: one button that cycles Auto -> Green -> Blue. Its label is the current level (`home`).
-- Both go through `quickRunsSet("lifts" | "home", n)`. C# clamps the value (`QuickRunsPlanRules.ClampLifts /
-  ClampHome`) and re-plans. A knob in the Preview is a Reselect on the cached field. During a scan, the knob cancels the scan and scans
-  again.
-- Both wait (disabled) while a scan, a build or a tree job runs, like every other knob. This is the hub's "busy: scanning" state: the
-  scanning line with its progress stays, and the buttons gray.
-- `PlanRows` draw between the Way home row and the tree filler, only in the Preview with pods or lifts. In order:
+- Stage A had two more knob rows: Lifts (a count) and Way home. Round R2-b removed them (see "Runs-first plans" below).
+- `PlanRows` draw between the Kinds row and the tree filler, only in the Preview with pods or lifts. In order:
   1. The plan line (QUICK_PLAN_LINE).
-  2. The proposal note ("Build also builds each lift that is not grayed out") and, since R1-d, the lifts total line.
+  2. The proposal note and, since R1-d, the lifts total line. Since R2-b the note says that Build makes the cat tracks and runs and that the lifts have their own button.
   3. The terrain's honest mix (QUICK_MIX_HONEST, whole percents). Black includes double black.
   4. One toggle row per lift: a check box, the lift line "P1: Detachable, 1.3 km, 540 m up, serves 7 runs", its way-home verdict, and its
      pod's enabled runs by color as the map's band markers with a number. A pinned lift reads "Existing lift".
-  5. One row per pod WITHOUT a lift ("Pod C: Advanced, 3 runs, no lift planned").
+  5. One row per group WITHOUT a lift ("Other runs: 11 run(s), 14 cat track(s)"). Since R2-b this is the catch-all group of the realizer.
 
   A click on a row sends `quickRunsSet("lift" | "pod", key)`. The key is the plan's unsigned FNV key as a signed int. C# casts it back.
   A left-out row dims. The Runs view scrolls as a whole while the tool is open. So the plan may grow (up to 9 lifts and 12 pods) without
@@ -50,12 +42,10 @@
   shows only with pods. The v1 `sitePercent` / `siteTier` line is unchanged. The empty Region step gains the hint QUICK_AROUND_LIFT. The
   cluster lines (v1 "One lift here serves N runs") are not drawn when the plan has pods. The pod and lift rows replace them. None of this
   draws with the tool closed (`QuickRunsRows` is not mounted) or in a v1-shaped preview (no plan fields set).
-- Contract: `QuickRunsState` gained liftsKnob, home, pods, planLifts, plan (QuickRunsPod, QuickRunsLift, QuickRunsPlan in bindings.ts,
-  rule R2). **This task does NOT bump HUB_CONTRACT.** The parent bumps it once at the merge to main (and re-runs
-  `npm run contract:lock`). Until then, check-bundle's R3 ("the contract changed but HUB_CONTRACT is still 21") fails by design. The
-  task's gates ran with a local, uncommitted bump to 22 (bindings.ts, SkiResortHubUISystem.cs, harness/scenarios.js `base.contract`).
-- Harness scenario "Resort Planner plan, Ash Flat (runs, lifts, problems)": 4 pods, 2 proposals + 1 pinned lift, one lift off, Way home
-  Green. Shots `resort-planner-plan-1080` and `resort-planner-plan-1440-fs125` are in test-hub-layout's SHOTS.
+- Contract: `QuickRunsState` gained pods, planLifts, plan (QuickRunsPod, QuickRunsLift, QuickRunsPlan in bindings.ts, rule R2).
+  Stage A bumped the contract at the merge to main. Contract 42 removed liftsKnob and home again.
+- Harness scenario "Resort Planner plan, Ash Flat (runs, lifts, problems)": 4 groups, 2 proposals + 1 pinned lift, one lift off, one
+  lift that builds flagged. Shots `resort-planner-plan-1080` and `resort-planner-plan-1440-fs125` are in test-hub-layout's SHOTS.
 
 ## The plan sheet's lifts block (task R1-d, contract 41)
 The planner proposes lifts and the engine builds them (StationPlaceToolSystem.md). The hub shows that work in one block. The block reads
@@ -101,3 +91,34 @@ The planner proposes lifts and the engine builds them (StationPlaceToolSystem.md
   - "Resort Planner plan" (the preview) gained a sheet: the lifts total line shows.
 - Shots in test-hub-layout's SHOTS list: `resort-planner-lifts-building-1080`, `resort-planner-lifts-stopping-1080`,
   `resort-planner-lifts-idle-1080`.
+
+## Runs-first plans (task R2-b, contract 42)
+The runs-first planner ignores four knobs. The hub hides them. It shows the new shapes of a plan.
+
+- Hidden knobs: Lifts (a count), Mix, Shuffle and Way home (DECISIONS 632). The binding fields `mix`, `liftsKnob`, `home`, the lift row's
+  `wantedKey` and the plan's `pods` are gone. The tool still accepts the four `quickRunsSet` keys and ignores them. The hub never
+  sends them. Density and Kinds stay. The strings of the four knobs left LocaleEN and hubText.ts.
+- Counts are pistes only. `QuickTotals` (QuickRunsRules.Sum) counts a cat track as a green run, because a cat track rates Green by rule.
+  So the binding writer counts again (`QuickRunsShown.Of` in SkiResortHubUISystem.QuickRuns.cs). `runs`, `enabled`, `count`,
+  `variety` and the pod counts are pistes. `tracks` (and the pod's `tracks`, and the plan's `trackKm`) are the cat tracks.
+- Totals line: "N of M runs, cat tracks T, FEE, SKIERS skiers a day". The mix line prints the counts alone ("Green 19, Blue 31, ...")
+  when `target` is all zeros. The runs-first planner gives no target. The old line would read "Green 5 of 0".
+- Lift rows in the preview have a third line in the warning style when the plan says how the line builds.
+  - `flagged` (PlanLift.BuildsFlagged): "Builds, with one tower over its limit". The queue builds it and flags the row.
+  - `waits` (PlanLift.HandFit and not BuildsFlagged): "Needs fitting by hand: the line waits in the lift tool".
+  - A group's cat tracks show beside its band counts ("Cat tracks: 4").
+- The sheet rows carry the same two flags. The writer looks up the plan of the same key (`t.Result.Resort`). The flags read false once the
+  tool no longer holds the plan. A Proposed row that is switched on shows the flag text in place of "Not built yet". A row switched off
+  says only that.
+- A Built row with `overLimitTowers` above 0 reads in the warning style: "Built. Tower 7 bends the rope 41 degrees, its limit is 32."
+  The values are `overLimitTower`, `overLimitBendDeg` and `overLimitCapDeg`. Its sub line has a tooltip with the tower's distance from the base
+  (`overLimitAlongM`). The row state stays Built.
+- `PLAN_TRAINS` means two or more towers over their limit. It has its own reason text in SENT_KEYS: "two or more towers bend the rope more
+  than their wheels can follow". Before R2-b such a row fell back to the GAME text. That text was false.
+- "Other runs": the realizer's last group has `liftId` -1. Its row replaces the old "Pod D ... no lift planned" row. It holds the links, the
+  ways home and the runs no lift starts.
+- Layout: 15 lift rows fit. The plan list scrolls in its own box (200 rem). The sheet block has no cap. The Runs view scrolls as a whole.
+  The harness scenarios "Resort Planner plan, 15 lifts (flagged, waiting, other runs)" and "Resort Planner lifts, 15 rows (flagged tower,
+  waiting)" draw both. Shots: `node tools/test-hub-layout.js --shots=<dir> --list=r2b`. The shot parameters `scrollY` (panel content) and
+  `scrollIn` (a named box) show the lower rows.
+- Not done: a notice that existing lifts are blocked ground. The tool logs it. The binding has no cheap way to know the count.

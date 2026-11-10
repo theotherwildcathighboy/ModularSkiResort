@@ -40,7 +40,7 @@ The knobs:
   The options have no stronger lever for Dense. The line spacing is a planner constant.
 - Memory: the live set of one scan at 9 km2 is 28 MB (Normal) to 72 MB (Dense), under the bound of 80 MB (`RF_SCAN_LIVE=1`).
 - Kinds is read by the realizer only. A change uses the cached plan and runs the realizer again.
-- Lifts, Mix, Shuffle and Way home have no effect. The tool logs one line and keeps the plan.
+- Lifts, Mix, Shuffle and Way home have no effect. The tool logs one line and keeps the plan. The hub hides the four knobs since round R2-b.
 - The lift toggles work as before. `QuickRunsPlanRules.MaxLifts` is 15.
 
 Build order: cat tracks, then pistes, then lifts. Cat tracks are Space areas, so no piste refuses them. They are not graded.
@@ -110,7 +110,7 @@ These layers exist in Resort mode only (`Allocate` grows them): `m_OS` float, `m
 
 ## Player text
 
-A0 added every key (LocaleEN, the hubText.ts mirror, `locale/en-US.json`). Hub: `SkiResort.Hub.QUICK_LIFTS_AUTO / LIFTS_N / LIFTS_TIP /
+A0 added every key (LocaleEN, the hubText.ts mirror, `locale/en-US.json`). Round R2-b removed the keys of the four hidden knobs (Lifts, Mix, Shuffle, Way home). Hub: `SkiResort.Hub.QUICK_LIFTS_AUTO / LIFTS_N / LIFTS_TIP /
 HOME_AUTO / HOME_GREEN / HOME_BLUE / HOME_TIP / POD_TIP / LIFT_TIP`. Tooltip (also mirrored for the hub): `SkiResort.Tooltip.QUICK_VERDICT[Green|Blue|Black|DoubleBlack|Download]`,
 `QUICK_CLASS[<TerrainBand name>]`, `QUICK_PLAN_LINE`, `QUICK_MIX_HONEST`, `QUICK_POD_LINE`, `QUICK_LIFT_LINE`, `QUICK_PROPOSAL_NOTE`,
 `QUICK_AROUND_LIFT`, `QUICK_WARN[NoLiftSite|Download|DeadEnd]`. Labels: `SkiResort.Label.PLAN_LIFT`, `PLAN_POD`. `{TYPE}` is the existing
@@ -639,3 +639,19 @@ Details: `QuickRunsToolSystem.md` (Resort Planner hub side), `QuickRunsControls.
   DeadEnds as the types define them. So the rows appear as A3 (pods), A4 (lifts) and A6 (RunPod, verdicts, mix, site) merge. Until A4, the
   lift rows are empty. The pod rows (every pod "without a lift") show 0 runs until A6 fills RunPod.
 - `HubContract` is not bumped here. `contract.lock` and the harness `base.contract` follow the parent's bump.
+
+### R2-b hub, overlay, labels and tooltips (runs-first plans)
+Files: `SkiResortHubUISystem.QuickRuns.cs`, `QuickRunsToolSystem.Draw.cs`, `ResortPlanLabelSystem.cs`, `QuickRunsTooltipSystem.cs`,
+`QuickRunsHotkeySystem.cs` (a comment), `LocaleEN.cs`, `bindings.ts`, `QuickRunsControls.tsx`, `hubText.ts`, the harness scenarios.
+Details: `QuickRunsControls.tsx.md`, `SkiResortHubUISystem.md` (contract 42), `QuickRunsToolSystem.md` (Overlay, Tooltip).
+- Hidden knobs: Lifts, Mix, Shuffle, Way home. The planner has no key for any knob, so no hotkey went.
+- The counts are pistes only and the cat tracks have their own. `QuickTotals` counts a cat track as green, so the hub and the tooltip count again (`QuickRunsShown`).
+- Labels: "Runs from P2: Intermediate" for a lift group and "Other runs" for the last group. "Cat track" marks the longest tracks. They are at least 150 m long. There are at most 24.
+  A plan holds at most 15 lifts, 16 groups and 24 track labels. The cap of 64 labels is not reached. If it is, one WARN line says so.
+- Caps found and changed:
+  - Overlay pieces: 4096 became 12288, plus thinning of rings and a WARN line. Before, the first runs that filled the budget drew and the rest vanished.
+  - Plan marks: half of the pieces, now with a WARN line. A plan needs about 450.
+  - Labels: 64 stays. One WARN line replaces the silent drop (it was only counted under Measurement diagnostics).
+- `ResortPlanMarksSystem` (the marks outside the planner) has no cap and draws a chord per unbuilt row, so 15 rows need no change.
+- Existing lifts as blocked ground: the tool logs it (`[scan]`). The hub does not show a notice. The tool does not expose the count.
+- Unserved areas (`AutoRun.Unserved`) are not shown yet. The overlay draws them like the others.
