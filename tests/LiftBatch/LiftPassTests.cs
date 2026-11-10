@@ -231,19 +231,22 @@ namespace LiftBatch
             const string W = "pass/LP-29";
             LiftTowerPlanConstants tram = LiftTowerPlanConstants.For("tram");
             const float L = 1756f;   // field test 2 (log :1412): a pin at 1,737 m refused five times
-            // Task R2-l: a station end keeps the planner's floor (StationFloorM, tram 20 m). The game joins a nearer tower's span to the
-            // stub node (StubSnapM, tram 15.5 m). The field pin at 1,737 m snaps to 1,740 m (16 m from the top): now refused, 20 m out is
-            // accepted.
+            // Task R2-l: a station end keeps the game's limit (StubSnapM + PinSnapMarginM, tram 16 m), not the planner's 20 m floor. The
+            // field pin at 1,737 m snaps to 1,740 m (16 m from the top): accepted. A pin 10 m from the top lies inside the 15.5 m snap: refused.
+            float want = tram.StubSnapM + LiftTowerPlanConstants.PinSnapMarginM;
             LiftLineEdit stations = Flat(tram, L, true, true);
             LiftLineEditResult r = stations.AddPin(1737f);
-            LiftLineEditResult r20 = stations.AddPin(L - 26f);
-            s_Report.Add("LP-29 tram 1,756 m station to station, pins at 1,737 / 1,730 m | refused / accepted (station end margin " +
-                         stations.PinMarginB.ToString("F0") + " m; was 10, before that 40) | " + r + " / " + r20);
-            Check(r == LiftLineEditResult.TooCloseToStation && math.abs(stations.LastEndMarginM - tram.StationFloorM) < 1e-3f, W,
-                  "tram pin 16 m from a station accepted, or the wrong margin " + stations.LastEndMarginM + ": " + r);
-            Check(r20 == LiftLineEditResult.Done, W, "tram pin 26 m from a station refused: " + r20);
-            Check(stations.AddPin(L - 5f) == LiftLineEditResult.TooCloseToStation && math.abs(stations.LastEndMarginM - tram.StationFloorM) < 1e-3f, W,
-                  "tram pin 5 m from a station accepted, or the wrong margin " + stations.LastEndMarginM);
+            LiftLineEdit inner = Flat(tram, L, true, true);
+            LiftLineEditResult r10 = inner.AddPin(L - 10f);
+            s_Report.Add("LP-29 tram 1,756 m station to station, pins at 1,737 / 1,746 m | accepted / refused (station end margin " +
+                         stations.PinMarginB.ToString("F1") + " m = stub snap " + tram.StubSnapM.ToString("F1") + " + " +
+                         LiftTowerPlanConstants.PinSnapMarginM.ToString("F1") + "; the planner's floor stays " + tram.StationFloorM.ToString("F0") +
+                         " m) | " + r + " / " + r10);
+            Check(math.abs(stations.PinMarginB - want) < 1e-3f, W, "tram station end margin " + stations.PinMarginB + ", want " + want);
+            Check(r == LiftLineEditResult.Done, W, "the field test 2 tram pin 19 m from the top station refused: " + r);
+            Check(r10 == LiftLineEditResult.TooCloseToStation && math.abs(inner.LastEndMarginM - want) < 1e-3f, W,
+                  "tram pin 10 m from a station (inside the snap) accepted, or the wrong margin " + inner.LastEndMarginM + ": " + r10);
+            Check(stations.AddPin(L - 5f) == LiftLineEditResult.TooCloseToStation, W, "tram pin 5 m from a station accepted");
             LiftLineEdit loose = Flat(tram, L, true, false);
             Check(loose.AddPin(1737f) == LiftLineEditResult.TooCloseToStation && math.abs(loose.LastEndMarginM - tram.MinSpanM) < 1e-3f, W,
                   "tram pin 19 m from a loose end (a tower) accepted, or the wrong margin " + loose.LastEndMarginM);
@@ -251,12 +254,16 @@ namespace LiftBatch
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
                 LiftLineEdit e = Flat(c, 600f, true, true);
-                float floor = c.StationFloorM;
-                Check(e.PinMarginA == floor && e.PinMarginB == floor && floor > c.StubSnapM, W, id + " station end margin " + e.PinMarginA +
-                      ", want the floor " + floor + " over the stub snap " + c.StubSnapM);
-                float inside = c.StepM * math.floor((c.StubSnapM - 1e-3f) / c.StepM), outside = c.StepM * math.ceil(floor / c.StepM - 1e-4f);
-                Check(e.AddPin(inside) == LiftLineEditResult.TooCloseToStation && e.AddPin(outside) == LiftLineEditResult.Done, W,
-                      id + " pin at " + inside + " m (inside the stub snap) accepted, or at " + outside + " m refused");
+                float m = c.StubSnapM + LiftTowerPlanConstants.PinSnapMarginM;
+                Check(math.abs(e.PinMarginA - m) < 1e-3f && math.abs(e.PinMarginB - m) < 1e-3f && m > c.StubSnapM && m < c.StationFloorM, W,
+                      id + " station end margin " + e.PinMarginA + ", want " + m + " (over the stub snap " + c.StubSnapM + ", under the floor " +
+                      c.StationFloorM + ")");
+                LiftLineEdit e10 = Flat(c, 600f, true, true), e13 = Flat(c, 600f, true, true);
+                LiftLineEditResult at10 = e10.AddPin(10f), at13 = e13.AddPin(13f);
+                Check(at10 == LiftLineEditResult.TooCloseToStation, W, id + " pin 10 m from a station (inside the snap) accepted: " + at10);
+                Check(at13 == LiftLineEditResult.Done, W, id + " pin 13 m from a station refused: " + at13 + " (margin " + e13.LastEndMarginM + ")");
+                s_Report.Add("LP-29 " + id + " 600 m station to station, pins at 10 / 13 m | refused / accepted (margin " + m.ToString("F1") +
+                             " m) | " + at10 + " / " + at13);
                 LiftLineEdit open = Flat(c, 600f, false, false);
                 Check(open.PinMarginA == c.MinSpanM && open.PinMarginB == c.MinSpanM, W, id + " loose end margin changed: " + open.PinMarginA);
             }

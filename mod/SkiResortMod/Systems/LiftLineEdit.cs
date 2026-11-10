@@ -85,13 +85,14 @@ namespace SkiResortMod.Systems
         public float RemovedRadiusM => math.max(C.MinSpanM, 2f * C.StepM);
 
         /// <summary>No pin nearer this end of the line than this. A loose or ground end is a tower: the margin is MinSpanM, the
-        /// tower-to-tower minimum (FG / DQ / GD 10 m, tram 40 m). A station end takes the planner's floor
-        /// (LiftTowerPlanConstants.StationFloorM: FG 12.2 m, DQ / GD / tram 20 m, task R2-l). The game joins the span of a nearer tower
-        /// to the stub node and refuses the tower (StubSnapM: FG / DQ 11 m, GD 12.1 m, tram 15.5 m). The old 10 m margin let a pin
-        /// stand there. Field test 2 refused a tram pin five times under the old MinSpanM (40 m), which applied at both kinds of end.
-        /// That pin was 19 m from the top station.</summary>
+        /// tower-to-tower minimum (FG / DQ / GD 10 m, tram 40 m). A station end takes the game's limit, not the planner's floor: the
+        /// game joins the span of a tower nearer than StubSnapM to the stub node and refuses the line (FG / DQ 11 m, GD 12.1 m, tram
+        /// 15.5 m, task R2-l). A pin keeps StubSnapM + PinSnapMarginM (FG / DQ 11.5 m, GD 12.6 m, tram 16 m), at least one step. The
+        /// planner places its own towers no nearer than StationFloorM (20 m). A player's pin may stand nearer, where the game accepts it.
+        /// Field test 2 refused a tram pin 19 m from the top station five times under the old MinSpanM (40 m) at both kinds of end. That
+        /// pin (snapped to 16 m from the top) stays legal.</summary>
         public float PinEndMarginM(bool stationEnd) =>
-            stationEnd ? math.max(C.StationFloorM, C.StepM) : math.max(C.MinSpanM, C.StepM);
+            stationEnd ? math.max(C.StubSnapM + LiftTowerPlanConstants.PinSnapMarginM, C.StepM) : math.max(C.MinSpanM, C.StepM);
 
         public float PinMarginA => PinEndMarginM(StationA);
         public float PinMarginB => PinEndMarginM(StationB);

@@ -120,6 +120,10 @@ namespace SkiResortMod.Systems
         /// (CourseSplitSystem.cs:600). FG / DQ 11 m, GD 12.1 m, tram 15.5 m.</summary>
         public float StubSnapM => HalfWidthM + StubMarkerHalfWidthM;
 
+        /// <summary>A player's hand pin keeps this much more than StubSnapM from a station stub (LiftLineEdit.PinEndMarginM). 0.5 m,
+        /// not 1 m: the tram pin of field test 2 (1,737 m on a 1,756 m line) snaps to 16 m from the top, 0.5 m over the 15.5 m snap.</summary>
+        public const float PinSnapMarginM = 0.5f;
+
         /// <summary>The floor in use at a station end: StationTowerFloorM, but never more than StationClearM. So FG keeps its 12.2 m
         /// clearance (over its 11 m StubSnapM), and DQ, GD and tram get 20 m when their clearance yields.</summary>
         public float StationFloorM => math.min(StationTowerFloorM, StationClearM);
