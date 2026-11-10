@@ -176,6 +176,13 @@ top cluster (hover: "beginner lift", "mid-station", "one lift here serves N runs
 is white, amber near the 9 km2 cap, and red over it. The tree-line contour is green. The code caches the pieces when the preview changes.
 Widths follow the camera zoom like the map. The piste map hides itself while this tool is open (`SkiPisteMapSystem.ToolHidesMap`).
 
+Runs-first plans (task R2-b) have up to about 170 areas, and 60 to 100 of them are cat tracks:
+- A cat track draws as its center line in yellow (`CatTrackColor`, 2.4 m wide). A ring of 10 m is two lines next to the pistes, and the two would not read apart.
+- A graded piste draws as a piste. Round 2 paints it, and the overlay says nothing about grading.
+- `Thin` cuts each ring to 1.5 m (a track line to 3 m) with Douglas-Peucker before it becomes pieces. A realized ring has a vertex each meter.
+- The piece budget `MaxPieces` went from 4096 to 12288. An area that does not fit is skipped whole and counted. One WARN line per published
+  plan names the count (`QuickRuns [overlay]`). The plan marks have their own cap (half the budget) and one WARN line too.
+
 ## Tooltip
 `QuickRunsTooltipSystem` (the pattern of the cat track tooltip, UpdateAfter TempCostTooltipSystem) shows these lines:
 
@@ -183,11 +190,11 @@ Widths follow the camera zoom like the map. The piste map hides itself while thi
 - Region size as a ProgressTooltip against the cap plus vertical.
 - Scan progress.
 - The refusal status.
-- Totals (runs, the mix template, fee, skiers a day).
+- Totals: the pistes, the cat tracks (a line of their own), the mix counts, fee, skiers a day. The mix line drops "of {target}" when the planner gives no target.
 - Tree counts and the tree line.
 - The progress line of the build or the planting (QUICK_BUILDING_PROGRESS / QUICK_PLANTING_PROGRESS, the same templates the hub uses).
 - Up to 8 warnings.
-- The line of the hovered cluster.
+- The line of the hovered cluster, or of the hovered lift group ("Runs from P2: ...", "Other runs: ..."). A hovered lift also shows how its line builds.
 
 The site verdict (DECISIONS 443) is one line (`QUICK_SITE[Gentle|Steep|VerySteep|Beyond]`, "average N %") in the Region step and the preview.
 The mean grade comes from two sources:
@@ -228,13 +235,13 @@ planting is in flight, it refuses every key but stop ("busy"). Progress fields: 
   area fits 9 km2. Right click clears those corners at once. The click does NOT scan: the player presses Scan or Enter. The lift becomes
   pinned the usual way (`CollectPinned` takes every census lift with a chord within 150 m of the region). A station without a line yet
   logs `[around]`, and the click places a corner as before.
-- **Knobs**: `lifts` / `home` are `HubApply` cases beside mix and density. They set `m_Knobs.Lifts / Home`, log through `SetKnobs`
+- **Knobs** (stage A, now ignored: R2-a made `mix`, `lifts`, `home` and `shuffle` no-ops and R2-b removed their buttons): `lifts` / `home` were `HubApply` cases beside mix and density. They set `m_Knobs.Lifts / Home`, log through `SetKnobs`
   (`KnobsText` names them) and take the `RescanForKnobs` path that A2 wrote (Reselect on the cached field with no job running, else
   cancel + a full scan). The `ScanBlocks` guard that A2 added in HubApply is unchanged.
 - **Tooltip** (`QuickRunsTooltipSystem`): with a plan, it shows the plan line (QUICK_PLAN_LINE), the honest mix, the proposal note and the
-  site detail line. The pod or lift under the cursor gets one line (QUICK_POD_LINE / QUICK_LIFT_LINE), and the lift also gets its verdict.
+  site detail line. The pod or lift under the cursor gets one line (QUICK_POD_LINE / QUICK_OTHER_LINE / QUICK_LIFT_LINE), and the lift also gets its verdict.
   The empty Region step shows QUICK_AROUND_LIFT when the census has a station. Texts: the keys of A0 plus three that A7 added
-  (`QUICK_SITE_DETAIL`, `QUICK_LIFT_ID_PINNED` = "Existing lift", `QUICK_POD_UNSERVED` = "no lift planned"). The hub mirrors them in
+  (`QUICK_SITE_DETAIL`, `QUICK_LIFT_ID_PINNED` = "Existing lift", `QUICK_POD_UNSERVED` = "no lift planned", replaced in R2-b by `QUICK_OTHER_LINE`). The hub mirrors them in
   hubText.ts.
 - **Plan sheet** (task R1-c): `FinishScan` gives the proposed lifts of the published plan to `ResortLiftBuildSystem.LoadFromPlan`
   (`PublishSheet`). `TogglePlanKey` keeps the `On` flag of the rows in step (`SyncSheetToggles`). StationPlaceToolSystem.md has the

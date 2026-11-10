@@ -21,7 +21,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this. On a mismatch, the panel shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 41;
+export const HUB_CONTRACT = 42;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -361,7 +361,7 @@ export interface QuickRunsCluster {
   runs: number;
 }
 
-/** One pod of the Resort Planner's plan (SkiRunAutoPlanner.Plan.cs PlanPod + the hub's totals over its runs). Empty list unless a plan shows. */
+/** One group of the Resort Planner's plan (PlanPod: the runs one lift starts, or the last group "Other runs" with liftId -1) + the hub's totals over its runs. Empty list unless a plan shows. */
 export interface QuickRunsPod {
   /** Index in the plan. The UI letter is `letter` (A, B, ...). */
   id: number;
@@ -370,10 +370,12 @@ export interface QuickRunsPod {
   letter: string;
   /** A locale key: the pod's Ecosign class (SkiResort.Tooltip.QUICK_CLASS[*]). */
   classKey: string;
-  /** Runs in the pod, and how many are switched on (the pod, its lift and single runs count). */
+  /** Pistes in the group (cat tracks not counted), and how many are switched on (the group, its lift and single runs count). */
   runs: number;
   enabledRuns: number;
-  /** Enabled runs by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
+  /** Cat tracks in the group (switched on or not; contract 42). */
+  tracks: number;
+  /** Enabled pistes by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
   count: number[];
   skiers: number;
   fee: number;
@@ -406,18 +408,23 @@ export interface QuickRunsLift {
   startsNearTop: number;
   /** Locale key of the way-home verdict (SkiResort.Tooltip.QUICK_VERDICT[*]), "" = none. */
   homeKey: string;
-  /** Locale key of the level the Way home knob asked for here (SkiResort.Hub.QUICK_HOME_GREEN / BLUE), "" = unresolved. */
-  wantedKey: string;
-  /** The lift is switched on (off = it and the runs of its pod are left out). */
+  /** The queue builds the line, with one tower over its sheave-train limit (PlanLift.BuildsFlagged, contract 42). The sheet row will be flagged. */
+  flagged: boolean;
+  /** The line waits in the lift tool for the player (PlanLift.HandFit and not flagged, contract 42). */
+  waits: boolean;
+  /** Towers over their sheave-train limit in the planned line (PlanLift.OverLimitTowers), 0 when the line is not planned. */
+  overLimitTowers: number;
+  /** The lift is switched on (off = it and the runs of its group are left out). */
   on: boolean;
 }
 
 /** The plan's summary line numbers. All 0 without a plan. */
 export interface QuickRunsPlan {
-  pods: number;
   liftsProposed: number;
   liftsPinned: number;
   runKm: number;
+  /** Km of cat tracks in the plan (contract 42). */
+  trackKm: number;
   runKmPerKm2: number;
   deadEnds: number;
   /** The terrain's honest mix in whole percents of the run km. [0] Flat, [1] Green, [2] Blue, [3] Black and Double black together,
@@ -452,6 +459,18 @@ export interface QuickRunsSheetRow {
   step: string;
   /** A locale key (SkiResort.Tooltip.QUICK_LIFT_WHY[*]) for why the row is Refused, NeedsFitting or a stopped StationsPlaced. "" otherwise. */
   reasonKey: string;
+  /** The planned line builds with one tower over its limit (PlanLift.BuildsFlagged), from the plan of the same key. False when the tool no longer holds the plan (contract 42). */
+  flagged: boolean;
+  /** The planned line waits in the lift tool (PlanLift.HandFit and not flagged). False when the tool no longer holds the plan (contract 42). */
+  waits: boolean;
+  /** A Built row whose line has towers past their sheave-train limit (task R2-l): how many (the queue builds a line with exactly one), 0 = none. */
+  overLimitTowers: number;
+  /** The first such tower: its place counted from the base (1 = the first tower), -1 = none. */
+  overLimitTower: number;
+  /** That tower's distance along the line from the base (m), its bend (deg) and its sheave train's limit (deg). 0 with none. */
+  overLimitAlongM: number;
+  overLimitBendDeg: number;
+  overLimitCapDeg: number;
 }
 
 /** The plan sheet and the lift build queue (contract 41). Empty and zero while the sheet is empty. */
@@ -497,19 +516,19 @@ export interface QuickRunsState {
   regionState: string;
   /** Scan progress 0..1 while Scanning. */
   progress: number;
-  /** AutoMix: 0 Balanced, 1 Beginner, 2 Expert, 3 As the terrain allows. */
-  mix: number;
   /** AutoDensity: 0 Sparse, 1 Normal, 2 Dense. */
   density: number;
   /** AutoKinds flags: 1 Groomed, 2 Natural, 4 Snowmaking, 8 Night. */
   kinds: number;
-  /** Candidates in the plan. */
+  /** Pistes in the plan (the cat tracks are counted apart in `tracks`, contract 42). */
   runs: number;
-  /** Candidates switched on. */
+  /** Pistes switched on. */
   enabled: number;
-  /** Enabled runs by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
+  /** Cat tracks switched on (contract 42). */
+  tracks: number;
+  /** Enabled pistes by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
   count: number[];
-  /** The mix target by SlopeBand. */
+  /** The mix target by SlopeBand. All zeros with the runs-first planner: the hub then prints the counts alone. */
   target: number[];
   /** Total construction fee of the enabled runs. */
   fee: number;
@@ -568,10 +587,6 @@ export interface QuickRunsState {
    *  figure), -1 = unknown. `siteTier` is its tier (QuickRunsRules.SiteTier: 0 unknown, 1 Gentle, 2 Steep, 3 Very steep, 4 Beyond any real area). */
   sitePercent: number;
   siteTier: number;
-  /** The Lifts knob: 0 Auto, 1-9 a cap on the proposed lifts. */
-  liftsKnob: number;
-  /** The Way home knob (HomeLevel): 0 Auto (green at the base, blue above), 1 Green, 2 Blue. */
-  home: number;
   /** The plan, only while a Resort preview shows. */
   pods: QuickRunsPod[];
   planLifts: QuickRunsLift[];
@@ -588,9 +603,9 @@ export type QuickLiftsAction = "buildAll" | "build" | "stop" | "clear";
 
 /** The quickRunsSet keys (QuickRunsToolSystem.HubSet). */
 export type QuickRunsKey =
-  | "mix" | "density" | "kind" | "shuffle" | "scan" | "build" | "undo"
+  | "density" | "kind" | "scan" | "build" | "undo"
   | "trees" | "plant" | "treesUndo" | "treeLine" | "group" | "species" | "level" | "stop"
-  | "lifts" | "home" | "pod" | "lift";
+  | "pod" | "lift";
 
 /** RunPropPlacerRules: the Runs view's prop rows, 0 = off, then min..max (tools/check-run-props.js compares them). */
 export const RUN_PROP_SPACING_OFF = 0;
@@ -1155,12 +1170,12 @@ const EMPTY_LODGE_PARKING: readonly LodgeParkingRow[] = [];
 const EMPTY_MERGED: readonly MergedLodgeRow[] = [];
 const EMPTY_QUICK_RUNS: QuickRunsState = {
   available: false, active: false, reason: "", phase: "", corners: 0, canPlanAround: false, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
-  progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
+  progress: 0, density: 1, kinds: 3, runs: 0, enabled: 0, tracks: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
   variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
   treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
   buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0],
-  sitePercent: -1, siteTier: 0, liftsKnob: 0, home: 0, pods: [], planLifts: [],
-  plan: { pods: 0, liftsProposed: 0, liftsPinned: 0, runKm: 0, runKmPerKm2: 0, deadEnds: 0, mountainMix: [0, 0, 0, 0, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 },
+  sitePercent: -1, siteTier: 0, pods: [], planLifts: [],
+  plan: { liftsProposed: 0, liftsPinned: 0, runKm: 0, trackKm: 0, runKmPerKm2: 0, deadEnds: 0, mountainMix: [0, 0, 0, 0, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 },
   sheet: { rows: [], running: false, index: 0, total: 0, stopping: false, toBuild: 0, unbuilt: 0, built: 0, cost: 0, notice: "" },
 };
 

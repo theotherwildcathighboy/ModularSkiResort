@@ -10,6 +10,11 @@
 // marks carry the piste map's white edge (a black line on dark ground is invisible). The marks are cached per published plan (rebuilt on a
 // new plan reference only). A pod or lift switched off dims its marks at draw time from the off sets, so a toggle rebuilds the run pieces
 // only.
+// Runs-first plans (round R2-b): a plan has up to about 170 areas, 60 to 100 of them cat tracks. A cat track draws as its center line in
+// CatTrackColor (a ring of 10 m is two lines, and the pistes around it are rings too), so the two read apart. A graded piste draws as a
+// piste (round 2 paints it). Rings and lines are thinned to DrawSimplifyM before they are cut into pieces (a realized ring keeps a vertex
+// each meter or so for the game, and the overlay needs none of that). The piece budget is MaxPieces. An area that does not fit in the
+// budget is skipped whole and counted, and one WARN line per published plan says how many (a silent cut would show a half plan).
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Overlay)
 
 using System;
@@ -28,7 +33,9 @@ namespace SkiResortMod.Systems
         private const float RunWidthM = 3f;           // the piste map's BaseWidthM
         private const float OffWidthM = 1.2f;
         private const float DashM = 20f, GapM = 12f;  // the piste map's natural dash
-        private const int MaxPieces = 4096;
+        private const int MaxPieces = 12288;           // was 4096: a runs-first plan of 170 areas needs about 6000 thinned pieces
+        private const float DrawSimplifyM = 1.5f;      // the overlay's vertex tolerance for a ring, 2 x that for a cat track's center line
+        private const float CatTrackLineM = 2.4f;
 
         private static readonly UnityEngine.Color RegionColor = new UnityEngine.Color(1f, 1f, 1f, 0.85f);
         private static readonly UnityEngine.Color NearColor = new UnityEngine.Color(1f, 0.75f, 0.15f, 0.9f);
@@ -37,6 +44,7 @@ namespace SkiResortMod.Systems
         private static readonly UnityEngine.Color HoverColor = new UnityEngine.Color(1f, 1f, 1f, 0.95f);
         private static readonly UnityEngine.Color OffColor = new UnityEngine.Color(0.6f, 0.62f, 0.66f, 0.6f);
         private static readonly UnityEngine.Color RefusedColor = new UnityEngine.Color(0.95f, 0.15f, 0.15f, 0.95f);
+        private static readonly UnityEngine.Color CatTrackColor = new UnityEngine.Color(0.94f, 0.82f, 0.28f, 0.95f);   // not a band color, not the lift colors
         private static readonly UnityEngine.Color ClusterColor = new UnityEngine.Color(1f, 1f, 1f, 0.7f);
         private static readonly UnityEngine.Color TreeLineColor = new UnityEngine.Color(0.35f, 0.85f, 0.45f, 0.9f);
         private static readonly UnityEngine.Color LiftColor = new UnityEngine.Color(1f, 1f, 1f, 0.95f);   // Home None (until A6)
@@ -73,7 +81,11 @@ namespace SkiResortMod.Systems
         private double m_CostMs, m_CostMaxMs, m_CostBuildMs, m_CostBuildMaxMs;
         private int m_CostBuilds;
         private ResortPlan m_MarksFor;   // the plan m_Marks were built from (reference compare: one immutable snapshot per publish)
+        private AutoPlanResult m_CapLoggedFor;   // the published result whose piece cap the WARN line already named
+        private readonly List<float3> m_Thin = new List<float3>();
+        private readonly List<int> m_DpStack = new List<int>();
         private byte m_Owner;            // the owner stamped on the marks being added (BuildMarks)
+        private int m_MarksDropped;      // marks the cap refused in the last BuildMarks
         private uint m_OwnerPod, m_OwnerLift;
         private readonly List<float3> m_RingScratch = new List<float3>(), m_PieceA = new List<float3>(), m_PieceB = new List<float3>();
         private bool m_DrawDirty = true;
@@ -225,23 +237,45 @@ namespace SkiResortMod.Systems
                     m_CostBuilds = 0;
                 }
             }
-            for (int i = 0; i < r.Runs.Count && m_Pieces.Count + m_Marks.Count < MaxPieces; i++)
+            int skipped = 0, drawn = 0;
+            for (int i = 0; i < r.Runs.Count; i++)
             {
                 AutoRun run = r.Runs[i];
                 if (run?.Ring == null || run.Ring.Length < 3)
                     continue;
-                m_RingScratch.Clear();
-                for (int v = 0; v < run.Ring.Length; v++)
-                    m_RingScratch.Add(run.Nodes != null && v < run.Nodes.Length ? run.Nodes[v] : Ground(ref hd, run.Ring[v]));
+                int room = MaxPieces - m_Pieces.Count - m_Marks.Count;
                 m_PieceA.Clear();
                 m_PieceB.Clear();
-                int room = MaxPieces - m_Pieces.Count - m_Marks.Count;
-                bool dashed = PisteMapRules.IsDashed((int)run.Kind);
-                int count = dashed
-                    ? PisteMapRules.DashRing(m_RingScratch, DashM, GapM, room, m_PieceA, m_PieceB)
-                    : PisteMapRules.SolidRing(m_RingScratch, room, m_PieceA, m_PieceB);
+                bool track = RunFeatures.FromKind((int)run.Kind).IsCatTrack;
+                int count;
+                if (track && run.Centerline != null && run.Centerline.Length >= 2)
+                {
+                    // A cat track: its center line, thinned, in pieces (an open polyline: the ring cutters close their ring)
+                    m_RingScratch.Clear();
+                    for (int v = 0; v < run.Centerline.Length; v++)
+                        m_RingScratch.Add(Ground(ref hd, run.Centerline[v]));
+                    Thin(m_RingScratch, 2f * DrawSimplifyM, false);
+                    count = Polyline(m_Thin, room, m_PieceA, m_PieceB);
+                }
+                else
+                {
+                    m_RingScratch.Clear();
+                    for (int v = 0; v < run.Ring.Length; v++)
+                        m_RingScratch.Add(run.Nodes != null && v < run.Nodes.Length ? run.Nodes[v] : Ground(ref hd, run.Ring[v]));
+                    Thin(m_RingScratch, DrawSimplifyM, true);
+                    bool dashed = PisteMapRules.IsDashed((int)run.Kind);
+                    count = dashed
+                        ? PisteMapRules.DashRing(m_Thin, DashM, GapM, room, m_PieceA, m_PieceB)
+                        : PisteMapRules.SolidRing(m_Thin, room, m_PieceA, m_PieceB);
+                }
+                if (count >= room)
+                {
+                    skipped++;   // the budget ended inside this area: draw none of it
+                    continue;
+                }
+                drawn++;
                 UnityEngine.Color fill, outline;
-                float width = RunWidthM, outlineWidth;
+                float width = track ? CatTrackLineM : RunWidthM, outlineWidth;
                 if (m_Refused.Contains(run.Id))
                 {
                     fill = outline = RefusedColor;
@@ -252,6 +286,11 @@ namespace SkiResortMod.Systems
                     fill = outline = OffColor;
                     outlineWidth = 0f;
                     width = OffWidthM;
+                }
+                else if (track)
+                {
+                    fill = outline = CatTrackColor;
+                    outlineWidth = 0f;
                 }
                 else
                 {
@@ -266,6 +305,94 @@ namespace SkiResortMod.Systems
                         Seg = new Line3.Segment(m_PieceA[p], m_PieceB[p]), Fill = fill, Outline = outline, Width = width, OutlineWidth = outlineWidth,
                     });
             }
+            if (skipped > 0 && !ReferenceEquals(m_CapLoggedFor, r))
+            {
+                m_CapLoggedFor = r;
+                Mod.Log.Warn($"QuickRuns [overlay]: the piece budget of {MaxPieces} is full ({m_Pieces.Count} run piece(s), {m_Marks.Count} plan mark(s)): " +
+                             $"{skipped} of {drawn + skipped} area(s) are not drawn in this preview. They are still in the plan and Build builds them.");
+            }
+        }
+
+        /// <summary>The path thinned to <paramref name="tolM"/> (Douglas-Peucker on xz) into m_Thin. A closed ring keeps its start vertex and the
+        /// vertex farthest from it. Under four vertices, or a tolerance of 0, it copies.</summary>
+        private void Thin(List<float3> pts, float tolM, bool closed)
+        {
+            m_Thin.Clear();
+            int n = pts.Count;
+            if (n < 4 || !(tolM > 0f))
+            {
+                m_Thin.AddRange(pts);
+                return;
+            }
+            var keep = new bool[n];
+            keep[0] = true;
+            int far = n - 1;
+            if (closed)
+            {
+                float best = -1f;
+                for (int i = 1; i < n; i++)
+                {
+                    float d = math.distancesq(pts[i].xz, pts[0].xz);
+                    if (d > best)
+                    {
+                        best = d;
+                        far = i;
+                    }
+                }
+            }
+            keep[far] = true;
+            m_DpStack.Clear();
+            m_DpStack.Add(0);
+            m_DpStack.Add(far);
+            if (closed)
+            {
+                m_DpStack.Add(far);
+                m_DpStack.Add(n);   // n stands for vertex 0 again
+            }
+            while (m_DpStack.Count > 0)
+            {
+                int b = m_DpStack[m_DpStack.Count - 1], a = m_DpStack[m_DpStack.Count - 2];
+                m_DpStack.RemoveRange(m_DpStack.Count - 2, 2);
+                float2 pa = pts[a % n].xz, pb = pts[b % n].xz;
+                float worst = tolM;
+                int at = -1;
+                for (int i = a + 1; i < b; i++)
+                {
+                    float d = QuickRunsPlanRules.SegDistance(pts[i % n].xz, pa, pb);
+                    if (d > worst)
+                    {
+                        worst = d;
+                        at = i;
+                    }
+                }
+                if (at < 0)
+                    continue;
+                keep[at] = true;
+                m_DpStack.Add(a);
+                m_DpStack.Add(at);
+                m_DpStack.Add(at);
+                m_DpStack.Add(b);
+            }
+            for (int i = 0; i < n; i++)
+                if (keep[i])
+                    m_Thin.Add(pts[i]);
+        }
+
+        /// <summary>The open polyline's edges as pieces (finite ends, at least PisteMapRules.MinPieceM long). Returns the count, room at most.</summary>
+        private static int Polyline(List<float3> pts, int room, List<float3> outA, List<float3> outB)
+        {
+            int added = 0;
+            for (int i = 0; i + 1 < pts.Count && room > 0; i++)
+            {
+                float3 a = pts[i], b = pts[i + 1];
+                if (!Finite(a) || !Finite(b) || !(math.distance(a.xz, b.xz) >= PisteMapRules.MinPieceM))
+                    continue;
+                outA.Add(a);
+                outB.Add(b);
+                if (++added >= room)
+                    return room;
+            }
+            return added;
         }
 
         /// <summary>No plan to show: no marks, no cost window (a window left open would log a stale mean).</summary>
@@ -283,6 +410,7 @@ namespace SkiResortMod.Systems
         private void BuildMarks(ResortPlan plan, ref TerrainHeightData hd)
         {
             int cap = MaxPieces / 2;
+            m_MarksDropped = 0;
             foreach (PlanPod pod in plan.Pods)
             {
                 if (!Finite(pod.TopCenter))
@@ -369,6 +497,9 @@ namespace SkiResortMod.Systems
                 AddDisc(t, lot, lotFill, edge, 1f + edgeM, true, cap);
             }
             m_Owner = 0;
+            if (m_MarksDropped > 0)
+                Mod.Log.Warn($"QuickRuns [overlay]: the plan marks are capped at {cap}: {m_MarksDropped} mark(s) of this plan are not drawn " +
+                             $"({plan.Lifts.Length} lift(s), {plan.Pods.Length} group(s), {plan.Pads.Length} pad(s)).");
         }
 
         private void SetOwner(uint podKey, bool hasPod, uint liftKey, bool hasLift)
@@ -392,7 +523,9 @@ namespace SkiResortMod.Systems
 
         private void AddDisc(float3 at, float diameter, UnityEngine.Color fill, UnityEngine.Color outline, float outlineWidth, bool grid, int cap)
         {
-            if (m_Marks.Count < cap)
+            if (m_Marks.Count >= cap)
+                m_MarksDropped++;
+            else
                 m_Marks.Add(new Mark
                 {
                     A = at, B = at, Size = diameter, Fill = fill, Outline = outline, OutlineWidth = outlineWidth, Grid = grid,
@@ -404,7 +537,9 @@ namespace SkiResortMod.Systems
 
         private void AddLine(float3 a, float3 b, float width, UnityEngine.Color c, UnityEngine.Color edge, float edgeM, int cap)
         {
-            if (m_Marks.Count < cap)
+            if (m_Marks.Count >= cap)
+                m_MarksDropped++;
+            else
                 m_Marks.Add(new Mark
                 {
                     Dashed = true, A = a, B = b, Size = width, Fill = c, Outline = edge, OutlineWidth = edgeM,

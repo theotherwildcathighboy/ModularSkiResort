@@ -3,12 +3,15 @@
 // quickRunsToggle (open / close, the glade toggle's pattern) and quickRunsSet(key, value) (every knob, button and tree setting:
 // QuickRunsToolSystem.HubSet). The system pushes the binding only while the panel observes it, when the tool's HubRevision,
 // availability or activity moved (the ArrayPush idea for one struct).
-// Resort Planner v2 (stage A, task A7): the Lifts / Way home knobs (liftsKnob, home) and, while a plan is showing, its pods, lifts and
-// summary (pods, planLifts, plan). Every one is empty or zero without a plan, so a Region step writes the same binding as before plus
-// those empty fields.
+// Resort Planner v2 (stage A, task A7): while a plan is showing, its pods, lifts and summary (pods, planLifts, plan). Every one is empty or
+// zero without a plan, so a Region step writes the same binding as before plus those empty fields.
 // Contract 41 (Resort Planner round, task R1-d): the `sheet` field of the binding (written inside WriteQuickRuns, rule R2: the plan sheet's rows, the lift queue's
 // progress, the lifts total, a notice) and the quickLiftsAct(action, key) trigger (buildAll, build, stop, clear: ResortLiftBuildSystem.HubAct).
 // The rows come from the sheet, not from the planner's preview, so they stay after the run build and with the tool closed.
+// Contract 42 (round R2-b, the runs-first plans): the Lifts / Mix / Way home knobs are gone (mix, liftsKnob, home, the lift row's
+// wantedKey, the plan's pods). The counts are pistes only, and the cat tracks have their own (tracks, the pod's tracks, the plan's
+// trackKm): QuickTotals counts a cat track as a green run, so QuickRunsShown counts again. A lift row says how it builds (flagged,
+// waits, overLimitTowers). A sheet row carries the same two and the over-limit tower of a built line (DECISIONS 637).
 // Engine notes: EngineNotes/SkiResortHubUISystem.md (Quick runs)
 
 using System.Collections.Generic;
@@ -18,6 +21,73 @@ using Colossal.UI.Binding;
 
 namespace SkiResortMod.Systems
 {
+    /// <summary>What the hub and the tooltip count for the runs-first plans: pistes and cat tracks apart, and per group. QuickTotals
+    /// (QuickRunsRules.Sum) counts a cat track as a green run, because its rated band is Green by rule. Read on the main thread, from the
+    /// published result and the tool's enabled flags.</summary>
+    internal sealed class QuickRunsShown
+    {
+        public int Pistes, PistesOn, Tracks, TracksOn;
+        public readonly int[] Count = new int[5];   // enabled pistes by SlopeBand
+        public float TrackKm;                       // all cat tracks of the plan, in km
+        public bool Variety;                        // green, blue and black or double black among the enabled pistes
+        public int[] PodPistes = new int[0], PodPistesOn = new int[0], PodTracks = new int[0];
+        public int[][] PodCount = new int[0][];     // per group: enabled pistes by SlopeBand
+
+        public static QuickRunsShown Of(QuickRunsToolSystem t)
+        {
+            var s = new QuickRunsShown();
+            AutoPlanResult r = t.Result;
+            if (r == null)
+                return s;
+            ResortPlan plan = t.Plan;
+            int pods = plan != null ? plan.Pods.Length : 0;
+            s.PodPistes = new int[pods];
+            s.PodPistesOn = new int[pods];
+            s.PodTracks = new int[pods];
+            s.PodCount = new int[pods][];
+            for (int p = 0; p < pods; p++)
+                s.PodCount[p] = new int[5];
+            for (int i = 0; i < r.Runs.Count; i++)
+            {
+                AutoRun run = r.Runs[i];
+                if (run == null)
+                    continue;
+                bool track = RunFeatures.FromKind((int)run.Kind).IsCatTrack;
+                bool on = t.IsEnabled(i);
+                int band = (int)run.Band;
+                int pod = plan != null && i < plan.RunPod.Length ? plan.RunPod[i] : -1;
+                bool inPod = pod >= 0 && pod < pods;
+                if (track)
+                {
+                    s.Tracks++;
+                    s.TrackKm += run.LengthM / 1000f;
+                    if (on)
+                        s.TracksOn++;
+                    if (inPod)
+                        s.PodTracks[pod]++;   // all of the group's tracks, switched on or not (the row dims when the group is off)
+                    continue;
+                }
+                s.Pistes++;
+                if (inPod)
+                    s.PodPistes[pod]++;
+                if (!on)
+                    continue;
+                s.PistesOn++;
+                if (inPod)
+                    s.PodPistesOn[pod]++;
+                if (band >= 0 && band < 5)
+                {
+                    s.Count[band]++;
+                    if (inPod)
+                        s.PodCount[pod][band]++;
+                }
+            }
+            s.Variety = s.Count[(int)SlopeBand.Green] > 0 && s.Count[(int)SlopeBand.Blue] > 0 &&
+                        s.Count[(int)SlopeBand.Black] + s.Count[(int)SlopeBand.DoubleBlack] > 0;
+            return s;
+        }
+    }
+
     public sealed partial class SkiResortHubUISystem
     {
         private QuickRunsToolSystem m_QuickRunsTool;
@@ -142,18 +212,20 @@ namespace SkiResortMod.Systems
             writer.Write(s_QuickRegionNames[(int)ro.State]);
             writer.PropertyName("progress");
             writer.Write(Finite(t.ScanProgress));
-            writer.PropertyName("mix");
-            writer.Write((int)k.Mix);
             writer.PropertyName("density");
             writer.Write((int)k.Density);
             writer.PropertyName("kinds");
             writer.Write((int)k.Kinds);
+            // Pistes only (QuickRunsShown): the cat tracks have their own count
+            QuickRunsShown shown = preview ? QuickRunsShown.Of(t) : new QuickRunsShown();
             writer.PropertyName("runs");
-            writer.Write(preview ? tot.Runs : 0);
+            writer.Write(shown.Pistes);
             writer.PropertyName("enabled");
-            writer.Write(preview ? tot.Enabled : 0);
+            writer.Write(shown.PistesOn);
+            writer.PropertyName("tracks");
+            writer.Write(shown.TracksOn);
             writer.PropertyName("count");
-            WriteInts(writer, tot.Count, preview);
+            WriteInts(writer, shown.Count, preview);
             writer.PropertyName("target");
             WriteInts(writer, tot.Target, preview);
             writer.PropertyName("fee");
@@ -161,7 +233,7 @@ namespace SkiResortMod.Systems
             writer.PropertyName("skiers");
             writer.Write(preview ? (int)System.Math.Round(tot.SkiersPerDay) : 0);
             writer.PropertyName("variety");
-            writer.Write(preview && tot.Variety);
+            writer.Write(preview && shown.Variety);
             writer.PropertyName("status");
             writer.Write(t.Phase == QuickRunsToolSystem.ToolPhase.Region ? t.StatusKey ?? "" : "");
             writer.PropertyName("warnings");
@@ -248,10 +320,6 @@ namespace SkiResortMod.Systems
             writer.Write((int)QuickRunsRules.SiteTierOf(sitePct));
             ResortPlan plan = t.Plan;   // Resort Planner v2 (A7)
             QuickPodRow[] rows = plan != null ? t.PodRows : new QuickPodRow[0];
-            writer.PropertyName("liftsKnob");
-            writer.Write(k.Lifts);
-            writer.PropertyName("home");
-            writer.Write((int)k.Home);
             writer.PropertyName("pods");
             writer.ArrayBegin((uint)rows.Length);
             for (int i = 0; i < rows.Length; i++)
@@ -268,11 +336,13 @@ namespace SkiResortMod.Systems
                 writer.PropertyName("classKey");
                 writer.Write(ClassKey(pod.PrimaryClass));
                 writer.PropertyName("runs");
-                writer.Write(row.Runs);
+                writer.Write(shown.PodPistes[i]);
                 writer.PropertyName("enabledRuns");
-                writer.Write(row.Kept);
+                writer.Write(shown.PodPistesOn[i]);
+                writer.PropertyName("tracks");
+                writer.Write(shown.PodTracks[i]);
                 writer.PropertyName("count");
-                WriteInts(writer, row.Count, true);
+                WriteInts(writer, shown.PodCount[i], true);
                 writer.PropertyName("skiers");
                 writer.Write((int)System.Math.Round(row.Skiers));
                 writer.PropertyName("fee");
@@ -318,8 +388,12 @@ namespace SkiResortMod.Systems
                 writer.Write(lift.StartsNearTop);
                 writer.PropertyName("homeKey");
                 writer.Write(VerdictKey(lift.Home));
-                writer.PropertyName("wantedKey");
-                writer.Write(WantedKey(lift.Wanted));
+                writer.PropertyName("flagged");
+                writer.Write(lift.BuildsFlagged);
+                writer.PropertyName("waits");
+                writer.Write(lift.HandFit && !lift.BuildsFlagged);
+                writer.PropertyName("overLimitTowers");
+                writer.Write(lift.OverLimitTowers);
                 writer.PropertyName("on");
                 writer.Write(t.IsLiftOn(i));   // the lift on AND its pod on
                 writer.TypeEnd();
@@ -333,14 +407,14 @@ namespace SkiResortMod.Systems
                     proposed++;
             writer.PropertyName("plan");
             writer.TypeBegin("SkiResortMod.QuickRunsPlan");
-            writer.PropertyName("pods");
-            writer.Write(plan != null ? plan.Pods.Length : 0);
             writer.PropertyName("liftsProposed");
             writer.Write(proposed);
             writer.PropertyName("liftsPinned");
             writer.Write(pinned);
             writer.PropertyName("runKm");
             writer.Write(plan != null ? Finite(plan.RunKm) : 0f);
+            writer.PropertyName("trackKm");
+            writer.Write(plan != null ? Finite(shown.TrackKm) : 0f);
             writer.PropertyName("runKmPerKm2");
             writer.Write(plan != null ? Finite(plan.RunKmPerKm2) : 0f);
             writer.PropertyName("deadEnds");
@@ -371,6 +445,7 @@ namespace SkiResortMod.Systems
             ResortLiftBuildSystem lb = LiftBuildSys();
             ResortPlanSheet sheet = lb?.Sheet;
             int n = sheet != null ? sheet.Count : 0;
+            ResortPlan sheetPlan = t.Result?.Resort;   // the plan the rows came from, while the tool still holds it (FindPlanLift)
             writer.PropertyName("sheet");
             writer.TypeBegin("SkiResortMod.QuickRunsSheet");
             writer.PropertyName("rows");
@@ -403,6 +478,24 @@ namespace SkiResortMod.Systems
                 writer.Write(step);
                 writer.PropertyName("reasonKey");
                 writer.Write(group.Length == 0 ? "" : LiftWhyPrefix + group + "]");
+                // How the line builds, from the plan of the same key (the sheet does not hold it): false for both when the plan is gone
+                int planned = FindPlanLift(sheetPlan, row.Key);
+                writer.PropertyName("flagged");
+                writer.Write(planned >= 0 && sheetPlan.Lifts[planned].BuildsFlagged);
+                writer.PropertyName("waits");
+                writer.Write(planned >= 0 && sheetPlan.Lifts[planned].HandFit && !sheetPlan.Lifts[planned].BuildsFlagged);
+                // A built line with a tower over its sheave-train limit (task R2-l): the count, the first tower counted from the base,
+                // its distance along the line, its bend and its train's limit. Zeros and -1 with none
+                writer.PropertyName("overLimitTowers");
+                writer.Write(row.OverLimitTowers);
+                writer.PropertyName("overLimitTower");
+                writer.Write(row.OverLimitTower);
+                writer.PropertyName("overLimitAlongM");
+                writer.Write(Finite(row.OverLimitAlongM));
+                writer.PropertyName("overLimitBendDeg");
+                writer.Write(Finite(row.OverLimitBendDeg));
+                writer.PropertyName("overLimitCapDeg");
+                writer.Write(Finite(row.OverLimitCapDeg));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
@@ -452,9 +545,16 @@ namespace SkiResortMod.Systems
         /// <summary>"" without a verdict (None, or a pod without a lift). Else the verdict's tooltip locale key.</summary>
         private static string VerdictKey(HomeVerdict v) => v == HomeVerdict.None ? "" : QuickRunsRules.TipPrefix + "VERDICT[" + s_VerdictNames[(int)v] + "]";
 
-        /// <summary>The level the Home knob asked for at a lift (the hub's QUICK_HOME_* text). "" while Auto is unresolved.</summary>
-        private static string WantedKey(HomeLevel w) =>
-            w == HomeLevel.Green ? "SkiResort.Hub.QUICK_HOME_GREEN" : w == HomeLevel.Blue ? "SkiResort.Hub.QUICK_HOME_BLUE" : "";
+        /// <summary>The index of the planned lift with this key, or -1 (no plan, or another plan).</summary>
+        private static int FindPlanLift(ResortPlan plan, uint key)
+        {
+            if (plan == null)
+                return -1;
+            for (int i = 0; i < plan.Lifts.Length; i++)
+                if (plan.Lifts[i].Key == key)
+                    return i;
+            return -1;
+        }
 
         private static void WriteInts(IJsonWriter writer, int[] values, bool show)
         {

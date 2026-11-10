@@ -383,8 +383,8 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.QuickRunsEnabled)),
-                    "Outline a mountainside and the planner proposes lifts and a set of linked runs around them. You review and change the " +
-                    "plan, place the lift stations yourself, and build the runs together, with an optional tree filler. Experimental. Off: " +
+                    "Outline a mountainside and the planner proposes lifts, cat tracks and a set of linked runs. You review and change the " +
+                    "plan. Build makes the cat tracks and runs together. The lifts follow one after the other. An optional tree filler plants trees. Experimental. Off: " +
                     "the tool cannot open and its hub button is grayed. Default off."
                 },
 

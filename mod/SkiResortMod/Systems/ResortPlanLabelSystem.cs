@@ -1,8 +1,11 @@
-// Resort Planner (v2) world labels: one label per proposed lift ("P2: Detachable, 1.3 km, 540 m up, 7 runs") at the chord midpoint and one
-// per pod ("Pod B: Intermediate") at its top. The labels are read from the quick runs tool's published result (never the live planner).
-// They are built once per published plan (at most MaxLabels) with the same TextMeshPro mesh pattern as SkiRunLabelSystem. Pinned lifts get
-// no label: the game already names an existing lift. Labels are drawn only while the tool is open in Preview. Locale:
-// SkiResort.Label.PLAN_LIFT / PLAN_POD, {TYPE} = SkiResort.Hub.LIFT_TYPE[id], {CLASS} = SkiResort.Tooltip.QUICK_CLASS[band].
+// Resort Planner world labels: one label per proposed lift ("P2: Detachable, 1.3 km, 540 m up, 7 runs") at the chord midpoint and one
+// per lift group ("Runs from P2: Intermediate") at its top. The group without a lift reads "Other runs". The longest cat tracks (at least
+// MinTrackLabelM, at most MaxTrackLabels) get "Cat track" at the middle of their center line, in the overlay's cat track color. The labels
+// are read from the quick runs tool's published result (never the live planner).
+// They are built once per published plan (at most MaxLabels) with the same TextMeshPro mesh pattern as SkiRunLabelSystem. A plan holds
+// at most 15 lifts, 16 groups and 24 track labels, so the cap is not reached. If it is, one WARN line names the plan's count. Pinned
+// lifts get no label: the game already names an existing lift. Labels are drawn only while the tool is open in Preview. Locale:
+// SkiResort.Label.PLAN_LIFT / PLAN_POD / PLAN_OTHER / PLAN_TRACK, {TYPE} = SkiResort.Hub.LIFT_TYPE[id], {CLASS} = SkiResort.Tooltip.QUICK_CLASS[band].
 // Phase: Rendering, NOT anchored to OverlayRenderSystem (the labels are Graphics.DrawMesh calls, and nothing is written to the overlay
 // buffers).
 // Zoom: shown between the same camera zooms as SkiRunLabelSystem (RunLabelRules.FadeAlpha > 0) and fitted to the chord / ring they name
@@ -37,6 +40,8 @@ namespace SkiResortMod.Systems
             public const float FontSize = 200f;       // = SkiRunLabelSystem
             public const float SizeW = 400f, SizeH = 100f;
             public const int MaxLabels = 64;
+            public const int MaxTrackLabels = 24;       // the longest cat tracks of a plan
+            public const float MinTrackLabelM = 150f;   // a shorter track gets none: the label would not fit it
         }
 
         private sealed class Part
@@ -128,7 +133,8 @@ namespace SkiResortMod.Systems
                 return;
             try
             {
-                ResortPlan plan = m_Tool.IsActive && m_Tool.Phase == QuickRunsToolSystem.ToolPhase.Preview ? m_Tool.Result.Resort : null;
+                AutoPlanResult result = m_Tool.IsActive && m_Tool.Phase == QuickRunsToolSystem.ToolPhase.Preview ? m_Tool.Result : null;
+                ResortPlan plan = result?.Resort;
                 if (plan == null)
                 {
                     if (m_Labels.Count != 0)
@@ -147,7 +153,7 @@ namespace SkiResortMod.Systems
                     return;
                 }
                 if (!ReferenceEquals(plan, m_BuiltFor))
-                    Rebuild(plan);
+                    Rebuild(result, plan);
                 if (m_Labels.Count != 0)
                     Draw(cam);
             }
@@ -170,7 +176,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private void Rebuild(ResortPlan plan)
+        private void Rebuild(AutoPlanResult result, ResortPlan plan)
         {
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             m_Dropped = 0;
@@ -179,6 +185,7 @@ namespace SkiResortMod.Systems
             ReleaseLabels();
             TerrainHeightData hd = m_Terrain.GetHeightData();
             string liftT = Template("SkiResort.Label.PLAN_LIFT"), podT = Template("SkiResort.Label.PLAN_POD");
+            string otherT = Template("SkiResort.Label.PLAN_OTHER"), trackT = Template("SkiResort.Label.PLAN_TRACK");
             for (int li = 0; li < plan.Lifts.Length; li++)
             {
                 PlanLift l = plan.Lifts[li];
@@ -195,15 +202,66 @@ namespace SkiResortMod.Systems
             }
             foreach (PlanPod pod in plan.Pods)
             {
-                string text = podT.Replace("{ID}", QuickRunsPlanRules.Letter(pod.Id)).Replace("{CLASS}", Template("SkiResort.Tooltip.QUICK_CLASS[" + pod.PrimaryClass + "]"));
+                // A group is named by its lift ("Runs from P2"). The group no lift starts is "Other runs" (links, ways home, loose runs)
+                string text = pod.Lift >= 0 && pod.Lift < plan.Lifts.Length
+                    ? podT.Replace("{ID}", plan.Lifts[pod.Lift].Origin == LiftOrigin.Pinned ? Template("SkiResort.Tooltip.QUICK_LIFT_ID_PINNED")
+                            : "P" + QuickRunsPlanRules.Ordinal(plan, pod.Lift).ToString(CultureInfo.InvariantCulture))
+                        .Replace("{CLASS}", Template("SkiResort.Tooltip.QUICK_CLASS[" + pod.PrimaryClass + "]"))
+                    : otherT;
                 RunLabelRules.BandRgb(PlanGeometry.ScoreBandOf(pod.PrimaryClass), out byte r, out byte g, out byte b);
                 Add(ref hd, pod.TopCenter, text, new Color32(r, g, b, 255), 2f * QuickRunsPlanRules.PodPickM);
             }
+            AddTrackLabels(ref hd, result, trackT);
+            if (m_Dropped > 0)
+                Mod.Log.Warn($"PlanLabels: the cap of {Tuning.MaxLabels} label(s) is full: {m_Dropped} label(s) of this plan are not drawn " +
+                             $"({plan.Lifts.Length} lift(s), {plan.Pods.Length} group(s)).");
             if (SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
                 Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                     "PlanLabels [cost] rebuild: {0:F3} ms for {1} label(s) ({2} mesh build(s) so far), {3} dropped by the cap of {4}",
                     (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency,
                     m_Labels.Count, MeshBuilds, m_Dropped, Tuning.MaxLabels));
+        }
+
+        /// <summary>"Cat track" on the longest cat tracks: at least MinTrackLabelM long, at most MaxTrackLabels, longest first (ties: the run
+        /// index), each at the middle of its center line.</summary>
+        private void AddTrackLabels(ref TerrainHeightData hd, AutoPlanResult result, string text)
+        {
+            if (result == null)
+                return;
+            var picks = new List<int>();
+            for (int i = 0; i < result.Runs.Count; i++)
+            {
+                AutoRun run = result.Runs[i];
+                if (run != null && run.Centerline != null && run.Centerline.Length >= 2 && run.LengthM >= Tuning.MinTrackLabelM &&
+                    RunFeatures.FromKind((int)run.Kind).IsCatTrack)
+                    picks.Add(i);
+            }
+            picks.Sort((a, b) =>
+            {
+                int c = result.Runs[b].LengthM.CompareTo(result.Runs[a].LengthM);
+                return c != 0 ? c : a.CompareTo(b);
+            });
+            for (int k = 0; k < picks.Count && k < Tuning.MaxTrackLabels; k++)
+            {
+                AutoRun run = result.Runs[picks[k]];
+                float2[] line = run.Centerline;
+                float total = 0f;
+                for (int i = 1; i < line.Length; i++)
+                    total += math.distance(line[i - 1], line[i]);
+                float half = 0.5f * total, walked = 0f;
+                float2 mid = line[line.Length - 1];
+                for (int i = 1; i < line.Length; i++)
+                {
+                    float seg = math.distance(line[i - 1], line[i]);
+                    if (seg > 0f && walked + seg >= half)
+                    {
+                        mid = math.lerp(line[i - 1], line[i], (half - walked) / seg);
+                        break;
+                    }
+                    walked += seg;
+                }
+                Add(ref hd, mid, text, new Color32(240, 209, 71, 255), run.LengthM);
+            }
         }
 
         private void Add(ref TerrainHeightData hd, float2 xz, string text, Color32 color, float extentM)
