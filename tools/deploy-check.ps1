@@ -10,11 +10,13 @@
 # THE STAMP carries NO commit. mod/SkiResortMod/SkiResortMod.csproj (target SkiUiBuild) makes it as
 # yyyyMMdd-HHmmss (UTC) + 6 random GUID hex chars. It does this ONLY when the UI bundle is rebuilt (a C#-only rebuild keeps the old
 # stamp). "ui-" prefixed = a UI-only npm build. So the stamp proves "same build as" (log vs deployed DLL vs bundle),
-# never "equals HEAD". File times (what MSBuild's incremental build uses) and git cleanliness decide
-# freshness against the code instead. Stamp readers:
+# never "equals HEAD". The COMMIT is a second constant, BuildStamp.Commit (target SkiBuildStamp): the git short hash of HEAD at
+# build time, "+" appended when mod/ had uncommitted changes, "nogit" when git failed. Check 8 compares it with HEAD.
+# File times (what MSBuild's incremental build uses) and git cleanliness decide freshness against the code too. Stamp readers:
 #   deployed DLL   - BuildStamp.Value is a const string, found by scanning the DLL bytes (UTF-16) [dll]
+#                    BuildStamp.CommitTag ("ski-commit:<hash>[+]") is found the same way         [dll]
 #   deployed bundle- SkiResortMod.mjs beside the DLL                                              [mjs]
-#   mod log line 3 - "DLL stamp <stamp>" (Mod.cs ReportUiModule), the stamp of the DLL the GAME loaded [log]
+#   mod log line 3 - "DLL stamp <stamp>, commit <hash>" (Mod.cs LogUiModulePresence), the DLL the GAME loaded [log]
 #
 # Checks:
 #   1 deploy      the deployed DLL + bundle exist and carry a stamp
@@ -26,6 +28,8 @@
 #   7 prefabs     game ImportedData == gamedata-mirror\ (same ownership + include rules as tools\sync-gamedata.ps1, compared by file hashes).
 #                 The mirror is a copy of the game side, so a difference means the mirror is behind (run sync-gamedata.ps1)
 #                 or the game lacks a file. Mirror-only files are reported, not fatal.
+#   8 commit      the deployed DLL's BuildStamp.Commit == HEAD of this checkout (PASS / STALE). "+" = built from uncommitted
+#                 changes, "nogit" = built without git: both are STALE (the build cannot be tied to a commit).
 # Never builds. Do not build while Cities2.exe runs. This script only reads.
 
 
@@ -59,6 +63,17 @@ function Get-DllStamp([string]$Path) {
     $found | Select-Object -Unique
 }
 
+# The commit compiled into the DLL (BuildStamp.CommitTag = "ski-commit:<short hash>[+]" or "ski-commit:nogit").
+function Get-DllCommit([string]$Path) {
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $found = @()
+    foreach ($skip in 0, 1) {
+        $text = [System.Text.Encoding]::Unicode.GetString($bytes, $skip, $bytes.Length - $skip - (($bytes.Length - $skip) % 2))
+        foreach ($m in [regex]::Matches($text, 'ski-commit:([0-9a-f]{7,40}\+?|nogit)')) { $found += $m.Groups[1].Value }
+    }
+    $found | Select-Object -Unique
+}
+
 $gameRunning = [bool](Get-Process -Name "Cities2" -ErrorAction SilentlyContinue)
 Write-Host "deploy-check: HEAD $(git -C $root rev-parse --short HEAD), game running: $gameRunning, deployed folder: $modDir"
 
@@ -70,7 +85,8 @@ if (-not (Test-Path $dll)) {
     $dllTime = (Get-Item $dll).LastWriteTime
     $dllStamps = @(Get-DllStamp $dll)
     if ($dllStamps.Count -eq 1) {
-        Add-Result "deploy" "PASS" ("[dll] SkiResortMod.dll stamp {0}, file time {1:yyyy-MM-dd HH:mm}" -f $dllStamps[0], $dllTime)
+        $cm = ""; if (@(Get-DllCommit $dll).Count -eq 1) { $cm = ", commit " + @(Get-DllCommit $dll)[0] }
+        Add-Result "deploy" "PASS" ("[dll] SkiResortMod.dll stamp {0}{1}, file time {2:yyyy-MM-dd HH:mm}" -f $dllStamps[0], $cm, $dllTime)
     } elseif ($dllStamps.Count -eq 0) {
         Add-Result "deploy" "UNKNOWN" "[dll] no build stamp string in the DLL (built without the UI: 'no-ui'?), file time $($dllTime.ToString('yyyy-MM-dd HH:mm'))"
     } else {
@@ -79,6 +95,9 @@ if (-not (Test-Path $dll)) {
 }
 if (Test-Path $mjs) { $mjsStamps = @([regex]::Matches([System.IO.File]::ReadAllText($mjs), $stampRe) | ForEach-Object { $_.Value } | Select-Object -Unique) }
 $dllStamp = if ($dllStamps.Count -eq 1) { $dllStamps[0] } else { $null }
+$dllCommits = @(); if (Test-Path $dll) { $dllCommits = @(Get-DllCommit $dll) }
+$dllCommit = if ($dllCommits.Count -eq 1) { $dllCommits[0] } else { $null }
+$buildId = if ($dllCommit) { "stamp $dllStamp, commit $dllCommit" } else { "stamp $dllStamp" }
 
 # 2 + 3 log
 $logStamp = $null; $logStart = $null
@@ -189,11 +208,31 @@ if (-not (Test-Path $game)) {
     }
 }
 
+# 8 commit: the commit compiled into the deployed DLL vs HEAD of this checkout
+try {
+    $headNow = (git -C $root rev-parse --short HEAD).Trim()
+    if (-not $dllTime) {
+        Add-Result "commit" "UNKNOWN" "[dll] not deployed"
+    } elseif (-not $dllCommit) {
+        Add-Result "commit" "UNKNOWN" "[dll] no commit tag in the DLL (built before the commit was stamped in, or the tag is not unique): rebuild + deploy"
+    } elseif ($dllCommit -eq "nogit") {
+        Add-Result "commit" "STALE" "[dll] built without git (nogit): the deploy cannot be tied to a commit; HEAD is $headNow"
+    } elseif ($dllCommit.EndsWith("+")) {
+        Add-Result "commit" "STALE" "[dll vs HEAD] built from $($dllCommit.TrimEnd('+')) WITH uncommitted changes under mod/ ($dllCommit), HEAD is ${headNow}: commit, then rebuild + deploy"
+    } elseif ($headNow.StartsWith($dllCommit) -or $dllCommit.StartsWith($headNow)) {
+        Add-Result "commit" "PASS" "[dll vs HEAD] both $headNow"
+    } else {
+        Add-Result "commit" "STALE" "[dll vs HEAD] the deployed DLL is built from ${dllCommit}, HEAD is ${headNow}: rebuild + deploy (or the deploy came from another worktree)"
+    }
+} catch {
+    Add-Result "commit" "UNKNOWN" "[git] $($_.Exception.Message)"
+}
+
 $stale = @($results | Where-Object Status -eq "STALE").Count
 $unknown = @($results | Where-Object Status -eq "UNKNOWN").Count
 $pass = @($results | Where-Object Status -eq "PASS").Count
 if ($stale -eq 0 -and $unknown -eq 0) {
-    Write-Host "SUMMARY: ALL $pass CHECKS PASS - the game runs the deployed build (stamp $dllStamp) and the prefabs match the mirror." -ForegroundColor Green
+    Write-Host "SUMMARY: ALL $pass CHECKS PASS - the game runs the deployed build ($buildId) and the prefabs match the mirror." -ForegroundColor Green
     exit 0
 }
 Write-Host "SUMMARY: $pass PASS, $stale STALE, $unknown UNKNOWN - do NOT judge a field test until this is resolved." -ForegroundColor Red

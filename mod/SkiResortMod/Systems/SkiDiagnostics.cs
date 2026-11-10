@@ -61,7 +61,7 @@ namespace SkiResortMod.Systems
         {
             var sb = new StringBuilder();
             sb.AppendLine("Modular Ski Resort diagnostics");
-            sb.Append("Mod: ").Append(ModVersion()).Append(", build ").AppendLine(BuildStamp.Value);
+            sb.Append("Mod: ").Append(ModVersion()).Append(", build ").Append(BuildStamp.Value).Append(", commit ").AppendLine(BuildStamp.Commit);
             sb.Append("Game: ").Append(Safe(() => Game.Version.current.fullVersion)).Append(", ").AppendLine(Application.platform.ToString());
             sb.Append("Machine: ").Append(SystemInfo.operatingSystem).Append("; ").Append(SystemInfo.processorType).Append(", ")
               .Append(SystemInfo.systemMemorySize).Append(" MB RAM; ").Append(SystemInfo.graphicsDeviceName).Append(", ")

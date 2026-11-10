@@ -515,7 +515,7 @@ namespace SkiResortMod
             try
             {
                 bool bundled = BuildStamp.UiBundled;
-                string stamp = BuildStamp.Value;
+                string stamp = BuildStamp.Value + ", commit " + BuildStamp.Commit;
                 if (ModRootPath == null)
                 {
                     Log.Error($"!!! UI module present: unknown — ModRootPath is null (TryGetExecutableAsset failed), " +
