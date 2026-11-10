@@ -334,6 +334,69 @@ namespace AutoGenBatch
                 Check(t.Count == 2, w, "want the new track in two pieces (butted at the existing track, across the piste): " + Areas(h));
                 Check(t.All(r => PlanGeometry.RingDistance(r.Ring, h.Input.Obstacles[1].Ring, 2f, out _, out _, out _, out _) >= 1.6f), w, "a track piece overlaps the existing track");
             }
+            RealizerOverLimitLifts();   // task R2-l (the block at the end of this file)
         }
+
+        // ================================================================ task R2-l: PlanLift.OverLimitTowers / BuildsFlagged (block start)
+        // The hub tells "the queue builds it, one tower over its sheave-train limit" (BuildsFlagged) from "needs fitting by hand" (HandFit and
+        // not BuildsFlagged). Lifts over a convex knee (a gentle slope, then a steep face) give towers over their cap. Pinned:
+        // - a sound lift has no over-limit tower and is not flagged;
+        // - a flagged lift is HandFit (HandFit keeps its meaning: not Sound) with exactly one over-limit tower;
+        // - the tram has no sheave train: never an over-limit tower, never flagged;
+        // - the sweep has at least one flagged lift and one that waits with two or more (the fields are live).
+        private static void RealizerOverLimitLifts()
+        {
+            const string w = "Realizer R2-l: over-limit lifts";
+            int lifts = 0, sound = 0, flagged = 0, waitsTrains = 0, otherHandFit = 0;
+            var shapes = new List<(string name, double[] seg)>();
+            // A profile from the bottom (u = 0) up the line: pairs of (length m, grade). 900 m in all.
+            foreach (double face in new[] { 0.5, 0.65, 0.8 })
+                foreach (double crest in new[] { 12.0, 20.0, 35.0 })
+                    foreach (double low in new[] { 0.12, 0.25 })
+                        shapes.Add(($"lip face {face:F2} crest {crest:F0} low {low:F2}", new[] { 640.0 - crest, low, 260.0, face, crest, 0.0 }));
+            foreach (double face in new[] { 0.65, 0.8 })
+                shapes.Add(($"two lips face {face:F2}", new[] { 150.0, 0.15, 150.0, face, 20.0, 0.0, 300.0, 0.15, 160.0, face, 20.0, 0.0, 100.0, 0.0 }));
+            var counts = new Dictionary<string, int>();
+            foreach (string type in new[] { "fixedGrip", "detachable", "gondola", "tram" })
+                foreach (var (name, seg) in shapes)
+                {
+                    double[] sg = seg;
+                    HeightFn f = (x, z) =>
+                    {
+                        double u = 450.0 - z, y = 1000.0;
+                        for (int i = 0; i + 1 < sg.Length && u > 0.0; i += 2)
+                        {
+                            double d = Math.Min(u, sg[i]);
+                            y += d * sg[i + 1];
+                            u -= d;
+                        }
+                        return y;
+                    };
+                    var h = new Hand { F = f, Region = Terrain.Square(0f, 0f, 600f) };
+                    h.Lift(0f, 450f, 0f, -450f, type).Realize();
+                    foreach (PlanLift L in h.Res.Resort.Lifts)
+                    {
+                        lifts++;
+                        string at = $"{type} {name}: towers {L.Towers}, HandFit {L.HandFit}, over limit {L.OverLimitTowers}, flagged {L.BuildsFlagged}";
+                        Check(L.OverLimitTowers >= 0, w, at);
+                        Check(L.HandFit || (L.OverLimitTowers == 0 && !L.BuildsFlagged), w, "a sound lift carries an over-limit tower: " + at);
+                        Check(!L.BuildsFlagged || (L.HandFit && L.OverLimitTowers == 1), w, "a flagged lift is not HandFit with one over-limit tower: " + at);
+                        Check(type != "tram" || (L.OverLimitTowers == 0 && !L.BuildsFlagged), w, "the tram has an over-limit tower: " + at);
+                        string bucket = !L.HandFit ? "sound" : L.BuildsFlagged ? "flagged" : L.OverLimitTowers >= 2 ? "waits 2+" : "other";
+                        if (!L.HandFit) sound++;
+                        else if (L.BuildsFlagged) flagged++;
+                        else if (L.OverLimitTowers >= 2) waitsTrains++;
+                        else otherHandFit++;
+                        string key = type + " " + bucket + " over " + L.OverLimitTowers;
+                        counts[key] = counts.TryGetValue(key, out int n) ? n + 1 : 1;
+                    }
+                }
+            Check(flagged > 0, w, $"no lift in the sweep is flagged ({lifts} lifts): the field is dead");
+            Check(waitsTrains > 0, w, $"no lift in the sweep waits with two or more over-limit towers ({lifts} lifts)");
+            Console.WriteLine($"REPORT rf realizer R2-l over-limit sweep: {lifts} lifts, {sound} sound, {flagged} flagged (the queue builds them), " +
+                              $"{waitsTrains} wait with 2+ over the limit, {otherHandFit} other hand fits; " +
+                              string.Join(", ", counts.OrderBy(kv => kv.Key).Select(kv => kv.Key + " x" + kv.Value)));
+        }
+        // ================================================================ task R2-l (block end)
     }
 }

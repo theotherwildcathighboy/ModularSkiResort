@@ -16,9 +16,12 @@ rules (right-click stepping, Build, Esc).
     clicked first (LiftBatch DR-3). `Replan` passes the world xz of the ends (`EndKeyA` / `EndKeyB`), and the tool passes a sampler
     from B (`PointFromB`, bit-exact with `PointAt` of the reversed edit).
   - The code refuses a pin closer than MinSpanM to another pin. It also refuses a pin closer than PinEndMarginM to an end. For a loose
-    or ground end (a tower), the margin is MinSpanM. For a station end, the margin is MinSpanM too, except for the tram. The tram margin
-    is one step (10 m). The 11.4 m tower then stands 4 m clear of the stub tip. Field test 2 refused a tram pin 19 m from the top
-    station five times under the old 40 m at both ends. The refusal names the margin (LastEndMarginM).
+    or ground end (a tower), the margin is MinSpanM. For a station end, the margin is the game's limit (task R2-l). The game
+    refuses a line with a tower inside the stub snap (`StubSnapM`, LiftTowerPlanner.md, Station floor). The stub snap is FG
+    and DQ 11 m, GD 12.1 m and tram 15.5 m. A pin keeps StubSnapM + 0.5 m (`PinSnapMarginM`), at least one step: FG and DQ 11.5 m, GD 12.6 m, tram 16 m.
+    The planner's own towers keep the 20 m floor. A player's pin may stand nearer. The refusal names the margin (LastEndMarginM).
+  - History: field test 2 refused a tram pin 19 m from the top station five times under the old 40 m. That pin snaps to 16 m from
+    the top and stays legal. A pin 10 m from a station is refused for every type (LiftBatch LP-29).
 - The ends know their kind (StationA / StationB, from the tool). A station or ground end gets the planner approach floor and station-side
   rule. A loose end is a tower node. Replan plans with the engine edge slope rule (CheckEdgeSlope) between the nodes as built, with the end
   nodes at A.y / B.y (LiftTowerPlanner.md, Station ends).

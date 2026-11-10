@@ -68,10 +68,13 @@ namespace SkiResortMod.Systems
                     plan = TowerPlan(planner, consts[t], cs, t, bottom, top, len, out clear);
                 // Iteration 3, item 5: clear means Sound in the lift tool's sense (LiftLineToolSystem.AutoBuildBlocker: every span clear, no
                 // tower over its sheave-train cap, none too steep, none past its carrier clearance). Else the lift waits for a hand fit.
+                bool edgeClear = clear;
                 string why = cs.Misses > 0 ? "a sampler miss" : plan == null ? "no tower plan" : !plan.Clear ? "a span not clear"
                     : plan.OverCapTowers > 0 ? $"{plan.OverCapTowers} tower(s) over the cap" : plan.TooSteepTowers > 0 ? $"{plan.TooSteepTowers} tower(s) too steep"
                     : plan.ClearanceTowers > 0 ? $"{plan.ClearanceTowers} tower(s) past the clearance" : !clear ? "an edge slope" : null;
                 clear = why == null;
+                // Task R2-l: the queue still builds a line with exactly one tower over its sheave-train limit and no other defect, and flags it.
+                bool flagged = !clear && cs.Misses == 0 && plan != null && edgeClear && plan.QueueBuild == LiftQueueBuild.BuildFlagged;
                 var towers = new float2[plan?.LineTowers ?? 0];
                 float2 dir = len > 1f ? (top.xz - bottom.xz) / len : new float2(1f, 0f);
                 for (int n = 1, w = 0; plan != null && n < plan.Nodes.Length - 1 && w < towers.Length; n++)
@@ -90,6 +93,7 @@ namespace SkiResortMod.Systems
                 {
                     Id = i, Key = key, Origin = LiftOrigin.Proposed, TypeIndex = t, Bottom = bottom, Top = top, LengthM = len, RiseM = top.y - bottom.y,
                     MaxEdgeSlope = plan?.MaxEdgeSlope ?? 0f, Towers = plan?.LineTowers ?? -1, TowerXz = towers, TowersUnchecked = !clear, HandFit = !clear,
+                    OverLimitTowers = plan?.OverLimitTowers ?? 0, BuildsFlagged = flagged,
                     Pod = i, BottomPad = 2 * i, TopPad = 2 * i + 1, TopSunk = tSunk, BottomSunk = bSunk, Cost = cost, Home = HomeVerdict.None,
                     Wanted = HomeLevel.Auto, HomeRun = -1,
                 };

@@ -53,6 +53,16 @@ namespace SkiResortMod.Systems
             public EntityRef TopStation { get; internal set; }
             /// <summary>Build order: 0 = the lowest bottom spot.</summary>
             public int Order { get; internal set; }
+            /// <summary>A Built row whose line has towers past their sheave-train limit (task R2-l). The build queue builds a line with
+            /// exactly one such tower and no other defect (LiftTowerPlan.QueueRule BuildFlagged), so a queue-built row reads 1. 0 = none.
+            /// The state stays Built.</summary>
+            public int OverLimitTowers { get; internal set; }
+            /// <summary>The first such tower: its place counted from the base end (1 = the first tower), -1 with none.</summary>
+            public int OverLimitTower { get; internal set; } = -1;
+            /// <summary>That tower's distance along the line from the base (m), its bend (|deflection|, deg) and its train's limit (deg).</summary>
+            public float OverLimitAlongM { get; internal set; }
+            public float OverLimitBendDeg { get; internal set; }
+            public float OverLimitCapDeg { get; internal set; }
 
             /// <summary>Not built yet and not waiting in the lift tool: the build queue may start it.</summary>
             public bool Buildable => State != SheetLiftState.Built;
@@ -155,6 +165,29 @@ namespace SkiResortMod.Systems
                 return false;
             r.BaseStation = baseStation;
             r.TopStation = topStation;
+            Revision++;
+            return true;
+        }
+
+        /// <summary>The over-limit towers of a row's built line (Row.OverLimitTowers and the first one's facts). <paramref name="count"/>
+        /// 0 clears the flag. False when the key is unknown or nothing changed.</summary>
+        public bool SetOverLimit(uint key, int count, int tower, float alongM, float bendDeg, float capDeg)
+        {
+            Row r = Find(key);
+            if (count <= 0)
+            {
+                count = 0;
+                tower = -1;
+                alongM = bendDeg = capDeg = 0f;
+            }
+            if (r == null || (r.OverLimitTowers == count && r.OverLimitTower == tower && r.OverLimitAlongM == alongM &&
+                              r.OverLimitBendDeg == bendDeg && r.OverLimitCapDeg == capDeg))
+                return false;
+            r.OverLimitTowers = count;
+            r.OverLimitTower = tower;
+            r.OverLimitAlongM = alongM;
+            r.OverLimitBendDeg = bendDeg;
+            r.OverLimitCapDeg = capDeg;
             Revision++;
             return true;
         }
@@ -262,7 +295,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The row key of a line that waits in the lift tool (LiftLineToolSystem ScriptTicket.Reason). A plan key or a notice key (PLAN_LOW,
-        /// PLAN_TRAIN, ALONG, CROSS_*, BACKWARD) stays as it is. The game's refusal of the build is BUILD_REFUSED. Any other text (no plan, auto
+        /// PLAN_TRAIN, PLAN_TRAINS, ALONG, CROSS_*, BACKWARD) stays as it is. The game's refusal of the build is BUILD_REFUSED. Any other text (no plan, auto
         /// build off, the build request refused, no Temp edges) is WAIT: the line did not build on its own. Never GAME, because nothing refused
         /// a waiting line unless the game did (R1-f).</summary>
         public static string WaitingKey(string reason)
@@ -287,7 +320,7 @@ namespace SkiResortMod.Systems
             switch (reasonKey)
             {
                 case "MONEY": case "POSE": case "PREFAB": case "STOPPED": case "GAME": case "ALONG": case "BACKWARD":
-                case "PLAN_LOW": case "PLAN_STEEP": case "PLAN_HIGH": case "PLAN_TRAIN": case "PLAN_SADDLE": case "PLAN_PITCH": case "PLAN_CLEARANCE":
+                case "PLAN_LOW": case "PLAN_STEEP": case "PLAN_HIGH": case "PLAN_TRAIN": case "PLAN_TRAINS": case "PLAN_SADDLE": case "PLAN_PITCH": case "PLAN_CLEARANCE":
                 case "BUILD_REFUSED": case "WAIT":
                     return reasonKey;
                 case "BASE[GONE]": case "TOP[GONE]":
@@ -325,9 +358,10 @@ namespace SkiResortMod.Systems
         }
 
         public static string RowText(Row r) => string.Format(CultureInfo.InvariantCulture,
-            "#{0} {1} key {2:X8} type {3} {4} {5}{6}; bottom ({7:F0}, {8:F0}, {9:F0}) top ({10:F0}, {11:F0}, {12:F0}); cost {13}; stations {14} / {15}",
+            "#{0} {1} key {2:X8} type {3} {4} {5}{6}{16}; bottom ({7:F0}, {8:F0}, {9:F0}) top ({10:F0}, {11:F0}, {12:F0}); cost {13}; stations {14} / {15}",
             r.Order, r.Name, r.Key, r.TypeIndex, r.On ? "on" : "off", r.State, r.ReasonKey != null ? " (" + r.ReasonKey + ")" : string.Empty,
-            r.Bottom.x, r.Bottom.y, r.Bottom.z, r.Top.x, r.Top.y, r.Top.z, r.Cost, Ref(r.BaseStation), Ref(r.TopStation));
+            r.Bottom.x, r.Bottom.y, r.Bottom.z, r.Top.x, r.Top.y, r.Top.z, r.Cost, Ref(r.BaseStation), Ref(r.TopStation),
+            r.OverLimitTowers > 0 ? " [OverLimitTowers=" + r.OverLimitTowers + "]" : string.Empty);
 
         private static string Ref(EntityRef e) => e.IsNull ? "-" : e.Index + ":" + e.Version;
     }

@@ -267,12 +267,19 @@ aims at what the player sees and removes the section under the cursor:
   for one line. They return a `ScriptTicket`. The caller reads `Outcome` every frame.
 - The picks run in the next update of the tool (`UpdateScript`, then `RunScript`). They use the same `PickEnd` as two clicks. A
   station end comes from the transform and the catalog row of the station, because a fresh station may not be in the census yet.
-- With auto build, the tool calls `RequestBuild` when the plan is Sound and no ALONG, CROSS or BACKWARD notice stands
-  (`AutoBuildBlocker`). Otherwise the tool waits in Edit for the player.
+- With auto build, the tool calls `RequestBuild` when `LiftTowerPlan.QueueRule` allows the plan and no ALONG, CROSS or BACKWARD
+  notice stands (`AutoBuildBlocker`). Otherwise the tool waits in Edit for the player.
+  - QueueRule (task R2-l, DECISIONS 637): a Sound plan builds. A plan with every span clear, exactly one tower over its sheave-train
+    limit, no tower too steep and no tower past its clearance also builds. This is the build that Enter makes.
+  - Two or more towers over the limit wait as PLAN_TRAINS. Any other fault waits on its plan key (`LiftTowerPlan.QueueWaitKey`).
+  - The ticket keeps `OverLimitTowers` and the first such tower: `OverLimitTower` (its place from the base), `OverLimitAlongM`,
+    `OverLimitBendDeg` and `OverLimitCapDeg`. The picks set them, and the apply sets them again from the plan that was built.
+  - Log: `LiftLine [script]: #N picked — ..., one tower over its sheave-train limit (tower T at A m bends B deg, its limit is C), no other
+    defect: build requested (as Enter builds it)`.
 - Outcomes:
   - Pending: queued, or picked with a build requested.
   - Waiting: in Edit with both ends picked. `Reason` is the plan key, the notice, or the refusal of the game.
-  - Built: the line is permanent. `Line`, `Towers` and `LengthM` are set.
+  - Built: the line is permanent. `Line`, `Towers`, `LengthM` and the over-limit fields are set.
   - Refused: the tool could not open, or could not pick the ends.
   - Abandoned: the tool closed, the ends were dropped, or another scripted line took its place.
 - A ticket that waits can still end Built when the player builds the line.
