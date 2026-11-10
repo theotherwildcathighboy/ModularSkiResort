@@ -425,6 +425,13 @@ namespace SkiResortMod.Systems
                     }
         }
 
+        /// <summary>Report only: the track whose gap holds a cell (FreeTrack's own). own indexes m_T, which also holds the existing cat
+        /// tracks of the obstacle list (Existing, Elem -1, no Line): a rescan of a built region has them (fix round 2b-x, the in-game
+        /// ArgumentOutOfRangeException of ReachToward).</summary>
+        private string GapOwner(int own) =>
+            own < 0 || own >= m_T.Count ? "(none)" : m_T[own].Existing || m_T[own].Elem < 0 ? "(existing)" : m_E[m_T[own].Elem].Source.ToString();
+
+        /// <summary>The cause of a cell for a track. own: the m_T index of the track whose gap holds it (an existing track too), or -1.</summary>
         private byte FreeTrack(float2 p, out int own)
         {
             own = -1;
@@ -743,7 +750,7 @@ namespace SkiResortMod.Systems
                 }
                 if (cause != CFree)
                 {
-                    block = (cause == CTrack ? $"the gap of track {(m_T[own].Existing ? "(existing)" : m_E[m_T[own].Elem].Source.ToString())}" : $"cause {cause}") + $" after {t:F0} m";
+                    block = (cause == CTrack ? $"the gap of track {GapOwner(own)}" : $"cause {cause}") + $" after {t:F0} m";
                     break;
                 }
                 pts.Add(q);
@@ -783,6 +790,7 @@ namespace SkiResortMod.Systems
         /// <summary>Report only: the sources of a merged chain's hosts.</summary>
         private string HostNames(Elem e)
         {
+            // e.Areas holds only this scan's areas (AcceptTrack, MergeChain's hosts): never an existing track
             var names = new List<string>();
             foreach (int k in e.Areas)
             {
@@ -1085,7 +1093,7 @@ namespace SkiResortMod.Systems
                     if (add.Count > 0 && Linked(add[add.Count - 1], target))
                         return add;
                     m_Rep.Lines.Add($"track {e.Source} ({e.Kind}): {(start ? "start" : "end")} cannot reach {(tb.Type == ElemType.Track ? "track" : "piste")} {tb.Source}: " +
-                        (cause == CTrack && own >= 0 ? $"the gap of track {m_E[m_T[own].Elem].Source}" : $"cause {cause}") + $" after {t - SampleM:F0} m");
+                        (cause == CTrack && own >= 0 ? $"the gap of track {GapOwner(own)}" : $"cause {cause}") + $" after {t - SampleM:F0} m");
                     return null;
                 }
                 add.Add(q);

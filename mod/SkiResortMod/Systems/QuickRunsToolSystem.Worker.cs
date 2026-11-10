@@ -14,7 +14,8 @@
 // Dev path (Measurement diagnostics): DevScan (scan a given ring, optionally bare) and DevDump (the last published scan's exact input
 // and hashes to a file, replayed by the test host's rf-replay), called by QuickRunsDevUISystem.
 // Logs (silence impossible): START / DONE (Scan.cs), CANCELED (here, every cancel of a running or queued scan), `!!!` on a faulted job
-// (Fail: the tool is disabled until the next load, the v1 policy). The drop of a stale result logs only with Measurement diagnostics.
+// (ScanFaulted, fix round 2b-x: the scan fails, its input goes to SkiResortMod.fault-n.rfscan, the tool stays on and the next scan runs).
+// The drop of a stale result logs only with Measurement diagnostics.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Scan, Worker), EngineNotes/ResortPlanner.md (Runs-first in the tool)
 
 using System;
@@ -121,7 +122,7 @@ namespace SkiResortMod.Systems
             {
                 m_PendingJob = null;
                 // BeginScan polled the job before its snapshot and obstacles, which take tens of ms on a large region. A worker that
-                // finished since is collected here, so a fault is reported (Fail) instead of overwritten unseen. Its generation is already
+                // finished since is collected here, so a fault is reported (ScanFaulted) instead of overwritten unseen. Its generation is already
                 // old (m_ScanGen++ above), so a clean finish is dropped as out of date and nothing pending is launched.
                 if (!PollScanJob(true))
                     return;
@@ -229,9 +230,10 @@ namespace SkiResortMod.Systems
                 "result is dropped", m_ScanJobWhy, reason, QuickRunsRules.MsSince(m_ScanLaunchTicks), m_ScanJob?.Progress ?? 0f));
         }
 
-        /// <summary>Main thread, the job is done. A fault disables the tool (the v1 Fail policy). A stale or canceled result is dropped
-        /// (and a queued scan launches). Otherwise the plan is cached, the result published and the v1 epilogue runs (FinishScan). False
-        /// after a fault.</summary>
+        /// <summary>Main thread, the job is done. A fault is one failed scan (ScanFaulted): logged with its stack, its input dumped, the
+        /// tool stays on and the next scan runs. A stale or canceled result is dropped (and a queued scan launches). Otherwise the plan is
+        /// cached, the result published and the v1 epilogue runs (FinishScan). Always true since fix round 2b-x (a fault no longer
+        /// disables the tool); canClose is unused since then.</summary>
         private bool CollectScanJob(bool canClose)
         {
             m_CollectTicks = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -240,17 +242,21 @@ namespace SkiResortMod.Systems
             m_ScanTask = null;
             if (task != null && task.IsFaulted)
             {
-                m_PendingJob = null;
-                if (m_Phase == ToolPhase.Scanning)
-                    m_Phase = ToolPhase.Region;
                 Exception e = task.Exception != null && task.Exception.InnerExceptions.Count == 1 ? task.Exception.InnerException : task.Exception;
-                Fail(e, "scan worker");
-                if (canClose)
+                bool current = m_ScanLaunchGen == m_ScanGen && m_PendingJob == null;
+                ScanFaulted(e, job, current);
+                if (m_PendingJob != null)
+                    LaunchPending();   // a newer scan waited behind this one: it runs
+                else if (current && m_Phase == ToolPhase.Scanning)
                 {
-                    applyMode = ApplyMode.Clear;
-                    try { Deactivate(); } catch (Exception) { /* logged by Fail */ }
+                    m_Phase = ToolPhase.Region;
+                    m_StatusKey = NoticeKey("STATUS[ScanFailed]");
+                    m_Notice = m_StatusKey;
+                    m_NoticeFrame = m_Frame;
+                    m_DrawDirty = true;
+                    Bump();
                 }
-                return false;
+                return true;
             }
             bool stale = m_ScanLaunchGen != m_ScanGen || (m_ScanCancel != null && m_ScanCancel.Requested);
             if (stale || job == null || job.Canceled || job.Result == null)
@@ -405,6 +411,71 @@ namespace SkiResortMod.Systems
                 "dump of {0} written to {1} ({2:F1} MB, {3:F0} ms): plan {4:x16}, result {5:x16}, options {6:x16}, status {7}; replay: rf-replay <file>",
                 head.Tag, Mod.ScrubUserPath(path), new FileInfo(path).Length / 1048576.0, QuickRunsRules.MsSince(t0), head.PlanHash, head.ResultHash,
                 head.OptionsPrint, head.Status);
+        }
+
+
+        // ---------------------------------------------------------------- a failed scan (fix round 2b-x)
+
+        /// <summary>Fault dumps kept in the log folder (SkiResortMod.fault-n.rfscan, the highest n are the newest).</summary>
+        private const int FaultDumpsKept = 3;
+        /// <summary>Failed scans per session that log their full stack. Later ones log one line (the dumps still rotate).</summary>
+        private const int FaultStacksLogged = 5;
+        private int m_ScanFaults;
+
+        /// <summary>A scan whose worker threw. The job owns its input and result, so the tool's state is whole: the scan is one failed
+        /// scan, not a broken tool. Logged with its stack (silence impossible), its input dumped for rf-replay. The main-thread Fail
+        /// policy (disabled until the next load) stays for exceptions in the tool's own update, the failure that can repeat every frame.
+        /// A worker fault cannot: each scan starts on a player action, a knob or a world change.</summary>
+        private void ScanFaulted(Exception e, QuickRunsScanJob job, bool current)
+        {
+            m_ScanFaults++;
+            string dump = WriteFaultDump(job);
+            string head = string.Format(CultureInfo.InvariantCulture,
+                "!!! QuickRuns [scan]: FAILED ({0}{1}) — EXCEPTION in the scan worker after {2:F0} ms (stage: plan {3}); failed scan {4} this session; " +
+                "the tool stays on and the next scan runs; {5}", m_ScanJobWhy, current ? string.Empty : ", out of date", m_ScanWorkerMs,
+                job?.Plan == null ? "none" : job.Plan.Hash.ToString("x16", CultureInfo.InvariantCulture), m_ScanFaults, dump);
+            if (m_ScanFaults <= FaultStacksLogged)
+                Mod.Log.Error(head + ". Please report this stack:\n" + e);
+            else
+                Mod.Log.Error(head + "; " + (e?.GetType().Name ?? "no exception") + ": " + e?.Message + " (stack logged for the first " + FaultStacksLogged + ")");
+        }
+
+        /// <summary>The failed job's exact input as SkiResortMod.fault-n.rfscan beside the other dumps (DevDump's writer), n one over the
+        /// highest on disk; only the newest FaultDumpsKept stay. Returns the log clause. Never throws (a dump that fails is a clause).</summary>
+        private static string WriteFaultDump(QuickRunsScanJob job)
+        {
+            if (job?.Input == null)
+                return "no input to dump";
+            try
+            {
+                string dir = Path.GetDirectoryName(SkiDiagnostics.LogFilePath);
+                var old = new List<(int N, string Path)>();
+                foreach (string f in Directory.GetFiles(dir, "SkiResortMod.fault-*.rfscan"))
+                {
+                    string name = Path.GetFileNameWithoutExtension(f);
+                    if (int.TryParse(name.Substring("SkiResortMod.fault-".Length), NumberStyles.None, CultureInfo.InvariantCulture, out int k))
+                        old.Add((k, f));
+                }
+                int n = 1;
+                foreach (var o in old)
+                    n = Math.Max(n, o.N + 1);
+                string path = Path.Combine(dir, "SkiResortMod.fault-" + n.ToString(CultureInfo.InvariantCulture) + ".rfscan");
+                var head = new QuickRunsScanDump.Header
+                {
+                    Tag = job.Id, Bare = job.PlannerInputs == null, PlanHash = job.Plan?.Hash ?? 0UL, ResultHash = 0UL,
+                    OptionsPrint = job.Options.Fingerprint(), Status = "fault",
+                };
+                using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write))
+                    QuickRunsScanDump.Write(fs, head, job.Input, job.Options);
+                old.Sort((a, b) => b.N.CompareTo(a.N));
+                for (int i = FaultDumpsKept - 1; i < old.Count; i++)
+                    File.Delete(old[i].Path);   // the new file is the newest: keep FaultDumpsKept - 1 of the old ones
+                return $"its input is in {Mod.ScrubUserPath(path)} (replay: rf-replay <file>)";
+            }
+            catch (Exception x)
+            {
+                return "the fault dump failed: " + x.GetType().Name + ": " + Mod.ScrubUserPath(x.Message);
+            }
         }
 
 
