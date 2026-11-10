@@ -1,6 +1,6 @@
 // RunsFirst host render: the host's part of RunsFirstPlanner (compiled by the test host only, never by the mod). RunRegion plans a
-// region, replays v2 on it, scores the plan with the frozen scorecard (RunsFirst.Score.cs), writes the tables and renders the side by
-// side PNG. The debug prints that only the host asks for (RF_V3DBG, RF_TURNDBG) are here too. Being a part of the planner class, it
+// region, scores the plan with the frozen scorecard (RunsFirst.Score.cs), writes the tables and renders the side by side PNG (left the
+// bare ground, right the plan; the v2 plan drew on the left until port round R2-d deleted v2). The debug prints that only the host asks for (RF_V3DBG, RF_TURNDBG) are here too. Being a part of the planner class, it
 // reads the planner's own types directly.
 
 using System;
@@ -16,7 +16,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class RunsFirstPlanner
     {
-        /// <summary>The rf mode for one region: plan, v2 replay, tables, score, render (the debug and timing lines print as they come).</summary>
+        /// <summary>The rf mode for one region: plan, tables, score, render (the debug and timing lines print as they come).</summary>
         internal void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
         {
             TraceSink = Console.WriteLine;
@@ -35,10 +35,6 @@ namespace SkiResortMod.Systems
             Console.WriteLine($"REPORT rf bands {id}: the plan's band differs from the scorecard's on {differ} of {plain} plain run(s) ({dkm:F2} km); " +
                 $"rater {g.Rater.Rated} rated, {g.Rater.Hits} cached, {g.Rater.Unrated} unrated, {g.Rater.NotConnected} not connected");
 
-            // the v2 plan of the same region, as the host replays it
-            AutoPlanKnobs knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(ring, 0));
-            AutoPlanResult v2 = new SkiRunAutoPlanner().Run(new AutoPlanInput { Snapshot = snap, Region = ring, Knobs = knobs, Mode = AutoPlanMode.Resort });
-
             int picked = 0;
             var bands = new int[5];
             float km = 0f;
@@ -49,9 +45,9 @@ namespace SkiResortMod.Systems
                     bands[(int)l.Band]++;
                     km += l.Length / 1000f;
                 }
-            float km2 = (float)(SkiRunAutoPlanner.PolygonArea(ring) / 1e6);
+            float km2 = (float)(PlanGeometry.PolygonArea(ring) / 1e6);
             Console.WriteLine($"REPORT rf {id}: {km2:F2} km2, {lines.Count} candidate line(s), {picked} picked (G/B/K/DB {bands[1]}/{bands[2]}/{bands[3]}/{bands[4]}), " +
-                $"{km:F1} km of runs, {ms} ms; v2 {v2.Status}: {v2.Runs.Count} run(s), {v2.Resort?.Lifts?.Length ?? 0} lift(s)");
+                $"{km:F1} km of runs, {ms} ms");
 
             WriteTable(Path.Combine(outDir, id + ".txt"), id, lines);
             WriteLifts(Path.Combine(outDir, id + ".txt"), id, lifts, lines);
@@ -79,7 +75,7 @@ namespace SkiResortMod.Systems
                 TurnDebug(id, built);
             File.AppendAllText(Path.Combine(outDir, id + ".txt"), "\n" + RunsFirstScore.Line(id, score) + "\n" + RunsFirstScore.ShapeLine(id, score) + "\n" +
                 string.Concat(score.Notes.Select(s => "  " + s + "\n")));
-            Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, v2, lifts, built);
+            Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, lifts, built);
         }
 
         // ------------------------------------------------------------------ grid and flow
@@ -146,7 +142,7 @@ namespace SkiResortMod.Systems
 
         private static (int, int, int) EdgeColor(SlopeBand b) => b == SlopeBand.DoubleBlack ? (255, 150, 0) : (255, 255, 255);
 
-        private static void Render(string path, HeightSnapshot s, float2[] ring, Grid g, float[] acc, float[] accR, List<Line> lines, AutoPlanResult v2, List<Lift> lifts, PlanDraft built)
+        private static void Render(string path, HeightSnapshot s, float2[] ring, Grid g, float[] acc, float[] accR, List<Line> lines, List<Lift> lifts, PlanDraft built)
         {
             int w = s.Width, d = s.Depth;
             float t = s.TexelM;
@@ -232,23 +228,7 @@ namespace SkiResortMod.Systems
                 "{{\"rot\":{0},\"w\":{1},\"d\":{2},\"ox\":{3},\"oz\":{4},\"x0\":{5},\"z0\":{6},\"t\":{7},\"panelW\":{8},\"gap\":12}}\n",
                 rot, w, d, s.Origin.x, s.Origin.y, s.X0, s.Z0, t, iw));
             Canvas left = Base(true), right = Base(true);
-            // left: the v2 plan (runs by band, lift chords yellow)
-            foreach (AutoRun r in v2.Runs)
-            {
-                var pl = new List<float2>();
-                foreach (float2 p in r.Centerline)
-                    pl.Add(fromWorld(p));
-                Stroke(left, pl, 4f, EdgeColor(r.Band));
-                Stroke(left, pl, 2.5f, BandColor(r.Band));
-            }
-            if (v2.Resort?.Lifts != null)
-                foreach (PlanLift lf in v2.Resort.Lifts)
-                {
-                    var pl = new List<float2> { fromWorld(lf.Bottom.xz), fromWorld(lf.Top.xz) };
-                    Stroke(left, pl, 2f, (255, 220, 0));
-                    left.Disc(pl[0].x, pl[0].y, 5f, (255, 220, 0));
-                    left.Disc(pl[1].x, pl[1].y, 5f, (255, 220, 0));
-                }
+            // left: the bare ground (the same base as the right panel, no plan)
             // right: every candidate thin, picked lines thick by band, numbered at the top
             foreach (Line l in lines)
                 if (!l.Picked)
@@ -336,7 +316,7 @@ namespace SkiResortMod.Systems
             }
             Program.WritePngRgb(path, both.W, both.H, both.Rgb);
             string[] ups = { "north (+z)", "east (+x)", "south (-z)", "west (-x)" };
-            Console.WriteLine($"REPORT rf render {Path.GetFileName(path)}: {both.W} x {both.H}, image top = {ups[rot]}, 1 px = {t:F1} m; left v2, right runs-first");
+            Console.WriteLine($"REPORT rf render {Path.GetFileName(path)}: {both.W} x {both.H}, image top = {ups[rot]}, 1 px = {t:F1} m; left the ground, right runs-first");
         }
 
         private static List<float2> Img(Line l, Func<float2, float2> fromWorld)

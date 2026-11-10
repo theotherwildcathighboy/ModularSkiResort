@@ -20,21 +20,11 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Terrain.cs" />
-    <Compile Include="Captures.cs" />
     <Compile Include="QuickRunsTests.cs" />
-    <Compile Include="Fill.cs" />
-    <Compile Include="Field.cs" />
-    <Compile Include="V1Golden.cs" />
-    <Compile Include="PlanTypes.cs" />
     <Compile Include="Heightmap.cs" />
     <Compile Include="V2Fixtures.cs" />
     <Compile Include="V2Metrics.cs" />
-    <Compile Include="V2Tests.cs" />
     <Compile Include="WorkerTests.cs" />
-    <Compile Include="TerrainTests.cs" />
-    <Compile Include="LiftTests.cs" />
-    <Compile Include="FanTests.cs" />
-    <Compile Include="FlowTests.cs" />
     <Compile Include="RunsFirst.Host.cs" />
     <Compile Include="RunsFirst.Render.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.cs" Link="RunsFirstPlanner.cs" />

@@ -127,7 +127,7 @@ namespace AutoGenBatch
         /// <summary>The input the tool would pass: the region, its snapshot, Resort mode. The area cap is lifted so the big set runs.</summary>
         public static AutoPlanInput InputOf(HeightSnapshot snap, float2[] ring) => new AutoPlanInput
         {
-            Snapshot = snap, Region = ring, Knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(ring, 0)), Mode = AutoPlanMode.Resort, MaxAreaM2 = 64e6f,
+            Snapshot = snap, Region = ring, Knobs = AutoPlanKnobs.Default(PlanGeometry.SeedOf(ring, 0)), Mode = AutoPlanMode.Resort, MaxAreaM2 = 64e6f,
         };
 
         /// <summary>The scorecard input of a realized plan: plain pistes as runs (Natural or Groomed), graded pistes and tracks as
