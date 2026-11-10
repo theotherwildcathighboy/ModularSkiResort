@@ -851,7 +851,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_WARN[Renumber]", "Runs with default names will be renumbered." },
                 { "SkiResort.Tooltip.QUICK_WARN[OtherResort]", "These runs belong to more than one ski area." },
                 { "SkiResort.Tooltip.QUICK_WARN[NoSign]", "No Welcome Sign in range: the runs will not count until one is placed nearby." },
-                { "SkiResort.Tooltip.QUICK_WARN[NoSignSome]", "{N} of {M} runs have no Welcome Sign in range: they will not count until one is placed nearby." },
+                { "SkiResort.Tooltip.QUICK_WARN[NoSignSome]", "About {N} of {M} runs have no Welcome Sign in range: they will not count until one is placed nearby." },
                 { "SkiResort.Tooltip.QUICK_WARN[ChecksOff]", "Anarchy is installed: while it is on, the game's own checks are off and only this tool's checks protect the build." },
                 { "SkiResort.Tooltip.QUICK_NEED_CORNERS", "Click at least three corners first." },
                 { "SkiResort.Tooltip.QUICK_NEED_SCAN", "Scan the region first." },

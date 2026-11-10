@@ -791,7 +791,7 @@ export const HUB_FMT = {
   quickTotals: ["SkiResort.Hub.QUICK_TOTALS_LINE", "{N} of {M} runs · cat tracks {T} · {FEE} · {SKIERS} skiers a day"],
   quickBatch: ["SkiResort.Hub.QUICK_BATCH_LINE", "Last build: {N} runs and cat tracks. Undo removes them and refunds the fee."],
   /** QUICK_WARN[NoSignSome] with its numbers (the warnings list holds only the key; N = quickRuns.unbound, M = quickRuns.enabled). */
-  quickNoSignSome: ["SkiResort.Tooltip.QUICK_WARN[NoSignSome]", "{N} of {M} runs have no Welcome Sign in range: they will not count until one is placed nearby."],
+  quickNoSignSome: ["SkiResort.Tooltip.QUICK_WARN[NoSignSome]", "About {N} of {M} runs have no Welcome Sign in range: they will not count until one is placed nearby."],
   quickTreeCounts: ["SkiResort.Hub.QUICK_TREE_COUNTS", "{P} to plant · {R} to remove"],
   quickTreeCountsCost: ["SkiResort.Hub.QUICK_TREE_COUNTS_COST", "{P} to plant · {R} to remove · costs {FEE}"],
   quickMixLine: ["SkiResort.Tooltip.QUICK_MIX", "Green {G} of {TG} · Blue {B} of {TB} · Black {K} of {TK} · Double black {D} of {TD}"],
