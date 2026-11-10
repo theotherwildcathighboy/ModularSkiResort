@@ -23,7 +23,7 @@ namespace SkiResortMod.Systems
         public const float SparseGapM = 30f, NormalGapM = 15f, DenseGapM = 10f;
         public const float MergeGapM = 2f;                                       // abutting is legal (ValidationHelpers.cs:575)
         public const float SurfaceClearanceM = MergeGapM, UnownedClearanceM = 0.5f;
-        public const int StageCount = 16;    // the v1 probe slots (AutoPlanResult.StageMs). The Resort-only stages have none (ResortPlan.StageMs)
+        public const int StageCount = 16;    // the v1 probe slots (AutoPlanResult.StageMs)
         public const int SelectPhases = 5;   // stage 13's m_SelPhase as probe slots: pick, A* (reroute), build, rate, chamfer (4 and 5)
 
         // Station lot half-diagonals by lift type (fixed grip, detachable, gondola, tram): lots 16x24, 16x32, 24x32, 48x24 m ([C1] table

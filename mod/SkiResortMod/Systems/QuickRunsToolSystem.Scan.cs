@@ -171,7 +171,7 @@ namespace SkiResortMod.Systems
             Bump();
         }
 
-        /// <summary>Leave the preview: Region phase. The planner keeps its result and cache (Reselect may restart from them). Every reader
+        /// <summary>Leave the preview: Region phase. The scan job keeps its plan cache (a Kinds change realizes a cached plan again). Every reader
         /// of the result checks the phase first.</summary>
         private void DropPreview(string why)
         {
@@ -218,7 +218,7 @@ namespace SkiResortMod.Systems
                 failure = $"the scan rectangle is {w} x {d} texels";
                 return false;
             }
-            // The back buffer: never the one the planner holds (a running worker reads it, a Reselect reads it again)
+            // The back buffer: never the one the planner holds (a running worker reads it)
             int slot = m_PlannerSnap != null && ReferenceEquals(m_SnapBuf[0], m_PlannerSnap) ? 1 : 0;
             HeightSnapshot back = m_SnapBuf[slot];
             HeightSnapshot s = back != null && back.Heights.Length >= w * d && back.Wet != null && back.Wet.Length >= w * d

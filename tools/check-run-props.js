@@ -201,7 +201,6 @@ const KIND_READS = {
   "Systems/SkiResortAttractivenessSystem.cs": 3,
   "Systems/SkiResortScore.cs": 5,
   "Systems/SkiResortStatsSystem.cs": 2,
-  "Systems/SkiRunAutoPlanner.Select.cs": 8,
   "Systems/SkiRunBindingRules.cs": 5,
   "Systems/SkiRunCatalogSystem.cs": 1,
   "Systems/SkiRunOwnershipSystem.cs": 2,
