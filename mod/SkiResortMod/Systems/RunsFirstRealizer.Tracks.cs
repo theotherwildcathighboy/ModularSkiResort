@@ -704,10 +704,10 @@ namespace SkiResortMod.Systems
         /// first samples in the gap of a start track are skipped (the spur butts onto it). It stops at the first sample within
         /// TrackReachM of the target's outline or in the target's gap. Any other blocked sample ends it without a spur. The ring must
         /// pass the track checks and be a game link at both ends.</summary>
-        private void Spur(Elem b, float2 p, List<int> start, Area target)
+        private int Spur(Elem b, float2 p, List<int> start, Area target)
         {
             if (target.Line == null)
-                return;
+                return -1;
             float2 aim = target.Line[0];
             float bd = float.PositiveInfinity;
             for (int k = 0; k + 1 < target.Line.Length; k++)
@@ -724,7 +724,7 @@ namespace SkiResortMod.Systems
             }
             float dist = math.distance(p, aim);
             if (dist < SampleM)
-                return;
+                return -1;
             float2 dir = (aim - p) / dist;
             int tIdx = target.Track ? m_T.IndexOf(target) : -1;
             var pts = new List<float2>();
@@ -769,14 +769,15 @@ namespace SkiResortMod.Systems
             if (!ok)
             {
                 m_Rep.Lines.Add(what + (reached ? " not built (its ring fails a check)" : $" not built ({block})"));
-                return;
+                return -1;
             }
             var j1 = new List<int>();
             if (tIdx >= 0)
                 j1.Add(tIdx);
-            AcceptTrack(b, path, ring, TrackHalfWidthM, start, j1, false, false, SpurSegment + b.Spurs++);
+            int idx = AcceptTrack(b, path, ring, TrackHalfWidthM, start, j1, false, false, SpurSegment + b.Spurs++);
             m_Rep.TrackSpurs++;
             m_Rep.Lines.Add($"{what}, {path.LengthM:F0} m");
+            return idx;
         }
 
         /// <summary>Report only: the sources of a merged chain's hosts.</summary>
@@ -897,7 +898,25 @@ namespace SkiResortMod.Systems
                 }
                 // the piece with its reached ends fails: it goes without them (iteration 3), the reach is not counted
                 m_Rep.Lines.Add($"track {e.Source} ({e.Kind}): reached ends dropped, the piece failed with them ({why})");
+                int before = e.Areas.Count;
                 why = BuildTrackRing(e, path, pc, plain, ref segment, out at);
+                if (why == AutoReject.Kept)
+                {
+                    // R2-r: each end that had a reach gets it as a spur, a separate area butted onto the piece (a straight extension
+                    // joined to a bent end is what made the ribbon cross itself)
+                    for (int s = 0; s < 2; s++)
+                    {
+                        if (!(s == 0 ? pc.Orig0 : pc.Orig1))
+                            continue;
+                        int idx = e.Areas[s == 0 ? before : e.Areas.Count - 1];
+                        Area x = m_T[idx];
+                        float2 end = s == 0 ? x.Line[0] : x.Line[x.Line.Length - 1];
+                        Area target = ReachTarget(e, end, s == 0, out Elem _);
+                        int spur = target != null ? Spur(e, end, new List<int> { idx }, target) : -1;
+                        if (spur >= 0)
+                            (s == 0 ? x.J0 : x.J1).Add(spur);
+                    }
+                }
             }
             return why;
         }
@@ -992,9 +1011,17 @@ namespace SkiResortMod.Systems
 
         private List<float2> Reach(Elem e, float2 end, float2 inner, bool start)
         {
-            // the related element with no kept area within reach of this end, nearest first
+            Area target = ReachTarget(e, end, start, out Elem tb);
+            if (target == null)
+                return null;
+            return ReachToward(e, end, inner, start, target, tb);
+        }
+
+        /// <summary>The related element with no kept area within reach of this end, nearest first: its nearest kept area, or null.</summary>
+        private Area ReachTarget(Elem e, float2 end, bool start, out Elem tb)
+        {
             Area target = null;
-            Elem tb = null;
+            tb = null;
             float best = float.PositiveInfinity;
             foreach (Elem b in m_E)
             {
@@ -1023,8 +1050,11 @@ namespace SkiResortMod.Systems
                     tb = b;
                 }
             }
-            if (target == null)
-                return null;
+            return target;
+        }
+
+        private List<float2> ReachToward(Elem e, float2 end, float2 inner, bool start, Area target, Elem tb)
+        {
             // toward the nearest point of the target's realized centerline
             float2 aim = target.Line[0];
             float bd = float.PositiveInfinity;
