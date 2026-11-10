@@ -41,7 +41,7 @@ namespace SkiResortMod.Systems
             public const int MaxSegments = 32768;
             public const int CostLogAfterDraws = 600;
             public const float SlowDrawWarnMs = 0.5f;        // main-thread part of one draw
-            public const float SlowBuildWarnMs = 2f;         // one cache build
+            public const float SlowBuildWarnMs = 6f;         // one cache build (a full list of MaxSegments takes about 3.7 ms)
         }
 
         private struct PisteSegment
