@@ -64,7 +64,7 @@ namespace SkiResortMod.Systems
                     }
                     if (!near.Any(x => x))
                         continue;
-                    SlopeBand band = RunBand(g, pts);
+                    SlopeBand band = g.Rater.Use(RaterChord) ? RaterBand(g, plan.Runs[ri].Pts) : RunBand(g, pts);
                     List<float2> moved = null;
                     // each stretch beside the chord moves out to the side most of it lies on (else the other), tapered over 60 m
                     foreach (float flip in new[] { 1f, -1f })
@@ -99,7 +99,7 @@ namespace SkiResortMod.Systems
                         for (int i = 0; i < pts.Count; i++)
                             cand.Add(pts[i] + nrm * shift[i]);
                         List<float2> ok = SanitizeRun(g, cand);
-                        if (ok != null && ok.Count >= Densify(cand).Count && RunBand(g, ok) == band && ok.All(p => CellOf(g, p) is int c && c >= 0 && g.In[c]))
+                        if (ok != null && ok.Count >= Densify(cand).Count && SeenRunBand(g, ok, RaterChord) == band && ok.All(p => CellOf(g, p) is int c && c >= 0 && g.In[c]))
                         {
                             moved = ok;
                             break;

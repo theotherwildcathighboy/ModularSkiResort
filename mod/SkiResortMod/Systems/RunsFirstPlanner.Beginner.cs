@@ -353,7 +353,7 @@ namespace SkiResortMod.Systems
         /// A caller may still take the softest when nothing clean exists (a base without beginner terrain costs more than either).</summary>
         [MethodImpl(Hot)]
         private static List<float2> GreenRoute(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, EasyReach er, int x, PointHash avoid, ChordGuard guard, int[] why, out float soft,
-            out bool graded)
+            out bool graded, int raterBit = RaterGreen)
         {
             soft = 0f;
             graded = false;
@@ -366,7 +366,7 @@ namespace SkiResortMod.Systems
                 {
                     green = true;
                     List<float2> ok = SanitizeRun(g, pl);
-                    if (ok != null && ok.Count >= Densify(pl).Count)
+                    if (ok != null && ok.Count >= Densify(pl).Count && ReadsGreen(g, ok, raterBit))
                     {
                         route = ok;
                         break;
@@ -460,12 +460,12 @@ namespace SkiResortMod.Systems
                         continue;
                     List<float2> rest = r.Pts.GetRange(k, r.Pts.Count - k);
                     if (!members.Any(L => rest.Skip(1).Any(p => math.distancesq(p, lifts[L].Bottom.xz) < 55f * 55f))
-                        || (r.Graded ? !GreenTrack(g, r.Pts) : GroundBand(g, r.Pts) != SlopeBand.Green))
+                        || (r.Graded ? !GreenTrack(g, r.Pts) : !IsGreen(g, r.Pts)))
                         continue;
                     var o = route.GetRange(0, i);
                     o.Add(r.Pts[k]);
                     if (RawH(g, o[0]) - RawH(g, o[o.Count - 1]) < 60f || (graded ? !GreenTrack(g, o)
-                        : GroundBand(g, o) != SlopeBand.Green || SanitizeRun(g, o) is not { } sane || sane.Count < Densify(o).Count))
+                        : !IsGreen(g, o) || SanitizeRun(g, o) is not { } sane || sane.Count < Densify(o).Count))
                         continue;
                     return o;
                 }

@@ -98,7 +98,7 @@ namespace SkiResortMod.Systems
                 if (pick == null || pick[0].y - pick[pick.Count - 1].y < MinRunDropM)
                     continue;
                 List<float2> moved = pick.ConvertAll(p => p.xz);
-                if (RunBand(g, moved) != RunBand(g, plan.Runs[a].Pts))
+                if (SeenRunBand(g, moved, RaterChord) != SeenRunBand(g, plan.Runs[a].Pts, RaterChord))
                     continue;
                 old[a] = plan.Runs[a].Pts;
                 plan.Runs[a].Pts = moved;

@@ -421,7 +421,7 @@ namespace SkiResortMod.Systems
                     continue;
                 }
                 var rw = new int[4];
-                List<float2> route = GreenRoute(g, plan, lifts, members, er, x, avoid, guard, rw, out float soft, out bool graded);
+                List<float2> route = GreenRoute(g, plan, lifts, members, er, x, avoid, guard, rw, out float soft, out bool graded, RaterChairRun);
                 if (route == null || soft > 0f || graded)
                 {
                     why[4]++;
@@ -552,7 +552,7 @@ namespace SkiResortMod.Systems
                     List<float2> route = null;
                     List<int> cells = er.Route(x);
                     foreach (List<float2> pl in new[] { Polyline(g, cells, false), cells.ConvertAll(c => g.World(c)) })
-                        if (GroundBand(g, pl) == SlopeBand.Green && SanitizeRun(g, pl) is { } ok && ok.Count >= Densify(pl).Count)
+                        if (GroundBand(g, pl) == SlopeBand.Green && SanitizeRun(g, pl) is { } ok && ok.Count >= Densify(pl).Count && ReadsGreen(g, ok, RaterLearnRuns))
                         {
                             route = ok;
                             break;

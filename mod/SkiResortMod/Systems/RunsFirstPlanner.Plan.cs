@@ -811,7 +811,7 @@ namespace SkiResortMod.Systems
             if (end <= cd.Entry + 3)
                 return 0f;
             float drop = cd.Wh[cd.Entry] - cd.Wh[end];
-            SlopeBand band = RunBand(g, cd.Way.GetRange(cd.Entry, end - cd.Entry + 1));
+            SlopeBand band = SeenRunBand(g, cd.Way.GetRange(cd.Entry, end - cd.Entry + 1), RaterValue);
             return Math.Max(0f, drop) * Clamp(cd.L.Width / 40f, 0.3f, 1f) * BandWeight(band) * (cd.End >= 0 ? 1f : 0.5f);
         }
 

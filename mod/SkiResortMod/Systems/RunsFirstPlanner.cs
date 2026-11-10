@@ -112,6 +112,7 @@ namespace SkiResortMod.Systems
             public bool[] In;
             public HeightSnapshot S;       // the raw terrain: the code checks stations, traverses and runs on it
             public float[] Hr;             // raw height at each cell center
+            public BandRater Rater;        // the mod rater's band of a polyline, cached (RunsFirstPlanner.Rater.cs)
             public float2 World(int c) => new float2((float)(OX + (c % W) * CellM), (float)(OZ + (c / W) * CellM));
         }
 
@@ -284,6 +285,7 @@ namespace SkiResortMod.Systems
             m_Ticks.Clear();
             EasyWork = LinkWork = 0;
             Grid g = BuildGrid(snap, ring);
+            g.Rater = new BandRater { Cancel = m_Cancel, Bits = O.RaterBands };
             Tick("grid");
             int n = g.W * g.D;
             float cellsPerChannel = ChannelM2 / (g.CellM * g.CellM);
@@ -681,7 +683,7 @@ namespace SkiResortMod.Systems
             ps.Sort();
             l.Rating = ps.Count > 0 ? ps[(int)(ps.Count * 0.85f)] : l.Mean;
             l.Steepest = ps.Count > 0 ? ps[ps.Count - 1] : l.Mean;
-            l.Band = SkiSlopeClassifier.BandOf(l.Rating);
+            l.Band = g.Rater.Use(RaterLine) ? RaterBand(g, l.Pts.ConvertAll(p => p.xz)) : SkiSlopeClassifier.BandOf(l.Rating);
             l.Width = Width(g, l);
             l.Score = l.Drop * Clamp(l.Width / 40f, 0.3f, 1f) * BandWeight(l.Band);
         }

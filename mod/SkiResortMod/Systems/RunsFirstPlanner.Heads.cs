@@ -143,7 +143,7 @@ namespace SkiResortMod.Systems
                 var moved = pick.ConvertAll(p => p.xz);
                 for (int i = window + 1; i < n; i++)
                     moved.Add(P[i].xz);
-                if (RawH(g, moved[0]) - RawH(g, moved[moved.Count - 1]) < MinRunDropM || RunBand(g, moved) != RunBand(g, plan.Runs[a].Pts))
+                if (RawH(g, moved[0]) - RawH(g, moved[moved.Count - 1]) < MinRunDropM || SeenRunBand(g, moved, RaterChord) != SeenRunBand(g, plan.Runs[a].Pts, RaterChord))
                     continue;
                 old[a] = plan.Runs[a].Pts;
                 plan.Runs[a].Pts = moved;

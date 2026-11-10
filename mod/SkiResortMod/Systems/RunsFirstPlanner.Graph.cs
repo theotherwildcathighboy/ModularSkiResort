@@ -46,7 +46,7 @@ namespace SkiResortMod.Systems
                 if (i < sg.Runs && !plan.Runs[i].Graded)
                 {
                     sg.IsRun[i] = true;
-                    sg.Band[i] = GroundBand(g, pts);
+                    sg.Band[i] = SeenBand(g, pts, RaterGraph);
                 }
                 else
                     (sg.IsRun[i], sg.Band[i]) = TrackClass(g, pts);
