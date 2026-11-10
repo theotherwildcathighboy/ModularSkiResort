@@ -145,6 +145,9 @@ h1 { text-transform: uppercase; letter-spacing: 0.04em; }
   padding: 1rem;
 }
 .shot-link { display: block; cursor: zoom-in; }
+/* Room above and below an inline shot. Starlight spaces block siblings but skips links, so a shot right after a list or
+   paragraph sat flush against the text. The carousel and grid set their own spacing. */
+.sl-markdown-content .shot-link:not(.shot-carousel *, .shot-grid *), .sl-markdown-content .shot { margin-top: 1.5rem; margin-bottom: 1.5rem; }
 .shot-img { display: block; width: 100%; height: auto; border-radius: 0.5rem; }
 .shot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1rem; margin: 1.5rem 0; }
 .shot-grid .shot-link { margin: 0; }
