@@ -331,7 +331,7 @@ namespace SkiResortMod.Systems
                     path.Add(c);
                 AddLine(lines, g, path, "gentle");
             }
-            float km2r = (float)(SkiRunAutoPlanner.PolygonArea(ring) / 1e6) - BlockedKm2;   // the open area (Inputs.cs: 0 with no input)
+            float km2r = (float)(PlanGeometry.PolygonArea(ring) / 1e6) - BlockedKm2;   // the open area (Inputs.cs: 0 with no input)
             Tick("lines");
             SetMixWeights(id, g, ring, lines);
             PointHash taken = Pick(lines, g, km2r);

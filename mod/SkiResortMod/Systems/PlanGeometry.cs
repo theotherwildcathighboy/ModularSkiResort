@@ -1,7 +1,7 @@
 // Plan geometry: the pure static helpers and constants of the ski run planner that the tool layer, the tests and any planner share.
-// They used to live inside SkiRunAutoPlanner (v1 / v2). Every body moved here unchanged, and SkiRunAutoPlanner keeps a one-line
-// forwarder under the old name, so the planner files compile as before. The tool layer calls PlanGeometry directly: deleting a
-// planner then touches no reader. The result and input types are in PlanContract.cs.
+// They used to live inside SkiRunAutoPlanner (v1 / v2). Every body moved here unchanged (port round R0-b), and port round R2-d deleted
+// the v1 / v2 planner with its forwarders (one stays: SkiRunAutoPlanner.SnapshotRect, for the frozen scorecard probes). Every reader
+// calls PlanGeometry directly. The result and input types are in PlanContract.cs.
 // Pure on purpose: no state, no logging, no throwing. Usings are System, System.Collections.Generic and Unity.Mathematics ONLY
 // (plus the project's own pure grade helpers), so the file also links into the net8 test host.
 

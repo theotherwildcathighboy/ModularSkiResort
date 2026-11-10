@@ -1,7 +1,8 @@
 // Plan contract: the result and input types of the ski run planner, shared by the tool layer, the tests and every planner behind
-// them (the v1 / v2 SkiRunAutoPlanner and the runs-first planner that replaces it). The planner files hold none of these types, so
-// deleting a planner never touches a reader. Resort plan types (ResortPlan, PlanLift, ...) live in the planner's Plan partial file, the
-// height copy in its Snapshot partial file, the pure geometry and constants in PlanGeometry.cs.
+// them (the runs-first planner and its realizer; the v1 / v2 SkiRunAutoPlanner they were written for was deleted in port round R2-d).
+// The planner files hold none of these types, so deleting a planner never touches a reader. The resort plan types (ResortPlan, PlanLift,
+// ...) live in SkiRunAutoPlanner.Plan.cs, the height copy in SkiRunAutoPlanner.Snapshot.cs, the pure geometry and constants in
+// PlanGeometry.cs.
 // Entities-free: usings are System, System.Collections.Generic and Unity.Mathematics ONLY (the file also links into the net8 test host).
 
 using System;
@@ -151,9 +152,6 @@ namespace SkiResortMod.Systems
         public float TreeLineY = float.NaN;
         /// <summary>Polled once per unit. null = never canceled.</summary>
         public AutoPlanCancel Cancel;
-        /// <summary>The planner is stepped on the main thread (the tool's fallback setting): the Lifts stage selects its picks without a
-        /// tower plan (PlanLift.TowersUnchecked). Resort only.</summary>
-        public bool MainThread;
     }
 
     /// <summary>One proposed run. Ring = the outline to emit (xz, no closing duplicate, junction nodes included: never simplify it
