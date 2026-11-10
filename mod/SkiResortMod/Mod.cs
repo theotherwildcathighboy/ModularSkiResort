@@ -381,6 +381,9 @@ namespace SkiResortMod
             // SkiGladeTagSystem reads ApplyingNow in ApplyTool. The hotkey poller also runs the bind line after a build.
             updateSystem.UpdateAt<QuickRunsToolSystem>(SystemUpdatePhase.ToolUpdate);
             updateSystem.UpdateAt<QuickRunsHotkeySystem>(SystemUpdatePhase.UIUpdate);
+            // Its dev trigger (scan a ring, dump the last scan for the host replay; Measurement diagnostics only) runs at UIUpdate and only
+            // queues for the tool's own update (the hub's idiom).
+            updateSystem.UpdateAt<QuickRunsDevUISystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.UpdateAfter<QuickRunsTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
 
             // Station placer (P0 probe of the Resort Planner round): a scripted ObjectToolBaseSystem subclass. ToolUpdate is load-bearing:

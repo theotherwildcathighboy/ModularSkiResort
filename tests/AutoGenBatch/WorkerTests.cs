@@ -1,14 +1,20 @@
-// Worker suite (A2, stage-a-gates.md 2.5 / 3). It tests these cases:
-// - D-4: Run inside Task.Run == Run on the calling thread, both planner modes, and a Reselect resumed on a worker == a fresh run
-//   with those knobs.
-// - D-5: a cancel at unit k = 1, 10, 100, last returns Canceled within one unit. Reselect refuses afterwards. The next fresh run on
-//   the same planner equals the uncanceled fingerprint. Also a cancel from another thread while Run works on a worker.
-// - ProgressVolatile read across threads.
-// - Snapshot() copy independence (the published copy does not change when the planner runs again).
-// The tool's job (QuickRunsToolSystem.Worker.cs) is engine side. These are the planner contracts it relies on.
+// Worker suite (port round R2-a): the tool's scan job (QuickRunsScanJob, the runs-first planner and the realizer in one call on the
+// tool's worker thread, QuickRunsToolSystem.Worker.cs). It tests these cases on the synthetic golden regions (RfGolden):
+// - a job inside Task.Run equals a job on the calling thread (plan hash = the recorded golden, result fingerprint equal),
+// - a cancel from another thread ends the job within CancelBoundMs with Canceled set and no result. A fresh job then gives the golden,
+// - the job's progress never goes back and ends at 1,
+// - the snapshot contract: a published result does not change when a later job runs. A job from the cached plan gives the same result,
+// - a Kinds change realizes the cached plan again (the plan hash stays),
+// - empty planner inputs keep the golden hash. A blocked disc moves the plan and no run, lift or connector enters it,
+// - a dump (QuickRunsScanDump) read back plans and realizes to the same hashes (the rf-replay contract).
+// The planner object itself (two threads, cancel per pass, progress over the pass list) is RunsFirstPlannerTests.cs.
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
@@ -19,200 +25,196 @@ namespace AutoGenBatch
     {
         private static void WorkerTests()
         {
-            float2[] sq480 = Terrain.Square(0f, 0f, 480f);
-            HeightFn fbm4 = Terrain.Fbm(4u, 0.32, 70.0);
-            var cases = new List<(string Name, Func<AutoPlanInput> Make)>
-            {
-                ("determinism base", () => Input(fbm4, sq480)),
-                ("alpine 1 bowl", () => Input(Terrain.Alpine(1u), Terrain.AlpineRegion(false))),
-            };
-            foreach (var (name, make) in cases)
-                foreach (AutoPlanMode mode in new[] { AutoPlanMode.Runs, AutoPlanMode.Resort })
-                {
-                    string where = $"worker D-4 {name} {mode}";
-                    AutoPlanInput input = make();
-                    input.Mode = mode;
-                    ulong here = new SkiRunAutoPlanner().Run(input).Fingerprint;
-                    AutoPlanResult onWorker = Task.Run(() => new SkiRunAutoPlanner().Run(input)).Result;
-                    Check(onWorker.Status == AutoPlanStatus.Ok, where, $"status {onWorker.Status}");
-                    Check(onWorker.Fingerprint == here, where, $"worker {onWorker.Fingerprint:X16} != calling thread {here:X16}");
-                    // The tool's planner is one instance: a worker run after a calling-thread run, then the reverse
-                    var p = new SkiRunAutoPlanner();
-                    p.Run(input);
-                    Check(Task.Run(() => p.Run(input).Fingerprint).Result == here, where, "the same instance on a worker after a calling-thread run differs");
-                    Check(p.Run(input).Fingerprint == here, where, "the same instance on the calling thread after a worker run differs");
-                    Check(mode == AutoPlanMode.Resort ? onWorker.Resort != null : onWorker.Resort == null, where, "ResortPlan presence does not follow the mode");
-                }
-            WorkerReselect();
-            WorkerCancel();
-            WorkerProgress();
-            WorkerSnapshotCopy();
+            var cases = V2Fixtures.Synthetic();
+            V2Case alpine = cases.First(x => x.Id == "Alpine1 full");
+            ulong want = RfGolden.First(r => r.Id == alpine.Id).Hash;
+            HeightSnapshot snap = alpine.Snap();
+            AutoPlanInput Fresh() => JobInput(snap, alpine.Region);
+
+            // 1. Calling thread == worker
+            var here = new QuickRunsScanJob(Fresh(), null, null, null, "w-here");
+            here.Run();
+            string where = "worker job threads";
+            Check(here.Result != null && here.Result.Status == AutoPlanStatus.Ok, where, $"status {here.Result?.Status}");
+            Check(here.Plan != null && here.Plan.Hash == want, where, $"plan {here.Plan?.Hash:x16} != golden {want:x16}");
+            Check(here.Result?.Resort != null, where, "no ResortPlan published");
+            Check(here.Progress == 1f, where, $"progress {here.Progress} after Run");
+            var worker = new QuickRunsScanJob(Fresh(), null, null, null, "w-worker");
+            Task.Run(worker.Run).Wait();
+            Check(worker.Plan != null && worker.Plan.Hash == want, where, $"worker plan {worker.Plan?.Hash:x16} != golden {want:x16}");
+            Check(worker.Result != null && worker.Result.Fingerprint == here.Result.Fingerprint, where,
+                $"worker result {worker.Result?.Fingerprint:x16} != calling thread {here.Result.Fingerprint:x16}");
+            Console.WriteLine($"REPORT worker job {alpine.Id}: plan {here.Plan.Hash:x16}, result {here.Result.Fingerprint:x16}, " +
+                $"checks {here.PrecheckMs:F0} ms, plan {here.Plan.PlanMs:F0} ms, realize {here.RealizeMs:F0} ms, total {here.TotalMs:F0} ms");
+
+            WorkerCancel(snap, alpine.Region, want);
+            WorkerProgress(snap, alpine.Region);
+            WorkerSnapshotContract(snap, alpine.Region, here);
+            WorkerInputs(snap, alpine.Region, want);
+            WorkerDump(here);
         }
 
-        /// <summary>D-4 for the tool's knob path: Reselect on the calling thread, then the Step loop on a worker (what LaunchScan resume
-        /// runs) equals a fresh calling-thread run with the new knobs.</summary>
-        private static void WorkerReselect()
+        private static AutoPlanInput JobInput(HeightSnapshot snap, float2[] ring)
         {
-            float2[] region = Terrain.Square(0f, 0f, 480f);
-            HeightFn f = Terrain.Fbm(4u, 0.32, 70.0);
-            foreach (AutoPlanMode mode in new[] { AutoPlanMode.Runs, AutoPlanMode.Resort })
+            AutoPlanInput input = RealizerHost.InputOf(snap, ring);
+            input.Cancel = new AutoPlanCancel();
+            return input;
+        }
+
+        /// <summary>A cancel from another thread while the planner works: the job ends within CancelBoundMs, Canceled, no result. Then a
+        /// fresh job on the same input gives the golden (nothing left behind).</summary>
+        private static void WorkerCancel(HeightSnapshot snap, float2[] ring, ulong want)
+        {
+            const string where = "worker job cancel";
+            foreach (float at in new[] { 0.05f, 0.4f })
             {
-                AutoPlanInput input = Input(f, region);
-                input.Mode = mode;
-                AutoPlanKnobs seed7 = input.Knobs, expert = input.Knobs;
-                seed7.Seed = SkiRunAutoPlanner.SeedOf(region, 7);
-                expert.Mix = AutoMix.Expert;
-                foreach (var (what, knobs) in new[] { ("seed 7", seed7), ("mix expert", expert) })
+                AutoPlanInput input = JobInput(snap, ring);
+                var job = new QuickRunsScanJob(input, null, null, null, "w-cancel");
+                Task task = Task.Run(job.Run);
+                var wait = Stopwatch.StartNew();
+                while (job.Progress < at * QuickRunsScanJob.PlanShare && !task.IsCompleted && wait.ElapsedMilliseconds < 60000)
+                    Thread.Sleep(1);
+                if (task.IsCompleted)
                 {
-                    string where = $"worker D-4 reselect {what} {mode}";
-                    AutoPlanInput fresh = Input(f, region);
-                    fresh.Mode = mode;
-                    fresh.Knobs = knobs;
-                    ulong want = new SkiRunAutoPlanner().Run(fresh).Fingerprint;
-                    var p = new SkiRunAutoPlanner();
-                    p.Run(input);
-                    Check(p.Reselect(knobs), where, "Reselect refused on a finished scan");
-                    ulong got = Task.Run(() =>
-                    {
-                        while (!p.Step(float.PositiveInfinity))
-                        {
-                        }
-                        return p.Result.Fingerprint;
-                    }).Result;
-                    Check(got == want, where, $"resumed on a worker {got:X16} != fresh {want:X16}");
+                    Check(false, where, $"the job ended before {at:P0} of the plan (it is too fast to cancel)");
+                    continue;
                 }
+                var sw = Stopwatch.StartNew();
+                input.Cancel.Request();
+                task.Wait();
+                double ms = sw.Elapsed.TotalMilliseconds;
+                Check(job.Canceled, where, $"at {at:P0}: not Canceled");
+                Check(job.Result == null, where, $"at {at:P0}: a canceled job published a result");
+                Check(ms <= CancelBoundMs, where, $"at {at:P0}: {ms:F0} ms from the request to the end > {CancelBoundMs} ms");
+                Console.WriteLine($"REPORT worker job cancel at {at:P0} of the plan: {ms:F1} ms");
             }
+            var fresh = new QuickRunsScanJob(JobInput(snap, ring), null, null, null, "w-after-cancel");
+            Task.Run(fresh.Run).Wait();
+            Check(fresh.Plan != null && fresh.Plan.Hash == want, where, $"the job after a cancel {fresh.Plan?.Hash:x16} != golden {want:x16}");
         }
 
-        /// <summary>D-5: a cancel at unit k (1, 10, 100, the last) via Step(0) (exactly one unit per call), then from another thread.</summary>
-        private static void WorkerCancel()
+        /// <summary>The progress read from another thread never goes back and ends at 1.</summary>
+        private static void WorkerProgress(HeightSnapshot snap, float2[] ring)
         {
-            foreach (AutoPlanMode mode in new[] { AutoPlanMode.Runs, AutoPlanMode.Resort })
-            {
-                AutoPlanInput input = Input(Terrain.Alpine(1u), Terrain.AlpineRegion(false));
-                input.Mode = mode;
-                AutoPlanResult full = new SkiRunAutoPlanner().Run(input);
-                ulong want = full.Fingerprint;
-                int units = full.Units;
-                Check(units > 100, $"worker D-5 {mode}", $"the fixture has only {units} units (the k = 100 case proves nothing)");
-                var p = new SkiRunAutoPlanner();
-                foreach (int k in new[] { 1, 10, 100, units - 1 })
-                {
-                    string where = $"worker D-5 {mode} cancel at unit {k} of {units}";
-                    var cancel = new AutoPlanCancel();
-                    input.Cancel = cancel;
-                    bool done = p.Begin(input) != AutoPlanStatus.Running;
-                    for (int u = 0; u < k && !done; u++)
-                        done = p.Step(0f);
-                    Check(!done, where, "the scan finished before the cancel");
-                    int before = p.Result.Units;
-                    cancel.Request();
-                    bool stopped = p.Step(0f);
-                    Check(stopped && p.Done, where, "Step did not stop on the cancel");
-                    Check(p.Result.Canceled, where, "Result.Canceled not set");
-                    Check(p.Result.Units == before, where, $"{p.Result.Units - before} unit(s) ran after the cancel (want 0: the flag is polled before each unit)");
-                    Check(!p.Reselect(input.Knobs), where, "Reselect accepted a canceled scan's field");
-                    input.Cancel = null;
-                    AutoPlanResult again = p.Run(input);
-                    Check(!again.Canceled && again.Fingerprint == want, where,
-                        $"the next fresh run on the same planner {again.Fingerprint:X16} != uncanceled {want:X16}");
-                }
-
-                // From another thread while Run works on a worker (the tool's path): the worker returns Canceled within about one unit
-                var cross = new AutoPlanCancel();
-                input.Cancel = cross;
-                var q = new SkiRunAutoPlanner();
-                Task<AutoPlanResult> job = Task.Run(() => q.Run(input));
-                while (!job.IsCompleted && q.ProgressVolatile < 0.3f)
-                {
-                }
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                cross.Request();
-                AutoPlanResult r = job.Result;
-                double latency = sw.Elapsed.TotalMilliseconds;
-                string w = $"worker D-5 {mode} cross-thread";
-                if (!r.Canceled)
-                    Console.WriteLine($"INFO  {w}: the worker finished before the cancel landed (no latency figure)");
-                else
-                {
-                    Console.WriteLine($"INFO  {w}: canceled after {r.Units} of {units} units, returned {latency:F2} ms after the request " +
-                                      $"(longest unit {full.MaxUnitMs:F2} ms)");
-                    Check(latency <= Math.Max(250.0, 4.0 * full.MaxUnitMs), w, $"the worker took {latency:F0} ms to stop");
-                }
-                input.Cancel = null;
-                Check(q.Run(input).Fingerprint == want, w, "the next fresh run after a cross-thread cancel differs");
-            }
-        }
-
-        /// <summary>ProgressVolatile read from the main thread while the worker runs: never decreasing, 1 when done.</summary>
-        private static void WorkerProgress()
-        {
-            AutoPlanInput input = Input(Terrain.Alpine(2u), Terrain.AlpineRegion(false));
-            input.Mode = AutoPlanMode.Resort;
-            var p = new SkiRunAutoPlanner();
-            Task<AutoPlanResult> job = Task.Run(() => p.Run(input));
+            const string where = "worker job progress";
+            var job = new QuickRunsScanJob(JobInput(snap, ring), null, null, null, "w-progress");
+            Task task = Task.Run(job.Run);
             float last = 0f;
-            int reads = 0, backwards = 0;
-            while (!job.IsCompleted)
+            int reads = 0, back = 0;
+            while (!task.IsCompleted)
             {
-                float v = p.ProgressVolatile;
-                if (v < last)
-                    backwards++;
-                last = Math.Max(last, v);
+                float p = job.Progress;
+                if (p < last)
+                    back++;
+                last = math.max(last, p);
                 reads++;
+                Thread.Sleep(1);
             }
-            job.Wait();
-            Check(backwards == 0, "worker progress", $"ProgressVolatile went backwards {backwards} time(s) in {reads} read(s)");
-            Check(Math.Abs(p.ProgressVolatile - 1f) < 1e-6f, "worker progress", $"ProgressVolatile {p.ProgressVolatile} after the run (want 1)");
+            task.Wait();
+            Check(back == 0, where, $"{back} of {reads} reads went back");
+            Check(job.Progress == 1f, where, $"ends at {job.Progress}");
+            Check(reads > 10, where, $"only {reads} reads (the job is too fast to watch)");
         }
 
-        /// <summary>The published copy (AutoPlanResult.Snapshot) stays as it was while the planner runs again (a Reselect and a whole new
-        /// scan), in both modes: lists, counters, fingerprint, the shared AutoRun objects, and the deep-copied ResortPlan.</summary>
-        private static void WorkerSnapshotCopy()
+        /// <summary>The tool publishes the job's own result: a later job (planned or from the cache) does not change it. A job from the
+        /// cached plan gives the same result. A Kinds change from the cached plan keeps the plan hash.</summary>
+        private static void WorkerSnapshotContract(HeightSnapshot snap, float2[] ring, QuickRunsScanJob published)
         {
-            float2[] region = Terrain.Square(0f, 0f, 480f);
-            HeightFn f = Terrain.Fbm(4u, 0.32, 70.0);
-            foreach (AutoPlanMode mode in new[] { AutoPlanMode.Runs, AutoPlanMode.Resort })
+            const string where = "worker job snapshot contract";
+            AutoPlanResult pub = published.Result;
+            ulong pubHash = RunsFirstRealizer.Hash(pub);
+            int runs = pub.Runs.Count;
+            var cached = new QuickRunsScanJob(JobInput(snap, ring), null, null, published.Plan, "w-cached");
+            cached.Run();
+            Check(cached.FromCache, where, "the job with a cached plan planned again");
+            Check(cached.Result != null && cached.Result.Fingerprint == pub.Fingerprint, where,
+                $"the cached plan's result {cached.Result?.Fingerprint:x16} != the first {pub.Fingerprint:x16}");
+            Check(!ReferenceEquals(cached.Result, pub), where, "two jobs share one result object");
+            var again = new QuickRunsScanJob(JobInput(snap, ring), null, null, null, "w-again");
+            again.Run();
+            Check(RunsFirstRealizer.Hash(pub) == pubHash && pub.Runs.Count == runs, where, "a later job changed the published result");
+            AutoPlanInput kinds = JobInput(snap, ring);
+            AutoPlanKnobs k = kinds.Knobs;
+            k.Kinds = AutoKinds.Groomed;
+            kinds.Knobs = k;
+            var groomed = new QuickRunsScanJob(kinds, null, null, published.Plan, "w-kinds");
+            groomed.Run();
+            Check(groomed.Result != null && groomed.Result.Status == AutoPlanStatus.Ok, where, $"Kinds groomed: status {groomed.Result?.Status}");
+            Check(groomed.Plan.Hash == published.Plan.Hash, where, "a Kinds change moved the plan hash");
+            Check(RunsFirstRealizer.Hash(pub) == pubHash, where, "a Kinds job changed the published result");
+            Console.WriteLine($"REPORT worker job cache: realize only {cached.TotalMs:F0} ms (planned {published.TotalMs:F0} ms), " +
+                $"Kinds groomed result {groomed.Result?.Fingerprint:x16} vs default {pub.Fingerprint:x16}");
+        }
+
+        /// <summary>Empty planner inputs keep the golden. A blocked disc (the game's blocked ground) moves the plan, and nothing of the
+        /// plan enters the disc.</summary>
+        private static void WorkerInputs(HeightSnapshot snap, float2[] ring, ulong want)
+        {
+            const string where = "worker job inputs";
+            AutoPlanInput input = JobInput(snap, ring);
+            RunsFirstInputs empty = QuickRunsScanJob.InputsFrom(input, false);
+            Check(empty != null && empty.Empty, where, "a fixture input with no obstacle, lift, water or access gives non-empty inputs");
+            var e = new QuickRunsScanJob(input, null, empty, null, "w-empty");
+            e.Run();
+            Check(e.Plan != null && e.Plan.Hash == want, where, $"empty inputs {e.Plan?.Hash:x16} != golden {want:x16}");
+            Check(e.Plan != null && e.Plan.BlockedCells == 0, where, $"empty inputs blocked {e.Plan?.BlockedCells} cells");
+
+            // A disc of 150 m around the plan's first lift bottom: the plan must move away from it
+            RunsFirstResult golden = e.Plan.Plan;
+            float2 c = golden.Lifts[0].Bottom.xz;
+            const float r = 150f;
+            var blocked = new RunsFirstInputs();
+            blocked.Blocked.Add(new RunsFirstInputs.Shape { Pts = new[] { c }, ClearM = r });
+            var b = new QuickRunsScanJob(JobInput(snap, ring), null, blocked, null, "w-blocked");
+            b.Run();
+            Check(b.Plan != null && b.Plan.Hash != want, where, "a blocked disc left the plan unchanged");
+            Check(b.Plan != null && b.Plan.BlockedCells > 0, where, "a blocked disc blocked no cell");
+            if (b.Plan == null)
+                return;
+            RunsFirstResult p = b.Plan.Plan;
+            float tol = r - 12f;   // one planner cell of slack at the disc's edge
+            int inside = 0;
+            void Pts(IEnumerable<float2> pts)
             {
-                string where = $"worker snapshot {mode}";
-                AutoPlanInput input = Input(f, region);
-                input.Mode = mode;
-                var p = new SkiRunAutoPlanner();
-                AutoPlanResult live = p.Run(input);
-                AutoPlanResult pub = live.Snapshot();
-                Check(!ReferenceEquals(pub, live) && !ReferenceEquals(pub.Runs, live.Runs) && !ReferenceEquals(pub.BandCount, live.BandCount),
-                    where, "the copy shares its containers with the live result");
-                ulong fp = pub.Fingerprint;
-                int runs = pub.Runs.Count, clusters = pub.Clusters.Count, junctions = pub.Junctions.Count, units = pub.Units;
-                var bands = (int[])pub.BandCount.Clone();
-                AutoRun first = runs > 0 ? pub.Runs[0] : null;
-                float2[] firstRing = first?.Ring;
-                Check(runs > 0, where, "the fixture has no runs (the check proves nothing)");
-                if (mode == AutoPlanMode.Resort)
-                    Check(pub.Resort != null && !ReferenceEquals(pub.Resort, live.Resort) && !ReferenceEquals(pub.Resort.Pods, live.Resort.Pods) &&
-                          !ReferenceEquals(pub.Resort.Lifts, live.Resort.Lifts) && !ReferenceEquals(pub.Resort.MountainMix, live.Resort.MountainMix),
-                        where, "the ResortPlan is not deep-copied");
-
-                // Run again on the same planner: a Reselect (another seed) to the end, then a whole new scan of other terrain
-                AutoPlanKnobs k = input.Knobs;
-                k.Seed = SkiRunAutoPlanner.SeedOf(region, 5);
-                Check(p.Reselect(k), where, "Reselect refused");
-                while (!p.Step(float.PositiveInfinity))
-                {
-                }
-                Check(p.Result.Fingerprint != fp, where, "the reselected result equals the first (the check proves nothing)");
-                p.Run(Input(Terrain.Alpine(3u), Terrain.AlpineRegion(true)));
-
-                Check(pub.Fingerprint == fp && pub.Runs.Count == runs && pub.Clusters.Count == clusters && pub.Junctions.Count == junctions &&
-                      pub.Units == units, where, "the published copy changed when the planner ran again");
-                for (int b = 0; b < bands.Length; b++)
-                    Check(pub.BandCount[b] == bands[b], where, $"BandCount[{b}] changed");
-                Check(first == null || (ReferenceEquals(pub.Runs[0], first) && ReferenceEquals(first.Ring, firstRing)), where,
-                    "the published run object was replaced or rewritten");
-                Check(pub.Status == AutoPlanStatus.Ok && !pub.Canceled, where, $"status {pub.Status}, canceled {pub.Canceled}");
-                if (mode == AutoPlanMode.Resort)
-                    Check(pub.Resort != null && !ReferenceEquals(pub.Resort, p.Result.Resort), where, "the published ResortPlan is the live one");
+                foreach (float2 q in pts)
+                    if (math.distance(q, c) < tol)
+                        inside++;
             }
+            foreach (RunsFirstResult.Run run in p.Runs)
+                Pts(run.Pts);
+            foreach (List<float2> con in p.Connectors)
+                Pts(con);
+            foreach (RunsFirstResult.Lift l in p.Lifts)
+                Pts(new[] { l.Bottom.xz, l.Top.xz });
+            Check(inside == 0, where, $"{inside} plan point(s) inside the blocked disc");
+            Console.WriteLine($"REPORT worker job inputs: blocked disc {r} m, {b.Plan.BlockedCells} of {b.Plan.OpenCells} cells, " +
+                $"plan {b.Plan.Hash:x16} ({p.Runs.Count} runs, {p.Lifts.Count} lifts), 0 points inside: {inside == 0}");
+        }
+
+        /// <summary>The dump of a published scan, read back and run again, gives the same plan and result (rf-replay).</summary>
+        private static void WorkerDump(QuickRunsScanJob published)
+        {
+            const string where = "worker job dump";
+            var head = new QuickRunsScanDump.Header
+            {
+                Tag = published.Id, Bare = published.PlannerInputs == null, PlanHash = published.Plan.Hash,
+                ResultHash = published.Result.Fingerprint, OptionsPrint = published.Options.Fingerprint(), Status = published.Result.Status.ToString(),
+            };
+            var ms = new MemoryStream();
+            QuickRunsScanDump.Write(ms, head, published.Input, published.Options);
+            ms.Position = 0;
+            AutoPlanInput input = QuickRunsScanDump.Read(ms, out RunsFirstOptions options, out QuickRunsScanDump.Header back);
+            Check(back.PlanHash == head.PlanHash && back.ResultHash == head.ResultHash && back.Bare == head.Bare && back.Tag == head.Tag, where,
+                "the header did not round-trip");
+            Check(back.UnknownOptions.Count == 0, where, $"unknown options: {string.Join(", ", back.UnknownOptions)}");
+            Check(options.Fingerprint() == head.OptionsPrint, where, $"options {options.Fingerprint():x16} != {head.OptionsPrint:x16}");
+            input.Cancel = new AutoPlanCancel();
+            var job = new QuickRunsScanJob(input, options, QuickRunsScanJob.InputsFrom(input, back.Bare), null, "w-replay");
+            job.Run();
+            Check(job.Plan != null && job.Plan.Hash == head.PlanHash, where, $"replay plan {job.Plan?.Hash:x16} != {head.PlanHash:x16}");
+            Check(job.Result != null && job.Result.Fingerprint == head.ResultHash, where,
+                $"replay result {job.Result?.Fingerprint:x16} != {head.ResultHash:x16}");
+            Console.WriteLine($"REPORT worker job dump: {ms.Length / 1024} KiB, replay plan {job.Plan?.Hash:x16}, result {job.Result?.Fingerprint:x16}");
         }
     }
 }

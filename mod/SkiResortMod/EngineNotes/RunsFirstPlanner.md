@@ -58,6 +58,20 @@ On the largest test region (big-3, 25 km2) the test host measured the poll gaps 
 The planner reads only this object. The test host fills it from the `RF_*` environment switches (`RunsFirst.HostOptions`).
 The mod must pass its own object and never read the environment.
 
+## Inputs from the game
+
+`Systems/RunsFirstPlanner.Inputs.cs` holds `RunsFirstInputs`. The tool sets it on the instance before `Plan` (`planner.Inputs`).
+It has a list of blocked shapes, a water flag and the access points.
+
+- A shape with 3 or more points is a ring. A shape with 2 points is a segment. A shape with 1 point is a point. Each shape has a clear distance.
+- The grid pass removes each cell of a blocked shape from the region mask. With the water flag, it also removes each cell that has a wet texel.
+- All passes read this mask, so no run, lift or track enters a blocked cell.
+- The open area of the region does not include the blocked cells. The density caps use the open area.
+- No pass reads the access points yet.
+- The planner has no fixed lift. The tool blocks the stations and the line of each existing lift.
+
+Null inputs or empty inputs change nothing. The golden hashes stay the same (`tests/AutoGenBatch/WorkerTests.cs` checks it).
+
 ## The golden
 
 `RunsFirstResult.Hash()` is the hash of a plan. The test host checks two sets of hashes:

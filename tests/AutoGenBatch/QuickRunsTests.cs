@@ -272,7 +272,8 @@ namespace AutoGenBatch
         {
             const string W = "quick-plan";
             Check(QuickRunsPlanRules.ClampLifts(-3) == 0 && QuickRunsPlanRules.ClampLifts(0) == 0 && QuickRunsPlanRules.ClampLifts(4) == 4 &&
-                  QuickRunsPlanRules.ClampLifts(9) == 9 && QuickRunsPlanRules.ClampLifts(10) == 9, W, "Lifts knob clamps to 0 (Auto) .. 9");
+                  QuickRunsPlanRules.ClampLifts(15) == 15 && QuickRunsPlanRules.ClampLifts(16) == 15 && QuickRunsPlanRules.MaxLifts == 15, W,
+                  "Lifts knob clamps to 0 (Auto) .. 15 (plan 7.8: runs-first plans 6 to 15 lifts)");
             Check(QuickRunsPlanRules.ClampHome(0) == HomeLevel.Auto && QuickRunsPlanRules.ClampHome(1) == HomeLevel.Green &&
                   QuickRunsPlanRules.ClampHome(2) == HomeLevel.Blue && QuickRunsPlanRules.ClampHome(3) == HomeLevel.Auto &&
                   QuickRunsPlanRules.ClampHome(-1) == HomeLevel.Auto, W, "Home knob: 0 Auto, 1 Green, 2 Blue, anything else Auto");

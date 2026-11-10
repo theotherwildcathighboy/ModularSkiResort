@@ -329,7 +329,7 @@ namespace SkiResortMod.Systems
                     path.Add(c);
                 AddLine(lines, g, path, "gentle");
             }
-            float km2r = (float)(SkiRunAutoPlanner.PolygonArea(ring) / 1e6);
+            float km2r = (float)(SkiRunAutoPlanner.PolygonArea(ring) / 1e6) - BlockedKm2;   // the open area (Inputs.cs: 0 with no input)
             Tick("lines");
             SetMixWeights(id, g, ring, lines);
             PointHash taken = Pick(lines, g, km2r);
@@ -389,6 +389,7 @@ namespace SkiResortMod.Systems
                 g.In[c] = Inside(ring, g.World(c));
                 g.Hr[c] = RawH(g, g.World(c));
             }
+            ApplyInputs(g);   // the game's blocked ground leaves the mask (RunsFirstPlanner.Inputs.cs). No input: no change
             return g;
         }
 

@@ -37,7 +37,9 @@ namespace SkiResortMod.Systems
         private const float MinSideM = 20f;
         private const float EpsM = 1f;
 
-        public const int MaxLifts = 9;
+        /// <summary>Lifts a plan may hold (plan 7.8: runs-first plans 6 to 15). The Lifts knob clamps to it, but runs-first ignores the knob.
+        /// The hub mirror is LIFTS_MAX in QuickRunsControls.tsx.</summary>
+        public const int MaxLifts = 15;
 
         public enum PlanPickKind { None, Lift, Run, Pod }
 
@@ -77,7 +79,7 @@ namespace SkiResortMod.Systems
             black = Math.Max(0, rated - green - blue);
         }
 
-        /// <summary>The Lifts knob: 0 = Auto, 1..MaxLifts a cap (the hub sends ints, anything else clamps).</summary>
+        /// <summary>The Lifts knob: 0 = Auto, 1..MaxLifts a cap (the hub sends ints, anything else clamps). Runs-first ignores the knob.</summary>
         public static int ClampLifts(int v) => v < 0 ? 0 : v > MaxLifts ? MaxLifts : v;
 
         /// <summary>The Home knob: 0 Auto, 1 Green, 2 Blue (anything else is Auto).</summary>
