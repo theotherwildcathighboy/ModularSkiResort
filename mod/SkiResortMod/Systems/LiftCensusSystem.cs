@@ -141,6 +141,9 @@ namespace SkiResortMod.Systems
         internal bool IsArmed => m_Armed && !m_Disabled;
 
         /// <summary>Copies every row (row order) into <paramref name="into"/> (cleared first).</summary>
+        /// <summary>The rows of the last build, read in place (main thread, no copy). ResortLiftBuildSystem's hand-built match reads it.</summary>
+        internal IReadOnlyList<LiftCensus.Row> CensusRows => m_Census.Rows;
+
         internal int CopyRows(List<LiftCensus.Row> into)
         {
             into.Clear();
