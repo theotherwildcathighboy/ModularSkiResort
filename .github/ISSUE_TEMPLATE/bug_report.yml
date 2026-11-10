@@ -33,7 +33,7 @@ body:
     id: game-version
     attributes:
       label: Game version
-      placeholder: 1.6.2f1
+      placeholder: 1.6.4f1
     validations:
       required: true
   - type: textarea
