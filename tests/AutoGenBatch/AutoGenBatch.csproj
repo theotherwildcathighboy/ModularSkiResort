@@ -57,6 +57,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Result.cs" Link="RunsFirstPlanner.Result.cs" />
     <Compile Include="RunsFirstGolden.cs" />
     <Compile Include="RunsFirstPlannerTests.cs" />
+    <Compile Include="RunsFirstScoreTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Graded.cs" Link="RunsFirstPlanner.Graded.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.WayHome.cs" Link="RunsFirstPlanner.WayHome.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Regrade.cs" Link="RunsFirstPlanner.Regrade.cs" />

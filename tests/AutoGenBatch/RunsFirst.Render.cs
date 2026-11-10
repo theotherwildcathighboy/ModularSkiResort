@@ -69,11 +69,12 @@ namespace SkiResortMod.Systems
             RunsFirstScore.Result score = RunsFirstScore.Evaluate(snap, ring, plan);
             Console.WriteLine($"REPORT rf score time {id}: {scoreSw.Elapsed.TotalMilliseconds:F0} ms (scorecard v{RunsFirstScore.Version})");
             Console.WriteLine(RunsFirstScore.Line(id, score));
+            Console.WriteLine(RunsFirstScore.ShapeLine(id, score));
             if (O.DebugV3)
                 V3Debug(g, built, lifts);
             if (O.DebugTurns)
                 TurnDebug(id, built);
-            File.AppendAllText(Path.Combine(outDir, id + ".txt"), "\n" + RunsFirstScore.Line(id, score) + "\n" +
+            File.AppendAllText(Path.Combine(outDir, id + ".txt"), "\n" + RunsFirstScore.Line(id, score) + "\n" + RunsFirstScore.ShapeLine(id, score) + "\n" +
                 string.Concat(score.Notes.Select(s => "  " + s + "\n")));
             Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, v2, lifts, built);
         }

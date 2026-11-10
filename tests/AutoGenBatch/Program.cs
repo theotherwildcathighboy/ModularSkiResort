@@ -92,6 +92,7 @@ namespace AutoGenBatch
             FanTests();
             FlowTests();
             RunsFirstGoldenTests();
+            RunsFirstScoreTests();
             RealizerTests();
             if (args.Length > 0 && args[0] == "v2")
                 V2Tests();   // the real-heightmap matrix (A1): local only, the fixtures live outside git

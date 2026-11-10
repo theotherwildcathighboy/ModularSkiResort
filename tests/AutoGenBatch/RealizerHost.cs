@@ -283,6 +283,7 @@ namespace AutoGenBatch
                     $"(spans {rep.HandFitSpans}, over cap {rep.HandFitOverCap}, too steep {rep.HandFitSteep}, clearance {rep.HandFitClearance}, edge slope {rep.HandFitEdge}, miss {rep.HandFitMiss}), sunk ends {rep.SunkEnds}, lot conflicts {rep.LotConflicts}",
                 $"  score: raw {rawT:F1}, as built {realT:F1} ({realT - rawT:+0.0;-0.0}), as skied {skiedT:F1} ({skiedT - rawT:+0.0;-0.0}), realized pistes with the raw connectors {mixT:F1}; " +
                     $"scorecard v{RunsFirstScore.Version}, raw scored in {scoreMs:F0} ms",
+                "  " + RunsFirstScore.ShapeLine(id + " raw", raw),
                 $"  time: plan {planMs:F0} ms, realize {rep.Ms:F0} ms (lattice {rep.LatticeMs:F0}, lifts {rep.LiftMs:F0}, pistes {rep.PisteMs:F0}, tracks {rep.TrackMs:F0}, graph {rep.GraphMs:F0}); " +
                     $"layers {rep.LayerBytes / 1048576.0:F1} MB; hash {h1:x16}{(h1 == h2 ? "" : " NOT DETERMINISTIC " + h2.ToString("x16"))}",
             };
@@ -298,7 +299,7 @@ namespace AutoGenBatch
                         $"line y {snap.Sample(new float3(a.x, 0, a.y)):F0} -> {snap.Sample(new float3(b.x, 0, b.y)):F0}");
                 }
             File.WriteAllLines(Path.Combine(outDir, id + ".txt"), lines.Concat(rep.Lines.Select(s => "  | " + s))
-                .Concat(new[] { "", RunsFirstScore.Line(id + " raw", raw), "", RunsFirstScore.Line(id + " realized", real), "", RunsFirstScore.Line(id + " skied", skied) })
+                .Concat(new[] { "", RunsFirstScore.Line(id + " raw", raw), RunsFirstScore.ShapeLine(id + " raw", raw), "", RunsFirstScore.Line(id + " realized", real), "", RunsFirstScore.Line(id + " skied", skied) })
                 .Concat(raw.Notes.Select(s => "  raw note: " + s)).Concat(real.Notes.Select(s => "  realized note: " + s)));
             string tsv = Path.Combine(outDir, "realize.tsv");
             if (!File.Exists(tsv))

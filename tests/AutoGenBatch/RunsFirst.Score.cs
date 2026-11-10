@@ -73,10 +73,13 @@
 // easy. When the plan gives a run's outline (the realized feed: ScorePlan.Rings), v7 rates that outline. A run fed as one centerline
 // gets a ribbon: RibbonOf (GradePath.Build at RibbonStepM, GradeRibbon.Build at RibbonHalfWidthM, chosen by measurement against the
 // realized outlines). A graded connector keeps its own grade along the path as its band (the band it has once graded), and its ground
-// band (grade mix) is the rater's band of a GradedHalfWidthM ribbon, the realizer's graded piste. Rated Flat counts as green; a broken
-// outline is rated by the classifier's P90 fallback, as the game shows it. An outline the rater cannot rate (the game shows "not
-// rated") keeps the v6 ground band and is counted. The 100 m ground cells (coverage, the grade-mix target) keep the 85th percentile:
-// they are ground, not a run. RunsFirstScore.Version = 6 (host: RF_SCORE=6) scores as v6, bit for bit.
+// band (grade mix) is the rater's band of a GradedHalfWidthM ribbon, the realizer's graded piste. Rated Flat counts as green. A ribbon
+// the rater cannot rate (the game would show "not rated") or whose mask is not connected rates double black: a planner must not buy an
+// easier band with a kink, a back-track or a line that leaves the snapshot (the review of v7, BLOCKER 1). A given outline keeps what the
+// game shows: a mask that is not connected takes the classifier's P90 band, an unrated outline rates double black. No v7 band falls
+// back to v6. The 100 m ground cells (coverage, the grade-mix target) keep the 85th percentile: they are ground, not a run.
+// RunsFirstScore.Version = 6 (host: RF_SCORE=6) scores as v6, bit for bit. ShapeLine reports the plan's run lengths, bands and chains
+// (a run that starts where another ends), so a score won by splitting runs shows at once.
 //
 // Composite (0-100): fleet 10, skiable coverage 10, lift network 15, beginner terrain at each base 15, intermediate way down 5, grade
 // mix 10, layout 10, validity 10, few stubs 5, little crowding 5, connector economy 5 (served vertical and dead-free are reported at
@@ -133,7 +136,12 @@ namespace AutoGenBatch
         // fed as a centerline is rated on: GradePath.Build(points, RibbonStepM) (the realizer's centerline step), then
         // GradeRibbon.Build(path, half width) with RibbonHalfWidthM for a run and GradedHalfWidthM for a graded connector (the realizer's
         // graded piste). The ribbon width was chosen by its band agreement with the realized outlines (v7/BASELINE.md)
-        public static int Version = Environment.GetEnvironmentVariable("RF_SCORE") == "6" ? 6 : 7;
+        public static readonly int Version = Environment.GetEnvironmentVariable("RF_SCORE") == "6" ? 6 : 7;
+        public const float ChainM = 60f;   // the shape line: a run whose start lies within ChainM of another run's end continues it
+
+        /// <summary>v7: how the rater answered for one outline. Rated: its band. NotConnected: the mask fell apart (a ribbon rates
+        /// double black, a given outline keeps the classifier's P90 band). Unrated: the game would show "not rated" (double black).</summary>
+        public enum RaterOutcome { Rated, NotConnected, Unrated }
         public const float RibbonStepM = 4f, RibbonHalfWidthM = 15f, GradedHalfWidthM = 7.5f;
 
         // name, length min / max (m), rise min / max (m), mean grade cap (stage-a-spec 4.4). v3: the scorecard does not check the maxima (no lift
@@ -166,7 +174,11 @@ namespace AutoGenBatch
             public float Fleet, GradeMix;
             public int Lifts, Bases, BeginnerBases, WayHomeLifts, HubExcess, Parallels, SharpTurns, Dead, Violations, ServedRuns, Runs;
             public int Aerial, AerialAllowed, Thin, Stacked, BaseAreas, LoneBases, OffFall, NaturalRuns;
-            public int RatedRings, RatedRibbons, Unrated, Fallback;   // v7: outlines the rater banded, given or built; not rated; P90 fallback
+            public int RatedRings, RatedRibbons, Unrated, NotConnected;   // v7: elements banded on given outlines / on ribbons; outlines not rated; masks not connected
+            // the shape line (all runs of the plan, graded connectors left out): count, lengths, km by band, chains and band changes at their joints
+            public int ShapeRuns, Chains, ChainBandChanges;
+            public float MeanRunM, MedianRunM;
+            public float[] ShapeKm = new float[5];
             public float[] BandKm = new float[5];
             public float[] MixTarget = new float[5], MixPlan = new float[5];   // shares by band (green .. double black)
             public float ServedVerticalM, ConnectorKm, GreenRunKm, HostileShare, FallCost, CoverRaw;
@@ -293,35 +305,36 @@ namespace AutoGenBatch
                 }
             }
             // the ground under an element, as the game rates a painted run. v6: the 85th percentile of the terrain grade along it. v7: the
-            // mod's rater on its outline (given, or a ribbon), the hardest of several pieces; the v6 band when the rater rates none
+            // mod's rater on its outline: the given outlines (the hardest piece), or a ribbon (RibbonBand: unrated or not connected is
+            // double black). The counts go to Line(), no note: the violation notes keep their cap
             SlopeBand GroundBand(Elem e)
             {
-                if (Version >= 7)
+                if (Version < 7)
+                    return GroundBandV6(s, e.P);
+                RaterOutcome how;
+                if (!(plan.Rings.TryGetValue(e.Src, out float2[][] rings) && rings != null && rings.Length > 0))
                 {
-                    bool given = plan.Rings.TryGetValue(e.Src, out float2[][] rings) && rings != null && rings.Length > 0;
-                    if (!given)
-                        rings = new[] { RibbonOf(e.Src, e.Graded ? GradedHalfWidthM : RibbonHalfWidthM) };
-                    bool any = false;
-                    SlopeBand hardest = SlopeBand.Green;
-                    foreach (float2[] rg in rings)
-                        if (RateRing(s, rg, rateGrid, rateRes, out SlopeBand b))
-                        {
-                            any = true;
-                            hardest = b > hardest ? b : hardest;
-                            if (!rateRes.Connected)
-                                r.Fallback++;
-                        }
-                    if (any)
-                    {
-                        if (given)
-                            r.RatedRings++;
-                        else
-                            r.RatedRibbons++;
-                        return hardest;
-                    }
-                    r.Unrated++;   // counted in Line(), no note: the violation notes keep their cap
+                    SlopeBand rb = RibbonBand(s, e.Src, e.Graded ? GradedHalfWidthM : RibbonHalfWidthM, rateGrid, rateRes, out how);
+                    Count(how);
+                    r.RatedRibbons++;
+                    return rb;
                 }
-                return GroundBandV6(s, e.P);
+                SlopeBand hardest = SlopeBand.Green;
+                foreach (float2[] rg in rings)
+                {
+                    SlopeBand b = OutlineBand(s, rg, rateGrid, rateRes, out how);
+                    Count(how);
+                    hardest = b > hardest ? b : hardest;
+                }
+                r.RatedRings++;
+                return hardest;
+            }
+            void Count(RaterOutcome how)
+            {
+                if (how == RaterOutcome.Unrated)
+                    r.Unrated++;
+                else if (how == RaterOutcome.NotConnected)
+                    r.NotConnected++;
             }
 
             var lifts = plan.Lifts;
@@ -1015,6 +1028,25 @@ namespace AutoGenBatch
             r.Validity = (float)Math.Exp(-violations / 10.0);
             r.NaturalRuns = served.Count(i => els[i].Natural);
 
+            // the shape line (report only): every run of the plan, graded connectors left out
+            var shape = Enumerable.Range(0, els.Count).Where(i => els[i].Run && !els[i].Graded).ToList();
+            var lens = shape.Select(i => els[i].Length).OrderBy(x => x).ToList();
+            r.ShapeRuns = shape.Count;
+            r.MeanRunM = lens.Count > 0 ? lens.Average() : 0f;
+            r.MedianRunM = lens.Count == 0 ? 0f : lens.Count % 2 == 1 ? lens[lens.Count / 2] : 0.5f * (lens[lens.Count / 2 - 1] + lens[lens.Count / 2]);
+            foreach (int i in shape)
+                r.ShapeKm[(int)els[i].Band] += els[i].Length / 1000f;
+            foreach (int u in shape)
+                foreach (int l in shape)
+                {
+                    Elem up = els[u], lo = els[l];
+                    if (u == l || lo.P[0].y >= up.P[0].y || math.distancesq(up.P[up.P.Length - 1].xz, lo.P[0].xz) > ChainM * ChainM)
+                        continue;
+                    r.Chains++;
+                    if (up.Band != lo.Band)
+                        r.ChainBandChanges++;
+                }
+
             r.Total = 10f * r.Fleet + 10f * r.Coverage + 15f * r.Network + 15f * r.Beginner + 5f * r.WayHome + 10f * r.GradeMix
                 + 10f * r.Layout + 10f * r.Validity + 5f * r.StubFree + 5f * r.CrowdFree + 5f * r.Economy;
             return r;
@@ -1033,9 +1065,16 @@ namespace AutoGenBatch
             r.StubFree, r.CrowdFree, r.Economy, r.Served, r.DeadFree, r.ServedRuns, r.Runs, r.NaturalRuns,
             r.ServedVerticalM, r.BandKm[1], r.BandKm[2], r.BandKm[3], r.BandKm[4], r.ConnectorKm, r.CoverRaw)
             + (Version >= 7
-                ? string.Format(CultureInfo.InvariantCulture, ", rater bands: {0} outlines, {1} ribbons, {2} unrated, {3} P90 fallback | scorecard v7",
-                    r.RatedRings, r.RatedRibbons, r.Unrated, r.Fallback)
+                ? string.Format(CultureInfo.InvariantCulture, ", rater bands: {0} outlines, {1} ribbons, {2} unrated, {3} not connected | scorecard v7",
+                    r.RatedRings, r.RatedRibbons, r.Unrated, r.NotConnected)
                 : " | scorecard v6");
+
+        /// <summary>The shape line (report only, no score): the plan's runs (graded connectors left out), their mean and median length,
+        /// km by band (v7: the rater's band, v6: the 85th percentile), the chains (a run whose start lies within ChainM of another run's
+        /// end and below that run's start: the lower one continues the upper one) and how many chains change band at the joint.</summary>
+        public static string ShapeLine(string id, Result r) => string.Format(CultureInfo.InvariantCulture,
+            "SHAPE rf {0}: {1} runs, length mean {2:F0} m, median {3:F0} m, km G/B/K/DB {4:F1}/{5:F1}/{6:F1}/{7:F1}, {8} chains, {9} change band at the joint | scorecard v{10}",
+            id, r.ShapeRuns, r.MeanRunM, r.MedianRunM, r.ShapeKm[1], r.ShapeKm[2], r.ShapeKm[3], r.ShapeKm[4], r.Chains, r.ChainBandChanges, Version);
 
         /// <summary>A plan polyline resampled every SampleM (10 m) on the terrain: each segment in ceil(length / SampleM) equal steps,
         /// the last point kept.</summary>
@@ -1102,6 +1141,40 @@ namespace AutoGenBatch
                 return false;
             band = res.Band == SlopeBand.Flat ? SlopeBand.Green : res.Band;
             return true;
+        }
+
+        /// <summary>v7: the band of a run fed as a centerline (the raw plan), the rule a planner copies. The ribbon (RibbonOf) rated by
+        /// RateRing. A centerline under two points, a ribbon that cannot be built or rated (the game would show "not rated") and a
+        /// rated ribbon whose mask is not connected (res.Connected false: the classifier's P90 fallback, easier than the crux) all rate
+        /// DoubleBlack.</summary>
+        public static SlopeBand RibbonBand(HeightSnapshot s, IList<float2> centerline, float halfWidth, SlopeGrid grid, SlopeResult res, out RaterOutcome how)
+        {
+            float2[] ring = centerline == null || centerline.Count < 2 ? null : RibbonOf(centerline, halfWidth);
+            if (!RateRing(s, ring, grid, res, out SlopeBand band))
+            {
+                how = RaterOutcome.Unrated;
+                return SlopeBand.DoubleBlack;
+            }
+            if (!res.Connected)
+            {
+                how = RaterOutcome.NotConnected;
+                return SlopeBand.DoubleBlack;
+            }
+            how = RaterOutcome.Rated;
+            return band;
+        }
+
+        /// <summary>v7: the band of a given (built) outline, as the game shows it: a mask that is not connected keeps the classifier's
+        /// P90 band; an outline the rater cannot rate rates DoubleBlack.</summary>
+        public static SlopeBand OutlineBand(HeightSnapshot s, float2[] ring, SlopeGrid grid, SlopeResult res, out RaterOutcome how)
+        {
+            if (!RateRing(s, ring, grid, res, out SlopeBand band))
+            {
+                how = RaterOutcome.Unrated;
+                return SlopeBand.DoubleBlack;
+            }
+            how = res.Connected ? RaterOutcome.Rated : RaterOutcome.NotConnected;
+            return band;
         }
 
         private static int Find(int[] p, int i)
