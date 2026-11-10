@@ -271,7 +271,8 @@ namespace AutoGenBatch
                 $"  junctions: relations {rep.Relations}, linked {rep.RelationLinks} ({rep.RelationVia} through the area that cut the end), missed {rep.RelationMisses}; extensions {rep.Extensions}, track ends reached {rep.TrackReaches}, piste ends reached {rep.PisteReaches}, remnants kept {rep.RemnantsKept} dropped {rep.RemnantsDropped}, converging junctions {rep.ConvergeJunctions}; unlinked ends " +
                     $"{rep.UnlinkedEnds} ({rep.UnlinkedBlocked} blocked) of {ends} ({(ends > 0 ? 100.0 * rep.UnlinkedEnds / ends : 0):F2} %)",
                 $"  graph: unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, bottom reach {rep.BottomReach}/{rep.Lifts}, no way to bottom {rep.NoWayToBottom}",
-                $"  lifts: {rep.Lifts}, towers clear {rep.LiftsClear}, sunk ends {rep.SunkEnds}, lot conflicts {rep.LotConflicts}",
+                $"  lifts: {rep.Lifts}, tower plan sound {rep.LiftsClear}, hand fit chair/detachable/gondola/tram {rep.HandFitByType[0]}/{rep.HandFitByType[1]}/{rep.HandFitByType[2]}/{rep.HandFitByType[3]} " +
+                    $"(spans {rep.HandFitSpans}, over cap {rep.HandFitOverCap}, too steep {rep.HandFitSteep}, clearance {rep.HandFitClearance}, edge slope {rep.HandFitEdge}, miss {rep.HandFitMiss}), sunk ends {rep.SunkEnds}, lot conflicts {rep.LotConflicts}",
                 $"  score: raw {rawT:F1}, as built {realT:F1} ({realT - rawT:+0.0;-0.0}), as skied {skiedT:F1} ({skiedT - rawT:+0.0;-0.0}), realized pistes with the raw connectors {mixT:F1}",
                 $"  time: plan {planMs:F0} ms, realize {rep.Ms:F0} ms (lattice {rep.LatticeMs:F0}, lifts {rep.LiftMs:F0}, pistes {rep.PisteMs:F0}, tracks {rep.TrackMs:F0}, graph {rep.GraphMs:F0}); " +
                     $"layers {rep.LayerBytes / 1048576.0:F1} MB; hash {h1:x16}{(h1 == h2 ? "" : " NOT DETERMINISTIC " + h2.ToString("x16"))}",
@@ -295,7 +296,7 @@ namespace AutoGenBatch
                 File.WriteAllText(tsv, "region\tsources\tdropped\tdrops\tareas\tpiecesLost\tkmPlan\tkmKept\tgradedKmPlan\tgradedKmKept\trelations\tlinks\tvia\tmisses\textensions\t" +
                     "unlinked\tunlinkedBlocked\tends\tunserved\tdeadEnds\tbandAgree\tbandRated\tbandAgreeKm\tbandRatedKm\ttrackSources\ttrackChains\ttrackAreas\t" +
                     "trackPiecesLost\ttrackKmPlan\ttrackKmKept\ttrackDrops\tlifts\tliftsClear\tbottomReach\traw\trealized\tplanMs\trealizeMs\tlayerMB\tdeterministic\tfallback\tskied\tcrossesFallback\ttrackReaches\tpisteReaches\tremnantsKept\tremnantsDropped\tconverging\tagreeKmFull\tagreeKmKept\tplainKm\t" +
-                    "greenKeep\tblueKeep\tblackKeep\tdbKeep\tgreenWidth\tblueWidth\tgreenFullWidth\tblueFullWidth\n");
+                    "greenKeep\tblueKeep\tblackKeep\tdbKeep\tgreenWidth\tblueWidth\tgreenFullWidth\tblueFullWidth\thandFitChair\thandFitDetachable\thandFitGondola\thandFitTram\thandFitSpans\thandFitOverCap\thandFitSteep\thandFitClearance\thandFitEdge\thandFitMiss\n");
             File.AppendAllText(tsv, string.Join("\t", new object[]
             {
                 id, sources, dropped, drops.Count > 0 ? string.Join(",", drops) : "-", res.Runs.Count, rep.PiecesLost, kmPlan.ToString("F2"), kmKept.ToString("F2"),
@@ -306,6 +307,8 @@ namespace AutoGenBatch
                 planMs.ToString("F0"), rep.Ms.ToString("F0"), (rep.LayerBytes / 1048576.0).ToString("F1"), h1 == h2 ? "yes" : "NO", rep.FallbackRated, skiedT.ToString("F1"), rep.CrossesFallback, rep.TrackReaches,
                 rep.PisteReaches, rep.RemnantsKept, rep.RemnantsDropped, rep.ConvergeJunctions, rep.AgreeKmFull.ToString("F2"), rep.AgreeKmKept.ToString("F2"), rep.PlainKm.ToString("F2"),
                 Keep(rep, 1), Keep(rep, 2), Keep(rep, 3), Keep(rep, 4), Width(rep, 1, false), Width(rep, 2, false), Width(rep, 1, true), Width(rep, 2, true),
+                rep.HandFitByType[0], rep.HandFitByType[1], rep.HandFitByType[2], rep.HandFitByType[3], rep.HandFitSpans, rep.HandFitOverCap, rep.HandFitSteep,
+                rep.HandFitClearance, rep.HandFitEdge, rep.HandFitMiss,
             }.Select(o => Convert.ToString(o, CultureInfo.InvariantCulture))) + "\n");
             return new Row
             {

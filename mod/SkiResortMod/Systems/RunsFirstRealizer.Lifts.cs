@@ -66,6 +66,12 @@ namespace SkiResortMod.Systems
                 bool clear = false;
                 if (len > 1f)
                     plan = TowerPlan(planner, consts[t], cs, t, bottom, top, len, out clear);
+                // Iteration 3, item 5: clear means Sound in the lift tool's sense (LiftLineToolSystem.AutoBuildBlocker: every span clear, no
+                // tower over its sheave-train cap, none too steep, none past its carrier clearance). Else the lift waits for a hand fit.
+                string why = cs.Misses > 0 ? "a sampler miss" : plan == null ? "no tower plan" : !plan.Clear ? "a span not clear"
+                    : plan.OverCapTowers > 0 ? $"{plan.OverCapTowers} tower(s) over the cap" : plan.TooSteepTowers > 0 ? $"{plan.TooSteepTowers} tower(s) too steep"
+                    : plan.ClearanceTowers > 0 ? $"{plan.ClearanceTowers} tower(s) past the clearance" : !clear ? "an edge slope" : null;
+                clear = why == null;
                 var towers = new float2[plan?.LineTowers ?? 0];
                 float2 dir = len > 1f ? (top.xz - bottom.xz) / len : new float2(1f, 0f);
                 for (int n = 1, w = 0; plan != null && n < plan.Nodes.Length - 1 && w < towers.Length; n++)
@@ -83,14 +89,29 @@ namespace SkiResortMod.Systems
                 m_Lifts[i] = new PlanLift
                 {
                     Id = i, Key = key, Origin = LiftOrigin.Proposed, TypeIndex = t, Bottom = bottom, Top = top, LengthM = len, RiseM = top.y - bottom.y,
-                    MaxEdgeSlope = plan?.MaxEdgeSlope ?? 0f, Towers = plan?.LineTowers ?? -1, TowerXz = towers, TowersUnchecked = !clear,
+                    MaxEdgeSlope = plan?.MaxEdgeSlope ?? 0f, Towers = plan?.LineTowers ?? -1, TowerXz = towers, TowersUnchecked = !clear, HandFit = !clear,
                     Pod = i, BottomPad = 2 * i, TopPad = 2 * i + 1, TopSunk = tSunk, BottomSunk = bSunk, Cost = cost, Home = HomeVerdict.None,
                     Wanted = HomeLevel.Auto, HomeRun = -1,
                 };
                 if (clear)
                     m_Rep.LiftsClear++;
                 else
-                    m_Rep.Lines.Add($"lift L{L.Id} ({L.Type} {len:F0} m / {top.y - bottom.y:F0} m up): towers do not clear{(cs.Misses > 0 ? " (a sampler miss)" : "")}, kept");
+                {
+                    m_Rep.HandFitByType[Math.Min(3, (int)t)]++;
+                    if (cs.Misses > 0 || plan == null)
+                        m_Rep.HandFitMiss++;
+                    else if (!plan.Clear)
+                        m_Rep.HandFitSpans++;
+                    else if (plan.OverCapTowers > 0)
+                        m_Rep.HandFitOverCap++;
+                    else if (plan.TooSteepTowers > 0)
+                        m_Rep.HandFitSteep++;
+                    else if (plan.ClearanceTowers > 0)
+                        m_Rep.HandFitClearance++;
+                    else
+                        m_Rep.HandFitEdge++;
+                    m_Rep.Lines.Add($"lift L{L.Id} ({L.Type} {len:F0} m / {top.y - bottom.y:F0} m up): tower plan not sound ({why}), kept, waits for a hand fit");
+                }
                 if (bSunk || tSunk)
                 {
                     m_Rep.SunkEnds += (bSunk ? 1 : 0) + (tSunk ? 1 : 0);

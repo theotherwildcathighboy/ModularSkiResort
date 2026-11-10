@@ -21,7 +21,9 @@ The files are pure C# 9 for net48. They use no part of the `SkiRunAutoPlanner` c
 ## Order
 
 1. Lattice, then the first steps of the refusal ladder (bad input, area, blocked share, vertical).
-2. Lifts. A lift with towers that do not clear stays in the plan. It gets the flag `TowersUnchecked`.
+2. Lifts. A lift is clear only when its tower plan is sound in the sense of the lift tool (`LiftTowerPlan.Sound`). Every span
+   must clear. No tower can be over the cap of its sheave train, too steep, or past its carrier clearance. A lift that is not
+   clear stays in the plan. It gets the flags `TowersUnchecked` and `HandFit`. The lift tool does not build it without the player.
 3. Pistes. A run goes before the runs that start off it or end onto it. A cycle uses the list order.
 4. Cat tracks. First the tree chains of each lift, then the graded runs under the blue line, then the links.
 5. Groups and the graph.

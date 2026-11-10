@@ -49,6 +49,10 @@ namespace SkiResortMod.Systems
         public int UnservedAreas, DeadEnds;
         // Lifts
         public int Lifts, LiftsClear, SunkEnds, LotConflicts, BottomReach;
+        // Iteration 3, item 5: lifts that wait for a hand fit (tower plan not Sound), by type index (chair, detachable, gondola, tram), and
+        // the first reason of each: a span not clear, a tower over its cap, too steep, past its clearance, an edge slope, a sampler miss
+        public readonly int[] HandFitByType = new int[4];
+        public int HandFitSpans, HandFitOverCap, HandFitSteep, HandFitClearance, HandFitEdge, HandFitMiss;
         public bool NoWayToBottom;
         // Time (ms, a report only) and memory
         public double Ms, LatticeMs, LiftMs, PisteMs, TrackMs, GraphMs;

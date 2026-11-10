@@ -73,6 +73,7 @@ namespace SkiResortMod.Systems
         public float LengthM, RiseM, MaxEdgeSlope;
         public int Towers;                // LiftTowerPlanner count. -1 = not planned (pinned lifts keep their own, TowersUnchecked)
         public bool TowersUnchecked;      // a proposal selected without a tower plan (the main-thread fallback: AutoPlanInput.MainThread)
+        public bool HandFit;              // the tower plan is not Sound (LiftTowerPlan.Sound): the lift tool does not build it alone, the player fits it
         public float2[] TowerXz;          // planned tower spots (overlay discs). Empty for pinned
         public int Pod, BottomPad, TopPad;   // TopPad -1 = summit cells
         public bool TopSunk, BottomSunk;  // the station spot is steeper than 25 % (the station sinks, as today: C1 3b)
