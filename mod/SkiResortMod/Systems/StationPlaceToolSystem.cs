@@ -27,6 +27,7 @@
 // Logs (silence impossible): ARMED / NOT ARMED per load. One line per request, activation, emission, Temp, verdict, APPLIED (entity,
 // Transform, Lot, sub-net nodes, sub-objects, sub-areas, money), follow-up and deactivation. An exception disables the tool until the next
 // load.
+// Engine notes: EngineNotes/StationPlaceToolSystem.md
 
 using System;
 using System.Collections.Generic;

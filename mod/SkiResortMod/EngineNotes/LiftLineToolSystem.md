@@ -262,6 +262,22 @@ aims at what the player sees and removes the section under the cursor:
     in full, then every 25th.
   - One `DELETED` line per removal.
 
+## Scripted entry (Resort Planner R1-c)
+- `TryActivateFor(why, type, baseStation, topStation, autoBuild)` and `TryActivateForGround(why, type, a, b, autoBuild)` open the tool
+  for one line. They return a `ScriptTicket`. The caller reads `Outcome` every frame.
+- The picks run in the next update of the tool (`UpdateScript`, then `RunScript`). They use the same `PickEnd` as two clicks. A
+  station end comes from the transform and the catalog row of the station, because a fresh station may not be in the census yet.
+- With auto build, the tool calls `RequestBuild` when the plan is Sound and no ALONG, CROSS or BACKWARD notice stands
+  (`AutoBuildBlocker`). Otherwise the tool waits in Edit for the player.
+- Outcomes:
+  - Pending: queued, or picked with a build requested.
+  - Waiting: in Edit with both ends picked. `Reason` is the plan key, the notice, or the refusal of the game.
+  - Built: the line is permanent. `Line`, `Towers` and `LengthM` are set.
+  - Refused: the tool could not open, or could not pick the ends.
+  - Abandoned: the tool closed, the ends were dropped, or another scripted line took its place.
+- A ticket that waits can still end Built when the player builds the line.
+- Logs: `LiftLine [script]` per ticket start, pick, WAITING and end.
+
 ## Logs
 Silence is impossible. The log has ARMED / patch lines per load. It has one line for each of these:
 - activation,

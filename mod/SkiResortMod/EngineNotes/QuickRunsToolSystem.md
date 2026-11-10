@@ -113,6 +113,10 @@ It holds no state: each tool keeps its own phases, queries and logs.
 
 ## Build
 - Build refuses when the city cannot pay the preview total (`QuickRunsRules.CanPay`, unlimited money reads 2e9, PlayerMoney.kMaxMoney).
+  With a Resort plan, the total is the fee of the runs plus the estimate of the proposed lifts that are on (`LiftCostOn`, plan 3.3).
+  The MoneyShort warning uses the same sum.
+- After the build (`FinishBuild`), the lift build queue builds the proposed lifts that are on (`ResortLiftBuildSystem.BuildAll`, plan
+  3.2: runs first, then lifts). A stopped build does not start it. The plan sheet stays (StationPlaceToolSystem.md).
 - Trees and run definitions never share a frame: a build with the tree filler on clears the tree preview and builds on the next frame.
 - The build is staged. Smoothness wins over speed. A large area may take tens of seconds, like Parking Lot Tool and ParkManager.
   - The enabled candidates queue up. The tool builds them in chunks of `BuildChunkRuns` (4). It emits, validates and applies one chunk
@@ -230,6 +234,9 @@ planting is in flight, it refuses every key but stop ("busy"). Progress fields: 
   The empty Region step shows QUICK_AROUND_LIFT when the census has a station. Texts: the keys of A0 plus three that A7 added
   (`QUICK_SITE_DETAIL`, `QUICK_LIFT_ID_PINNED` = "Existing lift", `QUICK_POD_UNSERVED` = "no lift planned"). The hub mirrors them in
   hubText.ts.
+- **Plan sheet** (task R1-c): `FinishScan` gives the proposed lifts of the published plan to `ResortLiftBuildSystem.LoadFromPlan`
+  (`PublishSheet`). `TogglePlanKey` keeps the `On` flag of the rows in step (`SyncSheetToggles`). StationPlaceToolSystem.md has the
+  sheet, the queue and the marks outside the planner.
 - **Logs**:
   - `QuickRuns [toggle]: pod B OFF / lift P1 ON - N of M run(s) enabled, fee F`
   - `QuickRuns [around]: ...`

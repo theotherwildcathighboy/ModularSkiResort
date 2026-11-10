@@ -15,6 +15,7 @@
 // entry points, the hub's idiom (a command buffer from a trigger callback throws). OnUpdate also ticks the placer's follow-up line (an inactive tool never ticks).
 // Logs (silence impossible): one line per call (accepted with the parsed pose, or refused with the reason). An exception disables the
 // trigger until the next load.
+// Engine notes: EngineNotes/StationPlaceToolSystem.md (Dev triggers)
 
 using System;
 using System.Collections.Generic;
