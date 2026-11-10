@@ -4,6 +4,7 @@
 //   engine.trigger("skiResortDev.probePlaceStation", "<station prefab> <x> <z> <yaw deg> [<y>]")
 //   engine.trigger("skiResortDev.planLifts", "<command>"), commands (ResortLiftBuildSystem):
 //     "build all" | "build <row name or hex key>" | "stop" | "clear" | "dump"
+//     "height vanilla" | "height lowest" | "height fit": the station height rule of the queue (StationAlign.StationHeightRule), to compare in game
 //     "line <lift type id> <x1> <z1> <x2> <z2> [manual]": a scripted ground-to-ground line (LiftLineToolSystem.TryActivateForGround),
 //     auto build unless "manual"
 // cs2/api trigger(group, name, ...args) is engine.trigger(`${group}.${name}`, ...args) in the game's UI bundle. One string argument because
@@ -183,9 +184,20 @@ namespace SkiResortMod.Systems
                 m_LiftBuild.DumpSheet("dev trigger");
             else if (verb == "line" && (parts.Length == 6 || parts.Length == 7))
                 GroundLine(command, parts);
+            else if (verb == "height" && parts.Length == 2 && HeightRuleOf(parts[1], out StationAlign.StationHeightRule rule))
+                m_LiftBuild.SetStationHeight(rule, "dev trigger");
             else
                 Mod.Log.Warn($"ResortLifts [dev]: '{command}' REFUSED — expected \"build all\", \"build <row name or hex key>\", \"stop\", \"clear\", " +
-                             "\"dump\" or \"line <lift type id> <x1> <z1> <x2> <z2> [manual]\"");
+                             "\"dump\", \"height vanilla|lowest|fit\" or \"line <lift type id> <x1> <z1> <x2> <z2> [manual]\"");
+        }
+
+        private static bool HeightRuleOf(string word, out StationAlign.StationHeightRule rule)
+        {
+            rule = StationAlign.StationHeightRule.Fit;
+            if (word.Equals("vanilla", StringComparison.OrdinalIgnoreCase)) rule = StationAlign.StationHeightRule.VanillaFront;
+            else if (word.Equals("lowest", StringComparison.OrdinalIgnoreCase)) rule = StationAlign.StationHeightRule.LowestOfThree;
+            else if (!word.Equals("fit", StringComparison.OrdinalIgnoreCase)) return false;
+            return true;
         }
 
         /// <summary>A row by its name ("P1", any case) or its hex key.</summary>

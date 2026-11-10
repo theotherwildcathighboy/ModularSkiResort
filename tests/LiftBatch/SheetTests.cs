@@ -10,6 +10,8 @@
 //   not another pair of stations, not a row without both stations.
 // - ReasonGroup (PS-8) maps every reason key of the queue and the lift tool to one player-text group, and an unknown key to GAME.
 // - The lifts total (PS-9): CountToBuild, CountUnbuilt and the built count follow the states and the switches.
+// - The station order of the queue (PS-10, task R1-e): the top is asked only after the base stands, so a refused base places and charges
+//   nothing (field r1c 8b placed and charged the top). A refused top leaves the base. A cancel the queue did not ask for stops it.
 
 using System;
 using System.Collections.Generic;
@@ -36,6 +38,7 @@ namespace LiftBatch
             Ps7HandBuilt();
             Ps8ReasonGroups();
             Ps9Totals();
+            Ps10StationOrder();
         }
 
         private static ResortPlanSheet.Input L(uint key, float bottomY, bool on = true, long cost = 100000) => new ResortPlanSheet.Input
@@ -193,6 +196,47 @@ namespace LiftBatch
             foreach (ResortPlanSheet.Row r in s.Rows)
                 Check(d.Contains(" " + r.Name + " key "), W, "the dump misses " + r.Name);
             Check(d.Contains("1 built") && d.Contains("(test)"), W, "the dump header: " + d.Split('\n')[0]);
+        }
+        private static void Ps10StationOrder()
+        {
+            const string W = "sheet/PS-10";
+            const ResortPlanSheet.StationOutcome N = ResortPlanSheet.StationOutcome.None, Pe = ResortPlanSheet.StationOutcome.Pending,
+                Pl = ResortPlanSheet.StationOutcome.Placed, Rf = ResortPlanSheet.StationOutcome.Refused, Cn = ResortPlanSheet.StationOutcome.Canceled;
+            // The field r1c 8b sequence: the base waits, then the game refuses it. The top is never asked.
+            Check(ResortPlanSheet.NextStationStep(false, Pe, false, false, N) == ResortPlanSheet.StationStep.Wait, W, "a pending base did not wait");
+            Check(ResortPlanSheet.NextStationStep(false, Rf, false, false, N) == ResortPlanSheet.StationStep.RefuseBase, W, "a refused base was not RefuseBase");
+            Check(ResortPlanSheet.NextStationStep(false, N, false, false, N) == ResortPlanSheet.StationStep.RefuseBase, W, "a lost base outcome was not RefuseBase");
+            // 8a: the base stands, the top is asked, then refused: RefuseTop (the base stays in the row).
+            Check(ResortPlanSheet.NextStationStep(false, Pl, false, false, N) == ResortPlanSheet.StationStep.AskTop, W, "a placed base did not ask the top");
+            Check(ResortPlanSheet.NextStationStep(false, Pl, false, true, Pe) == ResortPlanSheet.StationStep.Wait, W, "a pending top did not wait");
+            Check(ResortPlanSheet.NextStationStep(false, Pl, false, true, Rf) == ResortPlanSheet.StationStep.RefuseTop, W, "a refused top was not RefuseTop");
+            Check(ResortPlanSheet.NextStationStep(false, Pl, false, true, N) == ResortPlanSheet.StationStep.RefuseTop, W, "a lost top outcome was not RefuseTop");
+            Check(ResortPlanSheet.NextStationStep(false, Pl, false, true, Pl) == ResortPlanSheet.StationStep.Settle, W, "two placed stations did not settle");
+            // The player took another tool: a canceled base or top stops the queue.
+            Check(ResortPlanSheet.NextStationStep(false, Cn, false, false, N) == ResortPlanSheet.StationStep.PlayerStop, W, "a canceled base did not stop");
+            Check(ResortPlanSheet.NextStationStep(false, Pl, false, true, Cn) == ResortPlanSheet.StationStep.PlayerStop, W, "a canceled top did not stop");
+            // A second build of a row that kept a station starts from it.
+            Check(ResortPlanSheet.NextStationStep(true, N, false, false, N) == ResortPlanSheet.StationStep.AskTop, W, "a kept base did not ask the top");
+            Check(ResortPlanSheet.NextStationStep(true, N, true, false, N) == ResortPlanSheet.StationStep.Settle, W, "two kept stations did not settle");
+            Check(ResortPlanSheet.NextStationStep(false, Pe, true, false, N) == ResortPlanSheet.StationStep.Wait, W, "a kept top did not wait for the base");
+            Check(ResortPlanSheet.NextStationStep(false, Pl, true, false, N) == ResortPlanSheet.StationStep.Settle, W, "a placed base and a kept top did not settle");
+            // Every input: the top is asked only when the base stands and the top is neither there nor asked.
+            var all = new[] { N, Pe, Pl, Rf, Cn };
+            int cases = 0, bad = 0;
+            foreach (bool baseHad in new[] { false, true })
+                foreach (ResortPlanSheet.StationOutcome b in all)
+                    foreach (bool topHad in new[] { false, true })
+                        foreach (bool asked in new[] { false, true })
+                            foreach (ResortPlanSheet.StationOutcome tp in all)
+                            {
+                                cases++;
+                                ResortPlanSheet.StationStep s = ResortPlanSheet.NextStationStep(baseHad, b, topHad, asked, tp);
+                                bool baseStands = baseHad || b == Pl;
+                                if (s == ResortPlanSheet.StationStep.AskTop && !(baseStands && !topHad && !asked)) bad++;
+                                if (!baseStands && (s == ResortPlanSheet.StationStep.AskTop || s == ResortPlanSheet.StationStep.Settle || s == ResortPlanSheet.StationStep.RefuseTop)) bad++;
+                                if (s == ResortPlanSheet.StationStep.Settle && !(baseStands && (topHad || (asked && tp == Pl)))) bad++;
+                            }
+            Check(cases == 200 && bad == 0, W, bad + " of " + cases + " input combinations broke the base-first rule");
         }
     }
 }

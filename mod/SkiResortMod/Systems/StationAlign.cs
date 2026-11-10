@@ -277,7 +277,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The two stations of a planned lift, posed so that they face each other on one axis (LiftPose). Positions carry y NaN:
-        /// the station placer stands each building at the vanilla height (StationPlaceToolSystem.ResolveY).</summary>
+        /// the station placer sets each building's y by the queue's height rule (StationY, StationPlaceToolSystem.ResolveY).</summary>
         public struct LiftPose
         {
             /// <summary>False when a spot is not finite or the spots are too close for the two stubs (SpotDistanceM at or under
@@ -334,6 +334,47 @@ namespace SkiResortMod.Systems
             if (baseStation == null || topStation == null)
                 return new LiftPose { SpotDistanceM = math.distance(bottomXz, topXz) };
             return PoseLift(bottomXz, topXz, baseStation.StubTipLocalZ, baseStation.StubTipLocalX, topStation.StubTipLocalZ, topStation.StubTipLocalX);
+        }
+
+        /// <summary>How the station placer sets the y of a station when the caller gives none. VanillaFront is the object tool's height:
+        /// the terrain at the lot's front edge (the side away from the line) plus the placement offset (ObjectToolSystem.cs:1608-1625).
+        /// On a top station that edge is uphill, so the station floats above the ground at its origin and its stub (field r1c, 5 to 14 m).
+        /// LowestOfThree takes the lowest terrain of the front edge, the origin and the line-side edge (the stub tip side). So a pad
+        /// station cuts its pad down to that height and never floats (DECISIONS 625, 626: stations cut, never raise the ground).
+        /// Fit is the rule per station kind (StationTerrainKind): a pad station takes LowestOfThree, a slope station takes the terrain at
+        /// its origin. A slope station does not change the terrain, so LowestOfThree would sink its uphill side (up to about 17 m in the
+        /// r1c pass). The origin height splits the error between the uphill and the downhill side.</summary>
+        public enum StationHeightRule : byte { VanillaFront, LowestOfThree, Fit }
+
+        /// <summary>What a station prefab does with the terrain under its lot. Pad: the lot cuts or levels the ground (the fill window or
+        /// the cut window is open). Slope: DontRaise and DontLower together, both windows are empty and the terrain does not change
+        /// (BuildingUtils.cs:610-617). The placer reads it from the prefab's BuildingTerraformData (TerrainKindOf).</summary>
+        public enum StationTerrainKind : byte { Pad, Slope }
+
+        /// <summary>The kind from the prefab's BuildingTerraformData flags: Slope only when both are set.</summary>
+        public static StationTerrainKind TerrainKindOf(bool dontRaise, bool dontLower) =>
+            dontRaise && dontLower ? StationTerrainKind.Slope : StationTerrainKind.Pad;
+
+        /// <summary>StationY for a pad station (Fit is LowestOfThree then).</summary>
+        public static float StationY(StationHeightRule rule, float frontGround, float originGround, float lineSideGround, float placementOffsetY) =>
+            StationY(rule, StationTerrainKind.Pad, frontGround, originGround, lineSideGround, placementOffsetY);
+
+        /// <summary>The station's y under <paramref name="rule"/>: the chosen terrain height plus <paramref name="placementOffsetY"/>.
+        /// LowestOfThree skips a height that is not finite. Fit on a slope station takes the origin. When the origin is not finite, it
+        /// takes the lowest of the other two. NaN when the needed heights are not finite.</summary>
+        public static float StationY(StationHeightRule rule, StationTerrainKind kind, float frontGround, float originGround, float lineSideGround,
+                                     float placementOffsetY)
+        {
+            float offset = Finite(placementOffsetY) ? placementOffsetY : 0f;
+            if (rule == StationHeightRule.VanillaFront)
+                return Finite(frontGround) ? frontGround + offset : float.NaN;
+            if (rule == StationHeightRule.Fit && kind == StationTerrainKind.Slope && Finite(originGround))
+                return originGround + offset;
+            float y = float.PositiveInfinity;
+            if (Finite(frontGround)) y = math.min(y, frontGround);
+            if (Finite(originGround)) y = math.min(y, originGround);
+            if (Finite(lineSideGround)) y = math.min(y, lineSideGround);
+            return float.IsPositiveInfinity(y) ? float.NaN : y + offset;
         }
 
         private static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);

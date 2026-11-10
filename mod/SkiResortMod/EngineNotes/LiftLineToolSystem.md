@@ -276,6 +276,10 @@ aims at what the player sees and removes the section under the cursor:
   - Refused: the tool could not open, or could not pick the ends.
   - Abandoned: the tool closed, the ends were dropped, or another scripted line took its place.
 - A ticket that waits can still end Built when the player builds the line.
+- The tool: a scripted line that ends Built gives the tool back to the default tool (task R1-e). In the field r1c pass the tool stayed
+  open after the queue (note 4). This includes a Waiting line that the player builds. A Waiting line keeps the tool open, because the player fits it.
+  `IdleAfterScript` is true when the tool is active with no end picked, no preview and no open ticket. The build queue reads it when it
+  ends (`ResortLiftBuildSystem.HandToolBack`).
 - Logs: `LiftLine [script]` per ticket start, pick, WAITING and end.
 
 ## Logs

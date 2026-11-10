@@ -6,7 +6,7 @@
 // lift type (TryActivate(why, type)). The line prefabs have UIObject m_Group null, so the hub is the only way in.
 // The Resort Planner's lift build queue opens it through the scripted entry (TryActivateFor two stations, TryActivateForGround two
 // points): the same PickEnd as two clicks, then RequestBuild when the plan is sound. Its ScriptTicket reads Built, Refused, Waiting (the
-// tool stays open in Edit for the player) or Abandoned.
+// tool stays open in Edit for the player) or Abandoned. A built scripted line hands the tool back to the default tool.
 // While open, the tool raises the line prefabs' span limits and sets PlacementFlags.ShoreLine (restored on close). Right click is the
 // Cancel action only. Secondary Apply stays off. LiftLineEdit holds the model, LiftLineInput the input rules. Logs: silence is impossible.
 // An exception disables the tool until the next load.
@@ -641,6 +641,10 @@ namespace SkiResortMod.Systems
         /// <summary>The last scripted line (null before the first).</summary>
         internal ScriptTicket Script => m_Script;
 
+        /// <summary>The tool is active with nothing in hand: no end picked, no preview, and no scripted line that waits for the player or
+        /// still has to run. The build queue hands such a tool back to the default tool when it ends.</summary>
+        internal bool IdleAfterScript => IsActive && m_State == ToolState.PickBase && !m_Ghost && (m_Script == null || m_Script.Final);
+
         /// <summary>A line between two placed stations, as if the player clicked the base station's stub and then the top's: the same pick
         /// code (PickEnd), the same plan, the same emission. With <paramref name="autoBuild"/> the tool requests the build itself when the
         /// plan is Sound and no ALONG / CROSS / BACKWARD notice stands. Otherwise the tool waits in Edit for the player. The picks run in
@@ -874,7 +878,14 @@ namespace SkiResortMod.Systems
                     SetActions(false, false, false);
                     applyMode = ApplyMode.None;
                     ReportFelled();
+                    ScriptTicket scripted = m_Script != null && m_Script.Picked && !m_Script.Final ? m_Script : null;
                     Reset("built");
+                    if (scripted != null && scripted.Outcome == ScriptOutcome.Built)
+                    {
+                        // A scripted line that is built hands the tool back (a Waiting line keeps it: the player fits it)
+                        Mod.Log.Info($"LiftLine [script]: #{scripted.Serial} built — the tool goes back to the default tool");
+                        Deactivate();
+                    }
                     return;
             }
 

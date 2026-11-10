@@ -226,6 +226,30 @@ namespace SkiResortMod.Systems
             return false;
         }
 
+        /// <summary>A station request as the build queue reads it (the pure mirror of StationPlaceToolSystem.PlaceStatus). None: no request
+        /// was made, or its outcome is gone.</summary>
+        public enum StationOutcome : byte { None, Pending, Placed, Refused, Canceled }
+
+        /// <summary>The build queue's next step while it places the stations of one lift (NextStationStep).</summary>
+        public enum StationStep : byte { Wait, AskTop, Settle, RefuseBase, RefuseTop, PlayerStop }
+
+        /// <summary>The station order of the build queue (plan 3.3): the base first, the top only after the base stands. So a refused base
+        /// places nothing and charges nothing, and a refused top leaves the base. <paramref name="baseHad"/> / <paramref name="topHad"/>:
+        /// the station stood before the lift started. <paramref name="topAsked"/>: the top request was made. A Canceled request the queue
+        /// did not ask for (the player took another tool) is PlayerStop. A missing outcome counts as a refusal.</summary>
+        public static StationStep NextStationStep(bool baseHad, StationOutcome baseOutcome, bool topHad, bool topAsked, StationOutcome topOutcome)
+        {
+            if (!baseHad && baseOutcome != StationOutcome.Placed)
+                return baseOutcome == StationOutcome.Pending ? StationStep.Wait
+                    : baseOutcome == StationOutcome.Canceled ? StationStep.PlayerStop : StationStep.RefuseBase;
+            if (topHad || (topAsked && topOutcome == StationOutcome.Placed))
+                return StationStep.Settle;
+            if (!topAsked)
+                return StationStep.AskTop;
+            return topOutcome == StationOutcome.Pending ? StationStep.Wait
+                : topOutcome == StationOutcome.Canceled ? StationStep.PlayerStop : StationStep.RefuseTop;
+        }
+
         /// <summary>The player-text group of a row's reason key: the suffix of SkiResort.Tooltip.QUICK_LIFT_WHY[*]. "" for no reason. A
         /// station refusal groups by the game's error type (overlap, water, land the city does not own, anything else). An unknown key is
         /// GAME, so the hub never shows a raw key.</summary>
