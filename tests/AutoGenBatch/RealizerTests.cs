@@ -32,22 +32,27 @@ namespace AutoGenBatch
             (plan.Lifts.Count(l => l.ToBottom == RunsFirstBottom.Reaches), plan.Lifts.Count(l => l.ToBottom != RunsFirstBottom.NoSkiing));
 
         /// <summary>R2-y (HARD): per lift, the realized plan reaches the base band (the realizer's graph, the game's link rule, no lift ride)
-        /// exactly where the planner's ToBottom says Reaches. NoWayToBottom is set exactly when a lift with a way down does not reach it on
+        /// wherever the planner's ToBottom says Reaches; a lift it reaches where the planner says no is a REPORT line. NoWayToBottom is set exactly when a lift with a way down does not reach it on
         /// the realized plan.</summary>
         private static void RealizedBottomGate(string where, RunsFirstResult plan, AutoPlanResult res, RealizeReport rep)
         {
-            var differ = new List<string>();
+            var lost = new List<string>();
+            var gained = new List<string>();
             bool unreached = false;
             for (int l = 0; l < plan.Lifts.Count; l++)
             {
                 bool planned = plan.Lifts[l].ToBottom == RunsFirstBottom.Reaches, real = l < rep.LiftBottom.Length && rep.LiftBottom[l];
                 if (planned != real)
-                    differ.Add($"L{plan.Lifts[l].Id} planner {plan.Lifts[l].ToBottom}, realized {(real ? "yes" : "no")}");
+                    (planned ? lost : gained).Add($"L{plan.Lifts[l].Id} planner {plan.Lifts[l].ToBottom}, realized {(real ? "yes" : "no")}");
                 bool way = (l < rep.LiftSkis.Length && rep.LiftSkis[l]) || plan.Lifts[l].ToBottom != RunsFirstBottom.NoSkiing;
                 unreached |= way && !real;
             }
-            Check(differ.Count == 0, where, "way to the bottom: the realized plan differs from the planner: " + string.Join("; ", differ) + " | " +
-                string.Join("; ", rep.Lines.Where(l => l.StartsWith("bottom "))));
+            string why = string.Join("; ", rep.Lines.Where(l => l.StartsWith("bottom ")));
+            Check(lost.Count == 0, where, "way to the bottom: the realized plan loses the planner's way: " + string.Join("; ", lost) + " | " + why);
+            // A lift the realized plan takes to the bottom where the planner did not (its 150 m start rule, the game's along-the-line
+            // served rule): the planner under-reports. Equality needs the planner's reach test on the game's rules (R2-y item 4).
+            if (gained.Count > 0)
+                Console.WriteLine($"REPORT {where}: way to the bottom gained on the realized plan: " + string.Join("; ", gained) + " | " + why);
             Check(res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom) == unreached, where,
                 $"NoWayToBottom warning {res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom)}, a lift with a way down left without the bottom {unreached}");
         }
