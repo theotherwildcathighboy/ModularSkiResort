@@ -1,4 +1,4 @@
-// RunsFirst chord repair: the serve pass and the beginner fallbacks keep a run under a lift line when it is the only one of its
+// RunsFirstPlanner chord repair: the serve pass and the beginner fallbacks keep a run under a lift line when it is the only one of its
 // kind. Examples: a lift's only run, a base's only green way home. If such runs still cover the middle of a line at the end,
 // their stretches under it move out beside the line. A designer keeps a run off the chairs in the same way. A stretch moves
 // only when the moved run keeps the run rules, its band and every way the plan is skied.
@@ -7,12 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float ChordOnRunM = 20f, ChordShareMax = 0.3f;   // the scorecard's chord-on-run test
         private const float ChordClearM = 26f;                          // a moved stretch's distance off the chord
@@ -36,7 +35,7 @@ namespace AutoGenBatch
         /// <summary>Moves the runs' stretches under a lift line out beside it where the line's middle still runs along runs. Returns
         /// the lifts cleared.</summary>
         [MethodImpl(Hot)]
-        private static int RepairChords(Grid g, Plan plan, List<Lift> lifts)
+        private int RepairChords(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int cleared = 0;
             List<List<float2>> dense = plan.Runs.Select(r => Densify(r.Pts)).ToList();
@@ -53,6 +52,7 @@ namespace AutoGenBatch
                 float2 dir = (t - b) / plan2, nrm = new float2(-dir.y, dir.x);
                 for (int ri = 0; ri < plan.Runs.Count; ri++)
                 {
+                    Poll();
                     List<float2> pts = dense[ri];
                     var off = new float[pts.Count];
                     var near = new bool[pts.Count];
@@ -119,6 +119,7 @@ namespace AutoGenBatch
                 // kept when the line clears, no other line takes its place, and every start, join and delivery the plan had stays
                 bool SameSkiing()
                 {
+                    Poll();
                     SkiGraph sg = Ski(g, plan, lifts);
                     for (int i = 0; i < before.P.Count; i++)
                         if (!before.Next[i].All(sg.Next[i].Contains) || !before.Delivers[i].All(sg.Delivers[i].Contains) ||
@@ -179,7 +180,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>RF_CHORDDBG: per lift, the share of its chord middle on runs as scorecard v3 reads them, by element.</summary>
-        private static void ChordDebug(Grid g, Plan plan, List<Lift> lifts)
+        private void ChordDebug(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var els = new List<(string Name, List<float2> P, bool Own)>();
             for (int i = 0; i < plan.Runs.Count; i++)
@@ -215,14 +216,14 @@ namespace AutoGenBatch
                         near++;
                 }
                 if (n > 0 && near > 0.2f * n)
-                    Console.WriteLine($"CHORDDBG L{lf.Id} {lf.Type}: {100 * near / n}% ({string.Join(", ", by.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}/{n}"))})");
+                    Trace($"CHORDDBG L{lf.Id} {lf.Type}: {100 * near / n}% ({string.Join(", ", by.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}/{n}"))})");
             }
         }
 
         // how far a station may move across its line. 100 m against 60 m moved three more stations 70-80 m (visible 97.64 -> 97.69,
         // 80 % outlines 95.50 -> 95.72). 150 m moved one more, 120 m (ft5-r2 L5 off the summit station it shared: visible 97.69 -> 97.80).
         // 350 m (scorecard v4) moved owner-4 L7 260 m off the valley runs it lay along (visible 97.30 -> 97.41)
-        private static float NudgeMaxM => O.NudgeMaxM;
+        private float NudgeMaxM => O.NudgeMaxM;
 
         /// <summary>A lift line may move instead of the runs when its middle still lies along runs, when it crosses another lift of its
         /// kind, or when it runs beside another as scorecard v4 reads a parallel. The move shifts the whole line across itself, or swings
@@ -233,7 +234,7 @@ namespace AutoGenBatch
         /// - the line clears, runs beside fewer lines (beside none when it ran beside none), and crowds no terminals
         /// - the ski graph loses nothing (its runs still start at its top and come home to its bottom).
         /// Returns the lines moved.</summary>
-        private static int NudgeLines(Grid g, Plan plan, List<Lift> lifts)
+        private int NudgeLines(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int moved = 0;
             List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els = ChordEls(g, plan);
@@ -264,6 +265,7 @@ namespace AutoGenBatch
                 before ??= SkiRead.Of(g, plan, lifts);
                 foreach (var (cost, nb, nt) in moves)
                 {
+                    Poll();
                     int cb = CellOf(g, nb), ct = CellOf(g, nt);
                     if (cb < 0 || ct < 0 || !LineFits(g, lifts, lf, cb, ct))
                         continue;

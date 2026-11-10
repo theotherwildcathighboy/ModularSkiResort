@@ -1,7 +1,7 @@
 // The runs-first planner's plan as one plain object (what the realizer reads) and a stable 64-bit hash over it (the RF golden).
 // The hash covers every run, connector, link and lift, coordinates quantized to 0.01 m. It leaves out the log (formatted text, not
-// plan geometry) and Lift.Base (derived from the lifts). The planner fills it (tests/AutoGenBatch/RunsFirst.Result.cs until the
-// planner moves into the mod). Pure: System, System.Collections.Generic, Unity.Mathematics. C# 9, net48-clean.
+// plan geometry) and Lift.Base (derived from the lifts). The planner fills it (RunsFirstPlanner.Result.cs, MakeResult).
+// Pure: System, System.Collections.Generic, Unity.Mathematics. C# 9, net48-clean.
 // Engine notes: EngineNotes/ResortPlanner.md
 
 using System;

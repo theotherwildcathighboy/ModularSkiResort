@@ -35,30 +35,33 @@
     <Compile Include="LiftTests.cs" />
     <Compile Include="FanTests.cs" />
     <Compile Include="FlowTests.cs" />
-    <Compile Include="RunsFirst.cs" />
-    <Compile Include="RunsFirst.Lifts.cs" />
+    <Compile Include="RunsFirst.Host.cs" />
+    <Compile Include="RunsFirst.Render.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.cs" Link="RunsFirstPlanner.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Lifts.cs" Link="RunsFirstPlanner.Lifts.cs" />
     <Compile Include="RunsFirst.Score.cs" />
-    <Compile Include="RunsFirst.Plan.cs" />
-    <Compile Include="RunsFirst.Graph.cs" />
-    <Compile Include="RunsFirst.Beginner.cs" />
-    <Compile Include="RunsFirst.Network.cs" />
-    <Compile Include="RunsFirst.Fill.cs" />
-    <Compile Include="RunsFirst.Cover.cs" />
-    <Compile Include="RunsFirst.Bridge.cs" />
-    <Compile Include="RunsFirst.Chords.cs" />
-    <Compile Include="RunsFirst.Junctions.cs" />
-    <Compile Include="RunsFirst.Heads.cs" />
-    <Compile Include="RunsFirst.Heap.cs" />
-    <Compile Include="RunsFirst.Order.cs" />
-    <Compile Include="RunsFirst.Compat.cs" />
-    <Compile Include="RunsFirst.Options.cs" />
-    <Compile Include="RunsFirst.Result.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Plan.cs" Link="RunsFirstPlanner.Plan.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Graph.cs" Link="RunsFirstPlanner.Graph.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Beginner.cs" Link="RunsFirstPlanner.Beginner.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Network.cs" Link="RunsFirstPlanner.Network.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Fill.cs" Link="RunsFirstPlanner.Fill.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Cover.cs" Link="RunsFirstPlanner.Cover.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Bridge.cs" Link="RunsFirstPlanner.Bridge.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Chords.cs" Link="RunsFirstPlanner.Chords.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Junctions.cs" Link="RunsFirstPlanner.Junctions.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Heads.cs" Link="RunsFirstPlanner.Heads.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Heap.cs" Link="RunsFirstPlanner.Heap.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Order.cs" Link="RunsFirstPlanner.Order.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Compat.cs" Link="RunsFirstPlanner.Compat.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstOptions.cs" Link="RunsFirstOptions.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Result.cs" Link="RunsFirstPlanner.Result.cs" />
     <Compile Include="RunsFirstGolden.cs" />
-    <Compile Include="RunsFirst.Graded.cs" />
-    <Compile Include="RunsFirst.WayHome.cs" />
-    <Compile Include="RunsFirst.Regrade.cs" />
-    <Compile Include="RunsFirst.Layout.cs" />
-    <Compile Include="RunsFirst.Learning.cs" />
+    <Compile Include="RunsFirstPlannerTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Graded.cs" Link="RunsFirstPlanner.Graded.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.WayHome.cs" Link="RunsFirstPlanner.WayHome.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Regrade.cs" Link="RunsFirstPlanner.Regrade.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Layout.cs" Link="RunsFirstPlanner.Layout.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Learning.cs" Link="RunsFirstPlanner.Learning.cs" />
     <!-- The contract types and the shared geometry helpers that outlive the v1 / v2 planner -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\PlanContract.cs" Link="PlanContract.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\PlanGeometry.cs" Link="PlanGeometry.cs" />

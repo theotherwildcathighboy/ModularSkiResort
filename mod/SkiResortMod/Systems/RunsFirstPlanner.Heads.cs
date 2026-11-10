@@ -1,4 +1,4 @@
-// RunsFirst heads: the mirror of the junction pass. A run that leaves another run, a traverse fork or a lift top beside its
+// RunsFirstPlanner heads: the mirror of the junction pass. A run that leaves another run, a traverse fork or a lift top beside its
 // siblings shares its first stretch with them. The scorecard reads both sides of that stretch as crowded. Each run's start
 // slides forward along its first 60 m to where it crowds least. The slide keeps these true:
 // - the skier still gets onto the run the same way:
@@ -10,18 +10,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
-        private static float HeadForwardM => O.HeadForwardM;   // how far a run's start may slide forward
+        private float HeadForwardM => O.HeadForwardM;   // how far a run's start may slide forward
 
         /// <summary>Moves runs' starts forward to where their first stretch crowds other runs least. Returns the runs changed.</summary>
         [MethodImpl(Hot)]
-        private static int TrimHeads(Grid g, Plan plan, List<Lift> lifts)
+        private int TrimHeads(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             SkiGraph sg = Ski(g, plan, lifts);
             static long Key(float2 p) => ((long)Math.Floor(p.x / 60f) << 32) ^ (uint)(int)Math.Floor(p.y / 60f);
@@ -165,7 +164,7 @@ namespace AutoGenBatch
                     var lostNext = sg.Next[i].Where(j => !after.Next[i].Contains(j)).ToList();
                     var lostDel = sg.Delivers[i].Where(j => !after.Delivers[i].Contains(j)).ToList();
                     if (lostNext.Count > 0 || lostDel.Count > 0 || (sg.Reached[i] && !after.Reached[i]) || (sg.Returns[i] && !after.Returns[i]))
-                        Console.WriteLine($"DEBUG heads: element {i}{(i < sg.Runs ? " run" : " connector")}{(old.ContainsKey(i) ? " (moved)" : "")} lost next [{string.Join(",", lostNext.Select(j => j + (old.ContainsKey(j) ? "*" : "")))}] delivers [{string.Join(",", lostDel)}] reached {sg.Reached[i]}->{after.Reached[i]} returns {sg.Returns[i]}->{after.Returns[i]}");
+                        Trace($"DEBUG heads: element {i}{(i < sg.Runs ? " run" : " connector")}{(old.ContainsKey(i) ? " (moved)" : "")} lost next [{string.Join(",", lostNext.Select(j => j + (old.ContainsKey(j) ? "*" : "")))}] delivers [{string.Join(",", lostDel)}] reached {sg.Reached[i]}->{after.Reached[i]} returns {sg.Returns[i]}->{after.Returns[i]}");
                 }
             if (!keep)
             {

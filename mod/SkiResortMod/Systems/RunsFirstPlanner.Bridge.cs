@@ -1,4 +1,4 @@
-// RunsFirst bridge lifts (prototype). Case: the lift network stays split after the link routes. The cut-off area can then lie over a
+// RunsFirstPlanner bridge lifts. Case: the lift network stays split after the link routes. The cut-off area can then lie over a
 // saddle above the place the other lifts' skiers collect (a hub in a basin below the pass into the next valley). No run or cat
 // track links the two. A short lift does, as a resort's transfer chair. It goes from where the skiers collect up onto ground.
 // A run comes down from that ground into the cut-off area (or onto the area's own runs, when they start within reach of its top).
@@ -7,20 +7,19 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float BridgeMinM = 250f, BridgeMaxM = 1500f;   // bridge chord in plan
         private const float BridgeStartM = 140f;                     // skiers ski an element that starts this close to the top from the top
-        private static float BridgeFallW => O.BridgeFallW;   // a bridge 60 degrees off the fall line costs 1 + this times as much
+        private float BridgeFallW => O.BridgeFallW;   // a bridge 60 degrees off the fall line costs 1 + this times as much
 
         /// <summary>Adds bridge lifts while the network is split and the lift budget allows. Returns how many.</summary>
         [MethodImpl(Hot)]
-        private static int BridgeLifts(Grid g, Plan plan, List<Lift> lifts, float km2)
+        private int BridgeLifts(Grid g, PlanDraft plan, List<Lift> lifts, float km2)
         {
             int added = 0, budget = (int)Math.Ceiling(1.5 * km2) + 2;
             float hLo = float.MaxValue, hHi = float.MinValue;
@@ -64,7 +63,7 @@ namespace AutoGenBatch
         /// run starting near the top, else a route found uphill from the tos). The lift keeps the lift norms, has no crossing, keeps its rope
         /// clear of other ropes and keeps its chord off the runs. The code keeps the lift only when the network grows.</summary>
         [MethodImpl(Hot)]
-        private static bool TryBridge(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, float lowCut)
+        private bool TryBridge(Grid g, PlanDraft plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, float lowCut)
         {
             string names = string.Join("/", froms.Select(L => "L" + lifts[L].Id)) + " -> " + string.Join("/", tos.Select(L => "L" + lifts[L].Id));
             // bottom pads: beside what the froms ski (one per 60 m bucket, its lowest point), the element passing the station

@@ -1,4 +1,4 @@
-// RunsFirst plan (prototype): turns the candidate lines and the placed lifts into the plan a skier would see. The scorecard reads the same plan.
+// RunsFirstPlanner plan: turns the candidate lines and the placed lifts into the plan a skier would see. The scorecard reads the same plan.
 // The serve pass re-picks the runs knowing the lifts. It trims every candidate line (picked or not) to where the highest lift
 // traverse meets it. A trimmed line ends in one of two places. It ends where it delivers to a lift bottom (on down its drainage
 // when that is where the lift is). Or it ends where it runs onto an earlier run.
@@ -10,12 +10,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float ConnPitchMax = 0.46f, ConnRiseMax = 4.0f;   // connector rules (no 30 m pitch over 0.50, no 4.5 m rise in 50 m)
         private const float RunClimbMax = 9.5f, RunPitchMax = 0.97f;    // run rules (no 10 m climb, no 30 m pitch over 1.0)
@@ -23,10 +22,10 @@ namespace AutoGenBatch
         private const float DeliverM = 50f;        // a run delivers to a lift when it passes this close to the bottom station (scorecard 60 m)
         private const float MinRunDropM = 55f;     // shorter served runs read as stubs (the scorecard counts under 50 m)
         private const float ContactM = 39f;        // a merging run ends where it first comes this close to the run it joins (the skier's 40 m)
-        private static float ServeCapPerKm2 => O.ServeCapPerKm2;
-        private static float RunOutM => O.RunOutM;   // how far below its first station a run may go on to others
-        private static float ChordDefer => O.ChordDefer;   // value share of a run that lies along a lift line
-        private static float ChordKeep => O.ChordKeep;    // ... kept anyway at this share of the best run's value
+        private float ServeCapPerKm2 => O.ServeCapPerKm2;
+        private float RunOutM => O.RunOutM;   // how far below its first station a run may go on to others
+        private float ChordDefer => O.ChordDefer;   // value share of a run that lies along a lift line
+        private float ChordKeep => O.ChordKeep;    // ... kept anyway at this share of the best run's value
 
         private sealed class PlanRun
         {
@@ -39,7 +38,7 @@ namespace AutoGenBatch
             public RunKind Surface = RunKind.Groomed;   // or Natural (ungroomed: black or double black only, scorecard v5)
         }
 
-        private sealed class Plan
+        private sealed class PlanDraft
         {
             public readonly List<PlanRun> Runs = new List<PlanRun>();
             public readonly List<List<float2>> Connectors = new List<List<float2>>();
@@ -64,9 +63,9 @@ namespace AutoGenBatch
         }
 
         [MethodImpl(Hot)]
-        private static Plan BuildPlan(Grid g, int[] rec, List<Line> lines, List<Lift> lifts, float km2)
+        private PlanDraft BuildPlan(Grid g, int[] rec, List<Line> lines, List<Lift> lifts, float km2)
         {
-            var plan = new Plan();
+            var plan = new PlanDraft();
             WayDbg = O.DebugWayHome ? (g, plan, lifts) : null;
             plan.Dots.AddRange(DebugDots);
             DebugDots.Clear();
@@ -85,6 +84,7 @@ namespace AutoGenBatch
             var reachOf = new Dictionary<int, int>[lifts.Count];
             for (int L = 0; L < lifts.Count; L++)
             {
+                Inner(0.3f * L / lifts.Count);
                 List<int> touched = Reach(g, slope, lifts[L].TopCell, dist, parent);
                 var d = new Dictionary<int, int>(touched.Count);
                 foreach (int c in touched)
@@ -98,8 +98,10 @@ namespace AutoGenBatch
 
             // 2. candidates: every line with a lift entry, trimmed and ended where it delivers
             var cands = new List<Cand>();
+            int candsSeen = 0;   // progress only
             foreach (Line l in lines)
             {
+                Inner(0.3f + 0.5f * candsSeen++ / lines.Count);
                 if (l.Flow == null)
                 {
                     l.Flow = new List<float2>();
@@ -201,6 +203,7 @@ namespace AutoGenBatch
                 queue.Enqueue((cd, false), -cd.Value);
             while (picks < cap && queue.TryDequeue(out var item, out float negValue))
             {
+                Inner(0.8f + 0.2f * picks / cap);
                 Cand cd = item.C;
                 int end = cd.End, run = 0;
                 for (int i = cd.Entry + 3; i <= Math.Min(cd.ValidEnd, end >= 0 ? end : cd.ValidEnd); i++)
@@ -402,8 +405,8 @@ namespace AutoGenBatch
             if (O.DebugModel)
             {
                 var cm = new CutModel(g, plan);
-                Console.WriteLine("MODELDBG " + cm.Terms());
-                Console.WriteLine("MODELDBG crowded: " + cm.CrowdBreakdown());
+                Trace("MODELDBG " + cm.Terms());
+                Trace("MODELDBG crowded: " + cm.CrowdBreakdown());
             }
             if (O.DebugCover)
                 CoverDebug(g, plan, lifts);
@@ -433,7 +436,7 @@ namespace AutoGenBatch
                         outReach++;
                     plan.Dots.Add((p, 255, reached ? 0 : 160, 0));
                 }
-                Console.WriteLine($"DEBUG cover: {skiable} skiable, {inReach} uncovered in a lift's reach, {outReach} uncovered out of every reach");
+                Trace($"DEBUG cover: {skiable} skiable, {inReach} uncovered in a lift's reach, {outReach} uncovered out of every reach");
             }
             if (O.DebugCrowd)
             {
@@ -513,8 +516,8 @@ namespace AutoGenBatch
                     endCrowds += within;
                     hist[best < 10f ? 0 : best < 20f ? 1 : best < 30f ? 2 : best < 35f ? 3 : 4]++;
                 }
-                Console.WriteLine($"DEBUG crowd ends: {ends} run(s) end within 40 m of another run's counted samples, {endCrowds} sample(s) within 40 m of those ends; nearest <10 {hist[0]}, 10-20 {hist[1]}, 20-30 {hist[2]}, 30-35 {hist[3]}, 35-40 {hist[4]}");
-                Console.WriteLine($"DEBUG crowd: {all} samples, {ownStart + nearEnd + nearStart + nearMid} crowded: own first 100 m {ownStart}, by the last 200 m of another run {nearEnd} ({nearEndStation} of them ending at a station, {nearEndHere} within 200 m of one, {atJunction} within 45 m of its end; by its kind {string.Join(", ", endBy.Select(kv => kv.Key + " " + kv.Value))}), by the first 100 m of another {nearStart}, alongside {nearMid}; by kind {string.Join(", ", byKind.Select(kv => kv.Key + " " + kv.Value))}");
+                Trace($"DEBUG crowd ends: {ends} run(s) end within 40 m of another run's counted samples, {endCrowds} sample(s) within 40 m of those ends; nearest <10 {hist[0]}, 10-20 {hist[1]}, 20-30 {hist[2]}, 30-35 {hist[3]}, 35-40 {hist[4]}");
+                Trace($"DEBUG crowd: {all} samples, {ownStart + nearEnd + nearStart + nearMid} crowded: own first 100 m {ownStart}, by the last 200 m of another run {nearEnd} ({nearEndStation} of them ending at a station, {nearEndHere} within 200 m of one, {atJunction} within 45 m of its end; by its kind {string.Join(", ", endBy.Select(kv => kv.Key + " " + kv.Value))}), by the first 100 m of another {nearStart}, alongside {nearMid}; by kind {string.Join(", ", byKind.Select(kv => kv.Key + " " + kv.Value))}");
             }
             if (O.Debug)
             {
@@ -523,7 +526,7 @@ namespace AutoGenBatch
                     if (!sg.Reached[i] || !sg.Returns[i])
                     {
                         PlanRun r = plan.Runs[i];
-                        Console.WriteLine($"DEBUG run #{r.Src?.Pick} by L{r.By?.Id}: reached {sg.Reached[i]} returns {sg.Returns[i]}, start {r.Pts[0].x:F0},{r.Pts[0].y:F0} " +
+                        Trace($"DEBUG run #{r.Src?.Pick} by L{r.By?.Id}: reached {sg.Reached[i]} returns {sg.Returns[i]}, start {r.Pts[0].x:F0},{r.Pts[0].y:F0} " +
                             $"end {r.Pts[r.Pts.Count - 1].x:F0},{r.Pts[r.Pts.Count - 1].y:F0} merge {r.Src?.Merge} top-dist {(r.By != null ? math.distance(r.By.Top.xz, r.Pts[0]) : -1f):F0}");
                     }
                 for (int L = 0; L < lifts.Count && L < reachOf.Length; L++)
@@ -534,10 +537,10 @@ namespace AutoGenBatch
                         foreach (float2 p in r.Pts)
                             near = Math.Min(near, math.distance(p, bp));
                     var by = Enumerable.Range(0, reachOf.Length).Where(X => X != L && reachOf[X].ContainsKey(lifts[L].BottomCell)).Select(X => lifts[X].Id);
-                    Console.WriteLine($"DEBUG L{lifts[L].Id} bottom {bp.x:F0},{bp.y:F0} h {RawH(g, bp):F0} top {lifts[L].Top.x:F0},{lifts[L].Top.z:F0} h {RawH(g, lifts[L].Top.xz):F0}; nearest run point {near:F0} m; bottom in reach of [{string.Join(",", by)}]");
+                    Trace($"DEBUG L{lifts[L].Id} bottom {bp.x:F0},{bp.y:F0} h {RawH(g, bp):F0} top {lifts[L].Top.x:F0},{lifts[L].Top.z:F0} h {RawH(g, lifts[L].Top.xz):F0}; nearest run point {near:F0} m; bottom in reach of [{string.Join(",", by)}]");
                 }
                 for (int L = 0; L < lifts.Count; L++)
-                    Console.WriteLine($"DEBUG L{lifts[L].Id}: reaches [{string.Join(",", sg.Reaches[L].Select(b => lifts[b].Id))}] comp {sg.Component[L]} dead {Dead(sg, L)}");
+                    Trace($"DEBUG L{lifts[L].Id}: reaches [{string.Join(",", sg.Reaches[L].Select(b => lifts[b].Id))}] comp {sg.Component[L]} dead {Dead(sg, L)}");
                 for (int L = 0; L < lifts.Count; L++)
                 {
                     // which runs lie along the chord's middle (the scorecard: 30 % of the 15-85 % samples within 20 m)
@@ -553,7 +556,7 @@ namespace AutoGenBatch
                                 hits[i] = hits.TryGetValue(i, out int v) ? v + 1 : 1;
                     }
                     if (hits.Count > 0)
-                        Console.WriteLine($"DEBUG L{lifts[L].Id} chord ({nS} samples): " + string.Join(", ", hits.Select(kv => $"run {kv.Key} {plan.Runs[kv.Key].Kind} by L{plan.Runs[kv.Key].By?.Id} {kv.Value}")));
+                        Trace($"DEBUG L{lifts[L].Id} chord ({nS} samples): " + string.Join(", ", hits.Select(kv => $"run {kv.Key} {plan.Runs[kv.Key].Kind} by L{plan.Runs[kv.Key].By?.Id} {kv.Value}")));
                 }
             }
             plan.Log.Add($"serve pass: {cands.Count} candidate(s) with a lift entry, {plan.Runs.Count} run(s) kept (cap {cap}); " +
@@ -699,7 +702,7 @@ namespace AutoGenBatch
         /// fork side by side stay on the cat track until they part. A stretch joins only when the joined run keeps the run rules and stays
         /// off the lift lines. The rest stays a traverse. Returns the spurs merged.</summary>
         [MethodImpl(Hot)]
-        private static int MergeSpurs(Grid g, Plan plan, List<Lift> lifts)
+        private int MergeSpurs(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             const float clearM = 44f, minM = 30f;
             var guard = new ChordGuard(lifts);
@@ -736,7 +739,7 @@ namespace AutoGenBatch
                 if (ci < 0)
                 {
                     if (O.Debug)
-                        Console.WriteLine($"DEBUG spur: run by L{r.By?.Id} at {r.Pts[0].x:F0},{r.Pts[0].y:F0}: no traverse ends there (nearest end " +
+                        Trace($"DEBUG spur: run by L{r.By?.Id} at {r.Pts[0].x:F0},{r.Pts[0].y:F0}: no traverse ends there (nearest end " +
                             $"{plan.Connectors.Select(c => math.distance(c[c.Count - 1], r.Pts[0])).DefaultIfEmpty(-1f).Min():F0} m, top {math.distance(r.By.Top.xz, r.Pts[0]):F0} m)");
                     continue;
                 }
@@ -752,7 +755,7 @@ namespace AutoGenBatch
                 if (ok == null || ok.Count < Densify(pts).Count || !guard.FitsAdding(pts, 0, spur.Count - 1 - cut))
                 {
                     if (O.Debug)
-                        Console.WriteLine($"DEBUG spur: run by L{r.By?.Id}: {(ok == null ? "no run" : ok.Count < Densify(pts).Count ? $"cut to {ok.Count}/{Densify(pts).Count}" : "lift line")}");
+                        Trace($"DEBUG spur: run by L{r.By?.Id}: {(ok == null ? "no run" : ok.Count < Densify(pts).Count ? $"cut to {ok.Count}/{Densify(pts).Count}" : "lift line")}");
                     continue;
                 }
                 guard.Add(pts, 0, spur.Count - 1 - cut);
@@ -803,7 +806,7 @@ namespace AutoGenBatch
         /// <summary>Drop from the entry to end, weighted by the band (beginner and intermediate vertical is scarce) and the corridor
         /// width. A line that delivers nowhere counts half (it can still end on another run).</summary>
         [MethodImpl(Hot)]
-        private static float CandValue(Grid g, Cand cd, int end)
+        private float CandValue(Grid g, Cand cd, int end)
         {
             if (end <= cd.Entry + 3)
                 return 0f;
@@ -817,7 +820,7 @@ namespace AutoGenBatch
         /// to the bowl lift, the cat track from the upper lift to the base. The method then emits the traverse trees again.
         /// Returns the traverses added.</summary>
         [MethodImpl(Hot)]
-        private static int LinkLifts(Grid g, Plan plan, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, ref int chains, ref int bad)
+        private static int LinkLifts(Grid g, PlanDraft plan, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, ref int chains, ref int bad)
         {
             int added = 0;
             for (int round = 0; round < 3; round++)

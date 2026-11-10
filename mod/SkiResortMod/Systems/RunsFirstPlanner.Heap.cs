@@ -1,4 +1,4 @@
-// RunsFirst heap: the cell queue of the flood, reach and easy-ground searches. PriorityQueue<int, float> is not precompiled in
+// RunsFirstPlanner heap: the cell queue of the flood, reach and easy-ground searches. PriorityQueue<int, float> is not precompiled in
 // the runtime, so the first region of a run used to drive every search through its unoptimized tier-0 code. This is the same
 // 4-ary min-heap on two plain arrays, compiled optimized from the first call. It has the same sift rules and tie order, so
 // every search settles its cells in the same order.
@@ -6,9 +6,9 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private sealed class CellHeap
         {

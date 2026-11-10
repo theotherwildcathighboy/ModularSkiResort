@@ -1,4 +1,4 @@
-// RunsFirst lifts (prototype): lifts placed to serve the picked lines, the way a resort is laid out around its terrain.
+// RunsFirstPlanner lifts: lifts placed to serve the picked lines, the way a resort is laid out around its terrain.
 // A lift top "reaches" every cell a skier gets to from it with these limits:
 // - no climbing (+3 % at most)
 // - nothing steeper than a black start (40 %)
@@ -11,43 +11,43 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float AccessRadiusM = 1500f, AccessMaxDown = 0.35f, AccessMaxUp = 0.07f, AccessCliff = 0.75f;
         private const float AccessRawPitch = 0.42f, AccessRawRise = 3.5f;   // on the raw terrain: 30 m pitch, rise within 55 m
         private const float StationMax = 0.34f;   // raw 10 m grade a station pad may sit on (the scorecard flags over 0.40)
-        private static float TopLatticeM => O.TopLatticeM;
-        private static float ReturnM => O.ReturnM;
-        private static float ReachBudget => O.ReachBudget;   // cells the top lattice's reach searches may visit
+        private float TopLatticeM => O.TopLatticeM;
+        private float ReturnM => O.ReturnM;
+        private float ReachBudget => O.ReachBudget;   // cells the top lattice's reach searches may visit
         // a lattice point with no pad within 30 m takes the flattest pad within this reach, as a top for the coverage lifts only.
         // The reach is about half the lattice diagonal, so every pad on a steep ridge belongs to some lattice point
-        private static float PadReachM => O.PadReachM;
-        private static int ScanThreads => Math.Max(1, O.ScanThreads);   // threads for the top lattice's reach scan
+        private float PadReachM => O.PadReachM;
+        private int ScanThreads => Math.Max(1, O.ScanThreads);   // threads for the top lattice's reach scan
         private const float MarginalShare = 0.1f;   // a lift worth less than this share of the first is marginal
         private const float HubLinkM = 150f, BenchGrade = 0.25f, MinLapM = 60f;
         private const float TowerLiftM = 20f;
         private const float TwinM = 300f;       // a lift whose top AND bottom are this close to an existing one's is a twin, not a new lift
 
         // hourly capacity relative to a detachable quad (2,400 / h): a tram lap is worth a third of a chair lap to a resort
-        private static float Capacity(string type) => type switch { "fixed-grip" => 0.75f, "detachable" => 1f, "gondola" => GondolaCap, _ => 0.3f };   // terrain may rise this far above the straight chord (towers carry the rope over it)
+        private float Capacity(string type) => type switch { "fixed-grip" => 0.75f, "detachable" => 1f, "gondola" => GondolaCap, _ => 0.3f };   // terrain may rise this far above the straight chord (towers carry the rope over it)
         // v5 lift type by use: 0 off, 1 in the placement (the value follows the new type), 2 a relabel of the finished plan
-        private static int TypeUse => O.TypeUse;
-        private static float ChairMaxRise => O.ChairMaxRise;
-        private static float VeryLongM => O.VeryLongM;
-        private static float TramRise => O.TramRise;
-        private static float GondolaCap => O.GondolaCap;
-        private static float LiftFallW => O.LiftFallW;   // the share of a lift's value lost 60 degrees off the fall line (off: at 0.6 it re-picked the lifts, -2.8 visible, more lone bases)
+        private int TypeUse => O.TypeUse;
+        private float ChairMaxRise => O.ChairMaxRise;
+        private float VeryLongM => O.VeryLongM;
+        private float TramRise => O.TramRise;
+        private float GondolaCap => O.GondolaCap;
+        private float LiftFallW => O.LiftFallW;   // the share of a lift's value lost 60 degrees off the fall line (off: at 0.6 it re-picked the lifts, -2.8 visible, more lone bases)
 
-        private static readonly List<(float2 P, int R, int G, int B)> DebugDots = new List<(float2, int, int, int)>();   // RF_TOPS marks
+        private readonly List<(float2 P, int R, int G, int B)> DebugDots = new List<(float2, int, int, int)>();   // RF_TOPS marks
 
         private sealed class Lift
         {
@@ -83,7 +83,7 @@ namespace AutoGenBatch
         }
 
         [MethodImpl(Hot)]
-        private static List<Lift> PlaceLifts(Grid g, int[] rec, List<Line> all, float km2, PointHash runs)
+        private List<Lift> PlaceLifts(Grid g, int[] rec, List<Line> all, float km2, PointHash runs)
         {
             int n = g.W * g.D;
             var lines = all.FindAll(l => l.Picked);
@@ -231,12 +231,13 @@ namespace AutoGenBatch
                 FillAll(d, float.PositiveInfinity);
                 return (d, new int[n], flow?.NewMark());
             }
+            int topsDone = 0;   // progress only
             for (; levels < 5; levels++)
             {
                 var at = lattice.FindAll(p => p.Level == levels);
                 double projected = scanned.Count > 0 ? work + (double)work / scanned.Count * at.Count : 0;
                 if (O.Timing)
-                    Console.WriteLine($"TIME tops level {levels}: {at.Count} top(s), {projected / 1e6:F2} M cells projected");
+                    Trace($"TIME tops level {levels}: {at.Count} top(s), {projected / 1e6:F2} M cells projected");
                 if (projected > ReachBudget)
                     break;
                 var found = new (int[] E, bool Any, bool[] Rb, ulong[] Bits, int Work)[at.Count];
@@ -244,6 +245,8 @@ namespace AutoGenBatch
                     () => buffers.TryTake(out var b) ? b : NewBuffers(),
                     (i, _, buf) =>
                     {
+                        if (CancelRequested)
+                            return buf;   // canceled: the rest of the level is skipped, Poll below ends the plan
                         float[] reached = buf.Dist;
                         List<int> touched = Reach(g, slope, at[i].T, reached, buf.Parent);
                         var e = new int[lines.Count];
@@ -279,9 +282,11 @@ namespace AutoGenBatch
                         foreach (int c in touched)
                             reached[c] = float.PositiveInfinity;
                         found[i] = (e, any, rb, bits, touched.Count);
+                        Inner((float)Interlocked.Increment(ref topsDone) / lattice.Count);
                         return buf;
                     },
                     buf => buffers.Add(buf));
+                Poll();
                 for (int i = 0; i < at.Count; i++)
                 {
                     work += found[i].Work;
@@ -304,7 +309,7 @@ namespace AutoGenBatch
                 }
             }
             if (O.Timing)
-                Console.WriteLine($"TIME tops: {scanned.Count} of {lattice.Count} lattice tops ({levels} of 5 levels), {work} cells reached");
+                Trace($"TIME tops: {scanned.Count} of {lattice.Count} lattice tops ({levels} of 5 levels), {work} cells reached");
             Tick("tops");
             // greedy: the lift that adds the most new vertical (per line, elevation intervals already lapped don't count twice)
             var covered = new List<(float lo, float hi)>[lines.Count];
@@ -341,6 +346,8 @@ namespace AutoGenBatch
                 for (int ti = 0; ti < tops.Count; ti++)
                     for (int b = 0; b < B; b++)
                     {
+                        if (b == 0)
+                            Poll();
                         if (excluded.Contains(b) || bans.Contains((long)ti * B + b))
                             continue;
                         int t = tops[ti], bc = bottoms[b];
@@ -387,11 +394,11 @@ namespace AutoGenBatch
                 if (bt < 0 || (firstGain > 0f && best < stopShare * firstGain))
                 {
                     if (O.Debug)
-                        Console.WriteLine($"DEBUG lifts stop at {lifts.Count} of {want}: best {best:F0} first {firstGain:F0} (bt {bt})");
+                        Trace($"DEBUG lifts stop at {lifts.Count} of {want}: best {best:F0} first {firstGain:F0} (bt {bt})");
                     break;
                 }
                 if (O.Debug)
-                    Console.WriteLine($"DEBUG lift {lifts.Count + 1}: {bestType} gain {bestOwn:F0} transfer {bestTransfer:F0} value {best:F0} top {g.World(tops[bt]).x:F0},{g.World(tops[bt]).y:F0} bottom {g.World(bottoms[bb]).x:F0},{g.World(bottoms[bb]).y:F0}{(firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut) ? " (marginal, opens a base: skipped)" : "")}");
+                    Trace($"DEBUG lift {lifts.Count + 1}: {bestType} gain {bestOwn:F0} transfer {bestTransfer:F0} value {best:F0} top {g.World(tops[bt]).x:F0},{g.World(tops[bt]).y:F0} bottom {g.World(bottoms[bb]).x:F0},{g.World(bottoms[bb]).y:F0}{(firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut) ? " (marginal, opens a base: skipped)" : "")}");
                 // a marginal lift may not open a base of its own. A low station away from every other base needs its own beginner
                 // terrain and services. A lift worth that little does not earn them
                 if (firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut))
@@ -429,7 +436,7 @@ namespace AutoGenBatch
                             excluded.Add(bb);
                         fails++;
                         if (O.Debug)
-                            Console.WriteLine($"DEBUG lift {lifts.Count + 1}: no pad of its own at {lift.Bottom.x:F0},{lift.Bottom.z:F0}: not placed");
+                            Trace($"DEBUG lift {lifts.Count + 1}: no pad of its own at {lift.Bottom.x:F0},{lift.Bottom.z:F0}: not placed");
                         continue;
                     }
                 }
@@ -475,7 +482,7 @@ namespace AutoGenBatch
                 {
                     var others = lifts.FindAll(o => o != lifts[L]);
                     if (UnderRope(g, others, lifts[L].TopCell, lifts[L].BottomCell))
-                        Console.WriteLine($"DEBUG L{lifts[L].Id}: a station under another rope (or one under its own)");
+                        Trace($"DEBUG L{lifts[L].Id}: a station under another rope (or one under its own)");
                 }
             return lifts;
         }
@@ -535,7 +542,7 @@ namespace AutoGenBatch
         [MethodImpl(Hot)]
         /// <summary>A lift line along the region edge: over half of its chord's middle within EdgeLiftM of ground outside the region (the
         /// low ground a station wants often lies on the edge of a cut-out region, and a designer keeps the line inside it).</summary>
-        private static bool AlongEdge(Grid g, int b, int t)
+        private bool AlongEdge(Grid g, int b, int t)
         {
             if (EdgeLiftM <= 0f)
                 return false;
@@ -557,19 +564,19 @@ namespace AutoGenBatch
             }
             return near * 2 > n;
         }
-        private static float EdgeLiftM => O.EdgeLiftM;
+        private float EdgeLiftM => O.EdgeLiftM;
 
         private static bool Aerial(string type) => type == "gondola" || type == "tram";
 
         // scorecard v4's parallel lines are twins too (RF_PARALLELOK=1: allowed), past the lines a new one may run beside
-        private static bool NoParallel => O.NoParallel;
-        private static int TransferBeside => O.TransferBeside;
+        private bool NoParallel => O.NoParallel;
+        private int TransferBeside => O.TransferBeside;
 
         // a lift of the search whose bottom finds no pad of its own is not placed, up to this many times a region (RF_OWNBOTTOM=0: off)
-        private static bool OwnBottom => O.OwnBottom;
-        private static int OwnBottomTries => O.OwnBottomTries;
+        private bool OwnBottom => O.OwnBottom;
+        private int OwnBottomTries => O.OwnBottomTries;
 
-        private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f, string type = null, int beside = 0)
+        private bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f, string type = null, int beside = 0)
         {
             int v4 = 0;
             // this check returns true for:
@@ -746,9 +753,9 @@ namespace AutoGenBatch
 
         /// <summary>The cheapest lift type whose length / rise / mean grade norms fit and whose chord clears the ground (terrain at
         /// most TowerLiftM above the straight line). Returns null when none fits. Long chairs prefer the detachable.</summary>
-        private static float MaxRiseM => O.MaxRiseM;
+        private float MaxRiseM => O.MaxRiseM;
 
-        private static string TypeFor(Grid g, int b, int t)
+        private string TypeFor(Grid g, int b, int t)
         {
             // the real ground, as the rope sees it: raw heights at the stations and every 10 m along the chord
             float3 a = new float3(g.World(b).x, g.Hr[b], g.World(b).y), c = new float3(g.World(t).x, g.Hr[t], g.World(t).y);
@@ -778,7 +785,7 @@ namespace AutoGenBatch
 
         /// <summary>v5, the type by use, not by rise: chairs to ChairMaxRise (a fixed-grip to 1000 m of length, detachable beyond), a
         /// gondola for a very long line or a grade past a chair's, a tram for a trunk line past TramRise (base to ridge).</summary>
-        private static string ByUse(float len, float rise, float run)
+        private string ByUse(float len, float rise, float run)
         {
             float gr = rise / run;
             if (rise >= 95f && rise <= ChairMaxRise && len <= VeryLongM)
@@ -799,7 +806,7 @@ namespace AutoGenBatch
         /// ladder by rise sets their value). Then a gondola or tram that is neither the village lift nor a download lift becomes the
         /// chair its line allows. A gondola past TramRise becomes a tram. Both changes happen where no chair line crosses the lift and
         /// the ski graph keeps its links and ways home (a gondola top also takes skiers down). Returns the lifts changed.</summary>
-        private static int RetypeByUse(Grid g, Plan plan, List<Lift> lifts, Lift village)
+        private int RetypeByUse(Grid g, PlanDraft plan, List<Lift> lifts, Lift village)
         {
             int changed = 0;
             var log = new List<string>();
@@ -837,31 +844,6 @@ namespace AutoGenBatch
             if (log.Count > 0)
                 plan.Log.Add("type by use: " + string.Join("; ", log));
             return changed;
-        }
-
-        private static void WriteLifts(string path, string id, List<Lift> lifts, List<Line> lines)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine($"# lifts {id}: lift type length_m rise_m bottom_grade new_vertical_m transfer lines(map#:band) traverses");
-            foreach (Lift lf in lifts)
-            {
-                var ls = new List<string>();
-                foreach (Line l in lf.Lines)
-                    ls.Add($"{l.Pick}:{l.Band}");
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "L{0} {1} {2:F0} {3:F0} {4:F2} {5:F0} {8:F0} [{6}] {7}",
-                    lf.Id, lf.Type, lf.Length, lf.Rise, lf.BottomGrade, lf.Gain, string.Join(" ", ls), lf.Traverses.Count, lf.Transfer));
-            }
-            int picked = 0, unserved = 0;
-            foreach (Line l in lines)
-                if (l.Picked)
-                {
-                    picked++;
-                    if (l.Lift < 0)
-                        unserved++;
-                }
-            sb.AppendLine($"# {unserved} of {picked} picked line(s) served by no lift");
-            File.AppendAllText(path, sb.ToString());
-            Console.WriteLine($"REPORT rf lifts {id}: {lifts.Count} lift(s) [{string.Join(", ", lifts.ConvertAll(l => $"L{l.Id} {l.Type} {l.Length:F0} m / {l.Rise:F0} m up, {l.Lines.Count} line(s), {l.Traverses.Count} traverse(s){(l.Transfer > 0 ? ", feeds another lift" : "")}"))}]; {unserved} of {picked} line(s) unserved");
         }
     }
 }
