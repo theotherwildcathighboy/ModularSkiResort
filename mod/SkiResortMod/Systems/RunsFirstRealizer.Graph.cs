@@ -731,6 +731,40 @@ namespace SkiResortMod.Systems
                     names.Add($"{(e.Type == ElemType.Track ? "track" : "piste")} {e.Source} (dropped, {e.LengthM:F0} m)");
                     src.Add(e.Id);
                 }
+            // the lost head and tail of a kept element: its planned stretch before its first area and after its last (over 20 m)
+            int firstLost = pts.Count;
+            foreach (Elem e in m_E)
+            {
+                if (e.Areas.Count == 0 || e.Merged || e.Samp == null || e.Samp.Length < 3)
+                    continue;
+                int first = -1, last = -1;
+                for (int i = 0; i < A; i++)
+                    if (m_Out[i].Elem == e.Id)
+                    {
+                        if (first < 0 || m_Out[i].Segment < m_Out[first].Segment)
+                            first = i;
+                        if (last < 0 || m_Out[i].Segment > m_Out[last].Segment)
+                            last = i;
+                    }
+                if (first < 0)
+                    continue;
+                for (int s = 0; s < 2; s++)
+                {
+                    float2 at = s == 0 ? m_Out[first].Line[0] : m_Out[last].Line[m_Out[last].Line.Length - 1];
+                    int k0 = 0;
+                    for (int k = 1; k < e.Samp.Length; k++)
+                        if (math.distancesq(e.Samp[k].xz, at) < math.distancesq(e.Samp[k0].xz, at))
+                            k0 = k;
+                    int a0 = s == 0 ? 0 : k0, a1 = s == 0 ? k0 : e.Samp.Length - 1;
+                    if (a1 - a0 < 2)
+                        continue;
+                    var part = new float3[a1 - a0 + 1];
+                    Array.Copy(e.Samp, a0, part, 0, part.Length);
+                    pts.Add(part);
+                    names.Add($"{(e.Type == ElemType.Track ? "track" : "piste")} {e.Source} (lost {(s == 0 ? "head" : "tail")}, {10 * (part.Length - 1)} m)");
+                    src.Add(e.Id);
+                }
+            }
             int n = pts.Count;
             // game links between areas (the descent graph's link edges, exit to entry), and the lift tops' served areas
             var game = new List<int>[n];
@@ -830,13 +864,27 @@ namespace SkiResortMod.Systems
                 int id = m_Plan.Lifts[l].Id;
                 if (!planned)
                 {
-                    m_Rep.Lines.Add(hit >= 0 ? $"bottom gained: L{id}: {names[hit]} ends in the band at {pts[hit][pts[hit].Length - 1].y:F0} m, band top {m_BottomTop:F0} m (the planner: {m_Plan.Lifts[l].ToBottom})"
+                    int root = hit;
+                    var way = new List<string>();
+                    for (int v = hit; v >= 0; v = pred[v])
+                    {
+                        root = v;
+                        way.Add(names[v]);
+                    }
+                    way.Reverse();
+                    m_Rep.Lines.Add(hit >= 0 ? $"bottom gained: L{id}: {string.Join(" > ", way)} ends in the band at {pts[hit][pts[hit].Length - 1].y:F0} m, band top {m_BottomTop:F0} m; " +
+                        $"the first starts {math.distance(pts[root][0].xz, top):F0} m from the top (the planner: {m_Plan.Lifts[l].ToBottom})"
                         : $"bottom gained: L{id}: no path found (the planner: {m_Plan.Lifts[l].ToBottom})");
                     continue;
                 }
                 if (hit < 0)
                 {
-                    m_Rep.Lines.Add($"bottom lost: L{id}: [none] no way down even with the planner's links");
+                    int low = -1;
+                    for (int v = 0; v < n; v++)
+                        if (done[v] && (low < 0 || pts[v][pts[v].Length - 1].y < pts[low][pts[low].Length - 1].y))
+                            low = v;
+                    m_Rep.Lines.Add($"bottom lost: L{id}: [none] no way down even with the planner's links" +
+                        (low >= 0 ? $", lowest end {names[low]} at {pts[low][pts[low].Length - 1].y:F0} m, band top {m_BottomTop:F0} m" : ""));
                     continue;
                 }
                 var steps = new List<string>();
@@ -846,7 +894,7 @@ namespace SkiResortMod.Systems
                     if (u >= 0 ? game[u].Contains(v) : served[l].Contains(v))
                         continue;
                     if (v >= A)
-                        steps.Add($"[dropped] {names[v]}");
+                        steps.Add(v >= firstLost ? $"[piece] {names[v]}" : $"[dropped] {names[v]}");
                     else if (u < 0)
                         steps.Add($"[top] {names[v]} starts {math.distance(pts[v][0].xz, top):F0} m from the top, not served");
                     else if (u >= A)
@@ -854,11 +902,30 @@ namespace SkiResortMod.Systems
                     else if (src[u] == src[v] && m_Out[v].Segment == m_Out[u].Segment + 1)
                         steps.Add($"[piece] {names[u]} to {names[v]}, {math.distance(pts[u][pts[u].Length - 1].xz, pts[v][0].xz):F0} m lost between them");
                     else
-                        steps.Add($"[link] {names[u]} to {names[v]}, outlines {PlanGeometry.RingDistance(m_Out[u].Ring, m_Out[v].Ring, 500f, out _, out _, out _, out _):F0} m apart");
+                        steps.Add(LinkWhy(names[u], names[v], m_Out[u], m_Out[v]));
                 }
                 steps.Reverse();
                 m_Rep.Lines.Add($"bottom lost: L{id}: " + string.Join("; ", steps) + $"; ends {names[hit]}");
             }
+        }
+
+        /// <summary>Report only: why two areas whose centerlines come within 40 m are not a game link. Touching outlines with the entry too
+        /// low on a piste fail rule 1 (BelowJunction: the contact must lie min(30 m, a third of the relief of the piste) over its lowest
+        /// node). Otherwise the outline gap.</summary>
+        private string LinkWhy(string nu, string nv, Area u, Area v)
+        {
+            float gap = PlanGeometry.RingDistance(u.Ring, v.Ring, 500f, out _, out _, out _, out _);
+            float lo = float.MaxValue, hi = float.MinValue;
+            foreach (float3 p in v.Nodes)
+            {
+                lo = Math.Min(lo, p.y);
+                hi = Math.Max(hi, p.y);
+            }
+            float endY = H(u.Line[u.Line.Length - 1]);
+            string kind = !LiftServedRule.OutlinesLinked(u.Ring, v.Ring) ? "not linked"
+                : v.Track ? "linked, the track climbs from the entry"
+                : $"linked, the entry under the junction rule (need {Math.Min(LiftServedRule.MinBelowM, (hi - lo) / LiftServedRule.BelowDropDivisor):F0} m over its low end)";
+            return $"[link] {nu} to {nv}, outlines {gap:F0} m apart, {kind}; {nu} ends at {endY:F0} m, {nv} spans {lo:F0} to {hi:F0} m";
         }
 
         // ---------------------------------------------------------------- EasiestDescent (copied from SkiRunAutoPlanner.Flow, spec section 9)

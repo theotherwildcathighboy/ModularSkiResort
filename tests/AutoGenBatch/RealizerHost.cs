@@ -223,6 +223,15 @@ namespace AutoGenBatch
             return d.Count > 0 ? string.Join(", ", d) : "none";
         }
 
+        /// <summary>The band top in the planner log (way to the bottom: band top N m), or "-".</summary>
+        private static string PlannerBandTop(RunsFirstResult plan)
+        {
+            const string head = "way to the bottom: band top ";
+            string l = plan.Log.FirstOrDefault(x => x.StartsWith(head, StringComparison.Ordinal));
+            int e = l != null ? l.IndexOf(" m", head.Length, StringComparison.Ordinal) : -1;
+            return e > head.Length ? l.Substring(head.Length, e - head.Length) + " m" : "-";
+        }
+
         private static Row RunRegion(string id, float2[] ring, HeightSnapshot snap, RunsFirstOptions options, string outDir)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -294,7 +303,7 @@ namespace AutoGenBatch
                     $"way to the bottom: planner {plan.Lifts.Count(l => l.ToBottom == RunsFirstBottom.Reaches)}/{plan.Lifts.Count(l => l.ToBottom != RunsFirstBottom.NoSkiing)} " +
                     $"({string.Join(", ", plan.Lifts.Where(l => l.ToBottom != RunsFirstBottom.Reaches).Select(l => $"L{l.Id} {l.ToBottom}"))})",
                 $"  bottom: lifts with a way down {rep.BottomWayDown}, reach the base band by the planner {rep.BottomPlanner}, realized {rep.BottomRealized}; " +
-                    $"lost {rep.BottomLost}, gained {rep.BottomGained}; differ: {BottomDiffer(rep)}",
+                    $"lost {rep.BottomLost}, gained {rep.BottomGained}; band top realizer {rep.BottomTop:F0} m, planner {PlannerBandTop(plan)}; differ: {BottomDiffer(rep)}",
                 $"  lifts: {rep.Lifts}, tower plan sound {rep.LiftsClear}, hand fit chair/detachable/gondola/tram {rep.HandFitByType[0]}/{rep.HandFitByType[1]}/{rep.HandFitByType[2]}/{rep.HandFitByType[3]} " +
                     $"(spans {rep.HandFitSpans}, over cap {rep.HandFitOverCap}, too steep {rep.HandFitSteep}, clearance {rep.HandFitClearance}, edge slope {rep.HandFitEdge}, miss {rep.HandFitMiss}), sunk ends {rep.SunkEnds}, lot conflicts {rep.LotConflicts}",
                 $"  score: raw {rawT:F1}, as built {realT:F1} ({realT - rawT:+0.0;-0.0}), as skied {skiedT:F1} ({skiedT - rawT:+0.0;-0.0}), realized pistes with the raw connectors {mixT:F1}; " +
