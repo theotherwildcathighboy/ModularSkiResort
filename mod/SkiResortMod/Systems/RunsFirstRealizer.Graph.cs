@@ -71,14 +71,36 @@ namespace SkiResortMod.Systems
                 res.Warnings |= AutoPlanWarning.NoBlue;
             if (res.BandCount[3] == 0)
                 res.Warnings |= AutoPlanWarning.NoBlack;
-            // NoWayToBottom (spec 8.3, plan 5.4): the planner names each lift whose skiing does not get to the base band and why
-            foreach (RunsFirstResult.Lift lf in m_Plan.Lifts)
-                if (lf.ToBottom != RunsFirstBottom.Reaches && lf.ToBottom != RunsFirstBottom.NoSkiing)
+            // NoWayToBottom (spec 8.3, plan 5.4, R2-y): the realized plan decides. A lift with a way down (skiing from its top on the
+            // realized plan, or skiing in the plan) whose skiing does not end in the base band sets the warning. The planner's named block
+            // stays in the report.
+            m_Rep.LiftPlanned = new RunsFirstBottom[m_Lifts.Length];
+            for (int l = 0; l < m_Lifts.Length && l < m_Plan.Lifts.Count; l++)
+            {
+                RunsFirstResult.Lift lf = m_Plan.Lifts[l];
+                RunsFirstBottom pb = lf.ToBottom;
+                m_Rep.LiftPlanned[l] = pb;
+                bool way = m_Rep.LiftSkis[l] || pb != RunsFirstBottom.NoSkiing, real = m_Rep.LiftBottom[l];
+                if (!way)
+                    continue;
+                m_Rep.BottomWayDown++;
+                if (pb == RunsFirstBottom.Reaches)
+                    m_Rep.BottomPlanner++;
+                if (real)
+                    m_Rep.BottomRealized++;
+                if (pb == RunsFirstBottom.Reaches && !real)
+                    m_Rep.BottomLost++;
+                if (pb != RunsFirstBottom.Reaches && real)
+                    m_Rep.BottomGained++;
+                if (!real)
                 {
                     res.Warnings |= AutoPlanWarning.NoWayToBottom;
                     m_Rep.NoWayToBottom = true;
-                    m_Rep.Lines.Add($"lift L{lf.Id}: no way to the bottom ({lf.ToBottom})");
+                    m_Rep.Lines.Add($"lift L{lf.Id}: no way to the bottom on the realized plan (the planner: {pb})");
                 }
+                else if (pb != RunsFirstBottom.Reaches)
+                    m_Rep.Lines.Add($"lift L{lf.Id}: reaches the bottom on the realized plan (the planner: {pb})");
+            }
             RelationGate();
             BandKeepReport();
             plan.Fingerprint = Hash(res);
@@ -271,12 +293,17 @@ namespace SkiResortMod.Systems
                 edges.Add(new PlanEdge { From = from, To = to, Kind = kind, Band = band, Run = run });
                 meters.Add(m);
             }
+            m_Rep.LiftSkis = new bool[L];
+            m_Rep.LiftBottom = new bool[L];
             for (int l = 0; l < L; l++)
             {
                 Edge(L + l, l, EdgeLift, SlopeBand.Flat, -1, m_Lifts[l].LengthM);
                 for (int i = 0; i < A; i++)
                     if (LiftServedRule.Reaches(tops[i], lifts[l], chords, out float _))
+                    {
                         Edge(l, 2 * L + i, EdgeLink, SlopeBand.Flat, -1, 1.0);
+                        m_Rep.LiftSkis[l] = true;
+                    }
             }
             var hasOut = new bool[A];
             for (int i = 0; i < A; i++)
@@ -344,6 +371,7 @@ namespace SkiResortMod.Systems
                 int b1 = descent.Run(l, bottom, 0, out int _);
                 if (b1 >= 0)
                     m_Rep.BottomReach++;
+                m_Rep.LiftBottom[l] = b1 >= 0;
                 m_Rep.Lines.Add($"lift L{l + 1} ({m_Plan.Lifts[l].Type}): home {m_Lifts[l].Home}, bottom band {(b1 >= 0 ? ((SlopeBand)Math.Max(b1, 1)).ToString() : "not reached")}, serves {m_Lifts[l].Serves}, towers {(m_Lifts[l].TowersUnchecked ? "not clear" : "clear")}");
             }
             // Dead ends: no way on (another area, a lift bottom, an aerial top) and not in the bottom band
@@ -357,6 +385,7 @@ namespace SkiResortMod.Systems
                 m_Rep.Lines.Add($"dead end: {(a.Track ? "track" : "piste")} {m_E[a.Elem].Source} ({m_E[a.Elem].Kind}) segment {a.Segment} ends at ({p.x:F0}, {p.y:F0}) {a.EndY - m_BottomTop:F0} m over the bottom band");
             }
             m_Rep.DeadEnds = plan.DeadEnds;
+            BottomCauses(L, A, edges, bottom);
         }
 
         private static bool Aerial(byte type) => type == 2 || type == 3;
@@ -663,6 +692,173 @@ namespace SkiResortMod.Systems
                 best = Math.Min(best, PlanGeometry.RingDistance(x.Ring, y.Ring, 500f, out _, out _, out _, out _));
             }
             return best;
+        }
+
+        // ---------------------------------------------------------------- R2-y: why a lift loses the bottom (report only)
+
+        /// <summary>Report only. For each lift the planner reads as reaching the base band (ToBottom Reaches) and the realized plan does
+        /// not: the cheapest way down when the planner's own link rules may fill in what the game does not link. Nodes are the realized
+        /// areas and the dropped elements (no area). A game link costs 0. Each planner-only step costs 1: a start within 150 m of the top
+        /// that the served rule does not take ("top"), two centerlines within 40 m whose outlines are not a game link ("link", with the
+        /// outline gap), the next segment of the same source ("piece", the stretch lost between them), a dropped element ("dropped").
+        /// One line per lift: "bottom lost: L{id}" and its steps. For a lift the realized plan takes to the band and the planner does
+        /// not: the area that gets there ("bottom gained").</summary>
+        private void BottomCauses(int L, int A, List<PlanEdge> edges, bool[] bottomNode)
+        {
+            bool any = false;
+            for (int l = 0; l < L && l < m_Plan.Lifts.Count; l++)
+                any |= (m_Plan.Lifts[l].ToBottom == RunsFirstBottom.Reaches) != m_Rep.LiftBottom[l];
+            if (!any)
+                return;
+            // nodes: areas 0..A-1, dropped elements A..
+            var pts = new List<float3[]>(A);
+            var names = new List<string>(A);
+            var src = new List<int>(A);
+            for (int i = 0; i < A; i++)
+            {
+                Area a = m_Out[i];
+                var p = new float3[a.Line.Length];
+                for (int k = 0; k < p.Length; k++)
+                    p[k] = new float3(a.Line[k].x, H(a.Line[k]), a.Line[k].y);
+                pts.Add(p);
+                names.Add($"{(a.Track ? "track" : "piste")} {m_E[a.Elem].Source}/{a.Segment}");
+                src.Add(a.Elem);
+            }
+            foreach (Elem e in m_E)
+                if (e.Areas.Count == 0 && e.Samp != null && e.Samp.Length >= 2)
+                {
+                    pts.Add(e.Samp);
+                    names.Add($"{(e.Type == ElemType.Track ? "track" : "piste")} {e.Source} (dropped, {e.LengthM:F0} m)");
+                    src.Add(e.Id);
+                }
+            int n = pts.Count;
+            // game links between areas (the descent graph's link edges, exit to entry), and the lift tops' served areas
+            var game = new List<int>[n];
+            var relax = new List<int>[n];
+            for (int v = 0; v < n; v++)
+            {
+                game[v] = new List<int>();
+                relax[v] = new List<int>();
+            }
+            var served = new List<int>[L];
+            for (int l = 0; l < L; l++)
+                served[l] = new List<int>();
+            foreach (PlanEdge e in edges)
+                if (e.Kind == EdgeLink && e.From >= 2 * L + A && e.From < 2 * L + 2 * A && e.To >= 2 * L && e.To < 2 * L + A)
+                    game[e.From - 2 * L - A].Add(e.To - 2 * L);
+                else if (e.Kind == EdgeLink && e.From < L && e.To >= 2 * L && e.To < 2 * L + A)
+                    served[e.From].Add(e.To - 2 * L);
+            const float NextM = 40f, RiseM = 5f, TopM = 150f;
+            for (int i = 0; i < n; i++)
+            {
+                float3 end = pts[i][pts[i].Length - 1];
+                for (int j = 0; j < n; j++)
+                {
+                    if (i == j || game[i].Contains(j))
+                        continue;
+                    float3 st = pts[j][0];
+                    bool near = false;
+                    foreach (float3 p in pts[j])
+                        if (math.distancesq(p.xz, end.xz) < NextM * NextM && p.y <= end.y + RiseM)
+                        {
+                            near = true;
+                            break;
+                        }
+                    if (!near)
+                        foreach (float3 p in pts[i])
+                            if (math.distancesq(p.xz, st.xz) < NextM * NextM && st.y <= p.y + RiseM)
+                            {
+                                near = true;
+                                break;
+                            }
+                    // the next segment of the same source (a stretch lost between two areas)
+                    if (!near && i < A && j < A && src[i] == src[j] && m_Out[j].Segment == m_Out[i].Segment + 1)
+                        near = true;
+                    if (near)
+                        relax[i].Add(j);
+                }
+            }
+            var cost = new int[n];
+            var pred = new int[n];
+            for (int l = 0; l < L && l < m_Plan.Lifts.Count; l++)
+            {
+                bool planned = m_Plan.Lifts[l].ToBottom == RunsFirstBottom.Reaches;
+                if (planned == m_Rep.LiftBottom[l])
+                    continue;
+                float2 top = m_Lifts[l].Top.xz;
+                var dq = new LinkedList<int>();
+                for (int v = 0; v < n; v++)
+                {
+                    pred[v] = -1;
+                    cost[v] = served[l].Contains(v) ? 0 : planned && math.distancesq(pts[v][0].xz, top) < TopM * TopM ? 1 : int.MaxValue;
+                    if (cost[v] == 0)
+                        dq.AddFirst(v);
+                    else if (cost[v] == 1)
+                        dq.AddLast(v);
+                }
+                int hit = -1;
+                var done = new bool[n];
+                while (dq.Count > 0)
+                {
+                    int u = dq.First.Value;
+                    dq.RemoveFirst();
+                    if (done[u])
+                        continue;
+                    done[u] = true;
+                    if (u < A ? bottomNode[2 * L + A + u] : pts[u][pts[u].Length - 1].y <= m_BottomTop)
+                    {
+                        hit = u;
+                        break;
+                    }
+                    foreach (int w in game[u])
+                        if (cost[u] < cost[w])
+                        {
+                            cost[w] = cost[u];
+                            pred[w] = u;
+                            dq.AddFirst(w);
+                        }
+                    if (!planned)
+                        continue;   // the realized way: game links only
+                    foreach (int w in relax[u])
+                        if (cost[u] + 1 < cost[w])
+                        {
+                            cost[w] = cost[u] + 1;
+                            pred[w] = u;
+                            dq.AddLast(w);
+                        }
+                }
+                int id = m_Plan.Lifts[l].Id;
+                if (!planned)
+                {
+                    m_Rep.Lines.Add(hit >= 0 ? $"bottom gained: L{id}: {names[hit]} ends in the band at {pts[hit][pts[hit].Length - 1].y:F0} m, band top {m_BottomTop:F0} m (the planner: {m_Plan.Lifts[l].ToBottom})"
+                        : $"bottom gained: L{id}: no path found (the planner: {m_Plan.Lifts[l].ToBottom})");
+                    continue;
+                }
+                if (hit < 0)
+                {
+                    m_Rep.Lines.Add($"bottom lost: L{id}: [none] no way down even with the planner's links");
+                    continue;
+                }
+                var steps = new List<string>();
+                for (int v = hit; v >= 0; v = pred[v])
+                {
+                    int u = pred[v];
+                    if (u >= 0 ? game[u].Contains(v) : served[l].Contains(v))
+                        continue;
+                    if (v >= A)
+                        steps.Add($"[dropped] {names[v]}");
+                    else if (u < 0)
+                        steps.Add($"[top] {names[v]} starts {math.distance(pts[v][0].xz, top):F0} m from the top, not served");
+                    else if (u >= A)
+                        continue;   // the step out of a dropped element: the step into it names it
+                    else if (src[u] == src[v] && m_Out[v].Segment == m_Out[u].Segment + 1)
+                        steps.Add($"[piece] {names[u]} to {names[v]}, {math.distance(pts[u][pts[u].Length - 1].xz, pts[v][0].xz):F0} m lost between them");
+                    else
+                        steps.Add($"[link] {names[u]} to {names[v]}, outlines {PlanGeometry.RingDistance(m_Out[u].Ring, m_Out[v].Ring, 500f, out _, out _, out _, out _):F0} m apart");
+                }
+                steps.Reverse();
+                m_Rep.Lines.Add($"bottom lost: L{id}: " + string.Join("; ", steps) + $"; ends {names[hit]}");
+            }
         }
 
         // ---------------------------------------------------------------- EasiestDescent (copied from SkiRunAutoPlanner.Flow, spec section 9)

@@ -60,6 +60,12 @@ namespace SkiResortMod.Systems
         public readonly int[] HandFitByType = new int[4];
         public int HandFitSpans, HandFitOverCap, HandFitSteep, HandFitClearance, HandFitEdge, HandFitMiss;
         public bool NoWayToBottom;
+        // R2-y: the way to the bottom on the realized plan, per lift (the game's link graph, no lift ride). Skis: a skier leaving the top
+        // has an area under the served rule. Bottom: an area skied from the top ends in the base band. Planned: the planner's ToBottom.
+        public bool[] LiftSkis = new bool[0], LiftBottom = new bool[0];
+        public RunsFirstBottom[] LiftPlanned = new RunsFirstBottom[0];
+        public int BottomWayDown, BottomPlanner, BottomRealized, BottomLost, BottomGained;
+        public float BottomTop;   // the top of the base band (lattice heights)
         // Time (ms, a report only) and memory
         public double Ms, LatticeMs, LiftMs, PisteMs, TrackMs, GraphMs;
         public long LayerBytes;

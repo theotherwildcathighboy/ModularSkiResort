@@ -213,6 +213,16 @@ namespace AutoGenBatch
             return o;
         }
 
+        /// <summary>R2-y: the lifts where the planner's read of the way to the bottom and the realized plan's differ ("none").</summary>
+        private static string BottomDiffer(RealizeReport rep)
+        {
+            var d = new List<string>();
+            for (int l = 0; l < rep.LiftBottom.Length && l < rep.LiftPlanned.Length; l++)
+                if ((rep.LiftPlanned[l] == RunsFirstBottom.Reaches) != rep.LiftBottom[l])
+                    d.Add($"L{l + 1} planner {rep.LiftPlanned[l]}, realized {(rep.LiftBottom[l] ? "yes" : "no")}");
+            return d.Count > 0 ? string.Join(", ", d) : "none";
+        }
+
         private static Row RunRegion(string id, float2[] ring, HeightSnapshot snap, RunsFirstOptions options, string outDir)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -264,7 +274,6 @@ namespace AutoGenBatch
             for (int k = 1; k < (int)AutoReject.Count; k++)
                 if (rep.TrackDrops[k] > 0)
                     tdrops.Add($"{(AutoReject)k} {rep.TrackDrops[k]}");
-            Gate b1 = res.Resort != null && res.Resort.Lifts != null ? V2Metrics.B1WayToBottom(res, res.Resort) : default;   // the way to the bottom, realized (plan 5.4)
             float rawT = raw.Total, realT = real.Total, skiedT = skied.Total;
             var lines = new List<string>
             {
@@ -283,8 +292,9 @@ namespace AutoGenBatch
                     $"{rep.UnlinkedEnds} ({rep.UnlinkedBlocked} blocked) of {ends} ({(ends > 0 ? 100.0 * rep.UnlinkedEnds / ends : 0):F2} %)",
                 $"  graph: unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, bottom reach {rep.BottomReach}/{rep.Lifts}, no way to bottom {rep.NoWayToBottom}; " +
                     $"way to the bottom: planner {plan.Lifts.Count(l => l.ToBottom == RunsFirstBottom.Reaches)}/{plan.Lifts.Count(l => l.ToBottom != RunsFirstBottom.NoSkiing)} " +
-                    $"({string.Join(", ", plan.Lifts.Where(l => l.ToBottom != RunsFirstBottom.Reaches).Select(l => $"L{l.Id} {l.ToBottom}"))}), " +
-                    $"realized B-1 {(b1.Id == null ? "n/a" : $"{plan.Lifts.Count - (int)b1.Value}/{plan.Lifts.Count}")} ({b1.Text})",
+                    $"({string.Join(", ", plan.Lifts.Where(l => l.ToBottom != RunsFirstBottom.Reaches).Select(l => $"L{l.Id} {l.ToBottom}"))})",
+                $"  bottom: lifts with a way down {rep.BottomWayDown}, reach the base band by the planner {rep.BottomPlanner}, realized {rep.BottomRealized}; " +
+                    $"lost {rep.BottomLost}, gained {rep.BottomGained}; differ: {BottomDiffer(rep)}",
                 $"  lifts: {rep.Lifts}, tower plan sound {rep.LiftsClear}, hand fit chair/detachable/gondola/tram {rep.HandFitByType[0]}/{rep.HandFitByType[1]}/{rep.HandFitByType[2]}/{rep.HandFitByType[3]} " +
                     $"(spans {rep.HandFitSpans}, over cap {rep.HandFitOverCap}, too steep {rep.HandFitSteep}, clearance {rep.HandFitClearance}, edge slope {rep.HandFitEdge}, miss {rep.HandFitMiss}), sunk ends {rep.SunkEnds}, lot conflicts {rep.LotConflicts}",
                 $"  score: raw {rawT:F1}, as built {realT:F1} ({realT - rawT:+0.0;-0.0}), as skied {skiedT:F1} ({skiedT - rawT:+0.0;-0.0}), realized pistes with the raw connectors {mixT:F1}; " +
@@ -312,7 +322,7 @@ namespace AutoGenBatch
                 File.WriteAllText(tsv, "region\tsources\tdropped\tdrops\tareas\tpiecesLost\tkmPlan\tkmKept\tgradedKmPlan\tgradedKmKept\trelations\tlinks\tvia\tmisses\textensions\t" +
                     "unlinked\tunlinkedBlocked\tends\tunserved\tdeadEnds\tbandAgree\tbandRated\tbandAgreeKm\tbandRatedKm\ttrackSources\ttrackChains\ttrackAreas\t" +
                     "trackPiecesLost\ttrackKmPlan\ttrackKmKept\ttrackDrops\tlifts\tliftsClear\tbottomReach\traw\trealized\tplanMs\trealizeMs\tlayerMB\tdeterministic\tfallback\tskied\tcrossesFallback\ttrackReaches\tpisteReaches\tremnantsKept\tremnantsDropped\tconverging\tagreeKmFull\tagreeKmKept\tplainKm\t" +
-                    "greenKeep\tblueKeep\tblackKeep\tdbKeep\tgreenWidth\tblueWidth\tgreenFullWidth\tblueFullWidth\thandFitChair\thandFitDetachable\thandFitGondola\thandFitTram\thandFitSpans\thandFitOverCap\thandFitSteep\thandFitClearance\thandFitEdge\thandFitMiss\ttrackMerged\ttrackKmMerged\ttrackKmShared\tmergedRelations\tmergedLinks\ttrackKmOwn\tselfSplits\tspurs\n");
+                    "greenKeep\tblueKeep\tblackKeep\tdbKeep\tgreenWidth\tblueWidth\tgreenFullWidth\tblueFullWidth\thandFitChair\thandFitDetachable\thandFitGondola\thandFitTram\thandFitSpans\thandFitOverCap\thandFitSteep\thandFitClearance\thandFitEdge\thandFitMiss\ttrackMerged\ttrackKmMerged\ttrackKmShared\tmergedRelations\tmergedLinks\ttrackKmOwn\tselfSplits\tspurs\tbottomWayDown\tbottomPlanner\tbottomRealized\tbottomLost\tbottomGained\n");
             File.AppendAllText(tsv, string.Join("\t", new object[]
             {
                 id, sources, dropped, drops.Count > 0 ? string.Join(",", drops) : "-", res.Runs.Count, rep.PiecesLost, kmPlan.ToString("F2"), kmKept.ToString("F2"),
@@ -326,6 +336,7 @@ namespace AutoGenBatch
                 rep.HandFitByType[0], rep.HandFitByType[1], rep.HandFitByType[2], rep.HandFitByType[3], rep.HandFitSpans, rep.HandFitOverCap, rep.HandFitSteep,
                 rep.HandFitClearance, rep.HandFitEdge, rep.HandFitMiss, rep.TrackMerged, rep.TrackKmMerged.ToString("F2"), rep.TrackKmShared.ToString("F2"),
                 rep.MergedRelations, rep.MergedLinks, rep.TrackKmOwn.ToString("F2"), rep.TrackSelfSplits, rep.TrackSpurs,
+                rep.BottomWayDown, rep.BottomPlanner, rep.BottomRealized, rep.BottomLost, rep.BottomGained,
             }.Select(o => Convert.ToString(o, CultureInfo.InvariantCulture))) + "\n");
             return new Row
             {

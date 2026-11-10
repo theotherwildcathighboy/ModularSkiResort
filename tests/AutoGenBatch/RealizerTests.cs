@@ -31,6 +31,27 @@ namespace AutoGenBatch
         private static (int Reach, int Skiing) PlannerBottom(RunsFirstResult plan) =>
             (plan.Lifts.Count(l => l.ToBottom == RunsFirstBottom.Reaches), plan.Lifts.Count(l => l.ToBottom != RunsFirstBottom.NoSkiing));
 
+        /// <summary>R2-y (HARD): per lift, the realized plan reaches the base band (the realizer's graph, the game's link rule, no lift ride)
+        /// exactly where the planner's ToBottom says Reaches. NoWayToBottom is set exactly when a lift with a way down does not reach it on
+        /// the realized plan.</summary>
+        private static void RealizedBottomGate(string where, RunsFirstResult plan, AutoPlanResult res, RealizeReport rep)
+        {
+            var differ = new List<string>();
+            bool unreached = false;
+            for (int l = 0; l < plan.Lifts.Count; l++)
+            {
+                bool planned = plan.Lifts[l].ToBottom == RunsFirstBottom.Reaches, real = l < rep.LiftBottom.Length && rep.LiftBottom[l];
+                if (planned != real)
+                    differ.Add($"L{plan.Lifts[l].Id} planner {plan.Lifts[l].ToBottom}, realized {(real ? "yes" : "no")}");
+                bool way = (l < rep.LiftSkis.Length && rep.LiftSkis[l]) || plan.Lifts[l].ToBottom != RunsFirstBottom.NoSkiing;
+                unreached |= way && !real;
+            }
+            Check(differ.Count == 0, where, "way to the bottom: the realized plan differs from the planner: " + string.Join("; ", differ) + " | " +
+                string.Join("; ", rep.Lines.Where(l => l.StartsWith("bottom "))));
+            Check(res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom) == unreached, where,
+                $"NoWayToBottom warning {res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom)}, a lift with a way down left without the bottom {unreached}");
+        }
+
         /// <summary>The landing class the pass logged (0: no pass line).</summary>
         private static int LandingClass(RunsFirstResult plan)
         {
@@ -60,16 +81,15 @@ namespace AutoGenBatch
                 var planner = new RunsFirstPlanner { Id = "bottom " + name, Inputs = inputs };
                 RunsFirstResult plan = planner.BottomProbe(snap, region, new List<(float2, float2)> { (new float2(0f, bottomZ), new float2(0f, -950f)) },
                     new List<List<float2>> { Line(0f, -930f, 0f, bottomZ - 10f) }, new RunsFirstOptions { ScanThreads = 2 });
-                // the realized plan and B-1 (pad-based: it sees a landing at a lift bottom only, so landings of class 2 to 4 read stranded)
+                // the realized plan: the realizer's graph (the game's link rule) per lift
                 AutoPlanInput input = RealizerHost.InputOf(snap, region);
-                AutoPlanResult res = RunsFirstRealizer.Realize(plan, input, new RealizeReport());
-                Gate b1 = res.Resort != null ? V2Metrics.B1WayToBottom(res, res.Resort) : default;
+                var rep = new RealizeReport();
+                AutoPlanResult res = RunsFirstRealizer.Realize(plan, input, rep);
                 var (reach, skiing) = PlannerBottom(plan);
                 Console.WriteLine($"REPORT bottom fixture {name}: {plan.Lifts[0].ToBottom}, landing class {LandingClass(plan)}, {plan.Connectors.Count} track(s), " +
-                    $"{plan.Runs.Count(r => r.Kind == "bottom")} run(s) to the bottom; planner {reach}/{skiing}, realized B-1 {plan.Lifts.Count - (int)b1.Value}/{plan.Lifts.Count}" +
+                    $"{plan.Runs.Count(r => r.Kind == "bottom")} run(s) to the bottom; planner {reach}/{skiing}, realized {rep.BottomRealized}/{rep.BottomWayDown}" +
                     $" ({res.Warnings}); " + string.Join("; ", plan.Log.Where(s => s.Contains("to the bottom"))));
-                Check(res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom) == (reach < skiing), "Bottom fixture " + name,
-                    $"NoWayToBottom warning {res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom)}, {reach}/{skiing} lifts reach the bottom");
+                RealizedBottomGate("Bottom fixture " + name, plan, res, rep);
                 return plan;
             }
             // 1. a bench above the base: the run ends on the bench, a trail goes on down the gentle slope below it
@@ -194,16 +214,13 @@ namespace AutoGenBatch
                 Check(a == b, where, $"second run {b:x16} != first {a:x16}");
                 Check(res.Resort != null && res.Resort.Lifts.Length == plan.Lifts.Count, where, "the plan does not carry one PlanLift per planner lift");
                 RealizerInvariants(where, res, input, rep);
-                // the way to the bottom: the planner's read and B-1 on the realized plan (pad-based, so a landing of class 1 only)
+                // the way to the bottom: the planner's read and the realized plan's (the realizer's graph), per lift
                 var (reach, skiing) = PlannerBottom(plan);
-                Gate b1 = V2Metrics.B1WayToBottom(res, res.Resort);
-                int b1Reach = plan.Lifts.Count - (int)b1.Value;
-                Console.WriteLine($"REPORT realizer {id} way to the bottom: planner {reach}/{skiing}, landing class {LandingClass(plan)}, realized B-1 {b1Reach}/{plan.Lifts.Count}" +
-                    $" ({b1.Text}); " + string.Join(", ", plan.Lifts.Where(l => l.ToBottom != RunsFirstBottom.Reaches).Select(l => $"L{l.Id} {l.ToBottom}")));
-                if (LandingClass(plan) == 1)
-                    Check(b1Reach == reach, where,
-                        $"way to the bottom: the planner reads {reach} lift(s) reaching the base band, B-1 on the realized plan {b1Reach}");
-                Check(res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom) == (reach < skiing), where, $"NoWayToBottom warning {res.Warnings.HasFlag(AutoPlanWarning.NoWayToBottom)}, {reach}/{skiing} lifts reach the bottom");
+                Console.WriteLine($"REPORT realizer {id} way to the bottom: planner {reach}/{skiing}, landing class {LandingClass(plan)}, realized {rep.BottomRealized}/{rep.BottomWayDown}, realizer band top {rep.BottomTop:F0} m; " +
+                    string.Join("; ", plan.Log.Where(s => s.StartsWith("way to the bottom: band top")).Select(s => s.Substring(0, Math.Min(40, s.Length)))) + "; " +
+                    string.Join(", ", plan.Lifts.Where(l => l.ToBottom != RunsFirstBottom.Reaches).Select(l => $"L{l.Id} {l.ToBottom}")) +
+                    string.Concat(rep.Lines.Where(l => l.StartsWith("bottom ")).Select(l => "\n  " + l)));
+                RealizedBottomGate(where, plan, res, rep);
                 double kmP = rep.PisteKmPlanned + rep.GradedKmPlanned, kmK = rep.PisteKmKept + rep.GradedKmKept;
                 Console.WriteLine($"REPORT realizer {id}: {res.Runs.Count} areas, piste km {kmK:F2}/{kmP:F2}, track km {rep.TrackKmKept:F2}/{rep.TrackKmPlanned:F2}, " +
                     $"relations {rep.RelationLinks}/{rep.Relations}, unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, {rep.Ms:F0} ms, hash {a:x16}" +

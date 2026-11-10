@@ -460,6 +460,7 @@ namespace SkiResortMod.Systems
             m_HMin = open > 0 ? hMin : 0f;
             float band = Math.Max(BottomMinM, Math.Min(BottomMaxM, BottomShare * r.VerticalM));
             m_BottomTop = m_HMin + band;
+            m_Rep.BottomTop = m_BottomTop;
         }
     }
 }
