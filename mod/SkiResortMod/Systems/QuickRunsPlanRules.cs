@@ -37,8 +37,8 @@ namespace SkiResortMod.Systems
         private const float MinSideM = 20f;
         private const float EpsM = 1f;
 
-        /// <summary>Lifts a plan may hold (plan 7.8: runs-first plans 6 to 15). The Lifts knob clamps to it, but runs-first ignores the knob.
-        /// The hub mirror is LIFTS_MAX in QuickRunsControls.tsx.</summary>
+        /// <summary>Lifts a plan may hold (plan 7.8: runs-first plans 6 to 15). The hub lists that many lift rows.
+        /// The old Lifts knob is hidden and ignored (DECISIONS 632).</summary>
         public const int MaxLifts = 15;
 
         public enum PlanPickKind { None, Lift, Run, Pod }
