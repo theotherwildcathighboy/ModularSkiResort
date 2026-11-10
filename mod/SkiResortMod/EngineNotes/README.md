@@ -129,6 +129,7 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`SnowGunPlumeRules.md`](SnowGunPlumeRules.md) -> SnowGunPlumeRules: when a run's snow guns count as running, how the pack is measured, and the plume lease
 - [`SnowLineSystem.md`](SnowLineSystem.md) -> SnowLineSystem: the shared climate oracle (ambient temperature, snow line, day mean) and why it samples the climate curve
 - [`StationAlign.md`](StationAlign.md) -> StationAlign: station stub-tip geometry, the sign convention, readout classes and place, and move episodes
+- [`StationPlaceToolSystem.md`](StationPlaceToolSystem.md) -> StationPlaceToolSystem: the station placer, the plan sheet, the lift build queue and the plan marks outside the planner
 - [`TowerLeanSystem.md`](TowerLeanSystem.md) -> TowerLeanSystem: where a line tower's mast lean and its padded-face-uphill turn are written (after AlignSystem, before LaneSystem) and what follows them
 - [`TowerNumberTiles.md`](TowerNumberTiles.md) -> TowerNumberTiles: the tower number rule, tile prefab layout and the plate frame the tiles are placed in
 - [`TowerNumberTileSystem.md`](TowerNumberTileSystem.md) -> TowerNumberTileSystem: how number tile objects are created under towers and swept again by the engine

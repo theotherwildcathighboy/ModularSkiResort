@@ -43,6 +43,7 @@ namespace AutoGenBatch
                 Check(a == want, where, $"hash {a:x16} != recorded {want:x16}");
                 Console.WriteLine($"REPORT rf golden {id}: {a:x16}, {first.Runs.Count} runs, {first.Lifts.Count} lifts, {first.Connectors.Count} connectors, {ms} ms");
             }
+            RunsFirstPlannerTests();   // the planner object: two threads, cancel, progress (RunsFirstPlannerTests.cs)
         }
     }
 }

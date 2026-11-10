@@ -1,4 +1,4 @@
-// RunsFirst coverage fill (prototype): once the lifts, runs, network and beginner terrain stand, skiable ground a skier gets to
+// RunsFirstPlanner coverage fill: once the lifts, runs, network and beginner terrain stand, skiable ground a skier gets to
 // can still lie away from every run. Examples: a broad face between two trunk runs, the gentle side of a valley. A candidate
 // line becomes a run when it leaves a run or traverse the skier is already on and goes down over that ground. It must also open
 // enough new ground for its length and keep its distance from the runs beside it. The fill takes the best new ground first,
@@ -8,12 +8,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float FillCoverM = 50f;       // ground within this of a run counts as opened (the scorecard's coverage radius)
         private const float FillNewPerM = 0.08f;    // new 20 m lattice points per meter of trail a fill run must open (a third of its band)
@@ -21,13 +20,13 @@ namespace AutoGenBatch
         private const float FillCrowdShare = 0.25f, FillCrowdM = 40f;   // at most this share of it within 40 m of another run (its last 150 m aside)
         private const float FillForkM = 30f;        // a fill run leaves a run or traverse within this distance, at most 3 m above it
         private const float FillDropM = 60f;
-        private static float FillMinM => O.FillMinM;   // a short fill run still drops FillDropM (no stub). Scorecard v3 rates length nowhere else
+        private float FillMinM => O.FillMinM;   // a short fill run still drops FillDropM (no stub). Scorecard v3 rates length nowhere else
         private const float FillFeedM = 110f, FillFeedShare = 0.3f;   // ... or from a straight cut-over this long at most (a share of the run)
         // a fill run must open ground for the crowding it brings. The scorecard weighs coverage 10 against its 60 % target and
         // crowding 5 against a 30 % share. So at par a crowded 10 m sample costs about 1.0 x (lattice points / run samples) new points.
         // The fill asks a quarter of that: 0.25 against 0.67. Result: visible 97.48 -> 97.53, 80 % outlines 95.33 -> 95.40, 120 %
         // 96.10 -> 96.22, squares 95.01 -> 95.21, no region worse (1.0: 97.41 against 97.48)
-        private static float FillCrowdTrade => O.FillCrowdTrade;
+        private float FillCrowdTrade => O.FillCrowdTrade;
 
         /// <summary>Fall lines through open ground. From an open lattice point, a line goes up the steepest ascent until it meets ground
         /// a skier is on (onNear). It then goes down the steepest descent until it runs along a run for a few steps or reaches a
@@ -199,7 +198,7 @@ namespace AutoGenBatch
         }
 
         [MethodImpl(Hot)]
-        private static int FillCover(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands)
+        private int FillCover(Grid g, PlanDraft plan, List<Lift> lifts, List<Cand> cands)
         {
             SkiGraph sg = Ski(g, plan, lifts);
             static long Key(float2 p) => ((long)Math.Floor(p.x / 60f) << 32) ^ (uint)(int)Math.Floor(p.y / 60f);
@@ -221,6 +220,8 @@ namespace AutoGenBatch
             var latAt = new Dictionary<long, List<int>>();
             for (int i = 0; i < lat.Count; i++)
             {
+                if ((i & 1023) == 1023)
+                    Poll();
                 if (!latAt.TryGetValue(Key(lat[i]), out List<int> l))
                     latAt[Key(lat[i])] = l = new List<int>();
                 l.Add(i);
@@ -490,8 +491,11 @@ namespace AutoGenBatch
             // best new ground first (lazy: a line's new ground only shrinks as the fill adds runs)
             var queue = new StableHeap<Cand, int>();
             foreach (Cand cd in cands)
+            {
+                Poll();
                 if (!cd.L.Picked && Eval(cd, out int f0, out _) != null)
                     queue.Enqueue(cd, -f0);
+            }
             Tick("fill setup");
             int faceLines = 0;
             if (O.FaceLines)
@@ -502,7 +506,7 @@ namespace AutoGenBatch
                         queue.Enqueue(cd, -f0);
                 }
             if (O.Debug)
-                Console.WriteLine($"DEBUG fill: {queue.Count} of {cands.Count} candidate(s) and {faceLines} face line(s); no fork {why[0]}, never leaves {why[1]}, no way home {why[2]}, short {why[3]}, crowded {why[4]}, little new ground {why[5]}, crowding costs more {why[6]}");
+                Trace($"DEBUG fill: {queue.Count} of {cands.Count} candidate(s) and {faceLines} face line(s); no fork {why[0]}, never leaves {why[1]}, no way home {why[2]}, short {why[3]}, crowded {why[4]}, little new ground {why[5]}, crowding costs more {why[6]}");
             Tick("face lines");
             int added = 0, opened = 0;
             float km = 0f;
@@ -632,13 +636,13 @@ namespace AutoGenBatch
                     }
                     diagonals++;
                     if (O.Debug)
-                        Console.WriteLine($"DEBUG diagonal {RunLength(pts):F0} m from {pts[0].x:F0},{pts[0].y:F0} to {pts[pts.Count - 1].x:F0},{pts[pts.Count - 1].y:F0}, {fresh} new lattice points");
+                        Trace($"DEBUG diagonal {RunLength(pts):F0} m from {pts[0].x:F0},{pts[0].y:F0} to {pts[pts.Count - 1].x:F0},{pts[pts.Count - 1].y:F0}, {fresh} new lattice points");
                     opened += fresh;
                     diagKm += RunLength(pts) / 1000f;
                 }
             }
             if (O.Debug)
-                Console.WriteLine($"DEBUG diagonals: {traces} trace(s), {traced} reached a run or station; not a run {dwhy[0]}, past blue {dwhy[1]}, connector rules {dwhy[2]}, " +
+                Trace($"DEBUG diagonals: {traces} trace(s), {traced} reached a run or station; not a run {dwhy[0]}, past blue {dwhy[1]}, connector rules {dwhy[2]}, " +
                     $"short {dwhy[3]}, crowded {dwhy[4]}, little new ground {dwhy[5]}, crowding costs more {dwhy[6]}, lift chord {dwhy[7]}");
             // a diagonal's case for a trail. It is a blue diagonal run by the scorecard's reading. It is within the connector rules, not a
             // stub and clear of the lift chords. The case also needs enough new ground for its length, and more than the crowding it
@@ -732,7 +736,7 @@ namespace AutoGenBatch
 
         /// <summary>RF_COVDBG: a map of the skiable ground and what the served runs cover of it, 100 m a character, +z up and +x right
         /// ("#" all covered, "+" half or more, "." less, "o" none, A-Z a lift bottom, a-z its top).</summary>
-        private static void CoverDebug(Grid g, Plan plan, List<Lift> lifts)
+        private void CoverDebug(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             // the elements the scorecard reads as runs (as the cut model takes them: every one served)
             var runs = new PointHash();
@@ -772,7 +776,7 @@ namespace AutoGenBatch
                 mark[((int)Math.Floor(lifts[L].Bottom.x / 100f), (int)Math.Floor(lifts[L].Bottom.z / 100f))] = (char)('A' + L);
                 mark[((int)Math.Floor(lifts[L].Top.x / 100f), (int)Math.Floor(lifts[L].Top.z / 100f))] = (char)('a' + L);
             }
-            Console.WriteLine($"COVDBG {cov} of {all} skiable lattice points covered ({100f * cov / Math.Max(1, all):F0} %, the scorecard's 60 % = full credit)");
+            Trace($"COVDBG {cov} of {all} skiable lattice points covered ({100f * cov / Math.Max(1, all):F0} %, the scorecard's 60 % = full credit)");
             for (int cz = z1; cz >= z0; cz--)
             {
                 var sb = new System.Text.StringBuilder("COVDBG ");
@@ -786,7 +790,7 @@ namespace AutoGenBatch
                     cells.TryGetValue((cx, cz), out var v);
                     sb.Append(v.Ski == 0 ? ' ' : v.Cov == v.Ski ? '#' : 2 * v.Cov >= v.Ski ? '+' : v.Cov > 0 ? '.' : 'o');
                 }
-                Console.WriteLine(sb.ToString().TrimEnd());
+                Trace(sb.ToString().TrimEnd());
             }
             // and the height: 25 m a step above the lowest ground (0-9, then a-z)
             float lo = float.MaxValue;
@@ -808,7 +812,7 @@ namespace AutoGenBatch
                     int k = Clamp((int)((g.H[c] - lo) / 25f), 0, 35);
                     sb.Append(k < 10 ? (char)('0' + k) : (char)('a' + k - 10));
                 }
-                Console.WriteLine(sb.ToString().TrimEnd());
+                Trace(sb.ToString().TrimEnd());
             }
         }
     }

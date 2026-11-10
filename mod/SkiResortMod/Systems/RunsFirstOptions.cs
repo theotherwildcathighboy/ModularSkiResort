@@ -1,11 +1,11 @@
 // RunsFirst options: every knob of the planner in one plain object, with today's defaults. The planner reads only this object
-// (RunsFirst.O); it never reads the environment. The host fills it from the RF_* environment switches (RunsFirst.HostOptions in
-// RunsFirst.cs), so experiments still work there; the mod will pass its own. The comment after each field names its switch.
+// (RunsFirstPlanner.O, set by Plan); it never reads the environment. The test host fills it from the RF_* environment switches
+// (RunsFirst.HostOptions in tests/AutoGenBatch/RunsFirst.Host.cs), so experiments still work there; the mod will pass its own. The comment after each field names its switch.
 // Pure C# 9, net48-clean.
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal sealed class RunsFirstOptions
+    public sealed class RunsFirstOptions
     {
         // ---- lines and the pick
         public float PicksPerKm2 = 5f;            // RF_PPK: line cap per km2 (12-80), the Normal density

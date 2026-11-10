@@ -1,4 +1,4 @@
-// RunsFirst ski graph (prototype): how a skier moves through a plan. From a lift top a skier takes any run or traverse starting
+// RunsFirstPlanner ski graph: how a skier moves through a plan. From a lift top a skier takes any run or traverse starting
 // within 150 m. The skier continues onto anything its end touches (or that branches off it). A piece passing a lift's bottom
 // station delivers the skier to that lift. The planner uses the graph, the way a person reads a trail map, to find these:
 // - runs nobody can reach or that strand the skier
@@ -9,12 +9,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private sealed class SkiGraph
         {
@@ -31,7 +30,7 @@ namespace AutoGenBatch
         }
 
         [MethodImpl(Hot)]
-        private static SkiGraph Ski(Grid g, Plan plan, List<Lift> lifts)
+        private static SkiGraph Ski(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var sg = new SkiGraph { Runs = plan.Runs.Count };
             foreach (PlanRun r in plan.Runs)

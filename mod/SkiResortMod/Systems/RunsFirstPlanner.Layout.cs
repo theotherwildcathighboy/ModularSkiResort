@@ -1,4 +1,4 @@
-// RunsFirst layout (round v4): what a designer sees on the trail map, and what scorecard v4's layout term reads. Each lift has
+// RunsFirstPlanner layout (round v4): what a designer sees on the trail map, and what scorecard v4's layout term reads. Each lift has
 // its own terminal. Two bottoms (or two tops) on one spot are one shared station, which no real lift has. A top beside the next
 // lift's bottom is a transfer and is fine. A hub does not crowd: more than 4 terminals within 300 m (6 at a base) read as a
 // knot of ropes. Lift lines do not climb side by side up one valley (same direction within 20 degrees, under 250 m apart,
@@ -9,15 +9,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         // scorecard v4's layout rules
         private const float LaySameSpotM = 40f, LayHubM = 300f, LayParallelDeg = 20f, LayParallelM = 250f, LayParallelShare = 0.4f;
         // a station that shares its spot moves to a pad of its own this far away, the nearest first
         private const float SpreadMinM = 46f, SpreadMaxM = 130f;
-        private static readonly List<string> EarlyLog = new List<string>();   // what the lift placement did, for the plan's log
+        private readonly List<string> EarlyLog = new List<string>();   // what the lift placement did, for the plan's log
 
         /// <summary>Scorecard v4's parallel test: the two lines climb the same way within 20 degrees, overlap 40 % of the longer one
         /// along it, and lie under 250 m apart at the overlap's middle.</summary>
@@ -42,7 +42,7 @@ namespace AutoGenBatch
         /// <summary>Scorecard v5.1's stacked lines, a validity violation: one lift riding up on another's line (tops within 300 m, bottoms
         /// over 300 m apart, directions within 30 degrees), with a margin for the station moves of the later passes. Fans (bottoms
         /// together) are fine.</summary>
-        private static bool StackedLines(float2 bi, float2 ti, float2 bj, float2 tj)
+        private bool StackedLines(float2 bi, float2 ti, float2 bj, float2 tj)
         {
             float2 di = ti - bi, dj = tj - bj;
             float li = math.length(di), lj = math.length(dj);
@@ -55,7 +55,7 @@ namespace AutoGenBatch
         /// - no lift top lies within 150 m
         /// - no other low bottom lies within 300 m (it would be a base area of one) while the plan has another base area
         /// - no run from a base lift's top ends at it (a pod).</summary>
-        private static bool LoneBase(Grid g, Plan plan, List<Lift> lifts, float2 b, float2 t)
+        private static bool LoneBase(Grid g, PlanDraft plan, List<Lift> lifts, float2 b, float2 t)
         {
             if (lifts.Count == 0)
                 return false;
@@ -78,14 +78,14 @@ namespace AutoGenBatch
         private const float BaseTopM2 = 160f, BaseAreaM2 = 290f;
         // off by default (RF_LONEBASE=1): rejecting lone-base cover lifts and bridges took 24 -> 15 lone bases. It cost coverage and
         // grade mix where those lifts open terrain (ft5-r3 94.7 -> 92.8). Visible 82.59 -> 82.06
-        private static bool NoLoneBase => O.NoLoneBase;
+        private bool NoLoneBase => O.NoLoneBase;
 
-        private static float StackDegM => O.StackDegM;
+        private float StackDegM => O.StackDegM;
 
-        private static float StackTopMm => O.StackTopMm;
+        private float StackTopMm => O.StackTopMm;
 
-        private static float StackBottomMm => O.StackBottomMm;
-        private static bool NoStacked => O.NoStacked;
+        private float StackBottomMm => O.StackBottomMm;
+        private bool NoStacked => O.NoStacked;
 
         // scorecard v5's fall line: no cost to 30 degrees off the ground's mean downhill direction, full cost at 60
         private const float FallFreeDeg = 30f, FallFullDeg = 60f;
@@ -152,8 +152,8 @@ namespace AutoGenBatch
 
         // the spread may move a station along its own line too (RF_NOSPREADAXIS=1: off). It also runs after each lift of the search
         // and of the coverage pass (RF_NOSPREADEACH=1: off)
-        private static bool SpreadAxis => O.SpreadAxis;
-        private static bool SpreadEach => O.SpreadEach;
+        private bool SpreadAxis => O.SpreadAxis;
+        private bool SpreadEach => O.SpreadEach;
 
         /// <summary>A flat pad 46-130 m from cell c (for a bottom no higher than c, for a top no lower) that no other station of that
         /// end holds. It is where a station on another lift's station can move to.</summary>
@@ -187,7 +187,7 @@ namespace AutoGenBatch
         /// - the layout gets no worse (crowded terminals, parallel lines)
         /// - once there is a plan, the ski graph loses nothing.
         /// Before the plan (plan null) the code holds the line off the picked lines instead. Returns the stations moved.</summary>
-        private static int SpreadTerminals(Grid g, List<Lift> lifts, Plan plan, PointHash runs, bool bottomsOnly = false)
+        private int SpreadTerminals(Grid g, List<Lift> lifts, PlanDraft plan, PointHash runs, bool bottomsOnly = false)
         {
             int moved = 0;
             SkiRead before = null;
@@ -309,7 +309,7 @@ namespace AutoGenBatch
                     return true;
                 }
                 if (O.Debug)
-                    Console.WriteLine($"DEBUG spread L{lf.Id} {(end == 0 ? "bottom" : "top")}{(plan == null ? " (before the plan)" : "")}: {moves.Count} spot(s), tries {tries}; near {why[0]}, pad {why[1]}, " +
+                    Trace($"DEBUG spread L{lf.Id} {(end == 0 ? "bottom" : "top")}{(plan == null ? " (before the plan)" : "")}: {moves.Count} spot(s), tries {tries}; near {why[0]}, pad {why[1]}, " +
                         $"fits {why[2]}, rope/cross {why[3]}, parallel {why[4]}, runs {why[5]}, hub/chord {why[6]}, skiing {why[7]}");
                 return false;
             }
@@ -336,18 +336,6 @@ namespace AutoGenBatch
                     n++;
             }
             return n;
-        }
-
-        private static void TurnDebug(string id, Plan plan)
-        {
-            var rows = new List<(int N, string S)>();
-            foreach (PlanRun r in plan.Runs.Where(r => r.Graded))
-                rows.Add((SharpTurns(r.Pts), $"run {r.Kind} {RunLength(r.Pts):F0} m from {r.Pts[0].x:F0},{r.Pts[0].y:F0}"));
-            foreach (List<float2> c in plan.Connectors)
-                rows.Add((SharpTurns(c), $"{(plan.Links.Contains(c) ? "link/way" : "track")} {RunLength(c):F0} m from {c[0].x:F0},{c[0].y:F0} to {c[c.Count - 1].x:F0},{c[c.Count - 1].y:F0}"));
-            foreach (var (n, s) in rows.Where(x => x.N > 0).OrderByDescending(x => x.N).Take(12))
-                Console.WriteLine($"TURNS {id}: {n} {s}");
-            Console.WriteLine($"TURNS {id}: total {rows.Sum(x => x.N)} in {rows.Count} track(s)");
         }
     }
 }

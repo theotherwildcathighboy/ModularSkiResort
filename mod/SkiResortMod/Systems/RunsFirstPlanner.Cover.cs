@@ -1,4 +1,4 @@
-// RunsFirst coverage lifts (prototype): the main lift search follows the picked lines. So a face or a lower valley that no
+// RunsFirstPlanner coverage lifts: the main lift search follows the picked lines. So a face or a lower valley that no
 // picked line crosses never gets a lift, however much skiable ground it holds. After the main search, the code adds lifts by
 // the ground they open. That ground is the skiable 20 m lattice points that a skier gets to from the top (the honest traverse
 // model). These points also drain past a lift bottom (the new one or any placed one: the skier comes home through the
@@ -11,19 +11,19 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
-        private static bool NoNewBase => !O.CoverNewBase;
+        private bool NoNewBase => !O.CoverNewBase;
         // a coverage lift opens at least this share of the region's skiable ground. 0.015 against 0.02, once lifts without a way home
         // and lines left on runs could go (0fd4f15, 41163e9). Result: visible 97.62 -> 97.64, 80 % outlines 95.40 -> 95.50, 120 % 96.22 ->
         // 96.88, squares 95.21 -> 95.30 (small pod chairs in side bowls). 0.01 put lifts that join nothing on a square (network 0.69)
-        private static float CoverLiftShare => O.CoverLiftShare;
-        private static int CoverLiftMinPts => O.CoverLiftMinPts;     // ... and at least this many 20 m lattice points (11 ha)
-        private static float CoverParallelM => O.CoverParallelM;       // ... and no closer than this alongside a placed lift
-        private static float CoverClearM => O.CoverClearM;          // ... its stations no closer than this to another rope
-        private static float CoverFallW => O.CoverFallW;      // the share of a coverage lift's gain lost 60 degrees off the fall line
+        private float CoverLiftShare => O.CoverLiftShare;
+        private int CoverLiftMinPts => O.CoverLiftMinPts;     // ... and at least this many 20 m lattice points (11 ha)
+        private float CoverParallelM => O.CoverParallelM;       // ... and no closer than this alongside a placed lift
+        private float CoverClearM => O.CoverClearM;          // ... its stations no closer than this to another rope
+        private float CoverFallW => O.CoverFallW;      // the share of a coverage lift's gain lost 60 degrees off the fall line
 
         /// <summary>The skiable 20 m lattice: per cell its index (-1 = not a lattice point or not skiable).</summary>
         [MethodImpl(Hot)]
@@ -115,10 +115,10 @@ namespace AutoGenBatch
         }
 
         // a coverage lift's station on a placed lift's station needs a free pad nearby (RF_COVEROWNPAD=0: off)
-        private static bool OwnPads => O.CoverOwnPads;
+        private bool OwnPads => O.CoverOwnPads;
 
         [MethodImpl(Hot)]
-        private static int AddCoverLifts(Grid g, int[] rec, List<Lift> lifts, List<int> tops, List<bool[]> reachB, List<ulong[]> reachBits,
+        private int AddCoverLifts(Grid g, int[] rec, List<Lift> lifts, List<int> tops, List<bool[]> reachB, List<ulong[]> reachBits,
             List<int> bottoms, int[] latIdx, int latCount, PointHash runs, float km2, float[] slope)
         {
             int n = g.W * g.D, B = bottoms.Count, wb = (B + 63) / 64, wl = (latCount + 63) / 64;
@@ -159,10 +159,13 @@ namespace AutoGenBatch
             }
             SortByKey(hs, order);
             var passes = new ulong[n * wb];
+            int polled = 0;
             foreach (int c in order)
             {
                 if (!g.In[c])
                     break;
+                if ((++polled & 16383) == 0)
+                    Poll();
                 float2 p = g.World(c);
                 int cx = (int)Math.Floor(p.x / 150f), cz = (int)Math.Floor(p.y / 150f);
                 for (int dz = -1; dz <= 1; dz++)
@@ -182,6 +185,8 @@ namespace AutoGenBatch
                 catchOf[b] = new ulong[wl];
             for (int c = 0; c < n; c++)
             {
+                if ((c & 65535) == 65535)
+                    Poll();
                 int i = latIdx[c];
                 if (i < 0)
                     continue;
@@ -225,7 +230,7 @@ namespace AutoGenBatch
                     hc += PopCount(homes[w]);
                     rc += PopCount(reached[w]);
                 }
-                Console.WriteLine($"DEBUG cover lifts: {latCount} skiable lattice points, {rc} below a placed top, {hc} draining past a placed bottom; {B} bottom candidate(s), {tops.Count} top(s)");
+                Trace($"DEBUG cover lifts: {latCount} skiable lattice points, {rc} below a placed top, {hc} draining past a placed bottom; {B} bottom candidate(s), {tops.Count} top(s)");
             }
             while (lifts.Count < budget)
             {
@@ -240,6 +245,7 @@ namespace AutoGenBatch
                     openPts += PopCount(open[w]);
                 for (int ti = 0; ti < tops.Count; ti++)
                 {
+                    Poll();
                     // the top must lead back to the placed lifts (its reach takes in a placed bottom) or drain past one
                     bool back = false;
                     foreach (Lift lf in lifts)
@@ -283,7 +289,7 @@ namespace AutoGenBatch
                             cands.Add((gain, ti, b));
                     }
                     if (debug && O.DebugTops && baseGain >= 40)
-                        Console.WriteLine($"DEBUG cover top {g.World(tops[ti]).x:F0},{g.World(tops[ti]).y:F0} h {g.Hr[tops[ti]]:F0}: base gain {baseGain}, back {back}, best {tBest}, pairs {tPairs}, into {tInto}, home {tHome}");
+                        Trace($"DEBUG cover top {g.World(tops[ti]).x:F0},{g.World(tops[ti]).y:F0} h {g.Hr[tops[ti]]:F0}: base gain {baseGain}, back {back}, best {tBest}, pairs {tPairs}, into {tInto}, home {tHome}");
                 }
                 SortStable(cands, (a, b) => b.Gain.CompareTo(a.Gain));
                 // v5: a coverage lift climbs its slope's fall line. The code ranks the best few hundred again. A sideways line is worth less
@@ -298,9 +304,9 @@ namespace AutoGenBatch
                     cands.InsertRange(0, ranked);
                 }
                 if (debug && O.DebugTops)
-                    Console.WriteLine("DEBUG cover top lines above");
+                    Trace("DEBUG cover top lines above");
                 if (debug)
-                    Console.WriteLine($"DEBUG cover lifts: {openPts} of {latCount} lattice points unserved; {pairs} pair(s), {noInto} not reachable, {noHome} not leading home; best gain {maxGain}; {cands.Count} over the bar");
+                    Trace($"DEBUG cover lifts: {openPts} of {latCount} lattice points unserved; {pairs} pair(s), {noInto} not reachable, {noHome} not leading home; best gain {maxGain}; {cands.Count} over the bar");
                 bool placed = false;
                 var rej = new int[5];
                 foreach (var (gain, ti, b) in cands)
@@ -333,7 +339,7 @@ namespace AutoGenBatch
                                 if (sh > 60f && Cross(a0, a1, b0, b1))
                                     why.Add($"cross L{lf.Id}");
                             }
-                            Console.WriteLine($"DEBUG twin: gain {gain} top {a1.x:F0},{a1.y:F0} h {g.Hr[t]:F0} bottom {a0.x:F0},{a0.y:F0} h {g.Hr[bc]:F0}: {string.Join(", ", why)}");
+                            Trace($"DEBUG twin: gain {gain} top {a1.x:F0},{a1.y:F0} h {g.Hr[t]:F0} bottom {a0.x:F0},{a0.y:F0} h {g.Hr[bc]:F0}: {string.Join(", ", why)}");
                         }
                         rej[0]++;
                         continue;
@@ -391,7 +397,7 @@ namespace AutoGenBatch
                         reached[w] |= reachBits[ti][w];
                     }
                     if (debug)
-                        Console.WriteLine($"DEBUG cover lift L{lift.Id}: {type} {lift.Length:F0} m / {lift.Rise:F0} m up opens {gain} of {latCount} lattice points");
+                        Trace($"DEBUG cover lift L{lift.Id}: {type} {lift.Length:F0} m / {lift.Rise:F0} m up opens {gain} of {latCount} lattice points");
                     // its bottom on a placed lift's bottom moves to a pad of its own now (as in the lift search)
                     if (O.Spread && SpreadEach)
                         SpreadTerminals(g, lifts, null, runs, true);
@@ -402,7 +408,7 @@ namespace AutoGenBatch
                 if (!placed)
                 {
                     if (debug)
-                        Console.WriteLine($"DEBUG cover lifts: none placed; twin {rej[0]}, under a rope {rej[1]}, on runs {rej[2]}, no lift type fits {rej[3]}, opens a base {rej[4]}");
+                        Trace($"DEBUG cover lifts: none placed; twin {rej[0]}, under a rope {rej[1]}, on runs {rej[2]}, no lift type fits {rej[3]}, opens a base {rej[4]}");
                     break;
                 }
             }

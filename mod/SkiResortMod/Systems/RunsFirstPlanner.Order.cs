@@ -1,4 +1,4 @@
-// RunsFirst order: sorts and a queue with a defined order for equal keys. List.Sort and Array.Sort are introsorts: the order they
+// RunsFirstPlanner order: sorts and a queue with a defined order for equal keys. List.Sort and Array.Sort are introsorts: the order they
 // leave equal keys in is unspecified and may differ between runtimes (the mod runs on Unity's Mono, the host on .NET 8).
 // PriorityQueue (not in net48) leaves equal priorities in an unspecified order too. Every result-relevant sort and queue of the
 // planner goes through these helpers, so a plan depends on its input only. Pure C# 9, net48-clean.
@@ -6,9 +6,9 @@
 using System;
 using System.Collections.Generic;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         /// <summary>A stable sort: equal keys keep their order in the list. The comparison plus the list index is a total order, so
         /// any correct sort gives this one result.</summary>

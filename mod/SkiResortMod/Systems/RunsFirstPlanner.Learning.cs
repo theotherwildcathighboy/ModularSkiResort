@@ -1,4 +1,4 @@
-// RunsFirst learning areas (scorecard v5): a base's beginners learn on green runs, not on cat tracks. A base means two or more
+// RunsFirstPlanner learning areas (scorecard v5): a base's beginners learn on green runs, not on cat tracks. A base means two or more
 // lift bottoms within 400 m low on the mountain, as the scorecard reads them. If the beginners of a base get to under 0.8 km
 // of green runs, the base gets a learning area. The area has these parts:
 // - a beginner chair (a short fixed-grip, 30-150 m of rise: a beginner should not face 300 m of vertical first) from a pad at
@@ -11,28 +11,27 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
-        private static float LearnMinRise => O.LearnMinRise;
-        private static float LearnMaxRise => O.LearnMaxRise;
-        private static float LearnMinLen => O.LearnMinLen;
-        private static float LearnRouteMax => O.LearnRouteMax;
+        private float LearnMinRise => O.LearnMinRise;
+        private float LearnMaxRise => O.LearnMaxRise;
+        private float LearnMinLen => O.LearnMinLen;
+        private float LearnRouteMax => O.LearnRouteMax;
         private const float LearnFullKm = 0.85f, LearnChairGrade = 0.45f, LearnTopM = 90f, LearnRunMinM = 200f, LearnBelowTopM = 130f;
-        private static float LearnCrowd => O.LearnCrowd;
-        private static float LearnFallDeg => O.LearnFallDeg;   // a learning chair climbs its slope's fall line too
-        private static bool LearnHigh => O.LearnHigh;
+        private float LearnCrowd => O.LearnCrowd;
+        private float LearnFallDeg => O.LearnFallDeg;   // a learning chair climbs its slope's fall line too
+        private bool LearnHigh => O.LearnHigh;
 
         private const float LearnChordMax = 0.25f;
 
         /// <summary>The scorecard's chord rule: the share of a chord's middle (15-85 %, every 10 m) within 20 m of a run or connector,
         /// a learning run from near the top back to the bottom station excepted (a learning chair rides over its own green run).
         /// <paramref name="extra"/> are runs about to join the plan.</summary>
-        private static float ChordOnRuns(Plan plan, float2 b, float2 t, params List<float2>[] extra)
+        private static float ChordOnRuns(PlanDraft plan, float2 b, float2 t, params List<float2>[] extra)
         {
             bool Own(List<float2> p) => math.distance(p[0], t) < 145f && math.distance(p[p.Count - 1], b) < 57f;
             var sets = new List<List<float2>>();
@@ -58,7 +57,7 @@ namespace AutoGenBatch
 
         /// <summary>Pads for a learning chair's bottom station below a lift's top: green ground 160-700 m away, 35-130 m lower, off the
         /// runs.</summary>
-        private static List<int> BelowTop(Grid g, List<Lift> lifts, Lift lf, PointHash avoid)
+        private List<int> BelowTop(Grid g, List<Lift> lifts, Lift lf, PointHash avoid)
         {
             var o = new List<int>();
             float2 t = lf.Top.xz;
@@ -102,7 +101,7 @@ namespace AutoGenBatch
 
         /// <summary>A straight cat track between two stations where the ground allows one as the scorecard reads a connector (no climb
         /// past 4.5 m in 50 m, no 30 m pitch past 0.5, inside the region). Returns whether it was added.</summary>
-        private static bool StationTrack(Grid g, Plan plan, float2 from, float2 to)
+        private static bool StationTrack(Grid g, PlanDraft plan, float2 from, float2 to)
         {
             float len = math.distance(from, to);
             if (len < 20f || len > 400f)
@@ -126,17 +125,17 @@ namespace AutoGenBatch
 
         // off by default (RF_LEARNABOVE=1). A learning area on a green bench just above a base lift top found no site that the other
         // modes missed on the five sets (no plan changed). It cost planning time
-        private static bool LearnAbove => O.LearnAbove;
-        private static EasyLimits LearnWayShort => new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1600f, false, O.LearnGround);
+        private bool LearnAbove => O.LearnAbove;
+        private EasyLimits LearnWayShort => new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1600f, false, O.LearnGround);
 
         // off by default (RF_LEARNCONVERT=1): turning a short base lift into the beginner chair changed no plan on the five sets
-        private static bool LearnConvert => O.LearnConvert;
+        private bool LearnConvert => O.LearnConvert;
 
         /// <summary>A short lift (30-150 m of rise, not aerial) becomes a beginner chair, with up to two green runs from its top back
         /// to its bottom, where that adds green km for the base. The lift qualifies when its bottom is at the base (within 390 m of a
         /// base lift's bottom) or beside the top of the base's gondola or tram (within 300 m), and green ground runs from its bottom
         /// to its top. Returns whether one did.</summary>
-        private static bool ConvertToLearning(Grid g, Plan plan, List<Lift> lifts, List<int> members, float kmBefore)
+        private bool ConvertToLearning(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, float kmBefore)
         {
             var aerials = members.Where(L => Aerial(lifts[L].Type)).Select(L => lifts[L]).ToList();
             var cands = new List<(Lift Lf, Lift Via)>();
@@ -190,7 +189,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>Learning areas for the bases short of green runs. Returns the chairs added.</summary>
-        private static int AddLearningAreas(Grid g, Plan plan, List<Lift> lifts)
+        private int AddLearningAreas(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int added = 0;
             var tried = new HashSet<int>();
@@ -296,7 +295,7 @@ namespace AutoGenBatch
 
         /// <summary>Scorecard v5's beginner terrain for a base: the km of green runs (groomed, served, by the ground) a beginner gets to
         /// from the base's lifts on green skiing, when that skiing brings them back to a lift (a loop to lap). It is 0 without a loop.</summary>
-        private static float LearnKm(SkiGraph sg, Plan plan, List<Lift> lifts, IEnumerable<int> baseLifts)
+        private static float LearnKm(SkiGraph sg, PlanDraft plan, List<Lift> lifts, IEnumerable<int> baseLifts)
         {
             var easy = new Dictionary<int, HashSet<int>>();
             HashSet<int> E(int L) => easy.TryGetValue(L, out HashSet<int> s) ? s : easy[L] = EasyFrom(sg, lifts, L, SlopeBand.Green);
@@ -326,7 +325,7 @@ namespace AutoGenBatch
         /// <summary>A beginner chair from a pad at the base to the top of an easy route up its gentle ground, the route its first green
         /// run, then more green runs from its top. The first chair that keeps the lift network whole wins. Otherwise the winner is the
         /// first that fits.</summary>
-        private static bool TryLearningChair(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, List<int> cands, Lift below,
+        private bool TryLearningChair(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, EasyReach er, List<int> cands, Lift below,
             PointHash avoid, ChordGuard guard, SkiGraph before, float kmBefore, float fallMax, bool above = false)
         {
             var bottoms = new HashSet<int>(lifts.Select(lf => lf.BottomCell));
@@ -503,7 +502,7 @@ namespace AutoGenBatch
 
         /// <summary>Up to two more green runs from a learning chair's top to its bottom (or the base), each a route of its own away from
         /// the runs before (crowding), while the base is short of green km.</summary>
-        private static void MoreLearningRuns(Grid g, Plan plan, List<Lift> lifts, List<int> members, Lift chair, List<PlanRun> runs, float kmBefore)
+        private void MoreLearningRuns(Grid g, PlanDraft plan, List<Lift> lifts, List<int> members, Lift chair, List<PlanRun> runs, float kmBefore)
         {
             for (int k = 0; k < 2 && kmBefore + runs.Sum(r => RunLength(r.Pts)) / 1000f < LearnFullKm; k++)
             {

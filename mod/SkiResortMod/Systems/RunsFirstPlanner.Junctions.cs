@@ -1,4 +1,4 @@
-// RunsFirst junctions: a merging run ends where it first comes within 39 m of the run it joins (the serve pass). Every sample
+// RunsFirstPlanner junctions: a merging run ends where it first comes within 39 m of the run it joins (the serve pass). Every sample
 // of the joined run within 40 m of it reads as crowded. That is three to five per junction where the joined run passes 35-39 m
 // from the end. At the end of the plan, each merging run's end slides back along its last 60 m. It slides to the spot where the
 // fewest samples of other runs lie within 40 m of its tail. At that spot the run it joins still lies within the skier's 40 m
@@ -8,18 +8,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
-        private static float JunctionBackM => O.JunctionBackM;   // how far a merging run's end may slide back
+        private float JunctionBackM => O.JunctionBackM;   // how far a merging run's end may slide back
 
         /// <summary>Moves merging runs' ends back to where they crowd the run they join least. Returns the runs changed.</summary>
         [MethodImpl(Hot)]
-        private static int TrimJunctions(Grid g, Plan plan, List<Lift> lifts)
+        private int TrimJunctions(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             SkiGraph sg = Ski(g, plan, lifts);
             static long Key(float2 p) => ((long)Math.Floor(p.x / 60f) << 32) ^ (uint)(int)Math.Floor(p.y / 60f);

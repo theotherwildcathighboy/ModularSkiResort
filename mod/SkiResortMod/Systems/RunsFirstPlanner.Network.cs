@@ -1,4 +1,4 @@
-// RunsFirst lift network (prototype): a skier should be able to get from every lift to every other one. Where the ski graph
+// RunsFirstPlanner lift network: a skier should be able to get from every lift to every other one. Where the ski graph
 // shows a gap, the planner searches uphill from the stations the skier must reach. Examples of a gap: a lift whose station no
 // run passes, an area whose runs never lead back to the main lifts. The search covers ground a cat track can follow (the
 // connector rules) first, then ground a blue run can. It stops when it meets a run or traverse the skier is already on. That
@@ -8,12 +8,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using SkiResortMod.Systems;
 using Unity.Mathematics;
 
-namespace AutoGenBatch
+namespace SkiResortMod.Systems
 {
-    internal static partial class RunsFirst
+    public sealed partial class RunsFirstPlanner
     {
         private const float LinkOnM = 30f;   // a link starts on an element the skier is on: within this distance, at most 4 m above it
 
@@ -21,7 +20,7 @@ namespace AutoGenBatch
         /// within 350 m, no higher than it was, that the lift still fits from. Fit means a flat pad, the norms and the rope clearance,
         /// no crossing, the chord off the runs. Traverses and cat tracks that led to the old station go. Returns the stations moved.</summary>
         [MethodImpl(Hot)]
-        private static int ReseatBottoms(Grid g, Plan plan, List<Lift> lifts, List<List<int>>[] need)
+        private int ReseatBottoms(Grid g, PlanDraft plan, List<Lift> lifts, List<List<int>>[] need)
         {
             int moved = 0;
             SkiGraph sg = Ski(g, plan, lifts);
@@ -88,7 +87,7 @@ namespace AutoGenBatch
 
         /// <summary>Adds link routes while the lift network is split (at most a few). Returns how many.</summary>
         [MethodImpl(Hot)]
-        private static int LinkByRoutes(Grid g, Plan plan, List<Lift> lifts)
+        private int LinkByRoutes(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             int added = 0;
             var tried = new HashSet<(int, int)>();
@@ -127,7 +126,7 @@ namespace AutoGenBatch
         }
 
         // a link may be a graded track as a last resort (RF_NOGRADEDLINK=1: off)
-        private static bool GradedLinks => O.GradedLinks;
+        private bool GradedLinks => O.GradedLinks;
 
         /// <summary>A route from where the froms' skiers are to a bottom station of the tos. The route is the first of these that the
         /// ground allows, as the ways home are:
@@ -136,7 +135,7 @@ namespace AutoGenBatch
         /// - a track the grading tool cuts across the face (green, else a blue diagonal).
         /// Returns false when no search meets the froms' terrain.</summary>
         [MethodImpl(Hot)]
-        private static bool TryLink(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, List<LinkSearch> done)
+        private bool TryLink(Grid g, PlanDraft plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, List<LinkSearch> done)
         {
             // where the skier can be: every sampled point of the elements skied from the froms' tops (in 60 m buckets)
             var at = new Dictionary<long, List<float3>>();
