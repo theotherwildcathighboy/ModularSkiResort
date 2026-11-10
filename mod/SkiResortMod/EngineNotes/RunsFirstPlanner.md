@@ -10,7 +10,8 @@ The code is pure C# 9 on `System` and `Unity.Mathematics`. It has no `Game.*` ty
 The mod compiles it for net48. The test host links the same files for net8.0.
 
 Files: `Systems/RunsFirstPlanner.cs` (entry, grid, lines, the pick) and one part file per topic.
-The parts are Lifts, Plan, Graph, Beginner, Network, Fill, Cover, Bridge, Chords, Junctions, Heads, Heap, Graded, WayHome, Regrade, Layout, Learning, Order, Compat, Rater and Result.
+The parts are Lifts, Plan, Graph, Beginner, Network, Fill, Cover, Bridge, Chords, Junctions and Heads.
+More parts are Heap, Graded, WayHome, Regrade, Layout, Learning, Order, Compat, Rater, Towers and Result.
 `Systems/RunsFirstOptions.cs` holds the options. `Systems/RunsFirstResult.cs` holds the plain plan object and its hash.
 
 ## The entry
@@ -28,8 +29,8 @@ It returns null when the cancel token is set.
 
 ## Passes and progress
 
-The planner has 34 named passes. Progress is the count of passes done, divided by 34.
-Three passes are long: the reach scan of the lift tops, the serve pick and the regrade.
+The planner has 35 named passes. Progress is the count of passes done, divided by 35.
+Four passes are long: the reach scan of the lift tops, the serve pick, the regrade and the towers.
 In these passes the progress also adds the fraction of the pass that is done.
 A pass that an option turns off still counts.
 
@@ -42,9 +43,9 @@ The passes in order:
 | Runs and network | serve, links, spurs, pods, bridge, learning pods, way home, regrade, learning ways |
 | Coverage | fill setup, face lines, fill |
 | Lift lines | chords, nudge, chord tracks, chord drop, peak way, spread |
-| Finish | merge, prune, straight tracks, junctions, heads, learning areas, plan, result |
+| Finish | merge, prune, straight tracks, junctions, heads, learning areas, plan, towers, result |
 
-The reach scan of the lift tops runs on `ScanThreads` threads (`Parallel.For`, default 4). Each thread writes its results by index. So the plan is the same on any thread count.
+The reach scan of the lift tops and the tower plans of the towers pass run on `ScanThreads` threads (`Parallel.For`, default 4). Each thread writes its results by index. So the plan is the same on any thread count.
 
 ## Cancel
 
@@ -78,6 +79,34 @@ The other bits lowered a set mean, so they stay off. They are green ways down an
 They are also chords (32), the line pick (64) and the first run of a learning chair (256).
 Graded tracks and diagonals keep their band along the path. Natural marks keep the ground band, because the rater's double black would mark about twice the km natural.
 
+## Towers
+
+The realizer runs the mod's tower planner (`LiftTowerPlanner`) on each planned lift. The lift queue builds a line in two cases:
+
+- The tower plan is Sound.
+- Exactly one tower is over its sheave-train limit and nothing else is wrong. The queue builds the line and flags it.
+
+Any other line waits for a fit by hand.
+
+`Systems/RunsFirstPlanner.Towers.cs` makes the same tower plan for each planned lift. The call is a copy of the realizer's call. For a lift that is not Sound, the pass tries these steps in this order:
+
+1. Move one station, or the whole line across, by 10 m to 30 m. The pass takes the smallest move that makes the plan Sound.
+2. Change the type on the same line: a fixed grip to a detachable or a gondola, a detachable to a gondola. A gondola must stay within the aerial allowance of the scorecard.
+3. Keep a flagged plan.
+
+Each change must keep all of these:
+
+- The rules of the line (`LineFits`).
+- The runs of the lift, by the served rule of the game.
+- The runs that come home to its bottom, by the rule of the realizer.
+- The ski graph.
+- The share of the line on runs.
+- The terminals, the stations under a rope, and the parallel and stacked pairs of the scorecard.
+
+A lift that still needs a fit by hand stays. The plan log marks it. The pass caches each tower plan by its line, and polls the cancel token. The option `Towers` (default on) turns the pass on.
+
+The way home has a search budget of its own (`WayHomeBudget`, a count of cells). So the regrade and the learning ways keep what the shared budget has left.
+
 ## Inputs from the game
 
 `Systems/RunsFirstPlanner.Inputs.cs` holds `RunsFirstInputs`. The tool sets it on the instance before `Plan` (`planner.Inputs`).
@@ -97,7 +126,7 @@ Null inputs or empty inputs change nothing. The golden hashes stay the same (`te
 `RunsFirstResult.Hash()` is the hash of a plan. The test host checks two sets of hashes:
 
 - `tests/AutoGenBatch/RunsFirstGolden.cs`: three synthetic regions in the default run. Each plan must give the same hash on a second run, on 1 and on 4 scan threads, and the recorded constant. Each plain run of the plan must also carry the band that the scorecard gives it.
-- `rf-golden`: the 29 real regions of the seven region sets. The recorded hashes are in the private docs (`port/r2p1/golden.txt`).
+- `rf-golden`: the 29 real regions of the seven region sets. The recorded hashes are in the private docs (`port/r2p2/golden.txt`).
 
 `tests/AutoGenBatch/RunsFirstPlannerTests.cs` checks the planner object. Two planners plan at the same time on two threads. A canceled plan returns null within the bound. The progress never decreases and ends at 1000.
 
