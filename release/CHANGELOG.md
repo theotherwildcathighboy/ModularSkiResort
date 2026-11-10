@@ -51,8 +51,8 @@ First public release. Draft notes (check against the build at upload):
   existing runs, and existing lifts (stations and a 10 m corridor along the line). It does not avoid roads or buildings.
   Leave out runs or lifts and set how many runs and the run features. Build makes the cat tracks and then the runs in one go,
   and Undo removes that build and refunds it. Build lifts builds the kept lifts one after the other, lowest first. A line
-  whose towers fit builds; a line with one tower slightly over its limit builds and its row says which tower; a line that
-  needs a hand fit waits in the lift tool and the queue stops there. The scan runs in the background with a progress line,
+  whose towers fit builds; a line with one tower up to 5 degrees over its limit builds and its row says which tower; a line
+  that needs a hand fit waits and the other lifts still build. The scan runs in the background with a progress line,
   and right click stops it. Optional tree filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
 - Safety Net Fence: decorative orange netting on thin poles, in the hub's Runs tab.
 - Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run and stay open while 1 ft covers 40 percent, snow guns on snowmaking and night runs
