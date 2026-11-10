@@ -532,8 +532,13 @@ namespace SkiResortMod.Systems
             {
                 case ScriptOutcome.Built:
                     m_QueueBuilt++;
+                    // Task R2-l: a line with exactly one tower over its sheave-train limit and no other defect builds (LiftTowerPlan.QueueRule
+                    // BuildFlagged). The row stays Built and carries the flag. The BUILT line says FLAGGED.
+                    if (r != null && job.PlanSerial == m_Sheet.PlanSerial)
+                        m_Sheet.SetOverLimit(job.Key, t.OverLimitTowers, t.OverLimitTower, t.OverLimitAlongM, t.OverLimitBendDeg, t.OverLimitCapDeg);
                     EndJob(job, r, SheetLiftState.Built, null, string.Format(CultureInfo.InvariantCulture,
-                        "BUILT — {0:F0} m, {1} tower(s), line {2}", t.LengthM, t.Towers, t.Line != null ? "registered" : "not registered"));
+                        "BUILT — {0:F0} m, {1} tower(s), line {2}{3}", t.LengthM, t.Towers, t.Line != null ? "registered" : "not registered",
+                        OverLimitText(t)));
                     return;
                 case ScriptOutcome.Refused:
                     EndJob(job, r, SheetLiftState.Refused, "LINE[PICK]", "the lift tool could not pick the ends: " + t.Reason);
@@ -584,6 +589,11 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn(line);
         }
 
+        /// <summary>"; FLAGGED — N tower(s) over the sheave-train limit ..." for a built line with over-limit towers, else empty.</summary>
+        private static string OverLimitText(ScriptTicket t) => t.OverLimitTowers <= 0 ? string.Empty : string.Format(CultureInfo.InvariantCulture,
+            "; FLAGGED — {0} tower(s) over the sheave-train limit: tower {1} at {2:F0} m bends {3:F1} deg, its limit is {4:F0} deg " +
+            "(OverLimitTowers={0})", t.OverLimitTowers, t.OverLimitTower, t.OverLimitAlongM, t.OverLimitBendDeg, t.OverLimitCapDeg);
+
         private void Refuse(ResortPlanSheet.Row r, string reasonKey, string text)
         {
             m_QueueRefused++;
@@ -629,9 +639,12 @@ namespace SkiResortMod.Systems
                 if (t.Outcome == ScriptOutcome.Built)
                 {
                     if (same)
+                    {
                         m_Sheet.SetState(w.Key, SheetLiftState.Built, null);
+                        m_Sheet.SetOverLimit(w.Key, t.OverLimitTowers, t.OverLimitTower, t.OverLimitAlongM, t.OverLimitBendDeg, t.OverLimitCapDeg);
+                    }
                     Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
-                        "ResortLifts [watch]: {0} BUILT by the player — {1:F0} m, {2} tower(s){3}", w.Name, t.LengthM, t.Towers,
+                        "ResortLifts [watch]: {0} BUILT by the player — {1:F0} m, {2} tower(s){3}{4}", w.Name, t.LengthM, t.Towers, OverLimitText(t),
                         same ? string.Empty : " (the sheet was replaced: the row is not written)"));
                 }
                 else

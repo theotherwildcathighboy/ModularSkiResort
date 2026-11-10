@@ -74,6 +74,9 @@ namespace SkiResortMod.Systems
         public int Towers;                // LiftTowerPlanner count. -1 = not planned (pinned lifts keep their own, TowersUnchecked)
         public bool TowersUnchecked;      // a proposal selected without a tower plan (the main-thread fallback: AutoPlanInput.MainThread)
         public bool HandFit;              // the tower plan is not Sound (LiftTowerPlan.Sound): the lift tool does not build it alone, the player fits it
+        public int OverLimitTowers;       // towers past their sheave-train limit (LiftTowerPlan.OverLimitTowers, task R2-l). 0 when not planned
+        public bool BuildsFlagged;        // HandFit, yet the build queue builds it: exactly one tower over its sheave-train limit and no other
+                                          // defect (LiftTowerPlan.QueueRule BuildFlagged). The sheet row is flagged. HandFit and not this = waits
         public float2[] TowerXz;          // planned tower spots (overlay discs). Empty for pinned
         public int Pod, BottomPad, TopPad;   // TopPad -1 = summit cells
         public bool TopSunk, BottomSunk;  // the station spot is steeper than 25 % (the station sinks, as today: C1 3b)

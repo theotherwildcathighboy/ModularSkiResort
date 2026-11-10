@@ -7,6 +7,8 @@
 // keeps the station-side members. F4: the station rule buys at most one tower. Each sweep must bind at least once. Breaking its rule once
 // showed that each of LP-26..30 can fail (lift-pass-2026-10-26.md, "Review fixes").
 // LP-32: removing a tower adds at most one (field test 2026-10-31, FIX-LIST item 24), see the profile below.
+// LP-34: the floor next to a station stub (task R2-l): no planner tower inside 20 m of a stub, also where the clearance yields. The r1e
+// West P1 line modeled; without the floor its top tower stands inside the game's stub snap (the refused line).
 
 using System;
 using System.Collections.Generic;
@@ -38,6 +40,7 @@ namespace LiftBatch
             Lp31ToolText();
             Lp32RemoveTower();
             Lp33Crossing();
+            Lp34StationFloor();
             s_Check = null;
         }
 
@@ -228,12 +231,18 @@ namespace LiftBatch
             const string W = "pass/LP-29";
             LiftTowerPlanConstants tram = LiftTowerPlanConstants.For("tram");
             const float L = 1756f;   // field test 2 (log :1412): a pin at 1,737 m refused five times
+            // Task R2-l: a station end keeps the planner's floor (StationFloorM, tram 20 m). The game joins a nearer tower's span to the
+            // stub node (StubSnapM, tram 15.5 m). The field pin at 1,737 m snaps to 1,740 m (16 m from the top): now refused, 20 m out is
+            // accepted.
             LiftLineEdit stations = Flat(tram, L, true, true);
             LiftLineEditResult r = stations.AddPin(1737f);
-            s_Report.Add("LP-29 tram 1,756 m station to station, pin at 1,737 m | accepted (station end margin " + stations.PinMarginB.ToString("F0") +
-                         " m; was 40) | " + r);
-            Check(r == LiftLineEditResult.Done, W, "tram pin 19 m from a station refused: " + r);
-            Check(stations.AddPin(L - 5f) == LiftLineEditResult.TooCloseToStation && math.abs(stations.LastEndMarginM - tram.StepM) < 1e-3f, W,
+            LiftLineEditResult r20 = stations.AddPin(L - 26f);
+            s_Report.Add("LP-29 tram 1,756 m station to station, pins at 1,737 / 1,730 m | refused / accepted (station end margin " +
+                         stations.PinMarginB.ToString("F0") + " m; was 10, before that 40) | " + r + " / " + r20);
+            Check(r == LiftLineEditResult.TooCloseToStation && math.abs(stations.LastEndMarginM - tram.StationFloorM) < 1e-3f, W,
+                  "tram pin 16 m from a station accepted, or the wrong margin " + stations.LastEndMarginM + ": " + r);
+            Check(r20 == LiftLineEditResult.Done, W, "tram pin 26 m from a station refused: " + r20);
+            Check(stations.AddPin(L - 5f) == LiftLineEditResult.TooCloseToStation && math.abs(stations.LastEndMarginM - tram.StationFloorM) < 1e-3f, W,
                   "tram pin 5 m from a station accepted, or the wrong margin " + stations.LastEndMarginM);
             LiftLineEdit loose = Flat(tram, L, true, false);
             Check(loose.AddPin(1737f) == LiftLineEditResult.TooCloseToStation && math.abs(loose.LastEndMarginM - tram.MinSpanM) < 1e-3f, W,
@@ -242,9 +251,14 @@ namespace LiftBatch
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
                 LiftLineEdit e = Flat(c, 600f, true, true);
-                Check(e.PinMarginA == c.MinSpanM && e.PinMarginB == c.MinSpanM, W, id + " end margin changed: " + e.PinMarginA);
-                Check(e.AddPin(c.MinSpanM - c.StepM) == LiftLineEditResult.TooCloseToStation && e.AddPin(c.MinSpanM) == LiftLineEditResult.Done, W,
-                      id + " end margin not MinSpanM");
+                float floor = c.StationFloorM;
+                Check(e.PinMarginA == floor && e.PinMarginB == floor && floor > c.StubSnapM, W, id + " station end margin " + e.PinMarginA +
+                      ", want the floor " + floor + " over the stub snap " + c.StubSnapM);
+                float inside = c.StepM * math.floor((c.StubSnapM - 1e-3f) / c.StepM), outside = c.StepM * math.ceil(floor / c.StepM - 1e-4f);
+                Check(e.AddPin(inside) == LiftLineEditResult.TooCloseToStation && e.AddPin(outside) == LiftLineEditResult.Done, W,
+                      id + " pin at " + inside + " m (inside the stub snap) accepted, or at " + outside + " m refused");
+                LiftLineEdit open = Flat(c, 600f, false, false);
+                Check(open.PinMarginA == c.MinSpanM && open.PinMarginB == c.MinSpanM, W, id + " loose end margin changed: " + open.PinMarginA);
             }
         }
 
@@ -660,6 +674,76 @@ namespace LiftBatch
             Check(!e.Crosses(new float2(620f, -40f), new float2(620f, 40f), M), W, "a piece beyond the far end is no crossing");
             Check(!e.Crosses(new float2(0f, 20f), new float2(500f, 20f), M), W, "a parallel piece never crosses");
             s_Report.Add("LP-33 crossing another lift | found across the line, not at its own ends | 8 cases");
+        }
+
+        // LP-34: the floor next to a station stub (task R2-l, DECISIONS 637). Field r1e note 5 (West P1, plan #17): the game refused the
+        // detachable line because the plan stood a DQ tower 9 m from the top stub (`object SkiLiftTowerDQ10 ... at 1810 m: OverlapExisting`).
+        // The game joins the span of a tower nearer than StubSnapM (11 m) to the stub node (CourseSplitSystem.cs:600). That span then runs
+        // past the tower. The log has no ground dump for the line, so the ground is a model. The ends are as logged: 1,819 m, stub nodes
+        // 669.20 / 1,153.63, ropes 672.91 / 1,157.68 (node + 3.71 / + 4.05). The climb steepens to a 0.65 face 260 m long. Its lip is 2 m
+        // over the top node, 15 m in front of the stub, the shape that makes the station clearance yield (the LP-22 reason).
+        private const float R2Length = 1819f, R2BaseNode = 669.20f, R2TopNode = 1153.63f, R2RopeBase = 672.91f, R2RopeTop = 1157.68f;
+
+        private static float R2Ground(float s)
+        {
+            const float crest = 15f, face = 0.65f, faceLen = 260f;
+            float lip = R2TopNode + 2f, foot = lip - face * faceLen, faceStart = R2Length - crest - faceLen;
+            if (s >= R2Length - crest)
+                return math.lerp(lip, R2TopNode, (s - (R2Length - crest)) / crest);
+            if (s >= faceStart)
+                return math.lerp(foot, lip, (s - faceStart) / faceLen);
+            return math.lerp(R2BaseNode, foot, s / faceStart);
+        }
+
+        private static void Lp34StationFloor()
+        {
+            const string W = "pass/LP-34";
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
+            LiftTerrainSampler t = (s, l) => R2Ground(s);
+            foreach (string id in new[] { "fixedGrip", "detachable", "gondola", "tram" })
+            {
+                LiftTowerPlanConstants k = LiftTowerPlanConstants.For(id);
+                Check(k.StationFloorM > k.StubSnapM && k.StationFloorM <= k.StationClearM, W, id + ": floor " + k.StationFloorM + " m, stub snap " +
+                      k.StubSnapM + " m, clearance " + k.StationClearM + " m (want snap < floor <= clearance)");
+            }
+            // Without the floor (the rule before R2-l): the refused shape, a tower inside the stub snap at the top.
+            var old = new LiftTowerPlanner { CheckEdgeSlope = true, StationRule = true, Pairs = true, EndNodeYA = R2BaseNode, EndNodeYB = R2TopNode,
+                                             StationFloor = false };
+            LiftTowerPlan before = old.Plan(t, R2Length, R2RopeBase, R2RopeTop, c);
+            float beforeTop = R2Length - before.Nodes[before.Nodes.Length - 2].AlongM;
+            Check(beforeTop < c.StubSnapM, W, "without the floor the top tower stands " + beforeTop.ToString("F1") + " m from the stub: the case " +
+                  "no longer has the refused shape: " + LiftPlannerTests.Describe(before));
+            // With the floor: the planner and the tool's edit model keep every tower 20 m from both stubs, and the spans stay clear.
+            var now = new LiftTowerPlanner { CheckEdgeSlope = true, StationRule = true, Pairs = true, EndNodeYA = R2BaseNode, EndNodeYB = R2TopNode };
+            LiftTowerPlan plan = now.Plan(t, R2Length, R2RopeBase, R2RopeTop, c);
+            var edit = new LiftLineEdit(c, new float3(0f, R2BaseNode, 0f), new float3(R2Length, R2TopNode, 0f), R2RopeBase, R2RopeTop);
+            edit.Replan(t);
+            foreach (var (name, p) in new[] { ("planner", plan), ("tool", edit.Plan) })
+            {
+                for (int i = 1; i < p.Nodes.Length - 1; i++)
+                {
+                    float a = p.Nodes[i].AlongM, b = p.LengthM - p.Nodes[i].AlongM;
+                    Check(math.min(a, b) >= c.StationFloorM - 0.01f, W, name + ": tower " + i + " stands " + math.min(a, b).ToString("F1") +
+                          " m from a stub (floor " + c.StationFloorM + " m): " + LiftPlannerTests.Describe(p));
+                }
+                Check(p.Clear, W, name + ": the spans are not clear with the floor: " + LiftPlannerTests.Describe(p));
+            }
+            // Task R2-l, the queue rule on a real plan: one tower over its sheave-train limit and no other fault builds, flagged. The
+            // over-limit tower the row names is a judged tower past its cap.
+            LiftTowerPlan q = edit.Plan;
+            int first = q.FirstOverCapTower();
+            Check(q.OverLimitTowers == q.OverCapTowers && (q.OverCapTowers == 0) == (first < 0), W, "over-limit count " + q.OverLimitTowers +
+                  " / over cap " + q.OverCapTowers + " / first " + first);
+            Check(first < 0 || q.IsOverCap(first), W, "the first over-limit tower " + first + " is not over its cap");
+            Check(q.QueueBuild == LiftTowerPlan.QueueRule(q.Clear, true, q.OverCapTowers, q.TooSteepTowers, q.ClearanceTowers), W, "QueueBuild");
+            if (q.Clear && q.OverCapTowers == 1 && q.TooSteepTowers == 0 && q.ClearanceTowers == 0)
+                Check(q.QueueBuild == LiftQueueBuild.BuildFlagged && !q.Sound, W, "one tower over the limit and no other fault: " + q.QueueBuild);
+            float top = R2Length - plan.Nodes[plan.Nodes.Length - 2].AlongM;
+            s_Report.Add("LP-34 r1e West P1 model (DQ 1,819 m, top on a lip) | no tower inside 20 m of a stub, spans clear | top tower " +
+                         beforeTop.ToString("F0") + " m from the stub without the floor, " + top.ToString("F0") + " m with it; " + plan.Verdict +
+                         ", " + plan.OverCapTowers + " over the train limit; tool " + edit.Plan.Verdict + ", queue " + q.QueueBuild +
+                         (first >= 0 ? " (tower " + first + " at " + q.Nodes[first].AlongM.ToString("F0") + " m bends " +
+                          math.abs(q.Nodes[first].DeflectionDeg).ToString("F1") + " deg, limit " + q.Nodes[first].CapDeg.ToString("F0") + ")" : ""));
         }
 
         private static float Rise(LiftTowerPlanConstants c, int member) => c.Ladder[member].TopM - c.Ladder[0].TopM;

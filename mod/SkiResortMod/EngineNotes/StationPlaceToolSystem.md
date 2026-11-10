@@ -90,6 +90,9 @@ What the game does with the lot when y is below the terrain under part of it (1.
 - Load sorts the rows by the height of the bottom spot, lowest first. Ties go by key. A NaN height sorts last. A repeated key keeps its
   first row.
 - Row: `Key`, `Name` ("P1"), `TypeIndex`, `Bottom`, `Top`, `Cost`, `On`, `State`, `ReasonKey`, `BaseStation`, `TopStation`, `Order`.
+- The over-limit flag (task R2-l): `OverLimitTowers`, `OverLimitTower`, `OverLimitAlongM`, `OverLimitBendDeg`, `OverLimitCapDeg`.
+  A Built row whose line has towers over their sheave-train limit carries them. The state stays Built. `SetOverLimit` writes them, and
+  a count of 0 clears them. The dump prints `[OverLimitTowers=N]` after the state. LiftBatch PS-13 pins it.
 - States: Proposed, StationsPlaced, Built, Refused, NeedsFitting.
 - Reason keys of the queue: MONEY, POSE, PREFAB, BASE[error type], TOP[error type], BASE[GONE], TOP[GONE], STOPPED.
 - Reason keys of the line: LINE[PICK], LINE[ABANDONED], LINE[REFUSED], GAME, and the plan keys of the lift tool (PLAN_LOW,
@@ -118,7 +121,9 @@ Per lift, lowest bottom spot first:
    tips every 10 frames. It goes on when two reads agree within 0.05 m, after at least 30 frames. After 900 frames it logs a warning
    and goes on.
 5. Line. `LiftLineToolSystem.TryActivateFor` with auto build.
-   - Built: the row is Built. The next lift starts.
+   - Built: the row is Built. The next lift starts. A line with one tower over its sheave-train limit also builds (LiftLineToolSystem.md,
+     Scripted entry). Its row gets the over-limit flag. The BUILT line adds `FLAGGED — 1 tower(s) over the sheave-train limit: tower T at
+     A m bends B deg, its limit is C deg (OverLimitTowers=1)`.
    - Waiting: NeedsFitting with the reason. The queue stops with the tool open in Edit.
    - Refused (the tool could not pick the ends): Refused LINE[PICK]. The next lift starts.
    - Abandoned (the player took another tool): StationsPlaced STOPPED. The queue stops.
@@ -132,7 +137,8 @@ More rules:
 - Stop: the lift in flight finishes. No lift starts after it.
 - A new plan or a clear stops the queue the same way. The lift in flight writes nothing into the new rows (`PlanSerial` guard).
 - A row that waits in the lift tool stays on a watch list. When the player builds the line later, the row becomes Built. When the ticket
-  ends another way, the row becomes StationsPlaced with LINE[ABANDONED] or LINE[REFUSED].
+  ends another way, the row becomes StationsPlaced with LINE[ABANDONED] or LINE[REFUSED]. A line that the player builds sets the
+  over-limit flag from its plan, also with two or more towers.
 - A second build of a row starts from the stations that it already has.
 - The run build starts the queue for the lifts that are on (`FinishBuild`, plan 3.2: runs first, then lifts). A stopped run build does not.
 - Enter refuses when the city cannot pay the runs and the lifts that are on (`BuildFromTool`, plan 3.3). The money warning of the tool
@@ -157,6 +163,8 @@ SkiResortHubUISystem.md (Plan sheet lifts) has the binding. The engine side give
   - LINE_PICK, LINE_ABANDONED, LINE_REFUSED.
   - PLAN_LOW, PLAN_STEEP, PLAN_HIGH, ALONG, CROSS, BACKWARD.
   - PLAN_TRAIN, PLAN_SADDLE, PLAN_PITCH, PLAN_CLEARANCE (R1-f): the other plan keys of `LiftLineInput.PlanKey`.
+  - PLAN_TRAINS (task R2-l): two or more towers over their sheave-train limit. The queue builds a line with one such tower, so a
+    waiting train row reads PLAN_TRAINS. PLAN_TRAIN stays in the list for older rows.
     A line waits on them because the tool's auto build needs a Sound plan. A tower over its cap is not Sound.
     Nothing refused the line, so these keys have their own texts.
   - BUILD_REFUSED: the game refused the build while the tool waited.

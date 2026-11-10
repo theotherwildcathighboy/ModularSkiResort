@@ -632,6 +632,14 @@ namespace SkiResortMod.Systems
             public int Towers;
             public float LengthM;
             public LiftToolLines.Line Line;
+            /// <summary>The plan's towers past their sheave-train limit (LiftTowerPlan.OverLimitTowers, task R2-l). A line with exactly
+            /// one and no other defect builds (LiftTowerPlan.QueueRule BuildFlagged). Set at the picks and again at the apply (the plan
+            /// built).</summary>
+            public int OverLimitTowers;
+            /// <summary>The first such tower: its place counted from the base end (1 = the first tower; 0 = the base end node), its
+            /// distance along the line from the base, its bend (|deflection|) and its train's limit, degrees. -1 / 0 with none.</summary>
+            public int OverLimitTower = -1;
+            public float OverLimitAlongM, OverLimitBendDeg, OverLimitCapDeg;
             public bool Final => Outcome == ScriptOutcome.Built || Outcome == ScriptOutcome.Refused || Outcome == ScriptOutcome.Abandoned;
         }
 
@@ -646,8 +654,9 @@ namespace SkiResortMod.Systems
         internal bool IdleAfterScript => IsActive && m_State == ToolState.PickBase && !m_Ghost && (m_Script == null || m_Script.Final);
 
         /// <summary>A line between two placed stations, as if the player clicked the base station's stub and then the top's: the same pick
-        /// code (PickEnd), the same plan, the same emission. With <paramref name="autoBuild"/> the tool requests the build itself when the
-        /// plan is Sound and no ALONG / CROSS / BACKWARD notice stands. Otherwise the tool waits in Edit for the player. The picks run in
+        /// code (PickEnd), the same plan, the same emission. With <paramref name="autoBuild"/> the tool requests the build itself when
+        /// LiftTowerPlan.QueueRule allows it (Sound, or one tower over its sheave-train limit and no other defect) and no
+        /// ALONG / CROSS / BACKWARD notice stands. Otherwise the tool waits in Edit for the player. The picks run in
         /// the tool's next update (OnStartRunning resets the tool first). Returns the ticket, already Refused when the tool cannot open.</summary>
         internal ScriptTicket TryActivateFor(string why, LiftTypeDef type, Entity baseStation, Entity topStation, bool autoBuild)
         {
@@ -736,6 +745,7 @@ namespace SkiResortMod.Systems
             }
             t.LengthM = m_Edit.LengthM;
             t.Towers = m_Edit.Plan != null ? m_Edit.Plan.Nodes.Length - 2 : 0;
+            NoteOverLimit(t, m_Edit.Plan);
             string blocker = AutoBuildBlocker();
             if (t.AutoBuild && blocker == null)
             {
@@ -743,8 +753,11 @@ namespace SkiResortMod.Systems
                 if (m_BuildRequested)
                 {
                     t.Reason = "building";
+                    string verdict = t.OverLimitTowers == 0 ? "plan sound"
+                        : $"one tower over its sheave-train limit (tower {t.OverLimitTower} at {t.OverLimitAlongM:F0} m bends " +
+                          $"{t.OverLimitBendDeg:F1} deg, its limit is {t.OverLimitCapDeg:F0}), no other defect";
                     Mod.Log.Info($"LiftLine [script]: #{t.Serial} picked — {Describe(m_Base)} -> {Describe(m_Top)}, {t.LengthM:F0} m, {t.Towers} " +
-                                 "tower(s), plan sound: build requested");
+                                 $"tower(s), {verdict}: build requested (as Enter builds it)");
                     return;
                 }
                 blocker = "the build request was refused (see the line above)";
@@ -752,14 +765,18 @@ namespace SkiResortMod.Systems
             ScriptWaiting(t.AutoBuild ? blocker : "auto build off");
         }
 
-        /// <summary>Null when the plan may be built without the player: Sound, and no ALONG, CROSS or BACKWARD notice stands. Otherwise the
-        /// reason key.</summary>
+        /// <summary>Null when the plan may be built without the player: LiftTowerPlan.QueueRule says Build (Sound) or BuildFlagged (every
+        /// span clear, exactly one tower over its sheave-train limit, no other tower fault; task R2-l), and no ALONG, CROSS or BACKWARD
+        /// notice stands. Otherwise the reason key (LiftTowerPlan.QueueWaitKey: a plan key, or PLAN_TRAINS for two or more towers over
+        /// their sheave-train limit).</summary>
         private string AutoBuildBlocker()
         {
-            if (m_Edit?.Plan == null)
+            LiftTowerPlan plan = m_Edit?.Plan;
+            if (plan == null)
                 return "no plan";
-            if (!m_Edit.Plan.Sound)
-                return LiftLineInput.PlanKey(m_Edit.Plan, out _);
+            if (plan.QueueBuild == LiftQueueBuild.Wait)
+                return LiftTowerPlan.QueueWaitKey(LiftLineInput.PlanKey(plan, out _), plan.Clear, plan.Constants.HasTrains,
+                    plan.OverCapTowers, plan.TooSteepTowers, plan.ClearanceTowers);
             if (m_AlongStanding)
                 return "ALONG";
             if (m_CrossRefused)
@@ -789,6 +806,17 @@ namespace SkiResortMod.Systems
             def = SkiCatalog.LiftByIndex(sd.LiftTypeIndex);
             float3 tip = StationAlign.StubTip(tr.m_Position, tr.m_Rotation, sd.StubTipLocalZ, sd.StubTipLocalX);
             return StationEndOf(station, tip, def, out end);
+        }
+
+        /// <summary>Copies the plan's over-limit towers onto the ticket (OverLimitTowers and the first one's place, bend and limit).</summary>
+        private static void NoteOverLimit(ScriptTicket t, LiftTowerPlan plan)
+        {
+            t.OverLimitTowers = plan != null ? plan.OverLimitTowers : 0;
+            int i = t.OverLimitTowers > 0 ? plan.FirstOverCapTower() : -1;
+            t.OverLimitTower = i;
+            t.OverLimitAlongM = i >= 0 ? plan.Nodes[i].AlongM : 0f;
+            t.OverLimitBendDeg = i >= 0 ? math.abs(plan.Nodes[i].DeflectionDeg) : 0f;
+            t.OverLimitCapDeg = i >= 0 ? plan.Nodes[i].CapDeg : 0f;
         }
 
         private float3 GroundPoint(float3 p)
@@ -2066,6 +2094,7 @@ namespace SkiResortMod.Systems
                 m_Script.Line = reg;
                 m_Script.Towers = m_Emitted.Count - 2;
                 m_Script.LengthM = m_Edit.LengthM;
+                NoteOverLimit(m_Script, m_Edit.Plan);   // the plan built (the player may have edited a waiting line)
             }
             Say($"LiftLine [build]: APPLIED — {temps} new Temp edge(s) (planned {expected}{(temps == expected ? string.Empty : "; MISMATCH: the fit still matches the line when every planned node is built (R-6)")}" +
                 $"{(touched > 0 ? $"; {touched} existing edge(s) at an end touched" : string.Empty)}), " +

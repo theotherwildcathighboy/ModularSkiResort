@@ -1,5 +1,5 @@
 // The Resort Planner's plan sheet (ResortPlanSheet, task R1-c): the rows the build queue, the marks outside the planner and the hub read.
-// Where-tags `sheet/...`, PS-1..PS-12.
+// Where-tags `sheet/...`, PS-1..PS-13.
 // Pinned:
 // - Load sorts the rows lowest bottom spot first (ties by key, a NaN height last) and numbers Order. A repeated key keeps its first row.
 // - Every change bumps Revision. Load and Clear bump PlanSerial. A no-op write bumps nothing.
@@ -15,6 +15,9 @@
 // - The waiting reasons (PS-11, task R1-f): a line that waits in the lift tool gets its own reason group (PLAN_TRAIN, PLAN_SADDLE, PLAN_PITCH,
 //   PLAN_CLEARANCE, BUILD_REFUSED, WAIT), never the GAME text (nothing refused it unless the game did).
 // - The queue index (PS-12): a Stop keeps the run total, so "Stopping after lift 1 / 3" reads the place in the build that was asked for.
+// - The queue rule (PS-13, task R2-l): a line with every span clear, exactly one tower over its sheave-train limit and no other tower fault
+//   builds (BuildFlagged), and its Built row carries OverLimitTowers = 1. Two or more such towers wait as PLAN_TRAINS. A span fault, a tower
+//   too steep or past its clearance, or a tram saddle past its cap waits as before. The flag survives in the dump and clears on a rebuild.
 
 using System;
 using System.Collections.Generic;
@@ -44,6 +47,63 @@ namespace LiftBatch
             Ps10StationOrder();
             Ps11WaitingKeys();
             Ps12QueueIndex();
+            Ps13QueueRule();
+        }
+
+        private static void Ps13QueueRule()
+        {
+            const string W = "sheet/PS-13";
+            const LiftQueueBuild B = LiftQueueBuild.Build, F = LiftQueueBuild.BuildFlagged, Wt = LiftQueueBuild.Wait;
+            // (clear, trains, over cap, too steep, clearance) -> the queue's choice, and the waiting key for plan key k.
+            var cases = new (bool clear, bool trains, int over, int steep, int clr, LiftQueueBuild want, string planKey, string wantKey)[]
+            {
+                (true, true, 0, 0, 0, B, "PLAN_CLEAR", null),
+                (true, true, 1, 0, 0, F, "PLAN_TRAIN", null),             // the one case R2-l builds
+                (true, true, 2, 0, 0, Wt, "PLAN_TRAIN", "PLAN_TRAINS"),
+                (true, true, 3, 0, 0, Wt, "PLAN_TRAIN", "PLAN_TRAINS"),
+                (true, true, 1, 1, 0, Wt, "PLAN_TRAIN", "PLAN_PITCH"),    // one over the limit, one too steep: waits on the pitch
+                (true, true, 1, 0, 1, Wt, "PLAN_TRAIN", "PLAN_CLEARANCE"),
+                (true, true, 0, 1, 0, Wt, "PLAN_PITCH", "PLAN_PITCH"),
+                (true, true, 0, 0, 2, Wt, "PLAN_CLEARANCE", "PLAN_CLEARANCE"),
+                (false, true, 1, 0, 0, Wt, "PLAN_LOW", "PLAN_LOW"),      // an unclear span with one tower over: waits on the span
+                (false, true, 0, 0, 0, Wt, "PLAN_STEEP", "PLAN_STEEP"),
+                (true, false, 1, 0, 0, Wt, "PLAN_SADDLE", "PLAN_SADDLE"), // the tram saddle is no sheave train
+                (true, false, 0, 0, 0, B, "PLAN_CLEAR", null),
+            };
+            foreach (var c in cases)
+            {
+                string at = $"clear {c.clear}, trains {c.trains}, over {c.over}, steep {c.steep}, clearance {c.clr}";
+                LiftQueueBuild got = LiftTowerPlan.QueueRule(c.clear, c.trains, c.over, c.steep, c.clr);
+                Check(got == c.want, W, at + ": queue " + got + " (want " + c.want + ")");
+                if (c.wantKey == null)
+                    continue;
+                string key = LiftTowerPlan.QueueWaitKey(c.planKey, c.clear, c.trains, c.over, c.steep, c.clr);
+                Check(key == c.wantKey, W, at + ": waits as " + key + " (want " + c.wantKey + ")");
+                Check(ResortPlanSheet.WaitingKey(key) == key && ResortPlanSheet.ReasonGroup(key) == key, W, key + " is not its own row group");
+            }
+
+            // The row flag: the state stays Built, the facts stay on the row, Revision moves once per change.
+            ResortPlanSheet s = Make();
+            s.SetState(9, SheetLiftState.Built, null);
+            int rev = s.Revision;
+            Check(s.SetOverLimit(9, 1, 4, 612f, 21.5f, 16f) && s.Revision == rev + 1, W, "the flag did not bump Revision");
+            Check(!s.SetOverLimit(9, 1, 4, 612f, 21.5f, 16f) && s.Revision == rev + 1, W, "a repeated flag bumped Revision");
+            Check(!s.SetOverLimit(99, 1, 4, 612f, 21.5f, 16f), W, "an unknown key took the flag");
+            ResortPlanSheet.Row r = s.Find(9);
+            Check(r.State == SheetLiftState.Built && r.ReasonKey == null && !r.Buildable, W, "the flagged row is not Built: " + r.State);
+            Check(r.OverLimitTowers == 1 && r.OverLimitTower == 4 && r.OverLimitAlongM == 612f && r.OverLimitBendDeg == 21.5f && r.OverLimitCapDeg == 16f,
+                  W, "the row facts: " + r.OverLimitTowers + " / " + r.OverLimitTower + " / " + r.OverLimitAlongM + " / " + r.OverLimitBendDeg + " / " + r.OverLimitCapDeg);
+            Check(s.CountIn(SheetLiftState.Built) == 1 && !s.BuildAllKeys().Contains(9), W, "a flagged row is built again by build all");
+            Check(ResortPlanSheet.RowText(r).Contains("Built [OverLimitTowers=1]"), W, "the row text: " + ResortPlanSheet.RowText(r));
+            Check(!ResortPlanSheet.RowText(s.Find(2)).Contains("OverLimitTowers"), W, "an unflagged row prints the flag");
+            // A rebuild with a sound line clears the flag (the queue writes the ticket's count every time).
+            Check(s.SetOverLimit(9, 0, 4, 612f, 21.5f, 16f), W, "clearing the flag changed nothing");
+            Check(r.OverLimitTowers == 0 && r.OverLimitTower == -1 && r.OverLimitBendDeg == 0f, W, "the cleared flag kept facts");
+            // A fresh load starts without flags.
+            s.SetOverLimit(9, 1, 4, 612f, 21.5f, 16f);
+            s = Make();
+            foreach (ResortPlanSheet.Row x in s.Rows)
+                Check(x.OverLimitTowers == 0 && x.OverLimitTower == -1, W, x.Name + " starts flagged");
         }
 
         private static void Ps11WaitingKeys()
@@ -51,8 +111,8 @@ namespace LiftBatch
             const string W = "sheet/PS-11";
             string[][] want =
             {
-                new[] { "PLAN_TRAIN", "PLAN_TRAIN" }, new[] { "PLAN_SADDLE", "PLAN_SADDLE" }, new[] { "PLAN_PITCH", "PLAN_PITCH" },
-                new[] { "PLAN_CLEARANCE", "PLAN_CLEARANCE" }, new[] { "PLAN_LOW", "PLAN_LOW" }, new[] { "ALONG", "ALONG" }, new[] { "BACKWARD", "BACKWARD" },
+                new[] { "PLAN_TRAIN", "PLAN_TRAIN" }, new[] { "PLAN_TRAINS", "PLAN_TRAINS" }, new[] { "PLAN_SADDLE", "PLAN_SADDLE" },
+                new[] { "PLAN_PITCH", "PLAN_PITCH" }, new[] { "PLAN_CLEARANCE", "PLAN_CLEARANCE" }, new[] { "PLAN_LOW", "PLAN_LOW" }, new[] { "ALONG", "ALONG" }, new[] { "BACKWARD", "BACKWARD" },
                 new[] { "CROSS_SHALLOW", "CROSS_SHALLOW" },
                 new[] { "the game refused the build (2 error(s): OverlapExisting x2)", "BUILD_REFUSED" },
                 new[] { "no Temp edges 600 frames after the emission", "WAIT" }, new[] { "auto build off", "WAIT" }, new[] { "building", "WAIT" },
@@ -65,7 +125,7 @@ namespace LiftBatch
                 Check(ResortPlanSheet.ReasonGroup(key) != "GAME", W, "waiting key '" + key + "' falls to the GAME text");
             }
             // The reasons reach the hub as their own group, never as the game's text.
-            foreach (string k in new[] { "PLAN_TRAIN", "PLAN_SADDLE", "PLAN_PITCH", "PLAN_CLEARANCE", "BUILD_REFUSED", "WAIT" })
+            foreach (string k in new[] { "PLAN_TRAIN", "PLAN_TRAINS", "PLAN_SADDLE", "PLAN_PITCH", "PLAN_CLEARANCE", "BUILD_REFUSED", "WAIT" })
                 Check(ResortPlanSheet.ReasonGroup(ResortPlanSheet.WaitingKey(k)) == k, W, "group of " + k);
         }
 
@@ -205,8 +265,8 @@ namespace LiftBatch
                 new[] { "BASE[GONE]", "GONE" }, new[] { "TOP[GONE]", "GONE" }, new[] { "STOPPED", "STOPPED" },
                 new[] { "LINE[PICK]", "LINE_PICK" }, new[] { "LINE[ABANDONED]", "LINE_ABANDONED" }, new[] { "LINE[REFUSED]", "LINE_REFUSED" },
                 new[] { "LINE[PENDING]", "GAME" }, new[] { "PLAN_LOW", "PLAN_LOW" }, new[] { "PLAN_STEEP", "PLAN_STEEP" }, new[] { "PLAN_HIGH", "PLAN_HIGH" },
-                new[] { "PLAN_TRAIN", "PLAN_TRAIN" }, new[] { "PLAN_SADDLE", "PLAN_SADDLE" }, new[] { "PLAN_PITCH", "PLAN_PITCH" },
-                new[] { "PLAN_CLEARANCE", "PLAN_CLEARANCE" }, new[] { "BUILD_REFUSED", "BUILD_REFUSED" }, new[] { "WAIT", "WAIT" }, new[] { "ALONG", "ALONG" }, new[] { "BACKWARD", "BACKWARD" }, new[] { "CROSS_SHALLOW", "CROSS" },
+                new[] { "PLAN_TRAIN", "PLAN_TRAIN" }, new[] { "PLAN_TRAINS", "PLAN_TRAINS" }, new[] { "PLAN_SADDLE", "PLAN_SADDLE" },
+                new[] { "PLAN_PITCH", "PLAN_PITCH" }, new[] { "PLAN_CLEARANCE", "PLAN_CLEARANCE" }, new[] { "BUILD_REFUSED", "BUILD_REFUSED" }, new[] { "WAIT", "WAIT" }, new[] { "ALONG", "ALONG" }, new[] { "BACKWARD", "BACKWARD" }, new[] { "CROSS_SHALLOW", "CROSS" },
                 new[] { "CROSS_CLEARANCE", "CROSS" }, new[] { "CROSS", "CROSS" }, new[] { "GAME", "GAME" }, new[] { "something odd", "GAME" },
             };
             foreach (string[] w in want)

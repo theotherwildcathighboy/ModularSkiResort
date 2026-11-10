@@ -290,7 +290,25 @@ docs/research/review-153b64e-2026-10-26.md F3 / F4 / F9 / F10).
     nodes, so a lane says nothing about a station.)
 
   A loose end is a tower node with the full floor. The tower-free zone (`NearStation`, StationClearM) still applies at a loose or ground
-  end. Only the NoClearance retry lifts it.
+  end. Only the NoClearance retry lifts it. The retry keeps the station floor (next item).
+- **Station floor (task R2-l, DECISIONS 637).** No planner tower stands closer than `StationFloorM` to a station end.
+  StationFloorM is the smaller of 20 m (`StationTowerFloorM`) and StationClearM. So FG keeps 12.2 m, and DQ, GD and the tram get 20 m.
+  `NearStation` applies the floor at a station end (StationA / StationB), also in the NoClearance retry. Before, the retry went down to MinGap (10 m).
+  - The game rule. `CourseSplitSystem.CheckNodeGeometry` (1.6.0f1 CourseSplitSystem.cs:587-627, the test at :600) joins a new course to an
+    existing node. It does this when the course passes within the course's half width plus the node's half width of that node.
+    The stub tip node is a SkiLiftMarker (SkiLiftMarkerPiece m_Width 16, half width 8 m).
+  - The span to a tower nearer than that ends on the stub node. It runs past the tower. The game then flags OverlapExisting
+    (Game.Objects ValidationHelpers.cs, NetIterator.CheckOverlap3D, :1035-1182).
+  - `StubSnapM` = HalfWidthM + 8 m: FG and DQ 11 m, GD 12.1 m, tram 15.5 m. The floor stands above the snap for every type.
+  - Field cases: refused at 6, 7, 9 and 10 m. Built at 12 m and more. The refused edge midpoint is the mean of the previous node
+    and the stub (r1e 1697 = (1575 + 1819) / 2).
+  - `StationFloor` (on by default) turns the rule off for one test only (LiftBatch LP-34).
+  - Effect on the LiftBatch corpus: 243 of 13,279 plans changed (DQ and GD lines with an end tower 10-19 m from a station).
+    LP-22 (GD 1,408 m) keeps its plan.
+- **The lift queue's rule (task R2-l).** `QueueRule` / `QueueBuild` say what the Resort Planner's queue does with a plan. A Sound plan
+  builds. A plan with every span clear and exactly ONE tower over its sheave-train limit (`OverLimitTowers` = 1) builds flagged. Any other
+  plan waits for the player. `OverLimitTowers` is OverCapTowers on a type with trains, and 0 on the tram. `QueueWaitKey` names the
+  reason of a plan that waits. Two or more towers over the limit give PLAN_TRAINS. LiftBatch PS-13 and LP-34 pin it.
 - **Station-side rule.** `MinCost.EndRiseM` = the rise above the shortest member of each tower next to a station end. With
   `TowerWorthM` > 0 (FG / DQ / GD 8 m), the search minimizes towers x TowerWorthM + EndRiseM first. One more tower buys 8 m of shorter
   station towers (ordinary 1,200 m DQ slope: DQ18 @105 / DQ20 @1,075 with 5 towers -> DQ10 at both ends with 6). The rule allows at most
