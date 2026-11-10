@@ -602,6 +602,7 @@ export const HUB_FMT = {
   statusSnowIn: ["SkiResort.Hub.STATUS_SNOW_IN", "{DEPTH} in · {PCT}"], // US customary units
   problemLodgesSomeOff: ["SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges deactivated: {N}"],
   problemEfficiency: ["SkiResort.Hub.PROBLEM[Efficiency]", "Efficiency {PCT}: {REASON}"],
+  problemEfficiencyBare: ["SkiResort.Hub.PROBLEM[EfficiencyBare]", "Efficiency {PCT}"],
   problemNotRunning: ["SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign stopped: {REASON}"],
   problemLiftNoPower: ["SkiResort.Hub.PROBLEM[LiftNoPower]", "{NAME}: no power"],
   problemLiftSectionMissing: ["SkiResort.Hub.PROBLEM[LiftSectionMissing]", "{NAME}: section missing"],

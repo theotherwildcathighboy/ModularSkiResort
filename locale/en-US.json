@@ -1359,6 +1359,7 @@
   "SkiResort.Hub.STATUS_SNOW_IN": "{DEPTH} in · {PCT}",
   "SkiResort.Hub.PROBLEM[LodgesSomeOff]": "Lodges deactivated: {N}",
   "SkiResort.Hub.PROBLEM[Efficiency]": "Efficiency {PCT}: {REASON}",
+  "SkiResort.Hub.PROBLEM[EfficiencyBare]": "Efficiency {PCT}",
   "SkiResort.Hub.PROBLEM[NotRunning]": "Welcome Sign stopped: {REASON}",
   "SkiResort.Hub.PROBLEM[LiftNoPower]": "{NAME}: no power",
   "SkiResort.Hub.PROBLEM[LiftSectionMissing]": "{NAME}: section missing",

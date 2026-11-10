@@ -106,7 +106,11 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "lodgesSomeOff": return <LocText entry={HUB_FMT.problemLodgesSomeOff} args={{ N }} />;
     // The other factors live in the tooltip (problemTip lists every one). A "+N" here read like the band's own "+N" beside it
     // (in game 2026-11-07: "... Not Enough Employees +3" next to "+3").
-    case "efficiency": case "efficiencyMore": return <LocText entry={HUB_FMT.problemEfficiency} args={{ PCT, REASON }} />;
+    // No factor below 1 to name (the loss can come from the folded lodge staffing, SkiResortAttractivenessSystem.FoldLodgeEfficiency):
+    // the bare line, never "Efficiency 82 %:" with nothing after the colon (release shots 2026-11-10).
+    case "efficiency": case "efficiencyMore": return p.factor
+      ? <LocText entry={HUB_FMT.problemEfficiency} args={{ PCT, REASON }} />
+      : <LocText entry={HUB_FMT.problemEfficiencyBare} args={{ PCT }} />;
     case "notRunning": case "notRunningMore": return <LocText entry={HUB_FMT.problemNotRunning} args={{ REASON }} />;
     case "liftNoPower": return <LocText entry={HUB_FMT.problemLiftNoPower} args={{ NAME }} />;
     case "liftSectionMissing": return <LocText entry={HUB_FMT.problemLiftSectionMissing} args={{ NAME }} />;
