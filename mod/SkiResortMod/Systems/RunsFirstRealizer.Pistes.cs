@@ -666,6 +666,24 @@ namespace SkiResortMod.Systems
                 }
                 return b;
             }
+            // Iteration 2, item 4: a ring that still crosses itself gets one more try as a plain constant-width ribbon (MinHalfWidthM each
+            // side, the same edge pipeline as GradeRibbon.Build, so the end corners stay known)
+            if (b != null && b.Why == AutoReject.Crosses && xz.Count >= 2)
+            {
+                var hw = new float[xz.Count];
+                for (int i = 0; i < hw.Length; i++)
+                    hw[i] = MinHalfWidthM;
+                var c = new Built { Line = xz.ToArray() };
+                if (MakeRing(xz, hw, hw, c))
+                {
+                    c.Why = CheckPiste(ctx, c.Ring, out c.Blocker);
+                    if (c.Why == AutoReject.Kept && !RateRing(c, ctx.Graded))
+                        c.Why = AutoReject.Unrated;
+                    if (c.Why == AutoReject.Kept)
+                        m_Rep.CrossesFallback++;
+                    return c;
+                }
+            }
             return b;
         }
 

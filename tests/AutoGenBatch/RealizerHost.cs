@@ -206,7 +206,7 @@ namespace AutoGenBatch
                     $"{sources - dropped} sources kept, {dropped} dropped ({(drops.Count > 0 ? string.Join(", ", drops) : "none")}), {rep.PiecesLost} pieces lost, " +
                     $"km {kmKept:F2} / {kmPlan:F2} ({(kmPlan > 0 ? kmKept / kmPlan * 100 : 100):F1} %), graded km {rep.GradedKmKept:F2} / {rep.GradedKmPlanned:F2}",
                 $"  bands: planned = shown {agree}/{rated} areas ({(rated > 0 ? 100.0 * agree / rated : 100):F0} %), {agreeKm:F2}/{ratedKm:F2} km; graded shown G/B/K/DB " +
-                    $"{rep.GradedShown[1]}/{rep.GradedShown[2]}/{rep.GradedShown[3]}/{rep.GradedShown[4]}; natural to groomed {rep.NaturalToGroomed}; rated by the fallback {rep.FallbackRated}; table {BandTable(rep)}",
+                    $"{rep.GradedShown[1]}/{rep.GradedShown[2]}/{rep.GradedShown[3]}/{rep.GradedShown[4]}; natural to groomed {rep.NaturalToGroomed}; rated by the fallback {rep.FallbackRated}; constant-width after Crosses {rep.CrossesFallback}; table {BandTable(rep)}",
                 $"  tracks: {rep.TrackSources} sources, {rep.TrackChains} chains, {rep.TrackAreas} areas, {rep.TrackPiecesLost} pieces lost, dropped " +
                     $"({(tdrops.Count > 0 ? string.Join(", ", tdrops) : "none")}), km {rep.TrackKmKept:F2} / {rep.TrackKmPlanned:F2}, 30 m pitches over 25 % {rep.TrackPitchesOver}/{rep.TrackPitches}",
                 $"  junctions: relations {rep.Relations}, linked {rep.RelationLinks} ({rep.RelationVia} through the area that cut the end), missed {rep.RelationMisses}; extensions {rep.Extensions}; unlinked ends " +

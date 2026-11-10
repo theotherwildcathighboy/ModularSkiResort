@@ -29,6 +29,7 @@ namespace SkiResortMod.Systems
         public readonly int[] GradedShown = new int[5];
         public int NaturalToGroomed;
         public int FallbackRated;   // pistes the rater rated by its P90 fallback (a mask that is not connected)
+        public int CrossesFallback; // pieces kept as a constant-width ribbon after the marched ring crossed itself
         // Tracks
         public int TrackSources, TrackChains, TrackAreas, TrackPiecesLost, TrackPitches, TrackPitchesOver;
         public readonly int[] TrackDrops = new int[(int)AutoReject.Count];
