@@ -12,7 +12,7 @@ Build a ski resort: drawn chairlifts, gondolas and an aerial tram, runs on the g
 
 ---
 
-**Long description** (5,787 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
+**Long description** (5,764 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
 
 ---
 
@@ -32,7 +32,7 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 - **A resort economy.** Lift tickets, season passes, lessons, lodge spend and running costs. A ski area's attraction score feeds the game's tourism, so a bigger resort brings more visitors.
 
 ## Requirements
-Cities: Skylines II 1.6 (tested on 1.6.4f1). No other mod and no DLC. Start from a new city.
+Cities: Skylines II 1.6 (tested on 1.6.4f1). No other mod and no DLC.
 
 ## Getting started
 1. Open the Ski Resort hub. Place a Welcome Sign snapped to a road (it stands set back from it). Then place a lodge near where the runs will be.

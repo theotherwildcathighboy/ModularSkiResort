@@ -142,7 +142,7 @@ export const HUB_LOC = {
   pagePrev: ["SkiResort.Hub.PAGE_PREV", "Previous page"],
   pageNext: ["SkiResort.Hub.PAGE_NEXT", "Next page"],
   lodgeGroup: ["SkiResort.Hub.BUILD_GROUP[Lodges]", "Lodges"],
-  liftTool: ["SkiResort.Hub.LIFT_TOOL", "Lift generator"],
+  liftTool: ["SkiResort.Hub.LIFT_TOOL", "Lift tool"],
   liftToolTip: ["SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L"],
   liftToolUnavailable: ["SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded."],
 

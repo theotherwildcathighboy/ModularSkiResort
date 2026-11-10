@@ -224,7 +224,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowmakingBonusCelsius)),
-                    "Snow guns on snowmaking runs, night runs and cat tracks work where the air on the run is at most " +
+                    "Snow guns on runs and cat tracks work where the air on the run is at most " +
                     "this many degrees above freezing. They work from 2 months before winter to 1 month after, until " +
                     "the run has 91 cm (3 ft) of snow. Higher means a longer season and a bigger snowmaking bill. " +
                     "Default 3.3 °C (6 °F): guns run in air up to 3.3 °C (38 °F)."
@@ -318,7 +318,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowGunPlumes)),
-                    "Snow guns on snowmaking runs, night runs and cat tracks show a vapor plume while they run. They run when " +
+                    "Snow guns on runs and cat tracks show a vapor plume while they run. They run when " +
                     "it is cold enough at the gun and the run's snow is below the depth where the guns stop. Look only: snow " +
                     "and upkeep do not change. Default on."
                 },
@@ -384,7 +384,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.QuickRunsEnabled)),
                     "Outline a mountainside and the planner proposes lifts, cat tracks and a set of linked runs. You review and change the " +
-                    "plan. Build makes the cat tracks and runs together. The lifts follow one after the other. An optional tree filler plants trees. Experimental. Off: " +
+                    "plan. Build makes the cat tracks and runs. Build lifts then adds the lifts one at a time. An optional tree filler plants trees. Experimental. Off: " +
                     "the tool cannot open and its hub button is grayed. Default off."
                 },
 
@@ -491,27 +491,27 @@ namespace SkiResortMod.Settings
                     "trees). Left click applies. Works in a loaded city only. Default " +
                     "Ctrl+Shift+G."
                 },
-                // The lift-line tool
+                // The lift tool
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ToggleLiftLineToolBinding)),
-                    "Lift-line tool: toggle"
+                    "Lift tool: toggle"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleLiftLineToolBinding)),
-                    "Opens or closes the lift-line tool. Click a lift station, then the other station of the same lift. " +
+                    "Opens or closes the lift tool. Click a lift station, then the other station of the same lift. " +
                     "The planned towers appear (fewest towers, tall ones where they save a tower). Click on the line to " +
                     "add a tower. Drag a tower to move it, or release it off the line to remove it. Right click or Esc " +
                     "steps back. Then press the Build key. Default Ctrl+Shift+L."
                 },
-                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleLiftLine), "Toggle lift-line tool" },
-                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleLiftLine), "Lift-line tool" },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleLiftLine), "Toggle lift tool" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleLiftLine), "Lift tool" },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.BuildLiftLineBinding)),
-                    "Lift-line tool: build"
+                    "Lift tool: build"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.BuildLiftLineBinding)),
-                    "Builds the line the lift-line tool shows, with exactly the towers on screen. Only while the tool " +
+                    "Builds the line the lift tool shows, with exactly the towers on screen. Only while the tool " +
                     "is open. In the cat track tool it grades and builds the track shown. Default Enter."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActBuildLiftLine), "Build lift line" },

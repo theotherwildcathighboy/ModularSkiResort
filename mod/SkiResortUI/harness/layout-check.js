@@ -281,9 +281,9 @@
     if (lTab) {
       await openTab(lTab);
       const row = q(cls("pickerRow"));
-      const has = !!row && /Lift generator/.test(row.textContent);
+      const has = !!row && /Lift tool/.test(row.textContent);
       out.liftTool.push({ scenario: name, fs, present: has, rowRem: row ? Math.round(row.getBoundingClientRect().height / rem()) : -1 });
-      if (!has) fail("Lifts tab has no Lift generator toggle");
+      if (!has) fail("Lifts tab has no Lift tool toggle");
       if (row && row.scrollWidth > row.clientWidth + 1) fail("Lifts family row overflows sideways", { w: row.scrollWidth, cw: row.clientWidth });
     }
     const liftsTile = tiles()[2];
