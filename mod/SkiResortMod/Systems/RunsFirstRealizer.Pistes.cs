@@ -212,8 +212,6 @@ namespace SkiResortMod.Systems
                 return CRegion;
             if ((f & (FBlockHard | FBlockPiste)) != 0)
                 return CObstacle;
-            if (!ctx.Graded && !(m_Grade[c] < CliffGrade))
-                return CObstacle;
             int N = m_OwnPiste[c];
             if (N >= 0)
             {
@@ -280,7 +278,10 @@ namespace SkiResortMod.Systems
 
         private float MarchSide(PisteCtx ctx, float2 p, float2 dir, float maxHw, float sFrom, float sTo, List<int> j0, List<int> j1)
         {
+            // The grade ceiling limits the lateral march only, and never under MinHalfWidthM: the planner vetted the centerline with
+            // its own pitch rule, and the band the rater then shows is the honest one (iteration 2, item 2)
             float free = 0f;
+            bool steep = false;
             for (float t = MarchStepM; t <= maxHw + WidthMarginM; t += MarchStepM)
             {
                 if (!Cell(p + dir * t, out int c))
@@ -288,6 +289,8 @@ namespace SkiResortMod.Systems
                 if ((m_Flags[c] & (FBlockAll | FBlockPiste)) != 0)
                     break;
                 if (!ctx.Graded && !(m_Grade[c] < ctx.Ceil))
+                    steep = true;
+                if (steep && t > MinHalfWidthM + WidthMarginM)
                     break;
                 int N = m_OwnPiste[c];
                 if (N >= 0 && m_DPiste[c] < GapAt(ctx, N, sFrom, sTo, j0, j1))
