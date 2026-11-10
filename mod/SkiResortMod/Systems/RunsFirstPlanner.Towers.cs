@@ -142,7 +142,7 @@ namespace SkiResortMod.Systems
                 return fit;
             over = plan.OverCapTowers;
             bool edgeClear = tc.Misses == 0 && plan.Clear && plan.MaxEdgeSlope <= TowerEdgeSlopeShare * k.MaxEdgeSlope;
-            LiftQueueBuild q = plan.QueueBuild;
+            LiftQueueBuild q = plan.PlanBuild;   // task 2c-l: the realizer's rule (a plan leaning on the station clearance waits)
             if (edgeClear && q == LiftQueueBuild.Build)
                 fit = TowerFit.Sound;
             else if (edgeClear && q == LiftQueueBuild.BuildFlagged)

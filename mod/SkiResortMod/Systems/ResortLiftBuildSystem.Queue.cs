@@ -586,14 +586,24 @@ namespace SkiResortMod.Systems
                         m_RunWaitingText.Add(job.Name + " " + key);
                     }
                     bool more = m_Pending.Count > 0 && !m_StopAsked;
-                    if (!more)
+                    // Task 2c-l: the tool keeps the last line only when it is the run's first waiting row (or the run stops). Else the
+                    // hand-over opens the first waiting row, as on the first run ("Build lifts" pressed again: every row waits).
+                    bool holds = !more && (m_StopAsked || m_RunWaiting.Count == 0 || m_RunWaiting[0] == job.Key);
+                    if (holds)
                     {
                         AddWatch(job, t);
                         m_ToolHoldsWaiting = true;
+                        if (!handOver && !m_StopAsked)
+                        {
+                            // the first waiting row is the last row: it stays in the tool, and the log says so as a hand-over
+                            m_HandOver = true;
+                            Mod.Log.Info($"ResortLifts [queue]: HAND-OVER — {job.Name} stays in the lift tool for a hand fit ({m_RunWaiting.Count} row(s) wait in this run)");
+                        }
                     }
                     EndJob(job, r, SheetLiftState.NeedsFitting, key, more
                         ? "the line waits for a hand fit on its row; the queue goes on: " + t.Reason
-                        : "the lift tool waits in Edit for the player: " + t.Reason);
+                        : holds ? "the lift tool waits in Edit for the player: " + t.Reason
+                        : "the line waits for a hand fit on its row; the hand-over follows: " + t.Reason);
                     return;
                 }
                 case ScriptOutcome.Abandoned:

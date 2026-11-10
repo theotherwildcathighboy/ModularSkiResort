@@ -891,6 +891,8 @@
   "SkiResort.Tooltip.QUICK_LIFT_STATE[StationsPlacedWhy]": "Stations placed, no line: {WHY}",
   "SkiResort.Tooltip.QUICK_LIFT_STATE[Built]": "Built",
   "SkiResort.Tooltip.QUICK_LIFT_STATE[BuiltFlagged]": "Built. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}.",
+  "SkiResort.Tooltip.QUICK_LIFT_STATE[FlaggedAt]": "Builds flagged. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}.",
+  "SkiResort.Tooltip.QUICK_LIFT_STATE[FittingAt]": "Waits for a hand fit. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}.",
   "SkiResort.Hub.QUICK_LIFT_FLAG_TIP": "Tower {TOWER} stands {ALONG} m from the base station. The rope bends more there than its wheels can follow.",
   "SkiResort.Tooltip.QUICK_LIFT_STATE[Refused]": "Not built: {WHY}",
   "SkiResort.Tooltip.QUICK_LIFT_STATE[NeedsFitting]": "Waits for a hand fit: {WHY}",

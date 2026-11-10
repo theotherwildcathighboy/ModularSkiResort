@@ -394,6 +394,10 @@ function LiftsTotalLine({ q }: { q: QuickRunsState }): JSX.Element | null {
 /* A row's state as a line, and whether it is a caution (a refusal, a lift waiting for the player, or a built line with a flagged tower). */
 function sheetState(r: QuickRunsSheetRow, t: Translate): { text: JSX.Element | string; warn: boolean } {
   const why = (): string => t(sentKeyEntry(r.reasonKey || LIFT_WHY_GAME, HUB_LOC.quickUnavailable));
+  /* Task 2c-l: the over-limit tower's numbers (a flagged or waiting row, before the build from the plan, after it from the queue) */
+  const towerArgs = () => ({
+    TOWER: numArg(r.overLimitTower, Unit.Integer), BEND: numArg(Math.round(r.overLimitBendDeg), Unit.Integer), CAP: numArg(Math.round(r.overLimitCapDeg), Unit.Integer),
+  });
   if (r.step === "building") return { text: t(HUB_LOC.quickLiftBuilding), warn: false };
   if (r.step === "queued") return { text: t(HUB_LOC.quickLiftQueued), warn: false };
   switch (r.state) {
@@ -407,14 +411,23 @@ function sheetState(r: QuickRunsSheetRow, t: Translate): { text: JSX.Element | s
         };
       return { text: t(HUB_LOC.quickLiftBuilt), warn: false };
     case "Refused": return { text: <LocText entry={HUB_FMT.quickLiftRefused} args={{ WHY: why() }} />, warn: true };
-    case "NeedsFitting": return { text: <LocText entry={HUB_FMT.quickLiftFitting} args={{ WHY: why() }} />, warn: true };
+    case "NeedsFitting":
+      if (r.overLimitTowers > 0 && r.reasonKey.endsWith("[PLAN_TRAIN]")) return { text: <LocText entry={HUB_FMT.quickLiftFittingAt} args={towerArgs()} />, warn: true };
+      return { text: <LocText entry={HUB_FMT.quickLiftFitting} args={{ WHY: why() }} />, warn: true };
     case "StationsPlaced":
       return r.reasonKey ? { text: <LocText entry={HUB_FMT.quickLiftPlacedWhy} args={{ WHY: why() }} />, warn: true }
         : { text: t(HUB_LOC.quickLiftPlaced), warn: false };
     default:
       /* Not built yet: say how the line will build when the plan says so. A lift switched off says only that */
-      if (r.on && r.flagged) return { text: t(HUB_LOC.quickLiftFlagged), warn: true };
-      if (r.on && r.waits) return { text: t(HUB_LOC.quickLiftWaits), warn: true };
+      /* Task 2c-l: the reason and numbers before the build, the sentence the row shows after it */
+      if (r.on && r.flagged)
+        return r.overLimitTowers > 0 ? { text: <LocText entry={HUB_FMT.quickLiftFlaggedAt} args={towerArgs()} />, warn: true }
+          : { text: t(HUB_LOC.quickLiftFlagged), warn: true };
+      if (r.on && r.waits) {
+        if (r.overLimitTowers > 0 && r.reasonKey.endsWith("[PLAN_TRAIN]")) return { text: <LocText entry={HUB_FMT.quickLiftFittingAt} args={towerArgs()} />, warn: true };
+        if (r.reasonKey) return { text: <LocText entry={HUB_FMT.quickLiftFitting} args={{ WHY: why() }} />, warn: true };
+        return { text: t(HUB_LOC.quickLiftWaits), warn: true };
+      }
       return { text: t(r.on ? HUB_LOC.quickLiftProposed : HUB_LOC.quickLiftOff), warn: false };
   }
 }
