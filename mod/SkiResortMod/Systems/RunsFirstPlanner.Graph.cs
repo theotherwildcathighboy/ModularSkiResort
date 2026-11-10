@@ -56,23 +56,29 @@ namespace SkiResortMod.Systems
             sg.Next = new List<int>[m];
             sg.Delivers = new List<int>[m];
             sg.AtBottom = new List<int>[m];
+            // each element's xz box: a point farther than r from the box is farther than r from every point of the element, so the
+            // box test only skips pairs the point tests would reject (the same graph, bit for bit; the scan's time was in these tests)
+            var box = new float4[m];
+            for (int i = 0; i < m; i++)
+                box[i] = BoxOf(sg.P[i]);
             for (int i = 0; i < m; i++)
             {
                 sg.Next[i] = new List<int>();
-                float3 end = sg.P[i][sg.P[i].Length - 1];
+                float3[] pi = sg.P[i];
+                float3 end = pi[pi.Length - 1];
                 for (int j = 0; j < m; j++)
                 {
                     if (i == j)
                         continue;
-                    float3 st = sg.P[j][0];
-                    if (sg.P[j].Any(p => math.distancesq(p.xz, end.xz) < 40f * 40f && p.y <= end.y + 5f) ||
-                        sg.P[i].Any(p => math.distancesq(p.xz, st.xz) < 40f * 40f && st.y <= p.y + 5f))
+                    float3[] pj = sg.P[j];
+                    float3 st = pj[0];
+                    if ((NearBox(end.xz, box[j], 40f) && AnyNearBelow(pj, end)) || (NearBox(st.xz, box[i], 40f) && AnyNearAbove(pi, st)))
                         sg.Next[i].Add(j);
                 }
                 sg.Delivers[i] = new List<int>();
                 sg.AtBottom[i] = new List<int>();
                 for (int L = 0; L < lifts.Count; L++)
-                    if (sg.P[i].Skip(1).Any(p => math.distancesq(p.xz, bot[L].xz) < 60f * 60f && p.y >= bot[L].y - 15f))
+                    if (NearBox(bot[L].xz, box[i], 60f) && AnyAtBottom(pi, bot[L]))
                     {
                         sg.Delivers[i].Add(L);
                         sg.AtBottom[i].Add(L);
@@ -138,6 +144,48 @@ namespace SkiResortMod.Systems
                 comps++;
             }
             return sg;
+        }
+
+        /// <summary>The xz box of a sampled element: (min x, min z, max x, max z).</summary>
+        private static float4 BoxOf(float3[] pts)
+        {
+            var b = new float4(float.MaxValue, float.MaxValue, float.MinValue, float.MinValue);
+            foreach (float3 p in pts)
+                b = new float4(math.min(b.x, p.x), math.min(b.y, p.z), math.max(b.z, p.x), math.max(b.w, p.z));
+            return b;
+        }
+
+        /// <summary>False only when q is r or more from the box on x or on z, so every point in the box is r or more from q. One meter of
+        /// slack covers the rounding of the point tests' differences.</summary>
+        private static bool NearBox(float2 q, float4 box, float r)
+        {
+            r += 1f;
+            return q.x - box.z < r && box.x - q.x < r && q.y - box.w < r && box.y - q.y < r;
+        }
+
+        // the ski graph's point tests (Ski, before the box tests: LINQ Any over the points), as loops
+        private static bool AnyNearBelow(float3[] pts, float3 end)
+        {
+            foreach (float3 p in pts)
+                if (math.distancesq(p.xz, end.xz) < 40f * 40f && p.y <= end.y + 5f)
+                    return true;
+            return false;
+        }
+
+        private static bool AnyNearAbove(float3[] pts, float3 st)
+        {
+            foreach (float3 p in pts)
+                if (math.distancesq(p.xz, st.xz) < 40f * 40f && st.y <= p.y + 5f)
+                    return true;
+            return false;
+        }
+
+        private static bool AnyAtBottom(float3[] pts, float3 bot)
+        {
+            for (int k = 1; k < pts.Length; k++)
+                if (math.distancesq(pts[k].xz, bot.xz) < 60f * 60f && pts[k].y >= bot.y - 15f)
+                    return true;
+            return false;
         }
 
         [MethodImpl(Hot)]
