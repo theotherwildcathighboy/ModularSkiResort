@@ -26,8 +26,17 @@ The files are pure C# 9 for net48. The parts they took from the v1 / v2 planner 
    clear stays in the plan. It gets the flags `TowersUnchecked` and `HandFit`. The lift tool does not build it without the player.
 3. Pistes. A run goes before the runs that start off it or end onto it. A cycle uses the list order.
 4. Cat tracks. First the tree chains of each lift, then the graded runs under the blue line, then the links.
-5. Groups and the graph. The planner sets `ToBottom` on each lift (the way to the bottom). When a lift has a value other than `Reaches`
-   or `NoSkiing`, the realizer sets the warning `NoWayToBottom`. The report adds one line for each such lift.
+5. Groups and the graph. The planner sets `ToBottom` on each lift (the way to the bottom). The realizer measures the way to the
+   bottom again on its own descent graph (the game's link rule, no lift ride). A lift reaches the bottom when a descent from its top
+   ends on an area with its end in the base band. The band is the same as in `RunsFirstPlanner.Bottom.cs` (`m_BottomTop`).
+   A lift has a way down when the game serves an area from its top or the planner gives a value other than `NoSkiing`. The realizer sets the warning
+   `NoWayToBottom` when a lift with a way down does not reach the bottom on the realized plan. The report adds one line for each
+   such lift, with the planner's value (`RealizeReport.LiftPlanned`). It also adds one line for each lift that reaches the bottom
+   where the planner does not.
+   `BottomCauses` (report only) names the cause for each lift where the two differ. The causes are:
+   - a top that the game does not serve.
+   - a planned piece that is dropped or lost (head, tail).
+   - a link that the game does not make (the gap, or the junction rule of the target piste).
 
 ## Element types
 
@@ -103,8 +112,9 @@ covers every output bit. The host gate compares two runs.
 ## Test host
 
 - `RealizerTests.cs` runs in the default host run. It checks the synthetic regions and sixteen hand fixtures.
-  It also checks six fixtures of the way to the bottom (`BottomFixtures`, through `RunsFirstPlanner.BottomProbe`). For the synthetic
-  regions, B-1 on the realized plan must agree with the planner when the landing is a lift bottom. B-1 sees only pads, so it
-  cannot see a landing of class 2 to 4.
+  It also checks six fixtures of the way to the bottom (`BottomFixtures`, through `RunsFirstPlanner.BottomProbe`). The checks on the
+  synthetic regions and these fixtures are HARD. Each lift that the planner gives `Reaches` must reach the bottom on the realized
+  plan. The warning must agree with the realized reach. A lift that reaches the bottom only on the realized plan is a REPORT line.
+  The test does not use B-1: B-1 counts pads that touch the base band through the planner's run continuity, not the game's links.
 - `rf-realize <out dir> [regions file]` prints the report for each region. It also prints the score of the raw plan and of the
   realized plan.

@@ -143,7 +143,7 @@ After the towers pass, the `bottom` pass reads the finished plan again. It sets 
 | Basin | The drainage climbs out of a basin, more than the run rules allow. |
 | Other | None of the above, for example a search past its budget. |
 
-The realizer sets the warning `NoWayToBottom` when a lift has a value other than Reaches or NoSkiing.
+The realizer sets the warning `NoWayToBottom` from its own graph, not from this value (see RunsFirstRealizer.md, step 5).
 
 ## Inputs from the game
 
