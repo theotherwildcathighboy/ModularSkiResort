@@ -434,7 +434,7 @@ namespace SkiResortMod.Systems
             bool shown = m_Phase == ToolPhase.Preview && r.Status == AutoPlanStatus.Ok;
             if (shown)
             {
-                if (!QuickRunsRules.CanPay(CityMoney(), m_Totals.Fee))
+                if (!QuickRunsRules.CanPay(CityMoney(), m_Totals.Fee + LiftCostOn()))
                     m_ToolWarn |= QuickToolWarning.MoneyShort;
                 // Anarchy sets DisableInGame at Modification5 and clears it at ModificationEnd every frame, so GameChecks in ToolUpdate never sees it.
                 if (QuickRunsRules.ChecksOff(GameChecks()) || SkiOtherMods.AnarchyDetected)

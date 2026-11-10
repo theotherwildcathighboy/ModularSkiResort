@@ -87,9 +87,10 @@ namespace SkiResortMod.Systems
                 return;
             }
             long money = CityMoney();
-            if (!QuickRunsRules.CanPay(money, m_Totals.Fee))
+            long lifts = LiftCostOn();   // plan 3.3: the city must pay the runs and the lifts switched on before anything is built
+            if (!QuickRunsRules.CanPay(money, m_Totals.Fee + lifts))
             {
-                Say($"QuickRuns [build]: REFUSED — the batch costs {m_Totals.Fee}, the city has {money} ({why})",
+                Say($"QuickRuns [build]: REFUSED — the batch costs {m_Totals.Fee} (runs) + {lifts} (lifts), the city has {money} ({why})",
                     QuickRunsRules.TipPrefix + "WARN[" + QuickToolWarning.MoneyShort + "]");
                 return;
             }
@@ -387,6 +388,8 @@ namespace SkiResortMod.Systems
                 $"drawn runs; bind line in {BindCheckFrames} frames); the hub's Undo removes the batch with a refund (right click does not)", notice);
             m_StopBuild = m_BuildPartial = false;
             Bump();
+            if (!stopped)
+                LiftBuild()?.BuildAll("after the run build");   // plan 3.2: runs first, then the lifts switched on; the sheet stays
         }
 
         /// <summary>Every frame (QuickRunsHotkeySystem): the tool's frame counter while closed, and the bind line of the last batch.</summary>

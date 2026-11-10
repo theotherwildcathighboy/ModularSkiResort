@@ -4,7 +4,9 @@
 // it. Session only.
 // It runs at UIUpdate (SystemOrder.cs:67), every frame, paused or not, whatever tool is active: the queue's steps run while the station
 // placer or the lift-line tool is the active tool (an inactive tool never ticks, ToolSystem.cs:312-327).
-// Logs (silence impossible): one line per load and clear of the sheet. An exception disables the system until the next load.
+// The build queue (ResortLiftBuildSystem.Queue.cs) ticks here.
+// Logs (silence impossible): one line per load and clear of the sheet, the queue's lines (Queue.cs). An exception disables the system until
+// the next load.
 // Engine notes: EngineNotes/StationPlaceToolSystem.md (Plan sheet, Build queue)
 
 using System;
@@ -28,6 +30,7 @@ namespace SkiResortMod.Systems
         protected override void OnCreate()
         {
             base.OnCreate();
+            CreateQueue();
             Mod.Log.Info($"{nameof(ResortLiftBuildSystem)} created");
         }
 
@@ -37,6 +40,7 @@ namespace SkiResortMod.Systems
             m_Disabled = m_ErrorLogged = false;
             m_Sheet.Clear("load");
             m_SheetPlan = null;
+            ResetQueue();
             m_Armed = mode == GameMode.Game;
             Mod.Log.Info(m_Armed
                 ? "ResortLifts [sheet]: ARMED — the plan sheet is empty; a published Resort Planner plan fills it, a new plan replaces it"
@@ -57,9 +61,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private void Tick()
-        {
-        }
+        private void Tick() => TickQueue();
 
         // ---------------------------------------------------------------- the sheet
 
@@ -110,9 +112,12 @@ namespace SkiResortMod.Systems
         /// <summary>The dev trigger's dump: every row in one log line.</summary>
         internal void DumpSheet(string why) => Mod.Log.Info($"ResortLifts [sheet]: DUMP ({why}) — {m_Sheet.Dump()}");
 
-        /// <summary>The rows are about to be replaced or emptied.</summary>
+        /// <summary>The rows are about to be replaced or emptied: the queue stops (the lift in flight finishes and writes nothing into the
+        /// new rows).</summary>
         private void OnSheetReplaced(string why)
         {
+            if (QueueBusy)
+                Stop("the sheet is replaced: " + why);
         }
 
         private void Fail(Exception e, string where)
