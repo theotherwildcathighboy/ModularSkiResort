@@ -353,6 +353,17 @@ these steps and returns the height before and after. Measured (Move It 0.5.16): 
 center: on a slope its uphill side is still in the ground, and that part is a `terrain` job (Level strokes along the uphill wall).
 Move It is a staging tool. Nothing in Modular Ski Resort needs it.
 
+### Fitting a building: the rules (owner, 2026-11-10)
+
+- No air under any building, and no foundation exposed beyond a thin sliver. On the downhill side, fill: raise the ground up to the
+  foundation's top edge and blend it outward with small strokes. Do not cut the uphill side to compensate.
+- "To Terrain Height" fits the center, so on a slope the downhill side floats after it (the proof above left the lodge's downhill
+  foundation block fully exposed, with air under its outer corner). If needed, set the building a little lower (slightly into the
+  uphill slope: that side looks natural) and fill downhill, rather than lifting it.
+- After each fit, check all four sides from a low camera (2 to 4 m up, about 30 m out) and keep a four-side contact sheet. A side
+  that shows foundation or a gap is not done.
+- The same holds for station pads and lots: an edge meets the ground, it never stands out of it as a wall.
+
 ### `wind`
 
 The lift carriers sway with the wind map (`WindSystem`), which the wind simulation feeds every 512 simulation frames. Setting
