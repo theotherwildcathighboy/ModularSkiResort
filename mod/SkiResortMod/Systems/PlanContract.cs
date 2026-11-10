@@ -173,6 +173,12 @@ namespace SkiResortMod.Systems
         public int MergeInto = -1;     // Runs index of that run
         public bool TouchesBase, OverWater, CrossesCatTrack;
         public double Score;
+        // Runs-first realizer (RunsFirstRealizer.cs). The v1 / v2 planner leaves them at their defaults.
+        public bool Graded;            // the planner assumes this element is cut into the ground (round 3 grades it, round 2 paints it)
+        public SlopeBand PlannedBand;  // the planner's band (a graded element: its band along the path, the band it has after grading)
+        public int Source;             // the planner element it came from: the run index, or -1 - the connector index
+        public int Segment;            // 0, 1, 2 along the source when the realizer split it
+        public bool Unserved;          // the game's served rule does not reach this area
     }
 
     /// <summary>A node pair that links two runs (both nodes within LinkMeters). Existing = RunB is an index into the input's
