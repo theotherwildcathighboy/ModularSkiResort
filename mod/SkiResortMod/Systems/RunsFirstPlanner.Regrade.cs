@@ -1,4 +1,4 @@
-// RunsFirst regrade (round v3): the traverse from a lift top to the runs it opens falls at a run's grade where the reach let it.
+// RunsFirstPlanner regrade (round v3): the traverse from a lift top to the runs it opens falls at a run's grade where the reach let it.
 // Scorecard v3 reads such a piece as a diagonal blue run. Three things follow:
 // - Across a face of fall-line runs, the piece crowds every run it crosses.
 // - The short pieces between forks are stubs.

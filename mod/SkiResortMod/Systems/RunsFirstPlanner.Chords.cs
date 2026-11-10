@@ -1,4 +1,4 @@
-// RunsFirst chord repair: the serve pass and the beginner fallbacks keep a run under a lift line when it is the only one of its
+// RunsFirstPlanner chord repair: the serve pass and the beginner fallbacks keep a run under a lift line when it is the only one of its
 // kind. Examples: a lift's only run, a base's only green way home. If such runs still cover the middle of a line at the end,
 // their stretches under it move out beside the line. A designer keeps a run off the chairs in the same way. A stretch moves
 // only when the moved run keeps the run rules, its band and every way the plan is skied.
@@ -178,7 +178,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>RF_CHORDDBG: per lift, the share of its chord middle on runs as scorecard v3 reads them, by element.</summary>
-        private static void ChordDebug(Grid g, PlanDraft plan, List<Lift> lifts)
+        private void ChordDebug(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             var els = new List<(string Name, List<float2> P, bool Own)>();
             for (int i = 0; i < plan.Runs.Count; i++)
@@ -214,7 +214,7 @@ namespace SkiResortMod.Systems
                         near++;
                 }
                 if (n > 0 && near > 0.2f * n)
-                    Console.WriteLine($"CHORDDBG L{lf.Id} {lf.Type}: {100 * near / n}% ({string.Join(", ", by.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}/{n}"))})");
+                    Trace($"CHORDDBG L{lf.Id} {lf.Type}: {100 * near / n}% ({string.Join(", ", by.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}/{n}"))})");
             }
         }
 

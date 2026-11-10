@@ -1,4 +1,4 @@
-// RunsFirst layout (round v4): what a designer sees on the trail map, and what scorecard v4's layout term reads. Each lift has
+// RunsFirstPlanner layout (round v4): what a designer sees on the trail map, and what scorecard v4's layout term reads. Each lift has
 // its own terminal. Two bottoms (or two tops) on one spot are one shared station, which no real lift has. A top beside the next
 // lift's bottom is a transfer and is fine. A hub does not crowd: more than 4 terminals within 300 m (6 at a base) read as a
 // knot of ropes. Lift lines do not climb side by side up one valley (same direction within 20 degrees, under 250 m apart,
@@ -309,7 +309,7 @@ namespace SkiResortMod.Systems
                     return true;
                 }
                 if (O.Debug)
-                    Console.WriteLine($"DEBUG spread L{lf.Id} {(end == 0 ? "bottom" : "top")}{(plan == null ? " (before the plan)" : "")}: {moves.Count} spot(s), tries {tries}; near {why[0]}, pad {why[1]}, " +
+                    Trace($"DEBUG spread L{lf.Id} {(end == 0 ? "bottom" : "top")}{(plan == null ? " (before the plan)" : "")}: {moves.Count} spot(s), tries {tries}; near {why[0]}, pad {why[1]}, " +
                         $"fits {why[2]}, rope/cross {why[3]}, parallel {why[4]}, runs {why[5]}, hub/chord {why[6]}, skiing {why[7]}");
                 return false;
             }
@@ -336,18 +336,6 @@ namespace SkiResortMod.Systems
                     n++;
             }
             return n;
-        }
-
-        private static void TurnDebug(string id, PlanDraft plan)
-        {
-            var rows = new List<(int N, string S)>();
-            foreach (PlanRun r in plan.Runs.Where(r => r.Graded))
-                rows.Add((SharpTurns(r.Pts), $"run {r.Kind} {RunLength(r.Pts):F0} m from {r.Pts[0].x:F0},{r.Pts[0].y:F0}"));
-            foreach (List<float2> c in plan.Connectors)
-                rows.Add((SharpTurns(c), $"{(plan.Links.Contains(c) ? "link/way" : "track")} {RunLength(c):F0} m from {c[0].x:F0},{c[0].y:F0} to {c[c.Count - 1].x:F0},{c[c.Count - 1].y:F0}"));
-            foreach (var (n, s) in rows.Where(x => x.N > 0).OrderByDescending(x => x.N).Take(12))
-                Console.WriteLine($"TURNS {id}: {n} {s}");
-            Console.WriteLine($"TURNS {id}: total {rows.Sum(x => x.N)} in {rows.Count} track(s)");
         }
     }
 }

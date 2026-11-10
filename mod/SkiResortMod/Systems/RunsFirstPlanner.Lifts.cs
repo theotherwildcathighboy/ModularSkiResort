@@ -1,4 +1,4 @@
-// RunsFirst lifts (prototype): lifts placed to serve the picked lines, the way a resort is laid out around its terrain.
+// RunsFirstPlanner lifts: lifts placed to serve the picked lines, the way a resort is laid out around its terrain.
 // A lift top "reaches" every cell a skier gets to from it with these limits:
 // - no climbing (+3 % at most)
 // - nothing steeper than a black start (40 %)
@@ -11,7 +11,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -236,7 +235,7 @@ namespace SkiResortMod.Systems
                 var at = lattice.FindAll(p => p.Level == levels);
                 double projected = scanned.Count > 0 ? work + (double)work / scanned.Count * at.Count : 0;
                 if (O.Timing)
-                    Console.WriteLine($"TIME tops level {levels}: {at.Count} top(s), {projected / 1e6:F2} M cells projected");
+                    Trace($"TIME tops level {levels}: {at.Count} top(s), {projected / 1e6:F2} M cells projected");
                 if (projected > ReachBudget)
                     break;
                 var found = new (int[] E, bool Any, bool[] Rb, ulong[] Bits, int Work)[at.Count];
@@ -304,7 +303,7 @@ namespace SkiResortMod.Systems
                 }
             }
             if (O.Timing)
-                Console.WriteLine($"TIME tops: {scanned.Count} of {lattice.Count} lattice tops ({levels} of 5 levels), {work} cells reached");
+                Trace($"TIME tops: {scanned.Count} of {lattice.Count} lattice tops ({levels} of 5 levels), {work} cells reached");
             Tick("tops");
             // greedy: the lift that adds the most new vertical (per line, elevation intervals already lapped don't count twice)
             var covered = new List<(float lo, float hi)>[lines.Count];
@@ -387,11 +386,11 @@ namespace SkiResortMod.Systems
                 if (bt < 0 || (firstGain > 0f && best < stopShare * firstGain))
                 {
                     if (O.Debug)
-                        Console.WriteLine($"DEBUG lifts stop at {lifts.Count} of {want}: best {best:F0} first {firstGain:F0} (bt {bt})");
+                        Trace($"DEBUG lifts stop at {lifts.Count} of {want}: best {best:F0} first {firstGain:F0} (bt {bt})");
                     break;
                 }
                 if (O.Debug)
-                    Console.WriteLine($"DEBUG lift {lifts.Count + 1}: {bestType} gain {bestOwn:F0} transfer {bestTransfer:F0} value {best:F0} top {g.World(tops[bt]).x:F0},{g.World(tops[bt]).y:F0} bottom {g.World(bottoms[bb]).x:F0},{g.World(bottoms[bb]).y:F0}{(firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut) ? " (marginal, opens a base: skipped)" : "")}");
+                    Trace($"DEBUG lift {lifts.Count + 1}: {bestType} gain {bestOwn:F0} transfer {bestTransfer:F0} value {best:F0} top {g.World(tops[bt]).x:F0},{g.World(tops[bt]).y:F0} bottom {g.World(bottoms[bb]).x:F0},{g.World(bottoms[bb]).y:F0}{(firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut) ? " (marginal, opens a base: skipped)" : "")}");
                 // a marginal lift may not open a base of its own. A low station away from every other base needs its own beginner
                 // terrain and services. A lift worth that little does not earn them
                 if (firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut))
@@ -429,7 +428,7 @@ namespace SkiResortMod.Systems
                             excluded.Add(bb);
                         fails++;
                         if (O.Debug)
-                            Console.WriteLine($"DEBUG lift {lifts.Count + 1}: no pad of its own at {lift.Bottom.x:F0},{lift.Bottom.z:F0}: not placed");
+                            Trace($"DEBUG lift {lifts.Count + 1}: no pad of its own at {lift.Bottom.x:F0},{lift.Bottom.z:F0}: not placed");
                         continue;
                     }
                 }
@@ -475,7 +474,7 @@ namespace SkiResortMod.Systems
                 {
                     var others = lifts.FindAll(o => o != lifts[L]);
                     if (UnderRope(g, others, lifts[L].TopCell, lifts[L].BottomCell))
-                        Console.WriteLine($"DEBUG L{lifts[L].Id}: a station under another rope (or one under its own)");
+                        Trace($"DEBUG L{lifts[L].Id}: a station under another rope (or one under its own)");
                 }
             return lifts;
         }
@@ -837,31 +836,6 @@ namespace SkiResortMod.Systems
             if (log.Count > 0)
                 plan.Log.Add("type by use: " + string.Join("; ", log));
             return changed;
-        }
-
-        private static void WriteLifts(string path, string id, List<Lift> lifts, List<Line> lines)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine($"# lifts {id}: lift type length_m rise_m bottom_grade new_vertical_m transfer lines(map#:band) traverses");
-            foreach (Lift lf in lifts)
-            {
-                var ls = new List<string>();
-                foreach (Line l in lf.Lines)
-                    ls.Add($"{l.Pick}:{l.Band}");
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "L{0} {1} {2:F0} {3:F0} {4:F2} {5:F0} {8:F0} [{6}] {7}",
-                    lf.Id, lf.Type, lf.Length, lf.Rise, lf.BottomGrade, lf.Gain, string.Join(" ", ls), lf.Traverses.Count, lf.Transfer));
-            }
-            int picked = 0, unserved = 0;
-            foreach (Line l in lines)
-                if (l.Picked)
-                {
-                    picked++;
-                    if (l.Lift < 0)
-                        unserved++;
-                }
-            sb.AppendLine($"# {unserved} of {picked} picked line(s) served by no lift");
-            File.AppendAllText(path, sb.ToString());
-            Console.WriteLine($"REPORT rf lifts {id}: {lifts.Count} lift(s) [{string.Join(", ", lifts.ConvertAll(l => $"L{l.Id} {l.Type} {l.Length:F0} m / {l.Rise:F0} m up, {l.Lines.Count} line(s), {l.Traverses.Count} traverse(s){(l.Transfer > 0 ? ", feeds another lift" : "")}"))}]; {unserved} of {picked} line(s) unserved");
         }
     }
 }

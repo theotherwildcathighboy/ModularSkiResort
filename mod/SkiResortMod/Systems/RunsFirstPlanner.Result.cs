@@ -1,4 +1,4 @@
-// RunsFirst result: fills the plain plan object (SkiResortMod.Systems.RunsFirstResult, mod/SkiResortMod/Systems/RunsFirstResult.cs)
+// RunsFirstPlanner result: fills the plain plan object (SkiResortMod.Systems.RunsFirstResult, mod/SkiResortMod/Systems/RunsFirstResult.cs)
 // from the planner's own types. Pure C# 9, net48-clean.
 
 using System;

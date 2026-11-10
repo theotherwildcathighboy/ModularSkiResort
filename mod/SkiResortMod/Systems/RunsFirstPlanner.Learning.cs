@@ -1,4 +1,4 @@
-// RunsFirst learning areas (scorecard v5): a base's beginners learn on green runs, not on cat tracks. A base means two or more
+// RunsFirstPlanner learning areas (scorecard v5): a base's beginners learn on green runs, not on cat tracks. A base means two or more
 // lift bottoms within 400 m low on the mountain, as the scorecard reads them. If the beginners of a base get to under 0.8 km
 // of green runs, the base gets a learning area. The area has these parts:
 // - a beginner chair (a short fixed-grip, 30-150 m of rise: a beginner should not face 300 m of vertical first) from a pad at

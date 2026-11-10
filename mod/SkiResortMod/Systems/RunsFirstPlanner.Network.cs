@@ -1,4 +1,4 @@
-// RunsFirst lift network (prototype): a skier should be able to get from every lift to every other one. Where the ski graph
+// RunsFirstPlanner lift network: a skier should be able to get from every lift to every other one. Where the ski graph
 // shows a gap, the planner searches uphill from the stations the skier must reach. Examples of a gap: a lift whose station no
 // run passes, an area whose runs never lead back to the main lifts. The search covers ground a cat track can follow (the
 // connector rules) first, then ground a blue run can. It stops when it meets a run or traverse the skier is already on. That

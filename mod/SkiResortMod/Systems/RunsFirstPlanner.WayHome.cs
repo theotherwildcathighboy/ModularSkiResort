@@ -1,4 +1,4 @@
-// RunsFirst way home (round v3): every lift needs an easy way home, Whistler's "easiest way down": a green cat track cut with the
+// RunsFirstPlanner way home (round v3): every lift needs an easy way home, Whistler's "easiest way down": a green cat track cut with the
 // grading tool. The track winds across whole faces from the lift's top to a base, crossing black runs as a bench where it must.
 // The planner reads the plan the way scorecard v3 does (bases, bands, a gondola or tram top a skier may ride down from). For every
 // lift whose top has no green or blue route home, it searches uphill from where home is, until it reaches the lift's top. Home is

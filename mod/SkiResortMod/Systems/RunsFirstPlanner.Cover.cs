@@ -1,4 +1,4 @@
-// RunsFirst coverage lifts (prototype): the main lift search follows the picked lines. So a face or a lower valley that no
+// RunsFirstPlanner coverage lifts: the main lift search follows the picked lines. So a face or a lower valley that no
 // picked line crosses never gets a lift, however much skiable ground it holds. After the main search, the code adds lifts by
 // the ground they open. That ground is the skiable 20 m lattice points that a skier gets to from the top (the honest traverse
 // model). These points also drain past a lift bottom (the new one or any placed one: the skier comes home through the
@@ -225,7 +225,7 @@ namespace SkiResortMod.Systems
                     hc += PopCount(homes[w]);
                     rc += PopCount(reached[w]);
                 }
-                Console.WriteLine($"DEBUG cover lifts: {latCount} skiable lattice points, {rc} below a placed top, {hc} draining past a placed bottom; {B} bottom candidate(s), {tops.Count} top(s)");
+                Trace($"DEBUG cover lifts: {latCount} skiable lattice points, {rc} below a placed top, {hc} draining past a placed bottom; {B} bottom candidate(s), {tops.Count} top(s)");
             }
             while (lifts.Count < budget)
             {
@@ -283,7 +283,7 @@ namespace SkiResortMod.Systems
                             cands.Add((gain, ti, b));
                     }
                     if (debug && O.DebugTops && baseGain >= 40)
-                        Console.WriteLine($"DEBUG cover top {g.World(tops[ti]).x:F0},{g.World(tops[ti]).y:F0} h {g.Hr[tops[ti]]:F0}: base gain {baseGain}, back {back}, best {tBest}, pairs {tPairs}, into {tInto}, home {tHome}");
+                        Trace($"DEBUG cover top {g.World(tops[ti]).x:F0},{g.World(tops[ti]).y:F0} h {g.Hr[tops[ti]]:F0}: base gain {baseGain}, back {back}, best {tBest}, pairs {tPairs}, into {tInto}, home {tHome}");
                 }
                 SortStable(cands, (a, b) => b.Gain.CompareTo(a.Gain));
                 // v5: a coverage lift climbs its slope's fall line. The code ranks the best few hundred again. A sideways line is worth less
@@ -298,9 +298,9 @@ namespace SkiResortMod.Systems
                     cands.InsertRange(0, ranked);
                 }
                 if (debug && O.DebugTops)
-                    Console.WriteLine("DEBUG cover top lines above");
+                    Trace("DEBUG cover top lines above");
                 if (debug)
-                    Console.WriteLine($"DEBUG cover lifts: {openPts} of {latCount} lattice points unserved; {pairs} pair(s), {noInto} not reachable, {noHome} not leading home; best gain {maxGain}; {cands.Count} over the bar");
+                    Trace($"DEBUG cover lifts: {openPts} of {latCount} lattice points unserved; {pairs} pair(s), {noInto} not reachable, {noHome} not leading home; best gain {maxGain}; {cands.Count} over the bar");
                 bool placed = false;
                 var rej = new int[5];
                 foreach (var (gain, ti, b) in cands)
@@ -333,7 +333,7 @@ namespace SkiResortMod.Systems
                                 if (sh > 60f && Cross(a0, a1, b0, b1))
                                     why.Add($"cross L{lf.Id}");
                             }
-                            Console.WriteLine($"DEBUG twin: gain {gain} top {a1.x:F0},{a1.y:F0} h {g.Hr[t]:F0} bottom {a0.x:F0},{a0.y:F0} h {g.Hr[bc]:F0}: {string.Join(", ", why)}");
+                            Trace($"DEBUG twin: gain {gain} top {a1.x:F0},{a1.y:F0} h {g.Hr[t]:F0} bottom {a0.x:F0},{a0.y:F0} h {g.Hr[bc]:F0}: {string.Join(", ", why)}");
                         }
                         rej[0]++;
                         continue;
@@ -391,7 +391,7 @@ namespace SkiResortMod.Systems
                         reached[w] |= reachBits[ti][w];
                     }
                     if (debug)
-                        Console.WriteLine($"DEBUG cover lift L{lift.Id}: {type} {lift.Length:F0} m / {lift.Rise:F0} m up opens {gain} of {latCount} lattice points");
+                        Trace($"DEBUG cover lift L{lift.Id}: {type} {lift.Length:F0} m / {lift.Rise:F0} m up opens {gain} of {latCount} lattice points");
                     // its bottom on a placed lift's bottom moves to a pad of its own now (as in the lift search)
                     if (O.Spread && SpreadEach)
                         SpreadTerminals(g, lifts, null, runs, true);
@@ -402,7 +402,7 @@ namespace SkiResortMod.Systems
                 if (!placed)
                 {
                     if (debug)
-                        Console.WriteLine($"DEBUG cover lifts: none placed; twin {rej[0]}, under a rope {rej[1]}, on runs {rej[2]}, no lift type fits {rej[3]}, opens a base {rej[4]}");
+                        Trace($"DEBUG cover lifts: none placed; twin {rej[0]}, under a rope {rej[1]}, on runs {rej[2]}, no lift type fits {rej[3]}, opens a base {rej[4]}");
                     break;
                 }
             }

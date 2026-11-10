@@ -1,4 +1,4 @@
-// RunsFirst graded tracks (round v3): how scorecard v3 reads an element, so the planner sees what the scorecard sees. The
+// RunsFirstPlanner graded tracks (round v3): how scorecard v3 reads an element, so the planner sees what the scorecard sees. The
 // scorecard rates a run by the ground under it (the 85th percentile of the raw 10 m terrain grade at its 10 m samples). The
 // game's classifier rates a painted run the same way. A traverse across a black face is black. A connector is a graded cat
 // track (the grading tool cuts a bench across the face). The scorecard rates it by its own grade along the path. Under the
@@ -188,85 +188,6 @@ namespace SkiResortMod.Systems
                         return false;
                 }
             return true;
-        }
-
-        /// <summary>RF_V3DBG: the plan's elements by their v3 class, and the crowded samples (the scorecard's rule, served or not) by the
-        /// kinds of the two elements.</summary>
-        private void V3Debug(Grid g, PlanDraft plan, List<Lift> lifts)
-        {
-            var els = new List<(string Kind, float3[] P, bool Run)>();
-            foreach (PlanRun r in plan.Runs)
-                els.Add(("run:" + r.Kind, Sampled(g, r.Pts).ToArray(), true));
-            int[] cls = new int[6];
-            float[] km = new float[6];
-            foreach (List<float2> c in plan.Connectors)
-            {
-                var (run, band) = TrackClass(g, c);
-                int k = run ? (int)band : 0;
-                cls[k]++;
-                km[k] += RunLength(c) / 1000f;
-                els.Add((run ? "graded-" + band : "cat", Sampled(g, c).ToArray(), run));
-            }
-            Console.WriteLine($"V3 connectors: green cat {cls[0]} ({km[0]:F1} km), diagonal blue {cls[2]} ({km[2]:F1} km), black {cls[3]} ({km[3]:F1} km), " +
-                $"double black {cls[4]} ({km[4]:F1} km); runs by ground: " +
-                string.Join(" ", Enumerable.Range(1, 4).Select(b => $"{(SlopeBand)b} {plan.Runs.Count(r => GroundBand(g, r.Pts) == (SlopeBand)b)}")) +
-                $"; graded stubs (< 50 m drop) {els.Count(e => e.Run && e.Kind.StartsWith("graded") && e.P[0].y - e.P[e.P.Length - 1].y < 50f)}");
-            var by = new Dictionary<string, int>();
-            int pts = 0, crowded = 0;
-            for (int i = 0; i < els.Count; i++)
-            {
-                if (!els[i].Run)
-                    continue;
-                float3[] P = els[i].P;
-                for (int k = 0; k < P.Length - 15; k++)
-                {
-                    pts++;
-                    for (int j = 0; j < els.Count; j++)
-                    {
-                        if (j == i || !els[j].Run)
-                            continue;
-                        float3[] Q = els[j].P;
-                        if (math.distancesq(Q[0].xz, P[k].xz) < 1e4f || math.distancesq(Q[Q.Length - 1].xz, P[k].xz) < 1e4f)
-                            continue;
-                        if (Q.Any(q => math.distancesq(q.xz, P[k].xz) < 1600f))
-                        {
-                            crowded++;
-                            string key = els[i].Kind.Split(':')[0].Replace("graded-Blue", "graded").Replace("graded-Black", "graded").Replace("graded-DoubleBlack", "graded")
-                                + " by " + els[j].Kind.Split(':')[0].Replace("graded-Blue", "graded").Replace("graded-Black", "graded").Replace("graded-DoubleBlack", "graded");
-                            by[key] = by.TryGetValue(key, out int v) ? v + 1 : 1;
-                            break;
-                        }
-                    }
-                }
-            }
-            Console.WriteLine($"V3 crowding: {crowded} of {pts} samples ({(pts > 0 ? crowded / (float)pts : 0f):P0}); " + string.Join(", ", by.OrderByDescending(kv => kv.Value).Select(kv => kv.Key + " " + kv.Value)));
-            // the graded pieces: length, drop, along-path grade, link or traverse tree, and the crowded samples they take part in
-            var links = new HashSet<List<float2>>(plan.Links);
-            var rows = new List<(int Hits, string Text)>();
-            for (int ci = 0; ci < plan.Connectors.Count; ci++)
-            {
-                int e = plan.Runs.Count + ci;
-                if (!els[e].Run)
-                    continue;
-                float3[] Q = els[e].P;
-                int hits = 0;
-                for (int i = 0; i < els.Count; i++)
-                {
-                    if (i == e || !els[i].Run)
-                        continue;
-                    float3[] P = els[i].P;
-                    for (int k = 0; k < P.Length - 15; k++)
-                        if (math.distancesq(Q[0].xz, P[k].xz) >= 1e4f && math.distancesq(Q[Q.Length - 1].xz, P[k].xz) >= 1e4f && Q.Any(q => math.distancesq(q.xz, P[k].xz) < 1600f))
-                            hits++;
-                    for (int k = 0; k < Q.Length - 15; k++)
-                        if (math.distancesq(P[0].xz, Q[k].xz) >= 1e4f && math.distancesq(P[P.Length - 1].xz, Q[k].xz) >= 1e4f && P.Any(q => math.distancesq(q.xz, Q[k].xz) < 1600f))
-                            hits++;
-                }
-                List<float2> c = plan.Connectors[ci];
-                rows.Add((hits, $"{(links.Contains(c) ? "link" : "tree")} {RunLength(c):F0} m, {Q[0].y - Q[Q.Length - 1].y:F0} m down, along {AlongGrade(g, c):F2}, crowd {hits}, from {c[0].x:F0},{c[0].y:F0} to {c[c.Count - 1].x:F0},{c[c.Count - 1].y:F0}"));
-            }
-            foreach (var row in rows.OrderByDescending(r => r.Hits).Take(O.DebugV3All ? 999 : 12))
-                Console.WriteLine("V3 graded " + row.Text);
         }
 
         /// <summary>A route the grading tool can cut as a green cat track: the connector rules on the raw terrain and an along-path

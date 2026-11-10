@@ -1,4 +1,4 @@
-// RunsFirst junctions: a merging run ends where it first comes within 39 m of the run it joins (the serve pass). Every sample
+// RunsFirstPlanner junctions: a merging run ends where it first comes within 39 m of the run it joins (the serve pass). Every sample
 // of the joined run within 40 m of it reads as crowded. That is three to five per junction where the joined run passes 35-39 m
 // from the end. At the end of the plan, each merging run's end slides back along its last 60 m. It slides to the spot where the
 // fewest samples of other runs lie within 40 m of its tail. At that spot the run it joins still lies within the skier's 40 m

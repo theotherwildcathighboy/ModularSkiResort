@@ -1,4 +1,4 @@
-// RunsFirst coverage fill (prototype): once the lifts, runs, network and beginner terrain stand, skiable ground a skier gets to
+// RunsFirstPlanner coverage fill: once the lifts, runs, network and beginner terrain stand, skiable ground a skier gets to
 // can still lie away from every run. Examples: a broad face between two trunk runs, the gentle side of a valley. A candidate
 // line becomes a run when it leaves a run or traverse the skier is already on and goes down over that ground. It must also open
 // enough new ground for its length and keep its distance from the runs beside it. The fill takes the best new ground first,
@@ -501,7 +501,7 @@ namespace SkiResortMod.Systems
                         queue.Enqueue(cd, -f0);
                 }
             if (O.Debug)
-                Console.WriteLine($"DEBUG fill: {queue.Count} of {cands.Count} candidate(s) and {faceLines} face line(s); no fork {why[0]}, never leaves {why[1]}, no way home {why[2]}, short {why[3]}, crowded {why[4]}, little new ground {why[5]}, crowding costs more {why[6]}");
+                Trace($"DEBUG fill: {queue.Count} of {cands.Count} candidate(s) and {faceLines} face line(s); no fork {why[0]}, never leaves {why[1]}, no way home {why[2]}, short {why[3]}, crowded {why[4]}, little new ground {why[5]}, crowding costs more {why[6]}");
             Tick("face lines");
             int added = 0, opened = 0;
             float km = 0f;
@@ -631,13 +631,13 @@ namespace SkiResortMod.Systems
                     }
                     diagonals++;
                     if (O.Debug)
-                        Console.WriteLine($"DEBUG diagonal {RunLength(pts):F0} m from {pts[0].x:F0},{pts[0].y:F0} to {pts[pts.Count - 1].x:F0},{pts[pts.Count - 1].y:F0}, {fresh} new lattice points");
+                        Trace($"DEBUG diagonal {RunLength(pts):F0} m from {pts[0].x:F0},{pts[0].y:F0} to {pts[pts.Count - 1].x:F0},{pts[pts.Count - 1].y:F0}, {fresh} new lattice points");
                     opened += fresh;
                     diagKm += RunLength(pts) / 1000f;
                 }
             }
             if (O.Debug)
-                Console.WriteLine($"DEBUG diagonals: {traces} trace(s), {traced} reached a run or station; not a run {dwhy[0]}, past blue {dwhy[1]}, connector rules {dwhy[2]}, " +
+                Trace($"DEBUG diagonals: {traces} trace(s), {traced} reached a run or station; not a run {dwhy[0]}, past blue {dwhy[1]}, connector rules {dwhy[2]}, " +
                     $"short {dwhy[3]}, crowded {dwhy[4]}, little new ground {dwhy[5]}, crowding costs more {dwhy[6]}, lift chord {dwhy[7]}");
             // a diagonal's case for a trail. It is a blue diagonal run by the scorecard's reading. It is within the connector rules, not a
             // stub and clear of the lift chords. The case also needs enough new ground for its length, and more than the crowding it
@@ -731,7 +731,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>RF_COVDBG: a map of the skiable ground and what the served runs cover of it, 100 m a character, +z up and +x right
         /// ("#" all covered, "+" half or more, "." less, "o" none, A-Z a lift bottom, a-z its top).</summary>
-        private static void CoverDebug(Grid g, PlanDraft plan, List<Lift> lifts)
+        private void CoverDebug(Grid g, PlanDraft plan, List<Lift> lifts)
         {
             // the elements the scorecard reads as runs (as the cut model takes them: every one served)
             var runs = new PointHash();
@@ -771,7 +771,7 @@ namespace SkiResortMod.Systems
                 mark[((int)Math.Floor(lifts[L].Bottom.x / 100f), (int)Math.Floor(lifts[L].Bottom.z / 100f))] = (char)('A' + L);
                 mark[((int)Math.Floor(lifts[L].Top.x / 100f), (int)Math.Floor(lifts[L].Top.z / 100f))] = (char)('a' + L);
             }
-            Console.WriteLine($"COVDBG {cov} of {all} skiable lattice points covered ({100f * cov / Math.Max(1, all):F0} %, the scorecard's 60 % = full credit)");
+            Trace($"COVDBG {cov} of {all} skiable lattice points covered ({100f * cov / Math.Max(1, all):F0} %, the scorecard's 60 % = full credit)");
             for (int cz = z1; cz >= z0; cz--)
             {
                 var sb = new System.Text.StringBuilder("COVDBG ");
@@ -785,7 +785,7 @@ namespace SkiResortMod.Systems
                     cells.TryGetValue((cx, cz), out var v);
                     sb.Append(v.Ski == 0 ? ' ' : v.Cov == v.Ski ? '#' : 2 * v.Cov >= v.Ski ? '+' : v.Cov > 0 ? '.' : 'o');
                 }
-                Console.WriteLine(sb.ToString().TrimEnd());
+                Trace(sb.ToString().TrimEnd());
             }
             // and the height: 25 m a step above the lowest ground (0-9, then a-z)
             float lo = float.MaxValue;
@@ -807,7 +807,7 @@ namespace SkiResortMod.Systems
                     int k = Clamp((int)((g.H[c] - lo) / 25f), 0, 35);
                     sb.Append(k < 10 ? (char)('0' + k) : (char)('a' + k - 10));
                 }
-                Console.WriteLine(sb.ToString().TrimEnd());
+                Trace(sb.ToString().TrimEnd());
             }
         }
     }

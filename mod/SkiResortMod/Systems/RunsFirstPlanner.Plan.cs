@@ -1,4 +1,4 @@
-// RunsFirst plan (prototype): turns the candidate lines and the placed lifts into the plan a skier would see. The scorecard reads the same plan.
+// RunsFirstPlanner plan: turns the candidate lines and the placed lifts into the plan a skier would see. The scorecard reads the same plan.
 // The serve pass re-picks the runs knowing the lifts. It trims every candidate line (picked or not) to where the highest lift
 // traverse meets it. A trimmed line ends in one of two places. It ends where it delivers to a lift bottom (on down its drainage
 // when that is where the lift is). Or it ends where it runs onto an earlier run.
@@ -401,8 +401,8 @@ namespace SkiResortMod.Systems
             if (O.DebugModel)
             {
                 var cm = new CutModel(g, plan);
-                Console.WriteLine("MODELDBG " + cm.Terms());
-                Console.WriteLine("MODELDBG crowded: " + cm.CrowdBreakdown());
+                Trace("MODELDBG " + cm.Terms());
+                Trace("MODELDBG crowded: " + cm.CrowdBreakdown());
             }
             if (O.DebugCover)
                 CoverDebug(g, plan, lifts);
@@ -432,7 +432,7 @@ namespace SkiResortMod.Systems
                         outReach++;
                     plan.Dots.Add((p, 255, reached ? 0 : 160, 0));
                 }
-                Console.WriteLine($"DEBUG cover: {skiable} skiable, {inReach} uncovered in a lift's reach, {outReach} uncovered out of every reach");
+                Trace($"DEBUG cover: {skiable} skiable, {inReach} uncovered in a lift's reach, {outReach} uncovered out of every reach");
             }
             if (O.DebugCrowd)
             {
@@ -512,8 +512,8 @@ namespace SkiResortMod.Systems
                     endCrowds += within;
                     hist[best < 10f ? 0 : best < 20f ? 1 : best < 30f ? 2 : best < 35f ? 3 : 4]++;
                 }
-                Console.WriteLine($"DEBUG crowd ends: {ends} run(s) end within 40 m of another run's counted samples, {endCrowds} sample(s) within 40 m of those ends; nearest <10 {hist[0]}, 10-20 {hist[1]}, 20-30 {hist[2]}, 30-35 {hist[3]}, 35-40 {hist[4]}");
-                Console.WriteLine($"DEBUG crowd: {all} samples, {ownStart + nearEnd + nearStart + nearMid} crowded: own first 100 m {ownStart}, by the last 200 m of another run {nearEnd} ({nearEndStation} of them ending at a station, {nearEndHere} within 200 m of one, {atJunction} within 45 m of its end; by its kind {string.Join(", ", endBy.Select(kv => kv.Key + " " + kv.Value))}), by the first 100 m of another {nearStart}, alongside {nearMid}; by kind {string.Join(", ", byKind.Select(kv => kv.Key + " " + kv.Value))}");
+                Trace($"DEBUG crowd ends: {ends} run(s) end within 40 m of another run's counted samples, {endCrowds} sample(s) within 40 m of those ends; nearest <10 {hist[0]}, 10-20 {hist[1]}, 20-30 {hist[2]}, 30-35 {hist[3]}, 35-40 {hist[4]}");
+                Trace($"DEBUG crowd: {all} samples, {ownStart + nearEnd + nearStart + nearMid} crowded: own first 100 m {ownStart}, by the last 200 m of another run {nearEnd} ({nearEndStation} of them ending at a station, {nearEndHere} within 200 m of one, {atJunction} within 45 m of its end; by its kind {string.Join(", ", endBy.Select(kv => kv.Key + " " + kv.Value))}), by the first 100 m of another {nearStart}, alongside {nearMid}; by kind {string.Join(", ", byKind.Select(kv => kv.Key + " " + kv.Value))}");
             }
             if (O.Debug)
             {
@@ -522,7 +522,7 @@ namespace SkiResortMod.Systems
                     if (!sg.Reached[i] || !sg.Returns[i])
                     {
                         PlanRun r = plan.Runs[i];
-                        Console.WriteLine($"DEBUG run #{r.Src?.Pick} by L{r.By?.Id}: reached {sg.Reached[i]} returns {sg.Returns[i]}, start {r.Pts[0].x:F0},{r.Pts[0].y:F0} " +
+                        Trace($"DEBUG run #{r.Src?.Pick} by L{r.By?.Id}: reached {sg.Reached[i]} returns {sg.Returns[i]}, start {r.Pts[0].x:F0},{r.Pts[0].y:F0} " +
                             $"end {r.Pts[r.Pts.Count - 1].x:F0},{r.Pts[r.Pts.Count - 1].y:F0} merge {r.Src?.Merge} top-dist {(r.By != null ? math.distance(r.By.Top.xz, r.Pts[0]) : -1f):F0}");
                     }
                 for (int L = 0; L < lifts.Count && L < reachOf.Length; L++)
@@ -533,10 +533,10 @@ namespace SkiResortMod.Systems
                         foreach (float2 p in r.Pts)
                             near = Math.Min(near, math.distance(p, bp));
                     var by = Enumerable.Range(0, reachOf.Length).Where(X => X != L && reachOf[X].ContainsKey(lifts[L].BottomCell)).Select(X => lifts[X].Id);
-                    Console.WriteLine($"DEBUG L{lifts[L].Id} bottom {bp.x:F0},{bp.y:F0} h {RawH(g, bp):F0} top {lifts[L].Top.x:F0},{lifts[L].Top.z:F0} h {RawH(g, lifts[L].Top.xz):F0}; nearest run point {near:F0} m; bottom in reach of [{string.Join(",", by)}]");
+                    Trace($"DEBUG L{lifts[L].Id} bottom {bp.x:F0},{bp.y:F0} h {RawH(g, bp):F0} top {lifts[L].Top.x:F0},{lifts[L].Top.z:F0} h {RawH(g, lifts[L].Top.xz):F0}; nearest run point {near:F0} m; bottom in reach of [{string.Join(",", by)}]");
                 }
                 for (int L = 0; L < lifts.Count; L++)
-                    Console.WriteLine($"DEBUG L{lifts[L].Id}: reaches [{string.Join(",", sg.Reaches[L].Select(b => lifts[b].Id))}] comp {sg.Component[L]} dead {Dead(sg, L)}");
+                    Trace($"DEBUG L{lifts[L].Id}: reaches [{string.Join(",", sg.Reaches[L].Select(b => lifts[b].Id))}] comp {sg.Component[L]} dead {Dead(sg, L)}");
                 for (int L = 0; L < lifts.Count; L++)
                 {
                     // which runs lie along the chord's middle (the scorecard: 30 % of the 15-85 % samples within 20 m)
@@ -552,7 +552,7 @@ namespace SkiResortMod.Systems
                                 hits[i] = hits.TryGetValue(i, out int v) ? v + 1 : 1;
                     }
                     if (hits.Count > 0)
-                        Console.WriteLine($"DEBUG L{lifts[L].Id} chord ({nS} samples): " + string.Join(", ", hits.Select(kv => $"run {kv.Key} {plan.Runs[kv.Key].Kind} by L{plan.Runs[kv.Key].By?.Id} {kv.Value}")));
+                        Trace($"DEBUG L{lifts[L].Id} chord ({nS} samples): " + string.Join(", ", hits.Select(kv => $"run {kv.Key} {plan.Runs[kv.Key].Kind} by L{plan.Runs[kv.Key].By?.Id} {kv.Value}")));
                 }
             }
             plan.Log.Add($"serve pass: {cands.Count} candidate(s) with a lift entry, {plan.Runs.Count} run(s) kept (cap {cap}); " +
@@ -735,7 +735,7 @@ namespace SkiResortMod.Systems
                 if (ci < 0)
                 {
                     if (O.Debug)
-                        Console.WriteLine($"DEBUG spur: run by L{r.By?.Id} at {r.Pts[0].x:F0},{r.Pts[0].y:F0}: no traverse ends there (nearest end " +
+                        Trace($"DEBUG spur: run by L{r.By?.Id} at {r.Pts[0].x:F0},{r.Pts[0].y:F0}: no traverse ends there (nearest end " +
                             $"{plan.Connectors.Select(c => math.distance(c[c.Count - 1], r.Pts[0])).DefaultIfEmpty(-1f).Min():F0} m, top {math.distance(r.By.Top.xz, r.Pts[0]):F0} m)");
                     continue;
                 }
@@ -751,7 +751,7 @@ namespace SkiResortMod.Systems
                 if (ok == null || ok.Count < Densify(pts).Count || !guard.FitsAdding(pts, 0, spur.Count - 1 - cut))
                 {
                     if (O.Debug)
-                        Console.WriteLine($"DEBUG spur: run by L{r.By?.Id}: {(ok == null ? "no run" : ok.Count < Densify(pts).Count ? $"cut to {ok.Count}/{Densify(pts).Count}" : "lift line")}");
+                        Trace($"DEBUG spur: run by L{r.By?.Id}: {(ok == null ? "no run" : ok.Count < Densify(pts).Count ? $"cut to {ok.Count}/{Densify(pts).Count}" : "lift line")}");
                     continue;
                 }
                 guard.Add(pts, 0, spur.Count - 1 - cut);

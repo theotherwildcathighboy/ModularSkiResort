@@ -1,35 +1,23 @@
-// RunsFirst (prototype after field test 5): terrain-first run candidates. Reads the mountain the way a person does (drainages and
-// spurs, top to bottom). It rates each line, picks a spaced set, and renders it beside the v2 plan of the same region (uphill = image top).
-// Host only: nothing here is wired into the mod. Run from the repo root:
-//   dotnet run --project tests/AutoGenBatch/AutoGenBatch.csproj -c Release -- rf <out-dir>
-// The planner's hot methods are marked AggressiveOptimization. A region plans in about a second once the runtime has tiered its
-// code up. But the first region of a run spent 2-3 s more in tier-0 code (tiering waits while the pipeline keeps compiling new
-// methods). No pass reads the clock: the plan depends on its input only, and the per-pass times are a report.
+// RunsFirstPlanner: the runs-first resort planner (after field test 5). It reads the mountain the way a person does: drainages and
+// spurs, top to bottom. It rates each line, picks a spaced set, places lifts to serve them, then builds the plan a skier would see
+// in about 35 passes (RunsFirstPlanner.Plan.cs). Pure C# 9 on System and Unity.Mathematics: no game type, no console, no file.
+// One instance plans one region (Plan). It holds all the state of that plan, so two instances can plan at the same time on two
+// threads. The test host (tests/AutoGenBatch/RunsFirst.Host.cs, RunsFirst.Render.cs) links these files, scores and renders the plans,
+// and keeps the plan hashes (the RF golden). No pass reads the clock: the plan depends on its input only, and the per-pass times
+// are a report. See EngineNotes/RunsFirstPlanner.md.
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using AutoGenBatch;
 using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
     public sealed partial class RunsFirstPlanner
     {
-        // the field test 5 regions, corners as the mod log printed them (docs/research/field/2026-10-28/ft5/logs)
-        private static readonly (string Id, float2[] Ring)[] Regions =
-        {
-            ("ft5-r1", new[] { P(3372, -1943), P(3462, -3193), P(6386, -2246), P(6244, -1083) }),
-            ("ft5-r2", new[] { P(2688, -1711), P(2768, -2269), P(2717, -2714), P(3317, -3708), P(3593, -3839), P(6312, -2292), P(7148, -1835),
-                P(6951, -983), P(5793, -1107), P(4905, -1124), P(4047, -1423), P(3703, -1716), P(3358, -1858) }),
-            ("ft5-r3", new[] { P(6276, -966), P(5976, 559), P(5020, 1226), P(2076, -686), P(3790, -756), P(4412, -411), P(4942, -362), P(5651, -1175) }),
-            ("ft5-r4", new[] { P(-2941, -4929), P(-978, -5499), P(-339, -4233), P(-1945, -3261), P(-2580, -3672) }),
-        };
-
         private const int F = 2;                  // texels per flow cell (7 m cells at 3.5 m texels)
         private const float ChannelM2 = 20000f;   // 2 ha catchment = a drainage (inverted: a spur)
         private const float StepM = 10f, PitchM = 30f;
@@ -109,138 +97,11 @@ namespace SkiResortMod.Systems
             if (MixMode == 1)
                 MixW = w;
             string Pc(float[] a, float s) => string.Join("/", Enumerable.Range(1, 4).Select(b => $"{100f * a[b] / s:F0}"));
-            Console.WriteLine($"REPORT rf {id}: mix weights G/B/K/DB {string.Join("/", w.Skip(1).Select(x => $"{x:F2}"))} (ground {Pc(ground, gsum)} %, lines {Pc(pool, psum)} %)");
+            Trace($"REPORT rf {id}: mix weights G/B/K/DB {string.Join("/", w.Skip(1).Select(x => $"{x:F2}"))} (ground {Pc(ground, gsum)} %, lines {Pc(pool, psum)} %)");
         }
-
-        private static float2 P(float x, float z) => new float2(x, z);
 
         /// <summary>The options the planner reads (the only knobs it has). The host sets them per run; the default is today's defaults.</summary>
         internal RunsFirstOptions O = new RunsFirstOptions();
-
-        /// <summary>Host only: the options from the RF_* environment switches (unset or unreadable: the default). The planner never reads
-        /// the environment itself.</summary>
-        internal static RunsFirstOptions HostOptions()
-        {
-            var o = new RunsFirstOptions();
-            o.PicksPerKm2 = Env("RF_PPK", 5f);
-            o.MixMode = (int)Env("RF_MIXW", 0f);
-            o.MixGreenMin = Env("RF_MIXGREEN", 1.5f);
-            o.TopLatticeM = Env("RF_LAT", 100f);
-            o.ReturnM = Env("RF_RET", 150f);
-            o.ReachBudget = Env("RF_RBUDGET", 15e6f);
-            o.PadReachM = Env("RF_PADR", 70f);
-            o.ScanThreads = Math.Max(1, (int)Env("RF_THREADS", 4f));
-            o.TypeUse = (int)Env("RF_TYPEUSE", 2f);
-            o.ChairMaxRise = Env("RF_CHAIRRISE", 700f);
-            o.VeryLongM = Env("RF_VERYLONG", 2500f);
-            o.TramRise = Env("RF_TRAMRISE", 800f);
-            o.GondolaCap = Env("RF_GONDCAP", 0.6f);
-            o.LiftFallW = Env("RF_LIFTFALL", 0f);
-            o.LiftsPerKm2 = Env("RF_LPK", 1.1f);
-            o.StopShare = Env("RF_STOP", 0.05f);
-            o.EdgeLiftM = Env("RF_EDGELIFT", 45f);
-            o.TransferBeside = (int)Env("RF_TRANSFERBESIDE", 1f);
-            o.OwnBottomTries = (int)Env("RF_OWNBOTTOMTRIES", 8f);
-            o.MaxRiseM = Env("RF_MAXRISE", 0f);
-            o.CoverLifts = Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1";
-            o.Below = Environment.GetEnvironmentVariable("RF_NOBELOW") != "1";
-            o.Spread = Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1";
-            o.SpreadAxis = Environment.GetEnvironmentVariable("RF_NOSPREADAXIS") != "1";
-            o.SpreadEach = Environment.GetEnvironmentVariable("RF_NOSPREADEACH") != "1";
-            o.NoParallel = Environment.GetEnvironmentVariable("RF_PARALLELOK") != "1";
-            o.OwnBottom = Environment.GetEnvironmentVariable("RF_OWNBOTTOM") != "0";
-            o.Village = Environment.GetEnvironmentVariable("RF_NOVILLAGE") != "1";
-            o.CoverNewBase = Environment.GetEnvironmentVariable("RF_CNEWBASE") == "1";
-            o.CoverLiftShare = Env("RF_CLS", 0.015f);
-            o.CoverLiftMinPts = (int)Env("RF_CLM", 120f);
-            o.CoverParallelM = Env("RF_CPAR", 170f);
-            o.CoverClearM = Env("RF_CCLR", 100f);
-            o.CoverFallW = Env("RF_COVERFALL", 0.8f);
-            o.CoverOwnPads = Environment.GetEnvironmentVariable("RF_COVEROWNPAD") != "0";
-            o.PodHold = (int)Env("RF_PODHOLD", 2f);
-            o.ServeCapPerKm2 = Env("RF_SCAP", 8f);
-            o.RunOutM = Env("RF_RUNOUT", 1600f);
-            o.ChordDefer = Env("RF_CDEF", 0.35f);
-            o.ChordKeep = Env("RF_CKEEP", 0.5f);
-            o.Spurs = Environment.GetEnvironmentVariable("RF_NOSPUR") != "1";
-            o.Pods = Environment.GetEnvironmentVariable("RF_NOPOD") != "1";
-            o.Bridges = Environment.GetEnvironmentVariable("RF_NOBRIDGE") != "1";
-            o.LearningPods = Environment.GetEnvironmentVariable("RF_LEARNPOD") == "1";
-            o.WayHome = Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1";
-            o.Downloads = Environment.GetEnvironmentVariable("RF_NODOWNLOAD") != "1";
-            o.DropStranded = Environment.GetEnvironmentVariable("RF_NODROP") != "1";
-            o.Regrade = Environment.GetEnvironmentVariable("RF_NOREGRADE") != "1";
-            o.GradedWays = Environment.GetEnvironmentVariable("RF_NOGRADEDWAY") != "1";
-            o.Fill = Environment.GetEnvironmentVariable("RF_NOFILL") != "1";
-            o.Chords = Environment.GetEnvironmentVariable("RF_NOCHORD") != "1";
-            o.Nudge = Environment.GetEnvironmentVariable("RF_NONUDGE") != "1";
-            o.ChordTracks = Environment.GetEnvironmentVariable("RF_NOCHORDTRACK") != "1";
-            o.ChordDrop = Environment.GetEnvironmentVariable("RF_NOCHORDDROP") != "1";
-            o.Merge = Environment.GetEnvironmentVariable("RF_NOMERGE") != "1";
-            o.Prune = Environment.GetEnvironmentVariable("RF_NOPRUNE") != "1";
-            o.Straight = Environment.GetEnvironmentVariable("RF_NOSTRAIGHT") != "1";
-            o.Junctions = Environment.GetEnvironmentVariable("RF_JUNCTION") == "1";
-            o.Heads = Environment.GetEnvironmentVariable("RF_HEAD") == "1";
-            o.LearningAreas = Environment.GetEnvironmentVariable("RF_NOLEARN") != "1";
-            o.NudgeMaxM = Env("RF_NUDGEM", 350f);
-            o.BridgeFallW = Env("RF_BRIDGEFALL", 2f);
-            o.GradedLinks = Environment.GetEnvironmentVariable("RF_NOGRADEDLINK") != "1";
-            o.HeadForwardM = Env("RF_HFWD", 60f);
-            o.JunctionBackM = Env("RF_JBACK", 60f);
-            o.EasyUpTol = Env("RF_UPTOL", 0.10f);
-            o.EasyBudget = Env("RF_EBUDGET", 3.0e6f);
-            o.LinkBudget = Env("RF_LBUDGET", 1.8e6f);
-            o.TrackTurnM = Env("RF_TURNM", 40f);
-            o.LearnGround = Env("RF_LGROUND", 0.235f);
-            o.LearnMinRise = Env("RF_LMINRISE", 32f);
-            o.LearnMaxRise = Env("RF_LMAXRISE", 130f);
-            o.LearnMinLen = Env("RF_LMINLEN", 180f);
-            o.LearnRouteMax = Env("RF_LROUTE", 1500f);
-            o.LearnCrowd = Env("RF_LCROWD", 0.45f);
-            o.LearnFallDeg = Env("RF_LFALL", 35f);
-            o.LearnHigh = Environment.GetEnvironmentVariable("RF_NOLEARNHIGH") != "1";
-            o.LearnAbove = Environment.GetEnvironmentVariable("RF_LEARNABOVE") == "1";
-            o.LearnConvert = Environment.GetEnvironmentVariable("RF_LEARNCONVERT") == "1";
-            o.V3Home = Environment.GetEnvironmentVariable("RF_V3HOME") == "1";
-            o.WayPeakOnly = Environment.GetEnvironmentVariable("RF_WAYPEAK") == "1";
-            o.PeakWayAgain = Environment.GetEnvironmentVariable("RF_PEAKAGAIN") == "1";
-            o.WayGreenFirst = Environment.GetEnvironmentVariable("RF_WAYGREEN1") == "1";
-            o.FillMinM = Env("RF_FILLMIN", 130f);
-            o.FillCrowdTrade = Env("RF_FTRADE", 0.25f);
-            o.FaceLines = Environment.GetEnvironmentVariable("RF_NOFACE") != "1";
-            o.Diagonals = Environment.GetEnvironmentVariable("RF_NODIAG") != "1";
-            o.NaturalMode = (int)Env("RF_NATURAL", 2f);
-            o.NaturalHostile = Env("RF_NATHOSTILE", 0.4f);
-            o.StraightDevM = Env("RF_STRDEV", 30f);
-            o.NoLoneBase = Environment.GetEnvironmentVariable("RF_LONEBASE") == "1";
-            o.StackDegM = Env("RF_STACKDEG", 33f);
-            o.StackTopMm = Env("RF_STACKTOP", 330f);
-            o.StackBottomMm = Env("RF_STACKBOT", 280f);
-            o.NoStacked = Environment.GetEnvironmentVariable("RF_STACKED") != "0";
-            o.RegradeStretch = Env("RF_RGSTRETCH", 1.8f);
-            o.RegradeMinGain = Env("RF_RGMIN", 0.005f);
-            o.PruneMinGain = Env("RF_PRUNEMIN", 0.01f);
-            o.Debug = Environment.GetEnvironmentVariable("RF_DEBUG") == "1";
-            o.Timing = Environment.GetEnvironmentVariable("RF_TIME") == "1";
-            o.DebugTops = Environment.GetEnvironmentVariable("RF_TOPDBG") == "1";
-            o.DebugTwins = Environment.GetEnvironmentVariable("RF_TWINDBG") == "1";
-            o.DebugTopList = Environment.GetEnvironmentVariable("RF_TOPS") == "1";
-            o.DebugConvert = Environment.GetEnvironmentVariable("RF_CONVDBG") == "1";
-            o.DebugV3All = Environment.GetEnvironmentVariable("RF_V3ALL") == "1";
-            o.DebugWayHome = Environment.GetEnvironmentVariable("RF_WHDBG") == "1";
-            o.DebugChords = Environment.GetEnvironmentVariable("RF_CHORDDBG") == "1";
-            o.DebugModel = Environment.GetEnvironmentVariable("RF_MODELDBG") == "1";
-            o.DebugCover = Environment.GetEnvironmentVariable("RF_COVDBG") == "1";
-            o.DebugCoverMap = Environment.GetEnvironmentVariable("RF_COVER") == "1";
-            o.DebugCrowd = Environment.GetEnvironmentVariable("RF_CROWD") == "1";
-            o.DebugV3 = Environment.GetEnvironmentVariable("RF_V3DBG") == "1";
-            o.DebugTurns = Environment.GetEnvironmentVariable("RF_TURNDBG") == "1";
-            return o;
-        }
-
-        /// <summary>Experiment knob: an environment variable as a float (the default when unset).</summary>
-        private static float Env(string name, float dflt) =>
-            float.TryParse(Environment.GetEnvironmentVariable(name), NumberStyles.Float, CultureInfo.InvariantCulture, out float v) ? v : dflt;
 
         private sealed class Grid
         {
@@ -268,111 +129,6 @@ namespace SkiResortMod.Systems
             public string Why = "";
         }
 
-        public static int Run(string[] args)
-        {
-            RunsFirstOptions opts = HostOptions();
-            // "rf-holdout <file>": writes the real-resort regions (9 km2 around each real fixture base point) as a regions file
-            if (args[0] == "rf-holdout")
-            {
-                var rows = new List<string>();
-                foreach (string name in new[] { "JacksonHole", "Whistler", "Snowbird", "Zermatt", "Chamonix", "Okemo" })
-                    foreach (V2Case c in V2Fixtures.Real(name, out _))
-                        if (c.Id.Contains("base 9 km2"))
-                            rows.Add(name.ToLowerInvariant() + " @" + name + " " + string.Join(" ", c.Region.Select(p =>
-                                p.x.ToString("F0", CultureInfo.InvariantCulture) + "," + p.y.ToString("F0", CultureInfo.InvariantCulture))));
-                File.WriteAllLines(args[1], rows);
-                Console.WriteLine($"wrote {rows.Count} holdout region(s) to {args[1]}");
-                return 0;
-            }
-            // "rf-golden <out file> [regions file]": plans only (no v2, render or score) and writes "<region> <hash> <runs> <lifts> <connectors>"
-            bool golden = args[0] == "rf-golden";
-            string outDir = args.Length > 1 ? args[1] : golden ? "rf-golden.txt" : "rf-out";
-            if (!golden)
-                Directory.CreateDirectory(outDir);
-            if (!Heightmap.TryOpen("MountainVillage", out HeightmapFile file, out string why))
-            {
-                Console.WriteLine("SKIP RunsFirst: " + why);
-                return 0;
-            }
-            // a regions file (tools/regions-from-log.js: "<id> x,z x,z ...") replaces the built-in field test 5 list
-            var regions = new List<(string, float2[])>(Regions);
-            if (args.Length > 2)
-            {
-                regions.Clear();
-                foreach (string row in File.ReadAllLines(args[2]))
-                {
-                    var t = new List<string>(row.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
-                    // optional second token "@Fixture" (default MountainVillage)
-                    string fx = t.Count > 1 && t[1].StartsWith("@") ? t[1].Substring(1) : "MountainVillage";
-                    if (t.Count > 1 && t[1].StartsWith("@"))
-                        t.RemoveAt(1);
-                    if (t.Count < 4)
-                        continue;
-                    // "hole x,z x,z ..." after the outline cuts a no-go area out of the region (a cliff band). The ring becomes a
-                    // keyhole (outline, a zero-width bridge to the hole, the hole reversed, back). Every even-odd inside
-                    // test and the shoelace area already read a keyhole as outline minus hole
-                    var parts = new List<List<float2>> { new List<float2>() };
-                    for (int i = 1; i < t.Count; i++)
-                    {
-                        if (t[i] == "hole")
-                        {
-                            parts.Add(new List<float2>());
-                            continue;
-                        }
-                        string[] xz = t[i].Split(',');
-                        parts[parts.Count - 1].Add(new float2(float.Parse(xz[0], CultureInfo.InvariantCulture), float.Parse(xz[1], CultureInfo.InvariantCulture)));
-                    }
-                    var ring = new List<float2>(parts[0]);
-                    double Signed(List<float2> r)
-                    {
-                        double a = 0.0;
-                        for (int i = 0, j = r.Count - 1; i < r.Count; j = i++)
-                            a += (double)r[j].x * r[i].y - (double)r[i].x * r[j].y;
-                        return a;
-                    }
-                    foreach (List<float2> hole in parts.Skip(1).Where(h => h.Count >= 3))
-                    {
-                        if (Math.Sign(Signed(hole)) == Math.Sign(Signed(parts[0])))
-                            hole.Reverse();
-                        ring.Add(parts[0][0]);
-                        ring.AddRange(hole);
-                        ring.Add(hole[0]);
-                    }
-                    regions.Add((fx + "|" + t[0], ring.ToArray()));
-                }
-            }
-            var files = new Dictionary<string, HeightmapFile> { ["MountainVillage"] = file };
-            var goldenRows = new List<string>();
-            foreach (var (key, ring) in regions)
-            {
-                int bar = key.IndexOf('|');
-                string fx = bar < 0 ? "MountainVillage" : key.Substring(0, bar), id = bar < 0 ? key : key.Substring(bar + 1);
-                if (!files.TryGetValue(fx, out HeightmapFile hf))
-                {
-                    if (!Heightmap.TryOpen(fx, out hf, out string why2))
-                    {
-                        Console.WriteLine($"SKIP RunsFirst {id}: {why2}");
-                        continue;
-                    }
-                    files[fx] = hf;
-                }
-                if (!golden)
-                {
-                    new RunsFirstPlanner { O = opts, Id = id }.RunRegion(id, ring, hf, outDir);
-                    continue;
-                }
-                HeightSnapshot snap = Heightmap.Snapshot(hf, ring);
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                RunsFirstResult res = PlanRegion(snap, ring, opts, id);
-                string row = $"{id} {res.Hash():x16} {res.Runs.Count} {res.Lifts.Count} {res.Connectors.Count}";
-                goldenRows.Add(row);
-                Console.WriteLine($"GOLDEN {row} ({sw.ElapsedMilliseconds} ms)");
-            }
-            if (golden)
-                File.WriteAllLines(outDir, goldenRows);
-            return 0;
-        }
-
         // The clock only reports: no pass reads it, so a plan depends on its input alone (the time cutoff RF_LATEMS and the learning
         // search's RF_ABOVEMS went in the port round R0-c). Tick records the end of each pass; the host prints the table.
         private System.Diagnostics.Stopwatch Clock = new System.Diagnostics.Stopwatch();
@@ -382,16 +138,33 @@ namespace SkiResortMod.Systems
         {
             PassTimes.Add((what, Clock.ElapsedMilliseconds));
             if (Timing)
-                Console.WriteLine($"TIME {what} {Clock.ElapsedMilliseconds} ms (easy {EasyWork}, links {LinkWork})");
+                Trace($"TIME {what} {Clock.ElapsedMilliseconds} ms (easy {EasyWork}, links {LinkWork})");
             // RF_WHDBG: the lifts without a way home after each stage of the plan
             if (WayDbg != null)
             {
                 var (g, plan, lifts) = WayDbg.Value;
                 bool[] ok = WayHomeOk(Ski(g, plan, lifts), lifts, V3Bases(g, lifts, out HashSet<int> bases), bases);
-                Console.WriteLine($"WHDBG {what}: none from " + string.Join(" ", Enumerable.Range(0, lifts.Count).Where(L => !ok[L]).Select(L => "L" + lifts[L].Id)));
+                Trace($"WHDBG {what}: none from " + string.Join(" ", Enumerable.Range(0, lifts.Count).Where(L => !ok[L]).Select(L => "L" + lifts[L].Id)));
             }
         }
         private (Grid, PlanDraft, List<Lift>)? WayDbg;
+
+        /// <summary>Where the debug and timing lines go (the host sets it to the console). Null: they go to Log. The default options
+        /// print none.</summary>
+        internal Action<string> TraceSink { get; set; }
+        private readonly List<string> m_Log = new List<string>();
+
+        /// <summary>The planner's report: the debug and timing lines the options asked for (none by default), then the plan's own
+        /// log (the lines RunsFirstResult.Log holds too). Read it after Plan returns.</summary>
+        public IReadOnlyList<string> Log => m_Log;
+
+        private void Trace(string line)
+        {
+            if (TraceSink != null)
+                TraceSink(line);
+            else
+                m_Log.Add(line);
+        }
 
         /// <summary>A finished plan: the plain result, plus the planner's own objects the host draws, writes and scores.</summary>
         private sealed class Planned
@@ -404,11 +177,6 @@ namespace SkiResortMod.Systems
             public long Ms;
             public RunsFirstResult Result;
         }
-
-        /// <summary>Plans one region with the given options (null: the defaults) and returns the plain plan object. The options hold
-        /// for this call only.</summary>
-        internal static RunsFirstResult PlanRegion(HeightSnapshot snap, float2[] ring, RunsFirstOptions options, string id = "region") =>
-            new RunsFirstPlanner { Id = id }.Plan(snap, ring, options);
 
         /// <summary>The region's name in the planner's own report lines (the host sets it).</summary>
         internal string Id = "region";
@@ -494,69 +262,10 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < lifts.Count; i++)
                 lifts[i].Id = i + 1;
             long ms = sw.ElapsedMilliseconds;
+            m_Log.AddRange(built.Log);
             return new Planned { G = g, Acc = acc, AccR = accR, Lines = lines, Lifts = lifts, Built = built, Ms = ms, Result = MakeResult(g, built, lifts) };
         }
 
-        private void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
-        {
-            HeightSnapshot snap = Heightmap.Snapshot(file, ring);
-            Planned pl = PlanCore(id, snap, ring);
-            Grid g = pl.G;
-            float[] acc = pl.Acc, accR = pl.AccR;
-            List<Line> lines = pl.Lines;
-            List<Lift> lifts = pl.Lifts;
-            PlanDraft built = pl.Built;
-            long ms = pl.Ms;
-            // the per-pass time table (report only): each pass's own milliseconds, in plan order
-            long prevMs = 0;
-            Console.WriteLine($"REPORT rf time {id}: " + string.Join(", ", PassTimes.Select(t => { long d = t.Ms - prevMs; prevMs = t.Ms; return $"{t.Pass} {d}"; })) + $", total {ms} ms");
-            Console.WriteLine($"REPORT rf hash {id}: {pl.Result.Hash():x16}, {pl.Result.Runs.Count} runs, {pl.Result.Lifts.Count} lifts, {pl.Result.Connectors.Count} connectors");
-
-            // the v2 plan of the same region, as the host replays it
-            AutoPlanKnobs knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(ring, 0));
-            AutoPlanResult v2 = new SkiRunAutoPlanner().Run(new AutoPlanInput { Snapshot = snap, Region = ring, Knobs = knobs, Mode = AutoPlanMode.Resort });
-
-            int picked = 0;
-            var bands = new int[5];
-            float km = 0f;
-            foreach (Line l in lines)
-                if (l.Picked)
-                {
-                    picked++;
-                    bands[(int)l.Band]++;
-                    km += l.Length / 1000f;
-                }
-            float km2 = (float)(SkiRunAutoPlanner.PolygonArea(ring) / 1e6);
-            Console.WriteLine($"REPORT rf {id}: {km2:F2} km2, {lines.Count} candidate line(s), {picked} picked (G/B/K/DB {bands[1]}/{bands[2]}/{bands[3]}/{bands[4]}), " +
-                $"{km:F1} km of runs, {ms} ms; v2 {v2.Status}: {v2.Runs.Count} run(s), {v2.Resort?.Lifts?.Length ?? 0} lift(s)");
-
-            WriteTable(Path.Combine(outDir, id + ".txt"), id, lines);
-            WriteLifts(Path.Combine(outDir, id + ".txt"), id, lifts, lines);
-
-            // the scorecard (RunsFirst.Score.cs) reads the plan exactly as drawn (RunsFirst.Plan.cs)
-            var plan = new ScorePlan();
-            foreach (PlanRun r in built.Runs)
-                if (r.Graded)
-                    plan.Connectors.Add(r.Pts);
-                else
-                    plan.Runs.Add((r.Pts, r.Surface));
-            plan.Connectors.AddRange(built.Connectors);
-            foreach (Lift lf in lifts)
-                plan.Lifts.Add((lf.Type, lf.Bottom.xz, lf.Top.xz));
-            foreach (string s in built.Log)
-                Console.WriteLine($"REPORT rf plan {id}: {s}");
-            RunsFirstScore.Result score = RunsFirstScore.Evaluate(snap, ring, plan);
-            Console.WriteLine(RunsFirstScore.Line(id, score));
-            if (O.DebugV3)
-                V3Debug(g, built, lifts);
-            if (O.DebugTurns)
-                TurnDebug(id, built);
-            File.AppendAllText(Path.Combine(outDir, id + ".txt"), "\n" + RunsFirstScore.Line(id, score) + "\n" +
-                string.Concat(score.Notes.Select(s => "  " + s + "\n")));
-            Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, v2, lifts, built);
-        }
-
-        // ------------------------------------------------------------------ grid and flow
 
         [MethodImpl(Hot)]
         private static Grid BuildGrid(HeightSnapshot s, float2[] ring)
@@ -1023,320 +732,6 @@ namespace SkiResortMod.Systems
                     taken.Add(p.xz);
             }
             return taken;
-        }
-
-        private static void WriteTable(string path, string id, List<Line> lines)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine($"# runs-first candidates {id}: map# id family picked band drop_m length_m mean rating steepest width_m score top(x,z,y) bottom(x,z,y) why");
-            foreach (Line l in lines)
-            {
-                float3 t = l.Pts[0], b = l.Pts[l.Pts.Count - 1];
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
-                    "{18} {0} {1}{19} {2} {3} {4:F0} {5:F0} {6:F2} {7:F2} {8:F2} {9:F0} {10:F0} ({11:F0},{12:F0},{13:F0}) ({14:F0},{15:F0},{16:F0}) {17}",
-                    l.Id, l.Family, l.Picked ? "Y" : "-", l.Band, l.Drop, l.Length, l.Mean, l.Rating, l.Steepest, l.Width, l.Score,
-                    t.x, t.z, t.y, b.x, b.z, b.y, l.Why, l.Picked ? "#" + l.Pick : "", l.Merge ? "+merge" : ""));
-            }
-            File.WriteAllText(path, sb.ToString());
-        }
-
-        // ------------------------------------------------------------------ render
-
-        private sealed class Canvas
-        {
-            public int W, H;
-            public byte[] Rgb;
-            public Canvas(int w, int h)
-            {
-                W = w;
-                H = h;
-                Rgb = new byte[w * h * 3];
-            }
-            public void Set(int x, int y, (int r, int g, int b) c, float a = 1f)
-            {
-                if (x < 0 || y < 0 || x >= W || y >= H)
-                    return;
-                int o = (y * W + x) * 3;
-                Rgb[o] = (byte)(Rgb[o] + (c.r - Rgb[o]) * a);
-                Rgb[o + 1] = (byte)(Rgb[o + 1] + (c.g - Rgb[o + 1]) * a);
-                Rgb[o + 2] = (byte)(Rgb[o + 2] + (c.b - Rgb[o + 2]) * a);
-            }
-            public void Disc(float x, float y, float r, (int, int, int) c)
-            {
-                for (int yy = (int)(y - r); yy <= (int)(y + r) + 1; yy++)
-                    for (int xx = (int)(x - r); xx <= (int)(x + r) + 1; xx++)
-                        if ((xx - x) * (xx - x) + (yy - y) * (yy - y) <= r * r)
-                            Set(xx, yy, c);
-            }
-        }
-
-        private static readonly string[] Digits =
-        {
-            "111101101101111", "010110010010111", "111001111100111", "111001111001111", "101101111001001",
-            "111100111001111", "111100111101111", "111001001001001", "111101111101111", "111101111001111",
-        };
-
-        private static (int, int, int) BandColor(SlopeBand b) => b switch
-        {
-            SlopeBand.Green => (40, 170, 60),
-            SlopeBand.Blue => (40, 110, 235),
-            SlopeBand.Black => (10, 10, 10),
-            SlopeBand.DoubleBlack => (10, 10, 10),
-            _ => (200, 200, 200),
-        };
-
-        private static (int, int, int) EdgeColor(SlopeBand b) => b == SlopeBand.DoubleBlack ? (255, 150, 0) : (255, 255, 255);
-
-        private static void Render(string path, HeightSnapshot s, float2[] ring, Grid g, float[] acc, float[] accR, List<Line> lines, AutoPlanResult v2, List<Lift> lifts, PlanDraft built)
-        {
-            int w = s.Width, d = s.Depth;
-            float t = s.TexelM;
-            Func<int, int, float> hAt = (i, j) => s.ToWorld(s.Heights[Clamp(j, 0, d - 1) * w + Clamp(i, 0, w - 1)]);
-            // uphill = image top: the axis closest to lowest -> highest cell in the region
-            int lo = -1, hi = -1;
-            for (int c = 0; c < g.W * g.D; c++)
-                if (g.In[c])
-                {
-                    if (lo < 0 || g.H[c] < g.H[lo])
-                        lo = c;
-                    if (hi < 0 || g.H[c] > g.H[hi])
-                        hi = c;
-                }
-            float2 up = g.World(hi) - g.World(lo);
-            int rot = Math.Abs(up.x) > Math.Abs(up.y) ? (up.x > 0 ? 1 : 3) : (up.y > 0 ? 0 : 2);   // 0 +z, 1 +x, 2 -z, 3 -x
-            int iw = rot % 2 == 0 ? w : d, ih = rot % 2 == 0 ? d : w;
-            Func<float, float, float2> img = (i, j) => rot switch
-            {
-                0 => new float2(i, d - 1 - j),
-                1 => new float2(d - 1 - j, w - 1 - i),
-                2 => new float2(w - 1 - i, j),
-                _ => new float2(j, i),
-            };
-            Func<float2, float2> fromWorld = p => img((float)((p.x - s.Origin.x) / t - s.X0), (float)((p.y - s.Origin.y) / t - s.Z0));
-
-            Canvas Base(bool flow)
-            {
-                var cv = new Canvas(iw, ih);
-                for (int j = 0; j < d; j++)
-                    for (int i = 0; i < w; i++)
-                    {
-                        float dzdx = (hAt(i + 1, j) - hAt(i - 1, j)) / (2 * t), dzdz = (hAt(i, j + 1) - hAt(i, j - 1)) / (2 * t);
-                        float3 nrm = math.normalize(new float3(-dzdx, 1f, -dzdz));
-                        float shade = math.max(0f, math.dot(nrm, math.normalize(new float3(-1f, 0.8f, 1f))));
-                        float grade = math.sqrt(dzdx * dzdx + dzdz * dzdz);
-                        float2 wp = new float2((float)(s.Origin.x + (s.X0 + i) * t), (float)(s.Origin.y + (s.Z0 + j) * t));
-                        bool inside = Inside(ring, wp);
-                        int v = (int)(60 + 170 * shade);
-                        (int, int, int) col = (v, v, v);
-                        if (grade > 0.70f)
-                            col = (Math.Min(255, v + 40), (int)(v * 0.75f), (int)(v * 0.7f));   // cliff tint
-                        else if (grade < 0.15f)
-                            col = ((int)(v * 0.8f), Math.Min(255, v + 25), (int)(v * 0.8f));   // bench tint
-                        // contours every 50 m, heavier every 250 m
-                        float h0 = hAt(i, j);
-                        int band0 = (int)Math.Floor(h0 / 50f);
-                        if ((int)Math.Floor(hAt(i + 1, j) / 50f) != band0 || (int)Math.Floor(hAt(i, j + 1) / 50f) != band0)
-                        {
-                            bool major = (int)Math.Floor(Math.Max(Math.Max(hAt(i + 1, j), hAt(i, j + 1)), h0) / 250f) != (int)Math.Floor(Math.Min(Math.Min(hAt(i + 1, j), hAt(i, j + 1)), h0) / 250f);
-                            float k = major ? 0.35f : 0.65f;
-                            col = ((int)(col.Item1 * k), (int)(col.Item2 * k), (int)(col.Item3 * k));
-                        }
-                        if (!inside)
-                        {
-                            int gray = (col.Item1 + col.Item2 + col.Item3) / 9;
-                            col = (gray, gray, gray);
-                        }
-                        float2 q = img(i, j);
-                        cv.Set((int)q.x, (int)q.y, col);
-                    }
-                // drainages blue, spurs orange (2 ha and up)
-                float cell2 = g.CellM * g.CellM;
-                for (int c = 0; flow && c < g.W * g.D; c++)
-                {
-                    if (!g.In[c])
-                        continue;
-                    float2 q = fromWorld(g.World(c));
-                    if (acc[c] * cell2 >= ChannelM2)
-                        cv.Disc(q.x, q.y, 1.2f, (60, 140, 255));
-                    else if (accR[c] * cell2 >= ChannelM2)
-                        cv.Disc(q.x, q.y, 0.8f, (230, 150, 60));
-                }
-                for (int k = 0; k < ring.Length; k++)
-                    Stroke(cv, new List<float2> { fromWorld(ring[k]), fromWorld(ring[(k + 1) % ring.Length]) }, 1f, (255, 255, 255));
-                return cv;
-            }
-
-            Canvas clean = Base(false);
-            Program.WritePngRgb(Path.ChangeExtension(path, null) + "-draw.png", clean.W, clean.H, clean.Rgb);
-            // pixel -> world for the -draw.png (and either panel of <id>.png): tools/rf-pix2world.cjs reads it
-            File.WriteAllText(Path.ChangeExtension(path, null) + "-draw.map", string.Format(CultureInfo.InvariantCulture,
-                "{{\"rot\":{0},\"w\":{1},\"d\":{2},\"ox\":{3},\"oz\":{4},\"x0\":{5},\"z0\":{6},\"t\":{7},\"panelW\":{8},\"gap\":12}}\n",
-                rot, w, d, s.Origin.x, s.Origin.y, s.X0, s.Z0, t, iw));
-            Canvas left = Base(true), right = Base(true);
-            // left: the v2 plan (runs by band, lift chords yellow)
-            foreach (AutoRun r in v2.Runs)
-            {
-                var pl = new List<float2>();
-                foreach (float2 p in r.Centerline)
-                    pl.Add(fromWorld(p));
-                Stroke(left, pl, 4f, EdgeColor(r.Band));
-                Stroke(left, pl, 2.5f, BandColor(r.Band));
-            }
-            if (v2.Resort?.Lifts != null)
-                foreach (PlanLift lf in v2.Resort.Lifts)
-                {
-                    var pl = new List<float2> { fromWorld(lf.Bottom.xz), fromWorld(lf.Top.xz) };
-                    Stroke(left, pl, 2f, (255, 220, 0));
-                    left.Disc(pl[0].x, pl[0].y, 5f, (255, 220, 0));
-                    left.Disc(pl[1].x, pl[1].y, 5f, (255, 220, 0));
-                }
-            // right: every candidate thin, picked lines thick by band, numbered at the top
-            foreach (Line l in lines)
-                if (!l.Picked)
-                    Stroke(right, Img(l, fromWorld), 0.6f, (120, 200, 210));
-            // right: the plan as scorecard v3 reads it:
-            // - runs solid by the ground under them
-            // - graded tracks dashed: a green cat track light green, a diagonal run (graded steeper than the blue line) in its band's color with a white edge
-            // - picked lines no lift serves gray
-            void Track(List<float2> tr)
-            {
-                var (run, band) = TrackClass(g, tr);
-                List<float2> pl = tr.ConvertAll(p => fromWorld(p));
-                if (run)
-                {
-                    // a diagonal run (a graded track at a run's grade): thinner than a run, striped white and its band's color
-                    Stroke(right, pl, 3.2f, (255, 255, 255));
-                    Dashed(right, pl, 1.9f, BandColor(band), 9f, 4f);
-                }
-                else
-                {
-                    // a green cat track: dotted
-                    Dashed(right, pl, 2.4f, (20, 60, 20), 8f, 4f);
-                    Dashed(right, pl, 1.4f, (150, 255, 120), 8f, 4f);
-                }
-            }
-            foreach (List<float2> tr in built.Connectors)
-                Track(tr);
-            foreach (PlanRun r in built.Runs)
-            {
-                if (r.Graded)
-                {
-                    Track(r.Pts);
-                    continue;
-                }
-                List<float2> pl = r.Pts.ConvertAll(p => fromWorld(p));
-                if (r.Src != null && r.Src.Lift < 0)
-                {
-                    Stroke(right, pl, 2f, (150, 150, 150));
-                    continue;
-                }
-                SlopeBand band = GroundBand(g, r.Pts);
-                if (r.Surface == RunKind.Natural)
-                {
-                    // a natural (ungroomed) run: dashed
-                    Dashed(right, pl, 4.5f, EdgeColor(band), 12f, 6f);
-                    Dashed(right, pl, 3f, BandColor(band), 12f, 6f);
-                    continue;
-                }
-                Stroke(right, pl, 4.5f, EdgeColor(band));
-                Stroke(right, pl, 3f, BandColor(band));
-            }
-            foreach (PlanRun r in built.Runs)
-                if (r.Src == null || r.Src.Lift >= 0)
-                {
-                    float2 p0 = fromWorld(r.Pts[0]);
-                    right.Disc(p0.x, p0.y, 6f, (255, 255, 255));
-                    if (r.Src != null && r.Src.Pick > 0)
-                        Label(right, (int)p0.x + 8, (int)p0.y - 6, r.Src.Pick);
-                }
-
-            foreach (var (p, cr, cg, cb) in built.Dots)
-            {
-                float2 q = fromWorld(p);
-                right.Disc(q.x, q.y, 2f, (cr, cg, cb));
-            }
-            foreach (Lift lf in lifts)
-            {
-                var pl = new List<float2> { fromWorld(lf.Bottom.xz), fromWorld(lf.Top.xz) };
-                // chairs yellow, a gondola cyan, a tram red, a beginner chair light green
-                (int, int, int) rope = lf.Type switch { "gondola" => (0, 220, 255), "tram" => (255, 70, 70), "beginner" => (150, 255, 120), _ => (255, 220, 0) };
-                Stroke(right, pl, 3f, (0, 0, 0));
-                Stroke(right, pl, 2f, rope);
-                right.Disc(pl[0].x, pl[0].y, 7f, (0, 0, 0));
-                right.Disc(pl[0].x, pl[0].y, 5.5f, rope);
-                right.Disc(pl[1].x, pl[1].y, 7f, (0, 0, 0));
-                right.Disc(pl[1].x, pl[1].y, 5.5f, rope);
-                float2 mid = math.lerp(pl[0], pl[1], 0.5f);
-                Label(right, (int)mid.x + 6, (int)mid.y - 6, lf.Id, (255, 220, 0), (0, 0, 0));
-            }
-            var both = new Canvas(iw * 2 + 12, ih);
-            for (int y = 0; y < ih; y++)
-            {
-                Array.Copy(left.Rgb, y * iw * 3, both.Rgb, y * both.W * 3, iw * 3);
-                Array.Copy(right.Rgb, y * iw * 3, both.Rgb, (y * both.W + iw + 12) * 3, iw * 3);
-            }
-            Program.WritePngRgb(path, both.W, both.H, both.Rgb);
-            string[] ups = { "north (+z)", "east (+x)", "south (-z)", "west (-x)" };
-            Console.WriteLine($"REPORT rf render {Path.GetFileName(path)}: {both.W} x {both.H}, image top = {ups[rot]}, 1 px = {t:F1} m; left v2, right runs-first");
-        }
-
-        private static List<float2> Img(Line l, Func<float2, float2> fromWorld)
-        {
-            var pl = new List<float2>(l.Pts.Count);
-            foreach (float3 p in l.Pts)
-                pl.Add(fromWorld(p.xz));
-            return pl;
-        }
-
-        private static void Dashed(Canvas cv, List<float2> pl, float r, (int, int, int) c, float period = 10f, float on = 6f)
-        {
-            float run = 0f;
-            for (int i = 1; i < pl.Count; i++)
-            {
-                float len = math.distance(pl[i - 1], pl[i]);
-                for (float u = 0; u <= len; u += 0.5f, run += 0.5f)
-                    if (run % period < on)
-                    {
-                        float2 p = math.lerp(pl[i - 1], pl[i], len > 0 ? u / len : 0);
-                        cv.Disc(p.x, p.y, r, c);
-                    }
-            }
-        }
-
-        private static void Stroke(Canvas cv, List<float2> pl, float r, (int, int, int) c)
-        {
-            for (int i = 1; i < pl.Count; i++)
-            {
-                float len = math.distance(pl[i - 1], pl[i]);
-                for (float u = 0; u <= len; u += 0.5f)
-                {
-                    float2 p = math.lerp(pl[i - 1], pl[i], len > 0 ? u / len : 0);
-                    cv.Disc(p.x, p.y, r, c);
-                }
-            }
-        }
-
-        private static void Label(Canvas cv, int x, int y, int n) => Label(cv, x, y, n, (0, 0, 0), (255, 255, 255));
-
-        private static void Label(Canvas cv, int x, int y, int n, (int, int, int) bg, (int, int, int) fg)
-        {
-            string s = n.ToString(CultureInfo.InvariantCulture);
-            const int sc = 3;
-            for (int k = 0; k < s.Length; k++)
-            {
-                string glyph = Digits[s[k] - '0'];
-                for (int gy = -1; gy <= 5; gy++)
-                    for (int gx = -1; gx <= 3; gx++)
-                        for (int py = 0; py < sc; py++)
-                            for (int px = 0; px < sc; px++)
-                                cv.Set(x + k * 4 * sc + gx * sc + px, y + gy * sc + py, bg);
-                for (int gy = 0; gy < 5; gy++)
-                    for (int gx = 0; gx < 3; gx++)
-                        if (glyph[gy * 3 + gx] == '1')
-                            for (int py = 0; py < sc; py++)
-                                for (int px = 0; px < sc; px++)
-                                    cv.Set(x + k * 4 * sc + gx * sc + px, y + gy * sc + py, fg);
-            }
         }
     }
 }

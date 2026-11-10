@@ -36,6 +36,7 @@
     <Compile Include="FanTests.cs" />
     <Compile Include="FlowTests.cs" />
     <Compile Include="RunsFirst.Host.cs" />
+    <Compile Include="RunsFirst.Render.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.cs" Link="RunsFirstPlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunsFirstPlanner.Lifts.cs" Link="RunsFirstPlanner.Lifts.cs" />
     <Compile Include="RunsFirst.Score.cs" />

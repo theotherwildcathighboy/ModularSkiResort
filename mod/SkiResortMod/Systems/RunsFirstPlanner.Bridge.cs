@@ -1,4 +1,4 @@
-// RunsFirst bridge lifts (prototype). Case: the lift network stays split after the link routes. The cut-off area can then lie over a
+// RunsFirstPlanner bridge lifts. Case: the lift network stays split after the link routes. The cut-off area can then lie over a
 // saddle above the place the other lifts' skiers collect (a hub in a basin below the pass into the next valley). No run or cat
 // track links the two. A short lift does, as a resort's transfer chair. It goes from where the skiers collect up onto ground.
 // A run comes down from that ground into the cut-off area (or onto the area's own runs, when they start within reach of its top).

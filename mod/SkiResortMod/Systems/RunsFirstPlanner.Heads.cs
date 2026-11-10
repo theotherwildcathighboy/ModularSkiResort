@@ -1,4 +1,4 @@
-// RunsFirst heads: the mirror of the junction pass. A run that leaves another run, a traverse fork or a lift top beside its
+// RunsFirstPlanner heads: the mirror of the junction pass. A run that leaves another run, a traverse fork or a lift top beside its
 // siblings shares its first stretch with them. The scorecard reads both sides of that stretch as crowded. Each run's start
 // slides forward along its first 60 m to where it crowds least. The slide keeps these true:
 // - the skier still gets onto the run the same way:
@@ -164,7 +164,7 @@ namespace SkiResortMod.Systems
                     var lostNext = sg.Next[i].Where(j => !after.Next[i].Contains(j)).ToList();
                     var lostDel = sg.Delivers[i].Where(j => !after.Delivers[i].Contains(j)).ToList();
                     if (lostNext.Count > 0 || lostDel.Count > 0 || (sg.Reached[i] && !after.Reached[i]) || (sg.Returns[i] && !after.Returns[i]))
-                        Console.WriteLine($"DEBUG heads: element {i}{(i < sg.Runs ? " run" : " connector")}{(old.ContainsKey(i) ? " (moved)" : "")} lost next [{string.Join(",", lostNext.Select(j => j + (old.ContainsKey(j) ? "*" : "")))}] delivers [{string.Join(",", lostDel)}] reached {sg.Reached[i]}->{after.Reached[i]} returns {sg.Returns[i]}->{after.Returns[i]}");
+                        Trace($"DEBUG heads: element {i}{(i < sg.Runs ? " run" : " connector")}{(old.ContainsKey(i) ? " (moved)" : "")} lost next [{string.Join(",", lostNext.Select(j => j + (old.ContainsKey(j) ? "*" : "")))}] delivers [{string.Join(",", lostDel)}] reached {sg.Reached[i]}->{after.Reached[i]} returns {sg.Returns[i]}->{after.Returns[i]}");
                 }
             if (!keep)
             {

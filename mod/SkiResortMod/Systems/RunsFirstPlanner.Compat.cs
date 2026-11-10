@@ -1,4 +1,4 @@
-// RunsFirst compat: the few .NET Core APIs the planner used, as plain C# that net48 (the mod's Mono) has too. Each helper gives
+// RunsFirstPlanner compat: the few .NET Core APIs the planner used, as plain C# that net48 (the mod's Mono) has too. Each helper gives
 // exactly the result of the API it replaces (Math.Clamp, Array.Fill, BitOperations.PopCount / TrailingZeroCount). The planner's
 // hot methods carry [MethodImpl(Hot)]: AggressiveOptimization on .NET Core (the host: no slow tier-0 first region), nothing on
 // net48, where the flag does not exist.

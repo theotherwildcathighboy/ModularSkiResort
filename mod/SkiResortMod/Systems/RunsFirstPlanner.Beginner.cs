@@ -1,4 +1,4 @@
-// RunsFirst beginner terrain (prototype): every real base has a learning zone. For each base (lift bottoms in the low third of the
+// RunsFirstPlanner beginner terrain: every real base has a learning zone. For each base (lift bottoms in the low third of the
 // region) with no green way home, the planner searches uphill from the base. The search starts from the stations of the base and from
 // flat spots on the last 400 m of the runs that come home to it. It covers ground where an easy run can wind down (raw 30 m pitches
 // green but for a few short stretches, no climb a run may not make). It stays away from other runs and lift lines where it can.
@@ -118,7 +118,7 @@ namespace SkiResortMod.Systems
                 // bases as scorecard v3 reads them: two or more lift bottoms within 400 m low on the mountain (else the lowest lift's)
                 int[] rootOf = V3Bases(g, lifts, out HashSet<int> bases, out List<int> baseOrder);
                 if (O.Debug && pass == 0)
-                    Console.WriteLine($"DEBUG bases: relief {hLo:F0}-{hHi:F0}, low cut {lowCut:F0}; " + string.Join("; ", bases.Select(b => string.Join(",", Enumerable.Range(0, lifts.Count).Where(L => rootOf[L] == b).Select(L => $"L{lifts[L].Id} ({RawH(g, lifts[L].Bottom.xz):F0})")))));
+                    Trace($"DEBUG bases: relief {hLo:F0}-{hHi:F0}, low cut {lowCut:F0}; " + string.Join("; ", bases.Select(b => string.Join(",", Enumerable.Range(0, lifts.Count).Where(L => rootOf[L] == b).Select(L => $"L{lifts[L].Id} ({RawH(g, lifts[L].Bottom.xz):F0})")))));
                 SkiGraph sg = Ski(g, plan, lifts);
                 List<int> members = null;
                 int key = -1;
