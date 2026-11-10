@@ -67,6 +67,17 @@
 // 13 / 28, gondolas 19 / 45, trams 23 / 53 degrees). There is still no transfer exemption. No planning time term: the planner has no
 // time limit, and the host prints each region's planning time.
 //
+// v7 (the owner's ruling after the port's round 1, 2026-11-09): a run's band is the band the mod's rater gives its outline, as the
+// player sees it (SkiRunRater.Rate on the ring's nodes at snapshot heights, as the realizer and the catalog rate a built run). The 85th
+// percentile of the grade along the centerline read about 70 % of the planned green km and 72 % of the planned blue km one band too
+// easy. When the plan gives a run's outline (the realized feed: ScorePlan.Rings), v7 rates that outline. A run fed as one centerline
+// gets a ribbon: RibbonOf (GradePath.Build at RibbonStepM, GradeRibbon.Build at RibbonHalfWidthM, chosen by measurement against the
+// realized outlines). A graded connector keeps its own grade along the path as its band (the band it has once graded), and its ground
+// band (grade mix) is the rater's band of a GradedHalfWidthM ribbon, the realizer's graded piste. Rated Flat counts as green; a broken
+// outline is rated by the classifier's P90 fallback, as the game shows it. An outline the rater cannot rate (the game shows "not
+// rated") keeps the v6 ground band and is counted. The 100 m ground cells (coverage, the grade-mix target) keep the 85th percentile:
+// they are ground, not a run. RunsFirstScore.Version = 6 (host: RF_SCORE=6) scores as v6, bit for bit.
+//
 // Composite (0-100): fleet 10, skiable coverage 10, lift network 15, beginner terrain at each base 15, intermediate way down 5, grade
 // mix 10, layout 10, validity 10, few stubs 5, little crowding 5, connector economy 5 (served vertical and dead-free are reported at
 // weight 0). Fixed contract: planners must not edit this file.
@@ -88,6 +99,10 @@ namespace AutoGenBatch
         public readonly List<(List<float2> Pts, RunKind Kind)> Runs = new List<(List<float2>, RunKind)>();   // Groomed or Natural (v5)
         public readonly List<List<float2>> Connectors = new List<List<float2>>();   // traverses, cat tracks, way-home tracks
         public readonly List<(string Type, float2 Bottom, float2 Top)> Lifts = new List<(string, float2, float2)>();
+        /// <summary>v7, optional: the built outline(s) of a run or connector, keyed by the very list object in Runs or Connectors
+        /// (reference keys). Several outlines = one line skied through pieces: it takes the hardest piece's band. A line without an
+        /// entry is rated on a ribbon (RunsFirstScore.RibbonOf).</summary>
+        public readonly Dictionary<List<float2>, float2[][]> Rings = new Dictionary<List<float2>, float2[][]>();
     }
 
     internal static class RunsFirstScore
@@ -114,6 +129,12 @@ namespace AutoGenBatch
         private const float StackTopM = 300f, StackBottomM = 300f, StackDeg = 30f, BaseAreaM = 300f, BaseTopM = 150f;
         private const float FallFreeDeg = 30f, FallFullDeg = 60f, FallTrunkFreeDeg = 45f, FallTrunkFullDeg = 75f, RopeM = 40f;
         private const float BeginnerFullKm = 0.8f, BeginnerChair = 0.25f;   // v6: a base's credit is min(1, km / BeginnerFullKm)
+        // v7: the scorecard version (6 = the v6 band rule, the 85th percentile of the grade along the centerline) and the ribbon a run
+        // fed as a centerline is rated on: GradePath.Build(points, RibbonStepM) (the realizer's centerline step), then
+        // GradeRibbon.Build(path, half width) with RibbonHalfWidthM for a run and GradedHalfWidthM for a graded connector (the realizer's
+        // graded piste). The ribbon width was chosen by its band agreement with the realized outlines (v7/BASELINE.md)
+        public static int Version = Environment.GetEnvironmentVariable("RF_SCORE") == "6" ? 6 : 7;
+        public const float RibbonStepM = 4f, RibbonHalfWidthM = 15f, GradedHalfWidthM = 7.5f;
 
         // name, length min / max (m), rise min / max (m), mean grade cap (stage-a-spec 4.4). v3: the scorecard does not check the maxima (no lift
         // length limit in the mod). They stay as the planner's type ladder. v5: the beginner chair is a fixed-grip chair for a learning
@@ -134,6 +155,7 @@ namespace AutoGenBatch
             public bool Graded;   // a connector graded steeper than the blue line: a diagonal run
             public bool Natural;  // an ungroomed run (v5)
             public float Drop, Length;
+            public List<float2> Src;     // the plan's polyline (v7: the ribbon's centerline, the key into ScorePlan.Rings)
             public SlopeBand Band;       // as skied: the ground for a run, the track's own grade for a graded connector
             public SlopeBand GroundBand; // the ground under it (v5 grade mix: a graded diagonal across black ground counts black)
         }
@@ -144,6 +166,7 @@ namespace AutoGenBatch
             public float Fleet, GradeMix;
             public int Lifts, Bases, BeginnerBases, WayHomeLifts, HubExcess, Parallels, SharpTurns, Dead, Violations, ServedRuns, Runs;
             public int Aerial, AerialAllowed, Thin, Stacked, BaseAreas, LoneBases, OffFall, NaturalRuns;
+            public int RatedRings, RatedRibbons, Unrated, Fallback;   // v7: outlines the rater banded, given or built; not rated; P90 fallback
             public float[] BandKm = new float[5];
             public float[] MixTarget = new float[5], MixPlan = new float[5];   // shares by band (green .. double black)
             public float ServedVerticalM, ConnectorKm, GreenRunKm, HostileShare, FallCost, CoverRaw;
@@ -153,6 +176,8 @@ namespace AutoGenBatch
         public static Result Evaluate(HeightSnapshot s, float2[] ring, ScorePlan plan)
         {
             var r = new Result();
+            var rateGrid = new SlopeGrid();   // v7: the rater's buffers, reused for every outline
+            var rateRes = new SlopeResult();
             float H(float2 p) => s.Sample(new float3(p.x, 0f, p.y));
             float Grade(float2 p)
             {
@@ -175,19 +200,7 @@ namespace AutoGenBatch
                     els.Add(Make(pl, false));
             Elem Make(List<float2> pl, bool run)
             {
-                var pts = new List<float3>();
-                for (int i = 0; i + 1 < pl.Count; i++)
-                {
-                    float len = math.distance(pl[i], pl[i + 1]);
-                    int k = Math.Max(1, (int)Math.Ceiling(len / SampleM));
-                    for (int j = 0; j < k; j++)
-                    {
-                        float2 q = math.lerp(pl[i], pl[i + 1], j / (float)k);
-                        pts.Add(new float3(q.x, H(q), q.y));
-                    }
-                }
-                pts.Add(new float3(pl[pl.Count - 1].x, H(pl[pl.Count - 1]), pl[pl.Count - 1].y));
-                var e = new Elem { Run = run, P = pts.ToArray() };
+                var e = new Elem { Run = run, P = SamplesOf(s, pl), Src = pl };
                 for (int i = 1; i < e.P.Length; i++)
                     e.Length += math.distance(e.P[i].xz, e.P[i - 1].xz);
                 e.Drop = e.P[0].y - e.P[e.P.Length - 1].y;
@@ -279,12 +292,36 @@ namespace AutoGenBatch
                     }
                 }
             }
-            // the ground under an element, as the game rates a painted run: 85th percentile of the terrain grade along it
+            // the ground under an element, as the game rates a painted run. v6: the 85th percentile of the terrain grade along it. v7: the
+            // mod's rater on its outline (given, or a ribbon), the hardest of several pieces; the v6 band when the rater rates none
             SlopeBand GroundBand(Elem e)
             {
-                var gs = e.P.Select(p => Grade(p.xz)).OrderBy(x => x).ToList();
-                SlopeBand band = SkiSlopeClassifier.BandOf(gs.Count > 0 ? gs[(int)((gs.Count - 1) * 0.85f)] : 0f);
-                return band == SlopeBand.Flat ? SlopeBand.Green : band;
+                if (Version >= 7)
+                {
+                    bool given = plan.Rings.TryGetValue(e.Src, out float2[][] rings) && rings != null && rings.Length > 0;
+                    if (!given)
+                        rings = new[] { RibbonOf(e.Src, e.Graded ? GradedHalfWidthM : RibbonHalfWidthM) };
+                    bool any = false;
+                    SlopeBand hardest = SlopeBand.Green;
+                    foreach (float2[] rg in rings)
+                        if (RateRing(s, rg, rateGrid, rateRes, out SlopeBand b))
+                        {
+                            any = true;
+                            hardest = b > hardest ? b : hardest;
+                            if (!rateRes.Connected)
+                                r.Fallback++;
+                        }
+                    if (any)
+                    {
+                        if (given)
+                            r.RatedRings++;
+                        else
+                            r.RatedRibbons++;
+                        return hardest;
+                    }
+                    r.Unrated++;   // counted in Line(), no note: the violation notes keep their cap
+                }
+                return GroundBandV6(s, e.P);
             }
 
             var lifts = plan.Lifts;
@@ -994,7 +1031,78 @@ namespace AutoGenBatch
             100f * r.MixPlan[1], 100f * r.MixPlan[2], 100f * r.MixPlan[3], 100f * r.MixPlan[4],
             r.Layout, r.HubExcess, r.Parallels, r.Stacked, r.SharpTurns, r.LoneBases, r.BaseAreas, r.OffFall, r.FallCost, r.Validity, r.Violations,
             r.StubFree, r.CrowdFree, r.Economy, r.Served, r.DeadFree, r.ServedRuns, r.Runs, r.NaturalRuns,
-            r.ServedVerticalM, r.BandKm[1], r.BandKm[2], r.BandKm[3], r.BandKm[4], r.ConnectorKm, r.CoverRaw);
+            r.ServedVerticalM, r.BandKm[1], r.BandKm[2], r.BandKm[3], r.BandKm[4], r.ConnectorKm, r.CoverRaw)
+            + (Version >= 7
+                ? string.Format(CultureInfo.InvariantCulture, ", rater bands: {0} outlines, {1} ribbons, {2} unrated, {3} P90 fallback | scorecard v7",
+                    r.RatedRings, r.RatedRibbons, r.Unrated, r.Fallback)
+                : " | scorecard v6");
+
+        /// <summary>A plan polyline resampled every SampleM (10 m) on the terrain: each segment in ceil(length / SampleM) equal steps,
+        /// the last point kept.</summary>
+        public static float3[] SamplesOf(HeightSnapshot s, List<float2> pl)
+        {
+            float H(float2 p) => s.Sample(new float3(p.x, 0f, p.y));
+            var pts = new List<float3>();
+            for (int i = 0; i + 1 < pl.Count; i++)
+            {
+                float len = math.distance(pl[i], pl[i + 1]);
+                int k = Math.Max(1, (int)Math.Ceiling(len / SampleM));
+                for (int j = 0; j < k; j++)
+                {
+                    float2 q = math.lerp(pl[i], pl[i + 1], j / (float)k);
+                    pts.Add(new float3(q.x, H(q), q.y));
+                }
+            }
+            pts.Add(new float3(pl[pl.Count - 1].x, H(pl[pl.Count - 1]), pl[pl.Count - 1].y));
+            return pts.ToArray();
+        }
+
+        /// <summary>The v6 band of an element (v3 to v6): the 85th percentile of the terrain grade (central differences over 10 m) at its
+        /// 10 m samples. Flat counts as green.</summary>
+        public static SlopeBand GroundBandV6(HeightSnapshot s, float3[] samples)
+        {
+            float H(float2 p) => s.Sample(new float3(p.x, 0f, p.y));
+            float Grade(float2 p)
+            {
+                const float d = 10f;
+                float gx = (H(p + new float2(d, 0f)) - H(p - new float2(d, 0f))) / (2f * d);
+                float gz = (H(p + new float2(0f, d)) - H(p - new float2(0f, d))) / (2f * d);
+                return math.sqrt(gx * gx + gz * gz);
+            }
+            var gs = samples.Select(p => Grade(p.xz)).OrderBy(x => x).ToList();
+            SlopeBand band = SkiSlopeClassifier.BandOf(gs.Count > 0 ? gs[(int)((gs.Count - 1) * 0.85f)] : 0f);
+            return band == SlopeBand.Flat ? SlopeBand.Green : band;
+        }
+
+        /// <summary>v7: the ribbon a run fed as a centerline is rated on. GradePath.Build(centerline, RibbonStepM) (a Catmull-Rom chain
+        /// resampled at about 4 m, both ends kept), then GradeRibbon.Build(path, halfWidth) (constant half width, square ends at the end
+        /// samples, inside-bend loops cut, simplified 0.5 m, thinned 2 m). The ring is rated as built: a ring that fails GradeRibbon's
+        /// clearance (a bend tighter than the half width) is not retried. Null when the path has under two distinct points.</summary>
+        public static float2[] RibbonOf(IList<float2> centerline, float halfWidth)
+        {
+            GradePath path = GradePath.Build(centerline, RibbonStepM);
+            return path == null ? null : GradeRibbon.Build(path, halfWidth, out GradeRibbonFail _);
+        }
+
+        /// <summary>v7: SkiRunRater.Rate on the ring's nodes at snapshot heights, as the realizer (RunsFirstRealizer.RateRing) and the
+        /// catalog rate a run. True with the rater's band when it rates (status Ok or ShortRun; a broken outline carries the classifier's
+        /// P90 fallback band, res.Connected false). Flat counts as green. False when the game would show "not rated" (Failed, NoTerrain,
+        /// TooLarge; a snapshot miss is a NaN height, NonFinite).</summary>
+        public static bool RateRing(HeightSnapshot s, float2[] ring, SlopeGrid grid, SlopeResult res, out SlopeBand band)
+        {
+            band = SlopeBand.Green;
+            if (ring == null || ring.Length < 3)
+                return false;
+            var nodes = new float3[ring.Length];
+            for (int i = 0; i < ring.Length; i++)
+                nodes[i] = new float3(ring[i].x, s.Sample(new float3(ring[i].x, 0f, ring[i].y)), ring[i].y);
+            var sampler = new SnapshotSampler(s);
+            RateStatus rs = SkiRunRater.Rate(nodes, nodes.Length, s.Origin, ref sampler, s.TexelM, 0, grid, null, res, out int _, out float _, out float _);
+            if (rs != RateStatus.Rated || sampler.Misses > 0)
+                return false;
+            band = res.Band == SlopeBand.Flat ? SlopeBand.Green : res.Band;
+            return true;
+        }
 
         private static int Find(int[] p, int i)
         {

@@ -65,7 +65,9 @@ namespace SkiResortMod.Systems
                 plan.Lifts.Add((lf.Type, lf.Bottom.xz, lf.Top.xz));
             foreach (string s in built.Log)
                 Console.WriteLine($"REPORT rf plan {id}: {s}");
+            var scoreSw = System.Diagnostics.Stopwatch.StartNew();
             RunsFirstScore.Result score = RunsFirstScore.Evaluate(snap, ring, plan);
+            Console.WriteLine($"REPORT rf score time {id}: {scoreSw.Elapsed.TotalMilliseconds:F0} ms (scorecard v{RunsFirstScore.Version})");
             Console.WriteLine(RunsFirstScore.Line(id, score));
             if (O.DebugV3)
                 V3Debug(g, built, lifts);
