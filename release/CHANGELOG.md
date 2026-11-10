@@ -44,11 +44,15 @@ First public release. Draft notes (check against the build at upload):
 - Cat track tool: lay out a track, and one key grades the ground under 25 percent and builds the cat track on it. Where it
   crosses a run it grades up to 2 m inside the run and keeps the run's difficulty. Delete mode (Ctrl+Shift+D) and a hub trash
   button remove a track; right click and Esc never do.
-- Resort Planner (experimental): outline a slope of up to 9 km2 and the planner proposes up to 15 lifts, cat tracks and a set
-  of linked runs, with each lift's way home (green, blue, black only, or ride the lift down). Leave out runs or lifts, set how
-  many runs and the run features, then build the cat tracks and runs in one go and undo them. Build lifts builds the planned
-  lifts one after the other. The scan runs in the background with a progress line, and right click stops it. Optional tree
-  filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
+- Resort Planner (experimental): outline a slope of up to 9 km2. The planner lays out the linked runs and cat tracks first,
+  then proposes up to 15 lifts that serve them, each with its way home (green, blue, black only, or ride the lift down).
+  Run colors come from the mod's own run rater. It plans around water, other ski areas, land the city does not own, your
+  existing runs, and existing lifts (stations and a 10 m corridor along the line). It does not avoid roads or buildings.
+  Leave out runs or lifts and set how many runs and the run features. Build makes the cat tracks and then the runs in one go,
+  and Undo removes that build and refunds it. Build lifts builds the kept lifts one after the other, lowest first. A line
+  whose towers fit builds; a line with one tower slightly over its limit builds and its row says which tower; a line that
+  needs a hand fit waits in the lift tool and the queue stops there. The scan runs in the background with a progress line,
+  and right click stops it. Optional tree filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
 - Safety Net Fence: decorative orange netting on thin poles, in the hub's Runs tab.
 - Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run and stay open while 1 ft covers 40 percent, snow guns on snowmaking and night runs
   (two months before winter to one month after), powder days, seasons.
@@ -75,7 +79,7 @@ First public release. Draft notes (check against the build at upload):
   loaded city, after a confirmation, to clean a city before uninstalling. It cannot be undone.
 - Copy diagnostics, a button in the mod's Options (Diagnostics group): puts the versions, the changed options, the code mods and the latest log errors on the clipboard for a bug report.
 - Works on the base game; no other mod is required. Write Everywhere is recommended, and Move It is useful for exact placement.
-- Known limitations: a hill far from the city's homes and hotels gets few ski-day guests (the panel shows the distance), chairs carry no riders, two lifts of the same type cannot cross, a cat track cannot pass under a lift that is already built, the fixed-grip top station and the aerial tram's top terminal keep the slope and can sit partly in the hillside on steep
+- Known limitations: the Resort Planner's Undo ends when the tool closes, a scan of a large outline can take about 30 seconds, a hill far from the city's homes and hotels gets few ski-day guests (the panel shows the distance), chairs carry no riders, two lifts of the same type cannot cross, a cat track cannot pass under a lift that is already built, the fixed-grip top station and the aerial tram's top terminal keep the slope and can sit partly in the hillside on steep
   ground, chairlifts and gondolas stop in summer.
 
 ## Beta notes (pre-release, not a release entry)
