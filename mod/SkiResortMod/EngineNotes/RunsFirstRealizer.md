@@ -41,6 +41,9 @@ The files are pure C# 9 for net48. They use no part of the `SkiRunAutoPlanner` c
 - A graded run is a graded piste when its grade along the path is 25 % or more and it drops. It is 15 m wide.
   The rater can answer `ShortRun` for it, because a diagonal has few full 20 m windows. The realizer accepts that answer for a graded
   piste. The game shows that band.
+- A cut piece with a drop of less than 50 m is a remnant. The realizer keeps a remnant when both ends connect to something. An
+  end connects at a junction, at the end of the source, near a lift bottom, in the bottom band, or within 20 m of the next piece
+  of the same line. A remnant with a free end is a stub. The realizer drops it. The report counts the two cases.
 - All other connectors are cat tracks: 10 m wide, then 8 m when the ribbon crosses itself.
 
 ## Junctions

@@ -36,6 +36,7 @@ namespace SkiResortMod.Systems
         public double TrackKmPlanned, TrackKmKept;
         // Junctions
         public int ConvergeJunctions;   // pistes met in a converging line's path and made its partners (iteration 3, item 1)
+        public int RemnantsKept, RemnantsDropped;   // cut pieces under 50 m down: kept (both ends connect), dropped (a free end) (iteration 3, item 3)
         public int PisteReaches;    // piste ends extended after the track pass to reach a related track or piste (iteration 3, item 2)
         public int TrackReaches;    // track ends extended to reach a related piste or track (iteration 2, item 6)
         public int Relations, RelationLinks, RelationVia, RelationMisses, Extensions, UnlinkedEnds, UnlinkedBlocked;   // RelationVia: linked through the area that cut the end
@@ -69,6 +70,7 @@ namespace SkiResortMod.Systems
         public const float MinHalfWidthM = 7.5f;             // half the 15 m pinch width
         public const float MergeGapM = PlanGeometry.MergeGapM, MergeTaperM = 30f, JunctionReachM = 20f, ExtendMaxM = 40f;
         public const float MinPieceM = 60f, MinPieceDropM = 15f, MinJoinedPieceM = 30f;
+        public const float RemnantDropM = 50f;   // a cut piece under this drop is a remnant (iteration 3, item 3)
         public const float PinchWidthM = 15f, PinchShare = 0.30f, RetryShare = 0.7f, ExactGapShare = 0.8f;
         public const float GradedHalfWidthM = 7.5f;          // a graded piste is 15 m (its bench)
         public const float TrackHalfWidthM = 0.5f * GradeParams.NarrowTopWidthM, TrackNarrowHalfWidthM = 0.5f * GradeParams.NarrowMinTopWidthM;

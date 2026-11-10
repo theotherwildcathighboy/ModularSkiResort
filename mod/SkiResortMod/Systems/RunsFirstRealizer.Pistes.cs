@@ -166,14 +166,34 @@ namespace SkiResortMod.Systems
             }
             AutoReject last = AutoReject.TooShort;
             int segment = 0;
-            foreach (Piece pc in final)
+            for (int k = 0; k < final.Count; k++)
             {
+                Piece pc = final[k];
                 if (Canceled)
                     return;
                 float len = path.S[pc.E] - path.S[pc.S];
                 float drop = H(path.Xz[pc.S]) - H(path.Xz[pc.E]);
                 bool joined = pc.J0.Count > 0 && pc.J1.Count > 0;
-                if (pc.E - pc.S < 1 || (joined ? len < MinJoinedPieceM : len < MinPieceM || (drop < MinPieceDropM && e.Kind != "learning")))
+                // Iteration 3, item 3: a remnant (a cut piece, under RemnantDropM down) stays when both ends connect something (a junction,
+                // the source's own end, a lift bottom, the bottom band). A remnant with a free end is a stub that leads nowhere.
+                bool remnant = (pc.S > 0 || pc.E < n - 1) && drop < RemnantDropM && pc.E - pc.S >= 1 && len >= MinJoinedPieceM;
+                if (remnant)
+                {
+                    // a cut shorter than JunctionReachM to the next piece of the same line is a game link: that end connects too
+                    bool near0 = k > 0 && path.S[pc.S] - path.S[final[k - 1].E] <= JunctionReachM;
+                    bool near1 = k + 1 < final.Count && path.S[final[k + 1].S] - path.S[pc.E] <= JunctionReachM;
+                    bool c0 = near0 || Connects(pc.J0, pc.Orig0, path.Xz[pc.S]), c1 = near1 || Connects(pc.J1, pc.Orig1, path.Xz[pc.E]);
+                    if (!c0 || !c1)
+                    {
+                        m_Rep.PiecesLost++;
+                        m_Rep.RemnantsDropped++;
+                        m_Res.Rejects[(int)AutoReject.TooShort]++;
+                        m_Rep.Lines.Add($"piste {e.Source} ({e.Kind}): piece {len:F0} m / {drop:F0} m down at ({path.Xz[pc.S].x:F0}, {path.Xz[pc.S].y:F0}) lost (a stub, its {(c0 ? "end" : "start")} is free)");
+                        last = AutoReject.TooShort;
+                        continue;
+                    }
+                }
+                if (pc.E - pc.S < 1 || (!remnant && (joined ? len < MinJoinedPieceM : len < MinPieceM || (drop < MinPieceDropM && e.Kind != "learning"))) || len < MinJoinedPieceM)
                 {
                     m_Rep.PiecesLost++;
                     m_Res.Rejects[(int)AutoReject.TooShort]++;
@@ -183,7 +203,11 @@ namespace SkiResortMod.Systems
                 }
                 AutoReject why = BuildPiece(ctx, path, pc, segment);
                 if (why == AutoReject.Kept)
+                {
                     segment++;
+                    if (remnant)
+                        m_Rep.RemnantsKept++;
+                }
                 else
                 {
                     last = why;
@@ -193,6 +217,18 @@ namespace SkiResortMod.Systems
             }
             if (e.Areas.Count == 0)
                 DropElem(e, last, "every piece failed");
+        }
+
+        /// <summary>Item 3 of iteration 3: true when a piece end connects something. That is a junction, the source's own end, a lift
+        /// bottom within RelationM, or the bottom band.</summary>
+        private bool Connects(List<int> j, bool orig, float2 p)
+        {
+            if (j.Count > 0 || orig || H(p) <= m_BottomTop)
+                return true;
+            foreach (RunsFirstResult.Lift l in m_Plan.Lifts)
+                if (math.distance(p, l.Bottom.xz) <= RelationM)
+                    return true;
+            return false;
         }
 
         private void DropElem(Elem e, AutoReject why, string what)
