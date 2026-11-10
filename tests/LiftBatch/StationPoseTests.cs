@@ -10,7 +10,8 @@
 // - Spots too close for the two stubs, or not finite, give an invalid pose.
 // - The height rule (SP-7, StationAlign.StationY, task R1-e): LowestOfThree is the lowest finite of the three terrain heights plus the
 //   placement offset, never above the vanilla front-edge y and never above the origin. On the field r1c tops (front edge uphill) it
-//   removes the float. On the bases (front edge downhill) it equals the vanilla y. NaN inputs are skipped.
+//   removes the float. On the bases (front edge downhill) it equals the vanilla y. NaN inputs are skipped. Fit is LowestOfThree on a pad
+//   station and the origin on a slope station (DontRaise + DontLower, TerrainKindOf).
 
 using System;
 using SkiResortMod.Systems;
@@ -170,6 +171,48 @@ namespace LiftBatch
                     bad++;
             }
             Check(bad == 0, W, bad + " of 20000 random cases broke the lowest-of-three rule");
+
+            // Fit: the rule per station kind. A slope station (DontRaise + DontLower) takes the origin, a pad station the lowest of three.
+            const StationAlign.StationHeightRule Fi = StationAlign.StationHeightRule.Fit;
+            var pad = StationAlign.StationTerrainKind.Pad;
+            var slope = StationAlign.StationTerrainKind.Slope;
+            Check(StationAlign.TerrainKindOf(true, true) == slope && StationAlign.TerrainKindOf(true, false) == pad &&
+                  StationAlign.TerrainKindOf(false, true) == pad && StationAlign.TerrainKindOf(false, false) == pad, W,
+                  "the station kind is not Slope exactly when both flags are set");
+            // Plan #8 P3 fixed-grip top (a slope station): fit = the origin 986.34, between the vanilla 997.61 and the lowest 980.4.
+            Check(math.abs(StationAlign.StationY(Fi, slope, 997.61f, 986.34f, 980.4f, 0f) - 986.34f) < 1e-3f, W, "fit of a slope top is not the origin");
+            Check(math.abs(StationAlign.StationY(Fi, slope, 997.61f, 986.34f, 980.4f, 0.25f) - 986.59f) < 1e-3f, W, "fit of a slope top lost the offset");
+            Check(math.abs(StationAlign.StationY(Fi, pad, 997.61f, 986.34f, 980.4f, 0f) - 980.4f) < 1e-3f, W, "fit of a pad top is not the lowest");
+            Check(math.abs(StationAlign.StationY(Fi, 997.61f, 986.34f, 980.4f, 0f) - 980.4f) < 1e-3f, W, "fit without a kind is not the pad rule");
+            // The kind changes only Fit: vanilla and lowest ignore it.
+            Check(math.abs(StationAlign.StationY(V, slope, 997.61f, 986.34f, 980.4f, 0f) - 997.61f) < 1e-3f &&
+                  math.abs(StationAlign.StationY(L, slope, 997.61f, 986.34f, 980.4f, 0f) - 980.4f) < 1e-3f, W, "the kind changed vanilla or lowest");
+            // A slope station with no origin height: the lowest of the other two. None finite: NaN.
+            Check(math.abs(StationAlign.StationY(Fi, slope, 997.61f, float.NaN, 980.4f, 0f) - 980.4f) < 1e-3f, W, "fit of a slope without an origin");
+            Check(float.IsNaN(StationAlign.StationY(Fi, slope, float.NaN, float.NaN, float.NaN, 0f)), W, "fit of three NaN heights gave a number");
+            // The field r1c tops as slope stations: fit is the origin, so the top neither floats like vanilla nor sinks to the line side.
+            foreach (float[] f in tops)
+            {
+                float fit = StationAlign.StationY(Fi, slope, f[0], f[1], f[1] - 6f, 0f);
+                Check(math.abs(fit - f[1]) < 1e-3f, W, "slope top front " + f[0] + " origin " + f[1] + ": fit " + fit);
+            }
+            // Property: Fit on a pad equals LowestOfThree, Fit on a slope with a finite origin equals origin + offset, never NaN then.
+            bad = 0;
+            for (int i = 0; i < 20000; i++)
+            {
+                float a = (float)(rnd.NextDouble() * 400 + 600), b = (float)(rnd.NextDouble() * 400 + 600), c = (float)(rnd.NextDouble() * 400 + 600);
+                if (rnd.Next(10) == 0) a = float.NaN;
+                if (rnd.Next(10) == 0) b = float.NaN;
+                if (rnd.Next(10) == 0) c = float.NaN;
+                float off = (float)(rnd.NextDouble() * 2 - 1);
+                float lo = StationAlign.StationY(L, a, b, c, off);
+                float fp = StationAlign.StationY(Fi, pad, a, b, c, off), fs = StationAlign.StationY(Fi, slope, a, b, c, off);
+                bool padOk = float.IsNaN(lo) ? float.IsNaN(fp) : math.abs(fp - lo) < 1e-4f;
+                bool slopeOk = float.IsNaN(b) ? (float.IsNaN(lo) ? float.IsNaN(fs) : math.abs(fs - lo) < 1e-4f) : math.abs(fs - (b + off)) < 1e-4f;
+                if (!padOk || !slopeOk)
+                    bad++;
+            }
+            Check(bad == 0, W, bad + " of 20000 random cases broke the fit rule");
         }
     }
 }

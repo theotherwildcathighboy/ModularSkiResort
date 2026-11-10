@@ -18,8 +18,9 @@
 // Height: vanilla stands a building on the terrain at the FRONT edge of its lot (PlacementFlags.RoadSide on every BuildingData building,
 // DC/Game.Prefabs/BuildingInitializeSystem.cs:1131-1133; ObjectToolSystem.CalculateHeight :1608-1625 at BuildingUtils.CalculateFrontPosition
 // :88-92), plus PlaceableObjectData.m_PlacementOffset.y. ResolveY does the same when the caller gives no y (NaN) and the request's
-// HeightRule is VanillaFront (the dev probe). The build queue asks LowestOfThree (StationAlign.StationY): the lowest terrain of the front
-// edge, the origin and the line-side edge. On a top station the front edge is uphill, so the vanilla y floats (field r1c, 5 to 14 m).
+// HeightRule is VanillaFront (the dev probe). The build queue asks Fit (StationAlign.StationY): on a pad station the lowest terrain of
+// the front edge, the origin and the line-side edge; on a slope station (the prefab's BuildingTerraformData has DontRaise and DontLower)
+// the terrain at the origin. On a top station the front edge is uphill, so the vanilla y floats (field r1c, 5 to 14 m).
 // Phases: Pending (activated, emits on its first update), Emitted (definitions out: wait for the Temp building, one settle frame for
 // validation, then Apply when GetAllowApply holds, else Clear), Applying (the frame after Apply: read the permanent station, log it,
 // hand the tool back to the default tool). Apply and Clear are read from the tool that ran this frame (ToolSystem.cs:147-156,
@@ -603,8 +604,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>The y of a request without one, by <paramref name="rule"/> (StationAlign.StationY). VanillaFront: the terrain at the
         /// front edge of the lot (local +z, lot depth x 4 m) plus the placement offset (see the header). LowestOfThree: the lowest terrain
-        /// of the front edge, the origin and the line-side edge (local -z, the stub tip side) plus the offset. One log line per request
-        /// with the three heights, the rule and the chosen y (the vanilla y beside it).</summary>
+        /// of the front edge, the origin and the line-side edge (local -z, the stub tip side) plus the offset. Fit: LowestOfThree on a pad
+        /// station, the origin on a slope station (the prefab's BuildingTerraformData). One log line per request with the three heights,
+        /// the rule, the station kind and the chosen y (the vanilla y beside it).</summary>
         private float ResolveY(Entity prefab, float3 p, quaternion rotation, StationAlign.StationHeightRule rule)
         {
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
@@ -631,14 +633,19 @@ namespace SkiResortMod.Systems
                                  "branch is NOT reproduced, the plain branch is used");
                 offset = pod.m_PlacementOffset.y;
             }
-            float vanilla = StationAlign.StationY(StationAlign.StationHeightRule.VanillaFront, frontGround, originGround, lineGround, offset);
-            float y = StationAlign.StationY(rule, frontGround, originGround, lineGround, offset);
+            // The station kind comes from the prefab's own terrain flags (BuildingTerraformData, set from its BuildingTerraformOverride at
+            // BuildingInitializeSystem.cs:1364-1365; every BuildingPrefab has the component, BuildingPrefab.cs:36). No override = Pad.
+            StationAlign.StationTerrainKind kind = EntityManager.TryGetComponent(prefab, out BuildingTerraformData td)
+                ? StationAlign.TerrainKindOf(td.m_DontRaise, td.m_DontLower) : StationAlign.StationTerrainKind.Pad;
+            float vanilla = StationAlign.StationY(StationAlign.StationHeightRule.VanillaFront, kind, frontGround, originGround, lineGround, offset);
+            float y = StationAlign.StationY(rule, kind, frontGround, originGround, lineGround, offset);
             if (!math.isfinite(y))
                 y = math.isfinite(vanilla) ? vanilla : originGround + offset;
             Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
-                "StationPlace [height]: #{0}{1} rule {2}: terrain front {3:F2}, origin {4:F2}, line side {5:F2}; placement offset {6:F2} -> y {7:F2} " +
+                "StationPlace [height]: #{0}{1} rule {2}, {12} station: terrain front {3:F2}, origin {4:F2}, line side {5:F2}; placement offset {6:F2} -> y {7:F2} " +
                 "(vanilla y {8:F2}, {9:F2} m lower; y minus the origin terrain {10:F2}); {11}",
-                CurSerial, TagText(m_Current?.Tag), rule, frontGround, originGround, lineGround, offset, y, vanilla, vanilla - y, y - originGround, lot));
+                CurSerial, TagText(m_Current?.Tag), rule, frontGround, originGround, lineGround, offset, y, vanilla, vanilla - y, y - originGround, lot,
+                kind == StationAlign.StationTerrainKind.Slope ? "slope (DontRaise + DontLower)" : "pad"));
             return y;
         }
 

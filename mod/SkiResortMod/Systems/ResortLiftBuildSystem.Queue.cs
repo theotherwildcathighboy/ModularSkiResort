@@ -5,7 +5,8 @@
 // 3. Stations: the missing ones go to the station placer (StationPlaceToolSystem.Enqueue), the base first. The top is asked only after the
 //    base stands (ResortPlanSheet.NextStationStep). A refused base places nothing and charges nothing: Refused BASE[error type]. A refused
 //    top keeps the base: Refused TOP[error type] with the base in the row. The next lift starts. The queue's stations take the height rule
-//    StationHeight (default LowestOfThree, StationAlign.StationY: no planner-built station floats).
+//    StationHeight (default Fit, StationAlign.StationY: a pad station takes the lowest of three heights and never floats, a slope
+//    station takes its origin).
 // 4. Settle: the lot cut runs after the station is permanent and the CPU heights lag it, so the queue samples the terrain under both stub
 //    tips every SettleEveryFrames and goes on when two samples agree within SettleToleranceM (at least SettleMinFrames, at most
 //    SettleMaxFrames with a warning).
@@ -297,11 +298,12 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- the station height rule (one switch, compared in game)
 
-        /// <summary>The default height rule of the stations the queue places: the lowest terrain of the lot's front edge, its origin and its
-        /// line-side edge (StationAlign.StationY), so no planner-built station floats (DECISIONS 625, 626).</summary>
-        internal const StationAlign.StationHeightRule DefaultStationHeight = StationAlign.StationHeightRule.LowestOfThree;
+        /// <summary>The default height rule of the stations the queue places: Fit (StationAlign.StationY). A pad station takes the lowest
+        /// terrain of the lot's front edge, its origin and its line-side edge, so it never floats (DECISIONS 625, 626). A slope station
+        /// (DontRaise and DontLower) takes the terrain at its origin, because it does not cut.</summary>
+        internal const StationAlign.StationHeightRule DefaultStationHeight = StationAlign.StationHeightRule.Fit;
 
-        /// <summary>The height rule of the stations the queue places. The dev trigger "height vanilla" / "height lowest" switches it so the two
+        /// <summary>The height rule of the stations the queue places. The dev trigger "height vanilla|lowest|fit" switches it so the three
         /// rules can be compared in game. A load resets it to DefaultStationHeight. The dev probe and an explicit y keep the vanilla rule.</summary>
         internal StationAlign.StationHeightRule StationHeight { get; private set; } = DefaultStationHeight;
 

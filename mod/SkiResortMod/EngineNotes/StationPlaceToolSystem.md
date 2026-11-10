@@ -43,16 +43,24 @@ A request without a y gets the y of its `HeightRule` (`StationAlign.StationY`, p
 - VanillaFront (the default of a request, so the dev probe): the terrain at the front edge of the lot, plus
   `PlaceableObjectData.m_PlacementOffset.y`. This is the height of the object tool (ObjectToolSystem.cs:1608-1625,
   `BuildingUtils.CalculateFrontPosition` :88-92). The front edge is the side away from the line.
-- LowestOfThree (the build queue, task R1-e): the lowest of three terrain heights, plus the offset. The three heights are at the front
-  edge, at the origin and at the line-side edge (local -z, the stub tip side). A height that is not finite is skipped.
+- LowestOfThree (all station kinds): the lowest of three terrain heights, plus the offset. The three heights are at the front edge, at
+  the origin and at the line-side edge (local -z, the stub tip side). A height that is not finite is skipped.
+- Fit (the build queue, task R1-e): the rule per station kind (`StationAlign.StationTerrainKind`). A pad station takes LowestOfThree. A
+  slope station takes the terrain at its origin, plus the offset. Without a finite origin it takes the lowest of the other two.
+- The station kind comes from the prefab at run time: its `BuildingTerraformData` (`StationAlign.TerrainKindOf`). Slope = `m_DontRaise`
+  and `m_DontLower` both set. Pad = anything else. The flags come from the prefab's `BuildingTerraformOverride`
+  (BuildingInitializeSystem.cs:1364-1365). Every BuildingPrefab has the component (BuildingPrefab.cs:36).
+  The catalog holds the same fact as `StationDef.PadBackLocalZ` (NaN = keeps the slope), and LiftBatch EI-48 gates it against the mirror.
+  The placer reads the prefab, because it has the prefab entity and no catalog row. The hub tile's terrain line is UI data
+  (buildItems.ts), so the placer does not read it.
 - Why: on a top station the front edge is uphill. In the r1c pass the vanilla y stood 4.8 to 13.8 m over the terrain at the origin of
   every top. The rope anchor of the top then stood 15 to 26 m over its stub node (`LiftLine [plan]` "node + 24.38"). The ruling is that
   stations cut their pad and never raise the ground (DECISIONS 625, 626). On a base the front edge is downhill, so the two rules agree on a
-  plain slope.
-- The switch: `ResortLiftBuildSystem.StationHeight` (default `DefaultStationHeight` = LowestOfThree). The dev trigger "height vanilla" /
-  "height lowest" changes it for the next stations. A load resets it.
-- Log: one `StationPlace [height]` line per request. It gives the rule, the three terrain heights and the offset. It also gives the
-  chosen y, the vanilla y and y minus the origin terrain.
+  plain slope. A slope station does not cut. So LowestOfThree sinks its uphill side, and the origin splits the error between the two sides.
+- The switch: `ResortLiftBuildSystem.StationHeight` (default `DefaultStationHeight` = Fit). The dev trigger "height vanilla", "height
+  lowest" or "height fit" changes it for the next stations. A load resets it.
+- Log: one `StationPlace [height]` line per request. It gives the rule, the station kind, the three terrain heights and the offset. It
+  also gives the chosen y, the vanilla y and y minus the origin terrain.
 
 What the game does with the lot when y is below the terrain under part of it (1.6.0f1, the same in 1.6.2f1):
 - The terrain under a building comes from `BuildingUtils.CalculateLotInfo` (BuildingUtils.cs:538-619), called by
@@ -64,13 +72,15 @@ What the game does with the lot when y is below the terrain under part of it (1.
   never fills. So `m_MinLimit` is the cut window and `m_MaxLimit` the fill window.
 - The object validation has no error for a building below the terrain (Game.Objects/ValidationHelpers.cs: no such error type).
 - Expected in game, per station type:
-  - FG base, DQ base and top, gondola base and top (DontRaise only): the cut window is lowered to y. A level pad at the lowest of the three
-    heights. Nothing is raised. A top no longer floats: its pad is cut into the uphill side, with the 8 m apron as the bank.
-  - Tram base (no override, both ways): it levels to y. With y at the lowest sample, nearly all of it is cut. A lot corner lower than the
+  - FG base, DQ base and top, gondola base and top (DontRaise only, pad): the cut window is lowered to y. A level pad at the lowest of the
+    three heights. Nothing is raised. A top no longer floats: its pad is cut into the uphill side, with the 8 m apron as the bank.
+  - Tram base (no override, pad): it levels to y. With y at the lowest sample, nearly all of it is cut. A lot corner lower than the
     three samples can still be filled a little (UNVERIFIED).
-  - FG top and tram top (block A, DontRaise and DontLower): both windows are empty, so the terrain does not change (LotHeightSystem.cs:253
-    also skips them). The building stands at y, so the uphill part of the lot is below the ground by up to (front - y). On the r1c tops
-    that is up to about 17 m (plan #8 P3: front 997.61, stub nodes 980.4). UNVERIFIED in game: the sheet r1e-bridge-sheet.md item 3c.
+  - FG top and tram top (block A, DontRaise and DontLower, slope): both windows are empty, so the terrain does not change
+    (LotHeightSystem.cs:253 also skips them). Under LowestOfThree the uphill part of the lot is below the ground by up to (front - y).
+    On the r1c tops that is up to about 17 m (plan #8 P3: front 997.61, stub nodes 980.4). Under Fit (the origin) the uphill side is
+    below the ground and the downhill side floats, each by about half the drop across the lot. UNVERIFIED in game: r1e-bridge-sheet.md
+    item A3c.
 
 ## Plan sheet (`ResortPlanSheet`, `ResortLiftBuildSystem`)
 - The rows are the proposed lifts of the last published plan (not the pinned lifts). `QuickRunsToolSystem.FinishScan` loads them
@@ -171,7 +181,7 @@ of a row. `ResortLiftBuildSystem.TickHandBuilt` catches that and makes the row B
 ## Dev triggers (Measurement diagnostics on)
 - `skiResortDev.probePlaceStation`: `"<station prefab> <x> <z> <yaw deg> [<y>]"`, one station through the placer.
 - `skiResortDev.planLifts`: `"build all"`, `"build <row name or hex key>"`, `"stop"`, `"clear"`, `"dump"`, `"height vanilla"`,
-  `"height lowest"`, and
+  `"height lowest"`, `"height fit"`, and
   `"line <lift type id> <x1> <z1> <x2> <z2> [manual]"` (a scripted line between two ground points).
 
 ## Logs
