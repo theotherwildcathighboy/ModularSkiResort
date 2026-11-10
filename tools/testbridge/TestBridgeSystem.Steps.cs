@@ -119,6 +119,15 @@ namespace SkiTestBridge
             {
                 case "move":
                     return RunMove(s, step, after);
+                case "glide":
+                    return RunGlide(s, step, after);
+                case "campath":
+                    return RunCamPath(s, step);
+                case "ui":
+                    s.results.Add(new JObject { ["step"] = s.index, ["ui"] = UiCommand(step) });
+                    m_UiHiddenBySequence = m_UiHidden;
+                    Next(s, after);
+                    return true;
                 case "down":
                     RequireWorldUnderCursor(step);
                     NativeInput.Button(ButtonOf(step), true);
@@ -198,6 +207,10 @@ namespace SkiTestBridge
                 case "milestone":
                 case "demand":
                 case "errors":
+                case "pm":
+                case "wind":
+                case "fps":
+                case "terrain":
                     s.results.Add(new JObject { ["step"] = s.index, [op] = Run(op, step) });
                     Next(s, 0);
                     return true;

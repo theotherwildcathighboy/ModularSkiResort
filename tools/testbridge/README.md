@@ -90,6 +90,11 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `bone` | `id`, optional `mesh` (sub-mesh index), `bone`, `rotX`, `rotY` (deg) | lists a skinned object's bones (type, rest and current pose). With `bone` and a rotation, it writes that bone as rest x RotateY x RotateX and flags the skeleton for upload, as our own bone writers will. Bones exist only near the camera |
 | `mprobe` | `action`: `tag` (`id`, `serial`, `provider`), `untag`, `list`, `trace` (`id`, `p`, `write`), `read`, `stop` | merge-asset P0 probe: tags a building with `tools/testbridge-mergetag`'s saved component. `trace` writes round(sqrt(V² + P²)) right after vanilla AttractionSystem and samples the value every frame |
 | `trains` | `x`, `z`, optional `r` (default 400), `maxDeg` | gate G8 of the pitched sheave trains: per line tower with a `Train` bone near (x, z), the pitch the bone shows (relative to rest, nose up along +z, and null when far from the camera) against the analytic hanging-lane end slopes of the rope lanes on its anchors, and the worst difference |
+| `campath` | `seconds`, `keys`, optional `mode` (`pm`, `game`), `ease`, `props`, `follow`, `fps`, `snap` | an eased camera move on a spline, as a one-step sequence. See "Filming" |
+| `ui` | `hidden`, optional `seconds` (default 60, at most 900) | the whole UI view off or on. It comes back by itself after `seconds`, and when the sequence that hid it ends |
+| `terrain` | `action`: `begin` (`prefab`, `size` 1 to 10, `strength` 0.35 or less, optional `height`, `wx`, `wz`, `r`, `snapDir`, `log`, `note`), `end`, `cancel`, `undo` (`file`, optional `log`), `read` | a small terrain brush edit with a bit-exact snapshot before and after, an undo and a log row. See "Filming" |
+| `wind` | optional `x`, `y`, `force`; optional `wx`, `wz` | sets `WindSimulationSystem.constantWind` (default 0.275, 0.275). With `force`, it also writes that velocity into every cell of the wind simulation. Both are saved values. It reads the wind map at a point. See "Filming" |
+| `fps` | optional `target` (-1 = no cap, or 24 to 240) | `Application.targetFrameRate` for this run of the game. Not a game setting, not saved |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
@@ -198,6 +203,7 @@ mutation; run it again on the same open tooltip. Gameface rejects `:scope` in a 
 ### Practical limits, all measured
 
 - **No bridge or `game_eval` call before READY** (see Wait for ready).
+- **The pause menu's exit is two steps** (1.6.4f1): "Exit", then "Exit To Desktop" in the dialog (`__exitToDesktop`).
 - **`game_eval` times out after 15 seconds.** Longer work keeps running in the page, but its result is lost. So start the work,
   return, and poll. Loading a small city took about 3 s.
 - **DOM rects are client pixels here** (3840 x 2160 at `devicePixelRatio` 1), so `getBoundingClientRect()` gives the click point for a
@@ -216,7 +222,7 @@ mutation; run it again on the same open tooltip. Gameface rejects `:scope` in a 
 - **The object tool's raycast is offset by the object's height** (`ObjectToolSystem.cs:3190`), so `hover.hit` lands up to a few meters
   short of the target with the camera tilted, and the object lands there. Read the placed `Transform` for the true position.
 - **A station buried or floating:** use Move It, Toolbox, "To Terrain Height", with no terrain edit. If the station sits past a crest, move it along its line first. A large Level brush cuts shelves. When terrain must change, brush 1 to 10 at 35 %, with the target from `engine.trigger("tool.setBrushHeight", worldY - seaLevel)`.
-- **`pm` op, lighting:** "Time of Day" changes the sky, not the lamps. The lamps follow sim time (on by about 20:20). Snow guns and their plumes run at sim night only. Lifts stop outside open hours. A lift with no power stops soon after it is built. To sample chair motion, pick a powered lift at sim day.
+- **`pm` op, lighting:** "Time of Day" changes the sky, not the lamps. The lamps follow sim time (on by about 20:20). Snow gun plumes do not depend on the hour: they run when the calendar is in the gun season (normalized date 0.75 to 1.25), the run's pack is below 0.91 m and it is cold (measured 2026-11-10: 0 of 44 guns at date 0.474 with 102 cm, 37 of 44 at noon at date 0.868 after a melt). Lifts stop outside open hours. A lift with no power stops soon after it is built. To sample chair motion, pick a powered lift at sim day.
 - **Close shots:** the camera keeps about 8.5 m above the terrain at any zoom, so a pivot near the ground needs tilt 40 to 60
   to stay on screen. Read `project` for the pivot at a few tilts. Keep the one nearest the screen center. The station roofs hide
   their loading areas from above.
@@ -254,7 +260,10 @@ Input steps wait `after` frames afterward (default 2).
 | `settle` | waits for the camera to hold still. `timeout` frames (default 600) |
 | `waitFor` | a `dump` query plus `min` (default 1). After `timeout` frames (default 1200), the sequence fails |
 | `hover`, `status`, `dump` | adds the reading to `results` |
-| `sim`, `time`, `money`, `climate`, `tool`, `unlock`, `milestone`, `demand`, `errors` | same as the ops. The reply goes to `results` |
+| `glide` | `x`, `y` or `wx`, `wz`, optional `wy`; `seconds` (default 1), `ease` (default `inOut`). The cursor travels there in real time, eased. A world target is projected again on every frame |
+| `campath` | same as the op. The sequence goes on when the move ends. `after` frames (default 0). The reply (frames, seconds, fps, `maxFrameMs`, `hitches` = frames over 25 ms) goes to `results` |
+| `ui` | same as the op |
+| `sim`, `time`, `money`, `climate`, `tool`, `unlock`, `milestone`, `demand`, `errors`, `pm`, `wind`, `fps`, `terrain` | same as the ops. The reply goes to `results` |
 
 Rectangles in the area tool: the vanilla right-angle snap can pull the closing click off the first corner, so the area stays open and nothing is built (`Area.m_Flags` without `Complete`, a fifth node 0.5 m from the first). Draw test areas slightly off square.
 
@@ -263,6 +272,98 @@ Two guards fail a sequence instead of letting it click on blindly:
 - **A new game error stops it**, since an error dialog would swallow the input. Pass `stopOnError: false` on the `seq` when a known
   error is expected, then read `errors`.
 - **A press aimed at a world point fails if UI is under the cursor.** Pass `allowUI: true` on the `click` or `down` to allow it.
+
+## Filming
+
+Ops for recorded takes (the release trailer, DECISIONS 647). Page helpers: `shots/trailer-helpers.js`. Camera paths are kept as JSON
+in `shots/`, one file per shot, so a retake after a game patch is a re-run. Recording is `obs/rec.mjs` (its own README).
+
+### `campath`
+
+An eased camera move on a spline. The pose is set once per rendered frame from real frame time (`Time.unscaledDeltaTime`), so
+the move takes `seconds` at any frame rate. `fps` gives each frame a fixed step of 1 / fps instead (frame-locked motion for a
+capture at that rate).
+
+- `mode`: `pm` (the Photo Mode camera; the default while Photo Mode is on) or `game` (the normal camera).
+- `keys`, at least two. `t` runs from 0 to 1 and rises; without `t` the keys are spread evenly.
+  - `pm`: `pos: [x, y, z]` and `at: [x, y, z]` (a look-at point), or `yaw` and `pitch` in place of `at` on every key.
+  - `game`: `wx`, `wz`, optional `wy` (the pivot), `zoom`, `yaw`, `tilt`. Zoom blends in log space.
+- The position and the look-at point run on a Catmull-Rom spline through the keys. Two keys give a straight line.
+- `ease`: `linear`, `in`, `out`, `inOut` (the default), `inOut2` (the softest start and end).
+- `props` (`pm` only): `{"Time of Day": [16.2, 17.0]}` moves a Photo Mode property from the first value to the second over the
+  move. Any id of `{op:"pm",list:true}` works (`PhotoModeRenderSystem.focalLength` for a zoom).
+- `follow` (`pm` only): `{entity: "index:version", offset: [0, 1.5, 0], attach: false}`. The camera looks at the entity's drawn
+  position (InterpolatedTransform) plus `offset`. With `attach`, the camera also moves by what the entity moved since the start
+  (a tracking shot). The groomers are respawned on every load: find the id again (`__groomers()`).
+- While a `pm` path runs, the Photo Mode camera takes no input and is not clamped to the terrain: keep the keys above the ground.
+- The reply in `results`: `frames`, `seconds`, `fps`, `maxFrameMs` and `hitches` (frames over 25 ms). A take with a hitch is
+  retaken.
+
+Measured on 2026-11-10 (4K, the 83-mod playset, no frame cap): a 5 s Photo Mode path ran 331 frames at 66 fps with a longest
+frame of 19.4 ms and no hitch. A path that moved Time of Day from 15 to 19.5 in 4 s had one frame of 33 ms. The normal-camera
+path ended on its last key exactly (pivot, zoom, yaw, tilt).
+
+### `glide`
+
+A sequence step. The cursor travels to a point in `seconds`, eased, where `move` jumps. Use it before each `click` of a tool
+shot. Measured: a 2 s glide to a world point 1,000 px away arrived within one pixel and the tool raycast hit the point.
+
+### `ui`
+
+`{op:"ui",hidden:true}` switches the whole UI view off (the same switch the `photo` op uses for one frame), so a recording shows
+the picture alone. The page may not run while the view is off, so the bridge shows it again by itself: when the sequence that hid
+it ends (also on an error or `abort`), and after `seconds` in any case. `photoMode.setOverlayHidden` is a different switch: it
+hides the notification icons and the piste map, in or out of Photo Mode.
+
+### `fps`
+
+The game runs with no frame cap and no vsync on this machine (66 to 78 fps at 4K). `{op:"fps",target:60}` caps it for this run.
+Measured with the cap: 59.7 to 59.8 fps over 6 s (`perf`).
+
+### `terrain`
+
+Small brush edits for staging, with the game's own terrain tool and real input. The limits are in the code: brush size 1 to 10,
+strength 0.35 or less.
+
+1. `{op:"terrain",action:"begin",prefab,size,strength,height,wx,wz,r,snapDir,log,note}` reads the base heightmap texels around the
+   point (`r` meters, default size x 2 + 12) and saves them as `<snapDir>\<id>-before.json` (bit-exact, 16 bit). Then it activates
+   the terraforming prefab and sets the brush. `height` is the target in world meters (Level and Slope).
+   Prefabs: `Terrain Level Tool`, `Terrain Soften Tool`, `Terrain Shift Tool`, `Terrain Slope Tool`.
+2. The stroke is input: `move` to the point, `down`, `wait` some frames, `up`. Several strokes may follow one `begin`.
+3. `{op:"terrain",action:"end"}` saves `<id>-after.json`, compares, appends one row to the `log` file (position, tool, size,
+   strength, target, the largest raise and lowering, changed texels, the note, the snapshot) and leaves the tool.
+4. `{op:"terrain",action:"undo",file:"<id>-before.json",log}` writes the snapshot back into the base heightmap, verifies it by a
+   readback (`mismatches` must be 0) and runs the game's own change notifications (the ski mod's `HeightmapWriter` recipe).
+
+`__terr` (trailer-helpers.js) runs steps 1 to 3 for a list of points. Check every edit from a low camera before the next one.
+
+Measured on 2026-11-10 (this map: 4,096 x 4,096 texels of 3.5 m, height step 0.0625 m):
+- One Level stroke, size 10, strength 0.3, held 20 frames: 4 texels changed, +0.56 / -0.13 m. So a size 10 brush touches about
+  four texels, and a pad needs a grid of strokes about 4 m apart.
+- A 12 m pad: nine Level strokes of 25 frames (17 texels, +1.50 / -0.81 m), then eight Soften strokes of 15 frames at strength 0.2
+  on a ring of 9 m (23 texels). The pad's center cells stand within 0.2 m of the target, and a low photo shows no shelf.
+- Undo of the first stroke: 0 mismatches, and the CPU heights read the old values again.
+
+### Move It: "To Terrain Height"
+
+A building that sits in the ground or floats is fitted with Move It's own tool, driven with real clicks (no call into Move It):
+its toolbar button (`MoveIt_Off.svg`), a click on the building, Toolbox, "To Terrain Height". `__moveItToTerrain(x, y, z)` does
+these steps and returns the height before and after. Measured (Move It 0.5.16): the Swanky Summit Lodge went from y 1,094.98 to
+1,098.15, the terrain height at its center, with the same entity and no game error. The building then stands at the height of its
+center: on a slope its uphill side is still in the ground, and that part is a `terrain` job (Level strokes along the uphill wall).
+Move It is a staging tool. Nothing in Modular Ski Resort needs it.
+
+### `wind`
+
+The lift carriers sway with the wind map (`WindSystem`), which the wind simulation feeds every 512 simulation frames. Setting
+`constantWind` alone showed no change at a lift after one game hour (the simulation follows its boundary pressures slowly).
+`force: true` writes the velocity into every cell, so the next map update shows it. Both values are saved with the city: put the
+default (0.275, 0.275) back before a save, or do not save.
+
+Measured on 2026-11-10 at the Summit Express (a detachable quad chair, tilt from plumb sampled for 6 s): with the save's own wind
+(strength 0.23) the chair swung over 2.1 degrees across the line and 5.0 degrees along it. After `{op:"wind",x:0.5,y:0.5,force:true}`
+the map read 0.71 within 11 s, and the chair leaned 2.5 degrees with a swing of 2.4 degrees across and 6.2 degrees along. The forced
+wind fell to 0.70 in the next 8 s.
 
 ## Editor import
 

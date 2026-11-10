@@ -1,0 +1,19 @@
+{
+  "shot": "01",
+  "title": "Under the chairs",
+  "save": "bridgetrailer1",
+  "notes": "Summit Express, between the base and tower 2. Low dolly up the lift corridor, chairs overhead. Proven on 2026-11-10: 5.0 s, 331 frames, 0 hitches.",
+  "sim": 1,
+  "pm": {
+    "cam": { "x": 3345, "y": 1127.2, "z": -2494, "at": [3429, 1154, -2509] },
+    "set": { "PhotoModeRenderSystem.focalLength": 70 }
+  },
+  "path": {
+    "seconds": 6,
+    "ease": "inOut2",
+    "keys": [
+      { "pos": [3345, 1127.2, -2494], "at": [3429, 1154, -2509] },
+      { "pos": [3357, 1128.6, -2496], "at": [3429, 1156, -2509] }
+    ]
+  }
+}
