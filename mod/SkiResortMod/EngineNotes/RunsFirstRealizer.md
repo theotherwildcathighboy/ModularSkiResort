@@ -67,6 +67,9 @@ After the track pass, one more pass examines each relation of a kept piste end t
 straight extension toward the related track or piste. The extension is at most 40 m and 7.5 m each side. The kept widths do not
 change. The extended ring gets the exact check and the rating again. If the extension comes near a piste with no relation, that
 piste becomes a partner.
+The exact check tests each pair of areas by the rule that accepted the pair. A piste that was accepted after the extended piste
+uses its own partners and its own gap. Such a piste can converge on the extended piste as a partner, with only the merge gap.
+The rule of the extended piste would call that an overlap, far from the extension.
 
 ## Two tracks in one corridor
 
@@ -98,6 +101,6 @@ covers every output bit. The host gate compares two runs.
 
 ## Test host
 
-- `RealizerTests.cs` runs in the default host run. It checks the synthetic regions and fifteen hand fixtures.
+- `RealizerTests.cs` runs in the default host run. It checks the synthetic regions and sixteen hand fixtures.
 - `rf-realize <out dir> [regions file]` prints the report for each region. It also prints the score of the raw plan and of the
   realized plan.
