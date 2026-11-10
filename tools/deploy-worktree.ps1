@@ -147,6 +147,6 @@ $out = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "t
 $checkExit = $LASTEXITCODE
 $out | ForEach-Object { Write-Host $_ }
 $dep = @($out | Where-Object { $_ -match "SkiResortMod\.dll stamp" })
-if ($dep.Count -gt 0) { Write-Host "DEPLOYED BUILD: $(([regex]::Match($dep[0], 'stamp \S+(, commit \S+)?')).Value -replace ',$','')" }
+if ($dep.Count -gt 0) { Write-Host "DEPLOYED BUILD: $(([regex]::Match($dep[0], 'stamp [A-Za-z0-9-]+(, commit [A-Za-z0-9+]+)?')).Value)" }
 Write-Host "RESULT: built and verified. deploy-check exit $checkExit (STALE log checks are expected until the game starts on this build)."
 exit 0
