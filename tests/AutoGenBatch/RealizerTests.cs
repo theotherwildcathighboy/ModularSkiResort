@@ -97,7 +97,8 @@ namespace AutoGenBatch
                 RealizerInvariants(where, res, input, rep);
                 double kmP = rep.PisteKmPlanned + rep.GradedKmPlanned, kmK = rep.PisteKmKept + rep.GradedKmKept;
                 Console.WriteLine($"REPORT realizer {id}: {res.Runs.Count} areas, piste km {kmK:F2}/{kmP:F2}, track km {rep.TrackKmKept:F2}/{rep.TrackKmPlanned:F2}, " +
-                    $"relations {rep.RelationLinks}/{rep.Relations}, unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, {rep.Ms:F0} ms, hash {a:x16}");
+                    $"relations {rep.RelationLinks}/{rep.Relations}, unserved {rep.UnservedAreas}, dead ends {rep.DeadEnds}, {rep.Ms:F0} ms, hash {a:x16}" +
+                    string.Concat(rep.Lines.Where(l => l.StartsWith("relation not linked")).Select(l => "\n  " + l)));
             }
         }
 

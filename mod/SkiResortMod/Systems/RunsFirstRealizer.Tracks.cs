@@ -526,7 +526,7 @@ namespace SkiResortMod.Systems
         private AutoReject BuildTrackPiece(Elem e, GradePath path, Piece pc, ref int segment, out float2 at)
         {
             at = path.Xz[pc.S];
-            GradePath sub = SubPath(path, pc.S, pc.E);
+            GradePath sub = ReachEnds(e, SubPath(path, pc.S, pc.E), pc.Orig0, pc.Orig1);
             AutoReject why = AutoReject.Crosses;
             foreach (float hw in new[] { TrackHalfWidthM, TrackNarrowHalfWidthM })
             {
@@ -584,6 +584,104 @@ namespace SkiResortMod.Systems
             }
             return why;
         }
+
+        /// <summary>Iteration 2, item 6: an original end of a track that the planner relates to a piste or a track (it starts off it or
+        /// ends onto it) and that is not within TrackReachM of any kept area of that element is extended straight toward the element's
+        /// nearest realized centerline, in SampleM steps, at most ExtendMaxM, until the end is within TrackReachM of its outline (a game
+        /// link, LiftServedRule.LinkMeters 25 m). A track may cross a piste, so a piste never stops it. A blocked cell, the region and
+        /// another track's gap stop it (the related track's own gap ends it: the butt joint is the link).</summary>
+        private GradePath ReachEnds(Elem e, GradePath sub, bool orig0, bool orig1)
+        {
+            if (sub == null || sub.Count < 2 || (!orig0 && !orig1))
+                return sub;
+            List<float2> head = orig0 ? Reach(e, sub.Xz[0], sub.Xz[1], true) : null;
+            List<float2> tail = orig1 ? Reach(e, sub.Xz[sub.Count - 1], sub.Xz[sub.Count - 2], false) : null;
+            if ((head == null || head.Count == 0) && (tail == null || tail.Count == 0))
+                return sub;
+            var pts = new List<float2>();
+            if (head != null)
+                for (int i = head.Count - 1; i >= 0; i--)
+                    pts.Add(head[i]);
+            pts.AddRange(sub.Xz);
+            if (tail != null)
+                pts.AddRange(tail);
+            GradePath ext = GradePath.Build(pts, sub.StepM);
+            if (ext == null)
+                return sub;
+            m_Rep.TrackReaches += (head != null && head.Count > 0 ? 1 : 0) + (tail != null && tail.Count > 0 ? 1 : 0);
+            return ext;
+        }
+
+        private List<float2> Reach(Elem e, float2 end, float2 inner, bool start)
+        {
+            // the related element with no kept area within reach of this end, nearest first
+            Area target = null;
+            Elem tb = null;
+            float best = float.PositiveInfinity;
+            foreach (Elem b in m_E)
+            {
+                if (b == e || b.Areas.Count == 0 || !(start ? StartsOff(e, b) : EndsOnto(e, b)))
+                    continue;
+                float near = float.PositiveInfinity;
+                Area nearA = null;
+                foreach (int k in b.Areas)
+                {
+                    Area y = b.Type == ElemType.Track ? m_T[k] : m_P[k];
+                    float d = PlanGeometry.PointRingDistance(y.Ring, end);
+                    if (GradeRaster.Inside(y.Ring, end))
+                        d = 0f;
+                    if (d < near)
+                    {
+                        near = d;
+                        nearA = y;
+                    }
+                }
+                if (near <= TrackReachM)
+                    return null;   // already a link to this element: nothing to reach
+                if (near < best && near <= TrackReachM + ExtendMaxM)
+                {
+                    best = near;
+                    target = nearA;
+                    tb = b;
+                }
+            }
+            if (target == null)
+                return null;
+            // toward the nearest point of the target's realized centerline
+            float2 aim = target.Line[0];
+            float bd = float.PositiveInfinity;
+            for (int k = 0; k + 1 < target.Line.Length; k++)
+            {
+                float2 a = target.Line[k], d = target.Line[k + 1] - a;
+                float len2 = math.lengthsq(d);
+                float2 c = a + d * (len2 > 0f ? math.saturate(math.dot(end - a, d) / len2) : 0f);
+                float dd = math.distancesq(end, c);
+                if (dd < bd)
+                {
+                    bd = dd;
+                    aim = c;
+                }
+            }
+            float2 dir = math.normalizesafe(aim - end);
+            if (math.lengthsq(dir) < 0.5f || math.dot(dir, math.normalizesafe(end - inner)) < 0f)
+                return null;   // the target lies behind the end: an extension would fold the track back
+            var add = new List<float2>();
+            for (float t = SampleM; t <= ExtendMaxM + 0.01f; t += SampleM)
+            {
+                float2 q = end + dir * t;
+                byte cause = FreeTrack(q, out int own);
+                if (cause == CTrack && tb.Type == ElemType.Track && tb.Areas.Contains(own))
+                    break;   // inside the related track's gap: the butt joint is the link
+                if (cause != CFree)
+                    return add.Count > 0 && Linked(add[add.Count - 1], target) ? add : null;
+                add.Add(q);
+                if (Linked(q, target))
+                    return add;
+            }
+            return add.Count > 0 && Linked(add[add.Count - 1], target) ? add : null;
+        }
+
+        private static bool Linked(float2 q, Area target) => GradeRaster.Inside(target.Ring, q) || PlanGeometry.PointRingDistance(target.Ring, q) <= TrackReachM;
 
         /// <summary>6.2 checks: region, unowned tiles (their clearance), and ExactGapShare x MergeGapM from every accepted and existing cat
         /// track. Pistes never block a track.</summary>
