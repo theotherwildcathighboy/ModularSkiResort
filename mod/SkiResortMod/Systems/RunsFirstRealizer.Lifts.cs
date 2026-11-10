@@ -84,10 +84,18 @@ namespace SkiResortMod.Systems
                 bool edgeClear = clear;
                 string why = cs.Misses > 0 ? "a sampler miss" : plan == null ? "no tower plan" : !plan.Clear ? "a span not clear"
                     : plan.OverCapTowers > 0 ? $"{plan.OverCapTowers} tower(s) over the cap" : plan.TooSteepTowers > 0 ? $"{plan.TooSteepTowers} tower(s) too steep"
-                    : plan.ClearanceTowers > 0 ? $"{plan.ClearanceTowers} tower(s) past the clearance" : !clear ? "an edge slope" : null;
+                    : plan.ClearanceTowers > 0 ? $"{plan.ClearanceTowers} tower(s) past the clearance" : !clear ? "an edge slope"
+                    : plan.LeansOnStationClearance ? "a tower inside the station clearance" : null;
                 clear = why == null;
                 // Task R2-l: the queue still builds a line with exactly one tower over its sheave-train limit and no other defect, and flags it.
-                bool flagged = !clear && cs.Misses == 0 && plan != null && edgeClear && plan.QueueBuild == LiftQueueBuild.BuildFlagged;
+                bool flagged = !clear && cs.Misses == 0 && plan != null && edgeClear && plan.PlanBuild == LiftQueueBuild.BuildFlagged;
+                // Task 2c-l: the row's reason before the build, in the queue's words (LiftLineInput.PlanKey; a plan leaning on the station
+                // clearance: PLAN_TRAIN, what the queue met on those lines) and its first over-limit tower
+                string planWhy = clear ? null : cs.Misses > 0 || plan == null ? "GAME" : plan.Clear && plan.OverCapTowers == 0 && plan.LeansOnStationClearance
+                    ? "PLAN_TRAIN" : LiftLineInput.PlanKey(plan, out _);
+                if (planWhy == "PLAN_CLEAR")
+                    planWhy = "PLAN_STEEP";   // the edge slope margin: the line prefab's slope
+                int ot = plan != null && plan.OverLimitTowers > 0 ? plan.FirstOverCapTower() : -1;
                 var towers = new float2[plan?.LineTowers ?? 0];
                 for (int n = 1, w = 0; plan != null && n < plan.Nodes.Length - 1 && w < towers.Length; n++)
                     if (!plan.Nodes[n].IsStation)
@@ -105,7 +113,9 @@ namespace SkiResortMod.Systems
                 {
                     Id = i, Key = key, Origin = LiftOrigin.Proposed, TypeIndex = t, Bottom = bottom, Top = top, LengthM = len, RiseM = top.y - bottom.y,
                     MaxEdgeSlope = plan?.MaxEdgeSlope ?? 0f, Towers = plan?.LineTowers ?? -1, TowerXz = towers, TowersUnchecked = !clear, HandFit = !clear,
-                    OverLimitTowers = plan?.OverLimitTowers ?? 0, BuildsFlagged = flagged,
+                    OverLimitTowers = plan?.OverLimitTowers ?? 0, BuildsFlagged = flagged, PlanWhy = planWhy, OverLimitTower = ot,
+                    OverLimitAlongM = ot >= 0 ? plan.Nodes[ot].AlongM : 0f, OverLimitBendDeg = ot >= 0 ? math.abs(plan.Nodes[ot].DeflectionDeg) : 0f,
+                    OverLimitCapDeg = ot >= 0 ? plan.Nodes[ot].CapDeg : 0f,
                     Pod = i, BottomPad = 2 * i, TopPad = 2 * i + 1, TopSunk = tSunk, BottomSunk = bSunk, Cost = cost, Home = HomeVerdict.None,
                     Wanted = HomeLevel.Auto, HomeRun = -1,
                 };
@@ -126,6 +136,8 @@ namespace SkiResortMod.Systems
                         m_Rep.HandFitSteep++;
                     else if (plan.ClearanceTowers > 0)
                         m_Rep.HandFitClearance++;
+                    else if (edgeClear && plan.LeansOnStationClearance)
+                        m_Rep.HandFitNear++;
                     else
                         m_Rep.HandFitEdge++;
                     m_Rep.Lines.Add($"lift L{L.Id} ({L.Type} {len:F0} m / {top.y - bottom.y:F0} m up): tower plan not sound ({why}), kept, waits for a hand fit");

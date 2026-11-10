@@ -78,6 +78,9 @@ namespace SkiResortMod.Systems
         public int OverLimitTowers;       // towers past their sheave-train limit (LiftTowerPlan.OverLimitTowers, task R2-l). 0 when not planned
         public bool BuildsFlagged;        // HandFit, yet the build queue builds it: exactly one tower over its sheave-train limit and no other
                                           // defect (LiftTowerPlan.QueueRule BuildFlagged). The sheet row is flagged. HandFit and not this = waits
+        public string PlanWhy;            // task 2c-l: the reason key the queue would give a HandFit lift (PLAN_*, LiftLineInput.PlanKey), else null
+        public int OverLimitTower;        // the first over-limit tower (node index, 1 = first tower from the base), -1 with none; then along,
+        public float OverLimitAlongM, OverLimitBendDeg, OverLimitCapDeg;   // its bend and its train's limit (as ResortPlanSheet.SetOverLimit)
         public float2[] TowerXz;          // planned tower spots (overlay discs). Empty for pinned
         public int Pod, BottomPad, TopPad;   // TopPad -1 = summit cells
         public bool TopSunk, BottomSunk;  // the station spot is steeper than 25 % (the station sinks, as today: C1 3b)

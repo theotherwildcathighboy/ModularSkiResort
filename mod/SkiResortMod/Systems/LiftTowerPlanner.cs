@@ -1036,6 +1036,27 @@ namespace SkiResortMod.Systems
         /// <summary>Towers past their sheave-train limit: OverCapTowers on a type with trains. The tram's saddle is no train: 0 there.</summary>
         public int OverLimitTowers => Constants != null && Constants.HasTrains ? OverCapTowers : 0;
 
+        /// <summary>A line tower inside a station's clearance (NearStation) on a type with sheave trains: the plan stands only because the
+        /// station clearance yielded or a pair tower sits there (task 2c-l). The queue plans the same line on the built ground and did NOT
+        /// take that way in field r2b-g2 (r4 P1, r2 P3, r2 P4, r2 P6: host first tower at 20 m, game at 30 m, bent past its cap, "station
+        /// clearance" refusals in its repair). The clear DQ lines of that pass had none. So a plan that leans on it is no prediction.</summary>
+        public bool LeansOnStationClearance
+        {
+            get
+            {
+                if (Constants == null || !Constants.HasTrains || Nodes == null)
+                    return false;
+                for (int i = 1; i < Nodes.Length - 1; i++)
+                    if (!Nodes[i].IsStation && (Nodes[i].Flags & LiftPlanNodeFlags.NearStation) != 0)
+                        return true;
+                return false;
+            }
+        }
+
+        /// <summary>The plan's own verdict on a line it has not built (the Towers pass and the realizer, task 2c-l): QueueBuild, but Wait
+        /// when the plan leans on the station clearance (LeansOnStationClearance). The queue itself keeps QueueBuild.</summary>
+        public LiftQueueBuild PlanBuild => LeansOnStationClearance ? LiftQueueBuild.Wait : QueueBuild;
+
         /// <summary>What the planner's lift queue does with this plan (QueueRule).</summary>
         public LiftQueueBuild QueueBuild =>
             QueueRule(Clear, Constants != null && Constants.HasTrains, OverCapTowers, TooSteepTowers, ClearanceTowers, MaxOverCapExcessDeg);

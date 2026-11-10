@@ -817,6 +817,8 @@ export const HUB_FMT = {
   quickLiftRefused: ["SkiResort.Tooltip.QUICK_LIFT_STATE[Refused]", "Not built: {WHY}"],
   quickLiftFitting: ["SkiResort.Tooltip.QUICK_LIFT_STATE[NeedsFitting]", "Waits for a hand fit: {WHY}"],
   quickLiftBuiltFlagged: ["SkiResort.Tooltip.QUICK_LIFT_STATE[BuiltFlagged]", "Built. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
+  quickLiftFlaggedAt: ["SkiResort.Tooltip.QUICK_LIFT_STATE[FlaggedAt]", "Builds flagged. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
+  quickLiftFittingAt: ["SkiResort.Tooltip.QUICK_LIFT_STATE[FittingAt]", "Waits for a hand fit. Tower {TOWER} bends the rope {BEND} degrees, its limit is {CAP}."],
   quickLiftFlagTip: ["SkiResort.Hub.QUICK_LIFT_FLAG_TIP", "Tower {TOWER} stands {ALONG} m from the base station. The rope bends more there than its wheels can follow."],
 } as const;
 

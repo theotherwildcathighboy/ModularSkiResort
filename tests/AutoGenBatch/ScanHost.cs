@@ -55,6 +55,8 @@ namespace AutoGenBatch
 
         // ---------------------------------------------------------------- rf-liftcheck
 
+        private static readonly float RfDz = float.TryParse(Environment.GetEnvironmentVariable("RF_DZ"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float dz) ? dz : 0f;   // RF_DZ: ground offset (m) for the queue line, a probe
+        private static readonly float RfDzR = float.TryParse(Environment.GetEnvironmentVariable("RF_DZR"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float r) ? r : 45f;
         private static int LiftCheck(string[] args)
         {
             if (args.Length < 7 || !File.Exists(args[1]))
@@ -82,7 +84,7 @@ namespace AutoGenBatch
                 float ropeA0 = k.StationEndRope(sb, hb), ropeB0 = k.StationEndRope(st, ht);
                 LiftTowerPlan p0 = old.Plan((s, l) => H(b + dir * s + right * l), len, ropeA0, ropeB0, k);
                 // after: the queue's stations and line
-                LiftTowerPlan p1 = LiftLineInput.PlanQueueLine(k, sb, st, b, tp, q => snap.Sample(new float3(q.x, 0f, q.z)), new LiftTowerPlanner(),
+                LiftTowerPlan p1 = LiftLineInput.PlanQueueLine(k, sb, st, b, tp, q => snap.Sample(new float3(q.x, 0f, q.z)) + (math.distance(q.xz, b) > RfDzR && math.distance(q.xz, tp) > RfDzR ? RfDz : 0f), new LiftTowerPlanner(),
                     out StationAlign.QueueStation qb, out StationAlign.QueueStation qt, out LiftLineEdit e);
                 Console.WriteLine(string.Format(ci, "LIFTCHECK {0} ({1:F0}, {2:F0}) -> ({3:F0}, {4:F0})", args[a], b.x, b.y, tp.x, tp.y));
                 Console.WriteLine(string.Format(ci, "  before: spots {0:F0} m, nodes {1:F2} / {2:F2}, ropes {3:F2} / {4:F2}; min floor margin {5:+0.0;-0.0} m; {6}; " +
@@ -103,6 +105,15 @@ namespace AutoGenBatch
                     Console.WriteLine(string.Format(ci, "  after: worst span {0} of {1} (from {2:F0} m), margin {3:+0.00;-0.00} m at {4:F0} m into it; end carriers {5:+0.0;-0.0} / {6:+0.0;-0.0} m", ws + 1, p1.Spans.Length, p1.Nodes[ws].AlongM, p1.Spans[ws].MinFloorMarginM, p1.Spans[ws].MinFloorMarginAtM, p1.EndCarrierA, p1.EndCarrierB));
                     // RF_ALONG="0,30,245": the dump's ground on the queue line (from the base stub tip) and the high side (+-3 m), for a
                     // comparison with a game log's Towers [plan] ground column
+                    if (Environment.GetEnvironmentVariable("RF_NODES") == "1" && p1 != null)
+                    {
+                        // RF_NODES=1: each tower as the lift tool's plan line prints it (name @along, angles, flags), and the angle notes
+                        for (int i = 1; i < p1.Nodes.Length - 1; i++)
+                            Console.WriteLine("  node " + p1.Constants.NameOf(p1.Nodes[i].Member, p1.Nodes[i].Head) + " @" +
+                                p1.Nodes[i].AlongM.ToString("F0", ci) + " " + p1.AngleText(i) + " [" + p1.Nodes[i].Flags + "]");
+                        foreach (string n in p1.AngleNotes)
+                            Console.WriteLine("  angles: " + n);
+                    }
                     string alongs = Environment.GetEnvironmentVariable("RF_ALONG");
                     if (!string.IsNullOrEmpty(alongs))
                         foreach (string s in alongs.Split(','))

@@ -59,6 +59,7 @@ namespace SkiResortMod.Systems
         // the first reason of each: a span not clear, a tower over its cap, too steep, past its clearance, an edge slope, a sampler miss
         public readonly int[] HandFitByType = new int[4];
         public int HandFitSpans, HandFitOverCap, HandFitSteep, HandFitClearance, HandFitEdge, HandFitMiss;
+        public int HandFitNear;   // task 2c-l: sound only with a tower inside the station clearance (LiftTowerPlan.LeansOnStationClearance)
         public bool NoWayToBottom;
         // R2-y: the way to the bottom on the realized plan, per lift (the game's link graph, no lift ride). Skis: a skier leaving the top
         // has an area under the served rule. Bottom: an area skied from the top ends in the base band. Planned: the planner's ToBottom.
