@@ -10,11 +10,11 @@ import Icon from '../../../components/Icon.astro';
 All three are standalone buildings, placed from the hub **Buildings** tab like any other building. Each belongs to the
 nearest **Welcome Sign** within the ski area radius (**5 km** by default). Costs and numbers: [Buildings](/reference/buildings/).
 
-<Shot src="buildings-tab.jpg" label="The hub's Buildings tab: lodge picker, Ski School and patrol tiles." />
+<Shot src="buildings-tab.jpg" label="The hub's Buildings tab: the Lodges, Services and Mergeable buildings chips, with the Welcome Sign and the five lodge tiles." />
 
 ## Lodges
 
-<Shot src="lodge-day.jpg" label="A Chalet Lodge at a road, with parking in front." />
+<Shot src="lodge-day.jpg" label="An A-Frame Day Lodge at a road." />
 
 Guest entry point and skier room source. No lodge: attraction score **0**.
 
@@ -39,16 +39,16 @@ one of the area's lodges without being rebuilt.
 
 **How to merge:**
 
-1. Hub > **Buildings** tab > **Mergeable buildings** (the switch under the building tiles). Buildings within **800 m** of a ski
+1. Hub > **Buildings** tab > **Mergeable buildings** (the chip beside Lodges and Services). Buildings within **800 m** of a ski
    area's runs or lift stations are outlined. An outline is **green** when a lodge tier fits the lot. It is **gray** when the lot is too small for every
-   tier. While the outlines are on, the switch shows this legend with the two counts. Click it again, or press Escape, to turn them
+   tier. While the outlines are on, the tab's status line shows this legend with the two counts. Click it again, or press Escape, to turn them
    off.
 2. Select an outlined building. The **merge card** opens beside its info panel: what merging does, whether the building is near
    enough to the runs and lifts to count, the tiers its lot allows, the merge fee and the monthly fee.
 3. Pick a tier and click **Merge**. The outlines turn off. The building now appears in the Overview's **Merged buildings** fold.
 
-Any building of a mergeable kind opens the card when selected, outlined or not. The fold has the same **Mergeable buildings**
-switch as the Buildings tab, with the legend beside it.
+Any building of a mergeable kind opens the card when selected, outlined or not. The fold shows only while the ski area has a
+merged building.
 
 - **Keeps its own use.** A park stays a park, a signature building keeps its renters. The lodge tier adds its lodge score,
   skier room, staff and attraction to the ski area. It is not a ski-day destination: guests still need a lodge of your own.
@@ -70,7 +70,7 @@ switch as the Buildings tab, with the legend beside it.
 Ski days send skiers to a lodge, so they need one. Any tier works if it meets the rules below. A lodge too far from the runs still counts toward attraction and still gets tourists and residents on leisure, but no ski-day guests.
 
 - **Road access:** deck side touches a road. Hub line: *Lodge or school: road required*. Exempt: Mountain Hut and Swanky Summit Lodge (mountain sites, no road needed).
-- **Off-road A-Frame, Chalet or Grand:** with no road, a cat track within **25 m** of the lot whose chain of cat tracks reaches a lodge with a road or the Ski Bus Depot (same ski area) replaces city power, water, garbage and mail: no warnings and no utility fees. Its staff move to the area's job host (below). No guests arrive at it by road, and it has no parking count. With neither a road nor such a chain, the hub shows *"Lodge is not at a road"*, the game shows its utility warnings, and the sign efficiency is lower. A broken chain keeps the lodge supplied for one game hour, so a cat track section can be redrawn.
+- **Off-road A-Frame, Chalet or Grand:** with no road, a cat track within **25 m** of the lot whose chain of cat tracks reaches a lodge with a road or the Ski Bus Depot (same ski area) replaces city power, water, garbage and mail: no warnings and no utility fees. Its staff move to the area's job host (below). No guests arrive at it by road, and it has no parking count. With neither a road nor such a chain, the hub shows *Lodge or school: road required*, the game shows its utility warnings, and the sign efficiency is lower. A broken chain keeps the lodge supplied for one game hour, so a cat track section can be redrawn.
 - **Services:** staff, power, water. Missing services lower sign efficiency, and attraction with it.
 - **Pipes:** highways and highway bridges carry no water or sewer pipes. A resort road cut off from town by them shows Water and Sewage notifications until a pipe joins the two networks. Gravel roads do carry pipes.
 - **Steep ground:** lodges and the Ski School keep the slope they stand on. On very steep ground the building sinks into the hillside, and the game can flag No Pedestrian Access there.
@@ -95,7 +95,7 @@ Residents only take ski days within the longest ski-day trip (**7 km** by defaul
 
 - **Score:** **+12** to *Runs, lifts and school* while at least one green run counts.
 - **Demand:** locals ski **20 %** more often.
-- **Status codes:** *No ski school* (none built), *No green run* (no green run counts), *No run counts yet*, *Deactivated*. Each = score contribution 0.
+- **Status codes:** *No ski school* (none built), *No green run* (no green run counts), *No run open yet*, *Deactivated*. Each = score contribution 0.
 - **Terrain:** level the ground at the top of the magic-carpet area, then use the slope tool down to its base.
 
 ## Ski Patrol

@@ -11,7 +11,7 @@ import Shot from '../../components/Shot.astro';
 **Welcome Sign → lifts → runs → any lodge.** That is all you need for a working resort.
 
 1. Place the Welcome Sign by a road.
-2. Build a lift, from base station to top station. Runs only work with a lift serving them.
+2. Build a lift, from base station to top station. A run counts in full only while a lift serves it.
 3. Draw a run under the lift.
 4. Place any lodge within 800 m of the runs or lift stations.
 
@@ -58,13 +58,13 @@ Build on or above both.
    3. Open the **lift tool** (the line tile, or **Ctrl+Shift+L**), click the base station, then the top station. Click the line to add a tower, drag a tower to move it, and press **Enter** to build. On steep ground, draw one section at a time. You can redo a single section later.
    4. Connect the base station to a **low-voltage power line**. No power, no lift.
 
-   <Shot src="first-lift.jpg" label="Drawing another lift line from a placed base station, with the straight-line guide and the hub's Lifts tab." />
+   <Shot src="first-lift.jpg" label="A lift line being drawn between two stations: the preview with its towers, the hub's Lifts view and its Lifts tab." />
 
    Details: [Lifts](/guides/lifts/).
 
 3. **Draw a run.**
 
-   Hub > **Runs** tab > type (**Groomed** to start). Draw the outline from the lift top downhill, inside the sign's ring.
+   Hub > **Runs** tab > **Run** tile. Draw the outline from the lift top downhill, inside the sign's ring. The rows above the run list set its features. **Groomed** on is enough to start.
 
    - **Rating:** green, blue, black or double black from the hardest unavoidable pitch. Shown in the tooltip while drawing.
    - **Full value:** requires a running lift that serves the run.
@@ -80,23 +80,23 @@ Build on or above both.
    - **Default:** A-Frame Day Lodge, the cheapest lodge with real skier room.
    - **Requirements:** deck side on a road, staff, power and water. Mountain Hut and Swanky Summit Lodge need no road. An A-Frame, Chalet or Grand also works off-road on a cat track chain to a lodge with a road.
    - **No lodge:** attraction score **0** and no ski days.
-   - **Already have a park or landmark near the runs?** The **Mergeable buildings** switch on the same tab outlines the city buildings that can join the ski area as a lodge tier. Select one to merge it. It adds score and skier room, but ski-day guests still need a lodge of your own. See [Merged Buildings](/guides/lodges-school-patrol/#merged-buildings).
+   - **Already have a park or landmark near the runs?** The **Mergeable buildings** chip on the same tab outlines the city buildings that can join the ski area as a lodge tier. Select one to merge it. It adds score and skier room, but ski-day guests still need a lodge of your own. See [Merged Buildings](/guides/lodges-school-patrol/#merged-buildings).
 
    Tiers: [Lodges, Ski School and Patrol](/guides/lodges-school-patrol/).
 
 5. **Open for the season.**
 
-   - **Open:** at least **91 cm** of snow covers **60 %** of the run. Once open, it stays open while at least **30 cm** of snow covers at least **40 %** of it. Hub status line: *Open*, or *Open · 1 patchy*. The run counts are in its tooltip.
+   - **Open:** at least **91 cm** of snow covers **60 %** of the run. Once open, it stays open while at least **30 cm** of snow covers at least **40 %** of it. Hub status line: *Open* once every run is open, *Partly open* before that. The run counts are in its tooltip.
    - **Tiles:** Attraction rises first. Guests and Finances fill as ski-day trips arrive.
 
-   <Shot src="hub-tiles.jpg" label="The hub's status line and tiles in winter: Open, attraction score, guests and finances." />
+   <Shot src="hub-tiles.jpg" label="The hub's header, status line, problem line and tiles on an open ski area." />
 
 </Steps>
 
 ## Problems
 
-Hub problem band: facts such as *No lift yet*, *Lodge or school: road required*.
+Hub problem line: the worst problem, such as *No lift yet* or *Lodge or school: road required*, with a button for the others.
 
 - **Click:** flies to the cause.
-- **Hover:** shows the cost.
-- **Band empty, nothing happens:** [Troubleshooting](/guides/troubleshooting/).
+- **Hover:** says why it matters.
+- **No problem shown, nothing happens:** [Troubleshooting](/guides/troubleshooting/).

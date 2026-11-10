@@ -50,7 +50,7 @@ run value = difficulty × size × type × lift × open
 |---|---|
 | **Difficulty** | Green **6**, blue **12**, black **20**, double black **28**. Flat **0**. Cannot be rated **3**. Pending **0**. |
 | **Size** | `1 + 0.3 × ln(area ÷ 2 ha)`, at most **2**. Below 1 ha, scales down in proportion to the area. See [Size Factor](#size-factor). |
-| **Type** | Groomed and snowmaking **1**. Night **1.25**. Natural: green **0.5**, blue **0.75**, black and double black **1**. |
+| **Type** | Groomed and snowmaking **1**. Night **1.25**. Natural: green **0.5**, blue **0.75**, black and double black **1**. Cat track **0.25**. |
 | **Lift** | **1** if a running lift reaches the top. Otherwise *Backcountry run value* (default **40 %**). Patrolled run: at least **70 %**. |
 | **Open** | Open **1**. Closed **0**. Patchy: partial. |
 
@@ -109,7 +109,7 @@ vertical factor = 1 + clamp( vertical meters ÷ 600 , 0 , 1 )
 
 Welcome Sign efficiency as in its info panel: staff, power, water, sewage, garbage, budget and more.
 
-- **Value used:** the day's average, at most **100 %**.
+- **Value used:** a one-day average, held between **25 %** and **100 %**. A stopped sign (**0 %**) is not held up.
 - **Effect:** multiplies the whole score.
 - **Hub:** names every cause costing **5 %** or more.
 

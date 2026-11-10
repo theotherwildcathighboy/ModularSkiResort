@@ -19,7 +19,9 @@
   and procedural asset generation.
 - **tomkpunkt — ParkManager** (Paradox Mods 161179, GPL-3.0) — studied 2026-09-30 as a research
   reference for programmatic net/object creation, ordered cleanup and Gameface UI patterns; no code
-  copied, no runtime dependency (docs/research/parkmanager-dissection.md).
+  copied, no runtime dependency.
+- **ParkingLotTool** (GPL) — studied as a research reference; re-derived from the game's own systems,
+  no code copied, no runtime dependency.
 - **klyte45 — Write Everywhere** (Paradox Mods 92908) — optional enhancement: if installed, the Welcome
   Sign shows the ski area's name through a layout file we ship (`K45_WE/`), and the lodge and school
   name boards become writable through the same folder; nothing of Write Everywhere is included and

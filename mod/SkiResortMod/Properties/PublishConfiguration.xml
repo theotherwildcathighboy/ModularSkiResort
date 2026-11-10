@@ -13,7 +13,8 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 
 ## Highlights
 - **Four lifts, one tool.** Fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Click the base station, click the top, and the tool plans numbered towers over your terrain. Chairs and cabins ride the rope.
-- **Runs on real snow.** Draw natural, groomed, snowmaking, night and cat track runs. Each is rated green to double black from its hardest pitch, and opens at 3 ft (91 cm) of snow on 60 % of the run. Snow guns extend the season where it is cold enough.
+- **Runs on real snow.** Draw a run and set its features: groomed or natural, snow guns, floodlights for night skiing. Cat tracks link runs across the hill. Each run is rated green to double black from its hardest pitch. It opens at 3 ft (91 cm) of snow on 60 % of the run. Snow guns extend the season where it is cold enough.
+- **Resort Planner (experimental).** Outline a mountainside and get a plan of linked runs, cat tracks and lifts. Leave out what you do not want, then build it.
 - **Seasons.** Snow melts in spring, runs close and lifts stop. The aerial tram keeps running as summer sightseeing.
 - **Lodges, Ski School and Ski Patrol.** Five lodges, a school and two patrol buildings, each following a real place.
 - **Merge your own buildings.** A landmark, signature or recreation building near the runs can join a ski area as a lodge and keep working as before.
@@ -35,7 +36,7 @@ Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from
 - Most chairlift and gondola stations cut a level pad into the slope and fill nothing. The fixed-grip top station and the aerial tram's top terminal keep the slope as placed.
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
 - Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and refunds no run fee. A warning shows the run count and asks first. To move a sign, use Relocate in its info panel: its runs stay linked.
-- The Resort Planner (outline a region, get proposed lifts and a set of runs) is experimental and off by default: turn it on in Options. It builds the runs only: you build its proposed lifts yourself with the lift tool. On steep ground it plans mostly black runs with few greens. It does not avoid roads, buildings or lift stations inside the outline. Its Undo ends when the tool closes.
+- The Resort Planner is experimental and off by default: turn it on in Options. Build makes its cat tracks and runs, and Build lifts builds its lifts one after the other. A lift line that needs a hand fit waits for you. On steep ground it plans mostly black runs with few greens. It does not avoid roads or buildings inside the outline. Its Undo covers runs only and ends when the lift build starts.
 - Lifts cross lifts of another type, over or under, where the towers can reach the height. Two lifts of the same type cannot cross.
 - A cat track cannot pass under a lift that is already built: build cat tracks first.
 - Lifts are power-line networks and need low-voltage power at the base station. The game refuses a city high-voltage line at a lift.
@@ -68,6 +69,8 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 	<Screenshot Value="Properties/Screenshots/tram.jpg" />
 	<Screenshot Value="Properties/Screenshots/golden-hour.jpg" />
 	<Screenshot Value="Properties/Screenshots/hub.jpg" />
+	<Screenshot Value="Properties/Screenshots/planner-plan.jpg" />
+	<Screenshot Value="Properties/Screenshots/planner-built.jpg" />
 	<Screenshot Value="Properties/Screenshots/run-draw.jpg" />
 	<Screenshot Value="Properties/Screenshots/night.jpg" />
 	<Screenshot Value="Properties/Screenshots/summer.jpg" />
